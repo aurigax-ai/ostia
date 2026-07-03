@@ -236,14 +236,18 @@ function registerPtyIpc(): void {
         existing.killTimer = null
       }
       existing.wc = e.sender
-      return { created: false, buffer: existing.buffer }
+      // TODO(Slice2 T4): real cursor/dropped from PtySession
+      return { created: false, buffer: existing.buffer, cursor: 0, dropped: false }
     }
 
     const mod = loadPty()
     if (!mod) {
+      // TODO(Slice2 T4): real cursor/dropped from PtySession
       return {
         created: false,
         buffer: '\r\n\x1b[38;2;239;89;111m node-pty unavailable — run: npm run rebuild\x1b[0m\r\n',
+        cursor: 0,
+        dropped: false,
       }
     }
     const shell =
@@ -280,7 +284,8 @@ function registerPtyIpc(): void {
       if (entry.wc && !entry.wc.isDestroyed()) entry.wc.send(`pty:exit:${paneId}`, exitCode)
       ptys.delete(paneId)
     })
-    return { created: true, buffer: '' }
+    // TODO(Slice2 T4): real cursor/dropped from PtySession
+    return { created: true, buffer: '', cursor: 0, dropped: false }
   })
 
   ipcMain.on('pty:detach', (e, paneId: string) => {
