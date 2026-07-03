@@ -50,4 +50,26 @@ describe('PtySession', () => {
     s.exit(0)
     expect(onExit).toHaveBeenCalledWith(0)
   })
+
+  it('since(0) returns buffered data as a string without invoking any subscriber send', () => {
+    const s = new PtySession()
+    s.push('boot\n')
+    const sink: string[] = []
+    s.addSubscriber(sub('a', 'owner', sink))
+    sink.length = 0 // clear the replay send from addSubscriber
+    const result = s.since(0)
+    expect(result.data).toBe('boot\n')
+    expect(result.dropped).toBe(false)
+    expect(sink).toEqual([]) // no send invoked
+  })
+
+  it('addLiveSubscriber receives future pushes but not past history', () => {
+    const s = new PtySession()
+    s.push('old')
+    const sink: string[] = []
+    s.addLiveSubscriber(sub('a', 'owner', sink))
+    expect(sink).toEqual([]) // no replay
+    s.push('new')
+    expect(sink).toEqual(['new'])
+  })
 })
