@@ -113,11 +113,24 @@ export class CommandRegistry {
       .sort((a, b) => a.id.localeCompare(b.id))
   }
 
-  /** Execute a command by id. Throws if unknown. */
-  async exec<Args>(id: string, args?: Args): Promise<void> {
+  /**
+   * Execute a command by id. Never throws — returns a uniform CommandResult so
+   * the socket/CLI can map it to an exit status. UI callers may ignore the result.
+   */
+  async exec<Args, R = unknown>(id: string, args?: Args): Promise<CommandResult<R>> {
     const cmd = this.commands.get(id)
-    if (!cmd) throw new Error(`unknown command: ${id}`)
-    await cmd.run(args, this.contextProvider())
+    if (!cmd) {
+      return { ok: false, error: { code: 'unknown-command', message: `unknown command: ${id}` } }
+    }
+    try {
+      const result = (await cmd.run(args, this.contextProvider())) as R
+      return { ok: true, result }
+    } catch (e) {
+      return {
+        ok: false,
+        error: { code: 'command-failed', message: e instanceof Error ? e.message : String(e) },
+      }
+    }
   }
 }
 
