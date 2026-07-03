@@ -16,12 +16,17 @@ export type JSONSchema = Record<string, unknown>
 /** How a command resolves the pane it acts on. */
 export type TargetMode = 'active' | 'explicit' | 'none'
 
-/** Uniform result of executing a command (what the socket/CLI return). */
-export interface CommandResult<R = unknown> {
-  ok: boolean
-  result?: R
-  error?: { code: string; message: string }
+export type CommandErrorCode = 'unknown-command' | 'command-failed' | 'needs-elevation'
+
+export interface CommandError {
+  code: CommandErrorCode
+  message: string
 }
+
+/** Uniform result of executing a command (what the socket/CLI return). Discriminated on `ok`. */
+export type CommandResult<R = unknown> =
+  | { ok: true; result: R }
+  | { ok: false; error: CommandError }
 
 /** Context passed to every command (what is "current"). Grows over time. */
 export interface CommandContext {
@@ -62,7 +67,7 @@ type AnyCommand = CommandDef<any, any>
 export interface CommandDescriptor {
   id: string
   title: string
-  category?: string
+  category: string | null
   hidden: boolean
   argsSchema: JSONSchema | null
   resultSchema: JSONSchema | null
@@ -103,14 +108,14 @@ export class CommandRegistry {
       .map((c) => ({
         id: c.id,
         title: c.title,
-        category: c.category,
+        category: c.category ?? null,
         hidden: Boolean(c.hidden),
         argsSchema: c.argsSchema ?? null,
         resultSchema: c.resultSchema ?? null,
         capabilities: c.capabilities ?? DEFAULT_CAPABILITIES,
         target: c.target ?? 'active',
       }))
-      .sort((a, b) => a.id.localeCompare(b.id))
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   }
 
   /**
