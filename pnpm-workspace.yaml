@@ -1,0 +1,21 @@
+allowBuilds:
+  ' ': true
+  '"': true
+  ',': true
+  /: true
+  '@': true
+  '@biomejs/biome': true
+  '[': true
+  ']': true
+  a: true
+  e: true
+  electron: true
+  esbuild: true
+  g: true
+  i: true
+  m: true
+  n: true
+  node-pty: true
+  p: true
+  r: true
+  s: true
