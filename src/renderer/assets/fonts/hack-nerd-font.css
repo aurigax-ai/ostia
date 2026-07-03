@@ -1,0 +1,36 @@
+/*
+ * Hack Nerd Font Mono — Hack patched with Nerd Font glyphs (Powerline, file-type icons,
+ * prompt symbols). Bundled from nerd-fonts v3.4.0, converted to woff2. Used by the
+ * terminal (Settings → Terminal font default). "Mono" = single-width icon glyphs.
+ */
+@font-face {
+  font-family: "Hack Nerd Font Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./HackNerdFontMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Hack Nerd Font Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./HackNerdFontMono-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Hack Nerd Font Mono";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./HackNerdFontMono-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Hack Nerd Font Mono";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./HackNerdFontMono-BoldItalic.woff2") format("woff2");
+}
