@@ -31,11 +31,14 @@ describe('PtyRingBuffer', () => {
     expect(r.data.startsWith('cccc') || r.data.startsWith('bbbb')).toBe(true)
   })
 
-  it('never cuts an escape sequence: trims to the next ESC when no newline precedes it', () => {
-    const rb = new PtyRingBuffer(4)
-    rb.push('xy\x1b[31mZ') // must not retain a fragment that starts mid-ESC
+  it('trims to the ESC boundary so a replayed CSI is never cut mid-sequence', () => {
+    const rb = new PtyRingBuffer(7)
+    rb.push('xy\x1b[31mZ') // 8 bytes > cap 7; naive cut = 8-7 = 1, which falls short of the
+    // ESC at index 2 — the `cut = esc` branch must advance the cut to 2 so the retained
+    // window starts exactly at the ESC. Without that branch, cut stays at 1 and the
+    // retained data would be 'y\x1b[31mZ' instead, failing the assertions below.
     const { data } = rb.since(0)
-    // retained window begins at a newline+1 or an ESC, never inside a CSI
-    expect(data.includes('\x1b') ? data.indexOf('\x1b') === 0 : true).toBe(true)
+    expect(data).toBe('\x1b[31mZ')
+    expect(data[0]).toBe('\x1b')
   })
 })
