@@ -11,6 +11,7 @@ import type {
   PtySpawnOptions,
 } from '../shared/types'
 import { killAllLsp, registerLspIpc } from './lsp'
+import { PtySession } from './ptySession'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 
 /** True when launched by `electron-vite dev` (renderer served from a dev URL). */
@@ -36,8 +37,9 @@ function loadPty(): typeof import('node-pty') | null {
 /** A live pty keyed by pane id; output is buffered so a remounted terminal can replay it. */
 interface PtyEntry {
   pty: IPty
-  buffer: string
-  wc: Electron.WebContents | null
+  session: PtySession
+  /** subscriber id (String(webContents.id)) → WebContents, for exit fan-out. */
+  subs: Map<string, Electron.WebContents>
   killTimer: ReturnType<typeof setTimeout> | null
 }
 
@@ -228,6 +230,15 @@ function registerIpc(): void {
  */
 function registerPtyIpc(): void {
   ipcMain.handle('pty:attach', (e, paneId: string, opts: PtySpawnOptions): PtyAttachResult => {
+    const subId = String(e.sender.id)
+    const mkSub = () => ({
+      id: subId,
+      role: (opts.role ?? 'owner') as 'owner' | 'observer',
+      send: (data: string) => {
+        if (!e.sender.isDestroyed()) e.sender.send(`pty:data:${paneId}`, data)
+      },
+    })
+
     // Re-attach to an existing pty (remount) — cancel any pending kill, replay the buffer.
     const existing = ptys.get(paneId)
     if (existing) {
@@ -235,14 +246,14 @@ function registerPtyIpc(): void {
         clearTimeout(existing.killTimer)
         existing.killTimer = null
       }
-      existing.wc = e.sender
-      // TODO(Slice2 T4): real cursor/dropped from PtySession
-      return { created: false, buffer: existing.buffer, cursor: 0, dropped: false }
+      existing.subs.set(subId, e.sender)
+      existing.session.addLiveSubscriber(mkSub())
+      const { data, cursor, dropped } = existing.session.since(opts.sinceCursor ?? 0)
+      return { created: false, buffer: data, cursor, dropped }
     }
 
     const mod = loadPty()
     if (!mod) {
-      // TODO(Slice2 T4): real cursor/dropped from PtySession
       return {
         created: false,
         buffer: '\r\n\x1b[38;2;239;89;111m node-pty unavailable — run: npm run rebuild\x1b[0m\r\n',
@@ -262,42 +273,44 @@ function registerPtyIpc(): void {
       cwd: resolveCwd(opts.cwd),
       env: { ...process.env, ...integration.env } as Record<string, string>,
     })
-    const entry: PtyEntry = { pty, buffer: '', wc: e.sender, killTimer: null }
+    const session = new PtySession({
+      capBytes: PTY_BUFFER_CAP,
+      onNoOwners: () => {
+        const en = ptys.get(paneId)
+        if (en && !en.killTimer) en.killTimer = setTimeout(() => killPty(paneId), DETACH_GRACE_MS)
+      },
+      onExit: (code) => {
+        const en = ptys.get(paneId)
+        if (en) {
+          for (const wc of en.subs.values()) {
+            if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code)
+          }
+        }
+        ptys.delete(paneId)
+      },
+    })
+    const entry: PtyEntry = { pty, session, subs: new Map([[subId, e.sender]]), killTimer: null }
     ptys.set(paneId, entry)
 
-    pty.onData((data) => {
-      entry.buffer += data
-      if (entry.buffer.length > PTY_BUFFER_CAP) {
-        // Trim to a safe boundary: a raw slice can cut an OSC/CSI escape mid-sequence, which
-        // corrupts xterm's parser (and drops a shell-integration mark) on the replay at attach.
-        // Advance the cut to just after the next newline, else the next ESC.
-        let cut = entry.buffer.length - PTY_BUFFER_CAP
-        const nl = entry.buffer.indexOf('\n', cut)
-        const esc = entry.buffer.indexOf('\x1b', cut)
-        if (nl !== -1 && (esc === -1 || nl <= esc)) cut = nl + 1
-        else if (esc !== -1) cut = esc
-        entry.buffer = entry.buffer.slice(cut)
-      }
-      if (entry.wc && !entry.wc.isDestroyed()) entry.wc.send(`pty:data:${paneId}`, data)
-    })
-    pty.onExit(({ exitCode }) => {
-      if (entry.wc && !entry.wc.isDestroyed()) entry.wc.send(`pty:exit:${paneId}`, exitCode)
-      ptys.delete(paneId)
-    })
-    // TODO(Slice2 T4): real cursor/dropped from PtySession
-    return { created: true, buffer: '', cursor: 0, dropped: false }
+    pty.onData((d) => session.push(d))
+    pty.onExit(({ exitCode }) => session.exit(exitCode))
+    session.addLiveSubscriber(mkSub())
+    const { cursor, dropped } = session.since(0)
+    return { created: true, buffer: '', cursor, dropped }
   })
 
   ipcMain.on('pty:detach', (e, paneId: string) => {
     const entry = ptys.get(paneId)
     if (!entry) return
-    if (entry.wc === e.sender) entry.wc = null
-    // Keep alive briefly so a remount can re-attach; if nobody returns, reap it.
-    if (entry.killTimer) clearTimeout(entry.killTimer)
-    entry.killTimer = setTimeout(() => killPty(paneId), DETACH_GRACE_MS)
+    const subId = String(e.sender.id)
+    entry.subs.delete(subId)
+    entry.session.removeSubscriber(subId) // last owner leaving fires onNoOwners → starts the grace kill
   })
 
-  ipcMain.on('pty:write', (_e, paneId: string, data: string) => ptys.get(paneId)?.pty.write(data))
+  ipcMain.on('pty:write', (e, paneId: string, data: string) => {
+    const entry = ptys.get(paneId)
+    if (entry?.session.canWrite(String(e.sender.id))) entry.pty.write(data)
+  })
   ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
     try {
       ptys.get(paneId)?.pty.resize(cols || 80, rows || 24)

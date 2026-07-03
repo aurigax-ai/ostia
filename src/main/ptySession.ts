@@ -47,6 +47,16 @@ export class PtySession {
     return { cursor, dropped }
   }
 
+  /** Read-only replay of buffered output since `cursor` (NO send). Used for attach's return value. */
+  since(sinceCursor = 0): { data: string; cursor: number; dropped: boolean } {
+    return this.ring.since(sinceCursor)
+  }
+
+  /** Register a subscriber for FUTURE live output only (no replay). Caller replays via since(). */
+  addLiveSubscriber(sub: Subscriber): void {
+    this.subs.set(sub.id, sub)
+  }
+
   removeSubscriber(id: string): void {
     const sub = this.subs.get(id)
     if (!sub) return
