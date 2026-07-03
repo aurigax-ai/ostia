@@ -102,6 +102,7 @@ export function registerBuiltinCommands(): void {
     id: 'session.new',
     title: 'New Session',
     category: 'Session',
+    target: 'none',
     run: () => {
       useUIStore.getState().leaveSettings() // don't create the session hidden behind Settings
       useSessionsStore.getState().addSession()
@@ -112,6 +113,7 @@ export function registerBuiltinCommands(): void {
     id: 'palette.toggle',
     title: 'Command Palette',
     category: 'View',
+    target: 'none',
     run: () => useUIStore.getState().togglePalette(),
   })
 
@@ -119,6 +121,7 @@ export function registerBuiltinCommands(): void {
     id: 'view.toggleRail',
     title: 'Toggle Sidebar',
     category: 'View',
+    target: 'none',
     run: () => useUIStore.getState().toggleRail(),
   })
 
@@ -126,6 +129,7 @@ export function registerBuiltinCommands(): void {
     id: 'app.openSettings',
     title: 'Open Settings',
     category: 'App',
+    target: 'none',
     run: () => useUIStore.getState().openSettings(),
   })
 }
