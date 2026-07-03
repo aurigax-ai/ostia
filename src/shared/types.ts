@@ -47,13 +47,21 @@ export interface PtySpawnOptions {
   rows: number
   /** Shell to launch; defaults to $SHELL (or a platform default). */
   shell?: string
+  /** Attach as a read/write owner (default) or a read-only observer (e.g. the phone). */
+  role?: 'owner' | 'observer'
+  /** Resume replay from this stream cursor (reconnect); default 0 = full history. */
+  sinceCursor?: number
 }
 
 /** Result of attaching to a pty: whether it was freshly spawned + buffered output to replay. */
 export interface PtyAttachResult {
   created: boolean
-  /** Output produced so far (capped), to replay into a fresh xterm on (re)attach. */
+  /** Output produced since `sinceCursor` (capped), to replay into the terminal. */
   buffer: string
+  /** Stream position after `buffer` — pass back as `sinceCursor` to resume. */
+  cursor: number
+  /** True if `sinceCursor` predated retained history (buffer is a fresh full replay). */
+  dropped: boolean
 }
 
 /**
