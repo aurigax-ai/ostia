@@ -133,7 +133,7 @@ export function TerminalView({
     )
 
     window.pine.pty
-      .attach(paneId, { cwd: spawnCwd.current, cols: term.cols, rows: term.rows })
+      .attach(paneId, { cwd: spawnCwd.current, cols: term.cols, rows: term.rows, role: 'owner' })
       .then(({ buffer }) => {
         if (disposed) return
         // A remount replays history, which re-parses OSC 133 marks — clear this pane's blocks
