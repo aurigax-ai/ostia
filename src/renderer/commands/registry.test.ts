@@ -25,6 +25,9 @@ describe('command contract', () => {
     expect(noop.capabilities).toEqual(DEFAULT_CAPABILITIES)
     expect(noop.target).toBe('active')
     expect(noop.argsSchema).toBeNull()
+    expect(noop.resultSchema).toBeNull()
+    expect(noop.hidden).toBe(false)
+    expect(noop.category).toBeNull()
     expect(risky.capabilities).toEqual(['shell'])
     expect(risky.target).toBe('explicit')
     expect(risky.argsSchema).toEqual({ type: 'object', properties: { text: { type: 'string' } } })
@@ -47,15 +50,32 @@ describe('exec returns CommandResult', () => {
       },
     })
 
-    expect(await reg.exec('math.double', { n: 21 })).toEqual({ ok: true, result: 42 })
+    const res = await reg.exec('math.double', { n: 21 })
+    expect(res).toEqual({ ok: true, result: 42 })
+    if (res.ok) expect(res.result).toBe(42)
 
     const unknown = await reg.exec('nope')
     expect(unknown.ok).toBe(false)
-    expect(unknown.error?.code).toBe('unknown-command')
+    if (!unknown.ok) {
+      expect(unknown.error.code).toBe('unknown-command')
+    }
 
     const thrown = await reg.exec('boom')
     expect(thrown.ok).toBe(false)
-    expect(thrown.error?.code).toBe('command-failed')
-    expect(thrown.error?.message).toContain('kaboom')
+    if (!thrown.ok) {
+      expect(thrown.error.code).toBe('command-failed')
+      expect(thrown.error.message).toContain('kaboom')
+    }
+  })
+})
+
+describe('describe() sorting', () => {
+  it('sorts commands by id regardless of registration order', () => {
+    const reg = new CommandRegistry()
+    reg.register({ id: 'zzz.last', title: 'Last', run: () => undefined })
+    reg.register({ id: 'aaa.first', title: 'First', run: () => undefined })
+
+    const ids = reg.describe().map((c) => c.id)
+    expect(ids).toEqual(['aaa.first', 'zzz.last'])
   })
 })
