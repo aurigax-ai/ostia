@@ -1,0 +1,231 @@
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { basename, join } from 'node:path'
+
+/**
+ * Shell-integration injection (Warp/VSCode-style): generates small rc snippets that make
+ * zsh/bash emit FinalTerm/iTerm2 semantic marks — OSC 133 prompt/command marks (blocks) and
+ * OSC 7 cwd reports — without touching the user's real dotfiles. Terminal.tsx parses these
+ * marks via `term.parser.registerOscHandler`. Fish and anything else spawn with NO
+ * integration; the terminal still works, it just has no blocks/live cwd tracking.
+ *
+ * zsh: we point `ZDOTDIR` at a generated dir. zsh re-resolves `$ZDOTDIR` before reading each
+ * startup file, so our generated `.zshenv`/`.zshrc` can source the user's REAL dotfiles from
+ * `PINE_ZDOTDIR_ORIG`, add the hooks, then restore `ZDOTDIR` at the end of `.zshrc` so nested
+ * zsh invocations see a normal environment.
+ * bash: we pass `--rcfile` pointing at a generated file that sources `~/.bashrc`, then adds
+ * a `PROMPT_COMMAND` + `trap DEBUG` pair. `--rcfile` isn't inherited by children, so nested
+ * bash shells behave normally without any extra bookkeeping.
+ */
+
+const INTEGRATION_DIR = join(tmpdir(), 'pine-shell-integration')
+
+/**
+ * Raw bash text for the zero-width OSC 133;B (prompt-end) mark, wrapped in `\[...\]` so
+ * readline excludes it from the prompt's visible-width math. Built with `String.raw` and
+ * interpolated as a value (not hand-escaped inline) — a `"`-quoted inline copy previously
+ * let bash's double-quote backslash-collapsing eat the closing `\]`, leaking a stray `]`
+ * into the prompt and breaking the "already appended" guard (verified against real bash
+ * via `${PS1@P}`; single-quoting the literal here is what keeps it byte-exact).
+ */
+const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
+
+const ZSH_INIT =
+  `# Pine shell integration for zsh (generated — safe to delete; regenerated on launch).
+# Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Pine can render command blocks
+# and follow ` +
+  '"cd"' +
+  ` without polling /proc. See docs/ARCHITECTURE.md §2 "Shell integration".
+if [ -n "$PINE_SHELL_INTEGRATION" ]; then return; fi
+PINE_SHELL_INTEGRATION=1
+
+__pine_osc7() {
+  print -Pn "\\e]7;file://%m%d\\e\\\\"
+}
+
+__pine_mark_a() { print -Pn "\\e]133;A\\e\\\\" }
+__pine_mark_c() { print -Pn "\\e]133;C\\e\\\\" }
+__pine_mark_d() { print -Pn "\\e]133;D;$1\\e\\\\" }
+
+typeset -g __pine_b_mark=$'%{\\e]133;B\\e\\\\%}'
+typeset -g __pine_cmd_running=0
+
+__pine_precmd() {
+  local ec=$?
+  if (( __pine_cmd_running )); then
+    __pine_mark_d "$ec"
+    __pine_cmd_running=0
+  fi
+  __pine_osc7
+  __pine_mark_a
+  # Append the (zero-width) prompt-end mark once, so it always lands right after the
+  # visible prompt text — works even when a prompt framework redraws PROMPT each cycle.
+  case "$PROMPT" in
+    *"$__pine_b_mark") ;;
+    *) PROMPT="\${PROMPT}\${__pine_b_mark}" ;;
+  esac
+}
+
+__pine_preexec() {
+  __pine_cmd_running=1
+  __pine_mark_c
+}
+
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd __pine_precmd
+add-zsh-hook preexec __pine_preexec
+add-zsh-hook chpwd __pine_osc7
+`
+
+const BASH_INIT = `# Pine shell integration for bash (generated — safe to delete; regenerated on launch).
+# Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Pine can render command blocks
+# and follow cd without polling /proc. See docs/ARCHITECTURE.md §2 "Shell integration".
+if [ -n "$PINE_SHELL_INTEGRATION" ]; then return; fi
+PINE_SHELL_INTEGRATION=1
+
+__pine_osc7() {
+  printf '\\e]7;file://%s%s\\e\\\\' "\${HOSTNAME:-$(hostname 2>/dev/null)}" "$PWD"
+}
+
+__pine_executing=0
+# Only "on" for the one real preexec firing right after a precmd — the DEBUG trap also fires
+# for PROMPT_COMMAND's own (possibly multi-statement) body, which must NOT count as a command.
+# Same interactive-mode gate the bash-preexec project uses to solve this.
+__pine_interactive_mode=""
+
+__pine_preexec() {
+  [ -n "$COMP_LINE" ] && return
+  if [ "$__pine_interactive_mode" != "on" ]; then
+    return
+  fi
+  __pine_interactive_mode=""
+  [ "$BASH_COMMAND" = "$PROMPT_COMMAND" ] && return
+  __pine_executing=1
+  printf '\\e]133;C\\e\\\\'
+}
+
+# Bash 5.1+ lets PROMPT_COMMAND be an array, and distros (e.g. /etc/bash.bashrc) often
+# append to it. Capture whatever was already there and run it FROM INSIDE our own function
+# below, instead of joining it onto PROMPT_COMMAND with a ';'. That matters: bash does not
+# fire the DEBUG trap for commands inside a function body, but it DOES fire it for each
+# top-level ';'-joined statement — so a naive join makes the user's own prompt commands
+# look like a real preexec (a false "command executed" mark right after every prompt).
+__pine_orig_prompt_command=("\${PROMPT_COMMAND[@]}")
+
+__pine_prompt_command() {
+  local ec=$?
+  if [ "$__pine_executing" = "1" ]; then
+    printf '\\e]133;D;%s\\e\\\\' "$ec"
+    __pine_executing=0
+  fi
+  __pine_osc7
+  printf '\\e]133;A\\e\\\\'
+  local __pine_cmd
+  for __pine_cmd in "\${__pine_orig_prompt_command[@]}"; do
+    [ -n "$__pine_cmd" ] && eval "$__pine_cmd"
+  done
+  # Append the (zero-width) prompt-end mark AFTER the user's PROMPT_COMMAND has run — prompt
+  # frameworks (starship, powerline, git-prompt) rebuild PS1 there, which would otherwise wipe
+  # an earlier mark. Single-quoted so bash stores it byte-exact (see BASH_B_MARK doc above).
+  case "$PS1" in
+    *'${BASH_B_MARK}') ;;
+    *) PS1="\${PS1}"'${BASH_B_MARK}' ;;
+  esac
+  __pine_interactive_mode="on"
+}
+
+PROMPT_COMMAND="__pine_prompt_command"
+trap '__pine_preexec' DEBUG
+`
+
+interface IntegrationPaths {
+  zshInit: string
+  bashInit: string
+  zshRc: string
+  bashRc: string
+}
+
+let cached: IntegrationPaths | null = null
+
+/** Write the generated rc/init files once (idempotent, shared across every pty). */
+function ensureFiles(): IntegrationPaths {
+  if (cached) return cached
+  mkdirSync(INTEGRATION_DIR, { recursive: true })
+
+  const zshInit = join(INTEGRATION_DIR, 'init.zsh')
+  const bashInit = join(INTEGRATION_DIR, 'init.bash')
+  writeFileSync(zshInit, ZSH_INIT, 'utf8')
+  writeFileSync(bashInit, BASH_INIT, 'utf8')
+
+  // ZDOTDIR must point straight at INTEGRATION_DIR — zsh looks for .zshenv/.zshrc there by name.
+  const zshenv = join(INTEGRATION_DIR, '.zshenv')
+  writeFileSync(
+    zshenv,
+    [
+      '# Pine shell integration (generated). Load the real .zshenv; ZDOTDIR is restored to',
+      '# PINE_ZDOTDIR_ORIG at the end of .zshrc below, once our hooks are installed.',
+      '[ -n "$PINE_ZDOTDIR_ORIG" ] && [ -f "$PINE_ZDOTDIR_ORIG/.zshenv" ] && source "$PINE_ZDOTDIR_ORIG/.zshenv"',
+      '# If the real .zshenv redirected ZDOTDIR, remember its target as the effective dotdir',
+      '# and reclaim ZDOTDIR so zsh still reads OUR .zshrc next (else integration is bypassed).',
+      `if [ "$ZDOTDIR" != "${INTEGRATION_DIR}" ]; then PINE_ZDOTDIR_ORIG="$ZDOTDIR"; ZDOTDIR="${INTEGRATION_DIR}"; fi`,
+      '',
+    ].join('\n'),
+    'utf8',
+  )
+  const zshRc = join(INTEGRATION_DIR, '.zshrc')
+  writeFileSync(
+    zshRc,
+    [
+      '# Pine shell integration (generated). Load the real .zshrc, add our hooks, then',
+      '# restore ZDOTDIR so nested/child zsh invocations see a normal environment.',
+      '[ -n "$PINE_ZDOTDIR_ORIG" ] && [ -f "$PINE_ZDOTDIR_ORIG/.zshrc" ] && source "$PINE_ZDOTDIR_ORIG/.zshrc"',
+      `source "${zshInit}"`,
+      'ZDOTDIR="$PINE_ZDOTDIR_ORIG"',
+      'unset PINE_ZDOTDIR_ORIG',
+      '',
+    ].join('\n'),
+    'utf8',
+  )
+
+  const bashRc = join(INTEGRATION_DIR, 'bashrc')
+  writeFileSync(
+    bashRc,
+    [
+      '# Pine shell integration (generated). Load the real ~/.bashrc, then add our hooks.',
+      '[ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"',
+      `source "${bashInit}"`,
+      '',
+    ].join('\n'),
+    'utf8',
+  )
+
+  cached = { zshInit, bashInit, zshRc, bashRc }
+  return cached
+}
+
+/** Extra spawn args + env for `shellPath`, or `{}` for shells we don't integrate with. */
+export function shellIntegrationSpawnOptions(
+  shellPath: string,
+  baseEnv: NodeJS.ProcessEnv,
+): { args: string[]; env: Record<string, string> } {
+  const name = basename(shellPath).toLowerCase()
+
+  if (name === 'zsh') {
+    const { zshRc: _unused } = ensureFiles() // ensure files exist; ZDOTDIR itself points at the dir
+    return {
+      args: [],
+      env: {
+        ZDOTDIR: INTEGRATION_DIR,
+        PINE_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
+      },
+    }
+  }
+
+  if (name === 'bash') {
+    const { bashRc } = ensureFiles()
+    return { args: ['--rcfile', bashRc], env: {} }
+  }
+
+  // fish, sh, pwsh, etc. — no integration, but the shell still spawns and works normally.
+  return { args: [], env: {} }
+}

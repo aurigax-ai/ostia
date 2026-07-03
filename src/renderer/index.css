@@ -1,0 +1,1534 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Pine — design tokens as Tailwind @theme (docs/DESIGN.md).
+ * Colors here become utilities (bg-surface-1, text-fg-muted, border-line…).
+ * Font stacks end in CJK (Traditional Chinese) fallbacks so 繁體中文 always renders.
+ */
+@theme {
+  /* Default theme — One Dark Vivid. Alternates override these in :root[data-theme=…] below.
+     Elevation ladder: bg-sunken < bg (work canvas) < surface-1 (#282c34, the iconic One Dark
+     panel) < surface-2 < surface-3. Signals: blue=active, red=needs-you, green=done. */
+  --color-bg: #21252b;
+  --color-bg-sunken: #1b1e23;
+  --color-surface-1: #282c34;
+  --color-surface-2: #2f343e;
+  --color-surface-3: #3a4150;
+  --color-line: rgba(255, 255, 255, 0.07);
+  --color-line-strong: rgba(255, 255, 255, 0.13);
+  --color-fg: #d7dae0;
+  --color-fg-muted: #9aa2b1;
+  --color-fg-dim: #636d83;
+  --color-brand: #61afef;
+  --color-brand-bright: #82c7ff;
+  --color-brand-glow: rgba(97, 175, 239, 0.18);
+  --color-attn: #ef596f;
+  --color-attn-glow: rgba(239, 89, 111, 0.2);
+  --color-ok: #89ca78;
+  --color-add: #89ca78;
+  --color-del: #ef596f;
+
+  --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, "PingFang TC",
+    "Microsoft JhengHei", "Hiragino Sans", "Noto Sans CJK TC", "Noto Sans TC", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, "Sarasa Mono TC",
+    "Noto Sans Mono CJK TC", "Microsoft JhengHei", Menlo, monospace;
+
+  --radius-pane: 8px;
+}
+
+/* Aliases so the component layer below can use short var names, plus chrome metrics. */
+:root {
+  --bg: var(--color-bg);
+  --bg-sunken: var(--color-bg-sunken);
+  --surface-1: var(--color-surface-1);
+  --surface-2: var(--color-surface-2);
+  --surface-3: var(--color-surface-3);
+  --line: var(--color-line);
+  --line-strong: var(--color-line-strong);
+  --fg: var(--color-fg);
+  --fg-muted: var(--color-fg-muted);
+  --fg-dim: var(--color-fg-dim);
+  --brand: var(--color-brand);
+  --brand-bright: var(--color-brand-bright);
+  --brand-glow: var(--color-brand-glow);
+  --attn: var(--color-attn);
+  --attn-glow: var(--color-attn-glow);
+  --ok: var(--color-ok);
+
+  /* runtime-overridable UI font (settings → appearance) defaults to the theme stack */
+  --font-ui: var(--font-sans);
+
+  --radius: 8px;
+  --radius-sm: 5px;
+  --rail-w: 240px;
+  --rail-w-collapsed: 56px;
+  --topbar-h: 36px;
+  --tabstrip-h: 34px;
+  --status-h: 26px;
+
+  --separator-border: var(--line);
+  --focus-border: var(--brand);
+
+  /* Global scrollbars — subtle white overlay, works across every (dark) theme. */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.13);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.26);
+}
+
+/* ── theme: Instrument Night ──────────────────────────────────────────────
+ * The original warm palette, kept as a switchable alternate. A theme is just a
+ * remap of the primitive --color-* tokens; everything downstream re-themes for free
+ * (semantic aliases, shadcn bridge, utilities). data-theme is set on <html> from Settings.
+ */
+:root[data-theme="instrument-night"] {
+  --color-bg: #0a0c12;
+  --color-bg-sunken: #06080d;
+  --color-surface-1: #10131c;
+  --color-surface-2: #161a26;
+  --color-surface-3: #1d2230;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.15);
+  --color-fg: #e7e9f0;
+  --color-fg-muted: #8b91a4;
+  --color-fg-dim: #565d72;
+  --color-brand: #f2b347;
+  --color-brand-bright: #ffc874;
+  --color-brand-glow: rgba(242, 179, 71, 0.16);
+  --color-attn: #ff6b5e;
+  --color-attn-glow: rgba(255, 107, 94, 0.18);
+  --color-ok: #5bd6a0;
+  --color-add: #3fb950;
+  --color-del: #f85149;
+}
+
+/* ── shadcn / Base UI bridge ──────────────────────────────────────────────
+ * Maps shadcn's semantic token names onto Pine's palette, so Base UI
+ * components in components/ui/* wear Pine's colors with no per-component work.
+ * Pine's gold lives on --brand / --primary; shadcn's --accent is the muted
+ * hover surface. Dark-only for now — values sit in :root, no .dark class needed.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  --background: var(--color-bg);
+  --foreground: var(--color-fg);
+  --card: var(--color-surface-1);
+  --card-foreground: var(--color-fg);
+  --popover: var(--color-surface-2);
+  --popover-foreground: var(--color-fg);
+  --primary: var(--color-brand);
+  --primary-foreground: var(--color-bg);
+  --secondary: var(--color-surface-2);
+  --secondary-foreground: var(--color-fg);
+  --muted: var(--color-surface-2);
+  --muted-foreground: var(--color-fg-muted);
+  --accent: var(--color-surface-2);
+  --accent-foreground: var(--color-fg);
+  --destructive: var(--color-del);
+  --border: var(--color-line);
+  --input: var(--color-line-strong);
+  --ring: var(--color-brand);
+  --sidebar: var(--color-surface-1);
+  --sidebar-foreground: var(--color-fg);
+  --sidebar-primary: var(--color-brand);
+  --sidebar-primary-foreground: var(--color-bg);
+  --sidebar-accent: var(--color-surface-2);
+  --sidebar-accent-foreground: var(--color-fg);
+  --sidebar-border: var(--color-line);
+  --sidebar-ring: var(--color-brand);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--fg);
+    background: var(--bg-sunken);
+    /* No forced -webkit-font-smoothing: grayscale AA renders thin/washed on Linux
+       LCDs. Let Chromium use its default (subpixel where the display supports it). */
+    user-select: none;
+  }
+
+  button {
+    font-family: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 1px;
+    border-radius: 3px;
+  }
+}
+
+/* ===== global scrollbars ================================================ */
+/* Thin, subtle, overlay-style scrollbars on-theme. Canvas surfaces (xterm/Monaco)
+   draw their own and override below; this covers every other DOM scroll area. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  /* transparent border + padding-box clip makes the thumb read as a thin (~5px) pill */
+  min-height: 28px;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* ===== app shell ======================================================== */
+/* Full-width control bar on top; sidebar + work area beneath it. */
+.app {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "rail   work";
+  height: 100%;
+  background: var(--bg);
+}
+
+/* ===== window + tool control bar ======================================= */
+.topbar {
+  position: relative;
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--topbar-h);
+  padding: 0 8px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+}
+
+.topbar-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--fg);
+}
+
+/* VSCode-style command center: a clickable pill centered in the bar (opens ⌘K). */
+.command-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(440px, 46vw);
+  height: 24px;
+  padding: 0 8px 0 10px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--fg-dim);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.command-center:hover {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+  color: var(--fg-muted);
+}
+
+.cc-icon {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+}
+
+.command-center:hover .cc-icon {
+  color: var(--brand);
+}
+
+.cc-text {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-kbd {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--fg-dim);
+}
+
+/* right cluster — changes · settings · account (sits left of the OS window controls) */
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* git changes: ± icon + colored +added / −removed stat (inline row, auto width) */
+.topbar-changes {
+  display: flex;
+  align-items: center;
+  width: auto;
+  gap: 6px;
+  padding: 0 8px;
+}
+
+.diff-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.diff-stat .diff-add {
+  color: var(--color-add);
+}
+
+.diff-stat .diff-del {
+  color: var(--color-del);
+}
+
+/* BellDot carries its own unread dot; tint it when there's something waiting */
+.topbar-bell:hover {
+  color: var(--brand);
+}
+
+.topbar-account {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: 2px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--brand), var(--brand-bright));
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.topbar-account:hover .avatar {
+  box-shadow: 0 0 0 2px var(--brand-glow);
+}
+
+/* ===== deck rail (signature) ============================================ */
+.deck-rail {
+  grid-area: rail;
+  width: var(--rail-w);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border-right: 1px solid var(--line);
+  transition: width 0.16s ease;
+  overflow: hidden;
+}
+
+.deck-rail.collapsed {
+  width: var(--rail-w-collapsed);
+}
+
+.rail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--topbar-h);
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+  color: var(--fg);
+}
+
+.wordmark svg {
+  color: var(--brand);
+}
+
+.rail-collapse {
+  margin-left: auto;
+  width: 24px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+}
+
+.rail-collapse:hover {
+  color: var(--fg);
+  border-color: var(--line-strong);
+}
+
+/* view switcher (Channels ⇄ Files), pinned to the top of the rail */
+.rail-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.rail-switch-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-dim);
+}
+
+.rail-switch-btn:hover {
+  background: var(--surface-2);
+  color: var(--fg-muted);
+}
+
+.rail-switch-btn.active {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--brand);
+}
+
+/* the narrow icon rail can't fit two buttons across — stack them */
+.collapsed .rail-switch {
+  flex-direction: column;
+}
+
+.rail-section {
+  padding: 12px 10px 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+/* a uniform sidebar tab (Settings or a session) — consistent height, hover actions */
+.rail-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: calc(100% - 12px);
+  min-height: 34px;
+  margin: 2px 4px;
+  padding-right: 4px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+}
+
+.rail-tab-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 4px 8px 12px;
+  background: none;
+  color: inherit;
+  text-align: left;
+  border-radius: inherit;
+}
+
+.rail-tab-main:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.rail-tab:hover,
+.rail-tab.active {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+.rail-tab:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--focus-border);
+}
+
+.tab-lead-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 16px;
+}
+
+.tab-lead {
+  flex-shrink: 0;
+  color: var(--fg-dim);
+}
+
+.rail-tab.active .tab-lead {
+  color: var(--brand);
+}
+
+.tab-lead-wrap .session-dot {
+  position: absolute;
+  top: -3px;
+  left: -4px;
+}
+
+.tab-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tab-title {
+  overflow: hidden;
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tab-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+
+.tab-branch {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tab-actions {
+  display: none;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.rail-tab:hover .tab-actions,
+.rail-tab:focus-within .tab-actions {
+  display: flex;
+}
+
+.tab-btn {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-dim);
+}
+
+.tab-btn:hover {
+  background: var(--surface-3);
+  color: var(--fg);
+}
+
+.collapsed .tab-body,
+.collapsed .tab-actions {
+  display: none;
+}
+
+/* empty-state for a rail view (e.g. Files with no folder open) */
+.rail-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 12px;
+  color: var(--fg-dim);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+/* ===== files explorer — follows the focused pane's cwd ================= */
+.files-crumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1px;
+  padding: 0 12px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+  border-bottom: 1px solid var(--line);
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  white-space: nowrap;
+}
+
+.crumb-sep {
+  color: var(--fg-dim);
+  opacity: 0.6;
+}
+
+.crumb.current {
+  color: var(--fg);
+}
+
+.file-tree {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 6px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding-right: 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-align: left;
+  width: 100%;
+}
+
+.file-row:hover {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+.file-twisty {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+  transition: transform 0.12s ease;
+}
+
+.file-twisty.open {
+  transform: rotate(90deg);
+}
+
+.file-twisty-spacer {
+  width: 12px;
+  flex: 0 0 auto;
+}
+
+.file-icon {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+}
+
+.file-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== plugins view — the plugin/status board ========================== */
+.plugins {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 2px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.plugin-group {
+  padding: 8px 6px 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.plugin {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.plugin:hover {
+  background: var(--surface-2);
+}
+
+.plugin-dot {
+  margin-top: 4px;
+}
+
+.plugin-dot.ok {
+  background: var(--ok);
+}
+.plugin-dot.brand {
+  background: var(--brand);
+}
+.plugin-dot.dim {
+  background: var(--fg-dim);
+}
+.plugin-dot.attn {
+  background: var(--attn);
+}
+
+.plugin-body {
+  min-width: 0;
+}
+
+.plugin-name {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plugin-meta {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-dim);
+}
+
+.sessions {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 2px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  width: 100%;
+}
+
+.session:hover {
+  background: var(--surface-2);
+}
+
+.session.active {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+.session.active .session-name {
+  color: var(--fg);
+}
+
+.session-dot {
+  margin-top: 4px;
+}
+
+.session-body {
+  min-width: 0;
+}
+
+.session-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.session-kind {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+}
+
+.session-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  color: var(--fg-dim);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.session-branch {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.session-sub.working {
+  color: var(--brand);
+}
+
+.session-sub.waiting {
+  color: var(--attn);
+}
+
+.collapsed .session {
+  grid-template-columns: 10px;
+}
+
+.collapsed .session-body,
+.collapsed .rail-section,
+.collapsed .wordmark span,
+.collapsed .rail-add span {
+  display: none;
+}
+
+.rail-add {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.rail-add:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+/* status dots — the breathing heart of the rail */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fg-dim);
+  flex: 0 0 auto;
+}
+
+.dot.working {
+  background: var(--brand);
+  animation: breathe 1.9s ease-in-out infinite;
+}
+
+.dot.waiting {
+  background: var(--attn);
+  animation: ring 1.5s ease-out infinite;
+}
+
+.dot.done {
+  background: var(--ok);
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+    box-shadow: 0 0 0 0 var(--brand-glow);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 7px 1px var(--brand-glow);
+  }
+}
+
+@keyframes ring {
+  0% {
+    box-shadow: 0 0 0 0 var(--attn-glow);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* ===== work area: a split-tree of tabbed groups (sub-windows) ========= */
+.workzone {
+  grid-area: work;
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.workzone > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* each session's pane tree — stacked, all kept mounted; inactive ones hidden (cmux model) */
+.workzone-session {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workzone-session > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workspace-empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+}
+
+/* ===== pane: a leaf surface (Warp-style) — a header over one terminal/editor/… ===== */
+.pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+/* Focused pane: a quiet accent ring around the whole surface. */
+.pane.active {
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+
+/* the pane's header — kind icon · title · actions; also the group's drag handle */
+.pane-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--tabstrip-h);
+  padding: 0 6px 0 11px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  cursor: grab;
+}
+
+.pane-header:active {
+  cursor: grabbing;
+}
+
+.pane.active .pane-header {
+  color: var(--fg);
+}
+
+.pane-kind {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+}
+
+.pane.active .pane-kind {
+  color: var(--brand);
+}
+
+.pane-header .title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* pane actions (split / close) — revealed on hover or when the pane is focused */
+.pane-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.pane:hover .pane-actions,
+.pane.active .pane-actions {
+  opacity: 1;
+}
+
+.iconbtn {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 20px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-dim);
+}
+
+.iconbtn:hover {
+  background: var(--bg-sunken);
+  color: var(--fg);
+  border-color: var(--line);
+}
+
+.iconbtn.danger:hover {
+  color: var(--attn);
+  border-color: var(--attn);
+}
+
+.pane-body {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--surface-1);
+  font-family: var(--font-mono);
+  color: var(--fg-dim);
+  text-align: center;
+}
+
+.pane-body .ghost {
+  font-size: 12px;
+}
+
+.pane-body .ghost b {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+/* terminal surface — full-bleed xterm host (overrides the centered ghost layout) */
+.pane-body-term {
+  position: relative;
+  display: block;
+  place-items: initial;
+  padding: 0;
+  text-align: left;
+  overflow: hidden;
+}
+
+.xterm-host {
+  width: 100%;
+  height: 100%;
+  padding: 4px 6px;
+}
+
+.xterm-host .xterm {
+  height: 100%;
+}
+
+.xterm-host .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.xterm-host .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+
+/* ===== command blocks — a Warp-style left-edge accent per shell command ================ */
+/* Overlays the xterm host; purely decorative (never intercepts terminal input/scroll). */
+.blocks-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.block-bar {
+  position: absolute;
+  left: 1px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+
+/* Error blocks: never color-alone — widen the bar so it reads as a distinct
+   shape under forced-colors / for colorblind users, not just a hue change. */
+.block-bar.attn {
+  left: 0;
+  width: 5px;
+  background: var(--attn);
+}
+
+/* Monaco editor host — fills the pane; Monaco draws its own chrome via the theme */
+.editor-host {
+  width: 100%;
+  height: 100%;
+}
+
+/* drop-zone overlay shown while dragging a pane onto this one */
+.pane-drop {
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+  background: var(--brand-glow);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+
+.pane-drop-left {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+}
+
+.pane-drop-right {
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+}
+
+.pane-drop-top {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 50%;
+}
+
+.pane-drop-bottom {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 50%;
+}
+
+.pane-drop-center {
+  inset: 0;
+}
+
+/* ===== status strip ==================================================== */
+.status-strip {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: var(--surface-1);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.status-seg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-right: 1px solid var(--line);
+  height: 60%;
+}
+
+.status-seg:first-child {
+  padding-left: 0;
+}
+
+.status-seg.accent {
+  color: var(--brand);
+}
+
+.status-spacer {
+  flex: 1;
+}
+
+.status-seg.muted {
+  color: var(--fg-dim);
+  border-right: none;
+}
+
+/* ===== usage meters ==================================================== */
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-dim);
+}
+
+.meter-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.meter-track {
+  display: flex;
+  gap: 2px;
+}
+
+.meter-track .cell {
+  width: 5px;
+  height: 9px;
+  border-radius: 1.5px;
+  background: var(--line-strong);
+}
+
+.meter-track.accent .cell.on {
+  background: var(--brand);
+}
+
+.meter-track.ok .cell.on {
+  background: var(--ok);
+}
+
+.meter-track.attn .cell.on {
+  background: var(--attn);
+}
+
+.meter-value {
+  color: var(--fg-muted);
+}
+
+/* ===== inspector ======================================================= */
+.inspector {
+  grid-area: inspector;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border-left: 1px solid var(--line);
+  overflow: hidden;
+  transition: width 0.16s ease;
+}
+
+.inspector.collapsed {
+  width: 0;
+  border-left: none;
+}
+
+.inspector-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--topbar-h);
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--fg-muted);
+  flex: 0 0 auto;
+}
+
+.inspector-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.inspector-branch {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+
+.inspector-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.insp-section {
+  margin: 12px 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.insp-section:first-child {
+  margin-top: 4px;
+}
+
+.diff-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.diff-row:hover {
+  background: var(--surface-2);
+}
+
+.diff-icon {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+}
+
+.diff-file {
+  flex: 1;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diff-add {
+  color: var(--color-add);
+}
+
+.diff-del {
+  color: var(--color-del);
+}
+
+.agent-note {
+  padding: 4px 8px 10px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.agent-note b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.agent-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
+.agent-hint {
+  margin: 12px 8px 4px;
+  padding: 8px 10px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--brand);
+}
+
+/* ===== custom window chrome (frameless) ================================ */
+/*
+ * The top strip is the OS drag handle; interactive children opt out so they stay
+ * clickable. macOS keeps native traffic lights (left); Win/Linux draw controls (right).
+ */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.drag-region button,
+.drag-region input,
+.drag-region select,
+.drag-region a {
+  -webkit-app-region: no-drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Width reserved at the window's top-right for our controls (0 when macOS owns the left). */
+:root {
+  --winctl-w: 138px;
+}
+
+.app.is-mac,
+.detached.is-mac {
+  --winctl-w: 0px;
+}
+
+/* ===== detached pane window ============================================= */
+.detached {
+  height: 100%;
+  display: flex;
+}
+
+.detached .pane {
+  flex: 1;
+}
+
+.detached:not(.is-mac) .pane-header {
+  padding-right: calc(var(--winctl-w) + 6px);
+}
+
+.detached.is-mac .pane-header {
+  padding-left: 80px;
+}
+
+/* The full-width top bar hugs the window's right edge — keep its right cluster
+   clear of the Win/Linux controls; on macOS pad the left for the traffic lights. */
+.app:not(.is-mac) .topbar {
+  padding-right: calc(var(--winctl-w) + 6px);
+}
+
+.app.is-mac .topbar {
+  padding-left: 80px;
+}
+
+.win-controls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: var(--topbar-h);
+  display: flex;
+  z-index: 40;
+}
+
+.win-controls button {
+  width: 46px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  color: var(--fg-muted);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.win-controls button:hover {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+.win-controls button.close:hover {
+  background: var(--color-del);
+  color: #fff;
+}
+
+/* ===== accessibility floor ============================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .dot.working {
+    opacity: 1;
+  }
+}
