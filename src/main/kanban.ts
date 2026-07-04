@@ -8,6 +8,13 @@
  * sense per project — so it fails closed on a missing session workDir exactly like those
  * do (see `vault.ts` for why: `jsonStore.storePath` would otherwise silently fall back to
  * `process.cwd()`, pooling every unrecognized session's board into one file).
+ *
+ * No `wiki.ts`-style prototype-pollution guard is needed here: card ids are server-generated
+ * (`nextCardId`) and every caller-supplied field (`title`/`body`/`column`/`assignee`) is
+ * written through a fixed, named property (`card.title = ...`), never used as a dynamic
+ * object key (`obj[userInput] = ...`) — so there is no path from a crafted string to
+ * `Object.prototype`. `kanban.add`/`kanban.update` do cap `title`/`body` size (64KB) and
+ * `kanban.add` caps the board at 2000 cards (existing cards can still be updated once full).
  */
 import { registerControlMethod } from './controlServer'
 import { loadJson, saveJson, storePath } from './jsonStore'
@@ -72,6 +79,23 @@ function saveBoard(path: string, board: KanbanBoard): void {
 
 const NOT_FOUND = { ok: false, error: 'not-found' as const }
 const UNKNOWN_COLUMN = { ok: false, error: 'unknown-column' as const }
+const TOO_LARGE = { ok: false, error: 'too-large' as const }
+
+/** `title`/`body` size cap — keeps one card from ballooning the JSON board file. */
+const MAX_FIELD_BYTES = 64 * 1024
+/** Card count cap — `kanban.add` rejects new cards beyond this; updates to existing cards
+ * (including moving/renaming/re-assigning) are still allowed once a board is full. */
+const MAX_CARDS = 2000
+const TOO_MANY_CARDS = {
+  ok: false,
+  error: 'too-many-cards' as const,
+  message: `this board already has ${MAX_CARDS} cards — remove one before adding another`,
+}
+
+/** True iff `s` (a caller-supplied string field) exceeds `MAX_FIELD_BYTES` measured in bytes. */
+function tooLarge(s: string | undefined): boolean {
+  return s !== undefined && Buffer.byteLength(s, 'utf8') > MAX_FIELD_BYTES
+}
 
 /**
  * `card-<n>`, with `n` seeded from the highest numeric suffix already present in
@@ -108,7 +132,9 @@ export function registerKanbanMethods(): void {
         column?: string
         body?: string
       }
+      if (tooLarge(title) || tooLarge(body)) return TOO_LARGE
       const board = loadBoard(path)
+      if (board.cards.length >= MAX_CARDS) return TOO_MANY_CARDS
       const targetColumn = column ?? 'todo'
       if (!board.columns.some((c) => c.id === targetColumn)) return UNKNOWN_COLUMN
       const now = new Date().toISOString()
@@ -168,6 +194,7 @@ export function registerKanbanMethods(): void {
         cardId: string
         patch: Partial<Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>>
       }
+      if (tooLarge(patch.title) || tooLarge(patch.body)) return TOO_LARGE
       const board = loadBoard(path)
       const card = board.cards.find((c) => c.id === cardId)
       if (!card) return NOT_FOUND

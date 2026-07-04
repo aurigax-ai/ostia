@@ -566,8 +566,8 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else if (sub === 'handoffs') {
-    const mine = rawArgs.includes('--mine')
-    const res = await conn.sendRequest<BusHandoffsResult | BusErr>('bus.handoffs', { mine })
+    const all = rawArgs.includes('--all')
+    const res = await conn.sendRequest<BusHandoffsResult | BusErr>('bus.handoffs', { all })
     if ('handoffs' in res) {
       console.log(JSON.stringify(res.handoffs))
     } else {

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { isDangerousSegment } from '../../shared/protoGuard'
 import type { Locale } from '../i18n/dict'
 
 /** Theme id — resolved against the theme registry (built-in + plugin contributions). */
@@ -124,16 +125,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setByPath: (path, value) => {
     const keys = path.split('.').filter(Boolean)
     if (keys.length === 0) return
+    // Prototype-pollution guard: reject the whole path (mutating nothing) if ANY segment
+    // is `__proto__`/`prototype`/`constructor` — see `shared/protoGuard.ts`.
+    if (keys.some(isDangerousSegment)) return
     set((s) => {
       const root: Record<string, unknown> = { ...(s as unknown as Record<string, unknown>) }
       let cursor = root
       for (let i = 0; i < keys.length - 1; i++) {
         const key = keys[i]
         const existing = cursor[key]
+        // Build each intermediate as a prototype-less object (fresh, or a prototype-less
+        // copy of the existing value) so writing into it can never reach Object.prototype,
+        // even in the face of a future bug in the guard above.
         const next: Record<string, unknown> =
           existing !== null && typeof existing === 'object' && !Array.isArray(existing)
-            ? { ...(existing as Record<string, unknown>) }
-            : {}
+            ? Object.assign(Object.create(null), existing)
+            : Object.create(null)
         cursor[key] = next
         cursor = next
       }

@@ -9,10 +9,31 @@
  * every unrecognized session's project pages into one store. `project` scope therefore
  * requires a resolved session workDir up front (`no-project-workdir`); `global` scope is
  * unaffected (it never depends on a workDir).
+ *
+ * `scope: 'global'` WRITES (`wiki.set`/`wiki.delete`) additionally require the elevated
+ * `workspace-wide` capability — a global write touches a machine-wide file every project's
+ * panes can see, unlike the default per-project store. Global READS stay default (see
+ * `vault.ts` for the same posture). `wiki.set` also rejects a `slug` containing a
+ * `__proto__`/`prototype`/`constructor` segment (it becomes an object key) and caps body
+ * size (256KB) and page count (2000/scope; existing pages can still be updated once full).
  */
+import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
+import type { Capability } from '../shared/capabilities'
+import { hasDangerousSegment } from '../shared/protoGuard'
+import { connHasCap } from './controlAuth'
 import { registerControlMethod } from './controlServer'
 import { type StoreScope, loadJson, saveJson, storePath } from './jsonStore'
 import { workDirForSession } from './sessionRegistry'
+
+/** A JSON-RPC error matching `controlServer.ts`'s `needsElevation` (not exported from there). */
+function needsElevation(cap: Capability): ResponseError<void> {
+  return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
+}
+
+/** `wiki.set` body size cap — keeps a single page from ballooning the JSON store file. */
+const MAX_BODY_BYTES = 256 * 1024
+/** Per-scope page count cap — existing pages can still be updated once a scope is full. */
+const MAX_PAGES = 2000
 
 export interface WikiPage {
   title: string
@@ -74,6 +95,13 @@ function makeSnippet(body: string, q: string, radius = 40): string {
 }
 
 const NOT_FOUND = { ok: false, error: 'not-found' as const }
+const INVALID_SLUG = { ok: false, error: 'invalid-slug' as const }
+const TOO_LARGE = { ok: false, error: 'too-large' as const }
+const TOO_MANY_PAGES = {
+  ok: false,
+  error: 'too-many-pages' as const,
+  message: `this scope already has ${MAX_PAGES} pages — delete one before adding another`,
+}
 
 export function registerWikiMethods(): void {
   registerControlMethod('wiki.get', {
@@ -97,9 +125,22 @@ export function registerWikiMethods(): void {
         title?: string
         scope?: StoreScope
       }
-      const path = wikiStorePath(scope ?? 'project', ctx.identity.sessionId)
+      // Prototype-pollution guard: `slug` becomes an object key (`store[slug] = ...`) below.
+      if (hasDangerousSegment(slug)) return INVALID_SLUG
+      const resolvedScope = scope ?? 'project'
+      // `global` writes a machine-wide file every project's panes can see — requires the
+      // elevated `workspace-wide` grant on top of the default `wiki-write` cap. Reads stay
+      // default (see `wiki.get`/`wiki.list`/`wiki.search`).
+      if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'workspace-wide')) {
+        throw needsElevation('workspace-wide')
+      }
+      if (Buffer.byteLength(body ?? '', 'utf8') > MAX_BODY_BYTES) return TOO_LARGE
+      const path = wikiStorePath(resolvedScope, ctx.identity.sessionId)
       if (typeof path !== 'string') return path
       const store = loadWiki(path)
+      if (!Object.hasOwn(store, slug) && Object.keys(store).length >= MAX_PAGES) {
+        return TOO_MANY_PAGES
+      }
       store[slug] = { title: title ?? slug, body, updatedAt: new Date().toISOString() }
       saveWiki(path, store)
       return { ok: true }
@@ -144,7 +185,11 @@ export function registerWikiMethods(): void {
     cap: 'wiki-write',
     handler: (params, ctx) => {
       const { slug, scope } = (params ?? {}) as { slug: string; scope?: StoreScope }
-      const path = wikiStorePath(scope ?? 'project', ctx.identity.sessionId)
+      const resolvedScope = scope ?? 'project'
+      if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'workspace-wide')) {
+        throw needsElevation('workspace-wide')
+      }
+      const path = wikiStorePath(resolvedScope, ctx.identity.sessionId)
       if (typeof path !== 'string') return path
       const store = loadWiki(path)
       delete store[slug]

@@ -104,6 +104,11 @@ export class CommandRegistry {
    * Execute a command by id against an explicit context. Never throws — returns a
    * uniform CommandResult so the socket/CLI can map it to an exit status. This is
    * what the command bridge (Slice 6) calls with the caller-supplied target context.
+   *
+   * NOTE: intentionally NOT capability-checked here — this registry runs in-renderer,
+   * Pine's own trusted UI, which holds no capability set of its own. Capabilities gate
+   * external callers at the socket/broker boundary (`controlServer.ts`'s `command.exec`),
+   * not this in-process call path.
    */
   async execWith<Args, R = unknown>(
     ctx: CommandContext,
