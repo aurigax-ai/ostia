@@ -6,6 +6,7 @@ import {
   firstPaneId,
   firstPaneOfKind,
   movePane,
+  paneIds,
   setPaneCwd,
   setPaneEditor,
   setSizes,
@@ -61,30 +62,43 @@ function patch(
 export const useLayoutStore = create<LayoutState>((set, get) => ({
   bySession: {},
 
-  ensure: (sessionId) =>
+  ensure: (sessionId) => {
+    let createdPaneId: string | null = null
     set((s) => {
       if (s.bySession[sessionId]) return s
       const workDir = useSessionsStore
         .getState()
         .sessions.find((sess) => sess.id === sessionId)?.workDir
+      const root = createPane('terminal', undefined, workDir)
+      createdPaneId = firstPaneId(root)
       return {
         bySession: {
           ...s.bySession,
-          [sessionId]: layoutOf(createPane('terminal', undefined, workDir)),
+          [sessionId]: layoutOf(root),
         },
       }
-    }),
+    })
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+    }
+  },
 
-  split: (sessionId, paneId, direction) =>
+  split: (sessionId, paneId, direction) => {
+    let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, sessionId, (l) => {
-        const { root, newPaneId } = splitPane(l.root, paneId, direction)
-        return { root, activePaneId: newPaneId ?? l.activePaneId }
+        const result = splitPane(l.root, paneId, direction)
+        createdPaneId = result.newPaneId
+        return { root: result.root, activePaneId: result.newPaneId ?? l.activePaneId }
       })
       return next ?? s
-    }),
+    })
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+    }
+  },
 
-  closePane: (sessionId, paneId) =>
+  closePane: (sessionId, paneId) => {
     set((s) => {
       const next = patch(s, sessionId, (l) => {
         const root = closePane(l.root, paneId)
@@ -92,7 +106,9 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         return { root, activePaneId }
       })
       return next ?? s
-    }),
+    })
+    window.pine?.lifecycle?.emit?.({ type: 'pane-closed', sessionId, paneId })
+  },
 
   focusPane: (sessionId, paneId) =>
     set((s) => patch(s, sessionId, (l) => ({ ...l, activePaneId: paneId })) ?? s),
@@ -114,7 +130,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   setCwd: (sessionId, paneId, cwd) =>
     set((s) => patch(s, sessionId, (l) => ({ ...l, root: setPaneCwd(l.root, paneId, cwd) })) ?? s),
 
-  openFile: (sessionId, path) =>
+  openFile: (sessionId, path) => {
+    let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, sessionId, (l) => {
         const title = path.split('/').pop() || path
@@ -129,15 +146,27 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         // Otherwise split the focused pane and make the new one an editor.
         const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
         if (!newPaneId) return l
+        createdPaneId = newPaneId
         return { root: setPaneEditor(root, newPaneId, title, path), activePaneId: newPaneId }
       })
       return next ?? s
-    }),
+    })
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+    }
+  },
 
-  removeSession: (sessionId) =>
+  removeSession: (sessionId) => {
+    const layout = get().bySession[sessionId]
     set((s) => {
       if (!(sessionId in s.bySession)) return s
       const { [sessionId]: _removed, ...bySession } = s.bySession
       return { bySession }
-    }),
+    })
+    if (layout) {
+      for (const paneId of paneIds(layout.root)) {
+        window.pine?.lifecycle?.emit?.({ type: 'pane-closed', sessionId, paneId })
+      }
+    }
+  },
 }))
