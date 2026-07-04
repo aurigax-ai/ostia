@@ -3,6 +3,8 @@
  * Keep this dependency-free so every process can import it.
  */
 
+import type { Capability } from './capabilities'
+
 /** OS platform string (matches Node's `process.platform` values). */
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
 
@@ -158,6 +160,64 @@ export interface LifecycleApi {
   emit: (event: LifecycleEvent) => void
 }
 
+/**
+ * Command bridge wire types (Slice 6, spec §5.11 / §6). The renderer's command
+ * registry (`src/renderer/commands/registry.ts`) is the source of truth for these
+ * shapes; they live here (not there) so main/preload can reference them without
+ * reaching into renderer code.
+ */
+
+/** Minimal JSON-Schema stand-in (no validator dep yet; shape is opaque here). */
+export type JSONSchema = Record<string, unknown>
+
+/** How a command resolves the pane it acts on. */
+export type TargetMode = 'active' | 'explicit' | 'none'
+
+export type CommandErrorCode = 'unknown-command' | 'command-failed' | 'needs-elevation'
+
+export interface CommandError {
+  code: CommandErrorCode
+  message: string
+}
+
+/** Uniform result of executing a command (what the socket/CLI return). Discriminated on `ok`. */
+export type CommandResult<R = unknown> =
+  | { ok: true; result: R }
+  | { ok: false; error: CommandError }
+
+/** Serialized, stable view of a command for external discovery. */
+export interface CommandDescriptor {
+  id: string
+  title: string
+  category: string | null
+  hidden: boolean
+  argsSchema: JSONSchema | null
+  resultSchema: JSONSchema | null
+  capabilities: Capability[]
+  target: TargetMode
+}
+
+/** Explicit pane a non-UI caller (CLI / bridge) wants a command to act on. */
+export interface CommandTarget {
+  windowId?: string
+  sessionId: string
+  paneId: string | null
+}
+
+/** What main sends the renderer to invoke a command against an explicit target. */
+export interface CommandInvokeRequest {
+  id: string
+  args?: unknown
+  target: CommandTarget
+}
+
+export interface CommandsApi {
+  /** Renderer → main: publish this window's command descriptors (for `pine commands`). */
+  publish: (descriptors: CommandDescriptor[]) => void
+  /** Register the handler main calls to execute a command here; returns an unsubscribe fn. */
+  onInvoke: (handler: (req: CommandInvokeRequest) => Promise<CommandResult>) => () => void
+}
+
 /** The typed API surface the preload bridge exposes on `window.pine`. */
 export interface PineBridge {
   /** Liveness check round-trip to main. */
@@ -178,6 +238,8 @@ export interface PineBridge {
   settings: SettingsApi
   /** UI lifecycle event reporting, backing the main-side pane id/token registry. */
   lifecycle: LifecycleApi
+  /** Command bridge: publish this window's commands + accept invocations from main. */
+  commands: CommandsApi
 }
 
 declare global {
