@@ -47,6 +47,29 @@ export interface GatewayControlDeps {
    * open at all.
    */
   primaryWindowId: () => string | undefined
+  /**
+   * Phase C batch 3 (contract §6): live PTY streaming for a paired phone. Registers a
+   * subscriber on the desktop's existing multi-subscriber `PtySession` (`index.ts`'s `ptys`
+   * map) — `role:'observer'` (read-only) or `'owner'` — returning the resume cursor/drop flag/
+   * pty dimensions plus a `detach`. Returns null when `rendererPaneId` has no live pty.
+   *
+   * NOT dispatched through `dispatchGatewayMethod` below: `pty.attach`/`pty.detach` need a
+   * live, per-socket `sendData` bound to the actual `ws` connection (for binary `0x01` output
+   * frames) and per-socket detach-fn tracking (for `pty.detach` / WS-close cleanup) — neither
+   * fits the pure `Promise<RpcOutcome>` shape every other method returns. `server.ts` handles
+   * `pty.attach`/`pty.detach` inline instead, the same way it already special-cases `hello`/
+   * `whoami` before ever reaching this switch (see the pinned "pty.attach is method-not-found
+   * here" test in `controlDispatch.test.ts`).
+   */
+  attachPhoneObserver: (
+    rendererPaneId: string,
+    opts: { sinceCursor?: number; role?: 'observer' | 'owner'; sendData: (data: string) => void },
+  ) => { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null
+  /** Resize a pane's pty (SIGWINCH) — called from `server.ts`'s binary `0x03` frame handler. */
+  ptyResize: (rendererPaneId: string, cols: number, rows: number) => void
+  /** Write input bytes into a pane's pty — called from `server.ts`'s binary `0x02` frame
+   *  handler, only once it's confirmed the socket is attached as `owner`. */
+  ptyWrite: (rendererPaneId: string, data: string) => void
 }
 
 export type RpcOutcome =

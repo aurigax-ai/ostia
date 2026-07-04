@@ -36,7 +36,7 @@ import { registerNotifyMethods } from './notify'
 import { listPanes, listSessions, registerPaneListMethods } from './paneList'
 import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
-import { PtySession } from './ptySession'
+import { PtySession, type SubscriberRole } from './ptySession'
 import { removeSession, setSessionWorkDir } from './sessionRegistry'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
@@ -609,6 +609,65 @@ function primaryWindowId(): string | undefined {
   return [...windows.keys()][0]
 }
 
+let gwSubSeq = 0
+
+/**
+ * Register a paired phone as a subscriber on a pane's live `PtySession` (Phase C batch 3, LAN
+ * gateway PTY streaming, contract §6) — the gateway-facing counterpart to `registerPtyIpc`'s
+ * `pty:attach` IPC handler above, reusing the exact same multi-subscriber `PtySession` (no
+ * separate buffering/replay path for phones). `rendererPaneId` is main's INTERNAL pane id (the
+ * gateway resolves the phone's external id via `idRegistry` before calling this); returns null
+ * if there's no live pty for it (unknown/closed pane — `server.ts` turns that into an
+ * invalid-params error). `role:'owner'` is honored as requested — gating "owner needs the
+ * device's `input` cap" is the caller's (`server.ts`'s) job, same as `pty:attach`'s IPC
+ * counterpart trusts its caller's `opts.role`. The returned `detach` lets the caller
+ * (`server.ts`) drop the subscription on `pty.detach` or WS close, mirroring
+ * `ipcMain.on('pty:detach', ...)`'s `removeSubscriber` below.
+ */
+export function attachPhoneObserver(
+  rendererPaneId: string,
+  opts: {
+    sinceCursor?: number
+    role?: 'observer' | 'owner'
+    sendData: (data: string) => void
+  },
+): { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null {
+  const entry = ptys.get(rendererPaneId)
+  if (!entry) return null
+  const id = `gw-${++gwSubSeq}`
+  const role: SubscriberRole = opts.role === 'owner' ? 'owner' : 'observer'
+  const { cursor, dropped } = entry.session.addSubscriber(
+    { id, role, send: (data) => opts.sendData(data) },
+    opts.sinceCursor ?? 0,
+  )
+  return {
+    cursor,
+    dropped,
+    cols: entry.pty.cols,
+    rows: entry.pty.rows,
+    detach: () => entry.session.removeSubscriber(id),
+  }
+}
+
+/** Resize a pane's pty (SIGWINCH) — the gateway's counterpart to `ipcMain.on('pty:resize', ...)`
+ *  above, called from `server.ts`'s binary `0x03` resize-frame handler. No-op if the pane has no
+ *  live pty (already detached/closed) or mid-teardown. */
+export function ptyResize(rendererPaneId: string, cols: number, rows: number): void {
+  try {
+    ptys.get(rendererPaneId)?.pty.resize(cols || 80, rows || 24)
+  } catch {
+    // resize can throw mid-teardown; ignore
+  }
+}
+
+/** Write input bytes into a pane's pty — the gateway's counterpart to `ipcMain.on('pty:write',
+ *  ...)` above, called from `server.ts`'s binary `0x02` input-frame handler ONLY once the caller
+ *  has confirmed the socket is attached as `owner` (this helper itself does no cap/role check,
+ *  same posture as `ptyResize`). No-op if the pane has no live pty. */
+export function ptyWrite(rendererPaneId: string, data: string): void {
+  ptys.get(rendererPaneId)?.pty.write(data)
+}
+
 let reqSeq = 0
 
 /**
@@ -668,7 +727,9 @@ app.whenReady().then(() => {
   // The gateway's phone-facing control API (batch 2, `gateway/controlDispatch.ts`) needs the
   // same deps as the local control socket, plus the workspace-wide `listPanes`/`listSessions`
   // reads and the kanban board — wired regardless of whether the gateway is actually running
-  // (it's OFF by default; these are just the deps it'll use once enabled).
+  // (it's OFF by default; these are just the deps it'll use once enabled). `attachPhoneObserver`/
+  // `ptyResize`/`ptyWrite` (batch 3, contract §6) are called directly by `gateway/server.ts`'s
+  // socket handling, not through `dispatchGatewayMethod` — see `GatewayControlDeps`'s docstring.
   configureGatewayControl({
     execCommand,
     listCommandsFor,
@@ -677,6 +738,9 @@ app.whenReady().then(() => {
     listSessions: () => listSessions({ execCommand }),
     kanbanGet,
     primaryWindowId,
+    attachPhoneObserver,
+    ptyResize,
+    ptyWrite,
   })
   // Same allow-list as `fs:*` (see `registerFsIpc`) — `browse.screenshot`'s caller-supplied
   // `path` gets the same containment, closing the arbitrary-write hole a bare `writeFileSync`

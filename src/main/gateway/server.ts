@@ -6,10 +6,13 @@
  * must NOT call it from `app.whenReady()` (contract §0: "off by default").
  *
  * Batch 1 wired only `hello` device-token auth on the WS connection (returning `caps` + a
- * `whoami`-style echo). Batch 2 (this revision) adds the full text-channel JSON-RPC control API
- * (contract §7: `session.list`/`pane.list`/`command.list`/`command.exec`/`pane.info`/`cwd.get`/
- * `board.get`) — dispatched via `controlDispatch.ts`'s pure `dispatchGatewayMethod`, wired up
- * here with the actual `ws.send` I/O. The binary PTY stream (contract §6) is still a later batch.
+ * `whoami`-style echo). Batch 2 adds the full text-channel JSON-RPC control API (contract §7:
+ * `session.list`/`pane.list`/`command.list`/`command.exec`/`pane.info`/`cwd.get`/`board.get`) —
+ * dispatched via `controlDispatch.ts`'s pure `dispatchGatewayMethod`, wired up here with the
+ * actual `ws.send` I/O. Batch 3 (this revision) adds the binary PTY stream (contract §6):
+ * `pty.attach`/`pty.detach` are handled INLINE here (not through `dispatchGatewayMethod` — see
+ * `GatewayControlDeps`'s docstring for why), and incoming binary WS frames (`0x02` input /
+ * `0x03` resize) are parsed in the `message` handler below instead of being dropped.
  *
  * Origin/host posture: this server has no legitimate browser-page caller (it serves no HTML —
  * only `/pair` and `/ws`), so ANY `Origin` header at all is treated as a hostile cross-origin
@@ -20,10 +23,16 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { type Server as HttpsServer, createServer as createHttpsServer } from 'node:https'
 import { app } from 'electron'
 import { type WebSocket, WebSocketServer } from 'ws'
+import { resolveExternal } from '../idRegistry'
 import { type GatewayCert, getCert } from './cert'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
 import { type Device, list as listDevices, registerDevice, verifyToken } from './devices'
 import { consumeCode } from './pairing'
+
+/** Binary WS frame type bytes (contract §6.2): `[1-byte type][payload]`. */
+const FRAME_PTY_OUTPUT = 0x01 // server -> client: raw pty output bytes
+const FRAME_PTY_INPUT = 0x02 // client -> server: raw input bytes (owner + `input` cap only)
+const FRAME_PTY_RESIZE = 0x03 // client -> server: JSON `{cols,rows}`
 
 export interface GatewayStartOptions {
   host?: string
@@ -58,10 +67,24 @@ let boundHost: string | null = null
 let boundPort: number | null = null
 let currentFingerprint: string | null = null
 
+/**
+ * A socket's currently-attached PTY stream (contract §6) — v1 keeps it simple, one attached
+ * pane per WS (the contract's §6.2 multiplexing note), so a socket needs at most one of these
+ * at a time. `canWrite` is decided once, at `pty.attach` time (role `'owner'` AND the device
+ * holds the `input` cap) — the binary-frame handler consults it rather than re-deriving it.
+ */
+interface PtyAttachment {
+  /** Main's INTERNAL pane id (already resolved from the phone's external id). */
+  rendererPaneId: string
+  canWrite: boolean
+  detach: () => void
+}
+
 /** Per-connection state: the authed device once `hello` succeeds (null until then). */
 interface SocketState {
   device: Device | null
   alive: boolean
+  ptyAttachment: PtyAttachment | null
 }
 const sockets = new Map<WebSocket, SocketState>()
 
@@ -231,8 +254,153 @@ function handleControlMethod(
     })
 }
 
+/** Frame a `0x01` server->client PTY-output binary WS frame (contract §6.2): `[type][utf8 data]`. */
+function ptyOutputFrame(data: string): Buffer {
+  return Buffer.concat([Buffer.from([FRAME_PTY_OUTPUT]), Buffer.from(data, 'utf8')])
+}
+
+/**
+ * `pty.attach` (contract §6.1): resolve the phone's external `paneId` (from `pane.list`) to
+ * main's internal renderer-pane id via `idRegistry`, then subscribe this socket on that pane's
+ * live `PtySession` through the `attachPhoneObserver` dep, streaming output back as binary
+ * `0x01` frames. Handled INLINE (not through `dispatchGatewayMethod`) because it needs a live
+ * `sendData` bound to this exact `ws` plus per-socket detach tracking — see
+ * `GatewayControlDeps`'s docstring.
+ *
+ * Read-only (`observer`) by default; `role:'owner'` is only honored when the device also holds
+ * the phone-facing `input` cap — otherwise it's silently downgraded to `observer` rather than
+ * rejected outright (same degrade-gracefully posture as the rest of the gateway). A second
+ * `pty.attach` on the same socket replaces the first (v1: one attached pane's stream per WS,
+ * per the contract's §6.2 multiplexing note) — the old subscription is detached first so it
+ * never leaks.
+ */
+function handlePtyAttach(
+  ws: WebSocket,
+  state: SocketState,
+  device: Device,
+  msg: { id?: unknown; params?: unknown },
+): void {
+  if (!controlDeps) {
+    ws.send(rpcError(msg.id, -32603, 'gateway control API not configured'))
+    return
+  }
+  if (!device.caps.includes('read')) {
+    ws.send(rpcError(msg.id, -32003, 'needs-elevation', { cap: 'read' }))
+    return
+  }
+  const p = (msg.params ?? {}) as { paneId?: unknown; role?: unknown; sinceCursor?: unknown }
+  if (typeof p.paneId !== 'string' || !p.paneId) {
+    ws.send(rpcError(msg.id, -32602, 'missing paneId'))
+    return
+  }
+  const identity = resolveExternal(p.paneId)
+  if (!identity) {
+    ws.send(rpcError(msg.id, -32602, 'unknown paneId'))
+    return
+  }
+  const wantsOwner = p.role === 'owner'
+  const role: 'observer' | 'owner' =
+    wantsOwner && device.caps.includes('input') ? 'owner' : 'observer'
+  const sinceCursor = typeof p.sinceCursor === 'number' ? p.sinceCursor : 0
+
+  // Replace any prior attachment on this socket rather than leaking its subscriber.
+  state.ptyAttachment?.detach()
+  state.ptyAttachment = null
+
+  const attached = controlDeps.attachPhoneObserver(identity.paneId, {
+    sinceCursor,
+    role,
+    sendData: (data) => {
+      if (ws.readyState === ws.OPEN) ws.send(ptyOutputFrame(data))
+    },
+  })
+  if (!attached) {
+    ws.send(rpcError(msg.id, -32602, 'unknown pane (no live pty)'))
+    return
+  }
+  state.ptyAttachment = {
+    rendererPaneId: identity.paneId,
+    canWrite: role === 'owner',
+    detach: attached.detach,
+  }
+  ws.send(
+    rpcResult(msg.id, {
+      cursor: attached.cursor,
+      dropped: attached.dropped,
+      cols: attached.cols,
+      rows: attached.rows,
+    }),
+  )
+}
+
+/**
+ * `pty.detach` (contract §6.1): stop streaming to this socket. `paneId` is accepted for
+ * contract-shape parity but v1 tracks a single attachment per socket — a detach naming a pane
+ * that isn't the currently-attached one is a no-op (there's nothing else to drop), not an error.
+ */
+function handlePtyDetach(
+  ws: WebSocket,
+  state: SocketState,
+  msg: { id?: unknown; params?: unknown },
+): void {
+  const p = (msg.params ?? {}) as { paneId?: unknown }
+  if (state.ptyAttachment && typeof p.paneId === 'string') {
+    const identity = resolveExternal(p.paneId)
+    if (identity && identity.paneId !== state.ptyAttachment.rendererPaneId) {
+      ws.send(rpcResult(msg.id, { ok: true }))
+      return
+    }
+  }
+  state.ptyAttachment?.detach()
+  state.ptyAttachment = null
+  ws.send(rpcResult(msg.id, { ok: true }))
+}
+
+/**
+ * Incoming BINARY WS frames from the phone (contract §6.2): `[1-byte type][payload]`.
+ * - `0x02` input bytes: only honored if this socket is attached as `owner` with the `input`
+ *   cap (`state.ptyAttachment.canWrite`) — otherwise dropped + a `-32003` notification, per the
+ *   contract's "otherwise dropped + a -32003 event".
+ * - `0x03` resize: `{cols,rows}` JSON payload → `ptyResize`. NOT gated on `canWrite` — resizing
+ *   only reshapes the shared view (SIGWINCH), it can't inject content, and an `observer` phone
+ *   legitimately wants the mirrored pty to fit its own screen.
+ * - Anything else (including a frame with no active attachment) is ignored, per "ignore unknown
+ *   types".
+ */
+function handleBinaryFrame(ws: WebSocket, state: SocketState, data: Buffer): void {
+  if (!state.device || !controlDeps || data.length < 1) return
+  const type = data[0]
+  const payload = data.subarray(1)
+  const attachment = state.ptyAttachment
+
+  if (type === FRAME_PTY_INPUT) {
+    if (!attachment?.canWrite) {
+      ws.send(rpcError(null, -32003, 'needs-elevation', { cap: 'input' }))
+      return
+    }
+    controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'))
+    return
+  }
+
+  if (type === FRAME_PTY_RESIZE) {
+    if (!attachment) return
+    let resize: { cols?: unknown; rows?: unknown }
+    try {
+      resize = JSON.parse(payload.toString('utf8'))
+    } catch {
+      return
+    }
+    if (typeof resize.cols === 'number' && typeof resize.rows === 'number') {
+      controlDeps.ptyResize(attachment.rendererPaneId, resize.cols, resize.rows)
+    }
+    return
+  }
+
+  // Unknown type byte — ignore (contract §6.2).
+}
+
 function handleConnection(ws: WebSocket): void {
-  const state: SocketState = { device: null, alive: true }
+  const state: SocketState = { device: null, alive: true, ptyAttachment: null }
   sockets.set(ws, state)
 
   ws.on('pong', () => {
@@ -240,9 +408,12 @@ function handleConnection(ws: WebSocket): void {
   })
 
   ws.on('message', (data, isBinary) => {
-    // Batch 1 only speaks the text/JSON-RPC control channel; the binary PTY stream (contract
-    // §6.2) is a later batch — drop binary frames rather than mis-parsing them as JSON.
-    if (isBinary) return
+    // Binary frames (contract §6.2) are the PTY input/resize channel — never JSON, handled
+    // separately from the text/JSON-RPC control channel below.
+    if (isBinary) {
+      handleBinaryFrame(ws, state, data as Buffer)
+      return
+    }
     let msg: { jsonrpc?: unknown; id?: unknown; method?: unknown; params?: unknown }
     try {
       msg = JSON.parse(data.toString('utf8'))
@@ -263,10 +434,25 @@ function handleConnection(ws: WebSocket): void {
       handleWhoami(ws, state, msg)
       return
     }
+    if (msg.method === 'pty.attach') {
+      handlePtyAttach(ws, state, state.device, msg)
+      return
+    }
+    if (msg.method === 'pty.detach') {
+      handlePtyDetach(ws, state, msg)
+      return
+    }
     handleControlMethod(ws, state.device, msg)
   })
 
-  ws.on('close', () => sockets.delete(ws))
+  ws.on('close', () => {
+    // Mirror the ghost-owner care already in the pty code (`ptySession.ts`'s
+    // `removeSubscriber`/`onNoOwners`) — a dropped connection must not leak a subscriber that
+    // outlives it, whether the socket closed cleanly (`pty.detach`) or not.
+    state.ptyAttachment?.detach()
+    state.ptyAttachment = null
+    sockets.delete(ws)
+  })
 }
 
 /** Ping every open connection; terminate any that didn't pong since the last sweep (contract §6.3). */
