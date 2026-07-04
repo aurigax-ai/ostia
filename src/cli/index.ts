@@ -42,6 +42,26 @@ async function main(): Promise<void> {
     } else if (cmd === 'cwd') {
       const res = await conn.sendRequest<{ cwd: string | null }>('cwd.get')
       console.log(res.cwd ?? '')
+    } else if (cmd === 'notify') {
+      const title = process.argv[3]
+      const body = process.argv[4]
+      await conn.sendRequest('notify', { title, body })
+      console.log('ok')
+    } else if (cmd === 'open') {
+      const path = process.argv[3]
+      const res = await conn.sendRequest<CommandResult>('command.exec', {
+        id: 'editor.open',
+        args: { path },
+      })
+      if (res.ok) {
+        console.log('ok')
+      } else {
+        console.error('pine:', res.error?.message)
+        process.exitCode = 1
+      }
+    } else if (cmd === 'docs') {
+      const res = await conn.sendRequest<{ cli: string }>('docs')
+      console.log(res.cli)
     } else if (cmd) {
       // Any other verb is treated as a command id, with an optional JSON args blob
       // as the 2nd argv (e.g. `pine pane.splitRight` or `pine pane.write '"ls\n"'`).
@@ -56,7 +76,9 @@ async function main(): Promise<void> {
         process.exitCode = 1
       }
     } else {
-      console.error(`pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd)`)
+      console.error(
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs)`,
+      )
       process.exitCode = 1
     }
   } catch (e) {
