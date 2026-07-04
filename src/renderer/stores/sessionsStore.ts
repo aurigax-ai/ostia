@@ -30,6 +30,10 @@ interface SessionsState {
   closeSession: (id: string) => void
   /** Re-anchor a session (backs the `workspace <path>` shell command). */
   setWorkDir: (id: string, workDir: string) => void
+  /** Update a session's live state (rail color/motion) and mirror the change to main so the
+   *  gateway can emit `session.state`/`agent.needs-input`/`agent.done` (contract §7). No-op if
+   *  the session is unknown or already in that state (avoids a spurious lifecycle emit). */
+  setState: (id: string, state: SessionState) => void
 }
 
 let seq = 0
@@ -98,6 +102,15 @@ export const useSessionsStore = create<SessionsState>((set, get) => {
         ),
       }))
       window.pine?.lifecycle?.emit?.({ type: 'session-added', sessionId: id, workDir })
+    },
+
+    setState: (id, state) => {
+      const current = get().sessions.find((c) => c.id === id)
+      if (!current || current.state === state) return
+      set((s) => ({
+        sessions: s.sessions.map((c) => (c.id === id ? { ...c, state } : c)),
+      }))
+      window.pine?.lifecycle?.emit?.({ type: 'session-state', sessionId: id, state })
     },
   }
 })

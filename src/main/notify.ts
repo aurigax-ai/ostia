@@ -6,6 +6,7 @@
  */
 import { Notification } from 'electron'
 import { registerControlMethod } from './controlServer'
+import { emitPlatformEvent } from './events'
 import { loadJson, saveJson, storePath } from './jsonStore'
 
 interface NotifyEntry {
@@ -37,12 +38,11 @@ export function registerNotifyMethods(): void {
       if (Notification.isSupported()) {
         new Notification({ title, body }).show()
       }
-      appendEntry({
-        ts: new Date().toISOString(),
-        title,
-        body,
-        from: ctx.identity.paneId,
-      })
+      const from = ctx.identity.paneId
+      appendEntry({ ts: new Date().toISOString(), title, body, from })
+      // Push to the phone (contract §7's `notify` event) — no hard dependency on the gateway:
+      // this fires into the bus regardless of whether it's running/listening.
+      emitPlatformEvent('notify', { title, body, from })
       return { ok: true }
     },
   })

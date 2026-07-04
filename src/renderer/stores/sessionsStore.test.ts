@@ -191,6 +191,53 @@ describe('sessionsStore', () => {
     })
   })
 
+  describe('setState', () => {
+    it("updates the target session's state and mirrors a session-state lifecycle event", () => {
+      const id = sessions()[0].id
+      const emitSpy = vi.mocked(window.pine.lifecycle.emit)
+
+      useSessionsStore.getState().setState(id, 'waiting')
+
+      expect(sessions().find((s) => s.id === id)?.state).toBe('waiting')
+      expect(emitSpy).toHaveBeenCalledWith({
+        type: 'session-state',
+        sessionId: id,
+        state: 'waiting',
+      })
+    })
+
+    it('touches ONLY the target session, leaving the others untouched', () => {
+      useSessionsStore.getState().addSession('/a/one')
+      useSessionsStore.getState().addSession('/c/three')
+      const [a, b, c] = sessions()
+
+      useSessionsStore.getState().setState(b.id, 'working')
+
+      const [na, nb, nc] = sessions()
+      expect(nb.state).toBe('working')
+      expect(na).toBe(a)
+      expect(nc).toBe(c)
+    })
+
+    it('is a no-op (no state change, no emit) when the session is already in that state', () => {
+      const id = sessions()[0].id
+      expect(sessions().find((s) => s.id === id)?.state).toBe('idle')
+      const emitSpy = vi.mocked(window.pine.lifecycle.emit)
+
+      useSessionsStore.getState().setState(id, 'idle')
+
+      expect(emitSpy).not.toHaveBeenCalled()
+    })
+
+    it('is a no-op for an unknown session id', () => {
+      const emitSpy = vi.mocked(window.pine.lifecycle.emit)
+
+      useSessionsStore.getState().setState('does-not-exist', 'done')
+
+      expect(emitSpy).not.toHaveBeenCalled()
+    })
+  })
+
   describe('nameFromWorkDir (via setWorkDir)', () => {
     it('strips a trailing slash: "/foo/bar/" → "bar"', () => {
       const id = sessions()[0].id
