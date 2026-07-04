@@ -767,15 +767,53 @@ function describeBrowseError(res: BrowseErr): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
+interface BrowseBufferEntry {
+  level: string
+  text: string
+  ts: number
+}
+interface BrowseBufferOk {
+  ok: true
+  entries: BrowseBufferEntry[]
+}
+
+/** Shared CLI plumbing for `console`/`errors` — identical request/response shape
+ *  (`{sub:'list'|'clear', paneId}` → `{ok:true, entries}` on list, `{ok:true}` on clear),
+ *  differing only in the RPC method name and which label to print on a bad `sub`. */
+async function runBrowseBufferSub(
+  conn: MessageConnection,
+  method: 'browse.console' | 'browse.errors',
+  label: string,
+  bufSub: string | undefined,
+  paneId: string | undefined,
+): Promise<void> {
+  const resolvedSub = bufSub || 'list'
+  if (resolvedSub !== 'list' && resolvedSub !== 'clear') {
+    console.error(`pine browse ${label}: expected [list|clear]`)
+    process.exitCode = 1
+    return
+  }
+  const res = await conn.sendRequest<BrowseBufferOk | BrowseOk | BrowseErr>(method, {
+    sub: resolvedSub,
+    paneId,
+  })
+  if (!res.ok) {
+    console.error(`pine: browse ${label} failed (${describeBrowseError(res)})`)
+    process.exitCode = 1
+    return
+  }
+  console.log(resolvedSub === 'clear' ? 'ok' : JSON.stringify('entries' in res ? res.entries : []))
+}
+
 /**
  * `pine browse <open|nav|read|click|type|dblclick|hover|focus|check|uncheck|scroll-into-view|
  * fill|select|scroll|press|keydown|keyup|eval|wait|screenshot|content|snapshot|get|is|find|
  * highlight|url|zoom|devtools|focus-webview|is-webview-focused|identify|cookies|storage|state|
- * history|addscript|addstyle|addinitscript>` — agent automation of the in-app `browser` pane's
- * guest page (elevated `browse` capability; see `src/main/browse.ts`). `--pane <externalId>`
- * targets a specific browser pane (another pane's `pine whoami` id, relayed the same way as the
- * "no pane roster yet" coordination recipe in the `pine` skill); omitted, it defaults to the
- * caller's own session's browser pane.
+ * history|addscript|addstyle|addinitscript|console|errors|frame|download|navigate|open-split>`
+ * — agent automation of the in-app `browser` pane's guest page (elevated `browse` capability;
+ * see `src/main/browse.ts`). `--pane <externalId>` targets a specific browser pane (another
+ * pane's `pine whoami` id, relayed the same way as the "no pane roster yet" coordination recipe
+ * in the `pine` skill); omitted, it defaults to the caller's own session's browser pane.
  *
  * `snapshot`/`find` assign `eN` refs to elements (valid until the next navigation); anywhere
  * else a `<selector>` is accepted, `@eN` or `eN` works too (`browse.ts`'s injected
@@ -784,7 +822,14 @@ function describeBrowseError(res: BrowseErr): string {
  *
  * `cookies`/`storage`/`state` act on this pane's OWN cookie/storage jar — every browser pane
  * has an isolated `partition` (`BrowserView.tsx`), never shared across panes. `state`'s `<path>`
- * is allow-listed the same way `screenshot`'s is.
+ * is allow-listed the same way `screenshot`'s is; so is `download wait`'s `--path`.
+ *
+ * `console`/`errors` read/clear this surface's buffered `console-message`s (capped ~500);
+ * `errors` is the error-level / uncaught-exception subset (an injected catcher reports
+ * `window.onerror`/`onunhandledrejection` into it too). `frame <selector|main>` points
+ * subsequent selector-driven verbs at an iframe's document (`main`/`top` resets to the page).
+ * `navigate` is `open` without the auto-create fallback (fails if no surface exists yet);
+ * `open-split` is the inverse — always creates a new browser pane (a split), never reuses one.
  */
 async function runBrowseVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
@@ -800,6 +845,7 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
     'ms',
     'url',
     'domain',
+    'path',
   ])
   const paneId = flags.pane || undefined
   const interactive = rest.includes('--interactive')
@@ -1453,9 +1499,75 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       console.error(`pine: browse addinitscript failed (${describeBrowseError(res)})`)
       process.exitCode = 1
     }
+  } else if (sub === 'console') {
+    await runBrowseBufferSub(conn, 'browse.console', 'console', rest[0], paneId)
+  } else if (sub === 'errors') {
+    await runBrowseBufferSub(conn, 'browse.errors', 'errors', rest[0], paneId)
+  } else if (sub === 'frame') {
+    const selector = rest[0]
+    if (!selector) {
+      console.error('pine browse frame: missing <selector|main>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.frame', { selector, paneId })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse frame failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'download') {
+    const downloadSub = rest[0]
+    if (downloadSub !== 'wait') {
+      console.error('pine browse download: missing <wait>')
+      process.exitCode = 1
+      return
+    }
+    const timeoutMs = flags.timeout ? Number(flags.timeout) : undefined
+    const res = await conn.sendRequest<
+      { path: string; filename: string; state: string } | { timedOut: true } | BrowseErr
+    >('browse.download', {
+      sub: downloadSub,
+      path: flags.path || undefined,
+      timeoutMs,
+      paneId,
+    })
+    if ('timedOut' in res) {
+      console.log(JSON.stringify(res))
+      process.exitCode = 1
+    } else if ('path' in res) {
+      console.log(JSON.stringify(res))
+    } else {
+      console.error(`pine: browse download failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'navigate') {
+    const url = rest[0]
+    if (!url) {
+      console.error('pine browse navigate: missing <url>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.navigate', { url, paneId })
+    if (res.ok) {
+      console.log(JSON.stringify(res))
+    } else {
+      console.error(`pine: browse navigate failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'open-split') {
+    const url = rest[0]
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.openSplit', { url, paneId })
+    if (res.ok) {
+      console.log(JSON.stringify(res))
+    } else {
+      console.error(`pine: browse open-split failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
   } else {
     console.error(
-      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content, snapshot, get, is, find, highlight, url, zoom, devtools, focus-webview, is-webview-focused, identify, cookies, storage, state, history, addscript, addstyle, addinitscript)`,
+      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content, snapshot, get, is, find, highlight, url, zoom, devtools, focus-webview, is-webview-focused, identify, cookies, storage, state, history, addscript, addstyle, addinitscript, console, errors, frame, download, navigate, open-split)`,
     )
     process.exitCode = 1
   }
