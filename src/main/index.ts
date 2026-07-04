@@ -18,6 +18,7 @@ import type {
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerPane, removePane, removeWindow } from './idRegistry'
 import { killAllLsp, registerLspIpc } from './lsp'
+import { resolveSafe } from './pathGuard'
 import { PtySession } from './ptySession'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 
@@ -405,11 +406,22 @@ function registerPtyIpc(): void {
   ipcMain.on('pty:kill', (_e, paneId: string) => killPty(paneId))
 }
 
-/** Read-only filesystem access for the explorer. */
+/** Filesystem access for the explorer + editor, confined to an allow-list of roots. */
 function registerFsIpc(): void {
+  // Contain fs:* to the user's home + the app's userData dir (which holds settings.json and is
+  // normally under home anyway). This closes the path-traversal hole — a renderer/compromised
+  // extension can no longer read /etc/passwd or escape via ../ through these handlers (see
+  // src/main/pathGuard.ts + CLAUDE.md §8). The terminal (node-pty) is unaffected: it can still
+  // run anywhere; only the explorer/editor's file reads/writes are contained. Rejected paths
+  // degrade to the same empty/null/false results as any other fs error. To browse outside home,
+  // add roots here.
+  const allowedRoots = [homedir(), app.getPath('userData')]
+
   ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
+    const safe = resolveSafe(dir, allowedRoots)
+    if (safe === null) return []
     try {
-      return readdirSync(expandHome(dir), { withFileTypes: true })
+      return readdirSync(safe, { withFileTypes: true })
         .map((d) => ({ name: d.name, dir: d.isDirectory() }))
         .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
     } catch {
@@ -418,16 +430,20 @@ function registerFsIpc(): void {
   })
 
   ipcMain.handle('fs:read', (_e, path: string): string | null => {
+    const safe = resolveSafe(path, allowedRoots)
+    if (safe === null) return null
     try {
-      return readFileSync(expandHome(path), 'utf8')
+      return readFileSync(safe, 'utf8')
     } catch {
       return null
     }
   })
 
   ipcMain.handle('fs:write', (_e, path: string, content: string): boolean => {
+    const safe = resolveSafe(path, allowedRoots)
+    if (safe === null) return false
     try {
-      writeFileSync(expandHome(path), content, 'utf8')
+      writeFileSync(safe, content, 'utf8')
       return true
     } catch {
       return false

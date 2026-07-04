@@ -164,11 +164,13 @@ v8 coverage) and `vitest.workspace.ts` (three projects). See
 
 ## 8. Known gaps & latent bugs
 
-- **fs path-traversal (unfixed in `main/index.ts`).** `fs:read` / `fs:write` / `fs:list` run user
-  paths through `expandHome()` with **no traversal guard** — they can read `/etc/passwd`, write
-  outside any root, or escape via `../`. A ready, tested fix lives in **`src/main/pathGuard.ts`**
-  (`resolveSafe` / `isPathAllowed`, with the sibling-prefix boundary handled) — wire the fs handlers
-  to it to close the hole. Its green proof is `src/main/pathGuard.test.ts`.
+- **fs path-traversal — FIXED.** `fs:read` / `fs:write` / `fs:list` now route user paths through
+  `resolveSafe()` (**`src/main/pathGuard.ts`**, boundary-correct incl. sibling-prefix), confining
+  access to `[homedir(), userData]`. Reads/writes/lists outside home (e.g. `/etc/passwd`) or `../`
+  escapes return the normal empty/null/false error result. The terminal (node-pty) is unaffected —
+  it still runs anywhere; only the explorer/editor file access is contained. To browse outside home,
+  broaden `allowedRoots` in `registerFsIpc` (`main/index.ts`). Proof: `src/main/pathGuard.test.ts`
+  (unit) + `e2e/security.spec.ts` (end-to-end, real app).
 - **Latent bugs (harmless today; documented for whoever owns the source):**
   - `layout/tree.ts` `setPaneEditor`: cwd = `path.slice(0, path.lastIndexOf('/')) || '/'` returns a
     truncated string (`'notes.tx'` for `'notes.txt'`) when the path has no `/`. Fine today — `openFile`
