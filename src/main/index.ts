@@ -23,7 +23,9 @@ import { registerNotifyMethods } from './notify'
 import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { PtySession } from './ptySession'
+import { removeSession, setSessionWorkDir } from './sessionRegistry'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
+import { registerVaultMethods } from './vault'
 
 /** True when launched by `electron-vite dev` (renderer served from a dev URL). */
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
@@ -111,13 +113,6 @@ const commandsByWindow = new Map<string, CommandDescriptor[]>()
  * cached one, so a stale pre-reset snapshot racing behind a fresh one is dropped.
  */
 const terminalState = new Map<string, TerminalStateSnapshot>()
-
-/**
- * Session → workDir registry, fed by the `session-added` lifecycle event. Main-side
- * services (wiki/kanban/vault/process) key off the caller's paneId/sessionId but need
- * the project root to scope their reads/writes; this is how they get it.
- */
-const sessionWorkDirs = new Map<string, string>()
 
 /**
  * OS-native window framing, VSCode-style:
@@ -288,9 +283,9 @@ function registerIpc(): void {
       removePane(event.paneId)
       terminalState.delete(event.paneId)
     } else if (event.type === 'session-added') {
-      sessionWorkDirs.set(event.sessionId, event.workDir)
+      setSessionWorkDir(event.sessionId, event.workDir)
     } else if (event.type === 'session-closed') {
-      sessionWorkDirs.delete(event.sessionId)
+      removeSession(event.sessionId)
     } else if (event.type === 'session-activated') {
       // Session-scoped bookkeeping hook; panes already carry sessionId at creation.
     }
@@ -475,11 +470,6 @@ export function getTerminalState(paneId: string): TerminalStateSnapshot | undefi
   return terminalState.get(paneId)
 }
 
-/** The project workDir for a session, if known (fed by the `session-added` lifecycle event). */
-export function workDirForSession(sessionId: string | undefined): string | undefined {
-  return sessionId ? sessionWorkDirs.get(sessionId) : undefined
-}
-
 let reqSeq = 0
 
 /**
@@ -525,6 +515,7 @@ app.whenReady().then(() => {
   registerNotifyMethods()
   registerProcessMethods()
   registerDocsMethods()
+  registerVaultMethods()
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
 

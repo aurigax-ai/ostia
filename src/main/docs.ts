@@ -15,6 +15,10 @@ const CLI_HELP = `pine — control-socket CLI
   pine process logs <id|name> [--since N]         print captured output
   pine process kill <id|name>                     kill a tracked process
   pine process restart <id|name>                   kill (if running) and re-run
+  pine vault set <KEY> [--global]  store a secret (value read from stdin, no echo)
+  pine vault get <KEY> [--global]  print a stored secret
+  pine vault ls [--global]         list stored secret keys (never values)
+  pine vault rm <KEY> [--global]   delete a stored secret
   pine docs                      show this help
 
   pine <command-id> [jsonArgs]   run any registered command by id, with an
