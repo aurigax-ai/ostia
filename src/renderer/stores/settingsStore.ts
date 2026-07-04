@@ -56,6 +56,13 @@ interface SettingsState extends Persisted {
   setTheme: (t: ThemeId) => void
   setSurfaceFont: (surface: FontSurface, patch: Partial<SurfaceFont>) => void
   setBehavior: (patch: Partial<Behavior>) => void
+  /**
+   * Deep-set a dot-path (e.g. `appearance.terminal.size`) into the settings state,
+   * immutably, then schedule a save. The primitive behind the agent-facing
+   * `settings.set` command — tolerates unknown paths by creating the leaf rather
+   * than throwing, since an agent may set a key the schema doesn't know about yet.
+   */
+  setByPath: (path: string, value: unknown) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -112,6 +119,27 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setBehavior: (patch) => {
     set((s) => ({ behavior: { ...s.behavior, ...patch } }))
+    scheduleSave(get)
+  },
+  setByPath: (path, value) => {
+    const keys = path.split('.').filter(Boolean)
+    if (keys.length === 0) return
+    set((s) => {
+      const root: Record<string, unknown> = { ...(s as unknown as Record<string, unknown>) }
+      let cursor = root
+      for (let i = 0; i < keys.length - 1; i++) {
+        const key = keys[i]
+        const existing = cursor[key]
+        const next: Record<string, unknown> =
+          existing !== null && typeof existing === 'object' && !Array.isArray(existing)
+            ? { ...(existing as Record<string, unknown>) }
+            : {}
+        cursor[key] = next
+        cursor = next
+      }
+      cursor[keys[keys.length - 1]] = value
+      return root as Partial<SettingsState>
+    })
     scheduleSave(get)
   },
 }))

@@ -37,6 +37,8 @@ const CLI_HELP = `pine — control-socket CLI
   pine bus claim <id>                         claim a handoff addressed to you
   pine bus handoffs [--mine]                  list handoffs (all, or yours with --mine)
   pine bus done <id>                          mark a handoff completed
+  pine settings get [key]         print the whole settings state, or a dot-path value
+  pine settings set <key> <value> deep-set a dot-path (value parsed as JSON if it parses)
   pine docs                      show this help
 
   pine <command-id> [jsonArgs]   run any registered command by id, with an

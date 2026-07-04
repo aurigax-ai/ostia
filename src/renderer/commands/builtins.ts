@@ -2,8 +2,22 @@ import type { DropZone } from '../layout/tree'
 import type { Direction } from '../layout/types'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSessionsStore } from '../stores/sessionsStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { type CommandContext, commands } from './registry'
+
+/** Walk a dot-path (e.g. `appearance.terminal.size`) into a value; undefined if absent. */
+function getByPath(root: unknown, path: string): unknown {
+  return path
+    .split('.')
+    .filter(Boolean)
+    .reduce<unknown>((acc, key) => {
+      if (acc !== null && typeof acc === 'object' && key in (acc as Record<string, unknown>)) {
+        return (acc as Record<string, unknown>)[key]
+      }
+      return undefined
+    }, root)
+}
 
 /**
  * Register Phase 0's built-in commands. Each is a thin wrapper over a store —
@@ -142,6 +156,35 @@ export function registerBuiltinCommands(): void {
     target: 'active',
     run: ({ path }, ctx) => {
       if (ctx.activeSessionId && path) useLayoutStore.getState().openFile(ctx.activeSessionId, path)
+    },
+  })
+
+  // `pine settings get [key]` — the whole settings state, or a dot-path value within it.
+  commands.register<{ key?: string } | undefined, unknown>({
+    id: 'settings.get',
+    title: 'Get Setting',
+    hidden: true,
+    capabilities: ['settings-read'],
+    target: 'none',
+    run: (args) => {
+      const { locale, appearance, behavior } = useSettingsStore.getState()
+      const state = { locale, appearance, behavior }
+      const key = args?.key
+      return key ? getByPath(state, key) : state
+    },
+  })
+
+  // `pine settings set <key> <value>` — deep-set a dot-path into the settings store
+  // (source of truth stays settingsStore, so the UI updates live).
+  commands.register<{ key: string; value: unknown }, { ok: true }>({
+    id: 'settings.set',
+    title: 'Set Setting',
+    hidden: true,
+    capabilities: ['settings-write'],
+    target: 'none',
+    run: ({ key, value }) => {
+      useSettingsStore.getState().setByPath(key, value)
+      return { ok: true }
     },
   })
 }
