@@ -161,19 +161,32 @@ absent.
 
 ## Capabilities & elevation
 
-Every authenticated pane holds a fixed set of **default** capabilities:
-`drive-self`, `read-board`, `notify`, `wiki-read`, `settings-read`. Everything else
-is **elevated** and starts withheld: `process`, `vault-read`, `vault-write`,
-`wiki-write`, `board-write`, `send-other-pane`, `workspace-wide`, `browse`,
-`settings-write`, `kill-pane`, `shell`, `phone`, `destructive`.
+Posture: **pane-scoped trust** — a process running inside a pane is trusted at
+pane scope, so every pane holds a fixed set of **default** capabilities:
+`drive-self`, `read-board`, `notify`, `wiki-read`, `wiki-write`, `settings-read`,
+`board-write`, `process`, `vault-read`, `vault-write`. Everything cross-boundary,
+system-facing, or dangerous is **elevated** and starts withheld: `send-other-pane`,
+`kill-pane`, `workspace-wide`, `shell`, `destructive`, `phone`, `browse`,
+`settings-write`.
 
 A call that needs a capability the pane doesn't hold fails fast with
 `needs-elevation: <cap>` (surfaced as `pine: needs-elevation: <cap>` on stderr,
 nonzero exit) — it never gets partway through. As of this build there is no `pine`
-verb or UI to self-grant a capability: elevation is a human-in-the-loop decision the
-app doesn't yet have a control surface for. If you hit `needs-elevation`, say so
-plainly (e.g. in your response, or as a `pine notify`) rather than guessing at a
-workaround — don't retry the same call expecting a different result.
+verb or UI to self-grant a capability: elevation is a human-in-the-loop decision.
+The human grants elevated caps to *every* pane up front by adding them to
+`capabilities.grants` in `settings.json`, e.g.:
+
+```json
+{ "capabilities": { "grants": ["browse", "send-other-pane"] } }
+```
+
+That array is read once at process start (main seeds each pane's caps with
+`DEFAULT_CAPABILITIES ∪ grants`), so a restart is required after editing it. Since
+`settings-write` is itself elevated, an agent can't grant this to itself — the
+human edits the file directly (or a future UI/`pine settings set` does it on their
+behalf, pre-granted). If you hit `needs-elevation`, say so plainly (e.g. in your
+response, or as a `pine notify`) rather than guessing at a workaround — don't retry
+the same call expecting a different result.
 
 `pine commands` reports each command's `capabilities` array so you can check before
 you act. Commands without an explicit list default to the same default set above.

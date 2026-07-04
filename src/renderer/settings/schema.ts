@@ -56,6 +56,31 @@ export const SETTINGS_JSON_SCHEMA = {
         cursorBlink: { type: 'boolean', description: 'Blink the terminal cursor.' },
       },
     },
+    capabilities: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        grants: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: [
+              'send-other-pane',
+              'kill-pane',
+              'workspace-wide',
+              'shell',
+              'destructive',
+              'phone',
+              'browse',
+              'settings-write',
+            ],
+          },
+          description:
+            'Elevated capabilities pre-granted to every pane (pane-scoped defaults already ' +
+            'cover the rest). Human-edited only — restart Pine to apply.',
+        },
+      },
+    },
   },
 }
 
