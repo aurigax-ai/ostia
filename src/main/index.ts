@@ -19,7 +19,9 @@ import {
   type ConsoleEntry,
   PAGE_ERROR_CATCHER_JS,
   PINE_ERROR_PREFIX,
+  clearGuestDialogPolicy,
   clearGuestFrame,
+  clearGuestReactGrab,
   consoleLevelName,
   pushConsoleEntry,
   registerBrowseMethods,
@@ -221,6 +223,8 @@ function wireWindow(win: BrowserWindow): void {
         consoleBuffers.delete(wcId)
         errorBuffers.delete(wcId)
         clearGuestFrame(wcId)
+        clearGuestDialogPolicy(wcId)
+        clearGuestReactGrab(wcId)
       }
     }
     removeWindow(wid)
@@ -431,6 +435,8 @@ function registerIpc(): void {
       consoleBuffers.delete(wcId)
       errorBuffers.delete(wcId)
       clearGuestFrame(wcId)
+      clearGuestDialogPolicy(wcId)
+      clearGuestReactGrab(wcId)
     }
   })
 }

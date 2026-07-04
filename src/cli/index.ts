@@ -882,6 +882,12 @@ interface BrowseBufferOk {
   entries: BrowseBufferEntry[]
 }
 
+interface BrowseDialogEntry {
+  type: string
+  message: string
+  ts: number
+}
+
 /** Shared CLI plumbing for `console`/`errors` — identical request/response shape
  *  (`{sub:'list'|'clear', paneId}` → `{ok:true, entries}` on list, `{ok:true}` on clear),
  *  differing only in the RPC method name and which label to print on a bad `sub`. */
@@ -914,7 +920,8 @@ async function runBrowseBufferSub(
  * `pine browse <open|nav|read|click|type|dblclick|hover|focus|check|uncheck|scroll-into-view|
  * fill|select|scroll|press|keydown|keyup|eval|wait|screenshot|content|snapshot|get|is|find|
  * highlight|url|zoom|devtools|focus-webview|is-webview-focused|identify|cookies|storage|state|
- * history|addscript|addstyle|addinitscript|console|errors|frame|download|navigate|open-split>`
+ * history|addscript|addstyle|addinitscript|console|errors|frame|download|navigate|open-split|
+ * tab|dialog|focus-mode|react-grab>`
  * — agent automation of the in-app `browser` pane's guest page (elevated `browse` capability;
  * see `src/main/browse.ts`). `--pane <externalId>` targets a specific browser pane (another
  * pane's `pine whoami` id, relayed the same way as the "no pane roster yet" coordination recipe
@@ -935,6 +942,13 @@ async function runBrowseBufferSub(
  * subsequent selector-driven verbs at an iframe's document (`main`/`top` resets to the page).
  * `navigate` is `open` without the auto-create fallback (fails if no surface exists yet);
  * `open-split` is the inverse — always creates a new browser pane (a split), never reuses one.
+ *
+ * The last four are cmux-parity verbs, each a PRAGMATIC/simplified Electron version (cmux's rely
+ * on native/product features Pine doesn't have) — see `src/main/browse.ts` and SKILL.md for the
+ * full divergence notes: `tab` (a "tab" here is a browser PANE, not a tab bar inside one pane),
+ * `dialog` (a per-surface auto-response POLICY + log, not a one-at-a-time blocking queue),
+ * `focus-mode` (a minimal single-pane zoom/zen, via a new `pane.zoom` renderer command), and
+ * `react-grab` (a minimal React-fiber walk on click, not the upstream react-grab overlay).
  */
 async function runBrowseVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
@@ -1670,9 +1684,88 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       console.error(`pine: browse open-split failed (${describeBrowseError(res)})`)
       process.exitCode = 1
     }
+  } else if (sub === 'tab') {
+    const [tabSub, arg] = rest
+    if (tabSub !== 'new' && tabSub !== 'list' && tabSub !== 'switch' && tabSub !== 'close') {
+      console.error('pine browse tab: missing <new|list|switch|close>')
+      process.exitCode = 1
+      return
+    }
+    if ((tabSub === 'switch' || tabSub === 'close') && !arg) {
+      console.error(`pine browse tab ${tabSub}: missing <target>`)
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<
+      | { ok: true; created?: boolean }
+      | { ok: true; tabs: { paneId: string; url: string; title: string }[] }
+      | BrowseErr
+    >('browse.tab', {
+      sub: tabSub,
+      url: tabSub === 'new' ? arg : undefined,
+      target: tabSub === 'switch' || tabSub === 'close' ? arg : undefined,
+      paneId,
+    })
+    if (!res.ok) {
+      console.error(`pine: browse tab failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+      return
+    }
+    console.log('tabs' in res ? JSON.stringify(res.tabs) : 'ok')
+  } else if (sub === 'dialog') {
+    const [dialogSub, text] = rest
+    if (dialogSub !== 'accept' && dialogSub !== 'dismiss' && dialogSub !== 'list') {
+      console.error('pine browse dialog: missing <accept|dismiss|list>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; dialogs?: BrowseDialogEntry[] } | BrowseErr>(
+      'browse.dialog',
+      { sub: dialogSub, text, paneId },
+    )
+    if (!res.ok) {
+      console.error(`pine: browse dialog failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+      return
+    }
+    console.log(dialogSub === 'list' ? JSON.stringify(res.dialogs ?? []) : 'ok')
+  } else if (sub === 'focus-mode') {
+    const action = rest[0]
+    if (action !== 'enter' && action !== 'exit' && action !== 'toggle') {
+      console.error('pine browse focus-mode: missing <enter|exit|toggle>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.focusMode', {
+      action,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse focus-mode failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'react-grab') {
+    const action = rest[0]
+    if (action !== 'toggle' && action !== 'get') {
+      console.error('pine browse react-grab: missing <toggle|get>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; on?: boolean; entry?: unknown } | BrowseErr>(
+      'browse.reactGrab',
+      { action, paneId },
+    )
+    if (!res.ok) {
+      console.error(`pine: browse react-grab failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+      return
+    }
+    console.log(action === 'get' ? JSON.stringify(res.entry ?? null) : JSON.stringify(res))
   } else {
     console.error(
-      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content, snapshot, get, is, find, highlight, url, zoom, devtools, focus-webview, is-webview-focused, identify, cookies, storage, state, history, addscript, addstyle, addinitscript, console, errors, frame, download, navigate, open-split)`,
+      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content, snapshot, get, is, find, highlight, url, zoom, devtools, focus-webview, is-webview-focused, identify, cookies, storage, state, history, addscript, addstyle, addinitscript, console, errors, frame, download, navigate, open-split, tab, dialog, focus-mode, react-grab)`,
     )
     process.exitCode = 1
   }

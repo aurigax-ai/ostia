@@ -130,7 +130,9 @@ describe('FilesView', () => {
       activeSessionId: 's1',
     })
     const pane = createPane('terminal') // createPane with no cwd arg → cwd is undefined
-    useLayoutStore.setState({ bySession: { s1: { root: pane, activePaneId: pane.id } } })
+    useLayoutStore.setState({
+      bySession: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
     listReturns([{ name: 'anchored.ts', dir: false }])
 
     render(<FilesView />)

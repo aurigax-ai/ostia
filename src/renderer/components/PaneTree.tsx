@@ -1,6 +1,7 @@
 import { Allotment } from 'allotment'
 import { Terminal } from 'lucide-react'
 import { useDict } from '../i18n/useDict'
+import { findPane } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
 import { useLayoutStore } from '../stores/layoutStore'
 import { Pane } from './Pane'
@@ -8,10 +9,19 @@ import { Pane } from './Pane'
 /**
  * Render a session's split-tree. Splits use allotment for resizing; each leaf is a
  * single-surface pane. The pane whose id is `activePaneId` is focused (accent ring).
+ *
+ * When `zoomedPaneId` is set (minimal maximize/zen mode — see `layoutStore.ts`), the split tree
+ * is bypassed entirely and only that one pane renders; every other pane's slot simply stops
+ * existing, and `SurfacePool` parks its (still-mounted) surface in the detached holder until the
+ * zoom is cleared and its slot reappears — same path a mid-split remount already takes.
  */
 export function PaneTree({ sessionId }: { sessionId: string }): JSX.Element {
   const layout = useLayoutStore((s) => s.bySession[sessionId])
   if (!layout) return <EmptyWorkspace sessionId={sessionId} />
+  if (layout.zoomedPaneId) {
+    const zoomed = findPane(layout.root, layout.zoomedPaneId)
+    if (zoomed) return <Pane pane={zoomed} active={zoomed.id === layout.activePaneId} />
+  }
   return <NodeView node={layout.root} sessionId={sessionId} activePaneId={layout.activePaneId} />
 }
 

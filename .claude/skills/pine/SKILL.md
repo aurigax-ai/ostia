@@ -230,6 +230,12 @@ pine browse frame <selector|main> [--pane ID]         # point later selector-dri
 pine browse download wait [--path P] [--timeout MS] [--pane ID]   # blocks for this surface's next completed download (default 30s, capped 5m)
 pine browse navigate <url> [--pane ID]                # like `open`, but only on an EXISTING surface — fails if none exists yet
 pine browse open-split [url] [--pane ID]              # always creates a NEW browser pane (a split); never reuses one
+pine browse tab <new|list|switch|close> [url|target] [--pane ID]
+                                                      # cmux-parity "tabs" — see divergence note below
+pine browse dialog <accept|dismiss|list> [text] [--pane ID]
+                                                      # auto-response policy + log for alert/confirm/prompt — see divergence note below
+pine browse focus-mode <enter|exit|toggle> [--pane ID]  # minimal single-pane zoom/zen (maximize a pane, hiding its siblings)
+pine browse react-grab <toggle|get> [--pane ID]       # minimal React-fiber inspector: click an element while on, `get` prints {component,file,line}
 ```
 
 Drives the `browser` surface's `<webview>` guest page (Stage 1's in-app browser) — the same
@@ -284,6 +290,42 @@ none exists yet in your session; `navigate` is the same load but REQUIRES an exi
 (fails rather than creating one) — useful when you specifically mean "drive the pane I already
 have"; `open-split` is the opposite extreme — it always creates a brand new browser pane (a
 split) regardless of whether one already exists, for when you explicitly want a second surface.
+
+**Tabs, dialogs, focus-mode, react-grab (cmux parity, PRAGMATIC)**: these four mirror cmux verbs
+that in cmux lean on native/product features Pine doesn't have — each is a simplified Electron
+version, with the divergence called out below.
+
+- **`tab`** — a "tab" here is a browser **PANE**, not a tab bar living inside one pane: cmux
+  multiplexes multiple surfaces per pane slot, but Pine's own unit of multiplexing is already the
+  pane, so `tab new/list/switch/close` just operate one level up. `new [url]` opens a browser pane
+  in your session (reusing an existing one, same as `open`'s fallback — use `open-split` if you
+  need a guaranteed-fresh pane); `list` prints every browser pane in your OWN session as
+  `[{paneId, url, title}]`; `switch <target>`/`close <target>` take another pane's external
+  `paneId` (same as `--pane`, but positional here) and focus/close it — cross-session targets need
+  the same `workspace-wide` elevation `--pane` on any other verb needs.
+- **`dialog`** — Electron's `<webview>` guest can't cleanly intercept a page's SYNCHRONOUS
+  `alert`/`confirm`/`prompt` the way a real automation framework's dialog-event hook does, so this
+  is a per-surface auto-response **POLICY** an agent sets ahead of time, not a one-at-a-time
+  blocking queue: `accept [text]`/`dismiss` set what the NEXT `confirm`/`prompt` resolves to
+  (`accept` → `true`/the given `text`; `dismiss` → `false`/`null`) and are logged either way;
+  `list` prints the buffered `{type, message, ts}` log (capped ~200). The policy is pushed live
+  into the CURRENTLY loaded page, but only seeded with a SAFE default (dismiss) on a fresh
+  navigation — re-issue `accept`/`dismiss` after navigating if a non-default policy still needs to
+  apply.
+- **`focus-mode`** — a minimal single-pane zoom/zen, not a full maximize/restore animation system:
+  `enter` shows only that browser pane (every sibling pane's surface just stops being portaled
+  into a live slot — nothing unmounts, `SurfacePool` parks it until zoom clears); `exit` restores
+  the split view; `toggle` flips between the two. Backed by a small `pane.zoom` renderer command
+  (`layoutStore.ts`'s `zoomedPaneId`) that didn't previously exist — didn't turn out invasive, so
+  it's a real (if minimal) implementation, not a no-op.
+- **`react-grab`** — a MINIMAL React-fiber walk, not the upstream react-grab overlay/UI: `toggle`
+  on installs a capturing click listener that walks up from the clicked element to its nearest
+  React fiber (`__reactFiber$*`/`__reactInternalInstance$*`), then up the fiber's `return` chain
+  to the nearest component (function/class `type`, skipping host elements like `div`), recording
+  `{component, file, line}` (file/line come from `_debugSource`, only present in dev builds — often
+  `null` in production) into `window.__pineReactGrab`; `toggle` again removes the listener.
+  `get` prints the last grabbed entry. Installed via plain `executeJavaScript`, not persisted via
+  CDP, so a navigation silently drops it — `toggle` on again after navigating if still wanted.
 
 ## Gateway — LAN phone pairing (elevated)
 

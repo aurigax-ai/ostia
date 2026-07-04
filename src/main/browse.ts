@@ -132,6 +132,151 @@ export function clearGuestFrame(wcId: number): void {
   frameSelectors.delete(wcId)
 }
 
+/**
+ * Per-guest-webContents-id auto-response policy for `browse.dialog` (cmux parity, PRAGMATIC:
+ * Electron's `<webview>` guest can't intercept a page's SYNCHRONOUS `confirm`/`prompt` the way a
+ * real automation framework's `page.on('dialog', ...)` does, so instead of a one-at-a-time
+ * blocking queue this is a standing "how should the next alert/confirm/prompt resolve" policy an
+ * agent sets ahead of time — see `DIALOG_OVERRIDE_JS`'s header comment for the full divergence).
+ * Kept here so a caller could inspect the CURRENT policy without round-tripping into the guest
+ * page; live enforcement is entirely page-side (`window.__pineDialogPolicy`, pushed by
+ * `browse.dialog`'s handler).
+ */
+const dialogPolicies = new Map<number, { policy: 'accept' | 'dismiss'; text: string | null }>()
+
+/** Per-guest CDP-attach guard for the dialog override — `DIALOG_OVERRIDE_JS` is itself
+ *  idempotent (`window.__pineDialogPatched`), so this only avoids piling up redundant
+ *  `Page.addScriptToEvaluateOnNewDocument` registrations on every `browse.dialog accept/dismiss`
+ *  call against the same surface. */
+const dialogInitAttached = new Set<number>()
+
+/** Drop a guest's dialog policy/attach bookkeeping — called by `index.ts` alongside
+ *  `clearGuestFrame` on `browser:unregister` and the window-close ghost reap. */
+export function clearGuestDialogPolicy(wcId: number): void {
+  dialogPolicies.delete(wcId)
+  dialogInitAttached.delete(wcId)
+}
+
+/** Per-guest "is the react-grab click-catcher installed" flag for `browse.reactGrab` — a
+ *  main-side mirror of the page's own `window.__pineReactGrabOn`, so `toggle` knows which script
+ *  (install vs. remove) to run without a read round-trip first. */
+const reactGrabOn = new Set<number>()
+
+/** Drop a guest's react-grab bookkeeping — called alongside `clearGuestDialogPolicy` above. */
+export function clearGuestReactGrab(wcId: number): void {
+  reactGrabOn.delete(wcId)
+}
+
+/** Ring-buffer cap for `window.__pineDialogs` (mirrors `MAX_CONSOLE_ENTRIES`) — bounds memory on
+ *  a page that calls `alert()` in a loop. */
+const MAX_DIALOG_ENTRIES = 200
+
+/**
+ * CDP-injected (same mechanism as `PAGE_ERROR_CATCHER_JS`/`browse.addinitscript`, via
+ * `cdpAddInitScript`) monkeypatch for `browse.dialog`: overrides `alert`/`confirm`/`prompt`
+ * directly in the page since Electron's `<webview>` guest has no clean synchronous-dialog
+ * interception hook. Every call is logged to `window.__pineDialogs` (capped, FIFO);
+ * `confirm`/`prompt` additionally resolve against `window.__pineDialogPolicy`
+ * (`{policy:'accept'|'dismiss', text}`) instead of actually blocking — an auto-response POLICY,
+ * not a one-at-a-time queue (the documented cmux divergence). Idempotency-guarded
+ * (`window.__pineDialogPatched`) the same way `PAGE_ERROR_CATCHER_JS` is, since this reruns on
+ * every future navigation once persisted via CDP. NOTE: `window.__pineDialogPolicy` is only ever
+ * seeded with a SAFE default (dismiss/null) by this script — it does not durably survive
+ * navigation with whatever an agent last set via `browse.dialog accept|dismiss`, since a fresh
+ * page load is a fresh JS context; re-call `accept`/`dismiss` after navigating if a non-default
+ * policy still needs to apply.
+ */
+const DIALOG_OVERRIDE_JS = `(() => {
+  if (window.__pineDialogPatched) return;
+  window.__pineDialogPatched = true;
+  window.__pineDialogs = window.__pineDialogs || [];
+  window.__pineDialogPolicy = window.__pineDialogPolicy || { policy: 'dismiss', text: null };
+  function log(type, message) {
+    window.__pineDialogs.push({ type: type, message: String(message), ts: Date.now() });
+    if (window.__pineDialogs.length > ${MAX_DIALOG_ENTRIES}) {
+      window.__pineDialogs.splice(0, window.__pineDialogs.length - ${MAX_DIALOG_ENTRIES});
+    }
+  }
+  window.alert = function (message) {
+    log('alert', message);
+  };
+  window.confirm = function (message) {
+    log('confirm', message);
+    return window.__pineDialogPolicy.policy === 'accept';
+  };
+  window.prompt = function (message) {
+    log('prompt', message);
+    return window.__pineDialogPolicy.policy === 'accept' ? (window.__pineDialogPolicy.text || '') : null;
+  };
+})();`
+
+/**
+ * `browse.reactGrab`'s click-catcher (cmux parity, MINIMAL — a small fiber walk, not the
+ * upstream react-grab overlay/UI). Installed via plain `executeJavaScript`, NOT the CDP
+ * init-script mechanism above — this is a live, one-page-view inspection tool, not something
+ * meant to persist across navigations, so a navigation silently drops it (call `toggle` again
+ * after navigating if still wanted). On click, walks up from the clicked element to find a React
+ * fiber (`__reactFiber$*`/`__reactInternalInstance$*` — React's own DOM-node→fiber pointer key
+ * prefixes), then walks the fiber's `return` chain to the nearest fiber whose `type` is a
+ * function/class (a component, not a host element like a `div`), reporting its name +
+ * `_debugSource` (only present in dev builds compiled with a "add JSX source" Babel/SWC plugin —
+ * absent in production builds, hence best-effort/often null).
+ */
+const REACT_GRAB_ON_JS = `(() => {
+  if (window.__pineReactGrabOn) return true;
+  window.__pineReactGrabOn = true;
+  window.__pineReactGrab = window.__pineReactGrab || null;
+  function findFiber(el) {
+    for (const key in el) {
+      if (key.indexOf('__reactFiber$') === 0 || key.indexOf('__reactInternalInstance$') === 0) {
+        return el[key];
+      }
+    }
+    return null;
+  }
+  window.__pineReactGrabHandler = function (e) {
+    let el = e.target;
+    let fiber = null;
+    while (el && !fiber) {
+      fiber = findFiber(el);
+      if (!fiber) el = el.parentElement;
+    }
+    if (!fiber) {
+      window.__pineReactGrab = { component: null, file: null, line: null };
+      return;
+    }
+    let f = fiber;
+    let component = null;
+    let source = null;
+    while (f) {
+      if (typeof f.type === 'function') {
+        component = f.type.displayName || f.type.name || 'Anonymous';
+        source = f._debugSource || null;
+        break;
+      }
+      f = f.return;
+    }
+    window.__pineReactGrab = {
+      component: component,
+      file: source ? source.fileName : null,
+      line: source ? source.lineNumber : null,
+    };
+  };
+  document.addEventListener('click', window.__pineReactGrabHandler, true);
+  return true;
+})();`
+
+/** Uninstalls `REACT_GRAB_ON_JS`'s click handler — a no-op if it was never installed (or the
+ *  page navigated since, which already dropped it). */
+const REACT_GRAB_OFF_JS = `(() => {
+  if (!window.__pineReactGrabOn) return true;
+  window.__pineReactGrabOn = false;
+  if (window.__pineReactGrabHandler) {
+    document.removeEventListener('click', window.__pineReactGrabHandler, true);
+  }
+  return true;
+})();`
+
 type GuestResolution =
   | { ok: true; guest: Electron.WebContents; rendererPaneId: string }
   | { ok: false; error: 'no-browser-pane' }
@@ -400,6 +545,39 @@ function focusSelectorJs(selector: string): string {
     el.focus();
     return true;
   `)
+}
+
+/**
+ * Attach (if not already) a CDP debugger session on `guest` and persist `js` via
+ * `Page.addScriptToEvaluateOnNewDocument`, so it reruns before every FUTURE navigation. Shared
+ * plumbing behind `browse.addinitscript` (agent-supplied init scripts) and `browse.dialog`'s
+ * alert/confirm/prompt override — the brief for the latter explicitly says to reuse this
+ * mechanism rather than invent a second one.
+ */
+async function cdpAddInitScript(
+  guest: Electron.WebContents,
+  js: string,
+): Promise<{ ok: true; identifier: string } | { ok: false; error: string; message?: string }> {
+  try {
+    // `isAttached()` is Electron's own per-webContents bookkeeping for whether a CDP
+    // session is already live — checking it before `attach()` IS "tracking attached
+    // surfaces": a separate map here would just duplicate state Electron already keeps,
+    // and (since nothing awaits between the check and the call) can't race.
+    if (!guest.debugger.isAttached()) {
+      guest.debugger.attach('1.3')
+    }
+  } catch (e) {
+    return { ok: false, error: 'debugger-attach-failed', message: errMessage(e) }
+  }
+  try {
+    await guest.debugger.sendCommand('Page.enable')
+    const result = (await guest.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+      source: js,
+    })) as { identifier: string }
+    return { ok: true, identifier: result.identifier }
+  } catch (e) {
+    return { ok: false, error: 'debugger-command-failed', message: errMessage(e) }
+  }
 }
 
 /** Hard cap on `browse.snapshot`'s emitted node count — keeps the result bounded on a huge page
@@ -1576,27 +1754,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const { js, paneId } = (params ?? {}) as { js: string; paneId?: string }
       const resolution = resolveGuest(deps, ctx, paneId)
       if (!resolution.ok) return resolution
-      const { guest } = resolution
-      try {
-        // `isAttached()` is Electron's own per-webContents bookkeeping for whether a CDP
-        // session is already live — checking it before `attach()` IS "tracking attached
-        // surfaces": a separate map here would just duplicate state Electron already keeps,
-        // and (since nothing awaits between the check and the call) can't race.
-        if (!guest.debugger.isAttached()) {
-          guest.debugger.attach('1.3')
-        }
-      } catch (e) {
-        return { ok: false, error: 'debugger-attach-failed', message: errMessage(e) }
-      }
-      try {
-        await guest.debugger.sendCommand('Page.enable')
-        const result = (await guest.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-          source: js,
-        })) as { identifier: string }
-        return { ok: true, identifier: result.identifier }
-      } catch (e) {
-        return { ok: false, error: 'debugger-command-failed', message: errMessage(e) }
-      }
+      return cdpAddInitScript(resolution.guest, js)
     },
   })
 
@@ -1771,6 +1929,182 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         return { ok: false, error: 'browser-not-ready', message: res.error.message }
       }
       return { ok: true, created: true }
+    },
+  })
+
+  // --- Tab family (cmux parity, PRAGMATIC: a "tab" here is a browser PANE, not a tab bar living
+  // inside one pane — cmux multiplexes multiple surfaces per pane slot; Pine's own unit of
+  // multiplexing is already the pane, so `tab new/list/switch/close` just operate one level up,
+  // on browser panes, instead of a second tab layer nested inside a single pane. ---
+
+  registerControlMethod('browse.tab', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { sub, url, target } = (params ?? {}) as {
+        sub: 'new' | 'list' | 'switch' | 'close'
+        url?: string
+        target?: string
+      }
+      if (sub === 'new') {
+        // Same fallback `browse.open` uses for "no live guest yet" — `browser.new` REUSES an
+        // existing browser pane in the caller's session if there is one (`openBrowser`'s own
+        // reuse-or-split logic), so this isn't a guaranteed-fresh tab; use `browse.openSplit`
+        // for an unconditionally new browser pane.
+        const cmdTarget: CommandTarget = {
+          windowId: ctx.identity.windowId,
+          sessionId: ctx.identity.sessionId,
+          paneId: ctx.identity.paneId,
+        }
+        const res = await deps.execCommand(cmdTarget, 'browser.new', { url })
+        if (!res.ok) return { ok: false, error: 'browser-not-ready', message: res.error.message }
+        return { ok: true, created: true }
+      }
+      if (sub === 'list') {
+        // Scoped to the caller's own session — same posture `resolveGuest`'s no-`paneId`
+        // default uses; listing another session's panes would be a cross-boundary read this
+        // verb doesn't offer.
+        const tabs: { paneId: string; url: string; title: string }[] = []
+        for (const [rendererPaneId, wcId] of deps.browserPanes) {
+          const identity = getByPaneId(rendererPaneId)
+          if (!identity || identity.sessionId !== ctx.identity.sessionId) continue
+          const guest = webContents.fromId(wcId)
+          if (!guest || guest.isDestroyed()) continue
+          tabs.push({ paneId: identity.externalId, url: guest.getURL(), title: guest.getTitle() })
+        }
+        return { ok: true, tabs }
+      }
+      if (sub === 'switch' || sub === 'close') {
+        if (!target) return { ok: false, error: 'target-required' }
+        // `target` is an external paneId (another pane's `whoami` id) — reuse `resolveGuest` for
+        // its lookup + the same cross-boundary `workspace-wide` elevation gate every other
+        // explicit-`paneId` call gets, even though we don't need the guest itself here.
+        const resolution = resolveGuest(deps, ctx, target)
+        if (!resolution.ok) return resolution
+        const identity = getByPaneId(resolution.rendererPaneId)
+        if (!identity) return { ok: false, error: 'no-browser-pane' }
+        const cmdTarget: CommandTarget = {
+          windowId: identity.windowId,
+          sessionId: identity.sessionId,
+          paneId: identity.paneId,
+        }
+        const res = await deps.execCommand(
+          cmdTarget,
+          sub === 'switch' ? 'pane.focus' : 'pane.close',
+          { paneId: identity.paneId },
+        )
+        if (!res.ok) return { ok: false, error: 'command-failed', message: res.error.message }
+        return { ok: true }
+      }
+      return { ok: false, error: 'bad-sub' }
+    },
+  })
+
+  // --- Dialog family (cmux parity, PRAGMATIC: policy-based auto-answer, not a one-at-a-time
+  // blocking queue — see `DIALOG_OVERRIDE_JS`'s header comment for why). ---
+
+  registerControlMethod('browse.dialog', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { sub, text, paneId } = (params ?? {}) as {
+        sub: 'accept' | 'dismiss' | 'list'
+        text?: string
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const { guest } = resolution
+      if (sub === 'list') {
+        try {
+          const dialogs = await guest.executeJavaScript('window.__pineDialogs || []', true)
+          return { ok: true, dialogs }
+        } catch (e) {
+          return { ok: false, error: 'eval-failed', message: errMessage(e) }
+        }
+      }
+      if (sub !== 'accept' && sub !== 'dismiss') return { ok: false, error: 'bad-sub' }
+      const policy = { policy: sub, text: sub === 'accept' ? (text ?? null) : null }
+      dialogPolicies.set(guest.id, policy)
+      if (!dialogInitAttached.has(guest.id)) {
+        const cdpResult = await cdpAddInitScript(guest, DIALOG_OVERRIDE_JS)
+        if (!cdpResult.ok) return cdpResult
+        dialogInitAttached.add(guest.id)
+      }
+      try {
+        // Apply to the CURRENTLY loaded page too — the CDP registration above only takes effect
+        // on the NEXT navigation, not the page already showing.
+        await guest.executeJavaScript(DIALOG_OVERRIDE_JS, true)
+        await guest.executeJavaScript(
+          `window.__pineDialogPolicy = ${JSON.stringify(policy)};`,
+          true,
+        )
+        return { ok: true }
+      } catch (e) {
+        return { ok: false, error: 'eval-failed', message: errMessage(e) }
+      }
+    },
+  })
+
+  // --- Focus-mode family (cmux parity: pane zoom/zen). Drives the renderer's `pane.zoom`
+  // command (`layoutStore.ts`) on the TARGET pane's own window/session — same cross-boundary
+  // resolution `browse.tab switch/close` uses above. ---
+
+  registerControlMethod('browse.focusMode', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { action, paneId } = (params ?? {}) as {
+        action: 'enter' | 'exit' | 'toggle'
+        paneId?: string
+      }
+      if (action !== 'enter' && action !== 'exit' && action !== 'toggle') {
+        return { ok: false, error: 'bad-action' }
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const identity = getByPaneId(resolution.rendererPaneId)
+      if (!identity) return { ok: false, error: 'no-browser-pane' }
+      const cmdTarget: CommandTarget = {
+        windowId: identity.windowId,
+        sessionId: identity.sessionId,
+        paneId: identity.paneId,
+      }
+      // `zoom` omitted → `pane.zoom`'s own toggle; enter/exit pass an explicit boolean so they're
+      // deterministic regardless of the pane's current zoom state (main has no visibility into
+      // the renderer's layout state to check first).
+      const zoom = action === 'enter' ? true : action === 'exit' ? false : undefined
+      const res = await deps.execCommand(cmdTarget, 'pane.zoom', { paneId: identity.paneId, zoom })
+      if (!res.ok) return { ok: false, error: 'command-failed', message: res.error.message }
+      return { ok: true }
+    },
+  })
+
+  // --- React-grab family (cmux parity, MINIMAL — a small fiber walk, not the upstream
+  // react-grab overlay; see `REACT_GRAB_ON_JS`'s header comment). ---
+
+  registerControlMethod('browse.reactGrab', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { action, paneId } = (params ?? {}) as { action: 'toggle' | 'get'; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const { guest } = resolution
+      if (action === 'get') {
+        try {
+          const entry = await guest.executeJavaScript('window.__pineReactGrab || null', true)
+          return { ok: true, entry }
+        } catch (e) {
+          return { ok: false, error: 'eval-failed', message: errMessage(e) }
+        }
+      }
+      if (action !== 'toggle') return { ok: false, error: 'bad-action' }
+      const turningOn = !reactGrabOn.has(guest.id)
+      try {
+        await guest.executeJavaScript(turningOn ? REACT_GRAB_ON_JS : REACT_GRAB_OFF_JS, true)
+      } catch (e) {
+        return { ok: false, error: 'eval-failed', message: errMessage(e) }
+      }
+      if (turningOn) reactGrabOn.add(guest.id)
+      else reactGrabOn.delete(guest.id)
+      return { ok: true, on: turningOn }
     },
   })
 }
