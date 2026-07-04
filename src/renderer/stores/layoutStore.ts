@@ -8,6 +8,7 @@ import {
   firstPaneOfKind,
   movePane,
   paneIds,
+  setPaneBrowser,
   setPaneCwd,
   setPaneEditor,
   setSizes,
@@ -41,6 +42,8 @@ interface LayoutState {
   setCwd: (sessionId: string, paneId: string, cwd: string) => void
   /** Open `path` in an editor pane — reuse an existing editor, else split a new one. */
   openFile: (sessionId: string, path: string) => void
+  /** Open `url` in a browser pane — reuse an existing browser pane, else split a new one. */
+  openBrowser: (sessionId: string, url: string) => void
   /** Drop a session's layout (called when the session closes) so nothing leaks. */
   removeSession: (sessionId: string) => void
 }
@@ -159,6 +162,28 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         if (!newPaneId) return l
         createdPaneId = newPaneId
         return { root: setPaneEditor(root, newPaneId, title, path), activePaneId: newPaneId }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+    }
+  },
+
+  openBrowser: (sessionId, url) => {
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, sessionId, (l) => {
+        // Reuse an existing browser pane if there is one.
+        const existing = firstPaneOfKind(l.root, 'browser')
+        if (existing) {
+          return { root: setPaneBrowser(l.root, existing.id, url), activePaneId: existing.id }
+        }
+        // Otherwise split the focused pane and make the new one a browser.
+        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
+        if (!newPaneId) return l
+        createdPaneId = newPaneId
+        return { root: setPaneBrowser(root, newPaneId, url), activePaneId: newPaneId }
       })
       return next ?? s
     })

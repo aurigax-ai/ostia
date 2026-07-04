@@ -302,6 +302,49 @@ describe('layoutStore', () => {
     })
   })
 
+  describe('openBrowser', () => {
+    it('with no browser pane, splits and creates a browser pane, emitting pane-created', () => {
+      const terminal = ensure('sess')
+      emit().mockClear()
+
+      useLayoutStore.getState().openBrowser('sess', 'https://example.com/path')
+      const layout = layoutOf('sess')
+      const ids = paneIds(layout.root)
+      const browserId = ids.find((id) => id !== terminal) as string
+      const browser = findPane(layout.root, browserId)
+
+      expect(ids).toHaveLength(2)
+      expect(browser?.kind).toBe('browser')
+      expect(browser?.url).toBe('https://example.com/path')
+      expect(browser?.title).toBe('example.com')
+      expect(layout.activePaneId).toBe(browserId)
+      expect(emit()).toHaveBeenCalledTimes(1)
+      expect(emit()).toHaveBeenCalledWith({
+        type: 'pane-created',
+        sessionId: 'sess',
+        paneId: browserId,
+      })
+    })
+
+    it('with an existing browser pane, reuses it (no new pane, no pane-created emit)', () => {
+      const terminal = ensure('sess')
+      useLayoutStore.getState().openBrowser('sess', 'https://example.com')
+      const browserId = paneIds(layoutOf('sess').root).find((id) => id !== terminal) as string
+      emit().mockClear()
+
+      useLayoutStore.getState().openBrowser('sess', 'https://other.example')
+      const layout = layoutOf('sess')
+      const reused = findPane(layout.root, browserId)
+
+      expect(paneIds(layout.root)).toHaveLength(2)
+      expect(reused?.kind).toBe('browser')
+      expect(reused?.url).toBe('https://other.example')
+      expect(reused?.title).toBe('other.example')
+      expect(layout.activePaneId).toBe(browserId)
+      expect(emit()).not.toHaveBeenCalled()
+    })
+  })
+
   describe('removeSession', () => {
     it('drops the layout and emits pane-closed for each pane it held', () => {
       const { first, second } = twoPanes('sess')
@@ -342,6 +385,7 @@ describe('layoutStore', () => {
       store.movePane('ghost', 'a', 'b', 'center')
       store.setCwd('ghost', 'p', '/x')
       store.openFile('ghost', '/f')
+      store.openBrowser('ghost', 'https://x')
 
       expect(useLayoutStore.getState().bySession).toBe(before)
       expect(emit()).not.toHaveBeenCalled()

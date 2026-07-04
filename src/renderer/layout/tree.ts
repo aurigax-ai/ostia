@@ -83,6 +83,24 @@ export function setPaneEditor(
   return { ...root, children: root.children.map((c) => setPaneEditor(c, paneId, title, filePath)) }
 }
 
+/** Best-effort title for a browser pane: the URL's host, or the raw string if unparseable. */
+function titleFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname || url
+  } catch {
+    return url
+  }
+}
+
+/** Turn pane `paneId` into a browser showing `url` (title derived from the URL's host). */
+export function setPaneBrowser(root: LayoutNode, paneId: string, url: string): LayoutNode {
+  if (root.type === 'pane') {
+    if (root.id !== paneId) return root
+    return { ...root, kind: 'browser', title: titleFromUrl(url), url }
+  }
+  return { ...root, children: root.children.map((c) => setPaneBrowser(c, paneId, url)) }
+}
+
 /** Find a leaf pane node by id. */
 export function findPane(node: LayoutNode, id: string): PaneNode | null {
   if (node.type === 'pane') return node.id === id ? node : null

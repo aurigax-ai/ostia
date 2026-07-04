@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { LayoutNode, SurfaceKind } from '../layout/types'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSurfaceSlots } from '../stores/surfaceSlotsStore'
+import { BrowserView } from './BrowserView'
 import { EditorView } from './Editor'
 import { TerminalView } from './Terminal'
 
@@ -12,18 +13,20 @@ interface SurfaceRef {
   kind: SurfaceKind
   cwd?: string
   filePath?: string
+  url?: string
 }
 
-/** Collect every terminal/editor pane across a session's layout tree. */
+/** Collect every terminal/editor/browser pane across a session's layout tree. */
 function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
   if (node.type === 'pane') {
-    if (node.kind === 'terminal' || node.kind === 'editor') {
+    if (node.kind === 'terminal' || node.kind === 'editor' || node.kind === 'browser') {
       out.push({
         paneId: node.id,
         sessionId,
         kind: node.kind,
         cwd: node.cwd,
         filePath: node.filePath,
+        url: node.url,
       })
     }
     return
@@ -32,10 +35,11 @@ function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
 }
 
 /**
- * The surface pool. Renders one long-lived xterm/Monaco per terminal/editor pane (across
- * ALL mounted sessions) and portals it into the DOM slot Pane registers for that pane id.
- * Because the surface lives here — not in the layout tree — splitting/moving/rearranging a
- * pane only re-parents its DOM; it never remounts (so no re-attach/replay/refit staircase).
+ * The surface pool. Renders one long-lived xterm/Monaco/webview per terminal/editor/browser
+ * pane (across ALL mounted sessions) and portals it into the DOM slot Pane registers for that
+ * pane id. Because the surface lives here — not in the layout tree — splitting/moving/
+ * rearranging a pane only re-parents its DOM; it never remounts (so no re-attach/replay/refit
+ * staircase).
  */
 export function SurfacePool(): JSX.Element {
   const bySession = useLayoutStore((s) => s.bySession)
@@ -66,6 +70,8 @@ export function SurfacePool(): JSX.Element {
         return createPortal(
           s.kind === 'editor' ? (
             <EditorView filePath={s.filePath} />
+          ) : s.kind === 'browser' ? (
+            <BrowserView url={s.url} />
           ) : (
             <TerminalView sessionId={s.sessionId} paneId={s.paneId} cwd={s.cwd} />
           ),

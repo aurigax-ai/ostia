@@ -8,6 +8,7 @@ import {
   movePane,
   paneIds,
   resetIds,
+  setPaneBrowser,
   setPaneCwd,
   setPaneEditor,
   setSizes,
@@ -220,6 +221,34 @@ describe('setPaneEditor', () => {
   it('leaves a non-matching lone pane unchanged', () => {
     const root = createPane('terminal')
     expect(setPaneEditor(root, 'ghost', 't', '/a/t.ts')).toBe(root)
+  })
+})
+
+describe('setPaneBrowser', () => {
+  it('turns the matching pane into a browser and derives the title from the URL host', () => {
+    const a = createPane('terminal')
+    const b = createPane('terminal')
+    const root = splitOf('horizontal', a, b)
+    const next = setPaneBrowser(root, b.id, 'https://example.com/path?q=1')
+    const pane = findPane(next, b.id)
+    expect(pane?.kind).toBe('browser')
+    expect(pane?.url).toBe('https://example.com/path?q=1')
+    expect(pane?.title).toBe('example.com')
+    expect(findPane(next, a.id)?.kind).toBe('terminal')
+  })
+
+  it('falls back to the raw string as the title when the URL is unparseable', () => {
+    const root = createPane('terminal')
+    const next = setPaneBrowser(root, root.id, 'about:blank')
+    const pane = findPane(next, root.id)
+    expect(pane?.kind).toBe('browser')
+    expect(pane?.url).toBe('about:blank')
+    expect(pane?.title).toBe('about:blank')
+  })
+
+  it('leaves a non-matching lone pane unchanged', () => {
+    const root = createPane('terminal')
+    expect(setPaneBrowser(root, 'ghost', 'https://example.com')).toBe(root)
   })
 })
 
