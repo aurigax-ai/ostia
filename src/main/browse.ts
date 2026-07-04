@@ -29,9 +29,10 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { webContents } from 'electron'
 import type { CommandResult, CommandTarget } from '../shared/types'
-import type { AuthedConn } from './controlAuth'
+import { type AuthedConn, connHasCap } from './controlAuth'
 import { registerControlMethod } from './controlServer'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
+import { resolveSafe } from './pathGuard'
 
 type MethodCtx = { identity: PaneIdentity; authed: AuthedConn }
 
@@ -44,19 +45,26 @@ export interface BrowseDeps {
   browserPanes: Map<string, number>
   /** Reused from the command bridge so `browse.open` can spin up a pane via `browser.new`. */
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  /** Allow-list roots for `browse.screenshot`'s caller-supplied `path` (mirrors `fs:*`'s). */
+  screenshotRoots: string[]
 }
 
 type GuestResolution =
   | { ok: true; guest: Electron.WebContents; rendererPaneId: string }
   | { ok: false; error: 'no-browser-pane' }
   | { ok: false; error: 'browser-not-ready' }
+  | { ok: false; error: 'needs-elevation' }
 
 /**
  * Resolve the guest `WebContents` a `browse.*` call should act on.
  * - `paneId` given (an external id): must resolve to a known pane; that pane must have
  *   registered a live guest (else `browser-not-ready` — it exists but hasn't `dom-ready`'d, or
- *   isn't a browser pane at all... either way nothing to drive yet).
- * - `paneId` omitted: the first registered browser pane belonging to the caller's own session.
+ *   isn't a browser pane at all... either way nothing to drive yet). If that pane lives in a
+ *   different session/window than the caller's own, driving it is a cross-boundary action —
+ *   same trust posture as `command.exec`'s cross-pane gate — so it additionally requires the
+ *   elevated `workspace-wide` capability (else `needs-elevation`).
+ * - `paneId` omitted: the first registered browser pane belonging to the caller's own session
+ *   (never cross-boundary, so no elevation check applies here).
  */
 function resolveGuest(deps: BrowseDeps, ctx: MethodCtx, paneId?: string): GuestResolution {
   if (paneId) {
@@ -64,6 +72,11 @@ function resolveGuest(deps: BrowseDeps, ctx: MethodCtx, paneId?: string): GuestR
     if (!identity) return { ok: false, error: 'no-browser-pane' }
     const wcId = deps.browserPanes.get(identity.paneId)
     if (wcId === undefined) return { ok: false, error: 'browser-not-ready' }
+    const crossBoundary =
+      identity.sessionId !== ctx.identity.sessionId || identity.windowId !== ctx.identity.windowId
+    if (crossBoundary && !connHasCap(ctx.authed, 'workspace-wide')) {
+      return { ok: false, error: 'needs-elevation' }
+    }
     const guest = webContents.fromId(wcId)
     if (!guest || guest.isDestroyed()) return { ok: false, error: 'browser-not-ready' }
     return { ok: true, guest, rendererPaneId: identity.paneId }
@@ -274,9 +287,18 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const { path, paneId } = (params ?? {}) as { path?: string; paneId?: string }
       const resolution = resolveGuest(deps, ctx, paneId)
       if (!resolution.ok) return resolution
+      let outPath: string
+      if (path) {
+        const safe = resolveSafe(path, deps.screenshotRoots)
+        if (safe === null) return { ok: false, error: 'path-denied' }
+        outPath = safe
+      } else {
+        // No caller-supplied path — the scratch default, always under the OS tmpdir, needs no
+        // allow-list check.
+        outPath = scratchScreenshotPath(resolution.rendererPaneId)
+      }
       try {
         const image = await resolution.guest.capturePage()
-        const outPath = path ?? scratchScreenshotPath(resolution.rendererPaneId)
         mkdirSync(dirname(outPath), { recursive: true })
         writeFileSync(outPath, image.toPNG())
         return { ok: true, path: outPath }

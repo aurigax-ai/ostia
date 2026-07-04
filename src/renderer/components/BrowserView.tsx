@@ -147,7 +147,10 @@ export function BrowserView({ paneId, url }: { paneId: string; url?: string }): 
         }}
         className="browser-webview"
         src={startUrl.current}
-        partition="persist:pine-browser"
+        // Per-pane, in-memory (non-`persist:`) partition — sharing one `persist:pine-browser`
+        // partition across every browser pane/session leaked cookies/storage between them.
+        // Each pane gets its own isolated, ephemeral guest storage instead.
+        partition={`pine-browser-${paneId}`}
       />
     </div>
   )

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { BrowserWindow, app, ipcMain, screen, shell } from 'electron'
+import { BrowserWindow, app, ipcMain, screen, shell, webContents } from 'electron'
 import type { IPty } from 'node-pty'
 import type {
   AppInfo,
@@ -166,6 +166,23 @@ function wireWindow(win: BrowserWindow): void {
     return { action: 'deny' }
   })
 
+  // Guard against a compromised renderer weaponizing the `webviewTag: true` baseline: force-
+  // sanitize every attaching `<webview>` guest's preferences regardless of what the renderer
+  // asked for, so even a hostile renderer can't hand a guest page a preload script or turn
+  // node integration / context isolation / the sandbox off. This is defense-in-depth on top of
+  // `browser:register`'s ownership check below — it protects the HOST process even if the
+  // renderer itself is compromised.
+  win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    if (!params.partition?.startsWith('pine-browser')) {
+      event.preventDefault()
+      return
+    }
+    webPreferences.preload = undefined
+    webPreferences.nodeIntegration = false
+    webPreferences.contextIsolation = true
+    webPreferences.sandbox = true
+  })
+
   // Track this window for the command bridge; prune it (and its pane identities,
   // published commands) once it's gone.
   const wid = String(win.webContents.id)
@@ -173,6 +190,14 @@ function wireWindow(win: BrowserWindow): void {
   win.on('closed', () => {
     windows.delete(wid)
     commandsByWindow.delete(wid)
+    // Ghost-reap browser panes BEFORE removeWindow() below drops their idRegistry entries —
+    // `getByPaneId` would otherwise return nothing for them afterward and these stale
+    // renderer-paneId → webContents-id entries would never be pruned. Covers the same
+    // force-close/crash case as the pty reap: BrowserView's unmount (and its
+    // `browser:unregister` call) never fires.
+    for (const [paneId] of browserPanes) {
+      if (getByPaneId(paneId)?.windowId === wid) browserPanes.delete(paneId)
+    }
     removeWindow(wid)
     // Ghost-owner reap: a window can close without `pty:detach` firing (force-close,
     // crash, OS kill). Its pty subscriber (keyed by this same wid, per `pty:attach`)
@@ -183,12 +208,6 @@ function wireWindow(win: BrowserWindow): void {
         entry.subs.delete(wid)
         entry.session.removeSubscriber(wid) // last owner leaving fires onNoOwners → grace kill
       }
-    }
-    // Same ghost-reap for browser panes: a force-close/crash skips BrowserView's unmount
-    // (and its `browser:unregister` call), so prune any registration whose pane lived in
-    // this window rather than leaking a stale renderer-paneId → webContents-id entry.
-    for (const [paneId] of browserPanes) {
-      if (getByPaneId(paneId)?.windowId === wid) browserPanes.delete(paneId)
     }
   })
 }
@@ -330,7 +349,16 @@ function registerIpc(): void {
   // webContents id once the `<webview>` fires `dom-ready` — main can't get this any other
   // way (the guest is a separate OS process it doesn't otherwise see). Consumed by
   // `browse.*` control methods (`src/main/browse.ts`) via the injected `browserPanes` map.
-  ipcMain.on('browser:register', (_e, paneId: string, webContentsId: number) => {
+  ipcMain.on('browser:register', (e, paneId: string, webContentsId: number) => {
+    // Don't trust the renderer's claim at face value — a compromised renderer could register
+    // an arbitrary webContents id (e.g. Pine's OWN renderer wc) and then drive it via
+    // `browse.eval`. Verify (a) the sender actually owns this pane, and (b) the wc it's
+    // vouching for is genuinely a `<webview>` guest attached to that same sender, before
+    // trusting the mapping.
+    const wid = String(e.sender.id)
+    if (getByPaneId(paneId)?.windowId !== wid) return
+    const gc = webContents.fromId(webContentsId)
+    if (!gc || gc.getType() !== 'webview' || gc.hostWebContents?.id !== e.sender.id) return
     browserPanes.set(paneId, webContentsId)
   })
   ipcMain.on('browser:unregister', (_e, paneId: string) => {
@@ -552,7 +580,14 @@ app.whenReady().then(() => {
   registerWikiMethods()
   registerKanbanMethods()
   registerBusMethods()
-  registerBrowseMethods({ browserPanes, execCommand })
+  // Same allow-list as `fs:*` (see `registerFsIpc`) — `browse.screenshot`'s caller-supplied
+  // `path` gets the same containment, closing the arbitrary-write hole a bare `writeFileSync`
+  // would otherwise open.
+  registerBrowseMethods({
+    browserPanes,
+    execCommand,
+    screenshotRoots: [homedir(), app.getPath('userData')],
+  })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
 
