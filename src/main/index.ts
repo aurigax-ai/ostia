@@ -21,6 +21,7 @@ import { registerPane, removePane, removeWindow } from './idRegistry'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { registerNotifyMethods } from './notify'
 import { resolveSafe } from './pathGuard'
+import { killAllProcesses, registerProcessMethods } from './processManager'
 import { PtySession } from './ptySession'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 
@@ -522,6 +523,7 @@ app.whenReady().then(() => {
   registerFsIpc()
   registerLspIpc()
   registerNotifyMethods()
+  registerProcessMethods()
   registerDocsMethods()
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
@@ -541,6 +543,7 @@ app.on('before-quit', () => {
   }
   ptys.clear()
   killAllLsp()
+  killAllProcesses()
   stopControlServer()
 })
 
