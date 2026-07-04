@@ -596,6 +596,111 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+interface GatewayOk {
+  ok: true
+}
+interface GatewayErr {
+  ok: false
+  error: string
+  message?: string
+}
+interface GatewayStartResult {
+  host: string
+  port: number
+  fingerprint: string
+}
+interface GatewayStatusResult {
+  running: boolean
+  host: string | null
+  port: number | null
+  fingerprint: string | null
+  deviceCount: number
+}
+interface GatewayPairResult {
+  v: number
+  host: string | null
+  port: number | null
+  fingerprint: string | null
+  pairCode: string
+  name: string
+}
+interface GatewayDevice {
+  deviceId: string
+  name: string
+  pubkey: string
+  caps: string[]
+  createdAt: string
+}
+interface GatewayDevicesResult {
+  devices: GatewayDevice[]
+}
+
+function describeGatewayError(res: GatewayErr): string {
+  return res.message ? `${res.error}: ${res.message}` : res.error
+}
+
+/**
+ * `pine gateway <enable|pair|status|devices|revoke|disable>` — the LAN control-gateway verb
+ * group (elevated `gateway` capability; see `src/main/gateway/`). LAN/Tailscale-only, off by
+ * default: nothing here does anything until `enable` (or `pair`, which enables implicitly —
+ * see `src/main/gateway/index.ts`) is run at least once.
+ *
+ * `pair` can't render an actual QR here (no QR-encoding dependency was pulled in for it) — it
+ * prints the pairing JSON payload (scan-ready if you pipe it through your own QR tool) plus a
+ * copyable `pine-pair://` URI wrapping the same payload, base64url-encoded.
+ */
+async function runGatewayVerb(conn: MessageConnection): Promise<void> {
+  const sub = process.argv[3]
+  const { flags, rest } = parseFlags(process.argv.slice(4), ['host', 'port'])
+
+  if (sub === 'enable') {
+    const res = await conn.sendRequest<GatewayStartResult>('gateway.enable', {
+      host: flags.host || undefined,
+      port: flags.port ? Number(flags.port) : undefined,
+    })
+    console.log(JSON.stringify(res))
+  } else if (sub === 'disable') {
+    const res = await conn.sendRequest<GatewayOk>('gateway.disable', {})
+    console.log(res.ok ? 'ok' : 'pine: gateway disable failed')
+  } else if (sub === 'pair') {
+    const res = await conn.sendRequest<GatewayPairResult>('gateway.pair', {})
+    console.log(JSON.stringify(res, null, 2))
+    console.log(`\npine-pair://${Buffer.from(JSON.stringify(res)).toString('base64url')}`)
+    console.log('\n(scan the JSON above as a QR from the phone, or paste the pine-pair:// URI)')
+  } else if (sub === 'status') {
+    const res = await conn.sendRequest<GatewayStatusResult>('gateway.status', {})
+    console.log(JSON.stringify(res))
+  } else if (sub === 'devices') {
+    const res = await conn.sendRequest<GatewayDevicesResult>('gateway.devices', {})
+    if (res.devices.length === 0) {
+      console.log('(no paired devices)')
+      return
+    }
+    for (const d of res.devices) {
+      console.log(`${d.deviceId}\t${d.name}\t${d.caps.join(',')}\t${d.createdAt}`)
+    }
+  } else if (sub === 'revoke') {
+    const deviceId = rest[0]
+    if (!deviceId) {
+      console.error('pine gateway revoke: missing <deviceId>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<GatewayOk | GatewayErr>('gateway.revoke', { deviceId })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: gateway revoke failed (${describeGatewayError(res)})`)
+      process.exitCode = 1
+    }
+  } else {
+    console.error(
+      `pine gateway: unknown subcommand '${sub ?? ''}' (try: enable, pair, status, devices, revoke, disable)`,
+    )
+    process.exitCode = 1
+  }
+}
+
 /** Pulls known `--flag value` pairs out of a raw argv slice; everything else is positional. */
 function parseFlags(
   argv: string[],
@@ -1635,6 +1740,8 @@ async function main(): Promise<void> {
       await runSettingsVerb(conn)
     } else if (cmd === 'browse') {
       await runBrowseVerb(conn)
+    } else if (cmd === 'gateway') {
+      await runGatewayVerb(conn)
     } else if (cmd) {
       // Any other verb is treated as a command id, with an optional JSON args blob
       // as the 2nd argv (e.g. `pine pane.splitRight` or `pine pane.write '"ls\n"'`).
@@ -1650,7 +1757,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault, wiki, kanban, bus, settings, browse)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault, wiki, kanban, bus, settings, browse, gateway)`,
       )
       process.exitCode = 1
     }

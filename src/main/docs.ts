@@ -87,6 +87,12 @@ const CLI_HELP = `pine — control-socket CLI
   pine browse download wait [--path P] [--timeout MS] [--pane ID]  block for this surface's next download
   pine browse navigate <url> [--pane ID]             load <url> on an EXISTING surface (no auto-create)
   pine browse open-split [url] [--pane ID]           always create a NEW browser pane (a split)
+  pine gateway enable [--host H] [--port P]  turn on the LAN control gateway (elevated 'gateway')
+  pine gateway pair                          mint a pairing code + QR payload (enables gateway too)
+  pine gateway status                        { running, host, port, fingerprint, deviceCount }
+  pine gateway devices                       list paired phones (never prints tokens)
+  pine gateway revoke <deviceId>              revoke a paired phone immediately
+  pine gateway disable                       turn off the LAN control gateway
   pine docs                      show this help
 
   Selectors anywhere above also accept an @eN/eN ref from snapshot/find (refs are valid

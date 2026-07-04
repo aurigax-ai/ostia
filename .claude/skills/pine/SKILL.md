@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download), and reading/writing app settings. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse", "automate the browser", "agent browser automation in Pine".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
 ---
 
 # Pine — the agent toolbelt
@@ -280,6 +280,31 @@ none exists yet in your session; `navigate` is the same load but REQUIRES an exi
 have"; `open-split` is the opposite extreme — it always creates a brand new browser pane (a
 split) regardless of whether one already exists, for when you explicitly want a second surface.
 
+## Gateway — LAN phone pairing (elevated)
+
+```sh
+pine gateway enable [--host H] [--port P]   # start the LAN control gateway (default 0.0.0.0:8722)
+pine gateway pair                           # mint a pairing code + QR payload (also enables the
+                                             # gateway if it wasn't already running)
+pine gateway status                         # { running, host, port, fingerprint, deviceCount }
+pine gateway devices                        # list paired phones — deviceId, name, caps, createdAt
+                                             # (never prints bearer tokens)
+pine gateway revoke <deviceId>               # revoke a paired phone immediately
+pine gateway disable                        # stop the gateway
+```
+
+Lets the Pine Companion phone app pair over LAN (or your own Tailscale/VPN — **no hosted relay,
+no cloud rendezvous, no accounts**) and mirror/drive this desktop. **Off by default**; every verb
+here needs the elevated `gateway` capability (see below) on top of whatever the human has granted.
+`pair` prints the pairing JSON (and a `pine-pair://` URI wrapping the same payload) for the phone
+to scan/paste — there's no ASCII-QR rendering in the CLI itself, pipe the JSON through your own QR
+tool if you want one. A paired device only gets a strict phone-facing capability subset
+(`read`/`board.read`/`notify` by default; `command`/`input`/`board.write`/`destructive` need
+further elevation on the desktop side) — this is a separate, smaller vocabulary from the
+`Capability` list below; see `pine-companion/NETWORK-CONTRACT.md` for the full protocol. This
+batch only implements the server + pairing + device store — the phone's live control/PTY-mirror
+methods land in a later batch.
+
 ## Capabilities & elevation
 
 Posture: **pane-scoped trust** — a process running inside a pane is trusted at
@@ -287,7 +312,7 @@ pane scope, so every pane holds a fixed set of **default** capabilities:
 `drive-self`, `read-board`, `notify`, `wiki-read`, `wiki-write`, `settings-read`,
 `board-write`, `process`, `vault-read`, `vault-write`. Everything cross-boundary,
 system-facing, or dangerous is **elevated** and starts withheld: `send-other-pane`,
-`kill-pane`, `workspace-wide`, `shell`, `destructive`, `phone`, `browse`,
+`kill-pane`, `workspace-wide`, `shell`, `destructive`, `phone`, `gateway`, `browse`,
 `settings-write`.
 
 A call that needs a capability the pane doesn't hold fails fast with

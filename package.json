@@ -41,9 +41,11 @@
     "lucide-react": "^0.460.0",
     "monaco-editor": "^0.55.1",
     "node-pty": "^1.1.0",
+    "selfsigned": "^5.5.0",
     "tailwind-merge": "^3.6.0",
     "vscode-jsonrpc": "^9.0.1",
     "vscode-languageserver-protocol": "^3.18.2",
+    "ws": "^8.21.0",
     "zustand": "^4.5.7"
   },
   "devDependencies": {
@@ -58,6 +60,7 @@
     "@types/node": "^22.20.0",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^2.1.9",
     "electron": "^33.4.11",
