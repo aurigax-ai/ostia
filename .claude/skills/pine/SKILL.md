@@ -176,6 +176,18 @@ pine browse nav <back|forward|reload> [--pane ID]
 pine browse read [selector] [--pane ID]              # visible text: whole page, or one element
 pine browse click <selector> [--pane ID]
 pine browse type <selector> "<text>" [--pane ID]     # sets .value, fires input + change events
+pine browse dblclick <selector> [--pane ID]          # dispatches a double-click
+pine browse hover <selector> [--pane ID]             # dispatches mouseover + mouseenter + mousemove
+pine browse focus <selector> [--pane ID]             # el.focus()
+pine browse check <selector> [--pane ID]             # checked = true, fires input + change
+pine browse uncheck <selector> [--pane ID]           # checked = false, fires input + change
+pine browse scroll-into-view <selector> [--pane ID]  # el.scrollIntoView({block:'center'})
+pine browse fill <selector> "<text>" [--pane ID]     # whole-value set (plain .value=), fires input + change
+pine browse select <selector> <value> [--pane ID]    # sets a <select>'s value (or matching option), fires change
+pine browse scroll [--x N] [--y N] [--selector S] [--pane ID]   # scrolls the page, or an element with --selector
+pine browse press <key> [--selector S] [--pane ID]   # real keyDown+keyUp (focuses --selector first if given)
+pine browse keydown <key> [--selector S] [--pane ID] # real keyDown only
+pine browse keyup <key> [--selector S] [--pane ID]   # real keyUp only
 pine browse eval "<js>" [--pane ID]                  # runs JS in the page, prints the JSON result
 pine browse wait <selector> [--timeout MS] [--pane ID]   # polls (default 10s, capped 30s)
 pine browse screenshot [path] [--pane ID]            # PNG to `path` (default a tmp scratch path); prints the path

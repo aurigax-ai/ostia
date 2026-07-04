@@ -768,7 +768,8 @@ function describeBrowseError(res: BrowseErr): string {
 }
 
 /**
- * `pine browse <open|nav|read|click|type|eval|wait|screenshot|content>` — agent automation of
+ * `pine browse <open|nav|read|click|type|dblclick|hover|focus|check|uncheck|scroll-into-view|
+ * fill|select|scroll|press|keydown|keyup|eval|wait|screenshot|content>` — agent automation of
  * the in-app `browser` pane's guest page (elevated `browse` capability; see `src/main/browse.ts`).
  * `--pane <externalId>` targets a specific browser pane (another pane's `pine whoami` id,
  * relayed the same way as the "no pane roster yet" coordination recipe in the `pine` skill);
@@ -776,7 +777,13 @@ function describeBrowseError(res: BrowseErr): string {
  */
 async function runBrowseVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
-  const { flags, rest } = parseFlags(process.argv.slice(4), ['pane', 'timeout'])
+  const { flags, rest } = parseFlags(process.argv.slice(4), [
+    'pane',
+    'timeout',
+    'x',
+    'y',
+    'selector',
+  ])
   const paneId = flags.pane || undefined
 
   if (sub === 'open') {
@@ -851,6 +858,208 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       console.error(`pine: browse type failed (${describeBrowseError(res)})`)
       process.exitCode = 1
     }
+  } else if (sub === 'dblclick') {
+    const selector = rest[0]
+    if (!selector) {
+      console.error('pine browse dblclick: missing <selector>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.dblclick', {
+      selector,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse dblclick failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'hover') {
+    const selector = rest[0]
+    if (!selector) {
+      console.error('pine browse hover: missing <selector>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.hover', { selector, paneId })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse hover failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'focus') {
+    const selector = rest[0]
+    if (!selector) {
+      console.error('pine browse focus: missing <selector>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.focus', { selector, paneId })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse focus failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'check') {
+    const selector = rest[0]
+    if (!selector) {
+      console.error('pine browse check: missing <selector>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.check', { selector, paneId })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse check failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'uncheck') {
+    const selector = rest[0]
+    if (!selector) {
+      console.error('pine browse uncheck: missing <selector>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.uncheck', {
+      selector,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse uncheck failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'scroll-into-view') {
+    const selector = rest[0]
+    if (!selector) {
+      console.error('pine browse scroll-into-view: missing <selector>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.scrollIntoView', {
+      selector,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse scroll-into-view failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'fill') {
+    const [selector, text] = rest
+    if (!selector || text === undefined) {
+      console.error('pine browse fill: missing <selector> <text>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.fill', {
+      selector,
+      text,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse fill failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'select') {
+    const [selector, value] = rest
+    if (!selector || value === undefined) {
+      console.error('pine browse select: missing <selector> <value>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.select', {
+      selector,
+      value,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse select failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'scroll') {
+    const x = flags.x ? Number(flags.x) : undefined
+    const y = flags.y ? Number(flags.y) : undefined
+    const selector = flags.selector || undefined
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.scroll', {
+      x,
+      y,
+      selector,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse scroll failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'press') {
+    const key = rest[0]
+    if (!key) {
+      console.error('pine browse press: missing <key>')
+      process.exitCode = 1
+      return
+    }
+    const selector = flags.selector || undefined
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.press', {
+      key,
+      selector,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse press failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'keydown') {
+    const key = rest[0]
+    if (!key) {
+      console.error('pine browse keydown: missing <key>')
+      process.exitCode = 1
+      return
+    }
+    const selector = flags.selector || undefined
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.keydown', {
+      key,
+      selector,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse keydown failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'keyup') {
+    const key = rest[0]
+    if (!key) {
+      console.error('pine browse keyup: missing <key>')
+      process.exitCode = 1
+      return
+    }
+    const selector = flags.selector || undefined
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.keyup', {
+      key,
+      selector,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse keyup failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
   } else if (sub === 'eval') {
     const js = rest[0]
     if (!js) {
@@ -911,7 +1120,7 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
     }
   } else {
     console.error(
-      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, eval, wait, screenshot, content)`,
+      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content)`,
     )
     process.exitCode = 1
   }

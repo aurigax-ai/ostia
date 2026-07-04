@@ -44,6 +44,18 @@ const CLI_HELP = `pine — control-socket CLI
   pine browse read [selector] [--pane ID]            print visible text (page, or a selector's)
   pine browse click <selector> [--pane ID]           click the first matching element
   pine browse type <selector> <text> [--pane ID]     set an input's value + fire input/change
+  pine browse dblclick <selector> [--pane ID]        dispatch a double-click
+  pine browse hover <selector> [--pane ID]           dispatch mouseover/mouseenter/mousemove
+  pine browse focus <selector> [--pane ID]           focus an element
+  pine browse check <selector> [--pane ID]           set a checkbox/radio checked + fire input/change
+  pine browse uncheck <selector> [--pane ID]         clear a checkbox + fire input/change
+  pine browse scroll-into-view <selector> [--pane ID]  scroll an element into view (centered)
+  pine browse fill <selector> <text> [--pane ID]     whole-value set + fire input/change
+  pine browse select <selector> <value> [--pane ID]  set a <select>'s value + fire change
+  pine browse scroll [--x N] [--y N] [--selector S] [--pane ID]  scroll the page or an element
+  pine browse press <key> [--selector S] [--pane ID]  real keyDown+keyUp (focuses selector first)
+  pine browse keydown <key> [--selector S] [--pane ID]  real keyDown only
+  pine browse keyup <key> [--selector S] [--pane ID]  real keyUp only
   pine browse eval "<js>" [--pane ID]                run JS in the page, print the JSON result
   pine browse wait <selector> [--timeout MS] [--pane ID]  poll until a selector appears
   pine browse screenshot [path] [--pane ID]          capture the page to a PNG, print its path
