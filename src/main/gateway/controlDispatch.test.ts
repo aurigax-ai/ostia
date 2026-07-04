@@ -26,6 +26,9 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     listSessions: vi.fn().mockResolvedValue([]),
     kanbanGet: vi.fn().mockReturnValue({ columns: [], cards: [] }),
     primaryWindowId: vi.fn().mockReturnValue('w1'),
+    attachPhoneObserver: vi.fn().mockReturnValue(null),
+    ptyResize: vi.fn(),
+    ptyWrite: vi.fn(),
     ...overrides,
   }
 }

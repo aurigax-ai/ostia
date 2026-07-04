@@ -11,7 +11,7 @@
  * QR payload advertises and the phone pins (contract §3.2).
  */
 import { X509Certificate, createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
 import { generate } from 'selfsigned'
@@ -51,10 +51,22 @@ export async function getCert(baseDirOverride?: string): Promise<GatewayCert> {
   const certPath = join(dir, 'cert.pem')
   const keyPath = join(dir, 'key.pem')
 
+  // Owner-only, always — the private key (and, for consistency, the cert alongside it) must
+  // never be world/group-readable, else any other local user on the machine can read the key
+  // and impersonate the gateway (security review finding). `mkdirSync`'s `mode` only takes
+  // effect when the dir is actually CREATED, so a pre-fix (pre-existing, possibly-world-
+  // readable) `gateway/` dir needs the explicit `chmodSync` below too.
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  chmodSync(dir, 0o700)
+
   let result: GatewayCert
   if (existsSync(certPath) && existsSync(keyPath)) {
     const cert = readFileSync(certPath, 'utf8')
     const key = readFileSync(keyPath, 'utf8')
+    // Same belt-and-suspenders as the dir: a cert/key pair written before this fix shipped may
+    // still be world-readable on disk — reassert 0600 on every load, not just on first write.
+    chmodSync(certPath, 0o600)
+    chmodSync(keyPath, 0o600)
     result = { cert, key, fingerprint: fingerprintOf(cert) }
   } else {
     const pems = await generate([{ name: 'commonName', value: 'pine-gateway' }], {
@@ -62,9 +74,12 @@ export async function getCert(baseDirOverride?: string): Promise<GatewayCert> {
       algorithm: 'sha256',
       notAfterDate: new Date(Date.now() + CERT_LIFETIME_MS),
     })
-    mkdirSync(dir, { recursive: true })
-    writeFileSync(certPath, pems.cert, 'utf8')
-    writeFileSync(keyPath, pems.private, 'utf8')
+    writeFileSync(certPath, pems.cert, { encoding: 'utf8', mode: 0o600 })
+    writeFileSync(keyPath, pems.private, { encoding: 'utf8', mode: 0o600 })
+    // `mode` on `writeFileSync` only applies when the file doesn't already exist (a stale
+    // leftover from a crashed prior run would otherwise keep its old mode) — chmod explicitly.
+    chmodSync(certPath, 0o600)
+    chmodSync(keyPath, 0o600)
     result = { cert: pems.cert, key: pems.private, fingerprint: fingerprintOf(pems.cert) }
   }
 

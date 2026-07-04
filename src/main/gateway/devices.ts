@@ -37,8 +37,11 @@ function load(): DeviceStore {
   return loadJson<DeviceStore>(storeFile(), {})
 }
 
+/** `secure: true` — this store holds bearer tokens (contract §3/§4), so the file lands `0600`
+ *  and its directory `0700` (security review finding: other local users must not be able to
+ *  read a paired phone's token off disk). */
 function save(store: DeviceStore): void {
-  saveJson(storeFile(), store)
+  saveJson(storeFile(), store, { secure: true })
 }
 
 export interface RegisterDeviceInput {
