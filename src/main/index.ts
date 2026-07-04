@@ -5,6 +5,9 @@ import { BrowserWindow, app, ipcMain, screen, shell } from 'electron'
 import type { IPty } from 'node-pty'
 import type {
   AppInfo,
+  CommandDescriptor,
+  CommandResult,
+  CommandTarget,
   FsEntry,
   LifecycleEvent,
   PaneDescriptor,
@@ -87,6 +90,15 @@ function resolveCwd(cwd?: string): string {
 const detachedPanes = new Map<number, PaneDescriptor>()
 
 /**
+ * Live windows keyed by `String(webContents.id)` — the same "windowId" used by
+ * `idRegistry.ts` and `lifecycle:event`. Lets the command bridge (Slice 6) route
+ * an explicit-target invocation to the right renderer.
+ */
+const windows = new Map<string, BrowserWindow>()
+/** Each window's published command descriptors (renderer → main via `commands:register`). */
+const commandsByWindow = new Map<string, CommandDescriptor[]>()
+
+/**
  * OS-native window framing, VSCode-style:
  * - macOS keeps the native traffic lights (left), but hides the title bar so our
  *   chrome reaches the top edge. We nudge the lights to sit centered in our bar.
@@ -122,9 +134,15 @@ function wireWindow(win: BrowserWindow): void {
     return { action: 'deny' }
   })
 
-  // Prune this window's pane identities from the registry once it's gone.
+  // Track this window for the command bridge; prune it (and its pane identities,
+  // published commands) once it's gone.
   const wid = String(win.webContents.id)
-  win.on('closed', () => removeWindow(wid))
+  windows.set(wid, win)
+  win.on('closed', () => {
+    windows.delete(wid)
+    commandsByWindow.delete(wid)
+    removeWindow(wid)
+  })
 }
 
 function createWindow(): BrowserWindow {
@@ -240,6 +258,12 @@ function registerIpc(): void {
     } else if (event.type === 'session-activated' || event.type === 'session-added') {
       // Session-scoped bookkeeping hook; panes already carry sessionId at creation.
     }
+  })
+
+  // Command bridge (Slice 6): each window publishes its command registry on load so
+  // main (and, via listCommandsFor, the control socket / `pine` CLI) can discover it.
+  ipcMain.on('commands:register', (e, descriptors: CommandDescriptor[]) => {
+    commandsByWindow.set(String(e.sender.id), descriptors)
   })
 }
 
@@ -380,6 +404,48 @@ function registerFsIpc(): void {
     } catch {
       return false
     }
+  })
+}
+
+/** The command descriptors a window has published, for `pine commands` (Slice 6 T2). */
+export function listCommandsFor(windowId: string): CommandDescriptor[] {
+  return commandsByWindow.get(windowId) ?? []
+}
+
+let reqSeq = 0
+
+/**
+ * Ask a window's renderer to execute a command against an explicit target, over the
+ * `command:invoke` / `command:result` IPC round-trip the preload bridge wires up
+ * (`wireCommandBridge` in the renderer). Used by the control socket / `pine` CLI
+ * (Slice 6 T2) — not yet called from anywhere else, so this is passive today.
+ */
+export function execCommand(
+  target: CommandTarget,
+  id: string,
+  args?: unknown,
+): Promise<CommandResult> {
+  const win = target.windowId ? windows.get(target.windowId) : [...windows.values()][0]
+  if (!win || win.isDestroyed()) {
+    return Promise.resolve({
+      ok: false,
+      error: { code: 'command-failed', message: 'target window not available' },
+    })
+  }
+  const reqId = `cmd-${++reqSeq}`
+  return new Promise((resolve) => {
+    const onResult = (_e: Electron.IpcMainEvent, rid: string, result: CommandResult): void => {
+      if (rid !== reqId) return
+      ipcMain.removeListener('command:result', onResult)
+      resolve(result)
+    }
+    ipcMain.on('command:result', onResult)
+    win.webContents.send('command:invoke', reqId, { id, args, target })
+    // Safety timeout so a dead/unresponsive renderer doesn't hang the caller forever.
+    setTimeout(() => {
+      ipcMain.removeListener('command:result', onResult)
+      resolve({ ok: false, error: { code: 'command-failed', message: 'command timed out' } })
+    }, 5000)
   })
 }
 

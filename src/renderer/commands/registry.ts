@@ -9,24 +9,18 @@
 
 import type { Capability } from '../../shared/capabilities'
 import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
+import type { CommandDescriptor, CommandResult, JSONSchema, TargetMode } from '../../shared/types'
 
-/** Minimal JSON-Schema stand-in (no validator dep yet; shape is opaque here). */
-export type JSONSchema = Record<string, unknown>
-
-/** How a command resolves the pane it acts on. */
-export type TargetMode = 'active' | 'explicit' | 'none'
-
-export type CommandErrorCode = 'unknown-command' | 'command-failed' | 'needs-elevation'
-
-export interface CommandError {
-  code: CommandErrorCode
-  message: string
-}
-
-/** Uniform result of executing a command (what the socket/CLI return). Discriminated on `ok`. */
-export type CommandResult<R = unknown> =
-  | { ok: true; result: R }
-  | { ok: false; error: CommandError }
+// Wire types now live in shared/types.ts (main/preload need to reference them too);
+// re-exported here so existing importers of this module keep working unchanged.
+export type {
+  CommandResult,
+  CommandError,
+  CommandErrorCode,
+  CommandDescriptor,
+  TargetMode,
+  JSONSchema,
+} from '../../shared/types'
 
 /** Context passed to every command (what is "current"). Grows over time. */
 export interface CommandContext {
@@ -62,18 +56,6 @@ export interface CommandDef<Args = void, R = void> {
 
 // biome-ignore lint/suspicious/noExplicitAny: registry stores heterogeneous command arg/result types.
 type AnyCommand = CommandDef<any, any>
-
-/** Serialized, stable view of a command for external discovery. */
-export interface CommandDescriptor {
-  id: string
-  title: string
-  category: string | null
-  hidden: boolean
-  argsSchema: JSONSchema | null
-  resultSchema: JSONSchema | null
-  capabilities: Capability[]
-  target: TargetMode
-}
 
 export class CommandRegistry {
   private commands = new Map<string, AnyCommand>()
@@ -119,16 +101,21 @@ export class CommandRegistry {
   }
 
   /**
-   * Execute a command by id. Never throws — returns a uniform CommandResult so
-   * the socket/CLI can map it to an exit status. UI callers may ignore the result.
+   * Execute a command by id against an explicit context. Never throws — returns a
+   * uniform CommandResult so the socket/CLI can map it to an exit status. This is
+   * what the command bridge (Slice 6) calls with the caller-supplied target context.
    */
-  async exec<Args, R = unknown>(id: string, args?: Args): Promise<CommandResult<R>> {
+  async execWith<Args, R = unknown>(
+    ctx: CommandContext,
+    id: string,
+    args?: Args,
+  ): Promise<CommandResult<R>> {
     const cmd = this.commands.get(id)
     if (!cmd) {
       return { ok: false, error: { code: 'unknown-command', message: `unknown command: ${id}` } }
     }
     try {
-      const result = (await cmd.run(args, this.contextProvider())) as R
+      const result = (await cmd.run(args, ctx)) as R
       return { ok: true, result }
     } catch (e) {
       return {
@@ -136,6 +123,14 @@ export class CommandRegistry {
         error: { code: 'command-failed', message: e instanceof Error ? e.message : String(e) },
       }
     }
+  }
+
+  /**
+   * Execute a command by id using the current context provider (the UI's "active"
+   * session/pane). UI callers may ignore the result.
+   */
+  exec<Args, R = unknown>(id: string, args?: Args): Promise<CommandResult<R>> {
+    return this.execWith(this.contextProvider(), id, args)
   }
 }
 
