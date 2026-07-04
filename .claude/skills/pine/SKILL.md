@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, and reading/writing app settings. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot), and reading/writing app settings. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse", "automate the browser", "agent browser automation in Pine".
 ---
 
 # Pine — the agent toolbelt
@@ -167,6 +167,29 @@ UI updates instantly, no restart) and debounce-persists it to `settings.json`.
 Unknown paths are created rather than rejected. `get` with no key returns the whole
 state; with a key it walks the path and prints `null` (JSON for `undefined`) if
 absent.
+
+## Browser — agent-driven web automation
+
+```sh
+pine browse open <url> [--pane ID]                  # loads <url>; creates a browser pane if none exists
+pine browse nav <back|forward|reload> [--pane ID]
+pine browse read [selector] [--pane ID]              # visible text: whole page, or one element
+pine browse click <selector> [--pane ID]
+pine browse type <selector> "<text>" [--pane ID]     # sets .value, fires input + change events
+pine browse eval "<js>" [--pane ID]                  # runs JS in the page, prints the JSON result
+pine browse wait <selector> [--timeout MS] [--pane ID]   # polls (default 10s, capped 30s)
+pine browse screenshot [path] [--pane ID]            # PNG to `path` (default a tmp scratch path); prints the path
+pine browse content [--pane ID]                      # document.documentElement.outerHTML, capped ~1MB
+```
+
+Drives the `browser` surface's `<webview>` guest page (Stage 1's in-app browser) — the same
+one a human opened with `browser.open`/the command palette, or that `browse open` creates on
+demand. `--pane <externalId>` targets a *specific* browser pane by another pane's `whoami`
+externalId (relayed via `pine wiki`/`pine bus`, same as the coordination recipe below); omit it
+and the CLI targets the first browser pane in your own session. A selector/JS argument that
+doesn't match anything fails with a typed error (`not-found`, `eval-failed`, ...) rather than
+throwing — check the CLI's stderr/exit code. This entire group needs the elevated `browse`
+capability (see below) — nothing here works until a human grants it.
 
 ## Capabilities & elevation
 

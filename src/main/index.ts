@@ -15,10 +15,11 @@ import type {
   PtySpawnOptions,
   TerminalStateSnapshot,
 } from '../shared/types'
+import { registerBrowseMethods } from './browse'
 import { registerBusMethods } from './bus'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
-import { registerPane, removePane, removeWindow } from './idRegistry'
+import { getByPaneId, registerPane, removePane, removeWindow } from './idRegistry'
 import { registerKanbanMethods } from './kanban'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { registerNotifyMethods } from './notify'
@@ -109,6 +110,14 @@ const windows = new Map<string, BrowserWindow>()
 const commandsByWindow = new Map<string, CommandDescriptor[]>()
 
 /**
+ * A `browser` pane's live guest `<webview>` webContents id, keyed by renderer paneId —
+ * registered on the webview's `dom-ready` (`browser:register` IPC) so main can drive it
+ * (Stage 2 `browse.*` control methods, `src/main/browse.ts`). The guest is its own OS
+ * process; this id is the only handle main has into it.
+ */
+const browserPanes = new Map<string, number>()
+
+/**
  * Slice 7 read-model: each pane's latest terminal-state snapshot (cwd, running,
  * block count, last exit code), mirrored from the renderer's blocksStore/layoutStore
  * via `terminal:state` IPC (`src/renderer/commands/terminalStateBridge.ts`). Replace
@@ -174,6 +183,12 @@ function wireWindow(win: BrowserWindow): void {
         entry.subs.delete(wid)
         entry.session.removeSubscriber(wid) // last owner leaving fires onNoOwners → grace kill
       }
+    }
+    // Same ghost-reap for browser panes: a force-close/crash skips BrowserView's unmount
+    // (and its `browser:unregister` call), so prune any registration whose pane lived in
+    // this window rather than leaking a stale renderer-paneId → webContents-id entry.
+    for (const [paneId] of browserPanes) {
+      if (getByPaneId(paneId)?.windowId === wid) browserPanes.delete(paneId)
     }
   })
 }
@@ -309,6 +324,17 @@ function registerIpc(): void {
   ipcMain.on('terminal:state', (_e, snapshot: TerminalStateSnapshot) => {
     const cur = terminalState.get(snapshot.paneId)
     if (!cur || snapshot.generation >= cur.generation) terminalState.set(snapshot.paneId, snapshot)
+  })
+
+  // Browser-pane registration (Stage 2): the renderer hands over a `browser` pane's guest
+  // webContents id once the `<webview>` fires `dom-ready` — main can't get this any other
+  // way (the guest is a separate OS process it doesn't otherwise see). Consumed by
+  // `browse.*` control methods (`src/main/browse.ts`) via the injected `browserPanes` map.
+  ipcMain.on('browser:register', (_e, paneId: string, webContentsId: number) => {
+    browserPanes.set(paneId, webContentsId)
+  })
+  ipcMain.on('browser:unregister', (_e, paneId: string) => {
+    browserPanes.delete(paneId)
   })
 }
 
@@ -526,6 +552,7 @@ app.whenReady().then(() => {
   registerWikiMethods()
   registerKanbanMethods()
   registerBusMethods()
+  registerBrowseMethods({ browserPanes, execCommand })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
 

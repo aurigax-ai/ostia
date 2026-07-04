@@ -71,7 +71,7 @@ export function SurfacePool(): JSX.Element {
           s.kind === 'editor' ? (
             <EditorView filePath={s.filePath} />
           ) : s.kind === 'browser' ? (
-            <BrowserView url={s.url} />
+            <BrowserView paneId={s.paneId} url={s.url} />
           ) : (
             <TerminalView sessionId={s.sessionId} paneId={s.paneId} cwd={s.cwd} />
           ),
