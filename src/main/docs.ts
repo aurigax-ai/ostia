@@ -68,6 +68,19 @@ const CLI_HELP = `pine — control-socket CLI
                                   role|text|label|placeholder|alt|title|testid|first|last|nth
                                   -> prints an @eN ref
   pine browse highlight <selector> [--ms N] [--pane ID]  briefly outline an element
+  pine browse url [--pane ID]                        print the current page URL
+  pine browse zoom <in|out|reset> [--pane ID]        adjust zoom level by 0.5, print new level
+  pine browse devtools [toggle|open|close|console] [--pane ID]  default: toggle
+  pine browse focus-webview [--pane ID]              focus the guest webContents
+  pine browse is-webview-focused [--pane ID]         print true/false, exit 1 if false
+  pine browse identify [--pane ID]                   print {paneId,url,title,sessionId,windowId}
+  pine browse cookies <get|set|clear> [name] [value] [--url U] [--domain D] [--pane ID]
+  pine browse storage <local|session> <get|set|clear> [key] [value] [--pane ID]
+  pine browse state <save|load> <path> [--pane ID]   save/restore cookies+localStorage+sessionStorage
+  pine browse history clear [--pane ID]              clear this surface's navigation history
+  pine browse addscript "<js>" [--pane ID]           run JS now, print the JSON result
+  pine browse addstyle "<css>" [--pane ID]           inject a <style>, print its key
+  pine browse addinitscript "<js>" [--pane ID]       run JS before every future navigation (CDP)
   pine docs                      show this help
 
   Selectors anywhere above also accept an @eN/eN ref from snapshot/find (refs are valid

@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot), and reading/writing app settings. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse", "automate the browser", "agent browser automation in Pine".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection), and reading/writing app settings. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse", "automate the browser", "agent browser automation in Pine".
 ---
 
 # Pine — the agent toolbelt
@@ -201,6 +201,24 @@ pine browse is <sub> <selector> [--pane ID]          # sub: visible|enabled|chec
 pine browse find <by> <query> [--exact] [--index N] [--selector S] [--pane ID]
                                                       # by: role|text|label|placeholder|alt|title|testid|first|last|nth — prints an @eN ref
 pine browse highlight <selector> [--ms N] [--pane ID]  # briefly outlines the element (default 1500ms)
+pine browse url [--pane ID]                          # prints location.href
+pine browse zoom <in|out|reset> [--pane ID]          # +/-0.5 zoom level (reset = 0), prints the new level
+pine browse devtools [toggle|open|close|console] [--pane ID]
+                                                      # opens/closes DevTools (default: toggle); 'console' just opens
+                                                      # (Electron can't target the Console panel specifically)
+pine browse focus-webview [--pane ID]                # OS-level focus() on the guest webContents
+pine browse is-webview-focused [--pane ID]           # prints true/false, exit 1 if false
+pine browse identify [--pane ID]                     # self-locate: {paneId, url, title, sessionId, windowId}
+pine browse cookies <get|set|clear> [name] [value] [--url U] [--domain D] [--pane ID]
+                                                      # this surface's own cookie jar (per-pane partition)
+pine browse storage <local|session> <get|set|clear> [key] [value] [--pane ID]
+                                                      # localStorage/sessionStorage — omit [key] on get for all keys
+pine browse state <save|load> <path> [--pane ID]     # save/restore cookies + both Web Storage areas to/from a JSON file
+                                                      # (path is allow-listed, same as `screenshot`)
+pine browse history clear [--pane ID]                # clears this surface's back/forward navigation history
+pine browse addscript "<js>" [--pane ID]              # runs JS now, prints the JSON result (like `eval`, framed as injection)
+pine browse addstyle "<css>" [--pane ID]              # insertCSS(css), prints the returned style key
+pine browse addinitscript "<js>" [--pane ID]          # persists JS to run before EVERY future navigation (via CDP), prints its identifier
 ```
 
 Drives the `browser` surface's `<webview>` guest page (Stage 1's in-app browser) — the same
@@ -211,6 +229,14 @@ and the CLI targets the first browser pane in your own session. A selector/JS ar
 doesn't match anything fails with a typed error (`not-found`, `eval-failed`, ...) rather than
 throwing — check the CLI's stderr/exit code. This entire group needs the elevated `browse`
 capability (see below) — nothing here works until a human grants it.
+
+**Per-surface isolation**: every browser pane gets its own cookie/storage jar (a distinct
+Electron `partition`), so `cookies`/`storage`/`state` only ever see *that* pane's data — never
+shared across panes or with the OS-level Chrome profile. `addinitscript` attaches a Chrome
+DevTools Protocol debugger session to the surface to persist the script; Chrome only allows one
+CDP consumer per page, so opening DevTools on the same pane (`devtools open`) afterward can
+detach that session — if a follow-up `addinitscript` call then fails with
+`debugger-attach-failed`, close DevTools first and retry.
 
 **Ref workflow**: every selector-accepting command above (`click`, `type`, `get`, `is`, ...)
 also accepts an `@eN`/`eN` element ref in place of a CSS selector. `snapshot` and `find` are

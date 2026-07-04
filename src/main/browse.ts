@@ -24,7 +24,7 @@
  * JSON-encoding every agent-supplied string INTO the script text (`JSON.stringify`) so it can't
  * break out of the generated JS and inject something unintended.
  */
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { webContents } from 'electron'
@@ -243,6 +243,52 @@ async function runSelectorJs(
   } catch (e) {
     return { ok: false, error: 'eval-failed', message: errMessage(e) }
   }
+}
+
+/**
+ * Run `js` in the guest page and hand back its value JSON-stringified into a text result —
+ * shared by `browse.eval` and `browse.addscript` (same "run script now, return its value"
+ * semantics; `addscript` is just framed as script injection for cmux parity, not a different
+ * execution mode).
+ */
+async function evalToResult(
+  guest: Electron.WebContents,
+  js: string,
+): Promise<{ ok: true; result: string } | { ok: false; error: string; message?: string }> {
+  try {
+    const raw = await guest.executeJavaScript(js, true)
+    // Stringify safely — the raw value may not be JSON (undefined, a function, a DOM node
+    // reference that survived the guest's structured clone, ...) — fall back to String()
+    // rather than letting a serialization error look like the script itself failed.
+    let result: string
+    try {
+      result = JSON.stringify(raw) ?? String(raw)
+    } catch {
+      result = String(raw)
+    }
+    return { ok: true, result }
+  } catch (e) {
+    return { ok: false, error: 'eval-failed', message: errMessage(e) }
+  }
+}
+
+/**
+ * Build a `url` for a cookie that has none (every cookie from `session.cookies.get` carries
+ * `domain`/`path`/`secure` but never a `url`) — needed by `browse.cookies clear` to remove a
+ * `get`-matched cookie via `cookies.remove(url, name)`, and by `browse.state load` to restore
+ * saved cookies via `cookies.set`. Chrome normalises `domain` with a leading dot (valid for
+ * subdomains); strip it back off since `url`'s host can't have one.
+ */
+function cookieUrl(cookie: Electron.Cookie): string {
+  const domain = (cookie.domain ?? '').replace(/^\./, '')
+  return `${cookie.secure ? 'https' : 'http'}://${domain}${cookie.path ?? '/'}`
+}
+
+/** Persisted shape for `browse.state save`/`load` — cookies plus both Web Storage areas. */
+interface BrowseStateFile {
+  cookies: Electron.Cookie[]
+  localStorage: Record<string, string>
+  sessionStorage: Record<string, string>
 }
 
 /** `resolveEl(sel)?.focus()` — shared by `browse.focus` and the selector-first step of
@@ -615,22 +661,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const { js, paneId } = (params ?? {}) as { js: string; paneId?: string }
       const resolution = resolveGuest(deps, ctx, paneId)
       if (!resolution.ok) return resolution
-      try {
-        const raw = await resolution.guest.executeJavaScript(js, true)
-        // Stringify safely — the raw value may not be JSON (undefined, a function, a DOM
-        // node reference that survived the guest's structured clone, ...) — fall back to
-        // String() rather than letting a serialization error look like the script itself
-        // failed.
-        let result: string
-        try {
-          result = JSON.stringify(raw) ?? String(raw)
-        } catch {
-          result = String(raw)
-        }
-        return { ok: true, result }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
+      return evalToResult(resolution.guest, js)
     },
   })
 
@@ -1101,6 +1132,371 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         return true;
       `)
       return runSelectorJs(resolution.guest, js)
+    },
+  })
+
+  // --- Navigation/targeting family (cmux parity): url/zoom/devtools/focus-webview/identify. ---
+
+  registerControlMethod('browse.url', {
+    cap: 'browse',
+    handler: (params, ctx) => {
+      const { paneId } = (params ?? {}) as { paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      return { ok: true, url: resolution.guest.getURL() }
+    },
+  })
+
+  registerControlMethod('browse.zoom', {
+    cap: 'browse',
+    handler: (params, ctx) => {
+      const { action, paneId } = (params ?? {}) as {
+        action: 'in' | 'out' | 'reset'
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const { guest } = resolution
+      let zoom: number
+      if (action === 'reset') zoom = 0
+      else if (action === 'in') zoom = guest.getZoomLevel() + 0.5
+      else if (action === 'out') zoom = guest.getZoomLevel() - 0.5
+      else return { ok: false, error: 'bad-action' }
+      guest.setZoomLevel(zoom)
+      return { ok: true, zoom }
+    },
+  })
+
+  registerControlMethod('browse.devtools', {
+    cap: 'browse',
+    handler: (params, ctx) => {
+      const { action, paneId } = (params ?? {}) as {
+        action?: 'toggle' | 'open' | 'close' | 'console'
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const { guest } = resolution
+      switch (action ?? 'toggle') {
+        case 'open':
+        case 'console':
+          guest.openDevTools()
+          break
+        case 'close':
+          guest.closeDevTools()
+          break
+        case 'toggle':
+          if (guest.isDevToolsOpened()) guest.closeDevTools()
+          else guest.openDevTools()
+          break
+        default:
+          return { ok: false, error: 'bad-action' }
+      }
+      // Electron's DevTools API can only open/close the whole panel — there's no hook to land
+      // on a specific tab (Console, Elements, ...), so `console` opens DevTools same as `open`
+      // and says so rather than silently pretending it focused the Console panel.
+      const note =
+        action === 'console'
+          ? "Electron can't target the Console panel specifically — opened DevTools"
+          : undefined
+      return { ok: true, open: guest.isDevToolsOpened(), note }
+    },
+  })
+
+  registerControlMethod('browse.focusWebview', {
+    cap: 'browse',
+    handler: (params, ctx) => {
+      const { paneId } = (params ?? {}) as { paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      resolution.guest.focus()
+      return { ok: true }
+    },
+  })
+
+  registerControlMethod('browse.isWebviewFocused', {
+    cap: 'browse',
+    handler: (params, ctx) => {
+      const { paneId } = (params ?? {}) as { paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      return { ok: true, focused: resolution.guest.isFocused() }
+    },
+  })
+
+  registerControlMethod('browse.identify', {
+    cap: 'browse',
+    handler: (params, ctx) => {
+      const { paneId } = (params ?? {}) as { paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      // `resolveGuest` already proved this renderer paneId is registered, but `getByPaneId`
+      // is a separate map (identity registry vs. browser-pane registry) — still check.
+      const identity = getByPaneId(resolution.rendererPaneId)
+      if (!identity) return { ok: false, error: 'no-browser-pane' }
+      return {
+        ok: true,
+        paneId: identity.externalId,
+        url: resolution.guest.getURL(),
+        title: resolution.guest.getTitle(),
+        sessionId: identity.sessionId,
+        windowId: identity.windowId,
+      }
+    },
+  })
+
+  // --- Session/state family (cmux parity): cookies/storage/state/history, all per-surface —
+  // every browser pane already has its own `partition` (`BrowserView.tsx`), so `guest.session`
+  // here is that pane's own isolated cookie/storage jar, never shared across panes. ---
+
+  registerControlMethod('browse.cookies', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { sub, name, value, url, domain, paneId } = (params ?? {}) as {
+        sub: 'get' | 'set' | 'clear'
+        name?: string
+        value?: string
+        url?: string
+        domain?: string
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const { guest } = resolution
+      try {
+        if (sub === 'get') {
+          const cookies = await guest.session.cookies.get({ url, name, domain })
+          return { ok: true, cookies }
+        }
+        if (sub === 'set') {
+          if (!name) return { ok: false, error: 'name-required' }
+          await guest.session.cookies.set({ url: url || guest.getURL(), name, value, domain })
+          return { ok: true }
+        }
+        if (sub === 'clear') {
+          // No filter at all — remove every cookie in this surface's jar in one shot rather
+          // than round-tripping a `get` + N `remove`s.
+          if (!name && !url && !domain) {
+            await guest.session.clearStorageData({ storages: ['cookies'] })
+            return { ok: true }
+          }
+          const matches = await guest.session.cookies.get({ url, name, domain })
+          for (const cookie of matches) {
+            await guest.session.cookies.remove(url || cookieUrl(cookie), cookie.name)
+          }
+          return { ok: true }
+        }
+        return { ok: false, error: 'bad-sub' }
+      } catch (e) {
+        return { ok: false, error: 'cookie-op-failed', message: errMessage(e) }
+      }
+    },
+  })
+
+  registerControlMethod('browse.storage', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { area, sub, key, value, paneId } = (params ?? {}) as {
+        area: 'local' | 'session'
+        sub: 'get' | 'set' | 'clear'
+        key?: string
+        value?: string
+        paneId?: string
+      }
+      if (area !== 'local' && area !== 'session') return { ok: false, error: 'bad-area' }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const storageExpr = area === 'local' ? 'localStorage' : 'sessionStorage'
+      const keyJs = JSON.stringify(key ?? null)
+      let js: string
+      switch (sub) {
+        case 'get':
+          js = `(() => {
+            const key = ${keyJs};
+            if (key === null) {
+              const out = {};
+              for (let i = 0; i < ${storageExpr}.length; i++) {
+                const k = ${storageExpr}.key(i);
+                out[k] = ${storageExpr}.getItem(k);
+              }
+              return out;
+            }
+            return ${storageExpr}.getItem(key);
+          })()`
+          break
+        case 'set':
+          if (!key) return { ok: false, error: 'key-required' }
+          js = `(() => { ${storageExpr}.setItem(${keyJs}, ${JSON.stringify(value ?? '')}); return true; })()`
+          break
+        case 'clear':
+          js = `(() => { ${storageExpr}.clear(); return true; })()`
+          break
+        default:
+          return { ok: false, error: 'bad-sub' }
+      }
+      try {
+        const result = await resolution.guest.executeJavaScript(js, true)
+        return sub === 'get' ? { ok: true, value: result } : { ok: true }
+      } catch (e) {
+        return { ok: false, error: 'eval-failed', message: errMessage(e) }
+      }
+    },
+  })
+
+  registerControlMethod('browse.state', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { sub, path, paneId } = (params ?? {}) as {
+        sub: 'save' | 'load'
+        path: string
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      if (!path) return { ok: false, error: 'path-required' }
+      // Arbitrary file read/write — same containment `browse.screenshot` applies to its
+      // caller-supplied `path`.
+      const safePath = resolveSafe(path, deps.screenshotRoots)
+      if (safePath === null) return { ok: false, error: 'path-denied' }
+      const { guest } = resolution
+      if (sub === 'save') {
+        try {
+          const cookies = await guest.session.cookies.get({})
+          const storageJs = `(() => {
+            const dump = (storage) => {
+              const out = {};
+              for (let i = 0; i < storage.length; i++) {
+                const k = storage.key(i);
+                out[k] = storage.getItem(k);
+              }
+              return out;
+            };
+            return { localStorage: dump(localStorage), sessionStorage: dump(sessionStorage) };
+          })()`
+          const storage = (await guest.executeJavaScript(storageJs, true)) as {
+            localStorage: Record<string, string>
+            sessionStorage: Record<string, string>
+          }
+          const state: BrowseStateFile = {
+            cookies,
+            localStorage: storage.localStorage,
+            sessionStorage: storage.sessionStorage,
+          }
+          mkdirSync(dirname(safePath), { recursive: true })
+          writeFileSync(safePath, JSON.stringify(state, null, 2))
+          return { ok: true, path: safePath }
+        } catch (e) {
+          return { ok: false, error: 'state-save-failed', message: errMessage(e) }
+        }
+      }
+      if (sub === 'load') {
+        try {
+          const raw = readFileSync(safePath, 'utf8')
+          const state = JSON.parse(raw) as Partial<BrowseStateFile>
+          for (const cookie of state.cookies ?? []) {
+            await guest.session.cookies.set({
+              url: cookieUrl(cookie),
+              name: cookie.name,
+              value: cookie.value,
+              domain: cookie.domain,
+              path: cookie.path,
+              secure: cookie.secure,
+              httpOnly: cookie.httpOnly,
+              expirationDate: cookie.expirationDate,
+              sameSite: cookie.sameSite,
+            })
+          }
+          const restoreJs = `(() => {
+            const local = ${JSON.stringify(state.localStorage ?? {})};
+            const session = ${JSON.stringify(state.sessionStorage ?? {})};
+            Object.keys(local).forEach((k) => localStorage.setItem(k, local[k]));
+            Object.keys(session).forEach((k) => sessionStorage.setItem(k, session[k]));
+            return true;
+          })()`
+          await guest.executeJavaScript(restoreJs, true)
+          return { ok: true, path: safePath }
+        } catch (e) {
+          return { ok: false, error: 'state-load-failed', message: errMessage(e) }
+        }
+      }
+      return { ok: false, error: 'bad-sub' }
+    },
+  })
+
+  registerControlMethod('browse.history', {
+    cap: 'browse',
+    handler: (params, ctx) => {
+      const { sub, paneId } = (params ?? {}) as { sub: string; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      if (sub !== 'clear') return { ok: false, error: 'bad-sub' }
+      const { guest } = resolution
+      // `navigationHistory` is the modern (Electron 32+) API; `clearHistory()` is its
+      // deprecated predecessor, kept as a runtime fallback in case this ever runs on an older
+      // Electron than the one currently pinned (`navigationHistory` unconditional there).
+      if (typeof guest.navigationHistory?.clear === 'function') {
+        guest.navigationHistory.clear()
+      } else {
+        guest.clearHistory()
+      }
+      return { ok: true }
+    },
+  })
+
+  // --- Injection family (cmux parity): addscript/addstyle/addinitscript, alongside `browse.eval`. ---
+
+  registerControlMethod('browse.addscript', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { js, paneId } = (params ?? {}) as { js: string; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      return evalToResult(resolution.guest, js)
+    },
+  })
+
+  registerControlMethod('browse.addstyle', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { css, paneId } = (params ?? {}) as { css: string; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      try {
+        const key = await resolution.guest.insertCSS(css)
+        return { ok: true, key }
+      } catch (e) {
+        return { ok: false, error: 'insert-css-failed', message: errMessage(e) }
+      }
+    },
+  })
+
+  registerControlMethod('browse.addinitscript', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { js, paneId } = (params ?? {}) as { js: string; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const { guest } = resolution
+      try {
+        // `isAttached()` is Electron's own per-webContents bookkeeping for whether a CDP
+        // session is already live — checking it before `attach()` IS "tracking attached
+        // surfaces": a separate map here would just duplicate state Electron already keeps,
+        // and (since nothing awaits between the check and the call) can't race.
+        if (!guest.debugger.isAttached()) {
+          guest.debugger.attach('1.3')
+        }
+      } catch (e) {
+        return { ok: false, error: 'debugger-attach-failed', message: errMessage(e) }
+      }
+      try {
+        await guest.debugger.sendCommand('Page.enable')
+        const result = (await guest.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+          source: js,
+        })) as { identifier: string }
+        return { ok: true, identifier: result.identifier }
+      } catch (e) {
+        return { ok: false, error: 'debugger-command-failed', message: errMessage(e) }
+      }
     },
   })
 }
