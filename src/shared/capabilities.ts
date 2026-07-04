@@ -12,6 +12,7 @@ export type Capability =
   | 'shell' // run a command in a terminal (elevated)
   | 'destructive' // irreversible ops — gated regardless of caller
   | 'phone' // remote gateway access (elevated)
+  | 'notify' // fire a desktop notification (default — low-risk)
 
 /** Granted to every pane by default under the pane-scoped-trust posture. */
-export const DEFAULT_CAPABILITIES: Capability[] = ['drive-self', 'read-board']
+export const DEFAULT_CAPABILITIES: Capability[] = ['drive-self', 'read-board', 'notify']

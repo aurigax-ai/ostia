@@ -16,8 +16,10 @@ import type {
   TerminalStateSnapshot,
 } from '../shared/types'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
+import { registerDocsMethods } from './docs'
 import { registerPane, removePane, removeWindow } from './idRegistry'
 import { killAllLsp, registerLspIpc } from './lsp'
+import { registerNotifyMethods } from './notify'
 import { resolveSafe } from './pathGuard'
 import { PtySession } from './ptySession'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
@@ -503,6 +505,8 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerLspIpc()
+  registerNotifyMethods()
+  registerDocsMethods()
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
 

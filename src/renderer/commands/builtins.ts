@@ -132,4 +132,16 @@ export function registerBuiltinCommands(): void {
     target: 'none',
     run: () => useUIStore.getState().openSettings(),
   })
+
+  // `pine open <path>` — opens a file in the editor surface of the caller's session.
+  commands.register<{ path: string }>({
+    id: 'editor.open',
+    title: 'Open File',
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'active',
+    run: ({ path }, ctx) => {
+      if (ctx.activeSessionId && path) useLayoutStore.getState().openFile(ctx.activeSessionId, path)
+    },
+  })
 }
