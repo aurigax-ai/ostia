@@ -32,8 +32,24 @@ async function main(): Promise<void> {
     if (cmd === 'whoami') {
       const who = await conn.sendRequest('whoami')
       console.log(JSON.stringify(who, null, 2))
+    } else if (cmd === 'commands') {
+      const list = await conn.sendRequest('command.list')
+      console.log(JSON.stringify(list, null, 2))
+    } else if (cmd) {
+      // Any other verb is treated as a command id, with an optional JSON args blob
+      // as the 2nd argv (e.g. `pine pane.splitRight` or `pine pane.write '"ls\n"'`).
+      const raw = process.argv[3]
+      const args = raw ? JSON.parse(raw) : undefined
+      const res = await conn.sendRequest('command.exec', { id: cmd, args })
+      if (res.ok) {
+        console.log('ok')
+        if (res.result !== undefined) console.log(JSON.stringify(res.result))
+      } else {
+        console.error('pine:', res.error?.message)
+        process.exitCode = 1
+      }
     } else {
-      console.error(`pine: unknown command '${cmd ?? ''}' (try: whoami)`)
+      console.error(`pine: unknown command '${cmd ?? ''}' (try: whoami, commands)`)
       process.exitCode = 1
     }
   } catch (e) {

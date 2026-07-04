@@ -454,7 +454,7 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerLspIpc()
-  registerControlServer()
+  registerControlServer({ execCommand, listCommandsFor })
   createWindow()
 
   app.on('activate', () => {
