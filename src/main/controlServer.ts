@@ -64,8 +64,8 @@ export interface ControlServerDeps {
 
 let server: Server | null = null
 
-export function registerControlServer(deps: ControlServerDeps): void {
-  const path = controlSocketPath()
+export function registerControlServer(deps: ControlServerDeps, socketPathOverride?: string): void {
+  const path = socketPathOverride ?? controlSocketPath()
   try {
     rmSync(path, { force: true })
   } catch {
