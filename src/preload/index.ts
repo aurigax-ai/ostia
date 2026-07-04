@@ -76,6 +76,9 @@ const bridge: PineBridge = {
   settings: {
     path: () => ipcRenderer.invoke('settings:path') as Promise<string>,
   },
+  lifecycle: {
+    emit: (event) => ipcRenderer.send('lifecycle:event', event),
+  },
 }
 
 contextBridge.exposeInMainWorld('pine', bridge)
