@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain, screen, shell } from 'electron'
 import type { IPty } from 'node-pty'
@@ -11,6 +11,7 @@ import type {
   PtyAttachResult,
   PtySpawnOptions,
 } from '../shared/types'
+import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerPane, removePane, removeWindow } from './idRegistry'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { PtySession } from './ptySession'
@@ -84,16 +85,6 @@ function resolveCwd(cwd?: string): string {
 
 /** Descriptors for torn-off pane windows, keyed by webContents id. */
 const detachedPanes = new Map<number, PaneDescriptor>()
-
-/**
- * Filesystem path of this app instance's control socket (Slice 4 binds a server here;
- * panes are given it via `PINE_SOCKET` so external processes can dial home). One per
- * running app instance (`process.pid`-scoped), under `$XDG_RUNTIME_DIR` (or the OS temp
- * dir as a fallback, e.g. on macOS/Windows where that var is unset).
- */
-export function controlSocketPath(): string {
-  return join(process.env.XDG_RUNTIME_DIR || tmpdir(), `pine-${process.pid}.sock`)
-}
 
 /**
  * OS-native window framing, VSCode-style:
@@ -396,6 +387,7 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerLspIpc()
+  registerControlServer()
   createWindow()
 
   app.on('activate', () => {
@@ -413,6 +405,7 @@ app.on('before-quit', () => {
   }
   ptys.clear()
   killAllLsp()
+  stopControlServer()
 })
 
 app.on('window-all-closed', () => {
