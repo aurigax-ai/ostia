@@ -141,6 +141,23 @@ export interface SettingsApi {
   path: () => Promise<string>
 }
 
+/**
+ * UI lifecycle transitions the renderer reports to main so it can maintain the pane
+ * id/token registry (`main/idRegistry.ts`). Additive side-effect only — the renderer's
+ * own state is never derived from these.
+ */
+export type LifecycleEvent =
+  | { type: 'pane-created'; sessionId: string; paneId: string }
+  | { type: 'pane-closed'; sessionId: string; paneId: string }
+  | { type: 'session-added'; sessionId: string; workDir: string }
+  | { type: 'session-closed'; sessionId: string }
+  | { type: 'session-activated'; sessionId: string }
+
+export interface LifecycleApi {
+  /** Notify main of a UI lifecycle change so it can maintain the pane id/token registry. */
+  emit: (event: LifecycleEvent) => void
+}
+
 /** The typed API surface the preload bridge exposes on `window.pine`. */
 export interface PineBridge {
   /** Liveness check round-trip to main. */
@@ -159,6 +176,8 @@ export interface PineBridge {
   lsp: LspApi
   /** Settings-file access. */
   settings: SettingsApi
+  /** UI lifecycle event reporting, backing the main-side pane id/token registry. */
+  lifecycle: LifecycleApi
 }
 
 declare global {

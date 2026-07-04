@@ -1,15 +1,17 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain, screen, shell } from 'electron'
 import type { IPty } from 'node-pty'
 import type {
   AppInfo,
   FsEntry,
+  LifecycleEvent,
   PaneDescriptor,
   PtyAttachResult,
   PtySpawnOptions,
 } from '../shared/types'
+import { registerPane, removePane, removeWindow } from './idRegistry'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { PtySession } from './ptySession'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
@@ -84,6 +86,16 @@ function resolveCwd(cwd?: string): string {
 const detachedPanes = new Map<number, PaneDescriptor>()
 
 /**
+ * Filesystem path of this app instance's control socket (Slice 4 binds a server here;
+ * panes are given it via `PINE_SOCKET` so external processes can dial home). One per
+ * running app instance (`process.pid`-scoped), under `$XDG_RUNTIME_DIR` (or the OS temp
+ * dir as a fallback, e.g. on macOS/Windows where that var is unset).
+ */
+export function controlSocketPath(): string {
+  return join(process.env.XDG_RUNTIME_DIR || tmpdir(), `pine-${process.pid}.sock`)
+}
+
+/**
  * OS-native window framing, VSCode-style:
  * - macOS keeps the native traffic lights (left), but hides the title bar so our
  *   chrome reaches the top edge. We nudge the lights to sit centered in our bar.
@@ -118,6 +130,10 @@ function wireWindow(win: BrowserWindow): void {
     shell.openExternal(url)
     return { action: 'deny' }
   })
+
+  // Prune this window's pane identities from the registry once it's gone.
+  const wid = String(win.webContents.id)
+  win.on('closed', () => removeWindow(wid))
 }
 
 function createWindow(): BrowserWindow {
@@ -221,6 +237,19 @@ function registerIpc(): void {
     'window:get-detached-pane',
     (e): PaneDescriptor | null => detachedPanes.get(e.sender.id) ?? null,
   )
+
+  // UI lifecycle → pane id/token registry (main/idRegistry.ts). windowId is tagged here
+  // (not trusted from the renderer) since webContents.id is only known to main.
+  ipcMain.on('lifecycle:event', (e, event: LifecycleEvent) => {
+    const windowId = String(e.sender.id)
+    if (event.type === 'pane-created') {
+      registerPane({ windowId, sessionId: event.sessionId, paneId: event.paneId })
+    } else if (event.type === 'pane-closed') {
+      removePane(event.paneId)
+    } else if (event.type === 'session-activated' || event.type === 'session-added') {
+      // Session-scoped bookkeeping hook; panes already carry sessionId at creation.
+    }
+  })
 }
 
 /**
@@ -266,12 +295,23 @@ function registerPtyIpc(): void {
     // zsh/bash get shell-integration hooks injected (OSC 133 blocks + OSC 7 cwd, parsed by
     // Terminal.tsx); anything else spawns as-is with no integration, degrading gracefully.
     const integration = shellIntegrationSpawnOptions(shell, process.env)
+    // Mint (or reuse, if a `pane-created` lifecycle event already registered it) this
+    // pane's external identity, and hand the pty a token that proves only this pane
+    // (pane-scoped-trust posture) for the Slice 4 control socket to authenticate against.
+    const identity = registerPane({ windowId: subId, sessionId: '', paneId })
     const pty = mod.spawn(shell, integration.args, {
       name: 'xterm-color',
       cols: opts.cols || 80,
       rows: opts.rows || 24,
       cwd: resolveCwd(opts.cwd),
-      env: { ...process.env, ...integration.env } as Record<string, string>,
+      env: {
+        ...process.env,
+        ...integration.env,
+        PINE_PANE_ID: identity.externalId,
+        PINE_TOKEN: identity.token,
+        PINE_WORKSPACE: opts.cwd ?? '',
+        PINE_SOCKET: controlSocketPath(),
+      } as Record<string, string>,
     })
     const session = new PtySession({
       capBytes: PTY_BUFFER_CAP,
