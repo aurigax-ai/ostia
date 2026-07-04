@@ -29,6 +29,7 @@ import {
 import { registerBusMethods } from './bus'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
+import { emitPlatformEvent } from './events'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { getByPaneId, registerPane, removePane, removeWindow } from './idRegistry'
@@ -358,6 +359,16 @@ function registerIpc(): void {
       removeSession(event.sessionId)
     } else if (event.type === 'session-activated') {
       // Session-scoped bookkeeping hook; panes already carry sessionId at creation.
+    } else if (event.type === 'session-state') {
+      // Contract §7: mirror the renderer's session state onto the gateway's event stream.
+      // `waiting`/`done` additionally drive the push-notification-shaped `agent.*` events (the
+      // contract's "agent.needs-input / agent.done drive push notifications").
+      emitPlatformEvent('session.state', { sessionId: event.sessionId, state: event.state })
+      if (event.state === 'waiting') {
+        emitPlatformEvent('agent.needs-input', { sessionId: event.sessionId })
+      } else if (event.state === 'done') {
+        emitPlatformEvent('agent.done', { sessionId: event.sessionId })
+      }
     }
   })
 
@@ -371,7 +382,33 @@ function registerIpc(): void {
   // pre-reset snapshot racing behind a fresh post-reset one never clobbers it.
   ipcMain.on('terminal:state', (_e, snapshot: TerminalStateSnapshot) => {
     const cur = terminalState.get(snapshot.paneId)
-    if (!cur || snapshot.generation >= cur.generation) terminalState.set(snapshot.paneId, snapshot)
+    if (!cur || snapshot.generation >= cur.generation) {
+      // Contract §7's `pane.state` event — skip when nothing observable actually changed (a
+      // later-generation snapshot with the same cwd/running/blockCount/lastExitCode) so this
+      // stays a change feed rather than a firehose keyed to every renderer re-render.
+      const changed =
+        !cur ||
+        cur.cwd !== snapshot.cwd ||
+        cur.running !== snapshot.running ||
+        cur.blockCount !== snapshot.blockCount ||
+        cur.lastExitCode !== snapshot.lastExitCode
+      terminalState.set(snapshot.paneId, snapshot)
+      if (changed) {
+        // `pane.state` is phone-facing (external paneId, same as `pane.info`'s result) — the
+        // internal renderer paneId this snapshot is keyed on is meaningless off-machine.
+        const identity = getByPaneId(snapshot.paneId)
+        if (identity) {
+          emitPlatformEvent('pane.state', {
+            paneId: identity.externalId,
+            generation: snapshot.generation,
+            cwd: snapshot.cwd,
+            running: snapshot.running,
+            blockCount: snapshot.blockCount,
+            lastExitCode: snapshot.lastExitCode,
+          })
+        }
+      }
+    }
   })
 
   // Browser-pane registration (Stage 2): the renderer hands over a `browser` pane's guest

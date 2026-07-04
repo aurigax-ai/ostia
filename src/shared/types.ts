@@ -144,6 +144,13 @@ export interface SettingsApi {
 }
 
 /**
+ * A session's live state (rail color/motion): mirrors the renderer's own `SessionState`
+ * (`renderer/stores/sessionsStore.ts`) — duplicated here rather than imported since this file is
+ * shared across main/preload/renderer and must stay renderer-independent.
+ */
+export type SessionLiveState = 'idle' | 'working' | 'waiting' | 'done'
+
+/**
  * UI lifecycle transitions the renderer reports to main so it can maintain the pane
  * id/token registry (`main/idRegistry.ts`). Additive side-effect only — the renderer's
  * own state is never derived from these.
@@ -154,6 +161,9 @@ export type LifecycleEvent =
   | { type: 'session-added'; sessionId: string; workDir: string }
   | { type: 'session-closed'; sessionId: string }
   | { type: 'session-activated'; sessionId: string }
+  /** Mirrors `sessionsStore.setState` so main can drive the gateway's `session.state`/
+   *  `agent.needs-input`/`agent.done` events (`main/index.ts`'s `lifecycle:event` handler). */
+  | { type: 'session-state'; sessionId: string; state: SessionLiveState }
 
 export interface LifecycleApi {
   /** Notify main of a UI lifecycle change so it can maintain the pane id/token registry. */

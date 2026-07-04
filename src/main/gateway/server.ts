@@ -26,6 +26,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { type Server as HttpsServer, createServer as createHttpsServer } from 'node:https'
 import { app } from 'electron'
 import { type WebSocket, WebSocketServer } from 'ws'
+import { PLATFORM_EVENT_TYPES, type PlatformEventType, platformEvents } from '../events'
 import { resolveExternal } from '../idRegistry'
 import { loadJson, saveJson, storePath } from '../jsonStore'
 import { type GatewayCert, getCert } from './cert'
@@ -178,6 +179,53 @@ export function closeDeviceSockets(deviceId: string): void {
  *  was never force-closed by `closeDeviceSockets` above. */
 function isDeviceRevoked(deviceId: string): boolean {
   return getDevice(deviceId) === null
+}
+
+/**
+ * Phone cap required to RECEIVE a given event type (contract §7's event-gating: "notify only to
+ * devices with the notify cap"; every other event type broadcast here — `session.state`/
+ * `agent.needs-input`/`agent.done`/`pane.state` — mirrors `pane.info`/`session.list`'s own `read`
+ * gate, so a device that can already read panes/sessions can also observe their live state).
+ * Exported (pure, no `ws`/socket dependency) so it's unit-testable in isolation.
+ */
+export function capForPlatformEvent(type: PlatformEventType): string {
+  return type === 'notify' ? 'notify' : 'read'
+}
+
+/**
+ * Broadcast a server->client event notification (contract §7: `{jsonrpc:'2.0', method:'event',
+ * params:{type, payload}}`) to every AUTHED device socket that holds the cap this event type is
+ * gated on (`capForPlatformEvent`) — an unauthed socket (`state.device === null`) or one whose
+ * device lacks the cap never sees the frame. Reuses `sockets` (already tracked for the heartbeat
+ * sweep + close cleanup) rather than `socketsByDevice`, since it needs each socket's `device.caps`
+ * anyway.
+ */
+export function broadcastEvent(type: PlatformEventType, payload: unknown): void {
+  const cap = capForPlatformEvent(type)
+  const frame = JSON.stringify({ jsonrpc: '2.0', method: 'event', params: { type, payload } })
+  for (const [ws, state] of sockets) {
+    if (!state.device || !state.device.caps.includes(cap)) continue
+    if (ws.readyState === ws.OPEN) ws.send(frame)
+  }
+}
+
+/** Live `platformEvents` subscriptions while the gateway is running (`subscribePlatformEvents`
+ *  called from `startGateway`, torn down by `unsubscribePlatformEvents` in `stopGateway`) — kept
+ *  so a stop/start (or restart) cycle never leaks a listener onto the shared, module-level bus. */
+let eventSubscriptions: Array<{ type: PlatformEventType; listener: (payload: unknown) => void }> =
+  []
+
+function subscribePlatformEvents(): void {
+  for (const type of PLATFORM_EVENT_TYPES) {
+    const listener = (payload: unknown): void => broadcastEvent(type, payload)
+    platformEvents.on(type, listener)
+    eventSubscriptions.push({ type, listener })
+  }
+}
+
+function unsubscribePlatformEvents(): void {
+  for (const { type, listener } of eventSubscriptions) platformEvents.off(type, listener)
+  eventSubscriptions = []
 }
 
 /**
@@ -655,12 +703,16 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   boundPort = port
   currentFingerprint = cert.fingerprint
   startHeartbeat()
+  // Contract §7 server->client events: only listen on `platformEvents` while the gateway is
+  // actually running — `unsubscribePlatformEvents` in `stopGateway` tears this back down.
+  subscribePlatformEvents()
 
   return { host, port, fingerprint: cert.fingerprint, warning: hostWarning(host) }
 }
 
 /** Stop the gateway (closes every open connection) and reset status to "not running". */
 export async function stopGateway(): Promise<void> {
+  unsubscribePlatformEvents()
   if (heartbeat) {
     clearInterval(heartbeat)
     heartbeat = null
