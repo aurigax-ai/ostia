@@ -27,7 +27,7 @@ import type {
   TerminalStateSnapshot,
 } from '../shared/types'
 import { type AuthedConn, authenticate, connHasCap } from './controlAuth'
-import { resolveExternal } from './idRegistry'
+import { type PaneIdentity, resolveExternal } from './idRegistry'
 
 /**
  * Filesystem path of this app instance's control socket. Panes are given it via
@@ -48,6 +48,29 @@ function unauthenticatedError(message: string): ResponseError<void> {
 /** A JSON-RPC error for a connection that lacks an elevated capability it needs. */
 function needsElevation(cap: Capability): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
+}
+
+/**
+ * Main-side service modules (notify/process/vault/wiki/kanban/bus, built later) register
+ * socket methods here instead of editing this file per-feature. Wired onto every connection
+ * in `registerControlServer`, after the built-in `onRequest`s above, with the same
+ * auth/capability/identity gating those built-ins apply by hand.
+ */
+export interface ControlMethod {
+  /** Required capability; undefined = any authed caller. */
+  cap?: Capability
+  handler: (
+    params: unknown,
+    ctx: { identity: PaneIdentity; authed: AuthedConn },
+  ) => unknown | Promise<unknown>
+}
+
+const methods = new Map<string, ControlMethod>()
+
+/** Register a control-socket method by name. Throws if the name is already taken. */
+export function registerControlMethod(name: string, method: ControlMethod): void {
+  if (methods.has(name)) throw new Error(`control method already registered: ${name}`)
+  methods.set(name, method)
 }
 
 /**
@@ -151,6 +174,19 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
       if (!me) throw unauthenticatedError('unknown identity')
       return { cwd: deps.getTerminalState(me.paneId)?.cwd ?? null }
     })
+
+    // Additively wire every method registered via `registerControlMethod` (toolbelt
+    // features: notify/process/vault/wiki/kanban/bus, ...), with the same gating posture
+    // as the built-in methods above.
+    for (const [name, m] of methods) {
+      conn.onRequest(name, async (params: unknown) => {
+        if (!authed) throw unauthenticatedError('call hello first')
+        if (m.cap && !connHasCap(authed, m.cap)) throw needsElevation(m.cap)
+        const identity = resolveExternal(authed.externalId)
+        if (!identity) throw unauthenticatedError('unknown identity')
+        return m.handler(params, { identity, authed })
+      })
+    }
 
     socket.on('error', () => conn.dispose())
     conn.onClose(() => socket.destroy())
