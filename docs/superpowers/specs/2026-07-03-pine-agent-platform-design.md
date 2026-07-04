@@ -16,7 +16,7 @@ These four were my recommendations; the user was away when I wrote this, so I pr
 | D1 | Build focus / spec depth | **Spine first.** Phase A to build-ready depth; B + C as grounded outline. | Full end-to-end spec; or Bus+Kanban-first; or Phone-first. |
 | D2 | Primary cross-agent mode | **Baton handoff with context**, with live-inject shipped first as the cheap increment; board-mediated emerges from the Kanban. | Messaging-first, or board-only. |
 | D3 | Kanban richness + storage | **Full board (columns/cards/WIP/assignee), per-repo git-friendly file** (`.pine/board.json`). | Global app SQLite; or lightweight read-mostly status board. |
-| D4 | Phone reach (first cut) | **LAN-first** (embedded HTTPS+WS + QR pairing), Tailscale for off-network, relay later. | Outbound relay up front. |
+| D4 | Phone reach | **DECIDED (user): LAN server + QR pair-from-menu; WAN = bring-your-own Tailscale. NO hosted relay, NO login/accounts** (cmux-style). | (Relay/account model explicitly rejected.) |
 
 ### 0.1 Codex review round 1 — incorporated (verdict: no-go as written → revised)
 
@@ -231,8 +231,9 @@ Not a list of properties — a recoverable machine with defined atomic boundarie
 - **Off by default, opt-in (Codex F8).** The gateway ships disabled; enabling it is an explicit user action that binds to a **user-selected interface** (not "whatever the LAN is") and shows an always-visible "remote active" indicator.
 - **First cut (D4):** embedded **HTTPS + WebSocket** server, serving a mobile web UI. **mDNS** discovery (opt-in). **Pairing = short-lived code + device key**, not just a URL token: desktop shows a QR encoding a *pairing* secret valid for ~60s; on scan the phone generates a device keypair, registers its public key, and gets a **per-device, revocable** credential. The URL is never the credential (defeats token-in-URL theft). TLS (bundled/mkcert-style or `*.local`), `Origin` checks, max-clients cap.
 - **Every request is authenticated + scoped**, including non-browser clients — there is no ambient trust for being on the LAN. **Per-method scopes** (§6 capability subset); **terminal is read-only by default**, input requires an explicit elevated grant; destructive commands require on-device confirm. Treat every inbound frame as hostile (CSRF-style command attempts, pty-input abuse) and validate against the command schema.
-- **Off-LAN without building infra:** document **bring-your-own tunnel** — Tailscale (best posture, private) primary; Cloudflare Tunnel (domain-fronted) secondary; ngrok demo-only.
-- **Later:** outbound **relay** (Claude-Code-Remote-Control shape — desktop dials out, no inbound ports, account + short-lived scoped tokens, optional passkey device-trust). Same pty/command code; only the transport swaps.
+- **Off-LAN = bring-your-own network (DECIDED — user, cmux-style):** for WAN, the user runs their **own Tailscale** (or SSH/VPN). **Pine does NOT operate a hosted relay/bridge and has NO login/accounts.** This is a firm product decision, not a "later" — it drops the entire relay tier and its OAuth/device-cloud complexity. Cloudflare Tunnel/ngrok are user's-choice, undocumented-by-us alternatives.
+- **Pairing = a menu action.** The user opens a "Connect a device / Pair phone" item somewhere in the app; Pine shows a QR (LAN URL + one-time pairing secret); the phone scans it on the same network (or over the user's Tailscale) and is issued a per-device, revocable credential. After pairing they communicate directly, desktop ↔ phone, no third party.
+- **Superseded:** the earlier "outbound relay (Claude-Code-Remote-Control shape)" option is **removed** per the above — no cloud rendezvous, no account.
 
 ### C.2 Mobile web UI
 - **Terminal mirror:** xterm.js + FitAddon in the browser ↔ **binary WebSocket** to the pane's pty. `0x00`-prefixed control frames for resize/metadata; `pty.resize()` → SIGWINCH. **Debounce** resize (mobile keyboard + `ResizeObserver` bursts). Keep pty alive across drops; **scrollback ring buffer** replay on reconnect; **ping/pong heartbeat + exponential backoff**. Touch key-bar (Esc/Tab/Ctrl/arrows).
