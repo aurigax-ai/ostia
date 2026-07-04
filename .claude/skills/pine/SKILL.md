@@ -192,6 +192,15 @@ pine browse eval "<js>" [--pane ID]                  # runs JS in the page, prin
 pine browse wait <selector> [--timeout MS] [--pane ID]   # polls (default 10s, capped 30s)
 pine browse screenshot [path] [--pane ID]            # PNG to `path` (default a tmp scratch path); prints the path
 pine browse content [--pane ID]                      # document.documentElement.outerHTML, capped ~1MB
+pine browse snapshot [selector] [--interactive] [--pane ID]
+                                                      # a11y-ish text tree ("[e3] button \"Submit\"", "[e4] link \"Home\" → /home"),
+                                                      # assigning each relevant element an [eN] ref; --interactive narrows to actionable elements only
+pine browse get <sub> [selector] [--attr X] [--property P] [--pane ID]
+                                                      # sub: url|title|text|html|value|attr|count|box|styles — prints the value
+pine browse is <sub> <selector> [--pane ID]          # sub: visible|enabled|checked — prints true/false, exit 1 if false
+pine browse find <by> <query> [--exact] [--index N] [--selector S] [--pane ID]
+                                                      # by: role|text|label|placeholder|alt|title|testid|first|last|nth — prints an @eN ref
+pine browse highlight <selector> [--ms N] [--pane ID]  # briefly outlines the element (default 1500ms)
 ```
 
 Drives the `browser` surface's `<webview>` guest page (Stage 1's in-app browser) — the same
@@ -202,6 +211,14 @@ and the CLI targets the first browser pane in your own session. A selector/JS ar
 doesn't match anything fails with a typed error (`not-found`, `eval-failed`, ...) rather than
 throwing — check the CLI's stderr/exit code. This entire group needs the elevated `browse`
 capability (see below) — nothing here works until a human grants it.
+
+**Ref workflow**: every selector-accepting command above (`click`, `type`, `get`, `is`, ...)
+also accepts an `@eN`/`eN` element ref in place of a CSS selector. `snapshot` and `find` are
+what mint refs — run `pine browse snapshot` first to see a text tree of the page annotated with
+`[eN]` tags (or `pine browse find role Submit` to locate one element and get back its `@eN`
+directly), then act on that ref: `pine browse click @e3`, `pine browse get text @e4`. Refs live
+in the guest page's `window.__pine.refs` map and are valid until the next navigation — a `nav`/
+`open`/link click invalidates them, so re-`snapshot`/`find` after navigating.
 
 ## Capabilities & elevation
 
