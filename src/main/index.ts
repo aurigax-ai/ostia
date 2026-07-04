@@ -112,6 +112,13 @@ const commandsByWindow = new Map<string, CommandDescriptor[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 /**
+ * Session → workDir registry, fed by the `session-added` lifecycle event. Main-side
+ * services (wiki/kanban/vault/process) key off the caller's paneId/sessionId but need
+ * the project root to scope their reads/writes; this is how they get it.
+ */
+const sessionWorkDirs = new Map<string, string>()
+
+/**
  * OS-native window framing, VSCode-style:
  * - macOS keeps the native traffic lights (left), but hides the title bar so our
  *   chrome reaches the top edge. We nudge the lights to sit centered in our bar.
@@ -279,7 +286,11 @@ function registerIpc(): void {
     } else if (event.type === 'pane-closed') {
       removePane(event.paneId)
       terminalState.delete(event.paneId)
-    } else if (event.type === 'session-activated' || event.type === 'session-added') {
+    } else if (event.type === 'session-added') {
+      sessionWorkDirs.set(event.sessionId, event.workDir)
+    } else if (event.type === 'session-closed') {
+      sessionWorkDirs.delete(event.sessionId)
+    } else if (event.type === 'session-activated') {
       // Session-scoped bookkeeping hook; panes already carry sessionId at creation.
     }
   })
@@ -461,6 +472,11 @@ export function listCommandsFor(windowId: string): CommandDescriptor[] {
 /** The latest mirrored terminal-state snapshot for `paneId`, if any (Slice 7). */
 export function getTerminalState(paneId: string): TerminalStateSnapshot | undefined {
   return terminalState.get(paneId)
+}
+
+/** The project workDir for a session, if known (fed by the `session-added` lifecycle event). */
+export function workDirForSession(sessionId: string | undefined): string | undefined {
+  return sessionId ? sessionWorkDirs.get(sessionId) : undefined
 }
 
 let reqSeq = 0

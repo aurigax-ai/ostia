@@ -91,11 +91,13 @@ export const useSessionsStore = create<SessionsState>((set, get) => {
       })
     },
 
-    setWorkDir: (id, workDir) =>
+    setWorkDir: (id, workDir) => {
       set((s) => ({
         sessions: s.sessions.map((c) =>
           c.id === id ? { ...c, workDir, name: nameFromWorkDir(workDir) } : c,
         ),
-      })),
+      }))
+      window.pine?.lifecycle?.emit?.({ type: 'session-added', sessionId: id, workDir })
+    },
   }
 })

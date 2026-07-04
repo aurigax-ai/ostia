@@ -2,6 +2,10 @@
 
 > **Core idea (user):** an agent (Claude Code / Gemini / Codex) drives Pine through **a skill** (which *teaches* the agent how) + **the `pine` CLI** (which *does* the control). This lets multiple agents coordinate *through* Pine. Persistence is **JSON** (agent-friendly) unless a better format is warranted. Settings too must be JSON + agent-controllable.
 
+## Grounding (Codex-reviewed 2026-07-04)
+Verified against code. **GROUNDED:** local socket + token auth, `registerControlMethod`, `command.exec`→renderer bridge, `editor.open`/`layoutStore.openFile`, `jsonStore`, `notify`/`docs`, Electron `safeStorage` present. **Foundational fixes applied before further batches:** (a) **unified capability vocabulary** — toolbelt caps (`process`, `vault-read/write`, `wiki-read/write`, `board-write`, `browse`, `settings-read/write`) added to `src/shared/capabilities.ts` (else `registerControlMethod` cap args won't typecheck); (b) **main-side session→workDir registry** (fed by the `session-added` lifecycle event) — REQUIRED before any project-scoped JSON (#3/#6/#9/#10), since main identities carry only paneId/sessionId, not workDir. **RISKS:** #8 browser is a real spike — `webviewTag:true` is NOT set on the BrowserWindow, `browser` SurfaceKind is metadata-only today (SurfacePool/Pane render only terminal/editor), `WebContentsView` needs a bounds-sync bridge that doesn't exist — do a rendering spike first. #3 process mgmt: reuse `PtyRingBuffer` for output, build separate process lifecycle state (PtySession is fan-out only). The companion `NETWORK-CONTRACT.md` is a **Phase-C adapter target** (phone API intentionally differs; gateway translates + adds the pty stream), not a current passthrough.
+**Reference (user):** consult **cmux** (git for code, docs for concepts) for the embedded browser pane + unix-socket control API; **warp** for terminal/blocks/launch-config patterns.
+
 Built on the shipped A-MVP control plane (per-pane token auth, capability broker, `command.exec`/`command.list`, `pine` CLI). Everything below adds **main-side service modules** + **CLI verbs** + (where useful) **UI**, all cap-gated.
 
 ## Shared foundations (build FIRST — batch 1)
