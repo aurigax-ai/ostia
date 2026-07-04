@@ -11,7 +11,7 @@
  * gateway is an ADAPTER (contract §0.1): it translates between the two, so these are kept as
  * plain strings rather than reusing `Capability`.
  */
-import { randomBytes, randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { loadJson, saveJson, storePath } from '../jsonStore'
 
 /** Phone's initial capability subset on pairing (contract §4 step 4) — read-only by default. */
@@ -71,17 +71,45 @@ export function registerDevice(input: RegisterDeviceInput): RegisteredDevice {
   return { deviceId: device.deviceId, token: device.token, caps: device.caps }
 }
 
-/** Look up a device by its bearer token (the WS `hello` handshake) — null if unknown/revoked. */
+/**
+ * Constant-time string compare — a plain `===` on bearer tokens leaks timing information (an
+ * attacker can measure response latency to learn how many leading bytes matched, letting a
+ * brute-force guesser recover a valid token byte-by-byte instead of needing the whole 64-char
+ * value at once). `timingSafeEqual` requires equal-length buffers, so the length check runs
+ * first — mismatched lengths are a safe (length isn't secret-dependent per-guess) fast rejection
+ * rather than a byte-by-byte compare.
+ */
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf8')
+  const bufB = Buffer.from(b, 'utf8')
+  if (bufA.length !== bufB.length) return false
+  return timingSafeEqual(bufA, bufB)
+}
+
+/** Look up a device by its bearer token (the WS `hello` handshake) — null if unknown/revoked.
+ *  Every candidate is compared in constant time (see `timingSafeStringEqual`) — this loop
+ *  intentionally never short-circuits into a length-then-content-shaped side channel. */
 export function verifyToken(token: string): Device | null {
+  let found: Device | null = null
   for (const device of Object.values(load())) {
-    if (device.token === token) return device
+    if (timingSafeStringEqual(device.token, token)) found = device
   }
-  return null
+  return found
 }
 
 /** Every paired device — callers MUST strip `token` before handing this to a phone-facing method. */
 export function list(): Device[] {
   return Object.values(load())
+}
+
+/** Look up a device by id — null if unknown/revoked. Used by the gateway's live re-check on
+ *  every authed request/frame (not just at `hello` time): "revocation must kill live sessions"
+ *  means an already-authed socket must stop working the instant its device is gone, so
+ *  `server.ts` calls this on every subsequent message rather than trusting the `hello`-time
+ *  auth forever. */
+export function get(deviceId: string): Device | null {
+  const store = load()
+  return Object.hasOwn(store, deviceId) ? store[deviceId] : null
 }
 
 /** Revoke (delete) a paired device. Immediate: its token stops verifying on the very next call. */

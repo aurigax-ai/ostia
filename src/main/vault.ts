@@ -80,8 +80,12 @@ function loadVault(path: string): VaultData {
   return loadJson<VaultData>(path, {})
 }
 
+/** `secure: true` — this store holds encrypted secret ciphertext (see the header comment), so
+ *  the file lands `0600` and its directory `0700` (same posture as `gateway/devices.ts`'s
+ *  paired-device bearer tokens): another local user on the machine must not even be able to
+ *  read the ciphertext off disk, let alone attempt to decrypt it. */
 function saveVault(path: string, data: VaultData): void {
-  saveJson(path, data)
+  saveJson(path, data, { secure: true })
 }
 
 export function registerVaultMethods(): void {

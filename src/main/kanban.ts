@@ -125,6 +125,42 @@ export function kanbanGet(sessionId: string): KanbanBoard | NoProjectWorkDir {
   return loadBoard(path)
 }
 
+export type KanbanUpdateResult =
+  | { ok: true }
+  | typeof NOT_FOUND
+  | typeof UNKNOWN_COLUMN
+  | typeof TOO_LARGE
+  | NoProjectWorkDir
+
+/**
+ * Apply `patch` to `cardId` on `sessionId`'s board. Exported (mirrors `kanbanGet` above) so the
+ * LAN gateway's phone-facing `board.update` (`src/main/gateway/controlDispatch.ts`, injected
+ * from `index.ts`) can write the SAME board a pane's `kanban.update` would, without a
+ * session-scoped `ControlMethod` context (the phone isn't a pane — see `kanbanGet`'s comment).
+ */
+export function kanbanUpdate(
+  sessionId: string,
+  cardId: string,
+  patch: Partial<Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>>,
+): KanbanUpdateResult {
+  const path = boardPath(sessionId)
+  if (typeof path !== 'string') return path
+  if (tooLarge(patch.title) || tooLarge(patch.body)) return TOO_LARGE
+  const board = loadBoard(path)
+  const card = board.cards.find((c) => c.id === cardId)
+  if (!card) return NOT_FOUND
+  if (patch.column !== undefined && !board.columns.some((c) => c.id === patch.column)) {
+    return UNKNOWN_COLUMN
+  }
+  if (patch.title !== undefined) card.title = patch.title
+  if (patch.body !== undefined) card.body = patch.body
+  if (patch.column !== undefined) card.column = patch.column
+  if (patch.assignee !== undefined) card.assignee = patch.assignee
+  card.updatedAt = new Date().toISOString()
+  saveBoard(path, board)
+  return { ok: true }
+}
+
 export function registerKanbanMethods(): void {
   registerControlMethod('kanban.get', {
     cap: 'read-board',
@@ -197,26 +233,11 @@ export function registerKanbanMethods(): void {
   registerControlMethod('kanban.update', {
     cap: 'board-write',
     handler: (params, ctx) => {
-      const path = boardPath(ctx.identity.sessionId)
-      if (typeof path !== 'string') return path
       const { cardId, patch } = (params ?? {}) as {
         cardId: string
         patch: Partial<Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>>
       }
-      if (tooLarge(patch.title) || tooLarge(patch.body)) return TOO_LARGE
-      const board = loadBoard(path)
-      const card = board.cards.find((c) => c.id === cardId)
-      if (!card) return NOT_FOUND
-      if (patch.column !== undefined && !board.columns.some((c) => c.id === patch.column)) {
-        return UNKNOWN_COLUMN
-      }
-      if (patch.title !== undefined) card.title = patch.title
-      if (patch.body !== undefined) card.body = patch.body
-      if (patch.column !== undefined) card.column = patch.column
-      if (patch.assignee !== undefined) card.assignee = patch.assignee
-      card.updatedAt = new Date().toISOString()
-      saveBoard(path, board)
-      return { ok: true }
+      return kanbanUpdate(ctx.identity.sessionId, cardId, patch)
     },
   })
 

@@ -1,5 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { consumeCode, newCode, resetCodes } from './pairing'
+import { readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  auditPairAttempt,
+  checkPairRateLimit,
+  consumeCode,
+  newCode,
+  resetCodes,
+  resetPairRateLimit,
+} from './pairing'
 
 describe('gateway/pairing', () => {
   afterEach(() => {
@@ -51,5 +61,69 @@ describe('gateway/pairing', () => {
     const code = newCode()
     resetCodes()
     expect(consumeCode(code)).toBe(false)
+  })
+})
+
+/**
+ * `checkPairRateLimit`/`auditPairAttempt` write to `XDG_DATA_HOME`-relative paths (the audit log)
+ * or purely in-memory state (the rate limiter) — point `XDG_DATA_HOME` at a fresh scratch dir per
+ * test so this suite never touches the real machine's audit log (mirrors `devices.test.ts`'s
+ * isolation approach).
+ */
+/** `process.env.X = undefined` stringifies to the literal `"undefined"` instead of unsetting the
+ *  key, so restoring "was unset before the test" needs the real `delete` operator (same helper
+ *  shape as `devices.test.ts`'s `unsetEnv`). */
+function unsetEnv(key: string): void {
+  delete process.env[key]
+}
+
+describe('gateway/pairing — rate limit + audit log', () => {
+  let dir: string
+  let prevXdg: string | undefined
+
+  beforeEach(() => {
+    dir = join(tmpdir(), `pine-gateway-pairing-test-${process.pid}-${Date.now()}-${Math.random()}`)
+    prevXdg = process.env.XDG_DATA_HOME
+    process.env.XDG_DATA_HOME = dir
+  })
+
+  afterEach(() => {
+    if (prevXdg === undefined) unsetEnv('XDG_DATA_HOME')
+    else process.env.XDG_DATA_HOME = prevXdg
+    rmSync(dir, { recursive: true, force: true })
+    resetPairRateLimit()
+  })
+
+  it('allows up to 5 attempts per IP within the window', () => {
+    for (let i = 0; i < 5; i++) {
+      expect(checkPairRateLimit('1.2.3.4')).toBe(true)
+    }
+  })
+
+  it('rejects the 6th attempt from the same IP within the window', () => {
+    for (let i = 0; i < 5; i++) checkPairRateLimit('1.2.3.4')
+    expect(checkPairRateLimit('1.2.3.4')).toBe(false)
+  })
+
+  it('tracks each source IP independently', () => {
+    for (let i = 0; i < 5; i++) checkPairRateLimit('1.2.3.4')
+    expect(checkPairRateLimit('1.2.3.4')).toBe(false)
+    expect(checkPairRateLimit('5.6.7.8')).toBe(true)
+  })
+
+  it('resetPairRateLimit drops every counter', () => {
+    for (let i = 0; i < 5; i++) checkPairRateLimit('1.2.3.4')
+    resetPairRateLimit()
+    expect(checkPairRateLimit('1.2.3.4')).toBe(true)
+  })
+
+  it('auditPairAttempt appends a newline-delimited JSON line per call', () => {
+    auditPairAttempt('1.2.3.4', 'ok')
+    auditPairAttempt('1.2.3.4', 'invalid-code')
+    const path = join(dir, 'pine', 'gateway-pair-audit.log')
+    const lines = readFileSync(path, 'utf8').trim().split('\n')
+    expect(lines).toHaveLength(2)
+    expect(JSON.parse(lines[0])).toMatchObject({ ip: '1.2.3.4', outcome: 'ok' })
+    expect(JSON.parse(lines[1])).toMatchObject({ ip: '1.2.3.4', outcome: 'invalid-code' })
   })
 })

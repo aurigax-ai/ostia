@@ -14,7 +14,14 @@ import { registerControlMethod } from '../controlServer'
 import type { Device } from './devices'
 import { list as listDevices, revoke as revokeDevice } from './devices'
 import { newCode } from './pairing'
-import { type GatewayStartOptions, gatewayStatus, startGateway, stopGateway } from './server'
+import {
+  type GatewayStartOptions,
+  closeDeviceSockets,
+  gatewayStatus,
+  hostWarning,
+  startGateway,
+  stopGateway,
+} from './server'
 
 /** `gateway.devices` never returns bearer tokens — same "keys/metadata only" posture as `vault.list`. */
 function toPhoneSafeDevice(d: Device): Omit<Device, 'token'> {
@@ -69,6 +76,7 @@ export function registerGatewayMethods(): void {
         fingerprint: status.fingerprint,
         pairCode: newCode(),
         name: hostname(),
+        warning: hostWarning(status.host),
       }
     },
   })
@@ -90,7 +98,12 @@ export function registerGatewayMethods(): void {
       if (typeof deviceId !== 'string' || !deviceId) {
         return { ok: false, error: 'missing-device-id' }
       }
-      return revokeDevice(deviceId) ? { ok: true } : { ok: false, error: 'not-found' }
+      if (!revokeDevice(deviceId)) return { ok: false, error: 'not-found' }
+      // Security review: "revocation must kill live sessions" — force-close every socket
+      // already authed as this device instead of leaving it to work until its next request
+      // happens to hit the gateway's own live re-check (`server.ts`'s `isDeviceRevoked`).
+      closeDeviceSockets(deviceId)
+      return { ok: true }
     },
   })
 }

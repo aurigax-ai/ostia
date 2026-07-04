@@ -30,7 +30,7 @@ import { registerDocsMethods } from './docs'
 import { registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { getByPaneId, registerPane, removePane, removeWindow } from './idRegistry'
-import { kanbanGet, registerKanbanMethods } from './kanban'
+import { kanbanGet, kanbanUpdate, registerKanbanMethods } from './kanban'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { registerNotifyMethods } from './notify'
 import { listPanes, listSessions, registerPaneListMethods } from './paneList'
@@ -737,6 +737,7 @@ app.whenReady().then(() => {
     listPanes: () => listPanes({ execCommand, getTerminalState }),
     listSessions: () => listSessions({ execCommand }),
     kanbanGet,
+    kanbanUpdate,
     primaryWindowId,
     attachPhoneObserver,
     ptyResize,

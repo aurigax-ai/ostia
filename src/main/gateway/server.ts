@@ -17,17 +17,27 @@
  * Origin/host posture: this server has no legitimate browser-page caller (it serves no HTML —
  * only `/pair` and `/ws`), so ANY `Origin` header at all is treated as a hostile cross-origin
  * request (a real browser always sets one; the companion app and `curl`-style native clients
- * never do) and rejected outright — this is the "Origin/Host checks" contract §2 calls for.
+ * never do) and rejected outright. `Host` is checked too, against the bound `host:port` (or
+ * `localhost`/`127.0.0.1` for a loopback bind) — anti-DNS-rebinding defense-in-depth for the
+ * rare non-browser caller that omits `Origin` — this is the "Origin/Host checks" contract §2
+ * calls for.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { type Server as HttpsServer, createServer as createHttpsServer } from 'node:https'
 import { app } from 'electron'
 import { type WebSocket, WebSocketServer } from 'ws'
 import { resolveExternal } from '../idRegistry'
+import { loadJson, saveJson, storePath } from '../jsonStore'
 import { type GatewayCert, getCert } from './cert'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
-import { type Device, list as listDevices, registerDevice, verifyToken } from './devices'
-import { consumeCode } from './pairing'
+import {
+  type Device,
+  get as getDevice,
+  list as listDevices,
+  registerDevice,
+  verifyToken,
+} from './devices'
+import { auditPairAttempt, checkPairRateLimit, consumeCode } from './pairing'
 
 /** Binary WS frame type bytes (contract §6.2): `[1-byte type][payload]`. */
 const FRAME_PTY_OUTPUT = 0x01 // server -> client: raw pty output bytes
@@ -43,6 +53,11 @@ export interface GatewayStartResult {
   host: string
   port: number
   fingerprint: string
+  /** Present iff `host` isn't loopback-only — "you did this on purpose" surfacing for the
+   *  bind-interface-default fix (security review): binding to `0.0.0.0` or a LAN/Tailscale IP
+   *  exposes the gateway beyond this machine, so every caller that ends up on a non-loopback
+   *  bind gets told so, not just the ones that pass `host` explicitly. */
+  warning?: string
 }
 
 export interface GatewayStatus {
@@ -55,10 +70,44 @@ export interface GatewayStatus {
 
 /** Contract §2: "default suggestion 8722." */
 const DEFAULT_PORT = 8722
-/** Every interface, unless the caller (or a future settings-driven default) picks one. */
-const DEFAULT_HOST = '0.0.0.0'
+/** Loopback-only unless the caller explicitly opts into a LAN/Tailscale bind (security review:
+ *  "bind interface default" — `0.0.0.0` by default meant every new pairing session was exposed
+ *  network-wide with no explicit opt-in). */
+const DEFAULT_HOST = '127.0.0.1'
 /** Heartbeat cadence (contract §6.3) — keeps idle LAN connections from going silently stale. */
 const HEARTBEAT_MS = 15_000
+
+/** Persisted across restarts (global scope — the gateway itself is machine-wide, same as
+ *  `devices.ts`'s store) so a caller that once explicitly chose a LAN bind doesn't silently
+ *  fall back to loopback on the next `gateway.enable` with no `host` — the `warning` field
+ *  keeps that choice visible on every start/pair regardless of where it came from. */
+interface GatewayConfig {
+  host?: string
+}
+
+function gatewayConfigPath(): string {
+  return storePath('gateway-config', 'global')
+}
+
+function loadGatewayConfig(): GatewayConfig {
+  return loadJson<GatewayConfig>(gatewayConfigPath(), {})
+}
+
+function saveGatewayConfig(config: GatewayConfig): void {
+  saveJson(gatewayConfigPath(), config)
+}
+
+function isLoopbackHost(host: string): boolean {
+  return host === '127.0.0.1' || host === '::1' || host === 'localhost'
+}
+
+/** `undefined` for a loopback bind; a human-readable warning otherwise (contract's "warning
+ *  field" ask) — shared by `startGateway`'s result and `gateway.pair`'s result (`./index.ts`),
+ *  which may report status for a gateway that was started on an earlier call. */
+export function hostWarning(host: string | null): string | undefined {
+  if (!host || isLoopbackHost(host)) return undefined
+  return `exposed on ${host} — LAN/Tailscale only`
+}
 
 let httpsServer: HttpsServer | null = null
 let wss: WebSocketServer | null = null
@@ -89,6 +138,49 @@ interface SocketState {
 const sockets = new Map<WebSocket, SocketState>()
 
 /**
+ * Every live socket authed as a given device (security review: "revocation must kill live
+ * sessions" — part (a)). Populated on a successful `hello`, pruned on close; `gateway.revoke`
+ * (`./index.ts`) calls `closeDeviceSockets` right after deleting the device from the store so
+ * its already-open connections drop immediately instead of surviving until their next request
+ * happens to hit the part-(b) live re-check below.
+ */
+const socketsByDevice = new Map<string, Set<WebSocket>>()
+
+function trackDeviceSocket(deviceId: string, ws: WebSocket): void {
+  let set = socketsByDevice.get(deviceId)
+  if (!set) {
+    set = new Set()
+    socketsByDevice.set(deviceId, set)
+  }
+  set.add(ws)
+}
+
+function untrackDeviceSocket(deviceId: string, ws: WebSocket): void {
+  const set = socketsByDevice.get(deviceId)
+  if (!set) return
+  set.delete(ws)
+  if (set.size === 0) socketsByDevice.delete(deviceId)
+}
+
+/** Force-close every live socket authed as `deviceId` — called right after `devices.revoke`
+ *  succeeds (`./index.ts`'s `gateway.revoke` handler). */
+export function closeDeviceSockets(deviceId: string): void {
+  const set = socketsByDevice.get(deviceId)
+  if (!set) return
+  for (const ws of set) ws.close(4003, 'revoked')
+  socketsByDevice.delete(deviceId)
+}
+
+/** Part (b) of "revocation must kill live sessions": a device's `hello`-time auth is checked
+ *  once, but the device could be revoked at any later point while the socket stays open — every
+ *  authed request/frame after `hello` re-checks the device still exists in the store, so a
+ *  revoked device's socket stops working on its very next call even if, for whatever reason, it
+ *  was never force-closed by `closeDeviceSockets` above. */
+function isDeviceRevoked(deviceId: string): boolean {
+  return getDevice(deviceId) === null
+}
+
+/**
  * The phone control API's backing deps (`execCommand`/`listPanes`/`kanbanGet`/...), configured
  * once from `index.ts` alongside `registerControlServer` — independent of whether the gateway is
  * actually running (deps don't change across `gateway.enable`/`disable` restarts). Null until
@@ -115,6 +207,26 @@ function rpcError(id: unknown, code: number, message: string, data?: unknown): s
 /** A real browser always sets `Origin`; the companion app / `curl`-style clients never do. */
 function hasBrowserOrigin(origin: string | undefined): boolean {
   return typeof origin === 'string' && origin.length > 0
+}
+
+/**
+ * Anti-DNS-rebinding (security review): a malicious page can trick a victim's browser into
+ * resolving an attacker-controlled hostname to this machine's bound address and issuing a
+ * same-origin-looking request — the `Origin` check above already blocks the common case (a
+ * request with any `Origin` at all is rejected outright), but `Host` is checked too as
+ * defense-in-depth for non-browser callers that omit `Origin`. Only the `host:port` this server
+ * is actually bound to (or `localhost`/`127.0.0.1` when bound to loopback) is accepted; a bind
+ * to every interface (`0.0.0.0`) can legitimately be reached via any of the machine's own
+ * addresses, so the port is all that's checked in that case.
+ */
+function isAllowedHostHeader(hostHeader: string | undefined): boolean {
+  if (!boundPort || typeof hostHeader !== 'string' || !hostHeader) return false
+  const sepIdx = hostHeader.lastIndexOf(':')
+  const headerHost = sepIdx === -1 ? hostHeader : hostHeader.slice(0, sepIdx)
+  const headerPort = sepIdx === -1 ? undefined : hostHeader.slice(sepIdx + 1)
+  if (headerPort !== undefined && Number(headerPort) !== boundPort) return false
+  if (!boundHost || boundHost === '0.0.0.0') return true
+  return headerHost === boundHost || headerHost === 'localhost' || headerHost === '127.0.0.1'
 }
 
 /** Read a bounded request body (pairing bodies are tiny) and `JSON.parse` it; null on any failure. */
@@ -151,8 +263,17 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(data)
 }
 
-/** `POST /pair` (contract §3 steps 3–4): redeem a pairing code, register the device, hand back a token. */
+/** `POST /pair` (contract §3 steps 3–4): redeem a pairing code, register the device, hand back a
+ *  token. Rate-limited + audited per source IP (security review, minor finding): `/pair` is the
+ *  one plain-HTTP endpoint this surface exposes, so it's the natural target for a brute-force
+ *  pairCode guesser. */
 async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const ip = req.socket.remoteAddress ?? 'unknown'
+  if (!checkPairRateLimit(ip)) {
+    auditPairAttempt(ip, 'rate-limited')
+    sendJson(res, 429, { error: 'rate-limited' })
+    return
+  }
   const body = (await readJsonBody(req)) as {
     pairCode?: unknown
     device?: { name?: unknown; pubkey?: unknown }
@@ -165,6 +286,7 @@ async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<vo
     typeof device.name !== 'string' ||
     typeof device.pubkey !== 'string'
   ) {
+    auditPairAttempt(ip, 'bad-request')
     sendJson(res, 400, {
       error: 'bad-request',
       message: 'expected { pairCode, device: { name, pubkey } }',
@@ -172,10 +294,12 @@ async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<vo
     return
   }
   if (!consumeCode(pairCode)) {
+    auditPairAttempt(ip, 'invalid-code')
     sendJson(res, 401, { error: 'invalid-pair-code' })
     return
   }
   const { deviceId, token, caps } = registerDevice({ name: device.name, pubkey: device.pubkey })
+  auditPairAttempt(ip, 'ok')
   sendJson(res, 200, { deviceId, deviceToken: token, caps, expiresAt: null })
 }
 
@@ -183,6 +307,10 @@ async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<vo
 function requestHandler(req: IncomingMessage, res: ServerResponse): void {
   if (hasBrowserOrigin(req.headers.origin)) {
     sendJson(res, 403, { error: 'origin-not-allowed' })
+    return
+  }
+  if (!isAllowedHostHeader(req.headers.host)) {
+    sendJson(res, 403, { error: 'host-not-allowed' })
     return
   }
   if (req.method === 'POST' && req.url === '/pair') {
@@ -206,6 +334,7 @@ function handleHello(
     return
   }
   state.device = device
+  trackDeviceSocket(device.deviceId, ws)
   ws.send(
     rpcResult(msg.id, {
       deviceId: device.deviceId,
@@ -369,6 +498,11 @@ function handlePtyDetach(
  */
 function handleBinaryFrame(ws: WebSocket, state: SocketState, data: Buffer): void {
   if (!state.device || !controlDeps || data.length < 1) return
+  // Part (b) of "revocation must kill live sessions" — see `isDeviceRevoked`'s docstring.
+  if (isDeviceRevoked(state.device.deviceId)) {
+    ws.close(4003, 'revoked')
+    return
+  }
   const type = data[0]
   const payload = data.subarray(1)
   const attachment = state.ptyAttachment
@@ -430,6 +564,14 @@ function handleConnection(ws: WebSocket): void {
       ws.close(4001, 'unauthenticated')
       return
     }
+    // Part (b) of "revocation must kill live sessions": re-verify on EVERY authed request, not
+    // just at `hello` time — a device revoked mid-connection must stop working on its very next
+    // call (see `isDeviceRevoked`'s docstring).
+    if (isDeviceRevoked(state.device.deviceId)) {
+      ws.send(rpcError(msg.id, -32001, 'device revoked'))
+      ws.close(4003, 'revoked')
+      return
+    }
     if (msg.method === 'whoami') {
       handleWhoami(ws, state, msg)
       return
@@ -451,6 +593,7 @@ function handleConnection(ws: WebSocket): void {
     // outlives it, whether the socket closed cleanly (`pty.detach`) or not.
     state.ptyAttachment?.detach()
     state.ptyAttachment = null
+    if (state.device) untrackDeviceSocket(state.device.deviceId, ws)
     sockets.delete(ws)
   })
 }
@@ -478,14 +621,22 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   if (httpsServer) await stopGateway()
 
   const cert: GatewayCert = await getCert()
-  const host = options.host ?? DEFAULT_HOST
+  // Precedence: an explicit `host` this call > whatever host a PRIOR call persisted > the
+  // loopback-only default. Whichever wins gets re-persisted below, so a caller that once opted
+  // into a LAN bind keeps getting it on later no-`host` `gateway.enable`s instead of silently
+  // dropping back to loopback — the `warning` field (computed from the final `host`, not from
+  // whether THIS call passed one explicitly) keeps that choice visible either way.
+  const persisted = loadGatewayConfig()
+  const host = options.host ?? persisted.host ?? DEFAULT_HOST
   const port = options.port ?? DEFAULT_PORT
+  saveGatewayConfig({ host })
 
   const server = createHttpsServer({ cert: cert.cert, key: cert.key }, requestHandler)
   const wsServer = new WebSocketServer({
     server,
     path: '/ws',
-    verifyClient: (info: { origin: string }) => !hasBrowserOrigin(info.origin),
+    verifyClient: (info: { origin: string; req: IncomingMessage }) =>
+      !hasBrowserOrigin(info.origin) && isAllowedHostHeader(info.req.headers.host),
   })
   wsServer.on('connection', handleConnection)
   server.on('error', (err) => console.error('[gateway] server error:', err))
@@ -505,7 +656,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   currentFingerprint = cert.fingerprint
   startHeartbeat()
 
-  return { host, port, fingerprint: cert.fingerprint }
+  return { host, port, fingerprint: cert.fingerprint, warning: hostWarning(host) }
 }
 
 /** Stop the gateway (closes every open connection) and reset status to "not running". */
@@ -516,6 +667,7 @@ export async function stopGateway(): Promise<void> {
   }
   for (const ws of sockets.keys()) ws.terminate()
   sockets.clear()
+  socketsByDevice.clear()
 
   const wssToClose = wss
   const httpsToClose = httpsServer

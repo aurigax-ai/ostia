@@ -88,6 +88,10 @@ export function registerBuiltinCommands(): void {
     id: 'pane.close',
     title: 'Close Pane',
     category: 'Pane',
+    // Elevated: closing a pane is destructive/cross-boundary-capable (a remote caller could
+    // target ANY pane, not just its own) — a phone's `command` cap alone must not reach this
+    // (see `gateway/controlDispatch.ts`'s `PHONE_CAP_ALLOWS`, which has no entry for `kill-pane`).
+    capabilities: ['kill-pane'],
     run: (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeSessionId && target) {
@@ -127,6 +131,8 @@ export function registerBuiltinCommands(): void {
     title: 'Remove Pane',
     category: 'Pane',
     hidden: true,
+    // Elevated — same reasoning as `pane.close` above; this also closes a pane (post-tear-off).
+    capabilities: ['kill-pane'],
     run: ({ paneId }, ctx) => {
       if (ctx.activeSessionId) useLayoutStore.getState().removePane(ctx.activeSessionId, paneId)
     },
