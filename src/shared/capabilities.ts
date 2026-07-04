@@ -13,6 +13,21 @@ export type Capability =
   | 'destructive' // irreversible ops — gated regardless of caller
   | 'phone' // remote gateway access (elevated)
   | 'notify' // fire a desktop notification (default — low-risk)
+  | 'process' // spawn/manage a background process (elevated)
+  | 'vault-read' // read secrets from the vault (elevated)
+  | 'vault-write' // write secrets to the vault (elevated)
+  | 'wiki-read' // read the project wiki/docs (default — low-risk)
+  | 'wiki-write' // write the project wiki/docs (elevated)
+  | 'board-write' // write the kanban/status board (elevated)
+  | 'browse' // drive the embedded browser (elevated)
+  | 'settings-read' // read settings.json (default — low-risk)
+  | 'settings-write' // write settings.json (elevated)
 
 /** Granted to every pane by default under the pane-scoped-trust posture. */
-export const DEFAULT_CAPABILITIES: Capability[] = ['drive-self', 'read-board', 'notify']
+export const DEFAULT_CAPABILITIES: Capability[] = [
+  'drive-self',
+  'read-board',
+  'notify',
+  'wiki-read',
+  'settings-read',
+]

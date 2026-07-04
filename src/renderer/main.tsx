@@ -12,6 +12,7 @@ import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { DetachedPane } from './components/DetachedPane'
+import { useSessionsStore } from './stores/sessionsStore'
 
 // Register the Phase 0 command set before the UI mounts, then wire main's command
 // bridge (Slice 6) so it can list + execute this window's registry.
@@ -20,6 +21,13 @@ wireCommandBridge()
 // Slice 7: mirror per-pane terminal state (cwd/running/blocks/exit code) to main. A
 // passive observer — wiring it in changes no terminal/UI behavior.
 wireTerminalStateBridge()
+
+// Seed main's session→workDir registry with the store's initial session(s): that
+// session was created before `window.pine` existed, so its `session-added` never
+// fired. Without this, main-side services can't resolve a workDir for it.
+for (const s of useSessionsStore.getState().sessions) {
+  window.pine?.lifecycle?.emit?.({ type: 'session-added', sessionId: s.id, workDir: s.workDir })
+}
 
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')
