@@ -15,9 +15,11 @@ function resolveAddress(input: string): string {
 /**
  * The in-app browser surface: an Electron `<webview>` (its own isolated guest process +
  * partition — no nodeIntegration on the guest) with a minimal chrome bar (back / forward /
- * reload / address). Stage 1 is rendering-only; agent automation (CDP) lands in a later stage.
+ * reload / address). Stage 1 was rendering-only; Stage 2 registers the guest's webContents
+ * with main (`window.pine.browser.register`) on `dom-ready` so the `pine browse ...` CLI can
+ * drive it — see `src/main/browse.ts`.
  */
-export function BrowserView({ url }: { url?: string }): JSX.Element {
+export function BrowserView({ paneId, url }: { paneId: string; url?: string }): JSX.Element {
   const webviewRef = useRef<HTMLElement | null>(null)
   const startUrl = useRef(url || 'about:blank')
   // The last url we've already applied (via the initial `src` or an imperative loadURL) —
@@ -79,6 +81,24 @@ export function BrowserView({ url }: { url?: string }): JSX.Element {
       el.removeEventListener('did-fail-load', onFailLoad)
     }
   }, [tag])
+
+  // Hand the guest's webContents id to main once it exists (`dom-ready`) so the `pine browse
+  // ...` CLI can drive it (Stage 2, `src/main/browse.ts`); drop the registration on unmount
+  // (pane closed) so main never holds a stale id. Re-fires (idempotently) on every
+  // navigation's `dom-ready` — the guest's webContents id never changes across those.
+  useEffect(() => {
+    const el = webviewRef.current
+    if (!el) return
+    const onDomReady = (): void => {
+      const wv = tag()
+      if (wv) window.pine?.browser?.register?.(paneId, wv.getWebContentsId())
+    }
+    el.addEventListener('dom-ready', onDomReady)
+    return () => {
+      el.removeEventListener('dom-ready', onDomReady)
+      window.pine?.browser?.unregister?.(paneId)
+    }
+  }, [paneId, tag])
 
   const navigate = (raw: string): void => {
     const next = resolveAddress(raw)

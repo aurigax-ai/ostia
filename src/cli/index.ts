@@ -752,6 +752,171 @@ async function runSettingsVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+interface BrowseOk {
+  ok: true
+  created?: boolean
+  paneId?: string
+}
+interface BrowseErr {
+  ok: false
+  error: string
+  message?: string
+}
+
+function describeBrowseError(res: BrowseErr): string {
+  return res.message ? `${res.error}: ${res.message}` : res.error
+}
+
+/**
+ * `pine browse <open|nav|read|click|type|eval|wait|screenshot|content>` — agent automation of
+ * the in-app `browser` pane's guest page (elevated `browse` capability; see `src/main/browse.ts`).
+ * `--pane <externalId>` targets a specific browser pane (another pane's `pine whoami` id,
+ * relayed the same way as the "no pane roster yet" coordination recipe in the `pine` skill);
+ * omitted, it defaults to the caller's own session's browser pane.
+ */
+async function runBrowseVerb(conn: MessageConnection): Promise<void> {
+  const sub = process.argv[3]
+  const { flags, rest } = parseFlags(process.argv.slice(4), ['pane', 'timeout'])
+  const paneId = flags.pane || undefined
+
+  if (sub === 'open') {
+    const url = rest[0]
+    if (!url) {
+      console.error('pine browse open: missing <url>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.open', { url, paneId })
+    if (res.ok) {
+      console.log(JSON.stringify(res))
+    } else {
+      console.error(`pine: browse open failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'nav') {
+    const action = rest[0]
+    if (action !== 'back' && action !== 'forward' && action !== 'reload') {
+      console.error('pine browse nav: missing <back|forward|reload>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.nav', { action, paneId })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse nav failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'read') {
+    const selector = rest[0]
+    const res = await conn.sendRequest<{ ok: true; text: string } | BrowseErr>('browse.read', {
+      selector,
+      paneId,
+    })
+    if (res.ok) {
+      console.log(res.text)
+    } else {
+      console.error(`pine: browse read failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'click') {
+    const selector = rest[0]
+    if (!selector) {
+      console.error('pine browse click: missing <selector>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.click', { selector, paneId })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse click failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'type') {
+    const [selector, text] = rest
+    if (!selector || text === undefined) {
+      console.error('pine browse type: missing <selector> <text>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.type', {
+      selector,
+      text,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse type failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'eval') {
+    const js = rest[0]
+    if (!js) {
+      console.error('pine browse eval: missing "<js>"')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; result: string } | BrowseErr>('browse.eval', {
+      js,
+      paneId,
+    })
+    if (res.ok) {
+      console.log(res.result)
+    } else {
+      console.error(`pine: browse eval failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'wait') {
+    const selector = rest[0]
+    if (!selector) {
+      console.error('pine browse wait: missing <selector>')
+      process.exitCode = 1
+      return
+    }
+    const timeoutMs = flags.timeout ? Number(flags.timeout) : undefined
+    const res = await conn.sendRequest<{ found: boolean; timedOut?: boolean } | BrowseErr>(
+      'browse.wait',
+      { selector, timeoutMs, paneId },
+    )
+    if ('found' in res) {
+      console.log(JSON.stringify(res))
+      if (!res.found) process.exitCode = 1
+    } else {
+      console.error(`pine: browse wait failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'screenshot') {
+    const path = rest[0]
+    const res = await conn.sendRequest<{ ok: true; path: string } | BrowseErr>(
+      'browse.screenshot',
+      { path, paneId },
+    )
+    if (res.ok) {
+      console.log(res.path)
+    } else {
+      console.error(`pine: browse screenshot failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'content') {
+    const res = await conn.sendRequest<{ ok: true; html: string } | BrowseErr>('browse.content', {
+      paneId,
+    })
+    if (res.ok) {
+      console.log(res.html)
+    } else {
+      console.error(`pine: browse content failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else {
+    console.error(
+      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, eval, wait, screenshot, content)`,
+    )
+    process.exitCode = 1
+  }
+}
+
 async function main(): Promise<void> {
   const socketPath = process.env.PINE_SOCKET
   const token = process.env.PINE_TOKEN
@@ -812,6 +977,8 @@ async function main(): Promise<void> {
       await runBusVerb(conn)
     } else if (cmd === 'settings') {
       await runSettingsVerb(conn)
+    } else if (cmd === 'browse') {
+      await runBrowseVerb(conn)
     } else if (cmd) {
       // Any other verb is treated as a command id, with an optional JSON args blob
       // as the 2nd argv (e.g. `pine pane.splitRight` or `pine pane.write '"ls\n"'`).
@@ -827,7 +994,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault, wiki, kanban, bus, settings)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault, wiki, kanban, bus, settings, browse)`,
       )
       process.exitCode = 1
     }

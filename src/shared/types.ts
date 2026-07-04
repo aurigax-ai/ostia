@@ -242,6 +242,19 @@ export interface TerminalStateApi {
   push: (snapshot: TerminalStateSnapshot) => void
 }
 
+/**
+ * Browser-pane registration (Stage 2 agent automation, `src/main/browse.ts`). Main can only
+ * drive a `browser` pane's `<webview>` guest through its `WebContents`, which only the
+ * renderer can hand over (a webContents id is meaningless until the guest exists) — so the
+ * renderer registers it on `dom-ready` and unregisters it on unmount.
+ */
+export interface BrowserApi {
+  /** Register `paneId`'s live guest webContents id so `browse.*` control methods can find it. */
+  register: (paneId: string, webContentsId: number) => void
+  /** Drop the registration (pane unmounted/closed). */
+  unregister: (paneId: string) => void
+}
+
 /** The typed API surface the preload bridge exposes on `window.pine`. */
 export interface PineBridge {
   /** Liveness check round-trip to main. */
@@ -266,6 +279,8 @@ export interface PineBridge {
   commands: CommandsApi
   /** Push per-pane terminal-state snapshots to main's read-model (Slice 7). */
   terminalState: TerminalStateApi
+  /** Browser-pane registration for agent automation (Stage 2 `browse.*` control methods). */
+  browser: BrowserApi
 }
 
 declare global {

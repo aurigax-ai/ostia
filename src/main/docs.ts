@@ -39,6 +39,15 @@ const CLI_HELP = `pine — control-socket CLI
   pine bus done <id>                          mark a handoff completed
   pine settings get [key]         print the whole settings state, or a dot-path value
   pine settings set <key> <value> deep-set a dot-path (value parsed as JSON if it parses)
+  pine browse open <url> [--pane ID]                agent-drive the browser pane (elevated 'browse')
+  pine browse nav <back|forward|reload> [--pane ID]  navigate the browser pane
+  pine browse read [selector] [--pane ID]            print visible text (page, or a selector's)
+  pine browse click <selector> [--pane ID]           click the first matching element
+  pine browse type <selector> <text> [--pane ID]     set an input's value + fire input/change
+  pine browse eval "<js>" [--pane ID]                run JS in the page, print the JSON result
+  pine browse wait <selector> [--timeout MS] [--pane ID]  poll until a selector appears
+  pine browse screenshot [path] [--pane ID]          capture the page to a PNG, print its path
+  pine browse content [--pane ID]                    print the page's outerHTML (capped ~1MB)
   pine docs                      show this help
 
   pine <command-id> [jsonArgs]   run any registered command by id, with an

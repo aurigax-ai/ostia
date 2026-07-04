@@ -98,6 +98,11 @@ const bridge: PineBridge = {
   terminalState: {
     push: (snapshot) => ipcRenderer.send('terminal:state', snapshot),
   },
+  browser: {
+    register: (paneId, webContentsId) =>
+      ipcRenderer.send('browser:register', paneId, webContentsId),
+    unregister: (paneId) => ipcRenderer.send('browser:unregister', paneId),
+  },
 }
 
 contextBridge.exposeInMainWorld('pine', bridge)
