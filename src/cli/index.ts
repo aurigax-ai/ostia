@@ -769,11 +769,17 @@ function describeBrowseError(res: BrowseErr): string {
 
 /**
  * `pine browse <open|nav|read|click|type|dblclick|hover|focus|check|uncheck|scroll-into-view|
- * fill|select|scroll|press|keydown|keyup|eval|wait|screenshot|content>` — agent automation of
- * the in-app `browser` pane's guest page (elevated `browse` capability; see `src/main/browse.ts`).
- * `--pane <externalId>` targets a specific browser pane (another pane's `pine whoami` id,
- * relayed the same way as the "no pane roster yet" coordination recipe in the `pine` skill);
- * omitted, it defaults to the caller's own session's browser pane.
+ * fill|select|scroll|press|keydown|keyup|eval|wait|screenshot|content|snapshot|get|is|find|
+ * highlight>` — agent automation of the in-app `browser` pane's guest page (elevated `browse`
+ * capability; see `src/main/browse.ts`). `--pane <externalId>` targets a specific browser pane
+ * (another pane's `pine whoami` id, relayed the same way as the "no pane roster yet"
+ * coordination recipe in the `pine` skill); omitted, it defaults to the caller's own session's
+ * browser pane.
+ *
+ * `snapshot`/`find` assign `eN` refs to elements (valid until the next navigation); anywhere
+ * else a `<selector>` is accepted, `@eN` or `eN` works too (`browse.ts`'s injected
+ * `window.__pine.resolveEl`) — so a typical flow is `pine browse snapshot` to see refs, then
+ * `pine browse click @e3`.
  */
 async function runBrowseVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
@@ -783,8 +789,14 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
     'x',
     'y',
     'selector',
+    'attr',
+    'property',
+    'index',
+    'ms',
   ])
   const paneId = flags.pane || undefined
+  const interactive = rest.includes('--interactive')
+  const exact = rest.includes('--exact')
 
   if (sub === 'open') {
     const url = rest[0]
@@ -1118,9 +1130,106 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       console.error(`pine: browse content failed (${describeBrowseError(res)})`)
       process.exitCode = 1
     }
+  } else if (sub === 'snapshot') {
+    // `[selector]` is optional, so a bare `--interactive` (no selector) must not be mistaken
+    // for one — `rest[0]` here is a flag token, not a positional, when the selector is omitted.
+    const selectorArg = rest[0]
+    const selector = selectorArg && !selectorArg.startsWith('--') ? selectorArg : undefined
+    const res = await conn.sendRequest<
+      { ok: true; snapshot: string; refs: Record<string, unknown> } | BrowseErr
+    >('browse.snapshot', { selector, interactive: interactive || undefined, paneId })
+    if (res.ok) {
+      console.log(res.snapshot)
+    } else {
+      console.error(`pine: browse snapshot failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'get') {
+    const [getSub, selector] = rest
+    if (!getSub) {
+      console.error('pine browse get: missing <sub>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; value: unknown } | BrowseErr>('browse.get', {
+      sub: getSub,
+      selector,
+      attr: flags.attr || undefined,
+      property: flags.property || undefined,
+      paneId,
+    })
+    if (res.ok) {
+      console.log(typeof res.value === 'string' ? res.value : JSON.stringify(res.value))
+    } else {
+      console.error(`pine: browse get failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'is') {
+    const [isSub, selector] = rest
+    if (!isSub || !selector) {
+      console.error('pine browse is: missing <sub> <selector>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; value: boolean } | BrowseErr>('browse.is', {
+      sub: isSub,
+      selector,
+      paneId,
+    })
+    if (res.ok) {
+      console.log(String(res.value))
+      if (!res.value) process.exitCode = 1
+    } else {
+      console.error(`pine: browse is failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'find') {
+    const [by, query] = rest
+    if (!by || query === undefined) {
+      console.error('pine browse find: missing <by> <query>')
+      process.exitCode = 1
+      return
+    }
+    const index = flags.index ? Number(flags.index) : undefined
+    const res = await conn.sendRequest<{ ok: true; element_ref: string } | BrowseErr>(
+      'browse.find',
+      {
+        by,
+        query,
+        exact: exact || undefined,
+        index,
+        selector: flags.selector || undefined,
+        paneId,
+      },
+    )
+    if (res.ok) {
+      console.log(res.element_ref)
+    } else {
+      console.error(`pine: browse find failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'highlight') {
+    const selector = rest[0]
+    if (!selector) {
+      console.error('pine browse highlight: missing <selector>')
+      process.exitCode = 1
+      return
+    }
+    const ms = flags.ms ? Number(flags.ms) : undefined
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.highlight', {
+      selector,
+      ms,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse highlight failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
   } else {
     console.error(
-      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content)`,
+      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content, snapshot, get, is, find, highlight)`,
     )
     process.exitCode = 1
   }

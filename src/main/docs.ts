@@ -60,7 +60,18 @@ const CLI_HELP = `pine — control-socket CLI
   pine browse wait <selector> [--timeout MS] [--pane ID]  poll until a selector appears
   pine browse screenshot [path] [--pane ID]          capture the page to a PNG, print its path
   pine browse content [--pane ID]                    print the page's outerHTML (capped ~1MB)
+  pine browse snapshot [selector] [--interactive] [--pane ID]  a11y-ish text tree with [eN] refs
+  pine browse get <sub> [selector] [--attr X] [--property P] [--pane ID]
+                                  url|title|text|html|value|attr|count|box|styles
+  pine browse is <sub> <selector> [--pane ID]        visible|enabled|checked
+  pine browse find <by> <query> [--exact] [--index N] [--selector S] [--pane ID]
+                                  role|text|label|placeholder|alt|title|testid|first|last|nth
+                                  -> prints an @eN ref
+  pine browse highlight <selector> [--ms N] [--pane ID]  briefly outline an element
   pine docs                      show this help
+
+  Selectors anywhere above also accept an @eN/eN ref from snapshot/find (refs are valid
+  until the next navigation).
 
   pine <command-id> [jsonArgs]   run any registered command by id, with an
                                   optional JSON-encoded args blob
