@@ -56,16 +56,21 @@ export const useSessionsStore = create<SessionsState>((set, get) => {
   return {
     sessions: [initial],
     activeSessionId: initial.id,
-    setActive: (id) => set({ activeSessionId: id }),
+    setActive: (id) => {
+      set({ activeSessionId: id })
+      window.pine?.lifecycle?.emit?.({ type: 'session-activated', sessionId: id })
+    },
 
     addSession: (workDir = '~') => {
       const session = makeSession(workDir)
       set((s) => ({ sessions: [...s.sessions, session], activeSessionId: session.id }))
       useLayoutStore.getState().ensure(session.id)
+      window.pine?.lifecycle?.emit?.({ type: 'session-added', sessionId: session.id, workDir })
     },
 
     closeSession: (id) => {
       useLayoutStore.getState().removeSession(id)
+      window.pine?.lifecycle?.emit?.({ type: 'session-closed', sessionId: id })
 
       const remaining = get().sessions.filter((c) => c.id !== id)
       if (remaining.length === 0) {
