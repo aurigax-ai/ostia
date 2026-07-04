@@ -110,6 +110,79 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * Maps DOM `KeyboardEvent.key` names (plus a couple of common aliases) to the Electron
+ * Accelerator key-code strings `sendInputEvent` expects — the two vocabularies mostly agree
+ * (letters, digits, 'Tab', 'Escape', function keys, ...) but diverge for a handful of the keys
+ * agents reach for most (arrows, Enter, Space).
+ */
+const KEY_ALIASES: Record<string, string> = {
+  Enter: 'Return',
+  Esc: 'Escape',
+  ArrowUp: 'Up',
+  ArrowDown: 'Down',
+  ArrowLeft: 'Left',
+  ArrowRight: 'Right',
+  ' ': 'Space',
+  Space: 'Space',
+}
+
+function toElectronKeyCode(key: string): string {
+  return KEY_ALIASES[key] ?? key
+}
+
+/**
+ * True for a single-character key ('a', '5', '!', ...) — these also need a synthetic `char`
+ * input event to actually insert a character into a focused input/contenteditable; named keys
+ * (Enter, Tab, arrows, function keys, ...) have no character to insert.
+ */
+function isPrintableKey(key: string): boolean {
+  return [...key].length === 1
+}
+
+/** `keyDown` (+ a `char` event for a printable key) — what `sendInputEvent` needs to simulate a
+ *  key actually being typed, not just a raw scan code. Mirrored by `browse.press`'s `keyUp`. */
+function sendKeyDown(guest: Electron.WebContents, key: string): void {
+  guest.sendInputEvent({ type: 'keyDown', keyCode: toElectronKeyCode(key) })
+  if (isPrintableKey(key)) {
+    guest.sendInputEvent({ type: 'char', keyCode: key })
+  }
+}
+
+function sendKeyUp(guest: Electron.WebContents, key: string): void {
+  guest.sendInputEvent({ type: 'keyUp', keyCode: toElectronKeyCode(key) })
+}
+
+/**
+ * Run a `document.querySelector`-shaped IIFE that returns `true`/`false` for "did the selector
+ * match" (any DOM mutation/event dispatch already baked into `js` by the caller), translating
+ * that into `browse`'s standard not-found/eval-failed result shape. Factors out the reduction
+ * `browse.click`/`browse.type` above hand-roll — worth it here since most of the DOM-interaction
+ * methods below are exactly this shape.
+ */
+async function runSelectorJs(
+  guest: Electron.WebContents,
+  js: string,
+): Promise<{ ok: true } | { ok: false; error: string; message?: string }> {
+  try {
+    const found = await guest.executeJavaScript(js, true)
+    return found ? { ok: true } : { ok: false, error: 'not-found' }
+  } catch (e) {
+    return { ok: false, error: 'eval-failed', message: errMessage(e) }
+  }
+}
+
+/** `document.querySelector(sel)?.focus()` — shared by `browse.focus` and the selector-first
+ *  step of `browse.press`/`browse.keydown`/`browse.keyup`. */
+function focusSelectorJs(selector: string): string {
+  return `(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el) return false;
+    el.focus();
+    return true;
+  })()`
+}
+
 export function registerBrowseMethods(deps: BrowseDeps): void {
   registerControlMethod('browse.open', {
     cap: 'browse',
@@ -228,6 +301,230 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       } catch (e) {
         return { ok: false, error: 'eval-failed', message: errMessage(e) }
       }
+    },
+  })
+
+  registerControlMethod('browse.dblclick', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const js = `(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return false;
+        el.click?.();
+        el.click?.();
+        el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        return true;
+      })()`
+      return runSelectorJs(resolution.guest, js)
+    },
+  })
+
+  registerControlMethod('browse.hover', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const js = `(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return false;
+        const opts = { bubbles: true };
+        el.dispatchEvent(new MouseEvent('mouseover', opts));
+        el.dispatchEvent(new MouseEvent('mouseenter', opts));
+        el.dispatchEvent(new MouseEvent('mousemove', opts));
+        return true;
+      })()`
+      return runSelectorJs(resolution.guest, js)
+    },
+  })
+
+  registerControlMethod('browse.focus', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      return runSelectorJs(resolution.guest, focusSelectorJs(selector))
+    },
+  })
+
+  // `browse.check`/`browse.uncheck` are identical apart from the boolean they set — a tiny
+  // factory instead of two near-duplicate handlers.
+  const registerCheckMethod = (name: string, checked: boolean): void => {
+    registerControlMethod(name, {
+      cap: 'browse',
+      handler: async (params, ctx) => {
+        const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
+        const resolution = resolveGuest(deps, ctx, paneId)
+        if (!resolution.ok) return resolution
+        const js = `(() => {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          if (!el) return false;
+          el.checked = ${checked};
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          return true;
+        })()`
+        return runSelectorJs(resolution.guest, js)
+      },
+    })
+  }
+  registerCheckMethod('browse.check', true)
+  registerCheckMethod('browse.uncheck', false)
+
+  registerControlMethod('browse.scrollIntoView', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const js = `(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return false;
+        el.scrollIntoView({ block: 'center' });
+        return true;
+      })()`
+      return runSelectorJs(resolution.guest, js)
+    },
+  })
+
+  registerControlMethod('browse.fill', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { selector, text, paneId } = (params ?? {}) as {
+        selector: string
+        text: string
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      // Whole-value replace via plain `el.value =` — unlike `browse.type`'s native-setter dance,
+      // this doesn't fight a React/Vue value-property override; it's for plain inputs where a
+      // direct set is all that's needed.
+      const js = `(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return false;
+        el.value = ${JSON.stringify(text)};
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      })()`
+      return runSelectorJs(resolution.guest, js)
+    },
+  })
+
+  registerControlMethod('browse.select', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { selector, value, paneId } = (params ?? {}) as {
+        selector: string
+        value: string
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const valueJs = JSON.stringify(value)
+      // Set by option value first; if nothing matched (`.value` didn't stick — invalid for this
+      // <select>), fall back to matching an option's visible text.
+      const js = `(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return false;
+        el.value = ${valueJs};
+        if (el.value !== ${valueJs}) {
+          for (const opt of Array.from(el.options || [])) {
+            if (opt.textContent.trim() === ${valueJs}) { el.value = opt.value; break; }
+          }
+        }
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      })()`
+      return runSelectorJs(resolution.guest, js)
+    },
+  })
+
+  registerControlMethod('browse.scroll', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { x, y, selector, paneId } = (params ?? {}) as {
+        x?: number
+        y?: number
+        selector?: string
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const xJs = JSON.stringify(x ?? 0)
+      const yJs = JSON.stringify(y ?? 0)
+      const js = selector
+        ? `(() => {
+            const el = document.querySelector(${JSON.stringify(selector)});
+            if (!el) return false;
+            el.scrollBy(${xJs}, ${yJs});
+            return true;
+          })()`
+        : `(() => { window.scrollTo(${xJs}, ${yJs}); return true; })()`
+      return runSelectorJs(resolution.guest, js)
+    },
+  })
+
+  registerControlMethod('browse.press', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { key, selector, paneId } = (params ?? {}) as {
+        key: string
+        selector?: string
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      if (selector) {
+        const focused = await runSelectorJs(resolution.guest, focusSelectorJs(selector))
+        if (!focused.ok) return focused
+      }
+      sendKeyDown(resolution.guest, key)
+      sendKeyUp(resolution.guest, key)
+      return { ok: true }
+    },
+  })
+
+  registerControlMethod('browse.keydown', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { key, selector, paneId } = (params ?? {}) as {
+        key: string
+        selector?: string
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      if (selector) {
+        const focused = await runSelectorJs(resolution.guest, focusSelectorJs(selector))
+        if (!focused.ok) return focused
+      }
+      sendKeyDown(resolution.guest, key)
+      return { ok: true }
+    },
+  })
+
+  registerControlMethod('browse.keyup', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { key, selector, paneId } = (params ?? {}) as {
+        key: string
+        selector?: string
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      if (selector) {
+        const focused = await runSelectorJs(resolution.guest, focusSelectorJs(selector))
+        if (!focused.ok) return focused
+      }
+      sendKeyUp(resolution.guest, key)
+      return { ok: true }
     },
   })
 
