@@ -12,6 +12,7 @@ export type Capability =
   | 'shell' // run a command in a terminal (elevated — dangerous)
   | 'destructive' // irreversible ops — gated regardless of caller (elevated — dangerous)
   | 'phone' // remote gateway access (elevated — cross-boundary)
+  | 'gateway' // manage the LAN control gateway itself (enable/pair/revoke) (elevated — system-facing)
   | 'notify' // fire a desktop notification (default — pane-scoped, low-risk)
   | 'process' // spawn/manage a background process (default — pane-scoped)
   | 'vault-read' // read secrets from the vault (default — pane-scoped)
@@ -47,6 +48,7 @@ export const ALL_CAPABILITIES: Capability[] = [
   'shell',
   'destructive',
   'phone',
+  'gateway',
   'notify',
   'process',
   'vault-read',

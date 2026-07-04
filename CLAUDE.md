@@ -46,7 +46,10 @@ is authoritative. Use `pnpm`.)
 - **main** (`src/main/`, Node, privileged, CommonJS): app/window lifecycle, node-pty session manager
   (`ptySession.ts`, `ptyRingBuffer.ts`), read-only FS IPC, LSP manager (`lsp.ts`), shell-integration
   injection (`shellIntegration.ts`), and the **control plane** (`controlServer.ts`, `controlAuth.ts`,
-  `capabilityStore.ts`, `idRegistry.ts`) exposing commands over a local unix socket.
+  `capabilityStore.ts`, `idRegistry.ts`) exposing commands over a local unix socket. `src/main/gateway/`
+  (Phase C) re-exposes a subset of that control plane over the LAN as a self-signed-TLS `https`+`ws`
+  server for the Pine Companion phone app (`gateway.*` control methods, elevated `gateway` cap) — **off
+  by default**, never auto-started; see `pine-companion/NETWORK-CONTRACT.md`.
 - **preload** (`src/preload/index.ts`): the **single** `contextBridge.exposeInMainWorld('pine', …)`
   surface. Thin, typed, forwards `ipcRenderer.invoke/send/on` only — **no logic**.
 - **renderer** (`src/renderer/`, React 18 + TS, **no Node access**): xterm.js terminal, Monaco editor,

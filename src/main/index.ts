@@ -27,6 +27,8 @@ import {
 import { registerBusMethods } from './bus'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
+import { registerGatewayMethods } from './gateway'
+import { stopGateway } from './gateway/server'
 import { getByPaneId, registerPane, removePane, removeWindow } from './idRegistry'
 import { registerKanbanMethods } from './kanban'
 import { killAllLsp, registerLspIpc } from './lsp'
@@ -646,6 +648,10 @@ app.whenReady().then(() => {
   registerWikiMethods()
   registerKanbanMethods()
   registerBusMethods()
+  // The LAN control gateway is OFF BY DEFAULT (contract §0) — this only registers the
+  // `gateway.*` control-socket methods (enable/disable/pair/status/devices/revoke); nothing
+  // actually starts listening until a caller explicitly invokes `gateway.enable`.
+  registerGatewayMethods()
   // Same allow-list as `fs:*` (see `registerFsIpc`) — `browse.screenshot`'s caller-supplied
   // `path` gets the same containment, closing the arbitrary-write hole a bare `writeFileSync`
   // would otherwise open.
@@ -676,6 +682,7 @@ app.on('before-quit', () => {
   killAllLsp()
   killAllProcesses()
   stopControlServer()
+  void stopGateway()
 })
 
 app.on('window-all-closed', () => {
