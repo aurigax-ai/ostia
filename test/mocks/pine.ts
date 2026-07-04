@@ -73,6 +73,23 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       get: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       set: vi.fn().mockResolvedValue({ ok: true }),
     },
+    gateway: {
+      enable: vi.fn().mockResolvedValue({ host: '127.0.0.1', port: 8722, fingerprint: 'sha256/x' }),
+      disable: vi.fn().mockResolvedValue({ ok: true }),
+      pair: vi.fn().mockResolvedValue({
+        v: 1,
+        host: '127.0.0.1',
+        port: 8722,
+        fingerprint: 'sha256/x',
+        pairCode: 'ABCD1234',
+        name: 'test-host',
+      }),
+      status: vi
+        .fn()
+        .mockResolvedValue({ running: false, host: null, port: null, fingerprint: null, deviceCount: 0 }),
+      devices: vi.fn().mockResolvedValue({ devices: [] }),
+      revoke: vi.fn().mockResolvedValue({ ok: true }),
+    },
   }
   return { ...base, ...overrides }
 }

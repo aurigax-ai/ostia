@@ -3,6 +3,10 @@ import type {
   AppInfo,
   CommandInvokeRequest,
   FsEntry,
+  GatewayDevice,
+  GatewayEnableResult,
+  GatewayPairResult,
+  GatewayStatus,
   KanbanBoard,
   KanbanFailure,
   KanbanMutateOp,
@@ -129,6 +133,18 @@ const bridge: PineBridge = {
       scope?: WikiScope
       workDir: string
     }) => ipcRenderer.invoke('wiki:set', params) as Promise<{ ok: true } | WikiFailure>,
+  },
+  gateway: {
+    enable: (opts) => ipcRenderer.invoke('gateway:enable', opts) as Promise<GatewayEnableResult>,
+    disable: () => ipcRenderer.invoke('gateway:disable') as Promise<{ ok: true }>,
+    pair: () => ipcRenderer.invoke('gateway:pair') as Promise<GatewayPairResult>,
+    status: () => ipcRenderer.invoke('gateway:status') as Promise<GatewayStatus>,
+    devices: () => ipcRenderer.invoke('gateway:devices') as Promise<{ devices: GatewayDevice[] }>,
+    revoke: (deviceId) =>
+      ipcRenderer.invoke('gateway:revoke', { deviceId }) as Promise<{
+        ok: boolean
+        error?: string
+      }>,
   },
 }
 
