@@ -64,7 +64,15 @@ function readAllStdin(): Promise<string> {
   })
 }
 
-/** Reads one line from a TTY in raw mode (no local echo, no canonical line buffering). */
+/**
+ * Reads one line from a TTY in raw mode (no local echo, no canonical line buffering).
+ *
+ * Raw mode is process-global terminal state, so leaving it on past this call would leave
+ * the user's shell with a silently-broken prompt (no echo, no line editing) -- worse than
+ * the secret prompt itself. Every exit path (line entered, Ctrl+C, stdin error/close/end,
+ * or an external SIGINT) funnels through the single idempotent `finish` below, which
+ * restores echo and tears down every listener exactly once, however this settles.
+ */
 function readLineNoEcho(): Promise<string> {
   return new Promise((resolve, reject) => {
     const stdin = process.stdin
@@ -72,24 +80,34 @@ function readLineNoEcho(): Promise<string> {
     stdin.resume()
     stdin.setEncoding('utf8')
     let input = ''
-    const cleanup = (): void => {
+    let settled = false
+    const finish = (run: () => void): void => {
+      if (settled) return
+      settled = true
       stdin.removeListener('data', onData)
+      stdin.removeListener('error', onError)
+      stdin.removeListener('close', onClose)
+      stdin.removeListener('end', onClose)
+      process.removeListener('SIGINT', onSigint)
       stdin.setRawMode?.(false)
       stdin.pause()
+      run()
     }
     const onData = (chunk: string): void => {
       for (const ch of chunk) {
         if (ch === '\r' || ch === '\n') {
-          cleanup()
-          process.stderr.write('\n')
-          resolve(input)
+          finish(() => {
+            process.stderr.write('\n')
+            resolve(input)
+          })
           return
         }
         if (ch === '\u0003') {
           // Ctrl+C — bail out without printing whatever was typed so far.
-          cleanup()
-          process.stderr.write('\n')
-          reject(new Error('aborted'))
+          finish(() => {
+            process.stderr.write('\n')
+            reject(new Error('aborted'))
+          })
           return
         }
         if (ch === '\u007f' || ch === '\b') {
@@ -99,7 +117,19 @@ function readLineNoEcho(): Promise<string> {
         }
       }
     }
+    const onError = (err: Error): void => finish(() => reject(err))
+    const onClose = (): void =>
+      finish(() => reject(new Error('stdin closed before a value was entered')))
+    const onSigint = (): void =>
+      finish(() => {
+        process.stderr.write('\n')
+        reject(new Error('aborted'))
+      })
     stdin.on('data', onData)
+    stdin.on('error', onError)
+    stdin.on('close', onClose)
+    stdin.on('end', onClose)
+    process.on('SIGINT', onSigint)
   })
 }
 
@@ -241,10 +271,14 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       return
     }
     const sinceCursor = flags.since ? Number(flags.since) : undefined
-    const res = await conn.sendRequest<{ data: string; cursor: number; dropped: boolean }>(
-      'process.output',
-      { id, sinceCursor },
-    )
+    const res = await conn.sendRequest<
+      { data: string; cursor: number; dropped: boolean } | { ok: false; error: string }
+    >('process.output', { id, sinceCursor })
+    if ('ok' in res) {
+      console.error(`pine: process logs failed (${res.error})`)
+      process.exitCode = 1
+      return
+    }
     if (res.data) process.stdout.write(res.data)
     console.error(`(cursor=${res.cursor}${res.dropped ? ', dropped' : ''})`)
   } else if (sub === 'kill') {
@@ -254,9 +288,12 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<{ ok: boolean }>('process.kill', { id })
+    const res = await conn.sendRequest<{ ok: true } | { ok: false; error: string }>(
+      'process.kill',
+      { id },
+    )
     if (!res.ok) process.exitCode = 1
-    console.log(res.ok ? 'ok' : 'pine: process.kill failed')
+    console.log(res.ok ? 'ok' : `pine: process.kill failed (${res.error})`)
   } else if (sub === 'restart') {
     const id = rawArgs[0]
     if (!id) {
@@ -264,7 +301,15 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<{ id: string }>('process.restart', { id })
+    const res = await conn.sendRequest<{ id: string } | { ok: false; error: string }>(
+      'process.restart',
+      { id },
+    )
+    if ('ok' in res) {
+      console.error(`pine: process restart failed (${res.error})`)
+      process.exitCode = 1
+      return
+    }
     console.log(JSON.stringify(res))
   } else {
     console.error(
