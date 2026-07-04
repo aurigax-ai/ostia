@@ -152,6 +152,16 @@ function wireWindow(win: BrowserWindow): void {
     windows.delete(wid)
     commandsByWindow.delete(wid)
     removeWindow(wid)
+    // Ghost-owner reap: a window can close without `pty:detach` firing (force-close,
+    // crash, OS kill). Its pty subscriber (keyed by this same wid, per `pty:attach`)
+    // would otherwise linger forever — ownerCount never hits 0, onNoOwners never
+    // fires, and the pty leaks. Prune it from every pane this window subscribed to.
+    for (const entry of ptys.values()) {
+      if (entry.subs.has(wid)) {
+        entry.subs.delete(wid)
+        entry.session.removeSubscriber(wid) // last owner leaving fires onNoOwners → grace kill
+      }
+    }
   })
 }
 
