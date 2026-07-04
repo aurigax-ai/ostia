@@ -17,7 +17,6 @@
  * command descriptors are expressed in. `missingCapForPhone` is what reconciles the two
  * vocabularies for `command.exec`.
  */
-import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import type { Capability } from '../../shared/capabilities'
 import type {
   CommandDescriptor,
@@ -26,7 +25,7 @@ import type {
   TerminalStateSnapshot,
 } from '../../shared/types'
 import { resolveExternal } from '../idRegistry'
-import type { KanbanBoard, NoProjectWorkDir } from '../kanban'
+import type { KanbanBoard, KanbanCard, KanbanUpdateResult, NoProjectWorkDir } from '../kanban'
 import type { PaneEntry, SessionEntry } from '../paneList'
 
 /** Everything `dispatchGatewayMethod` needs from the rest of main — the gateway's counterpart to
@@ -39,6 +38,12 @@ export interface GatewayControlDeps {
   listPanes: () => Promise<PaneEntry[]>
   listSessions: () => Promise<SessionEntry[]>
   kanbanGet: (sessionId: string) => KanbanBoard | NoProjectWorkDir
+  /** `board.update {cardId, patch}` (device cap `board.write`) — mirrors `kanbanGet` above. */
+  kanbanUpdate: (
+    sessionId: string,
+    cardId: string,
+    patch: Partial<Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>>,
+  ) => KanbanUpdateResult
   /**
    * Resolve "the primary window" for `command.list`'s default target and `command.exec`'s
    * fallback when the phone doesn't name a pane — batch 2 keeps this simple (the caller's own
@@ -85,29 +90,40 @@ function invalidParams(message: string): RpcOutcome {
 }
 
 /**
+ * Strict phone-cap -> internal-cap allow map (security fix: a phone holding only the `command`
+ * cap used to be able to run ANY registered command — including ones whose descriptor requires
+ * an elevated, cross-boundary internal capability like `kill-pane`/`shell`/`workspace-wide`,
+ * because the old check treated every `DEFAULT_CAPABILITIES` internal cap as automatically
+ * in reach of `command` alone). This is now an ALLOWLIST: an internal capability is reachable
+ * from a phone ONLY if it's listed here, gated behind holding the specific phone-facing cap
+ * named as its key — everything else (including several `DEFAULT_CAPABILITIES`-default internal
+ * caps like `process`/`vault-read`/`wiki-write`/`settings-read` that have no phone-facing
+ * equivalent in the pairing contract's §5 vocabulary) is unconditionally out of a phone's reach.
+ * `input` is deliberately absent — it's the pty binary-frame channel (`server.ts`), never a
+ * `command.exec` capability.
+ */
+const PHONE_CAP_ALLOWS: Partial<Record<string, Capability[]>> = {
+  read: ['read-board'],
+  command: ['drive-self'],
+  'board.read': ['read-board'],
+  'board.write': ['board-write'],
+  notify: ['notify'],
+  destructive: ['destructive'],
+}
+
+/**
  * Does a phone holding `deviceCaps` satisfy `desc`'s (internal-`Capability`-typed) requirements?
- * Returns the first missing internal capability, or null if `desc` is fully within reach.
- *
- * - `DEFAULT_CAPABILITIES` (drive-self, read-board, notify, wiki-read/write, settings-read,
- *   board-write, process, vault-read/write) need nothing beyond the phone's own `command` cap
- *   (already gated by the caller before this runs) — every pane holds these by default, so a
- *   phone that can call `command.exec` at all can reach them.
- * - The internal `destructive` capability maps 1:1 onto the phone's own `destructive` cap
- *   (contract §5's elevated, always-confirm-on-device cap).
- * - Every OTHER elevated internal capability (`send-other-pane`, `kill-pane`, `workspace-wide`,
- *   `shell`, `phone`, `gateway`, `browse`, `settings-write`) has NO phone-facing equivalent the
- *   pairing contract ever grants (§5's phone cap vocabulary tops out at
- *   read/board.read/notify/command/input/board.write/destructive) — a command requiring one of
- *   those is unconditionally out of a phone's reach, not just "gate until granted".
+ * Returns the first missing internal capability, or null if `desc` is fully within reach —
+ * "within reach" meaning every required internal cap is in the UNION of `PHONE_CAP_ALLOWS`
+ * entries for the phone caps this device actually holds.
  */
 function missingCapForPhone(desc: CommandDescriptor, deviceCaps: string[]): Capability | null {
+  const allowed = new Set<Capability>()
+  for (const phoneCap of deviceCaps) {
+    for (const cap of PHONE_CAP_ALLOWS[phoneCap] ?? []) allowed.add(cap)
+  }
   for (const cap of desc.capabilities) {
-    if (cap === 'destructive') {
-      if (!deviceCaps.includes('destructive')) return cap
-      continue
-    }
-    if (DEFAULT_CAPABILITIES.includes(cap)) continue
-    return cap
+    if (!allowed.has(cap)) return cap
   }
   return null
 }
@@ -128,6 +144,20 @@ function resolveTarget(target: unknown, primaryWindowId: string | undefined): Co
   const identity = resolveExternal(target)
   if (!identity) return null
   return { windowId: identity.windowId, sessionId: identity.sessionId, paneId: identity.paneId }
+}
+
+/**
+ * `board.get`/`board.update`'s `{ scope? }`: `scope` (if given) IS the sessionId to act on;
+ * otherwise pick the caller's first known session. Kanban has no workspace-wide view (it's
+ * inherently per-project), so SOME session must be chosen. Shared by both methods so they pick
+ * the same board a scope-less caller would expect to read and write.
+ */
+async function resolveBoardSessionId(
+  scope: unknown,
+  deps: GatewayControlDeps,
+): Promise<string | undefined> {
+  if (typeof scope === 'string' && scope) return scope
+  return (await deps.listSessions())[0]?.sessionId
 }
 
 /** Dispatch one already-authenticated phone method call. Never throws for a "normal" failure
@@ -216,10 +246,21 @@ export async function dispatchGatewayMethod(
       // Contract §7's `{ scope? }` — batch 2 keeps this simple: `scope` (if given) IS the
       // sessionId to read; otherwise pick the caller's first known session. Kanban has no
       // workspace-wide view (it's inherently per-project), so SOME session must be chosen.
-      let sessionId = typeof p.scope === 'string' ? p.scope : undefined
-      if (!sessionId) sessionId = (await deps.listSessions())[0]?.sessionId
+      const sessionId = await resolveBoardSessionId(p.scope, deps)
       if (!sessionId) return { ok: true, result: { columns: [], cards: [] } }
       return { ok: true, result: deps.kanbanGet(sessionId) }
+    }
+
+    case 'board.update': {
+      if (!hasCap('board.write')) return needsElevation('board.write')
+      const cardId = p.cardId
+      if (typeof cardId !== 'string' || !cardId) return invalidParams('missing cardId')
+      const patch = (p.patch ?? {}) as Partial<
+        Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>
+      >
+      const sessionId = await resolveBoardSessionId(p.scope, deps)
+      if (!sessionId) return invalidParams('no session available')
+      return { ok: true, result: deps.kanbanUpdate(sessionId, cardId, patch) }
     }
 
     default:

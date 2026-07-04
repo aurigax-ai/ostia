@@ -25,6 +25,7 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     listPanes: vi.fn().mockResolvedValue([]),
     listSessions: vi.fn().mockResolvedValue([]),
     kanbanGet: vi.fn().mockReturnValue({ columns: [], cards: [] }),
+    kanbanUpdate: vi.fn().mockReturnValue({ ok: true }),
     primaryWindowId: vi.fn().mockReturnValue('w1'),
     attachPhoneObserver: vi.fn().mockReturnValue(null),
     ptyResize: vi.fn(),
@@ -243,6 +244,70 @@ describe('dispatchGatewayMethod — command.exec', () => {
       data: { cap: 'browse' },
     })
   })
+
+  it('a DEFAULT-capability command with no phone-facing equivalent is still blocked (escalation fix)', async () => {
+    // Before the allow-map fix, ANY `DEFAULT_CAPABILITIES` internal cap (like `process`) was
+    // reachable via the phone's `command` cap alone — this pinned the regression: a phone must
+    // NOT be able to reach `process`/`vault-write`/`wiki-write`/`settings-read`-gated commands
+    // just because it holds `command`.
+    const desc = descriptor({ id: 'process.spawn', capabilities: ['process'] })
+    const deps = fakeDeps({ listCommandsFor: vi.fn().mockReturnValue([desc]) })
+    const res = await dispatchGatewayMethod(
+      'command.exec',
+      { id: 'process.spawn' },
+      ['command'],
+      deps,
+    )
+    expect(res).toEqual({
+      ok: false,
+      code: -32003,
+      message: 'needs-elevation',
+      data: { cap: 'process' },
+    })
+  })
+
+  it('pane.close/pane.remove (kill-pane) is unreachable to a phone even with every contract cap', async () => {
+    const desc = descriptor({ id: 'pane.close', capabilities: ['kill-pane'] })
+    const deps = fakeDeps({ listCommandsFor: vi.fn().mockReturnValue([desc]) })
+    const res = await dispatchGatewayMethod(
+      'command.exec',
+      { id: 'pane.close' },
+      ['read', 'board.read', 'notify', 'command', 'input', 'board.write', 'destructive'],
+      deps,
+    )
+    expect(res).toEqual({
+      ok: false,
+      code: -32003,
+      message: 'needs-elevation',
+      data: { cap: 'kill-pane' },
+    })
+  })
+
+  it('a command requiring the internal notify capability needs the phone notify cap', async () => {
+    const desc = descriptor({ id: 'notify.send', capabilities: ['notify'] })
+    const deps = fakeDeps({ listCommandsFor: vi.fn().mockReturnValue([desc]) })
+
+    const denied = await dispatchGatewayMethod(
+      'command.exec',
+      { id: 'notify.send' },
+      ['command'],
+      deps,
+    )
+    expect(denied).toEqual({
+      ok: false,
+      code: -32003,
+      message: 'needs-elevation',
+      data: { cap: 'notify' },
+    })
+
+    const allowed = await dispatchGatewayMethod(
+      'command.exec',
+      { id: 'notify.send' },
+      ['command', 'notify'],
+      deps,
+    )
+    expect(allowed.ok).toBe(true)
+  })
 })
 
 describe('dispatchGatewayMethod — pane.info / cwd.get', () => {
@@ -362,5 +427,71 @@ describe('dispatchGatewayMethod — board.get', () => {
       fakeDeps({ listSessions: vi.fn().mockResolvedValue([]) }),
     )
     expect(res).toEqual({ ok: true, result: { columns: [], cards: [] } })
+  })
+})
+
+describe('dispatchGatewayMethod — board.update', () => {
+  it('rejects without the board.write cap', async () => {
+    const res = await dispatchGatewayMethod(
+      'board.update',
+      { cardId: 'card-1', patch: { title: 'x' } },
+      ['board.read'],
+      fakeDeps(),
+    )
+    expect(res).toEqual({
+      ok: false,
+      code: -32003,
+      message: 'needs-elevation',
+      data: { cap: 'board.write' },
+    })
+  })
+
+  it('missing cardId is an invalid-params error', async () => {
+    const res = await dispatchGatewayMethod(
+      'board.update',
+      { patch: { title: 'x' } },
+      ['board.write'],
+      fakeDeps(),
+    )
+    expect(res).toEqual({ ok: false, code: -32602, message: 'missing cardId' })
+  })
+
+  it('uses an explicit `scope` as the sessionId and forwards cardId/patch', async () => {
+    const kanbanUpdate = vi.fn().mockReturnValue({ ok: true })
+    const res = await dispatchGatewayMethod(
+      'board.update',
+      { scope: 's-explicit', cardId: 'card-1', patch: { title: 'renamed' } },
+      ['board.write'],
+      fakeDeps({ kanbanUpdate }),
+    )
+    expect(res).toEqual({ ok: true, result: { ok: true } })
+    expect(kanbanUpdate).toHaveBeenCalledWith('s-explicit', 'card-1', { title: 'renamed' })
+  })
+
+  it('falls back to the first known session when scope is omitted', async () => {
+    const listSessions = vi
+      .fn()
+      .mockResolvedValue([
+        { sessionId: 's1', name: 'a', kind: 'terminal', workDir: '/x', state: 'idle' },
+      ])
+    const kanbanUpdate = vi.fn().mockReturnValue({ ok: true })
+    const res = await dispatchGatewayMethod(
+      'board.update',
+      { cardId: 'card-1', patch: {} },
+      ['board.write'],
+      fakeDeps({ listSessions, kanbanUpdate }),
+    )
+    expect(res.ok).toBe(true)
+    expect(kanbanUpdate).toHaveBeenCalledWith('s1', 'card-1', {})
+  })
+
+  it('is an invalid-params error when there is no session at all', async () => {
+    const res = await dispatchGatewayMethod(
+      'board.update',
+      { cardId: 'card-1', patch: {} },
+      ['board.write'],
+      fakeDeps({ listSessions: vi.fn().mockResolvedValue([]) }),
+    )
+    expect(res).toEqual({ ok: false, code: -32602, message: 'no session available' })
   })
 })
