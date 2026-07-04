@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  allPanes,
   closePane,
   createPane,
   findPane,
@@ -193,6 +194,31 @@ describe('firstPaneOfKind', () => {
   it('returns null when no pane has the kind', () => {
     const root = splitOf('horizontal', createPane('terminal'), createPane('terminal'))
     expect(firstPaneOfKind(root, 'browser')).toBeNull()
+  })
+})
+
+describe('allPanes', () => {
+  it('returns just the root when it is a lone pane', () => {
+    const root = createPane('terminal')
+    expect(allPanes(root)).toEqual([root])
+  })
+
+  it('returns every leaf pane node, in tree order, descending into nested splits', () => {
+    const t1 = createPane('terminal')
+    const e1 = createPane('editor')
+    const e2 = createPane('editor')
+    const root = splitOf('horizontal', t1, splitOf('vertical', e1, e2))
+    expect(allPanes(root)).toEqual([t1, e1, e2])
+  })
+
+  it("carries each pane node's own kind/title/cwd through untouched", () => {
+    const a = createPane('terminal', 'zsh', '/work/api')
+    const b = createPane('browser')
+    const root = splitOf('horizontal', a, b)
+    const panes = allPanes(root)
+    expect(panes.map((p) => p.kind)).toEqual(['terminal', 'browser'])
+    expect(panes[0].title).toBe('zsh')
+    expect(panes[0].cwd).toBe('/work/api')
   })
 })
 

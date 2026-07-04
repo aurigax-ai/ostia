@@ -12,9 +12,9 @@
  * webContents id) is owned by `index.ts` and injected here (not imported) to avoid the same
  * import cycle `controlServer.ts` avoids with `ControlServerDeps`.
  *
- * Target resolution (`resolveGuest`): an explicit `paneId` is an EXTERNAL id (e.g. relayed by
- * another agent via `pine wiki`/`pine bus`, mirroring the "no pane.list yet" coordination
- * recipe in `.claude/skills/pine/SKILL.md`) — resolved via `idRegistry.resolveExternal`. With
+ * Target resolution (`resolveGuest`): an explicit `paneId` is an EXTERNAL id (e.g. read from
+ * `pine pane.list`, or relayed by another agent via `pine wiki`/`pine bus` — see the
+ * coordination recipe in `.claude/skills/pine/SKILL.md`) — resolved via `idRegistry.resolveExternal`. With
  * no `paneId`, this defaults to the first browser pane registered under the caller's own
  * session. Every method fails with a typed `{ ok: false, error }` (never throws) so a bad
  * selector or a not-yet-loaded page degrades gracefully instead of killing the caller's script.

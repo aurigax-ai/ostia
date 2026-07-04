@@ -28,11 +28,12 @@ import { registerBusMethods } from './bus'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
 import { registerGatewayMethods } from './gateway'
-import { stopGateway } from './gateway/server'
+import { configureGatewayControl, stopGateway } from './gateway/server'
 import { getByPaneId, registerPane, removePane, removeWindow } from './idRegistry'
-import { registerKanbanMethods } from './kanban'
+import { kanbanGet, registerKanbanMethods } from './kanban'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { registerNotifyMethods } from './notify'
+import { listPanes, listSessions, registerPaneListMethods } from './paneList'
 import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { PtySession } from './ptySession'
@@ -599,6 +600,15 @@ export function getTerminalState(paneId: string): TerminalStateSnapshot | undefi
   return terminalState.get(paneId)
 }
 
+/**
+ * "The primary window" for callers with no window of their own to act as (the LAN gateway's
+ * phone-facing `command.list`/`command.exec`, Phase C batch 2) — the first live window, same as
+ * `execCommand`'s own no-`windowId` fallback below, so the two stay consistent with each other.
+ */
+function primaryWindowId(): string | undefined {
+  return [...windows.keys()][0]
+}
+
 let reqSeq = 0
 
 /**
@@ -648,10 +658,26 @@ app.whenReady().then(() => {
   registerWikiMethods()
   registerKanbanMethods()
   registerBusMethods()
+  // `pane.list`/`session.list` on the local control socket (Phase C batch 2) — the renderer owns
+  // pane kinds/titles + session names; this maps internal paneIds to `idRegistry` EXTERNAL ids.
+  registerPaneListMethods({ execCommand, getTerminalState })
   // The LAN control gateway is OFF BY DEFAULT (contract §0) — this only registers the
   // `gateway.*` control-socket methods (enable/disable/pair/status/devices/revoke); nothing
   // actually starts listening until a caller explicitly invokes `gateway.enable`.
   registerGatewayMethods()
+  // The gateway's phone-facing control API (batch 2, `gateway/controlDispatch.ts`) needs the
+  // same deps as the local control socket, plus the workspace-wide `listPanes`/`listSessions`
+  // reads and the kanban board — wired regardless of whether the gateway is actually running
+  // (it's OFF by default; these are just the deps it'll use once enabled).
+  configureGatewayControl({
+    execCommand,
+    listCommandsFor,
+    getTerminalState,
+    listPanes: () => listPanes({ execCommand, getTerminalState }),
+    listSessions: () => listSessions({ execCommand }),
+    kanbanGet,
+    primaryWindowId,
+  })
   // Same allow-list as `fs:*` (see `registerFsIpc`) — `browse.screenshot`'s caller-supplied
   // `path` gets the same containment, closing the arbitrary-write hole a bare `writeFileSync`
   // would otherwise open.

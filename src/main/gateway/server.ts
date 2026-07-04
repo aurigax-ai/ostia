@@ -5,9 +5,11 @@
  * `startGateway` is called explicitly (via `gateway.enable`, `./index.ts`); `src/main/index.ts`
  * must NOT call it from `app.whenReady()` (contract §0: "off by default").
  *
- * This batch (Phase C batch 1) only wires `hello` device-token auth on the WS connection
- * (returning `caps` + a `whoami`-style echo) — the full JSON-RPC control-method surface
- * (`session.list`, `pty.attach`, ...) and the binary PTY stream are later batches (contract §6–7).
+ * Batch 1 wired only `hello` device-token auth on the WS connection (returning `caps` + a
+ * `whoami`-style echo). Batch 2 (this revision) adds the full text-channel JSON-RPC control API
+ * (contract §7: `session.list`/`pane.list`/`command.list`/`command.exec`/`pane.info`/`cwd.get`/
+ * `board.get`) — dispatched via `controlDispatch.ts`'s pure `dispatchGatewayMethod`, wired up
+ * here with the actual `ws.send` I/O. The binary PTY stream (contract §6) is still a later batch.
  *
  * Origin/host posture: this server has no legitimate browser-page caller (it serves no HTML —
  * only `/pair` and `/ws`), so ANY `Origin` header at all is treated as a hostile cross-origin
@@ -19,6 +21,7 @@ import { type Server as HttpsServer, createServer as createHttpsServer } from 'n
 import { app } from 'electron'
 import { type WebSocket, WebSocketServer } from 'ws'
 import { type GatewayCert, getCert } from './cert'
+import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
 import { type Device, list as listDevices, registerDevice, verifyToken } from './devices'
 import { consumeCode } from './pairing'
 
@@ -62,12 +65,28 @@ interface SocketState {
 }
 const sockets = new Map<WebSocket, SocketState>()
 
+/**
+ * The phone control API's backing deps (`execCommand`/`listPanes`/`kanbanGet`/...), configured
+ * once from `index.ts` alongside `registerControlServer` — independent of whether the gateway is
+ * actually running (deps don't change across `gateway.enable`/`disable` restarts). Null until
+ * `configureGatewayControl` runs; every authed method call fails closed until then rather than
+ * dereferencing a missing dep.
+ */
+let controlDeps: GatewayControlDeps | null = null
+
+/** Wire the phone-facing control API's deps (batch 2). Call once at `app.whenReady()`. */
+export function configureGatewayControl(deps: GatewayControlDeps): void {
+  controlDeps = deps
+}
+
 function rpcResult(id: unknown, result: unknown): string {
   return JSON.stringify({ jsonrpc: '2.0', id, result })
 }
 
-function rpcError(id: unknown, code: number, message: string): string {
-  return JSON.stringify({ jsonrpc: '2.0', id: id ?? null, error: { code, message } })
+function rpcError(id: unknown, code: number, message: string, data?: unknown): string {
+  const error: { code: number; message: string; data?: unknown } = { code, message }
+  if (data !== undefined) error.data = data
+  return JSON.stringify({ jsonrpc: '2.0', id: id ?? null, error })
 }
 
 /** A real browser always sets `Origin`; the companion app / `curl`-style clients never do. */
@@ -173,16 +192,43 @@ function handleHello(
   )
 }
 
-/**
- * `whoami` — batch 1's stand-in for the full control-method surface (later batches). Simply
- * echoes the authed device's identity/caps back, proving the round trip works end to end.
- */
+/** Echoes the authed device's identity/caps back — handy for a client to confirm its session is
+ *  still alive without re-`hello`ing (`device.caps` in the contract serves the same "refresh
+ *  after an elevation grant" purpose; this predates that and is kept for compatibility). */
 function handleWhoami(ws: WebSocket, state: SocketState, msg: { id?: unknown }): void {
   if (!state.device) {
     ws.send(rpcError(msg.id, -32001, 'unauthenticated'))
     return
   }
   ws.send(rpcResult(msg.id, { deviceId: state.device.deviceId, caps: state.device.caps }))
+}
+
+/**
+ * Every OTHER authed method (contract §7: `session.list`/`pane.list`/`command.list`/
+ * `command.exec`/`pane.info`/`cwd.get`/`board.get`) — resolved by the pure
+ * `dispatchGatewayMethod` (device-cap gating + target resolution live there, unit-tested without
+ * `ws`/Electron) and translated into a JSON-RPC response frame here. Fire-and-forget from the
+ * caller's point of view (the `message` handler isn't `async`) — `.catch` below guarantees a
+ * response frame even if a dep throws (e.g. `execCommand` rejecting), rather than leaving the
+ * phone's pending request hanging forever.
+ */
+function handleControlMethod(
+  ws: WebSocket,
+  device: Device,
+  msg: { id?: unknown; method?: unknown; params?: unknown },
+): void {
+  if (!controlDeps) {
+    ws.send(rpcError(msg.id, -32603, 'gateway control API not configured'))
+    return
+  }
+  dispatchGatewayMethod(String(msg.method), msg.params, device.caps, controlDeps)
+    .then((outcome) => {
+      if (outcome.ok) ws.send(rpcResult(msg.id, outcome.result))
+      else ws.send(rpcError(msg.id, outcome.code, outcome.message, outcome.data))
+    })
+    .catch((err) => {
+      ws.send(rpcError(msg.id, -32603, err instanceof Error ? err.message : 'internal error'))
+    })
 }
 
 function handleConnection(ws: WebSocket): void {
@@ -217,7 +263,7 @@ function handleConnection(ws: WebSocket): void {
       handleWhoami(ws, state, msg)
       return
     }
-    ws.send(rpcError(msg.id, -32601, `method not found: ${String(msg.method)}`))
+    handleControlMethod(ws, state.device, msg)
   })
 
   ws.on('close', () => sockets.delete(ws))

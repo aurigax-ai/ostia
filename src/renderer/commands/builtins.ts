@@ -1,10 +1,31 @@
-import type { DropZone } from '../layout/tree'
-import type { Direction } from '../layout/types'
+import { type DropZone, allPanes } from '../layout/tree'
+import type { Direction, SurfaceKind } from '../layout/types'
 import { useLayoutStore } from '../stores/layoutStore'
+import type { SessionKind, SessionState } from '../stores/sessionsStore'
 import { useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { type CommandContext, commands } from './registry'
+
+/** `pane.list`'s per-pane entry — main (`src/main/paneList.ts`) maps `paneId` (internal here) to
+ *  an EXTERNAL id via `idRegistry` before handing this to the control socket / gateway. */
+interface PaneListEntry {
+  paneId: string
+  sessionId: string
+  kind: SurfaceKind
+  title: string
+  cwd?: string
+}
+
+/** `session.list`'s per-session entry — sessions have no external-id concept, so main passes
+ *  this straight through (unlike `pane.list`, which remaps ids). */
+interface SessionListEntry {
+  sessionId: string
+  name: string
+  kind: SessionKind
+  workDir: string
+  state: SessionState
+}
 
 /** Walk a dot-path (e.g. `appearance.terminal.size`) into a value; undefined if absent. */
 function getByPath(root: unknown, path: string): unknown {
@@ -181,6 +202,60 @@ export function registerBuiltinCommands(): void {
     category: 'App',
     capabilities: ['browse'],
     run: () => commands.exec('browser.new'),
+  })
+
+  // `pane.list` — the long-noted "list all panes" gap (see `.claude/skills/pine/SKILL.md`'s
+  // coordination recipe / `src/main/browse.ts`'s header comment). Walks the caller's active
+  // session's layout tree by default, or every session's when `allSessions` is set — main
+  // (`src/main/paneList.ts`) is what actually exposes this externally, remapping each internal
+  // `paneId` here to its `idRegistry` EXTERNAL id and merging in `getTerminalState`'s `running`.
+  commands.register<{ allSessions?: boolean } | undefined, PaneListEntry[]>({
+    id: 'pane.list',
+    title: 'List Panes',
+    hidden: true,
+    capabilities: ['read-board'],
+    target: 'none',
+    run: (args, ctx) => {
+      const sessionIds = args?.allSessions
+        ? useSessionsStore.getState().sessions.map((s) => s.id)
+        : ctx.activeSessionId
+          ? [ctx.activeSessionId]
+          : []
+      const bySession = useLayoutStore.getState().bySession
+      const result: PaneListEntry[] = []
+      for (const sessionId of sessionIds) {
+        const layout = bySession[sessionId]
+        if (!layout) continue
+        for (const pane of allPanes(layout.root)) {
+          result.push({
+            paneId: pane.id,
+            sessionId,
+            kind: pane.kind,
+            title: pane.title,
+            cwd: pane.cwd,
+          })
+        }
+      }
+      return result
+    },
+  })
+
+  // `session.list` — the sidebar's sessions, verbatim (no id remapping needed: unlike panes,
+  // sessions have no external identity/idRegistry entry of their own).
+  commands.register<Record<string, never> | undefined, SessionListEntry[]>({
+    id: 'session.list',
+    title: 'List Sessions',
+    hidden: true,
+    capabilities: ['read-board'],
+    target: 'none',
+    run: () =>
+      useSessionsStore.getState().sessions.map((s) => ({
+        sessionId: s.id,
+        name: s.name,
+        kind: s.kind,
+        workDir: s.workDir,
+        state: s.state,
+      })),
   })
 
   // `pine settings get [key]` — the whole settings state, or a dot-path value within it.
