@@ -30,6 +30,13 @@ const CLI_HELP = `pine — control-socket CLI
   pine kanban assign <id> <who>               assign a card
   pine kanban done <id>                       move a card to 'done'
   pine kanban rm <id>                         delete a card
+  pine bus send <toExternalId> "<msg>"        send a message to another pane's inbox
+  pine bus inbox [--drain]                    print your inbox (optionally clearing it)
+  pine bus wait [--timeout MS]                block until a message arrives (default 30s)
+  pine bus handoff <to> --task "..." --summary "..."   hand a task off to another pane
+  pine bus claim <id>                         claim a handoff addressed to you
+  pine bus handoffs [--mine]                  list handoffs (all, or yours with --mine)
+  pine bus done <id>                          mark a handoff completed
   pine docs                      show this help
 
   pine <command-id> [jsonArgs]   run any registered command by id, with an

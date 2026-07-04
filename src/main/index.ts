@@ -15,6 +15,7 @@ import type {
   PtySpawnOptions,
   TerminalStateSnapshot,
 } from '../shared/types'
+import { registerBusMethods } from './bus'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
 import { registerPane, removePane, removeWindow } from './idRegistry'
@@ -520,6 +521,7 @@ app.whenReady().then(() => {
   registerVaultMethods()
   registerWikiMethods()
   registerKanbanMethods()
+  registerBusMethods()
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
 
