@@ -1706,6 +1706,16 @@ async function main(): Promise<void> {
     } else if (cmd === 'cwd') {
       const res = await conn.sendRequest<{ cwd: string | null }>('cwd.get')
       console.log(res.cwd ?? '')
+    } else if (cmd === 'pane.list') {
+      // Hits the top-level control-socket method (`src/main/paneList.ts`), NOT `command.exec` —
+      // that's what maps each pane's internal id to its `idRegistry` EXTERNAL id and merges in
+      // `getTerminalState`'s `running`, unlike the renderer's own (internal-id-only) command of
+      // the same name that `command.exec` would otherwise reach.
+      const panes = await conn.sendRequest('pane.list')
+      console.log(JSON.stringify(panes, null, 2))
+    } else if (cmd === 'session.list') {
+      const sessions = await conn.sendRequest('session.list')
+      console.log(JSON.stringify(sessions, null, 2))
     } else if (cmd === 'notify') {
       const title = process.argv[3]
       const body = process.argv[4]
@@ -1757,7 +1767,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault, wiki, kanban, bus, settings, browse, gateway)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, session.list, notify, open, docs, process, vault, wiki, kanban, bus, settings, browse, gateway)`,
       )
       process.exitCode = 1
     }

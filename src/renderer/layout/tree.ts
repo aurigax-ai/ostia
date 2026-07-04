@@ -52,6 +52,13 @@ export function paneIds(node: LayoutNode): string[] {
   return node.children.flatMap(paneIds)
 }
 
+/** All leaf pane NODES (not just ids), in tree order — used by `pane.list` to report each
+ *  pane's kind/title/cwd alongside its id. */
+export function allPanes(node: LayoutNode): PaneNode[] {
+  if (node.type === 'pane') return [node]
+  return node.children.flatMap(allPanes)
+}
+
 /** Set the cwd of pane `paneId` (drives the Files explorer when the pane is focused). */
 export function setPaneCwd(root: LayoutNode, paneId: string, cwd: string): LayoutNode {
   if (root.type === 'pane') return root.id === paneId ? { ...root, cwd } : root

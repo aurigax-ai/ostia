@@ -9,6 +9,9 @@ const CLI_HELP = `pine — control-socket CLI
   pine whoami                    show this pane's identity
   pine commands                  list commands available in this window
   pine open <file>               open <file> in the editor
+  pine pane.list                  every pane, every session — {paneId(external),sessionId,
+                                  kind,title,cwd,running,blockCount,lastExitCode}
+  pine session.list               every session — {sessionId,name,kind,workDir,state}
   pine notify <title> [body]     fire a desktop notification
   pine process run "<cmd>" [--name X] [--cwd P]   start a tracked background process
   pine process ls                                 list tracked processes

@@ -240,3 +240,91 @@ describe('builtins route to store actions', () => {
     expect(openSettings).toHaveBeenCalled()
   })
 })
+
+describe('pane.list / session.list', () => {
+  it('pane.list defaults to the active session only, reporting kind/title/cwd per pane', async () => {
+    const paneS1 = createPane('terminal', 'zsh', '/work/api')
+    const paneS2 = createPane('editor', 'untitled', '/work/web')
+    useSessionsStore.setState({
+      sessions: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+        { id: 's2', name: 'web', kind: 'terminal', workDir: '/work/web', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      bySession: {
+        s1: { root: paneS1, activePaneId: paneS1.id },
+        s2: { root: paneS2, activePaneId: paneS2.id },
+      },
+    })
+
+    const res = await commands.execWith(ctx('s1', null), 'pane.list')
+
+    expect(res).toEqual({
+      ok: true,
+      result: [
+        { paneId: paneS1.id, sessionId: 's1', kind: 'terminal', title: 'zsh', cwd: '/work/api' },
+      ],
+    })
+  })
+
+  it("pane.list with allSessions walks every session's layout tree", async () => {
+    const paneS1 = createPane('terminal', 'zsh', '/work/api')
+    const paneS2 = createPane('editor', 'untitled', '/work/web')
+    useSessionsStore.setState({
+      sessions: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+        { id: 's2', name: 'web', kind: 'terminal', workDir: '/work/web', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      bySession: {
+        s1: { root: paneS1, activePaneId: paneS1.id },
+        s2: { root: paneS2, activePaneId: paneS2.id },
+      },
+    })
+
+    const res = await commands.execWith(ctx('s1', null), 'pane.list', { allSessions: true })
+
+    expect(res).toEqual({
+      ok: true,
+      result: [
+        { paneId: paneS1.id, sessionId: 's1', kind: 'terminal', title: 'zsh', cwd: '/work/api' },
+        { paneId: paneS2.id, sessionId: 's2', kind: 'editor', title: 'untitled', cwd: '/work/web' },
+      ],
+    })
+  })
+
+  it('pane.list returns an empty array when there is no active session and allSessions is unset', async () => {
+    const res = await commands.execWith(ctx(null, null), 'pane.list')
+    expect(res).toEqual({ ok: true, result: [] })
+  })
+
+  it('session.list reports every session regardless of ctx', async () => {
+    useSessionsStore.setState({
+      sessions: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+        { id: 's2', name: 'web', kind: 'agent', workDir: '/work/web', state: 'working' },
+      ],
+    })
+
+    const res = await commands.execWith(ctx(null, null), 'session.list')
+
+    expect(res).toEqual({
+      ok: true,
+      result: [
+        { sessionId: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+        { sessionId: 's2', name: 'web', kind: 'agent', workDir: '/work/web', state: 'working' },
+      ],
+    })
+  })
+
+  it('pane.list and session.list are hidden, target:none, and gated on read-board', () => {
+    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
+    for (const id of ['pane.list', 'session.list']) {
+      expect(byId[id].hidden).toBe(true)
+      expect(byId[id].target).toBe('none')
+      expect(byId[id].capabilities).toEqual(['read-board'])
+    }
+  })
+})

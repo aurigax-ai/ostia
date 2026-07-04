@@ -36,12 +36,17 @@ pine commands        # JSON array of commands available in this window: id, titl
 pine docs            # this same reference, generated from the running app
 pine info            # this pane's mirrored terminal state (cwd, running, gen, ...)
 pine cwd             # just this pane's current working directory
+pine pane.list       # every pane, every session — JSON array of
+                     # { paneId(external), sessionId, kind, title, cwd, running,
+                     #   blockCount, lastExitCode } — the pane roster (see below)
+pine session.list    # every session — JSON array of { sessionId, name, kind, workDir, state }
 ```
 
 `pine commands` always prints JSON (there's no separate `--json` flag to pass —
-JSON is the only output format). It lists *commands*, not other panes; there is no
-roster/"list all panes" verb yet (see the coordination recipe below for how to work
-around that).
+JSON is the only output format). It lists *commands*, not other panes — use
+`pine pane.list`/`pine session.list` for that (the coordination recipe below still
+applies for LEARNING another agent's `externalId` out-of-band up front, but you no
+longer have to: `pine pane.list` shows every pane's external id directly).
 
 ## Everyday actions
 
@@ -342,10 +347,11 @@ you act. Commands without an explicit list default to the same default set above
 Two agents in different panes of the same Pine window (e.g. Claude driving pane A,
 Codex driving pane B) can coordinate like this:
 
-1. **Learn identities.** Each agent runs `pine whoami` and notes its own
-   `externalId`. There's no pane-roster command yet, so the *other* agent's id has
-   to come from somewhere out-of-band — the human relays it, or (better, so it
-   survives restarts) each agent publishes it once:
+1. **Learn identities.** Run `pine pane.list` to see every pane's `externalId`
+   (its `paneId` field) plus `title`/`cwd`, which is often enough to tell panes
+   apart on its own. If it isn't (e.g. two otherwise-identical terminal panes),
+   fall back to each agent running `pine whoami` and publishing its own
+   `externalId` for the other to look up:
    ```sh
    pine wiki set agents/claude-a <<< "$(pine whoami)"
    ```

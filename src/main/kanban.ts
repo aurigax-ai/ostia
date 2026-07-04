@@ -46,7 +46,7 @@ const DEFAULT_COLUMNS: KanbanColumn[] = [
   { id: 'done', name: 'Done' },
 ]
 
-interface NoProjectWorkDir {
+export interface NoProjectWorkDir {
   ok: false
   error: 'no-project-workdir'
   message: string
@@ -112,14 +112,23 @@ function nextCardId(board: KanbanBoard): string {
   return `card-${max + 1}`
 }
 
+/**
+ * Read `sessionId`'s board. Exported (not just wired inline into `kanban.get`'s handler) so the
+ * LAN gateway's phone-facing `board.get` (`src/main/gateway/controlDispatch.ts`, injected from
+ * `index.ts`) can read the SAME board a pane's `kanban.get` would, without a session-scoped
+ * `ControlMethod` context (the phone isn't a pane — it picks a `sessionId` itself; see that
+ * module's header comment).
+ */
+export function kanbanGet(sessionId: string): KanbanBoard | NoProjectWorkDir {
+  const path = boardPath(sessionId)
+  if (typeof path !== 'string') return path
+  return loadBoard(path)
+}
+
 export function registerKanbanMethods(): void {
   registerControlMethod('kanban.get', {
     cap: 'read-board',
-    handler: (_params, ctx) => {
-      const path = boardPath(ctx.identity.sessionId)
-      if (typeof path !== 'string') return path
-      return loadBoard(path)
-    },
+    handler: (_params, ctx) => kanbanGet(ctx.identity.sessionId),
   })
 
   registerControlMethod('kanban.add', {
