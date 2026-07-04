@@ -770,16 +770,21 @@ function describeBrowseError(res: BrowseErr): string {
 /**
  * `pine browse <open|nav|read|click|type|dblclick|hover|focus|check|uncheck|scroll-into-view|
  * fill|select|scroll|press|keydown|keyup|eval|wait|screenshot|content|snapshot|get|is|find|
- * highlight>` — agent automation of the in-app `browser` pane's guest page (elevated `browse`
- * capability; see `src/main/browse.ts`). `--pane <externalId>` targets a specific browser pane
- * (another pane's `pine whoami` id, relayed the same way as the "no pane roster yet"
- * coordination recipe in the `pine` skill); omitted, it defaults to the caller's own session's
- * browser pane.
+ * highlight|url|zoom|devtools|focus-webview|is-webview-focused|identify|cookies|storage|state|
+ * history|addscript|addstyle|addinitscript>` — agent automation of the in-app `browser` pane's
+ * guest page (elevated `browse` capability; see `src/main/browse.ts`). `--pane <externalId>`
+ * targets a specific browser pane (another pane's `pine whoami` id, relayed the same way as the
+ * "no pane roster yet" coordination recipe in the `pine` skill); omitted, it defaults to the
+ * caller's own session's browser pane.
  *
  * `snapshot`/`find` assign `eN` refs to elements (valid until the next navigation); anywhere
  * else a `<selector>` is accepted, `@eN` or `eN` works too (`browse.ts`'s injected
  * `window.__pine.resolveEl`) — so a typical flow is `pine browse snapshot` to see refs, then
  * `pine browse click @e3`.
+ *
+ * `cookies`/`storage`/`state` act on this pane's OWN cookie/storage jar — every browser pane
+ * has an isolated `partition` (`BrowserView.tsx`), never shared across panes. `state`'s `<path>`
+ * is allow-listed the same way `screenshot`'s is.
  */
 async function runBrowseVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
@@ -793,6 +798,8 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
     'property',
     'index',
     'ms',
+    'url',
+    'domain',
   ])
   const paneId = flags.pane || undefined
   const interactive = rest.includes('--interactive')
@@ -1227,9 +1234,228 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       console.error(`pine: browse highlight failed (${describeBrowseError(res)})`)
       process.exitCode = 1
     }
+  } else if (sub === 'url') {
+    const res = await conn.sendRequest<{ ok: true; url: string } | BrowseErr>('browse.url', {
+      paneId,
+    })
+    if (res.ok) {
+      console.log(res.url)
+    } else {
+      console.error(`pine: browse url failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'zoom') {
+    const action = rest[0]
+    if (action !== 'in' && action !== 'out' && action !== 'reset') {
+      console.error('pine browse zoom: missing <in|out|reset>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; zoom: number } | BrowseErr>('browse.zoom', {
+      action,
+      paneId,
+    })
+    if (res.ok) {
+      console.log(String(res.zoom))
+    } else {
+      console.error(`pine: browse zoom failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'devtools') {
+    const action = rest[0]
+    if (action !== undefined && !['toggle', 'open', 'close', 'console'].includes(action)) {
+      console.error('pine browse devtools: expected [toggle|open|close|console]')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; open: boolean; note?: string } | BrowseErr>(
+      'browse.devtools',
+      { action, paneId },
+    )
+    if (res.ok) {
+      console.log(JSON.stringify(res))
+    } else {
+      console.error(`pine: browse devtools failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'focus-webview') {
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.focusWebview', { paneId })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse focus-webview failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'is-webview-focused') {
+    const res = await conn.sendRequest<{ ok: true; focused: boolean } | BrowseErr>(
+      'browse.isWebviewFocused',
+      { paneId },
+    )
+    if (res.ok) {
+      console.log(String(res.focused))
+      if (!res.focused) process.exitCode = 1
+    } else {
+      console.error(`pine: browse is-webview-focused failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'identify') {
+    const res = await conn.sendRequest<
+      | {
+          ok: true
+          paneId?: string
+          url: string
+          title: string
+          sessionId: string
+          windowId: string
+        }
+      | BrowseErr
+    >('browse.identify', { paneId })
+    if (res.ok) {
+      console.log(JSON.stringify(res))
+    } else {
+      console.error(`pine: browse identify failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'cookies') {
+    const [cookieSub, name, value] = rest
+    if (cookieSub !== 'get' && cookieSub !== 'set' && cookieSub !== 'clear') {
+      console.error('pine browse cookies: missing <get|set|clear>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; cookies?: unknown[] } | BrowseErr>(
+      'browse.cookies',
+      {
+        sub: cookieSub,
+        name,
+        value,
+        url: flags.url || undefined,
+        domain: flags.domain || undefined,
+        paneId,
+      },
+    )
+    if (res.ok) {
+      console.log(cookieSub === 'get' ? JSON.stringify(res.cookies) : 'ok')
+    } else {
+      console.error(`pine: browse cookies failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'storage') {
+    const [area, storageSub, key, value] = rest
+    if (area !== 'local' && area !== 'session') {
+      console.error('pine browse storage: missing <local|session>')
+      process.exitCode = 1
+      return
+    }
+    if (storageSub !== 'get' && storageSub !== 'set' && storageSub !== 'clear') {
+      console.error('pine browse storage: missing <get|set|clear>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; value?: unknown } | BrowseErr>(
+      'browse.storage',
+      { area, sub: storageSub, key, value, paneId },
+    )
+    if (res.ok) {
+      console.log(storageSub === 'get' ? JSON.stringify(res.value) : 'ok')
+    } else {
+      console.error(`pine: browse storage failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'state') {
+    const [stateSub, path] = rest
+    if (stateSub !== 'save' && stateSub !== 'load') {
+      console.error('pine browse state: missing <save|load>')
+      process.exitCode = 1
+      return
+    }
+    if (!path) {
+      console.error('pine browse state: missing <path>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; path: string } | BrowseErr>('browse.state', {
+      sub: stateSub,
+      path,
+      paneId,
+    })
+    if (res.ok) {
+      console.log(res.path)
+    } else {
+      console.error(`pine: browse state failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'history') {
+    const historySub = rest[0]
+    if (historySub !== 'clear') {
+      console.error('pine browse history: missing <clear>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.history', {
+      sub: historySub,
+      paneId,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: browse history failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'addscript') {
+    const js = rest[0]
+    if (!js) {
+      console.error('pine browse addscript: missing "<js>"')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; result: string } | BrowseErr>(
+      'browse.addscript',
+      { js, paneId },
+    )
+    if (res.ok) {
+      console.log(res.result)
+    } else {
+      console.error(`pine: browse addscript failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'addstyle') {
+    const css = rest[0]
+    if (!css) {
+      console.error('pine browse addstyle: missing "<css>"')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; key: string } | BrowseErr>('browse.addstyle', {
+      css,
+      paneId,
+    })
+    if (res.ok) {
+      console.log(res.key)
+    } else {
+      console.error(`pine: browse addstyle failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'addinitscript') {
+    const js = rest[0]
+    if (!js) {
+      console.error('pine browse addinitscript: missing "<js>"')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ ok: true; identifier: string } | BrowseErr>(
+      'browse.addinitscript',
+      { js, paneId },
+    )
+    if (res.ok) {
+      console.log(res.identifier)
+    } else {
+      console.error(`pine: browse addinitscript failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
   } else {
     console.error(
-      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content, snapshot, get, is, find, highlight)`,
+      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content, snapshot, get, is, find, highlight, url, zoom, devtools, focus-webview, is-webview-focused, identify, cookies, storage, state, history, addscript, addstyle, addinitscript)`,
     )
     process.exitCode = 1
   }
