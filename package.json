@@ -5,11 +5,15 @@
   "private": true,
   "type": "commonjs",
   "main": "./out/main/index.js",
+  "bin": {
+    "pine": "./out/cli/index.js"
+  },
   "author": "",
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "electron-vite build && npm run build:cli",
+    "build:cli": "esbuild src/cli/index.ts --bundle --platform=node --format=cjs --packages=external --outfile=out/cli/index.js",
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
@@ -47,6 +51,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "electron": "^33.4.11",
     "electron-vite": "^2.3.0",
+    "esbuild": "^0.21.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "shadcn": "^4.12.0",
