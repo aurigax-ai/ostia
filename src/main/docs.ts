@@ -10,6 +10,11 @@ const CLI_HELP = `pine — control-socket CLI
   pine commands                  list commands available in this window
   pine open <file>               open <file> in the editor
   pine notify <title> [body]     fire a desktop notification
+  pine process run "<cmd>" [--name X] [--cwd P]   start a tracked background process
+  pine process ls                                 list tracked processes
+  pine process logs <id|name> [--since N]         print captured output
+  pine process kill <id|name>                     kill a tracked process
+  pine process restart <id|name>                   kill (if running) and re-run
   pine docs                      show this help
 
   pine <command-id> [jsonArgs]   run any registered command by id, with an
