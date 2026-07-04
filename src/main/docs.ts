@@ -35,7 +35,7 @@ const CLI_HELP = `pine — control-socket CLI
   pine bus wait [--timeout MS]                block until a message arrives (default 30s)
   pine bus handoff <to> --task "..." --summary "..."   hand a task off to another pane
   pine bus claim <id>                         claim a handoff addressed to you
-  pine bus handoffs [--mine]                  list handoffs (all, or yours with --mine)
+  pine bus handoffs [--all]                   list your handoffs (--all needs workspace-wide)
   pine bus done <id>                          mark a handoff completed
   pine settings get [key]         print the whole settings state, or a dot-path value
   pine settings set <key> <value> deep-set a dot-path (value parsed as JSON if it parses)

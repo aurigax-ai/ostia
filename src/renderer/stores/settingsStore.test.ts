@@ -163,4 +163,41 @@ describe('settingsStore', () => {
       expect(behavior.cursorBlink).toBe(DEFAULTS.behavior.cursorBlink)
     })
   })
+
+  describe('setByPath', () => {
+    it('deep-sets an existing nested path, preserving sibling values', () => {
+      store().setByPath('appearance.terminal.size', 20)
+      expect(store().appearance.terminal.size).toBe(20)
+      expect(store().appearance.terminal.family).toBe(DEFAULTS.appearance.terminal.family)
+      expect(store().appearance.ui).toEqual(DEFAULTS.appearance.ui)
+    })
+
+    it('creates intermediates for an unknown path rather than throwing', () => {
+      store().setByPath('plugins.myPlugin.enabled', true)
+      const s = store() as unknown as Record<string, unknown>
+      expect((s.plugins as Record<string, unknown>).myPlugin).toEqual({ enabled: true })
+    })
+
+    it.each(['__proto__', 'prototype', 'constructor'])(
+      'rejects a path with a dangerous %s segment WITHOUT mutating state',
+      (segment) => {
+        const before = structuredClone(DEFAULTS)
+        store().setByPath(`appearance.${segment}.polluted`, 'evil')
+        const after = store()
+        expect(after.appearance).toEqual(before.appearance)
+        expect(Object.prototype.hasOwnProperty.call({}, 'polluted')).toBe(false)
+      },
+    )
+
+    it('rejects a bare dangerous top-level segment', () => {
+      store().setByPath('__proto__', { polluted: true })
+      expect(Object.prototype.hasOwnProperty.call({}, 'polluted')).toBe(false)
+    })
+
+    it('does not schedule a save when the path is rejected', async () => {
+      store().setByPath('constructor.prototype.polluted', 'evil')
+      await vi.advanceTimersByTimeAsync(300)
+      expect(window.pine.fs.write).not.toHaveBeenCalled()
+    })
+  })
 })

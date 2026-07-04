@@ -16,11 +16,24 @@
  * every caller, so falling back would silently pool every unrecognized session's secrets
  * into one vault. `project` scope therefore requires a resolved session workDir up front;
  * `global` scope is unaffected (it never depends on a workDir).
+ *
+ * `scope: 'global'` WRITES (`vault.set`/`vault.delete`) additionally require the elevated
+ * `workspace-wide` capability on top of the default `vault-write` cap — a global write is
+ * machine-wide, visible to every project's panes. Global READS stay default (see `wiki.ts`
+ * for the same posture).
  */
 import { safeStorage } from 'electron'
+import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
+import type { Capability } from '../shared/capabilities'
+import { connHasCap } from './controlAuth'
 import { registerControlMethod } from './controlServer'
 import { type StoreScope, loadJson, saveJson, storePath } from './jsonStore'
 import { workDirForSession } from './sessionRegistry'
+
+/** A JSON-RPC error matching `controlServer.ts`'s `needsElevation` (not exported from there). */
+function needsElevation(cap: Capability): ResponseError<void> {
+  return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
+}
 
 /** key → base64(safeStorage.encryptString(value)) */
 type VaultData = Record<string, string>
@@ -81,7 +94,14 @@ export function registerVaultMethods(): void {
         value: string
         scope?: StoreScope
       }
-      const path = vaultStorePath(scope ?? 'project', ctx.identity.sessionId)
+      const resolvedScope = scope ?? 'project'
+      // `global` writes a machine-wide secret store every project's panes can see —
+      // requires the elevated `workspace-wide` grant on top of the default `vault-write`
+      // cap. Reads stay default (see `vault.get`/`vault.list`).
+      if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'workspace-wide')) {
+        throw needsElevation('workspace-wide')
+      }
+      const path = vaultStorePath(resolvedScope, ctx.identity.sessionId)
       if (typeof path !== 'string') return path
       const store = loadVault(path)
       store[key] = safeStorage.encryptString(value).toString('base64')
@@ -129,7 +149,11 @@ export function registerVaultMethods(): void {
     handler: (params, ctx) => {
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { key, scope } = (params ?? {}) as { key: string; scope?: StoreScope }
-      const path = vaultStorePath(scope ?? 'project', ctx.identity.sessionId)
+      const resolvedScope = scope ?? 'project'
+      if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'workspace-wide')) {
+        throw needsElevation('workspace-wide')
+      }
+      const path = vaultStorePath(resolvedScope, ctx.identity.sessionId)
       if (typeof path !== 'string') return path
       const store = loadVault(path)
       delete store[key]

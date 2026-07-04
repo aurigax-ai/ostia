@@ -95,7 +95,8 @@ prompt) — never put a secret in the command line where it would land in shell
 history / `ps`. Default scope is `project` (keyed by this pane's session workDir);
 `--global` is machine-wide. Requires OS keychain-backed encryption to be available;
 if it isn't, every vault call fails closed with `encryption-unavailable` rather than
-ever writing plaintext.
+ever writing plaintext. `--global` **writes** (`set`/`rm`) need the elevated
+`workspace-wide` grant on top of the default vault capability — global reads don't.
 
 ## Wiki — project/global shared notes
 
@@ -110,7 +111,9 @@ pine wiki rm <slug> [--global]
 Good for anything two agents (or an agent and its future self) should share:
 design decisions, a roster of known pane ids, running notes. Default scope is
 `project` — two panes anchored to the *same* workDir automatically share the same
-project wiki (and vault, and kanban board).
+project wiki (and vault, and kanban board). `--global` **writes** (`set`/`rm`) need
+the elevated `workspace-wide` grant on top of the default wiki capability — global
+reads don't.
 
 ## Kanban — per-project task board
 
@@ -132,16 +135,22 @@ column id (`unknown-column`) rather than silently creating one.
 ```sh
 pine bus send <toExternalId> "<message>"
 pine bus inbox [--drain]                                     # print (and optionally clear) your inbox
-pine bus wait [--timeout MS]                                  # block until a message arrives (default 30s)
+pine bus wait [--timeout MS]                                  # block until a message arrives
+                                                                # (clamped to 1s–120s, default 30s)
 pine bus handoff <toExternalId> --task "<task>" --summary "<summary>"
 pine bus claim <id>                                           # claim a handoff addressed to you
-pine bus handoffs [--mine]                                    # list handoffs (all, or yours)
+pine bus handoffs [--all]                                     # your handoffs (to/from you);
+                                                                # --all needs workspace-wide
 pine bus done <id>                                            # mark a handoff completed
 ```
 
 Bus is global (no project scoping) — it works across different projects/workdirs
-too. Sending to yourself needs nothing extra; sending/handing off to *another*
-pane's externalId needs the elevated `send-other-pane` capability.
+too. Sending/handing off to yourself needs nothing extra; sending/handing off to
+*another* pane's externalId needs the elevated `send-other-pane` capability.
+`bus.handoffs` defaults to just the handoffs addressed to or from you — pass
+`--all` for the workspace-wide view (needs the `workspace-wide` grant). Each
+inbox and the handoff ledger are bounded (oldest entries drop off) so a chatty
+pane can't grow the shared store forever.
 
 ## Settings — read/write the app's settings.json
 
