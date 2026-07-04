@@ -143,9 +143,10 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
         </div>
       </div>
 
-      {pane.kind === 'terminal' || pane.kind === 'editor' ? (
-        // Empty slot — <SurfacePool> portals the long-lived xterm/Monaco in here (keyed by
-        // pane id), so a split/relocate re-parents the surface instead of remounting it.
+      {pane.kind === 'terminal' || pane.kind === 'editor' || pane.kind === 'browser' ? (
+        // Empty slot — <SurfacePool> portals the long-lived xterm/Monaco/webview in here
+        // (keyed by pane id), so a split/relocate re-parents the surface instead of
+        // remounting it.
         <div
           className="pane-body pane-body-term"
           ref={(el) => useSurfaceSlots.getState().setSlot(pane.id, el)}

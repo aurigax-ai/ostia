@@ -23,6 +23,8 @@ export interface PaneNode {
   cwd?: string
   /** For `editor` panes: the absolute path of the open file. */
   filePath?: string
+  /** For `browser` panes: the loaded page's URL. */
+  url?: string
 }
 
 /** An internal node: a split with N children and their proportional sizes. */

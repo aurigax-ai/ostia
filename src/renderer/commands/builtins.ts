@@ -159,6 +159,30 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  // `pine browser new [url]` — opens `url` (default about:blank) in a browser surface of the
+  // caller's session: reuses an existing browser pane if there is one, else splits a new one.
+  commands.register<{ url?: string } | undefined>({
+    id: 'browser.new',
+    title: 'New Browser',
+    hidden: true,
+    capabilities: ['browse'],
+    target: 'active',
+    run: (args, ctx) => {
+      if (ctx.activeSessionId) {
+        useLayoutStore.getState().openBrowser(ctx.activeSessionId, args?.url || 'about:blank')
+      }
+    },
+  })
+
+  // Palette-friendly wrapper — delegates to browser.new with no url (opens about:blank).
+  commands.register({
+    id: 'browser.open',
+    title: 'Open Browser',
+    category: 'App',
+    capabilities: ['browse'],
+    run: () => commands.exec('browser.new'),
+  })
+
   // `pine settings get [key]` — the whole settings state, or a dot-path value within it.
   commands.register<{ key?: string } | undefined, unknown>({
     id: 'settings.get',

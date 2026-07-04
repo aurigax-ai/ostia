@@ -1178,6 +1178,49 @@
   height: 100%;
 }
 
+/* ===== browser surface — a <webview> with a minimal chrome bar (back/fwd/reload/address) === */
+.browser-surface {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.browser-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.browser-address {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.browser-address:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+.browser-webview {
+  display: flex; /* Electron's own guidance: <webview> lays out its guest via flex */
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
 /* drop-zone overlay shown while dragging a pane onto this one */
 .pane-drop {
   position: absolute;

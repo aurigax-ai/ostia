@@ -137,6 +137,10 @@ function baseWebPreferences(): Electron.WebPreferences {
     contextIsolation: true,
     sandbox: true,
     nodeIntegration: false,
+    // Required for the `browser` surface's <webview> tag. The guest page it loads runs in
+    // its own isolated process (a separate partition) — this only lets Pine's renderer USE
+    // <webview>; it does not relax the guest's own sandbox (no nodeIntegration on the guest).
+    webviewTag: true,
   }
 }
 
