@@ -81,6 +81,12 @@ const CLI_HELP = `pine — control-socket CLI
   pine browse addscript "<js>" [--pane ID]           run JS now, print the JSON result
   pine browse addstyle "<css>" [--pane ID]           inject a <style>, print its key
   pine browse addinitscript "<js>" [--pane ID]       run JS before every future navigation (CDP)
+  pine browse console [list|clear] [--pane ID]       buffered console.* messages (default: list)
+  pine browse errors [list|clear] [--pane ID]        error-level/uncaught-exception subset of console
+  pine browse frame <selector|main> [--pane ID]      point later selector-driven verbs at an iframe
+  pine browse download wait [--path P] [--timeout MS] [--pane ID]  block for this surface's next download
+  pine browse navigate <url> [--pane ID]             load <url> on an EXISTING surface (no auto-create)
+  pine browse open-split [url] [--pane ID]           always create a NEW browser pane (a split)
   pine docs                      show this help
 
   Selectors anywhere above also accept an @eN/eN ref from snapshot/find (refs are valid

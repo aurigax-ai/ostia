@@ -15,7 +15,15 @@ import type {
   PtySpawnOptions,
   TerminalStateSnapshot,
 } from '../shared/types'
-import { registerBrowseMethods } from './browse'
+import {
+  type ConsoleEntry,
+  PAGE_ERROR_CATCHER_JS,
+  PINE_ERROR_PREFIX,
+  clearGuestFrame,
+  consoleLevelName,
+  pushConsoleEntry,
+  registerBrowseMethods,
+} from './browse'
 import { registerBusMethods } from './bus'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
@@ -118,6 +126,15 @@ const commandsByWindow = new Map<string, CommandDescriptor[]>()
 const browserPanes = new Map<string, number>()
 
 /**
+ * `browse.console`/`browse.errors`' backing store — per-guest-webContents-id ring buffers,
+ * populated by the `console-message` listener attached below (`browser:register`). `errorBuffers`
+ * only ever receives the error-level / `[pine-error]`-tagged subset of what lands in
+ * `consoleBuffers`. Both are pruned alongside `browserPanes` on `browser:unregister`/window close.
+ */
+const consoleBuffers = new Map<number, ConsoleEntry[]>()
+const errorBuffers = new Map<number, ConsoleEntry[]>()
+
+/**
  * Slice 7 read-model: each pane's latest terminal-state snapshot (cwd, running,
  * block count, last exit code), mirrored from the renderer's blocksStore/layoutStore
  * via `terminal:state` IPC (`src/renderer/commands/terminalStateBridge.ts`). Replace
@@ -195,8 +212,13 @@ function wireWindow(win: BrowserWindow): void {
     // renderer-paneId → webContents-id entries would never be pruned. Covers the same
     // force-close/crash case as the pty reap: BrowserView's unmount (and its
     // `browser:unregister` call) never fires.
-    for (const [paneId] of browserPanes) {
-      if (getByPaneId(paneId)?.windowId === wid) browserPanes.delete(paneId)
+    for (const [paneId, wcId] of browserPanes) {
+      if (getByPaneId(paneId)?.windowId === wid) {
+        browserPanes.delete(paneId)
+        consoleBuffers.delete(wcId)
+        errorBuffers.delete(wcId)
+        clearGuestFrame(wcId)
+      }
     }
     removeWindow(wid)
     // Ghost-owner reap: a window can close without `pty:detach` firing (force-close,
@@ -360,9 +382,53 @@ function registerIpc(): void {
     const gc = webContents.fromId(webContentsId)
     if (!gc || gc.getType() !== 'webview' || gc.hostWebContents?.id !== e.sender.id) return
     browserPanes.set(paneId, webContentsId)
+    // Console/error capture (`browse.console`/`browse.errors`): attach once per guest webContents
+    // — `dom-ready` (and thus this whole handler) refires on every navigation of the SAME
+    // long-lived webview, so guard on an already-attached listener rather than accumulating one
+    // per navigation.
+    if (gc.listenerCount('console-message') === 0) {
+      gc.on('console-message', (_event, level, message) => {
+        const entry: ConsoleEntry = {
+          level: consoleLevelName(level),
+          text: message,
+          ts: Date.now(),
+        }
+        pushConsoleEntry(consoleBuffers, webContentsId, entry)
+        if (entry.level === 'error' || message.startsWith(PINE_ERROR_PREFIX)) {
+          pushConsoleEntry(errorBuffers, webContentsId, entry)
+        }
+      })
+      // Uncaught-error catcher: same CDP mechanism `browse.addinitscript` exposes to callers
+      // (`Page.addScriptToEvaluateOnNewDocument`), applied automatically here so `browse.errors`
+      // sees crashes even on a page nobody explicitly instrumented. Best-effort — a human already
+      // having DevTools open on this pane (Chrome allows only one CDP consumer) makes this fail
+      // silently; explicit `console.*` capture above still works either way.
+      try {
+        if (!gc.debugger.isAttached()) gc.debugger.attach('1.3')
+        gc.debugger
+          .sendCommand('Page.enable')
+          .then(() =>
+            gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+              source: PAGE_ERROR_CATCHER_JS,
+            }),
+          )
+          .catch(() => {
+            // best-effort, see above
+          })
+      } catch {
+        // `debugger.attach()` can throw synchronously (e.g. a race with a human-opened DevTools
+        // session) — non-fatal.
+      }
+    }
   })
   ipcMain.on('browser:unregister', (_e, paneId: string) => {
+    const wcId = browserPanes.get(paneId)
     browserPanes.delete(paneId)
+    if (wcId !== undefined) {
+      consoleBuffers.delete(wcId)
+      errorBuffers.delete(wcId)
+      clearGuestFrame(wcId)
+    }
   })
 }
 
@@ -587,6 +653,8 @@ app.whenReady().then(() => {
     browserPanes,
     execCommand,
     screenshotRoots: [homedir(), app.getPath('userData')],
+    consoleBuffers,
+    errorBuffers,
   })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()

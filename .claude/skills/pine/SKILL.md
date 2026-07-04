@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection), and reading/writing app settings. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse", "automate the browser", "agent browser automation in Pine".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download), and reading/writing app settings. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse", "automate the browser", "agent browser automation in Pine".
 ---
 
 # Pine — the agent toolbelt
@@ -219,6 +219,12 @@ pine browse history clear [--pane ID]                # clears this surface's bac
 pine browse addscript "<js>" [--pane ID]              # runs JS now, prints the JSON result (like `eval`, framed as injection)
 pine browse addstyle "<css>" [--pane ID]              # insertCSS(css), prints the returned style key
 pine browse addinitscript "<js>" [--pane ID]          # persists JS to run before EVERY future navigation (via CDP), prints its identifier
+pine browse console [list|clear] [--pane ID]          # this surface's buffered console.* messages (capped ~500); default sub is list
+pine browse errors [list|clear] [--pane ID]           # error-level / uncaught-exception subset of console (see below)
+pine browse frame <selector|main> [--pane ID]         # point later selector-driven verbs (click/type/get/is/...) at an iframe; `main`/`top` resets to the page
+pine browse download wait [--path P] [--timeout MS] [--pane ID]   # blocks for this surface's next completed download (default 30s, capped 5m)
+pine browse navigate <url> [--pane ID]                # like `open`, but only on an EXISTING surface — fails if none exists yet
+pine browse open-split [url] [--pane ID]              # always creates a NEW browser pane (a split); never reuses one
 ```
 
 Drives the `browser` surface's `<webview>` guest page (Stage 1's in-app browser) — the same
@@ -245,6 +251,34 @@ what mint refs — run `pine browse snapshot` first to see a text tree of the pa
 directly), then act on that ref: `pine browse click @e3`, `pine browse get text @e4`. Refs live
 in the guest page's `window.__pine.refs` map and are valid until the next navigation — a `nav`/
 `open`/link click invalidates them, so re-`snapshot`/`find` after navigating.
+
+**Console/errors**: every browser pane's `console.*` calls are captured automatically (no setup
+needed) into a ~500-entry ring buffer as soon as the pane registers, and `pine browse console
+list` prints it (`clear` empties it; `list` is the default if you omit the sub). `pine browse
+errors` is the same buffer filtered to error-level entries — which also includes otherwise
+invisible failures: an injected catcher hooks `window.onerror`/`onunhandledrejection` on every
+navigation and reports them via a `[pine-error]`-prefixed `console.error`, so an uncaught
+exception or unhandled promise rejection shows up in `errors` even if the page never explicitly
+logged anything. Both buffers are per-surface and cleared when the pane closes.
+
+**Frame targeting**: `pine browse frame <selector>` points every later selector-driven verb
+(`click`, `type`, `get`, `is`, ...) at that `<iframe>`'s document instead of the top-level page —
+useful for content embedded in a same-origin iframe. `pine browse frame main` (or `top`) resets
+back to the top document. Selecting a cross-origin iframe fails with `cross-origin-frame` (the
+guest page can't reach its `contentDocument` either) rather than silently acting on the wrong
+document.
+
+**Downloads**: `pine browse download wait` blocks until this surface's next download finishes
+(default 30s timeout, capped at 5 minutes) — pass `--path` to force the save location (allow-
+listed the same way `state`'s path is) or omit it to let the browser pick its default location;
+prints `{path, filename, state}`, or `{timedOut: true}` (and a non-zero exit) if nothing
+downloaded in time.
+
+**`navigate` vs `open` vs `open-split`**: `open` loads a url, creating a browser pane first if
+none exists yet in your session; `navigate` is the same load but REQUIRES an existing surface
+(fails rather than creating one) — useful when you specifically mean "drive the pane I already
+have"; `open-split` is the opposite extreme — it always creates a brand new browser pane (a
+split) regardless of whether one already exists, for when you explicitly want a second surface.
 
 ## Capabilities & elevation
 

@@ -43,10 +43,93 @@ type MethodCtx = { identity: PaneIdentity; authed: AuthedConn }
 export interface BrowseDeps {
   /** Renderer paneId → guest webContents id, maintained by `browser:register`/`unregister`. */
   browserPanes: Map<string, number>
-  /** Reused from the command bridge so `browse.open` can spin up a pane via `browser.new`. */
+  /** Reused from the command bridge so `browse.open`/`browse.openSplit` can spin up a pane via
+   *  `browser.new`. */
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   /** Allow-list roots for `browse.screenshot`'s caller-supplied `path` (mirrors `fs:*`'s). */
   screenshotRoots: string[]
+  /** Per-guest-webContents-id ring buffer of every `console-message` (see `pushConsoleEntry`),
+   *  populated by `index.ts`'s `browser:register`-attached listener. Read/cleared by
+   *  `browse.console`. */
+  consoleBuffers: Map<number, ConsoleEntry[]>
+  /** Same shape as `consoleBuffers`, but only the error-level / `[pine-error]`-tagged subset
+   *  (uncaught exceptions/rejections included, via the injected `PAGE_ERROR_CATCHER_JS`). Read/
+   *  cleared by `browse.errors`. */
+  errorBuffers: Map<number, ConsoleEntry[]>
+}
+
+/** One buffered `console-message` entry. */
+export interface ConsoleEntry {
+  level: string
+  text: string
+  ts: number
+}
+
+/** Ring-buffer cap per surface — bounds memory on a page that logs constantly. */
+export const MAX_CONSOLE_ENTRIES = 500
+
+/**
+ * Push `entry` onto `buffer`'s per-guest ring buffer (creating it on first use), trimming to
+ * `MAX_CONSOLE_ENTRIES` FIFO. Called from `index.ts`'s `console-message` listener for both the
+ * console buffer (every message) and the error buffer (error-level / `[pine-error]`-tagged only).
+ */
+export function pushConsoleEntry(
+  buffer: Map<number, ConsoleEntry[]>,
+  wcId: number,
+  entry: ConsoleEntry,
+): void {
+  const list = buffer.get(wcId) ?? []
+  list.push(entry)
+  if (list.length > MAX_CONSOLE_ENTRIES) list.splice(0, list.length - MAX_CONSOLE_ENTRIES)
+  buffer.set(wcId, list)
+}
+
+/** Electron's numeric `console-message` level (0-3) as the string cmux/agents expect. */
+export function consoleLevelName(level: number): string {
+  return (['verbose', 'info', 'warning', 'error'] as const)[level] ?? 'info'
+}
+
+/** Marker prefix the injected error catcher (`PAGE_ERROR_CATCHER_JS`) puts on its
+ *  `console.error(...)` calls, so `index.ts`'s `console-message` listener can route an otherwise
+ *  ordinary-looking error-level message into the error buffer unambiguously. */
+export const PINE_ERROR_PREFIX = '[pine-error]'
+
+/**
+ * CDP-injected (`Page.addScriptToEvaluateOnNewDocument`, the same mechanism `browse.addinitscript`
+ * exposes to callers) catcher for otherwise-invisible page errors: an uncaught exception or an
+ * unhandled promise rejection never reaches `console-message` on its own, so without this,
+ * `browse.errors` would only ever see explicit `console.error(...)` calls a page happened to make.
+ * `index.ts` attaches this once per guest webContents (`browser:register`). Idempotency-guarded
+ * (`window.__pineErrCatcher`) since `addScriptToEvaluateOnNewDocument` reruns at the start of
+ * EVERY future navigation, and `browser:register` itself can refire (dom-ready fires again on
+ * each navigation of the same long-lived webview) — without the guard a script that's navigated a
+ * few times would stack duplicate `onerror`/`onunhandledrejection` handlers.
+ */
+export const PAGE_ERROR_CATCHER_JS = `(() => {
+  if (window.__pineErrCatcher) return;
+  window.__pineErrCatcher = true;
+  window.onerror = function (message, source, lineno, colno, error) {
+    console.error('${PINE_ERROR_PREFIX}', error && error.stack ? error.stack : message);
+  };
+  window.onunhandledrejection = function (event) {
+    var reason = event && event.reason;
+    console.error('${PINE_ERROR_PREFIX}', reason && reason.stack ? reason.stack : String(reason));
+  };
+})();`
+
+/**
+ * Per-guest-webContents-id "current frame" selector for `browse.frame` — Node-side bookkeeping
+ * mirroring the in-page `window.__pine.frameSel` state (see `ENSURE_INJECTED`'s `resolveEl`,
+ * which is what actually makes selector-driven methods frame-aware). Cleared alongside the
+ * console/error buffers on `browser:unregister`/pane close (`clearGuestFrame`).
+ */
+const frameSelectors = new Map<number, string>()
+
+/** Drop any tracked frame pointer for a guest that's gone — called by `index.ts` next to its
+ *  `consoleBuffers`/`errorBuffers` cleanup on `browser:unregister` and the window-close ghost
+ *  reap. Harmless if none was set. */
+export function clearGuestFrame(wcId: number): void {
+  frameSelectors.delete(wcId)
 }
 
 type GuestResolution =
@@ -171,6 +254,23 @@ if (!window.__pine) {
   window.__pine = {
     refs: {},
     n: 0,
+    // Current-frame pointer for \`browse.frame\` — null/unset means "top document". Set via a
+    // direct \`window.__pine.frameSel = ...\` write (browse.frame's own injected JS), read fresh
+    // by \`frameDoc()\` on every call rather than captured at prelude-definition time, since
+    // \`window.__pine\` (and its methods) are only defined ONCE per page load (guarded by the
+    // \`if (!window.__pine)\` above) — a plain data field is what lets a later \`browse.frame\`
+    // call actually change resolveEl's behavior for calls after it.
+    frameSel: null,
+    frameDoc() {
+      if (!this.frameSel) return document;
+      try {
+        const el = document.querySelector(this.frameSel);
+        const doc = el && el.contentDocument;
+        return doc || document;
+      } catch (e) {
+        return document;
+      }
+    },
     ref(el) {
       this.n += 1;
       const id = 'e' + this.n;
@@ -181,7 +281,7 @@ if (!window.__pine) {
       if (typeof sel === 'string' && /^@?e\\d+$/.test(sel)) {
         return this.refs[sel.replace('@', '')] || null;
       }
-      return sel ? document.querySelector(sel) : null;
+      return sel ? this.frameDoc().querySelector(sel) : null;
     },
     roleOf(el) {
       const explicit = el.getAttribute && el.getAttribute('role');
@@ -1497,6 +1597,180 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       } catch (e) {
         return { ok: false, error: 'debugger-command-failed', message: errMessage(e) }
       }
+    },
+  })
+
+  // --- Diagnostics family (cmux parity): console/errors, the read side of `index.ts`'s
+  // `browser:register`-attached `console-message` listener + injected `PAGE_ERROR_CATCHER_JS`. ---
+
+  // `browse.console`/`browse.errors` are identical apart from which per-guest ring buffer they
+  // read/clear — a small factory, same idea as `registerCheckMethod` above.
+  const registerBufferMethod = (
+    name: string,
+    pickBuffer: (d: BrowseDeps) => Map<number, ConsoleEntry[]>,
+  ): void => {
+    registerControlMethod(name, {
+      cap: 'browse',
+      handler: (params, ctx) => {
+        const { sub, paneId } = (params ?? {}) as { sub?: string; paneId?: string }
+        const resolution = resolveGuest(deps, ctx, paneId)
+        if (!resolution.ok) return resolution
+        const resolvedSub = sub ?? 'list'
+        if (resolvedSub !== 'list' && resolvedSub !== 'clear') {
+          return { ok: false, error: 'bad-sub' }
+        }
+        const buffer = pickBuffer(deps)
+        const wcId = resolution.guest.id
+        if (resolvedSub === 'clear') {
+          buffer.delete(wcId)
+          return { ok: true }
+        }
+        return { ok: true, entries: buffer.get(wcId) ?? [] }
+      },
+    })
+  }
+  registerBufferMethod('browse.console', (d) => d.consoleBuffers)
+  registerBufferMethod('browse.errors', (d) => d.errorBuffers)
+
+  // --- Frame family (cmux parity): a stateful "current frame" pointer that selector-driven
+  // methods (via `resolveEl`/`frameDoc` in `ENSURE_INJECTED`) resolve within, instead of always
+  // the top document. ---
+
+  registerControlMethod('browse.frame', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { selector, paneId } = (params ?? {}) as { selector?: string; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      const { guest } = resolution
+      const isReset = !selector || selector === 'main' || selector === 'top'
+      const selJs = JSON.stringify(isReset ? null : selector)
+      // Validated (and applied) in a single injected round-trip: resolve `sel` against the top
+      // document, confirm it's an iframe whose `contentDocument` is actually reachable (null for
+      // a cross-origin frame — no throw in modern engines, but wrapped in try/catch anyway per
+      // the brief), then persist it onto `window.__pine.frameSel` so `resolveEl` picks it up on
+      // every later call without needing this script re-run.
+      const js = withInjected(`
+        const sel = ${selJs};
+        if (!sel) { window.__pine.frameSel = null; return { ok: true }; }
+        let el;
+        try {
+          el = document.querySelector(sel);
+        } catch (e) {
+          return { ok: false, error: 'not-found' };
+        }
+        if (!el) return { ok: false, error: 'not-found' };
+        let doc;
+        try {
+          doc = el.contentDocument;
+        } catch (e) {
+          return { ok: false, error: 'cross-origin-frame' };
+        }
+        if (!doc) return { ok: false, error: 'cross-origin-frame' };
+        window.__pine.frameSel = sel;
+        return { ok: true };
+      `)
+      try {
+        const result = (await guest.executeJavaScript(js, true)) as
+          | { ok: true }
+          | { ok: false; error: string }
+        if (result.ok) {
+          if (isReset) clearGuestFrame(guest.id)
+          else frameSelectors.set(guest.id, selector as string)
+        }
+        return result
+      } catch (e) {
+        return { ok: false, error: 'eval-failed', message: errMessage(e) }
+      }
+    },
+  })
+
+  // --- Download family (cmux parity): one-shot wait for the surface's next completed download. ---
+
+  const DEFAULT_DOWNLOAD_TIMEOUT_MS = 30_000
+  const MAX_DOWNLOAD_TIMEOUT_MS = 300_000
+
+  registerControlMethod('browse.download', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      const { sub, path, timeoutMs, paneId } = (params ?? {}) as {
+        sub?: string
+        path?: string
+        timeoutMs?: number
+        paneId?: string
+      }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      if (sub !== 'wait') return { ok: false, error: 'bad-sub' }
+      let safePath: string | null = null
+      if (path) {
+        safePath = resolveSafe(path, deps.screenshotRoots)
+        if (safePath === null) return { ok: false, error: 'path-denied' }
+      }
+      const { guest } = resolution
+      const deadline = Math.min(timeoutMs ?? DEFAULT_DOWNLOAD_TIMEOUT_MS, MAX_DOWNLOAD_TIMEOUT_MS)
+      return new Promise((resolve) => {
+        let settled = false
+        const onWillDownload = (_event: Electron.Event, item: Electron.DownloadItem): void => {
+          if (settled) return
+          if (safePath) {
+            try {
+              mkdirSync(dirname(safePath), { recursive: true })
+            } catch {
+              // best-effort — a bad target dir still surfaces via the download's own `state`
+            }
+            item.setSavePath(safePath)
+          }
+          item.once('done', (_doneEvent, state) => {
+            if (settled) return
+            settled = true
+            clearTimeout(timer)
+            resolve({ path: item.getSavePath(), filename: item.getFilename(), state })
+          })
+        }
+        guest.session.once('will-download', onWillDownload)
+        const timer = setTimeout(() => {
+          if (settled) return
+          settled = true
+          guest.session.removeListener('will-download', onWillDownload)
+          resolve({ timedOut: true })
+        }, deadline)
+      })
+    },
+  })
+
+  // --- Aliases (cmux parity): `navigate` (load a url on an EXISTING surface, no auto-create) and
+  // `openSplit` (always creates a NEW browser pane — the split `browse.open`'s fallback path
+  // creates when no surface exists yet, exposed here as its own explicit verb). ---
+
+  registerControlMethod('browse.navigate', {
+    cap: 'browse',
+    handler: (params, ctx) => {
+      const { url, paneId } = (params ?? {}) as { url: string; paneId?: string }
+      const resolution = resolveGuest(deps, ctx, paneId)
+      if (!resolution.ok) return resolution
+      resolution.guest.loadURL(url)
+      return { ok: true, paneId: getByPaneId(resolution.rendererPaneId)?.externalId }
+    },
+  })
+
+  registerControlMethod('browse.openSplit', {
+    cap: 'browse',
+    handler: async (params, ctx) => {
+      // Always creates a NEW browser pane (a split) — there's no existing surface to resolve to,
+      // so a caller-supplied `paneId` isn't meaningful here; accepted (for CLI `--pane` flag
+      // symmetry with every other `browse.*` verb) but otherwise unused.
+      const { url } = (params ?? {}) as { url?: string; paneId?: string }
+      const target: CommandTarget = {
+        windowId: ctx.identity.windowId,
+        sessionId: ctx.identity.sessionId,
+        paneId: ctx.identity.paneId,
+      }
+      const res = await deps.execCommand(target, 'browser.new', { url })
+      if (!res.ok) {
+        return { ok: false, error: 'browser-not-ready', message: res.error.message }
+      }
+      return { ok: true, created: true }
     },
   })
 }
