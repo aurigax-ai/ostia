@@ -112,6 +112,23 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  // Minimal maximize/zen mode (cmux-parity `browse.focusMode`'s renderer half — see
+  // `layoutStore.ts`'s `zoomPane`). `zoom` omitted toggles; explicit true/false makes it
+  // deterministic for a caller (like `browse.focusMode`'s enter/exit) that can't otherwise know
+  // the pane's current zoom state without a round-trip.
+  commands.register<{ paneId?: string; zoom?: boolean } | undefined>({
+    id: 'pane.zoom',
+    title: 'Zoom Pane',
+    category: 'Pane',
+    hidden: true,
+    run: (args, ctx) => {
+      const target = args?.paneId ?? ctx.activePaneId
+      if (ctx.activeSessionId && target) {
+        useLayoutStore.getState().zoomPane(ctx.activeSessionId, target, args?.zoom)
+      }
+    },
+  })
+
   // Relocate a pane via drag-and-drop (header drag → drop on another pane's edge/center).
   commands.register<{ sourceId: string; targetId: string; zone: DropZone }>({
     id: 'pane.move',

@@ -90,7 +90,7 @@ describe('builtins route to store actions', () => {
     // the context provider — so seed the provider's stores instead of passing a ctx.
     useSessionsStore.setState({ activeSessionId: 's1' })
     useLayoutStore.setState({
-      bySession: { s1: { root: createPane('terminal'), activePaneId: 'pA' } },
+      bySession: { s1: { root: createPane('terminal'), activePaneId: 'pA', zoomedPaneId: null } },
     })
 
     await commands.exec('pane.splitRight')
@@ -102,7 +102,7 @@ describe('builtins route to store actions', () => {
     const split = vi.spyOn(useLayoutStore.getState(), 'split').mockImplementation(() => {})
     useSessionsStore.setState({ activeSessionId: 's1' })
     useLayoutStore.setState({
-      bySession: { s1: { root: createPane('terminal'), activePaneId: 'pA' } },
+      bySession: { s1: { root: createPane('terminal'), activePaneId: 'pA', zoomedPaneId: null } },
     })
 
     await commands.exec('pane.splitDown')
@@ -253,8 +253,8 @@ describe('pane.list / session.list', () => {
     })
     useLayoutStore.setState({
       bySession: {
-        s1: { root: paneS1, activePaneId: paneS1.id },
-        s2: { root: paneS2, activePaneId: paneS2.id },
+        s1: { root: paneS1, activePaneId: paneS1.id, zoomedPaneId: null },
+        s2: { root: paneS2, activePaneId: paneS2.id, zoomedPaneId: null },
       },
     })
 
@@ -279,8 +279,8 @@ describe('pane.list / session.list', () => {
     })
     useLayoutStore.setState({
       bySession: {
-        s1: { root: paneS1, activePaneId: paneS1.id },
-        s2: { root: paneS2, activePaneId: paneS2.id },
+        s1: { root: paneS1, activePaneId: paneS1.id, zoomedPaneId: null },
+        s2: { root: paneS2, activePaneId: paneS2.id, zoomedPaneId: null },
       },
     })
 

@@ -28,7 +28,9 @@ const blocks = () => useBlocksStore.getState()
 /** Seed layoutStore with one session whose tree is a single pane carrying `cwd`. */
 function seedPaneCwd(sessionId: string, paneId: string, cwd: string): void {
   const root: LayoutNode = { type: 'pane', id: paneId, title: 'zsh', kind: 'terminal', cwd }
-  useLayoutStore.setState({ bySession: { [sessionId]: { root, activePaneId: paneId } } })
+  useLayoutStore.setState({
+    bySession: { [sessionId]: { root, activePaneId: paneId, zoomedPaneId: null } },
+  })
 }
 
 describe('wireTerminalStateBridge', () => {

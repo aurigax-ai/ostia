@@ -26,6 +26,12 @@ export interface SessionLayout {
   root: LayoutNode
   /** The focused pane (shows the accent ring). */
   activePaneId: string
+  /** When set, `PaneTree` renders ONLY this pane (no Allotment split view) — a minimal
+   *  maximize/zen mode (cmux-parity `browse.focusMode`'s renderer half). Every other pane's
+   *  surface just stops being portaled into a live slot; `SurfacePool` already parks an
+   *  unslotted surface in its detached holder (the same path a mid-split remount takes), so
+   *  nothing unmounts/re-attaches while zoomed. */
+  zoomedPaneId: string | null
 }
 
 interface LayoutState {
@@ -36,6 +42,11 @@ interface LayoutState {
   closePane: (sessionId: string, paneId: string) => void
   focusPane: (sessionId: string, paneId: string) => void
   resize: (sessionId: string, splitId: string, sizes: number[]) => void
+  /** Zoom pane `paneId` to fill its session's whole workzone (or un-zoom). `zoom` omitted toggles;
+   *  `true`/`false` sets it deterministically (used by `browse.focusMode`'s enter/exit, which
+   *  can't know the current state without a round-trip). Setting `true` on a different pane than
+   *  the one currently zoomed just re-targets the zoom, no need to un-zoom first. */
+  zoomPane: (sessionId: string, paneId: string, zoom?: boolean) => void
   movePane: (sessionId: string, sourceId: string, targetId: string, zone: DropZone) => void
   /** Remove a pane from this window (used after it's torn off into a new window). */
   removePane: (sessionId: string, paneId: string) => void
@@ -53,7 +64,7 @@ interface LayoutState {
 }
 
 function layoutOf(root: LayoutNode): SessionLayout {
-  return { root, activePaneId: firstPaneId(root) }
+  return { root, activePaneId: firstPaneId(root), zoomedPaneId: null }
 }
 
 /** Update one session's layout via a pure transform; no-op if absent. */
@@ -97,7 +108,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const next = patch(s, sessionId, (l) => {
         const result = splitPane(l.root, paneId, direction)
         createdPaneId = result.newPaneId
-        return { root: result.root, activePaneId: result.newPaneId ?? l.activePaneId }
+        return { ...l, root: result.root, activePaneId: result.newPaneId ?? l.activePaneId }
       })
       return next ?? s
     })
@@ -117,7 +128,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const root = closePane(l.root, paneId)
         removed = findPane(root, paneId) === null
         const activePaneId = paneId === l.activePaneId ? firstPaneId(root) : l.activePaneId
-        return { root, activePaneId }
+        // A zoomed pane that just closed can't stay zoomed — leaving it set would strand the
+        // session on a single-pane view of a pane id `PaneTree` can no longer find (harmless
+        // there since it falls back to the full tree, but pointless to keep around).
+        const zoomedPaneId = removed && l.zoomedPaneId === paneId ? null : l.zoomedPaneId
+        return { root, activePaneId, zoomedPaneId }
       })
       return next ?? s
     })
@@ -129,6 +144,24 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   focusPane: (sessionId, paneId) =>
     set((s) => patch(s, sessionId, (l) => ({ ...l, activePaneId: paneId })) ?? s),
 
+  zoomPane: (sessionId, paneId, zoom) =>
+    set(
+      (s) =>
+        patch(s, sessionId, (l) => {
+          const zoomedPaneId =
+            zoom === undefined
+              ? l.zoomedPaneId === paneId
+                ? null
+                : paneId
+              : zoom
+                ? paneId
+                : l.zoomedPaneId === paneId
+                  ? null
+                  : l.zoomedPaneId
+          return { ...l, zoomedPaneId }
+        }) ?? s,
+    ),
+
   resize: (sessionId, splitId, sizes) =>
     set((s) => patch(s, sessionId, (l) => ({ ...l, root: setSizes(l.root, splitId, sizes) })) ?? s),
 
@@ -136,6 +169,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     set(
       (s) =>
         patch(s, sessionId, (l) => ({
+          ...l,
           root: movePane(l.root, sourceId, targetId, zone),
           activePaneId: sourceId,
         })) ?? s,
@@ -157,6 +191,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const existing = firstPaneOfKind(l.root, 'editor')
         if (existing) {
           return {
+            ...l,
             root: setPaneEditor(l.root, existing.id, title, path),
             activePaneId: existing.id,
           }
@@ -165,7 +200,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
         if (!newPaneId) return l
         createdPaneId = newPaneId
-        return { root: setPaneEditor(root, newPaneId, title, path), activePaneId: newPaneId }
+        return { ...l, root: setPaneEditor(root, newPaneId, title, path), activePaneId: newPaneId }
       })
       return next ?? s
     })
@@ -181,13 +216,17 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         // Reuse an existing browser pane if there is one.
         const existing = firstPaneOfKind(l.root, 'browser')
         if (existing) {
-          return { root: setPaneBrowser(l.root, existing.id, url), activePaneId: existing.id }
+          return {
+            ...l,
+            root: setPaneBrowser(l.root, existing.id, url),
+            activePaneId: existing.id,
+          }
         }
         // Otherwise split the focused pane and make the new one a browser.
         const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
         if (!newPaneId) return l
         createdPaneId = newPaneId
-        return { root: setPaneBrowser(root, newPaneId, url), activePaneId: newPaneId }
+        return { ...l, root: setPaneBrowser(root, newPaneId, url), activePaneId: newPaneId }
       })
       return next ?? s
     })
@@ -202,12 +241,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const next = patch(s, sessionId, (l) => {
         // Reuse an existing pane of this kind if there is one.
         const existing = firstPaneOfKind(l.root, kind)
-        if (existing) return { root: l.root, activePaneId: existing.id }
+        if (existing) return { ...l, activePaneId: existing.id }
         // Otherwise split the focused pane and make the new one this kind.
         const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
         if (!newPaneId) return l
         createdPaneId = newPaneId
-        return { root: setPaneKind(root, newPaneId, kind), activePaneId: newPaneId }
+        return { ...l, root: setPaneKind(root, newPaneId, kind), activePaneId: newPaneId }
       })
       return next ?? s
     })

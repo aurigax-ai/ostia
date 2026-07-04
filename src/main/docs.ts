@@ -90,6 +90,12 @@ const CLI_HELP = `pine — control-socket CLI
   pine browse download wait [--path P] [--timeout MS] [--pane ID]  block for this surface's next download
   pine browse navigate <url> [--pane ID]             load <url> on an EXISTING surface (no auto-create)
   pine browse open-split [url] [--pane ID]           always create a NEW browser pane (a split)
+  pine browse tab <new|list|switch|close> [url|target] [--pane ID]
+                                  cmux-parity "tabs" — pragmatic: a tab here IS a browser pane
+  pine browse dialog <accept|dismiss|list> [text] [--pane ID]
+                                  auto-response policy + log for alert/confirm/prompt (not blocking)
+  pine browse focus-mode <enter|exit|toggle> [--pane ID]  minimal single-pane zoom/zen
+  pine browse react-grab <toggle|get> [--pane ID]    minimal React fiber inspector on click
   pine gateway enable [--host H] [--port P]  turn on the LAN control gateway (elevated 'gateway')
   pine gateway pair                          mint a pairing code + QR payload (enables gateway too)
   pine gateway status                        { running, host, port, fingerprint, deviceCount }
