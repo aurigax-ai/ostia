@@ -9,6 +9,13 @@
  * `safeStorage.isEncryptionAvailable()` can be false (e.g. Linux without a keyring
  * backend running/unlocked). When it is, every method below fails closed with a typed
  * `encryption-unavailable` error instead of silently falling back to storing plaintext.
+ *
+ * Scope resolution also fails closed: `jsonStore.storePath` falls back to `process.cwd()`
+ * when handed an empty workDir, which is the right default for a generic store but wrong
+ * here — an unknown session's `process.cwd()` is main's own working directory, shared by
+ * every caller, so falling back would silently pool every unrecognized session's secrets
+ * into one vault. `project` scope therefore requires a resolved session workDir up front;
+ * `global` scope is unaffected (it never depends on a workDir).
  */
 import { safeStorage } from 'electron'
 import { registerControlMethod } from './controlServer'
@@ -27,17 +34,41 @@ function encryptionUnavailable(): { ok: false; error: 'encryption-unavailable'; 
   return { ok: false, error: 'encryption-unavailable', message: ENCRYPTION_UNAVAILABLE_MESSAGE }
 }
 
-/** project = the caller's session workDir; global = the machine-wide store (see `jsonStore`). */
-function vaultStorePath(scope: StoreScope, sessionId: string): string {
-  return storePath('vault', scope, scope === 'project' ? workDirForSession(sessionId) : undefined)
+interface NoProjectWorkDir {
+  ok: false
+  error: 'no-project-workdir'
+  message: string
 }
 
-function loadVault(scope: StoreScope, sessionId: string): VaultData {
-  return loadJson<VaultData>(vaultStorePath(scope, sessionId), {})
+function noProjectWorkDir(): NoProjectWorkDir {
+  return {
+    ok: false,
+    error: 'no-project-workdir',
+    message:
+      'no project workDir is known for this session yet, so a project-scoped vault would ' +
+      "collapse into a shared default — pass `--global`, or retry once the pane's project " +
+      'is resolved.',
+  }
 }
 
-function saveVault(scope: StoreScope, sessionId: string, data: VaultData): void {
-  saveJson(vaultStorePath(scope, sessionId), data)
+/**
+ * project = the caller's session workDir; global = the machine-wide store (see `jsonStore`).
+ * Fails closed (returns `NoProjectWorkDir`) rather than letting `jsonStore.storePath` fall
+ * back to `process.cwd()` for a session whose workDir isn't registered yet.
+ */
+function vaultStorePath(scope: StoreScope, sessionId: string): string | NoProjectWorkDir {
+  if (scope === 'global') return storePath('vault', 'global')
+  const workDir = workDirForSession(sessionId)
+  if (!workDir) return noProjectWorkDir()
+  return storePath('vault', 'project', workDir)
+}
+
+function loadVault(path: string): VaultData {
+  return loadJson<VaultData>(path, {})
+}
+
+function saveVault(path: string, data: VaultData): void {
+  saveJson(path, data)
 }
 
 export function registerVaultMethods(): void {
@@ -50,10 +81,11 @@ export function registerVaultMethods(): void {
         value: string
         scope?: StoreScope
       }
-      const s = scope ?? 'project'
-      const store = loadVault(s, ctx.identity.sessionId)
+      const path = vaultStorePath(scope ?? 'project', ctx.identity.sessionId)
+      if (typeof path !== 'string') return path
+      const store = loadVault(path)
       store[key] = safeStorage.encryptString(value).toString('base64')
-      saveVault(s, ctx.identity.sessionId, store)
+      saveVault(path, store)
       return { ok: true }
     },
   })
@@ -63,8 +95,9 @@ export function registerVaultMethods(): void {
     handler: (params, ctx) => {
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { key, scope } = (params ?? {}) as { key: string; scope?: StoreScope }
-      const s = scope ?? 'project'
-      const store = loadVault(s, ctx.identity.sessionId)
+      const path = vaultStorePath(scope ?? 'project', ctx.identity.sessionId)
+      if (typeof path !== 'string') return path
+      const store = loadVault(path)
       const raw = store[key]
       if (raw === undefined) return { ok: false, error: 'not-found' }
       try {
@@ -84,9 +117,10 @@ export function registerVaultMethods(): void {
     handler: (params, ctx) => {
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { scope } = (params ?? {}) as { scope?: StoreScope }
-      const s = scope ?? 'project'
+      const path = vaultStorePath(scope ?? 'project', ctx.identity.sessionId)
+      if (typeof path !== 'string') return path
       // KEYS ONLY — never return decrypted (or even encrypted) values here.
-      return { keys: Object.keys(loadVault(s, ctx.identity.sessionId)) }
+      return { keys: Object.keys(loadVault(path)) }
     },
   })
 
@@ -95,10 +129,11 @@ export function registerVaultMethods(): void {
     handler: (params, ctx) => {
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { key, scope } = (params ?? {}) as { key: string; scope?: StoreScope }
-      const s = scope ?? 'project'
-      const store = loadVault(s, ctx.identity.sessionId)
+      const path = vaultStorePath(scope ?? 'project', ctx.identity.sessionId)
+      if (typeof path !== 'string') return path
+      const store = loadVault(path)
       delete store[key]
-      saveVault(s, ctx.identity.sessionId, store)
+      saveVault(path, store)
       return { ok: true }
     },
   })
