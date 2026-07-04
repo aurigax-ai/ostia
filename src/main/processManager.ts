@@ -14,9 +14,9 @@
  */
 import { type ChildProcess, spawn } from 'node:child_process'
 import { registerControlMethod } from './controlServer'
-import { workDirForSession } from './index'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { PtyRingBuffer } from './ptyRingBuffer'
+import { workDirForSession } from './sessionRegistry'
 
 export interface ProcEntry {
   id: string
