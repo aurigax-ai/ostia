@@ -19,6 +19,17 @@ const CLI_HELP = `pine — control-socket CLI
   pine vault get <KEY> [--global]  print a stored secret
   pine vault ls [--global]         list stored secret keys (never values)
   pine vault rm <KEY> [--global]   delete a stored secret
+  pine wiki get <slug> [--global]     print a wiki page's body
+  pine wiki set <slug> [--global]     upsert a wiki page (body read from stdin)
+  pine wiki ls [--global]             list wiki pages
+  pine wiki search <q> [--global]     search wiki pages by title/body
+  pine wiki rm <slug> [--global]      delete a wiki page
+  pine kanban ls                             list board columns + cards
+  pine kanban add "<title>" [--column X] [--body ...]   add a card
+  pine kanban move <id> <column>              move a card to a column
+  pine kanban assign <id> <who>               assign a card
+  pine kanban done <id>                       move a card to 'done'
+  pine kanban rm <id>                         delete a card
   pine docs                      show this help
 
   pine <command-id> [jsonArgs]   run any registered command by id, with an
