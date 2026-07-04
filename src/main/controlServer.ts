@@ -19,7 +19,10 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { type AuthedConn, authenticate } from './controlAuth'
+import type { Capability } from '../shared/capabilities'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
+import { type AuthedConn, authenticate, connHasCap } from './controlAuth'
+import { resolveExternal } from './idRegistry'
 
 /**
  * Filesystem path of this app instance's control socket. Panes are given it via
@@ -37,9 +40,24 @@ function unauthenticatedError(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
 }
 
+/** A JSON-RPC error for a connection that lacks an elevated capability it needs. */
+function needsElevation(cap: Capability): ResponseError<void> {
+  return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
+}
+
+/**
+ * `index.ts` (window registry + command bridge) imports this module, so this module must
+ * NOT import `index.ts` back — that would be an import cycle. Instead `index.ts` hands
+ * over `execCommand`/`listCommandsFor` at `app.whenReady()` via `registerControlServer`.
+ */
+export interface ControlServerDeps {
+  execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  listCommandsFor: (windowId: string) => CommandDescriptor[]
+}
+
 let server: Server | null = null
 
-export function registerControlServer(): void {
+export function registerControlServer(deps: ControlServerDeps): void {
   const path = controlSocketPath()
   try {
     rmSync(path, { force: true })
@@ -65,9 +83,46 @@ export function registerControlServer(): void {
       return { externalId: authed.externalId, paneId: authed.paneId, sessionId: authed.sessionId }
     })
 
-    // command.list / command.exec land in Slice 6 (need the renderer bridge). Not
-    // exposed here. Capability-gated methods will call `connHasCap` and throw a
-    // typed `needs-elevation` error (spec §6.1) if the connection lacks the cap.
+    conn.onRequest('command.list', (): CommandDescriptor[] => {
+      if (!authed) throw unauthenticatedError('call hello first')
+      const me = resolveExternal(authed.externalId)
+      if (!me) throw unauthenticatedError('unknown identity')
+      return deps.listCommandsFor(me.windowId)
+    })
+
+    conn.onRequest(
+      'command.exec',
+      (params: { id: string; args?: unknown; target?: CommandTarget }): Promise<CommandResult> => {
+        if (!authed) throw unauthenticatedError('call hello first')
+        const me = resolveExternal(authed.externalId)
+        if (!me) throw unauthenticatedError('unknown identity')
+
+        const selfTarget: CommandTarget = {
+          windowId: me.windowId,
+          sessionId: me.sessionId,
+          paneId: me.paneId,
+        }
+        const target = params.target ?? selfTarget
+
+        // Cross-pane gate: acting on another pane (or window) needs 'workspace-wide'.
+        if (target.paneId !== me.paneId || target.windowId !== me.windowId) {
+          if (!connHasCap(authed, 'workspace-wide')) throw needsElevation('workspace-wide')
+        }
+
+        const desc = deps.listCommandsFor(me.windowId).find((d) => d.id === params.id)
+        if (!desc) {
+          return Promise.resolve({
+            ok: false,
+            error: { code: 'unknown-command', message: `unknown command '${params.id}'` },
+          })
+        }
+        for (const cap of desc.capabilities) {
+          if (!connHasCap(authed, cap)) throw needsElevation(cap)
+        }
+
+        return deps.execCommand(target, params.id, params.args)
+      },
+    )
 
     socket.on('error', () => conn.dispose())
     conn.onClose(() => socket.destroy())
