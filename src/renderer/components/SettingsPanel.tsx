@@ -8,6 +8,7 @@ import {
   Palette,
   Search,
   Server,
+  Smartphone,
   SquareTerminal,
   TerminalSquare,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ import {
   useSettingsStore,
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { GatewaySection } from './GatewaySection'
 import { Input } from './ui/input'
 import { ScrollArea } from './ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select'
@@ -37,6 +39,7 @@ type SectionId =
   | 'files'
   | 'plugins'
   | 'languageServers'
+  | 'remote'
   | 'language'
   | 'about'
 
@@ -78,6 +81,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'files', icon: FolderTree, label: d.settings.files },
         { id: 'plugins', icon: Boxes, label: d.settings.plugins },
         { id: 'languageServers', icon: Server, label: d.settings.languageServers },
+        { id: 'remote', icon: Smartphone, label: d.settings.remote },
         { id: 'language', icon: Languages, label: d.settings.language },
         { id: 'about', icon: Info, label: d.settings.about },
       ] satisfies { id: SectionId; icon: LucideIcon; label: string }[],
@@ -155,6 +159,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'files' ? <FilesSection /> : null}
             {active === 'plugins' ? <PluginsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}
+            {active === 'remote' ? <GatewaySection /> : null}
             {active === 'language' ? <LanguageSection /> : null}
             {active === 'about' ? <AboutSection /> : null}
           </div>
@@ -164,12 +169,14 @@ export function SettingsPanel(): JSX.Element | null {
   )
 }
 
-function SectionHead({ title }: { title: string }): JSX.Element {
+/** Exported so other settings sections defined outside this file (e.g. `GatewaySection.tsx`)
+ *  can match this surface's row/heading conventions instead of reinventing them. */
+export function SectionHead({ title }: { title: string }): JSX.Element {
   return <h2 className="mb-1.5 font-semibold text-[16px] text-fg">{title}</h2>
 }
 
 /** A settings row: label (+ optional description) on the left, a control on the right. */
-function ControlRow({
+export function ControlRow({
   label,
   desc,
   children,
@@ -221,7 +228,7 @@ function SelectField<T extends string>({
 }
 
 /** A label + sub-description on the left, a Switch pinned right. */
-function ToggleRow({
+export function ToggleRow({
   label,
   desc,
   checked,

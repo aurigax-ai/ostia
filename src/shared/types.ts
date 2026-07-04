@@ -340,6 +340,63 @@ export interface WikiApi {
   }) => Promise<{ ok: true } | WikiFailure>
 }
 
+/**
+ * LAN control gateway shapes (`src/main/gateway/{server,devices,index}.ts`), duplicated here
+ * (not imported from main) so this file stays dependency-free — same posture as the Kanban/Wiki
+ * shapes above. The gateway itself is OFF BY DEFAULT; these types just describe the renderer's
+ * `window.pine.gateway` bridge for the Settings "Remote / Companion" section.
+ */
+export interface GatewayStatus {
+  running: boolean
+  host: string | null
+  port: number | null
+  fingerprint: string | null
+  deviceCount: number
+}
+
+export interface GatewayEnableResult {
+  host: string
+  port: number
+  fingerprint: string
+  /** Present iff `host` isn't loopback-only — surfaced so the UI can show the "exposed on the
+   *  network" note (contract: LAN/Tailscale exposure is the user's own explicit choice). */
+  warning?: string
+}
+
+/** The QR/pairing payload `gateway.pair` mints — rendered as a QR code + copyable text. */
+export interface GatewayPairResult {
+  v: 1
+  host: string
+  port: number
+  fingerprint: string
+  /** Single-use, ~120s TTL (`pairing.ts`'s `CODE_TTL_MS`). */
+  pairCode: string
+  name: string
+  warning?: string
+}
+
+/** A paired device, phone-safe (never carries the bearer token — `devices.ts`'s `Device` minus
+ *  `token`, same "keys/metadata only" posture as `vault.list`). */
+export interface GatewayDevice {
+  deviceId: string
+  name: string
+  pubkey: string
+  caps: string[]
+  createdAt: string
+}
+
+export interface GatewayApi {
+  /** Start the gateway (idempotent — rebinds if already running). Loopback by default; an
+   *  explicit LAN/Tailscale `host` is the caller's own choice. */
+  enable: (opts?: { host?: string; port?: number }) => Promise<GatewayEnableResult>
+  disable: () => Promise<{ ok: true }>
+  /** Mint a fresh pairing code (starts the gateway first if it isn't already running). */
+  pair: () => Promise<GatewayPairResult>
+  status: () => Promise<GatewayStatus>
+  devices: () => Promise<{ devices: GatewayDevice[] }>
+  revoke: (deviceId: string) => Promise<{ ok: boolean; error?: string }>
+}
+
 /** The typed API surface the preload bridge exposes on `window.pine`. */
 export interface PineBridge {
   /** Liveness check round-trip to main. */
@@ -370,6 +427,9 @@ export interface PineBridge {
   kanban: KanbanApi
   /** Project/global wiki (`wiki` surface panes; shares storage with `wiki.*` toolbelt). */
   wiki: WikiApi
+  /** LAN control gateway (Settings' "Remote / Companion" section); OFF by default, shares its
+   *  core enable/pair/status/devices/revoke logic with the `gateway.*` control-socket methods. */
+  gateway: GatewayApi
 }
 
 declare global {

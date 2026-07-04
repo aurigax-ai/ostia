@@ -27,7 +27,7 @@ import {
 import { registerBusMethods } from './bus'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
-import { registerGatewayMethods } from './gateway'
+import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { getByPaneId, registerPane, removePane, removeWindow } from './idRegistry'
 import { kanbanGet, kanbanUpdate, registerKanbanIpc, registerKanbanMethods } from './kanban'
@@ -730,6 +730,11 @@ app.whenReady().then(() => {
   // `gateway.*` control-socket methods (enable/disable/pair/status/devices/revoke); nothing
   // actually starts listening until a caller explicitly invokes `gateway.enable`.
   registerGatewayMethods()
+  // The renderer's own bridge for Settings' "Remote / Companion" section (`window.pine.gateway`)
+  // — same "off by default" posture as the control methods above; this only wires the ipc
+  // handlers, sharing every action's core logic with `registerGatewayMethods` (see gateway's
+  // `index.ts` header comment).
+  registerGatewayIpc()
   // The gateway's phone-facing control API (batch 2, `gateway/controlDispatch.ts`) needs the
   // same deps as the local control socket, plus the workspace-wide `listPanes`/`listSessions`
   // reads and the kanban board — wired regardless of whether the gateway is actually running
