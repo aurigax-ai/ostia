@@ -700,6 +700,58 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+/**
+ * `pine settings <get|set>` — bridges to the renderer's `settingsStore` via the
+ * `settings.get`/`settings.set` commands (routed through `command.exec`, same as
+ * `pine open`), so the running app's Settings UI reflects the change live.
+ */
+async function runSettingsVerb(conn: MessageConnection): Promise<void> {
+  const sub = process.argv[3]
+
+  if (sub === 'get') {
+    const key = process.argv[4]
+    const res = await conn.sendRequest<CommandResult>('command.exec', {
+      id: 'settings.get',
+      args: key ? { key } : undefined,
+    })
+    if (res.ok) {
+      // `result` comes back `undefined` (dropped over the wire) for an absent dot-path —
+      // normalize to `null` so this always prints valid JSON, never the bare word `undefined`.
+      console.log(JSON.stringify(res.result ?? null, null, 2))
+    } else {
+      console.error('pine:', res.error?.message)
+      process.exitCode = 1
+    }
+  } else if (sub === 'set') {
+    const key = process.argv[4]
+    const rawValue = process.argv[5]
+    if (!key || rawValue === undefined) {
+      console.error('pine settings set: missing <key> <value>')
+      process.exitCode = 1
+      return
+    }
+    let value: unknown
+    try {
+      value = JSON.parse(rawValue)
+    } catch {
+      value = rawValue
+    }
+    const res = await conn.sendRequest<CommandResult>('command.exec', {
+      id: 'settings.set',
+      args: { key, value },
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error('pine:', res.error?.message)
+      process.exitCode = 1
+    }
+  } else {
+    console.error(`pine settings: unknown subcommand '${sub ?? ''}' (try: get, set)`)
+    process.exitCode = 1
+  }
+}
+
 async function main(): Promise<void> {
   const socketPath = process.env.PINE_SOCKET
   const token = process.env.PINE_TOKEN
@@ -758,6 +810,8 @@ async function main(): Promise<void> {
       await runKanbanVerb(conn)
     } else if (cmd === 'bus') {
       await runBusVerb(conn)
+    } else if (cmd === 'settings') {
+      await runSettingsVerb(conn)
     } else if (cmd) {
       // Any other verb is treated as a command id, with an optional JSON args blob
       // as the 2nd argv (e.g. `pine pane.splitRight` or `pine pane.write '"ls\n"'`).
@@ -773,7 +827,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault, wiki, kanban, bus)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault, wiki, kanban, bus, settings)`,
       )
       process.exitCode = 1
     }
