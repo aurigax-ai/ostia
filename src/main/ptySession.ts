@@ -15,7 +15,6 @@ export interface Subscriber {
 export class PtySession {
   private readonly ring: PtyRingBuffer
   private readonly subs = new Map<string, Subscriber>()
-  private ended = false
   private readonly onNoOwners?: () => void
   private readonly onExitCb?: (code: number) => void
 
@@ -36,7 +35,6 @@ export class PtySession {
   }
 
   exit(code: number): void {
-    this.ended = true
     this.onExitCb?.(code)
   }
 

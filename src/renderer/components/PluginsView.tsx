@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
 import { useDict } from '../i18n/useDict'
-import { type Plugin, type PluginStatus, usePluginsStore } from '../stores/pluginsStore'
+import { type LspEntry, type LspStatus, usePluginsStore } from '../stores/pluginsStore'
 
 /** Status → dot color class (see index.css .plugin-dot.*). */
-const STATUS_DOT: Record<PluginStatus, string> = {
+const STATUS_DOT: Record<LspStatus, string> = {
   running: 'ok',
-  available: 'brand',
-  unavailable: 'dim',
+  installed: 'brand',
+  missing: 'dim',
   error: 'attn',
 }
 
@@ -17,47 +17,45 @@ const STATUS_DOT: Record<PluginStatus, string> = {
  */
 export function PluginsView(): JSX.Element {
   const d = useDict()
-  const plugins = usePluginsStore((s) => s.plugins)
+  const lsp = usePluginsStore((s) => s.lsp)
   const load = usePluginsStore((s) => s.load)
 
   useEffect(() => {
     void load()
   }, [load])
 
-  const statusLabel = (status: PluginStatus): string =>
+  const statusLabel = (status: LspStatus): string =>
     status === 'running'
       ? d.plugins.running
-      : status === 'available'
+      : status === 'installed'
         ? d.plugins.available
         : status === 'error'
           ? d.plugins.error
           : d.plugins.notInstalled
-
-  const servers = plugins.filter((p) => p.kind === 'language-server')
 
   return (
     <>
       <div className="rail-section">{d.rail.plugins}</div>
       <div className="plugins">
         <div className="plugin-group">{d.plugins.languageServers}</div>
-        {servers.length === 0 ? (
+        {lsp.length === 0 ? (
           <div className="rail-empty">{d.plugins.empty}</div>
         ) : (
-          servers.map((p) => <PluginRow key={p.id} plugin={p} status={statusLabel(p.status)} />)
+          lsp.map((e) => <PluginRow key={e.languageId} entry={e} status={statusLabel(e.status)} />)
         )}
       </div>
     </>
   )
 }
 
-function PluginRow({ plugin, status }: { plugin: Plugin; status: string }): JSX.Element {
+function PluginRow({ entry, status }: { entry: LspEntry; status: string }): JSX.Element {
   return (
-    <div className="plugin" title={`${plugin.name} · ${plugin.detail}`}>
-      <span className={`dot plugin-dot ${STATUS_DOT[plugin.status]}`} />
+    <div className="plugin" title={`${entry.command} · ${entry.languageId}`}>
+      <span className={`dot plugin-dot ${STATUS_DOT[entry.status]}`} />
       <span className="plugin-body">
-        <span className="plugin-name">{plugin.name}</span>
+        <span className="plugin-name">{entry.command}</span>
         <span className="plugin-meta">
-          {plugin.detail} · {status}
+          {entry.languageId} · {status}
         </span>
       </span>
     </div>

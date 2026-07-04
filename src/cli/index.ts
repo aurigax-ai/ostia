@@ -12,6 +12,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import type { CommandResult } from '../shared/types'
 
 async function main(): Promise<void> {
   const socketPath = process.env.PINE_SOCKET
@@ -39,14 +40,14 @@ async function main(): Promise<void> {
       const info = await conn.sendRequest('pane.info')
       console.log(JSON.stringify(info, null, 2))
     } else if (cmd === 'cwd') {
-      const res = await conn.sendRequest('cwd.get')
+      const res = await conn.sendRequest<{ cwd: string | null }>('cwd.get')
       console.log(res.cwd ?? '')
     } else if (cmd) {
       // Any other verb is treated as a command id, with an optional JSON args blob
       // as the 2nd argv (e.g. `pine pane.splitRight` or `pine pane.write '"ls\n"'`).
       const raw = process.argv[3]
       const args = raw ? JSON.parse(raw) : undefined
-      const res = await conn.sendRequest('command.exec', { id: cmd, args })
+      const res = await conn.sendRequest<CommandResult>('command.exec', { id: cmd, args })
       if (res.ok) {
         console.log('ok')
         if (res.result !== undefined) console.log(JSON.stringify(res.result))
