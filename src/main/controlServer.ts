@@ -20,7 +20,12 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { Capability } from '../shared/capabilities'
-import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
+import type {
+  CommandDescriptor,
+  CommandResult,
+  CommandTarget,
+  TerminalStateSnapshot,
+} from '../shared/types'
 import { type AuthedConn, authenticate, connHasCap } from './controlAuth'
 import { resolveExternal } from './idRegistry'
 
@@ -53,6 +58,8 @@ function needsElevation(cap: Capability): ResponseError<void> {
 export interface ControlServerDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   listCommandsFor: (windowId: string) => CommandDescriptor[]
+  /** Slice 7 read-model: the latest mirrored terminal-state snapshot for a pane. */
+  getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
 }
 
 let server: Server | null = null
@@ -123,6 +130,24 @@ export function registerControlServer(deps: ControlServerDeps): void {
         return deps.execCommand(target, params.id, params.args)
       },
     )
+
+    // Slice 7: "what is pane X doing" — read-only, so it only requires auth (no
+    // capability gate), same posture as `whoami`. Defaults to the caller's own pane;
+    // `{ paneId }` reads another pane's mirrored state (same trust posture as reading
+    // `command.list`, which is scoped to the caller's window either way).
+    conn.onRequest('pane.info', (params?: { paneId?: string }): TerminalStateSnapshot | null => {
+      if (!authed) throw unauthenticatedError('call hello first')
+      const me = resolveExternal(authed.externalId)
+      if (!me) throw unauthenticatedError('unknown identity')
+      return deps.getTerminalState(params?.paneId ?? me.paneId) ?? null
+    })
+
+    conn.onRequest('cwd.get', (): { cwd: string | null } => {
+      if (!authed) throw unauthenticatedError('call hello first')
+      const me = resolveExternal(authed.externalId)
+      if (!me) throw unauthenticatedError('unknown identity')
+      return { cwd: deps.getTerminalState(me.paneId)?.cwd ?? null }
+    })
 
     socket.on('error', () => conn.dispose())
     conn.onClose(() => socket.destroy())

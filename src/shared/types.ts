@@ -218,6 +218,30 @@ export interface CommandsApi {
   onInvoke: (handler: (req: CommandInvokeRequest) => Promise<CommandResult>) => () => void
 }
 
+/**
+ * Slice 7: a compact, debounced snapshot of one pane's terminal state, pushed
+ * renderer → main so main (and the control socket / `pine` CLI) can answer
+ * "what is pane X doing" without reaching into renderer state. Main keeps a
+ * per-pane read-model and REPLACES on newer-or-equal `generation` — see
+ * `src/renderer/commands/terminalStateBridge.ts` (producer) and
+ * `getTerminalState` in `src/main/index.ts` (read-model).
+ */
+export interface TerminalStateSnapshot {
+  paneId: string
+  /** Bumps on remount/reset so main can drop stale (pre-reset) snapshots. */
+  generation: number
+  cwd?: string
+  /** Is a command currently executing (OSC 133 C seen, no matching D yet)? */
+  running: boolean
+  blockCount: number
+  lastExitCode?: number
+}
+
+export interface TerminalStateApi {
+  /** Renderer → main: push this pane's latest terminal-state snapshot. */
+  push: (snapshot: TerminalStateSnapshot) => void
+}
+
 /** The typed API surface the preload bridge exposes on `window.pine`. */
 export interface PineBridge {
   /** Liveness check round-trip to main. */
@@ -240,6 +264,8 @@ export interface PineBridge {
   lifecycle: LifecycleApi
   /** Command bridge: publish this window's commands + accept invocations from main. */
   commands: CommandsApi
+  /** Push per-pane terminal-state snapshots to main's read-model (Slice 7). */
+  terminalState: TerminalStateApi
 }
 
 declare global {

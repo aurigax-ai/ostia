@@ -13,6 +13,7 @@ import type {
   PaneDescriptor,
   PtyAttachResult,
   PtySpawnOptions,
+  TerminalStateSnapshot,
 } from '../shared/types'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerPane, removePane, removeWindow } from './idRegistry'
@@ -97,6 +98,15 @@ const detachedPanes = new Map<number, PaneDescriptor>()
 const windows = new Map<string, BrowserWindow>()
 /** Each window's published command descriptors (renderer → main via `commands:register`). */
 const commandsByWindow = new Map<string, CommandDescriptor[]>()
+
+/**
+ * Slice 7 read-model: each pane's latest terminal-state snapshot (cwd, running,
+ * block count, last exit code), mirrored from the renderer's blocksStore/layoutStore
+ * via `terminal:state` IPC (`src/renderer/commands/terminalStateBridge.ts`). Replace
+ * semantics — a snapshot only overwrites the cache when its `generation` is >= the
+ * cached one, so a stale pre-reset snapshot racing behind a fresh one is dropped.
+ */
+const terminalState = new Map<string, TerminalStateSnapshot>()
 
 /**
  * OS-native window framing, VSCode-style:
@@ -255,6 +265,7 @@ function registerIpc(): void {
       registerPane({ windowId, sessionId: event.sessionId, paneId: event.paneId })
     } else if (event.type === 'pane-closed') {
       removePane(event.paneId)
+      terminalState.delete(event.paneId)
     } else if (event.type === 'session-activated' || event.type === 'session-added') {
       // Session-scoped bookkeeping hook; panes already carry sessionId at creation.
     }
@@ -264,6 +275,13 @@ function registerIpc(): void {
   // main (and, via listCommandsFor, the control socket / `pine` CLI) can discover it.
   ipcMain.on('commands:register', (e, descriptors: CommandDescriptor[]) => {
     commandsByWindow.set(String(e.sender.id), descriptors)
+  })
+
+  // Terminal-state mirror (Slice 7): replace-on-newer-or-equal-generation so a stale
+  // pre-reset snapshot racing behind a fresh post-reset one never clobbers it.
+  ipcMain.on('terminal:state', (_e, snapshot: TerminalStateSnapshot) => {
+    const cur = terminalState.get(snapshot.paneId)
+    if (!cur || snapshot.generation >= cur.generation) terminalState.set(snapshot.paneId, snapshot)
   })
 }
 
@@ -412,6 +430,11 @@ export function listCommandsFor(windowId: string): CommandDescriptor[] {
   return commandsByWindow.get(windowId) ?? []
 }
 
+/** The latest mirrored terminal-state snapshot for `paneId`, if any (Slice 7). */
+export function getTerminalState(paneId: string): TerminalStateSnapshot | undefined {
+  return terminalState.get(paneId)
+}
+
 let reqSeq = 0
 
 /**
@@ -454,7 +477,7 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerLspIpc()
-  registerControlServer({ execCommand, listCommandsFor })
+  registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
 
   app.on('activate', () => {

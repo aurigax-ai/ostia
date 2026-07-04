@@ -35,6 +35,12 @@ async function main(): Promise<void> {
     } else if (cmd === 'commands') {
       const list = await conn.sendRequest('command.list')
       console.log(JSON.stringify(list, null, 2))
+    } else if (cmd === 'info') {
+      const info = await conn.sendRequest('pane.info')
+      console.log(JSON.stringify(info, null, 2))
+    } else if (cmd === 'cwd') {
+      const res = await conn.sendRequest('cwd.get')
+      console.log(res.cwd ?? '')
     } else if (cmd) {
       // Any other verb is treated as a command id, with an optional JSON args blob
       // as the 2nd argv (e.g. `pine pane.splitRight` or `pine pane.write '"ls\n"'`).
@@ -49,7 +55,7 @@ async function main(): Promise<void> {
         process.exitCode = 1
       }
     } else {
-      console.error(`pine: unknown command '${cmd ?? ''}' (try: whoami, commands)`)
+      console.error(`pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd)`)
       process.exitCode = 1
     }
   } catch (e) {
