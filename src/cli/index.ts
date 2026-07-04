@@ -452,6 +452,150 @@ async function runKanbanVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+interface BusOk {
+  ok: true
+  id?: string
+}
+interface BusErr {
+  ok: false
+  error: string
+  message?: string
+}
+interface BusMessage {
+  id: string
+  from: string
+  to: string
+  text: string
+  ts: string
+}
+interface BusInboxResult {
+  messages: BusMessage[]
+}
+interface BusWaitResult {
+  messages: BusMessage[]
+  timedOut: boolean
+}
+interface BusHandoff {
+  id: string
+  from: string
+  to: string
+  task: string
+  summary: string
+  state: string
+  context?: { artifacts?: string[]; workDir?: string }
+  ts: string
+  updatedAt: string
+}
+interface BusHandoffsResult {
+  handoffs: BusHandoff[]
+}
+
+function describeBusError(res: BusErr): string {
+  return res.message ? `${res.error}: ${res.message}` : res.error
+}
+
+/** `pine bus <send|inbox|wait|handoff|claim|handoffs|done>` — the cross-agent mailbox group. */
+async function runBusVerb(conn: MessageConnection): Promise<void> {
+  const sub = process.argv[3]
+  const rawArgs = process.argv.slice(4)
+
+  if (sub === 'send') {
+    const [to, text] = rawArgs
+    if (!to || text === undefined) {
+      console.error('pine bus send: missing <toExternalId> "<msg>"')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BusOk | BusErr>('bus.send', { to, text })
+    if (res.ok) {
+      console.log(JSON.stringify(res))
+    } else {
+      console.error(`pine: bus send failed (${describeBusError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'inbox') {
+    const drain = rawArgs.includes('--drain')
+    const res = await conn.sendRequest<BusInboxResult | BusErr>('bus.inbox', { drain })
+    if ('messages' in res) {
+      console.log(JSON.stringify(res.messages))
+    } else {
+      console.error(`pine: bus inbox failed (${describeBusError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'wait') {
+    const { flags } = parseFlags(rawArgs, ['timeout'])
+    const timeoutMs = flags.timeout ? Number(flags.timeout) : undefined
+    const res = await conn.sendRequest<BusWaitResult | BusErr>('bus.wait', { timeoutMs })
+    if ('messages' in res) {
+      console.log(JSON.stringify(res))
+    } else {
+      console.error(`pine: bus wait failed (${describeBusError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'handoff') {
+    const { flags, rest } = parseFlags(rawArgs, ['task', 'summary'])
+    const to = rest[0]
+    if (!to || !flags.task || !flags.summary) {
+      console.error('pine bus handoff: missing <to> --task "..." --summary "..."')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BusOk | BusErr>('bus.handoff', {
+      to,
+      task: flags.task,
+      summary: flags.summary,
+    })
+    if (res.ok) {
+      console.log(JSON.stringify(res))
+    } else {
+      console.error(`pine: bus handoff failed (${describeBusError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'claim') {
+    const id = rawArgs[0]
+    if (!id) {
+      console.error('pine bus claim: missing <id>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BusOk | BusErr>('bus.claim', { id })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: bus claim failed (${describeBusError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'handoffs') {
+    const mine = rawArgs.includes('--mine')
+    const res = await conn.sendRequest<BusHandoffsResult | BusErr>('bus.handoffs', { mine })
+    if ('handoffs' in res) {
+      console.log(JSON.stringify(res.handoffs))
+    } else {
+      console.error(`pine: bus handoffs failed (${describeBusError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'done') {
+    const id = rawArgs[0]
+    if (!id) {
+      console.error('pine bus done: missing <id>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<BusOk | BusErr>('bus.update', { id, state: 'completed' })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: bus done failed (${describeBusError(res)})`)
+      process.exitCode = 1
+    }
+  } else {
+    console.error(
+      `pine bus: unknown subcommand '${sub ?? ''}' (try: send, inbox, wait, handoff, claim, handoffs, done)`,
+    )
+    process.exitCode = 1
+  }
+}
+
 /** Pulls known `--flag value` pairs out of a raw argv slice; everything else is positional. */
 function parseFlags(
   argv: string[],
@@ -612,6 +756,8 @@ async function main(): Promise<void> {
       await runWikiVerb(conn)
     } else if (cmd === 'kanban') {
       await runKanbanVerb(conn)
+    } else if (cmd === 'bus') {
+      await runBusVerb(conn)
     } else if (cmd) {
       // Any other verb is treated as a command id, with an optional JSON args blob
       // as the 2nd argv (e.g. `pine pane.splitRight` or `pine pane.write '"ls\n"'`).
@@ -627,7 +773,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault, wiki, kanban)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault, wiki, kanban, bus)`,
       )
       process.exitCode = 1
     }
