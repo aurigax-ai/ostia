@@ -302,6 +302,7 @@ function registerPtyIpc(): void {
         PINE_TOKEN: identity.token,
         PINE_WORKSPACE: opts.cwd ?? '',
         PINE_SOCKET: controlSocketPath(),
+        PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
       } as Record<string, string>,
     })
     const session = new PtySession({

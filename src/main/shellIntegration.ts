@@ -75,6 +75,12 @@ autoload -Uz add-zsh-hook
 add-zsh-hook precmd __pine_precmd
 add-zsh-hook preexec __pine_preexec
 add-zsh-hook chpwd __pine_osc7
+
+# \`pine\` CLI (Slice 5): resolves the control-socket client via the absolute path
+# injected as $PINE_CLI (a packaged app would install the bin on PATH instead).
+if [ -n "$PINE_CLI" ]; then
+  pine() { node "$PINE_CLI" "$@"; }
+fi
 `
 
 const BASH_INIT = `# Pine shell integration for bash (generated — safe to delete; regenerated on launch).
@@ -136,6 +142,12 @@ __pine_prompt_command() {
 
 PROMPT_COMMAND="__pine_prompt_command"
 trap '__pine_preexec' DEBUG
+
+# \`pine\` CLI (Slice 5): resolves the control-socket client via the absolute path
+# injected as $PINE_CLI (a packaged app would install the bin on PATH instead).
+if [ -n "$PINE_CLI" ]; then
+  pine() { node "$PINE_CLI" "$@"; }
+fi
 `
 
 interface IntegrationPaths {
