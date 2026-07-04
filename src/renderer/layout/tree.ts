@@ -25,6 +25,8 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   editor: 'untitled',
   agent: 'claude',
   browser: 'localhost',
+  kanban: 'Board',
+  wiki: 'Wiki',
 }
 
 /** A fresh pane holding one surface (default a terminal). */
@@ -106,6 +108,20 @@ export function setPaneBrowser(root: LayoutNode, paneId: string, url: string): L
     return { ...root, kind: 'browser', title: titleFromUrl(url), url }
   }
   return { ...root, children: root.children.map((c) => setPaneBrowser(c, paneId, url)) }
+}
+
+/**
+ * Turn pane `paneId` into `kind` (using `SURFACE_TITLE`'s default title) — for surfaces with no
+ * extra per-pane data of their own (`kanban`/`wiki`, unlike `browser`'s `url` or `editor`'s
+ * `filePath`): the surface component itself owns any further state (selected page, etc.),
+ * keyed by paneId, same as `BrowserView`'s own internal refs/state.
+ */
+export function setPaneKind(root: LayoutNode, paneId: string, kind: SurfaceKind): LayoutNode {
+  if (root.type === 'pane') {
+    if (root.id !== paneId) return root
+    return { ...root, kind, title: SURFACE_TITLE[kind] }
+  }
+  return { ...root, children: root.children.map((c) => setPaneKind(c, paneId, kind)) }
 }
 
 /** Find a leaf pane node by id. */

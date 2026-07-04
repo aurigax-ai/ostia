@@ -3,12 +3,20 @@ import type {
   AppInfo,
   CommandInvokeRequest,
   FsEntry,
+  KanbanBoard,
+  KanbanFailure,
+  KanbanMutateOp,
+  KanbanMutateResult,
   LspServerInfo,
   LspStartResult,
   PaneDescriptor,
   PineBridge,
   Platform,
   PtyAttachResult,
+  WikiFailure,
+  WikiPage,
+  WikiPageSummary,
+  WikiScope,
 } from '../shared/types'
 
 /**
@@ -102,6 +110,25 @@ const bridge: PineBridge = {
     register: (paneId, webContentsId) =>
       ipcRenderer.send('browser:register', paneId, webContentsId),
     unregister: (paneId) => ipcRenderer.send('browser:unregister', paneId),
+  },
+  kanban: {
+    get: (workDir) =>
+      ipcRenderer.invoke('kanban:get', { workDir }) as Promise<KanbanBoard | KanbanFailure>,
+    mutate: (workDir, op: KanbanMutateOp) =>
+      ipcRenderer.invoke('kanban:mutate', { workDir, op }) as Promise<KanbanMutateResult>,
+  },
+  wiki: {
+    list: (params: { scope?: WikiScope; workDir: string }) =>
+      ipcRenderer.invoke('wiki:list', params) as Promise<{ pages: WikiPageSummary[] }>,
+    get: (params: { slug: string; scope?: WikiScope; workDir: string }) =>
+      ipcRenderer.invoke('wiki:get', params) as Promise<WikiPage | WikiFailure>,
+    set: (params: {
+      slug: string
+      body: string
+      title?: string
+      scope?: WikiScope
+      workDir: string
+    }) => ipcRenderer.invoke('wiki:set', params) as Promise<{ ok: true } | WikiFailure>,
   },
 }
 

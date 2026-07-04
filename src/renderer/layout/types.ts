@@ -4,7 +4,7 @@
 export type Direction = 'horizontal' | 'vertical'
 
 /** What a pane hosts — picks its header icon. */
-export type SurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser'
+export type SurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'kanban' | 'wiki'
 
 /**
  * A leaf: one pane holding one surface (Warp-style — a header over a terminal/editor/…,

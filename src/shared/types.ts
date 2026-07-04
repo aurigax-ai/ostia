@@ -255,6 +255,91 @@ export interface BrowserApi {
   unregister: (paneId: string) => void
 }
 
+/**
+ * Kanban board shapes (agent-toolbelt `kanban.*` / `src/main/kanban.ts`), duplicated here
+ * (not imported from main) so this file stays dependency-free — `kanban.ts` re-exports these
+ * same names for its existing importers (`gateway/controlDispatch.ts`).
+ */
+export interface KanbanCard {
+  id: string
+  title: string
+  column: string
+  assignee?: string
+  body?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface KanbanColumn {
+  id: string
+  name: string
+}
+
+export interface KanbanBoard {
+  columns: KanbanColumn[]
+  cards: KanbanCard[]
+}
+
+/** A single board mutation the renderer can request via `kanban:mutate` — mirrors the
+ *  `kanban.add`/`kanban.move`/`kanban.update`/`kanban.remove` control methods. */
+export type KanbanMutateOp =
+  | { op: 'add'; title: string; column?: string; body?: string }
+  | { op: 'move'; cardId: string; column: string }
+  | {
+      op: 'update'
+      cardId: string
+      patch: Partial<Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>>
+    }
+  | { op: 'remove'; cardId: string }
+
+/** Matches `kanban.ts`'s existing `{ ok: false, error, message? }` control-method errors
+ *  (`not-found`/`unknown-column`/`too-large`/`too-many-cards`/`no-project-workdir`). */
+export type KanbanFailure = { ok: false; error: string; message?: string }
+
+/** Uniform result of a `kanban:mutate` call: the fresh board on success, else a failure shape. */
+export type KanbanMutateResult = { ok: true; board: KanbanBoard } | KanbanFailure
+
+export interface KanbanApi {
+  /** Read `workDir`'s project board (seeded with default columns if none exists yet). */
+  get: (workDir: string) => Promise<KanbanBoard | KanbanFailure>
+  /** Apply one mutation, returning the fresh board (or a failure shape). */
+  mutate: (workDir: string, op: KanbanMutateOp) => Promise<KanbanMutateResult>
+}
+
+/** `wiki.ts`'s store scope: `project` (per-workDir) or `global` (machine-wide). */
+export type WikiScope = 'project' | 'global'
+
+export interface WikiPageSummary {
+  slug: string
+  title: string
+  updatedAt: string
+}
+
+export interface WikiPage {
+  slug: string
+  title: string
+  body: string
+  updatedAt: string
+}
+
+export type WikiFailure = { ok: false; error: string; message?: string }
+
+export interface WikiApi {
+  list: (params: { scope?: WikiScope; workDir: string }) => Promise<{ pages: WikiPageSummary[] }>
+  get: (params: {
+    slug: string
+    scope?: WikiScope
+    workDir: string
+  }) => Promise<WikiPage | WikiFailure>
+  set: (params: {
+    slug: string
+    body: string
+    title?: string
+    scope?: WikiScope
+    workDir: string
+  }) => Promise<{ ok: true } | WikiFailure>
+}
+
 /** The typed API surface the preload bridge exposes on `window.pine`. */
 export interface PineBridge {
   /** Liveness check round-trip to main. */
@@ -281,6 +366,10 @@ export interface PineBridge {
   terminalState: TerminalStateApi
   /** Browser-pane registration for agent automation (Stage 2 `browse.*` control methods). */
   browser: BrowserApi
+  /** Project kanban board (`kanban` surface panes; shares storage with `kanban.*` toolbelt). */
+  kanban: KanbanApi
+  /** Project/global wiki (`wiki` surface panes; shares storage with `wiki.*` toolbelt). */
+  wiki: WikiApi
 }
 
 declare global {

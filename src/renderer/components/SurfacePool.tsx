@@ -5,7 +5,9 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useSurfaceSlots } from '../stores/surfaceSlotsStore'
 import { BrowserView } from './BrowserView'
 import { EditorView } from './Editor'
+import { KanbanView } from './KanbanView'
 import { TerminalView } from './Terminal'
+import { WikiView } from './WikiView'
 
 interface SurfaceRef {
   paneId: string
@@ -16,10 +18,16 @@ interface SurfaceRef {
   url?: string
 }
 
-/** Collect every terminal/editor/browser pane across a session's layout tree. */
+/** Collect every terminal/editor/browser/kanban/wiki pane across a session's layout tree. */
 function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
   if (node.type === 'pane') {
-    if (node.kind === 'terminal' || node.kind === 'editor' || node.kind === 'browser') {
+    if (
+      node.kind === 'terminal' ||
+      node.kind === 'editor' ||
+      node.kind === 'browser' ||
+      node.kind === 'kanban' ||
+      node.kind === 'wiki'
+    ) {
       out.push({
         paneId: node.id,
         sessionId,
@@ -72,6 +80,10 @@ export function SurfacePool(): JSX.Element {
             <EditorView filePath={s.filePath} />
           ) : s.kind === 'browser' ? (
             <BrowserView paneId={s.paneId} url={s.url} />
+          ) : s.kind === 'kanban' ? (
+            <KanbanView sessionId={s.sessionId} />
+          ) : s.kind === 'wiki' ? (
+            <WikiView sessionId={s.sessionId} />
           ) : (
             <TerminalView sessionId={s.sessionId} paneId={s.paneId} cwd={s.cwd} />
           ),

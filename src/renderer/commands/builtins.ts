@@ -210,6 +210,32 @@ export function registerBuiltinCommands(): void {
     run: () => commands.exec('browser.new'),
   })
 
+  // `pine kanban open` — opens (or focuses an existing) kanban board pane for the caller's
+  // session. Capped `read-board` (same default cap `kanban.get` uses) — the board itself is
+  // still mutated through `kanban:mutate`'s own control methods, this command just opens the UI.
+  commands.register<undefined>({
+    id: 'kanban.open',
+    title: 'Open Board',
+    category: 'App',
+    capabilities: ['read-board'],
+    target: 'active',
+    run: (_args, ctx) => {
+      if (ctx.activeSessionId) useLayoutStore.getState().openSurface(ctx.activeSessionId, 'kanban')
+    },
+  })
+
+  // `pine wiki open` — opens (or focuses an existing) wiki pane for the caller's session.
+  commands.register<undefined>({
+    id: 'wiki.open',
+    title: 'Open Wiki',
+    category: 'App',
+    capabilities: ['wiki-read'],
+    target: 'active',
+    run: (_args, ctx) => {
+      if (ctx.activeSessionId) useLayoutStore.getState().openSurface(ctx.activeSessionId, 'wiki')
+    },
+  })
+
   // `pane.list` — the long-noted "list all panes" gap (see `.claude/skills/pine/SKILL.md`'s
   // coordination recipe / `src/main/browse.ts`'s header comment). Walks the caller's active
   // session's layout tree by default, or every session's when `allSessions` is set — main

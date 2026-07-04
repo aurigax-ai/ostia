@@ -16,29 +16,22 @@
  * `Object.prototype`. `kanban.add`/`kanban.update` do cap `title`/`body` size (64KB) and
  * `kanban.add` caps the board at 2000 cards (existing cards can still be updated once full).
  */
+import { ipcMain } from 'electron'
+import type {
+  KanbanBoard,
+  KanbanCard,
+  KanbanColumn,
+  KanbanMutateOp,
+  KanbanMutateResult,
+} from '../shared/types'
 import { registerControlMethod } from './controlServer'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { workDirForSession } from './sessionRegistry'
 
-export interface KanbanCard {
-  id: string
-  title: string
-  column: string
-  assignee?: string
-  body?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface KanbanColumn {
-  id: string
-  name: string
-}
-
-export interface KanbanBoard {
-  columns: KanbanColumn[]
-  cards: KanbanCard[]
-}
+// The data shapes live in `shared/types.ts` (dependency-free, so preload/renderer can import
+// them too) — re-exported here so this module's existing importers (`gateway/controlDispatch.ts`)
+// keep working unchanged.
+export type { KanbanBoard, KanbanCard, KanbanColumn } from '../shared/types'
 
 const DEFAULT_COLUMNS: KanbanColumn[] = [
   { id: 'todo', name: 'Todo' },
@@ -62,11 +55,17 @@ function noProjectWorkDir(): NoProjectWorkDir {
   }
 }
 
+/** The board path for a resolved project `workDir` — shared by both path-resolution modes
+ *  below (session-scoped for the control socket, direct for the renderer's ipc bridge). */
+function boardPathForWorkDir(workDir: string): string {
+  return storePath('board', 'project', workDir)
+}
+
 /** Fails closed (returns `NoProjectWorkDir`) exactly like `vault.ts`'s `vaultStorePath`. */
 function boardPath(sessionId: string): string | NoProjectWorkDir {
   const workDir = workDirForSession(sessionId)
   if (!workDir) return noProjectWorkDir()
-  return storePath('board', 'project', workDir)
+  return boardPathForWorkDir(workDir)
 }
 
 function loadBoard(path: string): KanbanBoard {
@@ -133,18 +132,57 @@ export type KanbanUpdateResult =
   | NoProjectWorkDir
 
 /**
- * Apply `patch` to `cardId` on `sessionId`'s board. Exported (mirrors `kanbanGet` above) so the
- * LAN gateway's phone-facing `board.update` (`src/main/gateway/controlDispatch.ts`, injected
- * from `index.ts`) can write the SAME board a pane's `kanban.update` would, without a
- * session-scoped `ControlMethod` context (the phone isn't a pane — see `kanbanGet`'s comment).
+ * Path-based mutation cores — the actual read/validate/write logic, taking an already-resolved
+ * board path instead of a sessionId. Both the session-scoped control methods below AND the
+ * renderer's workDir-scoped `kanban:mutate` ipc handler (`kanbanMutateForWorkDir`) call these
+ * SAME functions, so there is exactly one implementation of each mutation regardless of which
+ * side resolved the path.
  */
-export function kanbanUpdate(
-  sessionId: string,
+
+function addCardAt(
+  path: string,
+  params: { title: string; column?: string; body?: string },
+): { card: KanbanCard } | typeof UNKNOWN_COLUMN | typeof TOO_LARGE | typeof TOO_MANY_CARDS {
+  const { title, column, body } = params
+  if (tooLarge(title) || tooLarge(body)) return TOO_LARGE
+  const board = loadBoard(path)
+  if (board.cards.length >= MAX_CARDS) return TOO_MANY_CARDS
+  const targetColumn = column ?? 'todo'
+  if (!board.columns.some((c) => c.id === targetColumn)) return UNKNOWN_COLUMN
+  const now = new Date().toISOString()
+  const card: KanbanCard = {
+    id: nextCardId(board),
+    title,
+    column: targetColumn,
+    body,
+    createdAt: now,
+    updatedAt: now,
+  }
+  board.cards.push(card)
+  saveBoard(path, board)
+  return { card }
+}
+
+function moveCardAt(
+  path: string,
+  params: { cardId: string; column: string },
+): { ok: true } | typeof NOT_FOUND | typeof UNKNOWN_COLUMN {
+  const { cardId, column } = params
+  const board = loadBoard(path)
+  const card = board.cards.find((c) => c.id === cardId)
+  if (!card) return NOT_FOUND
+  if (!board.columns.some((c) => c.id === column)) return UNKNOWN_COLUMN
+  card.column = column
+  card.updatedAt = new Date().toISOString()
+  saveBoard(path, board)
+  return { ok: true }
+}
+
+function updateCardAt(
+  path: string,
   cardId: string,
   patch: Partial<Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>>,
-): KanbanUpdateResult {
-  const path = boardPath(sessionId)
-  if (typeof path !== 'string') return path
+): { ok: true } | typeof NOT_FOUND | typeof UNKNOWN_COLUMN | typeof TOO_LARGE {
   if (tooLarge(patch.title) || tooLarge(patch.body)) return TOO_LARGE
   const board = loadBoard(path)
   const card = board.cards.find((c) => c.id === cardId)
@@ -159,6 +197,88 @@ export function kanbanUpdate(
   card.updatedAt = new Date().toISOString()
   saveBoard(path, board)
   return { ok: true }
+}
+
+function removeCardAt(path: string, params: { cardId: string }): { ok: true } | typeof NOT_FOUND {
+  const board = loadBoard(path)
+  const idx = board.cards.findIndex((c) => c.id === params.cardId)
+  if (idx === -1) return NOT_FOUND
+  board.cards.splice(idx, 1)
+  saveBoard(path, board)
+  return { ok: true }
+}
+
+/**
+ * Apply `patch` to `cardId` on `sessionId`'s board. Exported (mirrors `kanbanGet` above) so the
+ * LAN gateway's phone-facing `board.update` (`src/main/gateway/controlDispatch.ts`, injected
+ * from `index.ts`) can write the SAME board a pane's `kanban.update` would, without a
+ * session-scoped `ControlMethod` context (the phone isn't a pane — see `kanbanGet`'s comment).
+ */
+export function kanbanUpdate(
+  sessionId: string,
+  cardId: string,
+  patch: Partial<Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>>,
+): KanbanUpdateResult {
+  const path = boardPath(sessionId)
+  if (typeof path !== 'string') return path
+  return updateCardAt(path, cardId, patch)
+}
+
+/** True iff `r` is one of this module's `{ ok: false, error, message? }` failure shapes —
+ *  used to tell `addCardAt`'s `{ card }` success apart from every mutation's failure shapes. */
+function isKanbanFailure(r: unknown): r is { ok: false; error: string; message?: string } {
+  return typeof r === 'object' && r !== null && (r as { ok?: unknown }).ok === false
+}
+
+type KanbanOpResult =
+  | { card: KanbanCard }
+  | { ok: true }
+  | typeof NOT_FOUND
+  | typeof UNKNOWN_COLUMN
+  | typeof TOO_LARGE
+  | typeof TOO_MANY_CARDS
+
+/** Dispatch one `KanbanMutateOp` against an already-resolved board path — the single place
+ *  `kanbanMutateForWorkDir` (renderer ipc) and the `kanban.*` control methods below both
+ *  bottom out at, so add/move/update/remove each have exactly one implementation. */
+function applyMutation(path: string, op: KanbanMutateOp): KanbanOpResult {
+  switch (op.op) {
+    case 'add':
+      return addCardAt(path, op)
+    case 'move':
+      return moveCardAt(path, op)
+    case 'update':
+      return updateCardAt(path, op.cardId, op.patch)
+    case 'remove':
+      return removeCardAt(path, op)
+  }
+}
+
+/** Read `workDir`'s board directly (no session indirection) — the renderer's `kanban:get`. */
+export function kanbanGetForWorkDir(workDir: string): KanbanBoard | NoProjectWorkDir {
+  if (!workDir?.trim()) return noProjectWorkDir()
+  return loadBoard(boardPathForWorkDir(workDir))
+}
+
+/** Apply one mutation to `workDir`'s board directly — the renderer's `kanban:mutate`. Returns
+ *  the fresh board on success so the caller can re-render without a second round trip. */
+export function kanbanMutateForWorkDir(workDir: string, op: KanbanMutateOp): KanbanMutateResult {
+  if (!workDir?.trim()) return noProjectWorkDir()
+  const path = boardPathForWorkDir(workDir)
+  const result = applyMutation(path, op)
+  if (isKanbanFailure(result)) return result
+  return { ok: true, board: loadBoard(path) }
+}
+
+/** `kanban:get` / `kanban:mutate` — the renderer's data bridge (Kanban surface panes), sharing
+ *  every mutation's core logic with the `kanban.*` control methods below via `applyMutation`. */
+export function registerKanbanIpc(): void {
+  ipcMain.handle('kanban:get', (_e, params: { workDir: string }) =>
+    kanbanGetForWorkDir(params?.workDir),
+  )
+  ipcMain.handle('kanban:mutate', (_e, params: { workDir: string; op: KanbanMutateOp }) =>
+    kanbanMutateForWorkDir(params?.workDir, params?.op),
+  )
 }
 
 export function registerKanbanMethods(): void {
@@ -177,23 +297,7 @@ export function registerKanbanMethods(): void {
         column?: string
         body?: string
       }
-      if (tooLarge(title) || tooLarge(body)) return TOO_LARGE
-      const board = loadBoard(path)
-      if (board.cards.length >= MAX_CARDS) return TOO_MANY_CARDS
-      const targetColumn = column ?? 'todo'
-      if (!board.columns.some((c) => c.id === targetColumn)) return UNKNOWN_COLUMN
-      const now = new Date().toISOString()
-      const card: KanbanCard = {
-        id: nextCardId(board),
-        title,
-        column: targetColumn,
-        body,
-        createdAt: now,
-        updatedAt: now,
-      }
-      board.cards.push(card)
-      saveBoard(path, board)
-      return { card }
+      return addCardAt(path, { title, column, body })
     },
   })
 
@@ -203,14 +307,7 @@ export function registerKanbanMethods(): void {
       const path = boardPath(ctx.identity.sessionId)
       if (typeof path !== 'string') return path
       const { cardId, column } = (params ?? {}) as { cardId: string; column: string }
-      const board = loadBoard(path)
-      const card = board.cards.find((c) => c.id === cardId)
-      if (!card) return NOT_FOUND
-      if (!board.columns.some((c) => c.id === column)) return UNKNOWN_COLUMN
-      card.column = column
-      card.updatedAt = new Date().toISOString()
-      saveBoard(path, board)
-      return { ok: true }
+      return moveCardAt(path, { cardId, column })
     },
   })
 
@@ -247,12 +344,7 @@ export function registerKanbanMethods(): void {
       const path = boardPath(ctx.identity.sessionId)
       if (typeof path !== 'string') return path
       const { cardId } = (params ?? {}) as { cardId: string }
-      const board = loadBoard(path)
-      const idx = board.cards.findIndex((c) => c.id === cardId)
-      if (idx === -1) return NOT_FOUND
-      board.cards.splice(idx, 1)
-      saveBoard(path, board)
-      return { ok: true }
+      return removeCardAt(path, { cardId })
     },
   })
 }

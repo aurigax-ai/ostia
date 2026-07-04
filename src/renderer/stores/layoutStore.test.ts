@@ -345,6 +345,44 @@ describe('layoutStore', () => {
     })
   })
 
+  describe('openSurface', () => {
+    it('with no pane of that kind, splits and creates one, emitting pane-created', () => {
+      const terminal = ensure('sess')
+      emit().mockClear()
+
+      useLayoutStore.getState().openSurface('sess', 'kanban')
+      const layout = layoutOf('sess')
+      const ids = paneIds(layout.root)
+      const kanbanId = ids.find((id) => id !== terminal) as string
+      const kanban = findPane(layout.root, kanbanId)
+
+      expect(ids).toHaveLength(2)
+      expect(kanban?.kind).toBe('kanban')
+      expect(kanban?.title).toBe('Board')
+      expect(layout.activePaneId).toBe(kanbanId)
+      expect(emit()).toHaveBeenCalledTimes(1)
+      expect(emit()).toHaveBeenCalledWith({
+        type: 'pane-created',
+        sessionId: 'sess',
+        paneId: kanbanId,
+      })
+    })
+
+    it('with an existing pane of that kind, reuses it (no new pane, no pane-created emit)', () => {
+      const terminal = ensure('sess')
+      useLayoutStore.getState().openSurface('sess', 'wiki')
+      const wikiId = paneIds(layoutOf('sess').root).find((id) => id !== terminal) as string
+      emit().mockClear()
+
+      useLayoutStore.getState().openSurface('sess', 'wiki')
+      const layout = layoutOf('sess')
+
+      expect(paneIds(layout.root)).toHaveLength(2)
+      expect(layout.activePaneId).toBe(wikiId)
+      expect(emit()).not.toHaveBeenCalled()
+    })
+  })
+
   describe('removeSession', () => {
     it('drops the layout and emits pane-closed for each pane it held', () => {
       const { first, second } = twoPanes('sess')
@@ -386,6 +424,7 @@ describe('layoutStore', () => {
       store.setCwd('ghost', 'p', '/x')
       store.openFile('ghost', '/f')
       store.openBrowser('ghost', 'https://x')
+      store.openSurface('ghost', 'kanban')
 
       expect(useLayoutStore.getState().bySession).toBe(before)
       expect(emit()).not.toHaveBeenCalled()

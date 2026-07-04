@@ -60,6 +60,19 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     terminalState: {
       push: vi.fn(),
     },
+    browser: {
+      register: vi.fn(),
+      unregister: vi.fn(),
+    },
+    kanban: {
+      get: vi.fn().mockResolvedValue({ columns: [], cards: [] }),
+      mutate: vi.fn().mockResolvedValue({ ok: true, board: { columns: [], cards: [] } }),
+    },
+    wiki: {
+      list: vi.fn().mockResolvedValue({ pages: [] }),
+      get: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+      set: vi.fn().mockResolvedValue({ ok: true }),
+    },
   }
   return { ...base, ...overrides }
 }
