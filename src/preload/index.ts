@@ -95,6 +95,9 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener('command:invoke', listener)
     },
   },
+  terminalState: {
+    push: (snapshot) => ipcRenderer.send('terminal:state', snapshot),
+  },
 }
 
 contextBridge.exposeInMainWorld('pine', bridge)

@@ -10,12 +10,16 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
+import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { DetachedPane } from './components/DetachedPane'
 
 // Register the Phase 0 command set before the UI mounts, then wire main's command
 // bridge (Slice 6) so it can list + execute this window's registry.
 registerBuiltinCommands()
 wireCommandBridge()
+// Slice 7: mirror per-pane terminal state (cwd/running/blocks/exit code) to main. A
+// passive observer — wiring it in changes no terminal/UI behavior.
+wireTerminalStateBridge()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')

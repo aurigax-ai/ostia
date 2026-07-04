@@ -40,6 +40,12 @@ interface BlocksState {
   drafts: Record<string, Draft | undefined>
   /** id of the block currently executing (between C and D) per pane. */
   running: Record<string, string | undefined>
+  /**
+   * Per-pane generation counter, bumped by `resetPane`. Lets a consumer outside this
+   * store (Slice 7's terminal-state bridge) tell a stale pre-reset snapshot from a
+   * fresh post-reset one without inspecting block contents.
+   */
+  gen: Record<string, number | undefined>
   /** OSC 133;A — a new prompt started. */
   promptStart: (paneId: string, line: number, cwd: string | null) => void
   /** OSC 133;B — the prompt text ended (command input starts here). */
@@ -56,6 +62,7 @@ export const useBlocksStore = create<BlocksState>((set) => ({
   byPane: {},
   drafts: {},
   running: {},
+  gen: {},
 
   promptStart: (paneId, line, cwd) =>
     set((s) => ({ drafts: { ...s.drafts, [paneId]: { promptLine: line, inputLine: null, cwd } } })),
@@ -119,5 +126,6 @@ export const useBlocksStore = create<BlocksState>((set) => ({
       byPane: { ...s.byPane, [paneId]: [] },
       drafts: { ...s.drafts, [paneId]: undefined },
       running: { ...s.running, [paneId]: undefined },
+      gen: { ...s.gen, [paneId]: (s.gen[paneId] ?? 0) + 1 },
     })),
 }))
