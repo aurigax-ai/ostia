@@ -1,7 +1,9 @@
 import {
+  BookOpen,
   Bot,
   FileCode,
   Globe,
+  Kanban,
   type LucideIcon,
   SplitSquareHorizontal,
   SplitSquareVertical,
@@ -28,6 +30,8 @@ const SURFACE_ICON: Record<SurfaceKind, LucideIcon> = {
   editor: FileCode,
   agent: Bot,
   browser: Globe,
+  kanban: Kanban,
+  wiki: BookOpen,
 }
 
 /** MIME-ish key so only pane drags (not files/text) trigger our drop zones. */
@@ -143,9 +147,13 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
         </div>
       </div>
 
-      {pane.kind === 'terminal' || pane.kind === 'editor' || pane.kind === 'browser' ? (
-        // Empty slot — <SurfacePool> portals the long-lived xterm/Monaco/webview in here
-        // (keyed by pane id), so a split/relocate re-parents the surface instead of
+      {pane.kind === 'terminal' ||
+      pane.kind === 'editor' ||
+      pane.kind === 'browser' ||
+      pane.kind === 'kanban' ||
+      pane.kind === 'wiki' ? (
+        // Empty slot — <SurfacePool> portals the long-lived xterm/Monaco/webview/board/wiki in
+        // here (keyed by pane id), so a split/relocate re-parents the surface instead of
         // remounting it.
         <div
           className="pane-body pane-body-term"

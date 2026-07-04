@@ -11,10 +11,11 @@ import {
   setPaneBrowser,
   setPaneCwd,
   setPaneEditor,
+  setPaneKind,
   setSizes,
   splitPane,
 } from '../layout/tree'
-import type { Direction, LayoutNode } from '../layout/types'
+import type { Direction, LayoutNode, SurfaceKind } from '../layout/types'
 import { useSessionsStore } from './sessionsStore'
 
 /**
@@ -44,6 +45,9 @@ interface LayoutState {
   openFile: (sessionId: string, path: string) => void
   /** Open `url` in a browser pane — reuse an existing browser pane, else split a new one. */
   openBrowser: (sessionId: string, url: string) => void
+  /** Focus a `kind` pane (kanban/wiki) — reuse an existing one of that kind, else split a new
+   *  one off the focused pane. No extra per-pane data (unlike `openFile`/`openBrowser`). */
+  openSurface: (sessionId: string, kind: SurfaceKind) => void
   /** Drop a session's layout (called when the session closes) so nothing leaks. */
   removeSession: (sessionId: string) => void
 }
@@ -184,6 +188,26 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         if (!newPaneId) return l
         createdPaneId = newPaneId
         return { root: setPaneBrowser(root, newPaneId, url), activePaneId: newPaneId }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+    }
+  },
+
+  openSurface: (sessionId, kind) => {
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, sessionId, (l) => {
+        // Reuse an existing pane of this kind if there is one.
+        const existing = firstPaneOfKind(l.root, kind)
+        if (existing) return { root: l.root, activePaneId: existing.id }
+        // Otherwise split the focused pane and make the new one this kind.
+        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
+        if (!newPaneId) return l
+        createdPaneId = newPaneId
+        return { root: setPaneKind(root, newPaneId, kind), activePaneId: newPaneId }
       })
       return next ?? s
     })

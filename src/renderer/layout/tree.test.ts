@@ -12,6 +12,7 @@ import {
   setPaneBrowser,
   setPaneCwd,
   setPaneEditor,
+  setPaneKind,
   setSizes,
   splitOf,
   splitPane,
@@ -275,6 +276,23 @@ describe('setPaneBrowser', () => {
   it('leaves a non-matching lone pane unchanged', () => {
     const root = createPane('terminal')
     expect(setPaneBrowser(root, 'ghost', 'https://example.com')).toBe(root)
+  })
+})
+
+describe('setPaneKind', () => {
+  it('turns the matching pane into the given kind, using its default title', () => {
+    const a = createPane('terminal')
+    const b = createPane('terminal')
+    const root = splitOf('horizontal', a, b)
+    const next = setPaneKind(root, b.id, 'kanban')
+    expect(findPane(next, b.id)?.kind).toBe('kanban')
+    expect(findPane(next, b.id)?.title).toBe('Board')
+    expect(findPane(next, a.id)?.kind).toBe('terminal')
+  })
+
+  it('leaves a non-matching lone pane unchanged', () => {
+    const root = createPane('terminal')
+    expect(setPaneKind(root, 'ghost', 'wiki')).toBe(root)
   })
 })
 

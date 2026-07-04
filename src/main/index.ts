@@ -30,7 +30,7 @@ import { registerDocsMethods } from './docs'
 import { registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { getByPaneId, registerPane, removePane, removeWindow } from './idRegistry'
-import { kanbanGet, kanbanUpdate, registerKanbanMethods } from './kanban'
+import { kanbanGet, kanbanUpdate, registerKanbanIpc, registerKanbanMethods } from './kanban'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { registerNotifyMethods } from './notify'
 import { listPanes, listSessions, registerPaneListMethods } from './paneList'
@@ -40,7 +40,7 @@ import { PtySession, type SubscriberRole } from './ptySession'
 import { removeSession, setSessionWorkDir } from './sessionRegistry'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
-import { registerWikiMethods } from './wiki'
+import { registerWikiIpc, registerWikiMethods } from './wiki'
 
 /** True when launched by `electron-vite dev` (renderer served from a dev URL). */
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
@@ -716,6 +716,12 @@ app.whenReady().then(() => {
   registerVaultMethods()
   registerWikiMethods()
   registerKanbanMethods()
+  // The renderer's own data bridges for the Kanban/Wiki surface panes — separate from the
+  // `kanban.*`/`wiki.*` control-socket methods above (those serve the CLI/agents over the
+  // control socket; these serve `window.pine.kanban`/`window.pine.wiki` directly). Both sides
+  // share the same read/write core (see `kanban.ts`/`wiki.ts`'s `*At` helpers).
+  registerKanbanIpc()
+  registerWikiIpc()
   registerBusMethods()
   // `pane.list`/`session.list` on the local control socket (Phase C batch 2) — the renderer owns
   // pane kinds/titles + session names; this maps internal paneIds to `idRegistry` EXTERNAL ids.
