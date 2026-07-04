@@ -131,12 +131,14 @@ export function registerControlServer(deps: ControlServerDeps): void {
       },
     )
 
-    // Slice 7: "what is pane X doing" — read-only, so it only requires auth (no
-    // capability gate), same posture as `whoami`. Defaults to the caller's own pane;
-    // `{ paneId }` reads another pane's mirrored state (same trust posture as reading
-    // `command.list`, which is scoped to the caller's window either way).
+    // Slice 7: "what is pane X doing" — read-only, gated on 'read-board' (a DEFAULT
+    // capability every pane holds), for the same explicit-gate posture as everything
+    // else on the broker. Defaults to the caller's own pane; `{ paneId }` reads another
+    // pane's mirrored state (same trust posture as reading `command.list`, which is
+    // scoped to the caller's window either way).
     conn.onRequest('pane.info', (params?: { paneId?: string }): TerminalStateSnapshot | null => {
       if (!authed) throw unauthenticatedError('call hello first')
+      if (!connHasCap(authed, 'read-board')) throw needsElevation('read-board')
       const me = resolveExternal(authed.externalId)
       if (!me) throw unauthenticatedError('unknown identity')
       return deps.getTerminalState(params?.paneId ?? me.paneId) ?? null
@@ -144,6 +146,7 @@ export function registerControlServer(deps: ControlServerDeps): void {
 
     conn.onRequest('cwd.get', (): { cwd: string | null } => {
       if (!authed) throw unauthenticatedError('call hello first')
+      if (!connHasCap(authed, 'read-board')) throw needsElevation('read-board')
       const me = resolveExternal(authed.externalId)
       if (!me) throw unauthenticatedError('unknown identity')
       return { cwd: deps.getTerminalState(me.paneId)?.cwd ?? null }

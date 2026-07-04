@@ -3,6 +3,7 @@ import {
   type DropZone,
   closePane,
   createPane,
+  findPane,
   firstPaneId,
   firstPaneOfKind,
   movePane,
@@ -99,15 +100,23 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   closePane: (sessionId, paneId) => {
+    // closePane (the pure tree transform) is a no-op on a session's last pane — the
+    // pane can't be removed, so the tree comes back unchanged. Only emit `pane-closed`
+    // when the pane actually left the tree; otherwise main's identity registry would
+    // wrongly evict a still-live pane (see idRegistry.removePane via lifecycle:event).
+    let removed = false
     set((s) => {
       const next = patch(s, sessionId, (l) => {
         const root = closePane(l.root, paneId)
+        removed = findPane(root, paneId) === null
         const activePaneId = paneId === l.activePaneId ? firstPaneId(root) : l.activePaneId
         return { root, activePaneId }
       })
       return next ?? s
     })
-    window.pine?.lifecycle?.emit?.({ type: 'pane-closed', sessionId, paneId })
+    if (removed) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-closed', sessionId, paneId })
+    }
   },
 
   focusPane: (sessionId, paneId) =>
@@ -125,6 +134,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         })) ?? s,
     ),
 
+  // Delegates to closePane, so it inherits the conditional emit guard above —
+  // no separate (and no double) `pane-closed` emit needed here.
   removePane: (sessionId, paneId) => get().closePane(sessionId, paneId),
 
   setCwd: (sessionId, paneId, cwd) =>
