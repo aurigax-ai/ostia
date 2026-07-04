@@ -14,7 +14,7 @@ export default defineWorkspace([
     test: {
       name: 'node',
       environment: 'node',
-      include: ['src/main/**/*.test.ts', 'src/shared/**/*.test.ts'],
+      include: ['src/main/**/*.test.ts', 'src/shared/**/*.test.ts', 'src/cli/**/*.test.ts'],
     },
   },
   {
