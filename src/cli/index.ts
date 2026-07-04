@@ -215,6 +215,243 @@ async function runVaultVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+interface WikiOk {
+  ok: true
+}
+interface WikiErr {
+  ok: false
+  error: string
+  message?: string
+}
+interface WikiGetResult {
+  slug: string
+  title: string
+  body: string
+  updatedAt: string
+}
+interface WikiListResult {
+  pages: { slug: string; title: string; updatedAt: string }[]
+}
+interface WikiSearchResult {
+  matches: { slug: string; title: string; snippet: string }[]
+}
+
+function describeWikiError(res: WikiErr): string {
+  return res.message ? `${res.error}: ${res.message}` : res.error
+}
+
+/** `pine wiki <get|set|ls|search|rm>` — the project/global wiki verb group. */
+async function runWikiVerb(conn: MessageConnection): Promise<void> {
+  const sub = process.argv[3]
+  const { global, rest } = extractGlobalFlag(process.argv.slice(4))
+  const scope: 'project' | 'global' = global ? 'global' : 'project'
+
+  if (sub === 'get') {
+    const slug = rest[0]
+    if (!slug) {
+      console.error('pine wiki get: missing <slug>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<WikiGetResult | WikiErr>('wiki.get', { slug, scope })
+    if ('body' in res) {
+      console.log(res.body)
+    } else {
+      console.error(`pine: wiki get failed (${describeWikiError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'set') {
+    const slug = rest[0]
+    if (!slug) {
+      console.error('pine wiki set: missing <slug>')
+      process.exitCode = 1
+      return
+    }
+    const body = await readAllStdin()
+    const res = await conn.sendRequest<WikiOk | WikiErr>('wiki.set', { slug, body, scope })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: wiki set failed (${describeWikiError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'ls') {
+    const res = await conn.sendRequest<WikiListResult | WikiErr>('wiki.list', { scope })
+    if ('pages' in res) {
+      for (const p of res.pages) console.log(`${p.slug}\t${p.title}\t${p.updatedAt}`)
+    } else {
+      console.error(`pine: wiki ls failed (${describeWikiError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'search') {
+    const q = rest[0]
+    if (!q) {
+      console.error('pine wiki search: missing <q>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<WikiSearchResult | WikiErr>('wiki.search', { q, scope })
+    if ('matches' in res) {
+      for (const m of res.matches) console.log(`${m.slug}\t${m.title}\t${m.snippet}`)
+    } else {
+      console.error(`pine: wiki search failed (${describeWikiError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'rm') {
+    const slug = rest[0]
+    if (!slug) {
+      console.error('pine wiki rm: missing <slug>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<WikiOk | WikiErr>('wiki.delete', { slug, scope })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: wiki rm failed (${describeWikiError(res)})`)
+      process.exitCode = 1
+    }
+  } else {
+    console.error(`pine wiki: unknown subcommand '${sub ?? ''}' (try: get, set, ls, search, rm)`)
+    process.exitCode = 1
+  }
+}
+
+interface KanbanCard {
+  id: string
+  title: string
+  column: string
+  assignee?: string
+  body?: string
+  createdAt: string
+  updatedAt: string
+}
+interface KanbanBoard {
+  columns: { id: string; name: string }[]
+  cards: KanbanCard[]
+}
+interface KanbanOk {
+  ok: true
+}
+interface KanbanErr {
+  ok: false
+  error: string
+  message?: string
+}
+
+function describeKanbanError(res: KanbanErr): string {
+  return res.message ? `${res.error}: ${res.message}` : res.error
+}
+
+/** `pine kanban <ls|add|move|assign|done|rm>` — the project kanban board verb group. */
+async function runKanbanVerb(conn: MessageConnection): Promise<void> {
+  const sub = process.argv[3]
+  const rawArgs = process.argv.slice(4)
+
+  if (sub === 'ls') {
+    const res = await conn.sendRequest<KanbanBoard | KanbanErr>('kanban.get', {})
+    if ('columns' in res) {
+      for (const col of res.columns) {
+        const cards = res.cards.filter((c) => c.column === col.id)
+        console.log(`# ${col.name} (${col.id})`)
+        if (cards.length === 0) console.log('  (empty)')
+        for (const c of cards) {
+          console.log(`  ${c.id}\t${c.title}${c.assignee ? ` @${c.assignee}` : ''}`)
+        }
+      }
+    } else {
+      console.error(`pine: kanban ls failed (${describeKanbanError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'add') {
+    const { flags, rest } = parseFlags(rawArgs, ['column', 'body'])
+    const title = rest[0]
+    if (!title) {
+      console.error('pine kanban add: missing "<title>"')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{ card: KanbanCard } | KanbanErr>('kanban.add', {
+      title,
+      column: flags.column || undefined,
+      body: flags.body || undefined,
+    })
+    if ('card' in res) {
+      console.log(JSON.stringify(res.card))
+    } else {
+      console.error(`pine: kanban add failed (${describeKanbanError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'move') {
+    const [cardId, column] = rawArgs
+    if (!cardId || !column) {
+      console.error('pine kanban move: missing <id> <column>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<KanbanOk | KanbanErr>('kanban.move', { cardId, column })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: kanban move failed (${describeKanbanError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'assign') {
+    const [cardId, assignee] = rawArgs
+    if (!cardId || !assignee) {
+      console.error('pine kanban assign: missing <id> <who>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<KanbanOk | KanbanErr>('kanban.assign', {
+      cardId,
+      assignee,
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: kanban assign failed (${describeKanbanError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'done') {
+    const cardId = rawArgs[0]
+    if (!cardId) {
+      console.error('pine kanban done: missing <id>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<KanbanOk | KanbanErr>('kanban.move', {
+      cardId,
+      column: 'done',
+    })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: kanban done failed (${describeKanbanError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'rm') {
+    const cardId = rawArgs[0]
+    if (!cardId) {
+      console.error('pine kanban rm: missing <id>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<KanbanOk | KanbanErr>('kanban.remove', { cardId })
+    if (res.ok) {
+      console.log('ok')
+    } else {
+      console.error(`pine: kanban rm failed (${describeKanbanError(res)})`)
+      process.exitCode = 1
+    }
+  } else {
+    console.error(
+      `pine kanban: unknown subcommand '${sub ?? ''}' (try: ls, add, move, assign, done, rm)`,
+    )
+    process.exitCode = 1
+  }
+}
+
 /** Pulls known `--flag value` pairs out of a raw argv slice; everything else is positional. */
 function parseFlags(
   argv: string[],
@@ -371,6 +608,10 @@ async function main(): Promise<void> {
       await runProcessVerb(conn)
     } else if (cmd === 'vault') {
       await runVaultVerb(conn)
+    } else if (cmd === 'wiki') {
+      await runWikiVerb(conn)
+    } else if (cmd === 'kanban') {
+      await runKanbanVerb(conn)
     } else if (cmd) {
       // Any other verb is treated as a command id, with an optional JSON args blob
       // as the 2nd argv (e.g. `pine pane.splitRight` or `pine pane.write '"ls\n"'`).
@@ -386,7 +627,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, notify, open, docs, process, vault, wiki, kanban)`,
       )
       process.exitCode = 1
     }

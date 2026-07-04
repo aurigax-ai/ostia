@@ -18,6 +18,7 @@ import type {
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
 import { registerPane, removePane, removeWindow } from './idRegistry'
+import { registerKanbanMethods } from './kanban'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { registerNotifyMethods } from './notify'
 import { resolveSafe } from './pathGuard'
@@ -26,6 +27,7 @@ import { PtySession } from './ptySession'
 import { removeSession, setSessionWorkDir } from './sessionRegistry'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
+import { registerWikiMethods } from './wiki'
 
 /** True when launched by `electron-vite dev` (renderer served from a dev URL). */
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
@@ -516,6 +518,8 @@ app.whenReady().then(() => {
   registerProcessMethods()
   registerDocsMethods()
   registerVaultMethods()
+  registerWikiMethods()
+  registerKanbanMethods()
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
 
