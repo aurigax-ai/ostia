@@ -126,6 +126,13 @@ denied in-window and shell-opened. The renderer reaches privileged ops **only** 
 - **`safeFit` never on a 0×0 host** (`Terminal.tsx`): FitAddon on a 0-sized host computes 0 cols/rows
   and corrupts the pty buffer (the cmux "infinite duplication" bug). Never forward a 0×0 or unchanged
   size to `pty.resize`. Debounce resize (~90ms + rAF); cancel the rAF on unmount.
+- **Spawn the pty at the REAL fitted size, never xterm's 80×24 default** (`Terminal.tsx` +
+  `terminalSizing.ts`): `pty:attach` DEFERS until the portal slot has a layout box and `safeFit`
+  actually fit (the ResizeObserver drives the first fit, un-debounced while unattached). Attaching
+  at the 80×24 default and then growing draws the shell's first prompt + right-aligned RPROMPT
+  narrow, and xterm's reflow strands/stacks them — the prompt "staircase" (races only when the slot
+  is 0×0 on first paint). The attach-vs-resize-vs-noop decision is the pure `nextSizeAction()`
+  (unit-tested); don't re-inline it or attach eagerly.
 - **OSC 7 is NOT percent-decoded** — hooks emit raw paths; `decodeURIComponent` would corrupt dirs
   like `100%20off`.
 - **Tear-off trusts the OS cursor** (`screen.getCursorScreenPoint()`), not flaky drag-event coords.
