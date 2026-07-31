@@ -6,6 +6,7 @@ import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Blocks } from './Blocks'
+import { nextSizeAction } from './terminalSizing'
 
 /** One Dark Vivid ANSI palette (matches the app theme; xterm renders to canvas, so hex). */
 const THEME = {
@@ -106,20 +107,8 @@ export function TerminalView({
       return true
     })
 
-    // cmux fit rule: never fit a 0-sized host (0 cols/rows corrupts the pty buffer) and
-    // never forward a 0×0 or unchanged size to the pty.
-    const syncSize = (): void => {
-      safeFit(host, fit)
-      const { cols, rows } = term
-      const last = lastSizeRef.current
-      if (cols > 0 && rows > 0 && (cols !== last.cols || rows !== last.rows)) {
-        lastSizeRef.current = { cols, rows }
-        window.pine.pty.resize(paneId, cols, rows)
-      }
-    }
-    syncSize()
-
     let disposed = false
+    let attached = false
     // Subscribe to live pty output BEFORE attaching, so bytes emitted between (re)attach and
     // now aren't dropped (Codex). Queue them until the replay buffer is written, then flush.
     let replayed = false
@@ -132,28 +121,61 @@ export function TerminalView({
       term.writeln('\r\n\x1b[2m[process exited]\x1b[0m'),
     )
 
-    window.pine.pty
-      .attach(paneId, { cwd: spawnCwd.current, cols: term.cols, rows: term.rows, role: 'owner' })
-      .then(({ buffer }) => {
-        if (disposed) return
-        // A remount replays history, which re-parses OSC 133 marks — clear this pane's blocks
-        // first so they rebuild cleanly instead of appending duplicates (Codex).
-        useBlocksStore.getState().resetPane(paneId)
-        if (buffer) term.write(buffer) // replay history into the fresh terminal
-        replayed = true
-        for (const d of pending) term.write(d)
-        pending.length = 0
-      })
+    // Spawn the pty at the REAL fitted size — NEVER xterm's 80×24 default. If we attached at the
+    // default and then grew to the real box, the shell's first prompt (and its right-aligned
+    // RPROMPT) would be drawn at the wrong width and stranded by xterm's reflow — the "staircase"
+    // of prompts. So attach is deferred until the host has a real layout box and FitAddon yields
+    // a valid size (the ResizeObserver drives the first fit when the portal slot lays out).
+    const attachAtCurrentSize = (cols: number, rows: number): void => {
+      attached = true
+      lastSizeRef.current = { cols, rows }
+      window.pine.pty
+        .attach(paneId, { cwd: spawnCwd.current, cols, rows, role: 'owner' })
+        .then(({ buffer }) => {
+          if (disposed) return
+          // A remount replays history, which re-parses OSC 133 marks — clear this pane's blocks
+          // first so they rebuild cleanly instead of appending duplicates (Codex).
+          useBlocksStore.getState().resetPane(paneId)
+          if (buffer) term.write(buffer) // replay history into the fresh terminal
+          replayed = true
+          for (const d of pending) term.write(d)
+          pending.length = 0
+        })
+    }
+
+    // cmux fit rule: never fit a 0-sized host (0 cols/rows corrupts the pty buffer) and never
+    // forward a 0×0 or unchanged size to the pty. The FIRST valid fit spawns the pty at that
+    // size; later valid fits just resize the existing pty.
+    const syncSize = (): void => {
+      const fitted = safeFit(host, fit)
+      const { cols, rows } = term
+      const action = nextSizeAction({ fitted, attached, cols, rows, last: lastSizeRef.current })
+      if (action.type === 'attach') {
+        attachAtCurrentSize(action.cols, action.rows)
+      } else if (action.type === 'resize') {
+        lastSizeRef.current = { cols: action.cols, rows: action.rows }
+        window.pine.pty.resize(paneId, action.cols, action.rows)
+      }
+    }
 
     const input = term.onData((d) => window.pine.pty.write(paneId, d))
 
-    // Debounce resize. A drag fires dozens of RO callbacks/sec; fitting + SIGWINCH on each
-    // makes the shell redraw its prompt (and RPROMPT clock) every frame — the stacking
-    // "staircase" of prompts. Coalesce to the final size after a short idle so the shell
-    // redraws once. (Same technique as VSCode / cmux-wmux.)
+    // Common case: the slot already has a box on first paint → fit + attach immediately. If it's
+    // still 0×0, syncSize() no-ops and the ResizeObserver attaches the moment the box appears.
+    syncSize()
+
+    // Debounce resize. A drag fires dozens of RO callbacks/sec; fitting + SIGWINCH on each makes
+    // the shell redraw its prompt (and RPROMPT clock) every frame — the stacking "staircase" of
+    // prompts. Coalesce to the final size after a short idle so the shell redraws once (same
+    // technique as VSCode / cmux-wmux). The FIRST attach, though, must happen ASAP once we have a
+    // real box, so while unattached the RO drives syncSize immediately (no debounce).
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
     let rafId = 0
     const ro = new ResizeObserver(() => {
+      if (!attached) {
+        syncSize()
+        return
+      }
       if (resizeTimer) clearTimeout(resizeTimer)
       resizeTimer = setTimeout(() => {
         rafId = requestAnimationFrame(syncSize)
@@ -184,7 +206,9 @@ export function TerminalView({
     if (!term) return
     term.options.fontFamily = fontStack(font.family)
     term.options.fontSize = font.size
-    safeFit(hostRef.current, fitRef.current)
+    // Only resize if the fit actually ran (host has a box) — never send a default-size resize to
+    // a pty that may not be attached yet (see the mount effect's deferred-attach rationale).
+    if (!safeFit(hostRef.current, fitRef.current)) return
     const { cols, rows } = term
     const last = lastSizeRef.current
     if (cols > 0 && rows > 0 && (cols !== last.cols || rows !== last.rows)) {
@@ -224,11 +248,13 @@ function decodeOsc7(data: string): string | null {
  * 0 cols/rows and corrupt the pty buffer (the cmux "infinite duplication" bug). The
  * ResizeObserver retries once the host has a real box.
  */
-function safeFit(host: HTMLElement | null, fit: FitAddon | null): void {
-  if (!fit || !host || host.offsetWidth === 0 || host.offsetHeight === 0) return
+function safeFit(host: HTMLElement | null, fit: FitAddon | null): boolean {
+  if (!fit || !host || host.offsetWidth === 0 || host.offsetHeight === 0) return false
   try {
     fit.fit()
+    return true
   } catch {
     // not laid out yet
+    return false
   }
 }
