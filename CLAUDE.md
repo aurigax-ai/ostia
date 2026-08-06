@@ -133,6 +133,13 @@ denied in-window and shell-opened. The renderer reaches privileged ops **only** 
   narrow, and xterm's reflow strands/stacks them — the prompt "staircase" (races only when the slot
   is 0×0 on first paint). The attach-vs-resize-vs-noop decision is the pure `nextSizeAction()`
   (unit-tested); don't re-inline it or attach eagerly.
+- **Erase the open prompt BEFORE a pane resize** (`Terminal.tsx` `syncSize`): the prompt line spans
+  the full width (RPROMPT at the last column), so a narrowing reflow wraps the old prompt line into
+  rows the shell's SIGWINCH redraw won't clear — duplicated prompts (e2e/resize-prompt.spec.ts).
+  kitty/Warp-style fix: at an OSC 133 prompt (open draft, nothing running), CUP to the prompt row +
+  ED0, and only in that write's parse callback apply the CAPTURED proposed dims + `pty.resize`.
+  Erase+resize must stay atomic — re-running fit-and-dedup in the callback can decide "unchanged,
+  skip", leaving an erased screen with no SIGWINCH to trigger a repaint (a vanished prompt).
 - **OSC 7 is NOT percent-decoded** — hooks emit raw paths; `decodeURIComponent` would corrupt dirs
   like `100%20off`.
 - **Tear-off trusts the OS cursor** (`screen.getCursorScreenPoint()`), not flaky drag-event coords.
