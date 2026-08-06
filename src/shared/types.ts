@@ -151,6 +151,78 @@ export interface SettingsApi {
 export type SessionLiveState = 'idle' | 'working' | 'waiting' | 'done'
 
 /**
+ * ── Workspace snapshot (session restore, docs/ARCHITECTURE.md §"Autosave + resume") ──
+ *
+ * The durable, hand-inspectable description of "what the workspace looked like": which
+ * sessions existed, their split-trees, and each pane's surface + cwd. Structurally mirrors
+ * the renderer's layout tree (`renderer/layout/types.ts`), duplicated rather than imported
+ * because this file must stay renderer-independent; `renderer/layout/snapshot.ts` holds a
+ * compile-time assignability check so the two can't drift silently.
+ *
+ * Deliberately NOT in here: anything live. No pty handles, no session `state`, no process
+ * ids — a restored session always spawns a FRESH shell at the saved cwd and comes back
+ * `idle`. Pretending a dead process is alive would be worse than losing the detail (the
+ * same posture `main/processManager.ts` takes for background processes).
+ */
+export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'kanban' | 'wiki'
+
+/** A snapshot leaf: one pane and the surface it hosts. */
+export interface SnapshotPaneNode {
+  type: 'pane'
+  id: string
+  title: string
+  kind: SnapshotSurfaceKind
+  /** Where a restored terminal respawns / the Files explorer opens. */
+  cwd?: string
+  /** `editor` panes: the file to reopen. */
+  filePath?: string
+  /** `browser` panes: the URL to reload. */
+  url?: string
+}
+
+/** A snapshot internal node: a split with N children and their proportional sizes. */
+export interface SnapshotSplitNode {
+  type: 'split'
+  id: string
+  direction: 'horizontal' | 'vertical'
+  children: SnapshotNode[]
+  sizes: number[]
+}
+
+export type SnapshotNode = SnapshotPaneNode | SnapshotSplitNode
+
+/** One restorable session: its rail identity, its workDir anchor, and its pane tree. */
+export interface SnapshotSession {
+  id: string
+  name: string
+  kind: 'agent' | 'terminal' | 'scratch'
+  workDir: string
+  root: SnapshotNode
+  activePaneId: string
+}
+
+/** The whole persisted workspace. `v` gates forward/backward compatibility. */
+export interface WorkspaceSnapshot {
+  v: 1
+  /** ISO timestamp of the write — surfaced by `session.save` and useful when debugging by hand. */
+  savedAt: string
+  activeSessionId: string
+  sessions: SnapshotSession[]
+}
+
+export interface SessionApi {
+  /**
+   * Persist the workspace (the renderer debounces; see `stores/persistence.ts`). Passing
+   * `null` means "restore is switched off" — main forgets the stored snapshot AND stops
+   * dumping scrollback at quit, so turning the setting off actually erases the history
+   * rather than leaving a stale copy on disk.
+   */
+  save: (snapshot: WorkspaceSnapshot | null) => void
+  /** The snapshot written by the previous run, or null when there is none / it was unusable. */
+  load: () => Promise<WorkspaceSnapshot | null>
+}
+
+/**
  * UI lifecycle transitions the renderer reports to main so it can maintain the pane
  * id/token registry (`main/idRegistry.ts`). Additive side-effect only — the renderer's
  * own state is never derived from these.
@@ -425,6 +497,8 @@ export interface PineBridge {
   lsp: LspApi
   /** Settings-file access. */
   settings: SettingsApi
+  /** Workspace snapshot persistence, backing session restore across app restarts. */
+  session: SessionApi
   /** UI lifecycle event reporting, backing the main-side pane id/token registry. */
   lifecycle: LifecycleApi
   /** Command bridge: publish this window's commands + accept invocations from main. */

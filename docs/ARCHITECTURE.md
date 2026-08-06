@@ -349,12 +349,25 @@ workspace programmable and lets agents build *skills* that act on the live UI (t
 The workspace is **durable** — close it and reopen exactly where you left off, and keep old sessions
 around without clutter.
 
+> **Status: soft resume SHIPPED; archiving still planned.** Implemented today: the layout split-tree,
+> per-pane surface + cwd, and per-pane terminal scrollback survive a quit, and the app reopens them at
+> launch with FRESH shells. `main/sessionSnapshot.ts` (durable + validation), `renderer/layout/
+> snapshot.ts` (translation), `renderer/stores/persistence.ts` (debounced autosave), `session.save`
+> (control layer), `behavior.restoreSession` (settings, default on). Proven end-to-end by
+> `e2e/session-restore.spec.ts`. NOT yet implemented from this section: window geometry, editor
+> cursor/scroll/unsaved buffers, startup-command replay, recents, archive/auto-archive, worktree
+> hygiene, and true reattach.
+
 - **Session snapshot (per workspace)** — window geometry, the **layout split-tree** (panes + sizes),
   each pane's view (terminal cwd + startup command + saved scrollback/blocks, or editor file + cursor +
   scroll + cached unsaved buffer), the **roots/work dirs**, open tabs, active pane, and agent sessions.
 - **Autosave + resume** — snapshot is autosaved (debounced) and on quit; on launch the app **reopens
   the last session**, or you pick one from the switcher. Stored in the data dir
-  (`~/.local/share/pine/sessions/`, §4.1).
+  (`~/.local/share/pine/`, §4.1) as `sessions.json` (the workspace, written by the renderer as you
+  work) + `scrollback.json` (per-pane pty tail, dumped by main at `before-quit`). Two files, not one,
+  because only the renderer knows the layout and only main holds the pty rings — and quit is far too
+  late to ask the renderer for anything. Both are re-validated on read (`parseSnapshot`): they are
+  hand-editable, and a corrupt one must degrade to "no restore", never to a broken window.
 - **Resume fidelity** (terminals):
   - *Soft resume (default)* — reopen each pane at its **cwd**, optionally re-run its startup command,
     and restore saved scrollback/blocks (read-only history).
@@ -374,6 +387,9 @@ around without clutter.
   saved branch. Reclaims disk as cmux-style worktrees accumulate.
 - All of the above are exposed as commands (`session.save`, `session.restore`, `session.archive`,
   `session.autoArchive`) in the control layer (§5.11), so they're scriptable and agent-drivable.
+  `session.save` (flush the snapshot now) ships today. There is deliberately **no** runtime
+  `session.restore`: re-hydrating a live window would have to tear down every attached pty
+  mid-flight. Restore happens at boot, the one moment the workspace is empty enough for it to be safe.
 
 ### 5.13 Companion phone app (remote control)
 Because **everything is already a command over a socket (§5.11)**, remote control is nearly free — the

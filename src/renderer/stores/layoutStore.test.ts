@@ -430,4 +430,70 @@ describe('layoutStore', () => {
       expect(emit()).not.toHaveBeenCalled()
     })
   })
+
+  describe('hydrate', () => {
+    const pane = (id: string) => ({
+      type: 'pane' as const,
+      id,
+      title: 'zsh',
+      kind: 'terminal' as const,
+    })
+
+    it('installs a restored layout for each session', () => {
+      useLayoutStore.getState().hydrate({
+        s40: { root: pane('pane-40'), activePaneId: 'pane-40', zoomedPaneId: null },
+      })
+
+      expect(layoutOf('s40')).toEqual({
+        root: pane('pane-40'),
+        activePaneId: 'pane-40',
+        zoomedPaneId: null,
+      })
+    })
+
+    it('replaces any layouts already built, rather than merging into them', () => {
+      // Restore runs before the first render, but a stale layout from the seeded session
+      // must not survive alongside the restored ones — it would show up as a ghost session.
+      ensure('stale')
+
+      useLayoutStore.getState().hydrate({
+        s40: { root: pane('pane-40'), activePaneId: 'pane-40', zoomedPaneId: null },
+      })
+
+      expect(Object.keys(useLayoutStore.getState().bySession)).toEqual(['s40'])
+    })
+
+    it('announces every restored pane so main can mint its identity', () => {
+      // Restored panes never went through ensure/split, so their `pane-created` never fired —
+      // without this main has no idRegistry entry, and `pane.list` / the control socket
+      // cannot address them.
+      useLayoutStore.getState().hydrate({
+        s40: {
+          root: {
+            type: 'split',
+            id: 'split-1',
+            direction: 'horizontal',
+            children: [pane('pane-1'), pane('pane-2')],
+            sizes: [1, 1],
+          },
+          activePaneId: 'pane-1',
+          zoomedPaneId: null,
+        },
+      })
+
+      const emitted = emit().mock.calls.map((c) => c[0])
+      expect(emitted).toContainEqual({ type: 'pane-created', sessionId: 's40', paneId: 'pane-1' })
+      expect(emitted).toContainEqual({ type: 'pane-created', sessionId: 's40', paneId: 'pane-2' })
+    })
+
+    it('leaves ensure a no-op afterwards, so the first render cannot overwrite a restore', () => {
+      useLayoutStore.getState().hydrate({
+        s40: { root: pane('pane-40'), activePaneId: 'pane-40', zoomedPaneId: null },
+      })
+
+      useLayoutStore.getState().ensure('s40')
+
+      expect(paneIds(layoutOf('s40').root)).toEqual(['pane-40'])
+    })
+  })
 })

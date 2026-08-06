@@ -1,4 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test'
+import { isolatedLaunch } from './dataHome'
 
 /**
  * End-to-end proof that the fs:* path-traversal guard (src/main/pathGuard.ts, wired into the
@@ -19,14 +20,16 @@ type PineFs = {
 }
 
 test('fs:* is confined to allowed roots (blocks /etc/passwd + ../ escapes)', async () => {
-  const app = await electron.launch({ args: ['.'], env: { ...process.env, NODE_ENV: 'test' } })
+  const app = await electron.launch(isolatedLaunch())
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
 
     // Absolute path outside home → blocked (null), even though the OS file is world-readable
     // and `cat /etc/passwd` in the terminal still works.
-    const passwd = await win.evaluate(() => (window as unknown as PineFs).pine.fs.read('/etc/passwd'))
+    const passwd = await win.evaluate(() =>
+      (window as unknown as PineFs).pine.fs.read('/etc/passwd'),
+    )
     expect(passwd).toBeNull()
 
     // A `../` escape above home → blocked.

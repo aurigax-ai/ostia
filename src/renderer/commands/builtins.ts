@@ -1,6 +1,7 @@
 import { type DropZone, allPanes } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { useLayoutStore } from '../stores/layoutStore'
+import { saveWorkspaceNow } from '../stores/persistence'
 import type { SessionKind, SessionState } from '../stores/sessionsStore'
 import { useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -305,6 +306,27 @@ export function registerBuiltinCommands(): void {
         workDir: s.workDir,
         state: s.state,
       })),
+  })
+
+  // `session.save` — flush the workspace snapshot now instead of waiting out the autosave
+  // debounce (docs/ARCHITECTURE.md §"Autosave + resume"). Useful to an agent about to do
+  // something disruptive, or to a script that wants a known-good restore point. There is
+  // deliberately no `session.restore` counterpart: re-hydrating a LIVE window would have to
+  // tear down every attached pty mid-flight, and restore already happens at boot, which is
+  // the only moment the workspace is empty enough for it to be safe.
+  commands.register<undefined, { saved: boolean }>({
+    id: 'session.save',
+    title: 'Save Session',
+    category: 'App',
+    capabilities: ['settings-write'],
+    target: 'none',
+    run: () => {
+      const enabled = useSettingsStore.getState().behavior.restoreSession
+      saveWorkspaceNow()
+      // `saved: false` when restore is switched off — the call still went through (and told
+      // main to forget what it had), it just didn't write a snapshot.
+      return { saved: enabled }
+    },
   })
 
   // `pine settings get [key]` — the whole settings state, or a dot-path value within it.

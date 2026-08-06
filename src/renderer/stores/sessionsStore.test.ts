@@ -1,3 +1,4 @@
+import type { WorkspaceSnapshot } from '@shared/types'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
 import { useSessionsStore } from './sessionsStore'
@@ -35,6 +36,7 @@ describe('sessionsStore', () => {
     // pure no-ops so no real layout is built and no lifecycle events fire from them.
     vi.spyOn(useLayoutStore.getState(), 'ensure').mockImplementation(() => {})
     vi.spyOn(useLayoutStore.getState(), 'removeSession').mockImplementation(() => {})
+    vi.spyOn(useLayoutStore.getState(), 'hydrate').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -266,6 +268,93 @@ describe('sessionsStore', () => {
       const updated = sessions().find((s) => s.id === id)
       expect(updated?.workDir).toBe('/')
       expect(updated?.name).toBe('session')
+    })
+  })
+
+  describe('hydrate', () => {
+    /** A snapshot with one restored terminal pane per session id. */
+    const snapshotOf = (ids: string[], activeSessionId = ids[0]): WorkspaceSnapshot => ({
+      v: 1,
+      savedAt: '2026-08-06T00:00:00.000Z',
+      activeSessionId,
+      sessions: ids.map((id) => ({
+        id,
+        name: `proj-${id}`,
+        kind: 'terminal' as const,
+        workDir: `/w/${id}`,
+        activePaneId: `pane-${id}`,
+        root: {
+          type: 'pane' as const,
+          id: `pane-${id}`,
+          title: 'zsh',
+          kind: 'terminal' as const,
+          cwd: `/w/${id}`,
+        },
+      })),
+    })
+
+    it('replaces the seeded home session with the restored ones', () => {
+      useSessionsStore.getState().hydrate(snapshotOf(['s40', 's41']))
+
+      expect(sessions().map((s) => s.id)).toEqual(['s40', 's41'])
+      expect(sessions().map((s) => s.workDir)).toEqual(['/w/s40', '/w/s41'])
+      expect(sessions().map((s) => s.name)).toEqual(['proj-s40', 'proj-s41'])
+    })
+
+    it('restores every session as idle — a live state is never carried across a restart', () => {
+      useSessionsStore.getState().hydrate(snapshotOf(['s40', 's41']))
+      expect(sessions().every((s) => s.state === 'idle')).toBe(true)
+    })
+
+    it('focuses the session that was active when the snapshot was written', () => {
+      useSessionsStore.getState().hydrate(snapshotOf(['s40', 's41'], 's41'))
+      expect(activeId()).toBe('s41')
+    })
+
+    it('hands the restored layouts to layoutStore', () => {
+      useSessionsStore.getState().hydrate(snapshotOf(['s40']))
+
+      const hydrate = vi.mocked(useLayoutStore.getState().hydrate)
+      expect(hydrate).toHaveBeenCalledTimes(1)
+      const layouts = hydrate.mock.calls[0][0]
+      expect(Object.keys(layouts)).toEqual(['s40'])
+      expect(layouts.s40).toMatchObject({ activePaneId: 'pane-s40', zoomedPaneId: null })
+    })
+
+    it('announces each restored session to main so it can resolve their workDirs', () => {
+      // These sessions were built without going through addSession, so their `session-added`
+      // never fired — main's sessionRegistry would have no workDir for them.
+      useSessionsStore.getState().hydrate(snapshotOf(['s40', 's41']))
+
+      const emitted = vi.mocked(window.pine.lifecycle.emit).mock.calls.map((c) => c[0])
+      expect(emitted).toContainEqual({ type: 'session-added', sessionId: 's40', workDir: '/w/s40' })
+      expect(emitted).toContainEqual({ type: 'session-added', sessionId: 's41', workDir: '/w/s41' })
+    })
+
+    it('reserves restored session ids so a newly opened session cannot collide', () => {
+      useSessionsStore.getState().hydrate(snapshotOf(['s40', 's41']))
+
+      useSessionsStore.getState().addSession('/tmp')
+
+      const ids = sessions().map((s) => s.id)
+      expect(new Set(ids).size).toBe(ids.length)
+      expect(ids.slice(0, 2)).toEqual(['s40', 's41'])
+    })
+
+    it('keeps the seeded home session when there is nothing to restore', () => {
+      const seeded = sessions()[0]
+
+      useSessionsStore.getState().hydrate(null)
+
+      expect(sessions()).toEqual([seeded])
+      expect(activeId()).toBe(seeded.id)
+      // Still announced to main + given a layout — that is the whole boot path now.
+      expect(vi.mocked(window.pine.lifecycle.emit).mock.calls.map((c) => c[0])).toContainEqual({
+        type: 'session-added',
+        sessionId: seeded.id,
+        workDir: '~',
+      })
+      expect(ensureMock()).toHaveBeenCalledWith(seeded.id)
     })
   })
 })

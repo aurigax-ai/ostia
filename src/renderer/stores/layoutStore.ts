@@ -38,6 +38,15 @@ interface LayoutState {
   bySession: Record<string, SessionLayout>
   /** Create a default layout (one terminal) for a session that has none yet. */
   ensure: (sessionId: string) => void
+  /**
+   * Install the layouts restored from the previous run (session restore), REPLACING
+   * whatever is there — a stale layout from the seeded boot session would otherwise linger
+   * as a ghost. Runs before the first render, so `ensure` then no-ops on every restored
+   * session and can't overwrite one. Emits `pane-created` per restored pane: they never
+   * went through `ensure`/`split`, so without it main has no identity for them and the
+   * control socket can't address them.
+   */
+  hydrate: (layouts: Record<string, SessionLayout>) => void
   split: (sessionId: string, paneId: string, direction: Direction) => void
   closePane: (sessionId: string, paneId: string) => void
   focusPane: (sessionId: string, paneId: string) => void
@@ -99,6 +108,15 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     })
     if (createdPaneId) {
       window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+    }
+  },
+
+  hydrate: (layouts) => {
+    set({ bySession: { ...layouts } })
+    for (const [sessionId, layout] of Object.entries(layouts)) {
+      for (const paneId of paneIds(layout.root)) {
+        window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId })
+      }
     }
   },
 

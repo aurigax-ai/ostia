@@ -1,4 +1,11 @@
-import { type ElectronApplication, _electron as electron, expect, type Page, test } from '@playwright/test'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
+} from '@playwright/test'
+import { isolatedLaunch } from './dataHome'
 
 /**
  * Core-workflow E2E for the pine terminal workspace. Each test launches its OWN built-app
@@ -19,10 +26,7 @@ interface Launched {
  * never leaks an Electron process.
  */
 async function launchApp(): Promise<Launched> {
-  const app = await electron.launch({
-    args: ['.'],
-    env: { ...process.env, NODE_ENV: 'test' },
-  })
+  const app = await electron.launch(isolatedLaunch())
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')

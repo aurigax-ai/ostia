@@ -45,7 +45,8 @@ is authoritative. Use `pnpm`.)
 
 - **main** (`src/main/`, Node, privileged, CommonJS): app/window lifecycle, node-pty session manager
   (`ptySession.ts`, `ptyRingBuffer.ts`), read-only FS IPC, LSP manager (`lsp.ts`), shell-integration
-  injection (`shellIntegration.ts`), and the **control plane** (`controlServer.ts`, `controlAuth.ts`,
+  injection (`shellIntegration.ts`), session restore (`sessionSnapshot.ts`), and the **control plane**
+  (`controlServer.ts`, `controlAuth.ts`,
   `capabilityStore.ts`, `idRegistry.ts`) exposing commands over a local unix socket. `src/main/gateway/`
   (Phase C) re-exposes a subset of that control plane over the LAN as a self-signed-TLS `https`+`ws`
   server for the Pine Companion phone app (`gateway.*` control methods, elevated `gateway` cap) — **off
@@ -80,7 +81,17 @@ denied in-window and shell-opened. The renderer reaches privileged ops **only** 
   restore); bash via `--rcfile`. Generated files live under `tmpdir()/pine-shell-integration`, source
   the real dotfiles, then restore env for nested shells.
 - **Layout tree transforms are pure/immutable** (`src/renderer/layout/tree.ts`): no React, no store
-  access. `layoutStore` calls them. Keep new pane ops as pure functions there.
+  access. `layoutStore` calls them. Keep new pane ops as pure functions there. (`resetIds`/`adoptIds`
+  are the two sanctioned exceptions — they move the module's id counter, nothing else.)
+- **Ids minted from a counter must be ADOPTED on restore.** Pane/split ids (`layout/tree.ts`) and
+  session ids (`sessionsStore`) come from counters that start at 0 in a fresh process, while a
+  restored workspace carries ids from the previous run. `adoptIds`/`adoptSessionIds` advance the
+  counters past them. Skip that and a new pane gets an id a restored pane already holds — and main
+  keys ptys BY PANE ID, so the two panes would share one shell.
+- **Nothing live is ever restored.** A restored session comes back `idle` with a brand-new shell at
+  its saved cwd; replayed scrollback is history, not a reattached process. Same posture as
+  `processManager.ts` (persists the process table, relabels `running` → `exited` at load). Don't add
+  a restore path that implies a surviving process — that needs a pty-host daemon (see §9).
 - **Session/pane guards:** never leave zero sessions (`closeSession` re-seeds home); `closePane`
   never removes the last pane; a session's `workDir` is the anchor, a pane's `cwd` may wander.
 - **node-pty is loaded lazily and tolerated absent** — never assume it's present.
@@ -146,6 +157,25 @@ denied in-window and shell-opened. The renderer reaches privileged ops **only** 
   it can decide "unchanged, skip" and desync. `syncSize` re-runs after flush to catch drag drift.
 - **OSC 7 is NOT percent-decoded** — hooks emit raw paths; `decodeURIComponent` would corrupt dirs
   like `100%20off`.
+- **Session restore is TWO files written by two processes** (`main/sessionSnapshot.ts`): the renderer
+  autosaves `sessions.json` continuously (only it knows the layout tree), main dumps `scrollback.json`
+  at `before-quit` (only it holds the pty rings) — and that dump MUST run before the kill loop, since
+  `pty.kill()` drops the ring with the entry. Quit is far too late for a renderer round-trip, which is
+  why the layout is kept fresh as you work rather than captured on exit.
+- **Restored scrollback is one-shot** (`takeRestoredScrollback`): consumed by the first `pty:attach`
+  for that pane id. Pane ids get re-issued, so a *new* pane reusing a restored id must not inherit the
+  old shell's history. The restored bytes are pushed through the `PtySession` ring (not sent straight
+  to the subscriber) so a later remount replays them too — and captured via `since(0)` BEFORE
+  `addLiveSubscriber`, else they'd paint twice.
+- **The restore seam leads with a bare OSC 133;D** (`RESTORE_SEAM`, `main/index.ts`): a command still
+  running at quit would otherwise come back as a block that runs forever. `blocksStore.commandEnd`
+  no-ops when nothing is running, so the mark is safe when there's nothing to close.
+- **E2E must isolate BOTH data dirs** (`e2e/dataHome.ts` → `isolatedLaunch()`): restore makes every run
+  reopen the previous one's workspace, so without a throwaway `XDG_DATA_HOME` a spec restores the
+  previous spec's panes (breaking pane counts). And a spec that flips a setting needs
+  `--user-data-dir` too, or it rewrites the DEVELOPER's real `settings.json` — that actually happened
+  while building this: a test turned `restoreSession` off globally and every later launch silently
+  stopped persisting.
 - **Tear-off trusts the OS cursor** (`screen.getCursorScreenPoint()`), not flaky drag-event coords.
 
 ---
@@ -192,6 +222,13 @@ v8 coverage) and `vitest.workspace.ts` (three projects). See
   it still runs anywhere; only the explorer/editor file access is contained. To browse outside home,
   broaden `allowedRoots` in `registerFsIpc` (`main/index.ts`). Proof: `src/main/pathGuard.test.ts`
   (unit) + `e2e/security.spec.ts` (end-to-end, real app).
+- **Session restore is "soft", not tmux.** Ptys are children of the Electron main process, so quitting
+  still kills every shell — what survives is the workspace's *shape* plus each pane's scrollback
+  (`sessionSnapshot.ts`, `stores/persistence.ts`, `e2e/session-restore.spec.ts`; docs/ARCHITECTURE.md
+  §5.12). **True reattach** — live processes surviving a quit — needs a separate long-lived pty-host
+  daemon that main connects to over a socket; `PtySession`'s owner/observer + `since(cursor)` model is
+  already the right seam for it, but nothing else is built. Don't describe the current feature as
+  "resume like tmux" to a user; it reopens where you were, it doesn't keep your process running.
 - **Latent bugs (harmless today; documented for whoever owns the source):**
   - `layout/tree.ts` `setPaneEditor`: cwd = `path.slice(0, path.lastIndexOf('/')) || '/'` returns a
     truncated string (`'notes.tx'` for `'notes.txt'`) when the path has no `/`. Fine today — `openFile`

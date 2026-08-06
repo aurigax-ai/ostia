@@ -1,4 +1,6 @@
+import type { WorkspaceSnapshot } from '@shared/types'
 import { create } from 'zustand'
+import { restoreWorkspace } from '../layout/snapshot'
 import { useLayoutStore } from './layoutStore'
 
 /** Live state a session can be in (drives the rail's color + motion). */
@@ -34,12 +36,35 @@ interface SessionsState {
    *  gateway can emit `session.state`/`agent.needs-input`/`agent.done` (contract §7). No-op if
    *  the session is unknown or already in that state (avoids a spurious lifecycle emit). */
   setState: (id: string, state: SessionState) => void
+  /**
+   * The boot path (session restore). Given the previous run's snapshot, replace the seeded
+   * home session with the restored sessions + layouts; given `null`, keep the seeded one.
+   * Either way, announce the final sessions to main — they were built before `window.pine`
+   * existed (or without going through `addSession`), so their `session-added` never fired and
+   * main-side services would have no workDir for them.
+   *
+   * Call once, before the first render: `WorkZone`'s `ensure` must find the restored layouts
+   * already in place.
+   */
+  hydrate: (snapshot: WorkspaceSnapshot | null) => void
 }
 
 let seq = 0
 function nextId(): string {
   seq += 1
   return `s${seq}`
+}
+
+/**
+ * Advance the session-id counter past every `s<n>` id in `ids` (restore). Same hazard as
+ * `layout/tree.ts`'s `adoptIds`: the counter starts at 0 in a fresh process, so without this
+ * the next `addSession` re-mints an id a restored session already holds.
+ */
+function adoptSessionIds(ids: string[]): void {
+  for (const id of ids) {
+    const n = Number(/^s(\d+)$/.exec(id)?.[1])
+    if (Number.isFinite(n)) seq = Math.max(seq, n)
+  }
 }
 
 /** The session's display name: the last path segment of its workDir. */
@@ -102,6 +127,31 @@ export const useSessionsStore = create<SessionsState>((set, get) => {
         ),
       }))
       window.pine?.lifecycle?.emit?.({ type: 'session-added', sessionId: id, workDir })
+    },
+
+    hydrate: (snapshot) => {
+      if (snapshot) {
+        const { sessions, activeSessionId, layouts } = restoreWorkspace(snapshot)
+        adoptSessionIds(sessions.map((s) => s.id))
+        // A restored session always comes back idle: its shell is brand new, so any
+        // working/waiting state from the last run would be a lie (see main/sessionSnapshot).
+        set({ sessions: sessions.map((s) => ({ ...s, state: 'idle' })), activeSessionId })
+        useLayoutStore.getState().hydrate(layouts)
+      } else {
+        for (const s of get().sessions) useLayoutStore.getState().ensure(s.id)
+      }
+
+      for (const s of get().sessions) {
+        window.pine?.lifecycle?.emit?.({
+          type: 'session-added',
+          sessionId: s.id,
+          workDir: s.workDir,
+        })
+      }
+      window.pine?.lifecycle?.emit?.({
+        type: 'session-activated',
+        sessionId: get().activeSessionId,
+      })
     },
 
     setState: (id, state) => {

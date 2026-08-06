@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  adoptIds,
   allPanes,
   closePane,
   createPane,
@@ -513,5 +514,49 @@ describe('malformed-tree robustness (defensive guards)', () => {
     expect(res).toBe(empty)
     expect(res.type).toBe('split')
     if (res.type === 'split') expect(res.children).toHaveLength(0)
+  })
+})
+
+describe('adoptIds', () => {
+  it('advances the counter past a restored id so the next pane cannot collide', () => {
+    // A restored tree carries ids minted by a PREVIOUS run, while the counter starts at 0
+    // each launch — without adoption the next `createPane()` would hand out `pane-1` a
+    // second time, and main keys ptys by pane id (two panes, one shell).
+    adoptIds({ type: 'pane', id: 'pane-7', title: 'zsh', kind: 'terminal' })
+    expect(createPane().id).toBe('pane-8')
+  })
+
+  it('walks the whole tree, not just the root', () => {
+    adoptIds(
+      splitOf(
+        'horizontal',
+        { type: 'pane', id: 'pane-2', title: 'zsh', kind: 'terminal' },
+        splitOf('vertical', { type: 'pane', id: 'pane-9', title: 'zsh', kind: 'terminal' }),
+      ),
+    )
+    expect(createPane().id).toBe('pane-10')
+  })
+
+  it('counts split ids too — panes and splits share one counter', () => {
+    adoptIds({
+      type: 'split',
+      id: 'split-12',
+      direction: 'horizontal',
+      children: [{ type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal' }],
+      sizes: [1],
+    })
+    expect(createPane().id).toBe('pane-13')
+  })
+
+  it('never rewinds the counter', () => {
+    createPane() // pane-1
+    createPane() // pane-2
+    adoptIds({ type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal' })
+    expect(createPane().id).toBe('pane-3')
+  })
+
+  it('ignores ids that do not end in a number', () => {
+    adoptIds({ type: 'pane', id: 'restored-from-phone', title: 'zsh', kind: 'terminal' })
+    expect(createPane().id).toBe('pane-1')
   })
 })
