@@ -90,9 +90,25 @@ export function TerminalView({
     // now aren't dropped (Codex). Queue them until the replay buffer is written, then flush.
     let replayed = false
     const pending: string[] = []
+    // Atomic-resize hold (see syncSize): while a prompt-repaint resize is in flight, incoming
+    // pty bytes are buffered so erase + regrid + the shell's fresh prompt paint as ONE frame.
+    let holdForRedraw = false
+    let held: string[] = []
+    let holdIdleTimer: ReturnType<typeof setTimeout> | null = null
+    let holdCapTimer: ReturnType<typeof setTimeout> | null = null
+    let holdEraseRow = 1
+    let holdDims = { cols: 0, rows: 0 }
     const offData = window.pine.pty.onData(paneId, (d) => {
-      if (replayed) term.write(d)
-      else pending.push(d)
+      if (!replayed) {
+        pending.push(d)
+      } else if (holdForRedraw) {
+        held.push(d)
+        // The repaint arrives as a burst; a short idle gap after it means the shell is done.
+        if (holdIdleTimer) clearTimeout(holdIdleTimer)
+        holdIdleTimer = setTimeout(flushHold, 24)
+      } else {
+        term.write(d)
+      }
     })
     const offExit = window.pine.pty.onExit(paneId, () =>
       term.writeln('\r\n\x1b[2m[process exited]\x1b[0m'),
@@ -139,14 +155,45 @@ export function TerminalView({
     // column), so on a narrowing resize xterm's reflow wraps the OLD prompt line into extra
     // rows — and the shell's SIGWINCH redraw only clears from the row it believes the prompt
     // starts on, stranding the wrapped rows above (the "prompt duplicates on split" bug,
-    // e2e/resize-prompt.spec.ts). kitty and Warp solve this the same way: when the pane is
-    // sitting at a shell prompt, ERASE the prompt region before applying the resize and let
-    // the shell's redraw repaint one fresh prompt. We anchor the erase at the open OSC 133;A
-    // mark (blocksStore draft); with a command running — or no integration (fish/sh) — we
-    // skip and degrade to plain reflow, which is normal terminal behavior for output.
+    // e2e/resize-prompt.spec.ts). kitty and Warp solve this by redrawing the prompt at the new
+    // size atomically. Ours has a pty round-trip, so "atomic" takes three steps:
+    //   1. Resize the PTY ONLY (SIGWINCH the shell) — the local grid stays untouched, so the
+    //      user keeps seeing the intact old prompt (no erase-then-wait blank, no reflow strand).
+    //   2. HOLD incoming pty bytes; the shell's repaint arrives as a burst (idle-gap detected).
+    //   3. flushHold: erase the stale prompt + apply the new grid + write the held repaint in
+    //      one queued batch — xterm renders the final state in a single frame. No intermediate
+    //      duplicated/blank frames (the "flash" report).
+    // The erase anchors at min(OSC 133;A draft row, cursor row) — the cursor sits on the prompt
+    // while idle, and the mark row can drift a row across rapid cycles (the flash's duplicated
+    // frame). If the shell never repaints (bash/readline, no integration), the cap timer fires
+    // with nothing held and we plain-reflow instead — never erase without a repaint in hand.
+    const flushHold = (): void => {
+      if (!holdForRedraw) return
+      holdForRedraw = false
+      if (holdIdleTimer) clearTimeout(holdIdleTimer)
+      if (holdCapTimer) clearTimeout(holdCapTimer)
+      holdIdleTimer = null
+      holdCapTimer = null
+      if (disposed) return
+      const redraw = held.join('')
+      held = []
+      const { cols, rows } = holdDims
+      if (redraw.length > 0) {
+        term.write(`\x1b[${holdEraseRow};1H\x1b[0J`, () => {
+          if (disposed) return
+          term.resize(cols, rows)
+          term.write(redraw)
+          syncSize() // pick up any size change that landed while holding
+        })
+      } else {
+        term.resize(cols, rows)
+        syncSize()
+      }
+    }
     const syncSize = (): void => {
+      if (holdForRedraw) return // a hold is in flight; flushHold re-syncs when it completes
       if (attached && host && fit && host.offsetWidth > 0 && host.offsetHeight > 0) {
-        // Peek at the would-be grid without applying it, so the erase happens BEFORE reflow.
+        // Peek at the would-be grid without applying it — the local regrid happens at flush.
         const dims = fit.proposeDimensions()
         const last = lastSizeRef.current
         if (
@@ -158,23 +205,16 @@ export function TerminalView({
           const blocks = useBlocksStore.getState()
           const draft = blocks.drafts[paneId]
           if (draft && !blocks.running[paneId]) {
-            const row = draft.promptLine - term.buffer.active.baseY + 1
-            if (row >= 1 && row <= term.rows) {
-              // Park the cursor at the prompt's first row and clear to the end of the screen;
-              // resize only after xterm has PARSED the erase (write is queued — resizing first
-              // would reflow the still-dirty buffer and strand rows anyway). CRITICAL: erase and
-              // resize are atomic — apply the CAPTURED dims directly rather than re-running
-              // fit-and-dedup in the callback. A re-check could conclude "unchanged, skip" (the
-              // layout bounced back between propose and parse), which would leave the screen
-              // erased with no SIGWINCH to make the shell repaint — a vanished prompt.
-              term.write(`\x1b[${row};1H\x1b[0J`, () => {
-                if (disposed) return
-                term.resize(dims.cols, dims.rows)
-                lastSizeRef.current = { cols: dims.cols, rows: dims.rows }
-                window.pine.pty.resize(paneId, dims.cols, dims.rows)
-              })
-              return
-            }
+            const draftRow = draft.promptLine - term.buffer.active.baseY + 1
+            const cursorRow = term.buffer.active.cursorY + 1
+            holdEraseRow =
+              draftRow >= 1 && draftRow <= term.rows ? Math.min(draftRow, cursorRow) : cursorRow
+            holdDims = { cols: dims.cols, rows: dims.rows }
+            holdForRedraw = true
+            lastSizeRef.current = { cols: dims.cols, rows: dims.rows }
+            window.pine.pty.resize(paneId, dims.cols, dims.rows)
+            holdCapTimer = setTimeout(flushHold, 150) // never hold output hostage for long
+            return
           }
         }
       }
@@ -210,6 +250,8 @@ export function TerminalView({
       disposed = true
       if (resizeTimer) clearTimeout(resizeTimer)
       if (rafId) cancelAnimationFrame(rafId) // else a queued fit runs on a disposed term
+      if (holdIdleTimer) clearTimeout(holdIdleTimer)
+      if (holdCapTimer) clearTimeout(holdCapTimer)
       ro.disconnect()
       input.dispose()
       offData()
