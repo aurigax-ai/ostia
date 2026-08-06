@@ -42,7 +42,7 @@ interface Persisted {
 const DEFAULTS: Persisted = {
   locale: 'en',
   appearance: {
-    theme: 'one-dark-vivid',
+    theme: 'adeberry',
     ui: { family: 'Inter Variable', size: 13 },
     terminal: { family: 'Hack Nerd Font Mono', size: 13 },
     editor: { family: 'Geist Mono Variable', size: 13 },

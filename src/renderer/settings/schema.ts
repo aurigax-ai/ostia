@@ -33,7 +33,8 @@ export const SETTINGS_JSON_SCHEMA = {
         theme: {
           type: 'string',
           description:
-            'Theme id (built-in: one-dark-vivid, instrument-night, dracula, oxocarbon; or a plugin theme).',
+            'Theme id (built-in: adeberry, one-dark-vivid, instrument-night, dracula, oxocarbon; ' +
+            'or a plugin theme). Default: adeberry.',
         },
         ui: font('UI font'),
         terminal: font('Terminal font'),
