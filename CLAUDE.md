@@ -133,13 +133,17 @@ denied in-window and shell-opened. The renderer reaches privileged ops **only** 
   narrow, and xterm's reflow strands/stacks them — the prompt "staircase" (races only when the slot
   is 0×0 on first paint). The attach-vs-resize-vs-noop decision is the pure `nextSizeAction()`
   (unit-tested); don't re-inline it or attach eagerly.
-- **Erase the open prompt BEFORE a pane resize** (`Terminal.tsx` `syncSize`): the prompt line spans
-  the full width (RPROMPT at the last column), so a narrowing reflow wraps the old prompt line into
-  rows the shell's SIGWINCH redraw won't clear — duplicated prompts (e2e/resize-prompt.spec.ts).
-  kitty/Warp-style fix: at an OSC 133 prompt (open draft, nothing running), CUP to the prompt row +
-  ED0, and only in that write's parse callback apply the CAPTURED proposed dims + `pty.resize`.
-  Erase+resize must stay atomic — re-running fit-and-dedup in the callback can decide "unchanged,
-  skip", leaving an erased screen with no SIGWINCH to trigger a repaint (a vanished prompt).
+- **Prompt-aware ATOMIC resize** (`Terminal.tsx` `syncSize`/`flushHold`): the prompt line spans the
+  full width (RPROMPT at the last column), so a narrowing reflow wraps the old prompt line into rows
+  the shell's SIGWINCH redraw won't clear — duplicated prompts (e2e/resize-prompt.spec.ts). At an
+  OSC 133 prompt (open draft, nothing running): resize the PTY ONLY (local grid untouched — user
+  keeps seeing the intact old prompt), HOLD incoming pty bytes until the shell's repaint burst goes
+  idle (~24ms gap, 150ms hard cap), then erase (CUP min(mark row, cursor row) + ED0) + regrid to the
+  CAPTURED dims + write the held repaint as one batch → one rendered frame, no duplicate/blank flash.
+  Two traps proven by earlier attempts: (a) never erase unless a repaint is actually in hand — a
+  shell that doesn't redraw on WINCH (bash/readline) would be left with a vanished prompt (empty
+  hold → plain reflow instead); (b) apply the captured dims, don't re-run fit-and-dedup at flush —
+  it can decide "unchanged, skip" and desync. `syncSize` re-runs after flush to catch drag drift.
 - **OSC 7 is NOT percent-decoded** — hooks emit raw paths; `decodeURIComponent` would corrupt dirs
   like `100%20off`.
 - **Tear-off trusts the OS cursor** (`screen.getCursorScreenPoint()`), not flaky drag-event coords.
