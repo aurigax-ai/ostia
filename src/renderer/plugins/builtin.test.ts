@@ -37,13 +37,13 @@ const REQUIRED_TOKEN_KEYS = [
 ].sort()
 
 describe('BUILTIN_PLUGINS', () => {
-  it('advertises exactly the four contracted theme ids', () => {
+  it('advertises exactly the five contracted theme ids', () => {
     // These ids are the product contract — the settings schema's `theme` description
     // enumerates them, so a rename/removal here silently breaks that reference.
     const ids = themes()
       .map((t) => t.id)
       .sort()
-    expect(ids).toEqual(['dracula', 'instrument-night', 'one-dark-vivid', 'oxocarbon'])
+    expect(ids).toEqual(['adeberry', 'dracula', 'instrument-night', 'one-dark-vivid', 'oxocarbon'])
   })
 
   it('gives every theme exactly the required token-key set (no missing, no extra tokens)', () => {

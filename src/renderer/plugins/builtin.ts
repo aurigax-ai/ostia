@@ -5,6 +5,35 @@ import type { PluginManifest, Theme } from './types'
  * Built-in themes. Each is a full set of --color-* primitive overrides; the semantic
  * tokens in index.css reference these, so overriding the palette re-themes everything.
  */
+const adeberry: Theme = {
+  id: 'adeberry',
+  name: 'Adeberry',
+  appearance: 'dark',
+  tokens: {
+    bg: '#1d2022',
+    'bg-sunken': '#17191b',
+    'surface-1': '#272a2d',
+    'surface-2': '#2d3134',
+    'surface-3': '#313537',
+    line: 'rgba(255, 255, 255, 0.07)',
+    'line-strong': 'rgba(255, 255, 255, 0.13)',
+    fg: '#e3edf5',
+    'fg-muted': '#7f868a',
+    'fg-dim': '#5c6266',
+    brand: '#00d8ff',
+    // Warp's own bundled preview asset doesn't give a distinct "bright accent" — reuse the
+    // theme's own sampled brightCyan (terminalTheme.ts), a lighter tint from the same cyan
+    // family as the accent, rather than inventing an unrelated shade.
+    'brand-bright': '#6cfcf9',
+    'brand-glow': 'rgba(0, 216, 255, 0.18)',
+    attn: '#bf5f54',
+    'attn-glow': 'rgba(191, 95, 84, 0.2)',
+    ok: '#58c98c',
+    add: '#58c98c',
+    del: '#bf5f54',
+  },
+}
+
 const oneDarkVivid: Theme = {
   id: 'one-dark-vivid',
   name: 'One Dark Vivid',
@@ -121,7 +150,7 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
     description: 'The built-in color themes.',
     version: '1.0.0',
     builtin: true,
-    contributes: { themes: [oneDarkVivid, instrumentNight, dracula, oxocarbon] },
+    contributes: { themes: [adeberry, oneDarkVivid, instrumentNight, dracula, oxocarbon] },
   },
   {
     id: 'pine.lsp',

@@ -47,6 +47,7 @@ describe('pluginsStore', () => {
       // the three non-theme plugins fall through the `?? []` and add nothing.
       expect(store().themes).toEqual(themePlugin?.contributes.themes)
       expect(store().themes.map((t) => t.id)).toEqual([
+        'adeberry',
         'one-dark-vivid',
         'instrument-night',
         'dracula',

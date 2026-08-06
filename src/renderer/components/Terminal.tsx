@@ -7,31 +7,7 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Blocks } from './Blocks'
 import { nextSizeAction } from './terminalSizing'
-
-/** One Dark Vivid ANSI palette (matches the app theme; xterm renders to canvas, so hex). */
-const THEME = {
-  background: '#282c34',
-  foreground: '#d7dae0',
-  cursor: '#61afef',
-  cursorAccent: '#282c34',
-  selectionBackground: 'rgba(97, 175, 239, 0.25)',
-  black: '#3a4150',
-  red: '#ef596f',
-  green: '#89ca78',
-  yellow: '#e5c07b',
-  blue: '#61afef',
-  magenta: '#d55fde',
-  cyan: '#56b6c2',
-  white: '#d7dae0',
-  brightBlack: '#636d83',
-  brightRed: '#ef596f',
-  brightGreen: '#89ca78',
-  brightYellow: '#e5c07b',
-  brightBlue: '#61afef',
-  brightMagenta: '#d55fde',
-  brightCyan: '#56b6c2',
-  brightWhite: '#ffffff',
-}
+import { terminalPalette } from './terminalTheme'
 
 /** Bundled Hack Nerd Font Mono leads; fallbacks keep glyphs monospaced. */
 const MONO_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
@@ -60,6 +36,7 @@ export function TerminalView({
   const font = useSettingsStore((s) => s.appearance.terminal)
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
+  const themeId = useSettingsStore((s) => s.appearance.theme)
 
   // Create the xterm, then attach to the pane's pty (keyed by pane id). The pty + its output
   // buffer live in main, so on a remount (split/relocate) we re-attach and replay history
@@ -71,7 +48,7 @@ export function TerminalView({
     const initial = useSettingsStore.getState().appearance.terminal
     const behavior = useSettingsStore.getState().behavior
     const term = new Xterm({
-      theme: THEME,
+      theme: terminalPalette(useSettingsStore.getState().appearance.theme),
       fontFamily: fontStack(initial.family),
       fontSize: initial.size,
       lineHeight: 1.15,
@@ -270,6 +247,14 @@ export function TerminalView({
     term.options.cursorStyle = cursorStyle
     term.options.cursorBlink = cursorBlink
   }, [cursorStyle, cursorBlink])
+
+  // Apply app-theme changes to the xterm ANSI palette live, without restarting the shell —
+  // same "read from the store, patch term.options" pattern as font/cursor above.
+  useEffect(() => {
+    const term = termRef.current
+    if (!term) return
+    term.options.theme = terminalPalette(themeId)
+  }, [themeId])
 
   return (
     <>

@@ -9,27 +9,31 @@
  * Font stacks end in CJK (Traditional Chinese) fallbacks so 繁體中文 always renders.
  */
 @theme {
-  /* Default theme — One Dark Vivid. Alternates override these in :root[data-theme=…] below.
-     Elevation ladder: bg-sunken < bg (work canvas) < surface-1 (#282c34, the iconic One Dark
-     panel) < surface-2 < surface-3. Signals: blue=active, red=needs-you, green=done. */
-  --color-bg: #21252b;
-  --color-bg-sunken: #1b1e23;
-  --color-surface-1: #282c34;
-  --color-surface-2: #2f343e;
-  --color-surface-3: #3a4150;
+  /* Default theme — Adeberry (a port of Warp's "Adeberry", plugins/builtin.ts). Alternates
+     (incl. the former default, One Dark Vivid) override these in :root[data-theme=…] below —
+     see the "adeberry" and "one-dark-vivid" theme objects in plugins/builtin.ts for the same
+     token set applied by JS at runtime (App.tsx sets --color-* inline from the active theme,
+     so these top-level values are really just the FOUC frame before that effect runs).
+     Elevation ladder: bg-sunken < bg (work canvas) < surface-1 < surface-2 < surface-3.
+     Signals: brand (electric cyan)=active, attn (red)=needs-you, ok (green)=done. */
+  --color-bg: #1d2022;
+  --color-bg-sunken: #17191b;
+  --color-surface-1: #272a2d;
+  --color-surface-2: #2d3134;
+  --color-surface-3: #313537;
   --color-line: rgba(255, 255, 255, 0.07);
   --color-line-strong: rgba(255, 255, 255, 0.13);
-  --color-fg: #d7dae0;
-  --color-fg-muted: #9aa2b1;
-  --color-fg-dim: #636d83;
-  --color-brand: #61afef;
-  --color-brand-bright: #82c7ff;
-  --color-brand-glow: rgba(97, 175, 239, 0.18);
-  --color-attn: #ef596f;
-  --color-attn-glow: rgba(239, 89, 111, 0.2);
-  --color-ok: #89ca78;
-  --color-add: #89ca78;
-  --color-del: #ef596f;
+  --color-fg: #e3edf5;
+  --color-fg-muted: #7f868a;
+  --color-fg-dim: #5c6266;
+  --color-brand: #00d8ff;
+  --color-brand-bright: #6cfcf9;
+  --color-brand-glow: rgba(0, 216, 255, 0.18);
+  --color-attn: #bf5f54;
+  --color-attn-glow: rgba(191, 95, 84, 0.2);
+  --color-ok: #58c98c;
+  --color-add: #58c98c;
+  --color-del: #bf5f54;
 
   --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, "PingFang TC",
     "Microsoft JhengHei", "Hiragino Sans", "Noto Sans CJK TC", "Noto Sans TC", sans-serif;
