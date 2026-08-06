@@ -28,6 +28,13 @@ export interface Behavior {
   showHiddenFiles: boolean
   cursorStyle: CursorStyle
   cursorBlink: boolean
+  /**
+   * Reopen the previous run's sessions, panes and terminal scrollback at launch
+   * (`stores/persistence.ts` + `main/sessionSnapshot.ts`). Shells are always respawned
+   * fresh — this restores the workspace's shape and history, not live processes. Turning it
+   * off also ERASES what's already stored, rather than leaving a stale copy on disk.
+   */
+  restoreSession: boolean
 }
 
 export type FontSurface = 'ui' | 'terminal' | 'editor'
@@ -47,7 +54,12 @@ const DEFAULTS: Persisted = {
     terminal: { family: 'Hack Nerd Font Mono', size: 13 },
     editor: { family: 'Geist Mono Variable', size: 13 },
   },
-  behavior: { showHiddenFiles: true, cursorStyle: 'block', cursorBlink: true },
+  behavior: {
+    showHiddenFiles: true,
+    cursorStyle: 'block',
+    cursorBlink: true,
+    restoreSession: true,
+  },
 }
 
 interface SettingsState extends Persisted {

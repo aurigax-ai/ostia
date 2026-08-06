@@ -12,6 +12,7 @@ import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { DetachedPane } from './components/DetachedPane'
+import { startWorkspaceAutosave } from './stores/persistence'
 import { useSessionsStore } from './stores/sessionsStore'
 
 // Register the Phase 0 command set before the UI mounts, then wire main's command
@@ -22,17 +23,45 @@ wireCommandBridge()
 // passive observer — wiring it in changes no terminal/UI behavior.
 wireTerminalStateBridge()
 
-// Seed main's session→workDir registry with the store's initial session(s): that
-// session was created before `window.pine` existed, so its `session-added` never
-// fired. Without this, main-side services can't resolve a workDir for it.
-for (const s of useSessionsStore.getState().sessions) {
-  window.pine?.lifecycle?.emit?.({ type: 'session-added', sessionId: s.id, workDir: s.workDir })
-}
-
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')
+const root = createRoot(container)
 
-// A window opened with `?detached=1` hosts a single torn-off pane, not the full shell.
+// A window opened with `?detached=1` hosts a single torn-off pane, not the full shell —
+// it owns no workspace, so it neither restores nor autosaves one.
 const isDetached = new URLSearchParams(window.location.search).has('detached')
 
-createRoot(container).render(<StrictMode>{isDetached ? <DetachedPane /> : <App />}</StrictMode>)
+/**
+ * Restore the previous run's workspace, then mount (session restore — see
+ * `stores/persistence.ts`). Hydration MUST land before the first render: `WorkZone` calls
+ * `layoutStore.ensure` as it mounts, and a pane mounted against the seeded layout would
+ * spawn a pty we'd orphan a tick later. `hydrate` also does the session→workDir seeding
+ * main needs (those sessions exist before `window.pine` does, so their `session-added`
+ * never fired on their own).
+ */
+async function boot(): Promise<void> {
+  let snapshot = null
+  try {
+    snapshot = (await window.pine?.session?.load?.()) ?? null
+  } catch (err) {
+    // A workspace we can't read is not a reason to fail to start — boot fresh instead.
+    console.error('[session] restore failed', err)
+  }
+  useSessionsStore.getState().hydrate(snapshot)
+  startWorkspaceAutosave()
+  root.render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+}
+
+if (isDetached) {
+  root.render(
+    <StrictMode>
+      <DetachedPane />
+    </StrictMode>,
+  )
+} else {
+  void boot()
+}

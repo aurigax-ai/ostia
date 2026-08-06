@@ -14,6 +14,7 @@ import type {
   PtyAttachResult,
   PtySpawnOptions,
   TerminalStateSnapshot,
+  WorkspaceSnapshot,
 } from '../shared/types'
 import {
   type ConsoleEntry,
@@ -41,6 +42,15 @@ import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { removeSession, setSessionWorkDir } from './sessionRegistry'
+import {
+  clearPersisted,
+  loadRestoredScrollback,
+  loadSnapshot,
+  parseSnapshot,
+  saveScrollback,
+  saveSnapshot,
+  takeRestoredScrollback,
+} from './sessionSnapshot'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
 import { registerWikiIpc, registerWikiMethods } from './wiki'
@@ -78,6 +88,21 @@ const ptys = new Map<string, PtyEntry>()
 /** Replayable output kept per pane (~1MB) and the grace before a detached pty is killed. */
 const PTY_BUFFER_CAP = 1_000_000
 const DETACH_GRACE_MS = 3000
+
+/**
+ * Session restore (`sessionSnapshot.ts`): mirrors the renderer's `behavior.restoreSession`
+ * setting, flipped by `session:save` (a `null` snapshot means "off"). Gates the quit-time
+ * scrollback dump so switching restore off actually stops writing history to disk.
+ */
+let restorePersistEnabled = true
+
+/**
+ * The seam between replayed history and the fresh shell's first prompt. Leads with a bare
+ * OSC 133;D so a command that was still running at quit doesn't come back as a block that
+ * runs forever (`blocksStore.commandEnd` no-ops when nothing is running), then a CRLF —
+ * the saved tail almost always ends mid-prompt, i.e. not at column 0.
+ */
+const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── session restored ──\x1b[0m\r\n'
 
 function killPty(paneId: string): void {
   const entry = ptys.get(paneId)
@@ -310,6 +335,39 @@ function registerIpc(): void {
       platform: process.platform,
     }),
   )
+
+  // ── Session restore (docs/ARCHITECTURE.md §"Autosave + resume") ──
+  // The renderer owns the layout tree, so it debounces a full workspace snapshot down to
+  // main (`stores/persistence.ts`); main only validates and persists it.
+  ipcMain.on('session:save', (e, snapshot: WorkspaceSnapshot | null) => {
+    // A torn-off pane window hosts ONE pane, not the workspace — letting it save would
+    // clobber the real snapshot with a one-pane workspace the next launch would restore.
+    if (detachedPanes.has(e.sender.id)) return
+    try {
+      if (snapshot === null) {
+        // "Restore session: off" — forget what's on disk rather than leaving a stale copy.
+        restorePersistEnabled = false
+        clearPersisted()
+        return
+      }
+      // Validate even our own renderer's payload: `parseSnapshot` is the single gate that
+      // guarantees whatever lands on disk is restorable (unique pane ids, bounded depth).
+      const parsed = parseSnapshot(snapshot)
+      if (!parsed) return
+      restorePersistEnabled = true
+      saveSnapshot(parsed)
+    } catch (err) {
+      console.error('[session] snapshot save failed', err)
+    }
+  })
+  ipcMain.handle('session:load', (): WorkspaceSnapshot | null => {
+    try {
+      return loadSnapshot()
+    } catch (err) {
+      console.error('[session] snapshot load failed', err)
+      return null
+    }
+  })
 
   // Custom window controls (frameless Win/Linux; available everywhere for symmetry).
   ipcMain.on('window:minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize())
@@ -559,11 +617,21 @@ function registerPtyIpc(): void {
     const entry: PtyEntry = { pty, session, subs: new Map([[subId, e.sender]]), killTimer: null }
     ptys.set(paneId, entry)
 
+    // Session restore: replay the previous run's output for this pane ahead of the fresh
+    // shell's first prompt, so the pane comes back looking like where you left it. Pushed
+    // through the ring (not sent straight to this subscriber) so a later remount — split,
+    // tear-off, phone reattach — replays the history too. One-shot: see
+    // `takeRestoredScrollback`.
+    const history = takeRestoredScrollback(paneId)
+    if (history) session.push(`${history}${RESTORE_SEAM}`)
+
     pty.onData((d) => session.push(d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
+    // Snapshot the replay BEFORE the live subscriber exists, so restored bytes can't also
+    // arrive down the live channel and paint twice.
+    const { data, cursor, dropped } = session.since(0)
     session.addLiveSubscriber(mkSub())
-    const { cursor, dropped } = session.since(0)
-    return { created: true, buffer: '', cursor, dropped }
+    return { created: true, buffer: data, cursor, dropped }
   })
 
   ipcMain.on('pty:detach', (e, paneId: string) => {
@@ -749,6 +817,9 @@ export function execCommand(
 }
 
 app.whenReady().then(() => {
+  // Read the previous run's per-pane scrollback into memory BEFORE any window (and so any
+  // `pty:attach`) exists — the first attach for a restored pane drains it.
+  loadRestoredScrollback()
   registerIpc()
   registerPtyIpc()
   registerFsIpc()
@@ -815,7 +886,25 @@ app.whenReady().then(() => {
   })
 })
 
+/**
+ * Dump each live pty's recent output so the next launch can replay it under a fresh shell.
+ * MUST run before the kill loop — `pty.kill()` drops the entry and its ring with it. The
+ * layout snapshot itself is already on disk (the renderer autosaves as you work), so quit
+ * needs no renderer round-trip, which there'd be no time for anyway.
+ */
+function persistScrollback(): void {
+  if (!restorePersistEnabled) return
+  try {
+    const byPane: Record<string, string> = {}
+    for (const [paneId, entry] of ptys) byPane[paneId] = entry.session.since(0).data
+    saveScrollback(byPane)
+  } catch (err) {
+    console.error('[session] scrollback save failed', err)
+  }
+}
+
 app.on('before-quit', () => {
+  persistScrollback()
   for (const entry of ptys.values()) {
     try {
       entry.pty.kill()

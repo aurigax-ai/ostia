@@ -1,4 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test'
+import { isolatedLaunch } from './dataHome'
 
 /**
  * Regression: narrowing a pane (split/resize) must not duplicate the shell prompt.
@@ -17,7 +18,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
  */
 test('splitting a pane does not duplicate the existing prompt', async () => {
   test.setTimeout(60_000)
-  const app = await electron.launch({ args: ['.'], env: { ...process.env, NODE_ENV: 'test' } })
+  const app = await electron.launch(isolatedLaunch())
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')

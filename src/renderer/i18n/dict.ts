@@ -86,6 +86,9 @@ export const en = {
     styleBar: 'Bar',
     cursorBlink: 'Cursor blink',
     cursorBlinkDesc: 'Blink the cursor in terminal panes.',
+    restoreSession: 'Restore session on launch',
+    restoreSessionDesc:
+      'Reopen your sessions, panes and terminal scrollback the next time pine starts. Shells are always respawned fresh.',
     appearanceDesc:
       'The theme and the fonts for each surface — UI, terminal, and editor are set independently.',
     generalDesc: 'Behavior toggles. All settings are stored in a JSON file you can edit directly.',
@@ -202,6 +205,9 @@ export const zhHant: Dict = {
     styleBar: '直線',
     cursorBlink: '游標閃爍',
     cursorBlinkDesc: '在終端機面板中閃爍游標。',
+    restoreSession: '啟動時還原工作階段',
+    restoreSessionDesc:
+      '下次啟動 pine 時重新開啟工作階段、面板與終端機捲動紀錄。Shell 一律重新啟動。',
     appearanceDesc: '佈景主題與各介面字型 — 介面、終端機與編輯器可個別設定。',
     generalDesc: '行為切換。所有設定都儲存在可直接編輯的 JSON 檔案中。',
     terminalDesc: '終端機面板的游標與行為。終端機字型在「外觀」中設定。',

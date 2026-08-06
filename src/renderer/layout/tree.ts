@@ -20,6 +20,20 @@ function genId(prefix: string): string {
   return `${prefix}-${counter}`
 }
 
+/**
+ * Advance the id counter past every `<prefix>-<n>` id in `node` (session restore). Ids in a
+ * restored tree were minted by a PREVIOUS run, but the counter starts at 0 each launch — so
+ * without this the next `createPane()` re-issues an id a restored pane already holds, and
+ * main keys its ptys by pane id: two panes would share one shell. Never rewinds, and ignores
+ * ids that don't end in a number (nothing to reserve). The one sanctioned mutation here
+ * besides `resetIds` — the tree transforms themselves stay pure.
+ */
+export function adoptIds(node: LayoutNode): void {
+  const n = Number(/-(\d+)$/.exec(node.id)?.[1])
+  if (Number.isFinite(n)) counter = Math.max(counter, n)
+  if (node.type === 'split') for (const child of node.children) adoptIds(child)
+}
+
 const SURFACE_TITLE: Record<SurfaceKind, string> = {
   terminal: 'zsh',
   editor: 'untitled',

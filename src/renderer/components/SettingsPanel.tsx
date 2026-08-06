@@ -304,6 +304,7 @@ function TerminalSection(): JSX.Element {
   const d = useDict()
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
+  const restoreSession = useSettingsStore((s) => s.behavior.restoreSession)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   const styleLabel: Record<CursorStyle, string> = {
     block: d.settings.styleBlock,
@@ -326,6 +327,12 @@ function TerminalSection(): JSX.Element {
         desc={d.settings.cursorBlinkDesc}
         checked={cursorBlink}
         onChange={(v) => setBehavior({ cursorBlink: v })}
+      />
+      <ToggleRow
+        label={d.settings.restoreSession}
+        desc={d.settings.restoreSessionDesc}
+        checked={restoreSession}
+        onChange={(v) => setBehavior({ restoreSession: v })}
       />
     </section>
   )

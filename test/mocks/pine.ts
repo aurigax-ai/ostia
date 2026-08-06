@@ -50,6 +50,12 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     settings: {
       path: vi.fn().mockResolvedValue('/tmp/pine-test/settings.json'),
     },
+    session: {
+      save: vi.fn(),
+      // Default to "no previous run" so a component test never restores a surprise workspace;
+      // a restore test overrides with `mockResolvedValueOnce(snapshot)`.
+      load: vi.fn().mockResolvedValue(null),
+    },
     lifecycle: {
       emit: vi.fn(),
     },

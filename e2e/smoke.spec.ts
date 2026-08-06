@@ -1,4 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test'
+import { isolatedLaunch } from './dataHome'
 
 /**
  * Boot smoke: the built app launches, opens a window, and renders. This is the E2E
@@ -6,10 +7,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
  * pane, open editor, command palette) can follow.
  */
 test('boots and renders the main window', async () => {
-  const app = await electron.launch({
-    args: ['.'],
-    env: { ...process.env, NODE_ENV: 'test' },
-  })
+  const app = await electron.launch(isolatedLaunch())
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')

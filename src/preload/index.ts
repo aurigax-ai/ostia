@@ -21,6 +21,7 @@ import type {
   WikiPage,
   WikiPageSummary,
   WikiScope,
+  WorkspaceSnapshot,
 } from '../shared/types'
 
 /**
@@ -88,6 +89,10 @@ const bridge: PineBridge = {
   },
   settings: {
     path: () => ipcRenderer.invoke('settings:path') as Promise<string>,
+  },
+  session: {
+    save: (snapshot) => ipcRenderer.send('session:save', snapshot),
+    load: () => ipcRenderer.invoke('session:load') as Promise<WorkspaceSnapshot | null>,
   },
   lifecycle: {
     emit: (event) => ipcRenderer.send('lifecycle:event', event),
