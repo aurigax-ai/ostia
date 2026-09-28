@@ -44,6 +44,7 @@ describe('HistorySearch', () => {
     useWorkspacesStore.getState().addWorkspace()
     const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
     if (!workspaceId) throw new Error('no workspace')
+    useLayoutStore.getState().ensure(workspaceId)
     const root = useLayoutStore.getState().byWorkspace[workspaceId]?.root
     if (!root) throw new Error('no layout')
     return allPanes(root)[0].id

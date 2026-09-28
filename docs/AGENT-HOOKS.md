@@ -31,6 +31,13 @@ pane clears the waiting state.
 
 ## Claude Code
 
+**In a zsh or bash pane there is nothing to set up.** Pine's shell integration defines a
+`claude` function that runs `command claude --settings <tmp>/claude-settings.json "$@"`, and that
+generated file holds the four hooks below plus the `SessionStart` resume hook. Claude Code merges
+`--settings` with your own settings, so your hooks still run; if you also pasted these recipes,
+each fires twice, which is harmless. `command claude` runs Claude without Pine's hooks.
+
+The recipe is for Claude started any other way (fish, a script that calls the binary directly).
 Paste into `~/.claude/settings.json` (all projects) or `.claude/settings.json` (one project),
 merging with any `hooks` you already have:
 
@@ -111,7 +118,8 @@ The id is recorded when the agent **starts**, not when it stops: a locked screen
 process or a crash never gets to run a stop hook, so waiting for one would lose exactly the
 sessions you most want back.
 
-Claude Code: add a `SessionStart` hook. It fires on start, `--resume`, `/clear` and compaction,
+Claude Code in a zsh or bash pane already has this hook (see "Claude Code" above). Otherwise, add
+a `SessionStart` hook. It fires on start, `--resume`, `/clear` and compaction,
 so the pane always holds the current session id; `resume-token claude -` reads `session_id` from
 the hook's stdin JSON.
 

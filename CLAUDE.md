@@ -27,7 +27,7 @@ caused real bugs here.
 - Enforced: `pnpm lint` runs `node scripts/comments.mjs --check` and fails on any comment.
   `node scripts/comments.mjs` (no flag) strips them.
 - Generated shadcn files in `src/renderer/components/ui/**` are exempt; hand-edit them only to
-  swap animation classes (§5 Motion).
+  swap animation classes (§5 Motion) or their icons to Phosphor (§5 UI).
 - Strings are not comments: `#` lines inside the generated shell rc templates stay.
 
 ---
@@ -151,10 +151,15 @@ Details: `docs/ARCHITECTURE.md`.
   `workspace.new`, the chord, opening a file with none open) or by restore; never seed one at boot,
   on an empty restore, or when the last workspace closes. `activeWorkspaceId` is `null` then, and
   every reader (commands, WorkZone, attention sync, extension bridge, autosave) must handle it;
-  the work zone shows the empty state. An empty workspace is saved (`workspaces: []`) so a restart
+  the work zone shows the empty state. An empty app is saved (`workspaces: []`) so a restart
   restores zero workspaces.
-- **Workspace/pane guards:** `closePane` never removes the last pane and emits `pane-closed` only if
-  the pane existed; a workspace's `workDir` is the anchor, a pane's `cwd` wanders.
+- **A workspace may have no panes.** A new workspace starts with no layout and shows New terminal
+  / New browser; nothing (WorkZone, activation, restore) calls `ensure` on the user's behalf.
+  Closing the last pane removes the layout and emits `pane-closed`. Opening a file, browser,
+  panel or diff in an empty workspace makes it the first pane (`seedLayout`, only for a workspace
+  that exists). Empty workspaces are saved without `root` and restored empty.
+- **Workspace/pane guards:** `closePane` emits `pane-closed` only if the pane existed; a
+  workspace's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
   `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new workspace, `Ctrl+Shift+R` resume the pane's
@@ -264,6 +269,8 @@ Details: `docs/ARCHITECTURE.md`.
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
   selects, dialogs, tooltips. Tokens and type scale in `docs/DESIGN.md`; never hardcode colors or
   off-scale font sizes. `--fg-dim` is never used for text. Icon-only buttons are `IconButton`.
+  Icons come only from `@phosphor-icons/react` (`*Icon` names; weight set once by `IconContext`
+  in `App.tsx`, never per icon). No other icon family and no hand-drawn SVG icons.
 - **Motion:** overlays built on `components/ui/` get `motion-overlay` (or `motion-hint` for
   tooltips) and animate through Base UI's `data-starting-style`/`data-ending-style`; don't add
   tw-animate `animate-in`/`zoom-*`/`slide-*` classes. No scale on press, springs, bounces,

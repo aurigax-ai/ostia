@@ -1,3 +1,4 @@
+import { CodeIcon, EyeIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
@@ -7,6 +8,8 @@ import { langFor } from '../monaco/language'
 import { monaco } from '../monaco/setup'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { IconButton } from './IconButton'
+import { MarkdownPreview, isMarkdownPath } from './MarkdownPreview'
 
 export const EDITOR_FALLBACK =
   '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
@@ -74,6 +77,9 @@ export function EditorView({
   const font = useSettingsStore((s) => s.appearance.editor)
   const [binary, setBinary] = useState(false)
   const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
+  const [preview, setPreview] = useState(false)
+  const markdown = isMarkdownPath(filePath) && !binary
+  const previewText = useModelText(editorRef, markdown && preview)
   const external = useExternalEditorAction(paneId)
   const openExternalRef = useRef(external.open)
   openExternalRef.current = external.open
@@ -182,6 +188,17 @@ export function EditorView({
   return (
     <>
       <div ref={hostRef} className="editor-host" style={binary ? { display: 'none' } : undefined} />
+      {markdown && preview ? <MarkdownPreview source={previewText} /> : null}
+      {markdown ? (
+        <IconButton
+          className="editor-mode"
+          icon={preview ? CodeIcon : EyeIcon}
+          label={preview ? d.editor.editSource : d.editor.preview}
+          aria-pressed={preview}
+          hintSide="left"
+          onClick={() => setPreview((p) => !p)}
+        />
+      ) : null}
       {binary ? (
         <div className="pane-body editor-binary">
           <span className="ghost">{d.editor.binary}</span>
@@ -198,4 +215,29 @@ export function EditorView({
       ) : null}
     </>
   )
+}
+
+function useModelText(
+  editorRef: React.RefObject<monaco.editor.IStandaloneCodeEditor | null>,
+  enabled: boolean,
+): string {
+  const [text, setText] = useState('')
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!enabled || !editor) return
+    let content: monaco.IDisposable | undefined
+    const follow = (): void => {
+      content?.dispose()
+      const model = editor.getModel()
+      setText(model?.getValue() ?? '')
+      content = model?.onDidChangeContent(() => setText(model.getValue()))
+    }
+    follow()
+    const swap = editor.onDidChangeModel(follow)
+    return () => {
+      swap.dispose()
+      content?.dispose()
+    }
+  }, [editorRef, enabled])
+  return text
 }

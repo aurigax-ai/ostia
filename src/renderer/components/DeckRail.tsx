@@ -1,20 +1,22 @@
 import {
-  Bot,
-  Boxes,
-  FlaskConical,
-  FolderTree,
-  type LucideIcon,
-  Plus,
-  Settings,
-  Terminal,
-  X,
-} from 'lucide-react'
-import { useCallback, useState } from 'react'
+  FlaskIcon,
+  FolderSimpleIcon,
+  GearSixIcon,
+  type Icon as IconComponent,
+  PlusIcon,
+  RobotIcon,
+  StackIcon,
+  TerminalWindowIcon,
+  XIcon,
+} from '@phosphor-icons/react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
-import { paneIds } from '../layout/tree'
+import { allPanes, paneIds } from '../layout/tree'
 import { latestWaitingAt, unreadCount } from '../lib/attention'
+import { latestAttentionMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
@@ -29,10 +31,10 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { extensionIcon } from './extensionIcons'
 
-const KIND_ICON: Record<WorkspaceKind, LucideIcon> = {
-  agent: Bot,
-  terminal: Terminal,
-  scratch: FlaskConical,
+const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
+  agent: RobotIcon,
+  terminal: TerminalWindowIcon,
+  scratch: FlaskIcon,
 }
 
 export function DeckRail(): JSX.Element {
@@ -47,7 +49,7 @@ export function DeckRail(): JSX.Element {
         <IconButton
           size="bar"
           hintSide="right"
-          icon={Boxes}
+          icon={StackIcon}
           label={d.rail.workspaces}
           aria-pressed={view === 'workspaces'}
           onClick={() => setView('workspaces')}
@@ -55,7 +57,7 @@ export function DeckRail(): JSX.Element {
         <IconButton
           size="bar"
           hintSide="right"
-          icon={FolderTree}
+          icon={FolderSimpleIcon}
           label={d.rail.files}
           aria-pressed={view === 'files'}
           onClick={() => setView('files')}
@@ -74,6 +76,7 @@ function WorkspacesView(): JSX.Element {
   const setActive = useWorkspacesStore((s) => s.setActive)
   const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
   const closeWorkspace = useWorkspacesStore((s) => s.closeWorkspace)
+  const rename = useWorkspacesStore((s) => s.rename)
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
   const openSettings = useUIStore((s) => s.openSettings)
@@ -89,7 +92,7 @@ function WorkspacesView(): JSX.Element {
             onSelect={openSettings}
             onClose={closeSettings}
             closeLabel={d.rail.close}
-            icon={<Settings size={14} className="tab-lead" />}
+            icon={<GearSixIcon size={14} className="tab-lead" />}
             title={d.topbar.settings}
           />
         ) : null}
@@ -105,12 +108,17 @@ function WorkspacesView(): JSX.Element {
             onClose={() => closeWorkspace(s.id)}
             closeLabel={d.rail.close}
             icon={<WorkspaceIcon workspace={s} />}
-            title={s.name}
+            title={s.customName ?? s.name}
+            onRename={(name) => rename(s.id, name)}
+            renameLabel={d.rail.renameWorkspace}
             meta={
-              <span className="tab-meta">
-                <span className="tab-branch">{s.workDir}</span>
-                <SidebarItems workspaceId={s.id} />
-              </span>
+              <>
+                <WorkspaceSubtitle workspaceId={s.id} />
+                <span className="tab-meta">
+                  <span className="tab-branch">{s.workDir}</span>
+                  <SidebarItems workspaceId={s.id} />
+                </span>
+              </>
             }
             badge={<UnreadBadge workspaceId={s.id} />}
           />
@@ -128,7 +136,7 @@ function WorkspacesView(): JSX.Element {
             addWorkspace()
           }}
         >
-          <Plus size={14} />
+          <PlusIcon size={14} />
           <span>{d.rail.newWorkspace}</span>
         </button>
       </Hint>
@@ -229,6 +237,44 @@ function usePopOnIncrease(n: number): { active: boolean; generation: number; end
   return { active: seen.active, generation: seen.generation, end }
 }
 
+function WorkspaceSubtitle({ workspaceId }: { workspaceId: string }): JSX.Element | null {
+  const layout = useLayoutStore((s) => s.byWorkspace[workspaceId])
+  const panes = layout ? allPanes(layout.root) : []
+  const message = useAttentionStore((s) => latestAttentionMessage(panes, s.byPane))
+  const title = useBlocksStore((s) => runningTitle(panes, layout?.activePaneId, s.running))
+  const text = message ?? title
+  if (!text) return null
+  return <span className={`tab-subtitle${message ? ' unread' : ''}`}>{text}</span>
+}
+
+function RenameInput({
+  value,
+  label,
+  onDone,
+}: {
+  value: string
+  label: string
+  onDone: (name: string | null) => void
+}): JSX.Element {
+  const [draft, setDraft] = useState(value)
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => input.current?.select(), [])
+  return (
+    <input
+      ref={input}
+      className="tab-rename"
+      aria-label={label}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onDone(draft)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onDone(draft)
+        if (e.key === 'Escape') onDone(null)
+      }}
+    />
+  )
+}
+
 function TabRow({
   active,
   onSelect,
@@ -236,6 +282,8 @@ function TabRow({
   closeLabel,
   icon,
   title,
+  onRename,
+  renameLabel,
   meta,
   badge,
 }: {
@@ -245,12 +293,37 @@ function TabRow({
   closeLabel: string
   icon: React.ReactNode
   title: string
+  onRename?: (name: string) => void
+  renameLabel?: string
   meta?: React.ReactNode
   badge?: React.ReactNode
 }): JSX.Element {
+  const [renaming, setRenaming] = useState(false)
+  if (renaming && onRename) {
+    return (
+      <div className={`rail-tab${active ? ' active' : ''}`}>
+        <span className="rail-tab-main">
+          {icon}
+          <RenameInput
+            value={title}
+            label={renameLabel ?? title}
+            onDone={(name) => {
+              setRenaming(false)
+              if (name !== null) onRename(name)
+            }}
+          />
+        </span>
+      </div>
+    )
+  }
   return (
     <div className={`rail-tab${active ? ' active' : ''}`}>
-      <button type="button" className="rail-tab-main" onClick={onSelect}>
+      <button
+        type="button"
+        className="rail-tab-main"
+        onClick={onSelect}
+        onDoubleClick={onRename ? () => setRenaming(true) : undefined}
+      >
         {icon}
         <span className="tab-body">
           <span className="tab-title">{title}</span>
@@ -259,7 +332,7 @@ function TabRow({
         {badge}
       </button>
       <span className="tab-actions">
-        <IconButton icon={X} label={closeLabel} hintSide="right" onClick={onClose} />
+        <IconButton icon={XIcon} label={closeLabel} hintSide="right" onClick={onClose} />
       </span>
     </div>
   )

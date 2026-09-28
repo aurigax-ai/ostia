@@ -5,6 +5,7 @@ import type { LayoutNode, PaneNode } from './types'
 export interface RestorableWorkspace {
   id: string
   name: string
+  customName?: string
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
 }
@@ -53,15 +54,21 @@ export function buildSnapshot(input: {
   const workspaces: SnapshotWorkspace[] = []
   for (const workspace of input.workspaces) {
     const layout = input.layouts[workspace.id]
-    if (!layout) continue
-    const root = persistableRoot(layout.root, workspace.workDir)
+    const root = layout ? persistableRoot(layout.root, workspace.workDir) : null
     workspaces.push({
       id: workspace.id,
       name: workspace.name,
+      ...(workspace.customName ? { customName: workspace.customName } : {}),
       kind: workspace.kind,
       workDir: workspace.workDir,
-      root: fromLayoutNode(root),
-      activePaneId: findPane(root, layout.activePaneId) ? layout.activePaneId : firstPaneId(root),
+      ...(layout && root
+        ? {
+            root: fromLayoutNode(root),
+            activePaneId: findPane(root, layout.activePaneId)
+              ? layout.activePaneId
+              : firstPaneId(root),
+          }
+        : {}),
     })
   }
   const activeWorkspaceId = workspaces.some((s) => s.id === input.activeWorkspaceId)
@@ -83,10 +90,17 @@ export function restoreSnapshot(snapshot: AppSnapshot): {
   const workspaces: RestorableWorkspace[] = []
   const layouts: Record<string, RestorableLayout> = {}
   for (const s of snapshot.workspaces) {
+    workspaces.push({
+      id: s.id,
+      name: s.name,
+      ...(s.customName ? { customName: s.customName } : {}),
+      kind: s.kind,
+      workDir: s.workDir,
+    })
+    if (!s.root) continue
     const root = toLayoutNode(s.root)
     adoptIds(root)
-    workspaces.push({ id: s.id, name: s.name, kind: s.kind, workDir: s.workDir })
-    layouts[s.id] = { root, activePaneId: s.activePaneId, zoomedPaneId: null }
+    layouts[s.id] = { root, activePaneId: s.activePaneId ?? firstPaneId(root), zoomedPaneId: null }
   }
   return { workspaces, activeWorkspaceId: snapshot.activeWorkspaceId, layouts }
 }

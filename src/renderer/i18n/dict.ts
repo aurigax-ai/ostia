@@ -2,12 +2,13 @@ export type Locale = string
 
 export const en = {
   search: {
-    placeholder: 'Search workspaces, agents, files… or run a command',
+    placeholder: 'Search commands, workspaces, tabs…',
     command: 'Search or run a command',
   },
   rail: {
     workspaces: 'Workspaces',
     newWorkspace: 'New workspace',
+    renameWorkspace: 'Workspace name',
     files: 'Files',
     noFolder: 'No folder open',
     close: 'Close',
@@ -46,6 +47,9 @@ export const en = {
     splitDown: 'Split down',
     close: 'Close pane',
     newTerminal: 'New terminal',
+    newBrowser: 'New browser',
+    emptyTitle: 'Empty workspace',
+    emptyBody: 'Open a terminal or a browser to start.',
     tabs: 'Tabs',
     newTab: 'New terminal tab',
     newBrowserTab: 'New browser tab',
@@ -54,8 +58,14 @@ export const en = {
   },
   palette: {
     title: 'Command palette',
-    placeholder: 'Type a command…',
-    empty: 'No matching commands',
+    placeholder: 'Search commands, workspaces, tabs… (? for help)',
+    empty: 'Nothing matches',
+    helpHeading: 'Type a prefix to narrow the search',
+    modes: {
+      commands: 'Commands',
+      workspaces: 'Workspaces',
+      tabs: 'Tabs',
+    },
   },
   topbar: {
     toggleSidebar: 'Toggle sidebar',
@@ -89,6 +99,8 @@ export const en = {
     binary: 'Binary file, not opened in the editor',
     saveError: 'Could not save {path}',
     openExternal: 'Open in External Editor',
+    preview: 'Preview Markdown',
+    editSource: 'Edit Markdown source',
     externalNoEditor:
       'No external editor found. Set behavior.externalEditor in Settings (e.g. code -g {file}:{line}).',
     externalFailed: 'Could not open the external editor: {error}',
@@ -99,6 +111,8 @@ export const en = {
     missing: 'This diff is no longer available. Open it again from its source.',
   },
   browser: {
+    loadFailed: 'This page couldn’t load',
+    retry: 'Try again',
     back: 'Back',
     forward: 'Forward',
     reload: 'Reload',
@@ -268,12 +282,13 @@ export type Dict = typeof en
 
 export const zhHant: Dict = {
   search: {
-    placeholder: '搜尋工作區、代理程式、檔案… 或執行指令',
+    placeholder: '搜尋指令、工作區、分頁…',
     command: '搜尋或執行指令',
   },
   rail: {
     workspaces: '工作區',
     newWorkspace: '新增工作區',
+    renameWorkspace: '工作區名稱',
     files: '檔案',
     noFolder: '尚未開啟資料夾',
     close: '關閉',
@@ -312,6 +327,9 @@ export const zhHant: Dict = {
     splitDown: '向下分割',
     close: '關閉面板',
     newTerminal: '新增終端機',
+    newBrowser: '新增瀏覽器',
+    emptyTitle: '空的工作區',
+    emptyBody: '開啟終端機或瀏覽器以開始。',
     tabs: '分頁',
     newTab: '新增終端機分頁',
     newBrowserTab: '新增瀏覽器分頁',
@@ -320,8 +338,14 @@ export const zhHant: Dict = {
   },
   palette: {
     title: '指令面板',
-    placeholder: '輸入指令…',
-    empty: '沒有符合的指令',
+    placeholder: '搜尋指令、工作區、分頁…（輸入 ? 查看說明）',
+    empty: '沒有符合的項目',
+    helpHeading: '輸入前綴以縮小搜尋範圍',
+    modes: {
+      commands: '指令',
+      workspaces: '工作區',
+      tabs: '分頁',
+    },
   },
   topbar: {
     toggleSidebar: '切換側邊欄',
@@ -352,6 +376,8 @@ export const zhHant: Dict = {
     close: '關閉尋找',
   },
   editor: {
+    preview: '預覽 Markdown',
+    editSource: '編輯 Markdown 原始碼',
     binary: '二進位檔案，未在編輯器中開啟',
     saveError: '無法儲存 {path}',
     openExternal: '在外部編輯器中開啟',
@@ -365,6 +391,8 @@ export const zhHant: Dict = {
     missing: '此差異已無法使用。請從來源重新開啟。',
   },
   browser: {
+    loadFailed: '無法載入此頁面',
+    retry: '重試',
     back: '上一頁',
     forward: '下一頁',
     reload: '重新載入',

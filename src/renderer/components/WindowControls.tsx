@@ -1,8 +1,7 @@
-import { Copy, Minus, Square, X } from 'lucide-react'
+import { CopyIcon, MinusIcon, SquareIcon, XIcon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { isMac } from '../platform'
-import { Hint } from './Hint'
 
 export function WindowControls(): JSX.Element | null {
   const d = useDict()
@@ -24,21 +23,28 @@ export function WindowControls(): JSX.Element | null {
 
   return (
     <div className="win-controls no-drag">
-      <Hint label={d.window.minimize} side="bottom">
-        <button type="button" onClick={() => window.pine.window.minimize()}>
-          <Minus size={16} />
-        </button>
-      </Hint>
-      <Hint label={maximized ? d.window.restore : d.window.maximize} side="bottom">
-        <button type="button" onClick={() => window.pine.window.toggleMaximize()}>
-          {maximized ? <Copy size={12} /> : <Square size={12} />}
-        </button>
-      </Hint>
-      <Hint label={d.window.close} side="bottom">
-        <button type="button" className="close" onClick={() => window.pine.window.close()}>
-          <X size={16} />
-        </button>
-      </Hint>
+      <button
+        type="button"
+        aria-label={d.window.minimize}
+        onClick={() => window.pine.window.minimize()}
+      >
+        <MinusIcon size={16} />
+      </button>
+      <button
+        type="button"
+        aria-label={maximized ? d.window.restore : d.window.maximize}
+        onClick={() => window.pine.window.toggleMaximize()}
+      >
+        {maximized ? <CopyIcon size={12} /> : <SquareIcon size={12} />}
+      </button>
+      <button
+        type="button"
+        className="close"
+        aria-label={d.window.close}
+        onClick={() => window.pine.window.close()}
+      >
+        <XIcon size={16} />
+      </button>
     </div>
   )
 }

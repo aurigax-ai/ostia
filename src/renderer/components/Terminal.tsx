@@ -18,6 +18,7 @@ import { stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, matchChord } from '../lib/chords'
 import { registerTerminal } from '../lib/terminalHandles'
+import { terminalTitle } from '../lib/terminalTitle'
 import {
   isPaneViewed,
   isPaneVisible,
@@ -185,6 +186,10 @@ export function TerminalView({
     const oscNotify99 = term.parser.registerOscHandler(99, (data) => {
       const chunk = parseOsc99(data, decodeBase64Utf8)
       return notifyFromTerminal(chunk ? kitty.push(chunk) : null)
+    })
+    const titleChange = term.onTitleChange((raw) => {
+      const title = terminalTitle(raw)
+      if (title) useLayoutStore.getState().setTitle(workspaceId, paneId, title)
     })
     const bell = term.onBell(() => {
       if (replaying || isPaneViewed(paneId)) return
@@ -403,6 +408,7 @@ export function TerminalView({
       oscNotify777.dispose()
       oscNotify99.dispose()
       bell.dispose()
+      titleChange.dispose()
       promptMarker?.dispose()
       disposeMarkers()
       unregisterTerminal()

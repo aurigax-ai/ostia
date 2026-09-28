@@ -69,15 +69,32 @@ describe('buildSnapshot', () => {
     expect(captured?.type === 'split' && captured.children[0]).not.toBe(root.children[0])
   })
 
-  it('skips a workspace that has no layout yet', () => {
+  it('saves a workspace that has no layout as an empty workspace', () => {
     const root = createPane()
     const snapshot = buildSnapshot({
       workspaces: [WORKSPACE, { id: 's2', name: 'x', kind: 'terminal', workDir: '/tmp' }],
-      activeWorkspaceId: 's1',
+      activeWorkspaceId: 's2',
       layouts: { s1: { root, activePaneId: root.id } },
       savedAt: '',
     })
-    expect(snapshot?.workspaces.map((s) => s.id)).toEqual(['s1'])
+    expect(snapshot.workspaces[1]).toEqual({
+      id: 's2',
+      name: 'x',
+      kind: 'terminal',
+      workDir: '/tmp',
+    })
+    expect(snapshot.activeWorkspaceId).toBe('s2')
+    expect(restoreSnapshot(snapshot).layouts).not.toHaveProperty('s2')
+  })
+
+  it('saves and restores a name the user gave a workspace', () => {
+    const snapshot = buildSnapshot({
+      workspaces: [{ ...WORKSPACE, customName: 'payments' }],
+      activeWorkspaceId: 's1',
+      layouts: {},
+      savedAt: '',
+    })
+    expect(restoreSnapshot(snapshot).workspaces[0].customName).toBe('payments')
   })
 
   it('drops diff panes, which hold live in-memory content, and refocuses a survivor', () => {
@@ -98,12 +115,6 @@ describe('buildSnapshot', () => {
       kind: 'terminal',
       cwd: '/home/u/proj',
     })
-  })
-
-  it('builds an empty workspace when no workspace has a layout', () => {
-    expect(
-      buildSnapshot({ workspaces: [WORKSPACE], activeWorkspaceId: 's1', layouts: {}, savedAt: '' }),
-    ).toEqual({ v: 1, savedAt: '', activeWorkspaceId: null, workspaces: [] })
   })
 
   it('builds an empty workspace with no active workspace when there are no workspaces', () => {
