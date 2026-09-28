@@ -73,6 +73,7 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `processManager.ts`, `vault.ts`, `bus.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
 | `extensionHost.ts`, `extensionManifest.ts`, `extensionStore.ts` | Extension host: discovery + manifest validation, approval records, extension processes, `ext.*` control methods (§11) |
 | `browse.ts` | `browse.*` automation of browser panes (§9) |
+| `browsePick.ts`, `guestNetwork.ts` | Pick element: `browse.pick`, `browser:pick-*` IPC, UI-issue reports; failed-request buffer per guest (§9) |
 | `gateway/` | LAN gateway: `index.ts` (methods + IPC), `server.ts`, `controlDispatch.ts`, `devices.ts`, `pairing.ts`, `cert.ts`, `interfaces.ts` (§7) |
 
 Why the control-plane modules never import `main/index.ts`: that creates an import cycle.
@@ -112,7 +113,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | lifecycle | `lifecycle.emit` (`pane-created`, `pane-closed`, `session-added`, `session-closed`, `session-activated`, `session-state`) |
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
 | terminal state | `terminalState.push` |
-| browser | `register`, `unregister` |
+| browser | `register`, `unregister`, `pickStart`, `pickCancel`, `pickSend`, `onPickState` (push channel `browser:pick-state`) |
 | extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel`, `sidebarItems`, `onChanged`, `onSidebar`, `onOpenPanel` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:open-panel`) |
 | gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke`, `bind-options`, `set-cap` (IPC only) |
 | notifications | `list` (newest first), `post`, `clear`, `onChanged`, `onActivate` (push channels `notifications:changed`, `notifications:activate`) |
@@ -638,6 +639,37 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
     - `<webview>` can't intercept synchronous dialogs, so `alert/confirm/prompt` are replaced and
       follow a standing accept/dismiss policy that resets to dismiss on every navigation.
     - Element refs and `reactGrab` state are lost on navigation.
+- **Pick element** (`main/browsePick.ts`, `shared/pickRuntime.ts`, `shared/pick.ts`,
+  `components/BrowserView.tsx` + `PickSendPanel.tsx`, `lib/sendPick.ts`):
+  - The inspector is one self-contained function, `pickRuntime(window)`, serialized with
+    `toString()` and run with `executeJavaScriptInIsolatedWorld(PICK_WORLD_ID, …)`. Why: the
+    isolated world shares the DOM but not JS globals, so the page can't read, patch or call it,
+    and it sees no Pine token or IPC (guests have no preload). The same function is unit-tested in
+    jsdom, and a test runs the serialized string to prove it has no outside references.
+  - Hover draws a box + label in a closed shadow root on a `pointer-events: none` host; click
+    (capture phase, default prevented) resolves the promise `start()` returned; Escape resolves
+    null. Only `isTrusted` events count, so page scripts can't fake a pick or a cancel.
+  - Main owns the pick: one per pane (`busy` otherwise), ended by cancel, timeout, main-frame
+    navigation, guest destruction, or (for `browse.pick`) the CLI connection closing. It
+    broadcasts `browser:pick-state` so the toolbar toggle and hint follow agent-started picks.
+  - The capture is normalized and truncated in main (`normalizeCapture`: html ≤ 2 KB, style
+    whitelist, last 20 console errors and failed requests). The element screenshot is
+    `capturePage(rect)` with the CSS box clipped to the viewport and scaled by the zoom factor,
+    saved in `privateTmpDir('pine-reports')`.
+  - The renderer only gets a capture id back to send with. `browser:pick-send` checks the sender
+    owns the source pane and that the capture came from it, writes `ui-issue-N.md` (mode 0600,
+    `wx`, never overwritten), and posts a JSON `ui-issue` bus message from the browser pane's
+    identity to the target. The renderer then pastes `@<path> ` (bracketed paste, no Enter) when
+    the target is at an idle shell prompt or its running agent reported `waiting`/`done`
+    (`canInsertReference`); otherwise the path goes to the clipboard. The target's attention is
+    set to `working`, which never rings.
+  - Failed requests come from CDP `Network.*` events on the debugger already attached for the
+    error catcher (`guestNetwork.ts`); like the catcher, they stop if DevTools takes the debugger.
+  - The overlay takes theme colors from the renderer on every user pick; agent picks reuse the
+    last ones (Adeberry until the user has picked once).
+  - Iframes aren't inspected: events inside a child frame don't reach the top window.
+- **Your real Chrome**: Pine doesn't speak CDP to it; `docs/CHROME.md` pairs agents with Chrome
+  DevTools MCP.
   - **Limits**: console and errors 500 each, dialogs 200, snapshot 2000 nodes, depth 40
     (max 200).
 

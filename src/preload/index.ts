@@ -6,6 +6,7 @@ import type {
   ExtensionResult,
   ExtensionSidebarItem,
 } from '../shared/extensions'
+import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type {
   AppInfo,
   CommandInvokeRequest,
@@ -111,6 +112,15 @@ const bridge: PineBridge = {
     register: (paneId, webContentsId) =>
       ipcRenderer.send('browser:register', paneId, webContentsId),
     unregister: (paneId) => ipcRenderer.send('browser:unregister', paneId),
+    pickStart: (paneId, theme) =>
+      ipcRenderer.invoke('browser:pick-start', paneId, theme) as Promise<PickOutcome>,
+    pickCancel: (paneId) => ipcRenderer.send('browser:pick-cancel', paneId),
+    pickSend: (req) => ipcRenderer.invoke('browser:pick-send', req) as Promise<PickSendResult>,
+    onPickState: (cb) => {
+      const handler = (_e: unknown, state: PickState): void => cb(state)
+      ipcRenderer.on('browser:pick-state', handler)
+      return () => ipcRenderer.removeListener('browser:pick-state', handler)
+    },
   },
   extensions: {
     list: () => ipcRenderer.invoke('extensions:list') as Promise<ExtensionInfo[]>,
