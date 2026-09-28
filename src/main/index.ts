@@ -31,7 +31,7 @@ import { registerBusMethods } from './bus'
 import { dropIdentity } from './capabilityStore'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
-import { emitPlatformEvent } from './events'
+import { emitPlatformEvent, emitSessionState } from './events'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { getByPaneId, registerPane, removePane, removeWindow } from './idRegistry'
@@ -294,12 +294,7 @@ function registerIpc(): void {
       removeSession(event.sessionId)
     } else if (event.type === 'session-activated') {
     } else if (event.type === 'session-state') {
-      emitPlatformEvent('session.state', { sessionId: event.sessionId, state: event.state })
-      if (event.state === 'waiting') {
-        emitPlatformEvent('agent.needs-input', { sessionId: event.sessionId })
-      } else if (event.state === 'done') {
-        emitPlatformEvent('agent.done', { sessionId: event.sessionId })
-      }
+      emitSessionState(event.sessionId, event.state)
     }
   })
 

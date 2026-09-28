@@ -42,3 +42,9 @@ export function emitPlatformEvent<T extends PlatformEventType>(
 ): void {
   platformEvents.emit(type, payload)
 }
+
+export function emitSessionState(sessionId: string, state: SessionLiveState): void {
+  emitPlatformEvent('session.state', { sessionId, state })
+  if (state === 'waiting') emitPlatformEvent('agent.needs-input', { sessionId })
+  else if (state === 'done') emitPlatformEvent('agent.done', { sessionId })
+}

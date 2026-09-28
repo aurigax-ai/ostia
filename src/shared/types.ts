@@ -1,4 +1,4 @@
-import type { Capability } from './capabilities'
+import type { Capability, PhoneGrantableCap } from './capabilities'
 
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
 
@@ -299,6 +299,23 @@ export interface GatewayDevice {
   createdAt: string
 }
 
+export type GatewayBindKind = 'loopback' | 'lan' | 'tailscale' | 'custom'
+
+export interface GatewayBindAddress {
+  address: string
+  kind: GatewayBindKind
+  iface?: string
+}
+
+export interface GatewayBindOptions {
+  addresses: GatewayBindAddress[]
+  selected: string
+}
+
+export type GatewaySetCapResult =
+  | { ok: true; caps: string[] }
+  | { ok: false; error: 'not-found' | 'invalid-cap' | 'requires-command' }
+
 export interface GatewayApi {
   enable: (opts?: { host?: string; port?: number }) => Promise<GatewayEnableResult>
   disable: () => Promise<{ ok: true }>
@@ -306,6 +323,12 @@ export interface GatewayApi {
   status: () => Promise<GatewayStatus>
   devices: () => Promise<{ devices: GatewayDevice[] }>
   revoke: (deviceId: string) => Promise<{ ok: boolean; error?: string }>
+  setCap: (
+    deviceId: string,
+    cap: PhoneGrantableCap,
+    granted: boolean,
+  ) => Promise<GatewaySetCapResult>
+  bindOptions: () => Promise<GatewayBindOptions>
 }
 
 export interface PineBridge {

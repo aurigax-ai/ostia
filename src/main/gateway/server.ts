@@ -1,10 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { type Server as HttpsServer, createServer as createHttpsServer } from 'node:https'
+import type { AddressInfo } from 'node:net'
 import { app } from 'electron'
 import { type WebSocket, WebSocketServer } from 'ws'
 import { PRODUCT_NAME } from '../../shared/product'
 import { PLATFORM_EVENT_TYPES, type PlatformEventType, platformEvents } from '../events'
-import { resolveExternal } from '../idRegistry'
+import { getByPaneId, resolveExternal } from '../idRegistry'
 import { loadJson, saveJson, storePath } from '../jsonStore'
 import { type GatewayCert, getCert } from './cert'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
@@ -20,6 +21,7 @@ import { auditPairAttempt, checkPairRateLimit, consumeCode } from './pairing'
 const FRAME_PTY_OUTPUT = 0x01
 const FRAME_PTY_INPUT = 0x02
 const FRAME_PTY_RESIZE = 0x03
+const MAX_PTY_DIM = 1000
 
 export interface GatewayStartOptions {
   host?: string
@@ -118,17 +120,55 @@ export function closeDeviceSockets(deviceId: string): void {
   socketsByDevice.delete(deviceId)
 }
 
-function isDeviceRevoked(deviceId: string): boolean {
-  return getDevice(deviceId) === null
+function refreshDevice(state: SocketState): Device | null {
+  if (!state.device) return null
+  const fresh = getDevice(state.device.deviceId)
+  if (fresh) state.device = fresh
+  return fresh
 }
 
+function eventFrame(type: string, payload: unknown): string {
+  return JSON.stringify({ jsonrpc: '2.0', method: 'event', params: { type, payload } })
+}
+
+export function applyDeviceCaps(deviceId: string, caps: string[]): void {
+  const set = socketsByDevice.get(deviceId)
+  if (!set) return
+  for (const ws of [...set]) {
+    const state = sockets.get(ws)
+    if (!state?.device) continue
+    const lost = state.device.caps.some((c) => !caps.includes(c))
+    state.device = { ...state.device, caps: [...caps] }
+    if (lost) {
+      state.ptyAttachment?.detach()
+      state.ptyAttachment = null
+      ws.close(4004, 'caps-changed')
+    } else if (ws.readyState === ws.OPEN) {
+      ws.send(eventFrame('caps.changed', { caps }))
+    }
+  }
+}
+
+const NOTIFY_CAP_EVENTS: ReadonlySet<PlatformEventType> = new Set([
+  'notify',
+  'agent.needs-input',
+  'agent.done',
+])
+
 export function capForPlatformEvent(type: PlatformEventType): string {
-  return type === 'notify' ? 'notify' : 'read'
+  return NOTIFY_CAP_EVENTS.has(type) ? 'notify' : 'read'
+}
+
+function phonePayload(type: PlatformEventType, payload: unknown): unknown {
+  if (type !== 'notify' || !payload || typeof payload !== 'object') return payload
+  const { from, ...rest } = payload as { from?: unknown }
+  const external = typeof from === 'string' ? (getByPaneId(from)?.externalId ?? null) : null
+  return { ...rest, from: external }
 }
 
 export function broadcastEvent(type: PlatformEventType, payload: unknown): void {
   const cap = capForPlatformEvent(type)
-  const frame = JSON.stringify({ jsonrpc: '2.0', method: 'event', params: { type, payload } })
+  const frame = eventFrame(type, phonePayload(type, payload))
   for (const [ws, state] of sockets) {
     if (!state.device || !state.device.caps.includes(cap)) continue
     if (ws.readyState === ws.OPEN) ws.send(frame)
@@ -289,12 +329,12 @@ function handleHello(
   )
 }
 
-function handleWhoami(ws: WebSocket, state: SocketState, msg: { id?: unknown }): void {
-  if (!state.device) {
-    ws.send(rpcError(msg.id, -32001, 'unauthenticated'))
-    return
-  }
-  ws.send(rpcResult(msg.id, { deviceId: state.device.deviceId, caps: state.device.caps }))
+function handleWhoami(ws: WebSocket, device: Device, msg: { id?: unknown }): void {
+  ws.send(rpcResult(msg.id, { deviceId: device.deviceId, caps: device.caps }))
+}
+
+function handleDeviceCaps(ws: WebSocket, device: Device, msg: { id?: unknown }): void {
+  ws.send(rpcResult(msg.id, { caps: device.caps }))
 }
 
 function handleControlMethod(
@@ -374,6 +414,7 @@ function handlePtyAttach(
       dropped: attached.dropped,
       cols: attached.cols,
       rows: attached.rows,
+      role,
     }),
   )
 }
@@ -396,37 +437,51 @@ function handlePtyDetach(
   ws.send(rpcResult(msg.id, { ok: true }))
 }
 
+function isPtyDim(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= MAX_PTY_DIM
+}
+
+function parseResize(payload: Buffer): { paneId?: unknown; cols: number; rows: number } | null {
+  let resize: { paneId?: unknown; cols?: unknown; rows?: unknown }
+  try {
+    resize = JSON.parse(payload.toString('utf8'))
+  } catch {
+    return null
+  }
+  if (!resize || !isPtyDim(resize.cols) || !isPtyDim(resize.rows)) return null
+  return { paneId: resize.paneId, cols: resize.cols, rows: resize.rows }
+}
+
+function resizeTargetsAttachment(paneId: unknown, attachment: PtyAttachment): boolean {
+  if (paneId === undefined) return true
+  if (typeof paneId !== 'string') return false
+  return resolveExternal(paneId)?.paneId === attachment.rendererPaneId
+}
+
 function handleBinaryFrame(ws: WebSocket, state: SocketState, data: Buffer): void {
   if (!state.device || !controlDeps || data.length < 1) return
-  if (isDeviceRevoked(state.device.deviceId)) {
+  const device = refreshDevice(state)
+  if (!device) {
     ws.close(4003, 'revoked')
     return
   }
   const type = data[0]
   const payload = data.subarray(1)
   const attachment = state.ptyAttachment
+  const canWrite = attachment?.canWrite === true && device.caps.includes('input')
 
-  if (type === FRAME_PTY_INPUT) {
-    if (!attachment?.canWrite) {
+  if (type === FRAME_PTY_INPUT || type === FRAME_PTY_RESIZE) {
+    if (!attachment || !canWrite) {
       ws.send(rpcError(null, -32003, 'needs-elevation', { cap: 'input' }))
       return
     }
-    controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'))
-    return
-  }
-
-  if (type === FRAME_PTY_RESIZE) {
-    if (!attachment) return
-    let resize: { cols?: unknown; rows?: unknown }
-    try {
-      resize = JSON.parse(payload.toString('utf8'))
-    } catch {
+    if (type === FRAME_PTY_INPUT) {
+      controlDeps.ptyWrite(attachment.rendererPaneId, payload.toString('utf8'))
       return
     }
-    if (typeof resize.cols === 'number' && typeof resize.rows === 'number') {
-      controlDeps.ptyResize(attachment.rendererPaneId, resize.cols, resize.rows)
-    }
-    return
+    const resize = parseResize(payload)
+    if (!resize || !resizeTargetsAttachment(resize.paneId, attachment)) return
+    controlDeps.ptyResize(attachment.rendererPaneId, resize.cols, resize.rows)
   }
 }
 
@@ -462,24 +517,29 @@ function handleConnection(ws: WebSocket): void {
       ws.close(4001, 'unauthenticated')
       return
     }
-    if (isDeviceRevoked(state.device.deviceId)) {
+    const device = refreshDevice(state)
+    if (!device) {
       ws.send(rpcError(msg.id, -32001, 'device revoked'))
       ws.close(4003, 'revoked')
       return
     }
     if (msg.method === 'whoami') {
-      handleWhoami(ws, state, msg)
+      handleWhoami(ws, device, msg)
+      return
+    }
+    if (msg.method === 'device.caps') {
+      handleDeviceCaps(ws, device, msg)
       return
     }
     if (msg.method === 'pty.attach') {
-      handlePtyAttach(ws, state, state.device, msg)
+      handlePtyAttach(ws, state, device, msg)
       return
     }
     if (msg.method === 'pty.detach') {
       handlePtyDetach(ws, state, msg)
       return
     }
-    handleControlMethod(ws, state.device, msg)
+    handleControlMethod(ws, device, msg)
   })
 
   ws.on('close', () => {
@@ -535,12 +595,13 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   httpsServer = server
   wss = wsServer
   boundHost = host
-  boundPort = port
+  const listeningPort = (server.address() as AddressInfo).port
+  boundPort = listeningPort
   currentFingerprint = cert.fingerprint
   startHeartbeat()
   subscribePlatformEvents()
 
-  return { host, port, fingerprint: cert.fingerprint, warning: hostWarning(host) }
+  return { host, port: listeningPort, fingerprint: cert.fingerprint, warning: hostWarning(host) }
 }
 
 export async function stopGateway(): Promise<void> {
@@ -563,6 +624,10 @@ export async function stopGateway(): Promise<void> {
 
   if (wssToClose) await new Promise<void>((resolve) => wssToClose.close(() => resolve()))
   if (httpsToClose) await new Promise<void>((resolve) => httpsToClose.close(() => resolve()))
+}
+
+export function configuredHost(): string {
+  return boundHost ?? loadGatewayConfig().host ?? DEFAULT_HOST
 }
 
 export function gatewayStatus(): GatewayStatus {
