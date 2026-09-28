@@ -14,12 +14,12 @@ describe('PtySession', () => {
     const a: string[] = []
     const res = s.addSubscriber(sub('a', 'owner', a))
     expect(res.dropped).toBe(false)
-    expect(a).toEqual(['boot\n']) // replayed history
+    expect(a).toEqual(['boot\n'])
     const b: string[] = []
     s.addSubscriber(sub('b', 'observer', b))
     s.push('live')
     expect(a).toEqual(['boot\n', 'live'])
-    expect(b).toEqual(['boot\n', 'live']) // both get live output
+    expect(b).toEqual(['boot\n', 'live'])
   })
 
   it('only owners may write; observers may not', () => {
@@ -39,9 +39,9 @@ describe('PtySession', () => {
     s.removeSubscriber('o1')
     expect(onNoOwners).not.toHaveBeenCalled()
     s.removeSubscriber('v')
-    expect(onNoOwners).not.toHaveBeenCalled() // observer leaving doesn't matter
+    expect(onNoOwners).not.toHaveBeenCalled()
     s.removeSubscriber('o2')
-    expect(onNoOwners).toHaveBeenCalledTimes(1) // last owner gone
+    expect(onNoOwners).toHaveBeenCalledTimes(1)
   })
 
   it('notifies onExit and forwards exit to no one after end', () => {
@@ -56,11 +56,11 @@ describe('PtySession', () => {
     s.push('boot\n')
     const sink: string[] = []
     s.addSubscriber(sub('a', 'owner', sink))
-    sink.length = 0 // clear the replay send from addSubscriber
+    sink.length = 0
     const result = s.since(0)
     expect(result.data).toBe('boot\n')
     expect(result.dropped).toBe(false)
-    expect(sink).toEqual([]) // no send invoked
+    expect(sink).toEqual([])
   })
 
   it('addLiveSubscriber receives future pushes but not past history', () => {
@@ -68,7 +68,7 @@ describe('PtySession', () => {
     s.push('old')
     const sink: string[] = []
     s.addLiveSubscriber(sub('a', 'owner', sink))
-    expect(sink).toEqual([]) // no replay
+    expect(sink).toEqual([])
     s.push('new')
     expect(sink).toEqual(['new'])
   })

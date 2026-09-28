@@ -1,20 +1,22 @@
 import type { WikiFailure, WikiPage, WikiPageSummary, WikiScope } from '@shared/types'
 import { Plus } from 'lucide-react'
 import { type JSX, useCallback, useEffect, useState } from 'react'
+import { useDict } from '../i18n/useDict'
 import { useSessionsStore } from '../stores/sessionsStore'
+import { IconButton } from './IconButton'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
+import { Textarea } from './ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group'
 
 function isFailure<T>(r: T | WikiFailure): r is WikiFailure {
   return typeof r === 'object' && r !== null && 'error' in r
 }
 
-/** The pane's own session's workDir (NOT the globally active session) — mirrors
- *  `KanbanView.tsx`'s `useWorkDir`. */
 function useWorkDir(sessionId: string): string {
   return useSessionsStore((s) => s.sessions.find((c) => c.id === sessionId)?.workDir ?? '~')
 }
 
-/** `text**bold**text` / `` `code` `` inline spans within one line — no nesting, good enough
- *  for a tiny dependency-free renderer (a real markdown lib is explicitly out of scope). */
 function inlineFragments(line: string): (string | JSX.Element)[] {
   const re = /`([^`]+)`|\*\*([^*]+)\*\*/g
   const parts: (string | JSX.Element)[] = []
@@ -25,7 +27,7 @@ function inlineFragments(line: string): (string | JSX.Element)[] {
     if (m.index > last) parts.push(line.slice(last, m.index))
     if (m[1] !== undefined) {
       parts.push(
-        <code key={key++} className="rounded bg-surface-2 px-1 font-mono text-[11px]">
+        <code key={key++} className="rounded-sm bg-surface-2 px-1 font-mono text-ui-xs">
           {m[1]}
         </code>,
       )
@@ -43,14 +45,12 @@ function inlineFragments(line: string): (string | JSX.Element)[] {
 }
 
 const HEADING_CLASS = [
-  '', // unused (level 0)
-  'mt-3 mb-1 font-semibold text-base text-fg',
-  'mt-3 mb-1 font-semibold text-fg text-sm',
-  'mt-2 mb-1 font-semibold text-fg text-xs',
+  '',
+  'mt-3 mb-1 font-semibold text-fg text-ui-lg',
+  'mt-3 mb-1 font-semibold text-fg text-ui-emphasis',
+  'mt-2 mb-1 font-semibold text-fg text-ui-base',
 ]
 
-/** Line-based markdown-ish rendering: `#`/`##`/`###` headings, `-`/`*` bullet lists, blank
- *  lines as spacing, everything else as a paragraph — with inline bold/code within each line. */
 function renderBody(body: string): JSX.Element {
   const lines = body.split('\n')
   const blocks: JSX.Element[] = []
@@ -103,13 +103,11 @@ function renderBody(body: string): JSX.Element {
   return <div>{blocks}</div>
 }
 
-/**
- * The `wiki` surface: a left list of pages (project/global scope toggle) + a right pane
- * showing the selected page, with a small edit affordance (textarea → `wiki.set`). Talks to
- * `window.pine.wiki` — the SAME slug → `{ title, body }` store the `wiki.*` agent-toolbelt
- * control methods read/write (`src/main/wiki.ts`).
- */
+const SCOPE_ITEM_CLASS =
+  'flex-1 text-fg-muted text-ui-sm hover:bg-surface-3 aria-pressed:bg-surface-3 aria-pressed:text-fg'
+
 export function WikiView({ sessionId }: { sessionId: string }): JSX.Element {
+  const d = useDict()
   const workDir = useWorkDir(sessionId)
   const [scope, setScope] = useState<WikiScope>('project')
   const [pages, setPages] = useState<WikiPageSummary[]>([])
@@ -202,31 +200,30 @@ export function WikiView({ sessionId }: { sessionId: string }): JSX.Element {
   }
 
   return (
-    <div className="flex h-full w-full bg-surface-1 text-fg text-xs">
+    <div className="flex h-full w-full bg-surface-1 text-fg text-ui-sm">
       <div className="flex w-56 shrink-0 flex-col border-line border-r bg-surface-2">
-        <div className="flex items-center gap-1 border-line border-b p-2">
-          <button
-            type="button"
-            onClick={() => switchScope('project')}
-            className={`flex-1 rounded px-2 py-1 ${
-              scope === 'project' ? 'bg-surface-3 text-fg' : 'text-fg-muted hover:text-fg'
-            }`}
+        <div className="border-line border-b p-2">
+          <ToggleGroup
+            aria-label={d.wiki.scope}
+            size="sm"
+            className="w-full"
+            value={[scope]}
+            onValueChange={(v) => {
+              const next = v[0]
+              if (next === 'project' || next === 'global') switchScope(next)
+            }}
           >
-            Project
-          </button>
-          <button
-            type="button"
-            onClick={() => switchScope('global')}
-            className={`flex-1 rounded px-2 py-1 ${
-              scope === 'global' ? 'bg-surface-3 text-fg' : 'text-fg-muted hover:text-fg'
-            }`}
-          >
-            Global
-          </button>
+            <ToggleGroupItem value="project" className={SCOPE_ITEM_CLASS}>
+              {d.wiki.project}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="global" className={SCOPE_ITEM_CLASS}>
+              {d.wiki.global}
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
         <div className="flex-1 overflow-y-auto">
           {pages.length === 0 ? (
-            <div className="p-3 text-center text-fg-dim">No pages yet</div>
+            <div className="p-3 text-center text-fg-muted">{d.wiki.noPages}</div>
           ) : (
             pages.map((p) => (
               <button
@@ -245,74 +242,60 @@ export function WikiView({ sessionId }: { sessionId: string }): JSX.Element {
           )}
         </div>
         <div className="flex items-center gap-1 border-line border-t p-2">
-          <input
+          <Input
             value={newSlug}
             onChange={(e) => setNewSlug(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') createPage()
             }}
-            placeholder="new-page-slug"
-            className="h-7 flex-1 rounded-md border border-line bg-bg-sunken px-2 font-mono text-[11px] outline-none focus:border-brand"
+            placeholder={d.wiki.newSlugPlaceholder}
+            aria-label={d.wiki.newSlug}
+            className="h-7 flex-1 font-mono"
           />
-          <button
-            type="button"
-            onClick={createPage}
-            aria-label="Create page"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line text-fg-muted hover:border-line-strong hover:text-fg"
-          >
-            <Plus size={13} />
-          </button>
+          <IconButton size="bar" icon={Plus} label={d.wiki.create} onClick={createPage} />
         </div>
       </div>
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        {error ? <div className="border-line border-b p-2 text-attn">{error}</div> : null}
+        {error ? <div className="border-line border-b p-2 text-attn-fg">{error}</div> : null}
         {!selected ? (
-          <div className="flex flex-1 items-center justify-center text-fg-dim">
-            Select or create a page
+          <div className="flex flex-1 items-center justify-center text-fg-muted">
+            {d.wiki.selectOrCreate}
           </div>
         ) : !page ? (
-          <div className="flex flex-1 items-center justify-center text-fg-dim">Loading…</div>
+          <div className="flex flex-1 items-center justify-center text-fg-muted">
+            {d.wiki.loading}
+          </div>
         ) : editing ? (
-          <div className="flex flex-1 flex-col p-3">
-            <input
+          <div className="flex flex-1 flex-col gap-2 p-3">
+            <Input
               value={draftTitle}
               onChange={(e) => setDraftTitle(e.target.value)}
-              className="mb-2 rounded-md border border-line bg-bg-sunken px-2 py-1.5 font-medium text-fg text-sm outline-none focus:border-brand"
+              aria-label={d.wiki.pageTitle}
+              className="h-7 font-medium"
             />
-            <textarea
+            <Textarea
               value={draftBody}
               onChange={(e) => setDraftBody(e.target.value)}
-              className="flex-1 resize-none rounded-md border border-line bg-bg-sunken p-2 font-mono text-[12px] outline-none focus:border-brand"
+              aria-label={d.wiki.pageBody}
+              className="field-sizing-fixed flex-1 resize-none font-mono"
             />
-            <div className="mt-2 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setEditing(false)}
-                className="rounded-md border border-line px-3 py-1 text-fg-muted hover:text-fg"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={save}
-                className="rounded-md bg-brand px-3 py-1 text-bg"
-              >
-                Save
-              </button>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
+                {d.wiki.cancel}
+              </Button>
+              <Button size="sm" onClick={save}>
+                {d.wiki.save}
+              </Button>
             </div>
           </div>
         ) : (
           <>
             <div className="flex items-center justify-between border-line border-b p-3">
-              <div className="font-medium text-fg text-sm">{page.title}</div>
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="rounded-md border border-line px-2 py-1 text-fg-muted hover:text-fg"
-              >
-                Edit
-              </button>
+              <div className="font-medium text-fg text-ui-emphasis">{page.title}</div>
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                {d.wiki.edit}
+              </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-3">{renderBody(page.body)}</div>
           </>

@@ -1,6 +1,5 @@
 import { monaco } from '../monaco/setup'
 
-/** A monospace font sub-schema (family + clamped size). */
 const font = (title: string) => ({
   type: 'object',
   title,
@@ -11,10 +10,6 @@ const font = (title: string) => ({
   },
 })
 
-/**
- * JSON Schema for settings.json — the single source of truth for the file's shape. It
- * validates the file and powers IntelliSense when the user opens it in the editor.
- */
 export const SETTINGS_JSON_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   title: 'Pine Settings',
@@ -79,6 +74,7 @@ export const SETTINGS_JSON_SCHEMA = {
               'shell',
               'destructive',
               'phone',
+              'gateway',
               'browse',
               'settings-write',
             ],
@@ -92,15 +88,9 @@ export const SETTINGS_JSON_SCHEMA = {
   },
 }
 
-/**
- * Register the schema with Monaco's JSON language service, matched to settings.json, so
- * opening it in an editor pane gives live validation + completion. Call once at startup.
- */
 export async function registerSettingsSchema(): Promise<void> {
   const path = await window.pine.settings.path()
   const uri = monaco.Uri.file(path).toString()
-  // The ESM build types `languages.json` as a deprecated stub, but the contribution we
-  // bundle populates `jsonDefaults` at runtime.
   const json = monaco.languages.json as unknown as {
     jsonDefaults: { setDiagnosticsOptions: (options: unknown) => void }
   }

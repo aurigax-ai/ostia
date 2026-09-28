@@ -12,19 +12,11 @@ import {
   CommandShortcut,
 } from './ui/command'
 
-/**
- * Command palette — a thin UI over the command registry (§5.11). cmdk owns the
- * fuzzy filter, keyboard navigation, focus trap, and grouping; the registry stays
- * the source of truth — running an item calls the same `commands.exec` the buttons
- * and (later) the CLI/agents use.
- */
 export function CommandPalette(): JSX.Element {
   const d = useDict()
   const open = useUIStore((s) => s.paletteOpen)
   const close = useUIStore((s) => s.closePalette)
 
-  // Visible commands, grouped by category. The registry is populated at startup,
-  // so computing once on mount is safe.
   const groups = useMemo(() => {
     const byCat = new Map<string, ReturnType<typeof commands.list>>()
     for (const c of commands.list()) {

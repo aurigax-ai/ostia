@@ -7,22 +7,10 @@ import { ControlRow, SectionHead, ToggleRow } from './SettingsPanel'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Separator } from './ui/separator'
+import { Textarea } from './ui/textarea'
 
-/** Pairing-code TTL (mirrors `src/main/gateway/pairing.ts`'s `CODE_TTL_MS`) — a UI-only countdown;
- *  the code's actual expiry is enforced in main, this just tells the user when to expect it to
- *  go stale so they don't scan a dead code. */
 const PAIR_CODE_TTL_S = 120
 
-/**
- * Settings' "Remote / Companion" section (the "Connect a device / Pair phone" menu action):
- * shows the LAN control gateway's status, an enable/disable toggle, a "Pair a device" flow
- * (QR code + copyable payload + countdown), and the paired-devices list with per-device revoke.
- *
- * Talks to `window.pine.gateway` — the SAME `gatewayEnable`/`gatewayPair`/`gatewayDevicesList`/
- * `gatewayRevoke` functions the `gateway.*` control-socket methods use
- * (`src/main/gateway/index.ts`). The gateway stays off until the toggle below is flipped;
- * nothing in this component starts it implicitly.
- */
 export function GatewaySection(): JSX.Element {
   const d = useDict()
   const [status, setStatus] = useState<GatewayStatus | null>(null)
@@ -49,9 +37,6 @@ export function GatewaySection(): JSX.Element {
     void refresh()
   }, [refresh])
 
-  // Pairing-code countdown: ticks to 0, then clears the QR/payload from view — the code is
-  // single-use and TTL'd in main regardless, this just keeps the displayed state honest about
-  // it having gone stale instead of showing a scannable-looking code that no longer works.
   useEffect(() => {
     if (!pairResult || secondsLeft <= 0) return
     const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
@@ -109,7 +94,7 @@ export function GatewaySection(): JSX.Element {
   return (
     <section>
       <SectionHead title={d.settings.remote} />
-      <p className="mb-2 text-fg-muted text-xs leading-relaxed">{d.settings.remoteDesc}</p>
+      <p className="mb-2 text-fg-muted text-ui-sm">{d.settings.remoteDesc}</p>
 
       <ToggleRow
         label={d.settings.remoteEnable}
@@ -125,12 +110,12 @@ export function GatewaySection(): JSX.Element {
           placeholder={d.settings.remoteHostPlaceholder}
           disabled={running || toggling}
           aria-label={d.settings.remoteHost}
-          className="h-7 w-40 font-mono text-xs"
+          className="h-7 w-40 font-mono"
         />
       </ControlRow>
 
       <ControlRow label={d.settings.remoteStatus}>
-        <span className="flex items-center gap-2 font-mono text-fg-muted text-xs">
+        <span className="flex items-center gap-2 text-fg-muted text-ui-sm">
           <span className={`dot ${running ? 'done' : ''}`} />
           {running && status?.host
             ? fmt(d.settings.remoteRunning, { host: `${status.host}:${status.port}` })
@@ -139,19 +124,17 @@ export function GatewaySection(): JSX.Element {
       </ControlRow>
 
       {warning ? (
-        <p className="mt-1 rounded-md border border-attn/40 bg-attn/10 px-2.5 py-1.5 text-attn text-xs">
+        <p className="mt-1 rounded-md border border-attn/40 bg-attn/10 px-2.5 py-1.5 text-attn-fg text-ui-sm">
           {warning}
         </p>
       ) : null}
 
-      <Separator className="my-3 bg-line" />
+      <Separator className="my-3" />
 
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-fg text-sm">{d.settings.remotePair}</div>
-          <p className="mt-0.5 text-fg-muted text-xs leading-relaxed">
-            {d.settings.remotePairDesc}
-          </p>
+          <div className="text-fg text-ui-base">{d.settings.remotePair}</div>
+          <p className="mt-0.5 text-fg-muted text-ui-sm">{d.settings.remotePairDesc}</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void onPair()} disabled={pairing}>
           {pairing ? d.settings.remotePairing : d.settings.remotePairButton}
@@ -165,56 +148,52 @@ export function GatewaySection(): JSX.Element {
             alt={d.settings.remotePair}
             width={220}
             height={220}
-            className="rounded bg-white p-2"
+            className="rounded-md bg-white p-2"
           />
           <div className="w-full">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[11px] text-fg-dim">
+              <span className="text-fg-muted text-ui-xs">
                 {expired
                   ? d.settings.remotePairExpired
                   : fmt(d.settings.remotePairExpires, { n: secondsLeft })}
               </span>
-              <button
-                type="button"
-                onClick={() => void onCopy()}
-                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-fg-muted hover:bg-surface-2/60 hover:text-fg"
-              >
-                <Copy size={11} />
+              <Button variant="ghost" size="xs" onClick={() => void onCopy()}>
+                <Copy data-icon="inline-start" />
                 {copied ? d.settings.remoteCopied : d.settings.remoteCopy}
-              </button>
+              </Button>
             </div>
-            <textarea
+            <Textarea
               readOnly
               value={JSON.stringify(pairResult, null, 2)}
               rows={5}
               aria-label={d.settings.remotePair}
-              className="mt-1 w-full resize-none rounded-md border border-line bg-bg-sunken p-2 font-mono text-[10px] text-fg-muted"
+              className="field-sizing-fixed mt-1 resize-none font-mono text-fg-muted"
             />
           </div>
         </div>
       ) : null}
 
-      <Separator className="my-3 bg-line" />
+      <Separator className="my-3" />
 
-      <div className="mb-1 text-fg text-sm">{d.settings.remoteDevices}</div>
+      <div className="mb-1 text-fg text-ui-base">{d.settings.remoteDevices}</div>
       {devices.length === 0 ? (
-        <p className="text-fg-muted text-xs">{d.settings.remoteNoDevices}</p>
+        <p className="text-fg-muted text-ui-sm">{d.settings.remoteNoDevices}</p>
       ) : (
         <ul className="flex flex-col gap-0.5">
           {devices.map((dev) => (
             <li
               key={dev.deviceId}
-              className="flex items-center justify-between gap-3 rounded-md px-2.5 py-1.5 hover:bg-surface-2/60"
+              className="flex items-center justify-between gap-3 rounded-sm px-2.5 py-1.5 hover:bg-surface-2/60"
             >
               <div className="min-w-0">
-                <div className="truncate text-fg text-sm">{dev.name}</div>
-                <div className="truncate font-mono text-[10.5px] text-fg-dim">
+                <div className="truncate text-fg text-ui-base">{dev.name}</div>
+                <div className="truncate font-mono text-fg-muted text-ui-xs">
                   {dev.caps.join(', ')} · {new Date(dev.createdAt).toLocaleDateString()}
                 </div>
               </div>
               <Button
                 variant="destructive"
-                size="xs"
+                size="sm"
                 onClick={() => void onRevoke(dev.deviceId)}
                 aria-label={`${d.settings.remoteRevoke} ${dev.name}`}
               >

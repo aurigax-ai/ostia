@@ -1,31 +1,4 @@
-/**
- * `browse` toolbelt service (agent-toolbelt #8, capability 'browse' — elevated: driving the
- * embedded browser is system-facing, unlike the pane-scoped defaults). Lets an agent (via the
- * `pine browse ...` CLI → control socket) read/click/type/screenshot/eval against the guest
- * page loaded in Stage 1's `browser` surface (`src/renderer/components/BrowserView.tsx`'s
- * `<webview>`).
- *
- * The guest page runs in its own OS process (Electron `<webview>`'s isolated guest), so main
- * can only reach it via its `webContents` — which the renderer hands over on `dom-ready`
- * (`browser:register` IPC, wired in `index.ts`) since only main can resolve a webContents id
- * back into an actual `WebContents` handle. `browserPanes` (renderer paneId → guest
- * webContents id) is owned by `index.ts` and injected here (not imported) to avoid the same
- * import cycle `controlServer.ts` avoids with `ControlServerDeps`.
- *
- * Target resolution (`resolveGuest`): an explicit `paneId` is an EXTERNAL id (e.g. read from
- * `pine pane.list`, or relayed by another agent via `pine wiki`/`pine bus` — see the
- * coordination recipe in `.claude/skills/pine/SKILL.md`) — resolved via `idRegistry.resolveExternal`. With
- * no `paneId`, this defaults to the first browser pane registered under the caller's own
- * session. Every method fails with a typed `{ ok: false, error }` (never throws) so a bad
- * selector or a not-yet-loaded page degrades gracefully instead of killing the caller's script.
- *
- * `executeJavaScript` runs arbitrary agent-supplied selectors/JS in the guest page — that's the
- * point of an elevated `browse` capability, not a bug. The only defensive measure needed is
- * JSON-encoding every agent-supplied string INTO the script text (`JSON.stringify`) so it can't
- * break out of the generated JS and inject something unintended.
- */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { webContents } from 'electron'
 import type { CommandResult, CommandTarget } from '../shared/types'
@@ -33,46 +6,26 @@ import { type AuthedConn, connHasCap } from './controlAuth'
 import { registerControlMethod } from './controlServer'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
 import { resolveSafe } from './pathGuard'
+import { privateTmpDir } from './privateTmp'
 
 type MethodCtx = { identity: PaneIdentity; authed: AuthedConn }
 
-/**
- * `index.ts` owns the pane-registry + command bridge, so (same as `ControlServerDeps`) this
- * must be handed over rather than imported, or `index.ts` importing this module would cycle.
- */
 export interface BrowseDeps {
-  /** Renderer paneId → guest webContents id, maintained by `browser:register`/`unregister`. */
   browserPanes: Map<string, number>
-  /** Reused from the command bridge so `browse.open`/`browse.openSplit` can spin up a pane via
-   *  `browser.new`. */
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
-  /** Allow-list roots for `browse.screenshot`'s caller-supplied `path` (mirrors `fs:*`'s). */
   screenshotRoots: string[]
-  /** Per-guest-webContents-id ring buffer of every `console-message` (see `pushConsoleEntry`),
-   *  populated by `index.ts`'s `browser:register`-attached listener. Read/cleared by
-   *  `browse.console`. */
   consoleBuffers: Map<number, ConsoleEntry[]>
-  /** Same shape as `consoleBuffers`, but only the error-level / `[pine-error]`-tagged subset
-   *  (uncaught exceptions/rejections included, via the injected `PAGE_ERROR_CATCHER_JS`). Read/
-   *  cleared by `browse.errors`. */
   errorBuffers: Map<number, ConsoleEntry[]>
 }
 
-/** One buffered `console-message` entry. */
 export interface ConsoleEntry {
   level: string
   text: string
   ts: number
 }
 
-/** Ring-buffer cap per surface — bounds memory on a page that logs constantly. */
 export const MAX_CONSOLE_ENTRIES = 500
 
-/**
- * Push `entry` onto `buffer`'s per-guest ring buffer (creating it on first use), trimming to
- * `MAX_CONSOLE_ENTRIES` FIFO. Called from `index.ts`'s `console-message` listener for both the
- * console buffer (every message) and the error buffer (error-level / `[pine-error]`-tagged only).
- */
 export function pushConsoleEntry(
   buffer: Map<number, ConsoleEntry[]>,
   wcId: number,
@@ -84,27 +37,12 @@ export function pushConsoleEntry(
   buffer.set(wcId, list)
 }
 
-/** Electron's numeric `console-message` level (0-3) as the string cmux/agents expect. */
 export function consoleLevelName(level: number): string {
   return (['verbose', 'info', 'warning', 'error'] as const)[level] ?? 'info'
 }
 
-/** Marker prefix the injected error catcher (`PAGE_ERROR_CATCHER_JS`) puts on its
- *  `console.error(...)` calls, so `index.ts`'s `console-message` listener can route an otherwise
- *  ordinary-looking error-level message into the error buffer unambiguously. */
 export const PINE_ERROR_PREFIX = '[pine-error]'
 
-/**
- * CDP-injected (`Page.addScriptToEvaluateOnNewDocument`, the same mechanism `browse.addinitscript`
- * exposes to callers) catcher for otherwise-invisible page errors: an uncaught exception or an
- * unhandled promise rejection never reaches `console-message` on its own, so without this,
- * `browse.errors` would only ever see explicit `console.error(...)` calls a page happened to make.
- * `index.ts` attaches this once per guest webContents (`browser:register`). Idempotency-guarded
- * (`window.__pineErrCatcher`) since `addScriptToEvaluateOnNewDocument` reruns at the start of
- * EVERY future navigation, and `browser:register` itself can refire (dom-ready fires again on
- * each navigation of the same long-lived webview) — without the guard a script that's navigated a
- * few times would stack duplicate `onerror`/`onunhandledrejection` handlers.
- */
 export const PAGE_ERROR_CATCHER_JS = `(() => {
   if (window.__pineErrCatcher) return;
   window.__pineErrCatcher = true;
@@ -117,75 +55,29 @@ export const PAGE_ERROR_CATCHER_JS = `(() => {
   };
 })();`
 
-/**
- * Per-guest-webContents-id "current frame" selector for `browse.frame` — Node-side bookkeeping
- * mirroring the in-page `window.__pine.frameSel` state (see `ENSURE_INJECTED`'s `resolveEl`,
- * which is what actually makes selector-driven methods frame-aware). Cleared alongside the
- * console/error buffers on `browser:unregister`/pane close (`clearGuestFrame`).
- */
 const frameSelectors = new Map<number, string>()
 
-/** Drop any tracked frame pointer for a guest that's gone — called by `index.ts` next to its
- *  `consoleBuffers`/`errorBuffers` cleanup on `browser:unregister` and the window-close ghost
- *  reap. Harmless if none was set. */
 export function clearGuestFrame(wcId: number): void {
   frameSelectors.delete(wcId)
 }
 
-/**
- * Per-guest-webContents-id auto-response policy for `browse.dialog` (cmux parity, PRAGMATIC:
- * Electron's `<webview>` guest can't intercept a page's SYNCHRONOUS `confirm`/`prompt` the way a
- * real automation framework's `page.on('dialog', ...)` does, so instead of a one-at-a-time
- * blocking queue this is a standing "how should the next alert/confirm/prompt resolve" policy an
- * agent sets ahead of time — see `DIALOG_OVERRIDE_JS`'s header comment for the full divergence).
- * Kept here so a caller could inspect the CURRENT policy without round-tripping into the guest
- * page; live enforcement is entirely page-side (`window.__pineDialogPolicy`, pushed by
- * `browse.dialog`'s handler).
- */
 const dialogPolicies = new Map<number, { policy: 'accept' | 'dismiss'; text: string | null }>()
 
-/** Per-guest CDP-attach guard for the dialog override — `DIALOG_OVERRIDE_JS` is itself
- *  idempotent (`window.__pineDialogPatched`), so this only avoids piling up redundant
- *  `Page.addScriptToEvaluateOnNewDocument` registrations on every `browse.dialog accept/dismiss`
- *  call against the same surface. */
 const dialogInitAttached = new Set<number>()
 
-/** Drop a guest's dialog policy/attach bookkeeping — called by `index.ts` alongside
- *  `clearGuestFrame` on `browser:unregister` and the window-close ghost reap. */
 export function clearGuestDialogPolicy(wcId: number): void {
   dialogPolicies.delete(wcId)
   dialogInitAttached.delete(wcId)
 }
 
-/** Per-guest "is the react-grab click-catcher installed" flag for `browse.reactGrab` — a
- *  main-side mirror of the page's own `window.__pineReactGrabOn`, so `toggle` knows which script
- *  (install vs. remove) to run without a read round-trip first. */
 const reactGrabOn = new Set<number>()
 
-/** Drop a guest's react-grab bookkeeping — called alongside `clearGuestDialogPolicy` above. */
 export function clearGuestReactGrab(wcId: number): void {
   reactGrabOn.delete(wcId)
 }
 
-/** Ring-buffer cap for `window.__pineDialogs` (mirrors `MAX_CONSOLE_ENTRIES`) — bounds memory on
- *  a page that calls `alert()` in a loop. */
 const MAX_DIALOG_ENTRIES = 200
 
-/**
- * CDP-injected (same mechanism as `PAGE_ERROR_CATCHER_JS`/`browse.addinitscript`, via
- * `cdpAddInitScript`) monkeypatch for `browse.dialog`: overrides `alert`/`confirm`/`prompt`
- * directly in the page since Electron's `<webview>` guest has no clean synchronous-dialog
- * interception hook. Every call is logged to `window.__pineDialogs` (capped, FIFO);
- * `confirm`/`prompt` additionally resolve against `window.__pineDialogPolicy`
- * (`{policy:'accept'|'dismiss', text}`) instead of actually blocking — an auto-response POLICY,
- * not a one-at-a-time queue (the documented cmux divergence). Idempotency-guarded
- * (`window.__pineDialogPatched`) the same way `PAGE_ERROR_CATCHER_JS` is, since this reruns on
- * every future navigation once persisted via CDP. NOTE: `window.__pineDialogPolicy` is only ever
- * seeded with a SAFE default (dismiss/null) by this script — it does not durably survive
- * navigation with whatever an agent last set via `browse.dialog accept|dismiss`, since a fresh
- * page load is a fresh JS context; re-call `accept`/`dismiss` after navigating if a non-default
- * policy still needs to apply.
- */
 const DIALOG_OVERRIDE_JS = `(() => {
   if (window.__pineDialogPatched) return;
   window.__pineDialogPatched = true;
@@ -210,18 +102,6 @@ const DIALOG_OVERRIDE_JS = `(() => {
   };
 })();`
 
-/**
- * `browse.reactGrab`'s click-catcher (cmux parity, MINIMAL — a small fiber walk, not the
- * upstream react-grab overlay/UI). Installed via plain `executeJavaScript`, NOT the CDP
- * init-script mechanism above — this is a live, one-page-view inspection tool, not something
- * meant to persist across navigations, so a navigation silently drops it (call `toggle` again
- * after navigating if still wanted). On click, walks up from the clicked element to find a React
- * fiber (`__reactFiber$*`/`__reactInternalInstance$*` — React's own DOM-node→fiber pointer key
- * prefixes), then walks the fiber's `return` chain to the nearest fiber whose `type` is a
- * function/class (a component, not a host element like a `div`), reporting its name +
- * `_debugSource` (only present in dev builds compiled with a "add JSX source" Babel/SWC plugin —
- * absent in production builds, hence best-effort/often null).
- */
 const REACT_GRAB_ON_JS = `(() => {
   if (window.__pineReactGrabOn) return true;
   window.__pineReactGrabOn = true;
@@ -266,8 +146,6 @@ const REACT_GRAB_ON_JS = `(() => {
   return true;
 })();`
 
-/** Uninstalls `REACT_GRAB_ON_JS`'s click handler — a no-op if it was never installed (or the
- *  page navigated since, which already dropped it). */
 const REACT_GRAB_OFF_JS = `(() => {
   if (!window.__pineReactGrabOn) return true;
   window.__pineReactGrabOn = false;
@@ -283,17 +161,6 @@ type GuestResolution =
   | { ok: false; error: 'browser-not-ready' }
   | { ok: false; error: 'needs-elevation' }
 
-/**
- * Resolve the guest `WebContents` a `browse.*` call should act on.
- * - `paneId` given (an external id): must resolve to a known pane; that pane must have
- *   registered a live guest (else `browser-not-ready` — it exists but hasn't `dom-ready`'d, or
- *   isn't a browser pane at all... either way nothing to drive yet). If that pane lives in a
- *   different session/window than the caller's own, driving it is a cross-boundary action —
- *   same trust posture as `command.exec`'s cross-pane gate — so it additionally requires the
- *   elevated `workspace-wide` capability (else `needs-elevation`).
- * - `paneId` omitted: the first registered browser pane belonging to the caller's own session
- *   (never cross-boundary, so no elevation check applies here).
- */
 function resolveGuest(deps: BrowseDeps, ctx: MethodCtx, paneId?: string): GuestResolution {
   if (paneId) {
     const identity = resolveExternal(paneId)
@@ -318,32 +185,24 @@ function resolveGuest(deps: BrowseDeps, ctx: MethodCtx, paneId?: string): GuestR
   return { ok: false, error: 'no-browser-pane' }
 }
 
-/** `String(err)` for a caught exception, without the `Error: ` prefix `.message` already omits. */
 function errMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }
 
 const MAX_HTML_CHARS = 1_000_000
 
-/** Per-pane sequence so `browse.screenshot`'s scratch filenames never collide. */
 const screenshotCounters = new Map<string, number>()
 
 function scratchScreenshotPath(rendererPaneId: string): string {
   const n = (screenshotCounters.get(rendererPaneId) ?? 0) + 1
   screenshotCounters.set(rendererPaneId, n)
-  return join(tmpdir(), 'pine-screens', `${rendererPaneId}-${n}.png`)
+  return join(privateTmpDir('pine-screens'), `${rendererPaneId}-${n}.png`)
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/**
- * Maps DOM `KeyboardEvent.key` names (plus a couple of common aliases) to the Electron
- * Accelerator key-code strings `sendInputEvent` expects — the two vocabularies mostly agree
- * (letters, digits, 'Tab', 'Escape', function keys, ...) but diverge for a handful of the keys
- * agents reach for most (arrows, Enter, Space).
- */
 const KEY_ALIASES: Record<string, string> = {
   Enter: 'Return',
   Esc: 'Escape',
@@ -359,17 +218,10 @@ function toElectronKeyCode(key: string): string {
   return KEY_ALIASES[key] ?? key
 }
 
-/**
- * True for a single-character key ('a', '5', '!', ...) — these also need a synthetic `char`
- * input event to actually insert a character into a focused input/contenteditable; named keys
- * (Enter, Tab, arrows, function keys, ...) have no character to insert.
- */
 function isPrintableKey(key: string): boolean {
   return [...key].length === 1
 }
 
-/** `keyDown` (+ a `char` event for a printable key) — what `sendInputEvent` needs to simulate a
- *  key actually being typed, not just a raw scan code. Mirrored by `browse.press`'s `keyUp`. */
 function sendKeyDown(guest: Electron.WebContents, key: string): void {
   guest.sendInputEvent({ type: 'keyDown', keyCode: toElectronKeyCode(key) })
   if (isPrintableKey(key)) {
@@ -381,19 +233,6 @@ function sendKeyUp(guest: Electron.WebContents, key: string): void {
   guest.sendInputEvent({ type: 'keyUp', keyCode: toElectronKeyCode(key) })
 }
 
-/**
- * Idempotent injected-page helper — `executeJavaScript` runs in the live guest page and
- * `window.__pine` survives until the next navigation, so refs a `snapshot`/`find` call assigns
- * are still readable by a later call in the same page lifetime. Guarded by `if (!window.__pine)`
- * so re-running this prelude on every call (cheap — it's the point) never resets `refs`/`n`.
- *
- * `resolveEl(sel)` is what makes every selector-accepting method below "ref-aware": a bare
- * `eN`/`@eN` string looks up the stored element directly (no DOM query at all — the whole point
- * of a ref, since the element may no longer be reachable by any selector, e.g. it lost an id),
- * anything else falls through to `document.querySelector`. `roleOf`/`nameOf` are the shared
- * accessible-role/name heuristics `browse.snapshot` and `browse.find` both need (kept on
- * `window.__pine` rather than duplicated in each method's generated JS).
- */
 const ENSURE_INJECTED = `
 if (!window.__pine) {
   window.__pine = {
@@ -464,20 +303,10 @@ if (!window.__pine) {
 }
 `
 
-/** Wrap a JS function body in the injected-page prelude + an IIFE — every generated snippet
- *  that calls `window.__pine.resolveEl`/`ref`/`roleOf`/`nameOf` needs this, not just the raw
- *  IIFE, so refs stay valid and `@eN` resolves the same way everywhere. */
 function withInjected(body: string): string {
   return `${ENSURE_INJECTED}\n(() => {\n${body}\n})()`
 }
 
-/**
- * Run a `resolveEl`-shaped IIFE (built via `withInjected`) that returns `true`/`false` for "did
- * the selector/ref match" (any DOM mutation/event dispatch already baked into `js` by the
- * caller), translating that into `browse`'s standard not-found/eval-failed result shape. Factors
- * out the reduction `browse.click`/`browse.type` above hand-roll — worth it here since most of
- * the DOM-interaction methods below are exactly this shape.
- */
 async function runSelectorJs(
   guest: Electron.WebContents,
   js: string,
@@ -490,21 +319,12 @@ async function runSelectorJs(
   }
 }
 
-/**
- * Run `js` in the guest page and hand back its value JSON-stringified into a text result —
- * shared by `browse.eval` and `browse.addscript` (same "run script now, return its value"
- * semantics; `addscript` is just framed as script injection for cmux parity, not a different
- * execution mode).
- */
 async function evalToResult(
   guest: Electron.WebContents,
   js: string,
 ): Promise<{ ok: true; result: string } | { ok: false; error: string; message?: string }> {
   try {
     const raw = await guest.executeJavaScript(js, true)
-    // Stringify safely — the raw value may not be JSON (undefined, a function, a DOM node
-    // reference that survived the guest's structured clone, ...) — fall back to String()
-    // rather than letting a serialization error look like the script itself failed.
     let result: string
     try {
       result = JSON.stringify(raw) ?? String(raw)
@@ -517,27 +337,17 @@ async function evalToResult(
   }
 }
 
-/**
- * Build a `url` for a cookie that has none (every cookie from `session.cookies.get` carries
- * `domain`/`path`/`secure` but never a `url`) — needed by `browse.cookies clear` to remove a
- * `get`-matched cookie via `cookies.remove(url, name)`, and by `browse.state load` to restore
- * saved cookies via `cookies.set`. Chrome normalises `domain` with a leading dot (valid for
- * subdomains); strip it back off since `url`'s host can't have one.
- */
 function cookieUrl(cookie: Electron.Cookie): string {
   const domain = (cookie.domain ?? '').replace(/^\./, '')
   return `${cookie.secure ? 'https' : 'http'}://${domain}${cookie.path ?? '/'}`
 }
 
-/** Persisted shape for `browse.state save`/`load` — cookies plus both Web Storage areas. */
 interface BrowseStateFile {
   cookies: Electron.Cookie[]
   localStorage: Record<string, string>
   sessionStorage: Record<string, string>
 }
 
-/** `resolveEl(sel)?.focus()` — shared by `browse.focus` and the selector-first step of
- *  `browse.press`/`browse.keydown`/`browse.keyup`. Ref-aware like every other selector method. */
 function focusSelectorJs(selector: string): string {
   return withInjected(`
     const el = window.__pine.resolveEl(${JSON.stringify(selector)});
@@ -547,22 +357,11 @@ function focusSelectorJs(selector: string): string {
   `)
 }
 
-/**
- * Attach (if not already) a CDP debugger session on `guest` and persist `js` via
- * `Page.addScriptToEvaluateOnNewDocument`, so it reruns before every FUTURE navigation. Shared
- * plumbing behind `browse.addinitscript` (agent-supplied init scripts) and `browse.dialog`'s
- * alert/confirm/prompt override — the brief for the latter explicitly says to reuse this
- * mechanism rather than invent a second one.
- */
 async function cdpAddInitScript(
   guest: Electron.WebContents,
   js: string,
 ): Promise<{ ok: true; identifier: string } | { ok: false; error: string; message?: string }> {
   try {
-    // `isAttached()` is Electron's own per-webContents bookkeeping for whether a CDP
-    // session is already live — checking it before `attach()` IS "tracking attached
-    // surfaces": a separate map here would just duplicate state Electron already keeps,
-    // and (since nothing awaits between the check and the call) can't race.
     if (!guest.debugger.isAttached()) {
       guest.debugger.attach('1.3')
     }
@@ -580,11 +379,7 @@ async function cdpAddInitScript(
   }
 }
 
-/** Hard cap on `browse.snapshot`'s emitted node count — keeps the result bounded on a huge page
- *  instead of walking (and ref-ing) tens of thousands of elements. */
 const MAX_SNAPSHOT_NODES = 2000
-/** Default/hard-cap DOM depth `browse.snapshot` will recurse — a caller-supplied `maxDepth` is
- *  clamped to this so a pathological DOM can't blow the walk's recursion budget. */
 const DEFAULT_SNAPSHOT_MAX_DEPTH = 40
 const MAX_SNAPSHOT_MAX_DEPTH = 200
 
@@ -595,14 +390,9 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const { url, paneId } = (params ?? {}) as { url: string; paneId?: string }
       const resolution = resolveGuest(deps, ctx, paneId)
       if (resolution.ok) {
-        resolution.guest.loadURL(url)
-        // Hand back the target pane's externalId (not the internal renderer paneId) so a
-        // caller that didn't pass `--pane` can target this same pane on a follow-up call.
+        resolution.guest.loadURL(url).catch(() => {})
         return { ok: true, paneId: getByPaneId(resolution.rendererPaneId)?.externalId }
       }
-      // No live guest to drive (none exists yet, or it hasn't dom-ready'd) — spin one up in
-      // the CALLER's own session via the existing `browser.new` command (Stage 1), same as a
-      // human running `pine open`/the command palette would.
       const target: CommandTarget = {
         windowId: ctx.identity.windowId,
         sessionId: ctx.identity.sessionId,
@@ -687,9 +477,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       if (!resolution.ok) return resolution
       const selJs = JSON.stringify(selector)
       const textJs = JSON.stringify(text)
-      // Set via the native value setter (not plain `el.value = ...`) so React/Vue-controlled
-      // inputs — which override the `value` property descriptor to intercept writes — still
-      // see the change; the `input` event afterwards is what actually notifies them.
       const js = withInjected(`
         const el = window.__pine.resolveEl(${selJs});
         if (!el) return false;
@@ -756,8 +543,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  // `browse.check`/`browse.uncheck` are identical apart from the boolean they set — a tiny
-  // factory instead of two near-duplicate handlers.
   const registerCheckMethod = (name: string, checked: boolean): void => {
     registerControlMethod(name, {
       cap: 'browse',
@@ -806,9 +591,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       }
       const resolution = resolveGuest(deps, ctx, paneId)
       if (!resolution.ok) return resolution
-      // Whole-value replace via plain `el.value =` — unlike `browse.type`'s native-setter dance,
-      // this doesn't fight a React/Vue value-property override; it's for plain inputs where a
-      // direct set is all that's needed.
       const js = withInjected(`
         const el = window.__pine.resolveEl(${JSON.stringify(selector)});
         if (!el) return false;
@@ -832,8 +614,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const resolution = resolveGuest(deps, ctx, paneId)
       if (!resolution.ok) return resolution
       const valueJs = JSON.stringify(value)
-      // Set by option value first; if nothing matched (`.value` didn't stick — invalid for this
-      // <select>), fall back to matching an option's visible text.
       const js = withInjected(`
         const el = window.__pine.resolveEl(${JSON.stringify(selector)});
         if (!el) return false;
@@ -959,9 +739,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       for (;;) {
         try {
           if (await resolution.guest.executeJavaScript(js, true)) return { found: true }
-        } catch {
-          // Transient — often mid-navigation. Keep polling until the deadline.
-        }
+        } catch {}
         if (Date.now() >= deadline) return { found: false, timedOut: true }
         await sleep(200)
       }
@@ -980,8 +758,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         if (safe === null) return { ok: false, error: 'path-denied' }
         outPath = safe
       } else {
-        // No caller-supplied path — the scratch default, always under the OS tmpdir, needs no
-        // allow-list check.
         outPath = scratchScreenshotPath(resolution.rendererPaneId)
       }
       try {
@@ -1015,8 +791,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  // --- Inspection family (cmux parity): snapshot/get/is/find/highlight, all `eN`-ref-aware. ---
-
   registerControlMethod('browse.snapshot', {
     cap: 'browse',
     handler: async (params, ctx) => {
@@ -1036,11 +810,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       )
       const maxDepthJs = JSON.stringify(clampedMaxDepth)
       const maxNodesJs = JSON.stringify(MAX_SNAPSHOT_NODES)
-      // Walks the DOM assigning a ref to every "relevant" element (interactive controls always;
-      // headings/[role]/own-text elements too unless `interactive` narrows it to actionable-only),
-      // emitting an accessibility-tree-ish line per ref. Indentation tracks nesting of *emitted*
-      // ancestors (not raw DOM depth) so wrapper divs don't blow out the tree's shape; `rawDepth`
-      // still bounds recursion via `maxDepth` regardless of what got emitted.
       const body = `
         const root = ${selJs} ? window.__pine.resolveEl(${selJs}) : document.body;
         if (!root) return { found: false };
@@ -1151,8 +920,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const selJs = JSON.stringify(selector ?? null)
       const attrJs = JSON.stringify(attr ?? '')
       const propertyJs = JSON.stringify(property ?? null)
-      // Every branch returns `{found, value}` uniformly so the TS side doesn't need per-sub
-      // shape-sniffing to tell "element missing" apart from "attribute legitimately null" etc.
       let body: string
       switch (sub) {
         case 'url':
@@ -1313,11 +1080,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const exactJs = JSON.stringify(!!exact)
       const indexJs = JSON.stringify(index ?? 0)
       const selJs = JSON.stringify(selector ?? null)
-      // Testing-Library-ish locators: `role`/`text` scan the scope for a matching element (via
-      // the shared `roleOf` heuristic, or own/inner text); `label` tries `<label for>` first, then
-      // falls back to `aria-label`; `placeholder`/`alt`/`title`/`testid` match the like-named
-      // attribute; `first`/`last`/`nth` enumerate `selector` directly on `document` (not scoped —
-      // `selector` IS the enumeration, matching the CLI's literal "over `selector`" contract).
       const body = `
         function matchStr(value, q, ex) {
           if (value == null) return false;
@@ -1413,8 +1175,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  // --- Navigation/targeting family (cmux parity): url/zoom/devtools/focus-webview/identify. ---
-
   registerControlMethod('browse.url', {
     cap: 'browse',
     handler: (params, ctx) => {
@@ -1470,9 +1230,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         default:
           return { ok: false, error: 'bad-action' }
       }
-      // Electron's DevTools API can only open/close the whole panel — there's no hook to land
-      // on a specific tab (Console, Elements, ...), so `console` opens DevTools same as `open`
-      // and says so rather than silently pretending it focused the Console panel.
       const note =
         action === 'console'
           ? "Electron can't target the Console panel specifically — opened DevTools"
@@ -1508,8 +1265,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const { paneId } = (params ?? {}) as { paneId?: string }
       const resolution = resolveGuest(deps, ctx, paneId)
       if (!resolution.ok) return resolution
-      // `resolveGuest` already proved this renderer paneId is registered, but `getByPaneId`
-      // is a separate map (identity registry vs. browser-pane registry) — still check.
       const identity = getByPaneId(resolution.rendererPaneId)
       if (!identity) return { ok: false, error: 'no-browser-pane' }
       return {
@@ -1522,10 +1277,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       }
     },
   })
-
-  // --- Session/state family (cmux parity): cookies/storage/state/history, all per-surface —
-  // every browser pane already has its own `partition` (`BrowserView.tsx`), so `guest.session`
-  // here is that pane's own isolated cookie/storage jar, never shared across panes. ---
 
   registerControlMethod('browse.cookies', {
     cap: 'browse',
@@ -1552,8 +1303,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
           return { ok: true }
         }
         if (sub === 'clear') {
-          // No filter at all — remove every cookie in this surface's jar in one shot rather
-          // than round-tripping a `get` + N `remove`s.
           if (!name && !url && !domain) {
             await guest.session.clearStorageData({ storages: ['cookies'] })
             return { ok: true }
@@ -1632,8 +1381,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const resolution = resolveGuest(deps, ctx, paneId)
       if (!resolution.ok) return resolution
       if (!path) return { ok: false, error: 'path-required' }
-      // Arbitrary file read/write — same containment `browse.screenshot` applies to its
-      // caller-supplied `path`.
       const safePath = resolveSafe(path, deps.screenshotRoots)
       if (safePath === null) return { ok: false, error: 'path-denied' }
       const { guest } = resolution
@@ -1709,9 +1456,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       if (!resolution.ok) return resolution
       if (sub !== 'clear') return { ok: false, error: 'bad-sub' }
       const { guest } = resolution
-      // `navigationHistory` is the modern (Electron 32+) API; `clearHistory()` is its
-      // deprecated predecessor, kept as a runtime fallback in case this ever runs on an older
-      // Electron than the one currently pinned (`navigationHistory` unconditional there).
       if (typeof guest.navigationHistory?.clear === 'function') {
         guest.navigationHistory.clear()
       } else {
@@ -1720,8 +1464,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       return { ok: true }
     },
   })
-
-  // --- Injection family (cmux parity): addscript/addstyle/addinitscript, alongside `browse.eval`. ---
 
   registerControlMethod('browse.addscript', {
     cap: 'browse',
@@ -1758,11 +1500,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  // --- Diagnostics family (cmux parity): console/errors, the read side of `index.ts`'s
-  // `browser:register`-attached `console-message` listener + injected `PAGE_ERROR_CATCHER_JS`. ---
-
-  // `browse.console`/`browse.errors` are identical apart from which per-guest ring buffer they
-  // read/clear — a small factory, same idea as `registerCheckMethod` above.
   const registerBufferMethod = (
     name: string,
     pickBuffer: (d: BrowseDeps) => Map<number, ConsoleEntry[]>,
@@ -1790,10 +1527,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
   registerBufferMethod('browse.console', (d) => d.consoleBuffers)
   registerBufferMethod('browse.errors', (d) => d.errorBuffers)
 
-  // --- Frame family (cmux parity): a stateful "current frame" pointer that selector-driven
-  // methods (via `resolveEl`/`frameDoc` in `ENSURE_INJECTED`) resolve within, instead of always
-  // the top document. ---
-
   registerControlMethod('browse.frame', {
     cap: 'browse',
     handler: async (params, ctx) => {
@@ -1803,11 +1536,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const { guest } = resolution
       const isReset = !selector || selector === 'main' || selector === 'top'
       const selJs = JSON.stringify(isReset ? null : selector)
-      // Validated (and applied) in a single injected round-trip: resolve `sel` against the top
-      // document, confirm it's an iframe whose `contentDocument` is actually reachable (null for
-      // a cross-origin frame — no throw in modern engines, but wrapped in try/catch anyway per
-      // the brief), then persist it onto `window.__pine.frameSel` so `resolveEl` picks it up on
-      // every later call without needing this script re-run.
       const js = withInjected(`
         const sel = ${selJs};
         if (!sel) { window.__pine.frameSel = null; return { ok: true }; }
@@ -1843,8 +1571,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  // --- Download family (cmux parity): one-shot wait for the surface's next completed download. ---
-
   const DEFAULT_DOWNLOAD_TIMEOUT_MS = 30_000
   const MAX_DOWNLOAD_TIMEOUT_MS = 300_000
 
@@ -1874,9 +1600,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
           if (safePath) {
             try {
               mkdirSync(dirname(safePath), { recursive: true })
-            } catch {
-              // best-effort — a bad target dir still surfaces via the download's own `state`
-            }
+            } catch {}
             item.setSavePath(safePath)
           }
           item.once('done', (_doneEvent, state) => {
@@ -1897,17 +1621,13 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  // --- Aliases (cmux parity): `navigate` (load a url on an EXISTING surface, no auto-create) and
-  // `openSplit` (always creates a NEW browser pane — the split `browse.open`'s fallback path
-  // creates when no surface exists yet, exposed here as its own explicit verb). ---
-
   registerControlMethod('browse.navigate', {
     cap: 'browse',
     handler: (params, ctx) => {
       const { url, paneId } = (params ?? {}) as { url: string; paneId?: string }
       const resolution = resolveGuest(deps, ctx, paneId)
       if (!resolution.ok) return resolution
-      resolution.guest.loadURL(url)
+      resolution.guest.loadURL(url).catch(() => {})
       return { ok: true, paneId: getByPaneId(resolution.rendererPaneId)?.externalId }
     },
   })
@@ -1915,9 +1635,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
   registerControlMethod('browse.openSplit', {
     cap: 'browse',
     handler: async (params, ctx) => {
-      // Always creates a NEW browser pane (a split) — there's no existing surface to resolve to,
-      // so a caller-supplied `paneId` isn't meaningful here; accepted (for CLI `--pane` flag
-      // symmetry with every other `browse.*` verb) but otherwise unused.
       const { url } = (params ?? {}) as { url?: string; paneId?: string }
       const target: CommandTarget = {
         windowId: ctx.identity.windowId,
@@ -1932,11 +1649,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  // --- Tab family (cmux parity, PRAGMATIC: a "tab" here is a browser PANE, not a tab bar living
-  // inside one pane — cmux multiplexes multiple surfaces per pane slot; Pine's own unit of
-  // multiplexing is already the pane, so `tab new/list/switch/close` just operate one level up,
-  // on browser panes, instead of a second tab layer nested inside a single pane. ---
-
   registerControlMethod('browse.tab', {
     cap: 'browse',
     handler: async (params, ctx) => {
@@ -1946,10 +1658,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         target?: string
       }
       if (sub === 'new') {
-        // Same fallback `browse.open` uses for "no live guest yet" — `browser.new` REUSES an
-        // existing browser pane in the caller's session if there is one (`openBrowser`'s own
-        // reuse-or-split logic), so this isn't a guaranteed-fresh tab; use `browse.openSplit`
-        // for an unconditionally new browser pane.
         const cmdTarget: CommandTarget = {
           windowId: ctx.identity.windowId,
           sessionId: ctx.identity.sessionId,
@@ -1960,9 +1668,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         return { ok: true, created: true }
       }
       if (sub === 'list') {
-        // Scoped to the caller's own session — same posture `resolveGuest`'s no-`paneId`
-        // default uses; listing another session's panes would be a cross-boundary read this
-        // verb doesn't offer.
         const tabs: { paneId: string; url: string; title: string }[] = []
         for (const [rendererPaneId, wcId] of deps.browserPanes) {
           const identity = getByPaneId(rendererPaneId)
@@ -1975,9 +1680,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       }
       if (sub === 'switch' || sub === 'close') {
         if (!target) return { ok: false, error: 'target-required' }
-        // `target` is an external paneId (another pane's `whoami` id) — reuse `resolveGuest` for
-        // its lookup + the same cross-boundary `workspace-wide` elevation gate every other
-        // explicit-`paneId` call gets, even though we don't need the guest itself here.
         const resolution = resolveGuest(deps, ctx, target)
         if (!resolution.ok) return resolution
         const identity = getByPaneId(resolution.rendererPaneId)
@@ -1998,9 +1700,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       return { ok: false, error: 'bad-sub' }
     },
   })
-
-  // --- Dialog family (cmux parity, PRAGMATIC: policy-based auto-answer, not a one-at-a-time
-  // blocking queue — see `DIALOG_OVERRIDE_JS`'s header comment for why). ---
 
   registerControlMethod('browse.dialog', {
     cap: 'browse',
@@ -2030,8 +1729,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         dialogInitAttached.add(guest.id)
       }
       try {
-        // Apply to the CURRENTLY loaded page too — the CDP registration above only takes effect
-        // on the NEXT navigation, not the page already showing.
         await guest.executeJavaScript(DIALOG_OVERRIDE_JS, true)
         await guest.executeJavaScript(
           `window.__pineDialogPolicy = ${JSON.stringify(policy)};`,
@@ -2043,10 +1740,6 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       }
     },
   })
-
-  // --- Focus-mode family (cmux parity: pane zoom/zen). Drives the renderer's `pane.zoom`
-  // command (`layoutStore.ts`) on the TARGET pane's own window/session — same cross-boundary
-  // resolution `browse.tab switch/close` uses above. ---
 
   registerControlMethod('browse.focusMode', {
     cap: 'browse',
@@ -2067,18 +1760,12 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         sessionId: identity.sessionId,
         paneId: identity.paneId,
       }
-      // `zoom` omitted → `pane.zoom`'s own toggle; enter/exit pass an explicit boolean so they're
-      // deterministic regardless of the pane's current zoom state (main has no visibility into
-      // the renderer's layout state to check first).
       const zoom = action === 'enter' ? true : action === 'exit' ? false : undefined
       const res = await deps.execCommand(cmdTarget, 'pane.zoom', { paneId: identity.paneId, zoom })
       if (!res.ok) return { ok: false, error: 'command-failed', message: res.error.message }
       return { ok: true }
     },
   })
-
-  // --- React-grab family (cmux parity, MINIMAL — a small fiber walk, not the upstream
-  // react-grab overlay; see `REACT_GRAB_ON_JS`'s header comment). ---
 
   registerControlMethod('browse.reactGrab', {
     cap: 'browse',

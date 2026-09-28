@@ -8,7 +8,6 @@ beforeEach(() => resetIds())
 
 const SESSION = { id: 's1', name: 'proj', kind: 'terminal' as const, workDir: '/home/u/proj' }
 
-/** buildSnapshot over one session whose layout is `root`. */
 function build(root: LayoutNode, activePaneId = root.id): WorkspaceSnapshot | null {
   return buildSnapshot({
     sessions: [SESSION],
@@ -111,11 +110,11 @@ describe('restoreWorkspace', () => {
   })
 
   it('reserves the restored ids so a newly created pane cannot collide', () => {
-    const root = splitOf('horizontal', createPane(), createPane()) // pane-1, pane-2, split-3
+    const root = splitOf('horizontal', createPane(), createPane())
     const snapshot = build(root, root.children[0].id)
     if (!snapshot) throw new Error('expected a snapshot')
 
-    resetIds() // simulate the fresh counter of the next app launch
+    resetIds()
     restoreWorkspace(snapshot)
     expect(createPane().id).toBe('pane-4')
   })

@@ -9,6 +9,7 @@ import {
   Terminal,
   X,
 } from 'lucide-react'
+import type { Dict } from '../i18n/dict'
 import { useDict } from '../i18n/useDict'
 import {
   type Session,
@@ -19,6 +20,7 @@ import {
 import { useUIStore } from '../stores/uiStore'
 import { FilesView } from './FilesView'
 import { Hint } from './Hint'
+import { IconButton } from './IconButton'
 
 const KIND_ICON: Record<SessionKind, LucideIcon> = {
   agent: Bot,
@@ -26,11 +28,6 @@ const KIND_ICON: Record<SessionKind, LucideIcon> = {
   scratch: FlaskConical,
 }
 
-/**
- * The sidebar. A view switcher up top toggles between **Sessions** (the signature
- * status board of agent/terminal sessions) and **Files** (the explorer). Each
- * session's dot reports live state and breathes (docs/DESIGN.md).
- */
 export function DeckRail(): JSX.Element {
   const d = useDict()
   const collapsed = useUIStore((s) => s.railCollapsed)
@@ -40,47 +37,26 @@ export function DeckRail(): JSX.Element {
   return (
     <aside className={`deck-rail${collapsed ? ' collapsed' : ''}`}>
       <div className="rail-switch">
-        <RailSwitchButton
+        <IconButton
+          size="bar"
+          hintSide="right"
           icon={Boxes}
           label={d.rail.sessions}
-          active={view === 'sessions'}
+          aria-pressed={view === 'sessions'}
           onClick={() => setView('sessions')}
         />
-        <RailSwitchButton
+        <IconButton
+          size="bar"
+          hintSide="right"
           icon={FolderTree}
           label={d.rail.files}
-          active={view === 'files'}
+          aria-pressed={view === 'files'}
           onClick={() => setView('files')}
         />
       </div>
 
       {view === 'sessions' ? <SessionsView /> : <FilesView />}
     </aside>
-  )
-}
-
-function RailSwitchButton({
-  icon: Icon,
-  label,
-  active,
-  onClick,
-}: {
-  icon: LucideIcon
-  label: string
-  active: boolean
-  onClick: () => void
-}): JSX.Element {
-  return (
-    <Hint label={label} side="right">
-      <button
-        type="button"
-        className={`rail-switch-btn${active ? ' active' : ''}`}
-        aria-pressed={active}
-        onClick={onClick}
-      >
-        <Icon size={16} />
-      </button>
-    </Hint>
   )
 }
 
@@ -100,12 +76,12 @@ function SessionsView(): JSX.Element {
   return (
     <>
       <div className="sessions">
-        {/* Settings: a persistent tab once opened — closes only via its ×, on top. */}
         {settingsTabOpen ? (
           <TabRow
             active={settingsActive}
             onSelect={openSettings}
             onClose={closeSettings}
+            closeLabel={d.rail.close}
             icon={<Settings size={14} className="tab-lead" />}
             title={d.topbar.settings}
           />
@@ -120,6 +96,7 @@ function SessionsView(): JSX.Element {
               setActive(s.id)
             }}
             onClose={() => closeSession(s.id)}
+            closeLabel={d.rail.close}
             icon={<SessionIcon session={s} />}
             title={s.name}
             meta={
@@ -140,7 +117,7 @@ function SessionsView(): JSX.Element {
             addSession()
           }}
         >
-          <Plus size={15} />
+          <Plus size={14} />
           <span>{d.rail.newSession}</span>
         </button>
       </Hint>
@@ -148,36 +125,36 @@ function SessionsView(): JSX.Element {
   )
 }
 
-const SESSION_STATE_LABEL: Record<SessionState, string> = {
-  idle: 'Idle',
-  working: 'Working',
-  waiting: 'Waiting for input',
-  done: 'Done',
+function stateLabel(d: Dict, state: SessionState): string {
+  const labels: Record<SessionState, string> = {
+    idle: d.rail.stateIdle,
+    working: d.rail.stateWorking,
+    waiting: d.rail.stateWaiting,
+    done: d.rail.stateDone,
+  }
+  return labels[state]
 }
 
 function SessionIcon({ session }: { session: Session }): JSX.Element {
+  const d = useDict()
   const KindIcon = KIND_ICON[session.kind]
   return (
     <span className="tab-lead-wrap">
       <span
         className={`dot session-dot ${session.state}`}
         role="img"
-        aria-label={SESSION_STATE_LABEL[session.state]}
+        aria-label={stateLabel(d, session.state)}
       />
-      <KindIcon size={13} className="tab-lead" />
+      <KindIcon size={14} className="tab-lead" />
     </span>
   )
 }
 
-/**
- * A uniform sidebar tab (Settings or a session): lead icon · title (+ optional meta),
- * with ×/⋮ actions revealed on hover. Rows are consistent height. Not a <button> so the
- * hover actions can be real buttons (no nested-button HTML).
- */
 function TabRow({
   active,
   onSelect,
   onClose,
+  closeLabel,
   icon,
   title,
   meta,
@@ -185,6 +162,7 @@ function TabRow({
   active: boolean
   onSelect: () => void
   onClose: () => void
+  closeLabel: string
   icon: React.ReactNode
   title: string
   meta?: React.ReactNode
@@ -199,9 +177,7 @@ function TabRow({
         </span>
       </button>
       <span className="tab-actions">
-        <button type="button" className="tab-btn" aria-label="Close" onClick={onClose}>
-          <X size={13} />
-        </button>
+        <IconButton icon={X} label={closeLabel} hintSide="right" onClick={onClose} />
       </span>
     </div>
   )

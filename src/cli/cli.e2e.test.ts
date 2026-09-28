@@ -1,13 +1,5 @@
-/**
- * True end-to-end proof that the built `pine` CLI binary (`out/cli/index.js`) talks to the
- * control-plane Unix socket exactly the way a real pane's env (`PINE_SOCKET`/`PINE_TOKEN`)
- * would drive it. `controlServer.test.ts` unit-tests the socket server directly; this instead
- * spawns the real compiled binary as a child process against a live in-test server, so a
- * regression in the esbuild bundle, the JSON-RPC framing, or the CLI's argv handling shows up
- * here instead of requiring a human to smoke-test `pine whoami` by hand.
- */
 import { execSync, spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -19,13 +11,9 @@ import {
 import { type PaneIdentity, registerPane } from '../main/idRegistry'
 import type { CommandDescriptor, CommandResult } from '../shared/types'
 
-// Tests are always run from the repo root (`npm test` / `npx vitest run ...`), so this is a
-// reliable anchor without relying on `__dirname` (which vite-node doesn't reliably shim).
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')
 
-// Distinct-per-test socket path: pid + a monotonic counter (no Date.now()/random — mirrors
-// the pattern in src/main/controlServer.test.ts).
 let socketCounter = 0
 function nextSocketPath(): string {
   socketCounter += 1
@@ -56,7 +44,6 @@ interface RunResult {
   stderr: string
 }
 
-/** Build a full env object, applying overrides (a `key: undefined` override deletes the key). */
 function withEnv(overrides: Record<string, string | undefined>): NodeJS.ProcessEnv {
   const merged: NodeJS.ProcessEnv = { ...process.env }
   for (const [key, value] of Object.entries(overrides)) {
@@ -66,10 +53,8 @@ function withEnv(overrides: Record<string, string | undefined>): NodeJS.ProcessE
   return merged
 }
 
-// Tracks children still alive so a hung/leaked process can't survive the suite.
 const liveChildren = new Set<ReturnType<typeof spawn>>()
 
-/** Spawn the real built CLI binary and collect its stdout/stderr/exit code. Kills on timeout. */
 function runPine(args: string[], env: NodeJS.ProcessEnv): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath, ...args], { env })
@@ -112,9 +97,7 @@ function runPine(args: string[], env: NodeJS.ProcessEnv): Promise<RunResult> {
 
 describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live control server)', () => {
   beforeAll(() => {
-    if (!existsSync(cliPath)) {
-      execSync('npm run build:cli', { cwd: repoRoot, stdio: 'ignore' })
-    }
+    execSync('pnpm run build:cli', { cwd: repoRoot, stdio: 'ignore' })
   }, 60_000)
 
   let socketPath: string
@@ -131,8 +114,6 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
   })
 
   afterAll(() => {
-    // Belt-and-suspenders: runPine always waits for 'close' before settling, but make sure
-    // nothing lingers if a test failed mid-flight.
     for (const child of liveChildren) child.kill('SIGKILL')
     liveChildren.clear()
   })
@@ -179,8 +160,6 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
     )
 
-    // controlServer's command.exec resolves { ok: false, error: { code: 'unknown-command' } }
-    // for an id no descriptor matches; the CLI prints that error and exits non-zero.
     expect(res.code).not.toBe(0)
     expect(res.stderr).toContain("unknown command 'pane.bogus'")
   })
@@ -193,5 +172,57 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
 
     expect(res.code).not.toBe(0)
     expect(res.stderr).toContain('not inside a Pine pane')
+  })
+
+  it('--help / -h print usage without contacting the app', async () => {
+    for (const flag of ['--help', '-h']) {
+      const res = await runPine([flag], withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined }))
+      expect(res.code).toBe(0)
+      expect(res.stdout).toContain('usage: pine')
+    }
+  })
+
+  it('stale PINE_SOCKET: prints "app not reachable" and exits 1 without a stack trace', async () => {
+    const stale = join(tmpdir(), `pine-cli-e2e-${process.pid}-stale.sock`)
+    const res = await runPine(['whoami'], withEnv({ PINE_SOCKET: stale, PINE_TOKEN: 'x' }))
+
+    expect(res.code).toBe(1)
+    expect(res.stderr.trim()).toBe(`pine: app not reachable at ${stale}`)
+  })
+
+  it('exits 1 with a clear message when the app closes the socket mid-request', async () => {
+    const dropPath = nextSocketPath()
+    const server = createServer((sock) => sock.once('data', () => sock.destroy()))
+    await new Promise<void>((resolve) => server.listen(dropPath, resolve))
+    try {
+      const res = await runPine(
+        ['bus', 'wait'],
+        withEnv({ PINE_SOCKET: dropPath, PINE_TOKEN: 'x' }),
+      )
+      expect(res.code).toBe(1)
+      expect(res.stderr).toContain('connection to the app closed')
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+    }
+  })
+
+  it('open with no path: exits 1 with a usage error', async () => {
+    const res = await runPine(
+      ['open'],
+      withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+    )
+
+    expect(res.code).toBe(1)
+    expect(res.stderr).toContain('pine open: missing <path>')
+  })
+
+  it('rejects a non-numeric numeric flag instead of silently defaulting', async () => {
+    const res = await runPine(
+      ['bus', 'wait', '--timeout', 'soon'],
+      withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+    )
+
+    expect(res.code).toBe(1)
+    expect(res.stderr).toContain("--timeout expects a number, got 'soon'")
   })
 })

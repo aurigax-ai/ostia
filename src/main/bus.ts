@@ -1,40 +1,3 @@
-/**
- * `bus` toolbelt service (agent-toolbelt #7, capability 'send-other-pane' — elevated, already
- * exists for `command.exec`'s cross-pane gate — reused here rather than adding a new one).
- * A cross-agent mailbox + task-handoff service so agents running in different panes can
- * coordinate over the CLI: point-to-point messages (`inboxes[externalId]`) plus a small
- * task-handoff ledger (`handoffs`), both in ONE global store (`storePath('bus', 'global')`) —
- * unlike `wiki.ts`/`vault.ts`/`kanban.ts` there is no project scope, since coordination is
- * inherently cross-pane (and often cross-project) rather than something a single project's
- * workDir would naturally own.
- *
- * `send-other-pane` gates writing into ANOTHER agent's inbox (`bus.send`, `bus.handoff`) —
- * same trust posture as `command.exec` targeting another pane. Sending/handing off to your
- * own inbox is always allowed under default caps (a self-note/self-handoff isn't a
- * cross-pane action), so both are registered with no static `cap` and check the elevation
- * manually once they know `to`.
- * Reading your OWN inbox (`bus.inbox`, `bus.wait`) and claiming/updating a handoff already
- * addressed to (or from) you need no capability beyond being an authenticated pane.
- * `bus.handoffs` defaults to CALLER-SCOPED (only handoffs where you're `to` or `from`) for
- * the same reason — an unscoped `{ all: true }` listing would otherwise leak every other
- * pane's (and every other project's) handoff context, so it needs the elevated
- * `workspace-wide` capability, same as `process.list`'s cross-session view.
- *
- * `bus.wait` long-polls: it resolves as soon as `bus.send`/`bus.handoff` deliver a message to
- * the caller, or after `timeoutMs` (clamped to [1s, 120s], default 30s) elapses, whichever
- * comes first. It checks the caller's inbox BEFORE registering a waiter, so a message that
- * arrived between polls is returned immediately instead of blocking for the full timeout.
- * This needs an in-memory waiter registry (`Map<externalId, Waiter[]>`) alongside the on-disk
- * store — waiters are inherently per-process, tied to a live `bus.wait` request awaiting a
- * response, so they don't need to (and can't usefully) survive a restart the way
- * `inboxes`/`handoffs` do. Delivery and timeout race to resolve the same promise; `finish` is
- * idempotent (a `settled` flag) so whichever fires first wins and the loser's timer/
- * registration is torn down.
- *
- * Both stores are bounded so a chatty (or hostile) pane can't grow the shared file forever:
- * each inbox keeps only the newest `MAX_INBOX_MESSAGES`, and `handoffs` keeps only the newest
- * `MAX_HANDOFFS` (preferring to evict already-`completed`/`failed` entries over open ones).
- */
 import { randomUUID } from 'node:crypto'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { Capability } from '../shared/capabilities'
@@ -74,16 +37,13 @@ interface BusData {
   handoffs: Handoff[]
 }
 
-/** Per-inbox message cap — oldest messages are evicted on append past this. */
 const MAX_INBOX_MESSAGES = 200
-/** Total handoff-ledger cap — oldest completed/failed entries are evicted first past this. */
 const MAX_HANDOFFS = 500
 
 const MIN_WAIT_MS = 1000
 const MAX_WAIT_MS = 120000
 const DEFAULT_WAIT_MS = 30000
 
-/** A JSON-RPC error matching `controlServer.ts`'s `needsElevation` (not exported from there). */
 function needsElevation(cap: Capability): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
 }
@@ -105,10 +65,8 @@ const NOT_FOUND = { ok: false, error: 'not-found' as const }
 type WaitResult = { messages: Message[]; timedOut: boolean }
 type Waiter = (result: WaitResult) => void
 
-/** externalId -> pending `bus.wait` resolvers for that inbox. */
 const waiters = new Map<string, Waiter[]>()
 
-/** Resolves (and clears) every waiter registered for `to` with the post-delivery inbox. */
 function wake(to: string, messages: Message[]): void {
   const pending = waiters.get(to)
   if (!pending || pending.length === 0) return
@@ -116,7 +74,6 @@ function wake(to: string, messages: Message[]): void {
   for (const resolve of pending) resolve({ messages, timedOut: false })
 }
 
-/** Registers a waiter for `externalId`; returns an idempotent unregister function. */
 function addWaiter(externalId: string, resolve: Waiter): () => void {
   const list = waiters.get(externalId) ?? []
   list.push(resolve)
@@ -130,16 +87,11 @@ function addWaiter(externalId: string, resolve: Waiter): () => void {
   }
 }
 
-/** Clamp a caller-supplied `bus.wait` timeout into `[MIN_WAIT_MS, MAX_WAIT_MS]`. */
 function clampTimeout(timeoutMs: number | undefined): number {
   if (typeof timeoutMs !== 'number' || Number.isNaN(timeoutMs)) return DEFAULT_WAIT_MS
   return Math.min(MAX_WAIT_MS, Math.max(MIN_WAIT_MS, timeoutMs))
 }
 
-/**
- * Appends `msg` to `data.inboxes[msg.to]`, evicts the oldest messages past
- * `MAX_INBOX_MESSAGES`, saves, and wakes any waiter for the recipient.
- */
 function deliver(data: BusData, msg: Message): void {
   const inbox = data.inboxes[msg.to] ?? []
   inbox.push(msg)
@@ -149,12 +101,6 @@ function deliver(data: BusData, msg: Message): void {
   wake(msg.to, inbox)
 }
 
-/**
- * Evicts entries from `data.handoffs` (oldest-first) until it's within `MAX_HANDOFFS`,
- * preferring to evict already-`completed`/`failed` handoffs over ones still open
- * (`submitted`/`claimed`) — a stale finished handoff is safe to forget; an open one still
- * carries a task the receiving agent hasn't seen/finished yet.
- */
 function enforceHandoffCap(data: BusData): void {
   while (data.handoffs.length > MAX_HANDOFFS) {
     const idx = data.handoffs.findIndex((h) => h.state === 'completed' || h.state === 'failed')
@@ -164,8 +110,6 @@ function enforceHandoffCap(data: BusData): void {
 
 export function registerBusMethods(): void {
   registerControlMethod('bus.send', {
-    // No static cap: self-sends need none, cross-pane sends need 'send-other-pane' — checked
-    // by hand below once `to` is known, per the module doc comment above.
     handler: (params, ctx) => {
       const { to, text } = (params ?? {}) as { to: string; text: string }
       const from = ctx.identity.externalId
@@ -199,8 +143,6 @@ export function registerBusMethods(): void {
       const me = ctx.identity.externalId
       const clamped = clampTimeout(timeoutMs)
 
-      // Check the inbox BEFORE registering a waiter — a message that's already there
-      // should come back immediately instead of blocking until the timeout fires.
       const already = loadBus().inboxes[me] ?? []
       if (already.length > 0) {
         return Promise.resolve({ messages: already, timedOut: false })
@@ -208,9 +150,6 @@ export function registerBusMethods(): void {
 
       return new Promise<WaitResult>((resolve) => {
         let settled = false
-        // `timer` and `unregister` are read inside `finish`, which only ever runs
-        // asynchronously (from the timeout firing or `wake` delivering a message) — by then
-        // both are assigned, even though `finish` is declared before `unregister` below.
         const timer = setTimeout(() => {
           const data = loadBus()
           finish({ messages: data.inboxes[me] ?? [], timedOut: true })
@@ -228,8 +167,6 @@ export function registerBusMethods(): void {
   })
 
   registerControlMethod('bus.handoff', {
-    // No static cap: mirrors `bus.send` — a self-handoff needs nothing extra, a cross-pane
-    // one needs 'send-other-pane' — checked by hand below once `to` is known.
     handler: (params, ctx) => {
       const { to, task, summary, context } = (params ?? {}) as {
         to: string

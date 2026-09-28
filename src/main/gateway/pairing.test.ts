@@ -64,15 +64,6 @@ describe('gateway/pairing', () => {
   })
 })
 
-/**
- * `checkPairRateLimit`/`auditPairAttempt` write to `XDG_DATA_HOME`-relative paths (the audit log)
- * or purely in-memory state (the rate limiter) — point `XDG_DATA_HOME` at a fresh scratch dir per
- * test so this suite never touches the real machine's audit log (mirrors `devices.test.ts`'s
- * isolation approach).
- */
-/** `process.env.X = undefined` stringifies to the literal `"undefined"` instead of unsetting the
- *  key, so restoring "was unset before the test" needs the real `delete` operator (same helper
- *  shape as `devices.test.ts`'s `unsetEnv`). */
 function unsetEnv(key: string): void {
   delete process.env[key]
 }

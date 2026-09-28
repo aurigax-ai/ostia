@@ -1,7 +1,3 @@
-/**
- * `docs` toolbelt method — a static, ungated help blob for the `pine` CLI itself.
- * No capability required: it's just "how do I use this thing", not a privileged action.
- */
 import { registerControlMethod } from './controlServer'
 
 const CLI_HELP = `pine — control-socket CLI

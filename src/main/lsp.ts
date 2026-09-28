@@ -6,11 +6,6 @@ import type { Message } from 'vscode-jsonrpc'
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
 import type { LspServerInfo, LspStartResult } from '../shared/types'
 
-/**
- * Language servers by Monaco language id. TS/JS are intentionally absent — Monaco's
- * built-in worker covers them (avoids double diagnostics). Only servers found on PATH
- * are used; anything missing simply means no LSP for that language.
- */
 const SERVERS: Record<string, { cmd: string; args: string[] }> = {
   python: { cmd: 'pyright-langserver', args: ['--stdio'] },
   rust: { cmd: 'rust-analyzer', args: [] },
@@ -36,7 +31,6 @@ const ROOT_MARKERS = [
   'tsconfig.json',
 ]
 
-/** Resolve a command against PATH (returns its full path, or null if not installed). */
 function which(cmd: string): string | null {
   for (const dir of (process.env.PATH ?? '').split(':')) {
     if (dir && existsSync(join(dir, cmd))) return join(dir, cmd)
@@ -44,7 +38,6 @@ function which(cmd: string): string | null {
   return null
 }
 
-/** Walk up from `startDir` for a project marker; fall back to the starting dir. */
 function findRoot(startDir: string): string {
   let dir = startDir
   for (let i = 0; i < 40; i++) {
@@ -100,7 +93,7 @@ export function registerLspIpc(): void {
       if (!entry.wc.isDestroyed()) entry.wc.send(`lsp:msg:${id}`, msg)
     })
     reader.onError(() => {})
-    proc.stderr.on('data', () => {}) // swallow server logs
+    proc.stderr.on('data', () => {})
     const cleanup = (): void => {
       servers.delete(id)
       if (!entry.wc.isDestroyed()) entry.wc.send(`lsp:exit:${id}`)
@@ -123,9 +116,7 @@ export function registerLspIpc(): void {
     if (!s) return
     try {
       s.proc.kill()
-    } catch {
-      // already gone
-    }
+    } catch {}
     servers.delete(id)
   })
 }
@@ -134,9 +125,7 @@ export function killAllLsp(): void {
   for (const s of servers.values()) {
     try {
       s.proc.kill()
-    } catch {
-      // already gone
-    }
+    } catch {}
   }
   servers.clear()
 }

@@ -13,7 +13,6 @@ import type {
   KanbanMutateResult,
   LspServerInfo,
   LspStartResult,
-  PaneDescriptor,
   PineBridge,
   Platform,
   PtyAttachResult,
@@ -24,10 +23,6 @@ import type {
   WorkspaceSnapshot,
 } from '../shared/types'
 
-/**
- * The single, minimal, typed surface the renderer can touch.
- * Everything privileged stays in main; this just forwards typed requests.
- */
 const bridge: PineBridge = {
   ping: () => ipcRenderer.invoke('app:ping') as Promise<'pong'>,
   info: () => ipcRenderer.invoke('app:info') as Promise<AppInfo>,
@@ -42,10 +37,6 @@ const bridge: PineBridge = {
       ipcRenderer.on('window:maximized', handler)
       return () => ipcRenderer.removeListener('window:maximized', handler)
     },
-    tearOffPane: (descriptor: PaneDescriptor) =>
-      ipcRenderer.invoke('window:tear-off', descriptor) as Promise<{ detached: boolean }>,
-    getDetachedPane: () =>
-      ipcRenderer.invoke('window:get-detached-pane') as Promise<PaneDescriptor | null>,
   },
   pty: {
     attach: (paneId, opts) =>
@@ -53,7 +44,6 @@ const bridge: PineBridge = {
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
-    kill: (paneId) => ipcRenderer.send('pty:kill', paneId),
     onData: (paneId, cb) => {
       const handler = (_e: unknown, data: string): void => cb(data)
       ipcRenderer.on(`pty:data:${paneId}`, handler)

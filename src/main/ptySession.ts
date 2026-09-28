@@ -7,11 +7,6 @@ export interface Subscriber {
   send: (data: string, cursor: number) => void
 }
 
-/**
- * One pty's fan-out: a ring buffer plus a set of subscribers (owners = read/write and hold
- * the pty open; observers = read-only, e.g. the phone). Pure — the IPC layer injects the
- * WebContents `send` and wires onNoOwners → detach-grace kill. See ptyRingBuffer for trim.
- */
 export class PtySession {
   private readonly ring: PtyRingBuffer
   private readonly subs = new Map<string, Subscriber>()
@@ -45,12 +40,10 @@ export class PtySession {
     return { cursor, dropped }
   }
 
-  /** Read-only replay of buffered output since `cursor` (NO send). Used for attach's return value. */
   since(sinceCursor = 0): { data: string; cursor: number; dropped: boolean } {
     return this.ring.since(sinceCursor)
   }
 
-  /** Register a subscriber for FUTURE live output only (no replay). Caller replays via since(). */
   addLiveSubscriber(sub: Subscriber): void {
     this.subs.set(sub.id, sub)
   }

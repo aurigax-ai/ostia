@@ -1,23 +1,24 @@
 import { FitAddon } from '@xterm/addon-fit'
-import { Terminal as Xterm } from '@xterm/xterm'
+import { SearchAddon } from '@xterm/addon-search'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
+import { WebLinksAddon } from '@xterm/addon-web-links'
+import { type IMarker, Terminal as Xterm } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
-import { useEffect, useRef } from 'react'
-import { useBlocksStore } from '../stores/blocksStore'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { isAppChord, matchChord } from '../lib/chords'
+import { shouldNotifyCommandEnd, syncSessionState } from '../lib/sessionActivity'
+import { isMac } from '../platform'
+import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Blocks } from './Blocks'
+import { TerminalFind, findOptions } from './TerminalFind'
 import { nextSizeAction } from './terminalSizing'
 import { terminalPalette } from './terminalTheme'
 
-/** Bundled Hack Nerd Font Mono leads; fallbacks keep glyphs monospaced. */
 const MONO_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
 const fontStack = (family: string): string => `"${family}", ${MONO_FALLBACK}`
 
-/**
- * A live terminal surface: xterm.js wired to a node-pty session in main over the
- * `window.pine.pty` bridge. One pty per mounted terminal; killed on unmount. The font
- * comes from Settings → Terminal (default Hack Nerd Font Mono, for Nerd Font glyphs).
- */
 export function TerminalView({
   sessionId,
   paneId,
@@ -31,16 +32,15 @@ export function TerminalView({
   const termRef = useRef<Xterm | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const lastSizeRef = useRef({ cols: 0, rows: 0 })
-  // Spawn dir is captured once at mount; later cwd updates flow OUT (terminal → pane), not in.
   const spawnCwd = useRef(cwd)
   const font = useSettingsStore((s) => s.appearance.terminal)
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
   const themeId = useSettingsStore((s) => s.appearance.theme)
+  const [search, setSearch] = useState<SearchAddon | null>(null)
+  const [findOpen, setFindOpen] = useState(false)
+  const searchOptions = useMemo(() => findOptions(terminalPalette(themeId)), [themeId])
 
-  // Create the xterm, then attach to the pane's pty (keyed by pane id). The pty + its output
-  // buffer live in main, so on a remount (split/relocate) we re-attach and replay history
-  // instead of restarting the shell. Font is read from the store so font changes don't restart.
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
@@ -54,17 +54,72 @@ export function TerminalView({
       lineHeight: 1.15,
       cursorStyle: behavior.cursorStyle,
       cursorBlink: behavior.cursorBlink,
-      scrollback: 5000,
+      scrollback: 10000,
+      allowProposedApi: true,
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
+    term.loadAddon(new Unicode11Addon())
+    term.unicode.activeVersion = '11'
+    term.loadAddon(
+      new WebLinksAddon((e, uri) => {
+        if (isMac ? e.metaKey : e.ctrlKey) window.open(uri, '_blank')
+      }),
+    )
+    const searchAddon = new SearchAddon()
+    term.loadAddon(searchAddon)
     term.open(host)
     termRef.current = term
     fitRef.current = fit
+    setSearch(searchAddon)
 
-    // Shell-integration marks (see src/main/shellIntegration.ts), registered before any
-    // buffer replay below so a remount re-parses OSC 7/133 from the replayed history too.
+    term.attachCustomKeyEventHandler((e) => {
+      const chord = matchChord(e, isMac)
+      if (!chord) return true
+      if (isMac && (chord === 'copy' || chord === 'paste')) return true
+      if (e.type !== 'keydown' || isAppChord(chord)) return false
+      e.preventDefault()
+      if (chord === 'find') setFindOpen(true)
+      else if (chord === 'copy') {
+        const selection = term.getSelection()
+        if (selection) void navigator.clipboard.writeText(selection)
+      } else {
+        void navigator.clipboard.readText().then((text) => {
+          if (text && !disposed) term.paste(text)
+        })
+      }
+      return false
+    })
+
     const cwdRef = { current: spawnCwd.current ?? null }
+    let promptMarker: IMarker | undefined
+    const markers = new Set<IMarker>()
+    const anchor = (): LineAnchor => {
+      const marker = term.registerMarker(0)
+      if (!marker) return { line: term.buffer.active.baseY + term.buffer.active.cursorY }
+      markers.add(marker)
+      marker.onDispose(() => markers.delete(marker))
+      return marker
+    }
+    const disposeMarkers = (): void => {
+      for (const marker of [...markers]) marker.dispose()
+    }
+    let inputAnchor: LineAnchor | null = null
+    let inputCol = 0
+    let runningCommand = ''
+    const onCommandEnd = (exitCode: number): void => {
+      const blocks = useBlocksStore.getState()
+      const runningId = blocks.running[paneId]
+      const block = runningId ? blocks.byPane[paneId]?.find((b) => b.id === runningId) : undefined
+      blocks.commandEnd(paneId, anchor(), exitCode)
+      syncSessionState(sessionId)
+      if (!block || !shouldNotifyCommandEnd(Date.now() - block.startedAt, document.hasFocus())) {
+        return
+      }
+      if (typeof Notification === 'undefined') return
+      const title = exitCode === 0 ? 'Command finished' : `Command failed (exit ${exitCode})`
+      new Notification(title, { body: runningCommand || block.cwd || '' })
+    }
     const oscCwd = term.parser.registerOscHandler(7, (data) => {
       const path = decodeOsc7(data)
       if (path) {
@@ -75,35 +130,40 @@ export function TerminalView({
     })
     const oscBlocks = term.parser.registerOscHandler(133, (data) => {
       const [kind, arg] = data.split(';')
-      const line = term.buffer.active.baseY + term.buffer.active.cursorY
       const blocks = useBlocksStore.getState()
-      if (kind === 'A') blocks.promptStart(paneId, line, cwdRef.current)
-      else if (kind === 'B') blocks.promptEnd(paneId, line)
-      else if (kind === 'C') blocks.commandStart(paneId, line)
-      else if (kind === 'D') blocks.commandEnd(paneId, line, Number(arg ?? 0))
+      if (kind === 'A') {
+        promptMarker?.dispose()
+        promptMarker = term.registerMarker(0)
+        inputAnchor = null
+        blocks.promptStart(paneId, anchor(), cwdRef.current)
+      } else if (kind === 'B') {
+        inputAnchor = anchor()
+        inputCol = term.buffer.active.cursorX
+        blocks.promptEnd(paneId, inputAnchor)
+      } else if (kind === 'C') {
+        runningCommand = readInput(term, inputAnchor, inputCol)
+        blocks.commandStart(paneId, anchor())
+        syncSessionState(sessionId)
+      } else if (kind === 'D') onCommandEnd(Number(arg ?? 0))
       return true
     })
 
     let disposed = false
     let attached = false
-    // Subscribe to live pty output BEFORE attaching, so bytes emitted between (re)attach and
-    // now aren't dropped (Codex). Queue them until the replay buffer is written, then flush.
     let replayed = false
     const pending: string[] = []
-    // Atomic-resize hold (see syncSize): while a prompt-repaint resize is in flight, incoming
-    // pty bytes are buffered so erase + regrid + the shell's fresh prompt paint as ONE frame.
     let holdForRedraw = false
     let held: string[] = []
     let holdIdleTimer: ReturnType<typeof setTimeout> | null = null
     let holdCapTimer: ReturnType<typeof setTimeout> | null = null
     let holdEraseRow = 1
+    let holdCursor = { row: 1, col: 1 }
     let holdDims = { cols: 0, rows: 0 }
     const offData = window.pine.pty.onData(paneId, (d) => {
       if (!replayed) {
         pending.push(d)
       } else if (holdForRedraw) {
         held.push(d)
-        // The repaint arrives as a burst; a short idle gap after it means the shell is done.
         if (holdIdleTimer) clearTimeout(holdIdleTimer)
         holdIdleTimer = setTimeout(flushHold, 24)
       } else {
@@ -114,31 +174,32 @@ export function TerminalView({
       term.writeln('\r\n\x1b[2m[process exited]\x1b[0m'),
     )
 
-    // Spawn the pty at the REAL fitted size — NEVER xterm's 80×24 default. If we attached at the
-    // default and then grew to the real box, the shell's first prompt (and its right-aligned
-    // RPROMPT) would be drawn at the wrong width and stranded by xterm's reflow — the "staircase"
-    // of prompts. So attach is deferred until the host has a real layout box and FitAddon yields
-    // a valid size (the ResizeObserver drives the first fit when the portal slot lays out).
     const attachAtCurrentSize = (cols: number, rows: number): void => {
       attached = true
       lastSizeRef.current = { cols, rows }
+      const flushPending = (): void => {
+        replayed = true
+        for (const d of pending) term.write(d)
+        pending.length = 0
+      }
       window.pine.pty
         .attach(paneId, { cwd: spawnCwd.current, cols, rows, role: 'owner' })
         .then(({ buffer }) => {
           if (disposed) return
-          // A remount replays history, which re-parses OSC 133 marks — clear this pane's blocks
-          // first so they rebuild cleanly instead of appending duplicates (Codex).
+          disposeMarkers()
           useBlocksStore.getState().resetPane(paneId)
-          if (buffer) term.write(buffer) // replay history into the fresh terminal
-          replayed = true
-          for (const d of pending) term.write(d)
-          pending.length = 0
+          syncSessionState(sessionId)
+          if (buffer) term.write(buffer)
+          flushPending()
+        })
+        .catch((err: unknown) => {
+          if (disposed) return
+          const reason = err instanceof Error ? err.message : String(err)
+          term.writeln(`\x1b[2m[failed to start shell: ${reason}]\x1b[0m`)
+          flushPending()
         })
     }
 
-    // cmux fit rule: never fit a 0-sized host (0 cols/rows corrupts the pty buffer) and never
-    // forward a 0×0 or unchanged size to the pty. The FIRST valid fit spawns the pty at that
-    // size; later valid fits just resize the existing pty.
     const applyFit = (): void => {
       const fitted = safeFit(host, fit)
       const { cols, rows } = term
@@ -151,22 +212,6 @@ export function TerminalView({
       }
     }
 
-    // The prompt line effectively spans the full width (right-aligned RPROMPT at the last
-    // column), so on a narrowing resize xterm's reflow wraps the OLD prompt line into extra
-    // rows — and the shell's SIGWINCH redraw only clears from the row it believes the prompt
-    // starts on, stranding the wrapped rows above (the "prompt duplicates on split" bug,
-    // e2e/resize-prompt.spec.ts). kitty and Warp solve this by redrawing the prompt at the new
-    // size atomically. Ours has a pty round-trip, so "atomic" takes three steps:
-    //   1. Resize the PTY ONLY (SIGWINCH the shell) — the local grid stays untouched, so the
-    //      user keeps seeing the intact old prompt (no erase-then-wait blank, no reflow strand).
-    //   2. HOLD incoming pty bytes; the shell's repaint arrives as a burst (idle-gap detected).
-    //   3. flushHold: erase the stale prompt + apply the new grid + write the held repaint in
-    //      one queued batch — xterm renders the final state in a single frame. No intermediate
-    //      duplicated/blank frames (the "flash" report).
-    // The erase anchors at min(OSC 133;A draft row, cursor row) — the cursor sits on the prompt
-    // while idle, and the mark row can drift a row across rapid cycles (the flash's duplicated
-    // frame). If the shell never repaints (bash/readline, no integration), the cap timer fires
-    // with nothing held and we plain-reflow instead — never erase without a repaint in hand.
     const flushHold = (): void => {
       if (!holdForRedraw) return
       holdForRedraw = false
@@ -179,11 +224,12 @@ export function TerminalView({
       held = []
       const { cols, rows } = holdDims
       if (redraw.length > 0) {
-        term.write(`\x1b[${holdEraseRow};1H\x1b[0J`, () => {
+        const restore = `\x1b[${holdCursor.row};${holdCursor.col}H`
+        term.write(`\x1b[${holdEraseRow};1H\x1b[0J${restore}`, () => {
           if (disposed) return
           term.resize(cols, rows)
           term.write(redraw)
-          syncSize() // pick up any size change that landed while holding
+          syncSize()
         })
       } else {
         term.resize(cols, rows)
@@ -191,9 +237,8 @@ export function TerminalView({
       }
     }
     const syncSize = (): void => {
-      if (holdForRedraw) return // a hold is in flight; flushHold re-syncs when it completes
+      if (holdForRedraw) return
       if (attached && host && fit && host.offsetWidth > 0 && host.offsetHeight > 0) {
-        // Peek at the would-be grid without applying it — the local regrid happens at flush.
         const dims = fit.proposeDimensions()
         const last = lastSizeRef.current
         if (
@@ -205,15 +250,17 @@ export function TerminalView({
           const blocks = useBlocksStore.getState()
           const draft = blocks.drafts[paneId]
           if (draft && !blocks.running[paneId]) {
-            const draftRow = draft.promptLine - term.buffer.active.baseY + 1
+            const markLine = promptMarker && !promptMarker.isDisposed ? promptMarker.line : -1
+            const draftRow = markLine - term.buffer.active.baseY + 1
             const cursorRow = term.buffer.active.cursorY + 1
+            holdCursor = { row: cursorRow, col: term.buffer.active.cursorX + 1 }
             holdEraseRow =
               draftRow >= 1 && draftRow <= term.rows ? Math.min(draftRow, cursorRow) : cursorRow
             holdDims = { cols: dims.cols, rows: dims.rows }
             holdForRedraw = true
             lastSizeRef.current = { cols: dims.cols, rows: dims.rows }
             window.pine.pty.resize(paneId, dims.cols, dims.rows)
-            holdCapTimer = setTimeout(flushHold, 150) // never hold output hostage for long
+            holdCapTimer = setTimeout(flushHold, 150)
             return
           }
         }
@@ -223,15 +270,8 @@ export function TerminalView({
 
     const input = term.onData((d) => window.pine.pty.write(paneId, d))
 
-    // Common case: the slot already has a box on first paint → fit + attach immediately. If it's
-    // still 0×0, syncSize() no-ops and the ResizeObserver attaches the moment the box appears.
     syncSize()
 
-    // Debounce resize. A drag fires dozens of RO callbacks/sec; fitting + SIGWINCH on each makes
-    // the shell redraw its prompt (and RPROMPT clock) every frame — the stacking "staircase" of
-    // prompts. Coalesce to the final size after a short idle so the shell redraws once (same
-    // technique as VSCode / cmux-wmux). The FIRST attach, though, must happen ASAP once we have a
-    // real box, so while unattached the RO drives syncSize immediately (no debounce).
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
     let rafId = 0
     const ro = new ResizeObserver(() => {
@@ -249,7 +289,7 @@ export function TerminalView({
     return () => {
       disposed = true
       if (resizeTimer) clearTimeout(resizeTimer)
-      if (rafId) cancelAnimationFrame(rafId) // else a queued fit runs on a disposed term
+      if (rafId) cancelAnimationFrame(rafId)
       if (holdIdleTimer) clearTimeout(holdIdleTimer)
       if (holdCapTimer) clearTimeout(holdCapTimer)
       ro.disconnect()
@@ -258,21 +298,24 @@ export function TerminalView({
       offExit()
       oscCwd.dispose()
       oscBlocks.dispose()
-      window.pine.pty.detach(paneId) // keep the pty alive briefly for a remount
+      promptMarker?.dispose()
+      disposeMarkers()
+      useBlocksStore.getState().dropPane(paneId)
+      syncSessionState(sessionId)
+      window.pine.pty.detach(paneId)
       term.dispose()
       termRef.current = null
       fitRef.current = null
+      setSearch(null)
+      setFindOpen(false)
     }
   }, [sessionId, paneId])
 
-  // Apply terminal-font changes live, without restarting the shell.
   useEffect(() => {
     const term = termRef.current
     if (!term) return
     term.options.fontFamily = fontStack(font.family)
     term.options.fontSize = font.size
-    // Only resize if the fit actually ran (host has a box) — never send a default-size resize to
-    // a pty that may not be attached yet (see the mount effect's deferred-attach rationale).
     if (!safeFit(hostRef.current, fitRef.current)) return
     const { cols, rows } = term
     const last = lastSizeRef.current
@@ -282,7 +325,6 @@ export function TerminalView({
     }
   }, [font.family, font.size, paneId])
 
-  // Apply cursor style/blink changes live.
   useEffect(() => {
     const term = termRef.current
     if (!term) return
@@ -290,8 +332,6 @@ export function TerminalView({
     term.options.cursorBlink = cursorBlink
   }, [cursorStyle, cursorBlink])
 
-  // Apply app-theme changes to the xterm ANSI palette live, without restarting the shell —
-  // same "read from the store, patch term.options" pattern as font/cursor above.
   useEffect(() => {
     const term = termRef.current
     if (!term) return
@@ -300,34 +340,42 @@ export function TerminalView({
 
   return (
     <>
-      <div ref={hostRef} className="xterm-host" />
+      <div
+        ref={hostRef}
+        className="xterm-host"
+        style={{ background: terminalPalette(themeId).background }}
+      />
       <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />
+      {findOpen && search && (
+        <TerminalFind
+          search={search}
+          options={searchOptions}
+          onClose={() => {
+            setFindOpen(false)
+            termRef.current?.focus()
+          }}
+        />
+      )}
     </>
   )
 }
 
-/**
- * Extract the path from an OSC 7 `file://<host><path>` payload. Our shell hooks emit the
- * RAW (un-percent-encoded) path, so we do NOT decodeURIComponent — that would corrupt a
- * real directory containing a `%xx`-looking segment (e.g. `.../100%20off`).
- */
+function readInput(term: Xterm, input: LineAnchor | null, col: number): string {
+  if (!input || input.line < 0) return ''
+  return term.buffer.active.getLine(input.line)?.translateToString(true, col).trim() ?? ''
+}
+
 function decodeOsc7(data: string): string | null {
   const m = /^file:\/\/[^/]*(\/.*)$/.exec(data)
   return m ? m[1] : null
 }
 
-/**
- * Fit xterm to its host — but NEVER when the host is 0-sized: FitAddon would compute
- * 0 cols/rows and corrupt the pty buffer (the cmux "infinite duplication" bug). The
- * ResizeObserver retries once the host has a real box.
- */
 function safeFit(host: HTMLElement | null, fit: FitAddon | null): boolean {
   if (!fit || !host || host.offsetWidth === 0 || host.offsetHeight === 0) return false
   try {
     fit.fit()
     return true
   } catch {
-    // not laid out yet
     return false
   }
 }

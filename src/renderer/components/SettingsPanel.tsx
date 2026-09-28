@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo } from '@shared/types'
 import {
   Boxes,
@@ -27,7 +28,10 @@ import {
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { GatewaySection } from './GatewaySection'
+import { Hint } from './Hint'
+import { Button } from './ui/button'
 import { Input } from './ui/input'
+import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group'
 import { ScrollArea } from './ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select'
 import { Separator } from './ui/separator'
@@ -43,18 +47,13 @@ type SectionId =
   | 'language'
   | 'about'
 
-/**
- * Settings as a full-window, two-pane surface (Warp/VSCode preferences pattern): a
- * searchable left nav of sections + an `Open settings file` button, a scrollable right
- * pane of grouped controls (dropdowns / switches / inputs). Sits below the OS controls.
- */
 export function SettingsPanel(): JSX.Element | null {
   const d = useDict()
   const open = useUIStore((s) => s.settingsActive)
   const close = useUIStore((s) => s.leaveSettings)
   const [active, setActive] = useState<SectionId>('appearance')
   const [query, setQuery] = useState('')
-  const searchRef = useRef<HTMLInputElement>(null)
+  const navRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -65,11 +64,10 @@ export function SettingsPanel(): JSX.Element | null {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, close])
 
-  // Move focus into Settings on open, and restore it to the prior element on close.
   useEffect(() => {
     if (!open) return
     const prev = document.activeElement as HTMLElement | null
-    searchRef.current?.focus()
+    navRef.current?.querySelector<HTMLInputElement>('input')?.focus()
     return () => prev?.focus?.()
   }, [open])
 
@@ -106,21 +104,18 @@ export function SettingsPanel(): JSX.Element | null {
       className="absolute inset-0 z-20 flex min-h-0 flex-col bg-bg text-fg"
     >
       <div className="grid min-h-0 flex-1 grid-cols-[210px_1fr]">
-        <nav className="flex min-h-0 flex-col border-line border-r bg-surface-1">
-          <div className="relative m-1.5">
-            <Search
-              size={12}
-              className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 text-fg-dim"
-            />
-            <Input
-              ref={searchRef}
+        <nav ref={navRef} className="flex min-h-0 flex-col border-line border-r bg-surface-1">
+          <InputGroup className="m-2 h-7 w-auto">
+            <InputGroupAddon>
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={d.settings.search}
               aria-label={d.settings.search}
-              className="h-7 bg-bg-sunken pl-6 text-[11px]"
             />
-          </div>
+          </InputGroup>
           <ScrollArea className="min-h-0 flex-1">
             <ul className="flex flex-col gap-0.5 px-2 pb-2">
               {visible.map((s) => (
@@ -129,27 +124,23 @@ export function SettingsPanel(): JSX.Element | null {
                     type="button"
                     onClick={() => setActive(s.id)}
                     aria-current={active === s.id ? 'page' : undefined}
-                    className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] ${
+                    className={`flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-ui-base ${
                       active === s.id
                         ? 'bg-surface-2 text-fg'
                         : 'text-fg-muted hover:bg-surface-2/60 hover:text-fg'
                     }`}
                   >
-                    <s.icon size={15} className={active === s.id ? 'text-brand' : 'text-fg-dim'} />
+                    <s.icon size={14} className={active === s.id ? 'text-brand' : 'text-fg-dim'} />
                     {s.label}
                   </button>
                 </li>
               ))}
             </ul>
           </ScrollArea>
-          <button
-            type="button"
-            onClick={openSettingsFile}
-            className="m-2 flex items-center justify-center gap-2 rounded-md border border-line bg-bg-sunken px-3 py-2 font-mono text-fg-muted text-xs hover:border-line-strong hover:text-fg"
-          >
-            <SquareTerminal size={14} className="text-fg-dim" />
+          <Button variant="outline" size="sm" onClick={openSettingsFile} className="m-2">
+            <SquareTerminal data-icon="inline-start" />
             {d.settings.openFile}
-          </button>
+          </Button>
         </nav>
 
         <ScrollArea className="min-h-0">
@@ -169,13 +160,10 @@ export function SettingsPanel(): JSX.Element | null {
   )
 }
 
-/** Exported so other settings sections defined outside this file (e.g. `GatewaySection.tsx`)
- *  can match this surface's row/heading conventions instead of reinventing them. */
 export function SectionHead({ title }: { title: string }): JSX.Element {
-  return <h2 className="mb-1.5 font-semibold text-[16px] text-fg">{title}</h2>
+  return <h2 className="mb-1.5 font-semibold text-fg text-ui-lg">{title}</h2>
 }
 
-/** A settings row: label (+ optional description) on the left, a control on the right. */
 export function ControlRow({
   label,
   desc,
@@ -188,15 +176,14 @@ export function ControlRow({
   return (
     <div className={`flex justify-between gap-6 py-1.5 ${desc ? 'items-start' : 'items-center'}`}>
       <div className="min-w-0">
-        <div className="text-fg text-sm">{label}</div>
-        {desc ? <p className="mt-0.5 text-fg-muted text-xs leading-relaxed">{desc}</p> : null}
+        <div className="text-fg text-ui-base">{label}</div>
+        {desc ? <p className="mt-0.5 text-fg-muted text-ui-sm">{desc}</p> : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>
   )
 }
 
-/** A proper dropdown (Base UI Select) — the trigger shows the current option's label. */
 function SelectField<T extends string>({
   value,
   onChange,
@@ -213,12 +200,12 @@ function SelectField<T extends string>({
   const current = options.find((o) => o.value === value)?.label ?? value
   return (
     <Select value={value} onValueChange={(v) => onChange(v as T)}>
-      <SelectTrigger aria-label={label} className={`${width} text-[13px]`}>
+      <SelectTrigger size="sm" aria-label={label} className={width}>
         {current}
       </SelectTrigger>
       <SelectContent>
         {options.map((o) => (
-          <SelectItem key={o.value} value={o.value} className="text-[13px]">
+          <SelectItem key={o.value} value={o.value}>
             {o.label}
           </SelectItem>
         ))}
@@ -227,7 +214,6 @@ function SelectField<T extends string>({
   )
 }
 
-/** A label + sub-description on the left, a Switch pinned right. */
 export function ToggleRow({
   label,
   desc,
@@ -262,7 +248,7 @@ function AppearanceSection(): JSX.Element {
           options={themes.map((t) => ({ value: t.id, label: t.name }))}
         />
       </ControlRow>
-      <Separator className="bg-line" />
+      <Separator />
       <FontRow surface="ui" label={d.settings.uiFont} />
       <FontRow surface="terminal" label={d.settings.terminalFont} />
       <FontRow surface="editor" label={d.settings.editorFont} />
@@ -280,7 +266,7 @@ function FontRow({ surface, label }: { surface: FontSurface; label: string }): J
         value={font.family}
         onChange={(e) => setSurfaceFont(surface, { family: e.target.value })}
         aria-label={`${label} — ${d.settings.family}`}
-        className="h-7 w-44 font-mono text-xs"
+        className="h-7 w-44 font-mono"
       />
       <Input
         type="number"
@@ -294,7 +280,7 @@ function FontRow({ surface, label }: { surface: FontSurface; label: string }): J
             setSurfaceFont(surface, { size: Math.min(32, Math.max(8, Math.round(n))) })
           }
         }}
-        className="h-7 w-16 font-mono text-xs"
+        className="h-7 w-16 font-mono"
       />
     </ControlRow>
   )
@@ -355,7 +341,6 @@ function FilesSection(): JSX.Element {
   )
 }
 
-/** Installed plugins + a summary of what each contributes. */
 function PluginsSection(): JSX.Element {
   const d = useDict()
   const plugins = usePluginsStore((s) => s.plugins)
@@ -364,17 +349,19 @@ function PluginsSection(): JSX.Element {
       <SectionHead title={d.settings.plugins} />
       <div className="flex flex-col">
         {plugins.map((p) => (
-          <div key={p.id} className="rounded-md px-3 py-2 hover:bg-surface-2/60" title={p.id}>
-            <div className="flex items-center gap-2">
-              <span className="text-fg text-sm">{p.name}</span>
-              {p.builtin ? (
-                <span className="rounded border border-line px-1.5 py-px font-mono text-[10px] text-fg-dim">
-                  {d.settings.builtin}
-                </span>
-              ) : null}
+          <Hint key={p.id} label={p.id} side="left">
+            <div className="rounded-sm px-3 py-2 hover:bg-surface-2/60">
+              <div className="flex items-center gap-2">
+                <span className="text-fg text-ui-base">{p.name}</span>
+                {p.builtin ? (
+                  <span className="rounded-sm border border-line px-1.5 text-fg-muted text-ui-xs">
+                    {d.settings.builtin}
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-0.5 text-fg-muted text-ui-sm">{p.description}</p>
             </div>
-            <p className="mt-0.5 text-fg-muted text-xs leading-relaxed">{p.description}</p>
-          </div>
+          </Hint>
         ))}
       </div>
     </section>
@@ -408,7 +395,7 @@ function LanguageServersSection(): JSX.Element {
       <SectionHead title={d.settings.languageServers} />
       <div className="plugins">
         {lsp.map((e) => (
-          <div key={e.languageId} className="plugin" title={`${e.command} · ${e.languageId}`}>
+          <div key={e.languageId} className="plugin">
             <span className={`dot plugin-dot ${LSP_DOT[e.status]}`} />
             <span className="plugin-body">
               <span className="plugin-name">{e.command}</span>
@@ -456,13 +443,13 @@ function AboutSection(): JSX.Element {
     <section>
       <SectionHead title={d.settings.about} />
       <ControlRow label={d.settings.title}>
-        <span className="font-mono text-fg text-sm">{info?.name ?? 'pine'}</span>
+        <span className="text-fg text-ui-base">{info?.name ?? PRODUCT_NAME}</span>
       </ControlRow>
       <ControlRow label={d.settings.version}>
-        <span className="font-mono text-fg-muted text-sm">{info?.version ?? '…'}</span>
+        <span className="font-mono text-fg-muted text-ui-base">{info?.version ?? '…'}</span>
       </ControlRow>
       <ControlRow label={d.settings.platform}>
-        <span className="font-mono text-fg-muted text-sm">{platform}</span>
+        <span className="font-mono text-fg-muted text-ui-base">{platform}</span>
       </ControlRow>
     </section>
   )
