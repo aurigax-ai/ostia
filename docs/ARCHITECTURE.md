@@ -284,6 +284,12 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - The `agent` kind exists but has no surface (it shows a ghost title).
   - Zoom renders only `zoomedPaneId`.
   - Closing the zoomed pane clears the zoom.
+- **Markdown preview** (`components/MarkdownPreview.tsx`, `typeset.css`): `.md` editors get a
+  Preview toggle that renders the live model text with react-markdown + remark-gfm inside a
+  `typeset typeset-pine` container. `typeset.css` is shadcn Typeset, copied in (comments stripped)
+  and owned here. Why not streamdown: it puts Tailwind classes on every element, which beat
+  Typeset's `:where()` styles. Raw HTML is never rendered, and links open with `target="_blank"`,
+  which the window's open handler routes to `openExternalSafe`.
 - **Tabs** (`layout/tree.ts` `TabsNode`, `components/Pane.tsx`): a split-tree leaf is a pane or a
   `tabs` stack of panes with one shown (`activeId`). The pane header is a tab strip (one tab for
   a lone pane) with new terminal tab, new browser tab and split buttons; a tab's pane id is still
