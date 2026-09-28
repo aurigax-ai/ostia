@@ -311,6 +311,7 @@ export class ExtensionHost {
     if (rt.identity) dropIdentity(rt.identity.externalId)
     removeExtension(id)
     rt.identity = null
+    rt.conn?.dispose()
     rt.conn = null
     rt.ready.clear()
     rt.subscriptions.clear()

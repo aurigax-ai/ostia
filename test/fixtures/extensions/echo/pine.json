@@ -1,0 +1,19 @@
+{
+  "id": "echo",
+  "name": "Echo",
+  "version": "0.1.0",
+  "description": "Test fixture extension",
+  "capabilities": ["read-board", "notify"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "echo", "title": "Echo" },
+      { "id": "guarded", "title": "Needs workspace-wide", "capabilities": ["workspace-wide"] },
+      { "id": "probe", "title": "Call a pane-only method", "palette": false },
+      { "id": "notify", "title": "Post a notification", "palette": false },
+      { "id": "crash", "title": "Exit the process", "palette": false }
+    ],
+    "sidebarItems": true,
+    "panel": { "title": "Echo", "entry": "url" }
+  }
+}
