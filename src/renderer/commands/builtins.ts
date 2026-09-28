@@ -1,5 +1,7 @@
+import type { AttentionState } from '@shared/types'
 import { type DropZone, allPanes } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
+import { jumpToLatestUnread, signalPane } from '../lib/sessionActivity'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveWorkspaceNow } from '../stores/persistence'
 import type { SessionKind, SessionState } from '../stores/sessionsStore'
@@ -124,6 +126,38 @@ export function registerBuiltinCommands(): void {
         useLayoutStore.getState().movePane(ctx.activeSessionId, sourceId, targetId, zone)
       }
     },
+  })
+
+  commands.register<{ state: AttentionState; message?: string }>({
+    id: 'attention.set',
+    title: 'Set Pane Attention',
+    category: 'Pane',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: ({ state, message }, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
+    },
+  })
+
+  commands.register<{ message: string }>({
+    id: 'attention.notify',
+    title: 'Mark Pane Unread',
+    category: 'Pane',
+    hidden: true,
+    capabilities: ['notify'],
+    run: ({ message }, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      signalPane(ctx.activePaneId, { type: 'notify', message, waiting: false, at: Date.now() })
+    },
+  })
+
+  commands.register<undefined, { paneId: string | null }>({
+    id: 'attention.jumpToLatest',
+    title: 'Jump to Latest Unread',
+    category: 'View',
+    target: 'none',
+    run: () => ({ paneId: jumpToLatestUnread() }),
   })
 
   commands.register({

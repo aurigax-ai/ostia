@@ -1,27 +1,19 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { resetIds } from '../layout/tree'
+import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSessionsStore } from '../stores/sessionsStore'
+import { useUIStore } from '../stores/uiStore'
 import {
   NOTIFY_AFTER_MS,
-  aggregateSessionState,
+  isPaneViewed,
+  jumpToLatestUnread,
   shouldNotifyCommandEnd,
+  signalPane,
+  startAttentionSync,
   syncSessionState,
 } from './sessionActivity'
-
-describe('aggregateSessionState', () => {
-  it('is working whenever any pane runs a command', () => {
-    expect(aggregateSessionState('idle', true)).toBe('working')
-    expect(aggregateSessionState('waiting', true)).toBe('working')
-  })
-
-  it('falls back to idle only from working, keeping states set by others', () => {
-    expect(aggregateSessionState('working', false)).toBe('idle')
-    expect(aggregateSessionState('waiting', false)).toBe('waiting')
-    expect(aggregateSessionState('done', false)).toBe('done')
-  })
-})
 
 describe('shouldNotifyCommandEnd', () => {
   it('notifies only for long commands while the window is unfocused', () => {
@@ -31,22 +23,29 @@ describe('shouldNotifyCommandEnd', () => {
   })
 })
 
-describe('syncSessionState', () => {
+describe('session activity + attention', () => {
   let sessionsInit: ReturnType<typeof useSessionsStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
+  let attentionInit: ReturnType<typeof useAttentionStore.getState>
+  let uiInit: ReturnType<typeof useUIStore.getState>
 
   beforeAll(() => {
     sessionsInit = useSessionsStore.getState()
     layoutInit = useLayoutStore.getState()
     blocksInit = useBlocksStore.getState()
+    attentionInit = useAttentionStore.getState()
+    uiInit = useUIStore.getState()
   })
 
   afterEach(() => {
     useSessionsStore.setState(sessionsInit, true)
     useLayoutStore.setState(layoutInit, true)
     useBlocksStore.setState(blocksInit, true)
+    useAttentionStore.setState(attentionInit, true)
+    useUIStore.setState(uiInit, true)
     resetIds()
+    vi.restoreAllMocks()
   })
 
   const setup = (): { sessionId: string; panes: string[] } => {
@@ -97,5 +96,96 @@ describe('syncSessionState', () => {
     useBlocksStore.getState().commandStart('elsewhere', { line: 1 })
     syncSessionState(sessionId)
     expect(stateOf(sessionId)).toBe('idle')
+  })
+
+  const attentionOf = (id: string) => useAttentionStore.getState().byPane[id]
+  const focusWindow = (focused: boolean) => vi.spyOn(document, 'hasFocus').mockReturnValue(focused)
+
+  it('reports waiting for the session when an unfocused pane asks for input', () => {
+    const { sessionId, panes } = setup()
+    focusWindow(true)
+    const [a, b] = panes
+    useLayoutStore.getState().focusPane(sessionId, b)
+    useBlocksStore.getState().commandStart(b, { line: 1 })
+    signalPane(a, { type: 'set', state: 'waiting', message: 'approve?', at: 1 })
+    syncSessionState(sessionId)
+    expect(stateOf(sessionId)).toBe('waiting')
+    expect(attentionOf(a)).toMatchObject({ state: 'waiting', unread: true, message: 'approve?' })
+  })
+
+  it('applies the view immediately when the signalled pane is the one being looked at', () => {
+    const { sessionId, panes } = setup()
+    focusWindow(true)
+    const active = useLayoutStore.getState().bySession[sessionId].activePaneId
+    expect(isPaneViewed(active)).toBe(true)
+    signalPane(active, { type: 'set', state: 'done', at: 1 })
+    expect(attentionOf(active)).toMatchObject({ state: 'none', unread: false })
+    const other = panes.find((p) => p !== active) ?? ''
+    expect(isPaneViewed(other)).toBe(false)
+  })
+
+  it('treats every pane as unviewed while the window is unfocused', () => {
+    const { sessionId } = setup()
+    focusWindow(false)
+    const active = useLayoutStore.getState().bySession[sessionId].activePaneId
+    signalPane(active, { type: 'set', state: 'done', at: 1 })
+    expect(attentionOf(active)).toMatchObject({ state: 'done', unread: true })
+  })
+
+  it('jumps to the most recent unread pane across sessions and clears it', () => {
+    const { sessionId, panes } = setup()
+    focusWindow(false)
+    useSessionsStore.getState().addSession('/tmp/other')
+    const other = useSessionsStore.getState().activeSessionId
+    expect(other).not.toBe(sessionId)
+    const [a, b] = panes
+    signalPane(a, { type: 'notify', message: 'older', waiting: true, at: 1 })
+    signalPane(b, { type: 'notify', message: 'newer', waiting: true, at: 2 })
+    useUIStore.getState().openSettings()
+
+    expect(jumpToLatestUnread()).toBe(b)
+    expect(useSessionsStore.getState().activeSessionId).toBe(sessionId)
+    expect(useLayoutStore.getState().bySession[sessionId].activePaneId).toBe(b)
+    expect(useUIStore.getState().settingsActive).toBe(false)
+    expect(attentionOf(b)).toMatchObject({ state: 'waiting', unread: false })
+    expect(attentionOf(a).unread).toBe(true)
+
+    expect(jumpToLatestUnread()).toBe(a)
+    expect(jumpToLatestUnread()).toBeNull()
+  })
+
+  it('keeps session state in sync and prunes closed panes once wired', () => {
+    const { sessionId, panes } = setup()
+    focusWindow(false)
+    const stop = startAttentionSync()
+    try {
+      const [a, b] = panes
+      useAttentionStore.getState().dispatch(b, { type: 'set', state: 'error', at: 1 })
+      expect(stateOf(sessionId)).toBe('error')
+      useBlocksStore.getState().commandStart(a, { line: 1 })
+      expect(stateOf(sessionId)).toBe('error')
+      useLayoutStore.getState().closePane(sessionId, b)
+      expect(attentionOf(b)).toBeUndefined()
+      expect(stateOf(sessionId)).toBe('working')
+    } finally {
+      stop()
+    }
+  })
+
+  it('marks the active pane viewed when the user switches back to its session', () => {
+    const { sessionId, panes } = setup()
+    focusWindow(false)
+    const stop = startAttentionSync()
+    try {
+      const active = useLayoutStore.getState().bySession[sessionId].activePaneId
+      signalPane(active, { type: 'set', state: 'done', at: 1 })
+      useSessionsStore.getState().addSession('/tmp/x')
+      focusWindow(true)
+      useSessionsStore.getState().setActive(sessionId)
+      expect(attentionOf(active)).toMatchObject({ state: 'none', unread: false })
+      expect(panes).toContain(active)
+    } finally {
+      stop()
+    }
   })
 })

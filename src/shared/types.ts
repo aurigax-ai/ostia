@@ -76,7 +76,33 @@ export interface SettingsApi {
   path: () => Promise<string>
 }
 
-export type SessionLiveState = 'idle' | 'working' | 'waiting' | 'done'
+export type SessionLiveState = 'idle' | 'working' | 'waiting' | 'done' | 'error'
+
+export type AttentionState = 'none' | 'working' | 'waiting' | 'done' | 'error'
+
+export interface NotificationEntry {
+  id: string
+  ts: string
+  title: string
+  body?: string
+  from: string
+  paneId?: string
+}
+
+export interface NotificationPost {
+  paneId: string
+  title: string
+  body?: string
+  desktop: boolean
+}
+
+export interface NotificationsApi {
+  list: () => Promise<NotificationEntry[]>
+  post: (post: NotificationPost) => void
+  clear: () => void
+  onChanged: (cb: () => void) => () => void
+  onActivate: (cb: (paneId: string) => void) => () => void
+}
 
 export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'kanban' | 'wiki'
 
@@ -348,6 +374,7 @@ export interface PineBridge {
   kanban: KanbanApi
   wiki: WikiApi
   gateway: GatewayApi
+  notifications: NotificationsApi
 }
 
 declare global {

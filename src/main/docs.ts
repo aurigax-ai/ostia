@@ -8,7 +8,11 @@ const CLI_HELP = `pine — control-socket CLI
   pine pane.list                  every pane, every session — {paneId(external),sessionId,
                                   kind,title,cwd,running,blockCount,lastExitCode}
   pine session.list               every session — {sessionId,name,kind,workDir,state}
-  pine notify <title> [body]     fire a desktop notification
+  pine notify <title> [body]     desktop notification + marks this pane unread in Pine
+  pine state <waiting|done|working|error|clear> [message] [--pane <externalId>]
+                                 set this pane's attention state (message '-' reads stdin;
+                                 a JSON object on stdin contributes its "message" field);
+                                 --pane targets another pane (needs workspace-wide)
   pine process run "<cmd>" [--name X] [--cwd P]   start a tracked background process
   pine process ls                                 list tracked processes
   pine process logs <id|name> [--since N]         print captured output

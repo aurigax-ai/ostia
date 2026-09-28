@@ -65,7 +65,9 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `paneList.ts` | `pane.list`, `session.list` (maps renderer ids to external ids) |
 | `events.ts` | In-process platform events (`notify`, `agent.needs-input`, `agent.done`, `session.state`, `pane.state`); only the gateway listens |
 | `jsonStore.ts` | Atomic JSON persistence, project (`<workDir>/.pine/<name>.json`) or global (`$XDG_DATA_HOME/pine/<name>.json`) |
-| `processManager.ts`, `vault.ts`, `wiki.ts`, `kanban.ts`, `bus.ts`, `notify.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
+| `notify.ts` | The notification log (`notifications.json`), desktop notifications, `notify` / `notify.list`, `notifications:*` IPC (§5) |
+| `attention.ts` | `pane.setAttention` control method (`pine state`) |
+| `processManager.ts`, `vault.ts`, `wiki.ts`, `kanban.ts`, `bus.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
 | `browse.ts` | `browse.*` automation of browser panes (§9) |
 | `gateway/` | LAN gateway: `index.ts` (methods + IPC), `server.ts`, `controlDispatch.ts`, `devices.ts`, `pairing.ts`, `cert.ts`, `interfaces.ts` (§7) |
 
@@ -105,6 +107,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | browser | `register`, `unregister` |
 | kanban / wiki | `kanban.get`, `kanban.mutate`; `wiki.list`, `wiki.get`, `wiki.set` |
 | gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke`, `bind-options`, `set-cap` (IPC only) |
+| notifications | `list` (newest first), `post`, `clear`, `onChanged`, `onActivate` (push channels `notifications:changed`, `notifications:activate`) |
 
 - Main derives the window from `e.sender.id` and never trusts a window id the renderer sends.
 - `pane-closed` drops the pane's capabilities, identity, pending restored scrollback and cached
@@ -165,8 +168,18 @@ owned by another user. Why: on a shared `/tmp`, another user could plant rc file
     left-edge bars (red on non-zero exit), and draws nothing in the alternate buffer or when
     the cell height measures 0.
 - **Long-command notification**: when a command runs ≥ 10 s (`NOTIFY_AFTER_MS`) while the window
-  is unfocused, the renderer raises a desktop `Notification`. The command text comes from the
-  buffer line at mark B, starting at the cursor column recorded at B.
+  is unfocused, the pane is marked `done` (or `error`) unread and the renderer posts it to main's
+  notification log with a desktop notification. The command text comes from the buffer line at
+  mark B, starting at the cursor column recorded at B.
+- **Notification escapes**: OSC 9 (`9;message`), OSC 777 (`777;notify;title;body`) and OSC 99
+  (kitty; `p=title|body`, `i=` chunk id, `d=0` continuation, `e=1` base64) mark the pane `waiting`
+  unread and go to the log; a desktop notification fires only if the window is unfocused or the
+  pane isn't visible. BEL in a pane that isn't being viewed marks it unread. The parsers are pure
+  (`lib/attention.ts`). Why OSC 9 ignores `9;1` to `9;12`: those are ConEmu subcommands (`9;4` is
+  the progress bar several CLIs emit), not notifications.
+- **Replay is silent**: attention signals are suppressed while the attach replay buffer is being
+  parsed (`replaying`, cleared in `term.write`'s callback). Why: the replay is history. Without
+  this, every remount or restore would re-raise every old notification and failed command.
 - **Terminal state bridge** (`commands/terminalStateBridge.ts`): a read-only listener on
   `blocksStore` + `layoutStore` that pushes `{cwd, running, blockCount, lastExitCode, generation}`
   per pane, debounced 100 ms. cwd is watched in `layoutStore` because an OSC 7 change doesn't
@@ -202,33 +215,87 @@ owned by another user. Why: on a shared `/tmp`, another user could plant rc file
   - Why `visibility`, not `display: none`: the box keeps its size, so the fit stays valid.
   - `inert` is cleared in a layout effect so focus can move back into a terminal (focus cannot
     land in an inert subtree).
+- **Pane activation** (`Pane.tsx`): native `mousedown` (capture) and `focusin` listeners on the
+  pane frame run `pane.focus`. Why native: surfaces are portaled from `SurfacePool`, so React
+  synthetic events from inside a terminal bubble to SurfacePool, not to the `Pane`; a React
+  `onMouseDownCapture` only ever saw clicks on the header.
 - **Pane drag/drop** (`Pane.tsx`): the header is the drag handle and uses the MIME type
   `application/x-pine-pane`, so file and text drags are ignored. Dropping within 25% of an edge
   re-splits on that side; the center swaps the two panes.
 
-### Live session state
+### Live session state and attention
 
-`lib/sessionActivity.ts` `syncSessionState` runs on OSC 133 C and D, on attach, and on unmount.
-A session is `working` if any of its panes has a running block. Otherwise it drops from `working`
-to `idle`, and any other state is kept. The renderer never sets `waiting` or `done` today. Each
-change emits a `session-state` lifecycle event.
+Each pane has an attention record (`stores/attentionStore.ts`): `state`
+(`none | working | waiting | done | error`), an `unread` flag, the latest `message`, and the time
+it last changed. All transitions go through the pure reducer `reduceAttention` in
+`lib/attention.ts`:
 
-When main receives that event, `waiting` also raises `agent.needs-input` and `done` raises
-`agent.done` for the gateway. The sidebar dot is hidden for `idle`.
+| Event | Source | Effect |
+|---|---|---|
+| `set` | `pine state` (`pane.setAttention` → `attention.set` command) | set the state; `waiting`/`done`/`error` mark unread; `none` clears everything |
+| `notify` | OSC 9/99/777 (`waiting: true`), `pine notify` (`waiting: false`) | unread + message; terminal escapes also set `waiting` |
+| `bell` | BEL in an unviewed pane | unread only |
+| `commandStart` | OSC 133 C | drops a stale agent state to `none`, keeps unread |
+| `commandEnd` | OSC 133 D while the pane isn't viewed | non-zero exit → `error` unread; ≥ 10 s with the window unfocused → `done` unread |
+| `input` | keystrokes into the pane | `waiting` → `none` |
+| `view` | the pane is being looked at | clears unread; `done` → `none` |
+
+A pane is *viewed* when the window has focus, its session is active, settings aren't covering
+it, no other pane is zoomed over it, and it is the session's active pane (`isPaneViewed`).
+`signalPane` dispatches an event and then a `view` if the pane is viewed, so a signal to the pane
+you're looking at never rings. `startAttentionSync` (started in `main.tsx`) re-applies `view`
+when the active session, active pane, settings overlay or window focus changes, prunes records
+of closed panes, and recomputes every session's state whenever attention, running blocks or
+layouts change.
+
+Session state is the highest-ranked pane state, `waiting > error > done > working > idle`. A
+pane's state is its attention state, or `working`/`idle` from its running block when attention
+is `none` (`paneLiveState`, `aggregateSessionState`). Why attention wins over the running block:
+an agent CLI is itself a running command for its whole life, so "running" alone would show every
+agent pane as busy even while it waits on you. Each change emits a `session-state` lifecycle
+event; main raises `agent.needs-input` for `waiting` and `agent.done` for `done` for the gateway.
+
+**Jump to latest unread** (`attention.jumpToLatest`, Ctrl+Shift+U / ⌘⇧U) picks the unread pane
+with the newest change across all sessions (`latestUnread`) and reveals it (`revealPane`): leaves
+settings, switches session, un-zooms if another pane is zoomed, focuses the pane, marks it
+viewed, and focuses its xterm on the next frame (`focusSurface`). Why the next frame: the
+session's layer is still `inert` until its layout effect runs, and focus can't land in an inert
+subtree.
+
+**Notification center** (`components/NotificationCenter.tsx`, the bell in the top bar): the badge
+is the number of unread panes; the popover lists main's notification log newest first (session ·
+pane, message, time), reloads on `notifications:changed`, and each entry reveals its pane
+(entries whose pane is gone are disabled). "Clear all" empties the log and marks every pane read.
+The log (`main/notify.ts`, `notifications.json`, capped at 500) holds `pine notify` calls and the
+renderer's posts (terminal escapes, long commands). Clicking a desktop notification restores and
+focuses the window and sends `notifications:activate` with the pane id, which reveals it.
+Why the log lives in main: `pine notify` arrives there without a renderer round-trip, the gateway
+listens to the same `notify` event, and the log survives restarts.
+
+**Control plane**: `pane.setAttention {state, message?, paneId?}` (`main/attention.ts`, cap
+`drive-self`) acts on the caller's own pane; a `paneId` (external id) of another pane needs
+`workspace-wide`. Main forwards it as the renderer command `attention.set` targeted at that pane.
+The renderer commands `attention.set` and `attention.notify` act only on `ctx.activePaneId` (the
+command target), never on a pane id from args. Why: `command.exec` checks the caller's
+capabilities against the target, not against ids inside args, so an args pane id would let any
+pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 
 ### Commands and chords
 
 - **Registry** (`commands/registry.ts`): every action is a named command with arg schema.
   `describe()` backs `pine commands --json`. `execWith` never throws; it returns a `CommandResult`.
   Built-ins (`commands/builtins.ts`): `pane.*` (split/close/focus/zoom/move/list), `session.new/list/save`,
-  `palette.toggle`, `view.toggleRail`, `app.openSettings`, `editor.open`, `browser.new/open`,
+  `palette.toggle`, `view.toggleRail`, `app.openSettings`, `attention.set/notify/jumpToLatest`,
+  `editor.open`, `browser.new/open`,
   `kanban.open`, `wiki.open`, `settings.get/set`.
 - The renderer doesn't check capabilities; the socket and gateway do.
 - There is deliberately no `session.restore`. Restoring into a live window would tear down every
   attached pty; restore happens only at boot.
-- **Chords** (`lib/chords.ts`): macOS uses Cmd+K (palette), Cmd+\ (sidebar), Cmd+, (settings) and
-  native Cmd+C/V/F. Other platforms use Ctrl+Shift+P, Ctrl+Shift+B, Ctrl+, and Ctrl+Shift+C/V/F
-  (copy/paste/find).
+- **Chords** (`lib/chords.ts`): macOS uses Cmd+K (palette), Cmd+\ (sidebar), Cmd+, (settings),
+  Cmd+Shift+U (jump to latest unread) and native Cmd+C/V/F. Other platforms use Ctrl+Shift+P,
+  Ctrl+Shift+B, Ctrl+, Ctrl+Shift+U and Ctrl+Shift+C/V/F (copy/paste/find). On Linux some IBus
+  setups claim Ctrl+Shift+U for Unicode entry before the app sees it; the palette's "Jump to
+  Latest Unread" and the bell still work there.
   - Any combination with Alt is ignored.
   - App.tsx has a window keydown listener that runs app chords.
   - Inside the terminal, xterm's key handler returns false for app chords so they reach the
@@ -289,7 +356,8 @@ see external ids.
 | `wiki.ts` | `wiki.get/set/list/search/delete` | 256 KB per page, 2000 pages per scope |
 | `kanban.ts` | `kanban.get/add/move/assign/update/remove` | Project only (`.pine/board.json`); 64 KB per field, 2000 cards |
 | `bus.ts` | `bus.send/inbox/wait/handoff/claim/handoffs/update` | Details below |
-| `notify.ts` | `notify`, `notify.list` | Log capped at 500; emits a `notify` platform event |
+| `notify.ts` | `notify`, `notify.list` | Desktop notification + log entry (capped at 500), marks the caller's pane unread via `attention.notify`; emits a `notify` platform event |
+| `attention.ts` | `pane.setAttention` | `pine state`; see §5 "Live session state and attention" |
 | `docs.ts` | `docs` | Static CLI help, no capability needed |
 | `paneList.ts` | `pane.list`, `session.list` | Needs `read-board`; panes without an external id are omitted |
 
