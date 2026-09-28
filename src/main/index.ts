@@ -57,6 +57,7 @@ import { listPanes, listSessions, registerPaneListMethods } from './paneList'
 import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { PtySession, type SubscriberRole } from './ptySession'
+import { ScreenMirror } from './screenMirror'
 import { removeSession, setSessionWorkDir, workDirForSession } from './sessionRegistry'
 import {
   clearPersisted,
@@ -91,6 +92,7 @@ function loadPty(): typeof import('node-pty') | null {
 interface PtyEntry {
   pty: IPty
   session: PtySession
+  mirror: ScreenMirror
   subs: Map<string, Electron.WebContents>
   killTimer: ReturnType<typeof setTimeout> | null
 }
@@ -124,7 +126,25 @@ function killPty(paneId: string): void {
   try {
     entry.pty.kill()
   } catch {}
+  entry.mirror.dispose()
   ptys.delete(paneId)
+}
+
+function feedPty(entry: PtyEntry, data: string): void {
+  entry.session.push(data)
+  entry.mirror.write(data)
+}
+
+function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
+  if (!entry) return
+  const c = cols || 80
+  const r = rows || 24
+  try {
+    entry.pty.resize(c, r)
+  } catch {
+    return
+  }
+  entry.mirror.resize(c, r)
 }
 
 function expandHome(p: string): string {
@@ -570,10 +590,12 @@ function registerPtyIpc(): void {
       opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
     const integration = shellIntegrationSpawnOptions(shell, process.env)
     const identity = registerPane({ windowId: subId, sessionId: '', paneId })
+    const cols = opts.cols || 80
+    const rows = opts.rows || 24
     const pty = mod.spawn(shell, integration.args, {
       name: 'xterm-color',
-      cols: opts.cols || 80,
-      rows: opts.rows || 24,
+      cols,
+      rows,
       cwd: resolveCwd(opts.cwd),
       env: {
         ...process.env,
@@ -598,16 +620,23 @@ function registerPtyIpc(): void {
         for (const wc of entry.subs.values()) {
           if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code)
         }
+        entry.mirror.dispose()
         if (ptys.get(paneId) === entry) ptys.delete(paneId)
       },
     })
-    const entry: PtyEntry = { pty, session, subs: new Map([[subId, e.sender]]), killTimer: null }
+    const entry: PtyEntry = {
+      pty,
+      session,
+      mirror: new ScreenMirror(cols, rows),
+      subs: new Map([[subId, e.sender]]),
+      killTimer: null,
+    }
     ptys.set(paneId, entry)
 
     const history = takeRestoredScrollback(paneId)
-    if (history) session.push(`${history}${RESTORE_SEAM}`)
+    if (history) feedPty(entry, `${history}${RESTORE_SEAM}`)
 
-    pty.onData((d) => session.push(d))
+    pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
     const { data, cursor, dropped } = session.since(0)
     session.addLiveSubscriber(mkSub())
@@ -627,9 +656,7 @@ function registerPtyIpc(): void {
     if (entry?.session.canWrite(String(e.sender.id))) entry.pty.write(data)
   })
   ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
-    try {
-      ptys.get(paneId)?.pty.resize(cols || 80, rows || 24)
-    } catch {}
+    resizePty(ptys.get(paneId), cols, rows)
   })
 }
 
@@ -710,9 +737,7 @@ export function attachPhoneObserver(
 }
 
 export function ptyResize(rendererPaneId: string, cols: number, rows: number): void {
-  try {
-    ptys.get(rendererPaneId)?.pty.resize(cols || 80, rows || 24)
-  } catch {}
+  resizePty(ptys.get(rendererPaneId), cols, rows)
 }
 
 export function ptyWrite(rendererPaneId: string, data: string): void {
@@ -850,7 +875,7 @@ function persistScrollback(): void {
   if (!restorePersistEnabled) return
   try {
     const byPane = pendingRestoredScrollback()
-    for (const [paneId, entry] of ptys) byPane[paneId] = entry.session.since(0).data
+    for (const [paneId, entry] of ptys) byPane[paneId] = entry.mirror.serialize()
     saveScrollback(byPane)
   } catch (err) {
     console.error('[session] scrollback save failed', err)
@@ -875,6 +900,7 @@ app.on('before-quit', () => {
     try {
       entry.pty.kill()
     } catch {}
+    entry.mirror.dispose()
   }
   ptys.clear()
   killAllLsp()
