@@ -10,6 +10,7 @@ import {
   type LucideIcon,
   Puzzle,
   Server,
+  ShieldCheck,
   Terminal,
   TriangleAlert,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ const ICONS: Record<ExtensionIcon, LucideIcon> = {
   circle: Circle,
   check: Check,
   alert: TriangleAlert,
+  shield: ShieldCheck,
 }
 
 export function extensionIcon(icon: ExtensionIcon | undefined): LucideIcon {

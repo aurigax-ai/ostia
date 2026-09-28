@@ -1,0 +1,27 @@
+#!/bin/sh
+dir="${FAKE_TRELLIS_DIR:?FAKE_TRELLIS_DIR is not set}"
+printf '%s\n' "$*" >> "$dir/calls.log"
+serve() {
+  trap 'rm -f "$dir/serving"; exit 0' TERM INT
+  touch "$dir/serving"
+  while :; do sleep 0.05; done
+}
+case "$*" in
+  "version --json") cat "$dir/version.json" ;;
+  "daemon status --json")
+    if [ -f "$dir/serving" ] || [ -f "$dir/daemon-up" ]; then cat "$dir/daemon-running.json"; else cat "$dir/daemon-stopped.json"; fi ;;
+  "ui --json")
+    if [ -f "$dir/daemon-up" ]; then cat "$dir/ui.json"; else serve; fi ;;
+  "card ls --json --all --project "*) cat "$dir/cards.json" ;;
+  "column ls --json --project "*) cat "$dir/columns.json" ;;
+  "events consumers --json") cat "$dir/consumers.json" 2>/dev/null || echo '[]' ;;
+  "events --consumer "*" --follow")
+    if [ -f "$dir/follow-exits" ]; then exit 1; fi
+    cat "$dir/follow.jsonl" 2>/dev/null
+    trap 'exit 0' TERM INT
+    while :; do sleep 0.05; done ;;
+  "events --consumer "*) cat "$dir/prime.jsonl" 2>/dev/null ;;
+  "events ack "*) ;;
+  "init --json") pwd > "$dir/init-cwd"; cat "$dir/init.json" ;;
+  *) echo '{"error":{"code":"fake_unknown","message":"unexpected call"}}' >&2; exit 3 ;;
+esac

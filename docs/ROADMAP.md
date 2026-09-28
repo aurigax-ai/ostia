@@ -103,8 +103,8 @@ extension through the host like any other consumer. Authoring guide: `docs/EXTEN
 | Pick element in browser → send selector, screenshot, console errors to an agent pane | new | with browser automation (built) | M | 3 |
 | Your real Chrome: document Chrome DevTools MCP for agents instead of re-implementing CDP | new | docs (built) | S | 3 |
 | Agent resume on restore (relaunch the agent CLI with its session id) | cmux | built-in extension | M | 5 |
-| Trellis board panel, Keeper connection panel | yours | external plugins | M each | 4 |
-| Settings sync (git or synced folder) | Warp | extension | S–M | 8 |
+| Trellis board panel, Keeper approvals panel | yours | built-in extensions (built) | M each | 4 |
+| Settings sync (a synced folder you own) | Warp | core (built): it rewrites extension approvals | S–M | 8 |
 | Phone: grant path above read-only, pty input, attention push | cmux-like | built-in extension (gateway) | M | 10 |
 | Warp's IDE-style input editor | Warp | **not planned** | L | Clashes with agent TUIs that own the input line |
 | Built-in AI chat | Warp | **not planned** | — | Pine hosts agent CLIs; it doesn't compete with them |
@@ -145,7 +145,17 @@ Each phase ships a working product; nothing half-built lands on `main`.
    the user's real Chrome through Chrome DevTools MCP. It lives next to `browse.ts` in core
    because the extension API can't yet drive pane-scoped browse methods (phase 3 deferral); it
    moves out with browser automation.
-6. **Your tools**: Trellis and Keeper plugins; settings sync.
+6. **Your tools** — **done**: built-in `trellis` and `keeper` extensions on the public API only
+   (panels, per-session and global sidebar items, notifications that open the panel, palette
+   commands), and settings sync through a user-chosen folder (Settings → Sync). API added for
+   them, generic for any extension: `ext.confirm` (a human confirm dialog), `ext.notify
+   {openPanel}` (a notification whose click opens your panel), the `shield` icon, and SDK helpers
+   `runTool`, `onShutdown`, `startMessageServer` and `call`. Sync lives in core, not in an
+   extension, because it rewrites extension approvals (only core may) and must run before the
+   extension host reads them. They rely on phase 4's `session.list` for extensions, `caller.cwd`
+   and `focus.changed`; without those the Trellis sidebar stays empty and Keeper polls at its
+   idle rate. Deferred: opening a specific card or ticket from a notification, navigating an
+   already-open panel to a new path.
 7. **Remote** (done): phone grant path, input from the phone, attention push, bind-address
    picker with Tailscale detection.
 

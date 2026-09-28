@@ -1,0 +1,1 @@
+not running (keeper: GET /v1/version: Get "http://unix/v1/version": dial unix /tmp/pine-fixture-nokeeper.sock: connect: no such file or directory)

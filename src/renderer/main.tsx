@@ -17,6 +17,7 @@ import { revealPane, startAttentionSync } from './lib/sessionActivity'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startWorkspaceAutosave } from './stores/persistence'
 import { useSessionsStore } from './stores/sessionsStore'
+import { useSettingsStore } from './stores/settingsStore'
 
 registerBuiltinCommands()
 registerExternalEditorCommand()
@@ -40,6 +41,7 @@ async function boot(): Promise<void> {
   startAttentionSync()
   startPaneRecencySync()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
+  window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(
     <StrictMode>
       <App />

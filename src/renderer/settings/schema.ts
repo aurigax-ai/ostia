@@ -66,6 +66,19 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    sync: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        dir: {
+          type: 'string',
+          description:
+            'Folder to sync settings and extension choices through (a git repository, ' +
+            'Syncthing or Dropbox folder). Empty turns sync off. Set it from Settings → Sync; ' +
+            'agents cannot change it. Secrets and capability grants never sync.',
+        },
+      },
+    },
     capabilities: {
       type: 'object',
       additionalProperties: false,

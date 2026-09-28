@@ -60,6 +60,10 @@ export class ExtensionStore {
     return Object.hasOwn(this.records, id) ? this.records[id] : undefined
   }
 
+  reload(): void {
+    this.records = sanitize(loadJson<unknown>(this.path, {}))
+  }
+
   set(id: string, record: ExtensionRecord): void {
     this.records = { ...this.records, [id]: record }
     saveJson(this.path, this.records)

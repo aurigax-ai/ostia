@@ -14,6 +14,7 @@ export const EXTENSION_ICONS = [
   'circle',
   'check',
   'alert',
+  'shield',
 ] as const
 
 export type ExtensionIcon = (typeof EXTENSION_ICONS)[number]
