@@ -6,17 +6,17 @@ import { type PaneOrigin, collectHistory } from '../lib/blocks'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { CommandDialog, CommandEmpty, CommandInput, CommandItem, CommandList } from './ui/command'
 
 export function paneOrigins(): Map<string, PaneOrigin> {
   const origins = new Map<string, PaneOrigin>()
-  const bySession = useLayoutStore.getState().bySession
-  for (const session of useSessionsStore.getState().sessions) {
-    const layout = bySession[session.id]
+  const byWorkspace = useLayoutStore.getState().byWorkspace
+  for (const workspace of useWorkspacesStore.getState().workspaces) {
+    const layout = byWorkspace[workspace.id]
     if (!layout) continue
     for (const pane of allPanes(layout.root)) {
-      origins.set(pane.id, { sessionId: session.id, sessionName: session.name })
+      origins.set(pane.id, { workspaceId: workspace.id, workspaceName: workspace.name })
     }
   }
   return origins
@@ -49,13 +49,13 @@ export function HistorySearch(): JSX.Element {
           <CommandItem
             key={e.command}
             value={e.command}
-            keywords={[e.sessionName, e.cwd ?? '']}
+            keywords={[e.workspaceName, e.cwd ?? '']}
             onSelect={() => insert(e.command)}
             className="history-row"
           >
             <span className="history-command">{e.command}</span>
             <span className="history-meta">
-              {e.cwd ? `${e.sessionName} · ${e.cwd}` : e.sessionName}
+              {e.cwd ? `${e.workspaceName} · ${e.cwd}` : e.workspaceName}
             </span>
           </CommandItem>
         ))}

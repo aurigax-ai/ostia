@@ -13,11 +13,11 @@ import { registerBuiltinCommands } from './commands/builtins'
 import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
-import { revealPane, startAttentionSync } from './lib/sessionActivity'
+import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
-import { startWorkspaceAutosave } from './stores/persistence'
-import { useSessionsStore } from './stores/sessionsStore'
+import { startSnapshotAutosave } from './stores/persistence'
 import { useSettingsStore } from './stores/settingsStore'
+import { useWorkspacesStore } from './stores/workspacesStore'
 
 registerBuiltinCommands()
 registerExternalEditorCommand()
@@ -32,12 +32,12 @@ const root = createRoot(container)
 async function boot(): Promise<void> {
   let snapshot = null
   try {
-    snapshot = (await window.pine?.session?.load?.()) ?? null
+    snapshot = (await window.pine?.workspace?.load?.()) ?? null
   } catch (err) {
-    console.error('[session] restore failed', err)
+    console.error('[workspace] restore failed', err)
   }
-  useSessionsStore.getState().hydrate(snapshot)
-  startWorkspaceAutosave()
+  useWorkspacesStore.getState().hydrate(snapshot)
+  startSnapshotAutosave()
   startAttentionSync()
   startPaneRecencySync()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))

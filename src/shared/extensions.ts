@@ -79,7 +79,7 @@ export type SidebarTone = (typeof SIDEBAR_TONES)[number]
 export interface ExtensionSidebarItem {
   extId: string
   key: string
-  sessionId?: string
+  workspaceId?: string
   text: string
   icon?: ExtensionIcon
   tone: SidebarTone
@@ -90,7 +90,7 @@ export type ExtensionCallerKind = 'pane' | 'user'
 export interface ExtensionCaller {
   kind: ExtensionCallerKind
   paneId?: string
-  sessionId?: string
+  workspaceId?: string
   workDir?: string
   cwd?: string
   locale?: string
@@ -110,11 +110,11 @@ export const EXTENSION_EVENT_TYPES = [
 export type ExtensionEventType = (typeof EXTENSION_EVENT_TYPES)[number]
 
 export interface ExtensionEventPayloads {
-  'pane.created': { paneId: string; sessionId: string }
-  'pane.closed': { paneId: string; sessionId: string }
-  'command.started': { paneId: string; sessionId: string; cwd?: string }
-  'command.finished': { paneId: string; sessionId: string; cwd?: string; exitCode?: number }
-  'cwd.changed': { paneId: string; sessionId: string; cwd: string }
+  'pane.created': { paneId: string; workspaceId: string }
+  'pane.closed': { paneId: string; workspaceId: string }
+  'command.started': { paneId: string; workspaceId: string; cwd?: string }
+  'command.finished': { paneId: string; workspaceId: string; cwd?: string; exitCode?: number }
+  'cwd.changed': { paneId: string; workspaceId: string; cwd: string }
   'focus.changed': { focused: boolean }
   notification: { title: string; body?: string; from: string }
 }
@@ -127,7 +127,7 @@ export type ExtensionPanelSource = { ok: true; src: string } | { ok: false; erro
 
 export interface ExtensionOpenPanelRequest {
   extId: string
-  sessionId?: string
+  workspaceId?: string
 }
 
 export const DIFF_TEXT_MAX = 5 * 1024 * 1024
@@ -142,7 +142,7 @@ export interface DiffContent {
 
 export interface ExtensionOpenDiffRequest extends DiffContent {
   extId: string
-  sessionId?: string
+  workspaceId?: string
 }
 
 export interface ExtensionsApi {
@@ -152,11 +152,11 @@ export interface ExtensionsApi {
   invoke: (
     extId: string,
     command: string,
-    target: { sessionId: string | null; paneId: string | null },
+    target: { workspaceId: string | null; paneId: string | null },
   ) => Promise<ExtensionResult>
   panel: (
     extId: string,
-    context: { sessionId: string; locale: string },
+    context: { workspaceId: string; locale: string },
   ) => Promise<ExtensionPanelSource>
   sidebarItems: () => Promise<ExtensionSidebarItem[]>
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void

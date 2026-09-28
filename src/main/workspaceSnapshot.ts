@@ -1,11 +1,12 @@
 import { rmSync } from 'node:fs'
+import { parseAgentResume } from '../shared/agentResume'
 import { isDangerousSegment } from '../shared/protoGuard'
 import type {
+  AppSnapshot,
   SnapshotNode,
   SnapshotPaneNode,
-  SnapshotSession,
   SnapshotSurfaceKind,
-  WorkspaceSnapshot,
+  SnapshotWorkspace,
 } from '../shared/types'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { PtyRingBuffer } from './ptyRingBuffer'
@@ -14,7 +15,7 @@ const SNAPSHOT_VERSION = 1
 
 export const SCROLLBACK_CAP_BYTES = 131_072
 
-const MAX_SESSIONS = 32
+const MAX_WORKSPACES = 32
 const MAX_PANES = 64
 const MAX_DEPTH = 12
 
@@ -25,10 +26,10 @@ const SURFACE_KINDS: ReadonlySet<string> = new Set<SnapshotSurfaceKind>([
   'browser',
   'extension',
 ])
-const SESSION_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal', 'scratch'])
+const WORKSPACE_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal', 'scratch'])
 
 export function snapshotPath(): string {
-  return storePath('sessions', 'global')
+  return storePath('workspaces', 'global')
 }
 
 export function scrollbackPath(): string {
@@ -66,9 +67,25 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     copyOptionalString(raw, pane, 'filePath')
     copyOptionalString(raw, pane, 'url')
     copyOptionalString(raw, pane, 'extensionId')
+    const resume = parseAgentResume(raw.resume)
+    if (resume) pane.resume = resume
     if (pane.kind === 'extension' && !pane.extensionId) return null
     paneIds.push(id)
     return pane
+  }
+
+  if (raw.type === 'tabs') {
+    if (!Array.isArray(raw.children) || raw.children.length === 0) return null
+    const tabs: SnapshotPaneNode[] = []
+    for (const child of raw.children) {
+      if (!isRecord(child) || child.type !== 'pane') return null
+      const parsed = parseNode(child, paneIds, depth + 1)
+      if (!parsed || parsed.type !== 'pane') return null
+      tabs.push(parsed)
+    }
+    if (tabs.length === 1) return tabs[0]
+    const activeId = tabs.some((t) => t.id === raw.activeId) ? (raw.activeId as string) : tabs[0].id
+    return { type: 'tabs', id, children: tabs, activeId }
   }
 
   if (raw.type !== 'split') return null
@@ -94,18 +111,18 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
   }
 }
 
-export function parseSnapshot(raw: unknown): WorkspaceSnapshot | null {
-  if (!isRecord(raw) || raw.v !== SNAPSHOT_VERSION || !Array.isArray(raw.sessions)) return null
+export function parseSnapshot(raw: unknown): AppSnapshot | null {
+  if (!isRecord(raw) || raw.v !== SNAPSHOT_VERSION || !Array.isArray(raw.workspaces)) return null
 
-  const sessions: SnapshotSession[] = []
+  const workspaces: SnapshotWorkspace[] = []
   const claimedPaneIds = new Set<string>()
-  const claimedSessionIds = new Set<string>()
+  const claimedWorkspaceIds = new Set<string>()
 
-  for (const entry of raw.sessions) {
-    if (sessions.length >= MAX_SESSIONS) break
+  for (const entry of raw.workspaces) {
+    if (workspaces.length >= MAX_WORKSPACES) break
     if (!isRecord(entry)) continue
     const id = entry.id
-    if (typeof id !== 'string' || id.length === 0 || claimedSessionIds.has(id)) continue
+    if (typeof id !== 'string' || id.length === 0 || claimedWorkspaceIds.has(id)) continue
 
     const paneIds: string[] = []
     const root = parseNode(entry.root, paneIds, 0)
@@ -114,12 +131,12 @@ export function parseSnapshot(raw: unknown): WorkspaceSnapshot | null {
     if (paneIds.some((p) => claimedPaneIds.has(p))) continue
 
     const workDir = typeof entry.workDir === 'string' && entry.workDir ? entry.workDir : '~'
-    sessions.push({
+    workspaces.push({
       id,
-      name: typeof entry.name === 'string' && entry.name ? entry.name : 'session',
+      name: typeof entry.name === 'string' && entry.name ? entry.name : 'workspace',
       kind:
-        typeof entry.kind === 'string' && SESSION_KINDS.has(entry.kind)
-          ? (entry.kind as SnapshotSession['kind'])
+        typeof entry.kind === 'string' && WORKSPACE_KINDS.has(entry.kind)
+          ? (entry.kind as SnapshotWorkspace['kind'])
           : 'terminal',
       workDir,
       root,
@@ -128,27 +145,27 @@ export function parseSnapshot(raw: unknown): WorkspaceSnapshot | null {
           ? entry.activePaneId
           : paneIds[0],
     })
-    claimedSessionIds.add(id)
+    claimedWorkspaceIds.add(id)
     for (const p of paneIds) claimedPaneIds.add(p)
   }
 
-  const activeSessionId =
-    typeof raw.activeSessionId === 'string' && claimedSessionIds.has(raw.activeSessionId)
-      ? raw.activeSessionId
-      : (sessions[0]?.id ?? null)
+  const activeWorkspaceId =
+    typeof raw.activeWorkspaceId === 'string' && claimedWorkspaceIds.has(raw.activeWorkspaceId)
+      ? raw.activeWorkspaceId
+      : (workspaces[0]?.id ?? null)
   return {
     v: SNAPSHOT_VERSION,
     savedAt: typeof raw.savedAt === 'string' ? raw.savedAt : '',
-    activeSessionId,
-    sessions,
+    activeWorkspaceId,
+    workspaces,
   }
 }
 
-export function saveSnapshot(snapshot: WorkspaceSnapshot): void {
+export function saveSnapshot(snapshot: AppSnapshot): void {
   saveJson(snapshotPath(), snapshot)
 }
 
-export function loadSnapshot(): WorkspaceSnapshot | null {
+export function loadSnapshot(): AppSnapshot | null {
   return parseSnapshot(loadJson<unknown>(snapshotPath(), null))
 }
 

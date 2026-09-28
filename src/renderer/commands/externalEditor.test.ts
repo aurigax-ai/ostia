@@ -18,7 +18,7 @@ describe('editor.openExternal command', () => {
     useSettingsStore.setState(settingsInit, true)
   })
 
-  const ctx = (activePaneId: string | null) => ({ activeSessionId: 's1', activePaneId })
+  const ctx = (activePaneId: string | null) => ({ activeWorkspaceId: 's1', activePaneId })
 
   it('is a palette command in the Editor category', () => {
     expect(commands.describe().find((c) => c.id === OPEN_EXTERNAL_COMMAND)).toMatchObject({

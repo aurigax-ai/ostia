@@ -48,7 +48,7 @@ describe('CommandPalette', () => {
     await userEvent.type(input, 'Open')
 
     expect(await screen.findByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /New Session/ })).toBeNull()
+    expect(screen.queryByRole('option', { name: /Toggle Sidebar/ })).toBeNull()
     expect(screen.queryByRole('option', { name: /Split Pane Right/ })).toBeNull()
   })
 

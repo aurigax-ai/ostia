@@ -4,7 +4,7 @@ import { findPane, paneIds, resetIds } from '../layout/tree'
 import { useDiffStore } from '../stores/diffStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { openExtensionDiff, openExtensionPanel, syncExtensionCommands } from './extensionBridge'
 import { commands } from './registry'
 
@@ -38,19 +38,19 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
 
 describe('extensionBridge', () => {
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
-  let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let extInit: ReturnType<typeof useExtensionsStore.getState>
 
   beforeAll(() => {
     layoutInit = useLayoutStore.getState()
-    sessionsInit = useSessionsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
     extInit = useExtensionsStore.getState()
   })
 
   afterEach(() => {
     syncExtensionCommands([])
     useLayoutStore.setState(layoutInit, true)
-    useSessionsStore.setState(sessionsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
     useExtensionsStore.setState(extInit, true)
     useDiffStore.setState({ byPane: {} })
     resetIds()
@@ -95,15 +95,15 @@ describe('extensionBridge', () => {
     warn.mockRestore()
   })
 
-  it('running a command invokes the extension with the active session and pane', async () => {
+  it('running a command invokes the extension with the active workspace and pane', async () => {
     const invoke = vi.fn().mockResolvedValue({ ok: true, data: { opened: true } })
     window.pine.extensions.invoke = invoke
     syncExtensionCommands([ext()])
     const res = await commands.execWith(
-      { activeSessionId: 's1', activePaneId: 'pane-1' },
+      { activeWorkspaceId: 's1', activePaneId: 'pane-1' },
       'demo.open',
     )
-    expect(invoke).toHaveBeenCalledWith('demo', 'open', { sessionId: 's1', paneId: 'pane-1' })
+    expect(invoke).toHaveBeenCalledWith('demo', 'open', { workspaceId: 's1', paneId: 'pane-1' })
     expect(res).toEqual({ ok: true, result: { opened: true } })
   })
 
@@ -112,26 +112,29 @@ describe('extensionBridge', () => {
       .fn()
       .mockResolvedValue({ ok: false, error: 'extension-unavailable', message: 'crashed' })
     syncExtensionCommands([ext()])
-    const res = await commands.execWith({ activeSessionId: 's1', activePaneId: null }, 'demo.open')
+    const res = await commands.execWith(
+      { activeWorkspaceId: 's1', activePaneId: null },
+      'demo.open',
+    )
     expect(res).toEqual({
       ok: false,
       error: { code: 'command-failed', message: 'extension-unavailable: crashed' },
     })
   })
 
-  it('openExtensionPanel opens one panel pane per extension in the requested session', () => {
-    useSessionsStore.setState({
-      sessions: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
-      activeSessionId: 's1',
+  it('openExtensionPanel opens one panel pane per extension in the requested workspace', () => {
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
     })
     useLayoutStore.getState().ensure('s1')
     useExtensionsStore.setState({ list: [ext()] })
 
-    openExtensionPanel({ extId: 'demo', sessionId: 's1' })
-    openExtensionPanel({ extId: 'demo', sessionId: 'unknown-session' })
+    openExtensionPanel({ extId: 'demo', workspaceId: 's1' })
+    openExtensionPanel({ extId: 'demo', workspaceId: 'unknown-workspace' })
     openExtensionPanel({ extId: 'ghost' })
 
-    const root = useLayoutStore.getState().bySession.s1.root
+    const root = useLayoutStore.getState().byWorkspace.s1.root
     const panels = paneIds(root)
       .map((id) => findPane(root, id))
       .filter((p) => p?.kind === 'extension')
@@ -140,14 +143,14 @@ describe('extensionBridge', () => {
   })
 
   it('openExtensionDiff opens one reusable diff pane and stores its content by pane id', () => {
-    useSessionsStore.setState({
-      sessions: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
-      activeSessionId: 's1',
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
     })
     useLayoutStore.getState().ensure('s1')
     const first = openExtensionDiff({
       extId: 'vcs',
-      sessionId: 's1',
+      workspaceId: 's1',
       title: 'a.ts',
       original: 'x',
       modified: 'y',
@@ -155,14 +158,14 @@ describe('extensionBridge', () => {
     })
     const second = openExtensionDiff({
       extId: 'vcs',
-      sessionId: 'gone',
+      workspaceId: 'gone',
       title: 'b.ts',
       original: '1',
       modified: '2',
     })
 
     expect(second).toBe(first)
-    const layout = useLayoutStore.getState().bySession.s1
+    const layout = useLayoutStore.getState().byWorkspace.s1
     const diffs = paneIds(layout.root)
       .map((id) => findPane(layout.root, id))
       .filter((p) => p?.kind === 'diff')
@@ -177,9 +180,9 @@ describe('extensionBridge', () => {
   })
 
   it('points the diff pane cwd at the file directory so repo lookups follow it', () => {
-    useSessionsStore.setState({
-      sessions: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
-      activeSessionId: 's1',
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
     })
     useLayoutStore.getState().ensure('s1')
     const id = openExtensionDiff({
@@ -189,18 +192,18 @@ describe('extensionBridge', () => {
       modified: '',
       path: '/repo/src/a.ts',
     })
-    const root = useLayoutStore.getState().bySession.s1.root
+    const root = useLayoutStore.getState().byWorkspace.s1.root
     expect(findPane(root, id as string)?.cwd).toBe('/repo/src')
   })
 
-  it('opens no panel or diff and creates no session when there are no sessions', () => {
+  it('opens no panel or diff and creates no workspace when there are no workspaces', () => {
     useExtensionsStore.setState({ list: [ext()] })
 
     openExtensionPanel({ extId: 'demo' })
     const diff = openExtensionDiff({ extId: 'vcs', title: 'a.ts', original: '', modified: '' })
 
     expect(diff).toBeNull()
-    expect(useSessionsStore.getState().sessions).toEqual([])
-    expect(useLayoutStore.getState().bySession).toEqual({})
+    expect(useWorkspacesStore.getState().workspaces).toEqual([])
+    expect(useLayoutStore.getState().byWorkspace).toEqual({})
   })
 })

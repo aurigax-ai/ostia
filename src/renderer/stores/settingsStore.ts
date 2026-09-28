@@ -33,7 +33,7 @@ export interface Behavior {
   showHiddenFiles: boolean
   cursorStyle: CursorStyle
   cursorBlink: boolean
-  restoreSession: boolean
+  restoreWorkspace: boolean
   externalEditor: string
 }
 
@@ -74,7 +74,7 @@ const DEFAULTS: Persisted = {
     showHiddenFiles: true,
     cursorStyle: 'block',
     cursorBlink: true,
-    restoreSession: true,
+    restoreWorkspace: true,
     externalEditor: 'auto',
   },
 }

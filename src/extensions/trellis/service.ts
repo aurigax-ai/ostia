@@ -17,15 +17,15 @@ import {
   projectOfRef,
 } from './trellis'
 
-export interface SessionRef {
-  sessionId: string
+export interface WorkspaceRef {
+  workspaceId: string
   workDir: string
 }
 
 export interface TrellisHost {
-  listSessions: () => Promise<SessionRef[]>
+  listWorkspaces: () => Promise<WorkspaceRef[]>
   setSidebarItem: (item: {
-    sessionId: string
+    workspaceId: string
     key: string
     text: string
     icon?: ExtensionIcon
@@ -70,7 +70,7 @@ export class TrellisService {
   private uiStarting: Promise<string> | null = null
   private shown = new Set<string>()
   private projects = new Map<string, TrellisProject>()
-  private sessionsKnown = false
+  private workspacesKnown = false
   private follower: ChildProcess | null = null
   private followFailures = 0
   private followTimer: ReturnType<typeof setTimeout> | null = null
@@ -122,52 +122,52 @@ export class TrellisService {
   async refreshSidebar(): Promise<void> {
     if (this.stopped) return
     if (!(await this.isInstalled())) return this.clearSidebar()
-    let sessions: SessionRef[]
+    let workspaces: WorkspaceRef[]
     try {
-      sessions = await this.opts.host.listSessions()
-      this.sessionsKnown = true
+      workspaces = await this.opts.host.listWorkspaces()
+      this.workspacesKnown = true
     } catch (err) {
-      this.sessionsKnown = false
-      this.opts.host.log(`session list unavailable: ${(err as Error).message}`)
+      this.workspacesKnown = false
+      this.opts.host.log(`workspace list unavailable: ${(err as Error).message}`)
       return this.clearSidebar()
     }
     const byProject = new Map<string, Promise<CardCounts | null>>()
     const next = new Set<string>()
     this.projects.clear()
-    for (const session of sessions) {
-      const project = this.projectFor(session.workDir)
+    for (const workspace of workspaces) {
+      const project = this.projectFor(workspace.workDir)
       if (!project) continue
-      this.projects.set(session.sessionId, project)
+      this.projects.set(workspace.workspaceId, project)
       const key = `${project.project}/${project.board ?? ''}`
       if (!byProject.has(key)) byProject.set(key, this.counts(project))
       const counts = await byProject.get(key)
       if (!counts) continue
-      next.add(session.sessionId)
+      next.add(workspace.workspaceId)
       await this.opts.host.setSidebarItem({
-        sessionId: session.sessionId,
+        workspaceId: workspace.workspaceId,
         key: SIDEBAR_KEY,
         text: this.strings.sidebar(counts),
         icon: 'kanban',
         tone: counts.claimed > 0 ? 'brand' : 'neutral',
       })
     }
-    for (const sessionId of this.shown) {
-      if (!next.has(sessionId)) {
-        await this.opts.host.setSidebarItem({ sessionId, key: SIDEBAR_KEY, text: '' })
+    for (const workspaceId of this.shown) {
+      if (!next.has(workspaceId)) {
+        await this.opts.host.setSidebarItem({ workspaceId, key: SIDEBAR_KEY, text: '' })
       }
     }
     this.shown = next
   }
 
   private async clearSidebar(): Promise<void> {
-    for (const sessionId of this.shown) {
-      await this.opts.host.setSidebarItem({ sessionId, key: SIDEBAR_KEY, text: '' })
+    for (const workspaceId of this.shown) {
+      await this.opts.host.setSidebarItem({ workspaceId, key: SIDEBAR_KEY, text: '' })
     }
     this.shown.clear()
   }
 
   openProjects(): Set<string> | null {
-    if (!this.sessionsKnown) return null
+    if (!this.workspacesKnown) return null
     return new Set([...this.projects.values()].map((p) => p.project))
   }
 

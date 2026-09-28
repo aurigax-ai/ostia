@@ -1,30 +1,39 @@
+import { resumeCommand } from '@shared/agentResume'
 import {
   Bot,
   FileCode,
   GitCompare,
   Globe,
   type LucideIcon,
+  Play,
+  Plus,
   SplitSquareHorizontal,
   SplitSquareVertical,
   Terminal,
   X,
 } from 'lucide-react'
-import { type DragEvent, useCallback, useEffect, useRef } from 'react'
+import { type DragEvent, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { commands } from '../commands/registry'
-import { useDict } from '../i18n/useDict'
+import { fmt, useDict } from '../i18n/useDict'
 import type { DropZone } from '../layout/tree'
 import type { PaneNode, SurfaceKind } from '../layout/types'
 import { needsRing } from '../lib/attention'
+import { isIdlePrompt } from '../lib/blocks'
+import { chordLabel } from '../lib/chords'
+import { isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePaneDnd } from '../stores/paneDndStore'
-import { mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
+import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
+import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { extensionIcon } from './extensionIcons'
 
 interface PaneProps {
-  pane: PaneNode
+  tabs: PaneNode[]
+  shownId: string
   active: boolean
 }
 
@@ -38,6 +47,8 @@ const SURFACE_ICON: Record<SurfaceKind, LucideIcon> = {
 }
 
 const PANE_DND = 'application/x-pine-pane'
+
+const RESUME_KEYS = chordLabel('agent.resume', isMac)
 
 function zoneFromEvent(e: DragEvent<HTMLElement>): DropZone {
   const r = e.currentTarget.getBoundingClientRect()
@@ -57,21 +68,17 @@ function zoneFromEvent(e: DragEvent<HTMLElement>): DropZone {
   return dist[side] < 0.25 ? side : 'center'
 }
 
-export function Pane({ pane, active }: PaneProps): JSX.Element {
+function hasSurface(kind: SurfaceKind): boolean {
+  return kind !== 'agent'
+}
+
+export function Pane({ tabs, shownId, active }: PaneProps): JSX.Element {
   const d = useDict()
-  const over = usePaneDnd((s) => (s.overId === pane.id ? s.zone : null))
+  const shown = tabs.find((t) => t.id === shownId) ?? tabs[0]
+  const over = usePaneDnd((s) => (s.overId === shown.id ? s.zone : null))
   const setOver = usePaneDnd((s) => s.setOver)
   const reset = usePaneDnd((s) => s.reset)
-  const panelIcon = useExtensionsStore((s) =>
-    pane.kind === 'extension'
-      ? s.list.find((e) => e.id === pane.extensionId)?.panel?.icon
-      : undefined,
-  )
-  const Icon = pane.kind === 'extension' ? extensionIcon(panelIcon) : SURFACE_ICON[pane.kind]
-  const dirty = useEditorStatus((s) =>
-    pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
-  )
-  const attention = useAttentionStore((s) => s.byPane[pane.id])
+  const attention = useAttentionStore((s) => s.byPane[shown.id])
   const ring = needsRing(attention)
   const unread = attention?.unread ?? false
   const frameRef = useRef<HTMLDivElement>(null)
@@ -79,7 +86,7 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
     const frame = frameRef.current
     if (!frame) return
     const activate = (): void => {
-      if (!active) void commands.exec('pane.focus', { paneId: pane.id })
+      if (!active) void commands.exec('pane.focus', { paneId: shown.id })
     }
     frame.addEventListener('mousedown', activate, true)
     frame.addEventListener('focusin', activate)
@@ -87,22 +94,13 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
       frame.removeEventListener('mousedown', activate, true)
       frame.removeEventListener('focusin', activate)
     }
-  }, [active, pane.id])
-  const slotEl = useRef<HTMLElement | null>(null)
-  const slotRef = useCallback(
-    (el: HTMLElement | null) => {
-      if (slotEl.current) parkSurface(pane.id, slotEl.current)
-      slotEl.current = el
-      if (el) mountSurface(pane.id, el)
-    },
-    [pane.id],
-  )
+  }, [active, shown.id])
 
   const onDragOver = (e: DragEvent<HTMLDivElement>): void => {
     if (!e.dataTransfer.types.includes(PANE_DND)) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
-    setOver(pane.id, zoneFromEvent(e))
+    setOver(shown.id, zoneFromEvent(e))
   }
 
   const onDrop = (e: DragEvent<HTMLDivElement>): void => {
@@ -111,8 +109,8 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
     const sourceId = e.dataTransfer.getData(PANE_DND)
     const zone = zoneFromEvent(e)
     reset()
-    if (sourceId && sourceId !== pane.id) {
-      commands.exec('pane.move', { sourceId, targetId: pane.id, zone })
+    if (sourceId && sourceId !== shown.id) {
+      commands.exec('pane.move', { sourceId, targetId: shown.id, zone })
     }
   }
 
@@ -124,63 +122,49 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
-      <div
-        className="pane-header"
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData(PANE_DND, pane.id)
-          e.dataTransfer.effectAllowed = 'move'
-        }}
-        onDragEnd={reset}
-      >
-        <Icon size={14} className="pane-kind" />
-        <span className="title">
-          {dirty ? '• ' : ''}
-          {pane.title}
-        </span>
-        {unread ? (
-          <span className={`pane-attn${ring ? ' loud' : ''}`}>
-            <span
-              className="pane-attn-mark"
-              role="img"
-              aria-label={ring ? d.attention.needsYou : d.attention.unread}
-            />
-            {attention?.message ? <span className="pane-attn-msg">{attention.message}</span> : null}
+      <div className="pane-header">
+        <div className="pane-tabs" role="tablist" aria-label={d.pane.tabs}>
+          {tabs.map((tab) => (
+            <PaneTab key={tab.id} pane={tab} selected={tab.id === shown.id} onDragEnd={reset} />
+          ))}
+        </div>
+        {unread && attention?.message ? (
+          <span className="pane-attn">
+            <span className="pane-attn-msg">{attention.message}</span>
           </span>
         ) : null}
+        <ResumeButton pane={shown} />
         <div className="pane-actions">
+          <IconButton
+            icon={Plus}
+            label={d.pane.newTab}
+            onClick={() => commands.exec('tab.new', { paneId: shown.id })}
+          />
+          <IconButton
+            icon={Globe}
+            label={d.pane.newBrowserTab}
+            onClick={() => commands.exec('tab.newBrowser', { paneId: shown.id })}
+          />
           <IconButton
             icon={SplitSquareHorizontal}
             label={d.pane.splitRight}
             onClick={() =>
-              commands.exec('pane.split', { paneId: pane.id, direction: 'horizontal' })
+              commands.exec('pane.split', { paneId: shown.id, direction: 'horizontal' })
             }
           />
           <IconButton
             icon={SplitSquareVertical}
             label={d.pane.splitDown}
-            onClick={() => commands.exec('pane.split', { paneId: pane.id, direction: 'vertical' })}
-          />
-          <IconButton
-            icon={X}
-            label={d.pane.close}
-            className="hover:text-attn-fg"
-            onClick={() => commands.exec('pane.close', { paneId: pane.id })}
+            onClick={() => commands.exec('pane.split', { paneId: shown.id, direction: 'vertical' })}
           />
         </div>
       </div>
 
-      {pane.kind === 'terminal' ||
-      pane.kind === 'editor' ||
-      pane.kind === 'browser' ||
-      pane.kind === 'diff' ||
-      pane.kind === 'extension' ? (
-        <div className="pane-body pane-body-term" ref={slotRef} />
-      ) : (
-        <div className="pane-body">
-          <span className="ghost">{pane.title}</span>
-        </div>
-      )}
+      <div className="pane-body pane-body-term">
+        {tabs.map((tab) => (
+          <TabBody key={tab.id} pane={tab} shown={tab.id === shown.id} />
+        ))}
+      </div>
 
       {ring ? (
         <span className="pane-attn-ring" aria-hidden="true">
@@ -190,4 +174,114 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
       {over ? <span className={`pane-drop pane-drop-${over}`} /> : null}
     </div>
   )
+}
+
+function ResumeButton({ pane }: { pane: PaneNode }): JSX.Element | null {
+  const d = useDict()
+  const idle = useBlocksStore((s) => isIdlePrompt(s, pane.id))
+  if (pane.kind !== 'terminal' || !pane.resume || !idle) return null
+  const label = fmt(d.pane.resume, { agent: pane.resume.agent })
+  return (
+    <Hint label={`${resumeCommand(pane.resume)}  ${RESUME_KEYS}`}>
+      <button
+        type="button"
+        className="pane-resume"
+        onClick={() => void commands.exec('agent.resume')}
+      >
+        <Play size={12} aria-hidden />
+        {label}
+      </button>
+    </Hint>
+  )
+}
+
+function PaneTab({
+  pane,
+  selected,
+  onDragEnd,
+}: {
+  pane: PaneNode
+  selected: boolean
+  onDragEnd: () => void
+}): JSX.Element {
+  const d = useDict()
+  const panelIcon = useExtensionsStore((s) =>
+    pane.kind === 'extension'
+      ? s.list.find((e) => e.id === pane.extensionId)?.panel?.icon
+      : undefined,
+  )
+  const Icon = pane.kind === 'extension' ? extensionIcon(panelIcon) : SURFACE_ICON[pane.kind]
+  const dirty = useEditorStatus((s) =>
+    pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
+  )
+  const attention = useAttentionStore((s) => s.byPane[pane.id])
+  const unread = attention?.unread ?? false
+  const ring = needsRing(attention)
+
+  return (
+    <div
+      className={`pane-tab${selected ? ' selected' : ''}`}
+      data-attention={unread ? attention?.state : undefined}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(PANE_DND, pane.id)
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+      onDragEnd={onDragEnd}
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={selected}
+        className="pane-tab-main"
+        onClick={() => {
+          void commands.exec('pane.focus', { paneId: pane.id })
+          requestAnimationFrame(() => focusSurface(pane.id))
+        }}
+      >
+        <Icon size={14} className="pane-kind" />
+        <span className="title">
+          {dirty ? '• ' : ''}
+          {pane.title}
+        </span>
+        {unread ? (
+          <span
+            className={`pane-attn-mark${ring ? ' loud' : ''}`}
+            role="img"
+            aria-label={ring ? d.attention.needsYou : d.attention.unread}
+          />
+        ) : null}
+      </button>
+      <IconButton
+        icon={X}
+        label={d.pane.closeTab}
+        className="pane-tab-close hover:text-attn-fg"
+        onClick={() => commands.exec('pane.close', { paneId: pane.id })}
+      />
+    </div>
+  )
+}
+
+function TabBody({ pane, shown }: { pane: PaneNode; shown: boolean }): JSX.Element | null {
+  const slotEl = useRef<HTMLDivElement | null>(null)
+  const slotRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (slotEl.current) parkSurface(pane.id, slotEl.current)
+      slotEl.current = el
+      if (el) mountSurface(pane.id, el)
+    },
+    [pane.id],
+  )
+  useLayoutEffect(() => {
+    if (slotEl.current) slotEl.current.inert = !shown
+  }, [shown])
+
+  if (!hasSurface(pane.kind)) {
+    return shown ? (
+      <div className="pane-slot pane-slot-ghost">
+        <span className="ghost">{pane.title}</span>
+      </div>
+    ) : null
+  }
+  return <div className="pane-slot" data-hidden={shown ? undefined : ''} ref={slotRef} />
 }

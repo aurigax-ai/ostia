@@ -31,12 +31,12 @@ describe('wireCommandBridge', () => {
     const req: CommandInvokeRequest = {
       id: 'test.invoke.cmd',
       args: { x: 1 },
-      target: { windowId: 'w1', sessionId: 's9', paneId: 'p9' },
+      target: { windowId: 'w1', workspaceId: 's9', paneId: 'p9' },
     }
     const result = await handler(req)
 
     expect(execSpy).toHaveBeenCalledWith(
-      { activeSessionId: 's9', activePaneId: 'p9', target: req.target },
+      { activeWorkspaceId: 's9', activePaneId: 'p9', target: req.target },
       req.id,
       req.args,
     )
@@ -44,7 +44,7 @@ describe('wireCommandBridge', () => {
     expect(run).toHaveBeenCalledTimes(1)
     const [args, ctx] = run.mock.calls[0]
     expect(args).toEqual({ x: 1 })
-    expect(ctx.activeSessionId).toBe('s9')
+    expect(ctx.activeWorkspaceId).toBe('s9')
     expect(ctx.activePaneId).toBe('p9')
     expect(ctx.target).toEqual(req.target)
 
@@ -60,11 +60,11 @@ describe('wireCommandBridge', () => {
     wireCommandBridge()
 
     const handler = vi.mocked(window.pine.commands.onInvoke).mock.calls[0][0]
-    await handler({ id: 'test.invoke.nullpane', target: { sessionId: 's2', paneId: null } })
+    await handler({ id: 'test.invoke.nullpane', target: { workspaceId: 's2', paneId: null } })
 
     expect(run).toHaveBeenCalledTimes(1)
     const [, ctx] = run.mock.calls[0]
-    expect(ctx.activeSessionId).toBe('s2')
+    expect(ctx.activeWorkspaceId).toBe('s2')
     expect(ctx.activePaneId).toBeNull()
   })
 
@@ -74,7 +74,7 @@ describe('wireCommandBridge', () => {
     const handler = vi.mocked(window.pine.commands.onInvoke).mock.calls[0][0]
     const result = await handler({
       id: 'does.not.exist',
-      target: { sessionId: 's1', paneId: 'p1' },
+      target: { workspaceId: 's1', paneId: 'p1' },
     })
 
     expect(result.ok).toBe(false)

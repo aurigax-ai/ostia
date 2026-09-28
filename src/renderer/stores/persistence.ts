@@ -1,22 +1,22 @@
 import { buildSnapshot } from '../layout/snapshot'
 import { useLayoutStore } from './layoutStore'
-import { useSessionsStore } from './sessionsStore'
 import { useSettingsStore } from './settingsStore'
+import { useWorkspacesStore } from './workspacesStore'
 
 const SAVE_DEBOUNCE_MS = 400
 
 let timer: ReturnType<typeof setTimeout> | null = null
 let clearedForDisabled = false
 
-export function saveWorkspaceNow(): void {
+export function saveSnapshotNow(): void {
   if (timer) {
     clearTimeout(timer)
     timer = null
   }
-  const api = window.pine?.session
+  const api = window.pine?.workspace
   if (!api) return
 
-  if (!useSettingsStore.getState().behavior.restoreSession) {
+  if (!useSettingsStore.getState().behavior.restoreWorkspace) {
     if (!clearedForDisabled) {
       api.save(null)
       clearedForDisabled = true
@@ -25,12 +25,12 @@ export function saveWorkspaceNow(): void {
   }
   clearedForDisabled = false
 
-  const { sessions, activeSessionId } = useSessionsStore.getState()
+  const { workspaces, activeWorkspaceId } = useWorkspacesStore.getState()
   api.save(
     buildSnapshot({
-      sessions,
-      activeSessionId,
-      layouts: useLayoutStore.getState().bySession,
+      workspaces,
+      activeWorkspaceId,
+      layouts: useLayoutStore.getState().byWorkspace,
       savedAt: new Date().toISOString(),
     }),
   )
@@ -38,18 +38,18 @@ export function saveWorkspaceNow(): void {
 
 function schedule(): void {
   if (timer) clearTimeout(timer)
-  timer = setTimeout(saveWorkspaceNow, SAVE_DEBOUNCE_MS)
+  timer = setTimeout(saveSnapshotNow, SAVE_DEBOUNCE_MS)
 }
 
-export function startWorkspaceAutosave(): () => void {
-  saveWorkspaceNow()
+export function startSnapshotAutosave(): () => void {
+  saveSnapshotNow()
 
   const unsubscribe = [
-    useSessionsStore.subscribe(schedule),
+    useWorkspacesStore.subscribe(schedule),
     useLayoutStore.subscribe(schedule),
     useSettingsStore.subscribe(schedule),
   ]
-  const onUnload = (): void => saveWorkspaceNow()
+  const onUnload = (): void => saveSnapshotNow()
   window.addEventListener('beforeunload', onUnload)
 
   return () => {

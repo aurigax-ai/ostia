@@ -4,30 +4,30 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
-import { type Session, useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { FilesView } from './FilesView'
 
 const CWD = '/home/me/project'
 
 function seedWorkspace(anchor = CWD, paneCwd?: string): void {
-  const session: Session = {
+  const workspace: Workspace = {
     id: 's1',
     name: 'project',
     kind: 'terminal',
     workDir: anchor,
     state: 'idle',
   }
-  useSessionsStore.setState({ sessions: [session], activeSessionId: 's1' })
+  useWorkspacesStore.setState({ workspaces: [workspace], activeWorkspaceId: 's1' })
   useLayoutStore.getState().ensure('s1')
   if (paneCwd !== undefined) {
-    const paneId = useLayoutStore.getState().bySession.s1.activePaneId
+    const paneId = useLayoutStore.getState().byWorkspace.s1.activePaneId
     useLayoutStore.getState().setCwd('s1', paneId, paneCwd)
   }
 }
 
 function focusedPaneId(): string {
-  return useLayoutStore.getState().bySession.s1.activePaneId
+  return useLayoutStore.getState().byWorkspace.s1.activePaneId
 }
 
 function listReturns(entries: { name: string; dir: boolean }[]): void {
@@ -35,19 +35,19 @@ function listReturns(entries: { name: string; dir: boolean }[]): void {
 }
 
 describe('FilesView', () => {
-  let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
   beforeAll(() => {
-    sessionsInit = useSessionsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
     layoutInit = useLayoutStore.getState()
     settingsInit = useSettingsStore.getState()
   })
 
   afterEach(() => {
     cleanup()
-    useSessionsStore.setState(sessionsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
     useLayoutStore.setState(layoutInit, true)
     useSettingsStore.setState(settingsInit, true)
     vi.restoreAllMocks()
@@ -66,7 +66,7 @@ describe('FilesView', () => {
     expect(screen.getByRole('button', { name: 'index.ts' })).toBeInTheDocument()
   })
 
-  it('requests the listing for the focused pane cwd, not the session anchor', async () => {
+  it('requests the listing for the focused pane cwd, not the workspace anchor', async () => {
     seedWorkspace('/home/me/project', '/var/log')
     listReturns([{ name: 'syslog', dir: false }])
 
@@ -95,16 +95,16 @@ describe('FilesView', () => {
     expect(screen.queryByRole('button', { name: 'here.ts' })).not.toBeInTheDocument()
   })
 
-  it('falls back to the session workDir anchor when the focused pane has no cwd', async () => {
-    useSessionsStore.setState({
-      sessions: [
+  it('falls back to the workspace workDir anchor when the focused pane has no cwd', async () => {
+    useWorkspacesStore.setState({
+      workspaces: [
         { id: 's1', name: 'anchor', kind: 'terminal', workDir: '/anchor/dir', state: 'idle' },
       ],
-      activeSessionId: 's1',
+      activeWorkspaceId: 's1',
     })
     const pane = createPane('terminal')
     useLayoutStore.setState({
-      bySession: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
     })
     listReturns([{ name: 'anchored.ts', dir: false }])
 

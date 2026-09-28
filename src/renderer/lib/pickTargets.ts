@@ -5,43 +5,43 @@ import type { PaneAttention } from './attention'
 
 export interface PickTarget {
   paneId: string
-  sessionId: string
-  sessionName: string
+  workspaceId: string
+  workspaceName: string
   title: string
   cwd?: string
   state: AttentionState
-  sameSession: boolean
+  sameWorkspace: boolean
 }
 
 export interface PickTargetInput {
-  sessions: readonly { id: string; name: string }[]
+  workspaces: readonly { id: string; name: string }[]
   layouts: Readonly<Record<string, { root: LayoutNode }>>
-  sourceSessionId: string
+  sourceWorkspaceId: string
   attention: Readonly<Record<string, PaneAttention>>
   touchedAt: Readonly<Record<string, number>>
 }
 
 export function pickTargets(input: PickTargetInput): PickTarget[] {
   const out: PickTarget[] = []
-  for (const session of input.sessions) {
-    const layout = input.layouts[session.id]
+  for (const workspace of input.workspaces) {
+    const layout = input.layouts[workspace.id]
     if (!layout) continue
     for (const pane of allPanes(layout.root)) {
       if (pane.kind !== 'terminal' && pane.kind !== 'agent') continue
       out.push({
         paneId: pane.id,
-        sessionId: session.id,
-        sessionName: session.name,
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
         title: pane.title,
         cwd: pane.cwd,
         state: input.attention[pane.id]?.state ?? 'none',
-        sameSession: session.id === input.sourceSessionId,
+        sameWorkspace: workspace.id === input.sourceWorkspaceId,
       })
     }
   }
   const recency = (id: string): number => input.touchedAt[id] ?? 0
   return out.sort((a, b) => {
-    if (a.sameSession !== b.sameSession) return a.sameSession ? -1 : 1
+    if (a.sameWorkspace !== b.sameWorkspace) return a.sameWorkspace ? -1 : 1
     return recency(b.paneId) - recency(a.paneId)
   })
 }

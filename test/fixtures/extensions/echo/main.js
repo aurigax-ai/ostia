@@ -21,8 +21,8 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
   }
   if (command === 'notify') return conn.sendRequest('ext.notify', { title: 'from echo', body: 'hi' })
   if (command === 'diff') return conn.sendRequest('ext.openDiff', args)
-  if (command === 'sessions') {
-    return { ok: true, data: await conn.sendRequest('session.list') }
+  if (command === 'workspaces') {
+    return { ok: true, data: await conn.sendRequest('workspace.list') }
   }
   if (command === 'crash') process.exit(3)
   if (command === 'stdin') return { ok: true, text: `stdin:${args.stdin}` }
@@ -30,7 +30,7 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
 })
 
 conn.onRequest('ext.panel', ({ caller }) => ({
-  url: `http://127.0.0.1:9/?session=${encodeURIComponent(caller.sessionId || '')}`,
+  url: `http://127.0.0.1:9/?workspace=${encodeURIComponent(caller.workspaceId || '')}`,
 }))
 
 conn.onNotification('ext.event', ({ type, payload }) => {
@@ -44,6 +44,6 @@ socket.on('connect', async () => {
   await conn.sendRequest('hello', { token: process.env.PINE_TOKEN })
   await conn.sendRequest('ext.subscribe', { events: ['pane.created'] })
   await conn.sendRequest('ext.registerCommands', {
-    commands: ['echo', 'guarded', 'probe', 'notify', 'diff', 'sessions', 'crash', 'stdin'],
+    commands: ['echo', 'guarded', 'probe', 'notify', 'diff', 'workspaces', 'crash', 'stdin'],
   })
 })

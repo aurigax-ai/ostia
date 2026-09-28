@@ -1,6 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
-import { openSession } from './helpers'
+import { openWorkspace } from './helpers'
 
 test('a terminal notification in a background pane raises attention and Ctrl+Shift+U jumps to it', async () => {
   test.setTimeout(90_000)
@@ -8,7 +8,7 @@ test('a terminal notification in a background pane raises attention and Ctrl+Shi
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await openSession(win)
+    await openWorkspace(win)
 
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
     const panes = win.locator('.pane')

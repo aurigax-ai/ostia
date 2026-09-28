@@ -63,7 +63,7 @@ export interface ExtensionHostDeps {
   store: ExtensionStore
   socketPath: () => string
   nodePath: string
-  workDirForSession: (sessionId?: string) => string | undefined
+  workDirForWorkspace: (workspaceId?: string) => string | undefined
   cwdForPane?: (paneId: string) => string | undefined
   broadcast: (channel: string, payload: unknown) => void
   openPanelIn: (req: ExtensionOpenPanelRequest) => void
@@ -287,7 +287,7 @@ export class ExtensionHost {
     setCaps(identity.externalId, this.granted(rt))
     const mainPath = join(rt.ext.dir, main)
     const script = /\.(c|m)?js$/.test(main)
-    const { PINE_PANE_ID: _pane, PINE_WORKSPACE: _workspace, ...inherited } = process.env
+    const { PINE_PANE_ID: _pane, PINE_START_DIR: _workspace, ...inherited } = process.env
     const env: NodeJS.ProcessEnv = {
       ...inherited,
       PINE_SOCKET: this.deps.socketPath(),
@@ -434,11 +434,11 @@ export class ExtensionHost {
     }
   }
 
-  userCaller(sessionId: string | null, extra: Partial<ExtensionCaller> = {}): ExtensionCaller {
+  userCaller(workspaceId: string | null, extra: Partial<ExtensionCaller> = {}): ExtensionCaller {
     const caller: ExtensionCaller = { kind: 'user', capabilities: [...ALL_CAPABILITIES], ...extra }
-    if (sessionId) {
-      caller.sessionId = sessionId
-      const workDir = this.deps.workDirForSession(sessionId)
+    if (workspaceId) {
+      caller.workspaceId = workspaceId
+      const workDir = this.deps.workDirForWorkspace(workspaceId)
       if (workDir) caller.workDir = workDir
     }
     return caller
@@ -448,10 +448,10 @@ export class ExtensionHost {
     const caller: ExtensionCaller = {
       kind: 'pane',
       paneId: identity.externalId,
-      sessionId: identity.sessionId,
+      workspaceId: identity.workspaceId,
       capabilities: capsOf(identity.externalId),
     }
-    const workDir = this.deps.workDirForSession(identity.sessionId)
+    const workDir = this.deps.workDirForWorkspace(identity.workspaceId)
     if (workDir) caller.workDir = workDir
     const cwd = this.deps.cwdForPane?.(identity.paneId)
     if (cwd) caller.cwd = cwd
@@ -465,7 +465,7 @@ export class ExtensionHost {
 
   async resolvePanel(
     extId: string,
-    context: { sessionId: string; locale: string },
+    context: { workspaceId: string; locale: string },
   ): Promise<ExtensionPanelSource> {
     const rt = this.runtimes.get(extId)
     if (!rt || !this.active(rt)) return { ok: false, error: 'extension-disabled' }
@@ -477,7 +477,7 @@ export class ExtensionHost {
     }
     try {
       const conn = await this.connected(rt)
-      const caller = this.userCaller(context.sessionId, { locale: context.locale })
+      const caller = this.userCaller(context.workspaceId, { locale: context.locale })
       const res = await withTimeout(
         conn.sendRequest<{ url?: unknown }>('ext.panel', { caller }),
         this.deps.requestTimeoutMs ?? 30_000,
@@ -578,8 +578,9 @@ export class ExtensionHost {
     }
     const p = (params ?? {}) as Record<string, unknown>
     const key = typeof p.key === 'string' && p.key ? p.key.slice(0, 40) : 'default'
-    const sessionId = typeof p.sessionId === 'string' && p.sessionId ? p.sessionId : undefined
-    const slot = `${extId}\u0000${sessionId ?? ''}\u0000${key}`
+    const workspaceId =
+      typeof p.workspaceId === 'string' && p.workspaceId ? p.workspaceId : undefined
+    const slot = `${extId}\u0000${workspaceId ?? ''}\u0000${key}`
     const text = typeof p.text === 'string' ? p.text.trim().slice(0, SIDEBAR_TEXT_MAX) : ''
     if (!text) {
       if (this.sidebar.delete(slot)) this.sidebarChanged()
@@ -589,7 +590,7 @@ export class ExtensionHost {
     if (!this.sidebar.has(slot) && count >= MAX_SIDEBAR_ITEMS) return fail('too-many-items')
     const tone = SIDEBAR_TONES.includes(p.tone as SidebarTone) ? (p.tone as SidebarTone) : 'neutral'
     const item: ExtensionSidebarItem = { extId, key, text, tone }
-    if (sessionId) item.sessionId = sessionId
+    if (workspaceId) item.workspaceId = workspaceId
     if (EXTENSION_ICONS.includes(p.icon as ExtensionIcon)) item.icon = p.icon as ExtensionIcon
     this.sidebar.set(slot, item)
     this.sidebarChanged()
@@ -616,9 +617,9 @@ export class ExtensionHost {
   openPanel(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.runtimeOf(identity, conn)
     if (!rt.ext.manifest.contributes.panel) return fail('not-contributed', 'no panel in manifest')
-    const sessionId = (params as { sessionId?: unknown })?.sessionId
+    const workspaceId = (params as { workspaceId?: unknown })?.workspaceId
     const req: ExtensionOpenPanelRequest = { extId: rt.ext.manifest.id }
-    if (typeof sessionId === 'string' && sessionId) req.sessionId = sessionId
+    if (typeof workspaceId === 'string' && workspaceId) req.workspaceId = workspaceId
     this.deps.openPanelIn(req)
     return { ok: true }
   }
@@ -647,7 +648,7 @@ export class ExtensionHost {
       req.language = p.language.slice(0, DIFF_LANGUAGE_MAX)
     }
     if (typeof p.path === 'string') req.path = p.path
-    if (typeof p.sessionId === 'string' && p.sessionId) req.sessionId = p.sessionId
+    if (typeof p.workspaceId === 'string' && p.workspaceId) req.workspaceId = p.workspaceId
     if (!this.deps.openDiffIn) return fail('no-window')
     this.deps.openDiffIn(req)
     return { ok: true }

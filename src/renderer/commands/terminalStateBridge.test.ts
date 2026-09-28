@@ -6,10 +6,10 @@ import { wireTerminalStateBridge } from './terminalStateBridge'
 
 const blocks = () => useBlocksStore.getState()
 
-function seedPaneCwd(sessionId: string, paneId: string, cwd: string): void {
+function seedPaneCwd(workspaceId: string, paneId: string, cwd: string): void {
   const root: LayoutNode = { type: 'pane', id: paneId, title: 'zsh', kind: 'terminal', cwd }
   useLayoutStore.setState({
-    bySession: { [sessionId]: { root, activePaneId: paneId, zoomedPaneId: null } },
+    byWorkspace: { [workspaceId]: { root, activePaneId: paneId, zoomedPaneId: null } },
   })
 }
 

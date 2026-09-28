@@ -8,7 +8,7 @@ import { type PickTarget, pickTargets } from '../lib/pickTargets'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePaneRecencyStore } from '../stores/paneRecencyStore'
-import { useSessionsStore } from '../stores/sessionsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { IconButton } from './IconButton'
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
@@ -28,14 +28,15 @@ function stateLabel(d: Dict, state: AttentionState): string {
   }
 }
 
-export function usePickTargets(sessionId: string): PickTarget[] {
-  const sessions = useSessionsStore((s) => s.sessions)
-  const layouts = useLayoutStore((s) => s.bySession)
+export function usePickTargets(workspaceId: string): PickTarget[] {
+  const workspaces = useWorkspacesStore((s) => s.workspaces)
+  const layouts = useLayoutStore((s) => s.byWorkspace)
   const attention = useAttentionStore((s) => s.byPane)
   const touchedAt = usePaneRecencyStore((s) => s.touchedAt)
   return useMemo(
-    () => pickTargets({ sessions, layouts, sourceSessionId: sessionId, attention, touchedAt }),
-    [sessions, layouts, sessionId, attention, touchedAt],
+    () =>
+      pickTargets({ workspaces, layouts, sourceWorkspaceId: workspaceId, attention, touchedAt }),
+    [workspaces, layouts, workspaceId, attention, touchedAt],
   )
 }
 
@@ -131,7 +132,7 @@ export function PickSendPanel({
                   />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className={checked ? 'truncate font-medium' : 'truncate'}>
-                      {t.sameSession ? t.title : `${t.sessionName} · ${t.title}`}
+                      {t.sameWorkspace ? t.title : `${t.workspaceName} · ${t.title}`}
                     </span>
                     {t.cwd ? (
                       <span className="truncate font-mono text-fg-muted text-ui-xs">{t.cwd}</span>

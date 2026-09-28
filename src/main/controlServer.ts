@@ -98,7 +98,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     conn.onRequest('whoami', (): Record<string, string | undefined> => {
       const me = requireIdentity('all')
       if (me.kind === 'extension') return { externalId: me.externalId, extensionId: me.extId }
-      return { externalId: me.externalId, paneId: me.paneId, sessionId: me.sessionId }
+      return { externalId: me.externalId, paneId: me.paneId, workspaceId: me.workspaceId }
     })
 
     conn.onRequest('command.list', (): CommandDescriptor[] => {
@@ -114,7 +114,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
 
         const selfTarget: CommandTarget = {
           windowId: me.windowId,
-          sessionId: me.sessionId,
+          workspaceId: me.workspaceId,
           paneId: me.paneId,
         }
         const target = params.target ?? selfTarget
@@ -122,9 +122,9 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
         if (
           target.paneId !== me.paneId ||
           target.windowId !== me.windowId ||
-          target.sessionId !== me.sessionId
+          target.workspaceId !== me.workspaceId
         ) {
-          if (!connHasCap(authed, 'workspace-wide')) throw needsElevation('workspace-wide')
+          if (!connHasCap(authed, 'all-workspaces')) throw needsElevation('all-workspaces')
         }
 
         const desc = deps

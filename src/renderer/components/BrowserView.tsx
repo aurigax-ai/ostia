@@ -26,11 +26,11 @@ function resolveAddress(input: string): string {
 }
 
 export function BrowserView({
-  sessionId,
+  workspaceId,
   paneId,
   url,
 }: {
-  sessionId: string
+  workspaceId: string
   paneId: string
   url?: string
 }): JSX.Element {
@@ -96,7 +96,7 @@ export function BrowserView({
       setAddress(navigatedUrl)
       syncNavState()
       lastAppliedUrlRef.current = navigatedUrl
-      useLayoutStore.getState().setUrl(sessionId, paneId, navigatedUrl)
+      useLayoutStore.getState().setUrl(workspaceId, paneId, navigatedUrl)
     }
     const onFailLoad = (e: Event): void => {
       const failed = e as unknown as {
@@ -117,7 +117,7 @@ export function BrowserView({
       el.removeEventListener('did-navigate-in-page', onNavigate)
       el.removeEventListener('did-fail-load', onFailLoad)
     }
-  }, [sessionId, paneId, withGuest])
+  }, [workspaceId, paneId, withGuest])
 
   useEffect(() => {
     const el = webviewRef.current
@@ -139,7 +139,7 @@ export function BrowserView({
   const [capture, setCapture] = useState<PickCapture | null>(null)
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
-  const targets = usePickTargets(sessionId)
+  const targets = usePickTargets(workspaceId)
 
   useEffect(
     () =>

@@ -23,10 +23,10 @@ function useThemeCss(): string {
 
 export function ExtensionPanelView({
   extId,
-  sessionId,
+  workspaceId,
 }: {
   extId: string
-  sessionId: string
+  workspaceId: string
 }): JSX.Element {
   const d = useDict()
   const info = useExtensionsStore((s) => s.list.find((e) => e.id === extId))
@@ -40,7 +40,7 @@ export function ExtensionPanelView({
     (isAlive: () => boolean) => {
       setSource(null)
       window.pine.extensions
-        .panel(extId, { sessionId, locale })
+        .panel(extId, { workspaceId, locale })
         .then((res) => {
           if (isAlive()) setSource(res)
         })
@@ -50,7 +50,7 @@ export function ExtensionPanelView({
           }
         })
     },
-    [extId, sessionId, locale],
+    [extId, workspaceId, locale],
   )
 
   useEffect(() => {

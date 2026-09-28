@@ -7,7 +7,7 @@ The source of truth for how pine looks and behaves on screen. Product intent and
 ## 1. Thesis
 
 Pine is mission control for terminals and agents. The chrome is quiet and dark. What moves on
-screen is session state: what is working and what needs you. Everything else stays still.
+screen is workspace state: what is working and what needs you. Everything else stays still.
 
 Borrowed on purpose:
 - **Warp**: elevation comes from a lighter surface plus a hairline outline, not new colors. Uses
@@ -124,12 +124,12 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 ┌──────────────────────────────────────────────────────────────┐
 │ ▣ ⚙                       [ ⌕ command center  Ctrl+Shift+P ] ─ ▢ ✕ │  top bar
 ├────────────┬─────────────────────────────────────────────────┤
-│ Sessions│Files                                                │
-│ ◉ ~/proj   │   split tree of panes for the active session     │
+│ Workspaces│Files                                                │
+│ ◉ ~/proj   │   split tree of panes for the active workspace     │
 │   ~/api  ● │   ┌ pane header ──────┐ ┌ pane header ────────┐  │
 │   ~        │   │ terminal          │ │ editor / browser /  │  │
 │            │   │                   │ │ extension panel     │  │
-│ + session  │   └───────────────────┘ └─────────────────────┘  │
+│ + workspace  │   └───────────────────┘ └─────────────────────┘  │
 │ ⚙ Settings │                                                  │
 └────────────┴─────────────────────────────────────────────────┘
 ```
@@ -138,15 +138,15 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
   palette, and the notification bell at the right end (§6). The whole bar is the window drag region. macOS keeps native traffic lights on the
   left (the bar pads 80px for them). Linux and Windows draw min/max/close on the right
   (`WindowControls.tsx`). There is no wordmark, status strip or inspector.
-- **Sidebar** (`DeckRail.tsx`): a Sessions/Files switch; one row per session showing a kind
-  icon, workDir, a state dot and an unread badge; "new session"; and a pinned Settings row. It collapses to a
+- **Sidebar** (`DeckRail.tsx`): a Workspaces/Files switch; one row per workspace showing a kind
+  icon, workDir, a state dot and an unread badge; "new workspace"; and a pinned Settings row. It collapses to a
   56px icon rail.
-- **Work area**: the active session's split tree, rendered with Allotment. Each pane is an
+- **Work area**: the active workspace's split tree, rendered with Allotment. Each pane is an
   elevated surface with a header (title, split right, split down, close). The header is also the
-  drag handle for moving panes. The active pane is marked with the brand color. Sessions have no
+  drag handle for moving panes. The active pane is marked with the brand color. Workspaces have no
   tab strip.
 
-## 6. Signature: session status
+## 6. Signature: workspace status
 
 The loudest element is the state dot on each sidebar row (`.dot` in `index.css`):
 
@@ -159,7 +159,7 @@ The loudest element is the state dot on each sidebar row (`.dot` in `index.css`)
 | error | `--attn`, static, square (so it differs from waiting by shape, not only motion) |
 
 Only non-idle states show; each dot has an `aria-label` with the state name. The state comes from
-the session's panes (ARCHITECTURE.md §5, "Live session state and attention"). Under reduced
+the workspace's panes (ARCHITECTURE.md §5, "Live workspace state and attention"). Under reduced
 motion, animations collapse to static dots and the working dot stays fully opaque.
 
 Attention, the second loud element, appears only when a pane needs you:
@@ -171,12 +171,12 @@ Attention, the second loud element, appears only when a pane needs you:
 - **Quiet marker**: an unread `done` pane (or one that rang the bell) gets only the header mark
   (`--ok` circle for done, `--fg-muted` otherwise) labelled "Unread", plus the message in
   `--fg-muted`. No ring.
-- **Unread badge**: the session row shows the number of unread panes as an outlined pill
+- **Unread badge**: the workspace row shows the number of unread panes as an outlined pill
   (`--attn` border, `--attn-fg` number, `ui-xs`/500, tabular). A number, so never hue-alone. It
   pops in once (scale .85 → 1 + fade) when it appears or its count grows; never on a decrease.
 - **Bell**: a `bar` IconButton in the top bar's right slot. Its count uses the same pill; its
   label reads "Notifications, N unread". The popover lists the notification log newest first:
-  `session · pane` and time on a `ui-xs` meta line, the message in `ui-sm`. Each row jumps to its
+  `workspace · pane` and time on a `ui-xs` meta line, the message in `ui-sm`. Each row jumps to its
   pane; rows for closed panes are disabled. "Clear all" sits in the header.
 
 ## 7. Components
@@ -201,10 +201,10 @@ Attention, the second loud element, appears only when a pane needs you:
   `surface-3` + `fg`, pressed (`aria-pressed`) `surface-3` + `brand`.
 - **Icon sizes**: 16 bar-level, 14 rows/headers/buttons, 12 inline glyphs.
 - **Status dot or badge**: 6–8px dot plus text.
-- **Empty state**: one muted line plus the primary action. The work zone with no sessions
-  (`WorkZone.tsx` `NoSessions`) is the reference: centered `ui-lg`/600 heading "No sessions",
-  one `ui-base` `fg-muted` sentence, and a default (brand) `Button` "New session" with its chord
-  (`chordLabel('session.new')`) in a `ui-xs` keycap. No illustration, no sample content. It
+- **Empty state**: one muted line plus the primary action. The work zone with no workspaces
+  (`WorkZone.tsx` `NoWorkspaces`) is the reference: centered `ui-lg`/600 heading "No workspaces",
+  one `ui-base` `fg-muted` sentence, and a default (brand) `Button` "New workspace" with its chord
+  (`chordLabel('workspace.new')`) in a `ui-xs` keycap. No illustration, no sample content. It
   fades in once (`--motion-base`).
 - **Density**: rows are 22–28px, toolbars 32–36px, and settings content is 640–760px wide.
 
@@ -222,14 +222,14 @@ Consolidation debt:
 - **Keyboard**: in lists and navs, use a roving tabindex with Up/Down/Home/End; Enter or Space
   activates; Escape dismisses. Label every control (`aria-label` or an associated label).
 - **Shortcuts**: the palette, sidebar, settings, jump-to-latest-unread, command-history and
-  new-session chords are Cmd+K / Cmd+\ / Cmd+, / Cmd+Shift+U / Cmd+Shift+H / Cmd+T on macOS and
+  new-workspace chords are Cmd+K / Cmd+\ / Cmd+, / Cmd+Shift+U / Cmd+Shift+H / Cmd+T on macOS and
   Ctrl+Shift+P / Ctrl+Shift+B / Ctrl+, / Ctrl+Shift+U / Ctrl+Shift+H / Ctrl+Shift+T elsewhere. In the terminal, previous/next
   block is Cmd+↑/↓ (Ctrl+Shift+↑/↓ elsewhere) and Escape clears a block selection; off macOS,
   copy, paste and find are Ctrl+Shift+C/V/F.
 - **Transitions**: motion tokens only (§8 Motion). List only the properties that change, never
   `transition-all`.
 - **Overlays**: when a surface covers others, mark the covered subtree `inert` so focus can't
-  leak. Hidden sessions use `visibility: hidden` + `inert`.
+  leak. Hidden workspaces use `visibility: hidden` + `inert`.
 
 ### Motion
 
@@ -259,12 +259,12 @@ Where it moves:
 - **Blocks**: the selection frame fades in; the sticky command header slides down 4px + fades
   in and leaves faster the way it came; the find bar enters from 6px above.
 - **New pane content** fades in once when its surface is created (`.surface-enter`), never when
-  a surface moves between slots. The no-sessions empty state fades in the same way.
+  a surface moves between slots. The no-workspaces empty state fades in the same way.
 - **Hover/focus/active**: color, background and border at `--motion-fast`.
 
 What stays still: pane size, position and splits; the Allotment sashes; anything that resizes
 an xterm host (it would fit and resize the pty every frame); buttons on press (no scale or
-nudge); lists (no stagger); session switches and Settings (no page transitions). Nothing
+nudge); lists (no stagger); workspace switches and Settings (no page transitions). Nothing
 springs, bounces or overshoots. The one width transition is the sidebar collapse, which is
 safe because terminal resizes are debounced.
 
@@ -276,7 +276,7 @@ become static indicators; the dots, ring and badge still show the state.
 ## 9. Live surfaces (xterm, Monaco, webview)
 
 These are correctness rules, not style:
-- **Mount once, keep alive.** Switching sessions or rearranging panes must never remount a
+- **Mount once, keep alive.** Switching workspaces or rearranging panes must never remount a
   surface. `SurfacePool` moves persistent host nodes between pane slots.
 - **Hide with `visibility: hidden`, not `display: none`**, so the box keeps its size and the fit
   stays valid.

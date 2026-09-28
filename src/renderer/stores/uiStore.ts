@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type SidebarView = 'sessions' | 'files'
+export type SidebarView = 'workspaces' | 'files'
 
 interface UIState {
   paletteOpen: boolean
@@ -23,7 +23,7 @@ export const useUIStore = create<UIState>((set) => ({
   railCollapsed: false,
   settingsTabOpen: false,
   settingsActive: false,
-  sidebarView: 'sessions',
+  sidebarView: 'workspaces',
   openPalette: () => set({ paletteOpen: true }),
   closePalette: () => set({ paletteOpen: false }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),

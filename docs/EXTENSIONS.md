@@ -26,7 +26,7 @@ extension has no process, no commands, no panel and no sidebar items.
   "id": "ports",
   "name": "Ports",
   "version": "0.1.0",
-  "description": "Shows listening dev servers per session.",
+  "description": "Shows listening dev servers per workspace.",
   "capabilities": ["read-board", "notify"],
   "main": "main.js",
   "contributes": {
@@ -93,12 +93,12 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 |---|---|---|
 | `ext.registerCommands` | `{commands: (string \| CommandContribution)[]}` | Returns `{ok, commands}`. |
 | `ext.subscribe` | `{events: string[]}` | `pane.created`, `pane.closed`, `command.started`, `command.finished`, `cwd.changed`, `focus.changed` need `read-board`; `notification` needs `notify`. |
-| `ext.setSidebarItem` | `{key?, sessionId?, text, icon?, tone?}` | With `sessionId` it shows on that session's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. Empty `text` removes the item. 80 chars, 32 items. |
+| `ext.setSidebarItem` | `{key?, workspaceId?, text, icon?, tone?}` | With `workspaceId` it shows on that workspace's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. Empty `text` removes the item. 80 chars, 32 items. |
 | `ext.notify` | `{title, body?, openPanel?}` | Needs `notify`. Goes into the notification center and the desktop. With `openPanel: true` (and a panel in your manifest) clicking it opens your panel instead of jumping to a pane. |
-| `ext.openPanel` | `{sessionId?}` | Opens (or focuses) your panel in that session, else the active one. An already-open panel is focused, not reloaded. |
-| `ext.openDiff` | `{title, original, modified, language?, path?, sessionId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that session, else the active one. Reuses the session's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
-| `session.list` | — | Needs `read-board`. `[{sessionId, name, kind, workDir, state, activePaneId?}]`. |
-| `pane.list` | — | Needs `read-board`. `[{paneId, sessionId, kind, title, cwd?, running, blockCount, lastExitCode?}]`; `cwd` is the live shell cwd for terminals. |
+| `ext.openPanel` | `{workspaceId?}` | Opens (or focuses) your panel in that workspace, else the active one. An already-open panel is focused, not reloaded. |
+| `ext.openDiff` | `{title, original, modified, language?, path?, workspaceId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that workspace, else the active one. Reuses the workspace's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
+| `workspace.list` | — | Needs `read-board`. `[{workspaceId, name, kind, workDir, state, activePaneId?}]`. |
+| `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, running, blockCount, lastExitCode?}]`; `cwd` is the live shell cwd for terminals. |
 | `ext.confirm` | `{title, message, detail?, confirmLabel?, cancelLabel?}` | Asks the human in a native dialog that names your extension; Cancel is the default. Returns `{ok, confirmed}`. Use it before anything that changes the user's files or data. It waits for the human, so a palette command that calls it may outlive the 30 s command timeout; finish the work anyway. |
 
 `whoami` works too. Pane-scoped methods (`command.exec`, `pane.info`, `browse.*`, …) are refused
@@ -115,10 +115,10 @@ And the notification `ext.event {type, payload}`:
 
 | Event | Payload |
 |---|---|
-| `pane.created`, `pane.closed` | `{paneId, sessionId}` |
-| `command.started` | `{paneId, sessionId, cwd?}` |
-| `command.finished` | `{paneId, sessionId, cwd?, exitCode?}` |
-| `cwd.changed` | `{paneId, sessionId, cwd}` |
+| `pane.created`, `pane.closed` | `{paneId, workspaceId}` |
+| `command.started` | `{paneId, workspaceId, cwd?}` |
+| `command.finished` | `{paneId, workspaceId, cwd?, exitCode?}` |
+| `cwd.changed` | `{paneId, workspaceId, cwd}` |
 | `focus.changed` | `{focused}`: whether any pine window has focus. Assume focused at start; use it to pause polling while the user is elsewhere. |
 | `notification` | `{title, body?, from}` |
 
@@ -129,18 +129,18 @@ And the notification `ext.event {type, payload}`:
 Every command and panel request carries who is asking:
 
 ```ts
-{ kind: 'pane' | 'user', paneId?, sessionId?, workDir?, cwd?, locale?, capabilities: string[] }
+{ kind: 'pane' | 'user', paneId?, workspaceId?, workDir?, cwd?, locale?, capabilities: string[] }
 ```
 
 - `pane`: an agent or shell via `pine`; `capabilities` are that pane's.
 - `user`: the palette (capabilities = the command's own declared ones) or your panel request.
 
-Use `workDir` for project-scoped data (it is the session's anchor directory, possibly `~`).
+Use `workDir` for project-scoped data (it is the workspace's anchor directory, possibly `~`).
 `cwd` is the live shell directory of the calling pane (CLI) or of the active pane (palette) when
 that is a terminal; use it for "where the user is" (the git extension finds the repo from it).
-Panel requests carry no `cwd`; derive one from `session.list` + `pane.list` if you need it.
+Panel requests carry no `cwd`; derive one from `workspace.list` + `pane.list` if you need it.
 Enforce conditional rules yourself from `capabilities`, for example refuse a write outside the
-session's project unless the caller holds `workspace-wide`.
+workspace's project unless the caller holds `all-workspaces`.
 
 ### Results
 
@@ -203,7 +203,7 @@ theme changes: `--pine-<token>` for every theme token (`--pine-bg`, `--pine-surf
   "id": "hello",
   "name": "Hello",
   "version": "0.1.0",
-  "description": "Greets, and shows the last exit code per session.",
+  "description": "Greets, and shows the last exit code per workspace.",
   "capabilities": ["read-board", "notify"],
   "main": "main.js",
   "contributes": {
@@ -235,7 +235,7 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
 conn.onNotification('ext.event', ({ type, payload }) => {
   if (type !== 'command.finished') return
   conn.sendRequest('ext.setSidebarItem', {
-    sessionId: payload.sessionId,
+    workspaceId: payload.workspaceId,
     key: 'exit',
     text: `exit ${payload.exitCode ?? '?'}`,
     tone: payload.exitCode ? 'error' : 'ok',
@@ -273,7 +273,7 @@ The built-in `trellis` and `keeper` extensions are the reference for this. The p
 - Confirm with `ext.confirm` before changing the user's data. Never automate a decision the tool
   reserves for a human (keeper approvals).
 - `call(method, params)` reaches any other control method your identity may use, for example
-  `session.list` to put an item on every session whose workDir belongs to the tool.
+  `workspace.list` to put an item on every workspace whose workDir belongs to the tool.
 
 ## Built-in extensions
 
@@ -284,8 +284,8 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 
 | Id | What it does |
 |---|---|
-| `git` | Branch and change counts per session in the sidebar, a changes panel ("Show Changes"), diffs of changed files, `pine git status|changes|diff|open` |
-| `trellis` | The Trellis web UI as a panel on the session's project, open/claimed card counts per session, notifications when an agent moves a card to review, "Trellis: Open Board", "Trellis: Init Project Here", `pine trellis status` |
+| `git` | Branch and change counts per workspace in the sidebar, a changes panel ("Show Changes"), diffs of changed files, `pine git status|changes|diff|open` |
+| `trellis` | The Trellis web UI as a panel on the workspace's project, open/claimed card counts per workspace, notifications when an agent moves a card to review, "Trellis: Open Board", "Trellis: Init Project Here", `pine trellis status` |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications, "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue |
 
 Earlier versions also shipped `kanban` and `wiki` extensions. They were removed: boards, cards and

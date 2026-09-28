@@ -8,7 +8,7 @@ import {
   test,
 } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { emptyState, openSession } from './helpers'
+import { emptyState, openWorkspace } from './helpers'
 
 interface Launched {
   app: ElectronApplication
@@ -62,7 +62,7 @@ test('restores the pane layout and terminal history after a restart', async () =
 
   const first = await launchApp(dataHome)
   try {
-    await openSession(first.win)
+    await openWorkspace(first.win)
     await expect(first.win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
 
     const term = first.win.locator('.xterm').first()
@@ -80,7 +80,7 @@ test('restores the pane layout and terminal history after a restart', async () =
     await quitApp(first.app)
   }
 
-  const snapshotFile = join(dataHome, 'pine', 'sessions.json')
+  const snapshotFile = join(dataHome, 'pine', 'workspaces.json')
   const scrollbackFile = join(dataHome, 'pine', 'scrollback.json')
   expect(existsSync(snapshotFile), 'workspace snapshot was not written at quit').toBe(true)
   expect(existsSync(scrollbackFile), 'scrollback was not written at quit').toBe(true)
@@ -90,7 +90,7 @@ test('restores the pane layout and terminal history after a restart', async () =
   try {
     await expect(second.win.locator('.pane')).toHaveCount(2, { timeout: 15_000 })
     await expect(second.win.locator('.workzone')).toContainText(marker, { timeout: 15_000 })
-    await expect(second.win.locator('.workzone')).toContainText('session restored', {
+    await expect(second.win.locator('.workzone')).toContainText('workspace restored', {
       timeout: 15_000,
     })
   } finally {
@@ -102,7 +102,7 @@ test('restores terminal history after a crash (no before-quit)', async () => {
   const marker = `pine_crash_${Date.now()}`
   const first = await launchApp(dataHome)
   try {
-    await openSession(first.win)
+    await openWorkspace(first.win)
     await first.win.locator('.xterm').first().click()
     await waitForTerminalFocus(first.win)
     await first.win.keyboard.type(`echo ${marker}`)
@@ -165,7 +165,7 @@ test('restores a clean final screen at a different window size', async () => {
   const first = await launchApp(dataHome)
   try {
     await setWindowSize(first.app, 1580, 950)
-    await openSession(first.win)
+    await openWorkspace(first.win)
     await first.win.waitForTimeout(1_000)
     await wobbleWidth(first.app)
     await first.win.locator('.xterm').first().click()
@@ -184,14 +184,14 @@ test('restores a clean final screen at a different window size', async () => {
   const second = await launchApp(dataHome)
   try {
     await setWindowSize(second.app, 1000, 980)
-    await expect(second.win.locator('.xterm-rows').first()).toContainText('session restored', {
+    await expect(second.win.locator('.xterm-rows').first()).toContainText('workspace restored', {
       timeout: 15_000,
     })
     await waitForShellPrompt(second.win)
     await second.win.waitForTimeout(2_000)
 
     const lines = await paneLines(second.win)
-    const seams = lines.flatMap((l, i) => (l.includes('session restored') ? [i] : []))
+    const seams = lines.flatMap((l, i) => (l.includes('workspace restored') ? [i] : []))
     expect(seams).toHaveLength(1)
     const [seam] = seams
     expect(lines.some((l) => l.trim() === '%')).toBe(false)
@@ -205,7 +205,7 @@ test('restores a clean final screen at a different window size', async () => {
   }
 })
 
-test('boots with no sessions when there is nothing to restore', async () => {
+test('boots with no workspaces when there is nothing to restore', async () => {
   const { app, win } = await launchApp(dataHome)
   try {
     await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
@@ -218,10 +218,10 @@ test('boots with no sessions when there is nothing to restore', async () => {
   }
 })
 
-test('restores zero sessions after the last session was closed', async () => {
+test('restores zero workspaces after the last workspace was closed', async () => {
   const first = await launchApp(dataHome)
   try {
-    await openSession(first.win)
+    await openWorkspace(first.win)
     const tab = first.win.locator('.rail-tab')
     await tab.hover()
     await tab.getByRole('button', { name: 'Close' }).click()
@@ -229,8 +229,8 @@ test('restores zero sessions after the last session was closed', async () => {
     await expect
       .poll(
         () => {
-          const file = join(dataHome, 'pine', 'sessions.json')
-          return existsSync(file) && JSON.parse(readFileSync(file, 'utf8')).sessions.length
+          const file = join(dataHome, 'pine', 'workspaces.json')
+          return existsSync(file) && JSON.parse(readFileSync(file, 'utf8')).workspaces.length
         },
         { timeout: 10_000 },
       )
@@ -250,14 +250,14 @@ test('restores zero sessions after the last session was closed', async () => {
   }
 })
 
-test('erases stored history when session restore is switched off', async () => {
+test('erases stored history when workspace restore is switched off', async () => {
   const first = await launchApp(dataHome)
   try {
-    await openSession(first.win)
+    await openWorkspace(first.win)
   } finally {
     await quitApp(first.app)
   }
-  expect(existsSync(join(dataHome, 'pine', 'sessions.json'))).toBe(true)
+  expect(existsSync(join(dataHome, 'pine', 'workspaces.json'))).toBe(true)
 
   const second = await launchApp(dataHome)
   try {
@@ -267,13 +267,54 @@ test('erases stored history when session restore is switched off', async () => {
     await expect(settings).toBeVisible({ timeout: 10_000 })
     await settings.getByRole('button', { name: 'Terminal', exact: true }).click()
 
-    const toggle = settings.getByLabel('Restore session on launch')
+    const toggle = settings.getByLabel('Restore workspace on launch')
     await expect(toggle).toBeVisible({ timeout: 10_000 })
     await toggle.click()
 
     await expect
-      .poll(() => existsSync(join(dataHome, 'pine', 'sessions.json')), { timeout: 10_000 })
+      .poll(() => existsSync(join(dataHome, 'pine', 'workspaces.json')), { timeout: 10_000 })
       .toBe(false)
+  } finally {
+    await quitApp(second.app)
+  }
+})
+
+test('restores tabs and offers to resume the agent a tab was running', async () => {
+  const first = await launchApp(dataHome)
+  try {
+    await openWorkspace(first.win)
+    await first.win.getByRole('button', { name: 'New terminal tab' }).click()
+    await expect(first.win.getByRole('tab')).toHaveCount(2)
+    await expect(first.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
+      /[❯$%#]/,
+      { timeout: 15_000 },
+    )
+
+    const term = first.win.locator('.pane-slot:not([data-hidden]) .xterm')
+    await term.click()
+    await waitForTerminalFocus(first.win)
+    await first.win.keyboard.type('pine resume-token claude ffe55127-cb1f-4efd')
+    await first.win.keyboard.press('Enter')
+    await expect(first.win.getByRole('button', { name: /Resume claude/ })).toBeVisible({
+      timeout: 15_000,
+    })
+  } finally {
+    await quitApp(first.app)
+  }
+
+  const saved = JSON.parse(readFileSync(join(dataHome, 'pine', 'workspaces.json'), 'utf8'))
+  expect(saved.workspaces[0].root).toMatchObject({ type: 'tabs' })
+
+  const second = await launchApp(dataHome)
+  try {
+    await expect(second.win.getByRole('tab')).toHaveCount(2, { timeout: 15_000 })
+    const resume = second.win.getByRole('button', { name: /Resume claude/ })
+    await expect(resume).toBeVisible({ timeout: 15_000 })
+    await second.win.keyboard.press('Control+Shift+R')
+    await expect(second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
+      'claude --resume ffe55127-cb1f-4efd',
+      { timeout: 15_000 },
+    )
   } finally {
     await quitApp(second.app)
   }

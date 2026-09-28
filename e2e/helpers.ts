@@ -6,9 +6,9 @@ export function emptyState(win: Page): Locator {
   return win.locator('.workzone-empty')
 }
 
-export async function openSession(win: Page): Promise<void> {
+export async function openWorkspace(win: Page): Promise<void> {
   const before = await win.locator('.xterm').count()
-  await emptyState(win).getByRole('button', { name: /New session/ }).click()
+  await emptyState(win).getByRole('button', { name: /New workspace/ }).click()
   await expect(win.locator('.xterm')).toHaveCount(before + 1, { timeout: 15_000 })
   await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
   await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })

@@ -3,7 +3,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useExtensionsStore } from '../stores/extensionsStore'
-import { type Session, useSessionsStore } from '../stores/sessionsStore'
+import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { DeckRail } from './DeckRail'
 import { ExtensionApprovalDialog } from './ExtensionApprovalDialog'
 import { ExtensionPanelView } from './ExtensionPanelView'
@@ -41,17 +41,17 @@ const pending = ext({
 
 describe('Extensions UI', () => {
   let extInit: ReturnType<typeof useExtensionsStore.getState>
-  let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 
   beforeAll(() => {
     extInit = useExtensionsStore.getState()
-    sessionsInit = useSessionsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
   })
 
   afterEach(() => {
     cleanup()
     useExtensionsStore.setState(extInit, true)
-    useSessionsStore.setState(sessionsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
   })
 
   describe('Settings → Plugins → Extensions', () => {
@@ -146,13 +146,13 @@ describe('Extensions UI', () => {
       const panel = vi.fn().mockResolvedValue({ ok: true, src: 'http://127.0.0.1:4100/?t=abc' })
       window.pine.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" sessionId="s1" />)
+      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" />)
 
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       const webview = container.querySelector('webview') as HTMLElement
       expect(webview.getAttribute('src')).toBe('http://127.0.0.1:4100/?t=abc')
       expect(webview.getAttribute('partition')).toBe('pine-ext-demo')
-      expect(panel).toHaveBeenCalledWith('demo', { sessionId: 's1', locale: 'en' })
+      expect(panel).toHaveBeenCalledWith('demo', { workspaceId: 's1', locale: 'en' })
     })
 
     it('shows the failure and retries on request', async () => {
@@ -162,7 +162,7 @@ describe('Extensions UI', () => {
         .mockResolvedValueOnce({ ok: true, src: 'http://127.0.0.1:4100/' })
       window.pine.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" sessionId="s1" />)
+      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" />)
 
       await userEvent.setup().click(await screen.findByRole('button', { name: 'Retry' }))
 
@@ -174,9 +174,9 @@ describe('Extensions UI', () => {
       const panel = vi.fn()
       window.pine.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({ enabled: false, status: 'disabled' })] })
-      const { container, rerender } = render(<ExtensionPanelView extId="demo" sessionId="s1" />)
+      const { container, rerender } = render(<ExtensionPanelView extId="demo" workspaceId="s1" />)
       expect(screen.getByText('Demo is disabled. Enable it in Settings → Plugins.')).toBeVisible()
-      rerender(<ExtensionPanelView extId="gone" sessionId="s1" />)
+      rerender(<ExtensionPanelView extId="gone" workspaceId="s1" />)
       expect(screen.getByText('Extension “gone” is not installed.')).toBeVisible()
       expect(container.querySelector('webview')).toBeNull()
       expect(panel).not.toHaveBeenCalled()
@@ -184,17 +184,17 @@ describe('Extensions UI', () => {
   })
 
   describe('sidebar items', () => {
-    it('renders per-session items on the session row and global ones in the footer', () => {
-      const sessions: Session[] = [
+    it('renders per-workspace items on the workspace row and global ones in the footer', () => {
+      const workspaces: Workspace[] = [
         { id: 's1', name: 'alpha', kind: 'terminal', workDir: '/a', state: 'idle' },
         { id: 's2', name: 'beta', kind: 'terminal', workDir: '/b', state: 'idle' },
       ]
-      useSessionsStore.setState({ sessions, activeSessionId: 's1' })
+      useWorkspacesStore.setState({ workspaces, activeWorkspaceId: 's1' })
       const items: ExtensionSidebarItem[] = [
         {
           extId: 'git',
           key: 'branch',
-          sessionId: 's1',
+          workspaceId: 's1',
           text: 'main*',
           tone: 'warn',
           icon: 'git-branch',

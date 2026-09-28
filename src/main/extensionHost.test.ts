@@ -32,7 +32,7 @@ function makeHost(overrides: Partial<ExtensionHostDeps> = {}): {
     store: new ExtensionStore(join(base, 'extensions.json')),
     socketPath: () => join(base, 'none.sock'),
     nodePath: process.execPath,
-    workDirForSession: () => undefined,
+    workDirForWorkspace: () => undefined,
     broadcast: vi.fn(),
     openPanelIn: vi.fn(),
     notify: vi.fn(),
@@ -54,7 +54,7 @@ beforeEach(() => {
     contributes: {
       commands: [
         { id: 'go', title: 'Go' },
-        { id: 'wide', title: 'Wide', capabilities: ['workspace-wide'] },
+        { id: 'wide', title: 'Wide', capabilities: ['all-workspaces'] },
       ],
     },
   })
@@ -172,27 +172,27 @@ describe('ExtensionHost — command routing guards', () => {
     expect(await host.invoke('tool', 'wide', null, caller)).toEqual({
       ok: false,
       error: 'needs-elevation',
-      message: 'workspace-wide',
+      message: 'all-workspaces',
     })
     expect(host.list().find((e) => e.id === 'tool')?.status).toBe('idle')
   })
 
   it('reports the declared caps of a command for renderer-originated calls', () => {
     const { host } = makeHost()
-    expect(host.commandCapabilities('tool', 'wide')).toEqual(['workspace-wide'])
+    expect(host.commandCapabilities('tool', 'wide')).toEqual(['all-workspaces'])
     expect(host.commandCapabilities('tool', 'ghost')).toEqual([])
   })
 
-  it('gives a pane caller its session workDir and its live terminal cwd', () => {
-    const identity = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'p-cwd' })
+  it('gives a pane caller its workspace workDir and its live terminal cwd', () => {
+    const identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-cwd' })
     const { host } = makeHost({
-      workDirForSession: (sid) => (sid === 's1' ? '/proj' : undefined),
+      workDirForWorkspace: (sid) => (sid === 's1' ? '/proj' : undefined),
       cwdForPane: (paneId) => (paneId === 'p-cwd' ? '/proj/sub' : undefined),
     })
     expect(host.paneCaller(identity)).toMatchObject({
       kind: 'pane',
       paneId: identity.externalId,
-      sessionId: 's1',
+      workspaceId: 's1',
       workDir: '/proj',
       cwd: '/proj/sub',
     })
@@ -202,7 +202,7 @@ describe('ExtensionHost — command routing guards', () => {
 describe('ExtensionHost — panels', () => {
   it('serves a file panel from inside the extension and allows only that directory', async () => {
     const { host } = makeHost()
-    const res = await host.resolvePanel('board', { sessionId: 's1', locale: 'en' })
+    const res = await host.resolvePanel('board', { workspaceId: 's1', locale: 'en' })
     const file = join(base, 'builtin', 'board', 'panel.html')
     expect(res).toEqual({ ok: true, src: pathToFileURL(file).href })
     expect(host.isAllowedPanelUrl('board', pathToFileURL(file).href)).toBe(true)
@@ -216,7 +216,7 @@ describe('ExtensionHost — panels', () => {
   it('refuses panels of disabled extensions', async () => {
     const { host } = makeHost()
     host.setEnabled('board', false)
-    expect(await host.resolvePanel('board', { sessionId: 's1', locale: 'en' })).toEqual({
+    expect(await host.resolvePanel('board', { workspaceId: 's1', locale: 'en' })).toEqual({
       ok: false,
       error: 'extension-disabled',
     })

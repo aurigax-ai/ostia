@@ -7,25 +7,26 @@ import type { PaneNode } from '../layout/types'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { DeckRail } from './DeckRail'
 import { NotificationCenter } from './NotificationCenter'
 import { Pane } from './Pane'
 import { TooltipProvider } from './ui/tooltip'
 
-function homeSessionId(): string {
-  if (useSessionsStore.getState().sessions.length === 0) useSessionsStore.getState().addSession()
-  return useSessionsStore.getState().sessions[0].id
+function homeWorkspaceId(): string {
+  if (useWorkspacesStore.getState().workspaces.length === 0)
+    useWorkspacesStore.getState().addWorkspace()
+  return useWorkspacesStore.getState().workspaces[0].id
 }
 
-let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let attentionInit: ReturnType<typeof useAttentionStore.getState>
 let uiInit: ReturnType<typeof useUIStore.getState>
 
 beforeAll(() => {
-  sessionsInit = useSessionsStore.getState()
+  workspacesInit = useWorkspacesStore.getState()
   layoutInit = useLayoutStore.getState()
   attentionInit = useAttentionStore.getState()
   uiInit = useUIStore.getState()
@@ -36,7 +37,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  useSessionsStore.setState(sessionsInit, true)
+  useWorkspacesStore.setState(workspacesInit, true)
   useLayoutStore.setState(layoutInit, true)
   useAttentionStore.setState(attentionInit, true)
   useUIStore.setState(uiInit, true)
@@ -44,17 +45,17 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function twoPanes(): { sessionId: string; a: string; b: string } {
-  const sessionId = homeSessionId()
-  useLayoutStore.getState().ensure(sessionId)
-  const a = useLayoutStore.getState().bySession[sessionId].activePaneId
-  useLayoutStore.getState().split(sessionId, a, 'horizontal')
-  const b = useLayoutStore.getState().bySession[sessionId].activePaneId
-  return { sessionId, a, b }
+function twoPanes(): { workspaceId: string; a: string; b: string } {
+  const workspaceId = homeWorkspaceId()
+  useLayoutStore.getState().ensure(workspaceId)
+  const a = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+  useLayoutStore.getState().split(workspaceId, a, 'horizontal')
+  const b = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+  return { workspaceId, a, b }
 }
 
-function paneNode(sessionId: string, id: string): PaneNode {
-  const node = findPane(useLayoutStore.getState().bySession[sessionId].root, id)
+function paneNode(workspaceId: string, id: string): PaneNode {
+  const node = findPane(useLayoutStore.getState().byWorkspace[workspaceId].root, id)
   if (!node) throw new Error('pane missing')
   return node
 }
@@ -65,8 +66,8 @@ const signal = (paneId: string, message: string, at: number) =>
   })
 
 describe('sidebar unread badge', () => {
-  it('shows the number of unread panes on the session row and hides it at zero', () => {
-    const { sessionId, a, b } = twoPanes()
+  it('shows the number of unread panes on the workspace row and hides it at zero', () => {
+    const { workspaceId, a, b } = twoPanes()
     render(<DeckRail />)
     expect(screen.queryByRole('img', { name: /unread/ })).toBeNull()
 
@@ -76,7 +77,7 @@ describe('sidebar unread badge', () => {
 
     act(() => useAttentionStore.getState().markAllRead())
     expect(screen.queryByRole('img', { name: /unread/ })).toBeNull()
-    expect(sessionId).toBeTruthy()
+    expect(workspaceId).toBeTruthy()
   })
 
   it('pops the badge only when the count grows, never on decrease', () => {
@@ -99,13 +100,13 @@ describe('sidebar unread badge', () => {
   })
 
   it('restarts the waiting dot pulse only when a new waiting signal arrives', () => {
-    const { sessionId, a } = twoPanes()
-    act(() => useSessionsStore.getState().setState(sessionId, 'waiting'))
+    const { workspaceId, a } = twoPanes()
+    act(() => useWorkspacesStore.getState().setState(workspaceId, 'waiting'))
     render(<DeckRail />)
     signal(a, 'first', 1)
     const first = screen.getByRole('img', { name: 'Waiting for input' })
 
-    act(() => useSessionsStore.getState().setState(sessionId, 'waiting'))
+    act(() => useWorkspacesStore.getState().setState(workspaceId, 'waiting'))
     expect(screen.getByRole('img', { name: 'Waiting for input' })).toBe(first)
 
     signal(a, 'second', 2)
@@ -113,8 +114,8 @@ describe('sidebar unread badge', () => {
   })
 
   it('labels the error state so it is not conveyed by color alone', () => {
-    const sessionId = homeSessionId()
-    act(() => useSessionsStore.getState().setState(sessionId, 'error'))
+    const workspaceId = homeWorkspaceId()
+    act(() => useWorkspacesStore.getState().setState(workspaceId, 'error'))
     render(<DeckRail />)
     expect(screen.getByRole('img', { name: 'Error' })).toHaveClass('error')
   })
@@ -122,8 +123,10 @@ describe('sidebar unread badge', () => {
 
 describe('pane attention ring', () => {
   it('rings a pane that is waiting unread and shows its message, then clears when viewed', () => {
-    const { sessionId, a } = twoPanes()
-    const { container } = render(<Pane pane={paneNode(sessionId, a)} active={false} />)
+    const { workspaceId, a } = twoPanes()
+    const { container } = render(
+      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
+    )
     const frame = container.querySelector('.pane')
     expect(frame).not.toHaveClass('attn-ring')
 
@@ -138,13 +141,15 @@ describe('pane attention ring', () => {
   })
 
   it('replays the ring pulse for a new signal but not for unrelated re-renders', () => {
-    const { sessionId, a } = twoPanes()
-    const { container, rerender } = render(<Pane pane={paneNode(sessionId, a)} active={false} />)
+    const { workspaceId, a } = twoPanes()
+    const { container, rerender } = render(
+      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
+    )
     signal(a, 'first', 1)
     const pulse = container.querySelector('.pane-attn-pulse')
     expect(pulse).not.toBeNull()
 
-    rerender(<Pane pane={paneNode(sessionId, a)} active />)
+    rerender(<Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active />)
     expect(container.querySelector('.pane-attn-pulse')).toBe(pulse)
 
     signal(a, 'second', 2)
@@ -153,8 +158,10 @@ describe('pane attention ring', () => {
   })
 
   it('gives a done unread pane a quiet marker instead of the ring', () => {
-    const { sessionId, a } = twoPanes()
-    const { container } = render(<Pane pane={paneNode(sessionId, a)} active={false} />)
+    const { workspaceId, a } = twoPanes()
+    const { container } = render(
+      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
+    )
     act(() => useAttentionStore.getState().dispatch(a, { type: 'set', state: 'done', at: 1 }))
     const frame = container.querySelector('.pane')
     expect(frame).not.toHaveClass('attn-ring')
@@ -193,7 +200,7 @@ describe('NotificationCenter', () => {
   })
 
   it('lists the real notify log newest first and jumps to the pane of an entry', async () => {
-    const { sessionId, a, b } = twoPanes()
+    const { workspaceId, a, b } = twoPanes()
     signal(a, 'build finished', 1)
     vi.mocked(window.pine.notifications.list).mockResolvedValue(entries(a))
     renderBell()
@@ -208,9 +215,9 @@ describe('NotificationCenter', () => {
     expect(rows[1]).toHaveTextContent('Closed pane')
     expect(rows[1]).toBeDisabled()
 
-    expect(useLayoutStore.getState().bySession[sessionId].activePaneId).toBe(b)
+    expect(useLayoutStore.getState().byWorkspace[workspaceId].activePaneId).toBe(b)
     await user.click(rows[0])
-    expect(useLayoutStore.getState().bySession[sessionId].activePaneId).toBe(a)
+    expect(useLayoutStore.getState().byWorkspace[workspaceId].activePaneId).toBe(a)
     expect(useAttentionStore.getState().byPane[a].unread).toBe(false)
   })
 
@@ -250,7 +257,7 @@ describe('NotificationCenter', () => {
   })
 
   it('names the extension on its notifications and opens its panel on click', async () => {
-    const { sessionId } = twoPanes()
+    const { workspaceId } = twoPanes()
     const extInit = useExtensionsStore.getState()
     useExtensionsStore.setState({
       list: [
@@ -289,8 +296,8 @@ describe('NotificationCenter', () => {
       expect(row).toHaveTextContent(/^Keeper/)
       expect(row).toBeEnabled()
       await user.click(row)
-      const layout = useLayoutStore.getState().bySession[sessionId]
-      expect(paneNode(sessionId, layout.activePaneId)).toMatchObject({
+      const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+      expect(paneNode(workspaceId, layout.activePaneId)).toMatchObject({
         kind: 'extension',
         extensionId: 'keeper',
       })

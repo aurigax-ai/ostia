@@ -2,16 +2,16 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { type Session, useSessionsStore } from '../stores/sessionsStore'
 import { useUIStore } from '../stores/uiStore'
+import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { DeckRail } from './DeckRail'
 
-function seedSessions(): void {
-  const sessions: Session[] = [
+function seedWorkspaces(): void {
+  const workspaces: Workspace[] = [
     { id: 's1', name: 'alpha', kind: 'agent', workDir: '/home/alpha', state: 'working' },
     { id: 's2', name: 'beta', kind: 'terminal', workDir: '/home/beta', state: 'idle' },
   ]
-  useSessionsStore.setState({ sessions, activeSessionId: 's1' })
+  useWorkspacesStore.setState({ workspaces, activeWorkspaceId: 's1' })
 }
 
 function rowFor(name: RegExp): HTMLElement {
@@ -22,23 +22,23 @@ function rowFor(name: RegExp): HTMLElement {
 }
 
 describe('DeckRail', () => {
-  let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
 
   beforeAll(() => {
-    sessionsInit = useSessionsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
     uiInit = useUIStore.getState()
   })
 
   afterEach(() => {
     cleanup()
-    useSessionsStore.setState(sessionsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
     useUIStore.setState(uiInit, true)
     vi.restoreAllMocks()
   })
 
-  it('renders one row per session and marks the active one', () => {
-    seedSessions()
+  it('renders one row per workspace and marks the active one', () => {
+    seedWorkspaces()
     render(<DeckRail />)
 
     expect(screen.getByRole('button', { name: /alpha/ })).toBeInTheDocument()
@@ -48,10 +48,10 @@ describe('DeckRail', () => {
     expect(rowFor(/beta/)).not.toHaveClass('active')
   })
 
-  it('switches the active session when a row is clicked', async () => {
-    seedSessions()
+  it('switches the active workspace when a row is clicked', async () => {
+    seedWorkspaces()
     const setActive = vi
-      .spyOn(useSessionsStore.getState(), 'setActive')
+      .spyOn(useWorkspacesStore.getState(), 'setActive')
       .mockImplementation(() => {})
     const leaveSettings = vi.spyOn(useUIStore.getState(), 'leaveSettings')
 
@@ -62,57 +62,57 @@ describe('DeckRail', () => {
     expect(leaveSettings).toHaveBeenCalled()
   })
 
-  it('adds a session via the New session control', async () => {
-    seedSessions()
-    const addSession = vi
-      .spyOn(useSessionsStore.getState(), 'addSession')
+  it('adds a workspace via the New workspace control', async () => {
+    seedWorkspaces()
+    const addWorkspace = vi
+      .spyOn(useWorkspacesStore.getState(), 'addWorkspace')
       .mockImplementation(() => {})
     const leaveSettings = vi.spyOn(useUIStore.getState(), 'leaveSettings')
 
     render(<DeckRail />)
-    await userEvent.setup().click(screen.getByRole('button', { name: 'New session' }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'New workspace' }))
 
-    expect(addSession).toHaveBeenCalledTimes(1)
+    expect(addWorkspace).toHaveBeenCalledTimes(1)
     expect(leaveSettings).toHaveBeenCalled()
   })
 
-  it('closes the clicked session with its own id', async () => {
-    seedSessions()
-    const closeSession = vi
-      .spyOn(useSessionsStore.getState(), 'closeSession')
+  it('closes the clicked workspace with its own id', async () => {
+    seedWorkspaces()
+    const closeWorkspace = vi
+      .spyOn(useWorkspacesStore.getState(), 'closeWorkspace')
       .mockImplementation(() => {})
 
     render(<DeckRail />)
     await userEvent.setup().click(within(rowFor(/beta/)).getByRole('button', { name: 'Close' }))
 
-    expect(closeSession).toHaveBeenCalledWith('s2')
+    expect(closeWorkspace).toHaveBeenCalledWith('s2')
   })
 
-  it('drives the status dot from the session state (working vs idle)', () => {
-    seedSessions()
+  it('drives the status dot from the workspace state (working vs idle)', () => {
+    seedWorkspaces()
     render(<DeckRail />)
 
     const workingDot = screen.getByRole('img', { name: 'Working' })
     const idleDot = screen.getByRole('img', { name: 'Idle' })
 
-    expect(workingDot).toHaveClass('session-dot', 'working')
+    expect(workingDot).toHaveClass('workspace-dot', 'working')
     expect(workingDot).not.toHaveClass('idle')
-    expect(idleDot).toHaveClass('session-dot', 'idle')
+    expect(idleDot).toHaveClass('workspace-dot', 'idle')
     expect(idleDot).not.toHaveClass('working')
   })
 
   it('gives interactive controls accessible names (a11y)', () => {
-    seedSessions()
+    seedWorkspaces()
     render(<DeckRail />)
 
     expect(screen.getByRole('button', { name: /alpha/ }).tagName).toBe('BUTTON')
-    expect(screen.getByRole('button', { name: 'New session' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New workspace' })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(2)
   })
 
   it('toggles the sidebar view via the pressed switch buttons', async () => {
-    seedSessions()
-    expect(useUIStore.getState().sidebarView).toBe('sessions')
+    seedWorkspaces()
+    expect(useUIStore.getState().sidebarView).toBe('workspaces')
     const setSidebarView = vi.spyOn(useUIStore.getState(), 'setSidebarView')
 
     render(<DeckRail />)

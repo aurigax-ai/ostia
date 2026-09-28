@@ -5,7 +5,7 @@ import type {
 } from '@shared/extensions'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { commands } from './registry'
 
 const registered = new Set<string>()
@@ -45,7 +45,7 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
       target: 'active',
       run: async (_args, ctx) => {
         const res = await window.pine.extensions.invoke(ext.id, command.id, {
-          sessionId: ctx.activeSessionId,
+          workspaceId: ctx.activeWorkspaceId,
           paneId: ctx.activePaneId,
         })
         if (!res.ok) throw new Error(res.message ? `${res.error}: ${res.message}` : res.error)
@@ -56,24 +56,24 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
   }
 }
 
-function targetSession(requested?: string): string | null {
-  const sessions = useSessionsStore.getState()
-  return requested && sessions.sessions.some((s) => s.id === requested)
+function targetWorkspace(requested?: string): string | null {
+  const workspaces = useWorkspacesStore.getState()
+  return requested && workspaces.workspaces.some((s) => s.id === requested)
     ? requested
-    : sessions.activeSessionId
+    : workspaces.activeWorkspaceId
 }
 
 export function openExtensionPanel(req: ExtensionOpenPanelRequest): void {
   const info = useExtensionsStore.getState().list.find((e) => e.id === req.extId)
-  const sessionId = targetSession(req.sessionId)
-  if (!info?.panel || !info.enabled || !sessionId) return
-  useLayoutStore.getState().openExtensionPanel(sessionId, info.id, info.panel.title)
+  const workspaceId = targetWorkspace(req.workspaceId)
+  if (!info?.panel || !info.enabled || !workspaceId) return
+  useLayoutStore.getState().openExtensionPanel(workspaceId, info.id, info.panel.title)
 }
 
 export function openExtensionDiff(req: ExtensionOpenDiffRequest): string | null {
-  const { extId: _extId, sessionId: requested, ...content } = req
-  const sessionId = targetSession(requested)
-  return sessionId ? useLayoutStore.getState().openDiff(sessionId, content) : null
+  const { extId: _extId, workspaceId: requested, ...content } = req
+  const workspaceId = targetWorkspace(requested)
+  return workspaceId ? useLayoutStore.getState().openDiff(workspaceId, content) : null
 }
 
 export function wireExtensionBridge(): void {

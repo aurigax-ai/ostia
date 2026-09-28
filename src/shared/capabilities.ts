@@ -3,7 +3,7 @@ export type Capability =
   | 'read-board'
   | 'send-other-pane'
   | 'kill-pane'
-  | 'workspace-wide'
+  | 'all-workspaces'
   | 'shell'
   | 'destructive'
   | 'phone'
@@ -31,7 +31,7 @@ export const ALL_CAPABILITIES: Capability[] = [
   'read-board',
   'send-other-pane',
   'kill-pane',
-  'workspace-wide',
+  'all-workspaces',
   'shell',
   'destructive',
   'phone',

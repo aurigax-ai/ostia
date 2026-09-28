@@ -5,7 +5,7 @@ import { resolveToken } from './idRegistry'
 export interface AuthedConn {
   externalId: string
   paneId: string
-  sessionId: string
+  workspaceId: string
 }
 
 export function authenticate(hello: { token?: unknown }): AuthedConn | null {
@@ -13,7 +13,7 @@ export function authenticate(hello: { token?: unknown }): AuthedConn | null {
   const id = resolveToken(hello.token)
   if (!id) return null
   initCaps(id.externalId)
-  return { externalId: id.externalId, paneId: id.paneId, sessionId: id.sessionId }
+  return { externalId: id.externalId, paneId: id.paneId, workspaceId: id.workspaceId }
 }
 
 export function connHasCap(conn: AuthedConn, cap: Capability): boolean {
