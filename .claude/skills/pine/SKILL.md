@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
 ---
 
 # Pine — the agent toolbelt
@@ -270,6 +270,7 @@ pine browse dialog <accept|dismiss|list> [text] [--pane ID]
                                                       # auto-response policy + log for alert/confirm/prompt — see divergence note below
 pine browse focus-mode <enter|exit|toggle> [--pane ID]  # minimal single-pane zoom/zen (maximize a pane, hiding its siblings)
 pine browse react-grab <toggle|get> [--pane ID]       # minimal React-fiber inspector: click an element while on, `get` prints {component,file,line}
+pine browse pick [--timeout MS] [--pane ID]           # ask the HUMAN to click an element; blocks until they do, prints the capture JSON
 ```
 
 Drives the `browser` surface's `<webview>` guest page (Stage 1's in-app browser) — the same
@@ -360,6 +361,36 @@ version, with the divergence called out below.
   `null` in production) into `window.__pineReactGrab`; `toggle` again removes the listener.
   `get` prints the last grabbed entry. Installed via plain `executeJavaScript`, not persisted via
   CDP, so a navigation silently drops it — `toggle` on again after navigating if still wanted.
+
+### Pointing at UI problems (pick element)
+
+The human and the agent can both point at an element in a browser pane:
+
+- **Human → agent.** The human clicks **Point at element** in a browser pane's toolbar, clicks the
+  broken thing, writes what's wrong, and sends it to a terminal pane. Pine writes a markdown
+  report to a private tmp dir (`/tmp/pine-reports-<uid>/ui-issue-N.md`) and:
+  - pastes `@<report path> ` at that pane's prompt (never presses Enter) if the pane is at an idle
+    shell prompt or its agent reported `pine state waiting`/`done`; otherwise the path goes to the
+    human's clipboard;
+  - delivers a bus message to that pane whose `text` is JSON:
+    `{"kind":"ui-issue","report":"<path>","url":"…","selector":"…","note":"…"}` (read it with
+    `pine bus inbox`);
+  - sets the pane's attention to `working` (no ring).
+  Read the report file: it has the note, page URL/title, a robust CSS selector, role/name, box,
+  computed-style subset, the element's outerHTML (≤2 KB), recent console errors, failed network
+  requests, and a PNG screenshot path of the element. Then act on it with `pine browse …`
+  (e.g. `pine browse get styles '<selector>'`) or in the source.
+- **Agent → human.** `pine browse pick` puts the browser pane into inspect mode (the pane shows
+  "An agent asked you to point at an element"), waits for the human's click (default 120 s,
+  `--timeout` 1 s–10 min; Esc or the toolbar toggle cancels), and prints the same capture as JSON:
+  `{id,url,title,selector,label,html,htmlTruncated,box,styles,role,name,consoleErrors,failedRequests,screenshotPath,capturedAt}`.
+  Fails with `cancelled`, `timeout`, `navigated`, or `busy` (a pick is already running there).
+  Say what you want clicked *before* running it, e.g. with `pine state waiting "click the broken
+  price label"`.
+
+The inspector runs in an isolated JavaScript world of the page, so page scripts can't see or
+fake it (synthetic clicks are ignored). For your real Chrome (logged-in sessions, extensions,
+performance traces) use Chrome DevTools MCP instead: see `docs/CHROME.md` in the Pine repo.
 
 ## Gateway — LAN phone pairing (elevated)
 
