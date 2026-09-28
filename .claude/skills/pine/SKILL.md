@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
 ---
 
 # Pine — the agent toolbelt
@@ -52,8 +52,28 @@ longer have to: `pine pane.list` shows every pane's external id directly).
 
 ```sh
 pine open <file>                    # open <file> in this pane's editor surface
-pine notify "<title>" ["<body>"]    # fire a desktop notification (title required)
+pine notify "<title>" ["<body>"]    # desktop notification + marks this pane unread in Pine's
+                                    # sidebar/bell with that message (title required)
 ```
+
+## Attention — tell the human you need them
+
+```sh
+pine state waiting "Approve the migration?"   # ring this pane, badge + bell: you need input
+pine state done "Refactor finished"           # quiet "finished" marker until the human looks
+pine state working                            # busy (no unread)
+pine state error "Tests failed"               # ring + error marker
+pine state clear                              # back to normal
+echo '{"message":"..."}' | pine state waiting -   # message from stdin (JSON "message" field or raw text)
+pine state done --pane <externalId>           # another pane — needs workspace-wide
+```
+
+Use `waiting` whenever you block on the human (a question, an approval) and `done` when a long
+task finishes, so a human supervising many panes can jump straight to yours (Ctrl+Shift+U /
+⌘⇧U jumps to the latest unread pane). Focusing the pane clears the unread flag; typing into a
+waiting pane clears `waiting`. Default capability `drive-self`. Printing an OSC 9 notification
+(`printf '\e]9;%s\a' "msg"`) does the same as `state waiting` from any program. For wiring
+Claude Code/Codex hooks to this automatically, see `docs/AGENT-HOOKS.md` in the Pine repo.
 
 ## Raw UI commands
 
