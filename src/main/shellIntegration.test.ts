@@ -1,8 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { privateTmpDir } from './privateTmp'
-import { shellIntegrationSpawnOptions } from './shellIntegration'
+import { claudeHookSettings, shellIntegrationSpawnOptions } from './shellIntegration'
 
 const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
 const ZSH_INIT = join(INTEGRATION_DIR, 'init.zsh')
@@ -10,6 +12,7 @@ const ZSH_ENV = join(INTEGRATION_DIR, '.zshenv')
 const ZSH_RC = join(INTEGRATION_DIR, '.zshrc')
 const BASH_INIT = join(INTEGRATION_DIR, 'init.bash')
 const BASH_RC = join(INTEGRATION_DIR, 'bashrc')
+const CLAUDE_SETTINGS = join(INTEGRATION_DIR, 'claude-settings.json')
 
 describe('shellIntegrationSpawnOptions', () => {
   describe('zsh', () => {
@@ -147,6 +150,44 @@ describe('shellIntegrationSpawnOptions', () => {
       const zsh1 = shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' })
       const zsh2 = shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' })
       expect(zsh2).toEqual(zsh1)
+    })
+  })
+
+  describe('claude hooks', () => {
+    it('writes Claude Code hooks that record the resume token and attention state', () => {
+      shellIntegrationSpawnOptions('/bin/bash', {})
+      const settings = JSON.parse(readFileSync(CLAUDE_SETTINGS, 'utf8'))
+      expect(settings).toEqual(claudeHookSettings())
+      const command = (event: string) => settings.hooks[event][0].hooks[0].command as string
+      expect(command('SessionStart')).toContain('"$PINE_CLI" resume-token claude -')
+      expect(command('Notification')).toContain('state waiting -')
+      expect(command('Stop')).toContain('state done')
+      expect(command('SessionStart')).toMatch(/^\[ -n "\$PINE_SOCKET" \] && .*\|\| true$/)
+    })
+
+    it('makes claude in a Pine shell pass the hook settings and keep the user’s arguments', () => {
+      shellIntegrationSpawnOptions('/bin/bash', {})
+      const bin = mkdtempSync(join(tmpdir(), 'pine-fake-claude-'))
+      try {
+        const fake = join(bin, 'claude')
+        writeFileSync(fake, '#!/bin/sh\nprintf "%s\\n" "$@"\n')
+        chmodSync(fake, 0o755)
+        const run = (script: string) =>
+          spawnSync('bash', ['--norc', '-c', `source '${BASH_INIT}'; ${script}`], {
+            env: { PATH: `${bin}:/usr/bin:/bin`, PINE_CLI: '/x/cli.js' },
+            encoding: 'utf8',
+          }).stdout.trim()
+
+        expect(run('claude --resume abc').split('\n')).toEqual([
+          '--settings',
+          CLAUDE_SETTINGS,
+          '--resume',
+          'abc',
+        ])
+        expect(run('command claude plain')).toBe('plain')
+      } finally {
+        rmSync(bin, { recursive: true, force: true })
+      }
     })
   })
 })
