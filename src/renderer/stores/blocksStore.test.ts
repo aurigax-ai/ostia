@@ -219,4 +219,44 @@ describe('blocksStore', () => {
     expect(block?.outputStartLine.line).toBe(12)
     expect(block?.endLine?.line).toBe(-1)
   })
+
+  it('keeps the command text and the column where output ended', () => {
+    store().promptStart('cmd', at(0), '/w')
+    store().commandStart('cmd', at(1), 'printf abc')
+    store().commandEnd('cmd', at(1), 0, 3)
+    const block = store().byPane.cmd?.[0]
+    expect(block?.command).toBe('printf abc')
+    expect(block?.endCol).toBe(3)
+  })
+
+  it('selects a known block, clears with null, and ignores unknown ids', () => {
+    store().commandStart('sel', at(1), 'ls')
+    const id = store().byPane.sel?.[0]?.id ?? ''
+    store().select('sel', id)
+    expect(store().selected.sel).toBe(id)
+
+    const before = store()
+    store().select('sel', 'bogus')
+    expect(store()).toBe(before)
+
+    store().select('sel', null)
+    expect(store().selected.sel).toBeUndefined()
+  })
+
+  it('drops the selection on reset, on drop, and when the block ages out', () => {
+    store().commandStart('r', at(1), 'ls')
+    store().select('r', store().byPane.r?.[0]?.id ?? null)
+    store().resetPane('r')
+    expect(store().selected.r).toBeUndefined()
+
+    store().commandStart('d', at(1), 'ls')
+    store().select('d', store().byPane.d?.[0]?.id ?? null)
+    store().dropPane('d')
+    expect('d' in store().selected).toBe(false)
+
+    store().commandStart('t', at(0), 'first')
+    store().select('t', store().byPane.t?.[0]?.id ?? null)
+    for (let i = 1; i <= 200; i++) store().commandStart('t', at(i), `cmd ${i}`)
+    expect(store().selected.t).toBeUndefined()
+  })
 })

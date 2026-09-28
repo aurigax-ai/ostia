@@ -72,8 +72,8 @@ right; core loses ~1,000 lines and two views.
 | Attention model: OSC 9/99/777, `pine notify`/`pine state`, pane rings, sidebar unread badges, jump to latest unread | cmux | core (built) | S–M | 1, 9 |
 | Agent hooks recipe: Claude Code `Notification`/`Stop` hooks call `pine state waiting/done` | cmux | extension (docs + skill, built) | S | 1, 9 |
 | Notification center (the bell, backed by the real notify log) | cmux | core (built) | S | 9 |
-| Block actions: click to select, copy command/output, jump between blocks, sticky command header | Warp | core | M | 7 |
-| Command history search across panes (palette provider) | Warp | core | M | 7 |
+| Block actions: click to select, copy command/output, jump between blocks, sticky command header | Warp | core (built) | M | 7 |
+| Command history search across panes | Warp | core (built) | M | 7 |
 | Saved workflows / parameterized commands | Warp | extension | M | 7 |
 | Git branch + dirty state in sidebar; listening ports | cmux | built-in extension | M | 3 |
 | Diff view (Monaco diff editor) + "open in VS Code / Zed at file:line" | Warp/VS Code | built-in extension | M | 3, 6 |
@@ -93,7 +93,10 @@ Each phase ships a working product; nothing half-built lands on `main`.
 1. **Attention** (core, small) — **done**: the attention model (`lib/attention.ts`), OSC 9/99/777
    + BEL + `pine state`/`pine notify` sources, pane rings, sidebar unread badges, jump-to-unread
    (Ctrl+Shift+U / ⌘⇧U), the notification center, and the hooks recipe (`docs/AGENT-HOOKS.md`).
-2. **Blocks** (core): block selection, copy output, jump, sticky header, history search.
+2. **Blocks** (core) — **done**: gutter-click block selection with a frame, Ctrl+Shift+↑/↓
+   (⌘↑/⌘↓) navigation, context menu + palette actions (copy command/output/both, rerun at an
+   idle prompt), sticky command header, and command history search across panes
+   (Ctrl+Shift+H / ⌘⇧H).
 3. **Extension API v1**: manifest, extension host, commands/events/sidebar items/panel surface.
    Migrate kanban + wiki onto it.
 4. **Git & diff** as the first new built-in extension: sidebar branch/dirty, diff view, open in

@@ -57,6 +57,32 @@ describe('matchChord', () => {
   })
 })
 
+describe('block chords', () => {
+  it('maps Ctrl+Shift+Up/Down and Cmd+Up/Down to terminal-local block navigation', () => {
+    const cs = { ctrlKey: true, shiftKey: true }
+    expect(matchChord(key('ArrowUp', cs), false)).toBe('block.selectPrev')
+    expect(matchChord(key('ArrowDown', cs), false)).toBe('block.selectNext')
+    expect(matchChord(key('ArrowUp', { metaKey: true }), true)).toBe('block.selectPrev')
+    expect(matchChord(key('ArrowDown', { metaKey: true }), true)).toBe('block.selectNext')
+    expect(isAppChord('block.selectPrev')).toBe(false)
+  })
+
+  it('leaves plain and Ctrl-only arrows to the shell', () => {
+    expect(matchChord(key('ArrowUp', { ctrlKey: true }), false)).toBeNull()
+    expect(matchChord(key('ArrowUp', { shiftKey: true }), false)).toBeNull()
+    expect(matchChord(key('ArrowUp'), false)).toBeNull()
+  })
+
+  it('opens history search with Ctrl+Shift+H or Cmd+Shift+H, never Ctrl+R', () => {
+    expect(matchChord(key('H', { ctrlKey: true, shiftKey: true }), false)).toBe('history.search')
+    expect(matchChord(key('h', { metaKey: true, shiftKey: true }), true)).toBe('history.search')
+    expect(matchChord(key('r', { ctrlKey: true }), false)).toBeNull()
+    expect(isAppChord('history.search')).toBe(true)
+    expect(chordLabel('block.selectPrev', false)).toBe('Ctrl+Shift+↑')
+    expect(chordLabel('history.search', true)).toBe('⌘⇧H')
+  })
+})
+
 describe('isAppChord', () => {
   it('separates app-level chords from terminal-local ones', () => {
     expect(isAppChord('palette.toggle')).toBe(true)
