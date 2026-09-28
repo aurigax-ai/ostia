@@ -51,7 +51,8 @@ Package manager is **pnpm** only.
 | Command | What it does | Run it when |
 |---|---|---|
 | `pnpm dev` | electron-vite dev (HMR renderer, main/preload reload) | Daily development |
-| `pnpm build` | Build `out/{main,preload,renderer}` and the `pine` CLI | Before `preview` / E2E |
+| `pnpm build` | Build `out/{main,preload,renderer}`, the `pine` CLI, and the built-in extensions (`out/extensions`) | Before `preview` / E2E |
+| `pnpm build:extensions` | Only the built-in extensions (`scripts/build-extensions.mjs`) | After editing `src/extensions/**` while `pnpm dev` runs |
 | `pnpm preview` | Run the built app | Smoke-test a build |
 | `pnpm package` | `build` + electron-builder → `dist/linux-unpacked/` | Producing an installable build |
 | `pnpm install:local` | `package` + `scripts/install-linux.sh` → `~/.local/share/pine/app` + desktop launcher | Updating the user's installed app |
@@ -75,6 +76,9 @@ Package manager is **pnpm** only.
 - **cli** (`src/cli/index.ts`): the `pine` CLI. Panes get a `pine()` shell function that runs it
   with the app's own Electron binary (`ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI"`), so no
   system Node is needed.
+- **extensions** (`src/extensions/`): built-in extensions (kanban, wiki) + their SDK. Each runs
+  as its own process and talks to pine only over the control socket (`docs/EXTENSIONS.md`).
+  The host that runs them is `src/main/extensionHost.ts`.
 
 Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts`):
 `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`. External links go through
@@ -151,6 +155,27 @@ Details: `docs/ARCHITECTURE.md`.
   a pane id in args: `command.exec` checks capabilities against the target, so an args pane id
   would bypass `workspace-wide`.
 - **node-pty is loaded lazily and tolerated absent.**
+- **What may live in core:** code that needs xterm or pty internals, or that every other feature
+  depends on (windows, sessions, panes, pty + shell integration, blocks, restore, command
+  registry/palette/chords, attention/notifications, settings, control socket + capabilities,
+  extension host). Everything else is an extension (`docs/ROADMAP.md` §2). Don't add a new
+  feature module to `src/main` or a feature view to `src/renderer`; write an extension, and if
+  the extension API can't express it, extend the API rather than special-casing core.
+- **Extensions use only the public API.** Code in `src/extensions/**` imports only
+  `src/extensions/sdk/` and `src/shared/`, never `src/main` or `src/renderer`, and reaches pine
+  only through `ext.*` socket methods. Core never imports extension code; it knows an extension
+  by its manifest. (The gateway's `board.*` methods call the kanban extension's commands through
+  `ExtensionHost.invoke`, the same path the CLI uses.)
+- **Extension identities are not panes.** `controlServer` gates every method by caller kind
+  (`callers`); new pane-scoped methods keep the default `panes`. An extension's caps are manifest
+  ∩ human approval (`extensionStore.ts`), set with `setCaps` on each start.
+- **Only the human approves or enables an extension** — the approval dialog or Settings, through
+  `extensions:*` IPC. Never add a socket method or CLI verb that approves, enables, or changes an
+  extension's caps.
+- **Extension panels stay sandboxed.** Partition `pine-ext-<id>`, src and every navigation must
+  pass `ExtensionHost.isAllowedPanelUrl` (a file inside the extension dir, or the loopback origin
+  its process reported), no preload, permissions denied. A panel never gets `window.pine` or a
+  token; it talks only to its own extension process.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -167,7 +192,7 @@ Details: `docs/ARCHITECTURE.md`.
 - **zustand:** `create<State>((set, get) => ({ … }))`, immutable updates, cross-store via
   `useOtherStore.getState()`. Pure logic stays out of stores.
 - **Model:** a **Session** (sidebar; `kind`, `workDir`, live `state`) owns a split-tree of **Panes**;
-  each pane hosts one **Surface**: `terminal | editor | browser | kanban | wiki` (`agent` is
+  each pane hosts one **Surface**: `terminal | editor | browser | extension` (`agent` is
   reserved in the type and snapshot format, not yet created).
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
   selects, dialogs, tooltips. Tokens and type scale in `docs/DESIGN.md`; never hardcode colors or
@@ -221,9 +246,15 @@ Details: `docs/ARCHITECTURE.md`.
 - **Allotment is keyed by the child-id list**; its internal sizes go stale on structural changes.
 - **xterm's viewport paints black by default.** `.xterm-host .xterm .xterm-viewport` is
   transparent and the host is painted with the terminal theme background.
+- **Dispose the server-side connection when an extension process exits** (`extensionHost.ts`
+  `onExit`). vscode-jsonrpc doesn't reject in-flight requests when the socket closes, so an
+  invoke that crashed the process would otherwise hang until the 30 s request timeout.
+- **The CLI reads stdin only for extension commands whose manifest says `stdin: true`.** Agent
+  harnesses often leave stdin open; reading it unconditionally hangs every `pine <ext> …` call.
 - **E2E must isolate both data dirs** (`e2e/dataHome.ts` → `isolatedLaunch()`): a fresh
   `XDG_DATA_HOME` (else a spec restores the previous spec's panes) and `--user-data-dir` (else a
-  spec rewrites the developer's real `settings.json`, which has happened).
+  spec rewrites the developer's real `settings.json`, which has happened). It also sets
+  `XDG_CONFIG_HOME` so the developer's own user extensions (and their approval dialog) stay out.
 
 ---
 
@@ -231,7 +262,9 @@ Details: `docs/ARCHITECTURE.md`.
 
 Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vitest.workspace.ts`.
 
-- **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`.
+- **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`, `src/extensions/**`. Extension
+  host integration tests spawn `test/fixtures/extensions/echo` over a real socket;
+  `src/cli/cli.ext.e2e.test.ts` builds and drives the real kanban/wiki extensions via the CLI.
 - **dom** project (jsdom, `test/setup.ts`): `src/renderer/**`. A typed `window.pine` fake
   (`test/mocks/pine.ts`, typed as `PineBridge`) breaks when the contract drifts.
 - **E2E** (`e2e/`): anything rendering xterm or Monaco, or needing a real pty, a restart, or a crash.
