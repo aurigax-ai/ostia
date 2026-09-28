@@ -60,6 +60,7 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `ptyRingBuffer.ts` | Capped output ring with a monotonic cursor; `since(cursor)` reports `dropped` when the cursor fell off |
 | `shellIntegration.ts` | Generates zsh/bash init files that emit OSC 133 + OSC 7 and define the `pine()` shell function |
 | `privateTmp.ts` | Per-uid, mode-0700 temp dir for those files |
+| `screenMirror.ts` | `ScreenMirror`: a headless xterm per pty fed every byte; `serialize()` is the width-independent history saved to `scrollback.json` |
 | `sessionSnapshot.ts` | Reads/validates/writes `sessions.json` and `scrollback.json`; one-shot restored scrollback |
 | `pathGuard.ts` | `resolveSafe` / `isPathAllowed` / `expandHome` for fs IPC and browser file outputs |
 | `lsp.ts` | Spawns language servers found on `PATH`, relays JSON-RPC to the renderer |
@@ -606,7 +607,7 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
 ## 8. Session restore
 
 Two files written by two processes (see CLAUDE.md §6): the renderer writes `sessions.json`
-(layout), and main writes `scrollback.json` (pty rings).
+(layout), and main writes `scrollback.json` (each pane's serialized screen).
 
 - **Layout** (`stores/persistence.ts`, `layout/snapshot.ts`): saved 400 ms after any change to the
   sessions, layout or settings stores, plus once at start and once on `beforeunload`.
@@ -617,9 +618,39 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
     content is in memory only (nothing live is restored).
   - The two node converters are a compile-time check that `layout/types.ts` and the snapshot
     types in `shared/types.ts` agree.
-- **Scrollback**: main saves it every 5 s (unref'd timer, skipped when no pane cursor moved) and
-  again at `before-quit`, so a crash loses at most 5 s. The saved copy is capped at 128 KB per
-  pane (the live ring holds 1 MB).
+- **Scrollback**: main saves it every 5 s (unref'd timer, skipped when no pane's ring cursor
+  moved) and again at `before-quit`, so a crash loses at most 5 s. The saved copy is capped at
+  128 KB per pane (the live ring holds 1 MB).
+  - Each pty entry owns a `ScreenMirror` (`@xterm/headless`, 2000 lines of scrollback) fed every
+    byte the ring gets, restored history included (`feedPty`), resized with the pty (`resizePty`:
+    `pty:resize` and the gateway's `ptyResize`), and disposed when the pty is killed, exits or the
+    app quits. Resizes are queued behind the bytes already written (a `write('', cb)`), because
+    headless parsing is async and bytes emitted at the old width must be parsed at it.
+  - A save stores `ScreenMirror.serialize()` of the normal buffer: at most 1000 rows, as logical
+    lines (soft-wrapped rows joined), each cell's text with its SGR, empty cells as spaces,
+    trailing blanks trimmed, lines joined by `\r\n`. No cursor movement at all. Why: that text
+    rewraps on its own at any width, the way a live resize reflows. Why not `@xterm/addon-serialize`
+    (tried first): it encodes gaps as cursor-forward moves and wrapped rows with trailing gaps as
+    a `-----` + erase trick that only works at the exact width it was serialized at. A
+    right-aligned RPROMPT replayed into a narrower pane clamped at the edge and split (`1` /
+    `2:40:42`), and when the pane resized between `pty:attach` and the replay the trick printed
+    rows of dashes.
+  - The saved range stops before the shell's idle prompt: the mirror keeps an xterm marker at the
+    last OSC 133;A (cleared at C), and the range ends on the line above it (on it if the prompt
+    started mid-line, so output without a trailing newline survives). Leading and trailing blank
+    lines are dropped. Why: the restored pane gets a fresh prompt right under the seam, so the
+    old idle prompt (with its stale clock) would read as a duplicate. With a command running at
+    quit, or a shell without integration, the whole screen is kept.
+  - Restore pushes the saved text plus `RESTORE_SEAM` through the ring once, as before. The text
+    ends without a newline; the seam's own `\r\n` puts it on the next line.
+  - Why serialized state and not raw bytes: a raw pty stream only replays correctly into a
+    terminal with the same geometry and state. zsh's PROMPT_SP (`%` + `COLUMNS-1` spaces +
+    `\r \r`) left a visible `%` at a different width, and powerlevel10k's cursor-positioned
+    RPROMPT/clock redraws left fragments (`:41`) and duplicated prompt lines. VS Code's pty host
+    persists terminals from a headless xterm the same way.
+  - Live attach and remount replay still use the raw ring (same pty, and the OSC 133 marks
+    rebuild blocks). Serialized history has no marks, so restored history has no blocks.
+  - An old `scrollback.json` holding raw bytes loads as history once; the next save replaces it.
   - `persistScrollback` merges `pendingRestoredScrollback()`. Why: a restored pane that is never
     attached this run keeps its history through a second restart.
 - **Quit order**: `persistScrollback` → kill ptys → `killAllLsp` → `killAllProcesses` →
@@ -751,7 +782,9 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
 - E2E runs the built app serially (`workers: 1`) because each instance owns a pty set and a
   per-PID socket. Every launch spreads `isolatedLaunch()` (`e2e/dataHome.ts`) to get a throwaway
   `XDG_DATA_HOME` and `--user-data-dir`. `session-restore.spec.ts` shares one data home across
-  two launches and quits through `app.quit()` so `before-quit` runs.
+  two launches and quits through `app.quit()` so `before-quit` runs. Its resize case relaunches at
+  another window size with an 8 px terminal font (seeded `settings.json`) so the whole restored
+  screen, including the user's p10k startup output, fits in the rendered rows it reads.
 - `pnpm install:local` runs `pnpm package` (electron-builder → `dist/linux-unpacked`), then
   `scripts/install-linux.sh`. The script copies the build to `~/.local/share/pine/app` and writes
   `~/.local/share/applications/pine.desktop`.

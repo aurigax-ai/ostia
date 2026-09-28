@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type ElectronApplication,
@@ -125,6 +125,80 @@ test('restores terminal history after a crash (no before-quit)', async () => {
   const second = await launchApp(dataHome)
   try {
     await expect(second.win.locator('.workzone')).toContainText(marker, { timeout: 15_000 })
+  } finally {
+    await quitApp(second.app)
+  }
+})
+
+async function setWindowSize(app: ElectronApplication, width: number, height: number) {
+  await app.evaluate(
+    ({ BrowserWindow }, size) => {
+      BrowserWindow.getAllWindows()[0]?.setSize(size.width, size.height)
+    },
+    { width, height },
+  )
+}
+
+async function wobbleWidth(app: ElectronApplication): Promise<void> {
+  for (const width of [1400, 1200, 1500, 1580]) {
+    await setWindowSize(app, width, 950)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+  }
+}
+
+async function paneLines(win: Page): Promise<string[]> {
+  const text = await win.locator('.xterm-rows').first().innerText()
+  return text.split('\n').map((l) => l.replace(/ /g, ' ').trimEnd())
+}
+
+test('restores a clean final screen at a different window size', async () => {
+  test.setTimeout(90_000)
+  const marker = `pine_resized_${Date.now()}`
+  const userData = join(dataHome, 'userData')
+  mkdirSync(userData, { recursive: true })
+  writeFileSync(
+    join(userData, 'settings.json'),
+    JSON.stringify({ appearance: { terminal: { size: 8 } } }),
+  )
+
+  const first = await launchApp(dataHome)
+  try {
+    await setWindowSize(first.app, 1580, 950)
+    await waitForShellPrompt(first.win)
+    await first.win.waitForTimeout(1_000)
+    await wobbleWidth(first.app)
+    await first.win.locator('.xterm').first().click()
+    await waitForTerminalFocus(first.win)
+    await first.win.keyboard.type(`printf '${marker}_%s\\n' 1 2`)
+    await first.win.keyboard.press('Enter')
+    await expect(first.win.locator('.xterm-rows').first()).toContainText(`${marker}_2`, {
+      timeout: 15_000,
+    })
+    await wobbleWidth(first.app)
+    await first.win.waitForTimeout(1_500)
+  } finally {
+    await quitApp(first.app)
+  }
+
+  const second = await launchApp(dataHome)
+  try {
+    await setWindowSize(second.app, 1000, 980)
+    await expect(second.win.locator('.xterm-rows').first()).toContainText('session restored', {
+      timeout: 15_000,
+    })
+    await waitForShellPrompt(second.win)
+    await second.win.waitForTimeout(2_000)
+
+    const lines = await paneLines(second.win)
+    const seams = lines.flatMap((l, i) => (l.includes('session restored') ? [i] : []))
+    expect(seams).toHaveLength(1)
+    const [seam] = seams
+    expect(lines.some((l) => l.trim() === '%')).toBe(false)
+    expect(lines.slice(0, seam).join('\n')).toContain(`${marker}_1`)
+    const history = lines.slice(0, seam).filter((l) => l.trim() !== '')
+    expect(history[history.length - 1]).toBe(`${marker}_2`)
+    expect(history.filter((l) => l.includes(`printf '${marker}`))).toHaveLength(1)
+    expect(lines.slice(seam + 1).filter((l) => l.includes('❯'))).toHaveLength(1)
   } finally {
     await quitApp(second.app)
   }
