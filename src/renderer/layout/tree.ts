@@ -91,6 +91,10 @@ export function setPaneUrl(root: LayoutNode, paneId: string, url: string): Layou
   return mapPane(root, paneId, (p) => (p.url === url ? p : { ...p, url }))
 }
 
+export function setPaneTitle(root: LayoutNode, paneId: string, title: string): LayoutNode {
+  return mapPane(root, paneId, (p) => (p.title === title ? p : { ...p, title }))
+}
+
 export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentResume): LayoutNode {
   return mapPane(root, paneId, (p) =>
     p.resume?.agent === resume.agent && p.resume.id === resume.id ? p : { ...p, resume },

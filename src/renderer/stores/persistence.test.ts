@@ -41,6 +41,7 @@ describe('workspace autosave', () => {
   beforeEach(() => {
     resetIds()
     useWorkspacesStore.getState().addWorkspace()
+    useLayoutStore.getState().ensure(activeSid())
   })
 
   afterEach(() => {
@@ -80,7 +81,7 @@ describe('workspace autosave', () => {
 
       const root = lastSnapshot().workspaces[0].root
       expect(root).toMatchObject({ type: 'split', direction: 'vertical' })
-      expect(root.type === 'split' && root.children).toHaveLength(2)
+      expect(root?.type === 'split' && root.children).toHaveLength(2)
     })
 
     it('tells main to forget everything when restore is switched off', () => {

@@ -151,10 +151,15 @@ Details: `docs/ARCHITECTURE.md`.
   `workspace.new`, the chord, opening a file with none open) or by restore; never seed one at boot,
   on an empty restore, or when the last workspace closes. `activeWorkspaceId` is `null` then, and
   every reader (commands, WorkZone, attention sync, extension bridge, autosave) must handle it;
-  the work zone shows the empty state. An empty workspace is saved (`workspaces: []`) so a restart
+  the work zone shows the empty state. An empty app is saved (`workspaces: []`) so a restart
   restores zero workspaces.
-- **Workspace/pane guards:** `closePane` never removes the last pane and emits `pane-closed` only if
-  the pane existed; a workspace's `workDir` is the anchor, a pane's `cwd` wanders.
+- **A workspace may have no panes.** A new workspace starts with no layout and shows New terminal
+  / New browser; nothing (WorkZone, activation, restore) calls `ensure` on the user's behalf.
+  Closing the last pane removes the layout and emits `pane-closed`. Opening a file, browser,
+  panel or diff in an empty workspace makes it the first pane (`seedLayout`, only for a workspace
+  that exists). Empty workspaces are saved without `root` and restored empty.
+- **Workspace/pane guards:** `closePane` emits `pane-closed` only if the pane existed; a
+  workspace's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
   `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new workspace, `Ctrl+Shift+R` resume the pane's

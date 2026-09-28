@@ -9,12 +9,14 @@ import {
   Terminal,
   X,
 } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
-import { paneIds } from '../layout/tree'
+import { allPanes, paneIds } from '../layout/tree'
 import { latestWaitingAt, unreadCount } from '../lib/attention'
+import { latestUnreadMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
@@ -74,6 +76,7 @@ function WorkspacesView(): JSX.Element {
   const setActive = useWorkspacesStore((s) => s.setActive)
   const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
   const closeWorkspace = useWorkspacesStore((s) => s.closeWorkspace)
+  const rename = useWorkspacesStore((s) => s.rename)
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
   const openSettings = useUIStore((s) => s.openSettings)
@@ -105,12 +108,17 @@ function WorkspacesView(): JSX.Element {
             onClose={() => closeWorkspace(s.id)}
             closeLabel={d.rail.close}
             icon={<WorkspaceIcon workspace={s} />}
-            title={s.name}
+            title={s.customName ?? s.name}
+            onRename={(name) => rename(s.id, name)}
+            renameLabel={d.rail.renameWorkspace}
             meta={
-              <span className="tab-meta">
-                <span className="tab-branch">{s.workDir}</span>
-                <SidebarItems workspaceId={s.id} />
-              </span>
+              <>
+                <WorkspaceSubtitle workspaceId={s.id} />
+                <span className="tab-meta">
+                  <span className="tab-branch">{s.workDir}</span>
+                  <SidebarItems workspaceId={s.id} />
+                </span>
+              </>
             }
             badge={<UnreadBadge workspaceId={s.id} />}
           />
@@ -229,6 +237,44 @@ function usePopOnIncrease(n: number): { active: boolean; generation: number; end
   return { active: seen.active, generation: seen.generation, end }
 }
 
+function WorkspaceSubtitle({ workspaceId }: { workspaceId: string }): JSX.Element | null {
+  const layout = useLayoutStore((s) => s.byWorkspace[workspaceId])
+  const panes = layout ? allPanes(layout.root) : []
+  const message = useAttentionStore((s) => latestUnreadMessage(panes, s.byPane))
+  const title = useBlocksStore((s) => runningTitle(panes, layout?.activePaneId, s.running))
+  const text = message ?? title
+  if (!text) return null
+  return <span className={`tab-subtitle${message ? ' unread' : ''}`}>{text}</span>
+}
+
+function RenameInput({
+  value,
+  label,
+  onDone,
+}: {
+  value: string
+  label: string
+  onDone: (name: string | null) => void
+}): JSX.Element {
+  const [draft, setDraft] = useState(value)
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => input.current?.select(), [])
+  return (
+    <input
+      ref={input}
+      className="tab-rename"
+      aria-label={label}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onDone(draft)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onDone(draft)
+        if (e.key === 'Escape') onDone(null)
+      }}
+    />
+  )
+}
+
 function TabRow({
   active,
   onSelect,
@@ -236,6 +282,8 @@ function TabRow({
   closeLabel,
   icon,
   title,
+  onRename,
+  renameLabel,
   meta,
   badge,
 }: {
@@ -245,12 +293,37 @@ function TabRow({
   closeLabel: string
   icon: React.ReactNode
   title: string
+  onRename?: (name: string) => void
+  renameLabel?: string
   meta?: React.ReactNode
   badge?: React.ReactNode
 }): JSX.Element {
+  const [renaming, setRenaming] = useState(false)
+  if (renaming && onRename) {
+    return (
+      <div className={`rail-tab${active ? ' active' : ''}`}>
+        <span className="rail-tab-main">
+          {icon}
+          <RenameInput
+            value={title}
+            label={renameLabel ?? title}
+            onDone={(name) => {
+              setRenaming(false)
+              if (name !== null) onRename(name)
+            }}
+          />
+        </span>
+      </div>
+    )
+  }
   return (
     <div className={`rail-tab${active ? ' active' : ''}`}>
-      <button type="button" className="rail-tab-main" onClick={onSelect}>
+      <button
+        type="button"
+        className="rail-tab-main"
+        onClick={onSelect}
+        onDoubleClick={onRename ? () => setRenaming(true) : undefined}
+      >
         {icon}
         <span className="tab-body">
           <span className="tab-title">{title}</span>

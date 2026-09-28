@@ -133,6 +133,13 @@ describe('parseSnapshot', () => {
     ).toEqual([])
   })
 
+  it('keeps an empty workspace (no layout) and a user-given name', () => {
+    const { root: _root, activePaneId: _active, ...empty } = snap().workspaces[0]
+    const parsed = parseSnapshot(snap({ workspaces: [{ ...empty, customName: ' payments ' }] }))
+    expect(parsed?.workspaces).toEqual([{ ...empty, customName: 'payments' }])
+    expect(parsed?.activeWorkspaceId).toBe(empty.id)
+  })
+
   it('drops a workspace whose pane kind is unknown', () => {
     const bad = snap({
       workspaces: [

@@ -407,17 +407,14 @@ describe('builtins with zero workspaces', () => {
     expect(useLayoutStore.getState().byWorkspace).toEqual({})
   })
 
-  it('opens a terminal workspace at home with workspace.new', async () => {
+  it('opens an empty workspace at home with workspace.new', async () => {
     const res = await commands.exec('workspace.new')
 
     expect(res.ok).toBe(true)
     const [only] = useWorkspacesStore.getState().workspaces
     expect(only).toMatchObject({ workDir: '~', name: 'home' })
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(only.id)
-    expect(useLayoutStore.getState().byWorkspace[only.id]?.root).toMatchObject({
-      type: 'pane',
-      kind: 'terminal',
-    })
+    expect(useLayoutStore.getState().byWorkspace[only.id]).toBeUndefined()
   })
 })
 

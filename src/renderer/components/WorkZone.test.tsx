@@ -53,15 +53,19 @@ describe('WorkZone', () => {
     expect(screen.queryByTestId(/^terminal-/)).toBeNull()
   })
 
-  it('opens a terminal workspace at home from the empty state button', async () => {
+  it('opens an empty workspace at home that offers a terminal', async () => {
     renderZone()
+    const user = userEvent.setup()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /New workspace/ }))
+    await user.click(screen.getByRole('button', { name: /New workspace/ }))
 
     const [only] = useWorkspacesStore.getState().workspaces
     expect(only).toMatchObject({ workDir: '~', name: 'home', kind: 'terminal' })
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(only.id)
     expect(screen.queryByRole('heading', { name: 'No workspaces' })).toBeNull()
+    expect(useLayoutStore.getState().byWorkspace[only.id]).toBeUndefined()
+
+    await user.click(screen.getByRole('button', { name: 'New terminal' }))
     const paneId = useLayoutStore.getState().byWorkspace[only.id]?.activePaneId
     expect(screen.getByTestId(`terminal-${paneId}`)).toBeInTheDocument()
   })
