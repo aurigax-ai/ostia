@@ -1,0 +1,15 @@
+import { type Locator, type Page, expect } from '@playwright/test'
+
+export const PROMPT = /[❯$%#]/
+
+export function emptyState(win: Page): Locator {
+  return win.locator('.workzone-empty')
+}
+
+export async function openSession(win: Page): Promise<void> {
+  const before = await win.locator('.xterm').count()
+  await emptyState(win).getByRole('button', { name: /New session/ }).click()
+  await expect(win.locator('.xterm')).toHaveCount(before + 1, { timeout: 15_000 })
+  await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
+  await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
+}

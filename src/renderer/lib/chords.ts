@@ -4,6 +4,7 @@ export type AppChord =
   | 'app.openSettings'
   | 'attention.jumpToLatest'
   | 'history.search'
+  | 'session.new'
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
@@ -19,6 +20,7 @@ export interface KeyLike {
 
 const MAC: Record<string, Chord> = {
   k: 'palette.toggle',
+  t: 'session.new',
   '\\': 'view.toggleRail',
   ',': 'app.openSettings',
   c: 'copy',
@@ -41,6 +43,7 @@ const CTRL_SHIFT: Record<string, Chord> = {
   v: 'paste',
   f: 'find',
   h: 'history.search',
+  t: 'session.new',
   arrowup: 'block.selectPrev',
   arrowdown: 'block.selectNext',
 }
@@ -66,6 +69,7 @@ const APP_CHORDS: ReadonlySet<Chord> = new Set<AppChord>([
   'app.openSettings',
   'attention.jumpToLatest',
   'history.search',
+  'session.new',
 ])
 
 export function isAppChord(chord: Chord | null): chord is AppChord {
@@ -80,6 +84,7 @@ const LABELS: Record<Chord, [mac: string, other: string]> = {
   'block.selectPrev': ['⌘↑', 'Ctrl+Shift+↑'],
   'block.selectNext': ['⌘↓', 'Ctrl+Shift+↓'],
   'history.search': ['⌘⇧H', 'Ctrl+Shift+H'],
+  'session.new': ['⌘T', 'Ctrl+Shift+T'],
   copy: ['⌘C', 'Ctrl+Shift+C'],
   paste: ['⌘V', 'Ctrl+Shift+V'],
   find: ['⌘F', 'Ctrl+Shift+F'],

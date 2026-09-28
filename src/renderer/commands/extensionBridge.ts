@@ -56,7 +56,7 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
   }
 }
 
-function targetSession(requested?: string): string {
+function targetSession(requested?: string): string | null {
   const sessions = useSessionsStore.getState()
   return requested && sessions.sessions.some((s) => s.id === requested)
     ? requested
@@ -65,15 +65,15 @@ function targetSession(requested?: string): string {
 
 export function openExtensionPanel(req: ExtensionOpenPanelRequest): void {
   const info = useExtensionsStore.getState().list.find((e) => e.id === req.extId)
-  if (!info?.panel || !info.enabled) return
-  useLayoutStore
-    .getState()
-    .openExtensionPanel(targetSession(req.sessionId), info.id, info.panel.title)
+  const sessionId = targetSession(req.sessionId)
+  if (!info?.panel || !info.enabled || !sessionId) return
+  useLayoutStore.getState().openExtensionPanel(sessionId, info.id, info.panel.title)
 }
 
 export function openExtensionDiff(req: ExtensionOpenDiffRequest): string | null {
-  const { extId: _extId, sessionId, ...content } = req
-  return useLayoutStore.getState().openDiff(targetSession(sessionId), content)
+  const { extId: _extId, sessionId: requested, ...content } = req
+  const sessionId = targetSession(requested)
+  return sessionId ? useLayoutStore.getState().openDiff(sessionId, content) : null
 }
 
 export function wireExtensionBridge(): void {

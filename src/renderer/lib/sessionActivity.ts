@@ -36,7 +36,7 @@ export function isPaneVisible(paneId: string): boolean {
 export function isPaneViewed(paneId: string): boolean {
   if (!document.hasFocus() || !isPaneVisible(paneId)) return false
   const sessionId = useSessionsStore.getState().activeSessionId
-  return useLayoutStore.getState().bySession[sessionId]?.activePaneId === paneId
+  return !!sessionId && useLayoutStore.getState().bySession[sessionId]?.activePaneId === paneId
 }
 
 export function signalPane(paneId: string, event: AttentionEvent): void {
@@ -64,6 +64,7 @@ export function syncAllSessionStates(): void {
 export function viewActivePane(): void {
   if (!document.hasFocus() || useUIStore.getState().settingsActive) return
   const sessionId = useSessionsStore.getState().activeSessionId
+  if (!sessionId) return
   const paneId = useLayoutStore.getState().bySession[sessionId]?.activePaneId
   if (paneId) useAttentionStore.getState().dispatch(paneId, { type: 'view', at: Date.now() })
 }

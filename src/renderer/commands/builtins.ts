@@ -71,7 +71,7 @@ async function delegate(ctx: CommandContext, id: string, args?: unknown): Promis
 export function registerBuiltinCommands(): void {
   commands.setContextProvider((): CommandContext => {
     const sessionId = useSessionsStore.getState().activeSessionId
-    const layout = useLayoutStore.getState().bySession[sessionId]
+    const layout = sessionId ? useLayoutStore.getState().bySession[sessionId] : undefined
     return { activeSessionId: sessionId, activePaneId: layout?.activePaneId ?? null }
   })
 

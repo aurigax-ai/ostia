@@ -42,10 +42,10 @@ function toLayoutNode(node: SnapshotNode): LayoutNode {
 
 export function buildSnapshot(input: {
   sessions: RestorableSession[]
-  activeSessionId: string
+  activeSessionId: string | null
   layouts: Record<string, { root: LayoutNode; activePaneId: string }>
   savedAt: string
-}): WorkspaceSnapshot | null {
+}): WorkspaceSnapshot {
   const sessions: SnapshotSession[] = []
   for (const session of input.sessions) {
     const layout = input.layouts[session.id]
@@ -60,18 +60,20 @@ export function buildSnapshot(input: {
       activePaneId: findPane(root, layout.activePaneId) ? layout.activePaneId : firstPaneId(root),
     })
   }
-  if (sessions.length === 0) return null
+  const activeSessionId = sessions.some((s) => s.id === input.activeSessionId)
+    ? input.activeSessionId
+    : (sessions[0]?.id ?? null)
   return {
     v: 1,
     savedAt: input.savedAt,
-    activeSessionId: input.activeSessionId,
+    activeSessionId,
     sessions,
   }
 }
 
 export function restoreWorkspace(snapshot: WorkspaceSnapshot): {
   sessions: RestorableSession[]
-  activeSessionId: string
+  activeSessionId: string | null
   layouts: Record<string, RestorableLayout>
 } {
   const sessions: RestorableSession[] = []

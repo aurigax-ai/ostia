@@ -10,6 +10,11 @@ import { useSessionsStore } from '../stores/sessionsStore'
 import { BrowserView } from './BrowserView'
 import { TooltipProvider } from './ui/tooltip'
 
+function homeSessionId(): string {
+  if (useSessionsStore.getState().sessions.length === 0) useSessionsStore.getState().addSession()
+  return useSessionsStore.getState().sessions[0].id
+}
+
 const BROWSER = 'browser-pane'
 
 const capture: PickCapture = {
@@ -56,7 +61,7 @@ afterEach(() => {
 })
 
 function twoTerminals(): { sessionId: string; a: string; b: string } {
-  const sessionId = useSessionsStore.getState().sessions[0].id
+  const sessionId = homeSessionId()
   useLayoutStore.getState().ensure(sessionId)
   const a = useLayoutStore.getState().bySession[sessionId].activePaneId
   useLayoutStore.getState().split(sessionId, a, 'horizontal')

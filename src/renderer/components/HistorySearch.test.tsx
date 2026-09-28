@@ -22,24 +22,28 @@ describe('HistorySearch', () => {
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
   let historyInit: ReturnType<typeof useHistorySearchStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
+  let sessionsInit: ReturnType<typeof useSessionsStore.getState>
 
   beforeAll(() => {
     if (!commands.has('history.insert')) registerBuiltinCommands()
     blocksInit = useBlocksStore.getState()
     historyInit = useHistorySearchStore.getState()
     layoutInit = useLayoutStore.getState()
+    sessionsInit = useSessionsStore.getState()
   })
 
   afterEach(() => {
     useBlocksStore.setState(blocksInit, true)
     useHistorySearchStore.setState(historyInit, true)
     useLayoutStore.setState(layoutInit, true)
+    useSessionsStore.setState(sessionsInit, true)
     vi.restoreAllMocks()
   })
 
   const firstPaneId = (): string => {
+    useSessionsStore.getState().addSession()
     const sessionId = useSessionsStore.getState().activeSessionId
-    useLayoutStore.getState().ensure(sessionId)
+    if (!sessionId) throw new Error('no session')
     const root = useLayoutStore.getState().bySession[sessionId]?.root
     if (!root) throw new Error('no layout')
     return allPanes(root)[0].id

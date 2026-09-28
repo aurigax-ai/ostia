@@ -8,7 +8,7 @@ beforeEach(() => resetIds())
 
 const SESSION = { id: 's1', name: 'proj', kind: 'terminal' as const, workDir: '/home/u/proj' }
 
-function build(root: LayoutNode, activePaneId = root.id): WorkspaceSnapshot | null {
+function build(root: LayoutNode, activePaneId = root.id): WorkspaceSnapshot {
   return buildSnapshot({
     sessions: [SESSION],
     activeSessionId: 's1',
@@ -100,10 +100,16 @@ describe('buildSnapshot', () => {
     })
   })
 
-  it('returns null when no session has a layout — nothing worth persisting', () => {
+  it('builds an empty workspace when no session has a layout', () => {
     expect(
       buildSnapshot({ sessions: [SESSION], activeSessionId: 's1', layouts: {}, savedAt: '' }),
-    ).toBeNull()
+    ).toEqual({ v: 1, savedAt: '', activeSessionId: null, sessions: [] })
+  })
+
+  it('builds an empty workspace with no active session when there are no sessions', () => {
+    expect(
+      buildSnapshot({ sessions: [], activeSessionId: null, layouts: {}, savedAt: 't' }),
+    ).toEqual({ v: 1, savedAt: 't', activeSessionId: null, sessions: [] })
   })
 })
 

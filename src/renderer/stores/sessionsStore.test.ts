@@ -7,6 +7,10 @@ const ensureMock = () => vi.mocked(useLayoutStore.getState().ensure)
 const removeSessionMock = () => vi.mocked(useLayoutStore.getState().removeSession)
 const sessions = () => useSessionsStore.getState().sessions
 const activeId = () => useSessionsStore.getState().activeSessionId
+const open = (workDir?: string) => {
+  useSessionsStore.getState().addSession(workDir)
+  return sessions()[sessions().length - 1]
+}
 
 describe('sessionsStore', () => {
   let sessionsInit: ReturnType<typeof useSessionsStore.getState>
@@ -29,16 +33,14 @@ describe('sessionsStore', () => {
     vi.restoreAllMocks()
   })
 
-  it('starts with exactly one home session anchored at ~, and it is active', () => {
-    expect(sessions()).toHaveLength(1)
-    const only = sessions()[0]
-    expect(only.workDir).toBe('~')
-    expect(only.name).toBe('home')
-    expect(activeId()).toBe(only.id)
+  it('starts with no sessions and no active session', () => {
+    expect(sessions()).toEqual([])
+    expect(activeId()).toBeNull()
   })
 
   describe('addSession', () => {
     it('appends a focused session named from its workDir and ensures its layout', () => {
+      open()
       useSessionsStore.getState().addSession('/home/me/projects/app')
 
       expect(sessions()).toHaveLength(2)
@@ -52,8 +54,8 @@ describe('sessionsStore', () => {
     it('defaults workDir to ~ (name "home") when called with no arg', () => {
       useSessionsStore.getState().addSession()
 
-      expect(sessions()).toHaveLength(2)
-      const added = sessions()[1]
+      expect(sessions()).toHaveLength(1)
+      const added = sessions()[0]
       expect(added.workDir).toBe('~')
       expect(added.name).toBe('home')
       expect(activeId()).toBe(added.id)
@@ -63,7 +65,7 @@ describe('sessionsStore', () => {
 
   describe('setActive', () => {
     it('sets activeSessionId to the given id', () => {
-      const first = sessions()[0]
+      const first = open()
       useSessionsStore.getState().addSession('/x/y')
       expect(activeId()).not.toBe(first.id)
 
@@ -75,7 +77,7 @@ describe('sessionsStore', () => {
 
   describe('setWorkDir', () => {
     it('re-anchors the session and re-derives its name from the new workDir', () => {
-      const id = sessions()[0].id
+      const id = open().id
 
       useSessionsStore.getState().setWorkDir(id, '/x/y')
 
@@ -86,6 +88,7 @@ describe('sessionsStore', () => {
 
     it('touches ONLY the target session, leaving the others untouched', () => {
       useSessionsStore.getState().addSession('/a/one')
+      useSessionsStore.getState().addSession('/b/two')
       useSessionsStore.getState().addSession('/c/three')
       const [a, b, c] = sessions()
 
@@ -102,7 +105,7 @@ describe('sessionsStore', () => {
 
   describe('closeSession', () => {
     it('removes a non-active session, leaves the active one, and drops its layout', () => {
-      const first = sessions()[0]
+      const first = open()
       useSessionsStore.getState().addSession('/x/y')
       const second = sessions()[1]
       expect(activeId()).toBe(second.id)
@@ -116,6 +119,7 @@ describe('sessionsStore', () => {
 
     it('falls to the RIGHT neighbour when the active LEFTMOST session closes', () => {
       useSessionsStore.getState().addSession('/a')
+      useSessionsStore.getState().addSession('/b')
       useSessionsStore.getState().addSession('/c')
       const [a, b, c] = sessions()
       useSessionsStore.getState().setActive(a.id)
@@ -129,6 +133,7 @@ describe('sessionsStore', () => {
 
     it('falls to the LEFT neighbour when the active session closes', () => {
       useSessionsStore.getState().addSession('/a')
+      useSessionsStore.getState().addSession('/b')
       useSessionsStore.getState().addSession('/c')
       const [a, b, c] = sessions()
       expect(sessions()).toHaveLength(3)
@@ -141,26 +146,32 @@ describe('sessionsStore', () => {
       expect(removeSessionMock()).toHaveBeenCalledWith(b.id)
     })
 
-    it('NEVER leaves zero sessions: closing the last one re-seeds a fresh ~ home', () => {
-      const original = sessions()[0]
-      expect(sessions()).toHaveLength(1)
+    it('leaves zero sessions and no active session when the last one closes', () => {
+      const original = open()
+      ensureMock().mockClear()
 
       useSessionsStore.getState().closeSession(original.id)
 
-      expect(sessions()).toHaveLength(1)
-      const fresh = sessions()[0]
-      expect(fresh.id).not.toBe(original.id)
-      expect(fresh.workDir).toBe('~')
-      expect(fresh.name).toBe('home')
-      expect(activeId()).toBe(fresh.id)
+      expect(sessions()).toEqual([])
+      expect(activeId()).toBeNull()
       expect(removeSessionMock()).toHaveBeenCalledWith(original.id)
-      expect(ensureMock()).toHaveBeenCalledWith(fresh.id)
+      expect(ensureMock()).not.toHaveBeenCalled()
+    })
+
+    it('mints a fresh id for a session opened after the last one closed', () => {
+      const original = open()
+      useSessionsStore.getState().closeSession(original.id)
+
+      const next = open()
+
+      expect(next.id).not.toBe(original.id)
+      expect(activeId()).toBe(next.id)
     })
   })
 
   describe('setState', () => {
     it("updates the target session's state and mirrors a session-state lifecycle event", () => {
-      const id = sessions()[0].id
+      const id = open().id
       const emitSpy = vi.mocked(window.pine.lifecycle.emit)
 
       useSessionsStore.getState().setState(id, 'waiting')
@@ -175,6 +186,7 @@ describe('sessionsStore', () => {
 
     it('touches ONLY the target session, leaving the others untouched', () => {
       useSessionsStore.getState().addSession('/a/one')
+      useSessionsStore.getState().addSession('/b/two')
       useSessionsStore.getState().addSession('/c/three')
       const [a, b, c] = sessions()
 
@@ -187,7 +199,8 @@ describe('sessionsStore', () => {
     })
 
     it('is a no-op (no state change, no emit) when the session is already in that state', () => {
-      const id = sessions()[0].id
+      const id = open().id
+      vi.mocked(window.pine.lifecycle.emit).mockClear()
       expect(sessions().find((s) => s.id === id)?.state).toBe('idle')
       const emitSpy = vi.mocked(window.pine.lifecycle.emit)
 
@@ -207,7 +220,7 @@ describe('sessionsStore', () => {
 
   describe('nameFromWorkDir (via setWorkDir)', () => {
     it('strips a trailing slash: "/foo/bar/" → "bar"', () => {
-      const id = sessions()[0].id
+      const id = open().id
 
       useSessionsStore.getState().setWorkDir(id, '/foo/bar/')
 
@@ -215,7 +228,7 @@ describe('sessionsStore', () => {
     })
 
     it('maps "~" to "home"', () => {
-      const id = sessions()[0].id
+      const id = open().id
       useSessionsStore.getState().setWorkDir(id, '/somewhere/else')
       expect(sessions().find((s) => s.id === id)?.name).toBe('else')
 
@@ -225,7 +238,7 @@ describe('sessionsStore', () => {
     })
 
     it('falls back to "session" for a root path with an empty last segment: "/"', () => {
-      const id = sessions()[0].id
+      const id = open().id
 
       useSessionsStore.getState().setWorkDir(id, '/')
 
@@ -236,7 +249,10 @@ describe('sessionsStore', () => {
   })
 
   describe('hydrate', () => {
-    const snapshotOf = (ids: string[], activeSessionId = ids[0]): WorkspaceSnapshot => ({
+    const snapshotOf = (
+      ids: string[],
+      activeSessionId: string | null = ids[0] ?? null,
+    ): WorkspaceSnapshot => ({
       v: 1,
       savedAt: '2026-08-06T00:00:00.000Z',
       activeSessionId,
@@ -256,7 +272,7 @@ describe('sessionsStore', () => {
       })),
     })
 
-    it('replaces the seeded home session with the restored ones', () => {
+    it('restores the saved sessions', () => {
       useSessionsStore.getState().hydrate(snapshotOf(['s40', 's41']))
 
       expect(sessions().map((s) => s.id)).toEqual(['s40', 's41'])
@@ -302,19 +318,30 @@ describe('sessionsStore', () => {
       expect(ids.slice(0, 2)).toEqual(['s40', 's41'])
     })
 
-    it('keeps the seeded home session when there is nothing to restore', () => {
-      const seeded = sessions()[0]
-
+    it('creates no session when there is nothing to restore', () => {
       useSessionsStore.getState().hydrate(null)
 
-      expect(sessions()).toEqual([seeded])
-      expect(activeId()).toBe(seeded.id)
-      expect(vi.mocked(window.pine.lifecycle.emit).mock.calls.map((c) => c[0])).toContainEqual({
-        type: 'session-added',
-        sessionId: seeded.id,
-        workDir: '~',
-      })
-      expect(ensureMock()).toHaveBeenCalledWith(seeded.id)
+      expect(sessions()).toEqual([])
+      expect(activeId()).toBeNull()
+      expect(ensureMock()).not.toHaveBeenCalled()
+      expect(window.pine.lifecycle.emit).not.toHaveBeenCalled()
+    })
+
+    it('restores an empty saved workspace as zero sessions', () => {
+      useSessionsStore.getState().hydrate(snapshotOf([], null))
+
+      expect(sessions()).toEqual([])
+      expect(activeId()).toBeNull()
+      expect(ensureMock()).not.toHaveBeenCalled()
+    })
+
+    it('adopts restored ids even when the new session is opened after closing them all', () => {
+      useSessionsStore.getState().hydrate(snapshotOf(['s70']))
+      useSessionsStore.getState().closeSession('s70')
+
+      const next = open()
+
+      expect(Number(next.id.slice(1))).toBeGreaterThan(70)
     })
   })
 })

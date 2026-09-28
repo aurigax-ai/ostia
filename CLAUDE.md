@@ -137,12 +137,19 @@ Details: `docs/ARCHITECTURE.md`.
 - **Nothing live is ever restored.** A restored session comes back idle with a fresh shell at its
   saved cwd; replayed scrollback is history. Same for `processManager` (running → exited at load;
   loaded entries can't be restarted).
-- **Session/pane guards:** never zero sessions; `closePane` never removes the last pane and emits
-  `pane-closed` only if the pane existed; a session's `workDir` is the anchor, a pane's `cwd` wanders.
+- **Zero sessions is a valid state.** Sessions are created only by the user (New session button,
+  `session.new`, the chord, opening a file with none open) or by restore; never seed one at boot,
+  on an empty restore, or when the last session closes. `activeSessionId` is `null` then, and
+  every reader (commands, WorkZone, attention sync, extension bridge, autosave) must handle it;
+  the work zone shows the empty state. An empty workspace is saved (`sessions: []`) so a restart
+  restores zero sessions.
+- **Session/pane guards:** `closePane` never removes the last pane and emits `pane-closed` only if
+  the pane existed; a session's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
-  `Ctrl+Shift+H` command history, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find,
-  `Ctrl+Shift+↑/↓` previous/next block. macOS uses ⌘ (⌘⇧U unread, ⌘⇧H history, ⌘↑/⌘↓ blocks).
+  `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new session, `Ctrl+Shift+C/V` copy/paste,
+  `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block. macOS uses ⌘ (⌘⇧U unread,
+  ⌘⇧H history, ⌘T new session, ⌘↑/⌘↓ blocks).
   Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell;
   Escape is swallowed only while a block is selected. All chords live in `lib/chords.ts`;
   xterm's `attachCustomKeyEventHandler` lets app chords through. Block navigation is a terminal
@@ -309,8 +316,9 @@ Details: `docs/ARCHITECTURE.md`.
   `addLiveSubscriber` (else it paints twice).
 - **The restore seam leads with a bare OSC 133;D** so a command running at quit doesn't come back
   as a block that runs forever.
-- **`hydrate()` runs before the first render** (`main.tsx`): a pane mounted against the seeded
-  layout would spawn a pty that's orphaned a tick later.
+- **`hydrate()` runs before the first render** (`main.tsx`): the first render must already see the
+  restored sessions (or none), else the work zone flashes the empty state and a pane mounted
+  before hydration would spawn a pty that's orphaned a tick later.
 - **Allotment is keyed by the child-id list**; its internal sizes go stale on structural changes.
 - **xterm's viewport paints black by default.** `.xterm-host .xterm .xterm-viewport` is
   transparent and the host is painted with the terminal theme background.
@@ -350,6 +358,8 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
 - **dom** project (jsdom, `test/setup.ts`): `src/renderer/**`. A typed `window.pine` fake
   (`test/mocks/pine.ts`, typed as `PineBridge`) breaks when the contract drifts.
 - **E2E** (`e2e/`): anything rendering xterm or Monaco, or needing a real pty, a restart, or a crash.
+  The app boots with no sessions: a spec that needs a terminal starts with `openSession(win)`
+  (`e2e/helpers.ts`).
   `e2e/extensions.spec.ts` installs the `test/fixtures/extensions-e2e/hello` user extension
   (bundled with esbuild) and covers approval, a palette-opened file panel and a `pine <ext>` call.
 

@@ -733,6 +733,27 @@
   height: 100%;
 }
 
+.workzone-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 24px;
+  text-align: center;
+  animation: motion-fade-in var(--motion-base) var(--ease-out);
+}
+
+.workzone-empty-kbd {
+  margin-left: 4px;
+  font-family: inherit;
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  opacity: 0.75;
+}
+
 .pane {
   position: relative;
   display: flex;

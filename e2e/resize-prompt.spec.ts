@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
+import { openSession } from './helpers'
 
 test('splitting a pane does not duplicate the existing prompt', async () => {
   test.setTimeout(60_000)
@@ -7,9 +8,8 @@ test('splitting a pane does not duplicate the existing prompt', async () => {
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
+    await openSession(win)
     const leftRows = win.locator('.xterm-rows').first()
-    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
-    await expect(leftRows).toContainText(/[❯$%#]/, { timeout: 15_000 })
     await win.waitForTimeout(2_000)
 
     const countPrompts = async (): Promise<number> => {
@@ -43,8 +43,8 @@ test('toggling the sidebar twice leaves exactly one prompt line', async () => {
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
+    await openSession(win)
     const rows = win.locator('.xterm-rows').first()
-    await expect(rows).toContainText(/[❯$%#]/, { timeout: 15_000 })
     await win.waitForTimeout(2_000)
     const promptLines = async (): Promise<number> =>
       (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
@@ -71,8 +71,8 @@ test('drag-resizing the window keeps command output and a single prompt', async 
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
+    await openSession(win)
     const rows = win.locator('.xterm-rows').first()
-    await expect(rows).toContainText(/[❯$%#]/, { timeout: 15_000 })
     await win.waitForTimeout(2_000)
     await win.locator('.xterm').first().click()
     await win.keyboard.type("printf 'pine_out_%s\\n' 1 2 3")

@@ -36,6 +36,10 @@ export const en = {
     notInstalled: 'not installed',
     error: 'error',
   },
+  workzone: {
+    emptyTitle: 'No sessions',
+    emptyBody: 'Start a terminal in your home folder.',
+  },
   pane: {
     empty: 'Empty pane. Open the command palette to run something.',
     splitRight: 'Split right',
@@ -292,6 +296,10 @@ export const zhHant: Dict = {
     available: '已安裝',
     notInstalled: '未安裝',
     error: '錯誤',
+  },
+  workzone: {
+    emptyTitle: '沒有工作階段',
+    emptyBody: '在主資料夾開啟一個終端機。',
   },
   pane: {
     empty: '空白面板。開啟指令面板以執行指令。',
