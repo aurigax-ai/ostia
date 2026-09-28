@@ -8,6 +8,7 @@ export const en = {
   rail: {
     workspaces: 'Workspaces',
     newWorkspace: 'New workspace',
+    renameWorkspace: 'Workspace name',
     files: 'Files',
     noFolder: 'No folder open',
     close: 'Close',
@@ -46,6 +47,7 @@ export const en = {
     splitDown: 'Split down',
     close: 'Close pane',
     newTerminal: 'New terminal',
+    newBrowser: 'New browser',
     tabs: 'Tabs',
     newTab: 'New terminal tab',
     newBrowserTab: 'New browser tab',
@@ -99,6 +101,8 @@ export const en = {
     missing: 'This diff is no longer available. Open it again from its source.',
   },
   browser: {
+    loadFailed: 'This page couldn’t load',
+    retry: 'Try again',
     back: 'Back',
     forward: 'Forward',
     reload: 'Reload',
@@ -274,6 +278,7 @@ export const zhHant: Dict = {
   rail: {
     workspaces: '工作區',
     newWorkspace: '新增工作區',
+    renameWorkspace: '工作區名稱',
     files: '檔案',
     noFolder: '尚未開啟資料夾',
     close: '關閉',
@@ -312,6 +317,7 @@ export const zhHant: Dict = {
     splitDown: '向下分割',
     close: '關閉面板',
     newTerminal: '新增終端機',
+    newBrowser: '新增瀏覽器',
     tabs: '分頁',
     newTab: '新增終端機分頁',
     newBrowserTab: '新增瀏覽器分頁',
@@ -365,6 +371,8 @@ export const zhHant: Dict = {
     missing: '此差異已無法使用。請從來源重新開啟。',
   },
   browser: {
+    loadFailed: '無法載入此頁面',
+    retry: '重試',
     back: '上一頁',
     forward: '下一頁',
     reload: '重新載入',

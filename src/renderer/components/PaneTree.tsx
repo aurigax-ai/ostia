@@ -1,5 +1,5 @@
 import { Allotment } from 'allotment'
-import { Terminal } from 'lucide-react'
+import { Globe, Terminal } from 'lucide-react'
 import { useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
@@ -60,11 +60,20 @@ function NodeView({
 function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
   const d = useDict()
   const ensure = useLayoutStore((s) => s.ensure)
+  const openBrowser = useLayoutStore((s) => s.openBrowser)
   return (
     <div className="workspace-empty">
       <button type="button" className="rail-add" onClick={() => ensure(workspaceId)}>
         <Terminal size={14} />
         <span>{d.pane.newTerminal}</span>
+      </button>
+      <button
+        type="button"
+        className="rail-add"
+        onClick={() => openBrowser(workspaceId, 'about:blank')}
+      >
+        <Globe size={14} />
+        <span>{d.pane.newBrowser}</span>
       </button>
     </div>
   )

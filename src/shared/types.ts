@@ -163,10 +163,11 @@ export type SnapshotNode = SnapshotPaneNode | SnapshotSplitNode | SnapshotTabsNo
 export interface SnapshotWorkspace {
   id: string
   name: string
+  customName?: string
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
-  root: SnapshotNode
-  activePaneId: string
+  root?: SnapshotNode
+  activePaneId?: string
 }
 
 export interface AppSnapshot {

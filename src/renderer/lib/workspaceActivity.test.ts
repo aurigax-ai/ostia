@@ -94,6 +94,7 @@ describe('workspace activity + attention', () => {
 
     useWorkspacesStore.getState().addWorkspace()
     const workspaceId = homeWorkspaceId()
+    useLayoutStore.getState().ensure(workspaceId)
     const paneId = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
     useWorkspacesStore.getState().closeWorkspace(workspaceId)
     stop()

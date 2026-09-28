@@ -319,3 +319,36 @@ test('restores tabs and offers to resume the agent a tab was running', async () 
     await quitApp(second.app)
   }
 })
+
+test('keeps an emptied, renamed workspace across a restart', async () => {
+  const first = await launchApp(dataHome)
+  try {
+    await openWorkspace(first.win)
+    await first.win.getByRole('button', { name: 'Close tab' }).click()
+    await expect(first.win.locator('.xterm')).toHaveCount(0)
+    await expect(
+      first.win.locator('.workspace-empty:visible').getByRole('button', { name: 'New terminal' }),
+    ).toBeVisible()
+
+    await first.win.locator('.rail-tab-main').first().dblclick()
+    const name = first.win.getByRole('textbox', { name: 'Workspace name' })
+    await name.fill('payments')
+    await name.press('Enter')
+    await expect(first.win.locator('.rail-tab .tab-title')).toHaveText('payments')
+  } finally {
+    await quitApp(first.app)
+  }
+
+  const second = await launchApp(dataHome)
+  try {
+    await expect(second.win.locator('.rail-tab .tab-title')).toHaveText('payments', {
+      timeout: 15_000,
+    })
+    await expect(
+      second.win.locator('.workspace-empty:visible').getByRole('button', { name: 'New terminal' }),
+    ).toBeVisible()
+    await expect(second.win.locator('.xterm')).toHaveCount(0)
+  } finally {
+    await quitApp(second.app)
+  }
+})

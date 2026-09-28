@@ -19,12 +19,13 @@ import {
   setPaneEditor,
   setPaneExtension,
   setPaneResume,
+  setPaneTitle,
   setPaneUrl,
   setSizes,
   splitPane,
   tabsOfPane,
 } from '../layout/tree'
-import type { Direction, LayoutNode, SurfaceKind } from '../layout/types'
+import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '../layout/types'
 import { useDiffStore } from './diffStore'
 import { useWorkspacesStore } from './workspacesStore'
 
@@ -48,6 +49,7 @@ interface LayoutState {
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
+  setTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
   openBrowser: (workspaceId: string, url: string) => void
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => void
@@ -76,6 +78,17 @@ function patch(
       [workspaceId]: root === next.root ? next : { ...next, root },
     },
   }
+}
+
+function seedLayout(workspaceId: string, make: (pane: PaneNode) => LayoutNode): string | null {
+  if (useLayoutStore.getState().byWorkspace[workspaceId]) return null
+  if (!useWorkspacesStore.getState().workspaces.some((w) => w.id === workspaceId)) return null
+  const pane = createPane()
+  useLayoutStore.setState((s) => ({
+    byWorkspace: { ...s.byWorkspace, [workspaceId]: layoutOf(make(pane)) },
+  }))
+  window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: pane.id })
+  return pane.id
 }
 
 function successorOf(before: LayoutNode, after: LayoutNode, closedId: string): string {
@@ -155,6 +168,15 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   closePane: (workspaceId, paneId) => {
+    const current = get().byWorkspace[workspaceId]
+    if (current?.root.type === 'pane' && current.root.id === paneId) {
+      set((s) => {
+        const { [workspaceId]: _emptied, ...byWorkspace } = s.byWorkspace
+        return { byWorkspace }
+      })
+      window.pine?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+      return
+    }
     let removed = false
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
@@ -228,6 +250,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
     }),
 
+  setTitle: (workspaceId, paneId, title) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setPaneTitle(layout.root, paneId, title)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
   setResume: (workspaceId, paneId, resume) =>
     set((s) => {
       const layout = s.byWorkspace[workspaceId]
@@ -239,10 +271,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }),
 
   openFile: (workspaceId, path) => {
+    const title = path.split('/').pop() || path
+    if (seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
-        const title = path.split('/').pop() || path
         const existing = firstPaneOfKind(l.root, 'editor')
         if (existing) {
           return {
@@ -264,6 +297,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   openBrowser: (workspaceId, url) => {
+    if (seedLayout(workspaceId, (p) => setPaneBrowser(p, p.id, url))) return
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
@@ -288,6 +322,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   openExtensionPanel: (workspaceId, extensionId, title) => {
+    if (seedLayout(workspaceId, (p) => setPaneExtension(p, p.id, extensionId, title))) return
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
@@ -314,6 +349,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     let diffPaneId: string | null = null
     const slash = content.path ? content.path.lastIndexOf('/') : -1
     const cwd = content.path && slash > 0 ? content.path.slice(0, slash) : undefined
+    const seeded = seedLayout(workspaceId, (p) => setPaneDiff(p, p.id, content.title, cwd))
+    if (seeded) {
+      useDiffStore.getState().set(seeded, content)
+      return seeded
+    }
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
         const existing = firstPaneOfKind(l.root, 'diff')
