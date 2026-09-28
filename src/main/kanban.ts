@@ -1,21 +1,3 @@
-/**
- * `kanban` toolbelt service (agent-toolbelt #9, capabilities 'read-board' (default) /
- * 'board-write' (elevated) — the same caps `pane.info`/`cwd.get` already gate reads on).
- * A per-project status board (`.pine/board.json`) agents can use to track work items
- * without a UI: columns + cards, seeded with `todo`/`doing`/`done` on first read.
- *
- * Unlike `wiki.ts`/`vault.ts`, the board has no `global` scope — a kanban board only makes
- * sense per project — so it fails closed on a missing session workDir exactly like those
- * do (see `vault.ts` for why: `jsonStore.storePath` would otherwise silently fall back to
- * `process.cwd()`, pooling every unrecognized session's board into one file).
- *
- * No `wiki.ts`-style prototype-pollution guard is needed here: card ids are server-generated
- * (`nextCardId`) and every caller-supplied field (`title`/`body`/`column`/`assignee`) is
- * written through a fixed, named property (`card.title = ...`), never used as a dynamic
- * object key (`obj[userInput] = ...`) — so there is no path from a crafted string to
- * `Object.prototype`. `kanban.add`/`kanban.update` do cap `title`/`body` size (64KB) and
- * `kanban.add` caps the board at 2000 cards (existing cards can still be updated once full).
- */
 import { ipcMain } from 'electron'
 import type {
   KanbanBoard,
@@ -28,9 +10,6 @@ import { registerControlMethod } from './controlServer'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { workDirForSession } from './sessionRegistry'
 
-// The data shapes live in `shared/types.ts` (dependency-free, so preload/renderer can import
-// them too) — re-exported here so this module's existing importers (`gateway/controlDispatch.ts`)
-// keep working unchanged.
 export type { KanbanBoard, KanbanCard, KanbanColumn } from '../shared/types'
 
 const DEFAULT_COLUMNS: KanbanColumn[] = [
@@ -55,13 +34,10 @@ function noProjectWorkDir(): NoProjectWorkDir {
   }
 }
 
-/** The board path for a resolved project `workDir` — shared by both path-resolution modes
- *  below (session-scoped for the control socket, direct for the renderer's ipc bridge). */
 function boardPathForWorkDir(workDir: string): string {
   return storePath('board', 'project', workDir)
 }
 
-/** Fails closed (returns `NoProjectWorkDir`) exactly like `vault.ts`'s `vaultStorePath`. */
 function boardPath(sessionId: string): string | NoProjectWorkDir {
   const workDir = workDirForSession(sessionId)
   if (!workDir) return noProjectWorkDir()
@@ -80,10 +56,7 @@ const NOT_FOUND = { ok: false, error: 'not-found' as const }
 const UNKNOWN_COLUMN = { ok: false, error: 'unknown-column' as const }
 const TOO_LARGE = { ok: false, error: 'too-large' as const }
 
-/** `title`/`body` size cap — keeps one card from ballooning the JSON board file. */
 const MAX_FIELD_BYTES = 64 * 1024
-/** Card count cap — `kanban.add` rejects new cards beyond this; updates to existing cards
- * (including moving/renaming/re-assigning) are still allowed once a board is full. */
 const MAX_CARDS = 2000
 const TOO_MANY_CARDS = {
   ok: false,
@@ -91,17 +64,10 @@ const TOO_MANY_CARDS = {
   message: `this board already has ${MAX_CARDS} cards — remove one before adding another`,
 }
 
-/** True iff `s` (a caller-supplied string field) exceeds `MAX_FIELD_BYTES` measured in bytes. */
 function tooLarge(s: string | undefined): boolean {
   return s !== undefined && Buffer.byteLength(s, 'utf8') > MAX_FIELD_BYTES
 }
 
-/**
- * `card-<n>`, with `n` seeded from the highest numeric suffix already present in
- * `board.cards` — the same collision-avoidance the process manager's persisted-id counter
- * does, but recomputed on every call instead of cached in memory: the board isn't kept
- * resident across requests the way the process table is, it's loaded fresh from disk here.
- */
 function nextCardId(board: KanbanBoard): string {
   let max = 0
   for (const card of board.cards) {
@@ -111,13 +77,6 @@ function nextCardId(board: KanbanBoard): string {
   return `card-${max + 1}`
 }
 
-/**
- * Read `sessionId`'s board. Exported (not just wired inline into `kanban.get`'s handler) so the
- * LAN gateway's phone-facing `board.get` (`src/main/gateway/controlDispatch.ts`, injected from
- * `index.ts`) can read the SAME board a pane's `kanban.get` would, without a session-scoped
- * `ControlMethod` context (the phone isn't a pane — it picks a `sessionId` itself; see that
- * module's header comment).
- */
 export function kanbanGet(sessionId: string): KanbanBoard | NoProjectWorkDir {
   const path = boardPath(sessionId)
   if (typeof path !== 'string') return path
@@ -130,14 +89,6 @@ export type KanbanUpdateResult =
   | typeof UNKNOWN_COLUMN
   | typeof TOO_LARGE
   | NoProjectWorkDir
-
-/**
- * Path-based mutation cores — the actual read/validate/write logic, taking an already-resolved
- * board path instead of a sessionId. Both the session-scoped control methods below AND the
- * renderer's workDir-scoped `kanban:mutate` ipc handler (`kanbanMutateForWorkDir`) call these
- * SAME functions, so there is exactly one implementation of each mutation regardless of which
- * side resolved the path.
- */
 
 function addCardAt(
   path: string,
@@ -208,12 +159,6 @@ function removeCardAt(path: string, params: { cardId: string }): { ok: true } | 
   return { ok: true }
 }
 
-/**
- * Apply `patch` to `cardId` on `sessionId`'s board. Exported (mirrors `kanbanGet` above) so the
- * LAN gateway's phone-facing `board.update` (`src/main/gateway/controlDispatch.ts`, injected
- * from `index.ts`) can write the SAME board a pane's `kanban.update` would, without a
- * session-scoped `ControlMethod` context (the phone isn't a pane — see `kanbanGet`'s comment).
- */
 export function kanbanUpdate(
   sessionId: string,
   cardId: string,
@@ -224,8 +169,6 @@ export function kanbanUpdate(
   return updateCardAt(path, cardId, patch)
 }
 
-/** True iff `r` is one of this module's `{ ok: false, error, message? }` failure shapes —
- *  used to tell `addCardAt`'s `{ card }` success apart from every mutation's failure shapes. */
 function isKanbanFailure(r: unknown): r is { ok: false; error: string; message?: string } {
   return typeof r === 'object' && r !== null && (r as { ok?: unknown }).ok === false
 }
@@ -238,9 +181,6 @@ type KanbanOpResult =
   | typeof TOO_LARGE
   | typeof TOO_MANY_CARDS
 
-/** Dispatch one `KanbanMutateOp` against an already-resolved board path — the single place
- *  `kanbanMutateForWorkDir` (renderer ipc) and the `kanban.*` control methods below both
- *  bottom out at, so add/move/update/remove each have exactly one implementation. */
 function applyMutation(path: string, op: KanbanMutateOp): KanbanOpResult {
   switch (op.op) {
     case 'add':
@@ -254,14 +194,11 @@ function applyMutation(path: string, op: KanbanMutateOp): KanbanOpResult {
   }
 }
 
-/** Read `workDir`'s board directly (no session indirection) — the renderer's `kanban:get`. */
 export function kanbanGetForWorkDir(workDir: string): KanbanBoard | NoProjectWorkDir {
   if (!workDir?.trim()) return noProjectWorkDir()
   return loadBoard(boardPathForWorkDir(workDir))
 }
 
-/** Apply one mutation to `workDir`'s board directly — the renderer's `kanban:mutate`. Returns
- *  the fresh board on success so the caller can re-render without a second round trip. */
 export function kanbanMutateForWorkDir(workDir: string, op: KanbanMutateOp): KanbanMutateResult {
   if (!workDir?.trim()) return noProjectWorkDir()
   const path = boardPathForWorkDir(workDir)
@@ -270,8 +207,6 @@ export function kanbanMutateForWorkDir(workDir: string, op: KanbanMutateOp): Kan
   return { ok: true, board: loadBoard(path) }
 }
 
-/** `kanban:get` / `kanban:mutate` — the renderer's data bridge (Kanban surface panes), sharing
- *  every mutation's core logic with the `kanban.*` control methods below via `applyMutation`. */
 export function registerKanbanIpc(): void {
   ipcMain.handle('kanban:get', (_e, params: { workDir: string }) =>
     kanbanGetForWorkDir(params?.workDir),

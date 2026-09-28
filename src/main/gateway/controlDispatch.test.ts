@@ -3,7 +3,6 @@ import type { CommandDescriptor, CommandResult } from '../../shared/types'
 import { registerPane } from '../idRegistry'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
 
-/** A minimal, fully-specified `CommandDescriptor` — every case below overrides just what it needs. */
 function descriptor(overrides: Partial<CommandDescriptor> & { id: string }): CommandDescriptor {
   return {
     title: overrides.id,
@@ -230,7 +229,6 @@ describe('dispatchGatewayMethod — command.exec', () => {
     const desc = descriptor({ id: 'browser.new', capabilities: ['browse'] })
     const deps = fakeDeps({ listCommandsFor: vi.fn().mockReturnValue([desc]) })
 
-    // Even a phone holding every contract-defined cap still can't reach it.
     const res = await dispatchGatewayMethod(
       'command.exec',
       { id: 'browser.new' },
@@ -246,10 +244,6 @@ describe('dispatchGatewayMethod — command.exec', () => {
   })
 
   it('a DEFAULT-capability command with no phone-facing equivalent is still blocked (escalation fix)', async () => {
-    // Before the allow-map fix, ANY `DEFAULT_CAPABILITIES` internal cap (like `process`) was
-    // reachable via the phone's `command` cap alone — this pinned the regression: a phone must
-    // NOT be able to reach `process`/`vault-write`/`wiki-write`/`settings-read`-gated commands
-    // just because it holds `command`.
     const desc = descriptor({ id: 'process.spawn', capabilities: ['process'] })
     const deps = fakeDeps({ listCommandsFor: vi.fn().mockReturnValue([desc]) })
     const res = await dispatchGatewayMethod(
@@ -266,7 +260,7 @@ describe('dispatchGatewayMethod — command.exec', () => {
     })
   })
 
-  it('pane.close/pane.remove (kill-pane) is unreachable to a phone even with every contract cap', async () => {
+  it('pane.close (kill-pane) is unreachable to a phone even with every contract cap', async () => {
     const desc = descriptor({ id: 'pane.close', capabilities: ['kill-pane'] })
     const deps = fakeDeps({ listCommandsFor: vi.fn().mockReturnValue([desc]) })
     const res = await dispatchGatewayMethod(

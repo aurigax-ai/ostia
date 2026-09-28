@@ -4,19 +4,12 @@ import { wireCommandBridge } from './bridge'
 import type { CommandContext } from './registry'
 import { commands } from './registry'
 
-/**
- * The app-wide `commands` singleton persists across the tests in this file (vitest
- * isolates per file, so it starts empty). Each test registers under a UNIQUE id so
- * `commands.register` never throws "already registered".
- */
 describe('wireCommandBridge', () => {
   it('publishes exactly commands.describe() to main', () => {
     commands.register({ id: 'test.publish.echo', title: 'Echo', run: () => {} })
 
     wireCommandBridge()
 
-    // Assert the EXACT payload, not just "contains my id": proves the bridge
-    // publishes `commands.describe()` output rather than some arbitrary array.
     const expected = commands.describe()
     expect(expected.some((d) => d.id === 'test.publish.echo')).toBe(true)
     const publish = vi.mocked(window.pine.commands.publish)
@@ -27,12 +20,10 @@ describe('wireCommandBridge', () => {
   it('routes the invoke request through execWith with a target-derived context', async () => {
     const run = vi.fn((_args: { x: number }, _ctx: CommandContext) => ({ ran: true }))
     commands.register({ id: 'test.invoke.cmd', title: 'Invoke', run })
-    // Spy but keep the REAL impl so the result assertion below still exercises it.
     const execSpy = vi.spyOn(commands, 'execWith')
 
     wireCommandBridge()
 
-    // The bridge registers exactly one invoke handler; capture it off the vi.fn.
     const onInvoke = vi.mocked(window.pine.commands.onInvoke)
     expect(onInvoke).toHaveBeenCalledTimes(1)
     const handler = onInvoke.mock.calls[0][0]
@@ -44,8 +35,6 @@ describe('wireCommandBridge', () => {
     }
     const result = await handler(req)
 
-    // The mechanism: execWith called with the EXACT ctx (a dropped/extra field fails),
-    // then id and args passed through unchanged.
     expect(execSpy).toHaveBeenCalledWith(
       { activeSessionId: 's9', activePaneId: 'p9', target: req.target },
       req.id,
@@ -57,7 +46,6 @@ describe('wireCommandBridge', () => {
     expect(args).toEqual({ x: 1 })
     expect(ctx.activeSessionId).toBe('s9')
     expect(ctx.activePaneId).toBe('p9')
-    // Full target shape round-trips, including windowId.
     expect(ctx.target).toEqual(req.target)
 
     expect(result).toEqual({ ok: true, result: { ran: true } })

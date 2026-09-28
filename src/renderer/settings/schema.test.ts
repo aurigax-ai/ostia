@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import { monaco } from '../monaco/setup'
 import { SETTINGS_JSON_SCHEMA, registerSettingsSchema } from './schema'
 
-// Monaco's real setup pulls in Vite `?worker` imports that do not resolve under Vitest,
-// so stub the surface `registerSettingsSchema` actually touches.
 vi.mock('../monaco/setup', () => ({
   monaco: {
     Uri: { file: (p: string) => ({ toString: () => `file://${p}` }) },
@@ -11,8 +10,6 @@ vi.mock('../monaco/setup', () => ({
   },
 }))
 
-// `languages.json` is typed as a deprecated stub in the ESM build (see schema.ts); the mock
-// factory above populates `jsonDefaults` at runtime, so cast to reach it — mirrors the source.
 const setDiagnosticsOptions = vi.mocked(
   (
     monaco.languages.json as unknown as {
@@ -48,6 +45,12 @@ describe('SETTINGS_JSON_SCHEMA', () => {
       'underline',
       'bar',
     ])
+  })
+
+  it('offers gateway among capabilities.grants, and only recognized capabilities', () => {
+    const grants = SETTINGS_JSON_SCHEMA.properties.capabilities.properties.grants.items.enum
+    expect(grants).toContain('gateway')
+    for (const cap of grants) expect(ALL_CAPABILITIES).toContain(cap)
   })
 })
 

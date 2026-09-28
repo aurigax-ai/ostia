@@ -1,27 +1,3 @@
-/**
- * `vault` toolbelt service (agent-toolbelt #10, capabilities 'vault-read'/'vault-write' —
- * elevated: secrets are the most sensitive thing an agent can touch). Encrypted key/value
- * secret storage for agents, isolated per project (default, scoped to the caller's session
- * workDir) or globally to the machine. Values are encrypted at rest with Electron's
- * OS-keychain-backed `safeStorage` API before ever touching `jsonStore`'s JSON file — the
- * file on disk only ever holds base64 ciphertext, never plaintext.
- *
- * `safeStorage.isEncryptionAvailable()` can be false (e.g. Linux without a keyring
- * backend running/unlocked). When it is, every method below fails closed with a typed
- * `encryption-unavailable` error instead of silently falling back to storing plaintext.
- *
- * Scope resolution also fails closed: `jsonStore.storePath` falls back to `process.cwd()`
- * when handed an empty workDir, which is the right default for a generic store but wrong
- * here — an unknown session's `process.cwd()` is main's own working directory, shared by
- * every caller, so falling back would silently pool every unrecognized session's secrets
- * into one vault. `project` scope therefore requires a resolved session workDir up front;
- * `global` scope is unaffected (it never depends on a workDir).
- *
- * `scope: 'global'` WRITES (`vault.set`/`vault.delete`) additionally require the elevated
- * `workspace-wide` capability on top of the default `vault-write` cap — a global write is
- * machine-wide, visible to every project's panes. Global READS stay default (see `wiki.ts`
- * for the same posture).
- */
 import { safeStorage } from 'electron'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { Capability } from '../shared/capabilities'
@@ -30,12 +6,10 @@ import { registerControlMethod } from './controlServer'
 import { type StoreScope, loadJson, saveJson, storePath } from './jsonStore'
 import { workDirForSession } from './sessionRegistry'
 
-/** A JSON-RPC error matching `controlServer.ts`'s `needsElevation` (not exported from there). */
 function needsElevation(cap: Capability): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
 }
 
-/** key → base64(safeStorage.encryptString(value)) */
 type VaultData = Record<string, string>
 
 const ENCRYPTION_UNAVAILABLE_MESSAGE =
@@ -64,11 +38,6 @@ function noProjectWorkDir(): NoProjectWorkDir {
   }
 }
 
-/**
- * project = the caller's session workDir; global = the machine-wide store (see `jsonStore`).
- * Fails closed (returns `NoProjectWorkDir`) rather than letting `jsonStore.storePath` fall
- * back to `process.cwd()` for a session whose workDir isn't registered yet.
- */
 function vaultStorePath(scope: StoreScope, sessionId: string): string | NoProjectWorkDir {
   if (scope === 'global') return storePath('vault', 'global')
   const workDir = workDirForSession(sessionId)
@@ -80,10 +49,6 @@ function loadVault(path: string): VaultData {
   return loadJson<VaultData>(path, {})
 }
 
-/** `secure: true` — this store holds encrypted secret ciphertext (see the header comment), so
- *  the file lands `0600` and its directory `0700` (same posture as `gateway/devices.ts`'s
- *  paired-device bearer tokens): another local user on the machine must not even be able to
- *  read the ciphertext off disk, let alone attempt to decrypt it. */
 function saveVault(path: string, data: VaultData): void {
   saveJson(path, data, { secure: true })
 }
@@ -99,9 +64,6 @@ export function registerVaultMethods(): void {
         scope?: StoreScope
       }
       const resolvedScope = scope ?? 'project'
-      // `global` writes a machine-wide secret store every project's panes can see —
-      // requires the elevated `workspace-wide` grant on top of the default `vault-write`
-      // cap. Reads stay default (see `vault.get`/`vault.list`).
       if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'workspace-wide')) {
         throw needsElevation('workspace-wide')
       }
@@ -143,7 +105,6 @@ export function registerVaultMethods(): void {
       const { scope } = (params ?? {}) as { scope?: StoreScope }
       const path = vaultStorePath(scope ?? 'project', ctx.identity.sessionId)
       if (typeof path !== 'string') return path
-      // KEYS ONLY — never return decrypted (or even encrypted) values here.
       return { keys: Object.keys(loadVault(path)) }
     },
   })

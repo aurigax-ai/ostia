@@ -1,15 +1,7 @@
 import type { ITheme } from '@xterm/xterm'
 
-/**
- * The xterm ANSI palette for an app theme. xterm renders to canvas, so it needs literal
- * hex/rgba strings — it can't read the `--color-*` CSS custom properties the rest of the
- * UI re-themes with (`index.css`, `plugins/builtin.ts`). Each entry here is that theme's
- * hand-matched terminal palette; keep it in sync with the theme's `Theme.tokens` (builtin.ts)
- * and `:root[data-theme=…]` block (index.css) when either changes.
- */
 export type TerminalPalette = ITheme
 
-/** One Dark Vivid — the original xterm palette (matches the app's original default theme). */
 const ONE_DARK_VIVID: TerminalPalette = {
   background: '#282c34',
   foreground: '#d7dae0',
@@ -34,11 +26,6 @@ const ONE_DARK_VIVID: TerminalPalette = {
   brightWhite: '#ffffff',
 }
 
-/**
- * Adeberry (Warp port) — the app's default theme. Values are pixel-sampled from Warp's
- * bundled preview asset (ground truth); `brightBlue` is intentionally teal (Adeberry's own
- * choice, not a typo) — Warp reuses the cyan family there instead of a blue tint.
- */
 const ADEBERRY: TerminalPalette = {
   background: '#1d2022',
   foreground: '#d5dde3',
@@ -63,17 +50,11 @@ const ADEBERRY: TerminalPalette = {
   brightWhite: '#f5fbff',
 }
 
-/** Registry of xterm palettes keyed by app theme id (`settingsStore.appearance.theme`). */
 const PALETTES: Record<string, TerminalPalette> = {
   adeberry: ADEBERRY,
   'one-dark-vivid': ONE_DARK_VIVID,
 }
 
-/**
- * Resolve the xterm ANSI palette for an app theme id. Themes without a dedicated terminal
- * palette (e.g. Instrument Night, Dracula, Oxocarbon today) fall back to One Dark Vivid
- * rather than an undefined/blank palette — degrade gracefully, never render an untheme'd term.
- */
 export function terminalPalette(themeId: string): TerminalPalette {
   return PALETTES[themeId] ?? ONE_DARK_VIVID
 }

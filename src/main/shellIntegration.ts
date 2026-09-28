@@ -1,33 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
+import { privateTmpDir } from './privateTmp'
 
-/**
- * Shell-integration injection (Warp/VSCode-style): generates small rc snippets that make
- * zsh/bash emit FinalTerm/iTerm2 semantic marks — OSC 133 prompt/command marks (blocks) and
- * OSC 7 cwd reports — without touching the user's real dotfiles. Terminal.tsx parses these
- * marks via `term.parser.registerOscHandler`. Fish and anything else spawn with NO
- * integration; the terminal still works, it just has no blocks/live cwd tracking.
- *
- * zsh: we point `ZDOTDIR` at a generated dir. zsh re-resolves `$ZDOTDIR` before reading each
- * startup file, so our generated `.zshenv`/`.zshrc` can source the user's REAL dotfiles from
- * `PINE_ZDOTDIR_ORIG`, add the hooks, then restore `ZDOTDIR` at the end of `.zshrc` so nested
- * zsh invocations see a normal environment.
- * bash: we pass `--rcfile` pointing at a generated file that sources `~/.bashrc`, then adds
- * a `PROMPT_COMMAND` + `trap DEBUG` pair. `--rcfile` isn't inherited by children, so nested
- * bash shells behave normally without any extra bookkeeping.
- */
+const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
 
-const INTEGRATION_DIR = join(tmpdir(), 'pine-shell-integration')
-
-/**
- * Raw bash text for the zero-width OSC 133;B (prompt-end) mark, wrapped in `\[...\]` so
- * readline excludes it from the prompt's visible-width math. Built with `String.raw` and
- * interpolated as a value (not hand-escaped inline) — a `"`-quoted inline copy previously
- * let bash's double-quote backslash-collapsing eat the closing `\]`, leaking a stray `]`
- * into the prompt and breaking the "already appended" guard (verified against real bash
- * via `${PS1@P}`; single-quoting the literal here is what keeps it byte-exact).
- */
 const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
 
 const ZSH_INIT =
@@ -79,7 +55,7 @@ add-zsh-hook chpwd __pine_osc7
 # \`pine\` CLI (Slice 5): resolves the control-socket client via the absolute path
 # injected as $PINE_CLI (a packaged app would install the bin on PATH instead).
 if [ -n "$PINE_CLI" ]; then
-  pine() { node "$PINE_CLI" "$@"; }
+  pine() { ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" "$@"; }
 fi
 `
 
@@ -146,7 +122,7 @@ trap '__pine_preexec' DEBUG
 # \`pine\` CLI (Slice 5): resolves the control-socket client via the absolute path
 # injected as $PINE_CLI (a packaged app would install the bin on PATH instead).
 if [ -n "$PINE_CLI" ]; then
-  pine() { node "$PINE_CLI" "$@"; }
+  pine() { ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" "$@"; }
 fi
 `
 
@@ -159,7 +135,6 @@ interface IntegrationPaths {
 
 let cached: IntegrationPaths | null = null
 
-/** Write the generated rc/init files once (idempotent, shared across every pty). */
 function ensureFiles(): IntegrationPaths {
   if (cached) return cached
   mkdirSync(INTEGRATION_DIR, { recursive: true })
@@ -169,7 +144,6 @@ function ensureFiles(): IntegrationPaths {
   writeFileSync(zshInit, ZSH_INIT, 'utf8')
   writeFileSync(bashInit, BASH_INIT, 'utf8')
 
-  // ZDOTDIR must point straight at INTEGRATION_DIR — zsh looks for .zshenv/.zshrc there by name.
   const zshenv = join(INTEGRATION_DIR, '.zshenv')
   writeFileSync(
     zshenv,
@@ -215,7 +189,6 @@ function ensureFiles(): IntegrationPaths {
   return cached
 }
 
-/** Extra spawn args + env for `shellPath`, or `{}` for shells we don't integrate with. */
 export function shellIntegrationSpawnOptions(
   shellPath: string,
   baseEnv: NodeJS.ProcessEnv,
@@ -223,7 +196,7 @@ export function shellIntegrationSpawnOptions(
   const name = basename(shellPath).toLowerCase()
 
   if (name === 'zsh') {
-    const { zshRc: _unused } = ensureFiles() // ensure files exist; ZDOTDIR itself points at the dir
+    const { zshRc: _unused } = ensureFiles()
     return {
       args: [],
       env: {
@@ -238,6 +211,5 @@ export function shellIntegrationSpawnOptions(
     return { args: ['--rcfile', bashRc], env: {} }
   }
 
-  // fish, sh, pwsh, etc. — no integration, but the shell still spawns and works normally.
   return { args: [], env: {} }
 }

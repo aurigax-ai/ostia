@@ -1,15 +1,6 @@
 import { vi } from 'vitest'
 import type { PineBridge } from '@shared/types'
 
-/**
- * A fully-typed fake of the preload bridge (`window.pine`). Typed as `PineBridge` so the
- * compiler flags drift the moment the real contract changes — the mock IS the contract's
- * test double. Every method is a `vi.fn()` with a benign default; subscription methods
- * (`onData`/`onExit`/`onMaximizeChange`/`onMessage`) return an unsubscribe `() => {}`
- * because components call it during cleanup.
- *
- * Per-test overrides: `vi.mocked(window.pine.fs.read).mockResolvedValueOnce('...')`.
- */
 export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
   const noopUnsub = () => () => {}
   const base: PineBridge = {
@@ -22,15 +13,12 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       close: vi.fn(),
       isMaximized: vi.fn().mockResolvedValue(false),
       onMaximizeChange: vi.fn(noopUnsub),
-      tearOffPane: vi.fn().mockResolvedValue({ detached: false }),
-      getDetachedPane: vi.fn().mockResolvedValue(null),
     },
     pty: {
       attach: vi.fn().mockResolvedValue({ created: true, buffer: '', cursor: 0, dropped: false }),
       detach: vi.fn(),
       write: vi.fn(),
       resize: vi.fn(),
-      kill: vi.fn(),
       onData: vi.fn(noopUnsub),
       onExit: vi.fn(noopUnsub),
     },
@@ -52,8 +40,6 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     },
     session: {
       save: vi.fn(),
-      // Default to "no previous run" so a component test never restores a surprise workspace;
-      // a restore test overrides with `mockResolvedValueOnce(snapshot)`.
       load: vi.fn().mockResolvedValue(null),
     },
     lifecycle: {

@@ -12,11 +12,11 @@ agent's shell is a pane inside Pine, that pane's environment carries:
 - `PINE_TOKEN` — a per-pane auth token (proves *this* pane, nothing else)
 - `PINE_PANE_ID` — this pane's external id (a UUID — same value `whoami` calls `externalId`)
 - `PINE_WORKSPACE` — the workDir this pane/session was anchored to
-- `PINE_CLI` — (dev builds only) path to the CLI's bundled JS; a shell function
-  `pine() { node "$PINE_CLI" "$@"; }` is injected for bash/zsh panes with shell
-  integration, so the bare `pine` command just works. If `pine` isn't found, check
-  `echo $PINE_CLI` and `type pine`, or invoke it directly: `node "$PINE_CLI" whoami`.
-  (A packaged/installed build ships `pine` on `PATH` directly.)
+- `PINE_CLI` / `PINE_NODE` — the CLI's bundled JS and the app's own Electron binary. A shell
+  function `pine() { ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" "$@"; }` is injected
+  into bash/zsh panes with shell integration, so the bare `pine` command just works (no
+  system Node needed). If `pine` isn't found (fish/sh panes), invoke it directly:
+  `ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" whoami`.
 
 If those env vars are unset, you are not inside a Pine pane — `pine` has nothing to
 dial and every command will fail with "not inside a Pine pane (PINE_SOCKET unset)".

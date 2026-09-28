@@ -7,21 +7,6 @@ import { commands } from '../commands/registry'
 import { useUIStore } from '../stores/uiStore'
 import { CommandPalette } from './CommandPalette'
 
-/**
- * CommandPalette is a cmdk dialog gated by uiStore.paletteOpen. It lists the visible
- * (non-hidden) commands from the registry, grouped by category; cmdk owns the fuzzy
- * filter + keyboard nav, and selecting a row calls the same `commands.exec` the buttons
- * use, then closes the palette.
- *
- * These tests assert REAL behaviour: the closed state mounts nothing, the open dialog lists
- * the visible built-ins (hidden ones excluded), typing filters the rows, and selecting a row
- * runs it through `commands.exec` and closes the palette.
- *
- * Mocking: none beyond the per-test window.pine fake from test/setup.ts (the palette never
- * touches it). commands.exec is spied (vi.spyOn), not module-mocked. Built-ins are registered
- * once in beforeAll — the registry is a module singleton, isolated per test file.
- */
-
 describe('CommandPalette', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
 
@@ -31,16 +16,12 @@ describe('CommandPalette', () => {
   })
 
   afterEach(() => {
-    // Unmount BEFORE resetting the store so a still-mounted tree can't fire stray effects
-    // against about-to-be-restored state/mocks.
     cleanup()
     useUIStore.setState(uiInit, true)
     vi.restoreAllMocks()
   })
 
   it('does not mount the palette dialog while paletteOpen is false', () => {
-    // Default paletteOpen is false — the Base-UI Dialog keeps its content unmounted, so
-    // none of the cmdk surface (dialog / input / rows) is in the document.
     render(<CommandPalette />)
 
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -56,8 +37,6 @@ describe('CommandPalette', () => {
     expect(screen.getByRole('option', { name: /Split Pane Right/ })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /Toggle Sidebar/ })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
-    // `pane.split` is registered hidden — it must not surface as a row (its shortcut id
-    // would be the exact text 'pane.split'; visible splits are 'pane.splitRight/Down').
     expect(screen.queryByText('pane.split')).toBeNull()
   })
 

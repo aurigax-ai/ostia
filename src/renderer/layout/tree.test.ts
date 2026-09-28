@@ -14,6 +14,7 @@ import {
   setPaneCwd,
   setPaneEditor,
   setPaneKind,
+  setPaneUrl,
   setSizes,
   splitOf,
   splitPane,
@@ -22,7 +23,6 @@ import type { LayoutNode } from './types'
 
 beforeEach(() => resetIds())
 
-/** Compact a child to its pane id, or the marker `'split'` for internal nodes. */
 const idOf = (n: LayoutNode): string => (n.type === 'pane' ? n.id : 'split')
 
 describe('splitPane', () => {
@@ -37,8 +37,8 @@ describe('splitPane', () => {
 
   it('inserts a sibling when the parent runs the same direction', () => {
     const root = createPane()
-    const a = splitPane(root, root.id, 'horizontal').root // split[p, p]
-    const b = splitPane(a, firstPaneId(a), 'horizontal').root // same axis -> 3 siblings
+    const a = splitPane(root, root.id, 'horizontal').root
+    const b = splitPane(a, firstPaneId(a), 'horizontal').root
     expect(b.type).toBe('split')
     if (b.type === 'split') {
       expect(b.children.every((c) => c.type === 'pane')).toBe(true)
@@ -50,7 +50,7 @@ describe('splitPane', () => {
   it('nests a new split when the direction differs', () => {
     const root = createPane()
     const a = splitPane(root, root.id, 'horizontal').root
-    const b = splitPane(a, firstPaneId(a), 'vertical').root // cross axis -> nested split
+    const b = splitPane(a, firstPaneId(a), 'vertical').root
     expect(b.type).toBe('split')
     if (b.type === 'split') {
       expect(b.children[0].type).toBe('split')
@@ -83,9 +83,9 @@ describe('closePane', () => {
   it('prunes nested splits and collapses upward', () => {
     const root = createPane()
     const a = splitPane(root, root.id, 'horizontal').root
-    const { root: b, newPaneId } = splitPane(a, firstPaneId(a), 'vertical') // nested
+    const { root: b, newPaneId } = splitPane(a, firstPaneId(a), 'vertical')
     expect(paneIds(b)).toHaveLength(3)
-    const c = closePane(b, newPaneId as string) // remove nested sibling
+    const c = closePane(b, newPaneId as string)
     expect(paneIds(c)).toHaveLength(2)
     expect(c.type).toBe('split')
     if (c.type === 'split') {
@@ -106,7 +106,6 @@ describe('movePane', () => {
     const root = createPane()
     const { root: split, newPaneId } = splitPane(root, root.id, 'horizontal')
     const firstId = firstPaneId(split)
-    // Move the new pane to the bottom of the first → a vertical split [first, new].
     const moved = movePane(split, newPaneId as string, firstId, 'bottom')
     expect(moved.type).toBe('split')
     if (moved.type === 'split') {
@@ -136,7 +135,7 @@ describe('movePane', () => {
   it('keeps every pane when relocating within a 3-pane tree', () => {
     const root = createPane()
     const a = splitPane(root, root.id, 'horizontal').root
-    const { root: b } = splitPane(a, firstPaneId(a), 'vertical') // 3 panes, nested
+    const { root: b } = splitPane(a, firstPaneId(a), 'vertical')
     const ids = paneIds(b)
     const moved = movePane(b, ids[2], ids[0], 'right')
     expect(paneIds(moved).sort()).toEqual([...ids].sort())
@@ -176,6 +175,38 @@ describe('setPaneCwd', () => {
   it('returns the same lone root pane when the id does not match', () => {
     const root = createPane()
     expect(setPaneCwd(root, 'ghost', '/x')).toBe(root)
+  })
+
+  it('returns the identical tree when the cwd is unchanged', () => {
+    const a = createPane('terminal', undefined, '/work')
+    const b = createPane('terminal', undefined, '/home')
+    const root = splitOf('horizontal', a, splitOf('vertical', b, createPane()))
+    expect(setPaneCwd(root, b.id, '/home')).toBe(root)
+  })
+
+  it('keeps untouched subtrees referentially identical when one cwd changes', () => {
+    const a = createPane()
+    const inner = splitOf('vertical', createPane(), createPane())
+    const root = splitOf('horizontal', a, inner)
+    const next = setPaneCwd(root, a.id, '/x')
+    expect(next).not.toBe(root)
+    expect(next.type === 'split' && next.children[1]).toBe(inner)
+  })
+})
+
+describe('setPaneUrl', () => {
+  it('updates the url of the matching pane and keeps its title', () => {
+    const pane = createPane('browser', 'example.com')
+    const root = splitOf('horizontal', createPane(), pane)
+    const next = setPaneUrl(root, pane.id, 'https://example.com/next')
+    expect(findPane(next, pane.id)?.url).toBe('https://example.com/next')
+    expect(findPane(next, pane.id)?.title).toBe('example.com')
+  })
+
+  it('returns the identical tree when the url is unchanged', () => {
+    const pane = { ...createPane('browser'), url: 'https://a.test/' }
+    const root = splitOf('horizontal', createPane(), pane)
+    expect(setPaneUrl(root, pane.id, 'https://a.test/')).toBe(root)
   })
 })
 
@@ -243,6 +274,12 @@ describe('setPaneEditor', () => {
     const next = setPaneEditor(root, root.id, 'notes.txt', '/notes.txt')
     const pane = findPane(next, root.id)
     expect(pane?.kind).toBe('editor')
+    expect(pane?.cwd).toBe('/')
+  })
+
+  it('falls back to root cwd for a bare file name with no slash', () => {
+    const root = createPane('terminal')
+    const pane = findPane(setPaneEditor(root, root.id, 'notes.txt', 'notes.txt'), root.id)
     expect(pane?.cwd).toBe('/')
   })
 
@@ -466,23 +503,12 @@ describe('movePane (edge zones on wider trees)', () => {
   })
 })
 
-// Defensive `?? 1` / empty-split guards are reachable only through a malformed
-// tree (a sizes array out of sync with children, or a childless split), which
-// `setSizes`/`splitOf` let us construct. These document that the transforms stay
-// robust instead of crashing.
-//
-// Three guard branches remain genuinely unreachable via the public API:
-//  - insertSibling `root.id !== targetId` (tree.ts:188) and swapPanes `!a || !b`
-//    (tree.ts:220): both sit behind movePane's source/target existence checks.
-//  - insertSibling's `sizes[idx] ?? 1` (tree.ts:198): movePane always runs
-//    closePane first, which rebuilds every split's sizes to exactly one entry per
-//    kept child, so insertSibling never receives a short sizes array.
 describe('malformed-tree robustness (defensive guards)', () => {
   it('splitPane tolerates a too-short sizes array, keeping sizes aligned to children', () => {
     const a = createPane()
     const b = createPane()
     let root: LayoutNode = splitOf('horizontal', a, b)
-    root = setSizes(root, root.id, [1]) // drop b's size entry → sizes[idx] is undefined
+    root = setSizes(root, root.id, [1])
     const { root: next, newPaneId } = splitPane(root, b.id, 'horizontal')
     expect(newPaneId).not.toBeNull()
     expect(next.type).toBe('split')
@@ -498,7 +524,7 @@ describe('malformed-tree robustness (defensive guards)', () => {
     const b = createPane()
     const c = createPane()
     let root: LayoutNode = splitOf('horizontal', a, b, c)
-    root = setSizes(root, root.id, [1, 1]) // drop c's size entry → sizes[i] is undefined
+    root = setSizes(root, root.id, [1, 1])
     const closed = closePane(root, a.id)
     expect(closed.type).toBe('split')
     if (closed.type === 'split') {
@@ -519,9 +545,6 @@ describe('malformed-tree robustness (defensive guards)', () => {
 
 describe('adoptIds', () => {
   it('advances the counter past a restored id so the next pane cannot collide', () => {
-    // A restored tree carries ids minted by a PREVIOUS run, while the counter starts at 0
-    // each launch — without adoption the next `createPane()` would hand out `pane-1` a
-    // second time, and main keys ptys by pane id (two panes, one shell).
     adoptIds({ type: 'pane', id: 'pane-7', title: 'zsh', kind: 'terminal' })
     expect(createPane().id).toBe('pane-8')
   })
@@ -549,8 +572,8 @@ describe('adoptIds', () => {
   })
 
   it('never rewinds the counter', () => {
-    createPane() // pane-1
-    createPane() // pane-2
+    createPane()
+    createPane()
     adoptIds({ type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal' })
     expect(createPane().id).toBe('pane-3')
   })

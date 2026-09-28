@@ -1,10 +1,6 @@
 import { en, zhHant } from '../i18n/dict'
 import type { PluginManifest, Theme } from './types'
 
-/**
- * Built-in themes. Each is a full set of --color-* primitive overrides; the semantic
- * tokens in index.css reference these, so overriding the palette re-themes everything.
- */
 const adeberry: Theme = {
   id: 'adeberry',
   name: 'Adeberry',
@@ -18,16 +14,14 @@ const adeberry: Theme = {
     line: 'rgba(255, 255, 255, 0.07)',
     'line-strong': 'rgba(255, 255, 255, 0.13)',
     fg: '#e3edf5',
-    'fg-muted': '#7f868a',
-    'fg-dim': '#5c6266',
+    'fg-muted': '#9aa1a5',
+    'fg-dim': '#767d82',
     brand: '#00d8ff',
-    // Warp's own bundled preview asset doesn't give a distinct "bright accent" — reuse the
-    // theme's own sampled brightCyan (terminalTheme.ts), a lighter tint from the same cyan
-    // family as the accent, rather than inventing an unrelated shade.
     'brand-bright': '#6cfcf9',
     'brand-glow': 'rgba(0, 216, 255, 0.18)',
     attn: '#bf5f54',
     'attn-glow': 'rgba(191, 95, 84, 0.2)',
+    'attn-fg': '#db8176',
     ok: '#58c98c',
     add: '#58c98c',
     del: '#bf5f54',
@@ -48,12 +42,13 @@ const oneDarkVivid: Theme = {
     'line-strong': 'rgba(255, 255, 255, 0.13)',
     fg: '#d7dae0',
     'fg-muted': '#9aa2b1',
-    'fg-dim': '#636d83',
+    'fg-dim': '#6e778c',
     brand: '#61afef',
     'brand-bright': '#82c7ff',
     'brand-glow': 'rgba(97, 175, 239, 0.18)',
     attn: '#ef596f',
     'attn-glow': 'rgba(239, 89, 111, 0.2)',
+    'attn-fg': '#f27789',
     ok: '#89ca78',
     add: '#89ca78',
     del: '#ef596f',
@@ -74,12 +69,13 @@ const instrumentNight: Theme = {
     'line-strong': 'rgba(255, 255, 255, 0.15)',
     fg: '#e7e9f0',
     'fg-muted': '#8b91a4',
-    'fg-dim': '#565d72',
+    'fg-dim': '#5d6378',
     brand: '#f2b347',
     'brand-bright': '#ffc874',
     'brand-glow': 'rgba(242, 179, 71, 0.16)',
     attn: '#ff6b5e',
     'attn-glow': 'rgba(255, 107, 94, 0.18)',
+    'attn-fg': '#ff6b5e',
     ok: '#5bd6a0',
     add: '#3fb950',
     del: '#f85149',
@@ -100,12 +96,13 @@ const dracula: Theme = {
     'line-strong': 'rgba(255, 255, 255, 0.14)',
     fg: '#f8f8f2',
     'fg-muted': '#b9bcca',
-    'fg-dim': '#6272a4',
+    'fg-dim': '#6a79a9',
     brand: '#bd93f9',
     'brand-bright': '#d6b3ff',
     'brand-glow': 'rgba(189, 147, 249, 0.18)',
     attn: '#ff5555',
     'attn-glow': 'rgba(255, 85, 85, 0.2)',
+    'attn-fg': '#ff7878',
     ok: '#50fa7b',
     add: '#50fa7b',
     del: '#ff5555',
@@ -126,23 +123,19 @@ const oxocarbon: Theme = {
     'line-strong': 'rgba(255, 255, 255, 0.16)',
     fg: '#f2f4f8',
     'fg-muted': '#a8a8a8',
-    'fg-dim': '#525252',
+    'fg-dim': '#696969',
     brand: '#be95ff',
     'brand-bright': '#d4b8ff',
     'brand-glow': 'rgba(190, 149, 255, 0.18)',
     attn: '#ee5396',
     'attn-glow': 'rgba(238, 83, 150, 0.2)',
+    'attn-fg': '#ee5698',
     ok: '#42be65',
     add: '#42be65',
     del: '#ee5396',
   },
 }
 
-/**
- * Built-in plugins — the same contribution mechanism third-party plugins will use. The
- * Themes plugin contributes the color themes; the Language Servers plugin is the umbrella
- * for the servers spawned by main (status is merged in from `lsp:list` at runtime).
- */
 export const BUILTIN_PLUGINS: PluginManifest[] = [
   {
     id: 'pine.themes',

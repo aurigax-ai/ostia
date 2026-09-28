@@ -17,7 +17,6 @@ import {
   trimScrollback,
 } from './sessionSnapshot'
 
-/** A minimal valid snapshot: one session, one terminal pane. */
 function snap(overrides?: Partial<WorkspaceSnapshot>): WorkspaceSnapshot {
   return {
     v: 1,
@@ -37,7 +36,6 @@ function snap(overrides?: Partial<WorkspaceSnapshot>): WorkspaceSnapshot {
   }
 }
 
-/** A split of two terminal panes, for tree-shaped cases. */
 function split(aId: string, bId: string): SnapshotNode {
   return {
     type: 'split',
@@ -54,8 +52,6 @@ function split(aId: string, bId: string): SnapshotNode {
 let dataDir: string
 
 beforeEach(() => {
-  // storePath() resolves XDG_DATA_HOME at call time, so pointing it at a temp dir gives
-  // every test its own real on-disk store — no fs mocking needed.
   dataDir = mkdtempSync(join(tmpdir(), 'pine-snapshot-test-'))
   vi.stubEnv('XDG_DATA_HOME', dataDir)
   loadRestoredScrollback()
@@ -104,7 +100,6 @@ describe('parseSnapshot', () => {
   })
 
   it('drops a session that reuses a pane id already claimed by another session', () => {
-    // Pane ids key the pty map in main — two panes sharing one id would share one shell.
     const dup = snap({
       sessions: [
         ...snap().sessions,
@@ -246,8 +241,6 @@ describe('trimScrollback', () => {
     const data = `${'A'.repeat(50)}\x1b[31m${'B'.repeat(50)}`
     const trimmed = trimScrollback(data, 60)
     expect(trimmed.length).toBeLessThanOrEqual(60)
-    // Cut landed ON the ESC, so the sequence replays whole — a fragment like `[31m` would
-    // print as literal text and corrupt xterm's parser (see ptyRingBuffer's trim rationale).
     expect(trimmed.startsWith('\x1b[31m')).toBe(true)
   })
 
@@ -268,8 +261,6 @@ describe('saveScrollback / takeRestoredScrollback', () => {
     saveScrollback({ 'pane-1': 'last output' })
     loadRestoredScrollback()
     expect(takeRestoredScrollback('pane-1')).toBe('last output')
-    // A pane id can be handed out again after a restore; the second shell must not
-    // re-inherit the first one's history.
     expect(takeRestoredScrollback('pane-1')).toBeNull()
   })
 

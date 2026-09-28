@@ -1,21 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
 
-/**
- * Regression: narrowing a pane (split/resize) must not duplicate the shell prompt.
- *
- * The bug: the prompt line effectively spans the full width (right-aligned RPROMPT at the
- * last column), so when a split narrows the pane, xterm's reflow wraps the OLD prompt line
- * into extra rows; the shell's SIGWINCH redraw only clears from the row it believes the
- * prompt starts on, stranding the wrapped rows above — 1 real prompt became 3 lines, and
- * every further resize added more. Fix (kitty/warp-style, `Terminal.tsx`): while sitting at
- * an OSC-133 prompt, erase the prompt region before applying the resize, so the shell's
- * redraw repaints ONE fresh prompt and reflow has nothing to strand.
- *
- * Note: this reproduces meaningfully only when the shell draws a prompt (zsh/bash with
- * integration). With a prompt-less/foreign shell the count is 0 or 1 either way, so the
- * assertion still holds — the test never false-fails, it just loses its teeth.
- */
 test('splitting a pane does not duplicate the existing prompt', async () => {
   test.setTimeout(60_000)
   const app = await electron.launch(isolatedLaunch())
@@ -25,7 +10,6 @@ test('splitting a pane does not duplicate the existing prompt', async () => {
     const leftRows = win.locator('.xterm-rows').first()
     await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
     await expect(leftRows).toContainText(/[❯$%#]/, { timeout: 15_000 })
-    // Let async prompt segments (p10k battery/clock) finish their first paint.
     await win.waitForTimeout(2_000)
 
     const countPrompts = async (): Promise<number> => {
@@ -34,12 +18,9 @@ test('splitting a pane does not duplicate the existing prompt', async () => {
     }
     expect(await countPrompts()).toBe(1)
 
-    // Split right — narrows the existing left pane, forcing a pty resize + prompt redraw.
-    await win.locator('.pane.active .pane-actions .iconbtn').first().click()
+    await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
 
-    // Sample over several seconds: the count must STAY 1 (the bug minted strands at resize
-    // time; later samples also catch any slow periodic-redraw drift).
     let elapsed = 0
     for (const t of [500, 2000, 4000]) {
       await win.waitForTimeout(t - elapsed)
@@ -47,11 +28,52 @@ test('splitting a pane does not duplicate the existing prompt', async () => {
       expect(await countPrompts(), `prompt lines ${t}ms after split`).toBe(1)
     }
 
-    // The shell must still be live at the right size: run a command in the narrowed pane.
     await win.locator('.xterm').first().click()
     await win.keyboard.type('echo pine_resize_$((40+2))')
     await win.keyboard.press('Enter')
     await expect(leftRows).toContainText('pine_resize_42', { timeout: 15_000 })
+  } finally {
+    await app.close()
+  }
+})
+
+test('drag-resizing the window keeps command output and a single prompt', async () => {
+  test.setTimeout(90_000)
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    const rows = win.locator('.xterm-rows').first()
+    await expect(rows).toContainText(/[❯$%#]/, { timeout: 15_000 })
+    await win.waitForTimeout(2_000)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type("printf 'pine_out_%s\\n' 1 2 3")
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('pine_out_3', { timeout: 15_000 })
+    await win.waitForTimeout(1_000)
+
+    const promptLines = async (): Promise<number> =>
+      (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
+    const before = await promptLines()
+
+    const setWidth = (w: number) =>
+      app.evaluate(({ BrowserWindow }, width) => {
+        const b = BrowserWindow.getAllWindows()[0]
+        b.setSize(width, b.getSize()[1])
+      }, w)
+    const widths: number[] = []
+    for (let w = 1400; w >= 700; w -= 25) widths.push(w)
+    for (let w = 700; w <= 1400; w += 25) widths.push(w)
+    for (let i = 0; i < 20; i++) widths.push(i % 2 ? 900 : 1100)
+    for (const w of widths) {
+      await setWidth(w)
+      await win.waitForTimeout(16)
+    }
+    await win.waitForTimeout(2_000)
+
+    const text = await rows.innerText()
+    for (const n of [1, 2, 3]) expect(text).toContain(`pine_out_${n}`)
+    expect(await promptLines()).toBe(before)
   } finally {
     await app.close()
   }

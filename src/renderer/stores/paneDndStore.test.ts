@@ -2,25 +2,16 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { DropZone } from '../layout/tree'
 import { usePaneDnd } from './paneDndStore'
 
-/**
- * paneDndStore holds the transient pane drag-and-drop state: `overId` (the pane the
- * drag is hovering) and `zone` (which edge/center the dragged pane would land on).
- * It has exactly two actions — `setOver(overId, zone)` sets both, `reset()` clears both
- * back to idle. No window.pine, no cross-store deps, so nothing to mock here.
- */
-
 const get = () => usePaneDnd.getState()
 
 describe('paneDndStore', () => {
   let init: ReturnType<typeof usePaneDnd.getState>
 
   beforeAll(() => {
-    // Snapshot pristine state (data + stable action fns) before any test mutates.
     init = usePaneDnd.getState()
   })
 
   afterEach(() => {
-    // Restore to pristine (replace, not merge) so drag state never bleeds across tests.
     usePaneDnd.setState(init, true)
   })
 

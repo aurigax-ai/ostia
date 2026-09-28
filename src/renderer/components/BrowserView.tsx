@@ -1,65 +1,90 @@
 import type { WebviewTag } from 'electron'
 import { ArrowLeft, ArrowRight, RotateCw } from 'lucide-react'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { useDict } from '../i18n/useDict'
+import { useLayoutStore } from '../stores/layoutStore'
+import { IconButton } from './IconButton'
 
-/** Bare hostnames/paths (no scheme) get an assumed `https://`; anything else falls back to a
- *  search. Good enough for Stage 1 (rendering only) — no omnibox heuristics beyond this. */
 function resolveAddress(input: string): string {
   const trimmed = input.trim()
   if (!trimmed) return 'about:blank'
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed // already has a scheme
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed
   if (!trimmed.includes(' ') && trimmed.includes('.')) return `https://${trimmed}`
   return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`
 }
 
-/**
- * The in-app browser surface: an Electron `<webview>` (its own isolated guest process +
- * partition — no nodeIntegration on the guest) with a minimal chrome bar (back / forward /
- * reload / address). Stage 1 was rendering-only; Stage 2 registers the guest's webContents
- * with main (`window.pine.browser.register`) on `dom-ready` so the `pine browse ...` CLI can
- * drive it — see `src/main/browse.ts`.
- */
-export function BrowserView({ paneId, url }: { paneId: string; url?: string }): JSX.Element {
+export function BrowserView({
+  sessionId,
+  paneId,
+  url,
+}: {
+  sessionId: string
+  paneId: string
+  url?: string
+}): JSX.Element {
+  const d = useDict()
   const webviewRef = useRef<HTMLElement | null>(null)
   const startUrl = useRef(url || 'about:blank')
-  // The last url we've already applied (via the initial `src` or an imperative loadURL) —
-  // lets the effect below tell "the pane's url prop changed" apart from "we just mounted".
   const lastAppliedUrlRef = useRef(startUrl.current)
+  const readyRef = useRef(false)
+  const pendingUrlRef = useRef<string | null>(null)
   const [address, setAddress] = useState(startUrl.current)
   const [canGoBack, setCanGoBack] = useState(false)
   const [canGoForward, setCanGoForward] = useState(false)
 
-  // Stable identity (only reads the ref, which never itself changes) so it's a safe,
-  // exhaustive dependency for the effects below.
-  const tag = useCallback(
-    (): WebviewTag | null => webviewRef.current as unknown as WebviewTag | null,
-    [],
+  const withGuest = useCallback((fn: (wv: WebviewTag) => void): boolean => {
+    const wv = webviewRef.current as unknown as WebviewTag | null
+    if (!wv || !readyRef.current) return false
+    try {
+      fn(wv)
+      return true
+    } catch {
+      readyRef.current = false
+      return false
+    }
+  }, [])
+
+  const load = useCallback(
+    (next: string): void => {
+      const ok = withGuest((wv) => {
+        wv.loadURL(next).catch(() => undefined)
+      })
+      pendingUrlRef.current = ok ? null : next
+    },
+    [withGuest],
   )
 
-  // Mount-once surface: a "reuse this browser pane" navigation (browser.new targeting an
-  // already-open browser pane) arrives here as a new `url` prop on the SAME long-lived
-  // instance — re-drive the existing guest instead of relying on the (mount-only) `src` attr.
   useEffect(() => {
     if (url === undefined || url === lastAppliedUrlRef.current) return
     lastAppliedUrlRef.current = url
     setAddress(url)
-    tag()?.loadURL(url)
-  }, [url, tag])
+    load(url)
+  }, [url, load])
 
-  // Keep the chrome bar (address + back/forward state) in sync with the guest page.
   useEffect(() => {
     const el = webviewRef.current
     if (!el) return
 
     const syncNavState = (): void => {
-      const wv = tag()
-      setCanGoBack(wv?.canGoBack() ?? false)
-      setCanGoForward(wv?.canGoForward() ?? false)
+      const ok = withGuest((wv) => {
+        setCanGoBack(wv.canGoBack())
+        setCanGoForward(wv.canGoForward())
+      })
+      if (!ok) {
+        setCanGoBack(false)
+        setCanGoForward(false)
+      }
     }
     const onNavigate = (e: Event): void => {
-      const { url: navigatedUrl } = e as unknown as { url: string }
+      const { url: navigatedUrl, isMainFrame } = e as unknown as {
+        url: string
+        isMainFrame?: boolean
+      }
+      if (isMainFrame === false) return
       setAddress(navigatedUrl)
       syncNavState()
+      lastAppliedUrlRef.current = navigatedUrl
+      useLayoutStore.getState().setUrl(sessionId, paneId, navigatedUrl)
     }
     const onFailLoad = (e: Event): void => {
       const failed = e as unknown as {
@@ -67,7 +92,7 @@ export function BrowserView({ paneId, url }: { paneId: string; url?: string }): 
         validatedURL: string
         isMainFrame: boolean
       }
-      if (failed.errorCode === -3 || !failed.isMainFrame) return // ERR_ABORTED / sub-frame — ignore
+      if (failed.errorCode === -3 || !failed.isMainFrame) return
       setAddress(failed.validatedURL)
       syncNavState()
     }
@@ -80,31 +105,29 @@ export function BrowserView({ paneId, url }: { paneId: string; url?: string }): 
       el.removeEventListener('did-navigate-in-page', onNavigate)
       el.removeEventListener('did-fail-load', onFailLoad)
     }
-  }, [tag])
+  }, [sessionId, paneId, withGuest])
 
-  // Hand the guest's webContents id to main once it exists (`dom-ready`) so the `pine browse
-  // ...` CLI can drive it (Stage 2, `src/main/browse.ts`); drop the registration on unmount
-  // (pane closed) so main never holds a stale id. Re-fires (idempotently) on every
-  // navigation's `dom-ready` — the guest's webContents id never changes across those.
   useEffect(() => {
     const el = webviewRef.current
     if (!el) return
     const onDomReady = (): void => {
-      const wv = tag()
-      if (wv) window.pine?.browser?.register?.(paneId, wv.getWebContentsId())
+      readyRef.current = true
+      withGuest((wv) => window.pine?.browser?.register?.(paneId, wv.getWebContentsId()))
+      const pending = pendingUrlRef.current
+      if (pending) load(pending)
     }
     el.addEventListener('dom-ready', onDomReady)
     return () => {
       el.removeEventListener('dom-ready', onDomReady)
       window.pine?.browser?.unregister?.(paneId)
     }
-  }, [paneId, tag])
+  }, [paneId, withGuest, load])
 
   const navigate = (raw: string): void => {
     const next = resolveAddress(raw)
     lastAppliedUrlRef.current = next
     setAddress(next)
-    tag()?.loadURL(next)
+    load(next)
   }
 
   const onAddressKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
@@ -114,27 +137,26 @@ export function BrowserView({ paneId, url }: { paneId: string; url?: string }): 
   return (
     <div className="browser-surface">
       <div className="browser-toolbar">
-        <button
-          type="button"
-          className="iconbtn"
+        <IconButton
+          icon={ArrowLeft}
+          label={d.browser.back}
           disabled={!canGoBack}
-          onClick={() => tag()?.goBack()}
-        >
-          <ArrowLeft size={14} />
-        </button>
-        <button
-          type="button"
-          className="iconbtn"
+          onClick={() => withGuest((wv) => wv.goBack())}
+        />
+        <IconButton
+          icon={ArrowRight}
+          label={d.browser.forward}
           disabled={!canGoForward}
-          onClick={() => tag()?.goForward()}
-        >
-          <ArrowRight size={14} />
-        </button>
-        <button type="button" className="iconbtn" onClick={() => tag()?.reload()}>
-          <RotateCw size={14} />
-        </button>
+          onClick={() => withGuest((wv) => wv.goForward())}
+        />
+        <IconButton
+          icon={RotateCw}
+          label={d.browser.reload}
+          onClick={() => withGuest((wv) => wv.reload())}
+        />
         <input
           className="browser-address"
+          aria-label={d.browser.address}
           value={address}
           spellCheck={false}
           onChange={(e) => setAddress(e.target.value)}
@@ -147,9 +169,6 @@ export function BrowserView({ paneId, url }: { paneId: string; url?: string }): 
         }}
         className="browser-webview"
         src={startUrl.current}
-        // Per-pane, in-memory (non-`persist:`) partition — sharing one `persist:pine-browser`
-        // partition across every browser pane/session leaked cookies/storage between them.
-        // Each pane gets its own isolated, ephemeral guest storage instead.
         partition={`pine-browser-${paneId}`}
       />
     </div>

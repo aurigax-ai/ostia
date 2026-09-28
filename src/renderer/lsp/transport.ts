@@ -8,7 +8,6 @@ import {
   type MessageWriter,
 } from 'vscode-jsonrpc'
 
-/** Reads LSP messages forwarded from main over `window.pine.lsp.onMessage`. */
 export class IpcReader extends AbstractMessageReader implements MessageReader {
   private off: () => void = () => {}
   constructor(private readonly id: string) {
@@ -20,7 +19,6 @@ export class IpcReader extends AbstractMessageReader implements MessageReader {
   }
 }
 
-/** Writes LSP messages to main, which frames them onto the server's stdin. */
 export class IpcWriter extends AbstractMessageWriter implements MessageWriter {
   constructor(private readonly id: string) {
     super()

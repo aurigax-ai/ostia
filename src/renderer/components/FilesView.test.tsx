@@ -8,24 +8,8 @@ import { type Session, useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { FilesView } from './FilesView'
 
-/**
- * FilesView is the sidebar file explorer. It derives the cwd from the FOCUSED pane
- * (layoutStore) falling back to the session workDir anchor (sessionsStore), lazily lists
- * each directory over the `window.pine.fs.list` bridge, hides dotfiles per
- * settingsStore.behavior.showHiddenFiles, and — on a row click — either expands a
- * directory in place or opens a file via `useLayoutStore.getState().openFile`.
- *
- * These tests assert the REAL wiring end to end: the bridge is called for the right path,
- * the returned entries render as accessible buttons, and clicks reach the store actions.
- *
- * Mocking: only `window.pine.fs.list` (already a vi.fn from test/setup.ts's per-test
- * `window.pine` fake). No module mocks are needed — FilesView pulls in no Monaco/xterm/
- * allotment; useDict/fileIcon/lucide all render under jsdom untouched.
- */
-
 const CWD = '/home/me/project'
 
-/** Seed an active session + a focused pane whose cwd is `paneCwd` (defaults to the anchor). */
 function seedWorkspace(anchor = CWD, paneCwd?: string): void {
   const session: Session = {
     id: 's1',
@@ -35,7 +19,6 @@ function seedWorkspace(anchor = CWD, paneCwd?: string): void {
     state: 'idle',
   }
   useSessionsStore.setState({ sessions: [session], activeSessionId: 's1' })
-  // ensure() reads the session workDir into the new pane's cwd.
   useLayoutStore.getState().ensure('s1')
   if (paneCwd !== undefined) {
     const paneId = useLayoutStore.getState().bySession.s1.activePaneId
@@ -43,12 +26,10 @@ function seedWorkspace(anchor = CWD, paneCwd?: string): void {
   }
 }
 
-/** The id of the (single) focused pane in the seeded session. */
 function focusedPaneId(): string {
   return useLayoutStore.getState().bySession.s1.activePaneId
 }
 
-/** Point the fs.list bridge at a fixed listing for the focused cwd. */
 function listReturns(entries: { name: string; dir: boolean }[]): void {
   vi.mocked(window.pine.fs.list).mockResolvedValue(entries)
 }
@@ -59,17 +40,13 @@ describe('FilesView', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
   beforeAll(() => {
-    // Snapshot pristine store state (data + stable action fns) before any test mutates it.
     sessionsInit = useSessionsStore.getState()
     layoutInit = useLayoutStore.getState()
     settingsInit = useSettingsStore.getState()
   })
 
   afterEach(() => {
-    // Unmount BEFORE touching the stores: a still-mounted tree would re-render on reset
-    // and fire a stray fs.list against the about-to-be-restored bridge mock.
     cleanup()
-    // Replace (not merge) so seeded panes/sessions/settings never bleed between tests.
     useSessionsStore.setState(sessionsInit, true)
     useLayoutStore.setState(layoutInit, true)
     useSettingsStore.setState(settingsInit, true)
@@ -85,13 +62,11 @@ describe('FilesView', () => {
 
     render(<FilesView />)
 
-    // Both a directory and a file entry render (they arrive after the fs.list promise).
     expect(await screen.findByRole('button', { name: 'src' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'index.ts' })).toBeInTheDocument()
   })
 
   it('requests the listing for the focused pane cwd, not the session anchor', async () => {
-    // Anchor differs from the pane cwd — the explorer must follow the pane.
     seedWorkspace('/home/me/project', '/var/log')
     listReturns([{ name: 'syslog', dir: false }])
 
@@ -117,19 +92,17 @@ describe('FilesView', () => {
 
     expect(await screen.findByRole('button', { name: 'elsewhere.ts' })).toBeInTheDocument()
     expect(window.pine.fs.list).toHaveBeenCalledWith('/elsewhere')
-    // The tree is keyed by cwd, so the stale listing is dropped (not merged).
     expect(screen.queryByRole('button', { name: 'here.ts' })).not.toBeInTheDocument()
   })
 
   it('falls back to the session workDir anchor when the focused pane has no cwd', async () => {
-    // A pane with cwd === undefined exercises useFocusedCwd's `findPane(...).cwd ?? anchor`.
     useSessionsStore.setState({
       sessions: [
         { id: 's1', name: 'anchor', kind: 'terminal', workDir: '/anchor/dir', state: 'idle' },
       ],
       activeSessionId: 's1',
     })
-    const pane = createPane('terminal') // createPane with no cwd arg → cwd is undefined
+    const pane = createPane('terminal')
     useLayoutStore.setState({
       bySession: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
     })
@@ -174,7 +147,6 @@ describe('FilesView', () => {
 
     render(<FilesView />)
     const dirRow = await screen.findByRole('button', { name: 'src' })
-    // Child is not listed until the directory is expanded.
     expect(screen.queryByRole('button', { name: 'app.ts' })).not.toBeInTheDocument()
 
     await userEvent.setup().click(dirRow)
@@ -195,10 +167,10 @@ describe('FilesView', () => {
     render(<FilesView />)
     const dirRow = await screen.findByRole('button', { name: 'src' })
 
-    await user.click(dirRow) // expand
+    await user.click(dirRow)
     expect(await screen.findByRole('button', { name: 'app.ts' })).toBeInTheDocument()
 
-    await user.click(dirRow) // collapse
+    await user.click(dirRow)
     expect(screen.queryByRole('button', { name: 'app.ts' })).not.toBeInTheDocument()
   })
 
@@ -217,9 +189,6 @@ describe('FilesView', () => {
   })
 
   it('live-toggles dotfile visibility when showHiddenFiles changes (subscribes to settings)', async () => {
-    // Start with dotfiles shown, then flip the setting AFTER render — proves Dir subscribes
-    // live to the store rather than reading it once. (Guards against a false-green where the
-    // filter is only correct because the setting was fixed before the first render.)
     seedWorkspace(CWD)
     useSettingsStore.setState((s) => ({ behavior: { ...s.behavior, showHiddenFiles: true } }))
     listReturns([
@@ -235,7 +204,6 @@ describe('FilesView', () => {
     })
 
     expect(screen.queryByRole('button', { name: '.env' })).not.toBeInTheDocument()
-    // The non-hidden entry stays put (no re-list, just a re-filter).
     expect(screen.getByRole('button', { name: 'visible.ts' })).toBeInTheDocument()
   })
 
@@ -245,7 +213,6 @@ describe('FilesView', () => {
 
     render(<FilesView />)
 
-    // i18n string from the English catalog (rail.noFolder).
     expect(await screen.findByText('No folder open')).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
@@ -256,11 +223,10 @@ describe('FilesView', () => {
 
     render(<FilesView />)
 
-    // Breadcrumb: the container is titled with the full cwd, last segment is shown.
-    expect(screen.getByTitle(CWD)).toBeInTheDocument()
-    expect(screen.getByText('project')).toBeInTheDocument()
+    const current = screen.getByText('project')
+    await userEvent.setup().hover(current)
+    expect(await screen.findByText(CWD, {}, { timeout: 3000 })).toBeInTheDocument()
 
-    // Entries are real <button>s named by their filename — reachable by role, not test-id.
     const row = await screen.findByRole('button', { name: 'src' })
     expect(row.tagName).toBe('BUTTON')
   })
