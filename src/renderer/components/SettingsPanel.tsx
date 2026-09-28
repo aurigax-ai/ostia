@@ -27,6 +27,9 @@ import {
   CURSOR_STYLES,
   type CursorStyle,
   type FontSurface,
+  MOTION_MODES,
+  type MotionMode,
+  motionMode,
   useSettingsStore,
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
@@ -243,7 +246,14 @@ function AppearanceSection(): JSX.Element {
   const d = useDict()
   const theme = useSettingsStore((s) => s.appearance.theme)
   const setTheme = useSettingsStore((s) => s.setTheme)
+  const motion = useSettingsStore((s) => s.appearance.motion)
+  const setMotion = useSettingsStore((s) => s.setMotion)
   const themes = usePluginsStore((s) => s.themes)
+  const motionLabel: Record<MotionMode, string> = {
+    system: d.settings.motionSystem,
+    reduced: d.settings.motionReduced,
+    full: d.settings.motionFull,
+  }
   return (
     <section>
       <SectionHead title={d.settings.appearance} />
@@ -253,6 +263,14 @@ function AppearanceSection(): JSX.Element {
           onChange={setTheme}
           label={d.settings.theme}
           options={themes.map((t) => ({ value: t.id, label: t.name }))}
+        />
+      </ControlRow>
+      <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
+        <SelectField
+          value={motionMode(motion)}
+          onChange={setMotion}
+          label={d.settings.motion}
+          options={MOTION_MODES.map((m) => ({ value: m, label: motionLabel[m] }))}
         />
       </ControlRow>
       <Separator />

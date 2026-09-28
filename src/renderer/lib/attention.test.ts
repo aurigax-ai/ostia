@@ -5,6 +5,7 @@ import {
   type PaneAttention,
   aggregateSessionState,
   latestUnread,
+  latestWaitingAt,
   needsRing,
   notificationMessage,
   paneLiveState,
@@ -152,6 +153,19 @@ describe('unreadCount and latestUnread', () => {
   it('picks the most recent unread pane that still exists', () => {
     expect(latestUnread(byPane, ['p1', 'p2', 'p3'])).toBe('p2')
     expect(latestUnread(byPane, ['p3'])).toBeNull()
+  })
+})
+
+describe('latestWaitingAt', () => {
+  it('returns the newest waiting signal time among the given panes, or 0', () => {
+    const byPane = {
+      p1: pane({ state: 'waiting', at: 5 }),
+      p2: pane({ state: 'waiting', at: 9 }),
+      p3: pane({ state: 'error', at: 20 }),
+      gone: pane({ state: 'waiting', at: 99 }),
+    }
+    expect(latestWaitingAt(byPane, ['p1', 'p2', 'p3'])).toBe(9)
+    expect(latestWaitingAt(byPane, ['p3'])).toBe(0)
   })
 })
 

@@ -20,7 +20,7 @@ export default defineWorkspace([
       name: 'dom',
       environment: 'jsdom',
       globals: true,
-      setupFiles: ['./test/setup.ts'],
+      setupFiles: ['./test/domEvents.ts', './test/setup.ts'],
       include: ['src/renderer/**/*.test.{ts,tsx}'],
     },
   },
