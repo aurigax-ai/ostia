@@ -16,9 +16,25 @@ Non-test lines, 2026-09-28:
 | CLI (`src/cli`) | ~1,900 | Mostly verbs for the features above |
 | Renderer components | ~3,200 | Core shell + feature views |
 
-About two thirds of main is features compiled into the core. The plugin system can only contribute
-data (themes, locales, language-server specs), not behavior or UI. That's the thing to fix before
-adding more features.
+About two thirds of main is features compiled into the core. Before phase 3 the plugin system
+could only contribute data (themes, locales, language-server specs), not behavior or UI.
+
+**After phase 3** (extension API v1, kanban + wiki migrated), counted over `src/{main,renderer,cli,shared,preload}`
+without tests or generated `components/ui`:
+
+| | Before | After |
+|---|---|---|
+| Core, all processes | 16,763 | 17,401 |
+| Main process | 6,443 | 7,078 |
+| Kanban/wiki code in core (main modules, two views, CLI verbs, IPC types) | ~1,360 | 0 |
+| Extension host in core (`extensionHost/Manifest/Store.ts`, `shared/extensions.ts`) | 0 | ~1,070 |
+| Extension UI in core (panel surface, approval dialog, Settings list, sidebar items, command bridge) | 0 | ~560 |
+| `src/extensions/` (SDK + kanban + wiki, outside core) | 0 | ~1,350 TS |
+
+Core lost the kanban/wiki code and both views, but the host and its UI cost more than the two
+features did, so core is ~640 lines larger overall. That's the one-time price of the API; each
+further feature that moves out (vault, bus, processes, browser automation, gateway) is now a pure
+reduction.
 
 ## 2. Architecture: three rings
 
@@ -62,8 +78,15 @@ automatically scriptable by agents. It's also how cmux's socket API and kitty's 
 The cost is latency on UI-heavy features, which the panel surface avoids by running its UI in the
 webview instead of round-tripping every render.
 
-**First proof:** move kanban and wiki out of core onto this API. If they fit cleanly, the API is
-right; core loses ~1,000 lines and two views.
+**First proof (done):** kanban and wiki moved out of core onto this API with no special case in
+core. Their data logic runs in their own processes, their UI is a panel served by that process,
+and `pine kanban …` / `pine wiki …` still work because the CLI forwards any unknown bare verb to
+the extension of that id. Gaps the migration exposed, fixed in the API: commands needed a caller
+context (session workDir, caller caps) so project-scoped data and conditional permission rules
+could live in the extension; commands needed a `stdin` flag and `usage` text so CLI verbs keep
+their shape and show up in `pine docs`; panels needed live change push (the SDK's SSE) and the
+app theme (`--pine-*` variables). The phone gateway's `board.*` methods now call the kanban
+extension through the host like any other consumer. Authoring guide: `docs/EXTENSIONS.md`.
 
 ## 3. Features from Warp and cmux, placed
 
@@ -97,8 +120,13 @@ Each phase ships a working product; nothing half-built lands on `main`.
    (⌘↑/⌘↓) navigation, context menu + palette actions (copy command/output/both, rerun at an
    idle prompt), sticky command header, and command history search across panes
    (Ctrl+Shift+H / ⌘⇧H).
-3. **Extension API v1**: manifest, extension host, commands/events/sidebar items/panel surface.
-   Migrate kanban + wiki onto it.
+3. **Extension API v1** — **done**: `pine.json` manifest, discovery (built-in + `~/.config/pine/extensions`),
+   per-extension identity with manifest ∩ approved caps and a first-run approval dialog, lazy
+   start with restart backoff, `ext.registerCommands/subscribe/setSidebarItem/notify/openPanel`,
+   `pine ext …` and `pine <extId> …`, the sandboxed panel surface, and enable/disable in
+   Settings → Plugins. Kanban and wiki migrated. Deferred: pane badges/attention from
+   extensions, hot reload of the extension list, extension settings, and letting extensions call
+   pane-scoped methods (browse, process) with an explicit target.
 4. **Git & diff** as the first new built-in extension: sidebar branch/dirty, diff view, open in
    external editor.
 5. **Browser → agent**: pick element, Chrome DevTools MCP recipe.
