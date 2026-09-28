@@ -100,8 +100,8 @@ extension through the host like any other consumer. Authoring guide: `docs/EXTEN
 | Saved workflows / parameterized commands | Warp | extension | M | 7 |
 | Git branch + dirty state in sidebar; listening ports | cmux | built-in extension | M | 3 |
 | Diff view (Monaco diff editor) + "open in VS Code / Zed at file:line" | Warp/VS Code | built-in extension | M | 3, 6 |
-| Pick element in browser → send selector, screenshot, console errors to an agent pane | new | built-in extension | M | 3 |
-| Your real Chrome: document Chrome DevTools MCP for agents instead of re-implementing CDP | new | docs | S | 3 |
+| Pick element in browser → send selector, screenshot, console errors to an agent pane | new | with browser automation (built) | M | 3 |
+| Your real Chrome: document Chrome DevTools MCP for agents instead of re-implementing CDP | new | docs (built) | S | 3 |
 | Agent resume on restore (relaunch the agent CLI with its session id) | cmux | built-in extension | M | 5 |
 | Trellis board panel, Keeper connection panel | yours | external plugins | M each | 4 |
 | Settings sync (git or synced folder) | Warp | extension | S–M | 8 |
@@ -129,7 +129,14 @@ Each phase ships a working product; nothing half-built lands on `main`.
    pane-scoped methods (browse, process) with an explicit target.
 4. **Git & diff** as the first new built-in extension: sidebar branch/dirty, diff view, open in
    external editor.
-5. **Browser → agent**: pick element, Chrome DevTools MCP recipe.
+5. **Browser → agent** — **done**: "Point at element" in browser panes (hover overlay in an
+   isolated world, click to capture selector, html, box, style subset, a11y role/name, console
+   errors, failed requests, element screenshot), a send panel that writes a markdown report,
+   posts a bus message and pastes `@<report>` at the target pane's idle prompt, `pine browse pick`
+   for agents to ask the human to click something, and `docs/CHROME.md` for pairing agents with
+   the user's real Chrome through Chrome DevTools MCP. It lives next to `browse.ts` in core
+   because the extension API can't yet drive pane-scoped browse methods (phase 3 deferral); it
+   moves out with browser automation.
 6. **Your tools**: Trellis and Keeper plugins; settings sync.
 7. **Remote** (done): phone grant path, input from the phone, attention push, bind-address
    picker with Tailscale detection.

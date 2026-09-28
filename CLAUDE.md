@@ -9,6 +9,7 @@ change an invariant, command, or convention, update the matching section here in
 | `docs/ARCHITECTURE.md` | How it's built, module map, and every "Why:" behind non-obvious code |
 | `docs/DESIGN.md` | Tokens, type scale, components, a11y rules |
 | `docs/ROADMAP.md` | Lean-core architecture (core / built-in extensions / plugins) and phased plan |
+| `docs/CHROME.md` | Pairing agents with the user's real Chrome (Chrome DevTools MCP) vs Pine's browser |
 | this file | Rules you must follow while editing |
 
 ---
@@ -112,7 +113,14 @@ Details: `docs/ARCHITECTURE.md`.
   pointer.
 - **Nothing types into a pane unless it's at an idle prompt** (open draft, nothing running).
   Rerun and history insert go through `insertCommand` (`lib/blockActions.ts`), need the `shell`
-  capability, and paste via `term.paste`.
+  capability, and paste via `term.paste`. The one widening: a pick-element report reference
+  (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a running agent that reported
+  `waiting`/`done`; it's text only, never followed by Enter. Anything else goes to the clipboard.
+- **Pick element runs in an isolated world** (`PICK_WORLD_ID`, `executeJavaScriptInIsolatedWorld`),
+  never the page's main world, and counts only `isTrusted` events. `pickRuntime` must stay a
+  self-contained function (it's shipped with `toString()`): no imports or module-level references
+  inside it. Captures are truncated in main (`normalizeCapture`); the renderer sends back only a
+  capture id, and reports go to `privateTmpDir('pine-reports')`.
 - **Never inject into the user's dotfiles.** zsh via a generated `ZDOTDIR` (+ `PINE_ZDOTDIR_ORIG`);
   bash via `--rcfile`. Generated files live in `privateTmpDir('pine-shell-integration')`:
   `<tmp>/pine-shell-integration-<uid>`, mode 0700, refused if it's a symlink or not ours.
