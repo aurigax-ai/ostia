@@ -1,51 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
+import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
+import { registerEditorPosition } from '../lib/editorPositions'
 import { openDocument } from '../lsp/client'
+import { langFor } from '../monaco/language'
 import { monaco } from '../monaco/setup'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useSettingsStore } from '../stores/settingsStore'
 
-const LANG: Record<string, string> = {
-  ts: 'typescript',
-  tsx: 'typescript',
-  mts: 'typescript',
-  cts: 'typescript',
-  js: 'javascript',
-  jsx: 'javascript',
-  mjs: 'javascript',
-  cjs: 'javascript',
-  json: 'json',
-  jsonc: 'json',
-  css: 'css',
-  scss: 'scss',
-  less: 'less',
-  html: 'html',
-  htm: 'html',
-  md: 'markdown',
-  mdx: 'markdown',
-  py: 'python',
-  rs: 'rust',
-  go: 'go',
-  sh: 'shell',
-  zsh: 'shell',
-  bash: 'shell',
-  yaml: 'yaml',
-  yml: 'yaml',
-  toml: 'ini',
-  ini: 'ini',
-  sql: 'sql',
-  c: 'c',
-  cpp: 'cpp',
-  java: 'java',
-  lua: 'lua',
-}
-
-function langFor(path: string): string {
-  const ext = path.includes('.') ? path.slice(path.lastIndexOf('.') + 1).toLowerCase() : ''
-  return LANG[ext] ?? 'plaintext'
-}
-
-const EDITOR_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
+export const EDITOR_FALLBACK =
+  '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
 
 const BINARY_SNIFF_BYTES = 8192
 
@@ -75,7 +39,34 @@ function createTrackedModel(filePath: string, content: string): monaco.editor.IT
   return model
 }
 
-export function EditorView({ filePath }: { filePath?: string }): JSX.Element {
+export function useExternalEditorAction(paneId: string): {
+  open: () => void
+  error: string | null
+} {
+  const d = useDict()
+  const [error, setError] = useState<string | null>(null)
+  const open = (): void => {
+    const pending = openPaneInExternalEditor(paneId)
+    if (!pending) return
+    pending.then(
+      (res) => {
+        if (res.ok) setError(null)
+        else if (res.error === 'no-editor') setError(d.editor.externalNoEditor)
+        else setError(fmt(d.editor.externalFailed, { error: externalEditorError(res) ?? '' }))
+      },
+      (err: unknown) => setError(fmt(d.editor.externalFailed, { error: String(err) })),
+    )
+  }
+  return { open, error }
+}
+
+export function EditorView({
+  paneId,
+  filePath,
+}: {
+  paneId: string
+  filePath?: string
+}): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
   const d = useDict()
@@ -83,6 +74,9 @@ export function EditorView({ filePath }: { filePath?: string }): JSX.Element {
   const font = useSettingsStore((s) => s.appearance.editor)
   const [binary, setBinary] = useState(false)
   const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
+  const external = useExternalEditorAction(paneId)
+  const openExternalRef = useRef(external.open)
+  openExternalRef.current = external.open
 
   useEffect(() => {
     const host = hostRef.current
@@ -128,6 +122,27 @@ export function EditorView({ filePath }: { filePath?: string }): JSX.Element {
       editorRef.current = null
     }
   }, [])
+
+  const openExternalLabel = d.editor.openExternal
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor) return
+    const unregister = registerEditorPosition(paneId, () => {
+      const file = pathRef.current
+      const pos = editor.getPosition()
+      return file ? { file, line: pos?.lineNumber ?? 1, column: pos?.column ?? 1 } : null
+    })
+    const action = editor.addAction({
+      id: 'pine.openExternal',
+      label: openExternalLabel,
+      contextMenuGroupId: 'navigation',
+      run: () => openExternalRef.current(),
+    })
+    return () => {
+      action.dispose()
+      unregister()
+    }
+  }, [paneId, openExternalLabel])
 
   useEffect(() => {
     pathRef.current = filePath
@@ -175,6 +190,10 @@ export function EditorView({ filePath }: { filePath?: string }): JSX.Element {
       {unsavedPath ? (
         <div role="alert" className="editor-save-error">
           {fmt(d.editor.saveError, { path: unsavedPath })}
+        </div>
+      ) : external.error ? (
+        <div role="alert" className="editor-save-error">
+          {external.error}
         </div>
       ) : null}
     </>

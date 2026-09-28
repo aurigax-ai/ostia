@@ -2,23 +2,27 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSessionsStore } from '../stores/sessionsStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
 let sessionsInit: ReturnType<typeof useSessionsStore.getState>
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
+let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
 beforeAll(() => {
   registerBuiltinCommands()
   sessionsInit = useSessionsStore.getState()
   layoutInit = useLayoutStore.getState()
+  settingsInit = useSettingsStore.getState()
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
   useSessionsStore.setState(sessionsInit, true)
   useLayoutStore.setState(layoutInit, true)
+  useSettingsStore.setState(settingsInit, true)
 })
 
 const ctx = (activeSessionId: string | null, activePaneId: string | null): CommandContext => ({
@@ -147,6 +151,26 @@ describe('builtins route to store actions', () => {
 
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error.message).toMatch(/unknown settings key: init/)
+  })
+
+  it('settings.set refuses to change the external editor command, directly or via behavior', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'behavior.externalEditor',
+      value: '/tmp/evil {file}',
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'behavior',
+      value: { ...useSettingsStore.getState().behavior, externalEditor: '/tmp/evil' },
+    })
+    const unrelated = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'behavior',
+      value: { ...useSettingsStore.getState().behavior, cursorBlink: false },
+    })
+
+    expect(direct.ok).toBe(false)
+    expect(nested.ok).toBe(false)
+    expect(unrelated.ok).toBe(true)
+    expect(useSettingsStore.getState().behavior.externalEditor).toBe('auto')
   })
 
   it('routes pane.close to layout.closePane with an explicit paneId', async () => {

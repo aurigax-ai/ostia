@@ -32,6 +32,22 @@ interface SessionListEntry {
   kind: SessionKind
   workDir: string
   state: SessionState
+  activePaneId?: string
+}
+
+const PROGRAM_SETTING = 'behavior.externalEditor'
+
+export function launchesProgram(key: string, value: unknown): boolean {
+  const path = key.split('.').filter(Boolean).join('.')
+  if (path === PROGRAM_SETTING || path.startsWith(`${PROGRAM_SETTING}.`)) return true
+  if (path !== 'behavior') return false
+  const current = useSettingsStore.getState().behavior.externalEditor
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'externalEditor' in value &&
+    (value as { externalEditor: unknown }).externalEditor !== current
+  )
 }
 
 function getByPath(root: unknown, path: string): unknown {
@@ -328,13 +344,17 @@ export function registerBuiltinCommands(): void {
     capabilities: ['read-board'],
     target: 'none',
     run: () =>
-      useSessionsStore.getState().sessions.map((s) => ({
-        sessionId: s.id,
-        name: s.name,
-        kind: s.kind,
-        workDir: s.workDir,
-        state: s.state,
-      })),
+      useSessionsStore.getState().sessions.map((s) => {
+        const activePaneId = useLayoutStore.getState().bySession[s.id]?.activePaneId
+        return {
+          sessionId: s.id,
+          name: s.name,
+          kind: s.kind,
+          workDir: s.workDir,
+          state: s.state,
+          ...(activePaneId ? { activePaneId } : {}),
+        }
+      }),
   })
 
   commands.register<undefined, { saved: boolean }>({
@@ -371,6 +391,9 @@ export function registerBuiltinCommands(): void {
     capabilities: ['settings-write'],
     target: 'none',
     run: ({ key, value }) => {
+      if (launchesProgram(key, value)) {
+        throw new Error(`${PROGRAM_SETTING} can only be changed by you in Settings`)
+      }
       useSettingsStore.getState().setByPath(key, value)
       return { ok: true }
     },

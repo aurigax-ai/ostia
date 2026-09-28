@@ -951,6 +951,40 @@
   font-size: var(--text-ui-sm);
 }
 
+.diff-surface {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.diff-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 4px 6px 4px 10px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.diff-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-sm);
+}
+
+.diff-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
 .browser-surface {
   display: flex;
   flex-direction: column;

@@ -12,6 +12,7 @@ import {
 } from 'vscode-jsonrpc/node'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import type {
+  DiffContent,
   ExtensionCaller,
   ExtensionEventPayloads,
   ExtensionEventType,
@@ -21,7 +22,27 @@ import type {
 } from '../../shared/extensions'
 import { PRODUCT_NAME } from '../../shared/product'
 
-export type { ExtensionCaller, ExtensionResult } from '../../shared/extensions'
+export type { DiffContent, ExtensionCaller, ExtensionResult } from '../../shared/extensions'
+
+export interface SessionInfo {
+  sessionId: string
+  name: string
+  kind: string
+  workDir: string
+  state: string
+  activePaneId?: string
+}
+
+export interface PaneInfo {
+  paneId: string
+  sessionId: string
+  kind: string
+  title: string
+  cwd?: string
+  running: boolean
+  blockCount: number
+  lastExitCode?: number
+}
 
 export type CommandHandler = (
   args: unknown,
@@ -48,6 +69,9 @@ export interface PineExtension {
   }) => Promise<unknown>
   notify: (title: string, body?: string) => Promise<unknown>
   openPanel: (sessionId?: string) => Promise<unknown>
+  openDiff: (diff: DiffContent & { sessionId?: string }) => Promise<ExtensionResult>
+  listSessions: () => Promise<SessionInfo[]>
+  listPanes: () => Promise<PaneInfo[]>
 }
 
 export function ok(text?: string, data?: unknown): ExtensionResult {
@@ -121,6 +145,9 @@ export async function connect(): Promise<PineExtension> {
     setSidebarItem: (item) => conn.sendRequest('ext.setSidebarItem', item),
     notify: (title, body) => conn.sendRequest('ext.notify', { title, body }),
     openPanel: (sessionId) => conn.sendRequest('ext.openPanel', { sessionId }),
+    openDiff: (diff) => conn.sendRequest('ext.openDiff', diff),
+    listSessions: () => conn.sendRequest('session.list'),
+    listPanes: () => conn.sendRequest('pane.list'),
   }
 }
 

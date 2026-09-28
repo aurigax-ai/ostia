@@ -1,10 +1,11 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import {
+  DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
   EXTENSION_ICONS,
   type ExtensionCaller,
@@ -13,6 +14,7 @@ import {
   type ExtensionEventType,
   type ExtensionIcon,
   type ExtensionInfo,
+  type ExtensionOpenDiffRequest,
   type ExtensionOpenPanelRequest,
   type ExtensionPanelSource,
   type ExtensionResult,
@@ -36,6 +38,8 @@ import { type PaneIdentity, registerExtension, removeExtension } from './idRegis
 export const MAX_RESTARTS = 3
 const MAX_SIDEBAR_ITEMS = 32
 const SIDEBAR_TEXT_MAX = 80
+const DIFF_TITLE_MAX = 200
+const DIFF_LANGUAGE_MAX = 40
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
 
 type RunState = 'idle' | 'starting' | 'running' | 'crashed'
@@ -60,8 +64,10 @@ export interface ExtensionHostDeps {
   socketPath: () => string
   nodePath: string
   workDirForSession: (sessionId?: string) => string | undefined
+  cwdForPane?: (paneId: string) => string | undefined
   broadcast: (channel: string, payload: unknown) => void
   openPanelIn: (req: ExtensionOpenPanelRequest) => void
+  openDiffIn?: (req: ExtensionOpenDiffRequest) => void
   notify: (n: { title: string; body?: string; from: string }) => void
   restartDelayMs?: number
   readyTimeoutMs?: number
@@ -427,6 +433,8 @@ export class ExtensionHost {
     }
     const workDir = this.deps.workDirForSession(identity.sessionId)
     if (workDir) caller.workDir = workDir
+    const cwd = this.deps.cwdForPane?.(identity.paneId)
+    if (cwd) caller.cwd = cwd
     return caller
   }
 
@@ -588,6 +596,36 @@ export class ExtensionHost {
     return { ok: true }
   }
 
+  openDiff(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = (params ?? {}) as Record<string, unknown>
+    const title = typeof p.title === 'string' ? p.title.trim().slice(0, DIFF_TITLE_MAX) : ''
+    if (!title) return fail('missing-title')
+    if (typeof p.original !== 'string' || typeof p.modified !== 'string') {
+      return fail('invalid-params', 'original and modified must be strings')
+    }
+    if (p.original.length > DIFF_TEXT_MAX || p.modified.length > DIFF_TEXT_MAX) {
+      return fail('too-large', `each side is limited to ${DIFF_TEXT_MAX} characters`)
+    }
+    if (p.path !== undefined && (typeof p.path !== 'string' || !isAbsolute(p.path))) {
+      return fail('invalid-params', 'path must be absolute')
+    }
+    const req: ExtensionOpenDiffRequest = {
+      extId: rt.ext.manifest.id,
+      title,
+      original: p.original,
+      modified: p.modified,
+    }
+    if (typeof p.language === 'string' && p.language) {
+      req.language = p.language.slice(0, DIFF_LANGUAGE_MAX)
+    }
+    if (typeof p.path === 'string') req.path = p.path
+    if (typeof p.sessionId === 'string' && p.sessionId) req.sessionId = p.sessionId
+    if (!this.deps.openDiffIn) return fail('no-window')
+    this.deps.openDiffIn(req)
+    return { ok: true }
+  }
+
   listForAgents() {
     return this.list()
       .filter((e) => e.enabled)
@@ -631,6 +669,11 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod(
     'ext.openPanel',
     forExtension((h, id, conn, p) => h.openPanel(id, conn, p)),
+  )
+
+  registerControlMethod(
+    'ext.openDiff',
+    forExtension((h, id, conn, p) => h.openDiff(id, conn, p)),
   )
 
   registerControlMethod('ext.list', {

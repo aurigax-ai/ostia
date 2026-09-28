@@ -79,6 +79,15 @@ export const en = {
   editor: {
     binary: 'Binary file — not opened in the editor',
     saveError: 'Could not save {path}',
+    openExternal: 'Open in External Editor',
+    externalNoEditor:
+      'No external editor found. Set behavior.externalEditor in Settings (e.g. code -g {file}:{line}).',
+    externalFailed: 'Could not open the external editor: {error}',
+  },
+  diff: {
+    inline: 'Inline view',
+    sideBySide: 'Side-by-side view',
+    missing: 'This diff is no longer available. Open it again from its source.',
   },
   browser: {
     back: 'Back',
@@ -152,7 +161,10 @@ export const en = {
       'The theme and the fonts for each surface — UI, terminal, and editor are set independently.',
     generalDesc: 'Behavior toggles. All settings are stored in a JSON file you can edit directly.',
     terminalDesc: 'Cursor and behavior for terminal panes. The terminal font is under Appearance.',
-    filesDesc: 'The Files explorer.',
+    filesDesc: 'The Files explorer and the editor.',
+    externalEditor: 'External editor',
+    externalEditorDesc:
+      '“auto” uses code, cursor or zed from your PATH. Empty turns it off. Placeholders: {file}, {line}, {column}.',
     languageDesc: 'The display language for Pine’s interface.',
     aboutDesc: 'Build and environment information.',
     surfaceNote:
@@ -282,6 +294,15 @@ export const zhHant: Dict = {
   editor: {
     binary: '二進位檔案 — 未在編輯器中開啟',
     saveError: '無法儲存 {path}',
+    openExternal: '在外部編輯器中開啟',
+    externalNoEditor:
+      '找不到外部編輯器。請在設定中設定 behavior.externalEditor（例如 code -g {file}:{line}）。',
+    externalFailed: '無法開啟外部編輯器：{error}',
+  },
+  diff: {
+    inline: '內嵌檢視',
+    sideBySide: '並排檢視',
+    missing: '此差異已無法使用。請從來源重新開啟。',
   },
   browser: {
     back: '上一頁',
@@ -352,7 +373,10 @@ export const zhHant: Dict = {
     appearanceDesc: '佈景主題與各介面字型 — 介面、終端機與編輯器可個別設定。',
     generalDesc: '行為切換。所有設定都儲存在可直接編輯的 JSON 檔案中。',
     terminalDesc: '終端機面板的游標與行為。終端機字型在「外觀」中設定。',
-    filesDesc: '檔案總管。',
+    filesDesc: '檔案總管與編輯器。',
+    externalEditor: '外部編輯器',
+    externalEditorDesc:
+      '「auto」會使用 PATH 中的 code、cursor 或 zed。留空則停用。預留位置：{file}、{line}、{column}。',
     languageDesc: 'Pine 介面的顯示語言。',
     aboutDesc: '組建與環境資訊。',
     surfaceNote: '終端機字型已生效；編輯器字型會在編輯器介面建立後套用（階段 5）。',

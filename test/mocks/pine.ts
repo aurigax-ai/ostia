@@ -66,6 +66,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onChanged: vi.fn(noopUnsub),
       onSidebar: vi.fn(noopUnsub),
       onOpenPanel: vi.fn(noopUnsub),
+      onOpenDiff: vi.fn(noopUnsub),
+    },
+    externalEditor: {
+      open: vi.fn().mockResolvedValue({ ok: true, argv: [] }),
     },
     gateway: {
       enable: vi.fn().mockResolvedValue({ host: '127.0.0.1', port: 8722, fingerprint: 'sha256/x' }),
