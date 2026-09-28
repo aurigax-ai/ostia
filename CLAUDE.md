@@ -260,6 +260,15 @@ Details: `docs/ARCHITECTURE.md`.
 - **Portaled surfaces don't bubble React events to their `Pane`.** SurfacePool portals each
   surface, so its React parent is SurfacePool. Pane activation uses native `mousedown`/`focusin`
   listeners on the frame; a React `onMouseDownCapture` there only saw header clicks.
+- **Never gate webview-guest instrumentation on `listenerCount`.** Electron itself listens to a
+  `<webview>` guest's `console-message` (to forward it to the element), so `listenerCount === 0`
+  is never true and Pine's console/error buffers silently stayed empty. Browser guests are
+  instrumented once at `did-attach-webview` via the `instrumentedGuests` WeakSet; the debugger
+  attach is checked separately with `debugger.isAttached()`.
+- **The shell reports each command line itself** (OSC 633;E, VS Code's convention: `\\` and
+  `\xHH` escapes) from zsh's `preexec $1` / bash's latest history entry (only if it contains
+  `$BASH_COMMAND`). Reading the command off the screen picks up a right-aligned RPROMPT and
+  misses pasted text; the screen read is only the fallback for shells without the mark.
 - **OSC 7 is not percent-decoded**: hooks emit raw paths; decoding corrupts dirs like `100%20off`.
 - **Session restore is two files from two processes** (`sessionSnapshot.ts`): the renderer
   autosaves `sessions.json` as you work; main writes `scrollback.json` every 5 s when output
