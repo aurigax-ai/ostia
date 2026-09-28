@@ -2,7 +2,7 @@ export type Locale = string
 
 export const en = {
   search: {
-    placeholder: 'Search workspaces, agents, files… or run a command',
+    placeholder: 'Search commands, workspaces, tabs…',
     command: 'Search or run a command',
   },
   rail: {
@@ -56,8 +56,14 @@ export const en = {
   },
   palette: {
     title: 'Command palette',
-    placeholder: 'Type a command…',
-    empty: 'No matching commands',
+    placeholder: 'Search commands, workspaces, tabs… (? for help)',
+    empty: 'Nothing matches',
+    helpHeading: 'Type a prefix to narrow the search',
+    modes: {
+      commands: 'Commands',
+      workspaces: 'Workspaces',
+      tabs: 'Tabs',
+    },
   },
   topbar: {
     toggleSidebar: 'Toggle sidebar',
@@ -272,7 +278,7 @@ export type Dict = typeof en
 
 export const zhHant: Dict = {
   search: {
-    placeholder: '搜尋工作區、代理程式、檔案… 或執行指令',
+    placeholder: '搜尋指令、工作區、分頁…',
     command: '搜尋或執行指令',
   },
   rail: {
@@ -326,8 +332,14 @@ export const zhHant: Dict = {
   },
   palette: {
     title: '指令面板',
-    placeholder: '輸入指令…',
-    empty: '沒有符合的指令',
+    placeholder: '搜尋指令、工作區、分頁…（輸入 ? 查看說明）',
+    empty: '沒有符合的項目',
+    helpHeading: '輸入前綴以縮小搜尋範圍',
+    modes: {
+      commands: '指令',
+      workspaces: '工作區',
+      tabs: '分頁',
+    },
   },
   topbar: {
     toggleSidebar: '切換側邊欄',
