@@ -1,4 +1,5 @@
 import { rmSync } from 'node:fs'
+import { parseAgentResume } from '../shared/agentResume'
 import { isDangerousSegment } from '../shared/protoGuard'
 import type {
   SnapshotNode,
@@ -66,9 +67,25 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     copyOptionalString(raw, pane, 'filePath')
     copyOptionalString(raw, pane, 'url')
     copyOptionalString(raw, pane, 'extensionId')
+    const resume = parseAgentResume(raw.resume)
+    if (resume) pane.resume = resume
     if (pane.kind === 'extension' && !pane.extensionId) return null
     paneIds.push(id)
     return pane
+  }
+
+  if (raw.type === 'tabs') {
+    if (!Array.isArray(raw.children) || raw.children.length === 0) return null
+    const tabs: SnapshotPaneNode[] = []
+    for (const child of raw.children) {
+      if (!isRecord(child) || child.type !== 'pane') return null
+      const parsed = parseNode(child, paneIds, depth + 1)
+      if (!parsed || parsed.type !== 'pane') return null
+      tabs.push(parsed)
+    }
+    if (tabs.length === 1) return tabs[0]
+    const activeId = tabs.some((t) => t.id === raw.activeId) ? (raw.activeId as string) : tabs[0].id
+    return { type: 'tabs', id, children: tabs, activeId }
   }
 
   if (raw.type !== 'split') return null

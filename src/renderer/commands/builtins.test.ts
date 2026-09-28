@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
+import * as blockActions from '../lib/blockActions'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -411,5 +412,39 @@ describe('builtins with zero sessions', () => {
       type: 'pane',
       kind: 'terminal',
     })
+  })
+})
+
+describe('agent resume', () => {
+  function seedPane(resume?: { agent: 'claude' | 'codex'; id: string }) {
+    const pane = { ...createPane('terminal'), ...(resume ? { resume } : {}) }
+    useLayoutStore.setState({
+      bySession: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    return pane
+  }
+
+  it('stores the resume token on the calling pane', async () => {
+    const pane = seedPane()
+    await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'abc' })
+    expect(useLayoutStore.getState().bySession.s1.root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc' },
+    })
+  })
+
+  it('runs the agent’s resume command in the pane', async () => {
+    const pane = seedPane({ agent: 'claude', id: 'abc' })
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).toHaveBeenCalledWith(pane.id, 'claude --resume abc', true)
+    expect(r).toMatchObject({ ok: true, result: { resumed: true } })
+  })
+
+  it('does nothing for a pane without a token', async () => {
+    const pane = seedPane()
+    const insert = vi.spyOn(blockActions, 'insertCommand')
+    const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(insert).not.toHaveBeenCalled()
+    expect(r).toMatchObject({ ok: true, result: { resumed: false } })
   })
 })

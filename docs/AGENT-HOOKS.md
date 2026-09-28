@@ -100,6 +100,51 @@ build.
 Reference: <https://learn.chatgpt.com/docs/config-file/config-advanced> (the `notify` key) and
 <https://learn.chatgpt.com/docs/hooks>.
 
+## Resume after a restart
+
+Pine can't keep an agent process alive across a quit, a crash or a reboot (CLAUDE.md §8), but it
+can remember which agent session a pane was running and offer to resume it. The pane stores the
+session id; after a restart its header shows **Resume claude** (or codex), and `Ctrl+Shift+R` /
+`⌘⇧R` types `claude --resume <id>` (or `codex resume <id>`) at the idle prompt and runs it.
+
+The id is recorded when the agent **starts**, not when it stops: a locked screen, a killed
+process or a crash never gets to run a stop hook, so waiting for one would lose exactly the
+sessions you most want back.
+
+Claude Code: add a `SessionStart` hook. It fires on start, `--resume`, `/clear` and compaction,
+so the pane always holds the current session id; `resume-token claude -` reads `session_id` from
+the hook's stdin JSON.
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$PINE_SOCKET\" ] && ELECTRON_RUN_AS_NODE=1 \"$PINE_NODE\" \"$PINE_CLI\" resume-token claude - >/dev/null 2>&1 || true"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Codex: `notify` is the only hook, and it runs after each turn with the event JSON as `$0`. Record
+the thread id there alongside `state done` (the id is read from the event's `thread-id` field):
+
+```toml
+notify = ["sh", "-c", "[ -n \"$PINE_SOCKET\" ] && { ELECTRON_RUN_AS_NODE=1 \"$PINE_NODE\" \"$PINE_CLI\" state done; ELECTRON_RUN_AS_NODE=1 \"$PINE_NODE\" \"$PINE_CLI\" resume-token codex \"$0\"; } >/dev/null 2>&1 || true"]
+```
+
+This recipe hasn't been checked against a real Codex build yet; a Codex session that never
+finished a turn has no id recorded.
+
+Pine only accepts `claude` or `codex` and an id of letters, digits, `.`, `_` and `-`, and builds
+the command itself, so nothing that reaches the hook can make Pine type an arbitrary command.
+
 ## Any other program
 
 Print an OSC 9 notification; Pine marks the pane `waiting` and adds it to the bell:

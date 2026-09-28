@@ -1,7 +1,9 @@
+import type { AgentResume } from '@shared/agentResume'
 import type { DiffContent } from '@shared/extensions'
 import { create } from 'zustand'
 import {
   type DropZone,
+  addTab,
   closePane,
   createPane,
   findExtensionPane,
@@ -10,16 +12,19 @@ import {
   firstPaneOfKind,
   movePane,
   paneIds,
+  selectTab,
   setPaneBrowser,
   setPaneCwd,
   setPaneDiff,
   setPaneEditor,
   setPaneExtension,
+  setPaneResume,
   setPaneUrl,
   setSizes,
   splitPane,
+  tabsOfPane,
 } from '../layout/tree'
-import type { Direction, LayoutNode } from '../layout/types'
+import type { Direction, LayoutNode, SurfaceKind } from '../layout/types'
 import { useDiffStore } from './diffStore'
 import { useSessionsStore } from './sessionsStore'
 
@@ -34,6 +39,7 @@ interface LayoutState {
   ensure: (sessionId: string) => void
   hydrate: (layouts: Record<string, SessionLayout>) => void
   split: (sessionId: string, paneId: string, direction: Direction) => void
+  newTab: (sessionId: string, paneId: string, kind: NewTabKind) => string | null
   closePane: (sessionId: string, paneId: string) => void
   focusPane: (sessionId: string, paneId: string) => void
   resize: (sessionId: string, splitId: string, sizes: number[]) => void
@@ -41,12 +47,15 @@ interface LayoutState {
   movePane: (sessionId: string, sourceId: string, targetId: string, zone: DropZone) => void
   setCwd: (sessionId: string, paneId: string, cwd: string) => void
   setUrl: (sessionId: string, paneId: string, url: string) => void
+  setResume: (sessionId: string, paneId: string, resume: AgentResume) => void
   openFile: (sessionId: string, path: string) => void
   openBrowser: (sessionId: string, url: string) => void
   openExtensionPanel: (sessionId: string, extensionId: string, title: string) => void
   openDiff: (sessionId: string, content: DiffContent) => string | null
   removeSession: (sessionId: string) => void
 }
+
+export type NewTabKind = Extract<SurfaceKind, 'terminal' | 'browser'>
 
 function layoutOf(root: LayoutNode): SessionLayout {
   return { root, activePaneId: firstPaneId(root), zoomedPaneId: null }
@@ -59,7 +68,17 @@ function patch(
 ): Pick<LayoutState, 'bySession'> | null {
   const layout = state.bySession[sessionId]
   if (!layout) return null
-  return { bySession: { ...state.bySession, [sessionId]: fn(layout) } }
+  const next = fn(layout)
+  const root = selectTab(next.root, next.activePaneId)
+  return {
+    bySession: { ...state.bySession, [sessionId]: root === next.root ? next : { ...next, root } },
+  }
+}
+
+function successorOf(before: LayoutNode, after: LayoutNode, closedId: string): string {
+  const sibling = tabsOfPane(before, closedId)?.children.find((c) => c.id !== closedId)
+  if (!sibling) return firstPaneId(after)
+  return tabsOfPane(after, sibling.id)?.activeId ?? sibling.id
 }
 
 export const useLayoutStore = create<LayoutState>((set, get) => ({
@@ -110,13 +129,36 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
   },
 
+  newTab: (sessionId, paneId, kind) => {
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, sessionId, (l) => {
+        const target = findPane(l.root, paneId)
+        if (!target) return l
+        const pane = createPane(kind, undefined, target.cwd)
+        const root =
+          kind === 'browser'
+            ? setPaneBrowser(addTab(l.root, paneId, pane), pane.id, 'about:blank')
+            : addTab(l.root, paneId, pane)
+        createdPaneId = pane.id
+        return { ...l, root, activePaneId: pane.id, zoomedPaneId: null }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+    }
+    return createdPaneId
+  },
+
   closePane: (sessionId, paneId) => {
     let removed = false
     set((s) => {
       const next = patch(s, sessionId, (l) => {
         const root = closePane(l.root, paneId)
         removed = findPane(l.root, paneId) !== null && findPane(root, paneId) === null
-        const activePaneId = paneId === l.activePaneId ? firstPaneId(root) : l.activePaneId
+        const activePaneId =
+          removed && paneId === l.activePaneId ? successorOf(l.root, root, paneId) : l.activePaneId
         const zoomedPaneId = removed && l.zoomedPaneId === paneId ? null : l.zoomedPaneId
         return { root, activePaneId, zoomedPaneId }
       })
@@ -176,6 +218,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const layout = s.bySession[sessionId]
       if (!layout) return s
       const root = setPaneUrl(layout.root, paneId, url)
+      return root === layout.root
+        ? s
+        : { bySession: { ...s.bySession, [sessionId]: { ...layout, root } } }
+    }),
+
+  setResume: (sessionId, paneId, resume) =>
+    set((s) => {
+      const layout = s.bySession[sessionId]
+      if (!layout) return s
+      const root = setPaneResume(layout.root, paneId, resume)
       return root === layout.root
         ? s
         : { bySession: { ...s.bySession, [sessionId]: { ...layout, root } } }

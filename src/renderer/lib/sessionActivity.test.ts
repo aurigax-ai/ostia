@@ -8,6 +8,7 @@ import { useUIStore } from '../stores/uiStore'
 import {
   NOTIFY_AFTER_MS,
   isPaneViewed,
+  isPaneVisible,
   jumpToLatestUnread,
   shouldNotifyCommandEnd,
   signalPane,
@@ -64,6 +65,24 @@ describe('session activity + attention', () => {
   }
   const stateOf = (id: string) =>
     useSessionsStore.getState().sessions.find((s) => s.id === id)?.state
+
+  it('treats a background tab as not visible, and brings it forward when it is revealed', () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const sessionId = homeSessionId()
+    useLayoutStore.getState().ensure(sessionId)
+    const first = useLayoutStore.getState().bySession[sessionId].activePaneId
+    const second = useLayoutStore.getState().newTab(sessionId, first, 'terminal') as string
+
+    expect(isPaneVisible(second)).toBe(true)
+    expect(isPaneVisible(first)).toBe(false)
+
+    signalPane(first, { type: 'set', state: 'waiting', at: 1 })
+    expect(useAttentionStore.getState().byPane[first]?.unread).toBe(true)
+
+    expect(jumpToLatestUnread()).toBe(first)
+    expect(isPaneVisible(first)).toBe(true)
+    expect(isPaneVisible(second)).toBe(false)
+  })
 
   it('keeps attention sync quiet with zero sessions, then tracks the first session opened', () => {
     vi.spyOn(document, 'hasFocus').mockReturnValue(true)

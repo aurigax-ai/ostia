@@ -14,6 +14,10 @@ const CLI_HELP = `pine — control-socket CLI
                                  set this pane's attention state (message '-' reads stdin;
                                  a JSON object on stdin contributes its "message" field);
                                  --pane targets another pane (needs workspace-wide)
+  pine resume-token <claude|codex> <id|->
+                                 remember this pane's agent session so a restored pane
+                                 offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
+                                 (session_id / thread-id) from stdin
   pine process run "<cmd>" [--name X] [--cwd P]   start a tracked background process
   pine process ls                                 list tracked processes
   pine process logs <id|name> [--since N]         print captured output

@@ -502,4 +502,50 @@ describe('layoutStore', () => {
       expect(paneIds(layoutOf('s40').root)).toEqual(['pane-40'])
     })
   })
+
+  describe('tabs', () => {
+    it('opens a terminal tab in the pane’s cwd, focuses it and announces it', () => {
+      const first = ensure('s1')
+      useLayoutStore.getState().setCwd('s1', first, '/work/app')
+      const id = useLayoutStore.getState().newTab('s1', first, 'terminal') as string
+
+      expect(layoutOf('s1').activePaneId).toBe(id)
+      expect(layoutOf('s1').root).toMatchObject({ type: 'tabs', activeId: id })
+      expect(findPane(layoutOf('s1').root, id)?.cwd).toBe('/work/app')
+      expect(emit()).toHaveBeenCalledWith({ type: 'pane-created', sessionId: 's1', paneId: id })
+    })
+
+    it('opens a browser tab on a blank page', () => {
+      const first = ensure('s1')
+      const id = useLayoutStore.getState().newTab('s1', first, 'browser') as string
+      expect(findPane(layoutOf('s1').root, id)).toMatchObject({
+        kind: 'browser',
+        url: 'about:blank',
+      })
+    })
+
+    it('shows the tab of a pane that gets focused', () => {
+      const first = ensure('s1')
+      useLayoutStore.getState().newTab('s1', first, 'terminal')
+      useLayoutStore.getState().focusPane('s1', first)
+      expect(layoutOf('s1').root).toMatchObject({ type: 'tabs', activeId: first })
+    })
+
+    it('focuses a neighbouring tab, not another pane, when the focused tab closes', () => {
+      const { first, second } = twoPanes('s1')
+      const tab = useLayoutStore.getState().newTab('s1', second, 'terminal') as string
+      useLayoutStore.getState().closePane('s1', tab)
+      expect(layoutOf('s1').activePaneId).toBe(second)
+      expect(first).not.toBe(second)
+    })
+
+    it('keeps an agent resume token on the pane', () => {
+      const first = ensure('s1')
+      useLayoutStore.getState().setResume('s1', first, { agent: 'codex', id: 'th_1' })
+      const before = layoutOf('s1')
+      useLayoutStore.getState().setResume('s1', first, { agent: 'codex', id: 'th_1' })
+      expect(layoutOf('s1')).toBe(before)
+      expect(findPane(layoutOf('s1').root, first)?.resume).toEqual({ agent: 'codex', id: 'th_1' })
+    })
+  })
 })

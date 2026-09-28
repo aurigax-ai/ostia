@@ -7,6 +7,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../shared/agentResume'
 import type { CommandResult } from '../shared/types'
 
 interface ProcInfo {
@@ -274,6 +275,7 @@ const CORE_VERBS = new Set([
   'session.list',
   'notify',
   'state',
+  'resume-token',
   'open',
   'docs',
   'process',
@@ -1651,12 +1653,38 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
+  const [agent, raw] = process.argv.slice(3)
+  if (!isResumableAgent(agent) || !raw) {
+    console.error(`pine resume-token: usage: resume-token <${RESUMABLE_AGENTS.join('|')}> <id|->`)
+    process.exitCode = 1
+    return
+  }
+  const id = resumeIdFromHookPayload(raw === '-' ? await readAllStdin() : raw)
+  if (!id) {
+    console.error('pine resume-token: no session id found')
+    process.exitCode = 1
+    return
+  }
+  const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setResume', {
+    agent,
+    id,
+  })
+  if (res.ok) {
+    console.log('ok')
+  } else {
+    console.error(`pine resume-token: ${res.error ?? 'failed'}`)
+    process.exitCode = 1
+  }
+}
+
 const USAGE = `usage: pine <command> [args]
 
 commands:
   whoami | commands | info | cwd | pane.list | session.list | docs
   notify <title> [body]
   state <waiting|done|working|error|clear> [message|-] [--pane <externalId>]
+  resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
   open <path>
   process | vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
@@ -1743,6 +1771,8 @@ async function main(): Promise<void> {
       }
     } else if (cmd === 'state') {
       await runStateVerb(conn)
+    } else if (cmd === 'resume-token') {
+      await runResumeTokenVerb(conn)
     } else if (cmd === 'open') {
       const arg = process.argv[3]
       if (!arg) {

@@ -123,7 +123,9 @@ describe('sidebar unread badge', () => {
 describe('pane attention ring', () => {
   it('rings a pane that is waiting unread and shows its message, then clears when viewed', () => {
     const { sessionId, a } = twoPanes()
-    const { container } = render(<Pane pane={paneNode(sessionId, a)} active={false} />)
+    const { container } = render(
+      <Pane tabs={[paneNode(sessionId, a)]} shownId={a} active={false} />,
+    )
     const frame = container.querySelector('.pane')
     expect(frame).not.toHaveClass('attn-ring')
 
@@ -139,12 +141,14 @@ describe('pane attention ring', () => {
 
   it('replays the ring pulse for a new signal but not for unrelated re-renders', () => {
     const { sessionId, a } = twoPanes()
-    const { container, rerender } = render(<Pane pane={paneNode(sessionId, a)} active={false} />)
+    const { container, rerender } = render(
+      <Pane tabs={[paneNode(sessionId, a)]} shownId={a} active={false} />,
+    )
     signal(a, 'first', 1)
     const pulse = container.querySelector('.pane-attn-pulse')
     expect(pulse).not.toBeNull()
 
-    rerender(<Pane pane={paneNode(sessionId, a)} active />)
+    rerender(<Pane tabs={[paneNode(sessionId, a)]} shownId={a} active />)
     expect(container.querySelector('.pane-attn-pulse')).toBe(pulse)
 
     signal(a, 'second', 2)
@@ -154,7 +158,9 @@ describe('pane attention ring', () => {
 
   it('gives a done unread pane a quiet marker instead of the ring', () => {
     const { sessionId, a } = twoPanes()
-    const { container } = render(<Pane pane={paneNode(sessionId, a)} active={false} />)
+    const { container } = render(
+      <Pane tabs={[paneNode(sessionId, a)]} shownId={a} active={false} />,
+    )
     act(() => useAttentionStore.getState().dispatch(a, { type: 'set', state: 'done', at: 1 }))
     const frame = container.querySelector('.pane')
     expect(frame).not.toHaveClass('attn-ring')

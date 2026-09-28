@@ -1,4 +1,4 @@
-import { findPane, paneIds } from '../layout/tree'
+import { findPane, isPaneShown, paneIds } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -29,8 +29,10 @@ export function isPaneVisible(paneId: string): boolean {
   const sessionId = sessionOfPane(paneId)
   if (!sessionId || sessionId !== useSessionsStore.getState().activeSessionId) return false
   if (useUIStore.getState().settingsActive) return false
-  const zoomed = useLayoutStore.getState().bySession[sessionId]?.zoomedPaneId
-  return !zoomed || zoomed === paneId
+  const layout = useLayoutStore.getState().bySession[sessionId]
+  if (!layout) return false
+  if (layout.zoomedPaneId) return layout.zoomedPaneId === paneId
+  return isPaneShown(layout.root, paneId)
 }
 
 export function isPaneViewed(paneId: string): boolean {

@@ -1,3 +1,5 @@
+import type { AgentResume } from '@shared/agentResume'
+
 export type Direction = 'horizontal' | 'vertical'
 
 export type SurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension' | 'diff'
@@ -11,6 +13,7 @@ export interface PaneNode {
   filePath?: string
   url?: string
   extensionId?: string
+  resume?: AgentResume
 }
 
 export interface SplitNode {
@@ -21,6 +24,13 @@ export interface SplitNode {
   sizes: number[]
 }
 
-export type LayoutNode = PaneNode | SplitNode
+export interface TabsNode {
+  type: 'tabs'
+  id: string
+  children: PaneNode[]
+  activeId: string
+}
+
+export type LayoutNode = PaneNode | SplitNode | TabsNode
 
 export type DropZone = 'left' | 'right' | 'top' | 'bottom' | 'center'
