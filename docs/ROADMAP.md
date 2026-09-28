@@ -98,8 +98,8 @@ extension through the host like any other consumer. Authoring guide: `docs/EXTEN
 | Block actions: click to select, copy command/output, jump between blocks, sticky command header | Warp | core (built) | M | 7 |
 | Command history search across panes | Warp | core (built) | M | 7 |
 | Saved workflows / parameterized commands | Warp | extension | M | 7 |
-| Git branch + dirty state in sidebar; listening ports | cmux | built-in extension | M | 3 |
-| Diff view (Monaco diff editor) + "open in VS Code / Zed at file:line" | Warp/VS Code | built-in extension | M | 3, 6 |
+| Git branch + dirty state in sidebar (built); listening ports | cmux | built-in extension | M | 3 |
+| Diff view (Monaco diff editor) + "open in VS Code / Zed at file:line" (built) | Warp/VS Code | built-in extension + core surface | M | 3, 6 |
 | Pick element in browser → send selector, screenshot, console errors to an agent pane | new | built-in extension | M | 3 |
 | Your real Chrome: document Chrome DevTools MCP for agents instead of re-implementing CDP | new | docs | S | 3 |
 | Agent resume on restore (relaunch the agent CLI with its session id) | cmux | built-in extension | M | 5 |
@@ -127,8 +127,16 @@ Each phase ships a working product; nothing half-built lands on `main`.
    Settings → Plugins. Kanban and wiki migrated. Deferred: pane badges/attention from
    extensions, hot reload of the extension list, extension settings, and letting extensions call
    pane-scoped methods (browse, process) with an explicit target.
-4. **Git & diff** as the first new built-in extension: sidebar branch/dirty, diff view, open in
-   external editor.
+4. **Git & diff** — **done**: the `git` built-in extension (`src/extensions/git/`) shows each
+   session's branch, ahead/behind and `+new ~changed` in the sidebar, lists staged/unstaged/
+   untracked/conflicted files in its panel ("Git: Show Changes"), opens a file's diff, and
+   answers `pine git status|changes|diff|open` as JSON. API gaps it exposed, fixed generically:
+   `ext.openDiff` with a new core `diff` surface (Monaco diff editor; core knows nothing about
+   git), `session.list`/`pane.list` for extensions (with `activePaneId`), the caller's `cwd`, and
+   a `focus.changed` event so polling pauses when pine isn't focused. Core also gained "Open in
+   External Editor" (editor, diff view, palette) driven by `behavior.externalEditor`, spawned
+   with argv, never a shell. Deferred: stage/unstage/commit actions, a git-log/blame view, and
+   letting an extension pane badge itself.
 5. **Browser → agent**: pick element, Chrome DevTools MCP recipe.
 6. **Your tools**: Trellis and Keeper plugins; settings sync.
 7. **Remote** (done): phone grant path, input from the phone, attention push, bind-address

@@ -155,6 +155,20 @@ Board is per-project only (no `--global`) — same sharing rule as the wiki. Col
 are seeded as `todo`/`doing`/`done` on first use; `add`/`move` reject an unknown
 column id (`unknown-column`) rather than silently creating one.
 
+## Git — repo state of your cwd as JSON
+
+```sh
+pine git status                      # {root, branch:{head,oid,upstream,ahead,behind}, counts}
+pine git changes                     # + changes:[{path, origPath?, area, code}]
+pine git diff <path> [--staged]      # {root, path, area, code, patch}  (unified diff)
+pine git open <path> [--staged]      # show that file's diff to the human in a diff pane
+```
+
+Scoped to your pane's current directory (falls back to the session's). `area` is
+`staged | unstaged | untracked | conflicted`; `code` is git's letter (`M A D R C T U ?`).
+Outside a repo you get `not-a-repo`; a path with no changes gives `not-changed`. Read-only:
+it never stages, commits or checks out. Use `git` itself for that.
+
 ## Extensions — commands contributed by extensions
 
 ```sh
@@ -163,7 +177,7 @@ pine ext <extId> <command> [args]    # run an extension command
 pine <extId> <command> [args]        # same, when <extId> isn't a core verb (this is how `pine kanban`/`pine wiki` work)
 ```
 
-Wiki and kanban are built-in extensions, so the commands above behave exactly as documented.
+Wiki, kanban and git are built-in extensions, so the commands above behave exactly as documented.
 If the user disabled one in Settings → Plugins you'll get `extension-disabled`; don't try to
 enable it yourself (there is no verb for that — only the human approves/enables extensions).
 `extension-unavailable` means its process didn't start or crashed; retry once, then tell the
