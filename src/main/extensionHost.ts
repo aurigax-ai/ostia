@@ -73,7 +73,27 @@ export interface ExtensionHostDeps {
   readyTimeoutMs?: number
   requestTimeoutMs?: number
   log?: (extId: string, line: string) => void
+  confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
+  notifyPanel?: (
+    n: { title: string; body?: string; from: string; extId: string },
+    openPanel: () => void,
+  ) => void
 }
+
+export interface ExtensionConfirmRequest {
+  extId: string
+  extName: string
+  title: string
+  message: string
+  detail?: string
+  confirmLabel?: string
+  cancelLabel?: string
+}
+
+const CONFIRM_TITLE_MAX = 120
+const CONFIRM_MESSAGE_MAX = 500
+const CONFIRM_DETAIL_MAX = 2000
+const CONFIRM_LABEL_MAX = 40
 
 function fail(error: string, message?: string): ExtensionResult {
   return message ? { ok: false, error, message } : { ok: false, error }
@@ -582,7 +602,14 @@ export class ExtensionHost {
     const title = typeof p.title === 'string' ? p.title.trim().slice(0, 256) : ''
     if (!title) return fail('missing-title')
     const body = typeof p.body === 'string' && p.body.trim() ? p.body.slice(0, 1024) : undefined
-    this.deps.notify({ title, body, from: `extension:${rt.ext.manifest.id}` })
+    const from = `extension:${rt.ext.manifest.id}`
+    const wantsPanel = (params as { openPanel?: unknown })?.openPanel === true
+    if (wantsPanel && rt.ext.manifest.contributes.panel && this.deps.notifyPanel) {
+      const extId = rt.ext.manifest.id
+      this.deps.notifyPanel({ title, body, from, extId }, () => this.deps.openPanelIn({ extId }))
+    } else {
+      this.deps.notify({ title, body, from })
+    }
     return { ok: true }
   }
 
@@ -630,6 +657,42 @@ export class ExtensionHost {
     return this.list()
       .filter((e) => e.enabled)
       .map((e) => ({ id: e.id, name: e.name, status: e.status, commands: e.commands }))
+  }
+
+  async confirm(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = (params ?? {}) as Record<string, unknown>
+    const text = (v: unknown, max: number): string =>
+      typeof v === 'string' ? v.trim().slice(0, max) : ''
+    const title = text(p.title, CONFIRM_TITLE_MAX)
+    const message = text(p.message, CONFIRM_MESSAGE_MAX)
+    if (!title || !message) return fail('invalid-params', 'title and message are required')
+    if (!this.deps.confirm) return fail('no-window')
+    const req: ExtensionConfirmRequest = {
+      extId: rt.ext.manifest.id,
+      extName: rt.ext.manifest.name,
+      title,
+      message,
+    }
+    const detail = text(p.detail, CONFIRM_DETAIL_MAX)
+    if (detail) req.detail = detail
+    const confirmLabel = text(p.confirmLabel, CONFIRM_LABEL_MAX)
+    if (confirmLabel) req.confirmLabel = confirmLabel
+    const cancelLabel = text(p.cancelLabel, CONFIRM_LABEL_MAX)
+    if (cancelLabel) req.cancelLabel = cancelLabel
+    return { ok: true, confirmed: await this.deps.confirm(req) }
+  }
+
+  reloadRecords(): void {
+    for (const rt of this.runtimes.values()) {
+      if (!this.active(rt)) {
+        if (rt.proc || rt.restartTimer) this.stop(rt)
+      } else {
+        if (rt.identity) setCaps(rt.identity.externalId, this.granted(rt))
+        if (rt.ext.manifest.contributes.sidebarItems) this.start(rt)
+      }
+    }
+    this.changed()
   }
 }
 
@@ -691,4 +754,9 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
       return h.invoke(p.extId, p.command, p.args, h.paneCaller(ctx.identity))
     },
   })
+
+  registerControlMethod(
+    'ext.confirm',
+    forExtension((h, id, conn, p) => h.confirm(id, conn, p)),
+  )
 }

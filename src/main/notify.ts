@@ -48,7 +48,7 @@ function showDesktop(deps: NotifyDeps, title: string, body?: string, paneId?: st
 
 function record(
   deps: NotifyDeps,
-  input: { title: string; body?: string; paneId?: string; from: string },
+  input: { title: string; body?: string; paneId?: string; from: string; extId?: string },
 ): NotificationEntry {
   const entry: NotificationEntry = {
     id: randomUUID(),
@@ -58,6 +58,7 @@ function record(
     from: input.from,
     paneId: input.paneId,
   }
+  if (input.extId) entry.extId = input.extId
   const log = readLog()
   log.push(entry)
   if (log.length > LOG_CAP) log.splice(0, log.length - LOG_CAP)
@@ -72,6 +73,27 @@ export function postNotification(
   input: { title: string; body?: string; from: string },
 ): void {
   showDesktop(deps, input.title, input.body)
+  record(deps, input)
+}
+
+export function postPanelNotification(
+  deps: NotifyDeps,
+  input: { title: string; body?: string; from: string; extId: string },
+  openPanel: () => void,
+): void {
+  if (Notification.isSupported()) {
+    const n = new Notification({ title: input.title, body: input.body })
+    n.on('click', () => {
+      const win = [...deps.windows()].find((w) => !w.isDestroyed())
+      if (win) {
+        if (win.isMinimized()) win.restore()
+        win.show()
+        win.focus()
+      }
+      openPanel()
+    })
+    n.show()
+  }
   record(deps, input)
 }
 

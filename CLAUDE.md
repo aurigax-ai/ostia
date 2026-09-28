@@ -77,9 +77,12 @@ Package manager is **pnpm** only.
 - **cli** (`src/cli/index.ts`): the `pine` CLI. Panes get a `pine()` shell function that runs it
   with the app's own Electron binary (`ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI"`), so no
   system Node is needed.
-- **extensions** (`src/extensions/`): built-in extensions (kanban, wiki, git) + their SDK. Each runs
-  as its own process and talks to pine only over the control socket (`docs/EXTENSIONS.md`).
-  The host that runs them is `src/main/extensionHost.ts`.
+- **extensions** (`src/extensions/`): built-in extensions (kanban, wiki, git, trellis, keeper) +
+  their SDK. Each runs as its own process and talks to pine only over the control socket
+  (`docs/EXTENSIONS.md`). The host that runs them is `src/main/extensionHost.ts`. trellis and
+  keeper wrap the user's own CLIs; their fake stand-ins for tests are `test/fixtures/tools/bin/`.
+- **settings sync** (`src/main/settingsSync.ts` + `settingsSyncIpc.ts`): mirrors settings and
+  extension choices through the folder in `sync.dir`.
 
 Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts`):
 `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`. External links go through
@@ -191,6 +194,17 @@ Details: `docs/ARCHITECTURE.md`.
   `behavior.externalEditor` into argv, substitutes `{file}`/`{line}`/`{column}` per argument,
   and spawns with `shell: false` (`main/externalEditor.ts`). `settings.set` refuses to change
   that key (directly or via `behavior`); only the human sets it.
+- **Settings sync never carries secrets or grants.** `SYNCED_FILES` (`settingsSync.ts`) is
+  `settings.json` minus its local-only keys (`sync`, `capabilities`) and `extensions.json`. Never
+  add the vault, `gateway-devices.json`, certificates or anything with a token. `sync` is not in
+  the settings store's `DATA_KEYS`, so `pine settings set` can't point sync at a folder an agent
+  controls; only Settings → Sync (the human) sets it.
+- **Tool extensions never act for the human.** The keeper extension only runs the argv in
+  `isAllowedKeeperCall` (`daemon status`, `approve --json`, `ui`); never pass a ticket to
+  `keeper approve`, never start or restart its daemon. Anything that changes the user's data
+  (`trellis init`) goes through `ext.confirm` first. An extension that starts a server
+  (`trellis ui`) stops it in its `onShutdown` handler; one that found it already running leaves
+  it alone.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -266,6 +280,14 @@ Details: `docs/ARCHITECTURE.md`.
   invoke that crashed the process would otherwise hang until the 30 s request timeout.
 - **The CLI reads stdin only for extension commands whose manifest says `stdin: true`.** Agent
   harnesses often leave stdin open; reading it unconditionally hangs every `pine <ext> …` call.
+- **The user's CLIs have sharp edges** (`src/extensions/trellis`, `src/extensions/keeper`):
+  trellis prints its JSON errors on **stderr** and `trellis version` appends an update notice
+  after its JSON on stdout (parse the first line); `trellis ui` prints nothing when it serves in
+  the foreground (ask `trellis daemon status --json` for the address); the trellis session cookie
+  is exchanged only at `/`, so project deep links need the extension's token-injecting proxy.
+  `keeper approve` and `keeper ui` auto-start the keeper daemon, so always gate them with
+  `keeper daemon status` (which doesn't). `trellis events --consumer` doesn't advance the cursor
+  by reading; `events ack` does, and a new consumer starts at 0 (prime it without notifying).
 - **E2E must isolate both data dirs** (`e2e/dataHome.ts` → `isolatedLaunch()`): a fresh
   `XDG_DATA_HOME` (else a spec restores the previous spec's panes) and `--user-data-dir` (else a
   spec rewrites the developer's real `settings.json`, which has happened). It also sets
@@ -283,6 +305,9 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   CLI; `src/main/builtinGitExtension.integration.test.ts` runs the built git extension against
   a temp repo (sidebar, changes, diff sides, symlinks). Extension tests that need `src/main`
   live in `src/main` or `src/cli`, never under `src/extensions`.
+  Tool extensions (trellis, keeper) are tested against fake `trellis`/`keeper` shell scripts in
+  `test/fixtures/tools/bin/` put first on `PATH`, fed scrubbed real `--json` captures from
+  `test/fixtures/tools/<tool>/`; never point a test at the real tools.
 - **dom** project (jsdom, `test/setup.ts`): `src/renderer/**`. A typed `window.pine` fake
   (`test/mocks/pine.ts`, typed as `PineBridge`) breaks when the contract drifts.
 - **E2E** (`e2e/`): anything rendering xterm or Monaco, or needing a real pty, a restart, or a crash.

@@ -76,6 +76,27 @@ export interface LspApi {
 
 export interface SettingsApi {
   path: () => Promise<string>
+  onChanged: (cb: () => void) => () => void
+}
+
+export interface SyncConflict {
+  at: string
+  files: string[]
+}
+
+export interface SyncStatus {
+  dir: string | null
+  state: 'off' | 'ok' | 'error'
+  error?: string
+  lastSync: string | null
+  lastConflict: SyncConflict | null
+}
+
+export interface SyncApi {
+  status: () => Promise<SyncStatus>
+  run: () => Promise<SyncStatus>
+  pickFolder: () => Promise<string | null>
+  onStatus: (cb: (status: SyncStatus) => void) => () => void
 }
 
 export type SessionLiveState = 'idle' | 'working' | 'waiting' | 'done' | 'error'
@@ -89,6 +110,7 @@ export interface NotificationEntry {
   body?: string
   from: string
   paneId?: string
+  extId?: string
 }
 
 export interface NotificationPost {
@@ -320,6 +342,7 @@ export interface PineBridge {
   fs: FsApi
   lsp: LspApi
   settings: SettingsApi
+  sync: SyncApi
   session: SessionApi
   lifecycle: LifecycleApi
   commands: CommandsApi

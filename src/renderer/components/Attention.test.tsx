@@ -5,6 +5,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { findPane, resetIds } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSessionsStore } from '../stores/sessionsStore'
 import { useUIStore } from '../stores/uiStore'
@@ -193,5 +194,55 @@ describe('NotificationCenter', () => {
     ])
     act(() => changed())
     expect(await screen.findByText('fresh')).toBeInTheDocument()
+  })
+
+  it('names the extension on its notifications and opens its panel on click', async () => {
+    const { sessionId } = twoPanes()
+    const extInit = useExtensionsStore.getState()
+    useExtensionsStore.setState({
+      list: [
+        {
+          id: 'keeper',
+          name: 'Keeper',
+          version: '1.0.0',
+          description: '',
+          builtin: true,
+          enabled: true,
+          status: 'running',
+          requested: [],
+          granted: [],
+          unapproved: [],
+          commands: [],
+          panel: { title: 'Keeper', icon: 'shield' },
+        },
+      ],
+    })
+    vi.mocked(window.pine.notifications.list).mockResolvedValue([
+      {
+        id: 'k1',
+        ts: '2026-09-28T10:00:00Z',
+        title: 'Keeper needs approval',
+        from: 'extension:keeper',
+        extId: 'keeper',
+      },
+    ])
+    try {
+      renderBell()
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: /Notifications/ }))
+      const row = within(await screen.findByRole('list', { name: 'Notifications' })).getByRole(
+        'button',
+      )
+      expect(row).toHaveTextContent(/^Keeper/)
+      expect(row).toBeEnabled()
+      await user.click(row)
+      const layout = useLayoutStore.getState().bySession[sessionId]
+      expect(paneNode(sessionId, layout.activePaneId)).toMatchObject({
+        kind: 'extension',
+        extensionId: 'keeper',
+      })
+    } finally {
+      useExtensionsStore.setState(extInit, true)
+    }
   })
 })

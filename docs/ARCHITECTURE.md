@@ -72,6 +72,8 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `attention.ts` | `pane.setAttention` control method (`pine state`) |
 | `processManager.ts`, `vault.ts`, `bus.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
 | `extensionHost.ts`, `extensionManifest.ts`, `extensionStore.ts` | Extension host: discovery + manifest validation, approval records, extension processes, `ext.*` control methods (§11) |
+| `extensionConfirm.ts` | The native confirm dialog behind `ext.confirm` (§11) |
+| `settingsSync.ts`, `settingsSyncIpc.ts` | Settings sync: pure plan/merge + the file executor; triggers (startup, window focus, local file changes) and `sync:*` / `dialog:pick-folder` IPC (§5) |
 | `browse.ts` | `browse.*` automation of browser panes (§9) |
 | `browsePick.ts`, `guestNetwork.ts` | Pick element: `browse.pick`, `browser:pick-*` IPC, UI-issue reports; failed-request buffer per guest (§9) |
 | `externalEditor.ts` | "Open in External Editor": resolves `behavior.externalEditor` (or auto-detects code/cursor/zed on `PATH`) and spawns it with an argv array (§9) |
@@ -91,6 +93,9 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
 - `<workDir>/.pine/`: project-scoped vault; the built-in kanban and wiki extensions keep
   `board.json` and `wiki.json` here too (global wiki: `$XDG_DATA_HOME/pine/wiki.json`).
 - `userData/extensions.json`: per-extension `{enabled, approved}` records (§11).
+- `userData/sync-state.json`: the sync folder last synced with, a hash per synced file at the
+  last sync, the last sync time and the last conflict (§5). The sync folder itself holds
+  `settings.json`, `extensions.json` and any `*.conflict-<time>-<host>.json` copies.
 - Built-in extensions: `out/extensions/<id>/` in dev, `resources/extensions/<id>/` when packaged.
   User extensions: `$XDG_CONFIG_HOME/pine/extensions/<id>/` (default `~/.config/pine/extensions`).
 - `$XDG_RUNTIME_DIR/pine-<pid>.sock` (or the OS tmp dir): control socket.
@@ -378,7 +383,7 @@ pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 
 - `stores/settingsStore.ts` persists `userData/settings.json` (debounced 300 ms): `locale`,
   `appearance` (theme + ui/terminal/editor fonts), `behavior` (`showHiddenFiles`, `cursorStyle`,
-  `cursorBlink`, `restoreSession`), `capabilities.grants`.
+  `cursorBlink`, `restoreSession`), `capabilities.grants`, `sync.dir`.
   - `setByPath` rejects prototype-pollution segments, keys outside locale/appearance/behavior,
     and type changes.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
@@ -388,6 +393,38 @@ pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   These are data-only contributions; behavior and UI come from extensions (§11), listed in the
   same Settings → Plugins section.
 - i18n: typed catalogs in `i18n/dict.ts`, read via `useDict()`.
+
+### Settings sync
+
+`sync.dir` in `settings.json` names a folder the user owns (a repository they commit, a
+Syncthing or Dropbox folder). Settings → Sync (`SyncSection.tsx`) sets it through a folder picker
+(`dialog:pick-folder`) and the store writes it at once (`setSyncDir`); `sync` is not one of the
+store's `DATA_KEYS`, so `pine settings set` can't change it.
+
+Main (`settingsSync.ts`) syncs two files: `settings.json` without its local-only keys (`sync`,
+`capabilities`) and `extensions.json`. For each, `planSync` compares a hash of the local and the
+folder copy against the hash recorded at the last sync (`sync-state.json`): only one side
+changed → copy it over; both changed (or a first sync with two different copies) → the newer
+mtime wins and the other side's content is written next to it as
+`<name>.conflict-<time>-<host>.json`, which Settings → Sync names. Pulling `settings.json` keeps
+the local-only keys of the local file and ignores those in the folder copy. Invalid JSON on either
+side stops that file (nothing is overwritten) and shows an error. Changing `sync.dir` starts
+over (no recorded hashes).
+
+It runs at startup before the extension host reads `extensions.json`, when a window gains focus
+(throttled to once per 2 s), and 800 ms after `settings.json` or `extensions.json` changes on
+disk (an `fs.watch` on `userData`, which also catches the renderer's own saves). A pulled
+`settings.json` sends `settings:changed`, and the renderer re-runs `init()`; a pulled
+`extensions.json` reloads `ExtensionStore` and `ExtensionHost.reloadRecords()` starts or stops
+processes to match.
+
+Why hashes and mtimes both: hashes decide *whether* a side changed (mtime alone is unreliable
+across sync tools that rewrite files), mtimes only break the tie when both did.
+Why capabilities never sync: a synced folder is writable by whatever syncs it, and grants must
+come only from a human editing this machine's file (CLAUDE.md §4). Secrets (vault, gateway
+device tokens, TLS identity) live in other files and aren't in `SYNCED_FILES`.
+Why sync is core, not an extension: it rewrites extension approvals, which only core may do, and
+it must run before the extension host starts anything.
 
 ## 6. Control plane
 
@@ -758,8 +795,8 @@ target whichever window happened to be first.
 - `before-quit` sends SIGTERM to every extension process.
 
 **Methods.** Extension → pine: `ext.registerCommands`, `ext.subscribe`, `ext.setSidebarItem`,
-`ext.notify` (needs `notify`), `ext.openPanel`, `ext.openDiff`, plus the shared read methods
-`session.list` / `pane.list` (`callers: 'all'`, need `read-board`). Pine → extension:
+`ext.notify` (needs `notify`), `ext.openPanel`, `ext.openDiff`, `ext.confirm`, plus the shared
+read methods `session.list` / `pane.list` (`callers: 'all'`, need `read-board`). Pine → extension:
 `ext.command` and `ext.panel` requests, `ext.event` notifications. Pane → pine: `ext.list`,
 `ext.invoke`.
 - `ext.openDiff` validates (title, both sides strings ≤ 5 MiB, absolute `path`) and main sends
@@ -770,6 +807,14 @@ target whichever window happened to be first.
   user is in" without a pane-scoped method.
 - The caller context carries `cwd`: for a pane caller the pane's live terminal cwd
   (`cwdForPane`, from `terminal:state`), for a palette call the active pane's.
+- `ext.confirm {title, message, detail?, confirmLabel?, cancelLabel?}` shows a native question
+  box on the focused window (`extensionConfirm.ts`), always naming the extension, Cancel as the
+  default; it resolves `{confirmed}`. Why a dialog in main rather than in the panel: the action
+  may come from the palette or an agent's `pine` call with no panel open, and a confirm the
+  extension draws itself proves nothing about the human.
+- `ext.notify {…, openPanel: true}` (extensions with a panel) records the notification with the
+  extension's id (`NotificationEntry.extId`); clicking it, on the desktop or in the notification
+  center, opens that extension's panel instead of jumping to a pane.
 - Command caps declared in the manifest are checked against the caller before the process is
   even started. The extension receives the caller context (`kind`, external `paneId`,
   `sessionId`, `workDir`, `capabilities`) and may enforce conditional rules itself (the wiki
@@ -815,7 +860,45 @@ compromised or buggy panel can do no more than its extension already can.
   `open <path> [--staged]`, all JSON. A path argument must match a changed file (resolved from
   the caller's cwd, or repo-relative), so it can't be used to read arbitrary files.
 
-**Built-ins.** `src/extensions/{kanban,wiki,git}` are built by `scripts/build-extensions.mjs`
+
+**Tool extensions: trellis and keeper.** Both are built-ins that only shell out to the user's
+CLIs (`runTool` in the SDK: no shell, stdin closed, timeout, `missing` on ENOENT) and use nothing
+but the public API.
+- *trellis* (`src/extensions/trellis/`). Project of a session = the nearest `.trellis` marker
+  (`/KEY` or `/KEY/boards/<slug>`) above its workDir, walked like trellis does (never `$HOME`,
+  stop at a `.git`). Sidebar: per session, `card ls --json --all` + `column ls --json` for that
+  project → open (not in an `is_done` column) and claimed (claim not expired) counts, refreshed
+  every 60 s, on pane/cwd/focus events and on card events. Panel: `trellis ui --json` prints the
+  running daemon's URL and exits; if nothing runs it serves in the foreground and prints nothing,
+  so after 1.5 s the extension treats that child as its own server, reads the address from
+  `daemon status --json`, and kills it on shutdown. The webview never sees the trellis token: it
+  loads a loopback proxy in the extension (`proxy.ts`) that sets its own HttpOnly cookie from a
+  one-time entry link, redirects to `/p/<KEY>[/b/<slug>]`, and forwards every request with
+  `X-Trellis-Token`, the upstream `Host`/`Origin` and no browser cookies. Why a proxy: trellis
+  trades its token for a cookie only at `/` and then redirects to `/`, so a deep link to the
+  session's project can't be expressed as a URL. Events: a consumer named after the product
+  (`pine`) runs `events --follow`; a brand-new consumer is first paged through and acked so
+  history doesn't notify; acks are batched every 2 s; the follower restarts with backoff
+  (2 s · 2ⁿ, 5 min cap). A card moved by an `agent:` actor into a column named like
+  review/needs-you/waiting (or blocked) in a project some session has open posts a notification
+  that opens the panel. "Trellis: Init Project Here" runs `trellis init` in the caller's cwd
+  (else workDir) after `ext.confirm`.
+- *keeper* (`src/extensions/keeper/`). Only three argv are ever run (`isAllowedKeeperCall`):
+  `daemon status` (never starts the daemon), then `approve --json` (list mode: no ticket, so it
+  cannot decide anything; with a ticket keeper would also demand a TTY) and `ui` (prints the
+  dashboard origin). Both of the latter auto-start the daemon, so they run only when `daemon
+  status` says it's up. Polling: 5 s while approvals wait or a window has focus, 60 s otherwise,
+  exponential backoff (to 5 min) while the daemon is down, none once keeper is missing (focus
+  re-checks). The footer item appears only while something waits; a new ticket posts "Keeper
+  needs approval", which opens the panel on `/approvals`. The approval list keeps ticket, agent,
+  workspace, intent, connection, tier and age, never the SQL; nothing about connections or DSNs
+  passes through pine.
+- Unavailable tools: no sidebar items, commands fail with a message that says what to install or
+  start, and the panel shows a static explanation page (`startMessageServer`).
+- They depend on phase 4's extension access to `session.list`, `caller.cwd` and `focus.changed`
+  and degrade without them (no per-session items; cwd falls back to workDir; idle poll rate).
+
+**Built-ins.** `src/extensions/{kanban,wiki,git,trellis,keeper}` are built by `scripts/build-extensions.mjs`
 (esbuild: `main.ts` → node CJS bundle, `panel.ts` → browser IIFE; `sdk/panel.css` → `base.css`)
 into `out/extensions`; electron-builder ships that dir as `extraResources` and keeps it out of
 the asar (a process can't use an asar path as cwd). They use only the public API through the
