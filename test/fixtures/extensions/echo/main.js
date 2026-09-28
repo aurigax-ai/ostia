@@ -25,6 +25,7 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
     return { ok: true, data: await conn.sendRequest('session.list') }
   }
   if (command === 'crash') process.exit(3)
+  if (command === 'stdin') return { ok: true, text: `stdin:${args.stdin}` }
   return { ok: false, error: 'unknown' }
 })
 
@@ -43,6 +44,6 @@ socket.on('connect', async () => {
   await conn.sendRequest('hello', { token: process.env.PINE_TOKEN })
   await conn.sendRequest('ext.subscribe', { events: ['pane.created'] })
   await conn.sendRequest('ext.registerCommands', {
-    commands: ['echo', 'guarded', 'probe', 'notify', 'diff', 'sessions', 'crash'],
+    commands: ['echo', 'guarded', 'probe', 'notify', 'diff', 'sessions', 'crash', 'stdin'],
   })
 })

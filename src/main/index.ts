@@ -820,15 +820,6 @@ app.whenReady().then(() => {
     getTerminalState,
     listPanes: () => listPanes({ execCommand, getTerminalState }),
     listSessions: () => listSessions({ execCommand }),
-    invokeExtension: (extId, command, args, sessionId, capabilities) =>
-      extensionHost
-        ? extensionHost.invoke(extId, command, args, {
-            kind: 'phone',
-            sessionId,
-            workDir: workDirForSession(sessionId),
-            capabilities,
-          })
-        : Promise.resolve({ ok: false, error: 'no-extension-host' }),
     primaryWindowId,
     attachPhoneObserver,
     ptyResize,

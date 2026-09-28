@@ -56,7 +56,6 @@ const deps = {
   getTerminalState: vi.fn(),
   listPanes: vi.fn().mockResolvedValue([]),
   listSessions: vi.fn().mockResolvedValue([]),
-  invokeExtension: vi.fn(),
   primaryWindowId: vi.fn().mockReturnValue('w1'),
   attachPhoneObserver: vi.fn().mockImplementation(() => ({
     cursor: 7,
@@ -160,9 +159,9 @@ describe('gateway server over a real WebSocket', () => {
 
     expect(gatewaySetCap({ deviceId, cap: 'input', granted: true })).toMatchObject({ ok: true })
     const changed = await c.next((m) => m.params?.type === 'caps.changed')
-    expect(changed.params?.payload).toEqual({ caps: ['read', 'board.read', 'notify', 'input'] })
+    expect(changed.params?.payload).toEqual({ caps: ['read', 'notify', 'input'] })
     expect((await c.call('device.caps')).result).toEqual({
-      caps: ['read', 'board.read', 'notify', 'input'],
+      caps: ['read', 'notify', 'input'],
     })
 
     const attach = await c.call('pty.attach', { paneId: externalPaneId, role: 'owner' })
