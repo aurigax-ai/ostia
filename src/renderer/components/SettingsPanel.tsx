@@ -1,3 +1,4 @@
+import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo } from '@shared/types'
 import {
@@ -14,9 +15,10 @@ import {
   TerminalSquare,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Locale } from '../i18n/dict'
-import { useDict } from '../i18n/useDict'
+import type { Dict, Locale } from '../i18n/dict'
+import { fmt, useDict } from '../i18n/useDict'
 import { platform } from '../platform'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { type LspStatus, usePluginsStore } from '../stores/pluginsStore'
 import { useSessionsStore } from '../stores/sessionsStore'
@@ -364,6 +366,85 @@ function PluginsSection(): JSX.Element {
           </Hint>
         ))}
       </div>
+      <Separator className="my-3" />
+      <ExtensionsSection />
+    </section>
+  )
+}
+
+function extensionStatusLabel(d: Dict, ext: ExtensionInfo): string {
+  switch (ext.status) {
+    case 'running':
+      return d.extensions.statusRunning
+    case 'starting':
+      return d.extensions.statusStarting
+    case 'crashed':
+      return d.extensions.statusCrashed
+    case 'disabled':
+      return d.extensions.statusDisabled
+    case 'pending-approval':
+      return d.extensions.statusPending
+    default:
+      return d.extensions.statusIdle
+  }
+}
+
+export function ExtensionsSection(): JSX.Element {
+  const d = useDict()
+  const list = useExtensionsStore((s) => s.list)
+  const setEnabled = useExtensionsStore((s) => s.setEnabled)
+  const review = useExtensionsStore((s) => s.review)
+  return (
+    <section aria-label={d.extensions.title}>
+      <h3 className="font-semibold text-fg text-ui-base">{d.extensions.title}</h3>
+      <p className="mt-0.5 mb-2 text-fg-muted text-ui-sm">{d.extensions.desc}</p>
+      {list.length === 0 ? (
+        <p className="text-fg-muted text-ui-sm">{d.extensions.none}</p>
+      ) : (
+        <ul className="flex flex-col">
+          {list.map((ext) => (
+            <li
+              key={ext.id}
+              className="flex items-start justify-between gap-6 rounded-sm px-3 py-2"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-fg text-ui-base">{ext.name}</span>
+                  <span className="font-mono text-fg-muted text-ui-xs">{ext.version}</span>
+                  {ext.builtin ? (
+                    <span className="rounded-sm border border-line px-1.5 text-fg-muted text-ui-xs">
+                      {d.settings.builtin}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-0.5 text-fg-muted text-ui-sm">{ext.description}</p>
+                <p className="mt-0.5 text-fg-muted text-ui-xs">
+                  {extensionStatusLabel(d, ext)} · {d.extensions.permissions}:{' '}
+                  {ext.granted.length > 0 ? ext.granted.join(', ') : d.extensions.noPermissions}
+                </p>
+                {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
+                  <p className="mt-0.5 text-attn-fg text-ui-xs">
+                    {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {!ext.builtin &&
+                (ext.status === 'pending-approval' || ext.unapproved.length > 0) ? (
+                  <Button variant="outline" size="sm" onClick={() => review(ext.id)}>
+                    {d.extensions.review}
+                  </Button>
+                ) : null}
+                <Switch
+                  checked={ext.enabled}
+                  onCheckedChange={(v) => void setEnabled(ext.id, v)}
+                  aria-label={fmt(d.extensions.enable, { name: ext.name })}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }

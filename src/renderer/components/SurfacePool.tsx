@@ -5,9 +5,8 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { releaseSurfaces, surfaceHost } from '../stores/surfaceSlotsStore'
 import { BrowserView } from './BrowserView'
 import { EditorView } from './Editor'
-import { KanbanView } from './KanbanView'
+import { ExtensionPanelView } from './ExtensionPanelView'
 import { TerminalView } from './Terminal'
-import { WikiView } from './WikiView'
 
 interface SurfaceRef {
   paneId: string
@@ -16,6 +15,7 @@ interface SurfaceRef {
   cwd?: string
   filePath?: string
   url?: string
+  extensionId?: string
 }
 
 function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
@@ -24,8 +24,7 @@ function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
       node.kind === 'terminal' ||
       node.kind === 'editor' ||
       node.kind === 'browser' ||
-      node.kind === 'kanban' ||
-      node.kind === 'wiki'
+      (node.kind === 'extension' && node.extensionId)
     ) {
       out.push({
         paneId: node.id,
@@ -34,6 +33,7 @@ function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
         cwd: node.cwd,
         filePath: node.filePath,
         url: node.url,
+        extensionId: node.extensionId,
       })
     }
     return
@@ -64,10 +64,8 @@ export function SurfacePool(): JSX.Element {
             <EditorView filePath={s.filePath} />
           ) : s.kind === 'browser' ? (
             <BrowserView sessionId={s.sessionId} paneId={s.paneId} url={s.url} />
-          ) : s.kind === 'kanban' ? (
-            <KanbanView sessionId={s.sessionId} />
-          ) : s.kind === 'wiki' ? (
-            <WikiView sessionId={s.sessionId} />
+          ) : s.kind === 'extension' && s.extensionId ? (
+            <ExtensionPanelView extId={s.extensionId} sessionId={s.sessionId} />
           ) : (
             <TerminalView sessionId={s.sessionId} paneId={s.paneId} cwd={s.cwd} />
           ),

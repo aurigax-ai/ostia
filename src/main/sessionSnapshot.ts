@@ -23,8 +23,7 @@ const SURFACE_KINDS: ReadonlySet<string> = new Set<SnapshotSurfaceKind>([
   'editor',
   'agent',
   'browser',
-  'kanban',
-  'wiki',
+  'extension',
 ])
 const SESSION_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal', 'scratch'])
 
@@ -43,7 +42,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 function copyOptionalString(
   src: Record<string, unknown>,
   dst: SnapshotPaneNode,
-  key: 'cwd' | 'filePath' | 'url',
+  key: 'cwd' | 'filePath' | 'url' | 'extensionId',
 ): void {
   const value = src[key]
   if (typeof value === 'string' && value.length > 0) dst[key] = value
@@ -66,6 +65,8 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     copyOptionalString(raw, pane, 'cwd')
     copyOptionalString(raw, pane, 'filePath')
     copyOptionalString(raw, pane, 'url')
+    copyOptionalString(raw, pane, 'extensionId')
+    if (pane.kind === 'extension' && !pane.extensionId) return null
     paneIds.push(id)
     return pane
   }

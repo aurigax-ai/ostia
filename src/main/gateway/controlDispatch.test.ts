@@ -23,8 +23,7 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     getTerminalState: vi.fn().mockReturnValue(undefined),
     listPanes: vi.fn().mockResolvedValue([]),
     listSessions: vi.fn().mockResolvedValue([]),
-    kanbanGet: vi.fn().mockReturnValue({ columns: [], cards: [] }),
-    kanbanUpdate: vi.fn().mockReturnValue({ ok: true }),
+    invokeExtension: vi.fn().mockResolvedValue({ ok: true, data: { columns: [], cards: [] } }),
     primaryWindowId: vi.fn().mockReturnValue('w1'),
     attachPhoneObserver: vi.fn().mockReturnValue(null),
     ptyResize: vi.fn(),
@@ -404,15 +403,26 @@ describe('dispatchGatewayMethod — pane.info / cwd.get', () => {
 describe('dispatchGatewayMethod — board.get', () => {
   it('uses an explicit `scope` as the sessionId', async () => {
     const board = { columns: [{ id: 'todo', name: 'Todo' }], cards: [] }
-    const kanbanGet = vi.fn().mockReturnValue(board)
+    const invokeExtension = vi.fn().mockResolvedValue({ ok: true, data: board })
     const res = await dispatchGatewayMethod(
       'board.get',
       { scope: 's-explicit' },
       ['board.read'],
-      fakeDeps({ kanbanGet }),
+      fakeDeps({ invokeExtension }),
     )
     expect(res).toEqual({ ok: true, result: board })
-    expect(kanbanGet).toHaveBeenCalledWith('s-explicit')
+    expect(invokeExtension).toHaveBeenCalledWith('kanban', 'get', {}, 's-explicit', ['read-board'])
+  })
+
+  it('passes an extension failure through as the result', async () => {
+    const failure = { ok: false, error: 'extension-disabled', message: 'off' }
+    const res = await dispatchGatewayMethod(
+      'board.get',
+      { scope: 's1' },
+      ['board.read'],
+      fakeDeps({ invokeExtension: vi.fn().mockResolvedValue(failure) }),
+    )
+    expect(res).toEqual({ ok: true, result: failure })
   })
 
   it('falls back to the first known session when scope is omitted', async () => {
@@ -421,15 +431,17 @@ describe('dispatchGatewayMethod — board.get', () => {
       .mockResolvedValue([
         { sessionId: 's1', name: 'a', kind: 'terminal', workDir: '/x', state: 'idle' },
       ])
-    const kanbanGet = vi.fn().mockReturnValue({ columns: [], cards: [] })
+    const invokeExtension = vi
+      .fn()
+      .mockResolvedValue({ ok: true, data: { columns: [], cards: [] } })
     const res = await dispatchGatewayMethod(
       'board.get',
       {},
       ['board.read'],
-      fakeDeps({ listSessions, kanbanGet }),
+      fakeDeps({ listSessions, invokeExtension }),
     )
     expect(res.ok).toBe(true)
-    expect(kanbanGet).toHaveBeenCalledWith('s1')
+    expect(invokeExtension).toHaveBeenCalledWith('kanban', 'get', {}, 's1', ['read-board'])
   })
 
   it('returns an empty board when there is no session at all', async () => {
@@ -470,15 +482,21 @@ describe('dispatchGatewayMethod — board.update', () => {
   })
 
   it('uses an explicit `scope` as the sessionId and forwards cardId/patch', async () => {
-    const kanbanUpdate = vi.fn().mockReturnValue({ ok: true })
+    const invokeExtension = vi.fn().mockResolvedValue({ ok: true, text: 'ok' })
     const res = await dispatchGatewayMethod(
       'board.update',
       { scope: 's-explicit', cardId: 'card-1', patch: { title: 'renamed' } },
       ['board.write'],
-      fakeDeps({ kanbanUpdate }),
+      fakeDeps({ invokeExtension }),
     )
     expect(res).toEqual({ ok: true, result: { ok: true } })
-    expect(kanbanUpdate).toHaveBeenCalledWith('s-explicit', 'card-1', { title: 'renamed' })
+    expect(invokeExtension).toHaveBeenCalledWith(
+      'kanban',
+      'update',
+      { cardId: 'card-1', patch: { title: 'renamed' } },
+      's-explicit',
+      ['read-board', 'board-write'],
+    )
   })
 
   it('falls back to the first known session when scope is omitted', async () => {
@@ -487,15 +505,21 @@ describe('dispatchGatewayMethod — board.update', () => {
       .mockResolvedValue([
         { sessionId: 's1', name: 'a', kind: 'terminal', workDir: '/x', state: 'idle' },
       ])
-    const kanbanUpdate = vi.fn().mockReturnValue({ ok: true })
+    const invokeExtension = vi.fn().mockResolvedValue({ ok: true })
     const res = await dispatchGatewayMethod(
       'board.update',
       { cardId: 'card-1', patch: {} },
       ['board.write'],
-      fakeDeps({ listSessions, kanbanUpdate }),
+      fakeDeps({ listSessions, invokeExtension }),
     )
     expect(res.ok).toBe(true)
-    expect(kanbanUpdate).toHaveBeenCalledWith('s1', 'card-1', {})
+    expect(invokeExtension).toHaveBeenCalledWith(
+      'kanban',
+      'update',
+      { cardId: 'card-1', patch: {} },
+      's1',
+      ['read-board', 'board-write'],
+    )
   })
 
   it('is an invalid-params error when there is no session at all', async () => {

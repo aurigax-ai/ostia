@@ -34,6 +34,8 @@ type AnyCommand = CommandDef<any, any>
 
 export class CommandRegistry {
   private commands = new Map<string, AnyCommand>()
+  private listeners = new Set<() => void>()
+  private revision = 0
   private contextProvider: () => CommandContext = () => ({
     activeSessionId: null,
     activePaneId: null,
@@ -48,6 +50,25 @@ export class CommandRegistry {
       throw new Error(`command already registered: ${def.id}`)
     }
     this.commands.set(def.id, def as AnyCommand)
+    this.notify()
+  }
+
+  unregister(id: string): void {
+    if (this.commands.delete(id)) this.notify()
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
+  version(): number {
+    return this.revision
+  }
+
+  private notify(): void {
+    this.revision += 1
+    for (const listener of this.listeners) listener()
   }
 
   has(id: string): boolean {

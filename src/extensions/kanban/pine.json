@@ -1,0 +1,62 @@
+{
+  "id": "kanban",
+  "name": "Kanban",
+  "version": "1.0.0",
+  "description": "Per-project task board shared by you and your agents (.pine/board.json).",
+  "capabilities": [],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "open", "title": "Open Board", "category": "App", "capabilities": ["read-board"] },
+      {
+        "id": "ls",
+        "title": "List columns and cards",
+        "palette": false,
+        "capabilities": ["read-board"]
+      },
+      { "id": "get", "title": "Board as JSON", "palette": false, "capabilities": ["read-board"] },
+      {
+        "id": "add",
+        "title": "Add a card",
+        "usage": "add \"<title>\" [--column X] [--body ...]",
+        "palette": false,
+        "capabilities": ["board-write"]
+      },
+      {
+        "id": "move",
+        "title": "Move a card to a column",
+        "usage": "move <id> <column>",
+        "palette": false,
+        "capabilities": ["board-write"]
+      },
+      {
+        "id": "assign",
+        "title": "Assign a card",
+        "usage": "assign <id> <who>",
+        "palette": false,
+        "capabilities": ["board-write"]
+      },
+      {
+        "id": "done",
+        "title": "Move a card to 'done'",
+        "usage": "done <id>",
+        "palette": false,
+        "capabilities": ["board-write"]
+      },
+      {
+        "id": "rm",
+        "title": "Delete a card",
+        "usage": "rm <id>",
+        "palette": false,
+        "capabilities": ["board-write"]
+      },
+      {
+        "id": "update",
+        "title": "Patch a card (JSON args)",
+        "palette": false,
+        "capabilities": ["board-write"]
+      }
+    ],
+    "panel": { "title": "Board", "icon": "kanban", "entry": "url" }
+  }
+}
