@@ -1,9 +1,3 @@
-/**
- * `notify` toolbelt service (agent-toolbelt plan, capability 'notify' — a DEFAULT since
- * firing a desktop notification is low-risk). Fires an OS notification via Electron's
- * `Notification` API and appends every fire to a capped, global JSON log (`jsonStore`)
- * so `notify.list` (and future UI) can show recent activity across all panes/windows.
- */
 import { Notification } from 'electron'
 import { registerControlMethod } from './controlServer'
 import { emitPlatformEvent } from './events'
@@ -16,7 +10,6 @@ interface NotifyEntry {
   from: string
 }
 
-/** Cap on the persisted log — oldest entries drop off once this is exceeded. */
 const LOG_CAP = 500
 
 function logPath(): string {
@@ -40,8 +33,6 @@ export function registerNotifyMethods(): void {
       }
       const from = ctx.identity.paneId
       appendEntry({ ts: new Date().toISOString(), title, body, from })
-      // Push to the phone (contract §7's `notify` event) — no hard dependency on the gateway:
-      // this fires into the bus regardless of whether it's running/listening.
       emitPlatformEvent('notify', { title, body, from })
       return { ok: true }
     },

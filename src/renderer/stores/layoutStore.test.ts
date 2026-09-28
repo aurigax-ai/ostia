@@ -4,27 +4,14 @@ import type { SplitNode } from '../layout/types'
 import { useLayoutStore } from './layoutStore'
 import { useSessionsStore } from './sessionsStore'
 
-/**
- * layoutStore wraps the PURE tree.ts transforms AND emits control-plane lifecycle events
- * via `window.pine.lifecycle.emit`. These tests assert BOTH sides: the real tree shape
- * (via paneIds/findPane) and the emitted `pane-created`/`pane-closed` events. The two
- * meaningful cases are the CONDITIONAL pane-closed emit (last-pane guard, both branches)
- * and openFile's editor-pane reuse.
- *
- * The `dom` setup (test/setup.ts) stubs a fresh typed `window.pine` before every test, so
- * `window.pine.lifecycle.emit` is a clean vi.fn() at the start of each test body.
- */
-
 const emit = () => vi.mocked(window.pine.lifecycle.emit)
 const layoutOf = (sid: string) => useLayoutStore.getState().bySession[sid]
 
-/** ensure a session and return its single pane's id. */
 function ensure(sid: string): string {
   useLayoutStore.getState().ensure(sid)
   return firstPaneId(layoutOf(sid).root)
 }
 
-/** ensure + one horizontal split → a 2-pane layout; return both pane ids. */
 function twoPanes(sid: string): { first: string; second: string } {
   const first = ensure(sid)
   useLayoutStore.getState().split(sid, first, 'horizontal')
@@ -38,18 +25,15 @@ describe('layoutStore', () => {
   let sessionsInit: ReturnType<typeof useSessionsStore.getState>
 
   beforeAll(() => {
-    // Snapshot pristine state (data + stable action fns) before any test mutates.
     layoutInit = useLayoutStore.getState()
     sessionsInit = useSessionsStore.getState()
   })
 
   beforeEach(() => {
-    // setup.ts stubs a fresh window.pine (with a new emit vi.fn) before this hook runs.
     emit().mockClear()
   })
 
   afterEach(() => {
-    // Restore stores to pristine (replace, not merge) so panes/sessions don't bleed.
     useLayoutStore.setState(layoutInit, true)
     useSessionsStore.setState(sessionsInit, true)
     vi.restoreAllMocks()
@@ -131,7 +115,6 @@ describe('layoutStore', () => {
       useLayoutStore.getState().split('sess', 'nonexistent-pane', 'horizontal')
       const layout = layoutOf('sess')
 
-      // splitPane returns newPaneId=null when the target isn't found → no new pane, no emit.
       expect(paneIds(layout.root)).toEqual([paneId])
       expect(layout.activePaneId).toBe(paneId)
       expect(emit()).not.toHaveBeenCalled()
@@ -141,7 +124,6 @@ describe('layoutStore', () => {
   describe('closePane (conditional pane-closed emit)', () => {
     it('removes a real pane in a 2-pane layout, moves focus, and emits pane-closed once', () => {
       const { first, second } = twoPanes('sess')
-      // The split left `second` active.
       expect(layoutOf('sess').activePaneId).toBe(second)
       emit().mockClear()
 
@@ -150,7 +132,6 @@ describe('layoutStore', () => {
 
       expect(paneIds(layout.root)).toEqual([first])
       expect(findPane(layout.root, second)).toBeNull()
-      // Closed pane was active → focus moves to the first remaining pane.
       expect(layout.activePaneId).toBe(first)
       expect(emit()).toHaveBeenCalledTimes(1)
       expect(emit()).toHaveBeenCalledWith({
@@ -167,11 +148,21 @@ describe('layoutStore', () => {
       useLayoutStore.getState().closePane('sess', only)
       const layout = layoutOf('sess')
 
-      // Pane can't be removed — it's still there.
       expect(paneIds(layout.root)).toEqual([only])
       expect(findPane(layout.root, only)).not.toBeNull()
       expect(layout.activePaneId).toBe(only)
       expect(emit()).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'pane-closed' }))
+      expect(emit()).not.toHaveBeenCalled()
+    })
+
+    it('emits no pane-closed for an id that never existed or was already closed', () => {
+      const { second } = twoPanes('sess')
+      useLayoutStore.getState().closePane('sess', second)
+      emit().mockClear()
+
+      useLayoutStore.getState().closePane('sess', second)
+      useLayoutStore.getState().closePane('sess', 'pane-bogus')
+
       expect(emit()).not.toHaveBeenCalled()
     })
 
@@ -216,8 +207,6 @@ describe('layoutStore', () => {
     it('relocates the pane, sets activePaneId = source, and emits no lifecycle event', () => {
       const { first, second } = twoPanes('sess')
       emit().mockClear()
-      // 2-pane horizontal split, order [first, second]. Drop `second` onto `first`'s top
-      // edge → a vertical split ordered [second, first].
       useLayoutStore.getState().movePane('sess', second, first, 'top')
       const layout = layoutOf('sess')
 
@@ -225,25 +214,6 @@ describe('layoutStore', () => {
       expect((layout.root as SplitNode).direction).toBe('vertical')
       expect(layout.activePaneId).toBe(second)
       expect(emit()).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('removePane', () => {
-    it('delegates to closePane — emits pane-closed exactly once for a real pane', () => {
-      const { first, second } = twoPanes('sess')
-      emit().mockClear()
-
-      useLayoutStore.getState().removePane('sess', second)
-      const layout = layoutOf('sess')
-
-      expect(paneIds(layout.root)).toEqual([first])
-      expect(findPane(layout.root, second)).toBeNull()
-      expect(emit()).toHaveBeenCalledTimes(1)
-      expect(emit()).toHaveBeenCalledWith({
-        type: 'pane-closed',
-        sessionId: 'sess',
-        paneId: second,
-      })
     })
   })
 
@@ -256,6 +226,31 @@ describe('layoutStore', () => {
 
       expect(findPane(layoutOf('sess').root, paneId)?.cwd).toBe('/x')
       expect(emit()).not.toHaveBeenCalled()
+    })
+
+    it('leaves the store state identical when the cwd is unchanged', () => {
+      const paneId = ensure('sess')
+      useLayoutStore.getState().setCwd('sess', paneId, '/x')
+      const before = useLayoutStore.getState().bySession
+
+      useLayoutStore.getState().setCwd('sess', paneId, '/x')
+
+      expect(useLayoutStore.getState().bySession).toBe(before)
+    })
+  })
+
+  describe('setUrl', () => {
+    it("records the browser pane's url and is a no-op when unchanged", () => {
+      ensure('sess')
+      useLayoutStore.getState().openBrowser('sess', 'https://a.test/')
+      const paneId = layoutOf('sess').activePaneId
+
+      useLayoutStore.getState().setUrl('sess', paneId, 'https://a.test/next')
+      expect(findPane(layoutOf('sess').root, paneId)?.url).toBe('https://a.test/next')
+
+      const before = useLayoutStore.getState().bySession
+      useLayoutStore.getState().setUrl('sess', paneId, 'https://a.test/next')
+      expect(useLayoutStore.getState().bySession).toBe(before)
     })
   })
 
@@ -452,8 +447,6 @@ describe('layoutStore', () => {
     })
 
     it('replaces any layouts already built, rather than merging into them', () => {
-      // Restore runs before the first render, but a stale layout from the seeded session
-      // must not survive alongside the restored ones — it would show up as a ghost session.
       ensure('stale')
 
       useLayoutStore.getState().hydrate({
@@ -464,9 +457,6 @@ describe('layoutStore', () => {
     })
 
     it('announces every restored pane so main can mint its identity', () => {
-      // Restored panes never went through ensure/split, so their `pane-created` never fired —
-      // without this main has no idRegistry entry, and `pane.list` / the control socket
-      // cannot address them.
       useLayoutStore.getState().hydrate({
         s40: {
           root: {

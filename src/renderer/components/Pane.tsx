@@ -10,18 +10,18 @@ import {
   Terminal,
   X,
 } from 'lucide-react'
-import type { DragEvent } from 'react'
+import { type DragEvent, useCallback, useRef } from 'react'
 import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
 import type { DropZone } from '../layout/tree'
 import type { PaneNode, SurfaceKind } from '../layout/types'
+import { useEditorStatus } from '../stores/editorStatusStore'
 import { usePaneDnd } from '../stores/paneDndStore'
-import { useSurfaceSlots } from '../stores/surfaceSlotsStore'
-import { Hint } from './Hint'
+import { mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
+import { IconButton } from './IconButton'
 
 interface PaneProps {
   pane: PaneNode
-  /** Whether this pane is the focused one (drives the accent ring). */
   active: boolean
 }
 
@@ -34,10 +34,8 @@ const SURFACE_ICON: Record<SurfaceKind, LucideIcon> = {
   wiki: BookOpen,
 }
 
-/** MIME-ish key so only pane drags (not files/text) trigger our drop zones. */
 const PANE_DND = 'application/x-pine-pane'
 
-/** Which edge/center the cursor is over, as fractions of the pane rect. */
 function zoneFromEvent(e: DragEvent<HTMLElement>): DropZone {
   const r = e.currentTarget.getBoundingClientRect()
   const fx = (e.clientX - r.left) / r.width
@@ -56,17 +54,24 @@ function zoneFromEvent(e: DragEvent<HTMLElement>): DropZone {
   return dist[side] < 0.25 ? side : 'center'
 }
 
-/**
- * A leaf pane (Warp-style): a header (kind icon · title · actions) over the surface
- * body. The header is the drag handle — drop on another pane's edge to relocate,
- * drop outside the window to tear off.
- */
 export function Pane({ pane, active }: PaneProps): JSX.Element {
   const d = useDict()
   const over = usePaneDnd((s) => (s.overId === pane.id ? s.zone : null))
   const setOver = usePaneDnd((s) => s.setOver)
   const reset = usePaneDnd((s) => s.reset)
   const Icon = SURFACE_ICON[pane.kind]
+  const dirty = useEditorStatus((s) =>
+    pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
+  )
+  const slotEl = useRef<HTMLElement | null>(null)
+  const slotRef = useCallback(
+    (el: HTMLElement | null) => {
+      if (slotEl.current) parkSurface(pane.id, slotEl.current)
+      slotEl.current = el
+      if (el) mountSurface(pane.id, el)
+    },
+    [pane.id],
+  )
 
   const onDragOver = (e: DragEvent<HTMLDivElement>): void => {
     if (!e.dataTransfer.types.includes(PANE_DND)) return
@@ -93,7 +98,6 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
-      {/* The header is the drag handle. Drop inside → relocate; drop outside → tear off. */}
       <div
         className="pane-header"
         draggable
@@ -101,49 +105,32 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
           e.dataTransfer.setData(PANE_DND, pane.id)
           e.dataTransfer.effectAllowed = 'move'
         }}
-        onDragEnd={async () => {
-          reset()
-          const { detached } = await window.pine.window.tearOffPane({
-            id: pane.id,
-            title: pane.title,
-          })
-          if (detached) commands.exec('pane.remove', { paneId: pane.id })
-        }}
+        onDragEnd={reset}
       >
-        <Icon size={13} className="pane-kind" />
-        <span className="title">{pane.title}</span>
+        <Icon size={14} className="pane-kind" />
+        <span className="title">
+          {dirty ? '• ' : ''}
+          {pane.title}
+        </span>
         <div className="pane-actions">
-          <Hint label={d.pane.splitRight} side="bottom">
-            <button
-              type="button"
-              className="iconbtn"
-              onClick={() =>
-                commands.exec('pane.split', { paneId: pane.id, direction: 'horizontal' })
-              }
-            >
-              <SplitSquareHorizontal size={14} />
-            </button>
-          </Hint>
-          <Hint label={d.pane.splitDown} side="bottom">
-            <button
-              type="button"
-              className="iconbtn"
-              onClick={() =>
-                commands.exec('pane.split', { paneId: pane.id, direction: 'vertical' })
-              }
-            >
-              <SplitSquareVertical size={14} />
-            </button>
-          </Hint>
-          <Hint label={d.pane.close} side="bottom">
-            <button
-              type="button"
-              className="iconbtn danger"
-              onClick={() => commands.exec('pane.close', { paneId: pane.id })}
-            >
-              <X size={14} />
-            </button>
-          </Hint>
+          <IconButton
+            icon={SplitSquareHorizontal}
+            label={d.pane.splitRight}
+            onClick={() =>
+              commands.exec('pane.split', { paneId: pane.id, direction: 'horizontal' })
+            }
+          />
+          <IconButton
+            icon={SplitSquareVertical}
+            label={d.pane.splitDown}
+            onClick={() => commands.exec('pane.split', { paneId: pane.id, direction: 'vertical' })}
+          />
+          <IconButton
+            icon={X}
+            label={d.pane.close}
+            className="hover:text-attn-fg"
+            onClick={() => commands.exec('pane.close', { paneId: pane.id })}
+          />
         </div>
       </div>
 
@@ -152,13 +139,7 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
       pane.kind === 'browser' ||
       pane.kind === 'kanban' ||
       pane.kind === 'wiki' ? (
-        // Empty slot — <SurfacePool> portals the long-lived xterm/Monaco/webview/board/wiki in
-        // here (keyed by pane id), so a split/relocate re-parents the surface instead of
-        // remounting it.
-        <div
-          className="pane-body pane-body-term"
-          ref={(el) => useSurfaceSlots.getState().setSlot(pane.id, el)}
-        />
+        <div className="pane-body pane-body-term" ref={slotRef} />
       ) : (
         <div className="pane-body">
           <span className="ghost">{pane.title}</span>

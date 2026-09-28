@@ -4,22 +4,10 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_PHONE_CAPS, list, registerDevice, revoke, verifyToken } from './devices'
 
-/**
- * `process.env.X = undefined` stringifies to the literal `"undefined"` instead of unsetting the
- * key, so restoring "was unset before the test" needs the real `delete` operator (same helper
- * shape as `jsonStore.test.ts`'s `unsetEnv`).
- */
 function unsetEnv(key: string): void {
   delete process.env[key]
 }
 
-/**
- * `devices.ts` resolves its store path via `jsonStore`'s GLOBAL scope
- * (`~/.local/share/pine/gateway-devices.json`, honoring `XDG_DATA_HOME`), re-reading the file
- * on every call (no in-memory cache) — point `XDG_DATA_HOME` at a fresh scratch dir per test so
- * this suite never touches the real machine store and tests don't see each other's devices
- * (mirrors `jsonStore.test.ts`'s isolation approach).
- */
 describe('gateway/devices', () => {
   let dir: string
   let prevXdg: string | undefined

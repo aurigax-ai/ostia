@@ -1,10 +1,6 @@
 import { create } from 'zustand'
 import type { DropZone } from '../layout/tree'
 
-/**
- * Transient drag state for relocating panes: which pane is hovered and where the
- * dragged pane would land. Drives the drop-zone overlay; cleared on drop / drag-end.
- */
 interface PaneDndState {
   overId: string | null
   zone: DropZone | null

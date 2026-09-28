@@ -22,7 +22,6 @@ import {
   Package,
 } from 'lucide-react'
 
-/** One Dark Vivid accents for file-type tinting. */
 const C = {
   blue: '#61afef',
   folder: '#6f8db0',
@@ -37,7 +36,6 @@ const C = {
 
 type Glyph = [LucideIcon, string]
 
-/** Special folders by (lowercased) name. */
 const FOLDER: Record<string, Glyph> = {
   '.git': [FolderGit2, C.orange],
   '.github': [FolderGit2, C.grey],
@@ -56,7 +54,6 @@ const FOLDER: Record<string, Glyph> = {
   '.idea': [FolderCog, C.grey],
 }
 
-/** Specific filenames (checked before extension). */
 const NAME: Record<string, Glyph> = {
   'package.json': [Package, C.red],
   'package-lock.json': [Package, C.grey],
@@ -69,7 +66,6 @@ const NAME: Record<string, Glyph> = {
   dockerfile: [FileCode, C.cyan],
 }
 
-/** By extension. */
 const EXT: Record<string, Glyph> = {
   ts: [FileCode, C.blue],
   tsx: [FileCode, C.blue],
@@ -117,7 +113,6 @@ const EXT: Record<string, Glyph> = {
   go: [FileCode, C.cyan],
 }
 
-/** Pick a tinted icon for a filesystem entry (VSCode-ish, on the One Dark palette). */
 export function fileIcon(entry: FsEntry, open = false): { Icon: LucideIcon; color: string } {
   const name = entry.name.toLowerCase()
   if (entry.dir) {

@@ -1,12 +1,6 @@
 #!/usr/bin/env node
-/**
- * `pine` CLI (Slice 5, spec §6). A standalone Node script — NOT bundled into the Electron
- * app — that dials the running app instance's control socket (`PINE_SOCKET`, `PINE_TOKEN`,
- * both injected into every pty's env by `pty:attach` in `src/main/index.ts`) and speaks the
- * same `vscode-jsonrpc` framing as `controlServer.ts`. Built separately via esbuild
- * (`npm run build:cli`) since it must run under plain `node`, not Electron's main process.
- */
-import { createConnection } from 'node:net'
+import { type Socket, createConnection } from 'node:net'
+import { resolve as resolvePath } from 'node:path'
 import {
   type MessageConnection,
   StreamMessageReader,
@@ -26,7 +20,6 @@ interface ProcInfo {
   startedAt: string
 }
 
-/** Pulls a bare `--global` boolean flag out of a raw argv slice; everything else is positional. */
 function extractGlobalFlag(argv: string[]): { global: boolean; rest: string[] } {
   const rest: string[] = []
   let global = false
@@ -37,12 +30,6 @@ function extractGlobalFlag(argv: string[]): { global: boolean; rest: string[] } 
   return { global, rest }
 }
 
-/**
- * Read a secret value from stdin — never from argv, so it never lands in shell history,
- * `ps`, or a terminal echo. Piped input (`echo -n secret | pine vault set KEY`) is read to
- * EOF as-is. An interactive TTY gets a stderr prompt and a raw-mode line read so keystrokes
- * aren't echoed back (same no-echo posture as a password prompt).
- */
 async function readSecretFromStdin(promptLabel: string): Promise<string> {
   if (process.stdin.isTTY) {
     process.stderr.write(`${promptLabel} (input hidden): `)
@@ -51,7 +38,6 @@ async function readSecretFromStdin(promptLabel: string): Promise<string> {
   return await readAllStdin()
 }
 
-/** Reads piped stdin to EOF, stripping one trailing newline (as `echo`/most shells add). */
 function readAllStdin(): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = ''
@@ -64,15 +50,6 @@ function readAllStdin(): Promise<string> {
   })
 }
 
-/**
- * Reads one line from a TTY in raw mode (no local echo, no canonical line buffering).
- *
- * Raw mode is process-global terminal state, so leaving it on past this call would leave
- * the user's shell with a silently-broken prompt (no echo, no line editing) -- worse than
- * the secret prompt itself. Every exit path (line entered, Ctrl+C, stdin error/close/end,
- * or an external SIGINT) funnels through the single idempotent `finish` below, which
- * restores echo and tears down every listener exactly once, however this settles.
- */
 function readLineNoEcho(): Promise<string> {
   return new Promise((resolve, reject) => {
     const stdin = process.stdin
@@ -102,8 +79,14 @@ function readLineNoEcho(): Promise<string> {
           })
           return
         }
+        if (ch === '\u0004') {
+          finish(() => {
+            process.stderr.write('\n')
+            resolve(input)
+          })
+          return
+        }
         if (ch === '\u0003') {
-          // Ctrl+C — bail out without printing whatever was typed so far.
           finish(() => {
             process.stderr.write('\n')
             reject(new Error('aborted'))
@@ -152,7 +135,6 @@ function describeVaultError(res: VaultErr): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
-/** `pine vault <set|get|ls|rm>` — the encrypted-secret-store verb group (no-echo by design). */
 async function runVaultVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const { global, rest } = extractGlobalFlag(process.argv.slice(4))
@@ -240,7 +222,6 @@ function describeWikiError(res: WikiErr): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
-/** `pine wiki <get|set|ls|search|rm>` — the project/global wiki verb group. */
 async function runWikiVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const { global, rest } = extractGlobalFlag(process.argv.slice(4))
@@ -343,7 +324,6 @@ function describeKanbanError(res: KanbanErr): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
-/** `pine kanban <ls|add|move|assign|done|rm>` — the project kanban board verb group. */
 async function runKanbanVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const rawArgs = process.argv.slice(4)
@@ -494,7 +474,6 @@ function describeBusError(res: BusErr): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
-/** `pine bus <send|inbox|wait|handoff|claim|handoffs|done>` — the cross-agent mailbox group. */
 async function runBusVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const rawArgs = process.argv.slice(4)
@@ -524,7 +503,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     }
   } else if (sub === 'wait') {
     const { flags } = parseFlags(rawArgs, ['timeout'])
-    const timeoutMs = flags.timeout ? Number(flags.timeout) : undefined
+    const timeoutMs = numberFlag(flags, 'timeout')
     const res = await conn.sendRequest<BusWaitResult | BusErr>('bus.wait', { timeoutMs })
     if ('messages' in res) {
       console.log(JSON.stringify(res))
@@ -639,36 +618,46 @@ function describeGatewayError(res: GatewayErr): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
-/**
- * `pine gateway <enable|pair|status|devices|revoke|disable>` — the LAN control-gateway verb
- * group (elevated `gateway` capability; see `src/main/gateway/`). LAN/Tailscale-only, off by
- * default: nothing here does anything until `enable` (or `pair`, which enables implicitly —
- * see `src/main/gateway/index.ts`) is run at least once.
- *
- * `pair` can't render an actual QR here (no QR-encoding dependency was pulled in for it) — it
- * prints the pairing JSON payload (scan-ready if you pipe it through your own QR tool) plus a
- * copyable `pine-pair://` URI wrapping the same payload, base64url-encoded.
- */
 async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const { flags, rest } = parseFlags(process.argv.slice(4), ['host', 'port'])
 
   if (sub === 'enable') {
-    const res = await conn.sendRequest<GatewayStartResult>('gateway.enable', {
+    const res = await conn.sendRequest<GatewayStartResult | GatewayErr>('gateway.enable', {
       host: flags.host || undefined,
-      port: flags.port ? Number(flags.port) : undefined,
+      port: numberFlag(flags, 'port'),
     })
+    if (isErrResult(res)) {
+      console.error(`pine: gateway enable failed (${describeGatewayError(res)})`)
+      process.exitCode = 1
+      return
+    }
     console.log(JSON.stringify(res))
   } else if (sub === 'disable') {
-    const res = await conn.sendRequest<GatewayOk>('gateway.disable', {})
-    console.log(res.ok ? 'ok' : 'pine: gateway disable failed')
+    const res = await conn.sendRequest<GatewayOk | GatewayErr>('gateway.disable', {})
+    if (isErrResult(res)) {
+      console.error(`pine: gateway disable failed (${describeGatewayError(res)})`)
+      process.exitCode = 1
+      return
+    }
+    console.log('ok')
   } else if (sub === 'pair') {
-    const res = await conn.sendRequest<GatewayPairResult>('gateway.pair', {})
+    const res = await conn.sendRequest<GatewayPairResult | GatewayErr>('gateway.pair', {})
+    if (isErrResult(res)) {
+      console.error(`pine: gateway pair failed (${describeGatewayError(res)})`)
+      process.exitCode = 1
+      return
+    }
     console.log(JSON.stringify(res, null, 2))
     console.log(`\npine-pair://${Buffer.from(JSON.stringify(res)).toString('base64url')}`)
     console.log('\n(scan the JSON above as a QR from the phone, or paste the pine-pair:// URI)')
   } else if (sub === 'status') {
-    const res = await conn.sendRequest<GatewayStatusResult>('gateway.status', {})
+    const res = await conn.sendRequest<GatewayStatusResult | GatewayErr>('gateway.status', {})
+    if (isErrResult(res)) {
+      console.error(`pine: gateway status failed (${describeGatewayError(res)})`)
+      process.exitCode = 1
+      return
+    }
     console.log(JSON.stringify(res))
   } else if (sub === 'devices') {
     const res = await conn.sendRequest<GatewayDevicesResult>('gateway.devices', {})
@@ -701,7 +690,6 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
-/** Pulls known `--flag value` pairs out of a raw argv slice; everything else is positional. */
 function parseFlags(
   argv: string[],
   flagNames: string[],
@@ -720,7 +708,30 @@ function parseFlags(
   return { flags, rest }
 }
 
-/** `pine process <run|ls|logs|kill|restart>` — the process-manager verb group. */
+function numberFlag(flags: Record<string, string>, name: string): number | undefined {
+  const raw = flags[name]
+  if (raw === undefined) return undefined
+  const n = Number(raw)
+  if (raw.trim() === '' || !Number.isFinite(n)) {
+    throw new Error(`--${name} expects a number, got '${raw}'`)
+  }
+  return n
+}
+
+interface ErrResult {
+  ok: false
+  error: string
+  message?: string
+}
+
+function isErrResult(res: unknown): res is ErrResult {
+  return typeof res === 'object' && res !== null && (res as { ok?: unknown }).ok === false
+}
+
+function describeErrResult(res: ErrResult): string {
+  return res.message ? `${res.error}: ${res.message}` : res.error
+}
+
 async function runProcessVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const rawArgs = process.argv.slice(4)
@@ -733,14 +744,24 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<{ id: string; name: string; pid?: number }>('process.run', {
-      cmd,
-      name: flags.name,
-      cwd: flags.cwd,
-    })
+    const res = await conn.sendRequest<{ id: string; name: string; pid?: number } | ErrResult>(
+      'process.run',
+      { cmd, name: flags.name, cwd: flags.cwd },
+    )
+    if (isErrResult(res)) {
+      console.error(`pine: process run failed (${describeErrResult(res)})`)
+      process.exitCode = 1
+      return
+    }
     console.log(JSON.stringify(res))
   } else if (sub === 'ls') {
-    const list = await conn.sendRequest<ProcInfo[]>('process.list')
+    const list = await conn.sendRequest<ProcInfo[] | ErrResult>('process.list')
+    if (!Array.isArray(list)) {
+      const reason = isErrResult(list) ? describeErrResult(list) : 'unexpected response'
+      console.error(`pine: process ls failed (${reason})`)
+      process.exitCode = 1
+      return
+    }
     if (list.length === 0) {
       console.log('(no tracked processes)')
       return
@@ -756,7 +777,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const sinceCursor = flags.since ? Number(flags.since) : undefined
+    const sinceCursor = numberFlag(flags, 'since')
     const res = await conn.sendRequest<
       { data: string; cursor: number; dropped: boolean } | { ok: false; error: string }
     >('process.output', { id, sinceCursor })
@@ -805,11 +826,6 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
-/**
- * `pine settings <get|set>` — bridges to the renderer's `settingsStore` via the
- * `settings.get`/`settings.set` commands (routed through `command.exec`, same as
- * `pine open`), so the running app's Settings UI reflects the change live.
- */
 async function runSettingsVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
 
@@ -820,8 +836,6 @@ async function runSettingsVerb(conn: MessageConnection): Promise<void> {
       args: key ? { key } : undefined,
     })
     if (res.ok) {
-      // `result` comes back `undefined` (dropped over the wire) for an absent dot-path —
-      // normalize to `null` so this always prints valid JSON, never the bare word `undefined`.
       console.log(JSON.stringify(res.result ?? null, null, 2))
     } else {
       console.error('pine:', res.error?.message)
@@ -888,9 +902,6 @@ interface BrowseDialogEntry {
   ts: number
 }
 
-/** Shared CLI plumbing for `console`/`errors` — identical request/response shape
- *  (`{sub:'list'|'clear', paneId}` → `{ok:true, entries}` on list, `{ok:true}` on clear),
- *  differing only in the RPC method name and which label to print on a bad `sub`. */
 async function runBrowseBufferSub(
   conn: MessageConnection,
   method: 'browse.console' | 'browse.errors',
@@ -916,40 +927,6 @@ async function runBrowseBufferSub(
   console.log(resolvedSub === 'clear' ? 'ok' : JSON.stringify('entries' in res ? res.entries : []))
 }
 
-/**
- * `pine browse <open|nav|read|click|type|dblclick|hover|focus|check|uncheck|scroll-into-view|
- * fill|select|scroll|press|keydown|keyup|eval|wait|screenshot|content|snapshot|get|is|find|
- * highlight|url|zoom|devtools|focus-webview|is-webview-focused|identify|cookies|storage|state|
- * history|addscript|addstyle|addinitscript|console|errors|frame|download|navigate|open-split|
- * tab|dialog|focus-mode|react-grab>`
- * — agent automation of the in-app `browser` pane's guest page (elevated `browse` capability;
- * see `src/main/browse.ts`). `--pane <externalId>` targets a specific browser pane (another
- * pane's `pine whoami` id, relayed the same way as the "no pane roster yet" coordination recipe
- * in the `pine` skill); omitted, it defaults to the caller's own session's browser pane.
- *
- * `snapshot`/`find` assign `eN` refs to elements (valid until the next navigation); anywhere
- * else a `<selector>` is accepted, `@eN` or `eN` works too (`browse.ts`'s injected
- * `window.__pine.resolveEl`) — so a typical flow is `pine browse snapshot` to see refs, then
- * `pine browse click @e3`.
- *
- * `cookies`/`storage`/`state` act on this pane's OWN cookie/storage jar — every browser pane
- * has an isolated `partition` (`BrowserView.tsx`), never shared across panes. `state`'s `<path>`
- * is allow-listed the same way `screenshot`'s is; so is `download wait`'s `--path`.
- *
- * `console`/`errors` read/clear this surface's buffered `console-message`s (capped ~500);
- * `errors` is the error-level / uncaught-exception subset (an injected catcher reports
- * `window.onerror`/`onunhandledrejection` into it too). `frame <selector|main>` points
- * subsequent selector-driven verbs at an iframe's document (`main`/`top` resets to the page).
- * `navigate` is `open` without the auto-create fallback (fails if no surface exists yet);
- * `open-split` is the inverse — always creates a new browser pane (a split), never reuses one.
- *
- * The last four are cmux-parity verbs, each a PRAGMATIC/simplified Electron version (cmux's rely
- * on native/product features Pine doesn't have) — see `src/main/browse.ts` and SKILL.md for the
- * full divergence notes: `tab` (a "tab" here is a browser PANE, not a tab bar inside one pane),
- * `dialog` (a per-surface auto-response POLICY + log, not a one-at-a-time blocking queue),
- * `focus-mode` (a minimal single-pane zoom/zen, via a new `pane.zoom` renderer command), and
- * `react-grab` (a minimal React-fiber walk on click, not the upstream react-grab overlay).
- */
 async function runBrowseVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const { flags, rest } = parseFlags(process.argv.slice(4), [
@@ -1172,8 +1149,8 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else if (sub === 'scroll') {
-    const x = flags.x ? Number(flags.x) : undefined
-    const y = flags.y ? Number(flags.y) : undefined
+    const x = numberFlag(flags, 'x')
+    const y = numberFlag(flags, 'y')
     const selector = flags.selector || undefined
     const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.scroll', {
       x,
@@ -1268,7 +1245,7 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const timeoutMs = flags.timeout ? Number(flags.timeout) : undefined
+    const timeoutMs = numberFlag(flags, 'timeout')
     const res = await conn.sendRequest<{ found: boolean; timedOut?: boolean } | BrowseErr>(
       'browse.wait',
       { selector, timeoutMs, paneId },
@@ -1303,8 +1280,6 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else if (sub === 'snapshot') {
-    // `[selector]` is optional, so a bare `--interactive` (no selector) must not be mistaken
-    // for one — `rest[0]` here is a flag token, not a positional, when the selector is omitted.
     const selectorArg = rest[0]
     const selector = selectorArg && !selectorArg.startsWith('--') ? selectorArg : undefined
     const res = await conn.sendRequest<
@@ -1362,7 +1337,7 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const index = flags.index ? Number(flags.index) : undefined
+    const index = numberFlag(flags, 'index')
     const res = await conn.sendRequest<{ ok: true; element_ref: string } | BrowseErr>(
       'browse.find',
       {
@@ -1387,7 +1362,7 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const ms = flags.ms ? Number(flags.ms) : undefined
+    const ms = numberFlag(flags, 'ms')
     const res = await conn.sendRequest<BrowseOk | BrowseErr>('browse.highlight', {
       selector,
       ms,
@@ -1643,7 +1618,7 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const timeoutMs = flags.timeout ? Number(flags.timeout) : undefined
+    const timeoutMs = numberFlag(flags, 'timeout')
     const res = await conn.sendRequest<
       { path: string; filename: string; state: string } | { timedOut: true } | BrowseErr
     >('browse.download', {
@@ -1771,19 +1746,62 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+const USAGE = `usage: pine <command> [args]
+
+commands:
+  whoami | commands | info | cwd | pane.list | session.list | docs
+  notify <title> [body]
+  open <path>
+  process | vault | wiki | kanban | bus | settings | browse | gateway <subcommand> ...
+  <command.id> [json-args]     run any registered command (see: pine commands)
+
+run 'pine docs' inside a Pine pane for the full reference.`
+
+function connectSocket(socketPath: string): Promise<Socket> {
+  return new Promise((resolveSocket, reject) => {
+    const socket = createConnection(socketPath)
+    socket.once('connect', () => {
+      socket.removeListener('error', reject)
+      resolveSocket(socket)
+    })
+    socket.once('error', reject)
+  })
+}
+
 async function main(): Promise<void> {
   const socketPath = process.env.PINE_SOCKET
   const token = process.env.PINE_TOKEN
   const [cmd] = process.argv.slice(2)
+  if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
+    console.log(USAGE)
+    return
+  }
   if (!socketPath) {
     console.error('pine: not inside a Pine pane (PINE_SOCKET unset)')
     process.exit(1)
   }
-  const socket = createConnection(socketPath)
+  let socket: Socket
+  try {
+    socket = await connectSocket(socketPath)
+  } catch {
+    console.error(`pine: app not reachable at ${socketPath}`)
+    process.exit(1)
+  }
   const conn = createMessageConnection(
     new StreamMessageReader(socket),
     new StreamMessageWriter(socket),
   )
+  let done = false
+  let connectionLost = false
+  const onLost = (): void => {
+    if (done || connectionLost) return
+    connectionLost = true
+    process.exitCode = 1
+    conn.dispose()
+  }
+  socket.on('error', onLost)
+  socket.on('close', onLost)
+  conn.onClose(onLost)
   conn.listen()
   try {
     await conn.sendRequest('hello', { token })
@@ -1800,10 +1818,6 @@ async function main(): Promise<void> {
       const res = await conn.sendRequest<{ cwd: string | null }>('cwd.get')
       console.log(res.cwd ?? '')
     } else if (cmd === 'pane.list') {
-      // Hits the top-level control-socket method (`src/main/paneList.ts`), NOT `command.exec` —
-      // that's what maps each pane's internal id to its `idRegistry` EXTERNAL id and merges in
-      // `getTerminalState`'s `running`, unlike the renderer's own (internal-id-only) command of
-      // the same name that `command.exec` would otherwise reach.
       const panes = await conn.sendRequest('pane.list')
       console.log(JSON.stringify(panes, null, 2))
     } else if (cmd === 'session.list') {
@@ -1815,10 +1829,15 @@ async function main(): Promise<void> {
       await conn.sendRequest('notify', { title, body })
       console.log('ok')
     } else if (cmd === 'open') {
-      const path = process.argv[3]
+      const arg = process.argv[3]
+      if (!arg) {
+        console.error('pine open: missing <path>')
+        process.exitCode = 1
+        return
+      }
       const res = await conn.sendRequest<CommandResult>('command.exec', {
         id: 'editor.open',
-        args: { path },
+        args: { path: resolvePath(process.cwd(), arg) },
       })
       if (res.ok) {
         console.log('ok')
@@ -1846,8 +1865,6 @@ async function main(): Promise<void> {
     } else if (cmd === 'gateway') {
       await runGatewayVerb(conn)
     } else if (cmd) {
-      // Any other verb is treated as a command id, with an optional JSON args blob
-      // as the 2nd argv (e.g. `pine pane.splitRight` or `pine pane.write '"ls\n"'`).
       const raw = process.argv[3]
       const args = raw ? JSON.parse(raw) : undefined
       const res = await conn.sendRequest<CommandResult>('command.exec', { id: cmd, args })
@@ -1865,9 +1882,14 @@ async function main(): Promise<void> {
       process.exitCode = 1
     }
   } catch (e) {
-    console.error('pine:', e instanceof Error ? e.message : String(e))
+    if (connectionLost) {
+      console.error('pine: connection to the app closed (did Pine quit?)')
+    } else {
+      console.error('pine:', e instanceof Error ? e.message : String(e))
+    }
     process.exitCode = 1
   } finally {
+    done = true
     conn.dispose()
     socket.destroy()
   }

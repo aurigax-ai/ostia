@@ -6,15 +6,6 @@ import type { LayoutNode } from '../layout/types'
 import { useLayoutStore } from '../stores/layoutStore'
 import { Pane } from './Pane'
 
-/**
- * Render a session's split-tree. Splits use allotment for resizing; each leaf is a
- * single-surface pane. The pane whose id is `activePaneId` is focused (accent ring).
- *
- * When `zoomedPaneId` is set (minimal maximize/zen mode — see `layoutStore.ts`), the split tree
- * is bypassed entirely and only that one pane renders; every other pane's slot simply stops
- * existing, and `SurfacePool` parks its (still-mounted) surface in the detached holder until the
- * zoom is cleared and its slot reappears — same path a mid-split remount already takes.
- */
 export function PaneTree({ sessionId }: { sessionId: string }): JSX.Element {
   const layout = useLayoutStore((s) => s.bySession[sessionId])
   if (!layout) return <EmptyWorkspace sessionId={sessionId} />
@@ -40,10 +31,6 @@ function NodeView({
     return <Pane pane={node} active={node.id === activePaneId} />
   }
 
-  // Allotment caches split sizes internally; when the *set* of children changes
-  // (split / drag-relocate) it must rebuild, or panes mis-size (collapse to a sliver).
-  // Keying by the children composition forces a clean splitview on structural change,
-  // while pure resizes (same children) keep the same instance — no remount.
   const compositionKey = `${node.id}:${node.children.map((c) => c.id).join(',')}`
 
   return (
@@ -61,14 +48,13 @@ function NodeView({
   )
 }
 
-/** Shown when a session has no layout yet — opens its first terminal. */
 function EmptyWorkspace({ sessionId }: { sessionId: string }): JSX.Element {
   const d = useDict()
   const ensure = useLayoutStore((s) => s.ensure)
   return (
     <div className="workspace-empty">
       <button type="button" className="rail-add" onClick={() => ensure(sessionId)}>
-        <Terminal size={15} />
+        <Terminal size={14} />
         <span>{d.pane.newTerminal}</span>
       </button>
     </div>

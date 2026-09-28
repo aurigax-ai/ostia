@@ -1,31 +1,8 @@
-/**
- * The LAN control gateway: an `https` server presenting the self-signed cert (`cert.ts`) with a
- * `ws` `WebSocketServer` mounted at `/ws`, plus a plain `POST /pair` handler
- * (`pine-companion/NETWORK-CONTRACT.md` §2–§4). **OFF BY DEFAULT** — nothing here runs until
- * `startGateway` is called explicitly (via `gateway.enable`, `./index.ts`); `src/main/index.ts`
- * must NOT call it from `app.whenReady()` (contract §0: "off by default").
- *
- * Batch 1 wired only `hello` device-token auth on the WS connection (returning `caps` + a
- * `whoami`-style echo). Batch 2 adds the full text-channel JSON-RPC control API (contract §7:
- * `session.list`/`pane.list`/`command.list`/`command.exec`/`pane.info`/`cwd.get`/`board.get`) —
- * dispatched via `controlDispatch.ts`'s pure `dispatchGatewayMethod`, wired up here with the
- * actual `ws.send` I/O. Batch 3 (this revision) adds the binary PTY stream (contract §6):
- * `pty.attach`/`pty.detach` are handled INLINE here (not through `dispatchGatewayMethod` — see
- * `GatewayControlDeps`'s docstring for why), and incoming binary WS frames (`0x02` input /
- * `0x03` resize) are parsed in the `message` handler below instead of being dropped.
- *
- * Origin/host posture: this server has no legitimate browser-page caller (it serves no HTML —
- * only `/pair` and `/ws`), so ANY `Origin` header at all is treated as a hostile cross-origin
- * request (a real browser always sets one; the companion app and `curl`-style native clients
- * never do) and rejected outright. `Host` is checked too, against the bound `host:port` (or
- * `localhost`/`127.0.0.1` for a loopback bind) — anti-DNS-rebinding defense-in-depth for the
- * rare non-browser caller that omits `Origin` — this is the "Origin/Host checks" contract §2
- * calls for.
- */
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { type Server as HttpsServer, createServer as createHttpsServer } from 'node:https'
 import { app } from 'electron'
 import { type WebSocket, WebSocketServer } from 'ws'
+import { PRODUCT_NAME } from '../../shared/product'
 import { PLATFORM_EVENT_TYPES, type PlatformEventType, platformEvents } from '../events'
 import { resolveExternal } from '../idRegistry'
 import { loadJson, saveJson, storePath } from '../jsonStore'
@@ -40,10 +17,9 @@ import {
 } from './devices'
 import { auditPairAttempt, checkPairRateLimit, consumeCode } from './pairing'
 
-/** Binary WS frame type bytes (contract §6.2): `[1-byte type][payload]`. */
-const FRAME_PTY_OUTPUT = 0x01 // server -> client: raw pty output bytes
-const FRAME_PTY_INPUT = 0x02 // client -> server: raw input bytes (owner + `input` cap only)
-const FRAME_PTY_RESIZE = 0x03 // client -> server: JSON `{cols,rows}`
+const FRAME_PTY_OUTPUT = 0x01
+const FRAME_PTY_INPUT = 0x02
+const FRAME_PTY_RESIZE = 0x03
 
 export interface GatewayStartOptions {
   host?: string
@@ -54,10 +30,6 @@ export interface GatewayStartResult {
   host: string
   port: number
   fingerprint: string
-  /** Present iff `host` isn't loopback-only — "you did this on purpose" surfacing for the
-   *  bind-interface-default fix (security review): binding to `0.0.0.0` or a LAN/Tailscale IP
-   *  exposes the gateway beyond this machine, so every caller that ends up on a non-loopback
-   *  bind gets told so, not just the ones that pass `host` explicitly. */
   warning?: string
 }
 
@@ -69,19 +41,10 @@ export interface GatewayStatus {
   deviceCount: number
 }
 
-/** Contract §2: "default suggestion 8722." */
 const DEFAULT_PORT = 8722
-/** Loopback-only unless the caller explicitly opts into a LAN/Tailscale bind (security review:
- *  "bind interface default" — `0.0.0.0` by default meant every new pairing session was exposed
- *  network-wide with no explicit opt-in). */
 const DEFAULT_HOST = '127.0.0.1'
-/** Heartbeat cadence (contract §6.3) — keeps idle LAN connections from going silently stale. */
 const HEARTBEAT_MS = 15_000
 
-/** Persisted across restarts (global scope — the gateway itself is machine-wide, same as
- *  `devices.ts`'s store) so a caller that once explicitly chose a LAN bind doesn't silently
- *  fall back to loopback on the next `gateway.enable` with no `host` — the `warning` field
- *  keeps that choice visible on every start/pair regardless of where it came from. */
 interface GatewayConfig {
   host?: string
 }
@@ -102,35 +65,27 @@ function isLoopbackHost(host: string): boolean {
   return host === '127.0.0.1' || host === '::1' || host === 'localhost'
 }
 
-/** `undefined` for a loopback bind; a human-readable warning otherwise (contract's "warning
- *  field" ask) — shared by `startGateway`'s result and `gateway.pair`'s result (`./index.ts`),
- *  which may report status for a gateway that was started on an earlier call. */
 export function hostWarning(host: string | null): string | undefined {
   if (!host || isLoopbackHost(host)) return undefined
   return `exposed on ${host} — LAN/Tailscale only`
 }
 
 let httpsServer: HttpsServer | null = null
+const HELLO_TIMEOUT_MS = 10_000
+const MAX_FRAME_BYTES = 1024 * 1024
+
 let wss: WebSocketServer | null = null
 let heartbeat: ReturnType<typeof setInterval> | null = null
 let boundHost: string | null = null
 let boundPort: number | null = null
 let currentFingerprint: string | null = null
 
-/**
- * A socket's currently-attached PTY stream (contract §6) — v1 keeps it simple, one attached
- * pane per WS (the contract's §6.2 multiplexing note), so a socket needs at most one of these
- * at a time. `canWrite` is decided once, at `pty.attach` time (role `'owner'` AND the device
- * holds the `input` cap) — the binary-frame handler consults it rather than re-deriving it.
- */
 interface PtyAttachment {
-  /** Main's INTERNAL pane id (already resolved from the phone's external id). */
   rendererPaneId: string
   canWrite: boolean
   detach: () => void
 }
 
-/** Per-connection state: the authed device once `hello` succeeds (null until then). */
 interface SocketState {
   device: Device | null
   alive: boolean
@@ -138,13 +93,6 @@ interface SocketState {
 }
 const sockets = new Map<WebSocket, SocketState>()
 
-/**
- * Every live socket authed as a given device (security review: "revocation must kill live
- * sessions" — part (a)). Populated on a successful `hello`, pruned on close; `gateway.revoke`
- * (`./index.ts`) calls `closeDeviceSockets` right after deleting the device from the store so
- * its already-open connections drop immediately instead of surviving until their next request
- * happens to hit the part-(b) live re-check below.
- */
 const socketsByDevice = new Map<string, Set<WebSocket>>()
 
 function trackDeviceSocket(deviceId: string, ws: WebSocket): void {
@@ -163,8 +111,6 @@ function untrackDeviceSocket(deviceId: string, ws: WebSocket): void {
   if (set.size === 0) socketsByDevice.delete(deviceId)
 }
 
-/** Force-close every live socket authed as `deviceId` — called right after `devices.revoke`
- *  succeeds (`./index.ts`'s `gateway.revoke` handler). */
 export function closeDeviceSockets(deviceId: string): void {
   const set = socketsByDevice.get(deviceId)
   if (!set) return
@@ -172,34 +118,14 @@ export function closeDeviceSockets(deviceId: string): void {
   socketsByDevice.delete(deviceId)
 }
 
-/** Part (b) of "revocation must kill live sessions": a device's `hello`-time auth is checked
- *  once, but the device could be revoked at any later point while the socket stays open — every
- *  authed request/frame after `hello` re-checks the device still exists in the store, so a
- *  revoked device's socket stops working on its very next call even if, for whatever reason, it
- *  was never force-closed by `closeDeviceSockets` above. */
 function isDeviceRevoked(deviceId: string): boolean {
   return getDevice(deviceId) === null
 }
 
-/**
- * Phone cap required to RECEIVE a given event type (contract §7's event-gating: "notify only to
- * devices with the notify cap"; every other event type broadcast here — `session.state`/
- * `agent.needs-input`/`agent.done`/`pane.state` — mirrors `pane.info`/`session.list`'s own `read`
- * gate, so a device that can already read panes/sessions can also observe their live state).
- * Exported (pure, no `ws`/socket dependency) so it's unit-testable in isolation.
- */
 export function capForPlatformEvent(type: PlatformEventType): string {
   return type === 'notify' ? 'notify' : 'read'
 }
 
-/**
- * Broadcast a server->client event notification (contract §7: `{jsonrpc:'2.0', method:'event',
- * params:{type, payload}}`) to every AUTHED device socket that holds the cap this event type is
- * gated on (`capForPlatformEvent`) — an unauthed socket (`state.device === null`) or one whose
- * device lacks the cap never sees the frame. Reuses `sockets` (already tracked for the heartbeat
- * sweep + close cleanup) rather than `socketsByDevice`, since it needs each socket's `device.caps`
- * anyway.
- */
 export function broadcastEvent(type: PlatformEventType, payload: unknown): void {
   const cap = capForPlatformEvent(type)
   const frame = JSON.stringify({ jsonrpc: '2.0', method: 'event', params: { type, payload } })
@@ -209,9 +135,6 @@ export function broadcastEvent(type: PlatformEventType, payload: unknown): void 
   }
 }
 
-/** Live `platformEvents` subscriptions while the gateway is running (`subscribePlatformEvents`
- *  called from `startGateway`, torn down by `unsubscribePlatformEvents` in `stopGateway`) — kept
- *  so a stop/start (or restart) cycle never leaks a listener onto the shared, module-level bus. */
 let eventSubscriptions: Array<{ type: PlatformEventType; listener: (payload: unknown) => void }> =
   []
 
@@ -228,16 +151,8 @@ function unsubscribePlatformEvents(): void {
   eventSubscriptions = []
 }
 
-/**
- * The phone control API's backing deps (`execCommand`/`listPanes`/`kanbanGet`/...), configured
- * once from `index.ts` alongside `registerControlServer` — independent of whether the gateway is
- * actually running (deps don't change across `gateway.enable`/`disable` restarts). Null until
- * `configureGatewayControl` runs; every authed method call fails closed until then rather than
- * dereferencing a missing dep.
- */
 let controlDeps: GatewayControlDeps | null = null
 
-/** Wire the phone-facing control API's deps (batch 2). Call once at `app.whenReady()`. */
 export function configureGatewayControl(deps: GatewayControlDeps): void {
   controlDeps = deps
 }
@@ -252,21 +167,10 @@ function rpcError(id: unknown, code: number, message: string, data?: unknown): s
   return JSON.stringify({ jsonrpc: '2.0', id: id ?? null, error })
 }
 
-/** A real browser always sets `Origin`; the companion app / `curl`-style clients never do. */
 function hasBrowserOrigin(origin: string | undefined): boolean {
   return typeof origin === 'string' && origin.length > 0
 }
 
-/**
- * Anti-DNS-rebinding (security review): a malicious page can trick a victim's browser into
- * resolving an attacker-controlled hostname to this machine's bound address and issuing a
- * same-origin-looking request — the `Origin` check above already blocks the common case (a
- * request with any `Origin` at all is rejected outright), but `Host` is checked too as
- * defense-in-depth for non-browser callers that omit `Origin`. Only the `host:port` this server
- * is actually bound to (or `localhost`/`127.0.0.1` when bound to loopback) is accepted; a bind
- * to every interface (`0.0.0.0`) can legitimately be reached via any of the machine's own
- * addresses, so the port is all that's checked in that case.
- */
 function isAllowedHostHeader(hostHeader: string | undefined): boolean {
   if (!boundPort || typeof hostHeader !== 'string' || !hostHeader) return false
   const sepIdx = hostHeader.lastIndexOf(':')
@@ -277,7 +181,6 @@ function isAllowedHostHeader(hostHeader: string | undefined): boolean {
   return headerHost === boundHost || headerHost === 'localhost' || headerHost === '127.0.0.1'
 }
 
-/** Read a bounded request body (pairing bodies are tiny) and `JSON.parse` it; null on any failure. */
 function readJsonBody(req: IncomingMessage, maxBytes = 16_384): Promise<unknown> {
   return new Promise((resolve) => {
     let size = 0
@@ -311,10 +214,6 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(data)
 }
 
-/** `POST /pair` (contract §3 steps 3–4): redeem a pairing code, register the device, hand back a
- *  token. Rate-limited + audited per source IP (security review, minor finding): `/pair` is the
- *  one plain-HTTP endpoint this surface exposes, so it's the natural target for a brute-force
- *  pairCode guesser. */
 async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const ip = req.socket.remoteAddress ?? 'unknown'
   if (!checkPairRateLimit(ip)) {
@@ -351,7 +250,6 @@ async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<vo
   sendJson(res, 200, { deviceId, deviceToken: token, caps, expiresAt: null })
 }
 
-/** Every non-`/pair` HTTP request gets a flat 404 — no other surface is exposed over plain HTTP. */
 function requestHandler(req: IncomingMessage, res: ServerResponse): void {
   if (hasBrowserOrigin(req.headers.origin)) {
     sendJson(res, 403, { error: 'origin-not-allowed' })
@@ -368,7 +266,6 @@ function requestHandler(req: IncomingMessage, res: ServerResponse): void {
   sendJson(res, 404, { error: 'not-found' })
 }
 
-/** `hello` (contract §4): verify `deviceToken`, reply with `caps` + a desktop echo, or reject + close. */
 function handleHello(
   ws: WebSocket,
   state: SocketState,
@@ -387,14 +284,11 @@ function handleHello(
     rpcResult(msg.id, {
       deviceId: device.deviceId,
       caps: device.caps,
-      desktop: { name: 'pine', version: app.getVersion() },
+      desktop: { name: PRODUCT_NAME, version: app.getVersion() },
     }),
   )
 }
 
-/** Echoes the authed device's identity/caps back — handy for a client to confirm its session is
- *  still alive without re-`hello`ing (`device.caps` in the contract serves the same "refresh
- *  after an elevation grant" purpose; this predates that and is kept for compatibility). */
 function handleWhoami(ws: WebSocket, state: SocketState, msg: { id?: unknown }): void {
   if (!state.device) {
     ws.send(rpcError(msg.id, -32001, 'unauthenticated'))
@@ -403,15 +297,6 @@ function handleWhoami(ws: WebSocket, state: SocketState, msg: { id?: unknown }):
   ws.send(rpcResult(msg.id, { deviceId: state.device.deviceId, caps: state.device.caps }))
 }
 
-/**
- * Every OTHER authed method (contract §7: `session.list`/`pane.list`/`command.list`/
- * `command.exec`/`pane.info`/`cwd.get`/`board.get`) — resolved by the pure
- * `dispatchGatewayMethod` (device-cap gating + target resolution live there, unit-tested without
- * `ws`/Electron) and translated into a JSON-RPC response frame here. Fire-and-forget from the
- * caller's point of view (the `message` handler isn't `async`) — `.catch` below guarantees a
- * response frame even if a dep throws (e.g. `execCommand` rejecting), rather than leaving the
- * phone's pending request hanging forever.
- */
 function handleControlMethod(
   ws: WebSocket,
   device: Device,
@@ -431,26 +316,10 @@ function handleControlMethod(
     })
 }
 
-/** Frame a `0x01` server->client PTY-output binary WS frame (contract §6.2): `[type][utf8 data]`. */
 function ptyOutputFrame(data: string): Buffer {
   return Buffer.concat([Buffer.from([FRAME_PTY_OUTPUT]), Buffer.from(data, 'utf8')])
 }
 
-/**
- * `pty.attach` (contract §6.1): resolve the phone's external `paneId` (from `pane.list`) to
- * main's internal renderer-pane id via `idRegistry`, then subscribe this socket on that pane's
- * live `PtySession` through the `attachPhoneObserver` dep, streaming output back as binary
- * `0x01` frames. Handled INLINE (not through `dispatchGatewayMethod`) because it needs a live
- * `sendData` bound to this exact `ws` plus per-socket detach tracking — see
- * `GatewayControlDeps`'s docstring.
- *
- * Read-only (`observer`) by default; `role:'owner'` is only honored when the device also holds
- * the phone-facing `input` cap — otherwise it's silently downgraded to `observer` rather than
- * rejected outright (same degrade-gracefully posture as the rest of the gateway). A second
- * `pty.attach` on the same socket replaces the first (v1: one attached pane's stream per WS,
- * per the contract's §6.2 multiplexing note) — the old subscription is detached first so it
- * never leaks.
- */
 function handlePtyAttach(
   ws: WebSocket,
   state: SocketState,
@@ -480,7 +349,6 @@ function handlePtyAttach(
     wantsOwner && device.caps.includes('input') ? 'owner' : 'observer'
   const sinceCursor = typeof p.sinceCursor === 'number' ? p.sinceCursor : 0
 
-  // Replace any prior attachment on this socket rather than leaking its subscriber.
   state.ptyAttachment?.detach()
   state.ptyAttachment = null
 
@@ -510,11 +378,6 @@ function handlePtyAttach(
   )
 }
 
-/**
- * `pty.detach` (contract §6.1): stop streaming to this socket. `paneId` is accepted for
- * contract-shape parity but v1 tracks a single attachment per socket — a detach naming a pane
- * that isn't the currently-attached one is a no-op (there's nothing else to drop), not an error.
- */
 function handlePtyDetach(
   ws: WebSocket,
   state: SocketState,
@@ -533,20 +396,8 @@ function handlePtyDetach(
   ws.send(rpcResult(msg.id, { ok: true }))
 }
 
-/**
- * Incoming BINARY WS frames from the phone (contract §6.2): `[1-byte type][payload]`.
- * - `0x02` input bytes: only honored if this socket is attached as `owner` with the `input`
- *   cap (`state.ptyAttachment.canWrite`) — otherwise dropped + a `-32003` notification, per the
- *   contract's "otherwise dropped + a -32003 event".
- * - `0x03` resize: `{cols,rows}` JSON payload → `ptyResize`. NOT gated on `canWrite` — resizing
- *   only reshapes the shared view (SIGWINCH), it can't inject content, and an `observer` phone
- *   legitimately wants the mirrored pty to fit its own screen.
- * - Anything else (including a frame with no active attachment) is ignored, per "ignore unknown
- *   types".
- */
 function handleBinaryFrame(ws: WebSocket, state: SocketState, data: Buffer): void {
   if (!state.device || !controlDeps || data.length < 1) return
-  // Part (b) of "revocation must kill live sessions" — see `isDeviceRevoked`'s docstring.
   if (isDeviceRevoked(state.device.deviceId)) {
     ws.close(4003, 'revoked')
     return
@@ -577,21 +428,20 @@ function handleBinaryFrame(ws: WebSocket, state: SocketState, data: Buffer): voi
     }
     return
   }
-
-  // Unknown type byte — ignore (contract §6.2).
 }
 
 function handleConnection(ws: WebSocket): void {
   const state: SocketState = { device: null, alive: true, ptyAttachment: null }
   sockets.set(ws, state)
+  const helloDeadline = setTimeout(() => {
+    if (!state.device) ws.close(4001, 'hello timeout')
+  }, HELLO_TIMEOUT_MS)
 
   ws.on('pong', () => {
     state.alive = true
   })
 
   ws.on('message', (data, isBinary) => {
-    // Binary frames (contract §6.2) are the PTY input/resize channel — never JSON, handled
-    // separately from the text/JSON-RPC control channel below.
     if (isBinary) {
       handleBinaryFrame(ws, state, data as Buffer)
       return
@@ -612,9 +462,6 @@ function handleConnection(ws: WebSocket): void {
       ws.close(4001, 'unauthenticated')
       return
     }
-    // Part (b) of "revocation must kill live sessions": re-verify on EVERY authed request, not
-    // just at `hello` time — a device revoked mid-connection must stop working on its very next
-    // call (see `isDeviceRevoked`'s docstring).
     if (isDeviceRevoked(state.device.deviceId)) {
       ws.send(rpcError(msg.id, -32001, 'device revoked'))
       ws.close(4003, 'revoked')
@@ -636,9 +483,7 @@ function handleConnection(ws: WebSocket): void {
   })
 
   ws.on('close', () => {
-    // Mirror the ghost-owner care already in the pty code (`ptySession.ts`'s
-    // `removeSubscriber`/`onNoOwners`) — a dropped connection must not leak a subscriber that
-    // outlives it, whether the socket closed cleanly (`pty.detach`) or not.
+    clearTimeout(helloDeadline)
     state.ptyAttachment?.detach()
     state.ptyAttachment = null
     if (state.device) untrackDeviceSocket(state.device.deviceId, ws)
@@ -646,7 +491,6 @@ function handleConnection(ws: WebSocket): void {
   })
 }
 
-/** Ping every open connection; terminate any that didn't pong since the last sweep (contract §6.3). */
 function startHeartbeat(): void {
   heartbeat = setInterval(() => {
     for (const [ws, state] of sockets) {
@@ -660,29 +504,19 @@ function startHeartbeat(): void {
   }, HEARTBEAT_MS)
 }
 
-/**
- * Start the gateway: load/generate the TLS cert, bind `https` + the `/ws` WebSocketServer to
- * `host:port`. Idempotent — restarts (stop then start) if already running, so re-calling
- * `gateway.enable` with new options rebinds cleanly instead of throwing `EADDRINUSE`.
- */
 export async function startGateway(options: GatewayStartOptions = {}): Promise<GatewayStartResult> {
   if (httpsServer) await stopGateway()
 
   const cert: GatewayCert = await getCert()
-  // Precedence: an explicit `host` this call > whatever host a PRIOR call persisted > the
-  // loopback-only default. Whichever wins gets re-persisted below, so a caller that once opted
-  // into a LAN bind keeps getting it on later no-`host` `gateway.enable`s instead of silently
-  // dropping back to loopback — the `warning` field (computed from the final `host`, not from
-  // whether THIS call passed one explicitly) keeps that choice visible either way.
   const persisted = loadGatewayConfig()
   const host = options.host ?? persisted.host ?? DEFAULT_HOST
   const port = options.port ?? DEFAULT_PORT
-  saveGatewayConfig({ host })
 
   const server = createHttpsServer({ cert: cert.cert, key: cert.key }, requestHandler)
   const wsServer = new WebSocketServer({
     server,
     path: '/ws',
+    maxPayload: MAX_FRAME_BYTES,
     verifyClient: (info: { origin: string; req: IncomingMessage }) =>
       !hasBrowserOrigin(info.origin) && isAllowedHostHeader(info.req.headers.host),
   })
@@ -696,6 +530,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
       resolve()
     })
   })
+  saveGatewayConfig({ host })
 
   httpsServer = server
   wss = wsServer
@@ -703,14 +538,11 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   boundPort = port
   currentFingerprint = cert.fingerprint
   startHeartbeat()
-  // Contract §7 server->client events: only listen on `platformEvents` while the gateway is
-  // actually running — `unsubscribePlatformEvents` in `stopGateway` tears this back down.
   subscribePlatformEvents()
 
   return { host, port, fingerprint: cert.fingerprint, warning: hostWarning(host) }
 }
 
-/** Stop the gateway (closes every open connection) and reset status to "not running". */
 export async function stopGateway(): Promise<void> {
   unsubscribePlatformEvents()
   if (heartbeat) {
@@ -729,10 +561,6 @@ export async function stopGateway(): Promise<void> {
   boundPort = null
   currentFingerprint = null
 
-  // `wss.close()` only unregisters the `/ws` upgrade listener (it doesn't own the underlying
-  // `httpsServer`, which was handed in via the `server` option) — the https server needs its
-  // own `close()` to actually stop listening. Every socket is already terminated above, so
-  // neither call is waiting on an open connection to drain.
   if (wssToClose) await new Promise<void>((resolve) => wssToClose.close(() => resolve()))
   if (httpsToClose) await new Promise<void>((resolve) => httpsToClose.close(() => resolve()))
 }

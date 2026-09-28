@@ -1,22 +1,39 @@
-import { create } from 'zustand'
+const hosts = new Map<string, HTMLDivElement>()
+let holder: HTMLDivElement | null = null
 
-/**
- * DOM slots that pooled surfaces (terminals/editors) portal their content into. The
- * surfaces are mounted ONCE in <SurfacePool> and portaled into the current slot for their
- * pane id — so a layout change (split / drag-relocate) that remounts the pane's slot only
- * RE-PARENTS the surface's DOM. The xterm/Monaco instance and its pty never remount, which
- * is what stops the split-triggered replay + prompt "staircase" (the cmux mount-once rule).
- */
-interface SurfaceSlotsState {
-  slots: Record<string, HTMLElement | null>
-  setSlot: (paneId: string, el: HTMLElement | null) => void
+function parking(): HTMLDivElement {
+  if (!holder) holder = document.createElement('div')
+  return holder
 }
 
-export const useSurfaceSlots = create<SurfaceSlotsState>((set) => ({
-  slots: {},
-  setSlot: (paneId, el) =>
-    set((s) => {
-      if (s.slots[paneId] === el) return s
-      return { slots: { ...s.slots, [paneId]: el } }
-    }),
-}))
+export function surfaceHost(paneId: string): HTMLDivElement {
+  let host = hosts.get(paneId)
+  if (!host) {
+    host = document.createElement('div')
+    host.className = 'surface-host'
+    host.dataset.paneId = paneId
+    host.style.position = 'absolute'
+    host.style.inset = '0'
+    parking().appendChild(host)
+    hosts.set(paneId, host)
+  }
+  return host
+}
+
+export function mountSurface(paneId: string, slot: HTMLElement): void {
+  const host = surfaceHost(paneId)
+  if (host.parentNode !== slot) slot.appendChild(host)
+}
+
+export function parkSurface(paneId: string, slot: HTMLElement): void {
+  const host = hosts.get(paneId)
+  if (host && host.parentNode === slot) parking().appendChild(host)
+}
+
+export function releaseSurfaces(live: ReadonlySet<string>): void {
+  for (const [paneId, host] of hosts) {
+    if (live.has(paneId)) continue
+    host.remove()
+    hosts.delete(paneId)
+  }
+}

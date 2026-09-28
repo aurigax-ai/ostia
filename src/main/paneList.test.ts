@@ -3,7 +3,6 @@ import type { CommandResult, TerminalStateSnapshot } from '../shared/types'
 import { registerPane } from './idRegistry'
 import { type PaneListDeps, listPanes, listSessions } from './paneList'
 
-/** A `CommandResult` `{ ok: true, result }` shorthand for a fake `execCommand`. */
 function ok<R>(result: R): CommandResult<R> {
   return { ok: true, result }
 }
@@ -36,13 +35,12 @@ describe('paneList.listPanes', () => {
         sessionId: 's1',
         kind: 'terminal',
         title: 'zsh',
-        cwd: '/x/live', // terminal-state cwd wins over the renderer's own (possibly stale) cwd
+        cwd: '/x/live',
         running: true,
         blockCount: 5,
         lastExitCode: 0,
       },
     ])
-    // Always asks the renderer for every session, not just the caller's own.
     expect(execCommand).toHaveBeenCalledWith({ sessionId: '', paneId: null }, 'pane.list', {
       allSessions: true,
     })

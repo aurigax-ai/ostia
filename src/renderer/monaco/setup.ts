@@ -5,11 +5,6 @@ import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 
-/**
- * Self-host Monaco's web workers (offline — no CDN) via Vite `?worker` imports. The
- * typescript worker is Monaco's built-in TS/JS language service: completions, hover,
- * go-to-def, and diagnostics with no external server. Other languages get external LSP later.
- */
 self.MonacoEnvironment = {
   getWorker(_workerId, label) {
     switch (label) {
@@ -32,7 +27,6 @@ self.MonacoEnvironment = {
   },
 }
 
-/** One Dark Vivid editor theme (matches the app + the terminal). */
 monaco.editor.defineTheme('one-dark-vivid', {
   base: 'vs-dark',
   inherit: true,

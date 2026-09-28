@@ -1,12 +1,10 @@
 import { readFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { privateTmpDir } from './privateTmp'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 
-// Mirror the fixed paths the module builds under os.tmpdir() so we can read the generated
-// rc/init files without hard-coding a machine-specific absolute path (see task conventions).
-const INTEGRATION_DIR = join(tmpdir(), 'pine-shell-integration')
+const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
 const ZSH_INIT = join(INTEGRATION_DIR, 'init.zsh')
 const ZSH_ENV = join(INTEGRATION_DIR, '.zshenv')
 const ZSH_RC = join(INTEGRATION_DIR, '.zshrc')
@@ -91,10 +89,7 @@ describe('shellIntegrationSpawnOptions', () => {
     it('reclaims ZDOTDIR after sourcing the real .zshenv in the generated .zshenv', () => {
       shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' })
       const zshenv = readFileSync(ZSH_ENV, 'utf8')
-      // (a) loads the user's real .zshenv from the remembered original ZDOTDIR
       expect(zshenv).toContain('source "$PINE_ZDOTDIR_ORIG/.zshenv"')
-      // (b) if the real .zshenv redirected ZDOTDIR, remember it and reclaim ours so zsh
-      //     still reads OUR .zshrc next (else the integration would be bypassed).
       expect(zshenv).toContain(`if [ "$ZDOTDIR" != "${INTEGRATION_DIR}"`)
       expect(zshenv).toContain('PINE_ZDOTDIR_ORIG="$ZDOTDIR"')
       expect(zshenv).toContain(`ZDOTDIR="${INTEGRATION_DIR}"`)
@@ -108,7 +103,6 @@ describe('shellIntegrationSpawnOptions', () => {
       const restore = zshrc.indexOf('ZDOTDIR="$PINE_ZDOTDIR_ORIG"')
       const unset = zshrc.indexOf('unset PINE_ZDOTDIR_ORIG')
       expect(sourceReal).toBeGreaterThanOrEqual(0)
-      // (a) real .zshrc before (b) our init before (c) restore before (d) unset
       expect(sourceReal).toBeLessThan(sourceInit)
       expect(sourceInit).toBeLessThan(restore)
       expect(restore).toBeLessThan(unset)

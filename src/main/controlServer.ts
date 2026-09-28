@@ -1,13 +1,3 @@
-/**
- * Local control-plane socket (Slice 4, spec §6). A Unix-domain-socket JSON-RPC
- * server, bound in `main` only, that a same-machine caller (the `pine` CLI —
- * Slice 5 — or the command bridge — Slice 6) dials into. Reaching the socket
- * grants nothing by itself (credential-based, not reachability-based auth):
- * every connection must prove a per-pane `paneToken` via `hello` before any
- * other method is served. Reuses the `vscode-jsonrpc` framing already proven
- * in `lsp.ts` (`createMessageConnection` over `StreamMessageReader`/`Writer`),
- * but bound to a `net.Server` instead of a child process's stdio.
- */
 import { chmodSync, rmSync } from 'node:fs'
 import { type Server, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -29,35 +19,19 @@ import type {
 import { type AuthedConn, authenticate, connHasCap } from './controlAuth'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 
-/**
- * Filesystem path of this app instance's control socket. Panes are given it via
- * `PINE_SOCKET` so external processes can dial home. One per running app instance
- * (`process.pid`-scoped), under `$XDG_RUNTIME_DIR` (or the OS temp dir as a
- * fallback, e.g. on macOS/Windows where that var is unset). Lives here (not
- * `index.ts`) so `index.ts` can import this module without an import cycle.
- */
 export function controlSocketPath(): string {
   return join(process.env.XDG_RUNTIME_DIR || tmpdir(), `pine-${process.pid}.sock`)
 }
 
-/** A JSON-RPC error for a connection that hasn't (yet, or successfully) authenticated. */
 function unauthenticatedError(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
 }
 
-/** A JSON-RPC error for a connection that lacks an elevated capability it needs. */
 function needsElevation(cap: Capability): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
 }
 
-/**
- * Main-side service modules (notify/process/vault/wiki/kanban/bus, built later) register
- * socket methods here instead of editing this file per-feature. Wired onto every connection
- * in `registerControlServer`, after the built-in `onRequest`s above, with the same
- * auth/capability/identity gating those built-ins apply by hand.
- */
 export interface ControlMethod {
-  /** Required capability; undefined = any authed caller. */
   cap?: Capability
   handler: (
     params: unknown,
@@ -67,21 +41,14 @@ export interface ControlMethod {
 
 const methods = new Map<string, ControlMethod>()
 
-/** Register a control-socket method by name. Throws if the name is already taken. */
 export function registerControlMethod(name: string, method: ControlMethod): void {
   if (methods.has(name)) throw new Error(`control method already registered: ${name}`)
   methods.set(name, method)
 }
 
-/**
- * `index.ts` (window registry + command bridge) imports this module, so this module must
- * NOT import `index.ts` back — that would be an import cycle. Instead `index.ts` hands
- * over `execCommand`/`listCommandsFor` at `app.whenReady()` via `registerControlServer`.
- */
 export interface ControlServerDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   listCommandsFor: (windowId: string) => CommandDescriptor[]
-  /** Slice 7 read-model: the latest mirrored terminal-state snapshot for a pane. */
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
 }
 
@@ -91,9 +58,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
   const path = socketPathOverride ?? controlSocketPath()
   try {
     rmSync(path, { force: true })
-  } catch {
-    // no stale socket to remove
-  }
+  } catch {}
 
   server = createServer((socket) => {
     const conn = createMessageConnection(
@@ -134,12 +99,17 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
         }
         const target = params.target ?? selfTarget
 
-        // Cross-pane gate: acting on another pane (or window) needs 'workspace-wide'.
-        if (target.paneId !== me.paneId || target.windowId !== me.windowId) {
+        if (
+          target.paneId !== me.paneId ||
+          target.windowId !== me.windowId ||
+          target.sessionId !== me.sessionId
+        ) {
           if (!connHasCap(authed, 'workspace-wide')) throw needsElevation('workspace-wide')
         }
 
-        const desc = deps.listCommandsFor(me.windowId).find((d) => d.id === params.id)
+        const desc = deps
+          .listCommandsFor(target.windowId ?? me.windowId)
+          .find((d) => d.id === params.id)
         if (!desc) {
           return Promise.resolve({
             ok: false,
@@ -154,17 +124,14 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
       },
     )
 
-    // Slice 7: "what is pane X doing" — read-only, gated on 'read-board' (a DEFAULT
-    // capability every pane holds), for the same explicit-gate posture as everything
-    // else on the broker. Defaults to the caller's own pane; `{ paneId }` reads another
-    // pane's mirrored state (same trust posture as reading `command.list`, which is
-    // scoped to the caller's window either way).
     conn.onRequest('pane.info', (params?: { paneId?: string }): TerminalStateSnapshot | null => {
       if (!authed) throw unauthenticatedError('call hello first')
       if (!connHasCap(authed, 'read-board')) throw needsElevation('read-board')
       const me = resolveExternal(authed.externalId)
       if (!me) throw unauthenticatedError('unknown identity')
-      return deps.getTerminalState(params?.paneId ?? me.paneId) ?? null
+      if (!params?.paneId) return deps.getTerminalState(me.paneId) ?? null
+      const other = resolveExternal(params.paneId)
+      return other ? (deps.getTerminalState(other.paneId) ?? null) : null
     })
 
     conn.onRequest('cwd.get', (): { cwd: string | null } => {
@@ -175,9 +142,6 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
       return { cwd: deps.getTerminalState(me.paneId)?.cwd ?? null }
     })
 
-    // Additively wire every method registered via `registerControlMethod` (toolbelt
-    // features: notify/process/vault/wiki/kanban/bus, ...), with the same gating posture
-    // as the built-in methods above.
     for (const [name, m] of methods) {
       conn.onRequest(name, async (params: unknown) => {
         if (!authed) throw unauthenticatedError('call hello first')
@@ -197,9 +161,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
   server.listen(path, () => {
     try {
       chmodSync(path, 0o600)
-    } catch {
-      // best-effort permission tightening
-    }
+    } catch {}
   })
 }
 
@@ -208,7 +170,5 @@ export function stopControlServer(): void {
   server = null
   try {
     rmSync(controlSocketPath(), { force: true })
-  } catch {
-    // already gone
-  }
+  } catch {}
 }

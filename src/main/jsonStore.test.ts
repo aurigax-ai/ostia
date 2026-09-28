@@ -4,10 +4,6 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { loadJson, saveJson, storePath } from './jsonStore'
 
-/**
- * Restore an env var to `undefined`. `process.env.X = undefined` stringifies to the literal
- * "undefined" instead of unsetting the key, so this needs the real `delete` operator.
- */
 function unsetEnv(key: string): void {
   delete process.env[key]
 }

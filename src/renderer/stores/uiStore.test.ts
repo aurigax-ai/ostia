@@ -1,34 +1,22 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useUIStore } from './uiStore'
 
-/**
- * uiStore is a pure, dependency-free zustand store: booleans for chrome visibility
- * (palette / rail / inspector), a two-flag Settings model (settingsTabOpen + settingsActive),
- * and the sidebar view. These tests INVOKE each action via getState().<action>() and assert
- * the exact resulting state — the point is to actually exercise the action functions (which
- * elsewhere are only ever spied on), including openSettings/closeSettings touching BOTH
- * settings flags and leaveSettings clearing only settingsActive.
- */
-
 const state = () => useUIStore.getState()
 
 describe('uiStore', () => {
   let init: ReturnType<typeof useUIStore.getState>
 
   beforeAll(() => {
-    // Snapshot pristine state (data + stable action fns) before any test mutates.
     init = useUIStore.getState()
   })
 
   afterEach(() => {
-    // Restore to pristine (replace, not merge) so flips don't bleed between tests.
     useUIStore.setState(init, true)
   })
 
   it('starts with the documented initial state', () => {
     expect(state().paletteOpen).toBe(false)
     expect(state().railCollapsed).toBe(false)
-    expect(state().inspectorOpen).toBe(true)
     expect(state().settingsTabOpen).toBe(false)
     expect(state().settingsActive).toBe(false)
     expect(state().sidebarView).toBe('sessions')
@@ -59,16 +47,6 @@ describe('uiStore', () => {
 
       state().toggleRail()
       expect(state().railCollapsed).toBe(false)
-    })
-  })
-
-  describe('toggleInspector', () => {
-    it('flips inspectorOpen (initial true), and back to true on a second call', () => {
-      state().toggleInspector()
-      expect(state().inspectorOpen).toBe(false)
-
-      state().toggleInspector()
-      expect(state().inspectorOpen).toBe(true)
     })
   })
 
