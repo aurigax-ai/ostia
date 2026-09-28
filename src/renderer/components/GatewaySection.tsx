@@ -1,3 +1,4 @@
+import { CopyIcon } from '@phosphor-icons/react'
 import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/capabilities'
 import type {
   GatewayBindAddress,
@@ -6,7 +7,6 @@ import type {
   GatewayPairResult,
   GatewayStatus,
 } from '@shared/types'
-import { Copy } from 'lucide-react'
 import QRCode from 'qrcode'
 import { useCallback, useEffect, useState } from 'react'
 import type { Dict } from '../i18n/dict'
@@ -262,7 +262,7 @@ export function GatewaySection(): JSX.Element {
                   : fmt(d.settings.remotePairExpires, { n: secondsLeft })}
               </span>
               <Button variant="ghost" size="xs" onClick={() => void onCopy()}>
-                <Copy data-icon="inline-start" />
+                <CopyIcon data-icon="inline-start" />
                 {copied ? d.settings.remoteCopied : d.settings.remoteCopy}
               </Button>
             </div>

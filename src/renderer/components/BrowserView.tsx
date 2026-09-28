@@ -1,6 +1,11 @@
+import {
+  ArrowClockwiseIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CrosshairIcon,
+} from '@phosphor-icons/react'
 import type { PickCapture, PickTheme } from '@shared/pick'
 import type { WebviewTag } from 'electron'
-import { ArrowLeft, ArrowRight, Crosshair, RotateCw } from 'lucide-react'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import type { PickTarget } from '../lib/pickTargets'
@@ -226,19 +231,19 @@ export function BrowserView({
     <div className="browser-surface relative">
       <div className="browser-toolbar">
         <IconButton
-          icon={ArrowLeft}
+          icon={ArrowLeftIcon}
           label={d.browser.back}
           disabled={!canGoBack}
           onClick={() => withGuest((wv) => wv.goBack())}
         />
         <IconButton
-          icon={ArrowRight}
+          icon={ArrowRightIcon}
           label={d.browser.forward}
           disabled={!canGoForward}
           onClick={() => withGuest((wv) => wv.goForward())}
         />
         <IconButton
-          icon={RotateCw}
+          icon={ArrowClockwiseIcon}
           label={d.browser.reload}
           onClick={() => withGuest((wv) => wv.reload())}
         />
@@ -251,7 +256,7 @@ export function BrowserView({
           onKeyDown={onAddressKeyDown}
         />
         <IconButton
-          icon={Crosshair}
+          icon={CrosshairIcon}
           label={picking ? d.browser.pickStop : d.browser.pick}
           aria-pressed={picking !== null}
           onClick={() => void togglePick()}

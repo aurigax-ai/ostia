@@ -1,4 +1,4 @@
-import { PanelLeft, Search, Settings } from 'lucide-react'
+import { GearSixIcon, MagnifyingGlassIcon, SidebarSimpleIcon } from '@phosphor-icons/react'
 import { useDict } from '../i18n/useDict'
 import { chordLabel } from '../lib/chords'
 import { isMac } from '../platform'
@@ -20,16 +20,21 @@ export function TopBar(): JSX.Element {
       <div className="topbar-left">
         <IconButton
           size="bar"
-          icon={PanelLeft}
+          icon={SidebarSimpleIcon}
           label={d.topbar.toggleSidebar}
           onClick={toggleRail}
         />
-        <IconButton size="bar" icon={Settings} label={d.topbar.settings} onClick={openSettings} />
+        <IconButton
+          size="bar"
+          icon={GearSixIcon}
+          label={d.topbar.settings}
+          onClick={openSettings}
+        />
       </div>
 
       <Hint label={`${d.search.placeholder} (${PALETTE_KEYS})`} side="bottom">
         <button type="button" className="command-center" onClick={openPalette}>
-          <Search size={14} className="cc-icon" />
+          <MagnifyingGlassIcon size={14} className="cc-icon" />
           <span className="cc-text">{d.search.command}</span>
           <kbd className="cc-kbd">{PALETTE_KEYS}</kbd>
         </button>
