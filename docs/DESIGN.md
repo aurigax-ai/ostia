@@ -1,193 +1,221 @@
-# Pine — Visual Design Language
+# Design
 
-> The view, designed on purpose. This is the source of truth for look & feel;
-> tokens live in `src/renderer/styles/tokens.css`.
+The source of truth for how pine looks and behaves on screen. Product intent and audience are in
+[`PRODUCT.md`](../PRODUCT.md). Tokens live in `src/renderer/index.css`; theme values live in
+`src/renderer/plugins/builtin.ts`.
 
-## Thesis — "mission control for agents"
+## 1. Thesis
 
-Pine is **not a pure terminal**. It's a calm instrument panel for directing terminals,
-code, and several AI agents at once. So the chrome stays **quiet and dark**, and the
-*life* of the interface comes from **agent status** — what's working, what's waiting on
-you, what just finished. You should feel the room is busy without staring at any one pane.
+Pine is mission control for terminals and agents. The chrome is quiet and dark. What moves on
+screen is session state: what is working and what needs you. Everything else stays still.
 
-That framing keeps us off the default "near-black + one acid-green accent" dev-tool look:
-our energy is warm and signal-driven, not neon.
+Borrowed on purpose:
+- **Warp**: elevation comes from a lighter surface plus a hairline outline, not new colors. Uses
+  ANSI-16 plus one accent that appears only where attention should go. Commands are grouped into
+  blocks.
+- **cmux**: the left rail is a live status board, not just a list of tabs.
 
-## Research distilled (what we borrow)
+Avoided: the near-black + acid-green terminal look, IDE toolbar walls, decorative gradients and
+glass, and motion that doesn't report state.
 
-**Warp** — depth from one move, not many colors:
-- A translucent **"UI surface"** (light overlay on dark) + a hairline outline = elevation.
-  We never invent new background colors for menus/panels; we layer overlays.
-- **16 ANSI + a single accent.** The accent appears only where attention should go —
-  active tab, active pane, selection. Constraint *is* the aesthetic.
-- Command + output grouped into **blocks**; the input is an editor, not a raw prompt.
+## 2. Principles
 
-**cmux** — the left rail is a **live status board**, not just tabs: branch, PR, cwd, ports,
-progress. Agents needing attention get a **ring around their pane** + a badge.
+- **Dense over roomy.** 1px dividers instead of whitespace. Settings can breathe a little more;
+  everything else stays dense.
+- **Keyboard-first.** Every action has a command and a visible `:focus-visible` ring, and shows
+  its shortcut inline. The palette is the discovery surface.
+- **One accent.** `--brand` marks active, selected or working. `--attn` is reserved for "needs you"
+  and errors.
+- **State is never hue-alone.** Every status color is paired with a shape, icon or label.
+- **Motion reports state.** 0 ms on the typing path, ≤ 180 ms elsewhere, no spring or bounce.
+  Honor `prefers-reduced-motion`.
+- **Hierarchy through color and weight, not size.** Keep the type scale narrow.
+- **Instant-apply settings.** No Save/Cancel bar except for destructive forms.
+- **Semantic tokens only.** Never put a hex value or primitive in a component.
+- **One value per axis.** One radius per element class, one emphasis weight (500).
 
-## Reference merge — adopt the structure, keep our soul
+## 3. Tokens
 
-Two reference builds (an agent-terminal + code-review tool; a Tauri IDE) share a structure we
-**adopt without copying their skins**:
+Three tiers in `index.css`:
 
-- **Three-column workspace:** deck rail · center (terminal/editor) · **right inspector**
-  (code review / agent context). We add the inspector as the third column.
-- **Ambient agent telemetry:** token/diff counts and **context + weekly budget meters**
-  (segmented dotted/filled bars) sit quietly in the chrome, plus agent-control hints
-  (`▶▶ accept edits · shift+tab`). We add a usage meter + a hint affordance.
-- **Richer rail rows:** a git-branch sub-line per channel.
+1. **Primitives**: `--color-*` in `@theme`. A theme remaps these and nothing else. Components
+   never use them directly.
+2. **Semantic aliases** in `:root`: `--bg`, `--bg-sunken`, `--surface-1..3`, `--line`,
+   `--line-strong`, `--fg`, `--fg-muted`, `--fg-dim`, `--brand`, `--brand-bright`, `--brand-glow`,
+   `--attn`, `--attn-fg`, `--attn-glow`, `--ok`. Metrics: one radius ladder in `@theme`
+   (`--radius-sm` 4px for controls, rows and keycaps; `--radius-md` 6px for inputs, popovers and
+   cards; `--radius-lg` 8px), `--radius` 8px for the shadcn bridge, `--rail-w` 240px (56px
+   collapsed), `--topbar-h` 36px.
+3. **shadcn bridge** in `@theme inline`: maps shadcn names (`--background`, `--primary`, `--muted`,
+   `--border`, `--ring`, `--sidebar-*`, …) onto the semantic tokens, so Base UI components in
+   `components/ui/` use Pine colors with no per-component work. `--primary` is the brand.
+   shadcn's `--accent` is the muted hover surface, not the brand.
 
-**What we keep ours (don't copy):** the slate-blue instrument-night palette (the refs run
-warm-amber and blue-neutral — we sit deliberately between them), the amber/coral/mint signal
-system, and the **breathing** rail — their rails are static; ours reports live state.
+Themes are data. Each theme in `plugins/builtin.ts` is a `--color-*` map, and `App.tsx` sets those
+values inline on `<html>` at runtime. The values in `@theme` are the Adeberry defaults, which only
+show for the first frame before that runs.
 
-**Icons:** `lucide-react` — consistent, light, modern; replaces glyph characters everywhere.
+**Themes**: `adeberry` (default, a port of Warp's Adeberry), `one-dark-vivid`, `instrument-night`,
+`dracula`, `oxocarbon`.
 
-## Palette — "instrument night"
+Adeberry values:
 
-Slate-blue near-black base (not pure black), surfaces built by stacking translucent white,
-one warm accent, coral reserved strictly for "needs you."
+| Token | Value | Use |
+|---|---|---|
+| `--bg` | `#1d2022` | work canvas |
+| `--bg-sunken` | `#17191b` | wells, gaps between surfaces |
+| `--surface-1` | `#272a2d` | panes, rail |
+| `--surface-2` | `#2d3134` | headers, hover, active row |
+| `--surface-3` | `#313537` | popovers, palette |
+| `--line` / `--line-strong` | `rgba(255,255,255,.07)` / `.13` | hairlines / emphasized edges |
+| `--fg` / `--fg-muted` / `--fg-dim` | `#e3edf5` / `#9aa1a5` / `#767d82` | text / secondary text / icons and dividers only |
+| `--brand` / `--brand-bright` | `#00d8ff` / `#6cfcf9` | the accent / its hover |
+| `--attn` | `#bf5f54` | needs-you, error fills and marks |
+| `--attn-fg` | `#db8176` | inline error text |
+| `--ok` | `#58c98c` | done, success |
+| `--add` / `--del` | `#58c98c` / `#bf5f54` | diffs |
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `--bg` | `#0a0c12` | base canvas (blue-slate, not black) |
-| `--bg-sunken` | `#06080d` | wells, gaps between surfaces |
-| `--surface-1` | `#10131c` | panes, rail (base + ~3% white) |
-| `--surface-2` | `#161a26` | headers, hover (base + ~6%) |
-| `--surface-3` | `#1d2230` | popovers, palette (base + ~9%) |
-| `--line` | `rgba(255,255,255,.08)` | hairline borders |
-| `--line-strong` | `rgba(255,255,255,.15)` | emphasized edges |
-| `--fg` | `#e7e9f0` | primary text (cool white) |
-| `--fg-muted` | `#8b91a4` | labels, secondary |
-| `--fg-dim` | `#565d72` | idle, disabled |
-| `--accent` | `#f2b347` | **the one accent** — active/working/selection (warm gold) |
-| `--accent-bright` | `#ffc874` | accent hover/peak |
-| `--accent-glow` | `rgba(242,179,71,.16)` | focus fills, pane glow |
-| `--attn` | `#ff6b5e` | **attention only** — agent waiting / error (coral) |
-| `--ok` | `#5bd6a0` | success / done (mint) |
+Elevation: `bg-sunken` < `bg` < `surface-1` < `surface-2` < `surface-3`. In the dark theme,
+elevation comes from lightness, not shadow; shadows are only for overlays. Every theme keeps
+`--fg-muted` ≥ 4.5:1 on `surface-2`, `--attn-fg` ≥ 4.5:1 on `surface-1`, and `--fg-dim` ≥ 3:1 on
+`surface-1` (enforced in `plugins/builtin.test.ts`). `--fg-dim` is never text. `<html>` carries
+`class="dark"` so shadcn `dark:` variants apply.
 
-**Agent-state → color** (the only place color carries meaning):
-idle `--fg-dim` · working `--accent` (pulsing) · waiting `--attn` (ring) · done `--ok` · error `--attn`.
+Three surfaces take their colors from different places. The UI uses the CSS tokens. The terminal
+uses `components/terminalTheme.ts`, because xterm draws to canvas and can't read CSS variables;
+only Adeberry and One Dark Vivid have palettes there. The editor uses the one Monaco theme,
+`one-dark-vivid`. Changing a theme's colors means updating `builtin.ts` and `terminalTheme.ts`
+together.
 
-## Typography — mono-forward console
+## 4. Typography
 
-A deliberate risk that fits the subject: the **chrome itself is monospace**. Tabs, labels,
-status, pane titles, numbers — all **Geist Mono** (sleek, geometric, modern — reads as a
-developer instrument without the typewriter feel). Prose uses **Geist Sans**, so the whole
-type system comes from one family for cohesion.
+| Surface | Default family | Setting |
+|---|---|---|
+| UI chrome | Inter Variable (`--font-sans`, applied via `--font-ui`) | `appearance.ui.font` |
+| Terminal | Hack Nerd Font Mono (bundled; covers Powerline and icon glyphs) | `appearance.terminal.font` |
+| Editor | Geist Mono Variable (`--font-mono`) | `appearance.editor.font` |
 
-| Role | Family |
-|------|--------|
-| Chrome / data / terminal | `Geist Mono` (500/600 for emphasis) |
-| Prose / long text | `Geist Sans` |
-| Wordmark | Geist Mono, uppercase, tracked `+0.18em` |
+Each surface has its own family and size (default 13). The whole UI uses one theme. All chrome
+is sans. Use mono only for literal machine text: paths, hashes, ports, code. For changing numbers
+in sans text, use `tabular-nums` rather than switching family. Don't set global
+`-webkit-font-smoothing: antialiased`, because it thins small text on Linux and macOS.
 
-Scale is small and tight: 11px labels, 12–13px body chrome, 1.1–1.5 line-height.
+Scale: `--text-ui-*` in `@theme` (Tailwind `text-ui-*`, CSS `var(--text-ui-*)`). Nothing is
+smaller than 11px. Tailwind's `text-sm` is remapped to 13px so shadcn primitives sit on the scale.
 
-## Layout — the shell
+| Name | px / line-height | Use |
+|---|---|---|
+| `ui-xs` | 11 / 16 | captions, metadata, keycaps, badges, all-caps heads |
+| `ui-sm` | 12 / 18 | tree and list rows, tooltips |
+| `ui-base` | 13 / 20 | primary UI body |
+| `ui-emphasis` | 14 / 20 | emphasized body, markdown |
+| `ui-lg` | 16 / 22 | section headings, dialog titles |
 
-A full-width **window + tool control bar** on top; **sidebar + work area** beneath it. The
-work area is **tabbed**: each sidebar channel is a *parent* that owns a row of tabs (cmux),
-and the active tab hosts its own split-tree of panes.
+Weights: 400 body, 500 emphasis (active row, button labels, section heads), 600 headings. Use 700
+only at 20px and above; never use 300. Dense rows use a fixed box height (22px at 13px text,
+20px at 12px) rather than leading.
+
+Spacing base is 4px: 4, 8, 12, 16, 20, 24, 32. Use 8 within a group, 16–24 between groups and 32
+between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
+
+## 5. Shell layout
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ 🌲 pine  ▣ ⚙                              ⌕    ─ ▢ ✕        │  window + tool control bar
+│ ▣ ⚙                       [ ⌕ command center  Ctrl+Shift+P ] ─ ▢ ✕ │  top bar
 ├────────────┬─────────────────────────────────────────────────┤
-│ CHANNELS   │ ◖zsh◗ index.ts  claude            +            │  tabs (active workspace)
-│ ● proj/main├─────────────────────────────────────────────────┤
-│   working… │                                                 │
-│ ● api/fix  │   pane grid for the active tab (split-tree,      │
-│   waiting ◹│   elevated surfaces; active pane = amber ring,   │
-│ ○ scratch  │   waiting agent = coral ring)                    │
-│   idle     │   ┌── pane ───────┐ ┌── pane ──────────┐         │
-│            │   │ terminal       │ │ editor            │        │
-│  + channel │   └───────────────┘ └───────────────────┘        │
+│ Sessions│Files                                                │
+│ ◉ ~/proj   │   split tree of panes for the active session     │
+│   ~/api  ● │   ┌ pane header ──────┐ ┌ pane header ────────┐  │
+│   ~        │   │ terminal          │ │ editor / browser /  │  │
+│            │   │                   │ │ kanban / wiki       │  │
+│ + session  │   └───────────────────┘ └─────────────────────┘  │
+│ ⚙ Settings │                                                  │
 └────────────┴─────────────────────────────────────────────────┘
 ```
 
-- **Control bar** (top, full width): wordmark · sidebar toggle · settings (left) · **⌘K
-  command launcher** (right). OS window controls live beyond it — native traffic lights on
-  macOS (left), custom min/max/close on Windows/Linux (right). The whole bar is the drag region.
-- **Sidebar / deck rail** (left): channels = workspaces/agents with live status. Collapsible
-  to a thin icon rail.
-- **Work area** (center): a **tab strip** over the active tab's **pane grid** — panes as
-  elevated surfaces with mono headers and an **attention ring** capability.
-- **Inspector** (right) and **status strip** (bottom) are designed but **parked** — they
-  return as the feature set grows (the inspector likely as a work-area tab or right panel).
+- **Top bar**: the sidebar toggle, settings, and the command-center button that opens the
+  palette. The whole bar is the window drag region. macOS keeps native traffic lights on the
+  left (the bar pads 80px for them). Linux and Windows draw min/max/close on the right
+  (`WindowControls.tsx`). There is no wordmark, status strip or inspector.
+- **Sidebar** (`DeckRail.tsx`): a Sessions/Files switch; one row per session showing a kind
+  icon, workDir and a state dot; "new session"; and a pinned Settings row. It collapses to a
+  56px icon rail.
+- **Work area**: the active session's split tree, rendered with Allotment. Each pane is an
+  elevated surface with a header (title, split right, split down, close). The header is also the
+  drag handle for moving panes. The active pane is marked with the brand color. Sessions have no
+  tab strip.
 
-## Signature — the deck rail that breathes
+## 6. Signature: session status
 
-The one memorable thing: each rail channel shows its agent's state and **animates** —
-working **pulses amber**, waiting shows a **coral ring**, done flashes mint, idle is dim.
-Situational awareness becomes the brand. Everything else stays still and disciplined.
+The one loud element is the state dot on each sidebar row (`.dot` in `index.css`):
 
-## Appearance system — three surfaces, coordinated but independent
+| State | Look |
+|---|---|
+| idle | hidden |
+| working | `--brand`, breathing pulse (1.9 s) |
+| waiting | `--attn`, expanding ring (1.5 s) |
+| done | `--ok`, static |
 
-Pine themes **three surfaces** that can be styled and fonted *separately* yet stay coordinated —
-the JetBrains model (IDE theme ≠ editor scheme; separate appearance vs editor fonts), generalized.
+Only non-idle states show. Today only `working` is derived from live terminal activity (see
+ARCHITECTURE.md §5). `waiting` and `done` are styled but nothing sets them yet. Under reduced
+motion, animations collapse to static dots and the working dot stays fully opaque.
 
-| Surface | What it themes | Theme source | Font |
-|---------|----------------|--------------|------|
-| **UI chrome** | rail, bars, panels, status, palette | CSS design tokens (Tailwind `@theme`) | UI font (sans) |
-| **Terminal** | xterm grid: ANSI-16 + bg/fg/cursor/sel | xterm theme object (Warp YAML / VSCode `terminal.*`) | terminal font (mono) |
-| **Editor** | Monaco: TextMate `tokenColors` + `colors` | VSCode theme JSON | editor font (mono) |
+## 7. Components
 
-**Coordinated, not locked.** A **Theme Pack** supplies coherent values for all three, so "pick one
-theme" just works. But each surface can be **overridden independently** (UI = Instrument Night,
-editor = Gruvbox, terminal = Solarized), and each carries its **own font** (family/size/line-height/
-ligatures). Config shape:
+- **Library first.** Use shadcn / Base UI (`components/ui/`) for anything with a real interaction
+  contract: buttons, inputs, selects, switches, tooltips, dialogs, menus, comboboxes. Skin them
+  only through tokens. Never fork a second implementation of the same role.
+- **Hand-roll only** when the thing is not a form control: live canvases (xterm, Monaco),
+  measured overlays (`Blocks.tsx`), and dense product rows (rail row, pane header). Build one
+  shared component per role. Tooltips go through `Hint`, never native `title=`.
+- **Settings row**: label (plus an optional description) on the left, control on the right,
+  about `py-1.5`. Group heads are `ui-lg`/600 with a `--line` divider. Use rows, not cards,
+  unless the item is a separable object with its own actions (a plugin).
+- **Controls**: Switch (instant toggle), Select (`size="sm"`, the trigger shows the value), Input,
+  Textarea, and ToggleGroup for ≤ 4 short options. Control height is 28px.
+- **Icon buttons**: always `IconButton` (ghost button + `Hint` + required `aria-label`). `bar`
+  (28px, 16px icon) for the top bar, rail switch and view toolbars; `row` (22px, 14px icon) for
+  pane headers, rail rows, the find bar and the browser toolbar. Rest `fg-muted`, hover
+  `surface-3` + `fg`, pressed (`aria-pressed`) `surface-3` + `brand`.
+- **Icon sizes**: 16 bar-level, 14 rows/headers/buttons, 12 inline glyphs.
+- **Status dot or badge**: 6–8px dot plus text.
+- **Empty state**: one muted line plus the primary action.
+- **Density**: rows are 22–28px, toolbars 32–36px, and settings content is 640–760px wide.
 
-```jsonc
-"appearance": {
-  "theme": "instrument-night",                 // coordinated base for all three
-  "ui":       { "theme": null, "font": { "family": "Geist", "size": 13 } },
-  "terminal": { "theme": null, "font": { "family": "Sarasa Mono TC", "size": 13, "lineHeight": 1.4 } },
-  "editor":   { "theme": null, "font": { "family": "JetBrains Mono", "size": 13, "ligatures": true } }
-}
-```
-`theme: null` on a surface means "inherit the pack"; set it to override just that surface.
+Consolidation debt:
+- Primitives still missing: DropdownMenu, ContextMenu, Popover.
 
-**Engine.** A Theme Pack resolves to three outputs: (a) CSS variables on `:root` for the UI (our
-overlay-elevation tokens), (b) an xterm theme object, (c) a Monaco theme. We import **VSCode theme
-JSON** (editor + workbench + terminal colors) and/or **Warp YAML** (terminal + accent) and map → all
-three, with per-surface override swapping just that output. Changes apply live (CSS vars; `xterm`
-`options.theme`; `monaco.editor.defineTheme`).
+## 8. Interaction and accessibility
 
-**Implemented now (foundation):** tokens live in Tailwind `@theme`; the UI font is settable live from
-**Settings** (`⌘,`) and applied via `--font-ui`. The per-surface terminal/editor font + theme fields
-exist in Settings and persist; they apply once those surfaces are built (Phases 1 & 5). Full
-theme-pack import lands in Phase 8.
+- **Focus**: a visible ring on every interactive DOM element. Move focus into a surface when it
+  opens and restore it when it closes. xterm and Monaco manage their own focus.
+- **Keyboard**: in lists and navs, use a roving tabindex with Up/Down/Home/End; Enter or Space
+  activates; Escape dismisses. Label every control (`aria-label` or an associated label).
+- **Shortcuts**: the palette, sidebar and settings chords are Cmd+K / Cmd+\ / Cmd+, on macOS and
+  Ctrl+Shift+P / Ctrl+Shift+B / Ctrl+, elsewhere. In the terminal off macOS, copy, paste and find
+  are Ctrl+Shift+C/V/F.
+- **Transitions**: 120–180 ms ease. List only the properties that change, never `transition-all`.
+- **Overlays**: when a surface covers others, mark the covered subtree `inert` so focus can't
+  leak. Hidden sessions use `visibility: hidden` + `inert`.
 
-## Localization & CJK — first-class, from day one
+## 9. Live surfaces (xterm, Monaco, webview)
 
-**Locales:** **English (default)** and **Traditional Chinese (`zh-Hant`)**. Resolution is
-**variant-aware** — `en-US`/`en-GB` → `en`, `zh-TW`/`zh-HK`/`zh-Hant-*` → `zh-Hant` — so region tags
-and future regional overrides have a home. (Simplified is not a target yet.)
+These are correctness rules, not style:
+- **Mount once, keep alive.** Switching sessions or rearranging panes must never remount a
+  surface. `SurfacePool` moves persistent host nodes between pane slots.
+- **Hide with `visibility: hidden`, not `display: none`**, so the box keeps its size and the fit
+  stays valid.
+- **Never fit a 0×0 element or forward a 0×0 or unchanged size to the pty.** Resizes are
+  debounced and wrapped in rAF (CLAUDE.md §6).
+- **Key panes by stable id** so adding or removing a pane never remounts the others.
 
-**Strings** are never hardcoded: every chrome string comes from a typed catalog (`useDict()` →
-`d.section.key`, `fmt()` for `{n}` interpolation), switchable live. Numbers/dates go through `Intl`.
-Main-process strings (menus, dialogs) will share the same catalogs.
+## 10. Localization
 
-**CJK is a real constraint, designed in:**
-- **Font fallback** — every stack ends in CJK fonts so 繁體中文 always renders even when the primary
-  (Geist, no CJK) lacks glyphs: UI → `… "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC"`;
-  mono → `… "Sarasa Mono TC", "Noto Sans Mono CJK TC"`.
-- **Terminal width** — CJK glyphs occupy **two cells**. The terminal needs `@xterm/addon-unicode11`
-  for correct width *and* a **dual-width mono** (CJK advance = exactly 2× Latin, e.g. Sarasa Mono /
-  Noto Sans Mono CJK) so columns stay aligned. We'll bundle one as the default terminal font.
-- `<html lang>` tracks the active locale for correct shaping + a11y.
-
-**Implemented now:** the i18n layer (en + zh-Hant) drives the chrome; switching language in Settings
-re-renders live in 繁體中文 via the CJK fallback. xterm unicode11 + a bundled dual-width mono arrive
-with the terminal (Phase 1).
-
-## Principles
-
-1. **Elevation by translucent surface, never new colors.** (Warp's move.)
-2. **One accent (amber).** Coral is sacred — only "needs you."
-3. **Motion is ambient and meaningful** — it reports agent state, nothing decorative.
-   Respect `prefers-reduced-motion` (drop pulses to static dots).
-4. **Mono-forward chrome; sans only for reading.**
-5. **Quiet by default, loud exactly where it matters.** Spend boldness on the rail.
-6. **Floor, always:** keyboard focus visible, reduced-motion honored, responsive panes.
+Locales are English (default) and Traditional Chinese (`zh-Hant`). `resolveLocale` maps any
+`zh*` tag to `zh-Hant` (Simplified isn't supported, so it maps there too) and everything else to
+`en`. Every chrome string comes from the
+typed catalog (`useDict()`, `fmt()` for `{n}`), and switching language applies live. `<html lang>`
+follows the locale. Font stacks end in CJK fallbacks: PingFang TC, Microsoft JhengHei and
+Noto Sans CJK TC for sans; Sarasa Mono TC and Noto Sans Mono CJK TC for mono. The terminal loads
+`addon-unicode11` so CJK glyphs take two cells.
