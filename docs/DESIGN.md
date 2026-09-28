@@ -134,12 +134,12 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 └────────────┴─────────────────────────────────────────────────┘
 ```
 
-- **Top bar**: the sidebar toggle, settings, and the command-center button that opens the
-  palette. The whole bar is the window drag region. macOS keeps native traffic lights on the
+- **Top bar**: the sidebar toggle, settings, the command-center button that opens the
+  palette, and the notification bell at the right end (§6). The whole bar is the window drag region. macOS keeps native traffic lights on the
   left (the bar pads 80px for them). Linux and Windows draw min/max/close on the right
   (`WindowControls.tsx`). There is no wordmark, status strip or inspector.
 - **Sidebar** (`DeckRail.tsx`): a Sessions/Files switch; one row per session showing a kind
-  icon, workDir and a state dot; "new session"; and a pinned Settings row. It collapses to a
+  icon, workDir, a state dot and an unread badge; "new session"; and a pinned Settings row. It collapses to a
   56px icon rail.
 - **Work area**: the active session's split tree, rendered with Allotment. Each pane is an
   elevated surface with a header (title, split right, split down, close). The header is also the
@@ -148,7 +148,7 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 
 ## 6. Signature: session status
 
-The one loud element is the state dot on each sidebar row (`.dot` in `index.css`):
+The loudest element is the state dot on each sidebar row (`.dot` in `index.css`):
 
 | State | Look |
 |---|---|
@@ -156,10 +156,26 @@ The one loud element is the state dot on each sidebar row (`.dot` in `index.css`
 | working | `--brand`, breathing pulse (1.9 s) |
 | waiting | `--attn`, expanding ring (1.5 s) |
 | done | `--ok`, static |
+| error | `--attn`, static, square (so it differs from waiting by shape, not only motion) |
 
-Only non-idle states show. Today only `working` is derived from live terminal activity (see
-ARCHITECTURE.md §5). `waiting` and `done` are styled but nothing sets them yet. Under reduced
+Only non-idle states show; each dot has an `aria-label` with the state name. The state comes from
+the session's panes (ARCHITECTURE.md §5, "Live session state and attention"). Under reduced
 motion, animations collapse to static dots and the working dot stays fully opaque.
+
+Attention, the second loud element, appears only when a pane needs you:
+
+- **Pane ring**: an unread `waiting` or `error` pane gets a 2px inset `--attn` ring (the active
+  pane's ring is 1px `--brand`), pulsing twice then static. Its header shows a mark (circle for
+  waiting, square for error) labelled "Needs attention" plus the message in `--attn-fg`.
+- **Quiet marker**: an unread `done` pane (or one that rang the bell) gets only the header mark
+  (`--ok` circle for done, `--fg-muted` otherwise) labelled "Unread", plus the message in
+  `--fg-muted`. No ring.
+- **Unread badge**: the session row shows the number of unread panes as an outlined pill
+  (`--attn` border, `--attn-fg` number, `ui-xs`/500, tabular). A number, so never hue-alone.
+- **Bell**: a `bar` IconButton in the top bar's right slot. Its count uses the same pill; its
+  label reads "Notifications, N unread". The popover lists the notification log newest first:
+  `session · pane` and time on a `ui-xs` meta line, the message in `ui-sm`. Each row jumps to its
+  pane; rows for closed panes are disabled. "Clear all" sits in the header.
 
 ## 7. Components
 
@@ -183,8 +199,12 @@ motion, animations collapse to static dots and the working dot stays fully opaqu
 - **Empty state**: one muted line plus the primary action.
 - **Density**: rows are 22–28px, toolbars 32–36px, and settings content is 640–760px wide.
 
+- **Popover**: `components/ui/popover.tsx` (Base UI), skinned via `className`; the notification
+  center is the reference (`surface-3`, `radius-md`).
+
 Consolidation debt:
-- Primitives still missing: DropdownMenu, ContextMenu, Popover.
+- Primitives still missing: DropdownMenu. ContextMenu (`components/ui/context-menu.tsx`) backs
+  the block menu.
 
 ## 8. Interaction and accessibility
 
@@ -192,9 +212,11 @@ Consolidation debt:
   opens and restore it when it closes. xterm and Monaco manage their own focus.
 - **Keyboard**: in lists and navs, use a roving tabindex with Up/Down/Home/End; Enter or Space
   activates; Escape dismisses. Label every control (`aria-label` or an associated label).
-- **Shortcuts**: the palette, sidebar and settings chords are Cmd+K / Cmd+\ / Cmd+, on macOS and
-  Ctrl+Shift+P / Ctrl+Shift+B / Ctrl+, elsewhere. In the terminal off macOS, copy, paste and find
-  are Ctrl+Shift+C/V/F.
+- **Shortcuts**: the palette, sidebar, settings, jump-to-latest-unread and command-history chords
+  are Cmd+K / Cmd+\ / Cmd+, / Cmd+Shift+U / Cmd+Shift+H on macOS and Ctrl+Shift+P /
+  Ctrl+Shift+B / Ctrl+, / Ctrl+Shift+U / Ctrl+Shift+H elsewhere. In the terminal, previous/next
+  block is Cmd+↑/↓ (Ctrl+Shift+↑/↓ elsewhere) and Escape clears a block selection; off macOS,
+  copy, paste and find are Ctrl+Shift+C/V/F.
 - **Transitions**: 120–180 ms ease. List only the properties that change, never `transition-all`.
 - **Overlays**: when a surface covers others, mark the covered subtree `inert` so focus can't
   leak. Hidden sessions use `visibility: hidden` + `inert`.

@@ -1,14 +1,16 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { BrowserWindow, app, ipcMain, shell, webContents } from 'electron'
+import { BrowserWindow, app, ipcMain, session, shell, webContents } from 'electron'
 import type { IPty } from 'node-pty'
+import type { ExtensionResult } from '../shared/extensions'
 import { PRODUCT_NAME } from '../shared/product'
 import type {
   AppInfo,
   CommandDescriptor,
   CommandResult,
   CommandTarget,
+  ExternalEditorRequest,
   FsEntry,
   LifecycleEvent,
   PtyAttachResult,
@@ -16,6 +18,7 @@ import type {
   TerminalStateSnapshot,
   WorkspaceSnapshot,
 } from '../shared/types'
+import { registerAttentionMethods } from './attention'
 import {
   type ConsoleEntry,
   PAGE_ERROR_CATCHER_JS,
@@ -27,22 +30,33 @@ import {
   pushConsoleEntry,
   registerBrowseMethods,
 } from './browse'
+import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
 import { registerBusMethods } from './bus'
 import { dropIdentity } from './capabilityStore'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
-import { emitPlatformEvent } from './events'
+import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
+import { confirmForExtension } from './extensionConfirm'
+import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import type { ExtensionRoot } from './extensionManifest'
+import { ExtensionStore } from './extensionStore'
+import { openInExternalEditor } from './externalEditor'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
-import { getByPaneId, registerPane, removePane, removeWindow } from './idRegistry'
-import { kanbanGet, kanbanUpdate, registerKanbanIpc, registerKanbanMethods } from './kanban'
+import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
+import { getByPaneId, registerPane, removePane, removeWindow, windowOfSession } from './idRegistry'
 import { killAllLsp, registerLspIpc } from './lsp'
-import { registerNotifyMethods } from './notify'
+import {
+  postNotification,
+  postPanelNotification,
+  registerNotifyIpc,
+  registerNotifyMethods,
+} from './notify'
 import { listPanes, listSessions, registerPaneListMethods } from './paneList'
 import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { PtySession, type SubscriberRole } from './ptySession'
-import { removeSession, setSessionWorkDir } from './sessionRegistry'
+import { removeSession, setSessionWorkDir, workDirForSession } from './sessionRegistry'
 import {
   clearPersisted,
   dropRestoredScrollback,
@@ -54,9 +68,9 @@ import {
   saveSnapshot,
   takeRestoredScrollback,
 } from './sessionSnapshot'
+import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
-import { registerWikiIpc, registerWikiMethods } from './wiki'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 
@@ -138,6 +152,87 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
+let extensionHost: ExtensionHost | null = null
+let settingsSync: SettingsSyncHandle | null = null
+
+const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
+
+function extensionRoots(): ExtensionRoot[] {
+  const builtinDir = app.isPackaged
+    ? join(process.resourcesPath, 'extensions')
+    : join(app.getAppPath(), 'out/extensions')
+  const configHome = process.env.XDG_CONFIG_HOME || join(homedir(), '.config')
+  return [
+    { dir: builtinDir, builtin: true },
+    { dir: join(configHome, PRODUCT_NAME, 'extensions'), builtin: false },
+  ]
+}
+
+function broadcast(channel: string, payload: unknown): void {
+  for (const win of windows.values()) {
+    if (!win.isDestroyed()) win.webContents.send(channel, payload)
+  }
+}
+
+function extensionOfPartition(partition: string | undefined): string | null {
+  if (!partition?.startsWith(EXTENSION_PARTITION_PREFIX)) return null
+  return partition.slice(EXTENSION_PARTITION_PREFIX.length)
+}
+
+const instrumentedGuests = new WeakSet<Electron.WebContents>()
+
+function instrumentBrowserGuest(gc: Electron.WebContents): void {
+  const wcId = gc.id
+  if (!instrumentedGuests.has(gc)) {
+    instrumentedGuests.add(gc)
+    gc.on('console-message', (_event, level, message) => {
+      const entry: ConsoleEntry = {
+        level: consoleLevelName(level),
+        text: message,
+        ts: Date.now(),
+      }
+      pushConsoleEntry(consoleBuffers, wcId, entry)
+      if (entry.level === 'error' || message.startsWith(PINE_ERROR_PREFIX)) {
+        pushConsoleEntry(errorBuffers, wcId, entry)
+      }
+    })
+  }
+  if (!gc.debugger.isAttached()) {
+    try {
+      gc.debugger.attach('1.3')
+      gc.debugger
+        .sendCommand('Page.enable')
+        .then(() =>
+          gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+            source: PAGE_ERROR_CATCHER_JS,
+          }),
+        )
+        .catch(() => {})
+    } catch {}
+  }
+  watchGuestNetwork(gc)
+}
+
+function hardenExtensionGuest(guest: Electron.WebContents): boolean {
+  const host = extensionHost
+  if (!host) return false
+  const extId = host
+    .panelExtensionIds()
+    .find((id) => guest.session === session.fromPartition(`${EXTENSION_PARTITION_PREFIX}${id}`))
+  if (!extId) return false
+  guest.session.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
+  guest.setWindowOpenHandler(({ url }) => {
+    openExternalSafe(url)
+    return { action: 'deny' }
+  })
+  const guard = (e: Electron.Event, url: string): void => {
+    if (!host.isAllowedPanelUrl(extId, url)) e.preventDefault()
+  }
+  guest.on('will-navigate', guard)
+  guest.on('will-redirect', guard)
+  return true
+}
+
 function frameOptions(): Electron.BrowserWindowConstructorOptions {
   if (process.platform === 'darwin') {
     return { titleBarStyle: 'hidden', trafficLightPosition: { x: 14, y: 11 } }
@@ -168,7 +263,11 @@ function wireWindow(win: BrowserWindow): void {
   })
 
   win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
-    if (!params.partition?.startsWith('pine-browser')) {
+    const extId = extensionOfPartition(params.partition)
+    const allowed = extId
+      ? (extensionHost?.isAllowedPanelUrl(extId, params.src) ?? false)
+      : params.partition?.startsWith('pine-browser')
+    if (!allowed) {
       event.preventDefault()
       return
     }
@@ -176,6 +275,15 @@ function wireWindow(win: BrowserWindow): void {
     webPreferences.nodeIntegration = false
     webPreferences.contextIsolation = true
     webPreferences.sandbox = true
+  })
+  win.webContents.on('did-attach-webview', (_e, guest) => {
+    if (hardenExtensionGuest(guest)) return
+    instrumentBrowserGuest(guest)
+    const wcId = guest.id
+    guest.once('destroyed', () => {
+      consoleBuffers.delete(wcId)
+      errorBuffers.delete(wcId)
+    })
   })
 
   const wid = String(win.webContents.id)
@@ -191,6 +299,7 @@ function wireWindow(win: BrowserWindow): void {
         clearGuestFrame(wcId)
         clearGuestDialogPolicy(wcId)
         clearGuestReactGrab(wcId)
+        clearGuestNetwork(wcId)
       }
     }
     removeWindow(wid)
@@ -232,6 +341,9 @@ function createWindow(): BrowserWindow {
 function registerIpc(): void {
   ipcMain.handle('app:ping', () => 'pong' as const)
   ipcMain.handle('settings:path', () => join(app.getPath('userData'), 'settings.json'))
+  ipcMain.handle('editor:open-external', (_e, req: ExternalEditorRequest) =>
+    openInExternalEditor(req),
+  )
   ipcMain.handle(
     'app:info',
     (): AppInfo => ({
@@ -281,10 +393,20 @@ function registerIpc(): void {
   ipcMain.on('lifecycle:event', (e, event: LifecycleEvent) => {
     const windowId = String(e.sender.id)
     if (event.type === 'pane-created') {
-      registerPane({ windowId, sessionId: event.sessionId, paneId: event.paneId })
+      const identity = registerPane({ windowId, sessionId: event.sessionId, paneId: event.paneId })
+      extensionHost?.emitEvent('pane.created', {
+        paneId: identity.externalId,
+        sessionId: event.sessionId,
+      })
     } else if (event.type === 'pane-closed') {
       const identity = getByPaneId(event.paneId)
-      if (identity) dropIdentity(identity.externalId)
+      if (identity) {
+        dropIdentity(identity.externalId)
+        extensionHost?.emitEvent('pane.closed', {
+          paneId: identity.externalId,
+          sessionId: event.sessionId,
+        })
+      }
       dropRestoredScrollback(event.paneId)
       removePane(event.paneId)
       terminalState.delete(event.paneId)
@@ -294,12 +416,7 @@ function registerIpc(): void {
       removeSession(event.sessionId)
     } else if (event.type === 'session-activated') {
     } else if (event.type === 'session-state') {
-      emitPlatformEvent('session.state', { sessionId: event.sessionId, state: event.state })
-      if (event.state === 'waiting') {
-        emitPlatformEvent('agent.needs-input', { sessionId: event.sessionId })
-      } else if (event.state === 'done') {
-        emitPlatformEvent('agent.done', { sessionId: event.sessionId })
-      }
+      emitSessionState(event.sessionId, event.state)
     }
   })
 
@@ -320,6 +437,7 @@ function registerIpc(): void {
       if (changed) {
         const identity = getByPaneId(snapshot.paneId)
         if (identity) {
+          emitTerminalExtensionEvents(identity.externalId, identity.sessionId, cur, snapshot)
           emitPlatformEvent('pane.state', {
             paneId: identity.externalId,
             generation: snapshot.generation,
@@ -339,32 +457,10 @@ function registerIpc(): void {
     const gc = webContents.fromId(webContentsId)
     if (!gc || gc.getType() !== 'webview' || gc.hostWebContents?.id !== e.sender.id) return
     browserPanes.set(paneId, webContentsId)
-    if (gc.listenerCount('console-message') === 0) {
-      gc.on('console-message', (_event, level, message) => {
-        const entry: ConsoleEntry = {
-          level: consoleLevelName(level),
-          text: message,
-          ts: Date.now(),
-        }
-        pushConsoleEntry(consoleBuffers, webContentsId, entry)
-        if (entry.level === 'error' || message.startsWith(PINE_ERROR_PREFIX)) {
-          pushConsoleEntry(errorBuffers, webContentsId, entry)
-        }
-      })
-      try {
-        if (!gc.debugger.isAttached()) gc.debugger.attach('1.3')
-        gc.debugger
-          .sendCommand('Page.enable')
-          .then(() =>
-            gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-              source: PAGE_ERROR_CATCHER_JS,
-            }),
-          )
-          .catch(() => {})
-      } catch {}
-    }
+    instrumentBrowserGuest(gc)
   })
   ipcMain.on('browser:unregister', (_e, paneId: string) => {
+    cancelPick(paneId)
     const wcId = browserPanes.get(paneId)
     browserPanes.delete(paneId)
     if (wcId !== undefined) {
@@ -373,8 +469,67 @@ function registerIpc(): void {
       clearGuestFrame(wcId)
       clearGuestDialogPolicy(wcId)
       clearGuestReactGrab(wcId)
+      clearGuestNetwork(wcId)
     }
   })
+}
+
+function emitTerminalExtensionEvents(
+  paneId: string,
+  sessionId: string,
+  prev: TerminalStateSnapshot | undefined,
+  next: TerminalStateSnapshot,
+): void {
+  const host = extensionHost
+  if (!host) return
+  if (next.cwd && prev?.cwd !== next.cwd) {
+    host.emitEvent('cwd.changed', { paneId, sessionId, cwd: next.cwd })
+  }
+  if (next.running && !prev?.running) {
+    host.emitEvent('command.started', { paneId, sessionId, cwd: next.cwd })
+  } else if (!next.running && prev?.running) {
+    host.emitEvent('command.finished', {
+      paneId,
+      sessionId,
+      cwd: next.cwd,
+      exitCode: next.lastExitCode,
+    })
+  }
+}
+
+function registerExtensionIpc(host: ExtensionHost): void {
+  ipcMain.handle('extensions:list', () => host.list())
+  ipcMain.handle('extensions:set-enabled', (_e, extId: string, enabled: boolean) =>
+    host.setEnabled(String(extId), enabled === true),
+  )
+  ipcMain.handle('extensions:approve', (_e, extId: string) => host.approve(String(extId)))
+  ipcMain.handle('extensions:sidebar', () => host.sidebarItems())
+  ipcMain.handle(
+    'extensions:invoke',
+    (
+      _e,
+      extId: string,
+      command: string,
+      target: { sessionId: string | null; paneId: string | null },
+    ): Promise<ExtensionResult> => {
+      const paneId = target?.paneId ? getByPaneId(target.paneId)?.externalId : undefined
+      const cwd = target?.paneId ? terminalState.get(target.paneId)?.cwd : undefined
+      const caller = host.userCaller(target?.sessionId ?? null, {
+        capabilities: host.commandCapabilities(extId, command),
+        ...(paneId ? { paneId } : {}),
+        ...(cwd ? { cwd } : {}),
+      })
+      return host.invoke(extId, command, null, caller)
+    },
+  )
+  ipcMain.handle(
+    'extensions:panel',
+    (_e, extId: string, context: { sessionId: string; locale: string }) =>
+      host.resolvePanel(String(extId), {
+        sessionId: String(context?.sessionId ?? ''),
+        locale: String(context?.locale ?? 'en'),
+      }),
+  )
 }
 
 function registerPtyIpc(): void {
@@ -593,21 +748,67 @@ export function execCommand(
   })
 }
 
+function sendToSessionWindow(
+  sessionId: string | undefined,
+  channel: string,
+  payload: unknown,
+): void {
+  const windowId = sessionId ? windowOfSession(sessionId) : undefined
+  const win = (windowId ? windows.get(windowId) : undefined) ?? [...windows.values()][0]
+  if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
+}
+
+function emitFocusChanged(): void {
+  extensionHost?.emitEvent('focus.changed', { focused: BrowserWindow.getFocusedWindow() !== null })
+}
+
 app.whenReady().then(() => {
   loadRestoredScrollback()
   registerIpc()
   registerPtyIpc()
   registerFsIpc()
   registerLspIpc()
-  registerNotifyMethods()
+  const notifyDeps = {
+    execCommand,
+    windows: () => windows.values(),
+    windowById: (id: string) => windows.get(id),
+  }
+  registerNotifyMethods(notifyDeps)
+  registerNotifyIpc(notifyDeps)
+  registerAttentionMethods({ execCommand })
   registerProcessMethods()
-  registerDocsMethods()
+  registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods()
-  registerWikiMethods()
-  registerKanbanMethods()
-  registerKanbanIpc()
-  registerWikiIpc()
   registerBusMethods()
+  const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
+  settingsSync = startSettingsSync({
+    userData: app.getPath('userData'),
+    broadcast: (channel, payload) => broadcast(channel, payload),
+    onExtensionsPulled: () => {
+      extensionStore.reload()
+      extensionHost?.reloadRecords()
+    },
+  })
+  settingsSync.run()
+  extensionHost = new ExtensionHost({
+    roots: extensionRoots(),
+    store: extensionStore,
+    socketPath: controlSocketPath,
+    nodePath: process.execPath,
+    workDirForSession,
+    cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
+    broadcast,
+    openPanelIn: (req) => sendToSessionWindow(req.sessionId, 'extensions:open-panel', req),
+    openDiffIn: (req) => sendToSessionWindow(req.sessionId, 'extensions:open-diff', req),
+    notify: (n) => postNotification(notifyDeps, n),
+    confirm: (req) => confirmForExtension(req, windows.values()),
+    notifyPanel: (n, open) => postPanelNotification(notifyDeps, n, open),
+  })
+  registerExtensionMethods(() => extensionHost)
+  registerExtensionIpc(extensionHost)
+  platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
+    extensionHost?.emitEvent('notification', n),
+  )
   registerPaneListMethods({ execCommand, getTerminalState })
   registerGatewayMethods()
   registerGatewayIpc()
@@ -617,8 +818,15 @@ app.whenReady().then(() => {
     getTerminalState,
     listPanes: () => listPanes({ execCommand, getTerminalState }),
     listSessions: () => listSessions({ execCommand }),
-    kanbanGet,
-    kanbanUpdate,
+    invokeExtension: (extId, command, args, sessionId, capabilities) =>
+      extensionHost
+        ? extensionHost.invoke(extId, command, args, {
+            kind: 'phone',
+            sessionId,
+            workDir: workDirForSession(sessionId),
+            capabilities,
+          })
+        : Promise.resolve({ ok: false, error: 'no-extension-host' }),
     primaryWindowId,
     attachPhoneObserver,
     ptyResize,
@@ -631,8 +839,13 @@ app.whenReady().then(() => {
     consoleBuffers,
     errorBuffers,
   })
+  registerPickMethods({ browserPanes, errorBuffers, broadcast })
+  registerPickIpc({ browserPanes, errorBuffers, broadcast })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
+  extensionHost.startEager()
+  app.on('browser-window-focus', emitFocusChanged)
+  app.on('browser-window-blur', emitFocusChanged)
   setInterval(autosaveScrollback, SCROLLBACK_AUTOSAVE_MS).unref()
 
   app.on('activate', () => {
@@ -673,6 +886,8 @@ app.on('before-quit', () => {
   ptys.clear()
   killAllLsp()
   killAllProcesses()
+  extensionHost?.stopAll()
+  settingsSync?.stop()
   stopControlServer()
   void stopGateway()
 })

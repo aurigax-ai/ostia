@@ -1,6 +1,6 @@
 export type Direction = 'horizontal' | 'vertical'
 
-export type SurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'kanban' | 'wiki'
+export type SurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension' | 'diff'
 
 export interface PaneNode {
   type: 'pane'
@@ -10,6 +10,7 @@ export interface PaneNode {
   cwd?: string
   filePath?: string
   url?: string
+  extensionId?: string
 }
 
 export interface SplitNode {

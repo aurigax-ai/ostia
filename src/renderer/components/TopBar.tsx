@@ -5,6 +5,7 @@ import { isMac } from '../platform'
 import { useUIStore } from '../stores/uiStore'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
+import { NotificationCenter } from './NotificationCenter'
 
 const PALETTE_KEYS = chordLabel('palette.toggle', isMac)
 
@@ -34,7 +35,9 @@ export function TopBar(): JSX.Element {
         </button>
       </Hint>
 
-      <div className="topbar-right" />
+      <div className="topbar-right">
+        <NotificationCenter />
+      </div>
     </header>
   )
 }

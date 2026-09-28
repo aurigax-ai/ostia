@@ -1,24 +1,27 @@
 import {
-  BookOpen,
   Bot,
   FileCode,
+  GitCompare,
   Globe,
-  Kanban,
   type LucideIcon,
   SplitSquareHorizontal,
   SplitSquareVertical,
   Terminal,
   X,
 } from 'lucide-react'
-import { type DragEvent, useCallback, useRef } from 'react'
+import { type DragEvent, useCallback, useEffect, useRef } from 'react'
 import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
 import type { DropZone } from '../layout/tree'
 import type { PaneNode, SurfaceKind } from '../layout/types'
+import { needsRing } from '../lib/attention'
+import { useAttentionStore } from '../stores/attentionStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePaneDnd } from '../stores/paneDndStore'
 import { mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
 import { IconButton } from './IconButton'
+import { extensionIcon } from './extensionIcons'
 
 interface PaneProps {
   pane: PaneNode
@@ -30,8 +33,8 @@ const SURFACE_ICON: Record<SurfaceKind, LucideIcon> = {
   editor: FileCode,
   agent: Bot,
   browser: Globe,
-  kanban: Kanban,
-  wiki: BookOpen,
+  extension: extensionIcon(undefined),
+  diff: GitCompare,
 }
 
 const PANE_DND = 'application/x-pine-pane'
@@ -59,10 +62,32 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
   const over = usePaneDnd((s) => (s.overId === pane.id ? s.zone : null))
   const setOver = usePaneDnd((s) => s.setOver)
   const reset = usePaneDnd((s) => s.reset)
-  const Icon = SURFACE_ICON[pane.kind]
+  const panelIcon = useExtensionsStore((s) =>
+    pane.kind === 'extension'
+      ? s.list.find((e) => e.id === pane.extensionId)?.panel?.icon
+      : undefined,
+  )
+  const Icon = pane.kind === 'extension' ? extensionIcon(panelIcon) : SURFACE_ICON[pane.kind]
   const dirty = useEditorStatus((s) =>
     pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
   )
+  const attention = useAttentionStore((s) => s.byPane[pane.id])
+  const ring = needsRing(attention)
+  const unread = attention?.unread ?? false
+  const frameRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+    const activate = (): void => {
+      if (!active) void commands.exec('pane.focus', { paneId: pane.id })
+    }
+    frame.addEventListener('mousedown', activate, true)
+    frame.addEventListener('focusin', activate)
+    return () => {
+      frame.removeEventListener('mousedown', activate, true)
+      frame.removeEventListener('focusin', activate)
+    }
+  }, [active, pane.id])
   const slotEl = useRef<HTMLElement | null>(null)
   const slotRef = useCallback(
     (el: HTMLElement | null) => {
@@ -93,8 +118,9 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
 
   return (
     <div
-      className={`pane${active ? ' active' : ''}`}
-      onMouseDownCapture={() => commands.exec('pane.focus', { paneId: pane.id })}
+      className={`pane${active ? ' active' : ''}${ring ? ' attn-ring' : ''}`}
+      data-attention={unread ? attention?.state : undefined}
+      ref={frameRef}
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
@@ -112,6 +138,16 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
           {dirty ? '• ' : ''}
           {pane.title}
         </span>
+        {unread ? (
+          <span className={`pane-attn${ring ? ' loud' : ''}`}>
+            <span
+              className="pane-attn-mark"
+              role="img"
+              aria-label={ring ? d.attention.needsYou : d.attention.unread}
+            />
+            {attention?.message ? <span className="pane-attn-msg">{attention.message}</span> : null}
+          </span>
+        ) : null}
         <div className="pane-actions">
           <IconButton
             icon={SplitSquareHorizontal}
@@ -137,8 +173,8 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
       {pane.kind === 'terminal' ||
       pane.kind === 'editor' ||
       pane.kind === 'browser' ||
-      pane.kind === 'kanban' ||
-      pane.kind === 'wiki' ? (
+      pane.kind === 'diff' ||
+      pane.kind === 'extension' ? (
         <div className="pane-body pane-body-term" ref={slotRef} />
       ) : (
         <div className="pane-body">

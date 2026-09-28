@@ -1,6 +1,11 @@
-export type AppChord = 'palette.toggle' | 'view.toggleRail' | 'app.openSettings'
+export type AppChord =
+  | 'palette.toggle'
+  | 'view.toggleRail'
+  | 'app.openSettings'
+  | 'attention.jumpToLatest'
+  | 'history.search'
 
-export type TerminalChord = 'copy' | 'paste' | 'find'
+export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
 export type Chord = AppChord | TerminalChord
 
@@ -19,14 +24,25 @@ const MAC: Record<string, Chord> = {
   c: 'copy',
   v: 'paste',
   f: 'find',
+  arrowup: 'block.selectPrev',
+  arrowdown: 'block.selectNext',
+}
+
+const MAC_SHIFT: Record<string, Chord> = {
+  u: 'attention.jumpToLatest',
+  h: 'history.search',
 }
 
 const CTRL_SHIFT: Record<string, Chord> = {
   p: 'palette.toggle',
+  u: 'attention.jumpToLatest',
   b: 'view.toggleRail',
   c: 'copy',
   v: 'paste',
   f: 'find',
+  h: 'history.search',
+  arrowup: 'block.selectPrev',
+  arrowdown: 'block.selectNext',
 }
 
 const CTRL: Record<string, Chord> = {
@@ -37,21 +53,33 @@ export function matchChord(e: KeyLike, mac: boolean): Chord | null {
   if (e.altKey) return null
   const key = e.key.toLowerCase()
   if (mac) {
-    if (!e.metaKey || e.ctrlKey || e.shiftKey) return null
-    return MAC[key] ?? null
+    if (!e.metaKey || e.ctrlKey) return null
+    return (e.shiftKey ? MAC_SHIFT[key] : MAC[key]) ?? null
   }
   if (!e.ctrlKey || e.metaKey) return null
   return (e.shiftKey ? CTRL_SHIFT[key] : CTRL[key]) ?? null
 }
 
+const APP_CHORDS: ReadonlySet<Chord> = new Set<AppChord>([
+  'palette.toggle',
+  'view.toggleRail',
+  'app.openSettings',
+  'attention.jumpToLatest',
+  'history.search',
+])
+
 export function isAppChord(chord: Chord | null): chord is AppChord {
-  return chord === 'palette.toggle' || chord === 'view.toggleRail' || chord === 'app.openSettings'
+  return chord !== null && APP_CHORDS.has(chord)
 }
 
 const LABELS: Record<Chord, [mac: string, other: string]> = {
   'palette.toggle': ['⌘K', 'Ctrl+Shift+P'],
   'view.toggleRail': ['⌘\\', 'Ctrl+Shift+B'],
   'app.openSettings': ['⌘,', 'Ctrl+,'],
+  'attention.jumpToLatest': ['⌘⇧U', 'Ctrl+Shift+U'],
+  'block.selectPrev': ['⌘↑', 'Ctrl+Shift+↑'],
+  'block.selectNext': ['⌘↓', 'Ctrl+Shift+↓'],
+  'history.search': ['⌘⇧H', 'Ctrl+Shift+H'],
   copy: ['⌘C', 'Ctrl+Shift+C'],
   paste: ['⌘V', 'Ctrl+Shift+V'],
   find: ['⌘F', 'Ctrl+Shift+F'],

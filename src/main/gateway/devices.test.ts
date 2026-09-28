@@ -2,7 +2,15 @@ import { rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_PHONE_CAPS, list, registerDevice, revoke, verifyToken } from './devices'
+import {
+  DEFAULT_PHONE_CAPS,
+  get,
+  list,
+  registerDevice,
+  revoke,
+  setDeviceCap,
+  verifyToken,
+} from './devices'
 
 function unsetEnv(key: string): void {
   delete process.env[key]
@@ -67,5 +75,60 @@ describe('gateway/devices', () => {
 
   it('revoke returns false for an unknown deviceId', () => {
     expect(revoke('dev_does-not-exist')).toBe(false)
+  })
+
+  describe('setDeviceCap', () => {
+    it('grants input and persists it so a later lookup sees the raised caps', () => {
+      const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      expect(setDeviceCap(deviceId, 'input', true)).toEqual({
+        ok: true,
+        caps: ['read', 'board.read', 'notify', 'input'],
+      })
+      expect(verifyToken(token)?.caps).toContain('input')
+      expect(get(deviceId)?.caps).toContain('input')
+    })
+
+    it('revokes a granted cap', () => {
+      const { deviceId } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      setDeviceCap(deviceId, 'command', true)
+      expect(setDeviceCap(deviceId, 'command', false)).toEqual({
+        ok: true,
+        caps: ['read', 'board.read', 'notify'],
+      })
+    })
+
+    it('refuses to grant or strip a base cap or an unknown cap', () => {
+      const { deviceId } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      for (const cap of ['read', 'notify', 'board.read', 'gateway', 'workspace-wide', 42]) {
+        expect(setDeviceCap(deviceId, cap, false)).toEqual({ ok: false, error: 'invalid-cap' })
+        expect(setDeviceCap(deviceId, cap, true)).toEqual({ ok: false, error: 'invalid-cap' })
+      }
+      expect(get(deviceId)?.caps).toEqual([...DEFAULT_PHONE_CAPS])
+    })
+
+    it('refuses destructive until command is granted', () => {
+      const { deviceId } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      expect(setDeviceCap(deviceId, 'destructive', true)).toEqual({
+        ok: false,
+        error: 'requires-command',
+      })
+      setDeviceCap(deviceId, 'command', true)
+      expect(setDeviceCap(deviceId, 'destructive', true)).toEqual({
+        ok: true,
+        caps: ['read', 'board.read', 'notify', 'command', 'destructive'],
+      })
+    })
+
+    it('drops destructive when command is revoked', () => {
+      const { deviceId } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      setDeviceCap(deviceId, 'command', true)
+      setDeviceCap(deviceId, 'destructive', true)
+      setDeviceCap(deviceId, 'command', false)
+      expect(get(deviceId)?.caps).toEqual(['read', 'board.read', 'notify'])
+    })
+
+    it('is not-found for an unknown device', () => {
+      expect(setDeviceCap('dev_nope', 'input', true)).toEqual({ ok: false, error: 'not-found' })
+    })
   })
 })

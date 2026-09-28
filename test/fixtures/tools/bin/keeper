@@ -1,0 +1,9 @@
+#!/bin/sh
+dir="${FAKE_KEEPER_DIR:?FAKE_KEEPER_DIR is not set}"
+printf '%s\n' "$*" >> "$dir/calls.log"
+case "$*" in
+  "daemon status") cat "$dir/status.txt" ;;
+  "approve --json") cat "$dir/approve.json" ;;
+  "ui") cat "$dir/ui.txt" ;;
+  *) echo "keeper: unexpected call: $*" >&2; exit 1 ;;
+esac

@@ -5,9 +5,27 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { type IMarker, Terminal as Xterm } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { currentDict, fmt } from '../i18n/useDict'
+import {
+  KittyNotificationAssembler,
+  type OscNotification,
+  notificationMessage,
+  parseOsc9,
+  parseOsc99,
+  parseOsc777,
+} from '../lib/attention'
+import { stepBlock } from '../lib/blockActions'
+import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, matchChord } from '../lib/chords'
-import { shouldNotifyCommandEnd, syncSessionState } from '../lib/sessionActivity'
+import {
+  isPaneViewed,
+  isPaneVisible,
+  shouldNotifyCommandEnd,
+  signalPane,
+} from '../lib/sessionActivity'
+import { registerTerminal } from '../lib/terminalHandles'
 import { isMac } from '../platform'
+import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -18,6 +36,7 @@ import { terminalPalette } from './terminalTheme'
 
 const MONO_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
 const fontStack = (family: string): string => `"${family}", ${MONO_FALLBACK}`
+const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 
 export function TerminalView({
   sessionId,
@@ -72,14 +91,23 @@ export function TerminalView({
     termRef.current = term
     fitRef.current = fit
     setSearch(searchAddon)
+    const unregisterTerminal = registerTerminal(paneId, term)
 
     term.attachCustomKeyEventHandler((e) => {
+      if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        const blocks = useBlocksStore.getState()
+        if (!blocks.selected[paneId]) return true
+        if (e.type === 'keydown') blocks.select(paneId, null)
+        return false
+      }
       const chord = matchChord(e, isMac)
       if (!chord) return true
       if (isMac && (chord === 'copy' || chord === 'paste')) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
       e.preventDefault()
       if (chord === 'find') setFindOpen(true)
+      else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
+      else if (chord === 'block.selectNext') stepBlock(paneId, 'next')
       else if (chord === 'copy') {
         const selection = term.getSelection()
         if (selection) void navigator.clipboard.writeText(selection)
@@ -107,25 +135,72 @@ export function TerminalView({
     let inputAnchor: LineAnchor | null = null
     let inputCol = 0
     let runningCommand = ''
+    let replaying = false
     const onCommandEnd = (exitCode: number): void => {
       const blocks = useBlocksStore.getState()
       const runningId = blocks.running[paneId]
       const block = runningId ? blocks.byPane[paneId]?.find((b) => b.id === runningId) : undefined
-      blocks.commandEnd(paneId, anchor(), exitCode)
-      syncSessionState(sessionId)
-      if (!block || !shouldNotifyCommandEnd(Date.now() - block.startedAt, document.hasFocus())) {
-        return
-      }
-      if (typeof Notification === 'undefined') return
-      const title = exitCode === 0 ? 'Command finished' : `Command failed (exit ${exitCode})`
-      new Notification(title, { body: runningCommand || block.cwd || '' })
+      blocks.commandEnd(paneId, anchor(), exitCode, term.buffer.active.cursorX)
+      if (!block || replaying) return
+      const long = shouldNotifyCommandEnd(Date.now() - block.startedAt, document.hasFocus())
+      if (isPaneViewed(paneId) || (exitCode === 0 && !long)) return
+      const d = currentDict()
+      const title =
+        exitCode === 0
+          ? d.attention.commandFinished
+          : fmt(d.attention.commandFailed, { code: exitCode })
+      const body = runningCommand || block.cwd || undefined
+      useAttentionStore.getState().dispatch(paneId, {
+        type: 'commandEnd',
+        exitCode,
+        long,
+        message: body ? `${title}: ${body}` : title,
+        at: Date.now(),
+      })
+      if (long) window.pine.notifications.post({ paneId, title, body, desktop: true })
     }
+    const notifyFromTerminal = (n: OscNotification | null): boolean => {
+      if (!n || replaying) return true
+      signalPane(paneId, {
+        type: 'notify',
+        message: notificationMessage(n),
+        waiting: true,
+        at: Date.now(),
+      })
+      window.pine.notifications.post({
+        paneId,
+        title: n.title,
+        body: n.body,
+        desktop: !document.hasFocus() || !isPaneVisible(paneId),
+      })
+      return true
+    }
+    const kitty = new KittyNotificationAssembler()
+    const oscNotify9 = term.parser.registerOscHandler(9, (data) =>
+      notifyFromTerminal(parseOsc9(data)),
+    )
+    const oscNotify777 = term.parser.registerOscHandler(777, (data) =>
+      notifyFromTerminal(parseOsc777(data)),
+    )
+    const oscNotify99 = term.parser.registerOscHandler(99, (data) => {
+      const chunk = parseOsc99(data, decodeBase64Utf8)
+      return notifyFromTerminal(chunk ? kitty.push(chunk) : null)
+    })
+    const bell = term.onBell(() => {
+      if (replaying || isPaneViewed(paneId)) return
+      useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: Date.now() })
+    })
     const oscCwd = term.parser.registerOscHandler(7, (data) => {
       const path = decodeOsc7(data)
       if (path) {
         cwdRef.current = path
         useLayoutStore.getState().setCwd(sessionId, paneId, path)
       }
+      return true
+    })
+    let reportedCommand: string | null = null
+    const oscCommandLine = term.parser.registerOscHandler(633, (data) => {
+      if (data.startsWith('E;')) reportedCommand = decodeCommandLine(data.slice(2))
       return true
     })
     const oscBlocks = term.parser.registerOscHandler(133, (data) => {
@@ -135,15 +210,28 @@ export function TerminalView({
         promptMarker?.dispose()
         promptMarker = term.registerMarker(0)
         inputAnchor = null
+        reportedCommand = null
         blocks.promptStart(paneId, anchor(), cwdRef.current)
       } else if (kind === 'B') {
         inputAnchor = anchor()
         inputCol = term.buffer.active.cursorX
         blocks.promptEnd(paneId, inputAnchor)
       } else if (kind === 'C') {
-        runningCommand = readInput(term, inputAnchor, inputCol)
-        blocks.commandStart(paneId, anchor())
-        syncSessionState(sessionId)
+        const start = anchor()
+        runningCommand =
+          reportedCommand ??
+          (inputAnchor
+            ? readCommandText(
+                term.buffer.active,
+                { line: inputAnchor.line, col: inputCol },
+                { line: start.line, col: term.buffer.active.cursorX },
+              )
+            : '')
+        reportedCommand = null
+        blocks.commandStart(paneId, start, runningCommand)
+        if (!replaying) {
+          useAttentionStore.getState().dispatch(paneId, { type: 'commandStart', at: Date.now() })
+        }
       } else if (kind === 'D') onCommandEnd(Number(arg ?? 0))
       return true
     })
@@ -188,8 +276,12 @@ export function TerminalView({
           if (disposed) return
           disposeMarkers()
           useBlocksStore.getState().resetPane(paneId)
-          syncSessionState(sessionId)
-          if (buffer) term.write(buffer)
+          if (buffer) {
+            replaying = true
+            term.write(buffer, () => {
+              replaying = false
+            })
+          }
           flushPending()
         })
         .catch((err: unknown) => {
@@ -268,7 +360,15 @@ export function TerminalView({
       applyFit()
     }
 
-    const input = term.onData((d) => window.pine.pty.write(paneId, d))
+    const input = term.onData((d) => {
+      window.pine.pty.write(paneId, d)
+      if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
+        useBlocksStore.getState().select(paneId, null)
+      }
+      if (useAttentionStore.getState().byPane[paneId]?.state === 'waiting') {
+        useAttentionStore.getState().dispatch(paneId, { type: 'input', at: Date.now() })
+      }
+    })
 
     syncSize()
 
@@ -298,10 +398,15 @@ export function TerminalView({
       offExit()
       oscCwd.dispose()
       oscBlocks.dispose()
+      oscCommandLine.dispose()
+      oscNotify9.dispose()
+      oscNotify777.dispose()
+      oscNotify99.dispose()
+      bell.dispose()
       promptMarker?.dispose()
       disposeMarkers()
+      unregisterTerminal()
       useBlocksStore.getState().dropPane(paneId)
-      syncSessionState(sessionId)
       window.pine.pty.detach(paneId)
       term.dispose()
       termRef.current = null
@@ -360,9 +465,8 @@ export function TerminalView({
   )
 }
 
-function readInput(term: Xterm, input: LineAnchor | null, col: number): string {
-  if (!input || input.line < 0) return ''
-  return term.buffer.active.getLine(input.line)?.translateToString(true, col).trim() ?? ''
+function decodeBase64Utf8(b64: string): string {
+  return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))
 }
 
 function decodeOsc7(data: string): string | null {

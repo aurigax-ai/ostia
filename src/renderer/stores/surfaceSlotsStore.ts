@@ -30,6 +30,10 @@ export function parkSurface(paneId: string, slot: HTMLElement): void {
   if (host && host.parentNode === slot) parking().appendChild(host)
 }
 
+export function focusSurface(paneId: string): void {
+  hosts.get(paneId)?.querySelector<HTMLElement>('.xterm-helper-textarea')?.focus()
+}
+
 export function releaseSurfaces(live: ReadonlySet<string>): void {
   for (const [paneId, host] of hosts) {
     if (live.has(paneId)) continue
