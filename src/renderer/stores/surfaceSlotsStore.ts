@@ -10,7 +10,10 @@ export function surfaceHost(paneId: string): HTMLDivElement {
   let host = hosts.get(paneId)
   if (!host) {
     host = document.createElement('div')
-    host.className = 'surface-host'
+    host.className = 'surface-host surface-enter'
+    host.addEventListener('animationend', (e) => {
+      if (e.target === host) host.classList.remove('surface-enter')
+    })
     host.dataset.paneId = paneId
     host.style.position = 'absolute'
     host.style.inset = '0'

@@ -1,5 +1,5 @@
 import type { NotificationEntry } from '@shared/types'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { findPane, resetIds } from '../layout/tree'
@@ -74,6 +74,39 @@ describe('sidebar unread badge', () => {
     expect(sessionId).toBeTruthy()
   })
 
+  it('pops the badge only when the count grows, never on decrease', () => {
+    const { a, b } = twoPanes()
+    render(<DeckRail />)
+    const badge = () => screen.getByRole('img', { name: /unread/ })
+
+    signal(a, 'one', 1)
+    expect(badge()).toHaveClass('pop')
+    fireEvent.animationEnd(badge())
+    expect(badge()).not.toHaveClass('pop')
+
+    signal(b, 'two', 2)
+    expect(badge()).toHaveClass('pop')
+    fireEvent.animationEnd(badge())
+
+    act(() => useAttentionStore.getState().dispatch(b, { type: 'view', at: 3 }))
+    expect(badge()).toHaveTextContent('1')
+    expect(badge()).not.toHaveClass('pop')
+  })
+
+  it('restarts the waiting dot pulse only when a new waiting signal arrives', () => {
+    const { sessionId, a } = twoPanes()
+    act(() => useSessionsStore.getState().setState(sessionId, 'waiting'))
+    render(<DeckRail />)
+    signal(a, 'first', 1)
+    const first = screen.getByRole('img', { name: 'Waiting for input' })
+
+    act(() => useSessionsStore.getState().setState(sessionId, 'waiting'))
+    expect(screen.getByRole('img', { name: 'Waiting for input' })).toBe(first)
+
+    signal(a, 'second', 2)
+    expect(screen.getByRole('img', { name: 'Waiting for input' })).not.toBe(first)
+  })
+
   it('labels the error state so it is not conveyed by color alone', () => {
     const sessionId = useSessionsStore.getState().sessions[0].id
     act(() => useSessionsStore.getState().setState(sessionId, 'error'))
@@ -97,6 +130,21 @@ describe('pane attention ring', () => {
     act(() => useAttentionStore.getState().dispatch(a, { type: 'view', at: 2 }))
     expect(frame).not.toHaveClass('attn-ring')
     expect(screen.queryByText('build finished')).toBeNull()
+  })
+
+  it('replays the ring pulse for a new signal but not for unrelated re-renders', () => {
+    const { sessionId, a } = twoPanes()
+    const { container, rerender } = render(<Pane pane={paneNode(sessionId, a)} active={false} />)
+    signal(a, 'first', 1)
+    const pulse = container.querySelector('.pane-attn-pulse')
+    expect(pulse).not.toBeNull()
+
+    rerender(<Pane pane={paneNode(sessionId, a)} active />)
+    expect(container.querySelector('.pane-attn-pulse')).toBe(pulse)
+
+    signal(a, 'second', 2)
+    expect(container.querySelector('.pane-attn-pulse')).not.toBe(pulse)
+    expect(container.querySelectorAll('.pane-attn-ring')).toHaveLength(1)
   })
 
   it('gives a done unread pane a quiet marker instead of the ring', () => {

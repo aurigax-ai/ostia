@@ -22,7 +22,7 @@ describe('parseManifest', () => {
             { id: 'set', title: 'Set', palette: false, stdin: true, usage: 'set <k>' },
           ],
           sidebarItems: true,
-          panel: { title: 'Demo', icon: 'kanban', entry: 'ui/panel.html' },
+          panel: { title: 'Demo', icon: 'puzzle', entry: 'ui/panel.html' },
         },
       }),
       DIR,
@@ -56,7 +56,7 @@ describe('parseManifest', () => {
             },
           ],
           sidebarItems: true,
-          panel: { title: 'Demo', icon: 'kanban', entry: 'ui/panel.html' },
+          panel: { title: 'Demo', icon: 'puzzle', entry: 'ui/panel.html' },
         },
       },
     })
@@ -172,8 +172,8 @@ describe('discoverExtensions', () => {
   })
 
   it('lets a built-in win when a user extension reuses its id', () => {
-    const builtin = root({ kanban: manifest({ id: 'kanban', name: 'Builtin' }) })
-    const user = root({ kanban: manifest({ id: 'kanban', name: 'Impostor' }) })
+    const builtin = root({ git: manifest({ id: 'git', name: 'Builtin' }) })
+    const user = root({ git: manifest({ id: 'git', name: 'Impostor' }) })
     const errors: string[] = []
     const found = discoverExtensions(
       [
@@ -185,7 +185,7 @@ describe('discoverExtensions', () => {
     expect(found).toHaveLength(1)
     expect(found[0].builtin).toBe(true)
     expect(found[0].manifest.name).toBe('Builtin')
-    expect(errors).toEqual(["duplicate extension id 'kanban'"])
+    expect(errors).toEqual(["duplicate extension id 'git'"])
   })
 
   it('treats a missing root as empty', () => {

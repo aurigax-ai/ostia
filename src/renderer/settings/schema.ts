@@ -31,6 +31,14 @@ export const SETTINGS_JSON_SCHEMA = {
             'Theme id (built-in: adeberry, one-dark-vivid, instrument-night, dracula, oxocarbon; ' +
             'or a plugin theme). Default: adeberry.',
         },
+        motion: {
+          type: 'string',
+          enum: ['system', 'reduced', 'full'],
+          description:
+            'Interface animation. "system" follows the OS reduce-motion preference, "reduced" ' +
+            'turns movement off (state stays visible), "full" animates regardless of the OS. ' +
+            'Default: system.',
+        },
         ui: font('UI font'),
         terminal: font('Terminal font'),
         editor: font('Editor font'),

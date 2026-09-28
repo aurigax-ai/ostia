@@ -116,6 +116,29 @@ describe('ExtensionHost — approval and capabilities', () => {
     expect(host.list().find((e) => e.id === 'tool')?.status).toBe('disabled')
   })
 
+  it('ignores records for extensions that no longer exist, such as removed built-ins', () => {
+    writeFileSync(
+      join(base, 'extensions.json'),
+      JSON.stringify({
+        kanban: { enabled: true, approved: ['read-board', 'board-write'] },
+        wiki: { enabled: false, approved: ['wiki-read', 'wiki-write'] },
+        tool: { enabled: true, approved: ['notify'] },
+      }),
+    )
+    const { host } = makeHost()
+    expect(
+      host
+        .list()
+        .map((e) => e.id)
+        .sort(),
+    ).toEqual(['board', 'tool'])
+    expect(host.list().find((e) => e.id === 'tool')).toMatchObject({
+      enabled: true,
+      granted: ['notify'],
+    })
+    expect(host.setEnabled('kanban', false).map((e) => e.id)).not.toContain('kanban')
+  })
+
   it('never grants more than was declared even when every cap is approved', () => {
     const { host, deps } = makeHost()
     deps.store.set('tool', { enabled: true, approved: [...ALL_CAPABILITIES] })

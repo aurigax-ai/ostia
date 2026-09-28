@@ -41,6 +41,19 @@ describe('surfaceSlotsStore', () => {
     expect(surfaceHost('pane-1').parentNode).toBe(next)
   })
 
+  it('fades a new host in once, so later moves between slots do not replay it', () => {
+    const host = surfaceHost('pane-1')
+    expect(host).toHaveClass('surface-enter')
+    const child = div()
+    host.appendChild(child)
+    child.dispatchEvent(new Event('animationend', { bubbles: true }))
+    expect(host).toHaveClass('surface-enter')
+    host.dispatchEvent(new Event('animationend'))
+    expect(host).not.toHaveClass('surface-enter')
+    mountSurface('pane-1', div())
+    expect(host).not.toHaveClass('surface-enter')
+  })
+
   it('releaseSurfaces removes hosts of dead panes and keeps live ones', () => {
     const slot = div()
     const live = surfaceHost('pane-live')

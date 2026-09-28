@@ -175,6 +175,12 @@ export const en = {
     languageServersDesc:
       'Editor language intelligence. Servers are auto-detected on PATH; install one to enable its language.',
     theme: 'Theme',
+    motion: 'Motion',
+    motionDesc:
+      'Interface animation. System follows the OS reduce-motion setting; Reduced keeps state visible without movement.',
+    motionSystem: 'System',
+    motionReduced: 'Reduced',
+    motionFull: 'Full',
     uiFont: 'UI font',
     terminalFont: 'Terminal font',
     editorFont: 'Editor font',
@@ -237,10 +243,9 @@ export const en = {
     remoteRevoke: 'Revoke',
     remoteGrants: 'Permissions',
     remoteGrantsDesc:
-      'Read, board and notifications are always on. Removing a permission disconnects the device so it reconnects with the smaller set.',
+      'Read and notifications are always on. Removing a permission disconnects the device so it reconnects with the smaller set.',
     remoteCapCommand: 'Run commands',
     remoteCapInput: 'Type into panes',
-    remoteCapBoardWrite: 'Edit the board',
     remoteCapDestructive: 'Destructive commands',
     remoteDestructiveTitle: 'Allow destructive commands?',
     remoteDestructiveBody:
@@ -425,6 +430,11 @@ export const zhHant: Dict = {
     pluginsDesc: '已安裝的外掛及其貢獻：佈景主題、語言伺服器等。',
     languageServersDesc: '編輯器語言智慧。伺服器會自動從 PATH 偵測；安裝後即可啟用該語言。',
     theme: '佈景主題',
+    motion: '動態效果',
+    motionDesc: '介面動畫。「系統」依照作業系統的減少動態設定；「減少」保留狀態顯示但不移動。',
+    motionSystem: '系統',
+    motionReduced: '減少',
+    motionFull: '完整',
     uiFont: '介面字型',
     terminalFont: '終端機字型',
     editorFont: '編輯器字型',
@@ -483,11 +493,9 @@ export const zhHant: Dict = {
     remoteNoDevices: '尚未配對任何裝置。',
     remoteRevoke: '撤銷',
     remoteGrants: '權限',
-    remoteGrantsDesc:
-      '讀取、看板與通知永遠開啟。移除權限會中斷該裝置的連線，使其以較小的權限重新連線。',
+    remoteGrantsDesc: '讀取與通知永遠開啟。移除權限會中斷該裝置的連線，使其以較小的權限重新連線。',
     remoteCapCommand: '執行指令',
     remoteCapInput: '在窗格中輸入',
-    remoteCapBoardWrite: '編輯看板',
     remoteCapDestructive: '破壞性指令',
     remoteDestructiveTitle: '允許破壞性指令？',
     remoteDestructiveBody:

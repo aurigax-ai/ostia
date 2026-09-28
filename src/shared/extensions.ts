@@ -85,7 +85,7 @@ export interface ExtensionSidebarItem {
   tone: SidebarTone
 }
 
-export type ExtensionCallerKind = 'pane' | 'user' | 'phone'
+export type ExtensionCallerKind = 'pane' | 'user'
 
 export interface ExtensionCaller {
   kind: ExtensionCallerKind

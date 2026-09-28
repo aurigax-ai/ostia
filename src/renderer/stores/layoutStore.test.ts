@@ -345,44 +345,44 @@ describe('layoutStore', () => {
       const terminal = ensure('sess')
       emit().mockClear()
 
-      useLayoutStore.getState().openExtensionPanel('sess', 'kanban', 'Board')
+      useLayoutStore.getState().openExtensionPanel('sess', 'demo', 'Board')
       const layout = layoutOf('sess')
       const ids = paneIds(layout.root)
-      const kanbanId = ids.find((id) => id !== terminal) as string
-      const kanban = findPane(layout.root, kanbanId)
+      const demoId = ids.find((id) => id !== terminal) as string
+      const demo = findPane(layout.root, demoId)
 
       expect(ids).toHaveLength(2)
-      expect(kanban?.kind).toBe('extension')
-      expect(kanban?.extensionId).toBe('kanban')
-      expect(kanban?.title).toBe('Board')
-      expect(layout.activePaneId).toBe(kanbanId)
+      expect(demo?.kind).toBe('extension')
+      expect(demo?.extensionId).toBe('demo')
+      expect(demo?.title).toBe('Board')
+      expect(layout.activePaneId).toBe(demoId)
       expect(emit()).toHaveBeenCalledTimes(1)
       expect(emit()).toHaveBeenCalledWith({
         type: 'pane-created',
         sessionId: 'sess',
-        paneId: kanbanId,
+        paneId: demoId,
       })
     })
 
     it('with an existing panel of that extension, reuses it (no new pane, no emit)', () => {
       const terminal = ensure('sess')
-      useLayoutStore.getState().openExtensionPanel('sess', 'wiki', 'Wiki')
-      const wikiId = paneIds(layoutOf('sess').root).find((id) => id !== terminal) as string
+      useLayoutStore.getState().openExtensionPanel('sess', 'notes', 'Notes')
+      const notesId = paneIds(layoutOf('sess').root).find((id) => id !== terminal) as string
       useLayoutStore.getState().focusPane('sess', terminal)
       emit().mockClear()
 
-      useLayoutStore.getState().openExtensionPanel('sess', 'wiki', 'Wiki')
+      useLayoutStore.getState().openExtensionPanel('sess', 'notes', 'Notes')
       const layout = layoutOf('sess')
 
       expect(paneIds(layout.root)).toHaveLength(2)
-      expect(layout.activePaneId).toBe(wikiId)
+      expect(layout.activePaneId).toBe(notesId)
       expect(emit()).not.toHaveBeenCalled()
     })
 
     it("opens a second extension's panel beside the first instead of reusing it", () => {
       ensure('sess')
-      useLayoutStore.getState().openExtensionPanel('sess', 'wiki', 'Wiki')
-      useLayoutStore.getState().openExtensionPanel('sess', 'kanban', 'Board')
+      useLayoutStore.getState().openExtensionPanel('sess', 'notes', 'Notes')
+      useLayoutStore.getState().openExtensionPanel('sess', 'demo', 'Board')
       const panes = paneIds(layoutOf('sess').root).map((id) => findPane(layoutOf('sess').root, id))
 
       expect(
@@ -390,7 +390,7 @@ describe('layoutStore', () => {
           .map((p) => p?.extensionId)
           .filter(Boolean)
           .sort(),
-      ).toEqual(['kanban', 'wiki'])
+      ).toEqual(['demo', 'notes'])
     })
   })
 
@@ -435,7 +435,7 @@ describe('layoutStore', () => {
       store.setCwd('ghost', 'p', '/x')
       store.openFile('ghost', '/f')
       store.openBrowser('ghost', 'https://x')
-      store.openExtensionPanel('ghost', 'kanban', 'Board')
+      store.openExtensionPanel('ghost', 'demo', 'Board')
 
       expect(useLayoutStore.getState().bySession).toBe(before)
       expect(emit()).not.toHaveBeenCalled()

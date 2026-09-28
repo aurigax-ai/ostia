@@ -9,6 +9,7 @@ import { WindowControls } from './components/WindowControls'
 import { WorkZone } from './components/WorkZone'
 import { TooltipProvider } from './components/ui/tooltip'
 import { isAppChord, matchChord } from './lib/chords'
+import { useMotionAttribute } from './lib/motion'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/schema'
 import { usePluginsStore } from './stores/pluginsStore'
@@ -21,6 +22,7 @@ export function App(): JSX.Element {
   const locale = useSettingsStore((s) => s.locale)
   const uiFont = useSettingsStore((s) => s.appearance.ui)
   const theme = useSettingsStore((s) => s.appearance.theme)
+  useMotionAttribute()
 
   useEffect(() => {
     const themes = usePluginsStore.getState().themes

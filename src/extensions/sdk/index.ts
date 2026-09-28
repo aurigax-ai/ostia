@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { type IncomingMessage, type ServerResponse, createServer } from 'node:http'
 import { createConnection } from 'node:net'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import {
   type MessageConnection,
   StreamMessageReader,
@@ -20,7 +20,6 @@ import type {
   ExtensionResult,
   SidebarTone,
 } from '../../shared/extensions'
-import { PRODUCT_NAME } from '../../shared/product'
 
 export type { DiffContent, ExtensionCaller, ExtensionResult } from '../../shared/extensions'
 
@@ -237,34 +236,7 @@ export function expandHome(p: string): string {
   return p
 }
 
-export function projectStorePath(name: string, workDir: string): string {
-  return join(expandHome(workDir), '.pine', `${name}.json`)
-}
-
-export function globalStorePath(name: string): string {
-  const base = process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share')
-  return join(base, PRODUCT_NAME, `${name}.json`)
-}
-
-export function loadJson<T>(path: string, fallback: T): T {
-  try {
-    return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as T) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-export function saveJson(path: string, data: unknown): void {
-  mkdirSync(dirname(path), { recursive: true })
-  const tmp = `${path}.tmp`
-  writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8')
-  renameSync(tmp, path)
-  try {
-    chmodSync(path, 0o600)
-  } catch {}
-}
-
-export function panelCaller(context: Record<string, unknown>): ExtensionCaller {
+function panelCaller(context: Record<string, unknown>): ExtensionCaller {
   const caller: ExtensionCaller = { kind: 'user', capabilities: [...ALL_CAPABILITIES] }
   if (typeof context.workDir === 'string' && context.workDir) caller.workDir = context.workDir
   if (typeof context.sessionId === 'string' && context.sessionId) {
