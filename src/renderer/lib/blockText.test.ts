@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type BufferLike, readBufferText, readCommandText } from './blockText'
+import { type BufferLike, decodeCommandLine, readBufferText, readCommandText } from './blockText'
 
 const COLS = 10
 
@@ -66,5 +66,19 @@ describe('readCommandText', () => {
     const buf = buffer(['$ ls -la  '])
 
     expect(readCommandText(buf, { line: 0, col: 2 }, { line: 0, col: 8 })).toBe('ls -la')
+  })
+})
+
+describe('decodeCommandLine', () => {
+  it('restores backslashes, semicolons and newlines the shell integration encoded', () => {
+    expect(decodeCommandLine(String.raw`echo a\\b\x3b ls\x0acat`)).toBe('echo a\\b; ls\ncat')
+  })
+
+  it('leaves text without escapes unchanged', () => {
+    expect(decodeCommandLine('git status --short')).toBe('git status --short')
+  })
+
+  it('keeps a lone backslash that is not a known escape', () => {
+    expect(decodeCommandLine(String.raw`printf \n`)).toBe(String.raw`printf \n`)
   })
 })

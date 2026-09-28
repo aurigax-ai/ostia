@@ -22,6 +22,14 @@ __pine_osc7() {
 __pine_mark_a() { print -Pn "\\e]133;A\\e\\\\" }
 __pine_mark_c() { print -Pn "\\e]133;C\\e\\\\" }
 __pine_mark_d() { print -Pn "\\e]133;D;$1\\e\\\\" }
+__pine_mark_e() {
+  local s=$1
+  s=\${s//\\\\/\\\\\\\\}
+  s=\${s//;/\\\\x3b}
+  s=\${s//$'\\n'/\\\\x0a}
+  s=\${s//[[:cntrl:]]/}
+  print -rn -- $'\\e]633;E;'"$s"$'\\e\\\\'
+}
 
 typeset -g __pine_b_mark=$'%{\\e]133;B\\e\\\\%}'
 typeset -g __pine_cmd_running=0
@@ -44,6 +52,7 @@ __pine_precmd() {
 
 __pine_preexec() {
   __pine_cmd_running=1
+  __pine_mark_e "$1"
   __pine_mark_c
 }
 
@@ -75,6 +84,15 @@ __pine_executing=0
 # Same interactive-mode gate the bash-preexec project uses to solve this.
 __pine_interactive_mode=""
 
+__pine_mark_e() {
+  local s=$1
+  s=\${s//\\\\/\\\\\\\\}
+  s=\${s//;/\\\\x3b}
+  s=\${s//$'\\n'/\\\\x0a}
+  s=\${s//[[:cntrl:]]/}
+  printf '\\e]633;E;%s\\e\\\\' "$s"
+}
+
 __pine_preexec() {
   [ -n "$COMP_LINE" ] && return
   if [ "$__pine_interactive_mode" != "on" ]; then
@@ -83,6 +101,12 @@ __pine_preexec() {
   __pine_interactive_mode=""
   [ "$BASH_COMMAND" = "$PROMPT_COMMAND" ] && return
   __pine_executing=1
+  local __pine_line
+  __pine_line=$(LC_ALL=C HISTTIMEFORMAT= builtin history 1)
+  __pine_line=\${__pine_line#*[[:digit:]][* ] }
+  case "$__pine_line" in
+    *"$BASH_COMMAND"*) __pine_mark_e "$__pine_line" ;;
+  esac
   printf '\\e]133;C\\e\\\\'
 }
 

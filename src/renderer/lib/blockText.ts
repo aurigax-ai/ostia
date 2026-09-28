@@ -37,3 +37,9 @@ export function readBufferText(buf: BufferLike, from: CellPos, to: CellPos): str
 export function readCommandText(buf: BufferLike, input: CellPos, start: CellPos): string {
   return readBufferText(buf, input, start).trim()
 }
+
+export function decodeCommandLine(encoded: string): string {
+  return encoded.replace(/\\(\\|x([0-9a-fA-F]{2}))/g, (_m, esc: string, hex?: string) =>
+    hex ? String.fromCharCode(Number.parseInt(hex, 16)) : esc,
+  )
+}

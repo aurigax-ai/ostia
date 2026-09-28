@@ -166,6 +166,11 @@ Spawn env: `PINE_PANE_ID` (the external id, not the renderer id), `PINE_TOKEN`, 
 `tmpdir()/pine-shell-integration-<uid>` with mode 0700. The dir is refused if it is a symlink or
 owned by another user. Why: on a shared `/tmp`, another user could plant rc files your shell sources.
 
+Marks emitted: OSC 133 A/B/C/D (prompt start, prompt end, command start, command end + exit code),
+OSC 7 (cwd), and OSC 633;E (the exact command line, escaped `\\` / `\xHH`, sent just before C).
+Why E: a command read back off the screen picks up a right-aligned RPROMPT and misses text that
+was pasted or inserted from history; the shell's own `preexec` argument is exact.
+
 - **zsh**: a generated `ZDOTDIR` whose `.zshenv` and `.zshrc` source the user's real files. If
   the user's `.zshenv` itself changes `ZDOTDIR`, the generated `.zshenv` records the new value
   as `PINE_ZDOTDIR_ORIG` and resets `ZDOTDIR` to Pine's dir. Why: otherwise Pine's `.zshrc` is

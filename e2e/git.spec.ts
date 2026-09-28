@@ -15,7 +15,8 @@ test('a dirty repo shows in the sidebar, lists its changes, and opens a diff', a
   vcs('config', 'user.email', 'e2e@example.com')
   vcs('config', 'user.name', 'E2E')
   writeFileSync(join(home, 'notes.txt'), 'first line\n')
-  vcs('add', 'notes.txt')
+  writeFileSync(join(home, '.gitignore'), '*\n!notes.txt\n!.gitignore\n')
+  vcs('add', 'notes.txt', '.gitignore')
   vcs('commit', '-q', '-m', 'init')
   writeFileSync(join(home, 'notes.txt'), 'first line\nsecond line from e2e\n')
 

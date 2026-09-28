@@ -15,7 +15,7 @@ import {
   parseOsc777,
 } from '../lib/attention'
 import { stepBlock } from '../lib/blockActions'
-import { readCommandText } from '../lib/blockText'
+import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, matchChord } from '../lib/chords'
 import {
   isPaneViewed,
@@ -198,6 +198,11 @@ export function TerminalView({
       }
       return true
     })
+    let reportedCommand: string | null = null
+    const oscCommandLine = term.parser.registerOscHandler(633, (data) => {
+      if (data.startsWith('E;')) reportedCommand = decodeCommandLine(data.slice(2))
+      return true
+    })
     const oscBlocks = term.parser.registerOscHandler(133, (data) => {
       const [kind, arg] = data.split(';')
       const blocks = useBlocksStore.getState()
@@ -205,6 +210,7 @@ export function TerminalView({
         promptMarker?.dispose()
         promptMarker = term.registerMarker(0)
         inputAnchor = null
+        reportedCommand = null
         blocks.promptStart(paneId, anchor(), cwdRef.current)
       } else if (kind === 'B') {
         inputAnchor = anchor()
@@ -212,13 +218,16 @@ export function TerminalView({
         blocks.promptEnd(paneId, inputAnchor)
       } else if (kind === 'C') {
         const start = anchor()
-        runningCommand = inputAnchor
-          ? readCommandText(
-              term.buffer.active,
-              { line: inputAnchor.line, col: inputCol },
-              { line: start.line, col: term.buffer.active.cursorX },
-            )
-          : ''
+        runningCommand =
+          reportedCommand ??
+          (inputAnchor
+            ? readCommandText(
+                term.buffer.active,
+                { line: inputAnchor.line, col: inputCol },
+                { line: start.line, col: term.buffer.active.cursorX },
+              )
+            : '')
+        reportedCommand = null
         blocks.commandStart(paneId, start, runningCommand)
         if (!replaying) {
           useAttentionStore.getState().dispatch(paneId, { type: 'commandStart', at: Date.now() })
@@ -389,6 +398,7 @@ export function TerminalView({
       offExit()
       oscCwd.dispose()
       oscBlocks.dispose()
+      oscCommandLine.dispose()
       oscNotify9.dispose()
       oscNotify777.dispose()
       oscNotify99.dispose()

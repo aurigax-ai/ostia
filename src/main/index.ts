@@ -179,13 +179,47 @@ function extensionOfPartition(partition: string | undefined): string | null {
   return partition.slice(EXTENSION_PARTITION_PREFIX.length)
 }
 
-function hardenExtensionGuest(guest: Electron.WebContents): void {
+const instrumentedGuests = new WeakSet<Electron.WebContents>()
+
+function instrumentBrowserGuest(gc: Electron.WebContents): void {
+  const wcId = gc.id
+  if (!instrumentedGuests.has(gc)) {
+    instrumentedGuests.add(gc)
+    gc.on('console-message', (_event, level, message) => {
+      const entry: ConsoleEntry = {
+        level: consoleLevelName(level),
+        text: message,
+        ts: Date.now(),
+      }
+      pushConsoleEntry(consoleBuffers, wcId, entry)
+      if (entry.level === 'error' || message.startsWith(PINE_ERROR_PREFIX)) {
+        pushConsoleEntry(errorBuffers, wcId, entry)
+      }
+    })
+  }
+  if (!gc.debugger.isAttached()) {
+    try {
+      gc.debugger.attach('1.3')
+      gc.debugger
+        .sendCommand('Page.enable')
+        .then(() =>
+          gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+            source: PAGE_ERROR_CATCHER_JS,
+          }),
+        )
+        .catch(() => {})
+    } catch {}
+  }
+  watchGuestNetwork(gc)
+}
+
+function hardenExtensionGuest(guest: Electron.WebContents): boolean {
   const host = extensionHost
-  if (!host) return
+  if (!host) return false
   const extId = host
     .panelExtensionIds()
     .find((id) => guest.session === session.fromPartition(`${EXTENSION_PARTITION_PREFIX}${id}`))
-  if (!extId) return
+  if (!extId) return false
   guest.session.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
   guest.setWindowOpenHandler(({ url }) => {
     openExternalSafe(url)
@@ -196,6 +230,7 @@ function hardenExtensionGuest(guest: Electron.WebContents): void {
   }
   guest.on('will-navigate', guard)
   guest.on('will-redirect', guard)
+  return true
 }
 
 function frameOptions(): Electron.BrowserWindowConstructorOptions {
@@ -241,7 +276,15 @@ function wireWindow(win: BrowserWindow): void {
     webPreferences.contextIsolation = true
     webPreferences.sandbox = true
   })
-  win.webContents.on('did-attach-webview', (_e, guest) => hardenExtensionGuest(guest))
+  win.webContents.on('did-attach-webview', (_e, guest) => {
+    if (hardenExtensionGuest(guest)) return
+    instrumentBrowserGuest(guest)
+    const wcId = guest.id
+    guest.once('destroyed', () => {
+      consoleBuffers.delete(wcId)
+      errorBuffers.delete(wcId)
+    })
+  })
 
   const wid = String(win.webContents.id)
   windows.set(wid, win)
@@ -414,31 +457,7 @@ function registerIpc(): void {
     const gc = webContents.fromId(webContentsId)
     if (!gc || gc.getType() !== 'webview' || gc.hostWebContents?.id !== e.sender.id) return
     browserPanes.set(paneId, webContentsId)
-    if (gc.listenerCount('console-message') === 0) {
-      gc.on('console-message', (_event, level, message) => {
-        const entry: ConsoleEntry = {
-          level: consoleLevelName(level),
-          text: message,
-          ts: Date.now(),
-        }
-        pushConsoleEntry(consoleBuffers, webContentsId, entry)
-        if (entry.level === 'error' || message.startsWith(PINE_ERROR_PREFIX)) {
-          pushConsoleEntry(errorBuffers, webContentsId, entry)
-        }
-      })
-      try {
-        if (!gc.debugger.isAttached()) gc.debugger.attach('1.3')
-        gc.debugger
-          .sendCommand('Page.enable')
-          .then(() =>
-            gc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-              source: PAGE_ERROR_CATCHER_JS,
-            }),
-          )
-          .catch(() => {})
-      } catch {}
-    }
-    watchGuestNetwork(gc)
+    instrumentBrowserGuest(gc)
   })
   ipcMain.on('browser:unregister', (_e, paneId: string) => {
     cancelPick(paneId)

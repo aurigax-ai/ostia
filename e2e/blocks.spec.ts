@@ -30,6 +30,13 @@ test('blocks: select, copy output, navigate by chord, and reinsert from history'
     await win.getByRole('menuitem', { name: 'Copy output' }).click()
     await expect.poll(clipboard).toBe('pine_out_a\npine_out_b')
 
+    await expect
+      .poll(() =>
+        win.evaluate(
+          () => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false,
+        ),
+      )
+      .toBe(true)
     await win.keyboard.press('Control+Shift+ArrowUp')
     await expect(gutters.nth(0)).toHaveAttribute('aria-pressed', 'true')
     await expect(gutters.nth(1)).toHaveAttribute('aria-pressed', 'false')
