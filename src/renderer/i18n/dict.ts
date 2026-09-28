@@ -77,7 +77,7 @@ export const en = {
     close: 'Close find',
   },
   editor: {
-    binary: 'Binary file — not opened in the editor',
+    binary: 'Binary file, not opened in the editor',
     saveError: 'Could not save {path}',
     openExternal: 'Open in External Editor',
     externalNoEditor:
@@ -171,7 +171,7 @@ export const en = {
     languageServers: 'Language servers',
     about: 'About',
     builtin: 'Built-in',
-    pluginsDesc: 'Installed plugins and what they contribute — themes, language servers, and more.',
+    pluginsDesc: 'Installed plugins and what they contribute: themes, language servers, and more.',
     languageServersDesc:
       'Editor language intelligence. Servers are auto-detected on PATH; install one to enable its language.',
     theme: 'Theme',
@@ -195,7 +195,7 @@ export const en = {
     restoreSessionDesc:
       'Reopen your sessions, panes and terminal scrollback the next time pine starts. Shells are always respawned fresh.',
     appearanceDesc:
-      'The theme and the fonts for each surface — UI, terminal, and editor are set independently.',
+      'The theme and the fonts for each surface. UI, terminal, and editor are set independently.',
     generalDesc: 'Behavior toggles. All settings are stored in a JSON file you can edit directly.',
     terminalDesc: 'Cursor and behavior for terminal panes. The terminal font is under Appearance.',
     filesDesc: 'The Files explorer and the editor.',
@@ -207,7 +207,7 @@ export const en = {
     surfaceNote:
       'The terminal font is live; the editor font applies once the editor surface lands (Phase 5).',
     remote: 'Remote',
-    remoteDesc: 'Pair a phone or another device to control this desktop remotely — off by default.',
+    remoteDesc: 'Pair a phone or another device to control this desktop remotely. Off by default.',
     remoteEnable: 'Enable remote access',
     remoteEnableDesc:
       'Starts a local control gateway. Bound to this machine only unless you choose otherwise.',
@@ -229,7 +229,7 @@ export const en = {
     remotePairButton: 'Pair a device',
     remotePairing: 'Starting…',
     remotePairExpires: 'Expires in {n}s',
-    remotePairExpired: 'Pairing code expired — pair again to get a new one.',
+    remotePairExpired: 'Pairing code expired. Pair again to get a new one.',
     remoteCopy: 'Copy',
     remoteCopied: 'Copied',
     remoteDevices: 'Paired devices',
@@ -329,7 +329,7 @@ export const zhHant: Dict = {
     close: '關閉尋找',
   },
   editor: {
-    binary: '二進位檔案 — 未在編輯器中開啟',
+    binary: '二進位檔案，未在編輯器中開啟',
     saveError: '無法儲存 {path}',
     openExternal: '在外部編輯器中開啟',
     externalNoEditor:
@@ -422,7 +422,7 @@ export const zhHant: Dict = {
     languageServers: '語言伺服器',
     about: '關於',
     builtin: '內建',
-    pluginsDesc: '已安裝的外掛及其貢獻 — 佈景主題、語言伺服器等。',
+    pluginsDesc: '已安裝的外掛及其貢獻：佈景主題、語言伺服器等。',
     languageServersDesc: '編輯器語言智慧。伺服器會自動從 PATH 偵測；安裝後即可啟用該語言。',
     theme: '佈景主題',
     uiFont: '介面字型',
@@ -444,7 +444,7 @@ export const zhHant: Dict = {
     restoreSession: '啟動時還原工作階段',
     restoreSessionDesc:
       '下次啟動 pine 時重新開啟工作階段、面板與終端機捲動紀錄。Shell 一律重新啟動。',
-    appearanceDesc: '佈景主題與各介面字型 — 介面、終端機與編輯器可個別設定。',
+    appearanceDesc: '佈景主題與各介面字型。介面、終端機與編輯器可個別設定。',
     generalDesc: '行為切換。所有設定都儲存在可直接編輯的 JSON 檔案中。',
     terminalDesc: '終端機面板的游標與行為。終端機字型在「外觀」中設定。',
     filesDesc: '檔案總管與編輯器。',
@@ -455,7 +455,7 @@ export const zhHant: Dict = {
     aboutDesc: '組建與環境資訊。',
     surfaceNote: '終端機字型已生效；編輯器字型會在編輯器介面建立後套用（階段 5）。',
     remote: '遠端',
-    remoteDesc: '配對手機或其他裝置以遠端控制此桌面 — 預設為關閉。',
+    remoteDesc: '配對手機或其他裝置以遠端控制此桌面。預設為關閉。',
     remoteEnable: '啟用遠端存取',
     remoteEnableDesc: '啟動本機控制閘道。除非另行選擇，否則僅綁定至此電腦。',
     remoteHost: '綁定位址',
@@ -476,7 +476,7 @@ export const zhHant: Dict = {
     remotePairButton: '配對裝置',
     remotePairing: '啟動中…',
     remotePairExpires: '將於 {n} 秒後失效',
-    remotePairExpired: '配對代碼已失效 — 請重新配對以取得新代碼。',
+    remotePairExpired: '配對代碼已失效，請重新配對以取得新代碼。',
     remoteCopy: '複製',
     remoteCopied: '已複製',
     remoteDevices: '已配對裝置',

@@ -7,6 +7,7 @@ import { monaco } from '../monaco/setup'
 import { useDiffStore } from '../stores/diffStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { EDITOR_FALLBACK, useExternalEditorAction } from './Editor'
+import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 
 export function DiffView({ paneId }: { paneId: string }): JSX.Element {
@@ -79,9 +80,13 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
   return (
     <div className="diff-surface">
       <div className="diff-toolbar">
-        <span className="diff-title" title={content?.path}>
-          {content?.path ?? content?.title ?? ''}
-        </span>
+        {content?.path ? (
+          <Hint label={content.path}>
+            <span className="diff-title">{content.path}</span>
+          </Hint>
+        ) : (
+          <span className="diff-title">{content?.title ?? ''}</span>
+        )}
         <IconButton
           icon={inline ? Columns2 : Rows2}
           label={inline ? d.diff.sideBySide : d.diff.inline}

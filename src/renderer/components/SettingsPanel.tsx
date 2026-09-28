@@ -167,8 +167,33 @@ export function SettingsPanel(): JSX.Element | null {
   )
 }
 
-export function SectionHead({ title }: { title: string }): JSX.Element {
-  return <h2 className="mb-1.5 font-semibold text-fg text-ui-lg">{title}</h2>
+export function SectionHead({ title, desc }: { title: string; desc?: string }): JSX.Element {
+  return (
+    <>
+      <h2 className="mb-1.5 font-semibold text-fg text-ui-lg">{title}</h2>
+      {desc ? <p className="mb-3 text-fg-muted text-ui-sm">{desc}</p> : null}
+    </>
+  )
+}
+
+export function SubHead({ title, desc }: { title: string; desc?: string }): JSX.Element {
+  return (
+    <div className="mb-2">
+      <h3 className="font-medium text-fg text-ui-base">{title}</h3>
+      {desc ? <p className="mt-0.5 text-fg-muted text-ui-sm">{desc}</p> : null}
+    </div>
+  )
+}
+
+export function WarningNote({ children }: { children: React.ReactNode }): JSX.Element {
+  return (
+    <p
+      role="alert"
+      className="mt-1 rounded-md border border-attn/40 bg-attn/10 px-2.5 py-1.5 text-attn-fg text-ui-sm"
+    >
+      {children}
+    </p>
+  )
 }
 
 export function ControlRow({
@@ -272,7 +297,7 @@ function FontRow({ surface, label }: { surface: FontSurface; label: string }): J
       <Input
         value={font.family}
         onChange={(e) => setSurfaceFont(surface, { family: e.target.value })}
-        aria-label={`${label} — ${d.settings.family}`}
+        aria-label={`${label}, ${d.settings.family}`}
         className="h-7 w-44 font-mono"
       />
       <Input
@@ -280,7 +305,7 @@ function FontRow({ surface, label }: { surface: FontSurface; label: string }): J
         min={8}
         max={32}
         value={font.size}
-        aria-label={`${label} — ${d.settings.size}`}
+        aria-label={`${label}, ${d.settings.size}`}
         onChange={(e) => {
           const n = Number(e.target.value)
           if (Number.isFinite(n) && n > 0) {
@@ -419,8 +444,7 @@ export function ExtensionsSection(): JSX.Element {
   const review = useExtensionsStore((s) => s.review)
   return (
     <section aria-label={d.extensions.title}>
-      <h3 className="font-semibold text-fg text-ui-base">{d.extensions.title}</h3>
-      <p className="mt-0.5 mb-2 text-fg-muted text-ui-sm">{d.extensions.desc}</p>
+      <SubHead title={d.extensions.title} desc={d.extensions.desc} />
       {list.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.extensions.none}</p>
       ) : (
@@ -433,7 +457,7 @@ export function ExtensionsSection(): JSX.Element {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-fg text-ui-base">{ext.name}</span>
-                  <span className="font-mono text-fg-muted text-ui-xs">{ext.version}</span>
+                  <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
                   {ext.builtin ? (
                     <span className="rounded-sm border border-line px-1.5 text-fg-muted text-ui-xs">
                       {d.settings.builtin}
@@ -550,10 +574,10 @@ function AboutSection(): JSX.Element {
         <span className="text-fg text-ui-base">{info?.name ?? PRODUCT_NAME}</span>
       </ControlRow>
       <ControlRow label={d.settings.version}>
-        <span className="font-mono text-fg-muted text-ui-base">{info?.version ?? '…'}</span>
+        <span className="text-fg-muted text-ui-base tabular-nums">{info?.version ?? '…'}</span>
       </ControlRow>
       <ControlRow label={d.settings.platform}>
-        <span className="font-mono text-fg-muted text-ui-base">{platform}</span>
+        <span className="text-fg-muted text-ui-base">{platform}</span>
       </ControlRow>
     </section>
   )
