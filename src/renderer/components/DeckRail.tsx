@@ -1,12 +1,12 @@
 import {
   FlaskIcon,
+  FolderSimpleIcon,
   GearSixIcon,
   type Icon as IconComponent,
   PlusIcon,
   RobotIcon,
   StackIcon,
   TerminalWindowIcon,
-  TreeStructureIcon,
   XIcon,
 } from '@phosphor-icons/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -14,7 +14,7 @@ import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, paneIds } from '../layout/tree'
 import { latestWaitingAt, unreadCount } from '../lib/attention'
-import { latestUnreadMessage, runningTitle } from '../lib/workspaceSummary'
+import { latestAttentionMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -57,7 +57,7 @@ export function DeckRail(): JSX.Element {
         <IconButton
           size="bar"
           hintSide="right"
-          icon={TreeStructureIcon}
+          icon={FolderSimpleIcon}
           label={d.rail.files}
           aria-pressed={view === 'files'}
           onClick={() => setView('files')}
@@ -240,7 +240,7 @@ function usePopOnIncrease(n: number): { active: boolean; generation: number; end
 function WorkspaceSubtitle({ workspaceId }: { workspaceId: string }): JSX.Element | null {
   const layout = useLayoutStore((s) => s.byWorkspace[workspaceId])
   const panes = layout ? allPanes(layout.root) : []
-  const message = useAttentionStore((s) => latestUnreadMessage(panes, s.byPane))
+  const message = useAttentionStore((s) => latestAttentionMessage(panes, s.byPane))
   const title = useBlocksStore((s) => runningTitle(panes, layout?.activePaneId, s.running))
   const text = message ?? title
   if (!text) return null

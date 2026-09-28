@@ -1,14 +1,18 @@
 import type { PaneNode } from '../layout/types'
 import type { PaneAttention } from './attention'
 
-export function latestUnreadMessage(
+function stillRelevant(a: PaneAttention): boolean {
+  return a.unread || a.state === 'waiting' || a.state === 'error'
+}
+
+export function latestAttentionMessage(
   panes: readonly PaneNode[],
   byPane: Readonly<Record<string, PaneAttention | undefined>>,
 ): string | null {
   let best: PaneAttention | undefined
   for (const pane of panes) {
     const a = byPane[pane.id]
-    if (a?.unread && a.message && (!best || a.at > best.at)) best = a
+    if (a?.message && stillRelevant(a) && (!best || a.at > best.at)) best = a
   }
   return best?.message ?? null
 }

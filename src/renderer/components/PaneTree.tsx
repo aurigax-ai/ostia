@@ -5,6 +5,7 @@ import { findPane } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
 import { useLayoutStore } from '../stores/layoutStore'
 import { Pane } from './Pane'
+import { Button } from './ui/button'
 
 export function PaneTree({ workspaceId }: { workspaceId: string }): JSX.Element {
   const layout = useLayoutStore((s) => s.byWorkspace[workspaceId])
@@ -63,18 +64,18 @@ function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
   const openBrowser = useLayoutStore((s) => s.openBrowser)
   return (
     <div className="workspace-empty">
-      <button type="button" className="rail-add" onClick={() => ensure(workspaceId)}>
-        <TerminalWindowIcon size={14} />
-        <span>{d.pane.newTerminal}</span>
-      </button>
-      <button
-        type="button"
-        className="rail-add"
-        onClick={() => openBrowser(workspaceId, 'about:blank')}
-      >
-        <GlobeIcon size={14} />
-        <span>{d.pane.newBrowser}</span>
-      </button>
+      <h2 className="font-semibold text-fg text-ui-lg">{d.pane.emptyTitle}</h2>
+      <p className="text-fg-muted text-ui-base">{d.pane.emptyBody}</p>
+      <div className="mt-2 flex gap-2">
+        <Button onClick={() => ensure(workspaceId)}>
+          <TerminalWindowIcon data-icon="inline-start" />
+          {d.pane.newTerminal}
+        </Button>
+        <Button variant="outline" onClick={() => openBrowser(workspaceId, 'about:blank')}>
+          <GlobeIcon data-icon="inline-start" />
+          {d.pane.newBrowser}
+        </Button>
+      </div>
     </div>
   )
 }

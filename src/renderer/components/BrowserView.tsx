@@ -14,6 +14,7 @@ import { terminalTitle } from '../lib/terminalTitle'
 import { useLayoutStore } from '../stores/layoutStore'
 import { IconButton } from './IconButton'
 import { PickSendPanel, usePickTargets } from './PickSendPanel'
+import { Button } from './ui/button'
 
 const STATUS_MS = 6000
 
@@ -290,9 +291,14 @@ export function BrowserView({
             <p className="browser-error-title">{d.browser.loadFailed}</p>
             <p className="browser-error-url">{loadError.url}</p>
             <p className="browser-error-reason">{loadError.reason}</p>
-            <button type="button" className="rail-add" onClick={() => navigate(loadError.url)}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => navigate(loadError.url)}
+            >
               {d.browser.retry}
-            </button>
+            </Button>
           </div>
         ) : null}
       </div>
