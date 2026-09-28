@@ -3,13 +3,15 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { registerAttentionMethods } from '../main/attention'
+import { grant } from '../main/capabilityStore'
 import {
   type ControlServerDeps,
   registerControlServer,
   stopControlServer,
 } from '../main/controlServer'
 import { type PaneIdentity, registerPane } from '../main/idRegistry'
-import type { CommandDescriptor, CommandResult } from '../shared/types'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')
@@ -20,8 +22,13 @@ function nextSocketPath(): string {
   return join(tmpdir(), `pine-cli-e2e-${process.pid}-${socketCounter}.sock`)
 }
 
+const execCalls: { target: CommandTarget; id: string; args?: unknown }[] = []
+
 const fakeDeps: ControlServerDeps = {
-  execCommand: async (_target, id) => ({ ok: true, result: { ran: id } }) as CommandResult,
+  execCommand: async (target, id, args) => {
+    execCalls.push({ target, id, args })
+    return { ok: true, result: { ran: id } } as CommandResult
+  },
   listCommandsFor: () =>
     [
       {
@@ -98,6 +105,7 @@ function runPine(args: string[], env: NodeJS.ProcessEnv): Promise<RunResult> {
 describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live control server)', () => {
   beforeAll(() => {
     execSync('pnpm run build:cli', { cwd: repoRoot, stdio: 'ignore' })
+    registerAttentionMethods({ execCommand: fakeDeps.execCommand })
   }, 60_000)
 
   let socketPath: string
@@ -111,6 +119,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
 
   afterEach(() => {
     stopControlServer()
+    execCalls.length = 0
   })
 
   afterAll(() => {
@@ -224,5 +233,65 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
 
     expect(res.code).toBe(1)
     expect(res.stderr).toContain("--timeout expects a number, got 'soon'")
+  })
+
+  describe('pine state', () => {
+    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+
+    it('sets the attention of the caller own pane with a message', async () => {
+      const res = await runPine(['state', 'waiting', 'approve the migration?'], env())
+
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(execCalls).toEqual([
+        {
+          target: { windowId: 'w1', sessionId: 's1', paneId: 'pE2E' },
+          id: 'attention.set',
+          args: { state: 'waiting', message: 'approve the migration?' },
+        },
+      ])
+    })
+
+    it('maps clear to none', async () => {
+      const res = await runPine(['state', 'clear'], env())
+      expect(res.code).toBe(0)
+      expect(execCalls[0]?.args).toEqual({ state: 'none' })
+    })
+
+    it('reads the message from a Claude Code hook payload on stdin with -', async () => {
+      const child = spawn(process.execPath, [cliPath, 'state', 'waiting', '-'], { env: env() })
+      child.stdin.end(
+        JSON.stringify({
+          hook_event_name: 'Notification',
+          message: 'Claude needs your permission',
+        }),
+      )
+      const code = await new Promise<number | null>((resolve) => child.on('close', resolve))
+      expect(code).toBe(0)
+      expect(execCalls[0]?.args).toEqual({
+        state: 'waiting',
+        message: 'Claude needs your permission',
+      })
+    })
+
+    it('rejects an unknown state before touching the app', async () => {
+      const res = await runPine(['state', 'sleeping'], env())
+      expect(res.code).toBe(1)
+      expect(res.stderr).toContain('pine state: expected one of waiting|done|working|error|clear')
+      expect(execCalls).toHaveLength(0)
+    })
+
+    it('needs workspace-wide to set another pane, and targets it once granted', async () => {
+      const other = registerPane({ windowId: 'w1', sessionId: 's2', paneId: 'pOther' })
+      const denied = await runPine(['state', 'done', '--pane', other.externalId], env())
+      expect(denied.code).toBe(1)
+      expect(denied.stderr).toContain('needs-elevation: workspace-wide')
+      expect(execCalls).toHaveLength(0)
+
+      grant(identity.externalId, 'workspace-wide')
+      const allowed = await runPine(['state', 'done', '--pane', other.externalId], env())
+      expect(allowed.code).toBe(0)
+      expect(execCalls[0]?.target).toEqual({ windowId: 'w1', sessionId: 's2', paneId: 'pOther' })
+    })
   })
 })
