@@ -56,6 +56,7 @@ Package manager is **pnpm** only.
 | `pnpm build:extensions` | Only the built-in extensions (`scripts/build-extensions.mjs`) | After editing `src/extensions/**` while `pnpm dev` runs |
 | `pnpm preview` | Run the built app | Smoke-test a build |
 | `pnpm package` | `build` + electron-builder → `dist/linux-unpacked/` | Producing an installable build |
+| `pnpm icons` | Render the app icon PNG set from `resources/icon*.svg` (`rsvg-convert`) | After changing the icon SVGs |
 | `pnpm install:local` | `package` + `scripts/install-linux.sh` → `~/.local/share/pine/app` + desktop launcher | Updating the user's installed app |
 | `pnpm typecheck` | `tsc --noEmit` for renderer/shared, then main/preload/shared | **Before every commit** |
 | `pnpm lint` | Biome check + the no-comments check | **Before every commit** |
