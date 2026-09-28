@@ -78,7 +78,7 @@ Package manager is **pnpm** only.
 - **cli** (`src/cli/index.ts`): the `pine` CLI. Panes get a `pine()` shell function that runs it
   with the app's own Electron binary (`ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI"`), so no
   system Node is needed.
-- **extensions** (`src/extensions/`): built-in extensions (kanban, wiki, git, trellis, keeper) +
+- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper) +
   their SDK. Each runs as its own process and talks to pine only over the control socket
   (`docs/EXTENSIONS.md`). The host that runs them is `src/main/extensionHost.ts`. trellis and
   keeper wrap the user's own CLIs; their fake stand-ins for tests are `test/fixtures/tools/bin/`.
@@ -151,7 +151,7 @@ Details: `docs/ARCHITECTURE.md`.
   `workspace-wide`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`;
   grants come only from a human editing `settings.json`. Phone caps map through `PHONE_CAP_ALLOWS`;
   `input` must never map to a command capability. Phone grants (`command`, `input`,
-  `board.write`, `destructive`) change only through the `gateway:set-cap` IPC from Settings →
+  `destructive`) change only through the `gateway:set-cap` IPC from Settings →
   Remote; never add a control-socket method or CLI verb for them. `destructive` needs `command`
   and a confirm dialog.
 - **Gateway:** off by default, loopback bind by default, never rotate the cert, reject requests
@@ -176,8 +176,11 @@ Details: `docs/ARCHITECTURE.md`.
 - **Extensions use only the public API.** Code in `src/extensions/**` imports only
   `src/extensions/sdk/` and `src/shared/`, never `src/main` or `src/renderer`, and reaches pine
   only through `ext.*` socket methods. Core never imports extension code; it knows an extension
-  by its manifest. (The gateway's `board.*` methods call the kanban extension's commands through
-  `ExtensionHost.invoke`, the same path the CLI uses.)
+  by its manifest.
+- **Boards and knowledge belong to Trellis, not pine.** pine's kanban and wiki were removed; don't
+  bring back a board, card or notes store in core or as a built-in. Agents use the `trellis` CLI;
+  pine shows it through the `trellis` extension. Old `.pine/board.json`/`wiki.json` files are the
+  user's data: never read, migrate or delete them.
 - **Extension identities are not panes.** `controlServer` gates every method by caller kind
   (`callers`); new pane-scoped methods keep the default `panes`. An extension's caps are manifest
   ∩ human approval (`extensionStore.ts`), set with `setCaps` on each start.
@@ -311,9 +314,9 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
 
 - **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`, `src/extensions/**`. Extension
   host integration tests spawn `test/fixtures/extensions/echo` over a real socket;
-  `src/cli/cli.ext.e2e.test.ts` builds and drives the real kanban/wiki/git extensions via the
-  CLI; `src/main/builtinGitExtension.integration.test.ts` runs the built git extension against
-  a temp repo (sidebar, changes, diff sides, symlinks). Extension tests that need `src/main`
+  `src/cli/cli.ext.e2e.test.ts` builds and drives the real git extension and the echo fixture
+  (stdin, errors, `pine ext ls`) via the CLI; `src/main/builtinGitExtension.integration.test.ts`
+  runs the built git extension against a temp repo (sidebar, changes, diff sides, symlinks). Extension tests that need `src/main`
   live in `src/main` or `src/cli`, never under `src/extensions`.
   Tool extensions (trellis, keeper) are tested against fake `trellis`/`keeper` shell scripts in
   `test/fixtures/tools/bin/` put first on `PATH`, fed scrubbed real `--json` captures from
@@ -321,6 +324,8 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
 - **dom** project (jsdom, `test/setup.ts`): `src/renderer/**`. A typed `window.pine` fake
   (`test/mocks/pine.ts`, typed as `PineBridge`) breaks when the contract drifts.
 - **E2E** (`e2e/`): anything rendering xterm or Monaco, or needing a real pty, a restart, or a crash.
+  `e2e/extensions.spec.ts` installs the `test/fixtures/extensions-e2e/hello` user extension
+  (bundled with esbuild) and covers approval, a palette-opened file panel and a `pine <ext>` call.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,

@@ -18,7 +18,7 @@ describe('GatewaySection', () => {
   let caps: string[]
 
   beforeEach(() => {
-    caps = ['read', 'board.read', 'notify']
+    caps = ['read', 'notify']
     vi.mocked(window.pine.gateway.devices).mockImplementation(async () => ({
       devices: [device(caps)],
     }))
@@ -54,7 +54,7 @@ describe('GatewaySection', () => {
   })
 
   it('asks for confirmation before granting destructive, and cancel grants nothing', async () => {
-    caps = ['read', 'board.read', 'notify', 'command']
+    caps = ['read', 'notify', 'command']
     const user = userEvent.setup()
     render(<GatewaySection />)
 
@@ -70,7 +70,7 @@ describe('GatewaySection', () => {
   })
 
   it('grants destructive only after the confirm button', async () => {
-    caps = ['read', 'board.read', 'notify', 'command']
+    caps = ['read', 'notify', 'command']
     const user = userEvent.setup()
     render(<GatewaySection />)
 

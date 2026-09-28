@@ -13,7 +13,8 @@
       { "id": "notify", "title": "Post a notification", "palette": false },
       { "id": "diff", "title": "Open a diff", "palette": false },
       { "id": "sessions", "title": "List sessions", "palette": false },
-      { "id": "crash", "title": "Exit the process", "palette": false }
+      { "id": "crash", "title": "Exit the process", "palette": false },
+      { "id": "stdin", "title": "Print stdin back", "usage": "stdin", "palette": false, "stdin": true }
     ],
     "sidebarItems": true,
     "panel": { "title": "Echo", "entry": "url" }

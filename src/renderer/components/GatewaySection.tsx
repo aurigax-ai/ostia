@@ -44,7 +44,6 @@ function bindLabel(d: Dict, a: GatewayBindAddress): string {
 function capLabel(d: Dict, cap: PhoneGrantableCap): string {
   if (cap === 'command') return d.settings.remoteCapCommand
   if (cap === 'input') return d.settings.remoteCapInput
-  if (cap === 'board.write') return d.settings.remoteCapBoardWrite
   return d.settings.remoteCapDestructive
 }
 
