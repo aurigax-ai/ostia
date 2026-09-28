@@ -1,5 +1,4 @@
 import type { Capability } from '../../shared/capabilities'
-import type { ExtensionResult } from '../../shared/extensions'
 import type {
   CommandDescriptor,
   CommandResult,
@@ -15,13 +14,6 @@ export interface GatewayControlDeps {
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   listPanes: () => Promise<PaneEntry[]>
   listSessions: () => Promise<SessionEntry[]>
-  invokeExtension: (
-    extId: string,
-    command: string,
-    args: unknown,
-    sessionId: string,
-    capabilities: Capability[],
-  ) => Promise<ExtensionResult>
   primaryWindowId: () => string | undefined
   attachPhoneObserver: (
     rendererPaneId: string,
@@ -46,8 +38,6 @@ function invalidParams(message: string): RpcOutcome {
 const PHONE_CAP_ALLOWS: Partial<Record<string, Capability[]>> = {
   read: ['read-board'],
   command: ['drive-self'],
-  'board.read': ['read-board'],
-  'board.write': ['board-write'],
   notify: ['notify'],
   destructive: ['destructive'],
 }
@@ -71,21 +61,6 @@ function resolveTarget(target: unknown, primaryWindowId: string | undefined): Co
   const identity = resolveExternal(target)
   if (!identity) return null
   return { windowId: identity.windowId, sessionId: identity.sessionId, paneId: identity.paneId }
-}
-
-const BOARD_EXTENSION = 'kanban'
-
-function boardOutcome(res: ExtensionResult): RpcOutcome {
-  if (!res.ok) return { ok: true, result: res }
-  return { ok: true, result: res.data ?? { ok: true } }
-}
-
-async function resolveBoardSessionId(
-  scope: unknown,
-  deps: GatewayControlDeps,
-): Promise<string | undefined> {
-  if (typeof scope === 'string' && scope) return scope
-  return (await deps.listSessions())[0]?.sessionId
 }
 
 export async function dispatchGatewayMethod(
@@ -164,36 +139,6 @@ export async function dispatchGatewayMethod(
       const identity = resolveExternal(paneId)
       const cwd = identity ? (deps.getTerminalState(identity.paneId)?.cwd ?? null) : null
       return { ok: true, result: { cwd } }
-    }
-
-    case 'board.get': {
-      if (!hasCap('board.read')) return needsElevation('board.read')
-      const sessionId = await resolveBoardSessionId(p.scope, deps)
-      if (!sessionId) return { ok: true, result: { columns: [], cards: [] } }
-      return boardOutcome(
-        await deps.invokeExtension(
-          BOARD_EXTENSION,
-          'get',
-          {},
-          sessionId,
-          PHONE_CAP_ALLOWS['board.read'] ?? [],
-        ),
-      )
-    }
-
-    case 'board.update': {
-      if (!hasCap('board.write')) return needsElevation('board.write')
-      const cardId = p.cardId
-      if (typeof cardId !== 'string' || !cardId) return invalidParams('missing cardId')
-      const patch = typeof p.patch === 'object' && p.patch !== null ? p.patch : {}
-      const sessionId = await resolveBoardSessionId(p.scope, deps)
-      if (!sessionId) return invalidParams('no session available')
-      return boardOutcome(
-        await deps.invokeExtension(BOARD_EXTENSION, 'update', { cardId, patch }, sessionId, [
-          ...(PHONE_CAP_ALLOWS['board.read'] ?? []),
-          ...(PHONE_CAP_ALLOWS['board.write'] ?? []),
-        ]),
-      )
     }
 
     default:

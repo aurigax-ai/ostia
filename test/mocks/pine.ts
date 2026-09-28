@@ -108,7 +108,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
         }),
       devices: vi.fn().mockResolvedValue({ devices: [] }),
       revoke: vi.fn().mockResolvedValue({ ok: true }),
-      setCap: vi.fn().mockResolvedValue({ ok: true, caps: ['read', 'board.read', 'notify'] }),
+      setCap: vi.fn().mockResolvedValue({ ok: true, caps: ['read', 'notify'] }),
       bindOptions: vi.fn().mockResolvedValue({
         addresses: [{ address: '127.0.0.1', kind: 'loopback' }],
         selected: '127.0.0.1',

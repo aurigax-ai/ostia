@@ -36,12 +36,20 @@ features did, so core is ~640 lines larger overall. That's the one-time price of
 further feature that moves out (vault, bus, processes, browser automation, gateway) is now a pure
 reduction.
 
+**Kanban and wiki removed** (2026-09-28). With Trellis as the user's board and knowledge store
+(the `trellis` built-in extension wraps its CLI), pine's own kanban and wiki were redundant and
+were deleted: ~965 lines of extension TypeScript plus ~400 of panel HTML/CSS and manifests, the
+phone gateway's `board.get`/`board.update` and its `board.read`/`board.write` caps, the
+`wiki-read`/`wiki-write`/`board-write` pane caps, the `phone` extension caller kind, and the SDK's
+JSON-store helpers that only they used. Built-in extensions are now git, trellis and keeper. Old
+`.pine/board.json` / `wiki.json` files stay on disk unread.
+
 ## 2. Architecture: three rings
 
 ```
 ┌──────────────────────────── external plugins (Trellis, Keeper, yours) ───────────────┐
 │ ┌──────────────────────── built-in extensions (ship in the box, can be disabled) ───┐ │
-│ │ browser + automation · editor/LSP · files · git/diff · kanban · wiki · vault ·    │ │
+│ │ browser + automation · editor/LSP · files · git/diff · trellis · keeper · vault · │ │
 │ │ bus · processes · gateway/remote                                                  │ │
 │ │ ┌──────────────────────────── core ───────────────────────────────────────────┐   │ │
 │ │ │ windows · sessions · split panes · pty + shell integration · blocks ·       │   │ │
@@ -79,14 +87,13 @@ The cost is latency on UI-heavy features, which the panel surface avoids by runn
 webview instead of round-tripping every render.
 
 **First proof (done):** kanban and wiki moved out of core onto this API with no special case in
-core. Their data logic runs in their own processes, their UI is a panel served by that process,
-and `pine kanban …` / `pine wiki …` still work because the CLI forwards any unknown bare verb to
-the extension of that id. Gaps the migration exposed, fixed in the API: commands needed a caller
+core (both were later removed in favour of Trellis, §1). Their data logic ran in their own
+processes, their UI was a panel served by that process, and the CLI forwards any unknown bare
+verb to the extension of that id (`pine git status`). Gaps the migration exposed, fixed in the API: commands needed a caller
 context (session workDir, caller caps) so project-scoped data and conditional permission rules
 could live in the extension; commands needed a `stdin` flag and `usage` text so CLI verbs keep
 their shape and show up in `pine docs`; panels needed live change push (the SDK's SSE) and the
-app theme (`--pine-*` variables). The phone gateway's `board.*` methods now call the kanban
-extension through the host like any other consumer. Authoring guide: `docs/EXTENSIONS.md`.
+app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 
 ## 3. Features from Warp and cmux, placed
 
@@ -124,8 +131,8 @@ Each phase ships a working product; nothing half-built lands on `main`.
    per-extension identity with manifest ∩ approved caps and a first-run approval dialog, lazy
    start with restart backoff, `ext.registerCommands/subscribe/setSidebarItem/notify/openPanel`,
    `pine ext …` and `pine <extId> …`, the sandboxed panel surface, and enable/disable in
-   Settings → Plugins. Kanban and wiki migrated. Deferred: pane badges/attention from
-   extensions, hot reload of the extension list, extension settings, and letting extensions call
+   Settings → Plugins. Kanban and wiki migrated (since removed for Trellis). Deferred: pane
+   badges/attention from extensions, hot reload of the extension list, extension settings, and letting extensions call
    pane-scoped methods (browse, process) with an explicit target.
 4. **Git & diff** — **done**: the `git` built-in extension (`src/extensions/git/`) shows each
    session's branch, ahead/behind and `+new ~changed` in the sidebar, lists staged/unstaged/

@@ -237,10 +237,9 @@ export const en = {
     remoteRevoke: 'Revoke',
     remoteGrants: 'Permissions',
     remoteGrantsDesc:
-      'Read, board and notifications are always on. Removing a permission disconnects the device so it reconnects with the smaller set.',
+      'Read and notifications are always on. Removing a permission disconnects the device so it reconnects with the smaller set.',
     remoteCapCommand: 'Run commands',
     remoteCapInput: 'Type into panes',
-    remoteCapBoardWrite: 'Edit the board',
     remoteCapDestructive: 'Destructive commands',
     remoteDestructiveTitle: 'Allow destructive commands?',
     remoteDestructiveBody:
@@ -483,11 +482,9 @@ export const zhHant: Dict = {
     remoteNoDevices: '尚未配對任何裝置。',
     remoteRevoke: '撤銷',
     remoteGrants: '權限',
-    remoteGrantsDesc:
-      '讀取、看板與通知永遠開啟。移除權限會中斷該裝置的連線，使其以較小的權限重新連線。',
+    remoteGrantsDesc: '讀取與通知永遠開啟。移除權限會中斷該裝置的連線，使其以較小的權限重新連線。',
     remoteCapCommand: '執行指令',
     remoteCapInput: '在窗格中輸入',
-    remoteCapBoardWrite: '編輯看板',
     remoteCapDestructive: '破壞性指令',
     remoteDestructiveTitle: '允許破壞性指令？',
     remoteDestructiveBody:
