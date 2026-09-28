@@ -182,6 +182,9 @@ If the user disabled one in Settings → Plugins you'll get `extension-disabled`
 enable it yourself (there is no verb for that — only the human approves/enables extensions).
 `extension-unavailable` means its process didn't start or crashed; retry once, then tell the
 user. Third-party extensions show up the same way — check `pine ext ls` before assuming a verb.
+Built-in tool extensions: `pine trellis open|status|init` (the user's Trellis board for this
+project; `init` asks the human first) and `pine keeper open|approvals` (Keeper's dashboard and the
+pending-approval list — read-only; approving is always the human's job, never an agent's).
 
 ## Bus — cross-agent messages & handoffs
 
