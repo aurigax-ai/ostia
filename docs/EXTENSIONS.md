@@ -54,7 +54,7 @@ extension has no process, no commands, no panel and no sidebar items.
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand pine a loopback URL at runtime. |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
-`terminal`, `circle`, `check`, `alert`.
+`terminal`, `circle`, `check`, `alert`, `shield`.
 
 ## Approval and capabilities
 
@@ -94,8 +94,9 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.registerCommands` | `{commands: (string \| CommandContribution)[]}` | Returns `{ok, commands}`. |
 | `ext.subscribe` | `{events: string[]}` | `pane.created`, `pane.closed`, `command.started`, `command.finished`, `cwd.changed` need `read-board`; `notification` needs `notify`. |
 | `ext.setSidebarItem` | `{key?, sessionId?, text, icon?, tone?}` | With `sessionId` it shows on that session's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. Empty `text` removes the item. 80 chars, 32 items. |
-| `ext.notify` | `{title, body?}` | Needs `notify`. Goes into the notification center and the desktop. |
-| `ext.openPanel` | `{sessionId?}` | Opens (or focuses) your panel in that session, else the active one. |
+| `ext.notify` | `{title, body?, openPanel?}` | Needs `notify`. Goes into the notification center and the desktop. With `openPanel: true` (and a panel in your manifest) clicking it opens your panel instead of jumping to a pane. |
+| `ext.openPanel` | `{sessionId?}` | Opens (or focuses) your panel in that session, else the active one. An already-open panel is focused, not reloaded. |
+| `ext.confirm` | `{title, message, detail?, confirmLabel?, cancelLabel?}` | Asks the human in a native dialog that names your extension; Cancel is the default. Returns `{ok, confirmed}`. Use it before anything that changes the user's files or data. It waits for the human, so a palette command that calls it may outlive the 30 s command timeout; finish the work anyway. |
 
 `whoami` works too. Pane-scoped methods (`command.exec`, `pane.info`, `browse.*`, …) are refused
 for extension identities.
@@ -247,9 +248,37 @@ socket.on('connect', async () => {
 Restart pine, approve "Hello", then run `pine hello greet you` in a pane or "Say Hello" from the
 palette.
 
+## Wrapping a CLI tool you already have
+
+The built-in `trellis` and `keeper` extensions are the reference for this. The pattern:
+
+- Run the tool with `runTool(bin, args, {cwd, timeoutMs})` from the SDK: no shell, stdin
+  closed, a timeout, and `missing: true` when the binary isn't on `PATH`. Parse its `--json`
+  output in a pure module and unit-test that against captured real output.
+- Missing tool or stopped daemon: set no sidebar items, return `{ok: false, error, message}`
+  from commands with what to install or start, and have your panel handler return a static
+  explanation page (`startMessageServer().url(title, body)`) instead of throwing. Retry with
+  backoff (`nextBackoff`), never in a tight loop.
+- If you start a long-running server, stop it in `onShutdown(fn)` (runs on exit, SIGTERM, SIGINT,
+  SIGHUP). If you found it already running, leave it alone.
+- If the tool's web UI needs a token, keep it in your process: serve a loopback proxy that adds
+  the token upstream (trellis's `proxy.ts`), so the panel URL pine sees carries only your own
+  per-run secret.
+- Confirm with `ext.confirm` before changing the user's data. Never automate a decision the tool
+  reserves for a human (keeper approvals).
+- `call(method, params)` reaches any other control method your identity may use, for example
+  `session.list` to put an item on every session whose workDir belongs to the tool.
+
 ## Built-in extensions
 
 `src/extensions/<id>/` holds `pine.json`, `main.ts` and optionally `panel.html`, `panel.ts`,
 `panel.css`. `scripts/build-extensions.mjs` (part of `pnpm build`) bundles them into
 `out/extensions/<id>/`; electron-builder ships that dir as `resources/extensions`. They import
 only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/renderer`.
+
+| Id | What it does |
+|---|---|
+| `kanban` | Per-project board (`.pine/board.json`), panel + `pine kanban …` |
+| `wiki` | Project and global notes, panel + `pine wiki …` |
+| `trellis` | The Trellis web UI as a panel on the session's project, open/claimed card counts per session, notifications when an agent moves a card to review, "Trellis: Open Board", "Trellis: Init Project Here", `pine trellis status` |
+| `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications, "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue |
