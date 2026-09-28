@@ -1,0 +1,16 @@
+{
+  "id": "hello",
+  "name": "Hello",
+  "version": "0.1.0",
+  "description": "E2E fixture: a user extension with a palette command, a CLI command and a file panel",
+  "capabilities": ["notify"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "open", "title": "Hello: Open Panel", "category": "Hello" },
+      { "id": "greet", "title": "Greet someone", "usage": "greet <name>", "palette": false }
+    ],
+    "sidebarItems": true,
+    "panel": { "title": "Hello", "entry": "panel.html" }
+  }
+}

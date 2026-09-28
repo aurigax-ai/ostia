@@ -27,8 +27,8 @@ glass, and motion that doesn't report state.
 - **One accent.** `--brand` marks active, selected or working. `--attn` is reserved for "needs you"
   and errors.
 - **State is never hue-alone.** Every status color is paired with a shape, icon or label.
-- **Motion reports state.** 0 ms on the typing path, ≤ 180 ms elsewhere, no spring or bounce.
-  Honor `prefers-reduced-motion`.
+- **Motion reports state.** 0 ms on the typing path, ≤ 220 ms elsewhere, no spring or bounce.
+  Honor reduced motion (§8).
 - **Hierarchy through color and weight, not size.** Keep the type scale narrow.
 - **Instant-apply settings.** No Save/Cancel bar except for destructive forms.
 - **Semantic tokens only.** Never put a hex value or primitive in a component.
@@ -128,7 +128,7 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 │ ◉ ~/proj   │   split tree of panes for the active session     │
 │   ~/api  ● │   ┌ pane header ──────┐ ┌ pane header ────────┐  │
 │   ~        │   │ terminal          │ │ editor / browser /  │  │
-│            │   │                   │ │ kanban / wiki       │  │
+│            │   │                   │ │ extension panel     │  │
 │ + session  │   └───────────────────┘ └─────────────────────┘  │
 │ ⚙ Settings │                                                  │
 └────────────┴─────────────────────────────────────────────────┘
@@ -153,8 +153,8 @@ The loudest element is the state dot on each sidebar row (`.dot` in `index.css`)
 | State | Look |
 |---|---|
 | idle | hidden |
-| working | `--brand`, breathing pulse (1.9 s) |
-| waiting | `--attn`, expanding ring (1.5 s) |
+| working | `--brand`, ambient breathe, opacity .55 ↔ 1 (2.4 s, loops) |
+| waiting | `--attn`, expanding ring (1.5 s) three times, then steady; replays on a new waiting signal |
 | done | `--ok`, static |
 | error | `--attn`, static, square (so it differs from waiting by shape, not only motion) |
 
@@ -165,13 +165,15 @@ motion, animations collapse to static dots and the working dot stays fully opaqu
 Attention, the second loud element, appears only when a pane needs you:
 
 - **Pane ring**: an unread `waiting` or `error` pane gets a 2px inset `--attn` ring (the active
-  pane's ring is 1px `--brand`), pulsing twice then static. Its header shows a mark (circle for
+  pane's ring is 1px `--brand`). It fades in, pulses twice, then holds; only a new signal to that
+  pane replays the pulse. Its header shows a mark (circle for
   waiting, square for error) labelled "Needs attention" plus the message in `--attn-fg`.
 - **Quiet marker**: an unread `done` pane (or one that rang the bell) gets only the header mark
   (`--ok` circle for done, `--fg-muted` otherwise) labelled "Unread", plus the message in
   `--fg-muted`. No ring.
 - **Unread badge**: the session row shows the number of unread panes as an outlined pill
-  (`--attn` border, `--attn-fg` number, `ui-xs`/500, tabular). A number, so never hue-alone.
+  (`--attn` border, `--attn-fg` number, `ui-xs`/500, tabular). A number, so never hue-alone. It
+  pops in once (scale .85 → 1 + fade) when it appears or its count grows; never on a decrease.
 - **Bell**: a `bar` IconButton in the top bar's right slot. Its count uses the same pill; its
   label reads "Notifications, N unread". The popover lists the notification log newest first:
   `session · pane` and time on a `ui-xs` meta line, the message in `ui-sm`. Each row jumps to its
@@ -220,9 +222,52 @@ Consolidation debt:
   Ctrl+Shift+B / Ctrl+, / Ctrl+Shift+U / Ctrl+Shift+H elsewhere. In the terminal, previous/next
   block is Cmd+↑/↓ (Ctrl+Shift+↑/↓ elsewhere) and Escape clears a block selection; off macOS,
   copy, paste and find are Ctrl+Shift+C/V/F.
-- **Transitions**: 120–180 ms ease. List only the properties that change, never `transition-all`.
+- **Transitions**: motion tokens only (§8 Motion). List only the properties that change, never
+  `transition-all`.
 - **Overlays**: when a surface covers others, mark the covered subtree `inert` so focus can't
   leak. Hidden sessions use `visibility: hidden` + `inert`.
+
+### Motion
+
+Motion reports state or confirms an action; it never decorates. Tokens live in `:root` in
+`index.css`:
+
+| Token | Value | Use |
+|---|---|---|
+| `--motion-fast` | 90 ms | hover/focus color feedback, tooltips, block selection frame |
+| `--motion-base` | 150 ms | overlays, badge pop, sticky header, find bar, new pane content, ring fade-in |
+| `--motion-slow` | 220 ms | sidebar collapse width |
+| `--motion-fast-exit` / `--motion-base-exit` | 63 / 105 ms | exits, about 70% of the enter |
+| `--motion-pulse` | 1.5 s | one attention pulse (ring, waiting dot) |
+| `--motion-breathe` | 2.4 s | the working dot's loop |
+| `--ease-out` | `cubic-bezier(0.2, 0, 0, 1)` | every enter and every hover |
+| `--ease-in` | `cubic-bezier(0.4, 0, 1, 1)` | every exit |
+| `--ease-in-out` | `cubic-bezier(0.4, 0, 0.2, 1)` | the breathe loop only |
+
+Tailwind's `transition-*` utilities default to `--motion-fast` / `--ease-out`.
+
+Where it moves:
+- **Overlays** (palette, dialogs, context menu, select, popovers such as the notification
+  center): `motion-overlay`, fade + scale .98 → 1 from Base UI's `--transform-origin` (the
+  palette scales from its top), exit fade + scale to .98 with `--ease-in`. Dialog backdrops fade
+  (`motion-backdrop`). Tooltips (`Hint`): `motion-hint`, opacity only, `--motion-fast`.
+- **Attention**: the pane ring, the waiting dot, the working dot and the unread badge (§6).
+- **Blocks**: the selection frame fades in; the sticky command header slides down 4px + fades
+  in and leaves faster the way it came; the find bar enters from 6px above.
+- **New pane content** fades in once when its surface is created (`.surface-enter`), never when
+  a surface moves between slots.
+- **Hover/focus/active**: color, background and border at `--motion-fast`.
+
+What stays still: pane size, position and splits; the Allotment sashes; anything that resizes
+an xterm host (it would fit and resize the pty every frame); buttons on press (no scale or
+nudge); lists (no stagger); session switches and Settings (no page transitions). Nothing
+springs, bounces or overshoots. The one width transition is the sidebar collapse, which is
+safe because terminal resizes are debounced.
+
+Reduced motion: `appearance.motion` (Settings → Appearance → Motion) is `system` (follow
+`prefers-reduced-motion`), `reduced` or `full` (ignore the OS), mirrored to `<html
+data-motion>`. Reduced collapses every duration and delay to ~0 and runs loops once, so pulses
+become static indicators; the dots, ring and badge still show the state.
 
 ## 9. Live surfaces (xterm, Monaco, webview)
 

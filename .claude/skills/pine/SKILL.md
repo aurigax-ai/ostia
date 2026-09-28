@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
 ---
 
 # Pine — the agent toolbelt
@@ -123,37 +123,15 @@ if it isn't, every vault call fails closed with `encryption-unavailable` rather 
 ever writing plaintext. `--global` **writes** (`set`/`rm`) need the elevated
 `workspace-wide` grant on top of the default vault capability — global reads don't.
 
-## Wiki — project/global shared notes
+## Boards, cards and knowledge — use Trellis
 
-```sh
-pine wiki set <slug> [--global] <<< "body text"   # body read from STDIN (pipe/heredoc)
-pine wiki get <slug> [--global]
-pine wiki ls [--global]                            # slug, title, updatedAt
-pine wiki search "<query>" [--global]
-pine wiki rm <slug> [--global]
-```
-
-Good for anything two agents (or an agent and its future self) should share:
-design decisions, a roster of known pane ids, running notes. Default scope is
-`project` — two panes anchored to the *same* workDir automatically share the same
-project wiki (and vault, and kanban board). `--global` **writes** (`set`/`rm`) need
-the elevated `workspace-wide` grant on top of the default wiki capability — global
-reads don't.
-
-## Kanban — per-project task board
-
-```sh
-pine kanban ls                                       # columns + cards, grouped
-pine kanban add "<title>" [--column doing] [--body "..."]
-pine kanban move <id> <column>
-pine kanban assign <id> <who>
-pine kanban done <id>                                # shorthand for move <id> done
-pine kanban rm <id>
-```
-
-Board is per-project only (no `--global`) — same sharing rule as the wiki. Columns
-are seeded as `todo`/`doing`/`done` on first use; `add`/`move` reject an unknown
-column id (`unknown-column`) rather than silently creating one.
+Pine has no kanban board or wiki of its own. Task boards, cards and knowledge entries live in
+Trellis: run the `trellis` CLI directly from your pane, following its own Claude Code skills
+(`trellis:trellis` for commands, `trellis:when-to-use-trellis` for when work belongs on a board,
+`trellis:writing-knowledge` for recording findings). Pine's `trellis` extension only *shows*
+Trellis to the human (board panel, per-session card counts, review notifications); see
+Extensions below. Files an older Pine left behind (`.pine/board.json`, `.pine/wiki.json`) are
+the user's data: don't read them as current state, and don't delete them.
 
 ## Git — repo state of your cwd as JSON
 
@@ -174,10 +152,10 @@ it never stages, commits or checks out. Use `git` itself for that.
 ```sh
 pine ext ls                          # enabled extensions + their commands (also appended to `pine docs`)
 pine ext <extId> <command> [args]    # run an extension command
-pine <extId> <command> [args]        # same, when <extId> isn't a core verb (this is how `pine kanban`/`pine wiki` work)
+pine <extId> <command> [args]        # same, when <extId> isn't a core verb (this is how `pine git` works)
 ```
 
-Wiki, kanban and git are built-in extensions, so the commands above behave exactly as documented.
+Git, trellis and keeper are built-in extensions, so their commands behave exactly as documented.
 If the user disabled one in Settings → Plugins you'll get `extension-disabled`; don't try to
 enable it yourself (there is no verb for that — only the human approves/enables extensions).
 `extension-unavailable` means its process didn't start or crashed; retry once, then tell the
@@ -293,7 +271,7 @@ pine browse pick [--timeout MS] [--pane ID]           # ask the HUMAN to click a
 Drives the `browser` surface's `<webview>` guest page (Stage 1's in-app browser) — the same
 one a human opened with `browser.open`/the command palette, or that `browse open` creates on
 demand. `--pane <externalId>` targets a *specific* browser pane by another pane's `whoami`
-externalId (relayed via `pine wiki`/`pine bus`, same as the coordination recipe below); omit it
+externalId (from `pine pane.list`, same as the coordination recipe below); omit it
 and the CLI targets the first browser pane in your own session. A selector/JS argument that
 doesn't match anything fails with a typed error (`not-found`, `eval-failed`, ...) rather than
 throwing — check the CLI's stderr/exit code. This entire group needs the elevated `browse`
@@ -428,7 +406,7 @@ here needs the elevated `gateway` capability (see below) on top of whatever the 
 `pair` prints the pairing JSON (and a `pine-pair://` URI wrapping the same payload) for the phone
 to scan/paste — there's no ASCII-QR rendering in the CLI itself, pipe the JSON through your own QR
 tool if you want one. A paired device only gets a strict phone-facing capability subset
-(`read`/`board.read`/`notify` by default). `command`/`input`/`board.write`/`destructive` are
+(`read`/`notify` by default). `command`/`input`/`destructive` are
 granted per device only by the human in Settings → Remote — there is deliberately no CLI verb or
 socket method for it, so don't try to raise a phone's caps; ask the user. This is a separate,
 smaller vocabulary from the `Capability` list below; see `pine-companion/NETWORK-CONTRACT.md` for
@@ -438,8 +416,8 @@ the full protocol.
 
 Posture: **pane-scoped trust** — a process running inside a pane is trusted at
 pane scope, so every pane holds a fixed set of **default** capabilities:
-`drive-self`, `read-board`, `notify`, `wiki-read`, `wiki-write`, `settings-read`,
-`board-write`, `process`, `vault-read`, `vault-write`. Everything cross-boundary,
+`drive-self`, `read-board`, `notify`, `settings-read`, `process`, `vault-read`,
+`vault-write`. Everything cross-boundary,
 system-facing, or dangerous is **elevated** and starts withheld: `send-other-pane`,
 `kill-pane`, `workspace-wide`, `shell`, `destructive`, `phone`, `gateway`, `browse`,
 `settings-write`.
@@ -475,27 +453,20 @@ Codex driving pane B) can coordinate like this:
    (its `paneId` field) plus `title`/`cwd`, which is often enough to tell panes
    apart on its own. If it isn't (e.g. two otherwise-identical terminal panes),
    fall back to each agent running `pine whoami` and publishing its own
-   `externalId` for the other to look up:
-   ```sh
-   pine wiki set agents/claude-a <<< "$(pine whoami)"
-   ```
-   and the other agent reads it back with `pine wiki get agents/claude-a` (works
-   automatically if both panes share a project workDir; otherwise add `--global`
-   on both sides).
+   `externalId` somewhere both can read (a Trellis card or entry, or ask the
+   human to relay it).
 2. **Hand off or ping.** Use `pine bus send <externalId> "..."` for a quick note,
    or `pine bus handoff <externalId> --task "..." --summary "..."` for a real
    unit of work; the receiving agent runs `pine bus wait` (or polls `pine bus
    inbox`) to notice it, then `pine bus claim <id>` and eventually `pine bus done
    <id>`.
-3. **Plan shared work** on `pine kanban` (`add`/`assign`/`move`/`done`) so both
-   agents (and the human) see one board instead of duplicating state in two
-   contexts.
+3. **Plan shared work** on the project's Trellis board (the `trellis` CLI: cards,
+   claims, columns) so both agents (and the human, in Pine's Trellis panel) see
+   one board instead of duplicating state in two contexts.
 4. **Store shared knowledge** — design decisions, "here's what I tried and why it
-   didn't work" — in `pine wiki`, not just in your own conversation, so the other
-   agent (or your own next session) can `pine wiki get`/`pine wiki search` it
-   instead of re-deriving it.
+   didn't work" — as Trellis entries, not just in your own conversation, so the
+   other agent (or your own next session) can find it instead of re-deriving it.
 
-Remember: `send-other-pane` (bus send/handoff to someone else) and `board-write`
-(kanban writes) are elevated — if either agent hits `needs-elevation`, that's the
-signal to stop and flag it rather than silently falling back to writing files on
-disk as a workaround.
+Remember: `send-other-pane` (bus send/handoff to someone else) is elevated — if
+either agent hits `needs-elevation`, that's the signal to stop and flag it rather
+than silently falling back to writing files on disk as a workaround.

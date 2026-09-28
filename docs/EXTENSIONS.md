@@ -3,7 +3,7 @@
 An extension is a directory with a `pine.json` manifest and, usually, a program pine starts for
 you. The program talks JSON-RPC to pine over the same control socket the `pine` CLI uses. That
 gives it palette and CLI commands, events, sidebar status items, notifications and a panel
-surface. The built-in Kanban, Wiki and Git (`src/extensions/`) use nothing else, so they are the
+surface. The built-in Git, Trellis and Keeper (`src/extensions/`) use nothing else, so they are the
 reference implementations.
 
 How it works inside pine: `docs/ARCHITECTURE.md` §11. Why it's out-of-process: `docs/ROADMAP.md` §2.
@@ -129,19 +129,18 @@ And the notification `ext.event {type, payload}`:
 Every command and panel request carries who is asking:
 
 ```ts
-{ kind: 'pane' | 'user' | 'phone', paneId?, sessionId?, workDir?, cwd?, locale?, capabilities: string[] }
+{ kind: 'pane' | 'user', paneId?, sessionId?, workDir?, cwd?, locale?, capabilities: string[] }
 ```
 
 - `pane`: an agent or shell via `pine`; `capabilities` are that pane's.
 - `user`: the palette (capabilities = the command's own declared ones) or your panel request.
-- `phone`: the companion app through the gateway.
 
 Use `workDir` for project-scoped data (it is the session's anchor directory, possibly `~`).
 `cwd` is the live shell directory of the calling pane (CLI) or of the active pane (palette) when
 that is a terminal; use it for "where the user is" (the git extension finds the repo from it).
 Panel requests carry no `cwd`; derive one from `session.list` + `pane.list` if you need it.
-Enforce conditional rules yourself from `capabilities` — the wiki refuses `--global` writes
-without `workspace-wide` this way.
+Enforce conditional rules yourself from `capabilities`, for example refuse a write outside the
+session's project unless the caller holds `workspace-wide`.
 
 ### Results
 
@@ -285,7 +284,12 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 
 | Id | What it does |
 |---|---|
-| `kanban` | Per-project board (`.pine/board.json`), panel + `pine kanban …` |
-| `wiki` | Project and global notes, panel + `pine wiki …` |
+| `git` | Branch and change counts per session in the sidebar, a changes panel ("Show Changes"), diffs of changed files, `pine git status|changes|diff|open` |
 | `trellis` | The Trellis web UI as a panel on the session's project, open/claimed card counts per session, notifications when an agent moves a card to review, "Trellis: Open Board", "Trellis: Init Project Here", `pine trellis status` |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications, "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue |
+
+Earlier versions also shipped `kanban` and `wiki` extensions. They were removed: boards, cards and
+knowledge entries live in Trellis (the `trellis` extension and the `trellis` CLI). pine leaves
+their data where it was (`<workDir>/.pine/board.json`, `<workDir>/.pine/wiki.json`,
+`$XDG_DATA_HOME/pine/wiki.json`) and no longer reads it; entries for them in `extensions.json`
+are ignored.

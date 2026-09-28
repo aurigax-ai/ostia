@@ -1,7 +1,8 @@
-import { rmSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { storePath } from '../jsonStore'
 import {
   DEFAULT_PHONE_CAPS,
   get,
@@ -82,7 +83,7 @@ describe('gateway/devices', () => {
       const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
       expect(setDeviceCap(deviceId, 'input', true)).toEqual({
         ok: true,
-        caps: ['read', 'board.read', 'notify', 'input'],
+        caps: ['read', 'notify', 'input'],
       })
       expect(verifyToken(token)?.caps).toContain('input')
       expect(get(deviceId)?.caps).toContain('input')
@@ -93,13 +94,13 @@ describe('gateway/devices', () => {
       setDeviceCap(deviceId, 'command', true)
       expect(setDeviceCap(deviceId, 'command', false)).toEqual({
         ok: true,
-        caps: ['read', 'board.read', 'notify'],
+        caps: ['read', 'notify'],
       })
     })
 
     it('refuses to grant or strip a base cap or an unknown cap', () => {
       const { deviceId } = registerDevice({ name: 'Phone', pubkey: 'pk' })
-      for (const cap of ['read', 'notify', 'board.read', 'gateway', 'workspace-wide', 42]) {
+      for (const cap of ['read', 'notify', 'gateway', 'workspace-wide', 42]) {
         expect(setDeviceCap(deviceId, cap, false)).toEqual({ ok: false, error: 'invalid-cap' })
         expect(setDeviceCap(deviceId, cap, true)).toEqual({ ok: false, error: 'invalid-cap' })
       }
@@ -115,7 +116,7 @@ describe('gateway/devices', () => {
       setDeviceCap(deviceId, 'command', true)
       expect(setDeviceCap(deviceId, 'destructive', true)).toEqual({
         ok: true,
-        caps: ['read', 'board.read', 'notify', 'command', 'destructive'],
+        caps: ['read', 'notify', 'command', 'destructive'],
       })
     })
 
@@ -124,7 +125,17 @@ describe('gateway/devices', () => {
       setDeviceCap(deviceId, 'command', true)
       setDeviceCap(deviceId, 'destructive', true)
       setDeviceCap(deviceId, 'command', false)
-      expect(get(deviceId)?.caps).toEqual(['read', 'board.read', 'notify'])
+      expect(get(deviceId)?.caps).toEqual(['read', 'notify'])
+    })
+
+    it('drops caps a stored device holds that pine no longer knows', () => {
+      const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      const file = storePath('gateway-devices', 'global')
+      const stored = JSON.parse(readFileSync(file, 'utf8'))
+      stored[deviceId].caps = ['read', 'board.read', 'notify', 'board.write', 'input']
+      writeFileSync(file, JSON.stringify(stored))
+      expect(get(deviceId)?.caps).toEqual(['read', 'notify', 'input'])
+      expect(verifyToken(token)?.caps).toEqual(['read', 'notify', 'input'])
     })
 
     it('is not-found for an unknown device', () => {

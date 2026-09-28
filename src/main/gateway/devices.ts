@@ -27,8 +27,15 @@ function storeFile(): string {
   return storePath('gateway-devices', 'global')
 }
 
+function knownCaps(caps: unknown): string[] {
+  const held = Array.isArray(caps) ? caps : []
+  return CAP_ORDER.filter((cap) => held.includes(cap))
+}
+
 function load(): DeviceStore {
-  return loadJson<DeviceStore>(storeFile(), {})
+  const store = loadJson<DeviceStore>(storeFile(), {})
+  for (const device of Object.values(store)) device.caps = knownCaps(device.caps)
+  return store
 }
 
 function save(store: DeviceStore): void {

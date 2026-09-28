@@ -43,7 +43,7 @@ main (Node, privileged)  ──ipcMain / webContents.send──  preload (contex
 - **shared** (`src/shared/`): `types.ts` (the `PineBridge` contract and snapshot types),
   `capabilities.ts` (capability names), `protoGuard.ts` (prototype-pollution guard).
 - **cli** (`src/cli/index.ts`): the `pine` binary, built to `out/cli/index.js`.
-- **extensions** (`src/extensions/`): built-in extensions (kanban, wiki) and their SDK. They run
+- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper) and their SDK. They run
   as separate processes and reach pine only through the control socket (§11).
 
 Every window uses `contextIsolation`, `sandbox`, no `nodeIntegration`, and `webviewTag: true`
@@ -88,10 +88,11 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
 - `~/.config/pine/settings.json` (Electron `userData`): settings, including `capabilities.grants`.
 - `userData/gateway/{cert,key}.pem`: gateway TLS identity.
 - `$XDG_DATA_HOME/pine/` (default `~/.local/share/pine/`): `sessions.json`, `scrollback.json`,
-  `notifications.json`, processes, bus, global wiki/vault, `gateway-devices.json`,
+  `notifications.json`, processes, bus, global vault, `gateway-devices.json`,
   `gateway-config.json`, `gateway-pair-audit.log`.
-- `<workDir>/.pine/`: project-scoped vault; the built-in kanban and wiki extensions keep
-  `board.json` and `wiki.json` here too (global wiki: `$XDG_DATA_HOME/pine/wiki.json`).
+- `<workDir>/.pine/`: project-scoped vault. Older versions also kept a kanban `board.json` and a
+  `wiki.json` here (and a global `$XDG_DATA_HOME/pine/wiki.json`); those extensions were removed in
+  favour of Trellis, and pine leaves the files in place without reading them.
 - `userData/extensions.json`: per-extension `{enabled, approved}` records (§11).
 - `userData/sync-state.json`: the sync folder last synced with, a hash per synced file at the
   last sync, the last sync time and the last conflict (§5). The sync folder itself holds
@@ -364,7 +365,7 @@ pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   `palette.toggle`, `view.toggleRail`, `app.openSettings`, `attention.set/notify/jumpToLatest`,
   `block.selectPrev/selectNext/copyCommand/copyOutput/copyBoth/rerun`, `history.search/insert`,
   `editor.open`, `browser.new/open`, `settings.get/set`.
-- Extension palette commands (`<extId>.<command>`, e.g. `kanban.open`) are registered and
+- Extension palette commands (`<extId>.<command>`, e.g. `git.show`) are registered and
   unregistered at runtime by `commands/extensionBridge.ts` as extensions are enabled/disabled.
   The registry notifies subscribers; the palette re-renders and the bridge re-publishes the
   descriptor list to main. An extension command never replaces a core command with the same id.
@@ -446,8 +447,8 @@ windowId, sessionId}`. Registering a pane twice returns the existing entry. Agen
 see external ids.
 
 **Capabilities** (`shared/capabilities.ts`, `capabilityStore.ts`).
-- Defaults for every pane: `drive-self`, `read-board`, `notify`, `wiki-read`, `wiki-write`,
-  `settings-read`, `board-write`, `process`, `vault-read`, `vault-write`.
+- Defaults for every pane: `drive-self`, `read-board`, `notify`, `settings-read`, `process`,
+  `vault-read`, `vault-write`.
 - Elevated: `send-other-pane`, `kill-pane`, `workspace-wide`, `shell`, `destructive`, `phone`,
   `gateway`, `browse`, `settings-write`.
 - Elevated caps are granted only by `capabilities.grants` in `settings.json`. A grant applies to
@@ -492,20 +493,20 @@ see external ids.
   - `wait` checks the inbox before blocking, with a timeout clamped to 1–120 s (default 30 s).
   - Each inbox keeps up to 200 messages and the handoff list up to 500 (finished handoffs are
     evicted first).
-- The wiki and kanban moved out of core into built-in extensions (§11); `pine wiki …` and
-  `pine kanban …` still work because the CLI forwards unknown verbs to extensions.
+- Boards, cards and knowledge entries are not pine's: they live in Trellis, which the built-in
+  `trellis` extension shows (§11). pine's own kanban and wiki extensions were removed.
 
 Project-scoped stores refuse with `no-project-workdir` while the session's workDir is unknown.
 Why: `jsonStore` would otherwise fall back to main's cwd and pool every unknown session into one
 file. Writing to global scope needs `workspace-wide`; reading it does not.
 
-`protoGuard.hasDangerousSegment` rejects `__proto__`, `prototype` and `constructor` in any segment
-of a key, not just the last one. It guards wiki slugs, settings dot-paths and snapshot pane-id keys.
+`protoGuard.isDangerousSegment` rejects `__proto__`, `prototype` and `constructor`. Settings
+dot-paths check every segment, not just the last one; snapshot pane-id keys are checked too.
 
 **CLI** (`src/cli/index.ts`):
 - Reads `PINE_SOCKET` and `PINE_TOKEN`. A verb containing a dot is sent as `command.exec` with
   the next argument parsed as JSON. A bare verb that isn't a core verb is an extension id:
-  `pine kanban add x` is `pine ext kanban add x`, i.e. `ext.invoke {extId, command, args: {argv,
+  `pine git diff x` is `pine ext git diff x`, i.e. `ext.invoke {extId, command, args: {argv,
   stdin?}}`. The CLI reads stdin only for commands whose manifest says `stdin: true`. Why: an
   agent harness often leaves stdin open, so reading it unconditionally would hang every call.
 - `pine pane.list` calls the socket method directly, because only that method maps to external ids.
@@ -581,7 +582,7 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
   code 4003, and every authenticated frame re-reads the device from the store (`refreshDevice`):
   gone means close 4003, present means its caps replace the socket's cached ones.
 - **Grants** (`devices.setDeviceCap`, Settings → Remote per-device switches): only
-  `PHONE_GRANTABLE_CAPS` (`command`, `input`, `board.write`, `destructive`) can change; the base
+  `PHONE_GRANTABLE_CAPS` (`command`, `input`, `destructive`) can change; the base
   caps can't be stripped. `destructive` requires `command` and is dropped when `command` is;
   the UI asks for confirmation before granting it. After a change, `applyDeviceCaps` updates live
   sockets: if any cap was removed they are closed with 4004 `caps-changed` (and their pty
@@ -592,10 +593,9 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
 - **Phone capabilities** (`controlDispatch.ts`) are a separate vocabulary from the internal
   `Capability` set, and the gateway checks them itself.
   - `read` allows `session.list`, `pane.list`, `command.list`, `pane.info`, `cwd.get`.
-  - `command` allows `command.exec`; `board.read` and `board.write` allow `board.get` and
-    `board.update`. Those two call the kanban extension's `get`/`update` commands through
-    `ExtensionHost.invoke` as a `phone` caller; if the extension is disabled the phone gets its
-    `extension-disabled` failure as the result.
+  - `command` allows `command.exec`. There are no board methods: `board.get`/`board.update` and
+    the `board.read`/`board.write` caps went with the kanban extension (contract v1.2). Device
+    records are normalized on load (`devices.ts`), so caps pine no longer knows are dropped.
   - A missing cap returns `-32003 needs-elevation`.
   - `PHONE_CAP_ALLOWS` is an allowlist from phone caps to internal caps. Why: an earlier bug let
     `command` alone run any command. `input` must never map to a command cap; it only gates
@@ -822,8 +822,8 @@ read methods `session.list` / `pane.list` (`callers: 'all'`, need `read-board`).
   center, opens that extension's panel instead of jumping to a pane.
 - Command caps declared in the manifest are checked against the caller before the process is
   even started. The extension receives the caller context (`kind`, external `paneId`,
-  `sessionId`, `workDir`, `capabilities`) and may enforce conditional rules itself (the wiki
-  requires `workspace-wide` for global writes this way).
+  `sessionId`, `workDir`, `capabilities`) and may enforce conditional rules itself (for example
+  requiring `workspace-wide` for writes outside the session's project).
 - Events are derived in main: `pane.created/closed` from lifecycle IPC, `cwd.changed` and
   `command.started/finished` from `terminal:state` diffs (running flips, last exit code),
   `focus.changed` from `browser-window-focus/blur`, `notification` from the `notify` platform
@@ -859,7 +859,7 @@ compromised or buggy panel can do no more than its extension already can.
   working file, conflicted = `HEAD` vs working file (with markers); blobs via `git cat-file blob`.
   Binary (NUL in the first 8000 bytes) and > 2 MiB sides are refused; a symlink shows its target
   path, never the file it points to.
-- Commands: palette "Show Changes" opens the panel (served from its process like kanban's); the
+- Commands: palette "Show Changes" opens the panel (served from its process by `startPanelServer`); the
   panel lists conflicts/staged/changes/untracked and a click calls `open`, which calls
   `ext.openDiff`. CLI/agents: `status`, `changes`, `diff <path> [--staged]` (unified patch),
   `open <path> [--staged]`, all JSON. A path argument must match a changed file (resolved from
@@ -903,7 +903,7 @@ but the public API.
 - They depend on phase 4's extension access to `session.list`, `caller.cwd` and `focus.changed`
   and degrade without them (no per-session items; cwd falls back to workDir; idle poll rate).
 
-**Built-ins.** `src/extensions/{kanban,wiki,git,trellis,keeper}` are built by `scripts/build-extensions.mjs`
+**Built-ins.** `src/extensions/{git,trellis,keeper}` are built by `scripts/build-extensions.mjs`
 (esbuild: `main.ts` → node CJS bundle, `panel.ts` → browser IIFE; `sdk/panel.css` → `base.css`)
 into `out/extensions`; electron-builder ships that dir as `extraResources` and keeps it out of
 the asar (a process can't use an asar path as cwd). They use only the public API through the
