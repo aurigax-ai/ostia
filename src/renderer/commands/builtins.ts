@@ -227,28 +227,6 @@ export function registerBuiltinCommands(): void {
     run: (_args, ctx) => delegate(ctx, 'browser.new'),
   })
 
-  commands.register<undefined>({
-    id: 'kanban.open',
-    title: 'Open Board',
-    category: 'App',
-    capabilities: ['read-board'],
-    target: 'active',
-    run: (_args, ctx) => {
-      if (ctx.activeSessionId) useLayoutStore.getState().openSurface(ctx.activeSessionId, 'kanban')
-    },
-  })
-
-  commands.register<undefined>({
-    id: 'wiki.open',
-    title: 'Open Wiki',
-    category: 'App',
-    capabilities: ['wiki-read'],
-    target: 'active',
-    run: (_args, ctx) => {
-      if (ctx.activeSessionId) useLayoutStore.getState().openSurface(ctx.activeSessionId, 'wiki')
-    },
-  })
-
   commands.register<{ allSessions?: boolean } | undefined, PaneListEntry[]>({
     id: 'pane.list',
     title: 'List Panes',

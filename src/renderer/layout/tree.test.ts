@@ -4,6 +4,7 @@ import {
   allPanes,
   closePane,
   createPane,
+  findExtensionPane,
   findPane,
   firstPaneId,
   firstPaneOfKind,
@@ -13,7 +14,7 @@ import {
   setPaneBrowser,
   setPaneCwd,
   setPaneEditor,
-  setPaneKind,
+  setPaneExtension,
   setPaneUrl,
   setSizes,
   splitOf,
@@ -317,20 +318,36 @@ describe('setPaneBrowser', () => {
   })
 })
 
-describe('setPaneKind', () => {
-  it('turns the matching pane into the given kind, using its default title', () => {
+describe('setPaneExtension', () => {
+  it('turns the matching pane into an extension panel with the given id and title', () => {
     const a = createPane('terminal')
-    const b = createPane('terminal')
+    const b = createPane('terminal', undefined, '/w')
     const root = splitOf('horizontal', a, b)
-    const next = setPaneKind(root, b.id, 'kanban')
-    expect(findPane(next, b.id)?.kind).toBe('kanban')
-    expect(findPane(next, b.id)?.title).toBe('Board')
+    const next = setPaneExtension(root, b.id, 'kanban', 'Board')
+    const pane = findPane(next, b.id)
+    expect(pane?.kind).toBe('extension')
+    expect(pane?.extensionId).toBe('kanban')
+    expect(pane?.title).toBe('Board')
+    expect(pane?.cwd).toBeUndefined()
     expect(findPane(next, a.id)?.kind).toBe('terminal')
   })
 
-  it('leaves a non-matching lone pane unchanged', () => {
-    const root = createPane('terminal')
-    expect(setPaneKind(root, 'ghost', 'wiki')).toBe(root)
+  it('returns the same tree when no pane matches', () => {
+    const root = splitOf('horizontal', createPane('terminal'), createPane('terminal'))
+    expect(setPaneExtension(root, 'ghost', 'wiki', 'Wiki')).toBe(root)
+  })
+})
+
+describe('findExtensionPane', () => {
+  it('finds the panel pane of one extension and ignores other extensions', () => {
+    const a = createPane('terminal')
+    const b = createPane('terminal')
+    const c = createPane('terminal')
+    let root: LayoutNode = splitOf('horizontal', a, splitOf('vertical', b, c))
+    root = setPaneExtension(root, b.id, 'wiki', 'Wiki')
+    root = setPaneExtension(root, c.id, 'kanban', 'Board')
+    expect(findExtensionPane(root, 'kanban')?.id).toBe(c.id)
+    expect(findExtensionPane(root, 'git')).toBeNull()
   })
 })
 

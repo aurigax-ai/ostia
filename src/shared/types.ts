@@ -1,4 +1,5 @@
 import type { Capability, PhoneGrantableCap } from './capabilities'
+import type { ExtensionsApi } from './extensions'
 
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
 
@@ -104,7 +105,7 @@ export interface NotificationsApi {
   onActivate: (cb: (paneId: string) => void) => () => void
 }
 
-export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'kanban' | 'wiki'
+export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension'
 
 export interface SnapshotPaneNode {
   type: 'pane'
@@ -114,6 +115,7 @@ export interface SnapshotPaneNode {
   cwd?: string
   filePath?: string
   url?: string
+  extensionId?: string
 }
 
 export interface SnapshotSplitNode {
@@ -220,78 +222,6 @@ export interface BrowserApi {
   unregister: (paneId: string) => void
 }
 
-export interface KanbanCard {
-  id: string
-  title: string
-  column: string
-  assignee?: string
-  body?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface KanbanColumn {
-  id: string
-  name: string
-}
-
-export interface KanbanBoard {
-  columns: KanbanColumn[]
-  cards: KanbanCard[]
-}
-
-export type KanbanMutateOp =
-  | { op: 'add'; title: string; column?: string; body?: string }
-  | { op: 'move'; cardId: string; column: string }
-  | {
-      op: 'update'
-      cardId: string
-      patch: Partial<Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>>
-    }
-  | { op: 'remove'; cardId: string }
-
-export type KanbanFailure = { ok: false; error: string; message?: string }
-
-export type KanbanMutateResult = { ok: true; board: KanbanBoard } | KanbanFailure
-
-export interface KanbanApi {
-  get: (workDir: string) => Promise<KanbanBoard | KanbanFailure>
-  mutate: (workDir: string, op: KanbanMutateOp) => Promise<KanbanMutateResult>
-}
-
-export type WikiScope = 'project' | 'global'
-
-export interface WikiPageSummary {
-  slug: string
-  title: string
-  updatedAt: string
-}
-
-export interface WikiPage {
-  slug: string
-  title: string
-  body: string
-  updatedAt: string
-}
-
-export type WikiFailure = { ok: false; error: string; message?: string }
-
-export interface WikiApi {
-  list: (params: { scope?: WikiScope; workDir: string }) => Promise<{ pages: WikiPageSummary[] }>
-  get: (params: {
-    slug: string
-    scope?: WikiScope
-    workDir: string
-  }) => Promise<WikiPage | WikiFailure>
-  set: (params: {
-    slug: string
-    body: string
-    title?: string
-    scope?: WikiScope
-    workDir: string
-  }) => Promise<{ ok: true } | WikiFailure>
-}
-
 export interface GatewayStatus {
   running: boolean
   host: string | null
@@ -371,8 +301,7 @@ export interface PineBridge {
   commands: CommandsApi
   terminalState: TerminalStateApi
   browser: BrowserApi
-  kanban: KanbanApi
-  wiki: WikiApi
+  extensions: ExtensionsApi
   gateway: GatewayApi
   notifications: NotificationsApi
 }

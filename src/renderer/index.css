@@ -1242,3 +1242,56 @@
   font-size: var(--text-ui-sm);
   overflow-wrap: anywhere;
 }
+
+.ext-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  max-width: 120px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--fg-muted);
+}
+
+.ext-item.tone-brand {
+  color: var(--brand);
+}
+
+.ext-item.tone-ok {
+  color: var(--ok);
+}
+
+.ext-item.tone-warn,
+.ext-item.tone-error {
+  color: var(--attn-fg);
+}
+
+.rail-ext-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0 4px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-ui-xs);
+}
+
+.collapsed .rail-ext-footer {
+  display: none;
+}
+
+.extension-surface {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background: var(--surface-1);
+}
+
+.extension-webview {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}

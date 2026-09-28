@@ -67,6 +67,14 @@ function record(
   return entry
 }
 
+export function postNotification(
+  deps: NotifyDeps,
+  input: { title: string; body?: string; from: string },
+): void {
+  showDesktop(deps, input.title, input.body)
+  record(deps, input)
+}
+
 export function registerNotifyMethods(deps: NotifyDeps): void {
   registerControlMethod('notify', {
     cap: 'notify',

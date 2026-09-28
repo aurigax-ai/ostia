@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useSyncExternalStore } from 'react'
 import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
 import { useUIStore } from '../stores/uiStore'
@@ -12,12 +12,17 @@ import {
   CommandShortcut,
 } from './ui/command'
 
+const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
+const commandsVersion = (): number => commands.version()
+
 export function CommandPalette(): JSX.Element {
   const d = useDict()
   const open = useUIStore((s) => s.paletteOpen)
   const close = useUIStore((s) => s.closePalette)
 
-  const groups = useMemo(() => {
+  useSyncExternalStore(subscribeCommands, commandsVersion)
+
+  const groups = (() => {
     const byCat = new Map<string, ReturnType<typeof commands.list>>()
     for (const c of commands.list()) {
       if (c.hidden) continue
@@ -27,7 +32,7 @@ export function CommandPalette(): JSX.Element {
       byCat.set(cat, arr)
     }
     return [...byCat.entries()]
-  }, [])
+  })()
 
   const run = (id: string): void => {
     void commands.exec(id)

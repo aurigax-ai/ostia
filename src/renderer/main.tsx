@@ -10,6 +10,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
+import { wireExtensionBridge } from './commands/extensionBridge'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { revealPane, startAttentionSync } from './lib/sessionActivity'
 import { startWorkspaceAutosave } from './stores/persistence'
@@ -18,6 +19,7 @@ import { useSessionsStore } from './stores/sessionsStore'
 registerBuiltinCommands()
 wireCommandBridge()
 wireTerminalStateBridge()
+wireExtensionBridge()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')
