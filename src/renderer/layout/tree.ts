@@ -24,8 +24,7 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   editor: 'untitled',
   agent: 'claude',
   browser: 'localhost',
-  kanban: 'Board',
-  wiki: 'Wiki',
+  extension: 'Extension',
 }
 
 export function createPane(kind: SurfaceKind = 'terminal', title?: string, cwd?: string): PaneNode {
@@ -109,12 +108,28 @@ export function setPaneBrowser(root: LayoutNode, paneId: string, url: string): L
   return { ...root, children: root.children.map((c) => setPaneBrowser(c, paneId, url)) }
 }
 
-export function setPaneKind(root: LayoutNode, paneId: string, kind: SurfaceKind): LayoutNode {
+export function setPaneExtension(
+  root: LayoutNode,
+  paneId: string,
+  extensionId: string,
+  title: string,
+): LayoutNode {
   if (root.type === 'pane') {
     if (root.id !== paneId) return root
-    return { ...root, kind, title: SURFACE_TITLE[kind] }
+    return { ...root, kind: 'extension', title, extensionId, cwd: undefined }
   }
-  return { ...root, children: root.children.map((c) => setPaneKind(c, paneId, kind)) }
+  return withChildren(root, (c) => setPaneExtension(c, paneId, extensionId, title))
+}
+
+export function findExtensionPane(node: LayoutNode, extensionId: string): PaneNode | null {
+  if (node.type === 'pane') {
+    return node.kind === 'extension' && node.extensionId === extensionId ? node : null
+  }
+  for (const child of node.children) {
+    const found = findExtensionPane(child, extensionId)
+    if (found) return found
+  }
+  return null
 }
 
 export function findPane(node: LayoutNode, id: string): PaneNode | null {

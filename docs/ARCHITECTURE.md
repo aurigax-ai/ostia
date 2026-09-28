@@ -29,7 +29,8 @@ Electron itself.
 ```
 main (Node, privileged)  ──ipcMain / webContents.send──  preload (contextBridge)  ──  renderer (React, no Node)
    │                                                                                     │
-   ├─ unix socket (JSON-RPC) ── pine CLI (in each pane's shell)                          └─ <webview> guests (browser panes)
+   ├─ unix socket (JSON-RPC) ── pine CLI (in each pane's shell)                          └─ <webview> guests (browser + extension panels)
+   │                        └── extension processes (src/extensions, ~/.config/pine/extensions)
    └─ https + wss (off by default) ── phone companion
 ```
 
@@ -42,6 +43,8 @@ main (Node, privileged)  ──ipcMain / webContents.send──  preload (contex
 - **shared** (`src/shared/`): `types.ts` (the `PineBridge` contract and snapshot types),
   `capabilities.ts` (capability names), `protoGuard.ts` (prototype-pollution guard).
 - **cli** (`src/cli/index.ts`): the `pine` binary, built to `out/cli/index.js`.
+- **extensions** (`src/extensions/`): built-in extensions (kanban, wiki) and their SDK. They run
+  as separate processes and reach pine only through the control socket (§11).
 
 Every window uses `contextIsolation`, `sandbox`, no `nodeIntegration`, and `webviewTag: true`
 (for browser panes). External links are denied in-window and opened by the OS. Windows are
@@ -67,7 +70,8 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `jsonStore.ts` | Atomic JSON persistence, project (`<workDir>/.pine/<name>.json`) or global (`$XDG_DATA_HOME/pine/<name>.json`) |
 | `notify.ts` | The notification log (`notifications.json`), desktop notifications, `notify` / `notify.list`, `notifications:*` IPC (§5) |
 | `attention.ts` | `pane.setAttention` control method (`pine state`) |
-| `processManager.ts`, `vault.ts`, `wiki.ts`, `kanban.ts`, `bus.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
+| `processManager.ts`, `vault.ts`, `bus.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
+| `extensionHost.ts`, `extensionManifest.ts`, `extensionStore.ts` | Extension host: discovery + manifest validation, approval records, extension processes, `ext.*` control methods (§11) |
 | `browse.ts` | `browse.*` automation of browser panes (§9) |
 | `gateway/` | LAN gateway: `index.ts` (methods + IPC), `server.ts`, `controlDispatch.ts`, `devices.ts`, `pairing.ts`, `cert.ts`, `interfaces.ts` (§7) |
 
@@ -82,7 +86,11 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
 - `$XDG_DATA_HOME/pine/` (default `~/.local/share/pine/`): `sessions.json`, `scrollback.json`,
   `notifications.json`, processes, bus, global wiki/vault, `gateway-devices.json`,
   `gateway-config.json`, `gateway-pair-audit.log`.
-- `<workDir>/.pine/`: project-scoped wiki, vault, `board.json` (kanban).
+- `<workDir>/.pine/`: project-scoped vault; the built-in kanban and wiki extensions keep
+  `board.json` and `wiki.json` here too (global wiki: `$XDG_DATA_HOME/pine/wiki.json`).
+- `userData/extensions.json`: per-extension `{enabled, approved}` records (§11).
+- Built-in extensions: `out/extensions/<id>/` in dev, `resources/extensions/<id>/` when packaged.
+  User extensions: `$XDG_CONFIG_HOME/pine/extensions/<id>/` (default `~/.config/pine/extensions`).
 - `$XDG_RUNTIME_DIR/pine-<pid>.sock` (or the OS tmp dir): control socket.
 
 `jsonStore` writes a temp file and renames it over the target. With `{secure}` it re-applies mode 0600
@@ -105,15 +113,21 @@ is typed as `PineBridge`, so drift breaks the build.
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
 | terminal state | `terminalState.push` |
 | browser | `register`, `unregister` |
-| kanban / wiki | `kanban.get`, `kanban.mutate`; `wiki.list`, `wiki.get`, `wiki.set` |
+| extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel`, `sidebarItems`, `onChanged`, `onSidebar`, `onOpenPanel` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:open-panel`) |
 | gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke`, `bind-options`, `set-cap` (IPC only) |
 | notifications | `list` (newest first), `post`, `clear`, `onChanged`, `onActivate` (push channels `notifications:changed`, `notifications:activate`) |
 
 - Main derives the window from `e.sender.id` and never trusts a window id the renderer sends.
 - `pane-closed` drops the pane's capabilities, identity, pending restored scrollback and cached
   terminal state.
-- The kanban/wiki/gateway IPC skips capability checks. Only Pine's own renderer can call it,
-  and it is the trusted UI. The socket and gateway enforce capabilities for everything else.
+- The gateway and extension-management IPC (`extensions:set-enabled`, `extensions:approve`)
+  skip capability checks. Only Pine's own renderer can call them, and it is the trusted UI. The
+  socket and gateway enforce capabilities for everything else. There is deliberately no socket
+  method or CLI verb that approves or enables an extension.
+- `extensions:invoke` passes the command's own declared capabilities as the caller's caps, not
+  all of them. Why: an agent can reach a palette command through `command.exec`, which already
+  checked those caps; handing the extension more would let an agent launder a palette call into
+  a stronger caller.
 - Path containment in `pathGuard` is lexical. A symlink inside home that points outside is not
   caught.
 
@@ -236,7 +250,10 @@ owned by another user. Why: on a shared `/tmp`, another user could plant rc file
 ### Sessions, layout, surfaces
 
 - **Session** (`stores/sessionsStore.ts`) → **split tree** (`layout/tree.ts`, pure; `stores/layoutStore.ts`)
-  → **Pane** → one **Surface**: `terminal | editor | browser | kanban | wiki`.
+  → **Pane** → one **Surface**: `terminal | editor | browser | extension`.
+  - An `extension` pane carries `extensionId` and renders that extension's panel
+    (`ExtensionPanelView`, §11). `openExtensionPanel` reuses the session's existing panel of the
+    same extension.
   - The `agent` kind exists but has no surface (it shows a ghost title).
   - Zoom renders only `zoomedPaneId`.
   - Closing the zoomed pane clears the zoom.
@@ -328,8 +345,11 @@ pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   Built-ins (`commands/builtins.ts`): `pane.*` (split/close/focus/zoom/move/list), `session.new/list/save`,
   `palette.toggle`, `view.toggleRail`, `app.openSettings`, `attention.set/notify/jumpToLatest`,
   `block.selectPrev/selectNext/copyCommand/copyOutput/copyBoth/rerun`, `history.search/insert`,
-  `editor.open`, `browser.new/open`,
-  `kanban.open`, `wiki.open`, `settings.get/set`.
+  `editor.open`, `browser.new/open`, `settings.get/set`.
+- Extension palette commands (`<extId>.<command>`, e.g. `kanban.open`) are registered and
+  unregistered at runtime by `commands/extensionBridge.ts` as extensions are enabled/disabled.
+  The registry notifies subscribers; the palette re-renders and the bridge re-publishes the
+  descriptor list to main. An extension command never replaces a core command with the same id.
 - The renderer doesn't check capabilities; the socket and gateway do.
 - There is deliberately no `session.restore`. Restoring into a live window would tear down every
   attached pty; restore happens only at boot.
@@ -357,7 +377,8 @@ pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   - `settings/schema.ts` registers a JSON Schema for that file with Monaco.
 - `plugins/builtin.ts` is a registry of built-in contributions only: themes (`adeberry`,
   `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`), LSP entries, locales (`en`, `zh-Hant`).
-  There is no third-party loader.
+  These are data-only contributions; behavior and UI come from extensions (§11), listed in the
+  same Settings → Plugins section.
 - i18n: typed catalogs in `i18n/dict.ts`, read via `useDict()`.
 
 ## 6. Control plane
@@ -367,7 +388,8 @@ file is unlinked first, and the new socket is chmod 0600.
 - A connection must call `hello {token}` first, or every call fails with InvalidRequest.
   Reaching the socket grants nothing.
 - A missing capability returns InvalidRequest with `needs-elevation: <cap>`.
-- Socket clients receive no push events.
+- Pane clients receive no push events. Extension processes receive `ext.event` notifications for
+  what they subscribed to (§11).
 
 **Identity** (`idRegistry.ts`): each pane gets `{externalId: uuid, token: 32 random bytes hex,
 windowId, sessionId}`. Registering a pane twice returns the existing entry. Agents only ever
@@ -385,7 +407,8 @@ see external ids.
 **Methods.**
 - `controlServer.ts` itself serves `hello`, `whoami`, `command.list`, `command.exec`, `pane.info`,
   `cwd.get`.
-- Other modules add methods with `registerControlMethod(name, {cap, handler})`.
+- Other modules add methods with `registerControlMethod(name, {cap, callers, handler})`;
+  `callers` defaults to `panes` (see §11 for extension identities).
 - `command.exec` goes through main's `execCommand`: `command:invoke` IPC to a window's registry,
   answered by `command:result`, 5 s timeout. A target with no window goes to the first window.
 - If the target differs from the caller's own pane, window or session in any way, the caller
@@ -397,8 +420,6 @@ see external ids.
 |---|---|---|
 | `processManager.ts` | `process.run/list/info/output/kill/restart` | Details below |
 | `vault.ts` | `vault.set/get/list/delete` | Details below |
-| `wiki.ts` | `wiki.get/set/list/search/delete` | 256 KB per page, 2000 pages per scope |
-| `kanban.ts` | `kanban.get/add/move/assign/update/remove` | Project only (`.pine/board.json`); 64 KB per field, 2000 cards |
 | `bus.ts` | `bus.send/inbox/wait/handoff/claim/handoffs/update` | Details below |
 | `notify.ts` | `notify`, `notify.list` | Desktop notification + log entry (capped at 500), marks the caller's pane unread via `attention.notify`; emits a `notify` platform event |
 | `attention.ts` | `pane.setAttention` | `pine state`; see §5 "Live session state and attention" |
@@ -421,7 +442,8 @@ see external ids.
   - `wait` checks the inbox before blocking, with a timeout clamped to 1–120 s (default 30 s).
   - Each inbox keeps up to 200 messages and the handoff list up to 500 (finished handoffs are
     evicted first).
-- **Existing items stay editable** when a wiki or kanban store is full.
+- The wiki and kanban moved out of core into built-in extensions (§11); `pine wiki …` and
+  `pine kanban …` still work because the CLI forwards unknown verbs to extensions.
 
 Project-scoped stores refuse with `no-project-workdir` while the session's workDir is unknown.
 Why: `jsonStore` would otherwise fall back to main's cwd and pool every unknown session into one
@@ -431,8 +453,11 @@ file. Writing to global scope needs `workspace-wide`; reading it does not.
 of a key, not just the last one. It guards wiki slugs, settings dot-paths and snapshot pane-id keys.
 
 **CLI** (`src/cli/index.ts`):
-- Reads `PINE_SOCKET` and `PINE_TOKEN`. An unknown verb is sent as `command.exec` with the next
-  argument parsed as JSON.
+- Reads `PINE_SOCKET` and `PINE_TOKEN`. A verb containing a dot is sent as `command.exec` with
+  the next argument parsed as JSON. A bare verb that isn't a core verb is an extension id:
+  `pine kanban add x` is `pine ext kanban add x`, i.e. `ext.invoke {extId, command, args: {argv,
+  stdin?}}`. The CLI reads stdin only for commands whose manifest says `stdin: true`. Why: an
+  agent harness often leaves stdin open, so reading it unconditionally would hang every call.
 - `pine pane.list` calls the socket method directly, because only that method maps to external ids.
 - `pine vault set` reads the secret from stdin with echo off, and restores the tty on every exit path.
 - `pine settings get/set` goes through renderer commands so the Settings UI updates live.
@@ -518,7 +543,9 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
   `Capability` set, and the gateway checks them itself.
   - `read` allows `session.list`, `pane.list`, `command.list`, `pane.info`, `cwd.get`.
   - `command` allows `command.exec`; `board.read` and `board.write` allow `board.get` and
-    `board.update`.
+    `board.update`. Those two call the kanban extension's `get`/`update` commands through
+    `ExtensionHost.invoke` as a `phone` caller; if the extension is disabled the phone gets its
+    `extension-disabled` failure as the result.
   - A missing cap returns `-32003 needs-elevation`.
   - `PHONE_CAP_ALLOWS` is an allowlist from phone caps to internal caps. Why: an earlier bug let
     `command` alone run any command. `input` must never map to a command cap; it only gates
@@ -584,8 +611,9 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
     `pine-browser-<paneId>`. Why: a shared `persist:` partition leaked cookies between panes.
   - A new URL for an existing pane calls `loadURL` on the guest, because `src` is only read at
     mount. If the guest isn't ready yet, the URL waits for `dom-ready`.
-  - Main's `will-attach-webview` rejects any partition not starting with `pine-browser` and forces
-    no preload, no nodeIntegration, contextIsolation and sandbox.
+  - Main's `will-attach-webview` rejects any partition not starting with `pine-browser` (or an
+    extension panel partition whose src the host allows, §11) and forces no preload, no
+    nodeIntegration, contextIsolation and sandbox.
   - `browser:register` requires that the sender owns the pane and that the webContents is a
     `webview` guest hosted by that sender. Why: otherwise a renderer could register Pine's own
     webContents and drive it with `browse.eval`.
@@ -623,3 +651,80 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
 - `pnpm install:local` runs `pnpm package` (electron-builder → `dist/linux-unpacked`), then
   `scripts/install-linux.sh`. The script copies the build to `~/.local/share/pine/app` and writes
   `~/.local/share/applications/pine.desktop`.
+
+## 11. Extensions
+
+The extension host is how features live outside core. Design and the reasoning for choosing it
+over in-process JS extensions: `docs/ROADMAP.md` §2. Authoring guide: `docs/EXTENSIONS.md`.
+
+**Discovery** (`extensionManifest.ts`). Every subdirectory of a root that has a `pine.json` is a
+candidate. Roots: the built-in dir, then the user dir. The manifest is validated strictly (id
+slug, known capabilities, `main` and file-panel paths must resolve inside the extension dir,
+anything with commands/sidebar items/url panel needs `main`). A broken manifest is logged and
+skipped without affecting the others. A user extension reusing a built-in id is rejected.
+Discovery runs once at startup.
+
+**Approval** (`extensionStore.ts`, `userData/extensions.json`).
+- Granted caps = manifest `capabilities` ∩ the human's approved list. Built-ins are pre-approved
+  and enabled by default; user extensions start `pending-approval` and don't load until the
+  approval dialog (`ExtensionApprovalDialog`) or Settings says so.
+- "Keep disabled" records an empty approval so the dialog doesn't come back every launch.
+- A later version asking for more caps runs with the old subset and Settings shows the rest as
+  "not approved" with a Review button.
+- Why a main-owned file, not `settings.json`: `settings set` is reachable from agents; this file
+  has no socket method at all.
+
+**Identity.** Each start mints a fresh identity with `kind: 'extension'`
+(`idRegistry.registerExtension`), caps set explicitly with `setCaps`. The process gets
+`PINE_SOCKET`, `PINE_TOKEN`, `PINE_EXTENSION_ID`, `PINE_EXTENSION_DIR` and none of the pane
+variables. `controlServer` checks the caller kind per method (`callers: 'panes' | 'extensions' |
+'all'`): extension identities can call `hello`, `whoami` and the extension-only `ext.*` methods;
+panes can call everything else including `ext.list` / `ext.invoke`. Why: pane methods resolve
+"self" from a pane id, and an extension has none; letting it through would make `command.exec`
+target whichever window happened to be first.
+
+**Processes** (`extensionHost.ts`).
+- `main` ending in `.js/.cjs/.mjs` runs with the app's Electron binary and
+  `ELECTRON_RUN_AS_NODE=1` (like the `pine` CLI), anything else is executed directly; cwd is the
+  extension dir.
+- Lazy start: the first invoke, panel resolution, or (for extensions with `sidebarItems`) window
+  creation. A command waits until the process has registered it (`ext.registerCommands`), 10 s max.
+- On exit the identity is revoked, the server-side connection is disposed (which rejects any
+  in-flight request immediately rather than at the 30 s timeout), subscriptions and sidebar items
+  are dropped, and the process is restarted after 500 ms · 2ⁿ, at most 3 times; then the status
+  is `crashed` until the user disables and re-enables it.
+- `before-quit` sends SIGTERM to every extension process.
+
+**Methods.** Extension → pine: `ext.registerCommands`, `ext.subscribe`, `ext.setSidebarItem`,
+`ext.notify` (needs `notify`), `ext.openPanel`. Pine → extension: `ext.command` and `ext.panel`
+requests, `ext.event` notifications. Pane → pine: `ext.list`, `ext.invoke`.
+- Command caps declared in the manifest are checked against the caller before the process is
+  even started. The extension receives the caller context (`kind`, external `paneId`,
+  `sessionId`, `workDir`, `capabilities`) and may enforce conditional rules itself (the wiki
+  requires `workspace-wide` for global writes this way).
+- Events are derived in main: `pane.created/closed` from lifecycle IPC, `cwd.changed` and
+  `command.started/finished` from `terminal:state` diffs (running flips, last exit code),
+  `notification` from the `notify` platform event. Subscribing to pane/command/cwd events needs
+  `read-board`; `notification` needs `notify`.
+- Sidebar items are keyed by (extension, session, key), capped at 32 per extension and 80
+  characters, and rendered in the session row or the sidebar footer (no session).
+
+**Panels.** `ExtensionPanelView` asks main for the source (`extensions:panel`):
+- file entry: `file://` URL of the html inside the extension dir;
+- `url` entry: main asks the process (`ext.panel` with a user caller carrying session, workDir,
+  locale) and accepts only an `http://127.0.0.1|localhost` URL, remembering its origin.
+The webview uses partition `pine-ext-<id>`, and `will-attach-webview` refuses it unless the src
+passes `isAllowedPanelUrl`. The guest gets the same hardening as browser panes (no preload, no
+node, sandbox, context isolation) plus: permission requests denied, `window.open` routed to
+`openExternalSafe`, and navigations/redirects outside the allowed file dir / origin blocked. The
+renderer injects the theme into the guest as `--pine-*` custom properties (`lib/panelTheme.ts`).
+Why panels talk only to their own process: the guest has no `window.pine` and no token, so a
+compromised or buggy panel can do no more than its extension already can.
+
+**Built-ins.** `src/extensions/{kanban,wiki}` are built by `scripts/build-extensions.mjs`
+(esbuild: `main.ts` → node CJS bundle, `panel.ts` → browser IIFE; `sdk/panel.css` → `base.css`)
+into `out/extensions`; electron-builder ships that dir as `extraResources` and keeps it out of
+the asar (a process can't use an asar path as cwd). They use only the public API through the
+small SDK in `src/extensions/sdk/`; their panels are served by an HTTP server on 127.0.0.1 in
+the extension process, gated by a per-run secret in the URL/header, a `Host` check, and an
+`Origin` check, and pushed live changes over SSE.

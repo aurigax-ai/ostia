@@ -3,6 +3,7 @@ import {
   type DropZone,
   closePane,
   createPane,
+  findExtensionPane,
   findPane,
   firstPaneId,
   firstPaneOfKind,
@@ -11,12 +12,12 @@ import {
   setPaneBrowser,
   setPaneCwd,
   setPaneEditor,
-  setPaneKind,
+  setPaneExtension,
   setPaneUrl,
   setSizes,
   splitPane,
 } from '../layout/tree'
-import type { Direction, LayoutNode, SurfaceKind } from '../layout/types'
+import type { Direction, LayoutNode } from '../layout/types'
 import { useSessionsStore } from './sessionsStore'
 
 export interface SessionLayout {
@@ -39,7 +40,7 @@ interface LayoutState {
   setUrl: (sessionId: string, paneId: string, url: string) => void
   openFile: (sessionId: string, path: string) => void
   openBrowser: (sessionId: string, url: string) => void
-  openSurface: (sessionId: string, kind: SurfaceKind) => void
+  openExtensionPanel: (sessionId: string, extensionId: string, title: string) => void
   removeSession: (sessionId: string) => void
 }
 
@@ -225,16 +226,20 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
   },
 
-  openSurface: (sessionId, kind) => {
+  openExtensionPanel: (sessionId, extensionId, title) => {
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, sessionId, (l) => {
-        const existing = firstPaneOfKind(l.root, kind)
+        const existing = findExtensionPane(l.root, extensionId)
         if (existing) return { ...l, activePaneId: existing.id }
         const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
         if (!newPaneId) return l
         createdPaneId = newPaneId
-        return { ...l, root: setPaneKind(root, newPaneId, kind), activePaneId: newPaneId }
+        return {
+          ...l,
+          root: setPaneExtension(root, newPaneId, extensionId, title),
+          activePaneId: newPaneId,
+        }
       })
       return next ?? s
     })

@@ -56,14 +56,16 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       register: vi.fn(),
       unregister: vi.fn(),
     },
-    kanban: {
-      get: vi.fn().mockResolvedValue({ columns: [], cards: [] }),
-      mutate: vi.fn().mockResolvedValue({ ok: true, board: { columns: [], cards: [] } }),
-    },
-    wiki: {
-      list: vi.fn().mockResolvedValue({ pages: [] }),
-      get: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
-      set: vi.fn().mockResolvedValue({ ok: true }),
+    extensions: {
+      list: vi.fn().mockResolvedValue([]),
+      setEnabled: vi.fn().mockResolvedValue([]),
+      approve: vi.fn().mockResolvedValue([]),
+      invoke: vi.fn().mockResolvedValue({ ok: true }),
+      panel: vi.fn().mockResolvedValue({ ok: false, error: 'no-panel' }),
+      sidebarItems: vi.fn().mockResolvedValue([]),
+      onChanged: vi.fn(noopUnsub),
+      onSidebar: vi.fn(noopUnsub),
+      onOpenPanel: vi.fn(noopUnsub),
     },
     gateway: {
       enable: vi.fn().mockResolvedValue({ host: '127.0.0.1', port: 8722, fingerprint: 'sha256/x' }),

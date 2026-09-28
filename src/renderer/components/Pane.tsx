@@ -1,9 +1,7 @@
 import {
-  BookOpen,
   Bot,
   FileCode,
   Globe,
-  Kanban,
   type LucideIcon,
   SplitSquareHorizontal,
   SplitSquareVertical,
@@ -18,9 +16,11 @@ import type { PaneNode, SurfaceKind } from '../layout/types'
 import { needsRing } from '../lib/attention'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePaneDnd } from '../stores/paneDndStore'
 import { mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
 import { IconButton } from './IconButton'
+import { extensionIcon } from './extensionIcons'
 
 interface PaneProps {
   pane: PaneNode
@@ -32,8 +32,7 @@ const SURFACE_ICON: Record<SurfaceKind, LucideIcon> = {
   editor: FileCode,
   agent: Bot,
   browser: Globe,
-  kanban: Kanban,
-  wiki: BookOpen,
+  extension: extensionIcon(undefined),
 }
 
 const PANE_DND = 'application/x-pine-pane'
@@ -61,7 +60,12 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
   const over = usePaneDnd((s) => (s.overId === pane.id ? s.zone : null))
   const setOver = usePaneDnd((s) => s.setOver)
   const reset = usePaneDnd((s) => s.reset)
-  const Icon = SURFACE_ICON[pane.kind]
+  const panelIcon = useExtensionsStore((s) =>
+    pane.kind === 'extension'
+      ? s.list.find((e) => e.id === pane.extensionId)?.panel?.icon
+      : undefined,
+  )
+  const Icon = pane.kind === 'extension' ? extensionIcon(panelIcon) : SURFACE_ICON[pane.kind]
   const dirty = useEditorStatus((s) =>
     pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
   )
@@ -167,8 +171,7 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
       {pane.kind === 'terminal' ||
       pane.kind === 'editor' ||
       pane.kind === 'browser' ||
-      pane.kind === 'kanban' ||
-      pane.kind === 'wiki' ? (
+      pane.kind === 'extension' ? (
         <div className="pane-body pane-body-term" ref={slotRef} />
       ) : (
         <div className="pane-body">

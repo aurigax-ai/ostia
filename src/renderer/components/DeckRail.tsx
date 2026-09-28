@@ -14,6 +14,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import { paneIds } from '../layout/tree'
 import { unreadCount } from '../lib/attention'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import {
   type Session,
@@ -25,6 +26,7 @@ import { useUIStore } from '../stores/uiStore'
 import { FilesView } from './FilesView'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
+import { extensionIcon } from './extensionIcons'
 
 const KIND_ICON: Record<SessionKind, LucideIcon> = {
   agent: Bot,
@@ -106,12 +108,15 @@ function SessionsView(): JSX.Element {
             meta={
               <span className="tab-meta">
                 <span className="tab-branch">{s.workDir}</span>
+                <SidebarItems sessionId={s.id} />
               </span>
             }
             badge={<UnreadBadge sessionId={s.id} />}
           />
         ))}
       </div>
+
+      <SidebarFooter />
 
       <Hint label={d.rail.newSession} side="right">
         <button
@@ -127,6 +132,39 @@ function SessionsView(): JSX.Element {
         </button>
       </Hint>
     </>
+  )
+}
+
+function SidebarItems({ sessionId }: { sessionId?: string }): JSX.Element | null {
+  const all = useExtensionsStore((s) => s.sidebar)
+  const items = all.filter((i) => i.sessionId === sessionId)
+  if (items.length === 0) return null
+  return (
+    <>
+      {items.map((item) => {
+        const Icon = item.icon ? extensionIcon(item.icon) : null
+        return (
+          <span
+            key={`${item.extId}:${item.key}`}
+            className={`ext-item tone-${item.tone}`}
+            title={`${item.extId}: ${item.text}`}
+          >
+            {Icon ? <Icon size={11} aria-hidden /> : null}
+            {item.text}
+          </span>
+        )
+      })}
+    </>
+  )
+}
+
+function SidebarFooter(): JSX.Element | null {
+  const hasGlobal = useExtensionsStore((s) => s.sidebar.some((i) => i.sessionId === undefined))
+  if (!hasGlobal) return null
+  return (
+    <div className="rail-ext-footer">
+      <SidebarItems />
+    </div>
   )
 }
 
