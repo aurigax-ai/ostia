@@ -17,6 +17,7 @@ export interface SessionEntry {
   kind: string
   workDir: string
   state: string
+  activePaneId?: string
 }
 
 export interface PaneEntry {
@@ -64,12 +65,25 @@ export async function listSessions(
   deps: Pick<PaneListDeps, 'execCommand'>,
 ): Promise<SessionEntry[]> {
   const res = await deps.execCommand(GLOBAL_TARGET, 'session.list', {})
-  return res.ok ? ((res.result as SessionEntry[] | undefined) ?? []) : []
+  if (!res.ok) return []
+  const sessions = (res.result as SessionEntry[] | undefined) ?? []
+  return sessions.map(({ activePaneId, ...session }) => {
+    const external = activePaneId ? getByPaneId(activePaneId)?.externalId : undefined
+    return external ? { ...session, activePaneId: external } : session
+  })
 }
 
 const READ_BOARD: Capability = 'read-board'
 
 export function registerPaneListMethods(deps: PaneListDeps): void {
-  registerControlMethod('pane.list', { cap: READ_BOARD, handler: () => listPanes(deps) })
-  registerControlMethod('session.list', { cap: READ_BOARD, handler: () => listSessions(deps) })
+  registerControlMethod('pane.list', {
+    cap: READ_BOARD,
+    callers: 'all',
+    handler: () => listPanes(deps),
+  })
+  registerControlMethod('session.list', {
+    cap: READ_BOARD,
+    callers: 'all',
+    handler: () => listSessions(deps),
+  })
 }

@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a project/global wiki, a per-project kanban board, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/wiki/kanban/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
 ---
 
 # Pine — the agent toolbelt
@@ -52,8 +52,28 @@ longer have to: `pine pane.list` shows every pane's external id directly).
 
 ```sh
 pine open <file>                    # open <file> in this pane's editor surface
-pine notify "<title>" ["<body>"]    # fire a desktop notification (title required)
+pine notify "<title>" ["<body>"]    # desktop notification + marks this pane unread in Pine's
+                                    # sidebar/bell with that message (title required)
 ```
+
+## Attention — tell the human you need them
+
+```sh
+pine state waiting "Approve the migration?"   # ring this pane, badge + bell: you need input
+pine state done "Refactor finished"           # quiet "finished" marker until the human looks
+pine state working                            # busy (no unread)
+pine state error "Tests failed"               # ring + error marker
+pine state clear                              # back to normal
+echo '{"message":"..."}' | pine state waiting -   # message from stdin (JSON "message" field or raw text)
+pine state done --pane <externalId>           # another pane — needs workspace-wide
+```
+
+Use `waiting` whenever you block on the human (a question, an approval) and `done` when a long
+task finishes, so a human supervising many panes can jump straight to yours (Ctrl+Shift+U /
+⌘⇧U jumps to the latest unread pane). Focusing the pane clears the unread flag; typing into a
+waiting pane clears `waiting`. Default capability `drive-self`. Printing an OSC 9 notification
+(`printf '\e]9;%s\a' "msg"`) does the same as `state waiting` from any program. For wiring
+Claude Code/Codex hooks to this automatically, see `docs/AGENT-HOOKS.md` in the Pine repo.
 
 ## Raw UI commands
 
@@ -134,6 +154,37 @@ pine kanban rm <id>
 Board is per-project only (no `--global`) — same sharing rule as the wiki. Columns
 are seeded as `todo`/`doing`/`done` on first use; `add`/`move` reject an unknown
 column id (`unknown-column`) rather than silently creating one.
+
+## Git — repo state of your cwd as JSON
+
+```sh
+pine git status                      # {root, branch:{head,oid,upstream,ahead,behind}, counts}
+pine git changes                     # + changes:[{path, origPath?, area, code}]
+pine git diff <path> [--staged]      # {root, path, area, code, patch}  (unified diff)
+pine git open <path> [--staged]      # show that file's diff to the human in a diff pane
+```
+
+Scoped to your pane's current directory (falls back to the session's). `area` is
+`staged | unstaged | untracked | conflicted`; `code` is git's letter (`M A D R C T U ?`).
+Outside a repo you get `not-a-repo`; a path with no changes gives `not-changed`. Read-only:
+it never stages, commits or checks out. Use `git` itself for that.
+
+## Extensions — commands contributed by extensions
+
+```sh
+pine ext ls                          # enabled extensions + their commands (also appended to `pine docs`)
+pine ext <extId> <command> [args]    # run an extension command
+pine <extId> <command> [args]        # same, when <extId> isn't a core verb (this is how `pine kanban`/`pine wiki` work)
+```
+
+Wiki, kanban and git are built-in extensions, so the commands above behave exactly as documented.
+If the user disabled one in Settings → Plugins you'll get `extension-disabled`; don't try to
+enable it yourself (there is no verb for that — only the human approves/enables extensions).
+`extension-unavailable` means its process didn't start or crashed; retry once, then tell the
+user. Third-party extensions show up the same way — check `pine ext ls` before assuming a verb.
+Built-in tool extensions: `pine trellis open|status|init` (the user's Trellis board for this
+project; `init` asks the human first) and `pine keeper open|approvals` (Keeper's dashboard and the
+pending-approval list — read-only; approving is always the human's job, never an agent's).
 
 ## Bus — cross-agent messages & handoffs
 
@@ -236,6 +287,7 @@ pine browse dialog <accept|dismiss|list> [text] [--pane ID]
                                                       # auto-response policy + log for alert/confirm/prompt — see divergence note below
 pine browse focus-mode <enter|exit|toggle> [--pane ID]  # minimal single-pane zoom/zen (maximize a pane, hiding its siblings)
 pine browse react-grab <toggle|get> [--pane ID]       # minimal React-fiber inspector: click an element while on, `get` prints {component,file,line}
+pine browse pick [--timeout MS] [--pane ID]           # ask the HUMAN to click an element; blocks until they do, prints the capture JSON
 ```
 
 Drives the `browser` surface's `<webview>` guest page (Stage 1's in-app browser) — the same
@@ -327,10 +379,40 @@ version, with the divergence called out below.
   `get` prints the last grabbed entry. Installed via plain `executeJavaScript`, not persisted via
   CDP, so a navigation silently drops it — `toggle` on again after navigating if still wanted.
 
+### Pointing at UI problems (pick element)
+
+The human and the agent can both point at an element in a browser pane:
+
+- **Human → agent.** The human clicks **Point at element** in a browser pane's toolbar, clicks the
+  broken thing, writes what's wrong, and sends it to a terminal pane. Pine writes a markdown
+  report to a private tmp dir (`/tmp/pine-reports-<uid>/ui-issue-N.md`) and:
+  - pastes `@<report path> ` at that pane's prompt (never presses Enter) if the pane is at an idle
+    shell prompt or its agent reported `pine state waiting`/`done`; otherwise the path goes to the
+    human's clipboard;
+  - delivers a bus message to that pane whose `text` is JSON:
+    `{"kind":"ui-issue","report":"<path>","url":"…","selector":"…","note":"…"}` (read it with
+    `pine bus inbox`);
+  - sets the pane's attention to `working` (no ring).
+  Read the report file: it has the note, page URL/title, a robust CSS selector, role/name, box,
+  computed-style subset, the element's outerHTML (≤2 KB), recent console errors, failed network
+  requests, and a PNG screenshot path of the element. Then act on it with `pine browse …`
+  (e.g. `pine browse get styles '<selector>'`) or in the source.
+- **Agent → human.** `pine browse pick` puts the browser pane into inspect mode (the pane shows
+  "An agent asked you to point at an element"), waits for the human's click (default 120 s,
+  `--timeout` 1 s–10 min; Esc or the toolbar toggle cancels), and prints the same capture as JSON:
+  `{id,url,title,selector,label,html,htmlTruncated,box,styles,role,name,consoleErrors,failedRequests,screenshotPath,capturedAt}`.
+  Fails with `cancelled`, `timeout`, `navigated`, or `busy` (a pick is already running there).
+  Say what you want clicked *before* running it, e.g. with `pine state waiting "click the broken
+  price label"`.
+
+The inspector runs in an isolated JavaScript world of the page, so page scripts can't see or
+fake it (synthetic clicks are ignored). For your real Chrome (logged-in sessions, extensions,
+performance traces) use Chrome DevTools MCP instead: see `docs/CHROME.md` in the Pine repo.
+
 ## Gateway — LAN phone pairing (elevated)
 
 ```sh
-pine gateway enable [--host H] [--port P]   # start the LAN control gateway (default 0.0.0.0:8722)
+pine gateway enable [--host H] [--port P]   # start the LAN control gateway (default 127.0.0.1:8722)
 pine gateway pair                           # mint a pairing code + QR payload (also enables the
                                              # gateway if it wasn't already running)
 pine gateway status                         # { running, host, port, fingerprint, deviceCount }
@@ -346,11 +428,11 @@ here needs the elevated `gateway` capability (see below) on top of whatever the 
 `pair` prints the pairing JSON (and a `pine-pair://` URI wrapping the same payload) for the phone
 to scan/paste — there's no ASCII-QR rendering in the CLI itself, pipe the JSON through your own QR
 tool if you want one. A paired device only gets a strict phone-facing capability subset
-(`read`/`board.read`/`notify` by default; `command`/`input`/`board.write`/`destructive` need
-further elevation on the desktop side) — this is a separate, smaller vocabulary from the
-`Capability` list below; see `pine-companion/NETWORK-CONTRACT.md` for the full protocol. This
-batch only implements the server + pairing + device store — the phone's live control/PTY-mirror
-methods land in a later batch.
+(`read`/`board.read`/`notify` by default). `command`/`input`/`board.write`/`destructive` are
+granted per device only by the human in Settings → Remote — there is deliberately no CLI verb or
+socket method for it, so don't try to raise a phone's caps; ask the user. This is a separate,
+smaller vocabulary from the `Capability` list below; see `pine-companion/NETWORK-CONTRACT.md` for
+the full protocol.
 
 ## Capabilities & elevation
 

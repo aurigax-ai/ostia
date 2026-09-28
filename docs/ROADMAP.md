@@ -16,9 +16,25 @@ Non-test lines, 2026-09-28:
 | CLI (`src/cli`) | ~1,900 | Mostly verbs for the features above |
 | Renderer components | ~3,200 | Core shell + feature views |
 
-About two thirds of main is features compiled into the core. The plugin system can only contribute
-data (themes, locales, language-server specs), not behavior or UI. That's the thing to fix before
-adding more features.
+About two thirds of main is features compiled into the core. Before phase 3 the plugin system
+could only contribute data (themes, locales, language-server specs), not behavior or UI.
+
+**After phase 3** (extension API v1, kanban + wiki migrated), counted over `src/{main,renderer,cli,shared,preload}`
+without tests or generated `components/ui`:
+
+| | Before | After |
+|---|---|---|
+| Core, all processes | 16,763 | 17,401 |
+| Main process | 6,443 | 7,078 |
+| Kanban/wiki code in core (main modules, two views, CLI verbs, IPC types) | ~1,360 | 0 |
+| Extension host in core (`extensionHost/Manifest/Store.ts`, `shared/extensions.ts`) | 0 | ~1,070 |
+| Extension UI in core (panel surface, approval dialog, Settings list, sidebar items, command bridge) | 0 | ~560 |
+| `src/extensions/` (SDK + kanban + wiki, outside core) | 0 | ~1,350 TS |
+
+Core lost the kanban/wiki code and both views, but the host and its UI cost more than the two
+features did, so core is ~640 lines larger overall. That's the one-time price of the API; each
+further feature that moves out (vault, bus, processes, browser automation, gateway) is now a pure
+reduction.
 
 ## 2. Architecture: three rings
 
@@ -62,26 +78,33 @@ automatically scriptable by agents. It's also how cmux's socket API and kitty's 
 The cost is latency on UI-heavy features, which the panel surface avoids by running its UI in the
 webview instead of round-tripping every render.
 
-**First proof:** move kanban and wiki out of core onto this API. If they fit cleanly, the API is
-right; core loses ~1,000 lines and two views.
+**First proof (done):** kanban and wiki moved out of core onto this API with no special case in
+core. Their data logic runs in their own processes, their UI is a panel served by that process,
+and `pine kanban …` / `pine wiki …` still work because the CLI forwards any unknown bare verb to
+the extension of that id. Gaps the migration exposed, fixed in the API: commands needed a caller
+context (session workDir, caller caps) so project-scoped data and conditional permission rules
+could live in the extension; commands needed a `stdin` flag and `usage` text so CLI verbs keep
+their shape and show up in `pine docs`; panels needed live change push (the SDK's SSE) and the
+app theme (`--pine-*` variables). The phone gateway's `board.*` methods now call the kanban
+extension through the host like any other consumer. Authoring guide: `docs/EXTENSIONS.md`.
 
 ## 3. Features from Warp and cmux, placed
 
 | Feature | From | Ring | Size | Goal |
 |---|---|---|---|---|
-| Attention model: OSC 9/99/777, `pine notify`/`pine state`, pane rings, sidebar unread badges, jump to latest unread | cmux | core | S–M | 1, 9 |
-| Agent hooks recipe: Claude Code `Notification`/`Stop` hooks call `pine state waiting/done` | cmux | extension (docs + skill) | S | 1, 9 |
-| Notification center (the bell, backed by the real notify log) | cmux | core | S | 9 |
-| Block actions: click to select, copy command/output, jump between blocks, sticky command header | Warp | core | M | 7 |
-| Command history search across panes (palette provider) | Warp | core | M | 7 |
+| Attention model: OSC 9/99/777, `pine notify`/`pine state`, pane rings, sidebar unread badges, jump to latest unread | cmux | core (built) | S–M | 1, 9 |
+| Agent hooks recipe: Claude Code `Notification`/`Stop` hooks call `pine state waiting/done` | cmux | extension (docs + skill, built) | S | 1, 9 |
+| Notification center (the bell, backed by the real notify log) | cmux | core (built) | S | 9 |
+| Block actions: click to select, copy command/output, jump between blocks, sticky command header | Warp | core (built) | M | 7 |
+| Command history search across panes | Warp | core (built) | M | 7 |
 | Saved workflows / parameterized commands | Warp | extension | M | 7 |
-| Git branch + dirty state in sidebar; listening ports | cmux | built-in extension | M | 3 |
-| Diff view (Monaco diff editor) + "open in VS Code / Zed at file:line" | Warp/VS Code | built-in extension | M | 3, 6 |
-| Pick element in browser → send selector, screenshot, console errors to an agent pane | new | built-in extension | M | 3 |
-| Your real Chrome: document Chrome DevTools MCP for agents instead of re-implementing CDP | new | docs | S | 3 |
+| Git branch + dirty state in sidebar (built); listening ports | cmux | built-in extension | M | 3 |
+| Diff view (Monaco diff editor) + "open in VS Code / Zed at file:line" (built) | Warp/VS Code | built-in extension + core surface | M | 3, 6 |
+| Pick element in browser → send selector, screenshot, console errors to an agent pane | new | with browser automation (built) | M | 3 |
+| Your real Chrome: document Chrome DevTools MCP for agents instead of re-implementing CDP | new | docs (built) | S | 3 |
 | Agent resume on restore (relaunch the agent CLI with its session id) | cmux | built-in extension | M | 5 |
-| Trellis board panel, Keeper connection panel | yours | external plugins | M each | 4 |
-| Settings sync (git or synced folder) | Warp | extension | S–M | 8 |
+| Trellis board panel, Keeper approvals panel | yours | built-in extensions (built) | M each | 4 |
+| Settings sync (a synced folder you own) | Warp | core (built): it rewrites extension approvals | S–M | 8 |
 | Phone: grant path above read-only, pty input, attention push | cmux-like | built-in extension (gateway) | M | 10 |
 | Warp's IDE-style input editor | Warp | **not planned** | L | Clashes with agent TUIs that own the input line |
 | Built-in AI chat | Warp | **not planned** | — | Pine hosts agent CLIs; it doesn't compete with them |
@@ -90,16 +113,51 @@ right; core loses ~1,000 lines and two views.
 
 Each phase ships a working product; nothing half-built lands on `main`.
 
-1. **Attention** (core, small): the attention model, unread badges, jump-to-unread, notification
-   center, and the Claude Code hooks recipe. This makes "many agents at once" usable now.
-2. **Blocks** (core): block selection, copy output, jump, sticky header, history search.
-3. **Extension API v1**: manifest, extension host, commands/events/sidebar items/panel surface.
-   Migrate kanban + wiki onto it.
-4. **Git & diff** as the first new built-in extension: sidebar branch/dirty, diff view, open in
-   external editor.
-5. **Browser → agent**: pick element, Chrome DevTools MCP recipe.
-6. **Your tools**: Trellis and Keeper plugins; settings sync.
-7. **Remote**: phone grant path, input from the phone, attention push.
+1. **Attention** (core, small) — **done**: the attention model (`lib/attention.ts`), OSC 9/99/777
+   + BEL + `pine state`/`pine notify` sources, pane rings, sidebar unread badges, jump-to-unread
+   (Ctrl+Shift+U / ⌘⇧U), the notification center, and the hooks recipe (`docs/AGENT-HOOKS.md`).
+2. **Blocks** (core) — **done**: gutter-click block selection with a frame, Ctrl+Shift+↑/↓
+   (⌘↑/⌘↓) navigation, context menu + palette actions (copy command/output/both, rerun at an
+   idle prompt), sticky command header, and command history search across panes
+   (Ctrl+Shift+H / ⌘⇧H).
+3. **Extension API v1** — **done**: `pine.json` manifest, discovery (built-in + `~/.config/pine/extensions`),
+   per-extension identity with manifest ∩ approved caps and a first-run approval dialog, lazy
+   start with restart backoff, `ext.registerCommands/subscribe/setSidebarItem/notify/openPanel`,
+   `pine ext …` and `pine <extId> …`, the sandboxed panel surface, and enable/disable in
+   Settings → Plugins. Kanban and wiki migrated. Deferred: pane badges/attention from
+   extensions, hot reload of the extension list, extension settings, and letting extensions call
+   pane-scoped methods (browse, process) with an explicit target.
+4. **Git & diff** — **done**: the `git` built-in extension (`src/extensions/git/`) shows each
+   session's branch, ahead/behind and `+new ~changed` in the sidebar, lists staged/unstaged/
+   untracked/conflicted files in its panel ("Git: Show Changes"), opens a file's diff, and
+   answers `pine git status|changes|diff|open` as JSON. API gaps it exposed, fixed generically:
+   `ext.openDiff` with a new core `diff` surface (Monaco diff editor; core knows nothing about
+   git), `session.list`/`pane.list` for extensions (with `activePaneId`), the caller's `cwd`, and
+   a `focus.changed` event so polling pauses when pine isn't focused. Core also gained "Open in
+   External Editor" (editor, diff view, palette) driven by `behavior.externalEditor`, spawned
+   with argv, never a shell. Deferred: stage/unstage/commit actions, a git-log/blame view, and
+   letting an extension pane badge itself.
+5. **Browser → agent** — **done**: "Point at element" in browser panes (hover overlay in an
+   isolated world, click to capture selector, html, box, style subset, a11y role/name, console
+   errors, failed requests, element screenshot), a send panel that writes a markdown report,
+   posts a bus message and pastes `@<report>` at the target pane's idle prompt, `pine browse pick`
+   for agents to ask the human to click something, and `docs/CHROME.md` for pairing agents with
+   the user's real Chrome through Chrome DevTools MCP. It lives next to `browse.ts` in core
+   because the extension API can't yet drive pane-scoped browse methods (phase 3 deferral); it
+   moves out with browser automation.
+6. **Your tools** — **done**: built-in `trellis` and `keeper` extensions on the public API only
+   (panels, per-session and global sidebar items, notifications that open the panel, palette
+   commands), and settings sync through a user-chosen folder (Settings → Sync). API added for
+   them, generic for any extension: `ext.confirm` (a human confirm dialog), `ext.notify
+   {openPanel}` (a notification whose click opens your panel), the `shield` icon, and SDK helpers
+   `runTool`, `onShutdown`, `startMessageServer` and `call`. Sync lives in core, not in an
+   extension, because it rewrites extension approvals (only core may) and must run before the
+   extension host reads them. They rely on phase 4's `session.list` for extensions, `caller.cwd`
+   and `focus.changed`; without those the Trellis sidebar stays empty and Keeper polls at its
+   idle rate. Deferred: opening a specific card or ticket from a notification, navigating an
+   already-open panel to a new path.
+7. **Remote** (done): phone grant path, input from the phone, attention push, bind-address
+   picker with Tailscale detection.
 
 ## 5. Guardrails that keep the core lean
 

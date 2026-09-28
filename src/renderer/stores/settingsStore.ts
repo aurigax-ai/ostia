@@ -26,6 +26,7 @@ export interface Behavior {
   cursorStyle: CursorStyle
   cursorBlink: boolean
   restoreSession: boolean
+  externalEditor: string
 }
 
 export type FontSurface = 'ui' | 'terminal' | 'editor'
@@ -34,11 +35,16 @@ export interface Capabilities {
   grants?: Capability[]
 }
 
+export interface SyncSettings {
+  dir: string
+}
+
 interface Persisted {
   locale: Locale
   appearance: Appearance
   behavior: Behavior
   capabilities?: Capabilities
+  sync?: SyncSettings
 }
 
 const DATA_KEYS: readonly string[] = ['locale', 'appearance', 'behavior']
@@ -60,6 +66,7 @@ const DEFAULTS: Persisted = {
     cursorStyle: 'block',
     cursorBlink: true,
     restoreSession: true,
+    externalEditor: 'auto',
   },
 }
 
@@ -70,23 +77,30 @@ interface SettingsState extends Persisted {
   setSurfaceFont: (surface: FontSurface, patch: Partial<SurfaceFont>) => void
   setBehavior: (patch: Partial<Behavior>) => void
   setByPath: (path: string, value: unknown) => void
+  setSyncDir: (dir: string) => Promise<void>
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+async function writeSettings(s: SettingsState): Promise<void> {
+  const snapshot: Persisted = {
+    locale: s.locale,
+    appearance: s.appearance,
+    behavior: s.behavior,
+    capabilities: s.capabilities,
+    sync: s.sync,
+  }
+  const path = await window.pine.settings.path()
+  await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
+}
+
 function scheduleSave(get: () => SettingsState): void {
   if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(async () => {
-    const s = get()
-    const snapshot: Persisted = {
-      locale: s.locale,
-      appearance: s.appearance,
-      behavior: s.behavior,
-      capabilities: s.capabilities,
-    }
-    const path = await window.pine.settings.path()
-    await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
-  }, 300)
+  saveTimer = setTimeout(() => void writeSettings(get()), 300)
 }
+
+const syncOf = (v: unknown): SyncSettings | undefined =>
+  isPlainObject(v) && typeof v.dir === 'string' ? { dir: v.dir } : undefined
 
 const mergeFont = (base: SurfaceFont, p?: Partial<SurfaceFont>): SurfaceFont => ({ ...base, ...p })
 
@@ -109,6 +123,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         },
         behavior: { ...DEFAULTS.behavior, ...p.behavior },
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
+        sync: syncOf(p.sync),
       })
     } catch {}
   },
@@ -130,6 +145,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setBehavior: (patch) => {
     set((s) => ({ behavior: { ...s.behavior, ...patch } }))
     scheduleSave(get)
+  },
+  setSyncDir: async (dir) => {
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = null
+    set({ sync: dir ? { dir } : undefined })
+    await writeSettings(get())
   },
   setByPath: (path, value) => {
     const keys = path.split('.').filter(Boolean)

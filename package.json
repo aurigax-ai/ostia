@@ -12,8 +12,9 @@
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build && pnpm run build:cli",
+    "build": "electron-vite build && pnpm run build:cli && pnpm run build:extensions",
     "build:cli": "esbuild src/cli/index.ts --bundle --platform=node --format=cjs --packages=external --outfile=out/cli/index.js",
+    "build:extensions": "node scripts/build-extensions.mjs",
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
     "package": "pnpm build && electron-builder",
@@ -27,7 +28,7 @@
     "test:coverage": "vitest run --project node --project dom --coverage",
     "test:unit": "vitest run --project node",
     "test:security": "vitest run --project security",
-    "test:e2e": "playwright test"
+    "test:e2e": "bash scripts/e2e.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

@@ -1,4 +1,6 @@
-import type { Capability } from './capabilities'
+import type { Capability, PhoneGrantableCap } from './capabilities'
+import type { ExtensionsApi } from './extensions'
+import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
 
@@ -74,11 +76,59 @@ export interface LspApi {
 
 export interface SettingsApi {
   path: () => Promise<string>
+  onChanged: (cb: () => void) => () => void
 }
 
-export type SessionLiveState = 'idle' | 'working' | 'waiting' | 'done'
+export interface SyncConflict {
+  at: string
+  files: string[]
+}
 
-export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'kanban' | 'wiki'
+export interface SyncStatus {
+  dir: string | null
+  state: 'off' | 'ok' | 'error'
+  error?: string
+  lastSync: string | null
+  lastConflict: SyncConflict | null
+}
+
+export interface SyncApi {
+  status: () => Promise<SyncStatus>
+  run: () => Promise<SyncStatus>
+  pickFolder: () => Promise<string | null>
+  onStatus: (cb: (status: SyncStatus) => void) => () => void
+}
+
+export type SessionLiveState = 'idle' | 'working' | 'waiting' | 'done' | 'error'
+
+export type AttentionState = 'none' | 'working' | 'waiting' | 'done' | 'error'
+
+export interface NotificationEntry {
+  id: string
+  ts: string
+  title: string
+  body?: string
+  from: string
+  paneId?: string
+  extId?: string
+}
+
+export interface NotificationPost {
+  paneId: string
+  title: string
+  body?: string
+  desktop: boolean
+}
+
+export interface NotificationsApi {
+  list: () => Promise<NotificationEntry[]>
+  post: (post: NotificationPost) => void
+  clear: () => void
+  onChanged: (cb: () => void) => () => void
+  onActivate: (cb: (paneId: string) => void) => () => void
+}
+
+export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension'
 
 export interface SnapshotPaneNode {
   type: 'pane'
@@ -88,6 +138,7 @@ export interface SnapshotPaneNode {
   cwd?: string
   filePath?: string
   url?: string
+  extensionId?: string
 }
 
 export interface SnapshotSplitNode {
@@ -192,78 +243,10 @@ export interface TerminalStateApi {
 export interface BrowserApi {
   register: (paneId: string, webContentsId: number) => void
   unregister: (paneId: string) => void
-}
-
-export interface KanbanCard {
-  id: string
-  title: string
-  column: string
-  assignee?: string
-  body?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface KanbanColumn {
-  id: string
-  name: string
-}
-
-export interface KanbanBoard {
-  columns: KanbanColumn[]
-  cards: KanbanCard[]
-}
-
-export type KanbanMutateOp =
-  | { op: 'add'; title: string; column?: string; body?: string }
-  | { op: 'move'; cardId: string; column: string }
-  | {
-      op: 'update'
-      cardId: string
-      patch: Partial<Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>>
-    }
-  | { op: 'remove'; cardId: string }
-
-export type KanbanFailure = { ok: false; error: string; message?: string }
-
-export type KanbanMutateResult = { ok: true; board: KanbanBoard } | KanbanFailure
-
-export interface KanbanApi {
-  get: (workDir: string) => Promise<KanbanBoard | KanbanFailure>
-  mutate: (workDir: string, op: KanbanMutateOp) => Promise<KanbanMutateResult>
-}
-
-export type WikiScope = 'project' | 'global'
-
-export interface WikiPageSummary {
-  slug: string
-  title: string
-  updatedAt: string
-}
-
-export interface WikiPage {
-  slug: string
-  title: string
-  body: string
-  updatedAt: string
-}
-
-export type WikiFailure = { ok: false; error: string; message?: string }
-
-export interface WikiApi {
-  list: (params: { scope?: WikiScope; workDir: string }) => Promise<{ pages: WikiPageSummary[] }>
-  get: (params: {
-    slug: string
-    scope?: WikiScope
-    workDir: string
-  }) => Promise<WikiPage | WikiFailure>
-  set: (params: {
-    slug: string
-    body: string
-    title?: string
-    scope?: WikiScope
-    workDir: string
-  }) => Promise<{ ok: true } | WikiFailure>
+  pickStart: (paneId: string, theme: PickTheme) => Promise<PickOutcome>
+  pickCancel: (paneId: string) => void
+  pickSend: (req: PickSendRequest) => Promise<PickSendResult>
+  onPickState: (cb: (state: PickState) => void) => () => void
 }
 
 export interface GatewayStatus {
@@ -299,6 +282,23 @@ export interface GatewayDevice {
   createdAt: string
 }
 
+export type GatewayBindKind = 'loopback' | 'lan' | 'tailscale' | 'custom'
+
+export interface GatewayBindAddress {
+  address: string
+  kind: GatewayBindKind
+  iface?: string
+}
+
+export interface GatewayBindOptions {
+  addresses: GatewayBindAddress[]
+  selected: string
+}
+
+export type GatewaySetCapResult =
+  | { ok: true; caps: string[] }
+  | { ok: false; error: 'not-found' | 'invalid-cap' | 'requires-command' }
+
 export interface GatewayApi {
   enable: (opts?: { host?: string; port?: number }) => Promise<GatewayEnableResult>
   disable: () => Promise<{ ok: true }>
@@ -306,6 +306,31 @@ export interface GatewayApi {
   status: () => Promise<GatewayStatus>
   devices: () => Promise<{ devices: GatewayDevice[] }>
   revoke: (deviceId: string) => Promise<{ ok: boolean; error?: string }>
+  setCap: (
+    deviceId: string,
+    cap: PhoneGrantableCap,
+    granted: boolean,
+  ) => Promise<GatewaySetCapResult>
+  bindOptions: () => Promise<GatewayBindOptions>
+}
+
+export interface ExternalEditorRequest {
+  template: string
+  file: string
+  line?: number
+  column?: number
+}
+
+export type ExternalEditorResult =
+  | { ok: true; argv: string[] }
+  | {
+      ok: false
+      error: 'invalid-path' | 'no-editor' | 'invalid-template' | 'spawn-failed'
+      message?: string
+    }
+
+export interface ExternalEditorApi {
+  open: (req: ExternalEditorRequest) => Promise<ExternalEditorResult>
 }
 
 export interface PineBridge {
@@ -317,14 +342,16 @@ export interface PineBridge {
   fs: FsApi
   lsp: LspApi
   settings: SettingsApi
+  sync: SyncApi
   session: SessionApi
   lifecycle: LifecycleApi
   commands: CommandsApi
   terminalState: TerminalStateApi
   browser: BrowserApi
-  kanban: KanbanApi
-  wiki: WikiApi
+  extensions: ExtensionsApi
+  externalEditor: ExternalEditorApi
   gateway: GatewayApi
+  notifications: NotificationsApi
 }
 
 declare global {

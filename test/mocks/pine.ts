@@ -1,5 +1,5 @@
-import { vi } from 'vitest'
 import type { PineBridge } from '@shared/types'
+import { vi } from 'vitest'
 
 export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
   const noopUnsub = () => () => {}
@@ -37,6 +37,17 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     },
     settings: {
       path: vi.fn().mockResolvedValue('/tmp/pine-test/settings.json'),
+      onChanged: vi.fn(noopUnsub),
+    },
+    sync: {
+      status: vi
+        .fn()
+        .mockResolvedValue({ dir: null, state: 'off', lastSync: null, lastConflict: null }),
+      run: vi
+        .fn()
+        .mockResolvedValue({ dir: null, state: 'off', lastSync: null, lastConflict: null }),
+      pickFolder: vi.fn().mockResolvedValue(null),
+      onStatus: vi.fn(noopUnsub),
     },
     session: {
       save: vi.fn(),
@@ -55,15 +66,25 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     browser: {
       register: vi.fn(),
       unregister: vi.fn(),
+      pickStart: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
+      pickCancel: vi.fn(),
+      pickSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+      onPickState: vi.fn(noopUnsub),
     },
-    kanban: {
-      get: vi.fn().mockResolvedValue({ columns: [], cards: [] }),
-      mutate: vi.fn().mockResolvedValue({ ok: true, board: { columns: [], cards: [] } }),
+    extensions: {
+      list: vi.fn().mockResolvedValue([]),
+      setEnabled: vi.fn().mockResolvedValue([]),
+      approve: vi.fn().mockResolvedValue([]),
+      invoke: vi.fn().mockResolvedValue({ ok: true }),
+      panel: vi.fn().mockResolvedValue({ ok: false, error: 'no-panel' }),
+      sidebarItems: vi.fn().mockResolvedValue([]),
+      onChanged: vi.fn(noopUnsub),
+      onSidebar: vi.fn(noopUnsub),
+      onOpenPanel: vi.fn(noopUnsub),
+      onOpenDiff: vi.fn(noopUnsub),
     },
-    wiki: {
-      list: vi.fn().mockResolvedValue({ pages: [] }),
-      get: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
-      set: vi.fn().mockResolvedValue({ ok: true }),
+    externalEditor: {
+      open: vi.fn().mockResolvedValue({ ok: true, argv: [] }),
     },
     gateway: {
       enable: vi.fn().mockResolvedValue({ host: '127.0.0.1', port: 8722, fingerprint: 'sha256/x' }),
@@ -78,9 +99,27 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       }),
       status: vi
         .fn()
-        .mockResolvedValue({ running: false, host: null, port: null, fingerprint: null, deviceCount: 0 }),
+        .mockResolvedValue({
+          running: false,
+          host: null,
+          port: null,
+          fingerprint: null,
+          deviceCount: 0,
+        }),
       devices: vi.fn().mockResolvedValue({ devices: [] }),
       revoke: vi.fn().mockResolvedValue({ ok: true }),
+      setCap: vi.fn().mockResolvedValue({ ok: true, caps: ['read', 'board.read', 'notify'] }),
+      bindOptions: vi.fn().mockResolvedValue({
+        addresses: [{ address: '127.0.0.1', kind: 'loopback' }],
+        selected: '127.0.0.1',
+      }),
+    },
+    notifications: {
+      list: vi.fn().mockResolvedValue([]),
+      post: vi.fn(),
+      clear: vi.fn(),
+      onChanged: vi.fn(noopUnsub),
+      onActivate: vi.fn(noopUnsub),
     },
   }
   return { ...base, ...overrides }

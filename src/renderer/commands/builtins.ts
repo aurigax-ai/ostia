@@ -1,5 +1,15 @@
+import type { AttentionState } from '@shared/types'
 import { type DropZone, allPanes } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
+import {
+  type BlockPart,
+  copyBlock,
+  insertCommand,
+  rerunBlock,
+  stepBlock,
+} from '../lib/blockActions'
+import { jumpToLatestUnread, signalPane } from '../lib/sessionActivity'
+import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveWorkspaceNow } from '../stores/persistence'
 import type { SessionKind, SessionState } from '../stores/sessionsStore'
@@ -22,6 +32,22 @@ interface SessionListEntry {
   kind: SessionKind
   workDir: string
   state: SessionState
+  activePaneId?: string
+}
+
+const PROGRAM_SETTING = 'behavior.externalEditor'
+
+export function launchesProgram(key: string, value: unknown): boolean {
+  const path = key.split('.').filter(Boolean).join('.')
+  if (path === PROGRAM_SETTING || path.startsWith(`${PROGRAM_SETTING}.`)) return true
+  if (path !== 'behavior') return false
+  const current = useSettingsStore.getState().behavior.externalEditor
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'externalEditor' in value &&
+    (value as { externalEditor: unknown }).externalEditor !== current
+  )
 }
 
 function getByPath(root: unknown, path: string): unknown {
@@ -126,6 +152,93 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  commands.register<{ state: AttentionState; message?: string }>({
+    id: 'attention.set',
+    title: 'Set Pane Attention',
+    category: 'Pane',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: ({ state, message }, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
+    },
+  })
+
+  commands.register<{ message: string }>({
+    id: 'attention.notify',
+    title: 'Mark Pane Unread',
+    category: 'Pane',
+    hidden: true,
+    capabilities: ['notify'],
+    run: ({ message }, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      signalPane(ctx.activePaneId, { type: 'notify', message, waiting: false, at: Date.now() })
+    },
+  })
+
+  commands.register<undefined, { paneId: string | null }>({
+    id: 'attention.jumpToLatest',
+    title: 'Jump to Latest Unread',
+    category: 'View',
+    target: 'none',
+    run: () => ({ paneId: jumpToLatestUnread() }),
+  })
+
+  const blockStep = (id: string, title: string, dir: 'prev' | 'next'): void =>
+    commands.register<undefined, { blockId: string | null }>({
+      id,
+      title,
+      category: 'Terminal',
+      capabilities: ['drive-self'],
+      run: (_args, ctx) => ({
+        blockId: ctx.activePaneId ? stepBlock(ctx.activePaneId, dir) : null,
+      }),
+    })
+  blockStep('block.selectPrev', 'Select Previous Block', 'prev')
+  blockStep('block.selectNext', 'Select Next Block', 'next')
+
+  const blockCopy = (id: string, title: string, part: BlockPart): void =>
+    commands.register<{ blockId?: string } | undefined, { copied: boolean }>({
+      id,
+      title,
+      category: 'Terminal',
+      capabilities: ['drive-self'],
+      run: async (args, ctx) => ({
+        copied: ctx.activePaneId ? await copyBlock(ctx.activePaneId, part, args?.blockId) : false,
+      }),
+    })
+  blockCopy('block.copyCommand', 'Copy Block Command', 'command')
+  blockCopy('block.copyOutput', 'Copy Block Output', 'output')
+  blockCopy('block.copyBoth', 'Copy Block Command and Output', 'both')
+
+  commands.register<{ blockId?: string } | undefined, { rerun: boolean }>({
+    id: 'block.rerun',
+    title: 'Rerun Block Command',
+    category: 'Terminal',
+    capabilities: ['shell'],
+    run: (args, ctx) => ({
+      rerun: ctx.activePaneId ? rerunBlock(ctx.activePaneId, args?.blockId) : false,
+    }),
+  })
+
+  commands.register({
+    id: 'history.search',
+    title: 'Search Command History',
+    category: 'Terminal',
+    target: 'none',
+    run: () => useHistorySearchStore.getState().setOpen(true),
+  })
+
+  commands.register<{ command: string }, { inserted: boolean }>({
+    id: 'history.insert',
+    title: 'Insert Command',
+    hidden: true,
+    capabilities: ['shell'],
+    run: ({ command }, ctx) => ({
+      inserted: ctx.activePaneId ? insertCommand(ctx.activePaneId, command) : false,
+    }),
+  })
+
   commands.register({
     id: 'session.new',
     title: 'New Session',
@@ -193,28 +306,6 @@ export function registerBuiltinCommands(): void {
     run: (_args, ctx) => delegate(ctx, 'browser.new'),
   })
 
-  commands.register<undefined>({
-    id: 'kanban.open',
-    title: 'Open Board',
-    category: 'App',
-    capabilities: ['read-board'],
-    target: 'active',
-    run: (_args, ctx) => {
-      if (ctx.activeSessionId) useLayoutStore.getState().openSurface(ctx.activeSessionId, 'kanban')
-    },
-  })
-
-  commands.register<undefined>({
-    id: 'wiki.open',
-    title: 'Open Wiki',
-    category: 'App',
-    capabilities: ['wiki-read'],
-    target: 'active',
-    run: (_args, ctx) => {
-      if (ctx.activeSessionId) useLayoutStore.getState().openSurface(ctx.activeSessionId, 'wiki')
-    },
-  })
-
   commands.register<{ allSessions?: boolean } | undefined, PaneListEntry[]>({
     id: 'pane.list',
     title: 'List Panes',
@@ -253,13 +344,17 @@ export function registerBuiltinCommands(): void {
     capabilities: ['read-board'],
     target: 'none',
     run: () =>
-      useSessionsStore.getState().sessions.map((s) => ({
-        sessionId: s.id,
-        name: s.name,
-        kind: s.kind,
-        workDir: s.workDir,
-        state: s.state,
-      })),
+      useSessionsStore.getState().sessions.map((s) => {
+        const activePaneId = useLayoutStore.getState().bySession[s.id]?.activePaneId
+        return {
+          sessionId: s.id,
+          name: s.name,
+          kind: s.kind,
+          workDir: s.workDir,
+          state: s.state,
+          ...(activePaneId ? { activePaneId } : {}),
+        }
+      }),
   })
 
   commands.register<undefined, { saved: boolean }>({
@@ -296,6 +391,9 @@ export function registerBuiltinCommands(): void {
     capabilities: ['settings-write'],
     target: 'none',
     run: ({ key, value }) => {
+      if (launchesProgram(key, value)) {
+        throw new Error(`${PROGRAM_SETTING} can only be changed by you in Settings`)
+      }
       useSettingsStore.getState().setByPath(key, value)
       return { ok: true }
     },

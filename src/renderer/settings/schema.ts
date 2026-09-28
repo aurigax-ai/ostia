@@ -57,6 +57,26 @@ export const SETTINGS_JSON_SCHEMA = {
             'Shells are always respawned fresh — this restores the workspace’s shape and ' +
             'history, not live processes. Turning it off erases what is already stored.',
         },
+        externalEditor: {
+          type: 'string',
+          description:
+            'Command for "Open in External Editor". "auto" picks the first of code, cursor, zed ' +
+            'on PATH; empty turns it off. Placeholders: {file}, {line}, {column}, e.g. ' +
+            '"code -g {file}:{line}:{column}". Runs the program directly, never through a shell.',
+        },
+      },
+    },
+    sync: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        dir: {
+          type: 'string',
+          description:
+            'Folder to sync settings and extension choices through (a git repository, ' +
+            'Syncthing or Dropbox folder). Empty turns sync off. Set it from Settings → Sync; ' +
+            'agents cannot change it. Secrets and capability grants never sync.',
+        },
       },
     },
     capabilities: {

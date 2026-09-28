@@ -1,9 +1,21 @@
+import type { PickCapture, PickTheme } from '@shared/pick'
 import type { WebviewTag } from 'electron'
-import { ArrowLeft, ArrowRight, RotateCw } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Crosshair, RotateCw } from 'lucide-react'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
-import { useDict } from '../i18n/useDict'
+import { fmt, useDict } from '../i18n/useDict'
+import type { PickTarget } from '../lib/pickTargets'
+import { sendPickToPane } from '../lib/sendPick'
 import { useLayoutStore } from '../stores/layoutStore'
 import { IconButton } from './IconButton'
+import { PickSendPanel, usePickTargets } from './PickSendPanel'
+
+const STATUS_MS = 6000
+
+function pickTheme(): PickTheme {
+  const css = getComputedStyle(document.documentElement)
+  const read = (name: string): string => css.getPropertyValue(name).trim()
+  return { accent: read('--brand'), surface: read('--surface-3'), fg: read('--fg') }
+}
 
 function resolveAddress(input: string): string {
   const trimmed = input.trim()
@@ -123,6 +135,67 @@ export function BrowserView({
     }
   }, [paneId, withGuest, load])
 
+  const [picking, setPicking] = useState<{ byAgent: boolean } | null>(null)
+  const [capture, setCapture] = useState<PickCapture | null>(null)
+  const [sending, setSending] = useState(false)
+  const [status, setStatus] = useState<string | null>(null)
+  const targets = usePickTargets(sessionId)
+
+  useEffect(
+    () =>
+      window.pine?.browser?.onPickState?.((state) => {
+        if (state.paneId !== paneId) return
+        setPicking(state.active ? { byAgent: state.byAgent } : null)
+      }),
+    [paneId],
+  )
+
+  useEffect(() => {
+    if (!status) return
+    const timer = setTimeout(() => setStatus(null), STATUS_MS)
+    return () => clearTimeout(timer)
+  }, [status])
+
+  const togglePick = async (): Promise<void> => {
+    if (picking) {
+      window.pine.browser.pickCancel(paneId)
+      return
+    }
+    setCapture(null)
+    setStatus(null)
+    setPicking({ byAgent: false })
+    withGuest((wv) => wv.focus())
+    const outcome = await window.pine.browser.pickStart(paneId, pickTheme())
+    setPicking(null)
+    if (outcome.ok) setCapture(outcome.capture)
+    else if (outcome.error !== 'cancelled' && outcome.error !== 'busy') {
+      setStatus(fmt(d.browser.pickFailed, { reason: outcome.error }))
+    }
+  }
+
+  const send = async (target: PickTarget, note: string): Promise<void> => {
+    if (!capture) return
+    setSending(true)
+    try {
+      const res = await sendPickToPane({
+        capture,
+        sourcePaneId: paneId,
+        targetPaneId: target.paneId,
+        note,
+      })
+      if (res.ok) {
+        setCapture(null)
+        setStatus(
+          fmt(res.inserted ? d.browser.sentInserted : d.browser.sentCopied, { pane: target.title }),
+        )
+      } else {
+        setStatus(fmt(d.browser.sendFailed, { reason: res.error }))
+      }
+    } finally {
+      setSending(false)
+    }
+  }
+
   const navigate = (raw: string): void => {
     const next = resolveAddress(raw)
     lastAppliedUrlRef.current = next
@@ -135,7 +208,7 @@ export function BrowserView({
   }
 
   return (
-    <div className="browser-surface">
+    <div className="browser-surface relative">
       <div className="browser-toolbar">
         <IconButton
           icon={ArrowLeft}
@@ -162,7 +235,27 @@ export function BrowserView({
           onChange={(e) => setAddress(e.target.value)}
           onKeyDown={onAddressKeyDown}
         />
+        <IconButton
+          icon={Crosshair}
+          label={picking ? d.browser.pickStop : d.browser.pick}
+          aria-pressed={picking !== null}
+          onClick={() => void togglePick()}
+        />
       </div>
+      {picking || status ? (
+        <output className="block flex-none border-line border-b bg-surface-2 px-3 py-1 text-fg-muted text-ui-sm">
+          {picking ? (picking.byAgent ? d.browser.pickHintAgent : d.browser.pickHint) : status}
+        </output>
+      ) : null}
+      {capture ? (
+        <PickSendPanel
+          capture={capture}
+          targets={targets}
+          sending={sending}
+          onSend={(target, note) => void send(target, note)}
+          onClose={() => setCapture(null)}
+        />
+      ) : null}
       <webview
         ref={(el) => {
           webviewRef.current = el

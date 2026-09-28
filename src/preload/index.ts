@@ -1,25 +1,31 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
+  ExtensionInfo,
+  ExtensionOpenDiffRequest,
+  ExtensionOpenPanelRequest,
+  ExtensionPanelSource,
+  ExtensionResult,
+  ExtensionSidebarItem,
+} from '../shared/extensions'
+import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
+import type {
   AppInfo,
   CommandInvokeRequest,
+  ExternalEditorResult,
   FsEntry,
+  GatewayBindOptions,
   GatewayDevice,
   GatewayEnableResult,
   GatewayPairResult,
+  GatewaySetCapResult,
   GatewayStatus,
-  KanbanBoard,
-  KanbanFailure,
-  KanbanMutateOp,
-  KanbanMutateResult,
   LspServerInfo,
   LspStartResult,
+  NotificationEntry,
   PineBridge,
   Platform,
   PtyAttachResult,
-  WikiFailure,
-  WikiPage,
-  WikiPageSummary,
-  WikiScope,
+  SyncStatus,
   WorkspaceSnapshot,
 } from '../shared/types'
 
@@ -79,6 +85,21 @@ const bridge: PineBridge = {
   },
   settings: {
     path: () => ipcRenderer.invoke('settings:path') as Promise<string>,
+    onChanged: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('settings:changed', handler)
+      return () => ipcRenderer.removeListener('settings:changed', handler)
+    },
+  },
+  sync: {
+    status: () => ipcRenderer.invoke('sync:status') as Promise<SyncStatus>,
+    run: () => ipcRenderer.invoke('sync:run') as Promise<SyncStatus>,
+    pickFolder: () => ipcRenderer.invoke('dialog:pick-folder') as Promise<string | null>,
+    onStatus: (cb) => {
+      const handler = (_e: unknown, status: SyncStatus): void => cb(status)
+      ipcRenderer.on('sync:status', handler)
+      return () => ipcRenderer.removeListener('sync:status', handler)
+    },
   },
   session: {
     save: (snapshot) => ipcRenderer.send('session:save', snapshot),
@@ -109,25 +130,49 @@ const bridge: PineBridge = {
     register: (paneId, webContentsId) =>
       ipcRenderer.send('browser:register', paneId, webContentsId),
     unregister: (paneId) => ipcRenderer.send('browser:unregister', paneId),
+    pickStart: (paneId, theme) =>
+      ipcRenderer.invoke('browser:pick-start', paneId, theme) as Promise<PickOutcome>,
+    pickCancel: (paneId) => ipcRenderer.send('browser:pick-cancel', paneId),
+    pickSend: (req) => ipcRenderer.invoke('browser:pick-send', req) as Promise<PickSendResult>,
+    onPickState: (cb) => {
+      const handler = (_e: unknown, state: PickState): void => cb(state)
+      ipcRenderer.on('browser:pick-state', handler)
+      return () => ipcRenderer.removeListener('browser:pick-state', handler)
+    },
   },
-  kanban: {
-    get: (workDir) =>
-      ipcRenderer.invoke('kanban:get', { workDir }) as Promise<KanbanBoard | KanbanFailure>,
-    mutate: (workDir, op: KanbanMutateOp) =>
-      ipcRenderer.invoke('kanban:mutate', { workDir, op }) as Promise<KanbanMutateResult>,
+  extensions: {
+    list: () => ipcRenderer.invoke('extensions:list') as Promise<ExtensionInfo[]>,
+    setEnabled: (extId, enabled) =>
+      ipcRenderer.invoke('extensions:set-enabled', extId, enabled) as Promise<ExtensionInfo[]>,
+    approve: (extId) => ipcRenderer.invoke('extensions:approve', extId) as Promise<ExtensionInfo[]>,
+    invoke: (extId, command, target) =>
+      ipcRenderer.invoke('extensions:invoke', extId, command, target) as Promise<ExtensionResult>,
+    panel: (extId, context) =>
+      ipcRenderer.invoke('extensions:panel', extId, context) as Promise<ExtensionPanelSource>,
+    sidebarItems: () => ipcRenderer.invoke('extensions:sidebar') as Promise<ExtensionSidebarItem[]>,
+    onChanged: (cb) => {
+      const handler = (_e: unknown, list: ExtensionInfo[]): void => cb(list)
+      ipcRenderer.on('extensions:changed', handler)
+      return () => ipcRenderer.removeListener('extensions:changed', handler)
+    },
+    onSidebar: (cb) => {
+      const handler = (_e: unknown, items: ExtensionSidebarItem[]): void => cb(items)
+      ipcRenderer.on('extensions:sidebar', handler)
+      return () => ipcRenderer.removeListener('extensions:sidebar', handler)
+    },
+    onOpenPanel: (cb) => {
+      const handler = (_e: unknown, req: ExtensionOpenPanelRequest): void => cb(req)
+      ipcRenderer.on('extensions:open-panel', handler)
+      return () => ipcRenderer.removeListener('extensions:open-panel', handler)
+    },
+    onOpenDiff: (cb) => {
+      const handler = (_e: unknown, req: ExtensionOpenDiffRequest): void => cb(req)
+      ipcRenderer.on('extensions:open-diff', handler)
+      return () => ipcRenderer.removeListener('extensions:open-diff', handler)
+    },
   },
-  wiki: {
-    list: (params: { scope?: WikiScope; workDir: string }) =>
-      ipcRenderer.invoke('wiki:list', params) as Promise<{ pages: WikiPageSummary[] }>,
-    get: (params: { slug: string; scope?: WikiScope; workDir: string }) =>
-      ipcRenderer.invoke('wiki:get', params) as Promise<WikiPage | WikiFailure>,
-    set: (params: {
-      slug: string
-      body: string
-      title?: string
-      scope?: WikiScope
-      workDir: string
-    }) => ipcRenderer.invoke('wiki:set', params) as Promise<{ ok: true } | WikiFailure>,
+  externalEditor: {
+    open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,
   },
   gateway: {
     enable: (opts) => ipcRenderer.invoke('gateway:enable', opts) as Promise<GatewayEnableResult>,
@@ -140,6 +185,28 @@ const bridge: PineBridge = {
         ok: boolean
         error?: string
       }>,
+    setCap: (deviceId, cap, granted) =>
+      ipcRenderer.invoke('gateway:set-cap', {
+        deviceId,
+        cap,
+        granted,
+      }) as Promise<GatewaySetCapResult>,
+    bindOptions: () => ipcRenderer.invoke('gateway:bind-options') as Promise<GatewayBindOptions>,
+  },
+  notifications: {
+    list: () => ipcRenderer.invoke('notifications:list') as Promise<NotificationEntry[]>,
+    post: (post) => ipcRenderer.send('notifications:post', post),
+    clear: () => ipcRenderer.send('notifications:clear'),
+    onChanged: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('notifications:changed', handler)
+      return () => ipcRenderer.removeListener('notifications:changed', handler)
+    },
+    onActivate: (cb) => {
+      const handler = (_e: unknown, paneId: string): void => cb(paneId)
+      ipcRenderer.on('notifications:activate', handler)
+      return () => ipcRenderer.removeListener('notifications:activate', handler)
+    },
   },
 }
 

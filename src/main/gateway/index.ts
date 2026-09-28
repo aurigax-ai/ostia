@@ -1,13 +1,22 @@
 import { hostname } from 'node:os'
 import { ipcMain } from 'electron'
-import type { GatewayDevice, GatewayEnableResult, GatewayPairResult } from '../../shared/types'
+import type {
+  GatewayBindOptions,
+  GatewayDevice,
+  GatewayEnableResult,
+  GatewayPairResult,
+  GatewaySetCapResult,
+} from '../../shared/types'
 import { registerControlMethod } from '../controlServer'
 import type { Device } from './devices'
-import { list as listDevices, revoke as revokeDevice } from './devices'
+import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
+import { listBindAddresses } from './interfaces'
 import { newCode } from './pairing'
 import {
   type GatewayStartOptions,
+  applyDeviceCaps,
   closeDeviceSockets,
+  configuredHost,
   gatewayStatus,
   hostWarning,
   startGateway,
@@ -74,6 +83,29 @@ export function gatewayRevoke(params: unknown): { ok: boolean; error?: string } 
   return { ok: true }
 }
 
+export function gatewaySetCap(params: unknown): GatewaySetCapResult {
+  const { deviceId, cap, granted } = (params ?? {}) as {
+    deviceId?: unknown
+    cap?: unknown
+    granted?: unknown
+  }
+  if (typeof deviceId !== 'string' || !deviceId || typeof granted !== 'boolean') {
+    return { ok: false, error: 'invalid-cap' }
+  }
+  const result = setDeviceCap(deviceId, cap, granted)
+  if (result.ok) applyDeviceCaps(deviceId, result.caps)
+  return result
+}
+
+export async function gatewayBindOptions(): Promise<GatewayBindOptions> {
+  const addresses = await listBindAddresses()
+  const selected = configuredHost()
+  if (!addresses.some((a) => a.address === selected)) {
+    addresses.push({ address: selected, kind: 'custom' })
+  }
+  return { addresses, selected }
+}
+
 export function registerGatewayMethods(): void {
   registerControlMethod('gateway.enable', {
     cap: 'gateway',
@@ -113,4 +145,9 @@ export function registerGatewayIpc(): void {
   ipcMain.handle('gateway:status', () => gatewayStatus())
   ipcMain.handle('gateway:devices', () => gatewayDevicesList())
   ipcMain.handle('gateway:revoke', (_e, params) => gatewayRevoke(params))
+  ipcMain.handle('gateway:bind-options', () => gatewayBindOptions())
+  ipcMain.handle('gateway:set-cap', (e, params): GatewaySetCapResult => {
+    if (e.sender.getType() !== 'window') return { ok: false, error: 'invalid-cap' }
+    return gatewaySetCap(params)
+  })
 }

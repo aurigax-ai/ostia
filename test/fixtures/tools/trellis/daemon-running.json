@@ -1,0 +1,1 @@
+{"running":true,"url":"http://127.0.0.1:7788/?token=TESTTOKEN","pid":1234,"managed_by":"service","service":{"installed":true,"enabled":true,"running":true,"pid":1234,"managed_by":"systemd","unit_path":"/home/user/.config/systemd/user/trellis.service","exec":"/home/user/.local/bin/trellis"}}

@@ -4,6 +4,7 @@ import {
   allPanes,
   closePane,
   createPane,
+  findExtensionPane,
   findPane,
   firstPaneId,
   firstPaneOfKind,
@@ -12,12 +13,14 @@ import {
   resetIds,
   setPaneBrowser,
   setPaneCwd,
+  setPaneDiff,
   setPaneEditor,
-  setPaneKind,
+  setPaneExtension,
   setPaneUrl,
   setSizes,
   splitOf,
   splitPane,
+  withoutKind,
 } from './tree'
 import type { LayoutNode } from './types'
 
@@ -317,20 +320,76 @@ describe('setPaneBrowser', () => {
   })
 })
 
-describe('setPaneKind', () => {
-  it('turns the matching pane into the given kind, using its default title', () => {
+describe('setPaneExtension', () => {
+  it('turns the matching pane into an extension panel with the given id and title', () => {
     const a = createPane('terminal')
-    const b = createPane('terminal')
+    const b = createPane('terminal', undefined, '/w')
     const root = splitOf('horizontal', a, b)
-    const next = setPaneKind(root, b.id, 'kanban')
-    expect(findPane(next, b.id)?.kind).toBe('kanban')
-    expect(findPane(next, b.id)?.title).toBe('Board')
+    const next = setPaneExtension(root, b.id, 'kanban', 'Board')
+    const pane = findPane(next, b.id)
+    expect(pane?.kind).toBe('extension')
+    expect(pane?.extensionId).toBe('kanban')
+    expect(pane?.title).toBe('Board')
+    expect(pane?.cwd).toBeUndefined()
     expect(findPane(next, a.id)?.kind).toBe('terminal')
   })
 
-  it('leaves a non-matching lone pane unchanged', () => {
-    const root = createPane('terminal')
-    expect(setPaneKind(root, 'ghost', 'wiki')).toBe(root)
+  it('returns the same tree when no pane matches', () => {
+    const root = splitOf('horizontal', createPane('terminal'), createPane('terminal'))
+    expect(setPaneExtension(root, 'ghost', 'wiki', 'Wiki')).toBe(root)
+  })
+})
+
+describe('setPaneDiff', () => {
+  it('turns the pane into a diff surface, dropping fields of its previous surface', () => {
+    const editor = { ...createPane('editor', 'a.ts', '/p'), filePath: '/p/a.ts' }
+    const other = createPane()
+    const root = splitOf('horizontal', editor, other)
+    const next = setPaneDiff(root, editor.id, 'a.ts (diff)', '/repo')
+    expect(findPane(next, editor.id)).toEqual({
+      type: 'pane',
+      id: editor.id,
+      kind: 'diff',
+      title: 'a.ts (diff)',
+      cwd: '/repo',
+    })
+    expect(next.type === 'split' && next.children[1]).toBe(other)
+  })
+})
+
+describe('withoutKind', () => {
+  it('removes every pane of the kind and collapses single-child splits', () => {
+    const a = createPane()
+    const d1 = createPane('diff')
+    const d2 = createPane('diff')
+    const root = splitOf('horizontal', a, splitOf('vertical', d1, d2))
+    expect(withoutKind(root, 'diff')).toBe(a)
+  })
+
+  it('returns the same object when nothing matches and null when everything does', () => {
+    const root = splitOf('horizontal', createPane(), createPane())
+    expect(withoutKind(root, 'diff')).toBe(root)
+    expect(withoutKind(createPane('diff'), 'diff')).toBeNull()
+  })
+
+  it('keeps the sizes of the surviving children', () => {
+    const a = createPane()
+    const b = createPane()
+    const root = { ...splitOf('horizontal', a, createPane('diff'), b), sizes: [2, 1, 3] }
+    expect(withoutKind(root, 'diff')).toMatchObject({ sizes: [2, 3] })
+  })
+})
+
+describe('findExtensionPane', () => {
+  it('finds the panel pane of one extension and ignores other extensions', () => {
+    const a = createPane('terminal')
+    const b = createPane('terminal')
+    const c = createPane('terminal')
+    let root: LayoutNode = splitOf('horizontal', a, splitOf('vertical', b, c))
+    root = setPaneExtension(root, b.id, 'wiki', 'Wiki')
+    root = setPaneExtension(root, c.id, 'kanban', 'Board')
+    expect(findExtensionPane(root, 'kanban')?.id).toBe(c.id)
+    expect(findExtensionPane(root, 'git')).toBeNull()
   })
 })
 
