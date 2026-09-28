@@ -203,7 +203,8 @@ Attention, the second loud element, appears only when a pane needs you:
   center is the reference (`surface-3`, `radius-md`).
 
 Consolidation debt:
-- Primitives still missing: DropdownMenu, ContextMenu.
+- Primitives still missing: DropdownMenu. ContextMenu (`components/ui/context-menu.tsx`) backs
+  the block menu.
 
 ## 8. Interaction and accessibility
 
@@ -211,10 +212,11 @@ Consolidation debt:
   opens and restore it when it closes. xterm and Monaco manage their own focus.
 - **Keyboard**: in lists and navs, use a roving tabindex with Up/Down/Home/End; Enter or Space
   activates; Escape dismisses. Label every control (`aria-label` or an associated label).
-- **Shortcuts**: the palette, sidebar, settings and jump-to-latest-unread chords are Cmd+K /
-  Cmd+\ / Cmd+, / Cmd+Shift+U on macOS and Ctrl+Shift+P / Ctrl+Shift+B / Ctrl+, / Ctrl+Shift+U
-  elsewhere. In the terminal off macOS, copy, paste and find
-  are Ctrl+Shift+C/V/F.
+- **Shortcuts**: the palette, sidebar, settings, jump-to-latest-unread and command-history chords
+  are Cmd+K / Cmd+\ / Cmd+, / Cmd+Shift+U / Cmd+Shift+H on macOS and Ctrl+Shift+P /
+  Ctrl+Shift+B / Ctrl+, / Ctrl+Shift+U / Ctrl+Shift+H elsewhere. In the terminal, previous/next
+  block is Cmd+↑/↓ (Ctrl+Shift+↑/↓ elsewhere) and Escape clears a block selection; off macOS,
+  copy, paste and find are Ctrl+Shift+C/V/F.
 - **Transitions**: 120–180 ms ease. List only the properties that change, never `transition-all`.
 - **Overlays**: when a surface covers others, mark the covered subtree `inert` so focus can't
   leak. Hidden sessions use `visibility: hidden` + `inert`.

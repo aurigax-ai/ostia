@@ -100,7 +100,15 @@ Details: `docs/ARCHITECTURE.md`.
   OSC 7 for zsh/bash (`shellIntegration.ts`); other shells spawn without integration and still
   work. cwd flows out (terminal → pane → Files), never in.
 - **Block positions are xterm markers, not line numbers.** Absolute line numbers drift on reflow
-  and scrollback trim. Store `IMarker`-backed anchors; dispose them on reset/unmount.
+  and scrollback trim. Store `IMarker`-backed anchors; dispose them on reset/unmount. A block's
+  command text is read once at OSC 133;C (B→C in the buffer) and stored; its output is read on
+  demand from `buffer.normal` between the C and D markers (`lib/blockText.ts`), never cached.
+- **The block overlay never covers text cells.** Gutter buttons sit in the host's left padding
+  and the overlay is `pointer-events: none`; only the gutter and the sticky header take the
+  pointer.
+- **Nothing types into a pane unless it's at an idle prompt** (open draft, nothing running).
+  Rerun and history insert go through `insertCommand` (`lib/blockActions.ts`), need the `shell`
+  capability, and paste via `term.paste`.
 - **Never inject into the user's dotfiles.** zsh via a generated `ZDOTDIR` (+ `PINE_ZDOTDIR_ORIG`);
   bash via `--rcfile`. Generated files live in `privateTmpDir('pine-shell-integration')`:
   `<tmp>/pine-shell-integration-<uid>`, mode 0700, refused if it's a symlink or not ours.
@@ -116,8 +124,13 @@ Details: `docs/ARCHITECTURE.md`.
   `pane-closed` only if the pane existed; a session's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
-  `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find. macOS uses ⌘ (⌘⇧U for unread). Plain `Ctrl+<letter>` belongs to the shell. All chords live in `lib/chords.ts`;
-  xterm's `attachCustomKeyEventHandler` lets app chords through. Show hints via `chordLabel()`.
+  `Ctrl+Shift+H` command history, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find,
+  `Ctrl+Shift+↑/↓` previous/next block. macOS uses ⌘ (⌘⇧U unread, ⌘⇧H history, ⌘↑/⌘↓ blocks).
+  Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell;
+  Escape is swallowed only while a block is selected. All chords live in `lib/chords.ts`;
+  xterm's `attachCustomKeyEventHandler` lets app chords through. Block navigation is a terminal
+  chord (handled in xterm), never a window chord, so inputs and Monaco keep Shift/⌘+arrow
+  selection. Show hints via `chordLabel()`.
 - **Capabilities:** acting on any target other than your own pane/window/session needs
   `workspace-wide`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`;
   grants come only from a human editing `settings.json`. Phone caps map through `PHONE_CAP_ALLOWS`;
