@@ -54,7 +54,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description:
             'Reopen the previous run’s sessions, panes and terminal scrollback at launch. ' +
-            'Shells are always respawned fresh — this restores the workspace’s shape and ' +
+            'Shells are always respawned fresh; this restores the workspace’s shape and ' +
             'history, not live processes. Turning it off erases what is already stored.',
         },
         externalEditor: {
@@ -101,7 +101,7 @@ export const SETTINGS_JSON_SCHEMA = {
           },
           description:
             'Elevated capabilities pre-granted to every pane (pane-scoped defaults already ' +
-            'cover the rest). Human-edited only — restart Pine to apply.',
+            'cover the rest). Human-edited only; restart Pine to apply.',
         },
       },
     },

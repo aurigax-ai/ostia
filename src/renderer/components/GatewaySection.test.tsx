@@ -32,23 +32,23 @@ describe('GatewaySection', () => {
     const user = userEvent.setup()
     render(<GatewaySection />)
 
-    const input = await screen.findByRole('switch', { name: 'Type into panes — Pixel' })
+    const input = await screen.findByRole('switch', { name: 'Type into panes, Pixel' })
     expect(input).not.toBeChecked()
 
     await user.click(input)
     expect(window.pine.gateway.setCap).toHaveBeenCalledWith('dev_1', 'input', true)
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: 'Type into panes — Pixel' })).toBeChecked(),
+      expect(screen.getByRole('switch', { name: 'Type into panes, Pixel' })).toBeChecked(),
     )
 
-    await user.click(screen.getByRole('switch', { name: 'Type into panes — Pixel' }))
+    await user.click(screen.getByRole('switch', { name: 'Type into panes, Pixel' }))
     expect(window.pine.gateway.setCap).toHaveBeenLastCalledWith('dev_1', 'input', false)
   })
 
   it('keeps destructive disabled until commands are allowed', async () => {
     render(<GatewaySection />)
     const destructive = await screen.findByRole('switch', {
-      name: 'Destructive commands — Pixel',
+      name: 'Destructive commands, Pixel',
     })
     expect(destructive).toHaveAttribute('aria-disabled', 'true')
   })
@@ -58,7 +58,7 @@ describe('GatewaySection', () => {
     const user = userEvent.setup()
     render(<GatewaySection />)
 
-    await user.click(await screen.findByRole('switch', { name: 'Destructive commands — Pixel' }))
+    await user.click(await screen.findByRole('switch', { name: 'Destructive commands, Pixel' }))
     expect(await screen.findByText('Allow destructive commands?')).toBeInTheDocument()
     expect(window.pine.gateway.setCap).not.toHaveBeenCalled()
 
@@ -74,12 +74,12 @@ describe('GatewaySection', () => {
     const user = userEvent.setup()
     render(<GatewaySection />)
 
-    await user.click(await screen.findByRole('switch', { name: 'Destructive commands — Pixel' }))
+    await user.click(await screen.findByRole('switch', { name: 'Destructive commands, Pixel' }))
     await user.click(await screen.findByRole('button', { name: 'Allow destructive' }))
 
     expect(window.pine.gateway.setCap).toHaveBeenCalledWith('dev_1', 'destructive', true)
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: 'Destructive commands — Pixel' })).toBeChecked(),
+      expect(screen.getByRole('switch', { name: 'Destructive commands, Pixel' })).toBeChecked(),
     )
   })
 

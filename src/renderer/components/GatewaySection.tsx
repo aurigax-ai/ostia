@@ -11,7 +11,7 @@ import QRCode from 'qrcode'
 import { useCallback, useEffect, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
-import { ControlRow, SectionHead, ToggleRow } from './SettingsPanel'
+import { ControlRow, SectionHead, SubHead, ToggleRow, WarningNote } from './SettingsPanel'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -58,11 +58,11 @@ function DeviceGrants({
   const d = useDict()
   return (
     <fieldset
-      aria-label={`${d.settings.remoteGrants} — ${device.name}`}
+      aria-label={`${d.settings.remoteGrants}, ${device.name}`}
       className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1"
     >
       {PHONE_GRANTABLE_CAPS.map((cap) => {
-        const label = `${capLabel(d, cap)} — ${device.name}`
+        const label = `${capLabel(d, cap)}, ${device.name}`
         const disabled = cap === 'destructive' && !device.caps.includes('command')
         return (
           <div key={cap} className="flex items-center justify-between gap-2 text-fg text-ui-sm">
@@ -190,8 +190,7 @@ export function GatewaySection(): JSX.Element {
 
   return (
     <section>
-      <SectionHead title={d.settings.remote} />
-      <p className="mb-2 text-fg-muted text-ui-sm">{d.settings.remoteDesc}</p>
+      <SectionHead title={d.settings.remote} desc={d.settings.remoteDesc} />
 
       <ToggleRow
         label={d.settings.remoteEnable}
@@ -205,7 +204,7 @@ export function GatewaySection(): JSX.Element {
           <SelectTrigger
             size="sm"
             aria-label={d.settings.remoteHost}
-            className="w-64 font-mono"
+            className="w-64"
             disabled={running || toggling}
           >
             {selectedAddress ? bindLabel(d, selectedAddress) : host}
@@ -221,9 +220,7 @@ export function GatewaySection(): JSX.Element {
       </ControlRow>
 
       {exposed && !warning ? (
-        <p className="mt-1 rounded-md border border-attn/40 bg-attn/10 px-2.5 py-1.5 text-attn-fg text-ui-sm">
-          {fmt(d.settings.remoteExposedWarning, { host })}
-        </p>
+        <WarningNote>{fmt(d.settings.remoteExposedWarning, { host })}</WarningNote>
       ) : null}
 
       <ControlRow label={d.settings.remoteStatus}>
@@ -235,11 +232,7 @@ export function GatewaySection(): JSX.Element {
         </span>
       </ControlRow>
 
-      {warning ? (
-        <p className="mt-1 rounded-md border border-attn/40 bg-attn/10 px-2.5 py-1.5 text-attn-fg text-ui-sm">
-          {warning}
-        </p>
-      ) : null}
+      {warning ? <WarningNote>{warning}</WarningNote> : null}
 
       <Separator className="my-3" />
 
@@ -254,7 +247,7 @@ export function GatewaySection(): JSX.Element {
       </div>
 
       {pairResult && qrDataUrl ? (
-        <div className="mt-3 flex flex-col items-center gap-3 rounded-lg border border-line bg-surface-1 p-4">
+        <div className="mt-3 flex flex-col items-center gap-3 rounded-md border border-line bg-surface-1 p-4">
           <img
             src={qrDataUrl}
             alt={d.settings.remotePair}
@@ -287,10 +280,10 @@ export function GatewaySection(): JSX.Element {
 
       <Separator className="my-3" />
 
-      <div className="mb-1 text-fg text-ui-base">{d.settings.remoteDevices}</div>
-      {devices.length > 0 ? (
-        <p className="mb-1.5 text-fg-muted text-ui-sm">{d.settings.remoteGrantsDesc}</p>
-      ) : null}
+      <SubHead
+        title={d.settings.remoteDevices}
+        desc={devices.length > 0 ? d.settings.remoteGrantsDesc : undefined}
+      />
       {devices.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.settings.remoteNoDevices}</p>
       ) : (
@@ -300,7 +293,7 @@ export function GatewaySection(): JSX.Element {
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="truncate text-fg text-ui-base">{dev.name}</div>
-                  <div className="truncate font-mono text-fg-muted text-ui-xs">
+                  <div className="truncate text-fg-muted text-ui-xs tabular-nums">
                     {dev.caps.join(', ')} · {new Date(dev.createdAt).toLocaleDateString()}
                   </div>
                 </div>

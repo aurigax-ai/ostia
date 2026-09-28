@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { useSettingsStore } from '../stores/settingsStore'
-import { ControlRow, SectionHead } from './SettingsPanel'
+import { Hint } from './Hint'
+import { ControlRow, SectionHead, WarningNote } from './SettingsPanel'
 import { Button } from './ui/button'
 import { Separator } from './ui/separator'
 
@@ -82,13 +83,16 @@ export function SyncSection(): JSX.Element {
 
   return (
     <div>
-      <SectionHead title={d.sync.title} />
-      <p className="mb-3 text-fg-muted text-ui-sm">{d.sync.desc}</p>
+      <SectionHead title={d.sync.title} desc={d.sync.desc} />
       <Separator className="mb-2" />
       <ControlRow label={d.sync.folder} desc={fmt(d.sync.folderDesc, { app: PRODUCT_NAME })}>
-        <span className="max-w-60 truncate font-mono text-fg-muted text-ui-sm" title={dir}>
-          {dir || d.sync.notSet}
-        </span>
+        {dir ? (
+          <Hint label={dir}>
+            <span className="max-w-60 truncate font-mono text-fg-muted text-ui-sm">{dir}</span>
+          </Hint>
+        ) : (
+          <span className="text-fg-muted text-ui-sm">{d.sync.notSet}</span>
+        )}
         <Button variant="outline" size="sm" onClick={() => void choose()}>
           {d.sync.choose}
         </Button>
@@ -109,12 +113,12 @@ export function SyncSection(): JSX.Element {
         </Button>
       </ControlRow>
       {dir && status.lastConflict ? (
-        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
+        <WarningNote>
           {fmt(d.sync.conflict, {
             time: time.format(new Date(status.lastConflict.at)),
             files: status.lastConflict.files.join(', '),
           })}
-        </p>
+        </WarningNote>
       ) : null}
     </div>
   )

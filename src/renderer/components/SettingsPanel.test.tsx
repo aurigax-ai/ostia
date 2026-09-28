@@ -163,7 +163,7 @@ describe('SettingsPanel', () => {
       .mockImplementation(() => {})
     renderSettings()
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'UI font — Family' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'UI font, Family' }), {
       target: { value: 'JetBrains Mono' },
     })
 
@@ -175,7 +175,7 @@ describe('SettingsPanel', () => {
       .spyOn(useSettingsStore.getState(), 'setSurfaceFont')
       .mockImplementation(() => {})
     renderSettings()
-    const sizeInput = screen.getByRole('spinbutton', { name: 'Terminal font — Size' })
+    const sizeInput = screen.getByRole('spinbutton', { name: 'Terminal font, Size' })
 
     fireEvent.change(sizeInput, { target: { value: '18' } })
     expect(setSurfaceFont).toHaveBeenLastCalledWith('terminal', { size: 18 })
@@ -198,8 +198,8 @@ describe('SettingsPanel', () => {
     renderSettings()
 
     expect(screen.getByRole('combobox', { name: 'Theme' })).toHaveTextContent('Dracula')
-    expect(screen.getByRole('textbox', { name: 'UI font — Family' })).toHaveValue('Comic Code')
-    expect(screen.getByRole('spinbutton', { name: 'UI font — Size' })).toHaveValue(20)
+    expect(screen.getByRole('textbox', { name: 'UI font, Family' })).toHaveValue('Comic Code')
+    expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toHaveValue(20)
   })
 
   it('exposes accessible names on its controls (a11y)', async () => {
@@ -207,8 +207,8 @@ describe('SettingsPanel', () => {
     const user = userEvent.setup()
 
     expect(screen.getByRole('combobox', { name: 'Theme' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'UI font — Family' })).toBeInTheDocument()
-    expect(screen.getByRole('spinbutton', { name: 'UI font — Size' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'UI font, Family' })).toBeInTheDocument()
+    expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Files' }))
     expect(screen.getByRole('switch', { name: 'Show hidden files' })).toBeInTheDocument()

@@ -311,7 +311,8 @@
 .rail-section {
   padding: 12px 10px 4px;
   font-size: var(--text-ui-xs);
-  letter-spacing: 0.14em;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--fg-muted);
 }
@@ -479,7 +480,6 @@
 
 .crumb-sep {
   color: var(--fg-dim);
-  opacity: 0.6;
 }
 
 .crumb.current {
@@ -498,13 +498,13 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  height: 24px;
+  height: 22px;
   padding-right: 8px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--fg-muted);
-  font-size: var(--text-ui-base);
+  font-size: var(--text-ui-sm);
   text-align: left;
   width: 100%;
 }
@@ -946,8 +946,9 @@
   right: 0;
   z-index: 2;
   padding: 4px 8px;
-  background: var(--attn);
-  color: var(--bg);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--attn);
+  color: var(--attn-fg);
   font-size: var(--text-ui-sm);
 }
 
@@ -1124,8 +1125,8 @@
 }
 
 .win-controls button.close:hover {
-  background: var(--color-del);
-  color: #fff;
+  background: var(--attn);
+  color: var(--fg);
 }
 
 @media (prefers-reduced-motion: reduce) {

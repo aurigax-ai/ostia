@@ -144,14 +144,12 @@ function SidebarItems({ sessionId }: { sessionId?: string }): JSX.Element | null
       {items.map((item) => {
         const Icon = item.icon ? extensionIcon(item.icon) : null
         return (
-          <span
-            key={`${item.extId}:${item.key}`}
-            className={`ext-item tone-${item.tone}`}
-            title={`${item.extId}: ${item.text}`}
-          >
-            {Icon ? <Icon size={11} aria-hidden /> : null}
-            {item.text}
-          </span>
+          <Hint key={`${item.extId}:${item.key}`} label={`${item.extId}: ${item.text}`}>
+            <span className={`ext-item tone-${item.tone}`}>
+              {Icon ? <Icon size={12} aria-hidden /> : null}
+              {item.text}
+            </span>
+          </Hint>
         )
       })}
     </>

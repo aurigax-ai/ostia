@@ -87,7 +87,7 @@ export function PickSendPanel({
       onKeyDown={onPanelKeyDown}
     >
       <div className="flex items-center gap-2">
-        <span className="flex-1 font-medium text-ui-base">{d.browser.sendTitle}</span>
+        <span className="flex-1 font-medium text-ui-sm">{d.browser.sendTitle}</span>
         <IconButton icon={X} label={d.browser.closeSend} onClick={onClose} />
       </div>
       <code className="truncate font-mono text-fg-muted text-ui-xs">
