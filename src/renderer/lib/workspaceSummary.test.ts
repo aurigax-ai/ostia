@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PaneNode } from '../layout/types'
-import { latestUnreadMessage, runningTitle } from './workspaceSummary'
+import { latestAttentionMessage, runningTitle } from './workspaceSummary'
 
 const pane = (id: string, title = 'zsh', kind: PaneNode['kind'] = 'terminal'): PaneNode => ({
   type: 'pane',
@@ -9,13 +9,20 @@ const pane = (id: string, title = 'zsh', kind: PaneNode['kind'] = 'terminal'): P
   kind,
 })
 
-describe('latestUnreadMessage', () => {
+describe('latestAttentionMessage', () => {
   it('shows the newest unread message across the workspace’s panes', () => {
     const byPane = {
       a: { state: 'done' as const, unread: true, message: 'tests passed', at: 1 },
       b: { state: 'waiting' as const, unread: true, message: 'Claude needs permission', at: 2 },
     }
-    expect(latestUnreadMessage([pane('a'), pane('b')], byPane)).toBe('Claude needs permission')
+    expect(latestAttentionMessage([pane('a'), pane('b')], byPane)).toBe('Claude needs permission')
+  })
+
+  it('keeps a waiting agent’s message after it was read, until the state clears', () => {
+    const byPane = {
+      a: { state: 'waiting' as const, unread: false, message: 'Approve the migration?', at: 3 },
+    }
+    expect(latestAttentionMessage([pane('a')], byPane)).toBe('Approve the migration?')
   })
 
   it('ignores read messages and panes outside the workspace', () => {
@@ -23,7 +30,7 @@ describe('latestUnreadMessage', () => {
       a: { state: 'done' as const, unread: false, message: 'old', at: 5 },
       z: { state: 'waiting' as const, unread: true, message: 'elsewhere', at: 9 },
     }
-    expect(latestUnreadMessage([pane('a')], byPane)).toBeNull()
+    expect(latestAttentionMessage([pane('a')], byPane)).toBeNull()
   })
 })
 
