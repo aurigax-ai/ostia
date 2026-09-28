@@ -57,6 +57,13 @@ export const SETTINGS_JSON_SCHEMA = {
             'Shells are always respawned fresh — this restores the workspace’s shape and ' +
             'history, not live processes. Turning it off erases what is already stored.',
         },
+        externalEditor: {
+          type: 'string',
+          description:
+            'Command for "Open in External Editor". "auto" picks the first of code, cursor, zed ' +
+            'on PATH; empty turns it off. Placeholders: {file}, {line}, {column}, e.g. ' +
+            '"code -g {file}:{line}:{column}". Runs the program directly, never through a shell.',
+        },
       },
     },
     capabilities: {

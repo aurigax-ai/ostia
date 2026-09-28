@@ -74,6 +74,7 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `extensionHost.ts`, `extensionManifest.ts`, `extensionStore.ts` | Extension host: discovery + manifest validation, approval records, extension processes, `ext.*` control methods (§11) |
 | `browse.ts` | `browse.*` automation of browser panes (§9) |
 | `browsePick.ts`, `guestNetwork.ts` | Pick element: `browse.pick`, `browser:pick-*` IPC, UI-issue reports; failed-request buffer per guest (§9) |
+| `externalEditor.ts` | "Open in External Editor": resolves `behavior.externalEditor` (or auto-detects code/cursor/zed on `PATH`) and spawns it with an argv array (§9) |
 | `gateway/` | LAN gateway: `index.ts` (methods + IPC), `server.ts`, `controlDispatch.ts`, `devices.ts`, `pairing.ts`, `cert.ts`, `interfaces.ts` (§7) |
 
 Why the control-plane modules never import `main/index.ts`: that creates an import cycle.
@@ -114,7 +115,8 @@ is typed as `PineBridge`, so drift breaks the build.
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
 | terminal state | `terminalState.push` |
 | browser | `register`, `unregister`, `pickStart`, `pickCancel`, `pickSend`, `onPickState` (push channel `browser:pick-state`) |
-| extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel`, `sidebarItems`, `onChanged`, `onSidebar`, `onOpenPanel` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:open-panel`) |
+| extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel`, `sidebarItems`, `onChanged`, `onSidebar`, `onOpenPanel`, `onOpenDiff` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:open-panel`, `extensions:open-diff`) |
+| external editor | `externalEditor.open({template, file, line?, column?})` (IPC `editor:open-external`, §9) |
 | gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke`, `bind-options`, `set-cap` (IPC only) |
 | notifications | `list` (newest first), `post`, `clear`, `onChanged`, `onActivate` (push channels `notifications:changed`, `notifications:activate`) |
 
@@ -251,10 +253,15 @@ owned by another user. Why: on a shared `/tmp`, another user could plant rc file
 ### Sessions, layout, surfaces
 
 - **Session** (`stores/sessionsStore.ts`) → **split tree** (`layout/tree.ts`, pure; `stores/layoutStore.ts`)
-  → **Pane** → one **Surface**: `terminal | editor | browser | extension`.
+  → **Pane** → one **Surface**: `terminal | editor | browser | extension | diff`.
   - An `extension` pane carries `extensionId` and renders that extension's panel
     (`ExtensionPanelView`, §11). `openExtensionPanel` reuses the session's existing panel of the
     same extension.
+  - A `diff` pane (`DiffView`, §9) is opened by an extension's `ext.openDiff`. `openDiff` reuses
+    the session's diff pane. The pane node holds only the title and a `cwd` (the file's
+    directory); the two texts live in `stores/diffStore.ts` keyed by pane id, dropped by
+    SurfacePool when the pane goes away. Why not in the node: the layout is autosaved to
+    `sessions.json` and a diff can be megabytes.
   - The `agent` kind exists but has no surface (it shows a ghost title).
   - Zoom renders only `zoomedPaneId`.
   - Closing the zoomed pane clears the zoom.
@@ -563,6 +570,9 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
   sessions, layout or settings stores, plus once at start and once on `beforeunload`.
   - `buildSnapshot` returns null when no sessions remain, so a blank workspace is never written.
   - `zoomedPaneId` is not saved.
+  - Diff panes are not saved (`withoutKind(root, 'diff')`); a session whose only pane is a diff
+    comes back as a terminal at its workDir, and focus moves to a surviving pane. Why: their
+    content is in memory only (nothing live is restored).
   - The two node converters are a compile-time check that `layout/types.ts` and the snapshot
     types in `shared/types.ts` agree.
 - **Scrollback**: main saves it every 5 s (unref'd timer, skipped when no pane cursor moved) and
@@ -594,6 +604,26 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
   - Ctrl/Cmd+S saves through `fs.write`. Dirty state compares `getAlternativeVersionId` with the
     saved version (mirrored to `editorStatusStore`).
   - Files with a NUL byte in the first 8 KB are not opened.
+- **Diff view** (`components/DiffView.tsx`): Monaco's `createDiffEditor`, read-only
+  (`originalEditable: false`), side-by-side with an inline toggle, same theme and editor font as
+  the editor. Models are plain in-memory models (no file URI), so they never collide with an open
+  editor's model; they are disposed when the content changes or the pane unmounts. Core knows
+  nothing about git: any extension can open one via `ext.openDiff` (§11).
+- **Open in External Editor** (command `editor.openExternal`, the editor's context menu, the
+  diff toolbar):
+  - Editor and diff surfaces register a position source per pane (`lib/editorPositions.ts`);
+    the command asks the active pane for `{file, line, column}` (the diff uses the modified
+    side's cursor).
+  - Main (`externalEditor.ts`, IPC `editor:open-external`) resolves the template: `auto`
+    (default) takes the first of `code -g`, `cursor -g`, `zed` found on `PATH`; empty disables;
+    anything else is a custom command line. The template is split into argv (quotes group, no
+    other shell syntax), then `{file}`, `{line}`, `{column}` are substituted inside each
+    argument, and the program is spawned detached with `shell: false`. Why: a path such as
+    `a; rm -rf ~` stays one literal argument. A template without `{file}` gets the file
+    appended. The file must be absolute.
+  - `settings.set` (agents, phone) refuses `behavior.externalEditor`, directly or through a
+    `behavior` object. Why: it names a program pine runs on the user's click, so only the human
+    edits it (Settings → Files, or `settings.json`).
 - **LSP**:
   - `main/lsp.ts` spawns pyright, rust-analyzer, gopls, clangd, bash-, lua-, json- and
     yaml-language-server when they are on `PATH` (a POSIX `:` split).
@@ -728,16 +758,27 @@ target whichever window happened to be first.
 - `before-quit` sends SIGTERM to every extension process.
 
 **Methods.** Extension → pine: `ext.registerCommands`, `ext.subscribe`, `ext.setSidebarItem`,
-`ext.notify` (needs `notify`), `ext.openPanel`. Pine → extension: `ext.command` and `ext.panel`
-requests, `ext.event` notifications. Pane → pine: `ext.list`, `ext.invoke`.
+`ext.notify` (needs `notify`), `ext.openPanel`, `ext.openDiff`, plus the shared read methods
+`session.list` / `pane.list` (`callers: 'all'`, need `read-board`). Pine → extension:
+`ext.command` and `ext.panel` requests, `ext.event` notifications. Pane → pine: `ext.list`,
+`ext.invoke`.
+- `ext.openDiff` validates (title, both sides strings ≤ 5 MiB, absolute `path`) and main sends
+  `extensions:open-diff` to the session's window, where `openExtensionDiff` opens the diff pane
+  (§5, §9). Why a generic diff and not a git view: the first consumer is git, but a diff of two
+  texts is what any VCS, formatter or code-review extension needs, and core stays VCS-agnostic.
+- `session.list` includes `activePaneId` (external id) so an extension can follow "the pane the
+  user is in" without a pane-scoped method.
+- The caller context carries `cwd`: for a pane caller the pane's live terminal cwd
+  (`cwdForPane`, from `terminal:state`), for a palette call the active pane's.
 - Command caps declared in the manifest are checked against the caller before the process is
   even started. The extension receives the caller context (`kind`, external `paneId`,
   `sessionId`, `workDir`, `capabilities`) and may enforce conditional rules itself (the wiki
   requires `workspace-wide` for global writes this way).
 - Events are derived in main: `pane.created/closed` from lifecycle IPC, `cwd.changed` and
   `command.started/finished` from `terminal:state` diffs (running flips, last exit code),
-  `notification` from the `notify` platform event. Subscribing to pane/command/cwd events needs
-  `read-board`; `notification` needs `notify`.
+  `focus.changed` from `browser-window-focus/blur`, `notification` from the `notify` platform
+  event. Subscribing to pane/command/cwd/focus events needs `read-board`; `notification` needs
+  `notify`.
 - Sidebar items are keyed by (extension, session, key), capped at 32 per extension and 80
   characters, and rendered in the session row or the sidebar footer (no session).
 
@@ -753,7 +794,28 @@ renderer injects the theme into the guest as `--pine-*` custom properties (`lib/
 Why panels talk only to their own process: the guest has no `window.pine` and no token, so a
 compromised or buggy panel can do no more than its extension already can.
 
-**Built-ins.** `src/extensions/{kanban,wiki}` are built by `scripts/build-extensions.mjs`
+**Git** (`src/extensions/git/`, the first built-in written for the API rather than migrated):
+- Sidebar: per session, the repo of the session's active pane cwd (else the last active
+  terminal's, else the first terminal's, else the workDir; `sessions.ts`) gets one item:
+  branch (or short sha when detached), `↑ahead ↓behind` when there is an upstream, `+new`
+  (untracked or staged adds) and `~changed` (everything else), counted per path from
+  `git status --porcelain=v2 --branch -z --untracked-files=all` (`status.ts`). Non-repo → no
+  item. Refreshed 300 ms after `cwd.changed`, `command.finished`, `pane.created/closed`, and
+  every 10 s only while a pine window is focused (`focus.changed`); a refresh in flight coalesces
+  the next. Why the poll: edits by an editor or agent outside a terminal command fire no event.
+- Git runs with `GIT_OPTIONAL_LOCKS=0` so background status never takes the index lock from
+  the user's own git commands.
+- Diff sides: staged = `HEAD` vs index, unstaged = index vs working file, untracked = empty vs
+  working file, conflicted = `HEAD` vs working file (with markers); blobs via `git cat-file blob`.
+  Binary (NUL in the first 8000 bytes) and > 2 MiB sides are refused; a symlink shows its target
+  path, never the file it points to.
+- Commands: palette "Show Changes" opens the panel (served from its process like kanban's); the
+  panel lists conflicts/staged/changes/untracked and a click calls `open`, which calls
+  `ext.openDiff`. CLI/agents: `status`, `changes`, `diff <path> [--staged]` (unified patch),
+  `open <path> [--staged]`, all JSON. A path argument must match a changed file (resolved from
+  the caller's cwd, or repo-relative), so it can't be used to read arbitrary files.
+
+**Built-ins.** `src/extensions/{kanban,wiki,git}` are built by `scripts/build-extensions.mjs`
 (esbuild: `main.ts` → node CJS bundle, `panel.ts` → browser IIFE; `sdk/panel.css` → `base.css`)
 into `out/extensions`; electron-builder ships that dir as `extraResources` and keeps it out of
 the asar (a process can't use an asar path as cwd). They use only the public API through the

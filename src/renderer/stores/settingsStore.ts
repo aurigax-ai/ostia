@@ -26,6 +26,7 @@ export interface Behavior {
   cursorStyle: CursorStyle
   cursorBlink: boolean
   restoreSession: boolean
+  externalEditor: string
 }
 
 export type FontSurface = 'ui' | 'terminal' | 'editor'
@@ -60,6 +61,7 @@ const DEFAULTS: Persisted = {
     cursorStyle: 'block',
     cursorBlink: true,
     restoreSession: true,
+    externalEditor: 'auto',
   },
 }
 

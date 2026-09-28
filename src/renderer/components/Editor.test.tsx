@@ -33,7 +33,12 @@ const fake = vi.hoisted(() => {
     }
   }
   const models = new Map<string, FakeModel>()
-  const state: { model: FakeModel | null; save: (() => void) | null } = { model: null, save: null }
+  const state: {
+    model: FakeModel | null
+    save: (() => void) | null
+    actions: { id: string; label: string; run: () => void }[]
+    position: { lineNumber: number; column: number } | null
+  } = { model: null, save: null, actions: [], position: null }
   const editor = {
     setModel: (m: FakeModel | null) => {
       state.model = m
@@ -42,6 +47,15 @@ const fake = vi.hoisted(() => {
     addCommand: (_k: number, fn: () => void) => {
       state.save = fn
     },
+    addAction: (a: { id: string; label: string; run: () => void }) => {
+      state.actions.push(a)
+      return {
+        dispose: () => {
+          state.actions = state.actions.filter((x) => x !== a)
+        },
+      }
+    },
+    getPosition: () => state.position,
     updateOptions: () => {},
     dispose: () => {},
   }
@@ -76,21 +90,23 @@ describe('EditorView', () => {
     fake.models.clear()
     fake.state.model = null
     fake.state.save = null
+    fake.state.actions = []
+    fake.state.position = null
     useEditorStatus.setState(init, true)
   })
 
   it('does not overwrite a model with unsaved edits when the file is reopened', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('disk v1')
-    const { rerender } = render(<EditorView filePath="/w/a.txt" />)
+    const { rerender } = render(<EditorView paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
 
     act(() => fake.state.model?.setValue('my edit'))
     expect(useEditorStatus.getState().dirty['/w/a.txt']).toBe(true)
 
     vi.mocked(window.pine.fs.read).mockResolvedValue('disk v2')
-    rerender(<EditorView filePath="/w/b.txt" />)
+    rerender(<EditorView paneId="p1" filePath="/w/b.txt" />)
     await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/b.txt'))
-    rerender(<EditorView filePath="/w/a.txt" />)
+    rerender(<EditorView paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/a.txt'))
 
     expect(fake.state.model?.getValue()).toBe('my edit')
@@ -99,13 +115,13 @@ describe('EditorView', () => {
 
   it('refreshes a clean model from disk when the file is reopened', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('disk v1')
-    const { rerender } = render(<EditorView filePath="/w/a.txt" />)
+    const { rerender } = render(<EditorView paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
 
     vi.mocked(window.pine.fs.read).mockResolvedValue('disk v2')
-    rerender(<EditorView filePath="/w/b.txt" />)
+    rerender(<EditorView paneId="p1" filePath="/w/b.txt" />)
     await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/b.txt'))
-    rerender(<EditorView filePath="/w/a.txt" />)
+    rerender(<EditorView paneId="p1" filePath="/w/a.txt" />)
 
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
     expect(useEditorStatus.getState().dirty['/w/a.txt']).toBeUndefined()
@@ -114,7 +130,7 @@ describe('EditorView', () => {
   it('keeps the file dirty and shows an error when the write fails', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('text')
     vi.mocked(window.pine.fs.write).mockResolvedValue(false)
-    render(<EditorView filePath="/w/a.txt" />)
+    render(<EditorView paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))
 
@@ -126,7 +142,7 @@ describe('EditorView', () => {
 
   it('clears the dirty flag after a successful save', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('text')
-    render(<EditorView filePath="/w/a.txt" />)
+    render(<EditorView paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))
 
@@ -138,10 +154,50 @@ describe('EditorView', () => {
 
   it('shows a binary-file message instead of opening a file containing NUL bytes', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('PNG\0\0data')
-    render(<EditorView filePath="/w/img.png" />)
+    render(<EditorView paneId="p1" filePath="/w/img.png" />)
 
     expect(await screen.findByText(/Binary file/)).toBeInTheDocument()
     expect(fake.models.size).toBe(0)
+  })
+})
+
+describe('EditorView → Open in External Editor', () => {
+  afterEach(() => {
+    fake.models.clear()
+    fake.state.model = null
+    fake.state.actions = []
+    fake.state.position = null
+  })
+
+  it('opens the file at the cursor with the configured template', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    render(<EditorView paneId="p1" filePath="/w/a b.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    fake.state.position = { lineNumber: 12, column: 5 }
+
+    const action = fake.state.actions.find((a) => a.id === 'pine.openExternal')
+    expect(action?.label).toBe('Open in External Editor')
+    act(() => action?.run())
+
+    await waitFor(() =>
+      expect(window.pine.externalEditor.open).toHaveBeenCalledWith({
+        template: 'auto',
+        file: '/w/a b.ts',
+        line: 12,
+        column: 5,
+      }),
+    )
+  })
+
+  it('tells the user how to configure an editor when none is found', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    vi.mocked(window.pine.externalEditor.open).mockResolvedValue({ ok: false, error: 'no-editor' })
+    render(<EditorView paneId="p1" filePath="/w/a.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+
+    act(() => fake.state.actions[0]?.run())
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/behavior\.externalEditor/)
   })
 })
 

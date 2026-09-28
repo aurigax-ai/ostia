@@ -1,0 +1,158 @@
+import { execFile } from 'node:child_process'
+import { lstat, readFile, readlink, realpath } from 'node:fs/promises'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { type ChangeArea, type FileChange, type RepoStatus, parsePorcelainV2 } from './status'
+
+const MAX_OUTPUT = 32 * 1024 * 1024
+export const MAX_SIDE_BYTES = 2 * 1024 * 1024
+const BINARY_SNIFF = 8000
+
+export class RepoError extends Error {
+  constructor(
+    public readonly code: 'not-a-repo' | 'binary' | 'too-large' | 'not-changed' | 'git-failed',
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+interface RunResult {
+  code: number
+  stdout: Buffer
+  stderr: string
+}
+
+function run(cwd: string, args: string[]): Promise<RunResult> {
+  return new Promise((done) => {
+    execFile(
+      'git',
+      args,
+      {
+        cwd,
+        encoding: 'buffer',
+        maxBuffer: MAX_OUTPUT,
+        env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
+      },
+      (err, stdout, stderr) => {
+        const code = err ? (typeof err.code === 'number' ? err.code : -1) : 0
+        done({ code, stdout, stderr: stderr.toString('utf8') })
+      },
+    )
+  })
+}
+
+async function runOk(cwd: string, args: string[]): Promise<Buffer> {
+  const res = await run(cwd, args)
+  if (res.code !== 0)
+    throw new RepoError('git-failed', res.stderr.trim() || `git ${args[0]} failed`)
+  return res.stdout
+}
+
+export async function repoRoot(cwd: string): Promise<string | null> {
+  const res = await run(cwd, ['rev-parse', '--show-toplevel'])
+  if (res.code !== 0) return null
+  const root = res.stdout.toString('utf8').trim()
+  return root || null
+}
+
+export async function readStatus(root: string): Promise<RepoStatus> {
+  const out = await runOk(root, [
+    'status',
+    '--porcelain=v2',
+    '--branch',
+    '-z',
+    '--untracked-files=all',
+  ])
+  return parsePorcelainV2(out.toString('utf8'))
+}
+
+function asText(buf: Buffer): string {
+  if (buf.length > MAX_SIDE_BYTES) throw new RepoError('too-large', 'file is too large to diff')
+  if (buf.subarray(0, BINARY_SNIFF).includes(0)) throw new RepoError('binary', 'binary file')
+  return buf.toString('utf8')
+}
+
+async function blob(root: string, spec: string): Promise<string> {
+  const res = await run(root, ['cat-file', 'blob', spec])
+  return res.code === 0 ? asText(res.stdout) : ''
+}
+
+async function worktree(root: string, path: string): Promise<string> {
+  const full = join(root, path)
+  try {
+    if ((await lstat(full)).isSymbolicLink()) return await readlink(full)
+    return asText(await readFile(full))
+  } catch (err) {
+    if (err instanceof RepoError) throw err
+    return ''
+  }
+}
+
+export interface DiffSides {
+  original: string
+  modified: string
+}
+
+export async function diffSides(root: string, change: FileChange): Promise<DiffSides> {
+  const base = change.origPath ?? change.path
+  if (change.area === 'staged') {
+    return {
+      original: await blob(root, `HEAD:${base}`),
+      modified: change.code === 'D' ? '' : await blob(root, `:${change.path}`),
+    }
+  }
+  if (change.area === 'unstaged') {
+    return {
+      original: await blob(root, `:${change.path}`),
+      modified: change.code === 'D' ? '' : await worktree(root, change.path),
+    }
+  }
+  if (change.area === 'conflicted') {
+    return {
+      original: await blob(root, `HEAD:${change.path}`),
+      modified: await worktree(root, change.path),
+    }
+  }
+  return { original: '', modified: await worktree(root, change.path) }
+}
+
+export async function unifiedPatch(root: string, change: FileChange): Promise<string> {
+  const common = ['--no-color', '--no-ext-diff']
+  if (change.area === 'untracked') {
+    const res = await run(root, ['diff', ...common, '--no-index', '--', '/dev/null', change.path])
+    if (res.code !== 0 && res.code !== 1) throw new RepoError('git-failed', res.stderr.trim())
+    return res.stdout.toString('utf8')
+  }
+  const cached = change.area === 'staged' ? ['--cached'] : []
+  const paths = change.origPath ? [change.origPath, change.path] : [change.path]
+  const out = await runOk(root, ['diff', ...common, ...cached, '-M', '--', ...paths])
+  return out.toString('utf8')
+}
+
+export async function repoRelative(root: string, cwd: string, input: string): Promise<string> {
+  const base = await realpath(cwd).catch(() => cwd)
+  const abs = isAbsolute(input) ? input : resolve(base, input)
+  const real = await realpath(abs).catch(() => abs)
+  const realRoot = await realpath(root).catch(() => root)
+  const rel = relative(realRoot, real)
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new RepoError('not-changed', `${input} is outside the repository`)
+  }
+  return rel.split(sep).join('/')
+}
+
+export function pickChange(
+  changes: FileChange[],
+  path: string,
+  preferred?: ChangeArea,
+): FileChange | null {
+  const matches = changes.filter((c) => c.path === path || c.origPath === path)
+  if (matches.length === 0) return null
+  if (preferred) return matches.find((c) => c.area === preferred) ?? null
+  const order: ChangeArea[] = ['conflicted', 'unstaged', 'untracked', 'staged']
+  for (const area of order) {
+    const found = matches.find((c) => c.area === area)
+    if (found) return found
+  }
+  return matches[0]
+}

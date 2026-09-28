@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ExtensionInfo,
+  ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
   ExtensionPanelSource,
   ExtensionResult,
@@ -10,6 +11,7 @@ import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type {
   AppInfo,
   CommandInvokeRequest,
+  ExternalEditorResult,
   FsEntry,
   GatewayBindOptions,
   GatewayDevice,
@@ -147,6 +149,14 @@ const bridge: PineBridge = {
       ipcRenderer.on('extensions:open-panel', handler)
       return () => ipcRenderer.removeListener('extensions:open-panel', handler)
     },
+    onOpenDiff: (cb) => {
+      const handler = (_e: unknown, req: ExtensionOpenDiffRequest): void => cb(req)
+      ipcRenderer.on('extensions:open-diff', handler)
+      return () => ipcRenderer.removeListener('extensions:open-diff', handler)
+    },
+  },
+  externalEditor: {
+    open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,
   },
   gateway: {
     enable: (opts) => ipcRenderer.invoke('gateway:enable', opts) as Promise<GatewayEnableResult>,

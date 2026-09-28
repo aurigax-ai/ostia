@@ -108,6 +108,27 @@ describe('paneList.listSessions', () => {
     expect(execCommand).toHaveBeenCalledWith({ sessionId: '', paneId: null }, 'session.list', {})
   })
 
+  it('maps the active pane to its external id and drops an unknown one', async () => {
+    const identity = registerPane({ windowId: 'w1', sessionId: 's2', paneId: 'p-active-int' })
+    const execCommand = vi.fn().mockResolvedValue(
+      ok([
+        {
+          sessionId: 's2',
+          name: 'a',
+          kind: 'terminal',
+          workDir: '/a',
+          activePaneId: 'p-active-int',
+        },
+        { sessionId: 's3', name: 'b', kind: 'terminal', workDir: '/b', activePaneId: 'p-gone' },
+      ]),
+    )
+
+    const result = await listSessions({ execCommand })
+
+    expect(result[0].activePaneId).toBe(identity.externalId)
+    expect(result[1]).not.toHaveProperty('activePaneId')
+  })
+
   it('returns an empty array when the renderer round-trip fails', async () => {
     const execCommand = vi
       .fn()

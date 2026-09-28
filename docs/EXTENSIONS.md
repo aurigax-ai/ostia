@@ -3,7 +3,7 @@
 An extension is a directory with a `pine.json` manifest and, usually, a program pine starts for
 you. The program talks JSON-RPC to pine over the same control socket the `pine` CLI uses. That
 gives it palette and CLI commands, events, sidebar status items, notifications and a panel
-surface. The built-in Kanban and Wiki (`src/extensions/`) use nothing else, so they are the
+surface. The built-in Kanban, Wiki and Git (`src/extensions/`) use nothing else, so they are the
 reference implementations.
 
 How it works inside pine: `docs/ARCHITECTURE.md` §11. Why it's out-of-process: `docs/ROADMAP.md` §2.
@@ -92,10 +92,13 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | Method | Params | Notes |
 |---|---|---|
 | `ext.registerCommands` | `{commands: (string \| CommandContribution)[]}` | Returns `{ok, commands}`. |
-| `ext.subscribe` | `{events: string[]}` | `pane.created`, `pane.closed`, `command.started`, `command.finished`, `cwd.changed` need `read-board`; `notification` needs `notify`. |
+| `ext.subscribe` | `{events: string[]}` | `pane.created`, `pane.closed`, `command.started`, `command.finished`, `cwd.changed`, `focus.changed` need `read-board`; `notification` needs `notify`. |
 | `ext.setSidebarItem` | `{key?, sessionId?, text, icon?, tone?}` | With `sessionId` it shows on that session's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. Empty `text` removes the item. 80 chars, 32 items. |
 | `ext.notify` | `{title, body?}` | Needs `notify`. Goes into the notification center and the desktop. |
 | `ext.openPanel` | `{sessionId?}` | Opens (or focuses) your panel in that session, else the active one. |
+| `ext.openDiff` | `{title, original, modified, language?, path?, sessionId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that session, else the active one. Reuses the session's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
+| `session.list` | — | Needs `read-board`. `[{sessionId, name, kind, workDir, state, activePaneId?}]`. |
+| `pane.list` | — | Needs `read-board`. `[{paneId, sessionId, kind, title, cwd?, running, blockCount, lastExitCode?}]`; `cwd` is the live shell cwd for terminals. |
 
 `whoami` works too. Pane-scoped methods (`command.exec`, `pane.info`, `browse.*`, …) are refused
 for extension identities.
@@ -115,6 +118,7 @@ And the notification `ext.event {type, payload}`:
 | `command.started` | `{paneId, sessionId, cwd?}` |
 | `command.finished` | `{paneId, sessionId, cwd?, exitCode?}` |
 | `cwd.changed` | `{paneId, sessionId, cwd}` |
+| `focus.changed` | `{focused}`: whether any pine window has focus. Assume focused at start; use it to pause polling while the user is elsewhere. |
 | `notification` | `{title, body?, from}` |
 
 `paneId` is always the external id agents see (`pine whoami`).
@@ -124,7 +128,7 @@ And the notification `ext.event {type, payload}`:
 Every command and panel request carries who is asking:
 
 ```ts
-{ kind: 'pane' | 'user' | 'phone', paneId?, sessionId?, workDir?, locale?, capabilities: string[] }
+{ kind: 'pane' | 'user' | 'phone', paneId?, sessionId?, workDir?, cwd?, locale?, capabilities: string[] }
 ```
 
 - `pane`: an agent or shell via `pine`; `capabilities` are that pane's.
@@ -132,6 +136,9 @@ Every command and panel request carries who is asking:
 - `phone`: the companion app through the gateway.
 
 Use `workDir` for project-scoped data (it is the session's anchor directory, possibly `~`).
+`cwd` is the live shell directory of the calling pane (CLI) or of the active pane (palette) when
+that is a terminal; use it for "where the user is" (the git extension finds the repo from it).
+Panel requests carry no `cwd`; derive one from `session.list` + `pane.list` if you need it.
 Enforce conditional rules yourself from `capabilities` — the wiki refuses `--global` writes
 without `workspace-wide` this way.
 
