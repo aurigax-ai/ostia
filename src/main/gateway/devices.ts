@@ -1,7 +1,16 @@
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import {
+  PHONE_BASE_CAPS,
+  PHONE_GRANTABLE_CAPS,
+  type PhoneCap,
+  type PhoneGrantableCap,
+} from '../../shared/capabilities'
+import type { GatewaySetCapResult } from '../../shared/types'
 import { loadJson, saveJson, storePath } from '../jsonStore'
 
-export const DEFAULT_PHONE_CAPS: readonly string[] = ['read', 'board.read', 'notify']
+export const DEFAULT_PHONE_CAPS: readonly string[] = PHONE_BASE_CAPS
+
+const CAP_ORDER: readonly PhoneCap[] = [...PHONE_BASE_CAPS, ...PHONE_GRANTABLE_CAPS]
 
 export interface Device {
   deviceId: string
@@ -82,4 +91,32 @@ export function revoke(deviceId: string): boolean {
   delete store[deviceId]
   save(store)
   return true
+}
+
+export function isGrantableCap(cap: unknown): cap is PhoneGrantableCap {
+  return typeof cap === 'string' && (PHONE_GRANTABLE_CAPS as readonly string[]).includes(cap)
+}
+
+export function setDeviceCap(
+  deviceId: string,
+  cap: unknown,
+  granted: boolean,
+): GatewaySetCapResult {
+  if (!isGrantableCap(cap)) return { ok: false, error: 'invalid-cap' }
+  const store = load()
+  if (!Object.hasOwn(store, deviceId)) return { ok: false, error: 'not-found' }
+  const device = store[deviceId]
+  const next = new Set(device.caps)
+  if (granted) {
+    if (cap === 'destructive' && !next.has('command')) {
+      return { ok: false, error: 'requires-command' }
+    }
+    next.add(cap)
+  } else {
+    next.delete(cap)
+    if (cap === 'command') next.delete('destructive')
+  }
+  device.caps = CAP_ORDER.filter((c) => next.has(c))
+  save(store)
+  return { ok: true, caps: device.caps }
 }

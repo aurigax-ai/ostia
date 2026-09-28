@@ -3,9 +3,11 @@ import type {
   AppInfo,
   CommandInvokeRequest,
   FsEntry,
+  GatewayBindOptions,
   GatewayDevice,
   GatewayEnableResult,
   GatewayPairResult,
+  GatewaySetCapResult,
   GatewayStatus,
   KanbanBoard,
   KanbanFailure,
@@ -140,6 +142,13 @@ const bridge: PineBridge = {
         ok: boolean
         error?: string
       }>,
+    setCap: (deviceId, cap, granted) =>
+      ipcRenderer.invoke('gateway:set-cap', {
+        deviceId,
+        cap,
+        granted,
+      }) as Promise<GatewaySetCapResult>,
+    bindOptions: () => ipcRenderer.invoke('gateway:bind-options') as Promise<GatewayBindOptions>,
   },
 }
 

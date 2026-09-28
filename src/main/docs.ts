@@ -95,7 +95,7 @@ const CLI_HELP = `pine — control-socket CLI
   pine gateway enable [--host H] [--port P]  turn on the LAN control gateway (elevated 'gateway')
   pine gateway pair                          mint a pairing code + QR payload (enables gateway too)
   pine gateway status                        { running, host, port, fingerprint, deviceCount }
-  pine gateway devices                       list paired phones (never prints tokens)
+  pine gateway devices                       list paired phones (never prints tokens; caps are granted only in Settings → Remote)
   pine gateway revoke <deviceId>              revoke a paired phone immediately
   pine gateway disable                       turn off the LAN control gateway
   pine docs                      show this help

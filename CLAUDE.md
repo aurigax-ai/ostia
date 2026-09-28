@@ -121,10 +121,15 @@ Details: `docs/ARCHITECTURE.md`.
 - **Capabilities:** acting on any target other than your own pane/window/session needs
   `workspace-wide`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`;
   grants come only from a human editing `settings.json`. Phone caps map through `PHONE_CAP_ALLOWS`;
-  `input` must never map to a command capability.
+  `input` must never map to a command capability. Phone grants (`command`, `input`,
+  `board.write`, `destructive`) change only through the `gateway:set-cap` IPC from Settings →
+  Remote; never add a control-socket method or CLI verb for them. `destructive` needs `command`
+  and a confirm dialog.
 - **Gateway:** off by default, loopback bind by default, never rotate the cert, reject requests
   with an `Origin` header, check `Host`, 1 MiB frame cap, 10 s hello deadline. Revocation closes
-  live sockets AND re-checks the device on every request.
+  live sockets AND re-checks the device on every request. Every frame uses the device's current
+  caps from the store; removing a cap closes its live sockets (4004). Pty input and resize need
+  an owner attachment plus `input`.
 - **node-pty is loaded lazily and tolerated absent.**
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
@@ -223,8 +228,10 @@ Rules:
 - **fs containment is lexical.** `resolveSafe` (`pathGuard.ts`) confines `fs:*` to
   `[homedir(), userData]` and blocks `../` escapes, but a symlink inside home pointing outside is
   followed.
-- **Phones can't drive panes yet.** Paired devices get read/board/notify caps; there's no grant path
-  above that.
+- **Phone grants are all-or-nothing per cap.** `input` lets a phone type into any pane it can
+  attach, and there's no on-desktop approval of phone-initiated elevation requests (the contract
+  allows it; only the Settings switches exist). Anyone with shell access to the desktop can still
+  edit `gateway-devices.json` directly, same as `settings.json`.
 - **Monaco theme is fixed** (one-dark-vivid) regardless of the app theme.
 - **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch);
   `SettingsPanel` passes a ref to a non-forwardRef `Input`, so the search box isn't focused on open.

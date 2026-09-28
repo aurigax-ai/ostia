@@ -132,8 +132,13 @@ export const en = {
       'Starts a local control gateway. Bound to this machine only unless you choose otherwise.',
     remoteHost: 'Bind address',
     remoteHostDesc:
-      'Leave blank for loopback (this machine only). A LAN or Tailscale address exposes this desktop on your network — your choice.',
-    remoteHostPlaceholder: 'Loopback (127.0.0.1)',
+      'Loopback keeps the gateway on this machine. A LAN or Tailscale address lets a phone reach it; there is no hosted relay.',
+    remoteBindLoopback: 'Loopback',
+    remoteBindLan: 'LAN',
+    remoteBindTailscale: 'Tailscale',
+    remoteBindCustom: 'Saved address',
+    remoteExposedWarning:
+      'Anyone who can reach {host} on your network can attempt to pair. Only paired devices get access, and only with the permissions you grant below.',
     remoteStatus: 'Status',
     remoteRunning: 'Active on {host}',
     remoteStopped: 'Not running',
@@ -149,6 +154,18 @@ export const en = {
     remoteDevices: 'Paired devices',
     remoteNoDevices: 'No devices paired yet.',
     remoteRevoke: 'Revoke',
+    remoteGrants: 'Permissions',
+    remoteGrantsDesc:
+      'Read, board and notifications are always on. Removing a permission disconnects the device so it reconnects with the smaller set.',
+    remoteCapCommand: 'Run commands',
+    remoteCapInput: 'Type into panes',
+    remoteCapBoardWrite: 'Edit the board',
+    remoteCapDestructive: 'Destructive commands',
+    remoteDestructiveTitle: 'Allow destructive commands?',
+    remoteDestructiveBody:
+      '{name} will be able to run commands that close panes, kill processes or discard work. Only allow this for a phone you control.',
+    remoteDestructiveConfirm: 'Allow destructive',
+    remoteCancel: 'Cancel',
   },
 }
 
@@ -282,8 +299,13 @@ export const zhHant: Dict = {
     remoteEnableDesc: '啟動本機控制閘道。除非另行選擇，否則僅綁定至此電腦。',
     remoteHost: '綁定位址',
     remoteHostDesc:
-      '留空以僅綁定本機（loopback）。輸入區域網路或 Tailscale 位址會將此桌面公開於您的網路 — 由您決定。',
-    remoteHostPlaceholder: '本機（127.0.0.1）',
+      '本機（loopback）僅限此電腦。區域網路或 Tailscale 位址可讓手機連線；不經過任何雲端中繼。',
+    remoteBindLoopback: '本機',
+    remoteBindLan: '區域網路',
+    remoteBindTailscale: 'Tailscale',
+    remoteBindCustom: '已儲存的位址',
+    remoteExposedWarning:
+      '網路上能連到 {host} 的人都可以嘗試配對。只有已配對的裝置能存取，且僅限您在下方授予的權限。',
     remoteStatus: '狀態',
     remoteRunning: '已在 {host} 上啟用',
     remoteStopped: '未執行',
@@ -299,6 +321,18 @@ export const zhHant: Dict = {
     remoteDevices: '已配對裝置',
     remoteNoDevices: '尚未配對任何裝置。',
     remoteRevoke: '撤銷',
+    remoteGrants: '權限',
+    remoteGrantsDesc:
+      '讀取、看板與通知永遠開啟。移除權限會中斷該裝置的連線，使其以較小的權限重新連線。',
+    remoteCapCommand: '執行指令',
+    remoteCapInput: '在窗格中輸入',
+    remoteCapBoardWrite: '編輯看板',
+    remoteCapDestructive: '破壞性指令',
+    remoteDestructiveTitle: '允許破壞性指令？',
+    remoteDestructiveBody:
+      '{name} 將能執行關閉窗格、終止程序或捨棄工作的指令。僅對您掌控的手機允許此權限。',
+    remoteDestructiveConfirm: '允許破壞性指令',
+    remoteCancel: '取消',
   },
 }
 

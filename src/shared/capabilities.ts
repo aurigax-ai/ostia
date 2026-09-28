@@ -53,3 +53,11 @@ export const ALL_CAPABILITIES: Capability[] = [
   'settings-read',
   'settings-write',
 ]
+
+export const PHONE_BASE_CAPS = ['read', 'board.read', 'notify'] as const
+
+export const PHONE_GRANTABLE_CAPS = ['command', 'input', 'board.write', 'destructive'] as const
+
+export type PhoneGrantableCap = (typeof PHONE_GRANTABLE_CAPS)[number]
+
+export type PhoneCap = (typeof PHONE_BASE_CAPS)[number] | PhoneGrantableCap
