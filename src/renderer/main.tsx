@@ -11,6 +11,7 @@ import { App } from './App'
 import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
+import { revealPane, startAttentionSync } from './lib/sessionActivity'
 import { startWorkspaceAutosave } from './stores/persistence'
 import { useSessionsStore } from './stores/sessionsStore'
 
@@ -31,6 +32,8 @@ async function boot(): Promise<void> {
   }
   useSessionsStore.getState().hydrate(snapshot)
   startWorkspaceAutosave()
+  startAttentionSync()
+  window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   root.render(
     <StrictMode>
       <App />

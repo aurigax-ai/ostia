@@ -16,6 +16,7 @@ import type {
   TerminalStateSnapshot,
   WorkspaceSnapshot,
 } from '../shared/types'
+import { registerAttentionMethods } from './attention'
 import {
   type ConsoleEntry,
   PAGE_ERROR_CATCHER_JS,
@@ -37,7 +38,7 @@ import { configureGatewayControl, stopGateway } from './gateway/server'
 import { getByPaneId, registerPane, removePane, removeWindow } from './idRegistry'
 import { kanbanGet, kanbanUpdate, registerKanbanIpc, registerKanbanMethods } from './kanban'
 import { killAllLsp, registerLspIpc } from './lsp'
-import { registerNotifyMethods } from './notify'
+import { registerNotifyIpc, registerNotifyMethods } from './notify'
 import { listPanes, listSessions, registerPaneListMethods } from './paneList'
 import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
@@ -594,7 +595,14 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerLspIpc()
-  registerNotifyMethods()
+  const notifyDeps = {
+    execCommand,
+    windows: () => windows.values(),
+    windowById: (id: string) => windows.get(id),
+  }
+  registerNotifyMethods(notifyDeps)
+  registerNotifyIpc(notifyDeps)
+  registerAttentionMethods({ execCommand })
   registerProcessMethods()
   registerDocsMethods()
   registerVaultMethods()

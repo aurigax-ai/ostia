@@ -1746,11 +1746,52 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+const STATE_VERBS = ['waiting', 'done', 'working', 'error', 'clear']
+
+function messageFromStdin(raw: string): string {
+  const text = raw.trim()
+  if (!text.startsWith('{')) return text
+  try {
+    const parsed = JSON.parse(text) as { message?: unknown }
+    return typeof parsed.message === 'string' ? parsed.message : ''
+  } catch {
+    return text
+  }
+}
+
+async function runStateVerb(conn: MessageConnection): Promise<void> {
+  const args = process.argv.slice(3)
+  let paneId: string | undefined
+  const positional: string[] = []
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--pane') paneId = args[++i]
+    else positional.push(args[i])
+  }
+  const [state, rawMessage] = positional
+  if (!state || !STATE_VERBS.includes(state)) {
+    console.error(`pine state: expected one of ${STATE_VERBS.join('|')}`)
+    process.exitCode = 1
+    return
+  }
+  const message = rawMessage === '-' ? messageFromStdin(await readAllStdin()) : rawMessage
+  const res = await conn.sendRequest<{ ok: boolean; error?: string; message?: string }>(
+    'pane.setAttention',
+    { state, message, paneId },
+  )
+  if (res.ok) {
+    console.log('ok')
+  } else {
+    console.error(`pine state: ${res.error ?? 'failed'}${res.message ? ` (${res.message})` : ''}`)
+    process.exitCode = 1
+  }
+}
+
 const USAGE = `usage: pine <command> [args]
 
 commands:
   whoami | commands | info | cwd | pane.list | session.list | docs
   notify <title> [body]
+  state <waiting|done|working|error|clear> [message|-] [--pane <externalId>]
   open <path>
   process | vault | wiki | kanban | bus | settings | browse | gateway <subcommand> ...
   <command.id> [json-args]     run any registered command (see: pine commands)
@@ -1826,8 +1867,15 @@ async function main(): Promise<void> {
     } else if (cmd === 'notify') {
       const title = process.argv[3]
       const body = process.argv[4]
-      await conn.sendRequest('notify', { title, body })
-      console.log('ok')
+      const res = await conn.sendRequest<{ ok: boolean; error?: string }>('notify', { title, body })
+      if (res.ok) {
+        console.log('ok')
+      } else {
+        console.error(`pine notify: ${res.error ?? 'failed'}`)
+        process.exitCode = 1
+      }
+    } else if (cmd === 'state') {
+      await runStateVerb(conn)
     } else if (cmd === 'open') {
       const arg = process.argv[3]
       if (!arg) {
@@ -1877,7 +1925,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, session.list, notify, open, docs, process, vault, wiki, kanban, bus, settings, browse, gateway)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, session.list, notify, state, open, docs, process, vault, wiki, kanban, bus, settings, browse, gateway)`,
       )
       process.exitCode = 1
     }

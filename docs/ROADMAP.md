@@ -69,9 +69,9 @@ right; core loses ~1,000 lines and two views.
 
 | Feature | From | Ring | Size | Goal |
 |---|---|---|---|---|
-| Attention model: OSC 9/99/777, `pine notify`/`pine state`, pane rings, sidebar unread badges, jump to latest unread | cmux | core | S–M | 1, 9 |
-| Agent hooks recipe: Claude Code `Notification`/`Stop` hooks call `pine state waiting/done` | cmux | extension (docs + skill) | S | 1, 9 |
-| Notification center (the bell, backed by the real notify log) | cmux | core | S | 9 |
+| Attention model: OSC 9/99/777, `pine notify`/`pine state`, pane rings, sidebar unread badges, jump to latest unread | cmux | core (built) | S–M | 1, 9 |
+| Agent hooks recipe: Claude Code `Notification`/`Stop` hooks call `pine state waiting/done` | cmux | extension (docs + skill, built) | S | 1, 9 |
+| Notification center (the bell, backed by the real notify log) | cmux | core (built) | S | 9 |
 | Block actions: click to select, copy command/output, jump between blocks, sticky command header | Warp | core | M | 7 |
 | Command history search across panes (palette provider) | Warp | core | M | 7 |
 | Saved workflows / parameterized commands | Warp | extension | M | 7 |
@@ -90,8 +90,9 @@ right; core loses ~1,000 lines and two views.
 
 Each phase ships a working product; nothing half-built lands on `main`.
 
-1. **Attention** (core, small): the attention model, unread badges, jump-to-unread, notification
-   center, and the Claude Code hooks recipe. This makes "many agents at once" usable now.
+1. **Attention** (core, small) — **done**: the attention model (`lib/attention.ts`), OSC 9/99/777
+   + BEL + `pine state`/`pine notify` sources, pane rings, sidebar unread badges, jump-to-unread
+   (Ctrl+Shift+U / ⌘⇧U), the notification center, and the hooks recipe (`docs/AGENT-HOOKS.md`).
 2. **Blocks** (core): block selection, copy output, jump, sticky header, history search.
 3. **Extension API v1**: manifest, extension host, commands/events/sidebar items/panel surface.
    Migrate kanban + wiki onto it.

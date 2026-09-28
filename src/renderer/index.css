@@ -1061,3 +1061,184 @@
 .term-find:focus-within {
   border-color: var(--focus-border);
 }
+
+.dot.error {
+  background: var(--attn);
+  border-radius: 1px;
+}
+
+.unread-badge {
+  flex: 0 0 auto;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border: 1px solid var(--attn);
+  border-radius: 8px;
+  color: var(--attn-fg);
+  font-size: var(--text-ui-xs);
+  font-weight: 500;
+  line-height: 14px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pane.attn-ring {
+  box-shadow: inset 0 0 0 2px var(--attn);
+  animation: attn-pulse 1.5s ease-out 2;
+}
+
+@keyframes attn-pulse {
+  0% {
+    box-shadow: inset 0 0 0 2px var(--attn), inset 0 0 0 2px var(--attn-glow);
+  }
+  60% {
+    box-shadow: inset 0 0 0 2px var(--attn), inset 0 0 0 8px var(--attn-glow);
+  }
+  100% {
+    box-shadow: inset 0 0 0 2px var(--attn), inset 0 0 0 2px transparent;
+  }
+}
+
+.pane-attn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 45%;
+  color: var(--fg-muted);
+}
+
+.pane-attn.loud {
+  color: var(--attn-fg);
+}
+
+.pane-attn-mark {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.pane[data-attention="waiting"] .pane-attn-mark {
+  background: var(--attn);
+}
+
+.pane[data-attention="error"] .pane-attn-mark {
+  background: var(--attn);
+  border-radius: 1px;
+}
+
+.pane[data-attention="done"] .pane-attn-mark {
+  background: var(--ok);
+}
+
+.pane-attn-msg {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bell-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.bell-count {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border: 1px solid var(--attn);
+  border-radius: 7px;
+  background: var(--surface-1);
+  color: var(--attn-fg);
+  font-size: var(--text-ui-xs);
+  font-weight: 500;
+  line-height: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.notif-popover {
+  width: 340px;
+  gap: 4px;
+  padding: 6px;
+  background: var(--surface-3);
+  border-radius: var(--radius-md);
+}
+
+.notif-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 4px 6px;
+}
+
+.notif-title {
+  font-size: var(--text-ui-sm);
+  font-weight: 500;
+  color: var(--fg);
+}
+
+.notif-empty {
+  padding: 12px 6px;
+  font-size: var(--text-ui-sm);
+  color: var(--fg-muted);
+}
+
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notif-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg);
+  text-align: left;
+}
+
+.notif-row:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.notif-row:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.notif-row:disabled {
+  color: var(--fg-muted);
+}
+
+.notif-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--text-ui-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.notif-where {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.notif-msg {
+  font-size: var(--text-ui-sm);
+  overflow-wrap: anywhere;
+}

@@ -93,6 +93,13 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
         selected: '127.0.0.1',
       }),
     },
+    notifications: {
+      list: vi.fn().mockResolvedValue([]),
+      post: vi.fn(),
+      clear: vi.fn(),
+      onChanged: vi.fn(noopUnsub),
+      onActivate: vi.fn(noopUnsub),
+    },
   }
   return { ...base, ...overrides }
 }

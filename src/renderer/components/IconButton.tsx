@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
-import type { ButtonHTMLAttributes } from 'react'
+import { type ButtonHTMLAttributes, forwardRef } from 'react'
 import { Hint } from './Hint'
 import { buttonVariants } from './ui/button'
 
@@ -16,17 +16,14 @@ export interface IconButtonProps
   hintSide?: 'top' | 'bottom' | 'left' | 'right'
 }
 
-export function IconButton({
-  icon: Icon,
-  label,
-  size = 'row',
-  hintSide = 'bottom',
-  className,
-  ...props
-}: IconButtonProps): JSX.Element {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  { icon: Icon, label, size = 'row', hintSide = 'bottom', className, ...props },
+  ref,
+) {
   return (
     <Hint label={label} side={hintSide}>
       <button
+        ref={ref}
         type="button"
         aria-label={label}
         className={cn(
@@ -40,4 +37,4 @@ export function IconButton({
       </button>
     </Hint>
   )
-}
+})

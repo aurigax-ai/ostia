@@ -15,6 +15,7 @@ import type {
   KanbanMutateResult,
   LspServerInfo,
   LspStartResult,
+  NotificationEntry,
   PineBridge,
   Platform,
   PtyAttachResult,
@@ -149,6 +150,21 @@ const bridge: PineBridge = {
         granted,
       }) as Promise<GatewaySetCapResult>,
     bindOptions: () => ipcRenderer.invoke('gateway:bind-options') as Promise<GatewayBindOptions>,
+  },
+  notifications: {
+    list: () => ipcRenderer.invoke('notifications:list') as Promise<NotificationEntry[]>,
+    post: (post) => ipcRenderer.send('notifications:post', post),
+    clear: () => ipcRenderer.send('notifications:clear'),
+    onChanged: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('notifications:changed', handler)
+      return () => ipcRenderer.removeListener('notifications:changed', handler)
+    },
+    onActivate: (cb) => {
+      const handler = (_e: unknown, paneId: string): void => cb(paneId)
+      ipcRenderer.on('notifications:activate', handler)
+      return () => ipcRenderer.removeListener('notifications:activate', handler)
+    },
   },
 }
 
