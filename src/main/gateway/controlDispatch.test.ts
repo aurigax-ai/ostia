@@ -57,6 +57,25 @@ describe('dispatchGatewayMethod — cap gating', () => {
     })
   })
 
+  it('never lets the input cap run command.exec, even for a default drive-self command', async () => {
+    const deps = fakeDeps({
+      listCommandsFor: vi.fn().mockReturnValue([descriptor({ id: 'pane.splitRight' })]),
+    })
+    const res = await dispatchGatewayMethod(
+      'command.exec',
+      { id: 'pane.splitRight' },
+      ['read', 'board.read', 'notify', 'input'],
+      deps,
+    )
+    expect(res).toEqual({
+      ok: false,
+      code: -32003,
+      message: 'needs-elevation',
+      data: { cap: 'command' },
+    })
+    expect(deps.execCommand).not.toHaveBeenCalled()
+  })
+
   it('rejects board.get without the board.read cap', async () => {
     const res = await dispatchGatewayMethod('board.get', {}, ['read'], fakeDeps())
     expect(res).toEqual({

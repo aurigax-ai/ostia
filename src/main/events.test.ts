@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PLATFORM_EVENT_TYPES, emitPlatformEvent, platformEvents } from './events'
+import { PLATFORM_EVENT_TYPES, emitPlatformEvent, emitSessionState, platformEvents } from './events'
 
 describe('platformEvents bus', () => {
   afterEach(() => {
@@ -41,6 +41,35 @@ describe('platformEvents bus', () => {
     emitPlatformEvent('agent.needs-input', { sessionId: 's1' })
 
     expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('emitSessionState fans a waiting session out to session.state and agent.needs-input', () => {
+    const state = vi.fn()
+    const needsInput = vi.fn()
+    const done = vi.fn()
+    platformEvents.on('session.state', state)
+    platformEvents.on('agent.needs-input', needsInput)
+    platformEvents.on('agent.done', done)
+
+    emitSessionState('s1', 'waiting')
+
+    expect(state).toHaveBeenCalledWith({ sessionId: 's1', state: 'waiting' })
+    expect(needsInput).toHaveBeenCalledWith({ sessionId: 's1' })
+    expect(done).not.toHaveBeenCalled()
+  })
+
+  it('emitSessionState emits agent.done for done and no agent event for working', () => {
+    const needsInput = vi.fn()
+    const done = vi.fn()
+    platformEvents.on('agent.needs-input', needsInput)
+    platformEvents.on('agent.done', done)
+
+    emitSessionState('s1', 'done')
+    emitSessionState('s1', 'working')
+
+    expect(done).toHaveBeenCalledTimes(1)
+    expect(done).toHaveBeenCalledWith({ sessionId: 's1' })
+    expect(needsInput).not.toHaveBeenCalled()
   })
 
   it('PLATFORM_EVENT_TYPES lists exactly the 5 event types this bus carries', () => {

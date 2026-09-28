@@ -99,7 +99,8 @@ Each phase ships a working product; nothing half-built lands on `main`.
    external editor.
 5. **Browser → agent**: pick element, Chrome DevTools MCP recipe.
 6. **Your tools**: Trellis and Keeper plugins; settings sync.
-7. **Remote**: phone grant path, input from the phone, attention push.
+7. **Remote** (done): phone grant path, input from the phone, attention push, bind-address
+   picker with Tailscale detection.
 
 ## 5. Guardrails that keep the core lean
 
