@@ -1,33 +1,33 @@
-import type { WorkspaceSnapshot } from '@shared/types'
+import type { AppSnapshot } from '@shared/types'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { buildSnapshot, restoreWorkspace } from './snapshot'
+import { buildSnapshot, restoreSnapshot } from './snapshot'
 import { createPane, resetIds, splitOf } from './tree'
 import type { LayoutNode } from './types'
 
 beforeEach(() => resetIds())
 
-const SESSION = { id: 's1', name: 'proj', kind: 'terminal' as const, workDir: '/home/u/proj' }
+const WORKSPACE = { id: 's1', name: 'proj', kind: 'terminal' as const, workDir: '/home/u/proj' }
 
-function build(root: LayoutNode, activePaneId = root.id): WorkspaceSnapshot {
+function build(root: LayoutNode, activePaneId = root.id): AppSnapshot {
   return buildSnapshot({
-    sessions: [SESSION],
-    activeSessionId: 's1',
+    workspaces: [WORKSPACE],
+    activeWorkspaceId: 's1',
     layouts: { s1: { root, activePaneId } },
     savedAt: '2026-08-06T00:00:00.000Z',
   })
 }
 
 describe('buildSnapshot', () => {
-  it('captures each session with its tree and focused pane', () => {
+  it('captures each workspace with its tree and focused pane', () => {
     const root = createPane('terminal', 'zsh', '/home/u/proj')
     const snapshot = build(root)
     expect(snapshot).toMatchObject({
       v: 1,
       savedAt: '2026-08-06T00:00:00.000Z',
-      activeSessionId: 's1',
-      sessions: [{ ...SESSION, activePaneId: root.id }],
+      activeWorkspaceId: 's1',
+      workspaces: [{ ...WORKSPACE, activePaneId: root.id }],
     })
-    expect(snapshot?.sessions[0].root).toMatchObject({
+    expect(snapshot?.workspaces[0].root).toMatchObject({
       id: root.id,
       kind: 'terminal',
       cwd: '/home/u/proj',
@@ -38,7 +38,7 @@ describe('buildSnapshot', () => {
     const a = createPane()
     const b = createPane()
     const root = splitOf('vertical', a, b)
-    const captured = build(root, a.id)?.sessions[0].root
+    const captured = build(root, a.id)?.workspaces[0].root
     expect(captured).toMatchObject({ type: 'split', direction: 'vertical', sizes: [1, 1] })
     expect(captured?.type === 'split' && captured.children.map((c) => c.id)).toEqual([a.id, b.id])
   })
@@ -58,40 +58,40 @@ describe('buildSnapshot', () => {
       kind: 'browser',
       url: 'http://x/',
     }
-    const captured = build(splitOf('horizontal', editor, browser), 'pane-1')?.sessions[0].root
+    const captured = build(splitOf('horizontal', editor, browser), 'pane-1')?.workspaces[0].root
     expect(captured?.type === 'split' && captured.children).toEqual([editor, browser])
   })
 
   it('deep-copies the tree so the snapshot never aliases live store state', () => {
     const root = splitOf('horizontal', createPane(), createPane())
-    const captured = build(root, root.children[0].id)?.sessions[0].root
+    const captured = build(root, root.children[0].id)?.workspaces[0].root
     expect(captured).not.toBe(root)
     expect(captured?.type === 'split' && captured.children[0]).not.toBe(root.children[0])
   })
 
-  it('skips a session that has no layout yet', () => {
+  it('skips a workspace that has no layout yet', () => {
     const root = createPane()
     const snapshot = buildSnapshot({
-      sessions: [SESSION, { id: 's2', name: 'x', kind: 'terminal', workDir: '/tmp' }],
-      activeSessionId: 's1',
+      workspaces: [WORKSPACE, { id: 's2', name: 'x', kind: 'terminal', workDir: '/tmp' }],
+      activeWorkspaceId: 's1',
       layouts: { s1: { root, activePaneId: root.id } },
       savedAt: '',
     })
-    expect(snapshot?.sessions.map((s) => s.id)).toEqual(['s1'])
+    expect(snapshot?.workspaces.map((s) => s.id)).toEqual(['s1'])
   })
 
   it('drops diff panes, which hold live in-memory content, and refocuses a survivor', () => {
     const term = createPane('terminal', 'zsh', '/home/u/proj')
     const diff: LayoutNode = { type: 'pane', id: 'pane-9', title: 'a.ts', kind: 'diff' }
     const snapshot = build(splitOf('horizontal', term, diff), 'pane-9')
-    expect(snapshot?.sessions[0].root).toMatchObject({ id: term.id, kind: 'terminal' })
-    expect(snapshot?.sessions[0].activePaneId).toBe(term.id)
+    expect(snapshot?.workspaces[0].root).toMatchObject({ id: term.id, kind: 'terminal' })
+    expect(snapshot?.workspaces[0].activePaneId).toBe(term.id)
   })
 
-  it('replaces a lone diff pane with a terminal at the session workDir', () => {
+  it('replaces a lone diff pane with a terminal at the workspace workDir', () => {
     const diff: LayoutNode = { type: 'pane', id: 'pane-4', title: 'a.ts', kind: 'diff' }
     const snapshot = build(diff)
-    expect(snapshot?.sessions[0].root).toEqual({
+    expect(snapshot?.workspaces[0].root).toEqual({
       type: 'pane',
       id: 'pane-4',
       title: 'zsh',
@@ -100,20 +100,20 @@ describe('buildSnapshot', () => {
     })
   })
 
-  it('builds an empty workspace when no session has a layout', () => {
+  it('builds an empty workspace when no workspace has a layout', () => {
     expect(
-      buildSnapshot({ sessions: [SESSION], activeSessionId: 's1', layouts: {}, savedAt: '' }),
-    ).toEqual({ v: 1, savedAt: '', activeSessionId: null, sessions: [] })
+      buildSnapshot({ workspaces: [WORKSPACE], activeWorkspaceId: 's1', layouts: {}, savedAt: '' }),
+    ).toEqual({ v: 1, savedAt: '', activeWorkspaceId: null, workspaces: [] })
   })
 
-  it('builds an empty workspace with no active session when there are no sessions', () => {
+  it('builds an empty workspace with no active workspace when there are no workspaces', () => {
     expect(
-      buildSnapshot({ sessions: [], activeSessionId: null, layouts: {}, savedAt: 't' }),
-    ).toEqual({ v: 1, savedAt: 't', activeSessionId: null, sessions: [] })
+      buildSnapshot({ workspaces: [], activeWorkspaceId: null, layouts: {}, savedAt: 't' }),
+    ).toEqual({ v: 1, savedAt: 't', activeWorkspaceId: null, workspaces: [] })
   })
 })
 
-describe('restoreWorkspace', () => {
+describe('restoreSnapshot', () => {
   it('round-trips a workspace built from live state', () => {
     const a = createPane('terminal', 'zsh', '/home/u/proj')
     const b = createPane('editor', 'a.ts')
@@ -121,9 +121,9 @@ describe('restoreWorkspace', () => {
     const snapshot = build(root, b.id)
     if (!snapshot) throw new Error('expected a snapshot')
 
-    const restored = restoreWorkspace(snapshot)
-    expect(restored.sessions).toEqual([SESSION])
-    expect(restored.activeSessionId).toBe('s1')
+    const restored = restoreSnapshot(snapshot)
+    expect(restored.workspaces).toEqual([WORKSPACE])
+    expect(restored.activeWorkspaceId).toBe('s1')
     expect(restored.layouts.s1.root).toEqual(root)
     expect(restored.layouts.s1.activePaneId).toBe(b.id)
   })
@@ -132,7 +132,7 @@ describe('restoreWorkspace', () => {
     const root = createPane()
     const snapshot = build(root)
     if (!snapshot) throw new Error('expected a snapshot')
-    expect(restoreWorkspace(snapshot).layouts.s1.zoomedPaneId).toBeNull()
+    expect(restoreSnapshot(snapshot).layouts.s1.zoomedPaneId).toBeNull()
   })
 
   it('reserves the restored ids so a newly created pane cannot collide', () => {
@@ -141,7 +141,7 @@ describe('restoreWorkspace', () => {
     if (!snapshot) throw new Error('expected a snapshot')
 
     resetIds()
-    restoreWorkspace(snapshot)
+    restoreSnapshot(snapshot)
     expect(createPane().id).toBe('pane-4')
   })
 
@@ -149,6 +149,6 @@ describe('restoreWorkspace', () => {
     const root = splitOf('horizontal', createPane(), createPane())
     const snapshot = build(root, root.children[0].id)
     if (!snapshot) throw new Error('expected a snapshot')
-    expect(restoreWorkspace(snapshot).layouts.s1.root).not.toBe(snapshot.sessions[0].root)
+    expect(restoreSnapshot(snapshot).layouts.s1.root).not.toBe(snapshot.workspaces[0].root)
   })
 })

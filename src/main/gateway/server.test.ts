@@ -55,7 +55,7 @@ const deps = {
   ]),
   getTerminalState: vi.fn(),
   listPanes: vi.fn().mockResolvedValue([]),
-  listSessions: vi.fn().mockResolvedValue([]),
+  listWorkspaces: vi.fn().mockResolvedValue([]),
   primaryWindowId: vi.fn().mockReturnValue('w1'),
   attachPhoneObserver: vi.fn().mockImplementation(() => ({
     cursor: 7,
@@ -118,7 +118,7 @@ describe('gateway server over a real WebSocket', () => {
     prevXdg = process.env.XDG_DATA_HOME
     process.env.XDG_DATA_HOME = mkdtempSync(join(tmpdir(), 'pine-gateway-xdg-'))
     configureGatewayControl(deps)
-    externalPaneId = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'p1' }).externalId
+    externalPaneId = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p1' }).externalId
     const started = await startGateway({ host: '127.0.0.1', port: 0 })
     port = started.port
   }, 30_000)

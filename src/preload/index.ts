@@ -10,6 +10,7 @@ import type {
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type {
   AppInfo,
+  AppSnapshot,
   CommandInvokeRequest,
   ExternalEditorResult,
   FsEntry,
@@ -26,7 +27,6 @@ import type {
   Platform,
   PtyAttachResult,
   SyncStatus,
-  WorkspaceSnapshot,
 } from '../shared/types'
 
 const bridge: PineBridge = {
@@ -101,9 +101,9 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener('sync:status', handler)
     },
   },
-  session: {
-    save: (snapshot) => ipcRenderer.send('session:save', snapshot),
-    load: () => ipcRenderer.invoke('session:load') as Promise<WorkspaceSnapshot | null>,
+  workspace: {
+    save: (snapshot) => ipcRenderer.send('workspace:save', snapshot),
+    load: () => ipcRenderer.invoke('workspace:load') as Promise<AppSnapshot | null>,
   },
   lifecycle: {
     emit: (event) => ipcRenderer.send('lifecycle:event', event),

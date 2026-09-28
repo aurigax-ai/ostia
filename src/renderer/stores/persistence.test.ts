@@ -1,13 +1,13 @@
-import type { WorkspaceSnapshot } from '@shared/types'
+import type { AppSnapshot } from '@shared/types'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetIds } from '../layout/tree'
 import { useLayoutStore } from './layoutStore'
-import { saveWorkspaceNow, startWorkspaceAutosave } from './persistence'
-import { useSessionsStore } from './sessionsStore'
+import { saveSnapshotNow, startSnapshotAutosave } from './persistence'
 import { useSettingsStore } from './settingsStore'
+import { useWorkspacesStore } from './workspacesStore'
 
-const save = () => vi.mocked(window.pine.session.save)
-const lastSnapshot = (): WorkspaceSnapshot => {
+const save = () => vi.mocked(window.pine.workspace.save)
+const lastSnapshot = (): AppSnapshot => {
   const calls = save().mock.calls.filter((c) => c[0] !== null)
   const snapshot = calls.at(-1)?.[0]
   if (!snapshot) throw new Error('no snapshot was saved')
@@ -15,59 +15,59 @@ const lastSnapshot = (): WorkspaceSnapshot => {
 }
 
 const activeSid = (): string => {
-  const sid = useSessionsStore.getState().activeSessionId
-  if (!sid) throw new Error('no active session')
+  const sid = useWorkspacesStore.getState().activeWorkspaceId
+  if (!sid) throw new Error('no active workspace')
   return sid
 }
 
 const activePane = (sid: string): string => {
-  const layout = useLayoutStore.getState().bySession[sid]
+  const layout = useLayoutStore.getState().byWorkspace[sid]
   if (!layout) throw new Error('no layout')
   return layout.activePaneId
 }
 
 describe('workspace autosave', () => {
-  let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let stop: (() => void) | null = null
 
   beforeAll(() => {
-    sessionsInit = useSessionsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
     layoutInit = useLayoutStore.getState()
     settingsInit = useSettingsStore.getState()
   })
 
   beforeEach(() => {
     resetIds()
-    useSessionsStore.getState().addSession()
+    useWorkspacesStore.getState().addWorkspace()
   })
 
   afterEach(() => {
     stop?.()
     stop = null
-    useSessionsStore.setState(sessionsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
     useLayoutStore.setState(layoutInit, true)
     useSettingsStore.setState(settingsInit, true)
     vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
-  describe('saveWorkspaceNow', () => {
-    it('pushes a snapshot of the live sessions and their layouts', () => {
+  describe('saveSnapshotNow', () => {
+    it('pushes a snapshot of the live workspaces and their layouts', () => {
       const active = activeSid()
 
-      saveWorkspaceNow()
+      saveSnapshotNow()
 
       const snapshot = lastSnapshot()
       expect(snapshot.v).toBe(1)
-      expect(snapshot.activeSessionId).toBe(active)
-      expect(snapshot.sessions.map((s) => s.id)).toEqual([active])
-      expect(snapshot.sessions[0].root).toMatchObject({ type: 'pane', kind: 'terminal' })
+      expect(snapshot.activeWorkspaceId).toBe(active)
+      expect(snapshot.workspaces.map((s) => s.id)).toEqual([active])
+      expect(snapshot.workspaces[0].root).toMatchObject({ type: 'pane', kind: 'terminal' })
     })
 
     it('stamps the save time so a stored snapshot can be dated by hand', () => {
-      saveWorkspaceNow()
+      saveSnapshotNow()
       expect(Number.isNaN(Date.parse(lastSnapshot().savedAt))).toBe(false)
     })
 
@@ -76,55 +76,55 @@ describe('workspace autosave', () => {
       const paneId = activePane(sid)
       useLayoutStore.getState().split(sid, paneId, 'vertical')
 
-      saveWorkspaceNow()
+      saveSnapshotNow()
 
-      const root = lastSnapshot().sessions[0].root
+      const root = lastSnapshot().workspaces[0].root
       expect(root).toMatchObject({ type: 'split', direction: 'vertical' })
       expect(root.type === 'split' && root.children).toHaveLength(2)
     })
 
     it('tells main to forget everything when restore is switched off', () => {
-      useSettingsStore.getState().setBehavior({ restoreSession: false })
+      useSettingsStore.getState().setBehavior({ restoreWorkspace: false })
       save().mockClear()
 
-      saveWorkspaceNow()
+      saveSnapshotNow()
 
       expect(save()).toHaveBeenCalledWith(null)
     })
 
     it('does not keep re-clearing while restore stays off', () => {
-      useSettingsStore.getState().setBehavior({ restoreSession: false })
-      saveWorkspaceNow()
+      useSettingsStore.getState().setBehavior({ restoreWorkspace: false })
+      saveSnapshotNow()
       save().mockClear()
 
-      saveWorkspaceNow()
-      saveWorkspaceNow()
+      saveSnapshotNow()
+      saveSnapshotNow()
 
       expect(save()).not.toHaveBeenCalled()
     })
 
     it('starts saving again when restore is switched back on', () => {
-      useSettingsStore.getState().setBehavior({ restoreSession: false })
-      saveWorkspaceNow()
-      useSettingsStore.getState().setBehavior({ restoreSession: true })
+      useSettingsStore.getState().setBehavior({ restoreWorkspace: false })
+      saveSnapshotNow()
+      useSettingsStore.getState().setBehavior({ restoreWorkspace: true })
       save().mockClear()
 
-      saveWorkspaceNow()
+      saveSnapshotNow()
 
-      expect(lastSnapshot().sessions).toHaveLength(1)
+      expect(lastSnapshot().workspaces).toHaveLength(1)
     })
   })
 
-  describe('startWorkspaceAutosave', () => {
+  describe('startSnapshotAutosave', () => {
     it('collapses a burst of edits into a single write', () => {
       vi.useFakeTimers()
-      stop = startWorkspaceAutosave()
+      stop = startSnapshotAutosave()
       save().mockClear()
 
       const sid = activeSid()
       useLayoutStore.getState().setCwd(sid, activePane(sid), '/a')
       useLayoutStore.getState().setCwd(sid, activePane(sid), '/b')
-      useSessionsStore.getState().addSession('/c')
+      useWorkspacesStore.getState().addWorkspace('/c')
       expect(save()).not.toHaveBeenCalled()
 
       vi.runAllTimers()
@@ -133,19 +133,19 @@ describe('workspace autosave', () => {
 
     it('persists what changed, not a stale copy', () => {
       vi.useFakeTimers()
-      stop = startWorkspaceAutosave()
+      stop = startSnapshotAutosave()
       const sid = activeSid()
       const paneId = activePane(sid)
 
       useLayoutStore.getState().setCwd(sid, paneId, '/home/u/moved')
       vi.runAllTimers()
 
-      expect(lastSnapshot().sessions[0].root).toMatchObject({ cwd: '/home/u/moved' })
+      expect(lastSnapshot().workspaces[0].root).toMatchObject({ cwd: '/home/u/moved' })
     })
 
     it('flushes the pending write when the window is closing', () => {
       vi.useFakeTimers()
-      stop = startWorkspaceAutosave()
+      stop = startSnapshotAutosave()
       save().mockClear()
       const sid = activeSid()
       useLayoutStore.getState().setCwd(sid, activePane(sid), '/x')
@@ -153,27 +153,27 @@ describe('workspace autosave', () => {
       window.dispatchEvent(new Event('beforeunload'))
 
       expect(save()).toHaveBeenCalledTimes(1)
-      expect(lastSnapshot().sessions[0].root).toMatchObject({ cwd: '/x' })
+      expect(lastSnapshot().workspaces[0].root).toMatchObject({ cwd: '/x' })
     })
 
-    it('saves an empty workspace once the last session is closed', () => {
-      useSessionsStore.getState().closeSession(activeSid())
+    it('saves an empty workspace once the last workspace is closed', () => {
+      useWorkspacesStore.getState().closeWorkspace(activeSid())
       save().mockClear()
 
-      saveWorkspaceNow()
+      saveSnapshotNow()
 
       expect(save()).toHaveBeenCalledWith(
-        expect.objectContaining({ v: 1, activeSessionId: null, sessions: [] }),
+        expect.objectContaining({ v: 1, activeWorkspaceId: null, workspaces: [] }),
       )
     })
 
     it('stops watching once disposed', () => {
       vi.useFakeTimers()
-      const dispose = startWorkspaceAutosave()
+      const dispose = startSnapshotAutosave()
       dispose()
       save().mockClear()
 
-      useSessionsStore.getState().addSession('/c')
+      useWorkspacesStore.getState().addWorkspace('/c')
       vi.runAllTimers()
       window.dispatchEvent(new Event('beforeunload'))
 

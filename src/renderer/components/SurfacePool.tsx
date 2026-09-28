@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import { allPanes } from '../layout/tree'
 import type { LayoutNode, SurfaceKind } from '../layout/types'
 import { useDiffStore } from '../stores/diffStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -12,7 +13,7 @@ import { TerminalView } from './Terminal'
 
 interface SurfaceRef {
   paneId: string
-  sessionId: string
+  workspaceId: string
   kind: SurfaceKind
   cwd?: string
   filePath?: string
@@ -20,40 +21,38 @@ interface SurfaceRef {
   extensionId?: string
 }
 
-function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
-  if (node.type === 'pane') {
+function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void {
+  for (const pane of allPanes(node)) {
     if (
-      node.kind === 'terminal' ||
-      node.kind === 'editor' ||
-      node.kind === 'browser' ||
-      node.kind === 'diff' ||
-      (node.kind === 'extension' && node.extensionId)
+      pane.kind === 'terminal' ||
+      pane.kind === 'editor' ||
+      pane.kind === 'browser' ||
+      pane.kind === 'diff' ||
+      (pane.kind === 'extension' && pane.extensionId)
     ) {
       out.push({
-        paneId: node.id,
-        sessionId,
-        kind: node.kind,
-        cwd: node.cwd,
-        filePath: node.filePath,
-        url: node.url,
-        extensionId: node.extensionId,
+        paneId: pane.id,
+        workspaceId,
+        kind: pane.kind,
+        cwd: pane.cwd,
+        filePath: pane.filePath,
+        url: pane.url,
+        extensionId: pane.extensionId,
       })
     }
-    return
   }
-  for (const child of node.children) collect(child, sessionId, out)
 }
 
 export function SurfacePool(): JSX.Element {
-  const bySession = useLayoutStore((s) => s.bySession)
+  const byWorkspace = useLayoutStore((s) => s.byWorkspace)
 
   const surfaces = useMemo(() => {
     const out: SurfaceRef[] = []
-    for (const [sessionId, layout] of Object.entries(bySession)) {
-      if (layout) collect(layout.root, sessionId, out)
+    for (const [workspaceId, layout] of Object.entries(byWorkspace)) {
+      if (layout) collect(layout.root, workspaceId, out)
     }
     return out
-  }, [bySession])
+  }, [byWorkspace])
 
   useEffect(() => {
     const live = new Set(surfaces.map((s) => s.paneId))
@@ -70,11 +69,11 @@ export function SurfacePool(): JSX.Element {
           ) : s.kind === 'diff' ? (
             <DiffView paneId={s.paneId} />
           ) : s.kind === 'browser' ? (
-            <BrowserView sessionId={s.sessionId} paneId={s.paneId} url={s.url} />
+            <BrowserView workspaceId={s.workspaceId} paneId={s.paneId} url={s.url} />
           ) : s.kind === 'extension' && s.extensionId ? (
-            <ExtensionPanelView extId={s.extensionId} sessionId={s.sessionId} />
+            <ExtensionPanelView extId={s.extensionId} workspaceId={s.workspaceId} />
           ) : (
-            <TerminalView sessionId={s.sessionId} paneId={s.paneId} cwd={s.cwd} />
+            <TerminalView workspaceId={s.workspaceId} paneId={s.paneId} cwd={s.cwd} />
           ),
           surfaceHost(s.paneId),
           s.paneId,

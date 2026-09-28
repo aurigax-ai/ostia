@@ -14,7 +14,7 @@ const fixtures = resolve(__dirname, '../../test/fixtures/extensions')
 const caller: ExtensionCaller = {
   kind: 'pane',
   paneId: 'ext-pane',
-  sessionId: 's1',
+  workspaceId: 's1',
   workDir: '/w/s1',
   capabilities: ['read-board'],
 }
@@ -50,7 +50,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,
       nodePath: process.execPath,
-      workDirForSession: (sid) => (sid ? `/w/${sid}` : undefined),
+      workDirForWorkspace: (sid) => (sid ? `/w/${sid}` : undefined),
       broadcast: (channel, payload) => broadcasts.push({ channel, payload }),
       openPanelIn,
       openDiffIn,
@@ -66,8 +66,16 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
         ({
           ok: true,
           result:
-            id === 'session.list'
-              ? [{ sessionId: 's1', name: 'a', kind: 'terminal', workDir: '/w/s1', state: 'idle' }]
+            id === 'workspace.list'
+              ? [
+                  {
+                    workspaceId: 's1',
+                    name: 'a',
+                    kind: 'terminal',
+                    workDir: '/w/s1',
+                    state: 'idle',
+                  },
+                ]
               : [],
         }) as CommandResult,
       getTerminalState: () => undefined,
@@ -106,8 +114,8 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   })
 
   it('delivers subscribed events as notifications and ignores unsubscribed ones', async () => {
-    host.emitEvent('pane.closed', { paneId: 'p-closed', sessionId: 's1' })
-    host.emitEvent('pane.created', { paneId: 'p-new', sessionId: 's1' })
+    host.emitEvent('pane.closed', { paneId: 'p-closed', workspaceId: 's1' })
+    host.emitEvent('pane.created', { paneId: 'p-new', workspaceId: 's1' })
     const item = await until(() => sidebar().find((i) => i.key === 'pane.created'))
     expect(item).toEqual({
       extId: 'echo',
@@ -124,11 +132,11 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
     expect(notify).toHaveBeenCalledWith({ title: 'from echo', body: 'hi', from: 'extension:echo' })
   })
 
-  it('lets an extension list sessions (read-board) through the shared session.list method', async () => {
-    const res = await host.invoke('echo', 'sessions', null, caller)
+  it('lets an extension list workspaces (read-board) through the shared workspace.list method', async () => {
+    const res = await host.invoke('echo', 'workspaces', null, caller)
     expect(res).toMatchObject({
       ok: true,
-      data: [{ sessionId: 's1', workDir: '/w/s1' }],
+      data: [{ workspaceId: 's1', workDir: '/w/s1' }],
     })
   })
 
@@ -136,13 +144,13 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
     const res = await host.invoke(
       'echo',
       'diff',
-      { sessionId: 's1', title: 'a.ts', original: 'a', modified: 'b', path: '/r/a.ts' },
+      { workspaceId: 's1', title: 'a.ts', original: 'a', modified: 'b', path: '/r/a.ts' },
       caller,
     )
     expect(res).toEqual({ ok: true })
     expect(openDiffIn).toHaveBeenCalledWith({
       extId: 'echo',
-      sessionId: 's1',
+      workspaceId: 's1',
       title: 'a.ts',
       original: 'a',
       modified: 'b',
@@ -167,8 +175,8 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   })
 
   it('resolves a url panel from the process and allows only that loopback origin', async () => {
-    const res = await host.resolvePanel('echo', { sessionId: 's9', locale: 'en' })
-    expect(res).toEqual({ ok: true, src: 'http://127.0.0.1:9/?session=s9' })
+    const res = await host.resolvePanel('echo', { workspaceId: 's9', locale: 'en' })
+    expect(res).toEqual({ ok: true, src: 'http://127.0.0.1:9/?workspace=s9' })
     expect(host.isAllowedPanelUrl('echo', 'http://127.0.0.1:9/other')).toBe(true)
     expect(host.isAllowedPanelUrl('echo', 'http://127.0.0.1:10/')).toBe(false)
   })

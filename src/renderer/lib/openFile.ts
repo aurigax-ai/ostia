@@ -1,8 +1,8 @@
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 
 export function openFileInWorkspace(path: string): void {
-  if (!useSessionsStore.getState().activeSessionId) useSessionsStore.getState().addSession()
-  const sessionId = useSessionsStore.getState().activeSessionId
-  if (sessionId) useLayoutStore.getState().openFile(sessionId, path)
+  if (!useWorkspacesStore.getState().activeWorkspaceId) useWorkspacesStore.getState().addWorkspace()
+  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  if (workspaceId) useLayoutStore.getState().openFile(workspaceId, path)
 }

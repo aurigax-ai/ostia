@@ -7,7 +7,7 @@ const DEBOUNCE_MS = 100
 const timers = new Map<string, ReturnType<typeof setTimeout>>()
 
 function findCwd(paneId: string): string | undefined {
-  for (const layout of Object.values(useLayoutStore.getState().bySession)) {
+  for (const layout of Object.values(useLayoutStore.getState().byWorkspace)) {
     const pane = findPane(layout.root, paneId)
     if (pane) return pane.cwd
   }
@@ -80,7 +80,7 @@ export function wireTerminalStateBridge(): void {
   let prevCwd = new Map<string, string | undefined>()
   useLayoutStore.subscribe((state) => {
     const next = new Map<string, string | undefined>()
-    for (const layout of Object.values(state.bySession)) {
+    for (const layout of Object.values(state.byWorkspace)) {
       for (const id of paneIds(layout.root)) next.set(id, findPane(layout.root, id)?.cwd)
     }
     for (const [id, cwd] of next) {

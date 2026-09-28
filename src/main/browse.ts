@@ -172,8 +172,9 @@ export function resolveGuest(
     const wcId = deps.browserPanes.get(identity.paneId)
     if (wcId === undefined) return { ok: false, error: 'browser-not-ready' }
     const crossBoundary =
-      identity.sessionId !== ctx.identity.sessionId || identity.windowId !== ctx.identity.windowId
-    if (crossBoundary && !connHasCap(ctx.authed, 'workspace-wide')) {
+      identity.workspaceId !== ctx.identity.workspaceId ||
+      identity.windowId !== ctx.identity.windowId
+    if (crossBoundary && !connHasCap(ctx.authed, 'all-workspaces')) {
       return { ok: false, error: 'needs-elevation' }
     }
     const guest = webContents.fromId(wcId)
@@ -181,7 +182,7 @@ export function resolveGuest(
     return { ok: true, guest, rendererPaneId: identity.paneId }
   }
   for (const [rendererPaneId, wcId] of deps.browserPanes) {
-    if (getByPaneId(rendererPaneId)?.sessionId !== ctx.identity.sessionId) continue
+    if (getByPaneId(rendererPaneId)?.workspaceId !== ctx.identity.workspaceId) continue
     const guest = webContents.fromId(wcId)
     if (!guest || guest.isDestroyed()) continue
     return { ok: true, guest, rendererPaneId }
@@ -399,7 +400,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       }
       const target: CommandTarget = {
         windowId: ctx.identity.windowId,
-        sessionId: ctx.identity.sessionId,
+        workspaceId: ctx.identity.workspaceId,
         paneId: ctx.identity.paneId,
       }
       const res = await deps.execCommand(target, 'browser.new', { url })
@@ -1276,7 +1277,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         paneId: identity.externalId,
         url: resolution.guest.getURL(),
         title: resolution.guest.getTitle(),
-        sessionId: identity.sessionId,
+        workspaceId: identity.workspaceId,
         windowId: identity.windowId,
       }
     },
@@ -1642,7 +1643,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const { url } = (params ?? {}) as { url?: string; paneId?: string }
       const target: CommandTarget = {
         windowId: ctx.identity.windowId,
-        sessionId: ctx.identity.sessionId,
+        workspaceId: ctx.identity.workspaceId,
         paneId: ctx.identity.paneId,
       }
       const res = await deps.execCommand(target, 'browser.new', { url })
@@ -1664,7 +1665,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       if (sub === 'new') {
         const cmdTarget: CommandTarget = {
           windowId: ctx.identity.windowId,
-          sessionId: ctx.identity.sessionId,
+          workspaceId: ctx.identity.workspaceId,
           paneId: ctx.identity.paneId,
         }
         const res = await deps.execCommand(cmdTarget, 'browser.new', { url })
@@ -1675,7 +1676,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         const tabs: { paneId: string; url: string; title: string }[] = []
         for (const [rendererPaneId, wcId] of deps.browserPanes) {
           const identity = getByPaneId(rendererPaneId)
-          if (!identity || identity.sessionId !== ctx.identity.sessionId) continue
+          if (!identity || identity.workspaceId !== ctx.identity.workspaceId) continue
           const guest = webContents.fromId(wcId)
           if (!guest || guest.isDestroyed()) continue
           tabs.push({ paneId: identity.externalId, url: guest.getURL(), title: guest.getTitle() })
@@ -1690,7 +1691,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         if (!identity) return { ok: false, error: 'no-browser-pane' }
         const cmdTarget: CommandTarget = {
           windowId: identity.windowId,
-          sessionId: identity.sessionId,
+          workspaceId: identity.workspaceId,
           paneId: identity.paneId,
         }
         const res = await deps.execCommand(
@@ -1761,7 +1762,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       if (!identity) return { ok: false, error: 'no-browser-pane' }
       const cmdTarget: CommandTarget = {
         windowId: identity.windowId,
-        sessionId: identity.sessionId,
+        workspaceId: identity.workspaceId,
         paneId: identity.paneId,
       }
       const zoom = action === 'enter' ? true : action === 'exit' ? false : undefined

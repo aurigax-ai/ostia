@@ -17,19 +17,19 @@ import { latestWaitingAt, unreadCount } from '../lib/attention'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import {
-  type Session,
-  type SessionKind,
-  type SessionState,
-  useSessionsStore,
-} from '../stores/sessionsStore'
 import { useUIStore } from '../stores/uiStore'
+import {
+  type Workspace,
+  type WorkspaceKind,
+  type WorkspaceState,
+  useWorkspacesStore,
+} from '../stores/workspacesStore'
 import { FilesView } from './FilesView'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { extensionIcon } from './extensionIcons'
 
-const KIND_ICON: Record<SessionKind, LucideIcon> = {
+const KIND_ICON: Record<WorkspaceKind, LucideIcon> = {
   agent: Bot,
   terminal: Terminal,
   scratch: FlaskConical,
@@ -48,9 +48,9 @@ export function DeckRail(): JSX.Element {
           size="bar"
           hintSide="right"
           icon={Boxes}
-          label={d.rail.sessions}
-          aria-pressed={view === 'sessions'}
-          onClick={() => setView('sessions')}
+          label={d.rail.workspaces}
+          aria-pressed={view === 'workspaces'}
+          onClick={() => setView('workspaces')}
         />
         <IconButton
           size="bar"
@@ -62,18 +62,18 @@ export function DeckRail(): JSX.Element {
         />
       </div>
 
-      {view === 'sessions' ? <SessionsView /> : <FilesView />}
+      {view === 'workspaces' ? <WorkspacesView /> : <FilesView />}
     </aside>
   )
 }
 
-function SessionsView(): JSX.Element {
+function WorkspacesView(): JSX.Element {
   const d = useDict()
-  const sessions = useSessionsStore((s) => s.sessions)
-  const activeId = useSessionsStore((s) => s.activeSessionId)
-  const setActive = useSessionsStore((s) => s.setActive)
-  const addSession = useSessionsStore((s) => s.addSession)
-  const closeSession = useSessionsStore((s) => s.closeSession)
+  const workspaces = useWorkspacesStore((s) => s.workspaces)
+  const activeId = useWorkspacesStore((s) => s.activeWorkspaceId)
+  const setActive = useWorkspacesStore((s) => s.setActive)
+  const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
+  const closeWorkspace = useWorkspacesStore((s) => s.closeWorkspace)
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
   const openSettings = useUIStore((s) => s.openSettings)
@@ -82,7 +82,7 @@ function SessionsView(): JSX.Element {
 
   return (
     <>
-      <div className="sessions">
+      <div className="workspaces">
         {settingsTabOpen ? (
           <TabRow
             active={settingsActive}
@@ -94,7 +94,7 @@ function SessionsView(): JSX.Element {
           />
         ) : null}
 
-        {sessions.map((s) => (
+        {workspaces.map((s) => (
           <TabRow
             key={s.id}
             active={!settingsActive && s.id === activeId}
@@ -102,43 +102,43 @@ function SessionsView(): JSX.Element {
               leaveSettings()
               setActive(s.id)
             }}
-            onClose={() => closeSession(s.id)}
+            onClose={() => closeWorkspace(s.id)}
             closeLabel={d.rail.close}
-            icon={<SessionIcon session={s} />}
+            icon={<WorkspaceIcon workspace={s} />}
             title={s.name}
             meta={
               <span className="tab-meta">
                 <span className="tab-branch">{s.workDir}</span>
-                <SidebarItems sessionId={s.id} />
+                <SidebarItems workspaceId={s.id} />
               </span>
             }
-            badge={<UnreadBadge sessionId={s.id} />}
+            badge={<UnreadBadge workspaceId={s.id} />}
           />
         ))}
       </div>
 
       <SidebarFooter />
 
-      <Hint label={d.rail.newSession} side="right">
+      <Hint label={d.rail.newWorkspace} side="right">
         <button
           type="button"
           className="rail-add"
           onClick={() => {
             leaveSettings()
-            addSession()
+            addWorkspace()
           }}
         >
           <Plus size={14} />
-          <span>{d.rail.newSession}</span>
+          <span>{d.rail.newWorkspace}</span>
         </button>
       </Hint>
     </>
   )
 }
 
-function SidebarItems({ sessionId }: { sessionId?: string }): JSX.Element | null {
+function SidebarItems({ workspaceId }: { workspaceId?: string }): JSX.Element | null {
   const all = useExtensionsStore((s) => s.sidebar)
-  const items = all.filter((i) => i.sessionId === sessionId)
+  const items = all.filter((i) => i.workspaceId === workspaceId)
   if (items.length === 0) return null
   return (
     <>
@@ -158,7 +158,7 @@ function SidebarItems({ sessionId }: { sessionId?: string }): JSX.Element | null
 }
 
 function SidebarFooter(): JSX.Element | null {
-  const hasGlobal = useExtensionsStore((s) => s.sidebar.some((i) => i.sessionId === undefined))
+  const hasGlobal = useExtensionsStore((s) => s.sidebar.some((i) => i.workspaceId === undefined))
   if (!hasGlobal) return null
   return (
     <div className="rail-ext-footer">
@@ -167,8 +167,8 @@ function SidebarFooter(): JSX.Element | null {
   )
 }
 
-function stateLabel(d: Dict, state: SessionState): string {
-  const labels: Record<SessionState, string> = {
+function stateLabel(d: Dict, state: WorkspaceState): string {
+  const labels: Record<WorkspaceState, string> = {
     idle: d.rail.stateIdle,
     working: d.rail.stateWorking,
     waiting: d.rail.stateWaiting,
@@ -178,27 +178,27 @@ function stateLabel(d: Dict, state: SessionState): string {
   return labels[state]
 }
 
-function SessionIcon({ session }: { session: Session }): JSX.Element {
+function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
   const d = useDict()
-  const KindIcon = KIND_ICON[session.kind]
-  const root = useLayoutStore((s) => s.bySession[session.id]?.root)
+  const KindIcon = KIND_ICON[workspace.kind]
+  const root = useLayoutStore((s) => s.byWorkspace[workspace.id]?.root)
   const waitingAt = useAttentionStore((s) => (root ? latestWaitingAt(s.byPane, paneIds(root)) : 0))
   return (
     <span className="tab-lead-wrap">
       <span
-        key={session.state === 'waiting' ? `waiting-${waitingAt}` : 'steady'}
-        className={`dot session-dot ${session.state}`}
+        key={workspace.state === 'waiting' ? `waiting-${waitingAt}` : 'steady'}
+        className={`dot workspace-dot ${workspace.state}`}
         role="img"
-        aria-label={stateLabel(d, session.state)}
+        aria-label={stateLabel(d, workspace.state)}
       />
       <KindIcon size={14} className="tab-lead" />
     </span>
   )
 }
 
-function UnreadBadge({ sessionId }: { sessionId: string }): JSX.Element | null {
+function UnreadBadge({ workspaceId }: { workspaceId: string }): JSX.Element | null {
   const d = useDict()
-  const root = useLayoutStore((s) => s.bySession[sessionId]?.root)
+  const root = useLayoutStore((s) => s.byWorkspace[workspaceId]?.root)
   const n = useAttentionStore((s) => (root ? unreadCount(s.byPane, paneIds(root)) : 0))
   const pop = usePopOnIncrease(n)
   if (n === 0) return null

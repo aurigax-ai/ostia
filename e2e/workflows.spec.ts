@@ -7,7 +7,7 @@ import {
 } from '@playwright/test'
 import { homedir } from 'node:os'
 import { isolatedLaunch } from './dataHome'
-import { PROMPT, emptyState, openSession } from './helpers'
+import { PROMPT, emptyState, openWorkspace } from './helpers'
 
 interface Launched {
   app: ElectronApplication
@@ -39,7 +39,7 @@ async function waitForTerminalFocus(win: Page): Promise<void> {
 test('terminal spawns and runs a command', async () => {
   const { app, win } = await launchApp()
   try {
-    await openSession(win)
+    await openWorkspace(win)
 
     const term = win.locator('.xterm').first()
     await term.click()
@@ -59,7 +59,7 @@ test('terminal spawns and runs a command', async () => {
 test('splitting a pane adds a second terminal', async () => {
   const { app, win } = await launchApp()
   try {
-    await openSession(win)
+    await openWorkspace(win)
     await expect(win.locator('.xterm')).toHaveCount(1)
     await expect(win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
 
@@ -83,8 +83,8 @@ test('command palette opens, filters, and runs a command', async () => {
     const dialog = win.getByRole('dialog')
     await expect(dialog).toBeVisible({ timeout: 5_000 })
 
-    await win.locator('[data-slot="command-input"]').fill('New Session')
-    await expect(dialog.getByText('New Session', { exact: true })).toBeVisible()
+    await win.locator('[data-slot="command-input"]').fill('New Workspace')
+    await expect(dialog.getByText('New Workspace', { exact: true })).toBeVisible()
     await expect(dialog.getByText('Split Pane Right', { exact: true })).toHaveCount(0)
 
     await win.keyboard.press('Enter')
@@ -100,7 +100,7 @@ test('command palette opens, filters, and runs a command', async () => {
 test('opening a file shows the Monaco editor', async () => {
   const { app, win } = await launchApp()
   try {
-    await openSession(win)
+    await openWorkspace(win)
     await expect(win.locator('.monaco-editor')).toHaveCount(0)
 
     await win.locator('.deck-rail').getByRole('button', { name: 'Files', exact: true }).click()
@@ -120,7 +120,7 @@ test('opening a file shows the Monaco editor', async () => {
   }
 })
 
-test('boots with no session and opens one at home with Ctrl+Shift+T', async () => {
+test('boots with no workspace and opens one at home with Ctrl+Shift+T', async () => {
   const { app, win } = await launchApp()
   const errors: string[] = []
   win.on('pageerror', (err) => errors.push(err.message))
@@ -129,8 +129,8 @@ test('boots with no session and opens one at home with Ctrl+Shift+T', async () =
   })
   try {
     await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-    await expect(emptyState(win).getByRole('heading', { name: 'No sessions' })).toBeVisible()
-    await expect(emptyState(win).getByRole('button', { name: /New session/ })).toContainText(
+    await expect(emptyState(win).getByRole('heading', { name: 'No workspaces' })).toBeVisible()
+    await expect(emptyState(win).getByRole('button', { name: /New workspace/ })).toContainText(
       'Ctrl+Shift+T',
     )
     await win.waitForTimeout(1_000)
@@ -148,11 +148,11 @@ test('boots with no session and opens one at home with Ctrl+Shift+T', async () =
   }
 })
 
-test('closing the only session shows the empty state, and New session opens a terminal at ~', async () => {
+test('closing the only workspace shows the empty state, and New workspace opens a terminal at ~', async () => {
   test.setTimeout(60_000)
   const { app, win } = await launchApp()
   try {
-    await openSession(win)
+    await openWorkspace(win)
     const tab = win.locator('.rail-tab')
     await expect(tab).toHaveCount(1)
 
@@ -165,7 +165,7 @@ test('closing the only session shows the empty state, and New session opens a te
     await expect(win.locator('.xterm')).toHaveCount(0)
     await expect(tab).toHaveCount(0)
 
-    await openSession(win)
+    await openWorkspace(win)
     await expect(tab).toHaveCount(1)
     await win.locator('.xterm').first().click()
     await waitForTerminalFocus(win)

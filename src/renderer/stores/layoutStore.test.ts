@@ -2,10 +2,10 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { findPane, firstPaneId, paneIds } from '../layout/tree'
 import type { SplitNode } from '../layout/types'
 import { useLayoutStore } from './layoutStore'
-import { useSessionsStore } from './sessionsStore'
+import { useWorkspacesStore } from './workspacesStore'
 
 const emit = () => vi.mocked(window.pine.lifecycle.emit)
-const layoutOf = (sid: string) => useLayoutStore.getState().bySession[sid]
+const layoutOf = (sid: string) => useLayoutStore.getState().byWorkspace[sid]
 
 function ensure(sid: string): string {
   useLayoutStore.getState().ensure(sid)
@@ -22,11 +22,11 @@ function twoPanes(sid: string): { first: string; second: string } {
 
 describe('layoutStore', () => {
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
-  let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 
   beforeAll(() => {
     layoutInit = useLayoutStore.getState()
-    sessionsInit = useSessionsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
   })
 
   beforeEach(() => {
@@ -35,12 +35,12 @@ describe('layoutStore', () => {
 
   afterEach(() => {
     useLayoutStore.setState(layoutInit, true)
-    useSessionsStore.setState(sessionsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
     vi.restoreAllMocks()
   })
 
-  it('starts with an empty bySession', () => {
-    expect(useLayoutStore.getState().bySession).toEqual({})
+  it('starts with an empty byWorkspace', () => {
+    expect(useLayoutStore.getState().byWorkspace).toEqual({})
   })
 
   describe('ensure', () => {
@@ -52,15 +52,15 @@ describe('layoutStore', () => {
       expect(findPane(layout.root, paneId)?.kind).toBe('terminal')
       expect(layout.activePaneId).toBe(paneId)
       expect(emit()).toHaveBeenCalledTimes(1)
-      expect(emit()).toHaveBeenCalledWith({ type: 'pane-created', sessionId: 'sess', paneId })
+      expect(emit()).toHaveBeenCalledWith({ type: 'pane-created', workspaceId: 'sess', paneId })
     })
 
-    it('reads the session workDir from useSessionsStore into the new pane cwd', () => {
-      useSessionsStore.setState({
-        sessions: [
+    it('reads the workspace workDir from useWorkspacesStore into the new pane cwd', () => {
+      useWorkspacesStore.setState({
+        workspaces: [
           { id: 'w1', name: 'proj', kind: 'terminal', workDir: '/home/me/proj', state: 'idle' },
         ],
-        activeSessionId: 'w1',
+        activeWorkspaceId: 'w1',
       })
 
       const paneId = ensure('w1')
@@ -94,21 +94,21 @@ describe('layoutStore', () => {
       expect(emit()).toHaveBeenCalledTimes(1)
       expect(emit()).toHaveBeenCalledWith({
         type: 'pane-created',
-        sessionId: 'sess',
+        workspaceId: 'sess',
         paneId: newId,
       })
     })
 
-    it('is a no-op on an absent session (no emit)', () => {
-      const before = useLayoutStore.getState().bySession
+    it('is a no-op on an absent workspace (no emit)', () => {
+      const before = useLayoutStore.getState().byWorkspace
 
       useLayoutStore.getState().split('ghost', 'pane-x', 'horizontal')
 
-      expect(useLayoutStore.getState().bySession).toBe(before)
+      expect(useLayoutStore.getState().byWorkspace).toBe(before)
       expect(emit()).not.toHaveBeenCalled()
     })
 
-    it('on an existing session with a missing target pane, adds no pane and does not emit', () => {
+    it('on an existing workspace with a missing target pane, adds no pane and does not emit', () => {
       const paneId = ensure('sess')
       emit().mockClear()
 
@@ -136,12 +136,12 @@ describe('layoutStore', () => {
       expect(emit()).toHaveBeenCalledTimes(1)
       expect(emit()).toHaveBeenCalledWith({
         type: 'pane-closed',
-        sessionId: 'sess',
+        workspaceId: 'sess',
         paneId: second,
       })
     })
 
-    it("guard: closing the session's LAST pane is a tree no-op and emits NO pane-closed", () => {
+    it("guard: closing the workspace's LAST pane is a tree no-op and emits NO pane-closed", () => {
       const only = ensure('sess')
       emit().mockClear()
 
@@ -166,12 +166,12 @@ describe('layoutStore', () => {
       expect(emit()).not.toHaveBeenCalled()
     })
 
-    it('is a no-op on an absent session (no emit)', () => {
-      const before = useLayoutStore.getState().bySession
+    it('is a no-op on an absent workspace (no emit)', () => {
+      const before = useLayoutStore.getState().byWorkspace
 
       useLayoutStore.getState().closePane('ghost', 'pane-x')
 
-      expect(useLayoutStore.getState().bySession).toBe(before)
+      expect(useLayoutStore.getState().byWorkspace).toBe(before)
       expect(emit()).not.toHaveBeenCalled()
     })
   })
@@ -231,11 +231,11 @@ describe('layoutStore', () => {
     it('leaves the store state identical when the cwd is unchanged', () => {
       const paneId = ensure('sess')
       useLayoutStore.getState().setCwd('sess', paneId, '/x')
-      const before = useLayoutStore.getState().bySession
+      const before = useLayoutStore.getState().byWorkspace
 
       useLayoutStore.getState().setCwd('sess', paneId, '/x')
 
-      expect(useLayoutStore.getState().bySession).toBe(before)
+      expect(useLayoutStore.getState().byWorkspace).toBe(before)
     })
   })
 
@@ -248,9 +248,9 @@ describe('layoutStore', () => {
       useLayoutStore.getState().setUrl('sess', paneId, 'https://a.test/next')
       expect(findPane(layoutOf('sess').root, paneId)?.url).toBe('https://a.test/next')
 
-      const before = useLayoutStore.getState().bySession
+      const before = useLayoutStore.getState().byWorkspace
       useLayoutStore.getState().setUrl('sess', paneId, 'https://a.test/next')
-      expect(useLayoutStore.getState().bySession).toBe(before)
+      expect(useLayoutStore.getState().byWorkspace).toBe(before)
     })
   })
 
@@ -273,7 +273,7 @@ describe('layoutStore', () => {
       expect(emit()).toHaveBeenCalledTimes(1)
       expect(emit()).toHaveBeenCalledWith({
         type: 'pane-created',
-        sessionId: 'sess',
+        workspaceId: 'sess',
         paneId: editorId,
       })
     })
@@ -316,7 +316,7 @@ describe('layoutStore', () => {
       expect(emit()).toHaveBeenCalledTimes(1)
       expect(emit()).toHaveBeenCalledWith({
         type: 'pane-created',
-        sessionId: 'sess',
+        workspaceId: 'sess',
         paneId: browserId,
       })
     })
@@ -359,7 +359,7 @@ describe('layoutStore', () => {
       expect(emit()).toHaveBeenCalledTimes(1)
       expect(emit()).toHaveBeenCalledWith({
         type: 'pane-created',
-        sessionId: 'sess',
+        workspaceId: 'sess',
         paneId: demoId,
       })
     })
@@ -394,37 +394,41 @@ describe('layoutStore', () => {
     })
   })
 
-  describe('removeSession', () => {
+  describe('removeWorkspace', () => {
     it('drops the layout and emits pane-closed for each pane it held', () => {
       const { first, second } = twoPanes('sess')
       emit().mockClear()
 
-      useLayoutStore.getState().removeSession('sess')
+      useLayoutStore.getState().removeWorkspace('sess')
 
       expect(layoutOf('sess')).toBeUndefined()
-      expect('sess' in useLayoutStore.getState().bySession).toBe(false)
+      expect('sess' in useLayoutStore.getState().byWorkspace).toBe(false)
       expect(emit()).toHaveBeenCalledTimes(2)
-      expect(emit()).toHaveBeenCalledWith({ type: 'pane-closed', sessionId: 'sess', paneId: first })
       expect(emit()).toHaveBeenCalledWith({
         type: 'pane-closed',
-        sessionId: 'sess',
+        workspaceId: 'sess',
+        paneId: first,
+      })
+      expect(emit()).toHaveBeenCalledWith({
+        type: 'pane-closed',
+        workspaceId: 'sess',
         paneId: second,
       })
     })
 
-    it('is a no-op on an absent session (no emit)', () => {
-      const before = useLayoutStore.getState().bySession
+    it('is a no-op on an absent workspace (no emit)', () => {
+      const before = useLayoutStore.getState().byWorkspace
 
-      useLayoutStore.getState().removeSession('ghost')
+      useLayoutStore.getState().removeWorkspace('ghost')
 
-      expect(useLayoutStore.getState().bySession).toBe(before)
+      expect(useLayoutStore.getState().byWorkspace).toBe(before)
       expect(emit()).not.toHaveBeenCalled()
     })
   })
 
-  describe('absent-session guard', () => {
-    it('leaves state untouched and emits nothing for actions on an unknown session', () => {
-      const before = useLayoutStore.getState().bySession
+  describe('absent-workspace guard', () => {
+    it('leaves state untouched and emits nothing for actions on an unknown workspace', () => {
+      const before = useLayoutStore.getState().byWorkspace
 
       const store = useLayoutStore.getState()
       store.split('ghost', 'p', 'horizontal')
@@ -437,7 +441,7 @@ describe('layoutStore', () => {
       store.openBrowser('ghost', 'https://x')
       store.openExtensionPanel('ghost', 'demo', 'Board')
 
-      expect(useLayoutStore.getState().bySession).toBe(before)
+      expect(useLayoutStore.getState().byWorkspace).toBe(before)
       expect(emit()).not.toHaveBeenCalled()
     })
   })
@@ -450,7 +454,7 @@ describe('layoutStore', () => {
       kind: 'terminal' as const,
     })
 
-    it('installs a restored layout for each session', () => {
+    it('installs a restored layout for each workspace', () => {
       useLayoutStore.getState().hydrate({
         s40: { root: pane('pane-40'), activePaneId: 'pane-40', zoomedPaneId: null },
       })
@@ -469,7 +473,7 @@ describe('layoutStore', () => {
         s40: { root: pane('pane-40'), activePaneId: 'pane-40', zoomedPaneId: null },
       })
 
-      expect(Object.keys(useLayoutStore.getState().bySession)).toEqual(['s40'])
+      expect(Object.keys(useLayoutStore.getState().byWorkspace)).toEqual(['s40'])
     })
 
     it('announces every restored pane so main can mint its identity', () => {
@@ -488,8 +492,8 @@ describe('layoutStore', () => {
       })
 
       const emitted = emit().mock.calls.map((c) => c[0])
-      expect(emitted).toContainEqual({ type: 'pane-created', sessionId: 's40', paneId: 'pane-1' })
-      expect(emitted).toContainEqual({ type: 'pane-created', sessionId: 's40', paneId: 'pane-2' })
+      expect(emitted).toContainEqual({ type: 'pane-created', workspaceId: 's40', paneId: 'pane-1' })
+      expect(emitted).toContainEqual({ type: 'pane-created', workspaceId: 's40', paneId: 'pane-2' })
     })
 
     it('leaves ensure a no-op afterwards, so the first render cannot overwrite a restore', () => {
@@ -500,6 +504,52 @@ describe('layoutStore', () => {
       useLayoutStore.getState().ensure('s40')
 
       expect(paneIds(layoutOf('s40').root)).toEqual(['pane-40'])
+    })
+  })
+
+  describe('tabs', () => {
+    it('opens a terminal tab in the pane’s cwd, focuses it and announces it', () => {
+      const first = ensure('s1')
+      useLayoutStore.getState().setCwd('s1', first, '/work/app')
+      const id = useLayoutStore.getState().newTab('s1', first, 'terminal') as string
+
+      expect(layoutOf('s1').activePaneId).toBe(id)
+      expect(layoutOf('s1').root).toMatchObject({ type: 'tabs', activeId: id })
+      expect(findPane(layoutOf('s1').root, id)?.cwd).toBe('/work/app')
+      expect(emit()).toHaveBeenCalledWith({ type: 'pane-created', workspaceId: 's1', paneId: id })
+    })
+
+    it('opens a browser tab on a blank page', () => {
+      const first = ensure('s1')
+      const id = useLayoutStore.getState().newTab('s1', first, 'browser') as string
+      expect(findPane(layoutOf('s1').root, id)).toMatchObject({
+        kind: 'browser',
+        url: 'about:blank',
+      })
+    })
+
+    it('shows the tab of a pane that gets focused', () => {
+      const first = ensure('s1')
+      useLayoutStore.getState().newTab('s1', first, 'terminal')
+      useLayoutStore.getState().focusPane('s1', first)
+      expect(layoutOf('s1').root).toMatchObject({ type: 'tabs', activeId: first })
+    })
+
+    it('focuses a neighbouring tab, not another pane, when the focused tab closes', () => {
+      const { first, second } = twoPanes('s1')
+      const tab = useLayoutStore.getState().newTab('s1', second, 'terminal') as string
+      useLayoutStore.getState().closePane('s1', tab)
+      expect(layoutOf('s1').activePaneId).toBe(second)
+      expect(first).not.toBe(second)
+    })
+
+    it('keeps an agent resume token on the pane', () => {
+      const first = ensure('s1')
+      useLayoutStore.getState().setResume('s1', first, { agent: 'codex', id: 'th_1' })
+      const before = layoutOf('s1')
+      useLayoutStore.getState().setResume('s1', first, { agent: 'codex', id: 'th_1' })
+      expect(layoutOf('s1')).toBe(before)
+      expect(findPane(layoutOf('s1').root, first)?.resume).toEqual({ agent: 'codex', id: 'th_1' })
     })
   })
 })

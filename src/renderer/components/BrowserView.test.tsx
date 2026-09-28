@@ -6,13 +6,14 @@ import { resetIds } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePaneRecencyStore } from '../stores/paneRecencyStore'
-import { useSessionsStore } from '../stores/sessionsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { BrowserView } from './BrowserView'
 import { TooltipProvider } from './ui/tooltip'
 
-function homeSessionId(): string {
-  if (useSessionsStore.getState().sessions.length === 0) useSessionsStore.getState().addSession()
-  return useSessionsStore.getState().sessions[0].id
+function homeWorkspaceId(): string {
+  if (useWorkspacesStore.getState().workspaces.length === 0)
+    useWorkspacesStore.getState().addWorkspace()
+  return useWorkspacesStore.getState().workspaces[0].id
 }
 
 const BROWSER = 'browser-pane'
@@ -35,13 +36,13 @@ const capture: PickCapture = {
   capturedAt: '2026-09-28T00:00:00.000Z',
 }
 
-let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let attentionInit: ReturnType<typeof useAttentionStore.getState>
 let recencyInit: ReturnType<typeof usePaneRecencyStore.getState>
 
 beforeAll(() => {
-  sessionsInit = useSessionsStore.getState()
+  workspacesInit = useWorkspacesStore.getState()
   layoutInit = useLayoutStore.getState()
   attentionInit = useAttentionStore.getState()
   recencyInit = usePaneRecencyStore.getState()
@@ -52,7 +53,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  useSessionsStore.setState(sessionsInit, true)
+  useWorkspacesStore.setState(workspacesInit, true)
   useLayoutStore.setState(layoutInit, true)
   useAttentionStore.setState(attentionInit, true)
   usePaneRecencyStore.setState(recencyInit, true)
@@ -60,19 +61,19 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function twoTerminals(): { sessionId: string; a: string; b: string } {
-  const sessionId = homeSessionId()
-  useLayoutStore.getState().ensure(sessionId)
-  const a = useLayoutStore.getState().bySession[sessionId].activePaneId
-  useLayoutStore.getState().split(sessionId, a, 'horizontal')
-  const b = useLayoutStore.getState().bySession[sessionId].activePaneId
-  return { sessionId, a, b }
+function twoTerminals(): { workspaceId: string; a: string; b: string } {
+  const workspaceId = homeWorkspaceId()
+  useLayoutStore.getState().ensure(workspaceId)
+  const a = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+  useLayoutStore.getState().split(workspaceId, a, 'horizontal')
+  const b = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+  return { workspaceId, a, b }
 }
 
-function renderView(sessionId: string) {
+function renderView(workspaceId: string) {
   return render(
     <TooltipProvider>
-      <BrowserView sessionId={sessionId} paneId={BROWSER} url="http://localhost/" />
+      <BrowserView workspaceId={workspaceId} paneId={BROWSER} url="http://localhost/" />
     </TooltipProvider>,
   )
 }
@@ -89,10 +90,10 @@ const pickButton = () => screen.getByRole('button', { name: /point at element|st
 
 describe('BrowserView pick toggle', () => {
   it('starts a pick for this pane with the app theme and shows it as pressed', async () => {
-    const { sessionId } = twoTerminals()
+    const { workspaceId } = twoTerminals()
     const pending = deferred<PickOutcome>()
     vi.mocked(window.pine.browser.pickStart).mockReturnValue(pending.promise)
-    renderView(sessionId)
+    renderView(workspaceId)
     expect(pickButton()).toHaveAttribute('aria-pressed', 'false')
     await userEvent.click(pickButton())
     expect(window.pine.browser.pickStart).toHaveBeenCalledWith(
@@ -105,22 +106,22 @@ describe('BrowserView pick toggle', () => {
   })
 
   it('cancels the running pick when toggled off', async () => {
-    const { sessionId } = twoTerminals()
+    const { workspaceId } = twoTerminals()
     vi.mocked(window.pine.browser.pickStart).mockReturnValue(new Promise(() => {}))
-    renderView(sessionId)
+    renderView(workspaceId)
     await userEvent.click(pickButton())
     await userEvent.click(pickButton())
     expect(window.pine.browser.pickCancel).toHaveBeenCalledWith(BROWSER)
   })
 
   it('shows the agent prompt when an agent started the pick', () => {
-    const { sessionId } = twoTerminals()
+    const { workspaceId } = twoTerminals()
     let emit: (s: PickState) => void = () => {}
     vi.mocked(window.pine.browser.onPickState).mockImplementation((cb) => {
       emit = cb
       return () => {}
     })
-    renderView(sessionId)
+    renderView(workspaceId)
     act(() => emit({ paneId: 'other-pane', active: true, byAgent: true }))
     expect(pickButton()).toHaveAttribute('aria-pressed', 'false')
     act(() => emit({ paneId: BROWSER, active: true, byAgent: true }))
@@ -131,9 +132,9 @@ describe('BrowserView pick toggle', () => {
   })
 
   it('reports a failed pick instead of failing silently', async () => {
-    const { sessionId } = twoTerminals()
+    const { workspaceId } = twoTerminals()
     vi.mocked(window.pine.browser.pickStart).mockResolvedValue({ ok: false, error: 'navigated' })
-    renderView(sessionId)
+    renderView(workspaceId)
     await userEvent.click(pickButton())
     expect(await screen.findByText(/could not capture an element \(navigated\)/i)).toBeVisible()
   })
@@ -145,7 +146,7 @@ describe('BrowserView send panel', () => {
     usePaneRecencyStore.getState().touch(panes.a, 100)
     usePaneRecencyStore.getState().touch(panes.b, 50)
     vi.mocked(window.pine.browser.pickStart).mockResolvedValue({ ok: true, capture })
-    renderView(panes.sessionId)
+    renderView(panes.workspaceId)
     await userEvent.click(pickButton())
     await screen.findByRole('region', { name: /send to agent/i })
     return panes

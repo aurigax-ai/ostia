@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { openExtensionPanel } from '../commands/extensionBridge'
 import { fmt, useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
-import { revealPane } from '../lib/sessionActivity'
+import { revealPane } from '../lib/workspaceActivity'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { IconButton } from './IconButton'
 import { Button } from './ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
@@ -17,24 +17,24 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 const LIST_LIMIT = 50
 
 interface PaneLabel {
-  session: string
+  workspace: string
   pane: string
 }
 
 function usePaneLabels(): (paneId: string | undefined) => PaneLabel | null {
-  const bySession = useLayoutStore((s) => s.bySession)
-  const sessions = useSessionsStore((s) => s.sessions)
+  const byWorkspace = useLayoutStore((s) => s.byWorkspace)
+  const workspaces = useWorkspacesStore((s) => s.workspaces)
   return useCallback(
     (paneId) => {
       if (!paneId) return null
-      for (const session of sessions) {
-        const layout = bySession[session.id]
+      for (const workspace of workspaces) {
+        const layout = byWorkspace[workspace.id]
         const pane = layout ? findPane(layout.root, paneId) : null
-        if (pane) return { session: session.name, pane: pane.title }
+        if (pane) return { workspace: workspace.name, pane: pane.title }
       }
       return null
     },
-    [bySession, sessions],
+    [byWorkspace, workspaces],
   )
 }
 
@@ -117,7 +117,7 @@ export function NotificationCenter(): JSX.Element {
               const whereText = ext
                 ? ext.name
                 : where
-                  ? `${where.session} · ${where.pane}`
+                  ? `${where.workspace} · ${where.pane}`
                   : d.attention.closedPane
               return (
                 <li key={entry.id}>

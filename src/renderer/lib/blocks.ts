@@ -63,15 +63,15 @@ export function isIdlePrompt(
 }
 
 export interface PaneOrigin {
-  sessionId: string
-  sessionName: string
+  workspaceId: string
+  workspaceName: string
 }
 
 export interface HistoryEntry {
   command: string
   paneId: string
-  sessionId: string
-  sessionName: string
+  workspaceId: string
+  workspaceName: string
   cwd: string | null
   at: number
 }

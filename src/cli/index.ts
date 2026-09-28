@@ -7,6 +7,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../shared/agentResume'
 import type { CommandResult } from '../shared/types'
 
 interface ProcInfo {
@@ -271,9 +272,10 @@ const CORE_VERBS = new Set([
   'info',
   'cwd',
   'pane.list',
-  'session.list',
+  'workspace.list',
   'notify',
   'state',
+  'resume-token',
   'open',
   'docs',
   'process',
@@ -1298,7 +1300,7 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
           paneId?: string
           url: string
           title: string
-          sessionId: string
+          workspaceId: string
           windowId: string
         }
       | BrowseErr
@@ -1335,8 +1337,8 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
     }
   } else if (sub === 'storage') {
     const [area, storageSub, key, value] = rest
-    if (area !== 'local' && area !== 'session') {
-      console.error('pine browse storage: missing <local|session>')
+    if (area !== 'local' && area !== 'workspace') {
+      console.error('pine browse storage: missing <local|workspace>')
       process.exitCode = 1
       return
     }
@@ -1651,12 +1653,38 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
+  const [agent, raw] = process.argv.slice(3)
+  if (!isResumableAgent(agent) || !raw) {
+    console.error(`pine resume-token: usage: resume-token <${RESUMABLE_AGENTS.join('|')}> <id|->`)
+    process.exitCode = 1
+    return
+  }
+  const id = resumeIdFromHookPayload(raw === '-' ? await readAllStdin() : raw)
+  if (!id) {
+    console.error('pine resume-token: no agent session id found')
+    process.exitCode = 1
+    return
+  }
+  const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setResume', {
+    agent,
+    id,
+  })
+  if (res.ok) {
+    console.log('ok')
+  } else {
+    console.error(`pine resume-token: ${res.error ?? 'failed'}`)
+    process.exitCode = 1
+  }
+}
+
 const USAGE = `usage: pine <command> [args]
 
 commands:
-  whoami | commands | info | cwd | pane.list | session.list | docs
+  whoami | commands | info | cwd | pane.list | workspace.list | docs
   notify <title> [body]
   state <waiting|done|working|error|clear> [message|-] [--pane <externalId>]
+  resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
   open <path>
   process | vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
@@ -1728,9 +1756,9 @@ async function main(): Promise<void> {
     } else if (cmd === 'pane.list') {
       const panes = await conn.sendRequest('pane.list')
       console.log(JSON.stringify(panes, null, 2))
-    } else if (cmd === 'session.list') {
-      const sessions = await conn.sendRequest('session.list')
-      console.log(JSON.stringify(sessions, null, 2))
+    } else if (cmd === 'workspace.list') {
+      const workspaces = await conn.sendRequest('workspace.list')
+      console.log(JSON.stringify(workspaces, null, 2))
     } else if (cmd === 'notify') {
       const title = process.argv[3]
       const body = process.argv[4]
@@ -1743,6 +1771,8 @@ async function main(): Promise<void> {
       }
     } else if (cmd === 'state') {
       await runStateVerb(conn)
+    } else if (cmd === 'resume-token') {
+      await runResumeTokenVerb(conn)
     } else if (cmd === 'open') {
       const arg = process.argv[3]
       if (!arg) {
@@ -1793,7 +1823,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, session.list, notify, state, open, docs, process, vault, bus, settings, browse, gateway, ext)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, workspace.list, notify, state, open, docs, process, vault, bus, settings, browse, gateway, ext)`,
       )
       process.exitCode = 1
     }

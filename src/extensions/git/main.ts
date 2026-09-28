@@ -22,8 +22,8 @@ import {
   repoRoot,
   unifiedPatch,
 } from './repo'
-import { SessionCwds } from './sessions'
 import { type ChangeArea, type RepoStatus, sidebarText, summarize } from './status'
+import { WorkspaceCwds } from './workspaces'
 
 const REFRESH_DEBOUNCE_MS = 300
 const POLL_MS = 10_000
@@ -58,7 +58,7 @@ function targetArgs(args: unknown): { path?: string; area?: ChangeArea } {
 }
 
 class GitExtension {
-  private cwds = new SessionCwds()
+  private cwds = new WorkspaceCwds()
   private shown = new Map<string, string>()
   private signature = ''
   private timer: ReturnType<typeof setTimeout> | null = null
@@ -69,15 +69,15 @@ class GitExtension {
 
   constructor(private readonly ext: PineExtension) {}
 
-  async sessionCwdMap(): Promise<Map<string, string>> {
-    const [sessions, panes] = await Promise.all([this.ext.listSessions(), this.ext.listPanes()])
-    return this.cwds.resolve(sessions, panes)
+  async workspaceCwdMap(): Promise<Map<string, string>> {
+    const [workspaces, panes] = await Promise.all([this.ext.listWorkspaces(), this.ext.listPanes()])
+    return this.cwds.resolve(workspaces, panes)
   }
 
   async callerCwd(caller: ExtensionCaller): Promise<string | null> {
     if (caller.cwd) return expandHome(caller.cwd)
-    if (caller.sessionId) {
-      const cwd = (await this.sessionCwdMap().catch(() => null))?.get(caller.sessionId)
+    if (caller.workspaceId) {
+      const cwd = (await this.workspaceCwdMap().catch(() => null))?.get(caller.workspaceId)
       if (cwd) return cwd
     }
     return caller.workDir ? expandHome(caller.workDir) : null
@@ -129,11 +129,11 @@ class GitExtension {
   }
 
   private async syncSidebar(): Promise<void> {
-    const cwds = await this.sessionCwdMap()
+    const cwds = await this.workspaceCwdMap()
     const byCwd = new Map<string, Promise<Repo | null>>()
     const next = new Map<string, string>()
     const parts: string[] = []
-    for (const [sessionId, cwd] of cwds) {
+    for (const [workspaceId, cwd] of cwds) {
       if (!byCwd.has(cwd))
         byCwd.set(
           cwd,
@@ -141,16 +141,16 @@ class GitExtension {
         )
       const repo = await byCwd.get(cwd)
       if (!repo) continue
-      next.set(sessionId, sidebarText(repo.status))
-      parts.push(`${sessionId}\u0000${repo.root}\u0000${JSON.stringify(repo.status)}`)
+      next.set(workspaceId, sidebarText(repo.status))
+      parts.push(`${workspaceId}\u0000${repo.root}\u0000${JSON.stringify(repo.status)}`)
     }
-    for (const [sessionId, text] of next) {
-      if (this.shown.get(sessionId) === text) continue
-      await this.ext.setSidebarItem({ sessionId, key: SIDEBAR_KEY, text, icon: 'git-branch' })
+    for (const [workspaceId, text] of next) {
+      if (this.shown.get(workspaceId) === text) continue
+      await this.ext.setSidebarItem({ workspaceId, key: SIDEBAR_KEY, text, icon: 'git-branch' })
     }
-    for (const sessionId of this.shown.keys()) {
-      if (!next.has(sessionId)) {
-        await this.ext.setSidebarItem({ sessionId, key: SIDEBAR_KEY, text: '' })
+    for (const workspaceId of this.shown.keys()) {
+      if (!next.has(workspaceId)) {
+        await this.ext.setSidebarItem({ workspaceId, key: SIDEBAR_KEY, text: '' })
       }
     }
     this.shown = next
@@ -210,7 +210,7 @@ class GitExtension {
           const change = await this.findChange(repo, caller, target.path, target.area)
           const sides = await diffSides(repo.root, change)
           const res = await this.ext.openDiff({
-            sessionId: caller.sessionId,
+            workspaceId: caller.workspaceId,
             title: `${basename(change.path)} (${change.area})`,
             original: sides.original,
             modified: sides.modified,
@@ -223,7 +223,7 @@ class GitExtension {
         }
       },
       show: async (_args, caller) => {
-        await this.ext.openPanel(caller.sessionId)
+        await this.ext.openPanel(caller.workspaceId)
         return ok('ok')
       },
     }
@@ -258,7 +258,7 @@ async function main(): Promise<void> {
   ext.onPanel((caller) => ({
     url: panel.url({
       workDir: caller.workDir ?? '',
-      sessionId: caller.sessionId ?? '',
+      workspaceId: caller.workspaceId ?? '',
       locale: caller.locale ?? 'en',
     }),
   }))

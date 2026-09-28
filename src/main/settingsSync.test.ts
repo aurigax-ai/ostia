@@ -76,7 +76,7 @@ describe('sync helpers', () => {
   it('keeps local-only keys from the local copy and drops them from the remote copy', () => {
     const merged = mergeIntoLocal(
       { locale: 'en', sync: { dir: '/a' }, capabilities: { grants: ['shell'] } },
-      { locale: 'zh-Hant', sync: { dir: '/evil' }, capabilities: { grants: ['workspace-wide'] } },
+      { locale: 'zh-Hant', sync: { dir: '/evil' }, capabilities: { grants: ['all-workspaces'] } },
       ['sync', 'capabilities'],
     )
     expect(merged).toEqual({
@@ -158,7 +158,7 @@ describe('SettingsSync', () => {
     sync.run()
     writeJson(join(remote, 'settings.json'), {
       locale: 'zh-Hant',
-      capabilities: { grants: ['workspace-wide'] },
+      capabilities: { grants: ['all-workspaces'] },
       sync: { dir: '/elsewhere' },
     })
     const res = sync.run()

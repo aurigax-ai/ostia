@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_WORKSPACE — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
 ---
 
 # Pine — the agent toolbelt
@@ -11,7 +11,7 @@ agent's shell is a pane inside Pine, that pane's environment carries:
 - `PINE_SOCKET` — path to the app's control-plane Unix socket
 - `PINE_TOKEN` — a per-pane auth token (proves *this* pane, nothing else)
 - `PINE_PANE_ID` — this pane's external id (a UUID — same value `whoami` calls `externalId`)
-- `PINE_WORKSPACE` — the workDir this pane/session was anchored to
+- `PINE_START_DIR` — the workDir this pane/workspace was anchored to
 - `PINE_CLI` / `PINE_NODE` — the CLI's bundled JS and the app's own Electron binary. A shell
   function `pine() { ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" "$@"; }` is injected
   into bash/zsh panes with shell integration, so the bare `pine` command just works (no
@@ -29,22 +29,22 @@ ever disagree (e.g. after an app update).
 ## Identity & introspection
 
 ```sh
-pine whoami          # { externalId, paneId, sessionId } — externalId is the id used
+pine whoami          # { externalId, paneId, workspaceId } — externalId is the id used
                       # everywhere else (bus.send's <to>, etc.); PINE_PANE_ID == externalId
 pine commands        # JSON array of commands available in this window: id, title,
                       # category, hidden, argsSchema, resultSchema, capabilities, target
 pine docs            # this same reference, generated from the running app
 pine info            # this pane's mirrored terminal state (cwd, running, gen, ...)
 pine cwd             # just this pane's current working directory
-pine pane.list       # every pane, every session — JSON array of
-                     # { paneId(external), sessionId, kind, title, cwd, running,
+pine pane.list       # every pane, every workspace — JSON array of
+                     # { paneId(external), workspaceId, kind, title, cwd, running,
                      #   blockCount, lastExitCode } — the pane roster (see below)
-pine session.list    # every session — JSON array of { sessionId, name, kind, workDir, state }
+pine workspace.list    # every workspace — JSON array of { workspaceId, name, kind, workDir, state }
 ```
 
 `pine commands` always prints JSON (there's no separate `--json` flag to pass —
 JSON is the only output format). It lists *commands*, not other panes — use
-`pine pane.list`/`pine session.list` for that (the coordination recipe below still
+`pine pane.list`/`pine workspace.list` for that (the coordination recipe below still
 applies for LEARNING another agent's `externalId` out-of-band up front, but you no
 longer have to: `pine pane.list` shows every pane's external id directly).
 
@@ -65,7 +65,8 @@ pine state working                            # busy (no unread)
 pine state error "Tests failed"               # ring + error marker
 pine state clear                              # back to normal
 echo '{"message":"..."}' | pine state waiting -   # message from stdin (JSON "message" field or raw text)
-pine state done --pane <externalId>           # another pane — needs workspace-wide
+pine state done --pane <externalId>           # another pane — needs all-workspaces
+pine resume-token claude <session-id>        # after a restart this pane offers "Resume claude"
 ```
 
 Use `waiting` whenever you block on the human (a question, an approval) and `done` when a long
@@ -84,7 +85,7 @@ optional JSON args blob as the next argv:
 pine pane.splitRight
 pine pane.splitDown
 pine pane.close
-pine session.new
+pine workspace.new
 pine editor.open '{"path":"src/index.ts"}'   # same as `pine open`, spelled out
 ```
 
@@ -101,8 +102,8 @@ pine process kill <id|name>
 pine process restart <id|name>                                # kill (if running) + re-run
 ```
 
-Tracked processes are scoped to the session that started them (cross-session
-visibility needs the elevated `workspace-wide` capability). `logs` prints the
+Tracked processes are scoped to the workspace that started them (cross-workspace
+visibility needs the elevated `all-workspaces` capability). `logs` prints the
 buffered output followed by `(cursor=N)` on stderr — pass `--since` that cursor to
 resume from where you left off instead of re-reading everything.
 
@@ -117,11 +118,11 @@ pine vault rm OPENAI_KEY [--global]
 
 `set` **always** reads the secret from stdin (piped, or an interactive no-echo
 prompt) — never put a secret in the command line where it would land in shell
-history / `ps`. Default scope is `project` (keyed by this pane's session workDir);
+history / `ps`. Default scope is `project` (keyed by this pane's workspace workDir);
 `--global` is machine-wide. Requires OS keychain-backed encryption to be available;
 if it isn't, every vault call fails closed with `encryption-unavailable` rather than
 ever writing plaintext. `--global` **writes** (`set`/`rm`) need the elevated
-`workspace-wide` grant on top of the default vault capability — global reads don't.
+`all-workspaces` grant on top of the default vault capability — global reads don't.
 
 ## Boards, cards and knowledge — use Trellis
 
@@ -129,7 +130,7 @@ Pine has no kanban board or wiki of its own. Task boards, cards and knowledge en
 Trellis: run the `trellis` CLI directly from your pane, following its own Claude Code skills
 (`trellis:trellis` for commands, `trellis:when-to-use-trellis` for when work belongs on a board,
 `trellis:writing-knowledge` for recording findings). Pine's `trellis` extension only *shows*
-Trellis to the human (board panel, per-session card counts, review notifications); see
+Trellis to the human (board panel, per-workspace card counts, review notifications); see
 Extensions below. Files an older Pine left behind (`.pine/board.json`, `.pine/wiki.json`) are
 the user's data: don't read them as current state, and don't delete them.
 
@@ -142,7 +143,7 @@ pine git diff <path> [--staged]      # {root, path, area, code, patch}  (unified
 pine git open <path> [--staged]      # show that file's diff to the human in a diff pane
 ```
 
-Scoped to your pane's current directory (falls back to the session's). `area` is
+Scoped to your pane's current directory (falls back to the workspace's). `area` is
 `staged | unstaged | untracked | conflicted`; `code` is git's letter (`M A D R C T U ?`).
 Outside a repo you get `not-a-repo`; a path with no changes gives `not-changed`. Read-only:
 it never stages, commits or checks out. Use `git` itself for that.
@@ -174,7 +175,7 @@ pine bus wait [--timeout MS]                                  # block until a me
 pine bus handoff <toExternalId> --task "<task>" --summary "<summary>"
 pine bus claim <id>                                           # claim a handoff addressed to you
 pine bus handoffs [--all]                                     # your handoffs (to/from you);
-                                                                # --all needs workspace-wide
+                                                                # --all needs all-workspaces
 pine bus done <id>                                            # mark a handoff completed
 ```
 
@@ -182,7 +183,7 @@ Bus is global (no project scoping) — it works across different projects/workdi
 too. Sending/handing off to yourself needs nothing extra; sending/handing off to
 *another* pane's externalId needs the elevated `send-other-pane` capability.
 `bus.handoffs` defaults to just the handoffs addressed to or from you — pass
-`--all` for the workspace-wide view (needs the `workspace-wide` grant). Each
+`--all` for the all-workspaces view (needs the `all-workspaces` grant). Each
 inbox and the handoff ledger are bounded (oldest entries drop off) so a chatty
 pane can't grow the shared store forever.
 
@@ -242,10 +243,10 @@ pine browse devtools [toggle|open|close|console] [--pane ID]
                                                       # (Electron can't target the Console panel specifically)
 pine browse focus-webview [--pane ID]                # OS-level focus() on the guest webContents
 pine browse is-webview-focused [--pane ID]           # prints true/false, exit 1 if false
-pine browse identify [--pane ID]                     # self-locate: {paneId, url, title, sessionId, windowId}
+pine browse identify [--pane ID]                     # self-locate: {paneId, url, title, workspaceId, windowId}
 pine browse cookies <get|set|clear> [name] [value] [--url U] [--domain D] [--pane ID]
                                                       # this surface's own cookie jar (per-pane partition)
-pine browse storage <local|session> <get|set|clear> [key] [value] [--pane ID]
+pine browse storage <local|workspace> <get|set|clear> [key] [value] [--pane ID]
                                                       # localStorage/sessionStorage — omit [key] on get for all keys
 pine browse state <save|load> <path> [--pane ID]     # save/restore cookies + both Web Storage areas to/from a JSON file
                                                       # (path is allow-listed, same as `screenshot`)
@@ -272,7 +273,7 @@ Drives the `browser` surface's `<webview>` guest page (Stage 1's in-app browser)
 one a human opened with `browser.open`/the command palette, or that `browse open` creates on
 demand. `--pane <externalId>` targets a *specific* browser pane by another pane's `whoami`
 externalId (from `pine pane.list`, same as the coordination recipe below); omit it
-and the CLI targets the first browser pane in your own session. A selector/JS argument that
+and the CLI targets the first browser pane in your own workspace. A selector/JS argument that
 doesn't match anything fails with a typed error (`not-found`, `eval-failed`, ...) rather than
 throwing — check the CLI's stderr/exit code. This entire group needs the elevated `browse`
 capability (see below) — nothing here works until a human grants it.
@@ -280,9 +281,9 @@ capability (see below) — nothing here works until a human grants it.
 **Per-surface isolation**: every browser pane gets its own cookie/storage jar (a distinct
 Electron `partition`), so `cookies`/`storage`/`state` only ever see *that* pane's data — never
 shared across panes or with the OS-level Chrome profile. `addinitscript` attaches a Chrome
-DevTools Protocol debugger session to the surface to persist the script; Chrome only allows one
+DevTools Protocol debugger workspace to the surface to persist the script; Chrome only allows one
 CDP consumer per page, so opening DevTools on the same pane (`devtools open`) afterward can
-detach that session — if a follow-up `addinitscript` call then fails with
+detach that workspace — if a follow-up `addinitscript` call then fails with
 `debugger-attach-failed`, close DevTools first and retry.
 
 **Ref workflow**: every selector-accepting command above (`click`, `type`, `get`, `is`, ...)
@@ -316,7 +317,7 @@ prints `{path, filename, state}`, or `{timedOut: true}` (and a non-zero exit) if
 downloaded in time.
 
 **`navigate` vs `open` vs `open-split`**: `open` loads a url, creating a browser pane first if
-none exists yet in your session; `navigate` is the same load but REQUIRES an existing surface
+none exists yet in your workspace; `navigate` is the same load but REQUIRES an existing surface
 (fails rather than creating one) — useful when you specifically mean "drive the pane I already
 have"; `open-split` is the opposite extreme — it always creates a brand new browser pane (a
 split) regardless of whether one already exists, for when you explicitly want a second surface.
@@ -328,11 +329,11 @@ version, with the divergence called out below.
 - **`tab`** — a "tab" here is a browser **PANE**, not a tab bar living inside one pane: cmux
   multiplexes multiple surfaces per pane slot, but Pine's own unit of multiplexing is already the
   pane, so `tab new/list/switch/close` just operate one level up. `new [url]` opens a browser pane
-  in your session (reusing an existing one, same as `open`'s fallback — use `open-split` if you
-  need a guaranteed-fresh pane); `list` prints every browser pane in your OWN session as
+  in your workspace (reusing an existing one, same as `open`'s fallback — use `open-split` if you
+  need a guaranteed-fresh pane); `list` prints every browser pane in your OWN workspace as
   `[{paneId, url, title}]`; `switch <target>`/`close <target>` take another pane's external
-  `paneId` (same as `--pane`, but positional here) and focus/close it — cross-session targets need
-  the same `workspace-wide` elevation `--pane` on any other verb needs.
+  `paneId` (same as `--pane`, but positional here) and focus/close it — cross-workspace targets need
+  the same `all-workspaces` elevation `--pane` on any other verb needs.
 - **`dialog`** — Electron's `<webview>` guest can't cleanly intercept a page's SYNCHRONOUS
   `alert`/`confirm`/`prompt` the way a real automation framework's dialog-event hook does, so this
   is a per-surface auto-response **POLICY** an agent sets ahead of time, not a one-at-a-time
@@ -384,7 +385,7 @@ The human and the agent can both point at an element in a browser pane:
   price label"`.
 
 The inspector runs in an isolated JavaScript world of the page, so page scripts can't see or
-fake it (synthetic clicks are ignored). For your real Chrome (logged-in sessions, extensions,
+fake it (synthetic clicks are ignored). For your real Chrome (logged-in workspaces, extensions,
 performance traces) use Chrome DevTools MCP instead: see `docs/CHROME.md` in the Pine repo.
 
 ## Gateway — LAN phone pairing (elevated)
@@ -419,7 +420,7 @@ pane scope, so every pane holds a fixed set of **default** capabilities:
 `drive-self`, `read-board`, `notify`, `settings-read`, `process`, `vault-read`,
 `vault-write`. Everything cross-boundary,
 system-facing, or dangerous is **elevated** and starts withheld: `send-other-pane`,
-`kill-pane`, `workspace-wide`, `shell`, `destructive`, `phone`, `gateway`, `browse`,
+`kill-pane`, `all-workspaces`, `shell`, `destructive`, `phone`, `gateway`, `browse`,
 `settings-write`.
 
 A call that needs a capability the pane doesn't hold fails fast with
@@ -465,7 +466,7 @@ Codex driving pane B) can coordinate like this:
    one board instead of duplicating state in two contexts.
 4. **Store shared knowledge** — design decisions, "here's what I tried and why it
    didn't work" — as Trellis entries, not just in your own conversation, so the
-   other agent (or your own next session) can find it instead of re-deriving it.
+   other agent (or your own next workspace) can find it instead of re-deriving it.
 
 Remember: `send-other-pane` (bus send/handoff to someone else) is elevated — if
 either agent hits `needs-elevation`, that's the signal to stop and flag it rather

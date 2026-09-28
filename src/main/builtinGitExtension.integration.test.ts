@@ -36,11 +36,11 @@ describe('built-in git extension against a real repository', () => {
   const sidebar = (): ExtensionSidebarItem[] =>
     (broadcasts.filter((b) => b.channel === 'extensions:sidebar').at(-1)?.payload ??
       []) as ExtensionSidebarItem[]
-  const itemText = (sessionId: string): string | undefined =>
-    sidebar().find((i) => i.extId === 'git' && i.sessionId === sessionId)?.text
+  const itemText = (workspaceId: string): string | undefined =>
+    sidebar().find((i) => i.extId === 'git' && i.workspaceId === workspaceId)?.text
   const caller = (cwd?: string): ExtensionCaller => ({
     kind: 'pane',
-    sessionId: 's1',
+    workspaceId: 's1',
     ...(cwd ? { cwd } : {}),
     capabilities: ['read-board'],
   })
@@ -63,17 +63,17 @@ describe('built-in git extension against a real repository', () => {
     writeFileSync(join(repo, 'c new.txt'), 'fresh\n')
 
     const socketPath = join(dir, 'control.sock')
-    const identity = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'p-git' })
-    const other = registerPane({ windowId: 'w1', sessionId: 's2', paneId: 'p-plain' })
+    const identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-git' })
+    const other = registerPane({ windowId: 'w1', workspaceId: 's2', paneId: 'p-plain' })
     registerPaneListMethods({
       execCommand: async (_target, id) =>
         ({
           ok: true,
           result:
-            id === 'session.list'
+            id === 'workspace.list'
               ? [
                   {
-                    sessionId: 's1',
+                    workspaceId: 's1',
                     name: 'r',
                     kind: 'terminal',
                     workDir: repo,
@@ -81,7 +81,7 @@ describe('built-in git extension against a real repository', () => {
                     activePaneId: 'p-git',
                   },
                   {
-                    sessionId: 's2',
+                    workspaceId: 's2',
                     name: 'x',
                     kind: 'terminal',
                     workDir: dir,
@@ -92,12 +92,18 @@ describe('built-in git extension against a real repository', () => {
               : [
                   {
                     paneId: 'p-git',
-                    sessionId: 's1',
+                    workspaceId: 's1',
                     kind: 'terminal',
                     title: 'zsh',
                     cwd: join(repo, 'sub'),
                   },
-                  { paneId: 'p-plain', sessionId: 's2', kind: 'terminal', title: 'zsh', cwd: dir },
+                  {
+                    paneId: 'p-plain',
+                    workspaceId: 's2',
+                    kind: 'terminal',
+                    title: 'zsh',
+                    cwd: dir,
+                  },
                 ],
         }) as CommandResult,
       getTerminalState: () => undefined,
@@ -108,7 +114,7 @@ describe('built-in git extension against a real repository', () => {
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,
       nodePath: process.execPath,
-      workDirForSession: (sid) => (sid === 's1' ? repo : dir),
+      workDirForWorkspace: (sid) => (sid === 's1' ? repo : dir),
       broadcast: (channel, payload) => broadcasts.push({ channel, payload }),
       openPanelIn,
       openDiffIn,
@@ -133,25 +139,25 @@ describe('built-in git extension against a real repository', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  it('shows the branch and +new ~changed for a repo session and nothing for a plain dir', async () => {
+  it('shows the branch and +new ~changed for a repo workspace and nothing for a plain dir', async () => {
     expect(await until(() => itemText('s1'))).toBe('main +1 ~2')
-    const item = sidebar().find((i) => i.sessionId === 's1')
+    const item = sidebar().find((i) => i.workspaceId === 's1')
     expect(item).toMatchObject({ icon: 'git-branch', tone: 'neutral', key: 'branch' })
     expect(itemText('s2')).toBeUndefined()
   })
 
   it('updates the sidebar after a command finishes', async () => {
     writeFileSync(join(repo, 'd.txt'), 'another\n')
-    host.emitEvent('command.finished', { paneId: 'x', sessionId: 's1', exitCode: 0 })
+    host.emitEvent('command.finished', { paneId: 'x', workspaceId: 's1', exitCode: 0 })
     expect(await until(() => (itemText('s1') === 'main +2 ~2' ? itemText('s1') : undefined))).toBe(
       'main +2 ~2',
     )
     rmSync(join(repo, 'd.txt'))
-    host.emitEvent('command.finished', { paneId: 'x', sessionId: 's1', exitCode: 0 })
+    host.emitEvent('command.finished', { paneId: 'x', workspaceId: 's1', exitCode: 0 })
     await until(() => (itemText('s1') === 'main +1 ~2' ? true : undefined))
   })
 
-  it('lists staged, unstaged and untracked changes for the session repo', async () => {
+  it('lists staged, unstaged and untracked changes for the workspace repo', async () => {
     const res = await host.invoke('git', 'changes', null, caller())
     expect(res.ok).toBe(true)
     const data = res.ok ? (res.data as { root: string; changes: unknown[] }) : null
@@ -181,7 +187,7 @@ describe('built-in git extension against a real repository', () => {
     expect(res).toMatchObject({ ok: true, data: { opened: 'a.txt', area: 'unstaged' } })
     expect(openDiffIn).toHaveBeenCalledWith({
       extId: 'git',
-      sessionId: 's1',
+      workspaceId: 's1',
       title: 'a.txt (unstaged)',
       original: 'one\n',
       modified: 'one\ntwo\n',
@@ -211,7 +217,7 @@ describe('built-in git extension against a real repository', () => {
       'git',
       'open',
       { path: join(repo, 'c new.txt'), area: 'untracked' },
-      { kind: 'user', sessionId: 's1', capabilities: ['read-board'] },
+      { kind: 'user', workspaceId: 's1', capabilities: ['read-board'] },
     )
     expect(res.ok).toBe(true)
     expect(openDiffIn.mock.calls[0][0]).toMatchObject({ original: '', modified: 'fresh\n' })
@@ -255,11 +261,11 @@ describe('built-in git extension against a real repository', () => {
     }
   })
 
-  it('opens its panel in the caller session for "Show Changes"', async () => {
+  it('opens its panel in the caller workspace for "Show Changes"', async () => {
     const res = await host.invoke('git', 'show', null, caller())
     expect(res.ok).toBe(true)
-    expect(openPanelIn).toHaveBeenCalledWith({ extId: 'git', sessionId: 's1' })
-    const panel = await host.resolvePanel('git', { sessionId: 's1', locale: 'en' })
+    expect(openPanelIn).toHaveBeenCalledWith({ extId: 'git', workspaceId: 's1' })
+    const panel = await host.resolvePanel('git', { workspaceId: 's1', locale: 'en' })
     expect(panel.ok && panel.src).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?/)
   })
 })

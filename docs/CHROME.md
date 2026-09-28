@@ -87,4 +87,4 @@ sites in it while the port is open, and close it when the agent is done.
 
 The MCP server is started by the agent CLI (Claude Code, Codex) running in your terminal pane;
 Pine isn't involved. Pine's own tools still work alongside it: the agent can use Chrome DevTools
-MCP for your real Chrome and `pine browse …` for Pine's browser in the same session.
+MCP for your real Chrome and `pine browse …` for Pine's browser in the same workspace.

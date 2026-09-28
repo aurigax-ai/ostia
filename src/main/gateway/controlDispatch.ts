@@ -6,14 +6,14 @@ import type {
   TerminalStateSnapshot,
 } from '../../shared/types'
 import { resolveExternal } from '../idRegistry'
-import type { PaneEntry, SessionEntry } from '../paneList'
+import type { PaneEntry, WorkspaceEntry } from '../paneList'
 
 export interface GatewayControlDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   listPanes: () => Promise<PaneEntry[]>
-  listSessions: () => Promise<SessionEntry[]>
+  listWorkspaces: () => Promise<WorkspaceEntry[]>
   primaryWindowId: () => string | undefined
   attachPhoneObserver: (
     rendererPaneId: string,
@@ -26,6 +26,14 @@ export interface GatewayControlDeps {
 export type RpcOutcome =
   | { ok: true; result: unknown }
   | { ok: false; code: number; message: string; data?: unknown }
+
+function toWireSession({ workspaceId, ...rest }: WorkspaceEntry): Record<string, unknown> {
+  return { sessionId: workspaceId, ...rest }
+}
+
+function toWirePane({ workspaceId, ...rest }: PaneEntry): Record<string, unknown> {
+  return { sessionId: workspaceId, ...rest }
+}
 
 function needsElevation(cap: string): RpcOutcome {
   return { ok: false, code: -32003, message: 'needs-elevation', data: { cap } }
@@ -55,12 +63,12 @@ function missingCapForPhone(desc: CommandDescriptor, deviceCaps: string[]): Capa
 
 function resolveTarget(target: unknown, primaryWindowId: string | undefined): CommandTarget | null {
   if (target === undefined || target === null) {
-    return { windowId: primaryWindowId, sessionId: '', paneId: null }
+    return { windowId: primaryWindowId, workspaceId: '', paneId: null }
   }
   if (typeof target !== 'string' || !target) return null
   const identity = resolveExternal(target)
   if (!identity) return null
-  return { windowId: identity.windowId, sessionId: identity.sessionId, paneId: identity.paneId }
+  return { windowId: identity.windowId, workspaceId: identity.workspaceId, paneId: identity.paneId }
 }
 
 export async function dispatchGatewayMethod(
@@ -75,12 +83,12 @@ export async function dispatchGatewayMethod(
   switch (method) {
     case 'session.list': {
       if (!hasCap('read')) return needsElevation('read')
-      return { ok: true, result: { sessions: await deps.listSessions() } }
+      return { ok: true, result: { sessions: (await deps.listWorkspaces()).map(toWireSession) } }
     }
 
     case 'pane.list': {
       if (!hasCap('read')) return needsElevation('read')
-      return { ok: true, result: { panes: await deps.listPanes() } }
+      return { ok: true, result: { panes: (await deps.listPanes()).map(toWirePane) } }
     }
 
     case 'command.list': {

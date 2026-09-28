@@ -1,5 +1,6 @@
+import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import type { AttentionState } from '@shared/types'
-import { type DropZone, allPanes } from '../layout/tree'
+import { type DropZone, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import {
   type BlockPart,
@@ -8,30 +9,30 @@ import {
   rerunBlock,
   stepBlock,
 } from '../lib/blockActions'
-import { jumpToLatestUnread, signalPane } from '../lib/sessionActivity'
+import { jumpToLatestUnread, signalPane } from '../lib/workspaceActivity'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { saveWorkspaceNow } from '../stores/persistence'
-import type { SessionKind, SessionState } from '../stores/sessionsStore'
-import { useSessionsStore } from '../stores/sessionsStore'
+import { saveSnapshotNow } from '../stores/persistence'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { type CommandContext, commands } from './registry'
 
 interface PaneListEntry {
   paneId: string
-  sessionId: string
+  workspaceId: string
   kind: SurfaceKind
   title: string
   cwd?: string
 }
 
-interface SessionListEntry {
-  sessionId: string
+interface WorkspaceListEntry {
+  workspaceId: string
   name: string
-  kind: SessionKind
+  kind: WorkspaceKind
   workDir: string
-  state: SessionState
+  state: WorkspaceState
   activePaneId?: string
 }
 
@@ -70,9 +71,9 @@ async function delegate(ctx: CommandContext, id: string, args?: unknown): Promis
 
 export function registerBuiltinCommands(): void {
   commands.setContextProvider((): CommandContext => {
-    const sessionId = useSessionsStore.getState().activeSessionId
-    const layout = sessionId ? useLayoutStore.getState().bySession[sessionId] : undefined
-    return { activeSessionId: sessionId, activePaneId: layout?.activePaneId ?? null }
+    const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+    const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
+    return { activeWorkspaceId: workspaceId, activePaneId: layout?.activePaneId ?? null }
   })
 
   commands.register<{ paneId?: string; direction: Direction }>({
@@ -82,8 +83,33 @@ export function registerBuiltinCommands(): void {
     hidden: true,
     run: ({ paneId, direction }, ctx) => {
       const target = paneId ?? ctx.activePaneId
-      if (ctx.activeSessionId && target) {
-        useLayoutStore.getState().split(ctx.activeSessionId, target, direction)
+      if (ctx.activeWorkspaceId && target) {
+        useLayoutStore.getState().split(ctx.activeWorkspaceId, target, direction)
+      }
+    },
+  })
+
+  commands.register<{ paneId?: string } | undefined>({
+    id: 'tab.new',
+    title: 'New Terminal Tab',
+    category: 'Pane',
+    run: (args, ctx) => {
+      const target = args?.paneId ?? ctx.activePaneId
+      if (ctx.activeWorkspaceId && target) {
+        useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'terminal')
+      }
+    },
+  })
+
+  commands.register<{ paneId?: string } | undefined>({
+    id: 'tab.newBrowser',
+    title: 'New Browser Tab',
+    category: 'Pane',
+    capabilities: ['browse'],
+    run: (args, ctx) => {
+      const target = args?.paneId ?? ctx.activePaneId
+      if (ctx.activeWorkspaceId && target) {
+        useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'browser')
       }
     },
   })
@@ -109,8 +135,8 @@ export function registerBuiltinCommands(): void {
     capabilities: ['kill-pane'],
     run: (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
-      if (ctx.activeSessionId && target) {
-        useLayoutStore.getState().closePane(ctx.activeSessionId, target)
+      if (ctx.activeWorkspaceId && target) {
+        useLayoutStore.getState().closePane(ctx.activeWorkspaceId, target)
       }
     },
   })
@@ -121,8 +147,8 @@ export function registerBuiltinCommands(): void {
     category: 'Pane',
     hidden: true,
     run: ({ paneId }, ctx) => {
-      if (ctx.activeSessionId && paneId) {
-        useLayoutStore.getState().focusPane(ctx.activeSessionId, paneId)
+      if (ctx.activeWorkspaceId && paneId) {
+        useLayoutStore.getState().focusPane(ctx.activeWorkspaceId, paneId)
       }
     },
   })
@@ -134,8 +160,8 @@ export function registerBuiltinCommands(): void {
     hidden: true,
     run: (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
-      if (ctx.activeSessionId && target) {
-        useLayoutStore.getState().zoomPane(ctx.activeSessionId, target, args?.zoom)
+      if (ctx.activeWorkspaceId && target) {
+        useLayoutStore.getState().zoomPane(ctx.activeWorkspaceId, target, args?.zoom)
       }
     },
   })
@@ -146,8 +172,8 @@ export function registerBuiltinCommands(): void {
     category: 'Pane',
     hidden: true,
     run: ({ sourceId, targetId, zone }, ctx) => {
-      if (ctx.activeSessionId) {
-        useLayoutStore.getState().movePane(ctx.activeSessionId, sourceId, targetId, zone)
+      if (ctx.activeWorkspaceId) {
+        useLayoutStore.getState().movePane(ctx.activeWorkspaceId, sourceId, targetId, zone)
       }
     },
   })
@@ -161,6 +187,32 @@ export function registerBuiltinCommands(): void {
     run: ({ state, message }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
       signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
+    },
+  })
+
+  commands.register<AgentResume>({
+    id: 'resume.set',
+    title: 'Set Agent Resume Token',
+    category: 'Pane',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: (resume, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
+    },
+  })
+
+  commands.register<undefined, { resumed: boolean }>({
+    id: 'agent.resume',
+    title: 'Resume Agent',
+    category: 'Pane',
+    capabilities: ['shell'],
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) return { resumed: false }
+      const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
+      return { resumed: insertCommand(pane.id, resumeCommand(pane.resume), true) }
     },
   })
 
@@ -240,13 +292,13 @@ export function registerBuiltinCommands(): void {
   })
 
   commands.register({
-    id: 'session.new',
-    title: 'New Session',
-    category: 'Session',
+    id: 'workspace.new',
+    title: 'New Workspace',
+    category: 'Workspace',
     target: 'none',
     run: () => {
       useUIStore.getState().leaveSettings()
-      useSessionsStore.getState().addSession()
+      useWorkspacesStore.getState().addWorkspace()
     },
   })
 
@@ -281,7 +333,8 @@ export function registerBuiltinCommands(): void {
     capabilities: ['drive-self'],
     target: 'active',
     run: ({ path }, ctx) => {
-      if (ctx.activeSessionId && path) useLayoutStore.getState().openFile(ctx.activeSessionId, path)
+      if (ctx.activeWorkspaceId && path)
+        useLayoutStore.getState().openFile(ctx.activeWorkspaceId, path)
     },
   })
 
@@ -292,8 +345,8 @@ export function registerBuiltinCommands(): void {
     capabilities: ['browse'],
     target: 'active',
     run: (args, ctx) => {
-      if (ctx.activeSessionId) {
-        useLayoutStore.getState().openBrowser(ctx.activeSessionId, args?.url || 'about:blank')
+      if (ctx.activeWorkspaceId) {
+        useLayoutStore.getState().openBrowser(ctx.activeWorkspaceId, args?.url || 'about:blank')
       }
     },
   })
@@ -306,27 +359,27 @@ export function registerBuiltinCommands(): void {
     run: (_args, ctx) => delegate(ctx, 'browser.new'),
   })
 
-  commands.register<{ allSessions?: boolean } | undefined, PaneListEntry[]>({
+  commands.register<{ allWorkspaces?: boolean } | undefined, PaneListEntry[]>({
     id: 'pane.list',
     title: 'List Panes',
     hidden: true,
     capabilities: ['read-board'],
     target: 'none',
     run: (args, ctx) => {
-      const sessionIds = args?.allSessions
-        ? useSessionsStore.getState().sessions.map((s) => s.id)
-        : ctx.activeSessionId
-          ? [ctx.activeSessionId]
+      const workspaceIds = args?.allWorkspaces
+        ? useWorkspacesStore.getState().workspaces.map((s) => s.id)
+        : ctx.activeWorkspaceId
+          ? [ctx.activeWorkspaceId]
           : []
-      const bySession = useLayoutStore.getState().bySession
+      const byWorkspace = useLayoutStore.getState().byWorkspace
       const result: PaneListEntry[] = []
-      for (const sessionId of sessionIds) {
-        const layout = bySession[sessionId]
+      for (const workspaceId of workspaceIds) {
+        const layout = byWorkspace[workspaceId]
         if (!layout) continue
         for (const pane of allPanes(layout.root)) {
           result.push({
             paneId: pane.id,
-            sessionId,
+            workspaceId,
             kind: pane.kind,
             title: pane.title,
             cwd: pane.cwd,
@@ -337,17 +390,17 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<Record<string, never> | undefined, SessionListEntry[]>({
-    id: 'session.list',
-    title: 'List Sessions',
+  commands.register<Record<string, never> | undefined, WorkspaceListEntry[]>({
+    id: 'workspace.list',
+    title: 'List Workspaces',
     hidden: true,
     capabilities: ['read-board'],
     target: 'none',
     run: () =>
-      useSessionsStore.getState().sessions.map((s) => {
-        const activePaneId = useLayoutStore.getState().bySession[s.id]?.activePaneId
+      useWorkspacesStore.getState().workspaces.map((s) => {
+        const activePaneId = useLayoutStore.getState().byWorkspace[s.id]?.activePaneId
         return {
-          sessionId: s.id,
+          workspaceId: s.id,
           name: s.name,
           kind: s.kind,
           workDir: s.workDir,
@@ -358,14 +411,14 @@ export function registerBuiltinCommands(): void {
   })
 
   commands.register<undefined, { saved: boolean }>({
-    id: 'session.save',
-    title: 'Save Session',
+    id: 'workspace.save',
+    title: 'Save Workspace',
     category: 'App',
     capabilities: ['settings-write'],
     target: 'none',
     run: () => {
-      const enabled = useSettingsStore.getState().behavior.restoreSession
-      saveWorkspaceNow()
+      const enabled = useSettingsStore.getState().behavior.restoreWorkspace
+      saveSnapshotNow()
       return { saved: enabled }
     },
   })

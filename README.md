@@ -34,5 +34,5 @@ Without `pnpm rebuild`, terminals stay disabled and main logs `node-pty unavaila
 - [`CLAUDE.md`](CLAUDE.md): commands, invariants, known pitfalls, and testing rules. Read this
   before changing code.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): processes, modules, IPC, control plane,
-  gateway, session restore.
+  gateway, workspace restore.
 - [`docs/DESIGN.md`](docs/DESIGN.md): tokens, themes, type, layout, component rules.

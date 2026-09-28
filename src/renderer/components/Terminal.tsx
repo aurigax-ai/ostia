@@ -17,13 +17,13 @@ import {
 import { stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, matchChord } from '../lib/chords'
+import { registerTerminal } from '../lib/terminalHandles'
 import {
   isPaneViewed,
   isPaneVisible,
   shouldNotifyCommandEnd,
   signalPane,
-} from '../lib/sessionActivity'
-import { registerTerminal } from '../lib/terminalHandles'
+} from '../lib/workspaceActivity'
 import { isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
@@ -39,11 +39,11 @@ const fontStack = (family: string): string => `"${family}", ${MONO_FALLBACK}`
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 
 export function TerminalView({
-  sessionId,
+  workspaceId,
   paneId,
   cwd,
 }: {
-  sessionId: string
+  workspaceId: string
   paneId: string
   cwd?: string
 }): JSX.Element {
@@ -194,7 +194,7 @@ export function TerminalView({
       const path = decodeOsc7(data)
       if (path) {
         cwdRef.current = path
-        useLayoutStore.getState().setCwd(sessionId, paneId, path)
+        useLayoutStore.getState().setCwd(workspaceId, paneId, path)
       }
       return true
     })
@@ -414,7 +414,7 @@ export function TerminalView({
       setSearch(null)
       setFindOpen(false)
     }
-  }, [sessionId, paneId])
+  }, [workspaceId, paneId])
 
   useEffect(() => {
     const term = termRef.current

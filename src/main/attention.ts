@@ -21,7 +21,7 @@ export interface AttentionDeps {
 }
 
 export function targetOf(identity: PaneIdentity): CommandTarget {
-  return { windowId: identity.windowId, sessionId: identity.sessionId, paneId: identity.paneId }
+  return { windowId: identity.windowId, workspaceId: identity.workspaceId, paneId: identity.paneId }
 }
 
 export function clampMessage(message: unknown): string | undefined {
@@ -48,8 +48,8 @@ export function registerAttentionMethods(deps: AttentionDeps): void {
       }
       let target = ctx.identity
       if (typeof paneId === 'string' && paneId && paneId !== ctx.identity.externalId) {
-        if (!connHasCap(ctx.authed, 'workspace-wide')) {
-          throw new ResponseError(ErrorCodes.InvalidRequest, 'needs-elevation: workspace-wide')
+        if (!connHasCap(ctx.authed, 'all-workspaces')) {
+          throw new ResponseError(ErrorCodes.InvalidRequest, 'needs-elevation: all-workspaces')
         }
         const other = resolveExternal(paneId)
         if (!other) return { ok: false, error: 'not-found' }

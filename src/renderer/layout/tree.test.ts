@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  addTab,
   adoptIds,
   allPanes,
   closePane,
@@ -8,9 +9,11 @@ import {
   findPane,
   firstPaneId,
   firstPaneOfKind,
+  isPaneShown,
   movePane,
   paneIds,
   resetIds,
+  selectTab,
   setPaneBrowser,
   setPaneCwd,
   setPaneDiff,
@@ -20,6 +23,8 @@ import {
   setSizes,
   splitOf,
   splitPane,
+  tabsOf,
+  tabsOfPane,
   withoutKind,
 } from './tree'
 import type { LayoutNode } from './types'
@@ -121,18 +126,13 @@ describe('movePane', () => {
     expect(paneIds(moved)).toHaveLength(2)
   })
 
-  it('swaps two panes on a center drop', () => {
+  it('merges the source into the target’s tabs on a center drop', () => {
     const root = createPane()
     const { root: split, newPaneId } = splitPane(root, root.id, 'horizontal')
     const firstId = firstPaneId(split)
     const moved = movePane(split, firstId, newPaneId as string, 'center')
-    expect(moved.type).toBe('split')
-    if (moved.type === 'split') {
-      expect(moved.children.map((c) => (c.type === 'pane' ? c.id : 'split'))).toEqual([
-        newPaneId,
-        firstId,
-      ])
-    }
+    expect(moved).toMatchObject({ type: 'tabs', activeId: firstId })
+    expect(paneIds(moved)).toEqual([newPaneId, firstId])
   })
 
   it('keeps every pane when relocating within a 3-pane tree', () => {
@@ -527,15 +527,18 @@ describe('movePane (edge zones on wider trees)', () => {
     }
   })
 
-  it('swaps two panes on a center drop while leaving a third pane in place', () => {
+  it('merges into the target’s tabs on a center drop while leaving a third pane in place', () => {
     const a = createPane()
     const b = createPane()
     const c = createPane()
     const root = splitOf('horizontal', a, b, c)
     const moved = movePane(root, a.id, c.id, 'center')
     expect(moved.type).toBe('split')
-    if (moved.type === 'split') expect(moved.children.map(idOf)).toEqual([c.id, b.id, a.id])
-    expect(paneIds(moved)).toHaveLength(3)
+    if (moved.type === 'split') {
+      expect(moved.children.map((n) => n.type)).toEqual(['pane', 'tabs'])
+      expect(moved.children[1]).toMatchObject({ activeId: a.id })
+    }
+    expect(paneIds(moved)).toEqual([b.id, c.id, a.id])
   })
 
   it('collapses a 2-pane split and re-inserts the source before the target (left drop)', () => {
@@ -640,5 +643,103 @@ describe('adoptIds', () => {
   it('ignores ids that do not end in a number', () => {
     adoptIds({ type: 'pane', id: 'restored-from-phone', title: 'zsh', kind: 'terminal' })
     expect(createPane().id).toBe('pane-1')
+  })
+})
+
+describe('tabs', () => {
+  it('turns a lone pane into tabs and shows the new tab', () => {
+    const a = createPane()
+    const b = createPane()
+    const root = addTab(a, a.id, b)
+    expect(root).toMatchObject({ type: 'tabs', activeId: b.id })
+    expect(paneIds(root)).toEqual([a.id, b.id])
+    expect(isPaneShown(root, a.id)).toBe(false)
+    expect(isPaneShown(root, b.id)).toBe(true)
+  })
+
+  it('inserts a new tab right after the tab it was opened from', () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    const root = addTab(tabsOf(a.id, a, b), a.id, c)
+    expect(paneIds(root)).toEqual([a.id, c.id, b.id])
+  })
+
+  it('adds a tab inside a split without touching the other side', () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    const split = splitOf('horizontal', a, b)
+    const root = addTab(split, b.id, c)
+    expect(root.type === 'split' && root.children[0]).toBe(a)
+    expect(tabsOfPane(root, c.id)?.children.map((p) => p.id)).toEqual([b.id, c.id])
+  })
+
+  it('selects a tab and returns the same tree when it is already shown', () => {
+    const a = createPane()
+    const b = createPane()
+    const root = tabsOf(a.id, a, b)
+    expect(selectTab(root, a.id)).toBe(root)
+    expect(selectTab(root, b.id)).toMatchObject({ activeId: b.id })
+  })
+
+  it('shows the next tab when the shown tab closes', () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    const root = closePane(tabsOf(b.id, a, b, c), b.id)
+    expect(root).toMatchObject({ type: 'tabs', activeId: c.id })
+    expect(paneIds(root)).toEqual([a.id, c.id])
+  })
+
+  it('collapses back to a plain pane when one tab is left', () => {
+    const a = createPane()
+    const b = createPane()
+    expect(closePane(tabsOf(a.id, a, b), a.id)).toBe(b)
+  })
+
+  it('splits beside the whole tab stack, not inside it', () => {
+    const a = createPane()
+    const b = createPane()
+    const tabs = tabsOf(b.id, a, b)
+    const { root, newPaneId } = splitPane(tabs, b.id, 'vertical')
+    expect(root.type).toBe('split')
+    if (root.type === 'split') {
+      expect(root.children[0]).toBe(tabs)
+      expect(root.children[1].id).toBe(newPaneId)
+    }
+  })
+
+  it('moves a tab out to an edge, leaving the rest as a pane', () => {
+    const a = createPane()
+    const b = createPane()
+    const moved = movePane(tabsOf(a.id, a, b), a.id, b.id, 'right')
+    expect(moved.type === 'split' && moved.children.map((c) => c.id)).toEqual([b.id, a.id])
+  })
+
+  it('ignores a center drop onto a tab of the same stack', () => {
+    const a = createPane()
+    const b = createPane()
+    const root = tabsOf(a.id, a, b)
+    expect(movePane(root, a.id, b.id, 'center')).toBe(root)
+  })
+
+  it('drops diff tabs and keeps the shown tab valid', () => {
+    const a = createPane()
+    const d = { ...createPane(), kind: 'diff' as const }
+    const b = createPane()
+    const root = withoutKind(tabsOf(d.id, a, d, b), 'diff')
+    expect(root).toMatchObject({ type: 'tabs', activeId: b.id })
+  })
+
+  it('reads tab panes through findPane, firstPaneId and adoptIds', () => {
+    const a = createPane()
+    const b = createPane()
+    const root = tabsOf(b.id, a, b)
+    expect(findPane(root, a.id)).toBe(a)
+    expect(firstPaneId(root)).toBe(b.id)
+    resetIds()
+    adoptIds(root)
+    expect(Number(createPane().id.split('-')[1])).toBeGreaterThan(Number(root.id.split('-')[1]))
   })
 })
