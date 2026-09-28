@@ -1,3 +1,4 @@
+import type { DiffContent } from '@shared/extensions'
 import { create } from 'zustand'
 import {
   type DropZone,
@@ -11,6 +12,7 @@ import {
   paneIds,
   setPaneBrowser,
   setPaneCwd,
+  setPaneDiff,
   setPaneEditor,
   setPaneExtension,
   setPaneUrl,
@@ -18,6 +20,7 @@ import {
   splitPane,
 } from '../layout/tree'
 import type { Direction, LayoutNode } from '../layout/types'
+import { useDiffStore } from './diffStore'
 import { useSessionsStore } from './sessionsStore'
 
 export interface SessionLayout {
@@ -41,6 +44,7 @@ interface LayoutState {
   openFile: (sessionId: string, path: string) => void
   openBrowser: (sessionId: string, url: string) => void
   openExtensionPanel: (sessionId: string, extensionId: string, title: string) => void
+  openDiff: (sessionId: string, content: DiffContent) => string | null
   removeSession: (sessionId: string) => void
 }
 
@@ -246,6 +250,41 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (createdPaneId) {
       window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
     }
+  },
+
+  openDiff: (sessionId, content) => {
+    let createdPaneId: string | null = null
+    let diffPaneId: string | null = null
+    const slash = content.path ? content.path.lastIndexOf('/') : -1
+    const cwd = content.path && slash > 0 ? content.path.slice(0, slash) : undefined
+    set((s) => {
+      const next = patch(s, sessionId, (l) => {
+        const existing = firstPaneOfKind(l.root, 'diff')
+        if (existing) {
+          diffPaneId = existing.id
+          return {
+            ...l,
+            root: setPaneDiff(l.root, existing.id, content.title, cwd),
+            activePaneId: existing.id,
+          }
+        }
+        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
+        if (!newPaneId) return l
+        createdPaneId = newPaneId
+        diffPaneId = newPaneId
+        return {
+          ...l,
+          root: setPaneDiff(root, newPaneId, content.title, cwd),
+          activePaneId: newPaneId,
+        }
+      })
+      return next ?? s
+    })
+    if (diffPaneId) useDiffStore.getState().set(diffPaneId, content)
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+    }
+    return diffPaneId
   },
 
   removeSession: (sessionId) => {

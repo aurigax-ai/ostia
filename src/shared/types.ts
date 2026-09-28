@@ -292,6 +292,25 @@ export interface GatewayApi {
   bindOptions: () => Promise<GatewayBindOptions>
 }
 
+export interface ExternalEditorRequest {
+  template: string
+  file: string
+  line?: number
+  column?: number
+}
+
+export type ExternalEditorResult =
+  | { ok: true; argv: string[] }
+  | {
+      ok: false
+      error: 'invalid-path' | 'no-editor' | 'invalid-template' | 'spawn-failed'
+      message?: string
+    }
+
+export interface ExternalEditorApi {
+  open: (req: ExternalEditorRequest) => Promise<ExternalEditorResult>
+}
+
 export interface PineBridge {
   ping: () => Promise<'pong'>
   info: () => Promise<AppInfo>
@@ -307,6 +326,7 @@ export interface PineBridge {
   terminalState: TerminalStateApi
   browser: BrowserApi
   extensions: ExtensionsApi
+  externalEditor: ExternalEditorApi
   gateway: GatewayApi
   notifications: NotificationsApi
 }

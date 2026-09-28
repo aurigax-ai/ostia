@@ -1,6 +1,7 @@
 import {
   Bot,
   FileCode,
+  GitCompare,
   Globe,
   type LucideIcon,
   SplitSquareHorizontal,
@@ -33,6 +34,7 @@ const SURFACE_ICON: Record<SurfaceKind, LucideIcon> = {
   agent: Bot,
   browser: Globe,
   extension: extensionIcon(undefined),
+  diff: GitCompare,
 }
 
 const PANE_DND = 'application/x-pine-pane'
@@ -171,6 +173,7 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
       {pane.kind === 'terminal' ||
       pane.kind === 'editor' ||
       pane.kind === 'browser' ||
+      pane.kind === 'diff' ||
       pane.kind === 'extension' ? (
         <div className="pane-body pane-body-term" ref={slotRef} />
       ) : (

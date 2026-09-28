@@ -7,6 +7,7 @@ import type { CommandResult } from '../shared/types'
 import { registerControlServer, stopControlServer } from './controlServer'
 import { ExtensionHost, MAX_RESTARTS, registerExtensionMethods } from './extensionHost'
 import { ExtensionStore } from './extensionStore'
+import { registerPaneListMethods } from './paneList'
 
 const fixtures = resolve(__dirname, '../../test/fixtures/extensions')
 
@@ -34,6 +35,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   const broadcasts: { channel: string; payload: unknown }[] = []
   const notify = vi.fn()
   const openPanelIn = vi.fn()
+  const openDiffIn = vi.fn()
 
   const sidebar = (): ExtensionSidebarItem[] =>
     (broadcasts.filter((b) => b.channel === 'extensions:sidebar').at(-1)?.payload ??
@@ -51,6 +53,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       workDirForSession: (sid) => (sid ? `/w/${sid}` : undefined),
       broadcast: (channel, payload) => broadcasts.push({ channel, payload }),
       openPanelIn,
+      openDiffIn,
       notify,
       restartDelayMs: 20,
       readyTimeoutMs: 8000,
@@ -58,6 +61,17 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       log: () => {},
     })
     registerExtensionMethods(() => host)
+    registerPaneListMethods({
+      execCommand: async (_target, id) =>
+        ({
+          ok: true,
+          result:
+            id === 'session.list'
+              ? [{ sessionId: 's1', name: 'a', kind: 'terminal', workDir: '/w/s1', state: 'idle' }]
+              : [],
+        }) as CommandResult,
+      getTerminalState: () => undefined,
+    })
     registerControlServer(
       {
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
@@ -108,6 +122,48 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
     const res = await host.invoke('echo', 'notify', null, caller)
     expect(res.ok).toBe(true)
     expect(notify).toHaveBeenCalledWith({ title: 'from echo', body: 'hi', from: 'extension:echo' })
+  })
+
+  it('lets an extension list sessions (read-board) through the shared session.list method', async () => {
+    const res = await host.invoke('echo', 'sessions', null, caller)
+    expect(res).toMatchObject({
+      ok: true,
+      data: [{ sessionId: 's1', workDir: '/w/s1' }],
+    })
+  })
+
+  it('forwards a valid ext.openDiff to the window, tagged with the extension', async () => {
+    const res = await host.invoke(
+      'echo',
+      'diff',
+      { sessionId: 's1', title: 'a.ts', original: 'a', modified: 'b', path: '/r/a.ts' },
+      caller,
+    )
+    expect(res).toEqual({ ok: true })
+    expect(openDiffIn).toHaveBeenCalledWith({
+      extId: 'echo',
+      sessionId: 's1',
+      title: 'a.ts',
+      original: 'a',
+      modified: 'b',
+      path: '/r/a.ts',
+    })
+  })
+
+  it('rejects an openDiff with a relative path, missing sides, or no title', async () => {
+    openDiffIn.mockClear()
+    const rel = await host.invoke(
+      'echo',
+      'diff',
+      { title: 'a', original: '', modified: '', path: 'a.ts' },
+      caller,
+    )
+    const sides = await host.invoke('echo', 'diff', { title: 'a', original: 'x' }, caller)
+    const untitled = await host.invoke('echo', 'diff', { original: '', modified: '' }, caller)
+    expect(rel).toMatchObject({ ok: false, error: 'invalid-params' })
+    expect(sides).toMatchObject({ ok: false, error: 'invalid-params' })
+    expect(untitled).toMatchObject({ ok: false, error: 'missing-title' })
+    expect(openDiffIn).not.toHaveBeenCalled()
   })
 
   it('resolves a url panel from the process and allows only that loopback origin', async () => {

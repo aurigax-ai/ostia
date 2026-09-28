@@ -1,6 +1,6 @@
 export type Direction = 'horizontal' | 'vertical'
 
-export type SurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension'
+export type SurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension' | 'diff'
 
 export interface PaneNode {
   type: 'pane'

@@ -339,7 +339,25 @@ function FilesSection(): JSX.Element {
         checked={showHidden}
         onChange={(v) => setBehavior({ showHiddenFiles: v })}
       />
+      <ExternalEditorRow />
     </section>
+  )
+}
+
+function ExternalEditorRow(): JSX.Element {
+  const d = useDict()
+  const value = useSettingsStore((s) => s.behavior.externalEditor)
+  const setBehavior = useSettingsStore((s) => s.setBehavior)
+  return (
+    <ControlRow label={d.settings.externalEditor} desc={d.settings.externalEditorDesc}>
+      <Input
+        value={value}
+        spellCheck={false}
+        aria-label={d.settings.externalEditor}
+        onChange={(e) => setBehavior({ externalEditor: e.target.value })}
+        className="h-7 w-56 font-mono"
+      />
+    </ControlRow>
   )
 }
 

@@ -25,6 +25,7 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   agent: 'claude',
   browser: 'localhost',
   extension: 'Extension',
+  diff: 'Diff',
 }
 
 export function createPane(kind: SurfaceKind = 'terminal', title?: string, cwd?: string): PaneNode {
@@ -119,6 +120,43 @@ export function setPaneExtension(
     return { ...root, kind: 'extension', title, extensionId, cwd: undefined }
   }
   return withChildren(root, (c) => setPaneExtension(c, paneId, extensionId, title))
+}
+
+export function setPaneDiff(
+  root: LayoutNode,
+  paneId: string,
+  title: string,
+  cwd?: string,
+): LayoutNode {
+  if (root.type === 'pane') {
+    if (root.id !== paneId) return root
+    return {
+      type: 'pane',
+      id: root.id,
+      kind: 'diff',
+      title,
+      ...(cwd ? { cwd } : {}),
+    }
+  }
+  return withChildren(root, (c) => setPaneDiff(c, paneId, title, cwd))
+}
+
+export function withoutKind(root: LayoutNode, kind: SurfaceKind): LayoutNode | null {
+  if (root.type === 'pane') return root.kind === kind ? null : root
+  const children: LayoutNode[] = []
+  const sizes: number[] = []
+  root.children.forEach((child, i) => {
+    const kept = withoutKind(child, kind)
+    if (kept) {
+      children.push(kept)
+      sizes.push(root.sizes[i] ?? 1)
+    }
+  })
+  if (children.length === 0) return null
+  if (children.length === 1) return children[0]
+  const same =
+    children.length === root.children.length && children.every((c, i) => c === root.children[i])
+  return same ? root : { ...root, children, sizes }
 }
 
 export function findExtensionPane(node: LayoutNode, extensionId: string): PaneNode | null {

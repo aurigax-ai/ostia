@@ -1,4 +1,8 @@
-import type { ExtensionInfo, ExtensionOpenPanelRequest } from '@shared/extensions'
+import type {
+  ExtensionInfo,
+  ExtensionOpenDiffRequest,
+  ExtensionOpenPanelRequest,
+} from '@shared/extensions'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSessionsStore } from '../stores/sessionsStore'
@@ -52,15 +56,24 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
   }
 }
 
+function targetSession(requested?: string): string {
+  const sessions = useSessionsStore.getState()
+  return requested && sessions.sessions.some((s) => s.id === requested)
+    ? requested
+    : sessions.activeSessionId
+}
+
 export function openExtensionPanel(req: ExtensionOpenPanelRequest): void {
   const info = useExtensionsStore.getState().list.find((e) => e.id === req.extId)
   if (!info?.panel || !info.enabled) return
-  const sessions = useSessionsStore.getState()
-  const sessionId =
-    req.sessionId && sessions.sessions.some((s) => s.id === req.sessionId)
-      ? req.sessionId
-      : sessions.activeSessionId
-  useLayoutStore.getState().openExtensionPanel(sessionId, info.id, info.panel.title)
+  useLayoutStore
+    .getState()
+    .openExtensionPanel(targetSession(req.sessionId), info.id, info.panel.title)
+}
+
+export function openExtensionDiff(req: ExtensionOpenDiffRequest): string | null {
+  const { extId: _extId, sessionId, ...content } = req
+  return useLayoutStore.getState().openDiff(targetSession(sessionId), content)
 }
 
 export function wireExtensionBridge(): void {
@@ -73,6 +86,7 @@ export function wireExtensionBridge(): void {
   })
   api.onSidebar((items) => store.setSidebar(items))
   api.onOpenPanel(openExtensionPanel)
+  api.onOpenDiff(openExtensionDiff)
   void store
     .load()
     .then(() => syncExtensionCommands(useExtensionsStore.getState().list))

@@ -10,6 +10,7 @@ import type {
   CommandDescriptor,
   CommandResult,
   CommandTarget,
+  ExternalEditorRequest,
   FsEntry,
   LifecycleEvent,
   PtyAttachResult,
@@ -38,6 +39,7 @@ import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
 import { ExtensionStore } from './extensionStore'
+import { openInExternalEditor } from './externalEditor'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
@@ -288,6 +290,9 @@ function createWindow(): BrowserWindow {
 function registerIpc(): void {
   ipcMain.handle('app:ping', () => 'pong' as const)
   ipcMain.handle('settings:path', () => join(app.getPath('userData'), 'settings.json'))
+  ipcMain.handle('editor:open-external', (_e, req: ExternalEditorRequest) =>
+    openInExternalEditor(req),
+  )
   ipcMain.handle(
     'app:info',
     (): AppInfo => ({
@@ -481,9 +486,11 @@ function registerExtensionIpc(host: ExtensionHost): void {
       target: { sessionId: string | null; paneId: string | null },
     ): Promise<ExtensionResult> => {
       const paneId = target?.paneId ? getByPaneId(target.paneId)?.externalId : undefined
+      const cwd = target?.paneId ? terminalState.get(target.paneId)?.cwd : undefined
       const caller = host.userCaller(target?.sessionId ?? null, {
         capabilities: host.commandCapabilities(extId, command),
         ...(paneId ? { paneId } : {}),
+        ...(cwd ? { cwd } : {}),
       })
       return host.invoke(extId, command, null, caller)
     },
@@ -714,6 +721,20 @@ export function execCommand(
   })
 }
 
+function sendToSessionWindow(
+  sessionId: string | undefined,
+  channel: string,
+  payload: unknown,
+): void {
+  const windowId = sessionId ? windowOfSession(sessionId) : undefined
+  const win = (windowId ? windows.get(windowId) : undefined) ?? [...windows.values()][0]
+  if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
+}
+
+function emitFocusChanged(): void {
+  extensionHost?.emitEvent('focus.changed', { focused: BrowserWindow.getFocusedWindow() !== null })
+}
+
 app.whenReady().then(() => {
   loadRestoredScrollback()
   registerIpc()
@@ -738,12 +759,10 @@ app.whenReady().then(() => {
     socketPath: controlSocketPath,
     nodePath: process.execPath,
     workDirForSession,
+    cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     broadcast,
-    openPanelIn: (req) => {
-      const windowId = req.sessionId ? windowOfSession(req.sessionId) : undefined
-      const win = (windowId ? windows.get(windowId) : undefined) ?? [...windows.values()][0]
-      if (win && !win.isDestroyed()) win.webContents.send('extensions:open-panel', req)
-    },
+    openPanelIn: (req) => sendToSessionWindow(req.sessionId, 'extensions:open-panel', req),
+    openDiffIn: (req) => sendToSessionWindow(req.sessionId, 'extensions:open-diff', req),
     notify: (n) => postNotification(notifyDeps, n),
   })
   registerExtensionMethods(() => extensionHost)
@@ -786,6 +805,8 @@ app.whenReady().then(() => {
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
   extensionHost.startEager()
+  app.on('browser-window-focus', emitFocusChanged)
+  app.on('browser-window-blur', emitFocusChanged)
   setInterval(autosaveScrollback, SCROLLBACK_AUTOSAVE_MS).unref()
 
   app.on('activate', () => {

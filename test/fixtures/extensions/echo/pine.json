@@ -11,6 +11,8 @@
       { "id": "guarded", "title": "Needs workspace-wide", "capabilities": ["workspace-wide"] },
       { "id": "probe", "title": "Call a pane-only method", "palette": false },
       { "id": "notify", "title": "Post a notification", "palette": false },
+      { "id": "diff", "title": "Open a diff", "palette": false },
+      { "id": "sessions", "title": "List sessions", "palette": false },
       { "id": "crash", "title": "Exit the process", "palette": false }
     ],
     "sidebarItems": true,

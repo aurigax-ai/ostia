@@ -11,6 +11,7 @@ import { App } from './App'
 import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
 import { wireExtensionBridge } from './commands/extensionBridge'
+import { registerExternalEditorCommand } from './commands/externalEditor'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { revealPane, startAttentionSync } from './lib/sessionActivity'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
@@ -18,6 +19,7 @@ import { startWorkspaceAutosave } from './stores/persistence'
 import { useSessionsStore } from './stores/sessionsStore'
 
 registerBuiltinCommands()
+registerExternalEditorCommand()
 wireCommandBridge()
 wireTerminalStateBridge()
 wireExtensionBridge()

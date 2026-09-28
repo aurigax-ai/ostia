@@ -1,0 +1,43 @@
+{
+  "id": "git",
+  "name": "Git",
+  "version": "1.0.0",
+  "description": "Branch and changes per session in the sidebar, a changes list, and diffs of changed files.",
+  "capabilities": ["read-board"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "show", "title": "Show Changes", "category": "Git", "capabilities": ["read-board"] },
+      {
+        "id": "status",
+        "title": "Branch, upstream and change counts (JSON)",
+        "usage": "status",
+        "palette": false,
+        "capabilities": ["read-board"]
+      },
+      {
+        "id": "changes",
+        "title": "Changed files: staged, unstaged, untracked (JSON)",
+        "usage": "changes",
+        "palette": false,
+        "capabilities": ["read-board"]
+      },
+      {
+        "id": "diff",
+        "title": "Unified diff of one changed file (JSON)",
+        "usage": "diff <path> [--staged]",
+        "palette": false,
+        "capabilities": ["read-board"]
+      },
+      {
+        "id": "open",
+        "title": "Open a changed file in the diff view",
+        "usage": "open <path> [--staged]",
+        "palette": false,
+        "capabilities": ["read-board"]
+      }
+    ],
+    "sidebarItems": true,
+    "panel": { "title": "Changes", "icon": "git-branch", "entry": "url" }
+  }
+}

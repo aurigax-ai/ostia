@@ -80,6 +80,26 @@ describe('buildSnapshot', () => {
     expect(snapshot?.sessions.map((s) => s.id)).toEqual(['s1'])
   })
 
+  it('drops diff panes, which hold live in-memory content, and refocuses a survivor', () => {
+    const term = createPane('terminal', 'zsh', '/home/u/proj')
+    const diff: LayoutNode = { type: 'pane', id: 'pane-9', title: 'a.ts', kind: 'diff' }
+    const snapshot = build(splitOf('horizontal', term, diff), 'pane-9')
+    expect(snapshot?.sessions[0].root).toMatchObject({ id: term.id, kind: 'terminal' })
+    expect(snapshot?.sessions[0].activePaneId).toBe(term.id)
+  })
+
+  it('replaces a lone diff pane with a terminal at the session workDir', () => {
+    const diff: LayoutNode = { type: 'pane', id: 'pane-4', title: 'a.ts', kind: 'diff' }
+    const snapshot = build(diff)
+    expect(snapshot?.sessions[0].root).toEqual({
+      type: 'pane',
+      id: 'pane-4',
+      title: 'zsh',
+      kind: 'terminal',
+      cwd: '/home/u/proj',
+    })
+  })
+
   it('returns null when no session has a layout — nothing worth persisting', () => {
     expect(
       buildSnapshot({ sessions: [SESSION], activeSessionId: 's1', layouts: {}, savedAt: '' }),
