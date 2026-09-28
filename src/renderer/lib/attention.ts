@@ -105,6 +105,18 @@ export function latestUnread(
   return best
 }
 
+export function latestWaitingAt(
+  byPane: Readonly<Record<string, PaneAttention>>,
+  paneIds: Iterable<string>,
+): number {
+  let at = 0
+  for (const id of paneIds) {
+    const a = byPane[id]
+    if (a?.state === 'waiting' && a.at > at) at = a.at
+  }
+  return at
+}
+
 export interface OscNotification {
   title: string
   body?: string

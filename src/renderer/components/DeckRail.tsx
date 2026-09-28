@@ -9,10 +9,11 @@ import {
   Terminal,
   X,
 } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { paneIds } from '../layout/tree'
-import { unreadCount } from '../lib/attention'
+import { latestWaitingAt, unreadCount } from '../lib/attention'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -182,9 +183,12 @@ function stateLabel(d: Dict, state: SessionState): string {
 function SessionIcon({ session }: { session: Session }): JSX.Element {
   const d = useDict()
   const KindIcon = KIND_ICON[session.kind]
+  const root = useLayoutStore((s) => s.bySession[session.id]?.root)
+  const waitingAt = useAttentionStore((s) => (root ? latestWaitingAt(s.byPane, paneIds(root)) : 0))
   return (
     <span className="tab-lead-wrap">
       <span
+        key={session.state === 'waiting' ? `waiting-${waitingAt}` : 'steady'}
         className={`dot session-dot ${session.state}`}
         role="img"
         aria-label={stateLabel(d, session.state)}
@@ -198,12 +202,33 @@ function UnreadBadge({ sessionId }: { sessionId: string }): JSX.Element | null {
   const d = useDict()
   const root = useLayoutStore((s) => s.bySession[sessionId]?.root)
   const n = useAttentionStore((s) => (root ? unreadCount(s.byPane, paneIds(root)) : 0))
+  const pop = usePopOnIncrease(n)
   if (n === 0) return null
   return (
-    <span className="unread-badge" role="img" aria-label={fmt(d.rail.unread, { n })}>
+    <span
+      key={pop.generation}
+      className={`unread-badge${pop.active ? ' pop' : ''}`}
+      role="img"
+      aria-label={fmt(d.rail.unread, { n })}
+      onAnimationEnd={pop.end}
+    >
       {n > 99 ? '99+' : n}
     </span>
   )
+}
+
+function usePopOnIncrease(n: number): { active: boolean; generation: number; end: () => void } {
+  const [seen, setSeen] = useState({ n: 0, generation: 0, active: false })
+  if (seen.n !== n) {
+    const grew = n > seen.n
+    setSeen({
+      n,
+      generation: grew ? seen.generation + 1 : seen.generation,
+      active: grew,
+    })
+  }
+  const end = useCallback(() => setSeen((s) => (s.active ? { ...s, active: false } : s)), [])
+  return { active: seen.active, generation: seen.generation, end }
 }
 
 function TabRow({

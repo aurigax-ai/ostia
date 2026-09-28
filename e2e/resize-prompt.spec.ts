@@ -37,6 +37,34 @@ test('splitting a pane does not duplicate the existing prompt', async () => {
   }
 })
 
+test('toggling the sidebar twice leaves exactly one prompt line', async () => {
+  test.setTimeout(60_000)
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    const rows = win.locator('.xterm-rows').first()
+    await expect(rows).toContainText(/[❯$%#]/, { timeout: 15_000 })
+    await win.waitForTimeout(2_000)
+    const promptLines = async (): Promise<number> =>
+      (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
+    expect(await promptLines()).toBe(1)
+
+    await win.locator('.xterm').first().click()
+    const rail = win.locator('.deck-rail')
+    await win.keyboard.press('Control+Shift+B')
+    await expect(rail).toHaveClass(/\bcollapsed\b/)
+    await win.waitForTimeout(600)
+    await win.keyboard.press('Control+Shift+B')
+    await expect(rail).not.toHaveClass(/\bcollapsed\b/)
+    await win.waitForTimeout(2_000)
+
+    expect(await promptLines()).toBe(1)
+  } finally {
+    await app.close()
+  }
+})
+
 test('drag-resizing the window keeps command output and a single prompt', async () => {
   test.setTimeout(90_000)
   const app = await electron.launch(isolatedLaunch())

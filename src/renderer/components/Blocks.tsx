@@ -2,6 +2,7 @@ import type { Terminal as Xterm } from '@xterm/xterm'
 import { type RefObject, useEffect, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { blockSpan, commandLine, stickyBlock } from '../lib/blocks'
+import { useExitPresence } from '../lib/useExitPresence'
 import { useBlocksStore } from '../stores/blocksStore'
 import { BlockMenu } from './BlockMenu'
 
@@ -115,7 +116,9 @@ export function Blocks({
     }
   }, [paneId, blocks, selectedId, termRef, hostRef])
 
-  if (geo.bars.length === 0 && !geo.sticky) return null
+  const sticky = useExitPresence(geo.sticky)
+
+  if (geo.bars.length === 0 && !sticky.shown) return null
 
   const selectBlock = (blockId: string): void => {
     const s = useBlocksStore.getState()
@@ -134,6 +137,7 @@ export function Blocks({
     <div className="blocks-overlay">
       {geo.frame && (
         <div
+          key={selectedId}
           className="block-frame"
           style={{ top: geo.frame.top, height: geo.frame.height }}
           aria-hidden="true"
@@ -162,7 +166,14 @@ export function Blocks({
           }
         />
       ))}
-      {geo.sticky && <StickyHeader info={geo.sticky} onJump={jumpTo} />}
+      {sticky.shown && (
+        <StickyHeader
+          info={sticky.shown}
+          onJump={jumpTo}
+          leaving={sticky.leaving}
+          onExited={sticky.onExited}
+        />
+      )}
     </div>
   )
 }
@@ -170,9 +181,13 @@ export function Blocks({
 export function StickyHeader({
   info,
   onJump,
+  leaving = false,
+  onExited,
 }: {
   info: StickyInfo
   onJump: (line: number) => void
+  leaving?: boolean
+  onExited?: () => void
 }): JSX.Element {
   const d = useDict()
   const failed = !info.running && (info.exitCode ?? 0) !== 0
@@ -184,7 +199,10 @@ export function StickyHeader({
   return (
     <button
       type="button"
-      className={`block-sticky${failed ? ' attn' : ''}`}
+      className={`block-sticky${failed ? ' attn' : ''}${leaving ? ' leaving' : ''}`}
+      aria-hidden={leaving || undefined}
+      tabIndex={leaving ? -1 : undefined}
+      onAnimationEnd={leaving ? onExited : undefined}
       aria-label={`${d.blocks.jumpToCommand}: ${info.command}`}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => onJump(info.line)}
