@@ -6,14 +6,9 @@ import { findPane } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { Hint } from './Hint'
 import { fileIcon } from './fileIcon'
 
-/**
- * The cwd the Files explorer shows: the **focused pane's** cwd (kept live by the
- * terminal — see Terminal.tsx / pty cwd tracking), falling back to the session's
- * workDir anchor. Re-derives on pane focus / session switch, so it follows the
- * terminal you're looking at.
- */
 function useFocusedCwd(): string {
   const sessionId = useSessionsStore((s) => s.activeSessionId)
   const anchor = useSessionsStore((s) => s.sessions.find((c) => c.id === sessionId)?.workDir ?? '~')
@@ -33,18 +28,19 @@ export function FilesView(): JSX.Element {
   return (
     <>
       <div className="rail-section">{d.rail.files}</div>
-      <div className="files-crumb" title={cwd}>
-        {segments.map((seg, i) => (
-          <span
-            key={segments.slice(0, i + 1).join('/')}
-            className={`crumb${i === segments.length - 1 ? ' current' : ''}`}
-          >
-            {i > 0 ? <ChevronRight size={11} className="crumb-sep" /> : null}
-            {seg}
-          </span>
-        ))}
-      </div>
-      {/* keyed by cwd so the tree resets (and re-reads) when the root changes */}
+      <Hint label={cwd} side="bottom">
+        <div className="files-crumb">
+          {segments.map((seg, i) => (
+            <span
+              key={segments.slice(0, i + 1).join('/')}
+              className={`crumb${i === segments.length - 1 ? ' current' : ''}`}
+            >
+              {i > 0 ? <ChevronRight size={12} className="crumb-sep" /> : null}
+              {seg}
+            </span>
+          ))}
+        </div>
+      </Hint>
       <div className="file-tree">
         <Dir key={cwd} path={cwd} depth={0} />
       </div>
@@ -52,7 +48,6 @@ export function FilesView(): JSX.Element {
   )
 }
 
-/** Lazily lists a directory over the `fs.list` bridge; renders its entries. */
 function Dir({ path, depth }: { path: string; depth: number }): JSX.Element | null {
   const d = useDict()
   const showHidden = useSettingsStore((s) => s.behavior.showHiddenFiles)
@@ -68,7 +63,7 @@ function Dir({ path, depth }: { path: string; depth: number }): JSX.Element | nu
     }
   }, [path])
 
-  if (entries === null) return null // loading
+  if (entries === null) return null
   const visible = showHidden ? entries : entries.filter((e) => !e.name.startsWith('.'))
   if (visible.length === 0) {
     return depth === 0 ? <div className="rail-empty">{d.rail.noFolder}</div> : null
@@ -105,7 +100,7 @@ function Row({ entry, path, depth }: { entry: FsEntry; path: string; depth: numb
         ) : (
           <span className="file-twisty-spacer" />
         )}
-        <Icon size={13} className="file-icon" style={{ color }} />
+        <Icon size={14} className="file-icon" style={{ color }} />
         <span className="file-name">{entry.name}</span>
       </button>
       {entry.dir && open ? <Dir path={childPath(path, entry.name)} depth={depth + 1} /> : null}

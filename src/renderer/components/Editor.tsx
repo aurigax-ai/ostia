@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { fmt, useDict } from '../i18n/useDict'
 import { openDocument } from '../lsp/client'
 import { monaco } from '../monaco/setup'
+import { useEditorStatus } from '../stores/editorStatusStore'
 import { useSettingsStore } from '../stores/settingsStore'
 
 const LANG: Record<string, string> = {
@@ -45,17 +47,43 @@ function langFor(path: string): string {
 
 const EDITOR_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
 
-/**
- * A code editor surface: Monaco (VSCode's editor) with built-in TS/JS IntelliSense and
- * the One Dark Vivid theme. Opens the pane's `filePath`; ⌘S / Ctrl+S writes it back.
- */
+const BINARY_SNIFF_BYTES = 8192
+
+export function isBinary(content: string): boolean {
+  return content.slice(0, BINARY_SNIFF_BYTES).includes('\0')
+}
+
+const savedVersions = new Map<string, number>()
+
+function isDirty(model: monaco.editor.ITextModel): boolean {
+  return savedVersions.get(model.uri.toString()) !== model.getAlternativeVersionId()
+}
+
+function markSaved(model: monaco.editor.ITextModel, filePath: string): void {
+  savedVersions.set(model.uri.toString(), model.getAlternativeVersionId())
+  useEditorStatus.getState().setDirty(filePath, false)
+}
+
+function createTrackedModel(filePath: string, content: string): monaco.editor.ITextModel {
+  const model = monaco.editor.createModel(content, langFor(filePath), monaco.Uri.file(filePath))
+  markSaved(model, filePath)
+  model.onDidChangeContent(() => useEditorStatus.getState().setDirty(filePath, isDirty(model)))
+  model.onWillDispose(() => {
+    savedVersions.delete(model.uri.toString())
+    useEditorStatus.getState().setDirty(filePath, false)
+  })
+  return model
+}
+
 export function EditorView({ filePath }: { filePath?: string }): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
+  const d = useDict()
   const pathRef = useRef(filePath)
   const font = useSettingsStore((s) => s.appearance.editor)
+  const [binary, setBinary] = useState(false)
+  const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
 
-  // Create the editor once.
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
@@ -76,10 +104,23 @@ export function EditorView({ filePath }: { filePath?: string }): JSX.Element {
     })
     editorRef.current = editor
 
-    // ⌘S / Ctrl+S → save the current file.
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       const fp = pathRef.current
-      if (fp) void window.pine.fs.write(fp, editor.getValue())
+      const model = editor.getModel()
+      if (!fp || !model) return
+      const version = model.getAlternativeVersionId()
+      window.pine.fs.write(fp, model.getValue()).then(
+        (ok) => {
+          if (!ok) {
+            setUnsavedPath(fp)
+            return
+          }
+          savedVersions.set(model.uri.toString(), version)
+          useEditorStatus.getState().setDirty(fp, isDirty(model))
+          setUnsavedPath(null)
+        },
+        () => setUnsavedPath(fp),
+      )
     })
 
     return () => {
@@ -88,20 +129,27 @@ export function EditorView({ filePath }: { filePath?: string }): JSX.Element {
     }
   }, [])
 
-  // Load the file when it changes (reuse a model per file URI).
   useEffect(() => {
     pathRef.current = filePath
+    setUnsavedPath(null)
     const editor = editorRef.current
     if (!editor || !filePath) return
     let alive = true
     window.pine.fs.read(filePath).then((content) => {
       if (!alive || !editorRef.current) return
-      const uri = monaco.Uri.file(filePath)
-      const existing = monaco.editor.getModel(uri)
-      const model = existing ?? monaco.editor.createModel(content ?? '', langFor(filePath), uri)
-      if (existing && content !== null) existing.setValue(content)
+      if (content !== null && isBinary(content)) {
+        editor.setModel(null)
+        setBinary(true)
+        return
+      }
+      setBinary(false)
+      const existing = monaco.editor.getModel(monaco.Uri.file(filePath))
+      const model = existing ?? createTrackedModel(filePath, content ?? '')
+      if (existing && content !== null && !isDirty(existing) && existing.getValue() !== content) {
+        existing.setValue(content)
+        markSaved(existing, filePath)
+      }
       editor.setModel(model)
-      // Best-effort: attach an external language server if one is installed for this language.
       void openDocument(model, langFor(filePath))
     })
     return () => {
@@ -109,7 +157,6 @@ export function EditorView({ filePath }: { filePath?: string }): JSX.Element {
     }
   }, [filePath])
 
-  // Apply editor-font changes live.
   useEffect(() => {
     editorRef.current?.updateOptions({
       fontFamily: `"${font.family}", ${EDITOR_FALLBACK}`,
@@ -117,5 +164,19 @@ export function EditorView({ filePath }: { filePath?: string }): JSX.Element {
     })
   }, [font.family, font.size])
 
-  return <div ref={hostRef} className="editor-host" />
+  return (
+    <>
+      <div ref={hostRef} className="editor-host" style={binary ? { display: 'none' } : undefined} />
+      {binary ? (
+        <div className="pane-body editor-binary">
+          <span className="ghost">{d.editor.binary}</span>
+        </div>
+      ) : null}
+      {unsavedPath ? (
+        <div role="alert" className="editor-save-error">
+          {fmt(d.editor.saveError, { path: unsavedPath })}
+        </div>
+      ) : null}
+    </>
+  )
 }

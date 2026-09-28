@@ -1,12 +1,5 @@
-/**
- * i18n catalogs. Supported locales: English (default) + Traditional Chinese.
- * English region variants (en-US, en-GB, …) and zh variants (zh-TW, zh-HK, …)
- * resolve to the canonical locales below — see `resolveLocale`.
- */
-/** Locale id — resolved against the language registry (each language is a plugin). */
 export type Locale = string
 
-/** English is the source of truth; every other catalog must match this shape. */
 export const en = {
   search: {
     placeholder: 'Search sessions, agents, files… or run a command',
@@ -17,25 +10,20 @@ export const en = {
     newSession: 'New session',
     files: 'Files',
     noFolder: 'No folder open',
-    plugins: 'Plugins',
+    close: 'Close',
+    stateIdle: 'Idle',
+    stateWorking: 'Working',
+    stateWaiting: 'Waiting for input',
+    stateDone: 'Done',
   },
   plugins: {
-    languageServers: 'Language servers',
     running: 'running',
     available: 'installed',
     notInstalled: 'not installed',
     error: 'error',
-    empty: 'No plugins',
   },
-  inspector: {
-    review: 'Review',
-    uncommitted: 'Uncommitted changes',
-    agent: 'Agent',
-    acceptHint: '▸▸ accept edits · shift+tab to cycle · esc to interrupt',
-  },
-  status: { working: '{n} working', waiting: '{n} waiting', panes: '{n} panes' },
   pane: {
-    empty: 'empty pane · press ⌘K to run something',
+    empty: 'Empty pane. Open the command palette to run something.',
     splitRight: 'Split right',
     splitDown: 'Split down',
     close: 'Close pane',
@@ -49,11 +37,50 @@ export const en = {
   topbar: {
     toggleSidebar: 'Toggle sidebar',
     settings: 'Settings',
-    notifications: 'Notifications',
-    account: 'Account',
-    gitDiff: 'Review changes',
   },
   window: { minimize: 'Minimize', maximize: 'Maximize', restore: 'Restore', close: 'Close' },
+  find: {
+    label: 'Find in terminal',
+    placeholder: 'Find',
+    noResults: 'No results',
+    previous: 'Previous match',
+    next: 'Next match',
+    close: 'Close find',
+  },
+  editor: {
+    binary: 'Binary file — not opened in the editor',
+    saveError: 'Could not save {path}',
+  },
+  browser: {
+    back: 'Back',
+    forward: 'Forward',
+    reload: 'Reload',
+    address: 'Address',
+  },
+  kanban: {
+    loading: 'Loading…',
+    noCards: 'No cards',
+    addPlaceholder: 'Add a card…',
+    add: 'Add card',
+    remove: 'Remove card',
+    moveTo: 'Move to {column}',
+  },
+  wiki: {
+    scope: 'Wiki scope',
+    project: 'Project',
+    global: 'Global',
+    noPages: 'No pages yet',
+    selectOrCreate: 'Select or create a page',
+    loading: 'Loading…',
+    newSlug: 'New page slug',
+    newSlugPlaceholder: 'new-page-slug',
+    create: 'Create page',
+    pageTitle: 'Page title',
+    pageBody: 'Page body',
+    edit: 'Edit',
+    cancel: 'Cancel',
+    save: 'Save',
+  },
   settings: {
     title: 'Settings',
     search: 'Search settings',
@@ -137,25 +164,20 @@ export const zhHant: Dict = {
     newSession: '新增工作階段',
     files: '檔案',
     noFolder: '尚未開啟資料夾',
-    plugins: '外掛',
+    close: '關閉',
+    stateIdle: '閒置',
+    stateWorking: '執行中',
+    stateWaiting: '等待輸入',
+    stateDone: '完成',
   },
   plugins: {
-    languageServers: '語言伺服器',
     running: '執行中',
     available: '已安裝',
     notInstalled: '未安裝',
     error: '錯誤',
-    empty: '沒有外掛',
   },
-  inspector: {
-    review: '程式碼審查',
-    uncommitted: '未提交的變更',
-    agent: '代理程式',
-    acceptHint: '▸▸ 接受編輯 · shift+tab 切換 · esc 中斷',
-  },
-  status: { working: '{n} 執行中', waiting: '{n} 等待中', panes: '{n} 個面板' },
   pane: {
-    empty: '空白面板 · 按 ⌘K 執行指令',
+    empty: '空白面板。開啟指令面板以執行指令。',
     splitRight: '向右分割',
     splitDown: '向下分割',
     close: '關閉面板',
@@ -169,11 +191,50 @@ export const zhHant: Dict = {
   topbar: {
     toggleSidebar: '切換側邊欄',
     settings: '設定',
-    notifications: '通知',
-    account: '帳號',
-    gitDiff: '檢視變更',
   },
   window: { minimize: '最小化', maximize: '最大化', restore: '還原', close: '關閉' },
+  find: {
+    label: '在終端機中尋找',
+    placeholder: '尋找',
+    noResults: '沒有結果',
+    previous: '上一個符合項目',
+    next: '下一個符合項目',
+    close: '關閉尋找',
+  },
+  editor: {
+    binary: '二進位檔案 — 未在編輯器中開啟',
+    saveError: '無法儲存 {path}',
+  },
+  browser: {
+    back: '上一頁',
+    forward: '下一頁',
+    reload: '重新載入',
+    address: '網址',
+  },
+  kanban: {
+    loading: '載入中…',
+    noCards: '沒有卡片',
+    addPlaceholder: '新增卡片…',
+    add: '新增卡片',
+    remove: '移除卡片',
+    moveTo: '移至 {column}',
+  },
+  wiki: {
+    scope: 'Wiki 範圍',
+    project: '專案',
+    global: '全域',
+    noPages: '尚無頁面',
+    selectOrCreate: '選擇或建立頁面',
+    loading: '載入中…',
+    newSlug: '新頁面代稱',
+    newSlugPlaceholder: 'new-page-slug',
+    create: '建立頁面',
+    pageTitle: '頁面標題',
+    pageBody: '頁面內容',
+    edit: '編輯',
+    cancel: '取消',
+    save: '儲存',
+  },
   settings: {
     title: '設定',
     search: '搜尋設定',
@@ -243,19 +304,15 @@ export const zhHant: Dict = {
 
 export const catalogs: Record<Locale, Dict> = { en, 'zh-Hant': zhHant }
 
-/** Map any BCP-47 tag (e.g. 'en-GB', 'zh-TW', 'zh-Hant-HK') to a supported locale. */
 export function resolveLocale(tag: string | undefined): Locale {
   if (!tag) return 'en'
   const t = tag.toLowerCase()
   if (t.startsWith('zh')) {
-    // Traditional for TW/HK/MO or explicit Hant; everything else zh → still Traditional here,
-    // since Simplified isn't a supported locale yet (falls back to our only zh catalog).
     return 'zh-Hant'
   }
   return 'en'
 }
 
-/** Replace {key} placeholders. */
 export function fmt(template: string, vars: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`))
 }

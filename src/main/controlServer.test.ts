@@ -13,7 +13,6 @@ import type { CommandDescriptor, CommandResult, TerminalStateSnapshot } from '..
 import { type ControlServerDeps, registerControlServer, stopControlServer } from './controlServer'
 import { registerPane } from './idRegistry'
 
-// Distinct-per-test socket path: pid + a monotonic counter (no Date.now()/random).
 let socketCounter = 0
 function nextSocketPath(): string {
   socketCounter += 1
@@ -39,7 +38,6 @@ const fakeDeps: ControlServerDeps = {
     ({ paneId: 'pTest1', generation: 1, running: false, blockCount: 0 }) as TerminalStateSnapshot,
 }
 
-/** Connect a fresh vscode-jsonrpc client to `path` and start listening. */
 function connectClient(path: string): { conn: MessageConnection; destroy: () => void } {
   const socket = createConnection(path)
   const conn = createMessageConnection(
@@ -88,6 +86,19 @@ describe('controlServer (socket auth, end-to-end)', () => {
         target: 'active',
       },
     ])
+  })
+
+  it('requires workspace-wide to target another session, even from the caller own pane', async () => {
+    socketPath = nextSocketPath()
+    const id = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'pTest1' })
+    registerControlServer(fakeDeps, socketPath)
+    client = connectClient(socketPath)
+    await client.conn.sendRequest('hello', { token: id.token })
+
+    const target = { windowId: 'w1', sessionId: 's-other', paneId: 'pTest1' }
+    await expect(
+      client.conn.sendRequest('command.exec', { id: 'pane.splitRight', target }),
+    ).rejects.toThrow(/workspace-wide/)
   })
 
   it('rejects hello with a bogus token', async () => {

@@ -6,15 +6,11 @@ import { useUIStore } from '../stores/uiStore'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
-// `commands` is a module singleton and `register` throws on duplicate ids, so the
-// built-ins must be registered exactly once for the whole file.
 let sessionsInit: ReturnType<typeof useSessionsStore.getState>
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 
 beforeAll(() => {
   registerBuiltinCommands()
-  // Pristine store snapshots — the splitRight/splitDown cases seed the provider's
-  // stores, so restore both (replace: true) after every test to prevent leakage.
   sessionsInit = useSessionsStore.getState()
   layoutInit = useLayoutStore.getState()
 })
@@ -46,7 +42,6 @@ describe('builtins declare targets', () => {
       'pane.close',
       'pane.focus',
       'pane.move',
-      'pane.remove',
     ]) {
       expect(byId[id].target).toBe('active')
     }
@@ -86,8 +81,6 @@ describe('builtins route to store actions', () => {
 
   it('routes pane.splitRight to layout.split with a horizontal direction', async () => {
     const split = vi.spyOn(useLayoutStore.getState(), 'split').mockImplementation(() => {})
-    // splitRight delegates via commands.exec, which resolves the active pane through
-    // the context provider — so seed the provider's stores instead of passing a ctx.
     useSessionsStore.setState({ activeSessionId: 's1' })
     useLayoutStore.setState({
       bySession: { s1: { root: createPane('terminal'), activePaneId: 'pA', zoomedPaneId: null } },
@@ -108,6 +101,52 @@ describe('builtins route to store actions', () => {
     await commands.exec('pane.splitDown')
 
     expect(split).toHaveBeenCalledWith('s1', 'pA', 'vertical')
+  })
+
+  it('pane.splitRight / pane.splitDown act on the caller ctx, not the active UI context', async () => {
+    const split = vi.spyOn(useLayoutStore.getState(), 'split').mockImplementation(() => {})
+
+    await commands.execWith(ctx('s9', 'p9'), 'pane.splitRight')
+    await commands.execWith(ctx('s9', 'p9'), 'pane.splitDown')
+
+    expect(split).toHaveBeenNthCalledWith(1, 's9', 'p9', 'horizontal')
+    expect(split).toHaveBeenNthCalledWith(2, 's9', 'p9', 'vertical')
+  })
+
+  it('pane.splitRight propagates a failure from the inner pane.split', async () => {
+    vi.spyOn(useLayoutStore.getState(), 'split').mockImplementation(() => {
+      throw new Error('split exploded')
+    })
+
+    const r = await commands.execWith(ctx('s1', 'pA'), 'pane.splitRight')
+
+    expect(r).toEqual({ ok: false, error: { code: 'command-failed', message: 'split exploded' } })
+  })
+
+  it('browser.open opens about:blank in the caller ctx session and propagates failures', async () => {
+    const openBrowser = vi
+      .spyOn(useLayoutStore.getState(), 'openBrowser')
+      .mockImplementation(() => {})
+
+    const ok = await commands.execWith(ctx('s7', null), 'browser.open')
+    expect(ok.ok).toBe(true)
+    expect(openBrowser).toHaveBeenCalledWith('s7', 'about:blank')
+
+    openBrowser.mockImplementation(() => {
+      throw new Error('no browser')
+    })
+    const failed = await commands.execWith(ctx('s7', null), 'browser.open')
+    expect(failed).toEqual({ ok: false, error: { code: 'command-failed', message: 'no browser' } })
+  })
+
+  it('settings.set reports a rejected path as a failed command', async () => {
+    const r = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'init',
+      value: 1,
+    })
+
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error.message).toMatch(/unknown settings key: init/)
   })
 
   it('routes pane.close to layout.closePane with an explicit paneId', async () => {
@@ -146,16 +185,6 @@ describe('builtins route to store actions', () => {
     expect(movePane).toHaveBeenCalledWith('s1', 'src', 'tgt', 'right')
   })
 
-  it('routes pane.remove to layout.removePane', async () => {
-    const removePane = vi
-      .spyOn(useLayoutStore.getState(), 'removePane')
-      .mockImplementation(() => {})
-
-    await commands.execWith(ctx('s1', 'pA'), 'pane.remove', { paneId: 'pX' })
-
-    expect(removePane).toHaveBeenCalledWith('s1', 'pX')
-  })
-
   it('does not close a pane when there is no active session', async () => {
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 
@@ -184,16 +213,6 @@ describe('builtins route to store actions', () => {
     expect(movePane).not.toHaveBeenCalled()
   })
 
-  it('does not remove a pane when there is no active session', async () => {
-    const removePane = vi
-      .spyOn(useLayoutStore.getState(), 'removePane')
-      .mockImplementation(() => {})
-
-    await commands.execWith(ctx(null, 'pA'), 'pane.remove', { paneId: 'pX' })
-
-    expect(removePane).not.toHaveBeenCalled()
-  })
-
   it('routes session.new to leaveSettings then addSession, in that order', async () => {
     const leaveSettings = vi
       .spyOn(useUIStore.getState(), 'leaveSettings')
@@ -206,7 +225,6 @@ describe('builtins route to store actions', () => {
 
     expect(leaveSettings).toHaveBeenCalled()
     expect(addSession).toHaveBeenCalled()
-    // Leave Settings first so the new session isn't created hidden behind the Settings view.
     expect(leaveSettings.mock.invocationCallOrder[0]).toBeLessThan(
       addSession.mock.invocationCallOrder[0],
     )

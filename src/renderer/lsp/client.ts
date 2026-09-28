@@ -26,13 +26,17 @@ interface Client {
   id: string
   root: string
   conn: MessageConnection
-  /** Resolves once `initialize`/`initialized` completed — requests must wait for it. */
   ready: Promise<void>
 }
 
-const clients = new Map<string, Client>() // key = `${languageId}::${root}`
-const docToClient = new Map<string, Client>() // model uri string → its client
-const registered = new Set<string>() // languageIds whose Monaco providers are installed
+const clients = new Map<string, Client>()
+interface OpenDocument {
+  client: Client
+  subscriptions: monaco.IDisposable
+}
+
+const docs = new Map<string, OpenDocument>()
+const registered = new Set<string>()
 
 const CLIENT_CAPS = {
   textDocument: {
@@ -50,7 +54,6 @@ const CLIENT_CAPS = {
   workspace: { workspaceFolders: true },
 }
 
-// ── LSP ↔ Monaco mapping ──────────────────────────────────────────────────
 const toLspPos = (p: monaco.Position): { line: number; character: number } => ({
   line: p.lineNumber - 1,
   character: p.column - 1,
@@ -105,7 +108,7 @@ function hoverContents(contents: Hover['contents']): monaco.IMarkdownString[] {
     typeof c === 'string' ? c : c.language ? `\`\`\`${c.language}\n${c.value}\n\`\`\`` : c.value
   if (Array.isArray(contents)) return contents.map((c) => ({ value: one(c) }))
   if (typeof contents === 'string') return [{ value: contents }]
-  if ('kind' in contents) return [{ value: contents.value }] // MarkupContent
+  if ('kind' in contents) return [{ value: contents.value }]
   return [{ value: one(contents) }]
 }
 
@@ -139,7 +142,6 @@ function applyDiagnostics(uri: string, diagnostics: Diagnostic[]): void {
   )
 }
 
-// ── client lifecycle ──────────────────────────────────────────────────────
 async function ensureClient(languageId: string, filePath: string): Promise<Client | null> {
   const started = await window.pine.lsp.start(languageId, filePath)
   if (!started) return null
@@ -153,11 +155,11 @@ async function ensureClient(languageId: string, filePath: string): Promise<Clien
 
   const conn = createMessageConnection(new IpcReader(id), new IpcWriter(id))
   const client: Client = { id, root, conn, ready: Promise.resolve() }
-  clients.set(id, client) // synchronous — concurrent callers find it before init completes
+  clients.set(id, client)
 
   const onGone = (): void => {
-    clients.delete(id)
-    // If no other instance of this language is running, mark the plugin idle.
+    if (clients.get(id) === client) clients.delete(id)
+    forgetDocuments(client)
     const stillRunning = [...clients.values()].some((c) => c.id.startsWith(`${languageId}::`))
     if (!stillRunning) usePluginsStore.getState().setLspStatus(languageId, 'installed')
   }
@@ -170,25 +172,41 @@ async function ensureClient(languageId: string, filePath: string): Promise<Clien
   window.pine.lsp.onExit(id, onGone)
   conn.listen()
 
+  const rootUri = monaco.Uri.file(root).toString()
   client.ready = (async () => {
     await conn.sendRequest(InitializeRequest.method, {
       processId: null,
-      rootUri: `file://${root}`,
+      rootUri,
       capabilities: CLIENT_CAPS,
-      workspaceFolders: [{ uri: `file://${root}`, name: root }],
+      workspaceFolders: [{ uri: rootUri, name: root }],
     })
     conn.sendNotification(InitializedNotification.method, {})
   })()
-  await client.ready
+  try {
+    await client.ready
+  } catch (err) {
+    if (clients.get(id) === client) clients.delete(id)
+    conn.dispose()
+    throw err
+  }
   usePluginsStore.getState().setLspStatus(languageId, 'running')
   return client
+}
+
+function forgetDocument(uri: string): void {
+  docs.get(uri)?.subscriptions.dispose()
+  docs.delete(uri)
+}
+
+function forgetDocuments(client: Client): void {
+  for (const [uri, doc] of docs) if (doc.client === client) forgetDocument(uri)
 }
 
 function registerProviders(languageId: string): void {
   if (registered.has(languageId)) return
   registered.add(languageId)
   const clientOf = (model: monaco.editor.ITextModel): Client | undefined =>
-    docToClient.get(model.uri.toString())
+    docs.get(model.uri.toString())?.client
 
   monaco.languages.registerCompletionItemProvider(languageId, {
     triggerCharacters: ['.', ':', '/', '@', '<', '"', "'"],
@@ -265,23 +283,16 @@ function registerProviders(languageId: string): void {
   })
 }
 
-/**
- * Attach a model to its language server (if one is installed): register providers,
- * `didOpen`, and wire `didChange`/`didClose`. Best-effort — never throws to the editor.
- */
 export async function openDocument(
   model: monaco.editor.ITextModel,
   languageId: string,
 ): Promise<void> {
   try {
-    // Only stand up a client + providers when a server is actually installed for this
-    // language (else Monaco's built-in — e.g. TS/JS — is left untouched).
     const client = await ensureClient(languageId, model.uri.path)
     if (!client) return
     registerProviders(languageId)
     const uri = model.uri.toString()
-    if (docToClient.has(uri)) return
-    docToClient.set(uri, client)
+    if (docs.has(uri)) return
 
     let version = 1
     client.conn.sendNotification(DidOpenTextDocumentNotification.method, {
@@ -291,21 +302,25 @@ export async function openDocument(
       version += 1
       client.conn.sendNotification(DidChangeTextDocumentNotification.method, {
         textDocument: { uri, version },
-        contentChanges: [{ text: model.getValue() }], // full document sync
+        contentChanges: [{ text: model.getValue() }],
       })
     })
-    model.onWillDispose(() => {
-      changeSub.dispose()
-      docToClient.delete(uri)
+    const disposeSub = model.onWillDispose(() => {
+      forgetDocument(uri)
       try {
         client.conn.sendNotification(DidCloseTextDocumentNotification.method, {
           textDocument: { uri },
         })
-      } catch {
-        // connection already gone
-      }
+      } catch {}
     })
-  } catch {
-    // LSP is best-effort; a broken server must never break the editor
-  }
+    docs.set(uri, {
+      client,
+      subscriptions: {
+        dispose: () => {
+          changeSub.dispose()
+          disposeSub.dispose()
+        },
+      },
+    })
+  } catch {}
 }

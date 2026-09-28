@@ -3,18 +3,23 @@ import { en, zhHant } from '../i18n/dict'
 import { BUILTIN_PLUGINS } from './builtin'
 import type { Theme } from './types'
 
-/** All themes contributed across the built-in plugin set (flattened). */
 const themes = (): Theme[] => BUILTIN_PLUGINS.flatMap((p) => p.contributes.themes ?? [])
 
-/** The single plugin with a given id (or undefined). */
+function luminance(hex: string): number {
+  const channels = [1, 3, 5].map((i) => {
+    const v = Number.parseInt(hex.slice(i, i + 2), 16) / 255
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+}
+
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
 const plugin = (id: string) => BUILTIN_PLUGINS.find((p) => p.id === id)
 
-/**
- * The token keys the design system requires on every theme. `Theme.tokens` is typed as an
- * open `Record<string, string>` (types.ts), so the compiler enforces nothing here — this
- * list IS the product contract, pinned independently of the themes so a uniform missing/extra
- * token across all four still fails the completeness check.
- */
 const REQUIRED_TOKEN_KEYS = [
   'bg',
   'bg-sunken',
@@ -31,6 +36,7 @@ const REQUIRED_TOKEN_KEYS = [
   'brand-glow',
   'attn',
   'attn-glow',
+  'attn-fg',
   'ok',
   'add',
   'del',
@@ -38,8 +44,6 @@ const REQUIRED_TOKEN_KEYS = [
 
 describe('BUILTIN_PLUGINS', () => {
   it('advertises exactly the five contracted theme ids', () => {
-    // These ids are the product contract — the settings schema's `theme` description
-    // enumerates them, so a rename/removal here silently breaks that reference.
     const ids = themes()
       .map((t) => t.id)
       .sort()
@@ -47,13 +51,27 @@ describe('BUILTIN_PLUGINS', () => {
   })
 
   it('gives every theme exactly the required token-key set (no missing, no extra tokens)', () => {
-    // Pinned against REQUIRED_TOKEN_KEYS (not themes[0]) so a token dropped/added uniformly
-    // across all themes still fails. A theme missing a token would render with an undefined
-    // CSS var → broken UI.
     for (const theme of themes()) {
       expect(Object.keys(theme.tokens).sort(), `theme ${theme.id} token keys`).toEqual(
         REQUIRED_TOKEN_KEYS,
       )
+    }
+  })
+
+  it('keeps text tokens readable on the surfaces they sit on', () => {
+    for (const { id, tokens } of themes()) {
+      expect(
+        contrast(tokens['fg-muted'], tokens['surface-2']),
+        `${id} fg-muted`,
+      ).toBeGreaterThanOrEqual(4.5)
+      expect(
+        contrast(tokens['attn-fg'], tokens['surface-1']),
+        `${id} attn-fg`,
+      ).toBeGreaterThanOrEqual(4.5)
+      expect(
+        contrast(tokens['fg-dim'], tokens['surface-1']),
+        `${id} fg-dim`,
+      ).toBeGreaterThanOrEqual(3)
     }
   })
 
@@ -86,7 +104,6 @@ describe('BUILTIN_PLUGINS', () => {
     const langs = plugin('pine.lang.en')?.contributes.languages
     expect(langs).toHaveLength(1)
     expect(langs?.[0].id).toBe('en')
-    // Same object reference — not a structural copy — so runtime lookups hit the live dict.
     expect(langs?.[0].catalog).toBe(en)
   })
 

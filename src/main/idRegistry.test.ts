@@ -6,7 +6,6 @@ import {
   removeWindow,
   resolveExternal,
   resolveToken,
-  updatePane,
 } from './idRegistry'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -28,9 +27,15 @@ describe('idRegistry', () => {
     expect(second.windowId).toBe('w-idem-2')
     expect(second.sessionId).toBe('s-idem-2')
 
-    // The mutation is in place: the original object reflects the update too.
     expect(first.windowId).toBe('w-idem-2')
     expect(first.sessionId).toBe('s-idem-2')
+  })
+
+  it('keeps the known sessionId when re-registered without one (pty attach after pane-created)', () => {
+    registerPane({ windowId: 'w-keep', sessionId: 's-keep', paneId: 'p-keep' })
+    const again = registerPane({ windowId: 'w-keep-2', sessionId: '', paneId: 'p-keep' })
+    expect(again.sessionId).toBe('s-keep')
+    expect(again.windowId).toBe('w-keep-2')
   })
 
   it('resolveExternal/resolveToken/getByPaneId all round-trip to the same identity', () => {
@@ -47,24 +52,6 @@ describe('idRegistry', () => {
 
     expect(a.externalId).not.toBe(b.externalId)
     expect(a.token).not.toBe(b.token)
-  })
-
-  it('updatePane patches windowId/sessionId in place', () => {
-    const id = registerPane({ windowId: 'w-upd-1', sessionId: 's-upd-1', paneId: 'p-upd' })
-    updatePane('p-upd', { windowId: 'w-upd-2' })
-    expect(getByPaneId('p-upd')?.windowId).toBe('w-upd-2')
-    expect(getByPaneId('p-upd')?.sessionId).toBe('s-upd-1')
-
-    updatePane('p-upd', { sessionId: 's-upd-2' })
-    expect(getByPaneId('p-upd')?.windowId).toBe('w-upd-2')
-    expect(getByPaneId('p-upd')?.sessionId).toBe('s-upd-2')
-
-    // Identity object is stable across patches.
-    expect(getByPaneId('p-upd')).toBe(id)
-  })
-
-  it('updatePane on an unknown paneId is a no-op (does not throw)', () => {
-    expect(() => updatePane('p-does-not-exist', { windowId: 'w-x' })).not.toThrow()
   })
 
   it('removePane clears all three indexes', () => {
@@ -94,7 +81,6 @@ describe('idRegistry', () => {
     expect(resolveExternal(w1a.externalId)).toBeUndefined()
     expect(resolveExternal(w1b.externalId)).toBeUndefined()
 
-    // The other window's pane survives untouched.
     expect(getByPaneId('p-multi-2a')).toBe(w2a)
     expect(resolveExternal(w2a.externalId)).toBe(w2a)
   })

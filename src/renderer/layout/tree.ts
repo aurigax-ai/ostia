@@ -1,16 +1,9 @@
 import type { Direction, DropZone, LayoutNode, PaneNode, SplitNode, SurfaceKind } from './types'
 
-// Re-export so existing call sites can keep importing DropZone from the tree module.
 export type { DropZone } from './types'
-
-/**
- * Pure, immutable operations on the layout split-tree. Leaves are single-surface
- * panes (terminal/editor/agent/browser). No React, no store — trivially testable.
- */
 
 let counter = 0
 
-/** Reset the id counter (tests only) for deterministic ids. */
 export function resetIds(): void {
   counter = 0
 }
@@ -20,14 +13,6 @@ function genId(prefix: string): string {
   return `${prefix}-${counter}`
 }
 
-/**
- * Advance the id counter past every `<prefix>-<n>` id in `node` (session restore). Ids in a
- * restored tree were minted by a PREVIOUS run, but the counter starts at 0 each launch — so
- * without this the next `createPane()` re-issues an id a restored pane already holds, and
- * main keys its ptys by pane id: two panes would share one shell. Never rewinds, and ignores
- * ids that don't end in a number (nothing to reserve). The one sanctioned mutation here
- * besides `resetIds` — the tree transforms themselves stay pure.
- */
 export function adoptIds(node: LayoutNode): void {
   const n = Number(/-(\d+)$/.exec(node.id)?.[1])
   if (Number.isFinite(n)) counter = Math.max(counter, n)
@@ -43,7 +28,6 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   wiki: 'Wiki',
 }
 
-/** A fresh pane holding one surface (default a terminal). */
 export function createPane(kind: SurfaceKind = 'terminal', title?: string, cwd?: string): PaneNode {
   return { type: 'pane', id: genId('pane'), title: title ?? SURFACE_TITLE[kind], kind, cwd }
 }
@@ -52,36 +36,39 @@ function makeSplit(direction: Direction, children: LayoutNode[]): SplitNode {
   return { type: 'split', id: genId('split'), direction, children, sizes: children.map(() => 1) }
 }
 
-/** Build a split of the given children (for seeds/tests). */
 export function splitOf(direction: Direction, ...children: LayoutNode[]): SplitNode {
   return makeSplit(direction, children)
 }
 
-/** The id of the first (top-left-most) leaf pane. */
 export function firstPaneId(node: LayoutNode): string {
   return node.type === 'pane' ? node.id : firstPaneId(node.children[0])
 }
 
-/** All leaf pane ids, in tree order. */
 export function paneIds(node: LayoutNode): string[] {
   if (node.type === 'pane') return [node.id]
   return node.children.flatMap(paneIds)
 }
 
-/** All leaf pane NODES (not just ids), in tree order — used by `pane.list` to report each
- *  pane's kind/title/cwd alongside its id. */
 export function allPanes(node: LayoutNode): PaneNode[] {
   if (node.type === 'pane') return [node]
   return node.children.flatMap(allPanes)
 }
 
-/** Set the cwd of pane `paneId` (drives the Files explorer when the pane is focused). */
 export function setPaneCwd(root: LayoutNode, paneId: string, cwd: string): LayoutNode {
-  if (root.type === 'pane') return root.id === paneId ? { ...root, cwd } : root
-  return { ...root, children: root.children.map((c) => setPaneCwd(c, paneId, cwd)) }
+  if (root.type === 'pane') return root.id === paneId && root.cwd !== cwd ? { ...root, cwd } : root
+  return withChildren(root, (c) => setPaneCwd(c, paneId, cwd))
 }
 
-/** The first leaf pane of a given kind, in tree order (used to reuse an editor pane). */
+export function setPaneUrl(root: LayoutNode, paneId: string, url: string): LayoutNode {
+  if (root.type === 'pane') return root.id === paneId && root.url !== url ? { ...root, url } : root
+  return withChildren(root, (c) => setPaneUrl(c, paneId, url))
+}
+
+function withChildren(split: SplitNode, fn: (child: LayoutNode) => LayoutNode): SplitNode {
+  const children = split.children.map(fn)
+  return children.every((c, i) => c === split.children[i]) ? split : { ...split, children }
+}
+
 export function firstPaneOfKind(node: LayoutNode, kind: SurfaceKind): PaneNode | null {
   if (node.type === 'pane') return node.kind === kind ? node : null
   for (const child of node.children) {
@@ -91,7 +78,6 @@ export function firstPaneOfKind(node: LayoutNode, kind: SurfaceKind): PaneNode |
   return null
 }
 
-/** Turn pane `paneId` into an editor showing `filePath` (with `title`). cwd = the file's dir. */
 export function setPaneEditor(
   root: LayoutNode,
   paneId: string,
@@ -100,13 +86,13 @@ export function setPaneEditor(
 ): LayoutNode {
   if (root.type === 'pane') {
     if (root.id !== paneId) return root
-    const cwd = filePath.slice(0, filePath.lastIndexOf('/')) || '/'
+    const slash = filePath.lastIndexOf('/')
+    const cwd = slash > 0 ? filePath.slice(0, slash) : '/'
     return { ...root, kind: 'editor', title, filePath, cwd }
   }
   return { ...root, children: root.children.map((c) => setPaneEditor(c, paneId, title, filePath)) }
 }
 
-/** Best-effort title for a browser pane: the URL's host, or the raw string if unparseable. */
 function titleFromUrl(url: string): string {
   try {
     return new URL(url).hostname || url
@@ -115,7 +101,6 @@ function titleFromUrl(url: string): string {
   }
 }
 
-/** Turn pane `paneId` into a browser showing `url` (title derived from the URL's host). */
 export function setPaneBrowser(root: LayoutNode, paneId: string, url: string): LayoutNode {
   if (root.type === 'pane') {
     if (root.id !== paneId) return root
@@ -124,12 +109,6 @@ export function setPaneBrowser(root: LayoutNode, paneId: string, url: string): L
   return { ...root, children: root.children.map((c) => setPaneBrowser(c, paneId, url)) }
 }
 
-/**
- * Turn pane `paneId` into `kind` (using `SURFACE_TITLE`'s default title) — for surfaces with no
- * extra per-pane data of their own (`kanban`/`wiki`, unlike `browser`'s `url` or `editor`'s
- * `filePath`): the surface component itself owns any further state (selected page, etc.),
- * keyed by paneId, same as `BrowserView`'s own internal refs/state.
- */
 export function setPaneKind(root: LayoutNode, paneId: string, kind: SurfaceKind): LayoutNode {
   if (root.type === 'pane') {
     if (root.id !== paneId) return root
@@ -138,7 +117,6 @@ export function setPaneKind(root: LayoutNode, paneId: string, kind: SurfaceKind)
   return { ...root, children: root.children.map((c) => setPaneKind(c, paneId, kind)) }
 }
 
-/** Find a leaf pane node by id. */
 export function findPane(node: LayoutNode, id: string): PaneNode | null {
   if (node.type === 'pane') return node.id === id ? node : null
   for (const child of node.children) {
@@ -148,11 +126,6 @@ export function findPane(node: LayoutNode, id: string): PaneNode | null {
   return null
 }
 
-/**
- * Split the pane `targetId` along `direction`, inserting a fresh sibling pane.
- * Same-axis parents get a sibling (no needless nesting); otherwise the slot nests.
- * Returns the new root plus the new pane's id (or null if the target was not found).
- */
 export function splitPane(
   root: LayoutNode,
   targetId: string,
@@ -192,10 +165,6 @@ export function splitPane(
   return { root: newRoot, newPaneId: inserted ? newPane.id : null }
 }
 
-/**
- * Remove the pane `targetId`. Splits left with a single child collapse into that
- * child. The last remaining pane is never removed (returns root unchanged).
- */
 export function closePane(root: LayoutNode, targetId: string): LayoutNode {
   if (root.type === 'pane') return root
 
@@ -218,7 +187,6 @@ export function closePane(root: LayoutNode, targetId: string): LayoutNode {
   return prune(root) ?? root
 }
 
-/** Replace the `sizes` of the split with id `splitId`. */
 export function setSizes(root: LayoutNode, splitId: string, sizes: number[]): LayoutNode {
   if (root.type === 'pane') return root
   const recur = (node: SplitNode): SplitNode => {
@@ -231,7 +199,6 @@ export function setSizes(root: LayoutNode, splitId: string, sizes: number[]): La
   return recur(root)
 }
 
-/** Insert `node` as a sibling of pane `targetId`, before or after it, along `direction`. */
 function insertSibling(
   root: LayoutNode,
   targetId: string,
@@ -268,7 +235,6 @@ function insertSibling(
   return recur(root)
 }
 
-/** Swap two panes' positions in the tree (used for a center drop). */
 function swapPanes(root: LayoutNode, aId: string, bId: string): LayoutNode {
   const a = findPane(root, aId)
   const b = findPane(root, bId)
@@ -284,10 +250,6 @@ function swapPanes(root: LayoutNode, aId: string, bId: string): LayoutNode {
   return replace(root)
 }
 
-/**
- * Relocate pane `sourceId` relative to pane `targetId`: edge zones re-split the
- * target along that side; `center` swaps the two panes. Unchanged for self/unknown.
- */
 export function movePane(
   root: LayoutNode,
   sourceId: string,

@@ -6,15 +6,7 @@ import { saveWorkspaceNow, startWorkspaceAutosave } from './persistence'
 import { useSessionsStore } from './sessionsStore'
 import { useSettingsStore } from './settingsStore'
 
-/**
- * The autosave half of session restore: it watches the session/layout/settings stores and
- * debounces a `WorkspaceSnapshot` down to main. Real stores throughout — the only fake is
- * `window.pine.session.save` (from the `dom` setup's typed bridge stub), which is exactly
- * the boundary under test.
- */
-
 const save = () => vi.mocked(window.pine.session.save)
-/** The last non-null snapshot pushed to main. */
 const lastSnapshot = (): WorkspaceSnapshot => {
   const calls = save().mock.calls.filter((c) => c[0] !== null)
   const snapshot = calls.at(-1)?.[0]
@@ -125,7 +117,7 @@ describe('workspace autosave', () => {
         .getState()
         .setCwd(sid, useLayoutStore.getState().bySession[sid].activePaneId, '/b')
       useSessionsStore.getState().addSession('/c')
-      expect(save()).not.toHaveBeenCalled() // still debouncing
+      expect(save()).not.toHaveBeenCalled()
 
       vi.runAllTimers()
       expect(save()).toHaveBeenCalledTimes(1)
@@ -152,7 +144,6 @@ describe('workspace autosave', () => {
         .getState()
         .setCwd(sid, useLayoutStore.getState().bySession[sid].activePaneId, '/x')
 
-      // Quitting must not lose the debounced tail — that's the save that matters most.
       window.dispatchEvent(new Event('beforeunload'))
 
       expect(save()).toHaveBeenCalledTimes(1)
