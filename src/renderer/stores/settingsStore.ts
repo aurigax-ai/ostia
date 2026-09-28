@@ -10,8 +10,16 @@ export interface SurfaceFont {
   size: number
 }
 
+export type MotionMode = 'system' | 'reduced' | 'full'
+
+export const MOTION_MODES: readonly MotionMode[] = ['system', 'reduced', 'full']
+
+export const motionMode = (v: unknown): MotionMode =>
+  MOTION_MODES.includes(v as MotionMode) ? (v as MotionMode) : 'system'
+
 export interface Appearance {
   theme: ThemeId
+  motion: MotionMode
   ui: SurfaceFont
   terminal: SurfaceFont
   editor: SurfaceFont
@@ -57,6 +65,7 @@ const DEFAULTS: Persisted = {
   locale: 'en',
   appearance: {
     theme: 'adeberry',
+    motion: 'system',
     ui: { family: 'Inter Variable', size: 13 },
     terminal: { family: 'Hack Nerd Font Mono', size: 13 },
     editor: { family: 'Geist Mono Variable', size: 13 },
@@ -74,6 +83,7 @@ interface SettingsState extends Persisted {
   init: () => Promise<void>
   setLocale: (l: Locale) => void
   setTheme: (t: ThemeId) => void
+  setMotion: (m: MotionMode) => void
   setSurfaceFont: (surface: FontSurface, patch: Partial<SurfaceFont>) => void
   setBehavior: (patch: Partial<Behavior>) => void
   setByPath: (path: string, value: unknown) => void
@@ -117,6 +127,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         locale: p.locale ?? DEFAULTS.locale,
         appearance: {
           theme: p.appearance?.theme ?? DEFAULTS.appearance.theme,
+          motion: motionMode(p.appearance?.motion),
           ui: mergeFont(DEFAULTS.appearance.ui, p.appearance?.ui),
           terminal: mergeFont(DEFAULTS.appearance.terminal, p.appearance?.terminal),
           editor: mergeFont(DEFAULTS.appearance.editor, p.appearance?.editor),
@@ -134,6 +145,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setTheme: (theme) => {
     set((s) => ({ appearance: { ...s.appearance, theme } }))
+    scheduleSave(get)
+  },
+  setMotion: (motion) => {
+    set((s) => ({ appearance: { ...s.appearance, motion } }))
     scheduleSave(get)
   },
   setSurfaceFont: (surface, patch) => {

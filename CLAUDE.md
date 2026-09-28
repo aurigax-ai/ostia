@@ -26,7 +26,8 @@ caused real bugs here.
 - Allowed: tool directives only (`biome-ignore`, `@ts-expect-error`, `/// <reference>`).
 - Enforced: `pnpm lint` runs `node scripts/comments.mjs --check` and fails on any comment.
   `node scripts/comments.mjs` (no flag) strips them.
-- Generated shadcn files in `src/renderer/components/ui/**` are exempt; don't hand-edit them.
+- Generated shadcn files in `src/renderer/components/ui/**` are exempt; hand-edit them only to
+  swap animation classes (§5 Motion).
 - Strings are not comments: `#` lines inside the generated shell rc templates stay.
 
 ---
@@ -206,6 +207,16 @@ Details: `docs/ARCHITECTURE.md`.
   (`trellis init`) goes through `ext.confirm` first. An extension that starts a server
   (`trellis ui`) stops it in its `onShutdown` handler; one that found it already running leaves
   it alone.
+- **Motion never touches the terminal's box.** Animate only `opacity` and `transform` (hover and
+  focus feedback may transition colors, borders and shadows), with the tokens in `index.css`
+  (`--motion-fast/base/slow`, `--ease-out/in`); no raw durations or easings. Never animate pane
+  size, position or splits, the Allotment layout, or anything else that resizes an xterm host:
+  each frame would fit and resize the pty and bring back the duplicated-prompt bugs (§6). The
+  rail width transition is the one exception, and it is safe only because the terminal resize is
+  debounced (`e2e/resize-prompt.spec.ts` toggles it). Attention is the only thing that pulses,
+  and every pulse stops (ring ×2, waiting dot ×3); only the `working` dot breathes forever.
+  Reduced motion (`appearance.motion`, `prefers-reduced-motion`) collapses motion but never hides
+  state. Details: `docs/DESIGN.md` §8.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -227,6 +238,10 @@ Details: `docs/ARCHITECTURE.md`.
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
   selects, dialogs, tooltips. Tokens and type scale in `docs/DESIGN.md`; never hardcode colors or
   off-scale font sizes. `--fg-dim` is never used for text. Icon-only buttons are `IconButton`.
+- **Motion:** overlays built on `components/ui/` get `motion-overlay` (or `motion-hint` for
+  tooltips) and animate through Base UI's `data-starting-style`/`data-ending-style`; don't add
+  tw-animate `animate-in`/`zoom-*`/`slide-*` classes. No scale on press, springs, bounces,
+  staggered lists or page transitions.
 - **Strings:** every user-visible string goes through `i18n/dict.ts` (en + zh-Hant).
 
 ---
