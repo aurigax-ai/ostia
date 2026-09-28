@@ -293,6 +293,17 @@ Details: `docs/ARCHITECTURE.md`.
   autosaves `sessions.json` as you work; main writes `scrollback.json` every 5 s when output
   changed and again at `before-quit` (before the kill loop). Each write merges restored scrollback
   not yet replayed, else quitting before visiting a session erases its history.
+- **Persist the serialized screen, never raw pty bytes** (`screenMirror.ts`). Raw bytes replay
+  correctly only at the same geometry and state: zsh's PROMPT_SP left a `%` and p10k's
+  cursor-positioned RPROMPT/clock redraws left `:41` fragments and duplicate prompts after a
+  restart at another size. Every pty has a headless `ScreenMirror` fed every byte the ring gets
+  (`feedPty`) and resized with it (`resizePty`, including the gateway path); saves store its
+  `serialize()`, cut before the idle prompt (OSC 133;A marker). The saved text must stay
+  width-independent: logical lines, gaps as spaces, SGR only, no cursor moves. Don't swap in
+  `@xterm/addon-serialize`: its cursor-forward gaps and wrapped-row tricks only work at the exact
+  width they were made at, and the pane size at replay isn't known (it split the clock and
+  printed rows of dashes). The live ring stays raw for attach/remount replay (it carries the
+  OSC 133 marks).
 - **Restored scrollback is one-shot** (`takeRestoredScrollback`): pane ids get re-issued. It's
   pushed through the `PtySession` ring (so remounts replay it) and captured via `since(0)` before
   `addLiveSubscriber` (else it paints twice).

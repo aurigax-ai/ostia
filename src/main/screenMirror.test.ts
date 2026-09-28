@@ -1,0 +1,159 @@
+import { Terminal } from '@xterm/headless'
+import { describe, expect, it } from 'vitest'
+import { HISTORY_LINES, ScreenMirror } from './screenMirror'
+
+const WIDE = 127
+const NARROW = 90
+const ESC = '\x1b'
+const ST = `${ESC}\\`
+const DIR = '~/proj main'
+
+const mark = (kind: string) => `${ESC}]133;${kind}${ST}`
+const promptSp = (cols: number) => `${ESC}[7m%${ESC}[27m${' '.repeat(cols - 1)}\r \r`
+const rightPrompt = (clock: string) =>
+  `${DIR}${ESC}[${WIDE - DIR.length - clock.length}C${ESC}[2m${clock}${ESC}[0m\r\n❯ ${mark('B')}`
+const promptLines = (clock: string) => `\r\n${rightPrompt(clock)}`
+const redrawPrompt = (clock: string) => `\r${ESC}[1A${ESC}[J${rightPrompt(clock)}`
+const precmd = (exit: number | null) =>
+  `${exit === null ? '' : mark(`D;${exit}`)}${mark('A')}${promptSp(WIDE)}`
+
+function zshSession(): string {
+  return [
+    precmd(null),
+    promptLines('12:40:41'),
+    redrawPrompt('12:40:42'),
+    'echo MARKER-OUT',
+    `\r\n${mark('C')}`,
+    'MARKER-OUT\r\n',
+    precmd(0),
+    promptLines('12:41:05'),
+    redrawPrompt('12:41:06'),
+  ].join('')
+}
+
+async function screenText(data: string, cols: number, rows = 30): Promise<string[]> {
+  const term = new Terminal({ cols, rows, scrollback: 5000, allowProposedApi: true })
+  await new Promise<void>((resolve) => term.write(data, resolve))
+  const lines: string[] = []
+  for (let i = 0; i < term.buffer.active.length; i++) {
+    lines.push(term.buffer.active.getLine(i)?.translateToString(true) ?? '')
+  }
+  term.dispose()
+  while (lines.length && lines[lines.length - 1].trim() === '') lines.pop()
+  return lines
+}
+
+async function mirrored(data: string, cols = WIDE, rows = 30): Promise<ScreenMirror> {
+  const mirror = new ScreenMirror(cols, rows)
+  mirror.write(data)
+  await mirror.flush()
+  return mirror
+}
+
+async function serialized(data: string, cols = WIDE, rows = 30): Promise<string> {
+  const mirror = await mirrored(data, cols, rows)
+  const out = mirror.serialize()
+  mirror.dispose()
+  return out
+}
+
+describe('ScreenMirror', () => {
+  it('garbles when the raw zsh stream is replayed at another width', async () => {
+    const lines = await screenText(zshSession(), NARROW)
+    expect(lines.some((l) => l.trim() === '%')).toBe(true)
+  })
+
+  it('serializes a p10k session into history that replays cleanly at a narrower width', async () => {
+    const lines = await screenText(await serialized(zshSession()), NARROW)
+    expect(lines.some((l) => l.includes('%'))).toBe(false)
+    expect(lines.filter((l) => l.includes('MARKER-OUT'))).toHaveLength(2)
+    expect(lines.filter((l) => l.includes(DIR))).toHaveLength(1)
+    const text = lines.join('\n')
+    expect(text).not.toContain('12:40:41')
+    expect(text).not.toContain('12:41')
+  })
+
+  it('keeps a right-aligned clock whole at narrower and wider widths', async () => {
+    const history = await serialized(zshSession())
+    for (const cols of [NARROW, WIDE, 200]) {
+      const clockLines = (await screenText(history, cols)).filter((l) => /\d:\d/.test(l))
+      expect(clockLines).toHaveLength(1)
+      expect(clockLines[0]).toContain('12:40:42')
+    }
+  })
+
+  it('lays history out exactly as the original screen at the original width', async () => {
+    const history = await serialized(zshSession())
+    expect(await screenText(history, WIDE)).toEqual([
+      `${DIR}${' '.repeat(WIDE - DIR.length - 8)}12:40:42`,
+      '❯ echo MARKER-OUT',
+      'MARKER-OUT',
+    ])
+  })
+
+  it('emits no cursor movement, only text and SGR', async () => {
+    const history = await serialized(zshSession())
+    const controls = history.match(new RegExp(`${ESC}\\[[0-9;]*[A-Za-z]`, 'g')) ?? []
+    expect(controls.length).toBeGreaterThan(0)
+    expect(controls.every((c) => c.endsWith('m'))).toBe(true)
+    expect(history.includes(`${ESC}]`)).toBe(false)
+  })
+
+  it('keeps colors and ends with an SGR reset', async () => {
+    const history = await serialized(`${ESC}[31mred${ESC}[0m plain ${ESC}[38;2;1;2;3mrgb`)
+    expect(history).toBe(`${ESC}[0;31mred${ESC}[0m plain ${ESC}[0;38;2;1;2;3mrgb${ESC}[0m`)
+  })
+
+  it('joins soft-wrapped rows into one line that rewraps at the new width', async () => {
+    const history = await serialized(`${'x'.repeat(50)}\r\nnext`, 20, 10)
+    expect(history).toBe(`${'x'.repeat(50)}\r\nnext`)
+  })
+
+  it('keeps the whole screen while a command is still running', async () => {
+    const history = await serialized(
+      `${precmd(null)}${promptLines('09:00:00')}sleep 5\r\n${mark('C')}working`,
+    )
+    const lines = await screenText(history, WIDE)
+    expect(lines[lines.length - 1]).toBe('working')
+    expect(lines.some((l) => l.startsWith('❯ sleep 5'))).toBe(true)
+  })
+
+  it('keeps output that lacks a trailing newline', async () => {
+    const lines = await screenText(await serialized(`${mark('C')}partial${precmd(0)}`), WIDE)
+    expect(lines[0].startsWith('partial')).toBe(true)
+  })
+
+  it('keeps everything when the shell has no integration marks', async () => {
+    const lines = await screenText(await serialized('one\r\ntwo\r\n$ '), WIDE)
+    expect(lines).toEqual(['one', 'two', '$'])
+  })
+
+  it('bounds the serialized history', async () => {
+    const out = Array.from({ length: HISTORY_LINES + 200 }, (_, i) => `line ${i}`).join('\r\n')
+    const lines = await screenText(await serialized(out, 40, 10), 40)
+    expect(lines).toHaveLength(HISTORY_LINES)
+    expect(lines[lines.length - 1]).toBe(`line ${HISTORY_LINES + 199}`)
+  })
+
+  it('applies resizes in order with the bytes written before them', async () => {
+    const mirror = new ScreenMirror(80, 10)
+    mirror.write(`${ESC}[70GX\r\n`)
+    mirror.resize(40, 10)
+    await mirror.flush()
+    expect([mirror.cols, mirror.rows]).toEqual([40, 10])
+    mirror.resize(0, 0)
+    await mirror.flush()
+    expect([mirror.cols, mirror.rows]).toEqual([40, 10])
+    const history = mirror.serialize()
+    mirror.dispose()
+    expect(history).toBe(`${' '.repeat(69)}X`)
+  })
+
+  it('ignores writes and serializes nothing once disposed', async () => {
+    const mirror = await mirrored('before')
+    mirror.dispose()
+    mirror.write('after')
+    await mirror.flush()
+    expect(mirror.serialize()).toBe('')
+  })
+})
