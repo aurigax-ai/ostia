@@ -1591,9 +1591,21 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
       return
     }
     console.log(action === 'get' ? JSON.stringify(res.entry ?? null) : JSON.stringify(res))
+  } else if (sub === 'pick') {
+    const timeoutMs = numberFlag(flags, 'timeout')
+    const res = await conn.sendRequest<{ ok: true; capture: unknown } | BrowseErr>('browse.pick', {
+      paneId,
+      timeoutMs,
+    })
+    if (res.ok) {
+      console.log(JSON.stringify(res.capture, null, 2))
+    } else {
+      console.error(`pine: browse pick failed (${describeBrowseError(res)})`)
+      process.exitCode = 1
+    }
   } else {
     console.error(
-      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content, snapshot, get, is, find, highlight, url, zoom, devtools, focus-webview, is-webview-focused, identify, cookies, storage, state, history, addscript, addstyle, addinitscript, console, errors, frame, download, navigate, open-split, tab, dialog, focus-mode, react-grab)`,
+      `pine browse: unknown subcommand '${sub ?? ''}' (try: open, nav, read, click, type, dblclick, hover, focus, check, uncheck, scroll-into-view, fill, select, scroll, press, keydown, keyup, eval, wait, screenshot, content, snapshot, get, is, find, highlight, url, zoom, devtools, focus-webview, is-webview-focused, identify, cookies, storage, state, history, addscript, addstyle, addinitscript, console, errors, frame, download, navigate, open-split, tab, dialog, focus-mode, react-grab, pick)`,
     )
     process.exitCode = 1
   }

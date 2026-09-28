@@ -13,6 +13,7 @@ import { registerBuiltinCommands } from './commands/builtins'
 import { wireExtensionBridge } from './commands/extensionBridge'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { revealPane, startAttentionSync } from './lib/sessionActivity'
+import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startWorkspaceAutosave } from './stores/persistence'
 import { useSessionsStore } from './stores/sessionsStore'
 
@@ -35,6 +36,7 @@ async function boot(): Promise<void> {
   useSessionsStore.getState().hydrate(snapshot)
   startWorkspaceAutosave()
   startAttentionSync()
+  startPaneRecencySync()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   root.render(
     <StrictMode>

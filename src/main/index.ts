@@ -29,6 +29,7 @@ import {
   pushConsoleEntry,
   registerBrowseMethods,
 } from './browse'
+import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
 import { registerBusMethods } from './bus'
 import { dropIdentity } from './capabilityStore'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
@@ -39,6 +40,7 @@ import type { ExtensionRoot } from './extensionManifest'
 import { ExtensionStore } from './extensionStore'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
+import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { getByPaneId, registerPane, removePane, removeWindow, windowOfSession } from './idRegistry'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { postNotification, registerNotifyIpc, registerNotifyMethods } from './notify'
@@ -244,6 +246,7 @@ function wireWindow(win: BrowserWindow): void {
         clearGuestFrame(wcId)
         clearGuestDialogPolicy(wcId)
         clearGuestReactGrab(wcId)
+        clearGuestNetwork(wcId)
       }
     }
     removeWindow(wid)
@@ -422,8 +425,10 @@ function registerIpc(): void {
           .catch(() => {})
       } catch {}
     }
+    watchGuestNetwork(gc)
   })
   ipcMain.on('browser:unregister', (_e, paneId: string) => {
+    cancelPick(paneId)
     const wcId = browserPanes.get(paneId)
     browserPanes.delete(paneId)
     if (wcId !== undefined) {
@@ -432,6 +437,7 @@ function registerIpc(): void {
       clearGuestFrame(wcId)
       clearGuestDialogPolicy(wcId)
       clearGuestReactGrab(wcId)
+      clearGuestNetwork(wcId)
     }
   })
 }
@@ -775,6 +781,8 @@ app.whenReady().then(() => {
     consoleBuffers,
     errorBuffers,
   })
+  registerPickMethods({ browserPanes, errorBuffers, broadcast })
+  registerPickIpc({ browserPanes, errorBuffers, broadcast })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
   extensionHost.startEager()

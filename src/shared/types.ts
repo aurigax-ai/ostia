@@ -1,5 +1,6 @@
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { ExtensionsApi } from './extensions'
+import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
 
@@ -220,6 +221,10 @@ export interface TerminalStateApi {
 export interface BrowserApi {
   register: (paneId: string, webContentsId: number) => void
   unregister: (paneId: string) => void
+  pickStart: (paneId: string, theme: PickTheme) => Promise<PickOutcome>
+  pickCancel: (paneId: string) => void
+  pickSend: (req: PickSendRequest) => Promise<PickSendResult>
+  onPickState: (cb: (state: PickState) => void) => () => void
 }
 
 export interface GatewayStatus {
