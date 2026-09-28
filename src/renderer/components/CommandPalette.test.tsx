@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
+import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { CommandPalette } from './CommandPalette'
 
 describe('CommandPalette', () => {
@@ -18,6 +20,8 @@ describe('CommandPalette', () => {
   afterEach(() => {
     cleanup()
     useUIStore.setState(uiInit, true)
+    useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
+    useLayoutStore.setState({ byWorkspace: {} })
     vi.restoreAllMocks()
   })
 
@@ -69,7 +73,86 @@ describe('CommandPalette', () => {
 
     const input = await screen.findByRole('combobox')
     expect(input.tagName).toBe('INPUT')
-    expect(input).toHaveAttribute('placeholder', 'Type a command…')
+    expect(input).toHaveAttribute('placeholder', 'Search commands, workspaces, tabs… (? for help)')
     expect(screen.getByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
+  })
+
+  describe('prefixes', () => {
+    const seed = () => {
+      useWorkspacesStore.setState({
+        workspaces: [
+          {
+            id: 'w1',
+            name: 'api',
+            customName: 'payments',
+            kind: 'terminal',
+            workDir: '/src/api',
+            state: 'idle',
+          },
+          { id: 'w2', name: 'web', kind: 'terminal', workDir: '/src/web', state: 'idle' },
+        ],
+        activeWorkspaceId: 'w2',
+      })
+      useLayoutStore.setState({
+        byWorkspace: {
+          w1: {
+            root: { type: 'pane', id: 'pane-7', title: '✳ Fix refunds', kind: 'terminal' },
+            activePaneId: 'pane-7',
+            zoomedPaneId: null,
+          },
+        },
+      })
+      useUIStore.setState({ paletteOpen: true })
+    }
+
+    it('lists the prefixes when the user types ?', async () => {
+      seed()
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), '?')
+
+      expect(screen.getByRole('option', { name: /^>\s*Commands$/ })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /^@\s*Workspaces$/ })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /^#\s*Tabs$/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /Open Settings/ })).toBeNull()
+    })
+
+    it('fills in the prefix picked from help', async () => {
+      seed()
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+      await userEvent.type(input, '?')
+      await userEvent.click(screen.getByRole('option', { name: /^@\s*Workspaces$/ }))
+
+      expect(input).toHaveValue('@')
+      expect(screen.getByRole('option', { name: /payments/ })).toBeInTheDocument()
+    })
+
+    it('switches to a workspace found with @', async () => {
+      seed()
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), '@pay')
+      expect(screen.queryByRole('option', { name: /Open Settings/ })).toBeNull()
+
+      await userEvent.click(screen.getByRole('option', { name: /payments/ }))
+
+      expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w1')
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+    })
+
+    it('finds a tab in any workspace with #', async () => {
+      seed()
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), '#refunds')
+      expect(screen.getByRole('option', { name: /Fix refunds\s*payments/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /^payments/ })).toBeNull()
+    })
+
+    it('shows only commands with >', async () => {
+      seed()
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), '>')
+      expect(screen.getByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /payments/ })).toBeNull()
+    })
   })
 })

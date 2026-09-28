@@ -785,6 +785,18 @@
   opacity: 0.75;
 }
 
+.palette-prefix {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-xs);
+}
+
 .pane {
   position: relative;
   display: flex;
