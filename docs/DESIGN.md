@@ -187,7 +187,10 @@ Attention, the second loud element, appears only when a pane needs you:
   shared component per role. Tooltips go through `Hint`, never native `title=`.
 - **Settings row**: label (plus an optional description) on the left, control on the right,
   about `py-1.5`. Group heads are `ui-lg`/600 with a `--line` divider. Use rows, not cards,
-  unless the item is a separable object with its own actions (a plugin).
+  unless the item is a separable object with its own actions (a plugin). The shared pieces live
+  in `SettingsPanel.tsx`: `SectionHead` (title + optional `ui-sm` intro), `SubHead` (`ui-base`/500
+  for a group inside a section), `ControlRow`, and `WarningNote` (the one warning callout).
+  Version numbers are sans `tabular-nums`, not mono.
 - **Controls**: Switch (instant toggle), Select (`size="sm"`, the trigger shows the value), Input,
   Textarea, and ToggleGroup for ≤ 4 short options. Control height is 28px.
 - **Icon buttons**: always `IconButton` (ghost button + `Hint` + required `aria-label`). `bar`
@@ -241,3 +244,16 @@ typed catalog (`useDict()`, `fmt()` for `{n}`), and switching language applies l
 follows the locale. Font stacks end in CJK fallbacks: PingFang TC, Microsoft JhengHei and
 Noto Sans CJK TC for sans; Sarasa Mono TC and Noto Sans Mono CJK TC for mono. The terminal loads
 `addon-unicode11` so CJK glyphs take two cells.
+
+## 11. App icon
+
+A pine built from three drooping chevrons (the terminal prompt glyph turned upward) with a block
+cursor as the trunk: the tree grows out of the place you type. Two colours only, both from the
+Adeberry tokens: the tile is `--color-bg` `#1d2022`, the mark is `--color-brand` `#00d8ff`.
+
+- Sources: `resources/icon.svg` (32 px and up) and `resources/icon-small.svg` (16 and 24 px: two
+  tiers and a heavier stroke, because three tiers merge at that size).
+- `pnpm icons` renders `resources/icons/NxN.png` (16–512) and `resources/icon.png` (the window
+  icon) with `rsvg-convert`. Commit the PNGs; the build doesn't rasterise.
+- `scripts/install-linux.sh` installs every size into the user's `hicolor` theme plus the SVG as
+  `scalable`, and the desktop entry uses `Icon=<product name>`.

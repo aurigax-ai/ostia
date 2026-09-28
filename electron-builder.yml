@@ -4,6 +4,7 @@ files:
   - out/**
   - "!out/extensions/**"
   - package.json
+  - resources/icon.png
 extraResources:
   - from: out/extensions
     to: extensions
@@ -12,6 +13,7 @@ asarUnpack:
 npmRebuild: true
 linux:
   target: dir
+  icon: resources/icons
   category: Development
 mac:
   target: dmg
