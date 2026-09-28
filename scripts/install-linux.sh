@@ -18,13 +18,23 @@ cp -a "$unpacked" "$dest.new"
 rm -rf "$dest"
 mv "$dest.new" "$dest"
 
+icons="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
+for png in "$root"/resources/icons/*x*.png; do
+  size="$(basename "$png" .png)"
+  mkdir -p "$icons/$size/apps"
+  cp "$png" "$icons/$size/apps/$name.png"
+done
+mkdir -p "$icons/scalable/apps"
+cp "$root/resources/icon.svg" "$icons/scalable/apps/$name.svg"
+command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t "$icons" || true
+
 cat > "$apps/$name.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=$name
 Comment=Terminal-first workspace for agents
 Exec=$dest/$name %U
-Icon=utilities-terminal
+Icon=$name
 Terminal=false
 Categories=Development;TerminalEmulator;
 StartupWMClass=$name

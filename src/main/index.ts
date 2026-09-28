@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain, session, shell, webContents } from 'electron'
 import type { IPty } from 'node-pty'
+import appIcon from '../../resources/icon.png?asset'
 import type { ExtensionResult } from '../shared/extensions'
 import { PRODUCT_NAME } from '../shared/product'
 import type {
@@ -318,10 +319,11 @@ function createWindow(): BrowserWindow {
     height: 800,
     minWidth: 720,
     minHeight: 480,
-    backgroundColor: '#0d1117',
+    backgroundColor: '#1d2022',
     show: false,
     autoHideMenuBar: true,
     title: PRODUCT_NAME,
+    icon: appIcon,
     ...frameOptions(),
     webPreferences: baseWebPreferences(),
   })

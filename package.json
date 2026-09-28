@@ -18,6 +18,7 @@
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
     "package": "pnpm build && electron-builder",
+    "icons": "bash scripts/icons.sh",
     "install:local": "pnpm package && bash scripts/install-linux.sh",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "rebuild": "electron-rebuild -f -w node-pty",
