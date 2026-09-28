@@ -292,12 +292,13 @@ Noto Sans CJK TC for sans; Sarasa Mono TC and Noto Sans Mono CJK TC for mono. Th
 
 ## 11. App icon
 
-A pine built from three drooping chevrons (the terminal prompt glyph turned upward) with a block
-cursor as the trunk: the tree grows out of the place you type. Two colours only, both from the
-Adeberry tokens: the tile is `--color-bg` `#1d2022`, the mark is `--color-brand` `#00d8ff`.
+Two pines, a tall one in front of a smaller one: a small forest, the way Pine runs many terminals
+and agents side by side. Stepped tiers make them read as pines rather than generic triangles, and
+the front tree is outlined in the tile colour so the overlap stays crisp. Two colours only, natural
+and warm on purpose (the app chrome stays on the Adeberry tokens): sand `#F0E9DD` tile, bark
+`#6A4B33` trees.
 
-- Sources: `resources/icon.svg` (32 px and up) and `resources/icon-small.svg` (16 and 24 px: two
-  tiers and a heavier stroke, because three tiers merge at that size).
+- Source: `resources/icon.svg`. It holds up at 16 px, so every size renders from the one file.
 - `pnpm icons` renders `resources/icons/NxN.png` (16–512) and `resources/icon.png` (the window
   icon) with `rsvg-convert`. Commit the PNGs; the build doesn't rasterise.
 - `scripts/install-linux.sh` installs every size into the user's `hicolor` theme plus the SVG as
