@@ -35,7 +35,18 @@ export type EventHandler = <T extends ExtensionEventType>(
   payload: ExtensionEventPayloads[T],
 ) => void
 
+export interface ConfirmRequest {
+  title: string
+  message: string
+  detail?: string
+  confirmLabel?: string
+  cancelLabel?: string
+}
+
 export interface PineExtension {
+  call: <T = unknown>(method: string, params?: unknown) => Promise<T>
+  confirm: (req: ConfirmRequest) => Promise<boolean>
+  notifyPanel: (title: string, body?: string) => Promise<unknown>
   registerCommands: (handlers: Record<string, CommandHandler>) => Promise<void>
   onPanel: (handler: PanelHandler) => void
   subscribe: (events: ExtensionEventType[], handler: EventHandler) => Promise<unknown>
@@ -107,6 +118,15 @@ export async function connect(): Promise<PineExtension> {
   await conn.sendRequest('hello', { token })
 
   return {
+    call: <T>(method: string, params?: unknown) =>
+      params === undefined
+        ? conn.sendRequest<T>(method)
+        : conn.sendRequest<T>(method, params as object),
+    confirm: async (req) => {
+      const res = await conn.sendRequest<{ confirmed?: unknown }>('ext.confirm', req)
+      return res?.confirmed === true
+    },
+    notifyPanel: (title, body) => conn.sendRequest('ext.notify', { title, body, openPanel: true }),
     registerCommands: async (map) => {
       for (const [id, handler] of Object.entries(map)) handlers.set(id, handler)
       await conn.sendRequest('ext.registerCommands', { commands: Object.keys(map) })
@@ -123,6 +143,27 @@ export async function connect(): Promise<PineExtension> {
     openPanel: (sessionId) => conn.sendRequest('ext.openPanel', { sessionId }),
   }
 }
+
+export function onShutdown(fn: () => void): void {
+  let ran = false
+  const once = (): void => {
+    if (ran) return
+    ran = true
+    try {
+      fn()
+    } catch {}
+  }
+  process.on('exit', once)
+  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
+    process.on(signal, () => {
+      once()
+      process.exit(0)
+    })
+  }
+}
+
+export { nextBackoff, runTool, type ToolRun, type ToolRunOptions } from './tool'
+export { type MessagePageServer, startMessageServer } from './messagePage'
 
 export interface CliArgs {
   argv: string[]

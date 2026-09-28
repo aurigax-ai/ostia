@@ -35,6 +35,7 @@ import { dropIdentity } from './capabilityStore'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
+import { confirmForExtension } from './extensionConfirm'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
 import { ExtensionStore } from './extensionStore'
@@ -43,7 +44,12 @@ import { configureGatewayControl, stopGateway } from './gateway/server'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { getByPaneId, registerPane, removePane, removeWindow, windowOfSession } from './idRegistry'
 import { killAllLsp, registerLspIpc } from './lsp'
-import { postNotification, registerNotifyIpc, registerNotifyMethods } from './notify'
+import {
+  postNotification,
+  postPanelNotification,
+  registerNotifyIpc,
+  registerNotifyMethods,
+} from './notify'
 import { listPanes, listSessions, registerPaneListMethods } from './paneList'
 import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
@@ -60,6 +66,7 @@ import {
   saveSnapshot,
   takeRestoredScrollback,
 } from './sessionSnapshot'
+import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
 
@@ -144,6 +151,7 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
+let settingsSync: SettingsSyncHandle | null = null
 
 const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
 
@@ -732,9 +740,19 @@ app.whenReady().then(() => {
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods()
   registerBusMethods()
+  const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
+  settingsSync = startSettingsSync({
+    userData: app.getPath('userData'),
+    broadcast: (channel, payload) => broadcast(channel, payload),
+    onExtensionsPulled: () => {
+      extensionStore.reload()
+      extensionHost?.reloadRecords()
+    },
+  })
+  settingsSync.run()
   extensionHost = new ExtensionHost({
     roots: extensionRoots(),
-    store: new ExtensionStore(join(app.getPath('userData'), 'extensions.json')),
+    store: extensionStore,
     socketPath: controlSocketPath,
     nodePath: process.execPath,
     workDirForSession,
@@ -745,6 +763,8 @@ app.whenReady().then(() => {
       if (win && !win.isDestroyed()) win.webContents.send('extensions:open-panel', req)
     },
     notify: (n) => postNotification(notifyDeps, n),
+    confirm: (req) => confirmForExtension(req, windows.values()),
+    notifyPanel: (n, open) => postPanelNotification(notifyDeps, n, open),
   })
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
@@ -827,6 +847,7 @@ app.on('before-quit', () => {
   killAllLsp()
   killAllProcesses()
   extensionHost?.stopAll()
+  settingsSync?.stop()
   stopControlServer()
   void stopGateway()
 })

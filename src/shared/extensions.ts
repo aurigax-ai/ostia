@@ -14,6 +14,7 @@ export const EXTENSION_ICONS = [
   'circle',
   'check',
   'alert',
+  'shield',
 ] as const
 
 export type ExtensionIcon = (typeof EXTENSION_ICONS)[number]
@@ -91,6 +92,7 @@ export interface ExtensionCaller {
   paneId?: string
   sessionId?: string
   workDir?: string
+  cwd?: string
   locale?: string
   capabilities: Capability[]
 }

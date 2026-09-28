@@ -1,0 +1,28 @@
+{
+  "id": "trellis",
+  "name": "Trellis",
+  "version": "1.0.0",
+  "description": "Your Trellis boards: the web UI as a panel, open and claimed cards per session, and a notice when an agent moves a card to review.",
+  "capabilities": ["read-board", "notify"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "open", "title": "Trellis: Open Board", "category": "Trellis" },
+      {
+        "id": "init",
+        "title": "Trellis: Init Project Here",
+        "category": "Trellis",
+        "usage": "init"
+      },
+      {
+        "id": "status",
+        "title": "Open and claimed cards for this session's project",
+        "usage": "status",
+        "palette": false,
+        "capabilities": ["read-board"]
+      }
+    ],
+    "sidebarItems": true,
+    "panel": { "title": "Trellis", "icon": "kanban", "entry": "url" }
+  }
+}

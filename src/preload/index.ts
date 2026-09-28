@@ -23,6 +23,7 @@ import type {
   PineBridge,
   Platform,
   PtyAttachResult,
+  SyncStatus,
   WorkspaceSnapshot,
 } from '../shared/types'
 
@@ -82,6 +83,21 @@ const bridge: PineBridge = {
   },
   settings: {
     path: () => ipcRenderer.invoke('settings:path') as Promise<string>,
+    onChanged: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('settings:changed', handler)
+      return () => ipcRenderer.removeListener('settings:changed', handler)
+    },
+  },
+  sync: {
+    status: () => ipcRenderer.invoke('sync:status') as Promise<SyncStatus>,
+    run: () => ipcRenderer.invoke('sync:run') as Promise<SyncStatus>,
+    pickFolder: () => ipcRenderer.invoke('dialog:pick-folder') as Promise<string | null>,
+    onStatus: (cb) => {
+      const handler = (_e: unknown, status: SyncStatus): void => cb(status)
+      ipcRenderer.on('sync:status', handler)
+      return () => ipcRenderer.removeListener('sync:status', handler)
+    },
   },
   session: {
     save: (snapshot) => ipcRenderer.send('session:save', snapshot),

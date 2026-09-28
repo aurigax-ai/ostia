@@ -37,6 +37,17 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     },
     settings: {
       path: vi.fn().mockResolvedValue('/tmp/pine-test/settings.json'),
+      onChanged: vi.fn(noopUnsub),
+    },
+    sync: {
+      status: vi
+        .fn()
+        .mockResolvedValue({ dir: null, state: 'off', lastSync: null, lastConflict: null }),
+      run: vi
+        .fn()
+        .mockResolvedValue({ dir: null, state: 'off', lastSync: null, lastConflict: null }),
+      pickFolder: vi.fn().mockResolvedValue(null),
+      onStatus: vi.fn(noopUnsub),
     },
     session: {
       save: vi.fn(),
