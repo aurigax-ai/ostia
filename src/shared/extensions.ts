@@ -91,6 +91,7 @@ export interface ExtensionCaller {
   paneId?: string
   sessionId?: string
   workDir?: string
+  cwd?: string
   locale?: string
   capabilities: Capability[]
 }
@@ -101,6 +102,7 @@ export const EXTENSION_EVENT_TYPES = [
   'command.started',
   'command.finished',
   'cwd.changed',
+  'focus.changed',
   'notification',
 ] as const
 
@@ -112,6 +114,7 @@ export interface ExtensionEventPayloads {
   'command.started': { paneId: string; sessionId: string; cwd?: string }
   'command.finished': { paneId: string; sessionId: string; cwd?: string; exitCode?: number }
   'cwd.changed': { paneId: string; sessionId: string; cwd: string }
+  'focus.changed': { focused: boolean }
   notification: { title: string; body?: string; from: string }
 }
 
@@ -122,6 +125,21 @@ export type ExtensionResult =
 export type ExtensionPanelSource = { ok: true; src: string } | { ok: false; error: string }
 
 export interface ExtensionOpenPanelRequest {
+  extId: string
+  sessionId?: string
+}
+
+export const DIFF_TEXT_MAX = 5 * 1024 * 1024
+
+export interface DiffContent {
+  title: string
+  original: string
+  modified: string
+  language?: string
+  path?: string
+}
+
+export interface ExtensionOpenDiffRequest extends DiffContent {
   extId: string
   sessionId?: string
 }
@@ -143,4 +161,5 @@ export interface ExtensionsApi {
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
   onOpenPanel: (cb: (req: ExtensionOpenPanelRequest) => void) => () => void
+  onOpenDiff: (cb: (req: ExtensionOpenDiffRequest) => void) => () => void
 }

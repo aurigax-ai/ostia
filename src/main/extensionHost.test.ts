@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ALL_CAPABILITIES } from '../shared/capabilities'
 import { ExtensionHost, type ExtensionHostDeps, loopbackOrigin } from './extensionHost'
 import { ExtensionStore } from './extensionStore'
+import { registerPane } from './idRegistry'
 
 let base: string
 
@@ -157,6 +158,21 @@ describe('ExtensionHost — command routing guards', () => {
     const { host } = makeHost()
     expect(host.commandCapabilities('tool', 'wide')).toEqual(['workspace-wide'])
     expect(host.commandCapabilities('tool', 'ghost')).toEqual([])
+  })
+
+  it('gives a pane caller its session workDir and its live terminal cwd', () => {
+    const identity = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'p-cwd' })
+    const { host } = makeHost({
+      workDirForSession: (sid) => (sid === 's1' ? '/proj' : undefined),
+      cwdForPane: (paneId) => (paneId === 'p-cwd' ? '/proj/sub' : undefined),
+    })
+    expect(host.paneCaller(identity)).toMatchObject({
+      kind: 'pane',
+      paneId: identity.externalId,
+      sessionId: 's1',
+      workDir: '/proj',
+      cwd: '/proj/sub',
+    })
   })
 })
 

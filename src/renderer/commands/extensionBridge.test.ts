@@ -1,10 +1,11 @@
 import type { ExtensionInfo } from '@shared/extensions'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { findPane, paneIds, resetIds } from '../layout/tree'
+import { useDiffStore } from '../stores/diffStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSessionsStore } from '../stores/sessionsStore'
-import { openExtensionPanel, syncExtensionCommands } from './extensionBridge'
+import { openExtensionDiff, openExtensionPanel, syncExtensionCommands } from './extensionBridge'
 import { commands } from './registry'
 
 function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
@@ -51,6 +52,7 @@ describe('extensionBridge', () => {
     useLayoutStore.setState(layoutInit, true)
     useSessionsStore.setState(sessionsInit, true)
     useExtensionsStore.setState(extInit, true)
+    useDiffStore.setState({ byPane: {} })
     resetIds()
   })
 
@@ -138,5 +140,59 @@ describe('extensionBridge', () => {
       .filter((p) => p?.kind === 'extension')
     expect(panels).toHaveLength(1)
     expect(panels[0]).toMatchObject({ extensionId: 'kanban', title: 'Board' })
+  })
+
+  it('openExtensionDiff opens one reusable diff pane and stores its content by pane id', () => {
+    useSessionsStore.setState({
+      sessions: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeSessionId: 's1',
+    })
+    useLayoutStore.getState().ensure('s1')
+    const first = openExtensionDiff({
+      extId: 'vcs',
+      sessionId: 's1',
+      title: 'a.ts',
+      original: 'x',
+      modified: 'y',
+      path: '/repo/src/a.ts',
+    })
+    const second = openExtensionDiff({
+      extId: 'vcs',
+      sessionId: 'gone',
+      title: 'b.ts',
+      original: '1',
+      modified: '2',
+    })
+
+    expect(second).toBe(first)
+    const layout = useLayoutStore.getState().bySession.s1
+    const diffs = paneIds(layout.root)
+      .map((id) => findPane(layout.root, id))
+      .filter((p) => p?.kind === 'diff')
+    expect(diffs).toHaveLength(1)
+    expect(diffs[0]).toMatchObject({ id: first, title: 'b.ts' })
+    expect(layout.activePaneId).toBe(first)
+    expect(useDiffStore.getState().byPane[first as string]).toEqual({
+      title: 'b.ts',
+      original: '1',
+      modified: '2',
+    })
+  })
+
+  it('points the diff pane cwd at the file directory so repo lookups follow it', () => {
+    useSessionsStore.setState({
+      sessions: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeSessionId: 's1',
+    })
+    useLayoutStore.getState().ensure('s1')
+    const id = openExtensionDiff({
+      extId: 'vcs',
+      title: 'a.ts',
+      original: '',
+      modified: '',
+      path: '/repo/src/a.ts',
+    })
+    const root = useLayoutStore.getState().bySession.s1.root
+    expect(findPane(root, id as string)?.cwd).toBe('/repo/src')
   })
 })

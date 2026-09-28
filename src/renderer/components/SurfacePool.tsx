@@ -1,9 +1,11 @@
 import { useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import type { LayoutNode, SurfaceKind } from '../layout/types'
+import { useDiffStore } from '../stores/diffStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { releaseSurfaces, surfaceHost } from '../stores/surfaceSlotsStore'
 import { BrowserView } from './BrowserView'
+import { DiffView } from './DiffView'
 import { EditorView } from './Editor'
 import { ExtensionPanelView } from './ExtensionPanelView'
 import { TerminalView } from './Terminal'
@@ -24,6 +26,7 @@ function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
       node.kind === 'terminal' ||
       node.kind === 'editor' ||
       node.kind === 'browser' ||
+      node.kind === 'diff' ||
       (node.kind === 'extension' && node.extensionId)
     ) {
       out.push({
@@ -53,7 +56,9 @@ export function SurfacePool(): JSX.Element {
   }, [bySession])
 
   useEffect(() => {
-    releaseSurfaces(new Set(surfaces.map((s) => s.paneId)))
+    const live = new Set(surfaces.map((s) => s.paneId))
+    releaseSurfaces(live)
+    useDiffStore.getState().retain(live)
   }, [surfaces])
 
   return (
@@ -61,7 +66,9 @@ export function SurfacePool(): JSX.Element {
       {surfaces.map((s) =>
         createPortal(
           s.kind === 'editor' ? (
-            <EditorView filePath={s.filePath} />
+            <EditorView paneId={s.paneId} filePath={s.filePath} />
+          ) : s.kind === 'diff' ? (
+            <DiffView paneId={s.paneId} />
           ) : s.kind === 'browser' ? (
             <BrowserView sessionId={s.sessionId} paneId={s.paneId} url={s.url} />
           ) : s.kind === 'extension' && s.extensionId ? (
