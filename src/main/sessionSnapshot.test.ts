@@ -76,8 +76,13 @@ describe('parseSnapshot', () => {
     expect(parseSnapshot('nope')).toBeNull()
   })
 
-  it('rejects a snapshot with no usable sessions', () => {
-    expect(parseSnapshot({ ...snap(), sessions: [] })).toBeNull()
+  it('keeps an empty workspace as a snapshot with no sessions and no active session', () => {
+    expect(parseSnapshot({ ...snap(), sessions: [] })).toEqual({
+      v: 1,
+      savedAt: snap().savedAt,
+      activeSessionId: null,
+      sessions: [],
+    })
   })
 
   it('drops a session whose pane kind is unknown', () => {
@@ -125,7 +130,7 @@ describe('parseSnapshot', () => {
         },
       ],
     })
-    expect(parseSnapshot(empty)).toBeNull()
+    expect(parseSnapshot(empty)?.sessions).toEqual([])
   })
 
   it('rebuilds sizes that do not match the child count', () => {
@@ -164,7 +169,9 @@ describe('parseSnapshot', () => {
         sizes: [1, 1],
       }
     }
-    expect(parseSnapshot(snap({ sessions: [{ ...snap().sessions[0], root }] }))).toBeNull()
+    expect(parseSnapshot(snap({ sessions: [{ ...snap().sessions[0], root }] }))?.sessions).toEqual(
+      [],
+    )
   })
 
   it('keeps editor and browser panes with their reopen targets', () => {
@@ -206,6 +213,11 @@ describe('saveSnapshot / loadSnapshot', () => {
 
   it('returns null when nothing was ever saved', () => {
     expect(loadSnapshot()).toBeNull()
+  })
+
+  it('round-trips an empty workspace so a restart restores zero sessions', () => {
+    saveSnapshot({ v: 1, savedAt: 'x', activeSessionId: null, sessions: [] })
+    expect(loadSnapshot()).toEqual({ v: 1, savedAt: 'x', activeSessionId: null, sessions: [] })
   })
 
   it('returns null (rather than throwing) when the file on disk is corrupt', () => {

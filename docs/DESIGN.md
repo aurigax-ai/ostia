@@ -201,7 +201,11 @@ Attention, the second loud element, appears only when a pane needs you:
   `surface-3` + `fg`, pressed (`aria-pressed`) `surface-3` + `brand`.
 - **Icon sizes**: 16 bar-level, 14 rows/headers/buttons, 12 inline glyphs.
 - **Status dot or badge**: 6–8px dot plus text.
-- **Empty state**: one muted line plus the primary action.
+- **Empty state**: one muted line plus the primary action. The work zone with no sessions
+  (`WorkZone.tsx` `NoSessions`) is the reference: centered `ui-lg`/600 heading "No sessions",
+  one `ui-base` `fg-muted` sentence, and a default (brand) `Button` "New session" with its chord
+  (`chordLabel('session.new')`) in a `ui-xs` keycap. No illustration, no sample content. It
+  fades in once (`--motion-base`).
 - **Density**: rows are 22–28px, toolbars 32–36px, and settings content is 640–760px wide.
 
 - **Popover**: `components/ui/popover.tsx` (Base UI), skinned via `className`; the notification
@@ -217,9 +221,9 @@ Consolidation debt:
   opens and restore it when it closes. xterm and Monaco manage their own focus.
 - **Keyboard**: in lists and navs, use a roving tabindex with Up/Down/Home/End; Enter or Space
   activates; Escape dismisses. Label every control (`aria-label` or an associated label).
-- **Shortcuts**: the palette, sidebar, settings, jump-to-latest-unread and command-history chords
-  are Cmd+K / Cmd+\ / Cmd+, / Cmd+Shift+U / Cmd+Shift+H on macOS and Ctrl+Shift+P /
-  Ctrl+Shift+B / Ctrl+, / Ctrl+Shift+U / Ctrl+Shift+H elsewhere. In the terminal, previous/next
+- **Shortcuts**: the palette, sidebar, settings, jump-to-latest-unread, command-history and
+  new-session chords are Cmd+K / Cmd+\ / Cmd+, / Cmd+Shift+U / Cmd+Shift+H / Cmd+T on macOS and
+  Ctrl+Shift+P / Ctrl+Shift+B / Ctrl+, / Ctrl+Shift+U / Ctrl+Shift+H / Ctrl+Shift+T elsewhere. In the terminal, previous/next
   block is Cmd+↑/↓ (Ctrl+Shift+↑/↓ elsewhere) and Escape clears a block selection; off macOS,
   copy, paste and find are Ctrl+Shift+C/V/F.
 - **Transitions**: motion tokens only (§8 Motion). List only the properties that change, never
@@ -255,7 +259,7 @@ Where it moves:
 - **Blocks**: the selection frame fades in; the sticky command header slides down 4px + fades
   in and leaves faster the way it came; the find bar enters from 6px above.
 - **New pane content** fades in once when its surface is created (`.surface-enter`), never when
-  a surface moves between slots.
+  a surface moves between slots. The no-sessions empty state fades in the same way.
 - **Hover/focus/active**: color, background and border at `--motion-fast`.
 
 What stays still: pane size, position and splits; the Allotment sashes; anything that resizes

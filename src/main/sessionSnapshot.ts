@@ -132,11 +132,10 @@ export function parseSnapshot(raw: unknown): WorkspaceSnapshot | null {
     for (const p of paneIds) claimedPaneIds.add(p)
   }
 
-  if (sessions.length === 0) return null
   const activeSessionId =
     typeof raw.activeSessionId === 'string' && claimedSessionIds.has(raw.activeSessionId)
       ? raw.activeSessionId
-      : sessions[0].id
+      : (sessions[0]?.id ?? null)
   return {
     v: SNAPSHOT_VERSION,
     savedAt: typeof raw.savedAt === 'string' ? raw.savedAt : '',

@@ -14,6 +14,18 @@ const lastSnapshot = (): WorkspaceSnapshot => {
   return snapshot
 }
 
+const activeSid = (): string => {
+  const sid = useSessionsStore.getState().activeSessionId
+  if (!sid) throw new Error('no active session')
+  return sid
+}
+
+const activePane = (sid: string): string => {
+  const layout = useLayoutStore.getState().bySession[sid]
+  if (!layout) throw new Error('no layout')
+  return layout.activePaneId
+}
+
 describe('workspace autosave', () => {
   let sessionsInit: ReturnType<typeof useSessionsStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
@@ -28,7 +40,7 @@ describe('workspace autosave', () => {
 
   beforeEach(() => {
     resetIds()
-    useLayoutStore.getState().ensure(useSessionsStore.getState().activeSessionId)
+    useSessionsStore.getState().addSession()
   })
 
   afterEach(() => {
@@ -43,7 +55,7 @@ describe('workspace autosave', () => {
 
   describe('saveWorkspaceNow', () => {
     it('pushes a snapshot of the live sessions and their layouts', () => {
-      const active = useSessionsStore.getState().activeSessionId
+      const active = activeSid()
 
       saveWorkspaceNow()
 
@@ -60,8 +72,8 @@ describe('workspace autosave', () => {
     })
 
     it('captures a split as a split', () => {
-      const sid = useSessionsStore.getState().activeSessionId
-      const paneId = useLayoutStore.getState().bySession[sid].activePaneId
+      const sid = activeSid()
+      const paneId = activePane(sid)
       useLayoutStore.getState().split(sid, paneId, 'vertical')
 
       saveWorkspaceNow()
@@ -109,13 +121,9 @@ describe('workspace autosave', () => {
       stop = startWorkspaceAutosave()
       save().mockClear()
 
-      const sid = useSessionsStore.getState().activeSessionId
-      useLayoutStore
-        .getState()
-        .setCwd(sid, useLayoutStore.getState().bySession[sid].activePaneId, '/a')
-      useLayoutStore
-        .getState()
-        .setCwd(sid, useLayoutStore.getState().bySession[sid].activePaneId, '/b')
+      const sid = activeSid()
+      useLayoutStore.getState().setCwd(sid, activePane(sid), '/a')
+      useLayoutStore.getState().setCwd(sid, activePane(sid), '/b')
       useSessionsStore.getState().addSession('/c')
       expect(save()).not.toHaveBeenCalled()
 
@@ -126,8 +134,8 @@ describe('workspace autosave', () => {
     it('persists what changed, not a stale copy', () => {
       vi.useFakeTimers()
       stop = startWorkspaceAutosave()
-      const sid = useSessionsStore.getState().activeSessionId
-      const paneId = useLayoutStore.getState().bySession[sid].activePaneId
+      const sid = activeSid()
+      const paneId = activePane(sid)
 
       useLayoutStore.getState().setCwd(sid, paneId, '/home/u/moved')
       vi.runAllTimers()
@@ -139,15 +147,24 @@ describe('workspace autosave', () => {
       vi.useFakeTimers()
       stop = startWorkspaceAutosave()
       save().mockClear()
-      const sid = useSessionsStore.getState().activeSessionId
-      useLayoutStore
-        .getState()
-        .setCwd(sid, useLayoutStore.getState().bySession[sid].activePaneId, '/x')
+      const sid = activeSid()
+      useLayoutStore.getState().setCwd(sid, activePane(sid), '/x')
 
       window.dispatchEvent(new Event('beforeunload'))
 
       expect(save()).toHaveBeenCalledTimes(1)
       expect(lastSnapshot().sessions[0].root).toMatchObject({ cwd: '/x' })
+    })
+
+    it('saves an empty workspace once the last session is closed', () => {
+      useSessionsStore.getState().closeSession(activeSid())
+      save().mockClear()
+
+      saveWorkspaceNow()
+
+      expect(save()).toHaveBeenCalledWith(
+        expect.objectContaining({ v: 1, activeSessionId: null, sessions: [] }),
+      )
     })
 
     it('stops watching once disposed', () => {

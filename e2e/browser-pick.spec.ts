@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { openSession } from './helpers'
 
 const PAGE = `<!doctype html>
 <html><head><title>Pick fixture</title></head>
@@ -23,7 +24,7 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await expect(win.locator('.xterm-rows').first()).toContainText(/[❯$%#]/, { timeout: 15_000 })
+    await openSession(win)
 
     await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Open Browser')

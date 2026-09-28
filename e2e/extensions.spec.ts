@@ -4,6 +4,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { buildSync } from 'esbuild'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { openSession } from './helpers'
 
 const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'hello')
 
@@ -38,7 +39,7 @@ test('a user extension is approved, opens its panel from the palette, and runs a
     await approval.getByRole('button', { name: 'Approve and enable' }).click()
     await expect(approval).toBeHidden()
 
-    await expect(win.locator('.xterm-rows').first()).toContainText(/[❯$%#]/, { timeout: 15_000 })
+    await openSession(win)
 
     await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Hello: Open Panel')

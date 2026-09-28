@@ -8,6 +8,7 @@ import {
   test,
 } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { emptyState, openSession } from './helpers'
 
 interface Launched {
   app: ElectronApplication
@@ -61,7 +62,7 @@ test('restores the pane layout and terminal history after a restart', async () =
 
   const first = await launchApp(dataHome)
   try {
-    await waitForShellPrompt(first.win)
+    await openSession(first.win)
     await expect(first.win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
 
     const term = first.win.locator('.xterm').first()
@@ -101,7 +102,7 @@ test('restores terminal history after a crash (no before-quit)', async () => {
   const marker = `pine_crash_${Date.now()}`
   const first = await launchApp(dataHome)
   try {
-    await waitForShellPrompt(first.win)
+    await openSession(first.win)
     await first.win.locator('.xterm').first().click()
     await waitForTerminalFocus(first.win)
     await first.win.keyboard.type(`echo ${marker}`)
@@ -164,7 +165,7 @@ test('restores a clean final screen at a different window size', async () => {
   const first = await launchApp(dataHome)
   try {
     await setWindowSize(first.app, 1580, 950)
-    await waitForShellPrompt(first.win)
+    await openSession(first.win)
     await first.win.waitForTimeout(1_000)
     await wobbleWidth(first.app)
     await first.win.locator('.xterm').first().click()
@@ -204,21 +205,55 @@ test('restores a clean final screen at a different window size', async () => {
   }
 })
 
-test('boots a single fresh session when there is nothing to restore', async () => {
+test('boots with no sessions when there is nothing to restore', async () => {
   const { app, win } = await launchApp(dataHome)
   try {
-    await waitForShellPrompt(win)
-    await expect(win.locator('.pane')).toHaveCount(1)
-    await expect(win.locator('.workzone')).not.toContainText('session restored')
+    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
+    await win.waitForTimeout(1_000)
+    await expect(win.locator('.xterm')).toHaveCount(0)
+    await expect(win.locator('.pane')).toHaveCount(0)
+    await expect(win.locator('.rail-tab')).toHaveCount(0)
   } finally {
     await quitApp(app)
+  }
+})
+
+test('restores zero sessions after the last session was closed', async () => {
+  const first = await launchApp(dataHome)
+  try {
+    await openSession(first.win)
+    const tab = first.win.locator('.rail-tab')
+    await tab.hover()
+    await tab.getByRole('button', { name: 'Close' }).click()
+    await expect(emptyState(first.win)).toBeVisible({ timeout: 5_000 })
+    await expect
+      .poll(
+        () => {
+          const file = join(dataHome, 'pine', 'sessions.json')
+          return existsSync(file) && JSON.parse(readFileSync(file, 'utf8')).sessions.length
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(0)
+  } finally {
+    await quitApp(first.app)
+  }
+
+  const second = await launchApp(dataHome)
+  try {
+    await expect(emptyState(second.win)).toBeVisible({ timeout: 15_000 })
+    await second.win.waitForTimeout(1_000)
+    await expect(second.win.locator('.xterm')).toHaveCount(0)
+    await expect(second.win.locator('.rail-tab')).toHaveCount(0)
+  } finally {
+    await quitApp(second.app)
   }
 })
 
 test('erases stored history when session restore is switched off', async () => {
   const first = await launchApp(dataHome)
   try {
-    await waitForShellPrompt(first.win)
+    await openSession(first.win)
   } finally {
     await quitApp(first.app)
   }
