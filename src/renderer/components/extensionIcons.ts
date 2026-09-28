@@ -1,35 +1,35 @@
-import type { ExtensionIcon } from '@shared/extensions'
 import {
-  Bell,
-  BookOpen,
-  Check,
-  Circle,
-  GitBranch,
-  Globe,
-  Kanban,
-  type LucideIcon,
-  Puzzle,
-  Server,
-  ShieldCheck,
-  Terminal,
-  TriangleAlert,
-} from 'lucide-react'
+  BellIcon,
+  BookOpenIcon,
+  CheckIcon,
+  CircleIcon,
+  GitBranchIcon,
+  GlobeIcon,
+  HardDrivesIcon,
+  type Icon as IconComponent,
+  KanbanIcon,
+  PuzzlePieceIcon,
+  ShieldCheckIcon,
+  TerminalWindowIcon,
+  WarningIcon,
+} from '@phosphor-icons/react'
+import type { ExtensionIcon } from '@shared/extensions'
 
-const ICONS: Record<ExtensionIcon, LucideIcon> = {
-  puzzle: Puzzle,
-  kanban: Kanban,
-  'book-open': BookOpen,
-  'git-branch': GitBranch,
-  globe: Globe,
-  bell: Bell,
-  server: Server,
-  terminal: Terminal,
-  circle: Circle,
-  check: Check,
-  alert: TriangleAlert,
-  shield: ShieldCheck,
+const ICONS: Record<ExtensionIcon, IconComponent> = {
+  puzzle: PuzzlePieceIcon,
+  kanban: KanbanIcon,
+  'book-open': BookOpenIcon,
+  'git-branch': GitBranchIcon,
+  globe: GlobeIcon,
+  bell: BellIcon,
+  server: HardDrivesIcon,
+  terminal: TerminalWindowIcon,
+  circle: CircleIcon,
+  check: CheckIcon,
+  alert: WarningIcon,
+  shield: ShieldCheckIcon,
 }
 
-export function extensionIcon(icon: ExtensionIcon | undefined): LucideIcon {
-  return icon ? ICONS[icon] : Puzzle
+export function extensionIcon(icon: ExtensionIcon | undefined): IconComponent {
+  return icon ? ICONS[icon] : PuzzlePieceIcon
 }

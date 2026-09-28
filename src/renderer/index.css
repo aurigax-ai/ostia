@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./typeset.css";
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -429,6 +430,33 @@
   text-overflow: ellipsis;
 }
 
+.tab-subtitle {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.tab-subtitle.unread {
+  color: var(--fg);
+}
+
+.tab-rename {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--focus-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--fg);
+  font-size: var(--text-ui-base);
+  outline: none;
+}
+
 .tab-meta {
   display: flex;
   align-items: center;
@@ -456,6 +484,7 @@
   display: flex;
 }
 
+.collapsed .tab-rename,
 .collapsed .tab-body,
 .collapsed .tab-actions {
   display: none;
@@ -728,9 +757,14 @@
 }
 
 .workspace-empty {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   height: 100%;
+  padding: 24px;
+  text-align: center;
 }
 
 .workzone-empty {
@@ -752,6 +786,18 @@
   font-size: var(--text-ui-xs);
   line-height: var(--text-ui-xs--line-height);
   opacity: 0.75;
+}
+
+.palette-prefix {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-xs);
 }
 
 .pane {
@@ -856,6 +902,11 @@
 .pane-kind {
   flex: 0 0 auto;
   color: var(--fg-dim);
+}
+
+.pane.active .pane-tab.selected {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  box-shadow: inset 0 0 0 1px var(--brand);
 }
 
 .pane.active .pane-tab.selected .pane-kind {
@@ -1158,6 +1209,46 @@
 .browser-address:focus {
   outline: none;
   border-color: var(--brand);
+}
+
+.browser-stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.browser-error {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  background: var(--surface-1);
+  text-align: center;
+}
+
+.browser-error-title {
+  color: var(--fg);
+  font-size: var(--text-ui-base);
+  font-weight: 500;
+}
+
+.browser-error-url {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-sm);
+}
+
+.browser-error-reason {
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
 }
 
 .browser-webview {
@@ -1728,4 +1819,31 @@
 
 :root[data-motion="reduced"] .dot.working {
   opacity: 1;
+}
+
+.typeset-pine {
+  --typeset-font-heading: inherit;
+  --typeset-size: var(--text-ui-base);
+  --typeset-leading: 1.7;
+  --typeset-flow: 1.1em;
+}
+
+.markdown-preview {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 20px 28px 40px;
+  background: var(--surface-1);
+}
+
+.markdown-preview > .typeset {
+  max-width: 76ch;
+  margin: 0 auto;
+}
+
+.editor-mode {
+  position: absolute;
+  top: 6px;
+  right: 18px;
+  z-index: 3;
 }

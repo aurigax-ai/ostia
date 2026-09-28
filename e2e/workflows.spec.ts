@@ -7,7 +7,7 @@ import {
 } from '@playwright/test'
 import { homedir } from 'node:os'
 import { isolatedLaunch } from './dataHome'
-import { PROMPT, emptyState, openWorkspace } from './helpers'
+import { PROMPT, emptyState, emptyWorkspace, openWorkspace } from './helpers'
 
 interface Launched {
   app: ElectronApplication
@@ -90,7 +90,8 @@ test('command palette opens, filters, and runs a command', async () => {
     await win.keyboard.press('Enter')
     await expect(dialog).toBeHidden({ timeout: 5_000 })
     await expect(win.locator('.rail-tab')).toHaveCount(1, { timeout: 5_000 })
-    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+    await expect(emptyWorkspace(win).getByRole('button', { name: 'New terminal' })).toBeVisible()
+    await expect(win.locator('.xterm')).toHaveCount(0)
     await expect(emptyState(win)).toHaveCount(0)
   } finally {
     await app.close()
@@ -120,7 +121,7 @@ test('opening a file shows the Monaco editor', async () => {
   }
 })
 
-test('boots with no workspace and opens one at home with Ctrl+Shift+T', async () => {
+test('boots with no workspace, and Ctrl+Shift+T opens an empty one that offers a terminal', async () => {
   const { app, win } = await launchApp()
   const errors: string[] = []
   win.on('pageerror', (err) => errors.push(err.message))
@@ -138,6 +139,9 @@ test('boots with no workspace and opens one at home with Ctrl+Shift+T', async ()
 
     await win.keyboard.press('Control+Shift+T')
 
+    await expect(win.locator('.rail-tab')).toHaveCount(1)
+    await expect(win.locator('.xterm')).toHaveCount(0)
+    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
     await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
     await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
     await expect(win.locator('.rail-tab')).toHaveCount(1)

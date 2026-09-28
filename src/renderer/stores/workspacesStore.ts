@@ -10,6 +10,7 @@ export type WorkspaceKind = 'agent' | 'terminal' | 'scratch'
 export interface Workspace {
   id: string
   name: string
+  customName?: string
   kind: WorkspaceKind
   workDir: string
   state: WorkspaceState
@@ -22,6 +23,7 @@ interface WorkspacesState {
   addWorkspace: (workDir?: string) => void
   closeWorkspace: (id: string) => void
   setWorkDir: (id: string, workDir: string) => void
+  rename: (id: string, name: string) => void
   setState: (id: string, state: WorkspaceState) => void
   hydrate: (snapshot: AppSnapshot | null) => void
 }
@@ -61,7 +63,6 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
   addWorkspace: (workDir = '~') => {
     const workspace = makeWorkspace(workDir)
     set((s) => ({ workspaces: [...s.workspaces, workspace], activeWorkspaceId: workspace.id }))
-    useLayoutStore.getState().ensure(workspace.id)
     window.pine?.lifecycle?.emit?.({ type: 'workspace-added', workspaceId: workspace.id, workDir })
   },
 
@@ -87,6 +88,17 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
       ),
     }))
     window.pine?.lifecycle?.emit?.({ type: 'workspace-added', workspaceId: id, workDir })
+  },
+
+  rename: (id, name) => {
+    const customName = name.trim()
+    set((s) => ({
+      workspaces: s.workspaces.map((c) => {
+        if (c.id !== id) return c
+        const { customName: _old, ...rest } = c
+        return customName ? { ...rest, customName } : rest
+      }),
+    }))
   },
 
   hydrate: (snapshot) => {

@@ -16,6 +16,7 @@ const SNAPSHOT_VERSION = 1
 export const SCROLLBACK_CAP_BYTES = 131_072
 
 const MAX_WORKSPACES = 32
+const CUSTOM_NAME_MAX = 120
 const MAX_PANES = 64
 const MAX_DEPTH = 12
 
@@ -125,25 +126,33 @@ export function parseSnapshot(raw: unknown): AppSnapshot | null {
     if (typeof id !== 'string' || id.length === 0 || claimedWorkspaceIds.has(id)) continue
 
     const paneIds: string[] = []
-    const root = parseNode(entry.root, paneIds, 0)
-    if (!root || paneIds.length === 0) continue
+    const root = entry.root === undefined ? undefined : parseNode(entry.root, paneIds, 0)
+    if (root === null) continue
+    if (root && paneIds.length === 0) continue
     if (new Set(paneIds).size !== paneIds.length) continue
     if (paneIds.some((p) => claimedPaneIds.has(p))) continue
+    const customName =
+      typeof entry.customName === 'string' ? entry.customName.trim().slice(0, CUSTOM_NAME_MAX) : ''
 
     const workDir = typeof entry.workDir === 'string' && entry.workDir ? entry.workDir : '~'
     workspaces.push({
       id,
       name: typeof entry.name === 'string' && entry.name ? entry.name : 'workspace',
+      ...(customName ? { customName } : {}),
       kind:
         typeof entry.kind === 'string' && WORKSPACE_KINDS.has(entry.kind)
           ? (entry.kind as SnapshotWorkspace['kind'])
           : 'terminal',
       workDir,
-      root,
-      activePaneId:
-        typeof entry.activePaneId === 'string' && paneIds.includes(entry.activePaneId)
-          ? entry.activePaneId
-          : paneIds[0],
+      ...(root
+        ? {
+            root,
+            activePaneId:
+              typeof entry.activePaneId === 'string' && paneIds.includes(entry.activePaneId)
+                ? entry.activePaneId
+                : paneIds[0],
+          }
+        : {}),
     })
     claimedWorkspaceIds.add(id)
     for (const p of paneIds) claimedPaneIds.add(p)

@@ -11,7 +11,7 @@ the reasons live.
 | Layer | Choice |
 |---|---|
 | Shell | Electron, electron-vite (dev/build), electron-builder (package) |
-| UI | React 18 + TypeScript strict, zustand, Tailwind v4, shadcn on Base UI, lucide-react, cmdk |
+| UI | React 18 + TypeScript strict, zustand, Tailwind v4, shadcn on Base UI, Phosphor icons (`@phosphor-icons/react`), cmdk |
 | Terminal | node-pty in main; `@xterm/xterm` 6 + fit, search, web-links, unicode11 addons (DOM renderer) |
 | Splits | allotment |
 | Editor | monaco-editor with locally bundled workers; hand-written LSP client over `vscode-jsonrpc` |
@@ -184,6 +184,13 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **`pine()` shell function**: it runs `ELECTRON_RUN_AS_NODE=1 $PINE_NODE $PINE_CLI`, so no
   system Node is needed. electron-builder unpacks `out/cli/**` from the asar for this.
 
+- **Claude hooks** (`shellIntegration.ts` `claudeHookSettings`): the generated init defines
+  `claude() { command claude --settings <dir>/claude-settings.json "$@"; }`, whose hooks call
+  `pine resume-token` and `pine state`. Why a flag and not the user's settings: we never write the
+  user's dotfiles or `~/.claude`, and `--settings` is merged with theirs, so it adds hooks without
+  replacing any. Codex has no equivalent (its `notify` is a single value, and overriding it would
+  drop the user's), so Codex stays a manual recipe.
+
 ### Rendering, blocks, state
 
 - `Terminal.tsx` registers OSC 7 (cwd, raw path) and OSC 133 A/B/C/D handlers. Scrollback is 10k.
@@ -277,6 +284,12 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - The `agent` kind exists but has no surface (it shows a ghost title).
   - Zoom renders only `zoomedPaneId`.
   - Closing the zoomed pane clears the zoom.
+- **Markdown preview** (`components/MarkdownPreview.tsx`, `typeset.css`): `.md` editors get a
+  Preview toggle that renders the live model text with react-markdown + remark-gfm inside a
+  `typeset typeset-pine` container. `typeset.css` is shadcn Typeset, copied in (comments stripped)
+  and owned here. Why not streamdown: it puts Tailwind classes on every element, which beat
+  Typeset's `:where()` styles. Raw HTML is never rendered, and links open with `target="_blank"`,
+  which the window's open handler routes to `openExternalSafe`.
 - **Tabs** (`layout/tree.ts` `TabsNode`, `components/Pane.tsx`): a split-tree leaf is a pane or a
   `tabs` stack of panes with one shown (`activeId`). The pane header is a tab strip (one tab for
   a lone pane) with new terminal tab, new browser tab and split buttons; a tab's pane id is still

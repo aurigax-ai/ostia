@@ -1,17 +1,17 @@
-import { resumeCommand } from '@shared/agentResume'
 import {
-  Bot,
-  FileCode,
-  GitCompare,
-  Globe,
-  type LucideIcon,
-  Play,
-  Plus,
-  SplitSquareHorizontal,
-  SplitSquareVertical,
-  Terminal,
-  X,
-} from 'lucide-react'
+  FileCodeIcon,
+  GitDiffIcon,
+  GlobeIcon,
+  type Icon as IconComponent,
+  PlayIcon,
+  PlusIcon,
+  RobotIcon,
+  SquareSplitHorizontalIcon,
+  SquareSplitVerticalIcon,
+  TerminalWindowIcon,
+  XIcon,
+} from '@phosphor-icons/react'
+import { resumeCommand } from '@shared/agentResume'
 import { type DragEvent, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
@@ -37,13 +37,13 @@ interface PaneProps {
   active: boolean
 }
 
-const SURFACE_ICON: Record<SurfaceKind, LucideIcon> = {
-  terminal: Terminal,
-  editor: FileCode,
-  agent: Bot,
-  browser: Globe,
+const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
+  terminal: TerminalWindowIcon,
+  editor: FileCodeIcon,
+  agent: RobotIcon,
+  browser: GlobeIcon,
   extension: extensionIcon(undefined),
-  diff: GitCompare,
+  diff: GitDiffIcon,
 }
 
 const PANE_DND = 'application/x-pine-pane'
@@ -136,24 +136,24 @@ export function Pane({ tabs, shownId, active }: PaneProps): JSX.Element {
         <ResumeButton pane={shown} />
         <div className="pane-actions">
           <IconButton
-            icon={Plus}
+            icon={PlusIcon}
             label={d.pane.newTab}
             onClick={() => commands.exec('tab.new', { paneId: shown.id })}
           />
           <IconButton
-            icon={Globe}
+            icon={GlobeIcon}
             label={d.pane.newBrowserTab}
             onClick={() => commands.exec('tab.newBrowser', { paneId: shown.id })}
           />
           <IconButton
-            icon={SplitSquareHorizontal}
+            icon={SquareSplitHorizontalIcon}
             label={d.pane.splitRight}
             onClick={() =>
               commands.exec('pane.split', { paneId: shown.id, direction: 'horizontal' })
             }
           />
           <IconButton
-            icon={SplitSquareVertical}
+            icon={SquareSplitVerticalIcon}
             label={d.pane.splitDown}
             onClick={() => commands.exec('pane.split', { paneId: shown.id, direction: 'vertical' })}
           />
@@ -188,7 +188,7 @@ function ResumeButton({ pane }: { pane: PaneNode }): JSX.Element | null {
         className="pane-resume"
         onClick={() => void commands.exec('agent.resume')}
       >
-        <Play size={12} aria-hidden />
+        <PlayIcon size={12} aria-hidden />
         {label}
       </button>
     </Hint>
@@ -253,7 +253,7 @@ function PaneTab({
         ) : null}
       </button>
       <IconButton
-        icon={X}
+        icon={XIcon}
         label={d.pane.closeTab}
         className="pane-tab-close hover:text-attn-fg"
         onClick={() => commands.exec('pane.close', { paneId: pane.id })}

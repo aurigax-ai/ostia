@@ -39,7 +39,7 @@ describe('workspacesStore', () => {
   })
 
   describe('addWorkspace', () => {
-    it('appends a focused workspace named from its workDir and ensures its layout', () => {
+    it('appends a focused, empty workspace named from its workDir', () => {
       open()
       useWorkspacesStore.getState().addWorkspace('/home/me/projects/app')
 
@@ -48,7 +48,7 @@ describe('workspacesStore', () => {
       expect(added.workDir).toBe('/home/me/projects/app')
       expect(added.name).toBe('app')
       expect(activeId()).toBe(added.id)
-      expect(ensureMock()).toHaveBeenCalledWith(added.id)
+      expect(ensureMock()).not.toHaveBeenCalled()
     })
 
     it('defaults workDir to ~ (name "home") when called with no arg', () => {
@@ -59,7 +59,6 @@ describe('workspacesStore', () => {
       expect(added.workDir).toBe('~')
       expect(added.name).toBe('home')
       expect(activeId()).toBe(added.id)
-      expect(ensureMock()).toHaveBeenCalledWith(added.id)
     })
   })
 
@@ -350,6 +349,18 @@ describe('workspacesStore', () => {
       const next = open()
 
       expect(Number(next.id.slice(1))).toBeGreaterThan(70)
+    })
+  })
+
+  describe('rename', () => {
+    it('shows a name the user chose and clears it with an empty name', () => {
+      const w = open('/home/me/app')
+      useWorkspacesStore.getState().rename(w.id, '  payments  ')
+      expect(workspaces()[0].customName).toBe('payments')
+      useWorkspacesStore.getState().setWorkDir(w.id, '/home/me/other')
+      expect(workspaces()[0]).toMatchObject({ customName: 'payments', name: 'other' })
+      useWorkspacesStore.getState().rename(w.id, ' ')
+      expect(workspaces()[0].customName).toBeUndefined()
     })
   })
 })

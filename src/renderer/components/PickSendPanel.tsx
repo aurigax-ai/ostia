@@ -1,6 +1,6 @@
+import { XIcon } from '@phosphor-icons/react'
 import type { PickCapture } from '@shared/pick'
 import type { AttentionState } from '@shared/types'
-import { X } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { useDict } from '../i18n/useDict'
@@ -89,7 +89,7 @@ export function PickSendPanel({
     >
       <div className="flex items-center gap-2">
         <span className="flex-1 font-medium text-ui-sm">{d.browser.sendTitle}</span>
-        <IconButton icon={X} label={d.browser.closeSend} onClick={onClose} />
+        <IconButton icon={XIcon} label={d.browser.closeSend} onClick={onClose} />
       </div>
       <code className="truncate font-mono text-fg-muted text-ui-xs">
         {capture.label || capture.selector}

@@ -1,6 +1,6 @@
+import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
 import type { ISearchOptions, SearchAddon } from '@xterm/addon-search'
 import type { ITheme } from '@xterm/xterm'
-import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { IconButton } from './IconButton'
@@ -96,9 +96,9 @@ export function TerminalFind({
       <span className="term-find-count" aria-live="polite">
         {status}
       </span>
-      <IconButton icon={ChevronUp} label={d.find.previous} onClick={prev} />
-      <IconButton icon={ChevronDown} label={d.find.next} onClick={next} />
-      <IconButton icon={X} label={d.find.close} onClick={onClose} />
+      <IconButton icon={CaretUpIcon} label={d.find.previous} onClick={prev} />
+      <IconButton icon={CaretDownIcon} label={d.find.next} onClick={next} />
+      <IconButton icon={XIcon} label={d.find.close} onClick={onClose} />
     </div>
   )
 }

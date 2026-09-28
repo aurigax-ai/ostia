@@ -1,13 +1,20 @@
+import {
+  ArrowClockwiseIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CrosshairIcon,
+} from '@phosphor-icons/react'
 import type { PickCapture, PickTheme } from '@shared/pick'
 import type { WebviewTag } from 'electron'
-import { ArrowLeft, ArrowRight, Crosshair, RotateCw } from 'lucide-react'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import type { PickTarget } from '../lib/pickTargets'
 import { sendPickToPane } from '../lib/sendPick'
+import { terminalTitle } from '../lib/terminalTitle'
 import { useLayoutStore } from '../stores/layoutStore'
 import { IconButton } from './IconButton'
 import { PickSendPanel, usePickTargets } from './PickSendPanel'
+import { Button } from './ui/button'
 
 const STATUS_MS = 6000
 
@@ -43,6 +50,7 @@ export function BrowserView({
   const [address, setAddress] = useState(startUrl.current)
   const [canGoBack, setCanGoBack] = useState(false)
   const [canGoForward, setCanGoForward] = useState(false)
+  const [loadError, setLoadError] = useState<{ url: string; reason: string } | null>(null)
 
   const withGuest = useCallback((fn: (wv: WebviewTag) => void): boolean => {
     const wv = webviewRef.current as unknown as WebviewTag | null
@@ -93,6 +101,7 @@ export function BrowserView({
         isMainFrame?: boolean
       }
       if (isMainFrame === false) return
+      setLoadError(null)
       setAddress(navigatedUrl)
       syncNavState()
       lastAppliedUrlRef.current = navigatedUrl
@@ -101,18 +110,29 @@ export function BrowserView({
     const onFailLoad = (e: Event): void => {
       const failed = e as unknown as {
         errorCode: number
+        errorDescription: string
         validatedURL: string
         isMainFrame: boolean
       }
       if (failed.errorCode === -3 || !failed.isMainFrame) return
       setAddress(failed.validatedURL)
+      setLoadError({
+        url: failed.validatedURL,
+        reason: failed.errorDescription || String(failed.errorCode),
+      })
       syncNavState()
+    }
+    const onTitle = (e: Event): void => {
+      const title = terminalTitle((e as unknown as { title: string }).title ?? '')
+      if (title) useLayoutStore.getState().setTitle(workspaceId, paneId, title)
     }
 
     el.addEventListener('did-navigate', onNavigate)
     el.addEventListener('did-navigate-in-page', onNavigate)
     el.addEventListener('did-fail-load', onFailLoad)
+    el.addEventListener('page-title-updated', onTitle)
     return () => {
+      el.removeEventListener('page-title-updated', onTitle)
       el.removeEventListener('did-navigate', onNavigate)
       el.removeEventListener('did-navigate-in-page', onNavigate)
       el.removeEventListener('did-fail-load', onFailLoad)
@@ -198,6 +218,7 @@ export function BrowserView({
 
   const navigate = (raw: string): void => {
     const next = resolveAddress(raw)
+    setLoadError(null)
     lastAppliedUrlRef.current = next
     setAddress(next)
     load(next)
@@ -211,19 +232,19 @@ export function BrowserView({
     <div className="browser-surface relative">
       <div className="browser-toolbar">
         <IconButton
-          icon={ArrowLeft}
+          icon={ArrowLeftIcon}
           label={d.browser.back}
           disabled={!canGoBack}
           onClick={() => withGuest((wv) => wv.goBack())}
         />
         <IconButton
-          icon={ArrowRight}
+          icon={ArrowRightIcon}
           label={d.browser.forward}
           disabled={!canGoForward}
           onClick={() => withGuest((wv) => wv.goForward())}
         />
         <IconButton
-          icon={RotateCw}
+          icon={ArrowClockwiseIcon}
           label={d.browser.reload}
           onClick={() => withGuest((wv) => wv.reload())}
         />
@@ -236,7 +257,7 @@ export function BrowserView({
           onKeyDown={onAddressKeyDown}
         />
         <IconButton
-          icon={Crosshair}
+          icon={CrosshairIcon}
           label={picking ? d.browser.pickStop : d.browser.pick}
           aria-pressed={picking !== null}
           onClick={() => void togglePick()}
@@ -256,14 +277,31 @@ export function BrowserView({
           onClose={() => setCapture(null)}
         />
       ) : null}
-      <webview
-        ref={(el) => {
-          webviewRef.current = el
-        }}
-        className="browser-webview"
-        src={startUrl.current}
-        partition={`pine-browser-${paneId}`}
-      />
+      <div className="browser-stage">
+        <webview
+          ref={(el) => {
+            webviewRef.current = el
+          }}
+          className="browser-webview"
+          src={startUrl.current}
+          partition={`pine-browser-${paneId}`}
+        />
+        {loadError ? (
+          <div className="browser-error" role="alert">
+            <p className="browser-error-title">{d.browser.loadFailed}</p>
+            <p className="browser-error-url">{loadError.url}</p>
+            <p className="browser-error-reason">{loadError.reason}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => navigate(loadError.url)}
+            >
+              {d.browser.retry}
+            </Button>
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

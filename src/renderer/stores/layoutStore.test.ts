@@ -141,18 +141,18 @@ describe('layoutStore', () => {
       })
     })
 
-    it("guard: closing the workspace's LAST pane is a tree no-op and emits NO pane-closed", () => {
+    it('closing the last pane leaves the workspace empty and announces the pane', () => {
       const only = ensure('sess')
       emit().mockClear()
 
       useLayoutStore.getState().closePane('sess', only)
-      const layout = layoutOf('sess')
 
-      expect(paneIds(layout.root)).toEqual([only])
-      expect(findPane(layout.root, only)).not.toBeNull()
-      expect(layout.activePaneId).toBe(only)
-      expect(emit()).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'pane-closed' }))
-      expect(emit()).not.toHaveBeenCalled()
+      expect(layoutOf('sess')).toBeUndefined()
+      expect(emit()).toHaveBeenCalledWith({
+        type: 'pane-closed',
+        workspaceId: 'sess',
+        paneId: only,
+      })
     })
 
     it('emits no pane-closed for an id that never existed or was already closed', () => {
@@ -550,6 +550,30 @@ describe('layoutStore', () => {
       useLayoutStore.getState().setResume('s1', first, { agent: 'codex', id: 'th_1' })
       expect(layoutOf('s1')).toBe(before)
       expect(findPane(layoutOf('s1').root, first)?.resume).toEqual({ agent: 'codex', id: 'th_1' })
+    })
+  })
+
+  describe('empty workspace', () => {
+    const seedWorkspace = (id: string) =>
+      useWorkspacesStore.setState({
+        workspaces: [{ id, name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+      })
+
+    it('makes an opened file the first pane of an empty workspace', () => {
+      seedWorkspace('w9')
+      useLayoutStore.getState().openFile('w9', '/w/notes.md')
+      expect(layoutOf('w9').root).toMatchObject({
+        type: 'pane',
+        kind: 'editor',
+        filePath: '/w/notes.md',
+      })
+      expect(emit()).toHaveBeenCalledWith(expect.objectContaining({ type: 'pane-created' }))
+    })
+
+    it('makes a browser the first pane of an empty workspace', () => {
+      seedWorkspace('w9')
+      useLayoutStore.getState().openBrowser('w9', 'about:blank')
+      expect(layoutOf('w9').root).toMatchObject({ kind: 'browser', url: 'about:blank' })
     })
   })
 })

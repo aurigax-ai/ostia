@@ -150,6 +150,35 @@ if [ -n "$PINE_CLI" ]; then
 fi
 `
 
+function hookCommand(pineArgs: string): string {
+  return `[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" ${pineArgs} >/dev/null 2>&1 || true`
+}
+
+export function claudeHookSettings(): { hooks: Record<string, unknown[]> } {
+  const on = (pineArgs: string) => [
+    { hooks: [{ type: 'command', command: hookCommand(pineArgs) }] },
+  ]
+  return {
+    hooks: {
+      SessionStart: on('resume-token claude -'),
+      UserPromptSubmit: on('state working'),
+      Notification: on('state waiting -'),
+      Stop: on('state done'),
+    },
+  }
+}
+
+function claudeWrapper(settingsPath: string): string {
+  return [
+    '',
+    '# Run claude with Pine hooks (resume token, attention). `command claude` skips them.',
+    'if [ -n "$PINE_CLI" ]; then',
+    `  claude() { command claude --settings '${settingsPath}' "$@"; }`,
+    'fi',
+    '',
+  ].join('\n')
+}
+
 interface IntegrationPaths {
   zshInit: string
   bashInit: string
@@ -163,10 +192,13 @@ function ensureFiles(): IntegrationPaths {
   if (cached) return cached
   mkdirSync(INTEGRATION_DIR, { recursive: true })
 
+  const claudeSettings = join(INTEGRATION_DIR, 'claude-settings.json')
+  writeFileSync(claudeSettings, `${JSON.stringify(claudeHookSettings(), null, 2)}\n`, 'utf8')
+
   const zshInit = join(INTEGRATION_DIR, 'init.zsh')
   const bashInit = join(INTEGRATION_DIR, 'init.bash')
-  writeFileSync(zshInit, ZSH_INIT, 'utf8')
-  writeFileSync(bashInit, BASH_INIT, 'utf8')
+  writeFileSync(zshInit, ZSH_INIT + claudeWrapper(claudeSettings), 'utf8')
+  writeFileSync(bashInit, BASH_INIT + claudeWrapper(claudeSettings), 'utf8')
 
   const zshenv = join(INTEGRATION_DIR, '.zshenv')
   writeFileSync(
