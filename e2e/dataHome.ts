@@ -20,6 +20,7 @@ export function isolatedLaunch(dataHome: string = freshDataHome()): {
       ...(process.env as Record<string, string>),
       NODE_ENV: 'test',
       XDG_DATA_HOME: dataHome,
+      XDG_CONFIG_HOME: join(dataHome, 'config'),
     },
   }
 }

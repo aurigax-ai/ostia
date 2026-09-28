@@ -2,7 +2,11 @@ directories:
   output: dist
 files:
   - out/**
+  - "!out/extensions/**"
   - package.json
+extraResources:
+  - from: out/extensions
+    to: extensions
 asarUnpack:
   - out/cli/**
 npmRebuild: true

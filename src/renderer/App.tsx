@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { commands } from './commands/registry'
 import { CommandPalette } from './components/CommandPalette'
 import { DeckRail } from './components/DeckRail'
+import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
 import { HistorySearch } from './components/HistorySearch'
 import { TopBar } from './components/TopBar'
 import { WindowControls } from './components/WindowControls'
@@ -68,6 +69,7 @@ export function App(): JSX.Element {
         <WorkZone />
         <WindowControls />
         <CommandPalette />
+        <ExtensionApprovalDialog />
         <HistorySearch />
       </div>
     </TooltipProvider>

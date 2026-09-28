@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   ErrorCodes,
+  type MessageConnection,
   ResponseError,
   StreamMessageReader,
   StreamMessageWriter,
@@ -31,12 +32,23 @@ function needsElevation(cap: Capability): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
 }
 
+export type ControlCallers = 'panes' | 'extensions' | 'all'
+
+export interface ControlMethodContext {
+  identity: PaneIdentity
+  authed: AuthedConn
+  conn: MessageConnection
+}
+
 export interface ControlMethod {
   cap?: Capability
-  handler: (
-    params: unknown,
-    ctx: { identity: PaneIdentity; authed: AuthedConn },
-  ) => unknown | Promise<unknown>
+  callers?: ControlCallers
+  handler: (params: unknown, ctx: ControlMethodContext) => unknown | Promise<unknown>
+}
+
+function callerAllowed(identity: PaneIdentity, callers: ControlCallers): boolean {
+  if (callers === 'all') return true
+  return callers === 'extensions' ? identity.kind === 'extension' : identity.kind === 'pane'
 }
 
 const methods = new Map<string, ControlMethod>()
@@ -67,30 +79,38 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     )
     let authed: AuthedConn | null = null
 
+    const requireIdentity = (callers: ControlCallers): PaneIdentity => {
+      if (!authed) throw unauthenticatedError('call hello first')
+      const me = resolveExternal(authed.externalId)
+      if (!me) throw unauthenticatedError('unknown identity')
+      if (!callerAllowed(me, callers)) {
+        throw new ResponseError(ErrorCodes.InvalidRequest, `not-available-to-${me.kind}`)
+      }
+      return me
+    }
+
     conn.onRequest('hello', (params: { token?: string } | undefined) => {
       authed = authenticate(params ?? {})
       if (!authed) throw unauthenticatedError('invalid or missing paneToken')
       return { externalId: authed.externalId }
     })
 
-    conn.onRequest('whoami', () => {
-      if (!authed) throw unauthenticatedError('call hello first')
-      return { externalId: authed.externalId, paneId: authed.paneId, sessionId: authed.sessionId }
+    conn.onRequest('whoami', (): Record<string, string | undefined> => {
+      const me = requireIdentity('all')
+      if (me.kind === 'extension') return { externalId: me.externalId, extensionId: me.extId }
+      return { externalId: me.externalId, paneId: me.paneId, sessionId: me.sessionId }
     })
 
     conn.onRequest('command.list', (): CommandDescriptor[] => {
-      if (!authed) throw unauthenticatedError('call hello first')
-      const me = resolveExternal(authed.externalId)
-      if (!me) throw unauthenticatedError('unknown identity')
+      const me = requireIdentity('panes')
       return deps.listCommandsFor(me.windowId)
     })
 
     conn.onRequest(
       'command.exec',
       (params: { id: string; args?: unknown; target?: CommandTarget }): Promise<CommandResult> => {
+        const me = requireIdentity('panes')
         if (!authed) throw unauthenticatedError('call hello first')
-        const me = resolveExternal(authed.externalId)
-        if (!me) throw unauthenticatedError('unknown identity')
 
         const selfTarget: CommandTarget = {
           windowId: me.windowId,
@@ -125,30 +145,25 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     )
 
     conn.onRequest('pane.info', (params?: { paneId?: string }): TerminalStateSnapshot | null => {
-      if (!authed) throw unauthenticatedError('call hello first')
-      if (!connHasCap(authed, 'read-board')) throw needsElevation('read-board')
-      const me = resolveExternal(authed.externalId)
-      if (!me) throw unauthenticatedError('unknown identity')
+      const me = requireIdentity('panes')
+      if (authed && !connHasCap(authed, 'read-board')) throw needsElevation('read-board')
       if (!params?.paneId) return deps.getTerminalState(me.paneId) ?? null
       const other = resolveExternal(params.paneId)
       return other ? (deps.getTerminalState(other.paneId) ?? null) : null
     })
 
     conn.onRequest('cwd.get', (): { cwd: string | null } => {
-      if (!authed) throw unauthenticatedError('call hello first')
-      if (!connHasCap(authed, 'read-board')) throw needsElevation('read-board')
-      const me = resolveExternal(authed.externalId)
-      if (!me) throw unauthenticatedError('unknown identity')
+      const me = requireIdentity('panes')
+      if (authed && !connHasCap(authed, 'read-board')) throw needsElevation('read-board')
       return { cwd: deps.getTerminalState(me.paneId)?.cwd ?? null }
     })
 
     for (const [name, m] of methods) {
       conn.onRequest(name, async (params: unknown) => {
+        const identity = requireIdentity(m.callers ?? 'panes')
         if (!authed) throw unauthenticatedError('call hello first')
         if (m.cap && !connHasCap(authed, m.cap)) throw needsElevation(m.cap)
-        const identity = resolveExternal(authed.externalId)
-        if (!identity) throw unauthenticatedError('unknown identity')
-        return m.handler(params, { identity, authed })
+        return m.handler(params, { identity, authed, conn })
       })
     }
 

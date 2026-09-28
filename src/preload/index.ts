@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
+  ExtensionInfo,
+  ExtensionOpenPanelRequest,
+  ExtensionPanelSource,
+  ExtensionResult,
+  ExtensionSidebarItem,
+} from '../shared/extensions'
+import type {
   AppInfo,
   CommandInvokeRequest,
   FsEntry,
@@ -9,20 +16,12 @@ import type {
   GatewayPairResult,
   GatewaySetCapResult,
   GatewayStatus,
-  KanbanBoard,
-  KanbanFailure,
-  KanbanMutateOp,
-  KanbanMutateResult,
   LspServerInfo,
   LspStartResult,
   NotificationEntry,
   PineBridge,
   Platform,
   PtyAttachResult,
-  WikiFailure,
-  WikiPage,
-  WikiPageSummary,
-  WikiScope,
   WorkspaceSnapshot,
 } from '../shared/types'
 
@@ -113,24 +112,31 @@ const bridge: PineBridge = {
       ipcRenderer.send('browser:register', paneId, webContentsId),
     unregister: (paneId) => ipcRenderer.send('browser:unregister', paneId),
   },
-  kanban: {
-    get: (workDir) =>
-      ipcRenderer.invoke('kanban:get', { workDir }) as Promise<KanbanBoard | KanbanFailure>,
-    mutate: (workDir, op: KanbanMutateOp) =>
-      ipcRenderer.invoke('kanban:mutate', { workDir, op }) as Promise<KanbanMutateResult>,
-  },
-  wiki: {
-    list: (params: { scope?: WikiScope; workDir: string }) =>
-      ipcRenderer.invoke('wiki:list', params) as Promise<{ pages: WikiPageSummary[] }>,
-    get: (params: { slug: string; scope?: WikiScope; workDir: string }) =>
-      ipcRenderer.invoke('wiki:get', params) as Promise<WikiPage | WikiFailure>,
-    set: (params: {
-      slug: string
-      body: string
-      title?: string
-      scope?: WikiScope
-      workDir: string
-    }) => ipcRenderer.invoke('wiki:set', params) as Promise<{ ok: true } | WikiFailure>,
+  extensions: {
+    list: () => ipcRenderer.invoke('extensions:list') as Promise<ExtensionInfo[]>,
+    setEnabled: (extId, enabled) =>
+      ipcRenderer.invoke('extensions:set-enabled', extId, enabled) as Promise<ExtensionInfo[]>,
+    approve: (extId) => ipcRenderer.invoke('extensions:approve', extId) as Promise<ExtensionInfo[]>,
+    invoke: (extId, command, target) =>
+      ipcRenderer.invoke('extensions:invoke', extId, command, target) as Promise<ExtensionResult>,
+    panel: (extId, context) =>
+      ipcRenderer.invoke('extensions:panel', extId, context) as Promise<ExtensionPanelSource>,
+    sidebarItems: () => ipcRenderer.invoke('extensions:sidebar') as Promise<ExtensionSidebarItem[]>,
+    onChanged: (cb) => {
+      const handler = (_e: unknown, list: ExtensionInfo[]): void => cb(list)
+      ipcRenderer.on('extensions:changed', handler)
+      return () => ipcRenderer.removeListener('extensions:changed', handler)
+    },
+    onSidebar: (cb) => {
+      const handler = (_e: unknown, items: ExtensionSidebarItem[]): void => cb(items)
+      ipcRenderer.on('extensions:sidebar', handler)
+      return () => ipcRenderer.removeListener('extensions:sidebar', handler)
+    },
+    onOpenPanel: (cb) => {
+      const handler = (_e: unknown, req: ExtensionOpenPanelRequest): void => cb(req)
+      ipcRenderer.on('extensions:open-panel', handler)
+      return () => ipcRenderer.removeListener('extensions:open-panel', handler)
+    },
   },
   gateway: {
     enable: (opts) => ipcRenderer.invoke('gateway:enable', opts) as Promise<GatewayEnableResult>,

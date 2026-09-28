@@ -41,6 +41,10 @@ export function initCaps(externalId: string): Set<Capability> {
   return set
 }
 
+export function setCaps(externalId: string, caps: readonly Capability[]): void {
+  grants.set(externalId, new Set(caps))
+}
+
 export function grant(externalId: string, cap: Capability): void {
   initCaps(externalId).add(cap)
 }

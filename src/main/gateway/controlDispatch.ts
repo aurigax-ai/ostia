@@ -1,4 +1,5 @@
 import type { Capability } from '../../shared/capabilities'
+import type { ExtensionResult } from '../../shared/extensions'
 import type {
   CommandDescriptor,
   CommandResult,
@@ -6,7 +7,6 @@ import type {
   TerminalStateSnapshot,
 } from '../../shared/types'
 import { resolveExternal } from '../idRegistry'
-import type { KanbanBoard, KanbanCard, KanbanUpdateResult, NoProjectWorkDir } from '../kanban'
 import type { PaneEntry, SessionEntry } from '../paneList'
 
 export interface GatewayControlDeps {
@@ -15,12 +15,13 @@ export interface GatewayControlDeps {
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   listPanes: () => Promise<PaneEntry[]>
   listSessions: () => Promise<SessionEntry[]>
-  kanbanGet: (sessionId: string) => KanbanBoard | NoProjectWorkDir
-  kanbanUpdate: (
+  invokeExtension: (
+    extId: string,
+    command: string,
+    args: unknown,
     sessionId: string,
-    cardId: string,
-    patch: Partial<Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>>,
-  ) => KanbanUpdateResult
+    capabilities: Capability[],
+  ) => Promise<ExtensionResult>
   primaryWindowId: () => string | undefined
   attachPhoneObserver: (
     rendererPaneId: string,
@@ -70,6 +71,13 @@ function resolveTarget(target: unknown, primaryWindowId: string | undefined): Co
   const identity = resolveExternal(target)
   if (!identity) return null
   return { windowId: identity.windowId, sessionId: identity.sessionId, paneId: identity.paneId }
+}
+
+const BOARD_EXTENSION = 'kanban'
+
+function boardOutcome(res: ExtensionResult): RpcOutcome {
+  if (!res.ok) return { ok: true, result: res }
+  return { ok: true, result: res.data ?? { ok: true } }
 }
 
 async function resolveBoardSessionId(
@@ -162,19 +170,30 @@ export async function dispatchGatewayMethod(
       if (!hasCap('board.read')) return needsElevation('board.read')
       const sessionId = await resolveBoardSessionId(p.scope, deps)
       if (!sessionId) return { ok: true, result: { columns: [], cards: [] } }
-      return { ok: true, result: deps.kanbanGet(sessionId) }
+      return boardOutcome(
+        await deps.invokeExtension(
+          BOARD_EXTENSION,
+          'get',
+          {},
+          sessionId,
+          PHONE_CAP_ALLOWS['board.read'] ?? [],
+        ),
+      )
     }
 
     case 'board.update': {
       if (!hasCap('board.write')) return needsElevation('board.write')
       const cardId = p.cardId
       if (typeof cardId !== 'string' || !cardId) return invalidParams('missing cardId')
-      const patch = (p.patch ?? {}) as Partial<
-        Pick<KanbanCard, 'title' | 'body' | 'column' | 'assignee'>
-      >
+      const patch = typeof p.patch === 'object' && p.patch !== null ? p.patch : {}
       const sessionId = await resolveBoardSessionId(p.scope, deps)
       if (!sessionId) return invalidParams('no session available')
-      return { ok: true, result: deps.kanbanUpdate(sessionId, cardId, patch) }
+      return boardOutcome(
+        await deps.invokeExtension(BOARD_EXTENSION, 'update', { cardId, patch }, sessionId, [
+          ...(PHONE_CAP_ALLOWS['board.read'] ?? []),
+          ...(PHONE_CAP_ALLOWS['board.write'] ?? []),
+        ]),
+      )
     }
 
     default:

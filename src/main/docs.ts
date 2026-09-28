@@ -1,3 +1,4 @@
+import type { ExtensionInfo } from '../shared/extensions'
 import { registerControlMethod } from './controlServer'
 
 const CLI_HELP = `pine — control-socket CLI
@@ -22,17 +23,6 @@ const CLI_HELP = `pine — control-socket CLI
   pine vault get <KEY> [--global]  print a stored secret
   pine vault ls [--global]         list stored secret keys (never values)
   pine vault rm <KEY> [--global]   delete a stored secret
-  pine wiki get <slug> [--global]     print a wiki page's body
-  pine wiki set <slug> [--global]     upsert a wiki page (body read from stdin)
-  pine wiki ls [--global]             list wiki pages
-  pine wiki search <q> [--global]     search wiki pages by title/body
-  pine wiki rm <slug> [--global]      delete a wiki page
-  pine kanban ls                             list board columns + cards
-  pine kanban add "<title>" [--column X] [--body ...]   add a card
-  pine kanban move <id> <column>              move a card to a column
-  pine kanban assign <id> <who>               assign a card
-  pine kanban done <id>                       move a card to 'done'
-  pine kanban rm <id>                         delete a card
   pine bus send <toExternalId> "<msg>"        send a message to another pane's inbox
   pine bus inbox [--drain]                    print your inbox (optionally clearing it)
   pine bus wait [--timeout MS]                block until a message arrives (default 30s)
@@ -102,6 +92,9 @@ const CLI_HELP = `pine — control-socket CLI
   pine gateway devices                       list paired phones (never prints tokens; caps are granted only in Settings → Remote)
   pine gateway revoke <deviceId>              revoke a paired phone immediately
   pine gateway disable                       turn off the LAN control gateway
+  pine ext ls                    list enabled extensions and their commands
+  pine ext <extId> <command> [args...]   run an extension command
+  pine <extId> <command> [args...]       same, when <extId> isn't a built-in verb
   pine docs                      show this help
 
   Selectors anywhere above also accept an @eN/eN ref from snapshot/find (refs are valid
@@ -111,10 +104,27 @@ const CLI_HELP = `pine — control-socket CLI
                                   optional JSON-encoded args blob
 `
 
-export function registerDocsMethods(): void {
+export function extensionHelp(
+  extensions: Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[],
+): string {
+  const lines: string[] = []
+  for (const ext of extensions) {
+    if (ext.commands.length === 0) continue
+    lines.push('', `  ${ext.name} (extension '${ext.id}'):`)
+    for (const cmd of ext.commands) {
+      const usage = `pine ${ext.id} ${cmd.usage ?? cmd.id}`
+      lines.push(`  ${usage.padEnd(52)} ${cmd.title}`)
+    }
+  }
+  return lines.join('\n')
+}
+
+export function registerDocsMethods(deps: {
+  extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[]
+}): void {
   registerControlMethod('docs', {
     handler: () => ({
-      cli: CLI_HELP,
+      cli: `${CLI_HELP}${extensionHelp(deps.extensions())}`,
       note: 'run `pine commands --json` for the machine-readable command list',
     }),
   })

@@ -155,6 +155,20 @@ Board is per-project only (no `--global`) — same sharing rule as the wiki. Col
 are seeded as `todo`/`doing`/`done` on first use; `add`/`move` reject an unknown
 column id (`unknown-column`) rather than silently creating one.
 
+## Extensions — commands contributed by extensions
+
+```sh
+pine ext ls                          # enabled extensions + their commands (also appended to `pine docs`)
+pine ext <extId> <command> [args]    # run an extension command
+pine <extId> <command> [args]        # same, when <extId> isn't a core verb (this is how `pine kanban`/`pine wiki` work)
+```
+
+Wiki and kanban are built-in extensions, so the commands above behave exactly as documented.
+If the user disabled one in Settings → Plugins you'll get `extension-disabled`; don't try to
+enable it yourself (there is no verb for that — only the human approves/enables extensions).
+`extension-unavailable` means its process didn't start or crashed; retry once, then tell the
+user. Third-party extensions show up the same way — check `pine ext ls` before assuming a verb.
+
 ## Bus — cross-agent messages & handoffs
 
 ```sh

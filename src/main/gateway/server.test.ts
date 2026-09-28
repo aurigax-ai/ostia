@@ -56,8 +56,7 @@ const deps = {
   getTerminalState: vi.fn(),
   listPanes: vi.fn().mockResolvedValue([]),
   listSessions: vi.fn().mockResolvedValue([]),
-  kanbanGet: vi.fn(),
-  kanbanUpdate: vi.fn(),
+  invokeExtension: vi.fn(),
   primaryWindowId: vi.fn().mockReturnValue('w1'),
   attachPhoneObserver: vi.fn().mockImplementation(() => ({
     cursor: 7,
