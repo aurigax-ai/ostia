@@ -1,3 +1,4 @@
+import { IconContext } from '@phosphor-icons/react'
 import { useEffect } from 'react'
 import { commands } from './commands/registry'
 import { CommandPalette } from './components/CommandPalette'
@@ -13,6 +14,8 @@ import { useMotionAttribute } from './lib/motion'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/schema'
 import { usePluginsStore } from './stores/pluginsStore'
+
+const ICON_STYLE = { weight: 'regular' } as const
 import { useSettingsStore } from './stores/settingsStore'
 
 const SANS_FALLBACK =
@@ -64,16 +67,18 @@ export function App(): JSX.Element {
   }, [])
 
   return (
-    <TooltipProvider delay={350}>
-      <div className={`app${isMac ? ' is-mac' : ''}`}>
-        <TopBar />
-        <DeckRail />
-        <WorkZone />
-        <WindowControls />
-        <CommandPalette />
-        <ExtensionApprovalDialog />
-        <HistorySearch />
-      </div>
-    </TooltipProvider>
+    <IconContext.Provider value={ICON_STYLE}>
+      <TooltipProvider delay={350}>
+        <div className={`app${isMac ? ' is-mac' : ''}`}>
+          <TopBar />
+          <DeckRail />
+          <WorkZone />
+          <WindowControls />
+          <CommandPalette />
+          <ExtensionApprovalDialog />
+          <HistorySearch />
+        </div>
+      </TooltipProvider>
+    </IconContext.Provider>
   )
 }

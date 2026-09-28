@@ -1,5 +1,5 @@
+import { GlobeIcon, TerminalWindowIcon } from '@phosphor-icons/react'
 import { Allotment } from 'allotment'
-import { Globe, Terminal } from 'lucide-react'
 import { useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
@@ -64,7 +64,7 @@ function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
   return (
     <div className="workspace-empty">
       <button type="button" className="rail-add" onClick={() => ensure(workspaceId)}>
-        <Terminal size={14} />
+        <TerminalWindowIcon size={14} />
         <span>{d.pane.newTerminal}</span>
       </button>
       <button
@@ -72,7 +72,7 @@ function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
         className="rail-add"
         onClick={() => openBrowser(workspaceId, 'about:blank')}
       >
-        <Globe size={14} />
+        <GlobeIcon size={14} />
         <span>{d.pane.newBrowser}</span>
       </button>
     </div>

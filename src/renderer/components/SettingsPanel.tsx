@@ -1,20 +1,19 @@
+import {
+  ArrowsClockwiseIcon,
+  DeviceMobileIcon,
+  HardDrivesIcon,
+  type Icon as IconComponent,
+  InfoIcon,
+  MagnifyingGlassIcon,
+  PaletteIcon,
+  StackIcon,
+  TerminalWindowIcon,
+  TranslateIcon,
+  TreeStructureIcon,
+} from '@phosphor-icons/react'
 import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo } from '@shared/types'
-import {
-  Boxes,
-  FolderTree,
-  Info,
-  Languages,
-  type LucideIcon,
-  Palette,
-  RefreshCw,
-  Search,
-  Server,
-  Smartphone,
-  SquareTerminal,
-  TerminalSquare,
-} from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
@@ -81,16 +80,16 @@ export function SettingsPanel(): JSX.Element | null {
   const sections = useMemo(
     () =>
       [
-        { id: 'appearance', icon: Palette, label: d.settings.appearance },
-        { id: 'terminal', icon: TerminalSquare, label: d.settings.terminal },
-        { id: 'files', icon: FolderTree, label: d.settings.files },
-        { id: 'plugins', icon: Boxes, label: d.settings.plugins },
-        { id: 'languageServers', icon: Server, label: d.settings.languageServers },
-        { id: 'remote', icon: Smartphone, label: d.settings.remote },
-        { id: 'sync', icon: RefreshCw, label: d.sync.title },
-        { id: 'language', icon: Languages, label: d.settings.language },
-        { id: 'about', icon: Info, label: d.settings.about },
-      ] satisfies { id: SectionId; icon: LucideIcon; label: string }[],
+        { id: 'appearance', icon: PaletteIcon, label: d.settings.appearance },
+        { id: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
+        { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
+        { id: 'plugins', icon: StackIcon, label: d.settings.plugins },
+        { id: 'languageServers', icon: HardDrivesIcon, label: d.settings.languageServers },
+        { id: 'remote', icon: DeviceMobileIcon, label: d.settings.remote },
+        { id: 'sync', icon: ArrowsClockwiseIcon, label: d.sync.title },
+        { id: 'language', icon: TranslateIcon, label: d.settings.language },
+        { id: 'about', icon: InfoIcon, label: d.settings.about },
+      ] satisfies { id: SectionId; icon: IconComponent; label: string }[],
     [d],
   )
 
@@ -114,7 +113,7 @@ export function SettingsPanel(): JSX.Element | null {
         <nav ref={navRef} className="flex min-h-0 flex-col border-line border-r bg-surface-1">
           <InputGroup className="m-2 h-7 w-auto">
             <InputGroupAddon>
-              <Search />
+              <MagnifyingGlassIcon />
             </InputGroupAddon>
             <InputGroupInput
               value={query}
@@ -145,7 +144,7 @@ export function SettingsPanel(): JSX.Element | null {
             </ul>
           </ScrollArea>
           <Button variant="outline" size="sm" onClick={openSettingsFile} className="m-2">
-            <SquareTerminal data-icon="inline-start" />
+            <TerminalWindowIcon data-icon="inline-start" />
             {d.settings.openFile}
           </Button>
         </nav>

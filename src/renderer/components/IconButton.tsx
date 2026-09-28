@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import type { LucideIcon } from 'lucide-react'
+import type { Icon as IconComponent } from '@phosphor-icons/react'
 import { type ButtonHTMLAttributes, forwardRef } from 'react'
 import { Hint } from './Hint'
 import { buttonVariants } from './ui/button'
@@ -10,7 +10,7 @@ export type IconButtonSize = keyof typeof BUTTON_SIZE
 
 export interface IconButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'aria-label' | 'type'> {
-  icon: LucideIcon
+  icon: IconComponent
   label: string
   size?: IconButtonSize
   hintSide?: 'top' | 'bottom' | 'left' | 'right'

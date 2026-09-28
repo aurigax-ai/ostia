@@ -1,4 +1,4 @@
-import { Code, Eye } from 'lucide-react'
+import { CodeIcon, EyeIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
@@ -192,7 +192,7 @@ export function EditorView({
       {markdown ? (
         <IconButton
           className="editor-mode"
-          icon={preview ? Code : Eye}
+          icon={preview ? CodeIcon : EyeIcon}
           label={preview ? d.editor.editSource : d.editor.preview}
           aria-pressed={preview}
           hintSide="left"

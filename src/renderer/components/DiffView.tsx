@@ -1,4 +1,4 @@
-import { Columns2, ExternalLink, Rows2 } from 'lucide-react'
+import { ArrowSquareOutIcon, ColumnsIcon, RowsIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { registerEditorPosition } from '../lib/editorPositions'
@@ -88,12 +88,16 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
           <span className="diff-title">{content?.title ?? ''}</span>
         )}
         <IconButton
-          icon={inline ? Columns2 : Rows2}
+          icon={inline ? ColumnsIcon : RowsIcon}
           label={inline ? d.diff.sideBySide : d.diff.inline}
           onClick={() => setInline((v) => !v)}
         />
         {content?.path ? (
-          <IconButton icon={ExternalLink} label={d.editor.openExternal} onClick={external.open} />
+          <IconButton
+            icon={ArrowSquareOutIcon}
+            label={d.editor.openExternal}
+            onClick={external.open}
+          />
         ) : null}
       </div>
       <div className="diff-body">

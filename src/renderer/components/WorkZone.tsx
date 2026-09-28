@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { PlusIcon } from '@phosphor-icons/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { chordLabel } from '../lib/chords'
@@ -85,7 +85,7 @@ function NoWorkspaces(): JSX.Element {
           addWorkspace()
         }}
       >
-        <Plus data-icon="inline-start" />
+        <PlusIcon data-icon="inline-start" />
         {d.rail.newWorkspace}
         <kbd className="workzone-empty-kbd">{NEW_WORKSPACE_KEYS}</kbd>
       </Button>

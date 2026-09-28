@@ -27,7 +27,7 @@ caused real bugs here.
 - Enforced: `pnpm lint` runs `node scripts/comments.mjs --check` and fails on any comment.
   `node scripts/comments.mjs` (no flag) strips them.
 - Generated shadcn files in `src/renderer/components/ui/**` are exempt; hand-edit them only to
-  swap animation classes (§5 Motion).
+  swap animation classes (§5 Motion) or their icons to Phosphor (§5 UI).
 - Strings are not comments: `#` lines inside the generated shell rc templates stay.
 
 ---
@@ -269,6 +269,8 @@ Details: `docs/ARCHITECTURE.md`.
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
   selects, dialogs, tooltips. Tokens and type scale in `docs/DESIGN.md`; never hardcode colors or
   off-scale font sizes. `--fg-dim` is never used for text. Icon-only buttons are `IconButton`.
+  Icons come only from `@phosphor-icons/react` (`*Icon` names; weight set once by `IconContext`
+  in `App.tsx`, never per icon). No other icon family and no hand-drawn SVG icons.
 - **Motion:** overlays built on `components/ui/` get `motion-overlay` (or `motion-hint` for
   tooltips) and animate through Base UI's `data-starting-style`/`data-ending-style`; don't add
   tw-animate `animate-in`/`zoom-*`/`slide-*` classes. No scale on press, springs, bounces,

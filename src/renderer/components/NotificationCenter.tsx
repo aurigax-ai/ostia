@@ -1,5 +1,5 @@
+import { BellIcon } from '@phosphor-icons/react'
 import type { NotificationEntry } from '@shared/types'
-import { Bell } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { openExtensionPanel } from '../commands/extensionBridge'
 import { fmt, useDict } from '../i18n/useDict'
@@ -84,7 +84,7 @@ export function NotificationCenter(): JSX.Element {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <span className="bell-wrap">
-        <PopoverTrigger render={<IconButton size="bar" icon={Bell} label={label} />} />
+        <PopoverTrigger render={<IconButton size="bar" icon={BellIcon} label={label} />} />
         {unread > 0 ? (
           <span className="bell-count" aria-hidden="true">
             {unread > 99 ? '99+' : unread}

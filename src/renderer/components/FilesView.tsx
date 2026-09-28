@@ -1,5 +1,5 @@
+import { CaretRightIcon } from '@phosphor-icons/react'
 import type { FsEntry } from '@shared/types'
-import { ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
@@ -38,7 +38,7 @@ export function FilesView(): JSX.Element {
               key={segments.slice(0, i + 1).join('/')}
               className={`crumb${i === segments.length - 1 ? ' current' : ''}`}
             >
-              {i > 0 ? <ChevronRight size={12} className="crumb-sep" /> : null}
+              {i > 0 ? <CaretRightIcon size={12} className="crumb-sep" /> : null}
               {seg}
             </span>
           ))}
@@ -98,7 +98,7 @@ function Row({ entry, path, depth }: { entry: FsEntry; path: string; depth: numb
         }}
       >
         {entry.dir ? (
-          <ChevronRight size={12} className={`file-twisty${open ? ' open' : ''}`} />
+          <CaretRightIcon size={12} className={`file-twisty${open ? ' open' : ''}`} />
         ) : (
           <span className="file-twisty-spacer" />
         )}

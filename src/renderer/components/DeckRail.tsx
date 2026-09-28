@@ -1,14 +1,14 @@
 import {
-  Bot,
-  Boxes,
-  FlaskConical,
-  FolderTree,
-  type LucideIcon,
-  Plus,
-  Settings,
-  Terminal,
-  X,
-} from 'lucide-react'
+  FlaskIcon,
+  GearSixIcon,
+  type Icon as IconComponent,
+  PlusIcon,
+  RobotIcon,
+  StackIcon,
+  TerminalWindowIcon,
+  TreeStructureIcon,
+  XIcon,
+} from '@phosphor-icons/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
@@ -31,10 +31,10 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { extensionIcon } from './extensionIcons'
 
-const KIND_ICON: Record<WorkspaceKind, LucideIcon> = {
-  agent: Bot,
-  terminal: Terminal,
-  scratch: FlaskConical,
+const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
+  agent: RobotIcon,
+  terminal: TerminalWindowIcon,
+  scratch: FlaskIcon,
 }
 
 export function DeckRail(): JSX.Element {
@@ -49,7 +49,7 @@ export function DeckRail(): JSX.Element {
         <IconButton
           size="bar"
           hintSide="right"
-          icon={Boxes}
+          icon={StackIcon}
           label={d.rail.workspaces}
           aria-pressed={view === 'workspaces'}
           onClick={() => setView('workspaces')}
@@ -57,7 +57,7 @@ export function DeckRail(): JSX.Element {
         <IconButton
           size="bar"
           hintSide="right"
-          icon={FolderTree}
+          icon={TreeStructureIcon}
           label={d.rail.files}
           aria-pressed={view === 'files'}
           onClick={() => setView('files')}
@@ -92,7 +92,7 @@ function WorkspacesView(): JSX.Element {
             onSelect={openSettings}
             onClose={closeSettings}
             closeLabel={d.rail.close}
-            icon={<Settings size={14} className="tab-lead" />}
+            icon={<GearSixIcon size={14} className="tab-lead" />}
             title={d.topbar.settings}
           />
         ) : null}
@@ -136,7 +136,7 @@ function WorkspacesView(): JSX.Element {
             addWorkspace()
           }}
         >
-          <Plus size={14} />
+          <PlusIcon size={14} />
           <span>{d.rail.newWorkspace}</span>
         </button>
       </Hint>
@@ -332,7 +332,7 @@ function TabRow({
         {badge}
       </button>
       <span className="tab-actions">
-        <IconButton icon={X} label={closeLabel} hintSide="right" onClick={onClose} />
+        <IconButton icon={XIcon} label={closeLabel} hintSide="right" onClick={onClose} />
       </span>
     </div>
   )
