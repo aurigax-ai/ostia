@@ -163,7 +163,7 @@ export interface SnapshotSession {
 export interface WorkspaceSnapshot {
   v: 1
   savedAt: string
-  activeSessionId: string
+  activeSessionId: string | null
   sessions: SnapshotSession[]
 }
 

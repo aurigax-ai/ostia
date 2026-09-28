@@ -15,6 +15,11 @@ import {
   syncSessionState,
 } from './sessionActivity'
 
+function homeSessionId(): string {
+  if (useSessionsStore.getState().sessions.length === 0) useSessionsStore.getState().addSession()
+  return useSessionsStore.getState().sessions[0].id
+}
+
 describe('shouldNotifyCommandEnd', () => {
   it('notifies only for long commands while the window is unfocused', () => {
     expect(shouldNotifyCommandEnd(NOTIFY_AFTER_MS, false)).toBe(true)
@@ -49,7 +54,7 @@ describe('session activity + attention', () => {
   })
 
   const setup = (): { sessionId: string; panes: string[] } => {
-    const sessionId = useSessionsStore.getState().sessions[0].id
+    const sessionId = homeSessionId()
     useLayoutStore.getState().ensure(sessionId)
     const first = useLayoutStore.getState().bySession[sessionId].activePaneId
     useLayoutStore.getState().split(sessionId, first, 'horizontal')
@@ -59,6 +64,23 @@ describe('session activity + attention', () => {
   }
   const stateOf = (id: string) =>
     useSessionsStore.getState().sessions.find((s) => s.id === id)?.state
+
+  it('keeps attention sync quiet with zero sessions, then tracks the first session opened', () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const stop = startAttentionSync()
+    window.dispatchEvent(new Event('focus'))
+    expect(isPaneViewed('pane-1')).toBe(false)
+    expect(jumpToLatestUnread()).toBeNull()
+
+    useSessionsStore.getState().addSession()
+    const sessionId = homeSessionId()
+    const paneId = useLayoutStore.getState().bySession[sessionId].activePaneId
+    useSessionsStore.getState().closeSession(sessionId)
+    stop()
+
+    expect(useSessionsStore.getState().sessions).toEqual([])
+    expect(useAttentionStore.getState().byPane[paneId]).toBeUndefined()
+  })
 
   it('marks the session working while any of its panes runs, idle when all finish', () => {
     const { sessionId, panes } = setup()

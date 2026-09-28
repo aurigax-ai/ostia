@@ -370,3 +370,46 @@ describe('pane.list / session.list', () => {
     }
   })
 })
+
+describe('builtins with zero sessions', () => {
+  it('gives commands a context with no session and no pane', async () => {
+    expect(await commands.exec('pane.list', { allSessions: true })).toEqual({
+      ok: true,
+      result: [],
+    })
+    expect(await commands.exec('pane.list')).toEqual({ ok: true, result: [] })
+    expect(await commands.exec('session.list')).toEqual({ ok: true, result: [] })
+  })
+
+  it('runs pane commands as no-ops instead of throwing or creating a session', async () => {
+    for (const id of [
+      'pane.splitRight',
+      'pane.splitDown',
+      'pane.close',
+      'pane.zoom',
+      'browser.open',
+    ]) {
+      expect(await commands.exec(id)).toEqual({ ok: true, result: undefined })
+    }
+    expect(await commands.exec('block.selectNext')).toEqual({ ok: true, result: { blockId: null } })
+    expect(await commands.exec('history.insert', { command: 'ls' })).toEqual({
+      ok: true,
+      result: { inserted: false },
+    })
+    expect(useSessionsStore.getState().sessions).toEqual([])
+    expect(useLayoutStore.getState().bySession).toEqual({})
+  })
+
+  it('opens a terminal session at home with session.new', async () => {
+    const res = await commands.exec('session.new')
+
+    expect(res.ok).toBe(true)
+    const [only] = useSessionsStore.getState().sessions
+    expect(only).toMatchObject({ workDir: '~', name: 'home' })
+    expect(useSessionsStore.getState().activeSessionId).toBe(only.id)
+    expect(useLayoutStore.getState().bySession[only.id]?.root).toMatchObject({
+      type: 'pane',
+      kind: 'terminal',
+    })
+  })
+})

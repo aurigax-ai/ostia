@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
+import { openFileInWorkspace } from '../lib/openFile'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -12,7 +13,7 @@ import { fileIcon } from './fileIcon'
 function useFocusedCwd(): string {
   const sessionId = useSessionsStore((s) => s.activeSessionId)
   const anchor = useSessionsStore((s) => s.sessions.find((c) => c.id === sessionId)?.workDir ?? '~')
-  const layout = useLayoutStore((s) => s.bySession[sessionId])
+  const layout = useLayoutStore((s) => (sessionId ? s.bySession[sessionId] : undefined))
   return layout ? (findPane(layout.root, layout.activePaneId)?.cwd ?? anchor) : anchor
 }
 
@@ -90,8 +91,7 @@ function Row({ entry, path, depth }: { entry: FsEntry; path: string; depth: numb
           if (entry.dir) {
             setOpen((o) => !o)
           } else {
-            const sessionId = useSessionsStore.getState().activeSessionId
-            useLayoutStore.getState().openFile(sessionId, childPath(path, entry.name))
+            openFileInWorkspace(childPath(path, entry.name))
           }
         }}
       >
