@@ -1,9 +1,9 @@
-import type { WorkspaceSnapshot } from '@shared/types'
+import type { SessionLiveState, WorkspaceSnapshot } from '@shared/types'
 import { create } from 'zustand'
 import { restoreWorkspace } from '../layout/snapshot'
 import { useLayoutStore } from './layoutStore'
 
-export type SessionState = 'idle' | 'working' | 'waiting' | 'done'
+export type SessionState = SessionLiveState
 
 export type SessionKind = 'agent' | 'terminal' | 'scratch'
 

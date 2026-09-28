@@ -29,6 +29,17 @@ describe('matchChord', () => {
     expect(matchChord(key(',', { ctrlKey: true }), false)).toBe('app.openSettings')
   })
 
+  it('maps jump-to-latest-unread to Ctrl+Shift+U and Cmd+Shift+U as an app chord', () => {
+    const ctrlShiftU = matchChord(key('U', { ctrlKey: true, shiftKey: true }), false)
+    const cmdShiftU = matchChord(key('u', { metaKey: true, shiftKey: true }), true)
+    expect(ctrlShiftU).toBe('attention.jumpToLatest')
+    expect(cmdShiftU).toBe('attention.jumpToLatest')
+    expect(isAppChord(ctrlShiftU)).toBe(true)
+    expect(matchChord(key('u', { ctrlKey: true }), false)).toBeNull()
+    expect(chordLabel('attention.jumpToLatest', false)).toBe('Ctrl+Shift+U')
+    expect(chordLabel('attention.jumpToLatest', true)).toBe('⌘⇧U')
+  })
+
   it('maps bare Cmd chords on macOS and ignores Ctrl there', () => {
     const cmd = { metaKey: true }
     expect(matchChord(key('k', cmd), true)).toBe('palette.toggle')

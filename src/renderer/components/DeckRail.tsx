@@ -10,7 +10,11 @@ import {
   X,
 } from 'lucide-react'
 import type { Dict } from '../i18n/dict'
-import { useDict } from '../i18n/useDict'
+import { fmt, useDict } from '../i18n/useDict'
+import { paneIds } from '../layout/tree'
+import { unreadCount } from '../lib/attention'
+import { useAttentionStore } from '../stores/attentionStore'
+import { useLayoutStore } from '../stores/layoutStore'
 import {
   type Session,
   type SessionKind,
@@ -104,6 +108,7 @@ function SessionsView(): JSX.Element {
                 <span className="tab-branch">{s.workDir}</span>
               </span>
             }
+            badge={<UnreadBadge sessionId={s.id} />}
           />
         ))}
       </div>
@@ -131,6 +136,7 @@ function stateLabel(d: Dict, state: SessionState): string {
     working: d.rail.stateWorking,
     waiting: d.rail.stateWaiting,
     done: d.rail.stateDone,
+    error: d.rail.stateError,
   }
   return labels[state]
 }
@@ -150,6 +156,18 @@ function SessionIcon({ session }: { session: Session }): JSX.Element {
   )
 }
 
+function UnreadBadge({ sessionId }: { sessionId: string }): JSX.Element | null {
+  const d = useDict()
+  const root = useLayoutStore((s) => s.bySession[sessionId]?.root)
+  const n = useAttentionStore((s) => (root ? unreadCount(s.byPane, paneIds(root)) : 0))
+  if (n === 0) return null
+  return (
+    <span className="unread-badge" role="img" aria-label={fmt(d.rail.unread, { n })}>
+      {n > 99 ? '99+' : n}
+    </span>
+  )
+}
+
 function TabRow({
   active,
   onSelect,
@@ -158,6 +176,7 @@ function TabRow({
   icon,
   title,
   meta,
+  badge,
 }: {
   active: boolean
   onSelect: () => void
@@ -166,6 +185,7 @@ function TabRow({
   icon: React.ReactNode
   title: string
   meta?: React.ReactNode
+  badge?: React.ReactNode
 }): JSX.Element {
   return (
     <div className={`rail-tab${active ? ' active' : ''}`}>
@@ -175,6 +195,7 @@ function TabRow({
           <span className="tab-title">{title}</span>
           {meta}
         </span>
+        {badge}
       </button>
       <span className="tab-actions">
         <IconButton icon={X} label={closeLabel} hintSide="right" onClick={onClose} />

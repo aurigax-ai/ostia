@@ -82,6 +82,13 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       devices: vi.fn().mockResolvedValue({ devices: [] }),
       revoke: vi.fn().mockResolvedValue({ ok: true }),
     },
+    notifications: {
+      list: vi.fn().mockResolvedValue([]),
+      post: vi.fn(),
+      clear: vi.fn(),
+      onChanged: vi.fn(noopUnsub),
+      onActivate: vi.fn(noopUnsub),
+    },
   }
   return { ...base, ...overrides }
 }

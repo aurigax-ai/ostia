@@ -10,11 +10,13 @@ import {
   Terminal,
   X,
 } from 'lucide-react'
-import { type DragEvent, useCallback, useRef } from 'react'
+import { type DragEvent, useCallback, useEffect, useRef } from 'react'
 import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
 import type { DropZone } from '../layout/tree'
 import type { PaneNode, SurfaceKind } from '../layout/types'
+import { needsRing } from '../lib/attention'
+import { useAttentionStore } from '../stores/attentionStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { usePaneDnd } from '../stores/paneDndStore'
 import { mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
@@ -63,6 +65,23 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
   const dirty = useEditorStatus((s) =>
     pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
   )
+  const attention = useAttentionStore((s) => s.byPane[pane.id])
+  const ring = needsRing(attention)
+  const unread = attention?.unread ?? false
+  const frameRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+    const activate = (): void => {
+      if (!active) void commands.exec('pane.focus', { paneId: pane.id })
+    }
+    frame.addEventListener('mousedown', activate, true)
+    frame.addEventListener('focusin', activate)
+    return () => {
+      frame.removeEventListener('mousedown', activate, true)
+      frame.removeEventListener('focusin', activate)
+    }
+  }, [active, pane.id])
   const slotEl = useRef<HTMLElement | null>(null)
   const slotRef = useCallback(
     (el: HTMLElement | null) => {
@@ -93,8 +112,9 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
 
   return (
     <div
-      className={`pane${active ? ' active' : ''}`}
-      onMouseDownCapture={() => commands.exec('pane.focus', { paneId: pane.id })}
+      className={`pane${active ? ' active' : ''}${ring ? ' attn-ring' : ''}`}
+      data-attention={unread ? attention?.state : undefined}
+      ref={frameRef}
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
@@ -112,6 +132,16 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
           {dirty ? '• ' : ''}
           {pane.title}
         </span>
+        {unread ? (
+          <span className={`pane-attn${ring ? ' loud' : ''}`}>
+            <span
+              className="pane-attn-mark"
+              role="img"
+              aria-label={ring ? d.attention.needsYou : d.attention.unread}
+            />
+            {attention?.message ? <span className="pane-attn-msg">{attention.message}</span> : null}
+          </span>
+        ) : null}
         <div className="pane-actions">
           <IconButton
             icon={SplitSquareHorizontal}

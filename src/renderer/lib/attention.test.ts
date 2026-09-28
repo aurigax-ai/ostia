@@ -1,0 +1,210 @@
+import { describe, expect, it } from 'vitest'
+import {
+  EMPTY_ATTENTION,
+  KittyNotificationAssembler,
+  type PaneAttention,
+  aggregateSessionState,
+  latestUnread,
+  needsRing,
+  notificationMessage,
+  paneLiveState,
+  parseOsc9,
+  parseOsc99,
+  parseOsc777,
+  reduceAttention,
+  unreadCount,
+} from './attention'
+
+const at = 100
+const pane = (patch: Partial<PaneAttention> = {}): PaneAttention => ({
+  ...EMPTY_ATTENTION,
+  ...patch,
+})
+
+describe('reduceAttention', () => {
+  it('marks a pane unread when set to waiting, done or error, keeping the message', () => {
+    for (const state of ['waiting', 'done', 'error'] as const) {
+      expect(reduceAttention(pane(), { type: 'set', state, message: 'hi', at })).toEqual({
+        state,
+        unread: true,
+        message: 'hi',
+        at,
+      })
+    }
+  })
+
+  it('does not raise unread for working and clears everything on none', () => {
+    expect(reduceAttention(pane(), { type: 'set', state: 'working', at }).unread).toBe(false)
+    const cleared = reduceAttention(pane({ state: 'error', unread: true, message: 'x' }), {
+      type: 'set',
+      state: 'none',
+      at,
+    })
+    expect(cleared).toEqual({ state: 'none', unread: false, at })
+  })
+
+  it('keeps the previous message when the same state is set again without one', () => {
+    const prev = pane({ state: 'waiting', unread: true, message: 'approve?' })
+    expect(reduceAttention(prev, { type: 'set', state: 'waiting', at }).message).toBe('approve?')
+    expect(reduceAttention(prev, { type: 'set', state: 'done', at }).message).toBeUndefined()
+  })
+
+  it('turns a terminal notification into waiting + unread, or only unread for pine notify', () => {
+    const osc = reduceAttention(pane(), { type: 'notify', message: 'm', waiting: true, at })
+    expect(osc).toMatchObject({ state: 'waiting', unread: true, message: 'm' })
+    const cli = reduceAttention(pane({ state: 'working' }), {
+      type: 'notify',
+      message: 'm',
+      waiting: false,
+      at,
+    })
+    expect(cli).toMatchObject({ state: 'working', unread: true })
+  })
+
+  it('treats a bell as unread without changing the state', () => {
+    expect(reduceAttention(pane({ state: 'done' }), { type: 'bell', at })).toMatchObject({
+      state: 'done',
+      unread: true,
+    })
+  })
+
+  it('marks a failed command as error and a long successful one as done', () => {
+    expect(
+      reduceAttention(pane(), { type: 'commandEnd', exitCode: 2, long: false, at }),
+    ).toMatchObject({ state: 'error', unread: true })
+    expect(
+      reduceAttention(pane(), { type: 'commandEnd', exitCode: 0, long: true, at }),
+    ).toMatchObject({ state: 'done', unread: true })
+    const idle = pane()
+    expect(reduceAttention(idle, { type: 'commandEnd', exitCode: 0, long: false, at })).toBe(idle)
+  })
+
+  it('clears a stale agent state when a new command starts, keeping unread', () => {
+    const next = reduceAttention(pane({ state: 'error', unread: true }), {
+      type: 'commandStart',
+      at,
+    })
+    expect(next).toMatchObject({ state: 'none', unread: true })
+  })
+
+  it('drops waiting once the user types into the pane', () => {
+    expect(reduceAttention(pane({ state: 'waiting' }), { type: 'input', at }).state).toBe('none')
+    const done = pane({ state: 'done' })
+    expect(reduceAttention(done, { type: 'input', at })).toBe(done)
+  })
+
+  it('viewing clears unread and demotes done to none but keeps waiting and error', () => {
+    const view = { type: 'view', at } as const
+    expect(reduceAttention(pane({ state: 'done', unread: true }), view)).toMatchObject({
+      state: 'none',
+      unread: false,
+    })
+    expect(reduceAttention(pane({ state: 'waiting', unread: true }), view)).toMatchObject({
+      state: 'waiting',
+      unread: false,
+    })
+    expect(reduceAttention(pane({ state: 'error', unread: true }), view).state).toBe('error')
+    const quiet = pane({ state: 'working' })
+    expect(reduceAttention(quiet, view)).toBe(quiet)
+  })
+})
+
+describe('needsRing', () => {
+  it('rings only for unread waiting or error', () => {
+    expect(needsRing(pane({ state: 'waiting', unread: true }))).toBe(true)
+    expect(needsRing(pane({ state: 'error', unread: true }))).toBe(true)
+    expect(needsRing(pane({ state: 'waiting', unread: false }))).toBe(false)
+    expect(needsRing(pane({ state: 'done', unread: true }))).toBe(false)
+    expect(needsRing(undefined)).toBe(false)
+  })
+})
+
+describe('paneLiveState and aggregateSessionState', () => {
+  it('prefers an explicit attention state over the running flag', () => {
+    expect(paneLiveState(undefined, true)).toBe('working')
+    expect(paneLiveState(undefined, false)).toBe('idle')
+    expect(paneLiveState(pane({ state: 'done' }), true)).toBe('done')
+    expect(paneLiveState(pane({ state: 'none' }), true)).toBe('working')
+  })
+
+  it('ranks waiting > error > done > working > idle', () => {
+    expect(aggregateSessionState([])).toBe('idle')
+    expect(aggregateSessionState(['idle', 'working'])).toBe('working')
+    expect(aggregateSessionState(['working', 'done'])).toBe('done')
+    expect(aggregateSessionState(['done', 'error', 'working'])).toBe('error')
+    expect(aggregateSessionState(['error', 'waiting', 'done'])).toBe('waiting')
+  })
+})
+
+describe('unreadCount and latestUnread', () => {
+  const byPane = {
+    p1: pane({ unread: true, at: 5 }),
+    p2: pane({ unread: true, at: 9 }),
+    p3: pane({ unread: false, at: 20 }),
+    gone: pane({ unread: true, at: 99 }),
+  }
+
+  it('counts unread panes among the given ids', () => {
+    expect(unreadCount(byPane, ['p1', 'p2', 'p3'])).toBe(2)
+    expect(unreadCount(byPane, ['p3'])).toBe(0)
+  })
+
+  it('picks the most recent unread pane that still exists', () => {
+    expect(latestUnread(byPane, ['p1', 'p2', 'p3'])).toBe('p2')
+    expect(latestUnread(byPane, ['p3'])).toBeNull()
+  })
+})
+
+describe('OSC notification parsing', () => {
+  it('reads OSC 9 as a message but ignores ConEmu subcommands like progress', () => {
+    expect(parseOsc9('build finished')).toEqual({ title: 'build finished' })
+    expect(parseOsc9('4;1;50')).toBeNull()
+    expect(parseOsc9('9;/home/me')).toBeNull()
+    expect(parseOsc9('  ')).toBeNull()
+  })
+
+  it('reads OSC 777 notify with title and body', () => {
+    expect(parseOsc777('notify;Tests;all 42 passed')).toEqual({
+      title: 'Tests',
+      body: 'all 42 passed',
+    })
+    expect(parseOsc777('notify;Only title')).toEqual({ title: 'Only title' })
+    expect(parseOsc777('notify;;body only')).toEqual({ title: 'body only' })
+    expect(parseOsc777('notify;a;b;c')).toEqual({ title: 'a', body: 'b;c' })
+    expect(parseOsc777('preexec;x')).toBeNull()
+  })
+
+  it('reads kitty OSC 99 chunks, including base64 payloads', () => {
+    const decode = (b: string) => Buffer.from(b, 'base64').toString('utf8')
+    expect(parseOsc99(';hello', decode)).toEqual({
+      id: '0',
+      done: true,
+      part: 'title',
+      text: 'hello',
+    })
+    expect(parseOsc99('i=1:d=0:p=body;text', decode)).toEqual({
+      id: '1',
+      done: false,
+      part: 'body',
+      text: 'text',
+    })
+    expect(parseOsc99('e=1;aMOp', decode)?.text).toBe('hé')
+    expect(parseOsc99('p=icon;x', decode)).toBeNull()
+    expect(parseOsc99('no-separator', decode)).toBeNull()
+  })
+
+  it('assembles multi-chunk kitty notifications until d=1', () => {
+    const kitty = new KittyNotificationAssembler()
+    expect(kitty.push({ id: '7', done: false, part: 'title', text: 'Deploy' })).toBeNull()
+    expect(kitty.push({ id: '7', done: true, part: 'body', text: 'ready' })).toEqual({
+      title: 'Deploy',
+      body: 'ready',
+    })
+    expect(kitty.push({ id: '8', done: true, part: 'title', text: '' })).toBeNull()
+  })
+
+  it('formats a notification into a single message line', () => {
+    expect(notificationMessage({ title: 'a' })).toBe('a')
+    expect(notificationMessage({ title: 'a', body: 'b' })).toBe('a: b')
+  })
+})
