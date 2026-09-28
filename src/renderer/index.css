@@ -828,18 +828,106 @@
   z-index: 1;
 }
 
+.block-gutter {
+  position: absolute;
+  left: 0;
+  width: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 .block-bar {
   position: absolute;
+  top: 1px;
+  bottom: 1px;
   left: 1px;
   width: 3px;
   border-radius: 2px;
   background: var(--line-strong);
+  transition: background-color 120ms ease;
 }
 
 .block-bar.attn {
   left: 0;
   width: 5px;
   background: var(--attn);
+}
+
+.block-gutter:hover .block-bar,
+.block-gutter.selected .block-bar {
+  background: var(--brand);
+}
+
+.block-gutter.selected .block-bar.attn {
+  background: var(--attn);
+}
+
+.block-frame {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.block-sticky {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  padding: 0 10px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.block-sticky:hover {
+  background: var(--surface-3);
+}
+
+.block-sticky:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--focus-border);
+}
+
+.block-sticky-command {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.block-sticky-status {
+  flex: none;
+  color: var(--fg-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-ui-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.block-sticky-status.running {
+  color: var(--brand);
+}
+
+.block-sticky.attn .block-sticky-status {
+  color: var(--attn-fg);
 }
 
 .editor-host {
@@ -1294,4 +1382,29 @@
   width: 100%;
   height: 100%;
   border: 0;
+}
+
+.history-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.history-command {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.history-meta {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

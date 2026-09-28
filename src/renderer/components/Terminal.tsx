@@ -14,6 +14,8 @@ import {
   parseOsc99,
   parseOsc777,
 } from '../lib/attention'
+import { stepBlock } from '../lib/blockActions'
+import { readCommandText } from '../lib/blockText'
 import { isAppChord, matchChord } from '../lib/chords'
 import {
   isPaneViewed,
@@ -21,6 +23,7 @@ import {
   shouldNotifyCommandEnd,
   signalPane,
 } from '../lib/sessionActivity'
+import { registerTerminal } from '../lib/terminalHandles'
 import { isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
@@ -33,6 +36,7 @@ import { terminalPalette } from './terminalTheme'
 
 const MONO_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
 const fontStack = (family: string): string => `"${family}", ${MONO_FALLBACK}`
+const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 
 export function TerminalView({
   sessionId,
@@ -87,14 +91,23 @@ export function TerminalView({
     termRef.current = term
     fitRef.current = fit
     setSearch(searchAddon)
+    const unregisterTerminal = registerTerminal(paneId, term)
 
     term.attachCustomKeyEventHandler((e) => {
+      if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        const blocks = useBlocksStore.getState()
+        if (!blocks.selected[paneId]) return true
+        if (e.type === 'keydown') blocks.select(paneId, null)
+        return false
+      }
       const chord = matchChord(e, isMac)
       if (!chord) return true
       if (isMac && (chord === 'copy' || chord === 'paste')) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
       e.preventDefault()
       if (chord === 'find') setFindOpen(true)
+      else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
+      else if (chord === 'block.selectNext') stepBlock(paneId, 'next')
       else if (chord === 'copy') {
         const selection = term.getSelection()
         if (selection) void navigator.clipboard.writeText(selection)
@@ -127,7 +140,7 @@ export function TerminalView({
       const blocks = useBlocksStore.getState()
       const runningId = blocks.running[paneId]
       const block = runningId ? blocks.byPane[paneId]?.find((b) => b.id === runningId) : undefined
-      blocks.commandEnd(paneId, anchor(), exitCode)
+      blocks.commandEnd(paneId, anchor(), exitCode, term.buffer.active.cursorX)
       if (!block || replaying) return
       const long = shouldNotifyCommandEnd(Date.now() - block.startedAt, document.hasFocus())
       if (isPaneViewed(paneId) || (exitCode === 0 && !long)) return
@@ -198,8 +211,15 @@ export function TerminalView({
         inputCol = term.buffer.active.cursorX
         blocks.promptEnd(paneId, inputAnchor)
       } else if (kind === 'C') {
-        runningCommand = readInput(term, inputAnchor, inputCol)
-        blocks.commandStart(paneId, anchor())
+        const start = anchor()
+        runningCommand = inputAnchor
+          ? readCommandText(
+              term.buffer.active,
+              { line: inputAnchor.line, col: inputCol },
+              { line: start.line, col: term.buffer.active.cursorX },
+            )
+          : ''
+        blocks.commandStart(paneId, start, runningCommand)
         if (!replaying) {
           useAttentionStore.getState().dispatch(paneId, { type: 'commandStart', at: Date.now() })
         }
@@ -333,6 +353,9 @@ export function TerminalView({
 
     const input = term.onData((d) => {
       window.pine.pty.write(paneId, d)
+      if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
+        useBlocksStore.getState().select(paneId, null)
+      }
       if (useAttentionStore.getState().byPane[paneId]?.state === 'waiting') {
         useAttentionStore.getState().dispatch(paneId, { type: 'input', at: Date.now() })
       }
@@ -372,6 +395,7 @@ export function TerminalView({
       bell.dispose()
       promptMarker?.dispose()
       disposeMarkers()
+      unregisterTerminal()
       useBlocksStore.getState().dropPane(paneId)
       window.pine.pty.detach(paneId)
       term.dispose()
@@ -429,11 +453,6 @@ export function TerminalView({
       )}
     </>
   )
-}
-
-function readInput(term: Xterm, input: LineAnchor | null, col: number): string {
-  if (!input || input.line < 0) return ''
-  return term.buffer.active.getLine(input.line)?.translateToString(true, col).trim() ?? ''
 }
 
 function decodeBase64Utf8(b64: string): string {
