@@ -192,4 +192,15 @@ describe('extensionBridge', () => {
     const root = useLayoutStore.getState().bySession.s1.root
     expect(findPane(root, id as string)?.cwd).toBe('/repo/src')
   })
+
+  it('opens no panel or diff and creates no session when there are no sessions', () => {
+    useExtensionsStore.setState({ list: [ext()] })
+
+    openExtensionPanel({ extId: 'demo' })
+    const diff = openExtensionDiff({ extId: 'vcs', title: 'a.ts', original: '', modified: '' })
+
+    expect(diff).toBeNull()
+    expect(useSessionsStore.getState().sessions).toEqual([])
+    expect(useLayoutStore.getState().bySession).toEqual({})
+  })
 })

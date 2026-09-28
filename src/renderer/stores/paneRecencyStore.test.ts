@@ -4,6 +4,11 @@ import { useLayoutStore } from './layoutStore'
 import { startPaneRecencySync, usePaneRecencyStore } from './paneRecencyStore'
 import { useSessionsStore } from './sessionsStore'
 
+function homeSessionId(): string {
+  if (useSessionsStore.getState().sessions.length === 0) useSessionsStore.getState().addSession()
+  return useSessionsStore.getState().sessions[0].id
+}
+
 let sessionsInit: ReturnType<typeof useSessionsStore.getState>
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let recencyInit: ReturnType<typeof usePaneRecencyStore.getState>
@@ -26,7 +31,7 @@ describe('startPaneRecencySync', () => {
   it('stamps a pane each time it becomes the active pane of its session', () => {
     vi.useFakeTimers()
     vi.setSystemTime(1000)
-    const sessionId = useSessionsStore.getState().sessions[0].id
+    const sessionId = homeSessionId()
     useLayoutStore.getState().ensure(sessionId)
     const a = useLayoutStore.getState().bySession[sessionId].activePaneId
     const stop = startPaneRecencySync()

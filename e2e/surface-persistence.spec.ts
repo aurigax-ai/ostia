@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
+import { openSession } from './helpers'
 
 test('splitting keeps the original terminal DOM node and its history', async () => {
   const app = await electron.launch(isolatedLaunch())
@@ -7,9 +8,8 @@ test('splitting keeps the original terminal DOM node and its history', async () 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
 
+    await openSession(win)
     const firstRows = win.locator('.xterm-rows').first()
-    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
-    await expect(firstRows).toContainText(/[❯$%#]/, { timeout: 15_000 })
 
     await win.locator('.xterm').first().click()
     await win.keyboard.type('echo survivor_$((40+2))')

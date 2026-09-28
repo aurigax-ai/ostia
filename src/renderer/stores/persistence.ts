@@ -26,13 +26,14 @@ export function saveWorkspaceNow(): void {
   clearedForDisabled = false
 
   const { sessions, activeSessionId } = useSessionsStore.getState()
-  const snapshot = buildSnapshot({
-    sessions,
-    activeSessionId,
-    layouts: useLayoutStore.getState().bySession,
-    savedAt: new Date().toISOString(),
-  })
-  if (snapshot) api.save(snapshot)
+  api.save(
+    buildSnapshot({
+      sessions,
+      activeSessionId,
+      layouts: useLayoutStore.getState().bySession,
+      savedAt: new Date().toISOString(),
+    }),
+  )
 }
 
 function schedule(): void {

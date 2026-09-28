@@ -18,11 +18,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
+import { openFileInWorkspace } from '../lib/openFile'
 import { platform } from '../platform'
 import { useExtensionsStore } from '../stores/extensionsStore'
-import { useLayoutStore } from '../stores/layoutStore'
 import { type LspStatus, usePluginsStore } from '../stores/pluginsStore'
-import { useSessionsStore } from '../stores/sessionsStore'
 import {
   CURSOR_STYLES,
   type CursorStyle,
@@ -97,9 +96,8 @@ export function SettingsPanel(): JSX.Element | null {
 
   const openSettingsFile = async (): Promise<void> => {
     const path = await window.pine.settings.path()
-    const sessionId = useSessionsStore.getState().activeSessionId
     close()
-    useLayoutStore.getState().openFile(sessionId, path)
+    openFileInWorkspace(path)
   }
 
   if (!open) return null

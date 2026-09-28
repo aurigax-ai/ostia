@@ -17,7 +17,7 @@ export interface Session {
 
 interface SessionsState {
   sessions: Session[]
-  activeSessionId: string
+  activeSessionId: string | null
   setActive: (id: string) => void
   addSession: (workDir?: string) => void
   closeSession: (id: string) => void
@@ -50,85 +50,72 @@ function makeSession(workDir: string, kind: SessionKind = 'terminal'): Session {
   return { id: nextId(), name: nameFromWorkDir(workDir), kind, workDir, state: 'idle' }
 }
 
-export const useSessionsStore = create<SessionsState>((set, get) => {
-  const initial = makeSession('~')
+export const useSessionsStore = create<SessionsState>((set, get) => ({
+  sessions: [],
+  activeSessionId: null,
+  setActive: (id) => {
+    set({ activeSessionId: id })
+    window.pine?.lifecycle?.emit?.({ type: 'session-activated', sessionId: id })
+  },
 
-  return {
-    sessions: [initial],
-    activeSessionId: initial.id,
-    setActive: (id) => {
-      set({ activeSessionId: id })
-      window.pine?.lifecycle?.emit?.({ type: 'session-activated', sessionId: id })
-    },
+  addSession: (workDir = '~') => {
+    const session = makeSession(workDir)
+    set((s) => ({ sessions: [...s.sessions, session], activeSessionId: session.id }))
+    useLayoutStore.getState().ensure(session.id)
+    window.pine?.lifecycle?.emit?.({ type: 'session-added', sessionId: session.id, workDir })
+  },
 
-    addSession: (workDir = '~') => {
-      const session = makeSession(workDir)
-      set((s) => ({ sessions: [...s.sessions, session], activeSessionId: session.id }))
-      useLayoutStore.getState().ensure(session.id)
-      window.pine?.lifecycle?.emit?.({ type: 'session-added', sessionId: session.id, workDir })
-    },
+  closeSession: (id) => {
+    useLayoutStore.getState().removeSession(id)
+    window.pine?.lifecycle?.emit?.({ type: 'session-closed', sessionId: id })
 
-    closeSession: (id) => {
-      useLayoutStore.getState().removeSession(id)
-      window.pine?.lifecycle?.emit?.({ type: 'session-closed', sessionId: id })
-
-      const remaining = get().sessions.filter((c) => c.id !== id)
-      if (remaining.length === 0) {
-        const fresh = makeSession('~')
-        set({ sessions: [fresh], activeSessionId: fresh.id })
-        useLayoutStore.getState().ensure(fresh.id)
-        return
+    set((s) => {
+      const remaining = s.sessions.filter((c) => c.id !== id)
+      const idx = s.sessions.findIndex((c) => c.id === id)
+      let activeSessionId = s.activeSessionId
+      if (id === s.activeSessionId) {
+        activeSessionId = remaining[Math.max(0, idx - 1)]?.id ?? remaining[0]?.id ?? null
       }
+      return { sessions: remaining, activeSessionId }
+    })
+  },
 
-      set((s) => {
-        const idx = s.sessions.findIndex((c) => c.id === id)
-        let activeSessionId = s.activeSessionId
-        if (id === s.activeSessionId) {
-          activeSessionId = remaining[Math.max(0, idx - 1)]?.id ?? remaining[0].id
-        }
-        return { sessions: remaining, activeSessionId }
-      })
-    },
+  setWorkDir: (id, workDir) => {
+    set((s) => ({
+      sessions: s.sessions.map((c) =>
+        c.id === id ? { ...c, workDir, name: nameFromWorkDir(workDir) } : c,
+      ),
+    }))
+    window.pine?.lifecycle?.emit?.({ type: 'session-added', sessionId: id, workDir })
+  },
 
-    setWorkDir: (id, workDir) => {
-      set((s) => ({
-        sessions: s.sessions.map((c) =>
-          c.id === id ? { ...c, workDir, name: nameFromWorkDir(workDir) } : c,
-        ),
-      }))
-      window.pine?.lifecycle?.emit?.({ type: 'session-added', sessionId: id, workDir })
-    },
+  hydrate: (snapshot) => {
+    if (snapshot) {
+      const { sessions, activeSessionId, layouts } = restoreWorkspace(snapshot)
+      adoptSessionIds(sessions.map((s) => s.id))
+      set({ sessions: sessions.map((s) => ({ ...s, state: 'idle' })), activeSessionId })
+      useLayoutStore.getState().hydrate(layouts)
+    }
 
-    hydrate: (snapshot) => {
-      if (snapshot) {
-        const { sessions, activeSessionId, layouts } = restoreWorkspace(snapshot)
-        adoptSessionIds(sessions.map((s) => s.id))
-        set({ sessions: sessions.map((s) => ({ ...s, state: 'idle' })), activeSessionId })
-        useLayoutStore.getState().hydrate(layouts)
-      } else {
-        for (const s of get().sessions) useLayoutStore.getState().ensure(s.id)
-      }
-
-      for (const s of get().sessions) {
-        window.pine?.lifecycle?.emit?.({
-          type: 'session-added',
-          sessionId: s.id,
-          workDir: s.workDir,
-        })
-      }
+    for (const s of get().sessions) {
       window.pine?.lifecycle?.emit?.({
-        type: 'session-activated',
-        sessionId: get().activeSessionId,
+        type: 'session-added',
+        sessionId: s.id,
+        workDir: s.workDir,
       })
-    },
+    }
+    const activeSessionId = get().activeSessionId
+    if (activeSessionId) {
+      window.pine?.lifecycle?.emit?.({ type: 'session-activated', sessionId: activeSessionId })
+    }
+  },
 
-    setState: (id, state) => {
-      const current = get().sessions.find((c) => c.id === id)
-      if (!current || current.state === state) return
-      set((s) => ({
-        sessions: s.sessions.map((c) => (c.id === id ? { ...c, state } : c)),
-      }))
-      window.pine?.lifecycle?.emit?.({ type: 'session-state', sessionId: id, state })
-    },
-  }
-})
+  setState: (id, state) => {
+    const current = get().sessions.find((c) => c.id === id)
+    if (!current || current.state === state) return
+    set((s) => ({
+      sessions: s.sessions.map((c) => (c.id === id ? { ...c, state } : c)),
+    }))
+    window.pine?.lifecycle?.emit?.({ type: 'session-state', sessionId: id, state })
+  },
+}))

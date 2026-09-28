@@ -14,6 +14,11 @@ import { NotificationCenter } from './NotificationCenter'
 import { Pane } from './Pane'
 import { TooltipProvider } from './ui/tooltip'
 
+function homeSessionId(): string {
+  if (useSessionsStore.getState().sessions.length === 0) useSessionsStore.getState().addSession()
+  return useSessionsStore.getState().sessions[0].id
+}
+
 let sessionsInit: ReturnType<typeof useSessionsStore.getState>
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let attentionInit: ReturnType<typeof useAttentionStore.getState>
@@ -40,7 +45,7 @@ afterEach(() => {
 })
 
 function twoPanes(): { sessionId: string; a: string; b: string } {
-  const sessionId = useSessionsStore.getState().sessions[0].id
+  const sessionId = homeSessionId()
   useLayoutStore.getState().ensure(sessionId)
   const a = useLayoutStore.getState().bySession[sessionId].activePaneId
   useLayoutStore.getState().split(sessionId, a, 'horizontal')
@@ -108,7 +113,7 @@ describe('sidebar unread badge', () => {
   })
 
   it('labels the error state so it is not conveyed by color alone', () => {
-    const sessionId = useSessionsStore.getState().sessions[0].id
+    const sessionId = homeSessionId()
     act(() => useSessionsStore.getState().setState(sessionId, 'error'))
     render(<DeckRail />)
     expect(screen.getByRole('img', { name: 'Error' })).toHaveClass('error')

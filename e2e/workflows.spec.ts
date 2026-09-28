@@ -5,7 +5,9 @@ import {
   expect,
   test,
 } from '@playwright/test'
+import { homedir } from 'node:os'
 import { isolatedLaunch } from './dataHome'
+import { PROMPT, emptyState, openSession } from './helpers'
 
 interface Launched {
   app: ElectronApplication
@@ -24,12 +26,6 @@ async function launchApp(): Promise<Launched> {
   }
 }
 
-async function waitForShellPrompt(win: Page): Promise<void> {
-  const term = win.locator('.xterm').first()
-  await expect(term).toBeVisible({ timeout: 15_000 })
-  await expect(win.locator('.xterm-rows').first()).toContainText(/[❯$%#]/, { timeout: 15_000 })
-}
-
 async function waitForTerminalFocus(win: Page): Promise<void> {
   await expect
     .poll(() =>
@@ -43,7 +39,7 @@ async function waitForTerminalFocus(win: Page): Promise<void> {
 test('terminal spawns and runs a command', async () => {
   const { app, win } = await launchApp()
   try {
-    await waitForShellPrompt(win)
+    await openSession(win)
 
     const term = win.locator('.xterm').first()
     await term.click()
@@ -63,7 +59,8 @@ test('terminal spawns and runs a command', async () => {
 test('splitting a pane adds a second terminal', async () => {
   const { app, win } = await launchApp()
   try {
-    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+    await openSession(win)
+    await expect(win.locator('.xterm')).toHaveCount(1)
     await expect(win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
 
     const splitRight = win.locator('.pane.active').getByRole('button', { name: 'Split right' })
@@ -79,8 +76,8 @@ test('splitting a pane adds a second terminal', async () => {
 test('command palette opens, filters, and runs a command', async () => {
   const { app, win } = await launchApp()
   try {
-    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
-    await expect(win.locator('.rail-tab')).toHaveCount(1)
+    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
+    await expect(win.locator('.rail-tab')).toHaveCount(0)
 
     await win.keyboard.press('Control+Shift+P')
     const dialog = win.getByRole('dialog')
@@ -92,7 +89,9 @@ test('command palette opens, filters, and runs a command', async () => {
 
     await win.keyboard.press('Enter')
     await expect(dialog).toBeHidden({ timeout: 5_000 })
-    await expect(win.locator('.rail-tab')).toHaveCount(2, { timeout: 5_000 })
+    await expect(win.locator('.rail-tab')).toHaveCount(1, { timeout: 5_000 })
+    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+    await expect(emptyState(win)).toHaveCount(0)
   } finally {
     await app.close()
   }
@@ -101,7 +100,7 @@ test('command palette opens, filters, and runs a command', async () => {
 test('opening a file shows the Monaco editor', async () => {
   const { app, win } = await launchApp()
   try {
-    await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
+    await openSession(win)
     await expect(win.locator('.monaco-editor')).toHaveCount(0)
 
     await win.locator('.deck-rail').getByRole('button', { name: 'Files', exact: true }).click()
@@ -114,6 +113,65 @@ test('opening a file shows the Monaco editor', async () => {
 
     await expect(win.locator('.monaco-editor').first()).toBeVisible({ timeout: 15_000 })
     await expect(win.locator('.pane-header .title').filter({ hasText: fileName })).toBeVisible({
+      timeout: 15_000,
+    })
+  } finally {
+    await app.close()
+  }
+})
+
+test('boots with no session and opens one at home with Ctrl+Shift+T', async () => {
+  const { app, win } = await launchApp()
+  const errors: string[] = []
+  win.on('pageerror', (err) => errors.push(err.message))
+  win.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text())
+  })
+  try {
+    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
+    await expect(emptyState(win).getByRole('heading', { name: 'No sessions' })).toBeVisible()
+    await expect(emptyState(win).getByRole('button', { name: /New session/ })).toContainText(
+      'Ctrl+Shift+T',
+    )
+    await win.waitForTimeout(1_000)
+    await expect(win.locator('.xterm')).toHaveCount(0)
+
+    await win.keyboard.press('Control+Shift+T')
+
+    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
+    await expect(win.locator('.rail-tab')).toHaveCount(1)
+    await expect(emptyState(win)).toHaveCount(0)
+    expect(errors).toEqual([])
+  } finally {
+    await app.close()
+  }
+})
+
+test('closing the only session shows the empty state, and New session opens a terminal at ~', async () => {
+  test.setTimeout(60_000)
+  const { app, win } = await launchApp()
+  try {
+    await openSession(win)
+    const tab = win.locator('.rail-tab')
+    await expect(tab).toHaveCount(1)
+
+    await tab.hover()
+    await tab.getByRole('button', { name: 'Close' }).click()
+
+    await expect(emptyState(win)).toBeVisible({ timeout: 5_000 })
+    await expect(tab).toHaveCount(0)
+    await win.waitForTimeout(1_000)
+    await expect(win.locator('.xterm')).toHaveCount(0)
+    await expect(tab).toHaveCount(0)
+
+    await openSession(win)
+    await expect(tab).toHaveCount(1)
+    await win.locator('.xterm').first().click()
+    await waitForTerminalFocus(win)
+    await win.keyboard.type('echo "pine_cwd:$PWD:"')
+    await win.keyboard.press('Enter')
+    await expect(win.locator('.xterm-rows').first()).toContainText(`pine_cwd:${homedir()}:`, {
       timeout: 15_000,
     })
   } finally {

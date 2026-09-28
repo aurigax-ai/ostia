@@ -288,6 +288,14 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **Split rendering** (`PaneTree.tsx`): Allotment keyed by the child-id list. Why: Allotment
   caches sizes, so a structural change must rebuild it or panes collapse to a sliver; a pure
   resize keeps the instance.
+- **No sessions** (`sessionsStore.ts`, `WorkZone.tsx`): zero sessions is a valid state. The store
+  starts empty (`activeSessionId: null`); only the user (`session.new`, the sidebar or empty-state
+  button, Ctrl+Shift+T / ⌘T, opening a file with no session via `lib/openFile.ts`) or restore
+  creates one, and closing the last session leaves none. The work zone then shows the empty
+  state. With no active session, pane commands are no-ops, `pane.list`/`session.list` return
+  `[]`, extension panels and diffs are not opened, and `session-activated` is not emitted. Why:
+  a terminal the user didn't ask for is noise, and re-seeding one on close made the last
+  session impossible to get rid of.
 - **Hidden sessions** (`WorkZone.tsx`): each session mounts on first visit and stays mounted.
   Inactive ones get `visibility: hidden` + `inert`.
   - Why `visibility`, not `display: none`: the box keeps its size, so the fit stays valid.
@@ -374,9 +382,10 @@ pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 - There is deliberately no `session.restore`. Restoring into a live window would tear down every
   attached pty; restore happens only at boot.
 - **Chords** (`lib/chords.ts`): macOS uses Cmd+K (palette), Cmd+\ (sidebar), Cmd+, (settings),
-  Cmd+Shift+U (jump to latest unread), Cmd+Shift+H (command history), Cmd+↑/↓ (previous/next
-  block) and native Cmd+C/V/F. Other platforms use Ctrl+Shift+P, Ctrl+Shift+B, Ctrl+,
-  Ctrl+Shift+U, Ctrl+Shift+H, Ctrl+Shift+↑/↓ and Ctrl+Shift+C/V/F (copy/paste/find). On Linux some IBus
+  Cmd+Shift+U (jump to latest unread), Cmd+Shift+H (command history), Cmd+T (new session),
+  Cmd+↑/↓ (previous/next block) and native Cmd+C/V/F. Other platforms use Ctrl+Shift+P,
+  Ctrl+Shift+B, Ctrl+, Ctrl+Shift+U, Ctrl+Shift+H, Ctrl+Shift+T, Ctrl+Shift+↑/↓ and
+  Ctrl+Shift+C/V/F (copy/paste/find). Plain Ctrl+T stays with the shell (readline transpose). On Linux some IBus
   setups claim Ctrl+Shift+U for Unicode entry before the app sees it; the palette's "Jump to
   Latest Unread" and the bell still work there.
   - Any combination with Alt is ignored.
@@ -611,7 +620,9 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
 
 - **Layout** (`stores/persistence.ts`, `layout/snapshot.ts`): saved 400 ms after any change to the
   sessions, layout or settings stores, plus once at start and once on `beforeunload`.
-  - `buildSnapshot` returns null when no sessions remain, so a blank workspace is never written.
+  - With no sessions, `buildSnapshot` writes an empty workspace (`sessions: []`,
+    `activeSessionId: null`) and `parseSnapshot` accepts it, so a restart after closing every
+    session restores zero sessions instead of the last non-empty snapshot.
   - `zoomedPaneId` is not saved.
   - Diff panes are not saved (`withoutKind(root, 'diff')`); a session whose only pane is a diff
     comes back as a terminal at its workDir, and focus moves to a surviving pane. Why: their
@@ -660,9 +671,9 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
   - A duplicate pane id drops that session, and bad `sizes` fall back to an even split.
   - Pane-id keys pass `isDangerousSegment` and go into a `Map`.
 - **Boot** (`main.tsx`):
-  - `hydrate(snapshot)` must run before the first render. Why: otherwise `WorkZone.ensure`
-    spawns a pty for the seeded pane, and hydration orphans it.
-  - If loading fails, the app boots a fresh workspace.
+  - `hydrate(snapshot)` must run before the first render. Why: the first render must already
+    see the restored sessions; a pane mounted earlier would spawn a pty that hydration orphans.
+  - If loading fails or there is nothing to restore, the app boots with no sessions.
   - `sessionsStore.hydrate` / `layoutStore.hydrate` re-emit `session-added`, `session-activated`
     and `pane-created`. Why: restored items never went through `ensure`/`split`, so main's id
     registry and the socket would otherwise not know them.
@@ -781,7 +792,9 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
 - Test layout and house rules: CLAUDE.md §7.
 - E2E runs the built app serially (`workers: 1`) because each instance owns a pty set and a
   per-PID socket. Every launch spreads `isolatedLaunch()` (`e2e/dataHome.ts`) to get a throwaway
-  `XDG_DATA_HOME` and `--user-data-dir`. `session-restore.spec.ts` shares one data home across
+  `XDG_DATA_HOME` and `--user-data-dir`. The app boots with no sessions, so a spec that needs a
+  terminal calls `openSession(win)` (`e2e/helpers.ts`), which clicks the empty state's "New
+  session" button and waits for the prompt. `session-restore.spec.ts` shares one data home across
   two launches and quits through `app.quit()` so `before-quit` runs. Its resize case relaunches at
   another window size with an 8 px terminal font (seeded `settings.json`) so the whole restored
   screen, including the user's p10k startup output, fits in the rendered rows it reads.
