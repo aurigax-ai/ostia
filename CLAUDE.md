@@ -61,7 +61,7 @@ Package manager is **pnpm** only.
 | `pnpm rebuild` | `electron-rebuild -f -w node-pty` | After any Electron bump, fresh install, or ABI change. Without it terminals show "node-pty unavailable" |
 | `pnpm test` | Vitest `node` + `dom` projects | Before commit; while developing |
 | `pnpm test:unit` | Only the `node` project | Fast main-process loop |
-| `pnpm test:e2e` | Playwright against the **built** app | After `pnpm build` and `pnpm rebuild` |
+| `pnpm test:e2e` | Playwright against the **built** app, on a virtual display (`xvfb-run`) so windows never appear or steal focus. `PINE_E2E_VISIBLE=1` shows them | After `pnpm build` and `pnpm rebuild`. Never call `playwright test` directly |
 
 ---
 
