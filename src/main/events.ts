@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { SessionLiveState } from '../shared/types'
+import type { WorkspaceLiveState } from '../shared/types'
 
 export interface NotifyEventPayload {
   title: string
@@ -20,7 +20,7 @@ export interface PlatformEventPayloads {
   notify: NotifyEventPayload
   'agent.needs-input': { sessionId: string }
   'agent.done': { sessionId: string }
-  'session.state': { sessionId: string; state: SessionLiveState }
+  'session.state': { sessionId: string; state: WorkspaceLiveState }
   'pane.state': PaneStateEventPayload
 }
 
@@ -43,7 +43,7 @@ export function emitPlatformEvent<T extends PlatformEventType>(
   platformEvents.emit(type, payload)
 }
 
-export function emitSessionState(sessionId: string, state: SessionLiveState): void {
+export function emitSessionState(sessionId: string, state: WorkspaceLiveState): void {
   emitPlatformEvent('session.state', { sessionId, state })
   if (state === 'waiting') emitPlatformEvent('agent.needs-input', { sessionId })
   else if (state === 'done') emitPlatformEvent('agent.done', { sessionId })

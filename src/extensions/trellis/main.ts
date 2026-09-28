@@ -11,21 +11,21 @@ import {
   startMessageServer,
 } from '../sdk'
 import { type AuthProxy, type ProxyUpstream, startAuthProxy } from './proxy'
-import { type SessionRef, TrellisService, TrellisUnavailable } from './service'
+import { TrellisService, TrellisUnavailable, type WorkspaceRef } from './service'
 import { isAppPath, loopbackHttpUrl, projectPath } from './trellis'
 
 const REFRESH_MS = 60_000
 const EVENTS: ExtensionEventType[] = ['pane.created', 'pane.closed', 'cwd.changed']
 const FOCUS_EVENT = 'focus.changed' as ExtensionEventType
 
-function sessionsFrom(raw: unknown): SessionRef[] {
-  if (!Array.isArray(raw)) throw new Error('session.list returned no list')
+function workspacesFrom(raw: unknown): WorkspaceRef[] {
+  if (!Array.isArray(raw)) throw new Error('workspace.list returned no list')
   return raw
     .filter(
-      (s): s is { sessionId: string; workDir: string } =>
-        typeof s?.sessionId === 'string' && typeof s?.workDir === 'string',
+      (s): s is { workspaceId: string; workDir: string } =>
+        typeof s?.workspaceId === 'string' && typeof s?.workDir === 'string',
     )
-    .map((s) => ({ sessionId: s.sessionId, workDir: s.workDir }))
+    .map((s) => ({ workspaceId: s.workspaceId, workDir: s.workDir }))
 }
 
 function upstreamOf(uiUrl: string | null): ProxyUpstream | null {
@@ -43,7 +43,7 @@ async function main(): Promise<void> {
     home: homedir(),
     consumer: PRODUCT_NAME,
     host: {
-      listSessions: async () => sessionsFrom(await ext.call('session.list')),
+      listWorkspaces: async () => workspacesFrom(await ext.call('workspace.list')),
       setSidebarItem: (item) => ext.setSidebarItem(item),
       notifyPanel: (title, body) => ext.notifyPanel(title, body),
       log: (line) => console.error(line),
@@ -77,7 +77,7 @@ async function main(): Promise<void> {
           unavailableText(err),
         )
       }
-      await ext.openPanel(caller.sessionId)
+      await ext.openPanel(caller.workspaceId)
       return ok('ok')
     },
     init: async (_args, caller) => {

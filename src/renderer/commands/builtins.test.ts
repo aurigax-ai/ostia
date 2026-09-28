@@ -2,32 +2,32 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
 
-let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
 beforeAll(() => {
   registerBuiltinCommands()
-  sessionsInit = useSessionsStore.getState()
+  workspacesInit = useWorkspacesStore.getState()
   layoutInit = useLayoutStore.getState()
   settingsInit = useSettingsStore.getState()
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
-  useSessionsStore.setState(sessionsInit, true)
+  useWorkspacesStore.setState(workspacesInit, true)
   useLayoutStore.setState(layoutInit, true)
   useSettingsStore.setState(settingsInit, true)
 })
 
-const ctx = (activeSessionId: string | null, activePaneId: string | null): CommandContext => ({
-  activeSessionId,
+const ctx = (activeWorkspaceId: string | null, activePaneId: string | null): CommandContext => ({
+  activeWorkspaceId,
   activePaneId,
 })
 
@@ -35,7 +35,7 @@ describe('builtins declare targets', () => {
   it('non-pane commands are target:none, pane commands stay target:active', () => {
     const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
 
-    expect(byId['session.new'].target).toBe('none')
+    expect(byId['workspace.new'].target).toBe('none')
     expect(byId['palette.toggle'].target).toBe('none')
     expect(byId['view.toggleRail'].target).toBe('none')
     expect(byId['app.openSettings'].target).toBe('none')
@@ -73,7 +73,7 @@ describe('builtins route to store actions', () => {
     expect(split).toHaveBeenCalledWith('s1', 'pA', 'horizontal')
   })
 
-  it('does not split when there is no active session', async () => {
+  it('does not split when there is no active workspace', async () => {
     const split = vi.spyOn(useLayoutStore.getState(), 'split').mockImplementation(() => {})
 
     await commands.execWith(ctx(null, 'pA'), 'pane.split', {
@@ -86,9 +86,9 @@ describe('builtins route to store actions', () => {
 
   it('routes pane.splitRight to layout.split with a horizontal direction', async () => {
     const split = vi.spyOn(useLayoutStore.getState(), 'split').mockImplementation(() => {})
-    useSessionsStore.setState({ activeSessionId: 's1' })
+    useWorkspacesStore.setState({ activeWorkspaceId: 's1' })
     useLayoutStore.setState({
-      bySession: { s1: { root: createPane('terminal'), activePaneId: 'pA', zoomedPaneId: null } },
+      byWorkspace: { s1: { root: createPane('terminal'), activePaneId: 'pA', zoomedPaneId: null } },
     })
 
     await commands.exec('pane.splitRight')
@@ -98,9 +98,9 @@ describe('builtins route to store actions', () => {
 
   it('routes pane.splitDown to layout.split with a vertical direction', async () => {
     const split = vi.spyOn(useLayoutStore.getState(), 'split').mockImplementation(() => {})
-    useSessionsStore.setState({ activeSessionId: 's1' })
+    useWorkspacesStore.setState({ activeWorkspaceId: 's1' })
     useLayoutStore.setState({
-      bySession: { s1: { root: createPane('terminal'), activePaneId: 'pA', zoomedPaneId: null } },
+      byWorkspace: { s1: { root: createPane('terminal'), activePaneId: 'pA', zoomedPaneId: null } },
     })
 
     await commands.exec('pane.splitDown')
@@ -128,7 +128,7 @@ describe('builtins route to store actions', () => {
     expect(r).toEqual({ ok: false, error: { code: 'command-failed', message: 'split exploded' } })
   })
 
-  it('browser.open opens about:blank in the caller ctx session and propagates failures', async () => {
+  it('browser.open opens about:blank in the caller ctx workspace and propagates failures', async () => {
     const openBrowser = vi
       .spyOn(useLayoutStore.getState(), 'openBrowser')
       .mockImplementation(() => {})
@@ -210,7 +210,7 @@ describe('builtins route to store actions', () => {
     expect(movePane).toHaveBeenCalledWith('s1', 'src', 'tgt', 'right')
   })
 
-  it('does not close a pane when there is no active session', async () => {
+  it('does not close a pane when there is no active workspace', async () => {
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 
     await commands.execWith(ctx(null, 'pA'), 'pane.close', { paneId: 'pX' })
@@ -218,7 +218,7 @@ describe('builtins route to store actions', () => {
     expect(closePane).not.toHaveBeenCalled()
   })
 
-  it('does not focus a pane when there is no active session', async () => {
+  it('does not focus a pane when there is no active workspace', async () => {
     const focusPane = vi.spyOn(useLayoutStore.getState(), 'focusPane').mockImplementation(() => {})
 
     await commands.execWith(ctx(null, 'pA'), 'pane.focus', { paneId: 'pX' })
@@ -226,7 +226,7 @@ describe('builtins route to store actions', () => {
     expect(focusPane).not.toHaveBeenCalled()
   })
 
-  it('does not move a pane when there is no active session', async () => {
+  it('does not move a pane when there is no active workspace', async () => {
     const movePane = vi.spyOn(useLayoutStore.getState(), 'movePane').mockImplementation(() => {})
 
     await commands.execWith(ctx(null, 'pA'), 'pane.move', {
@@ -238,20 +238,20 @@ describe('builtins route to store actions', () => {
     expect(movePane).not.toHaveBeenCalled()
   })
 
-  it('routes session.new to leaveSettings then addSession, in that order', async () => {
+  it('routes workspace.new to leaveSettings then addWorkspace, in that order', async () => {
     const leaveSettings = vi
       .spyOn(useUIStore.getState(), 'leaveSettings')
       .mockImplementation(() => {})
-    const addSession = vi
-      .spyOn(useSessionsStore.getState(), 'addSession')
+    const addWorkspace = vi
+      .spyOn(useWorkspacesStore.getState(), 'addWorkspace')
       .mockImplementation(() => {})
 
-    await commands.execWith(ctx(null, null), 'session.new')
+    await commands.execWith(ctx(null, null), 'workspace.new')
 
     expect(leaveSettings).toHaveBeenCalled()
-    expect(addSession).toHaveBeenCalled()
+    expect(addWorkspace).toHaveBeenCalled()
     expect(leaveSettings.mock.invocationCallOrder[0]).toBeLessThan(
-      addSession.mock.invocationCallOrder[0],
+      addWorkspace.mock.invocationCallOrder[0],
     )
   })
 
@@ -284,18 +284,18 @@ describe('builtins route to store actions', () => {
   })
 })
 
-describe('pane.list / session.list', () => {
-  it('pane.list defaults to the active session only, reporting kind/title/cwd per pane', async () => {
+describe('pane.list / workspace.list', () => {
+  it('pane.list defaults to the active workspace only, reporting kind/title/cwd per pane', async () => {
     const paneS1 = createPane('terminal', 'zsh', '/work/api')
     const paneS2 = createPane('editor', 'untitled', '/work/web')
-    useSessionsStore.setState({
-      sessions: [
+    useWorkspacesStore.setState({
+      workspaces: [
         { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
         { id: 's2', name: 'web', kind: 'terminal', workDir: '/work/web', state: 'idle' },
       ],
     })
     useLayoutStore.setState({
-      bySession: {
+      byWorkspace: {
         s1: { root: paneS1, activePaneId: paneS1.id, zoomedPaneId: null },
         s2: { root: paneS2, activePaneId: paneS2.id, zoomedPaneId: null },
       },
@@ -306,65 +306,71 @@ describe('pane.list / session.list', () => {
     expect(res).toEqual({
       ok: true,
       result: [
-        { paneId: paneS1.id, sessionId: 's1', kind: 'terminal', title: 'zsh', cwd: '/work/api' },
+        { paneId: paneS1.id, workspaceId: 's1', kind: 'terminal', title: 'zsh', cwd: '/work/api' },
       ],
     })
   })
 
-  it("pane.list with allSessions walks every session's layout tree", async () => {
+  it("pane.list with allWorkspaces walks every workspace's layout tree", async () => {
     const paneS1 = createPane('terminal', 'zsh', '/work/api')
     const paneS2 = createPane('editor', 'untitled', '/work/web')
-    useSessionsStore.setState({
-      sessions: [
+    useWorkspacesStore.setState({
+      workspaces: [
         { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
         { id: 's2', name: 'web', kind: 'terminal', workDir: '/work/web', state: 'idle' },
       ],
     })
     useLayoutStore.setState({
-      bySession: {
+      byWorkspace: {
         s1: { root: paneS1, activePaneId: paneS1.id, zoomedPaneId: null },
         s2: { root: paneS2, activePaneId: paneS2.id, zoomedPaneId: null },
       },
     })
 
-    const res = await commands.execWith(ctx('s1', null), 'pane.list', { allSessions: true })
+    const res = await commands.execWith(ctx('s1', null), 'pane.list', { allWorkspaces: true })
 
     expect(res).toEqual({
       ok: true,
       result: [
-        { paneId: paneS1.id, sessionId: 's1', kind: 'terminal', title: 'zsh', cwd: '/work/api' },
-        { paneId: paneS2.id, sessionId: 's2', kind: 'editor', title: 'untitled', cwd: '/work/web' },
+        { paneId: paneS1.id, workspaceId: 's1', kind: 'terminal', title: 'zsh', cwd: '/work/api' },
+        {
+          paneId: paneS2.id,
+          workspaceId: 's2',
+          kind: 'editor',
+          title: 'untitled',
+          cwd: '/work/web',
+        },
       ],
     })
   })
 
-  it('pane.list returns an empty array when there is no active session and allSessions is unset', async () => {
+  it('pane.list returns an empty array when there is no active workspace and allWorkspaces is unset', async () => {
     const res = await commands.execWith(ctx(null, null), 'pane.list')
     expect(res).toEqual({ ok: true, result: [] })
   })
 
-  it('session.list reports every session regardless of ctx', async () => {
-    useSessionsStore.setState({
-      sessions: [
+  it('workspace.list reports every workspace regardless of ctx', async () => {
+    useWorkspacesStore.setState({
+      workspaces: [
         { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
         { id: 's2', name: 'web', kind: 'agent', workDir: '/work/web', state: 'working' },
       ],
     })
 
-    const res = await commands.execWith(ctx(null, null), 'session.list')
+    const res = await commands.execWith(ctx(null, null), 'workspace.list')
 
     expect(res).toEqual({
       ok: true,
       result: [
-        { sessionId: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
-        { sessionId: 's2', name: 'web', kind: 'agent', workDir: '/work/web', state: 'working' },
+        { workspaceId: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+        { workspaceId: 's2', name: 'web', kind: 'agent', workDir: '/work/web', state: 'working' },
       ],
     })
   })
 
-  it('pane.list and session.list are hidden, target:none, and gated on read-board', () => {
+  it('pane.list and workspace.list are hidden, target:none, and gated on read-board', () => {
     const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
-    for (const id of ['pane.list', 'session.list']) {
+    for (const id of ['pane.list', 'workspace.list']) {
       expect(byId[id].hidden).toBe(true)
       expect(byId[id].target).toBe('none')
       expect(byId[id].capabilities).toEqual(['read-board'])
@@ -372,17 +378,17 @@ describe('pane.list / session.list', () => {
   })
 })
 
-describe('builtins with zero sessions', () => {
-  it('gives commands a context with no session and no pane', async () => {
-    expect(await commands.exec('pane.list', { allSessions: true })).toEqual({
+describe('builtins with zero workspaces', () => {
+  it('gives commands a context with no workspace and no pane', async () => {
+    expect(await commands.exec('pane.list', { allWorkspaces: true })).toEqual({
       ok: true,
       result: [],
     })
     expect(await commands.exec('pane.list')).toEqual({ ok: true, result: [] })
-    expect(await commands.exec('session.list')).toEqual({ ok: true, result: [] })
+    expect(await commands.exec('workspace.list')).toEqual({ ok: true, result: [] })
   })
 
-  it('runs pane commands as no-ops instead of throwing or creating a session', async () => {
+  it('runs pane commands as no-ops instead of throwing or creating a workspace', async () => {
     for (const id of [
       'pane.splitRight',
       'pane.splitDown',
@@ -397,18 +403,18 @@ describe('builtins with zero sessions', () => {
       ok: true,
       result: { inserted: false },
     })
-    expect(useSessionsStore.getState().sessions).toEqual([])
-    expect(useLayoutStore.getState().bySession).toEqual({})
+    expect(useWorkspacesStore.getState().workspaces).toEqual([])
+    expect(useLayoutStore.getState().byWorkspace).toEqual({})
   })
 
-  it('opens a terminal session at home with session.new', async () => {
-    const res = await commands.exec('session.new')
+  it('opens a terminal workspace at home with workspace.new', async () => {
+    const res = await commands.exec('workspace.new')
 
     expect(res.ok).toBe(true)
-    const [only] = useSessionsStore.getState().sessions
+    const [only] = useWorkspacesStore.getState().workspaces
     expect(only).toMatchObject({ workDir: '~', name: 'home' })
-    expect(useSessionsStore.getState().activeSessionId).toBe(only.id)
-    expect(useLayoutStore.getState().bySession[only.id]?.root).toMatchObject({
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(only.id)
+    expect(useLayoutStore.getState().byWorkspace[only.id]?.root).toMatchObject({
       type: 'pane',
       kind: 'terminal',
     })
@@ -419,7 +425,7 @@ describe('agent resume', () => {
   function seedPane(resume?: { agent: 'claude' | 'codex'; id: string }) {
     const pane = { ...createPane('terminal'), ...(resume ? { resume } : {}) }
     useLayoutStore.setState({
-      bySession: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
     })
     return pane
   }
@@ -427,7 +433,7 @@ describe('agent resume', () => {
   it('stores the resume token on the calling pane', async () => {
     const pane = seedPane()
     await commands.execWith(ctx('s1', pane.id), 'resume.set', { agent: 'claude', id: 'abc' })
-    expect(useLayoutStore.getState().bySession.s1.root).toMatchObject({
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
       resume: { agent: 'claude', id: 'abc' },
     })
   })

@@ -57,7 +57,7 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     workDir = join(dir, 'project')
     process.env.XDG_DATA_HOME = join(dir, 'data')
     socketPath = join(dir, 'control.sock')
-    identity = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'pCliExt' })
+    identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pCliExt' })
     host = new ExtensionHost({
       roots: [
         { dir: join(repoRoot, 'out', 'extensions'), builtin: true },
@@ -66,7 +66,7 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,
       nodePath: process.execPath,
-      workDirForSession: (sid) => (sid === 's1' ? workDir : undefined),
+      workDirForWorkspace: (sid) => (sid === 's1' ? workDir : undefined),
       broadcast: () => {},
       openPanelIn: () => {},
       notify: () => {},
@@ -107,7 +107,7 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     expect(unknown.stderr).toContain("unknown command or extension 'nosuchext'")
   }, 30_000)
 
-  it('pine git status/changes/diff print JSON for the session repo', async () => {
+  it('pine git status/changes/diff print JSON for the workspace repo', async () => {
     const vcs = (...args: string[]) =>
       execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd: workDir })
     mkdirSync(workDir, { recursive: true })

@@ -4,45 +4,47 @@ import { useDict } from '../i18n/useDict'
 import { chordLabel } from '../lib/chords'
 import { isMac } from '../platform'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { PaneTree } from './PaneTree'
 import { SettingsPanel } from './SettingsPanel'
 import { SurfacePool } from './SurfacePool'
 import { Button } from './ui/button'
 
-const NEW_SESSION_KEYS = chordLabel('session.new', isMac)
+const NEW_WORKSPACE_KEYS = chordLabel('workspace.new', isMac)
 
 export function WorkZone(): JSX.Element {
-  const sessions = useSessionsStore((s) => s.sessions)
-  const activeSessionId = useSessionsStore((s) => s.activeSessionId)
+  const workspaces = useWorkspacesStore((s) => s.workspaces)
+  const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
   const settingsActive = useUIStore((s) => s.settingsActive)
   const ensure = useLayoutStore((s) => s.ensure)
-  const [mounted, setMounted] = useState<string[]>(() => (activeSessionId ? [activeSessionId] : []))
+  const [mounted, setMounted] = useState<string[]>(() =>
+    activeWorkspaceId ? [activeWorkspaceId] : [],
+  )
 
   useEffect(() => {
-    if (!activeSessionId) return
-    ensure(activeSessionId)
-    setMounted((m) => (m.includes(activeSessionId) ? m : [...m, activeSessionId]))
-  }, [activeSessionId, ensure])
+    if (!activeWorkspaceId) return
+    ensure(activeWorkspaceId)
+    setMounted((m) => (m.includes(activeWorkspaceId) ? m : [...m, activeWorkspaceId]))
+  }, [activeWorkspaceId, ensure])
 
   useEffect(() => {
     setMounted((m) => {
-      const alive = m.filter((id) => sessions.some((s) => s.id === id))
+      const alive = m.filter((id) => workspaces.some((s) => s.id === id))
       return alive.length === m.length ? m : alive
     })
-  }, [sessions])
+  }, [workspaces])
 
   return (
     <section className="workzone relative">
-      {sessions.length === 0 ? <NoSessions /> : null}
+      {workspaces.length === 0 ? <NoWorkspaces /> : null}
       {mounted
-        .filter((id) => sessions.some((s) => s.id === id))
+        .filter((id) => workspaces.some((s) => s.id === id))
         .map((id) => (
-          <SessionLayer
+          <WorkspaceLayer
             key={id}
-            sessionId={id}
-            active={id === activeSessionId && !settingsActive}
+            workspaceId={id}
+            active={id === activeWorkspaceId && !settingsActive}
           />
         ))}
       <SurfacePool />
@@ -51,7 +53,10 @@ export function WorkZone(): JSX.Element {
   )
 }
 
-function SessionLayer({ sessionId, active }: { sessionId: string; active: boolean }): JSX.Element {
+function WorkspaceLayer({
+  workspaceId,
+  active,
+}: { workspaceId: string; active: boolean }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     if (ref.current) ref.current.inert = !active
@@ -59,18 +64,18 @@ function SessionLayer({ sessionId, active }: { sessionId: string; active: boolea
   return (
     <div
       ref={ref}
-      className="workzone-session"
+      className="workzone-workspace"
       style={{ visibility: active ? 'visible' : 'hidden' }}
       aria-hidden={!active}
     >
-      <PaneTree sessionId={sessionId} />
+      <PaneTree workspaceId={workspaceId} />
     </div>
   )
 }
 
-function NoSessions(): JSX.Element {
+function NoWorkspaces(): JSX.Element {
   const d = useDict()
-  const addSession = useSessionsStore((s) => s.addSession)
+  const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
   const leaveSettings = useUIStore((s) => s.leaveSettings)
   return (
     <div className="workzone-empty">
@@ -80,12 +85,12 @@ function NoSessions(): JSX.Element {
         className="mt-2"
         onClick={() => {
           leaveSettings()
-          addSession()
+          addWorkspace()
         }}
       >
         <Plus data-icon="inline-start" />
-        {d.rail.newSession}
-        <kbd className="workzone-empty-kbd">{NEW_SESSION_KEYS}</kbd>
+        {d.rail.newWorkspace}
+        <kbd className="workzone-empty-kbd">{NEW_WORKSPACE_KEYS}</kbd>
       </Button>
     </div>
   )

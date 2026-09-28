@@ -12,9 +12,9 @@ export type {
 } from '../../shared/types'
 
 export interface CommandContext {
-  activeSessionId: string | null
+  activeWorkspaceId: string | null
   activePaneId: string | null
-  target?: { windowId?: string; sessionId: string; paneId: string | null } | null
+  target?: { windowId?: string; workspaceId: string; paneId: string | null } | null
 }
 
 export interface CommandDef<Args = void, R = void> {
@@ -37,7 +37,7 @@ export class CommandRegistry {
   private listeners = new Set<() => void>()
   private revision = 0
   private contextProvider: () => CommandContext = () => ({
-    activeSessionId: null,
+    activeWorkspaceId: null,
     activePaneId: null,
   })
 

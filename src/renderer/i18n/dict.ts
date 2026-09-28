@@ -2,12 +2,12 @@ export type Locale = string
 
 export const en = {
   search: {
-    placeholder: 'Search sessions, agents, files… or run a command',
+    placeholder: 'Search workspaces, agents, files… or run a command',
     command: 'Search or run a command',
   },
   rail: {
-    sessions: 'Sessions',
-    newSession: 'New session',
+    workspaces: 'Workspaces',
+    newWorkspace: 'New workspace',
     files: 'Files',
     noFolder: 'No folder open',
     close: 'Close',
@@ -37,7 +37,7 @@ export const en = {
     error: 'error',
   },
   workzone: {
-    emptyTitle: 'No sessions',
+    emptyTitle: 'No workspaces',
     emptyBody: 'Start a terminal in your home folder.',
   },
   pane: {
@@ -206,9 +206,9 @@ export const en = {
     styleBar: 'Bar',
     cursorBlink: 'Cursor blink',
     cursorBlinkDesc: 'Blink the cursor in terminal panes.',
-    restoreSession: 'Restore session on launch',
-    restoreSessionDesc:
-      'Reopen your sessions, panes and terminal scrollback the next time pine starts. Shells are always respawned fresh.',
+    restoreWorkspace: 'Restore workspace on launch',
+    restoreWorkspaceDesc:
+      'Reopen your workspaces, panes and terminal scrollback the next time pine starts. Shells are always respawned fresh.',
     appearanceDesc:
       'The theme and the fonts for each surface. UI, terminal, and editor are set independently.',
     generalDesc: 'Behavior toggles. All settings are stored in a JSON file you can edit directly.',
@@ -268,12 +268,12 @@ export type Dict = typeof en
 
 export const zhHant: Dict = {
   search: {
-    placeholder: '搜尋工作階段、代理程式、檔案… 或執行指令',
+    placeholder: '搜尋工作區、代理程式、檔案… 或執行指令',
     command: '搜尋或執行指令',
   },
   rail: {
-    sessions: '工作階段',
-    newSession: '新增工作階段',
+    workspaces: '工作區',
+    newWorkspace: '新增工作區',
     files: '檔案',
     noFolder: '尚未開啟資料夾',
     close: '關閉',
@@ -303,7 +303,7 @@ export const zhHant: Dict = {
     error: '錯誤',
   },
   workzone: {
-    emptyTitle: '沒有工作階段',
+    emptyTitle: '沒有工作區',
     emptyBody: '在主資料夾開啟一個終端機。',
   },
   pane: {
@@ -469,9 +469,9 @@ export const zhHant: Dict = {
     styleBar: '直線',
     cursorBlink: '游標閃爍',
     cursorBlinkDesc: '在終端機面板中閃爍游標。',
-    restoreSession: '啟動時還原工作階段',
-    restoreSessionDesc:
-      '下次啟動 pine 時重新開啟工作階段、面板與終端機捲動紀錄。Shell 一律重新啟動。',
+    restoreWorkspace: '啟動時還原工作區',
+    restoreWorkspaceDesc:
+      '下次啟動 pine 時重新開啟工作區、面板與終端機捲動紀錄。Shell 一律重新啟動。',
     appearanceDesc: '佈景主題與各介面字型。介面、終端機與編輯器可個別設定。',
     generalDesc: '行為切換。所有設定都儲存在可直接編輯的 JSON 檔案中。',
     terminalDesc: '終端機面板的游標與行為。終端機字型在「外觀」中設定。',

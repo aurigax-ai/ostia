@@ -9,7 +9,7 @@ export function wireCommandBridge(): void {
   window.pine?.commands?.onInvoke?.(async (req: CommandInvokeRequest) => {
     return commands.execWith(
       {
-        activeSessionId: req.target.sessionId,
+        activeWorkspaceId: req.target.workspaceId,
         activePaneId: req.target.paneId,
         target: req.target,
       },

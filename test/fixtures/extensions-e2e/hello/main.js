@@ -12,12 +12,12 @@ const conn = createMessageConnection(
 )
 
 conn.onRequest('ext.command', async ({ command, args, caller }) => {
-  if (command === 'open') return conn.sendRequest('ext.openPanel', { sessionId: caller.sessionId })
+  if (command === 'open') return conn.sendRequest('ext.openPanel', { workspaceId: caller.workspaceId })
   if (command === 'greet') {
     const name = args?.argv?.[0]
     if (!name) return { ok: false, error: 'invalid-args', message: 'greet <name>' }
     await conn.sendRequest('ext.setSidebarItem', {
-      sessionId: caller.sessionId,
+      workspaceId: caller.workspaceId,
       key: 'greeting',
       text: `hello ${name}`,
     })

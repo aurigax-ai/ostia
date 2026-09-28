@@ -29,16 +29,16 @@ describe('matchChord', () => {
     expect(matchChord(key(',', { ctrlKey: true }), false)).toBe('app.openSettings')
   })
 
-  it('maps new session to Ctrl+Shift+T and Cmd+T as an app chord, leaving Ctrl+T to the shell', () => {
+  it('maps new workspace to Ctrl+Shift+T and Cmd+T as an app chord, leaving Ctrl+T to the shell', () => {
     const ctrlShiftT = matchChord(key('T', { ctrlKey: true, shiftKey: true }), false)
     const cmdT = matchChord(key('t', { metaKey: true }), true)
-    expect(ctrlShiftT).toBe('session.new')
-    expect(cmdT).toBe('session.new')
+    expect(ctrlShiftT).toBe('workspace.new')
+    expect(cmdT).toBe('workspace.new')
     expect(isAppChord(ctrlShiftT)).toBe(true)
     expect(matchChord(key('t', { ctrlKey: true }), false)).toBeNull()
     expect(matchChord(key('t', { ctrlKey: true }), true)).toBeNull()
-    expect(chordLabel('session.new', false)).toBe('Ctrl+Shift+T')
-    expect(chordLabel('session.new', true)).toBe('⌘T')
+    expect(chordLabel('workspace.new', false)).toBe('Ctrl+Shift+T')
+    expect(chordLabel('workspace.new', true)).toBe('⌘T')
   })
 
   it('maps jump-to-latest-unread to Ctrl+Shift+U and Cmd+Shift+U as an app chord', () => {

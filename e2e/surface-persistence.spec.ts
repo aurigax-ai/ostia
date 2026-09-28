@@ -1,6 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
-import { openSession } from './helpers'
+import { openWorkspace } from './helpers'
 
 test('splitting keeps the original terminal DOM node and its history', async () => {
   const app = await electron.launch(isolatedLaunch())
@@ -8,7 +8,7 @@ test('splitting keeps the original terminal DOM node and its history', async () 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
 
-    await openSession(win)
+    await openWorkspace(win)
     const firstRows = win.locator('.xterm-rows').first()
 
     await win.locator('.xterm').first().click()

@@ -7,7 +7,7 @@ export interface PaneIdentity {
   externalId: string
   token: string
   windowId: string
-  sessionId: string
+  workspaceId: string
   paneId: string
   extId?: string
 }
@@ -33,13 +33,13 @@ function unindex(identity: PaneIdentity): void {
 
 export function registerPane(input: {
   windowId: string
-  sessionId: string
+  workspaceId: string
   paneId: string
 }): PaneIdentity {
   const existing = byPane.get(input.paneId)
   if (existing) {
     existing.windowId = input.windowId
-    if (input.sessionId) existing.sessionId = input.sessionId
+    if (input.workspaceId) existing.workspaceId = input.workspaceId
     return existing
   }
   const identity: PaneIdentity = { kind: 'pane', ...mint(), ...input }
@@ -65,7 +65,7 @@ export function registerExtension(extId: string): PaneIdentity {
     kind: 'extension',
     ...mint(),
     windowId: '',
-    sessionId: '',
+    workspaceId: '',
     paneId: '',
     extId,
   }
@@ -84,8 +84,8 @@ export function removeExtension(extId: string): void {
 export function getByPaneId(paneId: string): PaneIdentity | undefined {
   return byPane.get(paneId)
 }
-export function windowOfSession(sessionId: string): string | undefined {
-  for (const id of byPane.values()) if (id.sessionId === sessionId) return id.windowId
+export function windowOfWorkspace(workspaceId: string): string | undefined {
+  for (const id of byPane.values()) if (id.workspaceId === workspaceId) return id.windowId
   return undefined
 }
 export function resolveExternal(externalId: string): PaneIdentity | undefined {

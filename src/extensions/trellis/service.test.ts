@@ -11,13 +11,13 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { type SessionRef, TrellisService } from './service'
+import { TrellisService, type WorkspaceRef } from './service'
 
 const FIXTURES = join(__dirname, '../../../test/fixtures/tools')
 const CLAIM_LIVE_AT = 1790323096200 - 1
 
 interface Recorded {
-  sidebar: { sessionId: string; key: string; text: string; tone?: string }[]
+  sidebar: { workspaceId: string; key: string; text: string; tone?: string }[]
   notes: { title: string; body?: string }[]
 }
 
@@ -28,7 +28,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
   let savedPath: string | undefined
   let service: TrellisService | null
   let recorded: Recorded
-  let sessions: SessionRef[] | Error
+  let workspaces: WorkspaceRef[] | Error
 
   const calls = (): string[] => {
     const log = join(fake, 'calls.log')
@@ -43,9 +43,9 @@ describe('TrellisService with a fake trellis on PATH', () => {
       uiProbeMs: 150,
       uiStartTimeoutMs: 3000,
       host: {
-        listSessions: async () => {
-          if (sessions instanceof Error) throw sessions
-          return sessions
+        listWorkspaces: async () => {
+          if (workspaces instanceof Error) throw workspaces
+          return workspaces
         },
         setSidebarItem: async (item) => {
           recorded.sidebar.push(item)
@@ -80,7 +80,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
     process.env.PATH = `${join(FIXTURES, 'bin')}:${savedPath}`
     process.env.FAKE_TRELLIS_DIR = fake
     recorded = { sidebar: [], notes: [] }
-    sessions = []
+    workspaces = []
     service = null
   })
 
@@ -92,39 +92,45 @@ describe('TrellisService with a fake trellis on PATH', () => {
     rmSync(root, { recursive: true, force: true })
   })
 
-  it('shows open and claimed counts on sessions whose workDir is a trellis project', async () => {
+  it('shows open and claimed counts on workspaces whose workDir is a trellis project', async () => {
     const shop = project('shop', '/DEMO')
-    sessions = [
-      { sessionId: 's1', workDir: join(shop) },
-      { sessionId: 's2', workDir: home },
+    workspaces = [
+      { workspaceId: 's1', workDir: join(shop) },
+      { workspaceId: 's2', workDir: home },
     ]
     await make().refreshSidebar()
     expect(recorded.sidebar).toEqual([
-      { sessionId: 's1', key: 'cards', text: '4 open · 1 claimed', icon: 'kanban', tone: 'brand' },
+      {
+        workspaceId: 's1',
+        key: 'cards',
+        text: '4 open · 1 claimed',
+        icon: 'kanban',
+        tone: 'brand',
+      },
     ])
     expect(calls()).toContain('card ls --json --all --project DEMO')
   })
 
-  it('clears a session item once the session is gone', async () => {
+  it('clears a workspace item once the workspace is gone', async () => {
     const shop = project('shop', '/DEMO')
-    sessions = [{ sessionId: 's1', workDir: shop }]
+    workspaces = [{ workspaceId: 's1', workDir: shop }]
     const svc = make()
     await svc.refreshSidebar()
-    sessions = []
+    workspaces = []
     await svc.refreshSidebar()
-    expect(recorded.sidebar.at(-1)).toEqual({ sessionId: 's1', key: 'cards', text: '' })
+    expect(recorded.sidebar.at(-1)).toEqual({ workspaceId: 's1', key: 'cards', text: '' })
   })
 
-  it('shows nothing when pine cannot list sessions', async () => {
+  it('shows nothing when pine cannot list workspaces', async () => {
     project('shop', '/DEMO')
-    sessions = new Error('refused')
+    workspaces = new Error('refused')
     await make().refreshSidebar()
     expect(recorded.sidebar).toEqual([])
   })
 
   it('degrades quietly when trellis is not installed', async () => {
     process.env.PATH = join(root, 'empty-bin')
-    sessions = [{ sessionId: 's1', workDir: project('shop', '/DEMO') }]
+    workspaces = [{ workspaceId: 's1', workDir: project('shop', '/DEMO') }]
     const svc = make({ followRestartBaseMs: 20 })
     await svc.refreshSidebar()
     await expect(svc.ensureUi()).rejects.toMatchObject({ code: 'not-installed' })
@@ -158,7 +164,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
     writeFileSync(join(fake, 'consumers.json'), '[]')
     copyFileSync(join(fake, 'events.jsonl'), join(fake, 'prime.jsonl'))
     copyFileSync(join(fake, 'events.jsonl'), join(fake, 'follow.jsonl'))
-    sessions = [{ sessionId: 's1', workDir: project('trellis', '/TRELLIS') }]
+    workspaces = [{ workspaceId: 's1', workDir: project('trellis', '/TRELLIS') }]
     const svc = make()
     await svc.refreshSidebar()
     await svc.startEvents()
@@ -175,10 +181,10 @@ describe('TrellisService with a fake trellis on PATH', () => {
     ])
   })
 
-  it('ignores events for projects no session has open', async () => {
+  it('ignores events for projects no workspace has open', async () => {
     writeFileSync(join(fake, 'consumers.json'), '[{"name":"pine","cursor":45,"lag":0,"gap":false}]')
     copyFileSync(join(fake, 'events.jsonl'), join(fake, 'follow.jsonl'))
-    sessions = [{ sessionId: 's1', workDir: project('shop', '/DEMO') }]
+    workspaces = [{ workspaceId: 's1', workDir: project('shop', '/DEMO') }]
     const svc = make()
     await svc.refreshSidebar()
     await svc.startEvents()

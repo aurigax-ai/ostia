@@ -3,7 +3,7 @@ import {
   EMPTY_ATTENTION,
   KittyNotificationAssembler,
   type PaneAttention,
-  aggregateSessionState,
+  aggregateWorkspaceState,
   latestUnread,
   latestWaitingAt,
   needsRing,
@@ -120,7 +120,7 @@ describe('needsRing', () => {
   })
 })
 
-describe('paneLiveState and aggregateSessionState', () => {
+describe('paneLiveState and aggregateWorkspaceState', () => {
   it('prefers an explicit attention state over the running flag', () => {
     expect(paneLiveState(undefined, true)).toBe('working')
     expect(paneLiveState(undefined, false)).toBe('idle')
@@ -129,11 +129,11 @@ describe('paneLiveState and aggregateSessionState', () => {
   })
 
   it('ranks waiting > error > done > working > idle', () => {
-    expect(aggregateSessionState([])).toBe('idle')
-    expect(aggregateSessionState(['idle', 'working'])).toBe('working')
-    expect(aggregateSessionState(['working', 'done'])).toBe('done')
-    expect(aggregateSessionState(['done', 'error', 'working'])).toBe('error')
-    expect(aggregateSessionState(['error', 'waiting', 'done'])).toBe('waiting')
+    expect(aggregateWorkspaceState([])).toBe('idle')
+    expect(aggregateWorkspaceState(['idle', 'working'])).toBe('working')
+    expect(aggregateWorkspaceState(['working', 'done'])).toBe('done')
+    expect(aggregateWorkspaceState(['done', 'error', 'working'])).toBe('error')
+    expect(aggregateWorkspaceState(['error', 'waiting', 'done'])).toBe('waiting')
   })
 })
 

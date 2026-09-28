@@ -23,8 +23,8 @@ import type {
 
 export type { DiffContent, ExtensionCaller, ExtensionResult } from '../../shared/extensions'
 
-export interface SessionInfo {
-  sessionId: string
+export interface WorkspaceInfo {
+  workspaceId: string
   name: string
   kind: string
   workDir: string
@@ -34,7 +34,7 @@ export interface SessionInfo {
 
 export interface PaneInfo {
   paneId: string
-  sessionId: string
+  workspaceId: string
   kind: string
   title: string
   cwd?: string
@@ -72,15 +72,15 @@ export interface PineExtension {
   subscribe: (events: ExtensionEventType[], handler: EventHandler) => Promise<unknown>
   setSidebarItem: (item: {
     key?: string
-    sessionId?: string
+    workspaceId?: string
     text: string
     icon?: ExtensionIcon
     tone?: SidebarTone
   }) => Promise<unknown>
   notify: (title: string, body?: string) => Promise<unknown>
-  openPanel: (sessionId?: string) => Promise<unknown>
-  openDiff: (diff: DiffContent & { sessionId?: string }) => Promise<ExtensionResult>
-  listSessions: () => Promise<SessionInfo[]>
+  openPanel: (workspaceId?: string) => Promise<unknown>
+  openDiff: (diff: DiffContent & { workspaceId?: string }) => Promise<ExtensionResult>
+  listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
 }
 
@@ -163,9 +163,9 @@ export async function connect(): Promise<PineExtension> {
     },
     setSidebarItem: (item) => conn.sendRequest('ext.setSidebarItem', item),
     notify: (title, body) => conn.sendRequest('ext.notify', { title, body }),
-    openPanel: (sessionId) => conn.sendRequest('ext.openPanel', { sessionId }),
+    openPanel: (workspaceId) => conn.sendRequest('ext.openPanel', { workspaceId }),
     openDiff: (diff) => conn.sendRequest('ext.openDiff', diff),
-    listSessions: () => conn.sendRequest('session.list'),
+    listWorkspaces: () => conn.sendRequest('workspace.list'),
     listPanes: () => conn.sendRequest('pane.list'),
   }
 }
@@ -239,8 +239,8 @@ export function expandHome(p: string): string {
 function panelCaller(context: Record<string, unknown>): ExtensionCaller {
   const caller: ExtensionCaller = { kind: 'user', capabilities: [...ALL_CAPABILITIES] }
   if (typeof context.workDir === 'string' && context.workDir) caller.workDir = context.workDir
-  if (typeof context.sessionId === 'string' && context.sessionId) {
-    caller.sessionId = context.sessionId
+  if (typeof context.workspaceId === 'string' && context.workspaceId) {
+    caller.workspaceId = context.workspaceId
   }
   return caller
 }

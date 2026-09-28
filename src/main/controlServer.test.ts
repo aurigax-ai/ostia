@@ -60,7 +60,7 @@ describe('controlServer (socket auth, end-to-end)', () => {
 
   it('accepts hello with the real token, then serves whoami/command.exec/command.list', async () => {
     socketPath = nextSocketPath()
-    const id = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'pTest1' })
+    const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pTest1' })
     registerControlServer(fakeDeps, socketPath)
     client = connectClient(socketPath)
 
@@ -68,7 +68,7 @@ describe('controlServer (socket auth, end-to-end)', () => {
     expect(helloRes).toEqual({ externalId: id.externalId })
 
     const who = await client.conn.sendRequest('whoami')
-    expect(who).toEqual({ externalId: id.externalId, paneId: 'pTest1', sessionId: 's1' })
+    expect(who).toEqual({ externalId: id.externalId, paneId: 'pTest1', workspaceId: 's1' })
 
     const execRes = await client.conn.sendRequest('command.exec', { id: 'pane.splitRight' })
     expect(execRes).toEqual({ ok: true, result: 'did-it' })
@@ -88,17 +88,17 @@ describe('controlServer (socket auth, end-to-end)', () => {
     ])
   })
 
-  it('requires workspace-wide to target another session, even from the caller own pane', async () => {
+  it('requires all-workspaces to target another workspace, even from the caller own pane', async () => {
     socketPath = nextSocketPath()
-    const id = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'pTest1' })
+    const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pTest1' })
     registerControlServer(fakeDeps, socketPath)
     client = connectClient(socketPath)
     await client.conn.sendRequest('hello', { token: id.token })
 
-    const target = { windowId: 'w1', sessionId: 's-other', paneId: 'pTest1' }
+    const target = { windowId: 'w1', workspaceId: 's-other', paneId: 'pTest1' }
     await expect(
       client.conn.sendRequest('command.exec', { id: 'pane.splitRight', target }),
-    ).rejects.toThrow(/workspace-wide/)
+    ).rejects.toThrow(/all-workspaces/)
   })
 
   it('rejects hello with a bogus token', async () => {
@@ -111,7 +111,7 @@ describe('controlServer (socket auth, end-to-end)', () => {
 
   it('rejects whoami before a successful hello', async () => {
     socketPath = nextSocketPath()
-    registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'pTest1' })
+    registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pTest1' })
     registerControlServer(fakeDeps, socketPath)
     client = connectClient(socketPath)
 
@@ -120,7 +120,7 @@ describe('controlServer (socket auth, end-to-end)', () => {
 
   it('removes the socket file after stopControlServer', async () => {
     socketPath = nextSocketPath()
-    const id = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'pTest1' })
+    const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pTest1' })
     registerControlServer(fakeDeps, socketPath)
     client = connectClient(socketPath)
     await client.conn.sendRequest('hello', { token: id.token })

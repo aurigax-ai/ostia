@@ -1,4 +1,4 @@
-import type { AttentionState, SessionLiveState } from '@shared/types'
+import type { AttentionState, WorkspaceLiveState } from '@shared/types'
 
 export type { AttentionState }
 
@@ -61,12 +61,12 @@ export function needsRing(a: PaneAttention | undefined): boolean {
   return !!a?.unread && (a.state === 'waiting' || a.state === 'error')
 }
 
-export function paneLiveState(a: PaneAttention | undefined, running: boolean): SessionLiveState {
+export function paneLiveState(a: PaneAttention | undefined, running: boolean): WorkspaceLiveState {
   if (a && a.state !== 'none') return a.state
   return running ? 'working' : 'idle'
 }
 
-const RANK: Record<SessionLiveState, number> = {
+const RANK: Record<WorkspaceLiveState, number> = {
   idle: 0,
   working: 1,
   done: 2,
@@ -74,8 +74,8 @@ const RANK: Record<SessionLiveState, number> = {
   waiting: 4,
 }
 
-export function aggregateSessionState(panes: readonly SessionLiveState[]): SessionLiveState {
-  let best: SessionLiveState = 'idle'
+export function aggregateWorkspaceState(panes: readonly WorkspaceLiveState[]): WorkspaceLiveState {
+  let best: WorkspaceLiveState = 'idle'
   for (const s of panes) if (RANK[s] > RANK[best]) best = s
   return best
 }

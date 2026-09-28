@@ -13,7 +13,7 @@ import { TerminalView } from './Terminal'
 
 interface SurfaceRef {
   paneId: string
-  sessionId: string
+  workspaceId: string
   kind: SurfaceKind
   cwd?: string
   filePath?: string
@@ -21,7 +21,7 @@ interface SurfaceRef {
   extensionId?: string
 }
 
-function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
+function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void {
   for (const pane of allPanes(node)) {
     if (
       pane.kind === 'terminal' ||
@@ -32,7 +32,7 @@ function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
     ) {
       out.push({
         paneId: pane.id,
-        sessionId,
+        workspaceId,
         kind: pane.kind,
         cwd: pane.cwd,
         filePath: pane.filePath,
@@ -44,15 +44,15 @@ function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
 }
 
 export function SurfacePool(): JSX.Element {
-  const bySession = useLayoutStore((s) => s.bySession)
+  const byWorkspace = useLayoutStore((s) => s.byWorkspace)
 
   const surfaces = useMemo(() => {
     const out: SurfaceRef[] = []
-    for (const [sessionId, layout] of Object.entries(bySession)) {
-      if (layout) collect(layout.root, sessionId, out)
+    for (const [workspaceId, layout] of Object.entries(byWorkspace)) {
+      if (layout) collect(layout.root, workspaceId, out)
     }
     return out
-  }, [bySession])
+  }, [byWorkspace])
 
   useEffect(() => {
     const live = new Set(surfaces.map((s) => s.paneId))
@@ -69,11 +69,11 @@ export function SurfacePool(): JSX.Element {
           ) : s.kind === 'diff' ? (
             <DiffView paneId={s.paneId} />
           ) : s.kind === 'browser' ? (
-            <BrowserView sessionId={s.sessionId} paneId={s.paneId} url={s.url} />
+            <BrowserView workspaceId={s.workspaceId} paneId={s.paneId} url={s.url} />
           ) : s.kind === 'extension' && s.extensionId ? (
-            <ExtensionPanelView extId={s.extensionId} sessionId={s.sessionId} />
+            <ExtensionPanelView extId={s.extensionId} workspaceId={s.workspaceId} />
           ) : (
-            <TerminalView sessionId={s.sessionId} paneId={s.paneId} cwd={s.cwd} />
+            <TerminalView workspaceId={s.workspaceId} paneId={s.paneId} cwd={s.cwd} />
           ),
           surfaceHost(s.paneId),
           s.paneId,

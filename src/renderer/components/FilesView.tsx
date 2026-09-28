@@ -5,15 +5,17 @@ import { useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
 import { openFileInWorkspace } from '../lib/openFile'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { Hint } from './Hint'
 import { fileIcon } from './fileIcon'
 
 function useFocusedCwd(): string {
-  const sessionId = useSessionsStore((s) => s.activeSessionId)
-  const anchor = useSessionsStore((s) => s.sessions.find((c) => c.id === sessionId)?.workDir ?? '~')
-  const layout = useLayoutStore((s) => (sessionId ? s.bySession[sessionId] : undefined))
+  const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
+  const anchor = useWorkspacesStore(
+    (s) => s.workspaces.find((c) => c.id === workspaceId)?.workDir ?? '~',
+  )
+  const layout = useLayoutStore((s) => (workspaceId ? s.byWorkspace[workspaceId] : undefined))
   return layout ? (findPane(layout.root, layout.activePaneId)?.cwd ?? anchor) : anchor
 }
 

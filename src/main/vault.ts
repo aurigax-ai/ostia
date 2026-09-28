@@ -4,7 +4,7 @@ import type { Capability } from '../shared/capabilities'
 import { connHasCap } from './controlAuth'
 import { registerControlMethod } from './controlServer'
 import { type StoreScope, loadJson, saveJson, storePath } from './jsonStore'
-import { workDirForSession } from './sessionRegistry'
+import { workDirForWorkspace } from './workspaceRegistry'
 
 function needsElevation(cap: Capability): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
@@ -32,15 +32,15 @@ function noProjectWorkDir(): NoProjectWorkDir {
     ok: false,
     error: 'no-project-workdir',
     message:
-      'no project workDir is known for this session yet, so a project-scoped vault would ' +
+      'no project workDir is known for this workspace yet, so a project-scoped vault would ' +
       "collapse into a shared default — pass `--global`, or retry once the pane's project " +
       'is resolved.',
   }
 }
 
-function vaultStorePath(scope: StoreScope, sessionId: string): string | NoProjectWorkDir {
+function vaultStorePath(scope: StoreScope, workspaceId: string): string | NoProjectWorkDir {
   if (scope === 'global') return storePath('vault', 'global')
-  const workDir = workDirForSession(sessionId)
+  const workDir = workDirForWorkspace(workspaceId)
   if (!workDir) return noProjectWorkDir()
   return storePath('vault', 'project', workDir)
 }
@@ -64,10 +64,10 @@ export function registerVaultMethods(): void {
         scope?: StoreScope
       }
       const resolvedScope = scope ?? 'project'
-      if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'workspace-wide')) {
-        throw needsElevation('workspace-wide')
+      if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'all-workspaces')) {
+        throw needsElevation('all-workspaces')
       }
-      const path = vaultStorePath(resolvedScope, ctx.identity.sessionId)
+      const path = vaultStorePath(resolvedScope, ctx.identity.workspaceId)
       if (typeof path !== 'string') return path
       const store = loadVault(path)
       store[key] = safeStorage.encryptString(value).toString('base64')
@@ -81,7 +81,7 @@ export function registerVaultMethods(): void {
     handler: (params, ctx) => {
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { key, scope } = (params ?? {}) as { key: string; scope?: StoreScope }
-      const path = vaultStorePath(scope ?? 'project', ctx.identity.sessionId)
+      const path = vaultStorePath(scope ?? 'project', ctx.identity.workspaceId)
       if (typeof path !== 'string') return path
       const store = loadVault(path)
       const raw = store[key]
@@ -103,7 +103,7 @@ export function registerVaultMethods(): void {
     handler: (params, ctx) => {
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { scope } = (params ?? {}) as { scope?: StoreScope }
-      const path = vaultStorePath(scope ?? 'project', ctx.identity.sessionId)
+      const path = vaultStorePath(scope ?? 'project', ctx.identity.workspaceId)
       if (typeof path !== 'string') return path
       return { keys: Object.keys(loadVault(path)) }
     },
@@ -115,10 +115,10 @@ export function registerVaultMethods(): void {
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { key, scope } = (params ?? {}) as { key: string; scope?: StoreScope }
       const resolvedScope = scope ?? 'project'
-      if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'workspace-wide')) {
-        throw needsElevation('workspace-wide')
+      if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'all-workspaces')) {
+        throw needsElevation('all-workspaces')
       }
-      const path = vaultStorePath(resolvedScope, ctx.identity.sessionId)
+      const path = vaultStorePath(resolvedScope, ctx.identity.workspaceId)
       if (typeof path !== 'string') return path
       const store = loadVault(path)
       delete store[key]

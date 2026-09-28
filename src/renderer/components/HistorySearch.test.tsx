@@ -7,7 +7,7 @@ import { allPanes } from '../layout/tree'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { HistorySearch } from './HistorySearch'
 
 function runCommand(paneId: string, command: string, line: number): void {
@@ -22,29 +22,29 @@ describe('HistorySearch', () => {
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
   let historyInit: ReturnType<typeof useHistorySearchStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
-  let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 
   beforeAll(() => {
     if (!commands.has('history.insert')) registerBuiltinCommands()
     blocksInit = useBlocksStore.getState()
     historyInit = useHistorySearchStore.getState()
     layoutInit = useLayoutStore.getState()
-    sessionsInit = useSessionsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
   })
 
   afterEach(() => {
     useBlocksStore.setState(blocksInit, true)
     useHistorySearchStore.setState(historyInit, true)
     useLayoutStore.setState(layoutInit, true)
-    useSessionsStore.setState(sessionsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
     vi.restoreAllMocks()
   })
 
   const firstPaneId = (): string => {
-    useSessionsStore.getState().addSession()
-    const sessionId = useSessionsStore.getState().activeSessionId
-    if (!sessionId) throw new Error('no session')
-    const root = useLayoutStore.getState().bySession[sessionId]?.root
+    useWorkspacesStore.getState().addWorkspace()
+    const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+    if (!workspaceId) throw new Error('no workspace')
+    const root = useLayoutStore.getState().byWorkspace[workspaceId]?.root
     if (!root) throw new Error('no layout')
     return allPanes(root)[0].id
   }

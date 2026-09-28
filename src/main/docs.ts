@@ -6,14 +6,14 @@ const CLI_HELP = `pine — control-socket CLI
   pine whoami                    show this pane's identity
   pine commands                  list commands available in this window
   pine open <file>               open <file> in the editor
-  pine pane.list                  every pane, every session — {paneId(external),sessionId,
+  pine pane.list                  every pane, every workspace — {paneId(external),workspaceId,
                                   kind,title,cwd,running,blockCount,lastExitCode}
-  pine session.list               every session — {sessionId,name,kind,workDir,state}
+  pine workspace.list               every workspace — {workspaceId,name,kind,workDir,state}
   pine notify <title> [body]     desktop notification + marks this pane unread in Pine
   pine state <waiting|done|working|error|clear> [message] [--pane <externalId>]
                                  set this pane's attention state (message '-' reads stdin;
                                  a JSON object on stdin contributes its "message" field);
-                                 --pane targets another pane (needs workspace-wide)
+                                 --pane targets another pane (needs all-workspaces)
   pine resume-token <claude|codex> <id|->
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
@@ -32,7 +32,7 @@ const CLI_HELP = `pine — control-socket CLI
   pine bus wait [--timeout MS]                block until a message arrives (default 30s)
   pine bus handoff <to> --task "..." --summary "..."   hand a task off to another pane
   pine bus claim <id>                         claim a handoff addressed to you
-  pine bus handoffs [--all]                   list your handoffs (--all needs workspace-wide)
+  pine bus handoffs [--all]                   list your handoffs (--all needs all-workspaces)
   pine bus done <id>                          mark a handoff completed
   pine settings get [key]         print the whole settings state, or a dot-path value
   pine settings set <key> <value> deep-set a dot-path (value parsed as JSON if it parses)
@@ -70,9 +70,9 @@ const CLI_HELP = `pine — control-socket CLI
   pine browse devtools [toggle|open|close|console] [--pane ID]  default: toggle
   pine browse focus-webview [--pane ID]              focus the guest webContents
   pine browse is-webview-focused [--pane ID]         print true/false, exit 1 if false
-  pine browse identify [--pane ID]                   print {paneId,url,title,sessionId,windowId}
+  pine browse identify [--pane ID]                   print {paneId,url,title,workspaceId,windowId}
   pine browse cookies <get|set|clear> [name] [value] [--url U] [--domain D] [--pane ID]
-  pine browse storage <local|session> <get|set|clear> [key] [value] [--pane ID]
+  pine browse storage <local|workspace> <get|set|clear> [key] [value] [--pane ID]
   pine browse state <save|load> <path> [--pane ID]   save/restore cookies+localStorage+sessionStorage
   pine browse history clear [--pane ID]              clear this surface's navigation history
   pine browse addscript "<js>" [--pane ID]           run JS now, print the JSON result

@@ -1,6 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
-import { openSession } from './helpers'
+import { openWorkspace } from './helpers'
 
 test('blocks: select, copy output, navigate by chord, and reinsert from history', async () => {
   test.setTimeout(90_000)
@@ -9,7 +9,7 @@ test('blocks: select, copy output, navigate by chord, and reinsert from history'
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     const rows = win.locator('.xterm-rows').first()
-    await openSession(win)
+    await openWorkspace(win)
     await win.locator('.xterm').first().click()
     const clipboard = () => app.evaluate(({ clipboard }) => clipboard.readText())
 

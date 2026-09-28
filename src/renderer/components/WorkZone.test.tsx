@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { resetIds } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { WorkZone } from './WorkZone'
 import { TooltipProvider } from './ui/tooltip'
 
@@ -24,68 +24,68 @@ function renderZone(): void {
 }
 
 describe('WorkZone', () => {
-  let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
 
   beforeAll(() => {
-    sessionsInit = useSessionsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
     layoutInit = useLayoutStore.getState()
     uiInit = useUIStore.getState()
   })
 
   afterEach(() => {
     cleanup()
-    useSessionsStore.setState(sessionsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
     useLayoutStore.setState(layoutInit, true)
     useUIStore.setState(uiInit, true)
     resetIds()
     vi.restoreAllMocks()
   })
 
-  it('shows the empty state with the new-session shortcut when there are no sessions', () => {
+  it('shows the empty state with the new-workspace shortcut when there are no workspaces', () => {
     renderZone()
 
-    expect(screen.getByRole('heading', { name: 'No sessions' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'No workspaces' })).toBeInTheDocument()
     expect(screen.getByText('Start a terminal in your home folder.')).toBeInTheDocument()
-    const button = screen.getByRole('button', { name: /New session/ })
+    const button = screen.getByRole('button', { name: /New workspace/ })
     expect(button).toHaveTextContent('Ctrl+Shift+T')
     expect(screen.queryByTestId(/^terminal-/)).toBeNull()
   })
 
-  it('opens a terminal session at home from the empty state button', async () => {
+  it('opens a terminal workspace at home from the empty state button', async () => {
     renderZone()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /New session/ }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /New workspace/ }))
 
-    const [only] = useSessionsStore.getState().sessions
+    const [only] = useWorkspacesStore.getState().workspaces
     expect(only).toMatchObject({ workDir: '~', name: 'home', kind: 'terminal' })
-    expect(useSessionsStore.getState().activeSessionId).toBe(only.id)
-    expect(screen.queryByRole('heading', { name: 'No sessions' })).toBeNull()
-    const paneId = useLayoutStore.getState().bySession[only.id]?.activePaneId
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(only.id)
+    expect(screen.queryByRole('heading', { name: 'No workspaces' })).toBeNull()
+    const paneId = useLayoutStore.getState().byWorkspace[only.id]?.activePaneId
     expect(screen.getByTestId(`terminal-${paneId}`)).toBeInTheDocument()
   })
 
-  it('leaves Settings when the empty state opens a session', async () => {
+  it('leaves Settings when the empty state opens a workspace', async () => {
     useUIStore.getState().openSettings()
     const leaveSettings = vi.spyOn(useUIStore.getState(), 'leaveSettings')
     renderZone()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /New session/ }))
+    await userEvent.setup().click(screen.getByRole('button', { name: /New workspace/ }))
 
     expect(leaveSettings).toHaveBeenCalled()
   })
 
-  it('returns to the empty state when the last session closes', () => {
-    useSessionsStore.getState().addSession()
+  it('returns to the empty state when the last workspace closes', () => {
+    useWorkspacesStore.getState().addWorkspace()
     renderZone()
-    expect(screen.queryByRole('heading', { name: 'No sessions' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'No workspaces' })).toBeNull()
 
-    const id = useSessionsStore.getState().sessions[0].id
-    act(() => useSessionsStore.getState().closeSession(id))
+    const id = useWorkspacesStore.getState().workspaces[0].id
+    act(() => useWorkspacesStore.getState().closeWorkspace(id))
 
-    expect(screen.getByRole('heading', { name: 'No sessions' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'No workspaces' })).toBeInTheDocument()
     expect(screen.queryByTestId(/^terminal-/)).toBeNull()
-    expect(useSessionsStore.getState().sessions).toEqual([])
+    expect(useWorkspacesStore.getState().workspaces).toEqual([])
   })
 })

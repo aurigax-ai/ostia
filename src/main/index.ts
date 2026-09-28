@@ -8,6 +8,7 @@ import type { ExtensionResult } from '../shared/extensions'
 import { PRODUCT_NAME } from '../shared/product'
 import type {
   AppInfo,
+  AppSnapshot,
   CommandDescriptor,
   CommandResult,
   CommandTarget,
@@ -17,7 +18,6 @@ import type {
   PtyAttachResult,
   PtySpawnOptions,
   TerminalStateSnapshot,
-  WorkspaceSnapshot,
 } from '../shared/types'
 import { registerAttentionMethods } from './attention'
 import {
@@ -45,7 +45,13 @@ import { openInExternalEditor } from './externalEditor'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
-import { getByPaneId, registerPane, removePane, removeWindow, windowOfSession } from './idRegistry'
+import {
+  getByPaneId,
+  registerPane,
+  removePane,
+  removeWindow,
+  windowOfWorkspace,
+} from './idRegistry'
 import { killAllLsp, registerLspIpc } from './lsp'
 import {
   postNotification,
@@ -53,13 +59,16 @@ import {
   registerNotifyIpc,
   registerNotifyMethods,
 } from './notify'
-import { listPanes, listSessions, registerPaneListMethods } from './paneList'
+import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { ScreenMirror } from './screenMirror'
-import { removeSession, setSessionWorkDir, workDirForSession } from './sessionRegistry'
+import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
+import { shellIntegrationSpawnOptions } from './shellIntegration'
+import { registerVaultMethods } from './vault'
+import { removeWorkspace, setWorkspaceWorkDir, workDirForWorkspace } from './workspaceRegistry'
 import {
   clearPersisted,
   dropRestoredScrollback,
@@ -70,10 +79,7 @@ import {
   saveScrollback,
   saveSnapshot,
   takeRestoredScrollback,
-} from './sessionSnapshot'
-import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
-import { shellIntegrationSpawnOptions } from './shellIntegration'
-import { registerVaultMethods } from './vault'
+} from './workspaceSnapshot'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 
@@ -104,7 +110,7 @@ const DETACH_GRACE_MS = 3000
 
 let restorePersistEnabled = true
 
-const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── session restored ──\x1b[0m\r\n'
+const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
 
 const EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
 
@@ -376,7 +382,7 @@ function registerIpc(): void {
     }),
   )
 
-  ipcMain.on('session:save', (_e, snapshot: WorkspaceSnapshot | null) => {
+  ipcMain.on('workspace:save', (_e, snapshot: AppSnapshot | null) => {
     try {
       if (snapshot === null) {
         restorePersistEnabled = false
@@ -388,14 +394,14 @@ function registerIpc(): void {
       restorePersistEnabled = true
       saveSnapshot(parsed)
     } catch (err) {
-      console.error('[session] snapshot save failed', err)
+      console.error('[workspace] snapshot save failed', err)
     }
   })
-  ipcMain.handle('session:load', (): WorkspaceSnapshot | null => {
+  ipcMain.handle('workspace:load', (): AppSnapshot | null => {
     try {
       return loadSnapshot()
     } catch (err) {
-      console.error('[session] snapshot load failed', err)
+      console.error('[workspace] snapshot load failed', err)
       return null
     }
   })
@@ -416,10 +422,14 @@ function registerIpc(): void {
   ipcMain.on('lifecycle:event', (e, event: LifecycleEvent) => {
     const windowId = String(e.sender.id)
     if (event.type === 'pane-created') {
-      const identity = registerPane({ windowId, sessionId: event.sessionId, paneId: event.paneId })
+      const identity = registerPane({
+        windowId,
+        workspaceId: event.workspaceId,
+        paneId: event.paneId,
+      })
       extensionHost?.emitEvent('pane.created', {
         paneId: identity.externalId,
-        sessionId: event.sessionId,
+        workspaceId: event.workspaceId,
       })
     } else if (event.type === 'pane-closed') {
       const identity = getByPaneId(event.paneId)
@@ -427,19 +437,19 @@ function registerIpc(): void {
         dropIdentity(identity.externalId)
         extensionHost?.emitEvent('pane.closed', {
           paneId: identity.externalId,
-          sessionId: event.sessionId,
+          workspaceId: event.workspaceId,
         })
       }
       dropRestoredScrollback(event.paneId)
       removePane(event.paneId)
       terminalState.delete(event.paneId)
-    } else if (event.type === 'session-added') {
-      setSessionWorkDir(event.sessionId, event.workDir)
-    } else if (event.type === 'session-closed') {
-      removeSession(event.sessionId)
-    } else if (event.type === 'session-activated') {
-    } else if (event.type === 'session-state') {
-      emitSessionState(event.sessionId, event.state)
+    } else if (event.type === 'workspace-added') {
+      setWorkspaceWorkDir(event.workspaceId, event.workDir)
+    } else if (event.type === 'workspace-closed') {
+      removeWorkspace(event.workspaceId)
+    } else if (event.type === 'workspace-activated') {
+    } else if (event.type === 'workspace-state') {
+      emitSessionState(event.workspaceId, event.state)
     }
   })
 
@@ -460,7 +470,7 @@ function registerIpc(): void {
       if (changed) {
         const identity = getByPaneId(snapshot.paneId)
         if (identity) {
-          emitTerminalExtensionEvents(identity.externalId, identity.sessionId, cur, snapshot)
+          emitTerminalExtensionEvents(identity.externalId, identity.workspaceId, cur, snapshot)
           emitPlatformEvent('pane.state', {
             paneId: identity.externalId,
             generation: snapshot.generation,
@@ -499,21 +509,21 @@ function registerIpc(): void {
 
 function emitTerminalExtensionEvents(
   paneId: string,
-  sessionId: string,
+  workspaceId: string,
   prev: TerminalStateSnapshot | undefined,
   next: TerminalStateSnapshot,
 ): void {
   const host = extensionHost
   if (!host) return
   if (next.cwd && prev?.cwd !== next.cwd) {
-    host.emitEvent('cwd.changed', { paneId, sessionId, cwd: next.cwd })
+    host.emitEvent('cwd.changed', { paneId, workspaceId, cwd: next.cwd })
   }
   if (next.running && !prev?.running) {
-    host.emitEvent('command.started', { paneId, sessionId, cwd: next.cwd })
+    host.emitEvent('command.started', { paneId, workspaceId, cwd: next.cwd })
   } else if (!next.running && prev?.running) {
     host.emitEvent('command.finished', {
       paneId,
-      sessionId,
+      workspaceId,
       cwd: next.cwd,
       exitCode: next.lastExitCode,
     })
@@ -533,11 +543,11 @@ function registerExtensionIpc(host: ExtensionHost): void {
       _e,
       extId: string,
       command: string,
-      target: { sessionId: string | null; paneId: string | null },
+      target: { workspaceId: string | null; paneId: string | null },
     ): Promise<ExtensionResult> => {
       const paneId = target?.paneId ? getByPaneId(target.paneId)?.externalId : undefined
       const cwd = target?.paneId ? terminalState.get(target.paneId)?.cwd : undefined
-      const caller = host.userCaller(target?.sessionId ?? null, {
+      const caller = host.userCaller(target?.workspaceId ?? null, {
         capabilities: host.commandCapabilities(extId, command),
         ...(paneId ? { paneId } : {}),
         ...(cwd ? { cwd } : {}),
@@ -547,9 +557,9 @@ function registerExtensionIpc(host: ExtensionHost): void {
   )
   ipcMain.handle(
     'extensions:panel',
-    (_e, extId: string, context: { sessionId: string; locale: string }) =>
+    (_e, extId: string, context: { workspaceId: string; locale: string }) =>
       host.resolvePanel(String(extId), {
-        sessionId: String(context?.sessionId ?? ''),
+        workspaceId: String(context?.workspaceId ?? ''),
         locale: String(context?.locale ?? 'en'),
       }),
   )
@@ -590,7 +600,7 @@ function registerPtyIpc(): void {
     const shell =
       opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
     const integration = shellIntegrationSpawnOptions(shell, process.env)
-    const identity = registerPane({ windowId: subId, sessionId: '', paneId })
+    const identity = registerPane({ windowId: subId, workspaceId: '', paneId })
     const cols = opts.cols || 80
     const rows = opts.rows || 24
     const pty = mod.spawn(shell, integration.args, {
@@ -603,7 +613,7 @@ function registerPtyIpc(): void {
         ...integration.env,
         PINE_PANE_ID: identity.externalId,
         PINE_TOKEN: identity.token,
-        PINE_WORKSPACE: opts.cwd ?? '',
+        PINE_START_DIR: opts.cwd ?? '',
         PINE_SOCKET: controlSocketPath(),
         PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
         PINE_NODE: process.execPath,
@@ -776,12 +786,12 @@ export function execCommand(
   })
 }
 
-function sendToSessionWindow(
-  sessionId: string | undefined,
+function sendToWorkspaceWindow(
+  workspaceId: string | undefined,
   channel: string,
   payload: unknown,
 ): void {
-  const windowId = sessionId ? windowOfSession(sessionId) : undefined
+  const windowId = workspaceId ? windowOfWorkspace(workspaceId) : undefined
   const win = (windowId ? windows.get(windowId) : undefined) ?? [...windows.values()][0]
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
@@ -824,11 +834,11 @@ app.whenReady().then(() => {
     store: extensionStore,
     socketPath: controlSocketPath,
     nodePath: process.execPath,
-    workDirForSession,
+    workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     broadcast,
-    openPanelIn: (req) => sendToSessionWindow(req.sessionId, 'extensions:open-panel', req),
-    openDiffIn: (req) => sendToSessionWindow(req.sessionId, 'extensions:open-diff', req),
+    openPanelIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-panel', req),
+    openDiffIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
     notify: (n) => postNotification(notifyDeps, n),
     confirm: (req) => confirmForExtension(req, windows.values()),
     notifyPanel: (n, open) => postPanelNotification(notifyDeps, n, open),
@@ -846,7 +856,7 @@ app.whenReady().then(() => {
     listCommandsFor,
     getTerminalState,
     listPanes: () => listPanes({ execCommand, getTerminalState }),
-    listSessions: () => listSessions({ execCommand }),
+    listWorkspaces: () => listWorkspaces({ execCommand }),
     primaryWindowId,
     attachPhoneObserver,
     ptyResize,
@@ -880,7 +890,7 @@ function persistScrollback(): void {
     for (const [paneId, entry] of ptys) byPane[paneId] = entry.mirror.serialize()
     saveScrollback(byPane)
   } catch (err) {
-    console.error('[session] scrollback save failed', err)
+    console.error('[workspace] scrollback save failed', err)
   }
 }
 

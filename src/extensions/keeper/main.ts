@@ -36,7 +36,7 @@ async function main(): Promise<void> {
       return failure(service.state, service.unavailableMessage())
     }
     nextPath = path
-    await ext.openPanel(caller.sessionId)
+    await ext.openPanel(caller.workspaceId)
     return ok('ok')
   }
 

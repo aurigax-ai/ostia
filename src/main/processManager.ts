@@ -5,14 +5,14 @@ import { registerControlMethod } from './controlServer'
 import type { PaneIdentity } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { PtyRingBuffer } from './ptyRingBuffer'
-import { workDirForSession } from './sessionRegistry'
+import { workDirForWorkspace } from './workspaceRegistry'
 
 export interface ProcEntry {
   id: string
   name: string
   cmd: string
   cwd: string
-  sessionId: string
+  workspaceId: string
   status: 'running' | 'exited' | 'killed'
   pid?: number
   exitCode?: number
@@ -40,8 +40,8 @@ function redactCmd(cmd: string): string {
 }
 
 function toMeta(entry: ProcEntry): ProcMeta {
-  const { id, name, cwd, sessionId, status, pid, exitCode, startedAt } = entry
-  return { id, name, cmd: redactCmd(entry.cmd), cwd, sessionId, status, pid, exitCode, startedAt }
+  const { id, name, cwd, workspaceId, status, pid, exitCode, startedAt } = entry
+  return { id, name, cmd: redactCmd(entry.cmd), cwd, workspaceId, status, pid, exitCode, startedAt }
 }
 
 function persist(): void {
@@ -66,16 +66,16 @@ function loadPersisted(): void {
 }
 
 function canAccess(entry: ProcEntry, ctx: MethodCtx): boolean {
-  return entry.sessionId === ctx.identity.sessionId || connHasCap(ctx.authed, 'workspace-wide')
+  return entry.workspaceId === ctx.identity.workspaceId || connHasCap(ctx.authed, 'all-workspaces')
 }
 
 function resolveAuthorized(idOrName: string, ctx: MethodCtx): ProcEntry | undefined {
   const byId = procs.get(idOrName)
   if (byId) return canAccess(byId, ctx) ? byId : undefined
   const candidates = [...procs.values()].filter((p) => p.name === idOrName)
-  const own = candidates.find((p) => p.sessionId === ctx.identity.sessionId)
+  const own = candidates.find((p) => p.workspaceId === ctx.identity.workspaceId)
   if (own) return own
-  return connHasCap(ctx.authed, 'workspace-wide') ? candidates[0] : undefined
+  return connHasCap(ctx.authed, 'all-workspaces') ? candidates[0] : undefined
 }
 
 function toInfoShape(entry: ProcEntry) {
@@ -100,7 +100,7 @@ function spawnEntry(
   name: string,
   cmd: string,
   cwd: string,
-  sessionId: string,
+  workspaceId: string,
   env?: Record<string, string>,
 ): ProcEntry {
   const child = spawn(cmd, {
@@ -114,7 +114,7 @@ function spawnEntry(
     name,
     cmd,
     cwd,
-    sessionId,
+    workspaceId,
     status: 'running',
     pid: child.pid,
     startedAt: new Date().toISOString(),
@@ -151,8 +151,8 @@ export function registerProcessMethods(): void {
         env?: Record<string, string>
       }
       const id = `proc-${++counter}`
-      const resolvedCwd = cwd ?? workDirForSession(ctx.identity.sessionId) ?? process.cwd()
-      const entry = spawnEntry(id, name ?? id, cmd, resolvedCwd, ctx.identity.sessionId, env)
+      const resolvedCwd = cwd ?? workDirForWorkspace(ctx.identity.workspaceId) ?? process.cwd()
+      const entry = spawnEntry(id, name ?? id, cmd, resolvedCwd, ctx.identity.workspaceId, env)
       procs.set(id, entry)
       persist()
       return { id: entry.id, name: entry.name, pid: entry.pid }
@@ -163,9 +163,9 @@ export function registerProcessMethods(): void {
     cap: 'process',
     handler: (_params, ctx) => {
       const all = [...procs.values()]
-      const visible = connHasCap(ctx.authed, 'workspace-wide')
+      const visible = connHasCap(ctx.authed, 'all-workspaces')
         ? all
-        : all.filter((p) => p.sessionId === ctx.identity.sessionId)
+        : all.filter((p) => p.workspaceId === ctx.identity.workspaceId)
       return visible.map(toInfoShape)
     },
   })
@@ -215,7 +215,7 @@ export function registerProcessMethods(): void {
         entry.name,
         entry.cmd,
         entry.cwd,
-        entry.sessionId,
+        entry.workspaceId,
         entry.env,
       )
       procs.set(entry.id, fresh)

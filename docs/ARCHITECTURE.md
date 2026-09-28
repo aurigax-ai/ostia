@@ -61,13 +61,13 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `shellIntegration.ts` | Generates zsh/bash init files that emit OSC 133 + OSC 7 and define the `pine()` shell function |
 | `privateTmp.ts` | Per-uid, mode-0700 temp dir for those files |
 | `screenMirror.ts` | `ScreenMirror`: a headless xterm per pty fed every byte; `serialize()` is the width-independent history saved to `scrollback.json` |
-| `sessionSnapshot.ts` | Reads/validates/writes `sessions.json` and `scrollback.json`; one-shot restored scrollback |
+| `workspaceSnapshot.ts` | Reads/validates/writes `workspaces.json` and `scrollback.json`; one-shot restored scrollback |
 | `pathGuard.ts` | `resolveSafe` / `isPathAllowed` / `expandHome` for fs IPC and browser file outputs |
 | `lsp.ts` | Spawns language servers found on `PATH`, relays JSON-RPC to the renderer |
 | `controlServer.ts`, `controlAuth.ts`, `capabilityStore.ts`, `idRegistry.ts` | Control socket, token auth, per-pane capabilities, pane id ↔ external id ↔ token |
-| `sessionRegistry.ts` | Session id → workDir, fed by lifecycle events |
-| `paneList.ts` | `pane.list`, `session.list` (maps renderer ids to external ids) |
-| `events.ts` | In-process platform events (`notify`, `agent.needs-input`, `agent.done`, `session.state`, `pane.state`); only the gateway listens |
+| `workspaceRegistry.ts` | Workspace id → workDir, fed by lifecycle events |
+| `paneList.ts` | `pane.list`, `workspace.list` (maps renderer ids to external ids) |
+| `events.ts` | In-process platform events (`notify`, `agent.needs-input`, `agent.done`, `workspace.state`, `pane.state`); only the gateway listens |
 | `jsonStore.ts` | Atomic JSON persistence, project (`<workDir>/.pine/<name>.json`) or global (`$XDG_DATA_HOME/pine/<name>.json`) |
 | `notify.ts` | The notification log (`notifications.json`), desktop notifications, `notify` / `notify.list`, `notifications:*` IPC (§5) |
 | `attention.ts` | `pane.setAttention` control method (`pine state`) |
@@ -88,7 +88,7 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
 
 - `~/.config/pine/settings.json` (Electron `userData`): settings, including `capabilities.grants`.
 - `userData/gateway/{cert,key}.pem`: gateway TLS identity.
-- `$XDG_DATA_HOME/pine/` (default `~/.local/share/pine/`): `sessions.json`, `scrollback.json`,
+- `$XDG_DATA_HOME/pine/` (default `~/.local/share/pine/`): `workspaces.json`, `scrollback.json`,
   `notifications.json`, processes, bus, global vault, `gateway-devices.json`,
   `gateway-config.json`, `gateway-pair-audit.log`.
 - `<workDir>/.pine/`: project-scoped vault. Older versions also kept a kanban `board.json` and a
@@ -117,8 +117,8 @@ is typed as `PineBridge`, so drift breaks the build.
 | pty | `attach`, `detach`, `write`, `resize`, `onData`, `onExit` (push channels `pty:data:<id>`, `pty:exit:<id>`) |
 | fs | `list`, `read`, `write` (confined by `resolveSafe` to `[homedir, userData]`) |
 | lsp | `list`, `start`, `send`, `stop`, `onMessage`, `onExit` |
-| settings / session | `settings.path`; `session.save`, `session.load` |
-| lifecycle | `lifecycle.emit` (`pane-created`, `pane-closed`, `session-added`, `session-closed`, `session-activated`, `session-state`) |
+| settings / workspace | `settings.path`; `workspace.save`, `workspace.load` |
+| lifecycle | `lifecycle.emit` (`pane-created`, `pane-closed`, `workspace-added`, `workspace-closed`, `workspace-activated`, `workspace-state`) |
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
 | terminal state | `terminalState.push` |
 | browser | `register`, `unregister`, `pickStart`, `pickCancel`, `pickSend`, `onPickState` (push channel `browser:pick-state`) |
@@ -150,7 +150,7 @@ Ptys live in main keyed by renderer pane id (see CLAUDE.md §4). Spawn happens o
 dragons). Terminal name `xterm-color`.
 
 Spawn env: `PINE_PANE_ID` (the external id, not the renderer id), `PINE_TOKEN`, `PINE_SOCKET`,
-`PINE_WORKSPACE` (despite the name, the pane's spawn cwd), `PINE_CLI` (`out/cli/index.js`),
+`PINE_START_DIR` (despite the name, the pane's spawn cwd), `PINE_CLI` (`out/cli/index.js`),
 `PINE_NODE` (`process.execPath`), plus the shell-integration env.
 
 - The live ring is capped at 1 MB. `pty:attach` returns a replay from the ring; `pty:detach`
@@ -232,8 +232,8 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   the newest block whose command line is above the viewport still has output in view, a 22px
   header shows its command and status (running, or `exit N`). Clicking scrolls to the command.
 - **Command history search** (`components/HistorySearch.tsx`, `history.search`,
-  `Ctrl+Shift+H` / `⌘⇧H`): lists every block's command across all panes and sessions, newest
-  first, deduped by text, with session and cwd; choosing one inserts it into the active pane's
+  `Ctrl+Shift+H` / `⌘⇧H`): lists every block's command across all panes and workspaces, newest
+  first, deduped by text, with workspace and cwd; choosing one inserts it into the active pane's
   prompt without running it. Why not Ctrl+R: that's the shell's own history search. History is
   what's in `blocksStore`, so it covers panes that exist now (restored scrollback re-parses its
   marks on replay), not closed panes.
@@ -262,18 +262,18 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 
 ## 5. Renderer model
 
-### Sessions, layout, surfaces
+### Workspaces, layout, surfaces
 
-- **Session** (`stores/sessionsStore.ts`) → **split tree** (`layout/tree.ts`, pure; `stores/layoutStore.ts`)
+- **Workspace** (`stores/workspacesStore.ts`) → **split tree** (`layout/tree.ts`, pure; `stores/layoutStore.ts`)
   → **Pane** → one **Surface**: `terminal | editor | browser | extension | diff`.
   - An `extension` pane carries `extensionId` and renders that extension's panel
-    (`ExtensionPanelView`, §11). `openExtensionPanel` reuses the session's existing panel of the
+    (`ExtensionPanelView`, §11). `openExtensionPanel` reuses the workspace's existing panel of the
     same extension.
   - A `diff` pane (`DiffView`, §9) is opened by an extension's `ext.openDiff`. `openDiff` reuses
-    the session's diff pane. The pane node holds only the title and a `cwd` (the file's
+    the workspace's diff pane. The pane node holds only the title and a `cwd` (the file's
     directory); the two texts live in `stores/diffStore.ts` keyed by pane id, dropped by
     SurfacePool when the pane goes away. Why not in the node: the layout is autosaved to
-    `sessions.json` and a diff can be megabytes.
+    `workspaces.json` and a diff can be megabytes.
   - The `agent` kind exists but has no surface (it shows a ghost title).
   - Zoom renders only `zoomedPaneId`.
   - Closing the zoomed pane clears the zoom.
@@ -299,7 +299,7 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   structured token and not a command string: the hook payload comes from the agent, and a stored
   command would be typed into a shell later.
 - **Surface persistence** (`components/SurfacePool.tsx`, `stores/surfaceSlotsStore.ts`):
-  - SurfacePool portals every pane's surface, across all sessions, into a persistent,
+  - SurfacePool portals every pane's surface, across all workspaces, into a persistent,
     absolutely-positioned host div created in a detached parking holder.
   - `Pane` has a callback ref that calls `mountSurface`, which moves the host into the pane's slot.
     `parkSurface` moves it back, but only if that slot still owns it.
@@ -309,15 +309,15 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **Split rendering** (`PaneTree.tsx`): Allotment keyed by the child-id list. Why: Allotment
   caches sizes, so a structural change must rebuild it or panes collapse to a sliver; a pure
   resize keeps the instance.
-- **No sessions** (`sessionsStore.ts`, `WorkZone.tsx`): zero sessions is a valid state. The store
-  starts empty (`activeSessionId: null`); only the user (`session.new`, the sidebar or empty-state
-  button, Ctrl+Shift+T / ⌘T, opening a file with no session via `lib/openFile.ts`) or restore
-  creates one, and closing the last session leaves none. The work zone then shows the empty
-  state. With no active session, pane commands are no-ops, `pane.list`/`session.list` return
-  `[]`, extension panels and diffs are not opened, and `session-activated` is not emitted. Why:
+- **No workspaces** (`workspacesStore.ts`, `WorkZone.tsx`): zero workspaces is a valid state. The store
+  starts empty (`activeWorkspaceId: null`); only the user (`workspace.new`, the sidebar or empty-state
+  button, Ctrl+Shift+T / ⌘T, opening a file with no workspace via `lib/openFile.ts`) or restore
+  creates one, and closing the last workspace leaves none. The work zone then shows the empty
+  state. With no active workspace, pane commands are no-ops, `pane.list`/`workspace.list` return
+  `[]`, extension panels and diffs are not opened, and `workspace-activated` is not emitted. Why:
   a terminal the user didn't ask for is noise, and re-seeding one on close made the last
-  session impossible to get rid of.
-- **Hidden sessions** (`WorkZone.tsx`): each session mounts on first visit and stays mounted.
+  workspace impossible to get rid of.
+- **Hidden workspaces** (`WorkZone.tsx`): each workspace mounts on first visit and stays mounted.
   Inactive ones get `visibility: hidden` + `inert`.
   - Why `visibility`, not `display: none`: the box keeps its size, so the fit stays valid.
   - `inert` is cleared in a layout effect so focus can move back into a terminal (focus cannot
@@ -330,7 +330,7 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   `application/x-pine-pane`, so file and text drags are ignored. Dropping within 25% of an edge
   re-splits on that side; the center swaps the two panes.
 
-### Live session state and attention
+### Live workspace state and attention
 
 Each pane has an attention record (`stores/attentionStore.ts`): `state`
 (`none | working | waiting | done | error`), an `unread` flag, the latest `message`, and the time
@@ -347,30 +347,30 @@ it last changed. All transitions go through the pure reducer `reduceAttention` i
 | `input` | keystrokes into the pane | `waiting` → `none` |
 | `view` | the pane is being looked at | clears unread; `done` → `none` |
 
-A pane is *viewed* when the window has focus, its session is active, settings aren't covering
-it, no other pane is zoomed over it, and it is the session's active pane (`isPaneViewed`).
+A pane is *viewed* when the window has focus, its workspace is active, settings aren't covering
+it, no other pane is zoomed over it, and it is the workspace's active pane (`isPaneViewed`).
 `signalPane` dispatches an event and then a `view` if the pane is viewed, so a signal to the pane
 you're looking at never rings. `startAttentionSync` (started in `main.tsx`) re-applies `view`
-when the active session, active pane, settings overlay or window focus changes, prunes records
-of closed panes, and recomputes every session's state whenever attention, running blocks or
+when the active workspace, active pane, settings overlay or window focus changes, prunes records
+of closed panes, and recomputes every workspace's state whenever attention, running blocks or
 layouts change.
 
-Session state is the highest-ranked pane state, `waiting > error > done > working > idle`. A
+Workspace state is the highest-ranked pane state, `waiting > error > done > working > idle`. A
 pane's state is its attention state, or `working`/`idle` from its running block when attention
-is `none` (`paneLiveState`, `aggregateSessionState`). Why attention wins over the running block:
+is `none` (`paneLiveState`, `aggregateWorkspaceState`). Why attention wins over the running block:
 an agent CLI is itself a running command for its whole life, so "running" alone would show every
-agent pane as busy even while it waits on you. Each change emits a `session-state` lifecycle
+agent pane as busy even while it waits on you. Each change emits a `workspace-state` lifecycle
 event; main raises `agent.needs-input` for `waiting` and `agent.done` for `done` for the gateway.
 
 **Jump to latest unread** (`attention.jumpToLatest`, Ctrl+Shift+U / ⌘⇧U) picks the unread pane
-with the newest change across all sessions (`latestUnread`) and reveals it (`revealPane`): leaves
-settings, switches session, un-zooms if another pane is zoomed, focuses the pane, marks it
+with the newest change across all workspaces (`latestUnread`) and reveals it (`revealPane`): leaves
+settings, switches workspace, un-zooms if another pane is zoomed, focuses the pane, marks it
 viewed, and focuses its xterm on the next frame (`focusSurface`). Why the next frame: the
-session's layer is still `inert` until its layout effect runs, and focus can't land in an inert
+workspace's layer is still `inert` until its layout effect runs, and focus can't land in an inert
 subtree.
 
 **Notification center** (`components/NotificationCenter.tsx`, the bell in the top bar): the badge
-is the number of unread panes; the popover lists main's notification log newest first (session ·
+is the number of unread panes; the popover lists main's notification log newest first (workspace ·
 pane, message, time), reloads on `notifications:changed`, and each entry reveals its pane
 (entries whose pane is gone are disabled). "Clear all" empties the log and marks every pane read.
 The log (`main/notify.ts`, `notifications.json`, capped at 500) holds `pine notify` calls and the
@@ -381,17 +381,17 @@ listens to the same `notify` event, and the log survives restarts.
 
 **Control plane**: `pane.setAttention {state, message?, paneId?}` (`main/attention.ts`, cap
 `drive-self`) acts on the caller's own pane; a `paneId` (external id) of another pane needs
-`workspace-wide`. Main forwards it as the renderer command `attention.set` targeted at that pane.
+`all-workspaces`. Main forwards it as the renderer command `attention.set` targeted at that pane.
 The renderer commands `attention.set` and `attention.notify` act only on `ctx.activePaneId` (the
 command target), never on a pane id from args. Why: `command.exec` checks the caller's
 capabilities against the target, not against ids inside args, so an args pane id would let any
-pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
+pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 
 ### Commands and chords
 
 - **Registry** (`commands/registry.ts`): every action is a named command with arg schema.
   `describe()` backs `pine commands --json`. `execWith` never throws; it returns a `CommandResult`.
-  Built-ins (`commands/builtins.ts`): `pane.*` (split/close/focus/zoom/move/list), `session.new/list/save`,
+  Built-ins (`commands/builtins.ts`): `pane.*` (split/close/focus/zoom/move/list), `workspace.new/list/save`,
   `palette.toggle`, `view.toggleRail`, `app.openSettings`, `attention.set/notify/jumpToLatest`,
   `block.selectPrev/selectNext/copyCommand/copyOutput/copyBoth/rerun`, `history.search/insert`,
   `editor.open`, `browser.new/open`, `settings.get/set`.
@@ -400,10 +400,10 @@ pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   The registry notifies subscribers; the palette re-renders and the bridge re-publishes the
   descriptor list to main. An extension command never replaces a core command with the same id.
 - The renderer doesn't check capabilities; the socket and gateway do.
-- There is deliberately no `session.restore`. Restoring into a live window would tear down every
+- There is deliberately no `workspace.restore`. Restoring into a live window would tear down every
   attached pty; restore happens only at boot.
 - **Chords** (`lib/chords.ts`): macOS uses Cmd+K (palette), Cmd+\ (sidebar), Cmd+, (settings),
-  Cmd+Shift+U (jump to latest unread), Cmd+Shift+H (command history), Cmd+T (new session),
+  Cmd+Shift+U (jump to latest unread), Cmd+Shift+H (command history), Cmd+T (new workspace),
   Cmd+↑/↓ (previous/next block) and native Cmd+C/V/F. Other platforms use Ctrl+Shift+P,
   Ctrl+Shift+B, Ctrl+, Ctrl+Shift+U, Ctrl+Shift+H, Ctrl+Shift+T, Ctrl+Shift+↑/↓ and
   Ctrl+Shift+C/V/F (copy/paste/find). Plain Ctrl+T stays with the shell (readline transpose). On Linux some IBus
@@ -420,7 +420,7 @@ pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 
 - `stores/settingsStore.ts` persists `userData/settings.json` (debounced 300 ms): `locale`,
   `appearance` (theme + ui/terminal/editor fonts), `behavior` (`showHiddenFiles`, `cursorStyle`,
-  `cursorBlink`, `restoreSession`), `capabilities.grants`, `sync.dir`.
+  `cursorBlink`, `restoreWorkspace`), `capabilities.grants`, `sync.dir`.
   - `setByPath` rejects prototype-pollution segments, keys outside locale/appearance/behavior,
     and type changes.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
@@ -474,13 +474,13 @@ file is unlinked first, and the new socket is chmod 0600.
   what they subscribed to (§11).
 
 **Identity** (`idRegistry.ts`): each pane gets `{externalId: uuid, token: 32 random bytes hex,
-windowId, sessionId}`. Registering a pane twice returns the existing entry. Agents only ever
+windowId, workspaceId}`. Registering a pane twice returns the existing entry. Agents only ever
 see external ids.
 
 **Capabilities** (`shared/capabilities.ts`, `capabilityStore.ts`).
 - Defaults for every pane: `drive-self`, `read-board`, `notify`, `settings-read`, `process`,
   `vault-read`, `vault-write`.
-- Elevated: `send-other-pane`, `kill-pane`, `workspace-wide`, `shell`, `destructive`, `phone`,
+- Elevated: `send-other-pane`, `kill-pane`, `all-workspaces`, `shell`, `destructive`, `phone`,
   `gateway`, `browse`, `settings-write`.
 - Elevated caps are granted only by `capabilities.grants` in `settings.json`. A grant applies to
   every pane, is read once per run, and unknown names are dropped.
@@ -493,8 +493,8 @@ see external ids.
   `callers` defaults to `panes` (see §11 for extension identities).
 - `command.exec` goes through main's `execCommand`: `command:invoke` IPC to a window's registry,
   answered by `command:result`, 5 s timeout. A target with no window goes to the first window.
-- If the target differs from the caller's own pane, window or session in any way, the caller
-  needs `workspace-wide`. Each command's declared capabilities are checked as well.
+- If the target differs from the caller's own pane, window or workspace in any way, the caller
+  needs `all-workspaces`. Each command's declared capabilities are checked as well.
 
 **Toolbelt** (all `registerControlMethod`):
 
@@ -504,15 +504,15 @@ see external ids.
 | `vault.ts` | `vault.set/get/list/delete` | Details below |
 | `bus.ts` | `bus.send/inbox/wait/handoff/claim/handoffs/update` | Details below |
 | `notify.ts` | `notify`, `notify.list` | Desktop notification + log entry (capped at 500), marks the caller's pane unread via `attention.notify`; emits a `notify` platform event |
-| `attention.ts` | `pane.setAttention` | `pine state`; see §5 "Live session state and attention" |
+| `attention.ts` | `pane.setAttention` | `pine state`; see §5 "Live workspace state and attention" |
 | `docs.ts` | `docs` | Static CLI help, no capability needed |
-| `paneList.ts` | `pane.list`, `session.list` | Needs `read-board`; panes without an external id are omitted |
+| `paneList.ts` | `pane.list`, `workspace.list` | Needs `read-board`; panes without an external id are omitted |
 
 - **`process.*`**:
   - Uses `child_process.spawn` with `detached`, so `killTree` can signal the process group and
     take grandchildren (dev servers) down too.
   - Only the command's first word is persisted, so secrets in args never reach disk.
-  - A process owned by another session reports `not-found`, the same as a missing one, so ids
+  - A process owned by another workspace reports `not-found`, the same as a missing one, so ids
     can't be probed.
   - At load, `running` entries become `exited` and the id counter is advanced past saved ids.
 - **`vault.*`**: encrypted with Electron `safeStorage`. With no OS keyring it refuses with
@@ -520,16 +520,16 @@ see external ids.
   `list` returns names only.
 - **`bus.*`**:
   - Sending to yourself is free; another pane needs `send-other-pane`, and `--all` handoffs
-    need `workspace-wide`.
+    need `all-workspaces`.
   - `wait` checks the inbox before blocking, with a timeout clamped to 1–120 s (default 30 s).
   - Each inbox keeps up to 200 messages and the handoff list up to 500 (finished handoffs are
     evicted first).
 - Boards, cards and knowledge entries are not pine's: they live in Trellis, which the built-in
   `trellis` extension shows (§11). pine's own kanban and wiki extensions were removed.
 
-Project-scoped stores refuse with `no-project-workdir` while the session's workDir is unknown.
-Why: `jsonStore` would otherwise fall back to main's cwd and pool every unknown session into one
-file. Writing to global scope needs `workspace-wide`; reading it does not.
+Project-scoped stores refuse with `no-project-workdir` while the workspace's workDir is unknown.
+Why: `jsonStore` would otherwise fall back to main's cwd and pool every unknown workspace into one
+file. Writing to global scope needs `all-workspaces`; reading it does not.
 
 `protoGuard.isDangerousSegment` rejects `__proto__`, `prototype` and `constructor`. Settings
 dot-paths check every segment, not just the last one; snapshot pane-id keys are checked too.
@@ -590,7 +590,7 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
   - The Settings countdown only mirrors the TTL; main is what expires the code.
 - **Devices** (`devices.ts`): stored with `secure: true`. Each device gets `dev_<uuid>`, a 32-byte
   hex bearer token and phone caps. `verifyToken` compares against every device in constant time.
-- **Session.**
+- **Workspace.**
   - The first WS message must be `hello {deviceToken}` within 10 s, or the socket closes with 4001.
   - Binary frames start with a type byte: `0x01` pty output, `0x02` input, `0x03` resize (JSON
     `{paneId?, cols, rows}`, integers 1–1000; a `paneId` that isn't the attached pane is ignored).
@@ -603,10 +603,10 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
   - Each socket attaches at most one pane and detaches it on close.
   - `device.caps` returns the current caps.
   - Platform events are rebroadcast as `method: 'event'`. `notify`, `agent.needs-input` and
-    `agent.done` need the `notify` cap; `session.state` and `pane.state` need `read`. `notify`'s
+    `agent.done` need the `notify` cap; `workspace.state` and `pane.state` need `read`. `notify`'s
     `from` is rewritten to the pane's external id (or `null`), the id space phones see.
-  - Emitters: `pine notify` (`notify.ts`) emits `notify`; the renderer's `session-state`
-    lifecycle event goes through `emitSessionState` (`events.ts`), which emits `session.state`
+  - Emitters: `pine notify` (`notify.ts`) emits `notify`; the renderer's `workspace-state`
+    lifecycle event goes through `emitSessionState` (`events.ts`), which emits `workspace.state`
     plus `agent.needs-input` for `waiting` and `agent.done` for `done`; `terminal:state` emits
     `pane.state`.
 - **Revocation** has two parts and both must stay. `closeDeviceSockets` closes live sockets with
@@ -621,9 +621,13 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
   Why: closing on removal is the simple correct option. An owner attachment made under the old
   caps can't linger, and the phone's reconnect + `hello` returns the smaller set. Additions
   don't need a reconnect, and the per-frame re-read makes them effective immediately.
+- **Wire names** (`controlDispatch.ts` `toWireSession`/`toWirePane`, `main/events.ts`): the
+  phone contract predates the session → workspace rename and still says `session`; the gateway
+  translates `workspaceId` to `sessionId` on the way out. Why: renaming the wire breaks the
+  companion app until it ships the same change.
 - **Phone capabilities** (`controlDispatch.ts`) are a separate vocabulary from the internal
   `Capability` set, and the gateway checks them itself.
-  - `read` allows `session.list`, `pane.list`, `command.list`, `pane.info`, `cwd.get`.
+  - `read` allows `workspace.list`, `pane.list`, `command.list`, `pane.info`, `cwd.get`.
   - `command` allows `command.exec`. There are no board methods: `board.get`/`board.update` and
     the `board.read`/`board.write` caps went with the kanban extension (contract v1.2). Device
     records are normalized on load (`devices.ts`), so caps pine no longer knows are dropped.
@@ -634,18 +638,18 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
   - A non-empty target that doesn't resolve is an error, never a fallback to the default window.
   - Only the desktop Settings UI raises a device above its default caps (see Grants).
 
-## 8. Session restore
+## 8. Workspace restore
 
-Two files written by two processes (see CLAUDE.md §6): the renderer writes `sessions.json`
+Two files written by two processes (see CLAUDE.md §6): the renderer writes `workspaces.json`
 (layout), and main writes `scrollback.json` (each pane's serialized screen).
 
 - **Layout** (`stores/persistence.ts`, `layout/snapshot.ts`): saved 400 ms after any change to the
-  sessions, layout or settings stores, plus once at start and once on `beforeunload`.
-  - With no sessions, `buildSnapshot` writes an empty workspace (`sessions: []`,
-    `activeSessionId: null`) and `parseSnapshot` accepts it, so a restart after closing every
-    session restores zero sessions instead of the last non-empty snapshot.
+  workspaces, layout or settings stores, plus once at start and once on `beforeunload`.
+  - With no workspaces, `buildSnapshot` writes an empty workspace (`workspaces: []`,
+    `activeWorkspaceId: null`) and `parseSnapshot` accepts it, so a restart after closing every
+    workspace restores zero workspaces instead of the last non-empty snapshot.
   - `zoomedPaneId` is not saved.
-  - Diff panes are not saved (`withoutKind(root, 'diff')`); a session whose only pane is a diff
+  - Diff panes are not saved (`withoutKind(root, 'diff')`); a workspace whose only pane is a diff
     comes back as a terminal at its workDir, and focus moves to a surviving pane. Why: their
     content is in memory only (nothing live is restored).
   - The two node converters are a compile-time check that `layout/types.ts` and the snapshot
@@ -688,17 +692,17 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
 - **Quit order**: `persistScrollback` → kill ptys → `killAllLsp` → `killAllProcesses` →
   `stopControlServer` → `stopGateway`.
 - **Validation** (`parseSnapshot`): files are hand-editable, so a corrupt one degrades to a cold boot.
-  - The file must have `v === 1`. Limits: 32 sessions, 64 panes, tree depth 12.
-  - A duplicate pane id drops that session, and bad `sizes` fall back to an even split.
+  - The file must have `v === 1`. Limits: 32 workspaces, 64 panes, tree depth 12.
+  - A duplicate pane id drops that workspace, and bad `sizes` fall back to an even split.
   - Pane-id keys pass `isDangerousSegment` and go into a `Map`.
 - **Boot** (`main.tsx`):
   - `hydrate(snapshot)` must run before the first render. Why: the first render must already
-    see the restored sessions; a pane mounted earlier would spawn a pty that hydration orphans.
-  - If loading fails or there is nothing to restore, the app boots with no sessions.
-  - `sessionsStore.hydrate` / `layoutStore.hydrate` re-emit `session-added`, `session-activated`
+    see the restored workspaces; a pane mounted earlier would spawn a pty that hydration orphans.
+  - If loading fails or there is nothing to restore, the app boots with no workspaces.
+  - `workspacesStore.hydrate` / `layoutStore.hydrate` re-emit `workspace-added`, `workspace-activated`
     and `pane-created`. Why: restored items never went through `ensure`/`split`, so main's id
     registry and the socket would otherwise not know them.
-- **Turning `restoreSession` off** calls `session.save(null)`, which deletes both files and
+- **Turning `restoreWorkspace` off** calls `workspace.save(null)`, which deletes both files and
   stops scrollback writes.
 
 ## 9. Editor, LSP, browser
@@ -755,8 +759,8 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
     webContents and drive it with `browse.eval`.
 - **Automation** (`main/browse.ts`): about 45 `browse.*` methods, all behind the elevated
   `browse` cap.
-  - **Target**: an explicit pane id is an external id, and driving another session's pane also
-    needs `workspace-wide`. With no pane id, the first browser pane in the caller's session is used.
+  - **Target**: an explicit pane id is an external id, and driving another workspace's pane also
+    needs `all-workspaces`. With no pane id, the first browser pane in the caller's workspace is used.
   - **Mechanics**:
     - Most methods use `executeJavaScript` with an injected `window.__pine` helper (element refs
       `eN`, role/name guesses, a current-frame pointer).
@@ -813,9 +817,9 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `ses
 - Test layout and house rules: CLAUDE.md §7.
 - E2E runs the built app serially (`workers: 1`) because each instance owns a pty set and a
   per-PID socket. Every launch spreads `isolatedLaunch()` (`e2e/dataHome.ts`) to get a throwaway
-  `XDG_DATA_HOME` and `--user-data-dir`. The app boots with no sessions, so a spec that needs a
-  terminal calls `openSession(win)` (`e2e/helpers.ts`), which clicks the empty state's "New
-  session" button and waits for the prompt. `session-restore.spec.ts` shares one data home across
+  `XDG_DATA_HOME` and `--user-data-dir`. The app boots with no workspaces, so a spec that needs a
+  terminal calls `openWorkspace(win)` (`e2e/helpers.ts`), which clicks the empty state's "New
+  workspace" button and waits for the prompt. `workspace-restore.spec.ts` shares one data home across
   two launches and quits through `app.quit()` so `before-quit` runs. Its resize case relaunches at
   another window size with an 8 px terminal font (seeded `settings.json`) so the whole restored
   screen, including the user's p10k startup output, fits in the rendered rows it reads.
@@ -868,14 +872,14 @@ target whichever window happened to be first.
 
 **Methods.** Extension → pine: `ext.registerCommands`, `ext.subscribe`, `ext.setSidebarItem`,
 `ext.notify` (needs `notify`), `ext.openPanel`, `ext.openDiff`, `ext.confirm`, plus the shared
-read methods `session.list` / `pane.list` (`callers: 'all'`, need `read-board`). Pine → extension:
+read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`). Pine → extension:
 `ext.command` and `ext.panel` requests, `ext.event` notifications. Pane → pine: `ext.list`,
 `ext.invoke`.
 - `ext.openDiff` validates (title, both sides strings ≤ 5 MiB, absolute `path`) and main sends
-  `extensions:open-diff` to the session's window, where `openExtensionDiff` opens the diff pane
+  `extensions:open-diff` to the workspace's window, where `openExtensionDiff` opens the diff pane
   (§5, §9). Why a generic diff and not a git view: the first consumer is git, but a diff of two
   texts is what any VCS, formatter or code-review extension needs, and core stays VCS-agnostic.
-- `session.list` includes `activePaneId` (external id) so an extension can follow "the pane the
+- `workspace.list` includes `activePaneId` (external id) so an extension can follow "the pane the
   user is in" without a pane-scoped method.
 - The caller context carries `cwd`: for a pane caller the pane's live terminal cwd
   (`cwdForPane`, from `terminal:state`), for a palette call the active pane's.
@@ -889,19 +893,19 @@ read methods `session.list` / `pane.list` (`callers: 'all'`, need `read-board`).
   center, opens that extension's panel instead of jumping to a pane.
 - Command caps declared in the manifest are checked against the caller before the process is
   even started. The extension receives the caller context (`kind`, external `paneId`,
-  `sessionId`, `workDir`, `capabilities`) and may enforce conditional rules itself (for example
-  requiring `workspace-wide` for writes outside the session's project).
+  `workspaceId`, `workDir`, `capabilities`) and may enforce conditional rules itself (for example
+  requiring `all-workspaces` for writes outside the workspace's project).
 - Events are derived in main: `pane.created/closed` from lifecycle IPC, `cwd.changed` and
   `command.started/finished` from `terminal:state` diffs (running flips, last exit code),
   `focus.changed` from `browser-window-focus/blur`, `notification` from the `notify` platform
   event. Subscribing to pane/command/cwd/focus events needs `read-board`; `notification` needs
   `notify`.
-- Sidebar items are keyed by (extension, session, key), capped at 32 per extension and 80
-  characters, and rendered in the session row or the sidebar footer (no session).
+- Sidebar items are keyed by (extension, workspace, key), capped at 32 per extension and 80
+  characters, and rendered in the workspace row or the sidebar footer (no workspace).
 
 **Panels.** `ExtensionPanelView` asks main for the source (`extensions:panel`):
 - file entry: `file://` URL of the html inside the extension dir;
-- `url` entry: main asks the process (`ext.panel` with a user caller carrying session, workDir,
+- `url` entry: main asks the process (`ext.panel` with a user caller carrying workspace, workDir,
   locale) and accepts only an `http://127.0.0.1|localhost` URL, remembering its origin.
 The webview uses partition `pine-ext-<id>`, and `will-attach-webview` refuses it unless the src
 passes `isAllowedPanelUrl`. The guest gets the same hardening as browser panes (no preload, no
@@ -912,8 +916,8 @@ Why panels talk only to their own process: the guest has no `window.pine` and no
 compromised or buggy panel can do no more than its extension already can.
 
 **Git** (`src/extensions/git/`, the first built-in written for the API rather than migrated):
-- Sidebar: per session, the repo of the session's active pane cwd (else the last active
-  terminal's, else the first terminal's, else the workDir; `sessions.ts`) gets one item:
+- Sidebar: per workspace, the repo of the workspace's active pane cwd (else the last active
+  terminal's, else the first terminal's, else the workDir; `workspaces.ts`) gets one item:
   branch (or short sha when detached), `↑ahead ↓behind` when there is an upstream, `+new`
   (untracked or staged adds) and `~changed` (everything else), counted per path from
   `git status --porcelain=v2 --branch -z --untracked-files=all` (`status.ts`). Non-repo → no
@@ -936,9 +940,9 @@ compromised or buggy panel can do no more than its extension already can.
 **Tool extensions: trellis and keeper.** Both are built-ins that only shell out to the user's
 CLIs (`runTool` in the SDK: no shell, stdin closed, timeout, `missing` on ENOENT) and use nothing
 but the public API.
-- *trellis* (`src/extensions/trellis/`). Project of a session = the nearest `.trellis` marker
+- *trellis* (`src/extensions/trellis/`). Project of a workspace = the nearest `.trellis` marker
   (`/KEY` or `/KEY/boards/<slug>`) above its workDir, walked like trellis does (never `$HOME`,
-  stop at a `.git`). Sidebar: per session, `card ls --json --all` + `column ls --json` for that
+  stop at a `.git`). Sidebar: per workspace, `card ls --json --all` + `column ls --json` for that
   project → open (not in an `is_done` column) and claimed (claim not expired) counts, refreshed
   every 60 s, on pane/cwd/focus events and on card events. Panel: `trellis ui --json` prints the
   running daemon's URL and exits; if nothing runs it serves in the foreground and prints nothing,
@@ -948,11 +952,11 @@ but the public API.
   one-time entry link, redirects to `/p/<KEY>[/b/<slug>]`, and forwards every request with
   `X-Trellis-Token`, the upstream `Host`/`Origin` and no browser cookies. Why a proxy: trellis
   trades its token for a cookie only at `/` and then redirects to `/`, so a deep link to the
-  session's project can't be expressed as a URL. Events: a consumer named after the product
+  workspace's project can't be expressed as a URL. Events: a consumer named after the product
   (`pine`) runs `events --follow`; a brand-new consumer is first paged through and acked so
   history doesn't notify; acks are batched every 2 s; the follower restarts with backoff
   (2 s · 2ⁿ, 5 min cap). A card moved by an `agent:` actor into a column named like
-  review/needs-you/waiting (or blocked) in a project some session has open posts a notification
+  review/needs-you/waiting (or blocked) in a project some workspace has open posts a notification
   that opens the panel. "Trellis: Init Project Here" runs `trellis init` in the caller's cwd
   (else workDir) after `ext.confirm`.
 - *keeper* (`src/extensions/keeper/`). Only three argv are ever run (`isAllowedKeeperCall`):
@@ -967,8 +971,8 @@ but the public API.
   passes through pine.
 - Unavailable tools: no sidebar items, commands fail with a message that says what to install or
   start, and the panel shows a static explanation page (`startMessageServer`).
-- They depend on phase 4's extension access to `session.list`, `caller.cwd` and `focus.changed`
-  and degrade without them (no per-session items; cwd falls back to workDir; idle poll rate).
+- They depend on phase 4's extension access to `workspace.list`, `caller.cwd` and `focus.changed`
+  and degrade without them (no per-workspace items; cwd falls back to workDir; idle poll rate).
 
 **Built-ins.** `src/extensions/{git,trellis,keeper}` are built by `scripts/build-extensions.mjs`
 (esbuild: `main.ts` → node CJS bundle, `panel.ts` → browser IIFE; `sdk/panel.css` → `base.css`)

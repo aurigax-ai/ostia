@@ -2,25 +2,26 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { resetIds } from '../layout/tree'
 import { useLayoutStore } from './layoutStore'
 import { startPaneRecencySync, usePaneRecencyStore } from './paneRecencyStore'
-import { useSessionsStore } from './sessionsStore'
+import { useWorkspacesStore } from './workspacesStore'
 
-function homeSessionId(): string {
-  if (useSessionsStore.getState().sessions.length === 0) useSessionsStore.getState().addSession()
-  return useSessionsStore.getState().sessions[0].id
+function homeWorkspaceId(): string {
+  if (useWorkspacesStore.getState().workspaces.length === 0)
+    useWorkspacesStore.getState().addWorkspace()
+  return useWorkspacesStore.getState().workspaces[0].id
 }
 
-let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let recencyInit: ReturnType<typeof usePaneRecencyStore.getState>
 
 beforeAll(() => {
-  sessionsInit = useSessionsStore.getState()
+  workspacesInit = useWorkspacesStore.getState()
   layoutInit = useLayoutStore.getState()
   recencyInit = usePaneRecencyStore.getState()
 })
 
 afterEach(() => {
-  useSessionsStore.setState(sessionsInit, true)
+  useWorkspacesStore.setState(workspacesInit, true)
   useLayoutStore.setState(layoutInit, true)
   usePaneRecencyStore.setState(recencyInit, true)
   resetIds()
@@ -28,27 +29,27 @@ afterEach(() => {
 })
 
 describe('startPaneRecencySync', () => {
-  it('stamps a pane each time it becomes the active pane of its session', () => {
+  it('stamps a pane each time it becomes the active pane of its workspace', () => {
     vi.useFakeTimers()
     vi.setSystemTime(1000)
-    const sessionId = homeSessionId()
-    useLayoutStore.getState().ensure(sessionId)
-    const a = useLayoutStore.getState().bySession[sessionId].activePaneId
+    const workspaceId = homeWorkspaceId()
+    useLayoutStore.getState().ensure(workspaceId)
+    const a = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
     const stop = startPaneRecencySync()
     expect(usePaneRecencyStore.getState().touchedAt[a]).toBe(1000)
 
     vi.setSystemTime(2000)
-    useLayoutStore.getState().split(sessionId, a, 'horizontal')
-    const b = useLayoutStore.getState().bySession[sessionId].activePaneId
+    useLayoutStore.getState().split(workspaceId, a, 'horizontal')
+    const b = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
     expect(usePaneRecencyStore.getState().touchedAt[b]).toBe(2000)
 
     vi.setSystemTime(3000)
-    useLayoutStore.getState().focusPane(sessionId, a)
+    useLayoutStore.getState().focusPane(workspaceId, a)
     expect(usePaneRecencyStore.getState().touchedAt[a]).toBe(3000)
 
     stop()
     vi.setSystemTime(4000)
-    useLayoutStore.getState().focusPane(sessionId, b)
+    useLayoutStore.getState().focusPane(workspaceId, b)
     expect(usePaneRecencyStore.getState().touchedAt[b]).toBe(2000)
   })
 })

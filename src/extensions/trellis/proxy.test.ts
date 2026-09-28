@@ -33,7 +33,7 @@ describe('trellis auth proxy', () => {
     seen = []
     upstream = createServer((req, res) => {
       seen.push(req.headers)
-      res.writeHead(200, { 'content-type': 'text/plain', 'set-cookie': 'trellis_session=x' })
+      res.writeHead(200, { 'content-type': 'text/plain', 'set-cookie': 'trellis_workspace=x' })
       res.end(`upstream ${req.url}`)
     })
     await new Promise<void>((r) => upstream.listen(0, '127.0.0.1', r))

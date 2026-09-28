@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openSession } from './helpers'
+import { openWorkspace } from './helpers'
 
 test('a dirty repo shows in the sidebar, lists its changes, and opens a diff', async () => {
   const dataHome = freshDataHome()
@@ -26,7 +26,7 @@ test('a dirty repo shows in the sidebar, lists its changes, and opens a diff', a
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await openSession(win)
+    await openWorkspace(win)
 
     await expect(win.locator('.ext-item').filter({ hasText: 'main' })).toContainText('main ~1', {
       timeout: 15_000,

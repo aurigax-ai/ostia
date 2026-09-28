@@ -60,12 +60,12 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
 
   mkdirSync(join(dataHome, 'pine'), { recursive: true })
   writeFileSync(
-    join(dataHome, 'pine', 'sessions.json'),
+    join(dataHome, 'pine', 'workspaces.json'),
     JSON.stringify({
       v: 1,
       savedAt: new Date().toISOString(),
-      activeSessionId: 's1',
-      sessions: [
+      activeWorkspaceId: 's1',
+      workspaces: [
         {
           id: 's1',
           name: 'shop',

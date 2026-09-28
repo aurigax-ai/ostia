@@ -113,7 +113,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
 
   beforeEach(() => {
     socketPath = nextSocketPath()
-    identity = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'pE2E' })
+    identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' })
     registerControlServer(fakeDeps, socketPath)
   })
 
@@ -245,7 +245,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       expect(res.code).toBe(0)
       expect(execCalls).toEqual([
         {
-          target: { windowId: 'w1', sessionId: 's1', paneId: 'pE2E' },
+          target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
           id: 'attention.set',
           args: { state: 'waiting', message: 'approve the migration?' },
         },
@@ -281,17 +281,17 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       expect(execCalls).toHaveLength(0)
     })
 
-    it('needs workspace-wide to set another pane, and targets it once granted', async () => {
-      const other = registerPane({ windowId: 'w1', sessionId: 's2', paneId: 'pOther' })
+    it('needs all-workspaces to set another pane, and targets it once granted', async () => {
+      const other = registerPane({ windowId: 'w1', workspaceId: 's2', paneId: 'pOther' })
       const denied = await runPine(['state', 'done', '--pane', other.externalId], env())
       expect(denied.code).toBe(1)
-      expect(denied.stderr).toContain('needs-elevation: workspace-wide')
+      expect(denied.stderr).toContain('needs-elevation: all-workspaces')
       expect(execCalls).toHaveLength(0)
 
-      grant(identity.externalId, 'workspace-wide')
+      grant(identity.externalId, 'all-workspaces')
       const allowed = await runPine(['state', 'done', '--pane', other.externalId], env())
       expect(allowed.code).toBe(0)
-      expect(execCalls[0]?.target).toEqual({ windowId: 'w1', sessionId: 's2', paneId: 'pOther' })
+      expect(execCalls[0]?.target).toEqual({ windowId: 'w1', workspaceId: 's2', paneId: 'pOther' })
     })
   })
 })
