@@ -108,6 +108,12 @@ function enforceHandoffCap(data: BusData): void {
   }
 }
 
+export function postBusMessage(from: string, to: string, text: string): string {
+  const id = randomUUID()
+  deliver(loadBus(), { id, from, to, text, ts: new Date().toISOString() })
+  return id
+}
+
 export function registerBusMethods(): void {
   registerControlMethod('bus.send', {
     handler: (params, ctx) => {

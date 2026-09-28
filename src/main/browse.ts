@@ -161,7 +161,11 @@ type GuestResolution =
   | { ok: false; error: 'browser-not-ready' }
   | { ok: false; error: 'needs-elevation' }
 
-function resolveGuest(deps: BrowseDeps, ctx: MethodCtx, paneId?: string): GuestResolution {
+export function resolveGuest(
+  deps: Pick<BrowseDeps, 'browserPanes'>,
+  ctx: MethodCtx,
+  paneId?: string,
+): GuestResolution {
   if (paneId) {
     const identity = resolveExternal(paneId)
     if (!identity) return { ok: false, error: 'no-browser-pane' }

@@ -86,6 +86,7 @@ const CLI_HELP = `pine — control-socket CLI
                                   auto-response policy + log for alert/confirm/prompt (not blocking)
   pine browse focus-mode <enter|exit|toggle> [--pane ID]  minimal single-pane zoom/zen
   pine browse react-grab <toggle|get> [--pane ID]    minimal React fiber inspector on click
+  pine browse pick [--timeout MS] [--pane ID]        ask the user to click an element; prints its capture JSON
   pine gateway enable [--host H] [--port P]  turn on the LAN control gateway (elevated 'gateway')
   pine gateway pair                          mint a pairing code + QR payload (enables gateway too)
   pine gateway status                        { running, host, port, fingerprint, deviceCount }
