@@ -5,7 +5,7 @@ const secret = params.get('t') ?? ''
 
 export const context = {
   workDir: params.get('workDir') ?? '',
-  sessionId: params.get('sessionId') ?? '',
+  workspaceId: params.get('workspaceId') ?? '',
   locale: params.get('locale') ?? 'en',
 }
 

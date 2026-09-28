@@ -5,14 +5,14 @@ import { getByPaneId } from './idRegistry'
 
 interface RendererPaneEntry {
   paneId: string
-  sessionId: string
+  workspaceId: string
   kind: string
   title: string
   cwd?: string
 }
 
-export interface SessionEntry {
-  sessionId: string
+export interface WorkspaceEntry {
+  workspaceId: string
   name: string
   kind: string
   workDir: string
@@ -22,7 +22,7 @@ export interface SessionEntry {
 
 export interface PaneEntry {
   paneId: string
-  sessionId: string
+  workspaceId: string
   kind: string
   title: string
   cwd?: string
@@ -36,10 +36,10 @@ export interface PaneListDeps {
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
 }
 
-const GLOBAL_TARGET: CommandTarget = { sessionId: '', paneId: null }
+const GLOBAL_TARGET: CommandTarget = { workspaceId: '', paneId: null }
 
 export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
-  const res = await deps.execCommand(GLOBAL_TARGET, 'pane.list', { allSessions: true })
+  const res = await deps.execCommand(GLOBAL_TARGET, 'pane.list', { allWorkspaces: true })
   if (!res.ok) return []
   const panes = (res.result as RendererPaneEntry[] | undefined) ?? []
   const mapped: PaneEntry[] = []
@@ -49,7 +49,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
     const state = deps.getTerminalState(p.paneId)
     mapped.push({
       paneId: identity.externalId,
-      sessionId: p.sessionId,
+      workspaceId: p.workspaceId,
       kind: p.kind,
       title: p.title,
       cwd: state?.cwd ?? p.cwd,
@@ -61,15 +61,15 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
   return mapped
 }
 
-export async function listSessions(
+export async function listWorkspaces(
   deps: Pick<PaneListDeps, 'execCommand'>,
-): Promise<SessionEntry[]> {
-  const res = await deps.execCommand(GLOBAL_TARGET, 'session.list', {})
+): Promise<WorkspaceEntry[]> {
+  const res = await deps.execCommand(GLOBAL_TARGET, 'workspace.list', {})
   if (!res.ok) return []
-  const sessions = (res.result as SessionEntry[] | undefined) ?? []
-  return sessions.map(({ activePaneId, ...session }) => {
+  const workspaces = (res.result as WorkspaceEntry[] | undefined) ?? []
+  return workspaces.map(({ activePaneId, ...workspace }) => {
     const external = activePaneId ? getByPaneId(activePaneId)?.externalId : undefined
-    return external ? { ...session, activePaneId: external } : session
+    return external ? { ...workspace, activePaneId: external } : workspace
   })
 }
 
@@ -81,9 +81,9 @@ export function registerPaneListMethods(deps: PaneListDeps): void {
     callers: 'all',
     handler: () => listPanes(deps),
   })
-  registerControlMethod('session.list', {
+  registerControlMethod('workspace.list', {
     cap: READ_BOARD,
     callers: 'all',
-    handler: () => listSessions(deps),
+    handler: () => listWorkspaces(deps),
   })
 }

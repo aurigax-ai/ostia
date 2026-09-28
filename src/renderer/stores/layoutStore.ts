@@ -26,52 +26,55 @@ import {
 } from '../layout/tree'
 import type { Direction, LayoutNode, SurfaceKind } from '../layout/types'
 import { useDiffStore } from './diffStore'
-import { useSessionsStore } from './sessionsStore'
+import { useWorkspacesStore } from './workspacesStore'
 
-export interface SessionLayout {
+export interface WorkspaceLayout {
   root: LayoutNode
   activePaneId: string
   zoomedPaneId: string | null
 }
 
 interface LayoutState {
-  bySession: Record<string, SessionLayout>
-  ensure: (sessionId: string) => void
-  hydrate: (layouts: Record<string, SessionLayout>) => void
-  split: (sessionId: string, paneId: string, direction: Direction) => void
-  newTab: (sessionId: string, paneId: string, kind: NewTabKind) => string | null
-  closePane: (sessionId: string, paneId: string) => void
-  focusPane: (sessionId: string, paneId: string) => void
-  resize: (sessionId: string, splitId: string, sizes: number[]) => void
-  zoomPane: (sessionId: string, paneId: string, zoom?: boolean) => void
-  movePane: (sessionId: string, sourceId: string, targetId: string, zone: DropZone) => void
-  setCwd: (sessionId: string, paneId: string, cwd: string) => void
-  setUrl: (sessionId: string, paneId: string, url: string) => void
-  setResume: (sessionId: string, paneId: string, resume: AgentResume) => void
-  openFile: (sessionId: string, path: string) => void
-  openBrowser: (sessionId: string, url: string) => void
-  openExtensionPanel: (sessionId: string, extensionId: string, title: string) => void
-  openDiff: (sessionId: string, content: DiffContent) => string | null
-  removeSession: (sessionId: string) => void
+  byWorkspace: Record<string, WorkspaceLayout>
+  ensure: (workspaceId: string) => void
+  hydrate: (layouts: Record<string, WorkspaceLayout>) => void
+  split: (workspaceId: string, paneId: string, direction: Direction) => void
+  newTab: (workspaceId: string, paneId: string, kind: NewTabKind) => string | null
+  closePane: (workspaceId: string, paneId: string) => void
+  focusPane: (workspaceId: string, paneId: string) => void
+  resize: (workspaceId: string, splitId: string, sizes: number[]) => void
+  zoomPane: (workspaceId: string, paneId: string, zoom?: boolean) => void
+  movePane: (workspaceId: string, sourceId: string, targetId: string, zone: DropZone) => void
+  setCwd: (workspaceId: string, paneId: string, cwd: string) => void
+  setUrl: (workspaceId: string, paneId: string, url: string) => void
+  setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
+  openFile: (workspaceId: string, path: string) => void
+  openBrowser: (workspaceId: string, url: string) => void
+  openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => void
+  openDiff: (workspaceId: string, content: DiffContent) => string | null
+  removeWorkspace: (workspaceId: string) => void
 }
 
 export type NewTabKind = Extract<SurfaceKind, 'terminal' | 'browser'>
 
-function layoutOf(root: LayoutNode): SessionLayout {
+function layoutOf(root: LayoutNode): WorkspaceLayout {
   return { root, activePaneId: firstPaneId(root), zoomedPaneId: null }
 }
 
 function patch(
   state: LayoutState,
-  sessionId: string,
-  fn: (layout: SessionLayout) => SessionLayout,
-): Pick<LayoutState, 'bySession'> | null {
-  const layout = state.bySession[sessionId]
+  workspaceId: string,
+  fn: (layout: WorkspaceLayout) => WorkspaceLayout,
+): Pick<LayoutState, 'byWorkspace'> | null {
+  const layout = state.byWorkspace[workspaceId]
   if (!layout) return null
   const next = fn(layout)
   const root = selectTab(next.root, next.activePaneId)
   return {
-    bySession: { ...state.bySession, [sessionId]: root === next.root ? next : { ...next, root } },
+    byWorkspace: {
+      ...state.byWorkspace,
+      [workspaceId]: root === next.root ? next : { ...next, root },
+    },
   }
 }
 
@@ -82,42 +85,42 @@ function successorOf(before: LayoutNode, after: LayoutNode, closedId: string): s
 }
 
 export const useLayoutStore = create<LayoutState>((set, get) => ({
-  bySession: {},
+  byWorkspace: {},
 
-  ensure: (sessionId) => {
+  ensure: (workspaceId) => {
     let createdPaneId: string | null = null
     set((s) => {
-      if (s.bySession[sessionId]) return s
-      const workDir = useSessionsStore
+      if (s.byWorkspace[workspaceId]) return s
+      const workDir = useWorkspacesStore
         .getState()
-        .sessions.find((sess) => sess.id === sessionId)?.workDir
+        .workspaces.find((sess) => sess.id === workspaceId)?.workDir
       const root = createPane('terminal', undefined, workDir)
       createdPaneId = firstPaneId(root)
       return {
-        bySession: {
-          ...s.bySession,
-          [sessionId]: layoutOf(root),
+        byWorkspace: {
+          ...s.byWorkspace,
+          [workspaceId]: layoutOf(root),
         },
       }
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
   hydrate: (layouts) => {
-    set({ bySession: { ...layouts } })
-    for (const [sessionId, layout] of Object.entries(layouts)) {
+    set({ byWorkspace: { ...layouts } })
+    for (const [workspaceId, layout] of Object.entries(layouts)) {
       for (const paneId of paneIds(layout.root)) {
-        window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId })
+        window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
       }
     }
   },
 
-  split: (sessionId, paneId, direction) => {
+  split: (workspaceId, paneId, direction) => {
     let createdPaneId: string | null = null
     set((s) => {
-      const next = patch(s, sessionId, (l) => {
+      const next = patch(s, workspaceId, (l) => {
         const result = splitPane(l.root, paneId, direction)
         createdPaneId = result.newPaneId
         return { ...l, root: result.root, activePaneId: result.newPaneId ?? l.activePaneId }
@@ -125,14 +128,14 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
-  newTab: (sessionId, paneId, kind) => {
+  newTab: (workspaceId, paneId, kind) => {
     let createdPaneId: string | null = null
     set((s) => {
-      const next = patch(s, sessionId, (l) => {
+      const next = patch(s, workspaceId, (l) => {
         const target = findPane(l.root, paneId)
         if (!target) return l
         const pane = createPane(kind, undefined, target.cwd)
@@ -146,15 +149,15 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
     return createdPaneId
   },
 
-  closePane: (sessionId, paneId) => {
+  closePane: (workspaceId, paneId) => {
     let removed = false
     set((s) => {
-      const next = patch(s, sessionId, (l) => {
+      const next = patch(s, workspaceId, (l) => {
         const root = closePane(l.root, paneId)
         removed = findPane(l.root, paneId) !== null && findPane(root, paneId) === null
         const activePaneId =
@@ -165,17 +168,17 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (removed) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-closed', sessionId, paneId })
+      window.pine?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
     }
   },
 
-  focusPane: (sessionId, paneId) =>
-    set((s) => patch(s, sessionId, (l) => ({ ...l, activePaneId: paneId })) ?? s),
+  focusPane: (workspaceId, paneId) =>
+    set((s) => patch(s, workspaceId, (l) => ({ ...l, activePaneId: paneId })) ?? s),
 
-  zoomPane: (sessionId, paneId, zoom) =>
+  zoomPane: (workspaceId, paneId, zoom) =>
     set(
       (s) =>
-        patch(s, sessionId, (l) => {
+        patch(s, workspaceId, (l) => {
           const zoomedPaneId =
             zoom === undefined
               ? l.zoomedPaneId === paneId
@@ -190,53 +193,55 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         }) ?? s,
     ),
 
-  resize: (sessionId, splitId, sizes) =>
-    set((s) => patch(s, sessionId, (l) => ({ ...l, root: setSizes(l.root, splitId, sizes) })) ?? s),
+  resize: (workspaceId, splitId, sizes) =>
+    set(
+      (s) => patch(s, workspaceId, (l) => ({ ...l, root: setSizes(l.root, splitId, sizes) })) ?? s,
+    ),
 
-  movePane: (sessionId, sourceId, targetId, zone) =>
+  movePane: (workspaceId, sourceId, targetId, zone) =>
     set(
       (s) =>
-        patch(s, sessionId, (l) => ({
+        patch(s, workspaceId, (l) => ({
           ...l,
           root: movePane(l.root, sourceId, targetId, zone),
           activePaneId: sourceId,
         })) ?? s,
     ),
 
-  setCwd: (sessionId, paneId, cwd) =>
+  setCwd: (workspaceId, paneId, cwd) =>
     set((s) => {
-      const layout = s.bySession[sessionId]
+      const layout = s.byWorkspace[workspaceId]
       if (!layout) return s
       const root = setPaneCwd(layout.root, paneId, cwd)
       return root === layout.root
         ? s
-        : { bySession: { ...s.bySession, [sessionId]: { ...layout, root } } }
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
     }),
 
-  setUrl: (sessionId, paneId, url) =>
+  setUrl: (workspaceId, paneId, url) =>
     set((s) => {
-      const layout = s.bySession[sessionId]
+      const layout = s.byWorkspace[workspaceId]
       if (!layout) return s
       const root = setPaneUrl(layout.root, paneId, url)
       return root === layout.root
         ? s
-        : { bySession: { ...s.bySession, [sessionId]: { ...layout, root } } }
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
     }),
 
-  setResume: (sessionId, paneId, resume) =>
+  setResume: (workspaceId, paneId, resume) =>
     set((s) => {
-      const layout = s.bySession[sessionId]
+      const layout = s.byWorkspace[workspaceId]
       if (!layout) return s
       const root = setPaneResume(layout.root, paneId, resume)
       return root === layout.root
         ? s
-        : { bySession: { ...s.bySession, [sessionId]: { ...layout, root } } }
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
     }),
 
-  openFile: (sessionId, path) => {
+  openFile: (workspaceId, path) => {
     let createdPaneId: string | null = null
     set((s) => {
-      const next = patch(s, sessionId, (l) => {
+      const next = patch(s, workspaceId, (l) => {
         const title = path.split('/').pop() || path
         const existing = firstPaneOfKind(l.root, 'editor')
         if (existing) {
@@ -254,14 +259,14 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
-  openBrowser: (sessionId, url) => {
+  openBrowser: (workspaceId, url) => {
     let createdPaneId: string | null = null
     set((s) => {
-      const next = patch(s, sessionId, (l) => {
+      const next = patch(s, workspaceId, (l) => {
         const existing = firstPaneOfKind(l.root, 'browser')
         if (existing) {
           return {
@@ -278,14 +283,14 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
-  openExtensionPanel: (sessionId, extensionId, title) => {
+  openExtensionPanel: (workspaceId, extensionId, title) => {
     let createdPaneId: string | null = null
     set((s) => {
-      const next = patch(s, sessionId, (l) => {
+      const next = patch(s, workspaceId, (l) => {
         const existing = findExtensionPane(l.root, extensionId)
         if (existing) return { ...l, activePaneId: existing.id }
         const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
@@ -300,17 +305,17 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
-  openDiff: (sessionId, content) => {
+  openDiff: (workspaceId, content) => {
     let createdPaneId: string | null = null
     let diffPaneId: string | null = null
     const slash = content.path ? content.path.lastIndexOf('/') : -1
     const cwd = content.path && slash > 0 ? content.path.slice(0, slash) : undefined
     set((s) => {
-      const next = patch(s, sessionId, (l) => {
+      const next = patch(s, workspaceId, (l) => {
         const existing = firstPaneOfKind(l.root, 'diff')
         if (existing) {
           diffPaneId = existing.id
@@ -334,21 +339,21 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     })
     if (diffPaneId) useDiffStore.getState().set(diffPaneId, content)
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', sessionId, paneId: createdPaneId })
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
     return diffPaneId
   },
 
-  removeSession: (sessionId) => {
-    const layout = get().bySession[sessionId]
+  removeWorkspace: (workspaceId) => {
+    const layout = get().byWorkspace[workspaceId]
     set((s) => {
-      if (!(sessionId in s.bySession)) return s
-      const { [sessionId]: _removed, ...bySession } = s.bySession
-      return { bySession }
+      if (!(workspaceId in s.byWorkspace)) return s
+      const { [workspaceId]: _removed, ...byWorkspace } = s.byWorkspace
+      return { byWorkspace }
     })
     if (layout) {
       for (const paneId of paneIds(layout.root)) {
-        window.pine?.lifecycle?.emit?.({ type: 'pane-closed', sessionId, paneId })
+        window.pine?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
       }
     }
   },

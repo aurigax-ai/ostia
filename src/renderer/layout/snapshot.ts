@@ -1,13 +1,8 @@
-import type {
-  SnapshotNode,
-  SnapshotPaneNode,
-  SnapshotSession,
-  WorkspaceSnapshot,
-} from '@shared/types'
+import type { AppSnapshot, SnapshotNode, SnapshotPaneNode, SnapshotWorkspace } from '@shared/types'
 import { adoptIds, findPane, firstPaneId, withoutKind } from './tree'
 import type { LayoutNode, PaneNode } from './types'
 
-export interface RestorableSession {
+export interface RestorableWorkspace {
   id: string
   name: string
   kind: 'agent' | 'terminal' | 'scratch'
@@ -50,48 +45,48 @@ function toLayoutNode(node: SnapshotNode): LayoutNode {
 }
 
 export function buildSnapshot(input: {
-  sessions: RestorableSession[]
-  activeSessionId: string | null
+  workspaces: RestorableWorkspace[]
+  activeWorkspaceId: string | null
   layouts: Record<string, { root: LayoutNode; activePaneId: string }>
   savedAt: string
-}): WorkspaceSnapshot {
-  const sessions: SnapshotSession[] = []
-  for (const session of input.sessions) {
-    const layout = input.layouts[session.id]
+}): AppSnapshot {
+  const workspaces: SnapshotWorkspace[] = []
+  for (const workspace of input.workspaces) {
+    const layout = input.layouts[workspace.id]
     if (!layout) continue
-    const root = persistableRoot(layout.root, session.workDir)
-    sessions.push({
-      id: session.id,
-      name: session.name,
-      kind: session.kind,
-      workDir: session.workDir,
+    const root = persistableRoot(layout.root, workspace.workDir)
+    workspaces.push({
+      id: workspace.id,
+      name: workspace.name,
+      kind: workspace.kind,
+      workDir: workspace.workDir,
       root: fromLayoutNode(root),
       activePaneId: findPane(root, layout.activePaneId) ? layout.activePaneId : firstPaneId(root),
     })
   }
-  const activeSessionId = sessions.some((s) => s.id === input.activeSessionId)
-    ? input.activeSessionId
-    : (sessions[0]?.id ?? null)
+  const activeWorkspaceId = workspaces.some((s) => s.id === input.activeWorkspaceId)
+    ? input.activeWorkspaceId
+    : (workspaces[0]?.id ?? null)
   return {
     v: 1,
     savedAt: input.savedAt,
-    activeSessionId,
-    sessions,
+    activeWorkspaceId,
+    workspaces,
   }
 }
 
-export function restoreWorkspace(snapshot: WorkspaceSnapshot): {
-  sessions: RestorableSession[]
-  activeSessionId: string | null
+export function restoreSnapshot(snapshot: AppSnapshot): {
+  workspaces: RestorableWorkspace[]
+  activeWorkspaceId: string | null
   layouts: Record<string, RestorableLayout>
 } {
-  const sessions: RestorableSession[] = []
+  const workspaces: RestorableWorkspace[] = []
   const layouts: Record<string, RestorableLayout> = {}
-  for (const s of snapshot.sessions) {
+  for (const s of snapshot.workspaces) {
     const root = toLayoutNode(s.root)
     adoptIds(root)
-    sessions.push({ id: s.id, name: s.name, kind: s.kind, workDir: s.workDir })
+    workspaces.push({ id: s.id, name: s.name, kind: s.kind, workDir: s.workDir })
     layouts[s.id] = { root, activePaneId: s.activePaneId, zoomedPaneId: null }
   }
-  return { sessions, activeSessionId: snapshot.activeSessionId, layouts }
+  return { workspaces, activeWorkspaceId: snapshot.activeWorkspaceId, layouts }
 }

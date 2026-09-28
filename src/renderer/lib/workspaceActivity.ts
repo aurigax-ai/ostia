@@ -2,12 +2,12 @@ import { findPane, isPaneShown, paneIds } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
 import { focusSurface } from '../stores/surfaceSlotsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import {
   type AttentionEvent,
-  aggregateSessionState,
+  aggregateWorkspaceState,
   latestUnread,
   paneLiveState,
 } from './attention'
@@ -18,18 +18,18 @@ export function shouldNotifyCommandEnd(durationMs: number, windowFocused: boolea
   return !windowFocused && durationMs >= NOTIFY_AFTER_MS
 }
 
-export function sessionOfPane(paneId: string): string | null {
-  for (const [sessionId, layout] of Object.entries(useLayoutStore.getState().bySession)) {
-    if (layout && findPane(layout.root, paneId)) return sessionId
+export function workspaceOfPane(paneId: string): string | null {
+  for (const [workspaceId, layout] of Object.entries(useLayoutStore.getState().byWorkspace)) {
+    if (layout && findPane(layout.root, paneId)) return workspaceId
   }
   return null
 }
 
 export function isPaneVisible(paneId: string): boolean {
-  const sessionId = sessionOfPane(paneId)
-  if (!sessionId || sessionId !== useSessionsStore.getState().activeSessionId) return false
+  const workspaceId = workspaceOfPane(paneId)
+  if (!workspaceId || workspaceId !== useWorkspacesStore.getState().activeWorkspaceId) return false
   if (useUIStore.getState().settingsActive) return false
-  const layout = useLayoutStore.getState().bySession[sessionId]
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   if (!layout) return false
   if (layout.zoomedPaneId) return layout.zoomedPaneId === paneId
   return isPaneShown(layout.root, paneId)
@@ -37,8 +37,10 @@ export function isPaneVisible(paneId: string): boolean {
 
 export function isPaneViewed(paneId: string): boolean {
   if (!document.hasFocus() || !isPaneVisible(paneId)) return false
-  const sessionId = useSessionsStore.getState().activeSessionId
-  return !!sessionId && useLayoutStore.getState().bySession[sessionId]?.activePaneId === paneId
+  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  return (
+    !!workspaceId && useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId === paneId
+  )
 }
 
 export function signalPane(paneId: string, event: AttentionEvent): void {
@@ -47,42 +49,42 @@ export function signalPane(paneId: string, event: AttentionEvent): void {
   if (isPaneViewed(paneId)) store.dispatch(paneId, { type: 'view', at: event.at })
 }
 
-export function syncSessionState(sessionId: string): void {
-  const sessions = useSessionsStore.getState()
-  if (!sessions.sessions.some((s) => s.id === sessionId)) return
-  const layout = useLayoutStore.getState().bySession[sessionId]
+export function syncWorkspaceState(workspaceId: string): void {
+  const workspaces = useWorkspacesStore.getState()
+  if (!workspaces.workspaces.some((s) => s.id === workspaceId)) return
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const running = useBlocksStore.getState().running
   const attention = useAttentionStore.getState().byPane
   const states = layout
     ? paneIds(layout.root).map((id) => paneLiveState(attention[id], running[id] !== undefined))
     : []
-  sessions.setState(sessionId, aggregateSessionState(states))
+  workspaces.setState(workspaceId, aggregateWorkspaceState(states))
 }
 
-export function syncAllSessionStates(): void {
-  for (const s of useSessionsStore.getState().sessions) syncSessionState(s.id)
+export function syncAllWorkspaceStates(): void {
+  for (const s of useWorkspacesStore.getState().workspaces) syncWorkspaceState(s.id)
 }
 
 export function viewActivePane(): void {
   if (!document.hasFocus() || useUIStore.getState().settingsActive) return
-  const sessionId = useSessionsStore.getState().activeSessionId
-  if (!sessionId) return
-  const paneId = useLayoutStore.getState().bySession[sessionId]?.activePaneId
+  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  if (!workspaceId) return
+  const paneId = useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
   if (paneId) useAttentionStore.getState().dispatch(paneId, { type: 'view', at: Date.now() })
 }
 
 export function revealPane(paneId: string): boolean {
-  const sessionId = sessionOfPane(paneId)
-  if (!sessionId) return false
+  const workspaceId = workspaceOfPane(paneId)
+  if (!workspaceId) return false
   useUIStore.getState().leaveSettings()
-  if (useSessionsStore.getState().activeSessionId !== sessionId) {
-    useSessionsStore.getState().setActive(sessionId)
+  if (useWorkspacesStore.getState().activeWorkspaceId !== workspaceId) {
+    useWorkspacesStore.getState().setActive(workspaceId)
   }
-  const layout = useLayoutStore.getState().bySession[sessionId]
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   if (layout?.zoomedPaneId && layout.zoomedPaneId !== paneId) {
-    useLayoutStore.getState().zoomPane(sessionId, layout.zoomedPaneId, false)
+    useLayoutStore.getState().zoomPane(workspaceId, layout.zoomedPaneId, false)
   }
-  useLayoutStore.getState().focusPane(sessionId, paneId)
+  useLayoutStore.getState().focusPane(workspaceId, paneId)
   useAttentionStore.getState().dispatch(paneId, { type: 'view', at: Date.now() })
   requestAnimationFrame(() => focusSurface(paneId))
   return true
@@ -90,7 +92,7 @@ export function revealPane(paneId: string): boolean {
 
 export function allPaneIds(): string[] {
   const ids: string[] = []
-  for (const layout of Object.values(useLayoutStore.getState().bySession)) {
+  for (const layout of Object.values(useLayoutStore.getState().byWorkspace)) {
     if (layout) ids.push(...paneIds(layout.root))
   }
   return ids
@@ -104,33 +106,33 @@ export function jumpToLatestUnread(): string | null {
 
 export function startAttentionSync(): () => void {
   const offAttention = useAttentionStore.subscribe((s, prev) => {
-    if (s.byPane !== prev.byPane) syncAllSessionStates()
+    if (s.byPane !== prev.byPane) syncAllWorkspaceStates()
   })
   const offBlocks = useBlocksStore.subscribe((s, prev) => {
-    if (s.running !== prev.running) syncAllSessionStates()
+    if (s.running !== prev.running) syncAllWorkspaceStates()
   })
   const offLayout = useLayoutStore.subscribe((s, prev) => {
-    if (s.bySession === prev.bySession) return
+    if (s.byWorkspace === prev.byWorkspace) return
     const live = new Set(allPaneIds())
     for (const id of Object.keys(useAttentionStore.getState().byPane)) {
       if (!live.has(id)) useAttentionStore.getState().dropPane(id)
     }
-    syncAllSessionStates()
+    syncAllWorkspaceStates()
     viewActivePane()
   })
-  const offSessions = useSessionsStore.subscribe((s, prev) => {
-    if (s.activeSessionId !== prev.activeSessionId) viewActivePane()
+  const offWorkspaces = useWorkspacesStore.subscribe((s, prev) => {
+    if (s.activeWorkspaceId !== prev.activeWorkspaceId) viewActivePane()
   })
   const offUi = useUIStore.subscribe((s, prev) => {
     if (s.settingsActive !== prev.settingsActive) viewActivePane()
   })
   window.addEventListener('focus', viewActivePane)
-  syncAllSessionStates()
+  syncAllWorkspaceStates()
   return () => {
     offAttention()
     offBlocks()
     offLayout()
-    offSessions()
+    offWorkspaces()
     offUi()
     window.removeEventListener('focus', viewActivePane)
   }

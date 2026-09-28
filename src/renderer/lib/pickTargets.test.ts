@@ -10,7 +10,7 @@ function split(...children: LayoutNode[]): LayoutNode {
   return { type: 'split', id: `s-${children.length}`, direction: 'horizontal', children, sizes: [] }
 }
 
-const sessions = [
+const workspaces = [
   { id: 'A', name: 'web' },
   { id: 'B', name: 'api' },
 ]
@@ -27,25 +27,25 @@ const layouts = {
 }
 
 describe('pickTargets', () => {
-  it('lists only terminal panes, same session first', () => {
+  it('lists only terminal panes, same workspace first', () => {
     const list = pickTargets({
-      sessions,
+      workspaces,
       layouts,
-      sourceSessionId: 'A',
+      sourceWorkspaceId: 'A',
       attention: {},
       touchedAt: {},
     })
     expect(list.map((t) => t.paneId)).toEqual(['a-term', 'a-agent', 'b-term'])
-    expect(list.map((t) => t.sameSession)).toEqual([true, true, false])
-    expect(list[2].sessionName).toBe('api')
+    expect(list.map((t) => t.sameWorkspace)).toEqual([true, true, false])
+    expect(list[2].workspaceName).toBe('api')
     expect(list[0].cwd).toBe('~/web')
   })
 
-  it('puts the most recently active terminal of the session first', () => {
+  it('puts the most recently active terminal of the workspace first', () => {
     const list = pickTargets({
-      sessions,
+      workspaces,
       layouts,
-      sourceSessionId: 'A',
+      sourceWorkspaceId: 'A',
       attention: {},
       touchedAt: { 'a-term': 10, 'a-agent': 20, 'b-term': 99 },
     })
@@ -55,9 +55,9 @@ describe('pickTargets', () => {
 
   it('carries each pane attention state', () => {
     const list = pickTargets({
-      sessions,
+      workspaces,
       layouts,
-      sourceSessionId: 'A',
+      sourceWorkspaceId: 'A',
       attention: { 'a-agent': { state: 'waiting', unread: true, at: 1 } },
       touchedAt: {},
     })

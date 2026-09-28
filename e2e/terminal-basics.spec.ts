@@ -1,13 +1,13 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
-import { openSession } from './helpers'
+import { openWorkspace } from './helpers'
 
 async function launch() {
   const app = await electron.launch(isolatedLaunch())
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   const rows = win.locator('.xterm-rows').first()
-  await openSession(win)
+  await openWorkspace(win)
   await win.locator('.xterm').first().click()
   return { app, win, rows }
 }

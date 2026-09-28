@@ -22,7 +22,7 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     listCommandsFor: vi.fn().mockReturnValue([]),
     getTerminalState: vi.fn().mockReturnValue(undefined),
     listPanes: vi.fn().mockResolvedValue([]),
-    listSessions: vi.fn().mockResolvedValue([]),
+    listWorkspaces: vi.fn().mockResolvedValue([]),
     primaryWindowId: vi.fn().mockReturnValue('w1'),
     attachPhoneObserver: vi.fn().mockReturnValue(null),
     ptyResize: vi.fn(),
@@ -93,30 +93,28 @@ describe('dispatchGatewayMethod — cap gating', () => {
 })
 
 describe('dispatchGatewayMethod — session.list / pane.list / command.list', () => {
-  it('session.list wraps listSessions() as { sessions }', async () => {
-    const sessions = [
-      { sessionId: 's1', name: 'api', kind: 'terminal', workDir: '/x', state: 'idle' },
+  it('session.list keeps the phone contract: workspaces go out as { sessions } with sessionId', async () => {
+    const workspaces = [
+      { workspaceId: 'w1', name: 'api', kind: 'terminal', workDir: '/x', state: 'idle' },
     ]
-    const deps = fakeDeps({ listSessions: vi.fn().mockResolvedValue(sessions) })
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces) })
     const res = await dispatchGatewayMethod('session.list', {}, ['read'], deps)
-    expect(res).toEqual({ ok: true, result: { sessions } })
+    expect(res).toEqual({
+      ok: true,
+      result: {
+        sessions: [
+          { sessionId: 'w1', name: 'api', kind: 'terminal', workDir: '/x', state: 'idle' },
+        ],
+      },
+    })
   })
 
-  it('pane.list wraps listPanes() as { panes }, ignoring any sessionId filter param', async () => {
-    const panes = [
-      {
-        paneId: 'ext-1',
-        sessionId: 's1',
-        kind: 'terminal',
-        title: 'zsh',
-        running: true,
-        blockCount: 0,
-      },
-    ]
-    const listPanes = vi.fn().mockResolvedValue(panes)
+  it('pane.list wraps listPanes() as { panes } with the contract’s sessionId field', async () => {
+    const pane = { paneId: 'ext-1', kind: 'terminal', title: 'zsh', running: true, blockCount: 0 }
+    const listPanes = vi.fn().mockResolvedValue([{ ...pane, workspaceId: 'w1' }])
     const deps = fakeDeps({ listPanes })
-    const res = await dispatchGatewayMethod('pane.list', { sessionId: 's1' }, ['read'], deps)
-    expect(res).toEqual({ ok: true, result: { panes } })
+    const res = await dispatchGatewayMethod('pane.list', { sessionId: 'w1' }, ['read'], deps)
+    expect(res).toEqual({ ok: true, result: { panes: [{ ...pane, sessionId: 'w1' }] } })
     expect(listPanes).toHaveBeenCalledWith()
   })
 
@@ -158,14 +156,14 @@ describe('dispatchGatewayMethod — command.exec', () => {
 
     expect(res).toEqual({ ok: true, result: { ok: true, result: undefined } })
     expect(execCommand).toHaveBeenCalledWith(
-      { windowId: 'w1', sessionId: '', paneId: null },
+      { windowId: 'w1', workspaceId: '', paneId: null },
       'session.new',
       { a: 1 },
     )
   })
 
   it('resolves an explicit `target` pane externalId via idRegistry', async () => {
-    const identity = registerPane({ windowId: 'w2', sessionId: 's2', paneId: 'p2' })
+    const identity = registerPane({ windowId: 'w2', workspaceId: 's2', paneId: 'p2' })
     const desc = descriptor({ id: 'pane.splitRight' })
     const execCommand = vi.fn().mockResolvedValue({ ok: true, result: undefined })
     const deps = fakeDeps({ listCommandsFor: vi.fn().mockReturnValue([desc]), execCommand })
@@ -179,7 +177,7 @@ describe('dispatchGatewayMethod — command.exec', () => {
 
     expect(res.ok).toBe(true)
     expect(execCommand).toHaveBeenCalledWith(
-      { windowId: 'w2', sessionId: 's2', paneId: 'p2' },
+      { windowId: 'w2', workspaceId: 's2', paneId: 'p2' },
       'pane.splitRight',
       undefined,
     )
@@ -320,7 +318,7 @@ describe('dispatchGatewayMethod — command.exec', () => {
 
 describe('dispatchGatewayMethod — pane.info / cwd.get', () => {
   it('pane.info resolves the externalId and merges terminal state, defaulting absent fields', async () => {
-    const identity = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'p-info' })
+    const identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-info' })
     const getTerminalState = vi.fn().mockReturnValue({
       paneId: 'p-info',
       generation: 2,
@@ -353,7 +351,7 @@ describe('dispatchGatewayMethod — pane.info / cwd.get', () => {
   })
 
   it('pane.info defaults generation/running/blockCount when there is no terminal-state snapshot', async () => {
-    const identity = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'p-nostate' })
+    const identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-nostate' })
     const res = await dispatchGatewayMethod(
       'pane.info',
       { paneId: identity.externalId },
@@ -379,7 +377,7 @@ describe('dispatchGatewayMethod — pane.info / cwd.get', () => {
   })
 
   it('cwd.get resolves the pane and returns its terminal-state cwd', async () => {
-    const identity = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'p-cwd' })
+    const identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-cwd' })
     const getTerminalState = vi.fn().mockReturnValue({ cwd: '/here' })
     const res = await dispatchGatewayMethod(
       'cwd.get',

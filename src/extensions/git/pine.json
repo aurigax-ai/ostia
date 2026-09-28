@@ -2,7 +2,7 @@
   "id": "git",
   "name": "Git",
   "version": "1.0.0",
-  "description": "Branch and changes per session in the sidebar, a changes list, and diffs of changed files.",
+  "description": "Branch and changes per workspace in the sidebar, a changes list, and diffs of changed files.",
   "capabilities": ["read-board"],
   "main": "main.js",
   "contributes": {

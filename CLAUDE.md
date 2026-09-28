@@ -142,31 +142,31 @@ Details: `docs/ARCHITECTURE.md`.
 - **Layout tree transforms are pure** (`src/renderer/layout/tree.ts`): no React, no store access.
   Transforms return the same object when nothing changed. `resetIds`/`adoptIds` are the only
   exceptions.
-- **Ids minted from counters are adopted on restore** (`adoptIds`, `adoptSessionIds`). Skip it and a
+- **Ids minted from counters are adopted on restore** (`adoptIds`, `adoptWorkspaceIds`). Skip it and a
   new pane reuses a restored pane's id, and two panes share one shell.
-- **Nothing live is ever restored.** A restored session comes back idle with a fresh shell at its
+- **Nothing live is ever restored.** A restored workspace comes back idle with a fresh shell at its
   saved cwd; replayed scrollback is history. Same for `processManager` (running → exited at load;
   loaded entries can't be restarted).
-- **Zero sessions is a valid state.** Sessions are created only by the user (New session button,
-  `session.new`, the chord, opening a file with none open) or by restore; never seed one at boot,
-  on an empty restore, or when the last session closes. `activeSessionId` is `null` then, and
+- **Zero workspaces is a valid state.** Workspaces are created only by the user (New workspace button,
+  `workspace.new`, the chord, opening a file with none open) or by restore; never seed one at boot,
+  on an empty restore, or when the last workspace closes. `activeWorkspaceId` is `null` then, and
   every reader (commands, WorkZone, attention sync, extension bridge, autosave) must handle it;
-  the work zone shows the empty state. An empty workspace is saved (`sessions: []`) so a restart
-  restores zero sessions.
-- **Session/pane guards:** `closePane` never removes the last pane and emits `pane-closed` only if
-  the pane existed; a session's `workDir` is the anchor, a pane's `cwd` wanders.
+  the work zone shows the empty state. An empty workspace is saved (`workspaces: []`) so a restart
+  restores zero workspaces.
+- **Workspace/pane guards:** `closePane` never removes the last pane and emits `pane-closed` only if
+  the pane existed; a workspace's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
-  `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new session, `Ctrl+Shift+R` resume the pane's
+  `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new workspace, `Ctrl+Shift+R` resume the pane's
   agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
-  macOS uses ⌘ (⌘⇧U unread, ⌘⇧H history, ⌘T new session, ⌘⇧R resume, ⌘↑/⌘↓ blocks).
+  macOS uses ⌘ (⌘⇧U unread, ⌘⇧H history, ⌘T new workspace, ⌘⇧R resume, ⌘↑/⌘↓ blocks).
   Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell;
   Escape is swallowed only while a block is selected. All chords live in `lib/chords.ts`;
   xterm's `attachCustomKeyEventHandler` lets app chords through. Block navigation is a terminal
   chord (handled in xterm), never a window chord, so inputs and Monaco keep Shift/⌘+arrow
   selection. Show hints via `chordLabel()`.
-- **Capabilities:** acting on any target other than your own pane/window/session needs
-  `workspace-wide`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`;
+- **Capabilities:** acting on any target other than your own pane/window/workspace needs
+  `all-workspaces`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`;
   grants come only from a human editing `settings.json`. Phone caps map through `PHONE_CAP_ALLOWS`;
   `input` must never map to a command capability. Phone grants (`command`, `input`,
   `destructive`) change only through the `gateway:set-cap` IPC from Settings →
@@ -177,16 +177,21 @@ Details: `docs/ARCHITECTURE.md`.
   live sockets AND re-checks the device on every request. Every frame uses the device's current
   caps from the store; removing a cap closes its live sockets (4004). Pty input and resize need
   an owner attachment plus `input`.
+- **The phone contract still says "session".** Inside pine they are workspaces, but the gateway
+  wire (`session.list` → `{ sessions }`, `sessionId` in panes, the `session.state` /
+  `agent.*` events in `main/events.ts`) is the companion app's contract
+  (`pine-companion/NETWORK-CONTRACT.md`). `controlDispatch.ts` maps `workspaceId` → `sessionId`
+  at the boundary. Rename the wire only together with the companion.
 - **Attention goes through `reduceAttention`** (`lib/attention.ts`), dispatched via
-  `attentionStore`/`signalPane`. Session state is derived from pane attention + running blocks by
-  `startAttentionSync`; never `setState` a session's live state directly. A signal to the pane
+  `attentionStore`/`signalPane`. Workspace state is derived from pane attention + running blocks by
+  `startAttentionSync`; never `setState` a workspace's live state directly. A signal to the pane
   being viewed must apply `view` immediately (`signalPane` does), or it rings while you look at it.
 - **Renderer attention commands act on the command target only** (`ctx.activePaneId`), never on
   a pane id in args: `command.exec` checks capabilities against the target, so an args pane id
-  would bypass `workspace-wide`.
+  would bypass `all-workspaces`.
 - **node-pty is loaded lazily and tolerated absent.**
 - **What may live in core:** code that needs xterm or pty internals, or that every other feature
-  depends on (windows, sessions, panes, pty + shell integration, blocks, restore, command
+  depends on (windows, workspaces, panes, pty + shell integration, blocks, restore, command
   registry/palette/chords, attention/notifications, settings, control socket + capabilities,
   extension host). Everything else is an extension (`docs/ROADMAP.md` §2). Don't add a new
   feature module to `src/main` or a feature view to `src/renderer`; write an extension, and if
@@ -211,7 +216,7 @@ Details: `docs/ARCHITECTURE.md`.
   token; it talks only to its own extension process.
 - **Core surfaces stay tool-agnostic.** The `diff` surface shows two texts an extension hands it
   (`ext.openDiff`); it never runs git or reads a repo. Diff content lives in `diffStore` (memory),
-  never in the layout node, and diff panes are dropped from `sessions.json`.
+  never in the layout node, and diff panes are dropped from `workspaces.json`.
 - **Never run a user-configured program through a shell.** "Open in External Editor" splits
   `behavior.externalEditor` into argv, substitutes `{file}`/`{line}`/`{column}` per argument,
   and spawns with `shell: false` (`main/externalEditor.ts`). `settings.set` refuses to change
@@ -252,7 +257,7 @@ Details: `docs/ARCHITECTURE.md`.
   generated shell symbols `__pine_*`.
 - **zustand:** `create<State>((set, get) => ({ … }))`, immutable updates, cross-store via
   `useOtherStore.getState()`. Pure logic stays out of stores.
-- **Model:** a **Session** (sidebar; `kind`, `workDir`, live `state`) owns a split-tree whose
+- **Model:** a **Workspace** (sidebar; `kind`, `workDir`, live `state`) owns a split-tree whose
   leaves are **Panes** or **tab stacks** of panes;
   each pane hosts one **Surface**: `terminal | editor | browser | extension | diff` (`agent` is
   reserved in the type and snapshot format, not yet created; `diff` is never persisted).
@@ -307,10 +312,10 @@ Details: `docs/ARCHITECTURE.md`.
   `$BASH_COMMAND`). Reading the command off the screen picks up a right-aligned RPROMPT and
   misses pasted text; the screen read is only the fallback for shells without the mark.
 - **OSC 7 is not percent-decoded**: hooks emit raw paths; decoding corrupts dirs like `100%20off`.
-- **Session restore is two files from two processes** (`sessionSnapshot.ts`): the renderer
-  autosaves `sessions.json` as you work; main writes `scrollback.json` every 5 s when output
+- **Workspace restore is two files from two processes** (`workspaceSnapshot.ts`): the renderer
+  autosaves `workspaces.json` as you work; main writes `scrollback.json` every 5 s when output
   changed and again at `before-quit` (before the kill loop). Each write merges restored scrollback
-  not yet replayed, else quitting before visiting a session erases its history.
+  not yet replayed, else quitting before visiting a workspace erases its history.
 - **Persist the serialized screen, never raw pty bytes** (`screenMirror.ts`). Raw bytes replay
   correctly only at the same geometry and state: zsh's PROMPT_SP left a `%` and p10k's
   cursor-positioned RPROMPT/clock redraws left `:41` fragments and duplicate prompts after a
@@ -328,7 +333,7 @@ Details: `docs/ARCHITECTURE.md`.
 - **The restore seam leads with a bare OSC 133;D** so a command running at quit doesn't come back
   as a block that runs forever.
 - **`hydrate()` runs before the first render** (`main.tsx`): the first render must already see the
-  restored sessions (or none), else the work zone flashes the empty state and a pane mounted
+  restored workspaces (or none), else the work zone flashes the empty state and a pane mounted
   before hydration would spawn a pty that's orphaned a tick later.
 - **Allotment is keyed by the child-id list**; its internal sizes go stale on structural changes.
 - **xterm's viewport paints black by default.** `.xterm-host .xterm .xterm-viewport` is
@@ -341,7 +346,7 @@ Details: `docs/ARCHITECTURE.md`.
 - **The user's CLIs have sharp edges** (`src/extensions/trellis`, `src/extensions/keeper`):
   trellis prints its JSON errors on **stderr** and `trellis version` appends an update notice
   after its JSON on stdout (parse the first line); `trellis ui` prints nothing when it serves in
-  the foreground (ask `trellis daemon status --json` for the address); the trellis session cookie
+  the foreground (ask `trellis daemon status --json` for the address); the trellis workspace cookie
   is exchanged only at `/`, so project deep links need the extension's token-injecting proxy.
   `keeper approve` and `keeper ui` auto-start the keeper daemon, so always gate them with
   `keeper daemon status` (which doesn't). `trellis events --consumer` doesn't advance the cursor
@@ -369,7 +374,7 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
 - **dom** project (jsdom, `test/setup.ts`): `src/renderer/**`. A typed `window.pine` fake
   (`test/mocks/pine.ts`, typed as `PineBridge`) breaks when the contract drifts.
 - **E2E** (`e2e/`): anything rendering xterm or Monaco, or needing a real pty, a restart, or a crash.
-  The app boots with no sessions: a spec that needs a terminal starts with `openSession(win)`
+  The app boots with no workspaces: a spec that needs a terminal starts with `openWorkspace(win)`
   (`e2e/helpers.ts`).
   `e2e/extensions.spec.ts` installs the `test/fixtures/extensions-e2e/hello` user extension
   (bundled with esbuild) and covers approval, a palette-opened file panel and a `pine <ext>` call.
@@ -385,7 +390,7 @@ Rules:
 
 ## 8. Known gaps
 
-- **Session restore is soft, not tmux.** Ptys are children of the Electron main process, so quit
+- **Workspace restore is soft, not tmux.** Ptys are children of the Electron main process, so quit
   or crash kills every shell. What survives is layout + scrollback (at most ~5 s behind). True
   reattach needs a separate pty-host daemon; `PtySession`'s owner/observer + `since(cursor)` model
   is the seam for it. Don't describe the feature as "keeps your processes running".

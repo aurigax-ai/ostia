@@ -123,8 +123,8 @@ describe('isIdlePrompt', () => {
 
 describe('collectHistory', () => {
   const origins = new Map([
-    ['p1', { sessionId: 's1', sessionName: 'api' }],
-    ['p2', { sessionId: 's2', sessionName: 'web' }],
+    ['p1', { workspaceId: 's1', workspaceName: 'api' }],
+    ['p2', { workspaceId: 's2', workspaceName: 'web' }],
   ])
 
   it('lists commands from every pane newest first, deduped by command text', () => {
@@ -143,10 +143,10 @@ describe('collectHistory', () => {
     )
 
     expect(history.map((h) => h.command)).toEqual(['make test', 'git status'])
-    expect(history[0]).toMatchObject({ paneId: 'p2', sessionName: 'web', cwd: '/web', at: 9 })
+    expect(history[0]).toMatchObject({ paneId: 'p2', workspaceName: 'web', cwd: '/web', at: 9 })
   })
 
-  it('skips panes that no longer belong to a session', () => {
+  it('skips panes that no longer belong to a workspace', () => {
     const history = collectHistory({ gone: [block({ id: 'x', command: 'rm -rf x' })] }, origins)
     expect(history).toEqual([])
   })

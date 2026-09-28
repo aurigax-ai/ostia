@@ -16,7 +16,7 @@ const fixtures = resolve(__dirname, '../../test/fixtures/extensions-api')
 
 const caller: ExtensionCaller = {
   kind: 'user',
-  sessionId: 's1',
+  workspaceId: 's1',
   capabilities: [],
 }
 
@@ -38,7 +38,7 @@ describe('ExtensionHost confirm and panel notifications', () => {
       store,
       socketPath: () => socketPath,
       nodePath: process.execPath,
-      workDirForSession: () => undefined,
+      workDirForWorkspace: () => undefined,
       broadcast: () => {},
       openPanelIn,
       notify,

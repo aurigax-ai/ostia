@@ -19,7 +19,7 @@ describe('uiStore', () => {
     expect(state().railCollapsed).toBe(false)
     expect(state().settingsTabOpen).toBe(false)
     expect(state().settingsActive).toBe(false)
-    expect(state().sidebarView).toBe('sessions')
+    expect(state().sidebarView).toBe('workspaces')
   })
 
   describe('palette', () => {
@@ -75,12 +75,12 @@ describe('uiStore', () => {
   })
 
   describe('setSidebarView', () => {
-    it("switches sidebarView to 'files' and back to 'sessions'", () => {
+    it("switches sidebarView to 'files' and back to 'workspaces'", () => {
       state().setSidebarView('files')
       expect(state().sidebarView).toBe('files')
 
-      state().setSidebarView('sessions')
-      expect(state().sidebarView).toBe('sessions')
+      state().setSidebarView('workspaces')
+      expect(state().sidebarView).toBe('workspaces')
     })
   })
 })

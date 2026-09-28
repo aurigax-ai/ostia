@@ -4,7 +4,7 @@ export type AppChord =
   | 'app.openSettings'
   | 'attention.jumpToLatest'
   | 'history.search'
-  | 'session.new'
+  | 'workspace.new'
   | 'agent.resume'
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
@@ -21,7 +21,7 @@ export interface KeyLike {
 
 const MAC: Record<string, Chord> = {
   k: 'palette.toggle',
-  t: 'session.new',
+  t: 'workspace.new',
   '\\': 'view.toggleRail',
   ',': 'app.openSettings',
   c: 'copy',
@@ -45,7 +45,7 @@ const CTRL_SHIFT: Record<string, Chord> = {
   v: 'paste',
   f: 'find',
   h: 'history.search',
-  t: 'session.new',
+  t: 'workspace.new',
   r: 'agent.resume',
   arrowup: 'block.selectPrev',
   arrowdown: 'block.selectNext',
@@ -72,7 +72,7 @@ const APP_CHORDS: ReadonlySet<Chord> = new Set<AppChord>([
   'app.openSettings',
   'attention.jumpToLatest',
   'history.search',
-  'session.new',
+  'workspace.new',
   'agent.resume',
 ])
 
@@ -88,7 +88,7 @@ const LABELS: Record<Chord, [mac: string, other: string]> = {
   'block.selectPrev': ['⌘↑', 'Ctrl+Shift+↑'],
   'block.selectNext': ['⌘↓', 'Ctrl+Shift+↓'],
   'history.search': ['⌘⇧H', 'Ctrl+Shift+H'],
-  'session.new': ['⌘T', 'Ctrl+Shift+T'],
+  'workspace.new': ['⌘T', 'Ctrl+Shift+T'],
   'agent.resume': ['⌘⇧R', 'Ctrl+Shift+R'],
   copy: ['⌘C', 'Ctrl+Shift+C'],
   paste: ['⌘V', 'Ctrl+Shift+V'],

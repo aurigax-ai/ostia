@@ -236,7 +236,7 @@ export function registerBusMethods(): void {
       const { all } = (params ?? {}) as { all?: boolean }
       const me = ctx.identity.externalId
       if (all) {
-        if (!connHasCap(ctx.authed, 'workspace-wide')) throw needsElevation('workspace-wide')
+        if (!connHasCap(ctx.authed, 'all-workspaces')) throw needsElevation('all-workspaces')
         return { handoffs: loadBus().handoffs }
       }
       const data = loadBus()

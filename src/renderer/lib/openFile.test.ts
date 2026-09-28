@@ -1,43 +1,43 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { findPane, resetIds } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSessionsStore } from '../stores/sessionsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { openFileInWorkspace } from './openFile'
 
 describe('openFileInWorkspace', () => {
-  let sessionsInit: ReturnType<typeof useSessionsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
 
   beforeAll(() => {
-    sessionsInit = useSessionsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
     layoutInit = useLayoutStore.getState()
   })
 
   afterEach(() => {
-    useSessionsStore.setState(sessionsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
     useLayoutStore.setState(layoutInit, true)
     resetIds()
   })
 
-  const activeEditor = (sessionId: string) => {
-    const layout = useLayoutStore.getState().bySession[sessionId]
+  const activeEditor = (workspaceId: string) => {
+    const layout = useLayoutStore.getState().byWorkspace[workspaceId]
     return layout ? findPane(layout.root, layout.activePaneId) : null
   }
 
-  it('opens the file in the active session without adding a session', () => {
-    useSessionsStore.getState().addSession('/w')
-    const sessionId = useSessionsStore.getState().sessions[0].id
+  it('opens the file in the active workspace without adding a workspace', () => {
+    useWorkspacesStore.getState().addWorkspace('/w')
+    const workspaceId = useWorkspacesStore.getState().workspaces[0].id
 
     openFileInWorkspace('/w/notes.md')
 
-    expect(useSessionsStore.getState().sessions).toHaveLength(1)
-    expect(activeEditor(sessionId)).toMatchObject({ kind: 'editor', filePath: '/w/notes.md' })
+    expect(useWorkspacesStore.getState().workspaces).toHaveLength(1)
+    expect(activeEditor(workspaceId)).toMatchObject({ kind: 'editor', filePath: '/w/notes.md' })
   })
 
-  it('opens a session for the file when the user opens one with no sessions', () => {
+  it('opens a workspace for the file when the user opens one with no workspaces', () => {
     openFileInWorkspace('/home/u/notes.md')
 
-    const [only] = useSessionsStore.getState().sessions
+    const [only] = useWorkspacesStore.getState().workspaces
     expect(only).toMatchObject({ workDir: '~' })
     expect(activeEditor(only.id)).toMatchObject({ kind: 'editor', filePath: '/home/u/notes.md' })
   })

@@ -2,8 +2,8 @@ import { type PickCapture, type PickSendResult, reportReference } from '@shared/
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { canTypeInto } from './blockActions'
-import { signalPane } from './sessionActivity'
 import { terminalFor } from './terminalHandles'
+import { signalPane } from './workspaceActivity'
 
 const AGENT_AT_PROMPT = new Set(['waiting', 'done'])
 const ATTENTION_NOTE_MAX = 120

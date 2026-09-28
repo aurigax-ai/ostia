@@ -58,10 +58,10 @@ export const SETTINGS_JSON_SCHEMA = {
           description: 'Terminal cursor shape.',
         },
         cursorBlink: { type: 'boolean', description: 'Blink the terminal cursor.' },
-        restoreSession: {
+        restoreWorkspace: {
           type: 'boolean',
           description:
-            'Reopen the previous run’s sessions, panes and terminal scrollback at launch. ' +
+            'Reopen the previous run’s workspaces, panes and terminal scrollback at launch. ' +
             'Shells are always respawned fresh; this restores the workspace’s shape and ' +
             'history, not live processes. Turning it off erases what is already stored.',
         },
@@ -98,7 +98,7 @@ export const SETTINGS_JSON_SCHEMA = {
             enum: [
               'send-other-pane',
               'kill-pane',
-              'workspace-wide',
+              'all-workspaces',
               'shell',
               'destructive',
               'phone',

@@ -100,7 +100,7 @@ export interface SyncApi {
   onStatus: (cb: (status: SyncStatus) => void) => () => void
 }
 
-export type SessionLiveState = 'idle' | 'working' | 'waiting' | 'done' | 'error'
+export type WorkspaceLiveState = 'idle' | 'working' | 'waiting' | 'done' | 'error'
 
 export type AttentionState = 'none' | 'working' | 'waiting' | 'done' | 'error'
 
@@ -160,7 +160,7 @@ export interface SnapshotTabsNode {
 
 export type SnapshotNode = SnapshotPaneNode | SnapshotSplitNode | SnapshotTabsNode
 
-export interface SnapshotSession {
+export interface SnapshotWorkspace {
   id: string
   name: string
   kind: 'agent' | 'terminal' | 'scratch'
@@ -169,25 +169,25 @@ export interface SnapshotSession {
   activePaneId: string
 }
 
-export interface WorkspaceSnapshot {
+export interface AppSnapshot {
   v: 1
   savedAt: string
-  activeSessionId: string | null
-  sessions: SnapshotSession[]
+  activeWorkspaceId: string | null
+  workspaces: SnapshotWorkspace[]
 }
 
-export interface SessionApi {
-  save: (snapshot: WorkspaceSnapshot | null) => void
-  load: () => Promise<WorkspaceSnapshot | null>
+export interface WorkspaceApi {
+  save: (snapshot: AppSnapshot | null) => void
+  load: () => Promise<AppSnapshot | null>
 }
 
 export type LifecycleEvent =
-  | { type: 'pane-created'; sessionId: string; paneId: string }
-  | { type: 'pane-closed'; sessionId: string; paneId: string }
-  | { type: 'session-added'; sessionId: string; workDir: string }
-  | { type: 'session-closed'; sessionId: string }
-  | { type: 'session-activated'; sessionId: string }
-  | { type: 'session-state'; sessionId: string; state: SessionLiveState }
+  | { type: 'pane-created'; workspaceId: string; paneId: string }
+  | { type: 'pane-closed'; workspaceId: string; paneId: string }
+  | { type: 'workspace-added'; workspaceId: string; workDir: string }
+  | { type: 'workspace-closed'; workspaceId: string }
+  | { type: 'workspace-activated'; workspaceId: string }
+  | { type: 'workspace-state'; workspaceId: string; state: WorkspaceLiveState }
 
 export interface LifecycleApi {
   emit: (event: LifecycleEvent) => void
@@ -221,7 +221,7 @@ export interface CommandDescriptor {
 
 export interface CommandTarget {
   windowId?: string
-  sessionId: string
+  workspaceId: string
   paneId: string | null
 }
 
@@ -352,7 +352,7 @@ export interface PineBridge {
   lsp: LspApi
   settings: SettingsApi
   sync: SyncApi
-  session: SessionApi
+  workspace: WorkspaceApi
   lifecycle: LifecycleApi
   commands: CommandsApi
   terminalState: TerminalStateApi

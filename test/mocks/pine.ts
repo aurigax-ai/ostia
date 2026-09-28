@@ -49,7 +49,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       pickFolder: vi.fn().mockResolvedValue(null),
       onStatus: vi.fn(noopUnsub),
     },
-    session: {
+    workspace: {
       save: vi.fn(),
       load: vi.fn().mockResolvedValue(null),
     },

@@ -5,12 +5,12 @@ import { registerPane } from './idRegistry'
 
 describe('controlAuth', () => {
   it('authenticates a valid token minted via registerPane', () => {
-    const identity = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'p1' })
+    const identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p1' })
     const conn = authenticate({ token: identity.token })
     expect(conn).not.toBeNull()
     expect(conn?.externalId).toBe(identity.externalId)
     expect(conn?.paneId).toBe('p1')
-    expect(conn?.sessionId).toBe('s1')
+    expect(conn?.workspaceId).toBe('s1')
   })
 
   it('rejects an absent token', () => {
@@ -26,7 +26,7 @@ describe('controlAuth', () => {
   })
 
   it('connHasCap is true for a default cap and false for an ungranted elevated cap until granted', () => {
-    const identity = registerPane({ windowId: 'w2', sessionId: 's2', paneId: 'p2' })
+    const identity = registerPane({ windowId: 'w2', workspaceId: 's2', paneId: 'p2' })
     const conn = authenticate({ token: identity.token })
     expect(conn).not.toBeNull()
     if (!conn) return

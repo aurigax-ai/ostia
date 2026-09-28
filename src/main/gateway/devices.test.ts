@@ -100,7 +100,7 @@ describe('gateway/devices', () => {
 
     it('refuses to grant or strip a base cap or an unknown cap', () => {
       const { deviceId } = registerDevice({ name: 'Phone', pubkey: 'pk' })
-      for (const cap of ['read', 'notify', 'gateway', 'workspace-wide', 42]) {
+      for (const cap of ['read', 'notify', 'gateway', 'all-workspaces', 42]) {
         expect(setDeviceCap(deviceId, cap, false)).toEqual({ ok: false, error: 'invalid-cap' })
         expect(setDeviceCap(deviceId, cap, true)).toEqual({ ok: false, error: 'invalid-cap' })
       }

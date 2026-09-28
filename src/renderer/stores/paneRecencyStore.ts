@@ -15,9 +15,9 @@ export function startPaneRecencySync(): () => void {
   const seen: Record<string, string> = {}
   const record = (): void => {
     const { touch } = usePaneRecencyStore.getState()
-    for (const [sessionId, layout] of Object.entries(useLayoutStore.getState().bySession)) {
-      if (seen[sessionId] === layout.activePaneId) continue
-      seen[sessionId] = layout.activePaneId
+    for (const [workspaceId, layout] of Object.entries(useLayoutStore.getState().byWorkspace)) {
+      if (seen[workspaceId] === layout.activePaneId) continue
+      seen[workspaceId] = layout.activePaneId
       touch(layout.activePaneId)
     }
   }

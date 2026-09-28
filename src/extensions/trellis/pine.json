@@ -2,7 +2,7 @@
   "id": "trellis",
   "name": "Trellis",
   "version": "1.0.0",
-  "description": "Your Trellis boards: the web UI as a panel, open and claimed cards per session, and a notice when an agent moves a card to review.",
+  "description": "Your Trellis boards: the web UI as a panel, open and claimed cards per workspace, and a notice when an agent moves a card to review.",
   "capabilities": ["read-board", "notify"],
   "main": "main.js",
   "contributes": {
@@ -16,7 +16,7 @@
       },
       {
         "id": "status",
-        "title": "Open and claimed cards for this session's project",
+        "title": "Open and claimed cards for this workspace's project",
         "usage": "status",
         "palette": false,
         "capabilities": ["read-board"]

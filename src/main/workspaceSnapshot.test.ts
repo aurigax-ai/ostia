@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SnapshotNode, WorkspaceSnapshot } from '../shared/types'
+import type { AppSnapshot, SnapshotNode } from '../shared/types'
 import {
   SCROLLBACK_CAP_BYTES,
   clearPersisted,
@@ -15,14 +15,14 @@ import {
   snapshotPath,
   takeRestoredScrollback,
   trimScrollback,
-} from './sessionSnapshot'
+} from './workspaceSnapshot'
 
-function snap(overrides?: Partial<WorkspaceSnapshot>): WorkspaceSnapshot {
+function snap(overrides?: Partial<AppSnapshot>): AppSnapshot {
   return {
     v: 1,
     savedAt: '2026-08-06T00:00:00.000Z',
-    activeSessionId: 's1',
-    sessions: [
+    activeWorkspaceId: 's1',
+    workspaces: [
       {
         id: 's1',
         name: 'terminal',
@@ -76,27 +76,27 @@ describe('parseSnapshot', () => {
     expect(parseSnapshot('nope')).toBeNull()
   })
 
-  it('keeps an empty workspace as a snapshot with no sessions and no active session', () => {
-    expect(parseSnapshot({ ...snap(), sessions: [] })).toEqual({
+  it('keeps an empty workspace as a snapshot with no workspaces and no active workspace', () => {
+    expect(parseSnapshot({ ...snap(), workspaces: [] })).toEqual({
       v: 1,
       savedAt: snap().savedAt,
-      activeSessionId: null,
-      sessions: [],
+      activeWorkspaceId: null,
+      workspaces: [],
     })
   })
 
   it('keeps a pane’s agent resume token and drops a malformed one', () => {
-    const pane = snap().sessions[0].root
+    const pane = snap().workspaces[0].root
     const withResume = (resume: unknown) =>
       parseSnapshot(
-        snap({ sessions: [{ ...snap().sessions[0], root: { ...pane, resume } as never }] }),
+        snap({ workspaces: [{ ...snap().workspaces[0], root: { ...pane, resume } as never }] }),
       )
-    expect(withResume({ agent: 'claude', id: 'abc-1' })?.sessions[0].root).toMatchObject({
+    expect(withResume({ agent: 'claude', id: 'abc-1' })?.workspaces[0].root).toMatchObject({
       resume: { agent: 'claude', id: 'abc-1' },
     })
-    expect(withResume({ agent: 'claude', id: 'x; rm -rf ~' })?.sessions[0].root).not.toHaveProperty(
-      'resume',
-    )
+    expect(
+      withResume({ agent: 'claude', id: 'x; rm -rf ~' })?.workspaces[0].root,
+    ).not.toHaveProperty('resume')
   })
 
   it('keeps a tab stack and repairs an unknown shown tab', () => {
@@ -110,9 +110,9 @@ describe('parseSnapshot', () => {
       ],
     }
     const parsed = parseSnapshot(
-      snap({ sessions: [{ ...snap().sessions[0], root: tabs as never }] }),
+      snap({ workspaces: [{ ...snap().workspaces[0], root: tabs as never }] }),
     )
-    expect(parsed?.sessions[0].root).toMatchObject({ type: 'tabs', activeId: 'pane-1' })
+    expect(parsed?.workspaces[0].root).toMatchObject({ type: 'tabs', activeId: 'pane-1' })
   })
 
   it('unwraps a one-tab stack and rejects a stack holding a split', () => {
@@ -123,20 +123,20 @@ describe('parseSnapshot', () => {
       children: [{ type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal' }],
     }
     expect(
-      parseSnapshot(snap({ sessions: [{ ...snap().sessions[0], root: one as never }] }))
-        ?.sessions[0].root,
+      parseSnapshot(snap({ workspaces: [{ ...snap().workspaces[0], root: one as never }] }))
+        ?.workspaces[0].root,
     ).toMatchObject({ type: 'pane', id: 'pane-1' })
     const nested = { ...one, children: [split('pane-1', 'pane-2')] }
     expect(
-      parseSnapshot(snap({ sessions: [{ ...snap().sessions[0], root: nested as never }] }))
-        ?.sessions,
+      parseSnapshot(snap({ workspaces: [{ ...snap().workspaces[0], root: nested as never }] }))
+        ?.workspaces,
     ).toEqual([])
   })
 
-  it('drops a session whose pane kind is unknown', () => {
+  it('drops a workspace whose pane kind is unknown', () => {
     const bad = snap({
-      sessions: [
-        ...snap().sessions,
+      workspaces: [
+        ...snap().workspaces,
         {
           id: 's2',
           name: 'x',
@@ -149,13 +149,13 @@ describe('parseSnapshot', () => {
       ],
     })
     const parsed = parseSnapshot(bad)
-    expect(parsed?.sessions.map((s) => s.id)).toEqual(['s1'])
+    expect(parsed?.workspaces.map((s) => s.id)).toEqual(['s1'])
   })
 
-  it('drops a session that reuses a pane id already claimed by another session', () => {
+  it('drops a workspace that reuses a pane id already claimed by another workspace', () => {
     const dup = snap({
-      sessions: [
-        ...snap().sessions,
+      workspaces: [
+        ...snap().workspaces,
         {
           id: 's2',
           name: 'x',
@@ -166,44 +166,44 @@ describe('parseSnapshot', () => {
         },
       ],
     })
-    expect(parseSnapshot(dup)?.sessions.map((s) => s.id)).toEqual(['s1'])
+    expect(parseSnapshot(dup)?.workspaces.map((s) => s.id)).toEqual(['s1'])
   })
 
-  it('drops a session whose split has no children', () => {
+  it('drops a workspace whose split has no children', () => {
     const empty = snap({
-      sessions: [
+      workspaces: [
         {
-          ...snap().sessions[0],
+          ...snap().workspaces[0],
           root: { type: 'split', id: 'split-1', direction: 'horizontal', children: [], sizes: [] },
         },
       ],
     })
-    expect(parseSnapshot(empty)?.sessions).toEqual([])
+    expect(parseSnapshot(empty)?.workspaces).toEqual([])
   })
 
   it('rebuilds sizes that do not match the child count', () => {
     const mismatched = snap({
-      sessions: [
-        { ...snap().sessions[0], activePaneId: 'pane-1', root: split('pane-1', 'pane-2') },
+      workspaces: [
+        { ...snap().workspaces[0], activePaneId: 'pane-1', root: split('pane-1', 'pane-2') },
       ],
     })
     // biome-ignore lint/suspicious/noExplicitAny: reaching into the union for the test fixture
-    ;(mismatched.sessions[0].root as any).sizes = [1]
-    const root = parseSnapshot(mismatched)?.sessions[0].root
+    ;(mismatched.workspaces[0].root as any).sizes = [1]
+    const root = parseSnapshot(mismatched)?.workspaces[0].root
     expect(root?.type === 'split' && root.sizes).toEqual([1, 1])
   })
 
-  it('falls back to the first session when activeSessionId names a dropped session', () => {
-    expect(parseSnapshot({ ...snap(), activeSessionId: 'ghost' })?.activeSessionId).toBe('s1')
+  it('falls back to the first workspace when activeWorkspaceId names a dropped workspace', () => {
+    expect(parseSnapshot({ ...snap(), activeWorkspaceId: 'ghost' })?.activeWorkspaceId).toBe('s1')
   })
 
   it('falls back to the first pane when activePaneId is not in the tree', () => {
     const stale = snap({
-      sessions: [
-        { ...snap().sessions[0], activePaneId: 'pane-99', root: split('pane-1', 'pane-2') },
+      workspaces: [
+        { ...snap().workspaces[0], activePaneId: 'pane-99', root: split('pane-1', 'pane-2') },
       ],
     })
-    expect(parseSnapshot(stale)?.sessions[0].activePaneId).toBe('pane-1')
+    expect(parseSnapshot(stale)?.workspaces[0].activePaneId).toBe('pane-1')
   })
 
   it('rejects a tree nested past the depth cap', () => {
@@ -217,16 +217,16 @@ describe('parseSnapshot', () => {
         sizes: [1, 1],
       }
     }
-    expect(parseSnapshot(snap({ sessions: [{ ...snap().sessions[0], root }] }))?.sessions).toEqual(
-      [],
-    )
+    expect(
+      parseSnapshot(snap({ workspaces: [{ ...snap().workspaces[0], root }] }))?.workspaces,
+    ).toEqual([])
   })
 
   it('keeps editor and browser panes with their reopen targets', () => {
     const rich = snap({
-      sessions: [
+      workspaces: [
         {
-          ...snap().sessions[0],
+          ...snap().workspaces[0],
           activePaneId: 'pane-1',
           root: {
             type: 'split',
@@ -241,7 +241,7 @@ describe('parseSnapshot', () => {
         },
       ],
     })
-    const root = parseSnapshot(rich)?.sessions[0].root
+    const root = parseSnapshot(rich)?.workspaces[0].root
     expect(root?.type === 'split' && root.children[0]).toMatchObject({
       kind: 'editor',
       filePath: '/p/a.ts',
@@ -263,9 +263,9 @@ describe('saveSnapshot / loadSnapshot', () => {
     expect(loadSnapshot()).toBeNull()
   })
 
-  it('round-trips an empty workspace so a restart restores zero sessions', () => {
-    saveSnapshot({ v: 1, savedAt: 'x', activeSessionId: null, sessions: [] })
-    expect(loadSnapshot()).toEqual({ v: 1, savedAt: 'x', activeSessionId: null, sessions: [] })
+  it('round-trips an empty workspace so a restart restores zero workspaces', () => {
+    saveSnapshot({ v: 1, savedAt: 'x', activeWorkspaceId: null, workspaces: [] })
+    expect(loadSnapshot()).toEqual({ v: 1, savedAt: 'x', activeWorkspaceId: null, workspaces: [] })
   })
 
   it('returns null (rather than throwing) when the file on disk is corrupt', () => {

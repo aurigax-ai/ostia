@@ -52,7 +52,7 @@ JSON-store helpers that only they used. Built-in extensions are now git, trellis
 │ │ browser + automation · editor/LSP · files · git/diff · trellis · keeper · vault · │ │
 │ │ bus · processes · gateway/remote                                                  │ │
 │ │ ┌──────────────────────────── core ───────────────────────────────────────────┐   │ │
-│ │ │ windows · sessions · split panes · pty + shell integration · blocks ·       │   │ │
+│ │ │ windows · workspaces · split panes · pty + shell integration · blocks ·       │   │ │
 │ │ │ restore · command registry + palette + chords · attention/notifications ·   │   │ │
 │ │ │ settings · control socket + capabilities · extension host                  │   │ │
 │ │ └─────────────────────────────────────────────────────────────────────────────┘   │ │
@@ -72,7 +72,7 @@ API can't express a built-in, fix the API rather than reaching into core.
   optional process that pine starts and talks JSON-RPC to over the same socket the `pine` CLI uses.
 - It registers **commands** (palette + CLI), subscribes to **events** (pane created/closed, command
   started/finished, cwd changed, notification), and contributes **UI through fixed slots**:
-  - sidebar status items per session (text + icon + tone, e.g. git branch, ports);
+  - sidebar status items per workspace (text + icon + tone, e.g. git branch, ports);
   - pane badges and attention state;
   - a **panel surface**: the extension serves a local HTML page, rendered in a sandboxed webview
     pane, which calls back over a scoped token.
@@ -90,7 +90,7 @@ webview instead of round-tripping every render.
 core (both were later removed in favour of Trellis, §1). Their data logic ran in their own
 processes, their UI was a panel served by that process, and the CLI forwards any unknown bare
 verb to the extension of that id (`pine git status`). Gaps the migration exposed, fixed in the API: commands needed a caller
-context (session workDir, caller caps) so project-scoped data and conditional permission rules
+context (workspace workDir, caller caps) so project-scoped data and conditional permission rules
 could live in the extension; commands needed a `stdin` flag and `usage` text so CLI verbs keep
 their shape and show up in `pine docs`; panels needed live change push (the SDK's SSE) and the
 app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
@@ -135,11 +135,11 @@ Each phase ships a working product; nothing half-built lands on `main`.
    badges/attention from extensions, hot reload of the extension list, extension settings, and letting extensions call
    pane-scoped methods (browse, process) with an explicit target.
 4. **Git & diff** — **done**: the `git` built-in extension (`src/extensions/git/`) shows each
-   session's branch, ahead/behind and `+new ~changed` in the sidebar, lists staged/unstaged/
+   workspace's branch, ahead/behind and `+new ~changed` in the sidebar, lists staged/unstaged/
    untracked/conflicted files in its panel ("Git: Show Changes"), opens a file's diff, and
    answers `pine git status|changes|diff|open` as JSON. API gaps it exposed, fixed generically:
    `ext.openDiff` with a new core `diff` surface (Monaco diff editor; core knows nothing about
-   git), `session.list`/`pane.list` for extensions (with `activePaneId`), the caller's `cwd`, and
+   git), `workspace.list`/`pane.list` for extensions (with `activePaneId`), the caller's `cwd`, and
    a `focus.changed` event so polling pauses when pine isn't focused. Core also gained "Open in
    External Editor" (editor, diff view, palette) driven by `behavior.externalEditor`, spawned
    with argv, never a shell. Deferred: stage/unstage/commit actions, a git-log/blame view, and
@@ -153,13 +153,13 @@ Each phase ships a working product; nothing half-built lands on `main`.
    because the extension API can't yet drive pane-scoped browse methods (phase 3 deferral); it
    moves out with browser automation.
 6. **Your tools** — **done**: built-in `trellis` and `keeper` extensions on the public API only
-   (panels, per-session and global sidebar items, notifications that open the panel, palette
+   (panels, per-workspace and global sidebar items, notifications that open the panel, palette
    commands), and settings sync through a user-chosen folder (Settings → Sync). API added for
    them, generic for any extension: `ext.confirm` (a human confirm dialog), `ext.notify
    {openPanel}` (a notification whose click opens your panel), the `shield` icon, and SDK helpers
    `runTool`, `onShutdown`, `startMessageServer` and `call`. Sync lives in core, not in an
    extension, because it rewrites extension approvals (only core may) and must run before the
-   extension host reads them. They rely on phase 4's `session.list` for extensions, `caller.cwd`
+   extension host reads them. They rely on phase 4's `workspace.list` for extensions, `caller.cwd`
    and `focus.changed`; without those the Trellis sidebar stays empty and Keeper polls at its
    idle rate. Deferred: opening a specific card or ticket from a notification, navigating an
    already-open panel to a new path.
