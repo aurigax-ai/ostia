@@ -184,6 +184,13 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **`pine()` shell function**: it runs `ELECTRON_RUN_AS_NODE=1 $PINE_NODE $PINE_CLI`, so no
   system Node is needed. electron-builder unpacks `out/cli/**` from the asar for this.
 
+- **Claude hooks** (`shellIntegration.ts` `claudeHookSettings`): the generated init defines
+  `claude() { command claude --settings <dir>/claude-settings.json "$@"; }`, whose hooks call
+  `pine resume-token` and `pine state`. Why a flag and not the user's settings: we never write the
+  user's dotfiles or `~/.claude`, and `--settings` is merged with theirs, so it adds hooks without
+  replacing any. Codex has no equivalent (its `notify` is a single value, and overriding it would
+  drop the user's), so Codex stays a manual recipe.
+
 ### Rendering, blocks, state
 
 - `Terminal.tsx` registers OSC 7 (cwd, raw path) and OSC 133 A/B/C/D handlers. Scrollback is 10k.
