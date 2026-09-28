@@ -53,6 +53,21 @@ export const en = {
     settings: 'Settings',
   },
   window: { minimize: 'Minimize', maximize: 'Maximize', restore: 'Restore', close: 'Close' },
+  blocks: {
+    select: 'Select block',
+    copyCommand: 'Copy command',
+    copyOutput: 'Copy output',
+    copyBoth: 'Copy command and output',
+    rerun: 'Rerun command',
+    running: 'Running',
+    exitCode: 'exit {code}',
+    jumpToCommand: 'Scroll to command',
+  },
+  history: {
+    title: 'Command history',
+    placeholder: 'Search commands from every pane…',
+    empty: 'No matching commands',
+  },
   find: {
     label: 'Find in terminal',
     placeholder: 'Find',
@@ -238,6 +253,21 @@ export const zhHant: Dict = {
     settings: '設定',
   },
   window: { minimize: '最小化', maximize: '最大化', restore: '還原', close: '關閉' },
+  blocks: {
+    select: '選取區塊',
+    copyCommand: '複製指令',
+    copyOutput: '複製輸出',
+    copyBoth: '複製指令與輸出',
+    rerun: '重新執行指令',
+    running: '執行中',
+    exitCode: '結束碼 {code}',
+    jumpToCommand: '捲動至指令',
+  },
+  history: {
+    title: '指令歷史',
+    placeholder: '搜尋所有窗格的指令…',
+    empty: '沒有符合的指令',
+  },
   find: {
     label: '在終端機中尋找',
     placeholder: '尋找',
