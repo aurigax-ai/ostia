@@ -67,7 +67,7 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `jsonStore.ts` | Atomic JSON persistence, project (`<workDir>/.pine/<name>.json`) or global (`$XDG_DATA_HOME/pine/<name>.json`) |
 | `processManager.ts`, `vault.ts`, `wiki.ts`, `kanban.ts`, `bus.ts`, `notify.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
 | `browse.ts` | `browse.*` automation of browser panes (§9) |
-| `gateway/` | LAN gateway: `index.ts` (methods + IPC), `server.ts`, `controlDispatch.ts`, `devices.ts`, `pairing.ts`, `cert.ts` (§7) |
+| `gateway/` | LAN gateway: `index.ts` (methods + IPC), `server.ts`, `controlDispatch.ts`, `devices.ts`, `pairing.ts`, `cert.ts`, `interfaces.ts` (§7) |
 
 Why the control-plane modules never import `main/index.ts`: that creates an import cycle.
 `index.ts` passes its functions in instead (`registerControlServer(deps)`,
@@ -104,7 +104,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | terminal state | `terminalState.push` |
 | browser | `register`, `unregister` |
 | kanban / wiki | `kanban.get`, `kanban.mutate`; `wiki.list`, `wiki.get`, `wiki.set` |
-| gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke` |
+| gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke`, `bind-options`, `set-cap` (IPC only) |
 
 - Main derives the window from `e.sender.id` and never trusts a window id the renderer sends.
 - `pane-closed` drops the pane's capabilities, identity, pending restored scrollback and cached
@@ -337,11 +337,23 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
   - `pair` starts the server if needed and returns `{v:1, host, port, fingerprint, pairCode,
     name, warning}`; the renderer draws the QR.
   - `devices` never returns tokens.
+  - Two more IPC-only handlers back the Settings UI: `gateway:bind-options` and
+    `gateway:set-cap`. Neither is a control-socket method, so no agent or CLI verb can reach them
+    (`server.test.ts` pins the registered method list). `gateway:set-cap` also refuses any sender
+    that isn't a top-level window (e.g. a `<webview>` guest).
+    Why: a phone with `input` is a remote shell. Raising that must be a human at the desktop,
+    the same rule as `capabilities.*` in `settings.json`.
 - **Server** (`server.ts`): `https` with `POST /pair` and a `ws` endpoint at `/ws` (1 MiB max
   payload); everything else is 404.
   - Default bind is `127.0.0.1:8722`. A LAN or Tailscale host must be chosen explicitly; it is
     persisted in `gateway-config`, and every start and pair response then carries a `warning`.
     Why: an earlier `0.0.0.0` default exposed pairing to the whole network.
+  - Bind choices (`interfaces.ts`): loopback, each non-internal IPv4 (LAN), and Tailscale
+    addresses from `tailscale ip -4` (2 s timeout) plus any interface in `100.64.0.0/10`. A saved
+    host that no longer exists is listed as `custom` so the Select never lies. `0.0.0.0` is not
+    offered. Settings shows an exposure warning as soon as a non-loopback address is selected.
+    Why: remote use is "bind to your tailnet address", with no hosted relay; picking from real
+    interfaces avoids typos that silently bind somewhere else.
   - `startGateway` is idempotent (stop, then start). A 15 s ping heartbeat drops dead sockets.
     `stopGateway` runs at quit.
 - **Origin/Host checks.** Any request with an `Origin` header gets 403, and the WS upgrade is
@@ -361,13 +373,35 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
   hex bearer token and phone caps. `verifyToken` compares against every device in constant time.
 - **Session.**
   - The first WS message must be `hello {deviceToken}` within 10 s, or the socket closes with 4001.
-  - Binary frames start with a type byte: `0x01` pty output, `0x02` input, `0x03` resize (JSON).
-  - `pty.attach` as `owner` is silently downgraded to `observer` when the device lacks `input`.
-  - Each socket attaches at most one pane and detaches it on close. Observers may resize.
-  - Platform events are rebroadcast as `method: 'event'` (`notify` needs the `notify` cap,
-    others need `read`).
+  - Binary frames start with a type byte: `0x01` pty output, `0x02` input, `0x03` resize (JSON
+    `{paneId?, cols, rows}`, integers 1–1000; a `paneId` that isn't the attached pane is ignored).
+  - `pty.attach` as `owner` is downgraded to `observer` when the device lacks `input`; the result
+    carries the effective `role`.
+  - `0x02` and `0x03` need an owner attachment AND `input` in the device's current caps;
+    otherwise the frame is dropped and a `-32003 {cap:'input'}` error (id `null`) is sent.
+    Why: an observer resizing would SIGWINCH the desktop's shell and reflow the user's terminal,
+    which is a write, not a read.
+  - Each socket attaches at most one pane and detaches it on close.
+  - `device.caps` returns the current caps.
+  - Platform events are rebroadcast as `method: 'event'`. `notify`, `agent.needs-input` and
+    `agent.done` need the `notify` cap; `session.state` and `pane.state` need `read`. `notify`'s
+    `from` is rewritten to the pane's external id (or `null`), the id space phones see.
+  - Emitters: `pine notify` (`notify.ts`) emits `notify`; the renderer's `session-state`
+    lifecycle event goes through `emitSessionState` (`events.ts`), which emits `session.state`
+    plus `agent.needs-input` for `waiting` and `agent.done` for `done`; `terminal:state` emits
+    `pane.state`.
 - **Revocation** has two parts and both must stay. `closeDeviceSockets` closes live sockets with
-  code 4003, and `isDeviceRevoked` re-checks the store on every authenticated frame.
+  code 4003, and every authenticated frame re-reads the device from the store (`refreshDevice`):
+  gone means close 4003, present means its caps replace the socket's cached ones.
+- **Grants** (`devices.setDeviceCap`, Settings → Remote per-device switches): only
+  `PHONE_GRANTABLE_CAPS` (`command`, `input`, `board.write`, `destructive`) can change; the base
+  caps can't be stripped. `destructive` requires `command` and is dropped when `command` is;
+  the UI asks for confirmation before granting it. After a change, `applyDeviceCaps` updates live
+  sockets: if any cap was removed they are closed with 4004 `caps-changed` (and their pty
+  attachment detached); if caps were only added they get a `caps.changed` event.
+  Why: closing on removal is the simple correct option. An owner attachment made under the old
+  caps can't linger, and the phone's reconnect + `hello` returns the smaller set. Additions
+  don't need a reconnect, and the per-frame re-read makes them effective immediately.
 - **Phone capabilities** (`controlDispatch.ts`) are a separate vocabulary from the internal
   `Capability` set, and the gateway checks them itself.
   - `read` allows `session.list`, `pane.list`, `command.list`, `pane.info`, `cwd.get`.
@@ -378,7 +412,7 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
     `command` alone run any command. `input` must never map to a command cap; it only gates
     `0x02` frames.
   - A non-empty target that doesn't resolve is an error, never a fallback to the default window.
-  - Today no code path raises a device above its default caps (`read`, `board.read`, `notify`).
+  - Only the desktop Settings UI raises a device above its default caps (see Grants).
 
 ## 8. Session restore
 

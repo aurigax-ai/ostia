@@ -330,7 +330,7 @@ version, with the divergence called out below.
 ## Gateway — LAN phone pairing (elevated)
 
 ```sh
-pine gateway enable [--host H] [--port P]   # start the LAN control gateway (default 0.0.0.0:8722)
+pine gateway enable [--host H] [--port P]   # start the LAN control gateway (default 127.0.0.1:8722)
 pine gateway pair                           # mint a pairing code + QR payload (also enables the
                                              # gateway if it wasn't already running)
 pine gateway status                         # { running, host, port, fingerprint, deviceCount }
@@ -346,11 +346,11 @@ here needs the elevated `gateway` capability (see below) on top of whatever the 
 `pair` prints the pairing JSON (and a `pine-pair://` URI wrapping the same payload) for the phone
 to scan/paste — there's no ASCII-QR rendering in the CLI itself, pipe the JSON through your own QR
 tool if you want one. A paired device only gets a strict phone-facing capability subset
-(`read`/`board.read`/`notify` by default; `command`/`input`/`board.write`/`destructive` need
-further elevation on the desktop side) — this is a separate, smaller vocabulary from the
-`Capability` list below; see `pine-companion/NETWORK-CONTRACT.md` for the full protocol. This
-batch only implements the server + pairing + device store — the phone's live control/PTY-mirror
-methods land in a later batch.
+(`read`/`board.read`/`notify` by default). `command`/`input`/`board.write`/`destructive` are
+granted per device only by the human in Settings → Remote — there is deliberately no CLI verb or
+socket method for it, so don't try to raise a phone's caps; ask the user. This is a separate,
+smaller vocabulary from the `Capability` list below; see `pine-companion/NETWORK-CONTRACT.md` for
+the full protocol.
 
 ## Capabilities & elevation
 
