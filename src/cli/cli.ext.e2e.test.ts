@@ -1,5 +1,13 @@
-import { execSync, spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { execFileSync, execSync, spawn } from 'node:child_process'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -133,6 +141,34 @@ describe('pine CLI → built-in kanban/wiki extensions (real processes, real soc
     const unknown = await runPine(['nosuchext', 'go'])
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain("unknown command or extension 'nosuchext'")
+  }, 30_000)
+
+  it('pine git status/changes/diff print JSON for the session repo', async () => {
+    const vcs = (...args: string[]) =>
+      execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd: workDir })
+    mkdirSync(workDir, { recursive: true })
+    vcs('init', '-q', '-b', 'trunk')
+    vcs('config', 'user.email', 't@example.com')
+    vcs('config', 'user.name', 'T')
+    writeFileSync(join(workDir, 'readme.md'), 'v1\n')
+    vcs('add', 'readme.md')
+    vcs('commit', '-q', '-m', 'init')
+    writeFileSync(join(workDir, 'readme.md'), 'v2\n')
+
+    const status = await runPine(['git', 'status'])
+    expect(status.stderr).toBe('')
+    expect(JSON.parse(status.stdout)).toMatchObject({
+      root: realpathSync(workDir),
+      branch: { head: 'trunk' },
+      counts: { changed: 1 },
+    })
+
+    const changes = JSON.parse((await runPine(['git', 'changes'])).stdout)
+    expect(changes.changes).toContainEqual({ path: 'readme.md', area: 'unstaged', code: 'M' })
+
+    const diff = JSON.parse((await runPine(['git', 'diff', 'readme.md'])).stdout)
+    expect(diff).toMatchObject({ path: 'readme.md', area: 'unstaged' })
+    expect(diff.patch).toContain('-v1\n+v2')
   }, 30_000)
 
   it('pine ext ls lists the built-in extensions with their CLI usage', async () => {
