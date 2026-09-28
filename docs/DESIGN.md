@@ -128,7 +128,7 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 │ ◉ ~/proj   │   split tree of panes for the active session     │
 │   ~/api  ● │   ┌ pane header ──────┐ ┌ pane header ────────┐  │
 │   ~        │   │ terminal          │ │ editor / browser /  │  │
-│            │   │                   │ │ kanban / wiki       │  │
+│            │   │                   │ │ extension panel     │  │
 │ + session  │   └───────────────────┘ └─────────────────────┘  │
 │ ⚙ Settings │                                                  │
 └────────────┴─────────────────────────────────────────────────┘

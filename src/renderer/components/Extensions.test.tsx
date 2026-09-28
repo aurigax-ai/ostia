@@ -11,8 +11,8 @@ import { ExtensionsSection } from './SettingsPanel'
 
 function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
   return {
-    id: 'kanban',
-    name: 'Kanban',
+    id: 'demo',
+    name: 'Demo',
     version: '1.0.0',
     description: 'Board',
     builtin: true,
@@ -22,7 +22,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     granted: [],
     unapproved: [],
     commands: [],
-    panel: { title: 'Board', icon: 'kanban' },
+    panel: { title: 'Board', icon: 'puzzle' },
     ...overrides,
   }
 }
@@ -61,7 +61,7 @@ describe('Extensions UI', () => {
       })
       render(<ExtensionsSection />)
       const section = screen.getByRole('region', { name: 'Extensions' })
-      expect(within(section).getByText('Kanban')).toBeInTheDocument()
+      expect(within(section).getByText('Demo')).toBeInTheDocument()
       expect(within(section).getByText(/Running · Permissions: notify/)).toBeInTheDocument()
       expect(within(section).getByText(/Waiting for your approval/)).toBeInTheDocument()
     })
@@ -72,9 +72,9 @@ describe('Extensions UI', () => {
       useExtensionsStore.setState({ list: [ext({})] })
       render(<ExtensionsSection />)
 
-      await userEvent.setup().click(screen.getByRole('switch', { name: 'Enable Kanban' }))
+      await userEvent.setup().click(screen.getByRole('switch', { name: 'Enable Demo' }))
 
-      expect(setEnabled).toHaveBeenCalledWith('kanban', false)
+      expect(setEnabled).toHaveBeenCalledWith('demo', false)
       await waitFor(() => expect(useExtensionsStore.getState().list[0].status).toBe('disabled'))
     })
 
@@ -146,13 +146,13 @@ describe('Extensions UI', () => {
       const panel = vi.fn().mockResolvedValue({ ok: true, src: 'http://127.0.0.1:4100/?t=abc' })
       window.pine.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="kanban" sessionId="s1" />)
+      const { container } = render(<ExtensionPanelView extId="demo" sessionId="s1" />)
 
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       const webview = container.querySelector('webview') as HTMLElement
       expect(webview.getAttribute('src')).toBe('http://127.0.0.1:4100/?t=abc')
-      expect(webview.getAttribute('partition')).toBe('pine-ext-kanban')
-      expect(panel).toHaveBeenCalledWith('kanban', { sessionId: 's1', locale: 'en' })
+      expect(webview.getAttribute('partition')).toBe('pine-ext-demo')
+      expect(panel).toHaveBeenCalledWith('demo', { sessionId: 's1', locale: 'en' })
     })
 
     it('shows the failure and retries on request', async () => {
@@ -162,7 +162,7 @@ describe('Extensions UI', () => {
         .mockResolvedValueOnce({ ok: true, src: 'http://127.0.0.1:4100/' })
       window.pine.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="kanban" sessionId="s1" />)
+      const { container } = render(<ExtensionPanelView extId="demo" sessionId="s1" />)
 
       await userEvent.setup().click(await screen.findByRole('button', { name: 'Retry' }))
 
@@ -174,8 +174,8 @@ describe('Extensions UI', () => {
       const panel = vi.fn()
       window.pine.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({ enabled: false, status: 'disabled' })] })
-      const { container, rerender } = render(<ExtensionPanelView extId="kanban" sessionId="s1" />)
-      expect(screen.getByText('Kanban is disabled. Enable it in Settings → Plugins.')).toBeVisible()
+      const { container, rerender } = render(<ExtensionPanelView extId="demo" sessionId="s1" />)
+      expect(screen.getByText('Demo is disabled. Enable it in Settings → Plugins.')).toBeVisible()
       rerender(<ExtensionPanelView extId="gone" sessionId="s1" />)
       expect(screen.getByText('Extension “gone” is not installed.')).toBeVisible()
       expect(container.querySelector('webview')).toBeNull()

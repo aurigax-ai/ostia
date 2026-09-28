@@ -10,8 +10,8 @@ import { commands } from './registry'
 
 function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
   return {
-    id: 'kanban',
-    name: 'Kanban',
+    id: 'demo',
+    name: 'Demo',
     version: '1.0.0',
     description: '',
     builtin: true,
@@ -29,9 +29,9 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
         stdin: false,
         capabilities: ['read-board'],
       },
-      { id: 'add', title: 'Add', palette: false, stdin: false, capabilities: ['board-write'] },
+      { id: 'add', title: 'Add', palette: false, stdin: false, capabilities: ['notify'] },
     ],
-    panel: { title: 'Board', icon: 'kanban' },
+    panel: { title: 'Board', icon: 'puzzle' },
     ...overrides,
   }
 }
@@ -58,13 +58,13 @@ describe('extensionBridge', () => {
 
   it('registers palette commands of enabled extensions under <extId>.<command>', () => {
     syncExtensionCommands([ext()])
-    const cmd = commands.describe().find((c) => c.id === 'kanban.open')
+    const cmd = commands.describe().find((c) => c.id === 'demo.open')
     expect(cmd).toMatchObject({
       title: 'Open Board',
       category: 'App',
       capabilities: ['read-board'],
     })
-    expect(commands.has('kanban.add')).toBe(false)
+    expect(commands.has('demo.add')).toBe(false)
   })
 
   it('removes the commands when the extension is disabled, and notifies subscribers', () => {
@@ -73,7 +73,7 @@ describe('extensionBridge', () => {
     syncExtensionCommands([ext()])
     syncExtensionCommands([ext({ enabled: false })])
     unsubscribe()
-    expect(commands.has('kanban.open')).toBe(false)
+    expect(commands.has('demo.open')).toBe(false)
     expect(listener).toHaveBeenCalledTimes(2)
   })
 
@@ -101,9 +101,9 @@ describe('extensionBridge', () => {
     syncExtensionCommands([ext()])
     const res = await commands.execWith(
       { activeSessionId: 's1', activePaneId: 'pane-1' },
-      'kanban.open',
+      'demo.open',
     )
-    expect(invoke).toHaveBeenCalledWith('kanban', 'open', { sessionId: 's1', paneId: 'pane-1' })
+    expect(invoke).toHaveBeenCalledWith('demo', 'open', { sessionId: 's1', paneId: 'pane-1' })
     expect(res).toEqual({ ok: true, result: { opened: true } })
   })
 
@@ -112,10 +112,7 @@ describe('extensionBridge', () => {
       .fn()
       .mockResolvedValue({ ok: false, error: 'extension-unavailable', message: 'crashed' })
     syncExtensionCommands([ext()])
-    const res = await commands.execWith(
-      { activeSessionId: 's1', activePaneId: null },
-      'kanban.open',
-    )
+    const res = await commands.execWith({ activeSessionId: 's1', activePaneId: null }, 'demo.open')
     expect(res).toEqual({
       ok: false,
       error: { code: 'command-failed', message: 'extension-unavailable: crashed' },
@@ -130,8 +127,8 @@ describe('extensionBridge', () => {
     useLayoutStore.getState().ensure('s1')
     useExtensionsStore.setState({ list: [ext()] })
 
-    openExtensionPanel({ extId: 'kanban', sessionId: 's1' })
-    openExtensionPanel({ extId: 'kanban', sessionId: 'unknown-session' })
+    openExtensionPanel({ extId: 'demo', sessionId: 's1' })
+    openExtensionPanel({ extId: 'demo', sessionId: 'unknown-session' })
     openExtensionPanel({ extId: 'ghost' })
 
     const root = useLayoutStore.getState().bySession.s1.root
@@ -139,7 +136,7 @@ describe('extensionBridge', () => {
       .map((id) => findPane(root, id))
       .filter((p) => p?.kind === 'extension')
     expect(panels).toHaveLength(1)
-    expect(panels[0]).toMatchObject({ extensionId: 'kanban', title: 'Board' })
+    expect(panels[0]).toMatchObject({ extensionId: 'demo', title: 'Board' })
   })
 
   it('openExtensionDiff opens one reusable diff pane and stores its content by pane id', () => {

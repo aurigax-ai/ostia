@@ -1,13 +1,5 @@
 import { execFileSync, execSync, spawn } from 'node:child_process'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -26,7 +18,7 @@ interface RunResult {
   stderr: string
 }
 
-describe('pine CLI → built-in kanban/wiki extensions (real processes, real socket)', () => {
+describe('pine CLI → extensions (real processes, real socket)', () => {
   let dir: string
   let workDir: string
   let socketPath: string
@@ -67,7 +59,10 @@ describe('pine CLI → built-in kanban/wiki extensions (real processes, real soc
     socketPath = join(dir, 'control.sock')
     identity = registerPane({ windowId: 'w1', sessionId: 's1', paneId: 'pCliExt' })
     host = new ExtensionHost({
-      roots: [{ dir: join(repoRoot, 'out', 'extensions'), builtin: true }],
+      roots: [
+        { dir: join(repoRoot, 'out', 'extensions'), builtin: true },
+        { dir: join(repoRoot, 'test', 'fixtures', 'extensions'), builtin: true },
+      ],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,
       nodePath: process.execPath,
@@ -96,48 +91,17 @@ describe('pine CLI → built-in kanban/wiki extensions (real processes, real soc
     rmSync(dir, { recursive: true, force: true })
   })
 
-  it('pine kanban add/ls/done keep their old output, stored in the project board', async () => {
-    const add = await runPine(['kanban', 'add', 'Ship it', '--column', 'doing', '--body', 'b'])
-    expect(add.stderr).toBe('')
-    expect(add.code).toBe(0)
-    expect(JSON.parse(add.stdout)).toMatchObject({
-      id: 'card-1',
-      title: 'Ship it',
-      column: 'doing',
-    })
-
-    const done = await runPine(['kanban', 'done', 'card-1'])
-    expect(done.stdout.trim()).toBe('ok')
-
-    const ls = await runPine(['kanban', 'ls'])
-    expect(ls.code).toBe(0)
-    expect(ls.stdout).toContain('# Done (done)\n  card-1\tShip it')
-    expect(ls.stdout).toContain('# Todo (todo)\n  (empty)')
-
-    const board = JSON.parse(readFileSync(join(workDir, '.pine', 'board.json'), 'utf8'))
-    expect(board.cards).toHaveLength(1)
-  }, 30_000)
-
-  it('pine wiki set reads stdin, and get/ls/search read it back', async () => {
-    const set = await runPine(['wiki', 'set', 'notes'], 'hello **pine**')
-    expect(set.stderr).toBe('')
-    expect(set.stdout.trim()).toBe('ok')
-    expect((await runPine(['wiki', 'get', 'notes'])).stdout.trim()).toBe('hello **pine**')
-    expect((await runPine(['wiki', 'ls'])).stdout).toMatch(/^notes\tnotes\t/)
-    expect((await runPine(['ext', 'wiki', 'search', 'pine'])).stdout).toContain('notes\tnotes\t')
-  }, 30_000)
-
-  it('global wiki writes still need workspace-wide', async () => {
-    const res = await runPine(['wiki', 'set', 'shared', '--global'], 'x')
-    expect(res.code).toBe(1)
-    expect(res.stderr).toContain('needs-elevation: workspace-wide')
-    expect(existsSync(join(dir, 'data', 'pine', 'wiki.json'))).toBe(false)
+  it('passes stdin only to a command whose manifest asks for it', async () => {
+    const piped = await runPine(['echo', 'stdin'], 'hello **pine**')
+    expect(piped.stderr).toBe('')
+    expect(piped.stdout.trim()).toBe('stdin:hello **pine**')
+    expect((await runPine(['ext', 'echo', 'echo', 'a'], 'ignored')).stdout.trim()).toBe('echoed')
   }, 30_000)
 
   it('reports argument errors and unknown extensions with a non-zero exit', async () => {
-    const missing = await runPine(['kanban', 'move', 'card-1'])
+    const missing = await runPine(['git', 'diff'])
     expect(missing.code).toBe(1)
-    expect(missing.stderr).toContain('invalid-args: move <id> <column>')
+    expect(missing.stderr).toContain('invalid-args: diff <path> [--staged]')
     const unknown = await runPine(['nosuchext', 'go'])
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain("unknown command or extension 'nosuchext'")
@@ -173,8 +137,9 @@ describe('pine CLI → built-in kanban/wiki extensions (real processes, real soc
 
   it('pine ext ls lists the built-in extensions with their CLI usage', async () => {
     const res = await runPine(['ext', 'ls'])
-    expect(res.stdout).toContain('kanban\t')
-    expect(res.stdout).toContain('pine kanban add "<title>" [--column X] [--body ...]')
-    expect(res.stdout).toContain('pine wiki set <slug> [--global]')
+    expect(res.stdout).toContain('git\t')
+    expect(res.stdout).toContain('pine git diff <path> [--staged]')
+    expect(res.stdout).toContain('trellis\t')
+    expect(res.stdout).not.toContain('kanban\t')
   }, 30_000)
 })
