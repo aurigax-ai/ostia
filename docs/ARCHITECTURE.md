@@ -164,9 +164,50 @@ owned by another user. Why: on a shared `/tmp`, another user could plant rc file
     through reflow and trimming. Line -1 means the line was trimmed away.
   - A→C is the draft; C→D is a running block. At most 200 blocks are kept per pane.
   - A second C with no D closes the previous block. Why: a D can be lost to buffer truncation.
-  - The overlay is non-interactive. It redraws on `onRender`/`onScroll`, draws up to 80
-    left-edge bars (red on non-zero exit), and draws nothing in the alternate buffer or when
-    the cell height measures 0.
+  - Each block stores its command text, read at C from the B position (marker line + cursor
+    column) to the C position (`readCommandText`, `lib/blockText.ts`), and the cursor column at
+    D (`endCol`). Why read at C: OSC handlers run synchronously mid-parse, so the buffer holds
+    exactly what the shell echoed; later reflow or trimming can't change it. Why `endCol`:
+    output without a trailing newline (`printf abc`) ends on the D row, and without the column
+    the last line would be dropped, or the next prompt copied with it.
+  - Text extraction (`readBufferText`) joins rows whose successor `isWrapped`, reading the
+    wrapped row untrimmed so a space on the wrap boundary survives, then trims each logical line
+    and drops trailing blank lines. It always reads `buffer.normal`, because block markers live
+    there even while a TUI has the alternate screen up.
+  - The overlay redraws on `onRender`/`onScroll` and skips the React update when the geometry
+    is unchanged. It draws up to 80 left-edge gutter bars (prompt line to D; red on non-zero
+    exit) as buttons in the host's 6px left padding, so they never cover a text cell. The overlay
+    itself stays `pointer-events: none`; only the gutter buttons and the sticky header take the
+    pointer. Nothing is drawn in the alternate buffer or when the cell height measures 0.
+- **Block selection and actions** (`lib/blockActions.ts`, `components/BlockMenu.tsx`):
+  - Clicking a gutter bar toggles `blocksStore.selected[paneId]`; the selected block gets a
+    `--line-strong` frame and a `--brand` bar. Escape clears it (the xterm key handler swallows
+    Escape only while a block is selected, so vim and agents still get it); typing clears it too.
+  - `Ctrl+Shift+↑/↓` (`⌘↑/⌘↓` on macOS) step the selection and scroll the block's first line
+    into view. Why these chords: plain and Ctrl-only arrows belong to shells and TUIs (word
+    motion, history), and Ctrl+Shift+arrows aren't bound by bash, zsh or the common agent CLIs.
+    They're terminal chords, handled in the xterm key handler, not the window listener. Why:
+    in text inputs and Monaco the same keys extend a selection, and the window listener's
+    `preventDefault` would break that.
+  - Right-click on a bar opens a Base UI context menu: copy command, output, or both; rerun.
+    Closing it returns focus to the terminal so the chords keep working. Palette commands
+    `block.selectPrev/selectNext/copyCommand/copyOutput/copyBoth/rerun` do the same on the
+    active pane; with nothing selected they act on the latest block.
+  - Rerun and history insertion paste through `term.paste` (bracketed paste when the shell asks
+    for it), and only at an idle prompt: an open draft and nothing running. Why: anywhere else
+    the keystrokes would go to whatever program is running. Both need the `shell` capability,
+    which phones never map to.
+  - `lib/terminalHandles.ts` maps pane id to its live xterm so commands can reach the buffer.
+    An entry is removed on unmount only if it still points at the same terminal.
+- **Sticky command header** (`Blocks.tsx` `StickyHeader`, `lib/blocks.ts` `stickyBlock`): when
+  the newest block whose command line is above the viewport still has output in view, a 22px
+  header shows its command and status (running, or `exit N`). Clicking scrolls to the command.
+- **Command history search** (`components/HistorySearch.tsx`, `history.search`,
+  `Ctrl+Shift+H` / `⌘⇧H`): lists every block's command across all panes and sessions, newest
+  first, deduped by text, with session and cwd; choosing one inserts it into the active pane's
+  prompt without running it. Why not Ctrl+R: that's the shell's own history search. History is
+  what's in `blocksStore`, so it covers panes that exist now (restored scrollback re-parses its
+  marks on replay), not closed panes.
 - **Long-command notification**: when a command runs ≥ 10 s (`NOTIFY_AFTER_MS`) while the window
   is unfocused, the pane is marked `done` (or `error`) unread and the renderer posts it to main's
   notification log with a desktop notification. The command text comes from the buffer line at
@@ -286,21 +327,24 @@ pane bypass `workspace-wide`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   `describe()` backs `pine commands --json`. `execWith` never throws; it returns a `CommandResult`.
   Built-ins (`commands/builtins.ts`): `pane.*` (split/close/focus/zoom/move/list), `session.new/list/save`,
   `palette.toggle`, `view.toggleRail`, `app.openSettings`, `attention.set/notify/jumpToLatest`,
+  `block.selectPrev/selectNext/copyCommand/copyOutput/copyBoth/rerun`, `history.search/insert`,
   `editor.open`, `browser.new/open`,
   `kanban.open`, `wiki.open`, `settings.get/set`.
 - The renderer doesn't check capabilities; the socket and gateway do.
 - There is deliberately no `session.restore`. Restoring into a live window would tear down every
   attached pty; restore happens only at boot.
 - **Chords** (`lib/chords.ts`): macOS uses Cmd+K (palette), Cmd+\ (sidebar), Cmd+, (settings),
-  Cmd+Shift+U (jump to latest unread) and native Cmd+C/V/F. Other platforms use Ctrl+Shift+P,
-  Ctrl+Shift+B, Ctrl+, Ctrl+Shift+U and Ctrl+Shift+C/V/F (copy/paste/find). On Linux some IBus
+  Cmd+Shift+U (jump to latest unread), Cmd+Shift+H (command history), Cmd+↑/↓ (previous/next
+  block) and native Cmd+C/V/F. Other platforms use Ctrl+Shift+P, Ctrl+Shift+B, Ctrl+,
+  Ctrl+Shift+U, Ctrl+Shift+H, Ctrl+Shift+↑/↓ and Ctrl+Shift+C/V/F (copy/paste/find). On Linux some IBus
   setups claim Ctrl+Shift+U for Unicode entry before the app sees it; the palette's "Jump to
   Latest Unread" and the bell still work there.
   - Any combination with Alt is ignored.
   - App.tsx has a window keydown listener that runs app chords.
   - Inside the terminal, xterm's key handler returns false for app chords so they reach the
     window listener.
-  - On non-mac platforms the terminal handles copy, paste and find itself.
+  - On non-mac platforms the terminal handles copy, paste and find itself. Block navigation is
+    terminal-local on every platform.
 
 ### Settings and plugins
 

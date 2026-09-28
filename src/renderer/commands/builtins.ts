@@ -1,7 +1,15 @@
 import type { AttentionState } from '@shared/types'
 import { type DropZone, allPanes } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
+import {
+  type BlockPart,
+  copyBlock,
+  insertCommand,
+  rerunBlock,
+  stepBlock,
+} from '../lib/blockActions'
 import { jumpToLatestUnread, signalPane } from '../lib/sessionActivity'
+import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveWorkspaceNow } from '../stores/persistence'
 import type { SessionKind, SessionState } from '../stores/sessionsStore'
@@ -158,6 +166,61 @@ export function registerBuiltinCommands(): void {
     category: 'View',
     target: 'none',
     run: () => ({ paneId: jumpToLatestUnread() }),
+  })
+
+  const blockStep = (id: string, title: string, dir: 'prev' | 'next'): void =>
+    commands.register<undefined, { blockId: string | null }>({
+      id,
+      title,
+      category: 'Terminal',
+      capabilities: ['drive-self'],
+      run: (_args, ctx) => ({
+        blockId: ctx.activePaneId ? stepBlock(ctx.activePaneId, dir) : null,
+      }),
+    })
+  blockStep('block.selectPrev', 'Select Previous Block', 'prev')
+  blockStep('block.selectNext', 'Select Next Block', 'next')
+
+  const blockCopy = (id: string, title: string, part: BlockPart): void =>
+    commands.register<{ blockId?: string } | undefined, { copied: boolean }>({
+      id,
+      title,
+      category: 'Terminal',
+      capabilities: ['drive-self'],
+      run: async (args, ctx) => ({
+        copied: ctx.activePaneId ? await copyBlock(ctx.activePaneId, part, args?.blockId) : false,
+      }),
+    })
+  blockCopy('block.copyCommand', 'Copy Block Command', 'command')
+  blockCopy('block.copyOutput', 'Copy Block Output', 'output')
+  blockCopy('block.copyBoth', 'Copy Block Command and Output', 'both')
+
+  commands.register<{ blockId?: string } | undefined, { rerun: boolean }>({
+    id: 'block.rerun',
+    title: 'Rerun Block Command',
+    category: 'Terminal',
+    capabilities: ['shell'],
+    run: (args, ctx) => ({
+      rerun: ctx.activePaneId ? rerunBlock(ctx.activePaneId, args?.blockId) : false,
+    }),
+  })
+
+  commands.register({
+    id: 'history.search',
+    title: 'Search Command History',
+    category: 'Terminal',
+    target: 'none',
+    run: () => useHistorySearchStore.getState().setOpen(true),
+  })
+
+  commands.register<{ command: string }, { inserted: boolean }>({
+    id: 'history.insert',
+    title: 'Insert Command',
+    hidden: true,
+    capabilities: ['shell'],
+    run: ({ command }, ctx) => ({
+      inserted: ctx.activePaneId ? insertCommand(ctx.activePaneId, command) : false,
+    }),
   })
 
   commands.register({
