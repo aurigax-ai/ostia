@@ -97,6 +97,8 @@ export const en = {
     binary: 'Binary file, not opened in the editor',
     saveError: 'Could not save {path}',
     openExternal: 'Open in External Editor',
+    preview: 'Preview Markdown',
+    editSource: 'Edit Markdown source',
     externalNoEditor:
       'No external editor found. Set behavior.externalEditor in Settings (e.g. code -g {file}:{line}).',
     externalFailed: 'Could not open the external editor: {error}',
@@ -370,6 +372,8 @@ export const zhHant: Dict = {
     close: '關閉尋找',
   },
   editor: {
+    preview: '預覽 Markdown',
+    editSource: '編輯 Markdown 原始碼',
     binary: '二進位檔案，未在編輯器中開啟',
     saveError: '無法儲存 {path}',
     openExternal: '在外部編輯器中開啟',

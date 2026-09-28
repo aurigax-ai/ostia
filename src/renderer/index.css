@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./typeset.css";
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -1816,4 +1817,31 @@
 
 :root[data-motion="reduced"] .dot.working {
   opacity: 1;
+}
+
+.typeset-pine {
+  --typeset-font-heading: inherit;
+  --typeset-size: var(--text-ui-base);
+  --typeset-leading: 1.7;
+  --typeset-flow: 1.1em;
+}
+
+.markdown-preview {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 20px 28px 40px;
+  background: var(--surface-1);
+}
+
+.markdown-preview > .typeset {
+  max-width: 76ch;
+  margin: 0 auto;
+}
+
+.editor-mode {
+  position: absolute;
+  top: 6px;
+  right: 18px;
+  z-index: 3;
 }
