@@ -182,6 +182,11 @@ export function Pane({ pane, active }: PaneProps): JSX.Element {
         </div>
       )}
 
+      {ring ? (
+        <span className="pane-attn-ring" aria-hidden="true">
+          <span key={attention?.at} className="pane-attn-pulse" />
+        </span>
+      ) : null}
       {over ? <span className={`pane-drop pane-drop-${over}`} /> : null}
     </div>
   )

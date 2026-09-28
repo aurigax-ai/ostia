@@ -39,6 +39,14 @@ describe('SETTINGS_JSON_SCHEMA', () => {
     }
   })
 
+  it('constrains appearance.motion to exactly system, reduced and full', () => {
+    expect(SETTINGS_JSON_SCHEMA.properties.appearance.properties.motion.enum).toEqual([
+      'system',
+      'reduced',
+      'full',
+    ])
+  })
+
   it('constrains behavior.cursorStyle to exactly block, underline and bar', () => {
     expect(SETTINGS_JSON_SCHEMA.properties.behavior.properties.cursorStyle.enum).toEqual([
       'block',
