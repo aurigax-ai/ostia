@@ -1,5 +1,6 @@
+import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import type { AttentionState } from '@shared/types'
-import { type DropZone, allPanes } from '../layout/tree'
+import { type DropZone, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import {
   type BlockPart,
@@ -88,6 +89,31 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  commands.register<{ paneId?: string } | undefined>({
+    id: 'tab.new',
+    title: 'New Terminal Tab',
+    category: 'Pane',
+    run: (args, ctx) => {
+      const target = args?.paneId ?? ctx.activePaneId
+      if (ctx.activeSessionId && target) {
+        useLayoutStore.getState().newTab(ctx.activeSessionId, target, 'terminal')
+      }
+    },
+  })
+
+  commands.register<{ paneId?: string } | undefined>({
+    id: 'tab.newBrowser',
+    title: 'New Browser Tab',
+    category: 'Pane',
+    capabilities: ['browse'],
+    run: (args, ctx) => {
+      const target = args?.paneId ?? ctx.activePaneId
+      if (ctx.activeSessionId && target) {
+        useLayoutStore.getState().newTab(ctx.activeSessionId, target, 'browser')
+      }
+    },
+  })
+
   commands.register({
     id: 'pane.splitRight',
     title: 'Split Pane Right',
@@ -161,6 +187,32 @@ export function registerBuiltinCommands(): void {
     run: ({ state, message }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
       signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
+    },
+  })
+
+  commands.register<AgentResume>({
+    id: 'resume.set',
+    title: 'Set Agent Resume Token',
+    category: 'Pane',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: (resume, ctx) => {
+      if (!ctx.activeSessionId || !ctx.activePaneId) throw new Error('no target pane')
+      useLayoutStore.getState().setResume(ctx.activeSessionId, ctx.activePaneId, resume)
+    },
+  })
+
+  commands.register<undefined, { resumed: boolean }>({
+    id: 'agent.resume',
+    title: 'Resume Agent',
+    category: 'Pane',
+    capabilities: ['shell'],
+    run: (_args, ctx) => {
+      if (!ctx.activeSessionId || !ctx.activePaneId) return { resumed: false }
+      const layout = useLayoutStore.getState().bySession[ctx.activeSessionId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
+      return { resumed: insertCommand(pane.id, resumeCommand(pane.resume), true) }
     },
   })
 

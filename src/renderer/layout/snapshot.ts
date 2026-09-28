@@ -1,6 +1,11 @@
-import type { SnapshotNode, SnapshotSession, WorkspaceSnapshot } from '@shared/types'
+import type {
+  SnapshotNode,
+  SnapshotPaneNode,
+  SnapshotSession,
+  WorkspaceSnapshot,
+} from '@shared/types'
 import { adoptIds, findPane, firstPaneId, withoutKind } from './tree'
-import type { LayoutNode } from './types'
+import type { LayoutNode, PaneNode } from './types'
 
 export interface RestorableSession {
   id: string
@@ -15,11 +20,14 @@ export interface RestorableLayout {
   zoomedPaneId: null
 }
 
+function fromPane(pane: PaneNode): SnapshotPaneNode {
+  const { kind, ...rest } = pane
+  return { ...rest, kind: kind === 'diff' ? 'terminal' : kind }
+}
+
 function fromLayoutNode(node: LayoutNode): SnapshotNode {
-  if (node.type === 'pane') {
-    const { kind, ...rest } = node
-    return { ...rest, kind: kind === 'diff' ? 'terminal' : kind }
-  }
+  if (node.type === 'pane') return fromPane(node)
+  if (node.type === 'tabs') return { ...node, children: node.children.map(fromPane) }
   return { ...node, children: node.children.map(fromLayoutNode), sizes: [...node.sizes] }
 }
 
@@ -37,6 +45,7 @@ function persistableRoot(root: LayoutNode, workDir: string): LayoutNode {
 
 function toLayoutNode(node: SnapshotNode): LayoutNode {
   if (node.type === 'pane') return { ...node }
+  if (node.type === 'tabs') return { ...node, children: node.children.map((c) => ({ ...c })) }
   return { ...node, children: node.children.map(toLayoutNode), sizes: [...node.sizes] }
 }
 

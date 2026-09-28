@@ -46,6 +46,11 @@ export const en = {
     splitDown: 'Split down',
     close: 'Close pane',
     newTerminal: 'New terminal',
+    tabs: 'Tabs',
+    newTab: 'New terminal tab',
+    newBrowserTab: 'New browser tab',
+    closeTab: 'Close tab',
+    resume: 'Resume {agent}',
   },
   palette: {
     title: 'Command palette',
@@ -307,6 +312,11 @@ export const zhHant: Dict = {
     splitDown: '向下分割',
     close: '關閉面板',
     newTerminal: '新增終端機',
+    tabs: '分頁',
+    newTab: '新增終端機分頁',
+    newBrowserTab: '新增瀏覽器分頁',
+    closeTab: '關閉分頁',
+    resume: '繼續 {agent}',
   },
   palette: {
     title: '指令面板',

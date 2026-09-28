@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import { allPanes } from '../layout/tree'
 import type { LayoutNode, SurfaceKind } from '../layout/types'
 import { useDiffStore } from '../stores/diffStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -21,27 +22,25 @@ interface SurfaceRef {
 }
 
 function collect(node: LayoutNode, sessionId: string, out: SurfaceRef[]): void {
-  if (node.type === 'pane') {
+  for (const pane of allPanes(node)) {
     if (
-      node.kind === 'terminal' ||
-      node.kind === 'editor' ||
-      node.kind === 'browser' ||
-      node.kind === 'diff' ||
-      (node.kind === 'extension' && node.extensionId)
+      pane.kind === 'terminal' ||
+      pane.kind === 'editor' ||
+      pane.kind === 'browser' ||
+      pane.kind === 'diff' ||
+      (pane.kind === 'extension' && pane.extensionId)
     ) {
       out.push({
-        paneId: node.id,
+        paneId: pane.id,
         sessionId,
-        kind: node.kind,
-        cwd: node.cwd,
-        filePath: node.filePath,
-        url: node.url,
-        extensionId: node.extensionId,
+        kind: pane.kind,
+        cwd: pane.cwd,
+        filePath: pane.filePath,
+        url: pane.url,
+        extensionId: pane.extensionId,
       })
     }
-    return
   }
-  for (const child of node.children) collect(child, sessionId, out)
 }
 
 export function SurfacePool(): JSX.Element {

@@ -85,6 +85,54 @@ describe('parseSnapshot', () => {
     })
   })
 
+  it('keeps a pane’s agent resume token and drops a malformed one', () => {
+    const pane = snap().sessions[0].root
+    const withResume = (resume: unknown) =>
+      parseSnapshot(
+        snap({ sessions: [{ ...snap().sessions[0], root: { ...pane, resume } as never }] }),
+      )
+    expect(withResume({ agent: 'claude', id: 'abc-1' })?.sessions[0].root).toMatchObject({
+      resume: { agent: 'claude', id: 'abc-1' },
+    })
+    expect(withResume({ agent: 'claude', id: 'x; rm -rf ~' })?.sessions[0].root).not.toHaveProperty(
+      'resume',
+    )
+  })
+
+  it('keeps a tab stack and repairs an unknown shown tab', () => {
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-9',
+      children: [
+        { type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal' },
+        { type: 'pane', id: 'pane-2', title: 'zsh', kind: 'terminal' },
+      ],
+    }
+    const parsed = parseSnapshot(
+      snap({ sessions: [{ ...snap().sessions[0], root: tabs as never }] }),
+    )
+    expect(parsed?.sessions[0].root).toMatchObject({ type: 'tabs', activeId: 'pane-1' })
+  })
+
+  it('unwraps a one-tab stack and rejects a stack holding a split', () => {
+    const one = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-1',
+      children: [{ type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal' }],
+    }
+    expect(
+      parseSnapshot(snap({ sessions: [{ ...snap().sessions[0], root: one as never }] }))
+        ?.sessions[0].root,
+    ).toMatchObject({ type: 'pane', id: 'pane-1' })
+    const nested = { ...one, children: [split('pane-1', 'pane-2')] }
+    expect(
+      parseSnapshot(snap({ sessions: [{ ...snap().sessions[0], root: nested as never }] }))
+        ?.sessions,
+    ).toEqual([])
+  })
+
   it('drops a session whose pane kind is unknown', () => {
     const bad = snap({
       sessions: [

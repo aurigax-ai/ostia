@@ -1,3 +1,4 @@
+import type { AgentResume } from './agentResume'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
@@ -139,6 +140,7 @@ export interface SnapshotPaneNode {
   filePath?: string
   url?: string
   extensionId?: string
+  resume?: AgentResume
 }
 
 export interface SnapshotSplitNode {
@@ -149,7 +151,14 @@ export interface SnapshotSplitNode {
   sizes: number[]
 }
 
-export type SnapshotNode = SnapshotPaneNode | SnapshotSplitNode
+export interface SnapshotTabsNode {
+  type: 'tabs'
+  id: string
+  children: SnapshotPaneNode[]
+  activeId: string
+}
+
+export type SnapshotNode = SnapshotPaneNode | SnapshotSplitNode | SnapshotTabsNode
 
 export interface SnapshotSession {
   id: string

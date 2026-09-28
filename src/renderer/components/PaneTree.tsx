@@ -11,7 +11,9 @@ export function PaneTree({ sessionId }: { sessionId: string }): JSX.Element {
   if (!layout) return <EmptyWorkspace sessionId={sessionId} />
   if (layout.zoomedPaneId) {
     const zoomed = findPane(layout.root, layout.zoomedPaneId)
-    if (zoomed) return <Pane pane={zoomed} active={zoomed.id === layout.activePaneId} />
+    if (zoomed) {
+      return <Pane tabs={[zoomed]} shownId={zoomed.id} active={zoomed.id === layout.activePaneId} />
+    }
   }
   return <NodeView node={layout.root} sessionId={sessionId} activePaneId={layout.activePaneId} />
 }
@@ -28,7 +30,12 @@ function NodeView({
   const resize = useLayoutStore((s) => s.resize)
 
   if (node.type === 'pane') {
-    return <Pane pane={node} active={node.id === activePaneId} />
+    return <Pane tabs={[node]} shownId={node.id} active={node.id === activePaneId} />
+  }
+  if (node.type === 'tabs') {
+    return (
+      <Pane tabs={node.children} shownId={node.activeId} active={node.activeId === activePaneId} />
+    )
   }
 
   const compositionKey = `${node.id}:${node.children.map((c) => c.id).join(',')}`

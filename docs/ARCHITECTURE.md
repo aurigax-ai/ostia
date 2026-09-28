@@ -277,6 +277,27 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - The `agent` kind exists but has no surface (it shows a ghost title).
   - Zoom renders only `zoomedPaneId`.
   - Closing the zoomed pane clears the zoom.
+- **Tabs** (`layout/tree.ts` `TabsNode`, `components/Pane.tsx`): a split-tree leaf is a pane or a
+  `tabs` stack of panes with one shown (`activeId`). The pane header is a tab strip (one tab for
+  a lone pane) with new terminal tab, new browser tab and split buttons; a tab's pane id is still
+  the identity for its pty, attention and surface.
+  - Splits (`insertBeside`) and edge drops target the tab stack's slot, not the pane inside it;
+    a center drop moves the pane into the target's tabs (`addTab`). Why: splitting inside a tab
+    would nest layouts in a tab, which nobody can see or navigate.
+  - Closing a tab shows the next one; one tab left unwraps to a plain pane. The layout store
+    focuses the neighbouring tab (`successorOf`), not the tree's first pane.
+  - `patch` runs `selectTab` for the active pane after every change, so focusing, revealing an
+    unread pane, opening a file or `pine` targeting a pane always brings its tab forward.
+  - Every tab's body stays mounted in its slot; a background one is `visibility: hidden` and
+    `inert` (set in a layout effect, React 18 has no `inert` prop). Why: parking a host detaches
+    it, and a detached `<webview>` reloads. `isPaneVisible` is false for a background tab, so a
+    signal there rings instead of being marked seen.
+- **Agent resume** (`shared/agentResume.ts`, `main/paneResume.ts`): `pine resume-token` →
+  `pane.setResume` (drive-self, own pane) → `resume.set` stores `{agent, id}` on the pane node,
+  which autosaves with the layout. The header's Resume button and `agent.resume`
+  (Ctrl+Shift+R / ⌘⇧R) type `resumeCommand` at an idle prompt through `insertCommand`. Why a
+  structured token and not a command string: the hook payload comes from the agent, and a stored
+  command would be typed into a shell later.
 - **Surface persistence** (`components/SurfacePool.tsx`, `stores/surfaceSlotsStore.ts`):
   - SurfacePool portals every pane's surface, across all sessions, into a persistent,
     absolutely-positioned host div created in a detached parking holder.

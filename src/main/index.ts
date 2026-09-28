@@ -54,6 +54,7 @@ import {
   registerNotifyMethods,
 } from './notify'
 import { listPanes, listSessions, registerPaneListMethods } from './paneList'
+import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { PtySession, type SubscriberRole } from './ptySession'
@@ -803,6 +804,7 @@ app.whenReady().then(() => {
   registerNotifyMethods(notifyDeps)
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand })
+  registerPaneResumeMethods({ execCommand })
   registerProcessMethods()
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods()

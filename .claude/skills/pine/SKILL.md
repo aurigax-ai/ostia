@@ -66,6 +66,7 @@ pine state error "Tests failed"               # ring + error marker
 pine state clear                              # back to normal
 echo '{"message":"..."}' | pine state waiting -   # message from stdin (JSON "message" field or raw text)
 pine state done --pane <externalId>           # another pane — needs workspace-wide
+pine resume-token claude <session-id>        # after a restart this pane offers "Resume claude"
 ```
 
 Use `waiting` whenever you block on the human (a question, an approval) and `done` when a long

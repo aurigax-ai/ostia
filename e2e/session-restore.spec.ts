@@ -278,3 +278,44 @@ test('erases stored history when session restore is switched off', async () => {
     await quitApp(second.app)
   }
 })
+
+test('restores tabs and offers to resume the agent a tab was running', async () => {
+  const first = await launchApp(dataHome)
+  try {
+    await openSession(first.win)
+    await first.win.getByRole('button', { name: 'New terminal tab' }).click()
+    await expect(first.win.getByRole('tab')).toHaveCount(2)
+    await expect(first.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
+      /[❯$%#]/,
+      { timeout: 15_000 },
+    )
+
+    const term = first.win.locator('.pane-slot:not([data-hidden]) .xterm')
+    await term.click()
+    await waitForTerminalFocus(first.win)
+    await first.win.keyboard.type('pine resume-token claude ffe55127-cb1f-4efd')
+    await first.win.keyboard.press('Enter')
+    await expect(first.win.getByRole('button', { name: /Resume claude/ })).toBeVisible({
+      timeout: 15_000,
+    })
+  } finally {
+    await quitApp(first.app)
+  }
+
+  const saved = JSON.parse(readFileSync(join(dataHome, 'pine', 'sessions.json'), 'utf8'))
+  expect(saved.sessions[0].root).toMatchObject({ type: 'tabs' })
+
+  const second = await launchApp(dataHome)
+  try {
+    await expect(second.win.getByRole('tab')).toHaveCount(2, { timeout: 15_000 })
+    const resume = second.win.getByRole('button', { name: /Resume claude/ })
+    await expect(resume).toBeVisible({ timeout: 15_000 })
+    await second.win.keyboard.press('Control+Shift+R')
+    await expect(second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
+      'claude --resume ffe55127-cb1f-4efd',
+      { timeout: 15_000 },
+    )
+  } finally {
+    await quitApp(second.app)
+  }
+})

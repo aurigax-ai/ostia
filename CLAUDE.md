@@ -103,6 +103,16 @@ Details: `docs/ARCHITECTURE.md`.
 - **The pty lives in main, keyed by pane id**, and outlives renderer remounts. `pty:attach`
   re-binds and replays a capped buffer; `pty:detach` keeps it alive for `DETACH_GRACE_MS`, then
   reaps. pty lifecycle closures must check `ptys.get(paneId) === entry` before touching the map.
+- **Tabs are a leaf slot, never a split.** A `tabs` node holds only panes and shows `activeId`;
+  splits and edge drops act on the whole stack, a center drop adds a tab, one tab left collapses
+  back to a pane. Whatever sets `activePaneId` also shows that tab (`patch` in `layoutStore`
+  runs `selectTab`), and a background tab is not visible (`isPaneVisible`), so its signals ring.
+  Hidden tab bodies stay mounted (`visibility: hidden` + `inert`), never unmounted: a webview
+  moved or detached reloads.
+- **A resume token is data, never a command.** `pine resume-token` stores `{agent, id}` on the
+  pane only after `parseAgentResume` checks the agent is known and the id is `[A-Za-z0-9._-]`;
+  the command is built by `resumeCommand` and typed only at an idle prompt when the human asks
+  (Resume button, `agent.resume`). Never store or replay a free-form command.
 - **Surfaces never remount on split/move/zoom.** `SurfacePool` owns one persistent host element
   per pane and always portals into it; a pane's slot `appendChild`s that host. Don't portal into
   the slot directly. (Browser `<webview>`s still reload when moved; that's Electron.)
@@ -147,9 +157,9 @@ Details: `docs/ARCHITECTURE.md`.
   the pane existed; a session's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
-  `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new session, `Ctrl+Shift+C/V` copy/paste,
-  `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block. macOS uses ⌘ (⌘⇧U unread,
-  ⌘⇧H history, ⌘T new session, ⌘↑/⌘↓ blocks).
+  `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new session, `Ctrl+Shift+R` resume the pane's
+  agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
+  macOS uses ⌘ (⌘⇧U unread, ⌘⇧H history, ⌘T new session, ⌘⇧R resume, ⌘↑/⌘↓ blocks).
   Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell;
   Escape is swallowed only while a block is selected. All chords live in `lib/chords.ts`;
   xterm's `attachCustomKeyEventHandler` lets app chords through. Block navigation is a terminal
@@ -242,7 +252,8 @@ Details: `docs/ARCHITECTURE.md`.
   generated shell symbols `__pine_*`.
 - **zustand:** `create<State>((set, get) => ({ … }))`, immutable updates, cross-store via
   `useOtherStore.getState()`. Pure logic stays out of stores.
-- **Model:** a **Session** (sidebar; `kind`, `workDir`, live `state`) owns a split-tree of **Panes**;
+- **Model:** a **Session** (sidebar; `kind`, `workDir`, live `state`) owns a split-tree whose
+  leaves are **Panes** or **tab stacks** of panes;
   each pane hosts one **Surface**: `terminal | editor | browser | extension | diff` (`agent` is
   reserved in the type and snapshot format, not yet created; `diff` is never persisted).
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
