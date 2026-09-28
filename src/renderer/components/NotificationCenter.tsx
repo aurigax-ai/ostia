@@ -1,10 +1,12 @@
 import type { NotificationEntry } from '@shared/types'
 import { Bell } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { openExtensionPanel } from '../commands/extensionBridge'
 import { fmt, useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
 import { revealPane } from '../lib/sessionActivity'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSessionsStore } from '../stores/sessionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -51,6 +53,9 @@ export function NotificationCenter(): JSX.Element {
   const [open, setOpen] = useState(false)
   const [entries, setEntries] = useState<NotificationEntry[]>([])
   const labelOf = usePaneLabels()
+  const extensions = useExtensionsStore((s) => s.list)
+  const panelOf = (extId: string | undefined) =>
+    extId ? (extensions.find((e) => e.id === extId && e.enabled && e.panel) ?? null) : null
 
   useEffect(() => {
     if (!open) return
@@ -108,20 +113,27 @@ export function NotificationCenter(): JSX.Element {
           <ul className="notif-list" aria-label={d.attention.notifications}>
             {entries.map((entry) => {
               const where = labelOf(entry.paneId)
+              const ext = panelOf(entry.extId)
+              const whereText = ext
+                ? ext.name
+                : where
+                  ? `${where.session} · ${where.pane}`
+                  : d.attention.closedPane
               return (
                 <li key={entry.id}>
                   <button
                     type="button"
                     className="notif-row"
-                    disabled={!where}
+                    disabled={!where && !ext}
                     onClick={() => {
-                      if (entry.paneId && revealPane(entry.paneId)) setOpen(false)
+                      if (ext) {
+                        openExtensionPanel({ extId: ext.id })
+                        setOpen(false)
+                      } else if (entry.paneId && revealPane(entry.paneId)) setOpen(false)
                     }}
                   >
                     <span className="notif-meta">
-                      <span className="notif-where">
-                        {where ? `${where.session} · ${where.pane}` : d.attention.closedPane}
-                      </span>
+                      <span className="notif-where">{whereText}</span>
                       <time dateTime={entry.ts}>{time.format(new Date(entry.ts))}</time>
                     </span>
                     <span className="notif-msg">

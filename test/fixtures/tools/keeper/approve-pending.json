@@ -1,0 +1,51 @@
+[
+  {
+    "connection": "shop-staging",
+    "created_at": "2026-09-28T10:02:00Z",
+    "facts": {
+      "egress": ["email tokenized"],
+      "estimated_cost": 1204.5,
+      "estimated_rows": 5200,
+      "intent": "count repeat customers by month",
+      "reasons": ["row_estimate"],
+      "relations": [{ "relation": "customers", "schema": "public" }],
+      "statement_type": "SELECT"
+    },
+    "session": {
+      "client": { "name": "claude-code", "pid": 4242, "version": "2.1.0", "workspace": "/home/user/shop" },
+      "connected_at": "2026-09-28T09:58:00Z",
+      "id": "s-7f3a",
+      "intent": "customer retention report"
+    },
+    "sql": "SELECT email, count(*) FROM public.customers GROUP BY 1",
+    "ticket_id": "t-b21c",
+    "tier": 2
+  },
+  {
+    "connection": "shop-staging",
+    "created_at": "2026-09-28T10:00:30Z",
+    "facts": {
+      "estimated_cost": 12,
+      "estimated_rows": 40,
+      "intent": "close stale carts",
+      "reasons": ["write"],
+      "relations": [{ "relation": "carts", "schema": "public" }],
+      "statement_type": "UPDATE"
+    },
+    "session": {
+      "client": { "name": "codex", "workspace": "/home/user/shop" },
+      "connected_at": "2026-09-28T09:59:00Z",
+      "id": "s-19c0",
+      "intent": "cart cleanup"
+    },
+    "sql": "UPDATE public.carts SET state = 'closed' WHERE updated_at < now() - interval '30 days'",
+    "ticket_id": "t-a90e",
+    "tier": 3,
+    "write": {
+      "operation": "UPDATE",
+      "previewed_at": "2026-09-28T10:00:29Z",
+      "row_count": 40,
+      "scope": [{ "relation": "carts", "schema": "public" }]
+    }
+  }
+]

@@ -1,0 +1,13 @@
+{"gap":true,"oldest":46}
+{"seq":46,"ts":1789419938237,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"card","ref":"TRELLIS-13","title":"Skill: when-to-use-trellis (the trigger layer)","action":"moved","field":"column","old":"backlog","new":"in-progress"}
+{"seq":47,"ts":1789419938253,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"card","ref":"TRELLIS-13","title":"Skill: when-to-use-trellis (the trigger layer)","action":"claimed"}
+{"seq":48,"ts":1789419958643,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"comment","ref":"TRELLIS-13","title":"Skill: when-to-use-trellis (the trigger layer)","action":"created"}
+{"seq":49,"ts":1789419958656,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"card","ref":"TRELLIS-13","title":"Skill: when-to-use-trellis (the trigger layer)","action":"moved","field":"column","old":"in-progress","new":"review"}
+{"seq":50,"ts":1789419992481,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"card","ref":"TRELLIS-14","title":"Skill: writing-knowledge (when + what)","action":"created"}
+{"seq":51,"ts":1789419992521,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"card","ref":"TRELLIS-14","title":"Skill: writing-knowledge (when + what)","action":"claimed"}
+{"seq":52,"ts":1789419992541,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"card","ref":"TRELLIS-14","title":"Skill: writing-knowledge (when + what)","action":"moved","field":"column","old":"backlog","new":"in-progress"}
+{"seq":53,"ts":1789420007664,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"comment","ref":"TRELLIS-14","title":"Skill: writing-knowledge (when + what)","action":"created"}
+{"seq":54,"ts":1789420007678,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"card","ref":"TRELLIS-14","title":"Skill: writing-knowledge (when + what)","action":"moved","field":"column","old":"in-progress","new":"review"}
+{"seq":55,"ts":1789420061670,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"comment","ref":"TRELLIS-4","title":"Shrink trellis main skill to operations + router","action":"created"}
+{"seq":56,"ts":1789420061686,"actor":"agent:676c99475e0554014d26b89e21334ca0","entity":"card","ref":"TRELLIS-4","title":"Shrink trellis main skill to operations + router","action":"moved","field":"column","old":"backlog","new":"review"}
+{"seq":57,"ts":1789420100000,"actor":"cli:4242","entity":"card","ref":"TRELLIS-4","title":"Shrink trellis main skill to operations + router","action":"moved","field":"column","old":"in-progress","new":"review"}

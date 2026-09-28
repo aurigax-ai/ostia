@@ -8,6 +8,7 @@ import {
   Languages,
   type LucideIcon,
   Palette,
+  RefreshCw,
   Search,
   Server,
   Smartphone,
@@ -31,6 +32,7 @@ import {
 import { useUIStore } from '../stores/uiStore'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
+import { SyncSection } from './SyncSection'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group'
@@ -46,6 +48,7 @@ type SectionId =
   | 'plugins'
   | 'languageServers'
   | 'remote'
+  | 'sync'
   | 'language'
   | 'about'
 
@@ -82,6 +85,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'plugins', icon: Boxes, label: d.settings.plugins },
         { id: 'languageServers', icon: Server, label: d.settings.languageServers },
         { id: 'remote', icon: Smartphone, label: d.settings.remote },
+        { id: 'sync', icon: RefreshCw, label: d.sync.title },
         { id: 'language', icon: Languages, label: d.settings.language },
         { id: 'about', icon: Info, label: d.settings.about },
       ] satisfies { id: SectionId; icon: LucideIcon; label: string }[],
@@ -153,6 +157,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'plugins' ? <PluginsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}
             {active === 'remote' ? <GatewaySection /> : null}
+            {active === 'sync' ? <SyncSection /> : null}
             {active === 'language' ? <LanguageSection /> : null}
             {active === 'about' ? <AboutSection /> : null}
           </div>

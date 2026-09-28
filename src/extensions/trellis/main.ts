@@ -1,0 +1,140 @@
+import { homedir } from 'node:os'
+import type { ExtensionEventType } from '../../shared/extensions'
+import { PRODUCT_NAME } from '../../shared/product'
+import {
+  type CommandHandler,
+  type ExtensionCaller,
+  connect,
+  failure,
+  ok,
+  onShutdown,
+  startMessageServer,
+} from '../sdk'
+import { type AuthProxy, type ProxyUpstream, startAuthProxy } from './proxy'
+import { type SessionRef, TrellisService, TrellisUnavailable } from './service'
+import { isAppPath, loopbackHttpUrl, projectPath } from './trellis'
+
+const REFRESH_MS = 60_000
+const EVENTS: ExtensionEventType[] = ['pane.created', 'pane.closed', 'cwd.changed']
+const FOCUS_EVENT = 'focus.changed' as ExtensionEventType
+
+function sessionsFrom(raw: unknown): SessionRef[] {
+  if (!Array.isArray(raw)) throw new Error('session.list returned no list')
+  return raw
+    .filter(
+      (s): s is { sessionId: string; workDir: string } =>
+        typeof s?.sessionId === 'string' && typeof s?.workDir === 'string',
+    )
+    .map((s) => ({ sessionId: s.sessionId, workDir: s.workDir }))
+}
+
+function upstreamOf(uiUrl: string | null): ProxyUpstream | null {
+  const url = loopbackHttpUrl(uiUrl)
+  if (!url) return null
+  const headers: Record<string, string> = {}
+  const token = url.searchParams.get('token')
+  if (token) headers['x-trellis-token'] = token
+  return { origin: url.origin, headers }
+}
+
+async function main(): Promise<void> {
+  const ext = await connect()
+  const service = new TrellisService({
+    home: homedir(),
+    consumer: PRODUCT_NAME,
+    host: {
+      listSessions: async () => sessionsFrom(await ext.call('session.list')),
+      setSidebarItem: (item) => ext.setSidebarItem(item),
+      notifyPanel: (title, body) => ext.notifyPanel(title, body),
+      log: (line) => console.error(line),
+    },
+  })
+  onShutdown(() => service.stop())
+
+  let uiUrl: string | null = null
+  let proxy: AuthProxy | null = null
+  const messages = await startMessageServer()
+  const ensureProxy = async (): Promise<AuthProxy> => {
+    proxy ??= await startAuthProxy({ upstream: () => upstreamOf(uiUrl), isAllowedEntry: isAppPath })
+    return proxy
+  }
+
+  const remember = (caller: ExtensionCaller): void => {
+    if (caller.locale) service.locale = caller.locale
+  }
+
+  const unavailableText = (err: unknown): string =>
+    err instanceof TrellisUnavailable ? err.message : service.strings.uiFailed
+
+  const handlers: Record<string, CommandHandler> = {
+    open: async (_args, caller) => {
+      remember(caller)
+      try {
+        uiUrl = await service.ensureUi()
+      } catch (err) {
+        return failure(
+          err instanceof TrellisUnavailable ? err.code : 'ui-failed',
+          unavailableText(err),
+        )
+      }
+      await ext.openPanel(caller.sessionId)
+      return ok('ok')
+    },
+    init: async (_args, caller) => {
+      remember(caller)
+      const dir = caller.cwd ?? caller.workDir
+      if (!dir) return failure('no-dir', service.strings.noDir)
+      if (!(await service.isInstalled())) {
+        return failure('not-installed', service.strings.notInstalled)
+      }
+      const s = service.strings
+      const confirmed = await ext.confirm({
+        title: s.initTitle,
+        message: s.initMessage(dir),
+        detail: s.initDetail,
+        confirmLabel: s.initConfirm,
+        cancelLabel: s.cancel,
+      })
+      if (!confirmed) return ok(s.initCancelled)
+      const res = await service.init(dir)
+      return res.ok ? ok(res.text) : failure('init-failed', res.message)
+    },
+    status: async (_args, caller) => {
+      remember(caller)
+      if (!(await service.isInstalled())) {
+        return failure('not-installed', service.strings.notInstalled)
+      }
+      const project = service.projectFor(caller.workDir)
+      if (!project) return ok('no trellis project', null)
+      const counts = await service.counts(project)
+      if (!counts) return failure('trellis-failed', service.strings.uiFailed)
+      const data = { project: project.project, board: project.board ?? null, ...counts }
+      return ok(`${project.project}: ${service.strings.sidebar(counts)}`, data)
+    },
+  }
+
+  ext.onPanel(async (caller) => {
+    remember(caller)
+    try {
+      uiUrl = await service.ensureUi()
+      const p = await ensureProxy()
+      return { url: p.entryUrl(projectPath(service.projectFor(caller.workDir))) }
+    } catch (err) {
+      return { url: messages.url(service.strings.unavailableTitle, unavailableText(err)) }
+    }
+  })
+
+  await ext.registerCommands(handlers)
+
+  const onEvent = (): void => service.scheduleRefresh()
+  const withFocus = (await ext.subscribe([...EVENTS, FOCUS_EVENT], onEvent)) as { ok?: boolean }
+  if (withFocus?.ok === false) await ext.subscribe(EVENTS, onEvent)
+  await service.refreshSidebar()
+  void service.startEvents()
+  setInterval(() => void service.refreshSidebar(), REFRESH_MS).unref()
+}
+
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : String(err))
+  process.exit(1)
+})
