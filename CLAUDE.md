@@ -115,8 +115,8 @@ Details: `docs/ARCHITECTURE.md`.
 - **Session/pane guards:** never zero sessions; `closePane` never removes the last pane and emits
   `pane-closed` only if the pane existed; a session's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
-  `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find.
-  macOS uses ⌘. Plain `Ctrl+<letter>` belongs to the shell. All chords live in `lib/chords.ts`;
+  `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
+  `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find. macOS uses ⌘ (⌘⇧U for unread). Plain `Ctrl+<letter>` belongs to the shell. All chords live in `lib/chords.ts`;
   xterm's `attachCustomKeyEventHandler` lets app chords through. Show hints via `chordLabel()`.
 - **Capabilities:** acting on any target other than your own pane/window/session needs
   `workspace-wide`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`;
@@ -125,6 +125,13 @@ Details: `docs/ARCHITECTURE.md`.
 - **Gateway:** off by default, loopback bind by default, never rotate the cert, reject requests
   with an `Origin` header, check `Host`, 1 MiB frame cap, 10 s hello deadline. Revocation closes
   live sockets AND re-checks the device on every request.
+- **Attention goes through `reduceAttention`** (`lib/attention.ts`), dispatched via
+  `attentionStore`/`signalPane`. Session state is derived from pane attention + running blocks by
+  `startAttentionSync`; never `setState` a session's live state directly. A signal to the pane
+  being viewed must apply `view` immediately (`signalPane` does), or it rings while you look at it.
+- **Renderer attention commands act on the command target only** (`ctx.activePaneId`), never on
+  a pane id in args: `command.exec` checks capabilities against the target, so an args pane id
+  would bypass `workspace-wide`.
 - **node-pty is loaded lazily and tolerated absent.**
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
@@ -175,6 +182,12 @@ Details: `docs/ARCHITECTURE.md`.
   cursor restore shifts the prompt up a row per resize and eats output above it; (d) the prompt
   row must come from an xterm marker, because reflow moves lines under a stored number.
   Covered by `e2e/resize-prompt.spec.ts` (split + drag-resize with output above the prompt).
+- **Attention is silent during replay** (`Terminal.tsx` `replaying`): the attach replay buffer
+  re-parses old OSC 9/777/99, BELs and failed OSC 133;D marks. Signals are dropped until
+  `term.write(buffer, cb)` calls back, else every remount/restore re-raises old notifications.
+- **Portaled surfaces don't bubble React events to their `Pane`.** SurfacePool portals each
+  surface, so its React parent is SurfacePool. Pane activation uses native `mousedown`/`focusin`
+  listeners on the frame; a React `onMouseDownCapture` there only saw header clicks.
 - **OSC 7 is not percent-decoded**: hooks emit raw paths; decoding corrupts dirs like `100%20off`.
 - **Session restore is two files from two processes** (`sessionSnapshot.ts`): the renderer
   autosaves `sessions.json` as you work; main writes `scrollback.json` every 5 s when output
