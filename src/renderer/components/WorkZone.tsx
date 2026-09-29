@@ -9,6 +9,8 @@ import { PaneTree } from './PaneTree'
 import { SettingsPanel } from './SettingsPanel'
 import { SurfacePool } from './SurfacePool'
 import { Button } from './ui/button'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
+import { Kbd } from './ui/kbd'
 
 const NEW_WORKSPACE_KEYS = chordLabel('workspace.new', isMac)
 
@@ -75,11 +77,14 @@ function NoWorkspaces(): JSX.Element {
   const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
   const leaveSettings = useUIStore((s) => s.leaveSettings)
   return (
-    <div className="workzone-empty">
-      <h2 className="font-semibold text-fg text-ui-lg">{d.workzone.emptyTitle}</h2>
-      <p className="text-fg-muted text-ui-base">{d.workzone.emptyBody}</p>
+    <Empty className="workzone-empty">
+      <EmptyHeader>
+        <EmptyTitle className="font-semibold text-fg text-ui-lg">
+          <h2>{d.workzone.emptyTitle}</h2>
+        </EmptyTitle>
+        <EmptyDescription className="text-ui-base">{d.workzone.emptyBody}</EmptyDescription>
+      </EmptyHeader>
       <Button
-        className="mt-2"
         onClick={() => {
           leaveSettings()
           addWorkspace()
@@ -87,8 +92,10 @@ function NoWorkspaces(): JSX.Element {
       >
         <PlusIcon data-icon="inline-start" />
         {d.rail.newWorkspace}
-        <kbd className="workzone-empty-kbd">{NEW_WORKSPACE_KEYS}</kbd>
+        <Kbd className="ml-1 bg-primary-foreground/15 text-primary-foreground">
+          {NEW_WORKSPACE_KEYS}
+        </Kbd>
       </Button>
-    </div>
+    </Empty>
   )
 }

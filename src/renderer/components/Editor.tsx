@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { CodeIcon, EyeIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
@@ -10,6 +11,8 @@ import { useEditorStatus } from '../stores/editorStatusStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
 import { MarkdownPreview, isMarkdownPath } from './MarkdownPreview'
+import { ATTENTION_ALERT } from './attentionStyles'
+import { Alert } from './ui/alert'
 
 export const EDITOR_FALLBACK =
   '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
@@ -205,13 +208,11 @@ export function EditorView({
         </div>
       ) : null}
       {unsavedPath ? (
-        <div role="alert" className="editor-save-error">
+        <Alert className={cn(ATTENTION_ALERT, 'editor-save-error')}>
           {fmt(d.editor.saveError, { path: unsavedPath })}
-        </div>
+        </Alert>
       ) : external.error ? (
-        <div role="alert" className="editor-save-error">
-          {external.error}
-        </div>
+        <Alert className={cn(ATTENTION_ALERT, 'editor-save-error')}>{external.error}</Alert>
       ) : null}
     </>
   )

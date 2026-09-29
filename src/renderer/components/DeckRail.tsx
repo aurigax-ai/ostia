@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import {
   FlaskIcon,
   FolderSimpleIcon,
@@ -32,7 +33,10 @@ import {
 import { FilesView } from './FilesView'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
+import { ATTENTION_BADGE } from './attentionStyles'
 import { extensionIcon } from './extensionIcons'
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -40,6 +44,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from './ui/context-menu'
+import { Input } from './ui/input'
+import { Kbd } from './ui/kbd'
 
 const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
   agent: RobotIcon,
@@ -136,17 +142,17 @@ function WorkspacesView(): JSX.Element {
       <SidebarFooter />
 
       <Hint label={d.rail.newWorkspace} side="right">
-        <button
-          type="button"
-          className="rail-add"
+        <Button
+          variant="ghost"
+          className="rail-add justify-start font-normal text-fg-muted"
           onClick={() => {
             leaveSettings()
             addWorkspace()
           }}
         >
-          <PlusIcon size={14} />
+          <PlusIcon data-icon="inline-start" />
           <span>{d.rail.newWorkspace}</span>
-        </button>
+        </Button>
       </Hint>
     </>
   )
@@ -219,15 +225,16 @@ function UnreadBadge({ workspaceId }: { workspaceId: string }): JSX.Element | nu
   const pop = usePopOnIncrease(n)
   if (n === 0) return null
   return (
-    <span
+    <Badge
       key={pop.generation}
-      className={`unread-badge${pop.active ? ' pop' : ''}`}
+      variant="outline"
+      className={cn(ATTENTION_BADGE, 'unread-badge', pop.active && 'pop')}
       role="img"
       aria-label={fmt(d.rail.unread, { n })}
       onAnimationEnd={pop.end}
     >
       {n > 99 ? '99+' : n}
-    </span>
+    </Badge>
   )
 }
 
@@ -367,7 +374,7 @@ function WorkspaceRow({
           }
           badge={
             digitHints && index < 9 ? (
-              <kbd className="tab-digit">{index + 1}</kbd>
+              <Kbd className="tab-digit font-mono">{index + 1}</Kbd>
             ) : (
               <UnreadBadge workspaceId={w.id} />
             )
@@ -441,9 +448,9 @@ function RenameInput({
   const input = useRef<HTMLInputElement>(null)
   useEffect(() => input.current?.select(), [])
   return (
-    <input
+    <Input
       ref={input}
-      className="tab-rename"
+      className="tab-rename h-6 px-1.5"
       aria-label={label}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
