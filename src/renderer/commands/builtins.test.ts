@@ -451,3 +451,37 @@ describe('agent resume', () => {
     expect(r).toMatchObject({ ok: true, result: { resumed: false } })
   })
 })
+
+describe('workspace row commands', () => {
+  const seed = () =>
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 'w1', name: 'api', kind: 'terminal', workDir: '/a', state: 'idle' },
+        { id: 'w2', name: 'web', kind: 'terminal', workDir: '/b', state: 'idle' },
+      ],
+      activeWorkspaceId: 'w1',
+    })
+
+  it('describes the caller’s own workspace', async () => {
+    seed()
+    await commands.execWith(ctx('w2', 'p'), 'workspace.describe', { text: 'PR #7' })
+    expect(useWorkspacesStore.getState().workspaces[1].description).toBe('PR #7')
+    expect(useWorkspacesStore.getState().workspaces[0].description).toBeUndefined()
+  })
+
+  it('jumps to a workspace by position and reports a missing one', async () => {
+    seed()
+    const r = await commands.execWith(ctx(null, null), 'workspace.goto', { index: 1 })
+    expect(r).toMatchObject({ ok: true, result: { switched: true } })
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w2')
+    const miss = await commands.execWith(ctx(null, null), 'workspace.goto', { index: 5 })
+    expect(miss).toMatchObject({ ok: true, result: { switched: false } })
+  })
+
+  it('pins the active workspace from the palette', async () => {
+    seed()
+    await commands.execWith(ctx('w2', null), 'workspace.togglePin')
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w2', 'w1'])
+    expect(useWorkspacesStore.getState().workspaces[0].pinned).toBe(true)
+  })
+})

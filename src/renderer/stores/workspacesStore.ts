@@ -1,6 +1,8 @@
 import type { AppSnapshot, WorkspaceLiveState } from '@shared/types'
+import { normalizeDescription } from '@shared/workspaceText'
 import { create } from 'zustand'
 import { restoreSnapshot } from '../layout/snapshot'
+import { moveBy, moveTo, setPinned } from '../lib/workspaceOrder'
 import { useLayoutStore } from './layoutStore'
 
 export type WorkspaceState = WorkspaceLiveState
@@ -11,6 +13,8 @@ export interface Workspace {
   id: string
   name: string
   customName?: string
+  description?: string
+  pinned?: boolean
   kind: WorkspaceKind
   workDir: string
   state: WorkspaceState
@@ -24,6 +28,11 @@ interface WorkspacesState {
   closeWorkspace: (id: string) => void
   setWorkDir: (id: string, workDir: string) => void
   rename: (id: string, name: string) => void
+  describe: (id: string, text: string) => void
+  setPinned: (id: string, pinned: boolean) => void
+  moveBy: (id: string, delta: number) => void
+  moveTo: (id: string, index: number) => void
+  closeOthers: (id: string) => void
   setState: (id: string, state: WorkspaceState) => void
   hydrate: (snapshot: AppSnapshot | null) => void
 }
@@ -99,6 +108,28 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
         return customName ? { ...rest, customName } : rest
       }),
     }))
+  },
+
+  describe: (id, text) => {
+    const description = normalizeDescription(text)
+    set((s) => ({
+      workspaces: s.workspaces.map((c) => {
+        if (c.id !== id || c.description === description) return c
+        const { description: _old, ...rest } = c
+        return description ? { ...rest, description } : rest
+      }),
+    }))
+  },
+
+  setPinned: (id, pinned) => set((s) => ({ workspaces: setPinned(s.workspaces, id, pinned) })),
+
+  moveBy: (id, delta) => set((s) => ({ workspaces: moveBy(s.workspaces, id, delta) })),
+
+  moveTo: (id, index) => set((s) => ({ workspaces: moveTo(s.workspaces, id, index) })),
+
+  closeOthers: (id) => {
+    for (const other of get().workspaces) if (other.id !== id) get().closeWorkspace(other.id)
+    get().setActive(id)
   },
 
   hydrate: (snapshot) => {

@@ -4,7 +4,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { buildSync } from 'esbuild'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { openWorkspace, waitForPaletteSelection } from './helpers'
 
 const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'hello')
 
@@ -43,6 +43,7 @@ test('a user extension is approved, opens its panel from the palette, and runs a
 
     await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Hello: Open Panel')
+    await waitForPaletteSelection(win, 'Hello: Open Panel')
     await expect(
       win.getByRole('dialog').getByText('Hello: Open Panel', { exact: true }),
     ).toBeVisible()

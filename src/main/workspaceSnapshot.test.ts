@@ -133,6 +133,19 @@ describe('parseSnapshot', () => {
     ).toEqual([])
   })
 
+  it('keeps a description and pin, and drops a description that is not text', () => {
+    const base = snap().workspaces[0]
+    const parsed = parseSnapshot(
+      snap({ workspaces: [{ ...base, description: '  PR #7  ', pinned: true }] }),
+    )
+    expect(parsed?.workspaces[0]).toMatchObject({ description: 'PR #7', pinned: true })
+    const bad = parseSnapshot(
+      snap({ workspaces: [{ ...base, description: 42 as never, pinned: 'yes' as never }] }),
+    )
+    expect(bad?.workspaces[0]).not.toHaveProperty('description')
+    expect(bad?.workspaces[0]).not.toHaveProperty('pinned')
+  })
+
   it('keeps an empty workspace (no layout) and a user-given name', () => {
     const { root: _root, activePaneId: _active, ...empty } = snap().workspaces[0]
     const parsed = parseSnapshot(snap({ workspaces: [{ ...empty, customName: ' payments ' }] }))

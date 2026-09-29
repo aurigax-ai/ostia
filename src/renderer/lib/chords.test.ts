@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type KeyLike, chordLabel, isAppChord, matchChord } from './chords'
+import { type KeyLike, chordLabel, isAppChord, matchChord, workspaceDigit } from './chords'
 
 const key = (k: string, mods: Partial<Omit<KeyLike, 'key'>> = {}): KeyLike => ({
   key: k,
@@ -109,5 +109,22 @@ describe('chordLabel', () => {
     expect(chordLabel('palette.toggle', true)).toBe('⌘K')
     expect(chordLabel('palette.toggle', false)).toBe('Ctrl+Shift+P')
     expect(chordLabel('find', false)).toBe('Ctrl+Shift+F')
+  })
+})
+
+describe('workspace digits', () => {
+  it('maps Ctrl+1..9 (Cmd+1..9 on macOS) to the workspace at that position', () => {
+    expect(matchChord(key('1', { ctrlKey: true }), false)).toBe('workspace.goto')
+    expect(matchChord(key('9', { metaKey: true }), true)).toBe('workspace.goto')
+    expect(isAppChord('workspace.goto')).toBe(true)
+    expect(workspaceDigit('1')).toBe(0)
+    expect(workspaceDigit('9')).toBe(8)
+  })
+
+  it('leaves Ctrl+0, Ctrl+Shift+digit and plain digits to the shell', () => {
+    expect(matchChord(key('0', { ctrlKey: true }), false)).toBeNull()
+    expect(matchChord(key('1', { ctrlKey: true, shiftKey: true }), false)).toBeNull()
+    expect(matchChord(key('1'), false)).toBeNull()
+    expect(workspaceDigit('0')).toBeNull()
   })
 })

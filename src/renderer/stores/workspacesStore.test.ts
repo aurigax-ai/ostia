@@ -363,4 +363,37 @@ describe('workspacesStore', () => {
       expect(workspaces()[0].customName).toBeUndefined()
     })
   })
+
+  describe('cmux-style row actions', () => {
+    const store = () => useWorkspacesStore.getState()
+
+    it('sets, trims and clears a description', () => {
+      const w = open('/a')
+      store().describe(w.id, '  PR #512: fix refunds  ')
+      expect(workspaces()[0].description).toBe('PR #512: fix refunds')
+      store().describe(w.id, ' ')
+      expect(workspaces()[0].description).toBeUndefined()
+    })
+
+    it('pins to the top and moves only within its group', () => {
+      const a = open('/a')
+      const b = open('/b')
+      const c = open('/c')
+      store().setPinned(c.id, true)
+      expect(workspaces().map((w) => w.id)).toEqual([c.id, a.id, b.id])
+      store().moveBy(a.id, -1)
+      expect(workspaces().map((w) => w.id)).toEqual([c.id, a.id, b.id])
+      store().moveBy(b.id, -1)
+      expect(workspaces().map((w) => w.id)).toEqual([c.id, b.id, a.id])
+    })
+
+    it('closes every other workspace and keeps this one active', () => {
+      const a = open('/a')
+      open('/b')
+      open('/c')
+      store().closeOthers(a.id)
+      expect(workspaces().map((w) => w.id)).toEqual([a.id])
+      expect(activeId()).toBe(a.id)
+    })
+  })
 })

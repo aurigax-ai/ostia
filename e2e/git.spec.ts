@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { openWorkspace, waitForPaletteSelection } from './helpers'
 
 test('a dirty repo shows in the sidebar, lists its changes, and opens a diff', async () => {
   const dataHome = freshDataHome()
@@ -34,6 +34,7 @@ test('a dirty repo shows in the sidebar, lists its changes, and opens a diff', a
 
     await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Show Changes')
+    await waitForPaletteSelection(win, 'Show Changes')
     await expect(win.getByRole('dialog').getByText('Show Changes', { exact: true })).toBeVisible()
     await win.keyboard.press('Enter')
 

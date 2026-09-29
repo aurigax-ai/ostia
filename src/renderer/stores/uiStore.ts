@@ -8,6 +8,7 @@ interface UIState {
   settingsTabOpen: boolean
   settingsActive: boolean
   sidebarView: SidebarView
+  digitHints: boolean
   openPalette: () => void
   closePalette: () => void
   togglePalette: () => void
@@ -16,6 +17,7 @@ interface UIState {
   closeSettings: () => void
   leaveSettings: () => void
   setSidebarView: (view: SidebarView) => void
+  setDigitHints: (shown: boolean) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -24,6 +26,7 @@ export const useUIStore = create<UIState>((set) => ({
   settingsTabOpen: false,
   settingsActive: false,
   sidebarView: 'workspaces',
+  digitHints: false,
   openPalette: () => set({ paletteOpen: true }),
   closePalette: () => set({ paletteOpen: false }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
@@ -32,4 +35,5 @@ export const useUIStore = create<UIState>((set) => ({
   closeSettings: () => set({ settingsTabOpen: false, settingsActive: false }),
   leaveSettings: () => set({ settingsActive: false }),
   setSidebarView: (sidebarView) => set({ sidebarView }),
+  setDigitHints: (digitHints) => set({ digitHints }),
 }))

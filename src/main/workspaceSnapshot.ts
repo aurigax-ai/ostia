@@ -8,6 +8,7 @@ import type {
   SnapshotSurfaceKind,
   SnapshotWorkspace,
 } from '../shared/types'
+import { normalizeDescription } from '../shared/workspaceText'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { PtyRingBuffer } from './ptyRingBuffer'
 
@@ -135,10 +136,13 @@ export function parseSnapshot(raw: unknown): AppSnapshot | null {
       typeof entry.customName === 'string' ? entry.customName.trim().slice(0, CUSTOM_NAME_MAX) : ''
 
     const workDir = typeof entry.workDir === 'string' && entry.workDir ? entry.workDir : '~'
+    const description = normalizeDescription(entry.description)
     workspaces.push({
       id,
       name: typeof entry.name === 'string' && entry.name ? entry.name : 'workspace',
       ...(customName ? { customName } : {}),
+      ...(description ? { description } : {}),
+      ...(entry.pinned === true ? { pinned: true } : {}),
       kind:
         typeof entry.kind === 'string' && WORKSPACE_KINDS.has(entry.kind)
           ? (entry.kind as SnapshotWorkspace['kind'])

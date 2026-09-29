@@ -197,3 +197,37 @@ describe('BrowserView send panel', () => {
     expect(window.pine.browser.pickSend).not.toHaveBeenCalled()
   })
 })
+
+describe('BrowserView address bar', () => {
+  const navigated = (container: HTMLElement, url: string) => {
+    const webview = container.querySelector('webview') as HTMLElement
+    const event = Object.assign(new Event('did-navigate'), { url, isMainFrame: true })
+    act(() => {
+      webview.dispatchEvent(event)
+    })
+  }
+
+  it('keeps what the user is typing when a slow page finishes loading', async () => {
+    const { workspaceId } = twoTerminals()
+    const { container } = renderView(workspaceId)
+    const address = screen.getByRole('textbox', { name: /address/i })
+    await userEvent.clear(address)
+    await userEvent.type(address, 'proxmox.example.com')
+
+    navigated(container, 'about:blank')
+
+    expect(address).toHaveValue('proxmox.example.com')
+  })
+
+  it('follows navigation when the user is not typing, and Escape restores the page address', async () => {
+    const { workspaceId } = twoTerminals()
+    const { container } = renderView(workspaceId)
+    const address = screen.getByRole('textbox', { name: /address/i })
+
+    navigated(container, 'http://localhost/docs')
+    expect(address).toHaveValue('http://localhost/docs')
+
+    await userEvent.type(address, 'x{Escape}')
+    expect(address).toHaveValue('http://localhost/docs')
+  })
+})

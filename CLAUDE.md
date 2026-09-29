@@ -162,9 +162,11 @@ Details: `docs/ARCHITECTURE.md`.
   workspace's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
-  `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new workspace, `Ctrl+Shift+R` resume the pane's
-  agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
-  macOS uses ⌘ (⌘⇧U unread, ⌘⇧H history, ⌘T new workspace, ⌘⇧R resume, ⌘↑/⌘↓ blocks).
+  `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new workspace, `Ctrl+1..9` jump to a workspace,
+  `Ctrl+Shift+R` resume the pane's agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
+  macOS uses ⌘ (⌘⇧U unread, ⌘⇧H history, ⌘T new workspace, ⌘1..9 workspaces, ⌘⇧R resume,
+  ⌘↑/⌘↓ blocks). Holding the modifier alone for 500 ms shows each row's digit; any other key
+  cancels, so Ctrl shortcuts never flash it.
   Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell;
   Escape is swallowed only while a block is selected. All chords live in `lib/chords.ts`;
   xterm's `attachCustomKeyEventHandler` lets app chords through. Block navigation is a terminal

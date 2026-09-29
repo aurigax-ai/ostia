@@ -87,6 +87,19 @@ describe('buildSnapshot', () => {
     expect(restoreSnapshot(snapshot).layouts).not.toHaveProperty('s2')
   })
 
+  it('saves and restores a workspace description and pin', () => {
+    const snapshot = buildSnapshot({
+      workspaces: [{ ...WORKSPACE, description: 'PR #7', pinned: true }],
+      activeWorkspaceId: 's1',
+      layouts: {},
+      savedAt: '',
+    })
+    expect(restoreSnapshot(snapshot).workspaces[0]).toMatchObject({
+      description: 'PR #7',
+      pinned: true,
+    })
+  })
+
   it('saves and restores a name the user gave a workspace', () => {
     const snapshot = buildSnapshot({
       workspaces: [{ ...WORKSPACE, customName: 'payments' }],

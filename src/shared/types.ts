@@ -164,6 +164,8 @@ export interface SnapshotWorkspace {
   id: string
   name: string
   customName?: string
+  description?: string
+  pinned?: boolean
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
   root?: SnapshotNode
