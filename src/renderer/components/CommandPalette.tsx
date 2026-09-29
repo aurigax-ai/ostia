@@ -1,12 +1,13 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useMemo, useState, useSyncExternalStore } from 'react'
 import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
 import { allPanes } from '../layout/tree'
+import type { PaneNode } from '../layout/types'
 import { PALETTE_MODES, type PaletteMode, paletteMode } from '../lib/paletteModes'
 import { revealPane } from '../lib/workspaceActivity'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
+import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import {
   CommandDialog,
   CommandEmpty,
@@ -26,6 +27,7 @@ export function CommandPalette(): JSX.Element {
   const close = useUIStore((s) => s.closePalette)
   const [search, setSearch] = useState('')
   const mode = paletteMode(search)
+  const places = useMemo(() => (open ? snapshotPlaces() : EMPTY_PLACES), [open])
 
   useSyncExternalStore(subscribeCommands, commandsVersion)
 
@@ -47,8 +49,10 @@ export function CommandPalette(): JSX.Element {
       <CommandList>
         <CommandEmpty>{d.palette.empty}</CommandEmpty>
         {mode === 'help' ? <HelpItems onPick={(symbol) => setSearch(symbol)} /> : null}
-        {mode === 'all' || mode === 'workspaces' ? <WorkspaceItems onDone={finish} /> : null}
-        {mode === 'all' || mode === 'tabs' ? <TabItems onDone={finish} /> : null}
+        {mode === 'all' || mode === 'workspaces' ? (
+          <WorkspaceItems workspaces={places.workspaces} onDone={finish} />
+        ) : null}
+        {mode === 'all' || mode === 'tabs' ? <TabItems tabs={places.tabs} onDone={finish} /> : null}
         {mode === 'all' || mode === 'commands' ? <CommandItems onDone={finish} /> : null}
       </CommandList>
     </CommandDialog>
@@ -77,9 +81,31 @@ function HelpItems({ onPick }: { onPick: (symbol: string) => void }): JSX.Elemen
   )
 }
 
-function WorkspaceItems({ onDone }: { onDone: () => void }): JSX.Element | null {
+interface Places {
+  workspaces: Workspace[]
+  tabs: { pane: PaneNode; workspace: Workspace }[]
+}
+
+const EMPTY_PLACES: Places = { workspaces: [], tabs: [] }
+
+function snapshotPlaces(): Places {
+  const { workspaces } = useWorkspacesStore.getState()
+  const { byWorkspace } = useLayoutStore.getState()
+  const tabs = workspaces.flatMap((workspace) => {
+    const layout = byWorkspace[workspace.id]
+    return layout ? allPanes(layout.root).map((pane) => ({ pane, workspace })) : []
+  })
+  return { workspaces, tabs }
+}
+
+function WorkspaceItems({
+  workspaces,
+  onDone,
+}: {
+  workspaces: Workspace[]
+  onDone: () => void
+}): JSX.Element | null {
   const d = useDict()
-  const workspaces = useWorkspacesStore((s) => s.workspaces)
   if (workspaces.length === 0) return null
   const symbol = symbolOf('workspaces')
   return (
@@ -105,14 +131,14 @@ function WorkspaceItems({ onDone }: { onDone: () => void }): JSX.Element | null 
   )
 }
 
-function TabItems({ onDone }: { onDone: () => void }): JSX.Element | null {
+function TabItems({
+  tabs,
+  onDone,
+}: {
+  tabs: Places['tabs']
+  onDone: () => void
+}): JSX.Element | null {
   const d = useDict()
-  const workspaces = useWorkspacesStore((s) => s.workspaces)
-  const byWorkspace = useLayoutStore((s) => s.byWorkspace)
-  const tabs = workspaces.flatMap((w) => {
-    const layout = byWorkspace[w.id]
-    return layout ? allPanes(layout.root).map((pane) => ({ pane, workspace: w })) : []
-  })
   if (tabs.length === 0) return null
   const symbol = symbolOf('tabs')
   return (

@@ -14,6 +14,9 @@ const CLI_HELP = `pine — control-socket CLI
                                  set this pane's attention state (message '-' reads stdin;
                                  a JSON object on stdin contributes its "message" field);
                                  --pane targets another pane (needs all-workspaces)
+  pine workspace describe <text|-> | --clear
+                                 show a short summary (Markdown links allowed) under this
+                                 pane's workspace in the sidebar, e.g. the PR you're on
   pine resume-token <claude|codex> <id|->
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON

@@ -9,7 +9,12 @@ import {
   rerunBlock,
   stepBlock,
 } from '../lib/blockActions'
-import { jumpToLatestUnread, signalPane } from '../lib/workspaceActivity'
+import {
+  goToWorkspace,
+  jumpToLatestUnread,
+  markWorkspaceRead,
+  signalPane,
+} from '../lib/workspaceActivity'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveSnapshotNow } from '../stores/persistence'
@@ -289,6 +294,57 @@ export function registerBuiltinCommands(): void {
     run: ({ command }, ctx) => ({
       inserted: ctx.activePaneId ? insertCommand(ctx.activePaneId, command) : false,
     }),
+  })
+
+  commands.register<{ text?: string } | undefined>({
+    id: 'workspace.describe',
+    title: 'Describe Workspace',
+    category: 'Workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: (args, ctx) => {
+      if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
+      useWorkspacesStore.getState().describe(ctx.activeWorkspaceId, args?.text ?? '')
+    },
+  })
+
+  commands.register({
+    id: 'workspace.togglePin',
+    title: 'Pin or Unpin Workspace',
+    category: 'Workspace',
+    run: (_args, ctx) => {
+      const store = useWorkspacesStore.getState()
+      const current = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)
+      if (current) store.setPinned(current.id, !current.pinned)
+    },
+  })
+
+  commands.register({
+    id: 'workspace.markRead',
+    title: 'Mark Workspace as Read',
+    category: 'Workspace',
+    run: (_args, ctx) => {
+      if (ctx.activeWorkspaceId) markWorkspaceRead(ctx.activeWorkspaceId)
+    },
+  })
+
+  commands.register({
+    id: 'workspace.closeOthers',
+    title: 'Close Other Workspaces',
+    category: 'Workspace',
+    capabilities: ['kill-pane'],
+    run: (_args, ctx) => {
+      if (ctx.activeWorkspaceId) useWorkspacesStore.getState().closeOthers(ctx.activeWorkspaceId)
+    },
+  })
+
+  commands.register<{ index: number }, { switched: boolean }>({
+    id: 'workspace.goto',
+    title: 'Go to Workspace',
+    category: 'Workspace',
+    hidden: true,
+    target: 'none',
+    run: ({ index }) => ({ switched: goToWorkspace(index) }),
   })
 
   commands.register({

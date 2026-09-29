@@ -204,9 +204,10 @@ describe('Extensions UI', () => {
       render(<DeckRail />)
       act(() => useExtensionsStore.setState({ sidebar: items }))
 
-      const alphaRow = screen.getByRole('button', { name: /alpha/ })
-      expect(within(alphaRow).getByText('main*')).toHaveClass('ext-item', 'tone-warn')
-      expect(within(screen.getByRole('button', { name: /beta/ })).queryByText('main*')).toBeNull()
+      const row = (name: RegExp) =>
+        screen.getByRole('button', { name }).closest('.rail-tab') as HTMLElement
+      expect(within(row(/alpha/)).getByText('main*')).toHaveClass('ext-item', 'tone-warn')
+      expect(within(row(/beta/)).queryByText('main*')).toBeNull()
       expect(document.querySelector('.rail-ext-footer')).toHaveTextContent(':3000')
     })
   })

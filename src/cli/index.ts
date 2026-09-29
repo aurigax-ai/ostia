@@ -273,6 +273,7 @@ const CORE_VERBS = new Set([
   'cwd',
   'pane.list',
   'workspace.list',
+  'workspace',
   'notify',
   'state',
   'resume-token',
@@ -1653,6 +1654,33 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
+  const [sub, ...rest] = process.argv.slice(3)
+  if (sub !== 'describe') {
+    console.error('pine workspace: usage: workspace describe <text|-> | workspace describe --clear')
+    process.exitCode = 1
+    return
+  }
+  const clear = rest.includes('--clear')
+  const raw = rest.filter((a) => a !== '--clear').join(' ')
+  const text = clear ? '' : raw === '-' ? await readAllStdin() : raw
+  if (!clear && !text.trim()) {
+    console.error('pine workspace describe: missing <text|-> (or --clear)')
+    process.exitCode = 1
+    return
+  }
+  const res = await conn.sendRequest<CommandResult>('command.exec', {
+    id: 'workspace.describe',
+    args: { text },
+  })
+  if (res.ok) {
+    console.log('ok')
+  } else {
+    console.error(`pine workspace describe: ${res.error?.message ?? 'failed'}`)
+    process.exitCode = 1
+  }
+}
+
 async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
   const [agent, raw] = process.argv.slice(3)
   if (!isResumableAgent(agent) || !raw) {
@@ -1684,6 +1712,7 @@ commands:
   whoami | commands | info | cwd | pane.list | workspace.list | docs
   notify <title> [body]
   state <waiting|done|working|error|clear> [message|-] [--pane <externalId>]
+  workspace describe <text|-> | --clear   one-line summary under this workspace in the sidebar
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
   open <path>
   process | vault | bus | settings | browse | gateway <subcommand> ...
@@ -1771,6 +1800,8 @@ async function main(): Promise<void> {
       }
     } else if (cmd === 'state') {
       await runStateVerb(conn)
+    } else if (cmd === 'workspace') {
+      await runWorkspaceVerb(conn)
     } else if (cmd === 'resume-token') {
       await runResumeTokenVerb(conn)
     } else if (cmd === 'open') {

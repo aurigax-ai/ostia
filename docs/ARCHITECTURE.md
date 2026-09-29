@@ -284,6 +284,16 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - The `agent` kind exists but has no surface (it shows a ghost title).
   - Zoom renders only `zoomedPaneId`.
   - Closing the zoomed pane clears the zoom.
+- **Workspace rows** (`components/DeckRail.tsx` `WorkspaceRow`, `lib/workspaceOrder.ts`): cmux-style
+  rows. Title is the user's name or the folder; under it the latest message that still needs
+  you (or the running program's title), then an optional description, then path and extension
+  items. `pine workspace describe` (→ `workspace.describe`, drive-self, caller's workspace) or the
+  row menu sets the description; it renders Markdown restricted to links, emphasis and code, as a
+  sibling of the row button so links are real links (a link inside a button is invalid and would
+  select the row). The row menu renames, edits the description, pins, moves, marks read and
+  closes others; rows drag to reorder. Pinned workspaces stay contiguous at the top: every move
+  goes through `moveTo`, which clamps to the pinned or unpinned group. `Ctrl/⌘+1..9` runs
+  `workspace.goto` with the digit's index (`lib/useModifierHint.ts` shows the digits).
 - **Markdown preview** (`components/MarkdownPreview.tsx`, `typeset.css`): `.md` editors get a
   Preview toggle that renders the live model text with react-markdown + remark-gfm inside a
   `typeset typeset-pine` container. `typeset.css` is shadcn Typeset, copied in (comments stripped)

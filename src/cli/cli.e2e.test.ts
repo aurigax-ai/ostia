@@ -42,6 +42,16 @@ const fakeDeps: ControlServerDeps = {
         capabilities: ['drive-self'],
         target: 'active',
       },
+      {
+        id: 'workspace.describe',
+        title: 'Describe Workspace',
+        category: 'Workspace',
+        hidden: true,
+        argsSchema: null,
+        resultSchema: null,
+        capabilities: ['drive-self'],
+        target: 'active',
+      },
     ] as CommandDescriptor[],
   getTerminalState: () => undefined,
 }
@@ -317,6 +327,29 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       expect(res.stderr).toBe('')
       expect(res.code).toBe(0)
       expect(received.at(-1)).toMatchObject({ area: 'session', sub: 'get', key: 'token' })
+    })
+  })
+
+  describe('pine workspace describe', () => {
+    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+
+    it('sends the text to the caller’s workspace', async () => {
+      const res = await runPine(['workspace', 'describe', 'PR', '#7:', 'fix', 'refunds'], env())
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        target: { workspaceId: 's1', paneId: 'pE2E' },
+        id: 'workspace.describe',
+        args: { text: 'PR #7: fix refunds' },
+      })
+    })
+
+    it('clears with --clear and refuses an empty description', async () => {
+      expect((await runPine(['workspace', 'describe', '--clear'], env())).code).toBe(0)
+      expect(execCalls.at(-1)?.args).toEqual({ text: '' })
+      const empty = await runPine(['workspace', 'describe'], env())
+      expect(empty.code).toBe(1)
+      expect(empty.stderr).toContain('missing <text|->')
     })
   })
 })

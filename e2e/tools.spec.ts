@@ -3,6 +3,7 @@ import { type Server, createServer } from 'node:http'
 import { join, resolve } from 'node:path'
 import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { waitForPaletteSelection } from './helpers'
 
 const FIXTURES = resolve(__dirname, '../test/fixtures/tools')
 
@@ -100,6 +101,7 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
 
     await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Trellis: Open Board')
+    await waitForPaletteSelection(win, 'Trellis: Open Board')
     await win.keyboard.press('Enter')
     await expect(win.locator('.pane-header .title').filter({ hasText: 'Trellis' })).toBeVisible({
       timeout: 15_000,
@@ -110,6 +112,7 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
 
     await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Keeper: Open Dashboard')
+    await waitForPaletteSelection(win, 'Keeper: Open Dashboard')
     await win.keyboard.press('Enter')
     await expect(win.locator('.pane-header .title').filter({ hasText: 'Keeper' })).toBeVisible({
       timeout: 15_000,
