@@ -353,7 +353,7 @@ Details: `docs/ARCHITECTURE.md`.
 - **The user's CLIs have sharp edges** (`src/extensions/trellis`, `src/extensions/keeper`):
   trellis prints its JSON errors on **stderr** and `trellis version` appends an update notice
   after its JSON on stdout (parse the first line); `trellis ui` prints nothing when it serves in
-  the foreground (ask `trellis daemon status --json` for the address); the trellis workspace cookie
+  the foreground (ask `trellis daemon status --json` for the address); the trellis session cookie
   is exchanged only at `/`, so project deep links need the extension's token-injecting proxy.
   `keeper approve` and `keeper ui` auto-start the keeper daemon, so always gate them with
   `keeper daemon status` (which doesn't). `trellis events --consumer` doesn't advance the cursor
