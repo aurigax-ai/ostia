@@ -30,6 +30,7 @@ import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsS
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { extensionIcon } from './extensionIcons'
+import { Button } from './ui/button'
 
 interface PaneProps {
   tabs: PaneNode[]
@@ -183,14 +184,10 @@ function ResumeButton({ pane }: { pane: PaneNode }): JSX.Element | null {
   const label = fmt(d.pane.resume, { agent: pane.resume.agent })
   return (
     <Hint label={`${resumeCommand(pane.resume)}  ${RESUME_KEYS}`}>
-      <button
-        type="button"
-        className="pane-resume"
-        onClick={() => void commands.exec('agent.resume')}
-      >
-        <PlayIcon size={12} aria-hidden />
+      <Button variant="outline" size="xs" onClick={() => void commands.exec('agent.resume')}>
+        <PlayIcon data-icon="inline-start" aria-hidden />
         {label}
-      </button>
+      </Button>
     </Hint>
   )
 }

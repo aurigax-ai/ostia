@@ -11,6 +11,8 @@ import { usePaneRecencyStore } from '../stores/paneRecencyStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { IconButton } from './IconButton'
 import { Button } from './ui/button'
+import { Label } from './ui/label'
+import { RadioGroup, RadioGroupItem } from './ui/radio-group'
 import { Textarea } from './ui/textarea'
 
 function stateLabel(d: Dict, state: AttentionState): string {
@@ -94,9 +96,9 @@ export function PickSendPanel({
       <code className="truncate font-mono text-fg-muted text-ui-xs">
         {capture.label || capture.selector}
       </code>
-      <label htmlFor={`${ids}-note`} className="text-fg-muted text-ui-xs">
+      <Label htmlFor={`${ids}-note`} className="font-normal text-fg-muted text-ui-xs">
         {d.browser.note}
-      </label>
+      </Label>
       <Textarea
         id={`${ids}-note`}
         value={note}
@@ -109,22 +111,21 @@ export function PickSendPanel({
         {targets.length === 0 ? (
           <p className="text-fg-muted">{d.browser.noTargets}</p>
         ) : (
-          <div className="flex max-h-40 flex-col overflow-y-auto">
+          <RadioGroup
+            aria-label={d.browser.target}
+            value={target?.paneId ?? null}
+            onValueChange={(value) => setTargetId(value as string)}
+            className="flex max-h-40 flex-col gap-0 overflow-y-auto"
+          >
             {targets.map((t) => {
               const checked = t.paneId === target?.paneId
               return (
                 <label
                   key={t.paneId}
-                  className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1 hover:bg-surface-2 has-checked:bg-surface-2 has-focus-visible:outline-2 has-focus-visible:outline-brand"
+                  htmlFor={`${ids}-target-${t.paneId}`}
+                  className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1 hover:bg-surface-2 has-data-checked:bg-surface-2"
                 >
-                  <input
-                    type="radio"
-                    name={`${ids}-target`}
-                    value={t.paneId}
-                    checked={checked}
-                    onChange={() => setTargetId(t.paneId)}
-                    className="sr-only"
-                  />
+                  <RadioGroupItem id={`${ids}-target-${t.paneId}`} value={t.paneId} />
                   <span
                     className={`dot ${t.state === 'none' ? '' : t.state}`}
                     role="img"
@@ -141,7 +142,7 @@ export function PickSendPanel({
                 </label>
               )
             })}
-          </div>
+          </RadioGroup>
         )}
       </fieldset>
       <div className="flex justify-end">

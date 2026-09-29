@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { ArrowSquareOutIcon, ColumnsIcon, RowsIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
@@ -9,6 +10,8 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { EDITOR_FALLBACK, useExternalEditorAction } from './Editor'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
+import { ATTENTION_ALERT } from './attentionStyles'
+import { Alert } from './ui/alert'
 
 export function DiffView({ paneId }: { paneId: string }): JSX.Element {
   const d = useDict()
@@ -112,9 +115,7 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
           </div>
         )}
         {external.error ? (
-          <div role="alert" className="editor-save-error">
-            {external.error}
-          </div>
+          <Alert className={cn(ATTENTION_ALERT, 'editor-save-error')}>{external.error}</Alert>
         ) : null}
       </div>
     </div>

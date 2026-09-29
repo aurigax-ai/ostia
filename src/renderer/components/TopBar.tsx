@@ -6,6 +6,8 @@ import { useUIStore } from '../stores/uiStore'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { NotificationCenter } from './NotificationCenter'
+import { Button } from './ui/button'
+import { Kbd } from './ui/kbd'
 
 const PALETTE_KEYS = chordLabel('palette.toggle', isMac)
 
@@ -33,11 +35,16 @@ export function TopBar(): JSX.Element {
       </div>
 
       <Hint label={`${d.search.placeholder} (${PALETTE_KEYS})`} side="bottom">
-        <button type="button" className="command-center" onClick={openPalette}>
-          <MagnifyingGlassIcon size={14} className="cc-icon" />
-          <span className="cc-text">{d.search.command}</span>
-          <kbd className="cc-kbd">{PALETTE_KEYS}</kbd>
-        </button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-w-0 justify-start font-normal text-fg-muted"
+          onClick={openPalette}
+        >
+          <MagnifyingGlassIcon data-icon="inline-start" />
+          <span className="flex-1 truncate text-left">{d.search.command}</span>
+          <Kbd>{PALETTE_KEYS}</Kbd>
+        </Button>
       </Hint>
 
       <div className="topbar-right">
