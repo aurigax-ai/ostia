@@ -18,3 +18,12 @@ export async function openWorkspace(win: Page): Promise<void> {
   await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
   await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
 }
+
+export async function waitForPaletteSelection(win: Page, title: string): Promise<void> {
+  const option = win.getByRole('option', { name: new RegExp(`^${escapeRegExp(title)}`) }).first()
+  await expect(option).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 })
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}

@@ -14,6 +14,9 @@ const CLI_HELP = `pine — control-socket CLI
                                  set this pane's attention state (message '-' reads stdin;
                                  a JSON object on stdin contributes its "message" field);
                                  --pane targets another pane (needs all-workspaces)
+  pine workspace describe <text|-> | --clear
+                                 show a short summary (Markdown links allowed) under this
+                                 pane's workspace in the sidebar, e.g. the PR you're on
   pine resume-token <claude|codex> <id|->
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
@@ -72,7 +75,7 @@ const CLI_HELP = `pine — control-socket CLI
   pine browse is-webview-focused [--pane ID]         print true/false, exit 1 if false
   pine browse identify [--pane ID]                   print {paneId,url,title,workspaceId,windowId}
   pine browse cookies <get|set|clear> [name] [value] [--url U] [--domain D] [--pane ID]
-  pine browse storage <local|workspace> <get|set|clear> [key] [value] [--pane ID]
+  pine browse storage <local|session> <get|set|clear> [key] [value] [--pane ID]
   pine browse state <save|load> <path> [--pane ID]   save/restore cookies+localStorage+sessionStorage
   pine browse history clear [--pane ID]              clear this surface's navigation history
   pine browse addscript "<js>" [--pane ID]           run JS now, print the JSON result

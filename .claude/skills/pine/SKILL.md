@@ -67,6 +67,7 @@ pine state clear                              # back to normal
 echo '{"message":"..."}' | pine state waiting -   # message from stdin (JSON "message" field or raw text)
 pine state done --pane <externalId>           # another pane — needs all-workspaces
 pine resume-token claude <session-id>        # after a restart this pane offers "Resume claude"
+pine workspace describe "PR [#512](https://github.com/o/r/pull/512): fix refunds"   # sidebar summary; --clear removes it
 ```
 
 Use `waiting` whenever you block on the human (a question, an approval) and `done` when a long
@@ -246,7 +247,7 @@ pine browse is-webview-focused [--pane ID]           # prints true/false, exit 1
 pine browse identify [--pane ID]                     # self-locate: {paneId, url, title, workspaceId, windowId}
 pine browse cookies <get|set|clear> [name] [value] [--url U] [--domain D] [--pane ID]
                                                       # this surface's own cookie jar (per-pane partition)
-pine browse storage <local|workspace> <get|set|clear> [key] [value] [--pane ID]
+pine browse storage <local|session> <get|set|clear> [key] [value] [--pane ID]
                                                       # localStorage/sessionStorage — omit [key] on get for all keys
 pine browse state <save|load> <path> [--pane ID]     # save/restore cookies + both Web Storage areas to/from a JSON file
                                                       # (path is allow-listed, same as `screenshot`)

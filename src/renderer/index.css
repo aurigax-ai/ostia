@@ -343,6 +343,7 @@
 .rail-tab {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   width: calc(100% - 12px);
   min-height: 34px;
@@ -428,6 +429,93 @@
   font-size: var(--text-ui-base);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.rail-row {
+  display: block;
+  position: relative;
+}
+
+.rail-row[data-drop="before"]::before,
+.rail-row[data-drop="after"]::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  left: 10px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--brand);
+  pointer-events: none;
+}
+
+.rail-row[data-drop="before"]::before {
+  top: 0;
+}
+
+.rail-row[data-drop="after"]::after {
+  bottom: 0;
+}
+
+.tab-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tab-pin {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+
+.tab-digit {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-xs);
+}
+
+.tab-after {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin-top: -8px;
+  padding: 0 12px 8px 42px;
+  cursor: default;
+}
+
+.tab-description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.tab-description a {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tab-description code {
+  font-family: var(--font-mono);
+}
+
+.collapsed .tab-after,
+.collapsed .tab-digit {
+  display: none;
 }
 
 .tab-subtitle {

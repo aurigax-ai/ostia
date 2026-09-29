@@ -7,7 +7,7 @@ import {
 } from '@playwright/test'
 import { homedir } from 'node:os'
 import { isolatedLaunch } from './dataHome'
-import { PROMPT, emptyState, emptyWorkspace, openWorkspace } from './helpers'
+import { PROMPT, emptyState, emptyWorkspace, openWorkspace, waitForPaletteSelection } from './helpers'
 
 interface Launched {
   app: ElectronApplication
@@ -84,6 +84,7 @@ test('command palette opens, filters, and runs a command', async () => {
     await expect(dialog).toBeVisible({ timeout: 5_000 })
 
     await win.locator('[data-slot="command-input"]').fill('New Workspace')
+    await waitForPaletteSelection(win, 'New Workspace')
     await expect(dialog.getByText('New Workspace', { exact: true })).toBeVisible()
     await expect(dialog.getByText('Split Pane Right', { exact: true })).toHaveCount(0)
 
@@ -178,6 +179,31 @@ test('closing the only workspace shows the empty state, and New workspace opens 
     await expect(win.locator('.xterm-rows').first()).toContainText(`pine_cwd:${homedir()}:`, {
       timeout: 15_000,
     })
+  } finally {
+    await app.close()
+  }
+})
+
+test('Ctrl+1 jumps to the first workspace from a focused terminal, and rows drag to reorder', async () => {
+  const { app, win } = await launchApp()
+  try {
+    await openWorkspace(win)
+    await win.locator('.rail-add').click()
+    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+    const rows = win.locator('.rail-row')
+    await expect(rows).toHaveCount(2)
+    await win.locator('.rail-tab-main').nth(1).dblclick()
+    const name = win.getByRole('textbox', { name: 'Workspace name' })
+    await name.fill('second')
+    await name.press('Enter')
+
+    await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
+    await waitForTerminalFocus(win)
+    await win.keyboard.press('Control+1')
+    await expect(win.locator('.rail-tab.active .tab-title')).toHaveText('home')
+
+    await rows.nth(1).dragTo(rows.nth(0), { targetPosition: { x: 40, y: 4 } })
+    await expect(win.locator('.rail-tab .tab-title').first()).toHaveText('second')
   } finally {
     await app.close()
   }

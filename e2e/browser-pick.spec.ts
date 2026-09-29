@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { openWorkspace, waitForPaletteSelection } from './helpers'
 
 const PAGE = `<!doctype html>
 <html><head><title>Pick fixture</title></head>
@@ -28,6 +28,7 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
 
     await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Open Browser')
+    await waitForPaletteSelection(win, 'Open Browser')
     await expect(win.getByRole('dialog').getByText('Open Browser', { exact: true })).toBeVisible()
     await win.keyboard.press('Enter')
     const address = win.getByRole('textbox', { name: 'Address' })

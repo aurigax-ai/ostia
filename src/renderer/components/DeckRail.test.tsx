@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useUIStore } from '../stores/uiStore'
@@ -122,5 +122,66 @@ describe('DeckRail', () => {
 
     await userEvent.setup().click(filesSwitch)
     expect(setSidebarView).toHaveBeenCalledWith('files')
+  })
+
+  describe('cmux-style rows', () => {
+    const seedRows = () =>
+      useWorkspacesStore.setState({
+        workspaces: [
+          {
+            id: 's1',
+            name: 'api',
+            kind: 'terminal',
+            workDir: '/src/api',
+            state: 'idle',
+            description: 'PR [#512](https://github.com/o/r/pull/512): fix refunds',
+          },
+          { id: 's2', name: 'web', kind: 'terminal', workDir: '/src/web', state: 'idle' },
+        ],
+        activeWorkspaceId: 's1',
+      })
+
+    it('shows the description with a working link outside the row button', () => {
+      seedRows()
+      render(<DeckRail />)
+      const link = screen.getByRole('link', { name: '#512' })
+      expect(link).toHaveAttribute('href', 'https://github.com/o/r/pull/512')
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link.closest('button')).toBeNull()
+      expect(screen.getByText(/fix refunds/)).toBeInTheDocument()
+    })
+
+    it('pins a workspace to the top from its menu', async () => {
+      seedRows()
+      render(<DeckRail />)
+      fireEvent.contextMenu(screen.getByRole('button', { name: /web/ }))
+      await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Pin to top' }))
+      const [first] = useWorkspacesStore.getState().workspaces
+      expect(first).toMatchObject({ id: 's2', pinned: true })
+      expect(screen.getByLabelText('Pinned')).toBeInTheDocument()
+    })
+
+    it('edits a description from the menu', async () => {
+      seedRows()
+      render(<DeckRail />)
+      fireEvent.contextMenu(screen.getByRole('button', { name: /web/ }))
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('menuitem', { name: 'Add description' }))
+      await user.type(
+        screen.getByRole('textbox', { name: 'Workspace description' }),
+        'deploy{Enter}',
+      )
+      expect(useWorkspacesStore.getState().workspaces[1].description).toBe('deploy')
+    })
+
+    it('shows each row’s shortcut digit only while hints are on', () => {
+      seedRows()
+      const { rerender } = render(<DeckRail />)
+      expect(screen.queryByText('2')).toBeNull()
+      useUIStore.setState({ digitHints: true })
+      rerender(<DeckRail />)
+      expect(screen.getByText('1')).toHaveClass('tab-digit')
+      expect(screen.getByText('2')).toHaveClass('tab-digit')
+    })
   })
 })

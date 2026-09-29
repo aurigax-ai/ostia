@@ -9,8 +9,9 @@ import { TopBar } from './components/TopBar'
 import { WindowControls } from './components/WindowControls'
 import { WorkZone } from './components/WorkZone'
 import { TooltipProvider } from './components/ui/tooltip'
-import { isAppChord, matchChord } from './lib/chords'
+import { isAppChord, matchChord, workspaceDigit } from './lib/chords'
 import { useMotionAttribute } from './lib/motion'
+import { useModifierHint } from './lib/useModifierHint'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/schema'
 import { usePluginsStore } from './stores/pluginsStore'
@@ -55,11 +56,17 @@ export function App(): JSX.Element {
     void registerSettingsSchema()
   }, [])
 
+  useModifierHint(isMac)
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const chord = matchChord(e, isMac)
       if (!isAppChord(chord)) return
       e.preventDefault()
+      if (chord === 'workspace.goto') {
+        void commands.exec(chord, { index: workspaceDigit(e.key.toLowerCase()) })
+        return
+      }
       void commands.exec(chord)
     }
     window.addEventListener('keydown', onKey)

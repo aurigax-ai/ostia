@@ -4,16 +4,19 @@ import {
   GearSixIcon,
   type Icon as IconComponent,
   PlusIcon,
+  PushPinSimpleIcon,
   RobotIcon,
   StackIcon,
   TerminalWindowIcon,
   XIcon,
 } from '@phosphor-icons/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Markdown, { type Components } from 'react-markdown'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, paneIds } from '../layout/tree'
 import { latestWaitingAt, unreadCount } from '../lib/attention'
+import { markWorkspaceRead } from '../lib/workspaceActivity'
 import { latestAttentionMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -30,6 +33,13 @@ import { FilesView } from './FilesView'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { extensionIcon } from './extensionIcons'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from './ui/context-menu'
 
 const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
   agent: RobotIcon,
@@ -73,10 +83,8 @@ function WorkspacesView(): JSX.Element {
   const d = useDict()
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const activeId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const setActive = useWorkspacesStore((s) => s.setActive)
   const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
-  const closeWorkspace = useWorkspacesStore((s) => s.closeWorkspace)
-  const rename = useWorkspacesStore((s) => s.rename)
+  const [drag, setDrag] = useState<WorkspaceDrag | null>(null)
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
   const openSettings = useUIStore((s) => s.openSettings)
@@ -97,30 +105,30 @@ function WorkspacesView(): JSX.Element {
           />
         ) : null}
 
-        {workspaces.map((s) => (
-          <TabRow
-            key={s.id}
-            active={!settingsActive && s.id === activeId}
-            onSelect={() => {
-              leaveSettings()
-              setActive(s.id)
-            }}
-            onClose={() => closeWorkspace(s.id)}
-            closeLabel={d.rail.close}
-            icon={<WorkspaceIcon workspace={s} />}
-            title={s.customName ?? s.name}
-            onRename={(name) => rename(s.id, name)}
-            renameLabel={d.rail.renameWorkspace}
-            meta={
-              <>
-                <WorkspaceSubtitle workspaceId={s.id} />
-                <span className="tab-meta">
-                  <span className="tab-branch">{s.workDir}</span>
-                  <SidebarItems workspaceId={s.id} />
-                </span>
-              </>
+        {workspaces.map((w, index) => (
+          <WorkspaceRow
+            key={w.id}
+            workspace={w}
+            index={index}
+            active={!settingsActive && w.id === activeId}
+            drop={drag?.overId === w.id ? drag.place : null}
+            onDragStart={() => setDrag({ id: w.id, overId: null, place: 'before' })}
+            onDragOverRow={(place) =>
+              setDrag((cur) =>
+                cur && (cur.overId !== w.id || cur.place !== place)
+                  ? { ...cur, overId: w.id, place }
+                  : cur,
+              )
             }
-            badge={<UnreadBadge workspaceId={s.id} />}
+            onDropRow={() => {
+              if (drag && drag.id !== w.id) {
+                useWorkspacesStore
+                  .getState()
+                  .moveTo(drag.id, dropIndex(workspaces, drag.id, w.id, drag.place))
+              }
+              setDrag(null)
+            }}
+            onDragEnd={() => setDrag(null)}
           />
         ))}
       </div>
@@ -247,6 +255,179 @@ function WorkspaceSubtitle({ workspaceId }: { workspaceId: string }): JSX.Elemen
   return <span className={`tab-subtitle${message ? ' unread' : ''}`}>{text}</span>
 }
 
+interface WorkspaceDrag {
+  id: string
+  overId: string | null
+  place: DropPlace
+}
+
+type DropPlace = 'before' | 'after'
+
+const WORKSPACE_DND = 'application/x-pine-workspace'
+
+function dropIndex(list: Workspace[], dragId: string, overId: string, place: DropPlace): number {
+  const others = list.filter((w) => w.id !== dragId)
+  const at = others.findIndex((w) => w.id === overId)
+  return place === 'before' ? at : at + 1
+}
+
+function WorkspaceRow({
+  workspace: w,
+  index,
+  active,
+  drop,
+  onDragStart,
+  onDragOverRow,
+  onDropRow,
+  onDragEnd,
+}: {
+  workspace: Workspace
+  index: number
+  active: boolean
+  drop: DropPlace | null
+  onDragStart: () => void
+  onDragOverRow: (place: DropPlace) => void
+  onDropRow: () => void
+  onDragEnd: () => void
+}): JSX.Element {
+  const d = useDict()
+  const store = useWorkspacesStore.getState
+  const count = useWorkspacesStore((s) => s.workspaces.length)
+  const digitHints = useUIStore((s) => s.digitHints)
+  const [editing, setEditing] = useState<'name' | 'description' | null>(null)
+  const title = w.customName ?? w.name
+  const select = (): void => {
+    useUIStore.getState().leaveSettings()
+    store().setActive(w.id)
+  }
+  const editor =
+    editing === null ? undefined : (
+      <RenameInput
+        value={editing === 'name' ? title : (w.description ?? '')}
+        label={editing === 'name' ? d.rail.renameWorkspace : d.rail.describeWorkspace}
+        onDone={(text) => {
+          setEditing(null)
+          if (text === null) return
+          if (editing === 'name') store().rename(w.id, text)
+          else store().describe(w.id, text)
+        }}
+      />
+    )
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger
+        className="rail-row"
+        data-drop={drop ?? undefined}
+        draggable={editing === null}
+        onDragStart={(e) => {
+          e.dataTransfer.setData(WORKSPACE_DND, w.id)
+          e.dataTransfer.effectAllowed = 'move'
+          onDragStart()
+        }}
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes(WORKSPACE_DND)) return
+          e.preventDefault()
+          const box = e.currentTarget.getBoundingClientRect()
+          onDragOverRow(e.clientY < box.top + box.height / 2 ? 'before' : 'after')
+        }}
+        onDrop={(e) => {
+          if (!e.dataTransfer.types.includes(WORKSPACE_DND)) return
+          e.preventDefault()
+          onDropRow()
+        }}
+        onDragEnd={onDragEnd}
+      >
+        <TabRow
+          active={active}
+          onSelect={select}
+          onClose={() => store().closeWorkspace(w.id)}
+          closeLabel={d.rail.close}
+          icon={<WorkspaceIcon workspace={w} />}
+          title={title}
+          titleAdornment={
+            w.pinned ? (
+              <PushPinSimpleIcon size={11} className="tab-pin" aria-label={d.rail.pinned} />
+            ) : null
+          }
+          editor={editor}
+          onDoubleClick={() => setEditing('name')}
+          after={
+            editing === null ? (
+              // biome-ignore lint/a11y/useKeyWithClickEvents: the row button above is the keyboard target; this only widens the click area
+              <div className="tab-after" onClick={select}>
+                {w.description ? <WorkspaceDescription text={w.description} /> : null}
+                <WorkspaceSubtitle workspaceId={w.id} />
+                <span className="tab-meta">
+                  <span className="tab-branch">{w.workDir}</span>
+                  <SidebarItems workspaceId={w.id} />
+                </span>
+              </div>
+            ) : null
+          }
+          badge={
+            digitHints && index < 9 ? (
+              <kbd className="tab-digit">{index + 1}</kbd>
+            ) : (
+              <UnreadBadge workspaceId={w.id} />
+            )
+          }
+        />
+      </ContextMenuTrigger>
+      <ContextMenuContent className="min-w-52">
+        <ContextMenuItem onClick={() => setEditing('name')}>{d.rail.rename}</ContextMenuItem>
+        <ContextMenuItem onClick={() => setEditing('description')}>
+          {w.description ? d.rail.editDescription : d.rail.addDescription}
+        </ContextMenuItem>
+        {w.description ? (
+          <ContextMenuItem onClick={() => store().describe(w.id, '')}>
+            {d.rail.clearDescription}
+          </ContextMenuItem>
+        ) : null}
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => store().setPinned(w.id, !w.pinned)}>
+          {w.pinned ? d.rail.unpin : d.rail.pin}
+        </ContextMenuItem>
+        <ContextMenuItem disabled={index === 0} onClick={() => store().moveBy(w.id, -1)}>
+          {d.rail.moveUp}
+        </ContextMenuItem>
+        <ContextMenuItem disabled={index === count - 1} onClick={() => store().moveBy(w.id, 1)}>
+          {d.rail.moveDown}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => markWorkspaceRead(w.id)}>{d.rail.markRead}</ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem disabled={count < 2} onClick={() => store().closeOthers(w.id)}>
+          {d.rail.closeOthers}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => store().closeWorkspace(w.id)}>
+          {d.rail.closeWorkspace}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
+}
+
+const DESCRIPTION_ELEMENTS = ['p', 'a', 'strong', 'em', 'code', 'del']
+
+const DESCRIPTION_COMPONENTS: Components = {
+  p: ({ node: _node, ...props }) => <span {...props} />,
+  a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
+}
+
+function WorkspaceDescription({ text }: { text: string }): JSX.Element {
+  return (
+    <div className="tab-description">
+      <Markdown
+        allowedElements={DESCRIPTION_ELEMENTS}
+        unwrapDisallowed
+        components={DESCRIPTION_COMPONENTS}
+      >
+        {text}
+      </Markdown>
+    </div>
+  )
+}
+
 function RenameInput({
   value,
   label,
@@ -282,9 +463,11 @@ function TabRow({
   closeLabel,
   icon,
   title,
-  onRename,
-  renameLabel,
+  titleAdornment,
+  editor,
+  onDoubleClick,
   meta,
+  after,
   badge,
 }: {
   active: boolean
@@ -293,25 +476,19 @@ function TabRow({
   closeLabel: string
   icon: React.ReactNode
   title: string
-  onRename?: (name: string) => void
-  renameLabel?: string
+  titleAdornment?: React.ReactNode
+  editor?: React.ReactNode
+  onDoubleClick?: () => void
   meta?: React.ReactNode
+  after?: React.ReactNode
   badge?: React.ReactNode
 }): JSX.Element {
-  const [renaming, setRenaming] = useState(false)
-  if (renaming && onRename) {
+  if (editor) {
     return (
       <div className={`rail-tab${active ? ' active' : ''}`}>
         <span className="rail-tab-main">
           {icon}
-          <RenameInput
-            value={title}
-            label={renameLabel ?? title}
-            onDone={(name) => {
-              setRenaming(false)
-              if (name !== null) onRename(name)
-            }}
-          />
+          {editor}
         </span>
       </div>
     )
@@ -322,11 +499,14 @@ function TabRow({
         type="button"
         className="rail-tab-main"
         onClick={onSelect}
-        onDoubleClick={onRename ? () => setRenaming(true) : undefined}
+        onDoubleClick={onDoubleClick}
       >
         {icon}
         <span className="tab-body">
-          <span className="tab-title">{title}</span>
+          <span className="tab-title-row">
+            <span className="tab-title">{title}</span>
+            {titleAdornment}
+          </span>
           {meta}
         </span>
         {badge}
@@ -334,6 +514,7 @@ function TabRow({
       <span className="tab-actions">
         <IconButton icon={XIcon} label={closeLabel} hintSide="right" onClick={onClose} />
       </span>
+      {after}
     </div>
   )
 }
