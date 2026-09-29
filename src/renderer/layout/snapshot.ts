@@ -6,6 +6,8 @@ export interface RestorableWorkspace {
   id: string
   name: string
   customName?: string
+  description?: string
+  pinned?: boolean
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
 }
@@ -59,6 +61,8 @@ export function buildSnapshot(input: {
       id: workspace.id,
       name: workspace.name,
       ...(workspace.customName ? { customName: workspace.customName } : {}),
+      ...(workspace.description ? { description: workspace.description } : {}),
+      ...(workspace.pinned ? { pinned: true } : {}),
       kind: workspace.kind,
       workDir: workspace.workDir,
       ...(layout && root
@@ -94,6 +98,8 @@ export function restoreSnapshot(snapshot: AppSnapshot): {
       id: s.id,
       name: s.name,
       ...(s.customName ? { customName: s.customName } : {}),
+      ...(s.description ? { description: s.description } : {}),
+      ...(s.pinned ? { pinned: true } : {}),
       kind: s.kind,
       workDir: s.workDir,
     })

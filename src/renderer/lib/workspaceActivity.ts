@@ -73,6 +73,24 @@ export function viewActivePane(): void {
   if (paneId) useAttentionStore.getState().dispatch(paneId, { type: 'view', at: Date.now() })
 }
 
+export function markWorkspaceRead(workspaceId: string): void {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  if (!layout) return
+  const attention = useAttentionStore.getState()
+  const at = Date.now()
+  for (const paneId of paneIds(layout.root)) {
+    if (attention.byPane[paneId]?.unread) attention.dispatch(paneId, { type: 'view', at })
+  }
+}
+
+export function goToWorkspace(index: number): boolean {
+  const target = useWorkspacesStore.getState().workspaces[index]
+  if (!target) return false
+  useUIStore.getState().leaveSettings()
+  useWorkspacesStore.getState().setActive(target.id)
+  return true
+}
+
 export function revealPane(paneId: string): boolean {
   const workspaceId = workspaceOfPane(paneId)
   if (!workspaceId) return false

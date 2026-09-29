@@ -6,6 +6,7 @@ export type AppChord =
   | 'history.search'
   | 'workspace.new'
   | 'agent.resume'
+  | 'workspace.goto'
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
@@ -55,14 +56,20 @@ const CTRL: Record<string, Chord> = {
   ',': 'app.openSettings',
 }
 
+export function workspaceDigit(key: string): number | null {
+  return /^[1-9]$/.test(key) ? Number(key) - 1 : null
+}
+
 export function matchChord(e: KeyLike, mac: boolean): Chord | null {
   if (e.altKey) return null
   const key = e.key.toLowerCase()
   if (mac) {
     if (!e.metaKey || e.ctrlKey) return null
+    if (!e.shiftKey && workspaceDigit(key) !== null) return 'workspace.goto'
     return (e.shiftKey ? MAC_SHIFT[key] : MAC[key]) ?? null
   }
   if (!e.ctrlKey || e.metaKey) return null
+  if (!e.shiftKey && workspaceDigit(key) !== null) return 'workspace.goto'
   return (e.shiftKey ? CTRL_SHIFT[key] : CTRL[key]) ?? null
 }
 
@@ -74,6 +81,7 @@ const APP_CHORDS: ReadonlySet<Chord> = new Set<AppChord>([
   'history.search',
   'workspace.new',
   'agent.resume',
+  'workspace.goto',
 ])
 
 export function isAppChord(chord: Chord | null): chord is AppChord {
@@ -90,6 +98,7 @@ const LABELS: Record<Chord, [mac: string, other: string]> = {
   'history.search': ['⌘⇧H', 'Ctrl+Shift+H'],
   'workspace.new': ['⌘T', 'Ctrl+Shift+T'],
   'agent.resume': ['⌘⇧R', 'Ctrl+Shift+R'],
+  'workspace.goto': ['⌘1-9', 'Ctrl+1-9'],
   copy: ['⌘C', 'Ctrl+Shift+C'],
   paste: ['⌘V', 'Ctrl+Shift+V'],
   find: ['⌘F', 'Ctrl+Shift+F'],

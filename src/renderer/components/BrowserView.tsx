@@ -48,6 +48,12 @@ export function BrowserView({
   const readyRef = useRef(false)
   const pendingUrlRef = useRef<string | null>(null)
   const [address, setAddress] = useState(startUrl.current)
+  const [src, setSrc] = useState(startUrl.current)
+  const editingRef = useRef(false)
+  const showAddress = useCallback((next: string): void => {
+    if (!editingRef.current) setAddress(next)
+  }, [])
+  const srcRef = useRef(src)
   const [canGoBack, setCanGoBack] = useState(false)
   const [canGoForward, setCanGoForward] = useState(false)
   const [loadError, setLoadError] = useState<{ url: string; reason: string } | null>(null)
@@ -66,6 +72,12 @@ export function BrowserView({
 
   const load = useCallback(
     (next: string): void => {
+      if (next !== srcRef.current) {
+        srcRef.current = next
+        pendingUrlRef.current = null
+        setSrc(next)
+        return
+      }
       const ok = withGuest((wv) => {
         wv.loadURL(next).catch(() => undefined)
       })
@@ -102,7 +114,7 @@ export function BrowserView({
       }
       if (isMainFrame === false) return
       setLoadError(null)
-      setAddress(navigatedUrl)
+      showAddress(navigatedUrl)
       syncNavState()
       lastAppliedUrlRef.current = navigatedUrl
       useLayoutStore.getState().setUrl(workspaceId, paneId, navigatedUrl)
@@ -115,7 +127,7 @@ export function BrowserView({
         isMainFrame: boolean
       }
       if (failed.errorCode === -3 || !failed.isMainFrame) return
-      setAddress(failed.validatedURL)
+      showAddress(failed.validatedURL)
       setLoadError({
         url: failed.validatedURL,
         reason: failed.errorDescription || String(failed.errorCode),
@@ -137,7 +149,7 @@ export function BrowserView({
       el.removeEventListener('did-navigate-in-page', onNavigate)
       el.removeEventListener('did-fail-load', onFailLoad)
     }
-  }, [workspaceId, paneId, withGuest])
+  }, [workspaceId, paneId, withGuest, showAddress])
 
   useEffect(() => {
     const el = webviewRef.current
@@ -217,6 +229,7 @@ export function BrowserView({
   }
 
   const navigate = (raw: string): void => {
+    editingRef.current = false
     const next = resolveAddress(raw)
     setLoadError(null)
     lastAppliedUrlRef.current = next
@@ -226,6 +239,10 @@ export function BrowserView({
 
   const onAddressKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter') navigate(address)
+    if (e.key === 'Escape') {
+      editingRef.current = false
+      setAddress(lastAppliedUrlRef.current)
+    }
   }
 
   return (
@@ -253,7 +270,13 @@ export function BrowserView({
           aria-label={d.browser.address}
           value={address}
           spellCheck={false}
-          onChange={(e) => setAddress(e.target.value)}
+          onChange={(e) => {
+            editingRef.current = true
+            setAddress(e.target.value)
+          }}
+          onBlur={() => {
+            editingRef.current = false
+          }}
           onKeyDown={onAddressKeyDown}
         />
         <IconButton
@@ -283,7 +306,7 @@ export function BrowserView({
             webviewRef.current = el
           }}
           className="browser-webview"
-          src={startUrl.current}
+          src={src}
           partition={`pine-browser-${paneId}`}
         />
         {loadError ? (
