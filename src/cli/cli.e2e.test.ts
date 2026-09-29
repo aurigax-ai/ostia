@@ -7,6 +7,7 @@ import { registerAttentionMethods } from '../main/attention'
 import { grant } from '../main/capabilityStore'
 import {
   type ControlServerDeps,
+  registerControlMethod,
   registerControlServer,
   stopControlServer,
 } from '../main/controlServer'
@@ -292,6 +293,30 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       const allowed = await runPine(['state', 'done', '--pane', other.externalId], env())
       expect(allowed.code).toBe(0)
       expect(execCalls[0]?.target).toEqual({ windowId: 'w1', workspaceId: 's2', paneId: 'pOther' })
+    })
+  })
+
+  describe('pine browse storage', () => {
+    const received: unknown[] = []
+    beforeAll(() => {
+      registerControlMethod('browse.storage', {
+        cap: 'browse',
+        handler: async (params: unknown) => {
+          received.push(params)
+          return { ok: true, value: 'v' }
+        },
+      })
+    })
+
+    it('reads the browser sessionStorage area as "session", not a Pine workspace', async () => {
+      grant(identity.externalId, 'browse')
+      const res = await runPine(
+        ['browse', 'storage', 'session', 'get', 'token'],
+        withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      )
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(received.at(-1)).toMatchObject({ area: 'session', sub: 'get', key: 'token' })
     })
   })
 })

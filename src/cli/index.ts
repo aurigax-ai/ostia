@@ -1337,8 +1337,8 @@ async function runBrowseVerb(conn: MessageConnection): Promise<void> {
     }
   } else if (sub === 'storage') {
     const [area, storageSub, key, value] = rest
-    if (area !== 'local' && area !== 'workspace') {
-      console.error('pine browse storage: missing <local|workspace>')
+    if (area !== 'local' && area !== 'session') {
+      console.error('pine browse storage: missing <local|session>')
       process.exitCode = 1
       return
     }

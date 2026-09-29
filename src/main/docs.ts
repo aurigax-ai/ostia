@@ -72,7 +72,7 @@ const CLI_HELP = `pine — control-socket CLI
   pine browse is-webview-focused [--pane ID]         print true/false, exit 1 if false
   pine browse identify [--pane ID]                   print {paneId,url,title,workspaceId,windowId}
   pine browse cookies <get|set|clear> [name] [value] [--url U] [--domain D] [--pane ID]
-  pine browse storage <local|workspace> <get|set|clear> [key] [value] [--pane ID]
+  pine browse storage <local|session> <get|set|clear> [key] [value] [--pane ID]
   pine browse state <save|load> <path> [--pane ID]   save/restore cookies+localStorage+sessionStorage
   pine browse history clear [--pane ID]              clear this surface's navigation history
   pine browse addscript "<js>" [--pane ID]           run JS now, print the JSON result
