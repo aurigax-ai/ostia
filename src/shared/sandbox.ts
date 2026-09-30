@@ -162,3 +162,18 @@ export function parseSandboxGlobals(value: unknown): SandboxGlobals {
     controls: { ...DEFAULT_SANDBOX_GLOBALS.controls, ...controls },
   }
 }
+
+function splitPattern(pattern: string): { host: string; port: number | null } {
+  const match = /^(.*?)(?::(\d{1,5}))?$/.exec(pattern.toLowerCase())
+  return { host: match?.[1] ?? '', port: match?.[2] ? Number(match[2]) : null }
+}
+
+export function hostMatches(host: string, port: number, patterns: readonly string[]): boolean {
+  const target = host.toLowerCase()
+  return patterns.some((raw) => {
+    const pattern = splitPattern(raw)
+    if (pattern.port !== null && pattern.port !== port) return false
+    if (pattern.host.startsWith('*.')) return target.endsWith(pattern.host.slice(1))
+    return target === pattern.host
+  })
+}
