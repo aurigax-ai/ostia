@@ -11,6 +11,7 @@ import {
   MagnifyingGlassIcon,
   PaletteIcon,
   SidebarSimpleIcon,
+  SquaresFourIcon,
   StackIcon,
   TerminalWindowIcon,
   TranslateIcon,
@@ -47,6 +48,7 @@ import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { SyncSection } from './SyncSection'
+import { WorkspacesSection } from './WorkspacesSection'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
@@ -62,6 +64,7 @@ type SectionId =
   | 'terminal'
   | 'notifications'
   | 'sidebar'
+  | 'workspaces'
   | 'files'
   | 'plugins'
   | 'languageServers'
@@ -101,6 +104,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
         { id: 'notifications', icon: BellIcon, label: d.settings.notifications },
         { id: 'sidebar', icon: SidebarSimpleIcon, label: d.settings.sidebar },
+        { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'plugins', icon: StackIcon, label: d.settings.plugins },
         { id: 'languageServers', icon: HardDrivesIcon, label: d.settings.languageServers },
@@ -173,6 +177,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'terminal' ? <TerminalSection /> : null}
             {active === 'notifications' ? <NotificationsSection /> : null}
             {active === 'sidebar' ? <SidebarSection /> : null}
+            {active === 'workspaces' ? <WorkspacesSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'plugins' ? <PluginsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}

@@ -51,6 +51,18 @@ describe('workspacesStore', () => {
       expect(ensureMock()).not.toHaveBeenCalled()
     })
 
+    it('inserts at the top, after the current one, or at the end per placement', () => {
+      const a = open('/a')
+      open('/b')
+      useWorkspacesStore.getState().setActive(a.id)
+      useWorkspacesStore.getState().addWorkspace('/c', 'afterCurrent')
+      useWorkspacesStore.getState().addWorkspace('/d', 'top')
+      useWorkspacesStore.getState().addWorkspace('/e', 'end')
+
+      expect(workspaces().map((w) => w.workDir)).toEqual(['/d', '/a', '/c', '/b', '/e'])
+      expect(activeId()).toBe(workspaces()[4].id)
+    })
+
     it('defaults workDir to ~ (name "home") when called with no arg', () => {
       useWorkspacesStore.getState().addWorkspace()
 

@@ -11,6 +11,8 @@ import {
   rerunBlock,
   stepBlock,
 } from '../lib/blockActions'
+import { requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
+import { startNewWorkspace } from '../lib/newWorkspace'
 import {
   goToWorkspace,
   isPaneViewed,
@@ -141,10 +143,10 @@ export function registerBuiltinCommands(): void {
     title: 'Close Pane',
     category: 'Pane',
     capabilities: ['kill-pane'],
-    run: (args, ctx) => {
+    run: async (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
-        useLayoutStore.getState().closePane(ctx.activeWorkspaceId, target)
+        await requestClosePane(ctx.activeWorkspaceId, target)
       }
     },
   })
@@ -358,8 +360,8 @@ export function registerBuiltinCommands(): void {
     title: 'Close Other Workspaces',
     category: 'Workspace',
     capabilities: ['kill-pane'],
-    run: (_args, ctx) => {
-      if (ctx.activeWorkspaceId) useWorkspacesStore.getState().closeOthers(ctx.activeWorkspaceId)
+    run: async (_args, ctx) => {
+      if (ctx.activeWorkspaceId) await requestCloseOthers(ctx.activeWorkspaceId)
     },
   })
 
@@ -379,7 +381,7 @@ export function registerBuiltinCommands(): void {
     target: 'none',
     run: () => {
       useUIStore.getState().leaveSettings()
-      useWorkspacesStore.getState().addWorkspace()
+      startNewWorkspace()
     },
   })
 

@@ -7,9 +7,9 @@ import {
 } from '@phosphor-icons/react'
 import { useDict } from '../i18n/useDict'
 import { chordLabel } from '../lib/chords'
+import { startNewWorkspace } from '../lib/newWorkspace'
 import { isMac } from '../platform'
 import { useUIStore } from '../stores/uiStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { NotificationCenter } from './NotificationCenter'
@@ -27,7 +27,6 @@ export function TopBar(): JSX.Element {
   const leaveSettings = useUIStore((s) => s.leaveSettings)
   const filesOpen = useUIStore((s) => s.filesOpen)
   const toggleFiles = useUIStore((s) => s.toggleFiles)
-  const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
 
   return (
     <header className="topbar drag-region">
@@ -38,7 +37,7 @@ export function TopBar(): JSX.Element {
           label={d.rail.newWorkspace}
           onClick={() => {
             leaveSettings()
-            addWorkspace()
+            startNewWorkspace()
           }}
         />
         <IconButton

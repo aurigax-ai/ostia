@@ -1,6 +1,22 @@
+import type { NewWorkspacePlacement } from '../stores/settingsStore'
+
 interface Orderable {
   id: string
   pinned?: boolean
+}
+
+export function insertIndex<W extends Orderable>(
+  list: W[],
+  placement: NewWorkspacePlacement,
+  activeId: string | null,
+): number {
+  const pinnedCount = list.filter((w) => w.pinned).length
+  if (placement === 'top') return pinnedCount
+  if (placement === 'afterCurrent') {
+    const at = list.findIndex((w) => w.id === activeId)
+    return at === -1 ? list.length : Math.max(at + 1, pinnedCount)
+  }
+  return list.length
 }
 
 function withPinned<W extends Orderable>(w: W, pinned: boolean): W {

@@ -35,6 +35,7 @@ import {
 import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
 import { registerBusMethods } from './bus'
 import { dropIdentity } from './capabilityStore'
+import { confirmAllWindowsClose, confirmWindowClose, registerCloseGuard } from './closeGuard'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
@@ -281,8 +282,22 @@ function baseWebPreferences(): Electron.WebPreferences {
   }
 }
 
+let quitApproved = false
+let quitAsking = false
+const approvedWindows = new WeakSet<BrowserWindow>()
+
 function wireWindow(win: BrowserWindow): void {
   win.once('ready-to-show', () => win.show())
+
+  win.on('close', (event) => {
+    if (quitApproved || approvedWindows.has(win)) return
+    event.preventDefault()
+    void confirmWindowClose(win).then((approved) => {
+      if (!approved || win.isDestroyed()) return
+      approvedWindows.add(win)
+      win.close()
+    })
+  })
 
   const emitMaximized = (): void => win.webContents.send('window:maximized', win.isMaximized())
   win.on('maximize', emitMaximized)
@@ -409,6 +424,7 @@ function registerIpc(): void {
     }
   })
 
+  registerCloseGuard()
   ipcMain.on('window:minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize())
   ipcMain.on('window:toggle-maximize', (e) => {
     const win = BrowserWindow.fromWebContents(e.sender)
@@ -967,7 +983,19 @@ function autosaveScrollback(): void {
   persistScrollback()
 }
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  if (!quitApproved) {
+    event.preventDefault()
+    if (quitAsking) return
+    quitAsking = true
+    void confirmAllWindowsClose(BrowserWindow.getAllWindows()).then((approved) => {
+      quitAsking = false
+      if (!approved) return
+      quitApproved = true
+      app.quit()
+    })
+    return
+  }
   persistScrollback()
   for (const entry of ptys.values()) {
     try {

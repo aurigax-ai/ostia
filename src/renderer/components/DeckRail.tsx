@@ -14,6 +14,7 @@ import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, paneIds } from '../layout/tree'
 import { latestWaitingAt, unreadCount } from '../lib/attention'
+import { requestCloseOthers, requestCloseWorkspace } from '../lib/closeConfirm'
 import { markWorkspaceRead } from '../lib/workspaceActivity'
 import { latestAttentionMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -255,6 +256,7 @@ function WorkspaceRow({
   onDragEnd: () => void
 }): JSX.Element {
   const sidebar = useSettingsStore((s) => s.sidebar)
+  const wrapTitles = useSettingsStore((s) => s.workspaces.wrapTitles)
   const d = useDict()
   const store = useWorkspacesStore.getState
   const count = useWorkspacesStore((s) => s.workspaces.length)
@@ -306,10 +308,11 @@ function WorkspaceRow({
         <TabRow
           active={active}
           onSelect={select}
-          onClose={() => store().closeWorkspace(w.id)}
+          onClose={() => void requestCloseWorkspace(w.id)}
           closeLabel={d.rail.close}
           icon={<WorkspaceIcon workspace={w} />}
           title={title}
+          wrapTitle={wrapTitles}
           titleAdornment={
             w.pinned ? (
               <PushPinSimpleIcon size={11} className="tab-pin" aria-label={d.rail.pinned} />
@@ -365,10 +368,10 @@ function WorkspaceRow({
         </ContextMenuItem>
         <ContextMenuItem onClick={() => markWorkspaceRead(w.id)}>{d.rail.markRead}</ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem disabled={count < 2} onClick={() => store().closeOthers(w.id)}>
+        <ContextMenuItem disabled={count < 2} onClick={() => void requestCloseOthers(w.id)}>
           {d.rail.closeOthers}
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => store().closeWorkspace(w.id)}>
+        <ContextMenuItem onClick={() => void requestCloseWorkspace(w.id)}>
           {d.rail.closeWorkspace}
         </ContextMenuItem>
       </ContextMenuContent>
@@ -433,6 +436,7 @@ function TabRow({
   icon,
   title,
   titleAdornment,
+  wrapTitle,
   editor,
   onDoubleClick,
   meta,
@@ -446,6 +450,7 @@ function TabRow({
   icon: React.ReactNode
   title: string
   titleAdornment?: React.ReactNode
+  wrapTitle?: boolean
   editor?: React.ReactNode
   onDoubleClick?: () => void
   meta?: React.ReactNode
@@ -473,7 +478,7 @@ function TabRow({
         {icon}
         <span className="tab-body">
           <span className="tab-title-row">
-            <span className="tab-title">{title}</span>
+            <span className={wrapTitle ? 'tab-title wrap' : 'tab-title'}>{title}</span>
             {titleAdornment}
           </span>
           {meta}
