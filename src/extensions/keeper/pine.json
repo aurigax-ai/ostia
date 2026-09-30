@@ -1,8 +1,8 @@
 {
   "id": "keeper",
   "name": "Keeper",
-  "version": "1.0.0",
-  "description": "The Keeper dashboard as a panel, a count of queries waiting for your approval, and a notice when one arrives. The extension only reads the queue; approving is always your click in the dashboard.",
+  "version": "1.1.0",
+  "description": "The Keeper dashboard as a panel, a count of queries waiting for your approval, and a notice that opens the approval queue when one arrives. The extension only reads the queue; approving is always your click in the dashboard.",
   "capabilities": ["read-board", "notify"],
   "main": "main.js",
   "contributes": {
@@ -16,6 +16,23 @@
       }
     ],
     "sidebarItems": true,
-    "panel": { "title": "Keeper", "icon": "shield", "entry": "url" }
+    "panel": { "title": "Keeper", "icon": "shield", "entry": "url" },
+    "settings": {
+      "notify": {
+        "type": "boolean",
+        "default": true,
+        "description": "Notify when a query starts waiting for your approval"
+      },
+      "pollSeconds": {
+        "type": "number",
+        "default": 5,
+        "description": "Seconds between queue checks while Pine is focused or approvals wait (2 to 300)"
+      },
+      "idlePollSeconds": {
+        "type": "number",
+        "default": 60,
+        "description": "Seconds between queue checks in the background with nothing waiting (10 to 3600)"
+      }
+    }
   }
 }
