@@ -71,13 +71,18 @@ export async function requestCloseOthers(id: string): Promise<void> {
   }
 }
 
+function paneGroup(workspace: Workspace, paneId: string): RunningGroup | null {
+  const { running, byPane } = useBlocksStore.getState()
+  const commands = runningCommandsOf([paneId], running, byPane)
+  if (commands.length === 0) return null
+  return { workspaceId: workspace.id, workspace: workspace.customName ?? workspace.name, commands }
+}
+
 export async function requestClosePane(workspaceId: string, paneId: string): Promise<void> {
-  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)
-  const isLast = !!layout && paneIds(layout.root).length === 1
   const { confirmClose } = useSettingsStore.getState().workspaces
-  const groups = isLast && workspace ? groupsToConfirm([workspace], confirmClose) : []
-  if (await confirmGroups('pane', groups)) {
+  const group = workspace && confirmClose ? paneGroup(workspace, paneId) : null
+  if (await confirmGroups('pane', group ? [group] : [])) {
     useLayoutStore.getState().closePane(workspaceId, paneId)
   }
 }

@@ -719,9 +719,13 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   The `workDir` stays the anchor; only its initial value is inherited.
 - **Close confirmation** (`lib/closeConfirm.ts`, `CloseConfirmDialog.tsx`, `closeConfirmStore`):
   a command is running when `blocksStore.running` has a block for a pane of the workspace.
-  Closing a workspace (row X, context menu, `workspace.closeOthers`) and closing the last pane of
-  a workspace (`pane.close`) go through `requestClose*`, which awaits a shadcn Dialog naming the
-  workspaces and their commands when `workspaces.confirmClose` is on. Quit and window close use the
+  Closing a workspace (row X, context menu, `workspace.closeOthers`) and closing any pane or tab
+  whose own command is running (`pane.close`, the tab's X) go through `requestClose*`, which
+  awaits a shadcn Dialog naming the workspaces and their commands when `workspaces.confirmClose`
+  is on. Closing an idle pane never asks, even when another pane of the workspace is busy.
+  The base layer gives every element `border-color: var(--border)`, so a shadcn `border` without
+  a color (the dialog footer's divider) uses the line token, not the text color; and
+  `--destructive` maps to `--attn-fg` so destructive button text keeps 4.5:1 on dark surfaces. Quit and window close use the
   same dialog: main's `closeGuard.ts` sends `window:confirm-close` to each window, the renderer
   answers through `window.pine.window.onConfirmClose` (`confirmQuit`, gated by
   `workspaces.confirmQuit`). Why the answer comes from the renderer: only it knows which commands

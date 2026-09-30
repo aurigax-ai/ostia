@@ -131,6 +131,36 @@ describe('close confirmation', () => {
     expect(useLayoutStore.getState().byWorkspace.w1).toBeUndefined()
   })
 
+  it('asks before closing a tab that has a running command, and not for an idle tab beside it', async () => {
+    seed('pnpm dev')
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: {
+          root: {
+            type: 'tabs',
+            id: 't1',
+            activeId: 'p1',
+            children: [pane('p1'), pane('p3')],
+          } as LayoutNode,
+          activePaneId: 'p1',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    render(<CloseConfirmDialog />)
+    const user = userEvent.setup()
+
+    await requestClosePane('w1', 'p3')
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    const closing = requestClosePane('w1', 'p1')
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('pnpm dev')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await closing
+    expect(useLayoutStore.getState().byWorkspace.w1).toBeDefined()
+  })
+
   it('resolves the quit question from the dialog and lists every workspace with commands', async () => {
     seed('sleep 100')
     useBlocksStore.setState((s) => ({
