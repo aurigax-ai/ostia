@@ -21,14 +21,16 @@ export function seedSettings(dataHome: string, settings: object): void {
   writeFileSync(join(userData, 'settings.json'), JSON.stringify(settings))
 }
 
+const TEST_ZSHRC = "PROMPT='%~ ❯ '\n"
+const TEST_BASHRC = "PS1='\\w ❯ '\n"
 const TEST_GITCONFIG = '[user]\n\tname = Pine E2E\n\temail = e2e@example.com\n'
 
 export function testHome(dataHome: string): string {
   const home = join(dataHome, 'home')
   if (!existsSync(home)) {
     mkdirSync(home, { recursive: true })
-    writeFileSync(join(home, '.zshrc'), '')
-    writeFileSync(join(home, '.bashrc'), '')
+    writeFileSync(join(home, '.zshrc'), TEST_ZSHRC)
+    writeFileSync(join(home, '.bashrc'), TEST_BASHRC)
     writeFileSync(join(home, '.gitconfig'), TEST_GITCONFIG)
   }
   return home
