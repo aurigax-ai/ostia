@@ -129,9 +129,15 @@ Details: `docs/ARCHITECTURE.md`.
   pointer.
 - **Nothing types into a pane unless it's at an idle prompt** (open draft, nothing running).
   Rerun and history insert go through `insertCommand` (`lib/blockActions.ts`), need the `shell`
-  capability, and paste via `term.paste`. The one widening: a pick-element report reference
-  (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a running agent that reported
-  `waiting`/`done`; it's text only, never followed by Enter. Anything else goes to the clipboard.
+  capability, and paste via `term.paste`. The one widening: a report reference from pick
+  element or send selection (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a
+  running agent that reported `waiting`/`done`; it's text only, never followed by Enter. Anything
+  else goes to the clipboard.
+- **Selection reports are checked in main.** A file view's capture travels whole over
+  `selection:send`, so main re-validates it (`normalizeSelection`: kind, absolute path, clipped
+  text, PNG signature, 25 MiB image cap, sender owns the source pane) and writes
+  `selection-N.md`/`.png` only into `privateTmpDir('pine-reports')`, never next to the user's file.
+  File viewers read bytes only through `fs.readBinary` (confined, 50 MiB cap).
 - **Pick element runs in an isolated world** (`PICK_WORLD_ID`, `executeJavaScriptInIsolatedWorld`),
   never the page's main world, and counts only `isTrusted` events. `pickRuntime` must stay a
   self-contained function (it's shipped with `toString()`): no imports or module-level references
@@ -164,9 +170,11 @@ Details: `docs/ARCHITECTURE.md`.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
   `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new workspace, `Ctrl+1..9` jump to a workspace,
-  `Ctrl+Shift+R` resume the pane's agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
+  `Ctrl+Shift+R` resume the pane's agent, `Ctrl+Shift+E` send a file view's selection to an
+  agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
   macOS uses ⌘ (⌘⇧U unread, ⌘⇧H history, ⌘T new workspace, ⌘1..9 workspaces, ⌘⇧R resume,
-  ⌘↑/⌘↓ blocks). Holding the modifier alone for 500 ms shows each row's digit; any other key
+  ⌘⇧E send selection, ⌘↑/⌘↓ blocks). A new chord must also be free in Monaco (it already binds
+  Ctrl+Shift+A, C, G, I, K, L, M, O, R, Z). Holding the modifier alone for 500 ms shows each row's digit; any other key
   cancels, so Ctrl shortcuts never flash it.
   Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell;
   Escape is swallowed only while a block is selected. All chords live in `lib/chords.ts`;
@@ -268,7 +276,8 @@ Details: `docs/ARCHITECTURE.md`.
 - **Model:** a **Workspace** (sidebar; `kind`, `workDir`, live `state`) owns a split-tree whose
   leaves are **Panes** or **tab stacks** of panes;
   each pane hosts one **Surface**: `terminal | editor | browser | extension | diff` (`agent` is
-  reserved in the type and snapshot format, not yet created; `diff` is never persisted).
+  reserved in the type and snapshot format, not yet created; `diff` is never persisted). An
+  `editor` pane is a file view (`FileView.tsx`): images and PDFs get viewers, the rest Monaco.
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
   selects, dialogs, tooltips, kbd, badges, alerts, empty states, list items and radio groups;
   hand-roll a control only when shadcn has none (pane tabs, block gutter, file tree, rail rows,

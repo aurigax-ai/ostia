@@ -1,0 +1,80 @@
+import { existsSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { ipcMain } from 'electron'
+import { clip } from '../shared/pick'
+import {
+  SELECTION_IMAGE_MAX,
+  SELECTION_NOTE_MAX,
+  type SelectionSendRequest,
+  type SelectionSendResult,
+  isPng,
+  needsImage,
+  normalizeSelection,
+  renderSelectionReport,
+  selectionBusMessage,
+} from '../shared/selection'
+import { REPORT_DIR_NAME } from './browsePick'
+import { postBusMessage } from './bus'
+import { getByPaneId } from './idRegistry'
+import { privateTmpDir } from './privateTmp'
+
+function asBytes(value: unknown): Uint8Array | null {
+  if (value instanceof Uint8Array) return value
+  if (value instanceof ArrayBuffer) return new Uint8Array(value)
+  return null
+}
+
+function freeStem(dir: string): string {
+  for (let n = 1; ; n++) {
+    const stem = join(dir, `selection-${n}`)
+    if (!existsSync(`${stem}.md`) && !existsSync(`${stem}.png`)) return stem
+  }
+}
+
+export function writeSelectionReport(
+  req: SelectionSendRequest,
+  senderWindowId: string,
+  now: Date = new Date(),
+): SelectionSendResult {
+  const source = getByPaneId(req?.sourcePaneId)
+  const target = getByPaneId(req?.targetPaneId)
+  if (!source || source.windowId !== senderWindowId || !target) {
+    return { ok: false, error: 'not-found' }
+  }
+  const capture = normalizeSelection(req.capture)
+  if (!capture) return { ok: false, error: 'invalid' }
+  const image = needsImage(capture) ? asBytes(req.image) : null
+  if (needsImage(capture)) {
+    if (!image || !isPng(image)) return { ok: false, error: 'invalid' }
+    if (image.byteLength > SELECTION_IMAGE_MAX) return { ok: false, error: 'image-too-large' }
+  }
+  const note = clip(typeof req.note === 'string' ? req.note : '', SELECTION_NOTE_MAX)
+  let path: string
+  let imagePath: string | null = null
+  try {
+    const stem = freeStem(privateTmpDir(REPORT_DIR_NAME))
+    if (image) {
+      imagePath = `${stem}.png`
+      writeFileSync(imagePath, image, { mode: 0o600, flag: 'wx' })
+    }
+    path = `${stem}.md`
+    writeFileSync(path, renderSelectionReport(capture, note, imagePath, now), {
+      mode: 0o600,
+      flag: 'wx',
+    })
+  } catch {
+    return { ok: false, error: 'write-failed' }
+  }
+  postBusMessage(
+    source.externalId,
+    target.externalId,
+    selectionBusMessage(capture, note, path, imagePath),
+  )
+  return { ok: true, path, imagePath }
+}
+
+export function registerSelectionIpc(): void {
+  ipcMain.handle('selection:send', (e, req: SelectionSendRequest) =>
+    writeSelectionReport(req ?? ({} as SelectionSendRequest), String(e.sender.id)),
+  )
+}
