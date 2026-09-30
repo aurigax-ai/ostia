@@ -1,4 +1,4 @@
-import { paneIds } from '../layout/tree'
+import { findPane, paneIds } from '../layout/tree'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import {
   type CloseConfirmKind,
@@ -75,7 +75,13 @@ export async function requestCloseOthers(id: string): Promise<void> {
   }
 }
 
+function isManagerPane(workspaceId: string, paneId: string): boolean {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  return layout ? findPane(layout.root, paneId)?.kind === 'manager' : false
+}
+
 function paneGroup(workspace: Workspace, paneId: string): RunningGroup | null {
+  if (isManagerPane(workspace.id, paneId)) return runningGroup(workspace)
   const { running, byPane } = useBlocksStore.getState()
   const commands = runningCommandsOf([paneId], running, byPane)
   if (commands.length === 0) return null

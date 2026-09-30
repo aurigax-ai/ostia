@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CloseConfirmDialog } from '../components/CloseConfirmDialog'
 import { resetIds } from '../layout/tree'
-import { requestCloseWorkspace } from '../lib/closeConfirm'
+import { requestClosePane, requestCloseWorkspace } from '../lib/closeConfirm'
 import { useCloseConfirmStore } from '../stores/closeConfirmStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveSnapshotNow } from '../stores/persistence'
@@ -89,5 +89,20 @@ describe('manager workspace', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     await act(() => closing)
     expect(managerWorkspaces()).toHaveLength(1)
+  })
+
+  it('MGR-C26 asks before closing the manager pane itself', async () => {
+    const paneId = openManagerWorkspace({ agent: 'claude', cwd: '/home/u' })
+    const [workspace] = managerWorkspaces()
+    if (!workspace || !paneId) throw new Error('no manager workspace')
+    render(<CloseConfirmDialog />)
+    const user = userEvent.setup()
+
+    const closing = requestClosePane(workspace.id, paneId)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Manager · claude')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await act(() => closing)
+    expect(useLayoutStore.getState().byWorkspace[workspace.id]).toBeDefined()
   })
 })
