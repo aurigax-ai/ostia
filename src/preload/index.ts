@@ -28,6 +28,7 @@ import type {
   SandboxPortRow,
   WorkspaceSandbox,
 } from '../shared/sandbox'
+import type { SecretEntry, SecretGrant } from '../shared/secrets'
 import type { SelectionSendResult } from '../shared/selection'
 import type { RequirementsReport } from '../shared/systemRequirements'
 import type {
@@ -217,6 +218,19 @@ const bridge: PineBridge = {
         feature,
         workspaceId,
       ) as Promise<ExtensionResult>,
+  },
+  secrets: {
+    view: (workspaceId) =>
+      ipcRenderer.invoke('secrets:view', workspaceId) as Promise<{
+        secrets: SecretEntry[]
+        grants: SecretGrant[]
+      } | null>,
+    setGrants: (workspaceId, grants) =>
+      ipcRenderer.invoke('secrets:set-grants', workspaceId, grants) as Promise<SandboxEditResult>,
+    vaultSet: (workspaceId, key, value) =>
+      ipcRenderer.invoke('secrets:vault-set', workspaceId, key, value) as Promise<boolean>,
+    vaultDelete: (workspaceId, key) =>
+      ipcRenderer.invoke('secrets:vault-delete', workspaceId, key) as Promise<boolean>,
   },
   sandbox: {
     onBlocked: (cb) => {

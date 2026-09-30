@@ -14,11 +14,13 @@ export const APPROVAL_DETAIL_MAX = 600
 
 export const ALWAYS_ASK: readonly Capability[] = ['destructive']
 
-export const APPROVAL_KINDS = ['capability', 'sandbox-domain', 'sandbox-port'] as const
+export const APPROVAL_KINDS = ['capability', 'sandbox-domain', 'sandbox-port', 'secret'] as const
 export type ApprovalKind = (typeof APPROVAL_KINDS)[number]
 
 export function answersFor(kind: ApprovalKind = 'capability'): readonly ApprovalAnswer[] {
-  return kind === 'capability' ? ['once', 'session', 'deny'] : ['workspace', 'session', 'deny']
+  return kind === 'capability' || kind === 'secret'
+    ? ['once', 'session', 'deny']
+    : ['workspace', 'session', 'deny']
 }
 
 export interface ApprovalRequest {

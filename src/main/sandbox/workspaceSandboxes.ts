@@ -140,6 +140,10 @@ export class WorkspaceSandboxes {
     for (const id of [...this.hosts.keys()]) void this.refresh(id)
   }
 
+  clearTmp(): void {
+    rmSync(this.deps.tmpRoot, { recursive: true, force: true })
+  }
+
   stopAll(): void {
     for (const id of [...this.hosts.keys()]) this.stop(id)
   }

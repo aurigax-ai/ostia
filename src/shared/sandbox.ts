@@ -1,3 +1,5 @@
+import { SECRET_GRANT_MODES, type SecretGrant, type SecretGrantMode } from './secrets'
+
 export interface SandboxControls {
   allWorkspaces: boolean
   browser: 'allowlist' | 'unrestricted'
@@ -12,6 +14,7 @@ export interface WorkspaceSandbox {
   domains: string[]
   controls: Partial<SandboxControls>
   ports?: PortsPolicy
+  secrets?: SecretGrant[]
 }
 
 export interface SandboxGlobals {
@@ -166,12 +169,15 @@ export function parseWorkspaceSandbox(value: unknown): WorkspaceSandbox | null {
   const controls = parseControls(raw.controls)
   if (typeof raw.enabled !== 'boolean' || !allowRead || !domains || !controls) return null
   if (raw.ports !== undefined && !PORTS_POLICIES.includes(raw.ports as PortsPolicy)) return null
+  const secrets = parseSecretGrants(raw.secrets)
+  if (!secrets) return null
   return {
     enabled: raw.enabled,
     allowRead,
     domains,
     controls,
     ...(raw.ports === undefined ? {} : { ports: raw.ports as PortsPolicy }),
+    ...(secrets.length === 0 ? {} : { secrets }),
   }
 }
 
@@ -202,4 +208,34 @@ export function hostMatches(host: string, port: number, patterns: readonly strin
     if (pattern.host.startsWith('*.')) return target.endsWith(pattern.host.slice(1))
     return target === pattern.host
   })
+}
+
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/
+const FILE_NAME = /^[A-Za-z0-9._-]{1,128}$/
+
+export function checkSecretGrant(grant: SecretGrant): boolean {
+  if (typeof grant.id !== 'string' || !grant.id) return false
+  if (!SECRET_GRANT_MODES.includes(grant.mode)) return false
+  if (grant.name === undefined) return true
+  if (grant.mode === 'env') return ENV_NAME.test(grant.name)
+  if (grant.mode === 'file') return FILE_NAME.test(grant.name) && grant.name !== 'agent.sock'
+  return false
+}
+
+export function parseSecretGrants(value: unknown): SecretGrant[] | null {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) return null
+  const out: SecretGrant[] = []
+  for (const raw of value) {
+    if (typeof raw !== 'object' || raw === null) return null
+    const { id, mode, name } = raw as Record<string, unknown>
+    const grant: SecretGrant = {
+      id: String(id),
+      mode: mode as SecretGrantMode,
+      ...(typeof name === 'string' ? { name } : {}),
+    }
+    if (typeof id !== 'string' || !checkSecretGrant(grant)) return null
+    out.push(grant)
+  }
+  return out
 }

@@ -36,10 +36,14 @@ export function ApprovalCard({
         </p>
       ) : (
         <p className="[overflow-wrap:anywhere]">
-          {fmt(kind === 'sandbox-domain' ? d.approvals.sandboxDomain : d.approvals.sandboxPort, {
-            pane: paneTitle,
-            subject,
-          })}
+          {fmt(
+            kind === 'sandbox-domain'
+              ? d.approvals.sandboxDomain
+              : kind === 'secret'
+                ? d.approvals.secret
+                : d.approvals.sandboxPort,
+            { pane: paneTitle, subject },
+          )}
         </p>
       )}
       <div className="flex min-w-0 flex-col gap-0.5">
@@ -74,9 +78,15 @@ export function ApprovalCard({
             <Button variant="outline" size="sm" onClick={() => void answer(request.id, 'session')}>
               {d.approvals.allowUntilRestart}
             </Button>
-            <Button size="sm" onClick={() => void answer(request.id, 'workspace')}>
-              {d.approvals.allowWorkspace}
-            </Button>
+            {kind === 'secret' ? (
+              <Button size="sm" onClick={() => void answer(request.id, 'once')}>
+                {d.approvals.allowOnce}
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => void answer(request.id, 'workspace')}>
+                {d.approvals.allowWorkspace}
+              </Button>
+            )}
           </>
         )}
       </div>

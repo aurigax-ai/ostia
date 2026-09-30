@@ -10,6 +10,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
 import { PortsPolicyRow, SandboxPortsTab } from './SandboxPortsTab'
+import { SandboxSecretsTab } from './SandboxSecretsTab'
 import { BrowserSelect, useSandboxGlobals } from './SandboxSection'
 import { ControlRow, SectionHead } from './SettingsPanel'
 import { Badge } from './ui/badge'
@@ -128,6 +129,7 @@ export function WorkspaceSandboxPage({
           <TabsTrigger value="files">{d.sandbox.files}</TabsTrigger>
           <TabsTrigger value="network">{d.sandbox.network}</TabsTrigger>
           <TabsTrigger value="ports">{d.sandbox.ports}</TabsTrigger>
+          <TabsTrigger value="secrets">{d.sandbox.secrets}</TabsTrigger>
           <TabsTrigger value="access">{d.sandbox.pineAccess}</TabsTrigger>
         </TabsList>
         <TabsContent value="general" className="pt-4">
@@ -184,6 +186,9 @@ export function WorkspaceSandboxPage({
             />
           </fieldset>
           <SandboxPortsTab workspaceId={workspaceId} />
+        </TabsContent>
+        <TabsContent value="secrets" className="pt-4">
+          <SandboxSecretsTab workspaceId={workspaceId} />
         </TabsContent>
         <TabsContent value="access" className="pt-4">
           <fieldset aria-label={d.sandbox.allWorkspaces}>

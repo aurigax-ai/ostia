@@ -45,7 +45,7 @@ export interface ControlMethod {
   handler: (params: unknown, ctx: ControlMethodContext) => unknown | Promise<unknown>
 }
 
-const DETAIL_HIDDEN_PREFIXES = ['vault.']
+const DETAIL_HIDDEN_PREFIXES = ['vault.', 'secret.']
 
 function describeParams(method: string, params: unknown): string {
   if (DETAIL_HIDDEN_PREFIXES.some((p) => method.startsWith(p))) return ''

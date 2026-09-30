@@ -72,7 +72,7 @@ export function ApprovalsInbox({
                   <Button variant="ghost" size="xs" onClick={() => void answer(req.id, 'deny')}>
                     {d.approvals.deny}
                   </Button>
-                  {(req.kind ?? 'capability') === 'capability' ? (
+                  {(req.kind ?? 'capability') === 'capability' || req.kind === 'secret' ? (
                     <Button size="xs" onClick={() => void answer(req.id, 'once')}>
                       {d.approvals.allowOnce}
                     </Button>
