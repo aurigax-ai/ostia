@@ -334,6 +334,7 @@ interface SettingsState extends Persisted {
   setTerminalLineHeight: (lineHeight: number) => void
   setSidebar: (patch: Partial<SidebarSettings>) => void
   setWorkspaces: (patch: Partial<WorkspaceSettings>) => void
+  setSandbox: (next: SandboxGlobals) => Promise<void>
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
   setHibernation: (patch: Partial<HibernationSettings>) => void
@@ -633,6 +634,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setWorkspaces: (patch) => {
     set((s) => ({ workspaces: { ...s.workspaces, ...patch } }))
     scheduleSave(get)
+  },
+  setSandbox: async (next) => {
+    set({ sandbox: next })
+    await writeSettings(get())
+    await window.pine.sandbox.globalsChanged()
   },
   setBrowser: (patch) => {
     set((s) => ({ browser: parseBrowserSettings({ ...s.browser, ...patch }) }))
