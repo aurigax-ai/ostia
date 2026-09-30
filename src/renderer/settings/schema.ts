@@ -1,3 +1,4 @@
+import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
 import { monaco } from '../monaco/setup'
 
 const font = (title: string) => ({
@@ -14,6 +15,25 @@ const font = (title: string) => ({
     },
   },
 })
+
+const CHORD_VALUE = {
+  type: ['string', 'null'],
+  description:
+    'A chord like "Ctrl+Shift+K", "Cmd+Alt+P" or "Mod+Shift+K" (Mod is Cmd on macOS, Ctrl ' +
+    'elsewhere), or null to unbind. Chords the shell needs are ignored: plain Ctrl+letter, ' +
+    'plain or Ctrl arrows, Escape, Tab and keys without Ctrl/Cmd.',
+}
+
+export function keybindingsSchema(ids: readonly string[]) {
+  return {
+    type: 'object',
+    description:
+      'Keyboard shortcuts: command id → chord, or null to unbind. Unlisted commands keep ' +
+      'their default. Edit them in Settings → Keyboard.',
+    properties: Object.fromEntries(ids.map((id) => [id, CHORD_VALUE])),
+    additionalProperties: CHORD_VALUE,
+  }
+}
 
 export const SETTINGS_JSON_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
@@ -252,6 +272,7 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    keybindings: keybindingsSchema(Object.keys(DEFAULT_CHORDS)),
     sync: {
       type: 'object',
       additionalProperties: false,
@@ -303,6 +324,18 @@ export async function registerSettingsSchema(): Promise<void> {
   json.jsonDefaults.setDiagnosticsOptions({
     validate: true,
     allowComments: false,
-    schemas: [{ uri: 'pine://settings-schema', fileMatch: [uri], schema: SETTINGS_JSON_SCHEMA }],
+    schemas: [
+      {
+        uri: 'pine://settings-schema',
+        fileMatch: [uri],
+        schema: {
+          ...SETTINGS_JSON_SCHEMA,
+          properties: {
+            ...SETTINGS_JSON_SCHEMA.properties,
+            keybindings: keybindingsSchema(bindableIds()),
+          },
+        },
+      },
+    ],
   })
 }

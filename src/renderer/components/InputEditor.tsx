@@ -2,7 +2,7 @@ import { FolderSimpleIcon } from '@phosphor-icons/react'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import type { FsEntry } from '../../shared/types'
 import { fmt, useDict } from '../i18n/useDict'
-import { chordLabel, matchChord } from '../lib/chords'
+import { matchChord, useChordLabel } from '../lib/chords'
 import { caretOnFirstLine, completePath, inputHistory } from '../lib/inputEditor'
 import { registerInputEditor } from '../lib/terminalHandles'
 import { isMac } from '../platform'
@@ -57,6 +57,7 @@ export function InputEditor({
   onEscape,
 }: InputEditorProps): JSX.Element {
   const d = useDict()
+  const historyKeys = useChordLabel('history.search', isMac)
   const visible = useInputEditorVisible(paneId, alternateScreen, suppressedPrompt)
   const [text, setText] = useState('')
   const [tip, setTip] = useState<Tip>({ kind: 'hint' })
@@ -179,7 +180,9 @@ export function InputEditor({
     }
   }
 
-  const hint = fmt(d.inputEditor.hint, { history: chordLabel('history.search', isMac) })
+  const hint = historyKeys
+    ? fmt(d.inputEditor.hint, { history: historyKeys })
+    : d.inputEditor.hintNoHistory
 
   return (
     <div className="input-editor" hidden={!visible} style={{ background }}>

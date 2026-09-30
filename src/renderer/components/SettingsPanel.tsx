@@ -10,6 +10,7 @@ import {
   HardDrivesIcon,
   type Icon as IconComponent,
   InfoIcon,
+  KeyboardIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
   SidebarSimpleIcon,
@@ -50,6 +51,7 @@ import { FontPicker } from './FontPicker'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
+import { KeyboardSection } from './KeyboardSection'
 import { SyncSection } from './SyncSection'
 import { WorkspacesSection } from './WorkspacesSection'
 import { ATTENTION_ALERT } from './attentionStyles'
@@ -65,6 +67,7 @@ import { Switch } from './ui/switch'
 type SectionId =
   | 'appearance'
   | 'terminal'
+  | 'keyboard'
   | 'notifications'
   | 'sidebar'
   | 'workspaces'
@@ -107,6 +110,7 @@ export function SettingsPanel(): JSX.Element | null {
       [
         { id: 'appearance', icon: PaletteIcon, label: d.settings.appearance },
         { id: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
+        { id: 'keyboard', icon: KeyboardIcon, label: d.keyboard.title },
         { id: 'notifications', icon: BellIcon, label: d.settings.notifications },
         { id: 'sidebar', icon: SidebarSimpleIcon, label: d.settings.sidebar },
         { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
@@ -182,6 +186,7 @@ export function SettingsPanel(): JSX.Element | null {
           <div className="mx-auto max-w-3xl px-8 py-5">
             {active === 'appearance' ? <AppearanceSection /> : null}
             {active === 'terminal' ? <TerminalSection /> : null}
+            {active === 'keyboard' ? <KeyboardSection /> : null}
             {active === 'notifications' ? <NotificationsSection /> : null}
             {active === 'sidebar' ? <SidebarSection /> : null}
             {active === 'workspaces' ? <WorkspacesSection /> : null}

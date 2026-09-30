@@ -13,6 +13,7 @@ type Persisted = Pick<
   | 'workspaces'
   | 'browser'
   | 'editor'
+  | 'keybindings'
 >
 
 describe('settingsStore', () => {
@@ -47,6 +48,7 @@ describe('settingsStore', () => {
       workspaces: s.workspaces,
       browser: s.browser,
       editor: s.editor,
+      keybindings: s.keybindings,
     })
   })
 
@@ -61,6 +63,26 @@ describe('settingsStore', () => {
   })
 
   describe('init', () => {
+    it('keeps parseable keybindings and unbinds, and drops malformed entries', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({
+          keybindings: {
+            'palette.toggle': ' Ctrl+Shift+K ',
+            'view.toggleRail': null,
+            'history.search': 'Hyper+Q',
+            'workspace.new': 42,
+            'app.openSettings': 'Ctrl+R',
+          },
+        }),
+      )
+      await store().init()
+      expect({ ...store().keybindings }).toEqual({
+        'palette.toggle': 'Ctrl+Shift+K',
+        'view.toggleRail': null,
+        'app.openSettings': 'Ctrl+R',
+      })
+    })
+
     it('keeps a known input mode and falls back to terminal for anything else', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue(
         JSON.stringify({ behavior: { inputMode: 'editor' } }),
@@ -208,6 +230,7 @@ describe('settingsStore', () => {
         workspaces: s.workspaces,
         browser: s.browser,
         editor: s.editor,
+        keybindings: s.keybindings,
       }).toEqual(DEFAULTS)
     })
 
@@ -240,6 +263,7 @@ describe('settingsStore', () => {
         workspaces: s.workspaces,
         browser: s.browser,
         editor: s.editor,
+        keybindings: s.keybindings,
       }).toEqual(DEFAULTS)
     })
   })

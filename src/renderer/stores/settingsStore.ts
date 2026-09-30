@@ -15,6 +15,7 @@ import {
 } from '../../shared/notificationSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
 import type { Locale } from '../i18n/dict'
+import { type KeybindingMap, parseKeybindings } from '../lib/chordSpec'
 
 export type ThemeId = string
 
@@ -138,6 +139,7 @@ interface Persisted {
   workspaces: WorkspaceSettings
   browser: BrowserSettings
   editor: EditorSettings
+  keybindings: KeybindingMap
   capabilities?: Capabilities
   sync?: SyncSettings
 }
@@ -181,6 +183,7 @@ const DEFAULTS: Persisted = {
   workspaces: DEFAULT_WORKSPACE_SETTINGS,
   browser: DEFAULT_BROWSER_SETTINGS,
   editor: DEFAULT_EDITOR_SETTINGS,
+  keybindings: {},
 }
 
 interface SettingsState extends Persisted {
@@ -198,6 +201,9 @@ interface SettingsState extends Persisted {
   setEditor: (patch: Partial<EditorSettings>) => void
   setByPath: (path: string, value: unknown) => void
   setSyncDir: (dir: string) => Promise<void>
+  setKeybinding: (id: string, chord: string | null) => void
+  resetKeybinding: (id: string) => void
+  setKeybindings: (map: KeybindingMap) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -212,6 +218,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     workspaces: s.workspaces,
     browser: s.browser,
     editor: s.editor,
+    keybindings: s.keybindings,
     capabilities: s.capabilities,
     sync: s.sync,
   }
@@ -271,6 +278,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         workspaces: parseWorkspaceSettings(p.workspaces),
         browser: parseBrowserSettings(p.browser),
         editor: parseEditorSettings(p.editor),
+        keybindings: parseKeybindings(p.keybindings),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
         sync: syncOf(p.sync),
       })
@@ -326,6 +334,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setEditor: (patch) => {
     set((s) => ({ editor: parseEditorSettings({ ...s.editor, ...patch }) }))
+    scheduleSave(get)
+  },
+  setKeybinding: (id, chord) => {
+    set((s) => ({ keybindings: { ...s.keybindings, [id]: chord } }))
+    scheduleSave(get)
+  },
+  resetKeybinding: (id) => {
+    set((s) => {
+      const { [id]: _removed, ...rest } = s.keybindings
+      return { keybindings: rest }
+    })
+    scheduleSave(get)
+  },
+  setKeybindings: (keybindings) => {
+    set({ keybindings })
     scheduleSave(get)
   },
   setSyncDir: async (dir) => {

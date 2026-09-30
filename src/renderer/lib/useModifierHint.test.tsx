@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { MODIFIER_HINT_DELAY_MS, useModifierHint } from './useModifierHint'
 
@@ -12,6 +13,7 @@ describe('useModifierHint', () => {
   afterEach(() => {
     vi.useRealTimers()
     useUIStore.setState({ digitHints: false })
+    useSettingsStore.setState({ keybindings: {} })
   })
 
   it('shows workspace digits after Ctrl is held alone, and hides them on release', () => {
@@ -40,5 +42,24 @@ describe('useModifierHint', () => {
     press('keydown', 'Meta')
     vi.advanceTimersByTime(MODIFIER_HINT_DELAY_MS)
     expect(shown()).toBe(true)
+  })
+
+  it('follows a rebound workspace jump: only its exact modifiers show the digits', () => {
+    useSettingsStore.setState({ keybindings: { 'workspace.goto': 'Ctrl+Alt+1-9' } })
+    renderHook(() => useModifierHint(false))
+    press('keydown', 'Control')
+    vi.advanceTimersByTime(MODIFIER_HINT_DELAY_MS)
+    expect(shown()).toBe(false)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Alt', ctrlKey: true, altKey: true }))
+    vi.advanceTimersByTime(MODIFIER_HINT_DELAY_MS)
+    expect(shown()).toBe(true)
+  })
+
+  it('never shows digits once the workspace jump is unbound', () => {
+    useSettingsStore.setState({ keybindings: { 'workspace.goto': null } })
+    renderHook(() => useModifierHint(false))
+    press('keydown', 'Control')
+    vi.advanceTimersByTime(MODIFIER_HINT_DELAY_MS * 2)
+    expect(shown()).toBe(false)
   })
 })
