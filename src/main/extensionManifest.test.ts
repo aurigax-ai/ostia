@@ -59,8 +59,51 @@ describe('parseManifest', () => {
           panel: { title: 'Demo', icon: 'puzzle', entry: 'ui/panel.html' },
           paneChips: [],
           settings: [],
+          assist: [],
+          secrets: [],
         },
       },
+    })
+  })
+
+  it('parses assist points and secrets, and requires the assist capability', () => {
+    const ok = parseManifest(
+      manifest({
+        capabilities: ['assist'],
+        contributes: {
+          assist: ['chat', 'command', 'chat'],
+          secrets: { apiKey: { description: 'Provider key' } },
+        },
+      }),
+      DIR,
+    )
+    expect(ok.ok && ok.manifest.contributes.assist).toEqual(['chat', 'command'])
+    expect(ok.ok && ok.manifest.contributes.secrets).toEqual([
+      { key: 'apiKey', description: 'Provider key' },
+    ])
+    expect(parseManifest(manifest({ contributes: { assist: ['chat'] } }), DIR)).toEqual({
+      ok: false,
+      error: "contributes.assist needs the 'assist' capability",
+    })
+    expect(
+      parseManifest(manifest({ capabilities: ['assist'], contributes: { assist: ['shell'] } }), DIR)
+        .ok,
+    ).toBe(false)
+    expect(
+      parseManifest(
+        {
+          id: 'demo',
+          name: 'Demo',
+          version: '1',
+          capabilities: ['assist'],
+          contributes: { assist: ['chat'] },
+        },
+        DIR,
+      ).ok,
+    ).toBe(false)
+    expect(parseManifest(manifest({ contributes: { secrets: { apiKey: {} } } }), DIR)).toEqual({
+      ok: false,
+      error: 'contributes.secrets.apiKey: missing description',
     })
   })
 
