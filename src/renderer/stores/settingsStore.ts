@@ -217,7 +217,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   defaultFolder: '~',
   confirmClose: true,
   confirmQuit: true,
-  closeToTray: false,
+  closeToTray: true,
   wrapTitles: false,
 }
 

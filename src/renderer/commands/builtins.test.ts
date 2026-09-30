@@ -409,6 +409,15 @@ describe('builtins route to store actions', () => {
 
     expect(openSettings).toHaveBeenCalled()
   })
+
+  it('MGR-C43 quits through the window bridge and needs destructive', async () => {
+    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
+    expect(byId['app.quit'].capabilities).toEqual(['destructive'])
+
+    await commands.execWith(ctx(null, null), 'app.quit')
+
+    expect(window.pine.window.quit).toHaveBeenCalled()
+  })
 })
 
 describe('pane.list / workspace.list', () => {

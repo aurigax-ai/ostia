@@ -15,10 +15,14 @@ export function closeAction(state: CloseState): CloseAction {
 }
 
 export function readCloseToTray(settings: unknown): boolean {
-  if (typeof settings !== 'object' || settings === null) return false
+  if (typeof settings !== 'object' || settings === null) return true
   const workspaces = (settings as { workspaces?: unknown }).workspaces
-  if (typeof workspaces !== 'object' || workspaces === null) return false
-  return (workspaces as { closeToTray?: unknown }).closeToTray === true
+  if (typeof workspaces !== 'object' || workspaces === null) return true
+  return (workspaces as { closeToTray?: unknown }).closeToTray !== false
+}
+
+export function isHiddenLaunch(argv: readonly string[]): boolean {
+  return argv.includes('--hidden')
 }
 
 const TRAY_LABELS = {

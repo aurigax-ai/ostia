@@ -1,5 +1,6 @@
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
+import { PRODUCT_NAME } from '@shared/product'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
@@ -569,6 +570,15 @@ export function registerBuiltinCommands(): void {
     category: 'App',
     target: 'none',
     run: () => useUIStore.getState().openSettings(),
+  })
+
+  commands.register({
+    id: 'app.quit',
+    title: `Quit ${PRODUCT_NAME}`,
+    category: 'App',
+    target: 'none',
+    capabilities: ['destructive'],
+    run: () => window.pine.window.quit(),
   })
 
   commands.register<{ path: string }>({

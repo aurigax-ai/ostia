@@ -838,7 +838,7 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   counts as having nothing running. E2E seeds
   `workspaces.confirmQuit: false` (`DOM_RENDERER_SETTINGS`) so `app.close()` never waits on a
   dialog; `e2e/workspace-settings.spec.ts` turns it on.
-- **Close to tray** (`main/tray.ts`): with `workspaces.closeToTray` on, or when Pine was started
+- **Close to tray** (`main/tray.ts`): with `workspaces.closeToTray` on (the default), or when Pine was started
   with `--hidden`, the main window's `close` handler hides it (`closeAction`) instead of asking
   `closeGuard`; a detached window never goes to the tray, it returns its workspaces to the main
   window (`broker.requestReturn`), and the manager workspace and its pane never move between
@@ -846,9 +846,12 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   reads the setting from `settings.json` at close time (`readCloseToTray`), so it always follows
   the file. Quit shows the window before `app.quit()`, because `closeGuard` asks through the
   renderer and a dialog in a hidden window can't be answered. Why the tray labels live in main
-  (`trayLabels`) rather than `i18n/dict.ts`: main can't import the renderer's dictionary. Why
-  there is no single-instance lock: `pnpm dev` and the installed app share one `userData`, so a
-  lock would stop the dev build from starting while the installed Pine runs. `e2e/tray.spec.ts`
+  (`trayLabels`) rather than `i18n/dict.ts`: main can't import the renderer's dictionary. Only
+  the packaged app takes a single-instance lock (`app.isPackaged`); a second launch reveals the
+  running Pine (`second-instance`, skipped for `--hidden`). Why only packaged: `pnpm dev` and the
+  installed app share one `userData`, so a lock there would stop the dev build from starting while
+  the installed Pine runs. Why a palette Quit (`app.quit`, needs `destructive`): with close-to-tray
+  on by default, closing the window no longer quits and the tray icon exists only while hidden. `e2e/tray.spec.ts`
   hides the window with a command running and checks its output after showing it again.
 - **Wrapped titles**: `workspaces.wrapTitles` adds `.tab-title.wrap` (2-line clamp) to sidebar rows.
 - **Hidden workspaces** (`WorkZone.tsx`): each workspace mounts on first visit and stays mounted.
