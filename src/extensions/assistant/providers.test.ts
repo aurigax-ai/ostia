@@ -3,9 +3,10 @@ import { type IncomingMessage, type Server, type ServerResponse, createServer } 
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { APICallError, type UIMessageChunk, generateText, streamText } from 'ai'
 import { afterEach, describe, expect, it } from 'vitest'
-import { AbortedError, HttpError, parseEndpoint } from './http'
-import { anthropicDelta, createProvider, openAiDelta } from './providers'
+import { parseEndpoint } from './endpoint'
+import { createProvider } from './providers'
 
 interface Seen {
   method: string
@@ -20,7 +21,10 @@ const servers: Server[] = []
 const dirs: string[] = []
 
 afterEach(() => {
-  for (const s of servers.splice(0)) s.close()
+  for (const s of servers.splice(0)) {
+    s.closeAllConnections()
+    s.close()
+  }
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
 })
 
@@ -61,10 +65,37 @@ function onSocket(server: Server): Promise<string> {
   return new Promise((resolve) => server.listen(path, () => resolve(`unix:${path}`)))
 }
 
-function sse(res: ServerResponse, events: string[]): void {
+function json(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'content-type': 'application/json' })
+  res.end(JSON.stringify(body))
+}
+
+function completion(content: string) {
+  return {
+    id: 'c1',
+    object: 'chat.completion',
+    created: 1,
+    model: 'm',
+    choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
+    usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+  }
+}
+
+function openAiStream(res: ServerResponse, parts: string[], hold = false): void {
   res.writeHead(200, { 'content-type': 'text/event-stream' })
-  for (const e of events) res.write(`${e}\n\n`)
-  res.end()
+  const chunk = (delta: object, finish: string | null) =>
+    `data: ${JSON.stringify({
+      id: 'c1',
+      object: 'chat.completion.chunk',
+      created: 1,
+      model: 'm',
+      choices: [{ index: 0, delta, finish_reason: finish }],
+    })}\n\n`
+  res.write(chunk({ role: 'assistant', content: '' }, null))
+  for (const p of parts) res.write(chunk({ content: p }, null))
+  if (hold) return
+  res.write(chunk({}, 'stop'))
+  res.end('data: [DONE]\n\n')
 }
 
 function endpoint(base: string) {
@@ -73,36 +104,29 @@ function endpoint(base: string) {
   return parsed
 }
 
-const chat = { model: 'm', messages: [{ role: 'user' as const, content: 'hi' }] }
+async function chunksOf(stream: AsyncIterable<UIMessageChunk>): Promise<UIMessageChunk[]> {
+  const out: UIMessageChunk[] = []
+  for await (const c of stream) out.push(c)
+  return out
+}
+
+const prompt = { system: 'be brief', messages: [{ role: 'user' as const, content: 'hi' }] }
 
 describe('OpenAI-compatible provider', () => {
-  it('streams SSE deltas and returns the whole reply', async () => {
-    const { base, seen } = await serve((_req, res) => {
-      sse(res, [
-        'data: {"choices":[{"delta":{"role":"assistant"}}]}',
-        'data: {"choices":[{"delta":{"content":"Hel"}}]}',
-        'data: {"choices":[{"delta":{"content":"lo"}}]}',
-        'data: [DONE]',
-      ])
-    }, onPort)
-    const provider = createProvider('openai-compatible', endpoint(base), 'sk-test')
-    const deltas: string[] = []
-    const text = await provider.chat({
-      ...chat,
-      system: 'be brief',
-      temperature: 0.2,
-      maxTokens: 50,
-      onDelta: (d) => deltas.push(d),
-    })
-    expect(text).toBe('Hello')
-    expect(deltas).toEqual(['Hel', 'lo'])
+  it('streams SSE deltas into UI message chunks and the whole reply', async () => {
+    const { base, seen } = await serve((_req, res) => openAiStream(res, ['Hel', 'lo']), onPort)
+    const provider = createProvider('openai-compatible', endpoint(base), 'sk-1')
+    const result = streamText({ model: provider.model('m'), ...prompt, maxRetries: 0 })
+    const chunks = await chunksOf(result.toUIMessageStream())
+    expect(chunks.filter((c) => c.type === 'text-delta').map((c) => c.delta)).toEqual(['Hel', 'lo'])
+    expect(chunks[0].type).toBe('start')
+    expect(chunks.at(-1)?.type).toBe('finish')
+    expect(await result.text).toBe('Hello')
     expect(seen[0].url).toBe('/v1/chat/completions')
-    expect(seen[0].headers.authorization).toBe('Bearer sk-test')
+    expect(seen[0].headers.authorization).toBe('Bearer sk-1')
     expect(seen[0].body).toMatchObject({
       model: 'm',
       stream: true,
-      temperature: 0.2,
-      max_tokens: 50,
       messages: [
         { role: 'system', content: 'be brief' },
         { role: 'user', content: 'hi' },
@@ -110,57 +134,70 @@ describe('OpenAI-compatible provider', () => {
     })
   })
 
-  it('asks without streaming when nobody listens for deltas', async () => {
-    const { base, seen } = await serve((_req, res) => {
-      res.end(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }))
-    }, onPort)
+  it('answers a non-streaming call', async () => {
+    const { base, seen } = await serve((_req, res) => json(res, 200, completion('done')), onPort)
     const provider = createProvider('ollama', endpoint(base), null)
-    expect(await provider.chat({ ...chat, temperature: 0, maxTokens: 5 })).toBe('ok')
-    expect(seen[0].body?.stream).toBe(false)
+    const res = await generateText({ model: provider.model('m'), ...prompt, maxRetries: 0 })
+    expect(res.text).toBe('done')
     expect(seen[0].headers.authorization).toBeUndefined()
   })
 
-  it('turns an error body into an HttpError with the provider message', async () => {
-    const { base } = await serve((_req, res) => {
-      res.writeHead(401, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ error: { message: 'invalid api key' } }))
-    }, onPort)
-    const provider = createProvider('openrouter', endpoint(base), 'k')
-    const err = await provider
-      .chat({ ...chat, temperature: 0, maxTokens: 5, onDelta: () => {} })
-      .catch((e) => e)
-    expect(err).toBeInstanceOf(HttpError)
-    expect(err.status).toBe(401)
-    expect(err.message).toBe('HTTP 401: invalid api key')
+  it('raises the provider error body with its status', async () => {
+    const { base } = await serve(
+      (_req, res) => json(res, 500, { error: { message: 'model exploded' } }),
+      onPort,
+    )
+    const provider = createProvider('openai-compatible', endpoint(base), null)
+    const err = await generateText({ model: provider.model('m'), ...prompt, maxRetries: 0 }).catch(
+      (e) => e,
+    )
+    expect(APICallError.isInstance(err)).toBe(true)
+    expect((err as APICallError).statusCode).toBe(500)
+    expect((err as APICallError).message).toMatch(/model exploded/)
   })
 
   it('stops a stream when the signal aborts', async () => {
-    const { base } = await serve((_req, res) => {
-      res.writeHead(200, { 'content-type': 'text/event-stream' })
-      res.write('data: {"choices":[{"delta":{"content":"a"}}]}\n\n')
-    }, onPort)
-    const provider = createProvider('openai', endpoint(base), 'k')
+    const { base } = await serve((_req, res) => openAiStream(res, ['a'], true), onPort)
+    const provider = createProvider('openai-compatible', endpoint(base), null)
     const abort = new AbortController()
-    const err = await provider
-      .chat({
-        ...chat,
-        temperature: 0,
-        maxTokens: 5,
-        signal: abort.signal,
-        onDelta: () => abort.abort(),
-      })
-      .catch((e) => e)
-    expect(err).toBeInstanceOf(AbortedError)
+    const result = streamText({
+      model: provider.model('m'),
+      ...prompt,
+      maxRetries: 0,
+      abortSignal: abort.signal,
+    })
+    setTimeout(() => abort.abort(), 50)
+    const chunks = await chunksOf(result.toUIMessageStream())
+    expect(chunks.some((c) => c.type === 'abort')).toBe(true)
   })
 
-  it('lists models and sends the OpenRouter title header', async () => {
-    const { base, seen } = await serve((_req, res) => {
-      res.end(JSON.stringify({ data: [{ id: 'a/b', name: 'B' }, { id: 'c' }, { name: 'x' }] }))
-    }, onPort)
-    const provider = createProvider('openrouter', endpoint(base), 'k')
-    expect(await provider.models()).toEqual([{ id: 'a/b', name: 'B' }, { id: 'c' }])
-    expect(seen[0].url).toBe('/v1/models')
+  it('lists models from /models', async () => {
+    const { base } = await serve(
+      (_req, res) => json(res, 200, { data: [{ id: 'a' }, { id: 'b', name: 'Bee' }, { x: 1 }] }),
+      onPort,
+    )
+    const provider = createProvider('openai-compatible', endpoint(base), null)
+    expect(await provider.models()).toEqual([{ id: 'a' }, { id: 'b', name: 'Bee' }])
+  })
+})
+
+describe('OpenRouter and OpenAI providers', () => {
+  it('sends the OpenRouter title header and key to chat completions', async () => {
+    const { base, seen } = await serve((_req, res) => json(res, 200, completion('ok')), onPort)
+    const provider = createProvider('openrouter', endpoint(base), 'or-key')
+    const res = await generateText({ model: provider.model('a/b'), ...prompt, maxRetries: 0 })
+    expect(res.text).toBe('ok')
+    expect(seen[0].url).toBe('/v1/chat/completions')
     expect(seen[0].headers['x-title']).toBeTruthy()
+    expect(seen[0].headers.authorization).toBe('Bearer or-key')
+  })
+
+  it('uses chat completions for OpenAI', async () => {
+    const { base, seen } = await serve((_req, res) => json(res, 200, completion('ok')), onPort)
+    const provider = createProvider('openai', endpoint(base), 'sk-o')
+    await generateText({ model: provider.model('gpt'), ...prompt, maxRetries: 0 })
+    expect(seen[0].url).toBe('/v1/chat/completions')
+    expect(seen[0].headers.authorization).toBe('Bearer sk-o')
   })
 })
 
@@ -168,89 +205,104 @@ describe('model-runtime provider', () => {
   it('lists, loads, unloads and chats without streaming over its unix socket', async () => {
     const { base, seen } = await serve((req, res) => {
       if (req.url === '/models') {
-        res.end(
-          JSON.stringify({
-            models: [
-              { id: 'pii', installed: true, loaded: false, busy: false },
-              { id: 'gemma', installed: true, loaded: true, busy: false, idle_secs: 42 },
-            ],
-            rss_mb: 10,
-          }),
-        )
-      } else if (req.url?.endsWith('/load') || req.url?.endsWith('/unload')) {
+        json(res, 200, {
+          models: [
+            {
+              id: 'gemma',
+              installed: true,
+              loaded: true,
+              busy: false,
+              idle_secs: 12,
+              description: 'chat',
+            },
+            { id: 'pii', installed: true, loaded: false, busy: false },
+          ],
+        })
+      } else if (req.url?.startsWith('/models/')) {
         res.writeHead(204)
         res.end()
-      } else {
-        res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'Hej!' } }] }))
-      }
+      } else json(res, 200, completion('Hej!'))
     }, onSocket)
     const provider = createProvider('model-runtime', endpoint(base), null)
-    expect(provider.lifecycle).toBe(true)
     expect(await provider.models()).toEqual([
+      {
+        id: 'gemma',
+        installed: true,
+        loaded: true,
+        busy: false,
+        idleSecs: 12,
+        description: 'chat',
+      },
       { id: 'pii', installed: true, loaded: false, busy: false },
-      { id: 'gemma', installed: true, loaded: true, busy: false, idleSecs: 42 },
     ])
-    await provider.load?.('gemma')
+    await provider.load?.('pii')
     await provider.unload?.('gemma')
-    const deltas: string[] = []
-    const text = await provider.chat({
-      model: 'gemma',
-      messages: [{ role: 'user', content: 'Say hi in Danish' }],
-      temperature: 0.1,
-      maxTokens: 20,
-      onDelta: (d) => deltas.push(d),
-    })
-    expect(text).toBe('Hej!')
-    expect(deltas).toEqual(['Hej!'])
+    const result = streamText({ model: provider.model('gemma'), ...prompt, maxRetries: 0 })
+    const chunks = await chunksOf(result.toUIMessageStream())
+    expect(chunks.filter((c) => c.type === 'text-delta').map((c) => c.delta)).toEqual(['Hej!'])
     expect(seen.map((s) => `${s.method} ${s.url}`)).toEqual([
       'GET /models',
-      'POST /models/gemma/load',
+      'POST /models/pii/load',
       'POST /models/gemma/unload',
       'POST /v1/chat/completions',
     ])
-    expect(seen[3].body?.stream).toBe(false)
+    expect(seen[3].body?.stream).not.toBe(true)
   })
 })
 
 describe('Anthropic provider', () => {
   it('streams text deltas and sends the system prompt at the top level', async () => {
+    const events: [string, object][] = [
+      [
+        'message_start',
+        {
+          type: 'message_start',
+          message: {
+            id: 'm1',
+            type: 'message',
+            role: 'assistant',
+            model: 'claude',
+            content: [],
+            stop_reason: null,
+            stop_sequence: null,
+            usage: { input_tokens: 1, output_tokens: 0 },
+          },
+        },
+      ],
+      [
+        'content_block_start',
+        { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+      ],
+      [
+        'content_block_delta',
+        { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Hi ' } },
+      ],
+      [
+        'content_block_delta',
+        { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'there' } },
+      ],
+      ['content_block_stop', { type: 'content_block_stop', index: 0 }],
+      [
+        'message_delta',
+        {
+          type: 'message_delta',
+          delta: { stop_reason: 'end_turn', stop_sequence: null },
+          usage: { output_tokens: 2 },
+        },
+      ],
+      ['message_stop', { type: 'message_stop' }],
+    ]
     const { base, seen } = await serve((_req, res) => {
-      sse(res, [
-        'event: message_start\ndata: {"type":"message_start","message":{}}',
-        'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi"}}',
-        'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":" there"}}',
-        'event: message_stop\ndata: {"type":"message_stop"}',
-      ])
+      res.writeHead(200, { 'content-type': 'text/event-stream' })
+      for (const [event, data] of events)
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+      res.end()
     }, onPort)
     const provider = createProvider('anthropic', endpoint(base), 'ak')
-    const deltas: string[] = []
-    const text = await provider.chat({
-      ...chat,
-      system: 'sys',
-      temperature: 0.3,
-      maxTokens: 100,
-      onDelta: (d) => deltas.push(d),
-    })
-    expect(text).toBe('Hi there')
-    expect(deltas).toEqual(['Hi', ' there'])
+    const result = streamText({ model: provider.model('claude'), ...prompt, maxRetries: 0 })
+    expect(await result.text).toBe('Hi there')
     expect(seen[0].url).toBe('/v1/messages')
     expect(seen[0].headers['x-api-key']).toBe('ak')
-    expect(seen[0].headers['anthropic-version']).toBe('2023-06-01')
-    expect(seen[0].body).toMatchObject({ system: 'sys', stream: true, max_tokens: 100 })
-    expect(seen[0].body?.messages).toEqual([{ role: 'user', content: 'hi' }])
-  })
-
-  it('reports an error event from the stream', () => {
-    expect(() =>
-      anthropicDelta('{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}'),
-    ).toThrow('Overloaded')
-    expect(anthropicDelta('{"type":"ping"}')).toBe('')
-  })
-})
-
-describe('openAiDelta', () => {
-  it('ends at [DONE] and raises provider errors sent mid-stream', () => {
-    expect(openAiDelta('[DONE]')).toBeNull()
-    expect(() => openAiDelta('{"error":{"message":"quota"}}')).toThrow('quota')
+    expect(seen[0].body).toMatchObject({ system: [{ type: 'text', text: 'be brief' }] })
   })
 })

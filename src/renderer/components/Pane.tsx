@@ -1,5 +1,6 @@
 import {
   BroadcastIcon,
+  ChatCircleTextIcon,
   FileCodeIcon,
   GitDiffIcon,
   GlobeIcon,
@@ -58,6 +59,7 @@ const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
   browser: GlobeIcon,
   extension: extensionIcon(undefined),
   diff: GitDiffIcon,
+  chat: ChatCircleTextIcon,
   view: viewIcon(undefined),
   manager: BroadcastIcon,
 }

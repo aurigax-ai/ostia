@@ -1,11 +1,14 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useAskStore } from '../stores/askStore'
+import { createPane, firstPaneOfKind } from '../layout/tree'
 import { useAssistStore } from '../stores/assistStore'
 import { useBlocksStore } from '../stores/blocksStore'
+import { resetChats, useChatStore } from '../stores/chatStore'
+import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkflowsStore } from '../stores/workflowsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { BlockMenu } from './BlockMenu'
 
 const actions = vi.hoisted(() => ({
@@ -39,8 +42,17 @@ describe('BlockMenu', () => {
   })
 
   afterEach(() => {
-    useAskStore.getState().stopAll()
-    useAskStore.setState({ byWorkspace: {} })
+    resetChats()
+    useChatStore.setState({
+      current: {},
+      meta: {},
+      summaries: [],
+      notice: {},
+      drafts: {},
+      attachments: {},
+    })
+    useLayoutStore.setState({ byWorkspace: {} })
+    useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useAssistStore.setState({ availability: {} })
     useUIStore.setState({ paletteOpen: false, paletteMode: 'search' })
     useBlocksStore.setState(init, true)
@@ -111,6 +123,51 @@ describe('BlockMenu', () => {
     expect(useWorkflowsStore.getState().saveCommand).toBe('make build')
   })
 
+  it('opens the chat pane with the block output attached, without sending it', async () => {
+    useAssistStore.setState({ availability: { chat: { extId: 'assistant', name: 'Assistant' } } })
+    const pane = createPane('terminal', 'zsh', '/w')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 'ws1', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+      activeWorkspaceId: 'ws1',
+    } as never)
+    useLayoutStore.setState({
+      byWorkspace: { ws1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    renderMenu()
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
+
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Ask assistant about this output' }),
+    )
+
+    const root = useLayoutStore.getState().byWorkspace.ws1?.root
+    expect(root && firstPaneOfKind(root, 'chat')).not.toBeNull()
+    expect(useChatStore.getState().attachments.ws1).toEqual([
+      { kind: 'output', label: 'Output of make build', text: 'make build' },
+    ])
+    expect(window.pine.assist.request).not.toHaveBeenCalled()
+  })
+
+  it('does not offer asking about output while the chat feature is off', async () => {
+    useAssistStore.setState({
+      availability: { chat: { extId: 'assistant', name: 'Assistant' } },
+      overview: [
+        {
+          extId: 'assistant',
+          name: 'Assistant',
+          setup: null,
+          features: [{ id: 'chat', setting: 'chat', on: false, ready: true }],
+        },
+      ],
+    })
+    renderMenu()
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
+
+    expect(await screen.findByRole('menuitem', { name: 'Copy output' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Ask assistant about this output' })).toBeNull()
+    useAssistStore.setState({ overview: [] })
+  })
+
   describe('Explain error', () => {
     const chat = { extId: 'assistant', name: 'Assistant' }
 
@@ -146,6 +203,25 @@ describe('BlockMenu', () => {
       expect(screen.queryByRole('menuitem', { name: 'Explain error' })).toBeNull()
     })
 
+    it('is not offered while the human switched Explain error off', async () => {
+      useAssistStore.setState({
+        availability: { chat },
+        overview: [
+          {
+            extId: 'assistant',
+            name: 'Assistant',
+            setup: null,
+            features: [{ id: 'explainError', setting: 'explainError', on: false, ready: true }],
+          },
+        ],
+      })
+      openMenu(failBlock())
+
+      expect(await screen.findByRole('menuitem', { name: 'Copy output' })).toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: 'Explain error' })).toBeNull()
+      useAssistStore.setState({ overview: [] })
+    })
+
     it('is not offered without an assistant that serves chat', async () => {
       openMenu(failBlock())
 
@@ -153,14 +229,24 @@ describe('BlockMenu', () => {
       expect(screen.queryByRole('menuitem', { name: 'Explain error' })).toBeNull()
     })
 
-    it('opens Ask and asks about the failed command with it as context', async () => {
+    it('opens the chat pane and asks about the failed command with it as context', async () => {
       vi.mocked(window.pine.assist.request).mockReturnValue(new Promise(() => {}))
       useAssistStore.setState({ availability: { chat } })
+      const pane = createPane('terminal', 'zsh', '/w')
+      useWorkspacesStore.setState({
+        workspaces: [{ id: 'ws1', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+        activeWorkspaceId: 'ws1',
+      } as never)
+      useLayoutStore.setState({
+        byWorkspace: { ws1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+      })
       openMenu(failBlock())
 
       await userEvent.click(await screen.findByRole('menuitem', { name: 'Explain error' }))
 
-      expect(useUIStore.getState()).toMatchObject({ paletteOpen: true, paletteMode: 'ask' })
+      const root = useLayoutStore.getState().byWorkspace.ws1?.root
+      expect(root && firstPaneOfKind(root, 'chat')).not.toBeNull()
+      await waitFor(() => expect(window.pine.assist.request).toHaveBeenCalled())
       const [point, , input] = vi.mocked(window.pine.assist.request).mock.calls[0]
       expect(point).toBe('chat')
       expect(input).toMatchObject({

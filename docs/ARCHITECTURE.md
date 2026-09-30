@@ -2043,10 +2043,11 @@ the process in `ext.panel` so the extension can build the URL with its own secre
 result must pass `isAllowedPanelUrl` before it is returned. Why re-check in main: setting a
 webview's `src` does not fire `will-navigate`, so the attach-time check is the only other guard.
 
-**Assist** (`shared/assist.ts`, `ExtensionHost.assist*`, `main/assistIpc.ts`). Four hook points an
+**Assist** (`shared/assist.ts`, `ExtensionHost.assist*`, `main/assistIpc.ts`). Five hook points an
 extension can serve: `input` (typo fix and prompt review of a draft for an agent), `command`
 (natural language to shell command suggestions), `completion` (inline code completion in the
-editor) and `chat` (the palette's Ask conversation). The core UI for each is tool-agnostic; the
+editor), `terminal` (ghost text continuing the command at a shell prompt) and `chat` (the chat
+pane and the palette's Ask). The core UI for each is tool-agnostic; the
 extension owns providers, prompts and requests.
 - Declared by `contributes.assist` and gated by the `assist` capability (the manifest is rejected
   without it; the host routes only to an extension whose granted caps include it). An extension
@@ -2087,9 +2088,52 @@ extension owns providers, prompts and requests.
   inserts the pick with `insertCommand` without Enter. `InputEditor.tsx` asks `command` for a
   `# ` draft (600 ms) and replaces the draft only on Tab/Enter. `monaco/inlineAssist.ts` is one
   inline-completions provider for every language (300 ms debounce, Monaco's cancellation token
-  wired to the request) that answers nothing while no `completion` provider is ready. Ask lives
-  in the palette (`AskView.tsx`, `stores/askStore.ts`, in memory per workspace; closing the
-  palette stops the stream) with context chips from `lib/askContext.ts`.
+  wired to the request) that answers nothing while no `completion` provider is ready.
+- Terminal ghost text (`lib/terminalGhost.ts`, `InputEditor.tsx`): `pickGhost` decides what shows
+  — nothing during IME, vim normal mode, the completion menu, the `# ` hint, history walking, a
+  selection or a caret before the end; else a history prefix match; else the AI continuation
+  while the draft is still a prefix of it. Requests go 300 ms after typing stops, each keystroke
+  aborts the previous one, answers are cached per exact line; the request carries the cwd,
+  platform, the pane's last 5 commands with exit codes and its pane chip values, never output.
+  Tab accepts an AI ghost (else Tab completes as before), → / End accept either.
+- Chat (`ChatView.tsx`, `ChatPane.tsx`, `stores/chatStore.ts`, `lib/chatTransport.ts`): the
+  `chat` pane surface and the palette's Ask render one `Chat` (`@ai-sdk/react`) per session with
+  Vercel AI Elements components adapted to Base UI (markdown stays react-markdown + remark-gfm
+  with Typeset, code colouring is Monaco's `colorize`). The transport turns the extension's
+  JSON `UIMessageChunk`s into the stream `useChat` reads. Why chunks rather than text: tool calls
+  and results arrive as parts of the same stream, so tools can be added without a new protocol.
+  A chat pane persists only its session id; the session itself is in main (below). Code-block
+  actions (`lib/chatActions.ts`) follow §4's typing rules; links in answers go through
+  `lib/chatLinks.ts` (`findFileLinks`); the @ picker attaches files (confined `fs.read`, capped),
+  the selection, a block's output or a browser page as context chips that show what is sent.
+- The extension runs its providers on the AI SDK: `streamText(...).toUIMessageStream()` for
+  chat, `generateText` with `Output.object` + zod (behind `extractJsonMiddleware`) for review and
+  commands, and `createOpenAICompatible` with an undici `fetch` over the unix socket plus
+  `simulateStreamingMiddleware` for model-runtime, which refuses `stream: true`. Why undici 6:
+  extensions run on Electron 33's Node 20, and undici 8 needs Node 22.
+
+**Feature switches and setup state.** `ext.setAssistStatus` also carries the extension's feature
+list (`{id, setting, ready}`, ids from `ASSIST_FEATURES`), a setup problem, the last provider
+error and a label. Main keeps only features bound to one of the extension's own boolean settings
+and reads `on` from that setting (`assistOverview`, pushed on `assist:overview`), so the top-bar
+menu, the in-context switches, Settings → Plugins and the extension's panel all flip the same
+value through the validated setting path. Why the extension names the setting: pine must stay
+tool-agnostic, and a switch that isn't a real setting would drift from Settings. `ext.shortcuts`
+answers the effective key labels the renderer reports (`assist:shortcuts`), and `ext.openAssistUi`
+opens pine's chat pane, Ask or composer for a point the extension contributes (a panel's "Try
+it"), never sending anything by itself.
+
+**Chat sessions** (`main/chatSessions.ts`, `chatSessionsIpc.ts`, `shared/chatSessions.ts`). One
+JSON file per session in `<data dir>/chat-sessions/` (mode 0600, never synced, not
+`settings.json`): title, workspace id, model label, created/updated times and messages shaped
+like the AI SDK's `UIMessage` (role + typed parts + metadata with the context items that were
+sent). Parts other than text are kept as bounded JSON so tool calls and results can be added
+later without reshaping. Each save is normalized in main, trimmed from the oldest turn when the
+session passes 512 KiB (`trimmed`), and the least recently updated other sessions are evicted
+past 16 MiB or 500 sessions; the result tells the renderer what was dropped so it can say so.
+Export writes markdown through a save dialog in main; "Save as file…" does the same for a code
+block. Why main writes them: the renderer has no fs access outside the confined `fs:*`, and a
+session holds terminal output the human chose to send, which belongs in the private data dir.
 
 **Extension secrets** (`main/extensionSecrets.ts`). `contributes.secrets` declares up to 8 keys
 with descriptions. Settings → Plugins shows a password field per key; `extensions:set-secret`
