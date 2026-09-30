@@ -45,13 +45,17 @@ export function buildSrtConfig(
   const agentSocketDirs = (paths.agentSockets ?? []).map((sock) => dirname(sock))
   const denyRead = [home, ...paths.dataDirs, ...hidden, ...agentSocketDirs]
   if (paths.runtimeDir) denyRead.push(paths.runtimeDir)
+  const insideData = (path: string): boolean =>
+    paths.dataDirs.some(
+      (dir) => path === dir || path.startsWith(`${dir}/`) || dir.startsWith(`${path}/`),
+    )
   const allowRead = [
     workDir,
     paths.tmpDir,
     paths.socketPath,
     ...agentDirs,
     ...paths.runtimeReads,
-    ...policy.allowRead.map((p) => expandHome(p, home)),
+    ...policy.allowRead.map((p) => expandHome(p, home)).filter((p) => !insideData(p)),
   ]
   const isMac = platform === 'darwin'
   return {
