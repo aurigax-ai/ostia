@@ -639,8 +639,8 @@ Details: `docs/ARCHITECTURE.md`.
   Keeper's dashboard has no per-ticket route (`/r/:id` is a local request, not a ticket), so
   its notice opens `/approvals`. The trellis extension starts before the renderer reports its
   workspaces, so an event for a project it doesn't know re-lists the workspaces
-  (`isOpenProject`) before being dropped; without that the first review notice after launch
-  was lost.
+  (`isOpenProject`) and retries (`UNKNOWN_PROJECT_RETRIES`, 1 s apart) before being dropped;
+  without that the first review notice after launch was lost.
 - **E2E reads terminal text from the DOM renderer.** WebGL draws to a canvas, so `isolatedLaunch()`
   seeds `behavior.gpuAcceleration: false` (`DOM_RENDERER_SETTINGS`); a spec that seeds its own
   `settings.json` spreads it in. Only `terminal-webgl.spec.ts` runs the GPU renderer.

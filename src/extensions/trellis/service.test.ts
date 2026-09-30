@@ -209,6 +209,37 @@ describe('TrellisService with a fake trellis on PATH', () => {
     )
   })
 
+  it('notifies for an event that arrives before its workspace is reported', async () => {
+    const svc = make()
+    await svc.refreshSidebar()
+    svc.onEventLine(
+      JSON.stringify({
+        seq: 9,
+        actor: 'agent:x',
+        entity: 'card',
+        ref: 'DEMO-3',
+        title: 'Card 3',
+        action: 'moved',
+        field: 'column',
+        new: 'review',
+      }),
+    )
+    await new Promise((r) => setTimeout(r, 200))
+    expect(recorded.notes).toEqual([])
+    workspaces = [{ workspaceId: 's1', workDir: project('shop', '/DEMO') }]
+    await vi.waitFor(
+      () =>
+        expect(recorded.notes).toEqual([
+          {
+            title: 'Trellis: ready for your review',
+            body: 'DEMO-3 Card 3',
+            path: '/p/DEMO/card/DEMO-3',
+          },
+        ]),
+      { timeout: 3000 },
+    )
+  })
+
   it('notifies about nothing when the human turned review notices off', async () => {
     writeFileSync(join(fake, 'consumers.json'), '[{"name":"pine","cursor":45,"lag":0,"gap":false}]')
     copyFileSync(join(fake, 'events.jsonl'), join(fake, 'follow.jsonl'))
