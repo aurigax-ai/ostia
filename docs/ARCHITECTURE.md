@@ -1468,6 +1468,19 @@ Two files written by two processes (see CLAUDE.md §6): the renderers write `wor
 
 ## 9. Editor, LSP, browser
 
+- **Files changed on disk** (spec `specs/editor-reload.md`): main watches the *folder* of every
+  file open in an editor (`main/fileWatch.ts`, Node `fs.watch`, debounced, confined to the `fs:*`
+  roots, refcounted per window) and sends `fs:changed` to the windows that have it open; the
+  editor also re-checks on window focus. Why the folder: agents and editors save by writing a
+  temp file and renaming it over the old one, which silently ends a watch on the file itself.
+  The editor keeps the text it last loaded or saved as its baseline (`diskBase` in
+  `Editor.tsx`). A clean buffer reloads as a minimal line edit between undo stops
+  (`lib/diskReload.ts`), so the cursor stays and Ctrl+Z restores the old text. A dirty buffer is
+  never touched: the "Changed on disk" bar offers Compare (diff surface, disk left), Reload and
+  Keep mine (the human's text becomes the baseline). A save first compares the disk with the
+  baseline and holds with Overwrite / Compare / Cancel if it moved; autosave never writes while
+  a bar is up. Re-checks are coalesced to one running plus one pending.
+
 - **Monaco** (`monaco/setup.ts`, `components/Editor.tsx`):
   - Workers are bundled with Vite `?worker` imports (editor, json, css, html, ts), with no CDN.
   - The editor theme is derived from the scheme `useScheme('editor')` resolves from
