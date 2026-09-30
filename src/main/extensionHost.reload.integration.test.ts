@@ -165,6 +165,17 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     await until(() => (info('pinger')?.version === '3.0.0' ? true : undefined))
   })
 
+  it('picks up a manifest written into a directory that appeared empty earlier', async () => {
+    startHost()
+    host.watchUserExtensions()
+    mkdirSync(join(userRoot, 'late'))
+    await new Promise((r) => setTimeout(r, 600))
+    expect(info('late')).toBeUndefined()
+    writeExtension('late', { capabilities: [] })
+    await until(() => info('late'))
+    expect(info('late')?.status).toBe('pending-approval')
+  })
+
   it('resolves a file panel path inside the extension and refuses one outside it', async () => {
     startHost()
     const extDir = join(userRoot, 'static')

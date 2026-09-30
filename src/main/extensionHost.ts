@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { type FSWatcher, mkdirSync, watch } from 'node:fs'
+import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
@@ -117,6 +117,16 @@ function storedSettings(raw: unknown): Map<string, ExtensionSettingValues> {
     out.set(extId, kept)
   }
   return out
+}
+
+function subdirectories(root: string): string[] {
+  try {
+    return readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => join(root, entry.name))
+  } catch {
+    return []
+  }
 }
 
 function manifestSignature(ext: DiscoveredExtension): string {
@@ -471,10 +481,8 @@ export class ExtensionHost {
   private watchRoots(): void {
     if (!this.watching) return
     this.closeWatchers()
-    const dirs = this.deps.roots.filter((r) => !r.builtin).map((r) => r.dir)
-    for (const rt of this.runtimes.values()) {
-      if (!rt.ext.builtin) dirs.push(rt.ext.dir)
-    }
+    const roots = this.deps.roots.filter((r) => !r.builtin).map((r) => r.dir)
+    const dirs = [...roots, ...roots.flatMap(subdirectories)]
     for (const dir of dirs) {
       try {
         const watcher = watch(dir, () => this.scheduleRescan())
