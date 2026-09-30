@@ -6,6 +6,7 @@ import type { LayoutNode } from '../layout/types'
 import { useLayoutStore } from '../stores/layoutStore'
 import { Pane } from './Pane'
 import { Button } from './ui/button'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
 
 export function PaneTree({ workspaceId }: { workspaceId: string }): JSX.Element {
   const layout = useLayoutStore((s) => s.byWorkspace[workspaceId])
@@ -63,10 +64,14 @@ function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
   const ensure = useLayoutStore((s) => s.ensure)
   const openBrowser = useLayoutStore((s) => s.openBrowser)
   return (
-    <div className="workspace-empty">
-      <h2 className="font-semibold text-fg text-ui-lg">{d.pane.emptyTitle}</h2>
-      <p className="text-fg-muted text-ui-base">{d.pane.emptyBody}</p>
-      <div className="mt-2 flex gap-2">
+    <Empty className="workspace-empty h-full">
+      <EmptyHeader>
+        <EmptyTitle className="font-semibold text-fg text-ui-lg">
+          <h2>{d.pane.emptyTitle}</h2>
+        </EmptyTitle>
+        <EmptyDescription className="text-ui-base">{d.pane.emptyBody}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="flex-row justify-center">
         <Button onClick={() => ensure(workspaceId)}>
           <TerminalWindowIcon data-icon="inline-start" />
           {d.pane.newTerminal}
@@ -75,7 +80,7 @@ function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
           <GlobeIcon data-icon="inline-start" />
           {d.pane.newBrowser}
         </Button>
-      </div>
-    </div>
+      </EmptyContent>
+    </Empty>
   )
 }

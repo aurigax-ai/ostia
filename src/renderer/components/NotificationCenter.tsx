@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { BellIcon } from '@phosphor-icons/react'
 import type { NotificationEntry } from '@shared/types'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -11,7 +12,11 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { IconButton } from './IconButton'
+import { ATTENTION_BADGE } from './attentionStyles'
+import { Badge } from './ui/badge'
 import { Button } from './ui/button'
+import { Empty, EmptyDescription } from './ui/empty'
+import { Item, ItemContent, ItemHeader } from './ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
 const LIST_LIMIT = 50
@@ -86,9 +91,13 @@ export function NotificationCenter(): JSX.Element {
       <span className="bell-wrap">
         <PopoverTrigger render={<IconButton size="bar" icon={BellIcon} label={label} />} />
         {unread > 0 ? (
-          <span className="bell-count" aria-hidden="true">
+          <Badge
+            variant="outline"
+            className={cn(ATTENTION_BADGE, 'bell-count bg-surface-1')}
+            aria-hidden="true"
+          >
             {unread > 99 ? '99+' : unread}
-          </span>
+          </Badge>
         ) : null}
       </span>
       <PopoverContent align="end" className="notif-popover">
@@ -108,7 +117,9 @@ export function NotificationCenter(): JSX.Element {
           </Button>
         </div>
         {entries.length === 0 ? (
-          <p className="notif-empty">{d.attention.empty}</p>
+          <Empty className="p-3">
+            <EmptyDescription className="text-ui-sm">{d.attention.empty}</EmptyDescription>
+          </Empty>
         ) : (
           <ul className="notif-list" aria-label={d.attention.notifications}>
             {entries.map((entry) => {
@@ -121,25 +132,30 @@ export function NotificationCenter(): JSX.Element {
                   : d.attention.closedPane
               return (
                 <li key={entry.id}>
-                  <button
-                    type="button"
-                    className="notif-row"
-                    disabled={!where && !ext}
-                    onClick={() => {
-                      if (ext) {
-                        openExtensionPanel({ extId: ext.id })
-                        setOpen(false)
-                      } else if (entry.paneId && revealPane(entry.paneId)) setOpen(false)
-                    }}
+                  <Item
+                    size="xs"
+                    className="gap-0.5 p-1.5 text-left hover:bg-surface-2 disabled:text-fg-muted disabled:hover:bg-transparent"
+                    render={
+                      <button
+                        type="button"
+                        disabled={!where && !ext}
+                        onClick={() => {
+                          if (ext) {
+                            openExtensionPanel({ extId: ext.id })
+                            setOpen(false)
+                          } else if (entry.paneId && revealPane(entry.paneId)) setOpen(false)
+                        }}
+                      />
+                    }
                   >
-                    <span className="notif-meta">
-                      <span className="notif-where">{whereText}</span>
+                    <ItemHeader className="text-fg-muted text-ui-xs tabular-nums">
+                      <span className="truncate">{whereText}</span>
                       <time dateTime={entry.ts}>{time.format(new Date(entry.ts))}</time>
-                    </span>
-                    <span className="notif-msg">
+                    </ItemHeader>
+                    <ItemContent className="basis-full text-ui-sm [overflow-wrap:anywhere]">
                       {entry.body ? `${entry.title}: ${entry.body}` : entry.title}
-                    </span>
-                  </button>
+                    </ItemContent>
+                  </Item>
                 </li>
               )
             })}

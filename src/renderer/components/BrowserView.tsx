@@ -15,6 +15,8 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { IconButton } from './IconButton'
 import { PickSendPanel, usePickTargets } from './PickSendPanel'
 import { Button } from './ui/button'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
+import { Input } from './ui/input'
 
 const STATUS_MS = 6000
 
@@ -265,8 +267,8 @@ export function BrowserView({
           label={d.browser.reload}
           onClick={() => withGuest((wv) => wv.reload())}
         />
-        <input
-          className="browser-address"
+        <Input
+          className="browser-address h-6 flex-1 font-mono text-ui-sm md:text-ui-sm"
           aria-label={d.browser.address}
           value={address}
           spellCheck={false}
@@ -310,10 +312,14 @@ export function BrowserView({
           partition={`pine-browser-${paneId}`}
         />
         {loadError ? (
-          <div className="browser-error" role="alert">
-            <p className="browser-error-title">{d.browser.loadFailed}</p>
-            <p className="browser-error-url">{loadError.url}</p>
-            <p className="browser-error-reason">{loadError.reason}</p>
+          <Empty className="browser-error" role="alert">
+            <EmptyHeader className="max-w-full">
+              <EmptyTitle className="text-fg text-ui-base">{d.browser.loadFailed}</EmptyTitle>
+              <EmptyDescription className="font-mono text-ui-sm [overflow-wrap:anywhere]">
+                {loadError.url}
+              </EmptyDescription>
+              <EmptyDescription className="text-ui-sm">{loadError.reason}</EmptyDescription>
+            </EmptyHeader>
             <Button
               variant="outline"
               size="sm"
@@ -322,7 +328,7 @@ export function BrowserView({
             >
               {d.browser.retry}
             </Button>
-          </div>
+          </Empty>
         ) : null}
       </div>
     </div>

@@ -4,6 +4,7 @@ import type { ITheme } from '@xterm/xterm'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { IconButton } from './IconButton'
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from './ui/input-group'
 
 export function findOptions(palette: ITheme): ISearchOptions {
   const match = palette.brightBlack ?? '#5c6266'
@@ -83,19 +84,23 @@ export function TerminalFind({
 
   return (
     <div className="term-find">
-      <input
-        ref={inputRef}
-        className="term-find-input"
-        aria-label={d.find.label}
-        placeholder={d.find.placeholder}
-        spellCheck={false}
-        value={query}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
-      />
-      <span className="term-find-count" aria-live="polite">
-        {status}
-      </span>
+      <InputGroup className="h-7 w-64">
+        <InputGroupInput
+          ref={inputRef}
+          className="text-ui-sm md:text-ui-sm"
+          aria-label={d.find.label}
+          placeholder={d.find.placeholder}
+          spellCheck={false}
+          value={query}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+        />
+        <InputGroupAddon align="inline-end">
+          <InputGroupText className="term-find-count text-ui-sm tabular-nums" aria-live="polite">
+            {status}
+          </InputGroupText>
+        </InputGroupAddon>
+      </InputGroup>
       <IconButton icon={CaretUpIcon} label={d.find.previous} onClick={prev} />
       <IconButton icon={CaretDownIcon} label={d.find.next} onClick={next} />
       <IconButton icon={XIcon} label={d.find.close} onClick={onClose} />

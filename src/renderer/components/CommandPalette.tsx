@@ -17,6 +17,7 @@ import {
   CommandList,
   CommandShortcut,
 } from './ui/command'
+import { Kbd } from './ui/kbd'
 
 const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
 const commandsVersion = (): number => commands.version()
@@ -73,7 +74,7 @@ function HelpItems({ onPick }: { onPick: (symbol: string) => void }): JSX.Elemen
           value={`? ${m.symbol} ${d.palette.modes[m.mode]}`}
           onSelect={() => onPick(m.symbol)}
         >
-          <kbd className="palette-prefix">{m.symbol}</kbd>
+          <Kbd className="font-mono">{m.symbol}</Kbd>
           <span>{d.palette.modes[m.mode]}</span>
         </CommandItem>
       ))}

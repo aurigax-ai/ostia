@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import {
   ArrowsClockwiseIcon,
   DeviceMobileIcon,
@@ -34,6 +35,8 @@ import { useUIStore } from '../stores/uiStore'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { SyncSection } from './SyncSection'
+import { ATTENTION_ALERT } from './attentionStyles'
+import { Alert } from './ui/alert'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group'
@@ -126,19 +129,18 @@ export function SettingsPanel(): JSX.Element | null {
             <ul className="flex flex-col gap-0.5 px-2 pb-2">
               {visible.map((s) => (
                 <li key={s.id}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => setActive(s.id)}
                     aria-current={active === s.id ? 'page' : undefined}
-                    className={`flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-ui-base ${
-                      active === s.id
-                        ? 'bg-surface-2 text-fg'
-                        : 'text-fg-muted hover:bg-surface-2/60 hover:text-fg'
-                    }`}
+                    className={cn(
+                      'w-full justify-start gap-2.5 font-normal text-ui-base',
+                      active === s.id ? 'bg-surface-2 text-fg' : 'text-fg-muted',
+                    )}
                   >
-                    <s.icon size={14} className={active === s.id ? 'text-brand' : 'text-fg-dim'} />
+                    <s.icon className={active === s.id ? 'text-brand' : 'text-fg-dim'} />
                     {s.label}
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -186,14 +188,7 @@ export function SubHead({ title, desc }: { title: string; desc?: string }): JSX.
 }
 
 export function WarningNote({ children }: { children: React.ReactNode }): JSX.Element {
-  return (
-    <p
-      role="alert"
-      className="mt-1 rounded-md border border-attn/40 bg-attn/10 px-2.5 py-1.5 text-attn-fg text-ui-sm"
-    >
-      {children}
-    </p>
-  )
+  return <Alert className={cn(ATTENTION_ALERT, 'mt-1')}>{children}</Alert>
 }
 
 export function ControlRow({

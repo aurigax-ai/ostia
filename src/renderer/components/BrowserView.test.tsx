@@ -158,7 +158,8 @@ describe('BrowserView send panel', () => {
     expect(screen.getByText('button#save 80×24')).toBeInTheDocument()
     const radios = screen.getAllByRole('radio')
     expect(radios).toHaveLength(2)
-    expect(radios.find((r) => (r as HTMLInputElement).checked)).toHaveAttribute('value', a)
+    const selected = screen.getByRole('radio', { checked: true }).closest('label')
+    expect(selected?.htmlFor.endsWith(`-target-${a}`)).toBe(true)
   })
 
   it('sends the note to the chosen pane and confirms in the browser pane', async () => {

@@ -27,7 +27,8 @@ caused real bugs here.
 - Enforced: `pnpm lint` runs `node scripts/comments.mjs --check` and fails on any comment.
   `node scripts/comments.mjs` (no flag) strips them.
 - Generated shadcn files in `src/renderer/components/ui/**` are exempt; hand-edit them only to
-  swap animation classes (§5 Motion) or their icons to Phosphor (§5 UI).
+  swap animation classes (§5 Motion), their icons to Phosphor (§5 UI), or to wrap a component
+  in `forwardRef` (React 18 drops `ref` on plain function components; `Input`, `InputGroupInput`).
 - Strings are not comments: `#` lines inside the generated shell rc templates stay.
 
 ---
@@ -269,7 +270,9 @@ Details: `docs/ARCHITECTURE.md`.
   each pane hosts one **Surface**: `terminal | editor | browser | extension | diff` (`agent` is
   reserved in the type and snapshot format, not yet created; `diff` is never persisted).
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
-  selects, dialogs, tooltips. Tokens and type scale in `docs/DESIGN.md`; never hardcode colors or
+  selects, dialogs, tooltips, kbd, badges, alerts, empty states, list items and radio groups;
+  hand-roll a control only when shadcn has none (pane tabs, block gutter, file tree, rail rows,
+  window controls). Tokens and type scale in `docs/DESIGN.md`; never hardcode colors or
   off-scale font sizes. `--fg-dim` is never used for text. Icon-only buttons are `IconButton`.
   Icons come only from `@phosphor-icons/react` (`*Icon` names; weight set once by `IconContext`
   in `App.tsx`, never per icon). No other icon family and no hand-drawn SVG icons.
@@ -411,5 +414,4 @@ Rules:
   allows it; only the Settings switches exist). Anyone with shell access to the desktop can still
   edit `gateway-devices.json` directly, same as `settings.json`.
 - **Monaco theme is fixed** (one-dark-vivid) regardless of the app theme.
-- **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch);
-  `SettingsPanel` passes a ref to a non-forwardRef `Input`, so the search box isn't focused on open.
+- **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch).
