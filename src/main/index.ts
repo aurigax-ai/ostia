@@ -83,6 +83,8 @@ import { killAllProcesses, registerProcessMethods } from './processManager'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { attachWorkspace } from './sandbox/attachWorkspace'
+import { registerSandboxMethods } from './sandbox/controlMethods'
+import { DomainRequests } from './sandbox/domainRequests'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { sandboxFailureBanner } from './sandbox/spawnBanner'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
@@ -239,7 +241,7 @@ function sandboxCwd(cwd: string, workDir: string | undefined): string {
   return cwd === workDir || cwd.startsWith(`${workDir}/`) ? cwd : workDir
 }
 
-const workspaceSandboxes = new WorkspaceSandboxes({
+const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   store: new SandboxStore(join(app.getPath('userData'), 'sandbox.json')),
   globals: () => parseSandboxGlobals((readSettingsFile() as { sandbox?: unknown }).sandbox),
   basePaths: () => ({
@@ -258,7 +260,44 @@ const workspaceSandboxes = new WorkspaceSandboxes({
   tmpRoot: privateTmpDir('pine-sandbox'),
   nodePath: process.execPath,
   hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
-  onAsk: async () => false,
+  onAsk: (workspaceId, host, port) => domainRequests.onBlocked(workspaceId, host, port),
+})
+
+function paneForWorkspace(workspaceId: string): string | undefined {
+  for (const [paneId, entry] of ptys) {
+    if (entry.workspaceId === workspaceId && entry.sandboxed) return paneId
+  }
+  return undefined
+}
+
+const domainRequests: DomainRequests = new DomainRequests({
+  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+  ask: async ({ workspaceId, paneId, host, origin }) => {
+    const pane = paneId ? getByPaneId(paneId) : undefined
+    const identity = pane ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
+    const queue = approvals()
+    if (!identity || !queue) return 'deny'
+    return queue.request({
+      externalId: identity.externalId,
+      windowId: identity.windowId,
+      paneId: identity.paneId,
+      workspaceId,
+      caps: [],
+      kind: 'sandbox-domain',
+      subject: host,
+      action: origin === 'agent' ? `pine sandbox request-domain ${host}` : `connect to ${host}`,
+      detail: '',
+    })
+  },
+  allowWorkspace: (workspaceId, domain) => {
+    workspaceSandboxes.update(workspaceId, (current) => ({
+      ...current,
+      domains: current.domains.includes(domain) ? current.domains : [...current.domains, domain],
+    }))
+  },
+  allowUntilRestart: (workspaceId, domain) =>
+    workspaceSandboxes.allowUntilRestart(workspaceId, domain),
+  now: Date.now,
 })
 
 let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
@@ -573,6 +612,7 @@ function registerIpc(): void {
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
       workspaceSandboxes.forget(event.workspaceId)
+      domainRequests.forget(event.workspaceId)
     } else if (event.type === 'workspace-activated') {
     } else if (event.type === 'workspace-state') {
       emitSessionState(event.workspaceId, event.state)
@@ -1114,6 +1154,7 @@ app.whenReady().then(() => {
     windowById: (id: string) => windows.get(id),
   }
   registerNotifyMethods(notifyDeps)
+  registerSandboxMethods({ domains: domainRequests })
   onSandboxSpawnFailure = (workspaceId, errors) =>
     reportSandboxSpawnFailure(
       {
