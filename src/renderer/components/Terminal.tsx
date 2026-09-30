@@ -15,8 +15,9 @@ import {
   parseOsc99,
   parseOsc777,
 } from '../lib/attention'
-import { stepBlock } from '../lib/blockActions'
+import { canTypeInto, insertCommand, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
+import { isIdlePrompt } from '../lib/blocks'
 import { isAppChord, matchChord } from '../lib/chords'
 import { openFileAt } from '../lib/openFile'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
@@ -36,6 +37,7 @@ import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Blocks } from './Blocks'
+import { InputEditor } from './InputEditor'
 import { TerminalFind, findOptions } from './TerminalFind'
 import { nextSizeAction } from './terminalSizing'
 import { terminalPalette } from './terminalTheme'
@@ -54,6 +56,7 @@ export function TerminalView({
   cwd?: string
 }): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
+  const surfaceRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Xterm | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
   const lastSizeRef = useRef({ cols: 0, rows: 0 })
@@ -64,6 +67,8 @@ export function TerminalView({
   const themeId = useSettingsStore((s) => s.appearance.theme)
   const [search, setSearch] = useState<SearchAddon | null>(null)
   const [findOpen, setFindOpen] = useState(false)
+  const [alternateScreen, setAlternateScreen] = useState(false)
+  const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(terminalPalette(themeId)), [themeId])
 
   useEffect(() => {
@@ -101,6 +106,17 @@ export function TerminalView({
     fitRef.current = fit
     setSearch(searchAddon)
     const unregisterTerminal = registerTerminal(paneId, term)
+    const suppressInputEditor = (): void => {
+      const blocks = useBlocksStore.getState()
+      if (useSettingsStore.getState().behavior.inputMode !== 'editor') return
+      if (!isIdlePrompt(blocks, paneId)) return
+      setSuppressedPrompt(blocks.drafts[paneId]?.promptLine ?? null)
+    }
+    const shellKeys = term.onKey(suppressInputEditor)
+    host.addEventListener('paste', suppressInputEditor, true)
+    const bufferChange = term.buffer.onBufferChange((buffer) =>
+      setAlternateScreen(buffer.type === 'alternate'),
+    )
 
     term.attachCustomKeyEventHandler((e) => {
       if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
@@ -122,7 +138,9 @@ export function TerminalView({
         if (selection) void navigator.clipboard.writeText(selection)
       } else {
         void navigator.clipboard.readText().then((text) => {
-          if (text && !disposed) term.paste(text)
+          if (!text || disposed) return
+          suppressInputEditor()
+          term.paste(text)
         })
       }
       return false
@@ -434,6 +452,9 @@ export function TerminalView({
       if (holdCapTimer) clearTimeout(holdCapTimer)
       ro.disconnect()
       input.dispose()
+      shellKeys.dispose()
+      bufferChange.dispose()
+      host.removeEventListener('paste', suppressInputEditor, true)
       offData()
       offExit()
       oscCwd.dispose()
@@ -457,6 +478,8 @@ export function TerminalView({
       fitRef.current = null
       setSearch(null)
       setFindOpen(false)
+      setAlternateScreen(false)
+      setSuppressedPrompt(null)
     }
   }, [workspaceId, paneId])
 
@@ -489,25 +512,49 @@ export function TerminalView({
     term.options.theme = terminalPalette(themeId)
   }, [themeId])
 
+  const submitInput = (text: string): boolean => {
+    if (!canTypeInto(paneId)) return false
+    setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
+    if (text) return insertCommand(paneId, text, true)
+    termRef.current?.focus()
+    window.pine.pty.write(paneId, '\r')
+    return true
+  }
+
+  const background = terminalPalette(themeId).background
+
   return (
-    <>
-      <div
-        ref={hostRef}
-        className="xterm-host"
-        style={{ background: terminalPalette(themeId).background }}
+    <div ref={surfaceRef} className="terminal-surface">
+      <div className="terminal-stack">
+        <div ref={hostRef} className="xterm-host" style={{ background }} />
+        <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />
+        {findOpen && search && (
+          <TerminalFind
+            search={search}
+            options={searchOptions}
+            onClose={() => {
+              setFindOpen(false)
+              termRef.current?.focus()
+            }}
+          />
+        )}
+      </div>
+      <InputEditor
+        paneId={paneId}
+        cwd={cwd}
+        fontFamily={fontStack(font.family)}
+        fontSize={font.size}
+        background={background}
+        alternateScreen={alternateScreen}
+        suppressedPrompt={suppressedPrompt}
+        ownsFocus={() => {
+          const active = document.activeElement
+          return Boolean(active && surfaceRef.current?.contains(active))
+        }}
+        onSubmit={submitInput}
+        onEscape={() => termRef.current?.focus()}
       />
-      <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />
-      {findOpen && search && (
-        <TerminalFind
-          search={search}
-          options={searchOptions}
-          onClose={() => {
-            setFindOpen(false)
-            termRef.current?.focus()
-          }}
-        />
-      )}
-    </>
+    </div>
   )
 }
 

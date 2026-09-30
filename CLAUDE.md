@@ -133,6 +133,10 @@ Details: `docs/ARCHITECTURE.md`.
   element or send selection (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a
   running agent that reported `waiting`/`done`; it's text only, never followed by Enter. Anything
   else goes to the clipboard.
+  The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
+  `insertCommand` too, and is shown only at an idle prompt on the normal buffer; anything
+  running (or a TUI on the alternate screen) gets the keys straight through xterm. While it's
+  shown, `insertCommand` without Enter fills the editor instead of the shell line.
 - **Selection reports are checked in main.** A file view's capture travels whole over
   `selection:send`, so main re-validates it (`normalizeSelection`: kind, absolute path, clipped
   text, PNG signature, 25 MiB image cap, sender owns the source pane) and writes
@@ -345,6 +349,12 @@ Details: `docs/ARCHITECTURE.md`.
   hooks. `codexHookTrustHash` must match Codex's own `hook_hash` (a test pins a hash codex
   0.157 reported); a mismatch leaves Pine's hooks untrusted, not unsafe. Keep `--no-daemon`:
   in Codex's shared app-server, hooks report to whichever pane started that server.
+- **Input editor suppression is keyed on the prompt's A marker** (`draft.promptLine`), never the
+  draft object: zsh re-emits OSC 133;B on every prompt redraw (p10k async segments, WINCH), which
+  replaces the draft and would bring the editor back over a shell line the user already typed
+  into. Submitting or typing into the terminal suppresses the current A marker; the next prompt
+  lifts it. Keystrokes are counted with `term.onKey`, not `onData`, because `onData` also
+  carries xterm's replies to terminal queries (cursor position, device attributes).
 - **OSC 7 is not percent-decoded**: hooks emit raw paths; decoding corrupts dirs like `100%20off`.
 - **Workspace restore is two files from two processes** (`workspaceSnapshot.ts`): the renderer
   autosaves `workspaces.json` as you work; main writes `scrollback.json` every 5 s when output

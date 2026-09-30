@@ -34,7 +34,11 @@ export function parkSurface(paneId: string, slot: HTMLElement): void {
 }
 
 export function focusSurface(paneId: string): void {
-  hosts.get(paneId)?.querySelector<HTMLElement>('.xterm-helper-textarea')?.focus()
+  const host = hosts.get(paneId)
+  const target =
+    host?.querySelector<HTMLElement>('.input-editor:not([hidden]) textarea') ??
+    host?.querySelector<HTMLElement>('.xterm-helper-textarea')
+  target?.focus()
 }
 
 export function releaseSurfaces(live: ReadonlySet<string>): void {

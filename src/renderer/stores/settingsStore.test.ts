@@ -51,6 +51,20 @@ describe('settingsStore', () => {
   })
 
   describe('init', () => {
+    it('keeps a known input mode and falls back to terminal for anything else', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({ behavior: { inputMode: 'editor' } }),
+      )
+      await store().init()
+      expect(store().behavior.inputMode).toBe('editor')
+
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({ behavior: { inputMode: 'warp' } }),
+      )
+      await store().init()
+      expect(store().behavior.inputMode).toBe('terminal')
+    })
+
     it('reads notification, sidebar and line-height settings, clamping and dropping bad values', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue(
         JSON.stringify({
