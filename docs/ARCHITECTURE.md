@@ -247,6 +247,50 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   prompt without running it. Why not Ctrl+R: that's the shell's own history search. History is
   what's in `blocksStore`, so it covers panes that exist now (restored scrollback re-parses its
   marks on replay), not closed panes.
+- **Input editor** (`components/InputEditor.tsx`, `lib/inputEditor.ts`, setting
+  `behavior.inputMode: 'terminal' | 'editor'`, palette `terminal.toggleInputEditor`): in
+  `editor` mode a Warp-style editor is docked under the terminal (`.terminal-surface` is a flex
+  column: `.terminal-stack` holds the xterm host, block overlay and find bar; the editor sits
+  below it). It shows only while the pane is at an idle prompt (`drafts[paneId]` open, nothing
+  `running`), the normal buffer is active (`term.buffer.onBufferChange`), and the prompt is not
+  suppressed. It has a cwd chip (the pane's OSC 7 cwd), a hint built with `chordLabel`, and a
+  textarea in the terminal font that grows to about six lines.
+  - Enter submits: an empty draft writes `\r`; otherwise `insertCommand(paneId, text, true)`,
+    the same bracketed-paste-then-Enter path as rerun, so the shell receives exactly what typing
+    would give it. Shift+Enter adds a newline, and a multi-line draft is pasted as one
+    bracketed paste, so zsh/bash run it as one command line. Ctrl+C clears the draft, Escape
+    focuses the terminal. Up on the first line (or while already walking) steps through
+    `inputHistory`: this pane's commands newest first, then other panes' by start time, deduped.
+  - Suppression is keyed on the prompt's A marker (`draft.promptLine`), not the draft object.
+    Submitting suppresses the prompt it was submitted at, so the editor hides immediately
+    instead of waiting for OSC 133;C. Typing into the terminal at that prompt (`term.onKey`, a
+    DOM paste on the host, the paste chord) also suppresses it: the shell's own line now holds
+    text, so the editor steps aside and comes back at the next prompt. Why the A marker: zsh
+    re-emits B on every prompt redraw (p10k async segments, WINCH), which replaces the draft
+    object; the A marker only changes with a new prompt.
+  - While the editor is shown, `insertCommand` without Enter (history search, `history.insert`)
+    fills the editor instead of the shell line (`registerInputEditor` in
+    `lib/terminalHandles.ts`), and `focusSurface` focuses the editor rather than xterm.
+  - Focus: when the editor appears and focus was already inside this terminal surface, the
+    editor takes it; when it hides while focused (a command started), focus goes to xterm, so
+    `cat`, `less`, vim or an agent CLI get every key. It never steals focus from another pane.
+  - Tab completes paths, never commands: the word before the caret (backslash-escaped spaces
+    understood) is split into dir and base, the dir is resolved against the pane cwd
+    (`resolveLinkPath`; `~` is expanded in main), and `fs.list` supplies the names. One match
+    is inserted (escaped, `/` for a directory, a space for a file); several extend to the
+    common prefix and are listed in the hint row; none shows "No matching paths". Dotfiles
+    need a leading dot. Why not ask the shell: bash and zsh draw their completion menus in the
+    terminal and edit their own line, which the editor would then have to read back off the
+    screen (the RPROMPT problem in §6 of CLAUDE.md) and which conflicts with keeping the shell
+    line empty. Why not commands: listing `$PATH` needs a new main-side API; commands still
+    complete in the terminal (Escape, type).
+  - Shells without integration never open a draft, so the editor never shows and the pane is
+    a plain terminal.
+  - Why: the editor changes the terminal host's height. The host is observed by the same
+    `ResizeObserver` → 90 ms debounce → rAF → `syncSize` path as every other resize, and since
+    the editor appears only at an idle prompt, that shrink takes the prompt-aware atomic resize
+    (§6 of CLAUDE.md). A quick command hides and shows it inside one debounce window, so the pty
+    usually isn't resized at all. `e2e/input-editor.spec.ts` checks the prompt isn't duplicated.
 - **File links** (`lib/fileLinks.ts`, `lib/terminalFileLinks.ts`): an xterm link provider finds
   paths in output (`src/a.ts:12:4`, `Program.cs(12,5)`, `File "x.py", line 8`, `~/…`, bare
   `name.ext`), resolves them against the pane's OSC 7 cwd, and underlines only those `fs:stat`

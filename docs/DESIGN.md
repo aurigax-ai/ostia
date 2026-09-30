@@ -219,6 +219,15 @@ Attention, the second loud element, appears only when a pane needs you:
 - **Popover**: `components/ui/popover.tsx` (Base UI), skinned via `className`; the notification
   center is the reference (`surface-3`, `radius-md`).
 
+- **Terminal input editor** (`InputEditor.tsx`, `behavior.inputMode: 'editor'`): docked under
+  the terminal, painted with the terminal theme background, a `--line` hairline on top, 4/8px
+  padding. Top row (20px, `ui-xs`): the cwd chip (`surface-2`, `radius-sm`, mono, a 12px folder
+  icon in `fg-muted`) on the left; the hint, completion candidates (mono, `fg`) or "No matching
+  paths" in `fg-muted` on the right, truncated with an ellipsis. Below: the shadcn `Textarea` in
+  the terminal font and size, `radius-md`, one row that grows to about six lines, then scrolls.
+  Placeholder "Run commands". It appears and disappears without animation, because it resizes
+  the xterm host (§8 Motion).
+
 Consolidation debt:
 - Primitives still missing: DropdownMenu. ContextMenu (`components/ui/context-menu.tsx`) backs
   the block menu.
