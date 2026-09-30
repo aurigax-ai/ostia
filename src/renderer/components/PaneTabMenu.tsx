@@ -1,4 +1,4 @@
-import { ArrowSquareOutIcon } from '@phosphor-icons/react'
+import { AppWindowIcon } from '@phosphor-icons/react'
 import type { ReactElement } from 'react'
 import { useDict } from '../i18n/useDict'
 import type { PaneNode } from '../layout/types'
@@ -48,7 +48,7 @@ export function PaneTabMenu({
         {movable && (file || tabActions.length > 0) ? <ContextMenuSeparator /> : null}
         {movable && workspaceId ? (
           <MenuItem
-            icon={ArrowSquareOutIcon}
+            icon={AppWindowIcon}
             onClick={() => void movePaneToNewWindow(workspaceId, pane.id)}
           >
             {d.window.movePaneToNewWindow}

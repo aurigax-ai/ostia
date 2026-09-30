@@ -25,7 +25,7 @@ export function ActionsSection(): JSX.Element {
             const places = action.in.map((p) => d.actions.places[p] ?? p)
             return (
               <li key={action.id} className="flex items-center gap-3 rounded-sm px-3 py-2">
-                <Icon size={16} className="shrink-0 text-fg-muted" aria-hidden />
+                <Icon size={14} className="shrink-0 text-fg-muted" aria-hidden />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-fg text-ui-base">{action.title}</span>

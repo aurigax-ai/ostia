@@ -102,7 +102,7 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
         {content?.path ? (
           <IconButton
             icon={ArrowSquareOutIcon}
-            label={d.editor.openExternal}
+            label={d.fileMenu.openExternal}
             onClick={external.open}
           />
         ) : null}

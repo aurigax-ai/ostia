@@ -18,6 +18,7 @@ export const EXTENSION_ICONS = [
   'check',
   'alert',
   'shield',
+  'chat',
 ] as const
 
 export type ExtensionIcon = (typeof EXTENSION_ICONS)[number]

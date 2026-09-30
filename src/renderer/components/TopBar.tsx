@@ -58,10 +58,7 @@ export function TopBar(): JSX.Element {
       </div>
 
       <div className="topbar-center">
-        <Hint
-          label={paletteKeys ? `${d.search.placeholder} (${paletteKeys})` : d.search.placeholder}
-          side="bottom"
-        >
+        <Hint label={d.search.placeholder} side="bottom">
           <Button
             variant="ghost"
             className="h-6 min-w-0 flex-1 justify-start gap-1 rounded-sm bg-fg/6 pr-1 pl-2 font-normal text-fg-muted text-ui-base hover:bg-fg/10 hover:text-fg dark:hover:bg-fg/10"

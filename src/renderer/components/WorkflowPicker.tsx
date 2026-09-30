@@ -101,7 +101,7 @@ export function WorkflowPicker(): JSX.Element {
               <span className="workflow-row-head">
                 <span className="workflow-name">{w.name}</span>
                 {w.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary">
+                  <Badge key={tag} variant="outline" className="text-ui-xs">
                     {tag}
                   </Badge>
                 ))}

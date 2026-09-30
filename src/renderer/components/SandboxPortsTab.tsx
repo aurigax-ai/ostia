@@ -108,7 +108,11 @@ export function SandboxPortsTab({ workspaceId }: { workspaceId: string }): JSX.E
           ))}
         </ul>
       )}
-      {error ? <p className="mt-1 text-attn-fg text-ui-sm">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
+          {error}
+        </p>
+      ) : null}
     </fieldset>
   )
 }

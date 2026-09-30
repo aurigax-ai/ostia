@@ -18,6 +18,7 @@ import type {
 import { useCallback, useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { cookieRowKey, filterCookies, filterEntries, formatExpiry } from '../lib/storageRows'
+import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { SectionTab, SectionTabsList } from './SectionTabs'
 import { Button } from './ui/button'
@@ -41,6 +42,18 @@ type Editing =
 const STATUS_MS = 4000
 
 const DENSE_TABLE = 'text-ui-sm [&_td]:px-2 [&_td]:py-0.5 [&_th]:h-7 [&_th]:px-2'
+
+const VALUE_HINT_MAX = 400
+
+function ValueCell({ value }: { value: string }): JSX.Element {
+  if (!value) return <span />
+  const hint = value.length > VALUE_HINT_MAX ? `${value.slice(0, VALUE_HINT_MAX)}…` : value
+  return (
+    <Hint label={hint}>
+      <span className="block truncate">{value}</span>
+    </Hint>
+  )
+}
 
 function Flag({ on, label }: { on: boolean; label: string }): JSX.Element | null {
   return on ? <CheckIcon role="img" aria-label={label} className="size-3.5 text-fg" /> : null
@@ -171,8 +184,8 @@ export function BrowserStoragePanel({
             : rows.map((c) => (
                 <TableRow key={cookieRowKey(c)}>
                   <TableCell className="font-mono">{c.name}</TableCell>
-                  <TableCell className="max-w-64 truncate font-mono" title={c.value}>
-                    {c.value}
+                  <TableCell className="max-w-64 font-mono">
+                    <ValueCell value={c.value} />
                   </TableCell>
                   <TableCell className="font-mono">{c.domain}</TableCell>
                   <TableCell className="font-mono">{c.path}</TableCell>
@@ -219,8 +232,8 @@ export function BrowserStoragePanel({
             : rows.map((e) => (
                 <TableRow key={e.key}>
                   <TableCell className="font-mono">{e.key}</TableCell>
-                  <TableCell className="max-w-96 truncate font-mono" title={e.value}>
-                    {e.value}
+                  <TableCell className="max-w-96 font-mono">
+                    <ValueCell value={e.value} />
                   </TableCell>
                   <TableCell>
                     {rowActions(
@@ -275,7 +288,7 @@ export function BrowserStoragePanel({
               disabled={counts[kind] === 0}
               onClick={() => setConfirmClear(true)}
             >
-              <TrashIcon />
+              <TrashIcon data-icon="inline-start" aria-hidden />
               {t.clearAll}
             </Button>
             <IconButton icon={XIcon} label={t.close} onClick={onClose} />

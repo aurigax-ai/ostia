@@ -63,15 +63,16 @@ export function ApprovalsInbox({
           <ul className="flex flex-col gap-1">
             {pending.map((req) => (
               <li key={req.id} className="flex flex-col gap-1 rounded-sm bg-surface-2 p-1.5">
-                <button
-                  type="button"
-                  className="truncate text-left text-fg-muted text-ui-xs hover:text-fg"
+                <Button
+                  variant="link"
+                  size="xs"
+                  className="h-auto justify-start truncate p-0 font-normal text-fg-muted text-ui-xs hover:text-fg"
                   onClick={() => {
                     if (revealPane(req.paneId)) onReveal()
                   }}
                 >
                   {whereOf(req.paneId) ?? req.paneId}
-                </button>
+                </Button>
                 <span className="text-ui-sm [overflow-wrap:anywhere]">
                   {what(req)}: {req.action}
                 </span>

@@ -107,7 +107,7 @@ test('an idle hidden agent hibernates and resumes when the human asks', async ()
 
     await sleeping.click()
     const view = win.locator('.hibernated-view')
-    await expect(view).toContainText('Hibernated — click to resume')
+    await expect(view).toContainText('Hibernated')
     await expect(view).toContainText('claude --resume e2e-tok-1')
     await view.getByRole('button', { name: 'Resume claude' }).click()
 

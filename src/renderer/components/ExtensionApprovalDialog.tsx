@@ -1,6 +1,7 @@
 import { PRODUCT_NAME } from '@shared/product'
 import { fmt, useDict } from '../i18n/useDict'
 import { pendingApproval, useExtensionsStore } from '../stores/extensionsStore'
+import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -46,11 +47,10 @@ export function ExtensionApprovalDialog(): JSX.Element {
         {caps.length > 0 ? (
           <ul aria-label={d.extensions.permissions} className="flex flex-wrap gap-1.5">
             {caps.map((cap) => (
-              <li
-                key={cap}
-                className="rounded-sm border border-line px-1.5 font-mono text-fg text-ui-xs"
-              >
-                {cap}
+              <li key={cap}>
+                <Badge variant="outline" className="font-mono text-ui-xs">
+                  {cap}
+                </Badge>
               </li>
             ))}
           </ul>

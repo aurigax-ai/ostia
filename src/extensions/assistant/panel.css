@@ -52,7 +52,7 @@ button:disabled {
 
 .notice {
   margin: 0;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface-2);

@@ -41,10 +41,16 @@ const TERMINAL_TITLES: Record<string, (d: Dict) => string> = {
   find: (d) => d.keyboard.find,
 }
 
+const UNREGISTERED_TITLES: Record<string, (d: Dict) => string> = {
+  'assist.compose': (d) => d.keyboard.assistCompose,
+}
+
 function commandTitle(id: string, d: Dict): string {
   const terminal = TERMINAL_TITLES[id]
   if (terminal) return terminal(d)
-  return commands.list().find((c) => c.id === id)?.title ?? id
+  const registered = commands.list().find((c) => c.id === id)?.title
+  if (registered) return registered
+  return UNREGISTERED_TITLES[id]?.(d) ?? id
 }
 
 export function problemText(problem: ChordProblem, d: Dict, mac: boolean): string {

@@ -331,8 +331,10 @@ function PaneTab({
           className="pane-kind"
           aria-label={pane.hibernated ? d.pane.hibernated : undefined}
         />
+        {dirty && !diskProblem ? (
+          <span className="dot pane-tab-dirty" role="img" aria-label={d.pane.unsaved} />
+        ) : null}
         <span className={cn('title', diskProblem === 'deleted' && 'line-through')}>
-          {dirty && !diskProblem ? '• ' : ''}
           {pane.title}
         </span>
         {diskProblem ? (

@@ -711,7 +711,7 @@ describe('EditorView → Send Selection to Agent', () => {
     act(() => {
       document.dispatchEvent(new Event('selectionchange'))
     })
-    await userEvent.click(screen.getByRole('button', { name: 'Send Selection to Agent' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Send selected text to agent' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Send' }))
 
     await waitFor(() =>

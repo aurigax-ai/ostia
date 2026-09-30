@@ -1145,6 +1145,12 @@
   outline-offset: -2px;
 }
 
+.pane-tab-dirty {
+  width: 6px;
+  height: 6px;
+  background: var(--fg-muted);
+}
+
 .pane-tab .title {
   min-width: 0;
   white-space: nowrap;
@@ -1375,7 +1381,6 @@
 }
 
 button.prompt-chip {
-  cursor: pointer;
   transition: background var(--motion-fast) var(--ease-out);
 }
 
@@ -2127,7 +2132,6 @@ button.prompt-chip:focus-visible {
 }
 
 .pane-chip-action {
-  cursor: pointer;
   transition: color var(--motion-fast) var(--ease-out), border-color var(--motion-fast)
     var(--ease-out);
 }
@@ -2682,7 +2686,6 @@ button.prompt-chip:focus-visible {
   text-decoration: underline;
   text-decoration-color: var(--line-strong);
   text-underline-offset: 2px;
-  cursor: pointer;
   transition: text-decoration-color var(--motion-fast) var(--ease-out);
 }
 
