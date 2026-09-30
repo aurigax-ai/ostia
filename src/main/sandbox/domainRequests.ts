@@ -1,5 +1,5 @@
 import type { ApprovalOutcome } from '../../shared/approvals'
-import { checkDomainPattern } from '../../shared/sandbox'
+import { type DomainRefusal, checkDomainPattern } from '../../shared/sandbox'
 
 export interface DomainAsk {
   workspaceId: string
@@ -14,12 +14,6 @@ export interface DomainRequestsDeps {
   allowWorkspace: (workspaceId: string, domain: string) => void
   allowUntilRestart: (workspaceId: string, domain: string) => void
   now: () => number
-}
-
-export interface DomainRefusal {
-  host: string
-  count: number
-  last: number
 }
 
 export type DomainRequestResult =

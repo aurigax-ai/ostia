@@ -16,6 +16,16 @@ export interface SandboxGlobals {
   controls: SandboxControls
 }
 
+export interface DomainRefusal {
+  host: string
+  count: number
+  last: number
+}
+
+export type SandboxEditResult =
+  | { ok: true; settings: WorkspaceSandbox }
+  | { ok: false; errors: { value: string; reason: string }[] }
+
 export interface ResolvedSandbox {
   allowRead: string[]
   domains: string[]

@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -131,4 +132,23 @@ describe('WorkspaceSandboxes', () => {
     expect(new SandboxStore(path).has('ws')).toBe(false)
     expect(existsSync(manager.tmpDir('ws'))).toBe(false)
   })
+
+  it('SBX-C25 lets a shell read a path the human added to its workspace, and not other workspaces', async () => {
+    const notes = join(root, 'home', 'notes')
+    mkdirSync(notes, { recursive: true })
+    writeFileSync(join(notes, 'n.txt'), 'NOTE-CONTENT')
+    const store = new SandboxStore(join(root, 'c25.json'))
+    store.set('a', { enabled: true, allowRead: ['~/notes'], domains: [], controls: {} })
+    store.set('b', { enabled: true, allowRead: [], domains: [], controls: {} })
+    const readIn = async (manager: WorkspaceSandboxes, ws: string): Promise<string> => {
+      const wrapped = await manager.wrap(ws, `cat ${join(notes, 'n.txt')}; true`, 'bash')
+      return execFileSync('/bin/sh', ['-c', wrapped], { cwd: workDir, encoding: 'utf8' })
+    }
+    const managerA = sandboxes(store)
+    const managerB = sandboxes(store)
+    expect(await readIn(managerA, 'a')).toContain('NOTE-CONTENT')
+    expect(await readIn(managerB, 'b')).not.toContain('NOTE-CONTENT')
+    managerA.stopAll()
+    managerB.stopAll()
+  }, 30_000)
 })
