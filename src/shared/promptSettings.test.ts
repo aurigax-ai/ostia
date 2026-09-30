@@ -47,7 +47,7 @@ describe('parsePromptSettings', () => {
     expect(parsePromptSettings(undefined)).toEqual(DEFAULT_PROMPT_SETTINGS)
     expect(DEFAULT_PROMPT_SETTINGS).toEqual({
       style: 'shell',
-      chips: ['conda', 'virtualenv', 'node', 'cwd'],
+      chips: ['conda', 'virtualenv', 'node', 'cwd', 'git.branch', 'git.diff-stats'],
       sameLine: false,
       separator: 'none',
     })

@@ -139,3 +139,48 @@ export function sidebarText(status: RepoStatus): string {
   if (s.changed) parts.push(`~${s.changed}`)
   return parts.join(' ')
 }
+
+const MAX_TRACKING_COUNT = 999
+
+function trackingCount(n: number): string {
+  return n > MAX_TRACKING_COUNT ? `${MAX_TRACKING_COUNT}+` : String(n)
+}
+
+export function branchChipText(branch: BranchInfo): string {
+  const name = branch.head ?? (branch.oid ? branch.oid.slice(0, 7) : '')
+  if (!name) return ''
+  const tracking: string[] = []
+  if (branch.upstream) {
+    if (branch.ahead) tracking.push(`↑${trackingCount(branch.ahead)}`)
+    if (branch.behind) tracking.push(`↓${trackingCount(branch.behind)}`)
+  }
+  return tracking.length ? `${name} • ${tracking.join(' ')}` : name
+}
+
+export interface LineChanges {
+  files: number
+  added: number
+  removed: number
+}
+
+export function parseShortstat(output: string): LineChanges | null {
+  const line = output.trim()
+  if (!line) return null
+  const files = /(\d+) files? changed/.exec(line)
+  if (!files) return null
+  const added = /(\d+) insertions?\(\+\)/.exec(line)
+  const removed = /(\d+) deletions?\(-\)/.exec(line)
+  return {
+    files: Number(files[1]),
+    added: added ? Number(added[1]) : 0,
+    removed: removed ? Number(removed[1]) : 0,
+  }
+}
+
+export function diffStatsChipText(changes: LineChanges | null): string {
+  if (!changes || changes.files === 0) return ''
+  const lines: string[] = []
+  if (changes.added) lines.push(`+${changes.added}`)
+  if (changes.removed) lines.push(`-${changes.removed}`)
+  return lines.length ? `${changes.files} • ${lines.join(' ')}` : String(changes.files)
+}

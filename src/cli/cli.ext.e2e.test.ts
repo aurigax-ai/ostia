@@ -155,10 +155,50 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     expect(diff.patch).toContain('-v1\n+v2')
   }, 30_000)
 
+  it('pine git stage/commit/log/blame work on the workspace repo; discard is not a verb', async () => {
+    const staged = await runPine(['git', 'stage', 'readme.md'])
+    expect(staged.stderr).toBe('')
+    expect(JSON.parse(staged.stdout)).toMatchObject({
+      staged: ['readme.md'],
+      counts: { staged: 1 },
+    })
+
+    const committed = await runPine(['git', 'commit', '-m', 'second version'])
+    expect(committed.stderr).toBe('')
+    expect(committed.stdout.trim()).toMatch(/^[0-9a-f]{40}$/)
+
+    const log = await runPine(['git', 'log'])
+    expect(log.stdout.split('\n').map((l) => l.replace(/^\w+ \S+ /, ''))).toEqual([
+      'T  second version',
+      'T  init',
+      '',
+    ])
+    const logJson = JSON.parse((await runPine(['git', 'log', '--limit', '1', '--json'])).stdout)
+    expect(logJson.commits).toHaveLength(1)
+    expect(logJson.commits[0]).toMatchObject({
+      sha: committed.stdout.trim(),
+      subject: 'second version',
+    })
+
+    const blame = JSON.parse((await runPine(['git', 'blame', 'readme.md', '--json'])).stdout)
+    expect(blame.lines).toEqual([
+      expect.objectContaining({ line: 1, sha: committed.stdout.trim(), text: 'v2' }),
+    ])
+
+    const nothing = await runPine(['git', 'unstage'])
+    expect(nothing.code).toBe(1)
+    expect(nothing.stderr).toContain('invalid-args')
+    const discard = await runPine(['git', 'discard', 'readme.md'])
+    expect(discard.code).toBe(1)
+    expect(discard.stderr).toContain("unknown subcommand 'discard'")
+  }, 30_000)
+
   it('pine ext ls lists the built-in extensions with their CLI usage', async () => {
     const res = await runPine(['ext', 'ls'])
     expect(res.stdout).toContain('git\t')
     expect(res.stdout).toContain('pine git diff <path> [--staged]')
+    expect(res.stdout).toContain('pine git commit -m <message>')
+    expect(res.stdout).not.toContain('discard')
     expect(res.stdout).toContain('trellis\t')
     expect(res.stdout).not.toContain('kanban\t')
   }, 30_000)
