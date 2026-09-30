@@ -13,6 +13,11 @@ interface SandboxState {
   paneSandboxed: Record<string, boolean>
   generation: Record<string, number>
   blocked: SandboxBlocked | null
+  hostPanes: Record<string, boolean>
+  hostTokens: Record<string, string>
+  setHostToken: (paneId: string, token: string) => void
+  takeHostToken: (paneId: string) => string | undefined
+  noteHost: (paneId: string) => void
   dismissBlocked: () => void
   load: (workspaceId: string) => Promise<void>
   setEnabled: (workspaceId: string, enabled: boolean) => Promise<void>
@@ -20,11 +25,26 @@ interface SandboxState {
   restart: (paneId: string) => Promise<void>
 }
 
-export const useSandboxStore = create<SandboxState>((set) => ({
+export const useSandboxStore = create<SandboxState>((set, get) => ({
   enabled: {},
   paneSandboxed: {},
   generation: {},
   blocked: null,
+  hostPanes: {},
+  hostTokens: {},
+  setHostToken: (paneId, token) =>
+    set((s) => ({ hostTokens: { ...s.hostTokens, [paneId]: token } })),
+  takeHostToken: (paneId) => {
+    const token = get().hostTokens[paneId]
+    if (token) {
+      set((s) => {
+        const { [paneId]: _used, ...rest } = s.hostTokens
+        return { hostTokens: rest }
+      })
+    }
+    return token
+  },
+  noteHost: (paneId) => set((s) => ({ hostPanes: { ...s.hostPanes, [paneId]: true } })),
   dismissBlocked: () => set({ blocked: null }),
   load: async (workspaceId) => {
     const settings = await window.pine.sandbox.get(workspaceId)
@@ -59,10 +79,11 @@ export const useSandboxStore = create<SandboxState>((set) => ({
 }))
 
 export function needsSandboxRestart(
-  state: Pick<SandboxState, 'enabled' | 'paneSandboxed'>,
+  state: Pick<SandboxState, 'enabled' | 'paneSandboxed'> & Partial<Pick<SandboxState, 'hostPanes'>>,
   workspaceId: string,
   paneId: string,
 ): boolean {
+  if (state.hostPanes?.[paneId]) return false
   const pane = state.paneSandboxed[paneId]
   const workspace = state.enabled[workspaceId]
   return pane !== undefined && workspace !== undefined && pane !== workspace

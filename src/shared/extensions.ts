@@ -292,11 +292,13 @@ export interface OpenTerminalOptions {
   afterPaneId?: string
   cwd?: string
   title?: string
+  host?: boolean
 }
 
 export interface ExtensionOpenTerminalRequest {
   requestId: string
   command: string
+  hostToken?: string
   workspaceId?: string
   afterPaneId?: string
   cwd?: string

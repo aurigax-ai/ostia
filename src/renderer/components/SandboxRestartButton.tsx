@@ -5,6 +5,7 @@ import type { PaneNode } from '../layout/types'
 import { needsSandboxRestart, useSandboxStore } from '../stores/sandboxStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { Hint } from './Hint'
+import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
 export function SandboxRestartButton({ pane }: { pane: PaneNode }): JSX.Element | null {
@@ -27,6 +28,17 @@ export function SandboxRestartButton({ pane }: { pane: PaneNode }): JSX.Element 
         <ArrowClockwiseIcon data-icon="inline-start" aria-hidden />
         {d.pane.sandboxRestart}
       </Button>
+    </Hint>
+  )
+}
+
+export function HostPaneBadge({ pane }: { pane: PaneNode }): JSX.Element | null {
+  const d = useDict()
+  const host = useSandboxStore((s) => s.hostPanes[pane.id] ?? false)
+  if (!host) return null
+  return (
+    <Hint label={d.pane.hostHint}>
+      <Badge variant="outline">{d.pane.host}</Badge>
     </Hint>
   )
 }

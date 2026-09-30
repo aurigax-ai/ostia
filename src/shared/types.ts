@@ -65,6 +65,7 @@ export interface PtySpawnOptions {
   sinceCursor?: number
   pinePrompt?: PinePromptSpawn
   workspaceId?: string
+  hostToken?: string
 }
 
 export interface PinePromptSpawn {
@@ -93,6 +94,7 @@ export interface PtyAttachResult {
   cursor: number
   dropped: boolean
   sandboxed?: boolean
+  host?: boolean
 }
 
 export interface SystemApi {
