@@ -1,7 +1,7 @@
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBlocksStore } from '../stores/blocksStore'
-import { copyBlock, insertCommand, rerunBlock, stepBlock } from './blockActions'
+import { copyBlock, insertCommand, rerunBlock, runWhenIdle, stepBlock } from './blockActions'
 import { registerTerminal } from './terminalHandles'
 
 const PANE = 'pane-actions'
@@ -127,5 +127,79 @@ describe('blockActions', () => {
     expect(insertCommand(PANE, 'git log')).toBe(true)
     expect(term.paste).toHaveBeenCalledWith('git log')
     expect(window.pine.pty.write).not.toHaveBeenCalled()
+  })
+})
+
+describe('runWhenIdle', () => {
+  const NEW = 'pane-new'
+  let init: ReturnType<typeof useBlocksStore.getState>
+  let unregister: () => void
+  let term: ReturnType<typeof fakeTerminal>
+
+  beforeAll(() => {
+    init = useBlocksStore.getState()
+  })
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    term = fakeTerminal(['$ '])
+    unregister = registerTerminal(NEW, term as unknown as Terminal)
+  })
+
+  afterEach(() => {
+    unregister()
+    vi.useRealTimers()
+    useBlocksStore.setState(init, true)
+  })
+
+  it('waits for the fresh shell to finish drawing its prompt, then runs once', () => {
+    runWhenIdle(NEW, 'sudo pacman -S --needed ripgrep')
+    expect(term.paste).not.toHaveBeenCalled()
+
+    useBlocksStore.getState().promptStart(NEW, { line: 0 }, '/home')
+    expect(term.paste).not.toHaveBeenCalled()
+
+    useBlocksStore.getState().promptEnd(NEW, { line: 0 })
+    expect(term.paste).toHaveBeenCalledWith('sudo pacman -S --needed ripgrep')
+    expect(window.pine.pty.write).toHaveBeenCalledWith(NEW, '\r')
+
+    const s = useBlocksStore.getState()
+    s.commandStart(NEW, { line: 1 }, 'sudo pacman -S --needed ripgrep')
+    s.commandEnd(NEW, { line: 2 }, 0)
+    s.promptStart(NEW, { line: 2 }, '/home')
+    s.promptEnd(NEW, { line: 2 })
+    expect(term.paste).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not type while something is running in the pane', () => {
+    const s = useBlocksStore.getState()
+    s.promptStart(NEW, { line: 0 }, '/home')
+    s.promptEnd(NEW, { line: 0 })
+    s.commandStart(NEW, { line: 1 }, 'vim')
+    runWhenIdle(NEW, 'echo later')
+    expect(term.paste).not.toHaveBeenCalled()
+
+    s.commandEnd(NEW, { line: 2 }, 0)
+    s.promptStart(NEW, { line: 2 }, '/home')
+    s.promptEnd(NEW, { line: 2 })
+    expect(term.paste).toHaveBeenCalledWith('echo later')
+  })
+
+  it('gives up after the timeout and never types into the pane later', () => {
+    runWhenIdle(NEW, 'echo late', 1000)
+    vi.advanceTimersByTime(1000)
+    const s = useBlocksStore.getState()
+    s.promptStart(NEW, { line: 0 }, '/home')
+    s.promptEnd(NEW, { line: 0 })
+    expect(term.paste).not.toHaveBeenCalled()
+  })
+
+  it('can be cancelled before the prompt appears', () => {
+    const cancel = runWhenIdle(NEW, 'echo never')
+    cancel()
+    const s = useBlocksStore.getState()
+    s.promptStart(NEW, { line: 0 }, '/home')
+    s.promptEnd(NEW, { line: 0 })
+    expect(term.paste).not.toHaveBeenCalled()
   })
 })

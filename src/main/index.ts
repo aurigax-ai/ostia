@@ -39,7 +39,7 @@ import { controlSocketPath, registerControlServer, stopControlServer } from './c
 import { registerDocsMethods } from './docs'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
 import { ExtensionStore } from './extensionStore'
 import { openInExternalEditor } from './externalEditor'
@@ -808,6 +808,48 @@ function sendToWorkspaceWindow(
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
+function readLocale(): string | undefined {
+  try {
+    const settings = JSON.parse(
+      readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'),
+    ) as { locale?: unknown }
+    return typeof settings.locale === 'string' ? settings.locale : undefined
+  } catch {
+    return undefined
+  }
+}
+
+const OPEN_TERMINAL_TIMEOUT_MS = 5000
+let openTerminalSeq = 0
+
+function openTerminalInWindow(req: TerminalOpenRequest): Promise<string | null> {
+  const { windowId: requestedWindow, ...payload } = req
+  const windowId =
+    requestedWindow ?? (req.workspaceId ? windowOfWorkspace(req.workspaceId) : undefined)
+  const win = (windowId ? windows.get(windowId) : undefined) ?? [...windows.values()][0]
+  if (!win || win.isDestroyed()) return Promise.resolve(null)
+  const wid = String(win.webContents.id)
+  const requestId = `term-${++openTerminalSeq}`
+  return new Promise((resolve) => {
+    const finish = (paneId: string | null): void => {
+      clearTimeout(timer)
+      ipcMain.removeListener('extensions:open-terminal-result', onResult)
+      resolve(paneId)
+    }
+    const onResult = (e: Electron.IpcMainEvent, rid: unknown, paneId: unknown): void => {
+      if (rid !== requestId || String(e.sender.id) !== wid) return
+      finish(
+        typeof paneId === 'string' && paneId
+          ? registerPane({ windowId: wid, workspaceId: '', paneId }).externalId
+          : null,
+      )
+    }
+    const timer = setTimeout(() => finish(null), OPEN_TERMINAL_TIMEOUT_MS)
+    ipcMain.on('extensions:open-terminal-result', onResult)
+    win.webContents.send('extensions:open-terminal', { ...payload, requestId })
+  })
+}
+
 function emitFocusChanged(): void {
   extensionHost?.emitEvent('focus.changed', { focused: BrowserWindow.getFocusedWindow() !== null })
 }
@@ -848,9 +890,11 @@ app.whenReady().then(() => {
     nodePath: process.execPath,
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
+    locale: readLocale,
     broadcast,
     openPanelIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-panel', req),
     openDiffIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
+    openTerminalIn: openTerminalInWindow,
     notify: (n) => postNotification(notifyDeps, n),
     confirm: (req) => confirmForExtension(req, windows.values()),
     notifyPanel: (n, open) => postPanelNotification(notifyDeps, n, open),

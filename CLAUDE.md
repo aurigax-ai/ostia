@@ -80,7 +80,7 @@ Package manager is **pnpm** only.
 - **cli** (`src/cli/index.ts`): the `pine` CLI. Panes get a `pine()` shell function that runs it
   with the app's own Electron binary (`ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI"`), so no
   system Node is needed.
-- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper) +
+- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper, system) +
   their SDK. Each runs as its own process and talks to pine only over the control socket
   (`docs/EXTENSIONS.md`). The host that runs them is `src/main/extensionHost.ts`. trellis and
   keeper wrap the user's own CLIs; their fake stand-ins for tests are `test/fixtures/tools/bin/`.
@@ -239,7 +239,13 @@ Details: `docs/ARCHITECTURE.md`.
   `keeper approve`, never start or restart its daemon. Anything that changes the user's data
   (`trellis init`) goes through `ext.confirm` first. An extension that starts a server
   (`trellis ui`) stops it in its `onShutdown` handler; one that found it already running leaves
-  it alone.
+  it alone. The system extension never runs a package manager itself: `pine system install`
+  validates the names (`planInstall`), shows the exact command in `ext.confirm`, and only on
+  Approve hands the argv to `ext.openTerminal`, so the human watches it and answers sudo.
+- **An extension types only into a terminal it just opened.** `ext.openTerminal` (needs `shell`)
+  takes an argv, never a shell string; main quotes it (`shared/shellQuote.ts`) and the renderer
+  opens a new pane and runs it once, at that pane's first idle prompt (`runWhenIdle`). Never add
+  an extension method that types into an existing pane or accepts a raw command line.
 - **Motion never touches the terminal's box.** Animate only `opacity` and `transform` (hover and
   focus feedback may transition colors, borders and shadows), with the tokens in `index.css`
   (`--motion-fast/base/slow`, `--ease-out/in`); no raw durations or easings. Never animate pane
@@ -384,7 +390,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   host integration tests spawn `test/fixtures/extensions/echo` over a real socket;
   `src/cli/cli.ext.e2e.test.ts` builds and drives the real git extension and the echo fixture
   (stdin, errors, `pine ext ls`) via the CLI; `src/main/builtinGitExtension.integration.test.ts`
-  runs the built git extension against a temp repo (sidebar, changes, diff sides, symlinks). Extension tests that need `src/main`
+  runs the built git extension against a temp repo (sidebar, changes, diff sides, symlinks);
+  `cli.ext.e2e.test.ts` also drives `pine system info|install` with fake `pacman`/`apt`/`sudo`
+  from `test/fixtures/system/bin/` (never the real ones) and a fake confirm; `e2e/system.spec.ts`
+  answers the native dialog by stubbing `dialog.showMessageBox` via `app.evaluate`. Extension tests that need `src/main`
   live in `src/main` or `src/cli`, never under `src/extensions`.
   Tool extensions (trellis, keeper) are tested against fake `trellis`/`keeper` shell scripts in
   `test/fixtures/tools/bin/` put first on `PATH`, fed scrubbed real `--json` captures from

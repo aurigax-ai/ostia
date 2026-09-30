@@ -1,0 +1,15 @@
+{
+  "id": "opener",
+  "name": "Opener",
+  "version": "0.1.0",
+  "description": "Test fixture for ext.openTerminal and interactive commands",
+  "capabilities": ["shell"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "open", "title": "Open a terminal", "palette": false },
+      { "id": "ask", "title": "Ask and wait", "palette": false, "interactive": true },
+      { "id": "ask-plain", "title": "Ask without interactive", "palette": false }
+    ]
+  }
+}

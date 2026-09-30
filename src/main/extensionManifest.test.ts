@@ -62,6 +62,24 @@ describe('parseManifest', () => {
     })
   })
 
+  it('marks a command interactive only when the manifest says exactly true', () => {
+    const res = parseManifest(
+      manifest({
+        contributes: {
+          commands: [
+            { id: 'ask', title: 'Ask', interactive: true },
+            { id: 'quick', title: 'Quick', interactive: 'yes' },
+          ],
+        },
+      }),
+      DIR,
+    )
+    if (!res.ok) throw new Error(res.error)
+    const [ask, quick] = res.manifest.contributes.commands
+    expect(ask.interactive).toBe(true)
+    expect(quick).not.toHaveProperty('interactive')
+  })
+
   it('rejects ids that are not lowercase slugs', () => {
     for (const id of ['Demo', '../x', 'a', '__proto__', 'x'.repeat(41), 7]) {
       expect(parseManifest(manifest({ id }), DIR).ok).toBe(false)

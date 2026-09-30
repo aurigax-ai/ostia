@@ -26,6 +26,7 @@ export interface ExtensionCommandContribution {
   usage?: string
   palette: boolean
   stdin: boolean
+  interactive?: true
   capabilities: Capability[]
 }
 
@@ -121,7 +122,7 @@ export interface ExtensionEventPayloads {
 
 export type ExtensionResult =
   | { ok: true; text?: string; data?: unknown }
-  | { ok: false; error: string; message?: string }
+  | { ok: false; error: string; message?: string; data?: unknown }
 
 export type ExtensionPanelSource = { ok: true; src: string } | { ok: false; error: string }
 
@@ -145,6 +146,27 @@ export interface ExtensionOpenDiffRequest extends DiffContent {
   workspaceId?: string
 }
 
+export const TERMINAL_COMMAND_MAX_ARGS = 64
+export const TERMINAL_ARG_MAX = 4096
+export const TERMINAL_TITLE_MAX = 80
+
+export interface OpenTerminalOptions {
+  command: string[]
+  workspaceId?: string
+  afterPaneId?: string
+  cwd?: string
+  title?: string
+}
+
+export interface ExtensionOpenTerminalRequest {
+  requestId: string
+  command: string
+  workspaceId?: string
+  afterPaneId?: string
+  cwd?: string
+  title?: string
+}
+
 export interface ExtensionsApi {
   list: () => Promise<ExtensionInfo[]>
   setEnabled: (extId: string, enabled: boolean) => Promise<ExtensionInfo[]>
@@ -163,4 +185,5 @@ export interface ExtensionsApi {
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
   onOpenPanel: (cb: (req: ExtensionOpenPanelRequest) => void) => () => void
   onOpenDiff: (cb: (req: ExtensionOpenDiffRequest) => void) => () => void
+  onOpenTerminal: (cb: (req: ExtensionOpenTerminalRequest) => string | null) => () => void
 }
