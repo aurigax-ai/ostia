@@ -31,9 +31,13 @@ describe('resumeIdFromHookPayload', () => {
     expect(resumeIdFromHookPayload(event)).toBe('ffe55127-cb1f')
   })
 
-  it('reads thread-id from a Codex notify event', () => {
-    const event = JSON.stringify({ type: 'agent-turn-complete', 'thread-id': 'th_123' })
-    expect(resumeIdFromHookPayload(event)).toBe('th_123')
+  it('reads session_id from a Codex SessionStart hook event', () => {
+    const event = JSON.stringify({
+      session_id: '01a0f04c-15fd-7b22-8538-ca8250a46988',
+      hook_event_name: 'SessionStart',
+      source: 'resume',
+    })
+    expect(resumeIdFromHookPayload(event)).toBe('01a0f04c-15fd-7b22-8538-ca8250a46988')
   })
 
   it('takes a bare id and refuses anything else', () => {
