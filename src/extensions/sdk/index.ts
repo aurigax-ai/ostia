@@ -11,7 +11,13 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import type { AssistPoint, AssistRequests, AssistResults, AssistStatus } from '../../shared/assist'
+import type {
+  AssistError,
+  AssistPoint,
+  AssistRequests,
+  AssistResults,
+  AssistStatus,
+} from '../../shared/assist'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import type {
   DiffContent,
@@ -88,6 +94,24 @@ export interface AssistContext {
   requestId: string
   signal: AbortSignal
   chunk: (text: string) => Promise<boolean>
+}
+
+export class AssistFailure extends Error {
+  constructor(
+    readonly code: AssistError,
+    message?: string,
+  ) {
+    super(message ?? code)
+  }
+}
+
+function assistFailureReply(
+  err: unknown,
+  aborted: boolean,
+): { error: AssistError; message?: string } {
+  if (aborted) return { error: 'cancelled' }
+  if (err instanceof AssistFailure) return { error: err.code, message: err.message }
+  return { error: 'failed', message: errorMessage(err) }
 }
 
 export type AssistHandler = <P extends AssistPoint>(
@@ -230,6 +254,8 @@ export async function connect(): Promise<PineExtension> {
             return res?.live === true
           },
         })
+      } catch (err) {
+        return assistFailureReply(err, abort.signal.aborted)
       } finally {
         sub.dispose()
       }
