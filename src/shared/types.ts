@@ -44,7 +44,16 @@ export interface WindowControls {
   isSystemDark: () => Promise<boolean>
   onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
-  onConfirmClose: (cb: () => Promise<boolean>) => () => void
+  onRunningQuery: (cb: () => RunningGroup[]) => () => void
+  onConfirmClose: (cb: (groups: RunningGroup[]) => Promise<boolean>) => () => void
+  onFreeze: (cb: () => void) => () => void
+}
+
+export interface RunningGroup {
+  workspaceId: string
+  workspace: string
+  commands: string[]
+  files: string[]
 }
 
 export interface PtySpawnOptions {
@@ -201,6 +210,7 @@ export interface NotificationsApi {
   clear: () => void
   onChanged: (cb: () => void) => () => void
   onActivate: (cb: (paneId: string) => void) => () => void
+  reveal: (paneId: string) => void
 }
 
 export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension' | 'view'
@@ -217,6 +227,7 @@ export interface SnapshotPaneNode {
   viewName?: string
   resume?: AgentResume
   agentRunning?: true
+  hibernated?: true
 }
 
 export interface SnapshotSplitNode {
@@ -263,6 +274,65 @@ export interface AppSnapshot {
   activeWorkspaceId: string | null
   workspaces: SnapshotWorkspace[]
   groups: SnapshotGroup[]
+  windows?: SnapshotWindow[]
+}
+
+export interface WindowBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface SnapshotWindow {
+  id: string
+  bounds: WindowBounds
+  activeWorkspaceId: string | null
+  workspaces: SnapshotWorkspace[]
+}
+
+export interface WindowInfo {
+  windowId: string
+  detached: boolean
+}
+
+export interface WindowPaneSummary {
+  id: string
+  title: string
+}
+
+export interface WindowWorkspaceSummary {
+  id: string
+  name: string
+  workDir: string
+  state: WorkspaceLiveState
+  unreadAt: number
+  panes: WindowPaneSummary[]
+}
+
+export interface WindowSummary {
+  windowId: string
+  detached: boolean
+  workspaces: WindowWorkspaceSummary[]
+}
+
+export interface NewWorkspaceRequest {
+  dir?: string
+  name?: string
+}
+
+export interface WindowsApi {
+  info: () => Promise<WindowInfo>
+  detach: (workspace: SnapshotWorkspace) => Promise<boolean>
+  returnToMain: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
+  report: (workspaces: WindowWorkspaceSummary[]) => void
+  focusWorkspace: (workspaceId: string, jumpToUnread: boolean) => void
+  returnWorkspace: (workspaceId: string) => void
+  newWorkspace: (request: NewWorkspaceRequest) => void
+  onList: (cb: (list: WindowSummary[]) => void) => () => void
+  onAdopt: (cb: (workspaces: SnapshotWorkspace[]) => void) => () => void
+  onActivateWorkspace: (cb: (workspaceId: string, jumpToUnread: boolean) => void) => () => void
+  onReturnRequest: (cb: () => void) => () => void
 }
 
 export interface WorkspaceApi {
@@ -509,6 +579,7 @@ export interface PineBridge {
   settings: SettingsApi
   sync: SyncApi
   workspace: WorkspaceApi
+  windows: WindowsApi
   lifecycle: LifecycleApi
   commands: CommandsApi
   terminalState: TerminalStateApi

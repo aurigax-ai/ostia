@@ -10,12 +10,14 @@ import {
   groupNotifications,
   inTab,
 } from '../lib/notificationGroups'
+import { remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { revealPane } from '../lib/workspaceActivity'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useWindowsStore } from '../stores/windowsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ApprovalsInbox } from './ApprovalsInbox'
 import { IconButton } from './IconButton'
@@ -36,6 +38,8 @@ interface PaneLabel {
 function usePaneLabels(): (paneId: string | undefined) => PaneLabel | null {
   const byWorkspace = useLayoutStore((s) => s.byWorkspace)
   const workspaces = useWorkspacesStore((s) => s.workspaces)
+  const windowId = useWindowsStore((s) => s.windowId)
+  const list = useWindowsStore((s) => s.list)
   return useCallback(
     (paneId) => {
       if (!paneId) return null
@@ -50,9 +54,13 @@ function usePaneLabels(): (paneId: string | undefined) => PaneLabel | null {
           }
         }
       }
+      for (const workspace of remoteWorkspacesOf(list, windowId)) {
+        const pane = workspace.panes.find((p) => p.id === paneId)
+        if (pane) return { workspaceId: workspace.id, workspace: workspace.name, pane: pane.title }
+      }
       return null
     },
-    [byWorkspace, workspaces],
+    [byWorkspace, workspaces, list, windowId],
   )
 }
 
@@ -117,7 +125,10 @@ export function NotificationCenter(): JSX.Element {
                     entry.panelPath ? { extId: ext.id, path: entry.panelPath } : { extId: ext.id },
                   )
                   setOpen(false)
-                } else if (entry.paneId && revealPane(entry.paneId)) setOpen(false)
+                } else if (entry.paneId) {
+                  if (!revealPane(entry.paneId)) window.pine.notifications.reveal(entry.paneId)
+                  setOpen(false)
+                }
               }}
             />
           }

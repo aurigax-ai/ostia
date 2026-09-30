@@ -26,23 +26,30 @@ export interface RestorableLayout {
   zoomedPaneId: null
 }
 
-function fromPane(pane: PaneNode, live: ReadonlySet<string>): SnapshotPaneNode {
-  const { kind, hibernated: _hibernated, resumePending, ...rest } = pane
-  const agentRunning = Boolean(rest.resume) && (live.has(pane.id) || resumePending === true)
+interface PaneMarks {
+  live: ReadonlySet<string>
+  hibernated: boolean
+}
+
+function fromPane(pane: PaneNode, marks: PaneMarks): SnapshotPaneNode {
+  const { kind, hibernated, resumePending, ...rest } = pane
+  const agentRunning = Boolean(rest.resume) && (marks.live.has(pane.id) || resumePending === true)
+  const keepHibernated = marks.hibernated && hibernated === true && Boolean(rest.resume)
   return {
     ...rest,
     kind: kind === 'diff' ? 'terminal' : kind,
     ...(agentRunning ? { agentRunning: true } : {}),
+    ...(keepHibernated ? { hibernated: true } : {}),
   }
 }
 
-function fromLayoutNode(node: LayoutNode, live: ReadonlySet<string>): SnapshotNode {
-  if (node.type === 'pane') return fromPane(node, live)
+function fromLayoutNode(node: LayoutNode, marks: PaneMarks): SnapshotNode {
+  if (node.type === 'pane') return fromPane(node, marks)
   if (node.type === 'tabs')
-    return { ...node, children: node.children.map((c) => fromPane(c, live)) }
+    return { ...node, children: node.children.map((c) => fromPane(c, marks)) }
   return {
     ...node,
-    children: node.children.map((c) => fromLayoutNode(c, live)),
+    children: node.children.map((c) => fromLayoutNode(c, marks)),
     sizes: [...node.sizes],
   }
 }
@@ -79,6 +86,42 @@ function copyGroup(group: SnapshotGroup): SnapshotGroup {
   }
 }
 
+function snapshotWorkspace(
+  workspace: RestorableWorkspace,
+  layout: { root: LayoutNode; activePaneId: string } | undefined,
+  marks: PaneMarks,
+): SnapshotWorkspace {
+  const root = layout ? persistableRoot(layout.root, workspace.workDir) : null
+  return {
+    id: workspace.id,
+    name: workspace.name,
+    ...(workspace.customName ? { customName: workspace.customName } : {}),
+    ...(workspace.description ? { description: workspace.description } : {}),
+    ...(workspace.pinned ? { pinned: true } : {}),
+    ...(workspace.groupId ? { groupId: workspace.groupId } : {}),
+    kind: workspace.kind,
+    workDir: workspace.workDir,
+    ...(workspace.projectDir ? { projectDir: workspace.projectDir } : {}),
+    ...(layout && root
+      ? {
+          root: fromLayoutNode(root, marks),
+          activePaneId: findPane(root, layout.activePaneId)
+            ? layout.activePaneId
+            : firstPaneId(root),
+        }
+      : {}),
+  }
+}
+
+export function workspaceHandoff(
+  workspace: RestorableWorkspace,
+  layout: { root: LayoutNode; activePaneId: string } | undefined,
+  liveAgentPanes: ReadonlySet<string>,
+): SnapshotWorkspace {
+  const { groupId: _group, ...rest } = workspace
+  return snapshotWorkspace(rest, layout, { live: liveAgentPanes, hibernated: true })
+}
+
 export function buildSnapshot(input: {
   workspaces: RestorableWorkspace[]
   groups: SnapshotGroup[]
@@ -87,31 +130,10 @@ export function buildSnapshot(input: {
   savedAt: string
   liveAgentPanes?: ReadonlySet<string>
 }): AppSnapshot {
-  const live = input.liveAgentPanes ?? new Set<string>()
-  const workspaces: SnapshotWorkspace[] = []
-  for (const workspace of input.workspaces) {
-    const layout = input.layouts[workspace.id]
-    const root = layout ? persistableRoot(layout.root, workspace.workDir) : null
-    workspaces.push({
-      id: workspace.id,
-      name: workspace.name,
-      ...(workspace.customName ? { customName: workspace.customName } : {}),
-      ...(workspace.description ? { description: workspace.description } : {}),
-      ...(workspace.pinned ? { pinned: true } : {}),
-      ...(workspace.groupId ? { groupId: workspace.groupId } : {}),
-      kind: workspace.kind,
-      workDir: workspace.workDir,
-      ...(workspace.projectDir ? { projectDir: workspace.projectDir } : {}),
-      ...(layout && root
-        ? {
-            root: fromLayoutNode(root, live),
-            activePaneId: findPane(root, layout.activePaneId)
-              ? layout.activePaneId
-              : firstPaneId(root),
-          }
-        : {}),
-    })
-  }
+  const marks: PaneMarks = { live: input.liveAgentPanes ?? new Set<string>(), hibernated: false }
+  const workspaces = input.workspaces.map((workspace) =>
+    snapshotWorkspace(workspace, input.layouts[workspace.id], marks),
+  )
   const activeWorkspaceId = workspaces.some((s) => s.id === input.activeWorkspaceId)
     ? input.activeWorkspaceId
     : (workspaces[0]?.id ?? null)
