@@ -87,6 +87,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     selection: {
       send: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
     },
+    agentSession: {
+      info: vi.fn().mockResolvedValue(null),
+    },
     update: {
       state: vi.fn().mockResolvedValue(null),
       restart: vi.fn().mockResolvedValue(undefined),
