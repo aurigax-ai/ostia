@@ -82,6 +82,7 @@ import { registerSelectionIpc } from './selectionReport'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
+import { AppTray, closeAction, readCloseToTray } from './tray'
 import { registerVaultMethods } from './vault'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
 import { removeWorkspace, setWorkspaceWorkDir, workDirForWorkspace } from './workspaceRegistry'
@@ -328,12 +329,27 @@ function baseWebPreferences(): Electron.WebPreferences {
 let quitApproved = false
 let quitAsking = false
 const approvedWindows = new WeakSet<BrowserWindow>()
+const startedHidden = app.commandLine.hasSwitch('hidden')
+let appTray: AppTray | null = null
 
 function wireWindow(win: BrowserWindow): void {
-  win.once('ready-to-show', () => win.show())
+  win.once('ready-to-show', () => {
+    if (startedHidden && appTray) appTray.hide(win)
+    else win.show()
+  })
 
   win.on('close', (event) => {
     if (quitApproved || approvedWindows.has(win)) return
+    const action = closeAction({
+      quitApproved,
+      closeToTray: readCloseToTray(readSettingsFile()),
+      startedHidden,
+    })
+    if (action === 'hide' && appTray) {
+      event.preventDefault()
+      appTray.hide(win)
+      return
+    }
     event.preventDefault()
     void confirmWindowClose(win).then((approved) => {
       if (!approved || win.isDestroyed()) return
@@ -917,7 +933,11 @@ function sendToWorkspaceWindow(
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
-function readSettingsFile(): { locale?: unknown; extensionSettings?: unknown } {
+function readSettingsFile(): {
+  locale?: unknown
+  extensionSettings?: unknown
+  workspaces?: unknown
+} {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
   } catch {
@@ -1060,6 +1080,13 @@ app.whenReady().then(() => {
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
+  appTray = new AppTray({
+    iconPath: appIcon,
+    tooltip: PRODUCT_NAME,
+    locale: readLocale,
+    windows: () => BrowserWindow.getAllWindows(),
+    quit: () => app.quit(),
+  })
   createWindow()
   extensionHost.startEager()
   extensionHost.watchUserExtensions()
@@ -1069,6 +1096,7 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    else appTray?.showWindows()
   })
 })
 
@@ -1123,6 +1151,7 @@ app.on('before-quit', (event) => {
   settingsSync?.stop()
   stopControlServer()
   void stopGateway()
+  appTray?.remove()
 })
 
 app.on('window-all-closed', () => {

@@ -507,6 +507,9 @@ export const en = {
     confirmCloseDesc: 'Ask before closing a workspace, or its last pane, while a command runs.',
     confirmQuit: 'Confirm before quitting',
     confirmQuitDesc: 'Ask before quitting or closing the window while commands are running.',
+    closeToTray: 'Keep running in the tray',
+    closeToTrayDesc:
+      'Closing the window hides it and your terminals keep running. Use the tray icon to show it again or quit.',
     wrapTitles: 'Wrap long titles',
     wrapTitlesDesc: 'Show workspace names on up to two lines instead of cutting them off.',
   },
@@ -1361,6 +1364,8 @@ export const zhHant: Dict = {
     confirmCloseDesc: '有指令執行中時，關閉工作區或其最後一個窗格前先詢問。',
     confirmQuit: '結束前確認',
     confirmQuitDesc: '有指令執行中時，結束應用程式或關閉視窗前先詢問。',
+    closeToTray: '在系統匣中繼續執行',
+    closeToTrayDesc: '關閉視窗時會隱藏視窗，終端機繼續執行。可從系統匣圖示重新顯示或結束。',
     wrapTitles: '長標題換行',
     wrapTitlesDesc: '工作區名稱最多顯示兩行，而不是截斷。',
   },

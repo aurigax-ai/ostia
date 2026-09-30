@@ -1,6 +1,6 @@
 # Manager: tray
 
-Status: decisions in progress
+Status: cases approved 2026-09-30 at f0f791d (the user said to start building)
 
 ## Decisions
 - **MGR-D5** Close-to-tray is a setting, `workspaces.closeToTray` (next to `confirmQuit`), off by default. With it on, closing the window hides it instead of quitting; the tray icon shows only while Pine is hidden, and its menu has Show and Quit. Quit shows the window first so `closeGuard` can ask about running commands. A Pine started hidden by `pine <agent>` behaves as if it were on. Why: normal launches keep today's behaviour, and a Linux desktop may have no tray host. Governs: window close, `workspaces.closeToTray`, tray menu.
@@ -17,3 +17,4 @@ Status: decisions in progress
 | MGR-C6 | MGR-D5 | unexpected | Given `workspaces.closeToTray` on, when a quit was already approved, then windows close instead of hiding |
 
 ## Open
+- A second launch while Pine is hidden starts a second instance. A single-instance lock would stop `pnpm dev` while the installed Pine runs (they share `userData`). Does the portal's instance file (portal segment) replace the lock?

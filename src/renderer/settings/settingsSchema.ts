@@ -409,6 +409,13 @@ export const SETTINGS_JSON_SCHEMA = {
           description:
             'Ask before quitting or closing the window while commands are running. Default: true.',
         },
+        closeToTray: {
+          type: 'boolean',
+          description:
+            'Closing the window hides Pine instead of quitting; your terminals keep running and ' +
+            'a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a ' +
+            'system tray. Default: false.',
+        },
         wrapTitles: {
           type: 'boolean',
           description: 'Wrap long workspace titles onto up to two lines in the sidebar.',

@@ -192,6 +192,7 @@ export interface WorkspaceSettings {
   defaultFolder: string
   confirmClose: boolean
   confirmQuit: boolean
+  closeToTray: boolean
   wrapTitles: boolean
 }
 
@@ -201,6 +202,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   defaultFolder: '~',
   confirmClose: true,
   confirmQuit: true,
+  closeToTray: false,
   wrapTitles: false,
 }
 

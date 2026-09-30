@@ -731,6 +731,16 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   human said yes. A loading or crashed window is approved without asking. E2E seeds
   `workspaces.confirmQuit: false` (`DOM_RENDERER_SETTINGS`) so `app.close()` never waits on a
   dialog; `e2e/workspace-settings.spec.ts` turns it on.
+- **Close to tray** (`main/tray.ts`): with `workspaces.closeToTray` on, or when Pine was started
+  with `--hidden`, the window `close` handler hides the window (`closeAction`) instead of asking
+  `closeGuard`, and `AppTray` shows a tray icon only while Pine is hidden (Show, Quit). Main
+  reads the setting from `settings.json` at close time (`readCloseToTray`), so it always follows
+  the file. Quit shows the window before `app.quit()`, because `closeGuard` asks through the
+  renderer and a dialog in a hidden window can't be answered. Why the tray labels live in main
+  (`trayLabels`) rather than `i18n/dict.ts`: main can't import the renderer's dictionary. Why
+  there is no single-instance lock: `pnpm dev` and the installed app share one `userData`, so a
+  lock would stop the dev build from starting while the installed Pine runs. `e2e/tray.spec.ts`
+  hides the window with a command running and checks its output after showing it again.
 - **Wrapped titles**: `workspaces.wrapTitles` adds `.tab-title.wrap` (2-line clamp) to sidebar rows.
 - **Hidden workspaces** (`WorkZone.tsx`): each workspace mounts on first visit and stays mounted.
   Inactive ones get `visibility: hidden` + `inert`.
