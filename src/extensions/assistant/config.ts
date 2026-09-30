@@ -1,16 +1,24 @@
-import type { AssistPoint, AssistStatus } from '../../shared/assist'
+import type {
+  AssistFeatureId,
+  AssistFeatureState,
+  AssistPoint,
+  AssistSetupProblem,
+  AssistStatus,
+} from '../../shared/assist'
 import type { ExtensionSettingValues } from '../../shared/extensions'
-import { type Endpoint, UNIX_PREFIX, parseEndpoint } from './http'
+import { type Endpoint, UNIX_PREFIX, parseEndpoint } from './endpoint'
 import { PROVIDER_KINDS, type ProviderKind } from './providers'
 
-export type Feature = 'typos' | 'promptReview' | 'commandSuggest' | 'editorCompletions' | 'chat'
+export type Feature = AssistFeatureId
 
 export const FEATURES: Feature[] = [
+  'chat',
   'typos',
   'promptReview',
   'commandSuggest',
+  'terminalCompletions',
   'editorCompletions',
-  'chat',
+  'explainError',
 ]
 
 export interface AssistantConfig {
@@ -82,7 +90,7 @@ export function chatModelOf(config: AssistantConfig): string {
   return config.chatModel || fastModelOf(config)
 }
 
-export type SetupProblem = 'no-provider' | 'no-endpoint' | 'no-key' | 'no-model'
+export type SetupProblem = Exclude<AssistSetupProblem, 'unreachable'>
 
 export function setupProblem(
   config: AssistantConfig,
@@ -100,7 +108,34 @@ export const POINT_FEATURES: Record<AssistPoint, Feature[]> = {
   input: ['typos', 'promptReview'],
   command: ['commandSuggest'],
   completion: ['editorCompletions'],
-  chat: ['chat'],
+  terminal: ['terminalCompletions'],
+  chat: ['chat', 'explainError'],
+}
+
+export function pointOf(feature: Feature): AssistPoint {
+  const entry = (Object.entries(POINT_FEATURES) as [AssistPoint, Feature[]][]).find(([, list]) =>
+    list.includes(feature),
+  )
+  return entry ? entry[0] : 'chat'
+}
+
+export function statusLabel(config: AssistantConfig): string | undefined {
+  if (config.provider === 'none') return undefined
+  const fast = fastModelOf(config)
+  const chat = chatModelOf(config)
+  const models = chat && chat !== fast ? `${fast} / ${chat}` : fast
+  return models ? `${config.provider} · ${models}` : config.provider
+}
+
+export function featureStates(
+  config: AssistantConfig,
+  problem: AssistSetupProblem | null,
+): Omit<AssistFeatureState, 'on'>[] {
+  return FEATURES.map((id) => ({
+    id,
+    setting: id,
+    ready: problem === null && config.features[id] && modelFor(config, pointOf(id)) !== '',
+  }))
 }
 
 export function modelFor(config: AssistantConfig, point: AssistPoint): string {
@@ -109,10 +144,8 @@ export function modelFor(config: AssistantConfig, point: AssistPoint): string {
 
 export function assistStatus(
   config: AssistantConfig,
-  env: NodeJS.ProcessEnv,
-  hasKey: boolean,
+  problem: AssistSetupProblem | null,
 ): AssistStatus {
-  const problem = setupProblem(config, env, hasKey)
   const status: AssistStatus = {}
   for (const point of Object.keys(POINT_FEATURES) as AssistPoint[]) {
     const model = modelFor(config, point)

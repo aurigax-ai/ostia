@@ -36,6 +36,7 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   browser: 'localhost',
   extension: 'Extension',
   diff: 'Diff',
+  chat: 'Chat',
   view: 'View',
   manager: 'Manager',
 }
@@ -180,6 +181,21 @@ export function setPaneExtension(
     title,
     extensionId,
     cwd: undefined,
+  }))
+}
+
+export function setPaneChat(
+  root: LayoutNode,
+  paneId: string,
+  title: string,
+  sessionId?: string,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => ({
+    type: 'pane',
+    id: p.id,
+    kind: 'chat',
+    title,
+    ...(sessionId ? { chatSessionId: sessionId } : {}),
   }))
 }
 

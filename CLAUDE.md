@@ -155,7 +155,13 @@ Details: `docs/ARCHITECTURE.md`.
   the human wrote in the assist composer follows the report rule (`canInsertReference`, text
   only, never Enter); a command suggestion from the composer, the input editor's `# ` hint or
   Ask's "Insert at prompt" goes through `insertCommand` without Enter, only when the human
-  picks it. An assist suggestion never replaces a draft or runs anything on its own. Anything
+  picks it. An assist suggestion never replaces a draft or runs anything on its own. The chat
+  pane's code blocks and inline commands follow the same rules (`lib/chatActions.ts`): Insert at
+  prompt uses `insertCommand` without Enter at an idle prompt, Send to agent follows the report
+  rule, and Run in new terminal opens a new terminal tab in the workspace folder and runs the
+  block once at its first idle prompt (`runWhenIdle`), only after the human confirmed the exact
+  command (once per chat session; text with newlines or control characters always goes through
+  the risky-paste dialog). Anything
   else goes to the clipboard. The one exception outside this rule is `manager.input`
   (`main/managerMethods.ts`): the manager may type text and named keys into any other pane,
   prompt or not, but only while the human has `manager.allowInput` on (Settings → Manager); it
@@ -446,6 +452,21 @@ Details: `docs/ARCHITECTURE.md`.
   for Run once / Run and trust (`runUserAction`); trust is keyed by command + args
   (`actionFingerprint`), stored in `trustedActions`, which only the dialog writes (not in
   `DATA_KEYS`, never synced). Never add a way for an agent to trust an action.
+- **A sandboxed workspace runs only wrapped.** Every pane shell and `pine process` of a
+  sandboxed workspace is spawned through its sandbox host (`main/sandbox/`); if the sandbox can't
+  start, nothing spawns (the pane shows the missing packages). The only unwrapped pane is a host
+  pane whose one-time token main minted after the human approved that exact command
+  (`hostPanes.ts`). Sandbox policy lives in main (`sandbox.json`, owner-window `sandbox:*` IPC);
+  `sandbox` in `settings.json` is local-only and not in `DATA_KEYS`. Never add a socket method or
+  CLI verb that turns a sandbox off, adds a read path, changes its Pine-access switches or answers
+  a sandbox card. Sandbox requests (domain, port, secret, package) always ask, even in
+  `approvals.mode: 'allow'`, and never become capability grants. A known-malicious package can
+  only be allowed once. `pine vault get` is refused in a sandbox; values go through
+  `pine secret get` and its card.
+  The secret service never touches saved browser logins; those stay with `browse.login`.
+- **A feature that needs a system program registers it** (`main/systemRequirements.ts`) and refuses
+  to turn on while it's missing, showing the packages and an install that goes through the
+  System extension (the human approves and types sudo). Never install silently.
 - **Views are data, drawn by core, enabled only by the human.** A view
   (`~/.config/pine/views/<name>.json`) is read only by `main/viewHost.ts` (symlinks and files over
   64 KiB refused) and must pass `parseViewText` (`shared/views.ts`): known nodes and properties,
@@ -472,6 +493,12 @@ Details: `docs/ARCHITECTURE.md`.
   synced, never returned to the renderer (only `secretsSet`), and read only by the extension that
   declared the key (`ext.getSecret`). Never add a socket method or CLI verb that reads or writes
   one.
+- **Chat sessions are saved by main, only what was sent.** `main/chatSessions.ts` writes one
+  JSON file per session into the data dir (0600, never synced), normalized by
+  `normalizeChatSession`, trimmed from the oldest turn past 512 KiB and evicted oldest-first past
+  16 MiB / 500 sessions, and the renderer says so. Context stored with a message is exactly the
+  text that was sent. `assistant.chatHistory` off keeps sessions in memory only. Messages keep
+  the AI SDK `UIMessage` shape (typed parts), so tool calls can be added without reshaping.
 - **The manager is opened only from outside Pine.** `portal.open` (`main/portal.ts`) refuses any
   caller that `callerVerdict` (`main/portalCaller.ts`) finds inside Pine or can't check; there is
   no approval prompt behind it, so never loosen that check, skip it, or add a control-socket
@@ -506,9 +533,10 @@ Details: `docs/ARCHITECTURE.md`.
   `useOtherStore.getState()`. Pure logic stays out of stores.
 - **Model:** a **Workspace** (sidebar; `kind`, `workDir`, live `state`) owns a split-tree whose
   leaves are **Panes** or **tab stacks** of panes;
-  each pane hosts one **Surface**: `terminal | editor | browser | extension | diff | view`
+  each pane hosts one **Surface**: `terminal | editor | browser | extension | diff | chat | view`
   (`agent` is reserved in the type and snapshot format, not yet created; `diff` is never
-  persisted; a `view` pane stores only its `viewName`). An
+  persisted; a `chat` pane stores only its session id; a `view` pane stores only its
+  `viewName`). An
   `editor` pane is a file view (`FileView.tsx`): images and PDFs get viewers, the rest Monaco.
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
   selects, dialogs, tooltips, kbd, badges, alerts, empty states, list items and radio groups;
@@ -684,7 +712,12 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   and secrets through `test/fixtures/extensions-assist/oracle`; the assistant extension's
   providers are tested against local fake OpenAI-compatible, Anthropic and model-runtime
   (unix socket) servers, never a real provider; `e2e/assistant.spec.ts` configures a fake
-  OpenAI-compatible server in Settings and drives Ask and the composer.
+  OpenAI-compatible server in Settings and drives Ask and the composer;
+  `e2e/assistant-chat.spec.ts` (fake server from `e2e/fakeProvider.ts`) opens the chat pane from
+  the top-bar Assistant menu, runs a shell block in a new terminal, opens a path from an answer,
+  finds the session after a restart, accepts terminal ghost text with Tab without running it,
+  and turns terminal completion off in the menu. Chat sessions are tested in
+  `src/main/chatSessions.test.ts` (caps, trim, eviction, delete).
   Tool extensions (trellis, keeper) are tested against fake `trellis`/`keeper` shell scripts in
   `test/fixtures/tools/bin/` put first on `PATH`, fed scrubbed real `--json` captures from
   `test/fixtures/tools/<tool>/`; never point a test at the real tools.
@@ -754,4 +787,7 @@ Rules:
   `PINE_TOKEN`, so `pine <agent>` from it opens the manager. The check stops a confused or
   injected agent, not a determined process running as the same user.
 - **Plugin light themes have no terminal palette or Monaco theme of their own.** Only `pine-light` does; a plugin theme falls back to the One Dark Vivid terminal palette, and Monaco follows the theme's `appearance`.
+- **Sandboxes are not VMs.** bwrap/Seatbelt stop a misbehaving agent, not a kernel exploit. The
+  editor doesn't reload files changed on disk, so an agent's write to an open file shows only after
+  reopening it. SBX-C58 (macOS loopback-only binding) runs only on macOS.
 - **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch).

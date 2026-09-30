@@ -1,23 +1,24 @@
 import { AppWindowIcon } from '@phosphor-icons/react'
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ASK_COMMAND_ID } from '../commands/askCommand'
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
-import { allPanes } from '../layout/tree'
+import { allPanes, firstPaneOfKind } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
+import { useChatAvailable } from '../lib/assistFeatures'
 import { chordLabel } from '../lib/chords'
 import { PALETTE_MODES, type PaletteMode, paletteMode } from '../lib/paletteModes'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { revealPane } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
-import { useAskStore } from '../stores/askStore'
 import { useAssistProvider } from '../stores/assistStore'
+import { chatFor, currentSessionId } from '../stores/chatStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
-import { AskView } from './AskView'
+import { ChatView } from './ChatView'
 import {
   CommandDialog,
   CommandEmpty,
@@ -32,28 +33,43 @@ import { Kbd } from './ui/kbd'
 const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
 const commandsVersion = (): number => commands.version()
 
+function stopUnseenAnswer(): void {
+  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
+  if (layout && firstPaneOfKind(layout.root, 'chat')) return
+  const sessionId = currentSessionId(workspaceId)
+  if (sessionId) void chatFor(sessionId).stop()
+}
+
 export function CommandPalette(): JSX.Element {
   const d = useDict()
   const open = useUIStore((s) => s.paletteOpen)
   const close = useUIStore((s) => s.closePalette)
   const openMode = useUIStore((s) => s.paletteMode)
-  const chat = useAssistProvider('chat')
+  const provider = useAssistProvider('chat')
+  const chat = useChatAvailable() ? provider : null
   const [search, setSearch] = useState('')
   const [asking, setAsking] = useState<ArgumentCommand | null>(null)
   const [askSeed, setAskSeed] = useState('')
   const mode = paletteMode(search)
   const places = useMemo(() => (open ? snapshotPlaces() : EMPTY_PLACES), [open])
   const askMode = openMode === 'ask' && chat !== null
+  const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
 
   useSyncExternalStore(subscribeCommands, commandsVersion)
 
+  const wasAsking = useRef(false)
   useEffect(() => {
-    if (open) return
+    if (open) {
+      wasAsking.current = askMode
+      return
+    }
     setSearch('')
     setAsking(null)
     setAskSeed('')
-    useAskStore.getState().stopAll()
-  }, [open])
+    if (wasAsking.current) stopUnseenAnswer()
+    wasAsking.current = false
+  }, [open, askMode])
 
   const enterAsk = (seed: string): void => {
     setAskSeed(seed)
@@ -84,7 +100,13 @@ export function CommandPalette(): JSX.Element {
       description={askMode ? d.ask.placeholder : d.palette.placeholder}
     >
       {askMode && chat ? (
-        <AskView provider={chat} seed={askSeed} onBack={leaveAsk} onInserted={finish} />
+        <ChatView
+          workspaceId={activeWorkspaceId}
+          variant="palette"
+          seed={askSeed}
+          onBack={leaveAsk}
+          onInserted={finish}
+        />
       ) : asking ? (
         <ArgumentStep command={asking} value={search} onValueChange={setSearch} onDone={finish} />
       ) : (

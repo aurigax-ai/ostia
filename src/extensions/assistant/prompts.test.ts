@@ -3,14 +3,22 @@ import {
   CURSOR_MARK,
   chatPrompt,
   cleanCompletion,
+  cleanTerminal,
   commandPrompt,
+  commandSchema,
+  commandsFrom,
   completionPrompt,
-  parseCommands,
   parseCorrection,
-  parseReview,
+  reviewFrom,
   reviewPrompt,
+  reviewSchema,
+  terminalPrompt,
   typoPrompt,
 } from './prompts'
+
+function lastUser(prompt: { messages: { role: string; content: unknown }[] }): string {
+  return String(prompt.messages.at(-1)?.content)
+}
 
 describe('typo prompt', () => {
   it('sends the draft as is and asks for the corrected message only', () => {
@@ -48,17 +56,19 @@ describe('review', () => {
     expect(reviewPrompt('do it', 'claude').system).toMatch(/coding agent claude/)
   })
 
-  it('parses JSON inside fences, clamps the score and caps notes', () => {
-    const raw =
-      'Sure!\n```json\n{"score": 7, "notes": ["Name the file", "", "Say how to verify", "a", "b", "c", "d"]}\n```'
-    expect(parseReview(raw)).toEqual({
+  it('accepts a string score, clamps it and caps notes', () => {
+    const parsed = reviewSchema.parse({
+      score: '7',
+      notes: ['Name the file', ' ', 'Say how to verify', 'a', 'b', 'c', 'd'],
+    })
+    expect(reviewFrom(parsed)).toEqual({
       score: 5,
       notes: ['Name the file', 'Say how to verify', 'a', 'b', 'c'],
     })
   })
 
-  it('returns null for text that is not a review', () => {
-    expect(parseReview('looks fine to me')).toBeNull()
+  it('is empty without a score or notes', () => {
+    expect(reviewFrom({ score: Number.NaN, notes: [] })).toBeNull()
   })
 })
 
@@ -70,23 +80,28 @@ describe('command suggestions', () => {
       platform: 'linux',
       cwd: '/home/u/p',
     })
-    expect(prompt.messages[0].content).toBe(
+    expect(lastUser(prompt)).toBe(
       'Shell: zsh\nOS: linux\nWorking directory: /home/u/p\nRequest: find big files',
     )
   })
 
-  it('parses objects, bare arrays and strings, dropping multi-line and extra entries', () => {
-    expect(
-      parseCommands(
-        '{"suggestions":[{"command":"du -sh * | sort -h","description":"sizes"},{"command":"a\\nb"},{"command":"ls -S"},{"command":"x"},{"command":"y"}]}',
-      ),
-    ).toEqual([
+  it('drops multi-line, empty, duplicate and extra suggestions', () => {
+    const parsed = commandSchema.parse({
+      suggestions: [
+        { command: 'du -sh * | sort -h', description: 'sizes' },
+        { command: 'a\nb' },
+        { command: ' ' },
+        { command: 'ls -S' },
+        { command: 'ls -S', description: 'again' },
+        { command: 'x' },
+        { command: 'y' },
+      ],
+    })
+    expect(commandsFrom(parsed)).toEqual([
       { command: 'du -sh * | sort -h', description: 'sizes' },
       { command: 'ls -S' },
       { command: 'x' },
     ])
-    expect(parseCommands('["ls -la"]')).toEqual([{ command: 'ls -la' }])
-    expect(parseCommands('no idea')).toEqual([])
   })
 })
 
@@ -99,7 +114,7 @@ describe('inline completion', () => {
       suffix: '\nexport {}',
       neighbors: [{ path: '/p/b.ts', text: 'export const y = 1' }],
     })
-    const content = prompt.messages[0].content
+    const content = lastUser(prompt)
     expect(content).toContain(`const x = ${CURSOR_MARK}\nexport {}`)
     expect(content).toContain('Other open file /p/b.ts')
     expect(content.indexOf('/p/b.ts')).toBeLessThan(content.indexOf('File /p/a.ts'))
@@ -109,6 +124,42 @@ describe('inline completion', () => {
     expect(cleanCompletion('```ts\nconst x = 42;\n```', 'let a\nconst x = ', '\n')).toBe('42;')
     expect(cleanCompletion('foo(1)\n}', 'call ', '}\nrest')).toBe('foo(1)')
     expect(cleanCompletion(`a${CURSOR_MARK}b  \n`, '', '')).toBe('ab')
+  })
+
+  it('drops indentation the prefix already has and a closing brace the suffix holds', () => {
+    const prefix = 'function multiply(a, b) {\n  '
+    expect(cleanCompletion('  return a * b\n}', prefix, '\n}\n')).toBe('return a * b')
+  })
+})
+
+describe('terminal completion', () => {
+  it('sends the line with cwd, shell, recent commands with exit codes and chip context', () => {
+    const prompt = terminalPrompt({
+      line: 'git comm',
+      cwd: '/p',
+      shell: 'zsh',
+      platform: 'linux',
+      history: [{ command: 'git add -A', exitCode: 0 }, { command: 'make' }],
+      context: [{ label: 'Git branch', text: 'main' }],
+    })
+    expect(lastUser(prompt)).toBe(
+      'Shell: zsh\nOS: linux\nWorking directory: /p\nGit branch: main\nRecent commands:\n$ git add -A   # exit 0\n$ make\nCurrent line: git comm',
+    )
+    expect(prompt.temperature).toBe(0)
+    expect(prompt.maxOutputTokens).toBeLessThanOrEqual(64)
+  })
+
+  it('keeps only what continues the typed line, on one line', () => {
+    expect(cleanTerminal('git commit -m "x"', 'git comm')).toBe('it -m "x"')
+    expect(cleanTerminal('ls -la\nls -l', 'ls -')).toBe('la')
+    expect(cleanTerminal('```sh\ndocker ps -a\n```', 'docker ps ')).toBe('-a')
+    expect(cleanTerminal('$ cd ..', 'cd ')).toBe('..')
+  })
+
+  it('offers nothing when the answer does not start with the line or adds nothing', () => {
+    expect(cleanTerminal('git diff', 'ls -')).toBe('')
+    expect(cleanTerminal('ls -', 'ls -')).toBe('')
+    expect(cleanTerminal('', 'ls')).toBe('')
   })
 })
 

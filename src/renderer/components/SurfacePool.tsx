@@ -5,8 +5,10 @@ import { allPanes } from '../layout/tree'
 import type { LayoutNode, SurfaceKind } from '../layout/types'
 import { useDiffStore } from '../stores/diffStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { releaseSurfaces, surfaceHost } from '../stores/surfaceSlotsStore'
 import { BrowserView } from './BrowserView'
+import { ChatPane } from './ChatPane'
 import { DiffView } from './DiffView'
 import { ExtensionPanelView } from './ExtensionPanelView'
 import { FileView } from './FileView'
@@ -23,6 +25,7 @@ interface SurfaceRef {
   filePath?: string
   url?: string
   extensionId?: string
+  chatSessionId?: string
   viewName?: string
   hibernated?: true
   resume?: AgentResume
@@ -35,6 +38,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
       pane.kind === 'editor' ||
       pane.kind === 'browser' ||
       pane.kind === 'diff' ||
+      pane.kind === 'chat' ||
       pane.kind === 'manager' ||
       (pane.kind === 'extension' && pane.extensionId) ||
       (pane.kind === 'view' && pane.viewName)
@@ -47,6 +51,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         filePath: pane.filePath,
         url: pane.url,
         extensionId: pane.extensionId,
+        chatSessionId: pane.chatSessionId,
         viewName: pane.viewName,
         hibernated: pane.hibernated,
         resume: pane.resume,
@@ -57,6 +62,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
 
 export function SurfacePool(): JSX.Element {
   const byWorkspace = useLayoutStore((s) => s.byWorkspace)
+  const generation = useSandboxStore((s) => s.generation)
 
   const surfaces = useMemo(() => {
     const out: SurfaceRef[] = []
@@ -80,6 +86,8 @@ export function SurfacePool(): JSX.Element {
             <FileView workspaceId={s.workspaceId} paneId={s.paneId} filePath={s.filePath} />
           ) : s.kind === 'diff' ? (
             <DiffView paneId={s.paneId} />
+          ) : s.kind === 'chat' ? (
+            <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
           ) : s.kind === 'manager' ? (
             <ManagerView paneId={s.paneId} />
           ) : s.kind === 'browser' ? (
@@ -95,7 +103,12 @@ export function SurfacePool(): JSX.Element {
           ) : s.hibernated ? (
             <HibernatedView paneId={s.paneId} resume={s.resume} />
           ) : (
-            <TerminalView workspaceId={s.workspaceId} paneId={s.paneId} cwd={s.cwd} />
+            <TerminalView
+              key={generation[s.paneId] ?? 0}
+              workspaceId={s.workspaceId}
+              paneId={s.paneId}
+              cwd={s.cwd}
+            />
           ),
           surfaceHost(s.paneId),
           s.paneId,

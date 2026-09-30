@@ -18,6 +18,9 @@ conn.onRequest('ext.command', async ({ command, args }) => {
     return { ok: true, data: await conn.sendRequest('ext.getSecret', { key: 'apiKey' }) }
   if (command === 'events') return { ok: true, data: settingsEvents }
   if (command === 'status') return conn.sendRequest('ext.setAssistStatus', { status: args })
+  if (command === 'shortcuts')
+    return { ok: true, data: await conn.sendRequest('ext.shortcuts', { ids: args }) }
+  if (command === 'openui') return conn.sendRequest('ext.openAssistUi', args)
   return { ok: false, error: 'unknown-command' }
 })
 
@@ -47,6 +50,7 @@ conn.onRequest('ext.assist', async ({ point, requestId, input }, token) => {
     }
     return { text: parts.join(''), live }
   }
+  if (point === 'terminal') return { text: ` -la  # ${input.line}\nsecond line` }
   if (point === 'command') {
     if (input.query === 'rate') return { error: 'rate-limited', message: 'slow down' }
     return {
@@ -70,7 +74,16 @@ socket.on('connect', async () => {
       command: { ready: true, label: 'fake · small' },
       input: { ready: false },
       completion: { ready: true },
+      terminal: { ready: true, label: 'fake · small' },
     },
+    features: [
+      { id: 'chat', setting: 'chat', ready: true },
+      { id: 'typos', setting: 'level', ready: true },
+      { id: 'bogus', setting: 'chat', ready: true },
+    ],
+    setup: null,
+    lastError: 'model busy',
+    label: 'fake',
   })
-  await conn.sendRequest('ext.registerCommands', { commands: ['secret', 'events', 'status'] })
+  await conn.sendRequest('ext.registerCommands', { commands: ['secret', 'events', 'status', 'shortcuts', 'openui'] })
 })

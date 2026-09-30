@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_CONTROLS } from '../../shared/sandbox'
 import { useSettingsStore } from './settingsStore'
 
 const store = () => useSettingsStore.getState()
@@ -57,6 +58,7 @@ describe('settingsStore', () => {
       editor: s.editor,
       keybindings: s.keybindings,
       agents: s.agents,
+      assistant: s.assistant,
       workspaceGroups: s.workspaceGroups,
       extensionSettings: s.extensionSettings,
       approvals: s.approvals,
@@ -390,6 +392,7 @@ describe('settingsStore', () => {
         editor: s.editor,
         keybindings: s.keybindings,
         agents: s.agents,
+        assistant: s.assistant,
         workspaceGroups: s.workspaceGroups,
         extensionSettings: s.extensionSettings,
         approvals: s.approvals,
@@ -471,6 +474,7 @@ describe('settingsStore', () => {
         editor: s.editor,
         keybindings: s.keybindings,
         agents: s.agents,
+        assistant: s.assistant,
         workspaceGroups: s.workspaceGroups,
         extensionSettings: s.extensionSettings,
         approvals: s.approvals,
@@ -580,6 +584,16 @@ describe('settingsStore', () => {
         'cannot set locale.nested: locale is string, not an object',
       )
       expect(store().locale).toBe(DEFAULTS.locale)
+    })
+
+    it('SBX-C7 refuses every sandbox key so an agent cannot lift its own fence', () => {
+      useSettingsStore.setState({
+        sandbox: { allowRead: [], allowedDomains: ['api.github.com'], controls: DEFAULT_CONTROLS },
+      })
+      for (const path of ['sandbox.allowedDomains', 'sandbox.controls.allWorkspaces', 'sandbox']) {
+        expect(() => store().setByPath(path, true)).toThrow('unknown settings key')
+      }
+      expect(store().sandbox?.allowedDomains).toEqual(['api.github.com'])
     })
 
     it('refuses capabilities.grants so an agent cannot elevate itself', () => {

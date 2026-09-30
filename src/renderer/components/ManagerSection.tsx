@@ -3,15 +3,18 @@ import { splitArgs } from '@shared/argv'
 import {
   BUILTIN_MANAGER_AGENTS,
   MANAGER_AGENT_NAME,
+  MANAGER_FEATURE,
   MANAGER_LIMIT_BOUNDS,
   type ManagerLimits,
   isManagerArgv,
   isSkillPath,
 } from '@shared/managerSettings'
 import { quoteArgv } from '@shared/shellQuote'
+import type { RequirementsReport } from '@shared/systemRequirements'
 import { useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { IconButton } from './IconButton'
 import { NumberRow, SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'
 import { Badge } from './ui/badge'
@@ -190,6 +193,48 @@ function SkillsGroup(): JSX.Element {
   )
 }
 
+function RequirementsNote(): JSX.Element | null {
+  const d = useDict()
+  const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
+  const [report, setReport] = useState<RequirementsReport | null>(null)
+  useEffect(() => {
+    let live = true
+    void window.pine.system.requirements(MANAGER_FEATURE).then((next) => {
+      if (live) setReport(next)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+  if (!report || report.missing.length === 0) return null
+  const command = report.hint.command
+  return (
+    <WarningNote>
+      <p>{fmt(d.manager.requirementsBody, { packages: report.hint.packages.join(', ') })}</p>
+      {report.canInstall && workspaceId ? (
+        <Button
+          size="sm"
+          className="mt-2"
+          onClick={() => void window.pine.system.installRequirements(MANAGER_FEATURE, workspaceId)}
+        >
+          {d.manager.install}
+        </Button>
+      ) : command ? (
+        <div className="mt-2 flex items-center gap-2">
+          <code className="min-w-0 flex-1 truncate font-mono text-ui-sm">{command}</code>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void navigator.clipboard?.writeText(command)}
+          >
+            {d.manager.copyCommand}
+          </Button>
+        </div>
+      ) : null}
+    </WarningNote>
+  )
+}
+
 const LIMIT_KEYS: (keyof ManagerLimits)[] = ['maxWorkers', 'spawnsPer10Min', 'busPerMinute']
 
 export function ManagerSection(): JSX.Element {
@@ -214,6 +259,7 @@ export function ManagerSection(): JSX.Element {
   return (
     <div>
       <SectionHead title={d.manager.settingsTitle} desc={d.manager.settingsDesc} />
+      <RequirementsNote />
       <SettingsGroup title={d.manager.groupAgents}>
         <p className="mb-2 text-fg-muted text-ui-sm">{d.manager.agentsDesc}</p>
         <ul className="flex flex-col">

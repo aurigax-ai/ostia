@@ -21,6 +21,8 @@ function hangingHost() {
   const calls: AssistCallOptions[] = []
   const host: AssistHost = {
     assistAvailability: () => ({}),
+    assistOverview: () => [],
+    setShortcuts: () => {},
     assist: <P extends AssistPoint>(_point: P, _input: unknown, opts: AssistCallOptions = {}) => {
       calls.push(opts)
       return new Promise<AssistResponse<P>>((resolve) => {
@@ -35,6 +37,8 @@ describe('createAssistRouter', () => {
   it('forwards chunks to the window that asked, tagged with its request id', async () => {
     const host: AssistHost = {
       assistAvailability: () => ({}),
+      assistOverview: () => [],
+      setShortcuts: () => {},
       assist: async <P extends AssistPoint>(
         _point: P,
         _input: unknown,
