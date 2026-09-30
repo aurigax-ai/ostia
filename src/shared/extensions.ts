@@ -1,3 +1,4 @@
+import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
 import type { Workflow } from './workflows'
 
@@ -93,6 +94,13 @@ export function effectiveSettingValues(
   return out
 }
 
+export interface ExtensionSecretContribution {
+  key: string
+  description: string
+}
+
+export const EXTENSION_SECRET_MAX = 4096
+
 export interface ExtensionManifest {
   id: string
   name: string
@@ -108,6 +116,8 @@ export interface ExtensionManifest {
     settings: ExtensionSettingContribution[]
     workflows?: Workflow[]
     completions?: string
+    assist: AssistPoint[]
+    secrets: ExtensionSecretContribution[]
   }
 }
 
@@ -135,6 +145,9 @@ export interface ExtensionInfo {
   paneChips: ExtensionPaneChipContribution[]
   settings: ExtensionSettingContribution[]
   settingValues: ExtensionSettingValues
+  assist: AssistPoint[]
+  secrets: ExtensionSecretContribution[]
+  secretsSet: string[]
 }
 
 export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as const
@@ -267,6 +280,10 @@ export type ExtensionSettingResult =
   | { ok: true; stored: ExtensionSettingValues; list: ExtensionInfo[] }
   | { ok: false; error: string }
 
+export type ExtensionSecretResult =
+  | { ok: true; list: ExtensionInfo[] }
+  | { ok: false; error: string }
+
 export const DIFF_TEXT_MAX = 5 * 1024 * 1024
 
 export interface DiffContent {
@@ -317,6 +334,7 @@ export interface ExtensionsApi {
   sidebarItems: () => Promise<ExtensionSidebarItem[]>
   paneChips: () => Promise<PaneChip[]>
   setSetting: (extId: string, key: string, value: unknown) => Promise<ExtensionSettingResult>
+  setSecret: (extId: string, key: string, value: string | null) => Promise<ExtensionSecretResult>
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
   onPaneChips: (cb: (chips: PaneChip[]) => void) => () => void
