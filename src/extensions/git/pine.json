@@ -89,7 +89,7 @@
       "pollSeconds": {
         "type": "number",
         "default": 10,
-        "description": "Seconds between git refreshes while Pine is focused (at least 2)"
+        "description": "Seconds between git refreshes while Pine is focused (2 to 3600)"
       },
       "showDiffStats": {
         "type": "boolean",
