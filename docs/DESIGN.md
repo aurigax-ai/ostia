@@ -96,7 +96,11 @@ Workspace group colors are a separate label palette: `--group-red`, `--group-ora
 `--group-yellow`, `--group-green`, `--group-teal`, `--group-blue`, `--group-purple`,
 `--group-pink` (primitives `--color-group-*`, One Dark hues by default; a theme may remap them).
 They only tint a group's swatch and its member rule, never text or state; the group's name
-always carries its identity.
+always carries its identity. The one other use is the Git graph's lanes (`--lane-0..7` in the
+git panel, each group hue mixed 72% with `--fg` so it holds contrast on light and dark themes):
+a lane color only tells branches apart, and the ref badge names the branch. Panels get the
+palette as `--group-*` from the SDK's base CSS. Uncommitted work in the graph is drawn dashed
+and hollow, never by color alone.
 
 Elevation: `bg-sunken` < `bg` < `surface-1` < `surface-2` < `surface-3`. In the dark theme,
 elevation comes from lightness, not shadow; shadows are only for overlays. Every theme keeps

@@ -132,6 +132,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onChanged: vi.fn(noopUnsub),
       onSidebar: vi.fn(noopUnsub),
       onPaneChips: vi.fn(noopUnsub),
+      onSettingsStored: vi.fn(noopUnsub),
       onOpenPanel: vi.fn(noopUnsub),
       onOpenDiff: vi.fn(noopUnsub),
       onOpenTerminal: vi.fn(noopUnsub),

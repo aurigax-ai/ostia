@@ -7,6 +7,7 @@ import type {
 import { runWhenIdle } from '../lib/blockActions'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { commands } from './registry'
 
@@ -116,6 +117,9 @@ export function wireExtensionBridge(): void {
   })
   api.onSidebar((items) => store.setSidebar(items))
   api.onPaneChips((chips) => store.setChips(chips))
+  api.onSettingsStored(({ extId, stored }) =>
+    useSettingsStore.getState().setExtensionSettings(extId, stored),
+  )
   api.onOpenPanel(openExtensionPanel)
   api.onOpenDiff(openExtensionDiff)
   api.onOpenTerminal(openExtensionTerminal)

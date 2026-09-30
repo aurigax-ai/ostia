@@ -270,6 +270,11 @@ export type ExtensionSettingResult =
   | { ok: true; stored: ExtensionSettingValues; list: ExtensionInfo[] }
   | { ok: false; error: string }
 
+export interface ExtensionSettingsStored {
+  extId: string
+  stored: ExtensionSettingValues
+}
+
 export const DIFF_TEXT_MAX = 5 * 1024 * 1024
 
 export interface DiffContent {
@@ -323,6 +328,7 @@ export interface ExtensionsApi {
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
   onPaneChips: (cb: (chips: PaneChip[]) => void) => () => void
+  onSettingsStored: (cb: (update: ExtensionSettingsStored) => void) => () => void
   onOpenPanel: (cb: (req: ExtensionOpenPanelRequest) => void) => () => void
   onOpenDiff: (cb: (req: ExtensionOpenDiffRequest) => void) => () => void
   onOpenTerminal: (cb: (req: ExtensionOpenTerminalRequest) => string | null) => () => void
