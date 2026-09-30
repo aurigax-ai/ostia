@@ -2006,9 +2006,16 @@ button.prompt-chip:focus-visible {
 
 .history-row {
   display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0;
 }
 
 .history-command {
@@ -2017,6 +2024,63 @@ button.prompt-chip:focus-visible {
   font-family: var(--font-mono);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.workflow-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.workflow-row-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.workflow-name {
+  overflow: hidden;
+  color: var(--fg);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.workflow-source {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.workflow-description {
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.workflow-row .workflow-command {
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.workflow-command {
+  font-family: var(--font-mono);
+}
+
+.workflow-arg {
+  border-radius: 3px;
+  background: var(--brand-glow);
+  color: var(--syn-variable, var(--fg));
 }
 
 .history-meta {

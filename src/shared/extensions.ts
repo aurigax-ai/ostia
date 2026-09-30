@@ -1,4 +1,5 @@
 import type { Capability } from './capabilities'
+import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'pine.json'
 
@@ -104,6 +105,7 @@ export interface ExtensionManifest {
     panel?: ExtensionPanelContribution
     paneChips: ExtensionPaneChipContribution[]
     settings: ExtensionSettingContribution[]
+    workflows?: Workflow[]
   }
 }
 

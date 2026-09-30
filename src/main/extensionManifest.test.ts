@@ -226,6 +226,39 @@ describe('parseManifest', () => {
   })
 })
 
+describe('parseManifest — workflows', () => {
+  it('accepts workflows without a main process and validates each one', () => {
+    const noMain = { id: 'demo', name: 'Demo', version: '1' }
+    const res = parseManifest(
+      {
+        ...noMain,
+        contributes: {
+          workflows: [
+            {
+              name: 'Tail logs',
+              command: 'tail -f {{file}}',
+              arguments: [{ name: 'file', default_value: 'app.log' }],
+            },
+          ],
+        },
+      },
+      DIR,
+    )
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.workflows).toEqual([
+      {
+        name: 'Tail logs',
+        command: 'tail -f {{file}}',
+        tags: [],
+        arguments: [{ name: 'file', defaultValue: 'app.log' }],
+      },
+    ])
+    const bad = parseManifest({ ...noMain, contributes: { workflows: [{ name: 'x' }] } }, DIR)
+    expect(bad).toEqual({ ok: false, error: 'contributes.workflows[0]: missing command' })
+    expect(parseManifest({ ...noMain, contributes: { workflows: {} } }, DIR).ok).toBe(false)
+  })
+})
+
 describe('isInsideDir', () => {
   it('is true only for paths strictly below the directory', () => {
     expect(isInsideDir('/a/b', 'c.html')).toBe(true)

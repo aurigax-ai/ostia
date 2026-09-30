@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBlocksStore } from '../stores/blocksStore'
+import { useWorkflowsStore } from '../stores/workflowsStore'
 import { BlockMenu } from './BlockMenu'
 
 const actions = vi.hoisted(() => ({
@@ -33,6 +34,7 @@ describe('BlockMenu', () => {
 
   afterEach(() => {
     useBlocksStore.setState(init, true)
+    useWorkflowsStore.setState({ saveCommand: null })
     actions.copyBlock.mockClear()
     actions.rerunBlock.mockClear()
   })
@@ -87,5 +89,15 @@ describe('BlockMenu', () => {
     const rerun = await screen.findByRole('menuitem', { name: 'Rerun command' })
 
     expect(rerun).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('opens Save as workflow with the block command, even while another command runs', async () => {
+    useBlocksStore.getState().commandStart(PANE, { line: 4 }, 'sleep 5')
+    renderMenu()
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
+
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Save as workflow…' }))
+
+    expect(useWorkflowsStore.getState().saveCommand).toBe('make build')
   })
 })

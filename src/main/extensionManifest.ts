@@ -14,10 +14,12 @@ import {
   type ExtensionSettingType,
   validSettingValue,
 } from '../shared/extensions'
+import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
 const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
 const MAX_COMMANDS = 64
+const MAX_WORKFLOWS = 64
 const MAX_TEXT = 200
 const MAX_PANE_CHIPS = 8
 const MAX_SETTINGS = 32
@@ -175,6 +177,20 @@ function parseSettings(raw: unknown): ExtensionSettingContribution[] | string {
   return settings
 }
 
+function parseWorkflows(raw: unknown): Workflow[] | string | undefined {
+  if (raw === undefined) return undefined
+  if (!Array.isArray(raw) || raw.length > MAX_WORKFLOWS) {
+    return `contributes.workflows must be an array of at most ${MAX_WORKFLOWS}`
+  }
+  const workflows: Workflow[] = []
+  for (const [i, item] of raw.entries()) {
+    const workflow = parseWorkflow(item)
+    if (workflow instanceof Error) return `contributes.workflows[${i}]: ${workflow.message}`
+    workflows.push(workflow)
+  }
+  return workflows
+}
+
 export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (!isRecord(raw)) return { ok: false, error: 'manifest must be a JSON object' }
   const id = raw.id
@@ -214,6 +230,8 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   }
   const panel = parsePanel(contributes.panel, dir)
   if (typeof panel === 'string') return { ok: false, error: panel }
+  const workflows = parseWorkflows(contributes.workflows)
+  if (typeof workflows === 'string') return { ok: false, error: workflows }
   const sidebarItems = contributes.sidebarItems === true
   const paneChips = parsePaneChips(contributes.paneChips)
   if (typeof paneChips === 'string') return { ok: false, error: paneChips }
@@ -238,6 +256,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   }
   if (main) manifest.main = main
   if (panel) manifest.contributes.panel = panel
+  if (workflows && workflows.length > 0) manifest.contributes.workflows = workflows
   return { ok: true, manifest }
 }
 
