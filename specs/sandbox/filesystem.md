@@ -45,6 +45,12 @@ Back to [the index](index.md).
   including ones a later `git init` creates, and the project vault must not be readable or
   corruptible from inside. Governs: srt filesystem.denyWrite for workDir. Supersedes: SBX-D10.
 
+- **SBX-D37** The sandbox mounts the real `workDir`, not a copy. The host (the human's editor, other
+  workspaces, the git extension) and the sandbox write the same files; the last writer wins, the
+  same as without a sandbox, and there is nothing to merge. Showing on-disk changes in an open
+  editor is the editor's own feature, specced separately. Why: SBX-D11 assumed the editor already
+  reloads changed files, and it doesn't. Governs: workDir mount. Supersedes: SBX-D11.
+
 ## Cases
 | ID | Covers | Kind | Case |
 |---|---|---|---|
@@ -61,7 +67,6 @@ Back to [the index](index.md).
 | SBX-C31 | SBX-D22 | expected | Given a sandboxed pane in a git repo, when it commits, then the commit succeeds, and writing `.git/hooks/pre-commit`, `.git/config` or `.envrc` is denied |
 | SBX-C32 | SBX-D22 | unexpected | Given a workDir that isn't a repo, when the sandboxed shell runs `git init`, then writing `.git/hooks/pre-commit` is denied right away |
 | SBX-C62 | SBX-D22 | unexpected | Given a workspace with a project vault, when its sandboxed shell reads, deletes or overwrites `.pine/vault.json`, then each is denied, and the vault still works from the host |
-| SBX-C33 | SBX-D11 | expected | Given a file open in Pine's editor, when a sandboxed agent rewrites it, then the editor shows the new content through its existing on-disk-change handling |
-| SBX-C34 | SBX-D11 | unexpected | Given the human and a sandboxed agent write the same file at nearly the same time, when both writes land, then the file holds the last write, with no error and no copy left behind |
+| SBX-C34 | SBX-D37 | unexpected | Given the human and a sandboxed agent write the same file at nearly the same time, when both writes land, then the file holds the last write, with no error and no copy left behind |
 
 ## Open
