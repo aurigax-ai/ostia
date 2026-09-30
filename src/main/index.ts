@@ -85,7 +85,7 @@ import {
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { registerLoginFill } from './loginFill'
 import { killAllLsp, registerLspIpc } from './lsp'
-import { ManagerService } from './manager'
+import { ManagerService, managerWindowId } from './manager'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
 import {
@@ -929,7 +929,7 @@ function spawnManagerPty(req: {
   onExit: () => void
 }): boolean {
   const mod = loadPty()
-  const windowId = primaryWindowId()
+  const windowId = getByPaneId(req.paneId)?.windowId || primaryWindowId()
   const [file, ...args] = managerLaunchArgv(req.argv, req.resume)
   if (!mod || !windowId || !file) return false
   const cwd = resolveCwd(req.cwd)
@@ -1233,10 +1233,9 @@ function registerManagerIpc(): void {
 
 function managerWindow(): Promise<BrowserWindow | null> {
   const ready = (): BrowserWindow | null => {
-    for (const [id, win] of windows) {
-      if (!win.isDestroyed() && managerReadyWindows.has(id)) return win
-    }
-    return null
+    const id = managerWindowId(primaryWindowId(), managerReadyWindows)
+    const win = id ? windows.get(id) : undefined
+    return win && !win.isDestroyed() ? win : null
   }
   const now = ready()
   if (now) return Promise.resolve(now)

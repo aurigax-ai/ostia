@@ -9,6 +9,7 @@ Status: cases approved 2026-09-30 at 81e6c2b (the user said to start building)
 ## Cases
 | ID | Covers | Kind | Case |
 |---|---|---|---|
+| MGR-C38 | MGR-D2, MGR-D13 | unexpected | Given a detached window restored at startup whose renderer is ready before the main window's, when the manager opens, then its workspace opens in the main window and its pane is registered to that window |
 | MGR-C33 | MGR-D12 | expected | Given Pine quit while the claude manager ran with a saved resume token, when `pine claude` runs after the restart, then the manager starts with `--resume <id>`; after the agent exits on its own, or for another preset, extra args or a malformed token, it starts fresh |
 | MGR-C20 | MGR-D4, MGR-D13 | expected | Given the manager open in Pine, when the human types in its pane, then nothing reaches the agent, Pine never resizes its pty, and the pane says it is read-only |
 | MGR-C21 | MGR-D8, MGR-D13 | expected | Given a mirror attached, when the human types and resizes the outside terminal, then the agent gets the keys and the size, and Pine's view follows the size |
