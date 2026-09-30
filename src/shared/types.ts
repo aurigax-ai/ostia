@@ -346,6 +346,10 @@ export interface WorkspaceProject {
 
 export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'program' | 'failed' }
 
+export interface FilesApi {
+  pathForFile: (file: File) => string
+}
+
 export interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
   reveal: (path: string) => Promise<OpenPathResult>
@@ -491,6 +495,7 @@ export interface PineBridge {
   update: AppUpdateApi
   agentSession: AgentSessionApi
   openPath: OpenPathApi
+  files: FilesApi
   extensions: ExtensionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi

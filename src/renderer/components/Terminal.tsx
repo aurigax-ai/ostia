@@ -18,6 +18,7 @@ import {
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
+import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
@@ -647,7 +648,23 @@ export function TerminalView({
   const background = palette.background
 
   return (
-    <div ref={surfaceRef} className="terminal-surface">
+    <div
+      ref={surfaceRef}
+      className="terminal-surface"
+      onDragOver={(e) => {
+        if (!acceptsPathDrop([...e.dataTransfer.types])) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+      }}
+      onDrop={(e) => {
+        if (!acceptsPathDrop([...e.dataTransfer.types])) return
+        e.preventDefault()
+        const text = pathsAsInput(droppedPaths(e.dataTransfer))
+        if (!text) return
+        pasteRef.current(text)
+        termRef.current?.focus()
+      }}
+    >
       <div className="terminal-stack">
         <div ref={hostRef} className="xterm-host" style={{ background }} />
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />

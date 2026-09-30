@@ -717,6 +717,14 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   above the pinned group) and picks the `workDir`: the active workspace's focused pane `cwd` when
   `workspaces.inheritFolder` is on and the pane has one, else `workspaces.defaultFolder` (`~`).
   The `workDir` stays the anchor; only its initial value is inherited.
+- **Tab and file conveniences**: a middle-click on a pane tab runs `pane.close` (the same guard as
+  its X); the close guard (`lib/closeConfirm.ts`) asks for a pane, workspace or quit when it has
+  a running command or an editor file with unsaved changes (`useEditorStatus.dirty`), listing
+  both. Tree rows are draggable with the path as `application/x-pine-path`; a terminal surface
+  accepts that or OS files (`window.pine.files.pathForFile` → `webUtils.getPathForFile`) and
+  pastes the shell-quoted paths plus a space through `pasteRef` (risky-paste check skipped, no
+  Enter). The file menu's "Open in new workspace" starts a workspace at the folder (or the
+  file's folder, then opens the file).
 - **Workspace names follow the project** (`lib/workspaceProjects.ts`, `main/projectRoot.ts`): for
   each workspace, the active pane's cwd goes to `workspace:project`, which returns the nearest
   folder below home that has a `.git` (never home itself), else the folder, as `{name,

@@ -1,5 +1,5 @@
-import { TerminalWindowIcon } from '@phosphor-icons/react'
-import { useDict } from '../i18n/useDict'
+import { FileDashedIcon, TerminalWindowIcon } from '@phosphor-icons/react'
+import { fmt, useDict } from '../i18n/useDict'
 import { type CloseConfirmKind, useCloseConfirmStore } from '../stores/closeConfirmStore'
 import { Button } from './ui/button'
 import {
@@ -61,6 +61,14 @@ export function CloseConfirmDialog(): JSX.Element {
                     <TerminalWindowIcon size={14} className="shrink-0" aria-hidden />
                     <span className="truncate font-mono text-fg text-ui-sm">
                       {command || d.closeConfirm.unknownCommand}
+                    </span>
+                  </li>
+                ))}
+                {group.files.map((file) => (
+                  <li key={file} className="flex min-w-0 items-center gap-2 text-fg-muted">
+                    <FileDashedIcon size={14} className="shrink-0" aria-hidden />
+                    <span className="truncate text-fg text-ui-sm">
+                      {fmt(d.closeConfirm.unsaved, { file: file.split('/').pop() || file })}
                     </span>
                   </li>
                 ))}

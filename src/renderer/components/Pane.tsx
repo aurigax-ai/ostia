@@ -283,6 +283,14 @@ function PaneTab({
         e.dataTransfer.effectAllowed = 'move'
       }}
       onDragEnd={onDragEnd}
+      onMouseDown={(e) => {
+        if (e.button === 1) e.preventDefault()
+      }}
+      onAuxClick={(e) => {
+        if (e.button !== 1) return
+        e.preventDefault()
+        void commands.exec('pane.close', { paneId: pane.id })
+      }}
     >
       <button
         type="button"

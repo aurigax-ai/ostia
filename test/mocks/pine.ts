@@ -88,6 +88,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     selection: {
       send: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
     },
+    files: {
+      pathForFile: vi.fn(() => ''),
+    },
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
       reveal: vi.fn().mockResolvedValue({ ok: true }),
