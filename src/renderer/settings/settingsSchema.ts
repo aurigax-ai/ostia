@@ -267,6 +267,14 @@ export const SETTINGS_JSON_SCHEMA = {
           maximum: 100000,
           description: 'Lines of history each terminal keeps. Default: 10000.',
         },
+        clipboardKeys: {
+          type: 'string',
+          enum: ['shift', 'smart'],
+          description:
+            'Terminal copy/paste keys on Linux and Windows. "shift": Ctrl+Shift+C/V, and Ctrl+C/V ' +
+            'go to the program. "smart": Ctrl+C copies when text is selected (else interrupts), ' +
+            'Ctrl+V pastes; Ctrl+Shift+C/V still work. macOS always uses Cmd+C/V. Default: shift.',
+        },
         warnOnRiskyPaste: {
           type: 'boolean',
           description:

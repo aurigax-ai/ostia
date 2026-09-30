@@ -255,7 +255,10 @@ Details: `docs/ARCHITECTURE.md`.
   Ctrl+Shift+A, C, G, I, K, L, M, O, R, Z; Settings → Keyboard warns on those via `usedByMonaco`).
   Holding exactly the workspace jump's modifiers (Ctrl / ⌘ by default) for 500 ms shows each
   row's digit; any other key cancels, so Ctrl shortcuts never flash it.
-  Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell;
+  Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell,
+  except the human's opt-in `terminal.clipboardKeys: 'smart'` (Linux/Windows): Ctrl+C copies
+  only while text is selected (else it interrupts as usual) and Ctrl+V pastes
+  (`lib/clipboardKeys.ts`);
   Escape is swallowed only while a block is selected. The chords above are defaults
   (`DEFAULT_CHORDS` in `lib/chords.ts`); the user's `keybindings` setting overrides or unbinds
   them and can bind any palette command. Everything reads the effective map
