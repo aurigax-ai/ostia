@@ -89,6 +89,8 @@ import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
 import { DomainRequests } from './sandbox/domainRequests'
 import { registerSandboxIpc } from './sandbox/ipc'
+import { PortForwarder } from './sandbox/portForwarder'
+import { PortRequests } from './sandbox/portRequests'
 import { sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
@@ -306,6 +308,49 @@ const domainRequests: DomainRequests = new DomainRequests({
 })
 
 let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
+
+function sandboxedPids(workspaceId: string): number[] {
+  const pids: number[] = []
+  for (const entry of ptys.values()) {
+    if (entry.workspaceId === workspaceId && entry.sandboxed) pids.push(entry.pty.pid)
+  }
+  return pids
+}
+
+const portForwarder = new PortForwarder({ pidsOf: sandboxedPids })
+
+const portRequests: PortRequests = new PortRequests({
+  platform: process.platform,
+  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+  policy: (workspaceId) => workspaceSandboxes.resolved(workspaceId).portsPolicy,
+  ask: async ({ workspaceId, paneId, port, process: owner, origin }) => {
+    const pane = paneId ? getByPaneId(paneId) : undefined
+    const identity = pane ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
+    const queue = approvals()
+    if (!identity || !queue) return 'deny'
+    return queue.request({
+      externalId: identity.externalId,
+      windowId: identity.windowId,
+      paneId: identity.paneId,
+      workspaceId,
+      caps: [],
+      kind: 'sandbox-port',
+      subject: String(port),
+      action:
+        origin === 'agent' ? `pine sandbox expose ${port}` : `a server started on port ${port}`,
+      detail: owner ?? '',
+    })
+  },
+  forwarder: portForwarder,
+})
+
+const PORT_SCAN_MS = 3000
+
+function scanSandboxPorts(): void {
+  const workspaces = new Set<string>()
+  for (const entry of ptys.values()) if (entry.sandboxed) workspaces.add(entry.workspaceId)
+  for (const workspaceId of workspaces) void portRequests.scan(workspaceId)
+}
 
 const browserFence = new BrowserFence({
   policy: (workspaceId) => {
@@ -655,6 +700,8 @@ function registerIpc(): void {
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
       workspaceSandboxes.forget(event.workspaceId)
+      void portForwarder.forget(event.workspaceId)
+      portRequests.forget(event.workspaceId)
       domainRequests.forget(event.workspaceId)
     } else if (event.type === 'workspace-activated') {
     } else if (event.type === 'workspace-state') {
@@ -782,6 +829,7 @@ function registerPtyIpc(): void {
     ownerWindow: windowForWorkspace,
     missing: () => missingRequirements(SANDBOX_FEATURE),
     domains: domainRequests,
+    ports: portRequests,
     readPathEnv: () => ({
       home: homedir(),
       dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
@@ -1206,7 +1254,8 @@ app.whenReady().then(() => {
     windowById: (id: string) => windows.get(id),
   }
   registerNotifyMethods(notifyDeps)
-  registerSandboxMethods({ domains: domainRequests })
+  registerSandboxMethods({ domains: domainRequests, ports: portRequests })
+  if (process.platform === 'linux') setInterval(scanSandboxPorts, PORT_SCAN_MS).unref()
   onSandboxSpawnFailure = (workspaceId, errors) =>
     reportSandboxSpawnFailure(
       {
@@ -1379,6 +1428,7 @@ app.on('before-quit', (event) => {
   killAllLsp()
   killAllProcesses()
   workspaceSandboxes.stopAll()
+  portForwarder.stopAll()
   extensionHost?.stopAll()
   settingsSync?.stop()
   stopControlServer()

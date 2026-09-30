@@ -1,5 +1,6 @@
 import {
   type DomainRefusal,
+  type PortsPolicy,
   type SandboxControls,
   type WorkspaceSandbox,
   resolveSandbox,
@@ -8,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
+import { PortsPolicyRow, SandboxPortsTab } from './SandboxPortsTab'
 import { BrowserSelect, useSandboxGlobals } from './SandboxSection'
 import { ControlRow, SectionHead } from './SettingsPanel'
 import { Badge } from './ui/badge'
@@ -101,6 +103,11 @@ export function WorkspaceSandboxPage({
     if (updated) setSettings(updated)
   }
 
+  const setPortsPolicy = async (policy: PortsPolicy | undefined): Promise<void> => {
+    const updated = await window.pine.sandbox.setPortsPolicy(workspaceId, policy)
+    if (updated) setSettings(updated)
+  }
+
   const without = (key: keyof SandboxControls): Partial<SandboxControls> => {
     const { [key]: _gone, ...rest } = settings?.controls ?? {}
     return rest
@@ -120,6 +127,7 @@ export function WorkspaceSandboxPage({
           <TabsTrigger value="general">{d.sandbox.general}</TabsTrigger>
           <TabsTrigger value="files">{d.sandbox.files}</TabsTrigger>
           <TabsTrigger value="network">{d.sandbox.network}</TabsTrigger>
+          <TabsTrigger value="ports">{d.sandbox.ports}</TabsTrigger>
           <TabsTrigger value="access">{d.sandbox.pineAccess}</TabsTrigger>
         </TabsList>
         <TabsContent value="general" className="pt-4">
@@ -160,6 +168,22 @@ export function WorkspaceSandboxPage({
             }
           />
           <Refusals workspaceId={workspaceId} />
+        </TabsContent>
+        <TabsContent value="ports" className="pt-4">
+          <fieldset aria-label={d.sandbox.portsPolicy}>
+            <PortsPolicyRow
+              value={effective.portsPolicy}
+              overridden={settings?.ports !== undefined}
+              badge={
+                <OverrideBadge
+                  overridden={settings?.ports !== undefined}
+                  onReset={() => void setPortsPolicy(undefined)}
+                />
+              }
+              onChange={(policy) => void setPortsPolicy(policy)}
+            />
+          </fieldset>
+          <SandboxPortsTab workspaceId={workspaceId} />
         </TabsContent>
         <TabsContent value="access" className="pt-4">
           <fieldset aria-label={d.sandbox.allWorkspaces}>
