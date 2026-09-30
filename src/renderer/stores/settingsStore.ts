@@ -1,5 +1,10 @@
 import { create } from 'zustand'
 import type { Capability } from '../../shared/capabilities'
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  type NotificationSettings,
+  parseNotificationSettings,
+} from '../../shared/notificationSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
 import type { Locale } from '../i18n/dict'
 
@@ -9,6 +14,23 @@ export interface SurfaceFont {
   family: string
   size: number
   weight: number
+}
+
+export interface TerminalFont extends SurfaceFont {
+  lineHeight: number
+}
+
+export const LINE_HEIGHT_MIN = 1
+export const LINE_HEIGHT_MAX = 2
+
+export const clampLineHeight = (n: number): number =>
+  Math.min(LINE_HEIGHT_MAX, Math.max(LINE_HEIGHT_MIN, Math.round(n * 100) / 100))
+
+export interface SidebarSettings {
+  showPath: boolean
+  showMessage: boolean
+  showDescription: boolean
+  showExtensionItems: boolean
 }
 
 export const FONT_WEIGHTS: readonly number[] = [300, 400, 450, 500, 600, 700]
@@ -24,7 +46,7 @@ export interface Appearance {
   theme: ThemeId
   motion: MotionMode
   ui: SurfaceFont
-  terminal: SurfaceFont
+  terminal: TerminalFont
   editor: SurfaceFont
 }
 
@@ -39,6 +61,7 @@ export interface Behavior {
   restoreWorkspace: boolean
   externalEditor: string
   gpuAcceleration: boolean
+  copyOnSelect: boolean
 }
 
 export type FontSurface = 'ui' | 'terminal' | 'editor'
@@ -55,11 +78,19 @@ interface Persisted {
   locale: Locale
   appearance: Appearance
   behavior: Behavior
+  notifications: NotificationSettings
+  sidebar: SidebarSettings
   capabilities?: Capabilities
   sync?: SyncSettings
 }
 
-const DATA_KEYS: readonly string[] = ['locale', 'appearance', 'behavior']
+const DATA_KEYS: readonly string[] = [
+  'locale',
+  'appearance',
+  'behavior',
+  'notifications',
+  'sidebar',
+]
 
 const kindOf = (v: unknown): string => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v)
 
@@ -71,7 +102,7 @@ const DEFAULTS: Persisted = {
     theme: 'adeberry',
     motion: 'system',
     ui: { family: 'Inter Variable', size: 13, weight: 450 },
-    terminal: { family: 'Hack Nerd Font Mono', size: 13, weight: 500 },
+    terminal: { family: 'Hack Nerd Font Mono', size: 13, weight: 500, lineHeight: 1.15 },
     editor: { family: 'Geist Mono Variable', size: 13, weight: 450 },
   },
   behavior: {
@@ -81,7 +112,10 @@ const DEFAULTS: Persisted = {
     restoreWorkspace: true,
     externalEditor: 'auto',
     gpuAcceleration: true,
+    copyOnSelect: false,
   },
+  notifications: DEFAULT_NOTIFICATION_SETTINGS,
+  sidebar: { showPath: true, showMessage: true, showDescription: true, showExtensionItems: true },
 }
 
 interface SettingsState extends Persisted {
@@ -91,6 +125,9 @@ interface SettingsState extends Persisted {
   setMotion: (m: MotionMode) => void
   setSurfaceFont: (surface: FontSurface, patch: Partial<SurfaceFont>) => void
   setBehavior: (patch: Partial<Behavior>) => void
+  setNotifications: (patch: Partial<NotificationSettings>) => void
+  setTerminalLineHeight: (lineHeight: number) => void
+  setSidebar: (patch: Partial<SidebarSettings>) => void
   setByPath: (path: string, value: unknown) => void
   setSyncDir: (dir: string) => Promise<void>
 }
@@ -102,6 +139,8 @@ async function writeSettings(s: SettingsState): Promise<void> {
     locale: s.locale,
     appearance: s.appearance,
     behavior: s.behavior,
+    notifications: s.notifications,
+    sidebar: s.sidebar,
     capabilities: s.capabilities,
     sync: s.sync,
   }
@@ -116,6 +155,15 @@ function scheduleSave(get: () => SettingsState): void {
 
 const syncOf = (v: unknown): SyncSettings | undefined =>
   isPlainObject(v) && typeof v.dir === 'string' ? { dir: v.dir } : undefined
+
+function pickBooleans<T extends object>(base: T, raw: unknown): T {
+  const out = { ...base }
+  if (!isPlainObject(raw)) return out
+  for (const key of Object.keys(base) as (keyof T & string)[]) {
+    if (typeof raw[key] === 'boolean') out[key] = raw[key] as T[keyof T & string]
+  }
+  return out
+}
 
 const mergeFont = (base: SurfaceFont, p?: Partial<SurfaceFont>): SurfaceFont => ({ ...base, ...p })
 
@@ -134,10 +182,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           theme: p.appearance?.theme ?? DEFAULTS.appearance.theme,
           motion: motionMode(p.appearance?.motion),
           ui: mergeFont(DEFAULTS.appearance.ui, p.appearance?.ui),
-          terminal: mergeFont(DEFAULTS.appearance.terminal, p.appearance?.terminal),
+          terminal: {
+            ...mergeFont(DEFAULTS.appearance.terminal, p.appearance?.terminal),
+            lineHeight: clampLineHeight(
+              Number(p.appearance?.terminal?.lineHeight ?? DEFAULTS.appearance.terminal.lineHeight),
+            ),
+          },
           editor: mergeFont(DEFAULTS.appearance.editor, p.appearance?.editor),
         },
         behavior: { ...DEFAULTS.behavior, ...p.behavior },
+        notifications: parseNotificationSettings(p.notifications),
+        sidebar: pickBooleans(DEFAULTS.sidebar, p.sidebar),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
         sync: syncOf(p.sync),
       })
@@ -166,6 +221,23 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((s) => ({ behavior: { ...s.behavior, ...patch } }))
     scheduleSave(get)
   },
+  setNotifications: (patch) => {
+    set((s) => ({ notifications: { ...s.notifications, ...patch } }))
+    scheduleSave(get)
+  },
+  setTerminalLineHeight: (lineHeight) => {
+    set((s) => ({
+      appearance: {
+        ...s.appearance,
+        terminal: { ...s.appearance.terminal, lineHeight: clampLineHeight(lineHeight) },
+      },
+    }))
+    scheduleSave(get)
+  },
+  setSidebar: (patch) => {
+    set((s) => ({ sidebar: { ...s.sidebar, ...patch } }))
+    scheduleSave(get)
+  },
   setSyncDir: async (dir) => {
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = null
@@ -185,6 +257,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       locale: s.locale,
       appearance: s.appearance,
       behavior: s.behavior,
+      notifications: s.notifications,
+      sidebar: s.sidebar,
       capabilities: s.capabilities,
     })
     let cursor = root

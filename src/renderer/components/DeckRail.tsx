@@ -23,6 +23,7 @@ import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import {
   type Workspace,
@@ -302,6 +303,7 @@ function WorkspaceRow({
   onDropRow: () => void
   onDragEnd: () => void
 }): JSX.Element {
+  const sidebar = useSettingsStore((s) => s.sidebar)
   const d = useDict()
   const store = useWorkspacesStore.getState
   const count = useWorkspacesStore((s) => s.workspaces.length)
@@ -368,12 +370,16 @@ function WorkspaceRow({
             editing === null ? (
               // biome-ignore lint/a11y/useKeyWithClickEvents: the row button above is the keyboard target; this only widens the click area
               <div className="tab-after" onClick={select}>
-                {w.description ? <WorkspaceDescription text={w.description} /> : null}
-                <WorkspaceSubtitle workspaceId={w.id} />
-                <span className="tab-meta">
-                  <span className="tab-branch">{w.workDir}</span>
-                  <SidebarItems workspaceId={w.id} />
-                </span>
+                {sidebar.showDescription && w.description ? (
+                  <WorkspaceDescription text={w.description} />
+                ) : null}
+                {sidebar.showMessage ? <WorkspaceSubtitle workspaceId={w.id} /> : null}
+                {sidebar.showPath || sidebar.showExtensionItems ? (
+                  <span className="tab-meta">
+                    {sidebar.showPath ? <span className="tab-branch">{w.workDir}</span> : null}
+                    {sidebar.showExtensionItems ? <SidebarItems workspaceId={w.id} /> : null}
+                  </span>
+                ) : null}
               </div>
             ) : null
           }

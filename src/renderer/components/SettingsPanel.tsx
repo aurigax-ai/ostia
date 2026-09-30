@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import {
   ArrowsClockwiseIcon,
+  BellIcon,
   CheckIcon,
   CopyIcon,
   DeviceMobileIcon,
@@ -9,6 +10,7 @@ import {
   InfoIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
+  SidebarSimpleIcon,
   StackIcon,
   TerminalWindowIcon,
   TranslateIcon,
@@ -30,6 +32,8 @@ import {
   type CursorStyle,
   FONT_WEIGHTS,
   type FontSurface,
+  LINE_HEIGHT_MAX,
+  LINE_HEIGHT_MIN,
   MOTION_MODES,
   type MotionMode,
   motionMode,
@@ -54,6 +58,8 @@ import { Switch } from './ui/switch'
 type SectionId =
   | 'appearance'
   | 'terminal'
+  | 'notifications'
+  | 'sidebar'
   | 'files'
   | 'plugins'
   | 'languageServers'
@@ -91,6 +97,8 @@ export function SettingsPanel(): JSX.Element | null {
       [
         { id: 'appearance', icon: PaletteIcon, label: d.settings.appearance },
         { id: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
+        { id: 'notifications', icon: BellIcon, label: d.settings.notifications },
+        { id: 'sidebar', icon: SidebarSimpleIcon, label: d.settings.sidebar },
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'plugins', icon: StackIcon, label: d.settings.plugins },
         { id: 'languageServers', icon: HardDrivesIcon, label: d.settings.languageServers },
@@ -161,6 +169,8 @@ export function SettingsPanel(): JSX.Element | null {
           <div className="mx-auto max-w-3xl px-8 py-5">
             {active === 'appearance' ? <AppearanceSection /> : null}
             {active === 'terminal' ? <TerminalSection /> : null}
+            {active === 'notifications' ? <NotificationsSection /> : null}
+            {active === 'sidebar' ? <SidebarSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'plugins' ? <PluginsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}
@@ -316,6 +326,7 @@ function AppearanceSection(): JSX.Element {
       <SettingsGroup title={d.settings.groupFonts}>
         <FontRow surface="ui" label={d.settings.uiFont} />
         <FontRow surface="terminal" label={d.settings.terminalFont} />
+        <LineHeightRow />
         <FontRow surface="editor" label={d.settings.editorFont} />
       </SettingsGroup>
     </div>
@@ -358,12 +369,124 @@ function FontRow({ surface, label }: { surface: FontSurface; label: string }): J
   )
 }
 
+function LineHeightRow(): JSX.Element {
+  const d = useDict()
+  const lineHeight = useSettingsStore((s) => s.appearance.terminal.lineHeight)
+  const setLineHeight = useSettingsStore((s) => s.setTerminalLineHeight)
+  return (
+    <ControlRow label={d.settings.lineHeight} desc={d.settings.lineHeightDesc}>
+      <Input
+        type="number"
+        min={LINE_HEIGHT_MIN}
+        max={LINE_HEIGHT_MAX}
+        step={0.05}
+        value={lineHeight}
+        aria-label={d.settings.lineHeight}
+        onChange={(e) => {
+          const n = Number(e.target.value)
+          if (Number.isFinite(n) && n > 0) setLineHeight(n)
+        }}
+        className="h-7 w-20 font-mono"
+      />
+    </ControlRow>
+  )
+}
+
+function NotificationsSection(): JSX.Element {
+  const d = useDict()
+  const n = useSettingsStore((s) => s.notifications)
+  const set = useSettingsStore((s) => s.setNotifications)
+  return (
+    <div>
+      <SectionHead title={d.settings.notifications} />
+      <SettingsGroup title={d.settings.groupDesktop}>
+        <ToggleRow
+          label={d.settings.notifyDesktop}
+          desc={d.settings.notifyDesktopDesc}
+          checked={n.desktop}
+          onChange={(v) => set({ desktop: v })}
+        />
+        <ToggleRow
+          label={d.settings.notifySound}
+          desc={d.settings.notifySoundDesc}
+          checked={n.sound}
+          onChange={(v) => set({ sound: v })}
+        />
+        <ToggleRow
+          label={d.settings.notifyWhenFocused}
+          desc={d.settings.notifyWhenFocusedDesc}
+          checked={n.whenFocused}
+          onChange={(v) => set({ whenFocused: v })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupEvents}>
+        <ToggleRow
+          label={d.settings.notifyAgentWaiting}
+          desc={d.settings.notifyAgentWaitingDesc}
+          checked={n.agentWaiting}
+          onChange={(v) => set({ agentWaiting: v })}
+        />
+        <ToggleRow
+          label={d.settings.notifyAgentDone}
+          desc={d.settings.notifyAgentDoneDesc}
+          checked={n.agentDone}
+          onChange={(v) => set({ agentDone: v })}
+        />
+        <ToggleRow
+          label={d.settings.notifyCommandFinished}
+          desc={d.settings.notifyCommandFinishedDesc}
+          checked={n.commandFinished}
+          onChange={(v) => set({ commandFinished: v })}
+        />
+      </SettingsGroup>
+    </div>
+  )
+}
+
+function SidebarSection(): JSX.Element {
+  const d = useDict()
+  const sidebar = useSettingsStore((s) => s.sidebar)
+  const set = useSettingsStore((s) => s.setSidebar)
+  return (
+    <div>
+      <SectionHead title={d.settings.sidebar} />
+      <SettingsGroup title={d.settings.groupRows}>
+        <ToggleRow
+          label={d.settings.sidebarPath}
+          desc={d.settings.sidebarPathDesc}
+          checked={sidebar.showPath}
+          onChange={(v) => set({ showPath: v })}
+        />
+        <ToggleRow
+          label={d.settings.sidebarMessage}
+          desc={d.settings.sidebarMessageDesc}
+          checked={sidebar.showMessage}
+          onChange={(v) => set({ showMessage: v })}
+        />
+        <ToggleRow
+          label={d.settings.sidebarDescription}
+          desc={d.settings.sidebarDescriptionDesc}
+          checked={sidebar.showDescription}
+          onChange={(v) => set({ showDescription: v })}
+        />
+        <ToggleRow
+          label={d.settings.sidebarItems}
+          desc={d.settings.sidebarItemsDesc}
+          checked={sidebar.showExtensionItems}
+          onChange={(v) => set({ showExtensionItems: v })}
+        />
+      </SettingsGroup>
+    </div>
+  )
+}
+
 function TerminalSection(): JSX.Element {
   const d = useDict()
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
   const restoreWorkspace = useSettingsStore((s) => s.behavior.restoreWorkspace)
   const gpuAcceleration = useSettingsStore((s) => s.behavior.gpuAcceleration)
+  const copyOnSelect = useSettingsStore((s) => s.behavior.copyOnSelect)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   const styleLabel: Record<CursorStyle, string> = {
     block: d.settings.styleBlock,
@@ -387,6 +510,14 @@ function TerminalSection(): JSX.Element {
           desc={d.settings.cursorBlinkDesc}
           checked={cursorBlink}
           onChange={(v) => setBehavior({ cursorBlink: v })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupSelection}>
+        <ToggleRow
+          label={d.settings.copyOnSelect}
+          desc={d.settings.copyOnSelectDesc}
+          checked={copyOnSelect}
+          onChange={(v) => setBehavior({ copyOnSelect: v })}
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupRendering}>
