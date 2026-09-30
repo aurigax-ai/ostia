@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -80,7 +80,6 @@ describe('built-in git extension against a real repository', () => {
   })
 
   beforeAll(() => {
-    execSync('pnpm run build:extensions', { cwd: repoRoot, stdio: 'ignore' })
     dir = realpathSync(mkdtempSync(join(tmpdir(), 'pine-git-ext-')))
     repo = join(dir, 'repo')
     mkdirSync(join(repo, 'sub'), { recursive: true })

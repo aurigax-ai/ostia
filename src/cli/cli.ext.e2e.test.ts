@@ -1,4 +1,4 @@
-import { execFileSync, execSync, spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -62,7 +62,6 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
   }
 
   beforeAll(() => {
-    execSync('pnpm run build:cli && pnpm run build:extensions', { cwd: repoRoot, stdio: 'ignore' })
     dir = mkdtempSync(join(tmpdir(), 'pine-cli-ext-'))
     workDir = join(dir, 'project')
     process.env.XDG_DATA_HOME = join(dir, 'data')
