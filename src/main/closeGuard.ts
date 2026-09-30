@@ -1,43 +1,93 @@
 import { type BrowserWindow, ipcMain } from 'electron'
+import type { RunningGroup } from '../shared/types'
 
 interface PendingAnswer {
   senderId: number
-  settle: (approved: boolean) => void
+  settle: (value: unknown) => void
 }
 
 let lastRequestId = 0
 const pending = new Map<number, PendingAnswer>()
 
+const GROUPS_MAX = 64
+const ITEMS_MAX = 32
+const TEXT_MAX = 512
+
 export function registerCloseGuard(): void {
-  ipcMain.on('window:close-answer', (e, requestId: number, approved: boolean) => {
+  ipcMain.on('window:close-answer', (e, requestId: number, value: unknown) => {
     const answer = pending.get(requestId)
-    if (answer && answer.senderId === e.sender.id) answer.settle(approved === true)
+    if (answer && answer.senderId === e.sender.id) answer.settle(value)
   })
 }
 
-export function confirmWindowClose(win: BrowserWindow): Promise<boolean> {
+function unresponsive(win: BrowserWindow): boolean {
+  return win.isDestroyed() || win.webContents.isLoading() || win.webContents.isCrashed()
+}
+
+function ask(
+  win: BrowserWindow,
+  channel: string,
+  payload: unknown,
+  gone: unknown,
+): Promise<unknown> {
+  if (unresponsive(win)) return Promise.resolve(gone)
   const contents = win.webContents
-  if (win.isDestroyed() || contents.isLoading() || contents.isCrashed())
-    return Promise.resolve(true)
   return new Promise((resolve) => {
     const requestId = ++lastRequestId
-    const settle = (approved: boolean): void => {
+    const settle = (value: unknown): void => {
       pending.delete(requestId)
-      contents.removeListener('render-process-gone', gone)
-      contents.removeListener('destroyed', gone)
-      resolve(approved)
+      contents.removeListener('render-process-gone', onGone)
+      contents.removeListener('destroyed', onGone)
+      resolve(value)
     }
-    const gone = (): void => settle(true)
-    contents.once('render-process-gone', gone)
-    contents.once('destroyed', gone)
+    const onGone = (): void => settle(gone)
+    contents.once('render-process-gone', onGone)
+    contents.once('destroyed', onGone)
     pending.set(requestId, { senderId: contents.id, settle })
-    contents.send('window:confirm-close', requestId)
+    contents.send(channel, requestId, payload)
   })
 }
 
-export async function confirmAllWindowsClose(windows: BrowserWindow[]): Promise<boolean> {
-  for (const win of windows) {
-    if (!(await confirmWindowClose(win))) return false
+function strings(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((s): s is string => typeof s === 'string')
+    .slice(0, ITEMS_MAX)
+    .map((s) => s.slice(0, TEXT_MAX))
+}
+
+export function parseRunningGroups(raw: unknown): RunningGroup[] {
+  if (!Array.isArray(raw)) return []
+  const groups: RunningGroup[] = []
+  for (const entry of raw.slice(0, GROUPS_MAX)) {
+    if (typeof entry !== 'object' || entry === null) continue
+    const { workspaceId, workspace, commands, files } = entry as Record<string, unknown>
+    if (typeof workspaceId !== 'string' || typeof workspace !== 'string') continue
+    groups.push({
+      workspaceId: workspaceId.slice(0, TEXT_MAX),
+      workspace: workspace.slice(0, TEXT_MAX),
+      commands: strings(commands),
+      files: strings(files),
+    })
   }
-  return true
+  return groups
+}
+
+export async function confirmQuit(
+  windows: readonly BrowserWindow[],
+  asker: BrowserWindow | undefined,
+): Promise<boolean> {
+  const live = windows.filter((w) => !w.isDestroyed())
+  const answers = await Promise.all(live.map((w) => ask(w, 'window:running', undefined, [])))
+  const groups = answers.flatMap(parseRunningGroups)
+  if (groups.length === 0) return true
+  const target = asker && !unresponsive(asker) ? asker : live.find((w) => !unresponsive(w))
+  if (!target) return true
+  if (target.isMinimized()) target.restore()
+  target.focus()
+  return (await ask(target, 'window:confirm-close', groups, true)) === true
+}
+
+export function freezeAll(windows: readonly BrowserWindow[]): void {
+  for (const win of windows) if (!win.isDestroyed()) win.webContents.send('window:freeze')
 }

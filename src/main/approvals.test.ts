@@ -141,4 +141,35 @@ describe('approvals', () => {
     await expect(second).resolves.toBe('deny')
     expect(approvals.stateFor('7').history.find((r) => r.id === firstId)?.revocable).toBe(false)
   })
+
+  it('moves pending cards and history to the window a pane moved to', async () => {
+    const published: { windowId: string; state: ApprovalState }[] = []
+    const approvals = createApprovals({
+      mode: () => 'ask',
+      publish: (windowId, state) => {
+        published.push({ windowId, state })
+        return true
+      },
+      grant: vi.fn(),
+      revoke: vi.fn(),
+      now: () => 1000,
+      timeoutMs: 5000,
+    })
+    const outcome = approvals.request(ASK)
+    const id = approvals.stateFor('7').pending[0].id
+
+    approvals.rehome(['ext-1'], '9')
+
+    expect(approvals.stateFor('7').pending).toEqual([])
+    expect(approvals.stateFor('9').pending.map((p) => p.id)).toEqual([id])
+    expect(
+      published
+        .slice(-2)
+        .map((p) => p.windowId)
+        .sort(),
+    ).toEqual(['7', '9'])
+    expect(approvals.answer('7', id, 'once')).toBe(false)
+    expect(approvals.answer('9', id, 'once')).toBe(true)
+    await expect(outcome).resolves.toBe('once')
+  })
 })

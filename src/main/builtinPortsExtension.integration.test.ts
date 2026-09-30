@@ -133,6 +133,7 @@ describe.runIf(process.platform === 'linux')(
           }) as CommandResult,
         getTerminalState: () => undefined,
         ptyPid: (paneId) => pids[paneId],
+        windowIds: () => ['1'],
       })
       host = new ExtensionHost({
         roots: [{ dir: join(dir, 'extensions'), builtin: true }],

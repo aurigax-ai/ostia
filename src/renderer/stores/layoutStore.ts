@@ -71,6 +71,9 @@ interface LayoutState {
   openDiff: (workspaceId: string, content: DiffContent) => string | null
   openTerminal: (workspaceId: string, opts: OpenTerminalPlacement) => string | null
   removeWorkspace: (workspaceId: string) => void
+  release: (workspaceId: string) => void
+  releasePane: (workspaceId: string, paneId: string) => void
+  adopt: (layouts: Record<string, WorkspaceLayout>) => void
 }
 
 export interface OpenTerminalPlacement {
@@ -534,6 +537,44 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (layout) {
       for (const paneId of paneIds(layout.root)) {
         window.pine?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+      }
+    }
+  },
+
+  release: (workspaceId) =>
+    set((s) => {
+      if (!(workspaceId in s.byWorkspace)) return s
+      const { [workspaceId]: _released, ...byWorkspace } = s.byWorkspace
+      return { byWorkspace }
+    }),
+
+  releasePane: (workspaceId, paneId) => {
+    const current = get().byWorkspace[workspaceId]
+    if (!current || !findPane(current.root, paneId)) return
+    if (current.root.type === 'pane') {
+      get().release(workspaceId)
+      return
+    }
+    set(
+      (s) =>
+        patch(s, workspaceId, (l) => {
+          const root = closePane(l.root, paneId)
+          const activePaneId =
+            paneId === l.activePaneId ? successorOf(l.root, root, paneId) : l.activePaneId
+          return {
+            root,
+            activePaneId,
+            zoomedPaneId: l.zoomedPaneId === paneId ? null : l.zoomedPaneId,
+          }
+        }) ?? s,
+    )
+  },
+
+  adopt: (layouts) => {
+    set((s) => ({ byWorkspace: { ...s.byWorkspace, ...layouts } }))
+    for (const [workspaceId, layout] of Object.entries(layouts)) {
+      for (const paneId of paneIds(layout.root)) {
+        window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
       }
     }
   },

@@ -1,4 +1,5 @@
 import type { AgentResume } from '@shared/agentResume'
+import { namespacedId } from '../lib/idNamespace'
 import type {
   Direction,
   DropZone,
@@ -19,7 +20,7 @@ export function resetIds(): void {
 
 function genId(prefix: string): string {
   counter += 1
-  return `${prefix}-${counter}`
+  return namespacedId(prefix, counter)
 }
 
 export function adoptIds(node: LayoutNode): void {

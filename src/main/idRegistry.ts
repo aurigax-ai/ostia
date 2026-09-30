@@ -59,6 +59,24 @@ export function removeWindow(windowId: string): void {
   for (const id of [...byPane.values()]) if (id.windowId === windowId) removePane(id.paneId)
 }
 
+export function panesOwnedBy(paneIds: readonly string[], windowId: string): boolean {
+  return paneIds.every((paneId) => {
+    const owner = byPane.get(paneId)?.windowId
+    return owner === undefined || owner === windowId
+  })
+}
+
+export function rehomePanes(paneIds: readonly string[], windowId: string): PaneIdentity[] {
+  const moved: PaneIdentity[] = []
+  for (const paneId of paneIds) {
+    const identity = byPane.get(paneId)
+    if (!identity) continue
+    identity.windowId = windowId
+    moved.push(identity)
+  }
+  return moved
+}
+
 export function registerExtension(extId: string): PaneIdentity {
   removeExtension(extId)
   const identity: PaneIdentity = {

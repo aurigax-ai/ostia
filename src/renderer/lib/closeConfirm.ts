@@ -108,7 +108,24 @@ export async function requestClosePane(workspaceId: string, paneId: string): Pro
   }
 }
 
-export function confirmQuit(): Promise<boolean> {
+export function quitGroups(): RunningGroup[] {
   const { confirmQuit: enabled } = useSettingsStore.getState().workspaces
-  return confirmGroups('quit', groupsToConfirm(useWorkspacesStore.getState().workspaces, enabled))
+  return groupsToConfirm(useWorkspacesStore.getState().workspaces, enabled)
+}
+
+export function confirmQuit(groups: RunningGroup[]): Promise<boolean> {
+  return confirmGroups('quit', groups)
+}
+
+export function confirmMove(workspace: Workspace, panes: readonly PaneNode[]): Promise<boolean> {
+  const files = unsavedFilesOf(panes, useEditorStatus.getState().dirty)
+  if (files.length === 0) return Promise.resolve(true)
+  return confirmGroups('move', [
+    {
+      workspaceId: workspace.id,
+      workspace: workspace.customName ?? workspace.name,
+      commands: [],
+      files,
+    },
+  ])
 }

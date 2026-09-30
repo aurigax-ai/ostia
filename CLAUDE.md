@@ -74,7 +74,8 @@ Package manager is **pnpm** only.
 ## 3. Architecture in one screen
 
 - **main** (`src/main/*.ts`, `src/main/gateway/`): windows, ptys, fs (read + write, confined),
-  LSP processes, background processes, JSON stores, control socket, gateway.
+  LSP processes, background processes, JSON stores, control socket, gateway. `windowBroker.ts`
+  moves workspaces between the main window and detached windows and merges their snapshots.
 - **preload** (`src/preload/index.ts`): the single `contextBridge` surface. Forwards only.
 - **renderer** (`src/renderer/`): React 18, zustand stores, xterm.js, Monaco, cmdk. No Node access.
 - **shared** (`src/shared/`): dependency-free types, the `PineBridge` IPC contract, capabilities.
@@ -221,7 +222,22 @@ Details: `docs/ARCHITECTURE.md`.
   exceptions.
 - **Ids minted from counters are adopted on restore** (`adoptIds`, `adoptWorkspaceIds`,
   `adoptGroupIds`). Skip it and a new pane reuses a restored pane's id, and two panes share one
-  shell (or a new group silently merges with a restored one).
+  shell (or a new group silently merges with a restored one). Each renderer also mints in its
+  own random namespace (`lib/idNamespace.ts`, set in `initWindow` before anything is minted),
+  because several windows mint at once; never mint ids before it is set or share a counter
+  between windows.
+- **Each window owns its own workspaces; main only brokers.** A renderer saves, lists and acts
+  on its own workspaces only. A workspace (or a single pane) moves between windows only through
+  `windows:detach` / `windows:return` (`main/windowBroker.ts`): main validates the handoff
+  (`parseHandoff`), checks the sender owns every pane, rehomes the pane identities
+  (`rehomePanes`, tokens kept) and pending approvals (`approvals.rehome`), holds the ptys
+  (`holdPtys`) and only then lets the source release it (`release` / `releasePane`, which emit
+  no `pane-closed`). The target adopts the same pane ids; the pty is never killed or respawned
+  by a move. Never close and recreate panes to move them, and never let a renderer name
+  another window. Closing a detached window moves its workspaces back into the main window;
+  closing the main window quits. Main merges the per-window snapshots into one
+  `workspaces.json` (`windowBook.ts`); a renderer never writes another window's workspaces.
+  Every window, detached included, is created by `createWindow` with `baseWebPreferences()`.
 - **Workspace groups live on the flat workspace list.** `workspaces` is the one order; a group is
   a `groupId` on its members, kept contiguous by `normalizeGroups` (`lib/workspaceGroups.ts`),
   and a group with no members is dropped. Never add a second member list or order. Pinned and
@@ -241,9 +257,12 @@ Details: `docs/ARCHITECTURE.md`.
   panel or diff in an empty workspace makes it the first pane (`seedLayout`, only for a workspace
   that exists). Empty workspaces are saved without `root` and restored empty.
 - **Closing and quitting ask only about running commands.** `lib/closeConfirm.ts` confirms closing
-  a workspace, or any pane or tab that has a running command, and `main/closeGuard.ts` confirms quit and window close through
-  the renderer; `before-quit` calls `preventDefault()` until approved, so the scrollback save
-  and pty kill run once, after approval. New workspace paths call `startNewWorkspace()` (placement
+  a workspace, or any pane or tab that has a running command, and `main/closeGuard.ts` confirms
+  quit once for every window (it collects each window's running groups and shows one dialog);
+  `before-quit` calls `preventDefault()` until approved, so the scrollback save and pty kill run
+  once, after approval. Moving a workspace or pane to another window, and closing a detached
+  window, never ask about commands (nothing stops); they ask only about unsaved files, which
+  the new window reopens from disk. New workspace paths call `startNewWorkspace()` (placement
   and folder settings), never `addWorkspace` directly. E2E seeds `workspaces.confirmQuit: false`.
 - **Workspace/pane guards:** `closePane` emits `pane-closed` only if the pane existed; a
   workspace's `workDir` is the anchor for new panes and follows the project of its active pane
@@ -671,6 +690,9 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   palette. Views' schema, bindings and draw budget are unit-tested in `src/shared/views*.test.ts`
   and `src/renderer/lib/view*.test.ts`, the loader in `src/main/viewHost.test.ts`, the CLI verbs
   in `src/cli/cli.e2e.test.ts`.
+  `e2e/detached-windows.spec.ts` moves a workspace with a running command into a new window
+  (output continues, title is the project), closes it back into the main window, restores a
+  detached window after a restart, and gets an approval card in a detached pane's own window.
   `e2e/browser-agent.spec.ts` grants `browse`, reads the pane's `PINE_*` env from its shell and
   drives a local http page through the real `pine browse` CLI (snapshot refs, fill/click/type,
   find, eval, storage, cookies, network, tabs, `--json`); `e2e/browser-storage.spec.ts` checks the
