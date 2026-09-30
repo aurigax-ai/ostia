@@ -386,6 +386,21 @@ Details: `docs/ARCHITECTURE.md`.
   for Run once / Run and trust (`runUserAction`); trust is keyed by command + args
   (`actionFingerprint`), stored in `trustedActions`, which only the dialog writes (not in
   `DATA_KEYS`, never synced). Never add a way for an agent to trust an action.
+- **A sandboxed workspace runs only wrapped.** Every pane shell and `pine process` of a
+  sandboxed workspace is spawned through its sandbox host (`main/sandbox/`); if the sandbox can't
+  start, nothing spawns (the pane shows the missing packages). The only unwrapped pane is a host
+  pane whose one-time token main minted after the human approved that exact command
+  (`hostPanes.ts`). Sandbox policy lives in main (`sandbox.json`, owner-window `sandbox:*` IPC);
+  `sandbox` in `settings.json` is local-only and not in `DATA_KEYS`. Never add a socket method or
+  CLI verb that turns a sandbox off, adds a read path, changes its Pine-access switches or answers
+  a sandbox card. Sandbox requests (domain, port, secret, package) always ask, even in
+  `approvals.mode: 'allow'`, and never become capability grants. A known-malicious package can
+  only be allowed once. `pine vault get` is refused in a sandbox; values go through
+  `pine secret get` and its card. Saved browser passwords are never returned; `pine secret fill`
+  fills in main.
+- **A feature that needs a system program registers it** (`main/systemRequirements.ts`) and refuses
+  to turn on while it's missing, showing the packages and an install that goes through the
+  System extension (the human approves and types sudo). Never install silently.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -613,4 +628,7 @@ Rules:
   allows it; only the Settings switches exist). Anyone with shell access to the desktop can still
   edit `gateway-devices.json` directly, same as `settings.json`.
 - **Plugin light themes have no terminal palette or Monaco theme of their own.** Only `pine-light` does; a plugin theme falls back to the One Dark Vivid terminal palette, and Monaco follows the theme's `appearance`.
+- **Sandboxes are not VMs.** bwrap/Seatbelt stop a misbehaving agent, not a kernel exploit. The
+  editor doesn't reload files changed on disk, so an agent's write to an open file shows only after
+  reopening it. SBX-C58 (macOS loopback-only binding) runs only on macOS.
 - **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch).
