@@ -1,4 +1,5 @@
 import type { AgentResume } from './agentResume'
+import type { AgentSessionInfo } from './agentSessionInfo'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
 import type {
   BrowserStorageRead,
@@ -336,6 +337,10 @@ export interface SelectionApi {
   send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
 }
 
+export interface AgentSessionApi {
+  info: (resume: AgentResume) => Promise<AgentSessionInfo | null>
+}
+
 export interface AppUpdateApi {
   state: () => Promise<BuildInfo | null>
   restart: () => Promise<void>
@@ -469,6 +474,7 @@ export interface PineBridge {
   approvals: ApprovalsApi
   credentials: CredentialsApi
   update: AppUpdateApi
+  agentSession: AgentSessionApi
   extensions: ExtensionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi
