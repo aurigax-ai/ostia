@@ -66,6 +66,7 @@ describe('parseTerminalSettings', () => {
       minimumContrast: 1,
       warnOnRiskyPaste: true,
       prompt: DEFAULT_TERMINAL_SETTINGS.prompt,
+      clipboardKeys: 'shift',
     })
   })
 

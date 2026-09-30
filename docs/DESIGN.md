@@ -96,7 +96,11 @@ Workspace group colors are a separate label palette: `--group-red`, `--group-ora
 `--group-yellow`, `--group-green`, `--group-teal`, `--group-blue`, `--group-purple`,
 `--group-pink` (primitives `--color-group-*`, One Dark hues by default; a theme may remap them).
 They only tint a group's swatch and its member rule, never text or state; the group's name
-always carries its identity.
+always carries its identity. The one other use is the Git graph's lanes (`--lane-0..7` in the
+git panel, each group hue mixed 72% with `--fg` so it holds contrast on light and dark themes):
+a lane color only tells branches apart, and the ref badge names the branch. Panels get the
+palette as `--group-*` from the SDK's base CSS. Uncommitted work in the graph is drawn dashed
+and hollow, never by color alone.
 
 Elevation: `bg-sunken` < `bg` < `surface-1` < `surface-2` < `surface-3`. In the dark theme,
 elevation comes from lightness, not shadow; shadows are only for overlays. Every theme keeps
@@ -184,6 +188,15 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
     zone for "last, ungrouped".
 - **Files panel** (`FilesPanel.tsx`): a 260px column to the right of the sidebar, toggled from the
   top bar. It shows the active workspace's focused pane cwd, so switching workspaces switches it.
+  Its header holds three row-size `IconButton`s, right-aligned: the eye (show hidden files,
+  `aria-pressed`), view options (a `DropdownMenu` from `Menu.tsx`: compact folders, nesting,
+  show hidden files, sort, icon theme) and close. Every option is also in Settings → Files.
+  Hidden rows shown by the eye are dimmed to 55% opacity. A compact folder row joins its names
+  with a muted `/`. A nesting parent has a twisty: the twisty or ArrowRight/ArrowLeft expands
+  it, a click on the name opens the file.
+  - **File icons**: Pine's own are Phosphor at 14px, tinted per type (`fileIcon.ts`). A VS Code
+    icon theme an extension contributes replaces them with its own images at 16px. These are
+    the user's content, the one place non-Phosphor icons appear in the app's chrome.
 - **Cursor**: the normal arrow everywhere, like a desktop app. No pointer or grab cursors.
 - **Work area**: the active workspace's split tree, rendered with Allotment. Each pane is an
   elevated surface with a header (title, split right, split down, close). The header is also the

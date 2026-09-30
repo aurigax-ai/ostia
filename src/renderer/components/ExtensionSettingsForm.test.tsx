@@ -23,6 +23,7 @@ function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     paneChips: [],
     settings: [],
     settingValues: {},
+    iconThemes: [],
     assist: ['command', 'chat'],
     secrets: [{ key: 'apiKey', description: 'Key for the provider' }],
     secretsSet: [],

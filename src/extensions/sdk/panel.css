@@ -8,8 +8,23 @@
   --line-strong: var(--pine-line-strong, rgba(255, 255, 255, 0.13));
   --fg: var(--pine-fg, #e3edf5);
   --fg-muted: var(--pine-fg-muted, #9aa1a5);
+  --bg-sunken: var(--pine-bg-sunken, #17191b);
+  --fg-dim: var(--pine-fg-dim, #767d82);
   --brand: var(--pine-brand, #00d8ff);
+  --brand-glow: var(--pine-brand-glow, rgba(0, 216, 255, 0.18));
+  --attn: var(--pine-attn, #bf5f54);
   --attn-fg: var(--pine-attn-fg, #db8176);
+  --ok: var(--pine-ok, #58c98c);
+  --add: var(--pine-add, #58c98c);
+  --del: var(--pine-del, #bf5f54);
+  --group-red: var(--pine-group-red, #e06c75);
+  --group-orange: var(--pine-group-orange, #d19a66);
+  --group-yellow: var(--pine-group-yellow, #e5c07b);
+  --group-green: var(--pine-group-green, #98c379);
+  --group-teal: var(--pine-group-teal, #56b6c2);
+  --group-blue: var(--pine-group-blue, #61afef);
+  --group-purple: var(--pine-group-purple, #c678dd);
+  --group-pink: var(--pine-group-pink, #e38fc0);
   --font-ui: var(--pine-font-ui, system-ui, sans-serif);
   --font-mono: var(--pine-font-mono, ui-monospace, monospace);
 }
@@ -67,6 +82,41 @@ textarea {
   background: var(--bg);
   padding: 4px 6px;
   min-width: 0;
+}
+
+::selection {
+  background: var(--brand-glow);
+}
+
+html {
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--brand);
+}
+
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .muted {

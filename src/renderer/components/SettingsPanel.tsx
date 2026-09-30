@@ -35,7 +35,8 @@ import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { openFileInWorkspace } from '../lib/openFile'
-import { platform } from '../platform'
+import { isMac, platform } from '../platform'
+import type { ClipboardKeys } from '../settings/terminalPaneSettings'
 import {
   CONTRAST_MAX,
   CONTRAST_MIN,
@@ -68,6 +69,7 @@ import { useUIStore } from '../stores/uiStore'
 import { ActionsSection } from './ActionsSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
+import { FileTreeSettingsGroups } from './FilesSettingsSection'
 import { FontPicker } from './FontPicker'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
@@ -829,6 +831,7 @@ function TerminalSection(): JSX.Element {
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
   const warnOnRiskyPaste = useSettingsStore((s) => s.terminal.warnOnRiskyPaste)
+  const clipboardKeys = useSettingsStore((s) => s.terminal.clipboardKeys)
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
   const prompt = useSettingsStore((s) => s.terminal.prompt)
@@ -928,6 +931,19 @@ function TerminalSection(): JSX.Element {
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupPaste}>
+        {isMac ? null : (
+          <ControlRow label={d.settings.clipboardKeys} desc={d.settings.clipboardKeysDesc}>
+            <SelectField
+              value={clipboardKeys}
+              onChange={(v) => setTerminal({ clipboardKeys: v as ClipboardKeys })}
+              label={d.settings.clipboardKeys}
+              options={[
+                { value: 'shift', label: d.settings.clipboardShift },
+                { value: 'smart', label: d.settings.clipboardSmart },
+              ]}
+            />
+          </ControlRow>
+        )}
         <ToggleRow
           label={d.settings.warnRiskyPaste}
           desc={d.settings.warnRiskyPasteDesc}
@@ -1049,18 +1065,11 @@ function PanesSection(): JSX.Element {
 
 function FilesSection(): JSX.Element {
   const d = useDict()
-  const showHidden = useSettingsStore((s) => s.behavior.showHiddenFiles)
-  const setBehavior = useSettingsStore((s) => s.setBehavior)
   return (
     <section>
       <SectionHead title={d.settings.files} />
-      <ToggleRow
-        label={d.settings.showHiddenFiles}
-        desc={d.settings.showHiddenFilesDesc}
-        checked={showHidden}
-        onChange={(v) => setBehavior({ showHiddenFiles: v })}
-      />
       <ExternalEditorRow />
+      <FileTreeSettingsGroups />
     </section>
   )
 }

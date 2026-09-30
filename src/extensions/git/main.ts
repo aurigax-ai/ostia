@@ -19,11 +19,13 @@ import { type BlameLine, type CommitSummary, isUncommitted } from './history'
 import {
   RepoError,
   blame,
+  branchRefs,
   commit,
   commitDetail,
   commitSides,
   diffSides,
   discard,
+  graphLog,
   lineChanges,
   log,
   pickChange,
@@ -34,6 +36,7 @@ import {
   unifiedPatch,
   unstage,
 } from './repo'
+import { type GraphScope, parseScope, planScope } from './scope'
 import { type GitSettings, readGitSettings } from './settings'
 import {
   type ChangeArea,
@@ -44,6 +47,7 @@ import {
   summarize,
 } from './status'
 import { stringsFor } from './strings'
+import { ViewStateStore } from './viewState'
 import { WorkspaceCwds } from './workspaces'
 
 const REFRESH_DEBOUNCE_MS = 300
@@ -53,7 +57,10 @@ const DIFF_STATS_CHIP = 'diff-stats'
 const AREAS: ChangeArea[] = ['staged', 'unstaged', 'untracked', 'conflicted']
 const DEFAULT_LOG_LIMIT = 50
 const MAX_LOG_LIMIT = 500
-const LOG_PANEL_PATH = '/log'
+const GRAPH_PANEL_PATH = '/graph'
+const GRAPH_PAGE = 300
+const MAX_GRAPH_COMMITS = 10_000
+const VIEW_STATE_FILE = 'view.json'
 
 interface Repo {
   root: string
@@ -101,6 +108,12 @@ function logLimit(raw: string | number | undefined): number {
   return Math.min(n, MAX_LOG_LIMIT)
 }
 
+function graphLimit(raw: unknown): number {
+  const n = typeof raw === 'number' ? raw : Number.NaN
+  if (!Number.isInteger(n) || n < 1) return GRAPH_PAGE
+  return Math.min(n, MAX_GRAPH_COMMITS)
+}
+
 function shortDate(time: number): string {
   return new Date(time * 1000).toISOString().slice(0, 10)
 }
@@ -138,6 +151,9 @@ class GitExtension {
   private running = false
   private again = false
   private settings: GitSettings = readGitSettings({})
+  private views = new ViewStateStore(
+    process.env.PINE_EXTENSION_DATA ? join(process.env.PINE_EXTENSION_DATA, VIEW_STATE_FILE) : null,
+  )
   onChanged: () => void = () => {}
 
   constructor(private readonly ext: PineExtension) {}
@@ -146,6 +162,16 @@ class GitExtension {
     this.settings = readGitSettings(values)
     this.restartPoll()
     this.schedule(0)
+    this.onChanged()
+  }
+
+  private scopeFor(root: string): GraphScope {
+    const refs = this.views.chosenFor(root)
+    return refs ? { kind: 'chosen', refs } : { kind: this.settings.graphScope }
+  }
+
+  private storeSetting(key: string, value: string): Promise<ExtensionResult> {
+    return this.ext.setSetting(key, value)
   }
 
   async workspaceCwdMap(): Promise<Map<string, string>> {
@@ -367,8 +393,8 @@ class GitExtension {
         await this.ext.openPanel(caller.workspaceId)
         return ok('ok')
       },
-      'show-log': async (_args, caller) => {
-        await this.ext.openPanel(caller.workspaceId, LOG_PANEL_PATH)
+      'show-graph': async (_args, caller) => {
+        await this.ext.openPanel(caller.workspaceId, GRAPH_PANEL_PATH)
         return ok('ok')
       },
       'blame-file': async (_args, caller) => {
@@ -436,6 +462,51 @@ class GitExtension {
 
   panelHandlers(): Record<string, CommandHandler> {
     return {
+      view: async () => ok(undefined, { changesView: this.settings.changesView }),
+      setChangesView: async (args) => {
+        const view = namedArgs(args).view
+        if (view !== 'list' && view !== 'tree') return failure('invalid-args', 'view: list | tree')
+        const res = await this.storeSetting('changesView', view)
+        return res.ok ? ok(undefined, { changesView: view }) : res
+      },
+      graph: async (args, caller) => {
+        const limit = graphLimit(namedArgs(args).limit)
+        try {
+          const { root, status } = await this.callerRepo(caller)
+          const branches = await branchRefs(root, status.branch.head)
+          const plan = planScope(this.scopeFor(root), branches)
+          const commits = status.branch.oid ? await graphLog(root, plan.revisions, limit + 1) : []
+          return ok(undefined, {
+            root,
+            branch: status.branch,
+            counts: summarize(status),
+            changes: status.changes,
+            branches,
+            scope: plan.scope,
+            includesHead: plan.includesHead,
+            commits: commits.slice(0, limit),
+            more: commits.length > limit,
+          })
+        } catch (err) {
+          return errorResult(err)
+        }
+      },
+      setScope: async (args, caller) => {
+        const scope = parseScope(namedArgs(args).scope)
+        if (!scope) return failure('invalid-args', 'scope')
+        try {
+          const { root } = await this.callerRepo(caller)
+          if (scope.kind === 'chosen') {
+            this.views.setChosen(root, scope.refs)
+            return ok(undefined, { root, scope })
+          }
+          this.views.setChosen(root, null)
+          const res = await this.storeSetting('graphScope', scope.kind)
+          return res.ok ? ok(undefined, { root, scope }) : res
+        } catch (err) {
+          return errorResult(err)
+        }
+      },
       discard: async (args, caller) => {
         const s = stringsFor(caller.locale)
         const { paths, all } = pathsArgs(args)
@@ -586,7 +657,11 @@ async function main(): Promise<void> {
       workspaceId: caller.workspaceId ?? '',
       locale: caller.locale ?? 'en',
       page:
-        url.pathname === LOG_PANEL_PATH ? 'log' : url.pathname === '/blame' ? 'blame' : 'changes',
+        url.pathname === GRAPH_PANEL_PATH
+          ? 'graph'
+          : url.pathname === '/blame'
+            ? 'blame'
+            : 'changes',
     }
     const file = url.searchParams.get('file')
     if (query.page === 'blame' && file) query.file = file

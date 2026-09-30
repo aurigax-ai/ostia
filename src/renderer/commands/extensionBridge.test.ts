@@ -1,4 +1,4 @@
-import type { ExtensionInfo, PaneChip } from '@shared/extensions'
+import type { ExtensionInfo, ExtensionSettingsStored, PaneChip } from '@shared/extensions'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { findPane, paneIds, resetIds } from '../layout/tree'
@@ -7,6 +7,7 @@ import { useBlocksStore } from '../stores/blocksStore'
 import { useDiffStore } from '../stores/diffStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import {
   openExtensionDiff,
@@ -47,6 +48,7 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     assist: [],
     secrets: [],
     secretsSet: [],
+    iconThemes: [],
     ...overrides,
   }
 }
@@ -213,6 +215,22 @@ describe('extensionBridge', () => {
     const chip: PaneChip = { extId: 'demo', id: 'c', paneId: 'p1', text: 'x', tone: 'ok' }
     sink.push?.([chip])
     expect(useExtensionsStore.getState().chips).toEqual([chip])
+  })
+
+  it('persists settings an extension changed for itself into the settings store', () => {
+    const settingsInit = useSettingsStore.getState()
+    const sink: { push?: (update: ExtensionSettingsStored) => void } = {}
+    window.pine.extensions.onSettingsStored = vi.fn((cb) => {
+      sink.push = cb
+      return () => {}
+    })
+    try {
+      wireExtensionBridge()
+      sink.push?.({ extId: 'git', stored: { changesView: 'tree' } })
+      expect(useSettingsStore.getState().extensionSettings.git).toEqual({ changesView: 'tree' })
+    } finally {
+      useSettingsStore.setState(settingsInit, true)
+    }
   })
 
   it('openExtensionDiff opens one reusable diff pane and stores its content by pane id', () => {

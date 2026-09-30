@@ -318,9 +318,13 @@
   padding-bottom: 0;
 }
 
-.files-head .files-close {
+.files-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   margin-right: -4px;
   letter-spacing: normal;
+  text-transform: none;
 }
 
 .workspaces {
@@ -845,6 +849,22 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.file-name-sep {
+  padding: 0 1px;
+  color: var(--fg-muted);
+}
+
+.file-icon-theme {
+  width: 16px;
+  height: 16px;
+  margin: 0 -1px;
+  object-fit: contain;
+}
+
+.file-row.excluded {
+  opacity: 0.55;
 }
 
 .plugins {
@@ -2066,9 +2086,31 @@ button.prompt-chip:focus-visible {
 
 .bell-count {
   position: absolute;
-  top: 0;
-  right: -2px;
+  top: 1px;
+  right: 0;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--attn);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
+}
+
+.notif-group + .notif-group {
+  margin-top: 6px;
+}
+
+.notif-group-head {
+  padding: 4px 6px 2px;
+  font-size: var(--text-ui-xs);
+  font-weight: 600;
+  color: var(--fg-muted);
 }
 
 .agent-session {

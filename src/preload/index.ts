@@ -19,15 +19,18 @@ import type {
   ExtensionResult,
   ExtensionSecretResult,
   ExtensionSettingResult,
+  ExtensionSettingsStored,
   ExtensionSidebarItem,
   PaneChip,
 } from '../shared/extensions'
+import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { SelectionSendResult } from '../shared/selection'
 import type {
   AppInfo,
   AppSnapshot,
   CommandInvokeRequest,
+  CredentialFillResult,
   ExternalEditorResult,
   FsBinaryResult,
   FsEntry,
@@ -215,6 +218,12 @@ const bridge: PineBridge = {
     },
   },
   credentials: {
+    forPage: (paneId) =>
+      ipcRenderer.invoke('credentials:for-page', paneId) as Promise<CredentialSummary[]>,
+    fill: (paneId, id) =>
+      ipcRenderer.invoke('credentials:fill', paneId, id) as Promise<CredentialFillResult>,
+    saveFromPage: (paneId) =>
+      ipcRenderer.invoke('credentials:save-from-page', paneId) as Promise<CredentialSaveResult>,
     list: () => ipcRenderer.invoke('credentials:list') as Promise<CredentialSummary[]>,
     save: (input) => ipcRenderer.invoke('credentials:save', input) as Promise<CredentialSaveResult>,
     remove: (id) => ipcRenderer.invoke('credentials:remove', id) as Promise<boolean>,
@@ -279,6 +288,11 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, chips: PaneChip[]): void => cb(chips)
       ipcRenderer.on('extensions:chips', handler)
       return () => ipcRenderer.removeListener('extensions:chips', handler)
+    },
+    onSettingsStored: (cb) => {
+      const handler = (_e: unknown, update: ExtensionSettingsStored): void => cb(update)
+      ipcRenderer.on('extensions:settings-stored', handler)
+      return () => ipcRenderer.removeListener('extensions:settings-stored', handler)
     },
     onOpenPanel: (cb) => {
       const handler = (_e: unknown, req: ExtensionOpenPanelRequest): void => cb(req)
@@ -358,6 +372,9 @@ const bridge: PineBridge = {
   completions: {
     spec: (command) =>
       ipcRenderer.invoke('completions:spec', command) as Promise<SpecCommand | null>,
+  },
+  iconThemes: {
+    load: (id) => ipcRenderer.invoke('iconThemes:load', id) as Promise<LoadedIconTheme | null>,
   },
 }
 

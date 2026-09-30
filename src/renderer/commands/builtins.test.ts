@@ -744,6 +744,7 @@ describe('agent notifications', () => {
     })
     expect(window.pine.notifications.post).toHaveBeenCalledWith({
       paneId: pane.id,
+      kind: 'waiting',
       title: 'Agent needs your input',
       body: 'Allow Bash?',
       desktop: true,
@@ -756,6 +757,7 @@ describe('agent notifications', () => {
     await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'done' })
     expect(window.pine.notifications.post).toHaveBeenCalledWith({
       paneId: pane.id,
+      kind: 'done',
       title: 'Agent finished',
       body: 'claude',
       desktop: false,

@@ -18,6 +18,7 @@ import {
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
+import { smartClipboardAction } from '../lib/clipboardKeys'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
@@ -195,6 +196,23 @@ export function TerminalView({
         if (e.type === 'keydown') blocks.select(paneId, null)
         return false
       }
+      const smart = smartClipboardAction(
+        e,
+        useSettingsStore.getState().terminal.clipboardKeys,
+        term.hasSelection(),
+        isMac,
+      )
+      if (smart) {
+        if (e.type !== 'keydown') return false
+        e.preventDefault()
+        if (smart === 'copy') {
+          void navigator.clipboard.writeText(term.getSelection())
+          term.clearSelection()
+        } else {
+          void navigator.clipboard.readText().then(requestPaste)
+        }
+        return false
+      }
       const chord = matchChord(e, isMac)
       if (!chord) {
         const editor = inputEditorFor(paneId)
@@ -263,6 +281,7 @@ export function TerminalView({
       if (long) {
         window.pine.notifications.post({
           paneId,
+          kind: exitCode === 0 ? 'done' : 'error',
           title,
           body,
           desktop: wantsDesktopBanner(
@@ -283,6 +302,7 @@ export function TerminalView({
       })
       window.pine.notifications.post({
         paneId,
+        kind: 'message',
         title: n.title,
         body: n.body,
         desktop: wantsDesktopBanner(

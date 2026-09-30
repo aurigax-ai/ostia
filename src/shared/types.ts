@@ -19,6 +19,7 @@ import type {
   CredentialSummary,
 } from './credentials'
 import type { ExtensionsApi } from './extensions'
+import type { IconThemesApi } from './iconTheme'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
@@ -164,9 +165,19 @@ export type WorkspaceLiveState = 'idle' | 'working' | 'waiting' | 'done' | 'erro
 
 export type AttentionState = 'none' | 'working' | 'waiting' | 'done' | 'error'
 
+export const NOTIFICATION_KINDS = ['waiting', 'approval', 'done', 'error', 'message'] as const
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
+
+export function notificationKindOf(value: unknown): NotificationKind {
+  return NOTIFICATION_KINDS.includes(value as NotificationKind)
+    ? (value as NotificationKind)
+    : 'message'
+}
+
 export interface NotificationEntry {
   id: string
   ts: string
+  kind: NotificationKind
   title: string
   body?: string
   from: string
@@ -177,6 +188,7 @@ export interface NotificationEntry {
 
 export interface NotificationPost {
   paneId: string
+  kind: NotificationKind
   title: string
   body?: string
   desktop: boolean
@@ -367,7 +379,14 @@ export interface AppUpdateApi {
   onAvailable: (cb: (info: BuildInfo) => void) => () => void
 }
 
+export type CredentialFillResult =
+  | { ok: true; username: string }
+  | { ok: false; error: 'no-login' | 'no-form' | 'origin-changed' | 'locked' }
+
 export interface CredentialsApi {
+  forPage: (paneId: string) => Promise<CredentialSummary[]>
+  fill: (paneId: string, id: string) => Promise<CredentialFillResult>
+  saveFromPage: (paneId: string) => Promise<CredentialSaveResult>
   list: () => Promise<CredentialSummary[]>
   save: (input: CredentialInput) => Promise<CredentialSaveResult>
   remove: (id: string) => Promise<boolean>
@@ -504,6 +523,7 @@ export interface PineBridge {
   workflows: WorkflowsApi
   completions: CompletionsApi
   assist: AssistApi
+  iconThemes: IconThemesApi
 }
 
 declare global {
