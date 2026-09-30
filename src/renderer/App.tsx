@@ -21,7 +21,7 @@ import { useMotionAttribute } from './lib/motion'
 import { applyTheme, useEffectiveTheme } from './lib/theme'
 import { useModifierHint } from './lib/useModifierHint'
 import { isMac } from './platform'
-import { registerSettingsSchema } from './settings/schema'
+import { registerSettingsSchema } from './settings/registerSettingsSchema'
 import { usePluginsStore } from './stores/pluginsStore'
 
 const ICON_STYLE = { weight: 'regular' } as const

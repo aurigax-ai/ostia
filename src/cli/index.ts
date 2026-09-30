@@ -701,8 +701,9 @@ async function runSettingsVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else if (sub === 'set') {
-    const key = process.argv[4]
-    const rawValue = process.argv[5]
+    const rest = process.argv.slice(4)
+    const dryRun = rest.includes('--dry-run')
+    const [key, rawValue] = rest.filter((a) => a !== '--dry-run')
     if (!key || rawValue === undefined) {
       console.error('pine settings set: missing <key> <value>')
       process.exitCode = 1
@@ -714,18 +715,34 @@ async function runSettingsVerb(conn: MessageConnection): Promise<void> {
     } catch {
       value = rawValue
     }
-    const res = await conn.sendRequest<CommandResult>('command.exec', {
-      id: 'settings.set',
-      args: { key, value },
-    })
-    if (res.ok) {
-      console.log('ok')
-    } else {
-      console.error('pine:', res.error?.message)
+    await printSettingsCommand(conn, 'settings.set', { key, value, ...(dryRun ? { dryRun } : {}) })
+  } else if (sub === 'unset') {
+    const key = process.argv[4]
+    if (!key) {
+      console.error('pine settings unset: missing <key>')
       process.exitCode = 1
+      return
     }
+    await printSettingsCommand(conn, 'settings.unset', { key })
+  } else if (sub === 'schema') {
+    const key = process.argv[4]
+    await printSettingsCommand(conn, 'settings.schema', key ? { key } : undefined)
   } else {
-    console.error(`pine settings: unknown subcommand '${sub ?? ''}' (try: get, set)`)
+    console.error(`pine settings: unknown subcommand '${sub ?? ''}' (try: get, set, unset, schema)`)
+    process.exitCode = 1
+  }
+}
+
+async function printSettingsCommand(
+  conn: MessageConnection,
+  id: string,
+  args: Record<string, unknown> | undefined,
+): Promise<void> {
+  const res = await conn.sendRequest<CommandResult>('command.exec', { id, args })
+  if (res.ok) {
+    console.log(JSON.stringify(res.result ?? null, null, 2))
+  } else {
+    console.error('pine:', res.error?.message)
     process.exitCode = 1
   }
 }

@@ -261,11 +261,15 @@ pane can't grow the shared store forever.
 ## Settings — read/write the app's settings.json
 
 ```sh
-pine settings get                        # whole { locale, appearance, behavior } state
+pine settings schema                     # every key with its type, allowed values and description
+pine settings schema editor.openFilesIn  # one key: look it up before you set it
+pine settings get                        # every setting you can read
 pine settings get appearance.terminal.size
+pine settings set appearance.terminal.size 14 --dry-run   # validate and show {previous, value}, change nothing
 pine settings set appearance.terminal.size 14      # value parsed as JSON if it parses...
 pine settings set locale '"en"'                    # ...else used as the raw string
 pine settings set behavior.showHiddenFiles true
+pine settings unset appearance.terminal.size       # back to the default
 pine settings set keybindings.palette.toggle '"Ctrl+Shift+Y"'   # rebind a command
 pine settings set keybindings.view.toggleRail null              # unbind it
 pine settings get keybindings                                   # the user's overrides
@@ -277,11 +281,15 @@ Chords the shell needs are refused with an error: plain Ctrl+letter (Ctrl+R incl
 plain or Ctrl arrows, Escape, Tab, and keys without Ctrl/Cmd. Unlisted commands keep
 their default.
 
-`set` deep-sets a dot-path immutably into the live `settingsStore` (so the Settings
-UI updates instantly, no restart) and debounce-persists it to `settings.json`.
-Unknown paths are created rather than rejected. `get` with no key returns the whole
-state; with a key it walks the path and prints `null` (JSON for `undefined`) if
-absent.
+`set` deep-sets a dot-path into the live settings (the Settings UI updates at once, no
+restart) and saves `settings.json`. It prints `{previous, value, applied}`; keep
+`previous` to put the old value back. A value is refused (nothing changes) when the key
+doesn't exist (`unknown settings key`), the type differs, or the setting doesn't accept it
+(`invalid value for <key>`, e.g. an enum value it doesn't list); look the key up with
+`pine settings schema <key>` instead of guessing. Keys that launch programs or grant
+permissions (`behavior.externalEditor`, `notifications.command`, `capabilities`,
+`approvals`, `sync`) are the human's; you can't set them. `get` with no key returns every
+readable setting; with a key it prints `null` if absent.
 
 ## Browser — agent-driven web automation
 
