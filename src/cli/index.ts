@@ -138,6 +138,33 @@ function describeVaultError(res: VaultErr): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
+async function runSandboxVerb(conn: MessageConnection): Promise<void> {
+  const sub = process.argv[3]
+  const value = process.argv[4]
+  if (sub === 'request-domain') {
+    if (!value) {
+      console.error('pine sandbox request-domain: missing <host>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{
+      ok: boolean
+      domain?: string
+      error?: string
+      reason?: string
+    }>('sandbox.request-domain', { host: value })
+    if (res.ok) {
+      console.log(`allowed: ${res.domain}`)
+    } else {
+      console.error(`pine: ${res.error}${res.reason ? ` (${res.reason})` : ''}`)
+      process.exitCode = 1
+    }
+  } else {
+    console.error(`pine sandbox: unknown subcommand '${sub ?? ''}' (try: request-domain)`)
+    process.exitCode = 1
+  }
+}
+
 async function runVaultVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const { global, rest } = extractGlobalFlag(process.argv.slice(4))
@@ -284,6 +311,7 @@ const CORE_VERBS = new Set([
   'docs',
   'process',
   'vault',
+  'sandbox',
   'bus',
   'settings',
   'browse',
@@ -1092,6 +1120,8 @@ async function main(): Promise<void> {
       await runProcessVerb(conn)
     } else if (cmd === 'vault') {
       await runVaultVerb(conn)
+    } else if (cmd === 'sandbox') {
+      await runSandboxVerb(conn)
     } else if (cmd === 'ext') {
       if (process.argv[3] === 'ls') await runExtList(conn)
       else await runExtCommand(conn, process.argv[3], process.argv[4], process.argv.slice(5))

@@ -90,3 +90,23 @@ test('SBX-C1 a new pane in a sandboxed workspace runs under srt and cannot read 
     await app.close()
   }
 })
+
+test('a blocked connection waits on the card and completes once the human allows the host', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launch()
+  try {
+    await setSandbox(win, true)
+    await win.getByRole('button', { name: 'Restart to apply' }).click()
+    await expect(win.locator('.xterm-rows').first()).toContainText(/[❯$%#]/, { timeout: 20_000 })
+    await run(win, 'curl -s -m 60 -o /dev/null -w "code=%{http_code}\\n" https://example.com')
+    const card = win.getByRole('region', { name: 'Agent permission request' })
+    await expect(card).toBeVisible({ timeout: 20_000 })
+    await expect(card).toContainText('example.com')
+    await card.getByRole('button', { name: 'This workspace' }).click()
+    await expect(win.locator('.xterm-rows').first()).toContainText(/code=[1-5]\d\d/, {
+      timeout: 30_000,
+    })
+  } finally {
+    await app.close()
+  }
+})
