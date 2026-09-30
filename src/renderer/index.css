@@ -1155,6 +1155,7 @@
 }
 
 .input-editor {
+  position: relative;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -1213,15 +1214,112 @@
   text-align: right;
 }
 
-.input-editor-candidate {
-  margin-left: 8px;
-  color: var(--fg);
+.input-editor-vim {
+  flex: none;
   font-family: var(--font-mono);
+  font-size: var(--text-ui-xs);
+}
+
+.input-editor-field {
+  position: relative;
+}
+
+.input-editor-area,
+.input-editor-highlight {
+  max-height: 9.5em;
+  line-height: 1.4;
+  scrollbar-gutter: stable;
 }
 
 .input-editor-area {
-  max-height: 9.5em;
-  line-height: 1.4;
+  color: transparent;
+  caret-color: var(--syn-fg, var(--fg));
+}
+
+.input-editor-area::selection {
+  color: transparent;
+  background: var(--syn-selection, var(--brand-glow));
+}
+
+.input-editor-highlight {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  color: var(--syn-fg, var(--fg));
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+}
+
+.input-editor-field[data-composing] .input-editor-area {
+  color: var(--syn-fg, var(--fg));
+}
+
+.input-editor-field[data-composing] .input-editor-highlight {
+  visibility: hidden;
+}
+
+.input-editor-field[data-vim="normal"] .input-editor-area {
+  caret-color: transparent;
+}
+
+.input-editor-block-cursor {
+  background: var(--syn-fg, var(--fg));
+  color: var(--syn-bg, var(--bg));
+}
+
+.syn-command {
+  color: var(--syn-command, var(--ok));
+}
+
+.syn-unknown {
+  color: var(--syn-unknown, var(--attn-fg));
+}
+
+.syn-flag {
+  color: var(--syn-flag, var(--brand));
+}
+
+.syn-string {
+  color: var(--syn-string, var(--fg));
+}
+
+.syn-variable,
+.syn-assignment {
+  color: var(--syn-variable, var(--fg));
+}
+
+.syn-operator {
+  color: var(--syn-operator, var(--brand));
+}
+
+.syn-comment,
+.input-editor-ghost {
+  color: var(--syn-comment, var(--fg-muted));
+}
+
+.input-editor-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 8px;
+  z-index: 20;
+  min-width: 160px;
+  max-width: calc(100% - 16px);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.input-editor-menu-item {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.input-editor-menu-item[data-selected="true"] {
+  background: var(--surface-3);
 }
 
 .xterm-host {

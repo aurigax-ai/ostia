@@ -164,6 +164,7 @@ export interface Behavior {
   gpuAcceleration: boolean
   copyOnSelect: boolean
   inputMode: InputMode
+  inputEditorVim: boolean
 }
 
 export type NewWorkspacePlacement = 'end' | 'top' | 'afterCurrent'
@@ -271,6 +272,7 @@ const DEFAULTS: Persisted = {
     gpuAcceleration: true,
     copyOnSelect: false,
     inputMode: 'terminal',
+    inputEditorVim: false,
   },
   terminal: DEFAULT_TERMINAL_SETTINGS,
   panes: DEFAULT_PANE_SETTINGS,
@@ -394,6 +396,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           ...DEFAULTS.behavior,
           ...p.behavior,
           inputMode: inputMode(p.behavior?.inputMode),
+          inputEditorVim: p.behavior?.inputEditorVim === true,
         },
         terminal: parseTerminalSettings(p.terminal),
         panes: parsePaneSettings(p.panes),
