@@ -148,6 +148,7 @@ export interface NotificationEntry {
   from: string
   paneId?: string
   extId?: string
+  panelPath?: string
 }
 
 export interface NotificationPost {

@@ -176,8 +176,14 @@ const bridge: PineBridge = {
     setEnabled: (extId, enabled) =>
       ipcRenderer.invoke('extensions:set-enabled', extId, enabled) as Promise<ExtensionInfo[]>,
     approve: (extId) => ipcRenderer.invoke('extensions:approve', extId) as Promise<ExtensionInfo[]>,
-    invoke: (extId, command, target) =>
-      ipcRenderer.invoke('extensions:invoke', extId, command, target) as Promise<ExtensionResult>,
+    invoke: (extId, command, target, argument) =>
+      ipcRenderer.invoke(
+        'extensions:invoke',
+        extId,
+        command,
+        target,
+        argument,
+      ) as Promise<ExtensionResult>,
     panel: (extId, context) =>
       ipcRenderer.invoke('extensions:panel', extId, context) as Promise<ExtensionPanelSource>,
     sidebarItems: () => ipcRenderer.invoke('extensions:sidebar') as Promise<ExtensionSidebarItem[]>,

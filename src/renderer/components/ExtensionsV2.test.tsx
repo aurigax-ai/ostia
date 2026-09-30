@@ -5,7 +5,9 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
 import { chipsForPane, paneChipCatalog } from '../lib/paneChips'
 import { useExtensionsStore } from '../stores/extensionsStore'
+import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ExtensionPanelView } from './ExtensionPanelView'
 import { PaneChips } from './PaneChips'
 import { ExtensionsSection } from './SettingsPanel'
@@ -127,6 +129,30 @@ describe('Extension API v2 UI', () => {
       await waitFor(() => expect(calls).toEqual(['focus:p1', 'status']))
       commands.unregister('pane.focus')
       commands.unregister('git.status')
+    })
+
+    it('opens the url of a link chip in the browser pane of that pane’s workspace', async () => {
+      const openBrowser = vi.fn()
+      const layoutInit = useLayoutStore.getState()
+      const workspacesInit = useWorkspacesStore.getState()
+      useLayoutStore.setState({
+        byWorkspace: {
+          s2: { root: { type: 'pane', id: 'p1', kind: 'terminal', title: 'zsh' } },
+        },
+        openBrowser,
+      } as unknown as Partial<ReturnType<typeof useLayoutStore.getState>>)
+      useExtensionsStore.setState({
+        list: [git],
+        chips: [chip({ text: ':3000', url: 'http://localhost:3000/' })],
+      })
+      render(<PaneChips paneId="p1" />)
+      await userEvent
+        .setup()
+        .click(screen.getByRole('button', { name: /Branch: :3000.*http:\/\/localhost:3000\// }))
+      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/')
+      expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s2')
+      useLayoutStore.setState(layoutInit, true)
+      useWorkspacesStore.setState(workspacesInit, true)
     })
 
     it('updates when main pushes new chip values', () => {

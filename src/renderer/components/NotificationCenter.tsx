@@ -141,7 +141,11 @@ export function NotificationCenter(): JSX.Element {
                         disabled={!where && !ext}
                         onClick={() => {
                           if (ext) {
-                            openExtensionPanel({ extId: ext.id })
+                            openExtensionPanel(
+                              entry.panelPath
+                                ? { extId: ext.id, path: entry.panelPath }
+                                : { extId: ext.id },
+                            )
                             setOpen(false)
                           } else if (entry.paneId && revealPane(entry.paneId)) setOpen(false)
                         }}

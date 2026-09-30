@@ -202,12 +202,22 @@ export function projectOfRef(ref: string): string | null {
 const REVIEW_COLUMN = /review|needs?[-_ ]?(you|user|human|input)|waiting|approv/i
 const BLOCKED_COLUMN = /block/i
 
-export function needsUser(ev: TrellisEvent): NeedsUser | null {
+export interface NotifyKinds {
+  review: boolean
+  blocked: boolean
+}
+
+export const ALL_NOTIFY_KINDS: NotifyKinds = { review: true, blocked: true }
+
+export function needsUser(
+  ev: TrellisEvent,
+  kinds: NotifyKinds = ALL_NOTIFY_KINDS,
+): NeedsUser | null {
   if (ev.entity !== 'card' || ev.action !== 'moved' || ev.field !== 'column') return null
   if (!ev.actor.startsWith('agent:')) return null
   const column = ev.new ?? ''
-  if (BLOCKED_COLUMN.test(column)) return { kind: 'blocked', column }
-  if (REVIEW_COLUMN.test(column)) return { kind: 'review', column }
+  if (BLOCKED_COLUMN.test(column)) return kinds.blocked ? { kind: 'blocked', column } : null
+  if (REVIEW_COLUMN.test(column)) return kinds.review ? { kind: 'review', column } : null
   return null
 }
 
@@ -266,6 +276,21 @@ export function projectPath(project: TrellisProject | null): string {
   return project.board ? `${base}/b/${encodeURIComponent(project.board)}` : base
 }
 
+export function cardRef(raw: string): string | null {
+  const ref = raw.trim().toUpperCase()
+  return projectOfRef(ref) ? ref : null
+}
+
+export function cardPath(ref: string): string | null {
+  const valid = cardRef(ref)
+  const project = valid ? projectOfRef(valid) : null
+  return valid && project ? `/p/${project}/card/${valid}` : null
+}
+
 export function isAppPath(path: string): boolean {
-  return path === '/' || /^\/p\/[A-Z][A-Z0-9-]*(\/b\/[a-z0-9-]+)?$/.test(path)
+  return (
+    path === '/' ||
+    /^\/p\/[A-Z][A-Z0-9-]*(\/b\/[a-z0-9-]+)?$/.test(path) ||
+    /^\/p\/[A-Z][A-Z0-9-]*\/card\/[A-Z][A-Z0-9-]*-\d+$/.test(path)
+  )
 }

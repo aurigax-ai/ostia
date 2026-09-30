@@ -15,6 +15,9 @@ export interface Strings {
   reviewTitle: string
   blockedTitle: string
   unavailableTitle: string
+  cardUsage: string
+  invalidRef: (raw: string) => string
+  cardOpened: (ref: string) => string
 }
 
 const en: Strings = {
@@ -35,6 +38,9 @@ const en: Strings = {
   reviewTitle: 'Trellis: ready for your review',
   blockedTitle: 'Trellis: a card is blocked',
   unavailableTitle: 'Trellis is unavailable',
+  cardUsage: 'Give a card id, for example: pine trellis card SHOP-12',
+  invalidRef: (raw) => `"${raw}" is not a card id like SHOP-12`,
+  cardOpened: (ref) => `Opened ${ref}`,
 }
 
 const zhHant: Strings = {
@@ -55,6 +61,9 @@ const zhHant: Strings = {
   reviewTitle: 'Trellis：等待你審閱',
   blockedTitle: 'Trellis：有卡片被阻擋',
   unavailableTitle: 'Trellis 無法使用',
+  cardUsage: '請提供卡片編號，例如：pine trellis card SHOP-12',
+  invalidRef: (raw) => `「${raw}」不是像 SHOP-12 這樣的卡片編號`,
+  cardOpened: (ref) => `已開啟 ${ref}`,
 }
 
 export function stringsFor(locale: string | undefined): Strings {
