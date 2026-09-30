@@ -738,6 +738,12 @@ function registerPtyIpc(): void {
     sandboxes: workspaceSandboxes,
     ownerWindow: windowForWorkspace,
     missing: () => missingRequirements(SANDBOX_FEATURE),
+    domains: domainRequests,
+    readPathEnv: () => ({
+      home: homedir(),
+      dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
+    }),
+    refreshAll: () => workspaceSandboxes.refreshAll(),
   })
   registerSystemRequirementsIpc({
     ownerWindow: windowForWorkspace,

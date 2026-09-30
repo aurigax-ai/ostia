@@ -21,7 +21,7 @@ import type {
   PaneChip,
 } from '../shared/extensions'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
-import type { WorkspaceSandbox } from '../shared/sandbox'
+import type { DomainRefusal, SandboxEditResult, WorkspaceSandbox } from '../shared/sandbox'
 import type { SelectionSendResult } from '../shared/selection'
 import type { RequirementsReport } from '../shared/systemRequirements'
 import type {
@@ -223,6 +223,25 @@ const bridge: PineBridge = {
     },
     get: (workspaceId) =>
       ipcRenderer.invoke('sandbox:get', workspaceId) as Promise<WorkspaceSandbox | null>,
+    setAllowRead: (workspaceId, paths) =>
+      ipcRenderer.invoke(
+        'sandbox:set-allow-read',
+        workspaceId,
+        paths,
+      ) as Promise<SandboxEditResult>,
+    setDomains: (workspaceId, domains) =>
+      ipcRenderer.invoke('sandbox:set-domains', workspaceId, domains) as Promise<SandboxEditResult>,
+    setControls: (workspaceId, controls) =>
+      ipcRenderer.invoke(
+        'sandbox:set-controls',
+        workspaceId,
+        controls,
+      ) as Promise<WorkspaceSandbox | null>,
+    refusals: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:refusals', workspaceId) as Promise<DomainRefusal[]>,
+    allowRefused: (workspaceId, host) =>
+      ipcRenderer.invoke('sandbox:allow-refused', workspaceId, host) as Promise<boolean>,
+    globalsChanged: () => ipcRenderer.invoke('sandbox:globals-changed') as Promise<boolean>,
     setEnabled: (workspaceId, enabled) =>
       ipcRenderer.invoke(
         'sandbox:set-enabled',

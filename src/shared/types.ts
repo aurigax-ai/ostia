@@ -20,7 +20,7 @@ import type {
 import type { ExtensionResult, ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
-import type { WorkspaceSandbox } from './sandbox'
+import type { DomainRefusal, SandboxControls, SandboxEditResult, WorkspaceSandbox } from './sandbox'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
 import type { RequirementsReport } from './systemRequirements'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
@@ -93,6 +93,15 @@ export interface SystemApi {
 export interface SandboxApi {
   get: (workspaceId: string) => Promise<WorkspaceSandbox | null>
   setEnabled: (workspaceId: string, enabled: boolean) => Promise<WorkspaceSandbox | null>
+  setAllowRead: (workspaceId: string, paths: string[]) => Promise<SandboxEditResult>
+  setDomains: (workspaceId: string, domains: string[]) => Promise<SandboxEditResult>
+  setControls: (
+    workspaceId: string,
+    controls: Partial<SandboxControls>,
+  ) => Promise<WorkspaceSandbox | null>
+  refusals: (workspaceId: string) => Promise<DomainRefusal[]>
+  allowRefused: (workspaceId: string, host: string) => Promise<boolean>
+  globalsChanged: () => Promise<boolean>
   onBlocked: (
     cb: (blocked: { workspaceId: string; report: RequirementsReport }) => void,
   ) => () => void

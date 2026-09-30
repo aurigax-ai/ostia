@@ -111,6 +111,10 @@ export class WorkspaceSandboxes {
     rmSync(this.tmpDir(workspaceId), { recursive: true, force: true })
   }
 
+  refreshAll(): void {
+    for (const id of [...this.hosts.keys()]) void this.refresh(id)
+  }
+
   stopAll(): void {
     for (const id of [...this.hosts.keys()]) this.stop(id)
   }
