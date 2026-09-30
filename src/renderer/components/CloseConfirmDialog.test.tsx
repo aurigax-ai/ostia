@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { LayoutNode } from '../layout/types'
@@ -70,7 +70,7 @@ describe('close confirmation', () => {
     await requestCloseWorkspace('w1')
 
     expect(workspaceIds()).toEqual(['w2'])
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   it('names the running command and keeps the workspace on Cancel', async () => {
@@ -86,7 +86,7 @@ describe('close confirmation', () => {
     await closing
 
     expect(workspaceIds()).toEqual(['w1', 'w2'])
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   it('closes the workspace when the dialog is confirmed', async () => {
