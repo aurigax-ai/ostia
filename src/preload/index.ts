@@ -262,6 +262,12 @@ const bridge: PineBridge = {
     allowRefused: (workspaceId, host) =>
       ipcRenderer.invoke('sandbox:allow-refused', workspaceId, host) as Promise<boolean>,
     globalsChanged: () => ipcRenderer.invoke('sandbox:globals-changed') as Promise<boolean>,
+    setPackages: (workspaceId, packages) =>
+      ipcRenderer.invoke(
+        'sandbox:set-packages',
+        workspaceId,
+        packages,
+      ) as Promise<WorkspaceSandbox | null>,
     ports: (workspaceId) =>
       ipcRenderer.invoke('sandbox:ports', workspaceId) as Promise<SandboxPortRow[]>,
     expose: (workspaceId, port) =>

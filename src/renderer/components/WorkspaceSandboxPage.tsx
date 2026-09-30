@@ -1,14 +1,19 @@
 import {
+  DEFAULT_PACKAGE_SETTINGS,
   type DomainRefusal,
   type PortsPolicy,
   type SandboxControls,
   type WorkspaceSandbox,
+  resolvePackages,
   resolveSandbox,
 } from '@shared/sandbox'
+
+const EMPTY: WorkspaceSandbox = { enabled: false, allowRead: [], domains: [], controls: {} }
 import { useCallback, useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
+import { PackagesEditor } from './SandboxPackagesTab'
 import { PortsPolicyRow, SandboxPortsTab } from './SandboxPortsTab'
 import { SandboxSecretsTab } from './SandboxSecretsTab'
 import { BrowserSelect, useSandboxGlobals } from './SandboxSection'
@@ -130,6 +135,7 @@ export function WorkspaceSandboxPage({
           <TabsTrigger value="network">{d.sandbox.network}</TabsTrigger>
           <TabsTrigger value="ports">{d.sandbox.ports}</TabsTrigger>
           <TabsTrigger value="secrets">{d.sandbox.secrets}</TabsTrigger>
+          <TabsTrigger value="packages">{d.sandbox.packages}</TabsTrigger>
           <TabsTrigger value="access">{d.sandbox.pineAccess}</TabsTrigger>
         </TabsList>
         <TabsContent value="general" className="pt-4">
@@ -189,6 +195,17 @@ export function WorkspaceSandboxPage({
         </TabsContent>
         <TabsContent value="secrets" className="pt-4">
           <SandboxSecretsTab workspaceId={workspaceId} />
+        </TabsContent>
+        <TabsContent value="packages" className="pt-4">
+          <PackagesEditor
+            effective={resolvePackages(globals, settings ?? EMPTY)}
+            own={settings?.packages ?? {}}
+            inheritedDeny={(globals.packages ?? DEFAULT_PACKAGE_SETTINGS).denyList}
+            onChange={async (next) => {
+              const updated = await window.pine.sandbox.setPackages(workspaceId, next)
+              if (updated) setSettings(updated)
+            }}
+          />
         </TabsContent>
         <TabsContent value="access" className="pt-4">
           <fieldset aria-label={d.sandbox.allWorkspaces}>

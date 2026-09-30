@@ -8,6 +8,22 @@ export interface SandboxControls {
 export const PORTS_POLICIES = ['ask', 'allow', 'deny'] as const
 export type PortsPolicy = (typeof PORTS_POLICIES)[number]
 
+export interface PackageSettings {
+  malware: boolean
+  cooldownDays: number
+  denyList: string[]
+  allowOnly: string[] | null
+}
+
+export const DEFAULT_PACKAGE_SETTINGS: PackageSettings = {
+  malware: true,
+  cooldownDays: 2,
+  denyList: [],
+  allowOnly: null,
+}
+
+export type WorkspacePackages = Partial<PackageSettings> & { allowances?: string[] }
+
 export interface WorkspaceSandbox {
   enabled: boolean
   allowRead: string[]
@@ -15,6 +31,7 @@ export interface WorkspaceSandbox {
   controls: Partial<SandboxControls>
   ports?: PortsPolicy
   secrets?: SecretGrant[]
+  packages?: WorkspacePackages
 }
 
 export interface SandboxGlobals {
@@ -22,6 +39,7 @@ export interface SandboxGlobals {
   allowedDomains: string[]
   controls: SandboxControls
   portsPolicy?: PortsPolicy
+  packages?: PackageSettings
 }
 
 export interface SandboxPortRow {
@@ -77,6 +95,9 @@ export const DEFAULT_ALLOWED_DOMAINS = [
   'files.pythonhosted.org',
   'crates.io',
   'static.crates.io',
+  'index.crates.io',
+  'proxy.golang.org',
+  'sum.golang.org',
 ]
 
 export const DEFAULT_SANDBOX_GLOBALS: SandboxGlobals = {
@@ -171,6 +192,8 @@ export function parseWorkspaceSandbox(value: unknown): WorkspaceSandbox | null {
   if (raw.ports !== undefined && !PORTS_POLICIES.includes(raw.ports as PortsPolicy)) return null
   const secrets = parseSecretGrants(raw.secrets)
   if (!secrets) return null
+  const packages = raw.packages === undefined ? undefined : parseWorkspacePackages(raw.packages)
+  if (packages === null) return null
   return {
     enabled: raw.enabled,
     allowRead,
@@ -178,6 +201,7 @@ export function parseWorkspaceSandbox(value: unknown): WorkspaceSandbox | null {
     controls,
     ...(raw.ports === undefined ? {} : { ports: raw.ports as PortsPolicy }),
     ...(secrets.length === 0 ? {} : { secrets }),
+    ...(packages === undefined ? {} : { packages }),
   }
 }
 
@@ -189,6 +213,7 @@ export function parseSandboxGlobals(value: unknown): SandboxGlobals {
     allowRead: stringList(raw.allowRead) ?? DEFAULT_SANDBOX_GLOBALS.allowRead,
     allowedDomains: stringList(raw.allowedDomains) ?? DEFAULT_SANDBOX_GLOBALS.allowedDomains,
     controls: { ...DEFAULT_SANDBOX_GLOBALS.controls, ...controls },
+    packages: parsePackageSettings(raw.packages) ?? DEFAULT_PACKAGE_SETTINGS,
     portsPolicy: PORTS_POLICIES.includes(raw.portsPolicy as PortsPolicy)
       ? (raw.portsPolicy as PortsPolicy)
       : DEFAULT_SANDBOX_GLOBALS.portsPolicy,
@@ -238,4 +263,85 @@ export function parseSecretGrants(value: unknown): SecretGrant[] | null {
     out.push(grant)
   }
   return out
+}
+
+const PACKAGE_KEY = /^(npm|PyPI|crates\.io|Go):[^\s@][^\s]*$/
+
+export function checkPackageKey(value: string): boolean {
+  return PACKAGE_KEY.test(value)
+}
+
+function packageList(value: unknown): string[] | null {
+  const list = stringList(value)
+  return list?.every(checkPackageKey) ? list : null
+}
+
+export function parsePackageSettings(value: unknown): PackageSettings | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Record<string, unknown>
+  const denyList = packageList(raw.denyList ?? [])
+  const allowOnly =
+    raw.allowOnly === null || raw.allowOnly === undefined ? null : packageList(raw.allowOnly)
+  const cooldown = Number(raw.cooldownDays ?? DEFAULT_PACKAGE_SETTINGS.cooldownDays)
+  if (
+    !denyList ||
+    (raw.allowOnly && !allowOnly) ||
+    !Number.isInteger(cooldown) ||
+    cooldown < 0 ||
+    cooldown > 60
+  ) {
+    return null
+  }
+  return {
+    malware: raw.malware !== false,
+    cooldownDays: cooldown,
+    denyList,
+    allowOnly,
+  }
+}
+
+export function parseWorkspacePackages(value: unknown): WorkspacePackages | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Record<string, unknown>
+  const out: WorkspacePackages = {}
+  if (raw.malware !== undefined) {
+    if (typeof raw.malware !== 'boolean') return null
+    out.malware = raw.malware
+  }
+  if (raw.cooldownDays !== undefined) {
+    const days = Number(raw.cooldownDays)
+    if (!Number.isInteger(days) || days < 0 || days > 60) return null
+    out.cooldownDays = days
+  }
+  if (raw.denyList !== undefined) {
+    const list = packageList(raw.denyList)
+    if (!list) return null
+    out.denyList = list
+  }
+  if (raw.allowOnly !== undefined) {
+    const list = raw.allowOnly === null ? null : packageList(raw.allowOnly)
+    if (raw.allowOnly !== null && !list) return null
+    out.allowOnly = list
+  }
+  if (raw.allowances !== undefined) {
+    const list = stringList(raw.allowances)
+    if (!list) return null
+    out.allowances = list
+  }
+  return out
+}
+
+export function resolvePackages(
+  globals: SandboxGlobals,
+  workspace: WorkspaceSandbox,
+): PackageSettings & { allowances: string[] } {
+  const base = globals.packages ?? DEFAULT_PACKAGE_SETTINGS
+  const own = workspace.packages ?? {}
+  return {
+    malware: own.malware ?? base.malware,
+    cooldownDays: own.cooldownDays ?? base.cooldownDays,
+    denyList: [...new Set([...base.denyList, ...(own.denyList ?? [])])],
+    allowOnly: own.allowOnly !== undefined ? own.allowOnly : base.allowOnly,
+    allowances: own.allowances ?? [],
+  }
 }

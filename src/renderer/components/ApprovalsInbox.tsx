@@ -1,4 +1,9 @@
-import type { ApprovalKind, ApprovalOutcome, ApprovalRequest } from '@shared/approvals'
+import {
+  type ApprovalKind,
+  type ApprovalOutcome,
+  type ApprovalRequest,
+  answersFor,
+} from '@shared/approvals'
 import type { Dict } from '../i18n/dict'
 import { useDict } from '../i18n/useDict'
 import { revealPane } from '../lib/workspaceActivity'
@@ -72,7 +77,7 @@ export function ApprovalsInbox({
                   <Button variant="ghost" size="xs" onClick={() => void answer(req.id, 'deny')}>
                     {d.approvals.deny}
                   </Button>
-                  {(req.kind ?? 'capability') === 'capability' || req.kind === 'secret' ? (
+                  {answersFor(req.kind).includes('once') ? (
                     <Button size="xs" onClick={() => void answer(req.id, 'once')}>
                       {d.approvals.allowOnce}
                     </Button>

@@ -8,6 +8,7 @@ import {
   type WorkspaceSandbox,
   checkDomainPattern,
   checkExposePort,
+  parseWorkspacePackages,
 } from '../../shared/sandbox'
 import type { MissingRequirement } from '../../shared/systemRequirements'
 import type { DomainRequests } from './domainRequests'
@@ -124,6 +125,21 @@ export function registerSandboxIpc(deps: SandboxIpcDeps): void {
     deps.domains.allowFromView(workspaceId, host)
     return true
   })
+  ipcMain.handle(
+    'sandbox:set-packages',
+    (e, workspaceId: unknown, packages: unknown): WorkspaceSandbox | null => {
+      if (!ownsWorkspace(deps, e.sender.id, workspaceId)) return null
+      const parsed = parseWorkspacePackages(packages)
+      if (!parsed) return null
+      const { allowances: _ignored, ...settings } = parsed
+      return deps.sandboxes.update(workspaceId, (current) => {
+        const allowances = current.packages?.allowances
+        const next = { ...settings, ...(allowances ? { allowances } : {}) }
+        const { packages: _old, ...rest } = current
+        return Object.keys(next).length === 0 ? rest : { ...rest, packages: next }
+      })
+    },
+  )
   ipcMain.handle('sandbox:ports', (e, workspaceId: unknown): PortRow[] =>
     ownsWorkspace(deps, e.sender.id, workspaceId) ? (deps.ports?.ports(workspaceId) ?? []) : [],
   )
