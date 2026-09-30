@@ -3,6 +3,8 @@ import { useMemo } from 'react'
 import { extensionCommandId } from '../commands/extensionBridge'
 import { commands } from '../commands/registry'
 import { useExtensionsStore } from '../stores/extensionsStore'
+import { openSidebarUrl } from './sidebarItems'
+import { workspaceOfPane } from './workspaceActivity'
 
 export interface PaneChipCatalogEntry {
   extId: string
@@ -56,15 +58,24 @@ export function usePaneChips(paneId: string | null): ShownPaneChip[] {
   return useMemo(() => chipsForPane(chips, catalog, paneId), [chips, catalog, paneId])
 }
 
-export function paneChipCommandId(chip: PaneChip): string | null {
+function paneChipCommandId(chip: PaneChip): string | null {
   if (!chip.command) return null
   const id = extensionCommandId(chip.extId, chip.command)
   return commands.has(id) ? id : null
 }
 
-export async function runPaneChip(chip: PaneChip): Promise<void> {
+export function paneChipAction(chip: PaneChip): (() => Promise<void>) | null {
+  const url = chip.url
+  if (url) {
+    return async () => {
+      const workspaceId = workspaceOfPane(chip.paneId)
+      if (workspaceId) openSidebarUrl(workspaceId, url)
+    }
+  }
   const id = paneChipCommandId(chip)
-  if (!id) return
-  await commands.exec('pane.focus', { paneId: chip.paneId })
-  await commands.exec(id)
+  if (!id) return null
+  return async () => {
+    await commands.exec('pane.focus', { paneId: chip.paneId })
+    await commands.exec(id)
+  }
 }

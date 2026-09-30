@@ -33,6 +33,7 @@ import {
   TERMINAL_ARG_MAX,
   TERMINAL_COMMAND_MAX_ARGS,
   TERMINAL_TITLE_MAX,
+  commandArgument,
   effectiveSettingValues,
   panelPath,
   sidebarItemUrl,
@@ -155,7 +156,7 @@ export interface ExtensionHostDeps {
   readExtensionSettings?: () => unknown
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
   notifyPanel?: (
-    n: { title: string; body?: string; from: string; extId: string },
+    n: { title: string; body?: string; from: string; extId: string; panelPath?: string },
     openPanel: () => void,
   ) => void
 }
@@ -312,6 +313,13 @@ export class ExtensionHost {
     if (this.pending(rt)) return 'pending-approval'
     if (!this.record(rt).enabled) return 'disabled'
     return rt.state
+  }
+
+  paletteArgs(extId: string, command: string, argument: unknown): { argv: string[] } | null {
+    const rt = this.runtimes.get(extId)
+    const cmd = rt ? this.commandsOf(rt).find((c) => c.id === command) : undefined
+    const value = cmd?.argument ? commandArgument(argument) : null
+    return value ? { argv: [value] } : null
   }
 
   private commandsOf(rt: Runtime): ExtensionCommandContribution[] {
@@ -885,10 +893,18 @@ export class ExtensionHost {
     if (typeof p.tooltip === 'string' && p.tooltip.trim()) {
       chip.tooltip = p.tooltip.trim().slice(0, PANE_CHIP_TOOLTIP_MAX)
     }
+    if (p.command !== undefined && p.url !== undefined) {
+      return fail('invalid-params', 'a chip has either a command or a url')
+    }
     if (p.command !== undefined) {
       const command = this.commandsOf(rt).find((c) => c.id === p.command && c.palette)
       if (!command) return fail('invalid-params', 'command must be one of your palette commands')
       chip.command = command.id
+    }
+    if (p.url !== undefined) {
+      const url = sidebarItemUrl(p.url)
+      if (!url) return fail('invalid-params', 'url must be http(s)')
+      chip.url = url
     }
     this.chips.set(slot, chip)
     this.chipsChanged()
@@ -954,9 +970,10 @@ export class ExtensionHost {
     if (wantsPanel && rt.ext.manifest.contributes.panel && this.deps.notifyPanel) {
       const req: ExtensionOpenPanelRequest = { extId: rt.ext.manifest.id }
       if (path) req.path = path
-      this.deps.notifyPanel({ title, body, from, extId: req.extId }, () =>
-        this.deps.openPanelIn(req),
-      )
+      const n = path
+        ? { title, body, from, extId: req.extId, panelPath: path }
+        : { title, body, from, extId: req.extId }
+      this.deps.notifyPanel(n, () => this.deps.openPanelIn(req))
     } else {
       this.deps.notify({ title, body, from })
     }

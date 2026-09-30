@@ -41,6 +41,7 @@ export interface PaneChipValue {
   tooltip?: string
   tone?: SidebarTone
   command?: string
+  url?: string
 }
 
 export type OpenTerminalResult =
@@ -131,6 +132,26 @@ export function ok(text?: string, data?: unknown): ExtensionResult {
 
 export function failure(error: string, message?: string): ExtensionResult {
   return message ? { ok: false, error, message } : { ok: false, error }
+}
+
+export function numberSetting(
+  values: ExtensionSettingValues,
+  key: string,
+  fallback: number,
+  range: { min: number; max: number },
+): number {
+  const value = values[key]
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  return Math.min(range.max, Math.max(range.min, value))
+}
+
+export function booleanSetting(
+  values: ExtensionSettingValues,
+  key: string,
+  fallback: boolean,
+): boolean {
+  const value = values[key]
+  return typeof value === 'boolean' ? value : fallback
 }
 
 function errorMessage(err: unknown): string {

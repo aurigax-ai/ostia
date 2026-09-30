@@ -25,6 +25,7 @@ export interface ExtensionCommandContribution {
   title: string
   category?: string
   usage?: string
+  argument?: string
   palette: boolean
   stdin: boolean
   interactive?: true
@@ -162,6 +163,21 @@ export interface PaneChip {
   tooltip?: string
   tone: SidebarTone
   command?: string
+  url?: string
+}
+
+export const COMMAND_ARGUMENT_LABEL_MAX = 80
+export const COMMAND_ARGUMENT_MAX = 1000
+
+export function commandArgument(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const value = raw.trim()
+  if (!value || value.length > COMMAND_ARGUMENT_MAX) return null
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i)
+    if (code < 0x20 || code === 0x7f) return null
+  }
+  return value
 }
 
 export const PANEL_PATH_MAX = 2048
@@ -294,6 +310,7 @@ export interface ExtensionsApi {
     extId: string,
     command: string,
     target: { workspaceId: string | null; paneId: string | null },
+    argument?: string,
   ) => Promise<ExtensionResult>
   panel: (extId: string, context: ExtensionPanelContext) => Promise<ExtensionPanelSource>
   sidebarItems: () => Promise<ExtensionSidebarItem[]>
