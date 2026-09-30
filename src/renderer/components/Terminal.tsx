@@ -2,7 +2,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { type IMarker, Terminal as Xterm } from '@xterm/xterm'
+import { type FontWeight, type IMarker, Terminal as Xterm } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { currentDict, fmt } from '../i18n/useDict'
@@ -19,6 +19,7 @@ import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, matchChord } from '../lib/chords'
 import { registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
+import { loadWebglRenderer } from '../lib/webglRenderer'
 import {
   isPaneViewed,
   isPaneVisible,
@@ -71,6 +72,7 @@ export function TerminalView({
       theme: terminalPalette(useSettingsStore.getState().appearance.theme),
       fontFamily: fontStack(initial.family),
       fontSize: initial.size,
+      fontWeight: initial.weight as FontWeight,
       lineHeight: 1.15,
       cursorStyle: behavior.cursorStyle,
       cursorBlink: behavior.cursorBlink,
@@ -89,6 +91,7 @@ export function TerminalView({
     const searchAddon = new SearchAddon()
     term.loadAddon(searchAddon)
     term.open(host)
+    if (behavior.gpuAcceleration) loadWebglRenderer(term)
     termRef.current = term
     fitRef.current = fit
     setSearch(searchAddon)
@@ -427,6 +430,7 @@ export function TerminalView({
     if (!term) return
     term.options.fontFamily = fontStack(font.family)
     term.options.fontSize = font.size
+    term.options.fontWeight = font.weight as FontWeight
     if (!safeFit(hostRef.current, fitRef.current)) return
     const { cols, rows } = term
     const last = lastSizeRef.current
@@ -434,7 +438,7 @@ export function TerminalView({
       lastSizeRef.current = { cols, rows }
       window.pine.pty.resize(paneId, cols, rows)
     }
-  }, [font.family, font.size, paneId])
+  }, [font.family, font.size, font.weight, paneId])
 
   useEffect(() => {
     const term = termRef.current

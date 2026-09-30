@@ -22,6 +22,12 @@ describe('SettingsPanel', () => {
   let pluginsInit: ReturnType<typeof usePluginsStore.getState>
 
   beforeAll(() => {
+    Object.assign(window, {
+      queryLocalFonts: async () =>
+        ['Inter Variable', 'JetBrains Mono', 'JetBrainsMono Nerd Font Mono'].map((family) => ({
+          family,
+        })),
+    })
     settingsInit = useSettingsStore.getState()
     uiInit = useUIStore.getState()
     pluginsInit = usePluginsStore.getState()
@@ -157,17 +163,41 @@ describe('SettingsPanel', () => {
     expect(setBehavior).toHaveBeenCalledWith({ cursorBlink: false })
   })
 
-  it('changes a font family via setSurfaceFont with the surface + patch', () => {
+  it('picks a font family by searching the installed fonts', async () => {
     const setSurfaceFont = vi
       .spyOn(useSettingsStore.getState(), 'setSurfaceFont')
       .mockImplementation(() => {})
     renderSettings()
+    const user = userEvent.setup()
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'UI font, Family' }), {
-      target: { value: 'JetBrains Mono' },
+    const family = screen.getByRole('combobox', { name: 'Terminal font, Family' })
+    await user.click(family)
+    await user.clear(family)
+    await user.type(family, 'nerd')
+    expect(screen.queryByRole('option', { name: 'Inter Variable' })).toBeNull()
+    await user.click(await screen.findByRole('option', { name: 'JetBrainsMono Nerd Font Mono' }))
+
+    expect(setSurfaceFont).toHaveBeenCalledWith('terminal', {
+      family: 'JetBrainsMono Nerd Font Mono',
     })
+  })
 
-    expect(setSurfaceFont).toHaveBeenCalledWith('ui', { family: 'JetBrains Mono' })
+  it('warns when the chosen font is not installed', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Terminal font, Family' }))
+    expect(await screen.findByText('Not installed; a fallback font is used')).toBeInTheDocument()
+  })
+
+  it('changes a font weight via setSurfaceFont', async () => {
+    const setSurfaceFont = vi
+      .spyOn(useSettingsStore.getState(), 'setSurfaceFont')
+      .mockImplementation(() => {})
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'UI font, Weight' }))
+    await user.click(await screen.findByRole('option', { name: '600' }))
+    expect(setSurfaceFont).toHaveBeenCalledWith('ui', { weight: 600 })
   })
 
   it('changes a font size via setSurfaceFont, clamping to the 8–32 range', () => {
@@ -192,13 +222,14 @@ describe('SettingsPanel', () => {
       appearance: {
         ...s.appearance,
         theme: 'dracula',
-        ui: { family: 'Comic Code', size: 20 },
+        ui: { family: 'Comic Code', size: 20, weight: 500 },
       },
     }))
     renderSettings()
 
     expect(screen.getByRole('combobox', { name: 'Theme' })).toHaveTextContent('Dracula')
-    expect(screen.getByRole('textbox', { name: 'UI font, Family' })).toHaveValue('Comic Code')
+    expect(screen.getByRole('combobox', { name: 'UI font, Family' })).toHaveValue('Comic Code')
+    expect(screen.getByRole('combobox', { name: 'UI font, Weight' })).toHaveTextContent('500')
     expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toHaveValue(20)
   })
 
@@ -207,7 +238,7 @@ describe('SettingsPanel', () => {
     const user = userEvent.setup()
 
     expect(screen.getByRole('combobox', { name: 'Theme' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'UI font, Family' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'UI font, Family' })).toBeInTheDocument()
     expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Files' }))
