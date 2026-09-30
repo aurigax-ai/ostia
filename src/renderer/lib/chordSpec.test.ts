@@ -1,0 +1,188 @@
+import { describe, expect, it } from 'vitest'
+import {
+  type ChordSpec,
+  chordText,
+  formatChord,
+  overlaps,
+  parseChord,
+  parseKeybindings,
+  specFromEvent,
+  stealsTerminalKey,
+  usedByMonaco,
+} from './chordSpec'
+
+const chord = (text: string, mac = false): ChordSpec => {
+  const spec = parseChord(text, mac)
+  if (!spec) throw new Error(`unparseable: ${text}`)
+  return spec
+}
+
+const event = (key: string, mods: Record<string, boolean> = {}, code?: string) => ({
+  key,
+  code,
+  ctrlKey: false,
+  metaKey: false,
+  shiftKey: false,
+  altKey: false,
+  ...mods,
+})
+
+describe('parseChord', () => {
+  it('normalizes case, spacing, modifier order and aliases to one canonical string', () => {
+    expect(formatChord(chord(' shift + ctrl + k '), false)).toBe('Ctrl+Shift+K')
+    expect(formatChord(chord('Control+Option+p'), false)).toBe('Ctrl+Alt+P')
+    expect(formatChord(chord('cmd+alt+p', true), true)).toBe('Alt+Cmd+P')
+    expect(formatChord(chord('Ctrl+Shift+ArrowUp'), false)).toBe('Ctrl+Shift+Up')
+    expect(formatChord(chord('ctrl+shift+↓'), false)).toBe('Ctrl+Shift+Down')
+    expect(formatChord(chord('Ctrl+f5'), false)).toBe('Ctrl+F5')
+    expect(formatChord(chord('Ctrl+Esc'), false)).toBe('Ctrl+Escape')
+  })
+
+  it('reads Mod as Cmd on macOS and Ctrl elsewhere', () => {
+    expect(chord('Mod+Shift+K', true)).toMatchObject({ meta: true, ctrl: false, key: 'k' })
+    expect(chord('Mod+Shift+K', false)).toMatchObject({ meta: false, ctrl: true, key: 'k' })
+  })
+
+  it('writes the meta key as Cmd on macOS and Super elsewhere, and reads both', () => {
+    expect(formatChord(chord('Super+K'), false)).toBe('Super+K')
+    expect(formatChord(chord('Super+K', true), true)).toBe('Cmd+K')
+    expect(chord('Meta+K')).toEqual(chord('Cmd+K'))
+  })
+
+  it('rejects unknown modifiers, unknown keys, repeats and empty parts', () => {
+    for (const bad of [
+      '',
+      'Ctrl+',
+      '+K',
+      'Hyper+K',
+      'Ctrl+Ctrl+K',
+      'Ctrl+Shift',
+      'Ctrl+Foo',
+      'Ctrl++',
+    ]) {
+      expect(parseChord(bad, false)).toBeNull()
+    }
+  })
+
+  it('accepts the digit range only as a key of its own', () => {
+    expect(chord('Ctrl+1-9').key).toBe('1-9')
+    expect(parseChord('Ctrl+1-8', false)).toBeNull()
+  })
+})
+
+describe('chordText', () => {
+  it('shows arrows as glyphs and uses the platform style', () => {
+    expect(chordText(chord('Ctrl+Shift+Up'), false)).toBe('Ctrl+Shift+↑')
+    expect(chordText(chord('Cmd+Shift+U', true), true)).toBe('⌘⇧U')
+    expect(chordText(chord('Ctrl+Alt+Cmd+K', true), true)).toBe('⌃⌥⌘K')
+    expect(chordText(chord('Super+K'), false)).toBe('Super+K')
+  })
+})
+
+describe('specFromEvent', () => {
+  it('ignores a modifier pressed alone', () => {
+    expect(specFromEvent(event('Control', { ctrlKey: true }))).toBeNull()
+    expect(specFromEvent(event('Shift', { shiftKey: true }))).toBeNull()
+  })
+
+  it('reads shifted digits and punctuation from the physical key', () => {
+    expect(specFromEvent(event('!', { ctrlKey: true, shiftKey: true }, 'Digit1'))?.key).toBe('1')
+    expect(specFromEvent(event('<', { ctrlKey: true, shiftKey: true }, 'Comma'))?.key).toBe(',')
+  })
+
+  it('keeps the layout letter when the key is a letter', () => {
+    expect(specFromEvent(event('Z', { ctrlKey: true, shiftKey: true }, 'KeyY'))?.key).toBe('z')
+  })
+
+  it('falls back to the key name without a code', () => {
+    expect(specFromEvent(event('ArrowUp', { metaKey: true }))).toEqual(chord('Cmd+Up'))
+  })
+})
+
+describe('stealsTerminalKey', () => {
+  it('refuses plain Ctrl+letter, including Ctrl+R, on Linux', () => {
+    expect(stealsTerminalKey(chord('Ctrl+R'), false)).toBe('ctrl-key')
+    expect(stealsTerminalKey(chord('Ctrl+K'), false)).toBe('ctrl-key')
+  })
+
+  it('refuses plain Ctrl keys that send control characters', () => {
+    for (const key of ['[', ']', '\\', '/', 'Space', 'Backspace', 'Enter']) {
+      expect(stealsTerminalKey(chord(`Ctrl+${key}`), false)).toBe('ctrl-key')
+    }
+  })
+
+  it('refuses plain and Ctrl arrows but allows Ctrl+Shift arrows', () => {
+    expect(stealsTerminalKey(chord('Up'), false)).toBe('bare')
+    expect(stealsTerminalKey(chord('Ctrl+Left'), false)).toBe('arrow')
+    expect(stealsTerminalKey(chord('Ctrl+Shift+Up'), false)).toBeNull()
+  })
+
+  it('refuses Escape and Tab with any modifier', () => {
+    expect(stealsTerminalKey(chord('Ctrl+Shift+Escape'), false)).toBe('escape')
+    expect(stealsTerminalKey(chord('Ctrl+Tab'), false)).toBe('tab')
+    expect(stealsTerminalKey(chord('Cmd+Escape', true), true)).toBe('escape')
+  })
+
+  it('refuses keys without Ctrl or Super on Linux', () => {
+    expect(stealsTerminalKey(chord('K'), false)).toBe('bare')
+    expect(stealsTerminalKey(chord('F5'), false)).toBe('bare')
+    expect(stealsTerminalKey(chord('Alt+K'), false)).toBe('needs-modifier')
+    expect(stealsTerminalKey(chord('Shift+Alt+K'), false)).toBe('needs-modifier')
+  })
+
+  it('allows the default chord shapes on Linux', () => {
+    for (const ok of [
+      'Ctrl+Shift+P',
+      'Ctrl+,',
+      'Ctrl+1',
+      'Ctrl+1-9',
+      'Ctrl+Alt+K',
+      'Ctrl+F5',
+      'Super+K',
+    ]) {
+      expect(stealsTerminalKey(chord(ok), false)).toBeNull()
+    }
+  })
+
+  it('needs Cmd on macOS, where Ctrl and Option chords belong to the shell', () => {
+    expect(stealsTerminalKey(chord('Cmd+K', true), true)).toBeNull()
+    expect(stealsTerminalKey(chord('Cmd+Up', true), true)).toBeNull()
+    expect(stealsTerminalKey(chord('Ctrl+Shift+P', true), true)).toBe('needs-modifier')
+    expect(stealsTerminalKey(chord('Alt+K', true), true)).toBe('needs-modifier')
+  })
+})
+
+describe('overlaps', () => {
+  it('treats a digit as part of the 1-9 range with the same modifiers', () => {
+    expect(overlaps(chord('Ctrl+3'), chord('Ctrl+1-9'))).toBe(true)
+    expect(overlaps(chord('Ctrl+Shift+3'), chord('Ctrl+1-9'))).toBe(false)
+    expect(overlaps(chord('Ctrl+0'), chord('Ctrl+1-9'))).toBe(false)
+    expect(overlaps(chord('Ctrl+Shift+K'), chord('shift+ctrl+k'))).toBe(true)
+  })
+})
+
+describe('usedByMonaco', () => {
+  it('knows the Monaco defaults of each platform', () => {
+    expect(usedByMonaco(chord('Ctrl+Shift+K'), false)).toBe(true)
+    expect(usedByMonaco(chord('Ctrl+Shift+Y'), false)).toBe(false)
+    expect(usedByMonaco(chord('Cmd+D', true), true)).toBe(true)
+    expect(usedByMonaco(chord('Cmd+D', false), false)).toBe(false)
+  })
+})
+
+describe('parseKeybindings', () => {
+  it('keeps chord strings and nulls, and drops everything else', () => {
+    const parsed = parseKeybindings(
+      JSON.parse(
+        '{"palette.toggle":"Cmd+J","view.toggleRail":null,"history.search":7,' +
+          '"workspace.new":"Ctrl+Nope","__proto__":"Ctrl+Shift+X"}',
+      ),
+    )
+    expect({ ...parsed }).toEqual({ 'palette.toggle': 'Cmd+J', 'view.toggleRail': null })
+  })
+
+  it('returns an empty map for a non-object', () => {
+    expect({ ...parseKeybindings(['Ctrl+K']) }).toEqual({})
+    expect({ ...parseKeybindings('Ctrl+K') }).toEqual({})
+  })
+})

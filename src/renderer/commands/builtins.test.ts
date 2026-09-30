@@ -187,6 +187,28 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().behavior.externalEditor).toBe('auto')
   })
 
+  it('settings.set changes a keybinding by its dotted command id and settings.get reads it back', async () => {
+    const set = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'keybindings.palette.toggle',
+      value: 'Ctrl+Shift+Y',
+    })
+    const got = await commands.execWith(ctx(null, null), 'settings.get', {
+      key: 'keybindings.palette.toggle',
+    })
+    expect(set.ok).toBe(true)
+    expect(got).toEqual({ ok: true, result: 'Ctrl+Shift+Y' })
+  })
+
+  it('settings.set refuses a keybinding that would steal a terminal key', async () => {
+    const r = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'keybindings.palette.toggle',
+      value: 'Ctrl+R',
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error.message).toMatch(/keybindings.palette.toggle: "Ctrl\+R"/)
+    expect(useSettingsStore.getState().keybindings).toEqual({})
+  })
+
   it('routes pane.close to layout.closePane with an explicit paneId', async () => {
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 

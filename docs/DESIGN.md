@@ -259,7 +259,15 @@ Consolidation debt:
   new-workspace chords are Cmd+K / Cmd+\ / Cmd+, / Cmd+Shift+U / Cmd+Shift+H / Cmd+T on macOS and
   Ctrl+Shift+P / Ctrl+Shift+B / Ctrl+, / Ctrl+Shift+U / Ctrl+Shift+H / Ctrl+Shift+T elsewhere. In the terminal, previous/next
   block is Cmd+↑/↓ (Ctrl+Shift+↑/↓ elsewhere) and Escape clears a block selection; off macOS,
-  copy, paste and find are Ctrl+Shift+C/V/F.
+  copy, paste and find are Ctrl+Shift+C/V/F. These are defaults: Settings → Keyboard rebinds or
+  unbinds any of them and binds any palette command. Every place that shows a chord reads it
+  through `chordLabel`/`useChordLabel`, and hides the keycap when the command is unbound.
+- **Keyboard settings**: a search field and "Reset all" over a shadcn `Table` (command title with
+  its id in `ui-xs` mono `fg-muted`, the shortcut in a `Kbd`, then Record and Reset buttons).
+  Recording replaces the keycap with a polite live "Press a shortcut… Esc cancels". A refused
+  chord shows one `attn-fg` `ui-sm` line (`role="alert"`) under it; a conflict or Monaco clash
+  shows a `WarningNote` with Replace / Use anyway and Cancel. No motion beyond the shared
+  button feedback.
 - **Transitions**: motion tokens only (§8 Motion). List only the properties that change, never
   `transition-all`.
 - **Overlays**: when a surface covers others, mark the covered subtree `inert` so focus can't

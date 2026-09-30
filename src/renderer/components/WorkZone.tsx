@@ -1,7 +1,7 @@
 import { PlusIcon } from '@phosphor-icons/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
-import { chordLabel } from '../lib/chords'
+import { useChordLabel } from '../lib/chords'
 import { startNewWorkspace } from '../lib/newWorkspace'
 import { isMac } from '../platform'
 import { useUIStore } from '../stores/uiStore'
@@ -12,8 +12,6 @@ import { SurfacePool } from './SurfacePool'
 import { Button } from './ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
 import { Kbd } from './ui/kbd'
-
-const NEW_WORKSPACE_KEYS = chordLabel('workspace.new', isMac)
 
 export function WorkZone(): JSX.Element {
   const workspaces = useWorkspacesStore((s) => s.workspaces)
@@ -76,6 +74,7 @@ function WorkspaceLayer({
 function NoWorkspaces(): JSX.Element {
   const d = useDict()
   const leaveSettings = useUIStore((s) => s.leaveSettings)
+  const newWorkspaceKeys = useChordLabel('workspace.new', isMac)
   return (
     <Empty className="workzone-empty">
       <EmptyHeader>
@@ -92,9 +91,11 @@ function NoWorkspaces(): JSX.Element {
       >
         <PlusIcon data-icon="inline-start" />
         {d.rail.newWorkspace}
-        <Kbd className="ml-1 bg-primary-foreground/15 text-primary-foreground">
-          {NEW_WORKSPACE_KEYS}
-        </Kbd>
+        {newWorkspaceKeys ? (
+          <Kbd className="ml-1 bg-primary-foreground/15 text-primary-foreground">
+            {newWorkspaceKeys}
+          </Kbd>
+        ) : null}
       </Button>
     </Empty>
   )

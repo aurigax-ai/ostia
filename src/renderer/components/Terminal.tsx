@@ -18,7 +18,7 @@ import {
 import { canTypeInto, insertCommand, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isIdlePrompt } from '../lib/blocks'
-import { isAppChord, matchChord } from '../lib/chords'
+import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
 import { openFileAt } from '../lib/openFile'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { registerTerminal } from '../lib/terminalHandles'
@@ -132,7 +132,8 @@ export function TerminalView({
       }
       const chord = matchChord(e, isMac)
       if (!chord) return true
-      if (isMac && (chord === 'copy' || chord === 'paste')) return true
+      const clipboard = chord === 'copy' || chord === 'paste'
+      if (isMac && clipboard && isNativeClipboardKey(e)) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
       e.preventDefault()
       if (chord === 'find') setFindOpen(true)

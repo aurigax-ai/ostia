@@ -217,7 +217,16 @@ pine settings get appearance.terminal.size
 pine settings set appearance.terminal.size 14      # value parsed as JSON if it parses...
 pine settings set locale '"en"'                    # ...else used as the raw string
 pine settings set behavior.showHiddenFiles true
+pine settings set keybindings.palette.toggle '"Ctrl+Shift+Y"'   # rebind a command
+pine settings set keybindings.view.toggleRail null              # unbind it
+pine settings get keybindings                                   # the user's overrides
 ```
+
+`keybindings` maps a command id (after `keybindings.`, dots included) to a chord like
+`Ctrl+Shift+K`, `Cmd+Alt+P` or `Mod+Shift+K` (Cmd on macOS, Ctrl elsewhere), or `null`.
+Chords the shell needs are refused with an error: plain Ctrl+letter (Ctrl+R included),
+plain or Ctrl arrows, Escape, Tab, and keys without Ctrl/Cmd. Unlisted commands keep
+their default.
 
 `set` deep-sets a dot-path immutably into the live `settingsStore` (so the Settings
 UI updates instantly, no restart) and debounce-persists it to `settings.json`.
