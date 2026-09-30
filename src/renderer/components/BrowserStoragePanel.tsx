@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { cookieRowKey, filterCookies, filterEntries, formatExpiry } from '../lib/storageRows'
 import { IconButton } from './IconButton'
+import { SectionTab, SectionTabsList } from './SectionTabs'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -30,7 +31,7 @@ import {
 } from './ui/dialog'
 import { Input } from './ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+import { Tabs, TabsContent } from './ui/tabs'
 import { Textarea } from './ui/textarea'
 
 type Editing =
@@ -247,17 +248,17 @@ export function BrowserStoragePanel({
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <div className="flex flex-none flex-wrap items-center gap-x-2 gap-y-1 border-line border-b bg-surface-2 px-2 py-1">
-          <TabsList variant="line" className="h-7">
-            <TabsTrigger value="cookies" className="text-ui-sm">
+          <SectionTabsList className="h-7 w-auto border-b-0">
+            <SectionTab value="cookies">
               {t.cookies} <span className="text-fg-muted tabular-nums">{counts.cookies}</span>
-            </TabsTrigger>
-            <TabsTrigger value="local" className="text-ui-sm">
+            </SectionTab>
+            <SectionTab value="local">
               {t.local} <span className="text-fg-muted tabular-nums">{counts.local}</span>
-            </TabsTrigger>
-            <TabsTrigger value="session" className="text-ui-sm">
+            </SectionTab>
+            <SectionTab value="session">
               {t.session} <span className="text-fg-muted tabular-nums">{counts.session}</span>
-            </TabsTrigger>
-          </TabsList>
+            </SectionTab>
+          </SectionTabsList>
           <Input
             className="h-6 w-48 min-w-32 max-w-64 flex-1 text-ui-sm md:text-ui-sm"
             aria-label={t.filter}
