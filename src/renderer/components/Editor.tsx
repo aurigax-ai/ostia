@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
 import { registerEditorPosition } from '../lib/editorPositions'
+import { attachWheelZoom } from '../lib/wheelZoom'
 import { openDocument } from '../lsp/client'
 import { langFor } from '../monaco/language'
 import { monaco } from '../monaco/setup'
+import { isMac } from '../platform'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
@@ -127,7 +129,10 @@ export function EditorView({
       )
     })
 
+    const detachWheelZoom = attachWheelZoom(host, 'editor', isMac)
+
     return () => {
+      detachWheelZoom()
       editor.dispose()
       editorRef.current = null
     }

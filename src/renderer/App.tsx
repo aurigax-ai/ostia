@@ -4,6 +4,7 @@ import { commands } from './commands/registry'
 import { CommandPalette } from './components/CommandPalette'
 import { DeckRail } from './components/DeckRail'
 import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
+import { FilesPanel } from './components/FilesPanel'
 import { HistorySearch } from './components/HistorySearch'
 import { TopBar } from './components/TopBar'
 import { WindowControls } from './components/WindowControls'
@@ -18,6 +19,7 @@ import { usePluginsStore } from './stores/pluginsStore'
 
 const ICON_STYLE = { weight: 'regular' } as const
 import { useSettingsStore } from './stores/settingsStore'
+import { useUIStore } from './stores/uiStore'
 
 const SANS_FALLBACK =
   'system-ui, -apple-system, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", "Hiragino Sans", "Noto Sans CJK TC", "Noto Sans TC", sans-serif'
@@ -25,6 +27,7 @@ const SANS_FALLBACK =
 export function App(): JSX.Element {
   const locale = useSettingsStore((s) => s.locale)
   const uiFont = useSettingsStore((s) => s.appearance.ui)
+  const filesOpen = useUIStore((s) => s.filesOpen)
   const theme = useSettingsStore((s) => s.appearance.theme)
   useMotionAttribute()
 
@@ -79,6 +82,7 @@ export function App(): JSX.Element {
         <div className={`app${isMac ? ' is-mac' : ''}`}>
           <TopBar />
           <DeckRail />
+          {filesOpen ? <FilesPanel /> : null}
           <WorkZone />
           <WindowControls />
           <CommandPalette />

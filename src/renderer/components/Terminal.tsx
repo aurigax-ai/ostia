@@ -21,6 +21,7 @@ import { isAppChord, matchChord } from '../lib/chords'
 import { registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
 import { loadWebglRenderer } from '../lib/webglRenderer'
+import { attachWheelZoom } from '../lib/wheelZoom'
 import {
   isPaneViewed,
   isPaneVisible,
@@ -93,6 +94,7 @@ export function TerminalView({
     term.loadAddon(searchAddon)
     term.open(host)
     if (behavior.gpuAcceleration) loadWebglRenderer(term)
+    const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
     termRef.current = term
     fitRef.current = fit
     setSearch(searchAddon)
@@ -432,6 +434,7 @@ export function TerminalView({
       oscNotify99.dispose()
       bell.dispose()
       copySelection.dispose()
+      detachWheelZoom()
       titleChange.dispose()
       promptMarker?.dispose()
       disposeMarkers()
