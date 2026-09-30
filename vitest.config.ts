@@ -9,6 +9,8 @@ export default defineConfig({
     },
   },
   test: {
+    maxWorkers: 8,
+    minWorkers: 1,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'html', 'lcov'],

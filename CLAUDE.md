@@ -603,7 +603,10 @@ Details: `docs/ARCHITECTURE.md`.
 
 Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vitest.workspace.ts`.
 
-- **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`, `src/extensions/**`. Extension
+- **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`, `src/extensions/**`. Its
+  global setup (`test/buildOnce.ts`) builds the CLI and built-in extensions once per run; tests
+  never rebuild them (two files building into `out/extensions` at once raced). Vitest runs at
+  most 8 workers (`vitest.config.ts`), so integration tests don't time out under load. Extension
   host integration tests spawn `test/fixtures/extensions/echo` over a real socket;
   `src/cli/cli.ext.e2e.test.ts` builds and drives the real git extension and the echo fixture
   (stdin, errors, `pine ext ls`) via the CLI; `extensionHost.v2.integration.test.ts` drives pane
