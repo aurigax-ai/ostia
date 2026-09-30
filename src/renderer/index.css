@@ -18,6 +18,7 @@
   --color-brand: #00d8ff;
   --color-brand-bright: #6cfcf9;
   --color-brand-glow: rgba(0, 216, 255, 0.18);
+  --color-on-brand: #1d2022;
   --color-attn: #bf5f54;
   --color-attn-glow: rgba(191, 95, 84, 0.2);
   --color-attn-fg: #db8176;
@@ -70,6 +71,7 @@
   --brand: var(--color-brand);
   --brand-bright: var(--color-brand-bright);
   --brand-glow: var(--color-brand-glow);
+  --on-brand: var(--color-on-brand);
   --attn: var(--color-attn);
   --attn-glow: var(--color-attn-glow);
   --attn-fg: var(--color-attn-fg);
@@ -149,7 +151,7 @@
   --popover: var(--color-surface-2);
   --popover-foreground: var(--color-fg);
   --primary: var(--color-brand);
-  --primary-foreground: var(--color-bg);
+  --primary-foreground: var(--color-on-brand);
   --secondary: var(--color-surface-2);
   --secondary-foreground: var(--color-fg);
   --muted: var(--color-surface-2);
@@ -163,7 +165,7 @@
   --sidebar: var(--color-surface-1);
   --sidebar-foreground: var(--color-fg);
   --sidebar-primary: var(--color-brand);
-  --sidebar-primary-foreground: var(--color-bg);
+  --sidebar-primary-foreground: var(--color-on-brand);
   --sidebar-accent: var(--color-surface-2);
   --sidebar-accent-foreground: var(--color-fg);
   --sidebar-border: var(--color-line);

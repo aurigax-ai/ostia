@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { BUILTIN_PLUGINS } from '../plugins/builtin'
 import type { Theme } from '../plugins/types'
+import { contrastRatio } from './color'
 import { applyTheme, effectiveThemeId, resolveTheme, themedTokens } from './theme'
 
 const themes = BUILTIN_PLUGINS.flatMap((p) => p.contributes.themes ?? [])
@@ -35,13 +36,31 @@ describe('resolveTheme', () => {
 })
 
 describe('themedTokens', () => {
-  it('returns the theme tokens untouched without an accent or with an invalid one', () => {
-    expect(themedTokens(dark, '').tokens).toBe(dark.tokens)
-    expect(themedTokens(dark, 'not-a-color').onBrand).toBeNull()
+  it('keeps the theme tokens without an accent or with an invalid one, adding only on-brand', () => {
+    for (const accent of ['', 'not-a-color']) {
+      const { 'on-brand': onBrand, ...rest } = themedTokens(dark, accent)
+      expect(rest).toEqual(dark.tokens)
+      expect(onBrand).toBe(dark.tokens.bg)
+    }
+  })
+
+  it('puts dark text on a light accent and light text on a dark accent, on dark and light themes', () => {
+    expect(themedTokens(dark, '#f2b347')['on-brand']).toBe(dark.tokens.bg)
+    expect(themedTokens(dark, '#1f3a8a')['on-brand']).toBe(dark.tokens.bg)
+    expect(themedTokens(light, '#1f3a8a')['on-brand']).toBe(light.tokens.bg)
+    for (const theme of themes) {
+      for (const accent of ['', '#f2b347', '#1f3a8a', '#ffffff', '#000000']) {
+        const tokens = themedTokens(theme, accent)
+        expect(
+          contrastRatio(tokens['on-brand'], tokens.brand),
+          `${theme.id} ${accent}`,
+        ).toBeGreaterThanOrEqual(4.5)
+      }
+    }
   })
 
   it('overrides only the brand tokens for a valid accent', () => {
-    const { tokens } = themedTokens(dark, '#ff8800')
+    const tokens = themedTokens(dark, '#ff8800')
     expect(tokens.brand).toBe('#ff8800')
     expect(tokens.bg).toBe(dark.tokens.bg)
     expect(tokens['brand-glow']).not.toBe(dark.tokens['brand-glow'])
@@ -62,11 +81,13 @@ describe('applyTheme', () => {
     expect(root.style.colorScheme).toBe('light')
   })
 
-  it('applies an accent over the theme brand and removes it again when cleared', () => {
+  it('applies an accent and its readable on-brand color, and restores the theme brand when cleared', () => {
     const root = document.documentElement
     applyTheme(root, dark, '#ff8800')
     expect(root.style.getPropertyValue('--color-brand')).toBe('#ff8800')
-    expect(root.style.getPropertyValue('--primary-foreground')).not.toBe('')
+    expect(root.style.getPropertyValue('--color-on-brand')).toBe(dark.tokens.bg)
+    applyTheme(root, light, '#ff8800')
+    expect(root.style.getPropertyValue('--color-on-brand')).toBe(light.tokens.bg)
     applyTheme(root, dark, '')
     expect(root.style.getPropertyValue('--color-brand')).toBe(dark.tokens.brand)
     expect(root.style.getPropertyValue('--primary-foreground')).toBe('')

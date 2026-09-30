@@ -14,6 +14,7 @@ import {
   KeyboardIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
+  PlusIcon,
   RobotIcon,
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
@@ -35,6 +36,7 @@ import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { openFileInWorkspace } from '../lib/openFile'
+import { useEffectiveTheme } from '../lib/theme'
 import { isMac, platform } from '../platform'
 import type { ClipboardKeys } from '../settings/terminalPaneSettings'
 import {
@@ -78,6 +80,7 @@ import { KeyboardSection } from './KeyboardSection'
 import { PasswordsSection } from './PasswordsSection'
 import { activeTerminalPaneId } from './PromptEditorDialog'
 import { SyncSection } from './SyncSection'
+import { ThemeRows } from './ThemeSettings'
 import { WorkspacesSection } from './WorkspacesSection'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
@@ -352,19 +355,8 @@ export function ToggleRow({
 
 function AppearanceSection(): JSX.Element {
   const d = useDict()
-  const theme = useSettingsStore((s) => s.appearance.theme)
-  const setTheme = useSettingsStore((s) => s.setTheme)
   const motion = useSettingsStore((s) => s.appearance.motion)
   const setMotion = useSettingsStore((s) => s.setMotion)
-  const themes = usePluginsStore((s) => s.themes)
-  const followSystem = useSettingsStore((s) => s.appearance.followSystem)
-  const setFollowSystem = useSettingsStore((s) => s.setFollowSystem)
-  const lightTheme = useSettingsStore((s) => s.appearance.lightTheme)
-  const setLightTheme = useSettingsStore((s) => s.setLightTheme)
-  const darkTheme = useSettingsStore((s) => s.appearance.darkTheme)
-  const setDarkTheme = useSettingsStore((s) => s.setDarkTheme)
-  const themeOptions = (appearance: 'light' | 'dark') =>
-    themes.filter((t) => t.appearance === appearance).map((t) => ({ value: t.id, label: t.name }))
   const motionLabel: Record<MotionMode, string> = {
     system: d.settings.motionSystem,
     reduced: d.settings.motionReduced,
@@ -374,41 +366,7 @@ function AppearanceSection(): JSX.Element {
     <div>
       <SectionHead title={d.settings.appearance} />
       <SettingsGroup title={d.settings.groupTheme}>
-        <ToggleRow
-          label={d.settings.followSystem}
-          desc={d.settings.followSystemDesc}
-          checked={followSystem}
-          onChange={setFollowSystem}
-        />
-        {followSystem ? (
-          <>
-            <ControlRow label={d.settings.lightTheme}>
-              <SelectField
-                value={lightTheme}
-                onChange={setLightTheme}
-                label={d.settings.lightTheme}
-                options={themeOptions('light')}
-              />
-            </ControlRow>
-            <ControlRow label={d.settings.darkTheme}>
-              <SelectField
-                value={darkTheme}
-                onChange={setDarkTheme}
-                label={d.settings.darkTheme}
-                options={themeOptions('dark')}
-              />
-            </ControlRow>
-          </>
-        ) : (
-          <ControlRow label={d.settings.theme}>
-            <SelectField
-              value={theme}
-              onChange={setTheme}
-              label={d.settings.theme}
-              options={themes.map((t) => ({ value: t.id, label: t.name }))}
-            />
-          </ControlRow>
-        )}
+        <ThemeRows />
         <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
           <SelectField
             value={motionMode(motion)}
@@ -471,6 +429,8 @@ function AccentRow(): JSX.Element {
   const [draft, setDraft] = useState(accent)
   useEffect(() => setDraft(accent), [accent])
   const invalid = draft.trim() !== '' && normalizeHex(draft) === null
+  const custom = accent !== '' && !ACCENT_PRESETS.includes(accent)
+  const themeBrand = normalizeHex(useEffectiveTheme()?.tokens.brand) ?? ACCENT_PRESETS[0]
   return (
     <ControlRow label={d.settings.accent} desc={d.settings.accentDesc}>
       <div className="flex items-center gap-1.5">
@@ -485,6 +445,27 @@ function AccentRow(): JSX.Element {
             className="size-5 rounded-full border border-line-strong outline-offset-2 focus-visible:outline-2 focus-visible:outline-brand aria-pressed:outline-2 aria-pressed:outline-fg"
           />
         ))}
+        <label
+          data-testid="accent-custom"
+          data-selected={custom || undefined}
+          title={d.settings.accentCustom}
+          style={custom ? { background: accent } : undefined}
+          className={cn(
+            'relative flex size-5 cursor-pointer items-center justify-center rounded-full border outline-offset-2 has-focus-visible:outline-2 has-focus-visible:outline-brand',
+            custom
+              ? 'border-line-strong outline-2 outline-fg'
+              : 'border-line-strong border-dashed text-fg-muted hover:text-fg',
+          )}
+        >
+          {custom ? null : <PlusIcon size={12} aria-hidden />}
+          <input
+            type="color"
+            aria-label={d.settings.accentCustom}
+            value={custom ? accent : themeBrand}
+            onChange={(e) => setAccent(e.target.value)}
+            className="absolute inset-0 size-full cursor-pointer opacity-0"
+          />
+        </label>
       </div>
       <Input
         value={draft}
