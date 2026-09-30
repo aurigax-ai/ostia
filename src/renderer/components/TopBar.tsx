@@ -10,6 +10,7 @@ import { useChordLabel } from '../lib/chords'
 import { startNewWorkspace } from '../lib/newWorkspace'
 import { isMac } from '../platform'
 import { useUIStore } from '../stores/uiStore'
+import { AssistantMenu } from './AssistantMenu'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { NotificationCenter } from './NotificationCenter'
@@ -56,22 +57,25 @@ export function TopBar(): JSX.Element {
         <PanelToggles />
       </div>
 
-      <Hint
-        label={paletteKeys ? `${d.search.placeholder} (${paletteKeys})` : d.search.placeholder}
-        side="bottom"
-      >
-        <Button
-          variant="ghost"
-          className="h-6 min-w-0 justify-start gap-1 rounded-sm bg-fg/6 pr-1 pl-2 font-normal text-fg-muted text-ui-base hover:bg-fg/10 hover:text-fg dark:hover:bg-fg/10"
-          onClick={() => openPalette()}
+      <div className="topbar-center">
+        <Hint
+          label={paletteKeys ? `${d.search.placeholder} (${paletteKeys})` : d.search.placeholder}
+          side="bottom"
         >
-          <MagnifyingGlassIcon className="size-3.5" />
-          <span className="flex-1 truncate text-left">{d.search.command}</span>
-          {paletteKeys ? (
-            <Kbd className="h-4 bg-transparent font-mono text-ui-xs">{paletteKeys}</Kbd>
-          ) : null}
-        </Button>
-      </Hint>
+          <Button
+            variant="ghost"
+            className="h-6 min-w-0 flex-1 justify-start gap-1 rounded-sm bg-fg/6 pr-1 pl-2 font-normal text-fg-muted text-ui-base hover:bg-fg/10 hover:text-fg dark:hover:bg-fg/10"
+            onClick={() => openPalette()}
+          >
+            <MagnifyingGlassIcon className="size-3.5" />
+            <span className="flex-1 truncate text-left">{d.search.command}</span>
+            {paletteKeys ? (
+              <Kbd className="h-4 bg-transparent font-mono text-ui-xs">{paletteKeys}</Kbd>
+            ) : null}
+          </Button>
+        </Hint>
+        <AssistantMenu />
+      </div>
 
       <div className="topbar-right">
         <UpdateNotice />

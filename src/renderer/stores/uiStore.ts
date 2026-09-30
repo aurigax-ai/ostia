@@ -8,6 +8,7 @@ interface UIState {
   railCollapsed: boolean
   settingsTabOpen: boolean
   settingsActive: boolean
+  settingsSection: string | null
   filesOpen: boolean
   digitHints: boolean
   promptEditor: { paneId: string | null } | null
@@ -17,6 +18,8 @@ interface UIState {
   togglePalette: () => void
   toggleRail: () => void
   openSettings: () => void
+  openSettingsAt: (section: string) => void
+  clearSettingsSection: () => void
   closeSettings: () => void
   leaveSettings: () => void
   toggleFiles: () => void
@@ -32,6 +35,7 @@ export const useUIStore = create<UIState>((set) => ({
   railCollapsed: false,
   settingsTabOpen: false,
   settingsActive: false,
+  settingsSection: null,
   filesOpen: false,
   digitHints: false,
   promptEditor: null,
@@ -41,6 +45,9 @@ export const useUIStore = create<UIState>((set) => ({
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search' })),
   toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
   openSettings: () => set({ settingsTabOpen: true, settingsActive: true }),
+  openSettingsAt: (settingsSection) =>
+    set({ settingsTabOpen: true, settingsActive: true, settingsSection }),
+  clearSettingsSection: () => set({ settingsSection: null }),
   closeSettings: () => set({ settingsTabOpen: false, settingsActive: false }),
   leaveSettings: () => set({ settingsActive: false }),
   toggleFiles: () => set((s) => ({ filesOpen: !s.filesOpen })),

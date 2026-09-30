@@ -1,12 +1,13 @@
 import { CHAT_CONTEXT_TEXT_MAX, type ChatContextItem, type ChatContextKind } from '@shared/assist'
-import { findPane } from '../layout/tree'
-import { askKey, useAskStore } from '../stores/askStore'
+import { allPanes, findPane } from '../layout/tree'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useUIStore } from '../stores/uiStore'
+import { usePaneRecencyStore } from '../stores/paneRecencyStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { blockText, canTypeInto, insertCommand } from './blockActions'
+import { isIdlePrompt } from './blocks'
+import { openChatPane } from './chatPane'
 import { terminalFor } from './terminalHandles'
 
 export const OUTPUT_TAIL_MAX = 8000
@@ -19,12 +20,34 @@ export function tail(text: string, max = OUTPUT_TAIL_MAX): string {
   return text.length > max ? text.slice(text.length - max) : text
 }
 
-export function activeTerminalPane(): { paneId: string; cwd?: string } | null {
-  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
-  const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
-  const pane = layout ? findPane(layout.root, layout.activePaneId) : null
-  if (pane?.kind !== 'terminal') return null
+export function workspaceTerminal(
+  workspaceId: string | null | undefined,
+): { paneId: string; cwd?: string } | null {
+  const id = workspaceId ?? useWorkspacesStore.getState().activeWorkspaceId
+  const layout = id ? useLayoutStore.getState().byWorkspace[id] : undefined
+  if (!layout) return null
+  const active = findPane(layout.root, layout.activePaneId)
+  const touched = usePaneRecencyStore.getState().touchedAt
+  const terminals = allPanes(layout.root).filter((p) => p.kind === 'terminal' && !p.hibernated)
+  const pane =
+    active?.kind === 'terminal'
+      ? active
+      : ([...terminals].sort((a, b) => (touched[b.id] ?? 0) - (touched[a.id] ?? 0))[0] ?? null)
+  if (!pane) return null
   return pane.cwd ? { paneId: pane.id, cwd: pane.cwd } : { paneId: pane.id }
+}
+
+export function activeTerminalPane(): { paneId: string; cwd?: string } | null {
+  return workspaceTerminal(null)
+}
+
+export function insertTarget(
+  workspaceId: string | null | undefined,
+  blocks: { drafts: Record<string, unknown>; running: Record<string, string | undefined> },
+): { paneId: string; idle: boolean } | null {
+  const pane = workspaceTerminal(workspaceId)
+  if (!pane) return null
+  return { paneId: pane.paneId, idle: isIdlePrompt(blocks, pane.paneId) }
 }
 
 function lastFinishedBlock(paneId: string): CommandBlock | undefined {
@@ -96,18 +119,25 @@ export function explainFailedBlock(
 ): boolean {
   const item = errorContext(paneId, blockId, text.label)
   if (!item) return false
-  const key = askKey(useWorkspacesStore.getState().activeWorkspaceId)
-  useUIStore.getState().leaveSettings()
-  useUIStore.getState().openPalette('ask')
-  void useAskStore.getState().send(key, text.prompt, [item])
-  return true
+  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  return (
+    openChatPane({
+      ...(workspaceId ? { workspaceId } : {}),
+      prompt: text.prompt,
+      context: [item],
+      send: true,
+    }) !== null
+  )
 }
 
 export type InsertOutcome = 'inserted' | 'copied'
 
-export async function insertAtPrompt(text: string): Promise<InsertOutcome> {
+export async function insertAtPrompt(
+  text: string,
+  workspaceId?: string | null,
+): Promise<InsertOutcome> {
   const command = text.replace(/\s+$/, '')
-  const pane = activeTerminalPane()
+  const pane = workspaceTerminal(workspaceId)
   if (pane && canTypeInto(pane.paneId) && insertCommand(pane.paneId, command)) return 'inserted'
   await navigator.clipboard?.writeText(command).catch(() => undefined)
   return 'copied'

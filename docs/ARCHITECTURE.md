@@ -1920,6 +1920,29 @@ extension owns providers, prompts and requests.
   in the palette (`AskView.tsx`, `stores/askStore.ts`, in memory per workspace; closing the
   palette stops the stream) with context chips from `lib/askContext.ts`.
 
+**Feature switches and setup state.** `ext.setAssistStatus` also carries the extension's feature
+list (`{id, setting, ready}`, ids from `ASSIST_FEATURES`), a setup problem, the last provider
+error and a label. Main keeps only features bound to one of the extension's own boolean settings
+and reads `on` from that setting (`assistOverview`, pushed on `assist:overview`), so the top-bar
+menu, the in-context switches, Settings → Plugins and the extension's panel all flip the same
+value through the validated setting path. Why the extension names the setting: pine must stay
+tool-agnostic, and a switch that isn't a real setting would drift from Settings. `ext.shortcuts`
+answers the effective key labels the renderer reports (`assist:shortcuts`), and `ext.openAssistUi`
+opens pine's chat pane, Ask or composer for a point the extension contributes (a panel's "Try
+it"), never sending anything by itself.
+
+**Chat sessions** (`main/chatSessions.ts`, `chatSessionsIpc.ts`, `shared/chatSessions.ts`). One
+JSON file per session in `<data dir>/chat-sessions/` (mode 0600, never synced, not
+`settings.json`): title, workspace id, model label, created/updated times and messages shaped
+like the AI SDK's `UIMessage` (role + typed parts + metadata with the context items that were
+sent). Parts other than text are kept as bounded JSON so tool calls and results can be added
+later without reshaping. Each save is normalized in main, trimmed from the oldest turn when the
+session passes 512 KiB (`trimmed`), and the least recently updated other sessions are evicted
+past 16 MiB or 500 sessions; the result tells the renderer what was dropped so it can say so.
+Export writes markdown through a save dialog in main; "Save as file…" does the same for a code
+block. Why main writes them: the renderer has no fs access outside the confined `fs:*`, and a
+session holds terminal output the human chose to send, which belongs in the private data dir.
+
 **Extension secrets** (`main/extensionSecrets.ts`). `contributes.secrets` declares up to 8 keys
 with descriptions. Settings → Plugins shows a password field per key; `extensions:set-secret`
 encrypts the value with `safeStorage` into `extension-secrets.json` in the data dir (mode 0600,

@@ -1,5 +1,6 @@
 import { SparkleIcon, XIcon } from '@phosphor-icons/react'
 import type {
+  AssistFeatureId,
   AssistProviderInfo,
   AssistResponse,
   CommandSuggestion,
@@ -10,6 +11,7 @@ import { type KeyboardEvent, type RefObject, useEffect, useMemo, useRef, useStat
 import { composerAgentName, composerModeOf } from '../commands/assistCompose'
 import { fmt, useDict } from '../i18n/useDict'
 import { type ComposerMode, latestRequest, wordDiff } from '../lib/assistComposer'
+import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatureSwitch'
 import { insertCommand } from '../lib/blockActions'
 import { canInsertReference } from '../lib/sendPick'
 import { terminalFor } from '../lib/terminalHandles'
@@ -20,6 +22,7 @@ import { IconButton } from './IconButton'
 import { Button } from './ui/button'
 import { Command, CommandItem, CommandList } from './ui/command'
 import { Kbd } from './ui/kbd'
+import { Switch } from './ui/switch'
 import { Textarea } from './ui/textarea'
 
 export const TYPO_DEBOUNCE_MS = 700
@@ -78,11 +81,13 @@ function ComposerFrame({
   title,
   provider,
   onClose,
+  controls,
   children,
 }: {
   title: string
   provider: AssistProviderInfo | null
   onClose: () => void
+  controls?: React.ReactNode
   children: React.ReactNode
 }): JSX.Element {
   const d = useDict()
@@ -96,10 +101,35 @@ function ComposerFrame({
             {fmt(d.assist.via, { label: provider.label })}
           </span>
         ) : null}
-        <IconButton icon={XIcon} label={d.assist.close} className="ml-auto" onClick={onClose} />
+        <div className="ml-auto flex shrink-0 items-center gap-3">
+          {controls}
+          <IconButton icon={XIcon} label={d.assist.close} onClick={onClose} />
+        </div>
       </header>
       {children}
     </section>
+  )
+}
+
+function FeatureSwitch({
+  id,
+  label,
+}: {
+  id: AssistFeatureId
+  label: string
+}): JSX.Element | null {
+  const ref = useAssistFeature(id)
+  if (!ref) return null
+  return (
+    <span className="flex items-center gap-1.5 text-fg-muted">
+      <Switch
+        size="sm"
+        checked={ref.feature.on}
+        aria-label={label}
+        onCheckedChange={(on) => void setAssistFeature(id, on)}
+      />
+      <span aria-hidden="true">{label}</span>
+    </span>
   )
 }
 
@@ -138,6 +168,8 @@ function AgentComposer({ paneId, onClose }: { paneId: string; onClose: () => voi
   const reviews = useRef(latestRequest())
   const dict = useRef(d)
   dict.current = d
+  const typosOn = featureEnabled(useAssistFeature('typos'))
+  const reviewOn = featureEnabled(useAssistFeature('promptReview'))
 
   useEffect(() => {
     areaRef.current?.focus()
@@ -148,8 +180,9 @@ function AgentComposer({ paneId, onClose }: { paneId: string; onClose: () => voi
   }, [])
 
   useEffect(() => {
-    if (!text.trim()) {
+    if (!text.trim() || !typosOn) {
       typos.current.cancel()
+      setFix(null)
       return
     }
     typos.current.run(async (signal) => {
@@ -163,7 +196,7 @@ function AgentComposer({ paneId, onClose }: { paneId: string; onClose: () => voi
       const corrected = res.result.corrected
       setFix(corrected && corrected !== text ? { for: text, corrected } : null)
     }, TYPO_DEBOUNCE_MS)
-  }, [text, agent])
+  }, [text, agent, typosOn])
 
   const shownFix = fix && fix.for === text ? fix : null
 
@@ -174,7 +207,7 @@ function AgentComposer({ paneId, onClose }: { paneId: string; onClose: () => voi
   }
 
   const runReview = (): void => {
-    if (!text.trim()) return
+    if (!text.trim() || !reviewOn) return
     setReviewing(true)
     reviews.current.run(async (signal) => {
       const res = await assistRequest('input', { text, tasks: ['review'], agent }, { signal })
@@ -226,6 +259,12 @@ function AgentComposer({ paneId, onClose }: { paneId: string; onClose: () => voi
       title={fmt(d.assist.agentTitle, { agent })}
       provider={provider}
       onClose={onClose}
+      controls={
+        <>
+          <FeatureSwitch id="typos" label={d.terminalGhost.typos} />
+          <FeatureSwitch id="promptReview" label={d.terminalGhost.review} />
+        </>
+      }
     >
       <Textarea
         ref={areaRef}
@@ -277,16 +316,20 @@ function AgentComposer({ paneId, onClose }: { paneId: string; onClose: () => voi
       ) : null}
       <footer className="assist-composer-foot">
         <StatusLine status={reviewing ? { kind: 'busy' } : status} />
-        <Button
-          variant="ghost"
-          size="xs"
-          className="ml-auto"
-          disabled={!text.trim() || reviewing}
-          onClick={runReview}
-        >
-          {reviewing ? d.assist.reviewing : d.assist.review}
-          <Kbd>{reviewKeys}</Kbd>
-        </Button>
+        {reviewOn ? (
+          <Button
+            variant="ghost"
+            size="xs"
+            className="ml-auto"
+            disabled={!text.trim() || reviewing}
+            onClick={runReview}
+          >
+            {reviewing ? d.assist.reviewing : d.assist.review}
+            <Kbd>{reviewKeys}</Kbd>
+          </Button>
+        ) : (
+          <span className="ml-auto" />
+        )}
         <Button size="xs" disabled={!text.trim()} onClick={() => void paste()}>
           {fmt(d.assist.paste, { agent })}
           <Kbd className="bg-transparent text-primary-foreground">↵</Kbd>

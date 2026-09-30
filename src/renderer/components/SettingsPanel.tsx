@@ -117,6 +117,7 @@ export function SettingsPanel(): JSX.Element | null {
   const open = useUIStore((s) => s.settingsActive)
   const close = useUIStore((s) => s.leaveSettings)
   const [active, setActive] = useState<SectionId>('appearance')
+  const requestedSection = useUIStore((s) => s.settingsSection)
   const [query, setQuery] = useState('')
   const navRef = useRef<HTMLElement>(null)
 
@@ -135,6 +136,12 @@ export function SettingsPanel(): JSX.Element | null {
     navRef.current?.querySelector<HTMLInputElement>('input')?.focus()
     return () => prev?.focus?.()
   }, [open])
+
+  useEffect(() => {
+    if (!open || !requestedSection) return
+    setActive(requestedSection as SectionId)
+    useUIStore.getState().clearSettingsSection()
+  }, [open, requestedSection])
 
   const sections = useMemo(
     () =>

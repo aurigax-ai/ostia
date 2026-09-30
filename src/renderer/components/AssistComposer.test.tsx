@@ -8,6 +8,7 @@ import { registerTerminal } from '../lib/terminalHandles'
 import { useAssistComposerStore } from '../stores/assistComposerStore'
 import { useAssistStore } from '../stores/assistStore'
 import { useBlocksStore } from '../stores/blocksStore'
+import { useExtensionsStore } from '../stores/extensionsStore'
 
 const agentState = vi.hoisted(() => ({
   agent: 'claude' as 'claude' | 'other' | null,
@@ -75,6 +76,37 @@ describe('AssistComposer', () => {
     vi.mocked(window.pine.assist.request).mockReset()
     vi.mocked(window.pine.assist.cancel).mockClear()
     vi.mocked(window.pine.pty.write).mockClear()
+  })
+
+  it('switches typo fix and prompt review from its header', async () => {
+    const setSetting = vi.fn().mockResolvedValue(null)
+    const extensionsInit = useExtensionsStore.getState()
+    useExtensionsStore.setState({ setSetting })
+    useAssistStore.setState({
+      overview: [
+        {
+          extId: 'assistant',
+          name: 'Assistant',
+          setup: null,
+          features: [
+            { id: 'typos', setting: 'typos', on: false, ready: true },
+            { id: 'promptReview', setting: 'promptReview', on: true, ready: true },
+          ],
+        },
+      ],
+    })
+    const term = fakeTerm()
+    unregister = registerTerminal(PANE, term)
+    mount(term)
+    await userEvent.type(screen.getByRole('textbox', { name: 'Prompt for claude' }), 'fix teh bug')
+    await new Promise((r) => setTimeout(r, 900))
+    expect(window.pine.assist.request).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('switch', { name: 'Typo fix' }))
+    expect(setSetting).toHaveBeenCalledWith('assistant', 'typos', true)
+    await userEvent.click(screen.getByRole('switch', { name: 'Prompt review' }))
+    expect(setSetting).toHaveBeenCalledWith('assistant', 'promptReview', false)
+    useExtensionsStore.setState(extensionsInit, true)
+    useAssistStore.setState({ overview: [] })
   })
 
   it('shows a typo fix as a hint and applies it only on Tab', async () => {
