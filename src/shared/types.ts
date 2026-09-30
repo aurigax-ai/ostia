@@ -93,6 +93,9 @@ export interface SystemApi {
 export interface SandboxApi {
   get: (workspaceId: string) => Promise<WorkspaceSandbox | null>
   setEnabled: (workspaceId: string, enabled: boolean) => Promise<WorkspaceSandbox | null>
+  onBlocked: (
+    cb: (blocked: { workspaceId: string; report: RequirementsReport }) => void,
+  ) => () => void
 }
 
 export interface PtyApi {

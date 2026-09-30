@@ -213,6 +213,14 @@ const bridge: PineBridge = {
       ) as Promise<ExtensionResult>,
   },
   sandbox: {
+    onBlocked: (cb) => {
+      const handler = (
+        _event: unknown,
+        blocked: { workspaceId: string; report: RequirementsReport },
+      ): void => cb(blocked)
+      ipcRenderer.on('sandbox:blocked', handler)
+      return () => ipcRenderer.removeListener('sandbox:blocked', handler)
+    },
     get: (workspaceId) =>
       ipcRenderer.invoke('sandbox:get', workspaceId) as Promise<WorkspaceSandbox | null>,
     setEnabled: (workspaceId, enabled) =>
