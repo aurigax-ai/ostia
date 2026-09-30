@@ -88,6 +88,7 @@ export interface PtyApi {
   write: (paneId: string, data: string) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
+  foreground: (paneId: string) => Promise<string | null>
   promptContext: (paneId: string, want: PromptContextRequest) => Promise<PromptContext | null>
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number) => void) => () => void

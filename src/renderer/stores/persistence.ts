@@ -1,6 +1,6 @@
 import { buildSnapshot } from '../layout/snapshot'
 import { allPanes } from '../layout/tree'
-import { commandAgent } from '../lib/hibernation'
+import { runningAgentOf } from '../lib/paneAgent'
 import { useBlocksStore } from './blocksStore'
 import { useLayoutStore } from './layoutStore'
 import { useSettingsStore } from './settingsStore'
@@ -13,14 +13,10 @@ let clearedForDisabled = false
 let frozen = false
 
 export function liveAgentPanes(): Set<string> {
-  const { running, byPane } = useBlocksStore.getState()
   const live = new Set<string>()
   for (const layout of Object.values(useLayoutStore.getState().byWorkspace)) {
     for (const pane of layout ? allPanes(layout.root) : []) {
-      const blockId = running[pane.id]
-      if (!pane.resume || !blockId) continue
-      const command = byPane[pane.id]?.find((b) => b.id === blockId)?.command
-      if (command && commandAgent(command) === pane.resume.agent) live.add(pane.id)
+      if (pane.resume && runningAgentOf(pane.id) === pane.resume.agent) live.add(pane.id)
     }
   }
   return live
