@@ -1,5 +1,10 @@
+import { createAnthropic } from '@ai-sdk/anthropic'
+import { createOpenAI } from '@ai-sdk/openai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
+import { type LanguageModel, simulateStreamingMiddleware, wrapLanguageModel } from 'ai'
 import { PRODUCT_NAME } from '../../shared/product'
-import { type Endpoint, fetchJson, streamSse } from './http'
+import { type Endpoint, type FetchFn, baseUrl, endpointFetch, requestJson } from './endpoint'
 import type { ModelEntry } from './models'
 
 export const PROVIDER_KINDS = [
@@ -14,127 +19,57 @@ export const PROVIDER_KINDS = [
 
 export type ProviderKind = (typeof PROVIDER_KINDS)[number]
 
-export interface PromptMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
-
-export interface ChatParams {
-  model: string
-  system?: string
-  messages: PromptMessage[]
-  temperature: number
-  maxTokens: number
-  signal?: AbortSignal
-  timeoutMs?: number
-  onDelta?: (text: string) => void
-}
-
 export interface Provider {
   kind: ProviderKind
   lifecycle: boolean
-  chat: (params: ChatParams) => Promise<string>
-  models: (signal?: AbortSignal) => Promise<ModelEntry[]>
+  model: (id: string) => Exclude<LanguageModel, string>
+  models: (signal?: AbortSignal, timeoutMs?: number) => Promise<ModelEntry[]>
   load?: (id: string) => Promise<void>
   unload?: (id: string) => Promise<void>
 }
 
-export interface OpenAiOptions {
-  kind: ProviderKind
-  endpoint: Endpoint
-  apiKey?: string
-  headers?: Record<string, string>
-  stream: boolean
-  chatPath: string
-  modelsPath: string
-}
-
-interface OpenAiMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
-
-interface OpenAiReply {
-  choices?: { message?: { content?: unknown }; delta?: { content?: unknown } }[]
-}
-
+export const ANTHROPIC_VERSION = '2023-06-01'
+export const OPENROUTER_HEADERS = { 'X-Title': PRODUCT_NAME }
 const MODELS_TIMEOUT_MS = 15_000
+const LIFECYCLE_TIMEOUT_MS = 120_000
 
-function openAiMessages(params: ChatParams): OpenAiMessage[] {
-  const messages: OpenAiMessage[] = params.system
-    ? [{ role: 'system', content: params.system }]
-    : []
-  return [...messages, ...params.messages]
+interface ListedModel {
+  id?: unknown
+  name?: unknown
+  display_name?: unknown
 }
 
-function textOf(value: unknown): string {
-  return typeof value === 'string' ? value : ''
+function listed(data: ListedModel[] | undefined, nameKey: 'name' | 'display_name'): ModelEntry[] {
+  return (data ?? [])
+    .filter((m) => typeof m.id === 'string' && m.id)
+    .map((m) => {
+      const entry: ModelEntry = { id: m.id as string }
+      const name = m[nameKey]
+      if (typeof name === 'string' && name && name !== m.id) entry.name = name
+      return entry
+    })
 }
 
-export function openAiDelta(data: string): string | null {
-  if (data.trim() === '[DONE]') return null
-  const parsed = JSON.parse(data) as OpenAiReply & { error?: { message?: unknown } }
-  if (parsed.error) throw new Error(textOf(parsed.error.message) || 'provider error')
-  return textOf(parsed.choices?.[0]?.delta?.content)
-}
-
-export function openAiProvider(opts: OpenAiOptions): Provider {
-  const headers: Record<string, string> = { ...opts.headers }
-  if (opts.apiKey) headers.authorization = `Bearer ${opts.apiKey}`
-  return {
-    kind: opts.kind,
-    lifecycle: false,
-    chat: async (params) => {
-      const body = {
-        model: params.model,
-        messages: openAiMessages(params),
-        temperature: params.temperature,
-        max_tokens: params.maxTokens,
-      }
-      const http = {
-        method: 'POST' as const,
-        headers,
-        signal: params.signal,
-        timeoutMs: params.timeoutMs,
-      }
-      if (!opts.stream || !params.onDelta) {
-        const reply = await fetchJson<OpenAiReply>(opts.endpoint, opts.chatPath, {
-          ...http,
-          body: { ...body, stream: false },
-        })
-        const text = textOf(reply.choices?.[0]?.message?.content)
-        if (text) params.onDelta?.(text)
-        return text
-      }
-      let text = ''
-      await streamSse(
-        opts.endpoint,
-        opts.chatPath,
-        { ...http, body: { ...body, stream: true } },
-        (event) => {
-          const delta = openAiDelta(event.data)
-          if (!delta) return
-          text += delta
-          params.onDelta?.(delta)
-        },
-      )
-      return text
-    },
-    models: async (signal) => {
-      const res = await fetchJson<{ data?: { id?: unknown; name?: unknown }[] }>(
-        opts.endpoint,
-        opts.modelsPath,
-        { headers, signal, timeoutMs: MODELS_TIMEOUT_MS },
-      )
-      return (res.data ?? [])
-        .filter((m) => typeof m.id === 'string' && m.id)
-        .map((m) => {
-          const entry: ModelEntry = { id: m.id as string }
-          if (typeof m.name === 'string' && m.name && m.name !== m.id) entry.name = m.name
-          return entry
-        })
-    },
+function listModels(
+  fetch: FetchFn,
+  url: string,
+  headers: Record<string, string>,
+  nameKey: 'name' | 'display_name',
+) {
+  return async (signal?: AbortSignal, timeoutMs = MODELS_TIMEOUT_MS): Promise<ModelEntry[]> => {
+    const res = await requestJson<{ data?: ListedModel[] }>({
+      fetch,
+      url,
+      headers,
+      signal,
+      timeoutMs,
+    })
+    return listed(res.data, nameKey)
   }
+}
+
+function bearer(apiKey: string | null): Record<string, string> {
+  return apiKey ? { authorization: `Bearer ${apiKey}` } : {}
 }
 
 interface RuntimeModel {
@@ -147,26 +82,31 @@ interface RuntimeModel {
 }
 
 export function modelRuntimeProvider(endpoint: Endpoint): Provider {
-  const base = openAiProvider({
-    kind: 'model-runtime',
-    endpoint,
-    stream: false,
-    chatPath: '/v1/chat/completions',
-    modelsPath: '/models',
+  const fetch = endpointFetch(endpoint)
+  const compat = createOpenAICompatible({
+    name: 'model-runtime',
+    baseURL: baseUrl(endpoint, '/v1'),
+    fetch,
   })
   const post = async (id: string, action: 'load' | 'unload'): Promise<void> => {
-    await fetchJson(endpoint, `/models/${encodeURIComponent(id)}/${action}`, {
+    await requestJson({
+      fetch,
+      url: baseUrl(endpoint, `/models/${encodeURIComponent(id)}/${action}`),
       method: 'POST',
-      timeoutMs: 120_000,
+      timeoutMs: LIFECYCLE_TIMEOUT_MS,
     })
   }
   return {
-    ...base,
+    kind: 'model-runtime',
     lifecycle: true,
-    models: async (signal) => {
-      const res = await fetchJson<{ models?: RuntimeModel[] }>(endpoint, '/models', {
+    model: (id) =>
+      wrapLanguageModel({ model: compat.chatModel(id), middleware: simulateStreamingMiddleware() }),
+    models: async (signal, timeoutMs = MODELS_TIMEOUT_MS) => {
+      const res = await requestJson<{ models?: RuntimeModel[] }>({
+        fetch,
+        url: baseUrl(endpoint, '/models'),
         signal,
-        timeoutMs: MODELS_TIMEOUT_MS,
+        timeoutMs,
       })
       return (res.models ?? [])
         .filter((m) => typeof m.id === 'string' && m.id)
@@ -187,113 +127,58 @@ export function modelRuntimeProvider(endpoint: Endpoint): Provider {
   }
 }
 
-export const ANTHROPIC_VERSION = '2023-06-01'
-
-interface AnthropicEvent {
-  type?: unknown
-  delta?: { type?: unknown; text?: unknown }
-  error?: { message?: unknown }
-}
-
-export function anthropicDelta(data: string): string {
-  const parsed = JSON.parse(data) as AnthropicEvent
-  if (parsed.type === 'error') throw new Error(textOf(parsed.error?.message) || 'provider error')
-  if (parsed.type !== 'content_block_delta') return ''
-  return parsed.delta?.type === 'text_delta' ? textOf(parsed.delta.text) : ''
-}
-
-export function anthropicProvider(endpoint: Endpoint, apiKey: string): Provider {
-  const headers = { 'x-api-key': apiKey, 'anthropic-version': ANTHROPIC_VERSION }
-  return {
-    kind: 'anthropic',
-    lifecycle: false,
-    chat: async (params) => {
-      const body: Record<string, unknown> = {
-        model: params.model,
-        messages: params.messages,
-        max_tokens: params.maxTokens,
-        temperature: params.temperature,
-      }
-      if (params.system) body.system = params.system
-      const http = {
-        method: 'POST' as const,
-        headers,
-        signal: params.signal,
-        timeoutMs: params.timeoutMs,
-      }
-      if (!params.onDelta) {
-        const reply = await fetchJson<{ content?: { type?: unknown; text?: unknown }[] }>(
-          endpoint,
-          '/messages',
-          { ...http, body },
-        )
-        return (reply.content ?? [])
-          .filter((c) => c.type === 'text')
-          .map((c) => textOf(c.text))
-          .join('')
-      }
-      let text = ''
-      await streamSse(
-        endpoint,
-        '/messages',
-        { ...http, body: { ...body, stream: true } },
-        (event) => {
-          const delta = anthropicDelta(event.data)
-          if (!delta) return
-          text += delta
-          params.onDelta?.(delta)
-        },
-      )
-      return text
-    },
-    models: async (signal) => {
-      const res = await fetchJson<{ data?: { id?: unknown; display_name?: unknown }[] }>(
-        endpoint,
-        '/models',
-        { headers, signal, timeoutMs: MODELS_TIMEOUT_MS },
-      )
-      return (res.data ?? [])
-        .filter((m) => typeof m.id === 'string' && m.id)
-        .map((m) => {
-          const entry: ModelEntry = { id: m.id as string }
-          if (typeof m.display_name === 'string') entry.name = m.display_name
-          return entry
-        })
-    },
-  }
-}
-
-export const OPENROUTER_HEADERS = { 'X-Title': PRODUCT_NAME }
-
 export function createProvider(
   kind: Exclude<ProviderKind, 'none'>,
   endpoint: Endpoint,
   apiKey: string | null,
 ): Provider {
+  const fetch = endpointFetch(endpoint)
+  const base = baseUrl(endpoint)
   const key = apiKey ?? undefined
   switch (kind) {
     case 'model-runtime':
       return modelRuntimeProvider(endpoint)
-    case 'anthropic':
-      return anthropicProvider(endpoint, apiKey ?? '')
-    case 'openrouter':
-      return openAiProvider({
+    case 'anthropic': {
+      const anthropic = createAnthropic({ baseURL: base, apiKey: apiKey ?? '', fetch })
+      const headers = { 'x-api-key': apiKey ?? '', 'anthropic-version': ANTHROPIC_VERSION }
+      return {
         kind,
-        endpoint,
+        lifecycle: false,
+        model: (id) => anthropic(id),
+        models: listModels(fetch, `${base}/models`, headers, 'display_name'),
+      }
+    }
+    case 'openrouter': {
+      const openrouter = createOpenRouter({
+        baseURL: base,
         apiKey: key,
         headers: OPENROUTER_HEADERS,
-        stream: true,
-        chatPath: '/chat/completions',
-        modelsPath: '/models',
+        fetch,
       })
-    default:
-      return openAiProvider({
+      return {
         kind,
-        endpoint,
-        apiKey: key,
-        stream: true,
-        chatPath: '/chat/completions',
-        modelsPath: '/models',
-      })
+        lifecycle: false,
+        model: (id) => openrouter.chat(id),
+        models: listModels(fetch, `${base}/models`, bearer(apiKey), 'name'),
+      }
+    }
+    case 'openai': {
+      const openai = createOpenAI({ baseURL: base, apiKey: apiKey ?? '', fetch })
+      return {
+        kind,
+        lifecycle: false,
+        model: (id) => openai.chat(id),
+        models: listModels(fetch, `${base}/models`, bearer(apiKey), 'name'),
+      }
+    }
+    default: {
+      const compat = createOpenAICompatible({ name: kind, baseURL: base, apiKey: key, fetch })
+      return {
+        kind,
+        lifecycle: false,
+        model: (id) => compat.chatModel(id),
+        models: listModels(fetch, `${base}/models`, bearer(apiKey), 'name'),
+      }
+    }
   }
 }

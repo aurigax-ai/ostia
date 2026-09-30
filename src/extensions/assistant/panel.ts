@@ -1,5 +1,7 @@
 import arrowClockwise from '@phosphor-icons/core/regular/arrow-clockwise.svg'
 import copyIcon from '@phosphor-icons/core/regular/copy.svg'
+import playIcon from '@phosphor-icons/core/regular/play.svg'
+import type { AssistFeatureId, AssistFeatureState, AssistUi } from '../../shared/assist'
 import { call, errorText, h, icon, onChange, pickLocale } from '../sdk/panel'
 import type { ModelEntry, PanelState } from './models'
 import { PANEL_STRINGS } from './strings'
@@ -79,6 +81,112 @@ function modelRow(model: ModelEntry, lifecycleOn: boolean): HTMLElement {
   )
 }
 
+interface FeatureGuide {
+  keys: (shortcuts: Record<string, string | null>) => string[]
+  tryUi?: AssistUi
+}
+
+function keyed(id: string, template: (keys: string) => string) {
+  return (shortcuts: Record<string, string | null>): string[] => {
+    const keys = shortcuts[id]
+    return keys ? [template(keys)] : []
+  }
+}
+
+const GUIDES: Record<AssistFeatureId, FeatureGuide> = {
+  chat: {
+    keys: (s) => [
+      ...keyed('assist.chat', t.hints.chatPane)(s),
+      ...keyed('palette.toggle', t.hints.ask)(s),
+    ],
+    tryUi: 'chat',
+  },
+  typos: { keys: keyed('assist.compose', t.hints.composer), tryUi: 'compose' },
+  promptReview: {
+    keys: (s) => keyed('assist.compose', t.hints.composer)(s).concat(t.hints.review),
+    tryUi: 'compose',
+  },
+  commandSuggest: {
+    keys: (s) => keyed('assist.compose', t.hints.composer)(s).concat(t.hints.hash),
+    tryUi: 'compose',
+  },
+  terminalCompletions: { keys: () => [t.hints.terminal] },
+  editorCompletions: { keys: () => [t.hints.editor] },
+  explainError: { keys: () => [t.hints.explain] },
+}
+
+function readiness(feature: AssistFeatureState, problem: string | null): string {
+  if (!feature.on) return t.off
+  if (problem) return t.problemShort[problem as keyof typeof t.problemShort] ?? t.notReady
+  return feature.ready ? t.ready : t.notReady
+}
+
+async function toggle(feature: AssistFeatureState): Promise<void> {
+  pending = feature.id
+  render()
+  const res = await call('toggle', { feature: feature.id, on: !feature.on })
+  pending = ''
+  error = errorText(res)
+  await refresh()
+}
+
+async function tryIt(ui: AssistUi): Promise<void> {
+  const res = await call('try', { ui })
+  error = errorText(res)
+  if (error) render()
+}
+
+function featureRow(feature: AssistFeatureState, s: PanelState): HTMLElement {
+  const guide = GUIDES[feature.id]
+  const name = t.features[feature.id]
+  const status = readiness(feature, s.problem)
+  const hints = guide.keys(s.shortcuts ?? {})
+  const canTry = guide.tryUi && feature.on && feature.ready
+  return h(
+    'li',
+    { class: 'feature' },
+    h('input', {
+      type: 'checkbox',
+      role: 'switch',
+      class: 'switch',
+      'aria-label': name,
+      checked: feature.on,
+      disabled: pending !== '',
+      onchange: () => void toggle(feature),
+    }),
+    h(
+      'div',
+      { class: 'feature-text' },
+      h('span', { class: 'feature-name' }, name),
+      h('span', { class: 'muted small' }, t.featureHelp[feature.id]),
+      hints.length > 0 ? h('span', { class: 'hints small' }, hints.join(' · ')) : null,
+    ),
+    h(
+      'span',
+      { class: feature.on && feature.ready ? 'state ok' : 'state muted', role: 'status' },
+      status,
+    ),
+    canTry && guide.tryUi
+      ? h(
+          'button',
+          { class: 'try', onclick: () => void tryIt(guide.tryUi as AssistUi) },
+          icon(playIcon),
+          t.tryIt,
+        )
+      : h('span', { class: 'try-space' }),
+  )
+}
+
+function features(s: PanelState): HTMLElement {
+  return h(
+    'section',
+    { class: 'section' },
+    h('h2', {}, t.featuresTitle),
+    s.lastError ? h('p', { class: 'error small' }, `${t.lastError}: ${s.lastError}`) : null,
+    h('ul', { class: 'features' }, ...s.features.map((f) => featureRow(f, s))),
+  )
+}
+
 function render(): void {
   if (!state) {
     root.replaceChildren(h('p', { class: 'center muted' }, error || '…'))
@@ -107,6 +215,7 @@ function render(): void {
         iconButton(arrowClockwise, t.refresh, () => void refresh()),
       ),
       problem,
+      s.features.length > 0 ? features(s) : null,
       h(
         'dl',
         { class: 'fields' },

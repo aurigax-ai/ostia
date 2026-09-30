@@ -1,3 +1,5 @@
+import type { AssistFeatureState } from '../../shared/assist'
+
 export interface ModelEntry {
   id: string
   name?: string
@@ -15,6 +17,9 @@ export interface PanelState {
   chatModel: string
   problem: string | null
   lifecycle: boolean
+  features: AssistFeatureState[]
+  lastError?: string
+  shortcuts?: Record<string, string | null>
   models: ModelEntry[]
   modelsError?: string
 }
