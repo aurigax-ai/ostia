@@ -834,6 +834,11 @@ export const en = {
     scrollbackLinesDesc:
       'History each terminal keeps, 1,000 to 100,000. Applies to open terminals.',
     groupPaste: 'Paste',
+    clipboardKeys: 'Copy and paste keys',
+    clipboardKeysDesc:
+      'Smart: Ctrl+C copies when text is selected and interrupts otherwise, Ctrl+V pastes. Ctrl+Shift+C and Ctrl+Shift+V always work.',
+    clipboardShift: 'Ctrl+Shift+C / Ctrl+Shift+V',
+    clipboardSmart: 'Smart Ctrl+C / Ctrl+V',
     warnRiskyPaste: 'Warn before risky paste',
     warnRiskyPasteDesc:
       'Ask before pasting text with a newline or control characters into a terminal.',
@@ -1753,6 +1758,11 @@ export const zhHant: Dict = {
     scrollbackLines: '捲動緩衝行數',
     scrollbackLinesDesc: '每個終端機保留的歷史行數，1,000 至 100,000。套用於已開啟的終端機。',
     groupPaste: '貼上',
+    clipboardKeys: '複製與貼上按鍵',
+    clipboardKeysDesc:
+      '智慧模式：有選取文字時 Ctrl+C 複製，否則中斷程式；Ctrl+V 貼上。Ctrl+Shift+C 與 Ctrl+Shift+V 一律可用。',
+    clipboardShift: 'Ctrl+Shift+C / Ctrl+Shift+V',
+    clipboardSmart: '智慧 Ctrl+C / Ctrl+V',
     warnRiskyPaste: '貼上有風險的內容前先警告',
     warnRiskyPasteDesc: '貼上含換行或控制字元的文字到終端機前先詢問。',
     groupColors: '色彩',

@@ -26,6 +26,7 @@ describe('settingsStore terminal and pane settings', () => {
       scrollbackLines: 10000,
       warnOnRiskyPaste: true,
       minimumContrast: 1,
+      clipboardKeys: 'shift',
       prompt: {
         style: 'shell',
         chips: ['conda', 'virtualenv', 'node', 'cwd', 'git.branch', 'git.diff-stats'],
@@ -61,6 +62,7 @@ describe('settingsStore terminal and pane settings', () => {
       minimumContrast: 1,
       warnOnRiskyPaste: true,
       prompt: { style: 'pine', chips: ['cwd', 'git.branch'], sameLine: false, separator: 'none' },
+      clipboardKeys: 'shift',
     })
     expect(store().panes.dimInactive).toBe(false)
     expect(store().panes.focusOnHover).toBe(false)
