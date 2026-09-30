@@ -495,6 +495,16 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    extensionSettings: {
+      type: 'object',
+      description:
+        'Extension id → its setting values. Edit them in Settings → Plugins; each ' +
+        "extension's manifest lists its settings.",
+      additionalProperties: {
+        type: 'object',
+        additionalProperties: { type: ['string', 'number', 'boolean'] },
+      },
+    },
     sync: {
       type: 'object',
       additionalProperties: false,
