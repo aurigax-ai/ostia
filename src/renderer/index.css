@@ -156,7 +156,7 @@
   --muted-foreground: var(--color-fg-muted);
   --accent: var(--color-surface-2);
   --accent-foreground: var(--color-fg);
-  --destructive: var(--color-del);
+  --destructive: var(--color-attn-fg);
   --border: var(--color-line);
   --input: var(--color-line-strong);
   --ring: var(--color-brand);
@@ -173,6 +173,7 @@
 @layer base {
   * {
     box-sizing: border-box;
+    border-color: var(--border);
   }
 
   html,
