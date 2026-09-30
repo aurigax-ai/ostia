@@ -50,8 +50,10 @@ const CLI_HELP = `pine — control-socket CLI
   pine bus claim <id>                         claim a handoff addressed to you
   pine bus handoffs [--all]                   list your handoffs (--all needs all-workspaces)
   pine bus done <id>                          mark a handoff completed
-  pine settings get [key]         print the whole settings state, or a dot-path value
-  pine settings set <key> <value> deep-set a dot-path (value parsed as JSON if it parses)
+  pine settings get [key]         print every readable setting, or a dot-path value
+  pine settings set <key> <value> [--dry-run]   validate and set a dot-path (JSON if it parses)
+  pine settings unset <key>       reset a dot-path to its default
+  pine settings schema [key]      the JSON Schema of every setting, or of one key
   pine browse open <url> [--pane ID]                agent-drive the browser pane (elevated 'browse')
   pine browse nav <back|forward|reload> [--pane ID]  navigate the browser pane
   pine browse read [selector] [--pane ID]            print visible text (page, or a selector's)

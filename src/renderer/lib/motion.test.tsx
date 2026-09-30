@@ -36,9 +36,13 @@ describe('useMotionAttribute', () => {
     expect(document.documentElement.dataset.motion).toBe('full')
   })
 
-  it('falls back to system when an agent writes an unknown value', () => {
+  it('refuses an unknown value an agent writes and keeps the current mode', () => {
     renderHook(() => useMotionAttribute())
-    act(() => useSettingsStore.getState().setByPath('appearance.motion', 'wobbly'))
+    expect(() =>
+      act(() => {
+        useSettingsStore.getState().setByPath('appearance.motion', 'wobbly')
+      }),
+    ).toThrow('invalid value for appearance.motion')
     expect(document.documentElement.dataset.motion).toBe('system')
   })
 })

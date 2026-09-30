@@ -26,10 +26,16 @@ import {
   signalPane,
 } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
+import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveSnapshotNow } from '../stores/persistence'
-import { type InputMode, useSettingsStore } from '../stores/settingsStore'
+import {
+  type InputMode,
+  type SettingChange,
+  getByPath,
+  useSettingsStore,
+} from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -83,16 +89,29 @@ export function launchesProgram(key: string, value: unknown): string | null {
 const isKeybindingPath = (key: string): boolean =>
   key === 'keybindings' || key.startsWith('keybindings.')
 
-function getByPath(root: unknown, path: string): unknown {
-  return path
-    .split('.')
-    .filter(Boolean)
-    .reduce<unknown>((acc, key) => {
-      if (acc !== null && typeof acc === 'object' && key in (acc as Record<string, unknown>)) {
-        return (acc as Record<string, unknown>)[key]
-      }
-      return undefined
-    }, root)
+function readableSettings() {
+  const s = useSettingsStore.getState()
+  return {
+    locale: s.locale,
+    appearance: s.appearance,
+    behavior: s.behavior,
+    terminal: s.terminal,
+    panes: s.panes,
+    notifications: s.notifications,
+    sidebar: s.sidebar,
+    workspaces: s.workspaces,
+    browser: s.browser,
+    editor: s.editor,
+    agents: s.agents,
+    workspaceGroups: s.workspaceGroups,
+    keybindings: { ...s.keybindings },
+    capabilities: s.capabilities,
+    approvals: s.approvals,
+  }
+}
+
+function settingResult(change: SettingChange): { previous: unknown; value: unknown } {
+  return { previous: change.previous, value: change.value }
 }
 
 async function delegate(ctx: CommandContext, id: string, args?: unknown): Promise<unknown> {
@@ -669,9 +688,7 @@ export function registerBuiltinCommands(): void {
     capabilities: ['settings-read'],
     target: 'none',
     run: (args) => {
-      const { locale, appearance, behavior, keybindings, capabilities } =
-        useSettingsStore.getState()
-      const state = { locale, appearance, behavior, keybindings: { ...keybindings }, capabilities }
+      const state = readableSettings()
       const key = args?.key
       if (key && isKeybindingPath(key)) {
         const id = key.split('.').slice(1).join('.')
@@ -681,21 +698,48 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ key: string; value: unknown }, { ok: true }>({
+  commands.register<
+    { key: string; value: unknown; dryRun?: boolean },
+    { previous: unknown; value: unknown; applied: boolean }
+  >({
     id: 'settings.set',
     title: 'Set Setting',
     hidden: true,
     capabilities: ['settings-write'],
     target: 'none',
-    run: ({ key, value }) => {
+    run: ({ key, value, dryRun }) => {
       const program = launchesProgram(key, value)
       if (program) throw new Error(`${program} can only be changed by you in Settings`)
       if (isKeybindingPath(key)) {
-        setKeybindingSetting(key, value, isMac)
-        return { ok: true }
+        const previous = getByPath(readableSettings(), key) ?? null
+        if (!dryRun) setKeybindingSetting(key, value, isMac)
+        return { previous, value, applied: !dryRun }
       }
-      useSettingsStore.getState().setByPath(key, value)
-      return { ok: true }
+      const settings = useSettingsStore.getState()
+      const change = dryRun ? settings.previewSetting(key, value) : settings.setByPath(key, value)
+      return { ...settingResult(change), applied: !dryRun }
     },
+  })
+
+  commands.register<{ key: string }, { previous: unknown; value: unknown }>({
+    id: 'settings.unset',
+    title: 'Reset Setting',
+    hidden: true,
+    capabilities: ['settings-write'],
+    target: 'none',
+    run: ({ key }) => {
+      const program = launchesProgram(key, undefined)
+      if (program) throw new Error(`${program} can only be changed by you in Settings`)
+      return settingResult(useSettingsStore.getState().unsetByPath(key))
+    },
+  })
+
+  commands.register<{ key?: string } | undefined, unknown>({
+    id: 'settings.schema',
+    title: 'Settings Schema',
+    hidden: true,
+    capabilities: ['settings-read'],
+    target: 'none',
+    run: (args) => settingsSchemaAt(args?.key),
   })
 }

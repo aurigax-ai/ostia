@@ -885,10 +885,16 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
     `panes` sections (numbers clamp, bad values fall back, non-booleans are dropped); `init` and
     `setByPath` both run it, so a hand-edited file or `pine settings set` can't store an
     out-of-range value.
-  - `setByPath` rejects prototype-pollution segments, keys outside the data groups,
-    and type changes.
+  - `setByPath` (`applySetting`) rejects prototype-pollution segments, keys outside the data
+    groups, keys that don't exist, and type changes, then runs the whole object through
+    `parsePersisted` and refuses the change if the value didn't come out as written
+    (`invalid value for <key>`), so an out-of-range number or unknown enum is an error rather
+    than a silent clamp. Why refuse instead of coerce: an agent that is told "set 5" and
+    silently gets 1000 believes the wrong thing; an error makes it look the key up
+    (`pine settings schema <key>`). `previewSetting` (`--dry-run`) runs the same check without
+    applying; `unsetByPath` sets the default. Results carry `previous` so an agent can undo.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
-  - `settings/schema.ts` registers a JSON Schema for that file with Monaco.
+  - `settings/settingsSchema.ts` holds the JSON Schema for that file (also served by `pine settings schema`); `settings/registerSettingsSchema.ts` registers it with Monaco.
 - `plugins/builtin.ts` is a registry of built-in contributions only: themes (`adeberry`,
   `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`, `pine-light`), LSP entries, locales (`en`, `zh-Hant`).
   These are data-only contributions; behavior and UI come from extensions (§11), listed in the

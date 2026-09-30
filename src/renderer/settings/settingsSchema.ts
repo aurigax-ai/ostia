@@ -5,7 +5,6 @@ import {
   PROMPT_STYLES,
 } from '../../shared/promptSettings'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
-import { monaco } from '../monaco/setup'
 
 const font = (title: string) => ({
   type: 'object',
@@ -570,27 +569,29 @@ export const SETTINGS_JSON_SCHEMA = {
   },
 }
 
-export async function registerSettingsSchema(): Promise<void> {
-  const path = await window.pine.settings.path()
-  const uri = monaco.Uri.file(path).toString()
-  const json = monaco.languages.json as unknown as {
-    jsonDefaults: { setDiagnosticsOptions: (options: unknown) => void }
+export function fullSettingsSchema() {
+  return {
+    ...SETTINGS_JSON_SCHEMA,
+    properties: {
+      ...SETTINGS_JSON_SCHEMA.properties,
+      keybindings: keybindingsSchema(bindableIds()),
+    },
   }
-  json.jsonDefaults.setDiagnosticsOptions({
-    validate: true,
-    allowComments: false,
-    schemas: [
-      {
-        uri: 'pine://settings-schema',
-        fileMatch: [uri],
-        schema: {
-          ...SETTINGS_JSON_SCHEMA,
-          properties: {
-            ...SETTINGS_JSON_SCHEMA.properties,
-            keybindings: keybindingsSchema(bindableIds()),
-          },
-        },
-      },
-    ],
-  })
+}
+
+interface SchemaNode {
+  properties?: Record<string, SchemaNode>
+  additionalProperties?: boolean | SchemaNode
+  [key: string]: unknown
+}
+
+export function settingsSchemaAt(path?: string): unknown {
+  let node = fullSettingsSchema() as unknown as SchemaNode
+  for (const key of (path ?? '').split('.').filter(Boolean)) {
+    const extra = node.additionalProperties
+    const next = node.properties?.[key] ?? (typeof extra === 'object' ? extra : undefined)
+    if (!next) throw new Error(`unknown settings key: ${path}`)
+    node = next
+  }
+  return node
 }

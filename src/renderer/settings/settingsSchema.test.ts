@@ -3,7 +3,8 @@ import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import { commands } from '../commands/registry'
 import { monaco } from '../monaco/setup'
 import { useSettingsStore } from '../stores/settingsStore'
-import { SETTINGS_JSON_SCHEMA, registerSettingsSchema } from './schema'
+import { registerSettingsSchema } from './registerSettingsSchema'
+import { SETTINGS_JSON_SCHEMA } from './settingsSchema'
 
 vi.mock('../monaco/setup', () => ({
   monaco: {
