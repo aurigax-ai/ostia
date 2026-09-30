@@ -787,7 +787,5 @@ Rules:
   `PINE_TOKEN`, so `pine <agent>` from it opens the manager. The check stops a confused or
   injected agent, not a determined process running as the same user.
 - **Plugin light themes have no terminal palette or Monaco theme of their own.** Only `pine-light` does; a plugin theme falls back to the One Dark Vivid terminal palette, and Monaco follows the theme's `appearance`.
-- **Sandboxes are not VMs.** bwrap/Seatbelt stop a misbehaving agent, not a kernel exploit. The
-  editor doesn't reload files changed on disk, so an agent's write to an open file shows only after
-  reopening it. SBX-C58 (macOS loopback-only binding) runs only on macOS.
+- **Sandboxes are not VMs.** bwrap/Seatbelt stop a misbehaving agent, not a kernel exploit. SBX-C58 (macOS loopback-only binding) runs only on macOS.
 - **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch).
