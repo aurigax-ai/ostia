@@ -2,6 +2,7 @@ import '@fontsource-variable/inter/index.css'
 import '@fontsource-variable/geist/index.css'
 import '@fontsource-variable/geist-mono/index.css'
 import './assets/fonts/hack-nerd-font.css'
+import './assets/fonts/meslo-nerd-font.css'
 import 'allotment/dist/style.css'
 import './index.css'
 
