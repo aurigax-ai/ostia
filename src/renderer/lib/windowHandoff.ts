@@ -1,9 +1,10 @@
 import type { SnapshotNode, SnapshotWorkspace, WindowWorkspaceSummary } from '@shared/types'
+import type { RestorableWorkspace } from '../layout/snapshot'
 import { workspaceHandoff } from '../layout/snapshot'
 import { allPanes, findPane, paneIds } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { liveAgentPanes } from '../stores/persistence'
+import { isRestorable, liveAgentPanes } from '../stores/persistence'
 import { useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, nextWorkspaceId, useWorkspacesStore } from '../stores/workspacesStore'
@@ -23,7 +24,7 @@ function findWorkspace(id: string): Workspace | undefined {
   return useWorkspacesStore.getState().workspaces.find((w) => w.id === id)
 }
 
-function handoffOf(workspace: Workspace): SnapshotWorkspace {
+function handoffOf(workspace: Workspace & RestorableWorkspace): SnapshotWorkspace {
   return workspaceHandoff(
     workspace,
     useLayoutStore.getState().byWorkspace[workspace.id],
@@ -46,7 +47,7 @@ export async function moveWorkspaceToNewWindow(workspaceId: string): Promise<boo
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   if (!(await confirmMove(workspace, layout ? allPanes(layout.root) : []))) return false
   const current = findWorkspace(workspaceId)
-  if (!current) return false
+  if (!current || !isRestorable(current)) return false
   const before = layout ? paneIds(layout.root) : []
   const handoff = handoffOf(current)
   if (!(await window.pine.windows.detach(handoff))) return false
@@ -58,14 +59,16 @@ export async function moveWorkspaceToNewWindow(workspaceId: string): Promise<boo
 export function canMovePane(workspaceId: string, paneId: string): boolean {
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const pane = layout ? findPane(layout.root, paneId) : null
-  return pane !== null && pane.kind !== 'diff'
+  return pane !== null && pane.kind !== 'diff' && pane.kind !== 'manager'
 }
 
 export async function movePaneToNewWindow(workspaceId: string, paneId: string): Promise<boolean> {
   const workspace = findWorkspace(workspaceId)
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const pane = layout ? findPane(layout.root, paneId) : null
-  if (!workspace || !pane || !canMovePane(workspaceId, paneId)) return false
+  if (!workspace || !isRestorable(workspace) || !pane || !canMovePane(workspaceId, paneId)) {
+    return false
+  }
   if (!(await confirmMove(workspace, [pane]))) return false
   const current = useLayoutStore.getState().byWorkspace[workspaceId]
   const moving = current ? findPane(current.root, paneId) : null
@@ -92,7 +95,9 @@ export async function returnToMainWindow(): Promise<boolean> {
     const layout = byWorkspace[workspace.id]
     if (!(await confirmMove(workspace, layout ? allPanes(layout.root) : []))) return false
   }
-  return window.pine.windows.returnToMain(useWorkspacesStore.getState().workspaces.map(handoffOf))
+  return window.pine.windows.returnToMain(
+    useWorkspacesStore.getState().workspaces.filter(isRestorable).map(handoffOf),
+  )
 }
 
 export function adoptWorkspaces(workspaces: SnapshotWorkspace[]): void {

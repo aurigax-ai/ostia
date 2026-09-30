@@ -16,6 +16,11 @@ import {
 import type { Capability } from '../../shared/capabilities'
 import type { ExtensionSettingValues } from '../../shared/extensions'
 import {
+  DEFAULT_MANAGER_SETTINGS,
+  type ManagerSettings,
+  parseManagerSettings,
+} from '../../shared/managerSettings'
+import {
   DEFAULT_NOTIFICATION_SETTINGS,
   type NotificationSettings,
   parseNotificationSettings,
@@ -197,6 +202,7 @@ export interface WorkspaceSettings {
   defaultFolder: string
   confirmClose: boolean
   confirmQuit: boolean
+  closeToTray: boolean
   wrapTitles: boolean
 }
 
@@ -206,6 +212,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   defaultFolder: '~',
   confirmClose: true,
   confirmQuit: true,
+  closeToTray: false,
   wrapTitles: false,
 }
 
@@ -249,6 +256,7 @@ interface Persisted {
   workspaceGroups: WorkspaceGroupSettings
   extensionSettings: Record<string, ExtensionSettingValues>
   capabilities?: Capabilities
+  manager: ManagerSettings
   sync?: SyncSettings
   approvals: ApprovalSettings
   actions: UserAction[]
@@ -319,6 +327,7 @@ const DEFAULTS: Persisted = {
   approvals: DEFAULT_APPROVAL_SETTINGS,
   actions: [],
   trustedActions: [],
+  manager: DEFAULT_MANAGER_SETTINGS,
 }
 
 interface SettingsState extends Persisted {
@@ -340,6 +349,7 @@ interface SettingsState extends Persisted {
   setTerminalLineHeight: (lineHeight: number) => void
   setSidebar: (patch: Partial<SidebarSettings>) => void
   setWorkspaces: (patch: Partial<WorkspaceSettings>) => void
+  setManager: (patch: Partial<ManagerSettings>) => void
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
   setAutoResume: (autoResume: boolean) => void
@@ -412,6 +422,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
     extensionSettings: extensionSettingsOf(p.extensionSettings),
     capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
+    manager: parseManagerSettings(p.manager),
     sync: syncOf(p.sync),
     approvals: parseApprovalSettings(p.approvals),
     actions: parseActions(p.actions),
@@ -510,6 +521,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     workspaceGroups: s.workspaceGroups,
     extensionSettings: s.extensionSettings,
     capabilities: s.capabilities,
+    manager: s.manager,
     sync: s.sync,
     approvals: s.approvals,
     actions: s.actions,
@@ -646,6 +658,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setWorkspaces: (patch) => {
     set((s) => ({ workspaces: { ...s.workspaces, ...patch } }))
+    scheduleSave(get)
+  },
+  setManager: (patch) => {
+    set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))
     scheduleSave(get)
   },
   setBrowser: (patch) => {

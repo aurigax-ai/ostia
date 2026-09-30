@@ -54,6 +54,10 @@ function groupOf(workspace: Workspace, panes: readonly PaneNode[]): RunningGroup
 }
 
 function runningGroup(workspace: Workspace): RunningGroup | null {
+  if (workspace.kind === 'manager') {
+    const name = workspace.customName ?? workspace.name
+    return { workspaceId: workspace.id, workspace: name, commands: [name], files: [] }
+  }
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
   return layout ? groupOf(workspace, allPanes(layout.root)) : null
 }
@@ -93,7 +97,13 @@ export async function requestCloseOthers(id: string): Promise<void> {
   }
 }
 
+function isManagerPane(workspaceId: string, paneId: string): boolean {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  return layout ? findPane(layout.root, paneId)?.kind === 'manager' : false
+}
+
 function paneGroup(workspace: Workspace, paneId: string): RunningGroup | null {
+  if (isManagerPane(workspace.id, paneId)) return runningGroup(workspace)
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
   const pane = layout ? findPane(layout.root, paneId) : null
   return pane ? groupOf(workspace, [pane]) : null

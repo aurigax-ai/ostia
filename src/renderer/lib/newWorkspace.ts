@@ -24,16 +24,17 @@ export interface NewWorkspaceOptions {
   name?: string
 }
 
-export function startNewWorkspace(opts: NewWorkspaceOptions = {}): void {
+export function startNewWorkspace(opts: NewWorkspaceOptions = {}): string | null {
   const { placement, inheritFolder, defaultFolder } = useSettingsStore.getState().workspaces
   const dir = opts.dir ?? newWorkspaceDir(inheritFolder, defaultFolder, focusedPaneCwd())
   if (useWindowsStore.getState().detached) {
     window.pine.windows.newWorkspace({ dir, ...(opts.name ? { name: opts.name } : {}) })
-    return
+    return null
   }
   const store = useWorkspacesStore.getState()
   store.addWorkspace(dir, placement)
   const created = useWorkspacesStore.getState().activeWorkspaceId
   const name = opts.name?.trim()
   if (created && name) store.rename(created, name)
+  return created
 }

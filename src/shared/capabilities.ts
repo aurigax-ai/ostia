@@ -49,6 +49,10 @@ export const ALL_CAPABILITIES: Capability[] = [
   'credentials',
 ]
 
+export const MANAGER_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
+  (cap) => cap !== 'phone' && cap !== 'gateway' && cap !== 'destructive',
+)
+
 export const PHONE_BASE_CAPS = ['read', 'notify'] as const
 
 export const PHONE_GRANTABLE_CAPS = ['command', 'input', 'destructive'] as const

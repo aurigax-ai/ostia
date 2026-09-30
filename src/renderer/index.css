@@ -1227,6 +1227,18 @@
   min-height: 0;
 }
 
+.manager-notice {
+  flex: none;
+  padding: 4px 10px;
+  font-size: var(--text-ui-xs);
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.manager-host {
+  overflow: auto;
+}
+
 .input-editor {
   position: absolute;
   inset: 0;

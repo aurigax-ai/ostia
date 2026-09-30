@@ -112,6 +112,17 @@ const CLI_HELP = `pine — control-socket CLI
                                   optional JSON-encoded args blob
 `
 
+export const MANAGER_HELP = `
+
+  Manager only (you are the manager):
+  pine manager read <paneId> [--lines N]     a pane's screen as plain text (default 200 lines)
+  pine manager spawn <preset> [--cwd DIR] [--workspace ID] [--name NAME] [-- args…]
+                                  start a worker agent in a new terminal pane; prints its paneId
+  pine manager input <paneId> [--text TEXT] [--key KEY]…
+                                  type into another pane (only with manager.allowInput on);
+                                  keys: enter tab escape backspace up down left right ctrl-c ctrl-d
+`
+
 export function extensionHelp(
   extensions: Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[],
 ): string {
@@ -131,8 +142,8 @@ export function registerDocsMethods(deps: {
   extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[]
 }): void {
   registerControlMethod('docs', {
-    handler: () => ({
-      cli: `${CLI_HELP}${extensionHelp(deps.extensions())}`,
+    handler: (_params, ctx) => ({
+      cli: `${CLI_HELP}${extensionHelp(deps.extensions())}${ctx.identity.manager ? MANAGER_HELP : ''}`,
       note: 'run `pine commands --json` for the machine-readable command list',
     }),
   })

@@ -5,6 +5,7 @@ import {
   ArrowSquareInIcon,
   ArrowSquareOutIcon,
   ArrowUpIcon,
+  BroadcastIcon,
   CaretDownIcon,
   CaretRightIcon,
   CaretUpIcon,
@@ -82,6 +83,7 @@ const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
   agent: RobotIcon,
   terminal: TerminalWindowIcon,
   scratch: FlaskIcon,
+  manager: BroadcastIcon,
 }
 
 const WORKSPACE_DND = 'application/x-pine-workspace'

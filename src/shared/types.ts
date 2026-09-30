@@ -64,6 +64,7 @@ export interface PtySpawnOptions {
   role?: 'owner' | 'observer'
   sinceCursor?: number
   pinePrompt?: PinePromptSpawn
+  attachOnly?: boolean
 }
 
 export interface PinePromptSpawn {
@@ -91,6 +92,8 @@ export interface PtyAttachResult {
   buffer: string
   cursor: number
   dropped: boolean
+  cols?: number
+  rows?: number
 }
 
 export interface PtyApi {
@@ -104,6 +107,16 @@ export interface PtyApi {
   promptContext: (paneId: string, want: PromptContextRequest) => Promise<PromptContext | null>
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number) => void) => () => void
+  onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
+}
+
+export interface ManagerOpenPaneRequest {
+  agent: string
+  cwd: string
+}
+
+export interface ManagerApi {
+  onOpen: (cb: (req: ManagerOpenPaneRequest) => string | null) => () => void
 }
 
 export interface FsEntry {
@@ -574,6 +587,7 @@ export interface PineBridge {
   platform: Platform
   window: WindowControls
   pty: PtyApi
+  manager: ManagerApi
   fs: FsApi
   lsp: LspApi
   settings: SettingsApi
