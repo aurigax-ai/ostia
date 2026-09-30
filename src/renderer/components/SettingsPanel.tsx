@@ -75,6 +75,7 @@ import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ActionsSection } from './ActionsSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
+import { ChatToolsSettings } from './ChatToolsSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { FileTreeSettingsGroups } from './FilesSettingsSection'
 import { FontPicker } from './FontPicker'
@@ -1188,6 +1189,7 @@ export function ExtensionsSection(): JSX.Element {
   const list = useExtensionsStore((s) => s.list)
   const setEnabled = useExtensionsStore((s) => s.setEnabled)
   const review = useExtensionsStore((s) => s.review)
+  const chatExt = list.find((e) => e.enabled && e.assist.includes('chat'))?.id
   return (
     <section aria-label={d.extensions.title}>
       <SubHead title={d.extensions.title} desc={d.extensions.desc} />
@@ -1234,6 +1236,7 @@ export function ExtensionsSection(): JSX.Element {
                 </div>
               </div>
               <ExtensionSettingsForm ext={ext} />
+              {ext.id === chatExt ? <ChatToolsSettings /> : null}
             </li>
           ))}
         </ul>

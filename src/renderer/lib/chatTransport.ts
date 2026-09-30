@@ -2,30 +2,116 @@ import {
   ASSIST_ERRORS,
   type AssistError,
   CHAT_CONTEXT_MAX,
+  CHAT_TOOL_CALLS_MAX,
+  CHAT_TOOL_ERROR_MAX,
+  CHAT_TOOL_OUTPUT_MAX,
   type ChatAssistRequest,
   type ChatContextItem,
   type ChatMessage,
+  type ChatToolCall,
 } from '@shared/assist'
 import type { ChatMessageMetadata } from '@shared/chatSessions'
 import type { ChatTransport, UIMessage, UIMessageChunk } from 'ai'
 import { assistProvider, assistRequest } from '../stores/assistStore'
+import { type ChatToolDef, type ToolOutcome, type ToolRun, chatToolDefs } from './chatTools'
 
 export type PineChatMessage = UIMessage<ChatMessageMetadata>
 
+type Part = PineChatMessage['parts'][number]
+
+export interface ToolPartLike {
+  type: string
+  toolCallId: string
+  toolName?: string
+  state: string
+  input?: unknown
+  output?: unknown
+  errorText?: string
+  approval?: { approved?: boolean }
+}
+
 const TEXT_ID = 'answer'
+export const MAX_TOOL_ROUNDS = 8
+export const OLD_TOOL_OUTPUT_MAX = 2000
+export const STOPPED_TOOL_ERROR = 'Not run: the chat was stopped.'
 
 export function messageText(message: Pick<PineChatMessage, 'parts'>): string {
   return message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('')
 }
 
+export function isToolPart(part: { type: string }): part is ToolPartLike & Part {
+  return part.type === 'dynamic-tool' || part.type.startsWith('tool-')
+}
+
+export function toolNameOf(part: ToolPartLike): string {
+  return part.type === 'dynamic-tool' ? (part.toolName ?? '') : part.type.slice('tool-'.length)
+}
+
+export function outputText(output: unknown, max = CHAT_TOOL_OUTPUT_MAX): string {
+  const text = typeof output === 'string' ? output : (JSON.stringify(output) ?? '')
+  return text.length > max ? `${text.slice(0, max)}…[truncated]` : text
+}
+
+function inputObject(input: unknown): Record<string, unknown> {
+  return typeof input === 'object' && input !== null && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : {}
+}
+
+export function toolCallOf(part: ToolPartLike, outputMax = CHAT_TOOL_OUTPUT_MAX): ChatToolCall {
+  const base = { id: part.toolCallId, name: toolNameOf(part), input: inputObject(part.input) }
+  if (part.state === 'output-available') {
+    return { ...base, state: 'done', output: outputText(part.output, outputMax) }
+  }
+  if (
+    part.state === 'output-denied' ||
+    (part.state === 'approval-responded' && part.approval?.approved === false)
+  ) {
+    return { ...base, state: 'denied' }
+  }
+  if (part.state === 'output-error') {
+    return {
+      ...base,
+      state: 'error',
+      error: (part.errorText ?? 'failed').slice(0, CHAT_TOOL_ERROR_MAX),
+    }
+  }
+  return { ...base, state: 'error', error: STOPPED_TOOL_ERROR }
+}
+
+function assistantTurns(message: PineChatMessage, outputMax: number): ChatMessage[] {
+  const turns: ChatMessage[] = []
+  let text = ''
+  let tools: ChatToolCall[] = []
+  const flush = (): void => {
+    if (tools.length > 0) turns.push({ role: 'assistant', content: text, tools })
+    else if (text.trim()) turns.push({ role: 'assistant', content: text })
+    text = ''
+    tools = []
+  }
+  for (const part of message.parts) {
+    if (part.type === 'step-start') flush()
+    else if (part.type === 'text') text += part.text
+    else if (isToolPart(part) && tools.length < CHAT_TOOL_CALLS_MAX) {
+      tools.push(toolCallOf(part, outputMax))
+    }
+  }
+  flush()
+  return turns
+}
+
 export function toChatRequest(messages: readonly PineChatMessage[]): ChatAssistRequest {
   const turns: ChatMessage[] = []
-  for (const message of messages) {
-    if (message.role !== 'user' && message.role !== 'assistant') continue
-    const content = messageText(message)
-    if (message.role === 'assistant' && (!content.trim() || message.metadata?.error)) continue
-    turns.push({ role: message.role, content })
-  }
+  const lastUser = messages.map((m) => m.role).lastIndexOf('user')
+  messages.forEach((message, index) => {
+    if (message.role === 'user') {
+      turns.push({ role: 'user', content: messageText(message) })
+      return
+    }
+    if (message.role !== 'assistant' || message.metadata?.error) return
+    const outputMax = index < lastUser ? OLD_TOOL_OUTPUT_MAX : CHAT_TOOL_OUTPUT_MAX
+    turns.push(...assistantTurns(message, outputMax))
+  })
   const context: ChatContextItem[] = []
   for (const message of [...messages].reverse()) {
     if (message.role !== 'user') continue
@@ -58,76 +144,203 @@ export function decodeChatError(text: string): { code: AssistError; message?: st
   return message ? { code, message } : { code }
 }
 
-export function createAssistTransport(): ChatTransport<PineChatMessage> {
+export interface TransportSession {
+  sessionId: string
+  workspaceId: () => string | null
+  root: () => string
+}
+
+interface PendingCall {
+  id: string
+  name: string
+  input: Record<string, unknown>
+  error?: string
+}
+
+function outcomeCall(call: PendingCall, outcome: ToolOutcome): ChatToolCall {
+  const base = { id: call.id, name: call.name, input: call.input }
+  if (outcome.state === 'done')
+    return { ...base, state: 'done', output: outputText(outcome.output) }
+  if (outcome.state === 'denied') return { ...base, state: 'denied' }
+  return { ...base, state: 'error', error: outcome.error.slice(0, CHAT_TOOL_ERROR_MAX) }
+}
+
+function isAbort(err: unknown): boolean {
+  return err instanceof DOMException && err.name === 'AbortError'
+}
+
+export function createAssistTransport(session?: TransportSession): ChatTransport<PineChatMessage> {
   return {
     sendMessages: async ({ messages, abortSignal }) => {
-      const request = toChatRequest(messages)
+      const base = toChatRequest(messages)
       const model = assistProvider('chat')?.label
+      const defs: ChatToolDef[] =
+        session && assistProvider('chat')?.tools ? chatToolDefs(session.sessionId) : []
+      const signal = abortSignal ?? new AbortController().signal
       return new ReadableStream<UIMessageChunk>({
         start: async (controller) => {
           let started = false
           let textOpen = false
-          let structured = false
+          let closed = false
           const metadata: ChatMessageMetadata = model
             ? { createdAt: Date.now(), model }
             : { createdAt: Date.now() }
+          const emit = (chunk: UIMessageChunk): void => {
+            if (closed) return
+            try {
+              controller.enqueue(chunk)
+            } catch {
+              closed = true
+            }
+          }
+          const close = (): void => {
+            if (closed) return
+            closed = true
+            try {
+              controller.close()
+            } catch {}
+          }
           const begin = (): void => {
             if (started) return
             started = true
-            controller.enqueue({ type: 'start', messageMetadata: metadata })
+            emit({ type: 'start', messageMetadata: metadata })
           }
           const openText = (): void => {
             begin()
             if (textOpen) return
             textOpen = true
-            controller.enqueue({ type: 'text-start', id: TEXT_ID })
+            emit({ type: 'text-start', id: TEXT_ID })
           }
-          const res = await assistRequest('chat', request, {
-            signal: abortSignal,
-            onChunk: (text) => {
-              const chunk = parseChunk(text)
-              if (!chunk) {
+          const steps: ChatMessage[] = []
+          for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+            const request: ChatAssistRequest = {
+              ...base,
+              messages: [...base.messages, ...steps],
+              ...(defs.length > 0 ? { tools: defs.map((d) => d.spec) } : {}),
+            }
+            let structured = false
+            let roundText = ''
+            const calls: PendingCall[] = []
+            const res = await assistRequest('chat', request, {
+              signal,
+              onChunk: (text) => {
+                const chunk = parseChunk(text)
+                if (!chunk) {
+                  openText()
+                  roundText += text
+                  emit({ type: 'text-delta', id: TEXT_ID, delta: text })
+                  return
+                }
+                structured = true
+                if (chunk.type === 'start') {
+                  if (started) return
+                  started = true
+                  emit({
+                    ...chunk,
+                    messageMetadata: { ...metadata, ...(chunk.messageMetadata ?? {}) },
+                  })
+                  return
+                }
+                if (chunk.type === 'finish') return
+                begin()
+                if (chunk.type === 'text-delta') roundText += chunk.delta
+                if (chunk.type === 'tool-input-available' && calls.length < CHAT_TOOL_CALLS_MAX) {
+                  calls.push({
+                    id: chunk.toolCallId,
+                    name: chunk.toolName,
+                    input: inputObject(chunk.input),
+                  })
+                }
+                if (chunk.type === 'tool-input-error' && calls.length < CHAT_TOOL_CALLS_MAX) {
+                  calls.push({
+                    id: chunk.toolCallId,
+                    name: chunk.toolName,
+                    input: inputObject(chunk.input),
+                    error: chunk.errorText,
+                  })
+                }
+                emit(chunk)
+              },
+            })
+            if (!res.ok) {
+              if (res.error !== 'cancelled') {
+                begin()
+                emit({ type: 'error', errorText: encodeChatError(res.error, res.message) })
+              }
+              close()
+              return
+            }
+            if (!structured) {
+              if (!textOpen && res.result.text) {
                 openText()
-                controller.enqueue({ type: 'text-delta', id: TEXT_ID, delta: text })
-                return
-              }
-              structured = true
-              if (chunk.type === 'start') {
-                started = true
-                controller.enqueue({
-                  ...chunk,
-                  messageMetadata: { ...metadata, ...(chunk.messageMetadata ?? {}) },
-                })
-                return
+                emit({ type: 'text-delta', id: TEXT_ID, delta: res.result.text })
               }
               begin()
-              controller.enqueue(chunk)
-            },
-          })
-          if (!res.ok) {
-            if (res.error !== 'cancelled') {
-              begin()
-              controller.enqueue({
-                type: 'error',
-                errorText: encodeChatError(res.error, res.message),
-              })
+              if (textOpen) emit({ type: 'text-end', id: TEXT_ID })
             }
-            controller.close()
-            return
-          }
-          if (!structured) {
-            if (!textOpen && res.result.text) {
-              openText()
-              controller.enqueue({ type: 'text-delta', id: TEXT_ID, delta: res.result.text })
+            if (calls.length === 0 || defs.length === 0 || !session) break
+            const resolved: ChatToolCall[] = []
+            for (const call of calls) {
+              if (signal.aborted) {
+                close()
+                return
+              }
+              const outcome = await runCall(call, defs, session, signal, emit)
+              if (outcome === null) {
+                close()
+                return
+              }
+              resolved.push(outcomeCall(call, outcome))
             }
-            begin()
-            if (textOpen) controller.enqueue({ type: 'text-end', id: TEXT_ID })
-            controller.enqueue({ type: 'finish' })
+            steps.push({ role: 'assistant', content: roundText, tools: resolved })
           }
-          controller.close()
+          begin()
+          emit({ type: 'finish' })
+          close()
         },
       })
     },
     reconnectToStream: async () => null,
   }
+}
+
+async function runCall(
+  call: PendingCall,
+  defs: ChatToolDef[],
+  session: TransportSession,
+  signal: AbortSignal,
+  emit: (chunk: UIMessageChunk) => void,
+): Promise<ToolOutcome | null> {
+  if (call.error !== undefined) return { state: 'error', error: call.error }
+  const def = defs.find((d) => d.spec.name === call.name)
+  let outcome: ToolOutcome
+  if (!def) outcome = { state: 'error', error: `Unknown tool ${call.name}.` }
+  else {
+    const run: ToolRun = {
+      sessionId: session.sessionId,
+      workspaceId: session.workspaceId(),
+      root: session.root(),
+      toolCallId: call.id,
+      signal,
+      onApproval: (approvalId) =>
+        emit({ type: 'tool-approval-request', approvalId, toolCallId: call.id }),
+      onAnswer: (approvalId, approved) =>
+        emit({ type: 'tool-approval-response', approvalId, approved }),
+    }
+    try {
+      outcome = await def.run(call.input, run)
+    } catch (err) {
+      if (isAbort(err) || signal.aborted) return null
+      outcome = { state: 'error', error: err instanceof Error ? err.message : String(err) }
+    }
+  }
+  if (signal.aborted) return null
+  if (outcome.state === 'done') {
+    emit({ type: 'tool-output-available', toolCallId: call.id, output: outcome.output as never })
+  } else if (outcome.state === 'denied') {
+    emit({ type: 'tool-output-denied', toolCallId: call.id })
+  } else {
+    emit({ type: 'tool-output-error', toolCallId: call.id, errorText: outcome.error })
+  }
+  return outcome
 }

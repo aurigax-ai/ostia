@@ -66,13 +66,17 @@ export function createAssistRouter(host: () => AssistHost | null) {
     }
     const source = new CancellationTokenSource()
     live.set(key, source)
+    let chunks = 0
     try {
-      return await h.assist(point, input, {
+      const res = await h.assist(point, input, {
         token: source.token,
         onChunk: (text) => {
-          if (!sender.isDestroyed()) sender.send('assist:chunk', { requestId, text })
+          if (sender.isDestroyed()) return
+          chunks += 1
+          sender.send('assist:chunk', { requestId, text })
         },
       })
+      return chunks > 0 ? { ...res, chunks } : res
     } finally {
       live.delete(key)
       source.dispose()

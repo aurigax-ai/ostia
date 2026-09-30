@@ -450,6 +450,42 @@ export const SETTINGS_JSON_SCHEMA = {
             'Off keeps chats in memory until Pine quits. Only you can change this; pine ' +
             'settings set refuses it. Default: true.',
         },
+        mcpServers: {
+          type: 'array',
+          description:
+            'MCP servers the assistant chat can call tools from. Each one runs a program from ' +
+            'an argv (never a shell) or connects to an http(s) URL. Every tool call asks you ' +
+            'in the chat first. Tokens go in Settings → Plugins → Assistant (stored encrypted, ' +
+            'never here). Only you can change this; pine settings set refuses it.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['name'],
+            properties: {
+              name: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$' },
+              enabled: { type: 'boolean' },
+              command: { type: 'array', items: { type: 'string' }, minItems: 1 },
+              url: { type: 'string' },
+              env: { type: 'object', additionalProperties: { type: 'string' } },
+              secrets: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'Names of environment variables (stdio) or headers (http) whose values are ' +
+                  'stored encrypted.',
+              },
+              disabledTools: { type: 'array', items: { type: 'string' } },
+            },
+          },
+        },
+        skillFolders: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Absolute paths of skill folders (a folder with a SKILL.md, or a folder of them). ' +
+            'The chat model sees each skill name and description and loads one when it needs ' +
+            'it.',
+        },
       },
     },
     agents: {

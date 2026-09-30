@@ -179,4 +179,41 @@ describe('chat prompt', () => {
       chatPrompt({ messages: [{ role: 'user', content: 'hi' }], context: [] }).system,
     ).not.toMatch(/Context the user shared/)
   })
+
+  it('turns a tool turn into a tool call and its done, failed or denied result', () => {
+    const prompt = chatPrompt({
+      messages: [
+        { role: 'user', content: 'go' },
+        {
+          role: 'assistant',
+          content: 'Looking.',
+          tools: [
+            { id: 'a', name: 'read_file', input: { path: 'x' }, state: 'done', output: 'text' },
+            { id: 'b', name: 'mcp__s__t', input: {}, state: 'error', error: 'boom' },
+            { id: 'c', name: 'write_file', input: { path: 'x' }, state: 'denied' },
+          ],
+        },
+      ],
+      context: [],
+      tools: [{ name: 'read_file', description: 'Read', inputSchema: { type: 'object' } }],
+    })
+    expect(prompt.system).toMatch(/denied call means the user said no/)
+    expect(prompt.messages[1]).toEqual({
+      role: 'assistant',
+      content: [
+        { type: 'text', text: 'Looking.' },
+        { type: 'tool-call', toolCallId: 'a', toolName: 'read_file', input: { path: 'x' } },
+        { type: 'tool-call', toolCallId: 'b', toolName: 'mcp__s__t', input: {} },
+        { type: 'tool-call', toolCallId: 'c', toolName: 'write_file', input: { path: 'x' } },
+      ],
+    })
+    expect(prompt.messages[2]).toMatchObject({
+      role: 'tool',
+      content: [
+        { toolCallId: 'a', output: { type: 'text', value: 'text' } },
+        { toolCallId: 'b', output: { type: 'error-text', value: 'boom' } },
+        { toolCallId: 'c', output: { type: 'execution-denied' } },
+      ],
+    })
+  })
 })

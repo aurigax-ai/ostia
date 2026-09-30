@@ -174,10 +174,10 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, filePath?, running, blockCount, lastExitCode?, pid?}]`; `cwd` is the live shell cwd for terminals; `filePath` is the absolute path a file view (`kind: 'editor'`) shows, so a palette command can act on the file in the caller's pane; `pid` is the shell process of a terminal whose pty is running (absent for other kinds and for a hibernated pane). Its descendants are what the pane runs. They inherit pine's own open descriptors, so ignore sockets your parent process (pine) also holds. |
 | `ext.confirm` | `{title, message, detail?, confirmLabel?, cancelLabel?}` | Asks the human in a native dialog that names your extension; Cancel is the default. Returns `{ok, confirmed}`. Use it before anything that changes the user's files or data. It waits for the human: mark a command that calls it `interactive` so its caller waits too. If the human answers after the timeout anyway, finish the work they chose. |
 | `ext.getSecret` | `{key}` | `{ok, value}`: the value the human stored for one of your `contributes.secrets` keys, or `null`. Keep it in memory; don't log it. |
-| `ext.setAssistStatus` | `{status: {<point>: {ready, label?}}, features?, setup?, lastError?, label?}` | Needs `assist`. Which of your assist points are usable right now and a short label naming the provider and model (`model-runtime · gemma`, 80 chars) that pine shows next to the feature. Only `ready` points are offered to the human. `features` lists the switches pine shows in its Assistant menu and next to each feature: `[{id, setting, ready}]` with `id` one of `chat`, `typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `explainError` and `setting` one of your own boolean settings (pine reads on/off from it and flips it when the human does). `setup` names what is missing (`no-provider`, `no-endpoint`, `no-key`, `no-model`, `unreachable`, or `null`), `lastError` the last provider error (240 chars). Call it at start and whenever your configuration or health changes. |
+| `ext.setAssistStatus` | `{status: {<point>: {ready, label?, tools?}}, features?, setup?, lastError?, label?}` | Needs `assist`. Which of your assist points are usable right now and a short label naming the provider and model (`model-runtime · gemma`, 80 chars) that pine shows next to the feature. Only `ready` points are offered to the human. `tools: true` on `chat` says you handle the tool fields of a chat request (see [Chat tools](#chat-tools)); without it pine sends none. `features` lists the switches pine shows in its Assistant menu and next to each feature: `[{id, setting, ready}]` with `id` one of `chat`, `typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `explainError` and `setting` one of your own boolean settings (pine reads on/off from it and flips it when the human does). `setup` names what is missing (`no-provider`, `no-endpoint`, `no-key`, `no-model`, `unreachable`, or `null`), `lastError` the last provider error (240 chars). Call it at start and whenever your configuration or health changes. |
 | `ext.shortcuts` | `{ids: string[]}` | `{ok, shortcuts: {<command id>: label \| null}}`: the human's effective key for pine palette commands (`assist.chat`, `assist.compose`, `palette.toggle`, …), so a panel can show the real shortcut. |
 | `ext.openAssistUi` | `{ui, workspaceId?}` | Opens pine's own UI for an assist point you contribute: `chat` (the chat pane), `ask` (the palette's Ask) or `compose` (the composer on the active terminal). It opens the UI only; nothing is sent until the human asks. |
-| `ext.assistChunk` | `{requestId, text}` | Needs `assist`. One streamed delta of a `chat` answer (16 KiB max). Returns `{live}`; stop streaming when it is `false` (the human stopped or closed it). |
+| `ext.assistChunk` | `{requestId, text}` | Needs `assist`. One streamed delta of a `chat` answer (256 KiB max; a JSON chunk that doesn't fit the request's 1M-character budget is dropped whole). Returns `{live}`; stop streaming when it is `false` (the human stopped or closed it). |
 | `ext.openTerminal` | `{command: string[], workspaceId?, afterPaneId?, cwd?, title?}` | Needs `shell`. Opens a **new** terminal pane right of `afterPaneId` (a pane id from `caller.paneId` or `pane.list`), else of the workspace's active pane (it becomes the first pane of an empty workspace), switches to that workspace, and runs `command` there once the shell shows its first prompt. Returns `{ok, paneId}`. `command` is an argv (1–64 strings, no control characters); pine quotes each argument for the shell, so pass data, never a shell string. `cwd` must be absolute. The command runs once, and never in an existing pane. Use it for things the human should watch or answer (sudo prompts), after `ext.confirm`. |
 
 `whoami` works too. Pane-scoped methods (`command.exec`, `pane.info`, `bus.*`, …) are refused
@@ -276,12 +276,35 @@ and each result before the renderer sees it.
 | `command` | The composer at a shell prompt, and `# <what you want>` in the input editor | `{query, cwd?, shell?, platform?}` | `{suggestions: [{command, description?}]}` (≤3, inserted at the prompt only when the human picks one, never run) |
 | `completion` | Ghost text in the editor, accepted with Tab | `{path, language, prefix, suffix, neighbors?: [{path, text}]}` | `{text}`: only the insertion at the cursor |
 | `terminal` | Ghost text continuing the command in the input editor at a shell prompt, accepted with Tab or → | `{line, cwd?, shell?, platform?, history?: [{command, exitCode?}], context?: [{label, text}]}` (never terminal output) | `{text}`: the rest of the line (pine keeps the first line only) |
-| `chat` | The chat pane, Ask in the palette (Tab), and "Explain error" on a failed block | `{messages: [{role, content}], context: [{kind, label, text}]}` | `{text}`. While producing it, send each AI SDK `UIMessageChunk` (`streamText(...).toUIMessageStream()`) JSON-encoded as one `ext.assistChunk`; pine feeds them to `useChat` |
+| `chat` | The chat pane, Ask in the palette (Tab), and "Explain error" on a failed block | `{messages: [{role, content, tools?}], context: [{kind, label, text}], tools?: [{name, description, inputSchema}]}` | `{text}`. While producing it, send each AI SDK `UIMessageChunk` (`streamText(...).toUIMessageStream()`) JSON-encoded as one `ext.assistChunk`; pine feeds them to `useChat` |
 
 The SDK wraps it: `onAssist(async (point, input, {requestId, signal, chunk}) => result)`,
 `setAssistStatus(status)`, `getSecret(key)`, and `throw new AssistFailure('rate-limited')` for a
 typed failure. Debounce and rate-limit on your side too; pine debounces keystrokes and cancels
 stale requests.
+
+### Chat tools
+
+Pine, not your extension, runs the chat's tools, so a chat extension gains no power beyond the
+public API. If you report `tools: true` on the `chat` status, a chat request may carry:
+
+- `tools`: the tools the human left on for that chat, each `{name, description, inputSchema}`
+  (a JSON schema object; names match `[A-Za-z0-9_-]{1,64}`, up to 64). Built-ins are
+  `read_file`, `list_directory`, `search_files`, `terminal_context`, `git_status`, `load_skill`,
+  `propose_command`, `write_file`, `open_file`, `open_url`; tools from the human's MCP servers
+  are named `mcp__<server>__<tool>`.
+- `messages[].tools` on assistant turns: the calls of that step with their outcome,
+  `{id, name, input, state: 'done' | 'error' | 'denied', output?, error?}` (`output` is text,
+  at most 32 000 characters). A request may end with such a turn instead of a user turn.
+
+Declare the tools to your model without executing them (the AI SDK's `dynamicTool` with
+`jsonSchema(inputSchema)` and no `execute`) and stream as usual: when the model calls one, the
+`tool-input-available` chunk ends your step and your reply. Pine then runs the call (asking the
+human when the tool acts: writes and commands every time, opening files or URLs and MCP tools
+until the human allows them for the chat, reads outside the workspace folder once), records it in
+the conversation, and sends you a new request with the outcome, up to 8 rounds per question.
+Treat `denied` as the human's answer, not an error to retry. Skip `tool-input-delta` chunks if
+you like; pine uses only the complete input.
 
 ## The CLI
 
