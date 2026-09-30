@@ -80,6 +80,35 @@ export function insertCommand(paneId: string, command: string, execute = false):
   return true
 }
 
+export const RUN_WHEN_IDLE_TIMEOUT_MS = 30_000
+
+function atReadyPrompt(paneId: string): boolean {
+  return canTypeInto(paneId) && Boolean(useBlocksStore.getState().drafts[paneId]?.inputLine)
+}
+
+export function runWhenIdle(
+  paneId: string,
+  command: string,
+  timeoutMs = RUN_WHEN_IDLE_TIMEOUT_MS,
+): () => void {
+  let done = false
+  const stop = (): void => {
+    if (done) return
+    done = true
+    clearTimeout(timer)
+    unsubscribe()
+  }
+  const attempt = (): void => {
+    if (done || !atReadyPrompt(paneId)) return
+    stop()
+    insertCommand(paneId, command, true)
+  }
+  const unsubscribe = useBlocksStore.subscribe(attempt)
+  const timer = setTimeout(stop, timeoutMs)
+  attempt()
+  return stop
+}
+
 export function rerunBlock(paneId: string, blockId?: string): boolean {
   const block = findBlock(paneId, blockId)
   if (!block) return false

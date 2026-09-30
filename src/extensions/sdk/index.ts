@@ -18,10 +18,20 @@ import type {
   ExtensionEventType,
   ExtensionIcon,
   ExtensionResult,
+  OpenTerminalOptions,
   SidebarTone,
 } from '../../shared/extensions'
 
-export type { DiffContent, ExtensionCaller, ExtensionResult } from '../../shared/extensions'
+export type {
+  DiffContent,
+  ExtensionCaller,
+  ExtensionResult,
+  OpenTerminalOptions,
+} from '../../shared/extensions'
+
+export type OpenTerminalResult =
+  | { ok: true; paneId: string }
+  | { ok: false; error: string; message?: string }
 
 export interface WorkspaceInfo {
   workspaceId: string
@@ -80,6 +90,7 @@ export interface PineExtension {
   notify: (title: string, body?: string) => Promise<unknown>
   openPanel: (workspaceId?: string) => Promise<unknown>
   openDiff: (diff: DiffContent & { workspaceId?: string }) => Promise<ExtensionResult>
+  openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
 }
@@ -165,6 +176,13 @@ export async function connect(): Promise<PineExtension> {
     notify: (title, body) => conn.sendRequest('ext.notify', { title, body }),
     openPanel: (workspaceId) => conn.sendRequest('ext.openPanel', { workspaceId }),
     openDiff: (diff) => conn.sendRequest('ext.openDiff', diff),
+    openTerminal: async (opts) => {
+      try {
+        return await conn.sendRequest<OpenTerminalResult>('ext.openTerminal', opts)
+      } catch (err) {
+        return { ok: false, error: 'open-terminal-failed', message: errorMessage(err) }
+      }
+    },
     listWorkspaces: () => conn.sendRequest('workspace.list'),
     listPanes: () => conn.sendRequest('pane.list'),
   }

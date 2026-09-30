@@ -83,6 +83,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onSidebar: vi.fn(noopUnsub),
       onOpenPanel: vi.fn(noopUnsub),
       onOpenDiff: vi.fn(noopUnsub),
+      onOpenTerminal: vi.fn(noopUnsub),
     },
     externalEditor: {
       open: vi.fn().mockResolvedValue({ ok: true, argv: [] }),

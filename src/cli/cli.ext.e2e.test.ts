@@ -2,15 +2,22 @@ import { execFileSync, execSync, spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerControlServer, stopControlServer } from '../main/controlServer'
-import { ExtensionHost, registerExtensionMethods } from '../main/extensionHost'
+import {
+  type ExtensionConfirmRequest,
+  ExtensionHost,
+  type TerminalOpenRequest,
+  registerExtensionMethods,
+} from '../main/extensionHost'
 import { ExtensionStore } from '../main/extensionStore'
 import { type PaneIdentity, registerPane } from '../main/idRegistry'
 import type { CommandResult } from '../shared/types'
 
 const repoRoot = process.cwd()
 const cliPath = join(repoRoot, 'out', 'cli', 'index.js')
+const fakeSystemBin = join(repoRoot, 'test', 'fixtures', 'system', 'bin')
+const REQUEST_TIMEOUT_MS = 3000
 
 interface RunResult {
   code: number | null
@@ -25,6 +32,9 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
   let identity: PaneIdentity
   let host: ExtensionHost
   const savedDataHome = process.env.XDG_DATA_HOME
+  const savedPath = process.env.PATH
+  const confirm = vi.fn<(req: ExtensionConfirmRequest) => Promise<boolean>>()
+  const openTerminalIn = vi.fn<(req: TerminalOpenRequest) => Promise<string | null>>()
 
   function runPine(args: string[], input?: string): Promise<RunResult> {
     return new Promise((resolve, reject) => {
@@ -56,6 +66,7 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     dir = mkdtempSync(join(tmpdir(), 'pine-cli-ext-'))
     workDir = join(dir, 'project')
     process.env.XDG_DATA_HOME = join(dir, 'data')
+    process.env.PATH = `${fakeSystemBin}:${savedPath}`
     socketPath = join(dir, 'control.sock')
     identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pCliExt' })
     host = new ExtensionHost({
@@ -70,6 +81,9 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
       broadcast: () => {},
       openPanelIn: () => {},
       notify: () => {},
+      confirm,
+      openTerminalIn,
+      requestTimeoutMs: REQUEST_TIMEOUT_MS,
       log: () => {},
     })
     registerExtensionMethods(() => host)
@@ -88,7 +102,13 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     stopControlServer()
     if (savedDataHome === undefined) Reflect.deleteProperty(process.env, 'XDG_DATA_HOME')
     else process.env.XDG_DATA_HOME = savedDataHome
+    process.env.PATH = savedPath
     rmSync(dir, { recursive: true, force: true })
+  })
+
+  beforeEach(() => {
+    confirm.mockReset()
+    openTerminalIn.mockReset()
   })
 
   it('passes stdin only to a command whose manifest asks for it', async () => {
@@ -142,4 +162,82 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     expect(res.stdout).toContain('trellis\t')
     expect(res.stdout).not.toContain('kanban\t')
   }, 30_000)
+
+  describe('pine system', () => {
+    const sudo = process.getuid?.() === 0 ? '' : 'sudo '
+
+    it('prints the OS, kernel, shell and the package managers on PATH as JSON', async () => {
+      const res = await runPine(['system', 'info'])
+      expect(res.stderr).toBe('')
+      const info = JSON.parse(res.stdout)
+      expect(info.os).toMatchObject({ platform: process.platform })
+      expect(typeof info.os.id).toBe('string')
+      expect(info.kernel).toBeTruthy()
+      expect(info.arch).toBe(process.arch)
+      expect(info.packageManagers.available).toEqual(expect.arrayContaining(['pacman', 'apt']))
+      expect(info.packageManagers.available).toContain(info.packageManagers.default)
+    }, 30_000)
+
+    it('waits for the human past the request timeout, then opens the command beside the agent', async () => {
+      confirm.mockImplementation(
+        () => new Promise((r) => setTimeout(() => r(true), REQUEST_TIMEOUT_MS + 1000)),
+      )
+      openTerminalIn.mockResolvedValue('installer-pane')
+      const res = await runPine([
+        'system',
+        'install',
+        'ripgrep',
+        'fd',
+        '--manager',
+        'pacman',
+        '--reason',
+        'faster search',
+      ])
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      const command = `${sudo}pacman -S --needed ripgrep fd`
+      expect(JSON.parse(res.stdout)).toEqual({ approved: true, command, paneId: 'installer-pane' })
+      expect(confirm).toHaveBeenCalledTimes(1)
+      const asked = confirm.mock.calls[0][0]
+      expect(asked).toMatchObject({
+        extId: 'system',
+        title: 'Install system packages',
+        confirmLabel: 'Approve',
+        cancelLabel: 'Deny',
+      })
+      expect(asked.message).toContain('ripgrep, fd')
+      expect(asked.detail).toContain(command)
+      expect(asked.detail).toContain('faster search')
+      expect(openTerminalIn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command,
+          afterPaneId: 'pCliExt',
+          workspaceId: 's1',
+          windowId: 'w1',
+        }),
+      )
+    }, 30_000)
+
+    it('exits non-zero with approved false and opens nothing when the human denies', async () => {
+      confirm.mockResolvedValue(false)
+      const res = await runPine(['system', 'install', 'ripgrep', '--manager', 'apt'])
+      expect(res.code).toBe(1)
+      expect(JSON.parse(res.stdout)).toEqual({
+        approved: false,
+        command: `${sudo}apt install ripgrep`,
+      })
+      expect(res.stderr).toContain('denied')
+      expect(openTerminalIn).not.toHaveBeenCalled()
+    }, 30_000)
+
+    it('rejects a package name that could smuggle a flag or shell syntax before asking', async () => {
+      for (const bad of ['--noconfirm', 'rg;reboot']) {
+        const res = await runPine(['system', 'install', 'ripgrep', bad, '--manager', 'pacman'])
+        expect(res.code).toBe(1)
+        expect(res.stderr).toContain('invalid-package')
+      }
+      expect(confirm).not.toHaveBeenCalled()
+      expect(openTerminalIn).not.toHaveBeenCalled()
+    }, 30_000)
+  })
 })
