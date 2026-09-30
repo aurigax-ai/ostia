@@ -12,6 +12,7 @@ import {
   InfoIcon,
   KeyIcon,
   KeyboardIcon,
+  LayoutIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
   RobotIcon,
@@ -77,6 +78,7 @@ import { KeyboardSection } from './KeyboardSection'
 import { PasswordsSection } from './PasswordsSection'
 import { activeTerminalPaneId } from './PromptEditorDialog'
 import { SyncSection } from './SyncSection'
+import { ViewsSection } from './ViewsSection'
 import { WorkspacesSection } from './WorkspacesSection'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
@@ -102,6 +104,7 @@ type SectionId =
   | 'passwords'
   | 'editor'
   | 'plugins'
+  | 'views'
   | 'languageServers'
   | 'remote'
   | 'sync'
@@ -113,6 +116,7 @@ export function SettingsPanel(): JSX.Element | null {
   const open = useUIStore((s) => s.settingsActive)
   const close = useUIStore((s) => s.leaveSettings)
   const [active, setActive] = useState<SectionId>('appearance')
+  const requested = useUIStore((s) => s.settingsSection)
   const [query, setQuery] = useState('')
   const navRef = useRef<HTMLElement>(null)
 
@@ -148,6 +152,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'passwords', icon: KeyIcon, label: d.passwords.title },
         { id: 'editor', icon: CodeIcon, label: d.editorSettings.title },
         { id: 'plugins', icon: StackIcon, label: d.settings.plugins },
+        { id: 'views', icon: LayoutIcon, label: d.views.title },
         { id: 'languageServers', icon: HardDrivesIcon, label: d.settings.languageServers },
         { id: 'remote', icon: DeviceMobileIcon, label: d.settings.remote },
         { id: 'sync', icon: ArrowsClockwiseIcon, label: d.sync.title },
@@ -156,6 +161,12 @@ export function SettingsPanel(): JSX.Element | null {
       ] satisfies { id: SectionId; icon: IconComponent; label: string }[],
     [d],
   )
+
+  useEffect(() => {
+    if (!requested) return
+    if (sections.some((s) => s.id === requested)) setActive(requested as SectionId)
+    useUIStore.setState({ settingsSection: null })
+  }, [requested, sections])
 
   const openSettingsFile = async (): Promise<void> => {
     const path = await window.pine.settings.path()
@@ -232,6 +243,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'passwords' ? <PasswordsSection /> : null}
             {active === 'editor' ? <EditorSettingsSection /> : null}
             {active === 'plugins' ? <PluginsSection /> : null}
+            {active === 'views' ? <ViewsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}
             {active === 'remote' ? <GatewaySection /> : null}
             {active === 'sync' ? <SyncSection /> : null}

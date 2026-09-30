@@ -7,6 +7,8 @@ notifications and a panel surface. The built-in Git, Trellis, Keeper and System 
 are the reference implementations.
 
 How it works inside pine: `docs/ARCHITECTURE.md` §11. Why it's out-of-process: `docs/ROADMAP.md` §2.
+If you only need to show something (a sidebar section, a panel with buttons), a
+[declarative view](#declarative-views-ui-without-a-process) is one JSON file and no process.
 
 ## Where extensions live
 
@@ -382,6 +384,63 @@ The built-in `trellis` and `keeper` extensions are the reference for this. The p
   reserves for a human (keeper approvals).
 - `call(method, params)` reaches any other control method your identity may use, for example
   `workspace.list` to put an item on every workspace whose workDir belongs to the tool.
+
+## Declarative views: UI without a process
+
+When all you need is something for the human to look at (a sidebar section of agents and their
+state, a panel with a checklist, a few buttons that run palette commands), write a view instead
+of an extension. A view is one JSON file, `~/.config/pine/views/<name>.json` (`$XDG_CONFIG_HOME`
+is honored; `<name>` is lowercase `a-z0-9-`, up to 40 characters). It has no process, no HTML and
+no script: pine validates the file and draws it with its own components, bound to live data.
+
+```json
+{
+  "version": 1,
+  "title": "Agents",
+  "placement": "sidebar",
+  "icon": "robot",
+  "root": {
+    "type": "list", "for": "workspaces", "as": "ws", "empty": "No workspaces",
+    "item": {
+      "type": "row", "justify": "between",
+      "children": [
+        { "type": "text", "text": "{{ws.name}}", "truncate": true },
+        { "type": "badge", "text": "{{ws.unread}}", "tone": "warn", "if": "{{ws.unread}}" },
+        { "type": "button", "label": "Go", "variant": "ghost",
+          "action": { "command": "workspace.goto", "args": { "index": "{{ws.index}}" } } }
+      ]
+    }
+  }
+}
+```
+
+- **Placement.** `sidebar`: a collapsible section in the workspace rail, under the workspaces.
+  `panel`: a pane, opened from the palette ("Views: Open <title>") or with `pine view open <name>`.
+- **Components.** `stack`, `row`, `section`, `text`, `badge`, `icon` (a fixed list of Phosphor
+  icons), `list` (`for` a data path, `as` an item name), `button`, `link`, `progress`, `kv`,
+  `divider`. Every node may carry `if: "{{path}}"`. Unknown properties are errors.
+- **Data** (read-only, live): `workspace` (the current one), `workspaces`, `panes` (of the current
+  workspace, with their agent and attention), `ports` (from the Ports extension), `approvals`
+  (`{pending}`), `notifications` (newest 50), `clock` (`{now}`, ticking each second). A
+  workspace also carries `git`: the Git extension's sidebar text for it.
+- **Bindings.** `{{path | filter}}` inside strings: dot-separated names or indices only, own
+  properties only (`__proto__`, `constructor`, `prototype` are refused), missing paths render
+  empty. Filters: `upper`, `lower`, `count`, `not`, `relative`, `time`, `date`.
+- **Actions.** `{"command", "args"}` runs a palette command exactly like a user action in
+  `settings.json`: strings in `args` take bindings (a whole-string binding keeps its type), and a
+  command that needs a non-default capability asks the human first (Run once / Run and trust).
+  `{"openUrl"}` and `link` open http/https URLs in the workspace's browser pane; any other scheme
+  is refused when the file is read, and a binding that resolves to one draws a disabled control.
+- **Budget.** 200 nodes, 10 levels and a 64 KiB file when read; while drawing, 50 items per list
+  unless `limit` says fewer, and 1000 drawn nodes. Over budget, the last good render stays with a
+  note saying why.
+- **Approval.** A new file is pending: nothing is drawn until the human turns it on in
+  Settings → Views, which lists every file with its placement, errors (line and path) and a
+  reveal button. Agents can write files but can't enable them. Edits to an enabled view show
+  live; an edit that breaks it keeps the last version that worked on screen.
+- **Tools.** `pine view schema` prints the JSON Schema, `pine view validate <file>` prints one
+  `file:line: path: message` per problem (both work outside Pine), `pine view list` shows
+  each file's status.
 
 ## Built-in extensions
 

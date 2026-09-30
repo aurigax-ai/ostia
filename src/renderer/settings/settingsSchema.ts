@@ -649,7 +649,10 @@ export const SETTINGS_JSON_SCHEMA = {
           },
           paneKinds: {
             type: 'array',
-            items: { type: 'string', enum: ['terminal', 'editor', 'browser', 'extension', 'diff'] },
+            items: {
+              type: 'string',
+              enum: ['terminal', 'editor', 'browser', 'extension', 'diff', 'view'],
+            },
             description: 'Only show it on these pane kinds. Default: all.',
           },
         },

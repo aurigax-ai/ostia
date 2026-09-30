@@ -1,10 +1,10 @@
 import { create } from 'zustand'
-import type { UserAction } from '../settings/actions'
+import type { CommandAction } from '../lib/userActions'
 
 export type ActionConfirmAnswer = 'cancel' | 'once' | 'trust'
 
 interface PendingAction {
-  action: UserAction
+  action: CommandAction
   args: Record<string, unknown> | undefined
   resolve: (answer: ActionConfirmAnswer) => void
 }
@@ -12,7 +12,7 @@ interface PendingAction {
 interface ActionConfirmState {
   pending: PendingAction | null
   ask: (
-    action: UserAction,
+    action: CommandAction,
     args: Record<string, unknown> | undefined,
   ) => Promise<ActionConfirmAnswer>
   answer: (answer: ActionConfirmAnswer) => void

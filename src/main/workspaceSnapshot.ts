@@ -9,6 +9,7 @@ import type {
   SnapshotSurfaceKind,
   SnapshotWorkspace,
 } from '../shared/types'
+import { VIEW_NAME } from '../shared/views'
 import { isWorkspaceGroupColor, normalizeGroupName } from '../shared/workspaceGroups'
 import { normalizeDescription } from '../shared/workspaceText'
 import { loadJson, saveJson, storePath } from './jsonStore'
@@ -30,6 +31,7 @@ const SURFACE_KINDS: ReadonlySet<string> = new Set<SnapshotSurfaceKind>([
   'agent',
   'browser',
   'extension',
+  'view',
 ])
 const WORKSPACE_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal', 'scratch'])
 
@@ -72,10 +74,14 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     copyOptionalString(raw, pane, 'filePath')
     copyOptionalString(raw, pane, 'url')
     copyOptionalString(raw, pane, 'extensionId')
+    if (typeof raw.viewName === 'string' && VIEW_NAME.test(raw.viewName)) {
+      pane.viewName = raw.viewName
+    }
     const resume = parseAgentResume(raw.resume)
     if (resume) pane.resume = resume
     if (resume && raw.agentRunning === true) pane.agentRunning = true
     if (pane.kind === 'extension' && !pane.extensionId) return null
+    if (pane.kind === 'view' && !pane.viewName) return null
     paneIds.push(id)
     return pane
   }

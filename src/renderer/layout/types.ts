@@ -2,7 +2,14 @@ import type { AgentResume } from '@shared/agentResume'
 
 export type Direction = 'horizontal' | 'vertical'
 
-export type SurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension' | 'diff'
+export type SurfaceKind =
+  | 'terminal'
+  | 'editor'
+  | 'agent'
+  | 'browser'
+  | 'extension'
+  | 'diff'
+  | 'view'
 
 export interface PaneNode {
   type: 'pane'
@@ -13,6 +20,7 @@ export interface PaneNode {
   filePath?: string
   url?: string
   extensionId?: string
+  viewName?: string
   resume?: AgentResume
   hibernated?: true
   resumePending?: true

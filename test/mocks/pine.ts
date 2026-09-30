@@ -183,6 +183,12 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     iconThemes: {
       load: vi.fn().mockResolvedValue(null),
     },
+    views: {
+      list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),
+      setEnabled: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),
+      reveal: vi.fn().mockResolvedValue(true),
+      onChanged: vi.fn(noopUnsub),
+    },
   }
   return { ...base, ...overrides }
 }
