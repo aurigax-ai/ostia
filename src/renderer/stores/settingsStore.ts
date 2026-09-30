@@ -30,6 +30,11 @@ import { normalizeHex } from '../lib/color'
 import type { GroupRule } from '../lib/workspaceGroups'
 import { type UserAction, parseActions } from '../settings/actions'
 import {
+  DEFAULT_FILE_TREE_SETTINGS,
+  type FileTreeSettings,
+  parseFileTreeSettings,
+} from '../settings/fileTreeSettings'
+import {
   DEFAULT_PANE_SETTINGS,
   DEFAULT_TERMINAL_SETTINGS,
   type PaneSettings,
@@ -168,7 +173,6 @@ export const inputMode = (v: unknown): InputMode =>
   INPUT_MODES.includes(v as InputMode) ? (v as InputMode) : 'terminal'
 
 export interface Behavior {
-  showHiddenFiles: boolean
   cursorStyle: CursorStyle
   cursorBlink: boolean
   restoreWorkspace: boolean
@@ -232,6 +236,7 @@ interface Persisted {
   locale: Locale
   appearance: Appearance
   behavior: Behavior
+  files: FileTreeSettings
   terminal: TerminalSettings
   panes: PaneSettings
   notifications: NotificationSettings
@@ -254,6 +259,7 @@ const DATA_KEYS: readonly string[] = [
   'locale',
   'appearance',
   'behavior',
+  'files',
   'terminal',
   'panes',
   'notifications',
@@ -282,7 +288,6 @@ const DEFAULTS: Persisted = {
     windowTitle: DEFAULT_WINDOW_TITLE,
   },
   behavior: {
-    showHiddenFiles: true,
     cursorStyle: 'block',
     cursorBlink: true,
     restoreWorkspace: true,
@@ -292,6 +297,7 @@ const DEFAULTS: Persisted = {
     inputMode: 'terminal',
     inputEditorVim: false,
   },
+  files: DEFAULT_FILE_TREE_SETTINGS,
   terminal: DEFAULT_TERMINAL_SETTINGS,
   panes: DEFAULT_PANE_SETTINGS,
   notifications: DEFAULT_NOTIFICATION_SETTINGS,
@@ -327,6 +333,7 @@ interface SettingsState extends Persisted {
   setMotion: (m: MotionMode) => void
   setSurfaceFont: (surface: FontSurface, patch: Partial<SurfaceFont>) => void
   setBehavior: (patch: Partial<Behavior>) => void
+  setFiles: (patch: Partial<FileTreeSettings>) => void
   setTerminal: (patch: Partial<TerminalSettings>) => void
   setPanes: (patch: Partial<PaneSettings>) => void
   setNotifications: (patch: Partial<NotificationSettings>) => void
@@ -389,6 +396,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       windowTitle: parseWindowTitle(p.appearance?.windowTitle),
     },
     behavior: parseBehavior(p.behavior),
+    files: parseFileTreeSettings(p.files),
     terminal: parseTerminalSettings(p.terminal),
     panes: parsePaneSettings(p.panes),
     notifications: parseNotificationSettings(p.notifications),
@@ -489,6 +497,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     locale: s.locale,
     appearance: s.appearance,
     behavior: s.behavior,
+    files: s.files,
     terminal: s.terminal,
     panes: s.panes,
     notifications: s.notifications,
@@ -595,6 +604,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setBehavior: (patch) => {
     set((s) => ({ behavior: { ...s.behavior, ...patch } }))
+    scheduleSave(get)
+  },
+  setFiles: (patch) => {
+    set((s) => ({ files: parseFileTreeSettings({ ...s.files, ...patch }) }))
     scheduleSave(get)
   },
   setTerminal: (patch) => {

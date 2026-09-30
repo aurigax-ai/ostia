@@ -20,6 +20,7 @@ import type {
   ExtensionSidebarItem,
   PaneChip,
 } from '../shared/extensions'
+import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { SelectionSendResult } from '../shared/selection'
 import type {
@@ -329,6 +330,9 @@ const bridge: PineBridge = {
   completions: {
     spec: (command) =>
       ipcRenderer.invoke('completions:spec', command) as Promise<SpecCommand | null>,
+  },
+  iconThemes: {
+    load: (id) => ipcRenderer.invoke('iconThemes:load', id) as Promise<LoadedIconTheme | null>,
   },
 }
 

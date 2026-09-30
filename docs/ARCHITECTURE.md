@@ -75,6 +75,7 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `processManager.ts`, `vault.ts`, `bus.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
 | `extensionHost.ts`, `extensionManifest.ts`, `extensionStore.ts` | Extension host: discovery + manifest validation, approval records, extension processes, `ext.*` control methods (§11) |
 | `extensionConfirm.ts` | The native confirm dialog behind `ext.confirm` (§11) |
+| `iconThemes.ts` | VS Code file icon themes from `contributes.iconThemes`: confined, size-capped loading into `data:` URLs, `iconThemes:load` IPC (§5) |
 | `workflows.ts` | Saved workflows: confined YAML loading (workspace, user, extension manifests), `workflows:list`/`workflows:save` IPC, `workflow.list` control method (§4) |
 | `settingsSync.ts`, `settingsSyncIpc.ts` | Settings sync: pure plan/merge + the file executor; triggers (startup, window focus, local file changes) and `sync:*` / `dialog:pick-folder` IPC (§5) |
 | `browse.ts`, `browseWorld.ts` | `browse.*` automation of browser panes, agent-browser contract; the isolated browse world (§9) |
@@ -883,8 +884,8 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 ### Settings and plugins
 
 - `stores/settingsStore.ts` persists `userData/settings.json` (debounced 300 ms): `locale`,
-  `appearance` (theme + ui/terminal/editor fonts), `behavior` (`showHiddenFiles`, `cursorStyle`,
-  `cursorBlink`, `restoreWorkspace`), `workspaces` (`placement`, `inheritFolder`, `defaultFolder`,
+  `appearance` (theme + ui/terminal/editor fonts), `behavior` (`cursorStyle`,
+  `cursorBlink`, `restoreWorkspace`), `files` (the Files tree, below), `workspaces` (`placement`, `inheritFolder`, `defaultFolder`,
   `confirmClose`, `confirmQuit`, `wrapTitles`), `terminal` (`scrollSpeed`, `scrollbackLines`,
   `warnOnRiskyPaste`, `minimumContrast`), `panes` (`dimInactive`, `focusOnHover`,
   `equalizeOnSplit`, `hideTabClose`), `keybindings`, `capabilities.grants`, `sync.dir`.
@@ -911,6 +912,33 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   These are data-only contributions; behavior and UI come from extensions (§11), listed in the
   same Settings → Plugins section.
 - i18n: typed catalogs in `i18n/dict.ts`, read via `useDict()`.
+
+### Files tree options and icon themes
+
+- `settings/fileTreeSettings.ts` parses `files`: `exclude` (glob list, default `**/.git`,
+  `**/.hg`, `**/.svn`, `**/.DS_Store`, `**/Thumbs.db`), `showExcluded`, `compactFolders`,
+  `nesting` (`enabled` + `patterns`, VS Code's `explorer.fileNesting.patterns` syntax), `sortOrder`
+  (`foldersFirst`/`mixed`), `sortBy` (`name`/`type`), `iconTheme` (`pine` or a contributed id).
+  Settings → Files (`FilesSettingsSection.tsx`) and the Files header write the same keys.
+  Why `exclude` replaced `behavior.showHiddenFiles`: two switches for "what the tree hides" would
+  disagree; dotfiles are just the pattern `**/.*`, and the eye button is the one "show anyway".
+- `lib/fileTree.ts` is the pure part of the tree: `excludeMatcher` (picomatch, `dot: true`)
+  tests a row's absolute path and its path relative to the tree root, so `**/x` hides at any
+  depth, a bare `dist` only at the root (VS Code's meaning), and "Hide in tree" can add an
+  absolute path that keeps working as the tree root follows the terminal. `sortEntries`,
+  `nestEntries` (one level deep: a file with children can't be nested and a nested file can't
+  be a parent, so rules like `*.ts → ${capture}.js` plus `*.js → ${capture}.ts` can't cycle),
+  and `compactChain`, which follows single-folder chains only when a folder is expanded, like
+  VS Code. Why lazily: probing every visible folder's children on each listing would list whole
+  trees (`node_modules`) the user never opens.
+- Icon themes: `main/iconThemes.ts` loads a theme on `iconThemes:load` for an enabled
+  extension's `contributes.iconThemes`, validates it (sizes, confinement after `realpath`, no
+  symlinks, only image `iconPath`s, associations only to loaded definitions) and returns the icons
+  as `data:` URLs, cached by the file's mtime and size. Why data URLs rather than a protocol:
+  the renderer's CSP already allows `data:` images, nothing new is registered, and the renderer
+  never names a file. `lib/iconTheme.ts` resolves an entry to a definition (VS Code's order; the
+  `light`/`highContrast` section first, then the base), and `stores/iconThemeStore.ts` loads the
+  chosen theme when its provider is enabled; otherwise the tree uses `fileIcon.ts`.
 
 ### Terminal and pane behavior settings
 

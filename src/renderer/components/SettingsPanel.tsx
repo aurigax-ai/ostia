@@ -68,6 +68,7 @@ import { useUIStore } from '../stores/uiStore'
 import { ActionsSection } from './ActionsSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
+import { FileTreeSettingsGroups } from './FilesSettingsSection'
 import { FontPicker } from './FontPicker'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
@@ -1049,18 +1050,11 @@ function PanesSection(): JSX.Element {
 
 function FilesSection(): JSX.Element {
   const d = useDict()
-  const showHidden = useSettingsStore((s) => s.behavior.showHiddenFiles)
-  const setBehavior = useSettingsStore((s) => s.setBehavior)
   return (
     <section>
       <SectionHead title={d.settings.files} />
-      <ToggleRow
-        label={d.settings.showHiddenFiles}
-        desc={d.settings.showHiddenFilesDesc}
-        checked={showHidden}
-        onChange={(v) => setBehavior({ showHiddenFiles: v })}
-      />
       <ExternalEditorRow />
+      <FileTreeSettingsGroups />
     </section>
   )
 }

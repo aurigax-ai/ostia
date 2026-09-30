@@ -6,6 +6,13 @@ import {
 } from '../../shared/promptSettings'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
 import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
+import {
+  EXCLUDE_MAX,
+  FILE_SORT_BYS,
+  FILE_SORT_ORDERS,
+  NESTING_MAX,
+  PATTERN_MAX_LENGTH,
+} from './fileTreeSettings'
 
 const font = (title: string) => ({
   type: 'object',
@@ -126,10 +133,6 @@ export const SETTINGS_JSON_SCHEMA = {
       type: 'object',
       additionalProperties: false,
       properties: {
-        showHiddenFiles: {
-          type: 'boolean',
-          description: 'Show dotfiles (names starting with .) in the Files explorer.',
-        },
         cursorStyle: {
           type: 'string',
           enum: ['block', 'underline', 'bar'],
@@ -177,6 +180,74 @@ export const SETTINGS_JSON_SCHEMA = {
             'Command for "Open in External Editor". "auto" picks the first of code, cursor, zed ' +
             'on PATH; empty turns it off. Placeholders: {file}, {line}, {column}, e.g. ' +
             '"code -g {file}:{line}:{column}". Runs the program directly, never through a shell.',
+        },
+      },
+    },
+    files: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        exclude: {
+          type: 'array',
+          maxItems: EXCLUDE_MAX,
+          items: { type: 'string', maxLength: PATTERN_MAX_LENGTH },
+          description:
+            "Glob patterns of files and folders the Files explorer hides, like VS Code's " +
+            'files.exclude. A pattern matches the path relative to the folder the explorer ' +
+            'shows or the absolute path: "**/node_modules" hides every node_modules, ' +
+            '"**/.*" hides dotfiles. "Hide in tree" adds the item\'s absolute path. ' +
+            'Default: .git, .hg, .svn, .DS_Store and Thumbs.db anywhere.',
+        },
+        showExcluded: {
+          type: 'boolean',
+          description:
+            'Show excluded files anyway, dimmed (the eye button in the Files header). ' +
+            'Default: false.',
+        },
+        compactFolders: {
+          type: 'boolean',
+          description:
+            'Show a chain of folders that each hold only one folder as one row, like ' +
+            '"src/main/java". Default: true.',
+        },
+        nesting: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            enabled: {
+              type: 'boolean',
+              description:
+                "Group related files under a parent file, like VS Code's file nesting. " +
+                'Default: true.',
+            },
+            patterns: {
+              type: 'object',
+              maxProperties: NESTING_MAX,
+              additionalProperties: { type: 'string', maxLength: PATTERN_MAX_LENGTH },
+              description:
+                'Parent file pattern → comma-separated child patterns (VS Code syntax). A ' +
+                'parent may hold one "*"; children may use "*" and "${capture}" (the text the ' +
+                'parent\'s "*" matched), e.g. "*.ts": "${capture}.test.ts, ${capture}.d.ts" or ' +
+                '"package.json": "pnpm-lock.yaml". Replaces the defaults when set.',
+            },
+          },
+        },
+        sortOrder: {
+          type: 'string',
+          enum: [...FILE_SORT_ORDERS],
+          description:
+            'foldersFirst lists folders above files; mixed interleaves them. Default: foldersFirst.',
+        },
+        sortBy: {
+          type: 'string',
+          enum: [...FILE_SORT_BYS],
+          description: 'Sort by name, or by file type (extension) then name. Default: name.',
+        },
+        iconTheme: {
+          type: 'string',
+          description:
+            'File icon theme: "pine" (built-in) or the id of a VS Code icon theme an enabled ' +
+            'extension contributes (contributes.iconThemes). Default: pine.',
         },
       },
     },

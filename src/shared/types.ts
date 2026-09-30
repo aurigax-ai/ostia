@@ -18,6 +18,7 @@ import type {
   CredentialSummary,
 } from './credentials'
 import type { ExtensionsApi } from './extensions'
+import type { IconThemesApi } from './iconTheme'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
@@ -496,6 +497,7 @@ export interface PineBridge {
   notifications: NotificationsApi
   workflows: WorkflowsApi
   completions: CompletionsApi
+  iconThemes: IconThemesApi
 }
 
 declare global {

@@ -277,6 +277,7 @@ describe('NotificationCenter', () => {
           paneChips: [],
           settings: [],
           settingValues: {},
+          iconThemes: [],
         },
       ],
     })

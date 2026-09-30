@@ -184,6 +184,15 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
     zone for "last, ungrouped".
 - **Files panel** (`FilesPanel.tsx`): a 260px column to the right of the sidebar, toggled from the
   top bar. It shows the active workspace's focused pane cwd, so switching workspaces switches it.
+  Its header holds three row-size `IconButton`s, right-aligned: the eye (show hidden files,
+  `aria-pressed`), view options (a `DropdownMenu` from `Menu.tsx`: compact folders, nesting,
+  show hidden files, sort, icon theme) and close. Every option is also in Settings → Files.
+  Hidden rows shown by the eye are dimmed to 55% opacity. A compact folder row joins its names
+  with a muted `/`. A nesting parent has a twisty: the twisty or ArrowRight/ArrowLeft expands
+  it, a click on the name opens the file.
+  - **File icons**: Pine's own are Phosphor at 14px, tinted per type (`fileIcon.ts`). A VS Code
+    icon theme an extension contributes replaces them with its own images at 16px. These are
+    the user's content, the one place non-Phosphor icons appear in the app's chrome.
 - **Cursor**: the normal arrow everywhere, like a desktop app. No pointer or grab cursors.
 - **Work area**: the active workspace's split tree, rendered with Allotment. Each pane is an
   elevated surface with a header (title, split right, split down, close). The header is also the

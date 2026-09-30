@@ -29,6 +29,7 @@ const extension = (patch: Partial<ExtensionInfo>): ExtensionInfo => ({
   paneChips: [],
   settings: [],
   settingValues: {},
+  iconThemes: [],
   ...patch,
 })
 
