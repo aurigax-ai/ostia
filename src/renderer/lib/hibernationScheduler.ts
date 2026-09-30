@@ -1,21 +1,14 @@
 import { resumeCommand } from '@shared/agentResume'
 import { allPanes, findPane } from '../layout/tree'
-import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { clampIdleSeconds, clampMaxLive, useSettingsStore } from '../stores/settingsStore'
 import { runWhenIdle } from './blockActions'
-import { type HibernationCandidate, commandAgent, pickHibernation } from './hibernation'
+import { type HibernationCandidate, pickHibernation } from './hibernation'
 import { paneActivityAt } from './paneActivity'
+import { runningAgentOf } from './paneAgent'
 import { isPaneVisible, workspaceOfPane } from './workspaceActivity'
 
 export const HIBERNATION_CHECK_MS = 5000
-
-function runningCommand(paneId: string): string | null {
-  const blocks = useBlocksStore.getState()
-  const id = blocks.running[paneId]
-  if (!id) return null
-  return blocks.byPane[paneId]?.find((b) => b.id === id)?.command ?? null
-}
 
 export function hibernationCandidates(now: number): HibernationCandidate[] {
   const out: HibernationCandidate[] = []
@@ -23,12 +16,11 @@ export function hibernationCandidates(now: number): HibernationCandidate[] {
     if (!layout) continue
     for (const pane of allPanes(layout.root)) {
       if (pane.kind !== 'terminal' || !pane.resume || pane.hibernated) continue
-      const command = runningCommand(pane.id)
       const lastActive = paneActivityAt(pane.id)
       out.push({
         paneId: pane.id,
         workspaceId,
-        agentRunning: command !== null && commandAgent(command) === pane.resume.agent,
+        agentRunning: runningAgentOf(pane.id) === pane.resume.agent,
         visible: isPaneVisible(pane.id),
         idleMs: lastActive === undefined ? 0 : now - lastActive,
       })

@@ -1330,7 +1330,15 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   many workspaces would otherwise start every agent at once.
 - **Agent session button** (`components/AgentSessionButton.tsx`, `lib/agentSession.ts`): the pane
   header shows a robot icon with a state dot only while the pane's running command is an agent
-  (`commandAgent`). Its popover lists only what Pine knows: the title the agent set on the
+  (`runningAgentOf`, `lib/paneAgent.ts`). A running command is an agent when its first word is
+  `claude`/`codex` (`commandAgent`), or when it was marked while running: by the agent's own
+  `pine resume-token` (`resume.set` → `markAgent`), or by `startAgentDetection`, which asks
+  main for the pty's foreground process name (`pty:foreground`, node-pty's `process`, answered
+  only to the pane's own window) 0.8 s, 3 s and 10 s after a command starts. Why: an alias such
+  as `cc` hides the program from the command text, and an alias that skips Pine's `claude`
+  wrapper never reports a session id; the popover then says Not resumable. The mark is dropped
+  when the block ends. Hibernation, auto-resume, the send-path targets and snapshot marks all
+  use `runningAgentOf`. Its popover lists only what Pine knows: the title the agent set on the
   terminal (spinner glyph stripped, `sessionTitle`), the resume id from its SessionStart hook,
   the attention state and message, how long it has run, its folder and command, and whether it
   is resumable (a resume id was reported). While the popover is open it asks main every 3 s for
