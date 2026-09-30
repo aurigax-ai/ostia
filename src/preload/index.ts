@@ -1,9 +1,20 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AgentSessionInfo } from '../shared/agentSessionInfo'
 import type { ApprovalState } from '../shared/approvals'
-import type { AssistAvailability, AssistChunk } from '../shared/assist'
+import type {
+  AssistAvailability,
+  AssistChunk,
+  AssistExtensionState,
+  AssistOpenUiRequest,
+} from '../shared/assist'
 import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
 import type { BuildInfo } from '../shared/buildInfo'
+import type {
+  ChatExportResult,
+  ChatSaveResult,
+  ChatSession,
+  ChatSessionSummary,
+} from '../shared/chatSessions'
 import type { SpecCommand } from '../shared/completionSpec'
 import type {
   CredentialImportResult,
@@ -326,6 +337,29 @@ const bridge: PineBridge = {
       ipcRenderer.on('assist:chunk', handler)
       return () => ipcRenderer.removeListener('assist:chunk', handler)
     },
+    overview: () => ipcRenderer.invoke('assist:overview') as Promise<AssistExtensionState[]>,
+    onOverview: (cb) => {
+      const handler = (_e: unknown, overview: AssistExtensionState[]): void => cb(overview)
+      ipcRenderer.on('assist:overview', handler)
+      return () => ipcRenderer.removeListener('assist:overview', handler)
+    },
+    onOpenUi: (cb) => {
+      const handler = (_e: unknown, req: AssistOpenUiRequest): void => cb(req)
+      ipcRenderer.on('assist:open-ui', handler)
+      return () => ipcRenderer.removeListener('assist:open-ui', handler)
+    },
+    reportShortcuts: (shortcuts) => ipcRenderer.send('assist:shortcuts', shortcuts),
+  },
+  chatSessions: {
+    list: () => ipcRenderer.invoke('chat:list') as Promise<ChatSessionSummary[]>,
+    get: (id) => ipcRenderer.invoke('chat:get', id) as Promise<ChatSession | null>,
+    save: (session) => ipcRenderer.invoke('chat:save', session) as Promise<ChatSaveResult>,
+    rename: (id, title) =>
+      ipcRenderer.invoke('chat:rename', id, title) as Promise<ChatSessionSummary | null>,
+    remove: (id) => ipcRenderer.invoke('chat:remove', id) as Promise<boolean>,
+    exportMarkdown: (id) => ipcRenderer.invoke('chat:export', id) as Promise<ChatExportResult>,
+    saveFile: (name, content) =>
+      ipcRenderer.invoke('chat:save-file', name, content) as Promise<ChatExportResult>,
   },
   externalEditor: {
     open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,

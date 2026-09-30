@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { CancellationTokenSource } from 'vscode-jsonrpc/node'
-import type { AssistAvailability } from '../shared/assist'
+import type { AssistAvailability, AssistOpenUiRequest } from '../shared/assist'
 import type { ExtensionCaller } from '../shared/extensions'
 import { registerControlServer, stopControlServer } from './controlServer'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
@@ -30,6 +30,7 @@ describe('assist contribution points over a real control socket', () => {
   let store: ExtensionStore
   let saved: unknown = {}
   const broadcasts: { channel: string; payload: unknown }[] = []
+  const openedUi: AssistOpenUiRequest[] = []
   const lastAvailability = (): AssistAvailability =>
     (broadcasts.filter((b) => b.channel === 'assist:availability').at(-1)?.payload ??
       {}) as AssistAvailability
@@ -46,6 +47,7 @@ describe('assist contribution points over a real control socket', () => {
       workDirForWorkspace: () => undefined,
       broadcast: (channel, payload) => broadcasts.push({ channel, payload }),
       openPanelIn: () => {},
+      openAssistUiIn: (req) => openedUi.push(req),
       notify: () => {},
       secrets: createSecretStore({
         load: () => saved,
@@ -94,8 +96,14 @@ describe('assist contribution points over a real control socket', () => {
     expect(availability).toEqual({
       chat: { extId: 'oracle', name: 'Oracle', label: 'fake · big' },
       command: { extId: 'oracle', name: 'Oracle', label: 'fake · small' },
+      terminal: { extId: 'oracle', name: 'Oracle', label: 'fake · small' },
     })
-    expect(host.list().find((e) => e.id === 'oracle')?.assist).toEqual(['chat', 'command', 'input'])
+    expect(host.list().find((e) => e.id === 'oracle')?.assist).toEqual([
+      'chat',
+      'command',
+      'input',
+      'terminal',
+    ])
   })
 
   it('streams chat chunks in order and returns the normalized full reply', async () => {
@@ -186,9 +194,53 @@ describe('assist contribution points over a real control socket', () => {
     })
   })
 
+  it('reports only known features bound to boolean settings, with on read from the setting', () => {
+    expect(host.assistOverview()).toEqual([
+      {
+        extId: 'oracle',
+        name: 'Oracle',
+        label: 'fake',
+        setup: null,
+        lastError: 'model busy',
+        features: [{ id: 'chat', setting: 'chat', ready: true, on: true }],
+      },
+    ])
+    host.setSetting('oracle', 'chat', false)
+    expect(host.assistOverview()[0].features[0].on).toBe(false)
+    host.setSetting('oracle', 'chat', null)
+  })
+
+  it('keeps a terminal completion to one line', async () => {
+    expect(
+      await host.assist('terminal', { line: 'ls', history: [{ command: 'pwd', exitCode: 0 }] }),
+    ).toEqual({ ok: true, result: { text: ' -la  # ls' } })
+    expect(await host.assist('terminal', { line: '  ' })).toEqual({ ok: false, error: 'invalid' })
+  })
+
+  it('answers shortcuts the renderer reported and null for unbound commands', async () => {
+    host.setShortcuts({ 'assist.compose': 'Ctrl+Shift+J', bad: 5 })
+    expect(
+      await host.invoke('oracle', 'shortcuts', ['assist.compose', 'assist.chat'], caller),
+    ).toMatchObject({
+      data: { ok: true, shortcuts: { 'assist.compose': 'Ctrl+Shift+J', 'assist.chat': null } },
+    })
+  })
+
+  it('opens core assist UI only for points the extension contributes', async () => {
+    expect(
+      await host.invoke('oracle', 'openui', { ui: 'chat', workspaceId: 'w1' }, caller),
+    ).toEqual({ ok: true })
+    expect(openedUi).toEqual([{ extId: 'oracle', ui: 'chat', workspaceId: 'w1' }])
+    expect(await host.invoke('oracle', 'openui', { ui: 'shell' }, caller)).toMatchObject({
+      ok: false,
+      error: 'invalid-params',
+    })
+  })
+
   it('drops the points of a disabled extension', async () => {
     host.setEnabled('oracle', false)
     expect(host.assistAvailability()).toEqual({})
     expect(lastAvailability()).toEqual({})
+    expect(host.assistOverview()).toEqual([])
   })
 })
