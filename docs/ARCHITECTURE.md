@@ -1323,6 +1323,15 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   `settings-write` approval), and a click is still the human's; why the trust prompt: an
   agent could otherwise label a button misleadingly over a command that types or
   destroys. `trustedActions` is not a `DATA_KEYS` key and is local-only in settings sync.
+- **Saved passwords** (`main/credentials.ts`, `shared/credentials.ts`, `PasswordsSection`):
+  `credentials.json` in the data dir holds `{id, origin, username, secret, updatedAt}` with
+  `secret` = `safeStorage`-encrypted password. Entries key on the exact origin
+  (`normalizeOrigin`), so `https://github.com.evil.io` never matches `https://github.com`;
+  the same origin + username updates in place. IPC: `credentials:list` (summaries only),
+  `save`, `remove`, `copy-password` (main writes the clipboard), `import` (main opens a file
+  dialog and reads a Chrome / Firefox / Bitwarden CSV by column name, `passwordRowsFromCsv`).
+  Why main and not the browser session: Electron ships no password manager, and anything in
+  the page's storage is readable by the page.
 - **Window title** (`settings/windowTitle.ts`, `lib/useWindowTitle.ts`): `appearance.windowTitle`
   is a template (`{workspace}`, `{pane}`, `{cwd}`, `{product}`) set as `document.title`, which
   Electron uses for the OS window title; separators left at the edges by an empty value are

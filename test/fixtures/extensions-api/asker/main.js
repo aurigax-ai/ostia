@@ -6,7 +6,10 @@ const {
 } = require('vscode-jsonrpc/node')
 
 const socket = createConnection(process.env.PINE_SOCKET)
-const conn = createMessageConnection(new StreamMessageReader(socket), new StreamMessageWriter(socket))
+const conn = createMessageConnection(
+  new StreamMessageReader(socket),
+  new StreamMessageWriter(socket),
+)
 
 conn.onRequest('ext.command', async ({ command, args }) => {
   if (command === 'confirm') return { ok: true, data: await conn.sendRequest('ext.confirm', args) }

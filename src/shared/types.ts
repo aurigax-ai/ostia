@@ -2,6 +2,12 @@ import type { AgentResume } from './agentResume'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { SpecCommand } from './completionSpec'
+import type {
+  CredentialImportResult,
+  CredentialInput,
+  CredentialSaveResult,
+  CredentialSummary,
+} from './credentials'
 import type { ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
@@ -318,6 +324,14 @@ export interface SelectionApi {
   send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
 }
 
+export interface CredentialsApi {
+  list: () => Promise<CredentialSummary[]>
+  save: (input: CredentialInput) => Promise<CredentialSaveResult>
+  remove: (id: string) => Promise<boolean>
+  copyPassword: (id: string) => Promise<boolean>
+  import: () => Promise<CredentialImportResult>
+}
+
 export interface ApprovalsApi {
   state: () => Promise<ApprovalState>
   answer: (id: string, answer: ApprovalAnswer) => Promise<boolean>
@@ -435,6 +449,7 @@ export interface PineBridge {
   browser: BrowserApi
   selection: SelectionApi
   approvals: ApprovalsApi
+  credentials: CredentialsApi
   extensions: ExtensionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi
