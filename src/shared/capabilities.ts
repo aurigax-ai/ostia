@@ -15,6 +15,7 @@ export type Capability =
   | 'browse'
   | 'settings-read'
   | 'settings-write'
+  | 'assist'
   | 'credentials'
 
 export const DEFAULT_CAPABILITIES: Capability[] = [
@@ -44,6 +45,7 @@ export const ALL_CAPABILITIES: Capability[] = [
   'browse',
   'settings-read',
   'settings-write',
+  'assist',
   'credentials',
 ]
 

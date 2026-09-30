@@ -1,0 +1,17 @@
+{
+  "id": "oracle",
+  "name": "Oracle",
+  "version": "0.1.0",
+  "description": "Test fixture for the assist contribution points",
+  "capabilities": ["assist"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "secret", "title": "Read the api key", "palette": false },
+      { "id": "events", "title": "Count settings events", "palette": false },
+      { "id": "status", "title": "Set assist status", "palette": false }
+    ],
+    "assist": ["chat", "command", "input"],
+    "secrets": { "apiKey": { "description": "Key for the fake provider" } }
+  }
+}

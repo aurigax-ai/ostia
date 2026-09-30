@@ -63,7 +63,7 @@ export function TopBar(): JSX.Element {
         <Button
           variant="ghost"
           className="h-6 min-w-0 justify-start gap-1 rounded-sm bg-fg/6 pr-1 pl-2 font-normal text-fg-muted text-ui-base hover:bg-fg/10 hover:text-fg dark:hover:bg-fg/10"
-          onClick={openPalette}
+          onClick={() => openPalette()}
         >
           <MagnifyingGlassIcon className="size-3.5" />
           <span className="flex-1 truncate text-left">{d.search.command}</span>

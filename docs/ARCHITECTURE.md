@@ -567,9 +567,16 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   touch `blocksStore`.
   - Main keeps the snapshot only if its `generation` is ≥ the cached one.
   - Main emits `pane.state` only when a field actually changed.
-- **Terminal palette** (`components/terminalTheme.ts`): xterm draws to canvas and can't read CSS
-  variables, so each theme's palette is duplicated here. Only `adeberry`, `one-dark-vivid` and
-  `pine-light` have palettes; other themes fall back to One Dark Vivid.
+- **Terminal colors** (`lib/colorScheme.ts`): xterm draws to canvas and can't read CSS
+  variables, so the terminal gets a color scheme object (`plugins/colorSchemes.ts`) as its
+  `ITheme`. `useScheme('terminal')` resolves `terminal.theme`: `"match"` (default) uses the
+  scheme the effective Pine theme names (`Theme.colorScheme`; a theme naming an unknown scheme
+  gets the first scheme of its appearance), any other id that scheme (an unknown id falls back
+  to the linked one). A linked scheme with a custom accent takes the accent's brand color as its
+  cursor (`accentScheme`). The result is memoized, so `Terminal.tsx` resets `term.options.theme`
+  only when the scheme really changes. Why a separate axis instead of one palette per theme:
+  people keep a favorite terminal scheme (Catppuccin, Gruvbox) under any app chrome, and a plugin
+  theme no longer has to ship a palette to get a terminal of the right lightness.
 
 ## 5. Renderer model
 
@@ -740,8 +747,10 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **Workspace names follow the project** (`lib/workspaceProjects.ts`, `main/projectRoot.ts`): for
   each workspace, the active pane's cwd goes to `workspace:project`, which returns the nearest
   folder below home that has a `.git` (never home itself), else the folder, as `{name,
-  display}`; `setProject` stores it as the automatic `name` and `projectDir` (the rail's path
-  line). `customName` (Rename) always wins. `workDir` stays the anchor for new panes. Why: a
+  display, dir}`; `setProject` stores it as the automatic `name`, `projectDir` (the rail's
+  path line, saved in the snapshot) and `workDir`, so new terminals open in the project.
+  `customName` (Rename) always wins. A workspace with no panes is skipped, so closing every tab
+  keeps its last project instead of falling back to `~`. Why: a
   workspace created at `~` and then used in a repo was stuck being called "home".
 - **Close confirmation** (`lib/closeConfirm.ts`, `CloseConfirmDialog.tsx`, `closeConfirmStore`):
   a command is running when `blocksStore.running` has a block for a pane of the workspace.
@@ -906,10 +915,13 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   `appearance` (theme + ui/terminal/editor fonts), `behavior` (`cursorStyle`,
   `cursorBlink`, `restoreWorkspace`), `files` (the Files tree, below), `workspaces` (`placement`, `inheritFolder`, `defaultFolder`,
   `confirmClose`, `confirmQuit`, `wrapTitles`), `terminal` (`scrollSpeed`, `scrollbackLines`,
-  `warnOnRiskyPaste`, `minimumContrast`), `panes` (`dimInactive`, `focusOnHover`,
+  `warnOnRiskyPaste`, `minimumContrast`, `theme`), `panes` (`dimInactive`, `focusOnHover`,
   `equalizeOnSplit`, `hideTabClose`), `keybindings`, `capabilities.grants`, `sync.dir`.
   - `browser` and `editor` are their own groups, parsed by `shared/browserEditorSettings.ts`
     (invalid values fall back to defaults, zoom is clamped to 50 to 300).
+  - `terminal.theme` and `editor.theme` go through `parseThemeChoice` (`shared/themeChoice.ts`):
+    a trimmed scheme id up to 80 characters, else `"match"`. The id itself is checked against
+    the catalog only when it is resolved, so a scheme a plugin adds later is not lost on load.
   - `keybindings` is validated on load by `parseKeybindings`: only string chords that parse
     and `null` survive. The platform guard is applied when the effective map is built.
   - `settings/terminalPaneSettings.ts` holds the pure parsing and clamping for the `terminal` and
@@ -927,7 +939,9 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
   - `settings/settingsSchema.ts` holds the JSON Schema for that file (also served by `pine settings schema`); `settings/registerSettingsSchema.ts` registers it with Monaco.
 - `plugins/builtin.ts` is a registry of built-in contributions only: themes (`adeberry`,
-  `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`, `pine-light`), LSP entries, locales (`en`, `zh-Hant`).
+  `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`, `pine-light`, each naming its
+  `colorScheme`), color schemes (`contributes.colorSchemes`, the 26 in `plugins/colorSchemes.ts`;
+  catalog and sources in `docs/DESIGN.md` §3), LSP entries, locales (`en`, `zh-Hant`).
   These are data-only contributions; behavior and UI come from extensions (§11), listed in the
   same Settings → Plugins section.
 - i18n: typed catalogs in `i18n/dict.ts`, read via `useDict()`.
@@ -1288,8 +1302,12 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
 
 - **Monaco** (`monaco/setup.ts`, `components/Editor.tsx`):
   - Workers are bundled with Vite `?worker` imports (editor, json, css, html, ts), with no CDN.
-  - The editor uses `one-dark-vivid` for dark app themes and `pine-light` for light ones
-    (`monaco/useMonacoTheme.ts`; `monaco.editor.setTheme` is global, so every open editor follows).
+  - The editor theme is derived from the scheme `useScheme('editor')` resolves from
+    `editor.theme` (same rules as the terminal): `monacoThemeData` (`monaco/monacoTheme.ts`, pure)
+    maps ANSI colors onto Monaco token rules and editor colors, and `useMonacoTheme` defines it as
+    `pine-scheme-<id>` and sets it (`monaco.editor.setTheme` is global, so every open editor and
+    diff follows). Why derive instead of shipping Monaco themes: one scheme then colors the terminal,
+    the editor and the Settings preview identically, and a plugin scheme gets an editor theme free.
   - Ctrl/Cmd+S saves through `fs.write`. Dirty state compares `getAlternativeVersionId` with the
     saved version (mirrored to `editorStatusStore`).
   - Files with a NUL byte in the first 8 KB are not opened.
@@ -1497,8 +1515,13 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
     and its `updated` event do. Main pushes `window:system-dark-changed`; `boot()` reads the
     initial value before the first render so a light OS does not flash the dark theme.
   - The accent is applied over the theme tokens by `themedTokens`, and extension panels get the
-    same tokens (`--pine-brand`). A color that reads under 4.5:1 on the theme background is moved
-    toward black or white until it does.
+    same tokens (`--pine-brand`, `--pine-on-brand`). A color that reads under 4.5:1 on the theme
+    background is moved toward black or white until it does. `themedTokens` always adds
+    `on-brand` (`readableOn`), the text color for brand fills, and `index.css` points
+    `--primary-foreground` and `--sidebar-primary-foreground` at `--color-on-brand`. Why: the
+    shadcn foregrounds used to be the theme background, overridden inline only for a custom
+    accent, so the sidebar variant kept the background color and a theme brand never got a
+    contrast check. One computed token keeps every brand fill readable for any theme and accent.
   - Zoom is `window:set-zoom` (clamped to 80 to 150 in main, per sender). The terminal re-fits
     through its existing debounced `ResizeObserver` (the CSS viewport changes with the zoom), so
     the prompt-aware resize path in §6 is the only code that resizes the pty; there is no
@@ -1851,6 +1874,63 @@ the extension dir (percent-decoded, query and hash kept); for a `url` panel it p
 the process in `ext.panel` so the extension can build the URL with its own secret. Either way the
 result must pass `isAllowedPanelUrl` before it is returned. Why re-check in main: setting a
 webview's `src` does not fire `will-navigate`, so the attach-time check is the only other guard.
+
+**Assist** (`shared/assist.ts`, `ExtensionHost.assist*`, `main/assistIpc.ts`). Four hook points an
+extension can serve: `input` (typo fix and prompt review of a draft for an agent), `command`
+(natural language to shell command suggestions), `completion` (inline code completion in the
+editor) and `chat` (the palette's Ask conversation). The core UI for each is tool-agnostic; the
+extension owns providers, prompts and requests.
+- Declared by `contributes.assist` and gated by the `assist` capability (the manifest is rejected
+  without it; the host routes only to an extension whose granted caps include it). An extension
+  that contributes assist starts with the window, like one with sidebar items, so it can report
+  `ext.setAssistStatus {status: {<point>: {ready, label?}}}` (needs `assist`). Only points that are
+  contributed and `ready` count; `assistAvailability()` names the first such extension per point
+  (built-ins first) with its label, and main pushes it on `assist:availability` whenever the
+  extension list or a status changes and drops it when the extension stops. Why a status the
+  extension reports instead of "has a manifest entry": the built-in assistant is installed and
+  enabled for everyone but must stay invisible until the human configures a provider.
+- `assist:request (point, requestId, input)` normalizes the input in main
+  (`normalizeAssistRequest`: known fields only, size caps, a chat must end with a user turn,
+  context kinds from a fixed list) before anything reaches the extension, then sends
+  `ext.assist {point, requestId, input}` with a jsonrpc cancellation token. The reply is
+  normalized again (`normalizeAssistResult`), or mapped to a typed failure when it is
+  `{error: <AssistError>, message?}` (the SDK turns an `AssistFailure` thrown in the handler into
+  that). Timeouts: 30 s, 5 min for chat.
+- Streaming: the extension calls `ext.assistChunk {requestId, text}` (needs `assist`) for each
+  delta; main forwards it on `assist:chunk` to the window that asked and answers `{live}` so the
+  extension stops producing once the request is gone. Chunks are capped (16 KiB each, 100k
+  characters per reply). Why chunk requests rather than notifications: the control server only
+  dispatches requests, and a request gives the extension backpressure for free.
+- Cancellation: `assist:cancel (requestId)` from the renderer (Stop, a closed palette, a newer
+  keystroke) cancels the token; main answers `cancelled` at once without waiting for the
+  extension, and the SDK hands the handler an aborted `AbortSignal`. A window that closes cancels
+  everything it left running. At most 8 requests per window run at once (`busy`); debouncing is
+  the renderer's job, rate limiting the extension's.
+- What reaches the extension is only what the human's action put in the request: the draft they
+  typed in the composer, the words after `# ` in the input editor, the code around the cursor of
+  the file they are editing, and in Ask only the context chips they switched on (recent output,
+  selection, folder, pane chips) or the failed block they asked to explain.
+- Renderer: `stores/assistStore.ts` keeps the availability and wraps a request (`assistRequest`:
+  a fresh request id, chunks filtered by id, an `AbortSignal` that sends `assist:cancel`).
+  `AssistComposer.tsx` (chord `assist.compose`) sits over the bottom of a terminal pane without
+  resizing it: over a running agent it debounces typo requests (700 ms), shows the fix as a
+  word diff applied only on Tab, reviews on Ctrl/⌘+Enter, and pastes the draft through
+  `canInsertReference` without Enter; at an idle shell prompt it lists command suggestions and
+  inserts the pick with `insertCommand` without Enter. `InputEditor.tsx` asks `command` for a
+  `# ` draft (600 ms) and replaces the draft only on Tab/Enter. `monaco/inlineAssist.ts` is one
+  inline-completions provider for every language (300 ms debounce, Monaco's cancellation token
+  wired to the request) that answers nothing while no `completion` provider is ready. Ask lives
+  in the palette (`AskView.tsx`, `stores/askStore.ts`, in memory per workspace; closing the
+  palette stops the stream) with context chips from `lib/askContext.ts`.
+
+**Extension secrets** (`main/extensionSecrets.ts`). `contributes.secrets` declares up to 8 keys
+with descriptions. Settings → Plugins shows a password field per key; `extensions:set-secret`
+encrypts the value with `safeStorage` into `extension-secrets.json` in the data dir (mode 0600,
+never synced, refused when encryption is unavailable). The renderer only learns which keys are
+set (`ExtensionInfo.secretsSet`); the extension reads its own declared keys with
+`ext.getSecret {key}`, and gets `settings.changed` when the human changes one so it re-reads it.
+Why not a string setting: `extensionSettings` lives in `settings.json`, which the renderer
+holds whole and settings sync copies to a folder the user shares.
 
 **Git** (`src/extensions/git/`, the first built-in written for the API rather than migrated):
 - Sidebar: per workspace, the repo of the workspace's active pane cwd (else the last active

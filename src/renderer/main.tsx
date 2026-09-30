@@ -9,6 +9,8 @@ import './index.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { startAskCommand } from './commands/askCommand'
+import { startAssistCompose } from './commands/assistCompose'
 import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
 import { wireExtensionBridge } from './commands/extensionBridge'
@@ -23,6 +25,7 @@ import { registerViewCommands, startViews } from './lib/views'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startWorkspaceProjects } from './lib/workspaceProjects'
 import { startApprovals } from './stores/approvalsStore'
+import { startAssistAvailability } from './stores/assistStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { useSettingsStore } from './stores/settingsStore'
@@ -71,6 +74,9 @@ async function boot(): Promise<void> {
   startUserActions()
   startViews()
   startUpdateWatch()
+  startAssistAvailability()
+  startAskCommand()
+  startAssistCompose()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(

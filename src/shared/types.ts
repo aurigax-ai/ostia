@@ -1,6 +1,7 @@
 import type { AgentResume } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
+import type { AssistApi } from './assist'
 import type {
   BrowserStorageRead,
   StorageEdit,
@@ -244,6 +245,7 @@ export interface SnapshotWorkspace {
   groupId?: string
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
+  projectDir?: string
   root?: SnapshotNode
   activePaneId?: string
 }
@@ -356,6 +358,7 @@ export interface SelectionApi {
 export interface WorkspaceProject {
   name: string
   display: string
+  dir: string
 }
 
 export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'program' | 'failed' }
@@ -523,6 +526,7 @@ export interface PineBridge {
   notifications: NotificationsApi
   workflows: WorkflowsApi
   completions: CompletionsApi
+  assist: AssistApi
   iconThemes: IconThemesApi
   views: ViewsApi
 }
