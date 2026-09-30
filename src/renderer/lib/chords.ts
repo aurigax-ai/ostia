@@ -27,6 +27,9 @@ export type AppChord =
   | 'agent.resume'
   | 'workspace.goto'
   | 'selection.sendToAgent'
+  | 'view.zoomIn'
+  | 'view.zoomOut'
+  | 'view.zoomReset'
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
@@ -54,6 +57,9 @@ export const DEFAULT_CHORDS: Readonly<
   'agent.resume': ['Cmd+Shift+R', 'Ctrl+Shift+R'],
   'workspace.goto': [`Cmd+${DIGIT_RANGE}`, `Ctrl+${DIGIT_RANGE}`],
   'selection.sendToAgent': ['Cmd+Shift+E', 'Ctrl+Shift+E'],
+  'view.zoomIn': ['Cmd+=', 'Ctrl+='],
+  'view.zoomOut': ['Cmd+-', 'Ctrl+Shift+-'],
+  'view.zoomReset': ['Cmd+0', 'Ctrl+0'],
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
   paste: ['Cmd+V', 'Ctrl+Shift+V'],
   find: ['Cmd+F', 'Ctrl+Shift+F'],

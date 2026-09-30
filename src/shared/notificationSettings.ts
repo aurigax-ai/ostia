@@ -5,6 +5,7 @@ export interface NotificationSettings {
   agentWaiting: boolean
   agentDone: boolean
   commandFinished: boolean
+  command: string
 }
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
@@ -14,6 +15,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   agentWaiting: true,
   agentDone: true,
   commandFinished: true,
+  command: '',
 }
 
 export function parseNotificationSettings(raw: unknown): NotificationSettings {
@@ -21,7 +23,9 @@ export function parseNotificationSettings(raw: unknown): NotificationSettings {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out
   const source = raw as Record<string, unknown>
   for (const key of Object.keys(out) as (keyof NotificationSettings)[]) {
-    if (typeof source[key] === 'boolean') out[key] = source[key]
+    if (key === 'command') {
+      if (typeof source.command === 'string') out.command = source.command
+    } else if (typeof source[key] === 'boolean') out[key] = source[key]
   }
   return out
 }

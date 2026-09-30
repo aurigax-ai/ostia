@@ -81,6 +81,7 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `selectionReport.ts` | Send-selection reports from file views: `selection:send` IPC, `selection-N.md` + PNG (§9) |
 | `fsBinary.ts` | `fs:read-binary`: confined, size-capped byte reads for the image and PDF viewers (§9) |
 | `externalEditor.ts` | "Open in External Editor": resolves `behavior.externalEditor` (or auto-detects code/cursor/zed on `PATH`) and spawns it with an argv array (§9) |
+| `notifyCommand.ts` | Runs `notifications.command` for each recorded notification: argv split, placeholders `{title}` `{body}` `{pane}`, `shell: false` (§5) |
 | `gateway/` | LAN gateway: `index.ts` (methods + IPC), `server.ts`, `controlDispatch.ts`, `devices.ts`, `pairing.ts`, `cert.ts`, `interfaces.ts` (§7) |
 
 Why the control-plane modules never import `main/index.ts`: that creates an import cycle.
@@ -360,8 +361,8 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - Main keeps the snapshot only if its `generation` is ≥ the cached one.
   - Main emits `pane.state` only when a field actually changed.
 - **Terminal palette** (`components/terminalTheme.ts`): xterm draws to canvas and can't read CSS
-  variables, so each theme's palette is duplicated here. Only `adeberry` and `one-dark-vivid` have
-  palettes; other themes fall back to One Dark Vivid.
+  variables, so each theme's palette is duplicated here. Only `adeberry`, `one-dark-vivid` and
+  `pine-light` have palettes; other themes fall back to One Dark Vivid.
 
 ## 5. Renderer model
 
@@ -614,7 +615,7 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
   - `settings/schema.ts` registers a JSON Schema for that file with Monaco.
 - `plugins/builtin.ts` is a registry of built-in contributions only: themes (`adeberry`,
-  `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`), LSP entries, locales (`en`, `zh-Hant`).
+  `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`, `pine-light`), LSP entries, locales (`en`, `zh-Hant`).
   These are data-only contributions; behavior and UI come from extensions (§11), listed in the
   same Settings → Plugins section.
 - i18n: typed catalogs in `i18n/dict.ts`, read via `useDict()`.
@@ -897,7 +898,8 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
 
 - **Monaco** (`monaco/setup.ts`, `components/Editor.tsx`):
   - Workers are bundled with Vite `?worker` imports (editor, json, css, html, ts), with no CDN.
-  - The editor uses the single `one-dark-vivid` Monaco theme; it does not yet follow the app theme.
+  - The editor uses `one-dark-vivid` for dark app themes and `pine-light` for light ones
+    (`monaco/useMonacoTheme.ts`; `monaco.editor.setTheme` is global, so every open editor follows).
   - Ctrl/Cmd+S saves through `fs.write`. Dirty state compares `getAlternativeVersionId` with the
     saved version (mirrored to `editorStatusStore`).
   - Files with a NUL byte in the first 8 KB are not opened.
@@ -999,6 +1001,23 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   - `settings.set` (agents, phone) refuses `behavior.externalEditor`, directly or through a
     `behavior` object. Why: it names a program pine runs on the user's click, so only the human
     edits it (Settings → Files, or `settings.json`).
+- **Appearance settings** (`lib/theme.ts`, `lib/color.ts`, `stores/systemThemeStore.ts`):
+  - The effective theme is `theme`, or with `followSystem` the `lightTheme`/`darkTheme` picked by
+    the OS. Why main and not `matchMedia`: in Electron on Linux `prefers-color-scheme` does not
+    follow `nativeTheme.themeSource` (verified under xvfb), while `nativeTheme.shouldUseDarkColors`
+    and its `updated` event do. Main pushes `window:system-dark-changed`; `boot()` reads the
+    initial value before the first render so a light OS does not flash the dark theme.
+  - The accent is applied over the theme tokens by `themedTokens`, and extension panels get the
+    same tokens (`--pine-brand`). A color that reads under 4.5:1 on the theme background is moved
+    toward black or white until it does.
+  - Zoom is `window:set-zoom` (clamped to 80 to 150 in main, per sender). The terminal re-fits
+    through its existing debounced `ResizeObserver` (the CSS viewport changes with the zoom), so
+    the prompt-aware resize path in §6 is the only code that resizes the pty; there is no
+    separate zoom fit. `e2e/appearance.spec.ts` covers the chords.
+  - `notifications.command` runs from `record()` in `main/notify.ts`, so it fires for every
+    recorded notification (terminal, agent and extension), even with desktop banners off. Like
+    `behavior.externalEditor` it is split into argv first and substituted per argument with
+    `shell: false`, and `settings.set` refuses it (directly or through `notifications`).
 - **LSP**:
   - `main/lsp.ts` spawns pyright, rust-analyzer, gopls, clangd, bash-, lua-, json- and
     yaml-language-server when they are on `PATH` (a POSIX `:` split).

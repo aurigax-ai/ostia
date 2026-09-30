@@ -156,11 +156,28 @@ describe('workspace digits', () => {
     expect(workspaceDigit('9')).toBe(8)
   })
 
-  it('leaves Ctrl+0, Ctrl+Shift+digit and plain digits to the shell', () => {
-    expect(matchChord(key('0', { ctrlKey: true }), false)).toBeNull()
+  it('keeps Ctrl+0 for zoom reset and leaves Ctrl+Shift+digit and plain digits to the shell', () => {
+    expect(matchChord(key('0', { ctrlKey: true }), false)).toBe('view.zoomReset')
     expect(matchChord(key('1', { ctrlKey: true, shiftKey: true }), false)).toBeNull()
     expect(matchChord(key('1'), false)).toBeNull()
     expect(workspaceDigit('0')).toBeNull()
+  })
+})
+
+describe('zoom chords', () => {
+  it('zooms with Ctrl+= and Ctrl+Shift+- and leaves Ctrl+- (readline undo) to the shell', () => {
+    expect(matchChord(key('=', { ctrlKey: true, code: 'Equal' }), false)).toBe('view.zoomIn')
+    expect(matchChord(key('_', { ctrlKey: true, shiftKey: true, code: 'Minus' }), false)).toBe(
+      'view.zoomOut',
+    )
+    expect(matchChord(key('-', { ctrlKey: true, code: 'Minus' }), false)).toBeNull()
+    expect(isAppChord('view.zoomIn')).toBe(true)
+  })
+
+  it('uses Cmd on macOS', () => {
+    expect(matchChord(key('=', { metaKey: true, code: 'Equal' }), true)).toBe('view.zoomIn')
+    expect(matchChord(key('-', { metaKey: true, code: 'Minus' }), true)).toBe('view.zoomOut')
+    expect(matchChord(key('0', { metaKey: true, code: 'Digit0' }), true)).toBe('view.zoomReset')
   })
 })
 

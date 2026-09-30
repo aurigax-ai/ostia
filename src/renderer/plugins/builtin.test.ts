@@ -43,11 +43,18 @@ const REQUIRED_TOKEN_KEYS = [
 ].sort()
 
 describe('BUILTIN_PLUGINS', () => {
-  it('advertises exactly the five contracted theme ids', () => {
+  it('advertises exactly the six contracted theme ids', () => {
     const ids = themes()
       .map((t) => t.id)
       .sort()
-    expect(ids).toEqual(['adeberry', 'dracula', 'instrument-night', 'one-dark-vivid', 'oxocarbon'])
+    expect(ids).toEqual([
+      'adeberry',
+      'dracula',
+      'instrument-night',
+      'one-dark-vivid',
+      'oxocarbon',
+      'pine-light',
+    ])
   })
 
   it('gives every theme exactly the required token-key set (no missing, no extra tokens)', () => {
@@ -84,9 +91,22 @@ describe('BUILTIN_PLUGINS', () => {
     }
   })
 
-  it('marks every theme as dark appearance', () => {
+  it('marks every theme as dark except pine-light', () => {
     for (const theme of themes()) {
-      expect(theme.appearance, theme.id).toBe('dark')
+      expect(theme.appearance, theme.id).toBe(theme.id === 'pine-light' ? 'light' : 'dark')
+    }
+  })
+
+  it('keeps every text token of the light theme at 4.5:1 or better on all its surfaces', () => {
+    const { tokens } = themes().find((t) => t.id === 'pine-light') as Theme
+    const surfaces = ['bg', 'bg-sunken', 'surface-1', 'surface-2', 'surface-3']
+    for (const text of ['fg', 'fg-muted', 'brand', 'brand-bright', 'attn-fg', 'ok']) {
+      for (const surface of surfaces) {
+        expect(
+          contrast(tokens[text], tokens[surface]),
+          `${text} on ${surface}`,
+        ).toBeGreaterThanOrEqual(4.5)
+      }
     }
   })
 
