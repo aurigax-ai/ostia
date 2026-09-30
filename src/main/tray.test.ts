@@ -85,27 +85,58 @@ describe('AppTray', () => {
 
 describe('closeAction', () => {
   it('MGR-C1 hides the window when close-to-tray is on', () => {
-    expect(closeAction({ quitApproved: false, closeToTray: true, startedHidden: false })).toBe(
-      'hide',
-    )
+    expect(
+      closeAction({
+        quitApproved: false,
+        closeToTray: true,
+        startedHidden: false,
+        managerLive: false,
+      }),
+    ).toBe('hide')
   })
 
   it('MGR-C2 closes the window when close-to-tray is off', () => {
-    expect(closeAction({ quitApproved: false, closeToTray: false, startedHidden: false })).toBe(
-      'close',
-    )
+    expect(
+      closeAction({
+        quitApproved: false,
+        closeToTray: false,
+        startedHidden: false,
+        managerLive: false,
+      }),
+    ).toBe('close')
   })
 
   it('MGR-C1 hides the window when Pine was started hidden, even with the setting off', () => {
-    expect(closeAction({ quitApproved: false, closeToTray: false, startedHidden: true })).toBe(
-      'hide',
-    )
+    expect(
+      closeAction({
+        quitApproved: false,
+        closeToTray: false,
+        startedHidden: true,
+        managerLive: false,
+      }),
+    ).toBe('hide')
   })
 
   it('MGR-C6 closes instead of hiding once a quit was approved', () => {
-    expect(closeAction({ quitApproved: true, closeToTray: true, startedHidden: true })).toBe(
-      'close',
-    )
+    expect(
+      closeAction({
+        quitApproved: true,
+        closeToTray: true,
+        startedHidden: true,
+        managerLive: true,
+      }),
+    ).toBe('close')
+  })
+
+  it('MGR-C19 hides the window while a manager is live, even with close-to-tray off', () => {
+    expect(
+      closeAction({
+        quitApproved: false,
+        closeToTray: false,
+        startedHidden: false,
+        managerLive: true,
+      }),
+    ).toBe('hide')
   })
 })
 

@@ -1,4 +1,5 @@
 import {
+  BroadcastIcon,
   FileCodeIcon,
   GitDiffIcon,
   GlobeIcon,
@@ -55,6 +56,7 @@ const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
   browser: GlobeIcon,
   extension: extensionIcon(undefined),
   diff: GitDiffIcon,
+  manager: BroadcastIcon,
 }
 
 const PANE_DND = 'application/x-pine-pane'

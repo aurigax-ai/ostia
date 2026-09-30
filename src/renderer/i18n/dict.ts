@@ -513,6 +513,11 @@ export const en = {
     wrapTitles: 'Wrap long titles',
     wrapTitlesDesc: 'Show workspace names on up to two lines instead of cutting them off.',
   },
+  manager: {
+    workspaceName: 'Manager · {agent}',
+    readOnly: 'Read-only. Type in the terminal that opened the manager.',
+    ended: 'The manager has ended.',
+  },
   closeConfirm: {
     workspaceTitle: 'Close this workspace?',
     workspaceBody: 'Commands are still running in it. Closing stops them.',
@@ -1368,6 +1373,11 @@ export const zhHant: Dict = {
     closeToTrayDesc: '關閉視窗時會隱藏視窗，終端機繼續執行。可從系統匣圖示重新顯示或結束。',
     wrapTitles: '長標題換行',
     wrapTitlesDesc: '工作區名稱最多顯示兩行，而不是截斷。',
+  },
+  manager: {
+    workspaceName: '管理員 · {agent}',
+    readOnly: '唯讀。請在開啟管理員的終端機中輸入。',
+    ended: '管理員已結束。',
   },
   closeConfirm: {
     workspaceTitle: '要關閉此工作區嗎？',

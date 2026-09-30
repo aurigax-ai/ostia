@@ -24,6 +24,10 @@ export function runningCommandsOf(
 }
 
 function runningGroup(workspace: Workspace): RunningGroup | null {
+  const name = workspace.customName ?? workspace.name
+  if (workspace.kind === 'manager') {
+    return { workspaceId: workspace.id, workspace: name, commands: [name] }
+  }
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
   if (!layout) return null
   const { running, byPane } = useBlocksStore.getState()

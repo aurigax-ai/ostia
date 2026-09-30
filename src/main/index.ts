@@ -64,6 +64,7 @@ import {
   windowOfWorkspace,
 } from './idRegistry'
 import { killAllLsp, registerLspIpc } from './lsp'
+import { ManagerService, parseManagerAgents } from './manager'
 import {
   postNotification,
   postPanelNotification,
@@ -73,6 +74,14 @@ import {
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
+import {
+  type MirrorHandle,
+  type MirrorSink,
+  Portal,
+  portalSocketPath,
+  portalSupported,
+} from './portal'
+import { callerVerdict, procFs, ttysOf } from './portalCaller'
 import { privateTmpDir } from './privateTmp'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
@@ -122,6 +131,8 @@ interface PtyEntry {
   killTimer: ReturnType<typeof setTimeout> | null
   spawnPath: string
   stateFile: string
+  keepAlive: boolean
+  exitListeners: Set<(code: number) => void>
 }
 
 const ptys = new Map<string, PtyEntry>()
@@ -331,6 +342,8 @@ let quitAsking = false
 const approvedWindows = new WeakSet<BrowserWindow>()
 const startedHidden = app.commandLine.hasSwitch('hidden')
 let appTray: AppTray | null = null
+let managerService: ManagerService | null = null
+let portal: Portal | null = null
 
 function wireWindow(win: BrowserWindow): void {
   win.once('ready-to-show', () => {
@@ -344,6 +357,7 @@ function wireWindow(win: BrowserWindow): void {
       quitApproved,
       closeToTray: readCloseToTray(readSettingsFile()),
       startedHidden,
+      managerLive: managerService?.live != null,
     })
     if (action === 'hide' && appTray) {
       event.preventDefault()
@@ -531,6 +545,7 @@ function registerIpc(): void {
         })
       }
       extensionHost?.clearPaneChips(event.paneId)
+      if (managerService?.isManagerPane(event.paneId)) killPty(event.paneId)
       dropRestoredScrollback(event.paneId)
       hibernatedPanes.delete(event.paneId)
       removePane(event.paneId)
@@ -679,8 +694,16 @@ function registerPtyIpc(): void {
       existing.subs.set(subId, e.sender)
       existing.session.addLiveSubscriber(mkSub())
       const { data, cursor, dropped } = existing.session.since(opts.sinceCursor ?? 0)
-      return { created: false, buffer: data, cursor, dropped }
+      return {
+        created: false,
+        buffer: data,
+        cursor,
+        dropped,
+        cols: existing.pty.cols,
+        rows: existing.pty.rows,
+      }
     }
+    if (opts.attachOnly) return { created: false, buffer: '', cursor: 0, dropped: false }
 
     const mod = loadPty()
     if (!mod) {
@@ -716,33 +739,15 @@ function registerPtyIpc(): void {
       cwd: resolveCwd(opts.cwd),
       env,
     })
-    const session = new PtySession({
-      capBytes: PTY_BUFFER_CAP,
-      onNoOwners: () => {
-        if (ptys.get(paneId) !== entry || entry.killTimer) return
-        entry.killTimer = setTimeout(() => killPty(paneId), DETACH_GRACE_MS)
-      },
-      onExit: (code) => {
-        if (entry.killTimer) clearTimeout(entry.killTimer)
-        entry.killTimer = null
-        for (const wc of entry.subs.values()) {
-          if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code)
-        }
-        entry.mirror.dispose()
-        removeStateFile(entry)
-        if (ptys.get(paneId) === entry) ptys.delete(paneId)
-      },
-    })
-    const entry: PtyEntry = {
-      pty,
-      session,
-      mirror: new ScreenMirror(cols, rows),
+    const entry = trackPty(paneId, pty, {
+      cols,
+      rows,
       subs: new Map([[subId, e.sender]]),
-      killTimer: null,
       spawnPath: env.PATH ?? '',
       stateFile,
-    }
-    ptys.set(paneId, entry)
+      keepAlive: false,
+    })
+    const { session } = entry
 
     const history = takeRestoredScrollback(paneId)
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
@@ -791,8 +796,142 @@ function registerPtyIpc(): void {
     },
   )
   ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
-    resizePty(ptys.get(paneId), cols, rows)
+    const entry = ptys.get(paneId)
+    if (!entry?.keepAlive) resizePty(entry, cols, rows)
   })
+}
+
+function trackPty(
+  paneId: string,
+  pty: IPty,
+  opts: {
+    cols: number
+    rows: number
+    subs: Map<string, Electron.WebContents>
+    spawnPath: string
+    stateFile: string
+    keepAlive: boolean
+  },
+): PtyEntry {
+  const session = new PtySession({
+    capBytes: PTY_BUFFER_CAP,
+    onNoOwners: () => {
+      if (ptys.get(paneId) !== entry || entry.killTimer || entry.keepAlive) return
+      entry.killTimer = setTimeout(() => killPty(paneId), DETACH_GRACE_MS)
+    },
+    onExit: (code) => {
+      if (entry.killTimer) clearTimeout(entry.killTimer)
+      entry.killTimer = null
+      for (const wc of entry.subs.values()) {
+        if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code)
+      }
+      for (const listener of entry.exitListeners) listener(code)
+      entry.mirror.dispose()
+      removeStateFile(entry)
+      if (ptys.get(paneId) === entry) ptys.delete(paneId)
+    },
+  })
+  const entry: PtyEntry = {
+    pty,
+    session,
+    mirror: new ScreenMirror(opts.cols, opts.rows),
+    subs: opts.subs,
+    killTimer: null,
+    spawnPath: opts.spawnPath,
+    stateFile: opts.stateFile,
+    keepAlive: opts.keepAlive,
+    exitListeners: new Set(),
+  }
+  ptys.set(paneId, entry)
+  return entry
+}
+
+function paneEnv(paneId: string, windowId: string, cwd: string): Record<string, string> {
+  const identity = registerPane({ windowId, workspaceId: '', paneId })
+  return {
+    PINE_PANE_ID: identity.externalId,
+    PINE_TOKEN: identity.token,
+    PINE_START_DIR: cwd,
+    PINE_SOCKET: controlSocketPath(),
+    PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
+    PINE_NODE: process.execPath,
+  }
+}
+
+function spawnManagerPty(req: {
+  paneId: string
+  argv: string[]
+  cwd: string
+  cols: number
+  rows: number
+  path?: string
+  onExit: () => void
+}): boolean {
+  const mod = loadPty()
+  const windowId = primaryWindowId()
+  const [file, ...args] = req.argv
+  if (!mod || !windowId || !file) return false
+  const cwd = resolveCwd(req.cwd)
+  const env = {
+    ...process.env,
+    ...(req.path === undefined ? {} : { PATH: req.path }),
+    ...paneEnv(req.paneId, windowId, cwd),
+  } as Record<string, string>
+  let pty: IPty
+  try {
+    pty = mod.spawn(file, args, {
+      name: 'xterm-256color',
+      cols: req.cols,
+      rows: req.rows,
+      cwd,
+      env,
+    })
+  } catch (err) {
+    console.error('[manager] spawn failed', err)
+    return false
+  }
+  const entry = trackPty(req.paneId, pty, {
+    cols: req.cols,
+    rows: req.rows,
+    subs: new Map(),
+    spawnPath: env.PATH ?? '',
+    stateFile: join(privateTmpDir('pine-shell-state'), randomUUID()),
+    keepAlive: true,
+  })
+  entry.exitListeners.add(() => req.onExit())
+  pty.onData((d) => feedPty(entry, d))
+  pty.onExit(({ exitCode }) => entry.session.exit(exitCode))
+  return true
+}
+
+const MIRROR_SUBSCRIBER = 'portal-mirror'
+
+function attachMirror(paneId: string, sink: MirrorSink): MirrorHandle | null {
+  const entry = ptys.get(paneId)
+  if (!entry) return null
+  const onExit = (code: number): void => sink.exit(code)
+  entry.exitListeners.add(onExit)
+  entry.session.addSubscriber(
+    { id: MIRROR_SUBSCRIBER, role: 'owner', send: (data) => sink.data(data) },
+    0,
+  )
+  return {
+    write: (data) => {
+      if (ptys.get(paneId) === entry) entry.pty.write(data)
+    },
+    resize: (cols, rows) => {
+      if (ptys.get(paneId) !== entry) return
+      if (entry.pty.cols === cols && entry.pty.rows === rows) return
+      resizePty(entry, cols, rows)
+      for (const wc of entry.subs.values()) {
+        if (!wc.isDestroyed()) wc.send(`pty:size:${paneId}`, cols, rows)
+      }
+    },
+    detach: () => {
+      entry.exitListeners.delete(onExit)
+      entry.session.removeSubscriber(MIRROR_SUBSCRIBER)
+    },
+  }
 }
 
 function registerFsIpc(): void {
@@ -937,6 +1076,7 @@ function readSettingsFile(): {
   locale?: unknown
   extensionSettings?: unknown
   workspaces?: unknown
+  manager?: unknown
 } {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
@@ -979,6 +1119,85 @@ function openTerminalInWindow(req: TerminalOpenRequest): Promise<string | null> 
     ipcMain.on('extensions:open-terminal-result', onResult)
     win.webContents.send('extensions:open-terminal', { ...payload, requestId })
   })
+}
+
+const MANAGER_READY_TIMEOUT_MS = 20_000
+const MANAGER_OPEN_TIMEOUT_MS = 5000
+const managerReadyWindows = new Set<string>()
+const managerReadyWaiters = new Set<() => void>()
+let managerOpenSeq = 0
+
+function registerManagerIpc(): void {
+  ipcMain.on('manager:ready', (e) => {
+    managerReadyWindows.add(String(e.sender.id))
+    for (const wake of managerReadyWaiters) wake()
+    managerReadyWaiters.clear()
+  })
+}
+
+function managerWindow(): Promise<BrowserWindow | null> {
+  const ready = (): BrowserWindow | null => {
+    for (const [id, win] of windows) {
+      if (!win.isDestroyed() && managerReadyWindows.has(id)) return win
+    }
+    return null
+  }
+  const now = ready()
+  if (now) return Promise.resolve(now)
+  return new Promise((resolve) => {
+    const wake = (): void => {
+      clearTimeout(timer)
+      managerReadyWaiters.delete(wake)
+      resolve(ready())
+    }
+    const timer = setTimeout(wake, MANAGER_READY_TIMEOUT_MS)
+    managerReadyWaiters.add(wake)
+  })
+}
+
+async function createManagerPane(req: { agent: string; cwd: string }): Promise<string | null> {
+  const win = await managerWindow()
+  if (!win) return null
+  const wid = String(win.webContents.id)
+  const requestId = `manager-${++managerOpenSeq}`
+  return new Promise((resolve) => {
+    const finish = (paneId: string | null): void => {
+      clearTimeout(timer)
+      ipcMain.removeListener('manager:open-result', onResult)
+      resolve(paneId)
+    }
+    const onResult = (e: Electron.IpcMainEvent, rid: unknown, paneId: unknown): void => {
+      if (rid !== requestId || String(e.sender.id) !== wid) return
+      finish(typeof paneId === 'string' && paneId ? paneId : null)
+    }
+    const timer = setTimeout(() => finish(null), MANAGER_OPEN_TIMEOUT_MS)
+    ipcMain.on('manager:open-result', onResult)
+    win.webContents.send('manager:open', requestId, req)
+  })
+}
+
+function startPortal(): void {
+  if (!managerService || !portalSupported(process.platform)) return
+  const service = managerService
+  portal = new Portal(portalSocketPath(app.isPackaged), {
+    judge: (socket) =>
+      callerVerdict(socket, {
+        mainPid: process.pid,
+        paneTtys: ttysOf(
+          [...ptys.values()].map((entry) => entry.pty.pid),
+          procFs,
+        ),
+        proc: procFs,
+      }),
+    manager: service,
+    attachMirror,
+  })
+  portal
+    .start()
+    .then((started) => {
+      if (!started) console.warn('[portal] another Pine owns the portal socket')
+    })
+    .catch((err) => console.error('[portal] failed to start', err))
 }
 
 function emitFocusChanged(): void {
@@ -1080,6 +1299,13 @@ app.whenReady().then(() => {
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
+  registerManagerIpc()
+  managerService = new ManagerService({
+    agents: () => parseManagerAgents(readSettingsFile()),
+    createPane: createManagerPane,
+    spawn: spawnManagerPty,
+  })
+  startPortal()
   appTray = new AppTray({
     iconPath: appIcon,
     tooltip: PRODUCT_NAME,
@@ -1150,6 +1376,7 @@ app.on('before-quit', (event) => {
   extensionHost?.stopAll()
   settingsSync?.stop()
   stopControlServer()
+  portal?.stop()
   void stopGateway()
   appTray?.remove()
 })

@@ -51,7 +51,7 @@ import { isPromptRepaint, nextSizeAction } from './terminalSizing'
 import { terminalPalette } from './terminalTheme'
 
 const MONO_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
-const fontStack = (family: string): string => `"${family}", ${MONO_FALLBACK}`
+export const fontStack = (family: string): string => `"${family}", ${MONO_FALLBACK}`
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 
 export function TerminalView({

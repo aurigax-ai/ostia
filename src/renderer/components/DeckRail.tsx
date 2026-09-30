@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import {
+  BroadcastIcon,
   CaretDownIcon,
   CaretRightIcon,
   FlaskIcon,
@@ -64,6 +65,7 @@ const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
   agent: RobotIcon,
   terminal: TerminalWindowIcon,
   scratch: FlaskIcon,
+  manager: BroadcastIcon,
 }
 
 const WORKSPACE_DND = 'application/x-pine-workspace'
