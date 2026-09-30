@@ -7,6 +7,7 @@ import type {
   StorageRemoval,
   StorageWriteResult,
 } from './browserStorage'
+import type { BuildInfo } from './buildInfo'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { SpecCommand } from './completionSpec'
 import type {
@@ -335,6 +336,12 @@ export interface SelectionApi {
   send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
 }
 
+export interface AppUpdateApi {
+  state: () => Promise<BuildInfo | null>
+  restart: () => Promise<void>
+  onAvailable: (cb: (info: BuildInfo) => void) => () => void
+}
+
 export interface CredentialsApi {
   list: () => Promise<CredentialSummary[]>
   save: (input: CredentialInput) => Promise<CredentialSaveResult>
@@ -461,6 +468,7 @@ export interface PineBridge {
   selection: SelectionApi
   approvals: ApprovalsApi
   credentials: CredentialsApi
+  update: AppUpdateApi
   extensions: ExtensionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi

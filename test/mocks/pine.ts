@@ -87,6 +87,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     selection: {
       send: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
     },
+    update: {
+      state: vi.fn().mockResolvedValue(null),
+      restart: vi.fn().mockResolvedValue(undefined),
+      onAvailable: vi.fn(() => () => {}),
+    },
     credentials: {
       list: vi.fn().mockResolvedValue([]),
       save: vi.fn().mockResolvedValue({ ok: true, id: 'c1', updated: false }),

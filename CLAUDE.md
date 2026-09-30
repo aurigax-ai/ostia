@@ -54,7 +54,7 @@ Package manager is **pnpm** only.
 | Command | What it does | Run it when |
 |---|---|---|
 | `pnpm dev` | electron-vite dev (HMR renderer, main/preload reload) | Daily development |
-| `pnpm build` | Build `out/{main,preload,renderer}`, the `pine` CLI, and the built-in extensions (`out/extensions`) | Before `preview` / E2E |
+| `pnpm build` | Build `out/{main,preload,renderer}`, the `pine` CLI, the built-in extensions (`out/extensions`), and the build stamp `out/build-info.json` (version, commit, time; packaged as `resources/build-info.json`) | Before `preview` / E2E |
 | `pnpm build:extensions` | Only the built-in extensions (`scripts/build-extensions.mjs`) | After editing `src/extensions/**` while `pnpm dev` runs |
 | `pnpm preview` | Run the built app | Smoke-test a build |
 | `pnpm package` | `build` + electron-builder → `dist/linux-unpacked/` | Producing an installable build |
