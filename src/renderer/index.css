@@ -914,6 +914,12 @@
   overflow: hidden;
 }
 
+.hibernated-view {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+}
+
 .terminal-surface {
   position: absolute;
   inset: 0;
@@ -1468,6 +1474,19 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--fg-muted);
+}
+
+.ext-item-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.ext-item-link:hover {
+  color: var(--fg);
+  text-decoration: underline;
 }
 
 .ext-item.tone-brand {

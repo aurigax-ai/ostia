@@ -15,6 +15,7 @@ import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
+import { startHibernation } from './lib/hibernationScheduler'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
@@ -48,6 +49,7 @@ async function boot(): Promise<void> {
   startSnapshotAutosave()
   startAttentionSync()
   startPaneRecencySync()
+  startHibernation()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(

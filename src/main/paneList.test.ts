@@ -25,7 +25,7 @@ describe('paneList.listPanes', () => {
       blockCount: 5,
       lastExitCode: 0,
     } satisfies TerminalStateSnapshot)
-    const deps: PaneListDeps = { execCommand, getTerminalState }
+    const deps: PaneListDeps = { execCommand, getTerminalState, ptyPid: () => undefined }
 
     const panes = await listPanes(deps)
 
@@ -46,6 +46,25 @@ describe('paneList.listPanes', () => {
     })
   })
 
+  it('reports the pty pid for a live terminal pane and never for other kinds', async () => {
+    const term = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-pid-term' })
+    registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-pid-editor' })
+    const execCommand = vi.fn().mockResolvedValue(
+      ok([
+        { paneId: 'p-pid-term', workspaceId: 's1', kind: 'terminal', title: 'zsh' },
+        { paneId: 'p-pid-editor', workspaceId: 's1', kind: 'editor', title: 'a.ts' },
+      ]),
+    )
+    const ptyPid = vi.fn().mockReturnValue(4242)
+
+    const panes = await listPanes({ execCommand, getTerminalState: vi.fn(), ptyPid })
+
+    expect(panes.find((p) => p.paneId === term.externalId)?.pid).toBe(4242)
+    expect(panes.find((p) => p.kind === 'editor')).not.toHaveProperty('pid')
+    expect(ptyPid).toHaveBeenCalledWith('p-pid-term')
+    expect(ptyPid).not.toHaveBeenCalledWith('p-pid-editor')
+  })
+
   it('drops a pane with no registered external id', async () => {
     const execCommand = vi
       .fn()
@@ -54,7 +73,7 @@ describe('paneList.listPanes', () => {
       )
     const getTerminalState = vi.fn().mockReturnValue(undefined)
 
-    const panes = await listPanes({ execCommand, getTerminalState })
+    const panes = await listPanes({ execCommand, getTerminalState, ptyPid: () => undefined })
 
     expect(panes).toEqual([])
   })
@@ -70,7 +89,7 @@ describe('paneList.listPanes', () => {
       )
     const getTerminalState = vi.fn().mockReturnValue(undefined)
 
-    const panes = await listPanes({ execCommand, getTerminalState })
+    const panes = await listPanes({ execCommand, getTerminalState, ptyPid: () => undefined })
 
     expect(panes).toEqual([
       {
@@ -90,7 +109,11 @@ describe('paneList.listPanes', () => {
     const execCommand = vi
       .fn()
       .mockResolvedValue({ ok: false, error: { code: 'command-failed', message: 'no window' } })
-    const panes = await listPanes({ execCommand, getTerminalState: vi.fn() })
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: () => undefined,
+    })
     expect(panes).toEqual([])
   })
 })

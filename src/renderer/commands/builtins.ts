@@ -11,6 +11,7 @@ import {
   rerunBlock,
   stepBlock,
 } from '../lib/blockActions'
+import { wakePane } from '../lib/hibernationScheduler'
 import {
   goToWorkspace,
   isPaneViewed,
@@ -224,6 +225,7 @@ export function registerBuiltinCommands(): void {
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
+      if (pane.hibernated) return { resumed: wakePane(pane.id) }
       return { resumed: insertCommand(pane.id, resumeCommand(pane.resume), true) }
     },
   })

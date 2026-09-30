@@ -159,6 +159,17 @@ Spawn env: `PINE_PANE_ID` (the external id, not the renderer id), `PINE_TOKEN`, 
 
 - The live ring is capped at 1 MB. `pty:attach` returns a replay from the ring; `pty:detach`
   starts `DETACH_GRACE_MS` (3 s) before the pty is reaped.
+- `pty:hibernate` (agent hibernation, §5) serializes the pane's `ScreenMirror` into the restored
+  scrollback map (`stashScrollback`), drops the pty's window subscribers so no `[process exited]`
+  reaches the renderer, kills the pty and forgets its terminal state. The next `pty:attach` for
+  that pane spawns a fresh shell and replays the stash behind a `woke from hibernation` seam
+  (bare OSC 133;D first, like the restore seam). Why reuse the restored-scrollback map: it is
+  already merged into every `scrollback.json` save, so quitting while a pane sleeps keeps its
+  history, and it is dropped with the pane on `pane-closed`.
+- Children of a pty inherit the Electron main process's open file descriptors, sockets
+  included (Chromium's and Playwright's debugging listener among them). Anything that maps
+  sockets to a pane's processes must discount the ones main also holds (the ports extension
+  does).
 - The window `closed` handler removes that window's subscriber from every pty. Why: a crashed or
   force-closed window never sends `pty:detach`, and without this the ptys leak. Browser panes are
   pruned before `removeWindow()` because pruning needs the registry entries.
@@ -422,6 +433,26 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   (Ctrl+Shift+R / ⌘⇧R) type `resumeCommand` at an idle prompt through `insertCommand`. Why a
   structured token and not a command string: the hook payload comes from the agent, and a stored
   command would be typed into a shell later.
+- **Agent hibernation** (`lib/hibernation.ts` pure policy, `lib/hibernationScheduler.ts`,
+  `components/HibernatedView.tsx`; settings `agents.hibernation.{enabled, idleSeconds,
+  maxLiveTerminals}`, off by default). Every 5 s, when enabled: a terminal pane counts as a live
+  agent only if it has a resume token and its running block's command starts that agent
+  (`commandAgent`: program basename, after env assignments/`exec`/`env`). When more live agents
+  exist than `maxLiveTerminals`, the longest-idle ones that are not visible (`isPaneVisible`)
+  and have had no pty output or input (`lib/paneActivity.ts`, fed by `Terminal.tsx`) for
+  `idleSeconds` are hibernated until the count fits: `pty.hibernate` in main, then the pane node
+  gets `hibernated: true`, SurfacePool renders `HibernatedView` instead of `TerminalView` (the
+  xterm and its blocks are disposed) and the tab shows a moon. Resume (the view's button, the
+  header button, or `agent.resume`) clears the flag, which mounts a fresh `TerminalView` whose
+  attach spawns a new shell at the pane's last cwd with the stashed scrollback, and
+  `runWhenIdle` types `resumeCommand` once that shell shows its first prompt. `hibernated` is
+  never persisted (`fromPane` strips it): after a restart every shell is fresh anyway.
+  Trade-offs: the whole shell is killed, so background jobs, an unsaved agent turn and anything
+  the agent had running in that pane end; resume depends on the agent's own session store; a
+  shell without integration has no running block and is never hibernated; an agent that is
+  thinking silently for longer than `idleSeconds` looks idle; wake is never automatic (revealing
+  the pane shows the hibernated state), because typing the resume command is a human decision
+  (CLAUDE.md §4).
 - **Surface persistence** (`components/SurfacePool.tsx`, `stores/surfaceSlotsStore.ts`):
   - SurfacePool portals every pane's surface, across all workspaces, into a persistent,
     absolutely-positioned host div created in a detached parking holder.
@@ -1127,7 +1158,13 @@ read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`
   event. Subscribing to pane/command/cwd/focus events needs `read-board`; `notification` needs
   `notify`.
 - Sidebar items are keyed by (extension, workspace, key), capped at 32 per extension and 80
-  characters, and rendered in the workspace row or the sidebar footer (no workspace).
+  characters, and rendered in the workspace row or the sidebar footer (no workspace). An item
+  may carry a `url` (http/https only, `sidebarItemUrl`); the rail renders it as a link button
+  that switches to the item's workspace and opens the URL in its browser pane (`openSidebarUrl`,
+  reusing the workspace's browser pane if it has one). Why a URL and not an extension command:
+  opening a page needs no round trip, and an extension still can't drive the browser.
+- `pane.list` gives terminal panes with a live pty their shell `pid`. Why: the process tree
+  below it is how an extension learns what a pane is running (ports, ssh) without a core view.
 
 **Panels.** `ExtensionPanelView` asks main for the source (`extensions:panel`):
 - file entry: `file://` URL of the html inside the extension dir;
@@ -1162,6 +1199,20 @@ compromised or buggy panel can do no more than its extension already can.
   `open <path> [--staged]`, all JSON. A path argument must match a changed file (resolved from
   the caller's cwd, or repo-relative), so it can't be used to read arbitrary files.
 
+**Ports** (`src/extensions/ports/`). Every 3 s while a pine window is focused (and 400 ms after
+pane and command events) it takes the `pid` of each terminal from `pane.list` and walks the
+process tree below it. Linux: one pass over `/proc/*/stat` builds the ppid map; the tree's
+`/proc/<pid>/fd` socket inodes are matched against the LISTEN rows of `/proc/net/tcp{,6}`.
+macOS: `ps -axo pid=,ppid=,pgid=,tpgid=,comm=` and `lsof -nP -iTCP -sTCP:LISTEN -F pn` (argv,
+no shell). Sockets that Pine's main process (the extension's parent) also holds are dropped,
+because pty children inherit main's descriptors. Per workspace, up to 6 ports become `:port`
+items with `url: http://localhost:<port>/`. A tree process named `ssh` in its terminal's
+foreground process group (`pgrp == tpgid`) gives an `ssh` item with the destination host,
+parsed from its argv (`sshTarget`: skips ssh's value options, handles `--` and `ssh://`,
+refuses anything that isn't a plain host name, and shows nothing for `-G`/`-V`/`-Q`/`-O`); no
+network calls. `pine ports ls [--all]` returns the same data (`--all` needs `all-workspaces`).
+The rail hides these items with `sidebar.showPorts` / `sidebar.showSSH`
+(`lib/sidebarItems.ts`), under `sidebar.showExtensionItems`.
 
 **Tool extensions: trellis and keeper.** Both are built-ins that only shell out to the user's
 CLIs (`runTool` in the SDK: no shell, stdin closed, timeout, `missing` on ENOENT) and use nothing

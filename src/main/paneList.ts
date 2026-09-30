@@ -29,11 +29,13 @@ export interface PaneEntry {
   running: boolean
   blockCount: number
   lastExitCode?: number
+  pid?: number
 }
 
 export interface PaneListDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
+  ptyPid: (paneId: string) => number | undefined
 }
 
 const GLOBAL_TARGET: CommandTarget = { workspaceId: '', paneId: null }
@@ -47,6 +49,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
     const identity = getByPaneId(p.paneId)
     if (!identity) continue
     const state = deps.getTerminalState(p.paneId)
+    const pid = p.kind === 'terminal' ? deps.ptyPid(p.paneId) : undefined
     mapped.push({
       paneId: identity.externalId,
       workspaceId: p.workspaceId,
@@ -56,6 +59,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       running: state?.running ?? false,
       blockCount: state?.blockCount ?? 0,
       lastExitCode: state?.lastExitCode,
+      ...(pid ? { pid } : {}),
     })
   }
   return mapped
