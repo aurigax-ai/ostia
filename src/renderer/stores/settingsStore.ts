@@ -28,6 +28,7 @@ import type { Locale } from '../i18n/dict'
 import { type KeybindingMap, parseKeybindings } from '../lib/chordSpec'
 import { normalizeHex } from '../lib/color'
 import type { GroupRule } from '../lib/workspaceGroups'
+import { type UserAction, parseActions } from '../settings/actions'
 import {
   DEFAULT_PANE_SETTINGS,
   DEFAULT_TERMINAL_SETTINGS,
@@ -242,6 +243,8 @@ interface Persisted {
   capabilities?: Capabilities
   sync?: SyncSettings
   approvals: ApprovalSettings
+  actions: UserAction[]
+  trustedActions: string[]
 }
 
 const DATA_KEYS: readonly string[] = [
@@ -257,6 +260,7 @@ const DATA_KEYS: readonly string[] = [
   'editor',
   'agents',
   'workspaceGroups',
+  'actions',
 ]
 
 const DEFAULTS: Persisted = {
@@ -303,6 +307,8 @@ const DEFAULTS: Persisted = {
   workspaceGroups: { byCwd: [] },
   extensionSettings: {},
   approvals: DEFAULT_APPROVAL_SETTINGS,
+  actions: [],
+  trustedActions: [],
 }
 
 interface SettingsState extends Persisted {
@@ -331,6 +337,8 @@ interface SettingsState extends Persisted {
   unsetByPath: (path: string) => SettingChange
   setSyncDir: (dir: string) => Promise<void>
   setApprovalMode: (mode: ApprovalMode) => void
+  trustAction: (fingerprint: string) => void
+  removeAction: (id: string) => void
   setKeybinding: (id: string, chord: string | null) => void
   resetKeybinding: (id: string) => void
   setKeybindings: (map: KeybindingMap) => void
@@ -388,6 +396,10 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
     sync: syncOf(p.sync),
     approvals: parseApprovalSettings(p.approvals),
+    actions: parseActions(p.actions),
+    trustedActions: Array.isArray(p.trustedActions)
+      ? p.trustedActions.filter((f): f is string => typeof f === 'string')
+      : [],
   }
 }
 
@@ -406,6 +418,13 @@ export function getByPath(root: unknown, path: string): unknown {
 }
 
 function survives(wanted: unknown, parsed: unknown): boolean {
+  if (Array.isArray(wanted)) {
+    return (
+      Array.isArray(parsed) &&
+      parsed.length === wanted.length &&
+      wanted.every((item, i) => survives(item, parsed[i]))
+    )
+  }
   if (isPlainObject(wanted)) {
     return isPlainObject(parsed) && Object.keys(wanted).every((k) => survives(wanted[k], parsed[k]))
   }
@@ -474,6 +493,8 @@ async function writeSettings(s: SettingsState): Promise<void> {
     capabilities: s.capabilities,
     sync: s.sync,
     approvals: s.approvals,
+    actions: s.actions,
+    trustedActions: s.trustedActions,
   }
   const path = await window.pine.settings.path()
   await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
@@ -635,6 +656,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((s) => ({
       agents: { ...s.agents, hibernation: parseHibernation({ ...s.agents.hibernation, ...patch }) },
     }))
+    scheduleSave(get)
+  },
+  trustAction: (fingerprint) => {
+    set((s) =>
+      s.trustedActions.includes(fingerprint)
+        ? s
+        : { trustedActions: [...s.trustedActions, fingerprint] },
+    )
+    scheduleSave(get)
+  },
+  removeAction: (id) => {
+    set((s) => ({ actions: s.actions.filter((a) => a.id !== id) }))
     scheduleSave(get)
   },
   setApprovalMode: (mode) => {

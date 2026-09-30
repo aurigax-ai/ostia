@@ -1310,6 +1310,19 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   (`commandAgent`). Its popover lists only what Pine knows: the title the agent set on the
   terminal (spinner glyph stripped, `sessionTitle`), the resume id from its SessionStart hook,
   the attention state and message, how long it has run, its folder and command.
+- **User actions** (`settings/actions.ts`, `lib/userActions.ts`, `PaneTabMenu.tsx`,
+  `ActionConfirmDialog`, `ActionsSection`): `settings.json` `actions` is a data list
+  (`parseActions`: id, title, palette `command`, `args`, an icon from `ACTION_ICONS`, places
+  `paneHeader` / `tabMenu`, optional `paneKinds`). `startUserActions` registers each as palette
+  command `action.<id>` (so keybindings work) and re-registers on change; the pane header
+  and the tab context menu render them per pane kind. `runUserAction` fills `{cwd}` / `{file}`
+  from the pane, and if the command declares any capability outside `DEFAULT_CAPABILITIES`
+  and its `actionFingerprint` (command + args, not the title) isn't in `trustedActions`,
+  asks first (Run once / Run and trust / Cancel) showing the exact command and args. Why
+  data and not code: agents can add actions with `pine settings set` (behind the
+  `settings-write` approval), and a click is still the human's; why the trust prompt: an
+  agent could otherwise label a button misleadingly over a command that types or
+  destroys. `trustedActions` is not a `DATA_KEYS` key and is local-only in settings sync.
 - **Terminal link cursor** (`lib/linkModifier.ts`): file and URL links open only with Ctrl (⌘ on
   macOS), so the host carries `link-modifier` while that key is held and CSS lets xterm's
   `xterm-cursor-pointer` show only then; otherwise the cursor stays the I-beam.

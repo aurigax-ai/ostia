@@ -273,6 +273,26 @@ export const en = {
     sentCopied: 'Sent to {pane}. It was busy, so the report path is on your clipboard.',
     sendFailed: 'Could not send the report ({reason}).',
   },
+  actions: {
+    category: 'Actions',
+    failed: 'Action “{title}” failed',
+    unknownCommand: 'No command named {command}.',
+    confirmTitle: 'Run “{title}”?',
+    confirmBody:
+      'This action was added in settings.json and runs a command that needs extra permission. Check what it does before running it.',
+    command: 'Command',
+    args: 'Arguments',
+    cancel: 'Cancel',
+    runOnce: 'Run once',
+    runAndTrust: 'Run and trust',
+    settingsTitle: 'Actions',
+    settingsDesc:
+      'Buttons and menu entries defined in settings.json under "actions". Agents can add them with pine settings set; an action that needs extra permission asks you before its first run.',
+    none: 'No actions yet.',
+    remove: 'Remove {title}',
+    trusted: 'Trusted',
+    places: { paneHeader: 'Pane header', tabMenu: 'Tab menu' } as Record<string, string>,
+  },
   agentSession: {
     label: '{agent} session',
     claude: 'Claude Code',
@@ -1022,6 +1042,26 @@ export const zhHant: Dict = {
     sentInserted: '已傳送至 {pane}，報告路徑已放在提示字元。',
     sentCopied: '已傳送至 {pane}。該窗格忙碌中，報告路徑已複製到剪貼簿。',
     sendFailed: '無法傳送報告（{reason}）。',
+  },
+  actions: {
+    category: '動作',
+    failed: '動作「{title}」失敗',
+    unknownCommand: '沒有名為 {command} 的指令。',
+    confirmTitle: '要執行「{title}」嗎？',
+    confirmBody:
+      '此動作是在 settings.json 中新增的，會執行需要額外權限的指令。執行前請先確認它的作用。',
+    command: '指令',
+    args: '參數',
+    cancel: '取消',
+    runOnce: '執行一次',
+    runAndTrust: '執行並信任',
+    settingsTitle: '動作',
+    settingsDesc:
+      '在 settings.json 的 "actions" 中定義的按鈕與選單項目。代理程式可用 pine settings set 新增；需要額外權限的動作在第一次執行前會先詢問你。',
+    none: '尚無動作。',
+    remove: '移除 {title}',
+    trusted: '已信任',
+    places: { paneHeader: '窗格標題列', tabMenu: '分頁選單' } as Record<string, string>,
   },
   agentSession: {
     label: '{agent} 工作階段',

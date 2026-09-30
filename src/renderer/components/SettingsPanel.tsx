@@ -63,6 +63,7 @@ import {
   useSettingsStore,
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { ActionsSection } from './ActionsSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { FontPicker } from './FontPicker'
@@ -209,7 +210,12 @@ export function SettingsPanel(): JSX.Element | null {
           <div className="mx-auto max-w-3xl px-8 py-5">
             {active === 'appearance' ? <AppearanceSection /> : null}
             {active === 'terminal' ? <TerminalSection /> : null}
-            {active === 'keyboard' ? <KeyboardSection /> : null}
+            {active === 'keyboard' ? (
+              <>
+                <KeyboardSection />
+                <ActionsSection />
+              </>
+            ) : null}
             {active === 'panes' ? <PanesSection /> : null}
             {active === 'notifications' ? <NotificationsSection /> : null}
             {active === 'sidebar' ? <SidebarSection /> : null}

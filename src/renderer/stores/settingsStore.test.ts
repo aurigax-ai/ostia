@@ -58,6 +58,8 @@ describe('settingsStore', () => {
       workspaceGroups: s.workspaceGroups,
       extensionSettings: s.extensionSettings,
       approvals: s.approvals,
+      actions: s.actions,
+      trustedActions: s.trustedActions,
     })
   })
 
@@ -385,6 +387,8 @@ describe('settingsStore', () => {
         workspaceGroups: s.workspaceGroups,
         extensionSettings: s.extensionSettings,
         approvals: s.approvals,
+        actions: s.actions,
+        trustedActions: s.trustedActions,
       }).toEqual(DEFAULTS)
     })
 
@@ -438,6 +442,8 @@ describe('settingsStore', () => {
         workspaceGroups: s.workspaceGroups,
         extensionSettings: s.extensionSettings,
         approvals: s.approvals,
+        actions: s.actions,
+        trustedActions: s.trustedActions,
       }).toEqual(DEFAULTS)
     })
   })

@@ -34,10 +34,10 @@ import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsS
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { AgentSessionButton } from './AgentSessionButton'
 import { ApprovalCard } from './ApprovalCard'
-import { FileMenu } from './FileMenu'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneChips } from './PaneChips'
+import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
 import { extensionIcon } from './extensionIcons'
 import { Button } from './ui/button'
 
@@ -184,6 +184,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         <ResumeButton pane={shown} />
         <div className="pane-actions">
           <AgentSessionButton pane={shown} />
+          <PaneHeaderActions pane={shown} />
           <IconButton
             icon={PlusIcon}
             label={d.pane.newTab}
@@ -320,8 +321,7 @@ function PaneTab({
       ) : null}
     </div>
   )
-  if (pane.kind !== 'editor' || !pane.filePath || !workspaceId) return tab
-  return <FileMenu workspaceId={workspaceId} path={pane.filePath} trigger={tab} />
+  return <PaneTabMenu pane={pane} workspaceId={workspaceId} trigger={tab} />
 }
 
 function TabBody({ pane, shown }: { pane: PaneNode; shown: boolean }): JSX.Element | null {

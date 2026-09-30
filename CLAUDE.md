@@ -363,6 +363,12 @@ Details: `docs/ARCHITECTURE.md`.
   and every pulse stops (ring ×2, waiting dot ×3); only the `working` dot breathes forever.
   Reduced motion (`appearance.motion`, `prefers-reduced-motion`) collapses motion but never hides
   state. Details: `docs/DESIGN.md` §8.
+- **User actions are data, and elevated ones ask once.** `actions` in `settings.json` name a
+  palette command + args (`parseActions`), never a shell string; agents may add them. Running
+  one whose command needs a non-default capability shows the command and args and waits
+  for Run once / Run and trust (`runUserAction`); trust is keyed by command + args
+  (`actionFingerprint`), stored in `trustedActions`, which only the dialog writes (not in
+  `DATA_KEYS`, never synced). Never add a way for an agent to trust an action.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
