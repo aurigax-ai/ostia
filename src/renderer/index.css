@@ -2493,6 +2493,17 @@ button.prompt-chip:focus-visible {
   animation: motion-fade-in var(--motion-base) var(--ease-out);
 }
 
+.motion-enter {
+  animation: overlay-in var(--motion-base) var(--ease-out);
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
 @keyframes motion-fade-in {
   from {
     opacity: 0;
