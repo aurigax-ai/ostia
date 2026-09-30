@@ -8,6 +8,9 @@ export type AppChord =
   | 'agent.resume'
   | 'workspace.goto'
   | 'selection.sendToAgent'
+  | 'view.zoomIn'
+  | 'view.zoomOut'
+  | 'view.zoomReset'
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
@@ -26,6 +29,9 @@ const MAC: Record<string, Chord> = {
   t: 'workspace.new',
   '\\': 'view.toggleRail',
   ',': 'app.openSettings',
+  '=': 'view.zoomIn',
+  '-': 'view.zoomOut',
+  '0': 'view.zoomReset',
   c: 'copy',
   v: 'paste',
   f: 'find',
@@ -38,6 +44,7 @@ const MAC_SHIFT: Record<string, Chord> = {
   r: 'agent.resume',
   u: 'attention.jumpToLatest',
   h: 'history.search',
+  '+': 'view.zoomIn',
 }
 
 const CTRL_SHIFT: Record<string, Chord> = {
@@ -51,12 +58,16 @@ const CTRL_SHIFT: Record<string, Chord> = {
   t: 'workspace.new',
   r: 'agent.resume',
   e: 'selection.sendToAgent',
+  '+': 'view.zoomIn',
   arrowup: 'block.selectPrev',
   arrowdown: 'block.selectNext',
 }
 
 const CTRL: Record<string, Chord> = {
   ',': 'app.openSettings',
+  '=': 'view.zoomIn',
+  '-': 'view.zoomOut',
+  '0': 'view.zoomReset',
 }
 
 export function workspaceDigit(key: string): number | null {
@@ -86,6 +97,9 @@ const APP_CHORDS: ReadonlySet<Chord> = new Set<AppChord>([
   'agent.resume',
   'workspace.goto',
   'selection.sendToAgent',
+  'view.zoomIn',
+  'view.zoomOut',
+  'view.zoomReset',
 ])
 
 export function isAppChord(chord: Chord | null): chord is AppChord {
@@ -104,6 +118,9 @@ const LABELS: Record<Chord, [mac: string, other: string]> = {
   'agent.resume': ['⌘⇧R', 'Ctrl+Shift+R'],
   'workspace.goto': ['⌘1-9', 'Ctrl+1-9'],
   'selection.sendToAgent': ['⌘⇧E', 'Ctrl+Shift+E'],
+  'view.zoomIn': ['⌘=', 'Ctrl+='],
+  'view.zoomOut': ['⌘-', 'Ctrl+-'],
+  'view.zoomReset': ['⌘0', 'Ctrl+0'],
   copy: ['⌘C', 'Ctrl+Shift+C'],
   paste: ['⌘V', 'Ctrl+Shift+V'],
   find: ['⌘F', 'Ctrl+Shift+F'],

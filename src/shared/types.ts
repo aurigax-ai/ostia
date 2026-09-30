@@ -17,6 +17,9 @@ export interface WindowControls {
   toggleMaximize: () => void
   close: () => void
   isMaximized: () => Promise<boolean>
+  setZoom: (percent: number) => Promise<number>
+  isSystemDark: () => Promise<boolean>
+  onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
 }
 

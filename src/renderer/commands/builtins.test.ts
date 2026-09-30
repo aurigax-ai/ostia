@@ -187,6 +187,38 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().behavior.externalEditor).toBe('auto')
   })
 
+  it('settings.set refuses to change the notification command, directly or via notifications', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'notifications.command',
+      value: '/tmp/evil {title}',
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'notifications',
+      value: { ...useSettingsStore.getState().notifications, command: '/tmp/evil' },
+    })
+    const unrelated = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'notifications',
+      value: { ...useSettingsStore.getState().notifications, sound: false },
+    })
+
+    expect(direct.ok).toBe(false)
+    expect(nested.ok).toBe(false)
+    expect(unrelated.ok).toBe(true)
+    expect(useSettingsStore.getState().notifications.command).toBe('')
+  })
+
+  it('zoom commands step the persisted zoom in 10 point increments within 80 to 150', async () => {
+    const zoom = () => useSettingsStore.getState().appearance.zoom
+    await commands.execWith(ctx(null, null), 'view.zoomIn')
+    expect(zoom()).toBe(110)
+    for (let i = 0; i < 10; i++) await commands.execWith(ctx(null, null), 'view.zoomIn')
+    expect(zoom()).toBe(150)
+    await commands.execWith(ctx(null, null), 'view.zoomReset')
+    expect(zoom()).toBe(100)
+    for (let i = 0; i < 10; i++) await commands.execWith(ctx(null, null), 'view.zoomOut')
+    expect(zoom()).toBe(80)
+  })
+
   it('routes pane.close to layout.closePane with an explicit paneId', async () => {
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 

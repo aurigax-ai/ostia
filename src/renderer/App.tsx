@@ -1,4 +1,5 @@
 import { IconContext } from '@phosphor-icons/react'
+import { clampZoom } from '@shared/zoom'
 import { useEffect } from 'react'
 import { commands } from './commands/registry'
 import { CommandPalette } from './components/CommandPalette'
@@ -12,6 +13,7 @@ import { WorkZone } from './components/WorkZone'
 import { TooltipProvider } from './components/ui/tooltip'
 import { isAppChord, matchChord, workspaceDigit } from './lib/chords'
 import { useMotionAttribute } from './lib/motion'
+import { applyTheme, useEffectiveTheme } from './lib/theme'
 import { useModifierHint } from './lib/useModifierHint'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/schema'
@@ -28,18 +30,18 @@ export function App(): JSX.Element {
   const locale = useSettingsStore((s) => s.locale)
   const uiFont = useSettingsStore((s) => s.appearance.ui)
   const filesOpen = useUIStore((s) => s.filesOpen)
-  const theme = useSettingsStore((s) => s.appearance.theme)
+  const accent = useSettingsStore((s) => s.appearance.accent)
+  const zoom = useSettingsStore((s) => s.appearance.zoom)
+  const theme = useEffectiveTheme()
   useMotionAttribute()
 
   useEffect(() => {
-    const themes = usePluginsStore.getState().themes
-    const t = themes.find((x) => x.id === theme) ?? themes[0]
-    const root = document.documentElement
-    if (t) {
-      for (const [k, v] of Object.entries(t.tokens)) root.style.setProperty(`--color-${k}`, v)
-    }
-    root.dataset.theme = theme
-  }, [theme])
+    applyTheme(document.documentElement, theme, accent)
+  }, [theme, accent])
+
+  useEffect(() => {
+    void window.pine.window.setZoom(clampZoom(zoom))
+  }, [zoom])
 
   useEffect(() => {
     document.documentElement.style.setProperty('--font-ui', `"${uiFont.family}", ${SANS_FALLBACK}`)

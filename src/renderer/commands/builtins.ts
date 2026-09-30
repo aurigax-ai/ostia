@@ -1,6 +1,7 @@
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
 import type { AttentionState } from '@shared/types'
+import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
 import { type DropZone, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
@@ -44,19 +45,22 @@ interface WorkspaceListEntry {
   activePaneId?: string
 }
 
-const PROGRAM_SETTING = 'behavior.externalEditor'
+const PROGRAM_SETTINGS: readonly { group: 'behavior' | 'notifications'; field: string }[] = [
+  { group: 'behavior', field: 'externalEditor' },
+  { group: 'notifications', field: 'command' },
+]
 
-export function launchesProgram(key: string, value: unknown): boolean {
+export function launchesProgram(key: string, value: unknown): string | null {
   const path = key.split('.').filter(Boolean).join('.')
-  if (path === PROGRAM_SETTING || path.startsWith(`${PROGRAM_SETTING}.`)) return true
-  if (path !== 'behavior') return false
-  const current = useSettingsStore.getState().behavior.externalEditor
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'externalEditor' in value &&
-    (value as { externalEditor: unknown }).externalEditor !== current
-  )
+  const state = useSettingsStore.getState()
+  for (const { group, field } of PROGRAM_SETTINGS) {
+    const setting = `${group}.${field}`
+    if (path === setting || path.startsWith(`${setting}.`)) return setting
+    if (path !== group || typeof value !== 'object' || value === null || !(field in value)) continue
+    const current = (state[group] as unknown as Record<string, unknown>)[field]
+    if ((value as Record<string, unknown>)[field] !== current) return setting
+  }
+  return null
 }
 
 function getByPath(root: unknown, path: string): unknown {
@@ -399,6 +403,35 @@ export function registerBuiltinCommands(): void {
     run: () => useUIStore.getState().toggleRail(),
   })
 
+  const zoomBy = (direction: 1 | -1): void => {
+    const settings = useSettingsStore.getState()
+    settings.setZoom(stepZoom(settings.appearance.zoom, direction))
+  }
+
+  commands.register({
+    id: 'view.zoomIn',
+    title: 'Zoom In',
+    category: 'View',
+    target: 'none',
+    run: () => zoomBy(1),
+  })
+
+  commands.register({
+    id: 'view.zoomOut',
+    title: 'Zoom Out',
+    category: 'View',
+    target: 'none',
+    run: () => zoomBy(-1),
+  })
+
+  commands.register({
+    id: 'view.zoomReset',
+    title: 'Reset Zoom',
+    category: 'View',
+    target: 'none',
+    run: () => useSettingsStore.getState().setZoom(ZOOM_DEFAULT),
+  })
+
   commands.register({
     id: 'app.openSettings',
     title: 'Open Settings',
@@ -525,9 +558,8 @@ export function registerBuiltinCommands(): void {
     capabilities: ['settings-write'],
     target: 'none',
     run: ({ key, value }) => {
-      if (launchesProgram(key, value)) {
-        throw new Error(`${PROGRAM_SETTING} can only be changed by you in Settings`)
-      }
+      const program = launchesProgram(key, value)
+      if (program) throw new Error(`${program} can only be changed by you in Settings`)
       useSettingsStore.getState().setByPath(key, value)
       return { ok: true }
     },

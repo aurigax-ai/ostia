@@ -19,10 +19,12 @@ import {
 import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo } from '@shared/types'
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import appIcon from '../../../resources/icon.svg'
 import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
+import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { openFileInWorkspace } from '../lib/openFile'
 import { platform } from '../platform'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -299,6 +301,14 @@ function AppearanceSection(): JSX.Element {
   const motion = useSettingsStore((s) => s.appearance.motion)
   const setMotion = useSettingsStore((s) => s.setMotion)
   const themes = usePluginsStore((s) => s.themes)
+  const followSystem = useSettingsStore((s) => s.appearance.followSystem)
+  const setFollowSystem = useSettingsStore((s) => s.setFollowSystem)
+  const lightTheme = useSettingsStore((s) => s.appearance.lightTheme)
+  const setLightTheme = useSettingsStore((s) => s.setLightTheme)
+  const darkTheme = useSettingsStore((s) => s.appearance.darkTheme)
+  const setDarkTheme = useSettingsStore((s) => s.setDarkTheme)
+  const themeOptions = (appearance: 'light' | 'dark') =>
+    themes.filter((t) => t.appearance === appearance).map((t) => ({ value: t.id, label: t.name }))
   const motionLabel: Record<MotionMode, string> = {
     system: d.settings.motionSystem,
     reduced: d.settings.motionReduced,
@@ -308,14 +318,41 @@ function AppearanceSection(): JSX.Element {
     <div>
       <SectionHead title={d.settings.appearance} />
       <SettingsGroup title={d.settings.groupTheme}>
-        <ControlRow label={d.settings.theme}>
-          <SelectField
-            value={theme}
-            onChange={setTheme}
-            label={d.settings.theme}
-            options={themes.map((t) => ({ value: t.id, label: t.name }))}
-          />
-        </ControlRow>
+        <ToggleRow
+          label={d.settings.followSystem}
+          desc={d.settings.followSystemDesc}
+          checked={followSystem}
+          onChange={setFollowSystem}
+        />
+        {followSystem ? (
+          <>
+            <ControlRow label={d.settings.lightTheme}>
+              <SelectField
+                value={lightTheme}
+                onChange={setLightTheme}
+                label={d.settings.lightTheme}
+                options={themeOptions('light')}
+              />
+            </ControlRow>
+            <ControlRow label={d.settings.darkTheme}>
+              <SelectField
+                value={darkTheme}
+                onChange={setDarkTheme}
+                label={d.settings.darkTheme}
+                options={themeOptions('dark')}
+              />
+            </ControlRow>
+          </>
+        ) : (
+          <ControlRow label={d.settings.theme}>
+            <SelectField
+              value={theme}
+              onChange={setTheme}
+              label={d.settings.theme}
+              options={themes.map((t) => ({ value: t.id, label: t.name }))}
+            />
+          </ControlRow>
+        )}
         <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
           <SelectField
             value={motionMode(motion)}
@@ -325,6 +362,12 @@ function AppearanceSection(): JSX.Element {
           />
         </ControlRow>
       </SettingsGroup>
+      <SettingsGroup title={d.settings.groupAccent}>
+        <AccentRow />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupDisplay}>
+        <ZoomRow />
+      </SettingsGroup>
       <SettingsGroup title={d.settings.groupFonts}>
         <FontRow surface="ui" label={d.settings.uiFont} />
         <FontRow surface="terminal" label={d.settings.terminalFont} />
@@ -332,6 +375,85 @@ function AppearanceSection(): JSX.Element {
         <FontRow surface="editor" label={d.settings.editorFont} />
       </SettingsGroup>
     </div>
+  )
+}
+
+const FULL_HEX = /^#[0-9a-f]{6}$/i
+
+function AccentRow(): JSX.Element {
+  const d = useDict()
+  const accent = useSettingsStore((s) => s.appearance.accent)
+  const setAccent = useSettingsStore((s) => s.setAccent)
+  const [draft, setDraft] = useState(accent)
+  useEffect(() => setDraft(accent), [accent])
+  const invalid = draft.trim() !== '' && normalizeHex(draft) === null
+  return (
+    <ControlRow label={d.settings.accent} desc={d.settings.accentDesc}>
+      <div className="flex items-center gap-1.5">
+        {ACCENT_PRESETS.map((color) => (
+          <button
+            key={color}
+            type="button"
+            aria-label={fmt(d.settings.accentPreset, { color })}
+            aria-pressed={accent === color}
+            onClick={() => setAccent(color)}
+            style={{ background: color }}
+            className="size-5 rounded-full border border-line-strong outline-offset-2 focus-visible:outline-2 focus-visible:outline-brand aria-pressed:outline-2 aria-pressed:outline-fg"
+          />
+        ))}
+      </div>
+      <Input
+        value={draft}
+        spellCheck={false}
+        placeholder="#rrggbb"
+        aria-label={d.settings.accentHex}
+        aria-invalid={invalid}
+        title={invalid ? d.settings.accentInvalid : undefined}
+        onChange={(e) => {
+          setDraft(e.target.value)
+          if (FULL_HEX.test(e.target.value.trim())) setAccent(e.target.value)
+        }}
+        onBlur={() => {
+          if (!setAccent(draft)) setDraft(accent)
+        }}
+        className="h-7 w-24 font-mono"
+      />
+      <Button variant="ghost" size="sm" disabled={accent === ''} onClick={() => setAccent('')}>
+        {d.settings.accentReset}
+      </Button>
+    </ControlRow>
+  )
+}
+
+function ZoomRow(): JSX.Element {
+  const d = useDict()
+  const zoom = useSettingsStore((s) => s.appearance.zoom)
+  const setZoom = useSettingsStore((s) => s.setZoom)
+  const [draft, setDraft] = useState(String(zoom))
+  useEffect(() => setDraft(String(zoom)), [zoom])
+  const commit = (): void => {
+    const n = Number(draft)
+    if (Number.isFinite(n) && draft.trim() !== '') setZoom(n)
+    else setDraft(String(zoom))
+  }
+  return (
+    <ControlRow label={d.settings.zoom} desc={d.settings.zoomDesc}>
+      <Input
+        type="number"
+        min={ZOOM_MIN}
+        max={ZOOM_MAX}
+        step={ZOOM_STEP}
+        value={draft}
+        aria-label={d.settings.zoom}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+        }}
+        className="h-7 w-20 font-mono"
+      />
+      <span className="text-fg-muted text-ui-sm">%</span>
+    </ControlRow>
   )
 }
 
@@ -420,6 +542,17 @@ function NotificationsSection(): JSX.Element {
           checked={n.whenFocused}
           onChange={(v) => set({ whenFocused: v })}
         />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupCommand}>
+        <ControlRow label={d.settings.notifyCommand} desc={d.settings.notifyCommandDesc}>
+          <Input
+            value={n.command}
+            spellCheck={false}
+            aria-label={d.settings.notifyCommand}
+            onChange={(e) => set({ command: e.target.value })}
+            className="h-7 w-56 font-mono"
+          />
+        </ControlRow>
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupEvents}>
         <ToggleRow

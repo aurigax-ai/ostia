@@ -282,6 +282,72 @@ describe('SettingsPanel', () => {
     expect(setSidebar).toHaveBeenCalledWith({ showPath: false })
   })
 
+  it('shows light and dark theme pickers only when following the system, each listing its own kind', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    expect(screen.queryByRole('combobox', { name: 'Light theme' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('switch', { name: 'Match system appearance' }))
+
+    expect(useSettingsStore.getState().appearance.followSystem).toBe(true)
+    expect(screen.queryByRole('combobox', { name: 'Theme' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('combobox', { name: 'Light theme' }))
+    expect(await screen.findByRole('option', { name: 'Pine Light' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Dracula' })).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
+
+    await user.click(screen.getByRole('combobox', { name: 'Dark theme' }))
+    await user.click(await screen.findByRole('option', { name: 'Dracula' }))
+    expect(useSettingsStore.getState().appearance.darkTheme).toBe('dracula')
+  })
+
+  it('sets the accent from a preset or a valid hex, ignores an invalid one and resets it', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    const hex = screen.getByRole('textbox', { name: 'Custom accent hex' })
+
+    await user.click(screen.getByRole('button', { name: 'Accent #ee5396' }))
+    expect(useSettingsStore.getState().appearance.accent).toBe('#ee5396')
+    expect(hex).toHaveValue('#ee5396')
+
+    await user.clear(hex)
+    await user.type(hex, '#12')
+    expect(hex).toHaveAttribute('aria-invalid', 'true')
+    expect(useSettingsStore.getState().appearance.accent).toBe('#ee5396')
+
+    await user.type(hex, '3456')
+    expect(hex).toHaveAttribute('aria-invalid', 'false')
+    expect(useSettingsStore.getState().appearance.accent).toBe('#123456')
+
+    await user.click(screen.getByRole('button', { name: 'Use theme color' }))
+    expect(useSettingsStore.getState().appearance.accent).toBe('')
+  })
+
+  it('commits the interface zoom on blur, clamped to 80-150', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    const zoom = screen.getByRole('spinbutton', { name: 'Interface zoom' })
+
+    await user.clear(zoom)
+    await user.type(zoom, '400')
+    await user.tab()
+
+    expect(useSettingsStore.getState().appearance.zoom).toBe(150)
+    expect(zoom).toHaveValue(150)
+  })
+
+  it('edits the notification command from the Notifications page', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Notifications' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Run a command on notification' }), {
+      target: { value: 'say {title}' },
+    })
+
+    expect(useSettingsStore.getState().notifications.command).toBe('say {title}')
+  })
+
   it('exposes accessible names on its controls (a11y)', async () => {
     renderSettings()
     const user = userEvent.setup()

@@ -9,6 +9,7 @@ import { attachWheelZoom } from '../lib/wheelZoom'
 import { openDocument } from '../lsp/client'
 import { langFor } from '../monaco/language'
 import { monaco } from '../monaco/setup'
+import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
 import { isMac } from '../platform'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
@@ -99,6 +100,7 @@ export function EditorView({
   const markdown = isMarkdownPath(filePath) && !binary
   const previewText = useModelText(editorRef, markdown && preview)
   const external = useExternalEditorAction(paneId)
+  useMonacoTheme()
   const openExternalRef = useRef(external.open)
   openExternalRef.current = external.open
   const selectionSend = useSelectionSend(workspaceId, paneId)
@@ -149,7 +151,7 @@ export function EditorView({
 
     const initial = useSettingsStore.getState().appearance.editor
     const editor = monaco.editor.create(host, {
-      theme: 'one-dark-vivid',
+      theme: initialMonacoTheme(),
       automaticLayout: true,
       fontFamily: `"${initial.family}", ${EDITOR_FALLBACK}`,
       fontSize: initial.size,

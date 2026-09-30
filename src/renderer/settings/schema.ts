@@ -33,8 +33,37 @@ export const SETTINGS_JSON_SCHEMA = {
         theme: {
           type: 'string',
           description:
-            'Theme id (built-in: adeberry, one-dark-vivid, instrument-night, dracula, oxocarbon; ' +
+            'Theme id (built-in: adeberry, one-dark-vivid, instrument-night, dracula, oxocarbon, pine-light; ' +
             'or a plugin theme). Default: adeberry.',
+        },
+        followSystem: {
+          type: 'boolean',
+          description:
+            'Switch between lightTheme and darkTheme when the operating system switches. When ' +
+            'off, "theme" is used. Default: false.',
+        },
+        lightTheme: {
+          type: 'string',
+          description:
+            'Theme id used when the OS is light and followSystem is on. Default: pine-light.',
+        },
+        darkTheme: {
+          type: 'string',
+          description:
+            'Theme id used when the OS is dark and followSystem is on. Default: adeberry.',
+        },
+        accent: {
+          type: 'string',
+          pattern: '^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}))?$',
+          description:
+            'Hex color (#rgb or #rrggbb) that replaces the theme’s brand color. Empty uses the ' +
+            'theme’s own. Default: empty.',
+        },
+        zoom: {
+          type: 'integer',
+          minimum: 80,
+          maximum: 150,
+          description: 'Interface zoom in percent. Default: 100.',
         },
         motion: {
           type: 'string',
@@ -129,6 +158,13 @@ export const SETTINGS_JSON_SCHEMA = {
         agentDone: {
           type: 'boolean',
           description: 'Banner when an agent finishes its turn (pine state done).',
+        },
+        command: {
+          type: 'string',
+          description:
+            'Program run for every notification, e.g. "notify-send {title} {body}". Placeholders: ' +
+            '{title}, {body}, {pane}. Runs the program directly, never through a shell. Empty ' +
+            'turns it off. Only the human can change it, in Settings.',
         },
         commandFinished: {
           type: 'boolean',

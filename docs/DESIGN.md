@@ -52,11 +52,28 @@ Three tiers in `index.css`:
    shadcn's `--accent` is the muted hover surface, not the brand.
 
 Themes are data. Each theme in `plugins/builtin.ts` is a `--color-*` map, and `App.tsx` sets those
-values inline on `<html>` at runtime. The values in `@theme` are the Adeberry defaults, which only
+values inline on `<html>` at runtime (`lib/theme.ts` `applyTheme`, which also sets `data-theme` and `color-scheme`). The values in `@theme` are the Adeberry defaults, which only
 show for the first frame before that runs.
 
 **Themes**: `adeberry` (default, a port of Warp's Adeberry), `one-dark-vivid`, `instrument-night`,
-`dracula`, `oxocarbon`.
+`dracula`, `oxocarbon`, and the only light theme, `pine-light`.
+
+`pine-light` values: `--bg` `#f6f7f9`, `--bg-sunken` `#eceef2`, `--surface-1/2/3` `#ffffff` /
+`#f0f2f5` / `#e6e9ee`, `--line` / `--line-strong` `rgba(0,0,0,.09)` / `.16`, `--fg` `#1c2127`,
+`--fg-muted` `#4f5866`, `--fg-dim` `#6b7280`, `--brand` / `--brand-bright` `#0b62c4` / `#084b96`,
+`--attn` / `--attn-fg` `#b3382c` / `#a12f24`, `--ok` / `--add` `#15703f`, `--del` `#b3382c`. Its
+terminal palette (`#fbfcfd` background) and the `pine-light` Monaco theme are tuned so every
+text color reads at 4.5:1 or better (checked in `plugins/builtin.test.ts` and
+`components/terminalTheme.test.ts`). Scrollbar thumbs derive from `--line-strong` / `--fg`, so
+they work on both appearances.
+
+**Appearance settings.** `appearance.followSystem` switches between `lightTheme` and
+`darkTheme` with the OS (main pushes `nativeTheme` changes; `systemThemeStore`). Off, `theme`
+applies. `appearance.accent` (`#rgb`/`#rrggbb`, validated by `lib/color.ts`) replaces `--brand`
+and derives `--brand-bright`, `--brand-glow` and the button text `--primary-foreground`; a
+color that would fall below 4.5:1 on the theme's `--bg` is darkened (light) or lightened (dark)
+until it reads. `appearance.zoom` (80 to 150, Ctrl/Cmd `=`, `-`, `0`) scales the window through
+`webContents.setZoomFactor`.
 
 Adeberry values:
 
@@ -83,8 +100,8 @@ elevation comes from lightness, not shadow; shadows are only for overlays. Every
 
 Three surfaces take their colors from different places. The UI uses the CSS tokens. The terminal
 uses `components/terminalTheme.ts`, because xterm draws to canvas and can't read CSS variables;
-only Adeberry and One Dark Vivid have palettes there. The editor uses the one Monaco theme,
-`one-dark-vivid`. Changing a theme's colors means updating `builtin.ts` and `terminalTheme.ts`
+only Adeberry, One Dark Vivid and Pine Light have palettes there. The editor uses the Monaco
+themes `one-dark-vivid` (dark themes) and `pine-light` (light themes). Changing a theme's colors means updating `builtin.ts` and `terminalTheme.ts`
 together.
 
 ## 4. Typography

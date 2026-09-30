@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { BrowserWindow, app, ipcMain, session, shell, webContents } from 'electron'
+import { BrowserWindow, app, ipcMain, nativeTheme, session, shell, webContents } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import type { ExtensionResult } from '../shared/extensions'
@@ -20,6 +20,7 @@ import type {
   PtySpawnOptions,
   TerminalStateSnapshot,
 } from '../shared/types'
+import { clampZoom, zoomFactor } from '../shared/zoom'
 import { registerAttentionMethods } from './attention'
 import {
   type ConsoleEntry,
@@ -417,6 +418,19 @@ function registerIpc(): void {
     else win.maximize()
   })
   ipcMain.on('window:close', (e) => BrowserWindow.fromWebContents(e.sender)?.close())
+  ipcMain.handle('window:system-dark', () => nativeTheme.shouldUseDarkColors)
+  nativeTheme.on('updated', () => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('window:system-dark-changed', nativeTheme.shouldUseDarkColors)
+      }
+    }
+  })
+  ipcMain.handle('window:set-zoom', (e, percent: unknown) => {
+    const clamped = clampZoom(percent)
+    e.sender.setZoomFactor(zoomFactor(clamped))
+    return clamped
+  })
   ipcMain.handle(
     'window:is-maximized',
     (e) => BrowserWindow.fromWebContents(e.sender)?.isMaximized() ?? false,

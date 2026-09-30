@@ -133,10 +133,35 @@ describe('workspace digits', () => {
     expect(workspaceDigit('9')).toBe(8)
   })
 
-  it('leaves Ctrl+0, Ctrl+Shift+digit and plain digits to the shell', () => {
-    expect(matchChord(key('0', { ctrlKey: true }), false)).toBeNull()
+  it('leaves Ctrl+Shift+digit and plain digits to the shell, and never treats 0 as a workspace', () => {
     expect(matchChord(key('1', { ctrlKey: true, shiftKey: true }), false)).toBeNull()
     expect(matchChord(key('1'), false)).toBeNull()
     expect(workspaceDigit('0')).toBeNull()
+  })
+})
+
+describe('zoom chords', () => {
+  it('maps Ctrl+= / Ctrl+- / Ctrl+0 (Cmd on macOS) to zoom in, out and reset as app chords', () => {
+    expect(matchChord(key('=', { ctrlKey: true }), false)).toBe('view.zoomIn')
+    expect(matchChord(key('+', { ctrlKey: true, shiftKey: true }), false)).toBe('view.zoomIn')
+    expect(matchChord(key('-', { ctrlKey: true }), false)).toBe('view.zoomOut')
+    expect(matchChord(key('0', { ctrlKey: true }), false)).toBe('view.zoomReset')
+    expect(matchChord(key('=', { metaKey: true }), true)).toBe('view.zoomIn')
+    expect(matchChord(key('-', { metaKey: true }), true)).toBe('view.zoomOut')
+    expect(matchChord(key('0', { metaKey: true }), true)).toBe('view.zoomReset')
+    for (const chord of ['view.zoomIn', 'view.zoomOut', 'view.zoomReset'] as const) {
+      expect(isAppChord(chord)).toBe(true)
+    }
+  })
+
+  it('leaves the bare keys and Alt combinations to the shell', () => {
+    expect(matchChord(key('='), false)).toBeNull()
+    expect(matchChord(key('-'), false)).toBeNull()
+    expect(matchChord(key('-', { ctrlKey: true, altKey: true }), false)).toBeNull()
+  })
+
+  it('labels the zoom chords per platform', () => {
+    expect(chordLabel('view.zoomIn', false)).toBe('Ctrl+=')
+    expect(chordLabel('view.zoomReset', true)).toBe('⌘0')
   })
 })
