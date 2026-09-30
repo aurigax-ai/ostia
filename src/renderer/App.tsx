@@ -2,6 +2,7 @@ import { IconContext } from '@phosphor-icons/react'
 import { clampZoom } from '@shared/zoom'
 import { useEffect } from 'react'
 import { commands } from './commands/registry'
+import { ActionConfirmDialog } from './components/ActionConfirmDialog'
 import { CloseConfirmDialog } from './components/CloseConfirmDialog'
 import { CommandPalette } from './components/CommandPalette'
 import { DeckRail } from './components/DeckRail'
@@ -98,6 +99,7 @@ export function App(): JSX.Element {
           <CommandPalette />
           <ExtensionApprovalDialog />
           <CloseConfirmDialog />
+          <ActionConfirmDialog />
           <PromptEditorDialog />
           <HistorySearch />
           <WorkflowPicker />

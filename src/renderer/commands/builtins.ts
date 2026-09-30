@@ -107,6 +107,7 @@ function readableSettings() {
     keybindings: { ...s.keybindings },
     capabilities: s.capabilities,
     approvals: s.approvals,
+    actions: s.actions,
   }
 }
 

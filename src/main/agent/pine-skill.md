@@ -291,6 +291,31 @@ permissions (`behavior.externalEditor`, `notifications.command`, `capabilities`,
 `approvals`, `sync`) are the human's; you can't set them. `get` with no key returns every
 readable setting; with a key it prints `null` if absent.
 
+## Customize Pine for the human (actions, keys, panels)
+
+When the human asks for a button, a menu entry or a shortcut, add it as data; never
+patch Pine's code for that.
+
+- **Actions** (`settings.json` → `actions`, see `pine settings schema actions`): each runs
+  one palette command (`pine commands` lists ids and their `argsSchema`) and can show as a
+  pane-header button (`"in": ["paneHeader"]`) and/or in the pane tab's right-click menu
+  (`"tabMenu"`), optionally only on some pane kinds. It is always in the palette as
+  `action.<id>`. String args may use `{cwd}` and `{file}`.
+
+  ```sh
+  pine settings set actions '[{"id":"split-down","title":"Split below","command":"pane.split",
+    "args":{"direction":"vertical"},"icon":"terminal","in":["paneHeader"],"paneKinds":["terminal"]}]'
+  ```
+
+  `set` replaces the whole list: read it with `pine settings get actions` first and write
+  it back with yours added. An action whose command needs more than the default
+  permissions asks the human (showing the command and args) before its first run; you
+  can't mark one trusted.
+- **Shortcuts**: `pine settings set keybindings.action.<id> '"Ctrl+Shift+K"'`.
+- **A custom panel or sidebar item** (dashboards, lists, status): write a user extension
+  in `~/.config/pine/extensions/<name>/` (`pine docs extensions`); Pine hot-reloads it and
+  the human approves it once.
+
 ## Browser — agent-driven web automation
 
 ```sh

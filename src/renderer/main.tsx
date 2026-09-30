@@ -16,6 +16,7 @@ import { registerExternalEditorCommand } from './commands/externalEditor'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { startHibernation } from './lib/hibernationScheduler'
+import { startUserActions } from './lib/userActions'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startApprovals } from './stores/approvalsStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
@@ -58,6 +59,7 @@ async function boot(): Promise<void> {
   startPaneRecencySync()
   startHibernation()
   startApprovals()
+  startUserActions()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(

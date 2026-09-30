@@ -5,6 +5,7 @@ import {
   PROMPT_STYLES,
 } from '../../shared/promptSettings'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
+import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
 
 const font = (title: string) => ({
   type: 'object',
@@ -524,6 +525,56 @@ export const SETTINGS_JSON_SCHEMA = {
             'agents cannot change it. Secrets and capability grants never sync.',
         },
       },
+    },
+    actions: {
+      type: 'array',
+      maxItems: ACTIONS_MAX,
+      description:
+        'Buttons and menu entries that run a palette command. Each also becomes a palette ' +
+        'command "action.<id>" you can bind in keybindings. An action whose command needs a ' +
+        'permission beyond the defaults asks before its first run.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'title', 'command'],
+        properties: {
+          id: { type: 'string', pattern: ACTION_ID.source, description: 'Stable id, a-z 0-9 -.' },
+          title: { type: 'string', maxLength: ACTION_TITLE_MAX, description: 'Label and tooltip.' },
+          command: {
+            type: 'string',
+            description: 'A palette command id (see pine commands), e.g. "pane.split".',
+          },
+          args: {
+            type: 'object',
+            description:
+              'Arguments for the command. Strings may use {cwd} (the pane folder) and {file} ' +
+              '(the file an editor pane shows).',
+          },
+          icon: {
+            type: 'string',
+            enum: [...ACTION_ICONS],
+            description: 'Icon. Default: lightning.',
+          },
+          in: {
+            type: 'array',
+            items: { type: 'string', enum: [...ACTION_PLACES] },
+            description:
+              'Where it shows besides the palette: "paneHeader" (a button in each pane header), ' +
+              '"tabMenu" (the pane tab right-click menu).',
+          },
+          paneKinds: {
+            type: 'array',
+            items: { type: 'string', enum: ['terminal', 'editor', 'browser', 'extension', 'diff'] },
+            description: 'Only show it on these pane kinds. Default: all.',
+          },
+        },
+      },
+    },
+    trustedActions: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Actions you chose "Run and trust" for. Only you can change this; it never syncs.',
     },
     approvals: {
       type: 'object',
