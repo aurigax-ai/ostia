@@ -249,17 +249,12 @@ function EditorSample({ scheme, font }: { scheme: ColorScheme; font: string }): 
   )
 }
 
-function PreviewTab({ label, active }: { label: string; active: boolean }): JSX.Element {
+function PreviewCaption({ label, scheme }: { label: string; scheme: string }): JSX.Element {
   return (
-    <span
-      className={
-        active
-          ? 'bg-surface-1 px-2.5 py-1 text-fg text-ui-xs shadow-[inset_0_2px_0_var(--brand)]'
-          : 'px-2.5 py-1 text-fg-muted text-ui-xs'
-      }
-    >
-      {label}
-    </span>
+    <div className="flex min-w-0 items-baseline gap-1.5 bg-bg-sunken px-2.5 py-1 text-ui-xs">
+      <span className="text-fg">{label}</span>
+      <span className="truncate text-fg-muted">{scheme}</span>
+    </div>
   )
 }
 
@@ -283,16 +278,11 @@ export function ThemePreview(): JSX.Element {
       className="my-2 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line"
     >
       <div className="flex min-w-0 flex-col" data-preview="terminal">
-        <div className="flex bg-bg-sunken">
-          <PreviewTab label="zsh" active />
-          <PreviewTab label="claude" active={false} />
-        </div>
+        <PreviewCaption label={d.settings.previewTerminal} scheme={terminal.name} />
         <TerminalSample scheme={terminal} font={`"${terminalFont}", monospace`} />
       </div>
       <div className="flex min-w-0 flex-col" data-preview="editor">
-        <div className="flex bg-bg-sunken">
-          <PreviewTab label="pick.ts" active={false} />
-        </div>
+        <PreviewCaption label={d.settings.previewEditor} scheme={editor.name} />
         <EditorSample scheme={editor} font={`"${editorFont}", monospace`} />
       </div>
     </figure>
