@@ -17,7 +17,9 @@ export function ApprovalCard({
 }): JSX.Element {
   const d = useDict()
   const answer = useApprovalsStore((s) => s.answer)
+  const kind = request.kind ?? 'capability'
   const destructive = request.caps.includes('destructive')
+  const subject = request.subject ?? ''
   return (
     <section
       aria-label={d.approvals.title}
@@ -27,10 +29,19 @@ export function ApprovalCard({
         <ShieldWarningIcon size={16} aria-hidden />
         <span className="font-medium">{d.approvals.title}</span>
       </div>
-      <p>
-        {fmt(d.approvals.wants, { pane: paneTitle })}{' '}
-        {request.caps.map((cap) => capLabel(d.approvals.caps, cap)).join(', ')}
-      </p>
+      {kind === 'capability' ? (
+        <p>
+          {fmt(d.approvals.wants, { pane: paneTitle })}{' '}
+          {request.caps.map((cap) => capLabel(d.approvals.caps, cap)).join(', ')}
+        </p>
+      ) : (
+        <p className="[overflow-wrap:anywhere]">
+          {fmt(kind === 'sandbox-domain' ? d.approvals.sandboxDomain : d.approvals.sandboxPort, {
+            pane: paneTitle,
+            subject,
+          })}
+        </p>
+      )}
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="font-medium">{request.action}</span>
         {request.detail ? (
@@ -43,14 +54,31 @@ export function ApprovalCard({
         <Button variant="ghost" size="sm" onClick={() => void answer(request.id, 'deny')}>
           {d.approvals.deny}
         </Button>
-        {destructive ? null : (
-          <Button variant="outline" size="sm" onClick={() => void answer(request.id, 'session')}>
-            {d.approvals.allowSession}
-          </Button>
+        {kind === 'capability' ? (
+          <>
+            {destructive ? null : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void answer(request.id, 'session')}
+              >
+                {d.approvals.allowSession}
+              </Button>
+            )}
+            <Button size="sm" onClick={() => void answer(request.id, 'once')}>
+              {d.approvals.allowOnce}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="outline" size="sm" onClick={() => void answer(request.id, 'session')}>
+              {d.approvals.allowUntilRestart}
+            </Button>
+            <Button size="sm" onClick={() => void answer(request.id, 'workspace')}>
+              {d.approvals.allowWorkspace}
+            </Button>
+          </>
         )}
-        <Button size="sm" onClick={() => void answer(request.id, 'once')}>
-          {d.approvals.allowOnce}
-        </Button>
       </div>
     </section>
   )

@@ -3,7 +3,7 @@ import type { Capability } from './capabilities'
 export const APPROVAL_MODES = ['ask', 'allow'] as const
 export type ApprovalMode = (typeof APPROVAL_MODES)[number]
 
-export const APPROVAL_ANSWERS = ['once', 'session', 'deny'] as const
+export const APPROVAL_ANSWERS = ['once', 'session', 'workspace', 'deny'] as const
 export type ApprovalAnswer = (typeof APPROVAL_ANSWERS)[number]
 
 export type ApprovalOutcome = ApprovalAnswer | 'auto' | 'timeout'
@@ -14,8 +14,17 @@ export const APPROVAL_DETAIL_MAX = 600
 
 export const ALWAYS_ASK: readonly Capability[] = ['destructive']
 
+export const APPROVAL_KINDS = ['capability', 'sandbox-domain', 'sandbox-port'] as const
+export type ApprovalKind = (typeof APPROVAL_KINDS)[number]
+
+export function answersFor(kind: ApprovalKind = 'capability'): readonly ApprovalAnswer[] {
+  return kind === 'capability' ? ['once', 'session', 'deny'] : ['workspace', 'session', 'deny']
+}
+
 export interface ApprovalRequest {
   id: string
+  kind?: ApprovalKind
+  subject?: string
   paneId: string
   workspaceId: string
   caps: Capability[]
@@ -50,6 +59,10 @@ export function parseApprovalSettings(raw: unknown): ApprovalSettings {
   }
 }
 
-export function autoApproves(mode: ApprovalMode, caps: readonly Capability[]): boolean {
-  return mode === 'allow' && !caps.some((cap) => ALWAYS_ASK.includes(cap))
+export function autoApproves(
+  mode: ApprovalMode,
+  caps: readonly Capability[],
+  kind: ApprovalKind = 'capability',
+): boolean {
+  return kind === 'capability' && mode === 'allow' && !caps.some((cap) => ALWAYS_ASK.includes(cap))
 }
