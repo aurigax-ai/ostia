@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 
 const PAGE = `<!doctype html>
@@ -20,11 +21,17 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
   writeFileSync(pagePath, PAGE)
   const pageUrl = pathToFileURL(pagePath).href
 
-  const app = await electron.launch(isolatedLaunch(dataHome))
+  const bin = fakeAgentBin(dataHome)
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({
+    ...launch,
+    env: { ...launch.env, HOME: isolatedHome(dataHome), PATH: `${bin}:${launch.env.PATH}` },
+  })
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
+    await startFakeAgent(win)
 
     await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Open Browser')

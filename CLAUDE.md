@@ -409,8 +409,9 @@ Details: `docs/ARCHITECTURE.md`.
   asks (`ALWAYS_ASK`) and never gets a session grant.
 - **The file menu never launches programs.** "Open with default app" (`main/openPath.ts`) is
   confined like `fs:*` and refuses executables, scripts and launchers (`isProgram`); reveal only
-  shows the item in the file manager. "Send path to agent" lists only agents running in the
-  workspace (`runningAgent`).
+  shows the item in the file manager. Every "send to agent" target list (file menu, selection
+  and pick-element panels) comes from `useAgentTargets`: only panes in the workspace that are
+  running an agent (`runningAgent`), never plain shells or other workspaces.
 - **User actions are data, and elevated ones ask once.** `actions` in `settings.json` name a
   palette command + args (`parseActions`), never a shell string; agents may add them. Running
   one whose command needs a non-default capability shows the command and args and waits

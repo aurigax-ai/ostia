@@ -1,10 +1,14 @@
 import { XIcon } from '@phosphor-icons/react'
+import type { ResumableAgent } from '@shared/agentResume'
 import type { AttentionState } from '@shared/types'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { useDict } from '../i18n/useDict'
+import { sessionTitle } from '../lib/agentSession'
 import { type PickTarget, pickTargets } from '../lib/pickTargets'
+import { runningAgent } from '../lib/sendPick'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePaneRecencyStore } from '../stores/paneRecencyStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -29,16 +33,36 @@ export function stateLabel(d: Dict, state: AttentionState): string {
   }
 }
 
-export function usePickTargets(workspaceId: string): PickTarget[] {
+export function agentLabel(d: Dict, title: string, agent: ResumableAgent | 'other'): string {
+  if (agent === 'other') return title
+  const name = d.agentSession[agent]
+  const session = sessionTitle(title, agent)
+  return session ? `${name} · ${session}` : name
+}
+
+export function useAgentTargets(workspaceId: string): PickTarget[] {
+  const d = useDict()
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const layouts = useLayoutStore((s) => s.byWorkspace)
   const attention = useAttentionStore((s) => s.byPane)
   const touchedAt = usePaneRecencyStore((s) => s.touchedAt)
-  return useMemo(
-    () =>
-      pickTargets({ workspaces, layouts, sourceWorkspaceId: workspaceId, attention, touchedAt }),
-    [workspaces, layouts, workspaceId, attention, touchedAt],
-  )
+  const running = useBlocksStore((s) => s.running)
+  const agentBlocks = useBlocksStore((s) => s.agentBlocks)
+  return useMemo(() => {
+    void running
+    void agentBlocks
+    return pickTargets({
+      workspaces,
+      layouts,
+      sourceWorkspaceId: workspaceId,
+      attention,
+      touchedAt,
+    }).flatMap((target) => {
+      if (!target.sameWorkspace) return []
+      const agent = runningAgent(target.paneId)
+      return agent ? [{ ...target, title: agentLabel(d, target.title, agent) }] : []
+    })
+  }, [workspaces, layouts, workspaceId, attention, touchedAt, running, agentBlocks, d])
 }
 
 export interface PickSendPanelProps {
