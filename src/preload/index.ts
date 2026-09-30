@@ -42,6 +42,13 @@ const bridge: PineBridge = {
     toggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),
     close: () => ipcRenderer.send('window:close'),
     isMaximized: () => ipcRenderer.invoke('window:is-maximized') as Promise<boolean>,
+    setZoom: (percent) => ipcRenderer.invoke('window:set-zoom', percent) as Promise<number>,
+    isSystemDark: () => ipcRenderer.invoke('window:system-dark') as Promise<boolean>,
+    onSystemDarkChange: (cb) => {
+      const handler = (_event: unknown, dark: boolean): void => cb(dark)
+      ipcRenderer.on('window:system-dark-changed', handler)
+      return () => ipcRenderer.removeListener('window:system-dark-changed', handler)
+    },
     onMaximizeChange: (cb) => {
       const handler = (_event: unknown, maximized: boolean): void => cb(maximized)
       ipcRenderer.on('window:maximized', handler)

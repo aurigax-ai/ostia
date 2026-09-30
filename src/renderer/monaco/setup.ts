@@ -75,4 +75,56 @@ monaco.editor.defineTheme('one-dark-vivid', {
   },
 })
 
+monaco.editor.defineTheme('pine-light', {
+  base: 'vs',
+  inherit: true,
+  rules: [
+    { token: '', foreground: '24292f' },
+    { token: 'comment', foreground: '5a6270', fontStyle: 'italic' },
+    { token: 'keyword', foreground: 'a1349f' },
+    { token: 'keyword.flow', foreground: 'a1349f' },
+    { token: 'operator', foreground: '0b7285' },
+    { token: 'delimiter', foreground: '4f5866' },
+    { token: 'string', foreground: '1b7f3b' },
+    { token: 'string.escape', foreground: '0b7285' },
+    { token: 'string.key.json', foreground: 'c62828' },
+    { token: 'number', foreground: '9a5300' },
+    { token: 'regexp', foreground: '1b7f3b' },
+    { token: 'type', foreground: '8a6100' },
+    { token: 'type.identifier', foreground: '8a6100' },
+    { token: 'identifier', foreground: 'c62828' },
+    { token: 'function', foreground: '1f5fbf' },
+    { token: 'variable', foreground: 'c62828' },
+    { token: 'variable.predefined', foreground: '9a5300' },
+    { token: 'constant', foreground: '9a5300' },
+    { token: 'tag', foreground: 'c62828' },
+    { token: 'attribute.name', foreground: '9a5300' },
+    { token: 'attribute.value', foreground: '1b7f3b' },
+  ],
+  colors: {
+    'editor.background': '#fbfcfd',
+    'editor.foreground': '#24292f',
+    'editorCursor.foreground': '#0b62c4',
+    'editor.lineHighlightBackground': '#eceef280',
+    'editorLineNumber.foreground': '#6b7280',
+    'editorLineNumber.activeForeground': '#24292f',
+    'editor.selectionBackground': '#0b62c433',
+    'editor.inactiveSelectionBackground': '#0b62c422',
+    'editorIndentGuide.background1': '#e0e3e8',
+    'editorIndentGuide.activeBackground1': '#c5cad2',
+    'editorWidget.background': '#ffffff',
+    'editorWidget.border': '#d5d9e0',
+    'editorSuggestWidget.background': '#ffffff',
+    'editorSuggestWidget.selectedBackground': '#eceef2',
+    'editorGutter.background': '#fbfcfd',
+    'editorWhitespace.foreground': '#d5d9e0',
+    'scrollbarSlider.background': '#0000002a',
+    'scrollbarSlider.hoverBackground': '#00000044',
+  },
+})
+
+export function monacoThemeName(appearance: 'dark' | 'light'): string {
+  return appearance === 'light' ? 'pine-light' : 'one-dark-vivid'
+}
+
 export { monaco }

@@ -38,6 +38,7 @@ describe('pluginsStore', () => {
         'instrument-night',
         'dracula',
         'oxocarbon',
+        'pine-light',
       ])
     })
 

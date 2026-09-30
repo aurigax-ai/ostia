@@ -179,9 +179,11 @@ Details: `docs/ARCHITECTURE.md`.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
   `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new workspace, `Ctrl+1..9` jump to a workspace,
+  `Ctrl+=` / `Ctrl+Shift+-` / `Ctrl+0` zoom in / out / reset (zoom out is not `Ctrl+-`: readline
+  binds that to undo, and the keybinding guard refuses it),
   `Ctrl+Shift+R` resume the pane's agent, `Ctrl+Shift+E` send a file view's selection to an
   agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
-  macOS uses ⌘ (⌘⇧U unread, ⌘⇧H history, ⌘T new workspace, ⌘1..9 workspaces, ⌘⇧R resume,
+  macOS uses ⌘ (⌘= ⌘- ⌘0 zoom, ⌘⇧U unread, ⌘⇧H history, ⌘T new workspace, ⌘1..9 workspaces, ⌘⇧R resume,
   ⌘⇧E send selection, ⌘↑/⌘↓ blocks). A new default chord must also be free in Monaco (it already binds
   Ctrl+Shift+A, C, G, I, K, L, M, O, R, Z; Settings → Keyboard warns on those via `usedByMonaco`).
   Holding exactly the workspace jump's modifiers (Ctrl / ⌘ by default) for 500 ms shows each
@@ -254,7 +256,10 @@ Details: `docs/ARCHITECTURE.md`.
 - **Never run a user-configured program through a shell.** "Open in External Editor" splits
   `behavior.externalEditor` into argv, substitutes `{file}`/`{line}`/`{column}` per argument,
   and spawns with `shell: false` (`main/externalEditor.ts`). `settings.set` refuses to change
-  that key (directly or via `behavior`); only the human sets it.
+  that key (directly or via `behavior`); only the human sets it. `notifications.command` follows
+  the same rule: `main/notifyCommand.ts` splits it into argv, substitutes `{title}` `{body}`
+  `{pane}` per argument, spawns with `shell: false` for every recorded notification, and
+  `settings.set` refuses it (directly or via `notifications`).
 - **Settings sync never carries secrets or grants.** `SYNCED_FILES` (`settingsSync.ts`) is
   `settings.json` minus its local-only keys (`sync`, `capabilities`) and `extensions.json`. Never
   add the vault, `gateway-devices.json`, certificates or anything with a token. `sync` is not in
@@ -466,5 +471,5 @@ Rules:
   attach, and there's no on-desktop approval of phone-initiated elevation requests (the contract
   allows it; only the Settings switches exist). Anyone with shell access to the desktop can still
   edit `gateway-devices.json` directly, same as `settings.json`.
-- **Monaco theme is fixed** (one-dark-vivid) regardless of the app theme.
+- **Plugin light themes have no terminal palette or Monaco theme of their own.** Only `pine-light` does; a plugin theme falls back to the One Dark Vivid terminal palette, and Monaco follows the theme's `appearance`.
 - **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch).

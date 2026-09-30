@@ -78,8 +78,8 @@
   --separator-border: var(--line);
   --focus-border: var(--brand);
 
-  --scrollbar-thumb: rgba(255, 255, 255, 0.13);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.26);
+  --scrollbar-thumb: var(--color-line-strong);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-fg) 26%, transparent);
 
   --motion-fast: 90ms;
   --motion-base: 150ms;

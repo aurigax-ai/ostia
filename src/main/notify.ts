@@ -12,6 +12,7 @@ import { registerControlMethod } from './controlServer'
 import { emitPlatformEvent } from './events'
 import { getByPaneId } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
+import { runNotifyCommand } from './notifyCommand'
 
 const LOG_CAP = 500
 const TITLE_MAX = 256
@@ -88,6 +89,11 @@ function record(
   if (log.length > LOG_CAP) log.splice(0, log.length - LOG_CAP)
   saveJson(logPath(), log)
   emitPlatformEvent('notify', { title: entry.title, body: entry.body, from: entry.from })
+  runNotifyCommand(readNotificationSettings().command, {
+    title: entry.title,
+    body: entry.body ?? '',
+    pane: entry.paneId ?? '',
+  })
   broadcastChanged(deps)
   return entry
 }
