@@ -2363,8 +2363,8 @@ macOS) and confined to the workspace folder and a firewalled network.
   `/proc/<pid>/net/tcp` of a process inside; srt's own proxy bridges (socat on 1080/3128) are
   skipped. macOS needs no forwarding: loopback binding is allowed.
 - **Secrets** (`main/secrets/`): Host secrets (ssh keys, token-like env vars, `gh auth token`) are
-  read at use, never copied; Pine secrets are the vault; Browser secrets are saved logins, only
-  ever filled by main (`loginFillRuntime`, isolated world 1026). Grants inject real values as env
+  read at use, never copied; Pine secrets are the vault. Saved browser logins are not secrets
+  here: they stay with `browse.login` (SBX-D36). Grants inject real values as env
   or files; a granted SSH key is served by a per-workspace `ssh-agent`. Why not `GIT_SSH_COMMAND`:
   srt sets its own (with the proxy) and overrides Pine's.
 - **Packages**: srt terminates TLS only for registry hosts (`excludeDomains` = every other allowed

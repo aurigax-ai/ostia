@@ -22,14 +22,13 @@ export interface SecretServiceDeps {
     list: (workspaceId: string) => { key: string; scope: 'global' | 'project' }[]
     get: (key: string, scope: 'global' | 'project', workspaceId: string) => string | null
   }
-  logins: () => { id: string; origin: string; username: string }[]
   grantedIds: (workspaceId: string) => string[]
   ask: (ask: SecretAsk) => Promise<ApprovalOutcome>
 }
 
 export type SecretGetResult =
   | { ok: true; value: string }
-  | { ok: false; error: 'unknown-secret' | 'ambiguous' | 'browser-secret' | 'denied' | 'missing' }
+  | { ok: false; error: 'unknown-secret' | 'ambiguous' | 'denied' | 'missing' }
 
 function sshKeys(home: string): string[] {
   const dir = join(home, '.ssh')
@@ -86,20 +85,7 @@ export class SecretService {
         editable: true,
       })
     }
-    for (const login of this.deps.logins()) {
-      out.push({
-        id: `browser:${login.id}`,
-        name: `${login.username}@${login.origin}`,
-        source: 'browser',
-        kind: 'login',
-        editable: false,
-      })
-    }
     return out
-  }
-
-  canInject(id: string): boolean {
-    return !id.startsWith('browser:')
   }
 
   value(workspaceId: string, id: string): string | null {
@@ -130,7 +116,6 @@ export class SecretService {
     if (matches.length === 0) return { ok: false, error: 'unknown-secret' }
     if (matches.length > 1) return { ok: false, error: 'ambiguous' }
     const secret = matches[0]
-    if (secret.source === 'browser') return { ok: false, error: 'browser-secret' }
     const trusted =
       this.deps.grantedIds(workspaceId).includes(secret.id) ||
       this.untilRestart.get(workspaceId)?.has(secret.id)

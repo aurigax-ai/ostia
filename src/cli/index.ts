@@ -171,24 +171,8 @@ async function runSecretVerb(conn: MessageConnection): Promise<void> {
       console.error(`pine: ${res.error ?? 'failed'}`)
       process.exitCode = 1
     }
-  } else if (sub === 'fill') {
-    if (!target) {
-      console.error('pine secret fill: missing <origin>')
-      process.exitCode = 1
-      return
-    }
-    const res = await conn.sendRequest<{ ok: boolean; error?: string }>('secret.fill', {
-      origin: target,
-      reason,
-    })
-    if (res.ok) {
-      console.log('filled')
-    } else {
-      console.error(`pine: ${res.error ?? 'failed'}`)
-      process.exitCode = 1
-    }
   } else {
-    console.error(`pine secret: unknown subcommand '${sub ?? ''}' (try: ls, get, fill)`)
+    console.error(`pine secret: unknown subcommand '${sub ?? ''}' (try: ls, get)`)
     process.exitCode = 1
   }
 }

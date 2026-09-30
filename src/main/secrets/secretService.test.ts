@@ -23,7 +23,6 @@ function setup(opts: { outcome?: ApprovalOutcome; granted?: string[] } = {}) {
       list: () => [{ key: 'API_KEY', scope: 'global' as const }],
       get: (key) => (key === 'API_KEY' ? 'vault-value' : null),
     },
-    logins: () => [{ id: 'c1', origin: 'https://app.example.com', username: 'me' }],
     grantedIds: () => opts.granted ?? [],
     ask: async ({ name, reason }) => {
       asks.push({ name, reason })
@@ -90,29 +89,5 @@ describe('SecretService', () => {
       error: 'unknown-secret',
     })
     expect(asks).toEqual([])
-  })
-
-  it('SBX-C93 refuses to hand over a browser login as a value', async () => {
-    const { service, asks } = setup()
-    const login = service.list('ws').find((s) => s.source === 'browser')
-    expect(login).toBeDefined()
-    await expect(service.get('ws', 'pane', login?.name ?? '', '')).resolves.toEqual({
-      ok: false,
-      error: 'browser-secret',
-    })
-    expect(service.canInject(login?.id ?? '')).toBe(false)
-    expect(asks).toEqual([])
-  })
-
-  it('SBX-C94 lists a browser login by origin and username only', () => {
-    const { service } = setup()
-    const login = service.list('ws').find((s) => s.source === 'browser')
-    expect(login).toEqual({
-      id: 'browser:c1',
-      name: 'me@https://app.example.com',
-      source: 'browser',
-      kind: 'login',
-      editable: false,
-    })
   })
 })

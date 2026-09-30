@@ -51,7 +51,6 @@ const CLI_HELP = `pine — control-socket CLI
   pine sandbox expose <port>           ask the human to reach a sandboxed server from this computer
   pine secret ls                       list secrets you may ask for (names and labels, never values)
   pine secret get <name> [--reason t]  ask the human for a secret's value (prints it on approval)
-  pine secret fill <origin> [--reason t]  ask Pine to fill a saved login in the workspace browser
   pine bus send <toExternalId> "<msg>"        send a message to another pane's inbox
   pine bus inbox [--drain]                    print your inbox (optionally clearing it)
   pine bus wait [--timeout MS]                block until a message arrives (default 30s)

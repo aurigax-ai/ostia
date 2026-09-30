@@ -37,7 +37,6 @@ export function prepareSecrets(input: PrepareSecretsInput): PreparedSecrets {
   for (const grant of input.grants) {
     if (grant.mode === 'request') continue
     const entry = input.list.find((s) => s.id === grant.id)
-    if (entry?.source === 'browser') continue
     const label = entry?.name ?? grant.id.split(':').pop() ?? grant.id
     const value = entry ? input.value(entry.id) : null
     if (value === null) {

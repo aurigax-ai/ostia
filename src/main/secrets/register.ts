@@ -16,12 +16,6 @@ export interface SecretsRegisterDeps {
   ownerWindow: (workspaceId: string) => string | undefined
   vaultSet?: (key: string, value: string) => boolean
   vaultDelete?: (key: string) => boolean
-  fill?: (
-    workspaceId: string,
-    paneId: string,
-    origin: string,
-    reason: string,
-  ) => Promise<{ ok: boolean; error?: string }>
 }
 
 export interface SecretsView {
@@ -46,19 +40,6 @@ export function registerSecretMethods(deps: SecretsRegisterDeps): void {
         ctx.identity.workspaceId,
         ctx.identity.paneId,
         name,
-        typeof reason === 'string' ? reason.slice(0, 500) : '',
-      )
-    },
-  })
-  registerControlMethod('secret.fill', {
-    handler: async (params, ctx) => {
-      const { origin, reason } = (params ?? {}) as { origin?: unknown; reason?: unknown }
-      if (typeof origin !== 'string') throw new ResponseError(-32602, 'origin must be a string')
-      if (!deps.fill) return { ok: false, error: 'unsupported' }
-      return deps.fill(
-        ctx.identity.workspaceId,
-        ctx.identity.paneId,
-        origin,
         typeof reason === 'string' ? reason.slice(0, 500) : '',
       )
     },
@@ -95,12 +76,7 @@ export function registerSecretMethods(deps: SecretsRegisterDeps): void {
       if (!parsed) return { ok: false, errors: [{ value: '', reason: 'invalid' }] }
       const known = new Map(deps.service.list(workspaceId).map((s) => [s.id, s]))
       const errors = parsed.flatMap((g) => {
-        const secret = known.get(g.id)
-        if (!secret) return [{ value: g.id, reason: 'unknown-secret' }]
-        if (secret.source === 'browser' && g.mode !== 'request') {
-          return [{ value: secret.name, reason: 'browser-secret' }]
-        }
-        return []
+        return known.has(g.id) ? [] : [{ value: g.id, reason: 'unknown-secret' }]
       })
       if (errors.length > 0) return { ok: false, errors }
       return {
