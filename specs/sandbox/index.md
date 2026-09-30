@@ -75,6 +75,20 @@ Segments:
   inherited unless the workspace overrides them. The workspace page marks each value inherited or
   overridden and can reset an override. Why: the human wants per-workspace control without setting
   every workspace up by hand. Governs: policy resolution.
+- **SBX-D33** Pine has a core system-requirements checker (`main/systemRequirements.ts`): a feature
+  registers the programs it needs per platform, each with its package name, and main answers
+  which are missing (`system:requirements`). The sandbox registers bubblewrap, socat and ripgrep
+  on Linux and ripgrep on macOS. Turning a workspace's sandbox on checks them first, in main: if
+  any is missing, the switch is refused, it stays off, and the UI shows a notice naming the missing
+  packages with an Install button. Why: the human asked that a feature can't be turned on without
+  what it needs, and that the reason is shown instead of a later failure. Governs: sandbox enable
+  guard, system requirements registry.
+- **SBX-D34** The notice's Install button (and the same action on the desktop notification that a
+  failed sandboxed spawn raises, SBX-D3) runs the system extension's install flow for exactly the
+  missing packages, as the human's act: its confirm card shows the command, and a terminal opens
+  where the human types sudo. If the system extension isn't enabled, the notice shows the command
+  to copy instead. Why: installing stays the human's visible act, through the flow Pine already
+  has. Governs: requirement install action, sandbox spawn failure notification.
 
 ## Cases
 | ID | Covers | Kind | Case |
@@ -100,6 +114,11 @@ Segments:
 | SBX-C59 | SBX-D21 | expected | Given the global cooldown is 2 days and a workspace overrides it to 0, when that workspace downloads a package published an hour ago, then it succeeds, other sandboxed workspaces are blocked, and the page shows the override with a Reset |
 | SBX-C60 | SBX-D21 | expected | Given a global domain and a workspace domain, when the workspace's shell connects to either, then both work, and the page shows the global one as inherited |
 | SBX-C61 | SBX-D21 | unexpected | Given a workspace overrides a value, when the human changes the global default, then the workspace keeps its override until reset |
+| SBX-C95 | SBX-D33 | expected | Given bubblewrap is missing, when the human turns a workspace's sandbox on, then it stays off and a notice names bubblewrap with an Install button |
+| SBX-C96 | SBX-D33 | unexpected | Given a requirement is missing, when `sandbox:set-enabled` true reaches main from the owning window anyway, then main refuses it and the store is unchanged |
+| SBX-C97 | SBX-D34 | expected | Given the missing-requirements notice, when the human clicks Install, then the system extension's confirm card lists exactly the missing packages |
+| SBX-C98 | SBX-D34 | unexpected | Given the system extension is disabled, when the notice shows, then it offers the install command to copy and opens no terminal |
+| SBX-C99 | SBX-D34 | expected | Given a sandboxed pane fails to spawn for a missing package, when it fails, then a desktop notification names the package and its Install action starts the same flow |
 | SBX-C18 | SBX-D6 | expected | Given `approvals.mode: 'allow'`, when a sandboxed agent requests a domain, then a card is still shown and nothing is granted until the human answers |
 | SBX-C19 | SBX-D6 | unexpected | Given a pending sandbox card, when it times out, then the request is denied and nothing is stored |
 | SBX-C20 | SBX-D6 | unexpected | Given a sandbox card answered "This workspace", when approval history is read, then no capability grant was written and the domain is in the workspace's sandbox entry |
