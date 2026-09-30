@@ -43,7 +43,7 @@ main (Node, privileged)  ──ipcMain / webContents.send──  preload (contex
 - **shared** (`src/shared/`): `types.ts` (the `PineBridge` contract and snapshot types),
   `capabilities.ts` (capability names), `protoGuard.ts` (prototype-pollution guard).
 - **cli** (`src/cli/index.ts`): the `pine` binary, built to `out/cli/index.js`.
-- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper) and their SDK. They run
+- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper, system) and their SDK. They run
   as separate processes and reach pine only through the control socket (§11).
 
 Every window uses `contextIsolation`, `sandbox`, no `nodeIntegration`, and `webviewTag: true`
@@ -908,6 +908,15 @@ target whichever window happened to be first.
   extension dir.
 - Lazy start: the first invoke, panel resolution, or (for extensions with `sidebarItems`) window
   creation. A command waits until the process has registered it (`ext.registerCommands`), 10 s max.
+- An `ext.command` request times out after 30 s (`REQUEST_TIMEOUT_MS`), or 10 min
+  (`INTERACTIVE_TIMEOUT_MS`) for a command whose manifest says `interactive: true`. Why: an
+  interactive command waits on the human (`ext.confirm`), who may take longer than 30 s; before
+  this the CLI got `extension-unavailable` while the dialog was still open. The CLI itself has no
+  timeout, so it waits as long as the host does. A human who answers after the 10 min still gets
+  what they chose (the extension finishes the work); only the agent's answer is lost.
+- A failed result may carry `data` (`{ok: false, error, message?, data?}`); the CLI prints it on
+  stdout as JSON before the error line and exits 1. Why: `pine system install` must tell the agent
+  `{approved: false, command}` and still fail.
 - On exit the identity is revoked, the server-side connection is disposed (which rejects any
   in-flight request immediately rather than at the 30 s timeout), subscriptions and sidebar items
   are dropped, and the process is restarted after 500 ms · 2ⁿ, at most 3 times; then the status
@@ -915,7 +924,8 @@ target whichever window happened to be first.
 - `before-quit` sends SIGTERM to every extension process.
 
 **Methods.** Extension → pine: `ext.registerCommands`, `ext.subscribe`, `ext.setSidebarItem`,
-`ext.notify` (needs `notify`), `ext.openPanel`, `ext.openDiff`, `ext.confirm`, plus the shared
+`ext.notify` (needs `notify`), `ext.openPanel`, `ext.openDiff`, `ext.confirm`, `ext.openTerminal`
+(needs `shell`), plus the shared
 read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`). Pine → extension:
 `ext.command` and `ext.panel` requests, `ext.event` notifications. Pane → pine: `ext.list`,
 `ext.invoke`.
@@ -923,6 +933,25 @@ read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`
   `extensions:open-diff` to the workspace's window, where `openExtensionDiff` opens the diff pane
   (§5, §9). Why a generic diff and not a git view: the first consumer is git, but a diff of two
   texts is what any VCS, formatter or code-review extension needs, and core stays VCS-agnostic.
+- `ext.openTerminal {command: string[], workspaceId?, afterPaneId?, cwd?, title?}` opens a new
+  terminal pane and runs the argv there once. Main validates (1–64 strings, ≤ 4096 chars each, no
+  control characters, a non-empty program; `cwd` absolute; `afterPaneId` an external pane id in
+  `workspaceId` if both are given), resolves `afterPaneId` to the renderer pane id and window,
+  quotes the argv for a POSIX shell (`shared/shellQuote.ts`: bare word if it is only
+  `[A-Za-z0-9@%+:,./_-]`, else single quotes) and sends `extensions:open-terminal` to that window.
+  `openExtensionTerminal` splits right of `afterPaneId` (else the active pane; an empty workspace
+  gets it as its first pane), activates that workspace, and `runWhenIdle` (`lib/blockActions.ts`)
+  pastes the line with Enter through `insertCommand` once the new shell has drawn its first
+  prompt (OSC 133 A and B, nothing running), then unsubscribes; it gives up after 30 s. The
+  renderer answers with the new pane id (`extensions:open-terminal-result`), which main registers
+  and returns as the external id. Why a new pane and never an existing one: the only pane an
+  extension may type into is one nobody else is using, so the invariant "nothing types into a
+  pane unless it's at an idle prompt" holds without trusting the extension about any other pane.
+  Why argv and quoting in main: an extension hands data, never a shell string, so a package name
+  like `$(rm -rf ~)` stays one literal argument. Why wait for B and not only A: A is sent before the
+  prompt is drawn, B once it is on screen and the shell is about to read input.
+- The caller context carries `locale` for pane callers too (the app's `settings.json` locale,
+  `readLocale` in main), so a dialog an agent triggers is in the human's language.
 - `workspace.list` includes `activePaneId` (external id) so an extension can follow "the pane the
   user is in" without a pane-scoped method.
 - The caller context carries `cwd`: for a pane caller the pane's live terminal cwd
@@ -1018,7 +1047,32 @@ but the public API.
 - They depend on phase 4's extension access to `workspace.list`, `caller.cwd` and `focus.changed`
   and degrade without them (no per-workspace items; cwd falls back to workDir; idle poll rate).
 
-**Built-ins.** `src/extensions/{git,trellis,keeper}` are built by `scripts/build-extensions.mjs`
+**System** (`src/extensions/system/`). Lets an agent learn about the machine and ask the human to
+install packages instead of running `sudo` itself.
+- `info`: OS from `/etc/os-release` (or `/usr/lib/os-release`; `sw_vers` on macOS, the kernel
+  release on Windows; `os.ts`), kernel, arch, `$SHELL`, whether it runs as root, and which of
+  pacman, paru, yay, apt, dnf, zypper, apk, brew, flatpak, snap, nix-env, winget are executable
+  on `PATH` (`managers.ts` `findOnPath`, PATHEXT on Windows). The default manager comes from the
+  distro id then `ID_LIKE` (Arch family → pacman, Debian family → apt, Fedora/RHEL → dnf, SUSE →
+  zypper, Alpine → apk, NixOS → nix-env, macOS → brew, Windows → winget); if that one is missing,
+  the first system manager found. AUR helpers, flatpak and snap are never the default.
+- `install <pkg...> [--manager <name>] [--reason <text>]` (manifest `interactive: true`):
+  `planInstall` (`install.ts`) validates every name against `^[A-Za-z0-9][A-Za-z0-9@._+:-]*$`
+  (≤ 128 chars, ≤ 32 names; so no flags, paths or shell syntax), checks the manager is known and
+  on `PATH`, and builds the argv (`sudo` prepended for root managers unless already root; never
+  for brew, flatpak, nix-env or AUR helpers, which refuse or misbehave as root; winget one exact
+  id at a time). The exact quoted line and the agent's reason go into `ext.confirm` (Approve /
+  Deny, localized in `strings.ts`). Denied → `{ok: false, error: 'denied', data: {approved:
+  false, command}}` and nothing runs. Approved → `ext.openTerminal` right of the caller's pane
+  with the caller's cwd → `{approved: true, command, paneId}`. The package manager is never run by
+  the extension itself: the human sees the sudo prompt and output live in the new pane, and the
+  manager's own confirmation (no `-y`/`--noconfirm`) is a second check.
+- E2E (`e2e/system.spec.ts`) answers the dialog by replacing `dialog.showMessageBox` in the main
+  process through Playwright's `app.evaluate`, and records the options it was called with. There
+  is no test seam in the app: the native dialog can't be clicked by Playwright, and the stub runs
+  the real `confirmForExtension` code path up to the OS call.
+
+**Built-ins.** `src/extensions/{git,trellis,keeper,system}` are built by `scripts/build-extensions.mjs`
 (esbuild: `main.ts` → node CJS bundle, `panel.ts` → browser IIFE; `sdk/panel.css` → `base.css`)
 into `out/extensions`; electron-builder ships that dir as `extraResources` and keeps it out of
 the asar (a process can't use an asar path as cwd). They use only the public API through the

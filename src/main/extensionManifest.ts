@@ -73,6 +73,7 @@ export function parseCommand(raw: unknown, index: number): ExtensionCommandContr
   if (category) command.category = category
   const usage = text(raw.usage)
   if (usage) command.usage = usage
+  if (raw.interactive === true) command.interactive = true
   return command
 }
 

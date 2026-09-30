@@ -22,7 +22,11 @@ import {
   type ExtensionStatus,
   SIDEBAR_TONES,
   type SidebarTone,
+  TERMINAL_ARG_MAX,
+  TERMINAL_COMMAND_MAX_ARGS,
+  TERMINAL_TITLE_MAX,
 } from '../shared/extensions'
+import { quoteArgv } from '../shared/shellQuote'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
 import { registerControlMethod } from './controlServer'
 import {
@@ -33,9 +37,16 @@ import {
   parseCommand,
 } from './extensionManifest'
 import { type ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'
-import { type PaneIdentity, registerExtension, removeExtension } from './idRegistry'
+import {
+  type PaneIdentity,
+  registerExtension,
+  removeExtension,
+  resolveExternal,
+} from './idRegistry'
 
 export const MAX_RESTARTS = 3
+export const REQUEST_TIMEOUT_MS = 30_000
+export const INTERACTIVE_TIMEOUT_MS = 10 * 60_000
 const MAX_SIDEBAR_ITEMS = 32
 const SIDEBAR_TEXT_MAX = 80
 const DIFF_TITLE_MAX = 200
@@ -65,19 +76,31 @@ export interface ExtensionHostDeps {
   nodePath: string
   workDirForWorkspace: (workspaceId?: string) => string | undefined
   cwdForPane?: (paneId: string) => string | undefined
+  locale?: () => string | undefined
   broadcast: (channel: string, payload: unknown) => void
   openPanelIn: (req: ExtensionOpenPanelRequest) => void
   openDiffIn?: (req: ExtensionOpenDiffRequest) => void
+  openTerminalIn?: (req: TerminalOpenRequest) => Promise<string | null>
   notify: (n: { title: string; body?: string; from: string }) => void
   restartDelayMs?: number
   readyTimeoutMs?: number
   requestTimeoutMs?: number
+  interactiveTimeoutMs?: number
   log?: (extId: string, line: string) => void
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
   notifyPanel?: (
     n: { title: string; body?: string; from: string; extId: string },
     openPanel: () => void,
   ) => void
+}
+
+export interface TerminalOpenRequest {
+  command: string
+  workspaceId?: string
+  windowId?: string
+  afterPaneId?: string
+  cwd?: string
+  title?: string
 }
 
 export interface ExtensionConfirmRequest {
@@ -94,6 +117,28 @@ const CONFIRM_TITLE_MAX = 120
 const CONFIRM_MESSAGE_MAX = 500
 const CONFIRM_DETAIL_MAX = 2000
 const CONFIRM_LABEL_MAX = 40
+function hasControlChar(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
+}
+
+export function terminalArgv(raw: unknown): string[] | string {
+  if (!Array.isArray(raw) || raw.length === 0) return 'command must be a non-empty array'
+  if (raw.length > TERMINAL_COMMAND_MAX_ARGS) {
+    return `command is limited to ${TERMINAL_COMMAND_MAX_ARGS} arguments`
+  }
+  for (const arg of raw) {
+    if (typeof arg !== 'string') return 'command arguments must be strings'
+    if (arg.length > TERMINAL_ARG_MAX)
+      return `arguments are limited to ${TERMINAL_ARG_MAX} characters`
+    if (hasControlChar(arg)) return 'command arguments must not contain control characters'
+  }
+  if (!raw[0]) return 'command must start with a program'
+  return raw as string[]
+}
 
 function fail(error: string, message?: string): ExtensionResult {
   return message ? { ok: false, error, message } : { ok: false, error }
@@ -129,10 +174,11 @@ function normalizeResult(raw: unknown): ExtensionResult {
       data?: unknown
     }
     if (!r.ok) {
-      return fail(
+      const failed = fail(
         typeof r.error === 'string' ? r.error : 'failed',
         typeof r.message === 'string' ? r.message : undefined,
       )
+      return r.data === undefined ? failed : { ...failed, data: r.data }
     }
     const out: ExtensionResult = { ok: true }
     if (typeof r.text === 'string') out.text = r.text
@@ -423,9 +469,12 @@ export class ExtensionHost {
     if (missing) return fail('needs-elevation', missing)
     try {
       const conn = await this.connected(rt, command)
+      const timeoutMs = cmd.interactive
+        ? (this.deps.interactiveTimeoutMs ?? INTERACTIVE_TIMEOUT_MS)
+        : (this.deps.requestTimeoutMs ?? REQUEST_TIMEOUT_MS)
       const raw = await withTimeout(
         conn.sendRequest('ext.command', { command, args: args ?? null, caller }),
-        this.deps.requestTimeoutMs ?? 30_000,
+        timeoutMs,
         `${extId} ${command}`,
       )
       return normalizeResult(raw)
@@ -455,6 +504,8 @@ export class ExtensionHost {
     if (workDir) caller.workDir = workDir
     const cwd = this.deps.cwdForPane?.(identity.paneId)
     if (cwd) caller.cwd = cwd
+    const locale = this.deps.locale?.()
+    if (locale) caller.locale = locale
     return caller
   }
 
@@ -480,7 +531,7 @@ export class ExtensionHost {
       const caller = this.userCaller(context.workspaceId, { locale: context.locale })
       const res = await withTimeout(
         conn.sendRequest<{ url?: unknown }>('ext.panel', { caller }),
-        this.deps.requestTimeoutMs ?? 30_000,
+        this.deps.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
         `${extId} panel`,
       )
       const url = typeof res?.url === 'string' ? res.url : ''
@@ -654,6 +705,40 @@ export class ExtensionHost {
     return { ok: true }
   }
 
+  async openTerminal(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    this.runtimeOf(identity, conn)
+    const p = (params ?? {}) as Record<string, unknown>
+    const argv = terminalArgv(p.command)
+    if (typeof argv === 'string') return fail('invalid-params', argv)
+    const req: TerminalOpenRequest = { command: quoteArgv(argv) }
+    const workspaceId =
+      typeof p.workspaceId === 'string' && p.workspaceId ? p.workspaceId : undefined
+    if (p.afterPaneId !== undefined) {
+      const after = typeof p.afterPaneId === 'string' ? resolveExternal(p.afterPaneId) : undefined
+      if (after?.kind !== 'pane') return fail('unknown-pane', 'afterPaneId is not a pane')
+      if (workspaceId && workspaceId !== after.workspaceId) {
+        return fail('invalid-params', 'afterPaneId is not in that workspace')
+      }
+      req.afterPaneId = after.paneId
+      req.workspaceId = after.workspaceId
+      req.windowId = after.windowId
+    } else if (workspaceId) {
+      req.workspaceId = workspaceId
+    }
+    if (p.cwd !== undefined) {
+      if (typeof p.cwd !== 'string' || !isAbsolute(p.cwd)) {
+        return fail('invalid-params', 'cwd must be absolute')
+      }
+      req.cwd = p.cwd
+    }
+    if (typeof p.title === 'string' && p.title.trim()) {
+      req.title = p.title.trim().slice(0, TERMINAL_TITLE_MAX)
+    }
+    if (!this.deps.openTerminalIn) return fail('no-window')
+    const paneId = await this.deps.openTerminalIn(req)
+    return paneId ? { ok: true, paneId } : fail('not-opened', 'no workspace to open it in')
+  }
+
   listForAgents() {
     return this.list()
       .filter((e) => e.enabled)
@@ -739,6 +824,11 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
     'ext.openDiff',
     forExtension((h, id, conn, p) => h.openDiff(id, conn, p)),
   )
+
+  registerControlMethod('ext.openTerminal', {
+    ...forExtension((h, id, conn, p) => h.openTerminal(id, conn, p)),
+    cap: 'shell',
+  })
 
   registerControlMethod('ext.list', {
     handler: () => host()?.listForAgents() ?? [],

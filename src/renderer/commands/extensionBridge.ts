@@ -2,7 +2,9 @@ import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
+  ExtensionOpenTerminalRequest,
 } from '@shared/extensions'
+import { runWhenIdle } from '../lib/blockActions'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -76,6 +78,21 @@ export function openExtensionDiff(req: ExtensionOpenDiffRequest): string | null 
   return workspaceId ? useLayoutStore.getState().openDiff(workspaceId, content) : null
 }
 
+export function openExtensionTerminal(req: ExtensionOpenTerminalRequest): string | null {
+  const workspaces = useWorkspacesStore.getState()
+  const workspaceId = req.workspaceId ?? workspaces.activeWorkspaceId
+  if (!workspaceId || !workspaces.workspaces.some((w) => w.id === workspaceId)) return null
+  const paneId = useLayoutStore.getState().openTerminal(workspaceId, {
+    afterPaneId: req.afterPaneId,
+    cwd: req.cwd,
+    title: req.title,
+  })
+  if (!paneId) return null
+  if (workspaces.activeWorkspaceId !== workspaceId) workspaces.setActive(workspaceId)
+  runWhenIdle(paneId, req.command)
+  return paneId
+}
+
 export function wireExtensionBridge(): void {
   const api = window.pine?.extensions
   if (!api) return
@@ -87,6 +104,7 @@ export function wireExtensionBridge(): void {
   api.onSidebar((items) => store.setSidebar(items))
   api.onOpenPanel(openExtensionPanel)
   api.onOpenDiff(openExtensionDiff)
+  api.onOpenTerminal(openExtensionTerminal)
   void store
     .load()
     .then(() => syncExtensionCommands(useExtensionsStore.getState().list))

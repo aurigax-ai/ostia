@@ -3,6 +3,7 @@ import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
+  ExtensionOpenTerminalRequest,
   ExtensionPanelSource,
   ExtensionResult,
   ExtensionSidebarItem,
@@ -171,6 +172,12 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, req: ExtensionOpenDiffRequest): void => cb(req)
       ipcRenderer.on('extensions:open-diff', handler)
       return () => ipcRenderer.removeListener('extensions:open-diff', handler)
+    },
+    onOpenTerminal: (cb) => {
+      const handler = (_e: unknown, req: ExtensionOpenTerminalRequest): void =>
+        ipcRenderer.send('extensions:open-terminal-result', req.requestId, cb(req))
+      ipcRenderer.on('extensions:open-terminal', handler)
+      return () => ipcRenderer.removeListener('extensions:open-terminal', handler)
     },
   },
   externalEditor: {

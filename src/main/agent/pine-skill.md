@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), and reading/writing app settings, and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway".
 ---
 
 # Pine — the agent toolbelt
@@ -149,6 +149,27 @@ Scoped to your pane's current directory (falls back to the workspace's). `area` 
 Outside a repo you get `not-a-repo`; a path with no changes gives `not-changed`. Read-only:
 it never stages, commits or checks out. Use `git` itself for that.
 
+## System — what machine you're on, and installing packages
+
+```sh
+pine system info       # {os:{platform,id,idLike,name,version}, kernel, arch, shell, isRoot,
+                       #  packageManagers:{available:[...], default}}
+pine system install <pkg...> [--manager <name>] [--reason <text>]
+                       # → {approved:true, command, paneId} | {approved:false, command} + exit 1
+```
+
+Check `pine system info` before guessing the distro or package manager. **Never run `sudo`,
+`pacman -S`, `apt install`, `brew install` etc. yourself** to install a system package: ask with
+`pine system install` and always pass `--reason` (the human reads it). It shows the human the exact
+command in a dialog and waits for Approve/Deny (it can take minutes; don't time it out). On
+Approve the command runs in a new terminal pane beside yours, where the human answers any sudo
+prompt; the call returns as soon as that pane opens, not when the install finishes, so verify
+afterwards (`command -v rg`, or re-run your check) before relying on it. On Deny nothing runs:
+don't retry the same request, ask the human what they'd prefer. Package names must be plain
+names (`ripgrep`, `libssl-dev`, `python3.12`); no flags, paths or versions with spaces.
+`--manager` picks one of `pacman paru yay apt dnf zypper apk brew flatpak snap nix-env winget`
+that is on PATH (e.g. `paru` for AUR packages); otherwise the distro's own manager is used.
+
 ## Extensions — commands contributed by extensions
 
 ```sh
@@ -157,7 +178,7 @@ pine ext <extId> <command> [args]    # run an extension command
 pine <extId> <command> [args]        # same, when <extId> isn't a core verb (this is how `pine git` works)
 ```
 
-Git, trellis and keeper are built-in extensions, so their commands behave exactly as documented.
+Git, trellis, keeper and system are built-in extensions, so their commands behave exactly as documented.
 If the user disabled one in Settings → Plugins you'll get `extension-disabled`; don't try to
 enable it yourself (there is no verb for that — only the human approves/enables extensions).
 `extension-unavailable` means its process didn't start or crashed; retry once, then tell the

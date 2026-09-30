@@ -1,0 +1,11 @@
+{
+  "id": "noshell",
+  "name": "No Shell",
+  "version": "0.1.0",
+  "description": "Test fixture: asks for ext.openTerminal without the shell capability",
+  "capabilities": ["notify"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [{ "id": "open", "title": "Open a terminal", "palette": false }]
+  }
+}

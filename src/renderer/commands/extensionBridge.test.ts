@@ -1,11 +1,19 @@
 import type { ExtensionInfo } from '@shared/extensions'
+import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { findPane, paneIds, resetIds } from '../layout/tree'
+import { registerTerminal } from '../lib/terminalHandles'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useDiffStore } from '../stores/diffStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
-import { openExtensionDiff, openExtensionPanel, syncExtensionCommands } from './extensionBridge'
+import {
+  openExtensionDiff,
+  openExtensionPanel,
+  openExtensionTerminal,
+  syncExtensionCommands,
+} from './extensionBridge'
 import { commands } from './registry'
 
 function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
@@ -205,5 +213,89 @@ describe('extensionBridge', () => {
     expect(diff).toBeNull()
     expect(useWorkspacesStore.getState().workspaces).toEqual([])
     expect(useLayoutStore.getState().byWorkspace).toEqual({})
+  })
+
+  describe('openExtensionTerminal', () => {
+    let blocksInit: ReturnType<typeof useBlocksStore.getState>
+
+    beforeAll(() => {
+      blocksInit = useBlocksStore.getState()
+    })
+
+    afterEach(() => {
+      useBlocksStore.setState(blocksInit, true)
+    })
+
+    function twoWorkspaces(): void {
+      useWorkspacesStore.setState({
+        workspaces: [
+          { id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' },
+          { id: 's2', name: 'b', kind: 'terminal', workDir: '/b', state: 'idle' },
+        ],
+        activeWorkspaceId: 's2',
+      })
+    }
+
+    it('splits right of the agent pane, shows its workspace, and runs the command at the first idle prompt', () => {
+      twoWorkspaces()
+      useLayoutStore.getState().ensure('s1')
+      const agent = useLayoutStore.getState().byWorkspace.s1.activePaneId
+      useLayoutStore.getState().split('s1', agent, 'vertical')
+
+      const paneId = openExtensionTerminal({
+        requestId: 'r1',
+        workspaceId: 's1',
+        afterPaneId: agent,
+        command: 'sudo pacman -S --needed ripgrep',
+        cwd: '/a/project',
+        title: 'Install packages',
+      })
+
+      expect(paneId).not.toBeNull()
+      const layout = useLayoutStore.getState().byWorkspace.s1
+      expect(layout.activePaneId).toBe(paneId)
+      expect(findPane(layout.root, paneId as string)).toMatchObject({
+        kind: 'terminal',
+        cwd: '/a/project',
+        title: 'Install packages',
+      })
+      const parent = layout.root.type === 'split' ? layout.root.children[0] : null
+      expect(parent).toMatchObject({ type: 'split', direction: 'horizontal' })
+      expect(paneIds(parent as never)).toEqual([agent, paneId])
+      expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s1')
+
+      const paste = vi.fn()
+      const unregister = registerTerminal(
+        paneId as string,
+        {
+          paste,
+          focus: vi.fn(),
+        } as unknown as Terminal,
+      )
+      const blocks = useBlocksStore.getState()
+      blocks.promptStart(paneId as string, { line: 0 }, '/a/project')
+      expect(paste).not.toHaveBeenCalled()
+      blocks.promptEnd(paneId as string, { line: 0 })
+      expect(paste).toHaveBeenCalledWith('sudo pacman -S --needed ripgrep')
+      expect(window.pine.pty.write).toHaveBeenCalledWith(paneId, '\r')
+      unregister()
+    })
+
+    it('makes the terminal the first pane of an empty workspace', () => {
+      twoWorkspaces()
+      const paneId = openExtensionTerminal({ requestId: 'r2', workspaceId: 's2', command: 'ls' })
+      const layout = useLayoutStore.getState().byWorkspace.s2
+      expect(layout.root).toMatchObject({ type: 'pane', id: paneId, kind: 'terminal' })
+    })
+
+    it('opens nothing for a workspace that does not exist or when there is none', () => {
+      twoWorkspaces()
+      expect(openExtensionTerminal({ requestId: 'r3', workspaceId: 'gone', command: 'ls' })).toBe(
+        null,
+      )
+      useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
+      expect(openExtensionTerminal({ requestId: 'r4', command: 'ls' })).toBeNull()
+      expect(useLayoutStore.getState().byWorkspace).toEqual({})
+    })
   })
 })

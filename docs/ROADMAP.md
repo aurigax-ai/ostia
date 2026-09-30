@@ -41,7 +41,7 @@ reduction.
 were deleted: ~965 lines of extension TypeScript plus ~400 of panel HTML/CSS and manifests, the
 phone gateway's `board.get`/`board.update` and its `board.read`/`board.write` caps, the
 `wiki-read`/`wiki-write`/`board-write` pane caps, the `phone` extension caller kind, and the SDK's
-JSON-store helpers that only they used. Built-in extensions are now git, trellis and keeper. Old
+JSON-store helpers that only they used. Built-in extensions are now git, trellis, keeper and system. Old
 `.pine/board.json` / `wiki.json` files stay on disk unread.
 
 ## 2. Architecture: three rings

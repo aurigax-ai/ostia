@@ -54,7 +54,19 @@ interface LayoutState {
   openBrowser: (workspaceId: string, url: string) => void
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => void
   openDiff: (workspaceId: string, content: DiffContent) => string | null
+  openTerminal: (workspaceId: string, opts: OpenTerminalPlacement) => string | null
   removeWorkspace: (workspaceId: string) => void
+}
+
+export interface OpenTerminalPlacement {
+  afterPaneId?: string
+  cwd?: string
+  title?: string
+}
+
+function describeTerminal(root: LayoutNode, paneId: string, opts: OpenTerminalPlacement) {
+  const withCwd = opts.cwd ? setPaneCwd(root, paneId, opts.cwd) : root
+  return opts.title ? setPaneTitle(withCwd, paneId, opts.title) : withCwd
 }
 
 export type NewTabKind = Extract<SurfaceKind, 'terminal' | 'browser'>
@@ -382,6 +394,31 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
     return diffPaneId
+  },
+
+  openTerminal: (workspaceId, opts) => {
+    const seeded = seedLayout(workspaceId, (p) => describeTerminal(p, p.id, opts))
+    if (seeded) return seeded
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const beside =
+          opts.afterPaneId && findPane(l.root, opts.afterPaneId) ? opts.afterPaneId : l.activePaneId
+        const { root, newPaneId } = splitPane(l.root, beside, 'horizontal')
+        if (!newPaneId) return l
+        createdPaneId = newPaneId
+        return {
+          root: describeTerminal(root, newPaneId, opts),
+          activePaneId: newPaneId,
+          zoomedPaneId: null,
+        }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+    return createdPaneId
   },
 
   removeWorkspace: (workspaceId) => {
