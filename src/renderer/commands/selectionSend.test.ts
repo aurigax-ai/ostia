@@ -20,7 +20,7 @@ describe('selection.sendToAgent command', () => {
   it('is a palette command whose id is the app chord it answers', () => {
     expect(commands.describe().find((c) => c.id === SEND_SELECTION_COMMAND)).toMatchObject({
       title: 'Send Selection to Agent',
-      category: 'Editor',
+      category: 'Pane',
       hidden: false,
     })
     expect(chordLabel(SEND_SELECTION_COMMAND, false)).toBe('Ctrl+Shift+E')

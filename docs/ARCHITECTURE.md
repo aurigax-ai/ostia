@@ -1234,7 +1234,10 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
 - **Send selection to agent** (`commands/selectionSend.ts`, `lib/selectionSenders.ts`,
   `components/SelectionSend.tsx`, `lib/sendPick.ts` `sendSelectionToPane`,
   `main/selectionReport.ts`, `shared/selection.ts`):
-  - Every file view registers a sender for its pane. The `selection.sendToAgent` command (palette,
+  - Every file view and terminal registers a sender for its pane. A terminal's sender takes the
+    xterm selection, or, with none, the selected block's output and command (the block menu's
+    "Send output to agent…" selects the block and clears the xterm selection first); it sends a
+    `terminal` capture (`cwd`, `command`, `text`), the one kind without a `file`. The `selection.sendToAgent` command (palette,
     Ctrl+Shift+E / ⌘⇧E, Monaco's context menu, the viewers' toolbar button, the Markdown
     preview's button) runs the active pane's sender, which captures the selection and opens the
     same send panel as pick element (`PickSendPanel`: targets with state dots, a note,
@@ -1267,6 +1270,18 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
     | Image | `Image region: a.png (x 10, y 20, 100 × 50)` or `Image: a.png` | `File`, `Image size: W × H px`, `Region: x, y, w × h (image px, origin top-left)` or `whole image`, `Snapshot: <png>`, `Captured` |
     | PDF text | `PDF text selection: a.pdf, page 2` | `File`, `Pages: 2 (1-based)`, `Captured` |
     | PDF region | `PDF page region: a.pdf, page 2 (x …)` or `PDF page: a.pdf, page 2` | `File`, `Page: 2 (1-based), W × H pt`, `Region: … (PDF points, origin top-left)` or `whole page`, `Snapshot: <png>`, `Captured` |
+    | Terminal | `Terminal text: Terminal selection` or `Terminal output: $ <command>` | `Directory`, `Command` (block only), `Captured`, then `## Terminal text` |
+- **File path menu** (`components/FileMenu.tsx`, on file-tree rows and editor tabs): Copy path,
+  Copy relative path (to the workspace `workDir`), and Send path to agent, a submenu of the same
+  targets as the send panel. Sending pastes only `@<path> ` (`insertPathReference`) and focuses a
+  same-workspace target; no report is written. Why a target is disabled ("busy") instead of
+  falling back to the clipboard: the menu closes on click, so a silent clipboard copy would look
+  like a send that did nothing. The tree highlights the row of the active editor pane's file
+  (`aria-current`); since an editor pane's `cwd` is its file's folder, that row is always at the
+  tree's top level.
+- **Terminal link cursor** (`lib/linkModifier.ts`): file and URL links open only with Ctrl (⌘ on
+  macOS), so the host carries `link-modifier` while that key is held and CSS lets xterm's
+  `xterm-cursor-pointer` show only then; otherwise the cursor stays the I-beam.
 
     `## Selected text` holds the selection in a fence (tagged with the file extension for Monaco
     text), lengthened when the text itself contains a fence.

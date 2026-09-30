@@ -65,7 +65,7 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
           return {
             range: { start: cells[m.start], end: cells[m.end - 1] },
             text: text.slice(m.start, m.end),
-            decorations: { pointerCursor: false, underline: true },
+            decorations: { pointerCursor: true, underline: true },
             activate: (event) => {
               if (deps.modifierHeld(event)) deps.open(path, m.line, m.column)
             },

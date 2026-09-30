@@ -1075,45 +1075,44 @@ export function ExtensionsSection(): JSX.Element {
       ) : (
         <ul className="flex flex-col">
           {list.map((ext) => (
-            <li
-              key={ext.id}
-              className="flex items-start justify-between gap-6 rounded-sm px-3 py-2"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-fg text-ui-base">{ext.name}</span>
-                  <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
-                  {ext.builtin ? (
-                    <span className="rounded-sm border border-line px-1.5 text-fg-muted text-ui-xs">
-                      {d.settings.builtin}
-                    </span>
+            <li key={ext.id} className="flex flex-col rounded-sm px-3 py-2">
+              <div className="flex items-start justify-between gap-6">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-fg text-ui-base">{ext.name}</span>
+                    <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
+                    {ext.builtin ? (
+                      <span className="rounded-sm border border-line px-1.5 text-fg-muted text-ui-xs">
+                        {d.settings.builtin}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 text-fg-muted text-ui-sm">{ext.description}</p>
+                  <p className="mt-0.5 text-fg-muted text-ui-xs">
+                    {extensionStatusLabel(d, ext)} · {d.extensions.permissions}:{' '}
+                    {ext.granted.length > 0 ? ext.granted.join(', ') : d.extensions.noPermissions}
+                  </p>
+                  {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
+                    <p className="mt-0.5 text-attn-fg text-ui-xs">
+                      {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
+                    </p>
                   ) : null}
                 </div>
-                <p className="mt-0.5 text-fg-muted text-ui-sm">{ext.description}</p>
-                <p className="mt-0.5 text-fg-muted text-ui-xs">
-                  {extensionStatusLabel(d, ext)} · {d.extensions.permissions}:{' '}
-                  {ext.granted.length > 0 ? ext.granted.join(', ') : d.extensions.noPermissions}
-                </p>
-                {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
-                  <p className="mt-0.5 text-attn-fg text-ui-xs">
-                    {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
-                  </p>
-                ) : null}
-                <ExtensionSettingsForm ext={ext} />
+                <div className="flex shrink-0 items-center gap-2">
+                  {!ext.builtin &&
+                  (ext.status === 'pending-approval' || ext.unapproved.length > 0) ? (
+                    <Button variant="outline" size="sm" onClick={() => review(ext.id)}>
+                      {d.extensions.review}
+                    </Button>
+                  ) : null}
+                  <Switch
+                    checked={ext.enabled}
+                    onCheckedChange={(v) => void setEnabled(ext.id, v)}
+                    aria-label={fmt(d.extensions.enable, { name: ext.name })}
+                  />
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {!ext.builtin &&
-                (ext.status === 'pending-approval' || ext.unapproved.length > 0) ? (
-                  <Button variant="outline" size="sm" onClick={() => review(ext.id)}>
-                    {d.extensions.review}
-                  </Button>
-                ) : null}
-                <Switch
-                  checked={ext.enabled}
-                  onCheckedChange={(v) => void setEnabled(ext.id, v)}
-                  aria-label={fmt(d.extensions.enable, { name: ext.name })}
-                />
-              </div>
+              <ExtensionSettingsForm ext={ext} />
             </li>
           ))}
         </ul>

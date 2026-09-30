@@ -30,6 +30,8 @@ import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePaneDnd } from '../stores/paneDndStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
+import { FileMenu } from './FileMenu'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneChips } from './PaneChips'
@@ -262,8 +264,9 @@ function PaneTab({
   const attention = useAttentionStore((s) => s.byPane[pane.id])
   const unread = attention?.unread ?? false
   const ring = needsRing(attention)
+  const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
 
-  return (
+  const tab = (
     <div
       className={`pane-tab${selected ? ' selected' : ''}`}
       data-attention={unread ? attention?.state : undefined}
@@ -311,6 +314,8 @@ function PaneTab({
       ) : null}
     </div>
   )
+  if (pane.kind !== 'editor' || !pane.filePath || !workspaceId) return tab
+  return <FileMenu workspaceId={workspaceId} path={pane.filePath} trigger={tab} />
 }
 
 function TabBody({ pane, shown }: { pane: PaneNode; shown: boolean }): JSX.Element | null {
