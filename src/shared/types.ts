@@ -1,4 +1,11 @@
 import type { AgentResume } from './agentResume'
+import type {
+  BrowserStorageRead,
+  StorageEdit,
+  StorageKind,
+  StorageRemoval,
+  StorageWriteResult,
+} from './browserStorage'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { SpecCommand } from './completionSpec'
 import type { ExtensionsApi } from './extensions'
@@ -311,6 +318,10 @@ export interface BrowserApi {
   pickCancel: (paneId: string) => void
   pickSend: (req: PickSendRequest) => Promise<PickSendResult>
   onPickState: (cb: (state: PickState) => void) => () => void
+  storageRead: (paneId: string) => Promise<BrowserStorageRead>
+  storageSet: (paneId: string, edit: StorageEdit) => Promise<StorageWriteResult>
+  storageRemove: (paneId: string, removal: StorageRemoval) => Promise<StorageWriteResult>
+  storageClear: (paneId: string, kind: StorageKind) => Promise<StorageWriteResult>
 }
 
 export interface SelectionApi {

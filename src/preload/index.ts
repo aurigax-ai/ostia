@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
 import type { SpecCommand } from '../shared/completionSpec'
 import type {
   ExtensionInfo,
@@ -168,6 +169,14 @@ const bridge: PineBridge = {
       ipcRenderer.on('browser:pick-state', handler)
       return () => ipcRenderer.removeListener('browser:pick-state', handler)
     },
+    storageRead: (paneId) =>
+      ipcRenderer.invoke('browser:storage-read', paneId) as Promise<BrowserStorageRead>,
+    storageSet: (paneId, edit) =>
+      ipcRenderer.invoke('browser:storage-set', paneId, edit) as Promise<StorageWriteResult>,
+    storageRemove: (paneId, removal) =>
+      ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
+    storageClear: (paneId, kind) =>
+      ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
   },
   selection: {
     send: (req) => ipcRenderer.invoke('selection:send', req) as Promise<SelectionSendResult>,

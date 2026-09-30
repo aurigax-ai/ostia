@@ -29,14 +29,14 @@ import {
   type ConsoleEntry,
   PAGE_ERROR_CATCHER_JS,
   PINE_ERROR_PREFIX,
-  clearGuestDialogPolicy,
-  clearGuestFrame,
-  clearGuestReactGrab,
+  clearGuestBrowseState,
   consoleLevelName,
+  ownedGuest,
   pushConsoleEntry,
   registerBrowseMethods,
 } from './browse'
 import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
+import { registerBrowserStorageIpc } from './browserStorage'
 import { registerBusMethods } from './bus'
 import { dropIdentity } from './capabilityStore'
 import { confirmAllWindowsClose, confirmWindowClose, registerCloseGuard } from './closeGuard'
@@ -382,9 +382,7 @@ function wireWindow(win: BrowserWindow): void {
         browserPanes.delete(paneId)
         consoleBuffers.delete(wcId)
         errorBuffers.delete(wcId)
-        clearGuestFrame(wcId)
-        clearGuestDialogPolicy(wcId)
-        clearGuestReactGrab(wcId)
+        clearGuestBrowseState(wcId)
         clearGuestNetwork(wcId)
       }
     }
@@ -573,9 +571,7 @@ function registerIpc(): void {
     if (wcId !== undefined) {
       consoleBuffers.delete(wcId)
       errorBuffers.delete(wcId)
-      clearGuestFrame(wcId)
-      clearGuestDialogPolicy(wcId)
-      clearGuestReactGrab(wcId)
+      clearGuestBrowseState(wcId)
       clearGuestNetwork(wcId)
     }
   })
@@ -1053,6 +1049,9 @@ app.whenReady().then(() => {
   })
   registerPickMethods({ browserPanes, errorBuffers, broadcast })
   registerPickIpc({ browserPanes, errorBuffers, broadcast })
+  registerBrowserStorageIpc((paneId, senderWindowId) =>
+    ownedGuest(browserPanes, paneId, senderWindowId),
+  )
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
   extensionHost.startEager()

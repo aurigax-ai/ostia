@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), reading the selection reports (text, image regions, PDF text or regions) a human sends from files Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions) a human sends from files Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection".
 ---
 
 # Pine — the agent toolbelt
@@ -285,158 +285,141 @@ absent.
 
 ## Browser — agent-driven web automation
 
+`pine browse` speaks the same command contract as
+[agent-browser](https://github.com/vercel-labs/agent-browser) (verbs, arguments, `@eN` refs,
+`--json`), but drives Pine's own browser panes, which the human sees next to your terminal. If you
+know agent-browser, replace `agent-browser` with `pine browse`. The whole group needs the elevated
+`browse` capability (see below); nothing works until a human grants it.
+
+The core loop:
+
 ```sh
-pine browse open <url> [--pane ID]                  # loads <url>; creates a browser pane if none exists
-pine browse nav <back|forward|reload> [--pane ID]
-pine browse read [selector] [--pane ID]              # visible text: whole page, or one element
-pine browse click <selector> [--pane ID]
-pine browse type <selector> "<text>" [--pane ID]     # sets .value, fires input + change events
-pine browse dblclick <selector> [--pane ID]          # dispatches a double-click
-pine browse hover <selector> [--pane ID]             # dispatches mouseover + mouseenter + mousemove
-pine browse focus <selector> [--pane ID]             # el.focus()
-pine browse check <selector> [--pane ID]             # checked = true, fires input + change
-pine browse uncheck <selector> [--pane ID]           # checked = false, fires input + change
-pine browse scroll-into-view <selector> [--pane ID]  # el.scrollIntoView({block:'center'})
-pine browse fill <selector> "<text>" [--pane ID]     # whole-value set (plain .value=), fires input + change
-pine browse select <selector> <value> [--pane ID]    # sets a <select>'s value (or matching option), fires change
-pine browse scroll [--x N] [--y N] [--selector S] [--pane ID]   # scrolls the page, or an element with --selector
-pine browse press <key> [--selector S] [--pane ID]   # real keyDown+keyUp (focuses --selector first if given)
-pine browse keydown <key> [--selector S] [--pane ID] # real keyDown only
-pine browse keyup <key> [--selector S] [--pane ID]   # real keyUp only
-pine browse eval "<js>" [--pane ID]                  # runs JS in the page, prints the JSON result
-pine browse wait <selector> [--timeout MS] [--pane ID]   # polls (default 10s, capped 30s)
-pine browse screenshot [path] [--pane ID]            # PNG to `path` (default a tmp scratch path); prints the path
-pine browse content [--pane ID]                      # document.documentElement.outerHTML, capped ~1MB
-pine browse snapshot [selector] [--interactive] [--pane ID]
-                                                      # a11y-ish text tree ("[e3] button \"Submit\"", "[e4] link \"Home\" → /home"),
-                                                      # assigning each relevant element an [eN] ref; --interactive narrows to actionable elements only
-pine browse get <sub> [selector] [--attr X] [--property P] [--pane ID]
-                                                      # sub: url|title|text|html|value|attr|count|box|styles — prints the value
-pine browse is <sub> <selector> [--pane ID]          # sub: visible|enabled|checked — prints true/false, exit 1 if false
-pine browse find <by> <query> [--exact] [--index N] [--selector S] [--pane ID]
-                                                      # by: role|text|label|placeholder|alt|title|testid|first|last|nth — prints an @eN ref
-pine browse highlight <selector> [--ms N] [--pane ID]  # briefly outlines the element (default 1500ms)
-pine browse url [--pane ID]                          # prints location.href
-pine browse zoom <in|out|reset> [--pane ID]          # +/-0.5 zoom level (reset = 0), prints the new level
-pine browse devtools [toggle|open|close|console] [--pane ID]
-                                                      # opens/closes DevTools (default: toggle); 'console' just opens
-                                                      # (Electron can't target the Console panel specifically)
-pine browse focus-webview [--pane ID]                # OS-level focus() on the guest webContents
-pine browse is-webview-focused [--pane ID]           # prints true/false, exit 1 if false
-pine browse identify [--pane ID]                     # self-locate: {paneId, url, title, workspaceId, windowId}
-pine browse cookies <get|set|clear> [name] [value] [--url U] [--domain D] [--pane ID]
-                                                      # this surface's own cookie jar (per-pane partition)
-pine browse storage <local|session> <get|set|clear> [key] [value] [--pane ID]
-                                                      # localStorage/sessionStorage — omit [key] on get for all keys
-pine browse state <save|load> <path> [--pane ID]     # save/restore cookies + both Web Storage areas to/from a JSON file
-                                                      # (path is allow-listed, same as `screenshot`)
-pine browse history clear [--pane ID]                # clears this surface's back/forward navigation history
-pine browse addscript "<js>" [--pane ID]              # runs JS now, prints the JSON result (like `eval`, framed as injection)
-pine browse addstyle "<css>" [--pane ID]              # insertCSS(css), prints the returned style key
-pine browse addinitscript "<js>" [--pane ID]          # persists JS to run before EVERY future navigation (via CDP), prints its identifier
-pine browse console [list|clear] [--pane ID]          # this surface's buffered console.* messages (capped ~500); default sub is list
-pine browse errors [list|clear] [--pane ID]           # error-level / uncaught-exception subset of console (see below)
-pine browse frame <selector|main> [--pane ID]         # point later selector-driven verbs (click/type/get/is/...) at an iframe; `main`/`top` resets to the page
-pine browse download wait [--path P] [--timeout MS] [--pane ID]   # blocks for this surface's next completed download (default 30s, capped 5m)
-pine browse navigate <url> [--pane ID]                # like `open`, but only on an EXISTING surface — fails if none exists yet
-pine browse open-split [url] [--pane ID]              # always creates a NEW browser pane (a split); never reuses one
-pine browse tab <new|list|switch|close> [url|target] [--pane ID]
-                                                      # cmux-parity "tabs" — see divergence note below
-pine browse dialog <accept|dismiss|list> [text] [--pane ID]
-                                                      # auto-response policy + log for alert/confirm/prompt — see divergence note below
-pine browse focus-mode <enter|exit|toggle> [--pane ID]  # minimal single-pane zoom/zen (maximize a pane, hiding its siblings)
-pine browse react-grab <toggle|get> [--pane ID]       # minimal React-fiber inspector: click an element while on, `get` prints {component,file,line}
-pine browse pick [--timeout MS] [--pane ID]           # ask the HUMAN to click an element; blocks until they do, prints the capture JSON
+pine browse open localhost:3000        # loads the url; creates a browser pane if the workspace has none
+pine browse snapshot -i                # interactive elements with refs:  - button "Submit" [ref=e2]
+pine browse fill @e3 "ada@example.com" # act on refs from the snapshot
+pine browse click @e2
+pine browse wait --text "Welcome"      # then re-snapshot: refs reset on navigation
+pine browse snapshot -i --json         # {"success":true,"data":{"snapshot":"…","refs":{"e2":{"role":"button","name":"Submit"}}},"error":null}
 ```
 
-Drives the `browser` surface's `<webview>` guest page (Stage 1's in-app browser) — the same
-one a human opened with `browser.open`/the command palette, or that `browse open` creates on
-demand. `--pane <externalId>` targets a *specific* browser pane by another pane's `whoami`
-externalId (from `pine pane.list`, same as the coordination recipe below); omit it
-and the CLI targets the first browser pane in your own workspace. A selector/JS argument that
-doesn't match anything fails with a typed error (`not-found`, `eval-failed`, ...) rather than
-throwing — check the CLI's stderr/exit code. This entire group needs the elevated `browse`
-capability (see below) — nothing here works until a human grants it.
+```sh
+# navigation
+pine browse open [url]                  # no scheme → https:// (http:// for localhost/127.x); prints the url
+pine browse back | forward | reload
+pine browse close                       # closes the browser pane
+pine browse read                        # the page's visible text
+pine browse pushstate <url>             # SPA navigation (next.router.push, else history.pushState + popstate)
+# page analysis
+pine browse snapshot [-i] [-c] [-d N] [-s <selector>] [-u]
+                                        # aria tree "- role "name" [ref=eN] [level=1]"; -i interactive only,
+                                        # -c compact, -d depth, -s scope, -u link urls
+pine browse get text|html|value <sel>   # innerText / innerHTML / input value
+pine browse get attr <sel> <name>
+pine browse get title | url
+pine browse get count <sel> | box <sel> | styles <sel> [property]
+pine browse is visible|enabled|checked <sel>   # prints true/false
+# interaction (sel = @eN ref, CSS selector, text=Label or xpath=//…)
+pine browse click <sel> [--new-tab]     # real mouse click; fails "covered by <div#x>" if something is on top
+pine browse dblclick <sel> | hover <sel> | focus <sel>
+pine browse fill <sel> <text>           # clear and set
+pine browse type <sel> <text>           # key events appended at the end of the field
+pine browse press <key>                 # Enter, Tab, Control+a, Shift+ArrowDown …
+pine browse keydown <key> | keyup <key>
+pine browse keyboard type <text> | keyboard inserttext <text>   # into whatever has focus
+pine browse select <sel> <value...>     # by value or visible label
+pine browse check <sel> | uncheck <sel>
+pine browse scroll [up|down|left|right] [px] [--selector <sel>]  # default down 300
+pine browse scrollintoview <sel>
+pine browse drag <from> <to>
+pine browse upload <sel> <file...>
+pine browse mouse move <x> <y> | down [button] | up [button] | wheel <dy> [dx]
+# semantic locators (default action: click)
+pine browse find role <role> [action] [--name <name>] [--exact]
+pine browse find text|label|placeholder|alt|title|testid <value> [action] [text]
+pine browse find first|last <sel> [action] | find nth <index> <sel> [action]
+                                        # actions: click, fill <text>, type <text>, check, uncheck, hover, text
+# waiting (default timeout 25 s, --timeout <ms>, max 120 s)
+pine browse wait <sel> [--state visible|hidden|attached|detached]
+pine browse wait <ms> | --text <text> | --url <glob> | --load load|domcontentloaded|networkidle | --fn <js>
+pine browse wait --download [path]      # next download of this pane
+# javascript
+pine browse eval <js> | eval -b <base64> | eval --stdin
+pine browse addinitscript <js>          # runs before every future page load; prints its identifier
+pine browse removeinitscript <identifier>
+pine browse addstyle <css>
+# output
+pine browse screenshot [path] [--full]  # PNG; default a private tmp path; prints the path
+pine browse pdf <path>
+# state
+pine browse cookies [get] [--url U]
+pine browse cookies set <name> <value> [--url U] [--domain D] [--path P] [--httpOnly] [--secure] [--sameSite Strict|Lax|None] [--expires <epoch s>]
+pine browse cookies clear
+pine browse storage local|session [key]  # all entries, or one value
+pine browse storage local|session set <key> <value> | clear
+pine browse state save|load <path>      # cookies + both storage areas as JSON
+# network and emulation
+pine browse network requests [--filter <text>] [--type xhr,fetch] [--method POST] [--status 2xx|404|400-499] [--clear]
+pine browse network request <requestId> # headers of one request
+pine browse network route <url-glob> [--abort] [--body <json>]
+pine browse network unroute [url-glob]
+pine browse set viewport <w> <h> [scale] | media [dark|light] [reduced-motion] | offline [on|off]
+pine browse set headers '<json>' | geo <lat> <lng>
+# tabs, frames, dialogs, debugging
+pine browse tab                         # list: * marks the tab your commands go to
+pine browse tab new [url] | tab <tabId> | tab close [tabId]
+pine browse frame <sel|@ref|main>
+pine browse dialog accept [text] | dismiss | status
+pine browse console [--clear] | errors [--clear]
+pine browse highlight <sel>
+pine browse inspect                     # opens DevTools for the human
+# batch: many commands, one connection
+pine browse batch [--bail] "open x.test" "snapshot -i" "click @e1"
+echo '[["open","x.test"],["snapshot","-i"]]' | pine browse batch --json
+# Pine extras (no agent-browser equivalent)
+pine browse identify                    # {tabId, url, title, workspaceId, windowId}
+pine browse zoom in|out|reset
+pine browse history clear
+pine browse focus-mode enter|exit|toggle   # zoom the browser pane over its siblings
+pine browse react-grab toggle|get       # click a React element, get {component,file,line}
+pine browse focus-webview | is-webview-focused
+pine browse pick [--timeout MS]         # ask the HUMAN to click an element (see below)
+```
 
-**Per-surface isolation**: every browser pane gets its own cookie/storage jar (a distinct
-Electron `partition`), so `cookies`/`storage`/`state` only ever see *that* pane's data — never
-shared across panes or with the OS-level Chrome profile. `addinitscript` attaches a Chrome
-DevTools Protocol debugger workspace to the surface to persist the script; Chrome only allows one
-CDP consumer per page, so opening DevTools on the same pane (`devtools open`) afterward can
-detach that workspace — if a follow-up `addinitscript` call then fails with
-`debugger-attach-failed`, close DevTools first and retry.
+Every command takes `--pane <externalId>` (a browser pane's id from `pine browse tab` or
+`pine pane.list`) and `--json`. With `--json` the output is agent-browser's shape,
+`{"success": bool, "data": {…} | null, "error": "code: detail" | null}`; without it, text (the
+snapshot tree, the value, `ok`) on stdout and `pine browse <verb>: <error>` on stderr with exit 1.
+Relative paths resolve against your cwd and must stay under your home directory.
 
-**Ref workflow**: every selector-accepting command above (`click`, `type`, `get`, `is`, ...)
-also accepts an `@eN`/`eN` element ref in place of a CSS selector. `snapshot` and `find` are
-what mint refs — run `pine browse snapshot` first to see a text tree of the page annotated with
-`[eN]` tags (or `pine browse find role Submit` to locate one element and get back its `@eN`
-directly), then act on that ref: `pine browse click @e3`, `pine browse get text @e4`. Refs live
-in the guest page's `window.__pine.refs` map and are valid until the next navigation — a `nav`/
-`open`/link click invalidates them, so re-`snapshot`/`find` after navigating.
+**Tabs.** A tab is a browser pane in your workspace; its id is the pane's external id.
+Commands go to your active tab: the one `open` created, `tab new` opened or `tab <id>` switched to,
+else the first browser pane in your workspace. Another workspace's pane needs `--pane` and
+`all-workspaces`.
 
-**Console/errors**: every browser pane's `console.*` calls are captured automatically (no setup
-needed) into a ~500-entry ring buffer as soon as the pane registers, and `pine browse console
-list` prints it (`clear` empties it; `list` is the default if you omit the sub). `pine browse
-errors` is the same buffer filtered to error-level entries — which also includes otherwise
-invisible failures: an injected catcher hooks `window.onerror`/`onunhandledrejection` on every
-navigation and reports them via a `[pine-error]`-prefixed `console.error`, so an uncaught
-exception or unhandled promise rejection shows up in `errors` even if the page never explicitly
-logged anything. Both buffers are per-surface and cleared when the pane closes.
+**Refs.** `snapshot` (and `find`) give each element an `eN` ref. An element keeps its ref across
+snapshots while it stays in the page; a navigation resets them, so snapshot again after `open`,
+a link click or `back`. Same-origin iframes are inlined in the snapshot and their refs work
+directly; `frame <sel>` scopes selectors and snapshots to one iframe, `frame main` goes back.
+Refs live in an isolated JavaScript world, so the page can't read or fake them.
 
-**Frame targeting**: `pine browse frame <selector>` points every later selector-driven verb
-(`click`, `type`, `get`, `is`, ...) at that `<iframe>`'s document instead of the top-level page —
-useful for content embedded in a same-origin iframe. `pine browse frame main` (or `top`) resets
-back to the top document. Selecting a cross-origin iframe fails with `cross-origin-frame` (the
-guest page can't reach its `contentDocument` either) rather than silently acting on the wrong
-document.
+**Isolation.** Each browser pane has its own in-memory cookie and storage jar; nothing is shared
+with other panes or with the user's Chrome. The human can see and edit the same cookies,
+local storage and session storage from the pane's storage button.
 
-**Downloads**: `pine browse download wait` blocks until this surface's next download finishes
-(default 30s timeout, capped at 5 minutes) — pass `--path` to force the save location (allow-
-listed the same way `state`'s path is) or omit it to let the browser pick its default location;
-prints `{path, filename, state}`, or `{timedOut: true}` (and a non-zero exit) if nothing
-downloaded in time.
+**Console and errors** are captured from the moment the pane opens (500 entries each). `errors`
+also catches uncaught exceptions and unhandled rejections through a hook Pine adds to every page.
 
-**`navigate` vs `open` vs `open-split`**: `open` loads a url, creating a browser pane first if
-none exists yet in your workspace; `navigate` is the same load but REQUIRES an existing surface
-(fails rather than creating one) — useful when you specifically mean "drive the pane I already
-have"; `open-split` is the opposite extreme — it always creates a brand new browser pane (a
-split) regardless of whether one already exists, for when you explicitly want a second surface.
+**Dialogs** never block: `alert` is logged, and `confirm`/`prompt` follow the policy you set with
+`dialog accept [text]` or `dialog dismiss` (default dismiss, reset on each navigation).
+`dialog status` prints the policy and the log.
 
-**Tabs, dialogs, focus-mode, react-grab (cmux parity, PRAGMATIC)**: these four mirror cmux verbs
-that in cmux lean on native/product features Pine doesn't have — each is a simplified Electron
-version, with the divergence called out below.
+**DevTools.** CDP features (`addinitscript`, `upload`, `screenshot --full`, `set`,
+`network route`, request logging, the error hook) share the page's one debugger. While the human
+has DevTools open on that pane (`inspect`), they fail; ask them to close it.
 
-- **`tab`** — a "tab" here is a browser **PANE**, not a tab bar living inside one pane: cmux
-  multiplexes multiple surfaces per pane slot, but Pine's own unit of multiplexing is already the
-  pane, so `tab new/list/switch/close` just operate one level up. `new [url]` opens a browser pane
-  in your workspace (reusing an existing one, same as `open`'s fallback — use `open-split` if you
-  need a guaranteed-fresh pane); `list` prints every browser pane in your OWN workspace as
-  `[{paneId, url, title}]`; `switch <target>`/`close <target>` take another pane's external
-  `paneId` (same as `--pane`, but positional here) and focus/close it — cross-workspace targets need
-  the same `all-workspaces` elevation `--pane` on any other verb needs.
-- **`dialog`** — Electron's `<webview>` guest can't cleanly intercept a page's SYNCHRONOUS
-  `alert`/`confirm`/`prompt` the way a real automation framework's dialog-event hook does, so this
-  is a per-surface auto-response **POLICY** an agent sets ahead of time, not a one-at-a-time
-  blocking queue: `accept [text]`/`dismiss` set what the NEXT `confirm`/`prompt` resolves to
-  (`accept` → `true`/the given `text`; `dismiss` → `false`/`null`) and are logged either way;
-  `list` prints the buffered `{type, message, ts}` log (capped ~200). The policy is pushed live
-  into the CURRENTLY loaded page, but only seeded with a SAFE default (dismiss) on a fresh
-  navigation — re-issue `accept`/`dismiss` after navigating if a non-default policy still needs to
-  apply.
-- **`focus-mode`** — a minimal single-pane zoom/zen, not a full maximize/restore animation system:
-  `enter` shows only that browser pane (every sibling pane's surface just stops being portaled
-  into a live slot — nothing unmounts, `SurfacePool` parks it until zoom clears); `exit` restores
-  the split view; `toggle` flips between the two. Backed by a small `pane.zoom` renderer command
-  (`layoutStore.ts`'s `zoomedPaneId`) that didn't previously exist — didn't turn out invasive, so
-  it's a real (if minimal) implementation, not a no-op.
-- **`react-grab`** — a MINIMAL React-fiber walk, not the upstream react-grab overlay/UI: `toggle`
-  on installs a capturing click listener that walks up from the clicked element to its nearest
-  React fiber (`__reactFiber$*`/`__reactInternalInstance$*`), then up the fiber's `return` chain
-  to the nearest component (function/class `type`, skipping host elements like `div`), recording
-  `{component, file, line}` (file/line come from `_debugSource`, only present in dev builds — often
-  `null` in production) into `window.__pineReactGrab`; `toggle` again removes the listener.
-  `get` prints the last grabbed entry. Installed via plain `executeJavaScript`, not persisted via
-  CDP, so a navigation silently drops it — `toggle` on again after navigating if still wanted.
+Not available (Pine owns the browser): launch, session, profile and `connect` options, `clipboard`,
+`diff`, `trace`, `profiler`, `record`, HAR, `react tree`, `vitals`, `a11y`,
+`screenshot --annotate`, `set device|credentials`, `window new` and tab labels.
 
 ### Pointing at UI problems (pick element)
 
