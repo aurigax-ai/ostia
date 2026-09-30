@@ -1242,7 +1242,8 @@ workspace running that agent and mirrors it in the terminal.
   built-in claude and codex (`parseManagerAgents`); the renderer carries the section through
   saves but it is not in `DATA_KEYS`.
 - **The agent is the pane's process.** Main asks the renderer for a manager workspace
-  (`manager:open`, answered by `managerBridge.ts` once it sent `manager:ready`), then spawns the
+  (`manager:open`, answered by the main window's `managerBridge.ts` once it sent `manager:ready`;
+  `managerWindowId` waits for the main window, never a detached one), then spawns the
   preset's argv plus the extra args directly with node-pty (`spawnManagerPty`): no shell, nothing
   typed, the caller's cwd and PATH, and the pane's `PINE_*` env. Why: typing a command needs an
   idle prompt and quoting; spawning an argv needs neither. The entry is `keepAlive`, so the detach
