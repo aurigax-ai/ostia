@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
 import { buildSync } from 'esbuild'
@@ -159,6 +159,7 @@ const FAKE_BIN = join(__dirname, '../test/fixtures/system/bin')
 
 async function launchWithFakeSystem() {
   const dataHome = freshDataHome()
+  const log = join(dataHome, 'system-calls.log')
   const home = join(dataHome, 'home')
   const project = join(home, 'project')
   mkdirSync(project, { recursive: true })
@@ -169,12 +170,17 @@ async function launchWithFakeSystem() {
   const launchOptions = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launchOptions,
-    env: { ...launchOptions.env, HOME: home, PATH: `${FAKE_BIN}:${process.env.PATH}` },
+    env: {
+      ...launchOptions.env,
+      HOME: home,
+      PATH: `${FAKE_BIN}:${process.env.PATH}`,
+      FAKE_SYSTEM_LOG: log,
+    },
   })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
-  return { app, win }
+  return { app, win, log }
 }
 
 async function answerDialogs(app: Awaited<ReturnType<typeof electron.launch>>, response: number) {
@@ -190,13 +196,14 @@ async function answerDialogs(app: Awaited<ReturnType<typeof electron.launch>>, r
 
 test('SBX-C87 installs a system package from a sandbox in a Host pane that closes when done', async () => {
   test.setTimeout(120_000)
-  const { app, win } = await launchWithFakeSystem()
+  const { app, win, log } = await launchWithFakeSystem()
   try {
     await sandboxedShell(win)
     await answerDialogs(app, 0)
     await run(win, 'pine system install jq --manager pacman --reason c87')
-    const hostBadge = win.locator('.pane-header').getByText('Host', { exact: true })
-    await expect(hostBadge).toBeVisible({ timeout: 20_000 })
+    await expect
+      .poll(() => (existsSync(log) ? readFileSync(log, 'utf8') : ''), { timeout: 30_000 })
+      .toContain('pacman -S --needed jq')
     await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 30_000 })
     await expect(win.locator('.xterm-rows').first()).toContainText('"approved": true', {
       timeout: 15_000,
