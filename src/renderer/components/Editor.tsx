@@ -4,7 +4,7 @@ import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browserEditorSe
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
-import { minimalLineEdit } from '../lib/diskReload'
+import { changedLines, minimalLineEdit } from '../lib/diskReload'
 import { registerEditorPosition } from '../lib/editorPositions'
 import { createAutoSave, saveFormatted } from '../lib/editorSave'
 import { lineReference } from '../lib/fileReference'
@@ -51,6 +51,7 @@ export function isBinary(content: string): boolean {
 
 const savedVersions = new Map<string, number>()
 const diskBase = new Map<string, string | null>()
+const RELOAD_HIGHLIGHT_MS = 2000
 
 type DiskBar =
   | { kind: 'changed'; disk: string }
@@ -237,7 +238,34 @@ export function EditorView({
     }
     saveRef.current = save
 
+    let highlight: { clear: () => void } | null = null
+    let highlightTimer: ReturnType<typeof setTimeout> | undefined
+    const showChanged = (lines: { start: number; end: number } | null): void => {
+      highlight?.clear()
+      clearTimeout(highlightTimer)
+      if (!lines) return
+      const className = reducedMotionRef.current
+        ? 'editor-reload-highlight editor-reload-highlight-static'
+        : 'editor-reload-highlight'
+      highlight = editor.createDecorationsCollection([
+        {
+          range: {
+            startLineNumber: lines.start,
+            startColumn: 1,
+            endLineNumber: lines.end,
+            endColumn: 1,
+          },
+          options: { isWholeLine: true, className },
+        },
+      ])
+      highlightTimer = setTimeout(() => {
+        highlight?.clear()
+        highlight = null
+      }, RELOAD_HIGHLIGHT_MS)
+    }
+
     const reloadFrom = (model: monaco.editor.ITextModel, text: string): void => {
+      const changed = changedLines(model.getValue(), text)
       const edit = minimalLineEdit(model.getValue(), text)
       if (edit) {
         const view = editor.saveViewState()
@@ -248,6 +276,7 @@ export function EditorView({
       }
       diskBase.set(model.uri.toString(), text)
       markSaved(model, model.uri.path)
+      showChanged(changed)
     }
     reloadRef.current = reloadFrom
 
@@ -303,6 +332,7 @@ export function EditorView({
     const detachWheelZoom = attachWheelZoom(host, 'editor', isMac)
 
     return () => {
+      clearTimeout(highlightTimer)
       autoSave.cancel()
       contentSub.dispose()
       blurSub.dispose()
@@ -410,6 +440,12 @@ export function EditorView({
       window.removeEventListener('focus', onFocus)
     }
   }, [])
+
+  useEffect(() => {
+    if (!filePath) return
+    useEditorStatus.getState().setDisk(filePath, diskBar?.kind ?? null)
+    return () => useEditorStatus.getState().setDisk(filePath, null)
+  }, [filePath, diskBar])
 
   const compareWithDisk = (disk: string): void => {
     const model = editorRef.current?.getModel()

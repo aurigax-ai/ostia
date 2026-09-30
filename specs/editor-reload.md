@@ -1,6 +1,6 @@
 # Editor reload
 
-Status: cases approved 2026-09-30 at 0da11c5
+Status: cases approved 2026-09-30 at 75cd108
 
 Intent: a file open in Pine's text editor follows changes other programs (agents, git, a formatter)
 make on disk, without ever losing the human's unsaved edits or silently overwriting a newer file.
@@ -32,6 +32,18 @@ It covers the Monaco editor only, not the image or PDF viewers.
   a change (ERL-D2 or ERL-D3). Why: the text may be the only copy left. Governs: deleted-file
   handling.
 
+- **ERL-D6** While a file's disk bar is up (changed, save conflict or deleted), its pane tab shows a
+  warning-coloured dot instead of the plain unsaved mark, with a tooltip naming the problem, and a
+  deleted file's tab title is struck through. Why: the human sees the problem without opening the
+  tab. Governs: pane tab disk marker.
+- **ERL-D7** A file deleted on disk counts as unsaved in the close, quit and move-to-window prompts,
+  whether or not it has edits. Why: the editor's text is the only copy left. Governs:
+  unsaved-files prompt.
+- **ERL-D8** After any reload from disk (automatic, or the bar's Reload), the changed lines get a
+  soft highlight that fades out over about 2 seconds; it never appears for the human's own typing
+  and never scrolls the editor. With reduced motion, it shows without fading and is removed after
+  2 seconds. Why: the human sees what the agent changed at a glance. Governs: reload highlight.
+
 ## Cases
 | ID | Covers | Kind | Case |
 |---|---|---|---|
@@ -49,5 +61,12 @@ It covers the Monaco editor only, not the image or PDF viewers.
 | ERL-C12 | ERL-D4 | unexpected | Given the disk is unchanged since the last load or save, when the human saves, then it writes with no bar |
 | ERL-C13 | ERL-D5 | expected | Given a file open with or without edits, when it is deleted on disk, then the text stays and the bar says "Deleted on disk"; saving writes it back |
 | ERL-C14 | ERL-D5 | unexpected | Given a deleted file, when it reappears with new content, then it is handled as a change: reloaded if clean, bar if dirty |
+| ERL-C15 | ERL-D6 | expected | Given a file with unsaved edits that changed on disk, when the bar shows, then its tab shows the warning dot with a "Changed on disk" tooltip instead of the unsaved mark |
+| ERL-C16 | ERL-D6 | unexpected | Given a file deleted on disk, when its tab is drawn, then the title is struck through and the warning dot says "Deleted on disk"; when the file reappears and reloads, both go away |
+| ERL-C17 | ERL-D7 | expected | Given a clean file deleted on disk, when the human closes its workspace, then the unsaved-files prompt lists it |
+| ERL-C18 | ERL-D7 | unexpected | Given a clean file that was only changed on disk (reloaded), when the workspace closes, then it is not listed as unsaved |
+| ERL-C19 | ERL-D8 | expected | Given a clean file, when an agent changes lines 3–4 on disk, then after the reload lines 3–4 carry the change highlight and it is gone after about 2 seconds |
+| ERL-C20 | ERL-D8 | unexpected | Given the human types in the file, when content changes, then no change highlight appears |
+| ERL-C21 | ERL-D8 | unexpected | Given reduced motion, when a reload highlights lines, then the highlight has no fade and is removed after about 2 seconds |
 
 ## Open

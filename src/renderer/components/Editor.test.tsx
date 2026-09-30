@@ -94,6 +94,10 @@ const fake = vi.hoisted(() => {
     contentListeners: Listener[]
     blurListeners: Listener[]
     formatRuns: (() => void) | null
+    decorations: {
+      range: { startLineNumber: number; endLineNumber: number }
+      options: { className?: string }
+    }[]
     createOptions: Record<string, unknown> | null
     optionUpdates: Record<string, unknown>[]
   } = {
@@ -107,6 +111,7 @@ const fake = vi.hoisted(() => {
     contentListeners: [],
     blurListeners: [],
     formatRuns: null,
+    decorations: [],
   }
   const listen = (list: Listener[], l: Listener) => {
     list.push(l)
@@ -139,6 +144,14 @@ const fake = vi.hoisted(() => {
       if (view) state.position = view.position
     },
     pushUndoStop: () => true,
+    createDecorationsCollection: (items: typeof state.decorations) => {
+      state.decorations = items
+      return {
+        clear: () => {
+          state.decorations = []
+        },
+      }
+    },
     getSelection: () => state.selection,
     updateOptions: (o: Record<string, unknown>) => {
       state.optionUpdates.push(o)
@@ -195,6 +208,7 @@ describe('EditorView', () => {
     fake.state.actions = []
     fake.state.position = null
     fake.state.formatRuns = null
+    fake.state.decorations = []
     fake.state.createOptions = null
     fake.state.optionUpdates = []
     useSettingsStore.setState(initSettings, true)
@@ -505,6 +519,55 @@ describe('EditorView', () => {
         await new Promise((r) => setTimeout(r, 0))
       })
       await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'disk v1'))
+    })
+
+    it('ERL-C19 highlights the lines a reload changed, then removes the highlight', async () => {
+      disk = 'l1\nl2\nl3\nl4\nl5'
+      render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+      await waitFor(() => expect(fake.state.model?.getValue()).toBe('l1\nl2\nl3\nl4\nl5'))
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      try {
+        await diskChanges('l1\nl2\nNEW3\nNEW4\nl5')
+        await waitFor(() => expect(fake.state.decorations).toHaveLength(1))
+        expect(fake.state.decorations[0].range).toMatchObject({
+          startLineNumber: 3,
+          endLineNumber: 4,
+        })
+        expect(fake.state.decorations[0].options.className).toBe('editor-reload-highlight')
+        await act(async () => {
+          vi.advanceTimersByTime(2100)
+        })
+        expect(fake.state.decorations).toEqual([])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('ERL-C20 never highlights the human’s own typing', async () => {
+      await open()
+      act(() => fake.state.model?.setValue('typed by me'))
+      expect(fake.state.decorations).toEqual([])
+    })
+
+    it('ERL-C21 shows the highlight without a fade under reduced motion and still removes it', async () => {
+      useSettingsStore.setState({
+        appearance: { ...useSettingsStore.getState().appearance, motion: 'reduced' },
+      })
+      await open()
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      try {
+        await diskChanges('disk v2')
+        await waitFor(() => expect(fake.state.decorations).toHaveLength(1))
+        expect(fake.state.decorations[0].options.className).toBe(
+          'editor-reload-highlight editor-reload-highlight-static',
+        )
+        await act(async () => {
+          vi.advanceTimersByTime(2100)
+        })
+        expect(fake.state.decorations).toEqual([])
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('ERL-C14 treats a deleted file that reappears as a change', async () => {
