@@ -69,6 +69,7 @@ import {
 import { storePath } from './jsonStore'
 import { killAllLsp, registerLspIpc } from './lsp'
 import {
+  postActionNotification,
   postNotification,
   postPanelNotification,
   registerNotifyIpc,
@@ -84,6 +85,7 @@ import { PtySession, type SubscriberRole } from './ptySession'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { sandboxFailureBanner } from './sandbox/spawnBanner'
+import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { SandboxStore } from './sandbox/store'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScreenMirror } from './screenMirror'
@@ -91,7 +93,7 @@ import { registerSelectionIpc } from './selectionReport'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
-import { SANDBOX_FEATURE, missingRequirements } from './systemRequirements'
+import { SANDBOX_FEATURE, installHint, missingRequirements } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { registerVaultMethods } from './vault'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
@@ -258,6 +260,8 @@ const workspaceSandboxes = new WorkspaceSandboxes({
   hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
   onAsk: async () => false,
 })
+
+let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
 
 const windows = new Map<string, BrowserWindow>()
 const commandsByWindow = new Map<string, CommandDescriptor[]>()
@@ -799,12 +803,11 @@ function registerPtyIpc(): void {
         env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
         cwd = sandboxCwd(cwd, workDirForWorkspace(workspaceId))
       } catch (err) {
+        const missing = err instanceof SandboxUnavailableError ? err.missing : []
+        onSandboxSpawnFailure?.(workspaceId, missing)
         return {
           created: false,
-          buffer: sandboxFailureBanner(
-            err instanceof Error ? err.message : String(err),
-            err instanceof SandboxUnavailableError ? err.missing : [],
-          ),
+          buffer: sandboxFailureBanner(err instanceof Error ? err.message : String(err), missing),
           cursor: 0,
           dropped: false,
           sandboxed: true,
@@ -1111,6 +1114,32 @@ app.whenReady().then(() => {
     windowById: (id: string) => windows.get(id),
   }
   registerNotifyMethods(notifyDeps)
+  onSandboxSpawnFailure = (workspaceId, errors) =>
+    reportSandboxSpawnFailure(
+      {
+        notify: (input, onClick) =>
+          postActionNotification(notifyDeps, { ...input, from: 'sandbox' }, onClick),
+        showRequirements: (id, report) => {
+          const windowId = windowForWorkspace(id)
+          const win = windowId ? windows.get(windowId) : undefined
+          if (!win || win.isDestroyed()) return
+          if (win.isMinimized()) win.restore()
+          win.show()
+          win.focus()
+          win.webContents.send('sandbox:blocked', { workspaceId: id, report })
+        },
+        report: () => {
+          const missing = missingRequirements(SANDBOX_FEATURE)
+          return {
+            missing,
+            hint: installHint(missing),
+            canInstall: extensionHost?.list().some((x) => x.id === 'system' && x.enabled) ?? false,
+          }
+        },
+      },
+      workspaceId,
+      errors,
+    )
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand })
   registerPaneResumeMethods({ execCommand })

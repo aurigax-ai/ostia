@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { SANDBOX_FEATURE, useSandboxStore } from '../stores/sandboxStore'
 import { Button } from './ui/button'
@@ -17,6 +18,10 @@ export function SandboxRequirementsDialog(): JSX.Element {
   const report = blocked?.report
   const packages = report?.hint.packages.join(', ') ?? ''
   const command = report?.hint.command ?? null
+  useEffect(
+    () => window.pine.sandbox.onBlocked((next) => useSandboxStore.setState({ blocked: next })),
+    [],
+  )
 
   return (
     <Dialog
