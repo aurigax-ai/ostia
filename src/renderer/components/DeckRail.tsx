@@ -1,13 +1,10 @@
 import { cn } from '@/lib/utils'
 import {
   FlaskIcon,
-  FolderSimpleIcon,
   GearSixIcon,
   type Icon as IconComponent,
-  PlusIcon,
   PushPinSimpleIcon,
   RobotIcon,
-  StackIcon,
   TerminalWindowIcon,
   XIcon,
 } from '@phosphor-icons/react'
@@ -31,7 +28,6 @@ import {
   type WorkspaceState,
   useWorkspacesStore,
 } from '../stores/workspacesStore'
-import { FilesView } from './FilesView'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { ATTENTION_BADGE } from './attentionStyles'
@@ -54,55 +50,10 @@ const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
 }
 
 export function DeckRail(): JSX.Element {
-  const d = useDict()
   const collapsed = useUIStore((s) => s.railCollapsed)
-  const view = useUIStore((s) => s.sidebarView)
-  const setView = useUIStore((s) => s.setSidebarView)
-  const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
-  const leaveSettings = useUIStore((s) => s.leaveSettings)
-  const openSettings = useUIStore((s) => s.openSettings)
-
   return (
     <aside className={`deck-rail${collapsed ? ' collapsed' : ''}`}>
-      <div className="rail-switch">
-        <IconButton
-          size="bar"
-          hintSide="right"
-          icon={StackIcon}
-          label={d.rail.workspaces}
-          aria-pressed={view === 'workspaces'}
-          onClick={() => setView('workspaces')}
-        />
-        <IconButton
-          size="bar"
-          hintSide="right"
-          icon={FolderSimpleIcon}
-          label={d.rail.files}
-          aria-pressed={view === 'files'}
-          onClick={() => setView('files')}
-        />
-        <span className="rail-switch-end">
-          <IconButton
-            size="bar"
-            hintSide="right"
-            icon={PlusIcon}
-            label={d.rail.newWorkspace}
-            onClick={() => {
-              leaveSettings()
-              addWorkspace()
-            }}
-          />
-          <IconButton
-            size="bar"
-            hintSide="right"
-            icon={GearSixIcon}
-            label={d.topbar.settings}
-            onClick={openSettings}
-          />
-        </span>
-      </div>
-
-      {view === 'workspaces' ? <WorkspacesView /> : <FilesView />}
+      <WorkspacesView />
     </aside>
   )
 }

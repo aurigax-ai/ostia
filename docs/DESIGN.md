@@ -134,13 +134,19 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 └────────────┴─────────────────────────────────────────────────┘
 ```
 
-- **Top bar**: the sidebar toggle, settings, the command-center button that opens the
-  palette, and the notification bell at the right end (§6). The whole bar is the window drag region. macOS keeps native traffic lights on the
-  left (the bar pads 80px for them). Linux and Windows draw min/max/close on the right
-  (`WindowControls.tsx`). There is no wordmark, status strip or inspector.
-- **Sidebar** (`DeckRail.tsx`): a Workspaces/Files switch; one row per workspace showing a kind
-  icon, workDir, a state dot and an unread badge; "new workspace"; and a pinned Settings row. It collapses to a
-  56px icon rail.
+- **Top bar**: on the left, over the sidebar: the sidebar toggle, the Files toggle, one toggle
+  per enabled extension panel (git Changes, Keeper, Trellis; `PanelToggles.tsx`, pressed while the
+  panel is open in the active workspace), then New workspace and Settings at the sidebar's right
+  edge. Centre: the command-center button that opens the palette. Right: the notification bell.
+  The whole bar is the window drag region. macOS keeps native traffic lights on the left (the bar
+  pads 80px for them). Linux and Windows draw GNOME-style round min/max/close buttons on the right
+  (`WindowControls.tsx`, 24px circles). There is no wordmark, status strip or inspector.
+- **Sidebar** (`DeckRail.tsx`): only workspaces: one row per workspace showing a kind icon, a
+  state dot, an unread badge and the details chosen in Settings → Sidebar, plus a pinned Settings
+  row. It collapses to a 56px icon rail.
+- **Files panel** (`FilesPanel.tsx`): a 260px column to the right of the sidebar, toggled from the
+  top bar. It shows the active workspace's focused pane cwd, so switching workspaces switches it.
+- **Cursor**: the normal arrow everywhere, like a desktop app. No pointer or grab cursors.
 - **Work area**: the active workspace's split tree, rendered with Allotment. Each pane is an
   elevated surface with a header (title, split right, split down, close). The header is also the
   drag handle for moving panes. Focus follows cmux: no border around the focused pane; the
@@ -198,7 +204,7 @@ Attention, the second loud element, appears only when a pane needs you:
 - **Controls**: Switch (instant toggle), Select (`size="sm"`, the trigger shows the value), Input,
   Textarea, and ToggleGroup for ≤ 4 short options. Control height is 28px.
 - **Icon buttons**: always `IconButton` (ghost button + `Hint` + required `aria-label`). `bar`
-  (28px, 16px icon) for the top bar, rail switch and view toolbars; `row` (22px, 14px icon) for
+  (28px, 16px icon) for the top bar and view toolbars; `row` (22px, 14px icon) for
   pane headers, rail rows, the find bar and the browser toolbar. Rest `fg-muted`, hover
   `surface-3` + `fg`, pressed (`aria-pressed`) `surface-3` + `brand`.
 - **Icon sizes**: 16 bar-level, 14 rows/headers/buttons, 12 inline glyphs.

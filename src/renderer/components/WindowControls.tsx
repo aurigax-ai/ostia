@@ -28,22 +28,17 @@ export function WindowControls(): JSX.Element | null {
         aria-label={d.window.minimize}
         onClick={() => window.pine.window.minimize()}
       >
-        <MinusIcon size={16} />
+        <MinusIcon size={12} />
       </button>
       <button
         type="button"
         aria-label={maximized ? d.window.restore : d.window.maximize}
         onClick={() => window.pine.window.toggleMaximize()}
       >
-        {maximized ? <CopyIcon size={12} /> : <SquareIcon size={12} />}
+        {maximized ? <CopyIcon size={11} /> : <SquareIcon size={10} />}
       </button>
-      <button
-        type="button"
-        className="close"
-        aria-label={d.window.close}
-        onClick={() => window.pine.window.close()}
-      >
-        <XIcon size={16} />
+      <button type="button" aria-label={d.window.close} onClick={() => window.pine.window.close()}>
+        <XIcon size={12} />
       </button>
     </div>
   )
