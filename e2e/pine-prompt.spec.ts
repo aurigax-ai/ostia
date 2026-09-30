@@ -55,7 +55,7 @@ for (const { shell, rc, body } of SHELLS) {
       })
       await expect(chips.getByLabel('Working directory: ~')).toBeVisible()
       await expect(chips.getByLabel(/Last exit code/)).toHaveCount(0)
-      await expect(rows).toContainText('~ $')
+      await expect(rows).toContainText(/~\s*\$/)
       await expect(rows).not.toContainText('fancy_left')
       await expect(rows).not.toContainText('fancy_right')
 
@@ -64,7 +64,7 @@ for (const { shell, rc, body } of SHELLS) {
       await win.keyboard.press('Enter')
       await expect(chips.getByLabel('Last exit code: 1')).toBeVisible({ timeout: 15_000 })
       await expect(chips.getByLabel('Working directory: ~/pine_sub')).toBeVisible()
-      await expect(rows).toContainText('~/pine_sub $')
+      await expect(rows).toContainText(/~\/pine_sub\s*\$/)
 
       await chips.click({ button: 'right' })
       await win.getByRole('menuitem', { name: 'Edit prompt…' }).click()

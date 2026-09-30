@@ -276,14 +276,14 @@ Attention, the second loud element, appears only when a pane needs you:
   `file, page n`), the note, and the target radio list with state dots. The result shows as a
   small `viewer-status` chip bottom-right for 6 s.
 
-- **Terminal input editor** (`InputEditor.tsx`, `behavior.inputMode: 'editor'`): docked under
-  the terminal, painted with the terminal theme background, a `--line` hairline on top, 4/8px
-  padding. Top row (20px, `ui-xs`): the cwd chip (`surface-2`, `radius-sm`, mono, a 12px folder
-  icon in `fg-muted`) on the left; the hint, completion candidates (mono, `fg`) or "No matching
-  paths" in `fg-muted` on the right, truncated with an ellipsis. Below: the shadcn `Textarea` in
-  the terminal font and size, `radius-md`, one row that grows to about six lines, then scrolls.
-  Placeholder "Run commands". It appears and disappears without animation, because it resizes
-  the xterm host (§8 Motion).
+- **Terminal input editor** (`InputEditor.tsx`, `behavior.inputMode: 'editor'`): drawn in
+  place over the shell's input line, in the terminal font, size and cell grid, on the terminal
+  theme background, with no border, radius or padding, so it reads as the shell's own line. The
+  shell's prompt stays to its left; with the Pine prompt a chip row (chips at the cell height)
+  replaces the cwd line above. Placeholder "Run commands" in `fg-muted`. The completion menu
+  and the "No matching paths" note are popovers (`surface-1`, `--line` border, `radius-md`)
+  above the line, or below it when the prompt is in the upper half. The vim badge sits at the
+  right end of the line. It appears and disappears without animation (§8 Motion).
 
 Consolidation debt:
 - Primitives still missing: DropdownMenu. ContextMenu (`components/ui/context-menu.tsx`) backs

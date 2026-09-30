@@ -49,7 +49,11 @@ function renderEditor() {
       suppressedPrompt={null}
       ownsFocus={() => true}
       onSubmit={vi.fn(() => true)}
-      onEscape={vi.fn()}
+      termRef={{ current: null }}
+      hostRef={{ current: null }}
+      onHandOff={vi.fn()}
+      onShellKeys={vi.fn()}
+      onNeedRows={vi.fn()}
     />,
   )
 }
@@ -81,11 +85,11 @@ describe('Pine prompt in the input editor', () => {
     vi.mocked(window.pine.pty.promptContext).mockReset()
   })
 
-  it('keeps the lone cwd line with the shell prompt style', () => {
+  it('leaves the prompt to the shell with the shell prompt style', () => {
     useSettingsStore.setState((s) => ({ behavior: { ...s.behavior, inputMode: 'editor' } }))
     idlePrompt()
     renderEditor()
-    expect(screen.getByText('/home/u/proj')).toBeVisible()
+    expect(screen.getByRole('textbox', { name: 'Command input' })).toBeVisible()
     expect(screen.queryByRole('list', { name: 'Prompt' })).toBeNull()
     expect(window.pine.pty.promptContext).not.toHaveBeenCalled()
   })

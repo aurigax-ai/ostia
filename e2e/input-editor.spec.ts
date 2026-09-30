@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
@@ -77,10 +77,10 @@ test('the input editor runs commands, walks history and steps aside for interact
     await expect(input).toBeVisible({ timeout: 15_000 })
     await expect(input).toBeFocused()
 
+    await win.keyboard.type('echo pine_dir')
     await win.keyboard.press('Escape')
-    await expect(input).not.toBeFocused()
-    await win.keyboard.type('echo pine_direct')
     await expect(input).toBeHidden()
+    await win.keyboard.type('ect')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('pine_direct', { timeout: 15_000 })
     await expect(input).toBeVisible({ timeout: 15_000 })
@@ -208,5 +208,65 @@ test('the input editor suggests from history, completes commands, highlights and
   } finally {
     await app.close()
     rmSync(bin, { recursive: true, force: true })
+  }
+})
+
+test('the input editor sits on the shell prompt line and takes what is aimed at the terminal', async () => {
+  test.setTimeout(90_000)
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  writeFileSync(
+    join(home, '.zshrc'),
+    "PROMPT='pine_left❯ '\nRPROMPT='pine_right'\nbindkey '^R' history-incremental-search-backward\n",
+  )
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
+  })
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({
+    ...launch,
+    env: { ...launch.env, HOME: home, SHELL: '/usr/bin/zsh' },
+  })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    const rows = win.locator('.xterm-rows').first()
+    const input = win.getByRole('textbox', { name: 'Command input' })
+    const line = win.locator('.input-editor-line')
+    await expect(input).toBeVisible({ timeout: 15_000 })
+    const promptRow = rows.locator('div', { hasText: 'pine_left❯' }).last()
+    const lineBox = await line.boundingBox()
+    const rowBox = await promptRow.boundingBox()
+    expect(lineBox && rowBox && Math.abs(lineBox.y - rowBox.y)).toBeLessThan(2)
+    expect(lineBox && rowBox && lineBox.x).toBeGreaterThan(rowBox?.x ?? 0)
+    await expect(rows).toContainText('pine_right')
+    expect((await rows.innerText()).split('pine_left❯').length - 1).toBe(1)
+
+    const top = await rows.boundingBox()
+    await win.mouse.click((top?.x ?? 0) + 20, (top?.y ?? 0) + 5)
+    await win.keyboard.type('echo pine_redirected')
+    await expect(input).toHaveValue('echo pine_redirected')
+    await expect(input).toBeFocused()
+    await win.keyboard.press('Control+a')
+    await win.keyboard.press('Control+k')
+    await expect(input).toHaveValue('')
+    await win.keyboard.press('Control+y')
+    await expect(input).toHaveValue('echo pine_redirected')
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('pine_redirected\n', { timeout: 15_000 })
+    await expect(input).toBeFocused({ timeout: 15_000 })
+
+    await win.keyboard.type('echo pine_re')
+    await win.keyboard.press('Control+r')
+    await expect(input).toBeHidden()
+    await expect(rows).toContainText('bck-i-search', { timeout: 15_000 })
+    await win.keyboard.press('Control+g')
+    await win.keyboard.press('Enter')
+    await expect(input).toBeVisible({ timeout: 15_000 })
+  } finally {
+    await app.close()
   }
 })

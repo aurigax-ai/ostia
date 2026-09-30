@@ -1,8 +1,9 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { insertCommand } from '../lib/blockActions'
-import { registerTerminal } from '../lib/terminalHandles'
+import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { InputEditor, type InputEditorProps } from './InputEditor'
@@ -30,6 +31,14 @@ function setMode(inputMode: 'terminal' | 'editor'): void {
   useSettingsStore.setState((s) => ({ behavior: { ...s.behavior, inputMode } }))
 }
 
+function fakeTerm(): Xterm {
+  return {
+    focus: vi.fn(),
+    getSelection: () => '',
+    scrollToBottom: vi.fn(),
+  } as unknown as Xterm
+}
+
 function renderEditor(overrides: Partial<InputEditorProps> = {}) {
   const props: InputEditorProps = {
     paneId: PANE,
@@ -39,8 +48,12 @@ function renderEditor(overrides: Partial<InputEditorProps> = {}) {
     alternateScreen: false,
     suppressedPrompt: null,
     ownsFocus: () => true,
+    termRef: { current: fakeTerm() },
+    hostRef: { current: null },
     onSubmit: vi.fn(() => true),
-    onEscape: vi.fn(),
+    onHandOff: vi.fn(),
+    onShellKeys: vi.fn(),
+    onNeedRows: vi.fn(),
     ...overrides,
   }
   const view = render(<InputEditor {...props} />)
@@ -69,14 +82,12 @@ describe('InputEditor', () => {
     expect(editor()).toBeNull()
   })
 
-  it('shows under an idle prompt in editor mode with the cwd and a chord hint', () => {
+  it('shows at an idle prompt in editor mode', () => {
     setMode('editor')
     idlePrompt()
     renderEditor()
     expect(editor()).toBeVisible()
     expect(editor()).toHaveAttribute('placeholder', 'Run commands')
-    expect(screen.getByText('/home/u/proj')).toBeVisible()
-    expect(screen.getByText(/Ctrl\+Shift\+H search/)).toBeVisible()
   })
 
   it('falls back to the terminal when the shell has no integration marks', () => {
@@ -92,7 +103,7 @@ describe('InputEditor', () => {
     act(() => editor()?.focus())
     act(() => runCommand('vim'))
     expect(editor()).toBeNull()
-    expect(props.onEscape).toHaveBeenCalled()
+    expect(props.termRef.current?.focus).toHaveBeenCalled()
     act(() => {
       finishCommand()
     })
@@ -184,7 +195,7 @@ describe('InputEditor', () => {
     finishCommand()
     renderEditor()
     const user = userEvent.setup()
-    await user.type(editor() as HTMLElement, 'ec')
+    await user.click(editor() as HTMLElement)
     await user.keyboard('{ArrowUp}')
     expect(editor()).toHaveValue('git status')
     await user.keyboard('{ArrowUp}')
@@ -194,7 +205,7 @@ describe('InputEditor', () => {
     await user.keyboard('{ArrowDown}')
     expect(editor()).toHaveValue('git status')
     await user.keyboard('{ArrowDown}')
-    expect(editor()).toHaveValue('ec')
+    expect(editor()).toHaveValue('')
   })
 
   it('moves inside a multi-line draft before walking history, but steps straight through history entries', async () => {
@@ -209,7 +220,7 @@ describe('InputEditor', () => {
     await user.type(editor() as HTMLElement, 'one{Shift>}{Enter}{/Shift}two')
     await user.keyboard('{ArrowUp}')
     expect(editor()).toHaveValue('one\ntwo')
-    ;(editor() as HTMLTextAreaElement).setSelectionRange(1, 1)
+    await user.keyboard('{Control>}c{/Control}')
     await user.keyboard('{ArrowUp}')
     expect(editor()).toHaveValue('ls')
     await user.keyboard('{ArrowUp}')
@@ -218,7 +229,7 @@ describe('InputEditor', () => {
     expect(editor()).toHaveValue('ls')
   })
 
-  it('clears the draft on Ctrl+C and returns to the terminal on Escape', async () => {
+  it('clears the draft on Ctrl+C and hands the draft to the shell line on Escape', async () => {
     setMode('editor')
     idlePrompt()
     const { props } = renderEditor()
@@ -227,8 +238,84 @@ describe('InputEditor', () => {
     await user.keyboard('{Control>}c{/Control}')
     expect(editor()).toHaveValue('')
     expect(props.onSubmit).not.toHaveBeenCalled()
+    await user.type(editor() as HTMLElement, 'git st')
     await user.keyboard('{Escape}')
-    expect(props.onEscape).toHaveBeenCalledTimes(1)
+    expect(props.onHandOff).toHaveBeenCalledTimes(1)
+    expect(props.onHandOff).toHaveBeenCalledWith('git st', '')
+  })
+
+  it('edits with readline keys and a kill ring', async () => {
+    setMode('editor')
+    idlePrompt()
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'echo hello world')
+    await user.keyboard('{Control>}w{/Control}')
+    expect(editor()).toHaveValue('echo hello ')
+    await user.keyboard('{Control>}a{/Control}')
+    await user.keyboard('{Control>}k{/Control}')
+    expect(editor()).toHaveValue('')
+    await user.keyboard('{Control>}y{/Control}')
+    expect(editor()).toHaveValue('echo hello ')
+    await user.keyboard('{Control>}u{/Control}')
+    expect(editor()).toHaveValue('')
+  })
+
+  it('hands the draft and the key to the shell for widgets it does not own, like Ctrl+R', async () => {
+    setMode('editor')
+    idlePrompt()
+    const { props } = renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'git')
+    await user.keyboard('{Control>}r{/Control}')
+    expect(props.onHandOff).toHaveBeenCalledWith('git', '\x12')
+    expect(editor()).toHaveValue('')
+  })
+
+  it('sends Ctrl+L to the shell and keeps the draft, and Ctrl+D on an empty draft as EOF', async () => {
+    setMode('editor')
+    idlePrompt()
+    const { props } = renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'ls')
+    await user.keyboard('{Control>}l{/Control}')
+    expect(props.onShellKeys).toHaveBeenCalledWith('\x0c')
+    expect(editor()).toHaveValue('ls')
+    await user.keyboard('{Control>}u{/Control}')
+    await user.keyboard('{Control>}d{/Control}')
+    expect(props.onHandOff).toHaveBeenCalledWith('', '\x04')
+  })
+
+  it('filters history by the typed prefix on Up', async () => {
+    setMode('editor')
+    idlePrompt()
+    act(() => {
+      runCommand('git status')
+      finishCommand()
+      runCommand('ls -la')
+      finishCommand()
+      runCommand('git log')
+      finishCommand()
+    })
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'git s')
+    await user.keyboard('{ArrowUp}')
+    expect(editor()).toHaveValue('git status')
+  })
+
+  it('takes typing and pastes forwarded from the terminal while it is shown', async () => {
+    setMode('editor')
+    idlePrompt()
+    renderEditor()
+    const area = editor() as HTMLTextAreaElement
+    act(() => {
+      area.blur()
+    })
+    act(() => inputEditorFor(PANE)?.type('ls'))
+    act(() => inputEditorFor(PANE)?.type(' -la'))
+    expect(area).toHaveValue('ls -la')
+    expect(area).toHaveFocus()
   })
 
   it('completes paths from the pane cwd on Tab and lists ambiguous matches', async () => {
@@ -339,7 +426,7 @@ describe('InputEditor', () => {
       expect(ghost()).toBe('ke build')
       await user.keyboard('{Escape}')
       expect(ghost()).toBeNull()
-      expect(props.onEscape).not.toHaveBeenCalled()
+      expect(props.onHandOff).not.toHaveBeenCalled()
       await user.type(editor() as HTMLElement, 'k')
       expect(ghost()).toBe('e build')
       await user.type(editor() as HTMLElement, 'x')
@@ -408,7 +495,7 @@ describe('InputEditor', () => {
       await screen.findByRole('listbox')
       await user.keyboard('{Escape}')
       expect(screen.queryByRole('listbox')).toBeNull()
-      expect(props.onEscape).not.toHaveBeenCalled()
+      expect(props.onHandOff).not.toHaveBeenCalled()
       expect(editor()).toHaveValue('gi')
     })
 
@@ -479,7 +566,7 @@ describe('InputEditor', () => {
 
     const mode = () => screen.queryByLabelText('Vim mode')?.textContent ?? null
 
-    it('is off by default, so Escape still returns to the terminal', async () => {
+    it('is off by default, so Escape still hands off to the shell line', async () => {
       setMode('editor')
       idlePrompt()
       const { props } = renderEditor()
@@ -487,7 +574,7 @@ describe('InputEditor', () => {
       const user = userEvent.setup()
       await user.type(editor() as HTMLElement, 'ls')
       await user.keyboard('{Escape}')
-      expect(props.onEscape).toHaveBeenCalled()
+      expect(props.onHandOff).toHaveBeenCalledWith('ls', '')
     })
 
     it('edits with motions, operators, counts and undo, then submits from normal mode', async () => {
@@ -500,7 +587,7 @@ describe('InputEditor', () => {
       await user.type(editor() as HTMLElement, 'echo one two three')
       await user.keyboard('{Escape}')
       expect(mode()).toBe('NORMAL')
-      expect(props.onEscape).not.toHaveBeenCalled()
+      expect(props.onHandOff).not.toHaveBeenCalled()
       await user.keyboard('0w')
       await user.keyboard('d')
       expect(mode()).toBe('NORMAL d')
@@ -546,11 +633,11 @@ describe('InputEditor', () => {
       finishCommand()
       renderEditor()
       const user = userEvent.setup()
-      await user.type(editor() as HTMLElement, 'x')
+      await user.type(editor() as HTMLElement, 'gi')
       await user.keyboard('{Escape}k')
       expect(editor()).toHaveValue('git status')
       await user.keyboard('j')
-      expect(editor()).toHaveValue('x')
+      expect(editor()).toHaveValue('gi')
     })
   })
 })
