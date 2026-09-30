@@ -115,7 +115,7 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Settings sync (a synced folder you own) | Warp | core (built): it rewrites extension approvals | S–M | 8 |
 | Phone: grant path above read-only, pty input, attention push | cmux-like | built-in extension (gateway) | M | 10 |
 | Warp's IDE-style input editor (opt-in, only at an idle prompt, so agent TUIs keep the keys) | Warp | core (built) | L | 7 |
-| Warp prompt: context chips in the input editor, Edit prompt dialog, plain shell prompt for new shells (built); extension chips (branch, diff stats, ssh) wait on the pane-chips API | Warp | core (built) + extensions | M | 7 |
+| Warp prompt: context chips in the input editor, Edit prompt dialog, plain shell prompt for new shells, extension pane chips in the chip row (built); built-in extensions don't publish branch, diff stats or ssh chips yet | Warp | core (built) + extensions | M | 7 |
 | Built-in AI chat | Warp | **not planned** | — | Pine hosts agent CLIs; it doesn't compete with them |
 
 ## 4. Phases
@@ -170,8 +170,8 @@ Each phase ships a working product; nothing half-built lands on `main`.
    picker with Tailscale detection.
 8. **Extension API v2** — **done**: pane chips (`contributes.paneChips`, `ext.setPaneChip` /
    `ext.clearPaneChip`, badges in the pane header, cleared when the extension stops or the pane
-   closes, `usePaneChips(paneId)` / `usePaneChipCatalog()` for other renderer views such as a
-   prompt); typed extension settings (`contributes.settings`, validated in main, stored under
+   closes, and placeable in the Pine prompt's chip row through `usePaneChips(paneId)` /
+   `usePaneChipCatalog()`); typed extension settings (`contributes.settings`, validated in main, stored under
    `extensionSettings.<id>` in `settings.json`, a form per extension in Settings → Plugins,
    `ext.getSettings` and a `settings.changed` event); hot reload of the user extensions directory
    (added, changed and removed manifests, new ones still wait for approval and new capabilities

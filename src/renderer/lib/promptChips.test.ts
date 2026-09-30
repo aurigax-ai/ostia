@@ -2,6 +2,7 @@ import { DEFAULT_PROMPT_SETTINGS } from '@shared/promptSettings'
 import type { PromptContext } from '@shared/types'
 import { describe, expect, it } from 'vitest'
 import type { CommandBlock } from '../stores/blocksStore'
+import type { ShownPaneChip } from './paneChips'
 import {
   type CoreChipInputs,
   abbreviateHome,
@@ -16,6 +17,17 @@ import {
   resolvePromptChips,
   spawnPromptOption,
 } from './promptChips'
+
+const shown = (patch: Partial<ShownPaneChip>): ShownPaneChip => ({
+  extId: 'git',
+  id: 'branch',
+  paneId: 'p1',
+  text: 'main',
+  tone: 'neutral',
+  title: 'Branch',
+  extName: 'Git',
+  ...patch,
+})
 
 const CONTEXT: PromptContext = {
   user: 'ada',
@@ -140,15 +152,23 @@ describe('resolvePromptChips', () => {
 
   it('places an extension chip by its "<extension>.<chip>" id when it has a value', () => {
     const chips = resolvePromptChips(['git.branch', 'cwd', 'git.stats', 'ssh.host'], inputs(), [
-      { extId: 'git', id: 'branch', text: 'main', tone: 'ok', command: 'branches' },
-      { extId: 'git', id: 'stats', text: '' },
-      { extId: 'other', id: 'host', text: 'nope' },
+      shown({ id: 'branch', text: 'main', tone: 'ok', command: 'branches' }),
+      shown({ id: 'stats', text: '' }),
+      shown({ extId: 'other', id: 'host', text: 'nope' }),
     ])
     expect(chips.map((c) => [c.id, c.text, c.tone])).toEqual([
       ['git.branch', 'main', 'ok'],
       ['cwd', '~/proj', 'default'],
     ])
     expect(chips[0].extension?.command).toBe('branches')
+  })
+
+  it('shows neutral and brand pane-chip tones as the default chip tone', () => {
+    const chips = resolvePromptChips(['git.branch', 'git.dirty'], inputs(), [
+      shown({ id: 'branch', tone: 'neutral' }),
+      shown({ id: 'dirty', text: '+3', tone: 'brand' }),
+    ])
+    expect(chips.map((c) => c.tone)).toEqual(['default', 'default'])
   })
 })
 

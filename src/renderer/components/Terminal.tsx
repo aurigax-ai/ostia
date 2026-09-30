@@ -613,7 +613,6 @@ export function TerminalView({
       />
       <InputEditor
         paneId={paneId}
-        workspaceId={workspaceId}
         cwd={cwd}
         fontFamily={fontStack(font.family)}
         fontSize={font.size}

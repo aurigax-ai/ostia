@@ -422,7 +422,7 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     `date`, `time12`, `time24` (a 15 s clock, only while one is in the list), `exitCode` and
     `duration` (the newest finished block). The default order is Warp's default restricted to
     what core fills: conda, virtualenv, node, cwd. Warp's branch, diff stats, ssh and subshell
-    chips are not core. Values from main come from `pty:prompt-context`
+    chips are not core; branch, diff stats and ssh belong to extensions as pane chips. Values from main come from `pty:prompt-context`
     (`main/promptContext.ts`), fetched when the editor shows and at every new prompt (A
     marker), answered only for the window attached to the pane. It reads the shell state file
     (above) and resolves `node` only when the cwd is inside a Node project (a `package.json` at
@@ -439,11 +439,14 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     dashed as "no value here"), the ordered list (drag, the arrow buttons, or Alt+↑/↓ on a
     row's handle, announced through a live region), the available chips, the same-line switch
     and the separator; Save writes the whole object and sets `style: 'pine'`.
-    Extension chips use the id `<extId>.<chip>` in the same list and render from
-    `usePaneChips(paneId)` (`stores/paneChipsStore.ts`: per pane `{extId, id, text, tooltip,
-    tone, command}`, plus a `catalog` of `{extId, id, title}` for the dialog); a click invokes
-    the chip's `command` on its extension with `{workspaceId, paneId}`. The store is the seam
-    for the extension pane-chips API, which only has to call `setPaneChips` and `setCatalog`.
+    Extension chips are the pane chips of the extension API (`contributes.paneChips`,
+    `ext.setPaneChip`): the id `<extId>.<chip>` sits in the same ordered list, the dialog lists
+    every enabled extension's chips from `usePaneChipCatalog()`, and the row reads the pane's
+    values from `usePaneChips(paneId)` (`lib/paneChips.ts`, over `extensionsStore.chips`),
+    the same source as the pane-header badges. Tones `neutral` and `brand` draw as the default
+    chip. A click goes through `runPaneChip`: focus the pane, then run `<extId>.<command>`, so
+    the extension sees the pane as its caller. Why one source: a second prompt-only store would
+    need its own feed and drift from the header.
     Plain shell prompt: when the Pine prompt is on in editor mode, `pty:attach` gets
     `pinePrompt` (the separator) and main starts zsh/bash with `PINE_PROMPT=pine` and
     `PINE_PROMPT_SEPARATOR` (see Shell integration). Why: the chips already show the context,
