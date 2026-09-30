@@ -14,9 +14,11 @@ export function initialMonacoTheme(): string {
   return defineSchemeTheme(currentScheme('editor'))
 }
 
+export function applyMonacoScheme(scheme: ColorScheme): void {
+  monaco.editor.setTheme(defineSchemeTheme(scheme))
+}
+
 export function useMonacoTheme(): void {
   const scheme = useScheme('editor')
-  useEffect(() => {
-    monaco.editor.setTheme(defineSchemeTheme(scheme))
-  }, [scheme])
+  useEffect(() => applyMonacoScheme(scheme), [scheme])
 }

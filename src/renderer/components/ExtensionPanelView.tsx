@@ -22,6 +22,7 @@ function useThemeCss(): string {
       panelThemeCss(
         activeTheme ? themedTokens(activeTheme, accent) : {},
         { ui, mono },
+        activeTheme?.appearance ?? 'dark',
         reducedMotion,
       ),
     [activeTheme, accent, ui, mono, reducedMotion],

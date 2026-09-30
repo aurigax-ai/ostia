@@ -4,9 +4,10 @@ const UNSAFE_VALUE = /[;{}<>\\]/
 export function panelThemeCss(
   tokens: Record<string, string>,
   fonts: { ui: string; mono: string },
+  appearance: 'dark' | 'light',
   reducedMotion: boolean,
 ): string {
-  const decls: string[] = []
+  const decls: string[] = [`--pine-color-scheme: ${appearance};`]
   for (const [name, value] of Object.entries(tokens)) {
     if (TOKEN_NAME.test(name) && !UNSAFE_VALUE.test(value)) decls.push(`--pine-${name}: ${value};`)
   }

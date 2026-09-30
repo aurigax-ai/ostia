@@ -71,6 +71,7 @@ describe('applyTheme', () => {
   afterEach(() => {
     document.documentElement.removeAttribute('style')
     document.documentElement.removeAttribute('data-theme')
+    document.documentElement.classList.remove('dark')
   })
 
   it('writes the tokens, the theme id and the color scheme onto the root element', () => {
@@ -79,6 +80,14 @@ describe('applyTheme', () => {
     expect(root.style.getPropertyValue('--color-bg')).toBe(light.tokens.bg)
     expect(root.dataset.theme).toBe('pine-light')
     expect(root.style.colorScheme).toBe('light')
+  })
+
+  it('carries the dark class only while a dark theme is applied', () => {
+    const root = document.documentElement
+    applyTheme(root, dark, '')
+    expect(root.classList.contains('dark')).toBe(true)
+    applyTheme(root, light, '')
+    expect(root.classList.contains('dark')).toBe(false)
   })
 
   it('applies an accent and its readable on-brand color, and restores the theme brand when cleared', () => {

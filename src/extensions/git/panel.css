@@ -66,7 +66,7 @@
 
 button.tab {
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--fg-muted);
   font-weight: 500;
 }
@@ -82,7 +82,7 @@ button.icon {
   justify-content: center;
   flex: 0 0 auto;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   width: 22px;
   height: 22px;
   padding: 0;
@@ -133,7 +133,7 @@ button.icon svg,
 }
 
 .empty-title {
-  font-size: 13px;
+  font-size: var(--text-ui-base);
   line-height: 20px;
   font-weight: 500;
   color: var(--fg);
@@ -176,7 +176,7 @@ button.icon svg,
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
   line-height: 16px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -210,7 +210,7 @@ button.icon svg,
   gap: 2px;
   padding: 1px;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .segmented button.seg {
@@ -230,7 +230,7 @@ button.icon svg,
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
   line-height: 16px;
 }
 
@@ -256,7 +256,7 @@ button.icon svg,
 }
 
 .commit-bar .hint {
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
   line-height: 16px;
 }
 
@@ -266,7 +266,7 @@ button.icon svg,
   gap: 6px;
   margin: 0;
   padding: 12px 8px 4px 12px;
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
   line-height: 16px;
   font-weight: 500;
   text-transform: uppercase;
@@ -277,7 +277,7 @@ button.icon svg,
 .area-count {
   min-width: 16px;
   padding: 0 5px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -354,7 +354,7 @@ button.change .dir {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
 }
 
 .caret,
@@ -366,7 +366,7 @@ button.change .dir {
 
 .folder-count {
   margin-left: 4px;
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -423,7 +423,7 @@ button.scope-trigger {
   gap: 6px;
   height: 24px;
   padding: 0 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
   font-weight: 500;
 }
@@ -453,7 +453,7 @@ button.scope-trigger[aria-expanded="true"] {
   max-height: min(420px, 70vh);
   padding: 4px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-3);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
 }
@@ -471,7 +471,7 @@ button.scope-trigger[aria-expanded="true"] {
   gap: 8px;
   min-height: 28px;
   padding: 0 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
@@ -491,7 +491,7 @@ button.scope-trigger[aria-expanded="true"] {
 
 .scope-hint {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
   line-height: 16px;
   white-space: nowrap;
 }
@@ -517,7 +517,7 @@ button.scope-trigger[aria-expanded="true"] {
   margin: 0 4px 4px;
   padding: 0 8px;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--fg-muted);
 }
@@ -545,7 +545,7 @@ button.scope-trigger[aria-expanded="true"] {
 
 .branch-group-title {
   padding: 8px 8px 2px;
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
   line-height: 16px;
   font-weight: 500;
   text-transform: uppercase;
@@ -678,7 +678,7 @@ button.scope-trigger[aria-expanded="true"] {
   padding: 0 6px;
   border: 1px solid var(--line-strong);
   border-radius: 4px;
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
   line-height: 16px;
   color: var(--fg-muted);
 }
@@ -737,7 +737,7 @@ button.scope-trigger[aria-expanded="true"] {
   padding: 0 6px;
   border-radius: 9px;
   background: var(--surface-2);
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
   line-height: 16px;
   font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
@@ -759,7 +759,7 @@ button.scope-trigger[aria-expanded="true"] {
 .who,
 .when {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
 }
 
 .when {
@@ -774,7 +774,7 @@ button.scope-trigger[aria-expanded="true"] {
 
 .sha {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
 }
 
 .graph-more {
@@ -785,7 +785,7 @@ button.scope-trigger[aria-expanded="true"] {
   height: 24px;
   padding-left: calc(var(--graph-width) + 8px);
   line-height: 24px;
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
 }
 
 @container (max-width: 560px) {
@@ -836,7 +836,7 @@ button.scope-trigger[aria-expanded="true"] {
 }
 
 .detail-subject {
-  font-size: 13px;
+  font-size: var(--text-ui-base);
   line-height: 20px;
   font-weight: 500;
   overflow-wrap: anywhere;
@@ -847,7 +847,7 @@ button.scope-trigger[aria-expanded="true"] {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 12px;
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
   line-height: 16px;
 }
 
@@ -887,7 +887,7 @@ table.blame {
   border-collapse: collapse;
   width: 100%;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-ui-sm);
   line-height: 18px;
 }
 
@@ -907,7 +907,7 @@ table.blame {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
 }
 
 .blame-no {
