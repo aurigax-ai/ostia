@@ -549,8 +549,11 @@ Details: `docs/ARCHITECTURE.md`.
   glyphs (`↻`, `×`) standing in for icons. Icons are never tinted with the brand color.
 - **Motion:** overlays built on `components/ui/` get `motion-overlay` (or `motion-hint` for
   tooltips) and animate through Base UI's `data-starting-style`/`data-ending-style`; don't add
-  tw-animate `animate-in`/`zoom-*`/`slide-*` classes. No scale on press, springs, bounces,
-  staggered lists or page transitions.
+  tw-animate `animate-in`/`zoom-*`/`slide-*` classes. A floating card that isn't a Base UI popup
+  gets `motion-enter`. No scale on press, springs (incl. smooth/spring scrolls), bounces,
+  staggered lists, page transitions or decorative loops (spinners, shimmers). JS-driven motion
+  follows `useReducedMotion()`; extension panels time transitions with `sdk/panel.css`'s
+  tokens. `src/renderer/lib/motion.test.tsx` enforces the raw-timing and class rules.
 - **Strings:** every user-visible string goes through `i18n/dict.ts` (en + zh-Hant).
 
 ---
