@@ -243,6 +243,7 @@ export interface SnapshotWorkspace {
   groupId?: string
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
+  projectDir?: string
   root?: SnapshotNode
   activePaneId?: string
 }
@@ -355,6 +356,7 @@ export interface SelectionApi {
 export interface WorkspaceProject {
   name: string
   display: string
+  dir: string
 }
 
 export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'program' | 'failed' }

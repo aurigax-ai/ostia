@@ -25,6 +25,7 @@ describe('describeProject', () => {
     expect(describeProject('/home/u/p/app/src', '/home/u', '/home/u/p/app')).toEqual({
       name: 'app',
       display: '~/p/app',
+      dir: '/home/u/p/app',
     })
   })
 
@@ -32,7 +33,12 @@ describe('describeProject', () => {
     expect(describeProject('/home/u/Downloads', '/home/u', null)).toEqual({
       name: 'Downloads',
       display: '~/Downloads',
+      dir: '/home/u/Downloads',
     })
-    expect(describeProject('/home/u', '/home/u', null)).toEqual({ name: 'home', display: '~' })
+    expect(describeProject('/home/u', '/home/u', null)).toEqual({
+      name: 'home',
+      display: '~',
+      dir: '/home/u',
+    })
   })
 })
