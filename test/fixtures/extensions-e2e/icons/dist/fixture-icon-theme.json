@@ -1,0 +1,23 @@
+{
+  "iconDefinitions": {
+    "_file": { "iconPath": "../icons/file.svg" },
+    "_folder": { "iconPath": "../icons/folder.svg" },
+    "_folder_open": { "iconPath": "../icons/folder-open.svg" },
+    "_typescript": { "iconPath": "../icons/typescript.svg" },
+    "_typescript_test": { "iconPath": "../icons/typescript-test.svg" },
+    "_npm": { "iconPath": "../icons/npm.png" },
+    "_folder_src": { "iconPath": "../icons/folder-src.svg" },
+    "_folder_src_open": { "iconPath": "../icons/folder-src-open.svg" },
+    "_markdown": { "iconPath": "../icons/markdown.svg" },
+    "_font_only": { "fontCharacter": "\\E001", "fontColor": "#ffffff" }
+  },
+  "file": "_file",
+  "folder": "_folder",
+  "folderExpanded": "_folder_open",
+  "fileExtensions": { "ts": "_typescript", "test.ts": "_typescript_test" },
+  "fileNames": { "package.json": "_npm" },
+  "folderNames": { "src": "_folder_src" },
+  "folderNamesExpanded": { "src": "_folder_src_open" },
+  "languageIds": { "markdown": "_markdown", "plaintext": "_font_only" },
+  "light": { "fileExtensions": { "ts": "_typescript_test" } }
+}

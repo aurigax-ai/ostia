@@ -8,6 +8,7 @@ type Persisted = Pick<
   | 'locale'
   | 'appearance'
   | 'behavior'
+  | 'files'
   | 'notifications'
   | 'sidebar'
   | 'workspaces'
@@ -46,6 +47,7 @@ describe('settingsStore', () => {
       locale: s.locale,
       appearance: s.appearance,
       behavior: s.behavior,
+      files: s.files,
       terminal: s.terminal,
       panes: s.panes,
       notifications: s.notifications,
@@ -375,6 +377,7 @@ describe('settingsStore', () => {
         locale: s.locale,
         appearance: s.appearance,
         behavior: s.behavior,
+        files: s.files,
         terminal: s.terminal,
         panes: s.panes,
         notifications: s.notifications,
@@ -430,6 +433,7 @@ describe('settingsStore', () => {
         locale: s.locale,
         appearance: s.appearance,
         behavior: s.behavior,
+        files: s.files,
         terminal: s.terminal,
         panes: s.panes,
         notifications: s.notifications,
@@ -506,7 +510,6 @@ describe('settingsStore', () => {
       store().setBehavior({ cursorStyle: 'bar' })
       const behavior = store().behavior
       expect(behavior.cursorStyle).toBe('bar')
-      expect(behavior.showHiddenFiles).toBe(DEFAULTS.behavior.showHiddenFiles)
       expect(behavior.cursorBlink).toBe(DEFAULTS.behavior.cursorBlink)
     })
   })

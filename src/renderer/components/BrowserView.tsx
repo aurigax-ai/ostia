@@ -17,6 +17,7 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { BrowserStoragePanel } from './BrowserStoragePanel'
 import { IconButton } from './IconButton'
+import { LoginButton } from './LoginButton'
 import { PickSendPanel, usePickTargets } from './PickSendPanel'
 import { Button } from './ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
@@ -287,6 +288,7 @@ export function BrowserView({
           aria-pressed={picking !== null}
           onClick={() => void togglePick()}
         />
+        <LoginButton paneId={paneId} pageKey={navCount} onStatus={setStatus} />
         <IconButton
           icon={DatabaseIcon}
           label={storageOpen ? d.browser.storageHide : d.browser.storageShow}

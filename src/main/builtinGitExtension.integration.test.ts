@@ -41,6 +41,20 @@ async function until<T>(read: () => T | undefined, timeoutMs = 8000): Promise<T>
   }
 }
 
+async function eventually<T>(
+  read: () => Promise<T>,
+  done: (value: T) => boolean,
+  timeoutMs = 8000,
+): Promise<T> {
+  const start = Date.now()
+  for (;;) {
+    const value = await read()
+    if (done(value)) return value
+    if (Date.now() - start > timeoutMs) throw new Error('condition not met in time')
+    await new Promise((r) => setTimeout(r, 25))
+  }
+}
+
 describe('built-in git extension against a real repository', () => {
   let dir: string
   let repo: string
@@ -143,6 +157,7 @@ describe('built-in git extension against a real repository', () => {
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,
       nodePath: process.execPath,
+      dataDir: join(dir, 'ext-data'),
       workDirForWorkspace: (sid) => (sid === 's1' ? repo : dir),
       broadcast: (channel, payload) => broadcasts.push({ channel, payload }),
       openPanelIn,
@@ -488,6 +503,149 @@ describe('built-in git extension against a real repository', () => {
         { path: 'sub/b.txt', code: 'A' },
       ])
       expect(await panelCall('commitFiles', { sha: '--all' })).toMatchObject({
+        ok: false,
+        error: 'invalid-args',
+      })
+    })
+  })
+
+  describe('graph', () => {
+    interface GraphResult {
+      scope: { kind: string; refs?: string[] }
+      includesHead: boolean
+      more: boolean
+      branch: { head: string; upstream: string | null; ahead: number }
+      counts: { untracked: number }
+      branches: { ref: string; current: boolean }[]
+      commits: {
+        sha: string
+        subject: string
+        parents: string[]
+        refs: { kind: string; name: string; current?: boolean }[]
+      }[]
+    }
+    let clock = Math.floor(Date.now() / 1000) + 100
+    const dated = (...args: string[]): string => {
+      clock += 10
+      return execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], {
+        cwd: repo,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          GIT_AUTHOR_DATE: `@${clock} +0000`,
+          GIT_COMMITTER_DATE: `@${clock} +0000`,
+        },
+      })
+    }
+    const graph = async (args: unknown = {}): Promise<GraphResult> => {
+      const res = await panelCall('graph', args)
+      if (!res.ok) throw new Error(JSON.stringify(res))
+      return res.data as GraphResult
+    }
+    const subjects = (g: GraphResult): string[] => g.commits.map((c) => c.subject)
+    const stored = (): unknown =>
+      broadcasts.filter((b) => b.channel === 'extensions:settings-stored').at(-1)?.payload
+    const viewFile = (): Record<string, unknown> =>
+      JSON.parse(readFileSync(join(dir, 'ext-data', 'git', 'view.json'), 'utf8'))
+
+    beforeAll(() => {
+      const pushed = git('rev-parse', 'HEAD').trim()
+      const init = git('rev-list', '--max-parents=0', 'HEAD').trim()
+      git('checkout', '-q', '-b', 'feature')
+      writeFileSync(join(repo, 'f.txt'), 'feature\n')
+      git('add', 'f.txt')
+      dated('commit', '-q', '-m', 'f1')
+      git('checkout', '-q', 'main')
+      writeFileSync(join(repo, 'a.txt'), 'one\nmain\n')
+      git('add', 'a.txt')
+      dated('commit', '-q', '-m', 'm1')
+      dated('merge', '-q', '--no-ff', '-m', 'merge feature', 'feature')
+      git('checkout', '-q', '-b', 'side', init)
+      writeFileSync(join(repo, 's.txt'), 'side\n')
+      git('add', 's.txt')
+      dated('commit', '-q', '-m', 's1')
+      git('checkout', '-q', 'main')
+      git('remote', 'add', 'origin', join(dir, 'no-remote.git'))
+      git('update-ref', 'refs/remotes/origin/main', pushed)
+      git('branch', '-q', '--set-upstream-to=origin/main', 'main')
+    })
+
+    it('shows only the current branch by default, merges with both parents, and the dirty tree', async () => {
+      const g = await graph()
+      expect(g.scope).toEqual({ kind: 'current' })
+      expect(g.includesHead).toBe(true)
+      expect(subjects(g)).toEqual(['merge feature', 'm1', 'f1', 'stage b', 'init'])
+      expect(g.commits[0].parents).toHaveLength(2)
+      expect(g.commits[0].parents[1]).toBe(g.commits[2].sha)
+      expect(g.commits[0].refs).toContainEqual({ kind: 'branch', name: 'main', current: true })
+      expect(g.commits[2].refs).toContainEqual({ kind: 'branch', name: 'feature' })
+      expect(g.commits[3].refs).toContainEqual({ kind: 'remote', name: 'origin/main' })
+      expect(g.branch).toMatchObject({ head: 'main', upstream: 'origin/main', ahead: 3 })
+      expect(g.counts.untracked).toBe(1)
+      expect(g.branches.find((b) => b.current)?.ref).toBe('refs/heads/main')
+    })
+
+    it('pages the history with a limit and says when there is more', async () => {
+      const g = await graph({ limit: 2 })
+      expect(subjects(g)).toEqual(['merge feature', 'm1'])
+      expect(g.more).toBe(true)
+      expect((await graph({ limit: 50 })).more).toBe(false)
+    })
+
+    it('shows every local and remote branch for all, and stores it as the graphScope setting', async () => {
+      expect(await panelCall('setScope', { scope: { kind: 'all' } })).toMatchObject({ ok: true })
+      expect(stored()).toEqual({ extId: 'git', stored: { graphScope: 'all' } })
+      const g = await graph()
+      expect(g.scope).toEqual({ kind: 'all' })
+      expect(subjects(g)).toContain('s1')
+      expect(subjects(g)).toHaveLength(6)
+    })
+
+    it('remembers chosen branches for the repository without changing the setting', async () => {
+      const chosen = await panelCall('setScope', {
+        scope: { kind: 'chosen', refs: ['refs/heads/side'] },
+      })
+      expect(chosen.ok).toBe(true)
+      const g = await graph()
+      expect(g.scope).toEqual({ kind: 'chosen', refs: ['refs/heads/side'] })
+      expect(g.includesHead).toBe(false)
+      expect(subjects(g)).toEqual(['s1', 'init'])
+      expect(viewFile()).toEqual({ chosen: { [repo]: ['refs/heads/side'] } })
+      expect(stored()).toEqual({ extId: 'git', stored: { graphScope: 'all' } })
+    })
+
+    it('refuses scopes that are not branch refs', async () => {
+      expect(
+        await panelCall('setScope', { scope: { kind: 'chosen', refs: ['--output=/tmp/x'] } }),
+      ).toMatchObject({ ok: false, error: 'invalid-args' })
+    })
+
+    it('goes back to the setting when the panel picks current, and follows Settings changes', async () => {
+      await panelCall('setScope', { scope: { kind: 'current' } })
+      expect(viewFile()).toEqual({ chosen: {} })
+      expect(stored()).toEqual({ extId: 'git', stored: { graphScope: 'current' } })
+      expect((await graph()).scope).toEqual({ kind: 'current' })
+
+      expect(host.setSetting('git', 'graphScope', 'all').ok).toBe(true)
+      expect((await eventually(graph, (g) => g.scope.kind === 'all')).scope).toEqual({
+        kind: 'all',
+      })
+      expect(host.setSetting('git', 'graphScope', null).ok).toBe(true)
+      await eventually(graph, (g) => g.scope.kind === 'current')
+    })
+
+    it('keeps the changes view in the changesView setting, from the panel and from Settings', async () => {
+      expect(await panelCall('view', {})).toMatchObject({ ok: true, data: { changesView: 'list' } })
+      expect(await panelCall('setChangesView', { view: 'tree' })).toMatchObject({ ok: true })
+      expect(stored()).toEqual({ extId: 'git', stored: { changesView: 'tree' } })
+      expect(await panelCall('view', {})).toMatchObject({ data: { changesView: 'tree' } })
+      expect(host.setSetting('git', 'changesView', 'list').ok).toBe(true)
+      const view = (): Promise<ExtensionResult> => panelCall('view', {})
+      await eventually(
+        view,
+        (r) => r.ok && (r.data as { changesView: string }).changesView === 'list',
+      )
+      expect(await panelCall('setChangesView', { view: 'grid' })).toMatchObject({
         ok: false,
         error: 'invalid-args',
       })

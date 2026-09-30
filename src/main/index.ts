@@ -68,6 +68,7 @@ import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
+import { registerIconThemeIpc } from './iconThemes'
 import {
   getByPaneId,
   registerPane,
@@ -76,6 +77,7 @@ import {
   windowOfWorkspace,
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
+import { registerLoginFill } from './loginFill'
 import { killAllLsp, registerLspIpc } from './lsp'
 import {
   postNotification,
@@ -1046,6 +1048,7 @@ app.whenReady().then(() => {
     store: extensionStore,
     socketPath: controlSocketPath,
     nodePath: process.execPath,
+    dataDir: join(app.getPath('userData'), 'extension-data'),
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     locale: readLocale,
@@ -1073,6 +1076,10 @@ app.whenReady().then(() => {
   registerCompletionIpc({
     userDir: join(configDir(), 'completions'),
     extensionDirs: () => extensionHost?.completionDirs() ?? [],
+  })
+  registerIconThemeIpc({
+    themes: () => extensionHost?.iconThemes() ?? [],
+    onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
   })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
@@ -1103,6 +1110,10 @@ app.whenReady().then(() => {
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
+  registerLoginFill({
+    browserPanes,
+    ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
+  })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
   extensionHost.startEager()

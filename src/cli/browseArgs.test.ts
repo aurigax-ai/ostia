@@ -33,6 +33,15 @@ describe('parseBrowseCommand', () => {
     expect(call(['close']).method).toBe('browse.close')
   })
 
+  it('maps login with an optional username', () => {
+    expect(call(['login'])).toEqual({ method: 'browse.login', params: {} })
+    expect(call(['login', '--user', 'me@x.dev'])).toEqual({
+      method: 'browse.login',
+      params: { username: 'me@x.dev' },
+    })
+    expect(error(['login', 'extra'])).toMatch(/usage: pine browse login/)
+  })
+
   it('reads snapshot flags in both short and long form', () => {
     expect(call(['snapshot', '-i', '-c', '-d', '3', '-s', '#main', '-u']).params).toEqual({
       interactive: true,

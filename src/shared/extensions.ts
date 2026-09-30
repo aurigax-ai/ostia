@@ -1,5 +1,6 @@
 import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
+import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
 import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'pine.json'
@@ -118,6 +119,7 @@ export interface ExtensionManifest {
     completions?: string
     assist: AssistPoint[]
     secrets: ExtensionSecretContribution[]
+    iconThemes?: IconThemeContribution[]
   }
 }
 
@@ -148,6 +150,7 @@ export interface ExtensionInfo {
   assist: AssistPoint[]
   secrets: ExtensionSecretContribution[]
   secretsSet: string[]
+  iconThemes: IconThemeInfo[]
 }
 
 export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as const
@@ -283,6 +286,10 @@ export type ExtensionSettingResult =
 export type ExtensionSecretResult =
   | { ok: true; list: ExtensionInfo[] }
   | { ok: false; error: string }
+export interface ExtensionSettingsStored {
+  extId: string
+  stored: ExtensionSettingValues
+}
 
 export const DIFF_TEXT_MAX = 5 * 1024 * 1024
 
@@ -338,6 +345,7 @@ export interface ExtensionsApi {
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
   onPaneChips: (cb: (chips: PaneChip[]) => void) => () => void
+  onSettingsStored: (cb: (update: ExtensionSettingsStored) => void) => () => void
   onOpenPanel: (cb: (req: ExtensionOpenPanelRequest) => void) => () => void
   onOpenDiff: (cb: (req: ExtensionOpenDiffRequest) => void) => () => void
   onOpenTerminal: (cb: (req: ExtensionOpenTerminalRequest) => string | null) => () => void

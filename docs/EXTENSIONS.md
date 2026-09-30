@@ -75,9 +75,52 @@ no sidebar items and no pane chips.
 
 | `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}`. Settings → Plugins shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
+| `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`.
+
+## Icon themes
+
+`contributes.iconThemes` takes VS Code file icon themes as they ship in a `.vsix`, so a theme
+such as Material Icon Theme works without changes:
+
+1. Unzip the `.vsix` (it is a zip) and copy its `extension/` folder to
+   `~/.config/pine/extensions/<name>/`.
+2. Add a `pine.json` next to its `package.json`, pointing at the theme JSON the `package.json`
+   lists under `contributes.iconThemes[].path`:
+
+   ```json
+   {
+     "id": "material-icons",
+     "name": "Material Icon Theme",
+     "version": "5.0.0",
+     "contributes": {
+       "iconThemes": [
+         { "id": "material-icon-theme", "label": "Material Icon Theme", "path": "dist/material-icons.json" }
+       ]
+     }
+   }
+   ```
+
+3. Approve the extension when Pine asks, then pick the theme in Settings → Files → File icon
+   theme or the Files header's view options.
+
+What Pine reads from the theme JSON: `iconDefinitions` (entries with an `iconPath` to an SVG,
+PNG, JPEG, GIF or WebP file), `file`, `folder`, `folderExpanded`, `fileExtensions`, `fileNames`,
+`folderNames`, `folderNamesExpanded`, `languageIds`, and the same keys under `light` (used with a
+light Pine theme) and `highContrast`. A file resolves like VS Code: `fileNames`, then
+`fileExtensions` from the longest suffix (`d.ts` before `ts`), then `languageIds` (the VS Code
+language id of the name), then `file`; an open folder tries `folderNamesExpanded`, `folderNames`,
+`folderExpanded`, `folder`. Names match case-insensitively.
+
+Not supported: font icon themes (`fonts`, `fontCharacter` definitions are skipped),
+`rootFolder*` keys (Pine's tree has no root row), and `hidesExplorerArrows`.
+
+Main loads a theme only for an enabled extension and checks it: the theme JSON at most 4 MiB,
+each icon at most 512 KiB, all icons at most 48 MiB, every path inside the extension folder
+after resolving symlinks, and no symlinked file. Icons reach the renderer as `data:` URLs;
+the renderer never gets a path.
 
 ## Approval and capabilities
 
@@ -100,6 +143,7 @@ Your process gets:
 | `PINE_TOKEN` | This run's token (a new one on every start) |
 | `PINE_EXTENSION_ID` | Your `id` |
 | `PINE_EXTENSION_DIR` | Your directory |
+| `PINE_EXTENSION_DATA` | A folder for your own state (`<userData>/extension-data/<id>`); create it when you first write. It isn't synced. |
 
 Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 (`Content-Length: N\r\n\r\n<json>`); `vscode-jsonrpc` does this for Node. Then:
@@ -122,6 +166,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.setPaneChip` | `{paneId, id, text, tooltip?, tone?, command?, url?}` | Shows `text` (40 chars) as chip `id` (from your `contributes.paneChips`) on that pane's header; setting it again replaces the value. `paneId` is an external pane id (`caller.paneId`, `pane.list`, events). `tone`: as for sidebar items. `command`: one of your own palette commands; clicking the chip focuses the pane and runs it, so `caller.paneId` is that pane. `url` (http/https, instead of `command`): clicking the chip opens it in the browser pane of that pane's workspace. Empty `text` clears it. Chips vanish when the pane closes or your process stops; set them again after a restart. |
 | `ext.clearPaneChip` | `{paneId, id}` | Removes that chip. |
 | `ext.getSettings` | — | `{ok, values}`: every key of your `contributes.settings`, with the human's value when it is valid, else the default. You also get `settings.changed` (below) whenever the values change. |
+| `ext.setSetting` | `{key, value}` | Changes one of **your own** settings, for a control in your panel that mirrors it (Git's graph scope and changed-files view). Validated against your manifest exactly like Settings → Plugins (`unknown-setting`, `invalid-value`); `null` resets the key. Pine saves it in `settings.json`, shows it in Settings, and sends you `settings.changed`. Returns `{ok, values}`. You can't touch another extension's settings or any core setting. |
 | `ext.openDiff` | `{title, original, modified, language?, path?, workspaceId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that workspace, else the active one. Reuses the workspace's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
 | `workspace.list` | — | Needs `read-board`. `[{workspaceId, name, kind, workDir, state, activePaneId?}]`. |
 | `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, filePath?, running, blockCount, lastExitCode?, pid?}]`; `cwd` is the live shell cwd for terminals; `filePath` is the absolute path a file view (`kind: 'editor'`) shows, so a palette command can act on the file in the caller's pane; `pid` is the shell process of a terminal whose pty is running (absent for other kinds and for a hibernated pane). Its descendants are what the pane runs. They inherit pine's own open descriptors, so ignore sockets your parent process (pine) also holds. |
@@ -153,7 +198,7 @@ Errors: `needs-elevation: <cap>`, `needs-target: targetPaneId` (you left it out)
 extensions: it waits for the human's click.
 
 The SDK (`src/extensions/sdk/index.ts`, `connect()`) wraps all of this: `setPaneChip`,
-`clearPaneChip`, `getSettings`, `onSettingsChanged(values => …)`, `numberSetting(values, key,
+`clearPaneChip`, `getSettings`, `setSetting(key, value)`, `onSettingsChanged(values => …)`, `numberSetting(values, key,
 fallback, {min, max})` and `booleanSetting(values, key, fallback)` (read a value, clamped, with
 a fallback), `openPanel(workspaceId?, path?)`, `notifyPanel(title, body?, path?)`,
 `onPanel((caller, path) => ({url}))`, `callAs` and `setAttention`.
@@ -375,7 +420,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 
 | Id | What it does |
 |---|---|
-| `git` | Branch and change counts per workspace in the sidebar; `git.branch` (`main • ↑2 ↓1`, click opens the panel) and `git.diff-stats` (`3 • +12 -4`) chips on every terminal in a repo; a Git panel with Changes (stage, unstage, discard after `ext.confirm`, commit), Log (a commit's files open as diffs) and Blame pages ("Show Changes", "Show Log", "Blame File"); settings `pollSeconds`, `showDiffStats`; `pine git status|changes|diff|open|log|blame|stage|unstage|commit` (discard is panel only) |
+| `git` | Branch and change counts per workspace in the sidebar; `git.branch` (`main • ↑2 ↓1`, click opens the panel) and `git.diff-stats` (`3 • +12 -4`) chips on every terminal in a repo; a Git panel with Changes (stage, unstage, discard after `ext.confirm`, commit; flat list or folder tree), Graph (lanes, ref badges, an uncommitted-changes row, the current, all or chosen branches; a commit's files open as diffs) and Blame pages ("Show Changes", "Show Graph", "Blame File"); settings `pollSeconds`, `showDiffStats`, `graphScope`, `changesView` (the panel's controls write the last two with `ext.setSetting`); `pine git status|changes|diff|open|log|blame|stage|unstage|commit` (discard is panel only) |
 | `trellis` | The Trellis web UI as a panel on the workspace's project, open/claimed card counts per workspace, notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Init Project Here", `pine trellis status`. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
 | `ports` | Per workspace, the TCP ports its terminals' processes listen on as `:port` links that open in the browser pane, and the host of a foreground `ssh`; per terminal pane, a `ports` chip (click opens the first port) and an `ssh` chip with `user@host`. Polls only while pine is focused. `pine ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `pine system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `pine system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |

@@ -29,6 +29,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     assist: [],
     secrets: [],
     secretsSet: [],
+    iconThemes: [],
     ...overrides,
   }
 }
