@@ -4,9 +4,11 @@ import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browserEditorSe
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
+import { changedLines, minimalLineEdit } from '../lib/diskReload'
 import { registerEditorPosition } from '../lib/editorPositions'
 import { createAutoSave, saveFormatted } from '../lib/editorSave'
 import { lineReference } from '../lib/fileReference'
+import { useReducedMotion } from '../lib/motion'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import { openDocument } from '../lsp/client'
@@ -17,12 +19,14 @@ import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
 import { isMac } from '../platform'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
+import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
 import { MarkdownPreview, type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
 import { useSelectionSend } from './SelectionSend'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
+import { Button } from './ui/button'
 
 export const EDITOR_FALLBACK =
   '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
@@ -46,6 +50,13 @@ export function isBinary(content: string): boolean {
 }
 
 const savedVersions = new Map<string, number>()
+const diskBase = new Map<string, string | null>()
+const RELOAD_HIGHLIGHT_MS = 2000
+
+type DiskBar =
+  | { kind: 'changed'; disk: string }
+  | { kind: 'conflict'; disk: string }
+  | { kind: 'deleted' }
 
 function isDirty(model: monaco.editor.ITextModel): boolean {
   return savedVersions.get(model.uri.toString()) !== model.getAlternativeVersionId()
@@ -111,8 +122,17 @@ export function EditorView({
   const pathRef = useRef(filePath)
   const font = useSettingsStore((s) => s.appearance.editor)
   const editorSettings = useSettingsStore((s) => s.editor)
+  const reducedMotion = useReducedMotion()
+  const reducedMotionRef = useRef(reducedMotion)
+  reducedMotionRef.current = reducedMotion
   const [binary, setBinary] = useState(false)
   const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
+  const [diskBar, setDiskBar] = useState<DiskBar | null>(null)
+  const diskBarRef = useRef<DiskBar | null>(null)
+  diskBarRef.current = diskBar
+  const saveRef = useRef<(force?: boolean) => Promise<void>>(async () => {})
+  const reloadRef = useRef<(model: monaco.editor.ITextModel, text: string) => void>(() => {})
+  const checkDiskRef = useRef<() => Promise<void>>(async () => {})
   const [preview, setPreview] = useState(false)
   const markdown = isMarkdownPath(filePath) && !binary
   const previewText = useModelText(editorRef, markdown && preview)
@@ -176,7 +196,7 @@ export function EditorView({
       fontLigatures: true,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
-      smoothScrolling: true,
+      smoothScrolling: !reducedMotionRef.current,
       ...behaviorOptions(useSettingsStore.getState().editor),
       renderWhitespace: 'selection',
       padding: { top: 8 },
@@ -184,17 +204,27 @@ export function EditorView({
     })
     editorRef.current = editor
 
-    const save = async (): Promise<void> => {
+    const save = async (force = false): Promise<void> => {
       const model = editor.getModel()
       if (!model) return
       const fp = model.uri.path
+      const key = model.uri.toString()
+      if (!force) {
+        const onDisk = await window.pine.fs.read(fp)
+        if (onDisk !== null && diskBase.has(key) && onDisk !== diskBase.get(key)) {
+          setDiskBar({ kind: 'conflict', disk: onDisk })
+          return
+        }
+      }
       let version = model.getAlternativeVersionId()
       const ok = await saveFormatted({
         formatOnSave: useSettingsStore.getState().editor.formatOnSave,
         format: async () => editor.getAction('editor.action.formatDocument')?.run(),
         write: () => {
           version = model.getAlternativeVersionId()
-          return window.pine.fs.write(fp, model.getValue())
+          const text = model.getValue()
+          diskBase.set(key, text)
+          return window.pine.fs.write(fp, text)
         },
       }).catch(() => false)
       if (!ok) {
@@ -204,12 +234,93 @@ export function EditorView({
       savedVersions.set(model.uri.toString(), version)
       useEditorStatus.getState().setDirty(fp, isDirty(model))
       setUnsavedPath(null)
+      setDiskBar(null)
+    }
+    saveRef.current = save
+
+    let highlight: { clear: () => void } | null = null
+    let highlightTimer: ReturnType<typeof setTimeout> | undefined
+    const showChanged = (lines: { start: number; end: number } | null): void => {
+      highlight?.clear()
+      clearTimeout(highlightTimer)
+      if (!lines) return
+      const className = reducedMotionRef.current
+        ? 'editor-reload-highlight editor-reload-highlight-static'
+        : 'editor-reload-highlight'
+      highlight = editor.createDecorationsCollection([
+        {
+          range: {
+            startLineNumber: lines.start,
+            startColumn: 1,
+            endLineNumber: lines.end,
+            endColumn: 1,
+          },
+          options: { isWholeLine: true, className },
+        },
+      ])
+      highlightTimer = setTimeout(() => {
+        highlight?.clear()
+        highlight = null
+      }, RELOAD_HIGHLIGHT_MS)
+    }
+
+    const reloadFrom = (model: monaco.editor.ITextModel, text: string): void => {
+      const changed = changedLines(model.getValue(), text)
+      const edit = minimalLineEdit(model.getValue(), text)
+      if (edit) {
+        const view = editor.saveViewState()
+        editor.pushUndoStop()
+        model.pushEditOperations([], [edit], () => null)
+        editor.pushUndoStop()
+        editor.restoreViewState(view)
+      }
+      diskBase.set(model.uri.toString(), text)
+      markSaved(model, model.uri.path)
+      showChanged(changed)
+    }
+    reloadRef.current = reloadFrom
+
+    let checking: Promise<void> | null = null
+    let again = false
+    const checkDisk = async (): Promise<void> => {
+      const model = editor.getModel()
+      if (!model) return
+      const key = model.uri.toString()
+      const onDisk = await window.pine.fs.read(model.uri.path)
+      if (editor.getModel() !== model) return
+      if (onDisk === diskBase.get(key)) return
+      if (onDisk === null) {
+        diskBase.set(key, null)
+        setDiskBar({ kind: 'deleted' })
+        return
+      }
+      if (!isDirty(model)) {
+        reloadFrom(model, onDisk)
+        setDiskBar(null)
+        return
+      }
+      setDiskBar({ kind: 'changed', disk: onDisk })
+    }
+    checkDiskRef.current = () => {
+      if (checking) {
+        again = true
+        return checking
+      }
+      checking = checkDisk().finally(() => {
+        checking = null
+        if (again) {
+          again = false
+          void checkDiskRef.current()
+        }
+      })
+      return checking
     }
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => void save())
 
     const saveIfDirty = (mode: EditorSettings['autoSave']): void => {
       const model = editor.getModel()
       if (useSettingsStore.getState().editor.autoSave !== mode) return
+      if (diskBarRef.current) return
       if (model && isDirty(model)) void save()
     }
     const autoSave = createAutoSave(() => saveIfDirty('afterDelay'), AUTO_SAVE_DELAY_MS)
@@ -221,6 +332,7 @@ export function EditorView({
     const detachWheelZoom = attachWheelZoom(host, 'editor', isMac)
 
     return () => {
+      clearTimeout(highlightTimer)
       autoSave.cancel()
       contentSub.dispose()
       blurSub.dispose()
@@ -302,14 +414,51 @@ export function EditorView({
         existing.setValue(content)
         markSaved(existing, filePath)
       }
+      if (!existing || !isDirty(existing)) diskBase.set(model.uri.toString(), content)
       editor.setModel(model)
       applyReveal(editor, filePath)
       void openDocument(model, langFor(filePath))
     })
+    void window.pine.fs.watch(filePath)
+    setDiskBar(null)
     return () => {
       alive = false
+      window.pine.fs.unwatch(filePath)
     }
   }, [filePath])
+
+  useEffect(() => {
+    const offChanged = window.pine.fs.onChanged((change) => {
+      if (change.path === pathRef.current) void checkDiskRef.current()
+    })
+    const onFocus = (): void => {
+      void checkDiskRef.current()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => {
+      offChanged()
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!filePath) return
+    useEditorStatus.getState().setDisk(filePath, diskBar?.kind ?? null)
+    return () => useEditorStatus.getState().setDisk(filePath, null)
+  }, [filePath, diskBar])
+
+  const compareWithDisk = (disk: string): void => {
+    const model = editorRef.current?.getModel()
+    const file = pathRef.current
+    if (!model || !file) return
+    useLayoutStore.getState().openDiff(workspaceId, {
+      title: fmt(d.editor.diskCompareTitle, { name: file.split('/').pop() ?? file }),
+      original: disk,
+      modified: model.getValue(),
+      language: langFor(file),
+      path: file,
+    })
+  }
 
   const pendingReveal = useEditorRevealStore((s) => (filePath ? s.pending[filePath] : undefined))
   useEffect(() => {
@@ -322,6 +471,10 @@ export function EditorView({
   useEffect(() => {
     editorRef.current?.updateOptions(behaviorOptions(editorSettings))
   }, [editorSettings])
+
+  useEffect(() => {
+    editorRef.current?.updateOptions({ smoothScrolling: !reducedMotion })
+  }, [reducedMotion])
 
   useEffect(() => {
     editorRef.current?.updateOptions({
@@ -365,6 +518,59 @@ export function EditorView({
         <div className="pane-body editor-binary">
           <span className="ghost">{d.editor.binary}</span>
         </div>
+      ) : null}
+      {diskBar ? (
+        <Alert className={cn(ATTENTION_ALERT, 'editor-disk-bar')}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1">
+              {diskBar.kind === 'changed'
+                ? d.editor.diskChanged
+                : diskBar.kind === 'conflict'
+                  ? d.editor.diskConflict
+                  : d.editor.diskDeleted}
+            </span>
+            {diskBar.kind === 'changed' ? (
+              <>
+                <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
+                  {d.editor.diskCompare}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => {
+                    const model = editorRef.current?.getModel()
+                    if (model) reloadRef.current(model, diskBar.disk)
+                    setDiskBar(null)
+                  }}
+                >
+                  {d.editor.diskReload}
+                </Button>
+                <Button
+                  size="xs"
+                  onClick={() => {
+                    const model = editorRef.current?.getModel()
+                    if (model) diskBase.set(model.uri.toString(), diskBar.disk)
+                    setDiskBar(null)
+                  }}
+                >
+                  {d.editor.diskKeepMine}
+                </Button>
+              </>
+            ) : diskBar.kind === 'conflict' ? (
+              <>
+                <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
+                  {d.editor.diskCompare}
+                </Button>
+                <Button variant="outline" size="xs" onClick={() => setDiskBar(null)}>
+                  {d.editor.diskCancel}
+                </Button>
+                <Button size="xs" onClick={() => void saveRef.current(true)}>
+                  {d.editor.diskOverwrite}
+                </Button>
+              </>
+            ) : null}
+          </div>
+        </Alert>
       ) : null}
       {unsavedPath ? (
         <Alert className={cn(ATTENTION_ALERT, 'editor-save-error')}>

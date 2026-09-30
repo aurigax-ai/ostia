@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import {
   BroadcastIcon,
   ChatCircleTextIcon,
@@ -283,6 +284,14 @@ function PaneTab({
   const dirty = useEditorStatus((s) =>
     pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
   )
+  const diskProblem = useEditorStatus((s) =>
+    pane.kind === 'editor' && pane.filePath ? (s.disk[pane.filePath] ?? null) : null,
+  )
+  const diskLabel = {
+    changed: d.editor.diskMarkChanged,
+    conflict: d.editor.diskMarkConflict,
+    deleted: d.editor.diskMarkDeleted,
+  }
   const attention = useAttentionStore((s) => s.byPane[pane.id])
   const unread = attention?.unread ?? false
   const ring = needsRing(attention)
@@ -322,10 +331,17 @@ function PaneTab({
           className="pane-kind"
           aria-label={pane.hibernated ? d.pane.hibernated : undefined}
         />
-        {dirty ? (
+        {dirty && !diskProblem ? (
           <span className="dot pane-tab-dirty" role="img" aria-label={d.pane.unsaved} />
         ) : null}
-        <span className="title">{pane.title}</span>
+        <span className={cn('title', diskProblem === 'deleted' && 'line-through')}>
+          {pane.title}
+        </span>
+        {diskProblem ? (
+          <Hint label={diskLabel[diskProblem]}>
+            <span className="pane-disk-mark" role="img" aria-label={diskLabel[diskProblem]} />
+          </Hint>
+        ) : null}
         {unread ? (
           <span
             className={`pane-attn-mark${ring ? ' loud' : ''}`}

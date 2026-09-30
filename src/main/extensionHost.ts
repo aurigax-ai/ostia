@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events'
 import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { debounce } from 'es-toolkit'
 import {
   type CancellationToken,
   CancellationTokenSource,
@@ -380,7 +381,7 @@ export class ExtensionHost {
   private settings: Map<string, ExtensionSettingValues>
   private changes = new EventEmitter()
   private watchers: FSWatcher[] = []
-  private rescanTimer: ReturnType<typeof setTimeout> | null = null
+  private readonly scheduleRescan = debounce(() => this.rescan(), RESCAN_DEBOUNCE_MS)
   private watching = false
   private assistStreams = new Map<string, AssistStream>()
   private assistSeq = 0
@@ -606,14 +607,6 @@ export class ExtensionHost {
     else if (this.eager(rt)) this.start(rt)
   }
 
-  private scheduleRescan(): void {
-    if (this.rescanTimer) clearTimeout(this.rescanTimer)
-    this.rescanTimer = setTimeout(() => {
-      this.rescanTimer = null
-      this.rescan()
-    }, RESCAN_DEBOUNCE_MS)
-  }
-
   watchUserExtensions(): void {
     for (const root of this.deps.roots) {
       if (root.builtin) continue
@@ -762,8 +755,7 @@ export class ExtensionHost {
   stopAll(): void {
     this.watching = false
     this.closeWatchers()
-    if (this.rescanTimer) clearTimeout(this.rescanTimer)
-    this.rescanTimer = null
+    this.scheduleRescan.cancel()
     for (const rt of this.runtimes.values()) this.stop(rt)
   }
 

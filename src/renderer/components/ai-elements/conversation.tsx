@@ -59,7 +59,7 @@ export const ConversationScrollButton = ({ className, label }: ConversationScrol
         'absolute bottom-2 left-1/2 -translate-x-1/2 border border-line bg-surface-2',
         className,
       )}
-      onClick={() => void scrollToBottom()}
+      onClick={() => void scrollToBottom('instant')}
     />
   )
 }

@@ -1,6 +1,7 @@
 import { type FSWatcher, watch } from 'node:fs'
 import { hostname } from 'node:os'
 import { BrowserWindow, app, dialog, ipcMain } from 'electron'
+import { debounce, throttle } from 'es-toolkit'
 import type { SyncStatus } from '../shared/types'
 import { EXTENSIONS_FILE, SETTINGS_FILE, SYNCED_FILES, SettingsSync } from './settingsSync'
 
@@ -21,8 +22,6 @@ export interface SettingsSyncHandle {
 
 export function startSettingsSync(deps: SettingsSyncDeps): SettingsSyncHandle {
   const sync = new SettingsSync({ userData: deps.userData, host: hostname() })
-  let lastFocusRun = 0
-  let watchTimer: ReturnType<typeof setTimeout> | null = null
   let watcher: FSWatcher | null = null
   let running = false
 
@@ -46,23 +45,21 @@ export function startSettingsSync(deps: SettingsSyncDeps): SettingsSyncHandle {
     }
   }
 
-  const onFocus = (): void => {
-    const now = Date.now()
-    if (now - lastFocusRun < FOCUS_THROTTLE_MS) return
-    lastFocusRun = now
-    if (sync.configuredDir()) run()
-  }
+  const onFocus = throttle(
+    () => {
+      if (sync.configuredDir()) run()
+    },
+    FOCUS_THROTTLE_MS,
+    { edges: ['leading'] },
+  )
+  const runSoon = debounce(run, WATCH_DEBOUNCE_MS)
   app.on('browser-window-focus', onFocus)
 
   const names = new Set(SYNCED_FILES.map((f) => f.name))
   try {
     watcher = watch(deps.userData, (_event, file) => {
       if (!file || !names.has(String(file))) return
-      if (watchTimer) clearTimeout(watchTimer)
-      watchTimer = setTimeout(() => {
-        watchTimer = null
-        run()
-      }, WATCH_DEBOUNCE_MS)
+      runSoon()
     })
     watcher.on('error', () => {})
   } catch (err) {
@@ -86,7 +83,7 @@ export function startSettingsSync(deps: SettingsSyncDeps): SettingsSyncHandle {
     run,
     stop: () => {
       app.off('browser-window-focus', onFocus)
-      if (watchTimer) clearTimeout(watchTimer)
+      runSoon.cancel()
       watcher?.close()
     },
   }

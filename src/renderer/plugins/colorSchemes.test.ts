@@ -1,5 +1,6 @@
+import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
-import { contrastRatio, normalizeHex } from '../lib/color'
+import { normalizeHex } from '../lib/color'
 import { BUILTIN_PLUGINS } from './builtin'
 import { BUILTIN_COLOR_SCHEMES } from './colorSchemes'
 import { ANSI_NAMES } from './types'
@@ -28,13 +29,13 @@ describe('BUILTIN_COLOR_SCHEMES', () => {
 
   it('keeps the foreground at 4.5:1 or better on the background', () => {
     for (const { id, colors } of BUILTIN_COLOR_SCHEMES) {
-      expect(contrastRatio(colors.foreground, colors.background), id).toBeGreaterThanOrEqual(4.5)
+      expect(wcagContrast(colors.foreground, colors.background), id).toBeGreaterThanOrEqual(4.5)
     }
   })
 
   it('labels each scheme light or dark by its background', () => {
     for (const { id, appearance, colors } of BUILTIN_COLOR_SCHEMES) {
-      const lightText = contrastRatio(colors.background, '#000000') > 10
+      const lightText = wcagContrast(colors.background, '#000000') > 10
       expect(appearance, id).toBe(lightText ? 'light' : 'dark')
     }
   })

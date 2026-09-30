@@ -1,19 +1,15 @@
+import { formatHex, parse } from 'culori/fn'
 import type { editor } from 'monaco-editor'
-import { ensureContrast, mix, normalizeHex } from '../lib/color'
+import { ensureContrast, mix } from '../lib/color'
 import type { ColorScheme } from '../plugins/types'
 
 export const CODE_CONTRAST = 4.5
 export const COMMENT_CONTRAST = 3
 
-const RGBA = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/
-
 function solid(color: string, background: string): string {
-  const hex = normalizeHex(color)
-  if (hex) return hex
-  const m = RGBA.exec(color.trim())
-  if (!m) return background
-  const [r, g, b] = [m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0'))
-  return mix(background, `#${r}${g}${b}`, m[4] === undefined ? 1 : Number(m[4]))
+  const parsed = parse(color.trim())
+  if (!parsed) return background
+  return mix(background, formatHex(parsed), parsed.alpha ?? 1)
 }
 
 const bare = (hex: string): string => hex.slice(1)

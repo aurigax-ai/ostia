@@ -28,6 +28,40 @@ const fake = vi.hoisted(() => {
     getAlternativeVersionId() {
       return this.version
     }
+    undoStack: string[] = []
+    getFullModelRange() {
+      return { startLineNumber: 1, startColumn: 1, endLineNumber: 1e9, endColumn: 1 }
+    }
+    offsetAt(line: number, column: number) {
+      const lines = this.value.split('\n')
+      let offset = 0
+      for (let i = 0; i < Math.min(line - 1, lines.length); i++) offset += lines[i].length + 1
+      return Math.min(offset + column - 1, this.value.length)
+    }
+    pushEditOperations(
+      _before: unknown,
+      ops: {
+        range: {
+          startLineNumber: number
+          startColumn: number
+          endLineNumber: number
+          endColumn: number
+        }
+        text: string
+      }[],
+    ) {
+      this.undoStack.push(this.value)
+      const op = ops[0]
+      if (!op) return null
+      const start = this.offsetAt(op.range.startLineNumber, op.range.startColumn)
+      const end = this.offsetAt(op.range.endLineNumber, op.range.endColumn)
+      this.setValue(this.value.slice(0, start) + op.text + this.value.slice(end))
+      return null
+    }
+    undo() {
+      const previous = this.undoStack.pop()
+      if (previous !== undefined) this.setValue(previous)
+    }
     getValueInRange(r: { startLineNumber: number; endLineNumber: number }) {
       return this.value
         .split('\n')
@@ -60,7 +94,15 @@ const fake = vi.hoisted(() => {
     contentListeners: Listener[]
     blurListeners: Listener[]
     formatRuns: (() => void) | null
+    decorations: {
+      range: { startLineNumber: number; endLineNumber: number }
+      options: { className?: string }
+    }[]
+    createOptions: Record<string, unknown> | null
+    optionUpdates: Record<string, unknown>[]
   } = {
+    createOptions: null,
+    optionUpdates: [],
     model: null,
     save: null,
     actions: [],
@@ -69,6 +111,7 @@ const fake = vi.hoisted(() => {
     contentListeners: [],
     blurListeners: [],
     formatRuns: null,
+    decorations: [],
   }
   const listen = (list: Listener[], l: Listener) => {
     list.push(l)
@@ -96,8 +139,23 @@ const fake = vi.hoisted(() => {
       }
     },
     getPosition: () => state.position,
+    saveViewState: () => ({ position: state.position }),
+    restoreViewState: (view: { position: typeof state.position } | null) => {
+      if (view) state.position = view.position
+    },
+    pushUndoStop: () => true,
+    createDecorationsCollection: (items: typeof state.decorations) => {
+      state.decorations = items
+      return {
+        clear: () => {
+          state.decorations = []
+        },
+      }
+    },
     getSelection: () => state.selection,
-    updateOptions: () => {},
+    updateOptions: (o: Record<string, unknown>) => {
+      state.optionUpdates.push(o)
+    },
     onDidChangeModelContent: (l: Listener) => listen(state.contentListeners, l),
     onDidBlurEditorText: (l: Listener) => listen(state.blurListeners, l),
     getAction: (id: string) =>
@@ -114,7 +172,10 @@ const fake = vi.hoisted(() => {
     editor: {
       setTheme: vi.fn(),
       defineTheme: vi.fn(),
-      create: () => editor,
+      create: (_host: unknown, options: Record<string, unknown>) => {
+        state.createOptions = options
+        return editor
+      },
       getModel: (uri: { toString(): string }) => models.get(uri.toString()) ?? null,
       createModel: (value: string, _lang: string, uri: { toString(): string; path: string }) => {
         const m = new FakeModel(value, uri)
@@ -147,8 +208,22 @@ describe('EditorView', () => {
     fake.state.actions = []
     fake.state.position = null
     fake.state.formatRuns = null
+    fake.state.decorations = []
+    fake.state.createOptions = null
+    fake.state.optionUpdates = []
     useSettingsStore.setState(initSettings, true)
     useEditorStatus.setState(init, true)
+  })
+
+  it('scrolls without smooth animation while motion is reduced', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    act(() => useSettingsStore.getState().setMotion('reduced'))
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    expect(fake.state.createOptions?.smoothScrolling).toBe(false)
+
+    act(() => useSettingsStore.getState().setMotion('full'))
+    expect(fake.state.optionUpdates.at(-1)).toEqual({ smoothScrolling: true })
   })
 
   it('does not overwrite a model with unsaved edits when the file is reopened', async () => {
@@ -289,6 +364,220 @@ describe('EditorView', () => {
 
     expect(await screen.findByText(/Binary file/)).toBeInTheDocument()
     expect(fake.models.size).toBe(0)
+  })
+
+  describe('following the file on disk', () => {
+    let changed: ((c: { path: string; exists: boolean }) => void) | null = null
+    let disk: string | null = 'disk v1'
+
+    beforeEach(() => {
+      changed = null
+      disk = 'disk v1'
+      vi.mocked(window.pine.fs.read).mockImplementation(async () => disk)
+      vi.mocked(window.pine.fs.onChanged).mockImplementation((cb) => {
+        changed = cb
+        return () => {
+          changed = null
+        }
+      })
+    })
+
+    async function open(): Promise<void> {
+      render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+      await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
+      await waitFor(() => expect(window.pine.fs.watch).toHaveBeenCalledWith('/w/a.txt'))
+    }
+
+    async function diskChanges(next: string | null): Promise<void> {
+      disk = next
+      await act(async () => {
+        changed?.({ path: '/w/a.txt', exists: next !== null })
+        await new Promise((r) => setTimeout(r, 0))
+      })
+    }
+
+    it('ERL-C4 picks up a change when the window regains focus', async () => {
+      await open()
+      disk = 'disk v2'
+      await act(async () => {
+        window.dispatchEvent(new Event('focus'))
+        await new Promise((r) => setTimeout(r, 0))
+      })
+      await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
+    })
+
+    it('ERL-C5 reloads a clean file in place, keeps the cursor, and undo restores the old text', async () => {
+      await open()
+      fake.state.position = { lineNumber: 40, column: 3 }
+      await diskChanges('disk v2')
+      await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
+      expect(fake.state.position).toEqual({ lineNumber: 40, column: 3 })
+      expect(useEditorStatus.getState().dirty['/w/a.txt']).not.toBe(true)
+      act(() => (fake.state.model as unknown as { undo(): void }).undo())
+      expect(fake.state.model?.getValue()).toBe('disk v1')
+    })
+
+    it('ERL-C6 leaves the editor alone when the disk bytes did not change', async () => {
+      await open()
+      const version = fake.state.model?.getAlternativeVersionId()
+      await diskChanges('disk v1')
+      expect(fake.state.model?.getAlternativeVersionId()).toBe(version)
+    })
+
+    it('ERL-C7 never touches unsaved edits and shows the changed-on-disk bar', async () => {
+      await open()
+      act(() => fake.state.model?.setValue('my edit'))
+      await diskChanges('agent edit')
+      const bar = await screen.findByRole('alert')
+      expect(bar).toHaveTextContent('Changed on disk')
+      for (const name of ['Compare', 'Reload', 'Keep mine']) {
+        expect(screen.getByRole('button', { name })).toBeInTheDocument()
+      }
+      expect(fake.state.model?.getValue()).toBe('my edit')
+    })
+
+    it('ERL-C8 compares my text with the disk, or reloads the disk text', async () => {
+      const { useLayoutStore } = await import('../stores/layoutStore')
+      const openDiff = vi.spyOn(useLayoutStore.getState(), 'openDiff').mockReturnValue('d1')
+      await open()
+      act(() => fake.state.model?.setValue('my edit'))
+      await diskChanges('agent edit')
+      await userEvent.click(await screen.findByRole('button', { name: 'Compare' }))
+      expect(openDiff).toHaveBeenCalledWith(
+        'w1',
+        expect.objectContaining({ original: 'agent edit', modified: 'my edit', path: '/w/a.txt' }),
+      )
+      await userEvent.click(screen.getByRole('button', { name: 'Reload' }))
+      expect(fake.state.model?.getValue()).toBe('agent edit')
+      expect(screen.queryByRole('alert')).toBeNull()
+      openDiff.mockRestore()
+    })
+
+    it('ERL-C9 pauses autosave while the disk changed under unsaved edits', async () => {
+      useSettingsStore.setState({
+        editor: { ...useSettingsStore.getState().editor, autoSave: 'onFocusChange' },
+      })
+      await open()
+      act(() => fake.state.model?.setValue('my edit'))
+      await diskChanges('agent edit')
+      await screen.findByRole('alert')
+      vi.mocked(window.pine.fs.write).mockClear()
+      await act(async () => {
+        for (const l of fake.state.blurListeners) l()
+        await new Promise((r) => setTimeout(r, 0))
+      })
+      expect(window.pine.fs.write).not.toHaveBeenCalled()
+    })
+
+    it('ERL-C10 brings the bar back when the disk changes again after Keep mine', async () => {
+      await open()
+      act(() => fake.state.model?.setValue('my edit'))
+      await diskChanges('agent edit')
+      await userEvent.click(await screen.findByRole('button', { name: 'Keep mine' }))
+      expect(screen.queryByRole('alert')).toBeNull()
+      await diskChanges('agent edit 2')
+      expect(await screen.findByRole('alert')).toHaveTextContent('Changed on disk')
+    })
+
+    it('ERL-C11 holds a save over a newer disk file until the human chooses Overwrite', async () => {
+      await open()
+      act(() => fake.state.model?.setValue('my edit'))
+      disk = 'agent edit'
+      vi.mocked(window.pine.fs.write).mockClear()
+      await act(async () => {
+        fake.state.save?.()
+        await new Promise((r) => setTimeout(r, 0))
+      })
+      expect(window.pine.fs.write).not.toHaveBeenCalled()
+      for (const name of ['Overwrite', 'Compare', 'Cancel']) {
+        expect(await screen.findByRole('button', { name })).toBeInTheDocument()
+      }
+      await userEvent.click(screen.getByRole('button', { name: 'Overwrite' }))
+      await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'my edit'))
+    })
+
+    it('ERL-C12 saves straight away when the disk still holds what was loaded', async () => {
+      await open()
+      act(() => fake.state.model?.setValue('my edit'))
+      vi.mocked(window.pine.fs.write).mockClear()
+      await act(async () => {
+        fake.state.save?.()
+        await new Promise((r) => setTimeout(r, 0))
+      })
+      await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'my edit'))
+      expect(screen.queryByRole('alert')).toBeNull()
+    })
+
+    it('ERL-C13 keeps the text of a file deleted on disk, and saving writes it back', async () => {
+      await open()
+      await diskChanges(null)
+      expect(await screen.findByRole('alert')).toHaveTextContent('Deleted on disk')
+      expect(fake.state.model?.getValue()).toBe('disk v1')
+      vi.mocked(window.pine.fs.write).mockClear()
+      await act(async () => {
+        fake.state.save?.()
+        await new Promise((r) => setTimeout(r, 0))
+      })
+      await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'disk v1'))
+    })
+
+    it('ERL-C19 highlights the lines a reload changed, then removes the highlight', async () => {
+      disk = 'l1\nl2\nl3\nl4\nl5'
+      render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+      await waitFor(() => expect(fake.state.model?.getValue()).toBe('l1\nl2\nl3\nl4\nl5'))
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      try {
+        await diskChanges('l1\nl2\nNEW3\nNEW4\nl5')
+        await waitFor(() => expect(fake.state.decorations).toHaveLength(1))
+        expect(fake.state.decorations[0].range).toMatchObject({
+          startLineNumber: 3,
+          endLineNumber: 4,
+        })
+        expect(fake.state.decorations[0].options.className).toBe('editor-reload-highlight')
+        await act(async () => {
+          vi.advanceTimersByTime(2100)
+        })
+        expect(fake.state.decorations).toEqual([])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('ERL-C20 never highlights the human’s own typing', async () => {
+      await open()
+      act(() => fake.state.model?.setValue('typed by me'))
+      expect(fake.state.decorations).toEqual([])
+    })
+
+    it('ERL-C21 shows the highlight without a fade under reduced motion and still removes it', async () => {
+      useSettingsStore.setState({
+        appearance: { ...useSettingsStore.getState().appearance, motion: 'reduced' },
+      })
+      await open()
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      try {
+        await diskChanges('disk v2')
+        await waitFor(() => expect(fake.state.decorations).toHaveLength(1))
+        expect(fake.state.decorations[0].options.className).toBe(
+          'editor-reload-highlight editor-reload-highlight-static',
+        )
+        await act(async () => {
+          vi.advanceTimersByTime(2100)
+        })
+        expect(fake.state.decorations).toEqual([])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('ERL-C14 treats a deleted file that reappears as a change', async () => {
+      await open()
+      await diskChanges(null)
+      await screen.findByRole('alert')
+      await diskChanges('reborn')
+      await waitFor(() => expect(fake.state.model?.getValue()).toBe('reborn'))
+      expect(screen.queryByRole('alert')).toBeNull()
+    })
   })
 })
 

@@ -1,6 +1,7 @@
 import type { Dirent } from 'node:fs'
 import { lstat, readFile, readdir, stat } from 'node:fs/promises'
 import { delimiter, extname, isAbsolute, join } from 'node:path'
+import { LRUCache } from 'lru-cache'
 
 export interface ShellState {
   path: string
@@ -88,7 +89,7 @@ interface CachedListing {
 const MAX_CACHED_PATHS = 16
 
 export class ExecutableIndex {
-  private readonly cache = new Map<string, CachedListing>()
+  private readonly cache = new LRUCache<string, CachedListing>({ max: MAX_CACHED_PATHS })
   private readonly sep: string
 
   constructor(sep: string = delimiter) {
@@ -102,12 +103,7 @@ export class ExecutableIndex {
     if (hit?.stamps.every((s, i) => s === stamps[i])) return hit.names
     const listed = await Promise.all(dirs.map(listExecutables))
     const names = [...new Set(listed.flat())].sort()
-    this.cache.delete(path)
     this.cache.set(path, { stamps, names })
-    if (this.cache.size > MAX_CACHED_PATHS) {
-      const oldest = this.cache.keys().next().value
-      if (oldest !== undefined) this.cache.delete(oldest)
-    }
     return names
   }
 }

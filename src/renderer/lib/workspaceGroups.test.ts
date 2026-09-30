@@ -6,7 +6,6 @@ import {
   applyDrop,
   createGroup,
   deleteGroup,
-  globToRegExp,
   insertWorkspace,
   joinGroup,
   leaveGroup,
@@ -260,8 +259,8 @@ describe('matchGroupRule', () => {
   })
 
   it('treats regex characters in a pattern literally', () => {
-    expect(globToRegExp('/a+b/(x)').test('/a+b/(x)')).toBe(true)
-    expect(globToRegExp('/a+b').test('/aab')).toBe(false)
+    expect(matchGroupRule([{ pattern: '/a+b/(x)', group: 'g' }], '/a+b/(x)')).toBe('g')
+    expect(matchGroupRule([{ pattern: '/a+b', group: 'g' }], '/aab')).toBeNull()
   })
 
   it('uses the first matching rule', () => {
