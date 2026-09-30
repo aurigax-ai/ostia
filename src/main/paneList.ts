@@ -18,6 +18,15 @@ export interface WorkspaceEntry {
   workDir: string
   state: string
   activePaneId?: string
+  groupId?: string
+}
+
+export interface WorkspaceGroupEntry {
+  groupId: string
+  name: string
+  color?: string
+  collapsed: boolean
+  workspaceIds: string[]
 }
 
 export interface PaneEntry {
@@ -73,6 +82,14 @@ export async function listWorkspaces(
   })
 }
 
+export async function listWorkspaceGroups(
+  deps: Pick<PaneListDeps, 'execCommand'>,
+): Promise<WorkspaceGroupEntry[]> {
+  const res = await deps.execCommand(GLOBAL_TARGET, 'workspace.groups', {})
+  if (!res.ok) return []
+  return (res.result as WorkspaceGroupEntry[] | undefined) ?? []
+}
+
 const READ_BOARD: Capability = 'read-board'
 
 export function registerPaneListMethods(deps: PaneListDeps): void {
@@ -85,5 +102,10 @@ export function registerPaneListMethods(deps: PaneListDeps): void {
     cap: READ_BOARD,
     callers: 'all',
     handler: () => listWorkspaces(deps),
+  })
+  registerControlMethod('workspace.groups', {
+    cap: READ_BOARD,
+    callers: 'all',
+    handler: () => listWorkspaceGroups(deps),
   })
 }

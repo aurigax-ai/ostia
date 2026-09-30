@@ -8,7 +8,7 @@ const CLI_HELP = `pine — control-socket CLI
   pine open <file>               open <file> in the editor
   pine pane.list                  every pane, every workspace — {paneId(external),workspaceId,
                                   kind,title,cwd,running,blockCount,lastExitCode}
-  pine workspace.list               every workspace — {workspaceId,name,kind,workDir,state}
+  pine workspace.list               every workspace — {workspaceId,name,kind,workDir,state,groupId}
   pine notify <title> [body]     desktop notification + marks this pane unread in Pine
   pine state <waiting|done|working|error|clear> [message] [--pane <externalId>]
                                  set this pane's attention state (message '-' reads stdin;
@@ -18,6 +18,12 @@ const CLI_HELP = `pine — control-socket CLI
   pine workspace describe <text|-> | --clear
                                  show a short summary (Markdown links allowed) under this
                                  pane's workspace in the sidebar, e.g. the PR you're on
+  pine workspace list [--json]   every workspace with its sidebar group; --json prints
+                                 {workspaces,groups} (groups: {groupId,name,color,collapsed,
+                                 workspaceIds})
+  pine workspace group <name>    move this pane's workspace into the sidebar group <name>
+                                 (created if missing)
+  pine workspace ungroup         take this pane's workspace out of its group
   pine resume-token <claude|codex> <id|->
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON

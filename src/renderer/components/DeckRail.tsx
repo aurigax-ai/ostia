@@ -1,5 +1,7 @@
 import { cn } from '@/lib/utils'
 import {
+  CaretDownIcon,
+  CaretRightIcon,
   FlaskIcon,
   GearSixIcon,
   type Icon as IconComponent,
@@ -8,13 +10,21 @@ import {
   TerminalWindowIcon,
   XIcon,
 } from '@phosphor-icons/react'
+import { WORKSPACE_GROUP_COLORS, type WorkspaceGroupColor } from '@shared/workspaceGroups'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, paneIds } from '../layout/tree'
-import { latestWaitingAt, unreadCount } from '../lib/attention'
+import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '../lib/attention'
 import { markWorkspaceRead } from '../lib/workspaceActivity'
+import {
+  type DragSource,
+  type DropTarget,
+  type WorkspaceGroup,
+  moveWorkspaceBy,
+  toBlocks,
+} from '../lib/workspaceGroups'
 import { latestAttentionMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -37,7 +47,12 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from './ui/context-menu'
 import { Input } from './ui/input'
@@ -47,6 +62,38 @@ const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
   agent: RobotIcon,
   terminal: TerminalWindowIcon,
   scratch: FlaskIcon,
+}
+
+const WORKSPACE_DND = 'application/x-pine-workspace'
+const GROUP_DND = 'application/x-pine-workspace-group'
+const NO_COLOR = 'none'
+
+interface RailDrag {
+  source: DragSource
+  target: DropTarget | null
+}
+
+function isRailDrag(e: React.DragEvent): boolean {
+  const types = e.dataTransfer.types
+  return types.includes(WORKSPACE_DND) || types.includes(GROUP_DND)
+}
+
+function sameTarget(a: DropTarget | null, b: DropTarget): boolean {
+  if (!a || a.kind !== b.kind) return false
+  if (a.kind === 'end' || b.kind === 'end') return true
+  return a.id === b.id && a.place === b.place
+}
+
+function upperHalf(e: React.DragEvent): boolean {
+  const box = e.currentTarget.getBoundingClientRect()
+  return e.clientY < box.top + box.height / 2
+}
+
+interface DragHandlers {
+  start: (source: DragSource) => void
+  over: (target: DropTarget) => void
+  drop: () => void
+  end: () => void
 }
 
 export function DeckRail(): JSX.Element {
@@ -61,12 +108,38 @@ export function DeckRail(): JSX.Element {
 function WorkspacesView(): JSX.Element {
   const d = useDict()
   const workspaces = useWorkspacesStore((s) => s.workspaces)
+  const groups = useWorkspacesStore((s) => s.groups)
   const activeId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const [drag, setDrag] = useState<WorkspaceDrag | null>(null)
+  const [drag, setDrag] = useState<RailDrag | null>(null)
+  const [renamingGroup, setRenamingGroup] = useState<string | null>(null)
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
   const openSettings = useUIStore((s) => s.openSettings)
   const closeSettings = useUIStore((s) => s.closeSettings)
+
+  const handlers: DragHandlers = {
+    start: (source) => setDrag({ source, target: null }),
+    over: (target) =>
+      setDrag((cur) => (cur && !sameTarget(cur.target, target) ? { ...cur, target } : cur)),
+    drop: () => {
+      if (drag?.target) useWorkspacesStore.getState().drop(drag.source, drag.target)
+      setDrag(null)
+    },
+    end: () => setDrag(null),
+  }
+  const target = drag?.target ?? null
+
+  const row = (w: Workspace): JSX.Element => (
+    <WorkspaceRow
+      key={w.id}
+      workspace={w}
+      index={workspaces.indexOf(w)}
+      active={!settingsActive && w.id === activeId}
+      drop={target?.kind === 'workspace' && target.id === w.id ? target.place : null}
+      drag={handlers}
+      onGroupCreated={setRenamingGroup}
+    />
+  )
 
   return (
     <>
@@ -82,32 +155,41 @@ function WorkspacesView(): JSX.Element {
           />
         ) : null}
 
-        {workspaces.map((w, index) => (
-          <WorkspaceRow
-            key={w.id}
-            workspace={w}
-            index={index}
-            active={!settingsActive && w.id === activeId}
-            drop={drag?.overId === w.id ? drag.place : null}
-            onDragStart={() => setDrag({ id: w.id, overId: null, place: 'before' })}
-            onDragOverRow={(place) =>
-              setDrag((cur) =>
-                cur && (cur.overId !== w.id || cur.place !== place)
-                  ? { ...cur, overId: w.id, place }
-                  : cur,
-              )
-            }
-            onDropRow={() => {
-              if (drag && drag.id !== w.id) {
-                useWorkspacesStore
-                  .getState()
-                  .moveTo(drag.id, dropIndex(workspaces, drag.id, w.id, drag.place))
-              }
-              setDrag(null)
+        {toBlocks({ workspaces, groups }).map((block) =>
+          block.group ? (
+            <GroupBlock
+              key={block.group.id}
+              group={block.group}
+              members={block.workspaces}
+              containsActive={!settingsActive && block.workspaces.some((w) => w.id === activeId)}
+              drop={target?.kind === 'group' && target.id === block.group.id ? target.place : null}
+              drag={handlers}
+              renaming={renamingGroup === block.group.id}
+              onRenaming={(on) => setRenamingGroup(on ? (block.group?.id ?? null) : null)}
+            >
+              {block.workspaces.map(row)}
+            </GroupBlock>
+          ) : (
+            block.workspaces.map(row)
+          ),
+        )}
+
+        {drag ? (
+          <div
+            className="rail-drop-end"
+            data-drop={target?.kind === 'end' ? 'before' : undefined}
+            onDragOver={(e) => {
+              if (!isRailDrag(e)) return
+              e.preventDefault()
+              handlers.over({ kind: 'end' })
             }}
-            onDragEnd={() => setDrag(null)}
+            onDrop={(e) => {
+              if (!isRailDrag(e)) return
+              e.preventDefault()
+              handlers.drop()
+            }}
           />
-        ))}
+        ) : null}
       </div>
 
       <SidebarFooter />
@@ -115,6 +197,159 @@ function WorkspacesView(): JSX.Element {
   )
 }
 
+function GroupBlock({
+  group,
+  members,
+  containsActive,
+  drop,
+  drag,
+  renaming,
+  onRenaming,
+  children,
+}: {
+  group: WorkspaceGroup
+  members: Workspace[]
+  containsActive: boolean
+  drop: 'before' | 'after' | 'inside' | null
+  drag: DragHandlers
+  renaming: boolean
+  onRenaming: (on: boolean) => void
+  children: React.ReactNode
+}): JSX.Element {
+  const d = useDict()
+  const store = useWorkspacesStore.getState
+  const toggle = (): void => store().setGroupCollapsed(group.id, !group.collapsed)
+  const Caret = group.collapsed ? CaretRightIcon : CaretDownIcon
+
+  return (
+    <div
+      className="rail-group"
+      data-color={group.color}
+      data-drop={drop === 'before' || drop === 'after' ? drop : undefined}
+    >
+      <ContextMenu>
+        <ContextMenuTrigger
+          className={cn('rail-group-head', containsActive && 'has-active')}
+          data-drop={drop === 'inside' ? 'inside' : undefined}
+          draggable={!renaming}
+          onDragStart={(e) => {
+            e.dataTransfer.setData(GROUP_DND, group.id)
+            e.dataTransfer.effectAllowed = 'move'
+            drag.start({ kind: 'group', id: group.id })
+          }}
+          onDragOver={(e) => {
+            if (!isRailDrag(e)) return
+            e.preventDefault()
+            const top = upperHalf(e)
+            const groupDrag = e.dataTransfer.types.includes(GROUP_DND)
+            drag.over({
+              kind: 'group',
+              id: group.id,
+              place: top ? 'before' : groupDrag ? 'after' : 'inside',
+            })
+          }}
+          onDrop={(e) => {
+            if (!isRailDrag(e)) return
+            e.preventDefault()
+            drag.drop()
+          }}
+          onDragEnd={drag.end}
+        >
+          {renaming ? (
+            <span className="rail-group-main">
+              <Caret size={12} className="rail-group-caret" aria-hidden />
+              <span className="rail-group-swatch" aria-hidden />
+              <RenameInput
+                value={group.name}
+                label={d.rail.groupName}
+                onDone={(name) => {
+                  onRenaming(false)
+                  if (name !== null) store().renameGroup(group.id, name)
+                }}
+              />
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="rail-group-main"
+              aria-expanded={!group.collapsed}
+              onClick={toggle}
+              onDoubleClick={() => onRenaming(true)}
+            >
+              <Caret size={12} className="rail-group-caret" aria-hidden />
+              <span className="rail-group-swatch" aria-hidden />
+              <span className="rail-group-name">{group.name}</span>
+              <span
+                className="rail-group-count"
+                aria-label={fmt(d.rail.groupCount, { n: members.length })}
+              >
+                {members.length}
+              </span>
+              <GroupStatus members={members} />
+            </button>
+          )}
+        </ContextMenuTrigger>
+        <ContextMenuContent className="min-w-52">
+          <ContextMenuItem onClick={() => onRenaming(true)}>{d.rail.rename}</ContextMenuItem>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>{d.rail.groupColor}</ContextMenuSubTrigger>
+            <ContextMenuSubContent>
+              <ContextMenuRadioGroup
+                value={group.color ?? NO_COLOR}
+                onValueChange={(value: string) =>
+                  store().setGroupColor(
+                    group.id,
+                    value === NO_COLOR ? null : (value as WorkspaceGroupColor),
+                  )
+                }
+              >
+                <ContextMenuRadioItem value={NO_COLOR}>{d.rail.noColor}</ContextMenuRadioItem>
+                {WORKSPACE_GROUP_COLORS.map((color) => (
+                  <ContextMenuRadioItem key={color} value={color}>
+                    <span className="rail-color-chip" data-color={color} aria-hidden />
+                    {d.rail.groupColors[color]}
+                  </ContextMenuRadioItem>
+                ))}
+              </ContextMenuRadioGroup>
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+          <ContextMenuItem onClick={toggle}>
+            {group.collapsed ? d.rail.expandGroup : d.rail.collapseGroup}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => markGroupRead(members)}>
+            {d.rail.markRead}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => store().deleteGroup(group.id)}>
+            {d.rail.deleteGroup}
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      {group.collapsed ? null : <div className="rail-group-members">{children}</div>}
+    </div>
+  )
+}
+
+function markGroupRead(members: Workspace[]): void {
+  for (const w of members) markWorkspaceRead(w.id)
+}
+
+function GroupStatus({ members }: { members: Workspace[] }): JSX.Element {
+  const d = useDict()
+  const state = aggregateWorkspaceState(members.map((w) => w.state))
+  return (
+    <>
+      {state === 'idle' ? null : (
+        <span
+          className={`dot rail-group-dot ${state}`}
+          role="img"
+          aria-label={stateLabel(d, state)}
+        />
+      )}
+      <UnreadBadge workspaceIds={members.map((w) => w.id)} />
+    </>
+  )
+}
 function SidebarItems({ workspaceId }: { workspaceId?: string }): JSX.Element | null {
   const all = useExtensionsStore((s) => s.sidebar)
   const items = all.filter((i) => i.workspaceId === workspaceId)
@@ -174,11 +409,17 @@ function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
     </span>
   )
 }
-
-function UnreadBadge({ workspaceId }: { workspaceId: string }): JSX.Element | null {
+function UnreadBadge({ workspaceIds }: { workspaceIds: string[] }): JSX.Element | null {
   const d = useDict()
-  const root = useLayoutStore((s) => s.byWorkspace[workspaceId]?.root)
-  const n = useAttentionStore((s) => (root ? unreadCount(s.byPane, paneIds(root)) : 0))
+  const byWorkspace = useLayoutStore((s) => s.byWorkspace)
+  const n = useAttentionStore((s) => {
+    let total = 0
+    for (const id of workspaceIds) {
+      const root = byWorkspace[id]?.root
+      if (root) total += unreadCount(s.byPane, paneIds(root))
+    }
+    return total
+  })
   const pop = usePopOnIncrease(n)
   if (n === 0) return null
   return (
@@ -219,48 +460,32 @@ function WorkspaceSubtitle({ workspaceId }: { workspaceId: string }): JSX.Elemen
   return <span className={`tab-subtitle${message ? ' unread' : ''}`}>{text}</span>
 }
 
-interface WorkspaceDrag {
-  id: string
-  overId: string | null
-  place: DropPlace
-}
-
-type DropPlace = 'before' | 'after'
-
-const WORKSPACE_DND = 'application/x-pine-workspace'
-
-function dropIndex(list: Workspace[], dragId: string, overId: string, place: DropPlace): number {
-  const others = list.filter((w) => w.id !== dragId)
-  const at = others.findIndex((w) => w.id === overId)
-  return place === 'before' ? at : at + 1
-}
-
 function WorkspaceRow({
   workspace: w,
   index,
   active,
   drop,
-  onDragStart,
-  onDragOverRow,
-  onDropRow,
-  onDragEnd,
+  drag,
+  onGroupCreated,
 }: {
   workspace: Workspace
   index: number
   active: boolean
-  drop: DropPlace | null
-  onDragStart: () => void
-  onDragOverRow: (place: DropPlace) => void
-  onDropRow: () => void
-  onDragEnd: () => void
+  drop: 'before' | 'after' | null
+  drag: DragHandlers
+  onGroupCreated: (groupId: string) => void
 }): JSX.Element {
   const sidebar = useSettingsStore((s) => s.sidebar)
   const d = useDict()
   const store = useWorkspacesStore.getState
   const count = useWorkspacesStore((s) => s.workspaces.length)
+  const groups = useWorkspacesStore((s) => s.groups)
+  const canMoveUp = useWorkspacesStore((s) => canMove(s, w.id, -1))
+  const canMoveDown = useWorkspacesStore((s) => canMove(s, w.id, 1))
   const digitHints = useUIStore((s) => s.digitHints)
   const [editing, setEditing] = useState<'name' | 'description' | null>(null)
   const title = w.customName ?? w.name
+  const otherGroups = groups.filter((g) => g.id !== w.groupId)
   const select = (): void => {
     useUIStore.getState().leaveSettings()
     store().setActive(w.id)
@@ -286,22 +511,24 @@ function WorkspaceRow({
         data-drop={drop ?? undefined}
         draggable={editing === null}
         onDragStart={(e) => {
+          e.stopPropagation()
           e.dataTransfer.setData(WORKSPACE_DND, w.id)
           e.dataTransfer.effectAllowed = 'move'
-          onDragStart()
+          drag.start({ kind: 'workspace', id: w.id })
         }}
         onDragOver={(e) => {
-          if (!e.dataTransfer.types.includes(WORKSPACE_DND)) return
+          if (!isRailDrag(e)) return
           e.preventDefault()
-          const box = e.currentTarget.getBoundingClientRect()
-          onDragOverRow(e.clientY < box.top + box.height / 2 ? 'before' : 'after')
+          e.stopPropagation()
+          drag.over({ kind: 'workspace', id: w.id, place: upperHalf(e) ? 'before' : 'after' })
         }}
         onDrop={(e) => {
-          if (!e.dataTransfer.types.includes(WORKSPACE_DND)) return
+          if (!isRailDrag(e)) return
           e.preventDefault()
-          onDropRow()
+          e.stopPropagation()
+          drag.drop()
         }}
-        onDragEnd={onDragEnd}
+        onDragEnd={drag.end}
       >
         <TabRow
           active={active}
@@ -338,7 +565,7 @@ function WorkspaceRow({
             digitHints && index < 9 ? (
               <Kbd className="tab-digit font-mono">{index + 1}</Kbd>
             ) : (
-              <UnreadBadge workspaceId={w.id} />
+              <UnreadBadge workspaceIds={[w.id]} />
             )
           }
         />
@@ -357,13 +584,40 @@ function WorkspaceRow({
         <ContextMenuItem onClick={() => store().setPinned(w.id, !w.pinned)}>
           {w.pinned ? d.rail.unpin : d.rail.pin}
         </ContextMenuItem>
-        <ContextMenuItem disabled={index === 0} onClick={() => store().moveBy(w.id, -1)}>
+        <ContextMenuItem disabled={!canMoveUp} onClick={() => store().moveBy(w.id, -1)}>
           {d.rail.moveUp}
         </ContextMenuItem>
-        <ContextMenuItem disabled={index === count - 1} onClick={() => store().moveBy(w.id, 1)}>
+        <ContextMenuItem disabled={!canMoveDown} onClick={() => store().moveBy(w.id, 1)}>
           {d.rail.moveDown}
         </ContextMenuItem>
         <ContextMenuItem onClick={() => markWorkspaceRead(w.id)}>{d.rail.markRead}</ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          onClick={() => {
+            const groupId = store().createGroup(w.id)
+            if (groupId) onGroupCreated(groupId)
+          }}
+        >
+          {d.rail.moveToNewGroup}
+        </ContextMenuItem>
+        {otherGroups.length > 0 ? (
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>{d.rail.moveToGroup}</ContextMenuSubTrigger>
+            <ContextMenuSubContent>
+              {otherGroups.map((g) => (
+                <ContextMenuItem key={g.id} onClick={() => store().moveToGroup(w.id, g.id)}>
+                  <span className="rail-color-chip" data-color={g.color} aria-hidden />
+                  {g.name}
+                </ContextMenuItem>
+              ))}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        ) : null}
+        {w.groupId ? (
+          <ContextMenuItem onClick={() => store().leaveGroup(w.id)}>
+            {d.rail.removeFromGroup}
+          </ContextMenuItem>
+        ) : null}
         <ContextMenuSeparator />
         <ContextMenuItem disabled={count < 2} onClick={() => store().closeOthers(w.id)}>
           {d.rail.closeOthers}
@@ -374,6 +628,15 @@ function WorkspaceRow({
       </ContextMenuContent>
     </ContextMenu>
   )
+}
+
+function canMove(
+  s: { workspaces: Workspace[]; groups: WorkspaceGroup[] },
+  id: string,
+  delta: number,
+): boolean {
+  const g = { workspaces: s.workspaces, groups: s.groups }
+  return moveWorkspaceBy(g, id, delta) !== g
 }
 
 const DESCRIPTION_ELEMENTS = ['p', 'a', 'strong', 'em', 'code', 'del']

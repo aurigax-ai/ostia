@@ -75,6 +75,12 @@ Adeberry values:
 | `--ok` | `#58c98c` | done, success |
 | `--add` / `--del` | `#58c98c` / `#bf5f54` | diffs |
 
+Workspace group colors are a separate label palette: `--group-red`, `--group-orange`,
+`--group-yellow`, `--group-green`, `--group-teal`, `--group-blue`, `--group-purple`,
+`--group-pink` (primitives `--color-group-*`, One Dark hues by default; a theme may remap them).
+They only tint a group's swatch and its member rule, never text or state; the group's name
+always carries its identity.
+
 Elevation: `bg-sunken` < `bg` < `surface-1` < `surface-2` < `surface-3`. In the dark theme,
 elevation comes from lightness, not shadow; shadows are only for overlays. Every theme keeps
 `--fg-muted` ≥ 4.5:1 on `surface-2`, `--attn-fg` ≥ 4.5:1 on `surface-1`, and `--fg-dim` ≥ 3:1 on
@@ -145,6 +151,20 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 - **Sidebar** (`DeckRail.tsx`): only workspaces: one row per workspace showing a kind icon, a
   state dot, an unread badge and the details chosen in Settings → Sidebar, plus a pinned Settings
   row. It collapses to a 56px icon rail.
+  - **Group header** (cmux's workspace groups): a 24px `ui-xs`/500 uppercase row with a 12px
+    caret (right when collapsed, down when open), an 8px `radius 2px` swatch in the group color
+    (`--line-strong` without one), the name, the member count (`fg-muted`, tabular), then the
+    members' strongest state dot and their summed unread badge. Both stay on a collapsed header,
+    so a collapsed group still says a member needs you. Click toggles, double-click renames,
+    the context menu renames, recolors (radio list with chips), collapses, marks read and
+    deletes (members stay, ungrouped). Members sit 24px in, next to a 2px rule in the group
+    color. The header has no active state of its own; while the active workspace hides inside a
+    collapsed group the header text turns `fg`. Collapsing is instant: rows are added and
+    removed, never animated.
+  - **Drag**: rows and group headers drag with the same 2px `--brand` insertion line as reorder;
+    dropping onto the lower half of a header highlights it (`--brand-glow` + 1px `--brand`
+    inset) and means "into this group". While dragging, the empty space below the list is a drop
+    zone for "last, ungrouped".
 - **Files panel** (`FilesPanel.tsx`): a 260px column to the right of the sidebar, toggled from the
   top bar. It shows the active workspace's focused pane cwd, so switching workspaces switches it.
 - **Cursor**: the normal arrow everywhere, like a desktop app. No pointer or grab cursors.

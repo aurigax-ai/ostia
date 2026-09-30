@@ -472,6 +472,7 @@ describe('workspace row commands', () => {
         { id: 'w1', name: 'api', kind: 'terminal', workDir: '/a', state: 'idle' },
         { id: 'w2', name: 'web', kind: 'terminal', workDir: '/b', state: 'idle' },
       ],
+      groups: [],
       activeWorkspaceId: 'w1',
     })
 
@@ -489,6 +490,65 @@ describe('workspace row commands', () => {
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w2')
     const miss = await commands.execWith(ctx(null, null), 'workspace.goto', { index: 5 })
     expect(miss).toMatchObject({ ok: true, result: { switched: false } })
+  })
+
+  it('moves the caller’s own workspace into a group by name, and out again', async () => {
+    seed()
+    const r = await commands.execWith(ctx('w2', 'p'), 'workspace.group', { name: 'review' })
+    const { workspaces, groups } = useWorkspacesStore.getState()
+    expect(groups.map((g) => g.name)).toEqual(['review'])
+    expect(r).toEqual({ ok: true, result: { groupId: groups[0].id } })
+    expect(workspaces.find((w) => w.id === 'w2')?.groupId).toBe(groups[0].id)
+    expect(workspaces.find((w) => w.id === 'w1')?.groupId).toBeUndefined()
+
+    await commands.execWith(ctx('w2', 'p'), 'workspace.ungroup')
+    expect(useWorkspacesStore.getState().groups).toEqual([])
+  })
+
+  it('refuses a blank group name', async () => {
+    seed()
+    const r = await commands.execWith(ctx('w2', 'p'), 'workspace.group', { name: '  ' })
+    expect(r).toMatchObject({ ok: false })
+    expect(useWorkspacesStore.getState().groups).toEqual([])
+  })
+
+  it('gates the group verbs on drive-self and lists groups behind read-board', () => {
+    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
+    for (const id of ['workspace.group', 'workspace.ungroup', 'workspace.newGroup']) {
+      expect(byId[id].capabilities).toEqual(['drive-self'])
+      expect(byId[id].target).toBe('active')
+    }
+    expect(byId['workspace.groups']).toMatchObject({
+      hidden: true,
+      target: 'none',
+      capabilities: ['read-board'],
+    })
+  })
+
+  it('lists groups with their members and tags grouped workspaces in workspace.list', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    const groupId = useWorkspacesStore.getState().groups[0].id
+    useWorkspacesStore.getState().setGroupColor(groupId, 'blue')
+
+    const groups = await commands.execWith(ctx(null, null), 'workspace.groups')
+    expect(groups).toEqual({
+      ok: true,
+      result: [{ groupId, name: 'api', color: 'blue', collapsed: false, workspaceIds: ['w1'] }],
+    })
+    const list = await commands.execWith(ctx(null, null), 'workspace.list')
+    expect(list).toMatchObject({ ok: true, result: [{ workspaceId: 'w1', groupId }, {}] })
+    expect((list as { result: object[] }).result[1]).not.toHaveProperty('groupId')
+  })
+
+  it('collapses and deletes the active workspace’s group from the palette', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    await commands.execWith(ctx('w1', null), 'workspace.toggleGroup')
+    expect(useWorkspacesStore.getState().groups[0].collapsed).toBe(true)
+    await commands.execWith(ctx('w1', null), 'workspace.deleteGroup')
+    expect(useWorkspacesStore.getState().groups).toEqual([])
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w1', 'w2'])
   })
 
   it('pins the active workspace from the palette', async () => {

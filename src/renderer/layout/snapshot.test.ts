@@ -14,6 +14,7 @@ function build(root: LayoutNode, activePaneId = root.id): AppSnapshot {
     activeWorkspaceId: 's1',
     layouts: { s1: { root, activePaneId } },
     savedAt: '2026-08-06T00:00:00.000Z',
+    groups: [],
   })
 }
 
@@ -76,6 +77,7 @@ describe('buildSnapshot', () => {
       activeWorkspaceId: 's2',
       layouts: { s1: { root, activePaneId: root.id } },
       savedAt: '',
+      groups: [],
     })
     expect(snapshot.workspaces[1]).toEqual({
       id: 's2',
@@ -93,11 +95,32 @@ describe('buildSnapshot', () => {
       activeWorkspaceId: 's1',
       layouts: {},
       savedAt: '',
+      groups: [],
     })
     expect(restoreSnapshot(snapshot).workspaces[0]).toMatchObject({
       description: 'PR #7',
       pinned: true,
     })
+  })
+
+  it('round-trips groups and memberships, and leaves out a group with no members', () => {
+    const snapshot = buildSnapshot({
+      workspaces: [
+        { ...WORKSPACE, groupId: 'g1' },
+        { id: 's2', name: 'x', kind: 'terminal', workDir: '/tmp' },
+      ],
+      groups: [
+        { id: 'g1', name: 'api', color: 'green', collapsed: true },
+        { id: 'g2', name: 'empty' },
+      ],
+      activeWorkspaceId: 's1',
+      layouts: {},
+      savedAt: '',
+    })
+    expect(snapshot.groups).toEqual([{ id: 'g1', name: 'api', color: 'green', collapsed: true }])
+    const restored = restoreSnapshot(snapshot)
+    expect(restored.groups).toEqual(snapshot.groups)
+    expect(restored.workspaces.map((w) => w.groupId)).toEqual(['g1', undefined])
   })
 
   it('saves and restores a name the user gave a workspace', () => {
@@ -106,6 +129,7 @@ describe('buildSnapshot', () => {
       activeWorkspaceId: 's1',
       layouts: {},
       savedAt: '',
+      groups: [],
     })
     expect(restoreSnapshot(snapshot).workspaces[0].customName).toBe('payments')
   })
@@ -132,8 +156,14 @@ describe('buildSnapshot', () => {
 
   it('builds an empty workspace with no active workspace when there are no workspaces', () => {
     expect(
-      buildSnapshot({ workspaces: [], activeWorkspaceId: null, layouts: {}, savedAt: 't' }),
-    ).toEqual({ v: 1, savedAt: 't', activeWorkspaceId: null, workspaces: [] })
+      buildSnapshot({
+        workspaces: [],
+        groups: [],
+        activeWorkspaceId: null,
+        layouts: {},
+        savedAt: 't',
+      }),
+    ).toEqual({ v: 1, savedAt: 't', activeWorkspaceId: null, workspaces: [], groups: [] })
   })
 })
 

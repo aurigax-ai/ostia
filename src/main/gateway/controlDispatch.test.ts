@@ -109,6 +109,29 @@ describe('dispatchGatewayMethod — session.list / pane.list / command.list', ()
     })
   })
 
+  it('session.list leaves sidebar groups off the phone wire', async () => {
+    const workspaces = [
+      {
+        workspaceId: 'w1',
+        name: 'api',
+        kind: 'terminal',
+        workDir: '/x',
+        state: 'idle',
+        groupId: 'g1',
+      },
+    ]
+    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces) })
+    const res = await dispatchGatewayMethod('session.list', {}, ['read'], deps)
+    expect(res).toEqual({
+      ok: true,
+      result: {
+        sessions: [
+          { sessionId: 'w1', name: 'api', kind: 'terminal', workDir: '/x', state: 'idle' },
+        ],
+      },
+    })
+  })
+
   it('pane.list wraps listPanes() as { panes } with the contract’s sessionId field', async () => {
     const pane = { paneId: 'ext-1', kind: 'terminal', title: 'zsh', running: true, blockCount: 0 }
     const listPanes = vi.fn().mockResolvedValue([{ ...pane, workspaceId: 'w1' }])

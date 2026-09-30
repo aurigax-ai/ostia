@@ -27,7 +27,11 @@ export type RpcOutcome =
   | { ok: true; result: unknown }
   | { ok: false; code: number; message: string; data?: unknown }
 
-function toWireSession({ workspaceId, ...rest }: WorkspaceEntry): Record<string, unknown> {
+function toWireSession({
+  workspaceId,
+  groupId: _groupId,
+  ...rest
+}: WorkspaceEntry): Record<string, unknown> {
   return { sessionId: workspaceId, ...rest }
 }
 

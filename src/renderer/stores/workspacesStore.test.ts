@@ -1,7 +1,8 @@
 import type { AppSnapshot } from '@shared/types'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
-import { useWorkspacesStore } from './workspacesStore'
+import { useSettingsStore } from './settingsStore'
+import { resetWorkspaceIds, useWorkspacesStore } from './workspacesStore'
 
 const ensureMock = () => vi.mocked(useLayoutStore.getState().ensure)
 const removeWorkspaceMock = () => vi.mocked(useLayoutStore.getState().removeWorkspace)
@@ -15,10 +16,12 @@ const open = (workDir?: string) => {
 describe('workspacesStore', () => {
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
+  let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
   beforeAll(() => {
     workspacesInit = useWorkspacesStore.getState()
     layoutInit = useLayoutStore.getState()
+    settingsInit = useSettingsStore.getState()
   })
 
   beforeEach(() => {
@@ -30,6 +33,8 @@ describe('workspacesStore', () => {
   afterEach(() => {
     useWorkspacesStore.setState(workspacesInit, true)
     useLayoutStore.setState(layoutInit, true)
+    useSettingsStore.setState(settingsInit, true)
+    resetWorkspaceIds()
     vi.restoreAllMocks()
   })
 
@@ -269,6 +274,7 @@ describe('workspacesStore', () => {
           cwd: `/w/${id}`,
         },
       })),
+      groups: [],
     })
 
     it('restores the saved workspaces', () => {
@@ -394,6 +400,110 @@ describe('workspacesStore', () => {
       store().closeOthers(a.id)
       expect(workspaces().map((w) => w.id)).toEqual([a.id])
       expect(activeId()).toBe(a.id)
+    })
+  })
+
+  describe('groups', () => {
+    const store = () => useWorkspacesStore.getState()
+    const order = () =>
+      workspaces().map((w) => {
+        const group = store().groups.find((g) => g.id === w.groupId)
+        return group ? `${w.id}:${group.name}` : w.id
+      })
+
+    it('creates a group named after the workspace, with a fresh group id', () => {
+      const a = open('/src/api')
+      const groupId = store().createGroup(a.id)
+      expect(groupId).toMatch(/^g\d+$/)
+      expect(store().groups).toEqual([{ id: groupId, name: 'api' }])
+      expect(workspaces()[0].groupId).toBe(groupId)
+    })
+
+    it('opens a new workspace inside the active workspace’s group, right after it', () => {
+      const a = open('/a')
+      const b = open('/b')
+      open('/c')
+      const groupId = store().createGroup(a.id, 'team')
+      store().moveToGroup(b.id, groupId as string)
+      store().setActive(a.id)
+
+      store().addWorkspace('/d')
+      const added = activeId()
+
+      expect(order()).toEqual([`${a.id}:team`, `${added}:team`, `${b.id}:team`, 'w3'])
+    })
+
+    it('opens a new workspace ungrouped at the end when the active one is ungrouped', () => {
+      const a = open('/a')
+      store().createGroup(a.id, 'team')
+      const b = open('/b')
+      store().leaveGroup(b.id)
+      const c = open('/c')
+      expect(order()).toEqual([`${a.id}:team`, b.id, c.id])
+    })
+
+    it('puts a new workspace in the group its workDir matches, creating the group once', () => {
+      useSettingsStore.setState({
+        workspaceGroups: { byCwd: [{ pattern: '/work/**', group: 'Work' }] },
+      })
+      const home = open('/home/me')
+      const a = open('/work/api')
+      store().setActive(home.id)
+      const c = open('/work/web/app')
+      expect(store().groups.map((g) => g.name)).toEqual(['Work'])
+      expect(order()).toEqual([home.id, `${a.id}:Work`, `${c.id}:Work`])
+    })
+
+    it('moves a workspace into a group by name, creating it when missing', () => {
+      const a = open('/a')
+      const b = open('/b')
+      store().moveToGroupNamed(a.id, ' review ')
+      store().moveToGroupNamed(b.id, 'review')
+      expect(store().groups.map((g) => g.name)).toEqual(['review'])
+      expect(order()).toEqual([`${a.id}:review`, `${b.id}:review`])
+    })
+
+    it('drops a group when its last member closes, and keeps members when the group is deleted', () => {
+      const a = open('/a')
+      const b = open('/b')
+      const g1 = store().createGroup(a.id) as string
+      store().closeWorkspace(a.id)
+      expect(store().groups).toEqual([])
+
+      store().createGroup(b.id)
+      store().deleteGroup(store().groups[0].id)
+      expect(workspaces().map((w) => w.id)).toEqual([b.id])
+      expect(workspaces()[0].groupId).toBeUndefined()
+      expect(g1).toBeTruthy()
+    })
+
+    it('renames, recolors and collapses a group, ignoring a blank name', () => {
+      const a = open('/a')
+      const id = store().createGroup(a.id) as string
+      store().renameGroup(id, '  api  ')
+      store().renameGroup(id, '   ')
+      store().setGroupColor(id, 'teal')
+      store().setGroupCollapsed(id, true)
+      expect(store().groups).toEqual([{ id, name: 'api', color: 'teal', collapsed: true }])
+    })
+
+    it('restores groups from a snapshot and reserves their ids', () => {
+      store().hydrate({
+        v: 1,
+        savedAt: '',
+        activeWorkspaceId: 'w1',
+        workspaces: [
+          { id: 'w1', name: 'a', kind: 'terminal', workDir: '/a', groupId: 'g9' },
+          { id: 'w2', name: 'b', kind: 'terminal', workDir: '/b' },
+          { id: 'w3', name: 'c', kind: 'terminal', workDir: '/c', groupId: 'g9' },
+        ],
+        groups: [{ id: 'g9', name: 'api', color: 'blue', collapsed: true }],
+      })
+
+      expect(order()).toEqual(['w1:api', 'w3:api', 'w2'])
+      expect(store().groups).toEqual([{ id: 'g9', name: 'api', color: 'blue', collapsed: true }])
+      const fresh = store().createGroup('w2')
+      expect(Number(fresh?.slice(1))).toBeGreaterThan(9)
     })
   })
 })

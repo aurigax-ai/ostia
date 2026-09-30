@@ -39,7 +39,7 @@ pine cwd             # just this pane's current working directory
 pine pane.list       # every pane, every workspace — JSON array of
                      # { paneId(external), workspaceId, kind, title, cwd, running,
                      #   blockCount, lastExitCode } — the pane roster (see below)
-pine workspace.list    # every workspace — JSON array of { workspaceId, name, kind, workDir, state }
+pine workspace.list    # every workspace — JSON array of { workspaceId, name, kind, workDir, state, groupId? }
 ```
 
 `pine commands` always prints JSON (there's no separate `--json` flag to pass —
@@ -68,6 +68,9 @@ echo '{"message":"..."}' | pine state waiting -   # message from stdin (JSON "me
 pine state done --pane <externalId>           # another pane — needs all-workspaces
 pine resume-token claude <session-id>        # after a restart this pane offers "Resume claude"
 pine workspace describe "PR [#512](https://github.com/o/r/pull/512): fix refunds"   # sidebar summary; --clear removes it
+pine workspace group "payments"               # put this workspace in a sidebar group (created if missing)
+pine workspace ungroup                        # take it out again
+pine workspace list --json                    # {workspaces, groups}: who is grouped with whom
 ```
 
 Use `waiting` whenever you block on the human (a question, an approval) and `done` when a long
