@@ -11,6 +11,9 @@ importers:
       '@ai-sdk/anthropic':
         specifier: ^4.0.68
         version: 4.0.68(zod@4.6.5)
+      '@ai-sdk/mcp':
+        specifier: ~2.0.62
+        version: 2.0.62(zod@4.6.5)
       '@ai-sdk/openai':
         specifier: ^4.0.81
         version: 4.0.81(zod@4.6.5)
@@ -80,6 +83,9 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
       monaco-editor:
         specifier: ^0.55.1
         version: 0.55.1
@@ -2167,6 +2173,10 @@ packages:
 
   diff@8.0.4:
     resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
+    engines: {node: '>=0.3.1'}
+
+  diff@9.0.0:
+    resolution: {integrity: sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==}
     engines: {node: '>=0.3.1'}
 
   dijkstrajs@1.0.3:
@@ -6392,6 +6402,8 @@ snapshots:
       dequal: 2.0.3
 
   diff@8.0.4: {}
+
+  diff@9.0.0: {}
 
   dijkstrajs@1.0.3: {}
 

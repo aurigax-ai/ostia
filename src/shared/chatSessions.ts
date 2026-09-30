@@ -96,10 +96,37 @@ function part(raw: unknown): ChatPart | null {
   }
   try {
     const json = JSON.stringify(raw)
-    return json.length <= PART_JSON_MAX ? (JSON.parse(json) as ChatPart) : null
+    if (json.length <= PART_JSON_MAX) return JSON.parse(json) as ChatPart
+    if (!isToolPartType(raw.type)) return null
+    for (const max of CLIP_STEPS) {
+      const clipped = JSON.stringify(clipStrings(raw, max))
+      if (clipped.length <= PART_JSON_MAX) return JSON.parse(clipped) as ChatPart
+    }
+    return null
   } catch {
     return null
   }
+}
+
+const CLIP_STEPS = [16_000, 4000, 1000, 200]
+const CLIP_MARK = '…[truncated]'
+
+export function isToolPartType(type: string): boolean {
+  return type === 'dynamic-tool' || type.startsWith('tool-')
+}
+
+function clipStrings(value: unknown, max: number, depth = 0): unknown {
+  if (typeof value === 'string') {
+    return value.length > max ? `${value.slice(0, max)}${CLIP_MARK}` : value
+  }
+  if (depth > 8) return null
+  if (Array.isArray(value)) return value.map((v) => clipStrings(v, max, depth + 1))
+  if (isRecord(value)) {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value)) out[k] = clipStrings(v, max, depth + 1)
+    return out
+  }
+  return value
 }
 
 function context(raw: unknown): ChatContextItem[] | undefined {
@@ -184,6 +211,41 @@ export function messageText(msg: ChatSessionMessage): string {
     .join('')
 }
 
+const MARKDOWN_TOOL_MAX = 4000
+
+const TOOL_STATE_LABELS: Record<string, string> = {
+  'output-available': 'done',
+  'output-error': 'failed',
+  'output-denied': 'denied',
+}
+
+function fence(text: string, lang = ''): string[] {
+  const ticks = text.includes('```') ? '````' : '```'
+  return [`${ticks}${lang}`, text, ticks]
+}
+
+function clipped(text: string): string {
+  return text.length > MARKDOWN_TOOL_MAX ? `${text.slice(0, MARKDOWN_TOOL_MAX)}${CLIP_MARK}` : text
+}
+
+function toolMarkdown(p: ChatPart): string[] {
+  const name =
+    p.type === 'dynamic-tool' ? String(p.toolName ?? 'tool') : p.type.slice('tool-'.length)
+  const state = typeof p.state === 'string' ? p.state : ''
+  const lines = [`> Tool \`${name}\`: ${TOOL_STATE_LABELS[state] ?? 'not run'}`, '']
+  if (p.input !== undefined && JSON.stringify(p.input) !== '{}') {
+    lines.push(...fence(clipped(JSON.stringify(p.input, null, 2)), 'json'), '')
+  }
+  if (state === 'output-available') {
+    const out = typeof p.output === 'string' ? p.output : JSON.stringify(p.output, null, 2)
+    lines.push(...fence(clipped(out ?? '')), '')
+  }
+  if (state === 'output-error' && typeof p.errorText === 'string') {
+    lines.push(...fence(clipped(p.errorText)), '')
+  }
+  return lines
+}
+
 export function chatMarkdown(session: ChatSession): string {
   const lines = [`# ${session.title}`, '']
   if (session.model) lines.push(`Model: ${session.model}`, '')
@@ -193,7 +255,19 @@ export function chatMarkdown(session: ChatSession): string {
     for (const item of msg.metadata?.context ?? []) {
       lines.push(`> ${item.label}`, '', '```', item.text, '```', '')
     }
-    lines.push(messageText(msg), '')
+    let text = ''
+    const flush = (): void => {
+      if (text.trim()) lines.push(text, '')
+      text = ''
+    }
+    for (const p of msg.parts) {
+      if (p.type === 'text' && typeof p.text === 'string') text += p.text
+      else if (isToolPartType(p.type)) {
+        flush()
+        lines.push(...toolMarkdown(p))
+      }
+    }
+    flush()
   }
   return `${lines.join('\n').trimEnd()}\n`
 }

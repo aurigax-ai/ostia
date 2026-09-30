@@ -17,6 +17,7 @@ import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
+import { parseChatToolSettings } from '../shared/chatTools'
 import type { ExtensionPanelContext, ExtensionResult } from '../shared/extensions'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { PRODUCT_NAME } from '../shared/product'
@@ -60,6 +61,7 @@ import { registerBusMethods } from './bus'
 import { dropIdentity, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
+import { registerChatToolsIpc } from './chatToolsIpc'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { setCapFilter } from './controlAuth'
@@ -95,6 +97,7 @@ import { killAllLsp, registerLspIpc } from './lsp'
 import { ManagerService, managerWindowId } from './manager'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
+import { McpHost } from './mcpHost'
 import {
   postActionNotification,
   postNotification,
@@ -577,6 +580,7 @@ const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
 let viewHost: ViewHost | null = null
+let mcpHost: McpHost | null = null
 let broker: WindowBroker | null = null
 let settingsSync: SettingsSyncHandle | null = null
 
@@ -1593,7 +1597,10 @@ function sendToWorkspaceWindow(
 }
 
 function extensionSecretStore() {
-  const path = storePath('extension-secrets', 'global')
+  return encryptedStore(storePath('extension-secrets', 'global'))
+}
+
+function encryptedStore(path: string) {
   return createSecretStore({
     load: () => loadJson<unknown>(path, {}),
     save: (data) => saveJson(path, data, { secure: true }),
@@ -1608,6 +1615,7 @@ function readSettingsFile(): {
   extensionSettings?: unknown
   workspaces?: unknown
   manager?: unknown
+  assistant?: unknown
 } {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
@@ -1878,6 +1886,19 @@ app.whenReady().then(() => {
   registerChatSessionIpc(
     createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
   )
+  const mcpSecrets = encryptedStore(storePath('mcp-secrets', 'global'))
+  const chatToolSettings = () => parseChatToolSettings(readSettingsFile().assistant)
+  mcpHost = new McpHost({
+    servers: () => chatToolSettings().mcpServers,
+    secret: (server, key) => mcpSecrets.get(server, key),
+    onStatus: (status) => broadcast('chatTools:mcp-status', status),
+  })
+  registerChatToolsIpc({
+    roots: () => [homedir(), app.getPath('userData')],
+    settings: chatToolSettings,
+    mcp: mcpHost,
+    secrets: mcpSecrets,
+  })
   const workflowDeps: WorkflowDeps = {
     userDir: join(configDir(), 'workflows'),
     roots: () => [homedir(), app.getPath('userData')],
@@ -2044,6 +2065,7 @@ app.on('before-quit', (event) => {
   workspaceSandboxes.clearTmp()
   portForwarder.stopAll()
   extensionHost?.stopAll()
+  mcpHost?.closeAll()
   viewHost?.stop()
   settingsSync?.stop()
   stopControlServer()
