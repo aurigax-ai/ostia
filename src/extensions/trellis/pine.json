@@ -1,13 +1,20 @@
 {
   "id": "trellis",
   "name": "Trellis",
-  "version": "1.0.0",
-  "description": "Your Trellis boards: the web UI as a panel, open and claimed cards per workspace, and a notice when an agent moves a card to review.",
+  "version": "1.1.0",
+  "description": "Your Trellis boards: the web UI as a panel, open and claimed cards per workspace, and a notice that opens the card when an agent moves it to review or blocked.",
   "capabilities": ["read-board", "notify"],
   "main": "main.js",
   "contributes": {
     "commands": [
       { "id": "open", "title": "Trellis: Open Board", "category": "Trellis" },
+      {
+        "id": "card",
+        "title": "Trellis: Open Card",
+        "category": "Trellis",
+        "usage": "card <REF>",
+        "argument": "Card id, for example SHOP-12"
+      },
       {
         "id": "init",
         "title": "Trellis: Init Project Here",
@@ -23,6 +30,23 @@
       }
     ],
     "sidebarItems": true,
-    "panel": { "title": "Trellis", "icon": "kanban", "entry": "url" }
+    "panel": { "title": "Trellis", "icon": "kanban", "entry": "url" },
+    "settings": {
+      "notifyReview": {
+        "type": "boolean",
+        "default": true,
+        "description": "Notify when an agent moves a card to a review column"
+      },
+      "notifyBlocked": {
+        "type": "boolean",
+        "default": true,
+        "description": "Notify when an agent moves a card to a blocked column"
+      },
+      "refreshSeconds": {
+        "type": "number",
+        "default": 60,
+        "description": "Seconds between card count refreshes in the sidebar (10 to 3600)"
+      }
+    }
   }
 }
