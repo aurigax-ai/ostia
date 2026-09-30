@@ -1,5 +1,5 @@
-export type SecretSource = 'host' | 'pine' | 'browser'
-export type SecretKind = 'ssh-key' | 'env' | 'gh-token' | 'vault' | 'login'
+export type SecretSource = 'host' | 'pine'
+export type SecretKind = 'ssh-key' | 'env' | 'gh-token' | 'vault'
 
 export interface SecretEntry {
   id: string

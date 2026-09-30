@@ -18,7 +18,6 @@ import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import type { ExtensionPanelContext, ExtensionResult } from '../shared/extensions'
-import { fillScript } from '../shared/loginScripts'
 import { managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { PRODUCT_NAME } from '../shared/product'
 import { parseSandboxGlobals } from '../shared/sandbox'
@@ -63,7 +62,7 @@ import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { setCapFilter } from './controlAuth'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
-import { credentials, registerCredentials } from './credentials'
+import { registerCredentials } from './credentials'
 import { registerDocsMethods } from './docs'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
@@ -88,7 +87,7 @@ import {
   windowOfWorkspace,
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
-import { LOGIN_WORLD_ID, registerLoginFill } from './loginFill'
+import { registerLoginFill } from './loginFill'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { ManagerService, managerWindowId } from './manager'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
@@ -133,7 +132,6 @@ import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { SandboxStore } from './sandbox/store'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScreenMirror } from './screenMirror'
-import { type FillGuest, LoginFiller } from './secrets/loginFill'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
 import { SecretService } from './secrets/secretService'
@@ -479,7 +477,6 @@ const secretService: SecretService = new SecretService({
     ],
     get: (key, scope, workspaceId) => vaultValue(key, scope, workspaceId),
   },
-  logins: () => credentials()?.list() ?? [],
   grantedIds: (workspaceId) =>
     (workspaceSandboxes.settings(workspaceId).secrets ?? []).map((g) => g.id),
   ask: async ({ workspaceId, paneId, name, reason }) => {
@@ -501,51 +498,6 @@ const secretService: SecretService = new SecretService({
 })
 
 const workspaceAgents = new WorkspaceAgents()
-
-const loginFiller = new LoginFiller({
-  guests: (workspaceId) => {
-    const out: FillGuest[] = []
-    for (const [paneId, wcId] of browserPanes) {
-      if (getByPaneId(paneId)?.workspaceId !== workspaceId) continue
-      const guest = webContents.fromId(wcId)
-      if (!guest || guest.isDestroyed()) continue
-      out.push({
-        url: () => guest.getURL(),
-        fill: async (username, password) =>
-          Boolean(
-            await guest
-              .executeJavaScriptInIsolatedWorld(LOGIN_WORLD_ID, [
-                { code: fillScript(username, password) },
-              ])
-              .then((res: { filled?: boolean } | null) => res?.filled === true)
-              .catch(() => false),
-          ),
-      })
-    }
-    return out
-  },
-  logins: (origin) =>
-    (credentials()?.forOrigin(origin) ?? []).map(({ username, password }) => ({
-      username,
-      password,
-    })),
-  ask: async ({ workspaceId, paneId, subject, reason }) => {
-    const identity = getByPaneId(paneId) ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
-    const queue = approvals()
-    if (!identity || !queue) return 'deny'
-    return queue.request({
-      externalId: identity.externalId,
-      windowId: identity.windowId,
-      paneId: identity.paneId,
-      workspaceId,
-      caps: [],
-      kind: 'secret',
-      subject,
-      action: `pine secret fill ${subject.split('@').slice(1).join('@')}`,
-      detail: reason,
-    })
-  },
-})
 
 async function injectSecrets(
   workspaceId: string,
@@ -1813,8 +1765,6 @@ app.whenReady().then(() => {
     service: secretService,
     sandboxes: workspaceSandboxes,
     ownerWindow: windowForWorkspace,
-    fill: (workspaceId, paneId, origin, reason) =>
-      loginFiller.fill(workspaceId, paneId, origin, reason),
     vaultSet: setGlobalVaultValue,
     vaultDelete: deleteGlobalVaultValue,
   })

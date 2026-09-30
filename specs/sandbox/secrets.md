@@ -4,7 +4,7 @@ Status: cases approved 2026-09-30 at 8457e4a
 
 Intent: a sandboxed agent gets the real secrets it needs (tokens, SSH keys) only when the human
 grants them, in one of three ways: an env var, a file, or a value handed over on request after a
-prompt. Saved browser logins are filled by Pine, never handed over. Host secrets stay the host's: Pine lists and hands them over, and never edits or copies
+prompt. Saved browser logins are not part of it. Host secrets stay the host's: Pine lists and hands them over, and never edits or copies
 them. Back to [the index](index.md).
 
 ## Decisions
@@ -61,6 +61,12 @@ them. Back to [the index](index.md).
   sets `GIT_SSH_COMMAND` itself and overrode the `-i` flag SBX-D26 relied on; everything else is
   unchanged. Governs: secret grants, secret injection, PINE_SECRETS_DIR. Supersedes: SBX-D26.
 
+- **SBX-D36** The secret service holds Host and Pine secrets only. Saved browser logins stay with
+  the browser: the secret service doesn't list, fill or hand them over, and agents sign in with
+  `pine browse login`, which asks through the `credentials` capability. Why: the human decided the
+  two stay separate, so each has one owner and one approval path. Governs: pine secret fill,
+  Browser secrets, credentials fill from the socket. Supersedes: SBX-D32.
+
 ## Cases
 | ID | Covers | Kind | Case |
 |---|---|---|---|
@@ -75,10 +81,7 @@ them. Back to [the index](index.md).
 | SBX-C75 | SBX-D27 | expected | Given a sandboxed agent, when it runs `pine secret ls`, then it gets names and labels only, with no values |
 | SBX-C76 | SBX-D27 | unexpected | Given the human denies the card or it times out, when `pine secret get` returns, then it exits non-zero, prints no value, and approval history holds no value |
 | SBX-C77 | SBX-D27 | unexpected | Given a name that doesn't exist, when the agent runs `pine secret get`, then it fails without a card |
-| SBX-C91 | SBX-D32 | expected | Given a saved login for `https://app.example.com` and the workspace browser on its login page, when the agent runs `pine secret fill https://app.example.com` and the human allows, then the form is filled and the agent's output holds no password |
-| SBX-C92 | SBX-D32 | unexpected | Given the browser pane is on `https://evil.example.net`, when the agent asks to fill `https://app.example.com`, then nothing is filled and it fails with an origin-mismatch reason, without a card |
-| SBX-C93 | SBX-D32 | unexpected | Given a Browser secret, when the agent runs `pine secret get` on it or the human tries to grant it as env or file, then each is refused |
-| SBX-C94 | SBX-D32 | unexpected | Given `pine secret ls`, when it lists Browser secrets, then each shows origin and username only |
+| SBX-C100 | SBX-D36 | unexpected | Given saved browser logins, when an agent runs `pine secret ls` or calls `secret.fill`, then no login is listed and `secret.fill` does not exist |
 | SBX-C78 | SBX-D28 | expected | Given a sandboxed workspace, when its agent runs `pine vault get KEY`, then it is refused with a hint to `pine secret get`, and `pine vault ls` still works |
 | SBX-C79 | SBX-D28 | unexpected | Given an unsandboxed workspace, when its agent runs `pine vault get KEY` with `vault-read`, then it works as before |
 

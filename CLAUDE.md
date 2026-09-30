@@ -456,8 +456,8 @@ Details: `docs/ARCHITECTURE.md`.
   a sandbox card. Sandbox requests (domain, port, secret, package) always ask, even in
   `approvals.mode: 'allow'`, and never become capability grants. A known-malicious package can
   only be allowed once. `pine vault get` is refused in a sandbox; values go through
-  `pine secret get` and its card. Saved browser passwords are never returned; `pine secret fill`
-  fills in main.
+  `pine secret get` and its card.
+  The secret service never touches saved browser logins; those stay with `browse.login`.
 - **A feature that needs a system program registers it** (`main/systemRequirements.ts`) and refuses
   to turn on while it's missing, showing the packages and an install that goes through the
   System extension (the human approves and types sudo). Never install silently.

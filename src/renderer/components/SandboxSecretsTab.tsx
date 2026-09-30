@@ -32,7 +32,6 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
   const sourceLabel: Record<SecretEntry['source'], string> = {
     host: d.sandbox.secretHost,
     pine: d.sandbox.secretPine,
-    browser: d.sandbox.secretBrowser,
   }
   const modeLabel: Record<ModeChoice, string> = {
     none: d.sandbox.secretNone,
@@ -71,8 +70,7 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
         {secrets.map((secret) => {
           const grant = grants.find((g) => g.id === secret.id)
           const mode: ModeChoice = grant?.mode ?? 'none'
-          const choices: ModeChoice[] =
-            secret.source === 'browser' ? [] : ['none', 'env', 'file', 'request']
+          const choices: ModeChoice[] = ['none', 'env', 'file', 'request']
           return (
             <li key={secret.id} className="flex items-center gap-2 text-ui-sm">
               <Badge variant="outline">{sourceLabel[secret.source]}</Badge>
@@ -86,29 +84,25 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
                   }
                 />
               ) : null}
-              {choices.length > 0 ? (
-                <Select
-                  value={mode}
-                  onValueChange={(next) => void setMode(secret, next as ModeChoice)}
+              <Select
+                value={mode}
+                onValueChange={(next) => void setMode(secret, next as ModeChoice)}
+              >
+                <SelectTrigger
+                  size="sm"
+                  aria-label={fmt(d.sandbox.secretMode, { name: secret.name })}
+                  className="w-40"
                 >
-                  <SelectTrigger
-                    size="sm"
-                    aria-label={fmt(d.sandbox.secretMode, { name: secret.name })}
-                    className="w-40"
-                  >
-                    {modeLabel[mode]}
-                  </SelectTrigger>
-                  <SelectContent>
-                    {choices.map((choice) => (
-                      <SelectItem key={choice} value={choice}>
-                        {modeLabel[choice]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <span className="text-fg-muted">{d.sandbox.secretFillOnly}</span>
-              )}
+                  {modeLabel[mode]}
+                </SelectTrigger>
+                <SelectContent>
+                  {choices.map((choice) => (
+                    <SelectItem key={choice} value={choice}>
+                      {modeLabel[choice]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </li>
           )
         })}
