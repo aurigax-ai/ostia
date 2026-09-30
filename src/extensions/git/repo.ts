@@ -1,15 +1,39 @@
 import { execFile } from 'node:child_process'
 import { lstat, readFile, readlink, realpath } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { type ChangeArea, type FileChange, type RepoStatus, parsePorcelainV2 } from './status'
+import {
+  type BlameLine,
+  type CommitFile,
+  type CommitSummary,
+  LOG_FORMAT,
+  parseBlamePorcelain,
+  parseLog,
+  parseNameStatus,
+} from './history'
+import {
+  type ChangeArea,
+  type FileChange,
+  type LineChanges,
+  type RepoStatus,
+  parsePorcelainV2,
+  parseShortstat,
+} from './status'
 
 const MAX_OUTPUT = 32 * 1024 * 1024
 export const MAX_SIDE_BYTES = 2 * 1024 * 1024
 const BINARY_SNIFF = 8000
+const MAX_ERROR_TEXT = 4000
 
 export class RepoError extends Error {
   constructor(
-    public readonly code: 'not-a-repo' | 'binary' | 'too-large' | 'not-changed' | 'git-failed',
+    public readonly code:
+      | 'not-a-repo'
+      | 'binary'
+      | 'too-large'
+      | 'not-changed'
+      | 'git-failed'
+      | 'invalid-args'
+      | 'unknown-commit',
     message: string,
   ) {
     super(message)
@@ -44,7 +68,12 @@ function run(cwd: string, args: string[]): Promise<RunResult> {
 async function runOk(cwd: string, args: string[]): Promise<Buffer> {
   const res = await run(cwd, args)
   if (res.code !== 0)
-    throw new RepoError('git-failed', res.stderr.trim() || `git ${args[0]} failed`)
+    throw new RepoError(
+      'git-failed',
+      res.stderr.trim() ||
+        res.stdout.toString('utf8', 0, MAX_ERROR_TEXT).trim() ||
+        `git ${args.find((a) => !a.startsWith('-')) ?? ''} failed`,
+    )
   return res.stdout
 }
 
@@ -139,6 +168,95 @@ export async function repoRelative(root: string, cwd: string, input: string): Pr
     throw new RepoError('not-changed', `${input} is outside the repository`)
   }
   return rel.split(sep).join('/')
+}
+
+export async function lineChanges(root: string): Promise<LineChanges | null> {
+  const res = await run(root, ['-c', 'diff.autoRefreshIndex=false', 'diff', '--shortstat', 'HEAD'])
+  return res.code === 0 ? parseShortstat(res.stdout.toString('utf8')) : null
+}
+
+const LITERAL = '--literal-pathspecs'
+
+export async function stage(root: string, paths: string[]): Promise<void> {
+  await runOk(root, [LITERAL, 'add', '-A', '--', ...(paths.length ? paths : ['.'])])
+}
+
+export async function unstage(root: string, paths: string[], hasHead: boolean): Promise<void> {
+  const targets = paths.length ? paths : ['.']
+  if (hasHead) await runOk(root, [LITERAL, 'reset', '-q', 'HEAD', '--', ...targets])
+  else
+    await runOk(root, [LITERAL, 'rm', '-q', '-r', '--cached', '--ignore-unmatch', '--', ...targets])
+}
+
+export async function discard(root: string, changes: FileChange[]): Promise<void> {
+  const tracked = changes.filter((c) => c.area === 'unstaged').map((c) => c.path)
+  const untracked = changes.filter((c) => c.area === 'untracked').map((c) => c.path)
+  if (tracked.length) await runOk(root, [LITERAL, 'checkout', '-q', '--', ...tracked])
+  if (untracked.length) await runOk(root, [LITERAL, 'clean', '-q', '-f', '--', ...untracked])
+}
+
+export async function commit(root: string, message: string): Promise<string> {
+  await runOk(root, ['commit', '-q', '-m', message])
+  return (await runOk(root, ['rev-parse', 'HEAD'])).toString('utf8').trim()
+}
+
+export async function log(root: string, limit: number): Promise<CommitSummary[]> {
+  const res = await run(root, ['log', `-n${limit}`, `--format=${LOG_FORMAT}`, '--no-color'])
+  if (res.code !== 0) return []
+  return parseLog(res.stdout.toString('utf8'))
+}
+
+const SHA = /^[0-9a-f]{4,64}$/
+
+async function resolveCommit(root: string, sha: string): Promise<string> {
+  if (!SHA.test(sha)) throw new RepoError('invalid-args', `${sha} is not a commit id`)
+  const res = await run(root, ['rev-parse', '--verify', '--quiet', `${sha}^{commit}`])
+  if (res.code !== 0) throw new RepoError('unknown-commit', `no commit ${sha}`)
+  return res.stdout.toString('utf8').trim()
+}
+
+async function firstParent(root: string, sha: string): Promise<string | null> {
+  const res = await run(root, ['rev-parse', '--verify', '--quiet', `${sha}^1`])
+  return res.code === 0 ? res.stdout.toString('utf8').trim() : null
+}
+
+export interface CommitDetail {
+  commit: CommitSummary
+  parent: string | null
+  files: CommitFile[]
+}
+
+export async function commitDetail(root: string, input: string): Promise<CommitDetail> {
+  const sha = await resolveCommit(root, input)
+  const [summary] = parseLog(
+    (await runOk(root, ['log', '-n1', `--format=${LOG_FORMAT}`, sha])).toString('utf8'),
+  )
+  const parent = await firstParent(root, sha)
+  const out = parent
+    ? await runOk(root, ['diff', '--no-color', '--name-status', '-z', '-M', parent, sha])
+    : await runOk(root, ['diff-tree', '--no-commit-id', '--root', '-r', '-z', '--name-status', sha])
+  const files = parseNameStatus(out.toString('utf8'))
+  return { commit: summary, parent, files }
+}
+
+export async function commitSides(
+  root: string,
+  detail: CommitDetail,
+  file: CommitFile,
+): Promise<DiffSides> {
+  const base = file.origPath ?? file.path
+  return {
+    original:
+      detail.parent && file.code !== 'A' ? await blob(root, `${detail.parent}:${base}`) : '',
+    modified: file.code === 'D' ? '' : await blob(root, `${detail.commit.sha}:${file.path}`),
+  }
+}
+
+export async function blame(root: string, rel: string): Promise<BlameLine[]> {
+  const out = await runOk(root, [LITERAL, 'blame', '--porcelain', '--', rel])
+  if (out.length > MAX_SIDE_BYTES * 4)
+    throw new RepoError('too-large', 'file is too large to blame')
+  return parseBlamePorcelain(out.toString('utf8'))
 }
 
 export function pickChange(

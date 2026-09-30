@@ -234,7 +234,7 @@ export const SETTINGS_JSON_SCHEMA = {
                 'Chips in order, left to right. Built in: conda, virtualenv, node, cwd, user, ' +
                 'host, kube (Kubernetes context), date, time12, time24, exitCode, duration. ' +
                 'Extensions add chips as "<extension>.<chip>". Chips without a value are hidden. ' +
-                'Default: ["conda", "virtualenv", "node", "cwd"].',
+                'Default: ["conda", "virtualenv", "node", "cwd", "git.branch", "git.diff-stats"].',
             },
             sameLine: {
               type: 'boolean',

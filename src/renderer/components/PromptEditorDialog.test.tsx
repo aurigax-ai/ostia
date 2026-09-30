@@ -147,14 +147,33 @@ describe('PromptEditorDialog', () => {
   it('lists the pane chips of enabled extensions as available', () => {
     useExtensionsStore.setState({
       list: [
-        extension({ id: 'git', paneChips: [{ id: 'branch', title: 'Git branch' }] }),
+        extension({ id: 'ports', paneChips: [{ id: 'port', title: 'Listening port' }] }),
         extension({ id: 'off', enabled: false, paneChips: [{ id: 'x', title: 'Hidden chip' }] }),
       ],
     })
     useUIStore.getState().openPromptEditor(null)
     render(<PromptEditorDialog />)
-    expect(screen.getByRole('button', { name: 'Add Git branch (extension)' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Add Listening port (extension)' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Add Hidden chip (extension)' })).toBeNull()
+  })
+
+  it("places the git extension's branch and diff stats chips after the directory by default", () => {
+    useExtensionsStore.setState({
+      list: [
+        extension({
+          id: 'git',
+          paneChips: [
+            { id: 'branch', title: 'Git branch' },
+            { id: 'diff-stats', title: 'Git diff stats' },
+          ],
+        }),
+      ],
+    })
+    useUIStore.getState().openPromptEditor(null)
+    render(<PromptEditorDialog />)
+    expect(screen.getByRole('button', { name: 'Remove Git branch (extension)' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Remove Git diff stats (extension)' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Add Git branch (extension)' })).toBeNull()
   })
 
   it('saves the order, same line and separator and switches to the Pine prompt', async () => {
