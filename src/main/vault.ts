@@ -1,14 +1,8 @@
 import { safeStorage } from 'electron'
-import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import type { Capability } from '../shared/capabilities'
-import { connHasCap } from './controlAuth'
+import { ensureCaps } from './controlElevation'
 import { registerControlMethod } from './controlServer'
 import { type StoreScope, loadJson, saveJson, storePath } from './jsonStore'
 import { workDirForWorkspace } from './workspaceRegistry'
-
-function needsElevation(cap: Capability): ResponseError<void> {
-  return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
-}
 
 type VaultData = Record<string, string>
 
@@ -56,7 +50,7 @@ function saveVault(path: string, data: VaultData): void {
 export function registerVaultMethods(): void {
   registerControlMethod('vault.set', {
     cap: 'vault-write',
-    handler: (params, ctx) => {
+    handler: async (params, ctx) => {
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { key, value, scope } = (params ?? {}) as {
         key: string
@@ -64,8 +58,8 @@ export function registerVaultMethods(): void {
         scope?: StoreScope
       }
       const resolvedScope = scope ?? 'project'
-      if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'all-workspaces')) {
-        throw needsElevation('all-workspaces')
+      if (resolvedScope === 'global') {
+        await ensureCaps(ctx.authed, ctx.identity, ['all-workspaces'], 'vault (global scope)', '')
       }
       const path = vaultStorePath(resolvedScope, ctx.identity.workspaceId)
       if (typeof path !== 'string') return path
@@ -111,12 +105,12 @@ export function registerVaultMethods(): void {
 
   registerControlMethod('vault.delete', {
     cap: 'vault-write',
-    handler: (params, ctx) => {
+    handler: async (params, ctx) => {
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { key, scope } = (params ?? {}) as { key: string; scope?: StoreScope }
       const resolvedScope = scope ?? 'project'
-      if (resolvedScope === 'global' && !connHasCap(ctx.authed, 'all-workspaces')) {
-        throw needsElevation('all-workspaces')
+      if (resolvedScope === 'global') {
+        await ensureCaps(ctx.authed, ctx.identity, ['all-workspaces'], 'vault (global scope)', '')
       }
       const path = vaultStorePath(resolvedScope, ctx.identity.workspaceId)
       if (typeof path !== 'string') return path

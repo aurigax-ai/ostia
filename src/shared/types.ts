@@ -1,4 +1,5 @@
 import type { AgentResume } from './agentResume'
+import type { ApprovalAnswer, ApprovalState } from './approvals'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { SpecCommand } from './completionSpec'
 import type { ExtensionsApi } from './extensions'
@@ -317,6 +318,13 @@ export interface SelectionApi {
   send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
 }
 
+export interface ApprovalsApi {
+  state: () => Promise<ApprovalState>
+  answer: (id: string, answer: ApprovalAnswer) => Promise<boolean>
+  revoke: (id: string) => Promise<boolean>
+  onChange: (cb: (state: ApprovalState) => void) => () => void
+}
+
 export interface GatewayStatus {
   running: boolean
   host: string | null
@@ -426,6 +434,7 @@ export interface PineBridge {
   terminalState: TerminalStateApi
   browser: BrowserApi
   selection: SelectionApi
+  approvals: ApprovalsApi
   extensions: ExtensionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi

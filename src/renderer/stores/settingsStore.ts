@@ -1,3 +1,9 @@
+import {
+  type ApprovalMode,
+  type ApprovalSettings,
+  DEFAULT_APPROVAL_SETTINGS,
+  parseApprovalSettings,
+} from '@shared/approvals'
 import { create } from 'zustand'
 import {
   type BrowserSettings,
@@ -235,6 +241,7 @@ interface Persisted {
   extensionSettings: Record<string, ExtensionSettingValues>
   capabilities?: Capabilities
   sync?: SyncSettings
+  approvals: ApprovalSettings
 }
 
 const DATA_KEYS: readonly string[] = [
@@ -295,6 +302,7 @@ const DEFAULTS: Persisted = {
   agents: { hibernation: DEFAULT_HIBERNATION },
   workspaceGroups: { byCwd: [] },
   extensionSettings: {},
+  approvals: DEFAULT_APPROVAL_SETTINGS,
 }
 
 interface SettingsState extends Persisted {
@@ -320,6 +328,7 @@ interface SettingsState extends Persisted {
   setHibernation: (patch: Partial<HibernationSettings>) => void
   setByPath: (path: string, value: unknown) => void
   setSyncDir: (dir: string) => Promise<void>
+  setApprovalMode: (mode: ApprovalMode) => void
   setKeybinding: (id: string, chord: string | null) => void
   resetKeybinding: (id: string) => void
   setKeybindings: (map: KeybindingMap) => void
@@ -346,6 +355,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     extensionSettings: s.extensionSettings,
     capabilities: s.capabilities,
     sync: s.sync,
+    approvals: s.approvals,
   }
   const path = await window.pine.settings.path()
   await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
@@ -428,6 +438,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         extensionSettings: extensionSettingsOf(p.extensionSettings),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
         sync: syncOf(p.sync),
+        approvals: parseApprovalSettings(p.approvals),
       })
     } catch {}
   },
@@ -546,6 +557,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((s) => ({
       agents: { ...s.agents, hibernation: parseHibernation({ ...s.agents.hibernation, ...patch }) },
     }))
+    scheduleSave(get)
+  },
+  setApprovalMode: (mode) => {
+    set({ approvals: { mode } })
     scheduleSave(get)
   },
   setSyncDir: async (dir) => {

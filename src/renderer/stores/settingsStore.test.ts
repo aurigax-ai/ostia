@@ -57,6 +57,7 @@ describe('settingsStore', () => {
       agents: s.agents,
       workspaceGroups: s.workspaceGroups,
       extensionSettings: s.extensionSettings,
+      approvals: s.approvals,
     })
   })
 
@@ -358,6 +359,7 @@ describe('settingsStore', () => {
         agents: s.agents,
         workspaceGroups: s.workspaceGroups,
         extensionSettings: s.extensionSettings,
+        approvals: s.approvals,
       }).toEqual(DEFAULTS)
     })
 
@@ -410,6 +412,7 @@ describe('settingsStore', () => {
         agents: s.agents,
         workspaceGroups: s.workspaceGroups,
         extensionSettings: s.extensionSettings,
+        approvals: s.approvals,
       }).toEqual(DEFAULTS)
     })
   })

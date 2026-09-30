@@ -969,8 +969,24 @@ see external ids.
   `vault-read`, `vault-write`.
 - Elevated: `send-other-pane`, `kill-pane`, `all-workspaces`, `shell`, `destructive`, `phone`,
   `gateway`, `browse`, `settings-write`.
-- Elevated caps are granted only by `capabilities.grants` in `settings.json`. A grant applies to
-  every pane, is read once per run, and unknown names are dropped.
+- Elevated caps come from `capabilities.grants` in `settings.json` (every pane, read once per
+  run, unknown names dropped) or from the human answering an approval request.
+- **Approvals** (`main/approvals.ts`, `controlElevation.ts` `ensureCaps`, renderer
+  `stores/approvalsStore.ts`, `ApprovalCard`, `ApprovalsInbox`): when a pane caller lacks caps,
+  `ensureCaps` holds the call and `createApprovals().request` publishes it to the pane's window
+  (`approvals:changed`). The window rings the pane (`signalPane` waiting), posts a notification,
+  and shows a card on the pane and a row in the notification center's inbox. The answer comes
+  back over `approvals:answer` and counts only from the window that owns the request; `once`
+  lets this call through, `session` also `grant`s the caps to that pane identity until
+  `pane-closed` (`forget`) or Revoke, `deny` / no window / 90 s timeout refuse with
+  `denied:` / `not-approved:`. `approvals.mode: 'allow'` (Settings → Agents) lets requests
+  through and only records them, except anything with `destructive`, which always asks and
+  never gets a session grant. Extension callers still get `needs-elevation` (their caps are
+  manifest ∩ approval). `approvals` is not a `DATA_KEYS` key and is local-only in settings
+  sync. Why hold instead of fail: the agent would otherwise need the human to edit
+  `settings.json` and restart, then retry; now the same call just continues. Why no palette
+  command or socket method answers: an agent must never be able to approve itself.
+  `vault.*` params are never shown in a request.
 - `phone`, `shell` and `destructive` are never checked on the socket.
 
 **Methods.**

@@ -526,6 +526,21 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    approvals: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        mode: {
+          type: 'string',
+          enum: ['ask', 'allow'],
+          description:
+            'When an agent needs a capability it lacks: "ask" holds the request and asks you in ' +
+            'the pane (Allow once / Allow for this pane / Deny); "allow" lets it through and ' +
+            'records it in the permission inbox. Destructive actions always ask. Only you can ' +
+            'change this; agents cannot, and it never syncs. Default: ask.',
+        },
+      },
+    },
     capabilities: {
       type: 'object',
       additionalProperties: false,
