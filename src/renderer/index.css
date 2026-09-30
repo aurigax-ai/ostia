@@ -245,13 +245,6 @@
   width: calc(var(--rail-w) - 8px);
 }
 
-.topbar-left-end {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: auto;
-}
-
 .files-panel {
   grid-area: files;
   display: flex;
@@ -264,6 +257,9 @@
 }
 
 .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   justify-self: end;
 }
 
