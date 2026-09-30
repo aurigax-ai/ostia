@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
 import { openSelectionSend } from '../lib/selectionSenders'
 import { useEditorStatus } from '../stores/editorStatusStore'
+import { useSettingsStore } from '../stores/settingsStore'
 
 const fake = vi.hoisted(() => {
   type Listener = () => void
@@ -22,6 +23,7 @@ const fake = vi.hoisted(() => {
       this.value = v
       this.version += 1
       for (const l of this.changeListeners) l()
+      for (const l of state.contentListeners) l()
     }
     getAlternativeVersionId() {
       return this.version
@@ -55,7 +57,28 @@ const fake = vi.hoisted(() => {
     actions: { id: string; label: string; run: () => void }[]
     position: { lineNumber: number; column: number } | null
     selection: FakeSelection | null
-  } = { model: null, save: null, actions: [], position: null, selection: null }
+    contentListeners: Listener[]
+    blurListeners: Listener[]
+    formatRuns: (() => void) | null
+  } = {
+    model: null,
+    save: null,
+    actions: [],
+    position: null,
+    selection: null,
+    contentListeners: [],
+    blurListeners: [],
+    formatRuns: null,
+  }
+  const listen = (list: Listener[], l: Listener) => {
+    list.push(l)
+    return {
+      dispose: () => {
+        const at = list.indexOf(l)
+        if (at >= 0) list.splice(at, 1)
+      },
+    }
+  }
   const editor = {
     setModel: (m: FakeModel | null) => {
       state.model = m
@@ -75,6 +98,12 @@ const fake = vi.hoisted(() => {
     getPosition: () => state.position,
     getSelection: () => state.selection,
     updateOptions: () => {},
+    onDidChangeModelContent: (l: Listener) => listen(state.contentListeners, l),
+    onDidBlurEditorText: (l: Listener) => listen(state.blurListeners, l),
+    getAction: (id: string) =>
+      id === 'editor.action.formatDocument' && state.formatRuns
+        ? { run: async () => state.formatRuns?.() }
+        : null,
     onDidChangeModel: () => ({ dispose() {} }),
     dispose: () => {},
   }
@@ -102,8 +131,10 @@ const { EditorView, isBinary } = await import('./Editor')
 
 describe('EditorView', () => {
   let init: ReturnType<typeof useEditorStatus.getState>
+  let initSettings: ReturnType<typeof useSettingsStore.getState>
   beforeAll(() => {
     init = useEditorStatus.getState()
+    initSettings = useSettingsStore.getState()
   })
   afterEach(() => {
     fake.models.clear()
@@ -111,6 +142,8 @@ describe('EditorView', () => {
     fake.state.save = null
     fake.state.actions = []
     fake.state.position = null
+    fake.state.formatRuns = null
+    useSettingsStore.setState(initSettings, true)
     useEditorStatus.setState(init, true)
   })
 
@@ -169,6 +202,81 @@ describe('EditorView', () => {
 
     await waitFor(() => expect(useEditorStatus.getState().dirty['/w/a.txt']).toBeUndefined())
     expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed')
+  })
+
+  it('formats the document before writing when format on save is on', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    useSettingsStore.getState().setEditor({ formatOnSave: true })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    act(() => fake.state.model?.setValue('unformatted'))
+    fake.state.formatRuns = () => fake.state.model?.setValue('formatted')
+
+    act(() => fake.state.save?.())
+
+    await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'formatted'))
+    await waitFor(() => expect(useEditorStatus.getState().dirty['/w/a.txt']).toBeUndefined())
+  })
+
+  it('just saves when format on save is on but no formatter exists', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    useSettingsStore.getState().setEditor({ formatOnSave: true })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    act(() => fake.state.model?.setValue('changed'))
+
+    act(() => fake.state.save?.())
+
+    await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed'))
+  })
+
+  it('auto-saves one second after the last edit when auto save is afterDelay', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    useSettingsStore.getState().setEditor({ autoSave: 'afterDelay' })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    vi.useFakeTimers()
+    try {
+      act(() => fake.state.model?.setValue('one'))
+      await vi.advanceTimersByTimeAsync(600)
+      act(() => fake.state.model?.setValue('two'))
+      await vi.advanceTimersByTimeAsync(600)
+      expect(window.pine.fs.write).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(500)
+      expect(window.pine.fs.write).toHaveBeenCalledTimes(1)
+      expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'two')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not auto-save on a timer when auto save is off', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    vi.useFakeTimers()
+    try {
+      act(() => fake.state.model?.setValue('one'))
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(window.pine.fs.write).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('auto-saves a dirty file when the editor loses focus and auto save is onFocusChange', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    useSettingsStore.getState().setEditor({ autoSave: 'onFocusChange' })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    act(() => fake.state.model?.setValue('changed'))
+    expect(window.pine.fs.write).not.toHaveBeenCalled()
+
+    act(() => {
+      for (const l of fake.state.blurListeners) l()
+    })
+
+    await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed'))
   })
 
   it('shows a binary-file message instead of opening a file containing NUL bytes', async () => {

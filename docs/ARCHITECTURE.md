@@ -580,6 +580,8 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   `appearance` (theme + ui/terminal/editor fonts), `behavior` (`showHiddenFiles`, `cursorStyle`,
   `cursorBlink`, `restoreWorkspace`), `workspaces` (`placement`, `inheritFolder`, `defaultFolder`,
   `confirmClose`, `confirmQuit`, `wrapTitles`), `capabilities.grants`, `sync.dir`.
+  - `browser` and `editor` are their own groups, parsed by `shared/browserEditorSettings.ts`
+    (invalid values fall back to defaults, zoom is clamped to 50 to 300).
   - `setByPath` rejects prototype-pollution segments, keys outside the data groups,
     and type changes.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
@@ -938,6 +940,23 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   the editor. Models are plain in-memory models (no file URI), so they never collide with an open
   editor's model; they are disposed when the content changes or the pane unmounts. Core knows
   nothing about git: any extension can open one via `ext.openDiff` (§11).
+- **Browser and editor settings** (Settings → Browser / Editor, `components/BrowserEditorSettings.tsx`):
+  - Address bar: `lib/browserAddress.ts` turns text that is neither a URL nor a bare host into
+    `searchUrl()` for `browser.searchEngine`; `custom` uses `browser.customSearchUrl`, valid only
+    if it is http/https and contains `{query}`, else Google is used. Zoom: the webview gets
+    `setZoomFactor(browser.defaultZoom / 100)` on each `dom-ready`.
+  - Terminal links: Ctrl/Cmd+click still goes through the `WebLinksAddon` handler; with
+    `browser.openTerminalLinks` it calls `layoutStore.openBrowser` (reuses the workspace's browser
+    pane, else splits one) instead of `window.open` (system browser via `openExternalSafe`).
+  - Editor: `Editor.tsx` applies word wrap, line numbers, tab size and insert spaces live through
+    `editor.updateOptions` (`detectIndentation: false`). Saving is one `save()` used by Ctrl+S and
+    auto save: `saveFormatted` runs Monaco's `editor.action.formatDocument` first when
+    `editor.formatOnSave`, ignoring a formatter error, then writes. The LSP client registers a
+    document formatting provider (`textDocument/formatting`) per language, so servers that offer
+    it back that action. Auto save `afterDelay` uses `createAutoSave` (1 s after the last
+    change, dirty files only); `onFocusChange` saves on editor text blur. Why: both reuse
+    dirty tracking (`savedVersions`, `editorStatusStore`), so a save that lost a race with an edit
+    leaves the file dirty.
 - **Open in External Editor** (command `editor.openExternal`, the editor's context menu, the
   diff toolbar):
   - Editor and diff surfaces register a position source per pane (`lib/editorPositions.ts`);

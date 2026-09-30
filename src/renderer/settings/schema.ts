@@ -191,6 +191,67 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    browser: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        searchEngine: {
+          type: 'string',
+          enum: ['google', 'duckduckgo', 'bing', 'kagi', 'custom'],
+          description:
+            'Search engine for address-bar text that is not a URL. "custom" uses customSearchUrl. ' +
+            'Default: google.',
+        },
+        customSearchUrl: {
+          type: 'string',
+          description:
+            'Search URL for the "custom" engine: http or https, containing {query}, e.g. ' +
+            '"https://example.com/search?q={query}". An invalid template falls back to Google.',
+        },
+        openTerminalLinks: {
+          type: 'boolean',
+          description:
+            'Ctrl/Cmd+click on a web link in a terminal opens it in Pine’s browser pane instead of ' +
+            'the system browser. Default: false.',
+        },
+        defaultZoom: {
+          type: 'number',
+          minimum: 50,
+          maximum: 300,
+          description: 'Page zoom in percent for browser panes when a page loads. Default: 100.',
+        },
+      },
+    },
+    editor: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        wordWrap: { type: 'string', enum: ['off', 'on'], description: 'Wrap long lines.' },
+        lineNumbers: {
+          type: 'string',
+          enum: ['on', 'off', 'relative'],
+          description: 'Line number gutter. "relative" counts lines from the cursor.',
+        },
+        tabSize: { type: 'number', enum: [2, 4, 8], description: 'Spaces per tab stop.' },
+        insertSpaces: {
+          type: 'boolean',
+          description: 'Insert spaces when Tab is pressed instead of a tab character.',
+        },
+        autoSave: {
+          type: 'string',
+          enum: ['off', 'afterDelay', 'onFocusChange'],
+          description:
+            'Save changed files by themselves: "afterDelay" one second after the last edit, ' +
+            '"onFocusChange" when the editor loses focus. Default: off.',
+        },
+        formatOnSave: {
+          type: 'boolean',
+          description:
+            'Format the document before every save with the language server or built-in ' +
+            'formatter. Files with no formatter are just saved. Default: false.',
+        },
+      },
+    },
     sync: {
       type: 'object',
       additionalProperties: false,
