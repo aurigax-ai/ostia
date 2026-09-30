@@ -1314,7 +1314,18 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   header shows a robot icon with a state dot only while the pane's running command is an agent
   (`commandAgent`). Its popover lists only what Pine knows: the title the agent set on the
   terminal (spinner glyph stripped, `sessionTitle`), the resume id from its SessionStart hook,
-  the attention state and message, how long it has run, its folder and command.
+  the attention state and message, how long it has run, its folder and command, and whether it
+  is resumable (a resume id was reported). While the popover is open it asks main every 3 s for
+  `agent:session-info` (`main/agentTranscript.ts`): main finds the agent's own transcript from
+  the validated resume id alone (`~/.claude/projects/*/<id>.jsonl`, or Codex's
+  `~/.codex/sessions/YYYY/MM/DD/*-<id>.jsonl`; symlinks refused), reads its last 512 KiB (plus
+  the first line for Codex's session header) and returns only parsed fields
+  (`shared/agentSessionInfo.ts`): title (`ai-title`, or a `custom-title` the human set), model,
+  context tokens (Claude: input + cache creation + cache read of the last main-thread reply;
+  Codex: last `input_tokens` against `model_context_window`), cwd, branch, version, mode and
+  effort. A field the transcript lacks is simply not shown. Why read the transcript: the hooks
+  carry none of this, and never take a path from the agent, so a pane can't point main at
+  another file.
 - **User actions** (`settings/actions.ts`, `lib/userActions.ts`, `PaneTabMenu.tsx`,
   `ActionConfirmDialog`, `ActionsSection`): `settings.json` `actions` is a data list
   (`parseActions`: id, title, palette `command`, `args`, an icon from `ACTION_ICONS`, places

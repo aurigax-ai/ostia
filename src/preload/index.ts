@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { AgentSessionInfo } from '../shared/agentSessionInfo'
 import type { ApprovalState } from '../shared/approvals'
 import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
 import type { BuildInfo } from '../shared/buildInfo'
@@ -184,6 +185,10 @@ const bridge: PineBridge = {
       ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
     storageClear: (paneId, kind) =>
       ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
+  },
+  agentSession: {
+    info: (resume) =>
+      ipcRenderer.invoke('agent:session-info', resume) as Promise<AgentSessionInfo | null>,
   },
   update: {
     state: () => ipcRenderer.invoke('app:update-state') as Promise<BuildInfo | null>,

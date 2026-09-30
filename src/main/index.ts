@@ -24,6 +24,7 @@ import type {
   TerminalStateSnapshot,
 } from '../shared/types'
 import { clampZoom, zoomFactor } from '../shared/zoom'
+import { registerAgentTranscriptIpc } from './agentTranscript'
 import { registerAppUpdate } from './appUpdate'
 import { approvals, registerApprovals } from './approvals'
 import { registerAttentionMethods } from './attention'
@@ -974,6 +975,7 @@ app.whenReady().then(() => {
   registerApprovals()
   registerCredentials()
   registerAppUpdate()
+  registerAgentTranscriptIpc()
   registerLspIpc()
   const notifyDeps = {
     execCommand,
