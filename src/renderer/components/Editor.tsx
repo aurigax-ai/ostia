@@ -9,6 +9,7 @@ import { openDocument } from '../lsp/client'
 import { langFor } from '../monaco/language'
 import { monaco } from '../monaco/setup'
 import { isMac } from '../platform'
+import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
@@ -66,6 +67,14 @@ export function useExternalEditorAction(paneId: string): {
     )
   }
   return { open, error }
+}
+
+function applyReveal(editor: monaco.editor.IStandaloneCodeEditor, path: string): void {
+  const position = useEditorRevealStore.getState().take(path)
+  if (!position) return
+  editor.setPosition({ lineNumber: position.line, column: position.column })
+  editor.revealPositionInCenter({ lineNumber: position.line, column: position.column })
+  editor.focus()
 }
 
 export function EditorView({
@@ -180,12 +189,21 @@ export function EditorView({
         markSaved(existing, filePath)
       }
       editor.setModel(model)
+      applyReveal(editor, filePath)
       void openDocument(model, langFor(filePath))
     })
     return () => {
       alive = false
     }
   }, [filePath])
+
+  const pendingReveal = useEditorRevealStore((s) => (filePath ? s.pending[filePath] : undefined))
+  useEffect(() => {
+    const editor = editorRef.current
+    const model = editor?.getModel()
+    if (!pendingReveal || !editor || !filePath || model?.uri.path !== filePath) return
+    applyReveal(editor, filePath)
+  }, [pendingReveal, filePath])
 
   useEffect(() => {
     editorRef.current?.updateOptions({
