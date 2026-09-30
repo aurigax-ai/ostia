@@ -110,6 +110,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       refusals: vi.fn().mockResolvedValue([]),
       allowRefused: vi.fn().mockResolvedValue(true),
       globalsChanged: vi.fn().mockResolvedValue(true),
+      ports: vi.fn().mockResolvedValue([]),
+      expose: vi.fn().mockResolvedValue({ ok: true, port: 3000 }),
+      unexpose: vi.fn().mockResolvedValue(true),
+      setPortsPolicy: vi.fn().mockResolvedValue(null),
     },
     credentials: {
       list: vi.fn().mockResolvedValue([]),

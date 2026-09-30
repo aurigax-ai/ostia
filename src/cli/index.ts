@@ -159,8 +159,30 @@ async function runSandboxVerb(conn: MessageConnection): Promise<void> {
       console.error(`pine: ${res.error}${res.reason ? ` (${res.reason})` : ''}`)
       process.exitCode = 1
     }
+  } else if (sub === 'expose') {
+    if (!value) {
+      console.error('pine sandbox expose: missing <port>')
+      process.exitCode = 1
+      return
+    }
+    const res = await conn.sendRequest<{
+      ok: boolean
+      port?: number
+      notice?: string
+      error?: string
+    }>('sandbox.expose', { port: value })
+    if (res.ok && res.notice) {
+      console.log(
+        `port ${res.port} is reachable on this computer already; forwarding is not needed on macOS`,
+      )
+    } else if (res.ok) {
+      console.log(`exposed: 127.0.0.1:${res.port}`)
+    } else {
+      console.error(`pine: ${res.error}`)
+      process.exitCode = 1
+    }
   } else {
-    console.error(`pine sandbox: unknown subcommand '${sub ?? ''}' (try: request-domain)`)
+    console.error(`pine sandbox: unknown subcommand '${sub ?? ''}' (try: request-domain, expose)`)
     process.exitCode = 1
   }
 }

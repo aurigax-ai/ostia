@@ -29,8 +29,9 @@ describe('systemRequirements', () => {
     expect(missingRequirements(SANDBOX_FEATURE, { platform: 'linux', path: some })).toEqual([
       { program: 'bwrap', package: 'bubblewrap' },
       { program: 'rg', package: 'ripgrep' },
+      { program: 'nsenter', package: 'util-linux' },
     ])
-    const all = binDir('all', ['socat', 'bwrap', 'rg'])
+    const all = binDir('all', ['socat', 'bwrap', 'rg', 'nsenter'])
     expect(missingRequirements(SANDBOX_FEATURE, { platform: 'linux', path: all })).toEqual([])
     expect(missingRequirements(SANDBOX_FEATURE, { platform: 'darwin', path: some })).toEqual([
       { program: 'rg', package: 'ripgrep' },

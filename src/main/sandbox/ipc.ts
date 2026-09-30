@@ -1,13 +1,17 @@
 import { ipcMain } from 'electron'
 import {
   type DomainRefusal,
+  PORTS_POLICIES,
+  type PortsPolicy,
   type SandboxControls,
   type SandboxEditResult,
   type WorkspaceSandbox,
   checkDomainPattern,
+  checkExposePort,
 } from '../../shared/sandbox'
 import type { MissingRequirement } from '../../shared/systemRequirements'
 import type { DomainRequests } from './domainRequests'
+import type { PortRequests, PortRow } from './portRequests'
 import { type ReadPathEnv, checkReadPath } from './readPaths'
 import type { WorkspaceSandboxes } from './workspaceSandboxes'
 
@@ -16,6 +20,7 @@ export interface SandboxIpcDeps {
   ownerWindow: (workspaceId: string) => string | undefined
   missing?: () => MissingRequirement[]
   domains?: DomainRequests
+  ports?: PortRequests
   readPathEnv?: () => ReadPathEnv
   refreshAll?: () => void
 }
@@ -119,6 +124,31 @@ export function registerSandboxIpc(deps: SandboxIpcDeps): void {
     deps.domains.allowFromView(workspaceId, host)
     return true
   })
+  ipcMain.handle('sandbox:ports', (e, workspaceId: unknown): PortRow[] =>
+    ownsWorkspace(deps, e.sender.id, workspaceId) ? (deps.ports?.ports(workspaceId) ?? []) : [],
+  )
+  ipcMain.handle('sandbox:expose', async (e, workspaceId: unknown, port: unknown) => {
+    const checked = checkExposePort(String(port))
+    if (!ownsWorkspace(deps, e.sender.id, workspaceId) || checked === null || !deps.ports) {
+      return { ok: false, error: 'invalid-port' }
+    }
+    return deps.ports.exposeByHuman(workspaceId, checked)
+  })
+  ipcMain.handle('sandbox:unexpose', async (e, workspaceId: unknown, port: unknown) => {
+    if (!ownsWorkspace(deps, e.sender.id, workspaceId) || typeof port !== 'number') return false
+    await deps.ports?.unexposeByHuman(workspaceId, port)
+    return true
+  })
+  ipcMain.handle(
+    'sandbox:set-ports-policy',
+    (e, workspaceId: unknown, policy: unknown): WorkspaceSandbox | null => {
+      if (!ownsWorkspace(deps, e.sender.id, workspaceId)) return null
+      if (policy !== undefined && !PORTS_POLICIES.includes(policy as PortsPolicy)) return null
+      return deps.sandboxes.update(workspaceId, ({ ports: _old, ...rest }) =>
+        policy === undefined ? rest : { ...rest, ports: policy as PortsPolicy },
+      )
+    },
+  )
   ipcMain.handle('sandbox:globals-changed', () => {
     deps.refreshAll?.()
     return true

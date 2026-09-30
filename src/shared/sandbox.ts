@@ -3,18 +3,31 @@ export interface SandboxControls {
   browser: 'allowlist' | 'unrestricted'
 }
 
+export const PORTS_POLICIES = ['ask', 'allow', 'deny'] as const
+export type PortsPolicy = (typeof PORTS_POLICIES)[number]
+
 export interface WorkspaceSandbox {
   enabled: boolean
   allowRead: string[]
   domains: string[]
   controls: Partial<SandboxControls>
+  ports?: PortsPolicy
 }
 
 export interface SandboxGlobals {
   allowRead: string[]
   allowedDomains: string[]
   controls: SandboxControls
+  portsPolicy?: PortsPolicy
 }
+
+export interface SandboxPortRow {
+  port: number
+  process: string | null
+  exposed: boolean
+}
+
+export type SandboxExposeResult = { ok: true; port: number } | { ok: false; error: string }
 
 export interface DomainRefusal {
   host: string
@@ -30,6 +43,7 @@ export interface ResolvedSandbox {
   allowRead: string[]
   domains: string[]
   controls: SandboxControls
+  portsPolicy: PortsPolicy
 }
 
 export const DEFAULT_CONTROLS: SandboxControls = { allWorkspaces: false, browser: 'allowlist' }
@@ -66,6 +80,7 @@ export const DEFAULT_SANDBOX_GLOBALS: SandboxGlobals = {
   allowRead: DEFAULT_ALLOW_READ,
   allowedDomains: DEFAULT_ALLOWED_DOMAINS,
   controls: DEFAULT_CONTROLS,
+  portsPolicy: 'ask',
 }
 
 export function emptyWorkspaceSandbox(): WorkspaceSandbox {
@@ -85,6 +100,7 @@ export function resolveSandbox(
     allowRead: union(globals.allowRead, workspace.allowRead),
     domains: union(union(globals.allowedDomains, workspace.domains), sessionDomains),
     controls: { ...globals.controls, ...workspace.controls },
+    portsPolicy: workspace.ports ?? globals.portsPolicy ?? 'ask',
   }
 }
 
@@ -149,7 +165,14 @@ export function parseWorkspaceSandbox(value: unknown): WorkspaceSandbox | null {
   const domains = stringList(raw.domains ?? [])
   const controls = parseControls(raw.controls)
   if (typeof raw.enabled !== 'boolean' || !allowRead || !domains || !controls) return null
-  return { enabled: raw.enabled, allowRead, domains, controls }
+  if (raw.ports !== undefined && !PORTS_POLICIES.includes(raw.ports as PortsPolicy)) return null
+  return {
+    enabled: raw.enabled,
+    allowRead,
+    domains,
+    controls,
+    ...(raw.ports === undefined ? {} : { ports: raw.ports as PortsPolicy }),
+  }
 }
 
 export function parseSandboxGlobals(value: unknown): SandboxGlobals {
@@ -160,6 +183,9 @@ export function parseSandboxGlobals(value: unknown): SandboxGlobals {
     allowRead: stringList(raw.allowRead) ?? DEFAULT_SANDBOX_GLOBALS.allowRead,
     allowedDomains: stringList(raw.allowedDomains) ?? DEFAULT_SANDBOX_GLOBALS.allowedDomains,
     controls: { ...DEFAULT_SANDBOX_GLOBALS.controls, ...controls },
+    portsPolicy: PORTS_POLICIES.includes(raw.portsPolicy as PortsPolicy)
+      ? (raw.portsPolicy as PortsPolicy)
+      : DEFAULT_SANDBOX_GLOBALS.portsPolicy,
   }
 }
 

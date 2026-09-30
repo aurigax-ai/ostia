@@ -35,7 +35,7 @@ function expandHome(path: string, home: string): string {
 }
 
 export function buildSrtConfig(
-  policy: ResolvedSandbox,
+  policy: Omit<ResolvedSandbox, 'portsPolicy'>,
   paths: SandboxPaths,
   platform: NodeJS.Platform = process.platform,
 ): SandboxRuntimeConfig {

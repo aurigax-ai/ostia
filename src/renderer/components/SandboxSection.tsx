@@ -2,6 +2,7 @@ import { type SandboxGlobals, checkDomainPattern, parseSandboxGlobals } from '@s
 import { useDict } from '../i18n/useDict'
 import { useSettingsStore } from '../stores/settingsStore'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
+import { PortsPolicyRow } from './SandboxPortsTab'
 import { ControlRow, SectionHead, SettingsGroup } from './SettingsPanel'
 import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select'
 import { Switch } from './ui/switch'
@@ -56,6 +57,12 @@ export function SandboxSection(): JSX.Element {
           items={globals.allowRead}
           placeholder="~/.config/tool"
           onChange={setReadPaths}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.sandbox.ports}>
+        <PortsPolicyRow
+          value={globals.portsPolicy ?? 'ask'}
+          onChange={(portsPolicy) => void save({ ...globals, portsPolicy })}
         />
       </SettingsGroup>
       <SettingsGroup title={d.sandbox.pineAccess}>
