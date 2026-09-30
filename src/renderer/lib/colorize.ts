@@ -1,3 +1,5 @@
+import type { ColorScheme } from '../plugins/types'
+
 const COLORIZE_MAX = 200_000
 
 const ALIASES: Record<string, string> = {
@@ -28,10 +30,18 @@ export function monacoLanguageId(fence: string, known: readonly string[]): strin
   return known.includes(id) ? id : null
 }
 
-export async function colorizeCode(code: string, fence: string): Promise<string | null> {
+export async function colorizeCode(
+  code: string,
+  fence: string,
+  scheme: ColorScheme,
+): Promise<string | null> {
   if (!fence.trim() || code.length > COLORIZE_MAX) return null
   try {
-    const { monaco } = await import('../monaco/setup')
+    const [{ monaco }, { applyMonacoScheme }] = await Promise.all([
+      import('../monaco/setup'),
+      import('../monaco/useMonacoTheme'),
+    ])
+    applyMonacoScheme(scheme)
     const known = monaco.languages.getLanguages().map((l) => l.id)
     const id = monacoLanguageId(fence, known)
     if (!id) return null

@@ -15,14 +15,15 @@ import {
 import { describe, expect, it } from 'vitest'
 import { fileIcon } from './fileIcon'
 
-const BLUE = '#61afef'
-const FOLDER = '#6f8db0'
-const GREEN = '#89ca78'
-const YELLOW = '#e5c07b'
-const RED = '#ef596f'
-const CYAN = '#56b6c2'
-const ORANGE = '#d19a66'
-const GREY = '#7f8696'
+const hue = (group: string) => `color-mix(in srgb, var(--group-${group}) 72%, var(--fg))`
+const BLUE = hue('blue')
+const FOLDER = 'color-mix(in srgb, var(--group-blue) 45%, var(--fg-muted))'
+const GREEN = hue('green')
+const YELLOW = hue('yellow')
+const RED = hue('red')
+const CYAN = hue('teal')
+const ORANGE = hue('orange')
+const GREY = 'var(--fg-muted)'
 
 const f = (name: string, dir = false, open = false) => fileIcon({ name, dir }, open)
 

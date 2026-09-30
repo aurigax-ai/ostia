@@ -110,14 +110,17 @@ They only tint a group's swatch and its member rule, never text or state; the gr
 always carries its identity. The one other use is the Git graph's lanes (`--lane-0..7` in the
 git panel, each group hue mixed 72% with `--fg` so it holds contrast on light and dark themes):
 a lane color only tells branches apart, and the ref badge names the branch. Panels get the
-palette as `--group-*` from the SDK's base CSS. Uncommitted work in the graph is drawn dashed
+palette as `--group-*` from the SDK's base CSS. Pine's own file-type icon tints use the same
+mix (`fileIcon.ts`), never fixed hex values, so they follow the theme too. Uncommitted work in the graph is drawn dashed
 and hollow, never by color alone.
 
 Elevation: `bg-sunken` < `bg` < `surface-1` < `surface-2` < `surface-3`. In the dark theme,
 elevation comes from lightness, not shadow; shadows are only for overlays. Every theme keeps
 `--fg-muted` ≥ 4.5:1 on `surface-2`, `--attn-fg` ≥ 4.5:1 on `surface-1`, and `--fg-dim` ≥ 3:1 on
 `surface-1` (enforced in `plugins/builtin.test.ts`). `--fg-dim` is never text. `<html>` carries
-`class="dark"` so shadcn `dark:` variants apply.
+`class="dark"` only while the effective theme is dark (`applyTheme` toggles it with
+`color-scheme`), so shadcn `dark:` variants style dark themes and its light styles apply under
+`pine-light`: a light theme never gets a dark switch thumb or dark-tinted inputs.
 
 ### Three color axes
 
@@ -127,7 +130,7 @@ Three surfaces take their colors from different places, one setting each:
 |---|---|---|
 | UI (sidebar, tabs, menus, dialogs) | `appearance.theme` (+ `followSystem`, `lightTheme`, `darkTheme`) | the theme's CSS tokens |
 | Terminal | `terminal.theme` | a color scheme: 16 ANSI colors + background, foreground, cursor, cursor text, selection |
-| Editor (Monaco, diff) | `editor.theme` | Monaco theme derived from a color scheme |
+| Editor (Monaco, diff, chat code blocks) | `editor.theme` | Monaco theme derived from a color scheme |
 
 `terminal.theme` and `editor.theme` are `"match"` by default: linked to the Pine theme, they use
 the scheme the effective theme names, so they follow the light/dark switch too. Turning off
@@ -137,6 +140,10 @@ the theme is. An unknown scheme id falls back to the linked scheme. Settings →
 live preview under the rows: a terminal sample (prompt, pass/fail/warn lines, all 16 ANSI
 swatches) in the terminal scheme and a code sample in the editor scheme, drawn with the same
 colors the terminal and Monaco get.
+
+Monaco's theme is global, so anything that colorizes with it applies the editor scheme first:
+a chat code block (`ai-elements/code-block.tsx`) paints its body in the editor scheme's
+background and foreground and re-colorizes when the scheme changes, even when no editor is open.
 
 The editor theme is derived, not hand-written (`monaco/monacoTheme.ts`): keywords magenta,
 strings green, functions blue, types yellow, numbers and constants a red/yellow mix, variables and
@@ -336,7 +343,15 @@ Attention, the second loud element, appears only when a pane needs you:
 - **Density**: rows are 22–28px, toolbars 32–36px, and settings content is 640–760px wide.
 
 - **Popover**: `components/ui/popover.tsx` (Base UI), skinned via `className`; the notification
-  center is the reference (`surface-3`, `radius-md`).
+  center is the reference (`surface-3`, `radius-md`). Its section labels ("Permission requests",
+  workspace group heads) are `ui-xs`/500 `fg-muted`.
+- **Section tabs** (`SectionTabs.tsx`: `SectionTabsList`, `SectionTab`): the one tab strip for
+  switching views inside a surface (notification center filters, the workspace sandbox page, the
+  browser storage drawer). shadcn `Tabs` `line` variant: square, flush on a `--line` bottom rule,
+  `ui-sm` labels in `fg-muted`, hover `fg`, the selected tab `fg`/500 with a 2px `--brand`
+  underline (like the selected pane tab's brand line), an inset `--ring` on `:focus-visible`.
+  Counts sit after the label (`tabular-nums`; `attn-fg` for "Needs you"). Never the segmented
+  `default` variant.
 - **File viewers** (image, PDF): a view toolbar (`.viewer-toolbar`, `surface-2`, `--line`
   bottom border, `bar` icon buttons) over a `bg-sunken` stage with 16px padding. Order: file
   name (`ui-sm`, truncates first), meta in mono `ui-xs` `fg-muted` `tabular-nums` (image size,
