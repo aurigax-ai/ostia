@@ -11,6 +11,7 @@ export interface SandboxPaths {
   socketPath: string
   runtimeReads: string[]
   agentSockets?: string[]
+  tmpRoot?: string
 }
 
 export const AGENT_DATA_DIRS = ['.claude', '.codex']
@@ -45,6 +46,7 @@ export function buildSrtConfig(
   const agentSocketDirs = (paths.agentSockets ?? []).map((sock) => dirname(sock))
   const denyRead = [home, ...paths.dataDirs, ...hidden, ...agentSocketDirs]
   if (paths.runtimeDir) denyRead.push(paths.runtimeDir)
+  if (paths.tmpRoot) denyRead.push(paths.tmpRoot)
   const insideData = (path: string): boolean =>
     paths.dataDirs.some(
       (dir) => path === dir || path.startsWith(`${dir}/`) || dir.startsWith(`${path}/`),
