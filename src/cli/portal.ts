@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { type Socket, createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { StringDecoder } from 'node:string_decoder'
+import { setTimeout as sleep } from 'node:timers/promises'
 import {
   type MessageConnection,
   StreamMessageReader,
@@ -56,7 +57,7 @@ export async function connectPortal(
   launch(appBin, env)
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, START_POLL_MS))
+    await sleep(START_POLL_MS)
     const socket = await connectOnce(path)
     if (socket) return socket
   }

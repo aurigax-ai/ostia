@@ -549,8 +549,11 @@ Details: `docs/ARCHITECTURE.md`.
   glyphs (`↻`, `×`) standing in for icons. Icons are never tinted with the brand color.
 - **Motion:** overlays built on `components/ui/` get `motion-overlay` (or `motion-hint` for
   tooltips) and animate through Base UI's `data-starting-style`/`data-ending-style`; don't add
-  tw-animate `animate-in`/`zoom-*`/`slide-*` classes. No scale on press, springs, bounces,
-  staggered lists or page transitions.
+  tw-animate `animate-in`/`zoom-*`/`slide-*` classes. A floating card that isn't a Base UI popup
+  gets `motion-enter`. No scale on press, springs (incl. smooth/spring scrolls), bounces,
+  staggered lists, page transitions or decorative loops (spinners, shimmers). JS-driven motion
+  follows `useReducedMotion()`; extension panels time transitions with `sdk/panel.css`'s
+  tokens. `src/renderer/lib/motion.test.tsx` enforces the raw-timing and class rules.
 - **Strings:** every user-visible string goes through `i18n/dict.ts` (en + zh-Hant).
 
 ---
@@ -787,7 +790,5 @@ Rules:
   `PINE_TOKEN`, so `pine <agent>` from it opens the manager. The check stops a confused or
   injected agent, not a determined process running as the same user.
 - **Plugin light themes have no terminal palette or Monaco theme of their own.** Only `pine-light` does; a plugin theme falls back to the One Dark Vivid terminal palette, and Monaco follows the theme's `appearance`.
-- **Sandboxes are not VMs.** bwrap/Seatbelt stop a misbehaving agent, not a kernel exploit. The
-  editor doesn't reload files changed on disk, so an agent's write to an open file shows only after
-  reopening it. SBX-C58 (macOS loopback-only binding) runs only on macOS.
+- **Sandboxes are not VMs.** bwrap/Seatbelt stop a misbehaving agent, not a kernel exploit. SBX-C58 (macOS loopback-only binding) runs only on macOS.
 - **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch).

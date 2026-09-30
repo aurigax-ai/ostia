@@ -46,7 +46,7 @@ export function ApprovalCard({
   return (
     <section
       aria-label={d.approvals.title}
-      className="motion-overlay absolute right-2 bottom-2 left-2 z-20 flex flex-col gap-2 rounded-md border border-line bg-surface-3 p-3 text-fg text-ui-sm shadow-md"
+      className="motion-enter absolute right-2 bottom-2 left-2 z-20 flex origin-bottom flex-col gap-2 rounded-md border border-line bg-surface-3 p-3 text-fg text-ui-sm shadow-md"
     >
       <div className="flex items-center gap-2">
         <ShieldWarningIcon size={14} aria-hidden />

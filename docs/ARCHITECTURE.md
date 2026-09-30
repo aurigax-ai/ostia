@@ -701,9 +701,10 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - New workspaces (`addWorkspace`): the first `workspaceGroups.byCwd` rule whose glob matches
     the workDir puts it in that group (created by name if missing, at the group's end). Otherwise,
     when the active workspace is in a group, the new one joins it right after the active one.
-    Otherwise it is appended ungrouped. Globs (`globToRegExp`): `*` within one path segment, `**`
-    across, `?` one character, matched against the whole workDir (trailing slashes ignored), so a
-    workspace opened at `~` matches only a pattern that covers the literal `~`.
+    Otherwise it is appended ungrouped. Globs (picomatch, `dot: true`, like the file tree): `*`
+    within one path segment, `**` across, `?` one character, matched against the whole workDir
+    (trailing slashes ignored), so a workspace opened at `~` matches only a pattern that covers
+    the literal `~`.
   - Group ids come from their own counter and are adopted on restore (`adoptGroupIds`), like
     workspace ids.
   - Commands: `workspace.newGroup`, `workspace.ungroup`, `workspace.toggleGroup`,
@@ -1470,6 +1471,25 @@ Two files written by two processes (see CLAUDE.md §6): the renderers write `wor
 
 ## 9. Editor, LSP, browser
 
+- **Files changed on disk** (spec `specs/editor-reload.md`): main watches the *folder* of every
+  file open in an editor (`main/fileWatch.ts`, Node `fs.watch`, debounced, confined to the `fs:*`
+  roots, refcounted per window) and sends `fs:changed` to the windows that have it open; the
+  editor also re-checks on window focus. Why the folder: agents and editors save by writing a
+  temp file and renaming it over the old one, which silently ends a watch on the file itself.
+  The editor keeps the text it last loaded or saved as its baseline (`diskBase` in
+  `Editor.tsx`). A clean buffer reloads as a minimal line edit between undo stops
+  (`lib/diskReload.ts`), so the cursor stays and Ctrl+Z restores the old text. A dirty buffer is
+  never touched: the "Changed on disk" bar offers Compare (diff surface, disk left), Reload and
+  Keep mine (the human's text becomes the baseline). A save first compares the disk with the
+  baseline and holds with Overwrite / Compare / Cancel if it moved; autosave never writes while
+  a bar is up. Re-checks are coalesced to one running plus one pending.
+  While a bar is up the pane tab shows a warning dot (`pane-disk-mark`, from `disk` in
+  `editorStatusStore`), a deleted file's title is struck through, and a deleted file counts as
+  unsaved in close, quit and move prompts (`unsavedFilesOf`). After a reload the changed lines
+  get a whole-line decoration (`editor-reload-highlight`, `--motion-highlight`) removed after
+  2 s; under reduced motion it's static. Why only reloads: the human's own typing must never
+  look like someone else's change.
+
 - **Monaco** (`monaco/setup.ts`, `components/Editor.tsx`):
   - Workers are bundled with Vite `?worker` imports (editor, json, css, html, ts), with no CDN.
   - The editor theme is derived from the scheme `useScheme('editor')` resolves from
@@ -2030,7 +2050,10 @@ The webview uses partition `pine-ext-<id>`, and `will-attach-webview` refuses it
 passes `isAllowedPanelUrl`. The guest gets the same hardening as browser panes (no preload, no
 node, sandbox, context isolation) plus: permission requests denied, `window.open` routed to
 `openExternalSafe`, and navigations/redirects outside the allowed file dir / origin blocked. The
-renderer injects the theme into the guest as `--pine-*` custom properties (`lib/panelTheme.ts`).
+renderer injects the theme into the guest as `--pine-*` custom properties (`lib/panelTheme.ts`),
+plus `--pine-motion-scale` from `useReducedMotion`. Why a scale and not a media query: the
+guest sees only the OS `prefers-reduced-motion`, not `appearance.motion`, and `insertCSS` only
+adds rules, so the value is re-sent as `0` or `1` on every change instead of being left out.
 Why panels talk only to their own process: the guest has no `window.pine` and no token, so a
 compromised or buggy panel can do no more than its extension already can.
 

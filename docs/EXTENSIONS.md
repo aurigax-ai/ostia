@@ -319,8 +319,13 @@ URL. Navigating keeps the existing panel pane and webview.
 pine injects its theme into the page as CSS custom properties once it loads and whenever the
 theme changes: `--pine-<token>` for every theme token (`--pine-bg`, `--pine-surface-1`,
 `--pine-fg`, `--pine-fg-muted`, `--pine-brand`, `--pine-line`, `--pine-attn-fg`, …) plus
-`--pine-font-ui` and `--pine-font-mono`. Use them with fallbacks
-(`var(--pine-surface-1, #272a2d)`); `src/extensions/sdk/panel.css` is a ready base.
+`--pine-font-ui` and `--pine-font-mono`, and `--pine-motion-scale` (`1`, or `0` while the human
+has reduced motion on). Use them with fallbacks
+(`var(--pine-surface-1, #272a2d)`); `src/extensions/sdk/panel.css` is a ready base. It also
+defines pine's motion tokens (`--motion-fast`, `--motion-base`, their `-exit` pair, `--ease-out`,
+`--ease-in`), already multiplied by `--pine-motion-scale`: time every transition with them and
+animate only opacity and transform (hover may change colors), so a panel follows Pine's motion
+rules and its reduced-motion setting (`docs/DESIGN.md` §8).
 
 ## Lifecycle
 

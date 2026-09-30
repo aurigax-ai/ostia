@@ -6,7 +6,7 @@ import {
   type RunningGroup,
   useCloseConfirmStore,
 } from '../stores/closeConfirmStore'
-import { useEditorStatus } from '../stores/editorStatusStore'
+import { type DiskProblem, useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
@@ -28,10 +28,12 @@ export function runningCommandsOf(
 export function unsavedFilesOf(
   panes: readonly PaneNode[],
   dirty: Readonly<Record<string, boolean>>,
+  disk: Readonly<Record<string, DiskProblem>> = {},
 ): string[] {
   const files = new Set<string>()
   for (const pane of panes) {
-    if (pane.kind === 'editor' && pane.filePath && dirty[pane.filePath]) files.add(pane.filePath)
+    if (pane.kind !== 'editor' || !pane.filePath) continue
+    if (dirty[pane.filePath] || disk[pane.filePath] === 'deleted') files.add(pane.filePath)
   }
   return [...files]
 }
@@ -43,7 +45,11 @@ function groupOf(workspace: Workspace, panes: readonly PaneNode[]): RunningGroup
     running,
     byPane,
   )
-  const files = unsavedFilesOf(panes, useEditorStatus.getState().dirty)
+  const files = unsavedFilesOf(
+    panes,
+    useEditorStatus.getState().dirty,
+    useEditorStatus.getState().disk,
+  )
   if (commands.length === 0 && files.length === 0) return null
   return {
     workspaceId: workspace.id,
@@ -128,7 +134,11 @@ export function confirmQuit(groups: RunningGroup[]): Promise<boolean> {
 }
 
 export function confirmMove(workspace: Workspace, panes: readonly PaneNode[]): Promise<boolean> {
-  const files = unsavedFilesOf(panes, useEditorStatus.getState().dirty)
+  const files = unsavedFilesOf(
+    panes,
+    useEditorStatus.getState().dirty,
+    useEditorStatus.getState().disk,
+  )
   if (files.length === 0) return Promise.resolve(true)
   return confirmGroups('move', [
     {

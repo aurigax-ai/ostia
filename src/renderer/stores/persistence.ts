@@ -1,3 +1,4 @@
+import { debounce } from 'es-toolkit'
 import { type RestorableWorkspace, buildSnapshot } from '../layout/snapshot'
 import { allPanes } from '../layout/tree'
 import { runningAgentOf } from '../lib/paneAgent'
@@ -12,7 +13,7 @@ export function isRestorable(workspace: Workspace): workspace is Workspace & Res
 
 const SAVE_DEBOUNCE_MS = 400
 
-let timer: ReturnType<typeof setTimeout> | null = null
+const scheduleSave = debounce(saveSnapshotNow, SAVE_DEBOUNCE_MS)
 let clearedForDisabled = false
 let frozen = false
 
@@ -32,10 +33,7 @@ export function freezeSnapshots(): void {
 }
 
 export function saveSnapshotNow(): void {
-  if (timer) {
-    clearTimeout(timer)
-    timer = null
-  }
+  scheduleSave.cancel()
   const api = window.pine?.workspace
   if (!api || frozen) return
 
@@ -61,20 +59,15 @@ export function saveSnapshotNow(): void {
   )
 }
 
-function schedule(): void {
-  if (timer) clearTimeout(timer)
-  timer = setTimeout(saveSnapshotNow, SAVE_DEBOUNCE_MS)
-}
-
 export function startSnapshotAutosave(): () => void {
   saveSnapshotNow()
 
   const unsubscribe = [
-    useWorkspacesStore.subscribe(schedule),
-    useLayoutStore.subscribe(schedule),
-    useSettingsStore.subscribe(schedule),
+    useWorkspacesStore.subscribe(() => scheduleSave()),
+    useLayoutStore.subscribe(() => scheduleSave()),
+    useSettingsStore.subscribe(() => scheduleSave()),
     useBlocksStore.subscribe((s, prev) => {
-      if (s.running !== prev.running) schedule()
+      if (s.running !== prev.running) scheduleSave()
     }),
   ]
   const onUnload = (): void => saveSnapshotNow()
@@ -83,9 +76,6 @@ export function startSnapshotAutosave(): () => void {
   return () => {
     for (const off of unsubscribe) off()
     window.removeEventListener('beforeunload', onUnload)
-    if (timer) {
-      clearTimeout(timer)
-      timer = null
-    }
+    scheduleSave.cancel()
   }
 }

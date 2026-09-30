@@ -73,6 +73,7 @@ import type { ExtensionRoot } from './extensionManifest'
 import { createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 import { openInExternalEditor } from './externalEditor'
+import { FileWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
@@ -747,6 +748,7 @@ function wireWindow(win: BrowserWindow): void {
   windows.set(wid, win)
   win.on('closed', () => {
     windows.delete(wid)
+    fileWatches?.unwatchOwner(wid)
     commandsByWindow.delete(wid)
     for (const [paneId, wcId] of browserPanes) {
       if (getByPaneId(paneId)?.windowId === wid) {
@@ -1410,6 +1412,9 @@ function attachMirror(paneId: string, sink: MirrorSink): MirrorHandle | null {
   }
 }
 
+const FILE_WATCH_DEBOUNCE_MS = 150
+let fileWatches: FileWatches | null = null
+
 function registerFsIpc(): void {
   const allowedRoots = [homedir(), app.getPath('userData')]
   const settingsFile = join(app.getPath('userData'), 'settings.json')
@@ -1450,6 +1455,23 @@ function registerFsIpc(): void {
   })
 
   ipcMain.handle('fs:read-binary', (_e, path: unknown) => readBinaryConfined(path, allowedRoots))
+
+  fileWatches = new FileWatches({
+    roots: allowedRoots,
+    debounceMs: FILE_WATCH_DEBOUNCE_MS,
+    onChange: ({ path, exists, owners }) => {
+      for (const owner of owners) {
+        const win = windows.get(owner)
+        if (win && !win.isDestroyed()) win.webContents.send('fs:changed', { path, exists })
+      }
+    },
+  })
+  ipcMain.handle('fs:watch', (e, path: unknown): boolean =>
+    typeof path === 'string' ? (fileWatches?.watch(String(e.sender.id), path) ?? false) : false,
+  )
+  ipcMain.on('fs:unwatch', (e, path: unknown) => {
+    if (typeof path === 'string') fileWatches?.unwatch(String(e.sender.id), path)
+  })
 
   ipcMain.handle('fs:write', (e, path: string, content: string): boolean => {
     const safe = resolveSafe(path, allowedRoots)

@@ -27,6 +27,12 @@
   --group-pink: var(--pine-group-pink, #e38fc0);
   --font-ui: var(--pine-font-ui, system-ui, sans-serif);
   --font-mono: var(--pine-font-mono, ui-monospace, monospace);
+  --motion-fast: calc(90ms * var(--pine-motion-scale, 1));
+  --motion-base: calc(150ms * var(--pine-motion-scale, 1));
+  --motion-fast-exit: calc(63ms * var(--pine-motion-scale, 1));
+  --motion-base-exit: calc(105ms * var(--pine-motion-scale, 1));
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
 }
 
 * {
