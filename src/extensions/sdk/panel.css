@@ -12,6 +12,7 @@
   --fg-dim: var(--pine-fg-dim, #767d82);
   --brand: var(--pine-brand, #00d8ff);
   --brand-glow: var(--pine-brand-glow, rgba(0, 216, 255, 0.18));
+  --on-brand: var(--pine-on-brand, #1d2022);
   --attn: var(--pine-attn, #bf5f54);
   --attn-fg: var(--pine-attn-fg, #db8176);
   --ok: var(--pine-ok, #58c98c);
@@ -33,6 +34,10 @@
   --text-ui-lg: 16px;
   --radius-sm: 6px;
   --radius-md: 8px;
+  --radius-full: 999px;
+  --switch-width: 32px;
+  --switch-height: 18px;
+  --switch-thumb: 14px;
   --motion-fast: calc(90ms * var(--pine-motion-scale, 1));
   --motion-base: calc(150ms * var(--pine-motion-scale, 1));
   --motion-fast-exit: calc(63ms * var(--pine-motion-scale, 1));
@@ -146,4 +151,50 @@ input[type="radio"]:focus-visible {
   justify-content: center;
   padding: 16px;
   text-align: center;
+}
+
+.switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: var(--switch-width);
+  height: var(--switch-height);
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast)
+    var(--ease-out);
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: calc((var(--switch-height) - 2px - var(--switch-thumb)) / 2);
+  left: calc((var(--switch-height) - 2px - var(--switch-thumb)) / 2);
+  width: var(--switch-thumb);
+  height: var(--switch-thumb);
+  border-radius: var(--radius-full);
+  background: var(--fg-muted);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.switch:checked {
+  border-color: var(--brand);
+  background: var(--brand);
+}
+
+.switch:checked::after {
+  transform: translateX(calc(var(--switch-width) - var(--switch-height)));
+  background: var(--on-brand);
+}
+
+.switch:focus-visible {
+  outline-offset: 2px;
+}
+
+.switch:disabled {
+  cursor: default;
+  opacity: 0.5;
 }

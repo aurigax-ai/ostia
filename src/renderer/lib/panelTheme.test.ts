@@ -37,7 +37,7 @@ describe('panelThemeCss', () => {
 
   it('scales panel motion to zero while motion is reduced and back to one after', () => {
     const fonts = { ui: 'Inter', mono: 'Mono' }
-    expect(panelThemeCss({}, fonts, true)).toContain('--pine-motion-scale: 0;')
-    expect(panelThemeCss({}, fonts, false)).toContain('--pine-motion-scale: 1;')
+    expect(panelThemeCss({}, fonts, 'dark', true)).toContain('--pine-motion-scale: 0;')
+    expect(panelThemeCss({}, fonts, 'dark', false)).toContain('--pine-motion-scale: 1;')
   })
 })
