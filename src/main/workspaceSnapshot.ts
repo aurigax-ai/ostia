@@ -74,6 +74,7 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     copyOptionalString(raw, pane, 'extensionId')
     const resume = parseAgentResume(raw.resume)
     if (resume) pane.resume = resume
+    if (resume && raw.agentRunning === true) pane.agentRunning = true
     if (pane.kind === 'extension' && !pane.extensionId) return null
     paneIds.push(id)
     return pane

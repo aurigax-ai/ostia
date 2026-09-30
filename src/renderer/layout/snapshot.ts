@@ -25,15 +25,30 @@ export interface RestorableLayout {
   zoomedPaneId: null
 }
 
-function fromPane(pane: PaneNode): SnapshotPaneNode {
-  const { kind, hibernated: _hibernated, ...rest } = pane
-  return { ...rest, kind: kind === 'diff' ? 'terminal' : kind }
+function fromPane(pane: PaneNode, live: ReadonlySet<string>): SnapshotPaneNode {
+  const { kind, hibernated: _hibernated, resumePending, ...rest } = pane
+  const agentRunning = Boolean(rest.resume) && (live.has(pane.id) || resumePending === true)
+  return {
+    ...rest,
+    kind: kind === 'diff' ? 'terminal' : kind,
+    ...(agentRunning ? { agentRunning: true } : {}),
+  }
 }
 
-function fromLayoutNode(node: LayoutNode): SnapshotNode {
-  if (node.type === 'pane') return fromPane(node)
-  if (node.type === 'tabs') return { ...node, children: node.children.map(fromPane) }
-  return { ...node, children: node.children.map(fromLayoutNode), sizes: [...node.sizes] }
+function fromLayoutNode(node: LayoutNode, live: ReadonlySet<string>): SnapshotNode {
+  if (node.type === 'pane') return fromPane(node, live)
+  if (node.type === 'tabs')
+    return { ...node, children: node.children.map((c) => fromPane(c, live)) }
+  return {
+    ...node,
+    children: node.children.map((c) => fromLayoutNode(c, live)),
+    sizes: [...node.sizes],
+  }
+}
+
+function toPane(node: SnapshotPaneNode): PaneNode {
+  const { agentRunning, ...rest } = node
+  return agentRunning && rest.resume ? { ...rest, resumePending: true } : { ...rest }
 }
 
 function persistableRoot(root: LayoutNode, workDir: string): LayoutNode {
@@ -49,8 +64,8 @@ function persistableRoot(root: LayoutNode, workDir: string): LayoutNode {
 }
 
 function toLayoutNode(node: SnapshotNode): LayoutNode {
-  if (node.type === 'pane') return { ...node }
-  if (node.type === 'tabs') return { ...node, children: node.children.map((c) => ({ ...c })) }
+  if (node.type === 'pane') return toPane(node)
+  if (node.type === 'tabs') return { ...node, children: node.children.map(toPane) }
   return { ...node, children: node.children.map(toLayoutNode), sizes: [...node.sizes] }
 }
 
@@ -69,7 +84,9 @@ export function buildSnapshot(input: {
   activeWorkspaceId: string | null
   layouts: Record<string, { root: LayoutNode; activePaneId: string }>
   savedAt: string
+  liveAgentPanes?: ReadonlySet<string>
 }): AppSnapshot {
+  const live = input.liveAgentPanes ?? new Set<string>()
   const workspaces: SnapshotWorkspace[] = []
   for (const workspace of input.workspaces) {
     const layout = input.layouts[workspace.id]
@@ -85,7 +102,7 @@ export function buildSnapshot(input: {
       workDir: workspace.workDir,
       ...(layout && root
         ? {
-            root: fromLayoutNode(root),
+            root: fromLayoutNode(root, live),
             activePaneId: findPane(root, layout.activePaneId)
               ? layout.activePaneId
               : firstPaneId(root),

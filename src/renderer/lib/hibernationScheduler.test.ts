@@ -48,7 +48,10 @@ function run(paneId: string, command: string): void {
 
 function seed(maxLiveTerminals: number): void {
   useSettingsStore.setState({
-    agents: { hibernation: { enabled: true, idleSeconds: 600, maxLiveTerminals } },
+    agents: {
+      hibernation: { enabled: true, idleSeconds: 600, maxLiveTerminals },
+      autoResume: false,
+    },
   })
   useWorkspacesStore.setState({
     workspaces: [
@@ -117,7 +120,10 @@ describe('hibernateIdleAgents', () => {
   it('does nothing when hibernation is off', async () => {
     seed(0)
     useSettingsStore.setState({
-      agents: { hibernation: { enabled: false, idleSeconds: 600, maxLiveTerminals: 0 } },
+      agents: {
+        hibernation: { enabled: false, idleSeconds: 600, maxLiveTerminals: 0 },
+        autoResume: false,
+      },
     })
     expect(await hibernateIdleAgents(NOW)).toEqual([])
   })

@@ -24,6 +24,7 @@ import {
   setPaneResume,
   setPaneTitle,
   setPaneUrl,
+  setResumePending,
   setSizes,
   slotCount,
   slotPaneOfKind,
@@ -56,9 +57,12 @@ interface LayoutState {
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
+  setResumePending: (workspaceId: string, paneId: string, pending: boolean) => void
   setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
   setTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
+  openFileBeside: (workspaceId: string, path: string) => void
+  openTerminalTab: (workspaceId: string, cwd: string) => string | null
   openBrowser: (workspaceId: string, url: string) => void
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openDiff: (workspaceId: string, content: DiffContent) => string | null
@@ -297,6 +301,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
     }),
 
+  setResumePending: (workspaceId, paneId, pending) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setResumePending(layout.root, paneId, pending)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
   setHibernated: (workspaceId, paneId, hibernated) =>
     set((s) => {
       const layout = s.byWorkspace[workspaceId]
@@ -345,6 +359,32 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (createdPaneId) {
       window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
+  },
+
+  openFileBeside: (workspaceId, path) => {
+    const title = path.split('/').pop() || path
+    if (seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
+        if (!newPaneId) return l
+        createdPaneId = newPaneId
+        return { ...l, root: setPaneEditor(root, newPaneId, title, path), activePaneId: newPaneId }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+  },
+
+  openTerminalTab: (workspaceId, cwd) => {
+    const layout = get().byWorkspace[workspaceId]
+    if (!layout) return get().openTerminal(workspaceId, { cwd })
+    const paneId = get().newTab(workspaceId, layout.activePaneId, 'terminal')
+    if (paneId) get().setCwd(workspaceId, paneId, cwd)
+    return paneId
   },
 
   openBrowser: (workspaceId, url) => {

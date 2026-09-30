@@ -348,6 +348,13 @@ export const SETTINGS_JSON_SCHEMA = {
       type: 'object',
       additionalProperties: false,
       properties: {
+        autoResume: {
+          type: 'boolean',
+          description:
+            "Resume an agent session that was running when Pine quit, at its pane's first idle " +
+            'prompt once the pane is visible. Only you can change this; pine settings set ' +
+            'refuses it. Default: false.',
+        },
         hibernation: {
           type: 'object',
           additionalProperties: false,

@@ -39,11 +39,13 @@ import type {
   LspServerInfo,
   LspStartResult,
   NotificationEntry,
+  OpenPathResult,
   PineBridge,
   Platform,
   PromptContext,
   PtyAttachResult,
   SyncStatus,
+  WorkspaceProject,
 } from '../shared/types'
 import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
 
@@ -185,6 +187,13 @@ const bridge: PineBridge = {
       ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
     storageClear: (paneId, kind) =>
       ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
+  },
+  openPath: {
+    openDefault: (path) =>
+      ipcRenderer.invoke('shell:open-default', path) as Promise<OpenPathResult>,
+    reveal: (path) => ipcRenderer.invoke('shell:reveal', path) as Promise<OpenPathResult>,
+    project: (dir) =>
+      ipcRenderer.invoke('workspace:project', dir) as Promise<WorkspaceProject | null>,
   },
   agentSession: {
     info: (resume) =>

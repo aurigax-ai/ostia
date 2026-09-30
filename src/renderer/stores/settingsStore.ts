@@ -81,6 +81,7 @@ export interface HibernationSettings {
 
 export interface AgentSettings {
   hibernation: HibernationSettings
+  autoResume: boolean
 }
 
 export const HIBERNATION_IDLE_MIN = 5
@@ -306,7 +307,7 @@ const DEFAULTS: Persisted = {
     showPorts: true,
     showSSH: true,
   },
-  agents: { hibernation: DEFAULT_HIBERNATION },
+  agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false },
   workspaceGroups: { byCwd: [] },
   extensionSettings: {},
   approvals: DEFAULT_APPROVAL_SETTINGS,
@@ -334,6 +335,7 @@ interface SettingsState extends Persisted {
   setWorkspaces: (patch: Partial<WorkspaceSettings>) => void
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
+  setAutoResume: (autoResume: boolean) => void
   setHibernation: (patch: Partial<HibernationSettings>) => void
   previewSetting: (path: string, value: unknown) => SettingChange
   setByPath: (path: string, value: unknown) => SettingChange
@@ -395,7 +397,10 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     browser: parseBrowserSettings(p.browser),
     editor: parseEditorSettings(p.editor),
     keybindings: parseKeybindings(p.keybindings),
-    agents: { hibernation: parseHibernation(p.agents?.hibernation) },
+    agents: {
+      hibernation: parseHibernation(p.agents?.hibernation),
+      autoResume: p.agents?.autoResume === true,
+    },
     workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
     extensionSettings: extensionSettingsOf(p.extensionSettings),
     capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
@@ -655,6 +660,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setExtensionSettings: (extId, values) => {
     set((s) => ({ extensionSettings: { ...s.extensionSettings, [extId]: values } }))
+    scheduleSave(get)
+  },
+  setAutoResume: (autoResume) => {
+    set((s) => ({ agents: { ...s.agents, autoResume } }))
     scheduleSave(get)
   },
   setHibernation: (patch) => {
