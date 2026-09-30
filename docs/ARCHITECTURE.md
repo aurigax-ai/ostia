@@ -1235,7 +1235,9 @@ workspace running that agent and mirrors it in the terminal.
   ancestors (covers pane shells, extensions and background processes), `PINE_TOKEN` in its
   `/proc/<pid>/environ`, or a controlling tty that is one of Pine's ptys (the manager's own
   included). Anything unreadable refuses too (`unknown-caller`). There is no approval prompt, so
-  this check is the whole gate (§8 has the gap).
+  this check is the whole gate (§8 has the gap). `ss` is the `manager` system requirement
+  (`systemRequirements.ts`): without it `portal.open` refuses first with `missing-requirements`
+  and the install hint, and Settings → Manager offers the System extension's approved install.
 - **One manager, one mirror.** `ManagerService` keeps one `{paneId, agent}`: the same agent
   attaches, another fails `manager-busy`, concurrent opens share one start. The portal keeps one
   mirror slot (`mirror-attached`). Presets are `manager.agents` in settings.json merged over the

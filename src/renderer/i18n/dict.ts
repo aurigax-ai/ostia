@@ -764,6 +764,10 @@ export const en = {
     spawnsPer10MinDesc: 'Stops a manager that keeps starting workers in a loop.',
     busPerMinute: 'Messages per minute',
     busPerMinuteDesc: 'Most bus messages the manager can send in a minute.',
+    requirementsBody:
+      'The manager needs {packages} to check that pine <agent> comes from outside Pine. Until it is installed, every pine <agent> is refused.',
+    install: 'Install',
+    copyCommand: 'Copy command',
   },
   closeConfirm: {
     workspaceTitle: 'Close this workspace?',
@@ -1973,6 +1977,10 @@ export const zhHant: Dict = {
     spawnsPer10MinDesc: '阻止管理員不斷重複啟動工作者。',
     busPerMinute: '每分鐘訊息數',
     busPerMinuteDesc: '管理員每分鐘可傳送的匯流排訊息上限。',
+    requirementsBody:
+      '管理員需要 {packages} 來確認 pine <agent> 來自 Pine 之外。在安裝之前，所有 pine <agent> 都會被拒絕。',
+    install: '安裝',
+    copyCommand: '複製指令',
   },
   closeConfirm: {
     workspaceTitle: '要關閉此工作區嗎？',

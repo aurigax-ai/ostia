@@ -18,7 +18,7 @@ import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import type { ExtensionPanelContext, ExtensionResult } from '../shared/extensions'
-import { managerAgents, parseManagerSettings } from '../shared/managerSettings'
+import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { PRODUCT_NAME } from '../shared/product'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
@@ -1719,6 +1719,8 @@ function startPortal(): void {
   if (!managerService || !portalSupported(process.platform)) return
   const service = managerService
   portal = new Portal(portalSocketPath(app.isPackaged), {
+    missing: () => missingRequirements(MANAGER_FEATURE),
+    hint: (missing) => installHint(missing),
     judge: (socket) =>
       callerVerdict(socket, {
         mainPid: process.pid,

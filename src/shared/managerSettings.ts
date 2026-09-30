@@ -1,3 +1,5 @@
+export const MANAGER_FEATURE = 'manager'
+
 export const MANAGER_AGENT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 export const MANAGER_MAX_ARGS = 64
 export const MANAGER_MAX_ARG_LENGTH = 4096
