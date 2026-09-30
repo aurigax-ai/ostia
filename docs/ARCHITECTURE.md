@@ -564,9 +564,16 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   touch `blocksStore`.
   - Main keeps the snapshot only if its `generation` is ≥ the cached one.
   - Main emits `pane.state` only when a field actually changed.
-- **Terminal palette** (`components/terminalTheme.ts`): xterm draws to canvas and can't read CSS
-  variables, so each theme's palette is duplicated here. Only `adeberry`, `one-dark-vivid` and
-  `pine-light` have palettes; other themes fall back to One Dark Vivid.
+- **Terminal colors** (`lib/colorScheme.ts`): xterm draws to canvas and can't read CSS
+  variables, so the terminal gets a color scheme object (`plugins/colorSchemes.ts`) as its
+  `ITheme`. `useScheme('terminal')` resolves `terminal.theme`: `"match"` (default) uses the
+  scheme the effective Pine theme names (`Theme.colorScheme`; a theme naming an unknown scheme
+  gets the first scheme of its appearance), any other id that scheme (an unknown id falls back
+  to the linked one). A linked scheme with a custom accent takes the accent's brand color as its
+  cursor (`accentScheme`). The result is memoized, so `Terminal.tsx` resets `term.options.theme`
+  only when the scheme really changes. Why a separate axis instead of one palette per theme:
+  people keep a favorite terminal scheme (Catppuccin, Gruvbox) under any app chrome, and a plugin
+  theme no longer has to ship a palette to get a terminal of the right lightness.
 
 ## 5. Renderer model
 
@@ -903,10 +910,13 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   `appearance` (theme + ui/terminal/editor fonts), `behavior` (`cursorStyle`,
   `cursorBlink`, `restoreWorkspace`), `files` (the Files tree, below), `workspaces` (`placement`, `inheritFolder`, `defaultFolder`,
   `confirmClose`, `confirmQuit`, `wrapTitles`), `terminal` (`scrollSpeed`, `scrollbackLines`,
-  `warnOnRiskyPaste`, `minimumContrast`), `panes` (`dimInactive`, `focusOnHover`,
+  `warnOnRiskyPaste`, `minimumContrast`, `theme`), `panes` (`dimInactive`, `focusOnHover`,
   `equalizeOnSplit`, `hideTabClose`), `keybindings`, `capabilities.grants`, `sync.dir`.
   - `browser` and `editor` are their own groups, parsed by `shared/browserEditorSettings.ts`
     (invalid values fall back to defaults, zoom is clamped to 50 to 300).
+  - `terminal.theme` and `editor.theme` go through `parseThemeChoice` (`shared/themeChoice.ts`):
+    a trimmed scheme id up to 80 characters, else `"match"`. The id itself is checked against
+    the catalog only when it is resolved, so a scheme a plugin adds later is not lost on load.
   - `keybindings` is validated on load by `parseKeybindings`: only string chords that parse
     and `null` survive. The platform guard is applied when the effective map is built.
   - `settings/terminalPaneSettings.ts` holds the pure parsing and clamping for the `terminal` and
@@ -924,7 +934,9 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
   - `settings/settingsSchema.ts` holds the JSON Schema for that file (also served by `pine settings schema`); `settings/registerSettingsSchema.ts` registers it with Monaco.
 - `plugins/builtin.ts` is a registry of built-in contributions only: themes (`adeberry`,
-  `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`, `pine-light`), LSP entries, locales (`en`, `zh-Hant`).
+  `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`, `pine-light`, each naming its
+  `colorScheme`), color schemes (`contributes.colorSchemes`, the 26 in `plugins/colorSchemes.ts`;
+  catalog and sources in `docs/DESIGN.md` §3), LSP entries, locales (`en`, `zh-Hant`).
   These are data-only contributions; behavior and UI come from extensions (§11), listed in the
   same Settings → Plugins section.
 - i18n: typed catalogs in `i18n/dict.ts`, read via `useDict()`.
@@ -1285,8 +1297,12 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
 
 - **Monaco** (`monaco/setup.ts`, `components/Editor.tsx`):
   - Workers are bundled with Vite `?worker` imports (editor, json, css, html, ts), with no CDN.
-  - The editor uses `one-dark-vivid` for dark app themes and `pine-light` for light ones
-    (`monaco/useMonacoTheme.ts`; `monaco.editor.setTheme` is global, so every open editor follows).
+  - The editor theme is derived from the scheme `useScheme('editor')` resolves from
+    `editor.theme` (same rules as the terminal): `monacoThemeData` (`monaco/monacoTheme.ts`, pure)
+    maps ANSI colors onto Monaco token rules and editor colors, and `useMonacoTheme` defines it as
+    `pine-scheme-<id>` and sets it (`monaco.editor.setTheme` is global, so every open editor and
+    diff follows). Why derive instead of shipping Monaco themes: one scheme then colors the terminal,
+    the editor and the Settings preview identically, and a plugin scheme gets an editor theme free.
   - Ctrl/Cmd+S saves through `fs.write`. Dirty state compares `getAlternativeVersionId` with the
     saved version (mirrored to `editorStatusStore`).
   - Files with a NUL byte in the first 8 KB are not opened.
@@ -1494,8 +1510,13 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
     and its `updated` event do. Main pushes `window:system-dark-changed`; `boot()` reads the
     initial value before the first render so a light OS does not flash the dark theme.
   - The accent is applied over the theme tokens by `themedTokens`, and extension panels get the
-    same tokens (`--pine-brand`). A color that reads under 4.5:1 on the theme background is moved
-    toward black or white until it does.
+    same tokens (`--pine-brand`, `--pine-on-brand`). A color that reads under 4.5:1 on the theme
+    background is moved toward black or white until it does. `themedTokens` always adds
+    `on-brand` (`readableOn`), the text color for brand fills, and `index.css` points
+    `--primary-foreground` and `--sidebar-primary-foreground` at `--color-on-brand`. Why: the
+    shadcn foregrounds used to be the theme background, overridden inline only for a custom
+    accent, so the sidebar variant kept the background color and a theme brand never got a
+    contrast check. One computed token keeps every brand fill readable for any theme and accent.
   - Zoom is `window:set-zoom` (clamped to 80 to 150 in main, per sender). The terminal re-fits
     through its existing debounced `ResizeObserver` (the CSS viewport changes with the zoom), so
     the prompt-aware resize path in §6 is the only code that resizes the pty; there is no
