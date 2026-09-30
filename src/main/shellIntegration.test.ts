@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { privateTmpDir } from './privateTmp'
-import { claudeHookSettings, shellIntegrationSpawnOptions } from './shellIntegration'
+import {
+  CLAUDE_PLUGIN_MANIFEST,
+  claudeHookSettings,
+  shellIntegrationSpawnOptions,
+} from './shellIntegration'
 
 const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
 const ZSH_INIT = join(INTEGRATION_DIR, 'init.zsh')
@@ -12,7 +16,7 @@ const ZSH_ENV = join(INTEGRATION_DIR, '.zshenv')
 const ZSH_RC = join(INTEGRATION_DIR, '.zshrc')
 const BASH_INIT = join(INTEGRATION_DIR, 'init.bash')
 const BASH_RC = join(INTEGRATION_DIR, 'bashrc')
-const CLAUDE_SETTINGS = join(INTEGRATION_DIR, 'claude-settings.json')
+const CLAUDE_PLUGIN = join(INTEGRATION_DIR, 'claude-plugin')
 
 describe('shellIntegrationSpawnOptions', () => {
   describe('zsh', () => {
@@ -154,9 +158,20 @@ describe('shellIntegrationSpawnOptions', () => {
   })
 
   describe('claude hooks', () => {
+    it('writes a Claude Code plugin with the pine skill and its manifest', () => {
+      shellIntegrationSpawnOptions('/bin/bash', {})
+      const manifest = JSON.parse(
+        readFileSync(join(CLAUDE_PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8'),
+      )
+      expect(manifest).toEqual(CLAUDE_PLUGIN_MANIFEST)
+      const skill = readFileSync(join(CLAUDE_PLUGIN, 'skills', 'pine', 'SKILL.md'), 'utf8')
+      expect(skill).toMatch(/^---\nname: pine\ndescription: /)
+      expect(skill).toContain('ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI"')
+    })
+
     it('writes Claude Code hooks that record the resume token and attention state', () => {
       shellIntegrationSpawnOptions('/bin/bash', {})
-      const settings = JSON.parse(readFileSync(CLAUDE_SETTINGS, 'utf8'))
+      const settings = JSON.parse(readFileSync(join(CLAUDE_PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
       expect(settings).toEqual(claudeHookSettings())
       const command = (event: string) => settings.hooks[event][0].hooks[0].command as string
       expect(command('SessionStart')).toContain('"$PINE_CLI" resume-token claude -')
@@ -165,7 +180,7 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(command('SessionStart')).toMatch(/^\[ -n "\$PINE_SOCKET" \] && .*\|\| true$/)
     })
 
-    it('makes claude in a Pine shell pass the hook settings and keep the user’s arguments', () => {
+    it('makes claude in a Pine shell load the plugin and keep the user’s arguments', () => {
       shellIntegrationSpawnOptions('/bin/bash', {})
       const bin = mkdtempSync(join(tmpdir(), 'pine-fake-claude-'))
       try {
@@ -179,8 +194,8 @@ describe('shellIntegrationSpawnOptions', () => {
           }).stdout.trim()
 
         expect(run('claude --resume abc').split('\n')).toEqual([
-          '--settings',
-          CLAUDE_SETTINGS,
+          '--plugin-dir',
+          CLAUDE_PLUGIN,
           '--resume',
           'abc',
         ])
