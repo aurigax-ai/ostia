@@ -268,7 +268,8 @@ pine settings get appearance.terminal.size
 pine settings set appearance.terminal.size 14 --dry-run   # validate and show {previous, value}, change nothing
 pine settings set appearance.terminal.size 14      # value parsed as JSON if it parses...
 pine settings set locale '"en"'                    # ...else used as the raw string
-pine settings set behavior.showHiddenFiles true
+pine settings set files.compactFolders false
+pine settings set files.exclude '["**/.git", "**/node_modules"]'
 pine settings unset appearance.terminal.size       # back to the default
 pine settings set keybindings.palette.toggle '"Ctrl+Shift+Y"'   # rebind a command
 pine settings set keybindings.view.toggleRail null              # unbind it

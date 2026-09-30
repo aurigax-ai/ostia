@@ -1,4 +1,5 @@
 import type { Capability } from './capabilities'
+import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
 import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'pine.json'
@@ -108,6 +109,7 @@ export interface ExtensionManifest {
     settings: ExtensionSettingContribution[]
     workflows?: Workflow[]
     completions?: string
+    iconThemes?: IconThemeContribution[]
   }
 }
 
@@ -135,6 +137,7 @@ export interface ExtensionInfo {
   paneChips: ExtensionPaneChipContribution[]
   settings: ExtensionSettingContribution[]
   settingValues: ExtensionSettingValues
+  iconThemes: IconThemeInfo[]
 }
 
 export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as const

@@ -71,8 +71,52 @@ no sidebar items and no pane chips.
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
+| `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
+
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`.
+
+## Icon themes
+
+`contributes.iconThemes` takes VS Code file icon themes as they ship in a `.vsix`, so a theme
+such as Material Icon Theme works without changes:
+
+1. Unzip the `.vsix` (it is a zip) and copy its `extension/` folder to
+   `~/.config/pine/extensions/<name>/`.
+2. Add a `pine.json` next to its `package.json`, pointing at the theme JSON the `package.json`
+   lists under `contributes.iconThemes[].path`:
+
+   ```json
+   {
+     "id": "material-icons",
+     "name": "Material Icon Theme",
+     "version": "5.0.0",
+     "contributes": {
+       "iconThemes": [
+         { "id": "material-icon-theme", "label": "Material Icon Theme", "path": "dist/material-icons.json" }
+       ]
+     }
+   }
+   ```
+
+3. Approve the extension when Pine asks, then pick the theme in Settings → Files → File icon
+   theme or the Files header's view options.
+
+What Pine reads from the theme JSON: `iconDefinitions` (entries with an `iconPath` to an SVG,
+PNG, JPEG, GIF or WebP file), `file`, `folder`, `folderExpanded`, `fileExtensions`, `fileNames`,
+`folderNames`, `folderNamesExpanded`, `languageIds`, and the same keys under `light` (used with a
+light Pine theme) and `highContrast`. A file resolves like VS Code: `fileNames`, then
+`fileExtensions` from the longest suffix (`d.ts` before `ts`), then `languageIds` (the VS Code
+language id of the name), then `file`; an open folder tries `folderNamesExpanded`, `folderNames`,
+`folderExpanded`, `folder`. Names match case-insensitively.
+
+Not supported: font icon themes (`fonts`, `fontCharacter` definitions are skipped),
+`rootFolder*` keys (Pine's tree has no root row), and `hidesExplorerArrows`.
+
+Main loads a theme only for an enabled extension and checks it: the theme JSON at most 4 MiB,
+each icon at most 512 KiB, all icons at most 48 MiB, every path inside the extension folder
+after resolving symlinks, and no symlinked file. Icons reach the renderer as `data:` URLs;
+the renderer never gets a path.
 
 ## Approval and capabilities
 
