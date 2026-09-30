@@ -137,11 +137,16 @@ export const en = {
   inputEditor: {
     label: 'Command input',
     placeholder: 'Run commands',
-    hint: 'Enter runs · Shift+Enter new line · ↑ history · {history} search · Tab paths · Esc terminal',
-    hintNoHistory: 'Enter runs · Shift+Enter new line · ↑ history · Tab paths · Esc terminal',
+    hint: 'Enter runs · Shift+Enter new line · ↑ history · → accept suggestion · {history} search · Tab complete · Esc terminal',
+    hintNoHistory:
+      'Enter runs · Shift+Enter new line · ↑ history · → accept suggestion · Tab complete · Esc terminal',
     cwd: 'Working directory',
     noCompletions: 'No matching paths',
-    moreCompletions: '+{n} more',
+    noCommands: 'No matching commands',
+    completions: 'Completions',
+    vimMode: 'Vim mode',
+    vimNormal: 'NORMAL',
+    vimInsert: 'INSERT',
   },
   find: {
     label: 'Find in terminal',
@@ -488,6 +493,9 @@ export const en = {
       'Input editor docks a multi-line editor under the command blocks while the shell waits at a prompt. Running programs still get your keys.',
     inputModeTerminal: 'Terminal',
     inputModeEditor: 'Input editor',
+    inputEditorVim: 'Vim keys in the input editor',
+    inputEditorVimDesc:
+      'Esc switches to normal mode (h j k l w b e 0 $ x dd dw cw u, with counts); i a A I o O return to insert mode. Enter runs the command from either mode.',
     groupSession: 'Session',
     panes: 'Panes',
     groupScrolling: 'Scrolling',
@@ -735,11 +743,15 @@ export const zhHant: Dict = {
   inputEditor: {
     label: '指令輸入',
     placeholder: '執行指令',
-    hint: 'Enter 執行 · Shift+Enter 換行 · ↑ 歷史 · {history} 搜尋 · Tab 路徑 · Esc 終端機',
-    hintNoHistory: 'Enter 執行 · Shift+Enter 換行 · ↑ 歷史 · Tab 路徑 · Esc 終端機',
+    hint: 'Enter 執行 · Shift+Enter 換行 · ↑ 歷史 · → 接受建議 · {history} 搜尋 · Tab 補全 · Esc 終端機',
+    hintNoHistory: 'Enter 執行 · Shift+Enter 換行 · ↑ 歷史 · → 接受建議 · Tab 補全 · Esc 終端機',
     cwd: '工作目錄',
     noCompletions: '沒有符合的路徑',
-    moreCompletions: '還有 {n} 個',
+    noCommands: '沒有符合的指令',
+    completions: '補全選項',
+    vimMode: 'Vim 模式',
+    vimNormal: '一般',
+    vimInsert: '插入',
   },
   find: {
     label: '在終端機中尋找',
@@ -1079,6 +1091,9 @@ export const zhHant: Dict = {
       '輸入編輯器會在 shell 等待提示字元時，於指令區塊下方顯示多行編輯器。執行中的程式仍直接接收按鍵。',
     inputModeTerminal: '終端機',
     inputModeEditor: '輸入編輯器',
+    inputEditorVim: '輸入編輯器使用 Vim 按鍵',
+    inputEditorVimDesc:
+      'Esc 切換到一般模式（h j k l w b e 0 $ x dd dw cw u，可加次數）；i a A I o O 回到插入模式。兩種模式下按 Enter 都會執行指令。',
     groupSession: '工作階段',
     panes: '面板',
     groupScrolling: '捲動',

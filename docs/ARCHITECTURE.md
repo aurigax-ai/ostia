@@ -156,7 +156,9 @@ dragons). Terminal name `xterm-color`.
 
 Spawn env: `PINE_PANE_ID` (the external id, not the renderer id), `PINE_TOKEN`, `PINE_SOCKET`,
 `PINE_START_DIR` (despite the name, the pane's spawn cwd), `PINE_CLI` (`out/cli/index.js`),
-`PINE_NODE` (`process.execPath`), plus the shell-integration env.
+`PINE_NODE` (`process.execPath`), `PINE_SHELL_STATE` (a random file in
+`privateTmpDir('pine-shell-state')` the shell writes its PATH and command names to, removed
+when the pty goes; see the input editor in §Terminal), plus the shell-integration env.
 
 - The live ring is capped at 1 MB. `pty:attach` returns a replay from the ring; `pty:detach`
   starts `DETACH_GRACE_MS` (3 s) before the pty is reaped.
@@ -308,12 +310,14 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   below it). It shows only while the pane is at an idle prompt (`drafts[paneId]` open, nothing
   `running`), the normal buffer is active (`term.buffer.onBufferChange`), and the prompt is not
   suppressed. It has a cwd chip (the pane's OSC 7 cwd), a hint built with `chordLabel`, and a
-  textarea in the terminal font that grows to about six lines.
+  textarea in the terminal font that grows to about six lines, with a highlighted overlay,
+  history suggestions, a completion menu and an optional vim mode (below).
   - Enter submits: an empty draft writes `\r`; otherwise `insertCommand(paneId, text, true)`,
     the same bracketed-paste-then-Enter path as rerun, so the shell receives exactly what typing
     would give it. Shift+Enter adds a newline, and a multi-line draft is pasted as one
-    bracketed paste, so zsh/bash run it as one command line. Ctrl+C clears the draft, Escape
-    focuses the terminal. Up on the first line (or while already walking) steps through
+    bracketed paste, so zsh/bash run it as one command line. Ctrl+C clears the draft. Escape
+    closes the completion menu, else dismisses the suggestion, else (vim mode) enters normal
+    mode, else focuses the terminal. Up on the first line (or while already walking) steps through
     `inputHistory`: this pane's commands newest first, then other panes' by start time, deduped.
   - Suppression is keyed on the prompt's A marker (`draft.promptLine`), not the draft object.
     Submitting suppresses the prompt it was submitted at, so the editor hides immediately
@@ -328,16 +332,68 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - Focus: when the editor appears and focus was already inside this terminal surface, the
     editor takes it; when it hides while focused (a command started), focus goes to xterm, so
     `cat`, `less`, vim or an agent CLI get every key. It never steals focus from another pane.
-  - Tab completes paths, never commands: the word before the caret (backslash-escaped spaces
+  - Autosuggestions: `historySuggestion` takes the first `inputHistory` entry (so this pane's
+    newest command wins, then other panes') that starts with the draft and is longer, and the
+    rest shows as ghost text after the caret. It shows only with the caret at the end of the
+    draft, no selection, no open menu, not while walking history or composing, and not in vim
+    normal mode. Right or End accepts it whole; Ctrl+Right (Alt+F on macOS) accepts the next
+    word (`suggestionWord`: leading spaces plus one word). Escape hides it until the draft
+    changes; typing that no longer matches drops it.
+  - Tab completes the command name in command position (`isCommandWord`: the word the
+    tokenizer would read as a command, first word or after `|`, `&&`, `;`, `$(`, past
+    `FOO=1` assignments, without a `/`), and paths everywhere else. Commands come from
+    `pty.commands(paneId)`, fetched each time a prompt shows; `completeCommand` ranks the
+    prefix matches (`rankCommands`: commands this history ran first, newest first, then shorter
+    names, then alphabetical). Paths: the word before the caret (backslash-escaped spaces
     understood) is split into dir and base, the dir is resolved against the pane cwd
-    (`resolveLinkPath`; `~` is expanded in main), and `fs.list` supplies the names. One match
-    is inserted (escaped, `/` for a directory, a space for a file); several extend to the
-    common prefix and are listed in the hint row; none shows "No matching paths". Dotfiles
-    need a leading dot. Why not ask the shell: bash and zsh draw their completion menus in the
-    terminal and edit their own line, which the editor would then have to read back off the
+    (`resolveLinkPath`; `~` is expanded in main), and `fs.list` supplies the names; dotfiles
+    need a leading dot. Either way one match is inserted (escaped, `/` for a directory, a space
+    otherwise); several extend to the common prefix and open a completion menu (shadcn
+    `Command` with a controlled value, `shouldFilter={false}`) above the editor: Up/Down move,
+    Enter or Tab picks (`applyCompletionItem` replaces the word, keeping its directory part),
+    Escape or any other key closes it. Focus stays in the textarea, which gets
+    `aria-activedescendant` from the menu's selected option. None shows "No matching commands"
+    or "No matching paths". Why not ask the shell: bash and zsh draw their completion menus in
+    the terminal and edit their own line, which the editor would then have to read back off the
     screen (the RPROMPT problem in §6 of CLAUDE.md) and which conflicts with keeping the shell
-    line empty. Why not commands: listing `$PATH` needs a new main-side API; commands still
-    complete in the terminal (Escape, type).
+    line empty.
+  - `pty:commands` (main, `shellCommands.ts`) answers only the window attached to the pane. It
+    reads the pane's `PINE_SHELL_STATE` file (`readShellState`: a regular file, not a symlink,
+    at most 1 MiB; first line the shell's `$PATH`, then its builtins, keywords, aliases and
+    functions not starting with `_`), falling back to the spawn env's PATH, then lists the
+    executables of every absolute PATH directory (`ExecutableIndex`: `readdir` + `stat` for
+    the execute bit, names only, never file contents; relative entries such as `.` are
+    skipped). Listings are cached per PATH string and reused until a directory's mtime
+    changes (at most 16 PATHs). The shell writes the file in its prompt hook
+    (`__pine_report_shell`), only when the PATH or the names changed. Why the shell reports
+    at all: the spawn env misses whatever `.zshrc`/`.bashrc` add to PATH (`~/.local/bin`,
+    cargo, pnpm) and every alias and function, so those would all look unknown. Why a file and
+    not an OSC like the other marks: see §6 of CLAUDE.md.
+  - Syntax highlighting: `lib/shellTokens.ts` `tokenizeShell` splits the draft into tokens
+    that cover every character (command, argument, flag, string, variable, assignment,
+    operator, comment, space); a command token is colored as unknown (the palette's red) when
+    the command list is loaded, the name has no `/` and it isn't in the list. Colors are the
+    terminal palette's ANSI colors, passed in as `--syn-*` custom properties, so the draft
+    matches the theme of the terminal above it. Rendering: the textarea stays the editor (its
+    text is transparent, its caret and selection are real) and a `pre-wrap` overlay
+    (`.input-editor-highlight`, `pointer-events: none`) with the same font, padding, border
+    width, line height and scrollbar gutter draws the colored tokens and the ghost suggestion
+    on top; it follows the textarea's `scrollTop`. While an IME composes, the textarea shows its
+    own text and the overlay hides. Why this and not contenteditable or Monaco: a textarea keeps
+    native IME, selection, undo, spellcheck-off and the existing tests for free; a
+    contenteditable would need its own caret and selection mapping, and Monaco is far too
+    heavy for one prompt line per pane.
+  - Vim mode (`behavior.inputEditorVim`, off by default, `lib/vimMode.ts`): the editor starts
+    in insert mode at every prompt; Escape enters normal mode (caret steps back one, shown as a
+    block cursor drawn by the overlay, the native caret hidden). `parseVimKeys` reads counts,
+    motions `h j k l w b e 0 $`, `x`, `u`, `D`, `C`, operators `d`/`c` with a motion or doubled
+    (`dd`, `cc`) and a count on either side, and `i a A I o O`; pending keys show next to the
+    NORMAL badge. `applyVimCommand` is pure. `cw` changes to the end of the word like vim;
+    `dw` stops at the line end. `u` restores the text from before the last edit (an insert
+    session counts as one edit). `k` on the first line and `j` while walking history step
+    through history. Enter submits from either mode; Escape in normal mode focuses the
+    terminal. Why no library: vim emulations exist for CodeMirror and Monaco, not for a plain
+    textarea, and the command set needed here is small enough to keep pure and tested.
   - Shells without integration never open a draft, so the editor never shows and the pane is
     a plain terminal.
   - Why: the editor changes the terminal host's height. The host is observed by the same

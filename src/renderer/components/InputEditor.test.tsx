@@ -277,4 +277,280 @@ describe('InputEditor', () => {
     expect(editor()).toHaveFocus()
     unregister()
   })
+
+  describe('autosuggestions', () => {
+    const ghost = () => document.querySelector('.input-editor-ghost')?.textContent ?? null
+
+    function withHistory(...commands: string[]): void {
+      setMode('editor')
+      idlePrompt()
+      for (const command of commands) {
+        runCommand(command)
+        finishCommand()
+      }
+    }
+
+    it('shows the newest matching command as ghost text and accepts it with Right or End', async () => {
+      withHistory('git status --short', 'git stash list')
+      renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'git st')
+      expect(ghost()).toBe('ash list')
+      await user.keyboard('{ArrowRight}')
+      expect(editor()).toHaveValue('git stash list')
+      expect(ghost()).toBeNull()
+      await user.clear(editor() as HTMLElement)
+      await user.type(editor() as HTMLElement, 'git status')
+      expect(ghost()).toBe(' --short')
+      await user.keyboard('{End}')
+      expect(editor()).toHaveValue('git status --short')
+    })
+
+    it('prefers this pane’s history over other panes', async () => {
+      const s = useBlocksStore.getState()
+      s.promptStart('other', { line: 0 }, '/w')
+      s.commandStart('other', { line: 1 }, 'npm run lint')
+      withHistory('npm test')
+      renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'npm ')
+      expect(ghost()).toBe('test')
+      await user.type(editor() as HTMLElement, 'r')
+      expect(ghost()).toBe('un lint')
+    })
+
+    it('accepts one word with Ctrl+Right', async () => {
+      withHistory('docker compose up -d')
+      renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'dock')
+      await user.keyboard('{Control>}{ArrowRight}{/Control}')
+      expect(editor()).toHaveValue('docker')
+      await user.keyboard('{Control>}{ArrowRight}{/Control}')
+      expect(editor()).toHaveValue('docker compose')
+      expect(ghost()).toBe(' up -d')
+    })
+
+    it('dismisses on Escape without leaving the editor, and drops it when typing diverges', async () => {
+      withHistory('make build')
+      const { props } = renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'ma')
+      expect(ghost()).toBe('ke build')
+      await user.keyboard('{Escape}')
+      expect(ghost()).toBeNull()
+      expect(props.onEscape).not.toHaveBeenCalled()
+      await user.type(editor() as HTMLElement, 'k')
+      expect(ghost()).toBe('e build')
+      await user.type(editor() as HTMLElement, 'x')
+      expect(ghost()).toBeNull()
+      await user.keyboard('{ArrowRight}')
+      expect(editor()).toHaveValue('makx')
+    })
+
+    it('shows no suggestion while the caret is inside the draft', async () => {
+      withHistory('echo hello')
+      renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'echo')
+      expect(ghost()).toBe(' hello')
+      await user.keyboard('{ArrowLeft}')
+      expect(ghost()).toBeNull()
+    })
+  })
+
+  describe('command completion', () => {
+    it('completes a unique command name on Tab and paths after it', async () => {
+      setMode('editor')
+      idlePrompt()
+      vi.mocked(window.pine.pty.commands).mockResolvedValue(['docker', 'git', 'grep'])
+      vi.mocked(window.pine.fs.list).mockResolvedValue([{ name: 'Dockerfile', dir: false }])
+      renderEditor()
+      await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalledWith(PANE))
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'doc')
+      await user.keyboard('{Tab}')
+      await waitFor(() => expect(editor()).toHaveValue('docker '))
+      await user.keyboard('Dock{Tab}')
+      await waitFor(() => expect(editor()).toHaveValue('docker Dockerfile '))
+    })
+
+    it('opens a menu for several matches, picks with arrows and Enter, and closes on Escape', async () => {
+      setMode('editor')
+      idlePrompt()
+      vi.mocked(window.pine.pty.commands).mockResolvedValue(['gitk', 'git', 'gist', 'ls'])
+      const { props } = renderEditor()
+      await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalled())
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'gi')
+      await user.keyboard('{Tab}')
+      const menu = await screen.findByRole('listbox', { name: 'Completions' })
+      const options = screen.getAllByRole('option').map((o) => o.textContent)
+      expect(options).toEqual(['git', 'gist', 'gitk'])
+      expect(menu).toBeVisible()
+      expect(screen.getByRole('option', { name: 'git' })).toHaveAttribute('aria-selected', 'true')
+      await user.keyboard('{ArrowDown}')
+      expect(screen.getByRole('option', { name: 'gist' })).toHaveAttribute('aria-selected', 'true')
+      await waitFor(() =>
+        expect(editor()).toHaveAttribute(
+          'aria-activedescendant',
+          screen.getByRole('option', { name: 'gist' }).id,
+        ),
+      )
+      await user.keyboard('{Enter}')
+      expect(editor()).toHaveValue('gist ')
+      expect(screen.queryByRole('listbox')).toBeNull()
+      expect(props.onSubmit).not.toHaveBeenCalled()
+
+      await user.clear(editor() as HTMLElement)
+      await user.type(editor() as HTMLElement, 'gi')
+      await user.keyboard('{Tab}')
+      await screen.findByRole('listbox')
+      await user.keyboard('{Escape}')
+      expect(screen.queryByRole('listbox')).toBeNull()
+      expect(props.onEscape).not.toHaveBeenCalled()
+      expect(editor()).toHaveValue('gi')
+    })
+
+    it('reports when no command matches', async () => {
+      setMode('editor')
+      idlePrompt()
+      vi.mocked(window.pine.pty.commands).mockResolvedValue(['ls'])
+      renderEditor()
+      await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalled())
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'zzz')
+      await user.keyboard('{Tab}')
+      expect(await screen.findByText('No matching commands')).toBeVisible()
+    })
+  })
+
+  describe('syntax highlighting', () => {
+    const tokens = () =>
+      [...screen.getByTestId('input-editor-highlight').querySelectorAll('[data-token]')]
+        .filter((el) => el.getAttribute('data-token') !== 'space')
+        .map((el) => [el.getAttribute('data-token'), el.textContent, el.getAttribute('data-known')])
+
+    it('colors the draft by token and marks commands missing from PATH as unknown', async () => {
+      setMode('editor')
+      idlePrompt()
+      vi.mocked(window.pine.pty.commands).mockResolvedValue(['git', 'grep'])
+      renderEditor()
+      await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalled())
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'git log --oneline | nope "a" $HOME # c')
+      await waitFor(() =>
+        expect(tokens()).toEqual([
+          ['command', 'git', 'true'],
+          ['argument', 'log', null],
+          ['flag', '--oneline', null],
+          ['operator', '|', null],
+          ['command', 'nope', 'false'],
+          ['string', '"a"', null],
+          ['variable', '$HOME', null],
+          ['comment', '# c', null],
+        ]),
+      )
+      expect(screen.getByTestId('input-editor-highlight').textContent).toBe(
+        (editor() as HTMLTextAreaElement).value,
+      )
+    })
+
+    it('shows the typed text itself while an IME composes', async () => {
+      setMode('editor')
+      idlePrompt()
+      const { view } = renderEditor()
+      const field = view.container.querySelector('.input-editor-field') as HTMLElement
+      act(() => {
+        editor()?.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+      })
+      expect(field).toHaveAttribute('data-composing', 'true')
+      act(() => {
+        editor()?.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
+      })
+      expect(field).not.toHaveAttribute('data-composing')
+    })
+  })
+
+  describe('vim mode', () => {
+    function setVim(on: boolean): void {
+      useSettingsStore.setState((s) => ({ behavior: { ...s.behavior, inputEditorVim: on } }))
+    }
+
+    const mode = () => screen.queryByLabelText('Vim mode')?.textContent ?? null
+
+    it('is off by default, so Escape still returns to the terminal', async () => {
+      setMode('editor')
+      idlePrompt()
+      const { props } = renderEditor()
+      expect(mode()).toBeNull()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'ls')
+      await user.keyboard('{Escape}')
+      expect(props.onEscape).toHaveBeenCalled()
+    })
+
+    it('edits with motions, operators, counts and undo, then submits from normal mode', async () => {
+      setMode('editor')
+      setVim(true)
+      idlePrompt()
+      const { props } = renderEditor()
+      const user = userEvent.setup()
+      expect(mode()).toBe('INSERT')
+      await user.type(editor() as HTMLElement, 'echo one two three')
+      await user.keyboard('{Escape}')
+      expect(mode()).toBe('NORMAL')
+      expect(props.onEscape).not.toHaveBeenCalled()
+      await user.keyboard('0w')
+      await user.keyboard('d')
+      expect(mode()).toBe('NORMAL d')
+      await user.keyboard('w')
+      expect(editor()).toHaveValue('echo two three')
+      await user.keyboard('2x')
+      expect(editor()).toHaveValue('echo o three')
+      await user.keyboard('u')
+      expect(editor()).toHaveValue('echo two three')
+      await user.keyboard('u')
+      expect(editor()).toHaveValue('echo one two three')
+      await user.keyboard('$cwfour')
+      expect(mode()).toBe('INSERT')
+      expect(editor()).toHaveValue('echo one two threfour')
+      await user.keyboard('{Escape}0ea!')
+      expect(editor()).toHaveValue('echo! one two threfour')
+      await user.keyboard('{Escape}')
+      await user.keyboard('{Enter}')
+      expect(props.onSubmit).toHaveBeenCalledWith('echo! one two threfour')
+      expect(mode()).toBe('INSERT')
+    })
+
+    it('ignores printable keys in normal mode and opens lines with o and O', async () => {
+      setMode('editor')
+      setVim(true)
+      idlePrompt()
+      renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'ls')
+      await user.keyboard('{Escape}zq{Backspace}')
+      expect(editor()).toHaveValue('ls')
+      await user.keyboard('opwd{Escape}kOset -e{Escape}')
+      expect(editor()).toHaveValue('set -e\nls\npwd')
+      await user.keyboard('jdd')
+      expect(editor()).toHaveValue('set -e\npwd')
+    })
+
+    it('walks history with k on the first line', async () => {
+      setMode('editor')
+      setVim(true)
+      idlePrompt()
+      runCommand('git status')
+      finishCommand()
+      renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'x')
+      await user.keyboard('{Escape}k')
+      expect(editor()).toHaveValue('git status')
+      await user.keyboard('j')
+      expect(editor()).toHaveValue('x')
+    })
+  })
 })

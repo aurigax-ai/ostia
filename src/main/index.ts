@@ -1,4 +1,5 @@
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain, nativeTheme, session, shell, webContents } from 'electron'
@@ -66,11 +67,13 @@ import {
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
+import { privateTmpDir } from './privateTmp'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { ScreenMirror } from './screenMirror'
 import { registerSelectionIpc } from './selectionReport'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
+import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
 import { removeWorkspace, setWorkspaceWorkDir, workDirForWorkspace } from './workspaceRegistry'
@@ -108,11 +111,18 @@ interface PtyEntry {
   mirror: ScreenMirror
   subs: Map<string, Electron.WebContents>
   killTimer: ReturnType<typeof setTimeout> | null
+  spawnPath: string
+  stateFile: string
 }
 
 const ptys = new Map<string, PtyEntry>()
 const PTY_BUFFER_CAP = 1_000_000
 const DETACH_GRACE_MS = 3000
+const executables = new ExecutableIndex()
+
+function removeStateFile(entry: PtyEntry): void {
+  rmSync(entry.stateFile, { force: true })
+}
 
 let restorePersistEnabled = true
 
@@ -143,6 +153,7 @@ function killPty(paneId: string): void {
     entry.pty.kill()
   } catch {}
   entry.mirror.dispose()
+  removeStateFile(entry)
   ptys.delete(paneId)
 }
 
@@ -656,21 +667,24 @@ function registerPtyIpc(): void {
     const identity = registerPane({ windowId: subId, workspaceId: '', paneId })
     const cols = opts.cols || 80
     const rows = opts.rows || 24
+    const stateFile = join(privateTmpDir('pine-shell-state'), randomUUID())
+    const env = {
+      ...process.env,
+      ...integration.env,
+      PINE_PANE_ID: identity.externalId,
+      PINE_TOKEN: identity.token,
+      PINE_START_DIR: opts.cwd ?? '',
+      PINE_SOCKET: controlSocketPath(),
+      PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
+      PINE_NODE: process.execPath,
+      PINE_SHELL_STATE: stateFile,
+    } as Record<string, string>
     const pty = mod.spawn(shell, integration.args, {
       name: 'xterm-color',
       cols,
       rows,
       cwd: resolveCwd(opts.cwd),
-      env: {
-        ...process.env,
-        ...integration.env,
-        PINE_PANE_ID: identity.externalId,
-        PINE_TOKEN: identity.token,
-        PINE_START_DIR: opts.cwd ?? '',
-        PINE_SOCKET: controlSocketPath(),
-        PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
-        PINE_NODE: process.execPath,
-      } as Record<string, string>,
+      env,
     })
     const session = new PtySession({
       capBytes: PTY_BUFFER_CAP,
@@ -685,6 +699,7 @@ function registerPtyIpc(): void {
           if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code)
         }
         entry.mirror.dispose()
+        removeStateFile(entry)
         if (ptys.get(paneId) === entry) ptys.delete(paneId)
       },
     })
@@ -694,6 +709,8 @@ function registerPtyIpc(): void {
       mirror: new ScreenMirror(cols, rows),
       subs: new Map([[subId, e.sender]]),
       killTimer: null,
+      spawnPath: env.PATH ?? '',
+      stateFile,
     }
     ptys.set(paneId, entry)
 
@@ -721,6 +738,12 @@ function registerPtyIpc(): void {
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {
     const entry = ptys.get(paneId)
     if (entry?.session.canWrite(String(e.sender.id))) entry.pty.write(data)
+  })
+  ipcMain.handle('pty:commands', async (e, paneId: string): Promise<string[]> => {
+    const entry = ptys.get(paneId)
+    if (!entry?.subs.has(String(e.sender.id))) return []
+    const state = await readShellState(entry.stateFile)
+    return commandNames(executables, state?.path ?? entry.spawnPath, state?.names ?? [])
   })
   ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
     resizePty(ptys.get(paneId), cols, rows)
@@ -1039,6 +1062,7 @@ app.on('before-quit', (event) => {
       entry.pty.kill()
     } catch {}
     entry.mirror.dispose()
+    removeStateFile(entry)
   }
   ptys.clear()
   killAllLsp()
