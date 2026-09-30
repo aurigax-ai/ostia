@@ -1482,6 +1482,12 @@ Two files written by two processes (see CLAUDE.md §6): the renderers write `wor
   Keep mine (the human's text becomes the baseline). A save first compares the disk with the
   baseline and holds with Overwrite / Compare / Cancel if it moved; autosave never writes while
   a bar is up. Re-checks are coalesced to one running plus one pending.
+  While a bar is up the pane tab shows a warning dot (`pane-disk-mark`, from `disk` in
+  `editorStatusStore`), a deleted file's title is struck through, and a deleted file counts as
+  unsaved in close, quit and move prompts (`unsavedFilesOf`). After a reload the changed lines
+  get a whole-line decoration (`editor-reload-highlight`, `--motion-highlight`) removed after
+  2 s; under reduced motion it's static. Why only reloads: the human's own typing must never
+  look like someone else's change.
 
 - **Monaco** (`monaco/setup.ts`, `components/Editor.tsx`):
   - Workers are bundled with Vite `?worker` imports (editor, json, css, html, ts), with no CDN.
