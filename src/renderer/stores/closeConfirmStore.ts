@@ -6,6 +6,7 @@ export interface RunningGroup {
   workspaceId: string
   workspace: string
   commands: string[]
+  files: string[]
 }
 
 export interface CloseConfirmRequest {

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createPortal } from 'react-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -84,6 +84,17 @@ describe('Pane', () => {
       expect(exec).toHaveBeenCalledWith('pane.focus', { paneId: 'pa' })
 
       await user.click(screen.getAllByRole('button', { name: 'Close tab' })[0])
+      expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'pa' })
+    })
+
+    it('closes a tab on middle-click and ignores other auxiliary buttons', () => {
+      const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+      render(<Pane tabs={[a, b]} shownId="pb" active />)
+      const tab = screen.getByRole('tab', { name: /claude/ }).closest('.pane-tab') as HTMLElement
+
+      fireEvent(tab, new MouseEvent('auxclick', { bubbles: true, button: 2 }))
+      expect(exec).not.toHaveBeenCalledWith('pane.close', { paneId: 'pa' })
+      fireEvent(tab, new MouseEvent('auxclick', { bubbles: true, button: 1 }))
       expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'pa' })
     })
 

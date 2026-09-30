@@ -1,10 +1,12 @@
-import { paneIds } from '../layout/tree'
+import { allPanes, findPane } from '../layout/tree'
+import type { PaneNode } from '../layout/types'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import {
   type CloseConfirmKind,
   type RunningGroup,
   useCloseConfirmStore,
 } from '../stores/closeConfirmStore'
+import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
@@ -23,17 +25,37 @@ export function runningCommandsOf(
   return commands
 }
 
-function runningGroup(workspace: Workspace): RunningGroup | null {
-  const layout = useLayoutStore.getState().byWorkspace[workspace.id]
-  if (!layout) return null
+export function unsavedFilesOf(
+  panes: readonly PaneNode[],
+  dirty: Readonly<Record<string, boolean>>,
+): string[] {
+  const files = new Set<string>()
+  for (const pane of panes) {
+    if (pane.kind === 'editor' && pane.filePath && dirty[pane.filePath]) files.add(pane.filePath)
+  }
+  return [...files]
+}
+
+function groupOf(workspace: Workspace, panes: readonly PaneNode[]): RunningGroup | null {
   const { running, byPane } = useBlocksStore.getState()
-  const commands = runningCommandsOf(paneIds(layout.root), running, byPane)
-  if (commands.length === 0) return null
+  const commands = runningCommandsOf(
+    panes.map((p) => p.id),
+    running,
+    byPane,
+  )
+  const files = unsavedFilesOf(panes, useEditorStatus.getState().dirty)
+  if (commands.length === 0 && files.length === 0) return null
   return {
     workspaceId: workspace.id,
     workspace: workspace.customName ?? workspace.name,
     commands,
+    files,
   }
+}
+
+function runningGroup(workspace: Workspace): RunningGroup | null {
+  const layout = useLayoutStore.getState().byWorkspace[workspace.id]
+  return layout ? groupOf(workspace, allPanes(layout.root)) : null
 }
 
 function runningGroups(workspaces: readonly Workspace[]): RunningGroup[] {
@@ -72,10 +94,9 @@ export async function requestCloseOthers(id: string): Promise<void> {
 }
 
 function paneGroup(workspace: Workspace, paneId: string): RunningGroup | null {
-  const { running, byPane } = useBlocksStore.getState()
-  const commands = runningCommandsOf([paneId], running, byPane)
-  if (commands.length === 0) return null
-  return { workspaceId: workspace.id, workspace: workspace.customName ?? workspace.name, commands }
+  const layout = useLayoutStore.getState().byWorkspace[workspace.id]
+  const pane = layout ? findPane(layout.root, paneId) : null
+  return pane ? groupOf(workspace, [pane]) : null
 }
 
 export async function requestClosePane(workspaceId: string, paneId: string): Promise<void> {

@@ -3,6 +3,7 @@ import type { FsEntry } from '@shared/types'
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
+import { PINE_PATH_MIME } from '../lib/dropPaths'
 import { openFileInWorkspace } from '../lib/openFile'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -141,6 +142,12 @@ function Row({
     <button
       ref={rowRef}
       type="button"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(PINE_PATH_MIME, fullPath)
+        e.dataTransfer.setData('text/plain', fullPath)
+        e.dataTransfer.effectAllowed = 'copy'
+      }}
       className={`file-row${active ? ' active' : ''}`}
       aria-current={active ? 'true' : undefined}
       style={{ paddingLeft: 8 + depth * 13 }}

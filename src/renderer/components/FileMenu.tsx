@@ -6,6 +6,7 @@ import {
   FolderOpenIcon,
   PaperPlaneTiltIcon,
   SquareSplitHorizontalIcon,
+  SquaresFourIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
 import type { ResumableAgent } from '@shared/agentResume'
@@ -15,12 +16,14 @@ import type { Dict } from '../i18n/dict'
 import { currentDict, fmt, useDict } from '../i18n/useDict'
 import { sessionTitle } from '../lib/agentSession'
 import { relativePath } from '../lib/fileReference'
+import { startNewWorkspace } from '../lib/newWorkspace'
 import { openFileBeside, openFileInWorkspace, openTerminalIn } from '../lib/openFile'
 import type { PickTarget } from '../lib/pickTargets'
 import { insertPathReference, runningAgent } from '../lib/sendPick'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface } from '../stores/surfaceSlotsStore'
+import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { MenuContent, MenuItem, MenuSubContent, MenuSubTrigger } from './Menu'
 import { usePickTargets } from './PickSendPanel'
@@ -36,6 +39,12 @@ function sendPath(target: PickTarget, path: string): void {
   if (!target.sameWorkspace) return
   useLayoutStore.getState().focusPane(target.workspaceId, target.paneId)
   requestAnimationFrame(() => focusSurface(target.paneId))
+}
+
+function openInNewWorkspace(path: string, dir: boolean): void {
+  useUIStore.getState().leaveSettings()
+  startNewWorkspace({ dir: dir ? path : parentOf(path) })
+  if (!dir) openFileInWorkspace(path)
 }
 
 function parentOf(path: string): string {
@@ -122,6 +131,9 @@ export function FileMenuItems({
           </MenuItem>
         </>
       )}
+      <MenuItem icon={SquaresFourIcon} onClick={() => openInNewWorkspace(path, dir)}>
+        {d.fileMenu.openWorkspace}
+      </MenuItem>
       <MenuItem icon={ArrowSquareOutIcon} onClick={() => openDefault(workspaceId, path)}>
         {d.fileMenu.openDefault}
       </MenuItem>

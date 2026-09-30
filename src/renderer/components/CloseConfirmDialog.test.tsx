@@ -6,6 +6,7 @@ import type { LayoutNode } from '../layout/types'
 import { confirmQuit, requestClosePane, requestCloseWorkspace } from '../lib/closeConfirm'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import { useCloseConfirmStore } from '../stores/closeConfirmStore'
+import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -159,6 +160,31 @@ describe('close confirmation', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     await closing
     expect(useLayoutStore.getState().byWorkspace.w1).toBeDefined()
+  })
+
+  it('asks before closing an editor tab with unsaved changes', async () => {
+    seed(null)
+    const editor = {
+      type: 'pane',
+      id: 'p9',
+      title: 'main.rs',
+      kind: 'editor',
+      filePath: '/a/src/main.rs',
+    } as LayoutNode
+    useLayoutStore.setState({
+      byWorkspace: { w1: { root: editor, activePaneId: 'p9', zoomedPaneId: null } },
+    })
+    useEditorStatus.getState().setDirty('/a/src/main.rs', true)
+    render(<CloseConfirmDialog />)
+    const user = userEvent.setup()
+
+    const closing = requestClosePane('w1', 'p9')
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('main.rs has unsaved changes')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await closing
+    expect(useLayoutStore.getState().byWorkspace.w1).toBeDefined()
+    useEditorStatus.getState().setDirty('/a/src/main.rs', false)
   })
 
   it('resolves the quit question from the dialog and lists every workspace with commands', async () => {
