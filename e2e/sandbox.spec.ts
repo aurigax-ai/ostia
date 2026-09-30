@@ -1,6 +1,8 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
+import { buildSync } from 'esbuild'
+import { PRODUCT_NAME } from '../src/shared/product'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
 
@@ -217,6 +219,52 @@ test('SBX-C88 opens no pane when the human denies a system install from a sandbo
     await run(win, 'pine system install jq --manager pacman --reason c88')
     await expect(win.locator('.xterm-rows').first()).toContainText('denied', { timeout: 20_000 })
     await expect(win.locator('.xterm')).toHaveCount(1)
+  } finally {
+    await app.close()
+  }
+})
+
+test('SBX-C3 sandboxes a terminal an extension opens in a sandboxed workspace', async () => {
+  test.setTimeout(120_000)
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  const project = join(home, 'project')
+  mkdirSync(join(home, '.ssh'), { recursive: true })
+  mkdirSync(project, { recursive: true })
+  writeFileSync(join(home, '.ssh', 'id_ed25519'), 'SECRET-KEY-MATERIAL')
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
+  })
+  const launchOptions = isolatedLaunch(dataHome)
+  const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'terminal-opener')
+  const dir = join(launchOptions.env.XDG_CONFIG_HOME, PRODUCT_NAME, 'extensions', 'opener')
+  mkdirSync(dir, { recursive: true })
+  copyFileSync(join(fixture, 'pine.json'), join(dir, 'pine.json'))
+  buildSync({
+    entryPoints: [join(fixture, 'main.js')],
+    outfile: join(dir, 'main.js'),
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    logLevel: 'warning',
+  })
+  const app = await electron.launch({ ...launchOptions, env: { ...launchOptions.env, HOME: home } })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    const approval = win.getByRole('dialog').filter({ hasText: 'Opener' })
+    await expect(approval).toBeVisible({ timeout: 15_000 })
+    await approval.getByRole('button', { name: 'Approve and enable' }).click()
+    await openWorkspace(win)
+    await sandboxedShell(win)
+    await run(win, `pine opener run sh -c 'cat ${home}/.ssh/id_ed25519 || echo C3-$(echo DENIED)'`)
+    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
+    const opened = win.locator('.xterm-rows').filter({ hasText: 'C3-DENIED' })
+    await expect(opened).toHaveCount(1, { timeout: 20_000 })
+    await expect(win.locator('.xterm-rows').filter({ hasText: 'SECRET-KEY-MATERIAL' })).toHaveCount(
+      0,
+    )
   } finally {
     await app.close()
   }
