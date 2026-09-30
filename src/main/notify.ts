@@ -6,7 +6,12 @@ import {
   type NotificationSettings,
   parseNotificationSettings,
 } from '../shared/notificationSettings'
-import type { NotificationEntry, NotificationPost } from '../shared/types'
+import {
+  type NotificationEntry,
+  type NotificationKind,
+  type NotificationPost,
+  notificationKindOf,
+} from '../shared/types'
 import { type AttentionDeps, clampMessage, targetOf } from './attention'
 import { registerControlMethod } from './controlServer'
 import { emitPlatformEvent } from './events'
@@ -74,6 +79,7 @@ function showDesktop(deps: NotifyDeps, title: string, body?: string, paneId?: st
 function record(
   deps: NotifyDeps,
   input: {
+    kind?: NotificationKind
     title: string
     body?: string
     paneId?: string
@@ -85,6 +91,7 @@ function record(
   const entry: NotificationEntry = {
     id: randomUUID(),
     ts: new Date().toISOString(),
+    kind: input.kind ?? 'message',
     title: input.title,
     body: input.body,
     from: input.from,
@@ -167,7 +174,11 @@ export function registerNotifyMethods(deps: NotifyDeps): void {
 }
 
 export function registerNotifyIpc(deps: NotifyDeps): void {
-  ipcMain.handle('notifications:list', (): NotificationEntry[] => readLog().reverse())
+  ipcMain.handle('notifications:list', (): NotificationEntry[] =>
+    readLog()
+      .map((entry) => ({ ...entry, kind: notificationKindOf(entry.kind) }))
+      .reverse(),
+  )
 
   ipcMain.on('notifications:post', (e, post: NotificationPost) => {
     if (!post || typeof post.paneId !== 'string' || typeof post.title !== 'string') return
@@ -176,7 +187,13 @@ export function registerNotifyIpc(deps: NotifyDeps): void {
     const title = post.title.slice(0, TITLE_MAX)
     if (!title) return
     const body = clampMessage(post.body)
-    record(deps, { title, body, paneId: post.paneId, from: identity?.externalId ?? '' })
+    record(deps, {
+      kind: notificationKindOf(post.kind),
+      title,
+      body,
+      paneId: post.paneId,
+      from: identity?.externalId ?? '',
+    })
     if (post.desktop) showDesktop(deps, title, body, post.paneId)
   })
 

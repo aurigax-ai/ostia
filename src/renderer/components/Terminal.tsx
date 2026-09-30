@@ -262,6 +262,7 @@ export function TerminalView({
       if (long) {
         window.pine.notifications.post({
           paneId,
+          kind: exitCode === 0 ? 'done' : 'error',
           title,
           body,
           desktop: wantsDesktopBanner(
@@ -282,6 +283,7 @@ export function TerminalView({
       })
       window.pine.notifications.post({
         paneId,
+        kind: 'message',
         title: n.title,
         body: n.body,
         desktop: wantsDesktopBanner(
