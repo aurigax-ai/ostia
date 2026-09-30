@@ -16,7 +16,7 @@ function useThemeCss(): string {
   const ui = useSettingsStore((s) => s.appearance.ui.family)
   const mono = useSettingsStore((s) => s.appearance.terminal.family)
   return useMemo(
-    () => panelThemeCss(activeTheme ? themedTokens(activeTheme, accent).tokens : {}, { ui, mono }),
+    () => panelThemeCss(activeTheme ? themedTokens(activeTheme, accent) : {}, { ui, mono }),
     [activeTheme, accent, ui, mono],
   )
 }

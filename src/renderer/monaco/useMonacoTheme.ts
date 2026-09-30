@@ -1,14 +1,22 @@
 import { useEffect } from 'react'
-import { currentTheme, useEffectiveTheme } from '../lib/theme'
-import { monaco, monacoThemeName } from './setup'
+import { currentScheme, useScheme } from '../lib/colorScheme'
+import type { ColorScheme } from '../plugins/types'
+import { monacoThemeData, monacoThemeId } from './monacoTheme'
+import { monaco } from './setup'
+
+function defineSchemeTheme(scheme: ColorScheme): string {
+  const id = monacoThemeId(scheme)
+  monaco.editor.defineTheme(id, monacoThemeData(scheme))
+  return id
+}
 
 export function initialMonacoTheme(): string {
-  return monacoThemeName(currentTheme()?.appearance ?? 'dark')
+  return defineSchemeTheme(currentScheme('editor'))
 }
 
 export function useMonacoTheme(): void {
-  const appearance = useEffectiveTheme()?.appearance ?? 'dark'
+  const scheme = useScheme('editor')
   useEffect(() => {
-    monaco.editor.setTheme(monacoThemeName(appearance))
-  }, [appearance])
+    monaco.editor.setTheme(defineSchemeTheme(scheme))
+  }, [scheme])
 }

@@ -3,7 +3,7 @@ import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import type { PickTarget } from '../lib/pickTargets'
 import { sendSelectionToPane } from '../lib/sendPick'
-import { PickSendPanel, usePickTargets } from './PickSendPanel'
+import { PickSendPanel, useAgentTargets } from './PickSendPanel'
 
 const STATUS_MS = 6000
 
@@ -24,7 +24,7 @@ export interface SelectionSend {
 
 export function useSelectionSend(workspaceId: string, paneId: string): SelectionSend {
   const d = useDict()
-  const targets = usePickTargets(workspaceId)
+  const targets = useAgentTargets(workspaceId)
   const [pending, setPending] = useState<PendingSelection | null>(null)
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<string | null>(null)

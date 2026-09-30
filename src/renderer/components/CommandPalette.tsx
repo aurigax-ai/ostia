@@ -1,5 +1,6 @@
 import { AppWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { ASK_COMMAND_ID } from '../commands/askCommand'
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes } from '../layout/tree'
@@ -9,11 +10,14 @@ import { PALETTE_MODES, type PaletteMode, paletteMode } from '../lib/paletteMode
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { revealPane } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
+import { useAskStore } from '../stores/askStore'
+import { useAssistProvider } from '../stores/assistStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
+import { AskView } from './AskView'
 import {
   CommandDialog,
   CommandEmpty,
@@ -32,10 +36,14 @@ export function CommandPalette(): JSX.Element {
   const d = useDict()
   const open = useUIStore((s) => s.paletteOpen)
   const close = useUIStore((s) => s.closePalette)
+  const openMode = useUIStore((s) => s.paletteMode)
+  const chat = useAssistProvider('chat')
   const [search, setSearch] = useState('')
   const [asking, setAsking] = useState<ArgumentCommand | null>(null)
+  const [askSeed, setAskSeed] = useState('')
   const mode = paletteMode(search)
   const places = useMemo(() => (open ? snapshotPlaces() : EMPTY_PLACES), [open])
+  const askMode = openMode === 'ask' && chat !== null
 
   useSyncExternalStore(subscribeCommands, commandsVersion)
 
@@ -43,7 +51,20 @@ export function CommandPalette(): JSX.Element {
     if (open) return
     setSearch('')
     setAsking(null)
+    setAskSeed('')
+    useAskStore.getState().stopAll()
   }, [open])
+
+  const enterAsk = (seed: string): void => {
+    setAskSeed(seed)
+    setSearch('')
+    useUIStore.getState().setPaletteMode('ask')
+  }
+
+  const leaveAsk = (): void => {
+    setAskSeed('')
+    useUIStore.getState().setPaletteMode('search')
+  }
 
   const finish = close
 
@@ -58,11 +79,13 @@ export function CommandPalette(): JSX.Element {
       onOpenChange={(o) => {
         if (!o) finish()
       }}
-      className="top-[12vh] sm:max-w-2xl"
-      title={d.palette.title}
-      description={d.palette.placeholder}
+      className={askMode ? 'top-[12vh] sm:max-w-3xl' : 'top-[12vh] sm:max-w-2xl'}
+      title={askMode && chat ? fmt(d.ask.tabHint, { name: chat.name }) : d.palette.title}
+      description={askMode ? d.ask.placeholder : d.palette.placeholder}
     >
-      {asking ? (
+      {askMode && chat ? (
+        <AskView provider={chat} seed={askSeed} onBack={leaveAsk} onInserted={finish} />
+      ) : asking ? (
         <ArgumentStep command={asking} value={search} onValueChange={setSearch} onDone={finish} />
       ) : (
         <>
@@ -70,10 +93,23 @@ export function CommandPalette(): JSX.Element {
             placeholder={d.palette.placeholder}
             value={search}
             onValueChange={setSearch}
+            onKeyDown={(e) => {
+              if (!chat || e.key !== 'Tab' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) {
+                return
+              }
+              e.preventDefault()
+              enterAsk(mode === 'help' ? '' : search)
+            }}
           />
           <CommandList>
             <CommandEmpty>{d.palette.empty}</CommandEmpty>
-            {mode === 'help' ? <HelpItems onPick={(symbol) => setSearch(symbol)} /> : null}
+            {mode === 'help' ? (
+              <HelpItems
+                onPick={(symbol) => setSearch(symbol)}
+                askName={chat?.name ?? null}
+                onAsk={() => enterAsk('')}
+              />
+            ) : null}
             {mode === 'all' || mode === 'workspaces' ? (
               <WorkspaceItems
                 workspaces={places.workspaces}
@@ -85,7 +121,7 @@ export function CommandPalette(): JSX.Element {
               <TabItems tabs={places.tabs} onDone={finish} />
             ) : null}
             {mode === 'all' || mode === 'commands' ? (
-              <CommandItems onDone={finish} onAsk={ask} />
+              <CommandItems onDone={finish} onAsk={ask} onAskAssistant={() => enterAsk('')} />
             ) : null}
           </CommandList>
         </>
@@ -145,10 +181,24 @@ function symbolOf(mode: PaletteMode): string {
   return PALETTE_MODES.find((m) => m.mode === mode)?.symbol ?? ''
 }
 
-function HelpItems({ onPick }: { onPick: (symbol: string) => void }): JSX.Element {
+function HelpItems({
+  onPick,
+  askName,
+  onAsk,
+}: {
+  onPick: (symbol: string) => void
+  askName: string | null
+  onAsk: () => void
+}): JSX.Element {
   const d = useDict()
   return (
     <CommandGroup heading={d.palette.helpHeading}>
+      {askName ? (
+        <CommandItem value={`? tab ${fmt(d.ask.tabHint, { name: askName })}`} onSelect={onAsk}>
+          <Kbd className="font-mono">Tab</Kbd>
+          <span>{fmt(d.ask.tabHint, { name: askName })}</span>
+        </CommandItem>
+      ) : null}
       {PALETTE_MODES.map((m) => (
         <CommandItem
           key={m.mode}
@@ -266,9 +316,11 @@ function TabItems({
 function CommandItems({
   onDone,
   onAsk,
+  onAskAssistant,
 }: {
   onDone: () => void
   onAsk: (command: ArgumentCommand) => void
+  onAskAssistant: () => void
 }): JSX.Element {
   useSettingsStore((s) => s.keybindings)
   const byCat = new Map<string, ReturnType<typeof commands.list>>()
@@ -289,6 +341,10 @@ function CommandItems({
                 key={c.id}
                 value={`${symbol} ${c.title} ${c.id} ${c.category ?? ''}`}
                 onSelect={() => {
+                  if (c.id === ASK_COMMAND_ID) {
+                    onAskAssistant()
+                    return
+                  }
                   if (c.argument) {
                     onAsk({ id: c.id, title: c.title, argument: c.argument })
                     return

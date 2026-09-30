@@ -220,6 +220,17 @@ describe('parseHandoff', () => {
     expect(parsed?.root).toMatchObject({ id: 'pane-1', hibernated: true })
   })
 
+  it('carries the project folder through a move and into the merged file', () => {
+    const moving = parseHandoff(workspace('w2', 'pane-2', { projectDir: '~/code/web' }))
+    expect(moving?.projectDir).toBe('~/code/web')
+    const book = new WindowBook(null)
+    book.open('d1', BOUNDS)
+    if (moving) book.move(moving, MAIN_SLOT, 'd1')
+    expect(parseSnapshot(book.merged('t'))?.windows?.[0].workspaces[0].projectDir).toBe(
+      '~/code/web',
+    )
+  })
+
   it('refuses a malformed workspace', () => {
     expect(parseHandoff({ id: 'w1', root: { type: 'bogus' } })).toBeNull()
     expect(parseHandoff('w1')).toBeNull()

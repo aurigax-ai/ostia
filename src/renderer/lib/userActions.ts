@@ -56,6 +56,7 @@ function notifyFailure(action: UserAction, paneId: string | null, message: strin
   }
   window.pine.notifications.post({
     paneId,
+    kind: 'error',
     title: fmt(currentDict().actions.failed, { title: action.title }),
     body: message,
     desktop: false,

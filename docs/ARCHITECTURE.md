@@ -100,7 +100,10 @@ detached window so it can live on another monitor. Every window runs the same re
 - **What a move does not carry**: renderer-only state starts fresh in the new window. Terminal
   blocks are rebuilt from the replayed ring (its OSC 133 marks), attention and zoom are reset,
   browser `<webview>`s reload their URL, editors reopen from disk (unsaved changes are confirmed
-  first), and diff panes are dropped (their content lives in `diffStore`, like restore). Dragging
+  first), diff panes are dropped (their content lives in `diffStore`, like restore), and the
+  workspace's Ask conversation stays behind (Ask lives in each window's palette and works in a
+  detached window, with its own history). The project (`name`, `projectDir`, `workDir`) and the
+  auto-resume marks (`agentRunning`) do travel with the handoff. Dragging
   a tab out of the window is not built.
 - **Settings stay in step**: when a renderer writes `settings.json` through `fs:write`, main sends
   `settings:changed` to the other windows, which reload it. Why: each renderer keeps its own
@@ -135,6 +138,7 @@ detached window so it can live on another monitor. Every window runs the same re
 | `processManager.ts`, `vault.ts`, `bus.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
 | `extensionHost.ts`, `extensionManifest.ts`, `extensionStore.ts` | Extension host: discovery + manifest validation, approval records, extension processes, `ext.*` control methods (§11) |
 | `extensionConfirm.ts` | The native confirm dialog behind `ext.confirm` (§11) |
+| `iconThemes.ts` | VS Code file icon themes from `contributes.iconThemes`: confined, size-capped loading into `data:` URLs, `iconThemes:load` IPC (§5) |
 | `workflows.ts` | Saved workflows: confined YAML loading (workspace, user, extension manifests), `workflows:list`/`workflows:save` IPC, `workflow.list` control method (§4) |
 | `settingsSync.ts`, `settingsSyncIpc.ts` | Settings sync: pure plan/merge + the file executor; triggers (startup, window focus, local file changes) and `sync:*` / `dialog:pick-folder` IPC (§5) |
 | `browse.ts`, `browseWorld.ts` | `browse.*` automation of browser panes, agent-browser contract; the isolated browse world (§9) |
@@ -624,9 +628,16 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   touch `blocksStore`.
   - Main keeps the snapshot only if its `generation` is ≥ the cached one.
   - Main emits `pane.state` only when a field actually changed.
-- **Terminal palette** (`components/terminalTheme.ts`): xterm draws to canvas and can't read CSS
-  variables, so each theme's palette is duplicated here. Only `adeberry`, `one-dark-vivid` and
-  `pine-light` have palettes; other themes fall back to One Dark Vivid.
+- **Terminal colors** (`lib/colorScheme.ts`): xterm draws to canvas and can't read CSS
+  variables, so the terminal gets a color scheme object (`plugins/colorSchemes.ts`) as its
+  `ITheme`. `useScheme('terminal')` resolves `terminal.theme`: `"match"` (default) uses the
+  scheme the effective Pine theme names (`Theme.colorScheme`; a theme naming an unknown scheme
+  gets the first scheme of its appearance), any other id that scheme (an unknown id falls back
+  to the linked one). A linked scheme with a custom accent takes the accent's brand color as its
+  cursor (`accentScheme`). The result is memoized, so `Terminal.tsx` resets `term.options.theme`
+  only when the scheme really changes. Why a separate axis instead of one palette per theme:
+  people keep a favorite terminal scheme (Catppuccin, Gruvbox) under any app chrome, and a plugin
+  theme no longer has to ship a palette to get a terminal of the right lightness.
 
 ## 5. Renderer model
 
@@ -778,6 +789,14 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   above the pinned group) and picks the `workDir`: the active workspace's focused pane `cwd` when
   `workspaces.inheritFolder` is on and the pane has one, else `workspaces.defaultFolder` (`~`).
   The `workDir` stays the anchor; only its initial value is inherited.
+- **Notification center** (`NotificationCenter.tsx`, `lib/notificationGroups.ts`): each log entry
+  has a `kind` (`waiting`, `approval`, `done`, `error`, `message`) set by whoever posts it
+  (agent state, approval requests, long or failed commands, OSC notifications; extensions and
+  `pine notify` post `message`; old entries read as `message`). Text tabs filter: All, Needs you
+  (waiting, approval, error, with a count including pending approvals), Finished, Messages.
+  Entries are grouped by workspace (extension entries by extension, closed panes together),
+  groups ordered by their newest entry. The top-bar trigger is a tray icon with a filled
+  `--attn` count badge.
 - **Tab and file conveniences**: a middle-click on a pane tab runs `pane.close` (the same guard as
   its X); the close guard (`lib/closeConfirm.ts`) asks for a pane, workspace or quit when it has
   a running command or an editor file with unsaved changes (`useEditorStatus.dirty`), listing
@@ -789,8 +808,10 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **Workspace names follow the project** (`lib/workspaceProjects.ts`, `main/projectRoot.ts`): for
   each workspace, the active pane's cwd goes to `workspace:project`, which returns the nearest
   folder below home that has a `.git` (never home itself), else the folder, as `{name,
-  display}`; `setProject` stores it as the automatic `name` and `projectDir` (the rail's path
-  line). `customName` (Rename) always wins. `workDir` stays the anchor for new panes. Why: a
+  display, dir}`; `setProject` stores it as the automatic `name`, `projectDir` (the rail's
+  path line, saved in the snapshot) and `workDir`, so new terminals open in the project.
+  `customName` (Rename) always wins. A workspace with no panes is skipped, so closing every tab
+  keeps its last project instead of falling back to `~`. Why: a
   workspace created at `~` and then used in a repo was stuck being called "home".
 - **Close confirmation** (`lib/closeConfirm.ts`, `CloseConfirmDialog.tsx`, `closeConfirmStore`):
   a command is running when `blocksStore.running` has a block for a pane of the workspace.
@@ -955,13 +976,16 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 ### Settings and plugins
 
 - `stores/settingsStore.ts` persists `userData/settings.json` (debounced 300 ms): `locale`,
-  `appearance` (theme + ui/terminal/editor fonts), `behavior` (`showHiddenFiles`, `cursorStyle`,
-  `cursorBlink`, `restoreWorkspace`), `workspaces` (`placement`, `inheritFolder`, `defaultFolder`,
+  `appearance` (theme + ui/terminal/editor fonts), `behavior` (`cursorStyle`,
+  `cursorBlink`, `restoreWorkspace`), `files` (the Files tree, below), `workspaces` (`placement`, `inheritFolder`, `defaultFolder`,
   `confirmClose`, `confirmQuit`, `wrapTitles`), `terminal` (`scrollSpeed`, `scrollbackLines`,
-  `warnOnRiskyPaste`, `minimumContrast`), `panes` (`dimInactive`, `focusOnHover`,
+  `warnOnRiskyPaste`, `minimumContrast`, `theme`), `panes` (`dimInactive`, `focusOnHover`,
   `equalizeOnSplit`, `hideTabClose`), `keybindings`, `capabilities.grants`, `sync.dir`.
   - `browser` and `editor` are their own groups, parsed by `shared/browserEditorSettings.ts`
     (invalid values fall back to defaults, zoom is clamped to 50 to 300).
+  - `terminal.theme` and `editor.theme` go through `parseThemeChoice` (`shared/themeChoice.ts`):
+    a trimmed scheme id up to 80 characters, else `"match"`. The id itself is checked against
+    the catalog only when it is resolved, so a scheme a plugin adds later is not lost on load.
   - `keybindings` is validated on load by `parseKeybindings`: only string chords that parse
     and `null` survive. The platform guard is applied when the effective map is built.
   - `settings/terminalPaneSettings.ts` holds the pure parsing and clamping for the `terminal` and
@@ -979,10 +1003,39 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
   - `settings/settingsSchema.ts` holds the JSON Schema for that file (also served by `pine settings schema`); `settings/registerSettingsSchema.ts` registers it with Monaco.
 - `plugins/builtin.ts` is a registry of built-in contributions only: themes (`adeberry`,
-  `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`, `pine-light`), LSP entries, locales (`en`, `zh-Hant`).
+  `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`, `pine-light`, each naming its
+  `colorScheme`), color schemes (`contributes.colorSchemes`, the 26 in `plugins/colorSchemes.ts`;
+  catalog and sources in `docs/DESIGN.md` §3), LSP entries, locales (`en`, `zh-Hant`).
   These are data-only contributions; behavior and UI come from extensions (§11), listed in the
   same Settings → Plugins section.
 - i18n: typed catalogs in `i18n/dict.ts`, read via `useDict()`.
+
+### Files tree options and icon themes
+
+- `settings/fileTreeSettings.ts` parses `files`: `exclude` (glob list, default `**/.git`,
+  `**/.hg`, `**/.svn`, `**/.DS_Store`, `**/Thumbs.db`), `showExcluded`, `compactFolders`,
+  `nesting` (`enabled` + `patterns`, VS Code's `explorer.fileNesting.patterns` syntax), `sortOrder`
+  (`foldersFirst`/`mixed`), `sortBy` (`name`/`type`), `iconTheme` (`pine` or a contributed id).
+  Settings → Files (`FilesSettingsSection.tsx`) and the Files header write the same keys.
+  Why `exclude` replaced `behavior.showHiddenFiles`: two switches for "what the tree hides" would
+  disagree; dotfiles are just the pattern `**/.*`, and the eye button is the one "show anyway".
+- `lib/fileTree.ts` is the pure part of the tree: `excludeMatcher` (picomatch, `dot: true`)
+  tests a row's absolute path and its path relative to the tree root, so `**/x` hides at any
+  depth, a bare `dist` only at the root (VS Code's meaning), and "Hide in tree" can add an
+  absolute path that keeps working as the tree root follows the terminal. `sortEntries`,
+  `nestEntries` (one level deep: a file with children can't be nested and a nested file can't
+  be a parent, so rules like `*.ts → ${capture}.js` plus `*.js → ${capture}.ts` can't cycle),
+  and `compactChain`, which follows single-folder chains only when a folder is expanded, like
+  VS Code. Why lazily: probing every visible folder's children on each listing would list whole
+  trees (`node_modules`) the user never opens.
+- Icon themes: `main/iconThemes.ts` loads a theme on `iconThemes:load` for an enabled
+  extension's `contributes.iconThemes`, validates it (sizes, confinement after `realpath`, no
+  symlinks, only image `iconPath`s, associations only to loaded definitions) and returns the icons
+  as `data:` URLs, cached by the file's mtime and size. Why data URLs rather than a protocol:
+  the renderer's CSP already allows `data:` images, nothing new is registered, and the renderer
+  never names a file. `lib/iconTheme.ts` resolves an entry to a definition (VS Code's order; the
+  `light`/`highContrast` section first, then the base), and `stores/iconThemeStore.ts` loads the
+  chosen theme when its provider is enabled; otherwise the tree uses `fileIcon.ts`.
 
 ### Terminal and pane behavior settings
 
@@ -1330,8 +1383,12 @@ Two files written by two processes (see CLAUDE.md §6): the renderers write `wor
 
 - **Monaco** (`monaco/setup.ts`, `components/Editor.tsx`):
   - Workers are bundled with Vite `?worker` imports (editor, json, css, html, ts), with no CDN.
-  - The editor uses `one-dark-vivid` for dark app themes and `pine-light` for light ones
-    (`monaco/useMonacoTheme.ts`; `monaco.editor.setTheme` is global, so every open editor follows).
+  - The editor theme is derived from the scheme `useScheme('editor')` resolves from
+    `editor.theme` (same rules as the terminal): `monacoThemeData` (`monaco/monacoTheme.ts`, pure)
+    maps ANSI colors onto Monaco token rules and editor colors, and `useMonacoTheme` defines it as
+    `pine-scheme-<id>` and sets it (`monaco.editor.setTheme` is global, so every open editor and
+    diff follows). Why derive instead of shipping Monaco themes: one scheme then colors the terminal,
+    the editor and the Settings preview identically, and a plugin scheme gets an editor theme free.
   - Ctrl/Cmd+S saves through `fs.write`. Dirty state compares `getAlternativeVersionId` with the
     saved version (mirrored to `editorStatusStore`).
   - Files with a NUL byte in the first 8 KB are not opened.
@@ -1474,6 +1531,17 @@ Two files written by two processes (see CLAUDE.md §6): the renderers write `wor
   dialog and reads a Chrome / Firefox / Bitwarden CSV by column name, `passwordRowsFromCsv`).
   Why main and not the browser session: Electron ships no password manager, and anything in
   the page's storage is readable by the page.
+- **Password autofill** (`main/loginFill.ts`, `shared/loginScripts.ts`, `LoginButton`): the browser
+  toolbar's key button lists the saved logins for the page's exact origin
+  (`credentials:for-page`, summaries only). Filling re-checks the guest's current origin against
+  the chosen login, then runs `fillScript` in its own isolated world (`LOGIN_WORLD_ID`): it finds
+  the first visible password field and the username field before it in the same form, and sets
+  both through the native value setter with input/change events. "Save login from this page"
+  reads those fields (`readScript`) and saves them. Agents call `browse.login` (`pine browse
+  login [--user]`): it needs `browse`, then the `credentials` capability, which is in
+  `ALWAYS_ASK`, so every use shows an approval card naming the site; the reply is only the
+  origin and username. Why an isolated world: the page never sees the script or the password
+  except as the field value it asked the human to type.
 - **Window title** (`settings/windowTitle.ts`, `lib/useWindowTitle.ts`): `appearance.windowTitle`
   is a template (`{workspace}`, `{pane}`, `{cwd}`, `{product}`) set as `document.title`, which
   Electron uses for the OS window title; separators left at the edges by an empty value are
@@ -1528,8 +1596,13 @@ Two files written by two processes (see CLAUDE.md §6): the renderers write `wor
     and its `updated` event do. Main pushes `window:system-dark-changed`; `boot()` reads the
     initial value before the first render so a light OS does not flash the dark theme.
   - The accent is applied over the theme tokens by `themedTokens`, and extension panels get the
-    same tokens (`--pine-brand`). A color that reads under 4.5:1 on the theme background is moved
-    toward black or white until it does.
+    same tokens (`--pine-brand`, `--pine-on-brand`). A color that reads under 4.5:1 on the theme
+    background is moved toward black or white until it does. `themedTokens` always adds
+    `on-brand` (`readableOn`), the text color for brand fills, and `index.css` points
+    `--primary-foreground` and `--sidebar-primary-foreground` at `--color-on-brand`. Why: the
+    shadcn foregrounds used to be the theme background, overridden inline only for a custom
+    accent, so the sidebar variant kept the background color and a theme brand never got a
+    contrast check. One computed token keeps every brand fill readable for any theme and accent.
   - Zoom is `window:set-zoom` (clamped to 80 to 150 in main, per sender). The terminal re-fits
     through its existing debounced `ResizeObserver` (the CSS viewport changes with the zoom), so
     the prompt-aware resize path in §6 is the only code that resizes the pty; there is no
@@ -1710,7 +1783,8 @@ ask for more gets nothing new until the human reviews it.
 
 **Identity.** Each start mints a fresh identity with `kind: 'extension'`
 (`idRegistry.registerExtension`), caps set explicitly with `setCaps`. The process gets
-`PINE_SOCKET`, `PINE_TOKEN`, `PINE_EXTENSION_ID`, `PINE_EXTENSION_DIR` and none of the pane
+`PINE_SOCKET`, `PINE_TOKEN`, `PINE_EXTENSION_ID`, `PINE_EXTENSION_DIR`, `PINE_EXTENSION_DATA`
+(`<userData>/extension-data/<id>`, its own state folder, created by the extension) and none of the pane
 variables. `controlServer` checks the caller kind per method (`callers: 'panes' | 'extensions' |
 'all'`): extension identities can call `hello`, `whoami` and the extension-only `ext.*` methods;
 panes can call everything else including `ext.list` / `ext.invoke`. Why: pane methods resolve
@@ -1758,7 +1832,7 @@ waits on the human's click and pastes into an agent pane.
 - `before-quit` sends SIGTERM to every extension process.
 
 **Methods.** Extension → pine: `ext.registerCommands`, `ext.subscribe`, `ext.setSidebarItem`,
-`ext.setPaneChip`, `ext.clearPaneChip`, `ext.getSettings`,
+`ext.setPaneChip`, `ext.clearPaneChip`, `ext.getSettings`, `ext.setSetting`,
 `ext.notify` (needs `notify`), `ext.openPanel`, `ext.openDiff`, `ext.confirm`, `ext.openTerminal`
 (needs `shell`), the targetable pane methods above, plus the shared
 read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`). Pine → extension:
@@ -1832,7 +1906,13 @@ read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`
   `settings.json`. Why main validates while the renderer writes: the renderer owns the file (it
   rewrites it whole), and an extension must never see a value its manifest didn't allow; stored
   values of the wrong type fall back to the default instead of failing. `extensionSettings` is not
-  in the settings store's `DATA_KEYS`, so `pine settings set` can't change it.
+  in the settings store's `DATA_KEYS`, so `pine settings set` can't change it. An extension may
+  change its own keys with `ext.setSetting` (`setOwnSetting`: the same `setSetting` validation,
+  scoped to the caller's own manifest); main then broadcasts `extensions:settings-stored
+  {extId, stored}` and the renderer persists it like a change from Settings. Why: a panel control
+  that mirrors a setting (Git's graph scope, flat/tree view) must land in the same place the
+  Settings page edits, or the two drift. Extension settings are preferences, never grants, so
+  this gives an extension nothing it couldn't already do.
 - Command caps declared in the manifest are checked against the caller before the process is
   even started. The extension receives the caller context (`kind`, external `paneId`,
   `workspaceId`, `workDir`, `capabilities`) and may enforce conditional rules itself (for example
@@ -1876,6 +1956,63 @@ the process in `ext.panel` so the extension can build the URL with its own secre
 result must pass `isAllowedPanelUrl` before it is returned. Why re-check in main: setting a
 webview's `src` does not fire `will-navigate`, so the attach-time check is the only other guard.
 
+**Assist** (`shared/assist.ts`, `ExtensionHost.assist*`, `main/assistIpc.ts`). Four hook points an
+extension can serve: `input` (typo fix and prompt review of a draft for an agent), `command`
+(natural language to shell command suggestions), `completion` (inline code completion in the
+editor) and `chat` (the palette's Ask conversation). The core UI for each is tool-agnostic; the
+extension owns providers, prompts and requests.
+- Declared by `contributes.assist` and gated by the `assist` capability (the manifest is rejected
+  without it; the host routes only to an extension whose granted caps include it). An extension
+  that contributes assist starts with the window, like one with sidebar items, so it can report
+  `ext.setAssistStatus {status: {<point>: {ready, label?}}}` (needs `assist`). Only points that are
+  contributed and `ready` count; `assistAvailability()` names the first such extension per point
+  (built-ins first) with its label, and main pushes it on `assist:availability` whenever the
+  extension list or a status changes and drops it when the extension stops. Why a status the
+  extension reports instead of "has a manifest entry": the built-in assistant is installed and
+  enabled for everyone but must stay invisible until the human configures a provider.
+- `assist:request (point, requestId, input)` normalizes the input in main
+  (`normalizeAssistRequest`: known fields only, size caps, a chat must end with a user turn,
+  context kinds from a fixed list) before anything reaches the extension, then sends
+  `ext.assist {point, requestId, input}` with a jsonrpc cancellation token. The reply is
+  normalized again (`normalizeAssistResult`), or mapped to a typed failure when it is
+  `{error: <AssistError>, message?}` (the SDK turns an `AssistFailure` thrown in the handler into
+  that). Timeouts: 30 s, 5 min for chat.
+- Streaming: the extension calls `ext.assistChunk {requestId, text}` (needs `assist`) for each
+  delta; main forwards it on `assist:chunk` to the window that asked and answers `{live}` so the
+  extension stops producing once the request is gone. Chunks are capped (16 KiB each, 100k
+  characters per reply). Why chunk requests rather than notifications: the control server only
+  dispatches requests, and a request gives the extension backpressure for free.
+- Cancellation: `assist:cancel (requestId)` from the renderer (Stop, a closed palette, a newer
+  keystroke) cancels the token; main answers `cancelled` at once without waiting for the
+  extension, and the SDK hands the handler an aborted `AbortSignal`. A window that closes cancels
+  everything it left running. At most 8 requests per window run at once (`busy`); debouncing is
+  the renderer's job, rate limiting the extension's.
+- What reaches the extension is only what the human's action put in the request: the draft they
+  typed in the composer, the words after `# ` in the input editor, the code around the cursor of
+  the file they are editing, and in Ask only the context chips they switched on (recent output,
+  selection, folder, pane chips) or the failed block they asked to explain.
+- Renderer: `stores/assistStore.ts` keeps the availability and wraps a request (`assistRequest`:
+  a fresh request id, chunks filtered by id, an `AbortSignal` that sends `assist:cancel`).
+  `AssistComposer.tsx` (chord `assist.compose`) sits over the bottom of a terminal pane without
+  resizing it: over a running agent it debounces typo requests (700 ms), shows the fix as a
+  word diff applied only on Tab, reviews on Ctrl/⌘+Enter, and pastes the draft through
+  `canInsertReference` without Enter; at an idle shell prompt it lists command suggestions and
+  inserts the pick with `insertCommand` without Enter. `InputEditor.tsx` asks `command` for a
+  `# ` draft (600 ms) and replaces the draft only on Tab/Enter. `monaco/inlineAssist.ts` is one
+  inline-completions provider for every language (300 ms debounce, Monaco's cancellation token
+  wired to the request) that answers nothing while no `completion` provider is ready. Ask lives
+  in the palette (`AskView.tsx`, `stores/askStore.ts`, in memory per workspace; closing the
+  palette stops the stream) with context chips from `lib/askContext.ts`.
+
+**Extension secrets** (`main/extensionSecrets.ts`). `contributes.secrets` declares up to 8 keys
+with descriptions. Settings → Plugins shows a password field per key; `extensions:set-secret`
+encrypts the value with `safeStorage` into `extension-secrets.json` in the data dir (mode 0600,
+never synced, refused when encryption is unavailable). The renderer only learns which keys are
+set (`ExtensionInfo.secretsSet`); the extension reads its own declared keys with
+`ext.getSecret {key}`, and gets `settings.changed` when the human changes one so it re-reads it.
+Why not a string setting: `extensionSettings` lives in `settings.json`, which the renderer
+holds whole and settings sync copies to a folder the user shares.
+
 **Git** (`src/extensions/git/`, the first built-in written for the API rather than migrated):
 - Sidebar: per workspace, the repo of the workspace's active pane cwd (else the last active
   terminal's, else the first terminal's, else the workDir; `workspaces.ts`) gets one item:
@@ -1903,7 +2040,7 @@ webview's `src` does not fire `will-navigate`, so the attach-time check is the o
   working file, conflicted = `HEAD` vs working file (with markers); blobs via `git cat-file blob`.
   Binary (NUL in the first 8000 bytes) and > 2 MiB sides are refused; a symlink shows its target
   path, never the file it points to.
-- Commands: palette "Show Changes", "Show Log" (`/log`) and "Blame File" (`/blame?file=…`)
+- Commands: palette "Show Changes", "Show Graph" (`/graph`) and "Blame File" (`/blame?file=…`)
   open the panel (served from its process by `startPanelServer`; `ext.panel`'s path picks the
   page). "Blame File" finds the focused file view through `pane.list`'s `filePath` for the
   caller's pane and fails with `no-file` for anything else. The Changes page lists
@@ -1911,10 +2048,37 @@ webview's `src` does not fire `will-navigate`, so the attach-time check is the o
   per-section buttons stage (`git add -A`), unstage (`git reset -q HEAD`, or `git rm --cached`
   before the first commit) and discard. The commit box commits the index only (`git commit -q
   -m`) and shows git's own error text (stderr, else stdout: "nothing to commit" is on stdout).
-  The Log page lists `git log` records (`%H %an %ae %at %s` split by 0x1f/0x1e, `history.ts`)
-  with relative dates; expanding a commit lists its files (`git diff --name-status -z -M` against
-  the first parent, `diff-tree --root` for a root commit) and a file opens parent vs commit in
-  the diff pane. The Blame page renders `git blame --porcelain` (`parseBlamePorcelain`), one
+  Changed files show as a flat list or a folder tree (`fileTree.ts` `buildFileTree`: folders
+  first, file counts, and a chain of single-child folders compacted into one row like VS Code);
+  a folder row's buttons stage, unstage or discard exactly the files under it.
+  The Graph page (`graph` panel handler) reads `git log --date-order --decorate=full` with
+  parents and refs (`%H %P %an %ae %at %D %s`, `parseGraphLog`) for the scope's revisions
+  (`scope.ts` `planScope`: `HEAD`; `--branches --remotes HEAD`; or the chosen `refs/heads/*` /
+  `refs/remotes/*` after `--end-of-options`, each checked against `git for-each-ref`, so no
+  option reaches git). The panel lays the rows out itself with `layoutGraph` (`graph.ts`, pure):
+  each lane waits for one sha; a commit takes the first lane waiting for it, every other lane
+  waiting for it curves in, its first parent continues its lane (or curves into a lane already
+  waiting for that parent), and each further parent curves into a lane that waits for it or a
+  free one with a new color. Freed lanes are reused, so width stays at the number of live
+  branches. Each row is one SVG (edges from the top edge to the node and from the node to the
+  bottom edge, cubic curves with vertical tangents); colors are eight lane classes mixed from
+  the group palette. HEAD's node is a ring, merges a smaller dot. When the tree is dirty a
+  virtual first row ("Uncommitted changes", staged/unstaged/untracked/conflict counts) is laid
+  out with `pending: true`: a dashed hollow node whose dashed edge runs to HEAD, which stays on
+  its lane. Clicking it shows the changes with their stage/discard buttons; clicking a commit
+  shows its files (`git diff --name-status -z -M` against the first parent, `diff-tree --root`
+  for a root commit), and a file opens parent vs commit in the diff pane. The list is
+  virtualized (fixed 24 px rows, only the visible rows plus overscan are in the DOM) and pages
+  300 commits at a time up to 10,000 as you scroll; Up/Down/PageUp/PageDown/Home/End move the
+  selection, Escape closes the detail. Why the layout runs in the panel: pages re-lay the whole
+  loaded list, and shipping rows instead of commits would triple the payload.
+  Scope and view are settings: `graphScope` (`current` | `all`, default `current`) and
+  `changesView` (`list` | `tree`). The panel's own controls write them through `ext.setSetting`,
+  and the extension re-reads them from `onSettingsChanged`, so the panel and Settings → Plugins
+  stay in sync. "Choose branches" can't be a setting (it names one repository's refs), so it
+  lives per repository root in `$PINE_EXTENSION_DATA/view.json` (`viewState.ts`, 200 repos),
+  and wins over `graphScope` until the panel picks Current or All again. The toolbar shows the
+  branch and its upstream with ahead/behind counts. The Blame page renders `git blame --porcelain` (`parseBlamePorcelain`), one
   author/sha/date cell per run of lines from the same commit. CLI/agents: `status`, `changes`,
   `diff <path> [--staged]` (unified patch), `open <path> [--staged]`, `log [--limit n] [--json]`,
   `blame <file> [--json]`, `stage|unstage <paths>|--all`, `commit -m <msg>`. A diff/open path

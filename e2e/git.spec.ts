@@ -5,7 +5,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 
-test('a dirty repo shows in the sidebar and pane chips, opens a diff, commits, and shows the log', async () => {
+test('a dirty repo shows in the sidebar and pane chips, opens a diff, commits, and shows the graph', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -80,8 +80,8 @@ test('a dirty repo shows in the sidebar and pane chips, opens a diff, commits, a
     await expect(chips.filter({ hasText: '1 • +1' })).toHaveCount(0, { timeout: 15_000 })
 
     await win.keyboard.press('Control+Shift+P')
-    await win.locator('[data-slot="command-input"]').fill('Show Log')
-    await waitForPaletteSelection(win, 'Show Log')
+    await win.locator('[data-slot="command-input"]').fill('Show Graph')
+    await waitForPaletteSelection(win, 'Show Graph')
     await win.keyboard.press('Enter')
     await expect
       .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })

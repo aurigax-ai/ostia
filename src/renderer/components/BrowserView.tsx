@@ -17,7 +17,8 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { BrowserStoragePanel } from './BrowserStoragePanel'
 import { IconButton } from './IconButton'
-import { PickSendPanel, usePickTargets } from './PickSendPanel'
+import { LoginButton } from './LoginButton'
+import { PickSendPanel, useAgentTargets } from './PickSendPanel'
 import { Button } from './ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
 import { Input } from './ui/input'
@@ -173,7 +174,7 @@ export function BrowserView({
   const [capture, setCapture] = useState<PickCapture | null>(null)
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
-  const targets = usePickTargets(workspaceId)
+  const targets = useAgentTargets(workspaceId)
 
   useEffect(
     () =>
@@ -287,6 +288,7 @@ export function BrowserView({
           aria-pressed={picking !== null}
           onClick={() => void togglePick()}
         />
+        <LoginButton paneId={paneId} pageKey={navCount} onStatus={setStatus} />
         <IconButton
           icon={DatabaseIcon}
           label={storageOpen ? d.browser.storageHide : d.browser.storageShow}
