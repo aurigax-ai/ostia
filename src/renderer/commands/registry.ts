@@ -22,6 +22,7 @@ export interface CommandDef<Args = void, R = void> {
   title: string
   category?: string
   hidden?: boolean
+  argument?: string
   argsSchema?: JSONSchema
   resultSchema?: JSONSchema
   capabilities?: Capability[]

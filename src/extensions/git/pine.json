@@ -1,13 +1,20 @@
 {
   "id": "git",
   "name": "Git",
-  "version": "1.0.0",
-  "description": "Branch and changes per workspace in the sidebar, a changes list, and diffs of changed files.",
+  "version": "2.0.0",
+  "description": "Branch and changes per workspace and per terminal, a changes panel with stage, discard and commit, the commit log, blame, and diffs of changed files.",
   "capabilities": ["read-board"],
   "main": "main.js",
   "contributes": {
     "commands": [
       { "id": "show", "title": "Show Changes", "category": "Git", "capabilities": ["read-board"] },
+      { "id": "show-log", "title": "Show Log", "category": "Git", "capabilities": ["read-board"] },
+      {
+        "id": "blame-file",
+        "title": "Blame File",
+        "category": "Git",
+        "capabilities": ["read-board"]
+      },
       {
         "id": "status",
         "title": "Branch, upstream and change counts (JSON)",
@@ -35,9 +42,60 @@
         "usage": "open <path> [--staged]",
         "palette": false,
         "capabilities": ["read-board"]
+      },
+      {
+        "id": "log",
+        "title": "Recent commits",
+        "usage": "log [--limit <n>] [--json]",
+        "palette": false,
+        "capabilities": ["read-board"]
+      },
+      {
+        "id": "blame",
+        "title": "Who last changed each line of a file",
+        "usage": "blame <file> [--json]",
+        "palette": false,
+        "capabilities": ["read-board"]
+      },
+      {
+        "id": "stage",
+        "title": "Stage paths",
+        "usage": "stage <path...> | stage --all",
+        "palette": false,
+        "capabilities": ["read-board"]
+      },
+      {
+        "id": "unstage",
+        "title": "Unstage paths",
+        "usage": "unstage <path...> | unstage --all",
+        "palette": false,
+        "capabilities": ["read-board"]
+      },
+      {
+        "id": "commit",
+        "title": "Commit the staged changes",
+        "usage": "commit -m <message>",
+        "palette": false,
+        "capabilities": ["read-board"]
       }
     ],
     "sidebarItems": true,
-    "panel": { "title": "Changes", "icon": "git-branch", "entry": "url" }
+    "panel": { "title": "Git", "icon": "git-branch", "entry": "url" },
+    "paneChips": [
+      { "id": "branch", "title": "Git branch" },
+      { "id": "diff-stats", "title": "Git diff stats" }
+    ],
+    "settings": {
+      "pollSeconds": {
+        "type": "number",
+        "default": 10,
+        "description": "Seconds between git refreshes while Pine is focused (2 to 3600)"
+      },
+      "showDiffStats": {
+        "type": "boolean",
+        "default": true,
+        "description": "Show the files changed and lines added and removed on each terminal"
+      }
+    }
   }
 }

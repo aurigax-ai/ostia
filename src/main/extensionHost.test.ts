@@ -224,6 +224,23 @@ describe('ExtensionHost — panels', () => {
   })
 })
 
+describe('ExtensionHost — workflows', () => {
+  it('offers contributed workflows only from enabled, approved extensions', () => {
+    const flow = { name: 'Deploy', command: 'make deploy ENV={{env}}' }
+    writeExt(join(base, 'builtin'), 'ops', { contributes: { workflows: [flow] } })
+    writeExt(join(base, 'user'), 'mine', { contributes: { workflows: [flow] } })
+    const { host } = makeHost()
+    expect(host.workflows().map((w) => w.extId)).toEqual(['ops'])
+    expect(host.workflows()[0].workflows[0]).toMatchObject({ name: 'Deploy', tags: [] })
+
+    host.approve('mine')
+    expect(host.workflows().map((w) => w.extId)).toEqual(['ops', 'mine'])
+
+    host.setEnabled('ops', false)
+    expect(host.workflows().map((w) => w.extId)).toEqual(['mine'])
+  })
+})
+
 describe('loopbackOrigin', () => {
   it('accepts only plain-http loopback URLs', () => {
     expect(loopbackOrigin('http://127.0.0.1:4000/x?t=1')).toBe('http://127.0.0.1:4000')

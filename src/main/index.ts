@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain, nativeTheme, session, shell, webContents } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
-import type { ExtensionResult } from '../shared/extensions'
+import type { ExtensionPanelContext, ExtensionResult } from '../shared/extensions'
 import { PRODUCT_NAME } from '../shared/product'
 import type {
   AppInfo,
@@ -17,6 +17,8 @@ import type {
   FsEntry,
   FsKind,
   LifecycleEvent,
+  PromptContext,
+  PromptContextRequest,
   PtyAttachResult,
   PtySpawnOptions,
   TerminalStateSnapshot,
@@ -69,6 +71,7 @@ import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
 import { privateTmpDir } from './privateTmp'
 import { killAllProcesses, registerProcessMethods } from './processManager'
+import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { ScreenMirror } from './screenMirror'
 import { registerSelectionIpc } from './selectionReport'
@@ -76,6 +79,7 @@ import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
+import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
 import { removeWorkspace, setWorkspaceWorkDir, workDirForWorkspace } from './workspaceRegistry'
 import {
   clearPersisted,
@@ -119,6 +123,7 @@ const ptys = new Map<string, PtyEntry>()
 const PTY_BUFFER_CAP = 1_000_000
 const DETACH_GRACE_MS = 3000
 const executables = new ExecutableIndex()
+const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
 
 function removeStateFile(entry: PtyEntry): void {
   rmSync(entry.stateFile, { force: true })
@@ -220,14 +225,17 @@ let settingsSync: SettingsSyncHandle | null = null
 
 const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
 
+function configDir(): string {
+  return join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), PRODUCT_NAME)
+}
+
 function extensionRoots(): ExtensionRoot[] {
   const builtinDir = app.isPackaged
     ? join(process.resourcesPath, 'extensions')
     : join(app.getAppPath(), 'out/extensions')
-  const configHome = process.env.XDG_CONFIG_HOME || join(homedir(), '.config')
   return [
     { dir: builtinDir, builtin: true },
-    { dir: join(configHome, PRODUCT_NAME, 'extensions'), builtin: false },
+    { dir: join(configDir(), 'extensions'), builtin: false },
   ]
 }
 
@@ -503,6 +511,7 @@ function registerIpc(): void {
           workspaceId: event.workspaceId,
         })
       }
+      extensionHost?.clearPaneChips(event.paneId)
       dropRestoredScrollback(event.paneId)
       hibernatedPanes.delete(event.paneId)
       removePane(event.paneId)
@@ -601,6 +610,10 @@ function registerExtensionIpc(host: ExtensionHost): void {
   )
   ipcMain.handle('extensions:approve', (_e, extId: string) => host.approve(String(extId)))
   ipcMain.handle('extensions:sidebar', () => host.sidebarItems())
+  ipcMain.handle('extensions:chips', () => host.paneChips())
+  ipcMain.handle('extensions:set-setting', (_e, extId: unknown, key: unknown, value: unknown) =>
+    host.setSetting(String(extId), String(key), value),
+  )
   ipcMain.handle(
     'extensions:invoke',
     (
@@ -608,6 +621,7 @@ function registerExtensionIpc(host: ExtensionHost): void {
       extId: string,
       command: string,
       target: { workspaceId: string | null; paneId: string | null },
+      argument?: unknown,
     ): Promise<ExtensionResult> => {
       const paneId = target?.paneId ? getByPaneId(target.paneId)?.externalId : undefined
       const cwd = target?.paneId ? terminalState.get(target.paneId)?.cwd : undefined
@@ -616,16 +630,15 @@ function registerExtensionIpc(host: ExtensionHost): void {
         ...(paneId ? { paneId } : {}),
         ...(cwd ? { cwd } : {}),
       })
-      return host.invoke(extId, command, null, caller)
+      return host.invoke(extId, command, host.paletteArgs(extId, command, argument), caller)
     },
   )
-  ipcMain.handle(
-    'extensions:panel',
-    (_e, extId: string, context: { workspaceId: string; locale: string }) =>
-      host.resolvePanel(String(extId), {
-        workspaceId: String(context?.workspaceId ?? ''),
-        locale: String(context?.locale ?? 'en'),
-      }),
+  ipcMain.handle('extensions:panel', (_e, extId: string, context: ExtensionPanelContext) =>
+    host.resolvePanel(String(extId), {
+      workspaceId: String(context?.workspaceId ?? ''),
+      locale: String(context?.locale ?? 'en'),
+      ...(context?.path === undefined ? {} : { path: String(context.path) }),
+    }),
   )
 }
 
@@ -663,7 +676,7 @@ function registerPtyIpc(): void {
     }
     const shell =
       opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
-    const integration = shellIntegrationSpawnOptions(shell, process.env)
+    const integration = shellIntegrationSpawnOptions(shell, process.env, opts.pinePrompt ?? null)
     const identity = registerPane({ windowId: subId, workspaceId: '', paneId })
     const cols = opts.cols || 80
     const rows = opts.rows || 24
@@ -745,6 +758,21 @@ function registerPtyIpc(): void {
     const state = await readShellState(entry.stateFile)
     return commandNames(executables, state?.path ?? entry.spawnPath, state?.names ?? [])
   })
+  ipcMain.handle(
+    'pty:prompt-context',
+    async (e, paneId: string, want: PromptContextRequest): Promise<PromptContext | null> => {
+      const entry = ptys.get(paneId)
+      if (!entry?.subs.has(String(e.sender.id))) return null
+      const state = await readShellState(entry.stateFile)
+      return promptContext(
+        state,
+        entry.spawnPath,
+        terminalState.get(paneId)?.cwd,
+        { node: want?.node === true, kube: want?.kube === true },
+        promptSources,
+      )
+    },
+  )
   ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
     resizePty(ptys.get(paneId), cols, rows)
   })
@@ -888,15 +916,17 @@ function sendToWorkspaceWindow(
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
-function readLocale(): string | undefined {
+function readSettingsFile(): { locale?: unknown; extensionSettings?: unknown } {
   try {
-    const settings = JSON.parse(
-      readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'),
-    ) as { locale?: unknown }
-    return typeof settings.locale === 'string' ? settings.locale : undefined
+    return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
   } catch {
-    return undefined
+    return {}
   }
+}
+
+function readLocale(): string | undefined {
+  const locale = readSettingsFile().locale
+  return typeof locale === 'string' ? locale : undefined
 }
 
 const OPEN_TERMINAL_TIMEOUT_MS = 5000
@@ -962,6 +992,7 @@ app.whenReady().then(() => {
       extensionStore.reload()
       extensionHost?.reloadRecords()
     },
+    onSettingsPulled: () => extensionHost?.reloadSettings(),
   })
   settingsSync.run()
   extensionHost = new ExtensionHost({
@@ -972,6 +1003,7 @@ app.whenReady().then(() => {
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     locale: readLocale,
+    readExtensionSettings: () => readSettingsFile().extensionSettings,
     broadcast,
     openPanelIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-panel', req),
     openDiffIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
@@ -982,6 +1014,14 @@ app.whenReady().then(() => {
   })
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
+  const workflowDeps: WorkflowDeps = {
+    userDir: join(configDir(), 'workflows'),
+    roots: () => [homedir(), app.getPath('userData')],
+    workDirForWorkspace,
+    extensionWorkflows: () => extensionHost?.workflows() ?? [],
+  }
+  registerWorkflowIpc(workflowDeps)
+  registerWorkflowMethods(workflowDeps)
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
   )
@@ -1011,6 +1051,7 @@ app.whenReady().then(() => {
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
   extensionHost.startEager()
+  extensionHost.watchUserExtensions()
   app.on('browser-window-focus', emitFocusChanged)
   app.on('browser-window-blur', emitFocusChanged)
   setInterval(autosaveScrollback, SCROLLBACK_AUTOSAVE_MS).unref()

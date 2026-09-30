@@ -73,7 +73,14 @@ function showDesktop(deps: NotifyDeps, title: string, body?: string, paneId?: st
 
 function record(
   deps: NotifyDeps,
-  input: { title: string; body?: string; paneId?: string; from: string; extId?: string },
+  input: {
+    title: string
+    body?: string
+    paneId?: string
+    from: string
+    extId?: string
+    panelPath?: string
+  },
 ): NotificationEntry {
   const entry: NotificationEntry = {
     id: randomUUID(),
@@ -84,6 +91,7 @@ function record(
     paneId: input.paneId,
   }
   if (input.extId) entry.extId = input.extId
+  if (input.extId && input.panelPath) entry.panelPath = input.panelPath
   const log = readLog()
   log.push(entry)
   if (log.length > LOG_CAP) log.splice(0, log.length - LOG_CAP)
@@ -108,7 +116,7 @@ export function postNotification(
 
 export function postPanelNotification(
   deps: NotifyDeps,
-  input: { title: string; body?: string; from: string; extId: string },
+  input: { title: string; body?: string; from: string; extId: string; panelPath?: string },
   openPanel: () => void,
 ): void {
   const n = desktopNotification(input.title, input.body)

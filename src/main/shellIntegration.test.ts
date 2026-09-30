@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { privateTmpDir } from './privateTmp'
+import { type ShellState, parseShellState } from './shellCommands'
 import {
   CLAUDE_PLUGIN_MANIFEST,
   type CodexHookEvent,
@@ -68,6 +69,109 @@ describe('shellIntegrationSpawnOptions', () => {
       const { args, env } = shellIntegrationSpawnOptions('/bin/bash', {})
       expect(args).toEqual(['--rcfile', BASH_RC])
       expect(env).toEqual({})
+    })
+  })
+
+  describe('Pine prompt', () => {
+    it('asks zsh and bash for the plain prompt through the environment only when enabled', () => {
+      expect(shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' }, '$').env).toMatchObject({
+        PINE_PROMPT: 'pine',
+        PINE_PROMPT_SEPARATOR: '$',
+      })
+      expect(shellIntegrationSpawnOptions('/bin/bash', {}, 'none').env).toEqual({
+        PINE_PROMPT: 'pine',
+        PINE_PROMPT_SEPARATOR: 'none',
+      })
+      expect(shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' }).env).not.toHaveProperty(
+        'PINE_PROMPT',
+      )
+      expect(shellIntegrationSpawnOptions('/bin/bash', {}, null).env).toEqual({})
+      expect(shellIntegrationSpawnOptions('fish', {}, '$')).toEqual({ args: [], env: {} })
+    })
+
+    const B_MARK = '\x1b]133;B\x1b\\'
+    const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
+    const run = (shell: string, init: string, script: string, env: Record<string, string>) => {
+      shellIntegrationSpawnOptions(shell, { HOME: '/home/u' })
+      return spawnSync(
+        shell,
+        [shell === 'zsh' ? '-f' : '--norc', '-c', `source '${init}'; ${script}`],
+        { env: { PATH: '/usr/bin:/bin', HOME: '/home/u', ...env }, encoding: 'utf8' },
+      )
+    }
+
+    describe('zsh', () => {
+      const prompt = (env: Record<string, string>): string =>
+        run(
+          'zsh',
+          ZSH_INIT,
+          [
+            "PROMPT='user> '",
+            "RPROMPT='right'",
+            'typeset -i torn=0',
+            'prompt_powerlevel9k_teardown() { (( torn++ )) }',
+            '__pine_precmd >/dev/null',
+            '__pine_precmd >/dev/null',
+            'print -rn -- "$torn|$PROMPT|$RPROMPT|$PINE_PROMPT"',
+          ].join('; '),
+          env,
+        ).stdout
+
+      it('replaces the prompt with the cwd and separator, clears RPROMPT and keeps the B mark', () => {
+        expect(prompt({ PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: '%' })).toBe(
+          `1|%~ %% %{${B_MARK}%}||`,
+        )
+        expect(prompt({ PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: '$' })).toBe(
+          `1|%~ $ %{${B_MARK}%}||`,
+        )
+        expect(prompt({ PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: 'none' })).toBe(
+          `1|%~ %{${B_MARK}%}||`,
+        )
+      })
+
+      it('leaves the user’s prompt alone when the Pine prompt is off', () => {
+        expect(prompt({})).toBe(`0|user> %{${B_MARK}%}|right|`)
+      })
+
+      it('renders the plain prompt as the home-abbreviated cwd', () => {
+        const out = run(
+          'zsh',
+          ZSH_INIT,
+          'HOME=$PWD; __pine_precmd >/dev/null; print -rn -- "${(%)PROMPT}"',
+          { PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: '>' },
+        ).stdout
+        expect(out.startsWith('~ > ')).toBe(true)
+      })
+    })
+
+    describe('bash', () => {
+      const ps1 = (env: Record<string, string>): string => {
+        const out = run(
+          'bash',
+          BASH_INIT,
+          [
+            "PS1='user> '",
+            `__pine_orig_prompt_command=("PS1='framework> '")`,
+            '__pine_prompt_command >/dev/null',
+            'printf "|%s|%s" "$PS1" "$PINE_PROMPT"',
+          ].join('; '),
+          env,
+        ).stdout
+        return out.slice(out.indexOf('|'))
+      }
+
+      it('sets PS1 to the cwd and separator after the user’s PROMPT_COMMAND and keeps the B mark', () => {
+        expect(ps1({ PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: '>' })).toBe(
+          `|\\w > ${BASH_B_MARK}|`,
+        )
+        expect(ps1({ PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: 'none' })).toBe(
+          `|\\w ${BASH_B_MARK}|`,
+        )
+      })
+
+      it('keeps the framework’s PS1 when the Pine prompt is off', () => {
+        expect(ps1({})).toBe(`|framework> ${BASH_B_MARK}|`)
+      })
     })
   })
 
@@ -167,7 +271,11 @@ describe('shellIntegrationSpawnOptions', () => {
         rmSync(dir, { recursive: true, force: true })
       })
 
-      const report = (script: string, state: string | null = stateFile): string => {
+      const report = (
+        script: string,
+        state: string | null = stateFile,
+        extraEnv: Record<string, string> = {},
+      ): string => {
         rmSync(stateFile, { force: true })
         shellIntegrationSpawnOptions(shell, { HOME: '/home/u' })
         return spawnSync(
@@ -182,14 +290,21 @@ describe('shellIntegrationSpawnOptions', () => {
               PATH: '/pine/bin:/usr/bin:/bin',
               HOME: '/home/u',
               ...(state ? { PINE_SHELL_STATE: state } : {}),
+              ...extraEnv,
             },
             encoding: 'utf8',
           },
         ).stdout
       }
-      const readState = (): { path: string; names: string[] } => {
-        const [path, names] = readFileSync(stateFile, 'utf8').split('\n')
-        return { path, names: names.split(' ') }
+      const readState = (): ShellState => {
+        const state = parseShellState(readFileSync(stateFile, 'utf8'))
+        if (!state) throw new Error('unreadable shell state')
+        return state
+      }
+
+      const readStateAfter = (script: string): ShellState => {
+        report(script)
+        return readState()
       }
 
       it('writes the PATH and its builtins, keywords, aliases and public functions to the state file, not the terminal', () => {
@@ -214,6 +329,34 @@ describe('shellIntegrationSpawnOptions', () => {
         )
         expect(out).toBe('')
         expect(readState().path).toBe('/x:/pine/bin:/usr/bin:/bin')
+      })
+
+      it('reports the virtualenv, conda env and KUBECONFIG, and rewrites when they change', () => {
+        expect(readStateAfter('__pine_report_shell')).toMatchObject({
+          virtualEnv: null,
+          condaEnv: null,
+          kubeconfig: null,
+        })
+        const out = report(
+          [
+            '__pine_report_shell',
+            'export VIRTUAL_ENV=/home/u/proj/.venv CONDA_DEFAULT_ENV=base KUBECONFIG=/k/a:/k/b',
+            '__pine_report_shell',
+          ].join('; '),
+        )
+        expect(out).toBe('')
+        expect(readState()).toMatchObject({
+          path: '/pine/bin:/usr/bin:/bin',
+          virtualEnv: '/home/u/proj/.venv',
+          condaEnv: 'base',
+          kubeconfig: '/k/a:/k/b',
+        })
+        expect(readState().names).toEqual(expect.arrayContaining(['cd', 'pine_fn']))
+      })
+
+      it('drops newlines from a reported variable so it cannot shift the lines after it', () => {
+        report('__pine_report_shell', stateFile, { CONDA_DEFAULT_ENV: 'a\nb' })
+        expect(readState()).toMatchObject({ condaEnv: 'ab', kubeconfig: null })
       })
 
       it('does nothing outside a Pine pane', () => {

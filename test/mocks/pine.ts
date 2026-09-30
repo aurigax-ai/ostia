@@ -25,6 +25,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       write: vi.fn(),
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),
+      promptContext: vi.fn().mockResolvedValue(null),
       onData: vi.fn(noopUnsub),
       onExit: vi.fn(noopUnsub),
     },
@@ -89,8 +90,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       invoke: vi.fn().mockResolvedValue({ ok: true }),
       panel: vi.fn().mockResolvedValue({ ok: false, error: 'no-panel' }),
       sidebarItems: vi.fn().mockResolvedValue([]),
+      paneChips: vi.fn().mockResolvedValue([]),
+      setSetting: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-extension' }),
       onChanged: vi.fn(noopUnsub),
       onSidebar: vi.fn(noopUnsub),
+      onPaneChips: vi.fn(noopUnsub),
       onOpenPanel: vi.fn(noopUnsub),
       onOpenDiff: vi.fn(noopUnsub),
       onOpenTerminal: vi.fn(noopUnsub),
@@ -109,15 +113,13 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
         pairCode: 'ABCD1234',
         name: 'test-host',
       }),
-      status: vi
-        .fn()
-        .mockResolvedValue({
-          running: false,
-          host: null,
-          port: null,
-          fingerprint: null,
-          deviceCount: 0,
-        }),
+      status: vi.fn().mockResolvedValue({
+        running: false,
+        host: null,
+        port: null,
+        fingerprint: null,
+        deviceCount: 0,
+      }),
       devices: vi.fn().mockResolvedValue({ devices: [] }),
       revoke: vi.fn().mockResolvedValue({ ok: true }),
       setCap: vi.fn().mockResolvedValue({ ok: true, caps: ['read', 'notify'] }),
@@ -132,6 +134,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       clear: vi.fn(),
       onChanged: vi.fn(noopUnsub),
       onActivate: vi.fn(noopUnsub),
+    },
+    workflows: {
+      list: vi.fn().mockResolvedValue({ workflows: [], problems: [] }),
+      save: vi.fn().mockResolvedValue({ ok: true, file: 'workflow.yaml' }),
     },
   }
   return { ...base, ...overrides }

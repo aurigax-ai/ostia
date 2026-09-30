@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { sshArgs, sshTarget } from './ssh'
+import { sshArgs, sshLabel, sshLogin } from './ssh'
+
+const sshTarget = (args: string[]): string | null => sshLogin(args)?.host ?? null
 
 describe('sshArgs', () => {
   it('takes the arguments after the ssh program, also when an interpreter ran it', () => {
@@ -40,5 +42,26 @@ describe('sshTarget', () => {
     expect(sshTarget(['$(reboot)'])).toBeNull()
     expect(sshTarget(['box\u001b[31m'])).toBeNull()
     expect(sshTarget(['me@'])).toBeNull()
+  })
+})
+
+describe('sshLogin', () => {
+  it('keeps the user from user@host, -l or an ssh:// URL', () => {
+    expect(sshLogin(['deploy@prod-1'])).toEqual({ user: 'deploy', host: 'prod-1' })
+    expect(sshLogin(['-l', 'root', 'box'])).toEqual({ user: 'root', host: 'box' })
+    expect(sshLogin(['-lroot', '-p', '22', 'box'])).toEqual({ user: 'root', host: 'box' })
+    expect(sshLogin(['-l', 'root', 'me@box'])).toEqual({ user: 'me', host: 'box' })
+    expect(sshLogin(['ssh://me@box.lan:2222'])).toEqual({ user: 'me', host: 'box.lan' })
+    expect(sshLogin(['box'])).toEqual({ host: 'box' })
+  })
+
+  it('drops a user name that is not plain text but keeps the host', () => {
+    expect(sshLogin(['$(id)@box'])).toEqual({ host: 'box' })
+    expect(sshLogin(['-l', 'a\u001b[31m', 'box'])).toEqual({ host: 'box' })
+  })
+
+  it('labels a login as user@host, or the host alone', () => {
+    expect(sshLabel({ user: 'deploy', host: 'build-box' })).toBe('deploy@build-box')
+    expect(sshLabel({ host: 'build-box' })).toBe('build-box')
   })
 })

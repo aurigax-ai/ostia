@@ -9,6 +9,7 @@ interface RendererPaneEntry {
   kind: string
   title: string
   cwd?: string
+  filePath?: string
 }
 
 export interface WorkspaceEntry {
@@ -35,6 +36,7 @@ export interface PaneEntry {
   kind: string
   title: string
   cwd?: string
+  filePath?: string
   running: boolean
   blockCount: number
   lastExitCode?: number
@@ -65,6 +67,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       kind: p.kind,
       title: p.title,
       cwd: state?.cwd ?? p.cwd,
+      ...(p.filePath ? { filePath: p.filePath } : {}),
       running: state?.running ?? false,
       blockCount: state?.blockCount ?? 0,
       lastExitCode: state?.lastExitCode,

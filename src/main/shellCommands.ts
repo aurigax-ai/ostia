@@ -4,25 +4,34 @@ import { delimiter, extname, isAbsolute, join } from 'node:path'
 
 export interface ShellState {
   path: string
+  virtualEnv: string | null
+  condaEnv: string | null
+  kubeconfig: string | null
   names: string[]
 }
 
 const SHELL_STATE_CAP_BYTES = 1024 * 1024
 
+const SHELL_STATE_HEADER_LINES = 4
+
+export function parseShellState(text: string): ShellState | null {
+  const lines = text.split('\n')
+  if (lines.length <= SHELL_STATE_HEADER_LINES) return null
+  const [path, virtualEnv, condaEnv, kubeconfig] = lines
+  return {
+    path,
+    virtualEnv: virtualEnv || null,
+    condaEnv: condaEnv || null,
+    kubeconfig: kubeconfig || null,
+    names: lines.slice(SHELL_STATE_HEADER_LINES).join(' ').split(/\s+/).filter(Boolean),
+  }
+}
+
 export async function readShellState(file: string): Promise<ShellState | null> {
   try {
     const info = await lstat(file)
     if (!info.isFile() || info.size > SHELL_STATE_CAP_BYTES) return null
-    const text = await readFile(file, 'utf8')
-    const newline = text.indexOf('\n')
-    if (newline < 0) return null
-    return {
-      path: text.slice(0, newline),
-      names: text
-        .slice(newline + 1)
-        .split(/\s+/)
-        .filter(Boolean),
-    }
+    return parseShellState(await readFile(file, 'utf8'))
   } catch {
     return null
   }

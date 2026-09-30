@@ -21,6 +21,7 @@ import { isIdlePrompt } from '../lib/blocks'
 import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
 import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
+import { spawnPromptOption } from '../lib/promptChips'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
@@ -366,7 +367,13 @@ export function TerminalView({
         pending.length = 0
       }
       window.pine.pty
-        .attach(paneId, { cwd: spawnCwd.current, cols, rows, role: 'owner' })
+        .attach(paneId, {
+          cwd: spawnCwd.current,
+          cols,
+          rows,
+          role: 'owner',
+          ...spawnPromptOption(useSettingsStore.getState()),
+        })
         .then(({ buffer }) => {
           if (disposed) return
           disposeMarkers()

@@ -17,6 +17,7 @@ import { setKeybindingSetting } from '../lib/chords'
 import { requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
 import { startNewWorkspace } from '../lib/newWorkspace'
+import { openWorkflowPicker } from '../lib/workflows'
 import {
   goToWorkspace,
   isPaneViewed,
@@ -40,6 +41,7 @@ interface PaneListEntry {
   kind: SurfaceKind
   title: string
   cwd?: string
+  filePath?: string
 }
 
 interface WorkspaceListEntry {
@@ -320,6 +322,14 @@ export function registerBuiltinCommands(): void {
     run: () => useHistorySearchStore.getState().setOpen(true),
   })
 
+  commands.register({
+    id: 'workflows.search',
+    title: 'Workflows: Search',
+    category: 'Workflows',
+    target: 'none',
+    run: (_args, ctx) => openWorkflowPicker(ctx.activeWorkspaceId, ctx.activePaneId),
+  })
+
   commands.register<void, { inputMode: InputMode }>({
     id: 'terminal.toggleInputEditor',
     title: 'Toggle Input Editor',
@@ -580,6 +590,7 @@ export function registerBuiltinCommands(): void {
             kind: pane.kind,
             title: pane.title,
             cwd: pane.cwd,
+            ...(pane.kind === 'editor' && pane.filePath ? { filePath: pane.filePath } : {}),
           })
         }
       }

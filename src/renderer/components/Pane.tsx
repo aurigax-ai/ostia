@@ -32,6 +32,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
+import { PaneChips } from './PaneChips'
 import { extensionIcon } from './extensionIcons'
 import { Button } from './ui/button'
 
@@ -173,6 +174,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
             <span className="pane-attn-msg">{attention.message}</span>
           </span>
         ) : null}
+        <PaneChips paneId={shown.id} />
         <ResumeButton pane={shown} />
         <div className="pane-actions">
           <IconButton

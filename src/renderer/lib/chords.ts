@@ -23,6 +23,7 @@ export type AppChord =
   | 'app.openSettings'
   | 'attention.jumpToLatest'
   | 'history.search'
+  | 'workflows.search'
   | 'workspace.new'
   | 'agent.resume'
   | 'workspace.goto'
@@ -53,6 +54,7 @@ export const DEFAULT_CHORDS: Readonly<
   'app.openSettings': ['Cmd+,', 'Ctrl+,'],
   'attention.jumpToLatest': ['Cmd+Shift+U', 'Ctrl+Shift+U'],
   'history.search': ['Cmd+Shift+H', 'Ctrl+Shift+H'],
+  'workflows.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
   'workspace.new': ['Cmd+T', 'Ctrl+Shift+T'],
   'agent.resume': ['Cmd+Shift+R', 'Ctrl+Shift+R'],
   'workspace.goto': [`Cmd+${DIGIT_RANGE}`, `Ctrl+${DIGIT_RANGE}`],

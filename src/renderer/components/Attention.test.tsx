@@ -256,7 +256,7 @@ describe('NotificationCenter', () => {
     expect(await screen.findByText('fresh')).toBeInTheDocument()
   })
 
-  it('names the extension on its notifications and opens its panel on click', async () => {
+  it('names the extension on its notifications and opens its panel at their path on click', async () => {
     const { workspaceId } = twoPanes()
     const extInit = useExtensionsStore.getState()
     useExtensionsStore.setState({
@@ -274,6 +274,9 @@ describe('NotificationCenter', () => {
           unapproved: [],
           commands: [],
           panel: { title: 'Keeper', icon: 'shield' },
+          paneChips: [],
+          settings: [],
+          settingValues: {},
         },
       ],
     })
@@ -284,6 +287,7 @@ describe('NotificationCenter', () => {
         title: 'Keeper needs approval',
         from: 'extension:keeper',
         extId: 'keeper',
+        panelPath: '/approvals',
       },
     ])
     try {
@@ -301,6 +305,7 @@ describe('NotificationCenter', () => {
         kind: 'extension',
         extensionId: 'keeper',
       })
+      expect(useExtensionsStore.getState().panelNav[layout.activePaneId]?.path).toBe('/approvals')
     } finally {
       useExtensionsStore.setState(extInit, true)
     }

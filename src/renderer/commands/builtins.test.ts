@@ -410,6 +410,34 @@ describe('pane.list / workspace.list', () => {
     })
   })
 
+  it('pane.list reports the open file of a file view', async () => {
+    const view = { ...createPane('editor', 'a.ts', '/work/api'), filePath: '/work/api/a.ts' }
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: view, activePaneId: view.id, zoomedPaneId: null } },
+    })
+
+    const res = await commands.execWith(ctx('s1', null), 'pane.list')
+
+    expect(res).toEqual({
+      ok: true,
+      result: [
+        {
+          paneId: view.id,
+          workspaceId: 's1',
+          kind: 'editor',
+          title: 'a.ts',
+          cwd: '/work/api',
+          filePath: '/work/api/a.ts',
+        },
+      ],
+    })
+  })
+
   it('pane.list returns an empty array when there is no active workspace and allWorkspaces is unset', async () => {
     const res = await commands.execWith(ctx(null, null), 'pane.list')
     expect(res).toEqual({ ok: true, result: [] })

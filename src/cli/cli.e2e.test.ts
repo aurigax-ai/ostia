@@ -1,4 +1,5 @@
 import { execSync, spawn } from 'node:child_process'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -13,6 +14,7 @@ import {
 } from '../main/controlServer'
 import { type PaneIdentity, registerPane } from '../main/idRegistry'
 import { registerPaneListMethods } from '../main/paneList'
+import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workflows'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()
@@ -451,6 +453,108 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
         's1\tbackend\tapi\tidle\t/a',
         's2\t-\tweb\tworking\t/b',
       ])
+    })
+  })
+
+  describe('pine workflow', () => {
+    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+    let dir: string
+
+    beforeAll(() => {
+      dir = mkdtempSync(join(tmpdir(), 'pine-cli-workflows-'))
+      const userDir = join(dir, 'user')
+      const workDir = join(dir, 'project')
+      mkdirSync(userDir, { recursive: true })
+      mkdirSync(workspaceWorkflowsDir(workDir), { recursive: true })
+      writeFileSync(
+        join(userDir, 'logs.yaml'),
+        [
+          'name: Follow logs',
+          'command: kubectl logs -f deploy/{{app}}',
+          'description: Tail a deployment',
+          'tags: [k8s]',
+          'arguments:',
+          '  - name: app',
+          '    description: Deployment name',
+          '    default_value: api',
+          '',
+        ].join('\n'),
+      )
+      writeFileSync(join(userDir, 'broken.yaml'), 'name: nothing to run\n')
+      writeFileSync(
+        join(workspaceWorkflowsDir(workDir), 'test.yml'),
+        'name: Test\ncommand: pnpm test\n',
+      )
+      registerWorkflowMethods({
+        userDir,
+        roots: () => [dir],
+        workDirForWorkspace: (id) => (id === 's1' ? workDir : undefined),
+        extensionWorkflows: () => [
+          {
+            extId: 'ops',
+            workflows: [{ name: 'Deploy', command: 'make deploy', tags: [], arguments: [] }],
+          },
+        ],
+      })
+    })
+
+    afterAll(() => {
+      rmSync(dir, { recursive: true, force: true })
+    })
+
+    it('lists the caller workspace, user and extension workflows, reporting unreadable files', async () => {
+      const res = await runPine(['workflow', 'list'], env())
+      expect(res.code).toBe(0)
+      expect(res.stdout.trim().split('\n')).toEqual([
+        'Test\tworkspace:test.yml\tpnpm test',
+        'Follow logs\tuser:logs.yaml\tkubectl logs -f deploy/{{app}}',
+        'Deploy\textension:ops\tmake deploy',
+      ])
+      expect(res.stderr).toContain("couldn't read user:broken.yaml: missing command")
+
+      const json = await runPine(['workflow', 'list', '--json'], env())
+      const listing = JSON.parse(json.stdout)
+      expect(listing.workflows).toHaveLength(3)
+      expect(listing.problems).toEqual([
+        { source: 'user', origin: 'broken.yaml', error: 'missing command' },
+      ])
+    })
+
+    it('shows one workflow by name', async () => {
+      const res = await runPine(['workflow', 'show', 'Follow', 'logs'], env())
+      expect(res.code).toBe(0)
+      expect(res.stdout.trim().split('\n')).toEqual([
+        'name: Follow logs',
+        'source: user (logs.yaml)',
+        'description: Tail a deployment',
+        'tags: k8s',
+        'command: kubectl logs -f deploy/{{app}}',
+        'arguments:',
+        '  app — Deployment name (default: api)',
+      ])
+
+      const json = await runPine(['workflow', 'show', 'Deploy', '--json'], env())
+      expect(JSON.parse(json.stdout)).toEqual([
+        {
+          name: 'Deploy',
+          command: 'make deploy',
+          tags: [],
+          arguments: [],
+          source: 'extension',
+          origin: 'ops',
+        },
+      ])
+    })
+
+    it('fails on an unknown name or a missing subcommand, and has no run verb', async () => {
+      const missing = await runPine(['workflow', 'show', 'Nope'], env())
+      expect(missing.code).toBe(1)
+      expect(missing.stderr).toContain("no workflow named 'Nope'")
+
+      const run = await runPine(['workflow', 'run', 'Deploy'], env())
+      expect(run.code).toBe(1)
+      expect(run.stderr).toContain('usage: workflow list')
+      expect(execCalls).toEqual([])
     })
   })
 })

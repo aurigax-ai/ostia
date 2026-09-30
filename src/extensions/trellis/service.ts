@@ -3,8 +3,12 @@ import type { ExtensionIcon, SidebarTone } from '../../shared/extensions'
 import { type ToolRun, nextBackoff, runTool } from '../sdk/tool'
 import { type Strings, stringsFor } from './strings'
 import {
+  ALL_NOTIFY_KINDS,
   type CardCounts,
+  type NotifyKinds,
+  type TrellisEvent,
   type TrellisProject,
+  cardPath,
   countCards,
   findProject,
   needsUser,
@@ -31,7 +35,7 @@ export interface TrellisHost {
     icon?: ExtensionIcon
     tone?: SidebarTone
   }) => Promise<unknown>
-  notifyPanel: (title: string, body?: string) => Promise<unknown>
+  notifyPanel: (title: string, body?: string, path?: string) => Promise<unknown>
   log: (line: string) => void
 }
 
@@ -78,6 +82,7 @@ export class TrellisService {
   private pendingAck: number | null = null
   private stopped = false
   locale = 'en'
+  notifyKinds: NotifyKinds = ALL_NOTIFY_KINDS
 
   constructor(private readonly opts: TrellisServiceOptions) {
     this.bin = opts.bin ?? 'trellis'
@@ -131,20 +136,17 @@ export class TrellisService {
       this.opts.host.log(`workspace list unavailable: ${(err as Error).message}`)
       return this.clearSidebar()
     }
+    this.projects = this.projectsOf(workspaces)
     const byProject = new Map<string, Promise<CardCounts | null>>()
     const next = new Set<string>()
-    this.projects.clear()
-    for (const workspace of workspaces) {
-      const project = this.projectFor(workspace.workDir)
-      if (!project) continue
-      this.projects.set(workspace.workspaceId, project)
+    for (const [workspaceId, project] of this.projects) {
       const key = `${project.project}/${project.board ?? ''}`
       if (!byProject.has(key)) byProject.set(key, this.counts(project))
       const counts = await byProject.get(key)
       if (!counts) continue
-      next.add(workspace.workspaceId)
+      next.add(workspaceId)
       await this.opts.host.setSidebarItem({
-        workspaceId: workspace.workspaceId,
+        workspaceId,
         key: SIDEBAR_KEY,
         text: this.strings.sidebar(counts),
         icon: 'kanban',
@@ -164,6 +166,27 @@ export class TrellisService {
       await this.opts.host.setSidebarItem({ workspaceId, key: SIDEBAR_KEY, text: '' })
     }
     this.shown.clear()
+  }
+
+  private projectsOf(workspaces: WorkspaceRef[]): Map<string, TrellisProject> {
+    const projects = new Map<string, TrellisProject>()
+    for (const workspace of workspaces) {
+      const project = this.projectFor(workspace.workDir)
+      if (project) projects.set(workspace.workspaceId, project)
+    }
+    return projects
+  }
+
+  private async isOpenProject(project: string | null): Promise<boolean> {
+    const open = this.openProjects()
+    if (!open) return true
+    if (project && open.has(project)) return true
+    try {
+      this.projects = this.projectsOf(await this.opts.host.listWorkspaces())
+    } catch {
+      return true
+    }
+    return project !== null && (this.openProjects()?.has(project) ?? false)
   }
 
   openProjects(): Set<string> | null {
@@ -387,16 +410,19 @@ export class TrellisService {
     const ev = parseEventLine(line)
     if (!ev || 'gap' in ev) return
     this.scheduleAck(ev.seq)
-    const project = projectOfRef(ev.ref)
-    const open = this.openProjects()
-    if (open && (!project || !open.has(project))) return
+    void this.handleEvent(ev)
+  }
+
+  private async handleEvent(ev: TrellisEvent): Promise<void> {
+    if (!(await this.isOpenProject(projectOfRef(ev.ref)))) return
     if (ev.entity === 'card') this.scheduleRefresh()
-    const needs = needsUser(ev)
+    const needs = needsUser(ev, this.notifyKinds)
     if (!needs) return
     const s = this.strings
     void this.opts.host.notifyPanel(
       needs.kind === 'blocked' ? s.blockedTitle : s.reviewTitle,
       `${ev.ref} ${ev.title}`.trim(),
+      cardPath(ev.ref) ?? undefined,
     )
   }
 

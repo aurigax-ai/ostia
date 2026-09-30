@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import { commands } from '../commands/registry'
 import { monaco } from '../monaco/setup'
+import { useSettingsStore } from '../stores/settingsStore'
 import { SETTINGS_JSON_SCHEMA, registerSettingsSchema } from './schema'
 
 vi.mock('../monaco/setup', () => ({
@@ -26,6 +27,26 @@ beforeEach(() => {
 describe('SETTINGS_JSON_SCHEMA', () => {
   it('rejects unknown top-level keys via additionalProperties: false', () => {
     expect(SETTINGS_JSON_SCHEMA.additionalProperties).toBe(false)
+  })
+
+  describe('saved settings.json', () => {
+    const initial = useSettingsStore.getState()
+
+    afterEach(() => {
+      useSettingsStore.setState(initial, true)
+      vi.useRealTimers()
+    })
+
+    it('describes every top-level key the settings store writes', async () => {
+      vi.useFakeTimers()
+      vi.mocked(window.pine.fs.write).mockClear()
+      useSettingsStore.getState().setExtensionSettings('git', { pollSeconds: 30 })
+      await vi.runAllTimersAsync()
+      const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      const described = Object.keys(SETTINGS_JSON_SCHEMA.properties)
+      expect(Object.keys(written).filter((key) => !described.includes(key))).toEqual([])
+      expect(written.extensionSettings).toEqual({ git: { pollSeconds: 30 } })
+    })
   })
 
   it('constrains locale to exactly en and zh-Hant', () => {

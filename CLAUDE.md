@@ -148,6 +148,20 @@ Details: `docs/ARCHITECTURE.md`.
   list (`pty:commands`) answers only the pane's own window and returns names only: executables
   listed from the pane's PATH directories plus what the shell wrote to its main-chosen
   `PINE_SHELL_STATE` file. The renderer never names a directory or file for it.
+  The Pine prompt (`terminal.prompt.style: 'pine'`) only changes what the editor draws and the
+  prompt of shells spawned while it's on: main passes `PINE_PROMPT` in the spawn env and the
+  generated init sets a plain `cwd sep` prompt after the user's rc; never touch dotfiles, and
+  never rewrite the prompt of a shell that's already running. `pty:prompt-context` answers
+  only the pane's own window and runs node only as `execFile(..., { shell: false })`, never
+  from the shell's prompt hook. Chips without a value are hidden (the editor's preview shows
+  them as unavailable), never filled with placeholders.
+- **Saved workflows are data, typed only by the human's pick.** Main alone reads and writes
+  workflow YAML (`main/workflows.ts`): the renderer and agents name a workspace id, never a path;
+  symlinks, files over 64 KiB and YAML aliases are refused, and every workflow (file or extension
+  `contributes.workflows`) passes `parseWorkflow`. Saving writes a new file with `wx` into the
+  user's workflows folder and never overwrites. A chosen workflow reaches the pane only through
+  `insertCommand` without Enter (else the clipboard). Never add a command, socket method or CLI
+  verb that inserts, runs or saves a workflow: `pine workflow` is `list` and `show` only.
 - **Selection reports are checked in main.** A file view's capture travels whole over
   `selection:send`, so main re-validates it (`normalizeSelection`: kind, absolute path, clipped
   text, PNG signature, 25 MiB image cap, sender owns the source pane) and writes
@@ -194,12 +208,13 @@ Details: `docs/ARCHITECTURE.md`.
   workspace's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
-  `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new workspace, `Ctrl+1..9` jump to a workspace,
+  `Ctrl+Shift+H` command history, `Ctrl+Shift+S` search saved workflows, `Ctrl+Shift+T` new
+  workspace, `Ctrl+1..9` jump to a workspace,
   `Ctrl+=` / `Ctrl+Shift+-` / `Ctrl+0` zoom in / out / reset (zoom out is not `Ctrl+-`: readline
   binds that to undo, and the keybinding guard refuses it),
   `Ctrl+Shift+R` resume the pane's agent, `Ctrl+Shift+E` send a file view's selection to an
   agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
-  macOS uses ⌘ (⌘= ⌘- ⌘0 zoom, ⌘⇧U unread, ⌘⇧H history, ⌘T new workspace, ⌘1..9 workspaces, ⌘⇧R resume,
+  macOS uses ⌘ (⌘= ⌘- ⌘0 zoom, ⌘⇧U unread, ⌘⇧H history, ⌘⇧S workflows, ⌘T new workspace, ⌘1..9 workspaces, ⌘⇧R resume,
   ⌘⇧E send selection, ⌘↑/⌘↓ blocks). A new default chord must also be free in Monaco (it already binds
   Ctrl+Shift+A, C, G, I, K, L, M, O, R, Z; Settings → Keyboard warns on those via `usedByMonaco`).
   Holding exactly the workspace jump's modifiers (Ctrl / ⌘ by default) for 500 ms shows each
@@ -259,13 +274,32 @@ Details: `docs/ARCHITECTURE.md`.
   user's data: never read, migrate or delete them.
 - **Extension identities are not panes.** `controlServer` gates every method by caller kind
   (`callers`); new pane-scoped methods keep the default `panes`. An extension's caps are manifest
-  ∩ human approval (`extensionStore.ts`), set with `setCaps` on each start.
+  ∩ human approval (`extensionStore.ts`), set with `setCaps` on each start. The one way an
+  extension acts on a pane is a targetable method (`registerTargetableMethod`: `browse.*` in
+  `browse.ts`, `process.*`, `pane.setAttention`) called with `targetPaneId`; it then needs the
+  method's cap **and** `all-workspaces`, and runs as that pane. Never make a method targetable
+  that types into a pane or waits on the human (`browse.pick`), and never drop the
+  `all-workspaces` check: an extension owns no pane, so every target is another pane.
+- **Extension settings are validated in main.** `extensions:set-setting` checks the value against
+  the manifest's `contributes.settings` before anything is stored or sent to the extension; the
+  renderer only persists what main returned (`extensionSettings` in `settings.json`, not in
+  `DATA_KEYS`, so `pine settings set` can't write it). Stored values of the wrong type fall back
+  to the default.
+- **A palette argument is data for one extension command.** A command whose manifest declares
+  `argument` gets the value the human typed in the palette only as `{argv: [value]}`, after main
+  checks it (`ExtensionHost.paletteArgs` → `commandArgument`); it is never typed into a pane. A
+  pane chip `url` (http/https only) is opened in the pane's workspace browser pane by the human's
+  click, never by the extension.
 - **Only the human approves or enables an extension** — the approval dialog or Settings, through
   `extensions:*` IPC. Never add a socket method or CLI verb that approves, enables, or changes an
-  extension's caps.
+  extension's caps. Hot reload (`ExtensionHost.rescan`, driven by `watchUserExtensions`) never
+  writes `extensions.json`: a new user extension starts `pending-approval` and a manifest that
+  asks for more runs with the approved subset.
 - **Extension panels stay sandboxed.** Partition `pine-ext-<id>`, src and every navigation must
   pass `ExtensionHost.isAllowedPanelUrl` (a file inside the extension dir, or the loopback origin
-  its process reported), no preload, permissions denied. A panel never gets `window.pine` or a
+  its process reported), no preload, permissions denied. A panel path (`ext.openPanel {path}`,
+  `ext.notify {openPanel: path}`) is resolved to a URL in main (`resolvePanel`) and checked there,
+  because changing a webview's `src` fires no `will-navigate`. A panel never gets `window.pine` or a
   token; it talks only to its own extension process.
 - **Core surfaces stay tool-agnostic.** The `diff` surface shows two texts an extension hands it
   (`ext.openDiff`); it never runs git or reads a repo. Diff content lives in `diffStore` (memory),
@@ -290,6 +324,10 @@ Details: `docs/ARCHITECTURE.md`.
   it alone. The system extension never runs a package manager itself: `pine system install`
   validates the names (`planInstall`), shows the exact command in `ext.confirm`, and only on
   Approve hands the argv to `ext.openTerminal`, so the human watches it and answers sudo.
+  The git extension's discard is a panel-only handler (`panelHandlers` in
+  `src/extensions/git/main.ts`) that runs only after `ext.confirm` lists the files; never make
+  it a manifest command or a `pine git` verb. Agents may stage, unstage and commit (their own
+  repo, what they staged). Every git call that takes paths passes `--literal-pathspecs`.
 - **An extension types only into a terminal it just opened.** `ext.openTerminal` (needs `shell`)
   takes an argv, never a shell string; main quotes it (`shared/shellQuote.ts`) and the renderer
   opens a new pane and runs it once, at that pane's first idle prompt (`runWhenIdle`). Never add
@@ -395,8 +433,9 @@ Details: `docs/ARCHITECTURE.md`.
   lifts it. Keystrokes are counted with `term.onKey`, not `onData`, because `onData` also
   carries xterm's replies to terminal queries (cursor position, device attributes).
 - **The shell reports its PATH and command names through a file, never the terminal**
-  (`__pine_report_shell` → `$PINE_SHELL_STATE`, read by `pty:commands`), and only when they
-  changed. Sent as a ~12 KB OSC 633 from the first precmd, the report held up zsh startup by
+  (`__pine_report_shell` → `$PINE_SHELL_STATE`, read by `pty:commands` and
+  `pty:prompt-context`; lines: PATH, `VIRTUAL_ENV`, `CONDA_DEFAULT_ENV`, `KUBECONFIG`, names),
+  and only when they changed. Keep the hook free of subprocesses. Sent as a ~12 KB OSC 633 from the first precmd, the report held up zsh startup by
   about 1.8 s under p10k's instant prompt, so commands typed at the first prompt ran late and
   restore specs lost their history.
 - **The input editor's textarea text is transparent**; `.input-editor-highlight` draws the
@@ -443,6 +482,11 @@ Details: `docs/ARCHITECTURE.md`.
   `keeper approve` and `keeper ui` auto-start the keeper daemon, so always gate them with
   `keeper daemon status` (which doesn't). `trellis events --consumer` doesn't advance the cursor
   by reading; `events ack` does, and a new consumer starts at 0 (prime it without notifying).
+  Keeper's dashboard has no per-ticket route (`/r/:id` is a local request, not a ticket), so
+  its notice opens `/approvals`. The trellis extension starts before the renderer reports its
+  workspaces, so an event for a project it doesn't know re-lists the workspaces
+  (`isOpenProject`) before being dropped; without that the first review notice after launch
+  was lost.
 - **E2E reads terminal text from the DOM renderer.** WebGL draws to a canvas, so `isolatedLaunch()`
   seeds `behavior.gpuAcceleration: false` (`DOM_RENDERER_SETTINGS`); a spec that seeds its own
   `settings.json` spreads it in. Only `terminal-webgl.spec.ts` runs the GPU renderer.
@@ -463,8 +507,12 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
 - **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`, `src/extensions/**`. Extension
   host integration tests spawn `test/fixtures/extensions/echo` over a real socket;
   `src/cli/cli.ext.e2e.test.ts` builds and drives the real git extension and the echo fixture
-  (stdin, errors, `pine ext ls`) via the CLI; `src/main/builtinGitExtension.integration.test.ts`
-  runs the built git extension against a temp repo (sidebar, changes, diff sides, symlinks);
+  (stdin, errors, `pine ext ls`) via the CLI; `extensionHost.v2.integration.test.ts` drives pane
+  chips, settings, panel paths and `targetPaneId` through the echo fixture, and
+  `extensionHost.reload.integration.test.ts` writes extensions into a temp user dir for hot reload; `src/main/builtinGitExtension.integration.test.ts`
+  runs the built git extension against a temp repo (sidebar, changes, diff sides, symlinks,
+  pane chips and their setting, log, blame, stage/unstage, commit, and discard through the
+  panel API with a fake confirm);
   `src/main/builtinPortsExtension.integration.test.ts` bundles the ports extension into a temp
   dir and points it at real process trees (a node listener, a fake `ssh` under `script` for a
   foreground process group, a child that only inherited the host's listening socket);
@@ -481,7 +529,12 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   The app boots with no workspaces: a spec that needs a terminal starts with `openWorkspace(win)`
   (`e2e/helpers.ts`).
   `e2e/extensions.spec.ts` installs the `test/fixtures/extensions-e2e/hello` user extension
-  (bundled with esbuild) and covers approval, a palette-opened file panel and a `pine <ext>` call.
+  (bundled with esbuild) and covers approval, a palette-opened file panel and a `pine <ext>` call;
+  `e2e/extensions-v2.spec.ts` installs it while pine runs (hot reload) and covers its pane chip,
+  a panel path and its setting. `e2e/tools.spec.ts` drives the trellis and keeper extensions
+  against the fake CLIs (palette "Trellis: Open Card", notification clicks that open a card and
+  Keeper's approvals page); `e2e/ports.spec.ts` checks the ports and ssh pane chips against a
+  real listener and a fake `ssh`.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,

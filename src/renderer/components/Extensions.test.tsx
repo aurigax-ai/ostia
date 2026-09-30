@@ -23,6 +23,9 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     unapproved: [],
     commands: [],
     panel: { title: 'Board', icon: 'puzzle' },
+    paneChips: [],
+    settings: [],
+    settingValues: {},
     ...overrides,
   }
 }
@@ -146,7 +149,7 @@ describe('Extensions UI', () => {
       const panel = vi.fn().mockResolvedValue({ ok: true, src: 'http://127.0.0.1:4100/?t=abc' })
       window.pine.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" />)
+      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
 
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       const webview = container.querySelector('webview') as HTMLElement
@@ -162,7 +165,7 @@ describe('Extensions UI', () => {
         .mockResolvedValueOnce({ ok: true, src: 'http://127.0.0.1:4100/' })
       window.pine.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
-      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" />)
+      const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
 
       await userEvent.setup().click(await screen.findByRole('button', { name: 'Retry' }))
 
@@ -174,9 +177,11 @@ describe('Extensions UI', () => {
       const panel = vi.fn()
       window.pine.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({ enabled: false, status: 'disabled' })] })
-      const { container, rerender } = render(<ExtensionPanelView extId="demo" workspaceId="s1" />)
+      const { container, rerender } = render(
+        <ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />,
+      )
       expect(screen.getByText('Demo is disabled. Enable it in Settings → Plugins.')).toBeVisible()
-      rerender(<ExtensionPanelView extId="gone" workspaceId="s1" />)
+      rerender(<ExtensionPanelView extId="gone" workspaceId="s1" paneId="p1" />)
       expect(screen.getByText('Extension “gone” is not installed.')).toBeVisible()
       expect(container.querySelector('webview')).toBeNull()
       expect(panel).not.toHaveBeenCalled()

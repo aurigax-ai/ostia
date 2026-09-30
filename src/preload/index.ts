@@ -6,7 +6,9 @@ import type {
   ExtensionOpenTerminalRequest,
   ExtensionPanelSource,
   ExtensionResult,
+  ExtensionSettingResult,
   ExtensionSidebarItem,
+  PaneChip,
 } from '../shared/extensions'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { SelectionSendResult } from '../shared/selection'
@@ -29,9 +31,11 @@ import type {
   NotificationEntry,
   PineBridge,
   Platform,
+  PromptContext,
   PtyAttachResult,
   SyncStatus,
 } from '../shared/types'
+import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
 
 const bridge: PineBridge = {
   ping: () => ipcRenderer.invoke('app:ping') as Promise<'pong'>,
@@ -70,6 +74,8 @@ const bridge: PineBridge = {
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
+    promptContext: (paneId, want) =>
+      ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
     onData: (paneId, cb) => {
       const handler = (_e: unknown, data: string): void => cb(data)
       ipcRenderer.on(`pty:data:${paneId}`, handler)
@@ -170,11 +176,25 @@ const bridge: PineBridge = {
     setEnabled: (extId, enabled) =>
       ipcRenderer.invoke('extensions:set-enabled', extId, enabled) as Promise<ExtensionInfo[]>,
     approve: (extId) => ipcRenderer.invoke('extensions:approve', extId) as Promise<ExtensionInfo[]>,
-    invoke: (extId, command, target) =>
-      ipcRenderer.invoke('extensions:invoke', extId, command, target) as Promise<ExtensionResult>,
+    invoke: (extId, command, target, argument) =>
+      ipcRenderer.invoke(
+        'extensions:invoke',
+        extId,
+        command,
+        target,
+        argument,
+      ) as Promise<ExtensionResult>,
     panel: (extId, context) =>
       ipcRenderer.invoke('extensions:panel', extId, context) as Promise<ExtensionPanelSource>,
     sidebarItems: () => ipcRenderer.invoke('extensions:sidebar') as Promise<ExtensionSidebarItem[]>,
+    paneChips: () => ipcRenderer.invoke('extensions:chips') as Promise<PaneChip[]>,
+    setSetting: (extId, key, value) =>
+      ipcRenderer.invoke(
+        'extensions:set-setting',
+        extId,
+        key,
+        value,
+      ) as Promise<ExtensionSettingResult>,
     onChanged: (cb) => {
       const handler = (_e: unknown, list: ExtensionInfo[]): void => cb(list)
       ipcRenderer.on('extensions:changed', handler)
@@ -184,6 +204,11 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, items: ExtensionSidebarItem[]): void => cb(items)
       ipcRenderer.on('extensions:sidebar', handler)
       return () => ipcRenderer.removeListener('extensions:sidebar', handler)
+    },
+    onPaneChips: (cb) => {
+      const handler = (_e: unknown, chips: PaneChip[]): void => cb(chips)
+      ipcRenderer.on('extensions:chips', handler)
+      return () => ipcRenderer.removeListener('extensions:chips', handler)
     },
     onOpenPanel: (cb) => {
       const handler = (_e: unknown, req: ExtensionOpenPanelRequest): void => cb(req)
@@ -238,6 +263,11 @@ const bridge: PineBridge = {
       ipcRenderer.on('notifications:activate', handler)
       return () => ipcRenderer.removeListener('notifications:activate', handler)
     },
+  },
+  workflows: {
+    list: (workspaceId) =>
+      ipcRenderer.invoke('workflows:list', workspaceId) as Promise<WorkflowListing>,
+    save: (doc) => ipcRenderer.invoke('workflows:save', doc) as Promise<WorkflowSaveResult>,
   },
 }
 

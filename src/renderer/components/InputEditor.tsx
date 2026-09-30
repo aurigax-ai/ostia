@@ -24,8 +24,10 @@ import {
   recentCommands,
   suggestionWord,
 } from '../lib/inputEditor'
+import { usePaneChipCatalog } from '../lib/paneChips'
 import { type ShellToken, tokenizeShell } from '../lib/shellTokens'
 import { registerInputEditor } from '../lib/terminalHandles'
+import { usePromptChips } from '../lib/usePromptChips'
 import {
   type VimBuffer,
   type VimMode,
@@ -38,6 +40,7 @@ import {
 import { isMac } from '../platform'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { PromptChipRow } from './PromptChips'
 import type { TerminalPalette } from './terminalTheme'
 import { Badge } from './ui/badge'
 import { Command, CommandItem, CommandList } from './ui/command'
@@ -181,6 +184,10 @@ export function InputEditor({
   const historyKeys = useChordLabel('history.search', isMac)
   const visible = useInputEditorVisible(paneId, alternateScreen, suppressedPrompt)
   const vimEnabled = useSettingsStore((s) => s.behavior.inputEditorVim)
+  const prompt = useSettingsStore((s) => s.terminal.prompt)
+  const pinePrompt = prompt.style === 'pine'
+  const catalog = usePaneChipCatalog()
+  const { chips } = usePromptChips(paneId, cwd, prompt.chips, visible && pinePrompt)
   const promptLine = useBlocksStore((s) => s.drafts[paneId]?.promptLine)
   const byPane = useBlocksStore((s) => s.byPane)
   const [text, setText] = useState('')
@@ -530,6 +537,17 @@ export function InputEditor({
     }
   }
 
+  const chipRow = (sameLine: boolean): JSX.Element => (
+    <PromptChipRow
+      paneId={paneId}
+      chips={chips}
+      catalog={catalog}
+      cwd={cwd}
+      separator={prompt.separator}
+      showSeparator={sameLine}
+    />
+  )
+
   const hint = historyKeys
     ? fmt(d.inputEditor.hint, { history: historyKeys })
     : d.inputEditor.hintNoHistory
@@ -565,10 +583,14 @@ export function InputEditor({
         </div>
       ) : null}
       <div className="input-editor-meta">
-        <span className="input-editor-cwd" aria-label={d.inputEditor.cwd}>
-          <FolderSimpleIcon size={12} aria-hidden="true" />
-          <span className="input-editor-cwd-path">{cwd ?? '~'}</span>
-        </span>
+        {!pinePrompt ? (
+          <span className="input-editor-cwd" aria-label={d.inputEditor.cwd}>
+            <FolderSimpleIcon size={12} aria-hidden="true" />
+            <span className="input-editor-cwd-path">{cwd ?? '~'}</span>
+          </span>
+        ) : prompt.sameLine ? null : (
+          chipRow(false)
+        )}
         {vimEnabled ? (
           <Badge variant="outline" className="input-editor-vim" aria-label={d.inputEditor.vimMode}>
             {vimMode === 'normal' ? d.inputEditor.vimNormal : d.inputEditor.vimInsert}
@@ -581,57 +603,60 @@ export function InputEditor({
           {tip === 'hint' ? hint : null}
         </span>
       </div>
-      <div
-        className="input-editor-field"
-        data-composing={composing || undefined}
-        data-vim={normal ? 'normal' : undefined}
-      >
-        <Textarea
-          ref={areaRef}
-          rows={1}
-          value={text}
-          aria-label={d.inputEditor.label}
-          aria-autocomplete="list"
-          placeholder={d.inputEditor.placeholder}
-          spellCheck={false}
-          autoCapitalize="off"
-          autoCorrect="off"
-          autoComplete="off"
-          className="input-editor-area min-h-0 resize-none rounded-md px-2 py-1.5"
-          style={{ fontFamily, fontSize }}
-          onChange={(e) => {
-            setText(e.target.value)
-            setSelection({ start: e.target.selectionStart, end: e.target.selectionEnd })
-            walk.current = null
-            if (tip !== 'hint') setTip('hint')
-            if (menu) setMenu(null)
-          }}
-          onSelect={(e) => {
-            const area = e.currentTarget
-            setSelection({ start: area.selectionStart, end: area.selectionEnd })
-          }}
-          onScroll={(e) => {
-            if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop
-          }}
-          onCompositionStart={() => setComposing(true)}
-          onCompositionEnd={() => setComposing(false)}
-          onKeyDown={onKeyDown}
-          onFocus={() => {
-            hadFocus.current = true
-          }}
-          onBlur={(e) => {
-            if (e.relatedTarget) hadFocus.current = false
-          }}
-        />
+      <div className="input-editor-line">
+        {pinePrompt && prompt.sameLine ? chipRow(true) : null}
         <div
-          ref={overlayRef}
-          className="input-editor-highlight rounded-md px-2 py-1.5"
-          style={{ fontFamily, fontSize }}
-          aria-hidden="true"
-          data-testid="input-editor-highlight"
+          className="input-editor-field"
+          data-composing={composing || undefined}
+          data-vim={normal ? 'normal' : undefined}
         >
-          {renderDraft(text, commandSet, normal ? clampNormal(text, selection.start) : null)}
-          {suggestion ? <span className="input-editor-ghost">{suggestion}</span> : null}
+          <Textarea
+            ref={areaRef}
+            rows={1}
+            value={text}
+            aria-label={d.inputEditor.label}
+            aria-autocomplete="list"
+            placeholder={d.inputEditor.placeholder}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            autoComplete="off"
+            className="input-editor-area min-h-0 resize-none rounded-md px-2 py-1.5"
+            style={{ fontFamily, fontSize }}
+            onChange={(e) => {
+              setText(e.target.value)
+              setSelection({ start: e.target.selectionStart, end: e.target.selectionEnd })
+              walk.current = null
+              if (tip !== 'hint') setTip('hint')
+              if (menu) setMenu(null)
+            }}
+            onSelect={(e) => {
+              const area = e.currentTarget
+              setSelection({ start: area.selectionStart, end: area.selectionEnd })
+            }}
+            onScroll={(e) => {
+              if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop
+            }}
+            onCompositionStart={() => setComposing(true)}
+            onCompositionEnd={() => setComposing(false)}
+            onKeyDown={onKeyDown}
+            onFocus={() => {
+              hadFocus.current = true
+            }}
+            onBlur={(e) => {
+              if (e.relatedTarget) hadFocus.current = false
+            }}
+          />
+          <div
+            ref={overlayRef}
+            className="input-editor-highlight rounded-md px-2 py-1.5"
+            style={{ fontFamily, fontSize }}
+            aria-hidden="true"
+            data-testid="input-editor-highlight"
+          >
+            {renderDraft(text, commandSet, normal ? clampNormal(text, selection.start) : null)}
+            {suggestion ? <span className="input-editor-ghost">{suggestion}</span> : null}
+          </div>
         </div>
       </div>
     </div>
