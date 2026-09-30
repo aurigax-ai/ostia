@@ -24,6 +24,7 @@ import type {
   TerminalStateSnapshot,
 } from '../shared/types'
 import { clampZoom, zoomFactor } from '../shared/zoom'
+import { approvals, registerApprovals } from './approvals'
 import { registerAttentionMethods } from './attention'
 import {
   type ConsoleEntry,
@@ -507,6 +508,7 @@ function registerIpc(): void {
       const identity = getByPaneId(event.paneId)
       if (identity) {
         dropIdentity(identity.externalId)
+        approvals()?.forget(identity.externalId)
         extensionHost?.emitEvent('pane.closed', {
           paneId: identity.externalId,
           workspaceId: event.workspaceId,
@@ -971,6 +973,7 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerSelectionIpc()
+  registerApprovals()
   registerLspIpc()
   const notifyDeps = {
     execCommand,

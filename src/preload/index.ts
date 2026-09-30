@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { ApprovalState } from '../shared/approvals'
 import type { SpecCommand } from '../shared/completionSpec'
 import type {
   ExtensionInfo,
@@ -167,6 +168,16 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, state: PickState): void => cb(state)
       ipcRenderer.on('browser:pick-state', handler)
       return () => ipcRenderer.removeListener('browser:pick-state', handler)
+    },
+  },
+  approvals: {
+    state: () => ipcRenderer.invoke('approvals:state') as Promise<ApprovalState>,
+    answer: (id, answer) => ipcRenderer.invoke('approvals:answer', id, answer) as Promise<boolean>,
+    revoke: (id) => ipcRenderer.invoke('approvals:revoke', id) as Promise<boolean>,
+    onChange: (cb) => {
+      const handler = (_event: unknown, state: ApprovalState): void => cb(state)
+      ipcRenderer.on('approvals:changed', handler)
+      return () => ipcRenderer.removeListener('approvals:changed', handler)
     },
   },
   selection: {

@@ -17,6 +17,7 @@ import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { startHibernation } from './lib/hibernationScheduler'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
+import { startApprovals } from './stores/approvalsStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { useSettingsStore } from './stores/settingsStore'
@@ -56,6 +57,7 @@ async function boot(): Promise<void> {
   startAttentionSync()
   startPaneRecencySync()
   startHibernation()
+  startApprovals()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(

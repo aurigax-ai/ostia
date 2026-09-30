@@ -1,6 +1,5 @@
-import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { AttentionState, CommandResult, CommandTarget } from '../shared/types'
-import { connHasCap } from './controlAuth'
+import { ensureCaps } from './controlElevation'
 import { registerTargetableMethod } from './controlServer'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 
@@ -48,9 +47,13 @@ export function registerAttentionMethods(deps: AttentionDeps): void {
       }
       let target = ctx.identity
       if (typeof paneId === 'string' && paneId && paneId !== ctx.identity.externalId) {
-        if (!connHasCap(ctx.authed, 'all-workspaces')) {
-          throw new ResponseError(ErrorCodes.InvalidRequest, 'needs-elevation: all-workspaces')
-        }
+        await ensureCaps(
+          ctx.authed,
+          ctx.identity,
+          ['all-workspaces'],
+          'pane.setAttention',
+          JSON.stringify({ paneId, state }),
+        )
         const other = resolveExternal(paneId)
         if (!other) return { ok: false, error: 'not-found' }
         target = other

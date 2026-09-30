@@ -22,6 +22,7 @@ import {
   TranslateIcon,
   TreeStructureIcon,
 } from '@phosphor-icons/react'
+import type { ApprovalMode } from '@shared/approvals'
 import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import { PROMPT_STYLES, type PromptStyle } from '@shared/promptSettings'
@@ -714,9 +715,24 @@ function AgentsSection(): JSX.Element {
   const d = useDict()
   const hibernation = useSettingsStore((s) => s.agents.hibernation)
   const set = useSettingsStore((s) => s.setHibernation)
+  const approvalMode = useSettingsStore((s) => s.approvals.mode)
+  const setApprovalMode = useSettingsStore((s) => s.setApprovalMode)
   return (
     <div>
       <SectionHead title={d.settings.agents} />
+      <SettingsGroup title={d.approvals.inbox}>
+        <ControlRow label={d.approvals.mode} desc={d.approvals.modeDesc}>
+          <SelectField
+            value={approvalMode}
+            onChange={(mode) => setApprovalMode(mode as ApprovalMode)}
+            label={d.approvals.mode}
+            options={[
+              { value: 'ask', label: d.approvals.modeAsk },
+              { value: 'allow', label: d.approvals.modeAllow },
+            ]}
+          />
+        </ControlRow>
+      </SettingsGroup>
       <SettingsGroup title={d.settings.groupPerformance}>
         <ToggleRow
           label={d.settings.hibernate}

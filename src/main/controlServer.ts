@@ -19,6 +19,7 @@ import type {
   TerminalStateSnapshot,
 } from '../shared/types'
 import { type AuthedConn, authenticate, connHasCap } from './controlAuth'
+import { ensureCaps, needsElevation } from './controlElevation'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 
 export function controlSocketPath(): string {
@@ -27,10 +28,6 @@ export function controlSocketPath(): string {
 
 function unauthenticatedError(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
-}
-
-function needsElevation(cap: Capability): ResponseError<void> {
-  return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
 }
 
 export type ControlCallers = 'panes' | 'extensions' | 'all'
@@ -46,6 +43,18 @@ export interface ControlMethod {
   callers?: ControlCallers
   targetable?: boolean
   handler: (params: unknown, ctx: ControlMethodContext) => unknown | Promise<unknown>
+}
+
+const DETAIL_HIDDEN_PREFIXES = ['vault.']
+
+function describeParams(method: string, params: unknown): string {
+  if (DETAIL_HIDDEN_PREFIXES.some((p) => method.startsWith(p))) return ''
+  if (params === undefined) return ''
+  try {
+    return JSON.stringify(params)
+  } catch {
+    return ''
+  }
 }
 
 function callerAllowed(identity: PaneIdentity, callers: ControlCallers): boolean {
@@ -134,7 +143,11 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
 
     conn.onRequest(
       'command.exec',
-      (params: { id: string; args?: unknown; target?: CommandTarget }): Promise<CommandResult> => {
+      async (params: {
+        id: string
+        args?: unknown
+        target?: CommandTarget
+      }): Promise<CommandResult> => {
         const me = requireIdentity('panes')
         if (!authed) throw unauthenticatedError('call hello first')
 
@@ -144,27 +157,34 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
           paneId: me.paneId,
         }
         const target = params.target ?? selfTarget
-
-        if (
+        const crossTarget =
           target.paneId !== me.paneId ||
           target.windowId !== me.windowId ||
           target.workspaceId !== me.workspaceId
-        ) {
-          if (!connHasCap(authed, 'all-workspaces')) throw needsElevation('all-workspaces')
-        }
 
         const desc = deps
           .listCommandsFor(target.windowId ?? me.windowId)
           .find((d) => d.id === params.id)
         if (!desc) {
-          return Promise.resolve({
+          if (crossTarget && !connHasCap(authed, 'all-workspaces')) {
+            throw needsElevation('all-workspaces')
+          }
+          return {
             ok: false,
             error: { code: 'unknown-command', message: `unknown command '${params.id}'` },
-          })
+          }
         }
-        for (const cap of desc.capabilities) {
-          if (!connHasCap(authed, cap)) throw needsElevation(cap)
-        }
+        const caps: Capability[] = [
+          ...(crossTarget ? (['all-workspaces'] as const) : []),
+          ...desc.capabilities,
+        ]
+        await ensureCaps(
+          authed,
+          me,
+          caps,
+          desc.title,
+          describeParams(params.id, { command: params.id, args: params.args }),
+        )
 
         return deps.execCommand(target, params.id, params.args)
       },
@@ -188,7 +208,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
       conn.onRequest(name, async (params: unknown) => {
         const caller = requireIdentity(m.targetable ? 'all' : (m.callers ?? 'panes'))
         if (!authed) throw unauthenticatedError('call hello first')
-        if (m.cap && !connHasCap(authed, m.cap)) throw needsElevation(m.cap)
+        if (m.cap) await ensureCaps(authed, caller, [m.cap], name, describeParams(name, params))
         if (caller.kind === 'extension' && m.targetable) {
           const acting = actingPane(authed, params)
           return m.handler(acting.params, { identity: acting.identity, authed, conn })

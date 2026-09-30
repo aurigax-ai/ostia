@@ -23,6 +23,7 @@ import { isIdlePrompt } from '../lib/blocks'
 import { useChordLabel } from '../lib/chords'
 import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '../lib/hoverFocus'
 import { isMac } from '../platform'
+import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
@@ -31,6 +32,7 @@ import { usePaneDnd } from '../stores/paneDndStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { ApprovalCard } from './ApprovalCard'
 import { FileMenu } from './FileMenu'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
@@ -85,6 +87,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
   const setOver = usePaneDnd((s) => s.setOver)
   const reset = usePaneDnd((s) => s.reset)
   const attention = useAttentionStore((s) => s.byPane[shown.id])
+  const approval = useApprovalsStore((s) => s.pending.find((r) => r.paneId === shown.id))
   const ring = needsRing(attention)
   const unread = attention?.unread ?? false
   const frameRef = useRef<HTMLDivElement>(null)
@@ -208,6 +211,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         {tabs.map((tab) => (
           <TabBody key={tab.id} pane={tab} shown={tab.id === shown.id} />
         ))}
+        {approval ? <ApprovalCard request={approval} paneTitle={shown.title} /> : null}
       </div>
 
       {ring ? (

@@ -249,8 +249,13 @@ Details: `docs/ARCHITECTURE.md`.
   inputs and Monaco keep Shift/⌘+arrow selection. Show hints via `chordLabel()` /
   `useChordLabel()` (null when unbound).
 - **Capabilities:** acting on any target other than your own pane/window/workspace needs
-  `all-workspaces`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`;
-  grants come only from a human editing `settings.json`. Phone caps map through `PHONE_CAP_ALLOWS`;
+  `all-workspaces`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`
+  and `approvals.*`; grants come only from a human editing `settings.json` or clicking an
+  approval card (`main/approvals.ts`, answered only over `approvals:answer` IPC from the
+  request's own window). Never add a command, socket method or CLI verb that answers,
+  approves or pre-approves a request. A missing cap on the socket goes through `ensureCaps`
+  (`controlElevation.ts`), never a bare throw, so the human gets asked. `destructive` always
+  asks, even in `approvals.mode: 'allow'`, and never gets a session grant. Phone caps map through `PHONE_CAP_ALLOWS`;
   `input` must never map to a command capability. Phone grants (`command`, `input`,
   `destructive`) change only through the `gateway:set-cap` IPC from Settings →
   Remote; never add a control-socket method or CLI verb for them. `destructive` needs `command`

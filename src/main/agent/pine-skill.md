@@ -531,24 +531,29 @@ system-facing, or dangerous is **elevated** and starts withheld: `send-other-pan
 `kill-pane`, `all-workspaces`, `shell`, `destructive`, `phone`, `gateway`, `browse`,
 `settings-write`.
 
-A call that needs a capability the pane doesn't hold fails fast with
-`needs-elevation: <cap>` (surfaced as `pine: needs-elevation: <cap>` on stderr,
-nonzero exit) — it never gets partway through. As of this build there is no `pine`
-verb or UI to self-grant a capability: elevation is a human-in-the-loop decision.
-The human grants elevated caps to *every* pane up front by adding them to
-`capabilities.grants` in `settings.json`, e.g.:
+A call that needs a capability your pane doesn't hold **asks the human** in Pine: the
+call waits (up to 90 s) while a card on your pane shows what you asked for and the human
+picks Allow once, Allow for this pane (lasts until the pane closes), or Deny. On approval
+the same call simply succeeds; you don't retry. Otherwise it fails before doing anything:
+
+- `pine: denied: <caps>`: the human said no. Don't ask again for the same thing; say what
+  you needed and why, and continue without it.
+- `pine: not-approved: <caps>`: nobody answered in time. Tell the human what is waiting
+  on them, then try again once they reply.
+- `pine: needs-elevation: <cap>`: no way to ask (e.g. an extension caller).
+
+If the human set **Settings → Agents → Agent permission requests** to "Allow and record",
+calls go through without a card and are only logged; destructive actions still ask. There
+is no verb to grant or approve anything yourself, and `approvals` / `capabilities` can't be
+changed with `pine settings set`. A human can also pre-grant caps to every pane with
+`capabilities.grants` in `settings.json` (read at start):
 
 ```json
 { "capabilities": { "grants": ["browse", "send-other-pane"] } }
 ```
 
-That array is read once at process start (main seeds each pane's caps with
-`DEFAULT_CAPABILITIES ∪ grants`), so a restart is required after editing it. Since
-`settings-write` is itself elevated, an agent can't grant this to itself — the
-human edits the file directly (or a future UI/`pine settings set` does it on their
-behalf, pre-granted). If you hit `needs-elevation`, say so plainly (e.g. in your
-response, or as a `pine notify`) rather than guessing at a workaround — don't retry
-the same call expecting a different result.
+Ask for what the task needs in one go where you can (e.g. make the call that needs
+`shell` directly) rather than probing; every ask interrupts the human.
 
 `pine commands` reports each command's `capabilities` array so you can check before
 you act. Commands without an explicit list default to the same default set above.
@@ -576,6 +581,6 @@ Codex driving pane B) can coordinate like this:
    didn't work" — as Trellis entries, not just in your own conversation, so the
    other agent (or your own next workspace) can find it instead of re-deriving it.
 
-Remember: `send-other-pane` (bus send/handoff to someone else) is elevated — if
-either agent hits `needs-elevation`, that's the signal to stop and flag it rather
-than silently falling back to writing files on disk as a workaround.
+Remember: `send-other-pane` (bus send/handoff to someone else) is elevated, so the first
+send asks the human. If it's denied, stop and flag it rather than silently falling back to
+writing files on disk as a workaround.
