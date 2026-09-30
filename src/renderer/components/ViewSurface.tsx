@@ -3,8 +3,7 @@ import { useUIStore } from '../stores/uiStore'
 import { useViewsStore } from '../stores/viewsStore'
 import { DeclarativeView } from './DeclarativeView'
 import { Button } from './ui/button'
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from './ui/empty'
-import { viewIcon } from './viewIcons'
+import { Empty, EmptyDescription, EmptyHeader } from './ui/empty'
 
 export function ViewSurface({
   paneId,
@@ -20,13 +19,9 @@ export function ViewSurface({
   const openSettings = useUIStore((s) => s.openSettings)
   const doc = view?.status === 'enabled' && view.doc?.placement === 'panel' ? view.doc : null
   if (!view || !doc) {
-    const Icon = viewIcon(view?.icon)
     return (
       <Empty className="h-full bg-surface-1">
         <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Icon aria-hidden />
-          </EmptyMedia>
           <EmptyDescription className="text-ui-base">{d.views.notEnabled}</EmptyDescription>
         </EmptyHeader>
         <Button variant="outline" size="sm" onClick={() => openSettings('views')}>

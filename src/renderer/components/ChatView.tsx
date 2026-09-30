@@ -1,8 +1,8 @@
 import { cn } from '@/lib/utils'
 import { useChat } from '@ai-sdk/react'
 import {
-  ArrowCounterClockwiseIcon,
-  ArrowSquareOutIcon,
+  ArrowClockwiseIcon,
+  ArrowsOutSimpleIcon,
   CheckIcon,
   CopyIcon,
   FolderSimpleIcon,
@@ -523,9 +523,9 @@ function ChatHeader({
       <span className="ml-auto flex min-w-0 items-center gap-1 text-fg-muted text-ui-xs">
         {provider ? (
           <>
-            <span className="truncate" title={d.chat.model}>
-              {provider.label ?? provider.name}
-            </span>
+            <Hint label={d.chat.model}>
+              <span className="truncate">{provider.label ?? provider.name}</span>
+            </Hint>
             <Button variant="link" size="xs" className="h-5 px-1 text-ui-xs" onClick={changeModel}>
               {d.chat.change}
             </Button>
@@ -535,7 +535,7 @@ function ChatHeader({
       {variant === 'palette' ? (
         <IconButton
           size="bar"
-          icon={ArrowSquareOutIcon}
+          icon={ArrowsOutSimpleIcon}
           label={d.chat.openInPane}
           onClick={() => {
             useUIStore.getState().closePalette()
@@ -590,12 +590,8 @@ function ChatMessageRow({
   const common = (
     <>
       <CopyMessageAction text={text} label={t.copyMarkdown} />
-      <MessageAction tooltip={t.copyText} onClick={copyPlain}>
-        <TextTIcon />
-      </MessageAction>
-      <MessageAction tooltip={t.quote} onClick={() => onQuote(text)}>
-        <QuotesIcon />
-      </MessageAction>
+      <MessageAction label={t.copyText} onClick={copyPlain} icon={TextTIcon} />
+      <MessageAction label={t.quote} onClick={() => onQuote(text)} icon={QuotesIcon} />
     </>
   )
   if (message.role === 'user') {
@@ -619,16 +615,18 @@ function ChatMessageRow({
         ) : null}
         <MessageActions className="chat-message-actions">
           {common}
-          <MessageAction tooltip={t.edit} disabled={busy} onClick={() => onEdit(message)}>
-            <PencilSimpleIcon />
-          </MessageAction>
           <MessageAction
-            tooltip={t.deleteMessage}
+            label={t.edit}
+            disabled={busy}
+            onClick={() => onEdit(message)}
+            icon={PencilSimpleIcon}
+          />
+          <MessageAction
+            label={t.deleteMessage}
             disabled={busy}
             onClick={() => onDelete(message.id)}
-          >
-            <TrashIcon />
-          </MessageAction>
+            icon={TrashIcon}
+          />
         </MessageActions>
       </Message>
     )
@@ -654,17 +652,18 @@ function ChatMessageRow({
         <MessageActions className="chat-message-actions">
           {common}
           {onRegenerate ? (
-            <MessageAction tooltip={d.ask.regenerate} onClick={onRegenerate}>
-              <ArrowCounterClockwiseIcon />
-            </MessageAction>
+            <MessageAction
+              label={d.ask.regenerate}
+              onClick={onRegenerate}
+              icon={ArrowClockwiseIcon}
+            />
           ) : null}
           <MessageAction
-            tooltip={t.deleteMessage}
+            label={t.deleteMessage}
             disabled={busy}
             onClick={() => onDelete(message.id)}
-          >
-            <TrashIcon />
-          </MessageAction>
+            icon={TrashIcon}
+          />
         </MessageActions>
       ) : null}
     </Message>
@@ -676,13 +675,12 @@ function CopyMessageAction({ text, label }: { text: string; label: string }): JS
   const [copied, setCopied] = useCopied()
   return (
     <MessageAction
-      tooltip={copied ? d.ask.copied : label}
+      label={copied ? d.ask.copied : label}
+      icon={copied ? CheckIcon : CopyIcon}
       onClick={() => {
         void navigator.clipboard?.writeText(text).then(setCopied, () => undefined)
       }}
-    >
-      {copied ? <CheckIcon /> : <CopyIcon />}
-    </MessageAction>
+    />
   )
 }
 
@@ -735,14 +733,15 @@ function FileLink({
 }): JSX.Element {
   const d = useDict()
   return (
-    <button
-      type="button"
-      className="chat-file-link"
-      title={fmt(d.chatActions.openFile, { path: target.path })}
-      onClick={() => openFileLink(target, workspaceId)}
-    >
-      {children}
-    </button>
+    <Hint label={fmt(d.chatActions.openFile, { path: target.path })}>
+      <button
+        type="button"
+        className="chat-file-link"
+        onClick={() => openFileLink(target, workspaceId)}
+      >
+        {children}
+      </button>
+    </Hint>
   )
 }
 

@@ -4,7 +4,7 @@ import {
   ChatCircleTextIcon,
   CopyIcon,
   PaperPlaneTiltIcon,
-  SparkleIcon,
+  QuestionIcon,
 } from '@phosphor-icons/react'
 import type { ReactElement } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
@@ -92,7 +92,7 @@ export function BlockMenu({
         ) : null}
         {failed && chat && explainOn ? (
           <MenuItem
-            icon={SparkleIcon}
+            icon={QuestionIcon}
             onClick={() =>
               explainFailedBlock(paneId, blockId, {
                 prompt: d.ask.explainPrompt,

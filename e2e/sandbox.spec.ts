@@ -114,7 +114,7 @@ test('a blocked connection waits on the card and completes once the human allows
     const card = win.getByRole('region', { name: 'Agent permission request' })
     await expect(card).toBeVisible({ timeout: 20_000 })
     await expect(card).toContainText('example.com')
-    await card.getByRole('button', { name: 'This workspace' }).click()
+    await card.getByRole('button', { name: 'Allow for this workspace' }).click()
     await expect(win.locator('.xterm-rows').first()).toContainText(/code=[1-5]\d\d/, {
       timeout: 30_000,
     })

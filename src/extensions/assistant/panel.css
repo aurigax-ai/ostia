@@ -52,9 +52,9 @@ button:disabled {
 
 .notice {
   margin: 0;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--surface-2);
 }
 
@@ -174,7 +174,6 @@ button:disabled {
   border: 1px solid var(--line-strong);
   border-radius: 7px;
   background: var(--surface-3);
-  cursor: pointer;
   transition: background-color var(--pine-motion-fast, 120ms) ease-out;
 }
 
@@ -201,6 +200,5 @@ button:disabled {
 }
 
 .switch:disabled {
-  cursor: default;
   opacity: 0.5;
 }

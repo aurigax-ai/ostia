@@ -133,7 +133,11 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
           {d.sandbox.add}
         </Button>
       </form>
-      {error ? <p className="mt-1 text-attn-fg text-ui-sm">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
+          {error}
+        </p>
+      ) : null}
       <p className="mt-2 text-fg-muted text-ui-sm">{d.sandbox.restartNoteSecrets}</p>
     </fieldset>
   )

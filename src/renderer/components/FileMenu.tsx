@@ -128,14 +128,6 @@ export function FileMenuItems({
           <MenuItem icon={CodeIcon} onClick={() => openExternal(workspaceId, path)}>
             {d.fileMenu.openExternal}
           </MenuItem>
-          {askOn ? (
-            <MenuItem
-              icon={ChatCircleTextIcon}
-              onClick={() => void askAboutFile(path, relative ?? path, workspaceId)}
-            >
-              {d.chatActions.askAboutFile}
-            </MenuItem>
-          ) : null}
         </>
       )}
       <MenuItem icon={SquaresFourIcon} onClick={() => openInNewWorkspace(path, dir)}>
@@ -186,6 +178,14 @@ export function FileMenuItems({
           )}
         </MenuSubContent>
       </ContextMenuSub>
+      {askOn && !dir ? (
+        <MenuItem
+          icon={ChatCircleTextIcon}
+          onClick={() => void askAboutFile(path, relative ?? path, workspaceId)}
+        >
+          {d.chatActions.askAboutFile}
+        </MenuItem>
+      ) : null}
     </>
   )
 }

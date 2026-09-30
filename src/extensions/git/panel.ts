@@ -54,6 +54,8 @@ interface BlameData {
 }
 
 type Page = 'changes' | 'graph' | 'blame'
+
+const COMMIT_KEYS = /Mac/.test(navigator.platform) ? '⌘Enter' : 'Ctrl+Enter'
 type ScopeKind = GraphScope['kind']
 
 const t = pickLocale({
@@ -62,7 +64,6 @@ const t = pickLocale({
     loadingMore: 'Loading more commits…',
     refresh: 'Refresh',
     clean: 'No changes',
-    cleanHint: 'The working tree matches the last commit.',
     notRepo: 'Not in a git repository',
     notRepoHint: 'Open a terminal inside a repository to see its changes and history.',
     detached: 'detached',
@@ -78,11 +79,10 @@ const t = pickLocale({
     unstageFolder: 'Unstage folder',
     discardFolder: 'Discard folder',
     commitPlaceholder: 'Commit message',
-    commitHint: 'Ctrl+Enter to commit',
+    commitHint: (keys: string) => `${keys} to commit`,
     commit: 'Commit',
     committed: (sha: string) => `Committed ${sha}`,
     noCommits: 'No commits yet',
-    noCommitsHint: 'Commit something and it appears here.',
     noFiles: 'No file changes',
     noBlameFile: 'Open a file and run Git: Blame File',
     uncommitted: 'Not committed yet',
@@ -143,7 +143,6 @@ const t = pickLocale({
     loadingMore: '正在載入更多提交…',
     refresh: '重新整理',
     clean: '沒有變更',
-    cleanHint: '工作目錄與最後一次提交相同。',
     notRepo: '不在 git 儲存庫中',
     notRepoHint: '在儲存庫內開啟終端機，即可查看變更與歷史。',
     detached: '分離',
@@ -159,11 +158,10 @@ const t = pickLocale({
     unstageFolder: '取消暫存資料夾',
     discardFolder: '捨棄資料夾',
     commitPlaceholder: '提交訊息',
-    commitHint: 'Ctrl+Enter 提交',
+    commitHint: (keys: string) => `${keys} 提交`,
     commit: '提交',
     committed: (sha: string) => `已提交 ${sha}`,
     noCommits: '尚無提交',
-    noCommitsHint: '提交後會顯示在這裡。',
     noFiles: '沒有檔案變更',
     noBlameFile: '請開啟檔案後執行「Git: Blame File」',
     uncommitted: '尚未提交',
@@ -716,7 +714,12 @@ function commitBox(data: ChangesData): HTMLElement {
     'section',
     { class: 'commit' },
     box,
-    h('div', { class: 'commit-bar' }, h('span', { class: 'muted hint' }, t.commitHint), button),
+    h(
+      'div',
+      { class: 'commit-bar' },
+      h('span', { class: 'muted hint' }, t.commitHint(COMMIT_KEYS)),
+      button,
+    ),
   )
 }
 
@@ -726,7 +729,7 @@ function changesPage(data: ChangesData): HTMLElement {
     branchHeader(data),
     h('div', { class: 'muted root', title: data.root }, data.root),
     commitBox(data),
-    data.changes.length === 0 ? emptyState(t.clean, t.cleanHint) : null,
+    data.changes.length === 0 ? emptyState(t.clean) : null,
     ...changeSections(data, ''),
   )
 }
@@ -1254,7 +1257,7 @@ function graphView(data: GraphData): HTMLElement {
   if (!model || model.data !== data) model = buildModel(data)
   const m = model
   if (m.entries.length === 0) {
-    return frame('graph-page', graphToolbar(data), emptyState(t.noCommits, t.noCommitsHint))
+    return frame('graph-page', graphToolbar(data), emptyState(t.noCommits))
   }
   if (selected && indexOfKey(m, selected) < 0) selected = null
   const entry = selected ? m.entries[indexOfKey(m, selected)] : null

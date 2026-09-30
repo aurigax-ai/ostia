@@ -256,7 +256,7 @@ function AgentAction({
         {targets.map((t) => (
           <MenuItem
             key={t.paneId}
-            icon={PaperPlaneTiltIcon}
+            leading={<span className={`dot ${t.state === 'none' ? '' : t.state}`} />}
             onClick={() => {
               if (sendToAgent(t.paneId, code.trim())) onNotice('sentToAgent')
               else {

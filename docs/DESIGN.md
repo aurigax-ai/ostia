@@ -219,9 +219,12 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 
 - **Top bar**: on the left, over the sidebar: New workspace first, then the sidebar
   toggle, the Files toggle and one toggle per enabled extension panel (git Changes, Keeper,
-  Trellis; `PanelToggles.tsx`, pressed while the panel is open in the active workspace).
-  Centre: the command-center button that opens the palette. Right: Settings, then the
-  notification bell.
+  Trellis; `PanelToggles.tsx`, pressed while the panel is open in the active workspace). An
+  extension that serves assist points gets no toggle: its panel opens from the Assistant menu
+  (Models…), so the bar never shows two buttons with one name.
+  Centre: the command-center button that opens the palette, then the Assistant menu. Right:
+  Settings, then the notification bell. Every trigger renders exactly one `<button>` (Base UI
+  `render={<IconButton …/>}`, never a Trigger wrapping a button as its child).
   The whole bar is the window drag region. macOS keeps native traffic lights on the left (the bar
   pads 80px for them). Linux and Windows draw GNOME-style round min/max/close buttons on the right
   (`WindowControls.tsx`, 24px circles). There is no wordmark, status strip or inspector.
@@ -373,8 +376,9 @@ Attention, the second loud element, appears only when a pane needs you:
   the shadcn bar on a `surface-3` track. Problems (over budget, a broken file showing its last
   good version) are one compact attention alert above the view, never a replaced view.
 
-Consolidation debt:
-- Primitives still missing: DropdownMenu.
+Menus: `DropdownMenu` in `components/Menu.tsx` is Base UI `Menu.Root` + `Menu.Trigger` filled with
+the same popup parts as the context menu (Base UI's ContextMenu reuses the Menu parts), so both
+menus share one row, icon column and hint style.
 
 **Context menus** go through `components/Menu.tsx` (`MenuContent`, `MenuItem`, `MenuSubTrigger`,
 `MenuSubContent`, `MenuRadioItem`) over the shadcn ContextMenu, never the raw `ContextMenuItem`:

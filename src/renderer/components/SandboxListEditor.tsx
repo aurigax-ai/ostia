@@ -89,6 +89,7 @@ export function SandboxListEditor({
         <Input
           value={draft}
           placeholder={placeholder}
+          aria-label={label}
           aria-invalid={error ? true : undefined}
           onChange={(e) => {
             setDraft(e.target.value)
@@ -100,7 +101,11 @@ export function SandboxListEditor({
           {d.sandbox.add}
         </Button>
       </form>
-      {error ? <p className="mt-1 text-attn-fg text-ui-sm">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
+          {error}
+        </p>
+      ) : null}
     </fieldset>
   )
 }

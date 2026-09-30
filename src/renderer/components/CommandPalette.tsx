@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { AppWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ASK_COMMAND_ID } from '../commands/askCommand'
@@ -26,7 +27,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandShortcut,
 } from './ui/command'
 import { Kbd } from './ui/kbd'
 
@@ -281,7 +281,7 @@ function WorkspaceItems({
             }}
           >
             <span>{name}</span>
-            <CommandShortcut>{w.workDir}</CommandShortcut>
+            <ItemMeta mono>{w.workDir}</ItemMeta>
           </CommandItem>
         )
       })}
@@ -296,10 +296,23 @@ function WorkspaceItems({
         >
           <AppWindowIcon aria-label={d.window.inOtherWindow} />
           <span>{w.name}</span>
-          <CommandShortcut>{w.workDir}</CommandShortcut>
+          <ItemMeta mono>{w.workDir}</ItemMeta>
         </CommandItem>
       ))}
     </CommandGroup>
+  )
+}
+
+function ItemMeta({ mono, children }: { mono?: boolean; children: string }): JSX.Element {
+  return (
+    <span
+      className={cn(
+        'ml-auto min-w-0 truncate text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
+        mono && 'font-mono',
+      )}
+    >
+      {children}
+    </span>
   )
 }
 
@@ -327,7 +340,7 @@ function TabItems({
             }}
           >
             <span>{pane.title}</span>
-            <CommandShortcut>{where}</CommandShortcut>
+            <ItemMeta>{where}</ItemMeta>
           </CommandItem>
         )
       })}
@@ -344,11 +357,12 @@ function CommandItems({
   onAsk: (command: ArgumentCommand) => void
   onAskAssistant: () => void
 }): JSX.Element {
+  const d = useDict()
   useSettingsStore((s) => s.keybindings)
   const byCat = new Map<string, ReturnType<typeof commands.list>>()
   for (const c of commands.list()) {
     if (c.hidden) continue
-    const cat = c.category ?? 'General'
+    const cat = c.category ?? d.palette.general
     byCat.set(cat, [...(byCat.get(cat) ?? []), c])
   }
   const symbol = symbolOf('commands')
@@ -376,7 +390,7 @@ function CommandItems({
                 }}
               >
                 <span>{c.title}</span>
-                <CommandShortcut>{c.id}</CommandShortcut>
+                <ItemMeta mono>{c.id}</ItemMeta>
                 {keys ? <Kbd className="font-mono">{keys}</Kbd> : null}
               </CommandItem>
             )

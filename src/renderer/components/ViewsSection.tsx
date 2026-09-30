@@ -51,10 +51,7 @@ function ViewRow({ view }: { view: ViewInfo }): JSX.Element {
             <div className="flex items-center gap-2">
               <span className="truncate text-fg text-ui-base">{view.title}</span>
               {view.status === 'pending' ? (
-                <Badge
-                  variant="outline"
-                  className="h-4 border-brand/50 px-1.5 text-brand text-ui-xs"
-                >
+                <Badge variant="outline" className="text-ui-xs">
                   {d.views.pending}
                 </Badge>
               ) : null}

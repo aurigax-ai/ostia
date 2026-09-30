@@ -288,12 +288,14 @@ export function GatewaySection(): JSX.Element {
       ) : (
         <ul className="flex flex-col gap-0.5">
           {devices.map((dev) => (
-            <li key={dev.deviceId} className="rounded-sm px-2.5 py-1.5 hover:bg-surface-2/60">
+            <li key={dev.deviceId} className="rounded-sm px-2.5 py-1.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="truncate text-fg text-ui-base">{dev.name}</div>
                   <div className="truncate text-fg-muted text-ui-xs tabular-nums">
-                    {dev.caps.join(', ')} · {new Date(dev.createdAt).toLocaleDateString()}
+                    {fmt(d.settings.remotePairedOn, {
+                      date: new Date(dev.createdAt).toLocaleDateString(),
+                    })}
                   </div>
                 </div>
                 <Button

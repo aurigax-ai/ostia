@@ -17,7 +17,7 @@ import { PackagesEditor } from './SandboxPackagesTab'
 import { PortsPolicyRow, SandboxPortsTab } from './SandboxPortsTab'
 import { SandboxSecretsTab } from './SandboxSecretsTab'
 import { BrowserSelect, useSandboxGlobals } from './SandboxSection'
-import { ControlRow, SectionHead } from './SettingsPanel'
+import { ControlRow, SectionHead, SubHead } from './SettingsPanel'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Switch } from './ui/switch'
@@ -56,7 +56,7 @@ function Refusals({ workspaceId }: { workspaceId: string }): JSX.Element {
   const time = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' })
   return (
     <fieldset aria-label={d.sandbox.refusals} className="mb-4">
-      <h3 className="mb-2 font-medium text-fg text-ui-base">{d.sandbox.refusals}</h3>
+      <SubHead title={d.sandbox.refusals} />
       {list.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.sandbox.refusalsEmpty}</p>
       ) : (

@@ -7,6 +7,7 @@ import { themedTokens, useEffectiveTheme } from '../lib/theme'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Button } from './ui/button'
+import { Empty, EmptyDescription } from './ui/empty'
 
 export const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
 
@@ -125,9 +126,9 @@ function PanelMessage({
   children,
 }: { text: string; children?: React.ReactNode }): JSX.Element {
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-surface-1 p-4 text-center text-fg-muted text-ui-sm">
-      <span>{text}</span>
+    <Empty className="h-full w-full bg-surface-1">
+      <EmptyDescription className="text-ui-sm">{text}</EmptyDescription>
       {children}
-    </div>
+    </Empty>
   )
 }
