@@ -285,6 +285,11 @@ Details: `docs/ARCHITECTURE.md`.
   renderer only persists what main returned (`extensionSettings` in `settings.json`, not in
   `DATA_KEYS`, so `pine settings set` can't write it). Stored values of the wrong type fall back
   to the default.
+- **A palette argument is data for one extension command.** A command whose manifest declares
+  `argument` gets the value the human typed in the palette only as `{argv: [value]}`, after main
+  checks it (`ExtensionHost.paletteArgs` → `commandArgument`); it is never typed into a pane. A
+  pane chip `url` (http/https only) is opened in the pane's workspace browser pane by the human's
+  click, never by the extension.
 - **Only the human approves or enables an extension** — the approval dialog or Settings, through
   `extensions:*` IPC. Never add a socket method or CLI verb that approves, enables, or changes an
   extension's caps. Hot reload (`ExtensionHost.rescan`, driven by `watchUserExtensions`) never
@@ -473,6 +478,11 @@ Details: `docs/ARCHITECTURE.md`.
   `keeper approve` and `keeper ui` auto-start the keeper daemon, so always gate them with
   `keeper daemon status` (which doesn't). `trellis events --consumer` doesn't advance the cursor
   by reading; `events ack` does, and a new consumer starts at 0 (prime it without notifying).
+  Keeper's dashboard has no per-ticket route (`/r/:id` is a local request, not a ticket), so
+  its notice opens `/approvals`. The trellis extension starts before the renderer reports its
+  workspaces, so an event for a project it doesn't know re-lists the workspaces
+  (`isOpenProject`) before being dropped; without that the first review notice after launch
+  was lost.
 - **E2E reads terminal text from the DOM renderer.** WebGL draws to a canvas, so `isolatedLaunch()`
   seeds `behavior.gpuAcceleration: false` (`DOM_RENDERER_SETTINGS`); a spec that seeds its own
   `settings.json` spreads it in. Only `terminal-webgl.spec.ts` runs the GPU renderer.
@@ -515,7 +525,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   `e2e/extensions.spec.ts` installs the `test/fixtures/extensions-e2e/hello` user extension
   (bundled with esbuild) and covers approval, a palette-opened file panel and a `pine <ext>` call;
   `e2e/extensions-v2.spec.ts` installs it while pine runs (hot reload) and covers its pane chip,
-  a panel path and its setting.
+  a panel path and its setting. `e2e/tools.spec.ts` drives the trellis and keeper extensions
+  against the fake CLIs (palette "Trellis: Open Card", notification clicks that open a card and
+  Keeper's approvals page); `e2e/ports.spec.ts` checks the ports and ssh pane chips against a
+  real listener and a fake `ssh`.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,

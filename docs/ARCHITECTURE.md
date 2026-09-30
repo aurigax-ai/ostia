@@ -1491,16 +1491,29 @@ read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`
 - `ext.notify {…, openPanel: true | path}` (extensions with a panel) records the notification
   with the extension's id (`NotificationEntry.extId`); clicking it, on the desktop or in the
   notification center, opens that extension's panel (at `path` if given) instead of jumping to a
-  pane.
+  pane. The notification-center entry keeps that path (`NotificationEntry.panelPath`), so a
+  click in the bell opens the same page as a click on the desktop notice; the renderer hands it
+  back through `openExtensionPanel`, and main checks it again in `resolvePanel`.
 - Pane chips: `contributes.paneChips` declares up to 8 `{id, title}`; `ext.setPaneChip {paneId,
-  id, text, tooltip?, tone?, command?}` resolves the external pane id to the renderer pane id,
+  id, text, tooltip?, tone?, command?, url?}` resolves the external pane id to the renderer pane id,
   keys the value by (extension, pane, chip), clips text to 40 and tooltip to 200 characters, and
   accepts `command` only if it is one of the extension's own palette commands. Empty text or
   `ext.clearPaneChip` removes it; `pane-closed` (`clearPaneChips`) and the extension stopping
   remove all of theirs. Main pushes the whole list on `extensions:chips`; the renderer keeps it in
   `extensionsStore.chips`. Why no capability: a chip is display on a pane like a sidebar item on
   a workspace, and it can only run a command the extension already offers in the palette, through
-  the palette path with the human's click.
+  the palette path with the human's click. A chip may instead carry a `url` (http/https,
+  `sidebarItemUrl`; never together with `command`): a click opens it in the browser pane of the
+  chip's pane's workspace (`paneChipAction` → `openSidebarUrl`), in the header and in the Pine
+  prompt's chip row alike. Why a URL and not `browse.open` from the extension: opening a page is
+  the human's click, and a link needs neither `browse` nor `all-workspaces` (the ports chip).
+- Command arguments: a manifest command may declare `argument` (a label, 80 chars). The palette
+  then shows a second step with that label as the input's placeholder; Enter runs the command
+  with `{argument}`, and `extensions:invoke` passes it on as `{argv: [value]}` only if the command
+  declares an argument and the value passes `commandArgument` (trimmed, 1–1000 chars, no control
+  characters, `ExtensionHost.paletteArgs`). Otherwise palette commands still get `null` args. Why
+  one value as `argv[0]`: the extension parses it exactly like `pine <ext> <command> <value>`, so
+  one handler serves the palette and the CLI, and there is no form language to maintain.
 - Settings: `contributes.settings` maps keys to `{type: string|number|boolean|enum, default,
   description, values?}` (32 max; the default must match the type). Main keeps the stored values
   (`extensionSettings` in `settings.json`, read at start and again when sync pulls
@@ -1583,9 +1596,15 @@ no shell). Sockets that Pine's main process (the extension's parent) also holds 
 because pty children inherit main's descriptors. Per workspace, up to 6 ports become `:port`
 items with `url: http://localhost:<port>/`. A tree process named `ssh` in its terminal's
 foreground process group (`pgrp == tpgid`) gives an `ssh` item with the destination host,
-parsed from its argv (`sshTarget`: skips ssh's value options, handles `--` and `ssh://`,
-refuses anything that isn't a plain host name, and shows nothing for `-G`/`-V`/`-Q`/`-O`); no
-network calls. `pine ports ls [--all]` returns the same data (`--all` needs `all-workspaces`).
+parsed from its argv (`sshLogin`: skips ssh's value options, keeps `-l user` / `user@` /
+`ssh://user@`, handles `--`, refuses anything that isn't a plain host name, drops a user name
+that isn't plain text, and shows nothing for `-G`/`-V`/`-Q`/`-O`); no network calls. Per
+terminal pane it also sets two pane chips (`chips.ts`): `ports` (`:3000 :5173 +2`, cut to the
+40-char chip limit, with a `url` to its first port) and `ssh` (`user@host`, like Warp's remote
+login chip); chips are diffed like the sidebar items and cleared when their pane stops showing
+them. Settings: `intervalSeconds` (1–60, the focused scan interval) and `portHost`
+(`localhost` or `127.0.0.1` for the port links). Why a host setting: `localhost` may resolve to
+`::1` first, and a dev server bound to `127.0.0.1` only then fails to load. `pine ports ls [--all]` returns the same data (`--all` needs `all-workspaces`).
 The rail hides these items with `sidebar.showPorts` / `sidebar.showSSH`
 (`lib/sidebarItems.ts`), under `sidebar.showExtensionItems`.
 
@@ -1609,7 +1628,14 @@ but the public API.
   history doesn't notify; acks are batched every 2 s; the follower restarts with backoff
   (2 s · 2ⁿ, 5 min cap). A card moved by an `agent:` actor into a column named like
   review/needs-you/waiting (or blocked) in a project some workspace has open posts a notification
-  that opens the panel. "Trellis: Init Project Here" runs `trellis init` in the caller's cwd
+  whose click opens the panel at `/p/<KEY>/card/<REF>` (`cardPath`), or navigates the open panel
+  there; `ext.panel` with an allowed path (`isAppPath`: `/`, a project, a board or a card) returns
+  the proxy's entry link for it. When the card's project isn't in the last known set, the
+  extension lists the workspaces again before dropping the event. Why: the extension starts with
+  the window, before the renderer has reported its workspaces, so its first refresh sees none and
+  a review notice right after launch was lost. Settings: `notifyReview`, `notifyBlocked` and
+  `refreshSeconds` (10–3600). "Trellis: Open Card" (`card <REF>`, palette `argument`) opens the
+  panel at a card; the ref is upper-cased and must look like `KEY-123`. "Trellis: Init Project Here" runs `trellis init` in the caller's cwd
   (else workDir) after `ext.confirm`.
 - *keeper* (`src/extensions/keeper/`). Only three argv are ever run (`isAllowedKeeperCall`):
   `daemon status` (never starts the daemon), then `approve --json` (list mode: no ticket, so it
@@ -1617,8 +1643,12 @@ but the public API.
   dashboard origin). Both of the latter auto-start the daemon, so they run only when `daemon
   status` says it's up. Polling: 5 s while approvals wait or a window has focus, 60 s otherwise,
   exponential backoff (to 5 min) while the daemon is down, none once keeper is missing (focus
-  re-checks). The footer item appears only while something waits; a new ticket posts "Keeper
-  needs approval", which opens the panel on `/approvals`. The approval list keeps ticket, agent,
+  re-checks); the 5 s and 60 s are the `pollSeconds` and `idlePollSeconds` settings, and `notify`
+  turns the notices off. The footer item appears only while something waits; a new ticket posts
+  "Keeper needs approval" with the panel path `/approvals`. Why not the ticket's own page:
+  Keeper's dashboard routes are `/approvals`, `/r/:requestId` (a local input/authorization
+  request, not an approval ticket) and section pages; the approvals list keeps the open row in
+  component state, so no URL addresses one ticket. The approval list keeps ticket, agent,
   workspace, intent, connection, tier and age, never the SQL; nothing about connections or DSNs
   passes through pine.
 - Unavailable tools: no sidebar items, commands fail with a message that says what to install or
