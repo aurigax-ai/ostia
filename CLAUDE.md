@@ -484,7 +484,9 @@ Details: `docs/ARCHITECTURE.md`.
 - **Assist requests carry only what the human put in them** (`shared/assist.ts`). The renderer
   sends a draft the human typed, the code around the cursor they are editing, or, in Ask, only
   the context chips they switched on (recent output, selection, folder, pane chips) or the block
-  they asked to explain; never terminal output on its own. Main normalizes every request
+  they asked to explain; never terminal output on its own. A chat request may also carry the
+  outcomes of tool calls, only from tools on in that chat and run under the chat tools rules
+  below. Main normalizes every request
   (`normalizeAssistRequest`) and result (`normalizeAssistResult`), routes only to an enabled
   extension granted `assist` that reported the point `ready` (`ExtensionHost.assistRuntime`),
   and cancels on Stop, close or a newer keystroke. Nothing is offered until a provider is
@@ -501,7 +503,33 @@ Details: `docs/ARCHITECTURE.md`.
   `normalizeChatSession`, trimmed from the oldest turn past 512 KiB and evicted oldest-first past
   16 MiB / 500 sessions, and the renderer says so. Context stored with a message is exactly the
   text that was sent. `assistant.chatHistory` off keeps sessions in memory only. Messages keep
-  the AI SDK `UIMessage` shape (typed parts), so tool calls can be added without reshaping.
+  the AI SDK `UIMessage` shape (typed parts): tool calls are `dynamic-tool` parts, denied and
+  failed ones included, clipped (never dropped) past the part cap, and exported to Markdown.
+- **Chat tools act only with the human's approval, through core.** The chat extension only
+  declares the tools pine lists in the request (`dynamicTool` without `execute`); the renderer's
+  chat transport runs every call (`lib/chatTools.ts`) and sends the outcome back, at most 8
+  rounds per question, and Stop cancels the model, a waiting card and MCP calls together.
+  `decideTool` (`lib/chatToolPermissions.ts`) is the only permission logic: read-only tools run
+  without asking only inside the workspace folder (reading outside asks, grantable per chat);
+  opening a file or URL and every MCP tool ask with Allow once / Allow for this chat / Deny;
+  `write_file` (shown as a diff) and `propose_command` (Insert at prompt via `insertCommand`
+  without Enter, or Run in new terminal via `runWhenIdle`, risky text through the risky-paste
+  dialog) ask every time and are never granted. Grants live in memory per session, never saved
+  or synced, and only the card's buttons create them; never add a setting, socket method or CLI
+  verb that pre-approves a tool. Tool results reach the model only from tools the human left on
+  in that chat's tools menu; never offer raw terminal output as a tool (`terminal_context` gives
+  the folder and commands with exit codes only). File tools go through main
+  (`main/chatFsTools.ts`): absolute paths, `resolveSafe` plus `realpath` confinement to the fs
+  roots, the workspace folder unless the human approved `outside`, size caps, no binary, no write
+  through a symlink. Skills are read by main only from `assistant.skillFolders` (symlinks, YAML
+  aliases and files over 256 KiB refused) and loaded by `load_skill`; the model sees names and
+  descriptions until it loads one. MCP servers (`assistant.mcpServers`, `main/mcpHost.ts`) are
+  spawned from an argv with `shell: false` and a minimal env (never `PINE_TOKEN`) or reached over
+  http(s), connected only when a chat or Settings asks, and main re-checks the server and tool on
+  every call. `assistant` is not in `DATA_KEYS`, so `pine settings set` can't add a server or a
+  skill folder; MCP tokens are secrets (`mcp-secrets.json`, `safeStorage`, never synced, never
+  returned, set only through `chatTools:set-mcp-secret` for a key the human declared). Never let
+  the extension execute a tool, spawn an MCP server or read a skill itself.
 - **The manager is opened only from outside Pine.** `portal.open` (`main/portal.ts`) refuses any
   caller that `callerVerdict` (`main/portalCaller.ts`) finds inside Pine or can't check; there is
   no approval prompt behind it, so never loosen that check, skip it, or add a control-socket
@@ -725,8 +753,18 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   `e2e/assistant-chat.spec.ts` (fake server from `e2e/fakeProvider.ts`) opens the chat pane from
   the top-bar Assistant menu, runs a shell block in a new terminal, opens a path from an answer,
   finds the session after a restart, accepts terminal ghost text with Tab without running it,
-  and turns terminal completion off in the menu. Chat sessions are tested in
-  `src/main/chatSessions.test.ts` (caps, trim, eviction, delete).
+  and turns terminal completion off in the menu; its chat tools spec reads a file without a
+  card, denies then allows a write shown as a diff, and approves a tool from the fake stdio MCP
+  server (`test/fixtures/mcp/fake-server.mjs`, run with the test's node). Chat sessions are
+  tested in `src/main/chatSessions.test.ts` (caps, trim, eviction, delete). Chat tools: the
+  permission logic in `src/renderer/lib/chatToolPermissions.test.ts`, the transport's tool loop
+  (approval, deny, Stop, grants, MCP) in `src/renderer/lib/chatTransport.tools.test.ts`, the
+  cards in `ChatToolPart.test.tsx`, confinement in `src/main/chatFsTools.test.ts`, skills in
+  `src/main/chatSkills.test.ts`, MCP settings and session clipping in
+  `src/shared/chatTools.test.ts`, `McpHost` against the fake MCP server in
+  `src/main/mcpHost.integration.test.ts`, and the whole loop (fake provider streaming a tool
+  call, the assistant extension, the fake MCP server) in
+  `src/main/chatTools.integration.test.ts`. Never point a test at a real MCP server.
   Tool extensions (trellis, keeper) are tested against fake `trellis`/`keeper` shell scripts in
   `test/fixtures/tools/bin/` put first on `PATH`, fed scrubbed real `--json` captures from
   `test/fixtures/tools/<tool>/`; never point a test at the real tools.

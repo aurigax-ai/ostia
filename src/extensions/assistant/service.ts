@@ -1,10 +1,14 @@
 import {
   APICallError,
+  type JSONSchema7,
   NoObjectGeneratedError,
   Output,
   RetryError,
+  type ToolSet,
+  dynamicTool,
   extractJsonMiddleware,
   generateText,
+  jsonSchema,
   streamText,
   wrapLanguageModel,
 } from 'ai'
@@ -16,6 +20,7 @@ import type {
   AssistResults,
   AssistSetupProblem,
   ChatAssistRequest,
+  ChatToolSpec,
   CommandAssistRequest,
   CompletionAssistRequest,
   InputAssistRequest,
@@ -67,6 +72,17 @@ const OBJECT_ATTEMPTS = 2
 const ERROR_MESSAGE_MAX = 240
 
 export type ProviderFactory = typeof createProvider
+
+export function chatToolSet(specs: ChatToolSpec[]): ToolSet {
+  const tools: ToolSet = {}
+  for (const spec of specs) {
+    tools[spec.name] = dynamicTool({
+      description: spec.description,
+      inputSchema: jsonSchema(spec.inputSchema as JSONSchema7),
+    })
+  }
+  return tools
+}
 
 function statusOf(err: unknown): number | undefined {
   if (err instanceof HttpError) return err.status
@@ -297,6 +313,7 @@ export class AssistantService {
     let failure: unknown = null
     const result = streamText({
       ...this.settings(provider, 'chat', chatPrompt(req), ctx),
+      ...(req.tools ? { tools: chatToolSet(req.tools) } : {}),
       onError: ({ error }) => {
         failure = error
       },
@@ -306,7 +323,7 @@ export class AssistantService {
       onError: (error) => this.redact(messageOf(error)),
     })
     for await (const chunk of stream) {
-      if (!live) continue
+      if (!live || chunk.type === 'tool-input-delta') continue
       live = await ctx.chunk(JSON.stringify(chunk)).catch(() => false)
     }
     if (failure) throw failure

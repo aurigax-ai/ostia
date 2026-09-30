@@ -1,9 +1,10 @@
-import type { ModelMessage } from 'ai'
+import type { ModelMessage, ToolResultPart } from 'ai'
 import { z } from 'zod'
 import {
   COMMAND_SUGGESTIONS_MAX,
   COMPLETION_TEXT_MAX,
   type ChatAssistRequest,
+  type ChatToolCall,
   type CommandAssistRequest,
   type CommandSuggestion,
   type CompletionAssistRequest,
@@ -251,18 +252,65 @@ export function chatSystem(req: ChatAssistRequest): string {
     'one command per block when the user may want to run it.',
     'Never claim you ran anything; the user decides what to run.',
   ].join(' ')
+  const tools = req.tools?.length
+    ? [
+        base,
+        'You can call tools. Read-only tools run right away; tools that change something wait for the user to approve them in the chat, and a denied call means the user said no: do not retry it.',
+        'Propose shell commands with the propose_command tool when it is available instead of claiming to run them.',
+      ].join(' ')
+    : base
   const sections = req.context.map(
     (item) => `## ${item.label} (${item.kind})\n\`\`\`\n${item.text}\n\`\`\``,
   )
   return sections.length > 0
-    ? `${base}\n\nContext the user shared:\n\n${sections.join('\n\n')}`
-    : base
+    ? `${tools}\n\nContext the user shared:\n\n${sections.join('\n\n')}`
+    : tools
+}
+
+const DENIED_REASON = 'The user denied this tool call.'
+
+function toolResult(call: ChatToolCall): ToolResultPart['output'] {
+  if (call.state === 'done') return { type: 'text', value: call.output ?? '' }
+  if (call.state === 'error') return { type: 'error-text', value: call.error ?? 'failed' }
+  return { type: 'execution-denied', reason: DENIED_REASON }
+}
+
+export function chatMessages(req: ChatAssistRequest): ModelMessage[] {
+  const out: ModelMessage[] = []
+  for (const m of req.messages) {
+    if (m.role === 'user' || !m.tools?.length) {
+      out.push({ role: m.role, content: m.content })
+      continue
+    }
+    out.push({
+      role: 'assistant',
+      content: [
+        ...(m.content ? [{ type: 'text' as const, text: m.content }] : []),
+        ...m.tools.map((call) => ({
+          type: 'tool-call' as const,
+          toolCallId: call.id,
+          toolName: call.name,
+          input: call.input,
+        })),
+      ],
+    })
+    out.push({
+      role: 'tool',
+      content: m.tools.map((call) => ({
+        type: 'tool-result' as const,
+        toolCallId: call.id,
+        toolName: call.name,
+        output: toolResult(call),
+      })),
+    })
+  }
+  return out
 }
 
 export function chatPrompt(req: ChatAssistRequest): Prompt {
   return {
     system: chatSystem(req),
-    messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: chatMessages(req),
     temperature: 0.3,
     maxOutputTokens: 2048,
   }

@@ -19,11 +19,12 @@ import {
   type AssistFeatureId,
   type AssistOpenUiRequest,
   type AssistPoint,
+  type AssistProviderInfo,
   type AssistResponse,
   type AssistSetupProblem,
   type AssistStatus,
   type AssistUi,
-  CHAT_REPLY_MAX,
+  CHAT_STREAM_MAX,
   normalizeAssistError,
   normalizeAssistFeatures,
   normalizeAssistLabel,
@@ -99,7 +100,7 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
 const RESCAN_DEBOUNCE_MS = 250
 export const ASSIST_TIMEOUT_MS = 60_000
 export const ASSIST_CHAT_TIMEOUT_MS = 5 * 60_000
-const ASSIST_CHUNK_MAX = 16_384
+const ASSIST_CHUNK_MAX = 262_144
 
 type RunState = 'idle' | 'starting' | 'running' | 'crashed'
 
@@ -1266,9 +1267,11 @@ export class ExtensionHost {
     for (const point of ASSIST_POINTS) {
       const rt = this.assistRuntime(point)
       if (!rt) continue
-      const label = rt.assistStatus[point]?.label
-      const base = { extId: rt.ext.manifest.id, name: rt.ext.manifest.name }
-      out[point] = label ? { ...base, label } : base
+      const status = rt.assistStatus[point]
+      const info: AssistProviderInfo = { extId: rt.ext.manifest.id, name: rt.ext.manifest.name }
+      if (status?.label) info.label = status.label
+      if (status?.tools) info.tools = true
+      out[point] = info
     }
     return out
   }
@@ -1409,8 +1412,10 @@ export class ExtensionHost {
     const stream = typeof p.requestId === 'string' ? this.assistStreams.get(p.requestId) : undefined
     if (!stream || stream.rt !== rt) return { ok: true, live: false }
     if (typeof p.text !== 'string') return fail('invalid-params', 'text must be a string')
-    const text = p.text.slice(0, Math.min(ASSIST_CHUNK_MAX, CHAT_REPLY_MAX - stream.sent))
-    if (!text) return { ok: true, live: stream.sent < CHAT_REPLY_MAX }
+    const room = Math.min(ASSIST_CHUNK_MAX, CHAT_STREAM_MAX - stream.sent)
+    if (p.text.startsWith('{') && p.text.length > room) return { ok: true, live: false }
+    const text = p.text.slice(0, room)
+    if (!text) return { ok: true, live: stream.sent < CHAT_STREAM_MAX }
     stream.sent += text.length
     stream.onChunk(text)
     return { ok: true, live: true }

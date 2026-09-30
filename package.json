@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.68",
+    "@ai-sdk/mcp": "~2.0.62",
     "@ai-sdk/openai": "^4.0.81",
     "@ai-sdk/openai-compatible": "^3.0.59",
     "@ai-sdk/react": "^4.0.125",
@@ -59,6 +60,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "culori": "^4.0.2",
+    "diff": "^9.0.0",
     "es-toolkit": "^1.52.0",
     "lru-cache": "^11.5.3",
     "monaco-editor": "^0.55.1",
