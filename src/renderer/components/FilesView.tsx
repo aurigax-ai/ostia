@@ -155,7 +155,7 @@ function Row({
   return (
     <>
       {focus.workspaceId ? (
-        <FileMenu workspaceId={focus.workspaceId} path={fullPath} trigger={row} />
+        <FileMenu workspaceId={focus.workspaceId} path={fullPath} dir={entry.dir} trigger={row} />
       ) : (
         row
       )}

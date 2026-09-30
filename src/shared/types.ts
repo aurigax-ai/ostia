@@ -338,6 +338,13 @@ export interface SelectionApi {
   send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
 }
 
+export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'program' | 'failed' }
+
+export interface OpenPathApi {
+  openDefault: (path: string) => Promise<OpenPathResult>
+  reveal: (path: string) => Promise<OpenPathResult>
+}
+
 export interface AgentSessionApi {
   info: (resume: AgentResume) => Promise<AgentSessionInfo | null>
 }
@@ -476,6 +483,7 @@ export interface PineBridge {
   credentials: CredentialsApi
   update: AppUpdateApi
   agentSession: AgentSessionApi
+  openPath: OpenPathApi
   extensions: ExtensionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi

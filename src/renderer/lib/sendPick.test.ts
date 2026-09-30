@@ -96,6 +96,17 @@ describe('sendPickToPane', () => {
     expect(term.paste).toHaveBeenCalledOnce()
   })
 
+  it('pastes into a running claude or codex whatever state it last reported', async () => {
+    useBlocksStore.setState({
+      drafts: {},
+      running: { [TARGET]: 'b1' },
+      byPane: { [TARGET]: [{ id: 'b1', paneId: TARGET, command: 'claude --model opus' } as never] },
+    })
+    expect(canInsertReference(TARGET)).toBe(true)
+    const res = await send()
+    expect(res.ok && res.inserted).toBe(true)
+  })
+
   it('copies the reference instead when the pane is busy', async () => {
     running()
     const res = await send()

@@ -1,14 +1,29 @@
 import { cn } from '@/lib/utils'
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
   CaretDownIcon,
   CaretRightIcon,
+  CaretUpIcon,
+  ChecksIcon,
+  EraserIcon,
   FlaskIcon,
+  FolderSimpleIcon,
+  FolderSimpleMinusIcon,
+  FolderSimplePlusIcon,
   GearSixIcon,
   type Icon as IconComponent,
+  PaletteIcon,
+  PencilSimpleIcon,
+  PushPinIcon,
   PushPinSimpleIcon,
+  PushPinSlashIcon,
   RobotIcon,
   TerminalWindowIcon,
+  TextAlignLeftIcon,
+  TrashIcon,
   XIcon,
+  XSquareIcon,
 } from '@phosphor-icons/react'
 import { WORKSPACE_GROUP_COLORS, type WorkspaceGroupColor } from '@shared/workspaceGroups'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -42,19 +57,15 @@ import {
 } from '../stores/workspacesStore'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
+import { MenuContent, MenuItem, MenuRadioItem, MenuSubContent, MenuSubTrigger } from './Menu'
 import { ATTENTION_BADGE } from './attentionStyles'
 import { extensionIcon } from './extensionIcons'
 import { Badge } from './ui/badge'
 import {
   ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
   ContextMenuRadioGroup,
-  ContextMenuRadioItem,
   ContextMenuSeparator,
   ContextMenuSub,
-  ContextMenuSubContent,
-  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from './ui/context-menu'
 import { Input } from './ui/input'
@@ -291,11 +302,13 @@ function GroupBlock({
             </button>
           )}
         </ContextMenuTrigger>
-        <ContextMenuContent className="min-w-52">
-          <ContextMenuItem onClick={() => onRenaming(true)}>{d.rail.rename}</ContextMenuItem>
+        <MenuContent>
+          <MenuItem icon={PencilSimpleIcon} onClick={() => onRenaming(true)}>
+            {d.rail.rename}
+          </MenuItem>
           <ContextMenuSub>
-            <ContextMenuSubTrigger>{d.rail.groupColor}</ContextMenuSubTrigger>
-            <ContextMenuSubContent>
+            <MenuSubTrigger icon={PaletteIcon}>{d.rail.groupColor}</MenuSubTrigger>
+            <MenuSubContent>
               <ContextMenuRadioGroup
                 value={group.color ?? NO_COLOR}
                 onValueChange={(value: string) =>
@@ -305,27 +318,30 @@ function GroupBlock({
                   )
                 }
               >
-                <ContextMenuRadioItem value={NO_COLOR}>{d.rail.noColor}</ContextMenuRadioItem>
+                <MenuRadioItem value={NO_COLOR}>{d.rail.noColor}</MenuRadioItem>
                 {WORKSPACE_GROUP_COLORS.map((color) => (
-                  <ContextMenuRadioItem key={color} value={color}>
-                    <span className="rail-color-chip" data-color={color} aria-hidden />
+                  <MenuRadioItem
+                    key={color}
+                    value={color}
+                    leading={<span className="rail-color-chip" data-color={color} />}
+                  >
                     {d.rail.groupColors[color]}
-                  </ContextMenuRadioItem>
+                  </MenuRadioItem>
                 ))}
               </ContextMenuRadioGroup>
-            </ContextMenuSubContent>
+            </MenuSubContent>
           </ContextMenuSub>
-          <ContextMenuItem onClick={toggle}>
+          <MenuItem icon={group.collapsed ? CaretDownIcon : CaretUpIcon} onClick={toggle}>
             {group.collapsed ? d.rail.expandGroup : d.rail.collapseGroup}
-          </ContextMenuItem>
-          <ContextMenuItem onClick={() => markGroupRead(members)}>
+          </MenuItem>
+          <MenuItem icon={ChecksIcon} onClick={() => markGroupRead(members)}>
             {d.rail.markRead}
-          </ContextMenuItem>
+          </MenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem onClick={() => store().deleteGroup(group.id)}>
+          <MenuItem icon={TrashIcon} onClick={() => store().deleteGroup(group.id)}>
             {d.rail.deleteGroup}
-          </ContextMenuItem>
-        </ContextMenuContent>
+          </MenuItem>
+        </MenuContent>
       </ContextMenu>
       {group.collapsed ? null : <div className="rail-group-members">{children}</div>}
     </div>
@@ -595,62 +611,81 @@ function WorkspaceRow({
           }
         />
       </ContextMenuTrigger>
-      <ContextMenuContent className="min-w-52">
-        <ContextMenuItem onClick={() => setEditing('name')}>{d.rail.rename}</ContextMenuItem>
-        <ContextMenuItem onClick={() => setEditing('description')}>
+      <MenuContent>
+        <MenuItem icon={PencilSimpleIcon} onClick={() => setEditing('name')}>
+          {d.rail.rename}
+        </MenuItem>
+        <MenuItem icon={TextAlignLeftIcon} onClick={() => setEditing('description')}>
           {w.description ? d.rail.editDescription : d.rail.addDescription}
-        </ContextMenuItem>
+        </MenuItem>
         {w.description ? (
-          <ContextMenuItem onClick={() => store().describe(w.id, '')}>
+          <MenuItem icon={EraserIcon} onClick={() => store().describe(w.id, '')}>
             {d.rail.clearDescription}
-          </ContextMenuItem>
+          </MenuItem>
         ) : null}
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={() => store().setPinned(w.id, !w.pinned)}>
+        <MenuItem
+          icon={w.pinned ? PushPinSlashIcon : PushPinIcon}
+          onClick={() => store().setPinned(w.id, !w.pinned)}
+        >
           {w.pinned ? d.rail.unpin : d.rail.pin}
-        </ContextMenuItem>
-        <ContextMenuItem disabled={!canMoveUp} onClick={() => store().moveBy(w.id, -1)}>
+        </MenuItem>
+        <MenuItem icon={ArrowUpIcon} disabled={!canMoveUp} onClick={() => store().moveBy(w.id, -1)}>
           {d.rail.moveUp}
-        </ContextMenuItem>
-        <ContextMenuItem disabled={!canMoveDown} onClick={() => store().moveBy(w.id, 1)}>
+        </MenuItem>
+        <MenuItem
+          icon={ArrowDownIcon}
+          disabled={!canMoveDown}
+          onClick={() => store().moveBy(w.id, 1)}
+        >
           {d.rail.moveDown}
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => markWorkspaceRead(w.id)}>{d.rail.markRead}</ContextMenuItem>
+        </MenuItem>
+        <MenuItem icon={ChecksIcon} onClick={() => markWorkspaceRead(w.id)}>
+          {d.rail.markRead}
+        </MenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem
+        <MenuItem
+          icon={FolderSimplePlusIcon}
           onClick={() => {
             const groupId = store().createGroup(w.id)
             if (groupId) onGroupCreated(groupId)
           }}
         >
           {d.rail.moveToNewGroup}
-        </ContextMenuItem>
+        </MenuItem>
         {otherGroups.length > 0 ? (
           <ContextMenuSub>
-            <ContextMenuSubTrigger>{d.rail.moveToGroup}</ContextMenuSubTrigger>
-            <ContextMenuSubContent>
+            <MenuSubTrigger icon={FolderSimpleIcon}>{d.rail.moveToGroup}</MenuSubTrigger>
+            <MenuSubContent>
               {otherGroups.map((g) => (
-                <ContextMenuItem key={g.id} onClick={() => store().moveToGroup(w.id, g.id)}>
-                  <span className="rail-color-chip" data-color={g.color} aria-hidden />
+                <MenuItem
+                  key={g.id}
+                  leading={<span className="rail-color-chip" data-color={g.color} />}
+                  onClick={() => store().moveToGroup(w.id, g.id)}
+                >
                   {g.name}
-                </ContextMenuItem>
+                </MenuItem>
               ))}
-            </ContextMenuSubContent>
+            </MenuSubContent>
           </ContextMenuSub>
         ) : null}
         {w.groupId ? (
-          <ContextMenuItem onClick={() => store().leaveGroup(w.id)}>
+          <MenuItem icon={FolderSimpleMinusIcon} onClick={() => store().leaveGroup(w.id)}>
             {d.rail.removeFromGroup}
-          </ContextMenuItem>
+          </MenuItem>
         ) : null}
         <ContextMenuSeparator />
-        <ContextMenuItem disabled={count < 2} onClick={() => void requestCloseOthers(w.id)}>
+        <MenuItem
+          icon={XSquareIcon}
+          disabled={count < 2}
+          onClick={() => void requestCloseOthers(w.id)}
+        >
           {d.rail.closeOthers}
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => void requestCloseWorkspace(w.id)}>
+        </MenuItem>
+        <MenuItem icon={XIcon} onClick={() => void requestCloseWorkspace(w.id)}>
           {d.rail.closeWorkspace}
-        </ContextMenuItem>
-      </ContextMenuContent>
+        </MenuItem>
+      </MenuContent>
     </ContextMenu>
   )
 }
