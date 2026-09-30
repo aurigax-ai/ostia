@@ -717,6 +717,14 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   above the pinned group) and picks the `workDir`: the active workspace's focused pane `cwd` when
   `workspaces.inheritFolder` is on and the pane has one, else `workspaces.defaultFolder` (`~`).
   The `workDir` stays the anchor; only its initial value is inherited.
+- **Notification center** (`NotificationCenter.tsx`, `lib/notificationGroups.ts`): each log entry
+  has a `kind` (`waiting`, `approval`, `done`, `error`, `message`) set by whoever posts it
+  (agent state, approval requests, long or failed commands, OSC notifications; extensions and
+  `pine notify` post `message`; old entries read as `message`). Text tabs filter: All, Needs you
+  (waiting, approval, error, with a count including pending approvals), Finished, Messages.
+  Entries are grouped by workspace (extension entries by extension, closed panes together),
+  groups ordered by their newest entry. The top-bar trigger is a tray icon with a filled
+  `--attn` count badge.
 - **Tab and file conveniences**: a middle-click on a pane tab runs `pane.close` (the same guard as
   its X); the close guard (`lib/closeConfirm.ts`) asks for a pane, workspace or quit when it has
   a running command or an editor file with unsaved changes (`useEditorStatus.dirty`), listing

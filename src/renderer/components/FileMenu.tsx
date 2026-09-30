@@ -58,7 +58,7 @@ function report(workspaceId: string, message: string): void {
     console.error(`[files] ${message}`)
     return
   }
-  window.pine.notifications.post({ paneId, title: message, desktop: false })
+  window.pine.notifications.post({ paneId, kind: 'error', title: message, desktop: false })
 }
 
 function openDefault(workspaceId: string, path: string): void {
