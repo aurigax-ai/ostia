@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes } from '../layout/tree'
@@ -36,11 +36,13 @@ export function CommandPalette(): JSX.Element {
 
   useSyncExternalStore(subscribeCommands, commandsVersion)
 
-  const finish = (): void => {
+  useEffect(() => {
+    if (open) return
     setSearch('')
     setAsking(null)
-    close()
-  }
+  }, [open])
+
+  const finish = close
 
   const ask = (command: ArgumentCommand): void => {
     setAsking(command)

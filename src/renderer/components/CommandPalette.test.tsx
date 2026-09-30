@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
@@ -188,6 +188,22 @@ describe('CommandPalette', () => {
       await userEvent.keyboard('{Enter}')
       expect(run).toHaveBeenCalledWith({ argument: 'shop-12' }, expect.anything())
       expect(useUIStore.getState().paletteOpen).toBe(false)
+    })
+
+    it('reopens on the command list after the palette chord closed it mid-argument', async () => {
+      const run = register()
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.click(await screen.findByRole('option', { name: /Test: Open Card/ }))
+      expect(screen.getByPlaceholderText('Card id')).toBeInTheDocument()
+
+      act(() => useUIStore.getState().togglePalette())
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+      act(() => useUIStore.getState().togglePalette())
+
+      expect(await screen.findByRole('option', { name: /Test: Open Card/ })).toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('Card id')).toBeNull()
+      expect(run).not.toHaveBeenCalled()
     })
 
     it('runs nothing while the value is blank', async () => {
