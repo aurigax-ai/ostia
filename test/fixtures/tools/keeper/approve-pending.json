@@ -12,7 +12,12 @@
       "statement_type": "SELECT"
     },
     "session": {
-      "client": { "name": "claude-code", "pid": 4242, "version": "2.1.0", "workspace": "/home/user/shop" },
+      "client": {
+        "name": "claude-code",
+        "pid": 4242,
+        "version": "2.1.0",
+        "workspace": "/home/user/shop"
+      },
       "connected_at": "2026-09-28T09:58:00Z",
       "id": "s-7f3a",
       "intent": "customer retention report"

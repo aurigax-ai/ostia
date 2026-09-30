@@ -17,17 +17,23 @@ export function canInsertReference(paneId: string): boolean {
   return running && state !== undefined && AGENT_AT_PROMPT.has(state)
 }
 
+export function insertPathReference(targetPaneId: string, path: string): boolean {
+  const term = terminalFor(targetPaneId)
+  if (!term || !canInsertReference(targetPaneId)) return false
+  term.paste(reportReference(path))
+  return true
+}
+
 async function deliverReport(
   targetPaneId: string,
   path: string,
   note: string,
   fallback: string,
 ): Promise<boolean> {
-  const reference = reportReference(path)
-  const term = terminalFor(targetPaneId)
-  const inserted = Boolean(term) && canInsertReference(targetPaneId)
-  if (inserted) term?.paste(reference)
-  else await navigator.clipboard?.writeText(reference.trim()).catch(() => undefined)
+  const inserted = insertPathReference(targetPaneId, path)
+  if (!inserted) {
+    await navigator.clipboard?.writeText(reportReference(path).trim()).catch(() => undefined)
+  }
   const summary = note.trim().replace(/\s+/g, ' ').slice(0, ATTENTION_NOTE_MAX)
   signalPane(targetPaneId, {
     type: 'set',

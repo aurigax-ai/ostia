@@ -369,6 +369,44 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       expect(res.code).toBe(0)
       expect(received.at(-1)).toMatchObject({ area: 'session', sub: 'get', key: 'token' })
     })
+
+    it('prints the agent-browser {success, data, error} shape with --json', async () => {
+      grant(identity.externalId, 'browse')
+      const res = await runPine(
+        ['browse', 'storage', 'local', 'token', '--json'],
+        withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      )
+      expect(res.code).toBe(0)
+      expect(JSON.parse(res.stdout)).toEqual({ success: true, data: { value: 'v' }, error: null })
+    })
+
+    it('reports a usage error as a failed JSON response and exits 1', async () => {
+      const res = await runPine(
+        ['browse', '--json', 'storage', 'indexeddb'],
+        withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      )
+      expect(res.code).toBe(1)
+      const parsed = JSON.parse(res.stdout) as { success: boolean; error: string }
+      expect(parsed.success).toBe(false)
+      expect(parsed.error).toMatch(/usage: pine browse storage/)
+    })
+
+    it('runs several commands over one connection with batch', async () => {
+      grant(identity.externalId, 'browse')
+      const before = received.length
+      const res = await runPine(
+        ['browse', 'batch', '--json', 'storage local a', 'storage session "b c"'],
+        withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      )
+      expect(res.code).toBe(0)
+      const results = JSON.parse(res.stdout) as { command: string[]; success: boolean }[]
+      expect(results.map((r) => r.success)).toEqual([true, true])
+      expect(results[1].command).toEqual(['storage', 'session', 'b c'])
+      expect(received.slice(before)).toEqual([
+        { area: 'local', sub: 'get', key: 'a' },
+        { area: 'session', sub: 'get', key: 'b c' },
+      ])
+    })
   })
 
   describe('pine workspace describe', () => {

@@ -77,7 +77,8 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `extensionConfirm.ts` | The native confirm dialog behind `ext.confirm` (§11) |
 | `workflows.ts` | Saved workflows: confined YAML loading (workspace, user, extension manifests), `workflows:list`/`workflows:save` IPC, `workflow.list` control method (§4) |
 | `settingsSync.ts`, `settingsSyncIpc.ts` | Settings sync: pure plan/merge + the file executor; triggers (startup, window focus, local file changes) and `sync:*` / `dialog:pick-folder` IPC (§5) |
-| `browse.ts` | `browse.*` automation of browser panes (§9) |
+| `browse.ts`, `browseWorld.ts` | `browse.*` automation of browser panes, agent-browser contract; the isolated browse world (§9) |
+| `browserStorage.ts` | Cookies and web storage of a browser pane: the storage viewer's `browser:storage-*` IPC and the agent `cookies`/`storage` verbs (§9) |
 | `browsePick.ts`, `guestNetwork.ts` | Pick element: `browse.pick`, `browser:pick-*` IPC, UI-issue reports; failed-request buffer per guest (§9) |
 | `selectionReport.ts` | Send-selection reports from file views: `selection:send` IPC, `selection-N.md` + PNG (§9) |
 | `fsBinary.ts` | `fs:read-binary`: confined, size-capped byte reads for the image and PDF viewers (§9) |
@@ -128,7 +129,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | lifecycle | `lifecycle.emit` (`pane-created`, `pane-closed`, `workspace-added`, `workspace-closed`, `workspace-activated`, `workspace-state`) |
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
 | terminal state | `terminalState.push` |
-| browser | `register`, `unregister`, `pickStart`, `pickCancel`, `pickSend`, `onPickState` (push channel `browser:pick-state`) |
+| browser | `register`, `unregister`, `pickStart`, `pickCancel`, `pickSend`, `onPickState` (push channel `browser:pick-state`), `storageRead`, `storageSet`, `storageRemove`, `storageClear` (IPC `browser:storage-*`) |
 | selection | `selection.send({capture, image?, sourcePaneId, targetPaneId, note})` (IPC `selection:send`, §9) |
 | extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel` (context may carry a `path`), `sidebarItems`, `paneChips`, `setSetting`, `onChanged`, `onSidebar`, `onPaneChips`, `onOpenPanel`, `onOpenDiff`, `onOpenTerminal` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:chips`, `extensions:open-panel`, `extensions:open-diff`, `extensions:open-terminal`) |
 | external editor | `externalEditor.open({template, file, line?, column?})` (IPC `editor:open-external`, §9) |
@@ -577,6 +578,10 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     (`lib/fileKinds.ts`). Why not new surface kinds: a file view is still "the file this pane
     shows", so `openFile`, restore, tabs, the Files panel and the pane title stay one code path;
     switching the file swaps the viewer (keyed by path).
+  - Where `openFile` puts a file follows `editor.openFilesIn`. `tab` (default): focus an editor
+    already showing that path, else reuse an editor tab in the focused pane's slot
+    (`slotPaneOfKind`), else add a tab to that slot. `split`: reuse the workspace's first editor
+    pane, else split the focused pane to the right.
   - An `extension` pane carries `extensionId` and renders that extension's panel
     (`ExtensionPanelView`, §11). `openExtensionPanel` reuses the workspace's existing panel of the
     same extension.
@@ -881,10 +886,16 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
     `panes` sections (numbers clamp, bad values fall back, non-booleans are dropped); `init` and
     `setByPath` both run it, so a hand-edited file or `pine settings set` can't store an
     out-of-range value.
-  - `setByPath` rejects prototype-pollution segments, keys outside the data groups,
-    and type changes.
+  - `setByPath` (`applySetting`) rejects prototype-pollution segments, keys outside the data
+    groups, keys that don't exist, and type changes, then runs the whole object through
+    `parsePersisted` and refuses the change if the value didn't come out as written
+    (`invalid value for <key>`), so an out-of-range number or unknown enum is an error rather
+    than a silent clamp. Why refuse instead of coerce: an agent that is told "set 5" and
+    silently gets 1000 believes the wrong thing; an error makes it look the key up
+    (`pine settings schema <key>`). `previewSetting` (`--dry-run`) runs the same check without
+    applying; `unsetByPath` sets the default. Results carry `previous` so an agent can undo.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
-  - `settings/schema.ts` registers a JSON Schema for that file with Monaco.
+  - `settings/settingsSchema.ts` holds the JSON Schema for that file (also served by `pine settings schema`); `settings/registerSettingsSchema.ts` registers it with Monaco.
 - `plugins/builtin.ts` is a registry of built-in contributions only: themes (`adeberry`,
   `one-dark-vivid`, `instrument-night`, `dracula`, `oxocarbon`, `pine-light`), LSP entries, locales (`en`, `zh-Hant`).
   These are data-only contributions; behavior and UI come from extensions (§11), listed in the
@@ -965,8 +976,24 @@ see external ids.
   `vault-read`, `vault-write`.
 - Elevated: `send-other-pane`, `kill-pane`, `all-workspaces`, `shell`, `destructive`, `phone`,
   `gateway`, `browse`, `settings-write`.
-- Elevated caps are granted only by `capabilities.grants` in `settings.json`. A grant applies to
-  every pane, is read once per run, and unknown names are dropped.
+- Elevated caps come from `capabilities.grants` in `settings.json` (every pane, read once per
+  run, unknown names dropped) or from the human answering an approval request.
+- **Approvals** (`main/approvals.ts`, `controlElevation.ts` `ensureCaps`, renderer
+  `stores/approvalsStore.ts`, `ApprovalCard`, `ApprovalsInbox`): when a pane caller lacks caps,
+  `ensureCaps` holds the call and `createApprovals().request` publishes it to the pane's window
+  (`approvals:changed`). The window rings the pane (`signalPane` waiting), posts a notification,
+  and shows a card on the pane and a row in the notification center's inbox. The answer comes
+  back over `approvals:answer` and counts only from the window that owns the request; `once`
+  lets this call through, `session` also `grant`s the caps to that pane identity until
+  `pane-closed` (`forget`) or Revoke, `deny` / no window / 90 s timeout refuse with
+  `denied:` / `not-approved:`. `approvals.mode: 'allow'` (Settings → Agents) lets requests
+  through and only records them, except anything with `destructive`, which always asks and
+  never gets a session grant. Extension callers still get `needs-elevation` (their caps are
+  manifest ∩ approval). `approvals` is not a `DATA_KEYS` key and is local-only in settings
+  sync. Why hold instead of fail: the agent would otherwise need the human to edit
+  `settings.json` and restart, then retry; now the same call just continues. Why no palette
+  command or socket method answers: an agent must never be able to approve itself.
+  `vault.*` params are never shown in a request.
 - `phone`, `shell` and `destructive` are never checked on the socket.
 
 **Methods.**
@@ -1234,7 +1261,10 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
 - **Send selection to agent** (`commands/selectionSend.ts`, `lib/selectionSenders.ts`,
   `components/SelectionSend.tsx`, `lib/sendPick.ts` `sendSelectionToPane`,
   `main/selectionReport.ts`, `shared/selection.ts`):
-  - Every file view registers a sender for its pane. The `selection.sendToAgent` command (palette,
+  - Every file view and terminal registers a sender for its pane. A terminal's sender takes the
+    xterm selection, or, with none, the selected block's output and command (the block menu's
+    "Send output to agent…" selects the block and clears the xterm selection first); it sends a
+    `terminal` capture (`cwd`, `command`, `text`), the one kind without a `file`. The `selection.sendToAgent` command (palette,
     Ctrl+Shift+E / ⌘⇧E, Monaco's context menu, the viewers' toolbar button, the Markdown
     preview's button) runs the active pane's sender, which captures the selection and opens the
     same send panel as pick element (`PickSendPanel`: targets with state dots, a note,
@@ -1267,6 +1297,60 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
     | Image | `Image region: a.png (x 10, y 20, 100 × 50)` or `Image: a.png` | `File`, `Image size: W × H px`, `Region: x, y, w × h (image px, origin top-left)` or `whole image`, `Snapshot: <png>`, `Captured` |
     | PDF text | `PDF text selection: a.pdf, page 2` | `File`, `Pages: 2 (1-based)`, `Captured` |
     | PDF region | `PDF page region: a.pdf, page 2 (x …)` or `PDF page: a.pdf, page 2` | `File`, `Page: 2 (1-based), W × H pt`, `Region: … (PDF points, origin top-left)` or `whole page`, `Snapshot: <png>`, `Captured` |
+    | Terminal | `Terminal text: Terminal selection` or `Terminal output: $ <command>` | `Directory`, `Command` (block only), `Captured`, then `## Terminal text` |
+- **File path menu** (`components/FileMenu.tsx`, on file-tree rows and editor tabs): Copy path,
+  Copy relative path (to the workspace `workDir`), and Send path to agent, a submenu of the same
+  targets as the send panel. Sending pastes only `@<path> ` (`insertPathReference`) and focuses a
+  same-workspace target; no report is written. Why a target is disabled ("busy") instead of
+  falling back to the clipboard: the menu closes on click, so a silent clipboard copy would look
+  like a send that did nothing. The tree highlights the row of the active editor pane's file
+  (`aria-current`); since an editor pane's `cwd` is its file's folder, that row is always at the
+  tree's top level.
+- **Agent session button** (`components/AgentSessionButton.tsx`, `lib/agentSession.ts`): the pane
+  header shows a robot icon with a state dot only while the pane's running command is an agent
+  (`commandAgent`). Its popover lists only what Pine knows: the title the agent set on the
+  terminal (spinner glyph stripped, `sessionTitle`), the resume id from its SessionStart hook,
+  the attention state and message, how long it has run, its folder and command.
+- **User actions** (`settings/actions.ts`, `lib/userActions.ts`, `PaneTabMenu.tsx`,
+  `ActionConfirmDialog`, `ActionsSection`): `settings.json` `actions` is a data list
+  (`parseActions`: id, title, palette `command`, `args`, an icon from `ACTION_ICONS`, places
+  `paneHeader` / `tabMenu`, optional `paneKinds`). `startUserActions` registers each as palette
+  command `action.<id>` (so keybindings work) and re-registers on change; the pane header
+  and the tab context menu render them per pane kind. `runUserAction` fills `{cwd}` / `{file}`
+  from the pane, and if the command declares any capability outside `DEFAULT_CAPABILITIES`
+  and its `actionFingerprint` (command + args, not the title) isn't in `trustedActions`,
+  asks first (Run once / Run and trust / Cancel) showing the exact command and args. Why
+  data and not code: agents can add actions with `pine settings set` (behind the
+  `settings-write` approval), and a click is still the human's; why the trust prompt: an
+  agent could otherwise label a button misleadingly over a command that types or
+  destroys. `trustedActions` is not a `DATA_KEYS` key and is local-only in settings sync.
+- **Update detection** (`main/appUpdate.ts`, `scripts/build-info.mjs`, `stores/updateStore.ts`,
+  `UpdateNotice`): every build writes `{version, commit, builtAt}` to `out/build-info.json`,
+  which electron-builder copies next to the app as `resources/build-info.json`. A packaged app
+  reads it at start, then re-reads it every 30 s and on window focus; when the file on disk
+  names a different build (a reinstall with `pnpm install:local` replaced the app folder), main
+  sends `app:update-available` once per build. The top bar shows "Restart to update" (with
+  Later), and a desktop notification appears if the window isn't focused. Restart is
+  `app.relaunch()` + `app.quit()`, so the close guard still asks about running commands and
+  workspaces restore as usual. Why a file outside `app.asar`: Electron caches an archive's
+  header, so reading a replaced asar can return the old contents. Dev builds (`pnpm dev`) don't
+  watch.
+- **Saved passwords** (`main/credentials.ts`, `shared/credentials.ts`, `PasswordsSection`):
+  `credentials.json` in the data dir holds `{id, origin, username, secret, updatedAt}` with
+  `secret` = `safeStorage`-encrypted password. Entries key on the exact origin
+  (`normalizeOrigin`), so `https://github.com.evil.io` never matches `https://github.com`;
+  the same origin + username updates in place. IPC: `credentials:list` (summaries only),
+  `save`, `remove`, `copy-password` (main writes the clipboard), `import` (main opens a file
+  dialog and reads a Chrome / Firefox / Bitwarden CSV by column name, `passwordRowsFromCsv`).
+  Why main and not the browser session: Electron ships no password manager, and anything in
+  the page's storage is readable by the page.
+- **Window title** (`settings/windowTitle.ts`, `lib/useWindowTitle.ts`): `appearance.windowTitle`
+  is a template (`{workspace}`, `{pane}`, `{cwd}`, `{product}`) set as `document.title`, which
+  Electron uses for the OS window title; separators left at the edges by an empty value are
+  trimmed, and an empty result falls back to the product name.
+- **Terminal link cursor** (`lib/linkModifier.ts`): file and URL links open only with Ctrl (⌘ on
+  macOS), so the host carries `link-modifier` while that key is held and CSS lets xterm's
+  `xterm-cursor-pointer` show only then; otherwise the cursor stays the I-beam.
 
     `## Selected text` holds the selection in a fence (tagged with the file extension for Monaco
     text), lengthened when the text itself contains a fence.
@@ -1348,27 +1432,71 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   - `browser:register` requires that the sender owns the pane and that the webContents is a
     `webview` guest hosted by that sender. Why: otherwise a renderer could register Pine's own
     webContents and drive it with `browse.eval`.
-- **Automation** (`main/browse.ts`): about 45 `browse.*` methods, all behind the elevated
-  `browse` cap.
-  - **Target**: an explicit pane id is an external id, and driving another workspace's pane also
-    needs `all-workspaces`. With no pane id, the first browser pane in the caller's workspace is used.
-  - **Mechanics**:
-    - Most methods use `executeJavaScript` with an injected `window.__pine` helper (element refs
-      `eN`, role/name guesses, a current-frame pointer).
-    - Keys use `sendInputEvent`, screenshots use `capturePage`, and cookies/storage use
-      `guest.session`.
-    - Scripts that must run on every future page load (`addinitscript`, the dialog override, the
-      error catcher) go through the CDP debugger (`Page.addScriptToEvaluateOnNewDocument`).
-  - **Security**: every agent-supplied string is `JSON.stringify`-ed into generated JS.
-    `screenshot`, `state` and `download` output paths go through `resolveSafe`.
+- **Automation** (`main/browse.ts`, `cli/browse.ts` + `cli/browseArgs.ts`,
+  `shared/browseRuntime.ts`, `shared/browseSnapshot.ts`, `shared/browseInput.ts`): `pine browse`
+  follows vercel-labs/agent-browser's command contract (verb names, argument shapes, the
+  `snapshot` + `@eN` ref model, `--json` as `{success, data, error}`, `batch`), driving Pine's
+  own browser panes. Every `browse.*` method needs the elevated `browse` cap.
+  - **Target**: an explicit pane id (`--pane`) is an external id, and driving another
+    workspace's pane also needs `all-workspaces`. With no pane id, the caller's active tab is used
+    (set by `open`, `tab new`, `tab <id>`, `click --new-tab`; only honored inside the caller's
+    workspace), else the first browser pane in the caller's workspace. `open` with no browser pane
+    creates one and waits (≤ 10 s) for it to register so it can return its `tabId`. Tab ids are
+    pane external ids.
+  - **Page runtime**: element work runs in `browseRuntime(window)`, one self-contained function
+    shipped with `toString()` into `executeJavaScriptInIsolatedWorld(BROWSE_WORLD_ID, …)`
+    (`main/browseWorld.ts`). Why: in the page's main world the page could read or rewrite the
+    ref table and fake what the agent sees; the isolated world shares the DOM and storage but not
+    JS globals. The runtime is unit-tested in jsdom. Only `eval`, `wait --fn`, `pushstate`, the
+    dialog override and `react-grab` run in the main world, because they need page globals.
+  - **Snapshot**: the runtime walks the DOM (shadow roots, same-origin iframes inlined, hidden
+    and `aria-hidden` subtrees skipped) into role/name/state nodes, with implicit ARIA roles and a
+    simplified accessible name; main formats it (`formatSnapshot`: `-i` interactive only, `-c`
+    compact, `-d` depth, `-u` urls) as `- role "name" [ref=eN] [level=1]` lines. Refs are kept per
+    element in a `WeakMap`, so a surviving element keeps its ref across snapshots; a navigation
+    resets the isolated world and every ref. Password values are never printed.
+  - **Input**: `click`, `dblclick`, `hover`, `drag` and `mouse` are real `sendInputEvent` mouse
+    events at the element's center (CSS px × zoom factor, same-origin iframe offsets added). Why:
+    trusted events, `:hover` and React handlers behave as for a human. Before a click the runtime
+    scrolls the element in if needed and fails with `covered by <tag#id.class>` when another
+    element is on top (agent-browser's behavior). `type` and `keyboard type` send key events per
+    character; `press` takes combos (`Control+a`, `parseKeyCombo`); `fill` sets the value through
+    the native setter and fires `input`/`change`; `check`/`uncheck` click only when the state
+    differs, then verify it.
+  - **CDP** (the debugger attached at instrumentation): init scripts (`addinitscript` /
+    `removeinitscript`, the dialog override, the error catcher), `upload` (the runtime marks the
+    input, then `DOM.performSearch` + `DOM.setFileInputFiles`), full-page `screenshot --full`,
+    `set viewport|media|offline|headers|geo`, and `network route|unroute` through the `Fetch`
+    domain (abort with `BlockedByClient`, or fulfill a `--body`). `network requests` reads the
+    per-guest request log `guestNetwork.ts` keeps from `Network.*` events (500 entries), which
+    also backs `wait --load networkidle` (no pending request for 500 ms).
+  - **Security**: agent strings reach generated JS only as `JSON.stringify`-ed arguments.
+    `screenshot`, `pdf`, `state`, `upload` and `wait --download` paths go through `resolveSafe`
+    (the CLI resolves them against its cwd first). The CLI reads stdin only for `eval --stdin`
+    and for `batch` without arguments.
   - **Gotchas**:
-    - `dom-ready` fires on every navigation, so the console listener is attached once
-      (`listenerCount` guard) and injected scripts guard against running twice.
-    - Chrome allows one debugger per guest, so the error catcher silently fails if DevTools is
-      open on that pane.
+    - Chrome allows one debugger per guest, so CDP features and the error catcher stop if
+      DevTools (`inspect`) is open on that pane.
     - `<webview>` can't intercept synchronous dialogs, so `alert/confirm/prompt` are replaced and
-      follow a standing accept/dismiss policy that resets to dismiss on every navigation.
-    - Element refs and `reactGrab` state are lost on navigation.
+      follow a standing accept/dismiss policy that resets to dismiss on every navigation;
+      `dialog status` shows the policy and the log.
+    - After input events the handler waits ~30 ms and a JS round trip before answering, so the
+      next command sees the page after the input.
+    - Default wait timeout 25 s (agent-browser's), capped at 120 s.
+  - **Not carried over from agent-browser**: browser launch/session/profile/CDP-connect flags
+    (Pine owns the browser), `clipboard` (the human's clipboard), `diff`, `trace`, `profiler`,
+    `record`, HAR, `react`/`vitals`/`a11y`, `screenshot --annotate`, `set device|credentials`,
+    `window new`, tab labels, `read <url>` and state files beyond `state save|load`.
+- **Storage viewer** (`components/BrowserStoragePanel.tsx`, `main/browserStorage.ts`,
+  `shared/browserStorage.ts`): the toolbar's storage toggle opens a drawer under the page with
+  Cookies / Local storage / Session storage tabs, a filter, refresh, copy, edit, delete and a
+  confirmed clear-all. Cookies are the pane's whole partition jar (`session.cookies`); web
+  storage is the top page's origin, read and written through the same isolated browse world.
+  The `browser:storage-*` IPC serves only a pane the sending window owns (`ownedGuest`) and
+  validates every edit in main (`normalizeStorageEdit` / `normalizeStorageRemoval`: kinds, key
+  ≤ 4 KiB, value ≤ 5 MiB, cookie domain/path). A host-only cookie is written back without a
+  domain so it stays host-only. The drawer re-reads on every main-frame navigation. Agent
+  `cookies` / `storage` verbs share these main functions.
 - **Pick element** (`main/browsePick.ts`, `shared/pickRuntime.ts`, `shared/pick.ts`,
   `components/BrowserView.tsx` + `PickSendPanel.tsx`, `lib/sendPick.ts`):
   - The inspector is one self-contained function, `pickRuntime(window)`, serialized with
@@ -1400,8 +1528,8 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   - Iframes aren't inspected: events inside a child frame don't reach the top window.
 - **Your real Chrome**: Pine doesn't speak CDP to it; `docs/CHROME.md` pairs agents with Chrome
   DevTools MCP.
-  - **Limits**: console and errors 500 each, dialogs 200, snapshot 2000 nodes, depth 40
-    (max 200).
+  - **Limits**: console and errors 500 each, dialogs 200, network log 500, snapshot 3000 nodes,
+    names 200 characters.
 
 ## 10. Testing and packaging
 

@@ -7,11 +7,11 @@ export function registerSelectionSendCommand(): void {
   commands.register<undefined, { opened: true }>({
     id: SEND_SELECTION_COMMAND,
     title: 'Send Selection to Agent',
-    category: 'Editor',
+    category: 'Pane',
     target: 'active',
     run: (_args, ctx) => {
       if (!ctx.activePaneId || !openSelectionSend(ctx.activePaneId)) {
-        throw new Error('the active pane is not a file view')
+        throw new Error('the active pane has no selection to send')
       }
       return { opened: true }
     },

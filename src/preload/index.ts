@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { ApprovalState } from '../shared/approvals'
+import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
+import type { BuildInfo } from '../shared/buildInfo'
 import type { SpecCommand } from '../shared/completionSpec'
+import type {
+  CredentialImportResult,
+  CredentialSaveResult,
+  CredentialSummary,
+} from '../shared/credentials'
 import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
@@ -167,6 +175,40 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, state: PickState): void => cb(state)
       ipcRenderer.on('browser:pick-state', handler)
       return () => ipcRenderer.removeListener('browser:pick-state', handler)
+    },
+    storageRead: (paneId) =>
+      ipcRenderer.invoke('browser:storage-read', paneId) as Promise<BrowserStorageRead>,
+    storageSet: (paneId, edit) =>
+      ipcRenderer.invoke('browser:storage-set', paneId, edit) as Promise<StorageWriteResult>,
+    storageRemove: (paneId, removal) =>
+      ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
+    storageClear: (paneId, kind) =>
+      ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
+  },
+  update: {
+    state: () => ipcRenderer.invoke('app:update-state') as Promise<BuildInfo | null>,
+    restart: () => ipcRenderer.invoke('app:restart') as Promise<void>,
+    onAvailable: (cb) => {
+      const handler = (_event: unknown, info: BuildInfo): void => cb(info)
+      ipcRenderer.on('app:update-available', handler)
+      return () => ipcRenderer.removeListener('app:update-available', handler)
+    },
+  },
+  credentials: {
+    list: () => ipcRenderer.invoke('credentials:list') as Promise<CredentialSummary[]>,
+    save: (input) => ipcRenderer.invoke('credentials:save', input) as Promise<CredentialSaveResult>,
+    remove: (id) => ipcRenderer.invoke('credentials:remove', id) as Promise<boolean>,
+    copyPassword: (id) => ipcRenderer.invoke('credentials:copy-password', id) as Promise<boolean>,
+    import: () => ipcRenderer.invoke('credentials:import') as Promise<CredentialImportResult>,
+  },
+  approvals: {
+    state: () => ipcRenderer.invoke('approvals:state') as Promise<ApprovalState>,
+    answer: (id, answer) => ipcRenderer.invoke('approvals:answer', id, answer) as Promise<boolean>,
+    revoke: (id) => ipcRenderer.invoke('approvals:revoke', id) as Promise<boolean>,
+    onChange: (cb) => {
+      const handler = (_event: unknown, state: ApprovalState): void => cb(state)
+      ipcRenderer.on('approvals:changed', handler)
+      return () => ipcRenderer.removeListener('approvals:changed', handler)
     },
   },
   selection: {

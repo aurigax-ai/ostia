@@ -1,6 +1,8 @@
 import {
   type AutoSaveMode,
   type LineNumberMode,
+  OPEN_FILES_IN,
+  type OpenFilesIn,
   SEARCH_ENGINES,
   type SearchEngine,
   TAB_WIDTHS,
@@ -126,10 +128,22 @@ export function EditorSettingsSection(): JSX.Element {
     afterDelay: d.editorSettings.autoSaveAfterDelay,
     onFocusChange: d.editorSettings.autoSaveOnFocusChange,
   }
+  const openInLabel: Record<OpenFilesIn, string> = {
+    tab: d.editorSettings.openFilesInTab,
+    split: d.editorSettings.openFilesInSplit,
+  }
   return (
     <div>
       <SectionHead title={d.editorSettings.title} />
       <SettingsGroup title={d.editorSettings.groupView}>
+        <ControlRow label={d.editorSettings.openFilesIn} desc={d.editorSettings.openFilesInDesc}>
+          <SelectField
+            value={editor.openFilesIn}
+            onChange={(openFilesIn) => setEditor({ openFilesIn })}
+            label={d.editorSettings.openFilesIn}
+            options={OPEN_FILES_IN.map((m) => ({ value: m, label: openInLabel[m] }))}
+          />
+        </ControlRow>
         <ToggleRow
           label={d.editorSettings.wordWrap}
           desc={d.editorSettings.wordWrapDesc}

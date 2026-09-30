@@ -10,6 +10,7 @@ import {
   HardDrivesIcon,
   type Icon as IconComponent,
   InfoIcon,
+  KeyIcon,
   KeyboardIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
@@ -22,6 +23,7 @@ import {
   TranslateIcon,
   TreeStructureIcon,
 } from '@phosphor-icons/react'
+import type { ApprovalMode } from '@shared/approvals'
 import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import { PROMPT_STYLES, type PromptStyle } from '@shared/promptSettings'
@@ -42,6 +44,7 @@ import {
   SCROLL_SPEED_MAX,
   SCROLL_SPEED_MIN,
 } from '../settings/terminalPaneSettings'
+import { WINDOW_TITLE_MAX } from '../settings/windowTitle'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { type LspStatus, usePluginsStore } from '../stores/pluginsStore'
 import {
@@ -62,6 +65,7 @@ import {
   useSettingsStore,
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { ActionsSection } from './ActionsSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { FontPicker } from './FontPicker'
@@ -69,6 +73,7 @@ import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
+import { PasswordsSection } from './PasswordsSection'
 import { activeTerminalPaneId } from './PromptEditorDialog'
 import { SyncSection } from './SyncSection'
 import { WorkspacesSection } from './WorkspacesSection'
@@ -93,6 +98,7 @@ type SectionId =
   | 'agents'
   | 'files'
   | 'browser'
+  | 'passwords'
   | 'editor'
   | 'plugins'
   | 'languageServers'
@@ -138,6 +144,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'agents', icon: RobotIcon, label: d.settings.agents },
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
+        { id: 'passwords', icon: KeyIcon, label: d.passwords.title },
         { id: 'editor', icon: CodeIcon, label: d.editorSettings.title },
         { id: 'plugins', icon: StackIcon, label: d.settings.plugins },
         { id: 'languageServers', icon: HardDrivesIcon, label: d.settings.languageServers },
@@ -208,7 +215,12 @@ export function SettingsPanel(): JSX.Element | null {
           <div className="mx-auto max-w-3xl px-8 py-5">
             {active === 'appearance' ? <AppearanceSection /> : null}
             {active === 'terminal' ? <TerminalSection /> : null}
-            {active === 'keyboard' ? <KeyboardSection /> : null}
+            {active === 'keyboard' ? (
+              <>
+                <KeyboardSection />
+                <ActionsSection />
+              </>
+            ) : null}
             {active === 'panes' ? <PanesSection /> : null}
             {active === 'notifications' ? <NotificationsSection /> : null}
             {active === 'sidebar' ? <SidebarSection /> : null}
@@ -216,6 +228,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'agents' ? <AgentsSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'browser' ? <BrowserSettingsSection /> : null}
+            {active === 'passwords' ? <PasswordsSection /> : null}
             {active === 'editor' ? <EditorSettingsSection /> : null}
             {active === 'plugins' ? <PluginsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}
@@ -408,6 +421,7 @@ function AppearanceSection(): JSX.Element {
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupDisplay}>
         <ZoomRow />
+        <WindowTitleRow />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupFonts}>
         <FontRow surface="ui" label={d.settings.uiFont} />
@@ -416,6 +430,33 @@ function AppearanceSection(): JSX.Element {
         <FontRow surface="editor" label={d.settings.editorFont} />
       </SettingsGroup>
     </div>
+  )
+}
+
+function WindowTitleRow(): JSX.Element {
+  const d = useDict()
+  const template = useSettingsStore((s) => s.appearance.windowTitle)
+  const setWindowTitle = useSettingsStore((s) => s.setWindowTitle)
+  const [draft, setDraft] = useState(template)
+  useEffect(() => setDraft(template), [template])
+  const commit = (): void => {
+    if (draft !== template) setWindowTitle(draft)
+  }
+  return (
+    <ControlRow label={d.settings.windowTitle} desc={d.settings.windowTitleDesc}>
+      <Input
+        value={draft}
+        spellCheck={false}
+        maxLength={WINDOW_TITLE_MAX}
+        aria-label={d.settings.windowTitle}
+        className="h-7 w-56 font-mono text-ui-sm"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+        }}
+      />
+    </ControlRow>
   )
 }
 
@@ -714,9 +755,24 @@ function AgentsSection(): JSX.Element {
   const d = useDict()
   const hibernation = useSettingsStore((s) => s.agents.hibernation)
   const set = useSettingsStore((s) => s.setHibernation)
+  const approvalMode = useSettingsStore((s) => s.approvals.mode)
+  const setApprovalMode = useSettingsStore((s) => s.setApprovalMode)
   return (
     <div>
       <SectionHead title={d.settings.agents} />
+      <SettingsGroup title={d.approvals.inbox}>
+        <ControlRow label={d.approvals.mode} desc={d.approvals.modeDesc}>
+          <SelectField
+            value={approvalMode}
+            onChange={(mode) => setApprovalMode(mode as ApprovalMode)}
+            label={d.approvals.mode}
+            options={[
+              { value: 'ask', label: d.approvals.modeAsk },
+              { value: 'allow', label: d.approvals.modeAllow },
+            ]}
+          />
+        </ControlRow>
+      </SettingsGroup>
       <SettingsGroup title={d.settings.groupPerformance}>
         <ToggleRow
           label={d.settings.hibernate}
@@ -1075,45 +1131,44 @@ export function ExtensionsSection(): JSX.Element {
       ) : (
         <ul className="flex flex-col">
           {list.map((ext) => (
-            <li
-              key={ext.id}
-              className="flex items-start justify-between gap-6 rounded-sm px-3 py-2"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-fg text-ui-base">{ext.name}</span>
-                  <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
-                  {ext.builtin ? (
-                    <span className="rounded-sm border border-line px-1.5 text-fg-muted text-ui-xs">
-                      {d.settings.builtin}
-                    </span>
+            <li key={ext.id} className="flex flex-col rounded-sm px-3 py-2">
+              <div className="flex items-start justify-between gap-6">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-fg text-ui-base">{ext.name}</span>
+                    <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
+                    {ext.builtin ? (
+                      <span className="rounded-sm border border-line px-1.5 text-fg-muted text-ui-xs">
+                        {d.settings.builtin}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 text-fg-muted text-ui-sm">{ext.description}</p>
+                  <p className="mt-0.5 text-fg-muted text-ui-xs">
+                    {extensionStatusLabel(d, ext)} · {d.extensions.permissions}:{' '}
+                    {ext.granted.length > 0 ? ext.granted.join(', ') : d.extensions.noPermissions}
+                  </p>
+                  {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
+                    <p className="mt-0.5 text-attn-fg text-ui-xs">
+                      {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
+                    </p>
                   ) : null}
                 </div>
-                <p className="mt-0.5 text-fg-muted text-ui-sm">{ext.description}</p>
-                <p className="mt-0.5 text-fg-muted text-ui-xs">
-                  {extensionStatusLabel(d, ext)} · {d.extensions.permissions}:{' '}
-                  {ext.granted.length > 0 ? ext.granted.join(', ') : d.extensions.noPermissions}
-                </p>
-                {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
-                  <p className="mt-0.5 text-attn-fg text-ui-xs">
-                    {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
-                  </p>
-                ) : null}
-                <ExtensionSettingsForm ext={ext} />
+                <div className="flex shrink-0 items-center gap-2">
+                  {!ext.builtin &&
+                  (ext.status === 'pending-approval' || ext.unapproved.length > 0) ? (
+                    <Button variant="outline" size="sm" onClick={() => review(ext.id)}>
+                      {d.extensions.review}
+                    </Button>
+                  ) : null}
+                  <Switch
+                    checked={ext.enabled}
+                    onCheckedChange={(v) => void setEnabled(ext.id, v)}
+                    aria-label={fmt(d.extensions.enable, { name: ext.name })}
+                  />
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {!ext.builtin &&
-                (ext.status === 'pending-approval' || ext.unapproved.length > 0) ? (
-                  <Button variant="outline" size="sm" onClick={() => review(ext.id)}>
-                    {d.extensions.review}
-                  </Button>
-                ) : null}
-                <Switch
-                  checked={ext.enabled}
-                  onCheckedChange={(v) => void setEnabled(ext.id, v)}
-                  aria-label={fmt(d.extensions.enable, { name: ext.name })}
-                />
-              </div>
+              <ExtensionSettingsForm ext={ext} />
             </li>
           ))}
         </ul>

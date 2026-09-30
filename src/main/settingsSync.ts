@@ -7,7 +7,12 @@ import type { SyncConflict, SyncStatus } from '../shared/types'
 export const SETTINGS_FILE = 'settings.json'
 export const EXTENSIONS_FILE = 'extensions.json'
 export const SYNC_STATE_FILE = 'sync-state.json'
-export const SETTINGS_LOCAL_ONLY_KEYS = ['sync', 'capabilities'] as const
+export const SETTINGS_LOCAL_ONLY_KEYS = [
+  'sync',
+  'capabilities',
+  'approvals',
+  'trustedActions',
+] as const
 
 export interface SyncedFileSpec {
   name: string

@@ -56,3 +56,7 @@ export function hasCap(externalId: string, cap: Capability): boolean {
 export function dropIdentity(externalId: string): void {
   grants.delete(externalId)
 }
+
+export function revoke(externalId: string, cap: Capability): void {
+  grants.get(externalId)?.delete(cap)
+}

@@ -272,6 +272,12 @@
   border-right: 1px solid var(--line);
 }
 
+.update-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .topbar-right {
   display: flex;
   align-items: center;
@@ -787,6 +793,11 @@
 
 .file-row:hover {
   background: var(--surface-2);
+  color: var(--fg);
+}
+
+.file-row.active {
+  background: var(--surface-3);
   color: var(--fg);
 }
 
@@ -1451,6 +1462,10 @@ button.prompt-chip:focus-visible {
   height: 100%;
 }
 
+.xterm-host:not(.link-modifier) .xterm .xterm-cursor-pointer {
+  cursor: inherit;
+}
+
 .xterm-host .xterm .xterm-viewport {
   background-color: transparent;
 }
@@ -1918,6 +1933,20 @@ button.prompt-chip:focus-visible {
   position: absolute;
   top: 0;
   right: -2px;
+  pointer-events: none;
+}
+
+.agent-session {
+  position: relative;
+  display: inline-flex;
+}
+
+.agent-session .agent-session-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
   pointer-events: none;
 }
 

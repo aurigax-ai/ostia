@@ -79,9 +79,31 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       pickCancel: vi.fn(),
       pickSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       onPickState: vi.fn(noopUnsub),
+      storageRead: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
+      storageSet: vi.fn().mockResolvedValue({ ok: true }),
+      storageRemove: vi.fn().mockResolvedValue({ ok: true }),
+      storageClear: vi.fn().mockResolvedValue({ ok: true }),
     },
     selection: {
       send: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+    },
+    update: {
+      state: vi.fn().mockResolvedValue(null),
+      restart: vi.fn().mockResolvedValue(undefined),
+      onAvailable: vi.fn(() => () => {}),
+    },
+    credentials: {
+      list: vi.fn().mockResolvedValue([]),
+      save: vi.fn().mockResolvedValue({ ok: true, id: 'c1', updated: false }),
+      remove: vi.fn().mockResolvedValue(true),
+      copyPassword: vi.fn().mockResolvedValue(true),
+      import: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
+    },
+    approvals: {
+      state: vi.fn().mockResolvedValue({ pending: [], history: [] }),
+      answer: vi.fn().mockResolvedValue(true),
+      revoke: vi.fn().mockResolvedValue(true),
+      onChange: vi.fn(() => () => {}),
     },
     extensions: {
       list: vi.fn().mockResolvedValue([]),

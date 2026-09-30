@@ -78,11 +78,13 @@ export const WORD_WRAPS = ['off', 'on'] as const
 export const LINE_NUMBER_MODES = ['on', 'off', 'relative'] as const
 export const TAB_WIDTHS = [2, 4, 8] as const
 export const AUTO_SAVE_MODES = ['off', 'afterDelay', 'onFocusChange'] as const
+export const OPEN_FILES_IN = ['tab', 'split'] as const
 
 export type WordWrap = (typeof WORD_WRAPS)[number]
 export type LineNumberMode = (typeof LINE_NUMBER_MODES)[number]
 export type TabWidth = (typeof TAB_WIDTHS)[number]
 export type AutoSaveMode = (typeof AUTO_SAVE_MODES)[number]
+export type OpenFilesIn = (typeof OPEN_FILES_IN)[number]
 
 export const AUTO_SAVE_DELAY_MS = 1000
 
@@ -93,6 +95,7 @@ export interface EditorSettings {
   insertSpaces: boolean
   autoSave: AutoSaveMode
   formatOnSave: boolean
+  openFilesIn: OpenFilesIn
 }
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -102,6 +105,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   insertSpaces: true,
   autoSave: 'off',
   formatOnSave: false,
+  openFilesIn: 'tab',
 }
 
 export function parseEditorSettings(raw: unknown): EditorSettings {
@@ -114,5 +118,6 @@ export function parseEditorSettings(raw: unknown): EditorSettings {
     insertSpaces: typeof src.insertSpaces === 'boolean' ? src.insertSpaces : true,
     autoSave: oneOf(AUTO_SAVE_MODES, src.autoSave, defaults.autoSave),
     formatOnSave: typeof src.formatOnSave === 'boolean' ? src.formatOnSave : false,
+    openFilesIn: oneOf(OPEN_FILES_IN, src.openFilesIn, defaults.openFilesIn),
   }
 }

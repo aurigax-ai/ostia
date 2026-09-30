@@ -6,10 +6,14 @@ const {
 } = require('vscode-jsonrpc/node')
 
 const socket = createConnection(process.env.PINE_SOCKET)
-const conn = createMessageConnection(new StreamMessageReader(socket), new StreamMessageWriter(socket))
+const conn = createMessageConnection(
+  new StreamMessageReader(socket),
+  new StreamMessageWriter(socket),
+)
 
 conn.onRequest('ext.command', async ({ command, args, caller }) => {
-  if (command === 'echo') return { ok: true, text: 'echoed', data: { args, caller, pid: process.pid } }
+  if (command === 'echo')
+    return { ok: true, text: 'echoed', data: { args, caller, pid: process.pid } }
   if (command === 'guarded') return { ok: true, text: 'guarded ran' }
   if (command === 'probe') {
     try {
@@ -19,7 +23,8 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
       return { ok: false, error: 'rejected', message: err.message }
     }
   }
-  if (command === 'notify') return conn.sendRequest('ext.notify', { title: 'from echo', body: 'hi' })
+  if (command === 'notify')
+    return conn.sendRequest('ext.notify', { title: 'from echo', body: 'hi' })
   if (command === 'diff') return conn.sendRequest('ext.openDiff', args)
   if (command === 'workspaces') {
     return { ok: true, data: await conn.sendRequest('workspace.list') }
