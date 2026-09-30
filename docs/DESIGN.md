@@ -170,7 +170,7 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
   drag handle for moving panes. Focus follows cmux: no border around the focused pane; the
   selected tab carries a 2px top line (brand in the focused pane, `--line-strong` elsewhere), and
   in a split every unfocused pane's body is dimmed by a `--bg` overlay at 30% (cmux's
-  `unfocused-split-opacity` 0.7). Tabs are square and flush. Workspaces have no tab strip.
+  `unfocused-split-opacity` 0.7; Settings → Panes → Dim inactive panes turns it off). Tabs are square and flush. Workspaces have no tab strip.
 
 ## 6. Signature: workspace status
 
@@ -213,6 +213,9 @@ Attention, the second loud element, appears only when a pane needs you:
 - **Hand-roll only** when the thing is not a form control: live canvases (xterm, Monaco),
   measured overlays (`Blocks.tsx`), and dense product rows (rail row, pane header). Build one
   shared component per role. Tooltips go through `Hint`, never native `title=`.
+- **Settings numbers** (`NumberRow`): a number input that commits only in-range values while you
+  type and snaps back to the stored value on blur, so typing `5000` never passes through a clamped
+  `5`. Risky-paste confirmation is a shadcn `Dialog` with a monospace, scrollable preview.
 - **Settings row**: label (plus an optional description) on the left, control on the right,
   about `py-1.5`. Group heads are `ui-lg`/600 with a `--line` divider. Use rows, not cards,
   unless the item is a separable object with its own actions (a plugin). The shared pieces live

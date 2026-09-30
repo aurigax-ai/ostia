@@ -20,12 +20,14 @@ import type { PaneNode, SurfaceKind } from '../layout/types'
 import { needsRing } from '../lib/attention'
 import { isIdlePrompt } from '../lib/blocks'
 import { useChordLabel } from '../lib/chords'
+import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '../lib/hoverFocus'
 import { isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePaneDnd } from '../stores/paneDndStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
@@ -82,6 +84,37 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
   const ring = needsRing(attention)
   const unread = attention?.unread ?? false
   const frameRef = useRef<HTMLDivElement>(null)
+  const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
+  const focusOnHover = useSettingsStore((s) => s.panes.focusOnHover)
+  const hideTabClose = useSettingsStore((s) => s.panes.hideTabClose)
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame || !focusOnHover || active) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const cancel = (): void => {
+      if (timer) clearTimeout(timer)
+      timer = null
+    }
+    const arm = (e: MouseEvent): void => {
+      cancel()
+      if (e.buttons !== 0) return
+      timer = setTimeout(() => {
+        timer = null
+        if (!canFocusOnHover(document)) return
+        void commands.exec('pane.focus', { paneId: shown.id })
+        requestAnimationFrame(() => focusSurface(shown.id))
+      }, HOVER_FOCUS_DELAY_MS)
+    }
+    frame.addEventListener('mouseenter', arm)
+    frame.addEventListener('mouseleave', cancel)
+    frame.addEventListener('mousedown', cancel, true)
+    return () => {
+      cancel()
+      frame.removeEventListener('mouseenter', arm)
+      frame.removeEventListener('mouseleave', cancel)
+      frame.removeEventListener('mousedown', cancel, true)
+    }
+  }, [focusOnHover, active, shown.id])
   useEffect(() => {
     const frame = frameRef.current
     if (!frame) return
@@ -116,7 +149,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
 
   return (
     <div
-      className={`pane${active ? ' active' : ''}${split && !active ? ' dimmed' : ''}${ring ? ' attn-ring' : ''}`}
+      className={`pane${active ? ' active' : ''}${split && !active && dimInactive ? ' dimmed' : ''}${ring ? ' attn-ring' : ''}`}
       data-attention={unread ? attention?.state : undefined}
       ref={frameRef}
       onDragOver={onDragOver}
@@ -125,7 +158,13 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
       <div className="pane-header">
         <div className="pane-tabs" role="tablist" aria-label={d.pane.tabs}>
           {tabs.map((tab) => (
-            <PaneTab key={tab.id} pane={tab} selected={tab.id === shown.id} onDragEnd={reset} />
+            <PaneTab
+              key={tab.id}
+              pane={tab}
+              selected={tab.id === shown.id}
+              onDragEnd={reset}
+              showClose={!hideTabClose}
+            />
           ))}
         </div>
         {unread && attention?.message ? (
@@ -196,10 +235,12 @@ function PaneTab({
   pane,
   selected,
   onDragEnd,
+  showClose,
 }: {
   pane: PaneNode
   selected: boolean
   onDragEnd: () => void
+  showClose: boolean
 }): JSX.Element {
   const d = useDict()
   const panelIcon = useExtensionsStore((s) =>
@@ -249,12 +290,14 @@ function PaneTab({
           />
         ) : null}
       </button>
-      <IconButton
-        icon={XIcon}
-        label={d.pane.closeTab}
-        className="pane-tab-close hover:text-attn-fg"
-        onClick={() => commands.exec('pane.close', { paneId: pane.id })}
-      />
+      {showClose ? (
+        <IconButton
+          icon={XIcon}
+          label={d.pane.closeTab}
+          className="pane-tab-close hover:text-attn-fg"
+          onClick={() => commands.exec('pane.close', { paneId: pane.id })}
+        />
+      ) : null}
     </div>
   )
 }

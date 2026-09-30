@@ -64,6 +64,21 @@ export function paneIds(node: LayoutNode): string[] {
   return node.children.flatMap(paneIds)
 }
 
+export function slotCount(node: LayoutNode): number {
+  if (node.type === 'split') return node.children.reduce((n, c) => n + slotCount(c), 0)
+  return 1
+}
+
+export function equalizeSizes(node: LayoutNode): LayoutNode {
+  if (node.type !== 'split') return node
+  const children = node.children.map(equalizeSizes)
+  const sizes = node.children.map(() => 1)
+  const sameChildren = children.every((c, i) => c === node.children[i])
+  const sameSizes = node.sizes.length === sizes.length && node.sizes.every((n) => n === 1)
+  if (sameChildren && sameSizes) return node
+  return { ...node, children, sizes }
+}
+
 export function allPanes(node: LayoutNode): PaneNode[] {
   if (node.type === 'pane') return [node]
   return node.children.flatMap(allPanes)

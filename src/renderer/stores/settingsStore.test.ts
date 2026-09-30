@@ -14,6 +14,8 @@ type Persisted = Pick<
   | 'browser'
   | 'editor'
   | 'keybindings'
+  | 'terminal'
+  | 'panes'
 >
 
 describe('settingsStore', () => {
@@ -43,6 +45,8 @@ describe('settingsStore', () => {
       locale: s.locale,
       appearance: s.appearance,
       behavior: s.behavior,
+      terminal: s.terminal,
+      panes: s.panes,
       notifications: s.notifications,
       sidebar: s.sidebar,
       workspaces: s.workspaces,
@@ -287,6 +291,8 @@ describe('settingsStore', () => {
         locale: s.locale,
         appearance: s.appearance,
         behavior: s.behavior,
+        terminal: s.terminal,
+        panes: s.panes,
         notifications: s.notifications,
         sidebar: s.sidebar,
         workspaces: s.workspaces,
@@ -320,6 +326,8 @@ describe('settingsStore', () => {
         locale: s.locale,
         appearance: s.appearance,
         behavior: s.behavior,
+        terminal: s.terminal,
+        panes: s.panes,
         notifications: s.notifications,
         sidebar: s.sidebar,
         workspaces: s.workspaces,
