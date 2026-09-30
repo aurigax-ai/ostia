@@ -100,6 +100,8 @@ import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
+import { ViewHost, ViewStore } from './viewHost'
+import { registerViewMethods, registerViewsIpc } from './viewsIpc'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
 import { removeWorkspace, setWorkspaceWorkDir, workDirForWorkspace } from './workspaceRegistry'
 import {
@@ -242,6 +244,7 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
+let viewHost: ViewHost | null = null
 let settingsSync: SettingsSyncHandle | null = null
 
 const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
@@ -1077,6 +1080,14 @@ app.whenReady().then(() => {
     userDir: join(configDir(), 'completions'),
     extensionDirs: () => extensionHost?.completionDirs() ?? [],
   })
+  viewHost = new ViewHost({
+    dir: join(configDir(), 'views'),
+    store: new ViewStore(join(app.getPath('userData'), 'views.json')),
+    onChange: (listing) => broadcast('views:changed', listing),
+    log: (line) => console.warn(`[views] ${line}`),
+  })
+  registerViewsIpc(viewHost)
+  registerViewMethods({ host: viewHost, execCommand })
   registerIconThemeIpc({
     themes: () => extensionHost?.iconThemes() ?? [],
     onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
@@ -1118,6 +1129,7 @@ app.whenReady().then(() => {
   createWindow()
   extensionHost.startEager()
   extensionHost.watchUserExtensions()
+  viewHost.watch()
   app.on('browser-window-focus', emitFocusChanged)
   app.on('browser-window-blur', emitFocusChanged)
   setInterval(autosaveScrollback, SCROLLBACK_AUTOSAVE_MS).unref()
@@ -1175,6 +1187,7 @@ app.on('before-quit', (event) => {
   killAllLsp()
   killAllProcesses()
   extensionHost?.stopAll()
+  viewHost?.stop()
   settingsSync?.stop()
   stopControlServer()
   void stopGateway()

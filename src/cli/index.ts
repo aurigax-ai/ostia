@@ -11,6 +11,7 @@ import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runBrowse } from './browse'
+import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
 
 interface ProcInfo {
   id: string
@@ -290,6 +291,7 @@ const CORE_VERBS = new Set([
   'gateway',
   'ext',
   'workflow',
+  'view',
 ])
 
 interface BusOk {
@@ -976,6 +978,8 @@ commands:
   workspace group <name> | ungroup   move this workspace into a sidebar group, or out of it
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
   workflow list [--json] | show <name> [--json]   saved command workflows (read-only)
+  view list [--json] | open <name>   declarative views (~/.config/pine/views/<name>.json)
+  view validate <file> | schema      check a view file / print its JSON schema (no app needed)
   open <path>
   process | vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
@@ -1001,6 +1005,10 @@ async function main(): Promise<void> {
   const [cmd] = process.argv.slice(2)
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     console.log(USAGE)
+    return
+  }
+  if (isOfflineViewVerb(process.argv.slice(2))) {
+    process.exitCode = runOfflineViewVerb(process.argv.slice(2))
     return
   }
   if (!socketPath) {
@@ -1068,6 +1076,8 @@ async function main(): Promise<void> {
       await runResumeTokenVerb(conn)
     } else if (cmd === 'workflow') {
       await runWorkflowVerb(conn)
+    } else if (cmd === 'view') {
+      await runViewVerb(conn, process.argv.slice(3))
     } else if (cmd === 'open') {
       const arg = process.argv[3]
       if (!arg) {

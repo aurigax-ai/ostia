@@ -21,6 +21,7 @@ import { startAutoResume } from './lib/autoResume'
 import { startHibernation } from './lib/hibernationScheduler'
 import { startAgentDetection } from './lib/paneAgent'
 import { startUserActions } from './lib/userActions'
+import { registerViewCommands, startViews } from './lib/views'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startWorkspaceProjects } from './lib/workspaceProjects'
 import { startApprovals } from './stores/approvalsStore'
@@ -35,6 +36,7 @@ import { useWorkspacesStore } from './stores/workspacesStore'
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()
+registerViewCommands()
 wireCommandBridge()
 wireTerminalStateBridge()
 wireExtensionBridge()
@@ -70,6 +72,7 @@ async function boot(): Promise<void> {
   startWorkspaceProjects()
   startApprovals()
   startUserActions()
+  startViews()
   startUpdateWatch()
   startAssistAvailability()
   startAskCommand()

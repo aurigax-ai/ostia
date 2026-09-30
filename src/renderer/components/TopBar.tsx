@@ -79,7 +79,7 @@ export function TopBar(): JSX.Element {
           size="bar"
           icon={GearSixIcon}
           label={d.topbar.settings}
-          onClick={openSettings}
+          onClick={() => openSettings()}
         />
         <NotificationCenter />
       </div>

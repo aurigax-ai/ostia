@@ -76,6 +76,7 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `extensionHost.ts`, `extensionManifest.ts`, `extensionStore.ts` | Extension host: discovery + manifest validation, approval records, extension processes, `ext.*` control methods (§11) |
 | `extensionConfirm.ts` | The native confirm dialog behind `ext.confirm` (§11) |
 | `iconThemes.ts` | VS Code file icon themes from `contributes.iconThemes`: confined, size-capped loading into `data:` URLs, `iconThemes:load` IPC (§5) |
+| `viewHost.ts`, `viewsIpc.ts` | Declarative views: confined loading of `~/.config/pine/views/*.json`, last good tree, enablement store, `views:*` IPC, `view.list` / `view.open` control methods (§11) |
 | `workflows.ts` | Saved workflows: confined YAML loading (workspace, user, extension manifests), `workflows:list`/`workflows:save` IPC, `workflow.list` control method (§4) |
 | `settingsSync.ts`, `settingsSyncIpc.ts` | Settings sync: pure plan/merge + the file executor; triggers (startup, window focus, local file changes) and `sync:*` / `dialog:pick-folder` IPC (§5) |
 | `browse.ts`, `browseWorld.ts` | `browse.*` automation of browser panes, agent-browser contract; the isolated browse world (§9) |
@@ -104,6 +105,8 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
   `wiki.json` here (and a global `$XDG_DATA_HOME/pine/wiki.json`); those extensions were removed in
   favour of Trellis, and pine leaves the files in place without reading them.
 - `userData/extensions.json`: per-extension `{enabled, approved}` records (§11).
+- `$XDG_CONFIG_HOME/pine/views/<name>.json`: declarative views; `userData/views.json`: which of
+  them the human enabled (§11). Neither is synced.
 - `userData/sync-state.json`: the sync folder last synced with, a hash per synced file at the
   last sync, the last sync time and the last conflict (§5). The sync folder itself holds
   `settings.json`, `extensions.json` and any `*.conflict-<time>-<host>.json` copies.
@@ -2107,3 +2110,52 @@ the asar (a process can't use an asar path as cwd). They use only the public API
 small SDK in `src/extensions/sdk/`; their panels are served by an HTTP server on 127.0.0.1 in
 the extension process, gated by a per-run secret in the URL/header, a `Host` check, and an
 `Origin` check, and pushed live changes over SSE.
+
+### Declarative views
+
+A view is UI an agent can build without an extension process: one JSON file in
+`$XDG_CONFIG_HOME/pine/views/<name>.json`, drawn by the renderer with Pine's own components
+(`docs/EXTENSIONS.md` has the format).
+
+- **Schema** (`shared/views.ts`, `shared/viewBindings.ts`, `shared/viewSchema.ts`,
+  `shared/jsonLocated.ts`). `parseViewText` parses with a small location-tracking JSON reader
+  (duplicate keys refused, every value's line recorded by path) and validates strictly: known
+  node types and properties only, enums, http/https URLs, bindings whose first name is a data
+  source or an enclosing list's `as`, and the static budget (200 nodes, 10 levels). It reports
+  every problem as `{path, line, message}` and records which data sources the view reads
+  (`sources`) and whether it needs a clock tick (`ticks`). `viewJsonSchema()` is the published
+  schema; a test keeps its node types equal to the validator's. Why a hand-written reader:
+  agents iterate on `file:line: path: message`, and `JSON.parse` gives neither lines nor paths.
+- **Bindings** are `{{path | filter}}`: a path is names and indices, nothing is evaluated.
+  `lookup` follows only own properties of plain objects and array indices, and refuses
+  `__proto__`/`constructor`/`prototype` again at runtime, so `{{x.constructor}}`,
+  `{{list.length}}` or `{{s.toString}}` are undefined, never a function. A whole-string binding
+  keeps its type (`resolveValue`), so `{"index": "{{ws.index}}"}` passes a number.
+- **Main** (`viewHost.ts`, `viewsIpc.ts`). `ViewHost` reads `*.json` whose stem is a view name
+  (at most 50), refuses symlinks, non-files and files over 64 KiB (`readViewFile`), and keeps the
+  last doc that parsed per name (`lastGood`), so a broken edit to an enabled view reports its
+  problems while the old tree stays (`stale`). `fs.watch` on the folder, 150 ms debounce,
+  rescans and broadcasts `views:changed` only when the listing changed. Enablement is
+  `userData/views.json` (`ViewStore`, `{name: {enabled}}`); a file with no record is `pending`,
+  and the tree (`doc`) is sent to the renderer only for enabled views. IPC: `views:list`,
+  `views:set-enabled`, `views:reveal` (main shows the file it knows; the renderer names a view,
+  never a path). Control methods: `view.list` (`read-board`) and `view.open` (`drive-self`,
+  enabled panel views only, runs the renderer command `views.open` for the caller's pane). Why no
+  enable method on the socket: approval is the human's, as with extensions (CLAUDE.md §4).
+- **Renderer.** `stores/viewsStore.ts` holds the listing; `lib/views.ts` registers
+  `views.open` (hidden, `{name}`) and one palette command per enabled panel view
+  (`views.open.<name>`, "Views: Open <title>"). `lib/useViewScope.ts` builds the data from the
+  stores (`lib/viewData.ts` `buildViewScope`, only the sources the view reads; notifications
+  load only when asked for; the clock ticks only when `ticks`). `lib/viewExpand.ts` turns the doc
+  plus data into a render tree: lists expand with their item scope, `if` drops nodes, URLs that
+  don't resolve to http/https become null, and the draw budget (50 items per list without
+  `limit`, 1000 nodes) fails the whole expansion with a reason. `DeclarativeView.tsx` maps the
+  tree to shadcn components and keeps the last good tree in a ref, showing the reason inline when
+  over budget. Sidebar views render in `ViewsRail` below the workspaces (collapsible, hidden when
+  the rail is collapsed); panel views are a `view` surface (`ViewSurface`, pane `viewName`,
+  persisted in `workspaces.json`; an unknown or disabled view shows the way to Settings). Buttons
+  go through `runCommandAction` (`lib/userActions.ts`), the same path as user actions, with the
+  template args as the trust fingerprint and the view file named in the confirm dialog; links
+  and `openUrl` go through `openSidebarUrl`. Why in core and not an extension: a data-only tree
+  drawn with core components needs no process or webview, and drawing it with the real
+  components is what makes it look native; the only inputs are data the stores already expose.

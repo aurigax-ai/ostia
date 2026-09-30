@@ -2209,6 +2209,57 @@ button.prompt-chip:focus-visible {
   display: none;
 }
 
+.rail-views {
+  flex: 0 1 auto;
+  max-height: 50%;
+  overflow-y: auto;
+  margin: 0 4px;
+  padding: 2px 0 6px;
+  border-top: 1px solid var(--line);
+}
+
+.collapsed .rail-views {
+  display: none;
+}
+
+.rail-view-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px 4px;
+  border: 0;
+  background: none;
+  font-size: var(--text-ui-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  text-align: left;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.rail-view-head:hover {
+  color: var(--fg);
+}
+
+.rail-view-head:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.rail-view-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rail-view-body {
+  padding: 2px 12px 6px 28px;
+  font-size: var(--text-ui-sm);
+}
+
 .extension-surface {
   display: flex;
   width: 100%;
