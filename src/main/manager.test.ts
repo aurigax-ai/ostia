@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { AgentResume } from '../shared/agentResume'
 import { managerAgents, parseManagerSettings } from '../shared/managerSettings'
-import { ManagerError, type ManagerOpenRequest, ManagerService, parseOpenRequest } from './manager'
+import {
+  ManagerError,
+  type ManagerOpenRequest,
+  ManagerService,
+  managerWindowId,
+  parseOpenRequest,
+} from './manager'
 
 function service(initialResume: unknown = null) {
   const spawned: {
@@ -132,5 +138,13 @@ describe('ManagerService', () => {
     const bad = service({ agent: 'claude', resume: { agent: 'claude', id: '$(rm)' } })
     await bad.svc.open(req('claude'))
     expect(bad.spawned[0]?.resume).toBeNull()
+  })
+})
+
+describe('managerWindowId', () => {
+  it('MGR-C38 opens the manager only in the main window, once that window is ready', () => {
+    expect(managerWindowId('main', new Set(['detached', 'main']))).toBe('main')
+    expect(managerWindowId('main', new Set(['detached']))).toBeNull()
+    expect(managerWindowId(undefined, new Set(['detached']))).toBeNull()
   })
 })

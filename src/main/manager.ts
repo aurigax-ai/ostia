@@ -87,6 +87,13 @@ function clampDim(value: unknown, fallback: number): number {
   return Number.isInteger(n) && n > 0 && n <= 1000 ? n : fallback
 }
 
+export function managerWindowId(
+  mainWindowId: string | undefined,
+  readyWindowIds: ReadonlySet<string>,
+): string | null {
+  return mainWindowId !== undefined && readyWindowIds.has(mainWindowId) ? mainWindowId : null
+}
+
 export class ManagerService {
   private current: ManagerInfo | null = null
   private opening: Promise<ManagerInfo> | null = null
