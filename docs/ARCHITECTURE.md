@@ -1577,9 +1577,10 @@ webview's `src` does not fire `will-navigate`, so the attach-time check is the o
   (untracked or staged adds) and `~changed` (everything else), counted per path from
   `git status --porcelain=v2 --branch -z --untracked-files=all` (`status.ts`). Non-repo → no
   item. Refreshed 300 ms after `cwd.changed`, `command.finished`, `pane.created/closed`, and
-  every `pollSeconds` (setting, default 10, at least 2) only while a pine window is focused
-  (`focus.changed`); a refresh in flight coalesces the next. Why the poll: edits by an editor or
-  agent outside a terminal command fire no event.
+  every `pollSeconds` (setting, default 10, clamped to 2..3600 by `readGitSettings`) only while
+  a pine window is focused (`focus.changed`); a refresh in flight coalesces the next. Why the
+  poll: edits by an editor or agent outside a terminal command fire no event. Why the cap: Node
+  turns a `setInterval` delay above 2^31-1 ms into 1 ms, so an unbounded value meant nonstop git.
 - Pane chips, in the same refresh: every terminal pane whose cwd is in a repo gets `branch`
   (`branchChipText`: branch or short sha, then `• ↑ahead ↓behind` against an upstream, counts
   capped at `999+`, Warp's branch status format) and `diff-stats` (`files • +added -removed` from

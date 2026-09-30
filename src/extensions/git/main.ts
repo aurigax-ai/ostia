@@ -34,6 +34,7 @@ import {
   unifiedPatch,
   unstage,
 } from './repo'
+import { type GitSettings, readGitSettings } from './settings'
 import {
   type ChangeArea,
   type RepoStatus,
@@ -46,8 +47,6 @@ import { stringsFor } from './strings'
 import { WorkspaceCwds } from './workspaces'
 
 const REFRESH_DEBOUNCE_MS = 300
-const DEFAULT_POLL_SECONDS = 10
-const MIN_POLL_SECONDS = 2
 const SIDEBAR_KEY = 'branch'
 const BRANCH_CHIP = 'branch'
 const DIFF_STATS_CHIP = 'diff-stats'
@@ -59,19 +58,6 @@ const LOG_PANEL_PATH = '/log'
 interface Repo {
   root: string
   status: RepoStatus
-}
-
-interface Settings {
-  pollMs: number
-  showDiffStats: boolean
-}
-
-function readSettings(values: ExtensionSettingValues): Settings {
-  const seconds = typeof values.pollSeconds === 'number' ? values.pollSeconds : DEFAULT_POLL_SECONDS
-  return {
-    pollMs: Math.max(MIN_POLL_SECONDS, seconds) * 1000,
-    showDiffStats: values.showDiffStats !== false,
-  }
 }
 
 async function repoAt(cwd: string): Promise<Repo | null> {
@@ -151,13 +137,13 @@ class GitExtension {
   private focused = true
   private running = false
   private again = false
-  private settings: Settings = readSettings({})
+  private settings: GitSettings = readGitSettings({})
   onChanged: () => void = () => {}
 
   constructor(private readonly ext: PineExtension) {}
 
   applySettings(values: ExtensionSettingValues): void {
-    this.settings = readSettings(values)
+    this.settings = readGitSettings(values)
     this.restartPoll()
     this.schedule(0)
   }
