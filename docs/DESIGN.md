@@ -92,7 +92,7 @@ together.
 | Surface | Default family | Setting |
 |---|---|---|
 | UI chrome | Inter Variable (`--font-sans`, applied via `--font-ui`) | `appearance.ui.font` |
-| Terminal | Hack Nerd Font Mono (bundled; covers Powerline and icon glyphs) | `appearance.terminal.font` |
+| Terminal | Hack Nerd Font Mono (bundled; covers Powerline and icon glyphs). MesloLGS Nerd Font Mono (Apache-2.0) is bundled too and appears in the font picker | `appearance.terminal.font` |
 | Editor | Geist Mono Variable (`--font-mono`) | `appearance.editor.font` |
 
 Each surface has its own family and size (default 13). The whole UI uses one theme. All chrome
@@ -122,7 +122,7 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ ▣ ⚙                       [ ⌕ command center  Ctrl+Shift+P ] ─ ▢ ✕ │  top bar
+│ + ▣                       [ ⌕ command center  Ctrl+Shift+P ] ─ ▢ ✕ │  top bar
 ├────────────┬─────────────────────────────────────────────────┤
 │ Workspaces│Files                                                │
 │ ◉ ~/proj   │   split tree of panes for the active workspace     │
@@ -134,10 +134,11 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 └────────────┴─────────────────────────────────────────────────┘
 ```
 
-- **Top bar**: on the left, over the sidebar: the sidebar toggle, the Files toggle, one toggle
-  per enabled extension panel (git Changes, Keeper, Trellis; `PanelToggles.tsx`, pressed while the
-  panel is open in the active workspace), then New workspace and Settings at the sidebar's right
-  edge. Centre: the command-center button that opens the palette. Right: the notification bell.
+- **Top bar**: on the left, over the sidebar: New workspace first, then the sidebar
+  toggle, the Files toggle and one toggle per enabled extension panel (git Changes, Keeper,
+  Trellis; `PanelToggles.tsx`, pressed while the panel is open in the active workspace).
+  Centre: the command-center button that opens the palette. Right: Settings, then the
+  notification bell.
   The whole bar is the window drag region. macOS keeps native traffic lights on the left (the bar
   pads 80px for them). Linux and Windows draw GNOME-style round min/max/close buttons on the right
   (`WindowControls.tsx`, 24px circles). There is no wordmark, status strip or inspector.

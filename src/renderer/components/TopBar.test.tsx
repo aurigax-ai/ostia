@@ -69,6 +69,18 @@ describe('TopBar', () => {
     expect(leaveSettings).toHaveBeenCalled()
   })
 
+  it('puts New workspace first and Settings in the right zone before the bell', () => {
+    const { container } = render(<TopBar />)
+    const buttons = Array.from(container.querySelectorAll('button'))
+    expect(buttons[0]).toHaveAccessibleName('New workspace')
+    const right = container.querySelector('.topbar-right')
+    const rightNames = Array.from(right?.querySelectorAll('button') ?? []).map((b) =>
+      b.getAttribute('aria-label'),
+    )
+    expect(rightNames[0]).toBe('Settings')
+    expect(rightNames.length).toBeGreaterThan(1)
+  })
+
   it('opens Settings and toggles the Files panel', async () => {
     render(<TopBar />)
     const user = userEvent.setup()
