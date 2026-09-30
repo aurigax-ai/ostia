@@ -2,7 +2,7 @@ import type { Theme } from '../plugins/types'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useSystemThemeStore } from '../stores/systemThemeStore'
-import { deriveAccent, normalizeHex } from './color'
+import { deriveAccent, normalizeHex, readableOn } from './color'
 
 export interface ThemeChoice {
   followSystem: boolean
@@ -24,24 +24,21 @@ export function resolveTheme(themes: Theme[], id: string): Theme | undefined {
 export const DEFAULT_LIGHT_THEME = 'pine-light'
 export const DEFAULT_DARK_THEME = 'adeberry'
 
-export function themedTokens(
-  theme: Theme,
-  accent: string,
-): { tokens: Record<string, string>; onBrand: string | null } {
+export function themedTokens(theme: Theme, accent: string): Record<string, string> {
   const hex = normalizeHex(accent)
-  if (!hex) return { tokens: theme.tokens, onBrand: null }
-  const derived = deriveAccent(hex, theme.appearance, theme.tokens.bg)
-  return { tokens: { ...theme.tokens, ...derived.tokens }, onBrand: derived.onBrand }
+  const tokens = hex
+    ? { ...theme.tokens, ...deriveAccent(hex, theme.appearance, theme.tokens.bg) }
+    : theme.tokens
+  return { ...tokens, 'on-brand': readableOn(tokens.brand, [tokens.bg, tokens.fg]) }
 }
 
 export function applyTheme(root: HTMLElement, theme: Theme | undefined, accent: string): void {
   if (!theme) return
-  const { tokens, onBrand } = themedTokens(theme, accent)
-  for (const [k, v] of Object.entries(tokens)) root.style.setProperty(`--color-${k}`, v)
+  for (const [k, v] of Object.entries(themedTokens(theme, accent))) {
+    root.style.setProperty(`--color-${k}`, v)
+  }
   root.dataset.theme = theme.id
   root.style.colorScheme = theme.appearance
-  if (onBrand) root.style.setProperty('--primary-foreground', onBrand)
-  else root.style.removeProperty('--primary-foreground')
 }
 
 export const useSystemDark = (): boolean => useSystemThemeStore((s) => s.dark)

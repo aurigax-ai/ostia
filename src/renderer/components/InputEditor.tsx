@@ -44,10 +44,10 @@ import {
   parseVimKeys,
 } from '../lib/vimMode'
 import { isMac } from '../platform'
+import type { TerminalColors } from '../plugins/types'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { PromptChipRow } from './PromptChips'
-import type { TerminalPalette } from './terminalTheme'
 import { Badge } from './ui/badge'
 import { Command, CommandItem, CommandList } from './ui/command'
 import { Textarea } from './ui/textarea'
@@ -60,7 +60,7 @@ export interface InputEditorProps {
   cwd?: string
   fontFamily: string
   fontSize: number
-  palette?: TerminalPalette
+  palette?: TerminalColors
   alternateScreen: boolean
   suppressedPrompt: LineAnchor | null
   termRef: RefObject<Xterm | null>
@@ -101,7 +101,7 @@ export function useInputEditorVisible(
   )
 }
 
-function paletteStyle(palette: TerminalPalette | undefined): CSSProperties | undefined {
+function paletteStyle(palette: TerminalColors | undefined): CSSProperties | undefined {
   if (!palette) return undefined
   return {
     '--syn-fg': palette.foreground,

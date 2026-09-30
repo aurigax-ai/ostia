@@ -1,10 +1,12 @@
 import { en, zhHant } from '../i18n/dict'
+import { BUILTIN_COLOR_SCHEMES } from './colorSchemes'
 import type { PluginManifest, Theme } from './types'
 
 const adeberry: Theme = {
   id: 'adeberry',
   name: 'Adeberry',
   appearance: 'dark',
+  colorScheme: 'adeberry',
   tokens: {
     bg: '#1d2022',
     'bg-sunken': '#17191b',
@@ -32,6 +34,7 @@ const oneDarkVivid: Theme = {
   id: 'one-dark-vivid',
   name: 'One Dark Vivid',
   appearance: 'dark',
+  colorScheme: 'one-dark-vivid',
   tokens: {
     bg: '#21252b',
     'bg-sunken': '#1b1e23',
@@ -59,6 +62,7 @@ const instrumentNight: Theme = {
   id: 'instrument-night',
   name: 'Instrument Night',
   appearance: 'dark',
+  colorScheme: 'instrument-night',
   tokens: {
     bg: '#0a0c12',
     'bg-sunken': '#06080d',
@@ -86,6 +90,7 @@ const dracula: Theme = {
   id: 'dracula',
   name: 'Dracula',
   appearance: 'dark',
+  colorScheme: 'dracula',
   tokens: {
     bg: '#282a36',
     'bg-sunken': '#21222c',
@@ -113,6 +118,7 @@ const oxocarbon: Theme = {
   id: 'oxocarbon',
   name: 'Oxocarbon',
   appearance: 'dark',
+  colorScheme: 'oxocarbon',
   tokens: {
     bg: '#161616',
     'bg-sunken': '#0d0d0d',
@@ -140,6 +146,7 @@ const pineLight: Theme = {
   id: 'pine-light',
   name: 'Pine Light',
   appearance: 'light',
+  colorScheme: 'pine-light',
   tokens: {
     bg: '#f6f7f9',
     'bg-sunken': '#eceef2',
@@ -167,11 +174,12 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
   {
     id: 'pine.themes',
     name: 'Core Themes',
-    description: 'The built-in color themes.',
+    description: 'The built-in Pine themes and terminal and editor color schemes.',
     version: '1.0.0',
     builtin: true,
     contributes: {
       themes: [adeberry, oneDarkVivid, instrumentNight, dracula, oxocarbon, pineLight],
+      colorSchemes: BUILTIN_COLOR_SCHEMES,
     },
   },
   {

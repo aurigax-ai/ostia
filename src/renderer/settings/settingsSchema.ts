@@ -4,7 +4,9 @@ import {
   PROMPT_SEPARATORS,
   PROMPT_STYLES,
 } from '../../shared/promptSettings'
+import { MATCH_PINE_THEME } from '../../shared/themeChoice'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
+import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
 
 const font = (title: string) => ({
@@ -20,6 +22,17 @@ const font = (title: string) => ({
       description: 'Regular text weight (bold text stays bold).',
     },
   },
+})
+
+const schemeChoice = (surface: string) => ({
+  type: 'string',
+  examples: [MATCH_PINE_THEME, ...BUILTIN_COLOR_SCHEMES.map((s) => s.id)],
+  description: [
+    `Color scheme for the ${surface}.`,
+    `"${MATCH_PINE_THEME}" uses the scheme of appearance.theme (following its light/dark switch);`,
+    'a scheme id such as catppuccin-mocha keeps that scheme whatever the app theme is.',
+    `An unknown id falls back to the app theme's scheme. Default: ${MATCH_PINE_THEME}.`,
+  ].join(' '),
 })
 
 const CHORD_VALUE = {
@@ -184,6 +197,7 @@ export const SETTINGS_JSON_SCHEMA = {
       type: 'object',
       additionalProperties: false,
       properties: {
+        theme: schemeChoice('terminal'),
         scrollSpeed: {
           type: 'number',
           minimum: 0.5,
@@ -457,6 +471,7 @@ export const SETTINGS_JSON_SCHEMA = {
       type: 'object',
       additionalProperties: false,
       properties: {
+        theme: schemeChoice('editor'),
         wordWrap: { type: 'string', enum: ['off', 'on'], description: 'Wrap long lines.' },
         lineNumbers: {
           type: 'string',
