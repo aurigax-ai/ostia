@@ -11,6 +11,7 @@ export const ASSIST_LABEL_MAX = 80
 export interface AssistPointStatus {
   ready: boolean
   label?: string
+  tools?: boolean
 }
 
 export type AssistStatus = Partial<Record<AssistPoint, AssistPointStatus>>
@@ -19,6 +20,7 @@ export interface AssistProviderInfo {
   extId: string
   name: string
   label?: string
+  tools?: boolean
 }
 
 export type AssistAvailability = Partial<Record<AssistPoint, AssistProviderInfo>>
@@ -103,6 +105,16 @@ export const CHAT_MESSAGE_MAX = 20_000
 export const CHAT_CONTEXT_MAX = 6
 export const CHAT_CONTEXT_TEXT_MAX = 20_000
 export const CHAT_REPLY_MAX = 100_000
+export const CHAT_STREAM_MAX = 1_000_000
+export const CHAT_TOOLS_MAX = 64
+export const CHAT_TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/
+export const CHAT_TOOL_DESCRIPTION_MAX = 8000
+export const CHAT_TOOL_SCHEMA_MAX = 16_384
+export const CHAT_TOOL_CALLS_MAX = 16
+export const CHAT_TOOL_CALL_ID_MAX = 128
+export const CHAT_TOOL_INPUT_MAX = 131_072
+export const CHAT_TOOL_OUTPUT_MAX = 32_000
+export const CHAT_TOOL_ERROR_MAX = 1000
 export const REVIEW_NOTES_MAX = 5
 export const REVIEW_NOTE_MAX = 240
 export const COMMAND_SUGGESTIONS_MAX = 3
@@ -184,9 +196,29 @@ export interface CompletionAssistResult {
 
 export type ChatRole = 'user' | 'assistant'
 
+export const CHAT_TOOL_STATES = ['done', 'error', 'denied'] as const
+
+export type ChatToolState = (typeof CHAT_TOOL_STATES)[number]
+
+export interface ChatToolCall {
+  id: string
+  name: string
+  input: Record<string, unknown>
+  state: ChatToolState
+  output?: string
+  error?: string
+}
+
 export interface ChatMessage {
   role: ChatRole
   content: string
+  tools?: ChatToolCall[]
+}
+
+export interface ChatToolSpec {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
 }
 
 export const CHAT_CONTEXT_KINDS = [
@@ -210,6 +242,7 @@ export interface ChatContextItem {
 export interface ChatAssistRequest {
   messages: ChatMessage[]
   context: ChatContextItem[]
+  tools?: ChatToolSpec[]
 }
 
 export interface ChatAssistResult {
@@ -243,9 +276,10 @@ export const ASSIST_ERRORS = [
 
 export type AssistError = (typeof ASSIST_ERRORS)[number]
 
-export type AssistResponse<P extends AssistPoint> =
+export type AssistResponse<P extends AssistPoint> = (
   | { ok: true; result: AssistResults[P] }
   | { ok: false; error: AssistError; message?: string }
+) & { chunks?: number }
 
 export interface AssistChunk {
   requestId: string
@@ -368,16 +402,74 @@ function terminalRequest(raw: Record<string, unknown>): TerminalAssistRequest | 
   )
 }
 
+function jsonObject(v: unknown, max: number): Record<string, unknown> | null {
+  if (!isRecord(v)) return null
+  try {
+    const json = JSON.stringify(v)
+    return json.length <= max ? (JSON.parse(json) as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
+}
+
+function toolCall(raw: unknown): ChatToolCall | null {
+  if (!isRecord(raw)) return null
+  const id = typeof raw.id === 'string' ? raw.id.slice(0, CHAT_TOOL_CALL_ID_MAX) : ''
+  const name = typeof raw.name === 'string' ? raw.name : ''
+  if (!id || !CHAT_TOOL_NAME_PATTERN.test(name)) return null
+  if (!CHAT_TOOL_STATES.includes(raw.state as ChatToolState)) return null
+  const input = jsonObject(raw.input ?? {}, CHAT_TOOL_INPUT_MAX) ?? {}
+  const state = raw.state as ChatToolState
+  const call: ChatToolCall = { id, name, input, state }
+  if (state === 'done') call.output = clip(raw.output, CHAT_TOOL_OUTPUT_MAX) ?? ''
+  if (state === 'error') call.error = clip(raw.error, CHAT_TOOL_ERROR_MAX) || 'failed'
+  return call
+}
+
+function chatMessage(item: unknown): ChatMessage | null {
+  if (!isRecord(item) || (item.role !== 'user' && item.role !== 'assistant')) return null
+  const content = clip(item.content, CHAT_MESSAGE_MAX)
+  if (content === null) return null
+  if (item.role === 'user' || !Array.isArray(item.tools) || item.tools.length === 0) {
+    return { role: item.role, content }
+  }
+  const tools = item.tools
+    .slice(0, CHAT_TOOL_CALLS_MAX)
+    .map(toolCall)
+    .filter((t): t is ChatToolCall => t !== null)
+  return tools.length > 0 ? { role: 'assistant', content, tools } : { role: 'assistant', content }
+}
+
+function toolSpecs(raw: unknown): ChatToolSpec[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const out: ChatToolSpec[] = []
+  for (const item of raw) {
+    if (out.length === CHAT_TOOLS_MAX) break
+    if (!isRecord(item) || typeof item.name !== 'string') continue
+    if (!CHAT_TOOL_NAME_PATTERN.test(item.name) || out.some((t) => t.name === item.name)) continue
+    const description = clip(item.description, CHAT_TOOL_DESCRIPTION_MAX)?.trim()
+    const inputSchema = jsonObject(item.inputSchema, CHAT_TOOL_SCHEMA_MAX)
+    if (!description || !inputSchema || inputSchema.type !== 'object') continue
+    out.push({ name: item.name, description, inputSchema })
+  }
+  return out.length > 0 ? out : undefined
+}
+
+function endsTurn(messages: ChatMessage[]): boolean {
+  const last = messages[messages.length - 1]
+  return last !== undefined && (last.role === 'user' || (last.tools?.length ?? 0) > 0)
+}
+
 function chatRequest(raw: Record<string, unknown>): ChatAssistRequest | null {
   if (!Array.isArray(raw.messages)) return null
   const messages: ChatMessage[] = []
   for (const item of raw.messages.slice(-CHAT_MESSAGES_MAX)) {
-    if (!isRecord(item) || (item.role !== 'user' && item.role !== 'assistant')) return null
-    const content = clip(item.content, CHAT_MESSAGE_MAX)
-    if (content === null) return null
-    messages.push({ role: item.role, content })
+    const message = chatMessage(item)
+    if (!message) return null
+    messages.push(message)
   }
-  if (messages.length === 0 || messages[messages.length - 1].role !== 'user') return null
+  while (messages.length > 0 && messages[0].role !== 'user') messages.shift()
+  if (!endsTurn(messages)) return null
   const context: ChatContextItem[] = []
   for (const item of Array.isArray(raw.context) ? raw.context.slice(0, CHAT_CONTEXT_MAX) : []) {
     if (!isRecord(item) || !CHAT_CONTEXT_KINDS.includes(item.kind as ChatContextKind)) continue
@@ -385,7 +477,8 @@ function chatRequest(raw: Record<string, unknown>): ChatAssistRequest | null {
     const text = clip(item.text, CHAT_CONTEXT_TEXT_MAX)
     if (label && text) context.push({ kind: item.kind as ChatContextKind, label, text })
   }
-  return { messages, context }
+  const tools = toolSpecs(raw.tools)
+  return tools ? { messages, context, tools } : { messages, context }
 }
 
 export function normalizeAssistRequest<P extends AssistPoint>(
@@ -467,6 +560,7 @@ export function normalizeAssistStatus(raw: unknown): AssistStatus {
     const status: AssistPointStatus = { ready: entry.ready === true }
     const label = optionalShort(entry.label, ASSIST_LABEL_MAX)
     if (label) status.label = label
+    if (point === 'chat' && entry.tools === true) status.tools = true
     out[point] = status
   }
   return out

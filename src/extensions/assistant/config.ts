@@ -151,7 +151,9 @@ export function assistStatus(
     const model = modelFor(config, point)
     const on = POINT_FEATURES[point].some((f) => config.features[f])
     const ready = problem === null && on && model !== ''
-    status[point] = ready ? { ready, label: `${config.provider} · ${model}` } : { ready: false }
+    const label = `${config.provider} · ${model}`
+    if (!ready) status[point] = { ready: false }
+    else status[point] = point === 'chat' ? { ready, label, tools: true } : { ready, label }
   }
   return status
 }

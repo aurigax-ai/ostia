@@ -34,7 +34,7 @@ function hangingHost() {
 }
 
 describe('createAssistRouter', () => {
-  it('forwards chunks to the window that asked, tagged with its request id', async () => {
+  it('forwards chunks to the window that asked, tagged with its request id, and counts them', async () => {
     const host: AssistHost = {
       assistAvailability: () => ({}),
       assistOverview: () => [],
@@ -52,7 +52,7 @@ describe('createAssistRouter', () => {
     const { sender, sent } = fakeSender()
     const router = createAssistRouter(() => host)
     const res = await router.request(sender, 'chat', 'r1', { messages: [] })
-    expect(res).toEqual({ ok: true, result: { text: 'hello' } })
+    expect(res).toEqual({ ok: true, result: { text: 'hello' }, chunks: 2 })
     expect(sent).toEqual([
       { channel: 'assist:chunk', payload: { requestId: 'r1', text: 'hel' } },
       { channel: 'assist:chunk', payload: { requestId: 'r1', text: 'lo' } },
