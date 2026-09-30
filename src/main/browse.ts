@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { webContents } from 'electron'
 import {
   DEFAULT_SCROLL_PX,
@@ -255,10 +256,6 @@ function errMessage(e: unknown): string {
 
 function fail(error: string, message?: string): { ok: false; error: string; message?: string } {
   return message ? { ok: false, error, message } : { ok: false, error }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 type Params = Record<string, unknown>
