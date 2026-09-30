@@ -32,6 +32,7 @@ import { usePaneDnd } from '../stores/paneDndStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { AgentSessionButton } from './AgentSessionButton'
 import { ApprovalCard } from './ApprovalCard'
 import { FileMenu } from './FileMenu'
 import { Hint } from './Hint'
@@ -182,6 +183,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         <PaneChips paneId={shown.id} />
         <ResumeButton pane={shown} />
         <div className="pane-actions">
+          <AgentSessionButton pane={shown} />
           <IconButton
             icon={PlusIcon}
             label={d.pane.newTab}

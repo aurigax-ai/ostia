@@ -1299,6 +1299,11 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   like a send that did nothing. The tree highlights the row of the active editor pane's file
   (`aria-current`); since an editor pane's `cwd` is its file's folder, that row is always at the
   tree's top level.
+- **Agent session button** (`components/AgentSessionButton.tsx`, `lib/agentSession.ts`): the pane
+  header shows a robot icon with a state dot only while the pane's running command is an agent
+  (`commandAgent`). Its popover lists only what Pine knows: the title the agent set on the
+  terminal (spinner glyph stripped, `sessionTitle`), the resume id from its SessionStart hook,
+  the attention state and message, how long it has run, its folder and command.
 - **Terminal link cursor** (`lib/linkModifier.ts`): file and URL links open only with Ctrl (⌘ on
   macOS), so the host carries `link-modifier` while that key is held and CSS lets xterm's
   `xterm-cursor-pointer` show only then; otherwise the cursor stays the I-beam.
