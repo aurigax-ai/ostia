@@ -90,6 +90,7 @@ import { registerSandboxMethods } from './sandbox/controlMethods'
 import { DomainRequests } from './sandbox/domainRequests'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { sandboxFailureBanner } from './sandbox/spawnBanner'
+import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { SandboxStore } from './sandbox/store'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
@@ -251,6 +252,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
     home: homedir(),
     dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
     runtimeDir: process.env.XDG_RUNTIME_DIR,
+    agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
     socketPath: controlSocketPath(),
     runtimeReads: [
       INTEGRATION_DIR,
@@ -863,7 +865,7 @@ function registerPtyIpc(): void {
     const cols = opts.cols || 80
     const rows = opts.rows || 24
     const stateFile = join(privateTmpDir('pine-shell-state'), randomUUID())
-    const env = {
+    let env = {
       ...process.env,
       ...integration.env,
       PINE_PANE_ID: identity.externalId,
@@ -887,6 +889,7 @@ function registerPtyIpc(): void {
         )
         file = '/bin/sh'
         args = ['-c', wrapped]
+        env = sandboxSpawnEnv(env)
         env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
         cwd = sandboxCwd(cwd, workDirForWorkspace(workspaceId))
       } catch (err) {

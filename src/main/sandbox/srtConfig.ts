@@ -10,6 +10,7 @@ export interface SandboxPaths {
   runtimeDir?: string
   socketPath: string
   runtimeReads: string[]
+  agentSockets?: string[]
 }
 
 export const AGENT_DATA_DIRS = ['.claude', '.codex']
@@ -41,7 +42,8 @@ export function buildSrtConfig(
   const { home, workDir } = paths
   const agentDirs = AGENT_DATA_DIRS.map((d) => join(home, d))
   const hidden = WORKDIR_HIDDEN_FILES.map((f) => join(workDir, f))
-  const denyRead = [home, ...paths.dataDirs, ...hidden]
+  const agentSocketDirs = (paths.agentSockets ?? []).map((sock) => dirname(sock))
+  const denyRead = [home, ...paths.dataDirs, ...hidden, ...agentSocketDirs]
   if (paths.runtimeDir) denyRead.push(paths.runtimeDir)
   const allowRead = [
     workDir,

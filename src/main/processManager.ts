@@ -5,6 +5,7 @@ import { registerTargetableMethod } from './controlServer'
 import type { PaneIdentity } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { PtyRingBuffer } from './ptyRingBuffer'
+import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { workDirForWorkspace } from './workspaceRegistry'
 
 export interface ProcEntry {
@@ -121,7 +122,10 @@ async function spawnChild(
   return spawn('/bin/sh', ['-c', wrapped], {
     detached: true,
     cwd,
-    env: { ...merged, TMPDIR: sandbox.tmpDir(workspaceId) },
+    env: {
+      ...sandboxSpawnEnv(merged as Record<string, string>),
+      TMPDIR: sandbox.tmpDir(workspaceId),
+    },
   })
 }
 
