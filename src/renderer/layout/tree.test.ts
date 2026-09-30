@@ -19,6 +19,7 @@ import {
   setPaneDiff,
   setPaneEditor,
   setPaneExtension,
+  setPaneHibernated,
   setPaneUrl,
   setSizes,
   splitOf,
@@ -741,5 +742,17 @@ describe('tabs', () => {
     resetIds()
     adoptIds(root)
     expect(Number(createPane().id.split('-')[1])).toBeGreaterThan(Number(root.id.split('-')[1]))
+  })
+})
+
+describe('setPaneHibernated', () => {
+  it('marks and clears a pane, returning the same tree when nothing changes', () => {
+    const root = createPane()
+    const asleep = setPaneHibernated(root, root.id, true)
+    expect(asleep).toMatchObject({ hibernated: true })
+    expect(setPaneHibernated(asleep, root.id, true)).toBe(asleep)
+    const awake = setPaneHibernated(asleep, root.id, false)
+    expect(awake).not.toHaveProperty('hibernated')
+    expect(setPaneHibernated(awake, root.id, false)).toBe(awake)
   })
 })

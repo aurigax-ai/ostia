@@ -84,6 +84,19 @@ export interface ExtensionSidebarItem {
   text: string
   icon?: ExtensionIcon
   tone: SidebarTone
+  url?: string
+}
+
+export const SIDEBAR_URL_MAX = 2048
+
+export function sidebarItemUrl(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw || raw.length > SIDEBAR_URL_MAX) return null
+  try {
+    const url = new URL(raw)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null
+  } catch {
+    return null
+  }
 }
 
 export type ExtensionCallerKind = 'pane' | 'user'

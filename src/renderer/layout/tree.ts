@@ -101,6 +101,19 @@ export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentRes
   )
 }
 
+export function setPaneHibernated(
+  root: LayoutNode,
+  paneId: string,
+  hibernated: boolean,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (Boolean(p.hibernated) === hibernated) return p
+    if (hibernated) return { ...p, hibernated: true }
+    const { hibernated: _hibernated, ...awake } = p
+    return awake
+  })
+}
+
 export function firstPaneOfKind(node: LayoutNode, kind: SurfaceKind): PaneNode | null {
   return allPanes(node).find((p) => p.kind === kind) ?? null
 }

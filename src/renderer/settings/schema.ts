@@ -153,6 +153,53 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description: 'Show items extensions add to a workspace row (git branch, counts).',
         },
+        showPorts: {
+          type: 'boolean',
+          description:
+            'Show the TCP ports a workspace’s terminals listen on (the Ports extension). ' +
+            'Click one to open it in the browser pane. Needs showExtensionItems.',
+        },
+        showSSH: {
+          type: 'boolean',
+          description:
+            'Show the host a foreground ssh in the workspace is connected to (the Ports ' +
+            'extension). Needs showExtensionItems.',
+        },
+      },
+    },
+    agents: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        hibernation: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            enabled: {
+              type: 'boolean',
+              description:
+                'Stop the shell of an idle, hidden agent terminal to save memory once more than ' +
+                'maxLiveTerminals agents run. Only panes whose agent stored a resume token are ' +
+                'hibernated; the scrollback is kept and Resume starts a fresh shell that runs ' +
+                'the agent’s resume command. Default: false.',
+            },
+            idleSeconds: {
+              type: 'number',
+              minimum: 5,
+              maximum: 86400,
+              description:
+                'Seconds without output or input before an agent terminal may hibernate. ' +
+                'Default: 600.',
+            },
+            maxLiveTerminals: {
+              type: 'number',
+              minimum: 0,
+              maximum: 64,
+              description:
+                'Agent terminals kept running before idle hidden ones hibernate. Default: 6.',
+            },
+          },
+        },
       },
     },
     sync: {

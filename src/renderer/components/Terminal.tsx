@@ -20,6 +20,7 @@ import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isIdlePrompt } from '../lib/blocks'
 import { isAppChord, matchChord } from '../lib/chords'
 import { openFileAt } from '../lib/openFile'
+import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
@@ -305,7 +306,9 @@ export function TerminalView({
     let holdEraseRow = 1
     let holdCursor = { row: 1, col: 1 }
     let holdDims = { cols: 0, rows: 0 }
+    markPaneActivity(paneId)
     const offData = window.pine.pty.onData(paneId, (d) => {
+      markPaneActivity(paneId)
       if (!replayed) {
         pending.push(d)
       } else if (holdForRedraw) {
@@ -420,6 +423,7 @@ export function TerminalView({
 
     const input = term.onData((d) => {
       window.pine.pty.write(paneId, d)
+      if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
       if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
         useBlocksStore.getState().select(paneId, null)
       }
@@ -471,6 +475,7 @@ export function TerminalView({
       promptMarker?.dispose()
       disposeMarkers()
       unregisterTerminal()
+      forgetPaneActivity(paneId)
       useBlocksStore.getState().dropPane(paneId)
       window.pine.pty.detach(paneId)
       term.dispose()

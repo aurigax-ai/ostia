@@ -1,0 +1,20 @@
+{
+  "id": "ports",
+  "name": "Ports",
+  "version": "1.0.0",
+  "description": "Shows the TCP ports your terminals listen on and the host a foreground ssh is connected to, per workspace. Click a port to open it in the browser pane.",
+  "capabilities": ["read-board"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      {
+        "id": "ls",
+        "title": "Listening ports and ssh hosts of your workspace (JSON)",
+        "usage": "ls [--all]",
+        "palette": false,
+        "capabilities": ["read-board"]
+      }
+    ],
+    "sidebarItems": true
+  }
+}

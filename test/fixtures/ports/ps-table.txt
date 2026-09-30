@@ -1,0 +1,5 @@
+    1     0     1     0 /sbin/launchd
+  500     1   500   600 /bin/zsh
+  501   500   501   600 node
+  600   500   600   600 /usr/bin/ssh
+  700     1   700    -1 /Applications/Visual Studio Code.app/Contents/MacOS/Electron

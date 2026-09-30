@@ -3,6 +3,7 @@ import {
   GitDiffIcon,
   GlobeIcon,
   type Icon as IconComponent,
+  MoonIcon,
   PlayIcon,
   PlusIcon,
   RobotIcon,
@@ -181,7 +182,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
 function ResumeButton({ pane }: { pane: PaneNode }): JSX.Element | null {
   const d = useDict()
   const idle = useBlocksStore((s) => isIdlePrompt(s, pane.id))
-  if (pane.kind !== 'terminal' || !pane.resume || !idle) return null
+  if (pane.kind !== 'terminal' || !pane.resume || !(idle || pane.hibernated)) return null
   const label = fmt(d.pane.resume, { agent: pane.resume.agent })
   return (
     <Hint label={`${resumeCommand(pane.resume)}  ${RESUME_KEYS}`}>
@@ -208,7 +209,11 @@ function PaneTab({
       ? s.list.find((e) => e.id === pane.extensionId)?.panel?.icon
       : undefined,
   )
-  const Icon = pane.kind === 'extension' ? extensionIcon(panelIcon) : SURFACE_ICON[pane.kind]
+  const Icon = pane.hibernated
+    ? MoonIcon
+    : pane.kind === 'extension'
+      ? extensionIcon(panelIcon)
+      : SURFACE_ICON[pane.kind]
   const dirty = useEditorStatus((s) =>
     pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
   )
@@ -237,7 +242,11 @@ function PaneTab({
           requestAnimationFrame(() => focusSurface(pane.id))
         }}
       >
-        <Icon size={14} className="pane-kind" />
+        <Icon
+          size={14}
+          className="pane-kind"
+          aria-label={pane.hibernated ? d.pane.hibernated : undefined}
+        />
         <span className="title">
           {dirty ? '• ' : ''}
           {pane.title}

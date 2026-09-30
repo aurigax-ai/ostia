@@ -80,7 +80,7 @@ Package manager is **pnpm** only.
 - **cli** (`src/cli/index.ts`): the `pine` CLI. Panes get a `pine()` shell function that runs it
   with the app's own Electron binary (`ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI"`), so no
   system Node is needed.
-- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper, system) +
+- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper, system, ports) +
   their SDK. Each runs as its own process and talks to pine only over the control socket
   (`docs/EXTENSIONS.md`). The host that runs them is `src/main/extensionHost.ts`. trellis and
   keeper wrap the user's own CLIs; their fake stand-ins for tests are `test/fixtures/tools/bin/`.
@@ -114,6 +114,14 @@ Details: `docs/ARCHITECTURE.md`.
   pane only after `parseAgentResume` checks the agent is known and the id is `[A-Za-z0-9._-]`;
   the command is built by `resumeCommand` and typed only at an idle prompt when the human asks
   (Resume button, `agent.resume`). Never store or replay a free-form command.
+- **Hibernation only stops what it can bring back** (`lib/hibernationScheduler.ts`, off by
+  default). It kills a pane's pty only if the pane has a resume token, its running block is
+  that agent (`commandAgent`), it is not visible and idle past `idleSeconds`; never a shell at
+  a prompt, a non-agent command, or a pane without a token. Main stashes the serialized screen
+  first (`pty:hibernate`). Waking is always the human's act (the hibernated view's Resume, the
+  header button, `agent.resume`): it spawns a fresh shell and types `resumeCommand` only at its
+  first idle prompt (`runWhenIdle`). Revealing a hibernated pane never wakes it by itself, and
+  `hibernated` is never persisted.
 - **Surfaces never remount on split/move/zoom.** `SurfacePool` owns one persistent host element
   per pane and always portals into it; a pane's slot `appendChild`s that host. Don't portal into
   the slot directly. (Browser `<webview>`s still reload when moved; that's Electron.)
@@ -399,6 +407,9 @@ Details: `docs/ARCHITECTURE.md`.
 - **E2E reads terminal text from the DOM renderer.** WebGL draws to a canvas, so `isolatedLaunch()`
   seeds `behavior.gpuAcceleration: false` (`DOM_RENDERER_SETTINGS`); a spec that seeds its own
   `settings.json` spreads it in. Only `terminal-webgl.spec.ts` runs the GPU renderer.
+- **pty children inherit Electron's file descriptors**, listening sockets included (Playwright's
+  and Chromium's debugging ports). The ports extension drops every socket its parent (pine's
+  main process) also holds; without that each terminal "listened" on pine's own ports.
 - **E2E must isolate both data dirs** (`e2e/dataHome.ts` → `isolatedLaunch()`): a fresh
   `XDG_DATA_HOME` (else a spec restores the previous spec's panes) and `--user-data-dir` (else a
   spec rewrites the developer's real `settings.json`, which has happened). It also sets
@@ -415,6 +426,9 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   `src/cli/cli.ext.e2e.test.ts` builds and drives the real git extension and the echo fixture
   (stdin, errors, `pine ext ls`) via the CLI; `src/main/builtinGitExtension.integration.test.ts`
   runs the built git extension against a temp repo (sidebar, changes, diff sides, symlinks);
+  `src/main/builtinPortsExtension.integration.test.ts` bundles the ports extension into a temp
+  dir and points it at real process trees (a node listener, a fake `ssh` under `script` for a
+  foreground process group, a child that only inherited the host's listening socket);
   `cli.ext.e2e.test.ts` also drives `pine system info|install` with fake `pacman`/`apt`/`sudo`
   from `test/fixtures/system/bin/` (never the real ones) and a fake confirm; `e2e/system.spec.ts`
   answers the native dialog by stubbing `dialog.showMessageBox` via `app.evaluate`. Extension tests that need `src/main`

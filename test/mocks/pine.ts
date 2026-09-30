@@ -17,6 +17,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     pty: {
       attach: vi.fn().mockResolvedValue({ created: true, buffer: '', cursor: 0, dropped: false }),
       detach: vi.fn(),
+      hibernate: vi.fn().mockResolvedValue(true),
       write: vi.fn(),
       resize: vi.fn(),
       onData: vi.fn(noopUnsub),

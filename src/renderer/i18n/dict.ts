@@ -31,6 +31,7 @@ export const en = {
     stateDone: 'Done',
     stateError: 'Error',
     unread: '{n} unread',
+    openUrl: 'Open {url} in the browser pane',
   },
   attention: {
     notifications: 'Notifications',
@@ -70,6 +71,10 @@ export const en = {
     newBrowserTab: 'New browser tab',
     closeTab: 'Close tab',
     resume: 'Resume {agent}',
+    hibernated: 'Hibernated',
+    hibernatedTitle: 'Hibernated — click to resume',
+    hibernatedBody:
+      'This agent sat idle out of sight, so its shell was stopped to save memory. The scrollback is kept. Resume starts a fresh shell and runs {command}.',
   },
   palette: {
     title: 'Command palette',
@@ -277,6 +282,22 @@ export const en = {
     sidebarDescriptionDesc: 'Show custom workspace descriptions.',
     sidebarItems: 'Extension details',
     sidebarItemsDesc: 'Show details extensions add, such as the git branch.',
+    sidebarPorts: 'Listening ports',
+    sidebarPortsDesc:
+      'Show the ports a workspace’s terminals listen on. Click one to open it in the browser pane.',
+    sidebarSsh: 'SSH host',
+    sidebarSshDesc: 'Show the host a running ssh in the workspace is connected to.',
+    agents: 'Agents',
+    groupPerformance: 'Performance',
+    hibernate: 'Hibernate idle agents',
+    hibernateDesc:
+      'Stop the shell of an agent that is idle and out of sight once too many agents run. Only agents that stored a resume token; Resume brings them back.',
+    hibernateIdle: 'Idle seconds',
+    hibernateIdleDesc: 'Time without output or input before a hidden agent may hibernate.',
+    hibernateMaxLive: 'Agents kept running',
+    hibernateMaxLiveDesc: 'Hibernation starts once more agent terminals than this are running.',
+    hibernateNote:
+      'Hibernating ends everything the agent’s shell runs, including background jobs. Resume starts the agent again from its own saved session.',
     groupDesktop: 'Desktop',
     groupEvents: 'Events',
     notifyDesktop: 'Desktop notifications',
@@ -415,6 +436,7 @@ export const zhHant: Dict = {
     stateDone: '完成',
     stateError: '錯誤',
     unread: '{n} 則未讀',
+    openUrl: '在瀏覽器面板開啟 {url}',
   },
   attention: {
     notifications: '通知',
@@ -454,6 +476,10 @@ export const zhHant: Dict = {
     newBrowserTab: '新增瀏覽器分頁',
     closeTab: '關閉分頁',
     resume: '繼續 {agent}',
+    hibernated: '已休眠',
+    hibernatedTitle: '已休眠 — 按一下以繼續',
+    hibernatedBody:
+      '這個代理程式在背景閒置，因此停止了它的 shell 以節省記憶體。捲動紀錄已保留。繼續會啟動新的 shell 並執行 {command}。',
   },
   palette: {
     title: '指令面板',
@@ -658,6 +684,21 @@ export const zhHant: Dict = {
     sidebarDescriptionDesc: '顯示自訂的工作區描述。',
     sidebarItems: '擴充功能資訊',
     sidebarItemsDesc: '顯示擴充功能加入的資訊，例如 git 分支。',
+    sidebarPorts: '監聽中的連接埠',
+    sidebarPortsDesc: '顯示工作區終端機正在監聽的連接埠。按一下即可在瀏覽器面板開啟。',
+    sidebarSsh: 'SSH 主機',
+    sidebarSshDesc: '顯示工作區中執行中的 ssh 所連線的主機。',
+    agents: '代理程式',
+    groupPerformance: '效能',
+    hibernate: '讓閒置的代理程式休眠',
+    hibernateDesc:
+      '執行中的代理程式過多時，停止閒置且不在畫面上的代理程式的 shell。僅限已儲存繼續權杖的代理程式；按「繼續」即可恢復。',
+    hibernateIdle: '閒置秒數',
+    hibernateIdleDesc: '隱藏的代理程式在沒有輸出或輸入多久後可以休眠。',
+    hibernateMaxLive: '保持執行的代理程式數',
+    hibernateMaxLiveDesc: '執行中的代理程式終端機超過此數量時開始休眠。',
+    hibernateNote:
+      '休眠會結束代理程式 shell 中執行的一切，包含背景工作。繼續會從代理程式自己儲存的工作階段重新啟動。',
     groupDesktop: '桌面',
     groupEvents: '事件',
     notifyDesktop: '桌面通知',

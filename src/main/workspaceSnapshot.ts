@@ -219,6 +219,11 @@ export function takeRestoredScrollback(paneId: string): string | null {
   return data
 }
 
+export function stashScrollback(paneId: string, data: string): void {
+  if (!data || isDangerousSegment(paneId)) return
+  restored.set(paneId, trimScrollback(data))
+}
+
 export function pendingRestoredScrollback(): Record<string, string> {
   return Object.fromEntries(restored)
 }

@@ -5,7 +5,7 @@ const store = () => useSettingsStore.getState()
 
 type Persisted = Pick<
   ReturnType<typeof useSettingsStore.getState>,
-  'locale' | 'appearance' | 'behavior' | 'notifications' | 'sidebar'
+  'locale' | 'appearance' | 'behavior' | 'notifications' | 'sidebar' | 'agents'
 >
 
 describe('settingsStore', () => {
@@ -37,6 +37,7 @@ describe('settingsStore', () => {
       behavior: s.behavior,
       notifications: s.notifications,
       sidebar: s.sidebar,
+      agents: s.agents,
     })
   })
 
@@ -84,6 +85,32 @@ describe('settingsStore', () => {
       expect(s.notifications.agentDone).toBe(true)
       expect(s.sidebar.showPath).toBe(false)
       expect(s.sidebar.showMessage).toBe(true)
+    })
+
+    it('reads hibernation settings off by default and clamps idle seconds and max live', async () => {
+      expect(store().agents.hibernation).toEqual({
+        enabled: false,
+        idleSeconds: 600,
+        maxLiveTerminals: 6,
+      })
+      expect(store().sidebar.showPorts).toBe(true)
+      expect(store().sidebar.showSSH).toBe(true)
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({
+          agents: { hibernation: { enabled: true, idleSeconds: 1, maxLiveTerminals: 900 } },
+          sidebar: { showPorts: false },
+        }),
+      )
+
+      await store().init()
+
+      expect(store().agents.hibernation).toEqual({
+        enabled: true,
+        idleSeconds: 5,
+        maxLiveTerminals: 64,
+      })
+      expect(store().sidebar.showPorts).toBe(false)
+      expect(store().sidebar.showSSH).toBe(true)
     })
 
     it('merges a valid partial settings.json over DEFAULTS (mergeFont keeps default family)', async () => {
@@ -136,6 +163,7 @@ describe('settingsStore', () => {
         behavior: s.behavior,
         notifications: s.notifications,
         sidebar: s.sidebar,
+        agents: s.agents,
       }).toEqual(DEFAULTS)
     })
 
@@ -165,11 +193,24 @@ describe('settingsStore', () => {
         behavior: s.behavior,
         notifications: s.notifications,
         sidebar: s.sidebar,
+        agents: s.agents,
       }).toEqual(DEFAULTS)
     })
   })
 
   describe('setters + debounced save', () => {
+    it('setHibernation clamps and saves the agents group', async () => {
+      store().setHibernation({ enabled: true, idleSeconds: 90.4 })
+      store().setHibernation({ maxLiveTerminals: -3 })
+      await vi.advanceTimersByTimeAsync(300)
+      const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.agents.hibernation).toEqual({
+        enabled: true,
+        idleSeconds: 90,
+        maxLiveTerminals: 0,
+      })
+    })
+
     it('setTheme updates appearance.theme immediately (before the debounce fires)', () => {
       store().setTheme('dracula')
       expect(store().appearance.theme).toBe('dracula')
