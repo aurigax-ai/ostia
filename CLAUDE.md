@@ -319,6 +319,10 @@ Details: `docs/ARCHITECTURE.md`.
   it alone. The system extension never runs a package manager itself: `pine system install`
   validates the names (`planInstall`), shows the exact command in `ext.confirm`, and only on
   Approve hands the argv to `ext.openTerminal`, so the human watches it and answers sudo.
+  The git extension's discard is a panel-only handler (`panelHandlers` in
+  `src/extensions/git/main.ts`) that runs only after `ext.confirm` lists the files; never make
+  it a manifest command or a `pine git` verb. Agents may stage, unstage and commit (their own
+  repo, what they staged). Every git call that takes paths passes `--literal-pathspecs`.
 - **An extension types only into a terminal it just opened.** `ext.openTerminal` (needs `shell`)
   takes an argv, never a shell string; main quotes it (`shared/shellQuote.ts`) and the renderer
   opens a new pane and runs it once, at that pane's first idle prompt (`runWhenIdle`). Never add
@@ -496,7 +500,9 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   (stdin, errors, `pine ext ls`) via the CLI; `extensionHost.v2.integration.test.ts` drives pane
   chips, settings, panel paths and `targetPaneId` through the echo fixture, and
   `extensionHost.reload.integration.test.ts` writes extensions into a temp user dir for hot reload; `src/main/builtinGitExtension.integration.test.ts`
-  runs the built git extension against a temp repo (sidebar, changes, diff sides, symlinks);
+  runs the built git extension against a temp repo (sidebar, changes, diff sides, symlinks,
+  pane chips and their setting, log, blame, stage/unstage, commit, and discard through the
+  panel API with a fake confirm);
   `src/main/builtinPortsExtension.integration.test.ts` bundles the ports extension into a temp
   dir and points it at real process trees (a node listener, a fake `ssh` under `script` for a
   foreground process group, a child that only inherited the host's listening socket);

@@ -23,7 +23,14 @@ export const CORE_CHIP_IDS = [
 
 export type CoreChipId = (typeof CORE_CHIP_IDS)[number]
 
-export const DEFAULT_PROMPT_CHIPS: readonly string[] = ['conda', 'virtualenv', 'node', 'cwd']
+export const DEFAULT_PROMPT_CHIPS: readonly string[] = [
+  'conda',
+  'virtualenv',
+  'node',
+  'cwd',
+  'git.branch',
+  'git.diff-stats',
+]
 
 export const MAX_PROMPT_CHIPS = 32
 
