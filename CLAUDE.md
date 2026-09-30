@@ -148,6 +148,13 @@ Details: `docs/ARCHITECTURE.md`.
   list (`pty:commands`) answers only the pane's own window and returns names only: executables
   listed from the pane's PATH directories plus what the shell wrote to its main-chosen
   `PINE_SHELL_STATE` file. The renderer never names a directory or file for it.
+  The Pine prompt (`terminal.prompt.style: 'pine'`) only changes what the editor draws and the
+  prompt of shells spawned while it's on: main passes `PINE_PROMPT` in the spawn env and the
+  generated init sets a plain `cwd sep` prompt after the user's rc; never touch dotfiles, and
+  never rewrite the prompt of a shell that's already running. `pty:prompt-context` answers
+  only the pane's own window and runs node only as `execFile(..., { shell: false })`, never
+  from the shell's prompt hook. Chips without a value are hidden (the editor's preview shows
+  them as unavailable), never filled with placeholders.
 - **Selection reports are checked in main.** A file view's capture travels whole over
   `selection:send`, so main re-validates it (`normalizeSelection`: kind, absolute path, clipped
   text, PNG signature, 25 MiB image cap, sender owns the source pane) and writes
@@ -395,8 +402,9 @@ Details: `docs/ARCHITECTURE.md`.
   lifts it. Keystrokes are counted with `term.onKey`, not `onData`, because `onData` also
   carries xterm's replies to terminal queries (cursor position, device attributes).
 - **The shell reports its PATH and command names through a file, never the terminal**
-  (`__pine_report_shell` → `$PINE_SHELL_STATE`, read by `pty:commands`), and only when they
-  changed. Sent as a ~12 KB OSC 633 from the first precmd, the report held up zsh startup by
+  (`__pine_report_shell` → `$PINE_SHELL_STATE`, read by `pty:commands` and
+  `pty:prompt-context`; lines: PATH, `VIRTUAL_ENV`, `CONDA_DEFAULT_ENV`, `KUBECONFIG`, names),
+  and only when they changed. Keep the hook free of subprocesses. Sent as a ~12 KB OSC 633 from the first precmd, the report held up zsh startup by
   about 1.8 s under p10k's instant prompt, so commands typed at the first prompt ran late and
   restore specs lost their history.
 - **The input editor's textarea text is transparent**; `.input-editor-highlight` draws the
