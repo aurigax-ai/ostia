@@ -5,6 +5,7 @@ export function panelThemeCss(
   tokens: Record<string, string>,
   fonts: { ui: string; mono: string },
   appearance: 'dark' | 'light',
+  reducedMotion: boolean,
 ): string {
   const decls: string[] = [`--pine-color-scheme: ${appearance};`]
   for (const [name, value] of Object.entries(tokens)) {
@@ -15,5 +16,6 @@ export function panelThemeCss(
   if (!UNSAFE_VALUE.test(fonts.mono)) {
     decls.push(`--pine-font-mono: "${fonts.mono.replace(/"/g, '')}", ui-monospace, monospace;`)
   }
+  decls.push(`--pine-motion-scale: ${reducedMotion ? 0 : 1};`)
   return `:root { ${decls.join(' ')} }`
 }

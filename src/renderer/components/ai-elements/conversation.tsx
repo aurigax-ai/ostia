@@ -57,7 +57,7 @@ export const ConversationScrollButton = ({
     <Button
       aria-label={label}
       className={cn('absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full', className)}
-      onClick={() => void scrollToBottom()}
+      onClick={() => void scrollToBottom('instant')}
       size="icon-sm"
       type="button"
       variant="outline"

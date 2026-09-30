@@ -33,6 +33,12 @@
   --text-ui-lg: 16px;
   --radius-sm: 6px;
   --radius-md: 8px;
+  --motion-fast: calc(90ms * var(--pine-motion-scale, 1));
+  --motion-base: calc(150ms * var(--pine-motion-scale, 1));
+  --motion-fast-exit: calc(63ms * var(--pine-motion-scale, 1));
+  --motion-base-exit: calc(105ms * var(--pine-motion-scale, 1));
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
 }
 
 * {

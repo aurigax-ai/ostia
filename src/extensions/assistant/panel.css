@@ -175,7 +175,8 @@ button:disabled {
   border-radius: 7px;
   background: var(--surface-3);
   cursor: pointer;
-  transition: background-color var(--pine-motion-fast, 120ms) ease-out;
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast)
+    var(--ease-out);
 }
 
 .switch::after {
@@ -187,7 +188,7 @@ button:disabled {
   height: 10px;
   border-radius: 50%;
   background: var(--fg-muted);
-  transition: transform var(--pine-motion-fast, 120ms) ease-out;
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 
 .switch:checked {

@@ -1470,6 +1470,19 @@ Two files written by two processes (see CLAUDE.md §6): the renderers write `wor
 
 ## 9. Editor, LSP, browser
 
+- **Files changed on disk** (spec `specs/editor-reload.md`): main watches the *folder* of every
+  file open in an editor (`main/fileWatch.ts`, Node `fs.watch`, debounced, confined to the `fs:*`
+  roots, refcounted per window) and sends `fs:changed` to the windows that have it open; the
+  editor also re-checks on window focus. Why the folder: agents and editors save by writing a
+  temp file and renaming it over the old one, which silently ends a watch on the file itself.
+  The editor keeps the text it last loaded or saved as its baseline (`diskBase` in
+  `Editor.tsx`). A clean buffer reloads as a minimal line edit between undo stops
+  (`lib/diskReload.ts`), so the cursor stays and Ctrl+Z restores the old text. A dirty buffer is
+  never touched: the "Changed on disk" bar offers Compare (diff surface, disk left), Reload and
+  Keep mine (the human's text becomes the baseline). A save first compares the disk with the
+  baseline and holds with Overwrite / Compare / Cancel if it moved; autosave never writes while
+  a bar is up. Re-checks are coalesced to one running plus one pending.
+
 - **Monaco** (`monaco/setup.ts`, `components/Editor.tsx`):
   - Workers are bundled with Vite `?worker` imports (editor, json, css, html, ts), with no CDN.
   - The editor theme is derived from the scheme `useScheme('editor')` resolves from
@@ -2030,7 +2043,10 @@ The webview uses partition `pine-ext-<id>`, and `will-attach-webview` refuses it
 passes `isAllowedPanelUrl`. The guest gets the same hardening as browser panes (no preload, no
 node, sandbox, context isolation) plus: permission requests denied, `window.open` routed to
 `openExternalSafe`, and navigations/redirects outside the allowed file dir / origin blocked. The
-renderer injects the theme into the guest as `--pine-*` custom properties (`lib/panelTheme.ts`).
+renderer injects the theme into the guest as `--pine-*` custom properties (`lib/panelTheme.ts`),
+plus `--pine-motion-scale` from `useReducedMotion`. Why a scale and not a media query: the
+guest sees only the OS `prefers-reduced-motion`, not `appearance.motion`, and `insertCSS` only
+adds rules, so the value is re-sent as `0` or `1` on every change instead of being left out.
 Why panels talk only to their own process: the guest has no `window.pine` and no token, so a
 compromised or buggy panel can do no more than its extension already can.
 
