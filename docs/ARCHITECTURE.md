@@ -203,8 +203,11 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   and each element is eval'd.
 - **Pine prompt**: with `PINE_PROMPT=pine` in the spawn env, the generated init (which runs
   after the user's rc and prompt framework) unsets it and, in each prompt hook after the user's
-  own, sets `PROMPT='%~ <sep> '` and clears `RPROMPT` (zsh) or `PS1='\w <sep> '` after the
-  user's `PROMPT_COMMAND` (bash); the B mark is then appended as usual. powerlevel10k is torn
+  own, sets `PROMPT` to `%~`, a newline and `<sep> ` and clears `RPROMPT` (zsh), or `PS1` to
+  `\w\n<sep> ` after the user's `PROMPT_COMMAND` (bash); with `PINE_PROMPT_LINES=1` (same-line
+  prompt) it is one line, `%~ <sep> ` / `\w <sep> `. The B mark is then appended as usual. Why
+  two lines: the editor draws the chip row over the cwd line, so the input row keeps the shell's
+  own separator and scrollback still reads `cwd` / `$ command`. powerlevel10k is torn
   down once (`prompt_powerlevel9k_teardown`). Why the teardown: p10k rebuilds `PROMPT` from its
   own hooks and zle widgets (async segments), so a plain assignment would flicker back.
 - **Other shells** spawn with no integration.
@@ -346,25 +349,55 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     the document with `parseWorkflow` before writing.
 - **Input editor** (`components/InputEditor.tsx`, `lib/inputEditor.ts`, setting
   `behavior.inputMode: 'terminal' | 'editor'`, palette `terminal.toggleInputEditor`): in
-  `editor` mode a Warp-style editor is docked under the terminal (`.terminal-surface` is a flex
-  column: `.terminal-stack` holds the xterm host, block overlay and find bar; the editor sits
-  below it). It shows only while the pane is at an idle prompt (`drafts[paneId]` open, nothing
+  `editor` mode a Warp-style editor takes over the shell's input line. It is an overlay in
+  `.terminal-stack` (above the block overlay) that places itself over the shell's own input
+  cells: `usePromptGeometry` reads xterm's cursor (an idle prompt's cursor is where input
+  starts), measures cells from `.xterm-screen` and `placePrompt` (`lib/promptOverlay.ts`) picks
+  the row, the first column and the last column (just before a right prompt when at least
+  `MIN_INPUT_COLS` fit). With the shell prompt style the shell's prompt stays visible to the
+  left and the editor types after it, so there is one prompt, not two; with the Pine prompt the
+  chip row covers the cwd line above (or, same-line, chips and separator cover the whole row).
+  It shows only while the pane is at an idle prompt (`drafts[paneId]` open, nothing
   `running`), the normal buffer is active (`term.buffer.onBufferChange`), and the prompt is not
-  suppressed. It has a cwd chip (the pane's OSC 7 cwd), a hint built with `chordLabel`, and a
-  textarea in the terminal font that grows to about six lines, with a highlighted overlay,
-  history suggestions, a completion menu and an optional vim mode (below).
+  suppressed. The textarea uses the terminal font, the cell height as line height and a letter
+  spacing that makes its advance match xterm's cell width (`charWidth` measures the font on a
+  canvas); it grows downward to eight lines, then scrolls. A draft taller than the rows under the
+  prompt asks Terminal to scroll xterm locally (`scrollUpSequence`: move to the bottom row,
+  write newlines, put the cursor back on the moved prompt) instead of covering output. Why
+  in place and never docked: the docked editor showed the shell's prompt and its own at once,
+  and resized the pty at every prompt; iTerm2's auto composer and Warp both draw the input
+  where the prompt is. Why the local scroll is safe: the shell only moves the cursor relatively
+  at a prompt, and the saved scrollback is logical lines, so the few blank rows never show up.
+  The DOM renderer can drift a few pixels on a row with a fallback-font glyph (e.g. `❯`);
+  WebGL draws by cell and doesn't.
   - Enter submits: an empty draft writes `\r`; otherwise `insertCommand(paneId, text, true)`,
     the same bracketed-paste-then-Enter path as rerun, so the shell receives exactly what typing
     would give it. Shift+Enter adds a newline, and a multi-line draft is pasted as one
     bracketed paste, so zsh/bash run it as one command line. Ctrl+C clears the draft. Escape
     closes the completion menu, else dismisses the suggestion, else (vim mode) enters normal
-    mode, else focuses the terminal. Up on the first line (or while already walking) steps through
-    `inputHistory`: this pane's commands newest first, then other panes' by start time, deduped.
+    mode, else hands off. Up on the first line (or while already walking) steps through
+    `inputHistory`: this pane's commands newest first, then other panes' by start time, deduped;
+    with text in the draft only entries that start with it (`historyMatches`, like zsh's
+    up-line-or-beginning-search and fish).
+  - Line editing (`lib/lineEditing.ts`): readline keys work on the current line of the draft:
+    Ctrl+A/E/B/F, Alt+B/F (not on macOS, where Option types characters), Ctrl+K/U/W and
+    Alt+D kill into a one-entry kill ring that Ctrl+Y yanks, Ctrl+H backspace, Ctrl+D delete (on
+    an empty draft it sends EOF to the shell), Ctrl+P/N walk history, Ctrl+L sends `\x0c` so
+    the shell clears the screen and redraws its prompt while the draft stays. Ctrl+C/V/X/Z stay
+    with the textarea (clear, paste, cut, undo). Keys match by physical key (`KeyboardEvent.code`)
+    so other layouts work.
+  - Hand-off (`shellKeyBytes`, `onHandOff` → Terminal `handOffInput`): any other Ctrl+letter or
+    Alt+letter, and Escape with nothing to dismiss, suppresses the prompt, pastes the draft into
+    the shell line (bracketed) and writes the key's bytes, then focuses xterm. Why: the shell's
+    own widgets (Ctrl+R history search, fzf's Ctrl+T/Alt+C, Ctrl+X Ctrl+E) must keep working,
+    and they need the text on the shell's line.
   - Suppression is keyed on the prompt's A marker (`draft.promptLine`), not the draft object.
     Submitting suppresses the prompt it was submitted at, so the editor hides immediately
-    instead of waiting for OSC 133;C. Typing into the terminal at that prompt (`term.onKey`, a
-    DOM paste on the host, the paste chord) also suppresses it: the shell's own line now holds
-    text, so the editor steps aside and comes back at the next prompt. Why the A marker: zsh
+    instead of waiting for OSC 133;C. A hand-off suppresses it too. Keys, a DOM paste and the
+    paste chord aimed at xterm while the editor is shown go to the editor instead
+    (`attachCustomKeyEventHandler` → `inputEditorFor(paneId).type/focus`), and a click on the
+    terminal that leaves no selection focuses it, so the shell's line stays empty under the
+    editor. Why the A marker: zsh
     re-emits B on every prompt redraw (p10k async segments, WINCH), which replaces the draft
     object; the A marker only changes with a new prompt.
   - While the editor is shown, `insertCommand` without Enter (history search, `history.insert`)
@@ -450,8 +483,8 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     the extension sees the pane as its caller. Why one source: a second prompt-only store would
     need its own feed and drift from the header.
     Plain shell prompt: when the Pine prompt is on in editor mode, `pty:attach` gets
-    `pinePrompt` (the separator) and main starts zsh/bash with `PINE_PROMPT=pine` and
-    `PINE_PROMPT_SEPARATOR` (see Shell integration). Why: the chips already show the context,
+    `pinePrompt` (`{separator, sameLine}`) and main starts zsh/bash with `PINE_PROMPT=pine`,
+    `PINE_PROMPT_SEPARATOR` and `PINE_PROMPT_LINES` (see Shell integration). Why: the chips already show the context,
     and a framework prompt left in scrollback (right prompts, clocks, multi-line frames) is
     noise above every block. It is decided at spawn, so terminals already open keep their
     prompt until a new shell starts (the settings text says so).

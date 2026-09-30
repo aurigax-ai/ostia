@@ -1,16 +1,17 @@
-import { FolderSimpleIcon } from '@phosphor-icons/react'
+import type { Terminal as Xterm } from '@xterm/xterm'
 import {
   type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
+  type RefObject,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
-import { fmt, useDict } from '../i18n/useDict'
-import { matchChord, useChordLabel } from '../lib/chords'
+import { useDict } from '../i18n/useDict'
+import { matchChord } from '../lib/chords'
 import {
   type CompletionItem,
   applyCompletionItem,
@@ -18,16 +19,20 @@ import {
   completeCommand,
   completePath,
   completionToken,
+  historyMatches,
   historySuggestion,
   inputHistory,
   isCommandWord,
   recentCommands,
   suggestionWord,
 } from '../lib/inputEditor'
+import { applyLineEdit, lineEditOp, shellKeyBytes } from '../lib/lineEditing'
 import { usePaneChipCatalog } from '../lib/paneChips'
+import { cellBox, rowsToMake } from '../lib/promptOverlay'
 import { type ShellToken, tokenizeShell } from '../lib/shellTokens'
 import { registerInputEditor } from '../lib/terminalHandles'
 import { usePromptChips } from '../lib/usePromptChips'
+import { usePromptGeometry } from '../lib/usePromptGeometry'
 import {
   type VimBuffer,
   type VimMode,
@@ -47,6 +52,7 @@ import { Command, CommandItem, CommandList } from './ui/command'
 import { Textarea } from './ui/textarea'
 
 const UNDO_LIMIT = 100
+const MAX_LINES = 8
 
 export interface InputEditorProps {
   paneId: string
@@ -56,12 +62,16 @@ export interface InputEditorProps {
   palette?: TerminalPalette
   alternateScreen: boolean
   suppressedPrompt: LineAnchor | null
+  termRef: RefObject<Xterm | null>
+  hostRef: RefObject<HTMLElement | null>
   ownsFocus: () => boolean
   onSubmit: (text: string) => boolean
-  onEscape: () => void
+  onHandOff: (draft: string, keys: string) => void
+  onShellKeys: (keys: string) => void
+  onNeedRows: (rows: number) => void
 }
 
-type Tip = 'hint' | 'noPaths' | 'noCommands'
+type Tip = 'none' | 'noPaths' | 'noCommands'
 
 interface Menu {
   items: CompletionItem[]
@@ -93,7 +103,6 @@ export function useInputEditorVisible(
 function paletteStyle(palette: TerminalPalette | undefined): CSSProperties | undefined {
   if (!palette) return undefined
   return {
-    background: palette.background,
     '--syn-fg': palette.foreground,
     '--syn-bg': palette.background,
     '--syn-selection': palette.selectionBackground,
@@ -105,6 +114,23 @@ function paletteStyle(palette: TerminalPalette | undefined): CSSProperties | und
     '--syn-operator': palette.blue,
     '--syn-comment': palette.brightBlack,
   } as CSSProperties
+}
+
+let measureCanvas: HTMLCanvasElement | null = null
+
+function charWidth(fontFamily: string, fontSize: number): number | null {
+  measureCanvas ??= document.createElement('canvas')
+  let ctx: CanvasRenderingContext2D | null = null
+  try {
+    ctx = measureCanvas.getContext('2d')
+  } catch {
+    return null
+  }
+  if (!ctx) return null
+  ctx.font = `${fontSize}px ${fontFamily}`
+  const sample = 'W'.repeat(32)
+  const width = ctx.measureText(sample).width
+  return width > 0 ? width / sample.length : null
 }
 
 function itemLabel(item: CompletionItem): string {
@@ -177,22 +203,32 @@ export function InputEditor({
   alternateScreen,
   suppressedPrompt,
   ownsFocus,
+  termRef,
+  hostRef,
   onSubmit,
-  onEscape,
+  onHandOff,
+  onShellKeys,
+  onNeedRows,
 }: InputEditorProps): JSX.Element {
   const d = useDict()
-  const historyKeys = useChordLabel('history.search', isMac)
   const visible = useInputEditorVisible(paneId, alternateScreen, suppressedPrompt)
   const vimEnabled = useSettingsStore((s) => s.behavior.inputEditorVim)
   const prompt = useSettingsStore((s) => s.terminal.prompt)
   const pinePrompt = prompt.style === 'pine'
   const catalog = usePaneChipCatalog()
   const { chips } = usePromptChips(paneId, cwd, prompt.chips, visible && pinePrompt)
+  const geo = usePromptGeometry(
+    termRef,
+    hostRef,
+    visible,
+    pinePrompt ? 'pine' : 'shell',
+    prompt.sameLine,
+  )
   const promptLine = useBlocksStore((s) => s.drafts[paneId]?.promptLine)
   const byPane = useBlocksStore((s) => s.byPane)
   const [text, setText] = useState('')
   const [selection, setSelection] = useState<Selection>({ start: 0, end: 0 })
-  const [tip, setTip] = useState<Tip>('hint')
+  const [tip, setTip] = useState<Tip>('none')
   const [menu, setMenu] = useState<Menu | null>(null)
   const [dismissed, setDismissed] = useState<string | null>(null)
   const [composing, setComposing] = useState(false)
@@ -211,8 +247,13 @@ export function InputEditor({
   const vimModeRef = useRef<VimMode>('insert')
   const ownsFocusRef = useRef(ownsFocus)
   ownsFocusRef.current = ownsFocus
-  const onEscapeRef = useRef(onEscape)
-  onEscapeRef.current = onEscape
+  const textRef = useRef(text)
+  textRef.current = text
+  const killRing = useRef('')
+  const onHandOffRef = useRef(onHandOff)
+  onHandOffRef.current = onHandOff
+  const onNeedRowsRef = useRef(onNeedRows)
+  onNeedRowsRef.current = onNeedRows
 
   const normal = vimEnabled && vimMode === 'normal'
   const history = useMemo(() => inputHistory(byPane, paneId), [byPane, paneId])
@@ -236,10 +277,10 @@ export function InputEditor({
     if (!visible && wasVisible.current && hadFocus.current) {
       hadFocus.current = false
       const active = document.activeElement
-      if (!active || active === document.body || active === area) onEscapeRef.current()
+      if (!active || active === document.body || active === area) termRef.current?.focus()
     }
     wasVisible.current = visible
-  }, [visible])
+  }, [visible, termRef])
 
   useEffect(() => {
     if (!visible || !promptLine) return
@@ -279,7 +320,7 @@ export function InputEditor({
 
   const resetDraftState = (): void => {
     walk.current = null
-    setTip('hint')
+    setTip('none')
     setMenu(null)
     setDismissed(null)
   }
@@ -292,10 +333,24 @@ export function InputEditor({
         setSelection({ start: command.length, end: command.length })
         pendingCaret.current = command.length
         walk.current = null
-        setTip('hint')
+        setTip('none')
         setMenu(null)
         areaRef.current?.focus()
       },
+      type: (chunk) => {
+        const area = areaRef.current
+        const current = textRef.current
+        const start = area ? area.selectionStart : current.length
+        const end = area ? area.selectionEnd : current.length
+        const next = current.slice(0, start) + chunk + current.slice(end)
+        setText(next)
+        setSelection({ start: start + chunk.length, end: start + chunk.length })
+        pendingCaret.current = start + chunk.length
+        walk.current = null
+        setMenu(null)
+        area?.focus()
+      },
+      focus: () => areaRef.current?.focus(),
     })
   }, [paneId, visible])
 
@@ -326,7 +381,7 @@ export function InputEditor({
     const state = walk.current ?? {
       index: -1,
       saved: text,
-      entries: inputHistory(useBlocksStore.getState().byPane, paneId),
+      entries: historyMatches(inputHistory(useBlocksStore.getState().byPane, paneId), text),
     }
     const index = dir === 'older' ? state.index + 1 : state.index - 1
     if (index >= state.entries.length || index < -1) return false
@@ -340,7 +395,7 @@ export function InputEditor({
     const caret = area ? area.selectionStart : text.length
     const next = applyCompletionItem(text, caret, item)
     setMenu(null)
-    setTip('hint')
+    setTip('none')
     replaceText(next.text, next.caret)
   }
 
@@ -360,10 +415,10 @@ export function InputEditor({
     }
     if (result.candidates.length > 0) {
       setMenu({ items: result.candidates, index: 0 })
-      setTip('hint')
+      setTip('none')
     } else {
       setMenu(null)
-      setTip(result.insert ? 'hint' : commandWord ? 'noCommands' : 'noPaths')
+      setTip(result.insert ? 'none' : commandWord ? 'noCommands' : 'noPaths')
     }
   }
 
@@ -427,7 +482,7 @@ export function InputEditor({
     if (e.key === 'Escape') {
       e.preventDefault()
       if (vimPending) setVimPending('')
-      else onEscape()
+      else handOff('')
       return true
     }
     if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -469,6 +524,42 @@ export function InputEditor({
     return true
   }
 
+  const handOff = (keys: string): void => {
+    const draft = text
+    setText('')
+    setSelection({ start: 0, end: 0 })
+    resetDraftState()
+    undo.current = []
+    onHandOffRef.current(draft, keys)
+  }
+
+  const onLineEditKey = (e: KeyboardEvent<HTMLTextAreaElement>): boolean => {
+    const area = e.currentTarget
+    const op = lineEditOp(e)
+    if (!op || (isMac && e.altKey)) return false
+    e.preventDefault()
+    if (op === 'historyPrev' || op === 'historyNext') {
+      stepHistory(op === 'historyPrev' ? 'older' : 'newer')
+      return true
+    }
+    if (op === 'clearScreen') {
+      onShellKeys('\x0c')
+      return true
+    }
+    if (op === 'deleteChar' && text === '') {
+      handOff('\x04')
+      return true
+    }
+    const result = applyLineEdit(op, { text, caret: area.selectionStart }, killRing.current)
+    if (result.killed) killRing.current = result.killed
+    if (result.text !== text) {
+      walk.current = null
+      setMenu(null)
+    }
+    replaceText(result.text, result.caret)
+    return true
+  }
+
   const acceptWordChord = (e: KeyboardEvent<HTMLTextAreaElement>): boolean =>
     isMac
       ? e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyF'
@@ -493,7 +584,7 @@ export function InputEditor({
         setVimMode('normal')
         replaceText(next.text, next.caret)
       } else if (suggestion) setDismissed(text)
-      else onEscape()
+      else handOff('')
       return
     }
     if (suggestion && plain && !e.shiftKey && (e.key === 'ArrowRight' || e.key === 'End')) {
@@ -520,8 +611,16 @@ export function InputEditor({
     }
     if (!isMac && matchChord(e, false) === 'copy') {
       e.preventDefault()
-      const selected = text.slice(area.selectionStart, area.selectionEnd)
+      const selected =
+        text.slice(area.selectionStart, area.selectionEnd) || termRef.current?.getSelection()
       if (selected) void navigator.clipboard.writeText(selected)
+      return
+    }
+    if (onLineEditKey(e)) return
+    const keys = isMac && e.altKey ? null : shellKeyBytes(e)
+    if (keys) {
+      e.preventDefault()
+      handOff(keys)
       return
     }
     const collapsed = area.selectionStart === area.selectionEnd
@@ -548,62 +647,122 @@ export function InputEditor({
     />
   )
 
-  const hint = historyKeys
-    ? fmt(d.inputEditor.hint, { history: historyKeys })
-    : d.inputEditor.hintNoHistory
+  const metrics = geo?.metrics
+  const letterSpacing = useMemo(() => {
+    if (!metrics) return 0
+    const measured = charWidth(fontFamily, fontSize)
+    return measured === null ? 0 : metrics.width - measured
+  }, [fontFamily, fontSize, metrics])
+
+  const cellHeight = metrics?.height ?? 0
+  const rowsBelow = geo?.placement.rowsBelow ?? 0
+  // biome-ignore lint/correctness/useExhaustiveDependencies: text changes the textarea height
+  useLayoutEffect(() => {
+    const area = areaRef.current
+    if (!visible || !area || cellHeight <= 0) return
+    const lines = Math.round(area.scrollHeight / cellHeight)
+    const rows = rowsToMake(lines, rowsBelow, MAX_LINES)
+    if (rows > 0) onNeedRowsRef.current(rows)
+  }, [visible, text, cellHeight, rowsBelow])
+
+  const line = geo
+    ? cellBox(geo.metrics, geo.placement.row, geo.placement.col, geo.placement.endCol)
+    : null
+  const chipsBox =
+    geo && geo.placement.chipsRow !== null
+      ? cellBox(geo.metrics, geo.placement.chipsRow, 0, geo.cols)
+      : null
+  const popoverAbove = geo ? geo.placement.row >= geo.rows / 2 : true
+  const maxLines = Math.min(MAX_LINES, rowsBelow + 1)
+  const cellStyle = {
+    fontFamily,
+    fontSize,
+    lineHeight: `${cellHeight}px`,
+    letterSpacing: letterSpacing ? `${letterSpacing}px` : undefined,
+  }
+  const tipText =
+    tip === 'noPaths'
+      ? d.inputEditor.noCompletions
+      : tip === 'noCommands'
+        ? d.inputEditor.noCommands
+        : null
 
   return (
-    <div className="input-editor" hidden={!visible} style={paletteStyle(palette)}>
-      {menu ? (
-        <div ref={menuRef} className="input-editor-menu">
-          <Command
-            shouldFilter={false}
-            value={itemLabel(menu.items[menu.index])}
-            onValueChange={(value) => {
-              const index = menu.items.findIndex((item) => itemLabel(item) === value)
-              if (index >= 0 && index !== menu.index) setMenu({ ...menu, index })
-            }}
-            onMouseDown={(e) => e.preventDefault()}
-            className="h-auto rounded-md! border shadow-md"
-            style={{ fontFamily }}
-          >
-            <CommandList label={d.inputEditor.completions}>
-              {menu.items.map((item) => (
-                <CommandItem
-                  key={itemLabel(item)}
-                  value={itemLabel(item)}
-                  className="input-editor-menu-item"
-                  onSelect={() => pick(item)}
-                >
-                  {itemLabel(item)}
-                </CommandItem>
-              ))}
-            </CommandList>
-          </Command>
+    <div
+      className="input-editor"
+      hidden={!visible}
+      style={
+        {
+          ...paletteStyle(palette),
+          '--cell-h': `${cellHeight}px`,
+        } as CSSProperties
+      }
+    >
+      {pinePrompt && !prompt.sameLine ? (
+        <div
+          className="input-editor-chips"
+          data-placed={chipsBox ? 'true' : undefined}
+          style={
+            chipsBox
+              ? {
+                  left: chipsBox.left,
+                  top: chipsBox.top,
+                  width: chipsBox.width,
+                  height: chipsBox.height,
+                }
+              : undefined
+          }
+        >
+          {chipRow(false)}
         </div>
       ) : null}
-      <div className="input-editor-meta">
-        {!pinePrompt ? (
-          <span className="input-editor-cwd" aria-label={d.inputEditor.cwd}>
-            <FolderSimpleIcon size={12} aria-hidden="true" />
-            <span className="input-editor-cwd-path">{cwd ?? '~'}</span>
-          </span>
-        ) : prompt.sameLine ? null : (
-          chipRow(false)
-        )}
-        {vimEnabled ? (
-          <Badge variant="outline" className="input-editor-vim" aria-label={d.inputEditor.vimMode}>
-            {vimMode === 'normal' ? d.inputEditor.vimNormal : d.inputEditor.vimInsert}
-            {vimPending ? ` ${vimPending}` : ''}
-          </Badge>
+      <div
+        className="input-editor-line"
+        data-placed={line ? 'true' : undefined}
+        style={
+          line
+            ? { left: line.left, top: line.top, width: line.width, minHeight: line.height }
+            : undefined
+        }
+      >
+        {menu || tipText ? (
+          <div
+            ref={menuRef}
+            className="input-editor-menu"
+            data-side={popoverAbove ? 'top' : 'bottom'}
+          >
+            {menu ? (
+              <Command
+                shouldFilter={false}
+                value={itemLabel(menu.items[menu.index])}
+                onValueChange={(value) => {
+                  const index = menu.items.findIndex((item) => itemLabel(item) === value)
+                  if (index >= 0 && index !== menu.index) setMenu({ ...menu, index })
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+                className="h-auto rounded-md! border shadow-md"
+                style={{ fontFamily }}
+              >
+                <CommandList label={d.inputEditor.completions}>
+                  {menu.items.map((item) => (
+                    <CommandItem
+                      key={itemLabel(item)}
+                      value={itemLabel(item)}
+                      className="input-editor-menu-item"
+                      onSelect={() => pick(item)}
+                    >
+                      {itemLabel(item)}
+                    </CommandItem>
+                  ))}
+                </CommandList>
+              </Command>
+            ) : (
+              <p className="input-editor-tip" aria-live="polite">
+                {tipText}
+              </p>
+            )}
+          </div>
         ) : null}
-        <span className="input-editor-tip" aria-live="polite">
-          {tip === 'noPaths' ? d.inputEditor.noCompletions : null}
-          {tip === 'noCommands' ? d.inputEditor.noCommands : null}
-          {tip === 'hint' ? hint : null}
-        </span>
-      </div>
-      <div className="input-editor-line">
         {pinePrompt && prompt.sameLine ? chipRow(true) : null}
         <div
           className="input-editor-field"
@@ -621,14 +780,15 @@ export function InputEditor({
             autoCapitalize="off"
             autoCorrect="off"
             autoComplete="off"
-            className="input-editor-area min-h-0 resize-none rounded-md px-2 py-1.5"
-            style={{ fontFamily, fontSize }}
+            className="input-editor-area min-h-0 resize-none rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
+            style={{ ...cellStyle, maxHeight: cellHeight ? maxLines * cellHeight : undefined }}
             onChange={(e) => {
               setText(e.target.value)
               setSelection({ start: e.target.selectionStart, end: e.target.selectionEnd })
               walk.current = null
-              if (tip !== 'hint') setTip('hint')
+              if (tip !== 'none') setTip('none')
               if (menu) setMenu(null)
+              if (!line) termRef.current?.scrollToBottom()
             }}
             onSelect={(e) => {
               const area = e.currentTarget
@@ -649,8 +809,8 @@ export function InputEditor({
           />
           <div
             ref={overlayRef}
-            className="input-editor-highlight rounded-md px-2 py-1.5"
-            style={{ fontFamily, fontSize }}
+            className="input-editor-highlight"
+            style={cellStyle}
             aria-hidden="true"
             data-testid="input-editor-highlight"
           >
@@ -658,6 +818,12 @@ export function InputEditor({
             {suggestion ? <span className="input-editor-ghost">{suggestion}</span> : null}
           </div>
         </div>
+        {vimEnabled ? (
+          <Badge variant="outline" className="input-editor-vim" aria-label={d.inputEditor.vimMode}>
+            {vimMode === 'normal' ? d.inputEditor.vimNormal : d.inputEditor.vimInsert}
+            {vimPending ? ` ${vimPending}` : ''}
+          </Badge>
+        ) : null}
       </div>
     </div>
   )

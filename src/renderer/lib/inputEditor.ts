@@ -23,6 +23,11 @@ export function inputHistory(
   return out
 }
 
+export function historyMatches(history: readonly string[], prefix: string): string[] {
+  if (!prefix) return [...history]
+  return history.filter((entry) => entry !== prefix && entry.startsWith(prefix))
+}
+
 export function caretOnFirstLine(text: string, caret: number): boolean {
   return !text.slice(0, caret).includes('\n')
 }

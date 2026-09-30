@@ -74,19 +74,23 @@ describe('shellIntegrationSpawnOptions', () => {
 
   describe('Pine prompt', () => {
     it('asks zsh and bash for the plain prompt through the environment only when enabled', () => {
-      expect(shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' }, '$').env).toMatchObject({
+      const split = { separator: '$' as const, sameLine: false }
+      const inline = { separator: 'none' as const, sameLine: true }
+      expect(shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' }, split).env).toMatchObject({
         PINE_PROMPT: 'pine',
         PINE_PROMPT_SEPARATOR: '$',
+        PINE_PROMPT_LINES: '2',
       })
-      expect(shellIntegrationSpawnOptions('/bin/bash', {}, 'none').env).toEqual({
+      expect(shellIntegrationSpawnOptions('/bin/bash', {}, inline).env).toEqual({
         PINE_PROMPT: 'pine',
         PINE_PROMPT_SEPARATOR: 'none',
+        PINE_PROMPT_LINES: '1',
       })
       expect(shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' }).env).not.toHaveProperty(
         'PINE_PROMPT',
       )
       expect(shellIntegrationSpawnOptions('/bin/bash', {}, null).env).toEqual({})
-      expect(shellIntegrationSpawnOptions('fish', {}, '$')).toEqual({ args: [], env: {} })
+      expect(shellIntegrationSpawnOptions('fish', {}, split)).toEqual({ args: [], env: {} })
     })
 
     const B_MARK = '\x1b]133;B\x1b\\'
@@ -116,6 +120,15 @@ describe('shellIntegrationSpawnOptions', () => {
           ].join('; '),
           env,
         ).stdout
+
+      it('puts the input on its own line under the cwd when the chips have their own row', () => {
+        expect(
+          prompt({ PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: '$', PINE_PROMPT_LINES: '2' }),
+        ).toBe(`1|%~\n$ %{${B_MARK}%}||`)
+        expect(
+          prompt({ PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: 'none', PINE_PROMPT_LINES: '2' }),
+        ).toBe(`1|%~\n%{${B_MARK}%}||`)
+      })
 
       it('replaces the prompt with the cwd and separator, clears RPROMPT and keeps the B mark', () => {
         expect(prompt({ PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: '%' })).toBe(
@@ -167,6 +180,12 @@ describe('shellIntegrationSpawnOptions', () => {
         expect(ps1({ PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: 'none' })).toBe(
           `|\\w ${BASH_B_MARK}|`,
         )
+      })
+
+      it('puts the input on its own line under the cwd when the chips have their own row', () => {
+        expect(
+          ps1({ PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: '>', PINE_PROMPT_LINES: '2' }),
+        ).toBe(`|\\w\\n> ${BASH_B_MARK}|`)
       })
 
       it('keeps the framework’s PS1 when the Pine prompt is off', () => {

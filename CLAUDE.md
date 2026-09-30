@@ -144,13 +144,23 @@ Details: `docs/ARCHITECTURE.md`.
   The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
   `insertCommand` too, and is shown only at an idle prompt on the normal buffer; anything
   running (or a TUI on the alternate screen) gets the keys straight through xterm. While it's
-  shown, `insertCommand` without Enter fills the editor instead of the shell line. Its command
+  shown, `insertCommand` without Enter fills the editor instead of the shell line, and keys,
+  pastes and clicks aimed at xterm go to the editor (`inputEditorFor`), so the shell line stays
+  empty under it. It sits in place over the shell's input line (placed from xterm's cursor,
+  `lib/promptOverlay.ts`), never takes layout space and never resizes the pty; it covers only
+  cells from the cursor on (the whole row for a same-line Pine prompt, plus the row above for
+  the chip row), never output. Keys it doesn't own (Ctrl+R, Ctrl+T, Alt+letter, Escape) hand
+  the draft to the shell line with a bracketed paste and then send the key (`handOffInput`), so
+  zle/readline widgets like fzf keep working; the editor steps aside until the next prompt.
+  To make room for a multi-line draft on the bottom row it scrolls xterm locally
+  (`scrollUpSequence`), keeping the cursor on the prompt. Its command
   list (`pty:commands`) answers only the pane's own window and returns names only: executables
   listed from the pane's PATH directories plus what the shell wrote to its main-chosen
   `PINE_SHELL_STATE` file. The renderer never names a directory or file for it.
   The Pine prompt (`terminal.prompt.style: 'pine'`) only changes what the editor draws and the
   prompt of shells spawned while it's on: main passes `PINE_PROMPT` in the spawn env and the
-  generated init sets a plain `cwd sep` prompt after the user's rc; never touch dotfiles, and
+  generated init sets a plain `cwd` + newline + `sep` prompt (one line `cwd sep` when
+  `sameLine`, `PINE_PROMPT_LINES`) after the user's rc; never touch dotfiles, and
   never rewrite the prompt of a shell that's already running. `pty:prompt-context` answers
   only the pane's own window and runs node only as `execFile(..., { shell: false })`, never
   from the shell's prompt hook. Chips without a value are hidden (the editor's preview shows
@@ -428,10 +438,11 @@ Details: `docs/ARCHITECTURE.md`.
   in Codex's shared app-server, hooks report to whichever pane started that server.
 - **Input editor suppression is keyed on the prompt's A marker** (`draft.promptLine`), never the
   draft object: zsh re-emits OSC 133;B on every prompt redraw (p10k async segments, WINCH), which
-  replaces the draft and would bring the editor back over a shell line the user already typed
-  into. Submitting or typing into the terminal suppresses the current A marker; the next prompt
-  lifts it. Keystrokes are counted with `term.onKey`, not `onData`, because `onData` also
-  carries xterm's replies to terminal queries (cursor position, device attributes).
+  replaces the draft and would bring the editor back over a shell line the user already handed
+  text to. Submitting or handing off suppresses the current A marker; the next prompt lifts it.
+  Place the editor from xterm's cursor, not the B mark: prompt frameworks (p10k) redraw
+  without it and Ctrl+L moves the prompt, while the cursor always sits at the input position of
+  an idle prompt whose line the editor keeps empty.
 - **The shell reports its PATH and command names through a file, never the terminal**
   (`__pine_report_shell` → `$PINE_SHELL_STATE`, read by `pty:commands` and
   `pty:prompt-context`; lines: PATH, `VIRTUAL_ENV`, `CONDA_DEFAULT_ENV`, `KUBECONFIG`, names),
@@ -441,6 +452,11 @@ Details: `docs/ARCHITECTURE.md`.
 - **The input editor's textarea text is transparent**; `.input-editor-highlight` draws the
   colored draft on top of it. Keep their font, padding, border width, line height, wrapping and
   scrollbar gutter identical, or the real caret and selection drift away from the drawn text.
+  Both use the terminal's cell height as line height and a letter spacing that matches xterm's
+  cell width, so the draft lines up with the grid it covers.
+- **The input editor's root is transparent.** Only `.input-editor-line` and
+  `.input-editor-chips` paint the terminal background; a background on the full-pane root hid
+  every line of output.
 - **OSC 7 is not percent-decoded**: hooks emit raw paths; decoding corrupts dirs like `100%20off`.
 - **Workspace restore is two files from two processes** (`workspaceSnapshot.ts`): the renderer
   autosaves `workspaces.json` as you work; main writes `scrollback.json` every 5 s when output

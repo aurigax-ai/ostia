@@ -209,7 +209,9 @@ describe('spawnPromptOption', () => {
   })
 
   it('asks for the plain shell prompt only for the Pine prompt in the input editor', () => {
-    expect(spawnPromptOption(settings('pine', 'editor'))).toEqual({ pinePrompt: '>' })
+    expect(spawnPromptOption(settings('pine', 'editor'))).toEqual({
+      pinePrompt: { separator: '>', sameLine: DEFAULT_PROMPT_SETTINGS.sameLine },
+    })
     expect(spawnPromptOption(settings('pine', 'terminal'))).toEqual({})
     expect(spawnPromptOption(settings('shell', 'editor'))).toEqual({})
   })

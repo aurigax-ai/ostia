@@ -34,7 +34,12 @@ export interface PtySpawnOptions {
   shell?: string
   role?: 'owner' | 'observer'
   sinceCursor?: number
-  pinePrompt?: PromptSeparator
+  pinePrompt?: PinePromptSpawn
+}
+
+export interface PinePromptSpawn {
+  separator: PromptSeparator
+  sameLine: boolean
 }
 
 export interface PromptContextRequest {
