@@ -1,7 +1,7 @@
 import type { AppSnapshot } from '@shared/types'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildSnapshot, restoreSnapshot } from './snapshot'
-import { createPane, resetIds, splitOf } from './tree'
+import { createPane, resetIds, setPaneView, splitOf } from './tree'
 import type { LayoutNode } from './types'
 
 beforeEach(() => resetIds())
@@ -197,6 +197,27 @@ describe('restoreSnapshot', () => {
     resetIds()
     restoreSnapshot(snapshot)
     expect(createPane().id).toBe('pane-4')
+  })
+
+  it('round-trips a view pane next to a pending agent resume', () => {
+    const agent = {
+      ...createPane('terminal', 'claude'),
+      resume: { agent: 'claude' as const, id: 'abc-1' },
+      resumePending: true as const,
+    }
+    const view = setPaneView(createPane(), 'pane-2', 'board', 'Board')
+    const root = splitOf('horizontal', agent, view)
+    const snapshot = build(root, agent.id)
+    const saved = snapshot.workspaces[0].root as { children: object[] }
+    expect(saved.children[1]).toEqual({
+      type: 'pane',
+      id: 'pane-2',
+      kind: 'view',
+      title: 'Board',
+      viewName: 'board',
+    })
+    expect(saved.children[0]).toMatchObject({ agentRunning: true })
+    expect(restoreSnapshot(snapshot).layouts.s1.root).toEqual(root)
   })
 
   it('deep-copies out of the snapshot so the store owns its own tree', () => {

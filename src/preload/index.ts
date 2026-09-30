@@ -52,6 +52,7 @@ import type {
   SyncStatus,
   WorkspaceProject,
 } from '../shared/types'
+import type { ViewListing } from '../shared/views'
 import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
 
 const bridge: PineBridge = {
@@ -375,6 +376,17 @@ const bridge: PineBridge = {
   },
   iconThemes: {
     load: (id) => ipcRenderer.invoke('iconThemes:load', id) as Promise<LoadedIconTheme | null>,
+  },
+  views: {
+    list: () => ipcRenderer.invoke('views:list') as Promise<ViewListing>,
+    setEnabled: (name, enabled) =>
+      ipcRenderer.invoke('views:set-enabled', name, enabled) as Promise<ViewListing>,
+    reveal: (name) => ipcRenderer.invoke('views:reveal', name) as Promise<boolean>,
+    onChanged: (cb) => {
+      const handler = (_e: unknown, listing: ViewListing): void => cb(listing)
+      ipcRenderer.on('views:changed', handler)
+      return () => ipcRenderer.removeListener('views:changed', handler)
+    },
   },
 }
 

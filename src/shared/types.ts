@@ -23,6 +23,7 @@ import type { IconThemesApi } from './iconTheme'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
+import type { ViewsApi } from './views'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
 import type { WorkspaceGroupColor } from './workspaceGroups'
 
@@ -202,7 +203,7 @@ export interface NotificationsApi {
   onActivate: (cb: (paneId: string) => void) => () => void
 }
 
-export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension'
+export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension' | 'view'
 
 export interface SnapshotPaneNode {
   type: 'pane'
@@ -213,6 +214,7 @@ export interface SnapshotPaneNode {
   filePath?: string
   url?: string
   extensionId?: string
+  viewName?: string
   resume?: AgentResume
   agentRunning?: true
 }
@@ -526,6 +528,7 @@ export interface PineBridge {
   completions: CompletionsApi
   assist: AssistApi
   iconThemes: IconThemesApi
+  views: ViewsApi
 }
 
 declare global {

@@ -35,6 +35,7 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   browser: 'localhost',
   extension: 'Extension',
   diff: 'Diff',
+  view: 'View',
 }
 
 export function createPane(kind: SurfaceKind = 'terminal', title?: string, cwd?: string): PaneNode {
@@ -180,6 +181,15 @@ export function setPaneExtension(
   }))
 }
 
+export function setPaneView(
+  root: LayoutNode,
+  paneId: string,
+  viewName: string,
+  title: string,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => ({ type: 'pane', id: p.id, kind: 'view', title, viewName }))
+}
+
 export function setPaneDiff(
   root: LayoutNode,
   paneId: string,
@@ -227,6 +237,10 @@ export function withoutKind(root: LayoutNode, kind: SurfaceKind): LayoutNode | n
 
 export function findExtensionPane(node: LayoutNode, extensionId: string): PaneNode | null {
   return allPanes(node).find((p) => p.kind === 'extension' && p.extensionId === extensionId) ?? null
+}
+
+export function findViewPane(node: LayoutNode, viewName: string): PaneNode | null {
+  return allPanes(node).find((p) => p.kind === 'view' && p.viewName === viewName) ?? null
 }
 
 export function findPane(node: LayoutNode, id: string): PaneNode | null {

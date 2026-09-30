@@ -11,7 +11,11 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 
 export const ACTION_COMMAND_PREFIX = 'action.'
 
-export function needsTrust(action: UserAction): boolean {
+export type CommandAction = Pick<UserAction, 'id' | 'title' | 'command' | 'args'> & {
+  origin?: string
+}
+
+export function needsTrust(action: Pick<UserAction, 'command'>): boolean {
   const desc = commands.describe().find((c) => c.id === action.command)
   if (!desc) return false
   return desc.capabilities.some((cap) => !DEFAULT_CAPABILITIES.includes(cap))
@@ -24,8 +28,15 @@ function paneContext(paneId: string | null): { cwd?: string; file?: string } {
   return { cwd: pane?.cwd, file: pane?.kind === 'editor' ? pane.filePath : undefined }
 }
 
-export async function runUserAction(action: UserAction, paneId: string | null): Promise<void> {
-  const args = fillArgs(action.args, paneContext(paneId))
+export function runUserAction(action: UserAction, paneId: string | null): Promise<void> {
+  return runCommandAction(action, paneId, fillArgs(action.args, paneContext(paneId)))
+}
+
+export async function runCommandAction(
+  action: CommandAction,
+  paneId: string | null,
+  args: Record<string, unknown> | undefined,
+): Promise<void> {
   if (!commands.has(action.command)) {
     notifyFailure(
       action,
@@ -49,7 +60,7 @@ export async function runUserAction(action: UserAction, paneId: string | null): 
   else if (paneId) requestAnimationFrame(() => focusSurface(paneId))
 }
 
-function notifyFailure(action: UserAction, paneId: string | null, message: string): void {
+function notifyFailure(action: CommandAction, paneId: string | null, message: string): void {
   if (!paneId) {
     console.error(`[actions] ${action.id}: ${message}`)
     return

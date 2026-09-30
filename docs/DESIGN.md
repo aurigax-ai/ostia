@@ -354,6 +354,16 @@ Attention, the second loud element, appears only when a pane needs you:
   above the line, or below it when the prompt is in the upper half. The vim badge sits at the
   right end of the line. It appears and disappears without animation (§8 Motion).
 
+- **Declarative views** (`DeclarativeView.tsx`): an agent's JSON is drawn only with these
+  components, so it can't look foreign. Sidebar views sit under the workspaces in `.rail-views`
+  (a `--line` rule above), each headed like `.rail-section` (`ui-xs`/500 uppercase `fg-muted`,
+  caret + icon, collapsible) with the body indented to the title; the rail uses `xs` buttons and
+  12px icons, a panel uses `sm` buttons and 14px icons on `surface-1`, max 760px wide. Tones map
+  to tokens only (`neutral` fg, `muted` fg-muted, `brand`, `ok`, `warn`/`error` attn-fg); icons
+  never take `brand`. Badges are outline, 16px high, tone-colored text and border. Progress is
+  the shadcn bar on a `surface-3` track. Problems (over budget, a broken file showing its last
+  good version) are one compact attention alert above the view, never a replaced view.
+
 Consolidation debt:
 - Primitives still missing: DropdownMenu.
 
