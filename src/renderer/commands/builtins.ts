@@ -41,6 +41,7 @@ interface PaneListEntry {
   kind: SurfaceKind
   title: string
   cwd?: string
+  filePath?: string
 }
 
 interface WorkspaceListEntry {
@@ -589,6 +590,7 @@ export function registerBuiltinCommands(): void {
             kind: pane.kind,
             title: pane.title,
             cwd: pane.cwd,
+            ...(pane.kind === 'editor' && pane.filePath ? { filePath: pane.filePath } : {}),
           })
         }
       }

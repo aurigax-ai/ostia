@@ -62,6 +62,7 @@ export interface PaneInfo {
   kind: string
   title: string
   cwd?: string
+  filePath?: string
   running: boolean
   blockCount: number
   lastExitCode?: number
@@ -309,6 +310,7 @@ function panelCaller(context: Record<string, unknown>): ExtensionCaller {
   if (typeof context.workspaceId === 'string' && context.workspaceId) {
     caller.workspaceId = context.workspaceId
   }
+  if (typeof context.locale === 'string' && context.locale) caller.locale = context.locale
   return caller
 }
 

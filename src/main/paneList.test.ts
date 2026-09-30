@@ -65,6 +65,25 @@ describe('paneList.listPanes', () => {
     expect(ptyPid).not.toHaveBeenCalledWith('p-pid-editor')
   })
 
+  it("passes a file view's filePath through so extensions can act on the open file", async () => {
+    const editor = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-file-editor' })
+    const execCommand = vi.fn().mockResolvedValue(
+      ok([
+        {
+          paneId: 'p-file-editor',
+          workspaceId: 's1',
+          kind: 'editor',
+          title: 'a.ts',
+          filePath: '/work/a.ts',
+        },
+      ]),
+    )
+
+    const panes = await listPanes({ execCommand, getTerminalState: vi.fn(), ptyPid: vi.fn() })
+
+    expect(panes[0]).toMatchObject({ paneId: editor.externalId, filePath: '/work/a.ts' })
+  })
+
   it('drops a pane with no registered external id', async () => {
     const execCommand = vi
       .fn()
