@@ -60,6 +60,7 @@ Package manager is **pnpm** only.
 | `pnpm package` | `build` + electron-builder → `dist/linux-unpacked/` | Producing an installable build |
 | `pnpm icons` | Render the app icon PNG set from `resources/icon.svg` (`rsvg-convert`) | After changing the icon SVG |
 | `pnpm install:local` | `package` + `scripts/install-linux.sh` → `~/.local/share/pine/app` + desktop launcher | Updating the user's installed app |
+| `pnpm bump <patch\|minor\|major>` | Raise `package.json` `version` (semver) | Before every `pnpm install:local` that ships changes: `patch` for fixes, `minor` for features. Commit it as `chore(release): vX.Y.Z` and tag `vX.Y.Z` |
 | `pnpm typecheck` | `tsc --noEmit` for renderer/shared, then main/preload/shared | **Before every commit** |
 | `pnpm lint` | Biome check + the no-comments check | **Before every commit** |
 | `pnpm format` | Biome format (`src`) | Before commit |
