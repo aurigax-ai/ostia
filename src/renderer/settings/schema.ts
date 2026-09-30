@@ -45,7 +45,18 @@ export const SETTINGS_JSON_SCHEMA = {
             'Default: system.',
         },
         ui: font('UI font'),
-        terminal: font('Terminal font'),
+        terminal: {
+          ...font('Terminal font'),
+          properties: {
+            ...font('Terminal font').properties,
+            lineHeight: {
+              type: 'number',
+              minimum: 1,
+              maximum: 2,
+              description: 'Terminal row height as a multiple of the font size. Default: 1.15.',
+            },
+          },
+        },
         editor: font('Editor font'),
       },
     },
@@ -63,6 +74,10 @@ export const SETTINGS_JSON_SCHEMA = {
           description: 'Terminal cursor shape.',
         },
         cursorBlink: { type: 'boolean', description: 'Blink the terminal cursor.' },
+        copyOnSelect: {
+          type: 'boolean',
+          description: 'Copy selected terminal text to the clipboard as soon as it is selected.',
+        },
         gpuAcceleration: {
           type: 'boolean',
           description:
@@ -83,6 +98,50 @@ export const SETTINGS_JSON_SCHEMA = {
             'Command for "Open in External Editor". "auto" picks the first of code, cursor, zed ' +
             'on PATH; empty turns it off. Placeholders: {file}, {line}, {column}, e.g. ' +
             '"code -g {file}:{line}:{column}". Runs the program directly, never through a shell.',
+        },
+      },
+    },
+    notifications: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        desktop: { type: 'boolean', description: 'Show system notification banners.' },
+        sound: { type: 'boolean', description: 'Play the system sound with each banner.' },
+        whenFocused: {
+          type: 'boolean',
+          description: 'Also show banners for the pane you are looking at while Pine is focused.',
+        },
+        agentWaiting: {
+          type: 'boolean',
+          description:
+            'Banner when an agent waits for your input or permission (pine state waiting).',
+        },
+        agentDone: {
+          type: 'boolean',
+          description: 'Banner when an agent finishes its turn (pine state done).',
+        },
+        commandFinished: {
+          type: 'boolean',
+          description: 'Banner when a long command finishes in a pane you are not watching.',
+        },
+      },
+    },
+    sidebar: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        showPath: { type: 'boolean', description: 'Show each workspace folder under its name.' },
+        showMessage: {
+          type: 'boolean',
+          description: 'Show the latest notification or running command under each workspace.',
+        },
+        showDescription: {
+          type: 'boolean',
+          description: 'Show custom workspace descriptions.',
+        },
+        showExtensionItems: {
+          type: 'boolean',
+          description: 'Show items extensions add to a workspace row (git branch, counts).',
         },
       },
     },

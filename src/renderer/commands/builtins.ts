@@ -1,7 +1,9 @@
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
+import { wantsDesktopBanner } from '@shared/notificationSettings'
 import type { AttentionState } from '@shared/types'
 import { type DropZone, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
+import { postAgentNotification } from '../lib/agentNotification'
 import {
   type BlockPart,
   copyBlock,
@@ -11,6 +13,7 @@ import {
 } from '../lib/blockActions'
 import {
   goToWorkspace,
+  isPaneViewed,
   jumpToLatestUnread,
   markWorkspaceRead,
   signalPane,
@@ -191,7 +194,11 @@ export function registerBuiltinCommands(): void {
     capabilities: ['drive-self'],
     run: ({ state, message }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
+      const seen = isPaneViewed(ctx.activePaneId)
       signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
+      if (state === 'waiting' || state === 'done') {
+        postAgentNotification(ctx.activePaneId, state, message, seen)
+      }
     },
   })
 
@@ -221,7 +228,7 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ message: string }>({
+  commands.register<{ message: string }, { desktop: boolean }>({
     id: 'attention.notify',
     title: 'Mark Pane Unread',
     category: 'Pane',
@@ -229,7 +236,11 @@ export function registerBuiltinCommands(): void {
     capabilities: ['notify'],
     run: ({ message }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
+      const seen = isPaneViewed(ctx.activePaneId)
       signalPane(ctx.activePaneId, { type: 'notify', message, waiting: false, at: Date.now() })
+      return {
+        desktop: wantsDesktopBanner(useSettingsStore.getState().notifications, 'message', seen),
+      }
     },
   })
 

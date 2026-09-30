@@ -244,6 +244,27 @@ describe('SettingsPanel', () => {
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
 
+  it('toggles notification kinds and sidebar details from their pages', async () => {
+    const setNotifications = vi
+      .spyOn(useSettingsStore.getState(), 'setNotifications')
+      .mockImplementation(() => {})
+    const setSidebar = vi
+      .spyOn(useSettingsStore.getState(), 'setSidebar')
+      .mockImplementation(() => {})
+    renderSettings()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Notifications' }))
+    await user.click(screen.getByRole('switch', { name: 'Agent finished' }))
+    expect(setNotifications).toHaveBeenCalledWith({ agentDone: false })
+    await user.click(screen.getByRole('switch', { name: 'Sound' }))
+    expect(setNotifications).toHaveBeenCalledWith({ sound: false })
+
+    await user.click(screen.getByRole('button', { name: 'Sidebar' }))
+    await user.click(screen.getByRole('switch', { name: 'Folder' }))
+    expect(setSidebar).toHaveBeenCalledWith({ showPath: false })
+  })
+
   it('exposes accessible names on its controls (a11y)', async () => {
     renderSettings()
     const user = userEvent.setup()
