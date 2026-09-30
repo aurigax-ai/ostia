@@ -47,6 +47,13 @@ const bridge: PineBridge = {
       ipcRenderer.on('window:maximized', handler)
       return () => ipcRenderer.removeListener('window:maximized', handler)
     },
+    onConfirmClose: (cb) => {
+      const handler = (_event: unknown, requestId: number): void => {
+        void cb().then((approved) => ipcRenderer.send('window:close-answer', requestId, approved))
+      }
+      ipcRenderer.on('window:confirm-close', handler)
+      return () => ipcRenderer.removeListener('window:confirm-close', handler)
+    },
   },
   pty: {
     attach: (paneId, opts) =>

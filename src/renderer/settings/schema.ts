@@ -155,6 +155,42 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    workspaces: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        placement: {
+          type: 'string',
+          enum: ['end', 'top', 'afterCurrent'],
+          description:
+            'Where a new workspace appears in the sidebar: "end" of the list, at the "top" ' +
+            '(below pinned workspaces), or right "afterCurrent". Default: end.',
+        },
+        inheritFolder: {
+          type: 'boolean',
+          description:
+            'Start a new workspace in the folder of the current workspace’s focused pane. ' +
+            'Falls back to defaultFolder. Default: false.',
+        },
+        defaultFolder: {
+          type: 'string',
+          description: 'Folder a new workspace starts in. "~" is your home folder. Default: ~.',
+        },
+        confirmClose: {
+          type: 'boolean',
+          description: 'Ask before closing a workspace that has a running command. Default: true.',
+        },
+        confirmQuit: {
+          type: 'boolean',
+          description:
+            'Ask before quitting or closing the window while commands are running. Default: true.',
+        },
+        wrapTitles: {
+          type: 'boolean',
+          description: 'Wrap long workspace titles onto up to two lines in the sidebar.',
+        },
+      },
+    },
     sync: {
       type: 'object',
       additionalProperties: false,

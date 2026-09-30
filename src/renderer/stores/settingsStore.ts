@@ -72,6 +72,45 @@ export interface Behavior {
   inputMode: InputMode
 }
 
+export type NewWorkspacePlacement = 'end' | 'top' | 'afterCurrent'
+
+export const NEW_WORKSPACE_PLACEMENTS: readonly NewWorkspacePlacement[] = [
+  'end',
+  'top',
+  'afterCurrent',
+]
+
+export interface WorkspaceSettings {
+  placement: NewWorkspacePlacement
+  inheritFolder: boolean
+  defaultFolder: string
+  confirmClose: boolean
+  confirmQuit: boolean
+  wrapTitles: boolean
+}
+
+export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
+  placement: 'end',
+  inheritFolder: false,
+  defaultFolder: '~',
+  confirmClose: true,
+  confirmQuit: true,
+  wrapTitles: false,
+}
+
+export function parseWorkspaceSettings(raw: unknown): WorkspaceSettings {
+  const base = DEFAULT_WORKSPACE_SETTINGS
+  if (!isPlainObject(raw)) return base
+  const folder = typeof raw.defaultFolder === 'string' ? raw.defaultFolder.trim() : ''
+  return {
+    ...pickBooleans(base, raw),
+    placement: NEW_WORKSPACE_PLACEMENTS.includes(raw.placement as NewWorkspacePlacement)
+      ? (raw.placement as NewWorkspacePlacement)
+      : base.placement,
+    defaultFolder: folder || base.defaultFolder,
+  }
+}
+
 export type FontSurface = 'ui' | 'terminal' | 'editor'
 
 export interface Capabilities {
@@ -88,6 +127,7 @@ interface Persisted {
   behavior: Behavior
   notifications: NotificationSettings
   sidebar: SidebarSettings
+  workspaces: WorkspaceSettings
   capabilities?: Capabilities
   sync?: SyncSettings
 }
@@ -98,6 +138,7 @@ const DATA_KEYS: readonly string[] = [
   'behavior',
   'notifications',
   'sidebar',
+  'workspaces',
 ]
 
 const kindOf = (v: unknown): string => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v)
@@ -125,6 +166,7 @@ const DEFAULTS: Persisted = {
   },
   notifications: DEFAULT_NOTIFICATION_SETTINGS,
   sidebar: { showPath: true, showMessage: true, showDescription: true, showExtensionItems: true },
+  workspaces: DEFAULT_WORKSPACE_SETTINGS,
 }
 
 interface SettingsState extends Persisted {
@@ -137,6 +179,7 @@ interface SettingsState extends Persisted {
   setNotifications: (patch: Partial<NotificationSettings>) => void
   setTerminalLineHeight: (lineHeight: number) => void
   setSidebar: (patch: Partial<SidebarSettings>) => void
+  setWorkspaces: (patch: Partial<WorkspaceSettings>) => void
   setByPath: (path: string, value: unknown) => void
   setSyncDir: (dir: string) => Promise<void>
 }
@@ -150,6 +193,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     behavior: s.behavior,
     notifications: s.notifications,
     sidebar: s.sidebar,
+    workspaces: s.workspaces,
     capabilities: s.capabilities,
     sync: s.sync,
   }
@@ -206,6 +250,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         },
         notifications: parseNotificationSettings(p.notifications),
         sidebar: pickBooleans(DEFAULTS.sidebar, p.sidebar),
+        workspaces: parseWorkspaceSettings(p.workspaces),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
         sync: syncOf(p.sync),
       })
@@ -251,6 +296,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((s) => ({ sidebar: { ...s.sidebar, ...patch } }))
     scheduleSave(get)
   },
+  setWorkspaces: (patch) => {
+    set((s) => ({ workspaces: { ...s.workspaces, ...patch } }))
+    scheduleSave(get)
+  },
   setSyncDir: async (dir) => {
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = null
@@ -272,6 +321,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       behavior: s.behavior,
       notifications: s.notifications,
       sidebar: s.sidebar,
+      workspaces: s.workspaces,
       capabilities: s.capabilities,
     })
     let cursor = root

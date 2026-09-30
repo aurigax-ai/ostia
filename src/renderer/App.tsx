@@ -1,6 +1,7 @@
 import { IconContext } from '@phosphor-icons/react'
 import { useEffect } from 'react'
 import { commands } from './commands/registry'
+import { CloseConfirmDialog } from './components/CloseConfirmDialog'
 import { CommandPalette } from './components/CommandPalette'
 import { DeckRail } from './components/DeckRail'
 import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
@@ -11,6 +12,7 @@ import { WindowControls } from './components/WindowControls'
 import { WorkZone } from './components/WorkZone'
 import { TooltipProvider } from './components/ui/tooltip'
 import { isAppChord, matchChord, workspaceDigit } from './lib/chords'
+import { confirmQuit } from './lib/closeConfirm'
 import { useMotionAttribute } from './lib/motion'
 import { useModifierHint } from './lib/useModifierHint'
 import { isMac } from './platform'
@@ -61,6 +63,8 @@ export function App(): JSX.Element {
 
   useModifierHint(isMac)
 
+  useEffect(() => window.pine.window.onConfirmClose(confirmQuit), [])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const chord = matchChord(e, isMac)
@@ -87,6 +91,7 @@ export function App(): JSX.Element {
           <WindowControls />
           <CommandPalette />
           <ExtensionApprovalDialog />
+          <CloseConfirmDialog />
           <HistorySearch />
         </div>
       </TooltipProvider>

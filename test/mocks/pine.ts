@@ -13,6 +13,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       close: vi.fn(),
       isMaximized: vi.fn().mockResolvedValue(false),
       onMaximizeChange: vi.fn(noopUnsub),
+      onConfirmClose: vi.fn(noopUnsub),
     },
     pty: {
       attach: vi.fn().mockResolvedValue({ created: true, buffer: '', cursor: 0, dropped: false }),

@@ -2,8 +2,9 @@ import type { AppSnapshot, WorkspaceLiveState } from '@shared/types'
 import { normalizeDescription } from '@shared/workspaceText'
 import { create } from 'zustand'
 import { restoreSnapshot } from '../layout/snapshot'
-import { moveBy, moveTo, setPinned } from '../lib/workspaceOrder'
+import { insertIndex, moveBy, moveTo, setPinned } from '../lib/workspaceOrder'
 import { useLayoutStore } from './layoutStore'
+import type { NewWorkspacePlacement } from './settingsStore'
 
 export type WorkspaceState = WorkspaceLiveState
 
@@ -24,7 +25,7 @@ interface WorkspacesState {
   workspaces: Workspace[]
   activeWorkspaceId: string | null
   setActive: (id: string) => void
-  addWorkspace: (workDir?: string) => void
+  addWorkspace: (workDir?: string, placement?: NewWorkspacePlacement) => void
   closeWorkspace: (id: string) => void
   setWorkDir: (id: string, workDir: string) => void
   rename: (id: string, name: string) => void
@@ -69,9 +70,15 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     window.pine?.lifecycle?.emit?.({ type: 'workspace-activated', workspaceId: id })
   },
 
-  addWorkspace: (workDir = '~') => {
+  addWorkspace: (workDir = '~', placement = 'end') => {
     const workspace = makeWorkspace(workDir)
-    set((s) => ({ workspaces: [...s.workspaces, workspace], activeWorkspaceId: workspace.id }))
+    set((s) => {
+      const at = insertIndex(s.workspaces, placement, s.activeWorkspaceId)
+      return {
+        workspaces: [...s.workspaces.slice(0, at), workspace, ...s.workspaces.slice(at)],
+        activeWorkspaceId: workspace.id,
+      }
+    })
     window.pine?.lifecycle?.emit?.({ type: 'workspace-added', workspaceId: workspace.id, workDir })
   },
 
