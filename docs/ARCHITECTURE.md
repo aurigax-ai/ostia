@@ -127,7 +127,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | terminal state | `terminalState.push` |
 | browser | `register`, `unregister`, `pickStart`, `pickCancel`, `pickSend`, `onPickState` (push channel `browser:pick-state`) |
 | selection | `selection.send({capture, image?, sourcePaneId, targetPaneId, note})` (IPC `selection:send`, §9) |
-| extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel`, `sidebarItems`, `onChanged`, `onSidebar`, `onOpenPanel`, `onOpenDiff` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:open-panel`, `extensions:open-diff`) |
+| extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel` (context may carry a `path`), `sidebarItems`, `paneChips`, `setSetting`, `onChanged`, `onSidebar`, `onPaneChips`, `onOpenPanel`, `onOpenDiff`, `onOpenTerminal` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:chips`, `extensions:open-panel`, `extensions:open-diff`, `extensions:open-terminal`) |
 | external editor | `externalEditor.open({template, file, line?, column?})` (IPC `editor:open-external`, §9) |
 | gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke`, `bind-options`, `set-cap` (IPC only) |
 | notifications | `list` (newest first), `post`, `clear`, `onChanged`, `onActivate` (push channels `notifications:changed`, `notifications:activate`) |
@@ -506,6 +506,15 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   `tabs` stack of panes with one shown (`activeId`). The pane header is a tab strip (one tab for
   a lone pane) with new terminal tab, new browser tab and split buttons; a tab's pane id is still
   the identity for its pty, attention and surface.
+  - Extension pane chips (`components/PaneChips.tsx`) sit between the attention message and the
+    Resume button as outline badges tinted by tone; a chip with a command is a button that
+    focuses the pane and runs `<extId>.<command>` from the palette registry, so the extension's
+    caller context names that pane. Other views read chips through `lib/paneChips.ts`:
+    `usePaneChips(paneId)` returns the pane's chips in catalog order with their titles, and
+    `usePaneChipCatalog()` lists every chip enabled extensions contribute
+    (`{extId, extName, id, title}`), both pure over `extensionsStore` (`chipsForPane`,
+    `paneChipCatalog`). Why a catalog: a view that lays chips out itself (a Warp-style prompt)
+    must know which chips exist before any has a value.
   - Splits (`insertBeside`) and edge drops target the tab stack's slot, not the pane inside it;
     a center drop moves the pane into the target's tabs (`addTab`). Why: splitting inside a tab
     would nest layouts in a tab, which nobody can see or navigate.
@@ -1282,7 +1291,16 @@ candidate. Roots: the built-in dir, then the user dir. The manifest is validated
 slug, known capabilities, `main` and file-panel paths must resolve inside the extension dir,
 anything with commands/sidebar items/url panel needs `main`). A broken manifest is logged and
 skipped without affecting the others. A user extension reusing a built-in id is rejected.
-Discovery runs once at startup.
+Discovery runs at startup and again whenever the user extensions directory changes
+(`watchUserExtensions`: `fs.watch` on the root and each of its subdirectories, 250 ms debounce,
+then `rescan`). A new id gets a fresh runtime (a user extension is `pending-approval`, so the
+approval dialog appears on its own); a removed or now-invalid one is stopped and dropped with its
+sidebar items and chips; a changed manifest (compared as JSON with its dir) is stopped and
+swapped in, and restarted after its old process exits if it was running. Why each subdirectory
+too: on Linux a watch on the root sees `mkdir hello` but not `hello/pine.json` being written, so
+an extension copied in file by file would stay invisible. Why approval still holds: `rescan`
+never touches `extensions.json`; granted caps stay manifest ∩ approved, so a manifest edited to
+ask for more gets nothing new until the human reviews it.
 
 **Approval** (`extensionStore.ts`, `userData/extensions.json`).
 - Granted caps = manifest `capabilities` ∩ the human's approved list. Built-ins are pre-approved
@@ -1303,6 +1321,20 @@ panes can call everything else including `ext.list` / `ext.invoke`. Why: pane me
 "self" from a pane id, and an extension has none; letting it through would make `command.exec`
 target whichever window happened to be first.
 
+**Targetable methods** (`registerTargetableMethod`: every `browse.*` in `browse.ts`, every
+`process.*`, `pane.setAttention`). An extension may call them only with `targetPaneId` (an
+external pane id); `controlServer` then requires the method's own capability **and**
+`all-workspaces` from the extension's granted caps, strips `targetPaneId`, and runs the handler
+with the target pane's identity as "self" (window, workspace, pane) while capability checks still
+use the extension's connection. A missing target is `needs-target`, a non-pane id
+`unknown-target`. Pane callers are unchanged. Why `all-workspaces`: an extension owns no pane, so
+every pane is "another" pane, and acting on another pane has always needed `all-workspaces`;
+reusing it keeps the capability model as it was and still needs the human's approval in the
+manifest. Why act as the target instead of adding extension variants: the handlers already
+resolve everything from "self", so the default browser pane, the process's workspace and the
+attention target all follow the pane the extension named. `browsePick.ts` is not targetable: pick
+waits on the human's click and pastes into an agent pane.
+
 **Processes** (`extensionHost.ts`).
 - `main` ending in `.js/.cjs/.mjs` runs with the app's Electron binary and
   `ELECTRON_RUN_AS_NODE=1` (like the `pine` CLI), anything else is executed directly; cwd is the
@@ -1319,14 +1351,20 @@ target whichever window happened to be first.
   stdout as JSON before the error line and exits 1. Why: `pine system install` must tell the agent
   `{approved: false, command}` and still fail.
 - On exit the identity is revoked, the server-side connection is disposed (which rejects any
-  in-flight request immediately rather than at the 30 s timeout), subscriptions and sidebar items
-  are dropped, and the process is restarted after 500 ms · 2ⁿ, at most 3 times; then the status
-  is `crashed` until the user disables and re-enables it.
+  in-flight request immediately rather than at the 30 s timeout), subscriptions, sidebar items
+  and pane chips are dropped, and the process is restarted after 500 ms · 2ⁿ, at most 3 times;
+  then the status is `crashed` until the user disables and re-enables it.
+- Stopping (disable, removal, a changed manifest) revokes the identity and disposes the
+  connection at once, before SIGTERM. Enabling it again while the old process is still exiting
+  marks it `restartAfterExit`, and `onExit` starts the new process. Why: until the exit event the
+  runtime still held the dying connection, so an invoke right after off → on was sent to it and
+  failed with "connection got disposed".
 - `before-quit` sends SIGTERM to every extension process.
 
 **Methods.** Extension → pine: `ext.registerCommands`, `ext.subscribe`, `ext.setSidebarItem`,
+`ext.setPaneChip`, `ext.clearPaneChip`, `ext.getSettings`,
 `ext.notify` (needs `notify`), `ext.openPanel`, `ext.openDiff`, `ext.confirm`, `ext.openTerminal`
-(needs `shell`), plus the shared
+(needs `shell`), the targetable pane methods above, plus the shared
 read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`). Pine → extension:
 `ext.command` and `ext.panel` requests, `ext.event` notifications. Pane → pine: `ext.list`,
 `ext.invoke`.
@@ -1362,9 +1400,30 @@ read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`
   default; it resolves `{confirmed}`. Why a dialog in main rather than in the panel: the action
   may come from the palette or an agent's `pine` call with no panel open, and a confirm the
   extension draws itself proves nothing about the human.
-- `ext.notify {…, openPanel: true}` (extensions with a panel) records the notification with the
-  extension's id (`NotificationEntry.extId`); clicking it, on the desktop or in the notification
-  center, opens that extension's panel instead of jumping to a pane.
+- `ext.notify {…, openPanel: true | path}` (extensions with a panel) records the notification
+  with the extension's id (`NotificationEntry.extId`); clicking it, on the desktop or in the
+  notification center, opens that extension's panel (at `path` if given) instead of jumping to a
+  pane.
+- Pane chips: `contributes.paneChips` declares up to 8 `{id, title}`; `ext.setPaneChip {paneId,
+  id, text, tooltip?, tone?, command?}` resolves the external pane id to the renderer pane id,
+  keys the value by (extension, pane, chip), clips text to 40 and tooltip to 200 characters, and
+  accepts `command` only if it is one of the extension's own palette commands. Empty text or
+  `ext.clearPaneChip` removes it; `pane-closed` (`clearPaneChips`) and the extension stopping
+  remove all of theirs. Main pushes the whole list on `extensions:chips`; the renderer keeps it in
+  `extensionsStore.chips`. Why no capability: a chip is display on a pane like a sidebar item on
+  a workspace, and it can only run a command the extension already offers in the palette, through
+  the palette path with the human's click.
+- Settings: `contributes.settings` maps keys to `{type: string|number|boolean|enum, default,
+  description, values?}` (32 max; the default must match the type). Main keeps the stored values
+  (`extensionSettings` in `settings.json`, read at start and again when sync pulls
+  `settings.json`), validates every change from Settings → Plugins (`extensions:set-setting`,
+  `null` resets a key), answers `ext.getSettings` with defaults + valid stored values, and sends
+  `ext.event {type: 'settings.changed', payload: {values}}` to a running extension when its values
+  change. The renderer persists what main returned (`setExtensionSettings`) with the rest of
+  `settings.json`. Why main validates while the renderer writes: the renderer owns the file (it
+  rewrites it whole), and an extension must never see a value its manifest didn't allow; stored
+  values of the wrong type fall back to the default instead of failing. `extensionSettings` is not
+  in the settings store's `DATA_KEYS`, so `pine settings set` can't change it.
 - Command caps declared in the manifest are checked against the caller before the process is
   even started. The extension receives the caller context (`kind`, external `paneId`,
   `workspaceId`, `workDir`, `capabilities`) and may enforce conditional rules itself (for example
@@ -1394,6 +1453,17 @@ node, sandbox, context isolation) plus: permission requests denied, `window.open
 renderer injects the theme into the guest as `--pine-*` custom properties (`lib/panelTheme.ts`).
 Why panels talk only to their own process: the guest has no `window.pine` and no token, so a
 compromised or buggy panel can do no more than its extension already can.
+
+Panel paths: `ext.openPanel {path}` and a notification with `openPanel: path` send the path to the
+renderer; `openExtensionPanel` focuses the extension's panel pane in that workspace (or opens it)
+and records `panelNav[paneId] = {path, seq}`. `ExtensionPanelView` re-resolves its source with
+the path and, if a page is already showing, keeps the webview and only changes its `src`, so the
+panel navigates instead of opening a second one. A path must start with one `/` and contain no
+whitespace, control characters or backslashes (`panelPath`). For a file panel main maps it into
+the extension dir (percent-decoded, query and hash kept); for a `url` panel it passes `path` to
+the process in `ext.panel` so the extension can build the URL with its own secret. Either way the
+result must pass `isAllowedPanelUrl` before it is returned. Why re-check in main: setting a
+webview's `src` does not fire `will-navigate`, so the attach-time check is the only other guard.
 
 **Git** (`src/extensions/git/`, the first built-in written for the API rather than migrated):
 - Sidebar: per workspace, the repo of the workspace's active pane cwd (else the last active
