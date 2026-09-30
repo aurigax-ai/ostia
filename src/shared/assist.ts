@@ -189,7 +189,15 @@ export interface ChatMessage {
   content: string
 }
 
-export const CHAT_CONTEXT_KINDS = ['output', 'selection', 'cwd', 'pane', 'error'] as const
+export const CHAT_CONTEXT_KINDS = [
+  'output',
+  'selection',
+  'cwd',
+  'pane',
+  'error',
+  'file',
+  'browser',
+] as const
 
 export type ChatContextKind = (typeof CHAT_CONTEXT_KINDS)[number]
 

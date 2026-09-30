@@ -38,3 +38,25 @@ export function setAssistFeature(id: AssistFeatureId, on: boolean): Promise<stri
   if (!ref) return Promise.resolve('unknown-feature')
   return useExtensionsStore.getState().setSetting(ref.extId, ref.feature.setting, on)
 }
+
+export function toggleAssistFeature(
+  extId: string,
+  feature: AssistFeatureState,
+): Promise<string | null> {
+  return useExtensionsStore.getState().setSetting(extId, feature.setting, !feature.on)
+}
+
+export function toggleCommandId(extId: string, feature: AssistFeatureState): string {
+  return `assist.toggle.${extId}.${feature.id}`
+}
+
+export function chatAvailable(): boolean {
+  const { availability, overview } = useAssistStore.getState()
+  return Boolean(availability.chat) && featureEnabled(findFeature(overview, 'chat'))
+}
+
+export function useChatAvailable(): boolean {
+  return useAssistStore(
+    (s) => Boolean(s.availability.chat) && featureEnabled(findFeature(s.overview, 'chat')),
+  )
+}

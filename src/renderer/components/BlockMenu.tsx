@@ -1,14 +1,15 @@
 import {
   ArrowClockwiseIcon,
   BookmarkSimpleIcon,
+  ChatCircleTextIcon,
   CopyIcon,
   PaperPlaneTiltIcon,
   SparkleIcon,
 } from '@phosphor-icons/react'
 import type { ReactElement } from 'react'
-import { useDict } from '../i18n/useDict'
-import { explainFailedBlock } from '../lib/askContext'
-import { featureEnabled, useAssistFeature } from '../lib/assistFeatureSwitch'
+import { fmt, useDict } from '../i18n/useDict'
+import { attachAndOpenChat, blockOutputContext, explainFailedBlock } from '../lib/askContext'
+import { featureEnabled, useAssistFeature, useChatAvailable } from '../lib/assistFeatures'
 import { copyBlock, rerunBlock } from '../lib/blockActions'
 import { isIdlePrompt } from '../lib/blocks'
 import { openSelectionSend } from '../lib/selectionSenders'
@@ -39,6 +40,10 @@ export function BlockMenu({
   })
   const chat = useAssistProvider('chat')
   const explainOn = featureEnabled(useAssistFeature('explainError'))
+  const askOn = useChatAvailable()
+  const hasOutput = useBlocksStore((s) =>
+    Boolean(s.byPane[paneId]?.find((b) => b.id === blockId)?.endLine),
+  )
   const select = (): void => useBlocksStore.getState().select(paneId, blockId)
 
   return (
@@ -70,6 +75,21 @@ export function BlockMenu({
         >
           {d.blocks.sendOutput}
         </MenuItem>
+        {askOn && hasOutput ? (
+          <MenuItem
+            icon={ChatCircleTextIcon}
+            onClick={() => {
+              const item = blockOutputContext(
+                paneId,
+                blockId,
+                fmt(d.chatActions.outputOf, { command: command ?? '' }),
+              )
+              if (item) attachAndOpenChat(item)
+            }}
+          >
+            {d.chatActions.askAboutOutput}
+          </MenuItem>
+        ) : null}
         {failed && chat && explainOn ? (
           <MenuItem
             icon={SparkleIcon}

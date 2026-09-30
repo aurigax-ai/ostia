@@ -154,7 +154,13 @@ Details: `docs/ARCHITECTURE.md`.
   the human wrote in the assist composer follows the report rule (`canInsertReference`, text
   only, never Enter); a command suggestion from the composer, the input editor's `# ` hint or
   Ask's "Insert at prompt" goes through `insertCommand` without Enter, only when the human
-  picks it. An assist suggestion never replaces a draft or runs anything on its own. Anything
+  picks it. An assist suggestion never replaces a draft or runs anything on its own. The chat
+  pane's code blocks and inline commands follow the same rules (`lib/chatActions.ts`): Insert at
+  prompt uses `insertCommand` without Enter at an idle prompt, Send to agent follows the report
+  rule, and Run in new terminal opens a new terminal tab in the workspace folder and runs the
+  block once at its first idle prompt (`runWhenIdle`), only after the human confirmed the exact
+  command (once per chat session; text with newlines or control characters always goes through
+  the risky-paste dialog). Anything
   else goes to the clipboard.
   The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
   `insertCommand` too, and is shown only at an idle prompt on the normal buffer; anything

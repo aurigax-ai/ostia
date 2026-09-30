@@ -10,7 +10,7 @@ import { lineReference } from '../lib/fileReference'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import { openDocument } from '../lsp/client'
-import { useAssistCompletionsAction } from '../monaco/assistAction'
+import { useAskSelectionAction, useAssistCompletionsAction } from '../monaco/assistAction'
 import { langFor } from '../monaco/language'
 import { monaco } from '../monaco/setup'
 import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
@@ -234,6 +234,7 @@ export function EditorView({
   const sendSelectionLabel = d.viewer.sendSelection
   const copyLinesLabel = d.fileMenu.copyLines
   useAssistCompletionsAction(editorRef)
+  useAskSelectionAction(editorRef, pathRef)
 
   useEffect(() => {
     const editor = editorRef.current

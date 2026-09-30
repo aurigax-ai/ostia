@@ -8,15 +8,19 @@ import {
   FolderSimpleIcon,
   type Icon,
   NotePencilIcon,
+  PencilSimpleIcon,
+  QuotesIcon,
   RecordIcon,
   SelectionIcon,
   TagIcon,
   TerminalWindowIcon,
   TextAlignLeftIcon,
+  TextTIcon,
+  TrashIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 import type { AssistProviderInfo, ChatContextItem } from '@shared/assist'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import type { Components } from 'react-markdown'
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
@@ -24,25 +28,38 @@ import {
   ASK_CONTEXT_ORDER,
   type AskContextKind,
   askContextOptions,
-  insertAtPrompt,
-  insertTarget,
   isShellLanguage,
 } from '../lib/askContext'
+import { insertInto, looksLikeCommand } from '../lib/chatActions'
+import { fileLinkOf, isWebUrl, rehypeFileLinks, wholeFileLink } from '../lib/chatLinks'
+import type { FileLinkTarget } from '../lib/chatLinks'
 import { openChatPane } from '../lib/chatPane'
 import { type PineChatMessage, decodeChatError, messageText } from '../lib/chatTransport'
+import { resolveLinkPath } from '../lib/fileLinks'
+import { openFileAt } from '../lib/openFile'
+import { openSidebarUrl } from '../lib/sidebarItems'
 import { useAssistProvider } from '../stores/assistStore'
-import { useBlocksStore } from '../stores/blocksStore'
 import {
   type ChatNotice,
   chatFor,
   chatKey,
   ensureSession,
   nameSession,
+  saveSession,
   startNewSession,
   useChatStore,
 } from '../stores/chatStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
+import {
+  type ChatActionNotice,
+  ChatCodeActions,
+  insertReason,
+  useCopied,
+  useTerminals,
+} from './ChatCodeActions'
+import { AttachmentChips, ChatContextPicker } from './ChatContextPicker'
 import { ChatSessions } from './ChatSessions'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
@@ -85,6 +102,8 @@ const CONTEXT_ICONS: Record<AskContextKind, Icon> = {
   pane: TagIcon,
 }
 
+const REHYPE_PLUGINS = [rehypeFileLinks]
+
 export type ChatVariant = 'pane' | 'palette'
 
 export interface ChatViewProps {
@@ -107,7 +126,21 @@ export function ChatView(props: ChatViewProps): JSX.Element | null {
   return <ChatSession key={sessionId} sessionId={sessionId} {...props} />
 }
 
-type Notice = 'inserted' | 'copiedInstead' | ChatNotice | null
+type Notice = ChatActionNotice | 'copiedMessage' | ChatNotice | null
+
+export function quoteText(text: string): string {
+  return `${text
+    .trim()
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n')}\n\n`
+}
+
+function focusAtEnd(area: HTMLTextAreaElement | null): void {
+  if (!area) return
+  area.focus()
+  area.setSelectionRange(area.value.length, area.value.length)
+}
 
 function ChatSession({
   sessionId,
@@ -118,14 +151,19 @@ function ChatSession({
   onInserted,
 }: ChatViewProps & { sessionId: string }): JSX.Element {
   const d = useDict()
+  const key = chatKey(workspaceId)
   const chat = useMemo(() => chatFor(sessionId), [sessionId])
-  const { messages, sendMessage, status, stop, regenerate, error, clearError } = useChat({ chat })
+  const { messages, sendMessage, setMessages, status, stop, regenerate, error, clearError } =
+    useChat({ chat })
   const provider = useAssistProvider('chat')
   const recording = useSettingsStore((s) => s.assistant.chatHistory)
   const sessionNotice = useChatStore((s) => s.notice[sessionId] ?? null)
-  const draftSeed = useChatStore((s) => s.drafts[chatKey(workspaceId)])
+  const draftSeed = useChatStore((s) => s.drafts[key])
+  const attachments = useChatStore((s) => s.attachments[key] ?? EMPTY_ATTACHMENTS)
   const [draft, setDraft] = useState(seed)
   const [notice, setNotice] = useState<Notice>(null)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
   const [stopped, setStopped] = useState<ReadonlySet<string>>(() => new Set())
   const labels = d.ask.context
   const [options, setOptions] = useState(() => askContextOptions(labels))
@@ -136,18 +174,20 @@ function ChatSession({
   const busy = status === 'submitted' || status === 'streaming'
 
   useEffect(() => {
-    const area = areaRef.current
-    if (!area) return
-    area.focus()
-    area.setSelectionRange(area.value.length, area.value.length)
+    focusAtEnd(areaRef.current)
+    const frame = requestAnimationFrame(() => {
+      const active = document.activeElement
+      if (!active || active === document.body) focusAtEnd(areaRef.current)
+    })
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   useEffect(() => {
     if (!draftSeed) return
     setDraft(draftSeed)
-    useChatStore.getState().takeDraft(chatKey(workspaceId))
-    areaRef.current?.focus()
-  }, [draftSeed, workspaceId])
+    useChatStore.getState().takeDraft(key)
+    requestAnimationFrame(() => focusAtEnd(areaRef.current))
+  }, [draftSeed, key])
 
   const toggle = (kind: AskContextKind): void =>
     setEnabled((prev) => {
@@ -164,26 +204,24 @@ function ChatSession({
     setOptions(fresh)
     const context = [
       ...extra,
+      ...attachments,
       ...ASK_CONTEXT_ORDER.filter((kind) => enabled.has(kind))
         .map((kind) => fresh[kind])
         .filter((item): item is ChatContextItem => item !== undefined),
     ]
+    if (editing) {
+      const at = messages.findIndex((m) => m.id === editing)
+      if (at >= 0) setMessages(messages.slice(0, at))
+      setEditing(null)
+    }
     setDraft('')
     setNotice(null)
     clearError()
+    useChatStore.getState().clearAttachments(key)
     nameSession(sessionId, question)
     void sendMessage({
       text: question,
       metadata: context.length > 0 ? { createdAt: Date.now(), context } : { createdAt: Date.now() },
-    })
-  }
-
-  const insert = (code: string): void => {
-    void insertAtPrompt(code, workspaceId).then((outcome) => {
-      if (outcome === 'inserted') {
-        setNotice('inserted')
-        onInserted?.()
-      } else setNotice('copiedInstead')
     })
   }
 
@@ -193,11 +231,43 @@ function ChatSession({
     void stop()
   }
 
+  const deleteMessage = (id: string): void => {
+    setMessages(messages.filter((m) => m.id !== id))
+    void saveSession(sessionId)
+  }
+
+  const startEdit = (message: PineChatMessage): void => {
+    setEditing(message.id)
+    setDraft(messageText(message))
+    requestAnimationFrame(() => focusAtEnd(areaRef.current))
+  }
+
+  const quote = (text: string): void => {
+    setDraft((prev) => `${quoteText(text)}${prev}`)
+    requestAnimationFrame(() => focusAtEnd(areaRef.current))
+  }
+
+  const markdown = useMemo(
+    () =>
+      markdownComponents({
+        workspaceId,
+        sessionId,
+        onNotice: setNotice,
+        onInserted,
+      }),
+    [workspaceId, sessionId, onInserted],
+  )
+
   const available = ASK_CONTEXT_ORDER.filter((kind) => options[kind])
   const last = messages[messages.length - 1]
   const waiting = busy && last?.role === 'user'
   const errorInfo = error ? decodeChatError(error.message) : null
   const shownNotice = notice ?? sessionNotice
+  const noticeText = shownNotice
+    ? ((d.chatActions.notices as Record<string, string>)[shownNotice] ??
+      (d.chat.notices as Record<string, string>)[shownNotice] ??
+      '')
+    : ''
 
   return (
     <div
@@ -241,10 +311,15 @@ function ChatSession({
               <ChatMessageRow
                 key={message.id}
                 message={message}
-                workspaceId={workspaceId}
+                components={markdown}
                 streaming={busy && message === last}
                 stopped={stopped.has(message.id)}
-                onInsert={insert}
+                editing={editing === message.id}
+                busy={busy}
+                onCopied={() => setNotice('copiedMessage')}
+                onQuote={quote}
+                onEdit={startEdit}
+                onDelete={deleteMessage}
                 onRegenerate={
                   message === last && message.role === 'assistant' && !busy
                     ? () => {
@@ -275,8 +350,17 @@ function ChatSession({
         <ConversationScrollButton label={d.chat.scrollDown} />
       </Conversation>
       <PromptInput className="border-line border-t p-2" onSubmit={(message) => ask(message.text)}>
-        {available.length > 0 ? (
-          <PromptInputHeader>
+        <PromptInputHeader>
+          <ChatContextPicker
+            workspaceId={workspaceId}
+            open={picking}
+            onOpenChange={(open) => {
+              setPicking(open)
+              if (!open) requestAnimationFrame(() => focusAtEnd(areaRef.current))
+            }}
+            onAttach={(item) => useChatStore.getState().attach(key, item)}
+          />
+          {available.length > 0 ? (
             <fieldset aria-label={d.ask.contextGroup} className="flex min-w-0 flex-wrap gap-1">
               {available.map((kind) => {
                 const IconFor = CONTEXT_ICONS[kind]
@@ -302,17 +386,38 @@ function ChatSession({
                 )
               })}
             </fieldset>
-          </PromptInputHeader>
-        ) : null}
+          ) : null}
+          <AttachmentChips
+            items={attachments}
+            onRemove={(index) => useChatStore.getState().detach(key, index)}
+          />
+        </PromptInputHeader>
         <PromptInputBody>
           <PromptInputTextarea
             ref={areaRef}
             value={draft}
             aria-label={d.ask.question}
             placeholder={d.ask.placeholder}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value
+              const caret = e.target.selectionStart
+              if (opensPicker(next, caret)) {
+                setDraft(next.slice(0, caret - 1) + next.slice(caret))
+                setPicking(true)
+                return
+              }
+              setDraft(next)
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') return
+              if (e.key === 'Escape') {
+                if (editing) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setEditing(null)
+                  setDraft('')
+                }
+                return
+              }
               e.stopPropagation()
               if (e.key === 'Backspace' && draft === '' && messages.length === 0 && onBack) {
                 e.preventDefault()
@@ -323,9 +428,27 @@ function ChatSession({
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
-            <p aria-live="polite" className="truncate px-1 text-fg-muted text-ui-xs empty:hidden">
-              {shownNotice ? d.chat.notices[shownNotice] : ''}
-            </p>
+            {editing ? (
+              <span className="flex min-w-0 items-center gap-1 px-1 text-fg-muted text-ui-xs">
+                <span className="truncate">{d.chatActions.editing}</span>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="xs"
+                  className="h-5 px-1 text-ui-xs"
+                  onClick={() => {
+                    setEditing(null)
+                    setDraft('')
+                  }}
+                >
+                  {d.chatActions.cancelEdit}
+                </Button>
+              </span>
+            ) : (
+              <p aria-live="polite" className="truncate px-1 text-fg-muted text-ui-xs empty:hidden">
+                {noticeText}
+              </p>
+            )}
           </PromptInputTools>
           <PromptInputSubmit
             status={status}
@@ -338,6 +461,14 @@ function ChatSession({
       </PromptInput>
     </div>
   )
+}
+
+const EMPTY_ATTACHMENTS: ChatContextItem[] = []
+
+export function opensPicker(text: string, caret: number): boolean {
+  if (caret < 1 || text[caret - 1] !== '@') return false
+  const before = caret >= 2 ? text[caret - 2] : ''
+  return before === '' || /\s/.test(before)
 }
 
 function ChatHeader({
@@ -419,56 +550,114 @@ function ChatHeader({
 
 function ChatMessageRow({
   message,
-  workspaceId,
+  components,
   streaming,
   stopped,
-  onInsert,
+  editing,
+  busy,
+  onCopied,
+  onQuote,
+  onEdit,
+  onDelete,
   onRegenerate,
 }: {
   message: PineChatMessage
-  workspaceId: string | null
+  components: Components
   streaming: boolean
   stopped: boolean
-  onInsert: (code: string) => void
+  editing: boolean
+  busy: boolean
+  onCopied: () => void
+  onQuote: (text: string) => void
+  onEdit: (message: PineChatMessage) => void
+  onDelete: (id: string) => void
   onRegenerate?: () => void
 }): JSX.Element {
   const d = useDict()
+  const t = d.chatActions
   const text = messageText(message)
-  const components = useMemo(
-    () => markdownComponents(onInsert, workspaceId),
-    [onInsert, workspaceId],
+  const contentRef = useRef<HTMLDivElement>(null)
+  const copyPlain = (): void => {
+    const plain = contentRef.current?.innerText ?? text
+    void navigator.clipboard?.writeText(plain.trim()).then(onCopied, () => undefined)
+  }
+  const common = (
+    <>
+      <CopyMessageAction text={text} label={t.copyMarkdown} />
+      <MessageAction tooltip={t.copyText} onClick={copyPlain}>
+        <TextTIcon />
+      </MessageAction>
+      <MessageAction tooltip={t.quote} onClick={() => onQuote(text)}>
+        <QuotesIcon />
+      </MessageAction>
+    </>
   )
   if (message.role === 'user') {
     const context = message.metadata?.context ?? []
     return (
-      <Message from="user" aria-label={d.ask.question}>
+      <Message
+        from="user"
+        aria-label={d.ask.question}
+        data-editing={editing || undefined}
+        className="chat-message"
+      >
         <MessageContent>
-          <p className="whitespace-pre-wrap text-fg text-ui-base">{text}</p>
+          <div ref={contentRef}>
+            <p className="whitespace-pre-wrap text-fg text-ui-base">{text}</p>
+          </div>
         </MessageContent>
         {context.length > 0 ? (
           <p className="px-2.5 text-fg-muted text-ui-xs">
             {fmt(d.ask.sentWith, { items: context.map((c) => c.label).join(', ') })}
           </p>
         ) : null}
+        <MessageActions className="chat-message-actions">
+          {common}
+          <MessageAction tooltip={t.edit} disabled={busy} onClick={() => onEdit(message)}>
+            <PencilSimpleIcon />
+          </MessageAction>
+          <MessageAction
+            tooltip={t.deleteMessage}
+            disabled={busy}
+            onClick={() => onDelete(message.id)}
+          >
+            <TrashIcon />
+          </MessageAction>
+        </MessageActions>
       </Message>
     )
   }
   return (
     <Message
       from="assistant"
-      className="ask-answer"
+      className="ask-answer chat-message"
       aria-label={d.ask.answer}
       aria-busy={streaming}
     >
       <MessageContent>
-        {text ? <MessageResponse components={components}>{text}</MessageResponse> : null}
+        {text ? (
+          <div ref={contentRef}>
+            <MessageResponse components={components} rehypePlugins={REHYPE_PLUGINS}>
+              {text}
+            </MessageResponse>
+          </div>
+        ) : null}
       </MessageContent>
       {stopped ? <p className="text-fg-muted text-ui-xs">{d.ask.stopped}</p> : null}
-      {onRegenerate ? (
-        <MessageActions>
-          {text ? <CopyAction text={text} /> : null}
-          <MessageAction tooltip={d.ask.regenerate} onClick={onRegenerate}>
-            <ArrowCounterClockwiseIcon />
+      {!streaming && text ? (
+        <MessageActions className="chat-message-actions">
+          {common}
+          {onRegenerate ? (
+            <MessageAction tooltip={d.ask.regenerate} onClick={onRegenerate}>
+              <ArrowCounterClockwiseIcon />
+            </MessageAction>
+          ) : null}
+          <MessageAction
+            tooltip={t.deleteMessage}
+            disabled={busy}
+            onClick={() => onDelete(message.id)}
+          >
+            <TrashIcon />
           </MessageAction>
         </MessageActions>
       ) : null}
@@ -476,12 +665,12 @@ function ChatMessageRow({
   )
 }
 
-function CopyAction({ text }: { text: string }): JSX.Element {
+function CopyMessageAction({ text, label }: { text: string; label: string }): JSX.Element {
   const d = useDict()
   const [copied, setCopied] = useCopied()
   return (
     <MessageAction
-      tooltip={copied ? d.ask.copied : d.ask.copy}
+      tooltip={copied ? d.ask.copied : label}
       onClick={() => {
         void navigator.clipboard?.writeText(text).then(setCopied, () => undefined)
       }}
@@ -489,16 +678,6 @@ function CopyAction({ text }: { text: string }): JSX.Element {
       {copied ? <CheckIcon /> : <CopyIcon />}
     </MessageAction>
   )
-}
-
-function useCopied(): [boolean, () => void] {
-  const [copied, setCopied] = useState(false)
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1500)
-    return () => clearTimeout(timer)
-  }, [copied])
-  return [copied, () => setCopied(true)]
 }
 
 interface HastLike {
@@ -522,12 +701,128 @@ export function codeLanguage(node: HastLike | undefined): string {
   return match ? match.slice('language-'.length) : ''
 }
 
-function markdownComponents(
-  onInsert: (code: string) => void,
-  workspaceId: string | null,
-): Components {
+interface MarkdownContext {
+  workspaceId: string | null
+  sessionId: string
+  onNotice: (notice: ChatActionNotice) => void
+  onInserted?: () => void
+}
+
+function workspaceRoot(workspaceId: string | null): string {
+  const { workspaces, activeWorkspaceId } = useWorkspacesStore.getState()
+  return workspaces.find((w) => w.id === (workspaceId ?? activeWorkspaceId))?.workDir ?? '~'
+}
+
+export function openFileLink(target: FileLinkTarget, workspaceId: string | null): void {
+  useUIStore.getState().closePalette()
+  openFileAt(resolveLinkPath(target.path, workspaceRoot(workspaceId)), target.line, target.column)
+}
+
+function FileLink({
+  target,
+  workspaceId,
+  children,
+}: {
+  target: FileLinkTarget
+  workspaceId: string | null
+  children: ReactNode
+}): JSX.Element {
+  const d = useDict()
+  return (
+    <button
+      type="button"
+      className="chat-file-link"
+      title={fmt(d.chatActions.openFile, { path: target.path })}
+      onClick={() => openFileLink(target, workspaceId)}
+    >
+      {children}
+    </button>
+  )
+}
+
+function InlineCommand({
+  command,
+  ctx,
+  children,
+}: {
+  command: string
+  ctx: MarkdownContext
+  children: ReactNode
+}): JSX.Element {
+  const d = useDict()
+  const terminals = useTerminals(ctx.workspaceId)
+  const reason = insertReason(d, terminals)
+  const target = terminals.find((t) => t.idle)
+  return (
+    <span className="chat-inline-command">
+      <code>{children}</code>
+      <IconButton
+        icon={TerminalWindowIcon}
+        label={reason ? `${d.ask.insert} (${reason})` : d.ask.insert}
+        aria-disabled={reason !== null}
+        className="chat-inline-insert aria-disabled:opacity-50"
+        onClick={() => {
+          if (!target) return
+          if (insertInto(target.paneId, command)) {
+            ctx.onNotice('inserted')
+            ctx.onInserted?.()
+          }
+        }}
+      />
+    </span>
+  )
+}
+
+function markdownComponents(ctx: MarkdownContext): Components {
   return {
-    a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
+    a: ({ node: _node, href, children, ...props }) => {
+      const file = fileLinkOf(props as Record<string, unknown>)
+      if (file) {
+        return (
+          <FileLink target={file} workspaceId={ctx.workspaceId}>
+            {children}
+          </FileLink>
+        )
+      }
+      if (isWebUrl(href)) {
+        return (
+          <a
+            href={href}
+            onClick={(e) => {
+              e.preventDefault()
+              useUIStore.getState().closePalette()
+              openSidebarUrl(ctx.workspaceId ?? undefined, href)
+            }}
+          >
+            {children}
+          </a>
+        )
+      }
+      return <span>{children}</span>
+    },
+    code: ({ node: _node, children, className, ...props }) => {
+      const text = typeof children === 'string' ? children : ''
+      const file = text ? wholeFileLink(text) : null
+      if (file) {
+        return (
+          <FileLink target={file} workspaceId={ctx.workspaceId}>
+            <code>{children}</code>
+          </FileLink>
+        )
+      }
+      if (text && looksLikeCommand(text)) {
+        return (
+          <InlineCommand command={text} ctx={ctx}>
+            {children}
+          </InlineCommand>
+        )
+      }
+      return (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      )
+    },
     table: ({ node: _node, ...props }) => (
       <div className="typeset-scroll">
         <table {...props} />
@@ -543,69 +838,20 @@ function markdownComponents(
             <CodeBlockTitle className="font-mono text-fg-muted text-ui-xs">
               {language}
             </CodeBlockTitle>
-            <CodeBlockActions>
-              <CodeCopy code={code} />
-              {isShellLanguage(language) ? (
-                <InsertButton code={code} workspaceId={workspaceId} onInsert={onInsert} />
-              ) : null}
+            <CodeBlockActions className="code-block-actions">
+              <ChatCodeActions
+                code={code}
+                language={language}
+                shell={isShellLanguage(language)}
+                sessionId={ctx.sessionId}
+                workspaceId={ctx.workspaceId}
+                onNotice={ctx.onNotice}
+                onInserted={ctx.onInserted}
+              />
             </CodeBlockActions>
           </CodeBlockHeader>
         </CodeBlock>
       )
     },
   }
-}
-
-function CodeCopy({ code }: { code: string }): JSX.Element {
-  const d = useDict()
-  const [copied, setCopied] = useCopied()
-  return (
-    <IconButton
-      icon={copied ? CheckIcon : CopyIcon}
-      label={copied ? d.ask.copied : d.ask.copy}
-      onClick={() => {
-        void navigator.clipboard?.writeText(code).then(setCopied, () => undefined)
-      }}
-    />
-  )
-}
-
-function InsertButton({
-  code,
-  workspaceId,
-  onInsert,
-}: {
-  code: string
-  workspaceId: string | null
-  onInsert: (code: string) => void
-}): JSX.Element {
-  const d = useDict()
-  const reason = useBlocksStore((s): string | null => {
-    const target = insertTarget(workspaceId, s)
-    if (!target) return d.chat.insertNoTerminal
-    return target.idle ? null : d.chat.insertBusy
-  })
-  const reasonId = useId()
-  const button = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="xs"
-      aria-disabled={reason !== null}
-      aria-describedby={reason ? reasonId : undefined}
-      className="aria-disabled:opacity-50"
-      onClick={() => {
-        if (reason === null) onInsert(code)
-      }}
-    >
-      <TerminalWindowIcon />
-      {d.ask.insert}
-      {reason ? (
-        <span id={reasonId} className="sr-only">
-          {reason}
-        </span>
-      ) : null}
-    </Button>
-  )
-  return reason ? <Hint label={reason}>{button}</Hint> : button
 }

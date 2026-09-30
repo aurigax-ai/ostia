@@ -4,6 +4,7 @@ import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, firstPaneOfKind } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
+import { useChatAvailable } from '../lib/assistFeatures'
 import { chordLabel } from '../lib/chords'
 import { PALETTE_MODES, type PaletteMode, paletteMode } from '../lib/paletteModes'
 import { revealPane } from '../lib/workspaceActivity'
@@ -42,7 +43,8 @@ export function CommandPalette(): JSX.Element {
   const open = useUIStore((s) => s.paletteOpen)
   const close = useUIStore((s) => s.closePalette)
   const openMode = useUIStore((s) => s.paletteMode)
-  const chat = useAssistProvider('chat')
+  const provider = useAssistProvider('chat')
+  const chat = useChatAvailable() ? provider : null
   const [search, setSearch] = useState('')
   const [asking, setAsking] = useState<ArgumentCommand | null>(null)
   const [askSeed, setAskSeed] = useState('')

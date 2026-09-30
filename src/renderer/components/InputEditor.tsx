@@ -15,7 +15,7 @@ import {
 } from 'react'
 import { useDict } from '../i18n/useDict'
 import { latestRequest, naturalCommandQuery } from '../lib/assistComposer'
-import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatureSwitch'
+import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatures'
 import { matchChord } from '../lib/chords'
 import {
   type CompletionItem,

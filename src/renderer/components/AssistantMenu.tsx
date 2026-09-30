@@ -9,7 +9,7 @@ import type { AssistExtensionState, AssistFeatureState } from '@shared/assist'
 import { useState, useSyncExternalStore } from 'react'
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
-import { toggleAssistFeature } from '../lib/assistToggle'
+import { toggleAssistFeature, useChatAvailable } from '../lib/assistFeatures'
 import { openChatPane } from '../lib/chatPane'
 import { useChordLabel } from '../lib/chords'
 import { isMac } from '../platform'
@@ -38,7 +38,7 @@ export function AssistantMenu(): JSX.Element | null {
   const d = useDict()
   const visible = useAssistMenuVisible()
   const overview = useAssistStore((s) => s.overview)
-  const chatReady = useAssistStore((s) => Boolean(s.availability.chat))
+  const chatReady = useChatAvailable()
   const chatKeys = useChordLabel('assist.chat', isMac)
   const [open, setOpen] = useState(false)
   if (!visible) return null

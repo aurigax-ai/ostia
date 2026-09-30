@@ -43,7 +43,14 @@ describe('BlockMenu', () => {
 
   afterEach(() => {
     resetChats()
-    useChatStore.setState({ current: {}, meta: {}, summaries: [], notice: {}, drafts: {} })
+    useChatStore.setState({
+      current: {},
+      meta: {},
+      summaries: [],
+      notice: {},
+      drafts: {},
+      attachments: {},
+    })
     useLayoutStore.setState({ byWorkspace: {} })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useAssistStore.setState({ availability: {} })
@@ -114,6 +121,51 @@ describe('BlockMenu', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Save as workflow…' }))
 
     expect(useWorkflowsStore.getState().saveCommand).toBe('make build')
+  })
+
+  it('opens the chat pane with the block output attached, without sending it', async () => {
+    useAssistStore.setState({ availability: { chat: { extId: 'assistant', name: 'Assistant' } } })
+    const pane = createPane('terminal', 'zsh', '/w')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 'ws1', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+      activeWorkspaceId: 'ws1',
+    } as never)
+    useLayoutStore.setState({
+      byWorkspace: { ws1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    renderMenu()
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
+
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Ask assistant about this output' }),
+    )
+
+    const root = useLayoutStore.getState().byWorkspace.ws1?.root
+    expect(root && firstPaneOfKind(root, 'chat')).not.toBeNull()
+    expect(useChatStore.getState().attachments.ws1).toEqual([
+      { kind: 'output', label: 'Output of make build', text: 'make build' },
+    ])
+    expect(window.pine.assist.request).not.toHaveBeenCalled()
+  })
+
+  it('does not offer asking about output while the chat feature is off', async () => {
+    useAssistStore.setState({
+      availability: { chat: { extId: 'assistant', name: 'Assistant' } },
+      overview: [
+        {
+          extId: 'assistant',
+          name: 'Assistant',
+          setup: null,
+          features: [{ id: 'chat', setting: 'chat', on: false, ready: true }],
+        },
+      ],
+    })
+    renderMenu()
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
+
+    expect(await screen.findByRole('menuitem', { name: 'Copy output' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Ask assistant about this output' })).toBeNull()
+    useAssistStore.setState({ overview: [] })
   })
 
   describe('Explain error', () => {

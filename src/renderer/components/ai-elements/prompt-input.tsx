@@ -16,7 +16,7 @@ import type {
   MouseEvent,
   ReactNode,
 } from 'react'
-import { Children, useCallback, useState } from 'react'
+import { Children, forwardRef, useCallback, useState } from 'react'
 
 export interface PromptInputMessage {
   text: string
@@ -46,41 +46,40 @@ export const PromptInputBody = ({ className, ...props }: PromptInputBodyProps) =
   <div className={cn('contents', className)} {...props} />
 )
 
-export type PromptInputTextareaProps = ComponentProps<typeof InputGroupTextarea>
+export type PromptInputTextareaProps = Omit<ComponentProps<typeof InputGroupTextarea>, 'ref'>
 
-export const PromptInputTextarea = ({
-  onKeyDown,
-  className,
-  ...props
-}: PromptInputTextareaProps) => {
-  const [isComposing, setIsComposing] = useState(false)
+export const PromptInputTextarea = forwardRef<HTMLTextAreaElement, PromptInputTextareaProps>(
+  function PromptInputTextarea({ onKeyDown, className, ...props }, ref) {
+    const [isComposing, setIsComposing] = useState(false)
 
-  const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
-    (e) => {
-      onKeyDown?.(e)
-      if (e.defaultPrevented) return
-      if (e.key !== 'Enter' || e.shiftKey) return
-      if (isComposing || e.nativeEvent.isComposing) return
-      e.preventDefault()
-      const { form } = e.currentTarget
-      const submit = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null
-      if (submit?.disabled) return
-      form?.requestSubmit()
-    },
-    [onKeyDown, isComposing],
-  )
+    const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
+      (e) => {
+        onKeyDown?.(e)
+        if (e.defaultPrevented) return
+        if (e.key !== 'Enter' || e.shiftKey) return
+        if (isComposing || e.nativeEvent.isComposing) return
+        e.preventDefault()
+        const { form } = e.currentTarget
+        const submit = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null
+        if (submit?.disabled) return
+        form?.requestSubmit()
+      },
+      [onKeyDown, isComposing],
+    )
 
-  return (
-    <InputGroupTextarea
-      className={cn('field-sizing-content max-h-48 min-h-10', className)}
-      name="message"
-      onCompositionEnd={() => setIsComposing(false)}
-      onCompositionStart={() => setIsComposing(true)}
-      onKeyDown={handleKeyDown}
-      {...props}
-    />
-  )
-}
+    return (
+      <InputGroupTextarea
+        ref={ref}
+        className={cn('field-sizing-content max-h-48 min-h-10', className)}
+        name="message"
+        onCompositionEnd={() => setIsComposing(false)}
+        onCompositionStart={() => setIsComposing(true)}
+        onKeyDown={handleKeyDown}
+        {...props}
+      />
+    )
+  },
+)
 
 export type PromptInputHeaderProps = Omit<ComponentProps<typeof InputGroupAddon>, 'align'>
 
