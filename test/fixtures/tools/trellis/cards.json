@@ -12,9 +12,7 @@
       "ref": "DEMO-1",
       "column": "review",
       "priority": "normal",
-      "tags": [
-        "stage-1"
-      ]
+      "tags": ["stage-1"]
     },
     {
       "id": "01a0d590-56cd-75a4-9a47-3a7a1f5e128a",
@@ -26,9 +24,7 @@
       "ref": "DEMO-2",
       "column": "backlog",
       "priority": "high",
-      "tags": [
-        "stage-1"
-      ]
+      "tags": ["stage-1"]
     },
     {
       "id": "01a0a1b8-5db8-76ea-a519-2ab6ac1832db",
@@ -51,9 +47,7 @@
       "ref": "DEMO-4",
       "column": "done",
       "priority": "urgent",
-      "tags": [
-        "decision"
-      ]
+      "tags": ["decision"]
     },
     {
       "id": "01a0ac6b-bb44-7b7c-8f36-20a3f5a6ed7c",
@@ -65,10 +59,7 @@
       "ref": "DEMO-5",
       "column": "done",
       "priority": "high",
-      "tags": [
-        "parity",
-        "web-ui"
-      ]
+      "tags": ["parity", "web-ui"]
     },
     {
       "id": "01a0ca19-8388-70eb-b2fe-9b1128755ba7",

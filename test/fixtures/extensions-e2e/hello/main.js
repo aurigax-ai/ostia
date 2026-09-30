@@ -12,7 +12,8 @@ const conn = createMessageConnection(
 )
 
 conn.onRequest('ext.command', async ({ command, args, caller }) => {
-  if (command === 'open') return conn.sendRequest('ext.openPanel', { workspaceId: caller.workspaceId })
+  if (command === 'open')
+    return conn.sendRequest('ext.openPanel', { workspaceId: caller.workspaceId })
   if (command === 'greet') {
     const name = args?.argv?.[0]
     if (!name) return { ok: false, error: 'invalid-args', message: 'greet <name>' }
@@ -34,7 +35,10 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
     })
   }
   if (command === 'card') {
-    return conn.sendRequest('ext.openPanel', { workspaceId: caller.workspaceId, path: '/card.html' })
+    return conn.sendRequest('ext.openPanel', {
+      workspaceId: caller.workspaceId,
+      path: '/card.html',
+    })
   }
   return { ok: false, error: 'unknown' }
 })

@@ -10,6 +10,7 @@ import {
   HardDrivesIcon,
   type Icon as IconComponent,
   InfoIcon,
+  KeyIcon,
   KeyboardIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
@@ -72,6 +73,7 @@ import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
+import { PasswordsSection } from './PasswordsSection'
 import { activeTerminalPaneId } from './PromptEditorDialog'
 import { SyncSection } from './SyncSection'
 import { WorkspacesSection } from './WorkspacesSection'
@@ -96,6 +98,7 @@ type SectionId =
   | 'agents'
   | 'files'
   | 'browser'
+  | 'passwords'
   | 'editor'
   | 'plugins'
   | 'languageServers'
@@ -141,6 +144,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'agents', icon: RobotIcon, label: d.settings.agents },
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
+        { id: 'passwords', icon: KeyIcon, label: d.passwords.title },
         { id: 'editor', icon: CodeIcon, label: d.editorSettings.title },
         { id: 'plugins', icon: StackIcon, label: d.settings.plugins },
         { id: 'languageServers', icon: HardDrivesIcon, label: d.settings.languageServers },
@@ -224,6 +228,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'agents' ? <AgentsSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'browser' ? <BrowserSettingsSection /> : null}
+            {active === 'passwords' ? <PasswordsSection /> : null}
             {active === 'editor' ? <EditorSettingsSection /> : null}
             {active === 'plugins' ? <PluginsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}

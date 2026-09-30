@@ -43,6 +43,7 @@ import { dropIdentity } from './capabilityStore'
 import { confirmAllWindowsClose, confirmWindowClose, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
+import { registerCredentials } from './credentials'
 import { registerDocsMethods } from './docs'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
@@ -974,6 +975,7 @@ app.whenReady().then(() => {
   registerFsIpc()
   registerSelectionIpc()
   registerApprovals()
+  registerCredentials()
   registerLspIpc()
   const notifyDeps = {
     execCommand,

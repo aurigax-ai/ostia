@@ -14,7 +14,13 @@
       { "id": "diff", "title": "Open a diff", "palette": false },
       { "id": "workspaces", "title": "List workspaces", "palette": false },
       { "id": "crash", "title": "Exit the process", "palette": false },
-      { "id": "stdin", "title": "Print stdin back", "usage": "stdin", "palette": false, "stdin": true },
+      {
+        "id": "stdin",
+        "title": "Print stdin back",
+        "usage": "stdin",
+        "palette": false,
+        "stdin": true
+      },
       { "id": "chip", "title": "Set a pane chip", "palette": false },
       { "id": "unchip", "title": "Clear a pane chip", "palette": false },
       { "id": "settings", "title": "Read settings", "palette": false },

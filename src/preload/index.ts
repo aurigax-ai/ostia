@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { ApprovalState } from '../shared/approvals'
 import type { SpecCommand } from '../shared/completionSpec'
 import type {
+  CredentialImportResult,
+  CredentialSaveResult,
+  CredentialSummary,
+} from '../shared/credentials'
+import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
@@ -169,6 +174,13 @@ const bridge: PineBridge = {
       ipcRenderer.on('browser:pick-state', handler)
       return () => ipcRenderer.removeListener('browser:pick-state', handler)
     },
+  },
+  credentials: {
+    list: () => ipcRenderer.invoke('credentials:list') as Promise<CredentialSummary[]>,
+    save: (input) => ipcRenderer.invoke('credentials:save', input) as Promise<CredentialSaveResult>,
+    remove: (id) => ipcRenderer.invoke('credentials:remove', id) as Promise<boolean>,
+    copyPassword: (id) => ipcRenderer.invoke('credentials:copy-password', id) as Promise<boolean>,
+    import: () => ipcRenderer.invoke('credentials:import') as Promise<CredentialImportResult>,
   },
   approvals: {
     state: () => ipcRenderer.invoke('approvals:state') as Promise<ApprovalState>,

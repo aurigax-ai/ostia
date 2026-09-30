@@ -1,1 +1,9 @@
-{"board":{"name":"shop","slug":"shop","is_default":true},"columns":[],"created":true,"marker_path":"/home/user/shop/.trellis","marker_written":true,"notes":[],"project":{"key":"SHOP","name":"SHOP","description":""}}
+{
+  "board": { "name": "shop", "slug": "shop", "is_default": true },
+  "columns": [],
+  "created": true,
+  "marker_path": "/home/user/shop/.trellis",
+  "marker_written": true,
+  "notes": [],
+  "project": { "key": "SHOP", "name": "SHOP", "description": "" }
+}

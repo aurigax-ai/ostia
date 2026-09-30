@@ -1,1 +1,5 @@
-{"running":false,"managed_by":"none","service":{"installed":false,"enabled":false,"running":false,"managed_by":"none"}}
+{
+  "running": false,
+  "managed_by": "none",
+  "service": { "installed": false, "enabled": false, "running": false, "managed_by": "none" }
+}

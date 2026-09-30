@@ -363,6 +363,11 @@ Details: `docs/ARCHITECTURE.md`.
   and every pulse stops (ring ×2, waiting dot ×3); only the `working` dot breathes forever.
   Reduced motion (`appearance.motion`, `prefers-reduced-motion`) collapses motion but never hides
   state. Details: `docs/DESIGN.md` §8.
+- **Saved passwords never leave main in plaintext** (`main/credentials.ts`). They're stored
+  encrypted with `safeStorage` in the data dir (never synced), keyed by exact origin
+  (`normalizeOrigin`, http/https only), and the renderer only ever gets summaries (origin,
+  username); "copy" writes the clipboard from main. No socket method or CLI verb returns a
+  password; filling a page happens in main.
 - **User actions are data, and elevated ones ask once.** `actions` in `settings.json` name a
   palette command + args (`parseActions`), never a shell string; agents may add them. Running
   one whose command needs a non-default capability shows the command and args and waits

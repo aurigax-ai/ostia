@@ -1,1 +1,7 @@
-{"error":{"code":"project_not_found","message":"no project NOPE","fix":"trellis card ls --all-projects   # known: ALPHA, DEMO"}}
+{
+  "error": {
+    "code": "project_not_found",
+    "message": "no project NOPE",
+    "fix": "trellis card ls --all-projects   # known: ALPHA, DEMO"
+  }
+}
