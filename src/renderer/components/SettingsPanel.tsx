@@ -15,6 +15,7 @@ import {
   MagnifyingGlassIcon,
   PaletteIcon,
   RobotIcon,
+  ShieldCheckIcon,
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
   SquaresFourIcon,
@@ -65,6 +66,7 @@ import {
   useSettingsStore,
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ActionsSection } from './ActionsSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
@@ -75,7 +77,9 @@ import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
 import { PasswordsSection } from './PasswordsSection'
 import { activeTerminalPaneId } from './PromptEditorDialog'
+import { SandboxSection } from './SandboxSection'
 import { SyncSection } from './SyncSection'
+import { WorkspaceSandboxPage } from './WorkspaceSandboxPage'
 import { WorkspacesSection } from './WorkspacesSection'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
@@ -106,6 +110,8 @@ type SectionId =
   | 'sync'
   | 'language'
   | 'about'
+  | 'sandbox'
+  | 'workspace'
 
 export function SettingsPanel(): JSX.Element | null {
   const d = useDict()
@@ -113,6 +119,15 @@ export function SettingsPanel(): JSX.Element | null {
   const close = useUIStore((s) => s.leaveSettings)
   const [active, setActive] = useState<SectionId>('appearance')
   const [query, setQuery] = useState('')
+  const settingsWorkspaceId = useUIStore((s) => s.settingsWorkspaceId)
+  const settingsRequest = useUIStore((s) => s.settingsRequest)
+  const targetWorkspace = useWorkspacesStore((s) =>
+    s.workspaces.find((w) => w.id === settingsWorkspaceId),
+  )
+
+  useEffect(() => {
+    if (settingsRequest > 0) setActive('workspace')
+  }, [settingsRequest])
   const navRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -141,6 +156,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'notifications', icon: BellIcon, label: d.settings.notifications },
         { id: 'sidebar', icon: SidebarSimpleIcon, label: d.settings.sidebar },
         { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
+        { id: 'sandbox', icon: ShieldCheckIcon, label: d.sandbox.title },
         { id: 'agents', icon: RobotIcon, label: d.settings.agents },
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
@@ -165,7 +181,13 @@ export function SettingsPanel(): JSX.Element | null {
   if (!open) return null
 
   const q = query.trim().toLowerCase()
-  const visible = q ? sections.filter((s) => s.label.toLowerCase().includes(q)) : sections
+  const workspaceLabel = targetWorkspace
+    ? fmt(d.sandbox.workspacePage, { name: targetWorkspace.customName ?? targetWorkspace.name })
+    : null
+  const all = workspaceLabel
+    ? [...sections, { id: 'workspace' as const, icon: SquaresFourIcon, label: workspaceLabel }]
+    : sections
+  const visible = q ? all.filter((s) => s.label.toLowerCase().includes(q)) : all
 
   return (
     <section
@@ -225,6 +247,14 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'notifications' ? <NotificationsSection /> : null}
             {active === 'sidebar' ? <SidebarSection /> : null}
             {active === 'workspaces' ? <WorkspacesSection /> : null}
+            {active === 'sandbox' ? <SandboxSection /> : null}
+            {active === 'workspace' && targetWorkspace ? (
+              <WorkspaceSandboxPage
+                key={targetWorkspace.id}
+                workspaceId={targetWorkspace.id}
+                workspaceName={targetWorkspace.customName ?? targetWorkspace.name}
+              />
+            ) : null}
             {active === 'agents' ? <AgentsSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'browser' ? <BrowserSettingsSection /> : null}

@@ -606,6 +606,9 @@ function WorkspaceRow({
         <ContextMenuItem onClick={() => setEditing('description')}>
           {w.description ? d.rail.editDescription : d.rail.addDescription}
         </ContextMenuItem>
+        <ContextMenuItem onClick={() => useUIStore.getState().openWorkspaceSettings(w.id)}>
+          {d.sandbox.workspaceSettings}
+        </ContextMenuItem>
         <ContextMenuCheckboxItem
           checked={sandboxed}
           closeOnClick
