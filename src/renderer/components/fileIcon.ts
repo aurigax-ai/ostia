@@ -20,16 +20,18 @@ import {
 } from '@phosphor-icons/react'
 import type { FsEntry } from '@shared/types'
 
+const hue = (group: string): string => `color-mix(in srgb, var(--group-${group}) 72%, var(--fg))`
+
 const C = {
-  blue: '#61afef',
-  folder: '#6f8db0',
-  yellow: '#e5c07b',
-  green: '#89ca78',
-  red: '#ef596f',
-  magenta: '#d55fde',
-  cyan: '#56b6c2',
-  orange: '#d19a66',
-  grey: '#7f8696',
+  blue: hue('blue'),
+  folder: 'color-mix(in srgb, var(--group-blue) 45%, var(--fg-muted))',
+  yellow: hue('yellow'),
+  green: hue('green'),
+  red: hue('red'),
+  magenta: hue('purple'),
+  cyan: hue('teal'),
+  orange: hue('orange'),
+  grey: 'var(--fg-muted)',
 }
 
 type Glyph = [IconComponent, string]

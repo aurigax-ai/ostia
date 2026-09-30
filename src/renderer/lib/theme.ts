@@ -39,6 +39,7 @@ export function applyTheme(root: HTMLElement, theme: Theme | undefined, accent: 
   }
   root.dataset.theme = theme.id
   root.style.colorScheme = theme.appearance
+  root.classList.toggle('dark', theme.appearance === 'dark')
 }
 
 export const useSystemDark = (): boolean => useSystemThemeStore((s) => s.dark)
