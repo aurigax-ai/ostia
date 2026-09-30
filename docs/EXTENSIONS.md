@@ -54,6 +54,7 @@ extension has no process, no commands, no panel and no sidebar items.
 | `contributes.commands[]` | `id` (no dots), `title`, optional `category`, `usage` (shown in `pine docs` / `pine ext ls`), `palette` (default `true`; `false` = CLI/agents only), `stdin` (CLI pipes stdin to you), `interactive` (the command waits on the human, usually through `ext.confirm`: pine waits up to 10 min for your reply instead of 30 s), `capabilities` (what the **caller** must hold; checked by pine before your process sees the call). |
 | `contributes.sidebarItems` | `true` if you call `ext.setSidebarItem`. Such extensions start with the window instead of on first use. |
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand pine a loopback URL at runtime. |
+| `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`.

@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), reading the selection reports (text, image regions, PDF text or regions) a human sends from files Pine shows (@/tmp/pine-reports-*/selection-N.md), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), reading the selection reports (text, image regions, PDF text or regions) a human sends from files Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), reading the human's saved command workflows (pine workflow list/show), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection".
 ---
 
 # Pine — the agent toolbelt
@@ -110,6 +110,40 @@ Tracked processes are scoped to the workspace that started them (cross-workspace
 visibility needs the elevated `all-workspaces` capability). `logs` prints the
 buffered output followed by `(cursor=N)` on stderr — pass `--since` that cursor to
 resume from where you left off instead of re-reading everything.
+
+## Workflows — the human's saved commands (read-only)
+
+```sh
+pine workflow list [--json]          # name<TAB>source:origin<TAB>command; --json -> {workflows, problems}
+pine workflow show <name> [--json]   # command, {{arguments}}, descriptions, defaults
+```
+
+Workflows are parameterized commands in Warp's YAML format (`name`, `command` with
+`{{arg}}` placeholders, `description`, `tags`, `arguments[{name, description,
+default_value}]`). You see your workspace's `<workDir>/.pine/workflows/*.yaml`, the
+human's `~/.config/pine/workflows/*.yaml`, and workflows contributed by enabled
+extensions. Use them to learn how this project is built, tested and deployed: fill
+the placeholders yourself and run the command in your own shell. There is no
+`run` or `save` verb, and pine never types a workflow for you; files that fail to
+parse are listed under `problems` (stderr in text mode). Needs `read-board`
+(a default capability).
+
+## Workflows — the human's saved commands (read-only)
+
+```sh
+pine workflow list [--json]          # name<TAB>source:origin<TAB>command; --json -> {workflows, problems}
+pine workflow show <name> [--json]   # command, {{arguments}}, descriptions, defaults
+```
+
+Workflows are parameterized commands in Warp's YAML format (`name`, `command` with
+`{{arg}}` placeholders, `description`, `tags`, `arguments[{name, description,
+default_value}]`). You see your workspace's `<workDir>/.pine/workflows/*.yaml`, the
+human's `~/.config/pine/workflows/*.yaml`, and workflows contributed by enabled
+extensions. Use them to learn how this project is built, tested and deployed: fill
+the placeholders yourself and run the command in your own shell. There is no
+`run` or `save` verb, and pine never types a workflow for you; files that fail to
+parse are listed under `problems` (stderr in text mode). Needs `read-board`
+(a default capability).
 
 ## Vault — encrypted secrets
 
