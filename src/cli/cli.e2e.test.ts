@@ -285,6 +285,24 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       })
     })
 
+    it('names the tool from a Codex PermissionRequest hook payload on stdin with -', async () => {
+      const child = spawn(process.execPath, [cliPath, 'state', 'waiting', '-'], { env: env() })
+      child.stdin.end(
+        JSON.stringify({
+          session_id: '01a0f04d-431b-7012-9fd4-67cc678354bd',
+          hook_event_name: 'PermissionRequest',
+          tool_name: 'Bash',
+          tool_input: { command: 'touch x', description: 'probe' },
+        }),
+      )
+      const code = await new Promise<number | null>((resolve) => child.on('close', resolve))
+      expect(code).toBe(0)
+      expect(execCalls[0]?.args).toEqual({
+        state: 'waiting',
+        message: 'Needs your permission to use Bash',
+      })
+    })
+
     it('rejects an unknown state before touching the app', async () => {
       const res = await runPine(['state', 'sleeping'], env())
       expect(res.code).toBe(1)
