@@ -17,6 +17,8 @@ import type {
   FsEntry,
   FsKind,
   LifecycleEvent,
+  PromptContext,
+  PromptContextRequest,
   PtyAttachResult,
   PtySpawnOptions,
   TerminalStateSnapshot,
@@ -69,6 +71,7 @@ import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
 import { privateTmpDir } from './privateTmp'
 import { killAllProcesses, registerProcessMethods } from './processManager'
+import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { ScreenMirror } from './screenMirror'
 import { registerSelectionIpc } from './selectionReport'
@@ -119,6 +122,7 @@ const ptys = new Map<string, PtyEntry>()
 const PTY_BUFFER_CAP = 1_000_000
 const DETACH_GRACE_MS = 3000
 const executables = new ExecutableIndex()
+const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
 
 function removeStateFile(entry: PtyEntry): void {
   rmSync(entry.stateFile, { force: true })
@@ -663,7 +667,7 @@ function registerPtyIpc(): void {
     }
     const shell =
       opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
-    const integration = shellIntegrationSpawnOptions(shell, process.env)
+    const integration = shellIntegrationSpawnOptions(shell, process.env, opts.pinePrompt ?? null)
     const identity = registerPane({ windowId: subId, workspaceId: '', paneId })
     const cols = opts.cols || 80
     const rows = opts.rows || 24
@@ -745,6 +749,21 @@ function registerPtyIpc(): void {
     const state = await readShellState(entry.stateFile)
     return commandNames(executables, state?.path ?? entry.spawnPath, state?.names ?? [])
   })
+  ipcMain.handle(
+    'pty:prompt-context',
+    async (e, paneId: string, want: PromptContextRequest): Promise<PromptContext | null> => {
+      const entry = ptys.get(paneId)
+      if (!entry?.subs.has(String(e.sender.id))) return null
+      const state = await readShellState(entry.stateFile)
+      return promptContext(
+        state,
+        entry.spawnPath,
+        terminalState.get(paneId)?.cwd,
+        { node: want?.node === true, kube: want?.kube === true },
+        promptSources,
+      )
+    },
+  )
   ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
     resizePty(ptys.get(paneId), cols, rows)
   })
