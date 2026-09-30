@@ -1,4 +1,5 @@
-import { call, errorText, h, onChange, pickLocale } from '../sdk/panel'
+import arrowClockwise from '@phosphor-icons/core/regular/arrow-clockwise.svg'
+import { call, errorText, h, icon, onChange, pickLocale } from '../sdk/panel'
 import type { BranchInfo, ChangeArea, FileChange, StatusSummary } from './status'
 
 interface ChangesData {
@@ -124,7 +125,7 @@ function header(data: ChangesData): HTMLElement {
     h(
       'button',
       { class: 'icon', 'aria-label': t.refresh, title: t.refresh, onclick: refresh },
-      '↻',
+      icon(arrowClockwise),
     ),
   )
 }

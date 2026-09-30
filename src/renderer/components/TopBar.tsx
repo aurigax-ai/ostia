@@ -1,4 +1,4 @@
-import { GearSixIcon, MagnifyingGlassIcon, SidebarSimpleIcon } from '@phosphor-icons/react'
+import { MagnifyingGlassIcon, SidebarSimpleIcon } from '@phosphor-icons/react'
 import { useDict } from '../i18n/useDict'
 import { chordLabel } from '../lib/chords'
 import { isMac } from '../platform'
@@ -14,7 +14,6 @@ const PALETTE_KEYS = chordLabel('palette.toggle', isMac)
 export function TopBar(): JSX.Element {
   const d = useDict()
   const toggleRail = useUIStore((s) => s.toggleRail)
-  const openSettings = useUIStore((s) => s.openSettings)
   const openPalette = useUIStore((s) => s.openPalette)
 
   return (
@@ -25,12 +24,6 @@ export function TopBar(): JSX.Element {
           icon={SidebarSimpleIcon}
           label={d.topbar.toggleSidebar}
           onClick={toggleRail}
-        />
-        <IconButton
-          size="bar"
-          icon={GearSixIcon}
-          label={d.topbar.settings}
-          onClick={openSettings}
         />
       </div>
 

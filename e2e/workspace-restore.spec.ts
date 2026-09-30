@@ -7,7 +7,7 @@ import {
   expect,
   test,
 } from '@playwright/test'
-import { freshDataHome, isolatedLaunch } from './dataHome'
+import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, openWorkspace } from './helpers'
 
 interface Launched {
@@ -155,12 +155,7 @@ async function paneLines(win: Page): Promise<string[]> {
 test('restores a clean final screen at a different window size', async () => {
   test.setTimeout(90_000)
   const marker = `pine_resized_${Date.now()}`
-  const userData = join(dataHome, 'userData')
-  mkdirSync(userData, { recursive: true })
-  writeFileSync(
-    join(userData, 'settings.json'),
-    JSON.stringify({ appearance: { terminal: { size: 8 } } }),
-  )
+  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, appearance: { terminal: { size: 8 } } })
 
   const first = await launchApp(dataHome)
   try {

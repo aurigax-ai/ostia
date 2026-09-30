@@ -36,6 +36,7 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
       renderSideBySide: true,
       fontFamily: `"${initial.family}", ${EDITOR_FALLBACK}`,
       fontSize: initial.size,
+      fontWeight: String(initial.weight),
       fontLigatures: true,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
@@ -77,8 +78,9 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
     diffRef.current?.updateOptions({
       fontFamily: `"${font.family}", ${EDITOR_FALLBACK}`,
       fontSize: font.size,
+      fontWeight: String(font.weight),
     })
-  }, [font.family, font.size])
+  }, [font.family, font.size, font.weight])
 
   return (
     <div className="diff-surface">

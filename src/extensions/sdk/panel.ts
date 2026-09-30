@@ -39,6 +39,14 @@ export function pickLocale<T>(dicts: { en: T } & Record<string, T>): T {
 
 type Child = Node | string | null | false | undefined
 
+export function icon(svg: string): Element {
+  const el = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement
+  el.setAttribute('width', '1em')
+  el.setAttribute('height', '1em')
+  el.setAttribute('aria-hidden', 'true')
+  return el
+}
+
 export function h(
   tag: string,
   attrs: Record<string, string | boolean | ((e: Event) => void)> = {},

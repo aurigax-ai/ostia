@@ -188,7 +188,7 @@ test('Ctrl+1 jumps to the first workspace from a focused terminal, and rows drag
   const { app, win } = await launchApp()
   try {
     await openWorkspace(win)
-    await win.locator('.rail-add').click()
+    await win.locator('.deck-rail').getByRole('button', { name: 'New workspace' }).click()
     await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
     const rows = win.locator('.rail-row')
     await expect(rows).toHaveCount(2)

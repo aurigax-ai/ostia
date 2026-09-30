@@ -36,7 +36,6 @@ import { IconButton } from './IconButton'
 import { ATTENTION_BADGE } from './attentionStyles'
 import { extensionIcon } from './extensionIcons'
 import { Badge } from './ui/badge'
-import { Button } from './ui/button'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -58,6 +57,9 @@ export function DeckRail(): JSX.Element {
   const collapsed = useUIStore((s) => s.railCollapsed)
   const view = useUIStore((s) => s.sidebarView)
   const setView = useUIStore((s) => s.setSidebarView)
+  const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
+  const leaveSettings = useUIStore((s) => s.leaveSettings)
+  const openSettings = useUIStore((s) => s.openSettings)
 
   return (
     <aside className={`deck-rail${collapsed ? ' collapsed' : ''}`}>
@@ -78,6 +80,25 @@ export function DeckRail(): JSX.Element {
           aria-pressed={view === 'files'}
           onClick={() => setView('files')}
         />
+        <span className="rail-switch-end">
+          <IconButton
+            size="bar"
+            hintSide="right"
+            icon={PlusIcon}
+            label={d.rail.newWorkspace}
+            onClick={() => {
+              leaveSettings()
+              addWorkspace()
+            }}
+          />
+          <IconButton
+            size="bar"
+            hintSide="right"
+            icon={GearSixIcon}
+            label={d.topbar.settings}
+            onClick={openSettings}
+          />
+        </span>
       </div>
 
       {view === 'workspaces' ? <WorkspacesView /> : <FilesView />}
@@ -89,13 +110,11 @@ function WorkspacesView(): JSX.Element {
   const d = useDict()
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const activeId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
   const [drag, setDrag] = useState<WorkspaceDrag | null>(null)
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
   const openSettings = useUIStore((s) => s.openSettings)
   const closeSettings = useUIStore((s) => s.closeSettings)
-  const leaveSettings = useUIStore((s) => s.leaveSettings)
 
   return (
     <>
@@ -140,20 +159,6 @@ function WorkspacesView(): JSX.Element {
       </div>
 
       <SidebarFooter />
-
-      <Hint label={d.rail.newWorkspace} side="right">
-        <Button
-          variant="ghost"
-          className="rail-add justify-start font-normal text-fg-muted"
-          onClick={() => {
-            leaveSettings()
-            addWorkspace()
-          }}
-        >
-          <PlusIcon data-icon="inline-start" />
-          <span>{d.rail.newWorkspace}</span>
-        </Button>
-      </Hint>
     </>
   )
 }
