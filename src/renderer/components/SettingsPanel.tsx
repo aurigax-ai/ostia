@@ -1,6 +1,8 @@
 import { cn } from '@/lib/utils'
 import {
   ArrowsClockwiseIcon,
+  CheckIcon,
+  CopyIcon,
   DeviceMobileIcon,
   HardDrivesIcon,
   type Icon as IconComponent,
@@ -16,6 +18,7 @@ import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo } from '@shared/types'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import appIcon from '../../../resources/icon.svg'
 import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { openFileInWorkspace } from '../lib/openFile'
@@ -36,6 +39,7 @@ import { useUIStore } from '../stores/uiStore'
 import { FontPicker } from './FontPicker'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
+import { IconButton } from './IconButton'
 import { SyncSection } from './SyncSection'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
@@ -610,24 +614,42 @@ function LanguageSection(): JSX.Element {
 function AboutSection(): JSX.Element {
   const d = useDict()
   const [info, setInfo] = useState<AppInfo | null>(null)
+  const [copied, setCopied] = useState(false)
   useEffect(() => {
     window.pine
       .info()
       .then(setInfo)
       .catch(() => setInfo(null))
   }, [])
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(timer)
+  }, [copied])
+  const name = info?.name ?? PRODUCT_NAME
+  const version = info ? `v${info.version}` : '…'
   return (
-    <section>
-      <SectionHead title={d.settings.about} />
-      <ControlRow label={d.settings.title}>
-        <span className="text-fg text-ui-base">{info?.name ?? PRODUCT_NAME}</span>
-      </ControlRow>
-      <ControlRow label={d.settings.version}>
-        <span className="text-fg-muted text-ui-base tabular-nums">{info?.version ?? '…'}</span>
-      </ControlRow>
-      <ControlRow label={d.settings.platform}>
-        <span className="text-fg-muted text-ui-base">{platform}</span>
-      </ControlRow>
+    <section
+      aria-label={d.settings.about}
+      className="flex flex-col items-center gap-3 pt-16 text-center"
+    >
+      <img src={appIcon} alt="" className="size-20" />
+      <h2 className="font-semibold text-fg text-ui-lg">{name}</h2>
+      <div className="flex items-center gap-1">
+        <span className="font-mono text-fg-muted text-ui-sm tabular-nums">{version}</span>
+        <IconButton
+          icon={copied ? CheckIcon : CopyIcon}
+          label={copied ? d.settings.copied : d.settings.copyVersion}
+          disabled={!info}
+          onClick={() => {
+            void navigator.clipboard.writeText(version).then(() => setCopied(true))
+          }}
+        />
+      </div>
+      <p className="text-fg-muted text-ui-sm">
+        {fmt(d.settings.copyright, { year: new Date().getFullYear(), name })}
+      </p>
+      <p className="text-fg-muted text-ui-xs">{platform}</p>
     </section>
   )
 }

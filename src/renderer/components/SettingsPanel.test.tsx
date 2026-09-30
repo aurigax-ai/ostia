@@ -233,6 +233,17 @@ describe('SettingsPanel', () => {
     expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toHaveValue(20)
   })
 
+  it('shows the version on About and copies it', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'About' }))
+    expect(await screen.findByText('v0.0.0')).toBeInTheDocument()
+    expect(screen.getByText(`Copyright ${new Date().getFullYear()} pine`)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Copy version' }))
+    expect(await navigator.clipboard.readText()).toBe('v0.0.0')
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
+  })
+
   it('exposes accessible names on its controls (a11y)', async () => {
     renderSettings()
     const user = userEvent.setup()
