@@ -113,7 +113,8 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Trellis board panel, Keeper approvals panel | yours | built-in extensions (built) | M each | 4 |
 | Settings sync (a synced folder you own) | Warp | core (built): it rewrites extension approvals | S–M | 8 |
 | Phone: grant path above read-only, pty input, attention push | cmux-like | built-in extension (gateway) | M | 10 |
-| Warp's IDE-style input editor | Warp | **not planned** | L | Clashes with agent TUIs that own the input line |
+| Warp's IDE-style input editor (opt-in, only at an idle prompt, so agent TUIs keep the keys) | Warp | core (built) | L | 7 |
+| Warp prompt: context chips in the input editor, Edit prompt dialog, plain shell prompt for new shells (built); extension chips (branch, diff stats, ssh) wait on the pane-chips API | Warp | core (built) + extensions | M | 7 |
 | Built-in AI chat | Warp | **not planned** | — | Pine hosts agent CLIs; it doesn't compete with them |
 
 ## 4. Phases
