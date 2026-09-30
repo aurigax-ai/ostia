@@ -2,12 +2,19 @@ import { spawnSync } from 'node:child_process'
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { privateTmpDir } from './privateTmp'
 import {
   CLAUDE_PLUGIN_MANIFEST,
+  type CodexHookEvent,
   claudeHookSettings,
+  codexHookArgs,
+  codexHookCommands,
+  codexHookKey,
+  codexHookTrustHash,
+  codexWrapper,
   shellIntegrationSpawnOptions,
+  writeCodexIntegration,
 } from './shellIntegration'
 
 const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
@@ -203,6 +210,127 @@ describe('shellIntegrationSpawnOptions', () => {
       } finally {
         rmSync(bin, { recursive: true, force: true })
       }
+    })
+  })
+
+  describe('codex hooks', () => {
+    const CONTEXT = '/x/codex/session-context.md'
+
+    it('writes the pine skill and a session context that points Codex at it', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'pine-codex-integration-'))
+      try {
+        const { contextFile } = writeCodexIntegration(dir)
+        const skill = readFileSync(join(dir, 'SKILL.md'), 'utf8')
+        expect(skill).toMatch(/^---\nname: pine\ndescription: /)
+        const context = readFileSync(contextFile, 'utf8')
+        expect(context).toContain(`read its guide: ${join(dir, 'SKILL.md')}`)
+        expect(context).toContain('ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI"')
+      } finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('maps Codex events onto the resume token, the context and the attention state', () => {
+      const commands = codexHookCommands(CONTEXT)
+      expect(commands.SessionStart[0]).toContain('"$PINE_CLI" resume-token codex -')
+      expect(commands.SessionStart[1]).toBe(
+        `[ -n "$PINE_SOCKET" ] && cat '${CONTEXT}' 2>/dev/null || true`,
+      )
+      expect(commands.UserPromptSubmit[0]).toContain('state working')
+      expect(commands.PermissionRequest[0]).toContain('state waiting -')
+      expect(commands.Stop[0]).toContain('state done')
+      for (const command of Object.values(commands).flat()) {
+        expect(command).toMatch(/^\[ -n "\$PINE_SOCKET" \] && .*\|\| true$/)
+      }
+    })
+
+    it('hashes a hook the way codex-cli 0.157 computes its trust hash', () => {
+      const stop = codexHookCommands(CONTEXT).Stop[0]
+      expect(codexHookTrustHash('Stop', stop)).toBe(
+        'sha256:04649370ec668e17edd8c909dda94fbdf1e5a71584fe8a58896fc903e330c6b1',
+      )
+    })
+
+    it('trusts exactly the injected hooks by session-flags key and hash, never all hooks', () => {
+      const args = codexHookArgs(CONTEXT)
+      expect(args[0]).toBe('--no-daemon')
+      expect(args).not.toContain('--dangerously-bypass-hook-trust')
+      const state = args[args.length - 1]
+      expect(state.startsWith('hooks.state={')).toBe(true)
+      const commands = Object.entries(codexHookCommands(CONTEXT)) as [CodexHookEvent, string[]][]
+      for (const [event, handlers] of commands) {
+        handlers.forEach((command, index) => {
+          const key = JSON.stringify(codexHookKey(event, index))
+          const hash = JSON.stringify(codexHookTrustHash(event, command))
+          expect(state).toContain(`${key}={trusted_hash=${hash}}`)
+        })
+      }
+      expect(codexHookKey('SessionStart', 1)).toBe('/<session-flags>/config.toml:session_start:0:1')
+    })
+
+    describe.each([
+      ['bash', '--norc'],
+      ['zsh', '-f'],
+    ])('the codex function in %s', (shell, noRc) => {
+      let bin = ''
+      let wrapper = ''
+
+      beforeAll(() => {
+        bin = mkdtempSync(join(tmpdir(), 'pine-fake-codex-'))
+        const fake = join(bin, 'codex')
+        writeFileSync(fake, '#!/bin/sh\nprintf "%s\\n" "$@"\n')
+        chmodSync(fake, 0o755)
+        wrapper = join(bin, 'wrapper.sh')
+        writeFileSync(wrapper, codexWrapper(CONTEXT))
+      })
+
+      afterAll(() => {
+        rmSync(bin, { recursive: true, force: true })
+      })
+
+      const run = (script: string, pineCli: string | null = '/x/cli.js') =>
+        spawnSync(shell, [noRc, '-c', `source '${wrapper}'; ${script}`], {
+          env: { PATH: `${bin}:/usr/bin:/bin`, ...(pineCli ? { PINE_CLI: pineCli } : {}) },
+          encoding: 'utf8',
+        })
+          .stdout.trim()
+          .split('\n')
+      const quote = (args: string[]) => args.map((arg) => `'${arg}'`).join(' ')
+
+      it.each([
+        [[]],
+        [['fix the tests']],
+        [['-m', 'gpt-5', '-c', 'model_reasoning_effort="high"', 'fix it']],
+        [['resume', '01a0f04c-15fd-7b22-8538-ca8250a46988']],
+        [['resume', '--last']],
+        [['--sandbox', 'workspace-write', 'resume']],
+        [['fork', '--last']],
+        [['--', 'exec']],
+      ])('injects the Pine hooks for an interactive session: codex %j', (args) => {
+        const out = run(`codex ${quote(args)}`)
+        expect(out).toEqual([...codexHookArgs(CONTEXT), ...args])
+      })
+
+      it.each([
+        [['exec', 'fix it']],
+        [['e', 'fix it']],
+        [['login']],
+        [['mcp', 'list']],
+        [['review']],
+        [['-m', 'gpt-5', 'exec', 'fix it']],
+        [['--help']],
+        [['--version']],
+      ])('passes codex %j through untouched', (args) => {
+        expect(run(`codex ${quote(args)}`)).toEqual(args)
+      })
+
+      it('lets command codex bypass Pine', () => {
+        expect(run('command codex resume abc')).toEqual(['resume', 'abc'])
+      })
+
+      it('defines no codex function outside a Pine pane', () => {
+        expect(run('codex resume abc', null)).toEqual(['resume', 'abc'])
+      })
     })
   })
 })

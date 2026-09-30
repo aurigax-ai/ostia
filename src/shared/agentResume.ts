@@ -29,12 +29,9 @@ export function resumeIdFromHookPayload(payload: string): string | null {
   if (!text.startsWith('{')) return RESUME_ID.test(text) ? text : null
   try {
     const json = JSON.parse(text) as Record<string, unknown>
-    for (const key of ['session_id', 'thread-id', 'thread_id', 'session-id']) {
-      const value = json[key]
-      if (typeof value === 'string' && RESUME_ID.test(value)) return value
-    }
+    const id = json.session_id
+    return typeof id === 'string' && RESUME_ID.test(id) ? id : null
   } catch {
     return null
   }
-  return null
 }

@@ -1620,8 +1620,11 @@ function messageFromStdin(raw: string): string {
   const text = raw.trim()
   if (!text.startsWith('{')) return text
   try {
-    const parsed = JSON.parse(text) as { message?: unknown }
-    return typeof parsed.message === 'string' ? parsed.message : ''
+    const parsed = JSON.parse(text) as { message?: unknown; tool_name?: unknown }
+    if (typeof parsed.message === 'string') return parsed.message
+    return typeof parsed.tool_name === 'string'
+      ? `Needs your permission to use ${parsed.tool_name}`
+      : ''
   } catch {
     return text
   }
