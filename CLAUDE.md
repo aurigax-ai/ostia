@@ -59,7 +59,7 @@ Package manager is **pnpm** only.
 | `pnpm preview` | Run the built app | Smoke-test a build |
 | `pnpm package` | `build` + electron-builder → `dist/linux-unpacked/` | Producing an installable build |
 | `pnpm icons` | Render the app icon PNG set from `resources/icon.svg` (`rsvg-convert`) | After changing the icon SVG |
-| `pnpm install:local` | `package` + `scripts/install-linux.sh` → `~/.local/share/pine/app` + desktop launcher | Updating the user's installed app |
+| `pnpm install:local` | `package` + `scripts/install-linux.sh` → `~/.local/share/pine/app` + desktop launcher + `~/.local/bin/pine` (the CLI outside Pine) | Updating the user's installed app |
 | `pnpm bump <patch\|minor\|major>` | Raise `package.json` `version` (semver) | Before every `pnpm install:local` that ships changes: `patch` for fixes, `minor` for features. Commit it as `chore(release): vX.Y.Z` and tag `vX.Y.Z` |
 | `pnpm typecheck` | `tsc --noEmit` for renderer/shared, then main/preload/shared | **Before every commit** |
 | `pnpm lint` | Biome check + the no-comments check | **Before every commit** |
@@ -389,6 +389,15 @@ Details: `docs/ARCHITECTURE.md`.
   for Run once / Run and trust (`runUserAction`); trust is keyed by command + args
   (`actionFingerprint`), stored in `trustedActions`, which only the dialog writes (not in
   `DATA_KEYS`, never synced). Never add a way for an agent to trust an action.
+- **The manager is opened only from outside Pine.** `portal.open` (`main/portal.ts`) refuses any
+  caller that `callerVerdict` (`main/portalCaller.ts`) finds inside Pine or can't check; there is
+  no approval prompt behind it, so never loosen that check, skip it, or add a control-socket
+  method, CLI verb or skill text that opens, finds or attaches to the manager. There is one
+  manager and one mirror. The agent is spawned as the pane's process from an argv
+  (`manager.agents` presets + the caller's args), never through a shell or typed at a prompt.
+  Pine's view of it (`ManagerView`) is an attach-only observer: it never writes to or resizes the
+  pty; the mirror owns input and size. `manager` settings are not in `DATA_KEYS`, and the manager
+  workspace is never saved.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -592,6 +601,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   drives a local http page through the real `pine browse` CLI (snapshot refs, fill/click/type,
   find, eval, storage, cookies, network, tabs, `--json`); `e2e/browser-storage.spec.ts` checks the
   storage drawer shows and edits a page's cookies, local and session storage.
+  `e2e/manager.spec.ts` runs the built CLI under `script` (a real tty) with `PINE_*` stripped and
+  a fake agent (`test/fixtures/manager/bin/fake-agent`) first on `PATH`, against a Pine whose
+  portal is at `PINE_PORTAL_SOCKET`; it also runs the CLI from a Pine pane to check the refusal.
+  `e2e/tray.spec.ts` covers close-to-tray.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,
@@ -615,5 +628,9 @@ Rules:
   attach, and there's no on-desktop approval of phone-initiated elevation requests (the contract
   allows it; only the Settings switches exist). Anyone with shell access to the desktop can still
   edit `gateway-devices.json` directly, same as `settings.json`.
+- **The manager's caller check can be escaped on purpose.** A process that double-forks, calls
+  `setsid` and clears its environment is no longer a descendant of Pine, has no Pine tty and no
+  `PINE_TOKEN`, so `pine <agent>` from it opens the manager. The check stops a confused or
+  injected agent, not a determined process running as the same user.
 - **Plugin light themes have no terminal palette or Monaco theme of their own.** Only `pine-light` does; a plugin theme falls back to the One Dark Vivid terminal palette, and Monaco follows the theme's `appearance`.
 - **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch).

@@ -11,6 +11,7 @@ import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runBrowse } from './browse'
+import { runPortalCommand } from './portal'
 
 interface ProcInfo {
   id: string
@@ -1004,8 +1005,14 @@ async function main(): Promise<void> {
     return
   }
   if (!socketPath) {
-    console.error('pine: not inside a Pine pane (PINE_SOCKET unset)')
-    process.exit(1)
+    process.exitCode = await runPortalCommand(process.argv.slice(2), {
+      stdin: process.stdin,
+      stdout: process.stdout,
+      stderr: process.stderr,
+      env: process.env,
+      cwd: process.cwd(),
+    })
+    return
   }
   let socket: Socket
   try {

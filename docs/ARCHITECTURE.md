@@ -1073,6 +1073,47 @@ dot-paths check every segment, not just the last one; snapshot pane-id keys are 
 
 The agent-facing guide is the `pine` skill (`.claude/skills/pine/`).
 
+**Manager portal** (`portal.ts`, `portalCaller.ts`, `manager.ts`, `cli/portal.ts`; spec
+`specs/manager/`). From a terminal outside Pine, `pine <agent> [args…]` opens one manager
+workspace running that agent and mirrors it in the terminal.
+- The CLI takes this path only when `PINE_SOCKET` is unset and stdin and stdout are terminals;
+  otherwise it prints the old "not inside a Pine pane" error, so scripts and agents learn nothing
+  about the manager. It connects to `$XDG_RUNTIME_DIR/pine-portal.sock` (`pine-dev-portal.sock`
+  unpackaged, `PINE_PORTAL_SOCKET` overrides). If nothing answers and `PINE_APP_BIN` is set (the
+  `~/.local/bin/pine` launcher that `install-linux.sh` writes), it starts Pine with `--hidden`
+  and polls for up to 20 s.
+- The portal is a second socket, not the control socket, with one request (`portal.open {agent,
+  args, cwd, cols, rows, path}`) and three notifications (`mirror.data`/`mirror.exit` out,
+  `mirror.input`/`mirror.resize` in). It carries no token and grants nothing but the mirror; the
+  agent's own powers come from the manager pane's `PINE_TOKEN`. Why a second socket: the control
+  socket answers panes by token, and the portal's caller has none.
+- **Caller check.** Node can't read `SO_PEERCRED`, so `callerVerdict` fstat's the accepted
+  socket for its inode, runs `ss -xpnH` (execFile, no shell) and takes the pids holding the peer
+  end. Any of them inside Pine refuses the request (`inside-pine`): Pine's main pid among its
+  ancestors (covers pane shells, extensions and background processes), `PINE_TOKEN` in its
+  `/proc/<pid>/environ`, or a controlling tty that is one of Pine's ptys (the manager's own
+  included). Anything unreadable refuses too (`unknown-caller`). There is no approval prompt, so
+  this check is the whole gate (§8 has the gap).
+- **One manager, one mirror.** `ManagerService` keeps one `{paneId, agent}`: the same agent
+  attaches, another fails `manager-busy`, concurrent opens share one start. The portal keeps one
+  mirror slot (`mirror-attached`). Presets are `manager.agents` in settings.json merged over the
+  built-in claude and codex (`parseManagerAgents`); the renderer carries the section through
+  saves but it is not in `DATA_KEYS`.
+- **The agent is the pane's process.** Main asks the renderer for a manager workspace
+  (`manager:open`, answered by `managerBridge.ts` once it sent `manager:ready`), then spawns the
+  preset's argv plus the extra args directly with node-pty (`spawnManagerPty`): no shell, nothing
+  typed, the caller's cwd and PATH, and the pane's `PINE_*` env. Why: typing a command needs an
+  idle prompt and quoting; spawning an argv needs neither. The entry is `keepAlive`, so the detach
+  reaper skips it; it ends when the agent exits or the human closes its pane (`pane-closed` kills
+  it).
+- **Pine's view is read-only.** The `manager` pane kind renders `ManagerView`: an xterm with
+  `disableStdin` that attaches as an attach-only observer (`attachOnly` never spawns a shell), so
+  `pty:write` from it fails `canWrite`. Main ignores `pty:resize` for keep-alive entries; the
+  mirror is the owner and sets the size, and main tells observers through `pty:size:<paneId>`.
+  The manager workspace (`kind: 'manager'`) is left out of the snapshot, and closing it asks like
+  a running command.
+- While a manager is live, closing the window hides Pine to the tray (`closeAction`).
+
 ## 7. Gateway (phone companion)
 
 Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRACT.md`.

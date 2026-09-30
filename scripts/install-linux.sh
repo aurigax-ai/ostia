@@ -41,5 +41,15 @@ StartupWMClass=$name
 DESKTOP
 
 command -v update-desktop-database >/dev/null && update-desktop-database "$apps" || true
+
+bin="$HOME/.local/bin"
+mkdir -p "$bin"
+cat > "$bin/$name" <<LAUNCHER
+#!/bin/sh
+export PINE_APP_BIN='$dest/$name'
+ELECTRON_RUN_AS_NODE=1 exec "\$PINE_APP_BIN" '$dest/resources/app.asar/out/cli/index.js' "\$@"
+LAUNCHER
+chmod 755 "$bin/$name"
 echo "installed $name to $dest"
 echo "launcher: $apps/$name.desktop"
+echo "cli: $bin/$name (run '$name <agent>' from a terminal outside $name)"
