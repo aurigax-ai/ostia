@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextSizeAction } from './terminalSizing'
+import { isPromptRepaint, nextSizeAction } from './terminalSizing'
 
 describe('nextSizeAction', () => {
   const last0 = { cols: 0, rows: 0 }
@@ -44,5 +44,12 @@ describe('nextSizeAction', () => {
       cols: 120,
       rows: 30,
     })
+  })
+})
+
+describe('isPromptRepaint', () => {
+  it('treats held bytes as a prompt repaint unless a command started while holding', () => {
+    expect(isPromptRepaint('\x1b]133;A\x1b\\% ls')).toBe(true)
+    expect(isPromptRepaint('\r\n\x1b]133;C\x1b\\file.txt\r\n')).toBe(false)
   })
 })

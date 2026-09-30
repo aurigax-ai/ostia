@@ -43,7 +43,7 @@ import { Blocks } from './Blocks'
 import { InputEditor } from './InputEditor'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import { TerminalFind, findOptions } from './TerminalFind'
-import { nextSizeAction } from './terminalSizing'
+import { isPromptRepaint, nextSizeAction } from './terminalSizing'
 import { terminalPalette } from './terminalTheme'
 
 const MONO_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
@@ -410,7 +410,7 @@ export function TerminalView({
       const redraw = held.join('')
       held = []
       const { cols, rows } = holdDims
-      if (redraw.length > 0) {
+      if (redraw.length > 0 && isPromptRepaint(redraw)) {
         const restore = `\x1b[${holdCursor.row};${holdCursor.col}H`
         term.write(`\x1b[${holdEraseRow};1H\x1b[0J${restore}`, () => {
           if (disposed) return
@@ -420,6 +420,7 @@ export function TerminalView({
         })
       } else {
         term.resize(cols, rows)
+        if (redraw.length > 0) term.write(redraw)
         syncSize()
       }
     }
