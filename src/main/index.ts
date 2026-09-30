@@ -1010,6 +1010,7 @@ app.whenReady().then(() => {
     store: extensionStore,
     socketPath: controlSocketPath,
     nodePath: process.execPath,
+    dataDir: join(app.getPath('userData'), 'extension-data'),
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     locale: readLocale,

@@ -17,6 +17,7 @@ import type {
   ExtensionPanelSource,
   ExtensionResult,
   ExtensionSettingResult,
+  ExtensionSettingsStored,
   ExtensionSidebarItem,
   PaneChip,
 } from '../shared/extensions'
@@ -266,6 +267,11 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, chips: PaneChip[]): void => cb(chips)
       ipcRenderer.on('extensions:chips', handler)
       return () => ipcRenderer.removeListener('extensions:chips', handler)
+    },
+    onSettingsStored: (cb) => {
+      const handler = (_e: unknown, update: ExtensionSettingsStored): void => cb(update)
+      ipcRenderer.on('extensions:settings-stored', handler)
+      return () => ipcRenderer.removeListener('extensions:settings-stored', handler)
     },
     onOpenPanel: (cb) => {
       const handler = (_e: unknown, req: ExtensionOpenPanelRequest): void => cb(req)

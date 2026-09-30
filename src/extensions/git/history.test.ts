@@ -4,6 +4,8 @@ import {
   RECORD_SEP,
   isUncommitted,
   parseBlamePorcelain,
+  parseDecorations,
+  parseGraphLog,
   parseLog,
   parseNameStatus,
 } from './history'
@@ -86,5 +88,45 @@ describe('parseBlamePorcelain', () => {
   it('recognizes lines that are not committed yet', () => {
     expect(isUncommitted(ZERO)).toBe(true)
     expect(isUncommitted(SHA1)).toBe(false)
+  })
+})
+
+describe('parseGraphLog', () => {
+  const record = (...fields: string[]): string => `${fields.join(FIELD_SEP)}${RECORD_SEP}\n`
+  const SHA3 = 'a'.repeat(40)
+
+  it('reads parents, refs and subjects of each commit', () => {
+    const out =
+      record(
+        SHA1,
+        `${SHA2} ${SHA3}`,
+        'Ann',
+        'ann@x',
+        '1700000000',
+        'HEAD -> refs/heads/main, refs/remotes/origin/main, refs/remotes/origin/HEAD, tag: refs/tags/v1',
+        'merge feature',
+      ) + record(SHA2, '', 'Bob', 'bob@x', '1690000000', '', 'root, with commas')
+    const commits = parseGraphLog(out)
+    expect(commits).toHaveLength(2)
+    expect(commits[0]).toMatchObject({
+      sha: SHA1,
+      parents: [SHA2, SHA3],
+      author: 'Ann',
+      time: 1700000000,
+      subject: 'merge feature',
+      refs: [
+        { kind: 'branch', name: 'main', current: true },
+        { kind: 'remote', name: 'origin/main' },
+        { kind: 'tag', name: 'v1' },
+      ],
+    })
+    expect(commits[1]).toMatchObject({ parents: [], refs: [], subject: 'root, with commas' })
+  })
+
+  it('marks a detached HEAD and orders it first', () => {
+    expect(parseDecorations('refs/heads/topic, HEAD')).toEqual([
+      { kind: 'head', name: 'HEAD' },
+      { kind: 'branch', name: 'topic' },
+    ])
   })
 })
