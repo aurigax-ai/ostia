@@ -16,6 +16,11 @@ import {
 import type { Capability } from '../../shared/capabilities'
 import type { ExtensionSettingValues } from '../../shared/extensions'
 import {
+  DEFAULT_MANAGER_SETTINGS,
+  type ManagerSettings,
+  parseManagerSettings,
+} from '../../shared/managerSettings'
+import {
   DEFAULT_NOTIFICATION_SETTINGS,
   type NotificationSettings,
   parseNotificationSettings,
@@ -245,7 +250,7 @@ interface Persisted {
   workspaceGroups: WorkspaceGroupSettings
   extensionSettings: Record<string, ExtensionSettingValues>
   capabilities?: Capabilities
-  manager?: Record<string, unknown>
+  manager: ManagerSettings
   sync?: SyncSettings
   approvals: ApprovalSettings
   actions: UserAction[]
@@ -315,6 +320,7 @@ const DEFAULTS: Persisted = {
   approvals: DEFAULT_APPROVAL_SETTINGS,
   actions: [],
   trustedActions: [],
+  manager: DEFAULT_MANAGER_SETTINGS,
 }
 
 interface SettingsState extends Persisted {
@@ -335,6 +341,7 @@ interface SettingsState extends Persisted {
   setTerminalLineHeight: (lineHeight: number) => void
   setSidebar: (patch: Partial<SidebarSettings>) => void
   setWorkspaces: (patch: Partial<WorkspaceSettings>) => void
+  setManager: (patch: Partial<ManagerSettings>) => void
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
   setHibernation: (patch: Partial<HibernationSettings>) => void
@@ -402,7 +409,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
     extensionSettings: extensionSettingsOf(p.extensionSettings),
     capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
-    manager: isPlainObject(p.manager) ? p.manager : undefined,
+    manager: parseManagerSettings(p.manager),
     sync: syncOf(p.sync),
     approvals: parseApprovalSettings(p.approvals),
     actions: parseActions(p.actions),
@@ -633,6 +640,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setWorkspaces: (patch) => {
     set((s) => ({ workspaces: { ...s.workspaces, ...patch } }))
+    scheduleSave(get)
+  },
+  setManager: (patch) => {
+    set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))
     scheduleSave(get)
   },
   setBrowser: (patch) => {

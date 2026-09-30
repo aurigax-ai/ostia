@@ -60,6 +60,7 @@ describe('settingsStore', () => {
       approvals: s.approvals,
       actions: s.actions,
       trustedActions: s.trustedActions,
+      manager: s.manager,
     })
   })
 
@@ -391,6 +392,7 @@ describe('settingsStore', () => {
         approvals: s.approvals,
         actions: s.actions,
         trustedActions: s.trustedActions,
+        manager: s.manager,
       }).toEqual(DEFAULTS)
     })
 
@@ -432,7 +434,12 @@ describe('settingsStore', () => {
       await vi.advanceTimersByTimeAsync(300)
 
       const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
-      expect(written.manager).toEqual({ agents: { aider: ['aider', '--yes'] } })
+      expect(written.manager).toEqual({
+        agents: { aider: ['aider', '--yes'] },
+        skills: [],
+        allowInput: false,
+        limits: { maxWorkers: 8, spawnsPer10Min: 20, busPerMinute: 60 },
+      })
     })
 
     it('MGR-C16 refuses manager settings from pine settings set', () => {
@@ -465,6 +472,7 @@ describe('settingsStore', () => {
         approvals: s.approvals,
         actions: s.actions,
         trustedActions: s.trustedActions,
+        manager: s.manager,
       }).toEqual(DEFAULTS)
     })
   })

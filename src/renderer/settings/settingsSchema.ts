@@ -584,6 +584,55 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    manager: {
+      type: 'object',
+      additionalProperties: false,
+      description:
+        'The manager: one agent you start with `pine <agent>` from a terminal outside Pine. ' +
+        'Only you can change this (Settings → Manager); agents cannot set it.',
+      properties: {
+        agents: {
+          type: 'object',
+          description:
+            'Presets for `pine <name>` and for the workers the manager starts: a name mapped to ' +
+            'the program and its arguments. claude and codex are built in; a preset with the ' +
+            'same name replaces them.',
+          additionalProperties: { type: 'array', items: { type: 'string' }, minItems: 1 },
+        },
+        skills: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Absolute paths of skill folders (each with a SKILL.md) the manager gets besides ' +
+            'its own guide. Workers never get these.',
+        },
+        allowInput: {
+          type: 'boolean',
+          description:
+            "Let the manager type into other panes, for example to answer a worker's " +
+            'permission prompt. Default: false.',
+        },
+        limits: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            maxWorkers: { type: 'integer', minimum: 0, maximum: 64, description: 'Default: 8.' },
+            spawnsPer10Min: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 200,
+              description: 'Default: 20.',
+            },
+            busPerMinute: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 600,
+              description: 'Default: 60.',
+            },
+          },
+        },
+      },
+    },
     trustedActions: {
       type: 'array',
       items: { type: 'string' },

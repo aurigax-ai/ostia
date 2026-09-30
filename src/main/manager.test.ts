@@ -1,24 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import {
-  ManagerError,
-  type ManagerOpenRequest,
-  ManagerService,
-  parseManagerAgents,
-  parseOpenRequest,
-} from './manager'
+import type { AgentResume } from '../shared/agentResume'
+import { managerAgents, parseManagerSettings } from '../shared/managerSettings'
+import { ManagerError, type ManagerOpenRequest, ManagerService, parseOpenRequest } from './manager'
 
-function service() {
-  const spawned: { paneId: string; argv: string[]; onExit: () => void }[] = []
+function service(initialResume: unknown = null) {
+  const spawned: {
+    paneId: string
+    argv: string[]
+    resume: AgentResume | null
+    onExit: () => void
+  }[] = []
+  const store = { saved: initialResume }
   let next = 0
   const svc = new ManagerService({
-    agents: () => parseManagerAgents({ manager: { agents: { aider: ['aider', '--yes'] } } }),
+    loadResume: () => store.saved,
+    saveResume: (saved) => {
+      store.saved = saved
+    },
+    agents: () => managerAgents(parseManagerSettings({ agents: { aider: ['aider', '--yes'] } })),
     createPane: async () => `p${++next}`,
     spawn: (req) => {
       spawned.push(req)
       return true
     },
   })
-  return { svc, spawned }
+  return { svc, spawned, store }
 }
 
 const req = (agent: string, args: string[] = []): ManagerOpenRequest => ({
@@ -27,19 +33,6 @@ const req = (agent: string, args: string[] = []): ManagerOpenRequest => ({
   cwd: '/home/u',
   cols: 120,
   rows: 40,
-})
-
-describe('parseManagerAgents', () => {
-  it('MGR-C16 keeps the built-in presets and adds valid ones from settings', () => {
-    const agents = parseManagerAgents({
-      manager: { agents: { aider: ['aider'], 'bad name': ['x'], empty: [], num: [1] } },
-    })
-    expect(Object.keys(agents).sort()).toEqual(['aider', 'claude', 'codex'])
-  })
-
-  it('MGR-C16 ignores settings without a manager section', () => {
-    expect(Object.keys(parseManagerAgents(undefined)).sort()).toEqual(['claude', 'codex'])
-  })
 })
 
 describe('parseOpenRequest', () => {
@@ -100,5 +93,44 @@ describe('ManagerService', () => {
     const [a, b] = await Promise.all([svc.open(req('claude')), svc.open(req('claude'))])
     expect(spawned).toHaveLength(1)
     expect(a.info).toEqual(b.info)
+  })
+
+  it('MGR-C33 resumes the saved session after Pine quit with the manager running', async () => {
+    const first = service()
+    await first.svc.open(req('claude'))
+    first.svc.rememberResume({ agent: 'claude', id: 'sess-1' })
+    first.svc.shutdown()
+    first.spawned[0]?.onExit()
+    expect(first.store.saved).toEqual({
+      agent: 'claude',
+      resume: { agent: 'claude', id: 'sess-1' },
+    })
+
+    const restarted = service(first.store.saved)
+    await restarted.svc.open(req('claude'))
+    expect(restarted.spawned[0]?.resume).toEqual({ agent: 'claude', id: 'sess-1' })
+  })
+
+  it('MGR-C33 starts fresh after the agent exits on its own', async () => {
+    const { svc, spawned, store } = service()
+    await svc.open(req('claude'))
+    svc.rememberResume({ agent: 'claude', id: 'sess-1' })
+    spawned[0]?.onExit()
+    expect(store.saved).toBeNull()
+    await svc.open(req('claude'))
+    expect(spawned[1]?.resume).toBeNull()
+  })
+
+  it('MGR-C33 does not resume another preset, extra args, or a malformed saved token', async () => {
+    const saved = { agent: 'claude', resume: { agent: 'claude', id: 'sess-1' } }
+    const other = service(saved)
+    await other.svc.open(req('codex'))
+    expect(other.spawned[0]?.resume).toBeNull()
+    const withArgs = service(saved)
+    await withArgs.svc.open(req('claude', ['-p', 'x']))
+    expect(withArgs.spawned[0]?.resume).toBeNull()
+    const bad = service({ agent: 'claude', resume: { agent: 'claude', id: '$(rm)' } })
+    await bad.svc.open(req('claude'))
+    expect(bad.spawned[0]?.resume).toBeNull()
   })
 })

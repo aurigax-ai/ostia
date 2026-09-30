@@ -11,6 +11,7 @@ import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runBrowse } from './browse'
+import { runManagerVerb } from './manager'
 import { runPortalCommand } from './portal'
 
 interface ProcInfo {
@@ -272,6 +273,7 @@ async function runExtCommand(
 
 const CORE_VERBS = new Set([
   'whoami',
+  'manager',
   'commands',
   'info',
   'cwd',
@@ -1104,6 +1106,8 @@ async function main(): Promise<void> {
       else await runExtCommand(conn, process.argv[3], process.argv[4], process.argv.slice(5))
     } else if (cmd && !cmd.includes('.') && !CORE_VERBS.has(cmd)) {
       await runExtCommand(conn, cmd, process.argv[3], process.argv.slice(4))
+    } else if (cmd === 'manager') {
+      process.exitCode = await runManagerVerb(conn, process.argv.slice(3), process.cwd())
     } else if (cmd === 'bus') {
       await runBusVerb(conn)
     } else if (cmd === 'settings') {

@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import {
   ArrowsClockwiseIcon,
   BellIcon,
+  BroadcastIcon,
   CheckIcon,
   CodeIcon,
   CopyIcon,
@@ -73,6 +74,7 @@ import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
+import { ManagerSection } from './ManagerSection'
 import { PasswordsSection } from './PasswordsSection'
 import { activeTerminalPaneId } from './PromptEditorDialog'
 import { SyncSection } from './SyncSection'
@@ -88,6 +90,7 @@ import { Separator } from './ui/separator'
 import { Switch } from './ui/switch'
 
 type SectionId =
+  | 'manager'
   | 'appearance'
   | 'terminal'
   | 'keyboard'
@@ -142,6 +145,9 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'sidebar', icon: SidebarSimpleIcon, label: d.settings.sidebar },
         { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
         { id: 'agents', icon: RobotIcon, label: d.settings.agents },
+        ...(platform === 'linux'
+          ? [{ id: 'manager' as const, icon: BroadcastIcon, label: d.manager.settingsTitle }]
+          : []),
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
         { id: 'passwords', icon: KeyIcon, label: d.passwords.title },
@@ -226,6 +232,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'sidebar' ? <SidebarSection /> : null}
             {active === 'workspaces' ? <WorkspacesSection /> : null}
             {active === 'agents' ? <AgentsSection /> : null}
+            {active === 'manager' ? <ManagerSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'browser' ? <BrowserSettingsSection /> : null}
             {active === 'passwords' ? <PasswordsSection /> : null}
@@ -709,7 +716,7 @@ function SidebarSection(): JSX.Element {
   )
 }
 
-function NumberRow({
+export function NumberRow({
   label,
   desc,
   value,
