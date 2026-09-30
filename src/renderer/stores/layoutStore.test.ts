@@ -2,6 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { findPane, firstPaneId, paneIds } from '../layout/tree'
 import type { SplitNode } from '../layout/types'
 import { useLayoutStore } from './layoutStore'
+import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
 
 const emit = () => vi.mocked(window.pine.lifecycle.emit)
@@ -255,7 +256,51 @@ describe('layoutStore', () => {
   })
 
   describe('openFile', () => {
+    const openIn = (openFilesIn: 'tab' | 'split') =>
+      useSettingsStore.setState((s) => ({ editor: { ...s.editor, openFilesIn } }))
+    afterEach(() => openIn('tab'))
+
+    it('in tab mode, opens the file as a tab of the focused pane', () => {
+      const terminal = ensure('sess')
+      emit().mockClear()
+
+      useLayoutStore.getState().openFile('sess', '/a/b/foo.ts')
+      const layout = layoutOf('sess')
+      const editorId = paneIds(layout.root).find((id) => id !== terminal) as string
+
+      expect(layout.root.type).toBe('tabs')
+      expect(findPane(layout.root, editorId)).toMatchObject({
+        kind: 'editor',
+        filePath: '/a/b/foo.ts',
+      })
+      expect(layout.activePaneId).toBe(editorId)
+      expect(emit()).toHaveBeenCalledWith({
+        type: 'pane-created',
+        workspaceId: 'sess',
+        paneId: editorId,
+      })
+    })
+
+    it('in tab mode, reuses the editor tab of the focused slot and focuses a file already open', () => {
+      const { first, second } = twoPanes('sess')
+      useLayoutStore.getState().focusPane('sess', first)
+      useLayoutStore.getState().openFile('sess', '/a/foo.ts')
+      const editorId = layoutOf('sess').activePaneId
+      useLayoutStore.getState().focusPane('sess', first)
+
+      useLayoutStore.getState().openFile('sess', '/a/bar.ts')
+      expect(layoutOf('sess').activePaneId).toBe(editorId)
+      expect(findPane(layoutOf('sess').root, editorId)?.filePath).toBe('/a/bar.ts')
+      expect(paneIds(layoutOf('sess').root)).toHaveLength(3)
+
+      useLayoutStore.getState().focusPane('sess', second)
+      useLayoutStore.getState().openFile('sess', '/a/bar.ts')
+      expect(layoutOf('sess').activePaneId).toBe(editorId)
+      expect(paneIds(layoutOf('sess').root)).toHaveLength(3)
+    })
+
     it('with no editor pane, splits and creates an editor pane, emitting pane-created', () => {
+      openIn('split')
       const terminal = ensure('sess')
       emit().mockClear()
 
@@ -266,6 +311,7 @@ describe('layoutStore', () => {
       const editor = findPane(layout.root, editorId)
 
       expect(ids).toHaveLength(2)
+      expect(layout.root.type).toBe('split')
       expect(editor?.kind).toBe('editor')
       expect(editor?.filePath).toBe('/a/b/foo.ts')
       expect(editor?.title).toBe('foo.ts')
@@ -279,6 +325,7 @@ describe('layoutStore', () => {
     })
 
     it('with an existing editor pane, reuses it (no new pane, no pane-created emit)', () => {
+      openIn('split')
       const terminal = ensure('sess')
       useLayoutStore.getState().openFile('sess', '/a/b/foo.ts')
       const editorId = paneIds(layoutOf('sess').root).find((id) => id !== terminal) as string

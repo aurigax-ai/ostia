@@ -101,6 +101,8 @@ async function delegate(ctx: CommandContext, id: string, args?: unknown): Promis
   return r.result
 }
 
+const WORKSPACE_DIR = /^(\/|~(\/|$))/
+
 export function registerBuiltinCommands(): void {
   commands.setContextProvider((): CommandContext => {
     const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
@@ -469,14 +471,24 @@ export function registerBuiltinCommands(): void {
     run: ({ index }) => ({ switched: goToWorkspace(index) }),
   })
 
-  commands.register({
+  commands.register<{ dir?: unknown; name?: unknown } | undefined>({
     id: 'workspace.new',
     title: 'New Workspace',
     category: 'Workspace',
     target: 'none',
-    run: () => {
+    argsSchema: {
+      type: 'object',
+      properties: { dir: { type: 'string' }, name: { type: 'string' } },
+    },
+    run: (args) => {
+      const dir = args?.dir
+      const name = args?.name
+      if (dir !== undefined && (typeof dir !== 'string' || !WORKSPACE_DIR.test(dir))) {
+        throw new Error('dir must be an absolute path or start with ~')
+      }
+      if (name !== undefined && typeof name !== 'string') throw new Error('name must be a string')
       useUIStore.getState().leaveSettings()
-      startNewWorkspace()
+      startNewWorkspace({ dir, name })
     },
   })
 

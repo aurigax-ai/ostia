@@ -18,9 +18,19 @@ function focusedPaneCwd(): string | undefined {
   return findPane(layout.root, layout.activePaneId)?.cwd
 }
 
-export function startNewWorkspace(): void {
+export interface NewWorkspaceOptions {
+  dir?: string
+  name?: string
+}
+
+export function startNewWorkspace(opts: NewWorkspaceOptions = {}): void {
   const { placement, inheritFolder, defaultFolder } = useSettingsStore.getState().workspaces
-  useWorkspacesStore
-    .getState()
-    .addWorkspace(newWorkspaceDir(inheritFolder, defaultFolder, focusedPaneCwd()), placement)
+  const store = useWorkspacesStore.getState()
+  store.addWorkspace(
+    opts.dir ?? newWorkspaceDir(inheritFolder, defaultFolder, focusedPaneCwd()),
+    placement,
+  )
+  const created = useWorkspacesStore.getState().activeWorkspaceId
+  const name = opts.name?.trim()
+  if (created && name) store.rename(created, name)
 }

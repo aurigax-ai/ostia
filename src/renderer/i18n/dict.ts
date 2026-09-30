@@ -423,6 +423,10 @@ export const en = {
   editorSettings: {
     title: 'Editor',
     groupView: 'View',
+    openFilesIn: 'Open files in',
+    openFilesInDesc: 'Where a file opened from the tree, a link or an agent shows.',
+    openFilesInTab: 'A tab next to the focused pane',
+    openFilesInSplit: 'A split editor pane',
     wordWrap: 'Word wrap',
     wordWrapDesc: 'Wrap long lines instead of scrolling sideways.',
     lineNumbers: 'Line numbers',
@@ -1122,6 +1126,10 @@ export const zhHant: Dict = {
   editorSettings: {
     title: '編輯器',
     groupView: '檢視',
+    openFilesIn: '開啟檔案於',
+    openFilesInDesc: '從檔案樹、連結或代理程式開啟的檔案顯示的位置。',
+    openFilesInTab: '目前窗格旁的分頁',
+    openFilesInSplit: '分割的編輯器窗格',
     wordWrap: '自動換行',
     wordWrapDesc: '長行自動換行，而不是左右捲動。',
     lineNumbers: '行號',

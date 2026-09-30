@@ -467,6 +467,14 @@ export const SETTINGS_JSON_SCHEMA = {
             'Format the document before every save with the language server or built-in ' +
             'formatter. Files with no formatter are just saved. Default: false.',
         },
+        openFilesIn: {
+          type: 'string',
+          enum: ['tab', 'split'],
+          description:
+            'Where an opened file shows: "tab" as a tab next to the focused pane (reusing an ' +
+            'editor tab already there), "split" in the workspace editor pane, split to the ' +
+            'right when there is none. Default: tab.',
+        },
       },
     },
     keybindings: keybindingsSchema(Object.keys(DEFAULT_CHORDS)),
