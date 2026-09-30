@@ -1912,3 +1912,54 @@ the asar (a process can't use an asar path as cwd). They use only the public API
 small SDK in `src/extensions/sdk/`; their panels are served by an HTTP server on 127.0.0.1 in
 the extension process, gated by a per-run secret in the URL/header, a `Host` check, and an
 `Origin` check, and pushed live changes over SSE.
+
+## 12. Sandboxed workspaces
+
+Spec: `specs/sandbox/`. A human marks a workspace sandboxed; its pane shells and `pine process`
+runs are then wrapped by `@anthropic-ai/sandbox-runtime` (srt: bubblewrap on Linux, Seatbelt on
+macOS) and confined to the workspace folder and a firewalled network.
+
+- **One sandbox host process per sandboxed workspace** (`main/sandbox/host.ts`, built with esbuild
+  to `out/sandbox/host.mjs`, run with Pine's Electron as Node). Why: srt's `SandboxManager` is a
+  per-process singleton with one proxy and one allowlist, so per-workspace domains, the ask
+  callback and the package filter need a process each. If the host dies the workspace's network
+  dies with it (fail closed). Why ESM: srt is ESM-only and Electron 33's Node can't `require` it.
+- **`WorkspaceSandboxes`** (`main/sandbox/workspaceSandboxes.ts`) owns policy (`sandbox.json` in
+  userData, keyed by workspace id, written only by owner-window IPC), builds the srt config
+  (`srtConfig.ts`, pure) and wraps commands. `pty:attach` is async: a sandboxed shell spawns as
+  `/bin/sh -c <wrapped>` with `TMPDIR` set to the workspace's private tmp. Why the pane gets its
+  own state file as an extra write: the shell reports PATH and cwd through it, and a read-only
+  file silently broke blocks and cwd tracking.
+- **Reads**: home and Pine's data dirs are denied, the workspace folder, rc files and the human's
+  `allowRead` lists are carved back in; carve-outs inside Pine's data dirs are dropped. Why: srt's
+  `allowRead` beats `denyRead`, so listing the data dir would have exposed the vault. The shared
+  sandbox tmp root is denied so one workspace can't read another's secrets.
+- **Writes**: the workspace, its tmp and the agent CLIs' data folders, minus srt's mandatory list
+  plus `.envrc`, `.git/hooks`, `.git/config` and `.pine/vault.json`. Why the explicit git paths:
+  srt only protects hooks it finds when the shell starts, so a later `git init` left them
+  writable. Cost: `git init` of a non-repo workspace fails inside the sandbox.
+- **Network**: domains are global ∪ workspace ∪ until-restart. A host that isn't allowed is held by
+  srt's ask callback while a `sandbox-domain` card waits (`domainRequests.ts`); one card per host,
+  denied hosts refused until restart. Pine's browser in a sandboxed workspace follows the same
+  allowlist (`browserFence.ts`) on `browse.open`, `will-navigate` and `will-redirect`.
+- **Ports** (Linux): a sandboxed server lives in its own network namespace. `PortForwarder` listens
+  on host `127.0.0.1:<port>` and bridges each connection with `nsenter --user --net` + `socat`
+  into the namespace (no root, nothing running inside). Listeners are read from
+  `/proc/<pid>/net/tcp` of a process inside; srt's own proxy bridges (socat on 1080/3128) are
+  skipped. macOS needs no forwarding: loopback binding is allowed.
+- **Secrets** (`main/secrets/`): Host secrets (ssh keys, token-like env vars, `gh auth token`) are
+  read at use, never copied; Pine secrets are the vault; Browser secrets are saved logins, only
+  ever filled by main (`loginFillRuntime`, isolated world 1026). Grants inject real values as env
+  or files; a granted SSH key is served by a per-workspace `ssh-agent`. Why not `GIT_SSH_COMMAND`:
+  srt sets its own (with the proxy) and overrides Pine's.
+- **Packages**: srt terminates TLS only for registry hosts (`excludeDomains` = every other allowed
+  domain) and the host's `filterRequest` parses each download (`shared/packages.ts`) and checks
+  deny/allow lists, OSV `MAL-*` records and the cooldown (`packagePolicy.ts`, lookups cached in
+  `packageLookups.ts`). A deny returns 403 with the reason and is reported to main, which batches
+  blocked packages into one card. The package managers' own cooldowns are set in the shell env.
+- **Host panes**: a system install from a sandbox runs unsandboxed only through a one-time token:
+  `ext.confirm({hostTerminal})` offers a grant bound to the exact argv after the human approves,
+  `ext.openTerminal({host: true})` claims it, `pty:attach` consumes it (`hostPanes.ts`).
+- **System requirements** (`main/systemRequirements.ts`): features register the programs they need;
+  the sandbox needs bubblewrap, socat, ripgrep and util-linux (nsenter) on Linux. Turning the
+  sandbox on is refused while any is missing, and the dialog offers the System extension's install.

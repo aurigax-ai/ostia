@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: pine sandbox request-domain/expose, pine secret ls/get/fill), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection".
 ---
 
 # Pine — the agent toolbelt
@@ -161,6 +161,26 @@ history / `ps`. Default scope is `project` (keyed by this pane's workspace workD
 if it isn't, every vault call fails closed with `encryption-unavailable` rather than
 ever writing plaintext. `--global` **writes** (`set`/`rm`) need the elevated
 `all-workspaces` grant on top of the default vault capability — global reads don't.
+
+## Sandboxed workspaces — what you can and can't reach
+
+If `echo $HTTPS_PROXY` prints an `http://srt…` address, your workspace is sandboxed: you can read
+and write only the workspace folder (plus a private `$TMPDIR`), and reach only allowed hosts.
+Nothing fails silently — ask the human:
+
+```bash
+pine sandbox request-domain api.example.com   # a card asks the human; prints "allowed: …" or exits 1
+pine sandbox expose 5173                       # Linux: forwards 127.0.0.1:5173 on the human's computer to your server
+pine secret ls                                 # names and labels (Host / Pine / Browser), never values
+pine secret get DB_PASSWORD --reason "run the migrations"   # the value on stdout once the human allows it
+pine secret fill https://app.example.com       # Pine fills the saved login in the workspace browser; you never see it
+```
+
+A connection to a host that isn't allowed waits while the human answers a card. A blocked package
+download returns 403 with the reason (malware, cooldown, deny list); the human was asked, so retry
+after they allow it. `pine vault get` is refused in a sandbox — use `pine secret get`. System
+packages still go through `pine system install` (it opens a Host terminal the human watches); for
+toolchains prefer user-space installers (mise, uv, pixi) inside the workspace.
 
 ## Boards, cards and knowledge — use Trellis
 
