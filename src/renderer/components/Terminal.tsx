@@ -17,13 +17,13 @@ import {
 } from '../lib/attention'
 import { canTypeInto, insertCommand, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
-import { isIdlePrompt } from '../lib/blocks'
 import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
 import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { spawnPromptOption } from '../lib/promptChips'
+import { scrollUpSequence } from '../lib/promptOverlay'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
-import { registerTerminal } from '../lib/terminalHandles'
+import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
 import { DEFAULT_DARK_THEME, currentTheme, useEffectiveTheme } from '../lib/theme'
 import { loadWebglRenderer } from '../lib/webglRenderer'
@@ -124,16 +124,10 @@ export function TerminalView({
     fitRef.current = fit
     setSearch(searchAddon)
     const unregisterTerminal = registerTerminal(paneId, term)
-    const suppressInputEditor = (): void => {
-      const blocks = useBlocksStore.getState()
-      if (useSettingsStore.getState().behavior.inputMode !== 'editor') return
-      if (!isIdlePrompt(blocks, paneId)) return
-      setSuppressedPrompt(blocks.drafts[paneId]?.promptLine ?? null)
-    }
-    const shellKeys = term.onKey(suppressInputEditor)
     const pasteConfirmed = (text: string): void => {
-      suppressInputEditor()
-      term.paste(text)
+      const editor = inputEditorFor(paneId)
+      if (editor) editor.type(text)
+      else term.paste(text)
     }
     pasteRef.current = pasteConfirmed
     const requestPaste = (text: string): void => {
@@ -152,7 +146,19 @@ export function TerminalView({
       requestPaste(text)
     }
     host.addEventListener('paste', interceptPaste, true)
-    host.addEventListener('paste', suppressInputEditor, true)
+    const pasteIntoEditor = (e: ClipboardEvent): void => {
+      const editor = inputEditorFor(paneId)
+      if (!editor || e.defaultPrevented) return
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      editor.type(e.clipboardData?.getData('text/plain') ?? '')
+    }
+    host.addEventListener('paste', pasteIntoEditor, true)
+    const focusEditorOnClick = (e: MouseEvent): void => {
+      if (e.button !== 0 || term.hasSelection()) return
+      inputEditorFor(paneId)?.focus()
+    }
+    host.addEventListener('mouseup', focusEditorOnClick)
     const bufferChange = term.buffer.onBufferChange((buffer) =>
       setAlternateScreen(buffer.type === 'alternate'),
     )
@@ -165,7 +171,16 @@ export function TerminalView({
         return false
       }
       const chord = matchChord(e, isMac)
-      if (!chord) return true
+      if (!chord) {
+        const editor = inputEditorFor(paneId)
+        if (!editor) return true
+        if (e.type !== 'keydown') return false
+        e.preventDefault()
+        const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey
+        if (printable) editor.type(e.key)
+        else editor.focus()
+        return false
+      }
       const clipboard = chord === 'copy' || chord === 'paste'
       if (isMac && clipboard && isNativeClipboardKey(e)) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
@@ -498,10 +513,10 @@ export function TerminalView({
       if (holdCapTimer) clearTimeout(holdCapTimer)
       ro.disconnect()
       input.dispose()
-      shellKeys.dispose()
       bufferChange.dispose()
       host.removeEventListener('paste', interceptPaste, true)
-      host.removeEventListener('paste', suppressInputEditor, true)
+      host.removeEventListener('paste', pasteIntoEditor, true)
+      host.removeEventListener('mouseup', focusEditorOnClick)
       pasteRef.current = () => {}
       offData()
       offExit()
@@ -584,6 +599,26 @@ export function TerminalView({
     return true
   }
 
+  const handOffInput = (draft: string, keys: string): void => {
+    const term = termRef.current
+    if (!term || !canTypeInto(paneId)) return
+    setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
+    term.focus()
+    if (draft) term.paste(draft)
+    if (keys) window.pine.pty.write(paneId, keys)
+  }
+
+  const sendShellKeys = (keys: string): void => {
+    if (canTypeInto(paneId)) window.pine.pty.write(paneId, keys)
+  }
+
+  const makeRows = (rows: number): void => {
+    const term = termRef.current
+    if (!term || rows <= 0) return
+    const buf = term.buffer.active
+    term.write(scrollUpSequence(term.rows, buf.cursorY, buf.cursorX, rows))
+  }
+
   const palette = terminalPalette(themeId)
   const background = palette.background
 
@@ -592,6 +627,25 @@ export function TerminalView({
       <div className="terminal-stack">
         <div ref={hostRef} className="xterm-host" style={{ background }} />
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />
+        <InputEditor
+          paneId={paneId}
+          cwd={cwd}
+          fontFamily={fontStack(font.family)}
+          fontSize={font.size}
+          palette={palette}
+          alternateScreen={alternateScreen}
+          suppressedPrompt={suppressedPrompt}
+          termRef={termRef}
+          hostRef={hostRef}
+          ownsFocus={() => {
+            const active = document.activeElement
+            return Boolean(active && surfaceRef.current?.contains(active))
+          }}
+          onSubmit={submitInput}
+          onHandOff={handOffInput}
+          onShellKeys={sendShellKeys}
+          onNeedRows={makeRows}
+        />
         {findOpen && search && (
           <TerminalFind
             search={search}
@@ -610,21 +664,6 @@ export function TerminalView({
           closePasteDialog()
         }}
         onCancel={closePasteDialog}
-      />
-      <InputEditor
-        paneId={paneId}
-        cwd={cwd}
-        fontFamily={fontStack(font.family)}
-        fontSize={font.size}
-        palette={palette}
-        alternateScreen={alternateScreen}
-        suppressedPrompt={suppressedPrompt}
-        ownsFocus={() => {
-          const active = document.activeElement
-          return Boolean(active && surfaceRef.current?.contains(active))
-        }}
-        onSubmit={submitInput}
-        onEscape={() => termRef.current?.focus()}
       />
     </div>
   )

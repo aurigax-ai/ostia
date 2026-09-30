@@ -1155,76 +1155,58 @@
 }
 
 .input-editor {
-  position: relative;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px 8px 8px;
-  border-top: 1px solid var(--line);
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .input-editor[hidden] {
   display: none;
 }
 
-.input-editor-meta {
+.input-editor-line,
+.input-editor-chips {
+  position: absolute;
   display: flex;
-  align-items: center;
-  gap: 8px;
   min-width: 0;
-  height: 20px;
-  color: var(--fg-muted);
-  font-size: var(--text-ui-xs);
-  line-height: var(--text-ui-xs--line-height);
+  background: var(--syn-bg, var(--bg));
+  pointer-events: auto;
 }
 
-.input-editor-cwd {
-  display: inline-flex;
-  flex: none;
+.input-editor-line {
+  align-items: flex-start;
+  gap: 1ch;
+}
+
+.input-editor-chips {
   align-items: center;
-  gap: 4px;
-  max-width: 50%;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--fg);
-  font-family: var(--font-mono);
-}
-
-.input-editor-cwd svg {
-  flex: none;
-  color: var(--fg-muted);
-}
-
-.input-editor-cwd-path {
-  min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+}
+
+.input-editor-line:not([data-placed]),
+.input-editor-chips:not([data-placed]) {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .input-editor-tip {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
   white-space: nowrap;
-  text-overflow: ellipsis;
-  text-align: right;
 }
 
 .input-editor-vim {
   flex: none;
+  height: var(--cell-h);
   font-family: var(--font-mono);
   font-size: var(--text-ui-xs);
-}
-
-.input-editor-line {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  min-width: 0;
 }
 
 .input-editor-field {
@@ -1254,8 +1236,13 @@
 }
 
 .input-editor-line > .prompt-chips {
+  flex: none;
   max-width: 50%;
-  margin-top: 6px;
+}
+
+.input-editor .prompt-chips,
+.input-editor .prompt-chip {
+  height: var(--cell-h);
 }
 
 .prompt-chip-slot {
@@ -1334,8 +1321,6 @@ button.prompt-chip:focus-visible {
 
 .input-editor-area,
 .input-editor-highlight {
-  max-height: 9.5em;
-  line-height: 1.4;
   scrollbar-gutter: stable;
 }
 
@@ -1353,7 +1338,6 @@ button.prompt-chip:focus-visible {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  border: 1px solid transparent;
   color: var(--syn-fg, var(--fg));
   white-space: pre-wrap;
   overflow-wrap: break-word;
@@ -1409,13 +1393,22 @@ button.prompt-chip:focus-visible {
 
 .input-editor-menu {
   position: absolute;
-  bottom: 100%;
-  left: 8px;
+  left: 0;
   z-index: 20;
   min-width: 160px;
-  max-width: calc(100% - 16px);
+  max-width: 100%;
   font-size: var(--text-ui-sm);
   line-height: var(--text-ui-sm--line-height);
+}
+
+.input-editor-menu[data-side="top"] {
+  bottom: 100%;
+  margin-bottom: 4px;
+}
+
+.input-editor-menu[data-side="bottom"] {
+  top: 100%;
+  margin-top: 4px;
 }
 
 .input-editor-menu-item {
