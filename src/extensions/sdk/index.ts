@@ -14,9 +14,10 @@ import {
 import type {
   AssistError,
   AssistPoint,
+  AssistReport,
   AssistRequests,
   AssistResults,
-  AssistStatus,
+  AssistUi,
 } from '../../shared/assist'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import type {
@@ -163,7 +164,9 @@ export interface PineExtension {
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
   onAssist: (handler: AssistHandler) => void
-  setAssistStatus: (status: AssistStatus) => Promise<unknown>
+  setAssistStatus: (report: AssistReport) => Promise<unknown>
+  getShortcuts: (ids: string[]) => Promise<Record<string, string | null>>
+  openAssistUi: (ui: AssistUi, workspaceId?: string) => Promise<ExtensionResult>
   getSecret: (key: string) => Promise<string | null>
 }
 
@@ -334,7 +337,16 @@ export async function connect(): Promise<PineExtension> {
     onAssist: (handler) => {
       assistHandler = handler
     },
-    setAssistStatus: (status) => conn.sendRequest('ext.setAssistStatus', { status }),
+    setAssistStatus: (report) => conn.sendRequest('ext.setAssistStatus', report),
+    getShortcuts: async (ids) => {
+      const res = await conn.sendRequest<{ shortcuts?: Record<string, string | null> }>(
+        'ext.shortcuts',
+        { ids },
+      )
+      return res?.shortcuts ?? {}
+    },
+    openAssistUi: (ui, workspaceId) =>
+      conn.sendRequest('ext.openAssistUi', workspaceId ? { ui, workspaceId } : { ui }),
     getSecret: async (key) => {
       const res = await conn.sendRequest<{ value?: unknown }>('ext.getSecret', { key })
       return typeof res?.value === 'string' ? res.value : null

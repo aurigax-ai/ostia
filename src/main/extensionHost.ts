@@ -11,15 +11,25 @@ import {
 import {
   ASSIST_ERRORS,
   ASSIST_POINTS,
+  ASSIST_UIS,
   type AssistAvailability,
   type AssistError,
+  type AssistExtensionState,
+  type AssistFeatureId,
+  type AssistOpenUiRequest,
   type AssistPoint,
   type AssistResponse,
+  type AssistSetupProblem,
   type AssistStatus,
+  type AssistUi,
   CHAT_REPLY_MAX,
+  normalizeAssistError,
+  normalizeAssistFeatures,
+  normalizeAssistLabel,
   normalizeAssistRequest,
   normalizeAssistResult,
   normalizeAssistStatus,
+  normalizeSetupProblem,
 } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import {
@@ -86,7 +96,7 @@ const DIFF_TITLE_MAX = 200
 const DIFF_LANGUAGE_MAX = 40
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
 const RESCAN_DEBOUNCE_MS = 250
-export const ASSIST_TIMEOUT_MS = 30_000
+export const ASSIST_TIMEOUT_MS = 60_000
 export const ASSIST_CHAT_TIMEOUT_MS = 5 * 60_000
 const ASSIST_CHUNK_MAX = 16_384
 
@@ -106,7 +116,19 @@ interface Runtime {
   restartAfterExit: boolean
   panelOrigins: Set<string>
   assistStatus: AssistStatus
+  assistReport: AssistRuntimeReport | null
 }
+
+interface AssistRuntimeReport {
+  features: { id: AssistFeatureId; setting: string; ready: boolean }[]
+  setup: AssistSetupProblem | null
+  lastError?: string
+  label?: string
+}
+
+const SHORTCUT_IDS_MAX = 64
+const SHORTCUT_LABEL_MAX = 40
+const SHORTCUT_ID_MAX = 120
 
 interface AssistStream {
   rt: Runtime
@@ -134,6 +156,7 @@ function newRuntime(ext: DiscoveredExtension): Runtime {
     restartAfterExit: false,
     panelOrigins: new Set(),
     assistStatus: {},
+    assistReport: null,
   }
 }
 
@@ -215,6 +238,7 @@ export interface ExtensionHostDeps {
   log?: (extId: string, line: string) => void
   readExtensionSettings?: () => unknown
   assistTimeoutMs?: number
+  openAssistUiIn?: (req: AssistOpenUiRequest) => void
   assistChatTimeoutMs?: number
   secrets?: ExtensionSecretStore
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
@@ -353,6 +377,7 @@ export class ExtensionHost {
   private watching = false
   private assistStreams = new Map<string, AssistStream>()
   private assistSeq = 0
+  private shortcuts: Record<string, string> = {}
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
@@ -495,7 +520,12 @@ export class ExtensionHost {
   private changed(rt?: Runtime): void {
     if (rt) this.changes.emit(rt.ext.manifest.id)
     this.deps.broadcast('extensions:changed', this.list())
+    this.assistChanged()
+  }
+
+  private assistChanged(): void {
     this.deps.broadcast('assist:availability', this.assistAvailability())
+    this.deps.broadcast('assist:overview', this.assistOverview())
   }
 
   private sidebarChanged(): void {
@@ -670,6 +700,7 @@ export class ExtensionHost {
     rt.subscriptions.clear()
     rt.panelOrigins.clear()
     rt.assistStatus = {}
+    rt.assistReport = null
     this.dropAssistStreams(rt)
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
@@ -714,6 +745,7 @@ export class ExtensionHost {
     rt.proc?.kill('SIGTERM')
     if (!rt.proc) rt.state = 'idle'
     rt.assistStatus = {}
+    rt.assistReport = null
     this.dropAssistStreams(rt)
     const id = rt.ext.manifest.id
     this.clearSidebarOf(id)
@@ -1227,11 +1259,86 @@ export class ExtensionHost {
     const contributed = rt.ext.manifest.contributes.assist
     if (contributed.length === 0)
       return fail('not-contributed', 'manifest does not contribute assist')
-    const status = normalizeAssistStatus((params as { status?: unknown } | null)?.status)
+    const p = (params ?? {}) as Record<string, unknown>
+    const status = normalizeAssistStatus(p.status)
     rt.assistStatus = Object.fromEntries(
       Object.entries(status).filter(([point]) => contributed.includes(point as AssistPoint)),
     )
-    this.deps.broadcast('assist:availability', this.assistAvailability())
+    const booleans = new Set(
+      rt.ext.manifest.contributes.settings.filter((s) => s.type === 'boolean').map((s) => s.key),
+    )
+    const report: AssistRuntimeReport = {
+      features: normalizeAssistFeatures(p.features).filter((f) => booleans.has(f.setting)),
+      setup: normalizeSetupProblem(p.setup),
+    }
+    const lastError = normalizeAssistError(p.lastError)
+    if (lastError) report.lastError = lastError
+    const label = normalizeAssistLabel(p.label)
+    if (label) report.label = label
+    rt.assistReport = report
+    this.assistChanged()
+    return { ok: true }
+  }
+
+  assistOverview(): AssistExtensionState[] {
+    const out: AssistExtensionState[] = []
+    for (const rt of this.runtimes.values()) {
+      const report = rt.assistReport
+      if (!report || !this.active(rt) || !rt.conn || !this.granted(rt).includes('assist')) continue
+      const values = this.settingValues(rt)
+      const state: AssistExtensionState = {
+        extId: rt.ext.manifest.id,
+        name: rt.ext.manifest.name,
+        setup: report.setup,
+        features: report.features.map((f) => ({ ...f, on: values[f.setting] === true })),
+      }
+      if (report.label) state.label = report.label
+      if (report.lastError) state.lastError = report.lastError
+      out.push(state)
+    }
+    return out
+  }
+
+  setShortcuts(raw: unknown): void {
+    const next: Record<string, string> = {}
+    if (isPlainRecord(raw)) {
+      for (const [id, label] of Object.entries(raw)) {
+        if (id.length > SHORTCUT_ID_MAX || typeof label !== 'string' || !label) continue
+        next[id] = label.slice(0, SHORTCUT_LABEL_MAX)
+      }
+    }
+    this.shortcuts = next
+  }
+
+  getShortcuts(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    this.runtimeOf(identity, conn)
+    const ids = (params as { ids?: unknown } | null)?.ids
+    if (!Array.isArray(ids) || ids.length > SHORTCUT_IDS_MAX) {
+      return fail('invalid-params', `ids must be an array of at most ${SHORTCUT_IDS_MAX}`)
+    }
+    const shortcuts: Record<string, string | null> = {}
+    for (const id of ids) {
+      if (typeof id === 'string')
+        shortcuts[id] = Object.hasOwn(this.shortcuts, id) ? this.shortcuts[id] : null
+    }
+    return { ok: true, shortcuts }
+  }
+
+  openAssistUi(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = (params ?? {}) as { ui?: unknown; workspaceId?: unknown }
+    if (!ASSIST_UIS.includes(p.ui as AssistUi)) {
+      return fail('invalid-params', `ui must be one of ${ASSIST_UIS.join(', ')}`)
+    }
+    const ui = p.ui as AssistUi
+    const needs: AssistPoint[] = ui === 'compose' ? ['input', 'command'] : ['chat']
+    if (!needs.some((point) => rt.ext.manifest.contributes.assist.includes(point))) {
+      return fail('not-contributed', `manifest does not contribute ${needs.join(' or ')}`)
+    }
+    const req: AssistOpenUiRequest = { extId: rt.ext.manifest.id, ui }
+    if (typeof p.workspaceId === 'string' && p.workspaceId) req.workspaceId = p.workspaceId
+    if (!this.deps.openAssistUiIn) return fail('no-window')
+    this.deps.openAssistUiIn(req)
     return { ok: true }
   }
 
@@ -1427,6 +1534,14 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
     ...forExtension((h, id, conn, p) => h.assistChunk(id, conn, p)),
     cap: 'assist',
   })
+  registerControlMethod(
+    'ext.shortcuts',
+    forExtension((h, id, conn, p) => h.getShortcuts(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.openAssistUi',
+    forExtension((h, id, conn, p) => h.openAssistUi(id, conn, p)),
+  )
   registerControlMethod(
     'ext.getSecret',
     forExtension((h, id, conn, p) => h.getSecret(id, conn, p)),

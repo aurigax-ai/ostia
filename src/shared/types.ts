@@ -11,6 +11,7 @@ import type {
 } from './browserStorage'
 import type { BuildInfo } from './buildInfo'
 import type { Capability, PhoneGrantableCap } from './capabilities'
+import type { ChatSessionsApi } from './chatSessions'
 import type { SpecCommand } from './completionSpec'
 import type {
   CredentialImportResult,
@@ -525,6 +526,7 @@ export interface PineBridge {
   workflows: WorkflowsApi
   completions: CompletionsApi
   assist: AssistApi
+  chatSessions: ChatSessionsApi
   iconThemes: IconThemesApi
 }
 
