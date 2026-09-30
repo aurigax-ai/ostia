@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import { webContents } from 'electron'
 import type { CommandResult, CommandTarget } from '../shared/types'
 import { type AuthedConn, connHasCap } from './controlAuth'
-import { registerControlMethod } from './controlServer'
+import { registerTargetableMethod } from './controlServer'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
 import { resolveSafe } from './pathGuard'
 import { privateTmpDir } from './privateTmp'
@@ -389,7 +389,7 @@ const DEFAULT_SNAPSHOT_MAX_DEPTH = 40
 const MAX_SNAPSHOT_MAX_DEPTH = 200
 
 export function registerBrowseMethods(deps: BrowseDeps): void {
-  registerControlMethod('browse.open', {
+  registerTargetableMethod('browse.open', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { url, paneId } = (params ?? {}) as { url: string; paneId?: string }
@@ -411,7 +411,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.nav', {
+  registerTargetableMethod('browse.nav', {
     cap: 'browse',
     handler: (params, ctx) => {
       const { action, paneId } = (params ?? {}) as {
@@ -427,7 +427,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.read', {
+  registerTargetableMethod('browse.read', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, paneId } = (params ?? {}) as { selector?: string; paneId?: string }
@@ -448,7 +448,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.click', {
+  registerTargetableMethod('browse.click', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
@@ -470,7 +470,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.type', {
+  registerTargetableMethod('browse.type', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, text, paneId } = (params ?? {}) as {
@@ -501,7 +501,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.dblclick', {
+  registerTargetableMethod('browse.dblclick', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
@@ -519,7 +519,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.hover', {
+  registerTargetableMethod('browse.hover', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
@@ -538,7 +538,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.focus', {
+  registerTargetableMethod('browse.focus', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
@@ -549,7 +549,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
   })
 
   const registerCheckMethod = (name: string, checked: boolean): void => {
-    registerControlMethod(name, {
+    registerTargetableMethod(name, {
       cap: 'browse',
       handler: async (params, ctx) => {
         const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
@@ -570,7 +570,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
   registerCheckMethod('browse.check', true)
   registerCheckMethod('browse.uncheck', false)
 
-  registerControlMethod('browse.scrollIntoView', {
+  registerTargetableMethod('browse.scrollIntoView', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
@@ -586,7 +586,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.fill', {
+  registerTargetableMethod('browse.fill', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, text, paneId } = (params ?? {}) as {
@@ -608,7 +608,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.select', {
+  registerTargetableMethod('browse.select', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, value, paneId } = (params ?? {}) as {
@@ -635,7 +635,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.scroll', {
+  registerTargetableMethod('browse.scroll', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { x, y, selector, paneId } = (params ?? {}) as {
@@ -660,7 +660,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.press', {
+  registerTargetableMethod('browse.press', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { key, selector, paneId } = (params ?? {}) as {
@@ -680,7 +680,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.keydown', {
+  registerTargetableMethod('browse.keydown', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { key, selector, paneId } = (params ?? {}) as {
@@ -699,7 +699,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.keyup', {
+  registerTargetableMethod('browse.keyup', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { key, selector, paneId } = (params ?? {}) as {
@@ -718,7 +718,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.eval', {
+  registerTargetableMethod('browse.eval', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { js, paneId } = (params ?? {}) as { js: string; paneId?: string }
@@ -728,7 +728,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.wait', {
+  registerTargetableMethod('browse.wait', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, timeoutMs, paneId } = (params ?? {}) as {
@@ -751,7 +751,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.screenshot', {
+  registerTargetableMethod('browse.screenshot', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { path, paneId } = (params ?? {}) as { path?: string; paneId?: string }
@@ -776,7 +776,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.content', {
+  registerTargetableMethod('browse.content', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { paneId } = (params ?? {}) as { paneId?: string }
@@ -796,7 +796,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.snapshot', {
+  registerTargetableMethod('browse.snapshot', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, interactive, maxDepth, paneId } = (params ?? {}) as {
@@ -906,7 +906,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     'styles',
   ])
 
-  registerControlMethod('browse.get', {
+  registerTargetableMethod('browse.get', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { sub, selector, attr, property, paneId } = (params ?? {}) as {
@@ -998,7 +998,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.is', {
+  registerTargetableMethod('browse.is', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { sub, selector, paneId } = (params ?? {}) as {
@@ -1063,7 +1063,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     'nth',
   ])
 
-  registerControlMethod('browse.find', {
+  registerTargetableMethod('browse.find', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { by, query, exact, index, selector, paneId } = (params ?? {}) as {
@@ -1147,7 +1147,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.highlight', {
+  registerTargetableMethod('browse.highlight', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, ms, paneId } = (params ?? {}) as {
@@ -1180,7 +1180,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.url', {
+  registerTargetableMethod('browse.url', {
     cap: 'browse',
     handler: (params, ctx) => {
       const { paneId } = (params ?? {}) as { paneId?: string }
@@ -1190,7 +1190,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.zoom', {
+  registerTargetableMethod('browse.zoom', {
     cap: 'browse',
     handler: (params, ctx) => {
       const { action, paneId } = (params ?? {}) as {
@@ -1210,7 +1210,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.devtools', {
+  registerTargetableMethod('browse.devtools', {
     cap: 'browse',
     handler: (params, ctx) => {
       const { action, paneId } = (params ?? {}) as {
@@ -1243,7 +1243,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.focusWebview', {
+  registerTargetableMethod('browse.focusWebview', {
     cap: 'browse',
     handler: (params, ctx) => {
       const { paneId } = (params ?? {}) as { paneId?: string }
@@ -1254,7 +1254,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.isWebviewFocused', {
+  registerTargetableMethod('browse.isWebviewFocused', {
     cap: 'browse',
     handler: (params, ctx) => {
       const { paneId } = (params ?? {}) as { paneId?: string }
@@ -1264,7 +1264,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.identify', {
+  registerTargetableMethod('browse.identify', {
     cap: 'browse',
     handler: (params, ctx) => {
       const { paneId } = (params ?? {}) as { paneId?: string }
@@ -1283,7 +1283,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.cookies', {
+  registerTargetableMethod('browse.cookies', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { sub, name, value, url, domain, paneId } = (params ?? {}) as {
@@ -1325,7 +1325,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.storage', {
+  registerTargetableMethod('browse.storage', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { area, sub, key, value, paneId } = (params ?? {}) as {
@@ -1375,7 +1375,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.state', {
+  registerTargetableMethod('browse.state', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { sub, path, paneId } = (params ?? {}) as {
@@ -1453,7 +1453,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.history', {
+  registerTargetableMethod('browse.history', {
     cap: 'browse',
     handler: (params, ctx) => {
       const { sub, paneId } = (params ?? {}) as { sub: string; paneId?: string }
@@ -1470,7 +1470,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.addscript', {
+  registerTargetableMethod('browse.addscript', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { js, paneId } = (params ?? {}) as { js: string; paneId?: string }
@@ -1480,7 +1480,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.addstyle', {
+  registerTargetableMethod('browse.addstyle', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { css, paneId } = (params ?? {}) as { css: string; paneId?: string }
@@ -1495,7 +1495,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.addinitscript', {
+  registerTargetableMethod('browse.addinitscript', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { js, paneId } = (params ?? {}) as { js: string; paneId?: string }
@@ -1509,7 +1509,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     name: string,
     pickBuffer: (d: BrowseDeps) => Map<number, ConsoleEntry[]>,
   ): void => {
-    registerControlMethod(name, {
+    registerTargetableMethod(name, {
       cap: 'browse',
       handler: (params, ctx) => {
         const { sub, paneId } = (params ?? {}) as { sub?: string; paneId?: string }
@@ -1532,7 +1532,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
   registerBufferMethod('browse.console', (d) => d.consoleBuffers)
   registerBufferMethod('browse.errors', (d) => d.errorBuffers)
 
-  registerControlMethod('browse.frame', {
+  registerTargetableMethod('browse.frame', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { selector, paneId } = (params ?? {}) as { selector?: string; paneId?: string }
@@ -1579,7 +1579,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
   const DEFAULT_DOWNLOAD_TIMEOUT_MS = 30_000
   const MAX_DOWNLOAD_TIMEOUT_MS = 300_000
 
-  registerControlMethod('browse.download', {
+  registerTargetableMethod('browse.download', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { sub, path, timeoutMs, paneId } = (params ?? {}) as {
@@ -1626,7 +1626,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.navigate', {
+  registerTargetableMethod('browse.navigate', {
     cap: 'browse',
     handler: (params, ctx) => {
       const { url, paneId } = (params ?? {}) as { url: string; paneId?: string }
@@ -1637,7 +1637,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.openSplit', {
+  registerTargetableMethod('browse.openSplit', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { url } = (params ?? {}) as { url?: string; paneId?: string }
@@ -1654,7 +1654,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.tab', {
+  registerTargetableMethod('browse.tab', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { sub, url, target } = (params ?? {}) as {
@@ -1706,7 +1706,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.dialog', {
+  registerTargetableMethod('browse.dialog', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { sub, text, paneId } = (params ?? {}) as {
@@ -1746,7 +1746,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.focusMode', {
+  registerTargetableMethod('browse.focusMode', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { action, paneId } = (params ?? {}) as {
@@ -1772,7 +1772,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     },
   })
 
-  registerControlMethod('browse.reactGrab', {
+  registerTargetableMethod('browse.reactGrab', {
     cap: 'browse',
     handler: async (params, ctx) => {
       const { action, paneId } = (params ?? {}) as { action: 'toggle' | 'get'; paneId?: string }

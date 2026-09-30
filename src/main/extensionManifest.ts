@@ -4,16 +4,25 @@ import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import {
   EXTENSION_ICONS,
   EXTENSION_MANIFEST_FILE,
+  EXTENSION_SETTING_TYPES,
   type ExtensionCommandContribution,
   type ExtensionIcon,
   type ExtensionManifest,
+  type ExtensionPaneChipContribution,
   type ExtensionPanelContribution,
+  type ExtensionSettingContribution,
+  type ExtensionSettingType,
+  validSettingValue,
 } from '../shared/extensions'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
 const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
 const MAX_COMMANDS = 64
 const MAX_TEXT = 200
+const MAX_PANE_CHIPS = 8
+const MAX_SETTINGS = 32
+const MAX_ENUM_VALUES = 32
+const SETTING_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/
 
 export type ManifestResult =
   | { ok: true; manifest: ExtensionManifest }
@@ -97,6 +106,75 @@ function parsePanel(raw: unknown, dir: string): ExtensionPanelContribution | str
   return panel
 }
 
+function parsePaneChips(raw: unknown): ExtensionPaneChipContribution[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.length > MAX_PANE_CHIPS) {
+    return `contributes.paneChips must be an array of at most ${MAX_PANE_CHIPS}`
+  }
+  const chips: ExtensionPaneChipContribution[] = []
+  for (const [i, chip] of raw.entries()) {
+    const where = `contributes.paneChips[${i}]`
+    if (!isRecord(chip)) return `${where}: must be an object`
+    if (typeof chip.id !== 'string' || !COMMAND_ID_PATTERN.test(chip.id)) {
+      return `${where}: invalid id`
+    }
+    const title = text(chip.title)
+    if (!title) return `${where}: missing title`
+    if (chips.some((c) => c.id === chip.id)) return `${where}: duplicate id '${chip.id}'`
+    chips.push({ id: chip.id, title })
+  }
+  return chips
+}
+
+function parseSetting(key: string, raw: unknown): ExtensionSettingContribution | string {
+  const where = `contributes.settings.${key}`
+  if (!SETTING_KEY_PATTERN.test(key)) return `${where}: invalid key`
+  if (!isRecord(raw)) return `${where}: must be an object`
+  if (!EXTENSION_SETTING_TYPES.includes(raw.type as ExtensionSettingType)) {
+    return `${where}: type must be one of ${EXTENSION_SETTING_TYPES.join(', ')}`
+  }
+  const description = text(raw.description, 500)
+  if (!description) return `${where}: missing description`
+  const setting: ExtensionSettingContribution = {
+    key,
+    type: raw.type as ExtensionSettingType,
+    default: '',
+    description,
+  }
+  if (setting.type === 'enum') {
+    const values = raw.values
+    if (
+      !Array.isArray(values) ||
+      values.length === 0 ||
+      values.length > MAX_ENUM_VALUES ||
+      !values.every((v) => text(v, 100) !== null)
+    ) {
+      return `${where}: enum needs 1-${MAX_ENUM_VALUES} string values`
+    }
+    setting.values = [...new Set(values as string[])]
+  }
+  if (!validSettingValue(setting, raw.default)) {
+    return `${where}: default does not match type ${setting.type}`
+  }
+  setting.default = raw.default
+  return setting
+}
+
+function parseSettings(raw: unknown): ExtensionSettingContribution[] | string {
+  if (raw === undefined) return []
+  if (!isRecord(raw)) return 'contributes.settings must be an object'
+  const entries = Object.entries(raw)
+  if (entries.length > MAX_SETTINGS)
+    return `contributes.settings has more than ${MAX_SETTINGS} keys`
+  const settings: ExtensionSettingContribution[] = []
+  for (const [key, value] of entries) {
+    const parsed = parseSetting(key, value)
+    if (typeof parsed === 'string') return parsed
+    settings.push(parsed)
+  }
+  return settings
+}
+
 export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (!isRecord(raw)) return { ok: false, error: 'manifest must be a JSON object' }
   const id = raw.id
@@ -137,8 +215,17 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   const panel = parsePanel(contributes.panel, dir)
   if (typeof panel === 'string') return { ok: false, error: panel }
   const sidebarItems = contributes.sidebarItems === true
-  if ((commands.length > 0 || sidebarItems || panel?.entry === 'url') && !main) {
-    return { ok: false, error: 'commands, sidebar items and url panels need a main process' }
+  const paneChips = parsePaneChips(contributes.paneChips)
+  if (typeof paneChips === 'string') return { ok: false, error: paneChips }
+  const settings = parseSettings(contributes.settings)
+  if (typeof settings === 'string') return { ok: false, error: settings }
+  const needsMain =
+    commands.length > 0 || sidebarItems || panel?.entry === 'url' || paneChips.length > 0
+  if (needsMain && !main) {
+    return {
+      ok: false,
+      error: 'commands, sidebar items, pane chips and url panels need a main process',
+    }
   }
 
   const manifest: ExtensionManifest = {
@@ -147,7 +234,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     version,
     description,
     capabilities: caps,
-    contributes: { commands, sidebarItems },
+    contributes: { commands, sidebarItems, paneChips, settings },
   }
   if (main) manifest.main = main
   if (panel) manifest.contributes.panel = panel

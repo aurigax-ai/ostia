@@ -6,7 +6,9 @@ import type {
   ExtensionOpenTerminalRequest,
   ExtensionPanelSource,
   ExtensionResult,
+  ExtensionSettingResult,
   ExtensionSidebarItem,
+  PaneChip,
 } from '../shared/extensions'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { SelectionSendResult } from '../shared/selection'
@@ -175,6 +177,14 @@ const bridge: PineBridge = {
     panel: (extId, context) =>
       ipcRenderer.invoke('extensions:panel', extId, context) as Promise<ExtensionPanelSource>,
     sidebarItems: () => ipcRenderer.invoke('extensions:sidebar') as Promise<ExtensionSidebarItem[]>,
+    paneChips: () => ipcRenderer.invoke('extensions:chips') as Promise<PaneChip[]>,
+    setSetting: (extId, key, value) =>
+      ipcRenderer.invoke(
+        'extensions:set-setting',
+        extId,
+        key,
+        value,
+      ) as Promise<ExtensionSettingResult>,
     onChanged: (cb) => {
       const handler = (_e: unknown, list: ExtensionInfo[]): void => cb(list)
       ipcRenderer.on('extensions:changed', handler)
@@ -184,6 +194,11 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, items: ExtensionSidebarItem[]): void => cb(items)
       ipcRenderer.on('extensions:sidebar', handler)
       return () => ipcRenderer.removeListener('extensions:sidebar', handler)
+    },
+    onPaneChips: (cb) => {
+      const handler = (_e: unknown, chips: PaneChip[]): void => cb(chips)
+      ipcRenderer.on('extensions:chips', handler)
+      return () => ipcRenderer.removeListener('extensions:chips', handler)
     },
     onOpenPanel: (cb) => {
       const handler = (_e: unknown, req: ExtensionOpenPanelRequest): void => cb(req)

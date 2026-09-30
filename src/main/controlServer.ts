@@ -11,6 +11,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { Capability } from '../shared/capabilities'
+import { TARGET_PANE_PARAM } from '../shared/extensions'
 import type {
   CommandDescriptor,
   CommandResult,
@@ -43,6 +44,7 @@ export interface ControlMethodContext {
 export interface ControlMethod {
   cap?: Capability
   callers?: ControlCallers
+  targetable?: boolean
   handler: (params: unknown, ctx: ControlMethodContext) => unknown | Promise<unknown>
 }
 
@@ -56,6 +58,30 @@ const methods = new Map<string, ControlMethod>()
 export function registerControlMethod(name: string, method: ControlMethod): void {
   if (methods.has(name)) throw new Error(`control method already registered: ${name}`)
   methods.set(name, method)
+}
+
+export function registerTargetableMethod(name: string, method: ControlMethod): void {
+  registerControlMethod(name, { ...method, targetable: true })
+}
+
+function actingPane(
+  authed: AuthedConn,
+  params: unknown,
+): { identity: PaneIdentity; params: Record<string, unknown> } {
+  if (!connHasCap(authed, 'all-workspaces')) throw needsElevation('all-workspaces')
+  const raw = (typeof params === 'object' && params !== null ? params : {}) as Record<
+    string,
+    unknown
+  >
+  const { [TARGET_PANE_PARAM]: targetId, ...rest } = raw
+  const target = typeof targetId === 'string' ? resolveExternal(targetId) : undefined
+  if (!targetId) {
+    throw new ResponseError(ErrorCodes.InvalidParams, `needs-target: ${TARGET_PANE_PARAM}`)
+  }
+  if (target?.kind !== 'pane') {
+    throw new ResponseError(ErrorCodes.InvalidParams, `unknown-target: ${String(targetId)}`)
+  }
+  return { identity: target, params: rest }
 }
 
 export interface ControlServerDeps {
@@ -160,10 +186,14 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
 
     for (const [name, m] of methods) {
       conn.onRequest(name, async (params: unknown) => {
-        const identity = requireIdentity(m.callers ?? 'panes')
+        const caller = requireIdentity(m.targetable ? 'all' : (m.callers ?? 'panes'))
         if (!authed) throw unauthenticatedError('call hello first')
         if (m.cap && !connHasCap(authed, m.cap)) throw needsElevation(m.cap)
-        return m.handler(params, { identity, authed, conn })
+        if (caller.kind === 'extension' && m.targetable) {
+          const acting = actingPane(authed, params)
+          return m.handler(acting.params, { identity: acting.identity, authed, conn })
+        }
+        return m.handler(params, { identity: caller, authed, conn })
       })
     }
 
