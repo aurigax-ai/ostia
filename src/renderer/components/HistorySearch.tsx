@@ -39,6 +39,7 @@ export function HistorySearch(): JSX.Element {
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
+      className="top-[12vh] sm:max-w-2xl"
       title={d.history.title}
       description={d.history.placeholder}
     >

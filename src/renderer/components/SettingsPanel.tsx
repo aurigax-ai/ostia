@@ -140,7 +140,7 @@ export function SettingsPanel(): JSX.Element | null {
                       active === s.id ? 'bg-surface-2 text-fg' : 'text-fg-muted',
                     )}
                   >
-                    <s.icon className={active === s.id ? 'text-brand' : 'text-fg-dim'} />
+                    <s.icon className={active === s.id ? 'text-fg' : 'text-fg-muted'} />
                     {s.label}
                   </Button>
                 </li>
