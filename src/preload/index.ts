@@ -15,6 +15,7 @@ import type {
   ChatSession,
   ChatSessionSummary,
 } from '../shared/chatSessions'
+import type { McpServerStatus } from '../shared/chatTools'
 import type { SpecCommand } from '../shared/completionSpec'
 import type {
   CredentialImportResult,
@@ -520,6 +521,28 @@ const bridge: PineBridge = {
     exportMarkdown: (id) => ipcRenderer.invoke('chat:export', id) as Promise<ChatExportResult>,
     saveFile: (name, content) =>
       ipcRenderer.invoke('chat:save-file', name, content) as Promise<ChatExportResult>,
+  },
+  chatTools: {
+    read: (req) => ipcRenderer.invoke('chatTools:read', req),
+    list: (req) => ipcRenderer.invoke('chatTools:list', req),
+    search: (req) => ipcRenderer.invoke('chatTools:search', req),
+    preview: (req) => ipcRenderer.invoke('chatTools:preview', req),
+    write: (req) => ipcRenderer.invoke('chatTools:write', req),
+    skills: () => ipcRenderer.invoke('chatTools:skills'),
+    loadSkill: (name) => ipcRenderer.invoke('chatTools:load-skill', name),
+    mcpStatus: () => ipcRenderer.invoke('chatTools:mcp-status'),
+    mcpRefresh: () => ipcRenderer.invoke('chatTools:mcp-refresh'),
+    mcpReconnect: (server) => ipcRenderer.invoke('chatTools:mcp-reconnect', server),
+    onMcpStatus: (cb) => {
+      const handler = (_e: unknown, status: McpServerStatus[]): void => cb(status)
+      ipcRenderer.on('chatTools:mcp-status', handler)
+      return () => ipcRenderer.removeListener('chatTools:mcp-status', handler)
+    },
+    mcpCall: (callId, server, tool, input) =>
+      ipcRenderer.invoke('chatTools:mcp-call', callId, server, tool, input),
+    mcpCancel: (callId) => ipcRenderer.send('chatTools:mcp-cancel', callId),
+    setMcpSecret: (server, key, value) =>
+      ipcRenderer.invoke('chatTools:set-mcp-secret', server, key, value),
   },
   externalEditor: {
     open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,
