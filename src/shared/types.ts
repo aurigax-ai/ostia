@@ -53,7 +53,10 @@ export interface FsApi {
   list: (path: string) => Promise<FsEntry[]>
   read: (path: string) => Promise<string | null>
   write: (path: string, content: string) => Promise<boolean>
+  stat: (path: string) => Promise<FsKind | null>
 }
+
+export type FsKind = 'file' | 'dir'
 
 export interface LspStartResult {
   id: string
