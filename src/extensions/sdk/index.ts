@@ -18,6 +18,7 @@ import type {
   ExtensionEventType,
   ExtensionIcon,
   ExtensionResult,
+  ExtensionSettingValue,
   ExtensionSettingValues,
   OpenTerminalOptions,
   SidebarTone,
@@ -115,6 +116,7 @@ export interface PineExtension {
   setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>
   clearPaneChip: (paneId: string, id: string) => Promise<ExtensionResult>
   getSettings: () => Promise<ExtensionSettingValues>
+  setSetting: (key: string, value: ExtensionSettingValue | null) => Promise<ExtensionResult>
   onSettingsChanged: (handler: SettingsHandler) => void
   callAs: <T = unknown>(paneId: string, method: string, params?: object) => Promise<T>
   setAttention: (paneId: string, state: AttentionVerb, message?: string) => Promise<unknown>
@@ -239,6 +241,7 @@ export async function connect(): Promise<PineExtension> {
       const res = await conn.sendRequest<{ values?: ExtensionSettingValues }>('ext.getSettings')
       return res?.values ?? {}
     },
+    setSetting: (key, value) => conn.sendRequest('ext.setSetting', { key, value }),
     onSettingsChanged: (handler) => {
       settingsHandler = handler
     },

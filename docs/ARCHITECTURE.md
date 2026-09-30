@@ -1613,7 +1613,8 @@ ask for more gets nothing new until the human reviews it.
 
 **Identity.** Each start mints a fresh identity with `kind: 'extension'`
 (`idRegistry.registerExtension`), caps set explicitly with `setCaps`. The process gets
-`PINE_SOCKET`, `PINE_TOKEN`, `PINE_EXTENSION_ID`, `PINE_EXTENSION_DIR` and none of the pane
+`PINE_SOCKET`, `PINE_TOKEN`, `PINE_EXTENSION_ID`, `PINE_EXTENSION_DIR`, `PINE_EXTENSION_DATA`
+(`<userData>/extension-data/<id>`, its own state folder, created by the extension) and none of the pane
 variables. `controlServer` checks the caller kind per method (`callers: 'panes' | 'extensions' |
 'all'`): extension identities can call `hello`, `whoami` and the extension-only `ext.*` methods;
 panes can call everything else including `ext.list` / `ext.invoke`. Why: pane methods resolve
@@ -1661,7 +1662,7 @@ waits on the human's click and pastes into an agent pane.
 - `before-quit` sends SIGTERM to every extension process.
 
 **Methods.** Extension → pine: `ext.registerCommands`, `ext.subscribe`, `ext.setSidebarItem`,
-`ext.setPaneChip`, `ext.clearPaneChip`, `ext.getSettings`,
+`ext.setPaneChip`, `ext.clearPaneChip`, `ext.getSettings`, `ext.setSetting`,
 `ext.notify` (needs `notify`), `ext.openPanel`, `ext.openDiff`, `ext.confirm`, `ext.openTerminal`
 (needs `shell`), the targetable pane methods above, plus the shared
 read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`). Pine → extension:
@@ -1735,7 +1736,13 @@ read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`
   `settings.json`. Why main validates while the renderer writes: the renderer owns the file (it
   rewrites it whole), and an extension must never see a value its manifest didn't allow; stored
   values of the wrong type fall back to the default instead of failing. `extensionSettings` is not
-  in the settings store's `DATA_KEYS`, so `pine settings set` can't change it.
+  in the settings store's `DATA_KEYS`, so `pine settings set` can't change it. An extension may
+  change its own keys with `ext.setSetting` (`setOwnSetting`: the same `setSetting` validation,
+  scoped to the caller's own manifest); main then broadcasts `extensions:settings-stored
+  {extId, stored}` and the renderer persists it like a change from Settings. Why: a panel control
+  that mirrors a setting (Git's graph scope, flat/tree view) must land in the same place the
+  Settings page edits, or the two drift. Extension settings are preferences, never grants, so
+  this gives an extension nothing it couldn't already do.
 - Command caps declared in the manifest are checked against the caller before the process is
   even started. The extension receives the caller context (`kind`, external `paneId`,
   `workspaceId`, `workDir`, `capabilities`) and may enforce conditional rules itself (for example
@@ -1806,7 +1813,7 @@ webview's `src` does not fire `will-navigate`, so the attach-time check is the o
   working file, conflicted = `HEAD` vs working file (with markers); blobs via `git cat-file blob`.
   Binary (NUL in the first 8000 bytes) and > 2 MiB sides are refused; a symlink shows its target
   path, never the file it points to.
-- Commands: palette "Show Changes", "Show Log" (`/log`) and "Blame File" (`/blame?file=…`)
+- Commands: palette "Show Changes", "Show Graph" (`/graph`) and "Blame File" (`/blame?file=…`)
   open the panel (served from its process by `startPanelServer`; `ext.panel`'s path picks the
   page). "Blame File" finds the focused file view through `pane.list`'s `filePath` for the
   caller's pane and fails with `no-file` for anything else. The Changes page lists
@@ -1814,10 +1821,37 @@ webview's `src` does not fire `will-navigate`, so the attach-time check is the o
   per-section buttons stage (`git add -A`), unstage (`git reset -q HEAD`, or `git rm --cached`
   before the first commit) and discard. The commit box commits the index only (`git commit -q
   -m`) and shows git's own error text (stderr, else stdout: "nothing to commit" is on stdout).
-  The Log page lists `git log` records (`%H %an %ae %at %s` split by 0x1f/0x1e, `history.ts`)
-  with relative dates; expanding a commit lists its files (`git diff --name-status -z -M` against
-  the first parent, `diff-tree --root` for a root commit) and a file opens parent vs commit in
-  the diff pane. The Blame page renders `git blame --porcelain` (`parseBlamePorcelain`), one
+  Changed files show as a flat list or a folder tree (`fileTree.ts` `buildFileTree`: folders
+  first, file counts, and a chain of single-child folders compacted into one row like VS Code);
+  a folder row's buttons stage, unstage or discard exactly the files under it.
+  The Graph page (`graph` panel handler) reads `git log --date-order --decorate=full` with
+  parents and refs (`%H %P %an %ae %at %D %s`, `parseGraphLog`) for the scope's revisions
+  (`scope.ts` `planScope`: `HEAD`; `--branches --remotes HEAD`; or the chosen `refs/heads/*` /
+  `refs/remotes/*` after `--end-of-options`, each checked against `git for-each-ref`, so no
+  option reaches git). The panel lays the rows out itself with `layoutGraph` (`graph.ts`, pure):
+  each lane waits for one sha; a commit takes the first lane waiting for it, every other lane
+  waiting for it curves in, its first parent continues its lane (or curves into a lane already
+  waiting for that parent), and each further parent curves into a lane that waits for it or a
+  free one with a new color. Freed lanes are reused, so width stays at the number of live
+  branches. Each row is one SVG (edges from the top edge to the node and from the node to the
+  bottom edge, cubic curves with vertical tangents); colors are eight lane classes mixed from
+  the group palette. HEAD's node is a ring, merges a smaller dot. When the tree is dirty a
+  virtual first row ("Uncommitted changes", staged/unstaged/untracked/conflict counts) is laid
+  out with `pending: true`: a dashed hollow node whose dashed edge runs to HEAD, which stays on
+  its lane. Clicking it shows the changes with their stage/discard buttons; clicking a commit
+  shows its files (`git diff --name-status -z -M` against the first parent, `diff-tree --root`
+  for a root commit), and a file opens parent vs commit in the diff pane. The list is
+  virtualized (fixed 24 px rows, only the visible rows plus overscan are in the DOM) and pages
+  300 commits at a time up to 10,000 as you scroll; Up/Down/PageUp/PageDown/Home/End move the
+  selection, Escape closes the detail. Why the layout runs in the panel: pages re-lay the whole
+  loaded list, and shipping rows instead of commits would triple the payload.
+  Scope and view are settings: `graphScope` (`current` | `all`, default `current`) and
+  `changesView` (`list` | `tree`). The panel's own controls write them through `ext.setSetting`,
+  and the extension re-reads them from `onSettingsChanged`, so the panel and Settings → Plugins
+  stay in sync. "Choose branches" can't be a setting (it names one repository's refs), so it
+  lives per repository root in `$PINE_EXTENSION_DATA/view.json` (`viewState.ts`, 200 repos),
+  and wins over `graphScope` until the panel picks Current or All again. The toolbar shows the
+  branch and its upstream with ahead/behind counts. The Blame page renders `git blame --porcelain` (`parseBlamePorcelain`), one
   author/sha/date cell per run of lines from the same commit. CLI/agents: `status`, `changes`,
   `diff <path> [--staged]` (unified patch), `open <path> [--staged]`, `log [--limit n] [--json]`,
   `blame <file> [--json]`, `stage|unstage <paths>|--all`, `commit -m <msg>`. A diff/open path

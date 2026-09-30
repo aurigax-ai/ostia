@@ -323,7 +323,10 @@ Details: `docs/ARCHITECTURE.md`.
   the manifest's `contributes.settings` before anything is stored or sent to the extension; the
   renderer only persists what main returned (`extensionSettings` in `settings.json`, not in
   `DATA_KEYS`, so `pine settings set` can't write it). Stored values of the wrong type fall back
-  to the default.
+  to the default. An extension may change only its own keys, with `ext.setSetting` (same
+  validation, `setOwnSetting`), so a panel control and Settings → Plugins edit one value; main
+  broadcasts `extensions:settings-stored` and the renderer persists it. Never let it reach
+  another extension's settings or a core setting.
 - **A palette argument is data for one extension command.** A command whose manifest declares
   `argument` gets the value the human typed in the palette only as `{argv: [value]}`, after main
   checks it (`ExtensionHost.paletteArgs` → `commandArgument`); it is never typed into a pane. A
@@ -571,8 +574,11 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   chips, settings, panel paths and `targetPaneId` through the echo fixture, and
   `extensionHost.reload.integration.test.ts` writes extensions into a temp user dir for hot reload; `src/main/builtinGitExtension.integration.test.ts`
   runs the built git extension against a temp repo (sidebar, changes, diff sides, symlinks,
-  pane chips and their setting, log, blame, stage/unstage, commit, and discard through the
-  panel API with a fake confirm);
+  pane chips and their setting, log, blame, stage/unstage, commit, discard through the
+  panel API with a fake confirm, and the graph over branches and a merge: scopes, paging, the
+  `graphScope`/`changesView` settings written by the panel and followed from Settings, and
+  chosen branches in `PINE_EXTENSION_DATA`); the graph's lane layout, file tree and scope
+  planning are pure and unit-tested next to them (`src/extensions/git/*.test.ts`);
   `src/main/builtinPortsExtension.integration.test.ts` bundles the ports extension into a temp
   dir and points it at real process trees (a node listener, a fake `ssh` under `script` for a
   foreground process group, a child that only inherited the host's listening socket);
@@ -594,7 +600,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   a panel path and its setting. `e2e/tools.spec.ts` drives the trellis and keeper extensions
   against the fake CLIs (palette "Trellis: Open Card", notification clicks that open a card and
   Keeper's approvals page); `e2e/ports.spec.ts` checks the ports and ssh pane chips against a
-  real listener and a fake `ssh`.
+  real listener and a fake `ssh`. `e2e/git-graph.spec.ts` opens Git: Show Graph on a repo with
+  branches and a merge, checks the uncommitted row and keyboard selection, switches to all
+  branches, toggles the tree view, and changes `changesView` in Settings → Plugins to see the
+  panel follow.
   `e2e/browser-agent.spec.ts` grants `browse`, reads the pane's `PINE_*` env from its shell and
   drives a local http page through the real `pine browse` CLI (snapshot refs, fill/click/type,
   find, eval, storage, cookies, network, tabs, `--json`); `e2e/browser-storage.spec.ts` checks the
