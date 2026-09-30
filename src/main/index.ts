@@ -64,6 +64,7 @@ import {
   removeWindow,
   windowOfWorkspace,
 } from './idRegistry'
+import { registerLoginFill } from './loginFill'
 import { killAllLsp, registerLspIpc } from './lsp'
 import {
   postNotification,
@@ -1075,6 +1076,10 @@ app.whenReady().then(() => {
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
+  registerLoginFill({
+    browserPanes,
+    ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
+  })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
   extensionHost.startEager()

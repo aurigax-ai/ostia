@@ -717,6 +717,14 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   above the pinned group) and picks the `workDir`: the active workspace's focused pane `cwd` when
   `workspaces.inheritFolder` is on and the pane has one, else `workspaces.defaultFolder` (`~`).
   The `workDir` stays the anchor; only its initial value is inherited.
+- **Notification center** (`NotificationCenter.tsx`, `lib/notificationGroups.ts`): each log entry
+  has a `kind` (`waiting`, `approval`, `done`, `error`, `message`) set by whoever posts it
+  (agent state, approval requests, long or failed commands, OSC notifications; extensions and
+  `pine notify` post `message`; old entries read as `message`). Text tabs filter: All, Needs you
+  (waiting, approval, error, with a count including pending approvals), Finished, Messages.
+  Entries are grouped by workspace (extension entries by extension, closed panes together),
+  groups ordered by their newest entry. The top-bar trigger is a tray icon with a filled
+  `--attn` count badge.
 - **Tab and file conveniences**: a middle-click on a pane tab runs `pane.close` (the same guard as
   its X); the close guard (`lib/closeConfirm.ts`) asks for a pane, workspace or quit when it has
   a running command or an editor file with unsaved changes (`useEditorStatus.dirty`), listing
@@ -1393,6 +1401,17 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   dialog and reads a Chrome / Firefox / Bitwarden CSV by column name, `passwordRowsFromCsv`).
   Why main and not the browser session: Electron ships no password manager, and anything in
   the page's storage is readable by the page.
+- **Password autofill** (`main/loginFill.ts`, `shared/loginScripts.ts`, `LoginButton`): the browser
+  toolbar's key button lists the saved logins for the page's exact origin
+  (`credentials:for-page`, summaries only). Filling re-checks the guest's current origin against
+  the chosen login, then runs `fillScript` in its own isolated world (`LOGIN_WORLD_ID`): it finds
+  the first visible password field and the username field before it in the same form, and sets
+  both through the native value setter with input/change events. "Save login from this page"
+  reads those fields (`readScript`) and saves them. Agents call `browse.login` (`pine browse
+  login [--user]`): it needs `browse`, then the `credentials` capability, which is in
+  `ALWAYS_ASK`, so every use shows an approval card naming the site; the reply is only the
+  origin and username. Why an isolated world: the page never sees the script or the password
+  except as the field value it asked the human to type.
 - **Window title** (`settings/windowTitle.ts`, `lib/useWindowTitle.ts`): `appearance.windowTitle`
   is a template (`{workspace}`, `{pane}`, `{cwd}`, `{product}`) set as `document.title`, which
   Electron uses for the OS window title; separators left at the edges by an empty value are

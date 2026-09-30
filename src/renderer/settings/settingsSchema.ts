@@ -623,6 +623,7 @@ export const SETTINGS_JSON_SCHEMA = {
               'gateway',
               'browse',
               'settings-write',
+              'credentials',
             ],
           },
           description:
