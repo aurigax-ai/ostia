@@ -121,6 +121,8 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Declarative views: an agent drops `~/.config/pine/views/<name>.json` (data only, strictly validated, hot-reloaded) and gets a sidebar section or a panel bound to live workspaces, panes, ports, approvals, notifications and a clock, with buttons that run palette commands; the human enables each file; `pine view schema/validate/list/open`. Not ported: cmux's `.js`/`.swift` sidebars and its out-of-process renderer, which data-only files don't need | cmux | core renderer for a data-only extension point (built): drawing it with core components keeps it native and script-free | M | 1, 2 |
 | Built-in AI chat | Warp | **not planned** | — | Pine hosts agent CLIs; it doesn't compete with them |
 
+Settings Pine still lacks compared to cmux and Warp, with a top 10 to add: `docs/SETTINGS-GAP.md`.
+
 ## 4. Phases
 
 Each phase ships a working product; nothing half-built lands on `main`.
