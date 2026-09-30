@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { lstat, readFile, realpath, stat } from 'node:fs/promises'
 import { homedir, hostname, userInfo } from 'node:os'
 import { basename, delimiter, dirname, join } from 'node:path'
+import { LRUCache } from 'lru-cache'
 import type { PromptContext, PromptContextRequest } from '../shared/types'
 import { type ShellState, pathDirs } from './shellCommands'
 
@@ -62,17 +63,10 @@ export const runNodeVersion: RunNodeVersion = (file) =>
     )
   })
 
-function remember<V>(cache: Map<string, V>, key: string, value: V): void {
-  cache.delete(key)
-  cache.set(key, value)
-  if (cache.size > MAX_CACHED) {
-    const oldest = cache.keys().next().value
-    if (oldest !== undefined) cache.delete(oldest)
-  }
-}
-
 export class NodeVersionResolver {
-  private readonly cache = new Map<string, { mtimeMs: number; version: string | null }>()
+  private readonly cache = new LRUCache<string, { mtimeMs: number; version: string | null }>({
+    max: MAX_CACHED,
+  })
 
   constructor(private readonly run: RunNodeVersion = runNodeVersion) {}
 
@@ -92,7 +86,7 @@ export class NodeVersionResolver {
     const hit = this.cache.get(real)
     if (hit && hit.mtimeMs === mtimeMs) return hit.version
     const version = await this.run(real)
-    remember(this.cache, real, { mtimeMs, version })
+    this.cache.set(real, { mtimeMs, version })
     return version
   }
 }
@@ -119,7 +113,9 @@ export function kubeconfigFiles(kubeconfigEnv: string | null, home: string): str
 }
 
 export class KubeContextReader {
-  private readonly cache = new Map<string, { mtimeMs: number; context: string | null }>()
+  private readonly cache = new LRUCache<string, { mtimeMs: number; context: string | null }>({
+    max: MAX_CACHED,
+  })
 
   private async readOne(file: string): Promise<string | null> {
     try {
@@ -129,7 +125,7 @@ export class KubeContextReader {
       const hit = this.cache.get(file)
       if (hit && hit.mtimeMs === target.mtimeMs) return hit.context
       const context = parseKubeCurrentContext(await readFile(file, 'utf8'))
-      remember(this.cache, file, { mtimeMs: target.mtimeMs, context })
+      this.cache.set(file, { mtimeMs: target.mtimeMs, context })
       return context
     } catch {
       return null
