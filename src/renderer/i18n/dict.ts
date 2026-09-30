@@ -321,7 +321,7 @@ export const en = {
   send: {
     title: 'Send to agent',
     target: 'Send to',
-    noTargets: 'No terminal panes to send to.',
+    noTargets: 'No agent is running in this workspace.',
     send: 'Send',
     sentInserted: 'Sent to {pane}. The report is at its prompt.',
     sentCopied: 'Sent to {pane}. It was busy, so the report path is on your clipboard.',
@@ -1350,7 +1350,7 @@ export const zhHant: Dict = {
   send: {
     title: '傳送給代理程式',
     target: '傳送至',
-    noTargets: '沒有可傳送的終端機窗格。',
+    noTargets: '此工作區沒有執行中的代理程式。',
     send: '傳送',
     sentInserted: '已傳送至 {pane}，報告路徑已放在提示字元。',
     sentCopied: '已傳送至 {pane}。該窗格忙碌中，報告路徑已複製到剪貼簿。',
