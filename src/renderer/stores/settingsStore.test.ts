@@ -5,7 +5,7 @@ const store = () => useSettingsStore.getState()
 
 type Persisted = Pick<
   ReturnType<typeof useSettingsStore.getState>,
-  'locale' | 'appearance' | 'behavior' | 'notifications' | 'sidebar'
+  'locale' | 'appearance' | 'behavior' | 'notifications' | 'sidebar' | 'browser' | 'editor'
 >
 
 describe('settingsStore', () => {
@@ -37,6 +37,8 @@ describe('settingsStore', () => {
       behavior: s.behavior,
       notifications: s.notifications,
       sidebar: s.sidebar,
+      browser: s.browser,
+      editor: s.editor,
     })
   })
 
@@ -84,6 +86,34 @@ describe('settingsStore', () => {
       expect(s.notifications.agentDone).toBe(true)
       expect(s.sidebar.showPath).toBe(false)
       expect(s.sidebar.showMessage).toBe(true)
+    })
+
+    it('reads browser and editor settings, dropping invalid values and clamping zoom', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({
+          browser: { searchEngine: 'kagi', openTerminalLinks: true, defaultZoom: 900 },
+          editor: { wordWrap: 'on', tabSize: 3, autoSave: 'afterDelay' },
+        }),
+      )
+
+      await store().init()
+
+      expect(store().browser).toMatchObject({
+        searchEngine: 'kagi',
+        openTerminalLinks: true,
+        defaultZoom: 300,
+      })
+      expect(store().editor).toMatchObject({ wordWrap: 'on', tabSize: 2, autoSave: 'afterDelay' })
+    })
+
+    it('saves browser and editor changes', async () => {
+      store().setBrowser({ searchEngine: 'custom', customSearchUrl: 'https://x.test/?q={query}' })
+      store().setEditor({ formatOnSave: true, tabSize: 8 })
+      await vi.runAllTimersAsync()
+      const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.browser.searchEngine).toBe('custom')
+      expect(written.browser.customSearchUrl).toBe('https://x.test/?q={query}')
+      expect(written.editor).toMatchObject({ formatOnSave: true, tabSize: 8 })
     })
 
     it('merges a valid partial settings.json over DEFAULTS (mergeFont keeps default family)', async () => {
@@ -136,6 +166,8 @@ describe('settingsStore', () => {
         behavior: s.behavior,
         notifications: s.notifications,
         sidebar: s.sidebar,
+        browser: s.browser,
+        editor: s.editor,
       }).toEqual(DEFAULTS)
     })
 
@@ -165,6 +197,8 @@ describe('settingsStore', () => {
         behavior: s.behavior,
         notifications: s.notifications,
         sidebar: s.sidebar,
+        browser: s.browser,
+        editor: s.editor,
       }).toEqual(DEFAULTS)
     })
   })

@@ -1,4 +1,12 @@
 import { create } from 'zustand'
+import {
+  type BrowserSettings,
+  DEFAULT_BROWSER_SETTINGS,
+  DEFAULT_EDITOR_SETTINGS,
+  type EditorSettings,
+  parseBrowserSettings,
+  parseEditorSettings,
+} from '../../shared/browserEditorSettings'
 import type { Capability } from '../../shared/capabilities'
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
@@ -88,6 +96,8 @@ interface Persisted {
   behavior: Behavior
   notifications: NotificationSettings
   sidebar: SidebarSettings
+  browser: BrowserSettings
+  editor: EditorSettings
   capabilities?: Capabilities
   sync?: SyncSettings
 }
@@ -98,6 +108,8 @@ const DATA_KEYS: readonly string[] = [
   'behavior',
   'notifications',
   'sidebar',
+  'browser',
+  'editor',
 ]
 
 const kindOf = (v: unknown): string => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v)
@@ -125,6 +137,8 @@ const DEFAULTS: Persisted = {
   },
   notifications: DEFAULT_NOTIFICATION_SETTINGS,
   sidebar: { showPath: true, showMessage: true, showDescription: true, showExtensionItems: true },
+  browser: DEFAULT_BROWSER_SETTINGS,
+  editor: DEFAULT_EDITOR_SETTINGS,
 }
 
 interface SettingsState extends Persisted {
@@ -137,6 +151,8 @@ interface SettingsState extends Persisted {
   setNotifications: (patch: Partial<NotificationSettings>) => void
   setTerminalLineHeight: (lineHeight: number) => void
   setSidebar: (patch: Partial<SidebarSettings>) => void
+  setBrowser: (patch: Partial<BrowserSettings>) => void
+  setEditor: (patch: Partial<EditorSettings>) => void
   setByPath: (path: string, value: unknown) => void
   setSyncDir: (dir: string) => Promise<void>
 }
@@ -150,6 +166,8 @@ async function writeSettings(s: SettingsState): Promise<void> {
     behavior: s.behavior,
     notifications: s.notifications,
     sidebar: s.sidebar,
+    browser: s.browser,
+    editor: s.editor,
     capabilities: s.capabilities,
     sync: s.sync,
   }
@@ -206,6 +224,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         },
         notifications: parseNotificationSettings(p.notifications),
         sidebar: pickBooleans(DEFAULTS.sidebar, p.sidebar),
+        browser: parseBrowserSettings(p.browser),
+        editor: parseEditorSettings(p.editor),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
         sync: syncOf(p.sync),
       })
@@ -251,6 +271,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((s) => ({ sidebar: { ...s.sidebar, ...patch } }))
     scheduleSave(get)
   },
+  setBrowser: (patch) => {
+    set((s) => ({ browser: parseBrowserSettings({ ...s.browser, ...patch }) }))
+    scheduleSave(get)
+  },
+  setEditor: (patch) => {
+    set((s) => ({ editor: parseEditorSettings({ ...s.editor, ...patch }) }))
+    scheduleSave(get)
+  },
   setSyncDir: async (dir) => {
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = null
@@ -272,6 +300,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       behavior: s.behavior,
       notifications: s.notifications,
       sidebar: s.sidebar,
+      browser: s.browser,
+      editor: s.editor,
       capabilities: s.capabilities,
     })
     let cursor = root

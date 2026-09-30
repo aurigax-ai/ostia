@@ -8,10 +8,12 @@ import type { PickCapture, PickTheme } from '@shared/pick'
 import type { WebviewTag } from 'electron'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
+import { resolveAddress } from '../lib/browserAddress'
 import type { PickTarget } from '../lib/pickTargets'
 import { sendPickToPane } from '../lib/sendPick'
 import { terminalTitle } from '../lib/terminalTitle'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
 import { PickSendPanel, usePickTargets } from './PickSendPanel'
 import { Button } from './ui/button'
@@ -24,14 +26,6 @@ function pickTheme(): PickTheme {
   const css = getComputedStyle(document.documentElement)
   const read = (name: string): string => css.getPropertyValue(name).trim()
   return { accent: read('--brand'), surface: read('--surface-3'), fg: read('--fg') }
-}
-
-function resolveAddress(input: string): string {
-  const trimmed = input.trim()
-  if (!trimmed) return 'about:blank'
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed
-  if (!trimmed.includes(' ') && trimmed.includes('.')) return `https://${trimmed}`
-  return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`
 }
 
 export function BrowserView({
@@ -158,6 +152,7 @@ export function BrowserView({
     if (!el) return
     const onDomReady = (): void => {
       readyRef.current = true
+      withGuest((wv) => wv.setZoomFactor(useSettingsStore.getState().browser.defaultZoom / 100))
       withGuest((wv) => window.pine?.browser?.register?.(paneId, wv.getWebContentsId()))
       const pending = pendingUrlRef.current
       if (pending) load(pending)
@@ -232,7 +227,7 @@ export function BrowserView({
 
   const navigate = (raw: string): void => {
     editingRef.current = false
-    const next = resolveAddress(raw)
+    const next = resolveAddress(raw, useSettingsStore.getState().browser)
     setLoadError(null)
     lastAppliedUrlRef.current = next
     setAddress(next)
