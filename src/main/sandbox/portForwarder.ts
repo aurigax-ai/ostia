@@ -16,6 +16,8 @@ export interface PortForwarderDeps {
 }
 
 const LISTEN = '0A'
+const RUNTIME_BRIDGE_PORTS = new Set([1080, 3128])
+const RUNTIME_BRIDGE_PROCESS = 'socat'
 const LOOPBACK_OR_ANY = new Set([
   '0100007F',
   '00000000',
@@ -120,7 +122,10 @@ export class PortForwarder {
     const tree = descendants(roots)
     const seen = new Map<number, SandboxListener>()
     for (const [inode, port] of inodes) {
-      if (!seen.has(port)) seen.set(port, { port, process: processOfInode(tree, inode) })
+      if (seen.has(port)) continue
+      const owner = processOfInode(tree, inode)
+      if (RUNTIME_BRIDGE_PORTS.has(port) && owner === RUNTIME_BRIDGE_PROCESS) continue
+      seen.set(port, { port, process: owner })
     }
     return [...seen.values()].sort((a, b) => a.port - b.port)
   }

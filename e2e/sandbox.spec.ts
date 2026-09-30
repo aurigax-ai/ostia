@@ -121,7 +121,6 @@ test('a blocked connection waits on the card and completes once the human allows
   }
 })
 
-
 test('SBX-C21 reads the workspace folder and the shell rc, and blocks and cwd still work', async () => {
   const { app, win, home, project } = await launch()
   try {
@@ -149,6 +148,75 @@ test('SBX-C24 reaches Pine from a sandboxed shell through the control socket', a
     await sandboxedShell(win)
     await run(win, 'pine whoami && echo C24-OK')
     await expect(win.locator('.xterm-rows').first()).toContainText('C24-OK', { timeout: 15_000 })
+  } finally {
+    await app.close()
+  }
+})
+
+const FAKE_BIN = join(__dirname, '../test/fixtures/system/bin')
+
+async function launchWithFakeSystem() {
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  const project = join(home, 'project')
+  mkdirSync(project, { recursive: true })
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
+  })
+  const launchOptions = isolatedLaunch(dataHome)
+  const app = await electron.launch({
+    ...launchOptions,
+    env: { ...launchOptions.env, HOME: home, PATH: `${FAKE_BIN}:${process.env.PATH}` },
+  })
+  const win = await app.firstWindow()
+  await win.waitForLoadState('domcontentloaded')
+  await openWorkspace(win)
+  return { app, win }
+}
+
+async function answerDialogs(app: Awaited<ReturnType<typeof electron.launch>>, response: number) {
+  await app.evaluate(({ dialog }, answer) => {
+    const g = globalThis as { pineE2eAsked?: unknown[] }
+    g.pineE2eAsked = []
+    dialog.showMessageBox = (async (...args: unknown[]) => {
+      g.pineE2eAsked?.push(args.length > 1 ? args[1] : args[0])
+      return { response: answer, checkboxChecked: false }
+    }) as typeof dialog.showMessageBox
+  }, response)
+}
+
+test('SBX-C87 installs a system package from a sandbox in a Host pane that closes when done', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launchWithFakeSystem()
+  try {
+    await sandboxedShell(win)
+    await answerDialogs(app, 0)
+    await run(win, 'pine system install jq --manager pacman --reason c87')
+    const hostBadge = win.locator('.pane-header').getByText('Host', { exact: true })
+    await expect(hostBadge).toBeVisible({ timeout: 20_000 })
+    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 30_000 })
+    await expect(win.locator('.xterm-rows').first()).toContainText('"approved": true', {
+      timeout: 15_000,
+    })
+    const asked = (await app.evaluate(
+      () => (globalThis as { pineE2eAsked?: unknown[] }).pineE2eAsked ?? [],
+    )) as { detail?: string }[]
+    expect(asked[0]?.detail).toContain('Runs outside the sandbox')
+  } finally {
+    await app.close()
+  }
+})
+
+test('SBX-C88 opens no pane when the human denies a system install from a sandbox', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launchWithFakeSystem()
+  try {
+    await sandboxedShell(win)
+    await answerDialogs(app, 1)
+    await run(win, 'pine system install jq --manager pacman --reason c88')
+    await expect(win.locator('.xterm-rows').first()).toContainText('denied', { timeout: 20_000 })
+    await expect(win.locator('.xterm')).toHaveCount(1)
   } finally {
     await app.close()
   }

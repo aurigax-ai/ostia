@@ -155,14 +155,22 @@ export interface ExtensionHostDeps {
   log?: (extId: string, line: string) => void
   readExtensionSettings?: () => unknown
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
+  isSandboxed?: (workspaceId: string) => boolean
+  hostGrants?: {
+    offer: (extId: string, command: string) => void
+    claim: (extId: string, command: string) => string | null
+  }
   notifyPanel?: (
     n: { title: string; body?: string; from: string; extId: string; panelPath?: string },
     openPanel: () => void,
   ) => void
 }
 
+const HOST_TERMINAL_NOTE = 'Runs outside the sandbox, in a terminal you can watch:'
+
 export interface TerminalOpenRequest {
   command: string
+  hostToken?: string
   workspaceId?: string
   windowId?: string
   afterPaneId?: string
@@ -1032,11 +1040,12 @@ export class ExtensionHost {
   }
 
   async openTerminal(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    this.runtimeOf(identity, conn)
     const p = (params ?? {}) as Record<string, unknown>
     const argv = terminalArgv(p.command)
     if (typeof argv === 'string') return fail('invalid-params', argv)
-    const req: TerminalOpenRequest = { command: quoteArgv(argv) }
+    const rt = this.runtimeOf(identity, conn)
+    const command = quoteArgv(argv)
+    const req: TerminalOpenRequest = { command }
     const workspaceId =
       typeof p.workspaceId === 'string' && p.workspaceId ? p.workspaceId : undefined
     if (p.afterPaneId !== undefined) {
@@ -1050,6 +1059,16 @@ export class ExtensionHost {
       req.windowId = after.windowId
     } else if (workspaceId) {
       req.workspaceId = workspaceId
+    }
+    if (p.host === true && this.deps.isSandboxed?.(req.workspaceId ?? '')) {
+      const token = this.deps.hostGrants?.claim(rt.ext.manifest.id, command) ?? null
+      if (!token)
+        return fail(
+          'host-not-approved',
+          'a host terminal needs an approved ext.confirm with hostTerminal',
+        )
+      req.hostToken = token
+      req.command = `${command}; exit`
     }
     if (p.cwd !== undefined) {
       if (typeof p.cwd !== 'string' || !isAbsolute(p.cwd)) {
@@ -1092,7 +1111,16 @@ export class ExtensionHost {
     if (confirmLabel) req.confirmLabel = confirmLabel
     const cancelLabel = text(p.cancelLabel, CONFIRM_LABEL_MAX)
     if (cancelLabel) req.cancelLabel = cancelLabel
-    return { ok: true, confirmed: await this.deps.confirm(req) }
+    let hostCommand: string | null = null
+    if (p.hostTerminal !== undefined) {
+      const argv = terminalArgv(p.hostTerminal)
+      if (typeof argv === 'string') return fail('invalid-params', argv)
+      hostCommand = quoteArgv(argv)
+      req.detail = `${req.detail ? `${req.detail}\n\n` : ''}${HOST_TERMINAL_NOTE}\n${hostCommand}`
+    }
+    const confirmed = await this.deps.confirm(req)
+    if (confirmed && hostCommand) this.deps.hostGrants?.offer(rt.ext.manifest.id, hostCommand)
+    return { ok: true, confirmed }
   }
 
   reloadRecords(): void {

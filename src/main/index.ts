@@ -90,6 +90,7 @@ import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
 import { DomainRequests } from './sandbox/domainRequests'
+import { HostPaneGrants } from './sandbox/hostPanes'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { packageCooldownEnv } from './sandbox/packageEnv'
 import { PackageRequests } from './sandbox/packageRequests'
@@ -388,6 +389,9 @@ const portRequests: PortRequests = new PortRequests({
 })
 
 const PORT_SCAN_MS = 3000
+
+const HOST_GRANT_TTL_MS = 120_000
+const hostPaneGrants = new HostPaneGrants({ now: Date.now, ttlMs: HOST_GRANT_TTL_MS })
 
 function scanSandboxPorts(): void {
   const workspaces = new Set<string>()
@@ -1098,7 +1102,8 @@ function registerPtyIpc(): void {
     let file = shell
     let args = integration.args
     let cwd = resolveCwd(opts.cwd)
-    const sandboxed = workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
+    const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
+    const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
     if (sandboxed) {
       try {
         writeFileSync(stateFile, '', { mode: 0o600 })
@@ -1182,7 +1187,7 @@ function registerPtyIpc(): void {
     pty.onExit(({ exitCode }) => session.exit(exitCode))
     const { data, cursor, dropped } = session.since(0)
     session.addLiveSubscriber(mkSub())
-    return { created: true, buffer: data, cursor, dropped, sandboxed }
+    return { created: true, buffer: data, cursor, dropped, sandboxed, host }
   }
 
   ipcMain.on('pty:detach', (e, paneId: string) => {
@@ -1497,6 +1502,8 @@ app.whenReady().then(() => {
   })
   settingsSync.run()
   extensionHost = new ExtensionHost({
+    hostGrants: hostPaneGrants,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     roots: extensionRoots(),
     store: extensionStore,
     socketPath: controlSocketPath,

@@ -125,4 +125,11 @@ describe('PortForwarder', () => {
     expect(forwarder.exposed('ws')).toEqual([])
     expect(await until(async () => ((await portFree(INNER_PORT)) ? true : undefined))).toBe(true)
   })
+
+  it('never lists the sandbox runtime proxy bridges as servers', () => {
+    const ports = forwarder.listeners('ws').map((l) => l.port)
+    expect(ports).toContain(INNER_PORT)
+    expect(ports).not.toContain(3128)
+    expect(ports).not.toContain(1080)
+  })
 })
