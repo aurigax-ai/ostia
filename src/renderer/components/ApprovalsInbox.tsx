@@ -1,4 +1,4 @@
-import type { ApprovalOutcome } from '@shared/approvals'
+import type { ApprovalKind, ApprovalOutcome, ApprovalRequest } from '@shared/approvals'
 import type { Dict } from '../i18n/dict'
 import { useDict } from '../i18n/useDict'
 import { revealPane } from '../lib/workspaceActivity'
@@ -8,12 +8,14 @@ import { Button } from './ui/button'
 
 const HISTORY_SHOWN = 10
 
-function outcomeLabel(d: Dict, outcome: ApprovalOutcome): string {
+function outcomeLabel(d: Dict, outcome: ApprovalOutcome, kind: ApprovalKind): string {
   switch (outcome) {
     case 'once':
       return d.approvals.outcomeOnce
     case 'session':
-      return d.approvals.outcomeSession
+      return kind === 'capability' ? d.approvals.outcomeSession : d.approvals.outcomeUntilRestart
+    case 'workspace':
+      return d.approvals.outcomeWorkspace
     case 'deny':
       return d.approvals.outcomeDeny
     case 'auto':
@@ -40,6 +42,8 @@ export function ApprovalsInbox({
   if (pending.length === 0 && history.length === 0) return null
   const caps = (list: readonly string[]): string =>
     list.map((cap) => capLabel(d.approvals.caps, cap)).join(', ')
+  const what = (req: ApprovalRequest): string =>
+    (req.kind ?? 'capability') === 'capability' ? caps(req.caps) : (req.subject ?? '')
 
   return (
     <section
@@ -62,15 +66,21 @@ export function ApprovalsInbox({
                   {whereOf(req.paneId) ?? req.paneId}
                 </button>
                 <span className="text-ui-sm [overflow-wrap:anywhere]">
-                  {caps(req.caps)}: {req.action}
+                  {what(req)}: {req.action}
                 </span>
                 <div className="flex justify-end gap-1">
                   <Button variant="ghost" size="xs" onClick={() => void answer(req.id, 'deny')}>
                     {d.approvals.deny}
                   </Button>
-                  <Button size="xs" onClick={() => void answer(req.id, 'once')}>
-                    {d.approvals.allowOnce}
-                  </Button>
+                  {(req.kind ?? 'capability') === 'capability' ? (
+                    <Button size="xs" onClick={() => void answer(req.id, 'once')}>
+                      {d.approvals.allowOnce}
+                    </Button>
+                  ) : (
+                    <Button size="xs" onClick={() => void answer(req.id, 'workspace')}>
+                      {d.approvals.allowWorkspace}
+                    </Button>
+                  )}
                 </div>
               </li>
             ))}
@@ -85,10 +95,11 @@ export function ApprovalsInbox({
               <li key={record.id} className="flex items-center gap-2 px-1.5 py-1 text-ui-xs">
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-fg">
-                    {caps(record.caps)}: {record.action}
+                    {what(record)}: {record.action}
                   </span>
                   <span className="truncate text-fg-muted tabular-nums">
-                    {outcomeLabel(d, record.outcome)} · {time.format(new Date(record.answeredAt))} ·{' '}
+                    {outcomeLabel(d, record.outcome, record.kind ?? 'capability')} ·{' '}
+                    {time.format(new Date(record.answeredAt))} ·{' '}
                     {whereOf(record.paneId) ?? d.attention.closedPane}
                   </span>
                 </span>

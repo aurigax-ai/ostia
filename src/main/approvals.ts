@@ -8,11 +8,13 @@ import {
   APPROVAL_HISTORY_MAX,
   APPROVAL_TIMEOUT_MS,
   type ApprovalAnswer,
+  type ApprovalKind,
   type ApprovalMode,
   type ApprovalOutcome,
   type ApprovalRecord,
   type ApprovalRequest,
   type ApprovalState,
+  answersFor,
   autoApproves,
   parseApprovalSettings,
 } from '../shared/approvals'
@@ -28,6 +30,8 @@ export interface ApprovalAsk {
   caps: Capability[]
   action: string
   detail: string
+  kind?: ApprovalKind
+  subject?: string
 }
 
 export interface ApprovalDeps {
@@ -81,7 +85,7 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
       ...owned,
       outcome,
       answeredAt: deps.now(),
-      revocable: outcome === 'session',
+      revocable: outcome === 'session' && (req.kind ?? 'capability') === 'capability',
     })
     history.length = Math.min(history.length, APPROVAL_HISTORY_MAX)
   }
@@ -90,6 +94,8 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
     counter += 1
     const req: ApprovalRequest = {
       id: `approval-${counter}`,
+      kind: ask.kind ?? 'capability',
+      ...(ask.subject === undefined ? {} : { subject: ask.subject }),
       paneId: ask.paneId,
       workspaceId: ask.workspaceId,
       caps: [...ask.caps],
@@ -98,7 +104,7 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
       at: deps.now(),
     }
     const owned: Owned = { windowId: ask.windowId, externalId: ask.externalId }
-    if (autoApproves(deps.mode(), req.caps)) {
+    if (autoApproves(deps.mode(), req.caps, req.kind)) {
       record(owned, req, 'auto')
       publish(ask.windowId)
       return Promise.resolve('auto')
@@ -108,7 +114,7 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
       const settle = (outcome: ApprovalOutcome): void => {
         if (!pending.delete(req.id)) return
         clearTimeout(timer)
-        if (outcome === 'session') {
+        if (outcome === 'session' && (req.kind ?? 'capability') === 'capability') {
           for (const cap of req.caps) deps.grant(ask.externalId, cap)
         }
         record(owned, req, outcome)
@@ -124,6 +130,7 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
     const entry = pending.get(id)
     if (!entry || entry.windowId !== windowId) return false
     if (!APPROVAL_ANSWERS.includes(value as ApprovalAnswer)) return false
+    if (!answersFor(entry.req.kind).includes(value as ApprovalAnswer)) return false
     if (value === 'session' && entry.req.caps.some((cap) => ALWAYS_ASK.includes(cap))) return false
     entry.settle(value as ApprovalAnswer)
     return true
