@@ -1658,10 +1658,76 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+const WORKSPACE_USAGE =
+  'pine workspace: usage: workspace list [--json] | describe <text|-> | describe --clear | ' +
+  'group <name> | ungroup'
+
+interface WorkspaceListing {
+  workspaceId: string
+  name: string
+  state: string
+  workDir: string
+  groupId?: string
+}
+
+interface WorkspaceGroupListing {
+  groupId: string
+  name: string
+}
+
+async function runWorkspaceList(conn: MessageConnection, json: boolean): Promise<void> {
+  const [workspaces, groups] = await Promise.all([
+    conn.sendRequest<WorkspaceListing[]>('workspace.list'),
+    conn.sendRequest<WorkspaceGroupListing[]>('workspace.groups'),
+  ])
+  if (json) {
+    console.log(JSON.stringify({ workspaces, groups }, null, 2))
+    return
+  }
+  const groupName = new Map(groups.map((g) => [g.groupId, g.name]))
+  for (const w of workspaces) {
+    const group = w.groupId ? (groupName.get(w.groupId) ?? '') : ''
+    console.log([w.workspaceId, group || '-', w.name, w.state, w.workDir].join('\t'))
+  }
+}
+
+async function runWorkspaceCommand(
+  conn: MessageConnection,
+  verb: string,
+  id: string,
+  args?: unknown,
+): Promise<void> {
+  const res = await conn.sendRequest<CommandResult>('command.exec', { id, args })
+  if (res.ok) {
+    console.log('ok')
+  } else {
+    console.error(`pine workspace ${verb}: ${res.error?.message ?? 'failed'}`)
+    process.exitCode = 1
+  }
+}
+
 async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   const [sub, ...rest] = process.argv.slice(3)
+  if (sub === 'list') {
+    await runWorkspaceList(conn, rest.includes('--json'))
+    return
+  }
+  if (sub === 'group') {
+    const name = rest.join(' ').trim()
+    if (!name) {
+      console.error('pine workspace group: missing <name>')
+      process.exitCode = 1
+      return
+    }
+    await runWorkspaceCommand(conn, 'group', 'workspace.group', { name })
+    return
+  }
+  if (sub === 'ungroup') {
+    await runWorkspaceCommand(conn, 'ungroup', 'workspace.ungroup')
+    return
+  }
   if (sub !== 'describe') {
-    console.error('pine workspace: usage: workspace describe <text|-> | workspace describe --clear')
+    console.error(WORKSPACE_USAGE)
     process.exitCode = 1
     return
   }
@@ -1717,6 +1783,8 @@ commands:
   notify <title> [body]
   state <waiting|done|working|error|clear> [message|-] [--pane <externalId>]
   workspace describe <text|-> | --clear   one-line summary under this workspace in the sidebar
+  workspace list [--json]   every workspace with its sidebar group (--json adds the groups)
+  workspace group <name> | ungroup   move this workspace into a sidebar group, or out of it
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
   open <path>
   process | vault | bus | settings | browse | gateway <subcommand> ...

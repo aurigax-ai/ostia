@@ -55,6 +55,7 @@ describe('settingsStore', () => {
       editor: s.editor,
       keybindings: s.keybindings,
       agents: s.agents,
+      workspaceGroups: s.workspaceGroups,
     })
   })
 
@@ -269,6 +270,33 @@ describe('settingsStore', () => {
       expect(store().sidebar.showPorts).toBe(false)
       expect(store().sidebar.showSSH).toBe(true)
     })
+    it('keeps only well-formed workspace group rules from settings.json', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({
+          workspaceGroups: {
+            byCwd: [
+              { pattern: '~/work/**', group: ' Work ' },
+              { pattern: '', group: 'empty pattern' },
+              { pattern: '/srv/*', group: '   ' },
+              { pattern: 42, group: 'bad' },
+              'nonsense',
+            ],
+          },
+        }),
+      )
+
+      await store().init()
+
+      expect(store().workspaceGroups.byCwd).toEqual([{ pattern: '~/work/**', group: 'Work' }])
+    })
+
+    it('sets workspace group rules by path and drops a malformed rule', () => {
+      store().setByPath('workspaceGroups.byCwd', [
+        { pattern: '/src/*', group: 'src' },
+        { pattern: 3 },
+      ])
+      expect(store().workspaceGroups.byCwd).toEqual([{ pattern: '/src/*', group: 'src' }])
+    })
 
     it('merges a valid partial settings.json over DEFAULTS (mergeFont keeps default family)', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue(
@@ -327,6 +355,7 @@ describe('settingsStore', () => {
         editor: s.editor,
         keybindings: s.keybindings,
         agents: s.agents,
+        workspaceGroups: s.workspaceGroups,
       }).toEqual(DEFAULTS)
     })
 
@@ -363,6 +392,7 @@ describe('settingsStore', () => {
         editor: s.editor,
         keybindings: s.keybindings,
         agents: s.agents,
+        workspaceGroups: s.workspaceGroups,
       }).toEqual(DEFAULTS)
     })
   })

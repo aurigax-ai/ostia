@@ -1,6 +1,7 @@
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
 import type { AttentionState } from '@shared/types'
+import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
 import { type DropZone, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
@@ -48,6 +49,15 @@ interface WorkspaceListEntry {
   workDir: string
   state: WorkspaceState
   activePaneId?: string
+  groupId?: string
+}
+
+interface WorkspaceGroupEntry {
+  groupId: string
+  name: string
+  color?: WorkspaceGroupColor
+  collapsed: boolean
+  workspaceIds: string[]
 }
 
 const PROGRAM_SETTINGS: readonly { group: 'behavior' | 'notifications'; field: string }[] = [
@@ -346,6 +356,70 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  commands.register<{ name: string }, { groupId: string | null }>({
+    id: 'workspace.group',
+    title: 'Move Workspace to Group',
+    category: 'Workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: (args, ctx) => {
+      if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
+      if (typeof args?.name !== 'string' || !normalizeGroupName(args.name)) {
+        throw new Error('missing group name')
+      }
+      const store = useWorkspacesStore.getState()
+      store.moveToGroupNamed(ctx.activeWorkspaceId, args.name)
+      const moved = useWorkspacesStore
+        .getState()
+        .workspaces.find((w) => w.id === ctx.activeWorkspaceId)
+      return { groupId: moved?.groupId ?? null }
+    },
+  })
+
+  commands.register({
+    id: 'workspace.newGroup',
+    title: 'Move Workspace to New Group',
+    category: 'Workspace',
+    capabilities: ['drive-self'],
+    run: (_args, ctx) => {
+      if (ctx.activeWorkspaceId) useWorkspacesStore.getState().createGroup(ctx.activeWorkspaceId)
+    },
+  })
+
+  commands.register({
+    id: 'workspace.ungroup',
+    title: 'Remove Workspace from Group',
+    category: 'Workspace',
+    capabilities: ['drive-self'],
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
+      useWorkspacesStore.getState().leaveGroup(ctx.activeWorkspaceId)
+    },
+  })
+
+  commands.register({
+    id: 'workspace.toggleGroup',
+    title: 'Collapse or Expand Workspace Group',
+    category: 'Workspace',
+    run: (_args, ctx) => {
+      const store = useWorkspacesStore.getState()
+      const groupId = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)?.groupId
+      const group = store.groups.find((g) => g.id === groupId)
+      if (group) store.setGroupCollapsed(group.id, !group.collapsed)
+    },
+  })
+
+  commands.register({
+    id: 'workspace.deleteGroup',
+    title: 'Delete Workspace Group',
+    category: 'Workspace',
+    run: (_args, ctx) => {
+      const store = useWorkspacesStore.getState()
+      const groupId = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)?.groupId
+      if (groupId) store.deleteGroup(groupId)
+    },
+  })
+
   commands.register({
     id: 'workspace.togglePin',
     title: 'Pin or Unpin Workspace',
@@ -529,8 +603,27 @@ export function registerBuiltinCommands(): void {
           workDir: s.workDir,
           state: s.state,
           ...(activePaneId ? { activePaneId } : {}),
+          ...(s.groupId ? { groupId: s.groupId } : {}),
         }
       }),
+  })
+
+  commands.register<Record<string, never> | undefined, WorkspaceGroupEntry[]>({
+    id: 'workspace.groups',
+    title: 'List Workspace Groups',
+    hidden: true,
+    capabilities: ['read-board'],
+    target: 'none',
+    run: () => {
+      const { workspaces, groups } = useWorkspacesStore.getState()
+      return groups.map((g) => ({
+        groupId: g.id,
+        name: g.name,
+        ...(g.color ? { color: g.color } : {}),
+        collapsed: Boolean(g.collapsed),
+        workspaceIds: workspaces.filter((w) => w.groupId === g.id).map((w) => w.id),
+      }))
+    },
   })
 
   commands.register<undefined, { saved: boolean }>({

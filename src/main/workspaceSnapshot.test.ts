@@ -32,6 +32,7 @@ function snap(overrides?: Partial<AppSnapshot>): AppSnapshot {
         root: { type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal', cwd: '/home/u/proj' },
       },
     ],
+    groups: [],
     ...overrides,
   }
 }
@@ -82,7 +83,30 @@ describe('parseSnapshot', () => {
       savedAt: snap().savedAt,
       activeWorkspaceId: null,
       workspaces: [],
+      groups: [],
     })
+  })
+
+  it('keeps valid groups with members and drops bad, empty or dangling ones', () => {
+    const [base] = snap().workspaces
+    const { root: _root, activePaneId: _active, ...empty } = base
+    const parsed = parseSnapshot({
+      ...snap(),
+      workspaces: [
+        { ...base, groupId: 'g1' },
+        { ...empty, id: 's2', groupId: 'g-missing' },
+        { ...empty, id: 's3', groupId: 'g1', pinned: true },
+      ],
+      groups: [
+        { id: 'g1', name: '  api  ', color: 'mauve', collapsed: true },
+        { id: 'g1', name: 'duplicate' },
+        { id: 'g2', name: 'no members' },
+        { id: 'g3', name: '   ' },
+        'junk',
+      ],
+    })
+    expect(parsed?.groups).toEqual([{ id: 'g1', name: 'api', collapsed: true }])
+    expect(parsed?.workspaces.map((w) => w.groupId)).toEqual(['g1', undefined, undefined])
   })
 
   it('keeps a pane’s agent resume token and drops a malformed one', () => {
@@ -284,8 +308,14 @@ describe('saveSnapshot / loadSnapshot', () => {
   })
 
   it('round-trips an empty workspace so a restart restores zero workspaces', () => {
-    saveSnapshot({ v: 1, savedAt: 'x', activeWorkspaceId: null, workspaces: [] })
-    expect(loadSnapshot()).toEqual({ v: 1, savedAt: 'x', activeWorkspaceId: null, workspaces: [] })
+    saveSnapshot({ v: 1, savedAt: 'x', activeWorkspaceId: null, workspaces: [], groups: [] })
+    expect(loadSnapshot()).toEqual({
+      v: 1,
+      savedAt: 'x',
+      activeWorkspaceId: null,
+      workspaces: [],
+      groups: [],
+    })
   })
 
   it('returns null (rather than throwing) when the file on disk is corrupt', () => {

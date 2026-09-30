@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { insertIndex, moveBy, moveTo, setPinned } from './workspaceOrder'
+import { insertIndex, setPinned } from './workspaceOrder'
 
 interface W {
   id: string
@@ -23,25 +23,6 @@ describe('setPinned', () => {
     const l = list('a*', 'b')
     expect(setPinned(l, 'a', true)).toBe(l)
     expect(setPinned(l, 'missing', true)).toBe(l)
-  })
-})
-
-describe('moveTo / moveBy', () => {
-  it('moves within the unpinned group and never above a pinned one', () => {
-    const l = list('a*', 'b', 'c', 'd')
-    expect(ids(moveTo(l, 'd', 1))).toEqual(['a*', 'd', 'b', 'c'])
-    expect(ids(moveTo(l, 'd', 0))).toEqual(['a*', 'd', 'b', 'c'])
-  })
-
-  it('keeps a pinned workspace inside the pinned group', () => {
-    expect(ids(moveTo(list('a*', 'b*', 'c'), 'a', 9))).toEqual(['b*', 'a*', 'c'])
-  })
-
-  it('moves one step up or down and stops at the group edge', () => {
-    const l = list('a', 'b', 'c')
-    expect(ids(moveBy(l, 'b', -1))).toEqual(['b', 'a', 'c'])
-    expect(ids(moveBy(l, 'c', 1))).toEqual(['a', 'b', 'c'])
-    expect(moveBy(l, 'a', -1)).toBe(l)
   })
 })
 
