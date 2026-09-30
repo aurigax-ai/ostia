@@ -43,8 +43,8 @@ Three tiers in `index.css`:
 2. **Semantic aliases** in `:root`: `--bg`, `--bg-sunken`, `--surface-1..3`, `--line`,
    `--line-strong`, `--fg`, `--fg-muted`, `--fg-dim`, `--brand`, `--brand-bright`, `--brand-glow`,
    `--attn`, `--attn-fg`, `--attn-glow`, `--ok`. Metrics: one radius ladder in `@theme`
-   (`--radius-sm` 4px for controls, rows and keycaps; `--radius-md` 6px for inputs, popovers and
-   cards; `--radius-lg` 8px), `--radius` 8px for the shadcn bridge, `--rail-w` 240px (56px
+   (`--radius-sm` 6px for controls, rows and keycaps; `--radius-md` 8px for inputs, popovers and
+   cards; `--radius-lg` 10px), `--radius` 10px for the shadcn bridge, `--rail-w` 240px (56px
    collapsed), `--topbar-h` 36px.
 3. **shadcn bridge** in `@theme inline`: maps shadcn names (`--background`, `--primary`, `--muted`,
    `--border`, `--ring`, `--sidebar-*`, …) onto the semantic tokens, so Base UI components in

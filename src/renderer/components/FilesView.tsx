@@ -9,6 +9,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { Hint } from './Hint'
 import { fileIcon } from './fileIcon'
+import { Empty, EmptyDescription } from './ui/empty'
 
 function useFocusedCwd(): string {
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
@@ -69,7 +70,11 @@ function Dir({ path, depth }: { path: string; depth: number }): JSX.Element | nu
   if (entries === null) return null
   const visible = showHidden ? entries : entries.filter((e) => !e.name.startsWith('.'))
   if (visible.length === 0) {
-    return depth === 0 ? <div className="rail-empty">{d.rail.noFolder}</div> : null
+    return depth === 0 ? (
+      <Empty className="px-3 py-6">
+        <EmptyDescription className="text-ui-sm">{d.rail.noFolder}</EmptyDescription>
+      </Empty>
+    ) : null
   }
   return (
     <>
