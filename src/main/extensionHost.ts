@@ -141,6 +141,7 @@ export interface ExtensionHostDeps {
   store: ExtensionStore
   socketPath: () => string
   nodePath: string
+  dataDir?: string
   workDirForWorkspace: (workspaceId?: string) => string | undefined
   cwdForPane?: (paneId: string) => string | undefined
   locale?: () => string | undefined
@@ -547,6 +548,7 @@ export class ExtensionHost {
       PINE_EXTENSION_ID: id,
       PINE_EXTENSION_DIR: rt.ext.dir,
     }
+    if (this.deps.dataDir) env.PINE_EXTENSION_DATA = join(this.deps.dataDir, id)
     if (script) env.ELECTRON_RUN_AS_NODE = '1'
     rt.identity = identity
     rt.stopping = false
@@ -937,6 +939,17 @@ export class ExtensionHost {
     return { ok: true, values: this.settingValues(rt) }
   }
 
+  setOwnSetting(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = (params ?? {}) as { key?: unknown; value?: unknown }
+    if (typeof p.key !== 'string') return fail('invalid-params', 'key')
+    const extId = rt.ext.manifest.id
+    const res = this.setSetting(extId, p.key, p.value === undefined ? null : p.value)
+    if (!res.ok) return fail(res.error)
+    this.deps.broadcast('extensions:settings-stored', { extId, stored: res.stored })
+    return { ok: true, values: this.settingValues(rt) }
+  }
+
   private sendSettings(rt: Runtime): void {
     if (!rt.conn || rt.ext.manifest.contributes.settings.length === 0) return
     const payload = { values: this.settingValues(rt) }
@@ -1166,6 +1179,10 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod(
     'ext.getSettings',
     forExtension((h, id, conn) => h.getSettings(id, conn)),
+  )
+  registerControlMethod(
+    'ext.setSetting',
+    forExtension((h, id, conn, p) => h.setOwnSetting(id, conn, p)),
   )
 
   registerControlMethod(
