@@ -80,6 +80,7 @@ import { privateTmpDir } from './privateTmp'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { PtySession, type SubscriberRole } from './ptySession'
+import { attachWorkspace } from './sandbox/attachWorkspace'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { sandboxFailureBanner } from './sandbox/spawnBanner'
 import { SandboxStore, parseSandboxGlobals } from './sandbox/store'
@@ -738,9 +739,8 @@ function registerPtyIpc(): void {
     const shell =
       opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
     const integration = shellIntegrationSpawnOptions(shell, process.env, opts.pinePrompt ?? null)
-    const requestedWorkspace = opts.workspaceId ?? ''
-    const known = getByPaneId(paneId)
-    if (known?.workspaceId && requestedWorkspace && known.workspaceId !== requestedWorkspace) {
+    const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
+    if (!resolved.ok) {
       return {
         created: false,
         buffer: sandboxFailureBanner('the pane belongs to another workspace', []),
@@ -748,7 +748,7 @@ function registerPtyIpc(): void {
         dropped: false,
       }
     }
-    const identity = registerPane({ windowId: subId, workspaceId: requestedWorkspace, paneId })
+    const identity = registerPane({ windowId: subId, workspaceId: resolved.workspaceId, paneId })
     const workspaceId = identity.workspaceId
     const cols = opts.cols || 80
     const rows = opts.rows || 24
@@ -1095,7 +1095,13 @@ app.whenReady().then(() => {
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand })
   registerPaneResumeMethods({ execCommand })
-  registerProcessMethods()
+  registerProcessMethods({
+    sandbox: {
+      isEnabled: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+      wrap: (workspaceId, command) => workspaceSandboxes.wrap(workspaceId, command, 'bash'),
+      tmpDir: (workspaceId) => workspaceSandboxes.tmpDir(workspaceId),
+    },
+  })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods()
   registerBusMethods()
