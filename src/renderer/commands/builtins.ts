@@ -21,7 +21,7 @@ import {
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveSnapshotNow } from '../stores/persistence'
-import { useSettingsStore } from '../stores/settingsStore'
+import { type InputMode, useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -295,6 +295,20 @@ export function registerBuiltinCommands(): void {
     category: 'Terminal',
     target: 'none',
     run: () => useHistorySearchStore.getState().setOpen(true),
+  })
+
+  commands.register<void, { inputMode: InputMode }>({
+    id: 'terminal.toggleInputEditor',
+    title: 'Toggle Input Editor',
+    category: 'Terminal',
+    target: 'none',
+    capabilities: ['settings-write'],
+    run: () => {
+      const settings = useSettingsStore.getState()
+      const inputMode = settings.behavior.inputMode === 'editor' ? 'terminal' : 'editor'
+      settings.setBehavior({ inputMode })
+      return { inputMode }
+    },
   })
 
   commands.register<{ command: string }, { inserted: boolean }>({

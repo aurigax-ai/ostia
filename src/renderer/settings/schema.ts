@@ -74,6 +74,16 @@ export const SETTINGS_JSON_SCHEMA = {
           description: 'Terminal cursor shape.',
         },
         cursorBlink: { type: 'boolean', description: 'Blink the terminal cursor.' },
+        inputMode: {
+          type: 'string',
+          enum: ['terminal', 'editor'],
+          description:
+            'How you type commands. "terminal" types straight into the shell. "editor" docks ' +
+            'an input editor under the command blocks while the shell waits at a prompt ' +
+            '(multi-line, history on Up, path completion on Tab); running programs still get ' +
+            'your keys directly. Shells without integration always use "terminal". ' +
+            'Default: terminal.',
+        },
         copyOnSelect: {
           type: 'boolean',
           description: 'Copy selected terminal text to the clipboard as soon as it is selected.',

@@ -32,6 +32,8 @@ import {
   type CursorStyle,
   FONT_WEIGHTS,
   type FontSurface,
+  INPUT_MODES,
+  type InputMode,
   LINE_HEIGHT_MAX,
   LINE_HEIGHT_MIN,
   MOTION_MODES,
@@ -487,7 +489,12 @@ function TerminalSection(): JSX.Element {
   const restoreWorkspace = useSettingsStore((s) => s.behavior.restoreWorkspace)
   const gpuAcceleration = useSettingsStore((s) => s.behavior.gpuAcceleration)
   const copyOnSelect = useSettingsStore((s) => s.behavior.copyOnSelect)
+  const mode = useSettingsStore((s) => s.behavior.inputMode)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
+  const modeLabel: Record<InputMode, string> = {
+    terminal: d.settings.inputModeTerminal,
+    editor: d.settings.inputModeEditor,
+  }
   const styleLabel: Record<CursorStyle, string> = {
     block: d.settings.styleBlock,
     underline: d.settings.styleUnderline,
@@ -496,6 +503,16 @@ function TerminalSection(): JSX.Element {
   return (
     <div>
       <SectionHead title={d.settings.terminal} />
+      <SettingsGroup title={d.settings.groupInput}>
+        <ControlRow label={d.settings.inputMode} desc={d.settings.inputModeDesc}>
+          <SelectField
+            value={mode}
+            onChange={(m) => setBehavior({ inputMode: m })}
+            label={d.settings.inputMode}
+            options={INPUT_MODES.map((m) => ({ value: m, label: modeLabel[m] }))}
+          />
+        </ControlRow>
+      </SettingsGroup>
       <SettingsGroup title={d.settings.groupCursor}>
         <ControlRow label={d.settings.cursorStyle}>
           <SelectField

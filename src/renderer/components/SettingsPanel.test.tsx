@@ -128,6 +128,23 @@ describe('SettingsPanel', () => {
     expect(setBehavior).toHaveBeenCalledWith({ showHiddenFiles: false })
   })
 
+  it('switches the input mode (Terminal section) via setBehavior', async () => {
+    const setBehavior = vi
+      .spyOn(useSettingsStore.getState(), 'setBehavior')
+      .mockImplementation(() => {})
+    renderSettings()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Terminal' }))
+    expect(screen.getByRole('heading', { level: 3, name: 'Input' })).toBeInTheDocument()
+    const select = screen.getByRole('combobox', { name: 'Input mode' })
+    expect(select).toHaveTextContent('Terminal')
+    await user.click(select)
+    await user.click(await screen.findByRole('option', { name: 'Input editor' }))
+
+    expect(setBehavior).toHaveBeenCalledWith({ inputMode: 'editor' })
+  })
+
   it('changes the cursor style (Terminal section) via setBehavior', async () => {
     const setBehavior = vi
       .spyOn(useSettingsStore.getState(), 'setBehavior')

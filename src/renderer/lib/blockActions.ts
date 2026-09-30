@@ -8,7 +8,7 @@ import {
   scrollTargetFor,
   stepSelection,
 } from './blocks'
-import { terminalFor } from './terminalHandles'
+import { inputEditorFor, terminalFor } from './terminalHandles'
 
 export type BlockPart = 'command' | 'output' | 'both'
 
@@ -74,6 +74,11 @@ export function canTypeInto(paneId: string): boolean {
 export function insertCommand(paneId: string, command: string, execute = false): boolean {
   const term = terminalFor(paneId)
   if (!term || !command || !canTypeInto(paneId)) return false
+  const editor = execute ? undefined : inputEditorFor(paneId)
+  if (editor) {
+    editor.insert(command)
+    return true
+  }
   term.paste(command)
   if (execute) window.pine.pty.write(paneId, '\r')
   term.focus()
