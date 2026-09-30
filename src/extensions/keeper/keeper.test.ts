@@ -86,6 +86,12 @@ describe('keeper polling policy', () => {
     expect(nextPollDelay(base)).toBe(IDLE_POLL_MS)
   })
 
+  it('uses the intervals the human set', () => {
+    const intervals = { fastMs: 2000, idleMs: 30_000 }
+    expect(nextPollDelay({ ...base, focused: true }, intervals)).toBe(2000)
+    expect(nextPollDelay(base, intervals)).toBe(30_000)
+  })
+
   it('backs off exponentially on failures, capped', () => {
     const delays = [1, 2, 3, 10, 20].map((failures) =>
       nextPollDelay({ ...base, focused: true, failures }),

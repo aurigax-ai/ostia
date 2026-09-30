@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import {
+  COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_ICONS,
   EXTENSION_MANIFEST_FILE,
   EXTENSION_SETTING_TYPES,
@@ -84,6 +85,8 @@ export function parseCommand(raw: unknown, index: number): ExtensionCommandContr
   if (category) command.category = category
   const usage = text(raw.usage)
   if (usage) command.usage = usage
+  const argument = text(raw.argument, COMMAND_ARGUMENT_LABEL_MAX)
+  if (argument) command.argument = argument
   if (raw.interactive === true) command.interactive = true
   return command
 }

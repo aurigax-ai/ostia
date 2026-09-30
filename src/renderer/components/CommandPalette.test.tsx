@@ -155,4 +155,49 @@ describe('CommandPalette', () => {
       expect(screen.queryByRole('option', { name: /payments/ })).toBeNull()
     })
   })
+
+  describe('commands that take an argument', () => {
+    afterEach(() => commands.unregister('test.card'))
+
+    const register = (run = vi.fn()) => {
+      commands.register<{ argument?: string }, void>({
+        id: 'test.card',
+        title: 'Test: Open Card',
+        argument: 'Card id',
+        run,
+      })
+      return run
+    }
+
+    it('asks for the value, then runs the command with it and closes', async () => {
+      const run = register()
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.click(await screen.findByRole('option', { name: /Test: Open Card/ }))
+
+      const input = screen.getByPlaceholderText('Card id')
+      expect(input).toHaveAttribute('placeholder', 'Card id')
+      expect(screen.getByText('Type a value, then press Enter')).toBeInTheDocument()
+      expect(run).not.toHaveBeenCalled()
+      expect(useUIStore.getState().paletteOpen).toBe(true)
+
+      await userEvent.type(input, ' shop-12 ')
+      expect(
+        screen.getByText('Press Enter to run Test: Open Card with “shop-12”'),
+      ).toBeInTheDocument()
+      await userEvent.keyboard('{Enter}')
+      expect(run).toHaveBeenCalledWith({ argument: 'shop-12' }, expect.anything())
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+    })
+
+    it('runs nothing while the value is blank', async () => {
+      const run = register()
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.click(await screen.findByRole('option', { name: /Test: Open Card/ }))
+      await userEvent.type(screen.getByPlaceholderText('Card id'), '   {Enter}')
+      expect(run).not.toHaveBeenCalled()
+      expect(useUIStore.getState().paletteOpen).toBe(true)
+    })
+  })
 })

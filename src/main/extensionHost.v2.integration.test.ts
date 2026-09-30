@@ -199,6 +199,60 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       host.setEnabled('echo', true)
       expect(await host.invoke('echo', 'echo', null, caller)).toMatchObject({ ok: true })
     })
+
+    it('keeps an http(s) url on a chip and refuses other schemes or a url with a command', async () => {
+      const res = await host.invoke(
+        'echo',
+        'chip',
+        { paneId: pane.externalId, id: 'status', text: ':3000', url: 'http://localhost:3000/' },
+        caller,
+      )
+      expect(res).toEqual({ ok: true })
+      expect(host.paneChips()).toEqual([
+        {
+          extId: 'echo',
+          id: 'status',
+          paneId: 'p1',
+          text: ':3000',
+          tone: 'neutral',
+          url: 'http://localhost:3000/',
+        },
+      ])
+      const file = await host.invoke(
+        'echo',
+        'chip',
+        { paneId: pane.externalId, id: 'status', text: 'x', url: 'file:///etc/passwd' },
+        caller,
+      )
+      const both = await host.invoke(
+        'echo',
+        'chip',
+        { paneId: pane.externalId, id: 'status', text: 'x', url: 'http://a/', command: 'echo' },
+        caller,
+      )
+      expect(file).toMatchObject({ ok: false, error: 'invalid-params' })
+      expect(both).toMatchObject({ ok: false, error: 'invalid-params' })
+      expect(host.paneChips()[0]?.text).toBe(':3000')
+      await host.invoke('echo', 'unchip', { paneId: pane.externalId, id: 'status' }, caller)
+    })
+  })
+
+  describe('palette arguments', () => {
+    it('lists the argument label of a command that asks for one', () => {
+      expect(echo().commands.find((c) => c.id === 'echo')?.argument).toBe('What to echo')
+    })
+
+    it('passes the typed value as the only argv entry, trimmed', () => {
+      expect(host.paletteArgs('echo', 'echo', '  SHOP-12 ')).toEqual({ argv: ['SHOP-12'] })
+    })
+
+    it('passes nothing for a command without an argument, or a value that is not plain text', () => {
+      expect(host.paletteArgs('echo', 'guarded', 'x')).toBeNull()
+      expect(host.paletteArgs('echo', 'echo', '')).toBeNull()
+      expect(host.paletteArgs('echo', 'echo', 'a\nb')).toBeNull()
+      expect(host.paletteArgs('echo', 'echo', 42)).toBeNull()
+      expect(host.paletteArgs('echo', 'echo', 'x'.repeat(1001))).toBeNull()
+    })
   })
 
   describe('settings', () => {
@@ -283,7 +337,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       const res = await host.invoke('echo', 'notify-panel', { openPanel: '/cards/9' }, caller)
       expect(res).toEqual({ ok: true })
       const [n, open] = notifyPanel.mock.calls[0]
-      expect(n).toMatchObject({ title: 'look', extId: 'echo' })
+      expect(n).toMatchObject({ title: 'look', extId: 'echo', panelPath: '/cards/9' })
       open()
       expect(openPanelIn).toHaveBeenCalledWith({ extId: 'echo', path: '/cards/9' })
       const bad = await host.invoke('echo', 'notify-panel', { openPanel: 'cards' }, caller)

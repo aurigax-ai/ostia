@@ -108,6 +108,8 @@ export const en = {
     placeholder: 'Search commands, workspaces, tabs… (? for help)',
     empty: 'Nothing matches',
     helpHeading: 'Type a prefix to narrow the search',
+    argumentEmpty: 'Type a value, then press Enter',
+    runWith: 'Press Enter to run {title} with “{value}”',
     modes: {
       commands: 'Commands',
       workspaces: 'Workspaces',
@@ -331,6 +333,7 @@ export const en = {
     settingInvalid: 'Not saved: {error}',
     chipsLabel: 'Extension status',
     chipAction: '{title}: {text}. Click to run {command}.',
+    chipLink: '{title}: {text}. Click to open {url} in the browser pane.',
   },
   workspaceSettings: {
     title: 'Workspaces',
@@ -802,6 +805,8 @@ export const zhHant: Dict = {
     placeholder: '搜尋指令、工作區、分頁…（輸入 ? 查看說明）',
     empty: '沒有符合的項目',
     helpHeading: '輸入前綴以縮小搜尋範圍',
+    argumentEmpty: '輸入一個值，然後按 Enter',
+    runWith: '按 Enter 以「{value}」執行 {title}',
     modes: {
       commands: '指令',
       workspaces: '工作區',
@@ -1023,6 +1028,7 @@ export const zhHant: Dict = {
     settingInvalid: '未儲存：{error}',
     chipsLabel: '擴充功能狀態',
     chipAction: '{title}：{text}。按一下以執行 {command}。',
+    chipLink: '{title}：{text}。按一下以在瀏覽器面板開啟 {url}。',
   },
   workspaceSettings: {
     title: '工作區',

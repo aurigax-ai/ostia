@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  cardPath,
+  cardRef,
   countCards,
   findProject,
   isAppPath,
@@ -138,6 +140,26 @@ describe('trellis events', () => {
     ).toEqual({ kind: 'blocked', column: 'Blocked' })
   })
 
+  it('flags only the kinds the human chose to be told about', () => {
+    const move = (column: string) => ({
+      seq: 1,
+      ts: 0,
+      actor: 'agent:x',
+      entity: 'card',
+      ref: 'A-1',
+      title: 't',
+      action: 'moved',
+      field: 'column',
+      new: column,
+    })
+    expect(needsUser(move('Blocked'), { review: true, blocked: false })).toBeNull()
+    expect(needsUser(move('review'), { review: false, blocked: true })).toBeNull()
+    expect(needsUser(move('review'), { review: true, blocked: false })).toEqual({
+      kind: 'review',
+      column: 'review',
+    })
+  })
+
   it('maps a card ref to its project key', () => {
     expect(projectOfRef('TRELLIS-13')).toBe('TRELLIS')
     expect(projectOfRef('TELUS-CHR-12')).toBe('TELUS-CHR')
@@ -192,5 +214,18 @@ describe('trellis project markers', () => {
     expect(isAppPath('/p/SHOP/b/ops')).toBe(true)
     expect(isAppPath('//evil.example')).toBe(false)
     expect(isAppPath('/api/p/SHOP')).toBe(false)
+  })
+
+  it('builds a card deep link from its ref and allows it as a proxy entry', () => {
+    expect(cardRef(' shop-12 ')).toBe('SHOP-12')
+    expect(cardRef('MY-APP-3')).toBe('MY-APP-3')
+    expect(cardRef('shop')).toBeNull()
+    expect(cardRef('SHOP-12/../x')).toBeNull()
+    expect(cardPath('shop-12')).toBe('/p/SHOP/card/SHOP-12')
+    expect(cardPath('MY-APP-3')).toBe('/p/MY-APP/card/MY-APP-3')
+    expect(cardPath('nope')).toBeNull()
+    expect(isAppPath('/p/SHOP/card/SHOP-12')).toBe(true)
+    expect(isAppPath('/p/SHOP/card/SHOP-12?x=1')).toBe(false)
+    expect(isAppPath('/p/SHOP/card/../api')).toBe(false)
   })
 })

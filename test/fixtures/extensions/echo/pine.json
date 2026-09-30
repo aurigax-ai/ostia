@@ -7,7 +7,7 @@
   "main": "main.js",
   "contributes": {
     "commands": [
-      { "id": "echo", "title": "Echo" },
+      { "id": "echo", "title": "Echo", "argument": "What to echo" },
       { "id": "guarded", "title": "Needs all-workspaces", "capabilities": ["all-workspaces"] },
       { "id": "probe", "title": "Call a pane-only method", "palette": false },
       { "id": "notify", "title": "Post a notification", "palette": false },

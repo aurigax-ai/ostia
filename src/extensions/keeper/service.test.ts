@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type PollState, isAllowedKeeperCall } from './keeper'
+import { type PollIntervals, type PollState, isAllowedKeeperCall } from './keeper'
 import { KeeperService } from './service'
 
 const FIXTURES = join(__dirname, '../../../test/fixtures/tools')
@@ -13,8 +13,9 @@ describe('KeeperService with a fake keeper on PATH', () => {
   let savedPath: string | undefined
   let service: KeeperService | null
   let sidebar: { key: string; text: string; tone?: string; icon?: string }[]
-  let notes: { title: string; body?: string }[]
+  let notes: { title: string; body?: string; path?: string }[]
   let polls: PollState[]
+  let intervals: PollIntervals[]
 
   const use = (fixture: string, as: string): void =>
     copyFileSync(join(FIXTURES, 'keeper', fixture), join(fake, as))
@@ -28,13 +29,14 @@ describe('KeeperService with a fake keeper on PATH', () => {
         setSidebarItem: async (item) => {
           sidebar.push(item)
         },
-        notifyPanel: async (title, body) => {
-          notes.push({ title, body })
+        notifyPanel: async (title, body, path) => {
+          notes.push({ title, body, path })
         },
         log: () => {},
       },
-      delayFor: (s) => {
+      delayFor: (s, i) => {
         polls.push(s)
+        if (i) intervals.push(i)
         return null
       },
     })
@@ -54,6 +56,7 @@ describe('KeeperService with a fake keeper on PATH', () => {
     sidebar = []
     notes = []
     polls = []
+    intervals = []
     service = null
   })
 
@@ -72,7 +75,11 @@ describe('KeeperService with a fake keeper on PATH', () => {
       { key: 'approvals', text: '2 waiting for approval', icon: 'shield', tone: 'warn' },
     ])
     expect(notes).toEqual([
-      { title: 'Keeper needs approval', body: '2 queries are waiting (codex: close stale carts)' },
+      {
+        title: 'Keeper needs approval',
+        body: '2 queries are waiting (codex: close stale carts)',
+        path: '/approvals',
+      },
     ])
     await svc.tick()
     expect(notes).toHaveLength(1)
@@ -135,5 +142,21 @@ describe('KeeperService with a fake keeper on PATH', () => {
     await new Promise((r) => setTimeout(r, 200))
     expect(calls()).toContain('approve --json')
     expect(polls.at(-1)).toMatchObject({ focused: true })
+  })
+
+  it('keeps counting but stays quiet when the human turned notices off', async () => {
+    use('approve-pending.json', 'approve.json')
+    const svc = make()
+    svc.configure({ intervals: { fastMs: 2000, idleMs: 30_000 }, notify: false })
+    await svc.tick()
+    expect(sidebar.at(-1)).toMatchObject({ text: '2 waiting for approval' })
+    expect(notes).toEqual([])
+  })
+
+  it('schedules the next check with the configured intervals', async () => {
+    const svc = make()
+    svc.configure({ intervals: { fastMs: 2000, idleMs: 30_000 }, notify: true })
+    await svc.tick()
+    expect(intervals.at(-1)).toEqual({ fastMs: 2000, idleMs: 30_000 })
   })
 })

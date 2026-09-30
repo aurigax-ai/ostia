@@ -1,7 +1,10 @@
 import type { ExtensionIcon, SidebarTone } from '../../shared/extensions'
 import { type ToolRun, runTool } from '../sdk/tool'
 import {
+  APPROVALS_PATH,
+  DEFAULT_INTERVALS,
   type KeeperApproval,
+  type PollIntervals,
   isAllowedKeeperCall,
   newTickets,
   nextPollDelay,
@@ -18,7 +21,7 @@ export interface KeeperHost {
     icon?: ExtensionIcon
     tone?: SidebarTone
   }) => Promise<unknown>
-  notifyPanel: (title: string, body?: string) => Promise<unknown>
+  notifyPanel: (title: string, body?: string, path?: string) => Promise<unknown>
   log: (line: string) => void
 }
 
@@ -44,6 +47,8 @@ export class KeeperService {
   private ticking: Promise<void> | null = null
   private itemShown = false
   private stopped = false
+  private intervals: PollIntervals = DEFAULT_INTERVALS
+  private notifies = true
   state: KeeperState = 'unknown'
   locale = 'en'
 
@@ -140,22 +145,38 @@ export class KeeperService {
       await this.opts.host.setSidebarItem({ key: SIDEBAR_KEY, text: '' })
       this.itemShown = false
     }
-    if (fresh.length > 0) {
+    if (fresh.length > 0 && this.notifies) {
       const first = list.find((a) => a.ticket === fresh[0])
-      await this.opts.host.notifyPanel(s.needsApproval, s.notifyBody(fresh.length, first))
+      await this.opts.host.notifyPanel(
+        s.needsApproval,
+        s.notifyBody(fresh.length, first),
+        APPROVALS_PATH,
+      )
     }
   }
 
   private schedule(): void {
     if (this.stopped) return
-    const delay = (this.opts.delayFor ?? nextPollDelay)({
-      installed: this.installed,
-      pending: this.pending.length,
-      focused: this.focused,
-      failures: this.failures,
-    })
+    const delay = (this.opts.delayFor ?? nextPollDelay)(
+      {
+        installed: this.installed,
+        pending: this.pending.length,
+        focused: this.focused,
+        failures: this.failures,
+      },
+      this.intervals,
+    )
     if (delay === null) return
     this.timer = setTimeout(() => void this.tick(), delay)
+  }
+
+  configure(opts: { intervals: PollIntervals; notify: boolean }): void {
+    this.intervals = opts.intervals
+    this.notifies = opts.notify
+    if (!this.timer || this.ticking) return
+    clearTimeout(this.timer)
+    this.timer = null
+    this.schedule()
   }
 
   setFocused(focused: boolean): void {

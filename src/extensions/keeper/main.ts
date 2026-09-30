@@ -2,30 +2,45 @@ import type { ExtensionEventType } from '../../shared/extensions'
 import {
   type CommandHandler,
   type ExtensionCaller,
+  type ExtensionSettingValues,
+  booleanSetting,
   connect,
   failure,
+  numberSetting,
   ok,
   onShutdown,
   startMessageServer,
 } from '../sdk'
-import { formatQueue } from './keeper'
+import { APPROVALS_PATH, FAST_POLL_MS, IDLE_POLL_MS, formatQueue } from './keeper'
 import { KeeperService } from './service'
 
 const FOCUS_EVENT = 'focus.changed' as ExtensionEventType
-const APPROVALS_PATH = '/approvals'
+const FAST_SECONDS = { min: 2, max: 300 }
+const IDLE_SECONDS = { min: 10, max: 3600 }
+
+function serviceSettings(values: ExtensionSettingValues) {
+  return {
+    intervals: {
+      fastMs: numberSetting(values, 'pollSeconds', FAST_POLL_MS / 1000, FAST_SECONDS) * 1000,
+      idleMs: numberSetting(values, 'idlePollSeconds', IDLE_POLL_MS / 1000, IDLE_SECONDS) * 1000,
+    },
+    notify: booleanSetting(values, 'notify', true),
+  }
+}
 
 async function main(): Promise<void> {
   const ext = await connect()
   const service = new KeeperService({
     host: {
       setSidebarItem: (item) => ext.setSidebarItem(item),
-      notifyPanel: (title, body) => ext.notifyPanel(title, body),
+      notifyPanel: (title, body, path) => ext.notifyPanel(title, body, path),
       log: (line) => console.error(line),
     },
   })
   onShutdown(() => service.stop())
+  ext.onSettingsChanged((values) => service.configure(serviceSettings(values)))
+  service.configure(serviceSettings(await ext.getSettings()))
   const messages = await startMessageServer()
-  let nextPath: string | null = null
 
   const remember = (caller: ExtensionCaller): void => {
     if (caller.locale) service.locale = caller.locale
@@ -35,8 +50,7 @@ async function main(): Promise<void> {
     if (!(await service.daemonRunning())) {
       return failure(service.state, service.unavailableMessage())
     }
-    nextPath = path
-    await ext.openPanel(caller.workspaceId)
+    await ext.openPanel(caller.workspaceId, path)
     return ok('ok')
   }
 
@@ -58,11 +72,10 @@ async function main(): Promise<void> {
     },
   }
 
-  ext.onPanel(async (caller) => {
+  ext.onPanel(async (caller, requested) => {
     remember(caller)
     const base = await service.uiUrl()
-    const path = nextPath ?? (service.approvals().length > 0 ? APPROVALS_PATH : '/')
-    nextPath = null
+    const path = requested ?? (service.approvals().length > 0 ? APPROVALS_PATH : '/')
     if (base) return { url: `${base}${path}` }
     const s = service.strings
     const body = service.state === 'ready' ? s.noUi : service.unavailableMessage()

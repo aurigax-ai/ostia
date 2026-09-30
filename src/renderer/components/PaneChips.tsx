@@ -1,5 +1,5 @@
 import { fmt, useDict } from '../i18n/useDict'
-import { type ShownPaneChip, paneChipCommandId, runPaneChip, usePaneChips } from '../lib/paneChips'
+import { type ShownPaneChip, paneChipAction, usePaneChips } from '../lib/paneChips'
 import { Hint } from './Hint'
 import { Badge } from './ui/badge'
 
@@ -20,10 +20,10 @@ export function PaneChips({ paneId }: { paneId: string }): JSX.Element | null {
 
 function Chip({ chip }: { chip: ShownPaneChip }): JSX.Element {
   const d = useDict()
-  const commandId = paneChipCommandId(chip)
+  const action = paneChipAction(chip)
   const hint = chip.tooltip ?? `${chip.extName} · ${chip.title}`
   const className = `pane-chip tone-${chip.tone}`
-  if (!commandId) {
+  if (!action) {
     return (
       <Hint label={hint} side="bottom">
         <Badge variant="outline" className={className}>
@@ -40,12 +40,16 @@ function Chip({ chip }: { chip: ShownPaneChip }): JSX.Element {
         render={
           <button
             type="button"
-            aria-label={fmt(d.extensions.chipAction, {
-              title: chip.title,
-              text: chip.text,
-              command: chip.command ?? '',
-            })}
-            onClick={() => void runPaneChip(chip)}
+            aria-label={
+              chip.url
+                ? fmt(d.extensions.chipLink, { title: chip.title, text: chip.text, url: chip.url })
+                : fmt(d.extensions.chipAction, {
+                    title: chip.title,
+                    text: chip.text,
+                    command: chip.command ?? '',
+                  })
+            }
+            onClick={() => void action()}
           />
         }
       >

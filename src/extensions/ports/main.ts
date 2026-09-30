@@ -1,14 +1,19 @@
 import {
   type CommandHandler,
+  type ExtensionSettingValues,
+  type PaneChipValue,
   type PineExtension,
   cliArgs,
   connect,
   failure,
+  numberSetting,
   ok,
   parseFlags,
 } from '../sdk'
+import { chipSlot, paneChipValues } from './chips'
 import { scanTrees } from './scan'
 import {
+  type PortHost,
   type SidebarEntry,
   type WorkspaceProcesses,
   groupByWorkspace,
@@ -17,21 +22,38 @@ import {
   terminalPids,
 } from './sidebar'
 
-const POLL_MS = 3000
+const POLL_SECONDS = { min: 1, max: 60 }
+const DEFAULT_POLL_SECONDS = 3
 const REFRESH_DEBOUNCE_MS = 400
 
 class PortsExtension {
   private shown = new Map<string, SidebarEntry>()
+  private chips = new Map<string, PaneChipValue>()
   private groups = new Map<string, WorkspaceProcesses>()
   private poll: ReturnType<typeof setInterval> | null = null
   private timer: ReturnType<typeof setTimeout> | null = null
   private running = false
+  private focused = false
+  private pollMs = DEFAULT_POLL_SECONDS * 1000
+  private host: PortHost = 'localhost'
 
   constructor(private readonly ext: PineExtension) {}
 
+  configure(values: ExtensionSettingValues): void {
+    this.pollMs =
+      numberSetting(values, 'intervalSeconds', DEFAULT_POLL_SECONDS, POLL_SECONDS) * 1000
+    this.host = values.portHost === '127.0.0.1' ? '127.0.0.1' : 'localhost'
+    if (this.poll) {
+      clearInterval(this.poll)
+      this.poll = null
+    }
+    this.setFocused(this.focused)
+  }
+
   setFocused(focused: boolean): void {
+    this.focused = focused
     if (focused && !this.poll) {
-      this.poll = setInterval(() => void this.refresh(), POLL_MS)
+      this.poll = setInterval(() => void this.refresh(), this.pollMs)
       this.schedule(0)
     } else if (!focused && this.poll) {
       clearInterval(this.poll)
@@ -52,8 +74,10 @@ class PortsExtension {
     this.running = true
     try {
       const panes = await this.ext.listPanes()
-      this.groups = groupByWorkspace(panes, await scanTrees(terminalPids(panes), process.ppid))
-      await this.sync(sidebarEntries(this.groups))
+      const trees = await scanTrees(terminalPids(panes), process.ppid)
+      this.groups = groupByWorkspace(panes, trees)
+      await this.sync(sidebarEntries(this.groups, this.host))
+      await this.syncChips(paneChipValues(panes, trees, this.host))
     } catch (err) {
       console.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -72,6 +96,19 @@ class PortsExtension {
       await this.ext.setSidebarItem(entry)
     }
     this.shown = next
+  }
+
+  private async syncChips(chips: PaneChipValue[]): Promise<void> {
+    const next = new Map(chips.map((c) => [chipSlot(c), c]))
+    for (const [slot, chip] of this.chips) {
+      if (next.has(slot)) continue
+      await this.ext.clearPaneChip(chip.paneId, chip.id)
+    }
+    for (const [slot, chip] of next) {
+      if (JSON.stringify(this.chips.get(slot)) === JSON.stringify(chip)) continue
+      await this.ext.setPaneChip(chip)
+    }
+    this.chips = next
   }
 
   handlers(): Record<string, CommandHandler> {
@@ -97,6 +134,8 @@ class PortsExtension {
 async function main(): Promise<void> {
   const ext = await connect()
   const ports = new PortsExtension(ext)
+  ext.onSettingsChanged((values) => ports.configure(values))
+  ports.configure(await ext.getSettings())
   await ext.subscribe(
     ['command.started', 'command.finished', 'pane.created', 'pane.closed', 'focus.changed'],
     (type, payload) => {
