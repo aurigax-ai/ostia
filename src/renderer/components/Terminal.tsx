@@ -32,12 +32,14 @@ import {
   signalPane,
 } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
+import { isRiskyPaste } from '../settings/terminalPaneSettings'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Blocks } from './Blocks'
 import { InputEditor } from './InputEditor'
+import { RiskyPasteDialog } from './RiskyPasteDialog'
 import { TerminalFind, findOptions } from './TerminalFind'
 import { nextSizeAction } from './terminalSizing'
 import { terminalPalette } from './terminalTheme'
@@ -65,6 +67,11 @@ export function TerminalView({
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
   const themeId = useSettingsStore((s) => s.appearance.theme)
+  const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
+  const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
+  const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
+  const pasteRef = useRef<(text: string) => void>(() => {})
+  const [pendingPaste, setPendingPaste] = useState<string | null>(null)
   const [search, setSearch] = useState<SearchAddon | null>(null)
   const [findOpen, setFindOpen] = useState(false)
   const [alternateScreen, setAlternateScreen] = useState(false)
@@ -77,6 +84,7 @@ export function TerminalView({
 
     const initial = useSettingsStore.getState().appearance.terminal
     const behavior = useSettingsStore.getState().behavior
+    const terminalSettings = useSettingsStore.getState().terminal
     const term = new Xterm({
       theme: terminalPalette(useSettingsStore.getState().appearance.theme),
       fontFamily: fontStack(initial.family),
@@ -85,7 +93,9 @@ export function TerminalView({
       lineHeight: initial.lineHeight,
       cursorStyle: behavior.cursorStyle,
       cursorBlink: behavior.cursorBlink,
-      scrollback: 10000,
+      scrollback: terminalSettings.scrollbackLines,
+      scrollSensitivity: terminalSettings.scrollSpeed,
+      minimumContrastRatio: terminalSettings.minimumContrast,
       allowProposedApi: true,
     })
     const fit = new FitAddon()
@@ -113,6 +123,27 @@ export function TerminalView({
       setSuppressedPrompt(blocks.drafts[paneId]?.promptLine ?? null)
     }
     const shellKeys = term.onKey(suppressInputEditor)
+    const pasteConfirmed = (text: string): void => {
+      suppressInputEditor()
+      term.paste(text)
+    }
+    pasteRef.current = pasteConfirmed
+    const requestPaste = (text: string): void => {
+      if (!text || disposed) return
+      if (useSettingsStore.getState().terminal.warnOnRiskyPaste && isRiskyPaste(text)) {
+        setPendingPaste(text)
+        return
+      }
+      pasteConfirmed(text)
+    }
+    const interceptPaste = (e: ClipboardEvent): void => {
+      const text = e.clipboardData?.getData('text/plain') ?? ''
+      if (!useSettingsStore.getState().terminal.warnOnRiskyPaste || !isRiskyPaste(text)) return
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      requestPaste(text)
+    }
+    host.addEventListener('paste', interceptPaste, true)
     host.addEventListener('paste', suppressInputEditor, true)
     const bufferChange = term.buffer.onBufferChange((buffer) =>
       setAlternateScreen(buffer.type === 'alternate'),
@@ -137,11 +168,7 @@ export function TerminalView({
         const selection = term.getSelection()
         if (selection) void navigator.clipboard.writeText(selection)
       } else {
-        void navigator.clipboard.readText().then((text) => {
-          if (!text || disposed) return
-          suppressInputEditor()
-          term.paste(text)
-        })
+        void navigator.clipboard.readText().then(requestPaste)
       }
       return false
     })
@@ -454,7 +481,9 @@ export function TerminalView({
       input.dispose()
       shellKeys.dispose()
       bufferChange.dispose()
+      host.removeEventListener('paste', interceptPaste, true)
       host.removeEventListener('paste', suppressInputEditor, true)
+      pasteRef.current = () => {}
       offData()
       offExit()
       oscCwd.dispose()
@@ -480,6 +509,7 @@ export function TerminalView({
       setFindOpen(false)
       setAlternateScreen(false)
       setSuppressedPrompt(null)
+      setPendingPaste(null)
     }
   }, [workspaceId, paneId])
 
@@ -512,6 +542,19 @@ export function TerminalView({
     term.options.theme = terminalPalette(themeId)
   }, [themeId])
 
+  useEffect(() => {
+    const term = termRef.current
+    if (!term) return
+    term.options.scrollSensitivity = scrollSpeed
+    term.options.scrollback = scrollbackLines
+    term.options.minimumContrastRatio = minimumContrast
+  }, [scrollSpeed, scrollbackLines, minimumContrast])
+
+  const closePasteDialog = (): void => {
+    setPendingPaste(null)
+    termRef.current?.focus()
+  }
+
   const submitInput = (text: string): boolean => {
     if (!canTypeInto(paneId)) return false
     setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
@@ -539,6 +582,14 @@ export function TerminalView({
           />
         )}
       </div>
+      <RiskyPasteDialog
+        text={pendingPaste}
+        onPaste={(text) => {
+          pasteRef.current(text)
+          closePasteDialog()
+        }}
+        onCancel={closePasteDialog}
+      />
       <InputEditor
         paneId={paneId}
         cwd={cwd}

@@ -22,6 +22,7 @@ export function PaneTree({ workspaceId }: { workspaceId: string }): JSX.Element 
       node={layout.root}
       workspaceId={workspaceId}
       activePaneId={layout.activePaneId}
+      equalized={layout.equalized ?? 0}
       split={false}
     />
   )
@@ -31,11 +32,13 @@ function NodeView({
   node,
   workspaceId,
   activePaneId,
+  equalized,
   split,
 }: {
   node: LayoutNode
   workspaceId: string
   activePaneId: string
+  equalized: number
   split: boolean
 }): JSX.Element {
   const resize = useLayoutStore((s) => s.resize)
@@ -54,7 +57,7 @@ function NodeView({
     )
   }
 
-  const compositionKey = `${node.id}:${node.children.map((c) => c.id).join(',')}`
+  const compositionKey = `${node.id}:${equalized}:${node.children.map((c) => c.id).join(',')}`
 
   return (
     <Allotment
@@ -64,7 +67,13 @@ function NodeView({
     >
       {node.children.map((child) => (
         <Allotment.Pane key={child.id} minSize={160}>
-          <NodeView node={child} workspaceId={workspaceId} activePaneId={activePaneId} split />
+          <NodeView
+            node={child}
+            workspaceId={workspaceId}
+            activePaneId={activePaneId}
+            equalized={equalized}
+            split
+          />
         </Allotment.Pane>
       ))}
     </Allotment>

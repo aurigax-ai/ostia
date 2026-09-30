@@ -6,6 +6,7 @@ import {
   addTab,
   closePane,
   createPane,
+  equalizeSizes,
   findExtensionPane,
   findPane,
   firstPaneId,
@@ -22,17 +23,20 @@ import {
   setPaneTitle,
   setPaneUrl,
   setSizes,
+  slotCount,
   splitPane,
   tabsOfPane,
 } from '../layout/tree'
 import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '../layout/types'
 import { useDiffStore } from './diffStore'
+import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
 
 export interface WorkspaceLayout {
   root: LayoutNode
   activePaneId: string
   zoomedPaneId: string | null
+  equalized?: number
 }
 
 interface LayoutState {
@@ -83,11 +87,18 @@ function patch(
   const layout = state.byWorkspace[workspaceId]
   if (!layout) return null
   const next = fn(layout)
-  const root = selectTab(next.root, next.activePaneId)
+  const selected = selectTab(next.root, next.activePaneId)
+  const created = slotCount(selected) > slotCount(layout.root)
+  const equalize = created && useSettingsStore.getState().panes.equalizeOnSplit
+  const root = equalize ? equalizeSizes(selected) : selected
+  const equalized = equalize ? (next.equalized ?? layout.equalized ?? 0) + 1 : undefined
+  const carried = equalized ?? next.equalized ?? layout.equalized
+  const result: WorkspaceLayout = { ...next, root }
+  if (carried !== undefined) result.equalized = carried
   return {
     byWorkspace: {
       ...state.byWorkspace,
-      [workspaceId]: root === next.root ? next : { ...next, root },
+      [workspaceId]: root === next.root && carried === next.equalized ? next : result,
     },
   }
 }
