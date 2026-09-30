@@ -18,7 +18,12 @@ export function PaneTree({ workspaceId }: { workspaceId: string }): JSX.Element 
     }
   }
   return (
-    <NodeView node={layout.root} workspaceId={workspaceId} activePaneId={layout.activePaneId} />
+    <NodeView
+      node={layout.root}
+      workspaceId={workspaceId}
+      activePaneId={layout.activePaneId}
+      split={false}
+    />
   )
 }
 
@@ -26,19 +31,26 @@ function NodeView({
   node,
   workspaceId,
   activePaneId,
+  split,
 }: {
   node: LayoutNode
   workspaceId: string
   activePaneId: string
+  split: boolean
 }): JSX.Element {
   const resize = useLayoutStore((s) => s.resize)
 
   if (node.type === 'pane') {
-    return <Pane tabs={[node]} shownId={node.id} active={node.id === activePaneId} />
+    return <Pane tabs={[node]} shownId={node.id} active={node.id === activePaneId} split={split} />
   }
   if (node.type === 'tabs') {
     return (
-      <Pane tabs={node.children} shownId={node.activeId} active={node.activeId === activePaneId} />
+      <Pane
+        tabs={node.children}
+        shownId={node.activeId}
+        active={node.activeId === activePaneId}
+        split={split}
+      />
     )
   }
 
@@ -52,7 +64,7 @@ function NodeView({
     >
       {node.children.map((child) => (
         <Allotment.Pane key={child.id} minSize={160}>
-          <NodeView node={child} workspaceId={workspaceId} activePaneId={activePaneId} />
+          <NodeView node={child} workspaceId={workspaceId} activePaneId={activePaneId} split />
         </Allotment.Pane>
       ))}
     </Allotment>

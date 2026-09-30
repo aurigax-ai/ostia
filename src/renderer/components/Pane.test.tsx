@@ -43,6 +43,16 @@ describe('Pane', () => {
     expect(exec).not.toHaveBeenCalled()
   })
 
+  it('dims an inactive pane only when the workspace is split', () => {
+    const { container, rerender } = render(<Pane tabs={[pane]} shownId={pane.id} active={false} />)
+    const frame = container.querySelector('.pane')
+    expect(frame).not.toHaveClass('dimmed')
+    rerender(<Pane tabs={[pane]} shownId={pane.id} active={false} split />)
+    expect(frame).toHaveClass('dimmed')
+    rerender(<Pane tabs={[pane]} shownId={pane.id} active split />)
+    expect(frame).not.toHaveClass('dimmed')
+  })
+
   describe('tabs', () => {
     const a: PaneNode = { type: 'pane', id: 'pa', kind: 'terminal', title: 'claude' }
     const b: PaneNode = { type: 'pane', id: 'pb', kind: 'browser', title: 'localhost' }

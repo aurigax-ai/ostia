@@ -756,16 +756,12 @@
   overflow: hidden;
 }
 
-.pane.active {
-  box-shadow: inset 0 0 0 1px var(--brand);
-}
-
 .pane-header {
   display: flex;
   align-items: center;
   gap: 6px;
   height: var(--tabstrip-h);
-  padding: 0 6px 0 4px;
+  padding: 0 6px 0 0;
   background: var(--surface-2);
   border-bottom: 1px solid var(--line);
   font-size: var(--text-ui-sm);
@@ -805,12 +801,24 @@
 }
 
 .pane-tab.selected {
-  margin-top: 4px;
   margin-bottom: -1px;
-  border-right-color: transparent;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--surface-1);
+  box-shadow: inset 0 2px 0 var(--line-strong);
   color: var(--fg);
+}
+
+.pane.active .pane-tab.selected {
+  box-shadow: inset 0 2px 0 var(--brand);
+}
+
+.pane.dimmed .pane-body-term::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: var(--bg);
+  opacity: 0.3;
+  pointer-events: none;
 }
 
 .pane-tab-main {

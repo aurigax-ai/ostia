@@ -143,8 +143,10 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
   56px icon rail.
 - **Work area**: the active workspace's split tree, rendered with Allotment. Each pane is an
   elevated surface with a header (title, split right, split down, close). The header is also the
-  drag handle for moving panes. The active pane is marked with the brand color. Workspaces have no
-  tab strip.
+  drag handle for moving panes. Focus follows cmux: no border around the focused pane; the
+  selected tab carries a 2px top line (brand in the focused pane, `--line-strong` elsewhere), and
+  in a split every unfocused pane's body is dimmed by a `--bg` overlay at 30% (cmux's
+  `unfocused-split-opacity` 0.7). Tabs are square and flush. Workspaces have no tab strip.
 
 ## 6. Signature: workspace status
 

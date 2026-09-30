@@ -36,6 +36,7 @@ interface PaneProps {
   tabs: PaneNode[]
   shownId: string
   active: boolean
+  split?: boolean
 }
 
 const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
@@ -73,7 +74,7 @@ function hasSurface(kind: SurfaceKind): boolean {
   return kind !== 'agent'
 }
 
-export function Pane({ tabs, shownId, active }: PaneProps): JSX.Element {
+export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.Element {
   const d = useDict()
   const shown = tabs.find((t) => t.id === shownId) ?? tabs[0]
   const over = usePaneDnd((s) => (s.overId === shown.id ? s.zone : null))
@@ -117,7 +118,7 @@ export function Pane({ tabs, shownId, active }: PaneProps): JSX.Element {
 
   return (
     <div
-      className={`pane${active ? ' active' : ''}${ring ? ' attn-ring' : ''}`}
+      className={`pane${active ? ' active' : ''}${split && !active ? ' dimmed' : ''}${ring ? ' attn-ring' : ''}`}
       data-attention={unread ? attention?.state : undefined}
       ref={frameRef}
       onDragOver={onDragOver}
