@@ -184,11 +184,14 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **`pine()` shell function**: it runs `ELECTRON_RUN_AS_NODE=1 $PINE_NODE $PINE_CLI`, so no
   system Node is needed. electron-builder unpacks `out/cli/**` from the asar for this.
 
-- **Claude hooks** (`shellIntegration.ts` `claudeHookSettings`): the generated init defines
-  `claude() { command claude --settings <dir>/claude-settings.json "$@"; }`, whose hooks call
-  `pine resume-token` and `pine state`. Why a flag and not the user's settings: we never write the
-  user's dotfiles or `~/.claude`, and `--settings` is merged with theirs, so it adds hooks without
-  replacing any. Codex has no equivalent (its `notify` is a single value, and overriding it would
+- **Claude plugin** (`shellIntegration.ts` `writeClaudePlugin`): the generated init defines
+  `claude() { command claude --plugin-dir <dir>/claude-plugin "$@"; }`. The plugin holds the
+  `pine` skill (`src/main/agent/pine-skill.md`, the single copy; `.claude/skills/pine/SKILL.md`
+  links to it) and `hooks/hooks.json` (`claudeHookSettings`: `pine resume-token`, `pine state`).
+  Why a session plugin and not the user's config: we never write the user's dotfiles or
+  `~/.claude`, and a session plugin adds a skill and hooks without replacing theirs. Why a plugin
+  and not `--settings`: settings can't carry a skill, so Claude outside this repo never learned
+  the `pine` CLI (cmux and Warp ship skills or plugins for the same reason). Codex has no equivalent (its `notify` is a single value, and overriding it would
   drop the user's), so Codex stays a manual recipe.
 
 ### Rendering, blocks, state

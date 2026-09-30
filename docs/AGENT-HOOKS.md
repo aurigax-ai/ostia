@@ -32,10 +32,11 @@ pane clears the waiting state.
 ## Claude Code
 
 **In a zsh or bash pane there is nothing to set up.** Pine's shell integration defines a
-`claude` function that runs `command claude --settings <tmp>/claude-settings.json "$@"`, and that
-generated file holds the four hooks below plus the `SessionStart` resume hook. Claude Code merges
-`--settings` with your own settings, so your hooks still run; if you also pasted these recipes,
-each fires twice, which is harmless. `command claude` runs Claude without Pine's hooks.
+`claude` function that runs `command claude --plugin-dir <tmp>/claude-plugin "$@"`. That generated
+plugin (`pine@inline`) holds the `pine` skill, so Claude knows the `pine` CLI in every project, and
+the hooks below plus the `SessionStart` resume hook. A session plugin adds to your own settings
+and plugins, so your hooks still run; if you also pasted these recipes, each fires twice, which
+is harmless. `command claude` runs Claude without Pine's plugin.
 
 The recipe is for Claude started any other way (fish, a script that calls the binary directly).
 Paste into `~/.claude/settings.json` (all projects) or `.claude/settings.json` (one project),
