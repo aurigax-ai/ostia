@@ -418,6 +418,7 @@ Motion reports state or confirms an action; it never decorates. Tokens live in `
 | `--motion-fast` | 90 ms | hover/focus color feedback, tooltips, block selection frame |
 | `--motion-base` | 150 ms | overlays, badge pop, sticky header, find bar, new pane content, ring fade-in |
 | `--motion-slow` | 220 ms | sidebar collapse width |
+| `--motion-highlight` | 2000 ms | fade of the lines an on-disk reload changed (the one long fade; reduced motion shows it without fading) |
 | `--motion-fast-exit` / `--motion-base-exit` | 63 / 105 ms | exits, about 70% of the enter |
 | `--motion-pulse` | 1.5 s | one attention pulse (ring, waiting dot) |
 | `--motion-breathe` | 2.4 s | the working dot's loop |
