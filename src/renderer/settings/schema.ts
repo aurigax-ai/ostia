@@ -133,6 +133,13 @@ export const SETTINGS_JSON_SCHEMA = {
             'your keys directly. Shells without integration always use "terminal". ' +
             'Default: terminal.',
         },
+        inputEditorVim: {
+          type: 'boolean',
+          description:
+            'Edit commands in the input editor with vim keys. Esc switches to normal mode ' +
+            '(h j k l w b e 0 $ x dd dw cw u, with counts); i a A I o O return to insert mode. ' +
+            'Enter runs the command from either mode. Default: false.',
+        },
         copyOnSelect: {
           type: 'boolean',
           description: 'Copy selected terminal text to the clipboard as soon as it is selected.',

@@ -37,6 +37,17 @@ __pine_mark_e() {
 
 typeset -g __pine_b_mark=$'%{\\e]133;B\\e\\\\%}'
 typeset -g __pine_cmd_running=0
+typeset -g __pine_last_state=''
+zmodload -i zsh/parameter 2>/dev/null
+
+__pine_report_shell() {
+  [[ -n "$PINE_SHELL_STATE" ]] || return 0
+  local names="\${(j: :)\${(@ok)builtins}} \${(j: :)\${(@ok)reswords}} \${(j: :)\${(@ok)aliases}} \${(j: :)\${(@)\${(@ok)functions}:#_*}}"
+  local state="$PATH"$'\\n'"$names"
+  [[ "$state" == "$__pine_last_state" ]] && return 0
+  __pine_last_state=$state
+  print -r -- "$state" >| "$PINE_SHELL_STATE" 2>/dev/null
+}
 
 __pine_precmd() {
   local ec=$?
@@ -45,6 +56,7 @@ __pine_precmd() {
     __pine_cmd_running=0
   fi
   __pine_osc7
+  __pine_report_shell
   __pine_mark_a
   # Append the (zero-width) prompt-end mark once, so it always lands right after the
   # visible prompt text — works even when a prompt framework redraws PROMPT each cycle.
@@ -122,6 +134,17 @@ __pine_preexec() {
 # look like a real preexec (a false "command executed" mark right after every prompt).
 __pine_orig_prompt_command=("\${PROMPT_COMMAND[@]}")
 
+__pine_last_state=''
+__pine_report_shell() {
+  [ -n "$PINE_SHELL_STATE" ] || return 0
+  local names
+  names=$(compgen -abk -A function -X '_*' 2>/dev/null)
+  local state="$PATH"$'\\n'"\${names//$'\\n'/ }"
+  [ "$state" = "$__pine_last_state" ] && return 0
+  __pine_last_state=$state
+  printf '%s\\n' "$state" >| "$PINE_SHELL_STATE" 2>/dev/null
+}
+
 __pine_prompt_command() {
   local ec=$?
   if [ "$__pine_executing" = "1" ]; then
@@ -134,6 +157,7 @@ __pine_prompt_command() {
   for __pine_cmd in "\${__pine_orig_prompt_command[@]}"; do
     [ -n "$__pine_cmd" ] && eval "$__pine_cmd"
   done
+  __pine_report_shell
   # Append the (zero-width) prompt-end mark AFTER the user's PROMPT_COMMAND has run — prompt
   # frameworks (starship, powerline, git-prompt) rebuild PS1 there, which would otherwise wipe
   # an earlier mark. Single-quoted so bash stores it byte-exact (see BASH_B_MARK doc above).

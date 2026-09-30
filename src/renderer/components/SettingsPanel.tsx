@@ -755,6 +755,7 @@ function TerminalSection(): JSX.Element {
   const gpuAcceleration = useSettingsStore((s) => s.behavior.gpuAcceleration)
   const copyOnSelect = useSettingsStore((s) => s.behavior.copyOnSelect)
   const mode = useSettingsStore((s) => s.behavior.inputMode)
+  const vim = useSettingsStore((s) => s.behavior.inputEditorVim)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
@@ -782,6 +783,12 @@ function TerminalSection(): JSX.Element {
             options={INPUT_MODES.map((m) => ({ value: m, label: modeLabel[m] }))}
           />
         </ControlRow>
+        <ToggleRow
+          label={d.settings.inputEditorVim}
+          desc={d.settings.inputEditorVimDesc}
+          checked={vim}
+          onChange={(v) => setBehavior({ inputEditorVim: v })}
+        />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupCursor}>
         <ControlRow label={d.settings.cursorStyle}>

@@ -577,7 +577,8 @@ export function TerminalView({
     return true
   }
 
-  const background = terminalPalette(themeId).background
+  const palette = terminalPalette(themeId)
+  const background = palette.background
 
   return (
     <div ref={surfaceRef} className="terminal-surface">
@@ -608,7 +609,7 @@ export function TerminalView({
         cwd={cwd}
         fontFamily={fontStack(font.family)}
         fontSize={font.size}
-        background={background}
+        palette={palette}
         alternateScreen={alternateScreen}
         suppressedPrompt={suppressedPrompt}
         ownsFocus={() => {
