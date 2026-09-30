@@ -77,7 +77,11 @@ export function SurfacePool(): JSX.Element {
           ) : s.kind === 'browser' ? (
             <BrowserView workspaceId={s.workspaceId} paneId={s.paneId} url={s.url} />
           ) : s.kind === 'extension' && s.extensionId ? (
-            <ExtensionPanelView extId={s.extensionId} workspaceId={s.workspaceId} />
+            <ExtensionPanelView
+              extId={s.extensionId}
+              workspaceId={s.workspaceId}
+              paneId={s.paneId}
+            />
           ) : s.hibernated ? (
             <HibernatedView paneId={s.paneId} resume={s.resume} />
           ) : (

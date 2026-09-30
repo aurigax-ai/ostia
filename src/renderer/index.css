@@ -1743,6 +1743,53 @@
   text-overflow: ellipsis;
 }
 
+.pane-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+
+.pane-chip {
+  max-width: 160px;
+  height: 18px;
+  padding: 0 6px;
+  border-color: var(--line);
+  color: var(--fg-muted);
+  font-size: var(--text-ui-xs);
+  font-weight: 450;
+  text-overflow: ellipsis;
+}
+
+.pane-chip-action {
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-out), border-color var(--motion-fast)
+    var(--ease-out);
+}
+
+.pane-chip-action:hover {
+  color: var(--fg);
+  border-color: var(--fg-muted);
+}
+
+.pane-chip.tone-brand {
+  color: var(--brand);
+}
+
+.pane-chip.tone-ok {
+  color: var(--ok);
+}
+
+.pane-chip.tone-warn,
+.pane-chip.tone-error {
+  color: var(--attn-fg);
+}
+
 .bell-wrap {
   position: relative;
   display: inline-flex;

@@ -65,11 +65,16 @@ function targetWorkspace(requested?: string): string | null {
     : workspaces.activeWorkspaceId
 }
 
-export function openExtensionPanel(req: ExtensionOpenPanelRequest): void {
-  const info = useExtensionsStore.getState().list.find((e) => e.id === req.extId)
+export function openExtensionPanel(req: ExtensionOpenPanelRequest): string | null {
+  const extensions = useExtensionsStore.getState()
+  const info = extensions.list.find((e) => e.id === req.extId)
   const workspaceId = targetWorkspace(req.workspaceId)
-  if (!info?.panel || !info.enabled || !workspaceId) return
-  useLayoutStore.getState().openExtensionPanel(workspaceId, info.id, info.panel.title)
+  if (!info?.panel || !info.enabled || !workspaceId) return null
+  const paneId = useLayoutStore
+    .getState()
+    .openExtensionPanel(workspaceId, info.id, info.panel.title)
+  if (paneId && req.path) extensions.navigatePanel(paneId, req.path)
+  return paneId
 }
 
 export function openExtensionDiff(req: ExtensionOpenDiffRequest): string | null {
@@ -102,6 +107,7 @@ export function wireExtensionBridge(): void {
     syncExtensionCommands(list)
   })
   api.onSidebar((items) => store.setSidebar(items))
+  api.onPaneChips((chips) => store.setChips(chips))
   api.onOpenPanel(openExtensionPanel)
   api.onOpenDiff(openExtensionDiff)
   api.onOpenTerminal(openExtensionTerminal)

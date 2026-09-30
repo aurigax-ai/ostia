@@ -62,6 +62,7 @@ import {
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
+import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { FontPicker } from './FontPicker'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
@@ -1072,6 +1073,7 @@ export function ExtensionsSection(): JSX.Element {
                     {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
                   </p>
                 ) : null}
+                <ExtensionSettingsForm ext={ext} />
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {!ext.builtin &&
