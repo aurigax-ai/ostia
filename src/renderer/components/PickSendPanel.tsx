@@ -14,7 +14,7 @@ import { Label } from './ui/label'
 import { RadioGroup, RadioGroupItem } from './ui/radio-group'
 import { Textarea } from './ui/textarea'
 
-function stateLabel(d: Dict, state: AttentionState): string {
+export function stateLabel(d: Dict, state: AttentionState): string {
   switch (state) {
     case 'working':
       return d.rail.stateWorking

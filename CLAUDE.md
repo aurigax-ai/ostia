@@ -54,12 +54,13 @@ Package manager is **pnpm** only.
 | Command | What it does | Run it when |
 |---|---|---|
 | `pnpm dev` | electron-vite dev (HMR renderer, main/preload reload) | Daily development |
-| `pnpm build` | Build `out/{main,preload,renderer}`, the `pine` CLI, and the built-in extensions (`out/extensions`) | Before `preview` / E2E |
+| `pnpm build` | Build `out/{main,preload,renderer}`, the `pine` CLI, the built-in extensions (`out/extensions`), and the build stamp `out/build-info.json` (version, commit, time; packaged as `resources/build-info.json`) | Before `preview` / E2E |
 | `pnpm build:extensions` | Only the built-in extensions (`scripts/build-extensions.mjs`) | After editing `src/extensions/**` while `pnpm dev` runs |
 | `pnpm preview` | Run the built app | Smoke-test a build |
 | `pnpm package` | `build` + electron-builder → `dist/linux-unpacked/` | Producing an installable build |
 | `pnpm icons` | Render the app icon PNG set from `resources/icon.svg` (`rsvg-convert`) | After changing the icon SVG |
 | `pnpm install:local` | `package` + `scripts/install-linux.sh` → `~/.local/share/pine/app` + desktop launcher | Updating the user's installed app |
+| `pnpm bump <patch\|minor\|major>` | Raise `package.json` `version` (semver) | Before every `pnpm install:local` that ships changes: `patch` for fixes, `minor` for features. Commit it as `chore(release): vX.Y.Z` and tag `vX.Y.Z` |
 | `pnpm typecheck` | `tsc --noEmit` for renderer/shared, then main/preload/shared | **Before every commit** |
 | `pnpm lint` | Biome check + the no-comments check | **Before every commit** |
 | `pnpm format` | Biome format (`src`) | Before commit |
@@ -139,7 +140,8 @@ Details: `docs/ARCHITECTURE.md`.
   Rerun and history insert go through `insertCommand` (`lib/blockActions.ts`), need the `shell`
   capability, and paste via `term.paste`. The one widening: a report reference from pick
   element or send selection (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a
-  running agent that reported `waiting`/`done`; it's text only, never followed by Enter. Anything
+  running agent that reported `waiting`/`done`; it's text only, never followed by Enter. A file
+  path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. Anything
   else goes to the clipboard.
   The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
   `insertCommand` too, and is shown only at an idle prompt on the normal buffer; anything
@@ -187,6 +189,17 @@ Details: `docs/ARCHITECTURE.md`.
   self-contained function (it's shipped with `toString()`): no imports or module-level references
   inside it. Captures are truncated in main (`normalizeCapture`); the renderer sends back only a
   capture id, and reports go to `privateTmpDir('pine-reports')`.
+- **Agent browsing keeps its state out of the page.** `pine browse` element work runs in
+  `browseRuntime` (`shared/browseRuntime.ts`) inside `executeJavaScriptInIsolatedWorld(BROWSE_WORLD_ID, …)`,
+  never the page's main world; like `pickRuntime` it is self-contained and shipped with
+  `toString()`. Only `eval`, `wait --fn`, `pushstate`, the dialog override and `react-grab` run in
+  the main world. Agent strings reach generated JS only as `JSON.stringify`-ed arguments, and
+  every output or upload path goes through `resolveSafe`. The verbs follow agent-browser's
+  contract (`cli/browseArgs.ts`); rename a verb there, in `docs.ts` and in the skill together.
+- **The storage viewer only touches the human's own pane.** `browser:storage-*` IPC resolves the
+  pane with `ownedGuest` (the sending window owns it) and validates every edit or removal in main
+  (`normalizeStorageEdit` / `normalizeStorageRemoval`) before touching cookies or web storage;
+  clear-all is confirmed in the panel first.
 - **Never inject into the user's dotfiles.** zsh via a generated `ZDOTDIR` (+ `PINE_ZDOTDIR_ORIG`);
   bash via `--rcfile`. Generated files live in `privateTmpDir('pine-shell-integration')`:
   `<tmp>/pine-shell-integration-<uid>`, mode 0700, refused if it's a symlink or not ours.
@@ -248,8 +261,13 @@ Details: `docs/ARCHITECTURE.md`.
   inputs and Monaco keep Shift/⌘+arrow selection. Show hints via `chordLabel()` /
   `useChordLabel()` (null when unbound).
 - **Capabilities:** acting on any target other than your own pane/window/workspace needs
-  `all-workspaces`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`;
-  grants come only from a human editing `settings.json`. Phone caps map through `PHONE_CAP_ALLOWS`;
+  `all-workspaces`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`
+  and `approvals.*`; grants come only from a human editing `settings.json` or clicking an
+  approval card (`main/approvals.ts`, answered only over `approvals:answer` IPC from the
+  request's own window). Never add a command, socket method or CLI verb that answers,
+  approves or pre-approves a request. A missing cap on the socket goes through `ensureCaps`
+  (`controlElevation.ts`), never a bare throw, so the human gets asked. `destructive` always
+  asks, even in `approvals.mode: 'allow'`, and never gets a session grant. Phone caps map through `PHONE_CAP_ALLOWS`;
   `input` must never map to a command capability. Phone grants (`command`, `input`,
   `destructive`) change only through the `gateway:set-cap` IPC from Settings →
   Remote; never add a control-socket method or CLI verb for them. `destructive` needs `command`
@@ -357,6 +375,17 @@ Details: `docs/ARCHITECTURE.md`.
   and every pulse stops (ring ×2, waiting dot ×3); only the `working` dot breathes forever.
   Reduced motion (`appearance.motion`, `prefers-reduced-motion`) collapses motion but never hides
   state. Details: `docs/DESIGN.md` §8.
+- **Saved passwords never leave main in plaintext** (`main/credentials.ts`). They're stored
+  encrypted with `safeStorage` in the data dir (never synced), keyed by exact origin
+  (`normalizeOrigin`, http/https only), and the renderer only ever gets summaries (origin,
+  username); "copy" writes the clipboard from main. No socket method or CLI verb returns a
+  password; filling a page happens in main.
+- **User actions are data, and elevated ones ask once.** `actions` in `settings.json` name a
+  palette command + args (`parseActions`), never a shell string; agents may add them. Running
+  one whose command needs a non-default capability shows the command and args and waits
+  for Run once / Run and trust (`runUserAction`); trust is keyed by command + args
+  (`actionFingerprint`), stored in `trustedActions`, which only the dialog writes (not in
+  `DATA_KEYS`, never synced). Never add a way for an agent to trust an action.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -556,6 +585,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   against the fake CLIs (palette "Trellis: Open Card", notification clicks that open a card and
   Keeper's approvals page); `e2e/ports.spec.ts` checks the ports and ssh pane chips against a
   real listener and a fake `ssh`.
+  `e2e/browser-agent.spec.ts` grants `browse`, reads the pane's `PINE_*` env from its shell and
+  drives a local http page through the real `pine browse` CLI (snapshot refs, fill/click/type,
+  find, eval, storage, cookies, network, tabs, `--json`); `e2e/browser-storage.spec.ts` checks the
+  storage drawer shows and edits a page's cookies, local and session storage.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,

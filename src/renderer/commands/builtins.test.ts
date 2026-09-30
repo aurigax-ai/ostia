@@ -187,6 +187,43 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().behavior.externalEditor).toBe('auto')
   })
 
+  it('settings.set --dry-run validates without applying, and reports the previous value', async () => {
+    const dry = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'editor.tabSize',
+      value: 4,
+      dryRun: true,
+    })
+    expect(dry).toEqual({ ok: true, result: { previous: 2, value: 4, applied: false } })
+    expect(useSettingsStore.getState().editor.tabSize).toBe(2)
+
+    const bad = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'editor.tabSize',
+      value: 3,
+      dryRun: true,
+    })
+    expect(bad.ok).toBe(false)
+    if (!bad.ok) expect(bad.error.message).toMatch(/invalid value for editor.tabSize/)
+  })
+
+  it('settings.unset puts a key back to its default and settings.get reads every section', async () => {
+    await commands.execWith(ctx(null, null), 'settings.set', { key: 'editor.tabSize', value: 8 })
+    const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
+      key: 'editor.tabSize',
+    })
+    expect(unset).toEqual({ ok: true, result: { previous: 8, value: 2 } })
+    const got = await commands.execWith(ctx(null, null), 'settings.get', { key: 'editor.tabSize' })
+    expect(got).toEqual({ ok: true, result: 2 })
+  })
+
+  it('settings.schema describes one key or refuses an unknown one', async () => {
+    const one = await commands.execWith(ctx(null, null), 'settings.schema', {
+      key: 'editor.openFilesIn',
+    })
+    expect(one).toMatchObject({ ok: true, result: { type: 'string', enum: ['tab', 'split'] } })
+    const unknown = await commands.execWith(ctx(null, null), 'settings.schema', { key: 'nope' })
+    expect(unknown.ok).toBe(false)
+  })
+
   it('settings.set changes a keybinding by its dotted command id and settings.get reads it back', async () => {
     const set = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'keybindings.palette.toggle',
@@ -509,6 +546,21 @@ describe('builtins with zero workspaces', () => {
     expect(only).toMatchObject({ workDir: '~', name: 'home' })
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(only.id)
     expect(useLayoutStore.getState().byWorkspace[only.id]).toBeUndefined()
+  })
+
+  it('opens the workspace in the folder and under the name workspace.new was given', async () => {
+    const res = await commands.exec('workspace.new', { dir: '/home/u/sonar', name: 'Sonar search' })
+
+    expect(res.ok).toBe(true)
+    const [only] = useWorkspacesStore.getState().workspaces
+    expect(only).toMatchObject({ workDir: '/home/u/sonar', customName: 'Sonar search' })
+  })
+
+  it('refuses a relative dir for workspace.new instead of ignoring it', async () => {
+    const res = await commands.exec('workspace.new', { dir: 'sonar' })
+
+    expect(res.ok).toBe(false)
+    expect(useWorkspacesStore.getState().workspaces).toEqual([])
   })
 })
 

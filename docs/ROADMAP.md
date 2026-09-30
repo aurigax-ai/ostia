@@ -10,7 +10,7 @@ Non-test lines, 2026-09-28:
 | Area | Lines | What it is |
 |---|---|---|
 | Terminal core (main): pty, shell integration, restore, fs, LSP spawn, control socket, capabilities | ~2,100 | Core |
-| Browser automation (`main/browse.ts`) | ~1,800 | Feature |
+| Browser automation and storage (`main/browse*.ts`, `shared/browse*.ts`) | ~2,700 | Feature |
 | Gateway (`main/gateway/`) | ~1,100 | Feature |
 | Kanban, wiki, vault, bus, processes (main) | ~1,150 | Features |
 | CLI (`src/cli`) | ~1,900 | Mostly verbs for the features above |

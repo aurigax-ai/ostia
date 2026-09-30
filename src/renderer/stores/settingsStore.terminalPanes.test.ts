@@ -78,16 +78,24 @@ describe('settingsStore terminal and pane settings', () => {
   })
 
   it('validates the prompt set through the settings path used by the CLI', () => {
-    store().setByPath('terminal.prompt.chips', ['time24', 'bogus', 'cwd'])
+    expect(() => store().setByPath('terminal.prompt.chips', ['time24', 'bogus', 'cwd'])).toThrow(
+      'invalid value for terminal.prompt.chips',
+    )
+    store().setByPath('terminal.prompt.chips', ['time24', 'cwd'])
     store().setByPath('terminal.prompt.style', 'pine')
     expect(store().terminal.prompt).toMatchObject({ style: 'pine', chips: ['time24', 'cwd'] })
-    store().setByPath('terminal.prompt.style', 'fancy')
-    expect(store().terminal.prompt.style).toBe('shell')
+    expect(() => store().setByPath('terminal.prompt.style', 'fancy')).toThrow(
+      'invalid value for terminal.prompt.style',
+    )
+    expect(store().terminal.prompt.style).toBe('pine')
   })
 
-  it('clamps values set through the settings path used by the CLI', () => {
-    store().setByPath('terminal.scrollbackLines', 5)
-    expect(store().terminal.scrollbackLines).toBe(1000)
+  it('refuses out-of-range values set through the settings path used by the CLI', () => {
+    const before = store().terminal.scrollbackLines
+    expect(() => store().setByPath('terminal.scrollbackLines', 5)).toThrow(
+      'invalid value for terminal.scrollbackLines',
+    )
+    expect(store().terminal.scrollbackLines).toBe(before)
     store().setByPath('terminal.scrollSpeed', 2.5)
     expect(store().terminal.scrollSpeed).toBe(2.5)
     store().setByPath('panes.focusOnHover', true)

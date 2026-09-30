@@ -5,7 +5,7 @@ import {
   PROMPT_STYLES,
 } from '../../shared/promptSettings'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
-import { monaco } from '../monaco/setup'
+import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
 
 const font = (title: string) => ({
   type: 'object',
@@ -98,6 +98,13 @@ export const SETTINGS_JSON_SCHEMA = {
             'Interface animation. "system" follows the OS reduce-motion preference, "reduced" ' +
             'turns movement off (state stays visible), "full" animates regardless of the OS. ' +
             'Default: system.',
+        },
+        windowTitle: {
+          type: 'string',
+          maxLength: 120,
+          description:
+            'Window title shown by the OS (taskbar, Alt+Tab). Placeholders: {workspace}, ' +
+            '{pane}, {cwd}, {product}. Default: "{workspace} · {product}".',
         },
         ui: font('UI font'),
         terminal: {
@@ -467,6 +474,14 @@ export const SETTINGS_JSON_SCHEMA = {
             'Format the document before every save with the language server or built-in ' +
             'formatter. Files with no formatter are just saved. Default: false.',
         },
+        openFilesIn: {
+          type: 'string',
+          enum: ['tab', 'split'],
+          description:
+            'Where an opened file shows: "tab" as a tab next to the focused pane (reusing an ' +
+            'editor tab already there), "split" in the workspace editor pane, split to the ' +
+            'right when there is none. Default: tab.',
+        },
       },
     },
     keybindings: keybindingsSchema(Object.keys(DEFAULT_CHORDS)),
@@ -518,6 +533,71 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    actions: {
+      type: 'array',
+      maxItems: ACTIONS_MAX,
+      description:
+        'Buttons and menu entries that run a palette command. Each also becomes a palette ' +
+        'command "action.<id>" you can bind in keybindings. An action whose command needs a ' +
+        'permission beyond the defaults asks before its first run.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'title', 'command'],
+        properties: {
+          id: { type: 'string', pattern: ACTION_ID.source, description: 'Stable id, a-z 0-9 -.' },
+          title: { type: 'string', maxLength: ACTION_TITLE_MAX, description: 'Label and tooltip.' },
+          command: {
+            type: 'string',
+            description: 'A palette command id (see pine commands), e.g. "pane.split".',
+          },
+          args: {
+            type: 'object',
+            description:
+              'Arguments for the command. Strings may use {cwd} (the pane folder) and {file} ' +
+              '(the file an editor pane shows).',
+          },
+          icon: {
+            type: 'string',
+            enum: [...ACTION_ICONS],
+            description: 'Icon. Default: lightning.',
+          },
+          in: {
+            type: 'array',
+            items: { type: 'string', enum: [...ACTION_PLACES] },
+            description:
+              'Where it shows besides the palette: "paneHeader" (a button in each pane header), ' +
+              '"tabMenu" (the pane tab right-click menu).',
+          },
+          paneKinds: {
+            type: 'array',
+            items: { type: 'string', enum: ['terminal', 'editor', 'browser', 'extension', 'diff'] },
+            description: 'Only show it on these pane kinds. Default: all.',
+          },
+        },
+      },
+    },
+    trustedActions: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Actions you chose "Run and trust" for. Only you can change this; it never syncs.',
+    },
+    approvals: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        mode: {
+          type: 'string',
+          enum: ['ask', 'allow'],
+          description:
+            'When an agent needs a capability it lacks: "ask" holds the request and asks you in ' +
+            'the pane (Allow once / Allow for this pane / Deny); "allow" lets it through and ' +
+            'records it in the permission inbox. Destructive actions always ask. Only you can ' +
+            'change this; agents cannot, and it never syncs. Default: ask.',
+        },
+      },
+    },
     capabilities: {
       type: 'object',
       additionalProperties: false,
@@ -547,27 +627,29 @@ export const SETTINGS_JSON_SCHEMA = {
   },
 }
 
-export async function registerSettingsSchema(): Promise<void> {
-  const path = await window.pine.settings.path()
-  const uri = monaco.Uri.file(path).toString()
-  const json = monaco.languages.json as unknown as {
-    jsonDefaults: { setDiagnosticsOptions: (options: unknown) => void }
+export function fullSettingsSchema() {
+  return {
+    ...SETTINGS_JSON_SCHEMA,
+    properties: {
+      ...SETTINGS_JSON_SCHEMA.properties,
+      keybindings: keybindingsSchema(bindableIds()),
+    },
   }
-  json.jsonDefaults.setDiagnosticsOptions({
-    validate: true,
-    allowComments: false,
-    schemas: [
-      {
-        uri: 'pine://settings-schema',
-        fileMatch: [uri],
-        schema: {
-          ...SETTINGS_JSON_SCHEMA,
-          properties: {
-            ...SETTINGS_JSON_SCHEMA.properties,
-            keybindings: keybindingsSchema(bindableIds()),
-          },
-        },
-      },
-    ],
-  })
+}
+
+interface SchemaNode {
+  properties?: Record<string, SchemaNode>
+  additionalProperties?: boolean | SchemaNode
+  [key: string]: unknown
+}
+
+export function settingsSchemaAt(path?: string): unknown {
+  let node = fullSettingsSchema() as unknown as SchemaNode
+  for (const key of (path ?? '').split('.').filter(Boolean)) {
+    const extra = node.additionalProperties
+    const next = node.properties?.[key] ?? (typeof extra === 'object' ? extra : undefined)
+    if (!next) throw new Error(`unknown settings key: ${path}`)
+    node = next
+  }
+  return node
 }

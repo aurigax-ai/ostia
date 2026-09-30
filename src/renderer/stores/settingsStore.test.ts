@@ -57,6 +57,9 @@ describe('settingsStore', () => {
       agents: s.agents,
       workspaceGroups: s.workspaceGroups,
       extensionSettings: s.extensionSettings,
+      approvals: s.approvals,
+      actions: s.actions,
+      trustedActions: s.trustedActions,
     })
   })
 
@@ -291,12 +294,37 @@ describe('settingsStore', () => {
       expect(store().workspaceGroups.byCwd).toEqual([{ pattern: '~/work/**', group: 'Work' }])
     })
 
-    it('sets workspace group rules by path and drops a malformed rule', () => {
-      store().setByPath('workspaceGroups.byCwd', [
-        { pattern: '/src/*', group: 'src' },
-        { pattern: 3 },
-      ])
+    it('sets workspace group rules by path and refuses a list with a malformed rule', () => {
+      store().setByPath('workspaceGroups.byCwd', [{ pattern: '/src/*', group: 'src' }])
       expect(store().workspaceGroups.byCwd).toEqual([{ pattern: '/src/*', group: 'src' }])
+
+      expect(() =>
+        store().setByPath('workspaceGroups.byCwd', [
+          { pattern: '/lib/*', group: 'lib' },
+          { pattern: 3 },
+        ]),
+      ).toThrow('invalid value for workspaceGroups.byCwd')
+      expect(store().workspaceGroups.byCwd).toEqual([{ pattern: '/src/*', group: 'src' }])
+    })
+
+    it('refuses an unknown key or an enum value the setting does not accept', () => {
+      expect(() => store().setByPath('editor.openFilesIn', 'window')).toThrow(
+        'invalid value for editor.openFilesIn',
+      )
+      expect(() => store().setByPath('sidebar.nope', true)).toThrow(
+        'unknown settings key: sidebar.nope',
+      )
+      expect(store().editor.openFilesIn).toBe('tab')
+    })
+
+    it('previews a change without applying it, and unsets a key back to its default', () => {
+      const preview = store().previewSetting('editor.tabSize', 4)
+      expect(preview).toMatchObject({ previous: 2, value: 4 })
+      expect(store().editor.tabSize).toBe(2)
+
+      store().setByPath('editor.tabSize', 8)
+      expect(store().unsetByPath('editor.tabSize')).toMatchObject({ previous: 8, value: 2 })
+      expect(store().editor.tabSize).toBe(2)
     })
 
     it('merges a valid partial settings.json over DEFAULTS (mergeFont keeps default family)', async () => {
@@ -358,6 +386,9 @@ describe('settingsStore', () => {
         agents: s.agents,
         workspaceGroups: s.workspaceGroups,
         extensionSettings: s.extensionSettings,
+        approvals: s.approvals,
+        actions: s.actions,
+        trustedActions: s.trustedActions,
       }).toEqual(DEFAULTS)
     })
 
@@ -410,6 +441,9 @@ describe('settingsStore', () => {
         agents: s.agents,
         workspaceGroups: s.workspaceGroups,
         extensionSettings: s.extensionSettings,
+        approvals: s.approvals,
+        actions: s.actions,
+        trustedActions: s.trustedActions,
       }).toEqual(DEFAULTS)
     })
   })

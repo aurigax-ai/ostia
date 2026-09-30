@@ -66,7 +66,7 @@ describe('createFileLinkProvider', () => {
     const [link] = links ?? []
     expect(link.text).toBe('src/app.ts:12:4')
     expect(link.range).toEqual({ start: { x: 10, y: 1 }, end: { x: 9, y: 2 } })
-    expect(link.decorations?.pointerCursor).toBe(false)
+    expect(link.decorations?.pointerCursor).toBe(true)
 
     link.activate(new MouseEvent('click'), link.text)
     expect(open).not.toHaveBeenCalled()

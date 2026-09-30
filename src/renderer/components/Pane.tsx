@@ -23,6 +23,7 @@ import { isIdlePrompt } from '../lib/blocks'
 import { useChordLabel } from '../lib/chords'
 import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '../lib/hoverFocus'
 import { isMac } from '../platform'
+import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
@@ -30,9 +31,13 @@ import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePaneDnd } from '../stores/paneDndStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
+import { AgentSessionButton } from './AgentSessionButton'
+import { ApprovalCard } from './ApprovalCard'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneChips } from './PaneChips'
+import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
 import { extensionIcon } from './extensionIcons'
 import { Button } from './ui/button'
 
@@ -83,6 +88,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
   const setOver = usePaneDnd((s) => s.setOver)
   const reset = usePaneDnd((s) => s.reset)
   const attention = useAttentionStore((s) => s.byPane[shown.id])
+  const approval = useApprovalsStore((s) => s.pending.find((r) => r.paneId === shown.id))
   const ring = needsRing(attention)
   const unread = attention?.unread ?? false
   const frameRef = useRef<HTMLDivElement>(null)
@@ -177,6 +183,8 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         <PaneChips paneId={shown.id} />
         <ResumeButton pane={shown} />
         <div className="pane-actions">
+          <AgentSessionButton pane={shown} />
+          <PaneHeaderActions pane={shown} />
           <IconButton
             icon={PlusIcon}
             label={d.pane.newTab}
@@ -206,6 +214,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         {tabs.map((tab) => (
           <TabBody key={tab.id} pane={tab} shown={tab.id === shown.id} />
         ))}
+        {approval ? <ApprovalCard request={approval} paneTitle={shown.title} /> : null}
       </div>
 
       {ring ? (
@@ -262,8 +271,9 @@ function PaneTab({
   const attention = useAttentionStore((s) => s.byPane[pane.id])
   const unread = attention?.unread ?? false
   const ring = needsRing(attention)
+  const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
 
-  return (
+  const tab = (
     <div
       className={`pane-tab${selected ? ' selected' : ''}`}
       data-attention={unread ? attention?.state : undefined}
@@ -311,6 +321,7 @@ function PaneTab({
       ) : null}
     </div>
   )
+  return <PaneTabMenu pane={pane} workspaceId={workspaceId} trigger={tab} />
 }
 
 function TabBody({ pane, shown }: { pane: PaneNode; shown: boolean }): JSX.Element | null {

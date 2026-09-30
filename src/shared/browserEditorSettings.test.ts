@@ -97,6 +97,7 @@ describe('parseEditorSettings', () => {
       insertSpaces: false,
       autoSave: 'afterDelay',
       formatOnSave: true,
+      openFilesIn: 'split',
     }
     expect(parseEditorSettings(custom)).toEqual(custom)
   })

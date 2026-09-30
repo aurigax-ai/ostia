@@ -50,63 +50,46 @@ const CLI_HELP = `pine — control-socket CLI
   pine bus claim <id>                         claim a handoff addressed to you
   pine bus handoffs [--all]                   list your handoffs (--all needs all-workspaces)
   pine bus done <id>                          mark a handoff completed
-  pine settings get [key]         print the whole settings state, or a dot-path value
-  pine settings set <key> <value> deep-set a dot-path (value parsed as JSON if it parses)
-  pine browse open <url> [--pane ID]                agent-drive the browser pane (elevated 'browse')
-  pine browse nav <back|forward|reload> [--pane ID]  navigate the browser pane
-  pine browse read [selector] [--pane ID]            print visible text (page, or a selector's)
-  pine browse click <selector> [--pane ID]           click the first matching element
-  pine browse type <selector> <text> [--pane ID]     set an input's value + fire input/change
-  pine browse dblclick <selector> [--pane ID]        dispatch a double-click
-  pine browse hover <selector> [--pane ID]           dispatch mouseover/mouseenter/mousemove
-  pine browse focus <selector> [--pane ID]           focus an element
-  pine browse check <selector> [--pane ID]           set a checkbox/radio checked + fire input/change
-  pine browse uncheck <selector> [--pane ID]         clear a checkbox + fire input/change
-  pine browse scroll-into-view <selector> [--pane ID]  scroll an element into view (centered)
-  pine browse fill <selector> <text> [--pane ID]     whole-value set + fire input/change
-  pine browse select <selector> <value> [--pane ID]  set a <select>'s value + fire change
-  pine browse scroll [--x N] [--y N] [--selector S] [--pane ID]  scroll the page or an element
-  pine browse press <key> [--selector S] [--pane ID]  real keyDown+keyUp (focuses selector first)
-  pine browse keydown <key> [--selector S] [--pane ID]  real keyDown only
-  pine browse keyup <key> [--selector S] [--pane ID]  real keyUp only
-  pine browse eval "<js>" [--pane ID]                run JS in the page, print the JSON result
-  pine browse wait <selector> [--timeout MS] [--pane ID]  poll until a selector appears
-  pine browse screenshot [path] [--pane ID]          capture the page to a PNG, print its path
-  pine browse content [--pane ID]                    print the page's outerHTML (capped ~1MB)
-  pine browse snapshot [selector] [--interactive] [--pane ID]  a11y-ish text tree with [eN] refs
-  pine browse get <sub> [selector] [--attr X] [--property P] [--pane ID]
-                                  url|title|text|html|value|attr|count|box|styles
-  pine browse is <sub> <selector> [--pane ID]        visible|enabled|checked
-  pine browse find <by> <query> [--exact] [--index N] [--selector S] [--pane ID]
-                                  role|text|label|placeholder|alt|title|testid|first|last|nth
-                                  -> prints an @eN ref
-  pine browse highlight <selector> [--ms N] [--pane ID]  briefly outline an element
-  pine browse url [--pane ID]                        print the current page URL
-  pine browse zoom <in|out|reset> [--pane ID]        adjust zoom level by 0.5, print new level
-  pine browse devtools [toggle|open|close|console] [--pane ID]  default: toggle
-  pine browse focus-webview [--pane ID]              focus the guest webContents
-  pine browse is-webview-focused [--pane ID]         print true/false, exit 1 if false
-  pine browse identify [--pane ID]                   print {paneId,url,title,workspaceId,windowId}
-  pine browse cookies <get|set|clear> [name] [value] [--url U] [--domain D] [--pane ID]
-  pine browse storage <local|session> <get|set|clear> [key] [value] [--pane ID]
-  pine browse state <save|load> <path> [--pane ID]   save/restore cookies+localStorage+sessionStorage
-  pine browse history clear [--pane ID]              clear this surface's navigation history
-  pine browse addscript "<js>" [--pane ID]           run JS now, print the JSON result
-  pine browse addstyle "<css>" [--pane ID]           inject a <style>, print its key
-  pine browse addinitscript "<js>" [--pane ID]       run JS before every future navigation (CDP)
-  pine browse console [list|clear] [--pane ID]       buffered console.* messages (default: list)
-  pine browse errors [list|clear] [--pane ID]        error-level/uncaught-exception subset of console
-  pine browse frame <selector|main> [--pane ID]      point later selector-driven verbs at an iframe
-  pine browse download wait [--path P] [--timeout MS] [--pane ID]  block for this surface's next download
-  pine browse navigate <url> [--pane ID]             load <url> on an EXISTING surface (no auto-create)
-  pine browse open-split [url] [--pane ID]           always create a NEW browser pane (a split)
-  pine browse tab <new|list|switch|close> [url|target] [--pane ID]
-                                  cmux-parity "tabs" — pragmatic: a tab here IS a browser pane
-  pine browse dialog <accept|dismiss|list> [text] [--pane ID]
-                                  auto-response policy + log for alert/confirm/prompt (not blocking)
-  pine browse focus-mode <enter|exit|toggle> [--pane ID]  minimal single-pane zoom/zen
-  pine browse react-grab <toggle|get> [--pane ID]    minimal React fiber inspector on click
-  pine browse pick [--timeout MS] [--pane ID]        ask the user to click an element; prints its capture JSON
+  pine settings get [key]         print every readable setting, or a dot-path value
+  pine settings set <key> <value> [--dry-run]   validate and set a dot-path (JSON if it parses)
+  pine settings unset <key>       reset a dot-path to its default
+  pine settings schema [key]      the JSON Schema of every setting, or of one key
+  pine browse <command> [--pane ID] [--json]     drive the workspace's browser pane (elevated
+                                  'browse'); agent-browser's command contract. --json prints
+                                  {success,data,error}
+  pine browse open [url] | back | forward | reload | close | read | pushstate <url>
+  pine browse snapshot [-i] [-c] [-d N] [-s SEL] [-u]   aria tree with [ref=eN] refs
+  pine browse click <sel> [--new-tab] | dblclick | hover | focus | check | uncheck <sel>
+  pine browse fill <sel> <text> | type <sel> <text> | select <sel> <value...>
+  pine browse press <key> | keydown <key> | keyup <key>   (Enter, Control+a, …)
+  pine browse keyboard type|inserttext <text>
+  pine browse scroll [up|down|left|right] [px] [--selector SEL] | scrollintoview <sel>
+  pine browse drag <from> <to> | upload <sel> <file...>
+  pine browse mouse move <x> <y> | down|up [button] | wheel <dy> [dx]
+  pine browse get text|html|value|attr|title|url|count|box|styles [sel] [arg]
+  pine browse is visible|enabled|checked <sel>
+  pine browse find role|text|label|placeholder|alt|title|testid <value> [action] [text]
+                  [--name N] [--exact]; find first|last <sel> [action]; find nth <i> <sel> [action]
+  pine browse wait <sel|ms> [--state S] | --text T | --url GLOB | --load L | --fn JS
+                  | --download [path]  [--timeout MS]
+  pine browse eval <js> | -b <base64> | --stdin
+  pine browse screenshot [path] [--full] | pdf <path>
+  pine browse cookies [get] | set <name> <value> [--url --domain --path --httpOnly --secure
+                  --sameSite --expires] | clear
+  pine browse storage local|session [key] | set <key> <value> | clear
+  pine browse state save|load <path>
+  pine browse network requests [--filter --type --method --status --clear] | request <id>
+                  | route <glob> [--abort] [--body JSON] | unroute [glob]
+  pine browse set viewport <w> <h> [scale] | media [dark|light] [reduced-motion]
+                  | offline [on|off] | headers <json> | geo <lat> <lng>
+  pine browse tab | tab new [url] | tab <tabId> | tab close [tabId]
+  pine browse frame <sel|main> | dialog accept [text]|dismiss|status
+  pine browse console [--clear] | errors [--clear] | highlight <sel> | inspect
+  pine browse addinitscript <js> | removeinitscript <id> | addstyle <css>
+  pine browse batch [--bail] "<command>"... (or a JSON array of argv arrays on stdin)
+  pine browse identify | zoom in|out|reset | history clear | focus-mode enter|exit|toggle
+                  | react-grab toggle|get | focus-webview | is-webview-focused
+  pine browse pick [--timeout MS]  ask the user to click an element; prints its capture JSON
   pine gateway enable [--host H] [--port P]  turn on the LAN control gateway (elevated 'gateway')
   pine gateway pair                          mint a pairing code + QR payload (enables gateway too)
   pine gateway status                        { running, host, port, fingerprint, deviceCount }
@@ -118,8 +101,8 @@ const CLI_HELP = `pine — control-socket CLI
   pine <extId> <command> [args...]       same, when <extId> isn't a built-in verb
   pine docs                      show this help
 
-  Selectors anywhere above also accept an @eN/eN ref from snapshot/find (refs are valid
-  until the next navigation).
+  A browse <sel> is an @eN ref from snapshot, a CSS selector, text=Label or xpath=//…
+  (refs are valid until the next navigation).
 
   pine <command-id> [jsonArgs]   run any registered command by id, with an
                                   optional JSON-encoded args blob

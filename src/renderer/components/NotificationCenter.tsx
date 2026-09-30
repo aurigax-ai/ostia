@@ -11,6 +11,7 @@ import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { ApprovalsInbox } from './ApprovalsInbox'
 import { IconButton } from './IconButton'
 import { ATTENTION_BADGE } from './attentionStyles'
 import { Badge } from './ui/badge'
@@ -116,6 +117,14 @@ export function NotificationCenter(): JSX.Element {
             {d.attention.clearAll}
           </Button>
         </div>
+        <ApprovalsInbox
+          whereOf={(paneId) => {
+            const where = labelOf(paneId)
+            return where ? `${where.workspace} · ${where.pane}` : null
+          }}
+          time={time}
+          onReveal={() => setOpen(false)}
+        />
         {entries.length === 0 ? (
           <Empty className="p-3">
             <EmptyDescription className="text-ui-sm">{d.attention.empty}</EmptyDescription>

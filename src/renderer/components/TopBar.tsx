@@ -14,6 +14,7 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { NotificationCenter } from './NotificationCenter'
 import { PanelToggles } from './PanelToggles'
+import { UpdateNotice } from './UpdateNotice'
 import { Button } from './ui/button'
 import { Kbd } from './ui/kbd'
 
@@ -73,6 +74,7 @@ export function TopBar(): JSX.Element {
       </Hint>
 
       <div className="topbar-right">
+        <UpdateNotice />
         <IconButton
           size="bar"
           icon={GearSixIcon}

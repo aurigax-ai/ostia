@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import type { Capability } from '../shared/capabilities'
-import { connHasCap } from './controlAuth'
+import { ensureCaps } from './controlElevation'
 import { registerControlMethod } from './controlServer'
 import { loadJson, saveJson, storePath } from './jsonStore'
 
@@ -43,10 +41,6 @@ const MAX_HANDOFFS = 500
 const MIN_WAIT_MS = 1000
 const MAX_WAIT_MS = 120000
 const DEFAULT_WAIT_MS = 30000
-
-function needsElevation(cap: Capability): ResponseError<void> {
-  return new ResponseError(ErrorCodes.InvalidRequest, `needs-elevation: ${cap}`)
-}
 
 function busPath(): string {
   return storePath('bus', 'global')
@@ -116,11 +110,11 @@ export function postBusMessage(from: string, to: string, text: string): string {
 
 export function registerBusMethods(): void {
   registerControlMethod('bus.send', {
-    handler: (params, ctx) => {
+    handler: async (params, ctx) => {
       const { to, text } = (params ?? {}) as { to: string; text: string }
       const from = ctx.identity.externalId
-      if (to !== from && !connHasCap(ctx.authed, 'send-other-pane')) {
-        throw needsElevation('send-other-pane')
+      if (to !== from) {
+        await ensureCaps(ctx.authed, ctx.identity, ['send-other-pane'], 'bus.send', `to ${to}`)
       }
       const data = loadBus()
       const id = randomUUID()
@@ -173,7 +167,7 @@ export function registerBusMethods(): void {
   })
 
   registerControlMethod('bus.handoff', {
-    handler: (params, ctx) => {
+    handler: async (params, ctx) => {
       const { to, task, summary, context } = (params ?? {}) as {
         to: string
         task: string
@@ -181,8 +175,8 @@ export function registerBusMethods(): void {
         context?: HandoffContext
       }
       const from = ctx.identity.externalId
-      if (to !== from && !connHasCap(ctx.authed, 'send-other-pane')) {
-        throw needsElevation('send-other-pane')
+      if (to !== from) {
+        await ensureCaps(ctx.authed, ctx.identity, ['send-other-pane'], 'bus.handoff', `to ${to}`)
       }
       if (!summary?.trim()) {
         return {
@@ -232,11 +226,11 @@ export function registerBusMethods(): void {
   })
 
   registerControlMethod('bus.handoffs', {
-    handler: (params, ctx) => {
+    handler: async (params, ctx) => {
       const { all } = (params ?? {}) as { all?: boolean }
       const me = ctx.identity.externalId
       if (all) {
-        if (!connHasCap(ctx.authed, 'all-workspaces')) throw needsElevation('all-workspaces')
+        await ensureCaps(ctx.authed, ctx.identity, ['all-workspaces'], 'bus.handoffs --all', '')
         return { handoffs: loadBus().handoffs }
       }
       const data = loadBus()

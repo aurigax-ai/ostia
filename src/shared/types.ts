@@ -1,6 +1,21 @@
 import type { AgentResume } from './agentResume'
+import type { ApprovalAnswer, ApprovalState } from './approvals'
+import type {
+  BrowserStorageRead,
+  StorageEdit,
+  StorageKind,
+  StorageRemoval,
+  StorageWriteResult,
+} from './browserStorage'
+import type { BuildInfo } from './buildInfo'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { SpecCommand } from './completionSpec'
+import type {
+  CredentialImportResult,
+  CredentialInput,
+  CredentialSaveResult,
+  CredentialSummary,
+} from './credentials'
 import type { ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
@@ -311,10 +326,35 @@ export interface BrowserApi {
   pickCancel: (paneId: string) => void
   pickSend: (req: PickSendRequest) => Promise<PickSendResult>
   onPickState: (cb: (state: PickState) => void) => () => void
+  storageRead: (paneId: string) => Promise<BrowserStorageRead>
+  storageSet: (paneId: string, edit: StorageEdit) => Promise<StorageWriteResult>
+  storageRemove: (paneId: string, removal: StorageRemoval) => Promise<StorageWriteResult>
+  storageClear: (paneId: string, kind: StorageKind) => Promise<StorageWriteResult>
 }
 
 export interface SelectionApi {
   send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
+}
+
+export interface AppUpdateApi {
+  state: () => Promise<BuildInfo | null>
+  restart: () => Promise<void>
+  onAvailable: (cb: (info: BuildInfo) => void) => () => void
+}
+
+export interface CredentialsApi {
+  list: () => Promise<CredentialSummary[]>
+  save: (input: CredentialInput) => Promise<CredentialSaveResult>
+  remove: (id: string) => Promise<boolean>
+  copyPassword: (id: string) => Promise<boolean>
+  import: () => Promise<CredentialImportResult>
+}
+
+export interface ApprovalsApi {
+  state: () => Promise<ApprovalState>
+  answer: (id: string, answer: ApprovalAnswer) => Promise<boolean>
+  revoke: (id: string) => Promise<boolean>
+  onChange: (cb: (state: ApprovalState) => void) => () => void
 }
 
 export interface GatewayStatus {
@@ -426,6 +466,9 @@ export interface PineBridge {
   terminalState: TerminalStateApi
   browser: BrowserApi
   selection: SelectionApi
+  approvals: ApprovalsApi
+  credentials: CredentialsApi
+  update: AppUpdateApi
   extensions: ExtensionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi

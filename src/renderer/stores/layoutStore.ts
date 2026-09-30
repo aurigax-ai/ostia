@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import {
   type DropZone,
   addTab,
+  allPanes,
   closePane,
   createPane,
   equalizeSizes,
@@ -25,6 +26,7 @@ import {
   setPaneUrl,
   setSizes,
   slotCount,
+  slotPaneOfKind,
   splitPane,
   tabsOfPane,
 } from '../layout/tree'
@@ -311,12 +313,26 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
-        const existing = firstPaneOfKind(l.root, 'editor')
+        const inTab = useSettingsStore.getState().editor.openFilesIn === 'tab'
+        const showing = allPanes(l.root).find((p) => p.kind === 'editor' && p.filePath === path)
+        if (inTab && showing) return { ...l, activePaneId: showing.id }
+        const existing = inTab
+          ? slotPaneOfKind(l.root, l.activePaneId, 'editor')
+          : firstPaneOfKind(l.root, 'editor')
         if (existing) {
           return {
             ...l,
             root: setPaneEditor(l.root, existing.id, title, path),
             activePaneId: existing.id,
+          }
+        }
+        if (inTab) {
+          const pane = createPane('editor')
+          createdPaneId = pane.id
+          return {
+            ...l,
+            root: setPaneEditor(addTab(l.root, l.activePaneId, pane), pane.id, title, path),
+            activePaneId: pane.id,
           }
         }
         const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')

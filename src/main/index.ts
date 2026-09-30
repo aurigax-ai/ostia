@@ -24,24 +24,27 @@ import type {
   TerminalStateSnapshot,
 } from '../shared/types'
 import { clampZoom, zoomFactor } from '../shared/zoom'
+import { registerAppUpdate } from './appUpdate'
+import { approvals, registerApprovals } from './approvals'
 import { registerAttentionMethods } from './attention'
 import {
   type ConsoleEntry,
   PAGE_ERROR_CATCHER_JS,
   PINE_ERROR_PREFIX,
-  clearGuestDialogPolicy,
-  clearGuestFrame,
-  clearGuestReactGrab,
+  clearGuestBrowseState,
   consoleLevelName,
+  ownedGuest,
   pushConsoleEntry,
   registerBrowseMethods,
 } from './browse'
 import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
+import { registerBrowserStorageIpc } from './browserStorage'
 import { registerBusMethods } from './bus'
 import { dropIdentity } from './capabilityStore'
 import { confirmAllWindowsClose, confirmWindowClose, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
+import { registerCredentials } from './credentials'
 import { registerDocsMethods } from './docs'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
@@ -382,9 +385,7 @@ function wireWindow(win: BrowserWindow): void {
         browserPanes.delete(paneId)
         consoleBuffers.delete(wcId)
         errorBuffers.delete(wcId)
-        clearGuestFrame(wcId)
-        clearGuestDialogPolicy(wcId)
-        clearGuestReactGrab(wcId)
+        clearGuestBrowseState(wcId)
         clearGuestNetwork(wcId)
       }
     }
@@ -507,6 +508,7 @@ function registerIpc(): void {
       const identity = getByPaneId(event.paneId)
       if (identity) {
         dropIdentity(identity.externalId)
+        approvals()?.forget(identity.externalId)
         extensionHost?.emitEvent('pane.closed', {
           paneId: identity.externalId,
           workspaceId: event.workspaceId,
@@ -573,9 +575,7 @@ function registerIpc(): void {
     if (wcId !== undefined) {
       consoleBuffers.delete(wcId)
       errorBuffers.delete(wcId)
-      clearGuestFrame(wcId)
-      clearGuestDialogPolicy(wcId)
-      clearGuestReactGrab(wcId)
+      clearGuestBrowseState(wcId)
       clearGuestNetwork(wcId)
     }
   })
@@ -971,6 +971,9 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerSelectionIpc()
+  registerApprovals()
+  registerCredentials()
+  registerAppUpdate()
   registerLspIpc()
   const notifyDeps = {
     execCommand,
@@ -1053,6 +1056,9 @@ app.whenReady().then(() => {
   })
   registerPickMethods({ browserPanes, errorBuffers, broadcast })
   registerPickIpc({ browserPanes, errorBuffers, broadcast })
+  registerBrowserStorageIpc((paneId, senderWindowId) =>
+    ownedGuest(browserPanes, paneId, senderWindowId),
+  )
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
   extensionHost.startEager()

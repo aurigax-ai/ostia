@@ -2,6 +2,7 @@ import { IconContext } from '@phosphor-icons/react'
 import { clampZoom } from '@shared/zoom'
 import { useEffect } from 'react'
 import { commands } from './commands/registry'
+import { ActionConfirmDialog } from './components/ActionConfirmDialog'
 import { CloseConfirmDialog } from './components/CloseConfirmDialog'
 import { CommandPalette } from './components/CommandPalette'
 import { DeckRail } from './components/DeckRail'
@@ -20,8 +21,9 @@ import { confirmQuit } from './lib/closeConfirm'
 import { useMotionAttribute } from './lib/motion'
 import { applyTheme, useEffectiveTheme } from './lib/theme'
 import { useModifierHint } from './lib/useModifierHint'
+import { useWindowTitle } from './lib/useWindowTitle'
 import { isMac } from './platform'
-import { registerSettingsSchema } from './settings/schema'
+import { registerSettingsSchema } from './settings/registerSettingsSchema'
 import { usePluginsStore } from './stores/pluginsStore'
 
 const ICON_STYLE = { weight: 'regular' } as const
@@ -68,6 +70,7 @@ export function App(): JSX.Element {
   }, [])
 
   useModifierHint(isMac)
+  useWindowTitle()
 
   useEffect(() => window.pine.window.onConfirmClose(confirmQuit), [])
 
@@ -98,6 +101,7 @@ export function App(): JSX.Element {
           <CommandPalette />
           <ExtensionApprovalDialog />
           <CloseConfirmDialog />
+          <ActionConfirmDialog />
           <PromptEditorDialog />
           <HistorySearch />
           <WorkflowPicker />

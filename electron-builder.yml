@@ -8,6 +8,8 @@ files:
 extraResources:
   - from: out/extensions
     to: extensions
+  - from: out/build-info.json
+    to: build-info.json
 asarUnpack:
   - out/cli/**
 npmRebuild: true

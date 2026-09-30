@@ -1,3 +1,9 @@
+import {
+  type ApprovalMode,
+  type ApprovalSettings,
+  DEFAULT_APPROVAL_SETTINGS,
+  parseApprovalSettings,
+} from '@shared/approvals'
 import { create } from 'zustand'
 import {
   type BrowserSettings,
@@ -22,6 +28,7 @@ import type { Locale } from '../i18n/dict'
 import { type KeybindingMap, parseKeybindings } from '../lib/chordSpec'
 import { normalizeHex } from '../lib/color'
 import type { GroupRule } from '../lib/workspaceGroups'
+import { type UserAction, parseActions } from '../settings/actions'
 import {
   DEFAULT_PANE_SETTINGS,
   DEFAULT_TERMINAL_SETTINGS,
@@ -33,6 +40,7 @@ import {
   parsePaneSettings,
   parseTerminalSettings,
 } from '../settings/terminalPaneSettings'
+import { DEFAULT_WINDOW_TITLE, parseWindowTitle } from '../settings/windowTitle'
 
 export type ThemeId = string
 
@@ -144,6 +152,7 @@ export interface Appearance {
   ui: SurfaceFont
   terminal: TerminalFont
   editor: SurfaceFont
+  windowTitle: string
 }
 
 export type CursorStyle = 'block' | 'underline' | 'bar'
@@ -235,6 +244,9 @@ interface Persisted {
   extensionSettings: Record<string, ExtensionSettingValues>
   capabilities?: Capabilities
   sync?: SyncSettings
+  approvals: ApprovalSettings
+  actions: UserAction[]
+  trustedActions: string[]
 }
 
 const DATA_KEYS: readonly string[] = [
@@ -250,6 +262,7 @@ const DATA_KEYS: readonly string[] = [
   'editor',
   'agents',
   'workspaceGroups',
+  'actions',
 ]
 
 const DEFAULTS: Persisted = {
@@ -265,6 +278,7 @@ const DEFAULTS: Persisted = {
     ui: { family: 'Inter Variable', size: 13, weight: 450 },
     terminal: { family: 'Hack Nerd Font Mono', size: 13, weight: 500, lineHeight: 1.15 },
     editor: { family: 'Geist Mono Variable', size: 13, weight: 450 },
+    windowTitle: DEFAULT_WINDOW_TITLE,
   },
   behavior: {
     showHiddenFiles: true,
@@ -295,6 +309,9 @@ const DEFAULTS: Persisted = {
   agents: { hibernation: DEFAULT_HIBERNATION },
   workspaceGroups: { byCwd: [] },
   extensionSettings: {},
+  approvals: DEFAULT_APPROVAL_SETTINGS,
+  actions: [],
+  trustedActions: [],
 }
 
 interface SettingsState extends Persisted {
@@ -318,12 +335,146 @@ interface SettingsState extends Persisted {
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
   setHibernation: (patch: Partial<HibernationSettings>) => void
-  setByPath: (path: string, value: unknown) => void
+  previewSetting: (path: string, value: unknown) => SettingChange
+  setByPath: (path: string, value: unknown) => SettingChange
+  unsetByPath: (path: string) => SettingChange
   setSyncDir: (dir: string) => Promise<void>
+  setApprovalMode: (mode: ApprovalMode) => void
+  setWindowTitle: (template: string) => void
+  trustAction: (fingerprint: string) => void
+  removeAction: (id: string) => void
   setKeybinding: (id: string, chord: string | null) => void
   resetKeybinding: (id: string) => void
   setKeybindings: (map: KeybindingMap) => void
   setExtensionSettings: (extId: string, values: ExtensionSettingValues) => void
+}
+
+function parseBehavior(raw: unknown): Behavior {
+  const src = isPlainObject(raw) ? raw : {}
+  const base = pickBooleans(DEFAULTS.behavior, src)
+  return {
+    ...base,
+    cursorStyle: CURSOR_STYLES.includes(src.cursorStyle as CursorStyle)
+      ? (src.cursorStyle as CursorStyle)
+      : DEFAULTS.behavior.cursorStyle,
+    externalEditor:
+      typeof src.externalEditor === 'string'
+        ? src.externalEditor
+        : DEFAULTS.behavior.externalEditor,
+    inputMode: inputMode(src.inputMode),
+  }
+}
+
+export function parsePersisted(p: Partial<Persisted>): Persisted {
+  return {
+    locale: p.locale ?? DEFAULTS.locale,
+    appearance: {
+      theme: p.appearance?.theme ?? DEFAULTS.appearance.theme,
+      followSystem: p.appearance?.followSystem === true,
+      lightTheme: p.appearance?.lightTheme ?? DEFAULTS.appearance.lightTheme,
+      darkTheme: p.appearance?.darkTheme ?? DEFAULTS.appearance.darkTheme,
+      accent: normalizeHex(p.appearance?.accent) ?? '',
+      zoom: clampZoom(p.appearance?.zoom),
+      motion: motionMode(p.appearance?.motion),
+      ui: mergeFont(DEFAULTS.appearance.ui, p.appearance?.ui),
+      terminal: {
+        ...mergeFont(DEFAULTS.appearance.terminal, p.appearance?.terminal),
+        lineHeight: clampLineHeight(
+          Number(p.appearance?.terminal?.lineHeight ?? DEFAULTS.appearance.terminal.lineHeight),
+        ),
+      },
+      editor: mergeFont(DEFAULTS.appearance.editor, p.appearance?.editor),
+      windowTitle: parseWindowTitle(p.appearance?.windowTitle),
+    },
+    behavior: parseBehavior(p.behavior),
+    terminal: parseTerminalSettings(p.terminal),
+    panes: parsePaneSettings(p.panes),
+    notifications: parseNotificationSettings(p.notifications),
+    sidebar: pickBooleans(DEFAULTS.sidebar, p.sidebar),
+    workspaces: parseWorkspaceSettings(p.workspaces),
+    browser: parseBrowserSettings(p.browser),
+    editor: parseEditorSettings(p.editor),
+    keybindings: parseKeybindings(p.keybindings),
+    agents: { hibernation: parseHibernation(p.agents?.hibernation) },
+    workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
+    extensionSettings: extensionSettingsOf(p.extensionSettings),
+    capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
+    sync: syncOf(p.sync),
+    approvals: parseApprovalSettings(p.approvals),
+    actions: parseActions(p.actions),
+    trustedActions: Array.isArray(p.trustedActions)
+      ? p.trustedActions.filter((f): f is string => typeof f === 'string')
+      : [],
+  }
+}
+
+export interface SettingChange {
+  path: string
+  previous: unknown
+  value: unknown
+  next: Partial<SettingsState>
+}
+
+export function getByPath(root: unknown, path: string): unknown {
+  return path
+    .split('.')
+    .filter(Boolean)
+    .reduce<unknown>((acc, key) => (isPlainObject(acc) && key in acc ? acc[key] : undefined), root)
+}
+
+function survives(wanted: unknown, parsed: unknown): boolean {
+  if (Array.isArray(wanted)) {
+    return (
+      Array.isArray(parsed) &&
+      parsed.length === wanted.length &&
+      wanted.every((item, i) => survives(item, parsed[i]))
+    )
+  }
+  if (isPlainObject(wanted)) {
+    return isPlainObject(parsed) && Object.keys(wanted).every((k) => survives(wanted[k], parsed[k]))
+  }
+  return JSON.stringify(wanted) === JSON.stringify(parsed)
+}
+
+function dataRoot(s: Persisted): Record<string, unknown> {
+  const root: Record<string, unknown> = Object.create(null)
+  for (const key of DATA_KEYS) root[key] = s[key as keyof Persisted]
+  return root
+}
+
+function applySetting(s: SettingsState, path: string, value: unknown): SettingChange {
+  const keys = path.split('.').filter(Boolean)
+  if (keys.length === 0) throw new Error('settings path is empty')
+  if (keys.some(isDangerousSegment)) throw new Error(`invalid settings path: ${path}`)
+  if (!DATA_KEYS.includes(keys[0])) {
+    throw new Error(`unknown settings key: ${keys[0]} (expected one of ${DATA_KEYS.join(', ')})`)
+  }
+  if (value === undefined) throw new Error(`cannot set ${path}: value is undefined`)
+  const root = dataRoot(s)
+  let cursor = root
+  for (let i = 0; i < keys.length - 1; i++) {
+    const existing = cursor[keys[i]]
+    if (existing !== undefined && !isPlainObject(existing)) {
+      const at = keys.slice(0, i + 1).join('.')
+      throw new Error(`cannot set ${path}: ${at} is ${kindOf(existing)}, not an object`)
+    }
+    const next: Record<string, unknown> = Object.assign(Object.create(null), existing)
+    cursor[keys[i]] = next
+    cursor = next
+  }
+  const leaf = keys[keys.length - 1]
+  const previous = cursor[leaf]
+  if (previous === undefined) throw new Error(`unknown settings key: ${path}`)
+  if (kindOf(previous) !== kindOf(value)) {
+    throw new Error(`cannot set ${path}: expected ${kindOf(previous)}, got ${kindOf(value)}`)
+  }
+  cursor[leaf] = value
+  const parsed = parsePersisted({ ...s, ...(root as Partial<Persisted>) })
+  if (!survives(value, getByPath(parsed, path))) {
+    throw new Error(`invalid value for ${path}: ${JSON.stringify(value)}`)
+  }
+  const next = dataRoot(parsed) as Partial<SettingsState>
+  return { path, previous, value: getByPath(parsed, path), next }
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -346,6 +497,9 @@ async function writeSettings(s: SettingsState): Promise<void> {
     extensionSettings: s.extensionSettings,
     capabilities: s.capabilities,
     sync: s.sync,
+    approvals: s.approvals,
+    actions: s.actions,
+    trustedActions: s.trustedActions,
   }
   const path = await window.pine.settings.path()
   await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
@@ -389,46 +543,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const raw = await window.pine.fs.read(path)
     if (!raw) return
     try {
-      const p = JSON.parse(raw) as Partial<Persisted>
-      set({
-        locale: p.locale ?? DEFAULTS.locale,
-        appearance: {
-          theme: p.appearance?.theme ?? DEFAULTS.appearance.theme,
-          followSystem: p.appearance?.followSystem === true,
-          lightTheme: p.appearance?.lightTheme ?? DEFAULTS.appearance.lightTheme,
-          darkTheme: p.appearance?.darkTheme ?? DEFAULTS.appearance.darkTheme,
-          accent: normalizeHex(p.appearance?.accent) ?? '',
-          zoom: clampZoom(p.appearance?.zoom),
-          motion: motionMode(p.appearance?.motion),
-          ui: mergeFont(DEFAULTS.appearance.ui, p.appearance?.ui),
-          terminal: {
-            ...mergeFont(DEFAULTS.appearance.terminal, p.appearance?.terminal),
-            lineHeight: clampLineHeight(
-              Number(p.appearance?.terminal?.lineHeight ?? DEFAULTS.appearance.terminal.lineHeight),
-            ),
-          },
-          editor: mergeFont(DEFAULTS.appearance.editor, p.appearance?.editor),
-        },
-        behavior: {
-          ...DEFAULTS.behavior,
-          ...p.behavior,
-          inputMode: inputMode(p.behavior?.inputMode),
-          inputEditorVim: p.behavior?.inputEditorVim === true,
-        },
-        terminal: parseTerminalSettings(p.terminal),
-        panes: parsePaneSettings(p.panes),
-        notifications: parseNotificationSettings(p.notifications),
-        sidebar: pickBooleans(DEFAULTS.sidebar, p.sidebar),
-        workspaces: parseWorkspaceSettings(p.workspaces),
-        browser: parseBrowserSettings(p.browser),
-        editor: parseEditorSettings(p.editor),
-        keybindings: parseKeybindings(p.keybindings),
-        agents: { hibernation: parseHibernation(p.agents?.hibernation) },
-        workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
-        extensionSettings: extensionSettingsOf(p.extensionSettings),
-        capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
-        sync: syncOf(p.sync),
-      })
+      set(parsePersisted(JSON.parse(raw) as Partial<Persisted>))
     } catch {}
   },
 
@@ -548,57 +663,42 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }))
     scheduleSave(get)
   },
+  trustAction: (fingerprint) => {
+    set((s) =>
+      s.trustedActions.includes(fingerprint)
+        ? s
+        : { trustedActions: [...s.trustedActions, fingerprint] },
+    )
+    scheduleSave(get)
+  },
+  removeAction: (id) => {
+    set((s) => ({ actions: s.actions.filter((a) => a.id !== id) }))
+    scheduleSave(get)
+  },
+  setWindowTitle: (windowTitle) => {
+    set((s) => ({ appearance: { ...s.appearance, windowTitle: parseWindowTitle(windowTitle) } }))
+    scheduleSave(get)
+  },
+  setApprovalMode: (mode) => {
+    set({ approvals: { mode } })
+    scheduleSave(get)
+  },
   setSyncDir: async (dir) => {
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = null
     set({ sync: dir ? { dir } : undefined })
     await writeSettings(get())
   },
+  previewSetting: (path, value) => applySetting(get(), path, value),
   setByPath: (path, value) => {
-    const keys = path.split('.').filter(Boolean)
-    if (keys.length === 0) throw new Error('settings path is empty')
-    if (keys.some(isDangerousSegment)) throw new Error(`invalid settings path: ${path}`)
-    if (!DATA_KEYS.includes(keys[0])) {
-      throw new Error(`unknown settings key: ${keys[0]} (expected one of ${DATA_KEYS.join(', ')})`)
-    }
-    if (value === undefined) throw new Error(`cannot set ${path}: value is undefined`)
-    const s = get()
-    const root: Record<string, unknown> = Object.assign(Object.create(null), {
-      locale: s.locale,
-      appearance: s.appearance,
-      behavior: s.behavior,
-      terminal: s.terminal,
-      panes: s.panes,
-      notifications: s.notifications,
-      sidebar: s.sidebar,
-      workspaces: s.workspaces,
-      browser: s.browser,
-      editor: s.editor,
-      agents: s.agents,
-      workspaceGroups: s.workspaceGroups,
-      capabilities: s.capabilities,
-    })
-    let cursor = root
-    for (let i = 0; i < keys.length - 1; i++) {
-      const existing = cursor[keys[i]]
-      if (existing !== undefined && !isPlainObject(existing)) {
-        const at = keys.slice(0, i + 1).join('.')
-        throw new Error(`cannot set ${path}: ${at} is ${kindOf(existing)}, not an object`)
-      }
-      const next: Record<string, unknown> = Object.assign(Object.create(null), existing)
-      cursor[keys[i]] = next
-      cursor = next
-    }
-    const leaf = keys[keys.length - 1]
-    const existing = cursor[leaf]
-    if (existing !== undefined && kindOf(existing) !== kindOf(value)) {
-      throw new Error(`cannot set ${path}: expected ${kindOf(existing)}, got ${kindOf(value)}`)
-    }
-    cursor[leaf] = value
-    root.terminal = parseTerminalSettings(root.terminal)
-    root.panes = parsePaneSettings(root.panes)
-    root.workspaceGroups = parseWorkspaceGroupSettings(root.workspaceGroups)
-    set(root as Partial<SettingsState>)
+    const change = applySetting(get(), path, value)
+    set(change.next)
     scheduleSave(get)
+    return change
+  },
+  unsetByPath: (path) => {
+    const fallback = getByPath(DEFAULTS, path)
+    if (fallback === undefined) throw new Error(`unknown settings key: ${path}`)
+    return get().setByPath(path, structuredClone(fallback))
   },
 }))
