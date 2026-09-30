@@ -75,6 +75,7 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `processManager.ts`, `vault.ts`, `bus.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
 | `extensionHost.ts`, `extensionManifest.ts`, `extensionStore.ts` | Extension host: discovery + manifest validation, approval records, extension processes, `ext.*` control methods (§11) |
 | `extensionConfirm.ts` | The native confirm dialog behind `ext.confirm` (§11) |
+| `workflows.ts` | Saved workflows: confined YAML loading (workspace, user, extension manifests), `workflows:list`/`workflows:save` IPC, `workflow.list` control method (§4) |
 | `settingsSync.ts`, `settingsSyncIpc.ts` | Settings sync: pure plan/merge + the file executor; triggers (startup, window focus, local file changes) and `sync:*` / `dialog:pick-folder` IPC (§5) |
 | `browse.ts` | `browse.*` automation of browser panes (§9) |
 | `browsePick.ts`, `guestNetwork.ts` | Pick element: `browse.pick`, `browser:pick-*` IPC, UI-issue reports; failed-request buffer per guest (§9) |
@@ -95,6 +96,8 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
 - `$XDG_DATA_HOME/pine/` (default `~/.local/share/pine/`): `workspaces.json`, `scrollback.json`,
   `notifications.json`, processes, bus, global vault, `gateway-devices.json`,
   `gateway-config.json`, `gateway-pair-audit.log`.
+- `$XDG_CONFIG_HOME/pine/workflows/*.yaml|yml` (user) and `<workDir>/.pine/workflows/*.yaml|yml`
+  (project): saved workflows (§4).
 - `<workDir>/.pine/`: project-scoped vault. Older versions also kept a kanban `board.json` and a
   `wiki.json` here (and a global `$XDG_DATA_HOME/pine/wiki.json`); those extensions were removed in
   favour of Trellis, and pine leaves the files in place without reading them.
@@ -302,7 +305,39 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   first, deduped by text, with workspace and cwd; choosing one inserts it into the active pane's
   prompt without running it. Why not Ctrl+R: that's the shell's own history search. History is
   what's in `blocksStore`, so it covers panes that exist now (restored scrollback re-parses its
-  marks on replay), not closed panes.
+  marks on replay), not closed panes. Each row's save button opens "Save as workflow" with that
+  command.
+- **Saved workflows** (`shared/workflows.ts`, `main/workflows.ts`, `components/WorkflowPicker.tsx`,
+  `components/SaveWorkflowDialog.tsx`, `workflows.search`, `Ctrl+Shift+S` / `⌘⇧S`): Warp's
+  workflow YAML (`name`, `command` with `{{arg}}` placeholders, `description`, `tags`,
+  `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`). Main reads
+  them from three sources, in this order: the active workspace's `<workDir>/.pine/workflows/`,
+  the user's `$XDG_CONFIG_HOME/pine/workflows/`, and `contributes.workflows` in the manifests of
+  enabled, approved extensions. A file holds one workflow, a list, or several YAML documents.
+  The renderer asks with a workspace id only (`workflows:list`); main resolves the workDir from
+  `workspaceRegistry` and confines it with `resolveSafe`.
+  - Why main validates and caps: workflow files come from repos the user clones. Main skips
+    symlinked files and folders, files over 64 KiB, more than 200 files or 50 workflows per file,
+    YAML aliases (billion-laughs), and anything `parseWorkflow` rejects (field lengths, argument
+    names `[A-Za-z_][A-Za-z0-9_-]*`, http(s) `source_url` only). A bad file is reported as a
+    problem (shown at the bottom of the picker and on stderr of `pine workflow list`), never a
+    silent drop, and never stops the other files from loading.
+  - Placeholders are `{{name}}` tokens in the command; `{{{name}}}` is a literal `{{name}}` (Warp's
+    escape). Unlike Warp, a placeholder counts even if `arguments` doesn't declare it; declared
+    arguments only add a description and a default. Why: the save dialog detects arguments from
+    what the user typed into the command, and `{{ .Names }}`-style Go templates (spaces, dots)
+    still pass through untouched. Values are substituted verbatim, not shell-quoted, like Warp:
+    the form shows the exact line that will be inserted.
+  - Choosing a workflow with arguments opens the form (defaults prefilled, the first argument
+    focused, Tab to the next, placeholders highlighted in the live preview); one without arguments
+    is inserted at once. Insertion is `insertCommand` without Enter, so it needs an idle prompt
+    and fills the input editor when that is shown; anywhere else the command goes to the
+    clipboard and the form says so before you confirm. There is no hidden "insert workflow"
+    command and no run verb: only the human's click types, and agents run their own commands.
+  - "Save as workflow" (block menu, command history) writes `<stem>.yaml` into the user folder
+    (mode 0600, folder 0700) with `wx`, so an existing file is never overwritten (`-2`, `-3`…).
+    The stem is an ASCII slug of the name, so a name can't escape the folder. Main re-validates
+    the document with `parseWorkflow` before writing.
 - **Input editor** (`components/InputEditor.tsx`, `lib/inputEditor.ts`, setting
   `behavior.inputMode: 'terminal' | 'editor'`, palette `terminal.toggleInputEditor`): in
   `editor` mode a Warp-style editor is docked under the terminal (`.terminal-surface` is a flex
@@ -671,6 +706,7 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   Built-ins (`commands/builtins.ts`): `pane.*` (split/close/focus/zoom/move/list), `workspace.new/list/save`,
   `palette.toggle`, `view.toggleRail`, `app.openSettings`, `attention.set/notify/jumpToLatest`,
   `block.selectPrev/selectNext/copyCommand/copyOutput/copyBoth/rerun`, `history.search/insert`,
+  `workflows.search`,
   `editor.open`, `browser.new/open`, `settings.get/set`.
 - Extension palette commands (`<extId>.<command>`, e.g. `git.show`) are registered and
   unregistered at runtime by `commands/extensionBridge.ts` as extensions are enabled/disabled.
@@ -682,9 +718,10 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 - **Chords** (`lib/chords.ts`): macOS uses Cmd+K (palette), Cmd+\ (sidebar), Cmd+, (settings),
   Cmd+Shift+U (jump to latest unread), Cmd+Shift+H (command history), Cmd+T (new workspace),
   Cmd+Shift+E / Ctrl+Shift+E (send a file view's selection to an agent; Why E: Monaco already
-  binds Ctrl+Shift+A, C, G, I, K, L, M, O, R and Z),
+  binds Ctrl+Shift+A, C, G, I, K, L, M, O, R and Z), Cmd+Shift+S / Ctrl+Shift+S (search saved
+  workflows; Why not Warp's Ctrl+Shift+R: that is agent resume here, and S is free in Monaco),
   Cmd+↑/↓ (previous/next block) and native Cmd+C/V/F. Other platforms use Ctrl+Shift+P,
-  Ctrl+Shift+B, Ctrl+, Ctrl+Shift+U, Ctrl+Shift+H, Ctrl+Shift+T, Ctrl+Shift+↑/↓ and
+  Ctrl+Shift+B, Ctrl+, Ctrl+Shift+U, Ctrl+Shift+H, Ctrl+Shift+S, Ctrl+Shift+T, Ctrl+Shift+↑/↓ and
   Ctrl+Shift+C/V/F (copy/paste/find). Plain Ctrl+T stays with the shell (readline transpose). On Linux some IBus
   setups claim Ctrl+Shift+U for Unicode entry before the app sees it; the palette's "Jump to
   Latest Unread" and the bell still work there.
@@ -851,6 +888,7 @@ see external ids.
 | `attention.ts` | `pane.setAttention` | `pine state`; see §5 "Live workspace state and attention" |
 | `docs.ts` | `docs` | Static CLI help, no capability needed |
 | `paneList.ts` | `pane.list`, `workspace.list` | Needs `read-board`; panes without an external id are omitted |
+| `workflows.ts` | `workflow.list` | Needs `read-board`; the caller's own workspace's `.pine/workflows`, the user's folder and extension workflows as `{workflows, problems}`. `pine workflow list|show` read it; there is no run or save verb (§4) |
 
 - **`process.*`**:
   - Uses `child_process.spawn` with `detached`, so `killTree` can signal the process group and
@@ -1280,7 +1318,8 @@ over in-process JS extensions: `docs/ROADMAP.md` §2. Authoring guide: `docs/EXT
 **Discovery** (`extensionManifest.ts`). Every subdirectory of a root that has a `pine.json` is a
 candidate. Roots: the built-in dir, then the user dir. The manifest is validated strictly (id
 slug, known capabilities, `main` and file-panel paths must resolve inside the extension dir,
-anything with commands/sidebar items/url panel needs `main`). A broken manifest is logged and
+anything with commands/sidebar items/url panel needs `main`; `contributes.workflows` are checked
+with the same `parseWorkflow` as workflow files and need no `main`). A broken manifest is logged and
 skipped without affecting the others. A user extension reusing a built-in id is rejected.
 Discovery runs once at startup.
 
