@@ -57,6 +57,7 @@ import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
+import { registerIconThemeIpc } from './iconThemes'
 import {
   getByPaneId,
   registerPane,
@@ -1035,6 +1036,10 @@ app.whenReady().then(() => {
   registerCompletionIpc({
     userDir: join(configDir(), 'completions'),
     extensionDirs: () => extensionHost?.completionDirs() ?? [],
+  })
+  registerIconThemeIpc({
+    themes: () => extensionHost?.iconThemes() ?? [],
+    onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
   })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),

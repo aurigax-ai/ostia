@@ -39,6 +39,7 @@ import {
   sidebarItemUrl,
   validSettingValue,
 } from '../shared/extensions'
+import type { IconThemeContribution } from '../shared/iconTheme'
 import { quoteArgv } from '../shared/shellQuote'
 import type { Workflow } from '../shared/workflows'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
@@ -349,6 +350,7 @@ export class ExtensionHost {
       paneChips: m.contributes.paneChips,
       settings: m.contributes.settings,
       settingValues: this.settingValues(rt),
+      iconThemes: (m.contributes.iconThemes ?? []).map(({ id, label }) => ({ id, label })),
     }
   }
 
@@ -376,6 +378,14 @@ export class ExtensionHost {
     return [...this.runtimes.values()]
       .filter((rt) => this.active(rt) && rt.ext.manifest.contributes.completions)
       .map((rt) => join(rt.ext.dir, rt.ext.manifest.contributes.completions ?? ''))
+  }
+
+  iconThemes(): { dir: string; theme: IconThemeContribution }[] {
+    return [...this.runtimes.values()]
+      .filter((rt) => this.active(rt))
+      .flatMap((rt) =>
+        (rt.ext.manifest.contributes.iconThemes ?? []).map((theme) => ({ dir: rt.ext.dir, theme })),
+      )
   }
 
   sidebarItems(): ExtensionSidebarItem[] {

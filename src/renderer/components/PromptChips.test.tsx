@@ -166,6 +166,7 @@ describe('Pine prompt in the input editor', () => {
           ],
           settings: [],
           settingValues: {},
+          iconThemes: [],
         },
       ],
     })

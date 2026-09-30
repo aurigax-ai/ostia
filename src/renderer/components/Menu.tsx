@@ -1,9 +1,12 @@
 import { cn } from '@/lib/utils'
+import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 import type { Icon } from '@phosphor-icons/react'
-import type { ComponentProps, ReactNode } from 'react'
+import type { ComponentProps, ReactElement, ReactNode } from 'react'
 import {
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuLabel,
   ContextMenuRadioItem,
   ContextMenuShortcut,
   ContextMenuSubContent,
@@ -86,5 +89,46 @@ export function MenuRadioItem({
       <Leading leading={leading} />
       <span className="min-w-0 flex-1 truncate">{children}</span>
     </ContextMenuRadioItem>
+  )
+}
+
+export function MenuCheckboxItem({
+  icon,
+  children,
+  className,
+  ...props
+}: ComponentProps<typeof ContextMenuCheckboxItem> & { icon?: Icon }): JSX.Element {
+  return (
+    <ContextMenuCheckboxItem className={cn(ROW, 'pr-8', className)} {...props}>
+      <Leading icon={icon} />
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+    </ContextMenuCheckboxItem>
+  )
+}
+
+export function MenuLabel({ children }: { children: ReactNode }): JSX.Element {
+  return (
+    <ContextMenuLabel className="px-2 pt-1.5 pb-1 font-medium text-fg-muted text-ui-xs">
+      {children}
+    </ContextMenuLabel>
+  )
+}
+
+export function DropdownMenu({
+  trigger,
+  children,
+  className,
+}: {
+  trigger: ReactElement
+  children: ReactNode
+  className?: string
+}): JSX.Element {
+  return (
+    <MenuPrimitive.Root>
+      <MenuPrimitive.Trigger render={trigger} />
+      <MenuContent side="bottom" align="end" alignOffset={0} sideOffset={4} className={className}>
+        {children}
+      </MenuContent>
+    </MenuPrimitive.Root>
   )
 }

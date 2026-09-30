@@ -340,6 +340,11 @@ Details: `docs/ARCHITECTURE.md`.
   `ext.notify {openPanel: path}`) is resolved to a URL in main (`resolvePanel`) and checked there,
   because changing a webview's `src` fires no `will-navigate`. A panel never gets `window.pine` or a
   token; it talks only to its own extension process.
+- **Icon themes are images, loaded and checked in main.** `contributes.iconThemes` (VS Code's
+  icon theme JSON) is read only by `main/iconThemes.ts` for an enabled extension: size caps,
+  every file inside the extension dir after `realpath`, symlinked files refused, only image
+  `iconPath`s. The renderer gets `data:` URLs over `iconThemes:load` and never names a path;
+  font icon themes are not loaded. Never serve icon files through a protocol or `file://`.
 - **Core surfaces stay tool-agnostic.** The `diff` surface shows two texts an extension hands it
   (`ext.openDiff`); it never runs git or reads a repo. Diff content lives in `diffStore` (memory),
   never in the layout node, and diff panes are dropped from `workspaces.json`.
@@ -595,6 +600,9 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   against the fake CLIs (palette "Trellis: Open Card", notification clicks that open a card and
   Keeper's approvals page); `e2e/ports.spec.ts` checks the ports and ssh pane chips against a
   real listener and a fake `ssh`.
+  `e2e/files-tree.spec.ts` installs the `test/fixtures/extensions-e2e/icons` VS Code-format icon
+  theme, picks it in Settings → Files, and checks theme icons, compact folders, nesting and
+  Hide in tree.
   `e2e/browser-agent.spec.ts` grants `browse`, reads the pane's `PINE_*` env from its shell and
   drives a local http page through the real `pine browse` CLI (snapshot refs, fill/click/type,
   find, eval, storage, cookies, network, tabs, `--json`); `e2e/browser-storage.spec.ts` checks the
