@@ -12,7 +12,9 @@ import { DiffView } from './DiffView'
 import { ExtensionPanelView } from './ExtensionPanelView'
 import { FileView } from './FileView'
 import { HibernatedView } from './HibernatedView'
+import { ManagerView } from './ManagerView'
 import { TerminalView } from './Terminal'
+import { ViewSurface } from './ViewSurface'
 
 interface SurfaceRef {
   paneId: string
@@ -23,6 +25,7 @@ interface SurfaceRef {
   url?: string
   extensionId?: string
   chatSessionId?: string
+  viewName?: string
   hibernated?: true
   resume?: AgentResume
 }
@@ -35,7 +38,9 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
       pane.kind === 'browser' ||
       pane.kind === 'diff' ||
       pane.kind === 'chat' ||
-      (pane.kind === 'extension' && pane.extensionId)
+      pane.kind === 'manager' ||
+      (pane.kind === 'extension' && pane.extensionId) ||
+      (pane.kind === 'view' && pane.viewName)
     ) {
       out.push({
         paneId: pane.id,
@@ -46,6 +51,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         url: pane.url,
         extensionId: pane.extensionId,
         chatSessionId: pane.chatSessionId,
+        viewName: pane.viewName,
         hibernated: pane.hibernated,
         resume: pane.resume,
       })
@@ -80,6 +86,8 @@ export function SurfacePool(): JSX.Element {
             <DiffView paneId={s.paneId} />
           ) : s.kind === 'chat' ? (
             <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
+          ) : s.kind === 'manager' ? (
+            <ManagerView paneId={s.paneId} />
           ) : s.kind === 'browser' ? (
             <BrowserView workspaceId={s.workspaceId} paneId={s.paneId} url={s.url} />
           ) : s.kind === 'extension' && s.extensionId ? (
@@ -88,6 +96,8 @@ export function SurfacePool(): JSX.Element {
               workspaceId={s.workspaceId}
               paneId={s.paneId}
             />
+          ) : s.kind === 'view' && s.viewName ? (
+            <ViewSurface workspaceId={s.workspaceId} paneId={s.paneId} viewName={s.viewName} />
           ) : s.hibernated ? (
             <HibernatedView paneId={s.paneId} resume={s.resume} />
           ) : (

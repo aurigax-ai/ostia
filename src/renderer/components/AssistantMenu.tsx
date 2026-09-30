@@ -31,7 +31,7 @@ export function useAssistMenuVisible(): boolean {
 }
 
 function openPluginSettings(): void {
-  useUIStore.getState().openSettingsAt('plugins')
+  useUIStore.getState().openSettings('plugins')
 }
 
 export function AssistantMenu(): JSX.Element | null {

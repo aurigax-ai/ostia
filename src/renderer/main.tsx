@@ -17,14 +17,18 @@ import { registerBuiltinCommands } from './commands/builtins'
 import { startChatCommand } from './commands/chatCommand'
 import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
+import { wireManagerBridge } from './commands/managerBridge'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
+import { registerWindowCommands } from './commands/windowCommands'
 import { startShortcutReporting } from './lib/assistShortcuts'
 import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
 import { startHibernation } from './lib/hibernationScheduler'
 import { startAgentDetection } from './lib/paneAgent'
 import { startUserActions } from './lib/userActions'
+import { registerViewCommands, startViews } from './lib/views'
+import { initWindow, startWindowSync } from './lib/windowHandoff'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startWorkspaceProjects } from './lib/workspaceProjects'
 import { startApprovals } from './stores/approvalsStore'
@@ -34,20 +38,25 @@ import { startSnapshotAutosave } from './stores/persistence'
 import { useSettingsStore } from './stores/settingsStore'
 import { useSystemThemeStore } from './stores/systemThemeStore'
 import { startUpdateWatch } from './stores/updateStore'
+import { useWindowsStore } from './stores/windowsStore'
 import { useWorkspacesStore } from './stores/workspacesStore'
 
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()
+registerViewCommands()
 wireCommandBridge()
 wireTerminalStateBridge()
 wireExtensionBridge()
+wireManagerBridge()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')
 const root = createRoot(container)
 
 async function boot(): Promise<void> {
+  await initWindow()
+  registerWindowCommands(useWindowsStore.getState().detached)
   try {
     await useSettingsStore.getState().init()
   } catch (err) {
@@ -66,6 +75,7 @@ async function boot(): Promise<void> {
   }
   useWorkspacesStore.getState().hydrate(snapshot)
   startSnapshotAutosave()
+  startWindowSync()
   startAttentionSync()
   startPaneRecencySync()
   startHibernation()
@@ -74,6 +84,7 @@ async function boot(): Promise<void> {
   startWorkspaceProjects()
   startApprovals()
   startUserActions()
+  startViews()
   startUpdateWatch()
   startAssistAvailability()
   startAskCommand()

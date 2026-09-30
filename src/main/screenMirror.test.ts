@@ -157,3 +157,21 @@ describe('ScreenMirror', () => {
     expect(mirror.serialize()).toBe('')
   })
 })
+
+describe('ScreenMirror.screenText', () => {
+  it('MGR-C31 returns the last lines of the active screen as plain text, joining wrapped rows', async () => {
+    const mirror = new ScreenMirror(10, 5)
+    mirror.write(`${ESC}[31mred${ESC}[0m line\r\n0123456789abc\r\nlast\r\n`)
+    expect(await mirror.screenText(10)).toBe('red line\n0123456789abc\nlast')
+    expect(await mirror.screenText(1)).toBe('last')
+    mirror.dispose()
+  })
+
+  it('MGR-C31 reads a full-screen program on the alternate screen', async () => {
+    const mirror = new ScreenMirror(20, 3)
+    mirror.write('shell history\r\n')
+    mirror.write(`${ESC}[?1049h${ESC}[Happroval? [y/n]`)
+    expect(await mirror.screenText(50)).toBe('approval? [y/n]')
+    mirror.dispose()
+  })
+})

@@ -14,6 +14,8 @@ import {
 } from '../main/controlServer'
 import { type PaneIdentity, registerPane } from '../main/idRegistry'
 import { registerPaneListMethods } from '../main/paneList'
+import { ViewHost, ViewStore } from '../main/viewHost'
+import { registerViewMethods } from '../main/viewsIpc'
 import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workflows'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
@@ -480,6 +482,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
           ({ ok: true, result: id === 'workspace.groups' ? groups : workspaces }) as CommandResult,
         getTerminalState: () => undefined,
         ptyPid: () => undefined,
+        windowIds: () => ['1'],
       })
 
       const json = await runPine(['workspace', 'list', '--json'], env())
@@ -593,6 +596,89 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       expect(run.code).toBe(1)
       expect(run.stderr).toContain('usage: workflow list')
       expect(execCalls).toEqual([])
+    })
+  })
+
+  describe('pine view', () => {
+    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+    const offline = () => withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined })
+    let dir: string
+    let store: ViewStore
+    const good = {
+      version: 1,
+      title: 'Board',
+      placement: 'panel',
+      root: { type: 'list', for: 'workspaces', item: { type: 'text', text: '{{item.name}}' } },
+    }
+
+    beforeAll(() => {
+      dir = mkdtempSync(join(tmpdir(), 'pine-cli-views-'))
+      mkdirSync(join(dir, 'views'))
+      writeFileSync(join(dir, 'views', 'board.json'), JSON.stringify(good, null, 2))
+      writeFileSync(
+        join(dir, 'views', 'side.json'),
+        JSON.stringify({ ...good, title: 'Side', placement: 'sidebar' }),
+      )
+      writeFileSync(
+        join(dir, 'bad.json'),
+        '{\n  "version": 1,\n  "title": "Bad",\n  "placement": "panel",\n  "root": { "type": "text", "text": "{{env.HOME}}" }\n}\n',
+      )
+      store = new ViewStore(join(dir, 'views-state.json'))
+      const host = new ViewHost({ dir: join(dir, 'views'), store, onChange: () => {} })
+      registerViewMethods({ host, execCommand: fakeDeps.execCommand })
+    })
+
+    afterAll(() => {
+      rmSync(dir, { recursive: true, force: true })
+    })
+
+    it('validates a file without the app and points at the bad line', async () => {
+      const ok = await runPine(['view', 'validate', join(dir, 'views', 'board.json')], offline())
+      expect(ok.code).toBe(0)
+      expect(ok.stdout.trim()).toBe('ok: "Board" (panel), data: workspaces')
+
+      const bad = await runPine(['view', 'validate', join(dir, 'bad.json')], offline())
+      expect(bad.code).toBe(1)
+      expect(bad.stderr.trim()).toBe(
+        `${join(dir, 'bad.json')}:5: root.text: unknown data source 'env' (known here: workspace, workspaces, panes, ports, approvals, notifications, clock)`,
+      )
+    })
+
+    it('prints the JSON schema without the app', async () => {
+      const res = await runPine(['view', 'schema'], offline())
+      expect(res.code).toBe(0)
+      const schema = JSON.parse(res.stdout)
+      expect(schema.required).toEqual(['version', 'title', 'placement', 'root'])
+    })
+
+    it('lists views with their status and opens only an enabled panel view', async () => {
+      const list = await runPine(['view', 'list'], env())
+      expect(list.code).toBe(0)
+      expect(list.stdout.trim().split('\n').slice(1)).toEqual([
+        'board\tpending\tpanel\tBoard',
+        'side\tpending\tsidebar\tSide',
+      ])
+
+      const pending = await runPine(['view', 'open', 'board'], env())
+      expect(pending.code).toBe(1)
+      expect(pending.stderr).toContain('has not enabled this view')
+      expect(execCalls).toEqual([])
+
+      store.set('board', { enabled: true })
+      store.set('side', { enabled: true })
+      const opened = await runPine(['view', 'open', 'board'], env())
+      expect(opened.code).toBe(0)
+      expect(execCalls).toEqual([
+        {
+          target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
+          id: 'views.open',
+          args: { name: 'board' },
+        },
+      ])
+
+      const sidebar = await runPine(['view', 'open', 'side'], env())
+      expect(sidebar.code).toBe(1)
+      expect(sidebar.stderr).toContain('only placement "panel" views open as a pane')
     })
   })
 })

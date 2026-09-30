@@ -145,6 +145,24 @@ export class ScreenMirror {
     return serializeLines(buffer, start, end)
   }
 
+  async screenText(maxLines: number): Promise<string> {
+    await this.flush()
+    if (this.disposed || maxLines < 1) return ''
+    const buffer = this.term.buffer.active
+    let end = buffer.length - 1
+    while (end >= 0 && isBlank(buffer.getLine(end))) end--
+    const lines: string[] = []
+    for (let y = end; y >= 0 && lines.length < maxLines; y--) {
+      let text = ''
+      while (y > 0 && buffer.getLine(y)?.isWrapped) {
+        text = (buffer.getLine(y)?.translateToString(true) ?? '') + text
+        y--
+      }
+      lines.unshift((buffer.getLine(y)?.translateToString(true) ?? '') + text)
+    }
+    return lines.join('\n')
+  }
+
   dispose(): void {
     if (this.disposed) return
     this.disposed = true

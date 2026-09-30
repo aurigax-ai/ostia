@@ -16,7 +16,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       isSystemDark: vi.fn().mockResolvedValue(true),
       onSystemDarkChange: vi.fn(noopUnsub),
       onMaximizeChange: vi.fn(noopUnsub),
+      onRunningQuery: vi.fn(noopUnsub),
       onConfirmClose: vi.fn(noopUnsub),
+      onFreeze: vi.fn(noopUnsub),
     },
     pty: {
       attach: vi.fn().mockResolvedValue({ created: true, buffer: '', cursor: 0, dropped: false }),
@@ -29,6 +31,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       promptContext: vi.fn().mockResolvedValue(null),
       onData: vi.fn(noopUnsub),
       onExit: vi.fn(noopUnsub),
+      onSize: vi.fn(noopUnsub),
+    },
+    manager: {
+      onOpen: vi.fn(noopUnsub),
     },
     fs: {
       list: vi.fn().mockResolvedValue([]),
@@ -62,6 +68,19 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     workspace: {
       save: vi.fn(),
       load: vi.fn().mockResolvedValue(null),
+    },
+    windows: {
+      info: vi.fn().mockResolvedValue({ windowId: '1', detached: false }),
+      detach: vi.fn().mockResolvedValue(true),
+      returnToMain: vi.fn().mockResolvedValue(true),
+      report: vi.fn(),
+      focusWorkspace: vi.fn(),
+      returnWorkspace: vi.fn(),
+      newWorkspace: vi.fn(),
+      onList: vi.fn(noopUnsub),
+      onAdopt: vi.fn(noopUnsub),
+      onActivateWorkspace: vi.fn(noopUnsub),
+      onReturnRequest: vi.fn(noopUnsub),
     },
     lifecycle: {
       emit: vi.fn(),
@@ -191,6 +210,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       list: vi.fn().mockResolvedValue([]),
       post: vi.fn(),
       clear: vi.fn(),
+      reveal: vi.fn(),
       onChanged: vi.fn(noopUnsub),
       onActivate: vi.fn(noopUnsub),
     },
@@ -203,6 +223,12 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     },
     iconThemes: {
       load: vi.fn().mockResolvedValue(null),
+    },
+    views: {
+      list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),
+      setEnabled: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),
+      reveal: vi.fn().mockResolvedValue(true),
+      onChanged: vi.fn(noopUnsub),
     },
   }
   return { ...base, ...overrides }

@@ -10,6 +10,8 @@ export type SurfaceKind =
   | 'extension'
   | 'diff'
   | 'chat'
+  | 'view'
+  | 'manager'
 
 export interface PaneNode {
   type: 'pane'
@@ -21,6 +23,7 @@ export interface PaneNode {
   url?: string
   extensionId?: string
   chatSessionId?: string
+  viewName?: string
   resume?: AgentResume
   hibernated?: true
   resumePending?: true

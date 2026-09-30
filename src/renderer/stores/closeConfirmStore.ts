@@ -1,13 +1,9 @@
+import type { RunningGroup } from '@shared/types'
 import { create } from 'zustand'
 
-export type CloseConfirmKind = 'workspace' | 'pane' | 'quit'
+export type { RunningGroup }
 
-export interface RunningGroup {
-  workspaceId: string
-  workspace: string
-  commands: string[]
-  files: string[]
-}
+export type CloseConfirmKind = 'workspace' | 'pane' | 'quit' | 'move'
 
 export interface CloseConfirmRequest {
   kind: CloseConfirmKind

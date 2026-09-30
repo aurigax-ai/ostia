@@ -59,7 +59,7 @@ Package manager is **pnpm** only.
 | `pnpm preview` | Run the built app | Smoke-test a build |
 | `pnpm package` | `build` + electron-builder → `dist/linux-unpacked/` | Producing an installable build |
 | `pnpm icons` | Render the app icon PNG set from `resources/icon.svg` (`rsvg-convert`) | After changing the icon SVG |
-| `pnpm install:local` | `package` + `scripts/install-linux.sh` → `~/.local/share/pine/app` + desktop launcher | Updating the user's installed app |
+| `pnpm install:local` | `package` + `scripts/install-linux.sh` → `~/.local/share/pine/app` + desktop launcher + `~/.local/bin/pine` (the CLI outside Pine) | Updating the user's installed app |
 | `pnpm bump <patch\|minor\|major>` | Raise `package.json` `version` (semver) | Before every `pnpm install:local` that ships changes: `patch` for fixes, `minor` for features. Commit it as `chore(release): vX.Y.Z` and tag `vX.Y.Z` |
 | `pnpm typecheck` | `tsc --noEmit` for renderer/shared, then main/preload/shared | **Before every commit** |
 | `pnpm lint` | Biome check + the no-comments check | **Before every commit** |
@@ -74,7 +74,8 @@ Package manager is **pnpm** only.
 ## 3. Architecture in one screen
 
 - **main** (`src/main/*.ts`, `src/main/gateway/`): windows, ptys, fs (read + write, confined),
-  LSP processes, background processes, JSON stores, control socket, gateway.
+  LSP processes, background processes, JSON stores, control socket, gateway. `windowBroker.ts`
+  moves workspaces between the main window and detached windows and merges their snapshots.
 - **preload** (`src/preload/index.ts`): the single `contextBridge` surface. Forwards only.
 - **renderer** (`src/renderer/`): React 18, zustand stores, xterm.js, Monaco, cmdk. No Node access.
 - **shared** (`src/shared/`): dependency-free types, the `PineBridge` IPC contract, capabilities.
@@ -161,7 +162,10 @@ Details: `docs/ARCHITECTURE.md`.
   block once at its first idle prompt (`runWhenIdle`), only after the human confirmed the exact
   command (once per chat session; text with newlines or control characters always goes through
   the risky-paste dialog). Anything
-  else goes to the clipboard.
+  else goes to the clipboard. The one exception outside this rule is `manager.input`
+  (`main/managerMethods.ts`): the manager may type text and named keys into any other pane,
+  prompt or not, but only while the human has `manager.allowInput` on (Settings → Manager); it
+  fails `input-off` otherwise. Never add another path that types into an existing pane.
   The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
   `insertCommand` too, and is shown only at an idle prompt on the normal buffer; anything
   running (or a TUI on the alternate screen) gets the keys straight through xterm. While it's
@@ -227,7 +231,22 @@ Details: `docs/ARCHITECTURE.md`.
   exceptions.
 - **Ids minted from counters are adopted on restore** (`adoptIds`, `adoptWorkspaceIds`,
   `adoptGroupIds`). Skip it and a new pane reuses a restored pane's id, and two panes share one
-  shell (or a new group silently merges with a restored one).
+  shell (or a new group silently merges with a restored one). Each renderer also mints in its
+  own random namespace (`lib/idNamespace.ts`, set in `initWindow` before anything is minted),
+  because several windows mint at once; never mint ids before it is set or share a counter
+  between windows.
+- **Each window owns its own workspaces; main only brokers.** A renderer saves, lists and acts
+  on its own workspaces only. A workspace (or a single pane) moves between windows only through
+  `windows:detach` / `windows:return` (`main/windowBroker.ts`): main validates the handoff
+  (`parseHandoff`), checks the sender owns every pane, rehomes the pane identities
+  (`rehomePanes`, tokens kept) and pending approvals (`approvals.rehome`), holds the ptys
+  (`holdPtys`) and only then lets the source release it (`release` / `releasePane`, which emit
+  no `pane-closed`). The target adopts the same pane ids; the pty is never killed or respawned
+  by a move. Never close and recreate panes to move them, and never let a renderer name
+  another window. Closing a detached window moves its workspaces back into the main window;
+  closing the main window quits. Main merges the per-window snapshots into one
+  `workspaces.json` (`windowBook.ts`); a renderer never writes another window's workspaces.
+  Every window, detached included, is created by `createWindow` with `baseWebPreferences()`.
 - **Workspace groups live on the flat workspace list.** `workspaces` is the one order; a group is
   a `groupId` on its members, kept contiguous by `normalizeGroups` (`lib/workspaceGroups.ts`),
   and a group with no members is dropped. Never add a second member list or order. Pinned and
@@ -247,10 +266,16 @@ Details: `docs/ARCHITECTURE.md`.
   panel or diff in an empty workspace makes it the first pane (`seedLayout`, only for a workspace
   that exists). Empty workspaces are saved without `root` and restored empty.
 - **Closing and quitting ask only about running commands.** `lib/closeConfirm.ts` confirms closing
-  a workspace, or any pane or tab that has a running command, and `main/closeGuard.ts` confirms quit and window close through
-  the renderer; `before-quit` calls `preventDefault()` until approved, so the scrollback save
-  and pty kill run once, after approval. New workspace paths call `startNewWorkspace()` (placement
+  a workspace, or any pane or tab that has a running command, and `main/closeGuard.ts` confirms
+  quit once for every window (it collects each window's running groups and shows one dialog);
+  `before-quit` calls `preventDefault()` until approved, so the scrollback save and pty kill run
+  once, after approval. Moving a workspace or pane to another window, and closing a detached
+  window, never ask about commands (nothing stops); they ask only about unsaved files, which
+  the new window reopens from disk. New workspace paths call `startNewWorkspace()` (placement
   and folder settings), never `addWorkspace` directly. E2E seeds `workspaces.confirmQuit: false`.
+  Closing to the tray (`workspaces.closeToTray`, or a `--hidden` start; `main/tray.ts`) hides the
+  window without asking, since nothing stops; the tray's Quit shows the window first so
+  `closeGuard` can still ask.
 - **Workspace/pane guards:** `closePane` emits `pane-closed` only if the pane existed; a
   workspace's `workDir` is the anchor for new panes and follows the project of its active pane
   (`setProject`, `lib/workspaceProjects.ts`); a pane's `cwd` wanders. With no panes left, the
@@ -319,7 +344,8 @@ Details: `docs/ARCHITECTURE.md`.
 - **What may live in core:** code that needs xterm or pty internals, or that every other feature
   depends on (windows, workspaces, panes, pty + shell integration, blocks, restore, command
   registry/palette/chords, attention/notifications, settings, control socket + capabilities,
-  extension host). Everything else is an extension (`docs/ROADMAP.md` §2). Don't add a new
+  extension host, and the declarative-view renderer that draws data-only views with core
+  components). Everything else is an extension (`docs/ROADMAP.md` §2). Don't add a new
   feature module to `src/main` or a feature view to `src/renderer`; write an extension, and if
   the extension API can't express it, extend the API rather than special-casing core.
 - **Extensions use only the public API.** Code in `src/extensions/**` imports only
@@ -426,6 +452,17 @@ Details: `docs/ARCHITECTURE.md`.
   for Run once / Run and trust (`runUserAction`); trust is keyed by command + args
   (`actionFingerprint`), stored in `trustedActions`, which only the dialog writes (not in
   `DATA_KEYS`, never synced). Never add a way for an agent to trust an action.
+- **Views are data, drawn by core, enabled only by the human.** A view
+  (`~/.config/pine/views/<name>.json`) is read only by `main/viewHost.ts` (symlinks and files over
+  64 KiB refused) and must pass `parseViewText` (`shared/views.ts`): known nodes and properties,
+  http/https URLs only, bindings that are property paths with a fixed filter list, never code or
+  HTML. `lookup` (`shared/viewBindings.ts`) reads own properties and indices only; don't add
+  expression evaluation, method calls or a way to reach prototypes. A new file is `pending` and
+  is drawn only after the human enables it in Settings → Views (`views:set-enabled` IPC, stored in
+  `userData/views.json`); never add a socket method or CLI verb that enables a view (`pine view`
+  is `list`, `validate`, `open`, `schema`). Buttons run palette commands only through
+  `runCommandAction`, so elevated commands ask like user actions; URLs open only in the browser
+  pane. The draw budget (`expandView`) keeps the last good render instead of drawing more.
 - **Assist requests carry only what the human put in them** (`shared/assist.ts`). The renderer
   sends a draft the human typed, the code around the cursor they are editing, or, in Ask, only
   the context chips they switched on (recent output, selection, folder, pane chips) or the block
@@ -447,6 +484,23 @@ Details: `docs/ARCHITECTURE.md`.
   16 MiB / 500 sessions, and the renderer says so. Context stored with a message is exactly the
   text that was sent. `assistant.chatHistory` off keeps sessions in memory only. Messages keep
   the AI SDK `UIMessage` shape (typed parts), so tool calls can be added without reshaping.
+- **The manager is opened only from outside Pine.** `portal.open` (`main/portal.ts`) refuses any
+  caller that `callerVerdict` (`main/portalCaller.ts`) finds inside Pine or can't check; there is
+  no approval prompt behind it, so never loosen that check, skip it, or add a control-socket
+  method, CLI verb or skill text that opens, finds or attaches to the manager. There is one
+  manager and one mirror. The agent is spawned as the pane's process from an argv
+  (`manager.agents` presets + the caller's args), never through a shell or typed at a prompt.
+  Pine's view of it (`ManagerView`) is an attach-only observer: it never writes to or resizes the
+  pty; the mirror owns input and size. `manager` settings are not in `DATA_KEYS`, and the manager
+  workspace is never saved.
+  The manager pane's identity is marked (`markManager`) and holds `MANAGER_CAPABILITIES` (every
+  cap but `phone`, `gateway` and `destructive`, which still asks). `manager.*` socket methods use
+  `callers: 'manager'`, so any other pane gets `not-available-to-pane` and never learns the
+  manager exists; only the manager's `pine docs` lists them, and the worker `pine` skill, CLI
+  usage and docs never mention them. Workers are ordinary panes typed through `openTerminal`
+  (`runWhenIdle`), capped by `manager.limits` (live workers, spawns per 10 min, bus messages per
+  minute). The manager gets its own plugin (`managerAgent.ts`: the `pine-manager` skill, the
+  human's `manager.skills` folders, resume and state hooks), never the worker `pine` skill.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -464,9 +518,10 @@ Details: `docs/ARCHITECTURE.md`.
   `useOtherStore.getState()`. Pure logic stays out of stores.
 - **Model:** a **Workspace** (sidebar; `kind`, `workDir`, live `state`) owns a split-tree whose
   leaves are **Panes** or **tab stacks** of panes;
-  each pane hosts one **Surface**: `terminal | editor | browser | extension | diff | chat` (`agent` is
-  reserved in the type and snapshot format, not yet created; `diff` is never persisted; a `chat`
-  pane stores only its session id). An
+  each pane hosts one **Surface**: `terminal | editor | browser | extension | diff | chat | view`
+  (`agent` is reserved in the type and snapshot format, not yet created; `diff` is never
+  persisted; a `chat` pane stores only its session id; a `view` pane stores only its
+  `viewName`). An
   `editor` pane is a file view (`FileView.tsx`): images and PDFs get viewers, the rest Monaco.
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
   selects, dialogs, tooltips, kbd, badges, alerts, empty states, list items and radio groups;
@@ -597,8 +652,8 @@ Details: `docs/ARCHITECTURE.md`.
   Keeper's dashboard has no per-ticket route (`/r/:id` is a local request, not a ticket), so
   its notice opens `/approvals`. The trellis extension starts before the renderer reports its
   workspaces, so an event for a project it doesn't know re-lists the workspaces
-  (`isOpenProject`) before being dropped; without that the first review notice after launch
-  was lost.
+  (`isOpenProject`) and retries (`UNKNOWN_PROJECT_RETRIES`, 1 s apart) before being dropped;
+  without that the first review notice after launch was lost.
 - **E2E reads terminal text from the DOM renderer.** WebGL draws to a canvas, so `isolatedLaunch()`
   seeds `behavior.gpuAcceleration: false` (`DOM_RENDERER_SETTINGS`); a spec that seeds its own
   `settings.json` spreads it in. Only `terminal-webgl.spec.ts` runs the GPU renderer.
@@ -670,10 +725,25 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   branches and a merge, checks the uncommitted row and keyboard selection, switches to all
   branches, toggles the tree view, and changes `changesView` in Settings → Plugins to see the
   panel follow.
+  `e2e/views.spec.ts` writes view files into the isolated `XDG_CONFIG_HOME`, enables them in
+  Settings → Views (one while pine runs, for hot reload), checks the sidebar view's live
+  workspace names and a button that runs `workspace.new`, and opens the panel view from the
+  palette. Views' schema, bindings and draw budget are unit-tested in `src/shared/views*.test.ts`
+  and `src/renderer/lib/view*.test.ts`, the loader in `src/main/viewHost.test.ts`, the CLI verbs
+  in `src/cli/cli.e2e.test.ts`.
+  `e2e/detached-windows.spec.ts` moves a workspace with a running command into a new window
+  (output continues, title is the project), closes it back into the main window, restores a
+  detached window after a restart, and gets an approval card in a detached pane's own window.
   `e2e/browser-agent.spec.ts` grants `browse`, reads the pane's `PINE_*` env from its shell and
   drives a local http page through the real `pine browse` CLI (snapshot refs, fill/click/type,
   find, eval, storage, cookies, network, tabs, `--json`); `e2e/browser-storage.spec.ts` checks the
   storage drawer shows and edits a page's cookies, local and session storage.
+  `e2e/manager.spec.ts` runs the built CLI under `script` (a real tty) with `PINE_*` stripped and
+  a fake agent (`test/fixtures/manager/bin/fake-agent`) first on `PATH`, against a Pine whose
+  portal is at `PINE_PORTAL_SOCKET`; it also runs the CLI from a Pine pane to check the refusal.
+  It also runs a bash manager through `pine manager spawn|read|input` against a fake worker, with
+  `manager.allowInput` off and on, and checks a worker pane is refused.
+  `e2e/tray.spec.ts` covers close-to-tray.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,
@@ -697,4 +767,9 @@ Rules:
   attach, and there's no on-desktop approval of phone-initiated elevation requests (the contract
   allows it; only the Settings switches exist). Anyone with shell access to the desktop can still
   edit `gateway-devices.json` directly, same as `settings.json`.
+- **The manager's caller check can be escaped on purpose.** A process that double-forks, calls
+  `setsid` and clears its environment is no longer a descendant of Pine, has no Pine tty and no
+  `PINE_TOKEN`, so `pine <agent>` from it opens the manager. The check stops a confused or
+  injected agent, not a determined process running as the same user.
+- **Plugin light themes have no terminal palette or Monaco theme of their own.** Only `pine-light` does; a plugin theme falls back to the One Dark Vivid terminal palette, and Monaco follows the theme's `appearance`.
 - **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch).

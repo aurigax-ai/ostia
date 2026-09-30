@@ -37,6 +37,7 @@ export interface ApprovalDeps {
   revoke: (externalId: string, cap: Capability) => void
   now: () => number
   timeoutMs: number
+  reveal: (windowId: string) => void
 }
 
 interface Owned {
@@ -57,6 +58,7 @@ export interface Approvals {
   revoke: (windowId: string, id: string) => boolean
   stateFor: (windowId: string) => ApprovalState
   forget: (externalId: string) => void
+  rehome: (externalIds: readonly string[], windowId: string) => void
 }
 
 function publicRecord({ windowId: _w, externalId: _e, ...record }: StoredRecord): ApprovalRecord {
@@ -117,6 +119,7 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
       }
       pending.set(req.id, { ...owned, req, settle })
       if (!publish(ask.windowId)) settle('deny')
+      else deps.reveal(ask.windowId)
     })
   }
 
@@ -152,7 +155,20 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
     for (const windowId of touched) publish(windowId)
   }
 
-  return { request, answer, revoke: revokeRecord, stateFor, forget }
+  const rehome = (externalIds: readonly string[], windowId: string): void => {
+    const moving = new Set(externalIds)
+    const touched = new Set<string>()
+    for (const entry of [...pending.values(), ...history]) {
+      if (!moving.has(entry.externalId) || entry.windowId === windowId) continue
+      touched.add(entry.windowId)
+      entry.windowId = windowId
+    }
+    if (touched.size === 0) return
+    touched.add(windowId)
+    for (const id of touched) publish(id)
+  }
+
+  return { request, answer, revoke: revokeRecord, stateFor, forget, rehome }
 }
 
 function readApprovalMode(): ApprovalMode {
@@ -179,7 +195,7 @@ export function approvals(): Approvals | null {
   return active
 }
 
-export function registerApprovals(): void {
+export function registerApprovals(reveal: (windowId: string) => void): void {
   active = createApprovals({
     mode: readApprovalMode,
     publish: publishToWindow,
@@ -187,6 +203,7 @@ export function registerApprovals(): void {
     revoke,
     now: Date.now,
     timeoutMs: APPROVAL_TIMEOUT_MS,
+    reveal,
   })
   const current = active
   ipcMain.handle('approvals:state', (e) => current.stateFor(String(e.sender.id)))

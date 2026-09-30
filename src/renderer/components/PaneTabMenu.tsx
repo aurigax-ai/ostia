@@ -1,6 +1,9 @@
+import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { ReactElement } from 'react'
+import { useDict } from '../i18n/useDict'
 import type { PaneNode } from '../layout/types'
 import { runUserAction } from '../lib/userActions'
+import { movePaneToNewWindow } from '../lib/windowHandoff'
 import { actionsFor } from '../settings/actions'
 import { useSettingsStore } from '../stores/settingsStore'
 import { FileMenuItems } from './FileMenu'
@@ -18,10 +21,12 @@ export function PaneTabMenu({
   workspaceId: string | null
   trigger: ReactElement
 }): JSX.Element {
+  const d = useDict()
   const actions = useSettingsStore((s) => s.actions)
   const tabActions = actionsFor(actions, 'tabMenu', pane.kind)
   const file = pane.kind === 'editor' && workspaceId ? pane.filePath : undefined
-  if (!file && tabActions.length === 0) return trigger
+  const movable = workspaceId !== null && pane.kind !== 'diff'
+  if (!file && tabActions.length === 0 && !movable) return trigger
 
   return (
     <ContextMenu>
@@ -40,6 +45,15 @@ export function PaneTabMenu({
             {action.title}
           </MenuItem>
         ))}
+        {movable && (file || tabActions.length > 0) ? <ContextMenuSeparator /> : null}
+        {movable && workspaceId ? (
+          <MenuItem
+            icon={ArrowSquareOutIcon}
+            onClick={() => void movePaneToNewWindow(workspaceId, pane.id)}
+          >
+            {d.window.movePaneToNewWindow}
+          </MenuItem>
+        ) : null}
       </MenuContent>
     </ContextMenu>
   )

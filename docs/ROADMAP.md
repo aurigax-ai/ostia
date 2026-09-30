@@ -118,6 +118,7 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Spec completions: subcommands, options and values with descriptions (Fig's specs as data) | Warp/Fig | built-in extension `completions` + core loader (built) | M | 7 |
 | Shell-native completions (ask zsh's compsys), completion generators (branches, hosts) | Warp/Fig | not started | M | 7 |
 | Warp prompt: context chips in the input editor, Edit prompt dialog, plain shell prompt for new shells, extension pane chips in the chip row (built); git's branch and diff stats chips sit in the default order, and the `ports` extension publishes ports and ssh login chips (built) | Warp | core (built) + extensions | M | 7 |
+| Declarative views: an agent drops `~/.config/pine/views/<name>.json` (data only, strictly validated, hot-reloaded) and gets a sidebar section or a panel bound to live workspaces, panes, ports, approvals, notifications and a clock, with buttons that run palette commands; the human enables each file; `pine view schema/validate/list/open`. Not ported: cmux's `.js`/`.swift` sidebars and its out-of-process renderer, which data-only files don't need | cmux | core renderer for a data-only extension point (built): drawing it with core components keeps it native and script-free | M | 1, 2 |
 | Built-in AI chat | Warp | **not planned** | — | Pine hosts agent CLIs; it doesn't compete with them |
 
 ## 4. Phases

@@ -27,7 +27,11 @@ export function ActionConfirmDialog(): JSX.Element {
           <DialogTitle>
             {fmt(d.actions.confirmTitle, { title: pending?.action.title ?? '' })}
           </DialogTitle>
-          <DialogDescription>{d.actions.confirmBody}</DialogDescription>
+          <DialogDescription>
+            {pending?.action.origin
+              ? fmt(d.views.confirmBody, { file: pending.action.origin })
+              : d.actions.confirmBody}
+          </DialogDescription>
         </DialogHeader>
         <dl className="flex flex-col gap-2">
           <div className="flex flex-col gap-0.5">

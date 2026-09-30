@@ -3,7 +3,12 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { LayoutNode } from '../layout/types'
-import { confirmQuit, requestClosePane, requestCloseWorkspace } from '../lib/closeConfirm'
+import {
+  confirmQuit,
+  quitGroups,
+  requestClosePane,
+  requestCloseWorkspace,
+} from '../lib/closeConfirm'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import { useCloseConfirmStore } from '../stores/closeConfirmStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
@@ -201,7 +206,7 @@ describe('close confirmation', () => {
 
     let quit: Promise<boolean> = Promise.resolve(true)
     act(() => {
-      quit = confirmQuit()
+      quit = confirmQuit(quitGroups())
     })
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('sleep 100')
@@ -214,10 +219,10 @@ describe('close confirmation', () => {
   it('confirms quit immediately when the setting is off or nothing runs', async () => {
     seed('sleep 100')
     useSettingsStore.getState().setWorkspaces({ confirmQuit: false })
-    await expect(confirmQuit()).resolves.toBe(true)
+    await expect(confirmQuit(quitGroups())).resolves.toBe(true)
 
     useSettingsStore.getState().setWorkspaces({ confirmQuit: true })
     useBlocksStore.setState({ running: {} })
-    await expect(confirmQuit()).resolves.toBe(true)
+    await expect(confirmQuit(quitGroups())).resolves.toBe(true)
   })
 })

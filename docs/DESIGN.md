@@ -242,6 +242,15 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
     dropping onto the lower half of a header highlights it (`--brand-glow` + 1px `--brand`
     inset) and means "into this group". While dragging, the empty space below the list is a drop
     zone for "last, ungrouped".
+  - **Workspaces in other windows** follow the main window's own rows, in window order: same row
+    layout, the kind icon replaced by `AppWindowIcon` (the "in another window" mark), the state
+    dot kept, the folder as the meta line, no close button and never an active highlight. A
+    click focuses their window; the context menu offers Show window and Move back to main
+    window. They take the next workspace digits, so Ctrl/⌘+1..9 reach them.
+- **Detached window** (`DetachedTitleBar.tsx`): no sidebar and no top-bar tools. The bar holds
+  only a Move back to main window icon button (`ArrowSquareInIcon`) on the left, the project name
+  centered (`ui-base`/600, `fg`, truncated) and the window controls; all of it is the drag
+  region. The work area below is the same split tree.
 - **Files panel** (`FilesPanel.tsx`): a 260px column to the right of the sidebar, toggled from the
   top bar. It shows the active workspace's focused pane cwd, so switching workspaces switches it.
   Its header holds three row-size `IconButton`s, right-aligned: the eye (show hidden files,
@@ -353,6 +362,16 @@ Attention, the second loud element, appears only when a pane needs you:
   and the "No matching paths" note are popovers (`surface-1`, `--line` border, `radius-md`)
   above the line, or below it when the prompt is in the upper half. The vim badge sits at the
   right end of the line. It appears and disappears without animation (§8 Motion).
+
+- **Declarative views** (`DeclarativeView.tsx`): an agent's JSON is drawn only with these
+  components, so it can't look foreign. Sidebar views sit under the workspaces in `.rail-views`
+  (a `--line` rule above), each headed like `.rail-section` (`ui-xs`/500 uppercase `fg-muted`,
+  caret + icon, collapsible) with the body indented to the title; the rail uses `xs` buttons and
+  12px icons, a panel uses `sm` buttons and 14px icons on `surface-1`, max 760px wide. Tones map
+  to tokens only (`neutral` fg, `muted` fg-muted, `brand`, `ok`, `warn`/`error` attn-fg); icons
+  never take `brand`. Badges are outline, 16px high, tone-colored text and border. Progress is
+  the shadcn bar on a `surface-3` track. Problems (over budget, a broken file showing its last
+  good version) are one compact attention alert above the view, never a replaced view.
 
 Consolidation debt:
 - Primitives still missing: DropdownMenu.
