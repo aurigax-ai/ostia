@@ -325,6 +325,11 @@ Details: `docs/ARCHITECTURE.md`.
   `\xHH` escapes) from zsh's `preexec $1` / bash's latest history entry (only if it contains
   `$BASH_COMMAND`). Reading the command off the screen picks up a right-aligned RPROMPT and
   misses pasted text; the screen read is only the fallback for shells without the mark.
+- **Codex hooks are trusted by hash, never by `--dangerously-bypass-hook-trust`**
+  (`shellIntegration.ts` `codexHookArgs`). The bypass flag also runs the user's unreviewed
+  hooks. `codexHookTrustHash` must match Codex's own `hook_hash` (a test pins a hash codex
+  0.157 reported); a mismatch leaves Pine's hooks untrusted, not unsafe. Keep `--no-daemon`:
+  in Codex's shared app-server, hooks report to whichever pane started that server.
 - **OSC 7 is not percent-decoded**: hooks emit raw paths; decoding corrupts dirs like `100%20off`.
 - **Workspace restore is two files from two processes** (`workspaceSnapshot.ts`): the renderer
   autosaves `workspaces.json` as you work; main writes `scrollback.json` every 5 s when output

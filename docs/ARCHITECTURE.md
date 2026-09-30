@@ -191,8 +191,45 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   Why a session plugin and not the user's config: we never write the user's dotfiles or
   `~/.claude`, and a session plugin adds a skill and hooks without replacing theirs. Why a plugin
   and not `--settings`: settings can't carry a skill, so Claude outside this repo never learned
-  the `pine` CLI (cmux and Warp ship skills or plugins for the same reason). Codex has no equivalent (its `notify` is a single value, and overriding it would
-  drop the user's), so Codex stays a manual recipe.
+  the `pine` CLI (cmux and Warp ship skills or plugins for the same reason).
+- **Codex hooks** (`shellIntegration.ts` `codexWrapper`, `codexHookArgs`): the generated init
+  defines `codex()`, which prepends `__pine_codex_hook_args` only when
+  `__pine_codex_starts_session` says the call starts an interactive session (bare `codex`,
+  `codex [prompt]`, `codex resume`, `codex fork`; option values are skipped, `--` means a
+  prompt follows). `exec`, `review`, `login`, `mcp` and every other subcommand, `--help` and
+  `--version` run untouched. The args are `--no-daemon`, one `-c hooks.<Event>=[…]` per event
+  (`codexHookCommands`: `SessionStart` → `pine resume-token codex -` plus `cat` of
+  `<dir>/codex/session-context.md`, `UserPromptSubmit` → `state working`, `PermissionRequest` →
+  `state waiting -`, `Stop` → `state done`) and one `-c hooks.state={…}` that marks each of those
+  handlers trusted. Verified against codex-cli 0.157.0.
+  - Why `-c` and not `~/.codex/hooks.json`: `-c` values form Codex's session-flags config
+    layer, which is added after the user and project layers and replaces nothing in them, so
+    the user's own hooks still run and `~/.codex` is never written.
+  - Why `hooks.state` and not `--dangerously-bypass-hook-trust`: Codex runs a non-managed hook
+    only if `hooks.state["<source>:<event>:<group>:<handler>"].trusted_hash` equals the hook's
+    hash. The bypass flag would also run every unreviewed user and project hook in that
+    process. Session-flag hooks have the source `/<session-flags>/config.toml`, and the key
+    contains a `.`, which `-c`'s dotted path would split, so the whole `state` table is one
+    inline-table value. `codexHookTrustHash` rebuilds Codex's hash (`hook_hash` in
+    `codex-rs/hooks/src/engine/discovery.rs`): SHA-256 of the key-sorted, compact JSON
+    `{"event_name":"<snake_case event>","hooks":[{"async":false,"command":…,"timeout":600,"type":"command"}]}`.
+    A test pins one hash that codex 0.157 reported through `hooks/list`. If a future Codex
+    changes that identity, the hooks show as untrusted in `/hooks` and don't run; they are never
+    run unreviewed.
+  - Why `--no-daemon`: Codex 0.157 can run the TUI's sessions in a shared background
+    app-server. Hooks run with that server's environment, so they would report to the pane
+    that started the server, not this one. Any `-c` other than a few feature flags already
+    keeps the TUI off the shared server; the flag makes it explicit.
+  - Why the skill arrives as `SessionStart` context and not as a skill: Codex 0.157 finds
+    skills only in its config folders, `~/.agents/skills` and the repo; `skills.config` entries
+    only enable or disable skills already found, and no flag adds a root. `developer_instructions`
+    would replace the user's own value. A `SessionStart` hook's plain stdout is added to the
+    model's context, so the second handler prints a short note that names the `pine` CLI and the
+    path of the skill (`<dir>/codex/SKILL.md`, written from `pine-skill.md`) for Codex to read.
+  - Why `SessionStart` is enough for the resume token: Codex fires it at the first turn of a
+    session with `source` `startup`, `resume`, `fork`, `clear` or `compact`, and its
+    `session_id` is the id `codex resume <id>` takes. A session with no turn yet has no id
+    recorded.
 
 ### Rendering, blocks, state
 

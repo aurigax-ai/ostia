@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { version } from '../../package.json'
@@ -206,6 +207,187 @@ function claudeWrapper(pluginDir: string): string {
   ].join('\n')
 }
 
+const CODEX_HOOK_EVENTS = {
+  SessionStart: 'session_start',
+  UserPromptSubmit: 'user_prompt_submit',
+  PermissionRequest: 'permission_request',
+  Stop: 'stop',
+} as const
+
+export type CodexHookEvent = keyof typeof CODEX_HOOK_EVENTS
+
+const CODEX_SESSION_FLAGS_SOURCE = '/<session-flags>/config.toml'
+
+const CODEX_DEFAULT_HOOK_TIMEOUT_SEC = 600
+
+const CODEX_VALUE_OPTIONS = [
+  '-c',
+  '--config',
+  '--enable',
+  '--disable',
+  '--remote',
+  '--remote-auth-token-env',
+  '-i',
+  '--image',
+  '-m',
+  '--model',
+  '--local-provider',
+  '-p',
+  '--profile',
+  '-s',
+  '--sandbox',
+  '-C',
+  '--cd',
+  '--add-dir',
+  '-a',
+  '--ask-for-approval',
+]
+
+const CODEX_SESSION_SUBCOMMANDS = ['resume', 'fork']
+
+const CODEX_OTHER_SUBCOMMANDS = [
+  'agents',
+  'tcp-tunnel',
+  'exec',
+  'e',
+  'review',
+  'login',
+  'logout',
+  'mcp',
+  'mcp-server',
+  'plugin',
+  'app-server',
+  'remote-control',
+  'app',
+  'completion',
+  'update',
+  'doctor',
+  'sandbox',
+  'debug',
+  'execpolicy',
+  'apply',
+  'a',
+  'queue',
+  'archive',
+  'delete',
+  'migrate-rollouts',
+  'unarchive',
+  'cloud',
+  'cloud-tasks',
+  'responses-api-proxy',
+  'stdio-to-uds',
+  'exec-server',
+  'features',
+  'help',
+]
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`
+}
+
+function tomlString(value: string): string {
+  return JSON.stringify(value)
+}
+
+export function codexHookCommands(contextFile: string): Record<CodexHookEvent, string[]> {
+  return {
+    SessionStart: [
+      hookCommand('resume-token codex -'),
+      `[ -n "$PINE_SOCKET" ] && cat ${shellQuote(contextFile)} 2>/dev/null || true`,
+    ],
+    UserPromptSubmit: [hookCommand('state working')],
+    PermissionRequest: [hookCommand('state waiting -')],
+    Stop: [hookCommand('state done')],
+  }
+}
+
+export function codexHookTrustHash(event: CodexHookEvent, command: string): string {
+  const identity = {
+    event_name: CODEX_HOOK_EVENTS[event],
+    hooks: [{ async: false, command, timeout: CODEX_DEFAULT_HOOK_TIMEOUT_SEC, type: 'command' }],
+  }
+  return `sha256:${createHash('sha256').update(JSON.stringify(identity)).digest('hex')}`
+}
+
+export function codexHookKey(event: CodexHookEvent, handlerIndex: number): string {
+  return `${CODEX_SESSION_FLAGS_SOURCE}:${CODEX_HOOK_EVENTS[event]}:0:${handlerIndex}`
+}
+
+export function codexHookArgs(contextFile: string): string[] {
+  const commands = Object.entries(codexHookCommands(contextFile)) as [CodexHookEvent, string[]][]
+  const args = ['--no-daemon']
+  const trust: string[] = []
+  for (const [event, handlers] of commands) {
+    const hooks = handlers.map((command) => `{type="command",command=${tomlString(command)}}`)
+    args.push('-c', `hooks.${event}=[{hooks=[${hooks.join(',')}]}]`)
+    handlers.forEach((command, index) => {
+      trust.push(
+        `${tomlString(codexHookKey(event, index))}={trusted_hash=${tomlString(codexHookTrustHash(event, command))}}`,
+      )
+    })
+  }
+  args.push('-c', `hooks.state={${trust.join(',')}}`)
+  return args
+}
+
+function codexSessionContext(skillFile: string): string {
+  return [
+    `This Codex session runs in a ${PRODUCT_NAME} terminal pane. The \`pine\` CLI controls the pane and its workspace: notifications, attention state, the in-app browser, background processes, the secret vault, and a message bus to agents in other panes.`,
+    'Your shell tool does not have the `pine` shell function, so run the CLI as `ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" <command>`.',
+    `Before you use it, read its guide: ${skillFile}`,
+    '',
+  ].join('\n')
+}
+
+export function writeCodexIntegration(dir: string): { contextFile: string } {
+  mkdirSync(dir, { recursive: true })
+  const skillFile = join(dir, 'SKILL.md')
+  const contextFile = join(dir, 'session-context.md')
+  writeFileSync(skillFile, pineSkill, 'utf8')
+  writeFileSync(contextFile, codexSessionContext(skillFile), 'utf8')
+  return { contextFile }
+}
+
+export function codexWrapper(contextFile: string): string {
+  return [
+    '',
+    '# Run interactive codex sessions with the Pine hooks (resume token, attention state, CLI',
+    '# context). Other subcommands run untouched; `command codex` skips it.',
+    '__pine_codex_starts_session() {',
+    '  local __pine_skip= __pine_arg',
+    '  for __pine_arg in "$@"; do',
+    '    if [ -n "$__pine_skip" ]; then',
+    '      __pine_skip=',
+    '      continue',
+    '    fi',
+    '    case "$__pine_arg" in',
+    '      -h|--help|-V|--version) return 1 ;;',
+    '      --) return 0 ;;',
+    `      ${CODEX_VALUE_OPTIONS.join('|')}) __pine_skip=1 ;;`,
+    '      -*) ;;',
+    `      ${CODEX_SESSION_SUBCOMMANDS.join('|')}) return 0 ;;`,
+    `      ${CODEX_OTHER_SUBCOMMANDS.join('|')}) return 1 ;;`,
+    '      *) return 0 ;;',
+    '    esac',
+    '  done',
+    '  return 0',
+    '}',
+    '__pine_codex_hook_args=(',
+    ...codexHookArgs(contextFile).map((arg) => `  ${shellQuote(arg)}`),
+    ')',
+    'if [ -n "$PINE_CLI" ]; then',
+    '  codex() {',
+    '    if __pine_codex_starts_session "$@"; then',
+    '      command codex "${__pine_codex_hook_args[@]}" "$@"',
+    '    else',
+    '      command codex "$@"',
+    '    fi',
+    '  }',
+    'fi',
+    '',
+  ].join('\n')
+}
+
 interface IntegrationPaths {
   zshInit: string
   bashInit: string
@@ -222,10 +404,13 @@ function ensureFiles(): IntegrationPaths {
   const claudePlugin = join(INTEGRATION_DIR, 'claude-plugin')
   writeClaudePlugin(claudePlugin)
 
+  const { contextFile } = writeCodexIntegration(join(INTEGRATION_DIR, 'codex'))
+  const agentWrappers = claudeWrapper(claudePlugin) + codexWrapper(contextFile)
+
   const zshInit = join(INTEGRATION_DIR, 'init.zsh')
   const bashInit = join(INTEGRATION_DIR, 'init.bash')
-  writeFileSync(zshInit, ZSH_INIT + claudeWrapper(claudePlugin), 'utf8')
-  writeFileSync(bashInit, BASH_INIT + claudeWrapper(claudePlugin), 'utf8')
+  writeFileSync(zshInit, ZSH_INIT + agentWrappers, 'utf8')
+  writeFileSync(bashInit, BASH_INIT + agentWrappers, 'utf8')
 
   const zshenv = join(INTEGRATION_DIR, '.zshenv')
   writeFileSync(
