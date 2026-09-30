@@ -16,6 +16,7 @@ import {
   paneIds,
   selectTab,
   setPaneBrowser,
+  setPaneChat,
   setPaneCwd,
   setPaneDiff,
   setPaneEditor,
@@ -66,6 +67,8 @@ interface LayoutState {
   openBrowser: (workspaceId: string, url: string) => void
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openDiff: (workspaceId: string, content: DiffContent) => string | null
+  openChat: (workspaceId: string, title: string) => string | null
+  setChatSession: (workspaceId: string, paneId: string, sessionId: string, title: string) => void
   openTerminal: (workspaceId: string, opts: OpenTerminalPlacement) => string | null
   removeWorkspace: (workspaceId: string) => void
 }
@@ -441,6 +444,46 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
     return panelPaneId
   },
+
+  openChat: (workspaceId, title) => {
+    const seeded = seedLayout(workspaceId, (p) => setPaneChat(p, p.id, title))
+    if (seeded) return seeded
+    let createdPaneId: string | null = null
+    let chatPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const existing = firstPaneOfKind(l.root, 'chat')
+        if (existing) {
+          chatPaneId = existing.id
+          return { ...l, activePaneId: existing.id }
+        }
+        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
+        if (!newPaneId) return l
+        createdPaneId = newPaneId
+        chatPaneId = newPaneId
+        return { ...l, root: setPaneChat(root, newPaneId, title), activePaneId: newPaneId }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+    return chatPaneId
+  },
+
+  setChatSession: (workspaceId, paneId, sessionId, title) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      const pane = layout ? findPane(layout.root, paneId) : null
+      if (!layout || pane?.kind !== 'chat') return s
+      if (pane.chatSessionId === sessionId && pane.title === title) return s
+      return {
+        byWorkspace: {
+          ...s.byWorkspace,
+          [workspaceId]: { ...layout, root: setPaneChat(layout.root, paneId, title, sessionId) },
+        },
+      }
+    }),
 
   openDiff: (workspaceId, content) => {
     let createdPaneId: string | null = null

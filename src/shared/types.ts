@@ -203,7 +203,7 @@ export interface NotificationsApi {
   onActivate: (cb: (paneId: string) => void) => () => void
 }
 
-export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension'
+export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension' | 'chat'
 
 export interface SnapshotPaneNode {
   type: 'pane'
@@ -214,6 +214,7 @@ export interface SnapshotPaneNode {
   filePath?: string
   url?: string
   extensionId?: string
+  chatSessionId?: string
   resume?: AgentResume
   agentRunning?: true
 }

@@ -68,6 +68,31 @@ describe('parseSnapshot', () => {
     expect(parseSnapshot(snap())).toEqual(snap())
   })
 
+  it('keeps a chat pane with its session id', () => {
+    const [base] = snap().workspaces
+    const chat = {
+      type: 'pane',
+      id: 'pane-2',
+      title: 'Deploy notes',
+      kind: 'chat',
+      chatSessionId: 'c1',
+    }
+    const parsed = parseSnapshot({
+      ...snap(),
+      workspaces: [
+        { ...base, root: { ...split('pane-1', 'pane-3'), children: [base.root, chat] } },
+      ],
+    })
+    const root = parsed?.workspaces[0].root as { children: unknown[] }
+    expect(root.children[1]).toEqual({
+      type: 'pane',
+      id: 'pane-2',
+      title: 'Deploy notes',
+      kind: 'chat',
+      chatSessionId: 'c1',
+    })
+  })
+
   it('rejects a snapshot written by a different schema version', () => {
     expect(parseSnapshot({ ...snap(), v: 2 })).toBeNull()
   })

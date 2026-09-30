@@ -1,3 +1,4 @@
+import { ClipboardTextIcon, CopyIcon } from '@phosphor-icons/react'
 import type { CommandSuggestion } from '@shared/assist'
 import type { SpecCommand } from '@shared/completionSpec'
 import type { Terminal as Xterm } from '@xterm/xterm'
@@ -14,6 +15,7 @@ import {
 } from 'react'
 import { useDict } from '../i18n/useDict'
 import { latestRequest, naturalCommandQuery } from '../lib/assistComposer'
+import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatureSwitch'
 import { matchChord } from '../lib/chords'
 import {
   type CompletionItem,
@@ -30,9 +32,20 @@ import {
   suggestionWord,
 } from '../lib/inputEditor'
 import { applyLineEdit, lineEditOp, shellKeyBytes } from '../lib/lineEditing'
-import { usePaneChipCatalog } from '../lib/paneChips'
+import { chipsForPane, paneChipCatalog, usePaneChipCatalog } from '../lib/paneChips'
 import { cellBox, rowsToMake } from '../lib/promptOverlay'
 import { type ShellToken, tokenizeShell } from '../lib/shellTokens'
+import {
+  type AiGhost,
+  type GhostBlockers,
+  chipContext,
+  ghostBlocked,
+  ghostEligible,
+  ghostRequester,
+  pickGhost,
+  recentHistory,
+  terminalRequest,
+} from '../lib/terminalGhost'
 import { registerInputEditor } from '../lib/terminalHandles'
 import { usePromptChips } from '../lib/usePromptChips'
 import { usePromptGeometry } from '../lib/usePromptGeometry'
@@ -49,10 +62,13 @@ import { isMac, platform } from '../platform'
 import type { TerminalColors } from '../plugins/types'
 import { assistRequest, useAssistProvider } from '../stores/assistStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { MenuCheckboxItem, MenuContent, MenuItem } from './Menu'
 import { PromptChipRow } from './PromptChips'
 import { Badge } from './ui/badge'
 import { Command, CommandItem, CommandList } from './ui/command'
+import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from './ui/context-menu'
 import { Textarea } from './ui/textarea'
 
 const UNDO_LIMIT = 100
@@ -250,6 +266,27 @@ export function InputEditor({
   const [naturalDismissed, setNaturalDismissed] = useState<string | null>(null)
   const naturalRequest = useRef(latestRequest())
   const commandAssist = useAssistProvider('command')
+  const terminalAssist = useAssistProvider('terminal')
+  const ghostFeature = useAssistFeature('terminalCompletions')
+  const ghostOn = visible && Boolean(terminalAssist) && featureEnabled(ghostFeature)
+  const [aiGhost, setAiGhost] = useState<AiGhost | null>(null)
+  const ghostContext = useRef({ paneId, cwd })
+  ghostContext.current = { paneId, cwd }
+  const [ghostRequest] = useState(() =>
+    ghostRequester(async (line, signal) => {
+      const { paneId: pane, cwd: dir } = ghostContext.current
+      const ext = useExtensionsStore.getState()
+      const chips = chipsForPane(ext.chips, paneChipCatalog(ext.list), pane)
+      const req = terminalRequest(line, {
+        cwd: dir,
+        platform,
+        history: recentHistory(useBlocksStore.getState().byPane[pane]),
+        context: chipContext(chips),
+      })
+      const res = await assistRequest('terminal', req, { signal })
+      return res.ok ? res.result.text : null
+    }, setAiGhost),
+  )
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -477,18 +514,20 @@ export function InputEditor({
     }
   }
 
-  const suggestion =
-    visible &&
-    !composing &&
-    !normal &&
-    !menu &&
-    !naturalOpen &&
-    !walk.current &&
-    selection.start === selection.end &&
-    selection.end === text.length &&
-    dismissed !== text
-      ? historySuggestion(text, history)
-      : ''
+  const blockers: GhostBlockers = {
+    composing,
+    vimNormal: normal,
+    menuOpen: menu !== null,
+    naturalOpen: naturalOpen !== null,
+    walking: walk.current !== null,
+    collapsed: selection.start === selection.end,
+    caretAtEnd: selection.end === text.length,
+    dismissed: dismissed === text,
+  }
+  const blocked = ghostBlocked(blockers)
+  const historyText = visible && !blocked ? historySuggestion(text, history) : ''
+  const ghost = visible ? pickGhost(text, blockers, historyText, ghostOn ? aiGhost : null) : null
+  const suggestion = ghost?.text ?? ''
 
   const acceptSuggestion = (part: string): void => {
     replaceText(text + part)
@@ -503,6 +542,17 @@ export function InputEditor({
     undo.current = []
     if (vimEnabled) setVimMode('insert')
   }
+
+  useEffect(() => {
+    const request = ghostRequest
+    if (!ghostOn || blocked || historyText || !ghostEligible(text)) {
+      request.cancel()
+      return
+    }
+    request.request(text)
+  }, [text, ghostOn, blocked, historyText, ghostRequest])
+
+  useEffect(() => () => ghostRequest.cancel(), [ghostRequest])
 
   const onMenuKey = (e: KeyboardEvent<HTMLTextAreaElement>, open: Menu): boolean => {
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
@@ -684,7 +734,8 @@ export function InputEditor({
     }
     if (e.key === 'Tab' && plain && !e.shiftKey) {
       e.preventDefault()
-      void complete(area)
+      if (ghost?.kind === 'ai') acceptSuggestion(ghost.text)
+      else void complete(area)
       return
     }
     if (e.key.toLowerCase() === 'c' && e.ctrlKey && !e.shiftKey && !e.metaKey && !e.altKey) {
@@ -720,6 +771,54 @@ export function InputEditor({
       if (stepHistory('newer')) e.preventDefault()
     }
   }
+
+  const typeAtCaret = (chunk: string): void => {
+    const area = areaRef.current
+    const current = textRef.current
+    const start = area ? area.selectionStart : current.length
+    const end = area ? area.selectionEnd : current.length
+    replaceText(current.slice(0, start) + chunk + current.slice(end), start + chunk.length)
+    walk.current = null
+    area?.focus()
+  }
+
+  const selectedText = text.slice(selection.start, selection.end)
+
+  const withGhostMenu = (field: JSX.Element): JSX.Element =>
+    ghostFeature ? (
+      <ContextMenu>
+        <ContextMenuTrigger render={field} />
+        <MenuContent>
+          <MenuItem
+            icon={CopyIcon}
+            disabled={!selectedText}
+            onClick={() => void navigator.clipboard.writeText(selectedText)}
+          >
+            {d.terminalGhost.copy}
+          </MenuItem>
+          <MenuItem
+            icon={ClipboardTextIcon}
+            onClick={() =>
+              void navigator.clipboard
+                .readText()
+                .then((clip) => clip && typeAtCaret(clip))
+                .catch(() => {})
+            }
+          >
+            {d.terminalGhost.paste}
+          </MenuItem>
+          <ContextMenuSeparator />
+          <MenuCheckboxItem
+            checked={ghostFeature.feature.on}
+            onCheckedChange={(on) => void setAssistFeature('terminalCompletions', on)}
+          >
+            {d.terminalGhost.toggle}
+          </MenuCheckboxItem>
+        </MenuContent>
+      </ContextMenu>
+    ) : (
+      field
+    )
 
   const chipRow = (sameLine: boolean): JSX.Element => (
     <PromptChipRow
@@ -882,60 +981,66 @@ export function InputEditor({
           </div>
         ) : null}
         {pinePrompt && prompt.sameLine ? chipRow(true) : null}
-        <div
-          className="input-editor-field"
-          data-composing={composing || undefined}
-          data-vim={normal ? 'normal' : undefined}
-        >
-          <Textarea
-            ref={areaRef}
-            rows={1}
-            value={text}
-            aria-label={d.inputEditor.label}
-            aria-autocomplete="list"
-            placeholder={d.inputEditor.placeholder}
-            spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-            autoComplete="off"
-            className="input-editor-area min-h-0 resize-none rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
-            style={{ ...cellStyle, maxHeight: cellHeight ? maxLines * cellHeight : undefined }}
-            onChange={(e) => {
-              setText(e.target.value)
-              setSelection({ start: e.target.selectionStart, end: e.target.selectionEnd })
-              walk.current = null
-              if (tip !== 'none') setTip('none')
-              if (menu) setMenu(null)
-              if (!line) termRef.current?.scrollToBottom()
-            }}
-            onSelect={(e) => {
-              const area = e.currentTarget
-              setSelection({ start: area.selectionStart, end: area.selectionEnd })
-            }}
-            onScroll={(e) => {
-              if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop
-            }}
-            onCompositionStart={() => setComposing(true)}
-            onCompositionEnd={() => setComposing(false)}
-            onKeyDown={onKeyDown}
-            onFocus={() => {
-              hadFocus.current = true
-            }}
-            onBlur={(e) => {
-              if (e.relatedTarget) hadFocus.current = false
-            }}
-          />
+        {withGhostMenu(
           <div
-            ref={overlayRef}
-            className="input-editor-highlight"
-            style={cellStyle}
-            aria-hidden="true"
-            data-testid="input-editor-highlight"
+            className="input-editor-field"
+            data-composing={composing || undefined}
+            data-vim={normal ? 'normal' : undefined}
           >
-            {renderDraft(text, commandSet, normal ? clampNormal(text, selection.start) : null)}
-            {suggestion ? <span className="input-editor-ghost">{suggestion}</span> : null}
-          </div>
-        </div>
+            <Textarea
+              ref={areaRef}
+              rows={1}
+              value={text}
+              aria-label={d.inputEditor.label}
+              aria-autocomplete="list"
+              placeholder={d.inputEditor.placeholder}
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              autoComplete="off"
+              className="input-editor-area min-h-0 resize-none rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
+              style={{ ...cellStyle, maxHeight: cellHeight ? maxLines * cellHeight : undefined }}
+              onChange={(e) => {
+                setText(e.target.value)
+                setSelection({ start: e.target.selectionStart, end: e.target.selectionEnd })
+                walk.current = null
+                if (tip !== 'none') setTip('none')
+                if (menu) setMenu(null)
+                if (!line) termRef.current?.scrollToBottom()
+              }}
+              onSelect={(e) => {
+                const area = e.currentTarget
+                setSelection({ start: area.selectionStart, end: area.selectionEnd })
+              }}
+              onScroll={(e) => {
+                if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop
+              }}
+              onCompositionStart={() => setComposing(true)}
+              onCompositionEnd={() => setComposing(false)}
+              onKeyDown={onKeyDown}
+              onFocus={() => {
+                hadFocus.current = true
+              }}
+              onBlur={(e) => {
+                if (e.relatedTarget) hadFocus.current = false
+              }}
+            />
+            <div
+              ref={overlayRef}
+              className="input-editor-highlight"
+              style={cellStyle}
+              aria-hidden="true"
+              data-testid="input-editor-highlight"
+            >
+              {renderDraft(text, commandSet, normal ? clampNormal(text, selection.start) : null)}
+              {ghost ? (
+                <span className="input-editor-ghost" data-ghost={ghost.kind}>
+                  {ghost.text}
+                </span>
+              ) : null}
+            </div>
+          </div>,
+        )}
         {vimEnabled ? (
           <Badge variant="outline" className="input-editor-vim" aria-label={d.inputEditor.vimMode}>
             {vimMode === 'normal' ? d.inputEditor.vimNormal : d.inputEditor.vimInsert}

@@ -437,6 +437,21 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    assistant: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        chatHistory: {
+          type: 'boolean',
+          description:
+            'Save assistant chat sessions on this computer (never synced), so a chat pane ' +
+            'reopens its last session and you can search, rename, export or delete past ones. ' +
+            'Terminal output you add as context is stored only as the text that was sent. ' +
+            'Off keeps chats in memory until Pine quits. Only you can change this; pine ' +
+            'settings set refuses it. Default: true.',
+        },
+      },
+    },
     agents: {
       type: 'object',
       additionalProperties: false,

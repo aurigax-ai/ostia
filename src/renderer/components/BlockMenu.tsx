@@ -8,6 +8,7 @@ import {
 import type { ReactElement } from 'react'
 import { useDict } from '../i18n/useDict'
 import { explainFailedBlock } from '../lib/askContext'
+import { featureEnabled, useAssistFeature } from '../lib/assistFeatureSwitch'
 import { copyBlock, rerunBlock } from '../lib/blockActions'
 import { isIdlePrompt } from '../lib/blocks'
 import { openSelectionSend } from '../lib/selectionSenders'
@@ -37,6 +38,7 @@ export function BlockMenu({
     return Boolean(block?.endLine && block.exitCode !== null && block.exitCode !== 0)
   })
   const chat = useAssistProvider('chat')
+  const explainOn = featureEnabled(useAssistFeature('explainError'))
   const select = (): void => useBlocksStore.getState().select(paneId, blockId)
 
   return (
@@ -68,7 +70,7 @@ export function BlockMenu({
         >
           {d.blocks.sendOutput}
         </MenuItem>
-        {failed && chat ? (
+        {failed && chat && explainOn ? (
           <MenuItem
             icon={SparkleIcon}
             onClick={() =>
