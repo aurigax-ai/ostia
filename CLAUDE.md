@@ -244,7 +244,7 @@ Details: `docs/ARCHITECTURE.md`.
   no `pane-closed`). The target adopts the same pane ids; the pty is never killed or respawned
   by a move. Never close and recreate panes to move them, and never let a renderer name
   another window. Closing a detached window moves its workspaces back into the main window;
-  closing the main window quits. Main merges the per-window snapshots into one
+  closing the main window hides it to the tray (quits when close-to-tray is off). Main merges the per-window snapshots into one
   `workspaces.json` (`windowBook.ts`); a renderer never writes another window's workspaces.
   Every window, detached included, is created by `createWindow` with `baseWebPreferences()`.
 - **Workspace groups live on the flat workspace list.** `workspaces` is the one order; a group is
@@ -273,9 +273,12 @@ Details: `docs/ARCHITECTURE.md`.
   window, never ask about commands (nothing stops); they ask only about unsaved files, which
   the new window reopens from disk. New workspace paths call `startNewWorkspace()` (placement
   and folder settings), never `addWorkspace` directly. E2E seeds `workspaces.confirmQuit: false`.
-  Closing to the tray (`workspaces.closeToTray`, or a `--hidden` start; `main/tray.ts`) hides the
-  window without asking, since nothing stops; the tray's Quit shows the window first so
-  `closeGuard` can still ask.
+  Closing to the tray (`workspaces.closeToTray`, on by default, or a `--hidden` start;
+  `main/tray.ts`) hides the window without asking, since nothing stops; only Quit (the tray menu or
+  the palette's `app.quit`, which needs `destructive`) quits, and the tray's Quit shows the window
+  first so `closeGuard` can still ask. The packaged app holds a single-instance lock: a second
+  launch shows the running Pine instead (`--hidden` shows nothing); unpackaged runs (`pnpm dev`,
+  E2E) take no lock.
 - **Workspace/pane guards:** `closePane` emits `pane-closed` only if the pane existed; a
   workspace's `workDir` is the anchor for new panes and follows the project of its active pane
   (`setProject`, `lib/workspaceProjects.ts`); a pane's `cwd` wanders. With no panes left, the

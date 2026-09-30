@@ -22,7 +22,7 @@ vi.mock('electron', () => ({
   nativeImage: { createFromPath: () => ({ resize: () => ({}) }) },
 }))
 
-const { AppTray, closeAction, readCloseToTray, trayLabels } = await import('./tray')
+const { AppTray, closeAction, isHiddenLaunch, readCloseToTray, trayLabels } = await import('./tray')
 
 function fakeWindow(events: string[]) {
   return {
@@ -145,12 +145,23 @@ describe('readCloseToTray', () => {
     expect(readCloseToTray({ workspaces: { closeToTray: true } })).toBe(true)
   })
 
-  it('MGR-C5 treats missing or malformed settings as off', () => {
-    expect(readCloseToTray(undefined)).toBe(false)
-    expect(readCloseToTray({})).toBe(false)
-    expect(readCloseToTray({ workspaces: null })).toBe(false)
-    expect(readCloseToTray({ workspaces: { closeToTray: 'yes' } })).toBe(false)
-    expect(readCloseToTray({ workspaces: { closeToTray: 1 } })).toBe(false)
+  it('MGR-C5 treats missing or malformed settings as on, the default', () => {
+    expect(readCloseToTray(undefined)).toBe(true)
+    expect(readCloseToTray({})).toBe(true)
+    expect(readCloseToTray({ workspaces: null })).toBe(true)
+    expect(readCloseToTray({ workspaces: { closeToTray: 'yes' } })).toBe(true)
+    expect(readCloseToTray({ workspaces: { closeToTray: 1 } })).toBe(true)
+  })
+
+  it('MGR-C2 reads workspaces.closeToTray when the human turned it off', () => {
+    expect(readCloseToTray({ workspaces: { closeToTray: false } })).toBe(false)
+  })
+})
+
+describe('isHiddenLaunch', () => {
+  it('MGR-C41 MGR-C42 reveals the running Pine on a plain second launch but not on a hidden one', () => {
+    expect(isHiddenLaunch(['/opt/pine/pine'])).toBe(false)
+    expect(isHiddenLaunch(['/opt/pine/pine', '--hidden'])).toBe(true)
   })
 })
 

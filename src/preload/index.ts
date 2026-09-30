@@ -88,6 +88,7 @@ const bridge: PineBridge = {
     minimize: () => ipcRenderer.send('window:minimize'),
     toggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),
     close: () => ipcRenderer.send('window:close'),
+    quit: () => ipcRenderer.send('window:quit'),
     isMaximized: () => ipcRenderer.invoke('window:is-maximized') as Promise<boolean>,
     setZoom: (percent) => ipcRenderer.invoke('window:set-zoom', percent) as Promise<number>,
     isSystemDark: () => ipcRenderer.invoke('window:system-dark') as Promise<boolean>,

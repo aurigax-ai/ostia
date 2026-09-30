@@ -114,7 +114,7 @@ test('quitting with a running command asks first, and Cancel keeps the window op
     expect(win.isClosed()).toBe(false)
     await expect(win.locator('.xterm').first()).toBeVisible()
 
-    await win.evaluate(() => window.pine.window.close())
+    await win.evaluate(() => window.pine.window.quit())
     await expect(dialog).toBeVisible({ timeout: 5_000 })
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     await expect(dialog).toHaveCount(0)

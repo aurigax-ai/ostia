@@ -145,7 +145,7 @@ import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
 import { SANDBOX_FEATURE, installHint, missingRequirements, onPath } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
-import { AppTray, closeAction, readCloseToTray } from './tray'
+import { AppTray, closeAction, isHiddenLaunch, readCloseToTray } from './tray'
 import {
   deleteGlobalVaultValue,
   registerVaultMethods,
@@ -820,6 +820,7 @@ function registerIpc(): void {
     else win.maximize()
   })
   ipcMain.on('window:close', (e) => BrowserWindow.fromWebContents(e.sender)?.close())
+  ipcMain.on('window:quit', () => app.quit())
   ipcMain.handle('window:system-dark', () => nativeTheme.shouldUseDarkColors)
   nativeTheme.on('updated', () => {
     for (const win of BrowserWindow.getAllWindows()) {
@@ -1769,6 +1770,18 @@ function emitFocusChanged(): void {
   extensionHost?.emitEvent('focus.changed', { focused: BrowserWindow.getFocusedWindow() !== null })
 }
 
+function revealApp(): void {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow(MAIN_SLOT)
+  else appTray?.showWindows()
+}
+
+if (app.isPackaged && !app.requestSingleInstanceLock()) app.exit(0)
+
+app.on('second-instance', (_event, argv) => {
+  if (!app.isReady() || isHiddenLaunch(argv)) return
+  revealApp()
+})
+
 app.whenReady().then(() => {
   loadRestoredScrollback()
   registerIpc()
@@ -1983,10 +1996,7 @@ app.whenReady().then(() => {
   app.on('browser-window-blur', emitFocusChanged)
   setInterval(autosaveScrollback, SCROLLBACK_AUTOSAVE_MS).unref()
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(MAIN_SLOT)
-    else appTray?.showWindows()
-  })
+  app.on('activate', revealApp)
 })
 
 function persistScrollback(): void {

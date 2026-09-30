@@ -167,7 +167,7 @@ describe('settingsStore', () => {
         defaultFolder: '/work',
         confirmClose: false,
         confirmQuit: true,
-        closeToTray: false,
+        closeToTray: true,
         wrapTitles: true,
       })
 
