@@ -9,6 +9,8 @@ import './index.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { startAskCommand } from './commands/askCommand'
+import { startAssistCompose } from './commands/assistCompose'
 import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
 import { wireExtensionBridge } from './commands/extensionBridge'
@@ -70,6 +72,8 @@ async function boot(): Promise<void> {
   startUserActions()
   startUpdateWatch()
   startAssistAvailability()
+  startAskCommand()
+  startAssistCompose()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(

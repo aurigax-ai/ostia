@@ -43,6 +43,7 @@ import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { AssistComposer } from './AssistComposer'
 import { Blocks } from './Blocks'
 import { InputEditor } from './InputEditor'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
@@ -687,6 +688,7 @@ export function TerminalView({
           onShellKeys={sendShellKeys}
           onNeedRows={makeRows}
         />
+        <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
         {findOpen && search && (
           <TerminalFind
             search={search}
