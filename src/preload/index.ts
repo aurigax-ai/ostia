@@ -23,6 +23,7 @@ import type {
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { WorkspaceSandbox } from '../shared/sandbox'
 import type { SelectionSendResult } from '../shared/selection'
+import type { RequirementsReport } from '../shared/systemRequirements'
 import type {
   AppInfo,
   AppSnapshot,
@@ -200,6 +201,16 @@ const bridge: PineBridge = {
       ipcRenderer.on('app:update-available', handler)
       return () => ipcRenderer.removeListener('app:update-available', handler)
     },
+  },
+  system: {
+    requirements: (feature) =>
+      ipcRenderer.invoke('system:requirements', feature) as Promise<RequirementsReport | null>,
+    installRequirements: (feature, workspaceId) =>
+      ipcRenderer.invoke(
+        'system:install-requirements',
+        feature,
+        workspaceId,
+      ) as Promise<ExtensionResult>,
   },
   sandbox: {
     get: (workspaceId) =>

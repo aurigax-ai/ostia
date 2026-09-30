@@ -85,6 +85,14 @@ export const en = {
     paste: 'Paste',
     cancel: 'Cancel',
   },
+  sandbox: {
+    requirementsTitle: 'The sandbox needs more software',
+    requirementsBody:
+      'Install {packages} to turn the sandbox on. It stays off until they are installed.',
+    requirementsClose: 'Not now',
+    install: 'Install',
+    copyCommand: 'Copy command',
+  },
   pane: {
     empty: 'Empty pane. Open the command palette to run something.',
     splitRight: 'Split right',
@@ -952,6 +960,13 @@ export const zhHant: Dict = {
     desc: '內容包含換行或控制字元，shell 可能會立即執行。',
     paste: '貼上',
     cancel: '取消',
+  },
+  sandbox: {
+    requirementsTitle: '沙箱需要額外的軟體',
+    requirementsBody: '安裝 {packages} 後才能開啟沙箱。在安裝完成前，沙箱會保持關閉。',
+    requirementsClose: '稍後',
+    install: '安裝',
+    copyCommand: '複製指令',
   },
   pane: {
     empty: '空白面板。開啟指令面板以執行指令。',

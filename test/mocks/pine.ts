@@ -96,6 +96,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       restart: vi.fn().mockResolvedValue(undefined),
       onAvailable: vi.fn(() => () => {}),
     },
+    system: {
+      requirements: vi.fn().mockResolvedValue(null),
+      installRequirements: vi.fn().mockResolvedValue({ ok: true }),
+    },
     sandbox: {
       get: vi.fn().mockResolvedValue(null),
       setEnabled: vi.fn().mockResolvedValue(null),

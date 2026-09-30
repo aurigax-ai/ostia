@@ -1,10 +1,12 @@
 import { ipcMain } from 'electron'
 import type { WorkspaceSandbox } from '../../shared/sandbox'
+import type { MissingRequirement } from '../../shared/systemRequirements'
 import type { WorkspaceSandboxes } from './workspaceSandboxes'
 
 export interface SandboxIpcDeps {
   sandboxes: WorkspaceSandboxes
   ownerWindow: (workspaceId: string) => string | undefined
+  missing?: () => MissingRequirement[]
 }
 
 export function ownsWorkspace(
@@ -25,6 +27,7 @@ export function registerSandboxIpc(deps: SandboxIpcDeps): void {
       if (!ownsWorkspace(deps, e.sender.id, workspaceId) || typeof enabled !== 'boolean') {
         return null
       }
+      if (enabled && (deps.missing?.() ?? []).length > 0) return null
       return deps.sandboxes.update(workspaceId, (current) => ({ ...current, enabled }))
     },
   )

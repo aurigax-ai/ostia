@@ -91,6 +91,8 @@ import { registerSelectionIpc } from './selectionReport'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
+import { SANDBOX_FEATURE, missingRequirements } from './systemRequirements'
+import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { registerVaultMethods } from './vault'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
 import {
@@ -688,7 +690,23 @@ function registerExtensionIpc(host: ExtensionHost): void {
 }
 
 function registerPtyIpc(): void {
-  registerSandboxIpc({ sandboxes: workspaceSandboxes, ownerWindow: windowForWorkspace })
+  registerSandboxIpc({
+    sandboxes: workspaceSandboxes,
+    ownerWindow: windowForWorkspace,
+    missing: () => missingRequirements(SANDBOX_FEATURE),
+  })
+  registerSystemRequirementsIpc({
+    ownerWindow: windowForWorkspace,
+    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+    locale: readLocale,
+    systemExtensionEnabled: () =>
+      extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
+    missing: (feature) => missingRequirements(feature),
+    invokeInstall: (args, caller) =>
+      extensionHost
+        ? extensionHost.invoke('system', 'install', args, caller)
+        : Promise.resolve({ ok: false, error: 'extension-unavailable' }),
+  })
   const attaching = new Map<string, Promise<PtyAttachResult>>()
   ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {
     const previous = attaching.get(paneId)
