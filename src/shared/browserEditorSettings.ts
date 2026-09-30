@@ -1,3 +1,5 @@
+import { MATCH_PINE_THEME, parseThemeChoice } from './themeChoice'
+
 export const SEARCH_ENGINES = ['google', 'duckduckgo', 'bing', 'kagi', 'custom'] as const
 
 export type SearchEngine = (typeof SEARCH_ENGINES)[number]
@@ -96,6 +98,7 @@ export interface EditorSettings {
   autoSave: AutoSaveMode
   formatOnSave: boolean
   openFilesIn: OpenFilesIn
+  theme: string
 }
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -106,6 +109,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   autoSave: 'off',
   formatOnSave: false,
   openFilesIn: 'tab',
+  theme: MATCH_PINE_THEME,
 }
 
 export function parseEditorSettings(raw: unknown): EditorSettings {
@@ -119,5 +123,6 @@ export function parseEditorSettings(raw: unknown): EditorSettings {
     autoSave: oneOf(AUTO_SAVE_MODES, src.autoSave, defaults.autoSave),
     formatOnSave: typeof src.formatOnSave === 'boolean' ? src.formatOnSave : false,
     openFilesIn: oneOf(OPEN_FILES_IN, src.openFilesIn, defaults.openFilesIn),
+    theme: parseThemeChoice(src.theme),
   }
 }

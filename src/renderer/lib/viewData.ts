@@ -63,7 +63,7 @@ function workspaceData(inputs: ViewDataInputs, ports: PortData[]) {
       id: w.id,
       index,
       name: w.customName ?? w.name,
-      project: w.projectDir ?? null,
+      project: w.projectDir ? { name: w.name, path: w.projectDir } : null,
       dir: w.workDir,
       description: w.description ?? null,
       state: w.state,

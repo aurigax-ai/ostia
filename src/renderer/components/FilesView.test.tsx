@@ -61,6 +61,9 @@ function iconThemeExtension(): ExtensionInfo {
     paneChips: [],
     settings: [],
     settingValues: {},
+    assist: [],
+    secrets: [],
+    secretsSet: [],
     iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
   }
 }

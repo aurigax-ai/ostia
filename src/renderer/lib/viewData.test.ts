@@ -72,7 +72,7 @@ describe('buildViewScope', () => {
         id: 'w1',
         index: 0,
         name: 'pine',
-        project: '~/pine',
+        project: { name: 'pine', path: '~/pine' },
         dir: '/home/u/pine',
         description: null,
         state: 'waiting',

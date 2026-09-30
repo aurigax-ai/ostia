@@ -129,6 +129,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       sidebarItems: vi.fn().mockResolvedValue([]),
       paneChips: vi.fn().mockResolvedValue([]),
       setSetting: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-extension' }),
+      setSecret: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-extension' }),
       onChanged: vi.fn(noopUnsub),
       onSidebar: vi.fn(noopUnsub),
       onPaneChips: vi.fn(noopUnsub),
@@ -136,6 +137,13 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onOpenPanel: vi.fn(noopUnsub),
       onOpenDiff: vi.fn(noopUnsub),
       onOpenTerminal: vi.fn(noopUnsub),
+    },
+    assist: {
+      availability: vi.fn().mockResolvedValue({}),
+      onAvailability: vi.fn(noopUnsub),
+      request: vi.fn().mockResolvedValue({ ok: false, error: 'unavailable' }),
+      cancel: vi.fn(),
+      onChunk: vi.fn(noopUnsub),
     },
     externalEditor: {
       open: vi.fn().mockResolvedValue({ ok: true, argv: [] }),

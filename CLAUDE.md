@@ -81,7 +81,8 @@ Package manager is **pnpm** only.
 - **cli** (`src/cli/index.ts`): the `pine` CLI. Panes get a `pine()` shell function that runs it
   with the app's own Electron binary (`ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI"`), so no
   system Node is needed.
-- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper, system, ports) +
+- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper, system, ports,
+  assistant) +
   their SDK. Each runs as its own process and talks to pine only over the control socket
   (`docs/EXTENSIONS.md`). The host that runs them is `src/main/extensionHost.ts`. trellis and
   keeper wrap the user's own CLIs; their fake stand-ins for tests are `test/fixtures/tools/bin/`.
@@ -149,7 +150,11 @@ Details: `docs/ARCHITECTURE.md`.
   followed by Enter. A file dragged onto a terminal (from the tree or the OS) is the human's
   own paste: its shell-quoted paths go through the normal paste path (`lib/dropPaths.ts`),
   never with Enter. A file
-  path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. Anything
+  path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. A prompt
+  the human wrote in the assist composer follows the report rule (`canInsertReference`, text
+  only, never Enter); a command suggestion from the composer, the input editor's `# ` hint or
+  Ask's "Insert at prompt" goes through `insertCommand` without Enter, only when the human
+  picks it. An assist suggestion never replaces a draft or runs anything on its own. Anything
   else goes to the clipboard.
   The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
   `insertCommand` too, and is shown only at an idle prompt on the normal buffer; anything
@@ -241,7 +246,9 @@ Details: `docs/ARCHITECTURE.md`.
   and pty kill run once, after approval. New workspace paths call `startNewWorkspace()` (placement
   and folder settings), never `addWorkspace` directly. E2E seeds `workspaces.confirmQuit: false`.
 - **Workspace/pane guards:** `closePane` emits `pane-closed` only if the pane existed; a
-  workspace's `workDir` is the anchor, a pane's `cwd` wanders.
+  workspace's `workDir` is the anchor for new panes and follows the project of its active pane
+  (`setProject`, `lib/workspaceProjects.ts`); a pane's `cwd` wanders. With no panes left, the
+  workspace keeps its last project (name, `projectDir`, `workDir`).
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
   `Ctrl+Shift+H` command history, `Ctrl+Shift+S` search saved workflows, `Ctrl+Shift+T` new
@@ -249,13 +256,17 @@ Details: `docs/ARCHITECTURE.md`.
   `Ctrl+=` / `Ctrl+Shift+-` / `Ctrl+0` zoom in / out / reset (zoom out is not `Ctrl+-`: readline
   binds that to undo, and the keybinding guard refuses it),
   `Ctrl+Shift+R` resume the pane's agent, `Ctrl+Shift+E` send a file view's selection to an
-  agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
+  agent, `Ctrl+Shift+J` assist composer, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find,
+  `Ctrl+Shift+↑/↓` previous/next block.
   macOS uses ⌘ (⌘= ⌘- ⌘0 zoom, ⌘⇧U unread, ⌘⇧H history, ⌘⇧S workflows, ⌘T new workspace, ⌘1..9 workspaces, ⌘⇧R resume,
-  ⌘⇧E send selection, ⌘↑/⌘↓ blocks). A new default chord must also be free in Monaco (it already binds
+  ⌘⇧E send selection, ⌘J assist composer, ⌘↑/⌘↓ blocks). A new default chord must also be free in Monaco (it already binds
   Ctrl+Shift+A, C, G, I, K, L, M, O, R, Z; Settings → Keyboard warns on those via `usedByMonaco`).
   Holding exactly the workspace jump's modifiers (Ctrl / ⌘ by default) for 500 ms shows each
   row's digit; any other key cancels, so Ctrl shortcuts never flash it.
-  Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell;
+  Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell,
+  except the human's opt-in `terminal.clipboardKeys: 'smart'` (Linux/Windows): Ctrl+C copies
+  only while text is selected (else it interrupts as usual) and Ctrl+V pastes
+  (`lib/clipboardKeys.ts`);
   Escape is swallowed only while a block is selected. The chords above are defaults
   (`DEFAULT_CHORDS` in `lib/chords.ts`); the user's `keybindings` setting overrides or unbinds
   them and can bind any palette command. Everything reads the effective map
@@ -401,8 +412,9 @@ Details: `docs/ARCHITECTURE.md`.
   asks (`ALWAYS_ASK`) and never gets a session grant.
 - **The file menu never launches programs.** "Open with default app" (`main/openPath.ts`) is
   confined like `fs:*` and refuses executables, scripts and launchers (`isProgram`); reveal only
-  shows the item in the file manager. "Send path to agent" lists only agents running in the
-  workspace (`runningAgent`).
+  shows the item in the file manager. Every "send to agent" target list (file menu, selection
+  and pick-element panels) comes from `useAgentTargets`: only panes in the workspace that are
+  running an agent (`runningAgent`), never plain shells or other workspaces.
 - **User actions are data, and elevated ones ask once.** `actions` in `settings.json` name a
   palette command + args (`parseActions`), never a shell string; agents may add them. Running
   one whose command needs a non-default capability shows the command and args and waits
@@ -420,6 +432,21 @@ Details: `docs/ARCHITECTURE.md`.
   is `list`, `validate`, `open`, `schema`). Buttons run palette commands only through
   `runCommandAction`, so elevated commands ask like user actions; URLs open only in the browser
   pane. The draw budget (`expandView`) keeps the last good render instead of drawing more.
+- **Assist requests carry only what the human put in them** (`shared/assist.ts`). The renderer
+  sends a draft the human typed, the code around the cursor they are editing, or, in Ask, only
+  the context chips they switched on (recent output, selection, folder, pane chips) or the block
+  they asked to explain; never terminal output on its own. Main normalizes every request
+  (`normalizeAssistRequest`) and result (`normalizeAssistResult`), routes only to an enabled
+  extension granted `assist` that reported the point `ready` (`ExtensionHost.assistRuntime`),
+  and cancels on Stop, close or a newer keystroke. Nothing is offered until a provider is
+  configured (the built-in assistant reports nothing ready while its provider is `none`), and
+  the UI names the provider and model each feature uses (the status `label`).
+- **Extension secrets stay in main and their extension.** `contributes.secrets` values are
+  written only through `extensions:set-secret` (Settings → Plugins), encrypted with
+  `safeStorage` in the data dir (`main/extensionSecrets.ts`), never in `settings.json`, never
+  synced, never returned to the renderer (only `secretsSet`), and read only by the extension that
+  declared the key (`ext.getSecret`). Never add a socket method or CLI verb that reads or writes
+  one.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -589,7 +616,10 @@ Details: `docs/ARCHITECTURE.md`.
 
 Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vitest.workspace.ts`.
 
-- **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`, `src/extensions/**`. Extension
+- **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`, `src/extensions/**`. Its
+  global setup (`test/buildOnce.ts`) builds the CLI and built-in extensions once per run; tests
+  never rebuild them (two files building into `out/extensions` at once raced). Vitest runs at
+  most 8 workers (`vitest.config.ts`), so integration tests don't time out under load. Extension
   host integration tests spawn `test/fixtures/extensions/echo` over a real socket;
   `src/cli/cli.ext.e2e.test.ts` builds and drives the real git extension and the echo fixture
   (stdin, errors, `pine ext ls`) via the CLI; `extensionHost.v2.integration.test.ts` drives pane
@@ -608,6 +638,11 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   from `test/fixtures/system/bin/` (never the real ones) and a fake confirm; `e2e/system.spec.ts`
   answers the native dialog by stubbing `dialog.showMessageBox` via `app.evaluate`. Extension tests that need `src/main`
   live in `src/main` or `src/cli`, never under `src/extensions`.
+  `extensionHost.assist.integration.test.ts` drives the assist points, streaming, cancellation
+  and secrets through `test/fixtures/extensions-assist/oracle`; the assistant extension's
+  providers are tested against local fake OpenAI-compatible, Anthropic and model-runtime
+  (unix socket) servers, never a real provider; `e2e/assistant.spec.ts` configures a fake
+  OpenAI-compatible server in Settings and drives Ask and the composer.
   Tool extensions (trellis, keeper) are tested against fake `trellis`/`keeper` shell scripts in
   `test/fixtures/tools/bin/` put first on `PATH`, fed scrubbed real `--json` captures from
   `test/fixtures/tools/<tool>/`; never point a test at the real tools.
@@ -663,5 +698,4 @@ Rules:
   attach, and there's no on-desktop approval of phone-initiated elevation requests (the contract
   allows it; only the Settings switches exist). Anyone with shell access to the desktop can still
   edit `gateway-devices.json` directly, same as `settings.json`.
-- **Plugin light themes have no terminal palette or Monaco theme of their own.** Only `pine-light` does; a plugin theme falls back to the One Dark Vivid terminal palette, and Monaco follows the theme's `appearance`.
 - **Latent:** `pluginsStore.load()` isn't in-flight idempotent (two concurrent calls double-fetch).

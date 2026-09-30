@@ -98,7 +98,13 @@ describe('parseEditorSettings', () => {
       autoSave: 'afterDelay',
       formatOnSave: true,
       openFilesIn: 'split',
+      theme: 'rose-pine',
     }
     expect(parseEditorSettings(custom)).toEqual(custom)
+  })
+
+  it('links the editor colors to the Pine theme by default', () => {
+    expect(DEFAULT_EDITOR_SETTINGS.theme).toBe('match')
+    expect(parseEditorSettings({ theme: null }).theme).toBe('match')
   })
 })
