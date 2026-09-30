@@ -1293,7 +1293,7 @@ app.whenReady().then(() => {
     },
   })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
-  registerVaultMethods()
+  registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
   registerBusMethods()
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   settingsSync = startSettingsSync({

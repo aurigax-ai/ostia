@@ -47,7 +47,11 @@ function saveVault(path: string, data: VaultData): void {
   saveJson(path, data, { secure: true })
 }
 
-export function registerVaultMethods(): void {
+export interface VaultDeps {
+  isSandboxed?: (workspaceId: string) => boolean
+}
+
+export function registerVaultMethods(deps: VaultDeps = {}): void {
   registerControlMethod('vault.set', {
     cap: 'vault-write',
     handler: async (params, ctx) => {
@@ -73,6 +77,13 @@ export function registerVaultMethods(): void {
   registerControlMethod('vault.get', {
     cap: 'vault-read',
     handler: (params, ctx) => {
+      if (deps.isSandboxed?.(ctx.identity.workspaceId)) {
+        return {
+          ok: false,
+          error: 'sandboxed',
+          message: 'this workspace is sandboxed: ask for the value with `pine secret get <name>`',
+        }
+      }
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { key, scope } = (params ?? {}) as { key: string; scope?: StoreScope }
       const path = vaultStorePath(scope ?? 'project', ctx.identity.workspaceId)
