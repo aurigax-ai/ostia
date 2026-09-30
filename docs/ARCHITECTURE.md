@@ -838,8 +838,10 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   `workspaces.confirmQuit: false` (`DOM_RENDERER_SETTINGS`) so `app.close()` never waits on a
   dialog; `e2e/workspace-settings.spec.ts` turns it on.
 - **Close to tray** (`main/tray.ts`): with `workspaces.closeToTray` on, or when Pine was started
-  with `--hidden`, the window `close` handler hides the window (`closeAction`) instead of asking
-  `closeGuard`, and `AppTray` shows a tray icon only while Pine is hidden (Show, Quit). Main
+  with `--hidden`, the main window's `close` handler hides it (`closeAction`) instead of asking
+  `closeGuard`; a detached window never goes to the tray, it returns its workspaces to the main
+  window (`broker.requestReturn`), and the manager workspace and its pane never move between
+  windows (`isRestorable`, `canMovePane`). Also `AppTray` shows a tray icon only while Pine is hidden (Show, Quit). Main
   reads the setting from `settings.json` at close time (`readCloseToTray`), so it always follows
   the file. Quit shows the window before `app.quit()`, because `closeGuard` asks through the
   renderer and a dialog in a hidden window can't be answered. Why the tray labels live in main
