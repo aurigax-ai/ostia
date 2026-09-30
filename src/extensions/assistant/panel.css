@@ -19,11 +19,11 @@ h2 {
 }
 
 h1 {
-  font-size: 13px;
+  font-size: var(--text-ui-base);
 }
 
 h2 {
-  font-size: 12px;
+  font-size: var(--text-ui-sm);
 }
 
 .spacer {
@@ -54,7 +54,7 @@ button:disabled {
   margin: 0;
   padding: 6px 10px;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background: var(--surface-2);
 }
 
@@ -79,7 +79,7 @@ button:disabled {
 }
 
 .small {
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
 }
 
 .section {
@@ -163,45 +163,4 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: 4px;
-}
-
-.switch {
-  appearance: none;
-  position: relative;
-  width: 26px;
-  height: 14px;
-  margin: 0;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background: var(--surface-3);
-  cursor: pointer;
-  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast)
-    var(--ease-out);
-}
-
-.switch::after {
-  content: "";
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--fg-muted);
-  transition: transform var(--motion-fast) var(--ease-out);
-}
-
-.switch:checked {
-  background: var(--brand-glow);
-  border-color: var(--brand);
-}
-
-.switch:checked::after {
-  transform: translateX(12px);
-  background: var(--brand);
-}
-
-.switch:disabled {
-  cursor: default;
-  opacity: 0.5;
 }

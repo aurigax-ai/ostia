@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import type { ComponentProps, HTMLAttributes, ReactNode } from 'react'
 import { createContext, useContext, useEffect, useState } from 'react'
+import { useScheme } from '../../lib/colorScheme'
 import { colorizeCode } from '../../lib/colorize'
 
 interface CodeBlockContextType {
@@ -58,21 +59,27 @@ export const CodeBlockContent = ({
   code,
   language,
   className,
+  style,
   ...props
 }: CodeBlockContentProps) => {
+  const scheme = useScheme('editor')
   const [html, setHtml] = useState<string | null>(null)
   useEffect(() => {
     let live = true
     setHtml(null)
-    void colorizeCode(code, language).then((out) => {
+    void colorizeCode(code, language, scheme).then((out) => {
       if (live) setHtml(out)
     })
     return () => {
       live = false
     }
-  }, [code, language])
+  }, [code, language, scheme])
   return (
-    <pre className={cn('code-block-body', className)} {...props}>
+    <pre
+      className={cn('code-block-body', className)}
+      style={{ background: scheme.colors.background, color: scheme.colors.foreground, ...style }}
+      {...props}
+    >
       {html === null ? (
         <code>{code}</code>
       ) : (

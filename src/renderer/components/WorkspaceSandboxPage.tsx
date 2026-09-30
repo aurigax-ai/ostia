@@ -17,11 +17,12 @@ import { PackagesEditor } from './SandboxPackagesTab'
 import { PortsPolicyRow, SandboxPortsTab } from './SandboxPortsTab'
 import { SandboxSecretsTab } from './SandboxSecretsTab'
 import { BrowserSelect, useSandboxGlobals } from './SandboxSection'
+import { SectionTab, SectionTabsList } from './SectionTabs'
 import { ControlRow, SectionHead } from './SettingsPanel'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Switch } from './ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+import { Tabs, TabsContent } from './ui/tabs'
 
 function OverrideBadge({
   overridden,
@@ -129,15 +130,15 @@ export function WorkspaceSandboxPage({
     <div>
       <SectionHead title={fmt(d.sandbox.workspacePage, { name: workspaceName })} />
       <Tabs defaultValue="general">
-        <TabsList>
-          <TabsTrigger value="general">{d.sandbox.general}</TabsTrigger>
-          <TabsTrigger value="files">{d.sandbox.files}</TabsTrigger>
-          <TabsTrigger value="network">{d.sandbox.network}</TabsTrigger>
-          <TabsTrigger value="ports">{d.sandbox.ports}</TabsTrigger>
-          <TabsTrigger value="secrets">{d.sandbox.secrets}</TabsTrigger>
-          <TabsTrigger value="packages">{d.sandbox.packages}</TabsTrigger>
-          <TabsTrigger value="access">{d.sandbox.pineAccess}</TabsTrigger>
-        </TabsList>
+        <SectionTabsList>
+          <SectionTab value="general">{d.sandbox.general}</SectionTab>
+          <SectionTab value="files">{d.sandbox.files}</SectionTab>
+          <SectionTab value="network">{d.sandbox.network}</SectionTab>
+          <SectionTab value="ports">{d.sandbox.ports}</SectionTab>
+          <SectionTab value="secrets">{d.sandbox.secrets}</SectionTab>
+          <SectionTab value="packages">{d.sandbox.packages}</SectionTab>
+          <SectionTab value="access">{d.sandbox.pineAccess}</SectionTab>
+        </SectionTabsList>
         <TabsContent value="general" className="pt-4">
           <ControlRow label={d.sandbox.enabled} desc={d.sandbox.enabledDesc}>
             <Switch
