@@ -10,7 +10,7 @@ import { TopBar } from './components/TopBar'
 import { WindowControls } from './components/WindowControls'
 import { WorkZone } from './components/WorkZone'
 import { TooltipProvider } from './components/ui/tooltip'
-import { isAppChord, matchChord, workspaceDigit } from './lib/chords'
+import { WORKSPACE_GOTO, isAppChord, matchChord, workspaceIndex } from './lib/chords'
 import { useMotionAttribute } from './lib/motion'
 import { useModifierHint } from './lib/useModifierHint'
 import { isMac } from './platform'
@@ -57,6 +57,7 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     void registerSettingsSchema()
+    return commands.subscribe(() => void registerSettingsSchema())
   }, [])
 
   useModifierHint(isMac)
@@ -66,8 +67,8 @@ export function App(): JSX.Element {
       const chord = matchChord(e, isMac)
       if (!isAppChord(chord)) return
       e.preventDefault()
-      if (chord === 'workspace.goto') {
-        void commands.exec(chord, { index: workspaceDigit(e.key.toLowerCase()) })
+      if (chord === WORKSPACE_GOTO) {
+        void commands.exec(chord, { index: workspaceIndex(e) })
         return
       }
       void commands.exec(chord)

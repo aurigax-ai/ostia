@@ -19,7 +19,7 @@ import type { DropZone } from '../layout/tree'
 import type { PaneNode, SurfaceKind } from '../layout/types'
 import { needsRing } from '../lib/attention'
 import { isIdlePrompt } from '../lib/blocks'
-import { chordLabel } from '../lib/chords'
+import { useChordLabel } from '../lib/chords'
 import { isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -49,8 +49,6 @@ const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
 }
 
 const PANE_DND = 'application/x-pine-pane'
-
-const RESUME_KEYS = chordLabel('agent.resume', isMac)
 
 function zoneFromEvent(e: DragEvent<HTMLElement>): DropZone {
   const r = e.currentTarget.getBoundingClientRect()
@@ -181,10 +179,11 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
 function ResumeButton({ pane }: { pane: PaneNode }): JSX.Element | null {
   const d = useDict()
   const idle = useBlocksStore((s) => isIdlePrompt(s, pane.id))
+  const resumeKeys = useChordLabel('agent.resume', isMac)
   if (pane.kind !== 'terminal' || !pane.resume || !idle) return null
   const label = fmt(d.pane.resume, { agent: pane.resume.agent })
   return (
-    <Hint label={`${resumeCommand(pane.resume)}  ${RESUME_KEYS}`}>
+    <Hint label={[resumeCommand(pane.resume), resumeKeys].filter(Boolean).join('  ')}>
       <Button variant="outline" size="xs" onClick={() => void commands.exec('agent.resume')}>
         <PlayIcon data-icon="inline-start" aria-hidden />
         {label}

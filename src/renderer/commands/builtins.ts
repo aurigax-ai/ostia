@@ -11,6 +11,7 @@ import {
   rerunBlock,
   stepBlock,
 } from '../lib/blockActions'
+import { setKeybindingSetting } from '../lib/chords'
 import {
   goToWorkspace,
   isPaneViewed,
@@ -18,6 +19,7 @@ import {
   markWorkspaceRead,
   signalPane,
 } from '../lib/workspaceActivity'
+import { isMac } from '../platform'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveSnapshotNow } from '../stores/persistence'
@@ -58,6 +60,9 @@ export function launchesProgram(key: string, value: unknown): boolean {
     (value as { externalEditor: unknown }).externalEditor !== current
   )
 }
+
+const isKeybindingPath = (key: string): boolean =>
+  key === 'keybindings' || key.startsWith('keybindings.')
 
 function getByPath(root: unknown, path: string): unknown {
   return path
@@ -511,9 +516,14 @@ export function registerBuiltinCommands(): void {
     capabilities: ['settings-read'],
     target: 'none',
     run: (args) => {
-      const { locale, appearance, behavior, capabilities } = useSettingsStore.getState()
-      const state = { locale, appearance, behavior, capabilities }
+      const { locale, appearance, behavior, keybindings, capabilities } =
+        useSettingsStore.getState()
+      const state = { locale, appearance, behavior, keybindings: { ...keybindings }, capabilities }
       const key = args?.key
+      if (key && isKeybindingPath(key)) {
+        const id = key.split('.').slice(1).join('.')
+        return id ? state.keybindings[id] : state.keybindings
+      }
       return key ? getByPath(state, key) : state
     },
   })
@@ -527,6 +537,10 @@ export function registerBuiltinCommands(): void {
     run: ({ key, value }) => {
       if (launchesProgram(key, value)) {
         throw new Error(`${PROGRAM_SETTING} can only be changed by you in Settings`)
+      }
+      if (isKeybindingPath(key)) {
+        setKeybindingSetting(key, value, isMac)
+        return { ok: true }
       }
       useSettingsStore.getState().setByPath(key, value)
       return { ok: true }

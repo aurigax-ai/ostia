@@ -7,6 +7,7 @@ import {
 } from '../../shared/notificationSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
 import type { Locale } from '../i18n/dict'
+import { type KeybindingMap, parseKeybindings } from '../lib/chordSpec'
 
 export type ThemeId = string
 
@@ -88,6 +89,7 @@ interface Persisted {
   behavior: Behavior
   notifications: NotificationSettings
   sidebar: SidebarSettings
+  keybindings: KeybindingMap
   capabilities?: Capabilities
   sync?: SyncSettings
 }
@@ -125,6 +127,7 @@ const DEFAULTS: Persisted = {
   },
   notifications: DEFAULT_NOTIFICATION_SETTINGS,
   sidebar: { showPath: true, showMessage: true, showDescription: true, showExtensionItems: true },
+  keybindings: {},
 }
 
 interface SettingsState extends Persisted {
@@ -139,6 +142,9 @@ interface SettingsState extends Persisted {
   setSidebar: (patch: Partial<SidebarSettings>) => void
   setByPath: (path: string, value: unknown) => void
   setSyncDir: (dir: string) => Promise<void>
+  setKeybinding: (id: string, chord: string | null) => void
+  resetKeybinding: (id: string) => void
+  setKeybindings: (map: KeybindingMap) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -150,6 +156,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     behavior: s.behavior,
     notifications: s.notifications,
     sidebar: s.sidebar,
+    keybindings: s.keybindings,
     capabilities: s.capabilities,
     sync: s.sync,
   }
@@ -206,6 +213,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         },
         notifications: parseNotificationSettings(p.notifications),
         sidebar: pickBooleans(DEFAULTS.sidebar, p.sidebar),
+        keybindings: parseKeybindings(p.keybindings),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
         sync: syncOf(p.sync),
       })
@@ -249,6 +257,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setSidebar: (patch) => {
     set((s) => ({ sidebar: { ...s.sidebar, ...patch } }))
+    scheduleSave(get)
+  },
+  setKeybinding: (id, chord) => {
+    set((s) => ({ keybindings: { ...s.keybindings, [id]: chord } }))
+    scheduleSave(get)
+  },
+  resetKeybinding: (id) => {
+    set((s) => {
+      const { [id]: _removed, ...rest } = s.keybindings
+      return { keybindings: rest }
+    })
+    scheduleSave(get)
+  },
+  setKeybindings: (keybindings) => {
+    set({ keybindings })
     scheduleSave(get)
   },
   setSyncDir: async (dir) => {
