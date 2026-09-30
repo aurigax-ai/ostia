@@ -1,9 +1,10 @@
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { startNewWorkspace } from './newWorkspace'
 
 export function openFileInWorkspace(path: string): void {
-  if (!useWorkspacesStore.getState().activeWorkspaceId) useWorkspacesStore.getState().addWorkspace()
+  if (!useWorkspacesStore.getState().activeWorkspaceId) startNewWorkspace()
   const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
   if (workspaceId) useLayoutStore.getState().openFile(workspaceId, path)
 }

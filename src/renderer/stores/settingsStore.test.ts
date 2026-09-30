@@ -5,7 +5,7 @@ const store = () => useSettingsStore.getState()
 
 type Persisted = Pick<
   ReturnType<typeof useSettingsStore.getState>,
-  'locale' | 'appearance' | 'behavior' | 'notifications' | 'sidebar'
+  'locale' | 'appearance' | 'behavior' | 'notifications' | 'sidebar' | 'workspaces'
 >
 
 describe('settingsStore', () => {
@@ -37,6 +37,7 @@ describe('settingsStore', () => {
       behavior: s.behavior,
       notifications: s.notifications,
       sidebar: s.sidebar,
+      workspaces: s.workspaces,
     })
   })
 
@@ -63,6 +64,37 @@ describe('settingsStore', () => {
       )
       await store().init()
       expect(store().behavior.inputMode).toBe('terminal')
+    })
+
+    it('reads workspace settings, dropping bad values and blank folders', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({
+          workspaces: {
+            placement: 'top',
+            inheritFolder: true,
+            defaultFolder: '  /work  ',
+            confirmClose: false,
+            confirmQuit: 'no',
+            wrapTitles: true,
+          },
+        }),
+      )
+      await store().init()
+      expect(store().workspaces).toEqual({
+        placement: 'top',
+        inheritFolder: true,
+        defaultFolder: '/work',
+        confirmClose: false,
+        confirmQuit: true,
+        wrapTitles: true,
+      })
+
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({ workspaces: { placement: 'middle', defaultFolder: '   ' } }),
+      )
+      await store().init()
+      expect(store().workspaces.placement).toBe('end')
+      expect(store().workspaces.defaultFolder).toBe('~')
     })
 
     it('reads notification, sidebar and line-height settings, clamping and dropping bad values', async () => {
@@ -136,6 +168,7 @@ describe('settingsStore', () => {
         behavior: s.behavior,
         notifications: s.notifications,
         sidebar: s.sidebar,
+        workspaces: s.workspaces,
       }).toEqual(DEFAULTS)
     })
 
@@ -165,6 +198,7 @@ describe('settingsStore', () => {
         behavior: s.behavior,
         notifications: s.notifications,
         sidebar: s.sidebar,
+        workspaces: s.workspaces,
       }).toEqual(DEFAULTS)
     })
   })

@@ -441,6 +441,28 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   `[]`, extension panels and diffs are not opened, and `workspace-activated` is not emitted. Why:
   a terminal the user didn't ask for is noise, and re-seeding one on close made the last
   workspace impossible to get rid of.
+- **New workspace placement and folder** (`lib/newWorkspace.ts`, Settings → Workspaces): every
+  user path that creates a workspace (button, `workspace.new`, chord, empty state, opening a file
+  with none open) calls `startNewWorkspace()`, which reads `workspaces.placement`
+  (`end` | `top` | `afterCurrent`, resolved by `insertIndex` in `lib/workspaceOrder.ts`, never
+  above the pinned group) and picks the `workDir`: the active workspace's focused pane `cwd` when
+  `workspaces.inheritFolder` is on and the pane has one, else `workspaces.defaultFolder` (`~`).
+  The `workDir` stays the anchor; only its initial value is inherited.
+- **Close confirmation** (`lib/closeConfirm.ts`, `CloseConfirmDialog.tsx`, `closeConfirmStore`):
+  a command is running when `blocksStore.running` has a block for a pane of the workspace.
+  Closing a workspace (row X, context menu, `workspace.closeOthers`) and closing the last pane of
+  a workspace (`pane.close`) go through `requestClose*`, which awaits a shadcn Dialog naming the
+  workspaces and their commands when `workspaces.confirmClose` is on. Quit and window close use the
+  same dialog: main's `closeGuard.ts` sends `window:confirm-close` to each window, the renderer
+  answers through `window.pine.window.onConfirmClose` (`confirmQuit`, gated by
+  `workspaces.confirmQuit`). Why the answer comes from the renderer: only it knows which commands
+  run. In `main/index.ts` the window `close` handler and `before-quit` call `preventDefault()`
+  until every window approves; the approving pass sets `quitApproved` and calls `app.quit()`
+  again, so the scrollback save and pty kill loop in `before-quit` run exactly once, after the
+  human said yes. A loading or crashed window is approved without asking. E2E seeds
+  `workspaces.confirmQuit: false` (`DOM_RENDERER_SETTINGS`) so `app.close()` never waits on a
+  dialog; `e2e/workspace-settings.spec.ts` turns it on.
+- **Wrapped titles**: `workspaces.wrapTitles` adds `.tab-title.wrap` (2-line clamp) to sidebar rows.
 - **Hidden workspaces** (`WorkZone.tsx`): each workspace mounts on first visit and stays mounted.
   Inactive ones get `visibility: hidden` + `inert`.
   - Why `visibility`, not `display: none`: the box keeps its size, so the fit stays valid.
@@ -556,8 +578,9 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 
 - `stores/settingsStore.ts` persists `userData/settings.json` (debounced 300 ms): `locale`,
   `appearance` (theme + ui/terminal/editor fonts), `behavior` (`showHiddenFiles`, `cursorStyle`,
-  `cursorBlink`, `restoreWorkspace`), `capabilities.grants`, `sync.dir`.
-  - `setByPath` rejects prototype-pollution segments, keys outside locale/appearance/behavior,
+  `cursorBlink`, `restoreWorkspace`), `workspaces` (`placement`, `inheritFolder`, `defaultFolder`,
+  `confirmClose`, `confirmQuit`, `wrapTitles`), `capabilities.grants`, `sync.dir`.
+  - `setByPath` rejects prototype-pollution segments, keys outside the data groups,
     and type changes.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
   - `settings/schema.ts` registers a JSON Schema for that file with Monaco.
