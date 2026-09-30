@@ -15,6 +15,8 @@ export function terminalFor(paneId: string): Terminal | undefined {
 
 export interface InputEditorHandle {
   insert: (text: string) => void
+  type: (text: string) => void
+  focus: () => void
 }
 
 const inputEditors = new Map<string, InputEditorHandle>()

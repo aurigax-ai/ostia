@@ -54,14 +54,20 @@ __pine_report_shell() {
 typeset -gi __pine_prompt_on=0
 typeset -gi __pine_prompt_torn=0
 typeset -g __pine_prompt_tail=' '
+typeset -g __pine_prompt_text=''
 if [[ "$PINE_PROMPT" == pine ]]; then
   __pine_prompt_on=1
   case "$PINE_PROMPT_SEPARATOR" in
     '%') __pine_prompt_tail=' %% ' ;;
     '$'|'>') __pine_prompt_tail=" $PINE_PROMPT_SEPARATOR " ;;
   esac
+  if [[ "$PINE_PROMPT_LINES" == 2 ]]; then
+    __pine_prompt_text="%~"$'\n'"\${__pine_prompt_tail# }"
+  else
+    __pine_prompt_text="%~$__pine_prompt_tail"
+  fi
 fi
-unset PINE_PROMPT PINE_PROMPT_SEPARATOR
+unset PINE_PROMPT PINE_PROMPT_SEPARATOR PINE_PROMPT_LINES
 
 # Pine prompt: the input editor draws the context, so the shell line is only "cwd sep". This
 # file loads after the user's rc; powerlevel10k rebuilds PROMPT in its own last precmd, so it is
@@ -72,7 +78,7 @@ __pine_apply_prompt() {
     __pine_prompt_torn=1
     (( $+functions[prompt_powerlevel9k_teardown] )) && prompt_powerlevel9k_teardown
   fi
-  PROMPT="%~$__pine_prompt_tail"
+  PROMPT="$__pine_prompt_text"
   RPROMPT=''
   RPS1=''
 }
@@ -177,13 +183,19 @@ __pine_report_shell() {
 
 __pine_prompt_on=0
 __pine_prompt_tail=' '
+__pine_prompt_text=''
 if [ "$PINE_PROMPT" = pine ]; then
   __pine_prompt_on=1
   case "$PINE_PROMPT_SEPARATOR" in
     '%'|'$'|'>') __pine_prompt_tail=" $PINE_PROMPT_SEPARATOR " ;;
   esac
+  if [ "$PINE_PROMPT_LINES" = 2 ]; then
+    __pine_prompt_text='\\w\\n'"\${__pine_prompt_tail# }"
+  else
+    __pine_prompt_text='\\w'"$__pine_prompt_tail"
+  fi
 fi
-unset PINE_PROMPT PINE_PROMPT_SEPARATOR
+unset PINE_PROMPT PINE_PROMPT_SEPARATOR PINE_PROMPT_LINES
 
 __pine_prompt_command() {
   local ec=$?
@@ -199,7 +211,7 @@ __pine_prompt_command() {
   done
   __pine_report_shell
   # Pine prompt: after the user's PROMPT_COMMAND, so a framework's PS1 becomes only "cwd sep".
-  [ "$__pine_prompt_on" = 1 ] && PS1='\\w'"$__pine_prompt_tail"
+  [ "$__pine_prompt_on" = 1 ] && PS1="$__pine_prompt_text"
   # Append the (zero-width) prompt-end mark AFTER the user's PROMPT_COMMAND has run — prompt
   # frameworks (starship, powerline, git-prompt) rebuild PS1 there, which would otherwise wipe
   # an earlier mark. Single-quoted so bash stores it byte-exact (see BASH_B_MARK doc above).
@@ -523,15 +535,24 @@ function ensureFiles(): IntegrationPaths {
   return cached
 }
 
-function promptEnv(separator: PromptSeparator | null): Record<string, string> {
-  if (separator === null || !isPromptSeparator(separator)) return {}
-  return { PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: separator }
+export interface PinePromptOption {
+  separator: PromptSeparator
+  sameLine: boolean
+}
+
+function promptEnv(option: PinePromptOption | null): Record<string, string> {
+  if (!option || !isPromptSeparator(option.separator)) return {}
+  return {
+    PINE_PROMPT: 'pine',
+    PINE_PROMPT_SEPARATOR: option.separator,
+    PINE_PROMPT_LINES: option.sameLine === true ? '1' : '2',
+  }
 }
 
 export function shellIntegrationSpawnOptions(
   shellPath: string,
   baseEnv: NodeJS.ProcessEnv,
-  pinePromptSeparator: PromptSeparator | null = null,
+  pinePrompt: PinePromptOption | null = null,
 ): { args: string[]; env: Record<string, string> } {
   const name = basename(shellPath).toLowerCase()
 
@@ -542,14 +563,14 @@ export function shellIntegrationSpawnOptions(
       env: {
         ZDOTDIR: INTEGRATION_DIR,
         PINE_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
-        ...promptEnv(pinePromptSeparator),
+        ...promptEnv(pinePrompt),
       },
     }
   }
 
   if (name === 'bash') {
     const { bashRc } = ensureFiles()
-    return { args: ['--rcfile', bashRc], env: promptEnv(pinePromptSeparator) }
+    return { args: ['--rcfile', bashRc], env: promptEnv(pinePrompt) }
   }
 
   return { args: [], env: {} }

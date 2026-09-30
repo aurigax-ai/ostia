@@ -167,10 +167,6 @@ export const en = {
   inputEditor: {
     label: 'Command input',
     placeholder: 'Run commands',
-    hint: 'Enter runs · Shift+Enter new line · ↑ history · → accept suggestion · {history} search · Tab complete · Esc terminal',
-    hintNoHistory:
-      'Enter runs · Shift+Enter new line · ↑ history · → accept suggestion · Tab complete · Esc terminal',
-    cwd: 'Working directory',
     noCompletions: 'No matching paths',
     noCommands: 'No matching commands',
     completions: 'Completions',
@@ -864,9 +860,6 @@ export const zhHant: Dict = {
   inputEditor: {
     label: '指令輸入',
     placeholder: '執行指令',
-    hint: 'Enter 執行 · Shift+Enter 換行 · ↑ 歷史 · → 接受建議 · {history} 搜尋 · Tab 補全 · Esc 終端機',
-    hintNoHistory: 'Enter 執行 · Shift+Enter 換行 · ↑ 歷史 · → 接受建議 · Tab 補全 · Esc 終端機',
-    cwd: '工作目錄',
     noCompletions: '沒有符合的路徑',
     noCommands: '沒有符合的指令',
     completions: '補全選項',
