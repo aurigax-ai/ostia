@@ -9,6 +9,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { portalSocketPath as sharedPortalSocketPath } from '../shared/portal'
+import type { InstallHint, MissingRequirement } from '../shared/systemRequirements'
 import { ManagerError, type ManagerService, parseOpenRequest } from './manager'
 import type { CallerVerdict } from './portalCaller'
 
@@ -32,6 +33,8 @@ export interface MirrorSink {
 }
 
 export interface PortalDeps {
+  missing: () => MissingRequirement[]
+  hint: (missing: MissingRequirement[]) => InstallHint
   judge: (socket: Socket) => Promise<CallerVerdict>
   manager: ManagerService
   attachMirror: (paneId: string, sink: MirrorSink) => MirrorHandle | null
@@ -47,6 +50,15 @@ const MAX_INPUT_CHUNK = 64 * 1024
 
 function refuse(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
+}
+
+export function requirementsError(missing: MissingRequirement[], hint: InstallHint): string | null {
+  if (missing.length === 0) return null
+  const programs = missing.map((m) => `${m.program} (package ${m.package})`).join(', ')
+  const install = hint.command
+    ? `Install it: ${hint.command}`
+    : `Install the ${hint.packages.join(', ')} package.`
+  return `missing-requirements: Pine needs ${programs} to check who is asking. ${install}`
 }
 
 function verdictError(verdict: CallerVerdict): ResponseError<void> | null {
@@ -128,6 +140,9 @@ export class Portal {
     }
 
     conn.onRequest('portal.open', async (params: unknown): Promise<PortalOpenResult> => {
+      const missing = this.deps.missing()
+      const unmet = requirementsError(missing, this.deps.hint(missing))
+      if (unmet) throw refuse(unmet)
       const refused = verdictError(await this.deps.judge(socket))
       if (refused) throw refused
       if (reserved || this.mirrorOpen) {

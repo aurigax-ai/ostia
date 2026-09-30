@@ -1,5 +1,6 @@
 import { constants, accessSync, statSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
+import { MANAGER_FEATURE } from '../shared/managerSettings'
 import type { InstallHint, MissingRequirement } from '../shared/systemRequirements'
 
 export interface Requirement {
@@ -25,6 +26,7 @@ const registry = new Map<string, Requirement[]>([
       { program: 'nsenter', package: 'util-linux', platforms: ['linux'] },
     ],
   ],
+  [MANAGER_FEATURE, [{ program: 'ss', package: 'iproute2', platforms: ['linux'] }]],
 ])
 
 export function registerRequirements(feature: string, requirements: Requirement[]): void {

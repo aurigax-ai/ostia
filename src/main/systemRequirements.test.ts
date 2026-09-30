@@ -2,6 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
+import { MANAGER_FEATURE } from '../shared/managerSettings'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -36,6 +37,16 @@ describe('systemRequirements', () => {
     expect(missingRequirements(SANDBOX_FEATURE, { platform: 'darwin', path: some })).toEqual([
       { program: 'rg', package: 'ripgrep' },
     ])
+  })
+
+  it('MGR-C39 the manager needs ss from iproute2 on Linux only', () => {
+    const none = binDir('none', [])
+    expect(missingRequirements(MANAGER_FEATURE, { platform: 'linux', path: none })).toEqual([
+      { program: 'ss', package: 'iproute2' },
+    ])
+    const withSs = binDir('with-ss', ['ss'])
+    expect(missingRequirements(MANAGER_FEATURE, { platform: 'linux', path: withSs })).toEqual([])
+    expect(missingRequirements(MANAGER_FEATURE, { platform: 'darwin', path: none })).toEqual([])
   })
 
   it('treats an unknown feature and a non-executable file as missing nothing and missing', () => {

@@ -10,6 +10,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { managerAgents, parseManagerSettings } from '../shared/managerSettings'
+import type { MissingRequirement } from '../shared/systemRequirements'
 import { ManagerService } from './manager'
 import { type MirrorSink, Portal, portalSupported } from './portal'
 import type { CallerVerdict } from './portalCaller'
@@ -35,7 +36,7 @@ afterEach(() => {
   dir = ''
 })
 
-async function startPortal(verdict: CallerVerdict = 'outside') {
+async function startPortal(verdict: CallerVerdict = 'outside', missing: MissingRequirement[] = []) {
   dir = mkdtempSync(join(tmpdir(), 'pine-portal-'))
   const path = join(dir, 'portal.sock')
   const ptys = new Map<string, FakePty>()
@@ -58,8 +59,17 @@ async function startPortal(verdict: CallerVerdict = 'outside') {
       return true
     },
   })
+  const judged: number[] = []
   const portal = new Portal(path, {
-    judge: async () => verdict,
+    missing: () => missing,
+    hint: (m) => ({
+      command: `sudo pacman -S --needed ${m.map((r) => r.package).join(' ')}`,
+      packages: m.map((r) => r.package),
+    }),
+    judge: async () => {
+      judged.push(1)
+      return verdict
+    },
     manager,
     attachMirror: (paneId, sink) => {
       const pty = ptys.get(paneId)
@@ -75,7 +85,7 @@ async function startPortal(verdict: CallerVerdict = 'outside') {
   })
   portals.push(portal)
   expect(await portal.start()).toBe(true)
-  return { path, ptys, manager, portal }
+  return { path, ptys, manager, portal, judged }
 }
 
 async function client(path: string) {
@@ -137,6 +147,18 @@ describe('Portal', () => {
     for (const sink of pty?.sinks ?? []) sink.data('out')
     await settle()
     expect(c.data.at(-1)).toBe('out')
+  })
+
+  it('MGR-C39 refuses before checking the caller when ss is missing, naming the package and command', async () => {
+    const { path, ptys, judged } = await startPortal('outside', [
+      { program: 'ss', package: 'iproute2' },
+    ])
+    const c = await client(path)
+    await expect(open(c.conn)).rejects.toThrow(
+      'missing-requirements: Pine needs ss (package iproute2) to check who is asking. Install it: sudo pacman -S --needed iproute2',
+    )
+    expect(judged).toEqual([])
+    expect(ptys.size).toBe(0)
   })
 
   it('MGR-C11 refuses a caller from inside Pine before opening anything', async () => {
@@ -203,6 +225,8 @@ describe('Portal', () => {
   it('does not take over a portal socket another live instance owns', async () => {
     const { path } = await startPortal()
     const other = new Portal(path, {
+      missing: () => [],
+      hint: () => ({ command: null, packages: [] }),
       judge: async () => 'outside',
       manager: new ManagerService({
         loadResume: () => null,
