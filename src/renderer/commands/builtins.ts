@@ -14,6 +14,7 @@ import {
 } from '../lib/blockActions'
 import { setKeybindingSetting } from '../lib/chords'
 import { requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
+import { wakePane } from '../lib/hibernationScheduler'
 import { startNewWorkspace } from '../lib/newWorkspace'
 import {
   goToWorkspace,
@@ -235,6 +236,7 @@ export function registerBuiltinCommands(): void {
       const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
+      if (pane.hibernated) return { resumed: wakePane(pane.id) }
       return { resumed: insertCommand(pane.id, resumeCommand(pane.resume), true) }
     },
   })

@@ -43,6 +43,7 @@ export interface PtyAttachResult {
 export interface PtyApi {
   attach: (paneId: string, opts: PtySpawnOptions) => Promise<PtyAttachResult>
   detach: (paneId: string) => void
+  hibernate: (paneId: string) => Promise<boolean>
   write: (paneId: string, data: string) => void
   resize: (paneId: string, cols: number, rows: number) => void
   onData: (paneId: string, cb: (data: string) => void) => () => void

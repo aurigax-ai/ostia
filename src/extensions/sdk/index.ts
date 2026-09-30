@@ -51,6 +51,7 @@ export interface PaneInfo {
   running: boolean
   blockCount: number
   lastExitCode?: number
+  pid?: number
 }
 
 export type CommandHandler = (
@@ -86,6 +87,7 @@ export interface PineExtension {
     text: string
     icon?: ExtensionIcon
     tone?: SidebarTone
+    url?: string
   }) => Promise<unknown>
   notify: (title: string, body?: string) => Promise<unknown>
   openPanel: (workspaceId?: string) => Promise<unknown>

@@ -1,3 +1,4 @@
+import type { AgentResume } from '@shared/agentResume'
 import { useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { allPanes } from '../layout/tree'
@@ -9,6 +10,7 @@ import { BrowserView } from './BrowserView'
 import { DiffView } from './DiffView'
 import { ExtensionPanelView } from './ExtensionPanelView'
 import { FileView } from './FileView'
+import { HibernatedView } from './HibernatedView'
 import { TerminalView } from './Terminal'
 
 interface SurfaceRef {
@@ -19,6 +21,8 @@ interface SurfaceRef {
   filePath?: string
   url?: string
   extensionId?: string
+  hibernated?: true
+  resume?: AgentResume
 }
 
 function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void {
@@ -38,6 +42,8 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         filePath: pane.filePath,
         url: pane.url,
         extensionId: pane.extensionId,
+        hibernated: pane.hibernated,
+        resume: pane.resume,
       })
     }
   }
@@ -72,6 +78,8 @@ export function SurfacePool(): JSX.Element {
             <BrowserView workspaceId={s.workspaceId} paneId={s.paneId} url={s.url} />
           ) : s.kind === 'extension' && s.extensionId ? (
             <ExtensionPanelView extId={s.extensionId} workspaceId={s.workspaceId} />
+          ) : s.hibernated ? (
+            <HibernatedView paneId={s.paneId} resume={s.resume} />
           ) : (
             <TerminalView workspaceId={s.workspaceId} paneId={s.paneId} cwd={s.cwd} />
           ),

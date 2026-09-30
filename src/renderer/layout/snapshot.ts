@@ -19,7 +19,7 @@ export interface RestorableLayout {
 }
 
 function fromPane(pane: PaneNode): SnapshotPaneNode {
-  const { kind, ...rest } = pane
+  const { kind, hibernated: _hibernated, ...rest } = pane
   return { ...rest, kind: kind === 'diff' ? 'terminal' : kind }
 }
 

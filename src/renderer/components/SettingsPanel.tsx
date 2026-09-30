@@ -13,6 +13,7 @@ import {
   KeyboardIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
+  RobotIcon,
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
   SquaresFourIcon,
@@ -47,6 +48,9 @@ import {
   type CursorStyle,
   FONT_WEIGHTS,
   type FontSurface,
+  HIBERNATION_IDLE_MAX,
+  HIBERNATION_IDLE_MIN,
+  HIBERNATION_LIVE_MAX,
   INPUT_MODES,
   type InputMode,
   LINE_HEIGHT_MAX,
@@ -83,6 +87,7 @@ type SectionId =
   | 'notifications'
   | 'sidebar'
   | 'workspaces'
+  | 'agents'
   | 'files'
   | 'browser'
   | 'editor'
@@ -127,6 +132,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'notifications', icon: BellIcon, label: d.settings.notifications },
         { id: 'sidebar', icon: SidebarSimpleIcon, label: d.settings.sidebar },
         { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
+        { id: 'agents', icon: RobotIcon, label: d.settings.agents },
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
         { id: 'editor', icon: CodeIcon, label: d.editorSettings.title },
@@ -204,6 +210,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'notifications' ? <NotificationsSection /> : null}
             {active === 'sidebar' ? <SidebarSection /> : null}
             {active === 'workspaces' ? <WorkspacesSection /> : null}
+            {active === 'agents' ? <AgentsSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'browser' ? <BrowserSettingsSection /> : null}
             {active === 'editor' ? <EditorSettingsSection /> : null}
@@ -641,6 +648,100 @@ function SidebarSection(): JSX.Element {
           checked={sidebar.showExtensionItems}
           onChange={(v) => set({ showExtensionItems: v })}
         />
+        <ToggleRow
+          label={d.settings.sidebarPorts}
+          desc={d.settings.sidebarPortsDesc}
+          checked={sidebar.showPorts}
+          onChange={(v) => set({ showPorts: v })}
+        />
+        <ToggleRow
+          label={d.settings.sidebarSsh}
+          desc={d.settings.sidebarSshDesc}
+          checked={sidebar.showSSH}
+          onChange={(v) => set({ showSSH: v })}
+        />
+      </SettingsGroup>
+    </div>
+  )
+}
+
+function NumberRow({
+  label,
+  desc,
+  value,
+  min,
+  max,
+  onCommit,
+}: {
+  label: string
+  desc: string
+  value: number
+  min: number
+  max: number
+  onCommit: (n: number) => void
+}): JSX.Element {
+  const [draft, setDraft] = useState(String(value))
+  useEffect(() => setDraft(String(value)), [value])
+  const commit = (): void => {
+    const n = Number(draft)
+    if (draft.trim() && Number.isFinite(n)) onCommit(n)
+    else setDraft(String(value))
+  }
+  return (
+    <ControlRow label={label} desc={desc}>
+      <Input
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        value={draft}
+        aria-label={label}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+        }}
+        className="h-7 w-24 font-mono"
+      />
+    </ControlRow>
+  )
+}
+
+function AgentsSection(): JSX.Element {
+  const d = useDict()
+  const hibernation = useSettingsStore((s) => s.agents.hibernation)
+  const set = useSettingsStore((s) => s.setHibernation)
+  return (
+    <div>
+      <SectionHead title={d.settings.agents} />
+      <SettingsGroup title={d.settings.groupPerformance}>
+        <ToggleRow
+          label={d.settings.hibernate}
+          desc={d.settings.hibernateDesc}
+          checked={hibernation.enabled}
+          onChange={(v) => set({ enabled: v })}
+        />
+        {hibernation.enabled ? (
+          <>
+            <NumberRow
+              label={d.settings.hibernateIdle}
+              desc={d.settings.hibernateIdleDesc}
+              value={hibernation.idleSeconds}
+              min={HIBERNATION_IDLE_MIN}
+              max={HIBERNATION_IDLE_MAX}
+              onCommit={(n) => set({ idleSeconds: n })}
+            />
+            <NumberRow
+              label={d.settings.hibernateMaxLive}
+              desc={d.settings.hibernateMaxLiveDesc}
+              value={hibernation.maxLiveTerminals}
+              min={0}
+              max={HIBERNATION_LIVE_MAX}
+              onCommit={(n) => set({ maxLiveTerminals: n })}
+            />
+            <WarningNote>{d.settings.hibernateNote}</WarningNote>
+          </>
+        ) : null}
       </SettingsGroup>
     </div>
   )
@@ -707,7 +808,7 @@ function TerminalSection(): JSX.Element {
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupScrolling}>
-        <NumberRow
+        <StepNumberRow
           label={d.settings.scrollSpeed}
           desc={d.settings.scrollSpeedDesc}
           value={scrollSpeed}
@@ -716,7 +817,7 @@ function TerminalSection(): JSX.Element {
           step={0.1}
           onCommit={(v) => setTerminal({ scrollSpeed: v })}
         />
-        <NumberRow
+        <StepNumberRow
           label={d.settings.scrollbackLines}
           desc={d.settings.scrollbackLinesDesc}
           value={scrollbackLines}
@@ -735,7 +836,7 @@ function TerminalSection(): JSX.Element {
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupColors}>
-        <NumberRow
+        <StepNumberRow
           label={d.settings.minimumContrast}
           desc={d.settings.minimumContrastDesc}
           value={minimumContrast}
@@ -765,7 +866,7 @@ function TerminalSection(): JSX.Element {
   )
 }
 
-function NumberRow({
+function StepNumberRow({
   label,
   desc,
   value,

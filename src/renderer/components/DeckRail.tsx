@@ -15,6 +15,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, paneIds } from '../layout/tree'
 import { latestWaitingAt, unreadCount } from '../lib/attention'
 import { requestCloseOthers, requestCloseWorkspace } from '../lib/closeConfirm'
+import { openSidebarUrl, visibleSidebarItems } from '../lib/sidebarItems'
 import { markWorkspaceRead } from '../lib/workspaceActivity'
 import { latestAttentionMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -117,13 +118,34 @@ function WorkspacesView(): JSX.Element {
 }
 
 function SidebarItems({ workspaceId }: { workspaceId?: string }): JSX.Element | null {
+  const d = useDict()
   const all = useExtensionsStore((s) => s.sidebar)
-  const items = all.filter((i) => i.workspaceId === workspaceId)
+  const showPorts = useSettingsStore((s) => s.sidebar.showPorts)
+  const showSSH = useSettingsStore((s) => s.sidebar.showSSH)
+  const items = visibleSidebarItems(all, workspaceId, { showPorts, showSSH })
   if (items.length === 0) return null
   return (
     <>
       {items.map((item) => {
         const Icon = item.icon ? extensionIcon(item.icon) : null
+        const url = item.url
+        if (url) {
+          return (
+            <Hint key={`${item.extId}:${item.key}`} label={fmt(d.rail.openUrl, { url })}>
+              <button
+                type="button"
+                className={`ext-item ext-item-link tone-${item.tone}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openSidebarUrl(workspaceId, url)
+                }}
+              >
+                {Icon ? <Icon size={12} aria-hidden /> : null}
+                {item.text}
+              </button>
+            </Hint>
+          )
+        }
         return (
           <Hint key={`${item.extId}:${item.key}`} label={`${item.extId}: ${item.text}`}>
             <span className={`ext-item tone-${item.tone}`}>

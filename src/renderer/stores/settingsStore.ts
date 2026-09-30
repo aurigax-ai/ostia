@@ -53,6 +53,48 @@ export interface SidebarSettings {
   showMessage: boolean
   showDescription: boolean
   showExtensionItems: boolean
+  showPorts: boolean
+  showSSH: boolean
+}
+
+export interface HibernationSettings {
+  enabled: boolean
+  idleSeconds: number
+  maxLiveTerminals: number
+}
+
+export interface AgentSettings {
+  hibernation: HibernationSettings
+}
+
+export const HIBERNATION_IDLE_MIN = 5
+export const HIBERNATION_IDLE_MAX = 86_400
+export const HIBERNATION_LIVE_MAX = 64
+
+const clampInt = (v: unknown, min: number, max: number, fallback: number): number => {
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback
+}
+
+export const clampIdleSeconds = (v: unknown): number =>
+  clampInt(v, HIBERNATION_IDLE_MIN, HIBERNATION_IDLE_MAX, DEFAULT_HIBERNATION.idleSeconds)
+
+export const clampMaxLive = (v: unknown): number =>
+  clampInt(v, 0, HIBERNATION_LIVE_MAX, DEFAULT_HIBERNATION.maxLiveTerminals)
+
+export const DEFAULT_HIBERNATION: HibernationSettings = {
+  enabled: false,
+  idleSeconds: 600,
+  maxLiveTerminals: 6,
+}
+
+function parseHibernation(raw: unknown): HibernationSettings {
+  if (!isPlainObject(raw)) return DEFAULT_HIBERNATION
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_HIBERNATION.enabled,
+    idleSeconds: clampIdleSeconds(raw.idleSeconds ?? DEFAULT_HIBERNATION.idleSeconds),
+    maxLiveTerminals: clampMaxLive(raw.maxLiveTerminals ?? DEFAULT_HIBERNATION.maxLiveTerminals),
+  }
 }
 
 export const FONT_WEIGHTS: readonly number[] = [300, 400, 450, 500, 600, 700]
@@ -160,6 +202,7 @@ interface Persisted {
   browser: BrowserSettings
   editor: EditorSettings
   keybindings: KeybindingMap
+  agents: AgentSettings
   capabilities?: Capabilities
   sync?: SyncSettings
 }
@@ -175,6 +218,7 @@ const DATA_KEYS: readonly string[] = [
   'workspaces',
   'browser',
   'editor',
+  'agents',
 ]
 
 const kindOf = (v: unknown): string => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v)
@@ -208,11 +252,19 @@ const DEFAULTS: Persisted = {
   terminal: DEFAULT_TERMINAL_SETTINGS,
   panes: DEFAULT_PANE_SETTINGS,
   notifications: DEFAULT_NOTIFICATION_SETTINGS,
-  sidebar: { showPath: true, showMessage: true, showDescription: true, showExtensionItems: true },
   workspaces: DEFAULT_WORKSPACE_SETTINGS,
   browser: DEFAULT_BROWSER_SETTINGS,
   editor: DEFAULT_EDITOR_SETTINGS,
   keybindings: {},
+  sidebar: {
+    showPath: true,
+    showMessage: true,
+    showDescription: true,
+    showExtensionItems: true,
+    showPorts: true,
+    showSSH: true,
+  },
+  agents: { hibernation: DEFAULT_HIBERNATION },
 }
 
 interface SettingsState extends Persisted {
@@ -235,6 +287,7 @@ interface SettingsState extends Persisted {
   setWorkspaces: (patch: Partial<WorkspaceSettings>) => void
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
+  setHibernation: (patch: Partial<HibernationSettings>) => void
   setByPath: (path: string, value: unknown) => void
   setSyncDir: (dir: string) => Promise<void>
   setKeybinding: (id: string, chord: string | null) => void
@@ -257,6 +310,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     browser: s.browser,
     editor: s.editor,
     keybindings: s.keybindings,
+    agents: s.agents,
     capabilities: s.capabilities,
     sync: s.sync,
   }
@@ -324,6 +378,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         browser: parseBrowserSettings(p.browser),
         editor: parseEditorSettings(p.editor),
         keybindings: parseKeybindings(p.keybindings),
+        agents: { hibernation: parseHibernation(p.agents?.hibernation) },
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
         sync: syncOf(p.sync),
       })
@@ -435,6 +490,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ keybindings })
     scheduleSave(get)
   },
+  setHibernation: (patch) => {
+    set((s) => ({
+      agents: { ...s.agents, hibernation: parseHibernation({ ...s.agents.hibernation, ...patch }) },
+    }))
+    scheduleSave(get)
+  },
   setSyncDir: async (dir) => {
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = null
@@ -461,6 +522,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       workspaces: s.workspaces,
       browser: s.browser,
       editor: s.editor,
+      agents: s.agents,
       capabilities: s.capabilities,
     })
     let cursor = root

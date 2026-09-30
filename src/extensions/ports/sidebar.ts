@@ -1,0 +1,70 @@
+import type { ExtensionIcon } from '../../shared/extensions'
+import type { PaneInfo } from '../sdk'
+import type { TreeInfo } from './scan'
+
+export const MAX_PORTS_PER_WORKSPACE = 6
+export const SSH_KEY = 'ssh'
+export const PORT_KEY_PREFIX = 'port:'
+
+export interface WorkspaceProcesses {
+  ports: number[]
+  ssh: string[]
+}
+
+export interface SidebarEntry {
+  workspaceId: string
+  key: string
+  text: string
+  icon?: ExtensionIcon
+  url?: string
+}
+
+export function terminalPids(panes: PaneInfo[]): number[] {
+  return panes.filter((p) => p.kind === 'terminal' && p.pid).map((p) => p.pid as number)
+}
+
+export function groupByWorkspace(
+  panes: PaneInfo[],
+  trees: Map<number, TreeInfo>,
+): Map<string, WorkspaceProcesses> {
+  const out = new Map<string, WorkspaceProcesses>()
+  for (const pane of panes) {
+    const tree = pane.pid ? trees.get(pane.pid) : undefined
+    if (!tree) continue
+    const group = out.get(pane.workspaceId) ?? { ports: [], ssh: [] }
+    for (const port of tree.ports) if (!group.ports.includes(port)) group.ports.push(port)
+    if (tree.ssh && !group.ssh.includes(tree.ssh)) group.ssh.push(tree.ssh)
+    out.set(pane.workspaceId, group)
+  }
+  for (const group of out.values()) {
+    group.ports.sort((a, b) => a - b)
+    group.ssh.sort()
+  }
+  return out
+}
+
+export function portUrl(port: number): string {
+  return `http://localhost:${port}/`
+}
+
+export function sidebarEntries(groups: Map<string, WorkspaceProcesses>): SidebarEntry[] {
+  const out: SidebarEntry[] = []
+  for (const [workspaceId, group] of groups) {
+    if (group.ssh.length > 0) {
+      out.push({ workspaceId, key: SSH_KEY, text: group.ssh.join(' '), icon: 'server' })
+    }
+    for (const port of group.ports.slice(0, MAX_PORTS_PER_WORKSPACE)) {
+      out.push({
+        workspaceId,
+        key: `${PORT_KEY_PREFIX}${port}`,
+        text: `:${port}`,
+        url: portUrl(port),
+      })
+    }
+  }
+  return out
+}
+
+export function slotOf(entry: Pick<SidebarEntry, 'workspaceId' | 'key'>): string {
+  return `${entry.workspaceId}\u0000${entry.key}`
+}

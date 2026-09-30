@@ -83,6 +83,7 @@ import {
   pendingRestoredScrollback,
   saveScrollback,
   saveSnapshot,
+  stashScrollback,
   takeRestoredScrollback,
 } from './workspaceSnapshot'
 
@@ -116,6 +117,9 @@ const DETACH_GRACE_MS = 3000
 let restorePersistEnabled = true
 
 const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
+const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hibernation ──\x1b[0m\r\n'
+
+const hibernatedPanes = new Set<string>()
 
 const EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
 
@@ -140,6 +144,21 @@ function killPty(paneId: string): void {
   } catch {}
   entry.mirror.dispose()
   ptys.delete(paneId)
+}
+
+function hibernatePty(paneId: string): boolean {
+  const entry = ptys.get(paneId)
+  if (!entry) return false
+  stashScrollback(paneId, entry.mirror.serialize())
+  hibernatedPanes.add(paneId)
+  entry.subs.clear()
+  killPty(paneId)
+  terminalState.delete(paneId)
+  return true
+}
+
+function ptyPid(paneId: string): number | undefined {
+  return ptys.get(paneId)?.pty.pid
 }
 
 function feedPty(entry: PtyEntry, data: string): void {
@@ -474,6 +493,7 @@ function registerIpc(): void {
         })
       }
       dropRestoredScrollback(event.paneId)
+      hibernatedPanes.delete(event.paneId)
       removePane(event.paneId)
       terminalState.delete(event.paneId)
     } else if (event.type === 'workspace-added') {
@@ -678,7 +698,8 @@ function registerPtyIpc(): void {
     ptys.set(paneId, entry)
 
     const history = takeRestoredScrollback(paneId)
-    if (history) feedPty(entry, `${history}${RESTORE_SEAM}`)
+    const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
+    if (history) feedPty(entry, `${history}${seam}`)
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
@@ -694,6 +715,8 @@ function registerPtyIpc(): void {
     entry.subs.delete(subId)
     entry.session.removeSubscriber(subId)
   })
+
+  ipcMain.handle('pty:hibernate', (_e, paneId: string): boolean => hibernatePty(String(paneId)))
 
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {
     const entry = ptys.get(paneId)
@@ -939,14 +962,14 @@ app.whenReady().then(() => {
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
   )
-  registerPaneListMethods({ execCommand, getTerminalState })
+  registerPaneListMethods({ execCommand, getTerminalState, ptyPid })
   registerGatewayMethods()
   registerGatewayIpc()
   configureGatewayControl({
     execCommand,
     listCommandsFor,
     getTerminalState,
-    listPanes: () => listPanes({ execCommand, getTerminalState }),
+    listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid }),
     listWorkspaces: () => listWorkspaces({ execCommand }),
     primaryWindowId,
     attachPhoneObserver,
