@@ -22,6 +22,7 @@ import { startUserActions } from './lib/userActions'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startWorkspaceProjects } from './lib/workspaceProjects'
 import { startApprovals } from './stores/approvalsStore'
+import { startAssistAvailability } from './stores/assistStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { useSettingsStore } from './stores/settingsStore'
@@ -68,6 +69,7 @@ async function boot(): Promise<void> {
   startApprovals()
   startUserActions()
   startUpdateWatch()
+  startAssistAvailability()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(

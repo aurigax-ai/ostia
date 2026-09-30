@@ -154,11 +154,22 @@ export interface ExtensionHostDeps {
   interactiveTimeoutMs?: number
   log?: (extId: string, line: string) => void
   readExtensionSettings?: () => unknown
+  secrets?: ExtensionSecretStore
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
   notifyPanel?: (
     n: { title: string; body?: string; from: string; extId: string; panelPath?: string },
     openPanel: () => void,
   ) => void
+}
+
+export interface ExtensionSecretStore {
+  keys: (extId: string) => string[]
+  get: (extId: string, key: string) => string | null
+  set: (
+    extId: string,
+    key: string,
+    value: string | null,
+  ) => { ok: true } | { ok: false; error: string }
 }
 
 export interface TerminalOpenRequest {
@@ -349,6 +360,9 @@ export class ExtensionHost {
       paneChips: m.contributes.paneChips,
       settings: m.contributes.settings,
       settingValues: this.settingValues(rt),
+      assist: m.contributes.assist,
+      secrets: m.contributes.secrets,
+      secretsSet: this.deps.secrets?.keys(m.id) ?? [],
     }
   }
 
