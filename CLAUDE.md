@@ -684,7 +684,10 @@ Details: `docs/ARCHITECTURE.md`.
 - **E2E must isolate both data dirs** (`e2e/dataHome.ts` → `isolatedLaunch()`): a fresh
   `XDG_DATA_HOME` (else a spec restores the previous spec's panes) and `--user-data-dir` (else a
   spec rewrites the developer's real `settings.json`, which has happened). It also sets
-  `XDG_CONFIG_HOME` so the developer's own user extensions (and their approval dialog) stay out.
+  `XDG_CONFIG_HOME` so the developer's own user extensions (and their approval dialog) stay out,
+  and `HOME` to a temp folder with empty `.zshrc`/`.bashrc` and a test git identity
+  (`testHome`), so shells never run the developer's rc files or agents. Compare against the
+  app's `app.getPath('home')`, never the test process's `homedir()`.
 
 ---
 
