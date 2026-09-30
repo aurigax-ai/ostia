@@ -11,11 +11,11 @@ import {
   processTree,
   socketInode,
 } from './procfs'
-import { sshArgs, sshTarget } from './ssh'
+import { type SshLogin, sshArgs, sshLogin } from './ssh'
 
 export interface TreeInfo {
   ports: number[]
-  ssh: string | null
+  ssh: SshLogin | null
 }
 
 const PROC = '/proc'
@@ -79,7 +79,7 @@ async function scanLinux(roots: number[], hostPid: number): Promise<Map<number, 
     }
     const ssh = foregroundSsh(tree, byPid)
     const argv = ssh ? (await readText(`${PROC}/${ssh.pid}/cmdline`)).split('\0') : []
-    out.set(root, { ports, ssh: ssh ? sshTarget(sshArgs(argv)) : null })
+    out.set(root, { ports, ssh: ssh ? sshLogin(sshArgs(argv)) : null })
   }
   return out
 }
@@ -103,14 +103,14 @@ async function scanDarwin(roots: number[], hostPid: number): Promise<Map<number,
     const owned = tree.flatMap((pid) => listeners.get(pid) ?? []).filter((p) => !inherited.has(p))
     const ports = [...new Set(owned)].sort((a, b) => a - b)
     const ssh = foregroundSsh(tree, byPid)
-    let host: string | null = null
+    let login: SshLogin | null = null
     if (ssh) {
       const args = await runTool('ps', ['-o', 'args=', '-p', String(ssh.pid)], {
         timeoutMs: TOOL_TIMEOUT_MS,
       })
-      host = sshTarget(sshArgs(splitPsArgs(args.stdout)))
+      login = sshLogin(sshArgs(splitPsArgs(args.stdout)))
     }
-    out.set(root, { ports, ssh: host })
+    out.set(root, { ports, ssh: login })
   }
   return out
 }
