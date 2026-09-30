@@ -198,7 +198,7 @@ test('MGR-C29 the manager starts a worker in its own workspace and reads its scr
   }
 })
 
-test('MGR-C30 with typing allowed, the manager answers a worker', async () => {
+test('MGR-C35 with typing allowed, the manager answers a worker', async () => {
   test.setTimeout(90_000)
   const { app, win, home, portal } = await launchPine({ allowInput: true })
   const mirror = runMirror(portal, home, ['sh'])

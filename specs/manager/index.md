@@ -1,6 +1,6 @@
 # Manager
 
-Status: tray, portal and mirror built; identity (MGR-D10, D11, D15, D16) not built
+Status: built on feature/manager; cases approved 2026-09-30
 
 Intent: let the human run one agent CLI from a terminal outside Pine that can see and drive the
 running Pine, while Pine keeps running in the background with a tray icon. The agent runs in a
