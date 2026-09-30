@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import type { AuthedConn } from './controlAuth'
 import { connHasCap } from './controlAuth'
-import { registerControlMethod } from './controlServer'
+import { registerTargetableMethod } from './controlServer'
 import type { PaneIdentity } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { PtyRingBuffer } from './ptyRingBuffer'
@@ -141,7 +141,7 @@ function spawnEntry(
 export function registerProcessMethods(): void {
   loadPersisted()
 
-  registerControlMethod('process.run', {
+  registerTargetableMethod('process.run', {
     cap: 'process',
     handler: (params, ctx) => {
       const { cmd, name, cwd, env } = (params ?? {}) as {
@@ -159,7 +159,7 @@ export function registerProcessMethods(): void {
     },
   })
 
-  registerControlMethod('process.list', {
+  registerTargetableMethod('process.list', {
     cap: 'process',
     handler: (_params, ctx) => {
       const all = [...procs.values()]
@@ -170,7 +170,7 @@ export function registerProcessMethods(): void {
     },
   })
 
-  registerControlMethod('process.info', {
+  registerTargetableMethod('process.info', {
     cap: 'process',
     handler: (params, ctx) => {
       const { id } = (params ?? {}) as { id: string }
@@ -179,7 +179,7 @@ export function registerProcessMethods(): void {
     },
   })
 
-  registerControlMethod('process.output', {
+  registerTargetableMethod('process.output', {
     cap: 'process',
     handler: (params, ctx) => {
       const { id, sinceCursor } = (params ?? {}) as { id: string; sinceCursor?: number }
@@ -189,7 +189,7 @@ export function registerProcessMethods(): void {
     },
   })
 
-  registerControlMethod('process.kill', {
+  registerTargetableMethod('process.kill', {
     cap: 'process',
     handler: (params, ctx) => {
       const { id, signal } = (params ?? {}) as { id: string; signal?: NodeJS.Signals }
@@ -202,7 +202,7 @@ export function registerProcessMethods(): void {
     },
   })
 
-  registerControlMethod('process.restart', {
+  registerTargetableMethod('process.restart', {
     cap: 'process',
     handler: (params, ctx) => {
       const { id } = (params ?? {}) as { id: string }

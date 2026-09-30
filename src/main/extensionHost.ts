@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
+import { type FSWatcher, mkdirSync, watch } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
@@ -16,16 +17,26 @@ import {
   type ExtensionInfo,
   type ExtensionOpenDiffRequest,
   type ExtensionOpenPanelRequest,
+  type ExtensionPanelContext,
   type ExtensionPanelSource,
   type ExtensionResult,
+  type ExtensionSettingResult,
+  type ExtensionSettingValues,
   type ExtensionSidebarItem,
   type ExtensionStatus,
+  PANE_CHIP_TEXT_MAX,
+  PANE_CHIP_TOOLTIP_MAX,
+  type PaneChip,
+  SETTINGS_CHANGED_EVENT,
   SIDEBAR_TONES,
   type SidebarTone,
   TERMINAL_ARG_MAX,
   TERMINAL_COMMAND_MAX_ARGS,
   TERMINAL_TITLE_MAX,
+  effectiveSettingValues,
+  panelPath,
   sidebarItemUrl,
+  validSettingValue,
 } from '../shared/extensions'
 import { quoteArgv } from '../shared/shellQuote'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
@@ -53,6 +64,7 @@ const SIDEBAR_TEXT_MAX = 80
 const DIFF_TITLE_MAX = 200
 const DIFF_LANGUAGE_MAX = 40
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
+const RESCAN_DEBOUNCE_MS = 250
 
 type RunState = 'idle' | 'starting' | 'running' | 'crashed'
 
@@ -67,7 +79,48 @@ interface Runtime {
   restarts: number
   restartTimer: ReturnType<typeof setTimeout> | null
   stopping: boolean
+  restartAfterExit: boolean
   panelOrigins: Set<string>
+}
+
+function newRuntime(ext: DiscoveredExtension): Runtime {
+  return {
+    ext,
+    proc: null,
+    identity: null,
+    conn: null,
+    ready: new Map(),
+    subscriptions: new Set(),
+    state: 'idle',
+    restarts: 0,
+    restartTimer: null,
+    stopping: false,
+    restartAfterExit: false,
+    panelOrigins: new Set(),
+  }
+}
+
+function isPlainRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function storedSettings(raw: unknown): Map<string, ExtensionSettingValues> {
+  const out = new Map<string, ExtensionSettingValues>()
+  if (!isPlainRecord(raw)) return out
+  for (const [extId, values] of Object.entries(raw)) {
+    if (!isPlainRecord(values)) continue
+    const kept: ExtensionSettingValues = {}
+    for (const [key, value] of Object.entries(values)) {
+      if (typeof value === 'string' || typeof value === 'boolean') kept[key] = value
+      else if (typeof value === 'number' && Number.isFinite(value)) kept[key] = value
+    }
+    out.set(extId, kept)
+  }
+  return out
+}
+
+function manifestSignature(ext: DiscoveredExtension): string {
+  return JSON.stringify([ext.dir, ext.builtin, ext.manifest])
 }
 
 export interface ExtensionHostDeps {
@@ -88,6 +141,7 @@ export interface ExtensionHostDeps {
   requestTimeoutMs?: number
   interactiveTimeoutMs?: number
   log?: (extId: string, line: string) => void
+  readExtensionSettings?: () => unknown
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
   notifyPanel?: (
     n: { title: string; body?: string; from: string; extId: string },
@@ -206,26 +260,21 @@ export function loopbackOrigin(url: string): string | null {
 export class ExtensionHost {
   private runtimes = new Map<string, Runtime>()
   private sidebar = new Map<string, ExtensionSidebarItem>()
+  private chips = new Map<string, PaneChip>()
+  private settings: Map<string, ExtensionSettingValues>
   private changes = new EventEmitter()
+  private watchers: FSWatcher[] = []
+  private rescanTimer: ReturnType<typeof setTimeout> | null = null
+  private watching = false
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
-    const log = deps.log ?? ((id, line) => console.error(`[ext:${id}] ${line}`))
-    for (const ext of discoverExtensions(deps.roots, (dir, error) => log(dir, error))) {
-      this.runtimes.set(ext.manifest.id, {
-        ext,
-        proc: null,
-        identity: null,
-        conn: null,
-        ready: new Map(),
-        subscriptions: new Set(),
-        state: 'idle',
-        restarts: 0,
-        restartTimer: null,
-        stopping: false,
-        panelOrigins: new Set(),
-      })
-    }
+    for (const ext of this.discover()) this.runtimes.set(ext.manifest.id, newRuntime(ext))
+    this.settings = storedSettings(deps.readExtensionSettings?.())
+  }
+
+  private discover(): DiscoveredExtension[] {
+    return discoverExtensions(this.deps.roots, (dir, error) => this.log(dir, error))
   }
 
   private log(extId: string, line: string): void {
@@ -278,7 +327,17 @@ export class ExtensionHost {
       panel: m.contributes.panel
         ? { title: m.contributes.panel.title, icon: m.contributes.panel.icon }
         : null,
+      paneChips: m.contributes.paneChips,
+      settings: m.contributes.settings,
+      settingValues: this.settingValues(rt),
     }
+  }
+
+  private settingValues(rt: Runtime): ExtensionSettingValues {
+    return effectiveSettingValues(
+      rt.ext.manifest.contributes.settings,
+      this.settings.get(rt.ext.manifest.id),
+    )
   }
 
   list(): ExtensionInfo[] {
@@ -287,6 +346,29 @@ export class ExtensionHost {
 
   sidebarItems(): ExtensionSidebarItem[] {
     return [...this.sidebar.values()]
+  }
+
+  paneChips(): PaneChip[] {
+    return [...this.chips.values()]
+  }
+
+  private chipsChanged(): void {
+    this.deps.broadcast('extensions:chips', this.paneChips())
+  }
+
+  private clearChipsWhere(match: (chip: PaneChip) => boolean): void {
+    let removed = false
+    for (const [slot, chip] of this.chips) {
+      if (match(chip)) {
+        this.chips.delete(slot)
+        removed = true
+      }
+    }
+    if (removed) this.chipsChanged()
+  }
+
+  clearPaneChips(rendererPaneId: string): void {
+    this.clearChipsWhere((chip) => chip.paneId === rendererPaneId)
   }
 
   private changed(rt?: Runtime): void {
@@ -305,7 +387,8 @@ export class ExtensionHost {
     rt.restarts = 0
     if (rt.state === 'crashed') rt.state = 'idle'
     if (!enabled) this.stop(rt)
-    else if (this.active(rt) && rt.ext.manifest.contributes.sidebarItems) this.start(rt)
+    else if (this.active(rt) && rt.proc) rt.restartAfterExit = true
+    else if (this.eager(rt)) this.start(rt)
     this.changed(rt)
     return this.list()
   }
@@ -320,10 +403,90 @@ export class ExtensionHost {
     return this.list()
   }
 
+  private eager(rt: Runtime): boolean {
+    return this.active(rt) && rt.ext.manifest.contributes.sidebarItems
+  }
+
   startEager(): void {
     for (const rt of this.runtimes.values()) {
-      if (this.active(rt) && rt.ext.manifest.contributes.sidebarItems) this.start(rt)
+      if (this.eager(rt)) this.start(rt)
     }
+  }
+
+  rescan(): void {
+    const found = new Map(this.discover().map((ext) => [ext.manifest.id, ext]))
+    let touched = false
+    for (const [id, rt] of [...this.runtimes]) {
+      const next = found.get(id)
+      if (!next) {
+        this.stop(rt)
+        this.runtimes.delete(id)
+        touched = true
+      } else if (manifestSignature(next) !== manifestSignature(rt.ext)) {
+        this.replace(rt, next)
+        touched = true
+      }
+    }
+    for (const [id, ext] of found) {
+      if (this.runtimes.has(id)) continue
+      const rt = newRuntime(ext)
+      this.runtimes.set(id, rt)
+      if (this.eager(rt)) this.start(rt)
+      touched = true
+    }
+    if (touched) this.changed()
+    this.watchRoots()
+  }
+
+  private replace(rt: Runtime, ext: DiscoveredExtension): void {
+    this.stop(rt)
+    rt.ext = ext
+    rt.restarts = 0
+    rt.state = 'idle'
+    if (rt.proc) rt.restartAfterExit = true
+    else if (this.eager(rt)) this.start(rt)
+  }
+
+  private scheduleRescan(): void {
+    if (this.rescanTimer) clearTimeout(this.rescanTimer)
+    this.rescanTimer = setTimeout(() => {
+      this.rescanTimer = null
+      this.rescan()
+    }, RESCAN_DEBOUNCE_MS)
+  }
+
+  watchUserExtensions(): void {
+    for (const root of this.deps.roots) {
+      if (root.builtin) continue
+      try {
+        mkdirSync(root.dir, { recursive: true })
+      } catch (err) {
+        this.log('host', `cannot create ${root.dir}: ${(err as Error).message}`)
+      }
+    }
+    this.watching = true
+    this.watchRoots()
+  }
+
+  private watchRoots(): void {
+    if (!this.watching) return
+    this.closeWatchers()
+    const dirs = this.deps.roots.filter((r) => !r.builtin).map((r) => r.dir)
+    for (const rt of this.runtimes.values()) {
+      if (!rt.ext.builtin) dirs.push(rt.ext.dir)
+    }
+    for (const dir of dirs) {
+      try {
+        const watcher = watch(dir, () => this.scheduleRescan())
+        watcher.on('error', () => this.scheduleRescan())
+        this.watchers.push(watcher)
+      } catch {}
+    }
+  }
+
+  private closeWatchers(): void {
+    for (const watcher of this.watchers) watcher.close()
+    this.watchers = []
   }
 
   private start(rt: Runtime): void {
@@ -381,15 +544,12 @@ export class ExtensionHost {
     if (rt.proc !== proc) return
     const id = rt.ext.manifest.id
     rt.proc = null
-    if (rt.identity) dropIdentity(rt.identity.externalId)
-    removeExtension(id)
-    rt.identity = null
-    rt.conn?.dispose()
-    rt.conn = null
+    this.revoke(rt)
     rt.ready.clear()
     rt.subscriptions.clear()
     rt.panelOrigins.clear()
     this.clearSidebarOf(id)
+    this.clearChipsWhere((chip) => chip.extId === id)
     if (rt.stopping || !this.active(rt)) {
       rt.state = 'idle'
     } else if (rt.restarts < MAX_RESTARTS) {
@@ -405,19 +565,41 @@ export class ExtensionHost {
       rt.state = 'crashed'
       this.log(id, 'exited too often; not restarting')
     }
+    if (rt.restartAfterExit) {
+      rt.restartAfterExit = false
+      if (this.runtimes.get(id) === rt) this.start(rt)
+    }
     this.changed(rt)
+  }
+
+  private revoke(rt: Runtime): void {
+    if (rt.identity) {
+      dropIdentity(rt.identity.externalId)
+      removeExtension(rt.ext.manifest.id, rt.identity.externalId)
+    }
+    rt.identity = null
+    rt.conn?.dispose()
+    rt.conn = null
   }
 
   private stop(rt: Runtime): void {
     rt.stopping = true
+    rt.restartAfterExit = false
     if (rt.restartTimer) clearTimeout(rt.restartTimer)
     rt.restartTimer = null
+    this.revoke(rt)
     rt.proc?.kill('SIGTERM')
     if (!rt.proc) rt.state = 'idle'
-    this.clearSidebarOf(rt.ext.manifest.id)
+    const id = rt.ext.manifest.id
+    this.clearSidebarOf(id)
+    this.clearChipsWhere((chip) => chip.extId === id)
   }
 
   stopAll(): void {
+    this.watching = false
+    this.closeWatchers()
+    if (this.rescanTimer) clearTimeout(this.rescanTimer)
+    this.rescanTimer = null
     for (const rt of this.runtimes.values()) this.stop(rt)
   }
 
@@ -515,23 +697,38 @@ export class ExtensionHost {
     return rt ? (this.commandsOf(rt).find((c) => c.id === command)?.capabilities ?? []) : []
   }
 
-  async resolvePanel(
-    extId: string,
-    context: { workspaceId: string; locale: string },
-  ): Promise<ExtensionPanelSource> {
+  private filePanelUrl(rt: Runtime, entry: string, path: string | null): string | null {
+    if (!path) return pathToFileURL(join(rt.ext.dir, entry)).href
+    const cut = path.search(/[?#]/)
+    const pathname = cut === -1 ? path : path.slice(0, cut)
+    let decoded: string
+    try {
+      decoded = decodeURIComponent(pathname)
+    } catch {
+      return null
+    }
+    const url = pathToFileURL(join(rt.ext.dir, decoded)).href
+    const full = cut === -1 ? url : url + path.slice(cut)
+    return this.isAllowedPanelUrl(rt.ext.manifest.id, full) ? full : null
+  }
+
+  async resolvePanel(extId: string, context: ExtensionPanelContext): Promise<ExtensionPanelSource> {
     const rt = this.runtimes.get(extId)
     if (!rt || !this.active(rt)) return { ok: false, error: 'extension-disabled' }
     const panel = rt.ext.manifest.contributes.panel
     if (!panel) return { ok: false, error: 'no-panel' }
+    const path = context.path === undefined ? null : panelPath(context.path)
+    if (context.path !== undefined && !path) return { ok: false, error: 'invalid-panel-path' }
     if (panel.entry !== 'url') {
       if (rt.ext.manifest.main) this.start(rt)
-      return { ok: true, src: pathToFileURL(join(rt.ext.dir, panel.entry)).href }
+      const src = this.filePanelUrl(rt, panel.entry, path)
+      return src ? { ok: true, src } : { ok: false, error: 'panel-url-not-allowed' }
     }
     try {
       const conn = await this.connected(rt)
       const caller = this.userCaller(context.workspaceId, { locale: context.locale })
       const res = await withTimeout(
-        conn.sendRequest<{ url?: unknown }>('ext.panel', { caller }),
+        conn.sendRequest<{ url?: unknown }>('ext.panel', path ? { caller, path } : { caller }),
         this.deps.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
         `${extId} panel`,
       )
@@ -651,17 +848,97 @@ export class ExtensionHost {
     return { ok: true }
   }
 
+  setPaneChip(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const extId = rt.ext.manifest.id
+    const p = (params ?? {}) as Record<string, unknown>
+    const declared = rt.ext.manifest.contributes.paneChips.find((c) => c.id === p.id)
+    if (!declared) return fail('not-contributed', `no pane chip '${String(p.id)}' in manifest`)
+    const pane = typeof p.paneId === 'string' ? resolveExternal(p.paneId) : undefined
+    if (pane?.kind !== 'pane') return fail('unknown-pane', 'paneId is not a pane')
+    const slot = `${extId}\u0000${pane.paneId}\u0000${declared.id}`
+    const text = typeof p.text === 'string' ? p.text.trim().slice(0, PANE_CHIP_TEXT_MAX) : ''
+    if (!text) {
+      if (this.chips.delete(slot)) this.chipsChanged()
+      return { ok: true }
+    }
+    const tone = SIDEBAR_TONES.includes(p.tone as SidebarTone) ? (p.tone as SidebarTone) : 'neutral'
+    const chip: PaneChip = { extId, id: declared.id, paneId: pane.paneId, text, tone }
+    if (typeof p.tooltip === 'string' && p.tooltip.trim()) {
+      chip.tooltip = p.tooltip.trim().slice(0, PANE_CHIP_TOOLTIP_MAX)
+    }
+    if (p.command !== undefined) {
+      const command = this.commandsOf(rt).find((c) => c.id === p.command && c.palette)
+      if (!command) return fail('invalid-params', 'command must be one of your palette commands')
+      chip.command = command.id
+    }
+    this.chips.set(slot, chip)
+    this.chipsChanged()
+    return { ok: true }
+  }
+
+  clearPaneChip(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const p = (params ?? {}) as Record<string, unknown>
+    return this.setPaneChip(identity, conn, { paneId: p.paneId, id: p.id, text: '' })
+  }
+
+  getSettings(identity: PaneIdentity, conn: MessageConnection) {
+    const rt = this.runtimeOf(identity, conn)
+    return { ok: true, values: this.settingValues(rt) }
+  }
+
+  private sendSettings(rt: Runtime): void {
+    if (!rt.conn || rt.ext.manifest.contributes.settings.length === 0) return
+    const payload = { values: this.settingValues(rt) }
+    void rt.conn
+      .sendNotification('ext.event', { type: SETTINGS_CHANGED_EVENT, payload })
+      .catch(() => {})
+  }
+
+  setSetting(extId: string, key: string, value: unknown): ExtensionSettingResult {
+    const rt = this.runtimes.get(extId)
+    if (!rt) return { ok: false, error: 'unknown-extension' }
+    const setting = rt.ext.manifest.contributes.settings.find((s) => s.key === key)
+    if (!setting) return { ok: false, error: 'unknown-setting' }
+    const stored: ExtensionSettingValues = { ...(this.settings.get(extId) ?? {}) }
+    if (value === null) delete stored[key]
+    else if (validSettingValue(setting, value)) stored[key] = value
+    else return { ok: false, error: 'invalid-value' }
+    this.settings.set(extId, stored)
+    this.sendSettings(rt)
+    this.changed(rt)
+    return { ok: true, stored, list: this.list() }
+  }
+
+  reloadSettings(): void {
+    const before = new Map(
+      [...this.runtimes].map(([id, rt]) => [id, JSON.stringify(this.settingValues(rt))]),
+    )
+    this.settings = storedSettings(this.deps.readExtensionSettings?.())
+    for (const [id, rt] of this.runtimes) {
+      if (before.get(id) !== JSON.stringify(this.settingValues(rt))) this.sendSettings(rt)
+    }
+    this.changed()
+  }
+
   notify(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.runtimeOf(identity, conn)
-    const p = (params ?? {}) as { title?: unknown; body?: unknown }
+    const p = (params ?? {}) as { title?: unknown; body?: unknown; openPanel?: unknown }
     const title = typeof p.title === 'string' ? p.title.trim().slice(0, 256) : ''
     if (!title) return fail('missing-title')
     const body = typeof p.body === 'string' && p.body.trim() ? p.body.slice(0, 1024) : undefined
+    const path = typeof p.openPanel === 'string' ? panelPath(p.openPanel) : null
+    if (typeof p.openPanel === 'string' && !path) {
+      return fail('invalid-params', "openPanel must be true or a path starting with '/'")
+    }
     const from = `extension:${rt.ext.manifest.id}`
-    const wantsPanel = (params as { openPanel?: unknown })?.openPanel === true
+    const wantsPanel = p.openPanel === true || path !== null
     if (wantsPanel && rt.ext.manifest.contributes.panel && this.deps.notifyPanel) {
-      const extId = rt.ext.manifest.id
-      this.deps.notifyPanel({ title, body, from, extId }, () => this.deps.openPanelIn({ extId }))
+      const req: ExtensionOpenPanelRequest = { extId: rt.ext.manifest.id }
+      if (path) req.path = path
+      this.deps.notifyPanel({ title, body, from, extId: req.extId }, () =>
+        this.deps.openPanelIn(req),
+      )
     } else {
       this.deps.notify({ title, body, from })
     }
@@ -671,9 +948,14 @@ export class ExtensionHost {
   openPanel(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const rt = this.runtimeOf(identity, conn)
     if (!rt.ext.manifest.contributes.panel) return fail('not-contributed', 'no panel in manifest')
-    const workspaceId = (params as { workspaceId?: unknown })?.workspaceId
+    const p = (params ?? {}) as { workspaceId?: unknown; path?: unknown }
     const req: ExtensionOpenPanelRequest = { extId: rt.ext.manifest.id }
-    if (typeof workspaceId === 'string' && workspaceId) req.workspaceId = workspaceId
+    if (typeof p.workspaceId === 'string' && p.workspaceId) req.workspaceId = p.workspaceId
+    if (p.path !== undefined) {
+      const path = panelPath(p.path)
+      if (!path) return fail('invalid-params', "path must start with '/'")
+      req.path = path
+    }
     this.deps.openPanelIn(req)
     return { ok: true }
   }
@@ -821,6 +1103,18 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod(
     'ext.openPanel',
     forExtension((h, id, conn, p) => h.openPanel(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.setPaneChip',
+    forExtension((h, id, conn, p) => h.setPaneChip(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.clearPaneChip',
+    forExtension((h, id, conn, p) => h.clearPaneChip(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.getSettings',
+    forExtension((h, id, conn) => h.getSettings(id, conn)),
   )
 
   registerControlMethod(

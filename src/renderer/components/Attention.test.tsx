@@ -274,6 +274,9 @@ describe('NotificationCenter', () => {
           unapproved: [],
           commands: [],
           panel: { title: 'Keeper', icon: 'shield' },
+          paneChips: [],
+          settings: [],
+          settingValues: {},
         },
       ],
     })
