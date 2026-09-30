@@ -179,6 +179,7 @@ export function EditorView({
       ...behaviorOptions(useSettingsStore.getState().editor),
       renderWhitespace: 'selection',
       padding: { top: 8 },
+      inlineSuggest: { enabled: true },
     })
     editorRef.current = editor
 
