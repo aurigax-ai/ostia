@@ -17,7 +17,7 @@ import {
 import { type CoreChipId, type PromptSeparator, separatorText } from '@shared/promptSettings'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
-import { type PaneChipCatalogEntry, paneChipCommandId, runPaneChip } from '../lib/paneChips'
+import { type PaneChipCatalogEntry, paneChipAction } from '../lib/paneChips'
 import type { ResolvedChip } from '../lib/promptChips'
 import { promptLine } from '../lib/promptChips'
 import { useUIStore } from '../stores/uiStore'
@@ -117,8 +117,8 @@ export function PromptChipRow({
   const activate = (chip: ResolvedChip): (() => void) | undefined => {
     if (chip.core === 'cwd') return () => useUIStore.getState().showFiles()
     const ext = chip.extension
-    if (!ext || !paneChipCommandId(ext)) return undefined
-    return () => void runPaneChip(ext)
+    const action = ext ? paneChipAction(ext) : null
+    return action ? () => void action() : undefined
   }
   return (
     <ContextMenu>

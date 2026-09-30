@@ -39,17 +39,25 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
       console.warn(`[extensions] ${ext.id}: command id '${id}' is taken; skipped`)
       continue
     }
-    commands.register<undefined, unknown>({
+    commands.register<{ argument?: string } | undefined, unknown>({
       id,
       title: command.title,
       category: command.category ?? ext.name,
       capabilities: command.capabilities,
       target: 'active',
-      run: async (_args, ctx) => {
-        const res = await window.pine.extensions.invoke(ext.id, command.id, {
-          workspaceId: ctx.activeWorkspaceId,
-          paneId: ctx.activePaneId,
-        })
+      ...(command.argument
+        ? {
+            argument: command.argument,
+            argsSchema: { type: 'object', properties: { argument: { type: 'string' } } },
+          }
+        : {}),
+      run: async (args, ctx) => {
+        const res = await window.pine.extensions.invoke(
+          ext.id,
+          command.id,
+          { workspaceId: ctx.activeWorkspaceId, paneId: ctx.activePaneId },
+          command.argument && typeof args?.argument === 'string' ? args.argument : undefined,
+        )
         if (!res.ok) throw new Error(res.message ? `${res.error}: ${res.message}` : res.error)
         return res.data
       },

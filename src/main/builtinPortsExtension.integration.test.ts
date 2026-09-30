@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { ExtensionCaller, ExtensionSidebarItem } from '../shared/extensions'
+import type { ExtensionCaller, ExtensionSidebarItem, PaneChip } from '../shared/extensions'
 import type { CommandResult } from '../shared/types'
 import { registerControlServer, stopControlServer } from './controlServer'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
@@ -64,6 +64,11 @@ describe.runIf(process.platform === 'linux')(
         []) as ExtensionSidebarItem[]
     const itemsOf = (workspaceId: string): ExtensionSidebarItem[] =>
       sidebar().filter((i) => i.extId === 'ports' && i.workspaceId === workspaceId)
+    const chipsOf = (paneId: string): PaneChip[] =>
+      (
+        (broadcasts.filter((b) => b.channel === 'extensions:chips').at(-1)?.payload ??
+          []) as PaneChip[]
+      ).filter((c) => c.paneId === paneId)
 
     beforeAll(async () => {
       dir = realpathSync(mkdtempSync(join(tmpdir(), 'pine-ports-ext-')))
@@ -174,6 +179,39 @@ describe.runIf(process.platform === 'linux')(
       expect(itemsOf('s2').some((i) => i.key.startsWith('port:'))).toBe(false)
     })
 
+    it('puts a ports chip on the pane that links its first port', async () => {
+      const chip = await until(() => chipsOf('p-web').find((c) => c.id === 'ports'))
+      expect(chip).toMatchObject({
+        extId: 'ports',
+        text: `:${port}`,
+        url: `http://localhost:${port}/`,
+      })
+      expect(chipsOf('p-web').some((c) => c.id === 'ssh')).toBe(false)
+    })
+
+    it('puts the user@host of a foreground ssh on its pane as a chip', async () => {
+      const chip = await until(() => chipsOf('p-ssh').find((c) => c.id === 'ssh'))
+      expect(chip).toMatchObject({ extId: 'ports', text: 'deploy@build-box' })
+      expect(chipsOf('p-ssh').some((c) => c.id === 'ports')).toBe(false)
+    })
+
+    it('links ports to 127.0.0.1 once the human picks that host', async () => {
+      await until(() => chipsOf('p-web').find((c) => c.id === 'ports'))
+      expect(host.setSetting('ports', 'portHost', '127.0.0.1')).toMatchObject({ ok: true })
+      const chip = await until(() =>
+        chipsOf('p-web').find((c) => c.id === 'ports' && c.url?.includes('127.0.0.1')),
+      )
+      expect(chip.url).toBe(`http://127.0.0.1:${port}/`)
+      const item = await until(() =>
+        itemsOf('s1').find((i) => i.key === `port:${port}` && i.url?.includes('127.0.0.1')),
+      )
+      expect(item.url).toBe(`http://127.0.0.1:${port}/`)
+      host.setSetting('ports', 'portHost', null)
+      await until(() =>
+        chipsOf('p-web').find((c) => c.id === 'ports' && c.url?.includes('localhost')),
+      )
+    })
+
     it('ignores a listening socket the terminal only inherited from Pine itself', async () => {
       await until(() => itemsOf('s1')[0])
       await until(() => itemsOf('s2')[0])
@@ -213,10 +251,11 @@ describe.runIf(process.platform === 'linux')(
       ).toEqual(['s1', 's2', 's4'])
     })
 
-    it('drops the port once the listener exits', async () => {
+    it('drops the port and its chip once the listener exits', async () => {
       await until(() => itemsOf('s1')[0])
       web.kill('SIGKILL')
       await until(() => (itemsOf('s1').length === 0 ? true : undefined))
+      await until(() => (chipsOf('p-web').length === 0 ? true : undefined))
     })
   },
 )

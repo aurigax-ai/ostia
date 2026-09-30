@@ -115,8 +115,32 @@ describe('extensionBridge', () => {
       { activeWorkspaceId: 's1', activePaneId: 'pane-1' },
       'demo.open',
     )
-    expect(invoke).toHaveBeenCalledWith('demo', 'open', { workspaceId: 's1', paneId: 'pane-1' })
+    expect(invoke).toHaveBeenCalledWith(
+      'demo',
+      'open',
+      { workspaceId: 's1', paneId: 'pane-1' },
+      undefined,
+    )
     expect(res).toEqual({ ok: true, result: { opened: true } })
+  })
+
+  it('passes the typed argument only to a command that declares one', async () => {
+    const invoke = vi.fn().mockResolvedValue({ ok: true })
+    window.pine.extensions.invoke = invoke
+    const base = ext().commands[0]
+    syncExtensionCommands([
+      ext({
+        commands: [
+          { ...base, id: 'card', title: 'Open Card', argument: 'Card id' },
+          { ...base, id: 'open' },
+        ],
+      }),
+    ])
+    expect(commands.list().find((c) => c.id === 'demo.card')?.argument).toBe('Card id')
+    const ctx = { activeWorkspaceId: 's1', activePaneId: null }
+    await commands.execWith(ctx, 'demo.card', { argument: 'SHOP-12' })
+    await commands.execWith(ctx, 'demo.open', { argument: 'ignored' })
+    expect(invoke.mock.calls.map((c) => c[3])).toEqual(['SHOP-12', undefined])
   })
 
   it('surfaces an extension failure as a failed command', async () => {

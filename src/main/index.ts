@@ -621,6 +621,7 @@ function registerExtensionIpc(host: ExtensionHost): void {
       extId: string,
       command: string,
       target: { workspaceId: string | null; paneId: string | null },
+      argument?: unknown,
     ): Promise<ExtensionResult> => {
       const paneId = target?.paneId ? getByPaneId(target.paneId)?.externalId : undefined
       const cwd = target?.paneId ? terminalState.get(target.paneId)?.cwd : undefined
@@ -629,7 +630,7 @@ function registerExtensionIpc(host: ExtensionHost): void {
         ...(paneId ? { paneId } : {}),
         ...(cwd ? { cwd } : {}),
       })
-      return host.invoke(extId, command, null, caller)
+      return host.invoke(extId, command, host.paletteArgs(extId, command, argument), caller)
     },
   )
   ipcMain.handle('extensions:panel', (_e, extId: string, context: ExtensionPanelContext) =>

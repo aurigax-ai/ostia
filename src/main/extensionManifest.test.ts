@@ -160,6 +160,26 @@ describe('parseManifest', () => {
     expect(quick).not.toHaveProperty('interactive')
   })
 
+  it('keeps a command argument label only when it is short text', () => {
+    const res = parseManifest(
+      manifest({
+        contributes: {
+          commands: [
+            { id: 'card', title: 'Open Card', argument: 'Card id' },
+            { id: 'long', title: 'Long', argument: 'x'.repeat(81) },
+            { id: 'odd', title: 'Odd', argument: 3 },
+          ],
+        },
+      }),
+      DIR,
+    )
+    if (!res.ok) throw new Error(res.error)
+    const [card, long, odd] = res.manifest.contributes.commands
+    expect(card.argument).toBe('Card id')
+    expect(long).not.toHaveProperty('argument')
+    expect(odd).not.toHaveProperty('argument')
+  })
+
   it('rejects ids that are not lowercase slugs', () => {
     for (const id of ['Demo', '../x', 'a', '__proto__', 'x'.repeat(41), 7]) {
       expect(parseManifest(manifest({ id }), DIR).ok).toBe(false)
