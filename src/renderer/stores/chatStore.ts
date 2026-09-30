@@ -1,4 +1,5 @@
 import { Chat } from '@ai-sdk/react'
+import { CHAT_CONTEXT_MAX, type ChatContextItem } from '@shared/assist'
 import {
   CHAT_TITLE_MAX,
   type ChatSession,
@@ -27,6 +28,10 @@ interface ChatStoreState {
   summaries: ChatSessionSummary[]
   notice: Record<string, ChatNotice>
   drafts: Record<string, string>
+  attachments: Record<string, ChatContextItem[]>
+  attach: (key: string, item: ChatContextItem) => void
+  detach: (key: string, index: number) => void
+  clearAttachments: (key: string) => void
   setDraft: (key: string, text: string) => void
   takeDraft: (key: string) => string | undefined
   setCurrent: (key: string, sessionId: string) => void
@@ -41,6 +46,28 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
   summaries: [],
   notice: {},
   drafts: {},
+  attachments: {},
+  attach: (key, item) =>
+    set((s) => {
+      const kept = (s.attachments[key] ?? []).filter(
+        (a) => a.kind !== item.kind || a.label !== item.label,
+      )
+      return {
+        attachments: { ...s.attachments, [key]: [...kept, item].slice(-CHAT_CONTEXT_MAX) },
+      }
+    }),
+  detach: (key, index) =>
+    set((s) => ({
+      attachments: {
+        ...s.attachments,
+        [key]: (s.attachments[key] ?? []).filter((_, i) => i !== index),
+      },
+    })),
+  clearAttachments: (key) =>
+    set((s) => {
+      const { [key]: _gone, ...rest } = s.attachments
+      return { attachments: rest }
+    }),
   setDraft: (key, text) => set((s) => ({ drafts: { ...s.drafts, [key]: text } })),
   takeDraft: (key) => {
     const text = get().drafts[key]

@@ -11,7 +11,7 @@ import { type KeyboardEvent, type RefObject, useEffect, useMemo, useRef, useStat
 import { composerAgentName, composerModeOf } from '../commands/assistCompose'
 import { fmt, useDict } from '../i18n/useDict'
 import { type ComposerMode, latestRequest, wordDiff } from '../lib/assistComposer'
-import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatureSwitch'
+import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatures'
 import { insertCommand } from '../lib/blockActions'
 import { canInsertReference } from '../lib/sendPick'
 import { terminalFor } from '../lib/terminalHandles'

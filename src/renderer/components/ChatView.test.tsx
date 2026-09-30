@@ -120,7 +120,14 @@ describe('chat', () => {
   afterEach(() => {
     cleanup()
     resetChats()
-    useChatStore.setState({ current: {}, meta: {}, summaries: [], notice: {}, drafts: {} })
+    useChatStore.setState({
+      current: {},
+      meta: {},
+      summaries: [],
+      notice: {},
+      drafts: {},
+      attachments: {},
+    })
     useUIStore.setState(uiInit, true)
     useBlocksStore.setState(blocksInit, true)
     useAssistStore.setState({ availability: {} })
@@ -172,7 +179,8 @@ describe('chat', () => {
     expect(within(answer).getByText('find . -size +100M')).toBeInTheDocument()
     const insert = within(answer).getByRole('button', { name: /Insert at prompt/ })
     expect(insert).not.toHaveAttribute('aria-disabled', 'true')
-    expect(within(answer).getAllByRole('button', { name: 'Copy' })).toHaveLength(2)
+    expect(within(answer).getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+    expect(within(answer).getByRole('button', { name: 'Copy as Markdown' })).toBeInTheDocument()
   })
 
   it('disables Insert at prompt with the reason while the terminal runs a command', async () => {

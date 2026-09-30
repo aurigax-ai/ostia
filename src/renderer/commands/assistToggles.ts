@@ -1,5 +1,5 @@
 import { currentDict, fmt } from '../i18n/useDict'
-import { toggleAssistFeature, toggleCommandId } from '../lib/assistToggle'
+import { toggleAssistFeature, toggleCommandId } from '../lib/assistFeatures'
 import { useAssistStore } from '../stores/assistStore'
 import { commands } from './registry'
 

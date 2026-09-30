@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import type { UIMessage } from 'ai'
 import type { ComponentProps, HTMLAttributes } from 'react'
 import { memo } from 'react'
-import Markdown, { type Components } from 'react-markdown'
+import Markdown, { type Components, type Options } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
@@ -75,12 +75,17 @@ export type MessageResponseProps = {
   children: string
   className?: string
   components?: Components
+  rehypePlugins?: Options['rehypePlugins']
 }
 
 export const MessageResponse = memo(
-  ({ className, children, components }: MessageResponseProps) => (
+  ({ className, children, components, rehypePlugins }: MessageResponseProps) => (
     <article className={cn('typeset typeset-pine min-w-0', className)}>
-      <Markdown remarkPlugins={REMARK_PLUGINS} components={components}>
+      <Markdown
+        remarkPlugins={REMARK_PLUGINS}
+        rehypePlugins={rehypePlugins}
+        components={components}
+      >
         {children}
       </Markdown>
     </article>
@@ -88,6 +93,7 @@ export const MessageResponse = memo(
   (prev, next) =>
     prev.children === next.children &&
     prev.components === next.components &&
+    prev.rehypePlugins === next.rehypePlugins &&
     prev.className === next.className,
 )
 
