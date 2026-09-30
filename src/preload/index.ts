@@ -144,6 +144,13 @@ const bridge: PineBridge = {
     stat: (path) => ipcRenderer.invoke('fs:stat', path) as Promise<FsKind | null>,
     write: (path, content) => ipcRenderer.invoke('fs:write', path, content) as Promise<boolean>,
     readBinary: (path) => ipcRenderer.invoke('fs:read-binary', path) as Promise<FsBinaryResult>,
+    watch: (path) => ipcRenderer.invoke('fs:watch', path) as Promise<boolean>,
+    unwatch: (path) => ipcRenderer.send('fs:unwatch', path),
+    onChanged: (cb) => {
+      const handler = (_e: unknown, change: { path: string; exists: boolean }): void => cb(change)
+      ipcRenderer.on('fs:changed', handler)
+      return () => ipcRenderer.removeListener('fs:changed', handler)
+    },
   },
   lsp: {
     list: () => ipcRenderer.invoke('lsp:list') as Promise<LspServerInfo[]>,

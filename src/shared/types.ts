@@ -130,6 +130,9 @@ export interface FsApi {
   write: (path: string, content: string) => Promise<boolean>
   stat: (path: string) => Promise<FsKind | null>
   readBinary: (path: string) => Promise<FsBinaryResult>
+  watch: (path: string) => Promise<boolean>
+  unwatch: (path: string) => void
+  onChanged: (cb: (change: { path: string; exists: boolean }) => void) => () => void
 }
 
 export type FsBinaryResult =
