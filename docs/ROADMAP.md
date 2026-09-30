@@ -106,16 +106,16 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Block actions: click to select, copy command/output, jump between blocks, sticky command header | Warp | core (built) | M | 7 |
 | Command history search across panes | Warp | core (built) | M | 7 |
 | Saved workflows / parameterized commands: YAML files (user, project `.pine/workflows`) and extension `contributes.workflows`, picker + argument form inserting at an idle prompt, save from a block or history, `pine workflow list/show` | Warp | core picker + data contributions (built): inserting needs the prompt, which only core may type into | M | 7 |
-| Git branch + dirty state in sidebar (built); listening ports and ssh host (built, `ports`) | cmux | built-in extension | M | 3 |
+| Git branch + dirty state in sidebar (built); listening ports and ssh host in the sidebar and as pane chips (built, `ports`) | cmux | built-in extension | M | 3 |
 | Diff view (Monaco diff editor) + "open in VS Code / Zed at file:line" (built) | Warp/VS Code | built-in extension + core surface | M | 3, 6 |
 | Pick element in browser → send selector, screenshot, console errors to an agent pane | new | with browser automation (built) | M | 3 |
 | Your real Chrome: document Chrome DevTools MCP for agents instead of re-implementing CDP | new | docs (built) | S | 3 |
 | Agent resume on restore (relaunch the agent CLI with its session id) | cmux | built-in extension | M | 5 |
-| Trellis board panel, Keeper approvals panel | yours | built-in extensions (built) | M each | 4 |
+| Trellis board panel with card deep links from notifications and "Trellis: Open Card", Keeper approvals panel opened on its queue from notifications | yours | built-in extensions (built) | M each | 4 |
 | Settings sync (a synced folder you own) | Warp | core (built): it rewrites extension approvals | S–M | 8 |
 | Phone: grant path above read-only, pty input, attention push | cmux-like | built-in extension (gateway) | M | 10 |
 | Warp's IDE-style input editor (opt-in, only at an idle prompt, so agent TUIs keep the keys) | Warp | core (built) | L | 7 |
-| Warp prompt: context chips in the input editor, Edit prompt dialog, plain shell prompt for new shells, extension pane chips in the chip row (built); built-in extensions don't publish branch, diff stats or ssh chips yet | Warp | core (built) + extensions | M | 7 |
+| Warp prompt: context chips in the input editor, Edit prompt dialog, plain shell prompt for new shells, extension pane chips in the chip row (built); the `ports` extension publishes ports and ssh login chips (built); no branch or diff stats chip yet | Warp | core (built) + extensions | M | 7 |
 | Built-in AI chat | Warp | **not planned** | — | Pine hosts agent CLIs; it doesn't compete with them |
 
 ## 4. Phases
@@ -163,9 +163,8 @@ Each phase ships a working product; nothing half-built lands on `main`.
    extension, because it rewrites extension approvals (only core may) and must run before the
    extension host reads them. They rely on phase 4's `workspace.list` for extensions, `caller.cwd`
    and `focus.changed`; without those the Trellis sidebar stays empty and Keeper polls at its
-   idle rate. Deferred: opening a specific card or ticket from a notification (the API for it,
-   `ext.notify {openPanel: path}` and `ext.openPanel {path}`, landed in phase 8; trellis and keeper
-   don't use it yet).
+   idle rate. Opening a specific card from a notification landed with the tools v2 work below;
+   Keeper's dashboard has no per-ticket route, so its notification opens the approvals queue.
 7. **Remote** (done): phone grant path, input from the phone, attention push, bind-address
    picker with Tailscale detection.
 8. **Extension API v2** — **done**: pane chips (`contributes.paneChips`, `ext.setPaneChip` /
@@ -178,6 +177,17 @@ Each phase ships a working product; nothing half-built lands on `main`.
    stay unapproved); `targetPaneId` on `browse.*`, `process.*` and `pane.setAttention` for an
    extension holding the method's capability plus `all-workspaces`; and panel paths
    (`ext.openPanel {path}` navigates the open panel in place, `ext.notify {openPanel: path}`).
+9. **Tools v2** — **done**: the built-ins on API v2. Trellis notifications open the card
+   (`/p/<KEY>/card/<REF>` through the token proxy) and navigate an open panel, "Trellis: Open
+   Card" / `pine trellis card <REF>`, settings for which columns notify and the refresh interval.
+   Keeper notifications open `/approvals` (no per-ticket route exists in Keeper's UI) and its poll
+   intervals and notices are settings. The `ports` extension adds a ports chip (click opens the
+   first port in the browser pane) and a `user@host` ssh chip per terminal, with its scan interval
+   and link host as settings. API added for them, generic for any extension: a command's
+   `argument` (the palette asks for one value and passes it as `argv[0]`), a pane chip `url`
+   (opened in the pane's workspace browser pane, so a chip can link without `browse` +
+   `all-workspaces`), notification-center entries that keep their panel path, and the SDK's
+   `numberSetting`/`booleanSetting`.
 
 ## 5. Guardrails that keep the core lean
 
