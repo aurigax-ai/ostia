@@ -33,6 +33,7 @@ import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startWorkspaceProjects } from './lib/workspaceProjects'
 import { startApprovals } from './stores/approvalsStore'
 import { startAssistAvailability } from './stores/assistStore'
+import { startChatTools } from './stores/chatToolsStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { useSettingsStore } from './stores/settingsStore'
@@ -87,6 +88,7 @@ async function boot(): Promise<void> {
   startViews()
   startUpdateWatch()
   startAssistAvailability()
+  startChatTools()
   startAskCommand()
   startChatCommand()
   startAssistUi()
