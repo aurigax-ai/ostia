@@ -2,7 +2,16 @@ import { randomUUID } from 'node:crypto'
 import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { BrowserWindow, app, ipcMain, nativeTheme, session, shell, webContents } from 'electron'
+import {
+  BrowserWindow,
+  app,
+  ipcMain,
+  nativeTheme,
+  safeStorage,
+  session,
+  shell,
+  webContents,
+} from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import type { ExtensionPanelContext, ExtensionResult } from '../shared/extensions'
@@ -27,6 +36,7 @@ import { clampZoom, zoomFactor } from '../shared/zoom'
 import { registerAgentTranscriptIpc } from './agentTranscript'
 import { registerAppUpdate } from './appUpdate'
 import { approvals, registerApprovals } from './approvals'
+import { registerAssistIpc } from './assistIpc'
 import { registerAttentionMethods } from './attention'
 import {
   type ConsoleEntry,
@@ -51,12 +61,14 @@ import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
 import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
+import { createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 import { openInExternalEditor } from './externalEditor'
 import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
+import { registerIconThemeIpc } from './iconThemes'
 import {
   getByPaneId,
   panesOwnedBy,
@@ -65,6 +77,8 @@ import {
   removeWindow,
   windowOfWorkspace,
 } from './idRegistry'
+import { loadJson, saveJson, storePath } from './jsonStore'
+import { registerLoginFill } from './loginFill'
 import { killAllLsp, registerLspIpc } from './lsp'
 import {
   postNotification,
@@ -612,6 +626,9 @@ function registerExtensionIpc(host: ExtensionHost): void {
   ipcMain.handle('extensions:set-setting', (_e, extId: unknown, key: unknown, value: unknown) =>
     host.setSetting(String(extId), String(key), value),
   )
+  ipcMain.handle('extensions:set-secret', (_e, extId: unknown, key: unknown, value: unknown) =>
+    host.setSecret(String(extId), String(key), value),
+  )
   ipcMain.handle(
     'extensions:invoke',
     (
@@ -953,6 +970,17 @@ function sendToWorkspaceWindow(
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
+function extensionSecretStore() {
+  const path = storePath('extension-secrets', 'global')
+  return createSecretStore({
+    load: () => loadJson<unknown>(path, {}),
+    save: (data) => saveJson(path, data, { secure: true }),
+    canEncrypt: () => safeStorage.isEncryptionAvailable(),
+    encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
+    decrypt: (secret) => safeStorage.decryptString(Buffer.from(secret, 'base64')),
+  })
+}
+
 function readSettingsFile(): { locale?: unknown; extensionSettings?: unknown } {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
@@ -1041,10 +1069,12 @@ app.whenReady().then(() => {
     store: extensionStore,
     socketPath: controlSocketPath,
     nodePath: process.execPath,
+    dataDir: join(app.getPath('userData'), 'extension-data'),
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
+    secrets: extensionSecretStore(),
     broadcast,
     openPanelIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-panel', req),
     openDiffIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
@@ -1055,6 +1085,7 @@ app.whenReady().then(() => {
   })
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
+  registerAssistIpc(() => extensionHost)
   const workflowDeps: WorkflowDeps = {
     userDir: join(configDir(), 'workflows'),
     roots: () => [homedir(), app.getPath('userData')],
@@ -1066,6 +1097,10 @@ app.whenReady().then(() => {
   registerCompletionIpc({
     userDir: join(configDir(), 'completions'),
     extensionDirs: () => extensionHost?.completionDirs() ?? [],
+  })
+  registerIconThemeIpc({
+    themes: () => extensionHost?.iconThemes() ?? [],
+    onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
   })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
@@ -1096,6 +1131,10 @@ app.whenReady().then(() => {
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
+  registerLoginFill({
+    browserPanes,
+    ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
+  })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   broker = new WindowBroker({ createWindow, holdPtys, execCommand })
   broker.register()

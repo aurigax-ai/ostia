@@ -4,8 +4,17 @@ import {
   PROMPT_SEPARATORS,
   PROMPT_STYLES,
 } from '../../shared/promptSettings'
+import { MATCH_PINE_THEME } from '../../shared/themeChoice'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
+import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
+import {
+  EXCLUDE_MAX,
+  FILE_SORT_BYS,
+  FILE_SORT_ORDERS,
+  NESTING_MAX,
+  PATTERN_MAX_LENGTH,
+} from './fileTreeSettings'
 
 const font = (title: string) => ({
   type: 'object',
@@ -20,6 +29,17 @@ const font = (title: string) => ({
       description: 'Regular text weight (bold text stays bold).',
     },
   },
+})
+
+const schemeChoice = (surface: string) => ({
+  type: 'string',
+  examples: [MATCH_PINE_THEME, ...BUILTIN_COLOR_SCHEMES.map((s) => s.id)],
+  description: [
+    `Color scheme for the ${surface}.`,
+    `"${MATCH_PINE_THEME}" uses the scheme of appearance.theme (following its light/dark switch);`,
+    'a scheme id such as catppuccin-mocha keeps that scheme whatever the app theme is.',
+    `An unknown id falls back to the app theme's scheme. Default: ${MATCH_PINE_THEME}.`,
+  ].join(' '),
 })
 
 const CHORD_VALUE = {
@@ -126,10 +146,6 @@ export const SETTINGS_JSON_SCHEMA = {
       type: 'object',
       additionalProperties: false,
       properties: {
-        showHiddenFiles: {
-          type: 'boolean',
-          description: 'Show dotfiles (names starting with .) in the Files explorer.',
-        },
         cursorStyle: {
           type: 'string',
           enum: ['block', 'underline', 'bar'],
@@ -180,10 +196,79 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    files: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        exclude: {
+          type: 'array',
+          maxItems: EXCLUDE_MAX,
+          items: { type: 'string', maxLength: PATTERN_MAX_LENGTH },
+          description:
+            "Glob patterns of files and folders the Files explorer hides, like VS Code's " +
+            'files.exclude. A pattern matches the path relative to the folder the explorer ' +
+            'shows or the absolute path: "**/node_modules" hides every node_modules, ' +
+            '"**/.*" hides dotfiles. "Hide in tree" adds the item\'s absolute path. ' +
+            'Default: .git, .hg, .svn, .DS_Store and Thumbs.db anywhere.',
+        },
+        showExcluded: {
+          type: 'boolean',
+          description:
+            'Show excluded files anyway, dimmed (the eye button in the Files header). ' +
+            'Default: false.',
+        },
+        compactFolders: {
+          type: 'boolean',
+          description:
+            'Show a chain of folders that each hold only one folder as one row, like ' +
+            '"src/main/java". Default: true.',
+        },
+        nesting: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            enabled: {
+              type: 'boolean',
+              description:
+                "Group related files under a parent file, like VS Code's file nesting. " +
+                'Default: true.',
+            },
+            patterns: {
+              type: 'object',
+              maxProperties: NESTING_MAX,
+              additionalProperties: { type: 'string', maxLength: PATTERN_MAX_LENGTH },
+              description:
+                'Parent file pattern → comma-separated child patterns (VS Code syntax). A ' +
+                'parent may hold one "*"; children may use "*" and "${capture}" (the text the ' +
+                'parent\'s "*" matched), e.g. "*.ts": "${capture}.test.ts, ${capture}.d.ts" or ' +
+                '"package.json": "pnpm-lock.yaml". Replaces the defaults when set.',
+            },
+          },
+        },
+        sortOrder: {
+          type: 'string',
+          enum: [...FILE_SORT_ORDERS],
+          description:
+            'foldersFirst lists folders above files; mixed interleaves them. Default: foldersFirst.',
+        },
+        sortBy: {
+          type: 'string',
+          enum: [...FILE_SORT_BYS],
+          description: 'Sort by name, or by file type (extension) then name. Default: name.',
+        },
+        iconTheme: {
+          type: 'string',
+          description:
+            'File icon theme: "pine" (built-in) or the id of a VS Code icon theme an enabled ' +
+            'extension contributes (contributes.iconThemes). Default: pine.',
+        },
+      },
+    },
     terminal: {
       type: 'object',
       additionalProperties: false,
       properties: {
+        theme: schemeChoice('terminal'),
         scrollSpeed: {
           type: 'number',
           minimum: 0.5,
@@ -195,6 +280,14 @@ export const SETTINGS_JSON_SCHEMA = {
           minimum: 1000,
           maximum: 100000,
           description: 'Lines of history each terminal keeps. Default: 10000.',
+        },
+        clipboardKeys: {
+          type: 'string',
+          enum: ['shift', 'smart'],
+          description:
+            'Terminal copy/paste keys on Linux and Windows. "shift": Ctrl+Shift+C/V, and Ctrl+C/V ' +
+            'go to the program. "smart": Ctrl+C copies when text is selected (else interrupts), ' +
+            'Ctrl+V pastes; Ctrl+Shift+C/V still work. macOS always uses Cmd+C/V. Default: shift.',
         },
         warnOnRiskyPaste: {
           type: 'boolean',
@@ -457,6 +550,7 @@ export const SETTINGS_JSON_SCHEMA = {
       type: 'object',
       additionalProperties: false,
       properties: {
+        theme: schemeChoice('editor'),
         wordWrap: { type: 'string', enum: ['off', 'on'], description: 'Wrap long lines.' },
         lineNumbers: {
           type: 'string',
@@ -623,6 +717,7 @@ export const SETTINGS_JSON_SCHEMA = {
               'gateway',
               'browse',
               'settings-write',
+              'credentials',
             ],
           },
           description:

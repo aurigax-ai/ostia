@@ -21,6 +21,7 @@ interface ExtensionsState {
   load: () => Promise<void>
   setEnabled: (extId: string, enabled: boolean) => Promise<void>
   setSetting: (extId: string, key: string, value: unknown) => Promise<string | null>
+  setSecret: (extId: string, key: string, value: string | null) => Promise<string | null>
   approve: (extId: string) => Promise<void>
   review: (extId: string | null) => void
   dismiss: (extId: string) => void
@@ -61,6 +62,13 @@ export const useExtensionsStore = create<ExtensionsState>((set) => ({
     if (!res.ok) return res.error
     set({ list: res.list })
     useSettingsStore.getState().setExtensionSettings(extId, res.stored)
+    return null
+  },
+
+  setSecret: async (extId, key, value) => {
+    const res = await window.pine.extensions.setSecret(extId, key, value)
+    if (!res.ok) return res.error
+    set({ list: res.list })
     return null
   },
 

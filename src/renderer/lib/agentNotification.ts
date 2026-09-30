@@ -22,6 +22,7 @@ export function postAgentNotification(
   const kind = state === 'waiting' ? 'agentWaiting' : 'agentDone'
   window.pine.notifications.post({
     paneId,
+    kind: state,
     title: state === 'waiting' ? d.attention.agentWaiting : d.attention.agentDone,
     body: message ?? paneTitle(paneId),
     desktop: wantsDesktopBanner(useSettingsStore.getState().notifications, kind, seen),

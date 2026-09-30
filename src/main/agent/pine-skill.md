@@ -268,7 +268,8 @@ pine settings get appearance.terminal.size
 pine settings set appearance.terminal.size 14 --dry-run   # validate and show {previous, value}, change nothing
 pine settings set appearance.terminal.size 14      # value parsed as JSON if it parses...
 pine settings set locale '"en"'                    # ...else used as the raw string
-pine settings set behavior.showHiddenFiles true
+pine settings set files.compactFolders false
+pine settings set files.exclude '["**/.git", "**/node_modules"]'
 pine settings unset appearance.terminal.size       # back to the default
 pine settings set keybindings.palette.toggle '"Ctrl+Shift+Y"'   # rebind a command
 pine settings set keybindings.view.toggleRail null              # unbind it
@@ -290,6 +291,14 @@ doesn't exist (`unknown settings key`), the type differs, or the setting doesn't
 permissions (`behavior.externalEditor`, `notifications.command`, `capabilities`,
 `approvals`, `sync`) are the human's; you can't set them. `get` with no key returns every
 readable setting; with a key it prints `null` if absent.
+
+### Signing in with the human's saved logins
+
+`pine browse login [--user <name>]` fills the human's saved login for the browser pane's
+current site (exact origin) into its login form. Every call shows the human an approval card
+naming the site; you get back only `{origin, username}`, never the password. If there's no
+saved login it fails with `no-login`; ask the human to sign in or save one (the key button
+in the browser toolbar). Then submit the form yourself (`pine browse click` on the button).
 
 ## Customize Pine for the human (actions, keys, panels)
 

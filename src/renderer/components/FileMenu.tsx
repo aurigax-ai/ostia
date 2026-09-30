@@ -2,6 +2,8 @@ import {
   ArrowSquareOutIcon,
   CodeIcon,
   CopyIcon,
+  EyeIcon,
+  EyeSlashIcon,
   FileIcon,
   FolderOpenIcon,
   PaperPlaneTiltIcon,
@@ -9,24 +11,21 @@ import {
   SquaresFourIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
-import type { ResumableAgent } from '@shared/agentResume'
 import type { ReactElement } from 'react'
 import { externalEditorError } from '../commands/externalEditor'
-import type { Dict } from '../i18n/dict'
 import { currentDict, fmt, useDict } from '../i18n/useDict'
-import { sessionTitle } from '../lib/agentSession'
 import { relativePath } from '../lib/fileReference'
 import { startNewWorkspace } from '../lib/newWorkspace'
 import { openFileBeside, openFileInWorkspace, openTerminalIn } from '../lib/openFile'
 import type { PickTarget } from '../lib/pickTargets'
-import { insertPathReference, runningAgent } from '../lib/sendPick'
+import { insertPathReference } from '../lib/sendPick'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface } from '../stores/surfaceSlotsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { MenuContent, MenuItem, MenuSubContent, MenuSubTrigger } from './Menu'
-import { usePickTargets } from './PickSendPanel'
+import { useAgentTargets } from './PickSendPanel'
 import {
   ContextMenu,
   ContextMenuSeparator,
@@ -58,7 +57,7 @@ function report(workspaceId: string, message: string): void {
     console.error(`[files] ${message}`)
     return
   }
-  window.pine.notifications.post({ paneId, title: message, desktop: false })
+  window.pine.notifications.post({ paneId, kind: 'error', title: message, desktop: false })
 }
 
 function openDefault(workspaceId: string, path: string): void {
@@ -86,11 +85,9 @@ function openExternal(workspaceId: string, path: string): void {
   })
 }
 
-function agentLabel(d: Dict, t: PickTarget, agent: ResumableAgent | 'other'): string {
-  if (agent === 'other') return t.title
-  const name = d.agentSession[agent]
-  const title = sessionTitle(t.title, agent)
-  return title ? `${name} · ${title}` : name
+export interface TreeVisibility {
+  hidden: boolean
+  toggle: () => void
 }
 
 export function FileMenuItems({
@@ -98,18 +95,16 @@ export function FileMenuItems({
   path,
   dir = false,
   inPine = false,
+  visibility,
 }: {
   workspaceId: string
   path: string
   dir?: boolean
   inPine?: boolean
+  visibility?: TreeVisibility
 }): JSX.Element {
   const d = useDict()
-  const targets = usePickTargets(workspaceId)
-  const agents = targets
-    .filter((t) => t.sameWorkspace)
-    .map((target) => ({ target, agent: runningAgent(target.paneId) }))
-    .filter((a): a is { target: PickTarget; agent: ResumableAgent | 'other' } => a.agent !== null)
+  const agents = useAgentTargets(workspaceId)
   const workDir = useWorkspacesStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.workDir)
   const relative = workDir ? relativePath(path, workDir) : null
   const copy = (text: string): void => void navigator.clipboard.writeText(text)
@@ -146,6 +141,11 @@ export function FileMenuItems({
       <MenuItem icon={FolderOpenIcon} onClick={() => void window.pine.openPath.reveal(path)}>
         {d.fileMenu.reveal}
       </MenuItem>
+      {visibility ? (
+        <MenuItem icon={visibility.hidden ? EyeIcon : EyeSlashIcon} onClick={visibility.toggle}>
+          {visibility.hidden ? d.filesView.showInTree : d.filesView.hideInTree}
+        </MenuItem>
+      ) : null}
       <ContextMenuSeparator />
       <MenuItem icon={CopyIcon} onClick={() => copy(path)}>
         {d.fileMenu.copyPath}
@@ -162,13 +162,13 @@ export function FileMenuItems({
           {agents.length === 0 ? (
             <MenuItem disabled>{d.fileMenu.noAgents}</MenuItem>
           ) : (
-            agents.map(({ target, agent }) => (
+            agents.map((target) => (
               <MenuItem
                 key={target.paneId}
                 leading={<span className={`dot ${target.state === 'none' ? '' : target.state}`} />}
                 onClick={() => sendPath(target, path)}
               >
-                {agentLabel(d, target, agent)}
+                {target.title}
               </MenuItem>
             ))
           )}
@@ -183,17 +183,19 @@ export function FileMenu({
   path,
   dir,
   trigger,
+  visibility,
 }: {
   workspaceId: string
   path: string
   dir?: boolean
   trigger: ReactElement
+  visibility?: TreeVisibility
 }): JSX.Element {
   return (
     <ContextMenu>
       <ContextMenuTrigger render={trigger} />
       <MenuContent>
-        <FileMenuItems workspaceId={workspaceId} path={path} dir={dir} />
+        <FileMenuItems workspaceId={workspaceId} path={path} dir={dir} visibility={visibility} />
       </MenuContent>
     </ContextMenu>
   )

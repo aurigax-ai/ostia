@@ -6,6 +6,7 @@ import {
   ensureContrast,
   luminance,
   normalizeHex,
+  readableOn,
 } from './color'
 
 describe('normalizeHex', () => {
@@ -53,19 +54,33 @@ describe('ensureContrast', () => {
   })
 })
 
+describe('readableOn', () => {
+  it('picks dark text for a light fill like #f2b347 and light text for a dark fill', () => {
+    expect(readableOn('#f2b347', ['#1d2022', '#e3edf5'])).toBe('#1d2022')
+    expect(readableOn('#1f3a8a', ['#1d2022', '#e3edf5'])).toBe('#e3edf5')
+  })
+
+  it('keeps the first preferred color that reads at 4.5:1', () => {
+    expect(readableOn('#0b62c4', ['#f6f7f9', '#1c2127'])).toBe('#f6f7f9')
+  })
+
+  it('falls back to near-black or white when no preferred color reads', () => {
+    expect(readableOn('#ffcc00', ['#ffffff', '#ffee88'])).toBe('#0b0d10')
+    expect(readableOn('#5a2d82', ['#3a3a3a', 'not-a-color'])).toBe('#ffffff')
+  })
+})
+
 describe('deriveAccent', () => {
   it('derives brand, bright and glow tokens from the accent on a dark theme', () => {
-    const { tokens, onBrand } = deriveAccent('#ff8800', 'dark', '#1d2022')
+    const tokens = deriveAccent('#ff8800', 'dark', '#1d2022')
     expect(tokens.brand).toBe('#ff8800')
     expect(luminance(tokens['brand-bright'])).toBeGreaterThan(luminance(tokens.brand))
     expect(tokens['brand-glow']).toBe('rgba(255, 136, 0, 0.18)')
-    expect(onBrand).toBe('#0b0d10')
   })
 
-  it('makes the bright token darker on a light theme and picks readable text for the button', () => {
-    const { tokens, onBrand } = deriveAccent('#0b62c4', 'light', '#f6f7f9')
+  it('makes the bright token darker on a light theme', () => {
+    const tokens = deriveAccent('#0b62c4', 'light', '#f6f7f9')
     expect(luminance(tokens['brand-bright'])).toBeLessThan(luminance(tokens.brand))
-    expect(onBrand).toBe('#ffffff')
   })
 
   it('gives every preset a readable brand and button text on both built-in backgrounds', () => {
@@ -74,10 +89,11 @@ describe('deriveAccent', () => {
         ['dark', '#1d2022'],
         ['light', '#f6f7f9'],
       ] as const) {
-        const { tokens, onBrand } = deriveAccent(preset, appearance, bg)
+        const tokens = deriveAccent(preset, appearance, bg)
         expect(contrastRatio(tokens.brand, bg), `${preset} ${appearance}`).toBeGreaterThanOrEqual(
           4.5,
         )
+        const onBrand = readableOn(tokens.brand, [bg])
         expect(contrastRatio(onBrand, tokens.brand), `${preset} button`).toBeGreaterThanOrEqual(4.5)
       }
     }

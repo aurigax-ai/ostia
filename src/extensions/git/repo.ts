@@ -5,11 +5,15 @@ import {
   type BlameLine,
   type CommitFile,
   type CommitSummary,
+  GRAPH_FORMAT,
+  type GraphCommit,
   LOG_FORMAT,
   parseBlamePorcelain,
+  parseGraphLog,
   parseLog,
   parseNameStatus,
 } from './history'
+import { BRANCH_REF_FORMAT, type BranchRef, parseBranchRefs } from './scope'
 import {
   type ChangeArea,
   type FileChange,
@@ -204,6 +208,33 @@ export async function log(root: string, limit: number): Promise<CommitSummary[]>
   const res = await run(root, ['log', `-n${limit}`, `--format=${LOG_FORMAT}`, '--no-color'])
   if (res.code !== 0) return []
   return parseLog(res.stdout.toString('utf8'))
+}
+
+export async function branchRefs(root: string, head: string | null): Promise<BranchRef[]> {
+  const out = await runOk(root, [
+    'for-each-ref',
+    `--format=${BRANCH_REF_FORMAT}`,
+    'refs/heads',
+    'refs/remotes',
+  ])
+  return parseBranchRefs(out.toString('utf8'), head)
+}
+
+export async function graphLog(
+  root: string,
+  revisions: string[],
+  limit: number,
+): Promise<GraphCommit[]> {
+  const out = await runOk(root, [
+    'log',
+    '--date-order',
+    '--decorate=full',
+    '--no-color',
+    `-n${limit}`,
+    `--format=${GRAPH_FORMAT}`,
+    ...revisions,
+  ])
+  return parseGraphLog(out.toString('utf8'))
 }
 
 const SHA = /^[0-9a-f]{4,64}$/

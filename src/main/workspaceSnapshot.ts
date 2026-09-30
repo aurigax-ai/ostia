@@ -193,6 +193,9 @@ function parseWorkspace(
         ? (entry.kind as SnapshotWorkspace['kind'])
         : 'terminal',
     workDir,
+    ...(typeof entry.projectDir === 'string' && entry.projectDir
+      ? { projectDir: entry.projectDir.slice(0, 4096) }
+      : {}),
     ...(root
       ? {
           root,
