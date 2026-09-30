@@ -812,6 +812,8 @@ export const en = {
     schemeEmpty: 'No color scheme matches.',
     schemeDark: 'Dark',
     schemeLight: 'Light',
+    previewTerminal: 'Terminal',
+    previewEditor: 'Editor',
     themePreview: 'Preview: {theme} {product} theme, {terminal} terminal, {editor} editor',
     motion: 'Motion',
     motionDesc:
@@ -1831,6 +1833,8 @@ export const zhHant: Dict = {
     schemeEmpty: '沒有符合的配色。',
     schemeDark: '深色',
     schemeLight: '淺色',
+    previewTerminal: '終端機',
+    previewEditor: '編輯器',
     themePreview: '預覽：{theme} {product} 主題、{terminal} 終端機、{editor} 編輯器',
     motion: '動態效果',
     motionDesc: '介面動畫。「系統」依照作業系統的減少動態設定；「減少」保留狀態顯示但不移動。',
