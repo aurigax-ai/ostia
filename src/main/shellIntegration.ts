@@ -1,5 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { version } from '../../package.json'
+import { PRODUCT_NAME } from '../shared/product'
+import pineSkill from './agent/pine-skill.md?raw'
 import { privateTmpDir } from './privateTmp'
 
 const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
@@ -168,12 +171,36 @@ export function claudeHookSettings(): { hooks: Record<string, unknown[]> } {
   }
 }
 
-function claudeWrapper(settingsPath: string): string {
+export const CLAUDE_PLUGIN_MANIFEST = {
+  name: PRODUCT_NAME,
+  version,
+  description: `${PRODUCT_NAME} integration: the ${PRODUCT_NAME} CLI skill plus hooks for the agent's resume token and attention state.`,
+}
+
+export function writeClaudePlugin(dir: string): void {
+  mkdirSync(join(dir, '.claude-plugin'), { recursive: true })
+  mkdirSync(join(dir, 'hooks'), { recursive: true })
+  mkdirSync(join(dir, 'skills', PRODUCT_NAME), { recursive: true })
+  writeFileSync(
+    join(dir, '.claude-plugin', 'plugin.json'),
+    `${JSON.stringify(CLAUDE_PLUGIN_MANIFEST, null, 2)}\n`,
+    'utf8',
+  )
+  writeFileSync(
+    join(dir, 'hooks', 'hooks.json'),
+    `${JSON.stringify(claudeHookSettings(), null, 2)}\n`,
+    'utf8',
+  )
+  writeFileSync(join(dir, 'skills', PRODUCT_NAME, 'SKILL.md'), pineSkill, 'utf8')
+}
+
+function claudeWrapper(pluginDir: string): string {
   return [
     '',
-    '# Run claude with Pine hooks (resume token, attention). `command claude` skips them.',
+    '# Run claude with the Pine plugin (CLI skill, resume token, attention hooks).',
+    '# `command claude` skips it.',
     'if [ -n "$PINE_CLI" ]; then',
-    `  claude() { command claude --settings '${settingsPath}' "$@"; }`,
+    `  claude() { command claude --plugin-dir '${pluginDir}' "$@"; }`,
     'fi',
     '',
   ].join('\n')
@@ -192,13 +219,13 @@ function ensureFiles(): IntegrationPaths {
   if (cached) return cached
   mkdirSync(INTEGRATION_DIR, { recursive: true })
 
-  const claudeSettings = join(INTEGRATION_DIR, 'claude-settings.json')
-  writeFileSync(claudeSettings, `${JSON.stringify(claudeHookSettings(), null, 2)}\n`, 'utf8')
+  const claudePlugin = join(INTEGRATION_DIR, 'claude-plugin')
+  writeClaudePlugin(claudePlugin)
 
   const zshInit = join(INTEGRATION_DIR, 'init.zsh')
   const bashInit = join(INTEGRATION_DIR, 'init.bash')
-  writeFileSync(zshInit, ZSH_INIT + claudeWrapper(claudeSettings), 'utf8')
-  writeFileSync(bashInit, BASH_INIT + claudeWrapper(claudeSettings), 'utf8')
+  writeFileSync(zshInit, ZSH_INIT + claudeWrapper(claudePlugin), 'utf8')
+  writeFileSync(bashInit, BASH_INIT + claudeWrapper(claudePlugin), 'utf8')
 
   const zshenv = join(INTEGRATION_DIR, '.zshenv')
   writeFileSync(
