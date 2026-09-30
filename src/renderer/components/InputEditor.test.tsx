@@ -348,6 +348,46 @@ describe('InputEditor', () => {
     expect(editor()).toHaveFocus()
   })
 
+  it('completes subcommands and options from the command’s spec with descriptions', async () => {
+    setMode('editor')
+    idlePrompt()
+    vi.mocked(window.pine.completions.spec).mockImplementation(async (command) =>
+      command === 'git'
+        ? {
+            names: ['git'],
+            subcommands: [
+              {
+                names: ['checkout'],
+                description: 'Switch branches',
+                options: [{ names: ['--force'], description: 'Throw away local changes' }],
+              },
+              { names: ['cherry-pick'], description: 'Apply a commit' },
+              { names: ['add'], args: [{ template: ['filepaths'] }] },
+            ],
+          }
+        : null,
+    )
+    vi.mocked(window.pine.fs.list).mockResolvedValue([{ name: 'package.json', dir: false }])
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'git ch')
+    await user.keyboard('{Tab}')
+    expect(await screen.findByText('Switch branches')).toBeVisible()
+    expect(screen.getByText('Apply a commit')).toBeVisible()
+    expect(editor()).toHaveValue('git che')
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(editor()).toHaveValue('git checkout '))
+    await user.type(editor() as HTMLElement, '--f')
+    await user.keyboard('{Tab}')
+    await waitFor(() => expect(editor()).toHaveValue('git checkout --force '))
+    await user.clear(editor() as HTMLElement)
+    await user.type(editor() as HTMLElement, 'git add pa')
+    await user.keyboard('{Tab}')
+    await waitFor(() => expect(editor()).toHaveValue('git add package.json '))
+    vi.mocked(window.pine.completions.spec).mockReset()
+    vi.mocked(window.pine.fs.list).mockReset()
+  })
+
   it('receives history inserts instead of the shell line while it is shown', async () => {
     setMode('editor')
     idlePrompt()

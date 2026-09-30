@@ -1,5 +1,6 @@
 import type { AgentResume } from './agentResume'
 import type { Capability, PhoneGrantableCap } from './capabilities'
+import type { SpecCommand } from './completionSpec'
 import type { ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
@@ -400,6 +401,10 @@ export interface ExternalEditorApi {
   open: (req: ExternalEditorRequest) => Promise<ExternalEditorResult>
 }
 
+export interface CompletionsApi {
+  spec: (command: string) => Promise<SpecCommand | null>
+}
+
 export interface WorkflowsApi {
   list: (workspaceId: string | null) => Promise<WorkflowListing>
   save: (doc: WorkflowDocument) => Promise<WorkflowSaveResult>
@@ -426,6 +431,7 @@ export interface PineBridge {
   gateway: GatewayApi
   notifications: NotificationsApi
   workflows: WorkflowsApi
+  completions: CompletionsApi
 }
 
 declare global {

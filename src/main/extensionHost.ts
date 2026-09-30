@@ -372,6 +372,12 @@ export class ExtensionHost {
       }))
   }
 
+  completionDirs(): string[] {
+    return [...this.runtimes.values()]
+      .filter((rt) => this.active(rt) && rt.ext.manifest.contributes.completions)
+      .map((rt) => join(rt.ext.dir, rt.ext.manifest.contributes.completions ?? ''))
+  }
+
   sidebarItems(): ExtensionSidebarItem[] {
     return [...this.sidebar.values()]
   }
