@@ -19,6 +19,7 @@ import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { useSettingsStore } from './stores/settingsStore'
+import { useSystemThemeStore } from './stores/systemThemeStore'
 import { useWorkspacesStore } from './stores/workspacesStore'
 
 registerBuiltinCommands()
@@ -37,6 +38,11 @@ async function boot(): Promise<void> {
     await useSettingsStore.getState().init()
   } catch (err) {
     console.error('[settings] load failed', err)
+  }
+  try {
+    await useSystemThemeStore.getState().init()
+  } catch (err) {
+    console.error('[theme] system appearance unavailable', err)
   }
   let snapshot = null
   try {

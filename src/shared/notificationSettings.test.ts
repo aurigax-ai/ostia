@@ -15,6 +15,14 @@ describe('parseNotificationSettings', () => {
   })
 })
 
+describe('parseNotificationSettings command', () => {
+  it('keeps a string command and ignores any other type', () => {
+    expect(parseNotificationSettings({ command: 'say {title}' }).command).toBe('say {title}')
+    expect(parseNotificationSettings({ command: true }).command).toBe('')
+    expect(parseNotificationSettings(undefined).command).toBe('')
+  })
+})
+
 describe('wantsDesktopBanner', () => {
   const on = DEFAULT_NOTIFICATION_SETTINGS
 

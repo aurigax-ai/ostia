@@ -6,7 +6,9 @@ import {
   parseNotificationSettings,
 } from '../../shared/notificationSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
+import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
 import type { Locale } from '../i18n/dict'
+import { normalizeHex } from '../lib/color'
 
 export type ThemeId = string
 
@@ -44,6 +46,11 @@ export const motionMode = (v: unknown): MotionMode =>
 
 export interface Appearance {
   theme: ThemeId
+  followSystem: boolean
+  lightTheme: ThemeId
+  darkTheme: ThemeId
+  accent: string
+  zoom: number
   motion: MotionMode
   ui: SurfaceFont
   terminal: TerminalFont
@@ -108,6 +115,11 @@ const DEFAULTS: Persisted = {
   locale: 'en',
   appearance: {
     theme: 'adeberry',
+    followSystem: false,
+    lightTheme: 'pine-light',
+    darkTheme: 'adeberry',
+    accent: '',
+    zoom: ZOOM_DEFAULT,
     motion: 'system',
     ui: { family: 'Inter Variable', size: 13, weight: 450 },
     terminal: { family: 'Hack Nerd Font Mono', size: 13, weight: 500, lineHeight: 1.15 },
@@ -131,6 +143,11 @@ interface SettingsState extends Persisted {
   init: () => Promise<void>
   setLocale: (l: Locale) => void
   setTheme: (t: ThemeId) => void
+  setFollowSystem: (on: boolean) => void
+  setLightTheme: (t: ThemeId) => void
+  setDarkTheme: (t: ThemeId) => void
+  setAccent: (hex: string) => boolean
+  setZoom: (percent: number) => void
   setMotion: (m: MotionMode) => void
   setSurfaceFont: (surface: FontSurface, patch: Partial<SurfaceFont>) => void
   setBehavior: (patch: Partial<Behavior>) => void
@@ -189,6 +206,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         locale: p.locale ?? DEFAULTS.locale,
         appearance: {
           theme: p.appearance?.theme ?? DEFAULTS.appearance.theme,
+          followSystem: p.appearance?.followSystem === true,
+          lightTheme: p.appearance?.lightTheme ?? DEFAULTS.appearance.lightTheme,
+          darkTheme: p.appearance?.darkTheme ?? DEFAULTS.appearance.darkTheme,
+          accent: normalizeHex(p.appearance?.accent) ?? '',
+          zoom: clampZoom(p.appearance?.zoom),
           motion: motionMode(p.appearance?.motion),
           ui: mergeFont(DEFAULTS.appearance.ui, p.appearance?.ui),
           terminal: {
@@ -218,6 +240,29 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setTheme: (theme) => {
     set((s) => ({ appearance: { ...s.appearance, theme } }))
+    scheduleSave(get)
+  },
+  setFollowSystem: (followSystem) => {
+    set((s) => ({ appearance: { ...s.appearance, followSystem } }))
+    scheduleSave(get)
+  },
+  setLightTheme: (lightTheme) => {
+    set((s) => ({ appearance: { ...s.appearance, lightTheme } }))
+    scheduleSave(get)
+  },
+  setDarkTheme: (darkTheme) => {
+    set((s) => ({ appearance: { ...s.appearance, darkTheme } }))
+    scheduleSave(get)
+  },
+  setAccent: (hex) => {
+    const accent = hex.trim() === '' ? '' : normalizeHex(hex)
+    if (accent === null) return false
+    set((s) => ({ appearance: { ...s.appearance, accent } }))
+    scheduleSave(get)
+    return true
+  },
+  setZoom: (percent) => {
+    set((s) => ({ appearance: { ...s.appearance, zoom: clampZoom(percent) } }))
     scheduleSave(get)
   },
   setMotion: (motion) => {

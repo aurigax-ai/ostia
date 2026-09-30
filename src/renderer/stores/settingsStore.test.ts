@@ -50,6 +50,39 @@ describe('settingsStore', () => {
     useSettingsStore.setState(initialState, true)
   })
 
+  describe('appearance setters', () => {
+    it('setAccent stores a normalized hex, clears on empty and rejects an invalid color', () => {
+      expect(store().setAccent('#F80')).toBe(true)
+      expect(store().appearance.accent).toBe('#ff8800')
+      expect(store().setAccent('orange')).toBe(false)
+      expect(store().appearance.accent).toBe('#ff8800')
+      expect(store().setAccent('')).toBe(true)
+      expect(store().appearance.accent).toBe('')
+    })
+
+    it('setZoom clamps to 80-150 and is saved to settings.json', async () => {
+      store().setZoom(30)
+      expect(store().appearance.zoom).toBe(80)
+      store().setZoom(125)
+      await vi.runAllTimersAsync()
+      const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.appearance.zoom).toBe(125)
+    })
+
+    it('saves the follow-system choice with its light and dark themes', async () => {
+      store().setFollowSystem(true)
+      store().setLightTheme('pine-light')
+      store().setDarkTheme('dracula')
+      await vi.runAllTimersAsync()
+      const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.appearance).toMatchObject({
+        followSystem: true,
+        lightTheme: 'pine-light',
+        darkTheme: 'dracula',
+      })
+    })
+  })
+
   describe('init', () => {
     it('keeps a known input mode and falls back to terminal for anything else', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue(
@@ -84,6 +117,36 @@ describe('settingsStore', () => {
       expect(s.notifications.agentDone).toBe(true)
       expect(s.sidebar.showPath).toBe(false)
       expect(s.sidebar.showMessage).toBe(true)
+    })
+
+    it('reads follow-system, themes, accent and zoom, clamping the zoom and dropping a bad accent', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({
+          appearance: {
+            followSystem: true,
+            lightTheme: 'dracula',
+            darkTheme: 'oxocarbon',
+            accent: '#F80',
+            zoom: 999,
+          },
+          notifications: { command: 'say {title}' },
+        }),
+      )
+      await store().init()
+      expect(store().appearance).toMatchObject({
+        followSystem: true,
+        lightTheme: 'dracula',
+        darkTheme: 'oxocarbon',
+        accent: '#ff8800',
+        zoom: 150,
+      })
+      expect(store().notifications.command).toBe('say {title}')
+
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({ appearance: { followSystem: 'yes', accent: 'red', zoom: 'big' } }),
+      )
+      await store().init()
+      expect(store().appearance).toMatchObject({ followSystem: false, accent: '', zoom: 100 })
     })
 
     it('merges a valid partial settings.json over DEFAULTS (mergeFont keeps default family)', async () => {

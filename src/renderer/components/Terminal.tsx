@@ -23,6 +23,7 @@ import { openFileAt } from '../lib/openFile'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
+import { DEFAULT_DARK_THEME, currentTheme, useEffectiveTheme } from '../lib/theme'
 import { loadWebglRenderer } from '../lib/webglRenderer'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import {
@@ -64,7 +65,7 @@ export function TerminalView({
   const font = useSettingsStore((s) => s.appearance.terminal)
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
-  const themeId = useSettingsStore((s) => s.appearance.theme)
+  const themeId = useEffectiveTheme()?.id ?? DEFAULT_DARK_THEME
   const [search, setSearch] = useState<SearchAddon | null>(null)
   const [findOpen, setFindOpen] = useState(false)
   const [alternateScreen, setAlternateScreen] = useState(false)
@@ -78,7 +79,7 @@ export function TerminalView({
     const initial = useSettingsStore.getState().appearance.terminal
     const behavior = useSettingsStore.getState().behavior
     const term = new Xterm({
-      theme: terminalPalette(useSettingsStore.getState().appearance.theme),
+      theme: terminalPalette(currentTheme()?.id ?? DEFAULT_DARK_THEME),
       fontFamily: fontStack(initial.family),
       fontSize: initial.size,
       fontWeight: initial.weight as FontWeight,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { contrastRatio } from '../lib/color'
 import { terminalPalette } from './terminalTheme'
 
 describe('terminalPalette', () => {
@@ -24,5 +25,15 @@ describe('terminalPalette', () => {
 
   it('falls back to the One Dark Vivid palette for a completely unknown theme id', () => {
     expect(terminalPalette('no-such-theme')).toEqual(terminalPalette('one-dark-vivid'))
+  })
+
+  it('gives pine-light a light palette whose text colors all read at 4.5:1 on its background', () => {
+    const palette = terminalPalette('pine-light')
+    const background = palette.background as string
+    expect(background).not.toBe(terminalPalette('one-dark-vivid').background)
+    for (const [name, color] of Object.entries(palette)) {
+      if (['background', 'cursorAccent', 'selectionBackground'].includes(name)) continue
+      expect(contrastRatio(color as string, background), name).toBeGreaterThanOrEqual(4.5)
+    }
   })
 })

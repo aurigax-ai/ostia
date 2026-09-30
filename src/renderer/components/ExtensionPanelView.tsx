@@ -3,22 +3,22 @@ import type { WebviewTag } from 'electron'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { panelThemeCss } from '../lib/panelTheme'
+import { themedTokens, useEffectiveTheme } from '../lib/theme'
 import { useExtensionsStore } from '../stores/extensionsStore'
-import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Button } from './ui/button'
 
 export const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
 
 function useThemeCss(): string {
-  const themeId = useSettingsStore((s) => s.appearance.theme)
+  const activeTheme = useEffectiveTheme()
+  const accent = useSettingsStore((s) => s.appearance.accent)
   const ui = useSettingsStore((s) => s.appearance.ui.family)
   const mono = useSettingsStore((s) => s.appearance.terminal.family)
-  const themes = usePluginsStore((s) => s.themes)
-  return useMemo(() => {
-    const theme = themes.find((t) => t.id === themeId) ?? themes[0]
-    return panelThemeCss(theme?.tokens ?? {}, { ui, mono })
-  }, [themes, themeId, ui, mono])
+  return useMemo(
+    () => panelThemeCss(activeTheme ? themedTokens(activeTheme, accent).tokens : {}, { ui, mono }),
+    [activeTheme, accent, ui, mono],
+  )
 }
 
 export function ExtensionPanelView({

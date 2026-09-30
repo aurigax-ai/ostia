@@ -136,6 +136,33 @@ const oxocarbon: Theme = {
   },
 }
 
+const pineLight: Theme = {
+  id: 'pine-light',
+  name: 'Pine Light',
+  appearance: 'light',
+  tokens: {
+    bg: '#f6f7f9',
+    'bg-sunken': '#eceef2',
+    'surface-1': '#ffffff',
+    'surface-2': '#f0f2f5',
+    'surface-3': '#e6e9ee',
+    line: 'rgba(0, 0, 0, 0.09)',
+    'line-strong': 'rgba(0, 0, 0, 0.16)',
+    fg: '#1c2127',
+    'fg-muted': '#4f5866',
+    'fg-dim': '#6b7280',
+    brand: '#0b62c4',
+    'brand-bright': '#084b96',
+    'brand-glow': 'rgba(11, 98, 196, 0.14)',
+    attn: '#b3382c',
+    'attn-glow': 'rgba(179, 56, 44, 0.16)',
+    'attn-fg': '#a12f24',
+    ok: '#15703f',
+    add: '#15703f',
+    del: '#b3382c',
+  },
+}
+
 export const BUILTIN_PLUGINS: PluginManifest[] = [
   {
     id: 'pine.themes',
@@ -143,7 +170,9 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
     description: 'The built-in color themes.',
     version: '1.0.0',
     builtin: true,
-    contributes: { themes: [adeberry, oneDarkVivid, instrumentNight, dracula, oxocarbon] },
+    contributes: {
+      themes: [adeberry, oneDarkVivid, instrumentNight, dracula, oxocarbon, pineLight],
+    },
   },
   {
     id: 'pine.lsp',

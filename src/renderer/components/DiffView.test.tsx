@@ -32,6 +32,7 @@ const fake = vi.hoisted(() => {
   }
   const monaco = {
     editor: {
+      setTheme: vi.fn(),
       createDiffEditor: (_host: HTMLElement, options: Record<string, unknown>) => {
         state.created += 1
         state.options.push(options)
@@ -54,7 +55,11 @@ const fake = vi.hoisted(() => {
   return { monaco, state }
 })
 
-vi.mock('../monaco/setup', () => ({ monaco: fake.monaco }))
+vi.mock('../monaco/setup', () => ({
+  monaco: fake.monaco,
+  monacoThemeName: (appearance: string) =>
+    appearance === 'light' ? 'pine-light' : 'one-dark-vivid',
+}))
 vi.mock('../lsp/client', () => ({ openDocument: vi.fn() }))
 
 const { DiffView } = await import('./DiffView')
