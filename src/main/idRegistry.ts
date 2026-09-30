@@ -74,9 +74,9 @@ export function registerExtension(extId: string): PaneIdentity {
   return identity
 }
 
-export function removeExtension(extId: string): void {
+export function removeExtension(extId: string, externalId?: string): void {
   const id = byExtension.get(extId)
-  if (!id) return
+  if (!id || (externalId !== undefined && id.externalId !== externalId)) return
   byExtension.delete(extId)
   unindex(id)
 }

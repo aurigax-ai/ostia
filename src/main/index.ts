@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain, nativeTheme, session, shell, webContents } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
-import type { ExtensionResult } from '../shared/extensions'
+import type { ExtensionPanelContext, ExtensionResult } from '../shared/extensions'
 import { PRODUCT_NAME } from '../shared/product'
 import type {
   AppInfo,
@@ -503,6 +503,7 @@ function registerIpc(): void {
           workspaceId: event.workspaceId,
         })
       }
+      extensionHost?.clearPaneChips(event.paneId)
       dropRestoredScrollback(event.paneId)
       hibernatedPanes.delete(event.paneId)
       removePane(event.paneId)
@@ -601,6 +602,10 @@ function registerExtensionIpc(host: ExtensionHost): void {
   )
   ipcMain.handle('extensions:approve', (_e, extId: string) => host.approve(String(extId)))
   ipcMain.handle('extensions:sidebar', () => host.sidebarItems())
+  ipcMain.handle('extensions:chips', () => host.paneChips())
+  ipcMain.handle('extensions:set-setting', (_e, extId: unknown, key: unknown, value: unknown) =>
+    host.setSetting(String(extId), String(key), value),
+  )
   ipcMain.handle(
     'extensions:invoke',
     (
@@ -619,13 +624,12 @@ function registerExtensionIpc(host: ExtensionHost): void {
       return host.invoke(extId, command, null, caller)
     },
   )
-  ipcMain.handle(
-    'extensions:panel',
-    (_e, extId: string, context: { workspaceId: string; locale: string }) =>
-      host.resolvePanel(String(extId), {
-        workspaceId: String(context?.workspaceId ?? ''),
-        locale: String(context?.locale ?? 'en'),
-      }),
+  ipcMain.handle('extensions:panel', (_e, extId: string, context: ExtensionPanelContext) =>
+    host.resolvePanel(String(extId), {
+      workspaceId: String(context?.workspaceId ?? ''),
+      locale: String(context?.locale ?? 'en'),
+      ...(context?.path === undefined ? {} : { path: String(context.path) }),
+    }),
   )
 }
 
@@ -888,15 +892,17 @@ function sendToWorkspaceWindow(
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
-function readLocale(): string | undefined {
+function readSettingsFile(): { locale?: unknown; extensionSettings?: unknown } {
   try {
-    const settings = JSON.parse(
-      readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'),
-    ) as { locale?: unknown }
-    return typeof settings.locale === 'string' ? settings.locale : undefined
+    return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
   } catch {
-    return undefined
+    return {}
   }
+}
+
+function readLocale(): string | undefined {
+  const locale = readSettingsFile().locale
+  return typeof locale === 'string' ? locale : undefined
 }
 
 const OPEN_TERMINAL_TIMEOUT_MS = 5000
@@ -962,6 +968,7 @@ app.whenReady().then(() => {
       extensionStore.reload()
       extensionHost?.reloadRecords()
     },
+    onSettingsPulled: () => extensionHost?.reloadSettings(),
   })
   settingsSync.run()
   extensionHost = new ExtensionHost({
@@ -972,6 +979,7 @@ app.whenReady().then(() => {
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     locale: readLocale,
+    readExtensionSettings: () => readSettingsFile().extensionSettings,
     broadcast,
     openPanelIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-panel', req),
     openDiffIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
@@ -1011,6 +1019,7 @@ app.whenReady().then(() => {
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   createWindow()
   extensionHost.startEager()
+  extensionHost.watchUserExtensions()
   app.on('browser-window-focus', emitFocusChanged)
   app.on('browser-window-blur', emitFocusChanged)
   setInterval(autosaveScrollback, SCROLLBACK_AUTOSAVE_MS).unref()

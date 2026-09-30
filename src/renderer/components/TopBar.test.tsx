@@ -23,6 +23,9 @@ const git: ExtensionInfo = {
   unapproved: [],
   commands: [],
   panel: { title: 'Changes', icon: 'git-branch' },
+  paneChips: [],
+  settings: [],
+  settingValues: {},
 }
 
 describe('TopBar', () => {

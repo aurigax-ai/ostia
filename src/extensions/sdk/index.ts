@@ -18,16 +18,30 @@ import type {
   ExtensionEventType,
   ExtensionIcon,
   ExtensionResult,
+  ExtensionSettingValues,
   OpenTerminalOptions,
   SidebarTone,
 } from '../../shared/extensions'
+import { SETTINGS_CHANGED_EVENT, TARGET_PANE_PARAM } from '../../shared/extensions'
 
 export type {
   DiffContent,
   ExtensionCaller,
   ExtensionResult,
+  ExtensionSettingValues,
   OpenTerminalOptions,
 } from '../../shared/extensions'
+
+export type AttentionVerb = 'waiting' | 'done' | 'working' | 'error' | 'clear'
+
+export interface PaneChipValue {
+  paneId: string
+  id: string
+  text: string
+  tooltip?: string
+  tone?: SidebarTone
+  command?: string
+}
 
 export type OpenTerminalResult =
   | { ok: true; paneId: string }
@@ -59,7 +73,12 @@ export type CommandHandler = (
   caller: ExtensionCaller,
 ) => ExtensionResult | Promise<ExtensionResult>
 
-export type PanelHandler = (caller: ExtensionCaller) => { url: string } | Promise<{ url: string }>
+export type PanelHandler = (
+  caller: ExtensionCaller,
+  path?: string,
+) => { url: string } | Promise<{ url: string }>
+
+export type SettingsHandler = (values: ExtensionSettingValues) => void
 
 export type EventHandler = <T extends ExtensionEventType>(
   type: T,
@@ -77,7 +96,7 @@ export interface ConfirmRequest {
 export interface PineExtension {
   call: <T = unknown>(method: string, params?: unknown) => Promise<T>
   confirm: (req: ConfirmRequest) => Promise<boolean>
-  notifyPanel: (title: string, body?: string) => Promise<unknown>
+  notifyPanel: (title: string, body?: string, path?: string) => Promise<unknown>
   registerCommands: (handlers: Record<string, CommandHandler>) => Promise<void>
   onPanel: (handler: PanelHandler) => void
   subscribe: (events: ExtensionEventType[], handler: EventHandler) => Promise<unknown>
@@ -90,7 +109,13 @@ export interface PineExtension {
     url?: string
   }) => Promise<unknown>
   notify: (title: string, body?: string) => Promise<unknown>
-  openPanel: (workspaceId?: string) => Promise<unknown>
+  openPanel: (workspaceId?: string, path?: string) => Promise<unknown>
+  setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>
+  clearPaneChip: (paneId: string, id: string) => Promise<ExtensionResult>
+  getSettings: () => Promise<ExtensionSettingValues>
+  onSettingsChanged: (handler: SettingsHandler) => void
+  callAs: <T = unknown>(paneId: string, method: string, params?: object) => Promise<T>
+  setAttention: (paneId: string, state: AttentionVerb, message?: string) => Promise<unknown>
   openDiff: (diff: DiffContent & { workspaceId?: string }) => Promise<ExtensionResult>
   openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
   listWorkspaces: () => Promise<WorkspaceInfo[]>
@@ -128,6 +153,7 @@ export async function connect(): Promise<PineExtension> {
   const handlers = new Map<string, CommandHandler>()
   let panelHandler: PanelHandler | null = null
   let eventHandler: EventHandler | null = null
+  let settingsHandler: SettingsHandler | null = null
 
   conn.onRequest(
     'ext.command',
@@ -141,13 +167,20 @@ export async function connect(): Promise<PineExtension> {
       }
     },
   )
-  conn.onRequest('ext.panel', async (params: { caller: ExtensionCaller }) => {
+  conn.onRequest('ext.panel', async (params: { caller: ExtensionCaller; path?: string }) => {
     if (!panelHandler) throw new Error('no panel handler')
-    return panelHandler(params.caller)
+    return panelHandler(params.caller, params.path)
   })
-  conn.onNotification('ext.event', (params: { type: ExtensionEventType; payload: never }) => {
-    eventHandler?.(params.type, params.payload)
-  })
+  conn.onNotification(
+    'ext.event',
+    (params: { type: ExtensionEventType | typeof SETTINGS_CHANGED_EVENT; payload: never }) => {
+      if (params.type === SETTINGS_CHANGED_EVENT) {
+        settingsHandler?.((params.payload as { values: ExtensionSettingValues }).values)
+      } else {
+        eventHandler?.(params.type, params.payload)
+      }
+    },
+  )
   conn.onClose(() => process.exit(0))
   socket.on('close', () => process.exit(0))
   conn.listen()
@@ -162,7 +195,8 @@ export async function connect(): Promise<PineExtension> {
       const res = await conn.sendRequest<{ confirmed?: unknown }>('ext.confirm', req)
       return res?.confirmed === true
     },
-    notifyPanel: (title, body) => conn.sendRequest('ext.notify', { title, body, openPanel: true }),
+    notifyPanel: (title, body, path) =>
+      conn.sendRequest('ext.notify', { title, body, openPanel: path ?? true }),
     registerCommands: async (map) => {
       for (const [id, handler] of Object.entries(map)) handlers.set(id, handler)
       await conn.sendRequest('ext.registerCommands', { commands: Object.keys(map) })
@@ -176,7 +210,20 @@ export async function connect(): Promise<PineExtension> {
     },
     setSidebarItem: (item) => conn.sendRequest('ext.setSidebarItem', item),
     notify: (title, body) => conn.sendRequest('ext.notify', { title, body }),
-    openPanel: (workspaceId) => conn.sendRequest('ext.openPanel', { workspaceId }),
+    openPanel: (workspaceId, path) => conn.sendRequest('ext.openPanel', { workspaceId, path }),
+    setPaneChip: (chip) => conn.sendRequest('ext.setPaneChip', chip),
+    clearPaneChip: (paneId, id) => conn.sendRequest('ext.clearPaneChip', { paneId, id }),
+    getSettings: async () => {
+      const res = await conn.sendRequest<{ values?: ExtensionSettingValues }>('ext.getSettings')
+      return res?.values ?? {}
+    },
+    onSettingsChanged: (handler) => {
+      settingsHandler = handler
+    },
+    callAs: <T>(paneId: string, method: string, params?: object) =>
+      conn.sendRequest<T>(method, { ...params, [TARGET_PANE_PARAM]: paneId }),
+    setAttention: (paneId, state, message) =>
+      conn.sendRequest('pane.setAttention', { [TARGET_PANE_PARAM]: paneId, state, message }),
     openDiff: (diff) => conn.sendRequest('ext.openDiff', diff),
     openTerminal: async (opts) => {
       try {
