@@ -701,9 +701,10 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - New workspaces (`addWorkspace`): the first `workspaceGroups.byCwd` rule whose glob matches
     the workDir puts it in that group (created by name if missing, at the group's end). Otherwise,
     when the active workspace is in a group, the new one joins it right after the active one.
-    Otherwise it is appended ungrouped. Globs (`globToRegExp`): `*` within one path segment, `**`
-    across, `?` one character, matched against the whole workDir (trailing slashes ignored), so a
-    workspace opened at `~` matches only a pattern that covers the literal `~`.
+    Otherwise it is appended ungrouped. Globs (picomatch, `dot: true`, like the file tree): `*`
+    within one path segment, `**` across, `?` one character, matched against the whole workDir
+    (trailing slashes ignored), so a workspace opened at `~` matches only a pattern that covers
+    the literal `~`.
   - Group ids come from their own counter and are adopted on restore (`adoptGroupIds`), like
     workspace ids.
   - Commands: `workspace.newGroup`, `workspace.ungroup`, `workspace.toggleGroup`,

@@ -1,5 +1,6 @@
 import { type FSWatcher, lstatSync, mkdirSync, readFileSync, readdirSync, watch } from 'node:fs'
 import { join } from 'node:path'
+import { debounce } from 'es-toolkit'
 import {
   VIEW_FILES_MAX,
   VIEW_FILE_MAX_BYTES,
@@ -110,7 +111,7 @@ export class ViewHost {
   private files = new Map<string, LoadedFile>()
   private lastGood = new Map<string, ViewDoc>()
   private watcher: FSWatcher | null = null
-  private timer: ReturnType<typeof setTimeout> | null = null
+  private readonly schedule = debounce(() => this.rescan(), RESCAN_DEBOUNCE_MS)
   private signature = ''
 
   constructor(private readonly deps: ViewHostDeps) {
@@ -218,18 +219,9 @@ export class ViewHost {
     }
   }
 
-  private schedule(): void {
-    if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => {
-      this.timer = null
-      this.rescan()
-    }, RESCAN_DEBOUNCE_MS)
-  }
-
   stop(): void {
     this.watcher?.close()
     this.watcher = null
-    if (this.timer) clearTimeout(this.timer)
-    this.timer = null
+    this.schedule.cancel()
   }
 }
