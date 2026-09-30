@@ -232,6 +232,9 @@ Details: `docs/ARCHITECTURE.md`.
   the renderer; `before-quit` calls `preventDefault()` until approved, so the scrollback save
   and pty kill run once, after approval. New workspace paths call `startNewWorkspace()` (placement
   and folder settings), never `addWorkspace` directly. E2E seeds `workspaces.confirmQuit: false`.
+  Closing to the tray (`workspaces.closeToTray`, or a `--hidden` start; `main/tray.ts`) hides the
+  window without asking, since nothing stops; the tray's Quit shows the window first so
+  `closeGuard` can still ask.
 - **Workspace/pane guards:** `closePane` emits `pane-closed` only if the pane existed; a
   workspace's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
