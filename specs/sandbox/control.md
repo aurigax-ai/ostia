@@ -1,6 +1,6 @@
 # Sandbox: Pine control plane
 
-Status: cases approved 2026-09-30 at 8457e4a
+Status: cases approved 2026-09-30 at 0e21cd1
 
 Intent: Pine's own features (control socket, browser, other workspaces) don't become a way around
 the sandbox, and the human decides how much of Pine a sandboxed workspace can reach. Back to

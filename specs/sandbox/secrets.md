@@ -1,6 +1,6 @@
 # Sandbox: secrets
 
-Status: cases approved 2026-09-30 at 8457e4a
+Status: cases approved 2026-09-30 at 0e21cd1
 
 Intent: a sandboxed agent gets the real secrets it needs (tokens, SSH keys) only when the human
 grants them, in one of three ways: an env var, a file, or a value handed over on request after a

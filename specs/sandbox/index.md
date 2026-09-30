@@ -1,6 +1,6 @@
 # Sandboxed agent workspaces
 
-Status: cases approved 2026-09-30 at 8457e4a
+Status: cases approved 2026-09-30 at 0e21cd1
 
 Intent: a human can mark a workspace as sandboxed, and then everything that runs in it (pane
 shells, agent CLIs, `pine process`) is confined by the OS to the workspace folder and a

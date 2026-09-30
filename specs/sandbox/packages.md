@@ -1,6 +1,6 @@
 # Sandbox: packages
 
-Status: cases approved 2026-09-30 at 8457e4a
+Status: cases approved 2026-09-30 at 0e21cd1
 
 Intent: a sandboxed agent installs language packages only after they pass a malware check, a
 cooldown and the human's lists, and gets system packages only through the human in a host
