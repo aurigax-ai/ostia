@@ -160,6 +160,61 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    terminal: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        scrollSpeed: {
+          type: 'number',
+          minimum: 0.5,
+          maximum: 5,
+          description: 'Mouse wheel scroll speed multiplier for terminals. Default: 1.',
+        },
+        scrollbackLines: {
+          type: 'integer',
+          minimum: 1000,
+          maximum: 100000,
+          description: 'Lines of history each terminal keeps. Default: 10000.',
+        },
+        warnOnRiskyPaste: {
+          type: 'boolean',
+          description:
+            'Ask before pasting text that contains a newline or unsafe control characters ' +
+            'into a terminal. Default: true.',
+        },
+        minimumContrast: {
+          type: 'number',
+          minimum: 1,
+          maximum: 21,
+          description:
+            'Lowest contrast ratio allowed between terminal text and its background; ' +
+            'text below it is adjusted. 1 turns it off. Default: 1.',
+        },
+      },
+    },
+    panes: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        dimInactive: {
+          type: 'boolean',
+          description: 'Dim panes that are not focused while a workspace is split. Default: true.',
+        },
+        focusOnHover: {
+          type: 'boolean',
+          description: 'Focus a pane after the pointer rests on it. Default: false.',
+        },
+        equalizeOnSplit: {
+          type: 'boolean',
+          description:
+            'Resize every split in the workspace to equal shares when a pane is created. Default: false.',
+        },
+        hideTabClose: {
+          type: 'boolean',
+          description: 'Hide the close button on pane tabs. Default: false.',
+        },
+      },
+    },
     notifications: {
       type: 'object',
       additionalProperties: false,

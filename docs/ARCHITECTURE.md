@@ -238,7 +238,8 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 
 ### Rendering, blocks, state
 
-- `Terminal.tsx` registers OSC 7 (cwd, raw path) and OSC 133 A/B/C/D handlers. Scrollback is 10k.
+- `Terminal.tsx` registers OSC 7 (cwd, raw path) and OSC 133 A/B/C/D handlers. Scrollback, wheel
+  speed and minimum contrast come from the `terminal` settings and are re-applied to open terminals.
   Web links open on Ctrl/Cmd+click. `TerminalFind.tsx` wraps the search addon.
 - **Blocks** (`stores/blocksStore.ts`, `components/Blocks.tsx`):
   - Each OSC 133 mark registers an xterm marker (`registerMarker(0)`), which tracks its line
@@ -605,11 +606,17 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 - `stores/settingsStore.ts` persists `userData/settings.json` (debounced 300 ms): `locale`,
   `appearance` (theme + ui/terminal/editor fonts), `behavior` (`showHiddenFiles`, `cursorStyle`,
   `cursorBlink`, `restoreWorkspace`), `workspaces` (`placement`, `inheritFolder`, `defaultFolder`,
-  `confirmClose`, `confirmQuit`, `wrapTitles`), `keybindings`, `capabilities.grants`, `sync.dir`.
+  `confirmClose`, `confirmQuit`, `wrapTitles`), `terminal` (`scrollSpeed`, `scrollbackLines`,
+  `warnOnRiskyPaste`, `minimumContrast`), `panes` (`dimInactive`, `focusOnHover`,
+  `equalizeOnSplit`, `hideTabClose`), `keybindings`, `capabilities.grants`, `sync.dir`.
   - `browser` and `editor` are their own groups, parsed by `shared/browserEditorSettings.ts`
     (invalid values fall back to defaults, zoom is clamped to 50 to 300).
   - `keybindings` is validated on load by `parseKeybindings`: only string chords that parse
     and `null` survive. The platform guard is applied when the effective map is built.
+  - `settings/terminalPaneSettings.ts` holds the pure parsing and clamping for the `terminal` and
+    `panes` sections (numbers clamp, bad values fall back, non-booleans are dropped); `init` and
+    `setByPath` both run it, so a hand-edited file or `pine settings set` can't store an
+    out-of-range value.
   - `setByPath` rejects prototype-pollution segments, keys outside the data groups,
     and type changes.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.
@@ -619,6 +626,29 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   These are data-only contributions; behavior and UI come from extensions (§11), listed in the
   same Settings → Plugins section.
 - i18n: typed catalogs in `i18n/dict.ts`, read via `useDict()`.
+
+### Terminal and pane behavior settings
+
+- **Risky paste** (`terminal.warnOnRiskyPaste`): `Terminal.tsx` funnels the paste chord
+  (`requestPaste`) and native `paste` events (a capturing listener on the host, which also sees the
+  Linux middle-click paste: xterm moves its textarea under the pointer and the browser pastes the
+  primary selection into it) through `isRiskyPaste` (a newline or a control character other than
+  tab). A risky paste is held in `RiskyPasteDialog` (shadcn Dialog, preview via `pastePreview`);
+  Paste calls `term.paste`, Cancel drops it. Why intercept in the capture phase and stop the event:
+  xterm's own textarea handler would otherwise paste before the dialog could answer. Programmatic
+  pastes (`insertCommand`, report references) are not gated; they already have their own idle-prompt
+  rules.
+- **Scrollback, wheel speed, contrast** are xterm options (`scrollback`, `scrollSensitivity`,
+  `minimumContrastRatio`), set at construction and updated on change.
+- **Dim / hover focus / tab close** (`panes.*`): `Pane.tsx` adds `.dimmed` only when `dimInactive`,
+  hides the tab close button when `hideTabClose`, and with `focusOnHover` arms a 150 ms timer on
+  `mouseenter` that runs `pane.focus` and then `focusSurface`. `lib/hoverFocus.ts` `canFocusOnHover`
+  vetoes it while a text field (not xterm's or Monaco's own input) has focus or a dialog, menu,
+  listbox or the palette is open; a pressed mouse button or a `mousedown` cancels it.
+- **Equalize on split** (`panes.equalizeOnSplit`): `patch` in `layoutStore` sees a layout whose slot
+  count grew (`slotCount`; adding a tab does not count) and applies `equalizeSizes` (pure) to every
+  split. Why an epoch (`WorkspaceLayout.equalized`, part of the Allotment key in `PaneTree`): Allotment
+  keeps its own pixel sizes and ignores `SplitNode.sizes`, so only a remount makes it lay out equally.
 
 ### Settings sync
 

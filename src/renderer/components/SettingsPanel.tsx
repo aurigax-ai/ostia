@@ -14,6 +14,7 @@ import {
   MagnifyingGlassIcon,
   PaletteIcon,
   SidebarSimpleIcon,
+  SquareSplitHorizontalIcon,
   SquaresFourIcon,
   StackIcon,
   TerminalWindowIcon,
@@ -31,6 +32,14 @@ import { fmt, useDict } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { openFileInWorkspace } from '../lib/openFile'
 import { platform } from '../platform'
+import {
+  CONTRAST_MAX,
+  CONTRAST_MIN,
+  SCROLLBACK_MAX,
+  SCROLLBACK_MIN,
+  SCROLL_SPEED_MAX,
+  SCROLL_SPEED_MIN,
+} from '../settings/terminalPaneSettings'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { type LspStatus, usePluginsStore } from '../stores/pluginsStore'
 import {
@@ -70,6 +79,7 @@ type SectionId =
   | 'appearance'
   | 'terminal'
   | 'keyboard'
+  | 'panes'
   | 'notifications'
   | 'sidebar'
   | 'workspaces'
@@ -113,6 +123,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'appearance', icon: PaletteIcon, label: d.settings.appearance },
         { id: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
         { id: 'keyboard', icon: KeyboardIcon, label: d.keyboard.title },
+        { id: 'panes', icon: SquareSplitHorizontalIcon, label: d.settings.panes },
         { id: 'notifications', icon: BellIcon, label: d.settings.notifications },
         { id: 'sidebar', icon: SidebarSimpleIcon, label: d.settings.sidebar },
         { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
@@ -189,6 +200,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'appearance' ? <AppearanceSection /> : null}
             {active === 'terminal' ? <TerminalSection /> : null}
             {active === 'keyboard' ? <KeyboardSection /> : null}
+            {active === 'panes' ? <PanesSection /> : null}
             {active === 'notifications' ? <NotificationsSection /> : null}
             {active === 'sidebar' ? <SidebarSection /> : null}
             {active === 'workspaces' ? <WorkspacesSection /> : null}
@@ -643,6 +655,11 @@ function TerminalSection(): JSX.Element {
   const copyOnSelect = useSettingsStore((s) => s.behavior.copyOnSelect)
   const mode = useSettingsStore((s) => s.behavior.inputMode)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
+  const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
+  const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
+  const warnOnRiskyPaste = useSettingsStore((s) => s.terminal.warnOnRiskyPaste)
+  const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
+  const setTerminal = useSettingsStore((s) => s.setTerminal)
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
@@ -689,6 +706,45 @@ function TerminalSection(): JSX.Element {
           onChange={(v) => setBehavior({ copyOnSelect: v })}
         />
       </SettingsGroup>
+      <SettingsGroup title={d.settings.groupScrolling}>
+        <NumberRow
+          label={d.settings.scrollSpeed}
+          desc={d.settings.scrollSpeedDesc}
+          value={scrollSpeed}
+          min={SCROLL_SPEED_MIN}
+          max={SCROLL_SPEED_MAX}
+          step={0.1}
+          onCommit={(v) => setTerminal({ scrollSpeed: v })}
+        />
+        <NumberRow
+          label={d.settings.scrollbackLines}
+          desc={d.settings.scrollbackLinesDesc}
+          value={scrollbackLines}
+          min={SCROLLBACK_MIN}
+          max={SCROLLBACK_MAX}
+          step={1000}
+          onCommit={(v) => setTerminal({ scrollbackLines: v })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupPaste}>
+        <ToggleRow
+          label={d.settings.warnRiskyPaste}
+          desc={d.settings.warnRiskyPasteDesc}
+          checked={warnOnRiskyPaste}
+          onChange={(v) => setTerminal({ warnOnRiskyPaste: v })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupColors}>
+        <NumberRow
+          label={d.settings.minimumContrast}
+          desc={d.settings.minimumContrastDesc}
+          value={minimumContrast}
+          min={CONTRAST_MIN}
+          max={CONTRAST_MAX}
+          step={0.5}
+          onCommit={(v) => setTerminal({ minimumContrast: v })}
+        />
+      </SettingsGroup>
       <SettingsGroup title={d.settings.groupRendering}>
         <ToggleRow
           label={d.settings.gpuAcceleration}
@@ -703,6 +759,87 @@ function TerminalSection(): JSX.Element {
           desc={d.settings.restoreWorkspaceDesc}
           checked={restoreWorkspace}
           onChange={(v) => setBehavior({ restoreWorkspace: v })}
+        />
+      </SettingsGroup>
+    </div>
+  )
+}
+
+function NumberRow({
+  label,
+  desc,
+  value,
+  min,
+  max,
+  step,
+  onCommit,
+}: {
+  label: string
+  desc: string
+  value: number
+  min: number
+  max: number
+  step: number
+  onCommit: (v: number) => void
+}): JSX.Element {
+  const [draft, setDraft] = useState(String(value))
+  useEffect(() => setDraft(String(value)), [value])
+  return (
+    <ControlRow label={label} desc={desc}>
+      <Input
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        value={draft}
+        aria-label={label}
+        onChange={(e) => {
+          setDraft(e.target.value)
+          const n = e.target.value.trim() === '' ? Number.NaN : Number(e.target.value)
+          if (Number.isFinite(n) && n >= min && n <= max) onCommit(n)
+        }}
+        onBlur={() => setDraft(String(value))}
+        className="h-7 w-24 font-mono"
+      />
+    </ControlRow>
+  )
+}
+
+function PanesSection(): JSX.Element {
+  const d = useDict()
+  const panes = useSettingsStore((s) => s.panes)
+  const set = useSettingsStore((s) => s.setPanes)
+  return (
+    <div>
+      <SectionHead title={d.settings.panes} />
+      <SettingsGroup title={d.settings.groupPaneFocus}>
+        <ToggleRow
+          label={d.settings.dimInactive}
+          desc={d.settings.dimInactiveDesc}
+          checked={panes.dimInactive}
+          onChange={(v) => set({ dimInactive: v })}
+        />
+        <ToggleRow
+          label={d.settings.focusOnHover}
+          desc={d.settings.focusOnHoverDesc}
+          checked={panes.focusOnHover}
+          onChange={(v) => set({ focusOnHover: v })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupPaneLayout}>
+        <ToggleRow
+          label={d.settings.equalizeOnSplit}
+          desc={d.settings.equalizeOnSplitDesc}
+          checked={panes.equalizeOnSplit}
+          onChange={(v) => set({ equalizeOnSplit: v })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupPaneTabs}>
+        <ToggleRow
+          label={d.settings.hideTabClose}
+          desc={d.settings.hideTabCloseDesc}
+          checked={panes.hideTabClose}
+          onChange={(v) => set({ hideTabClose: v })}
         />
       </SettingsGroup>
     </div>
