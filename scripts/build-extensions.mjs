@@ -39,6 +39,7 @@ for (const id of ids) {
       platform: 'browser',
       format: 'iife',
       target: 'chrome120',
+      loader: { '.svg': 'text' },
       logLevel: 'warning',
     })
   }

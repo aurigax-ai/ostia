@@ -8,7 +8,10 @@ export type ThemeId = string
 export interface SurfaceFont {
   family: string
   size: number
+  weight: number
 }
+
+export const FONT_WEIGHTS: readonly number[] = [300, 400, 450, 500, 600, 700]
 
 export type MotionMode = 'system' | 'reduced' | 'full'
 
@@ -35,6 +38,7 @@ export interface Behavior {
   cursorBlink: boolean
   restoreWorkspace: boolean
   externalEditor: string
+  gpuAcceleration: boolean
 }
 
 export type FontSurface = 'ui' | 'terminal' | 'editor'
@@ -66,9 +70,9 @@ const DEFAULTS: Persisted = {
   appearance: {
     theme: 'adeberry',
     motion: 'system',
-    ui: { family: 'Inter Variable', size: 13 },
-    terminal: { family: 'Hack Nerd Font Mono', size: 13 },
-    editor: { family: 'Geist Mono Variable', size: 13 },
+    ui: { family: 'Inter Variable', size: 13, weight: 450 },
+    terminal: { family: 'Hack Nerd Font Mono', size: 13, weight: 500 },
+    editor: { family: 'Geist Mono Variable', size: 13, weight: 450 },
   },
   behavior: {
     showHiddenFiles: true,
@@ -76,6 +80,7 @@ const DEFAULTS: Persisted = {
     cursorBlink: true,
     restoreWorkspace: true,
     externalEditor: 'auto',
+    gpuAcceleration: true,
   },
 }
 

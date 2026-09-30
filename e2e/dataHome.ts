@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -10,10 +10,21 @@ export function freshDataHome(): string {
   return dir
 }
 
+export const DOM_RENDERER_SETTINGS = { behavior: { gpuAcceleration: false } }
+
+export function seedSettings(dataHome: string, settings: object): void {
+  const userData = join(dataHome, 'userData')
+  mkdirSync(userData, { recursive: true })
+  writeFileSync(join(userData, 'settings.json'), JSON.stringify(settings))
+}
+
 export function isolatedLaunch(dataHome: string = freshDataHome()): {
   args: string[]
   env: Record<string, string>
 } {
+  if (!existsSync(join(dataHome, 'userData', 'settings.json'))) {
+    seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  }
   return {
     args: [`--user-data-dir=${join(dataHome, 'userData')}`, '.'],
     env: {

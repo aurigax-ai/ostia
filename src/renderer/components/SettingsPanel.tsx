@@ -1,6 +1,8 @@
 import { cn } from '@/lib/utils'
 import {
   ArrowsClockwiseIcon,
+  CheckIcon,
+  CopyIcon,
   DeviceMobileIcon,
   HardDrivesIcon,
   type Icon as IconComponent,
@@ -16,6 +18,7 @@ import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo } from '@shared/types'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import appIcon from '../../../resources/icon.svg'
 import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { openFileInWorkspace } from '../lib/openFile'
@@ -25,6 +28,7 @@ import { type LspStatus, usePluginsStore } from '../stores/pluginsStore'
 import {
   CURSOR_STYLES,
   type CursorStyle,
+  FONT_WEIGHTS,
   type FontSurface,
   MOTION_MODES,
   type MotionMode,
@@ -32,8 +36,10 @@ import {
   useSettingsStore,
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { FontPicker } from './FontPicker'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
+import { IconButton } from './IconButton'
 import { SyncSection } from './SyncSection'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
@@ -138,7 +144,7 @@ export function SettingsPanel(): JSX.Element | null {
                       active === s.id ? 'bg-surface-2 text-fg' : 'text-fg-muted',
                     )}
                   >
-                    <s.icon className={active === s.id ? 'text-brand' : 'text-fg-dim'} />
+                    <s.icon className={active === s.id ? 'text-fg' : 'text-fg-muted'} />
                     {s.label}
                   </Button>
                 </li>
@@ -175,6 +181,21 @@ export function SectionHead({ title, desc }: { title: string; desc?: string }): 
       <h2 className="mb-1.5 font-semibold text-fg text-ui-lg">{title}</h2>
       {desc ? <p className="mb-3 text-fg-muted text-ui-sm">{desc}</p> : null}
     </>
+  )
+}
+
+export function SettingsGroup({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}): JSX.Element {
+  return (
+    <section className="mt-5 border-line border-t pt-5 first-of-type:mt-3 first-of-type:border-t-0 first-of-type:pt-0">
+      <h3 className="mb-2 font-semibold text-fg text-ui-emphasis">{title}</h3>
+      {children}
+    </section>
   )
 }
 
@@ -272,29 +293,32 @@ function AppearanceSection(): JSX.Element {
     full: d.settings.motionFull,
   }
   return (
-    <section>
+    <div>
       <SectionHead title={d.settings.appearance} />
-      <ControlRow label={d.settings.theme}>
-        <SelectField
-          value={theme}
-          onChange={setTheme}
-          label={d.settings.theme}
-          options={themes.map((t) => ({ value: t.id, label: t.name }))}
-        />
-      </ControlRow>
-      <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
-        <SelectField
-          value={motionMode(motion)}
-          onChange={setMotion}
-          label={d.settings.motion}
-          options={MOTION_MODES.map((m) => ({ value: m, label: motionLabel[m] }))}
-        />
-      </ControlRow>
-      <Separator />
-      <FontRow surface="ui" label={d.settings.uiFont} />
-      <FontRow surface="terminal" label={d.settings.terminalFont} />
-      <FontRow surface="editor" label={d.settings.editorFont} />
-    </section>
+      <SettingsGroup title={d.settings.groupTheme}>
+        <ControlRow label={d.settings.theme}>
+          <SelectField
+            value={theme}
+            onChange={setTheme}
+            label={d.settings.theme}
+            options={themes.map((t) => ({ value: t.id, label: t.name }))}
+          />
+        </ControlRow>
+        <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
+          <SelectField
+            value={motionMode(motion)}
+            onChange={setMotion}
+            label={d.settings.motion}
+            options={MOTION_MODES.map((m) => ({ value: m, label: motionLabel[m] }))}
+          />
+        </ControlRow>
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupFonts}>
+        <FontRow surface="ui" label={d.settings.uiFont} />
+        <FontRow surface="terminal" label={d.settings.terminalFont} />
+        <FontRow surface="editor" label={d.settings.editorFont} />
+      </SettingsGroup>
+    </div>
   )
 }
 
@@ -304,11 +328,17 @@ function FontRow({ surface, label }: { surface: FontSurface; label: string }): J
   const setSurfaceFont = useSettingsStore((s) => s.setSurfaceFont)
   return (
     <ControlRow label={label}>
-      <Input
+      <FontPicker
         value={font.family}
-        onChange={(e) => setSurfaceFont(surface, { family: e.target.value })}
-        aria-label={`${label}, ${d.settings.family}`}
-        className="h-7 w-44 font-mono"
+        label={`${label}, ${d.settings.family}`}
+        onChange={(family) => setSurfaceFont(surface, { family })}
+      />
+      <SelectField
+        value={String(font.weight)}
+        onChange={(w) => setSurfaceFont(surface, { weight: Number(w) })}
+        label={`${label}, ${d.settings.weight}`}
+        width="w-20"
+        options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))}
       />
       <Input
         type="number"
@@ -333,6 +363,7 @@ function TerminalSection(): JSX.Element {
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
   const restoreWorkspace = useSettingsStore((s) => s.behavior.restoreWorkspace)
+  const gpuAcceleration = useSettingsStore((s) => s.behavior.gpuAcceleration)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   const styleLabel: Record<CursorStyle, string> = {
     block: d.settings.styleBlock,
@@ -340,29 +371,41 @@ function TerminalSection(): JSX.Element {
     bar: d.settings.styleBar,
   }
   return (
-    <section>
+    <div>
       <SectionHead title={d.settings.terminal} />
-      <ControlRow label={d.settings.cursorStyle}>
-        <SelectField
-          value={cursorStyle}
-          onChange={(c) => setBehavior({ cursorStyle: c })}
-          label={d.settings.cursorStyle}
-          options={CURSOR_STYLES.map((c) => ({ value: c, label: styleLabel[c] }))}
+      <SettingsGroup title={d.settings.groupCursor}>
+        <ControlRow label={d.settings.cursorStyle}>
+          <SelectField
+            value={cursorStyle}
+            onChange={(c) => setBehavior({ cursorStyle: c })}
+            label={d.settings.cursorStyle}
+            options={CURSOR_STYLES.map((c) => ({ value: c, label: styleLabel[c] }))}
+          />
+        </ControlRow>
+        <ToggleRow
+          label={d.settings.cursorBlink}
+          desc={d.settings.cursorBlinkDesc}
+          checked={cursorBlink}
+          onChange={(v) => setBehavior({ cursorBlink: v })}
         />
-      </ControlRow>
-      <ToggleRow
-        label={d.settings.cursorBlink}
-        desc={d.settings.cursorBlinkDesc}
-        checked={cursorBlink}
-        onChange={(v) => setBehavior({ cursorBlink: v })}
-      />
-      <ToggleRow
-        label={d.settings.restoreWorkspace}
-        desc={d.settings.restoreWorkspaceDesc}
-        checked={restoreWorkspace}
-        onChange={(v) => setBehavior({ restoreWorkspace: v })}
-      />
-    </section>
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupRendering}>
+        <ToggleRow
+          label={d.settings.gpuAcceleration}
+          desc={d.settings.gpuAccelerationDesc}
+          checked={gpuAcceleration}
+          onChange={(v) => setBehavior({ gpuAcceleration: v })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupSession}>
+        <ToggleRow
+          label={d.settings.restoreWorkspace}
+          desc={d.settings.restoreWorkspaceDesc}
+          checked={restoreWorkspace}
+          onChange={(v) => setBehavior({ restoreWorkspace: v })}
+        />
+      </SettingsGroup>
+    </div>
   )
 }
 
@@ -571,24 +614,42 @@ function LanguageSection(): JSX.Element {
 function AboutSection(): JSX.Element {
   const d = useDict()
   const [info, setInfo] = useState<AppInfo | null>(null)
+  const [copied, setCopied] = useState(false)
   useEffect(() => {
     window.pine
       .info()
       .then(setInfo)
       .catch(() => setInfo(null))
   }, [])
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(timer)
+  }, [copied])
+  const name = info?.name ?? PRODUCT_NAME
+  const version = info ? `v${info.version}` : '…'
   return (
-    <section>
-      <SectionHead title={d.settings.about} />
-      <ControlRow label={d.settings.title}>
-        <span className="text-fg text-ui-base">{info?.name ?? PRODUCT_NAME}</span>
-      </ControlRow>
-      <ControlRow label={d.settings.version}>
-        <span className="text-fg-muted text-ui-base tabular-nums">{info?.version ?? '…'}</span>
-      </ControlRow>
-      <ControlRow label={d.settings.platform}>
-        <span className="text-fg-muted text-ui-base">{platform}</span>
-      </ControlRow>
+    <section
+      aria-label={d.settings.about}
+      className="flex flex-col items-center gap-3 pt-16 text-center"
+    >
+      <img src={appIcon} alt="" className="size-20" />
+      <h2 className="font-semibold text-fg text-ui-lg">{name}</h2>
+      <div className="flex items-center gap-1">
+        <span className="font-mono text-fg-muted text-ui-sm tabular-nums">{version}</span>
+        <IconButton
+          icon={copied ? CheckIcon : CopyIcon}
+          label={copied ? d.settings.copied : d.settings.copyVersion}
+          disabled={!info}
+          onClick={() => {
+            void navigator.clipboard.writeText(version).then(() => setCopied(true))
+          }}
+        />
+      </div>
+      <p className="text-fg-muted text-ui-sm">
+        {fmt(d.settings.copyright, { year: new Date().getFullYear(), name })}
+      </p>
+      <p className="text-fg-muted text-ui-xs">{platform}</p>
     </section>
   )
 }

@@ -30,6 +30,11 @@ if (!container) throw new Error('#root not found')
 const root = createRoot(container)
 
 async function boot(): Promise<void> {
+  try {
+    await useSettingsStore.getState().init()
+  } catch (err) {
+    console.error('[settings] load failed', err)
+  }
   let snapshot = null
   try {
     snapshot = (await window.pine?.workspace?.load?.()) ?? null

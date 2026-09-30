@@ -275,7 +275,9 @@ Details: `docs/ARCHITECTURE.md`.
   window controls). Tokens and type scale in `docs/DESIGN.md`; never hardcode colors or
   off-scale font sizes. `--fg-dim` is never used for text. Icon-only buttons are `IconButton`.
   Icons come only from `@phosphor-icons/react` (`*Icon` names; weight set once by `IconContext`
-  in `App.tsx`, never per icon). No other icon family and no hand-drawn SVG icons.
+  in `App.tsx`, never per icon). Extension panels (plain DOM) use `@phosphor-icons/core` SVGs
+  through the SDK's `icon()`. No other icon family, no hand-drawn SVG icons, and no Unicode
+  glyphs (`↻`, `×`) standing in for icons. Icons are never tinted with the brand color.
 - **Motion:** overlays built on `components/ui/` get `motion-overlay` (or `motion-hint` for
   tooltips) and animate through Base UI's `data-starting-style`/`data-ending-style`; don't add
   tw-animate `animate-in`/`zoom-*`/`slide-*` classes. No scale on press, springs, bounces,
@@ -344,8 +346,9 @@ Details: `docs/ARCHITECTURE.md`.
   `addLiveSubscriber` (else it paints twice).
 - **The restore seam leads with a bare OSC 133;D** so a command running at quit doesn't come back
   as a block that runs forever.
-- **`hydrate()` runs before the first render** (`main.tsx`): the first render must already see the
-  restored workspaces (or none), else the work zone flashes the empty state and a pane mounted
+- **Settings load and `hydrate()` run before the first render** (`main.tsx`): restored terminals
+  read settings once at mount (GPU renderer, cursor), so loading them later started restored
+  panes on defaults. The first render must already see the restored workspaces (or none), else the work zone flashes the empty state and a pane mounted
   before hydration would spawn a pty that's orphaned a tick later.
 - **Allotment is keyed by the child-id list**; its internal sizes go stale on structural changes.
 - **xterm's viewport paints black by default.** `.xterm-host .xterm .xterm-viewport` is
@@ -363,6 +366,9 @@ Details: `docs/ARCHITECTURE.md`.
   `keeper approve` and `keeper ui` auto-start the keeper daemon, so always gate them with
   `keeper daemon status` (which doesn't). `trellis events --consumer` doesn't advance the cursor
   by reading; `events ack` does, and a new consumer starts at 0 (prime it without notifying).
+- **E2E reads terminal text from the DOM renderer.** WebGL draws to a canvas, so `isolatedLaunch()`
+  seeds `behavior.gpuAcceleration: false` (`DOM_RENDERER_SETTINGS`); a spec that seeds its own
+  `settings.json` spreads it in. Only `terminal-webgl.spec.ts` runs the GPU renderer.
 - **E2E must isolate both data dirs** (`e2e/dataHome.ts` → `isolatedLaunch()`): a fresh
   `XDG_DATA_HOME` (else a spec restores the previous spec's panes) and `--user-data-dir` (else a
   spec rewrites the developer's real `settings.json`, which has happened). It also sets
