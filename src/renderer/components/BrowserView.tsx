@@ -3,6 +3,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CrosshairIcon,
+  DatabaseIcon,
 } from '@phosphor-icons/react'
 import type { PickCapture, PickTheme } from '@shared/pick'
 import type { WebviewTag } from 'electron'
@@ -14,6 +15,7 @@ import { sendPickToPane } from '../lib/sendPick'
 import { terminalTitle } from '../lib/terminalTitle'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { BrowserStoragePanel } from './BrowserStoragePanel'
 import { IconButton } from './IconButton'
 import { PickSendPanel, usePickTargets } from './PickSendPanel'
 import { Button } from './ui/button'
@@ -53,6 +55,8 @@ export function BrowserView({
   const [canGoBack, setCanGoBack] = useState(false)
   const [canGoForward, setCanGoForward] = useState(false)
   const [loadError, setLoadError] = useState<{ url: string; reason: string } | null>(null)
+  const [storageOpen, setStorageOpen] = useState(false)
+  const [navCount, setNavCount] = useState(0)
 
   const withGuest = useCallback((fn: (wv: WebviewTag) => void): boolean => {
     const wv = webviewRef.current as unknown as WebviewTag | null
@@ -109,6 +113,7 @@ export function BrowserView({
         isMainFrame?: boolean
       }
       if (isMainFrame === false) return
+      setNavCount((n) => n + 1)
       setLoadError(null)
       showAddress(navigatedUrl)
       syncNavState()
@@ -282,6 +287,12 @@ export function BrowserView({
           aria-pressed={picking !== null}
           onClick={() => void togglePick()}
         />
+        <IconButton
+          icon={DatabaseIcon}
+          label={storageOpen ? d.browser.storageHide : d.browser.storageShow}
+          aria-pressed={storageOpen}
+          onClick={() => setStorageOpen((open) => !open)}
+        />
       </div>
       {picking || status ? (
         <output className="block flex-none border-line border-b bg-surface-2 px-3 py-1 text-fg-muted text-ui-sm">
@@ -330,6 +341,13 @@ export function BrowserView({
           </Empty>
         ) : null}
       </div>
+      {storageOpen ? (
+        <BrowserStoragePanel
+          paneId={paneId}
+          refreshKey={navCount}
+          onClose={() => setStorageOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }

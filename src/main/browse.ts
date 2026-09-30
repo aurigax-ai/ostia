@@ -1,9 +1,33 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { webContents } from 'electron'
+import {
+  DEFAULT_SCROLL_PX,
+  type KeyCombo,
+  globMatches,
+  isScrollDirection,
+  normalizeUrl,
+  parseKeyCombo,
+  scrollDelta,
+} from '../shared/browseInput'
+import { type NetworkFilter, filterRequests, summarizeRequest } from '../shared/browseNetwork'
+import type {
+  BrowseOutcome,
+  ElementState,
+  FindQuery,
+  StorageArea,
+  WebStorageDump,
+} from '../shared/browseRuntime'
+import { type SnapshotNode, formatSnapshot } from '../shared/browseSnapshot'
+import type { StorageCookie } from '../shared/browserStorage'
 import type { CommandResult, CommandTarget } from '../shared/types'
-import { type AuthedConn, connHasCap } from './controlAuth'
+import { jsArgs, runInBrowseWorld } from './browseWorld'
+import { clearStorage, listCookies, readWebStorage, writeCookie } from './browserStorage'
+import type { AuthedConn } from './controlAuth'
+import { ensureCaps } from './controlElevation'
 import { registerTargetableMethod } from './controlServer'
+import { clearRequestLog, networkIdleFor, requestsFor } from './guestNetwork'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
 import { resolveSafe } from './pathGuard'
 import { privateTmpDir } from './privateTmp'
@@ -25,6 +49,13 @@ export interface ConsoleEntry {
 }
 
 export const MAX_CONSOLE_ENTRIES = 500
+export const DEFAULT_TIMEOUT_MS = 25_000
+export const MAX_TIMEOUT_MS = 120_000
+const POLL_MS = 100
+const NETWORK_IDLE_MS = 500
+const NEW_TAB_WAIT_MS = 10_000
+const INPUT_SETTLE_MS = 30
+const NEW_TAB_URL = /^(https?|file):/i
 
 export function pushConsoleEntry(
   buffer: Map<number, ConsoleEntry[]>,
@@ -55,25 +86,26 @@ export const PAGE_ERROR_CATCHER_JS = `(() => {
   };
 })();`
 
-const frameSelectors = new Map<number, string>()
-
-export function clearGuestFrame(wcId: number): void {
-  frameSelectors.delete(wcId)
+interface Route {
+  pattern: string
+  abort: boolean
+  body?: string
 }
 
 const dialogPolicies = new Map<number, { policy: 'accept' | 'dismiss'; text: string | null }>()
-
 const dialogInitAttached = new Set<number>()
+const reactGrabOn = new Set<number>()
+const mousePositions = new Map<number, { x: number; y: number }>()
+const guestRoutes = new Map<number, Route[]>()
+const routedGuests = new WeakSet<Electron.WebContents>()
+const activeTabs = new Map<string, string>()
 
-export function clearGuestDialogPolicy(wcId: number): void {
+export function clearGuestBrowseState(wcId: number): void {
   dialogPolicies.delete(wcId)
   dialogInitAttached.delete(wcId)
-}
-
-const reactGrabOn = new Set<number>()
-
-export function clearGuestReactGrab(wcId: number): void {
   reactGrabOn.delete(wcId)
+  mousePositions.delete(wcId)
+  guestRoutes.delete(wcId)
 }
 
 const MAX_DIALOG_ENTRIES = 200
@@ -161,11 +193,17 @@ type GuestResolution =
   | { ok: false; error: 'browser-not-ready' }
   | { ok: false; error: 'needs-elevation' }
 
-export function resolveGuest(
+function liveGuest(wcId: number | undefined): Electron.WebContents | null {
+  if (wcId === undefined) return null
+  const guest = webContents.fromId(wcId)
+  return guest && !guest.isDestroyed() ? guest : null
+}
+
+export async function resolveGuest(
   deps: Pick<BrowseDeps, 'browserPanes'>,
   ctx: MethodCtx,
   paneId?: string,
-): GuestResolution {
+): Promise<GuestResolution> {
   if (paneId) {
     const identity = resolveExternal(paneId)
     if (!identity) return { ok: false, error: 'no-browser-pane' }
@@ -174,1629 +212,1144 @@ export function resolveGuest(
     const crossBoundary =
       identity.workspaceId !== ctx.identity.workspaceId ||
       identity.windowId !== ctx.identity.windowId
-    if (crossBoundary && !connHasCap(ctx.authed, 'all-workspaces')) {
-      return { ok: false, error: 'needs-elevation' }
+    if (crossBoundary) {
+      try {
+        await ensureCaps(ctx.authed, ctx.identity, ['all-workspaces'], 'browse', `pane ${paneId}`)
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith('needs-elevation')) {
+          return { ok: false, error: 'needs-elevation' }
+        }
+        throw e
+      }
     }
-    const guest = webContents.fromId(wcId)
-    if (!guest || guest.isDestroyed()) return { ok: false, error: 'browser-not-ready' }
+    const guest = liveGuest(wcId)
+    if (!guest) return { ok: false, error: 'browser-not-ready' }
     return { ok: true, guest, rendererPaneId: identity.paneId }
+  }
+  const active = activeTabs.get(ctx.identity.paneId)
+  if (active && getByPaneId(active)?.workspaceId === ctx.identity.workspaceId) {
+    const guest = liveGuest(deps.browserPanes.get(active))
+    if (guest) return { ok: true, guest, rendererPaneId: active }
   }
   for (const [rendererPaneId, wcId] of deps.browserPanes) {
     if (getByPaneId(rendererPaneId)?.workspaceId !== ctx.identity.workspaceId) continue
-    const guest = webContents.fromId(wcId)
-    if (!guest || guest.isDestroyed()) continue
-    return { ok: true, guest, rendererPaneId }
+    const guest = liveGuest(wcId)
+    if (guest) return { ok: true, guest, rendererPaneId }
   }
   return { ok: false, error: 'no-browser-pane' }
+}
+
+export function ownedGuest(
+  browserPanes: Map<string, number>,
+  paneId: string,
+  senderWindowId: string,
+): Electron.WebContents | null {
+  if (typeof paneId !== 'string' || getByPaneId(paneId)?.windowId !== senderWindowId) return null
+  return liveGuest(browserPanes.get(paneId))
 }
 
 function errMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }
 
-const MAX_HTML_CHARS = 1_000_000
-
-const screenshotCounters = new Map<string, number>()
-
-function scratchScreenshotPath(rendererPaneId: string): string {
-  const n = (screenshotCounters.get(rendererPaneId) ?? 0) + 1
-  screenshotCounters.set(rendererPaneId, n)
-  return join(privateTmpDir('pine-screens'), `${rendererPaneId}-${n}.png`)
+function fail(error: string, message?: string): { ok: false; error: string; message?: string } {
+  return message ? { ok: false, error, message } : { ok: false, error }
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-const KEY_ALIASES: Record<string, string> = {
-  Enter: 'Return',
-  Esc: 'Escape',
-  ArrowUp: 'Up',
-  ArrowDown: 'Down',
-  ArrowLeft: 'Left',
-  ArrowRight: 'Right',
-  ' ': 'Space',
-  Space: 'Space',
+type Params = Record<string, unknown>
+
+function str(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
 }
 
-function toElectronKeyCode(key: string): string {
-  return KEY_ALIASES[key] ?? key
+function num(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
-function isPrintableKey(key: string): boolean {
-  return [...key].length === 1
+function clampTimeout(value: unknown): number {
+  const ms = num(value) ?? DEFAULT_TIMEOUT_MS
+  return Math.min(Math.max(ms, 0), MAX_TIMEOUT_MS)
 }
 
-function sendKeyDown(guest: Electron.WebContents, key: string): void {
-  guest.sendInputEvent({ type: 'keyDown', keyCode: toElectronKeyCode(key) })
-  if (isPrintableKey(key)) {
-    guest.sendInputEvent({ type: 'char', keyCode: key })
-  }
-}
-
-function sendKeyUp(guest: Electron.WebContents, key: string): void {
-  guest.sendInputEvent({ type: 'keyUp', keyCode: toElectronKeyCode(key) })
-}
-
-const ENSURE_INJECTED = `
-if (!window.__pine) {
-  window.__pine = {
-    refs: {},
-    n: 0,
-    // Current-frame pointer for \`browse.frame\` — null/unset means "top document". Set via a
-    // direct \`window.__pine.frameSel = ...\` write (browse.frame's own injected JS), read fresh
-    // by \`frameDoc()\` on every call rather than captured at prelude-definition time, since
-    // \`window.__pine\` (and its methods) are only defined ONCE per page load (guarded by the
-    // \`if (!window.__pine)\` above) — a plain data field is what lets a later \`browse.frame\`
-    // call actually change resolveEl's behavior for calls after it.
-    frameSel: null,
-    frameDoc() {
-      if (!this.frameSel) return document;
-      try {
-        const el = document.querySelector(this.frameSel);
-        const doc = el && el.contentDocument;
-        return doc || document;
-      } catch (e) {
-        return document;
-      }
-    },
-    ref(el) {
-      this.n += 1;
-      const id = 'e' + this.n;
-      this.refs[id] = el;
-      return id;
-    },
-    resolveEl(sel) {
-      if (typeof sel === 'string' && /^@?e\\d+$/.test(sel)) {
-        return this.refs[sel.replace('@', '')] || null;
-      }
-      return sel ? this.frameDoc().querySelector(sel) : null;
-    },
-    roleOf(el) {
-      const explicit = el.getAttribute && el.getAttribute('role');
-      if (explicit) return explicit;
-      const tag = el.tagName ? el.tagName.toLowerCase() : '';
-      if (tag === 'a' && el.hasAttribute('href')) return 'link';
-      if (tag === 'button') return 'button';
-      if (tag === 'input') {
-        const type = (el.getAttribute('type') || 'text').toLowerCase();
-        if (type === 'button' || type === 'submit' || type === 'reset') return 'button';
-        if (type === 'checkbox') return 'checkbox';
-        if (type === 'radio') return 'radio';
-        return 'textbox';
-      }
-      if (tag === 'textarea') return 'textbox';
-      if (tag === 'select') return 'combobox';
-      if (/^h[1-6]$/.test(tag)) return 'heading';
-      if (tag === 'img') return 'img';
-      if (tag === 'label') return 'label';
-      return tag || 'node';
-    },
-    nameOf(el) {
-      const aria = el.getAttribute && el.getAttribute('aria-label');
-      if (aria && aria.trim()) return aria.trim();
-      const tag = el.tagName ? el.tagName.toLowerCase() : '';
-      if (tag === 'img') return (el.getAttribute('alt') || '').trim();
-      const text = (el.innerText || el.value || '').toString().trim();
-      if (text) return text.slice(0, 80);
-      const placeholder = el.getAttribute && el.getAttribute('placeholder');
-      if (placeholder && placeholder.trim()) return placeholder.trim();
-      const title = el.getAttribute && el.getAttribute('title');
-      return (title || '').trim();
-    },
-  };
-}
-`
-
-function withInjected(body: string): string {
-  return `${ENSURE_INJECTED}\n(() => {\n${body}\n})()`
-}
-
-async function runSelectorJs(
+function world<T extends object>(
   guest: Electron.WebContents,
-  js: string,
-): Promise<{ ok: true } | { ok: false; error: string; message?: string }> {
-  try {
-    const found = await guest.executeJavaScript(js, true)
-    return found ? { ok: true } : { ok: false, error: 'not-found' }
-  } catch (e) {
-    return { ok: false, error: 'eval-failed', message: errMessage(e) }
-  }
+  call: string,
+): Promise<BrowseOutcome<T>> {
+  return runInBrowseWorld<BrowseOutcome<T>>(guest, call)
 }
 
-async function evalToResult(
+async function debuggerCommand<T = unknown>(
   guest: Electron.WebContents,
-  js: string,
-): Promise<{ ok: true; result: string } | { ok: false; error: string; message?: string }> {
+  method: string,
+  params?: object,
+): Promise<T> {
+  if (!guest.debugger.isAttached()) guest.debugger.attach('1.3')
+  return (await guest.debugger.sendCommand(method, params)) as T
+}
+
+async function settle(guest: Electron.WebContents): Promise<void> {
+  await sleep(INPUT_SETTLE_MS)
   try {
-    const raw = await guest.executeJavaScript(js, true)
-    let result: string
-    try {
-      result = JSON.stringify(raw) ?? String(raw)
-    } catch {
-      result = String(raw)
+    await guest.executeJavaScript('0', false)
+  } catch {}
+}
+
+function zoomed(guest: Electron.WebContents, x: number, y: number): { x: number; y: number } {
+  const zoom = guest.getZoomFactor()
+  return { x: Math.round(x * zoom), y: Math.round(y * zoom) }
+}
+
+type MouseButton = 'left' | 'right' | 'middle'
+
+function mouseMove(guest: Electron.WebContents, x: number, y: number): void {
+  const at = zoomed(guest, x, y)
+  guest.sendInputEvent({ type: 'mouseMove', x: at.x, y: at.y })
+  mousePositions.set(guest.id, { x, y })
+}
+
+function mouseButton(
+  guest: Electron.WebContents,
+  type: 'mouseDown' | 'mouseUp',
+  button: MouseButton,
+  clickCount: number,
+): void {
+  const pos = mousePositions.get(guest.id) ?? { x: 0, y: 0 }
+  const at = zoomed(guest, pos.x, pos.y)
+  guest.sendInputEvent({ type, x: at.x, y: at.y, button, clickCount })
+}
+
+async function clickPoint(
+  guest: Electron.WebContents,
+  x: number,
+  y: number,
+  clicks: number,
+): Promise<void> {
+  mouseMove(guest, x, y)
+  for (let n = 1; n <= clicks; n++) {
+    mouseButton(guest, 'mouseDown', 'left', n)
+    mouseButton(guest, 'mouseUp', 'left', n)
+  }
+  await settle(guest)
+}
+
+function sendCombo(guest: Electron.WebContents, combo: KeyCombo, phase: 'down' | 'up' | 'press') {
+  if (phase !== 'up') {
+    guest.sendInputEvent({ type: 'keyDown', keyCode: combo.keyCode, modifiers: combo.modifiers })
+    if (combo.printable) {
+      guest.sendInputEvent({ type: 'char', keyCode: combo.keyCode, modifiers: combo.modifiers })
     }
-    return { ok: true, result }
-  } catch (e) {
-    return { ok: false, error: 'eval-failed', message: errMessage(e) }
+  }
+  if (phase !== 'down') {
+    guest.sendInputEvent({ type: 'keyUp', keyCode: combo.keyCode, modifiers: combo.modifiers })
   }
 }
 
-function cookieUrl(cookie: Electron.Cookie): string {
-  const domain = (cookie.domain ?? '').replace(/^\./, '')
-  return `${cookie.secure ? 'https' : 'http'}://${domain}${cookie.path ?? '/'}`
+const TYPEABLE_KEY = /^[\x21-\x7e]$/
+
+function typeText(guest: Electron.WebContents, text: string): void {
+  for (const ch of text) {
+    if (ch === '\n') {
+      sendCombo(guest, { keyCode: 'Return', modifiers: [], printable: false }, 'press')
+      continue
+    }
+    const keyCode = ch === ' ' ? 'Space' : ch
+    const hasKey = ch === ' ' || TYPEABLE_KEY.test(ch)
+    if (hasKey) guest.sendInputEvent({ type: 'keyDown', keyCode })
+    guest.sendInputEvent({ type: 'char', keyCode: ch })
+    if (hasKey) guest.sendInputEvent({ type: 'keyUp', keyCode })
+  }
 }
 
-interface BrowseStateFile {
-  cookies: Electron.Cookie[]
+async function clickTarget(
+  guest: Electron.WebContents,
+  target: string,
+  clicks: number,
+): Promise<BrowseOutcome> {
+  const at = await world<{ x: number; y: number }>(guest, `point(${jsArgs(target)})`)
+  if (!at.ok) return at
+  await clickPoint(guest, at.x, at.y, clicks)
+  return { ok: true }
+}
+
+async function setChecked(
+  guest: Electron.WebContents,
+  target: string,
+  wanted: boolean,
+): Promise<BrowseOutcome> {
+  const state = await world<{ value: boolean }>(guest, `checked(${jsArgs(target)})`)
+  if (!state.ok) return state
+  if (state.value === wanted) return { ok: true }
+  const clicked = await clickTarget(guest, target, 1)
+  if (!clicked.ok) return clicked
+  const after = await world<{ value: boolean }>(guest, `checked(${jsArgs(target)})`)
+  if (!after.ok) return after
+  return after.value === wanted ? { ok: true } : fail('state-unchanged', target)
+}
+
+function commandTarget(identity: PaneIdentity): CommandTarget {
+  return { windowId: identity.windowId, workspaceId: identity.workspaceId, paneId: identity.paneId }
+}
+
+function tabEntry(rendererPaneId: string, guest: Electron.WebContents, activeId?: string) {
+  return {
+    tabId: getByPaneId(rendererPaneId)?.externalId ?? rendererPaneId,
+    url: guest.getURL(),
+    title: guest.getTitle(),
+    active: rendererPaneId === activeId,
+  }
+}
+
+async function waitFor(check: () => Promise<boolean>, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    try {
+      if (await check()) return true
+    } catch {}
+    if (Date.now() >= deadline) return false
+    await sleep(POLL_MS)
+  }
+}
+
+function safeOutPath(deps: BrowseDeps, path: string): string | null {
+  return resolveSafe(path, deps.screenshotRoots)
+}
+
+let scratchCounter = 0
+
+function scratchPath(prefix: string, ext: string): string {
+  scratchCounter += 1
+  return join(privateTmpDir('pine-screens'), `${prefix}-${Date.now()}-${scratchCounter}.${ext}`)
+}
+
+function writeOut(path: string, data: Buffer | string): void {
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, data)
+}
+
+function jsonContentType(body: string): string {
+  try {
+    JSON.parse(body)
+    return 'application/json'
+  } catch {
+    return 'text/plain'
+  }
+}
+
+function watchRoutes(guest: Electron.WebContents): void {
+  if (routedGuests.has(guest)) return
+  routedGuests.add(guest)
+  const wcId = guest.id
+  guest.debugger.on('message', (_e, method, params) => {
+    if (method !== 'Fetch.requestPaused') return
+    const p = params as { requestId: string; request: { url: string } }
+    const route = [...(guestRoutes.get(wcId) ?? [])]
+      .reverse()
+      .find((r) => globMatches(r.pattern, p.request.url))
+    const reply = !route
+      ? guest.debugger.sendCommand('Fetch.continueRequest', { requestId: p.requestId })
+      : route.abort
+        ? guest.debugger.sendCommand('Fetch.failRequest', {
+            requestId: p.requestId,
+            errorReason: 'BlockedByClient',
+          })
+        : route.body !== undefined
+          ? guest.debugger.sendCommand('Fetch.fulfillRequest', {
+              requestId: p.requestId,
+              responseCode: 200,
+              responseHeaders: [{ name: 'Content-Type', value: jsonContentType(route.body) }],
+              body: Buffer.from(route.body).toString('base64'),
+            })
+          : guest.debugger.sendCommand('Fetch.continueRequest', { requestId: p.requestId })
+    reply.catch(() => {})
+  })
+}
+
+async function applyRoutes(guest: Electron.WebContents): Promise<void> {
+  const routes = guestRoutes.get(guest.id) ?? []
+  if (routes.length === 0) {
+    await debuggerCommand(guest, 'Fetch.disable')
+    return
+  }
+  watchRoutes(guest)
+  await debuggerCommand(guest, 'Fetch.enable', {
+    patterns: routes.map((r) => ({ urlPattern: r.pattern })),
+  })
+}
+
+async function addInitScript(
+  guest: Electron.WebContents,
+  source: string,
+): Promise<{ ok: true; identifier: string }> {
+  await debuggerCommand(guest, 'Page.enable')
+  const result = await debuggerCommand<{ identifier: string }>(
+    guest,
+    'Page.addScriptToEvaluateOnNewDocument',
+    { source },
+  )
+  return { ok: true, identifier: result.identifier }
+}
+
+interface StateFile {
+  cookies: StorageCookie[]
   localStorage: Record<string, string>
   sessionStorage: Record<string, string>
 }
 
-function focusSelectorJs(selector: string): string {
-  return withInjected(`
-    const el = window.__pine.resolveEl(${JSON.stringify(selector)});
-    if (!el) return false;
-    el.focus();
-    return true;
-  `)
-}
-
-async function cdpAddInitScript(
-  guest: Electron.WebContents,
-  js: string,
-): Promise<{ ok: true; identifier: string } | { ok: false; error: string; message?: string }> {
-  try {
-    if (!guest.debugger.isAttached()) {
-      guest.debugger.attach('1.3')
-    }
-  } catch (e) {
-    return { ok: false, error: 'debugger-attach-failed', message: errMessage(e) }
-  }
-  try {
-    await guest.debugger.sendCommand('Page.enable')
-    const result = (await guest.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-      source: js,
-    })) as { identifier: string }
-    return { ok: true, identifier: result.identifier }
-  } catch (e) {
-    return { ok: false, error: 'debugger-command-failed', message: errMessage(e) }
-  }
-}
-
-const MAX_SNAPSHOT_NODES = 2000
-const DEFAULT_SNAPSHOT_MAX_DEPTH = 40
-const MAX_SNAPSHOT_MAX_DEPTH = 200
-
 export function registerBrowseMethods(deps: BrowseDeps): void {
+  const method = (
+    name: string,
+    run: (
+      guest: Electron.WebContents,
+      p: Params,
+      ctx: MethodCtx,
+      rendererPaneId: string,
+    ) => unknown | Promise<unknown>,
+  ): void => {
+    registerTargetableMethod(`browse.${name}`, {
+      cap: 'browse',
+      handler: async (params, ctx) => {
+        const p = (params ?? {}) as Params
+        const resolution = await resolveGuest(deps, ctx, str(p.paneId))
+        if (!resolution.ok) return resolution
+        try {
+          return await run(resolution.guest, p, ctx, resolution.rendererPaneId)
+        } catch (e) {
+          return fail('failed', errMessage(e))
+        }
+      },
+    })
+  }
+
+  const workspaceBrowsers = (workspaceId: string): Set<string> => {
+    const ids = new Set<string>()
+    for (const paneId of deps.browserPanes.keys()) {
+      if (getByPaneId(paneId)?.workspaceId === workspaceId) ids.add(paneId)
+    }
+    return ids
+  }
+
+  const openTab = async (ctx: MethodCtx, url: string) => {
+    const before = workspaceBrowsers(ctx.identity.workspaceId)
+    const res = await deps.execCommand(commandTarget(ctx.identity), 'browser.new', { url })
+    if (!res.ok) return fail('browser-not-ready', res.error.message)
+    let created: string | undefined
+    await waitFor(async () => {
+      created = [...workspaceBrowsers(ctx.identity.workspaceId)].find((id) => !before.has(id))
+      return created !== undefined
+    }, NEW_TAB_WAIT_MS)
+    if (!created) return { ok: true, created: true }
+    activeTabs.set(ctx.identity.paneId, created)
+    return { ok: true, created: true, tabId: getByPaneId(created)?.externalId, url }
+  }
+
   registerTargetableMethod('browse.open', {
     cap: 'browse',
     handler: async (params, ctx) => {
-      const { url, paneId } = (params ?? {}) as { url: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
+      const p = (params ?? {}) as Params
+      const raw = str(p.url)
+      const url = raw ? normalizeUrl(raw) : undefined
+      const resolution = await resolveGuest(deps, ctx, str(p.paneId))
       if (resolution.ok) {
-        resolution.guest.loadURL(url).catch(() => {})
-        return { ok: true, paneId: getByPaneId(resolution.rendererPaneId)?.externalId }
-      }
-      const target: CommandTarget = {
-        windowId: ctx.identity.windowId,
-        workspaceId: ctx.identity.workspaceId,
-        paneId: ctx.identity.paneId,
-      }
-      const res = await deps.execCommand(target, 'browser.new', { url })
-      if (!res.ok) {
-        return { ok: false, error: 'browser-not-ready', message: res.error.message }
-      }
-      return { ok: true, created: true }
-    },
-  })
-
-  registerTargetableMethod('browse.nav', {
-    cap: 'browse',
-    handler: (params, ctx) => {
-      const { action, paneId } = (params ?? {}) as {
-        action: 'back' | 'forward' | 'reload'
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (action === 'back') resolution.guest.goBack()
-      else if (action === 'forward') resolution.guest.goForward()
-      else resolution.guest.reload()
-      return { ok: true }
-    },
-  })
-
-  registerTargetableMethod('browse.read', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, paneId } = (params ?? {}) as { selector?: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const selJs = JSON.stringify(selector ?? null)
-      const js = withInjected(`
-        const sel = ${selJs};
-        if (sel) { const el = window.__pine.resolveEl(sel); return el ? el.innerText : ''; }
-        return document.body ? document.body.innerText : '';
-      `)
-      try {
-        const text = await resolution.guest.executeJavaScript(js, true)
-        return { ok: true, text: typeof text === 'string' ? text : String(text ?? '') }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.click', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const selJs = JSON.stringify(selector)
-      const js = withInjected(`
-        const el = window.__pine.resolveEl(${selJs});
-        if (!el) return false;
-        el.click();
-        return true;
-      `)
-      try {
-        const found = await resolution.guest.executeJavaScript(js, true)
-        return found ? { ok: true } : { ok: false, error: 'not-found' }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.type', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, text, paneId } = (params ?? {}) as {
-        selector: string
-        text: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const selJs = JSON.stringify(selector)
-      const textJs = JSON.stringify(text)
-      const js = withInjected(`
-        const el = window.__pine.resolveEl(${selJs});
-        if (!el) return false;
-        const proto = Object.getPrototypeOf(el);
-        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-        if (setter) setter.call(el, ${textJs}); else el.value = ${textJs};
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
-      `)
-      try {
-        const found = await resolution.guest.executeJavaScript(js, true)
-        return found ? { ok: true } : { ok: false, error: 'not-found' }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.dblclick', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const js = withInjected(`
-        const el = window.__pine.resolveEl(${JSON.stringify(selector)});
-        if (!el) return false;
-        el.click?.();
-        el.click?.();
-        el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-        return true;
-      `)
-      return runSelectorJs(resolution.guest, js)
-    },
-  })
-
-  registerTargetableMethod('browse.hover', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const js = withInjected(`
-        const el = window.__pine.resolveEl(${JSON.stringify(selector)});
-        if (!el) return false;
-        const opts = { bubbles: true };
-        el.dispatchEvent(new MouseEvent('mouseover', opts));
-        el.dispatchEvent(new MouseEvent('mouseenter', opts));
-        el.dispatchEvent(new MouseEvent('mousemove', opts));
-        return true;
-      `)
-      return runSelectorJs(resolution.guest, js)
-    },
-  })
-
-  registerTargetableMethod('browse.focus', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      return runSelectorJs(resolution.guest, focusSelectorJs(selector))
-    },
-  })
-
-  const registerCheckMethod = (name: string, checked: boolean): void => {
-    registerTargetableMethod(name, {
-      cap: 'browse',
-      handler: async (params, ctx) => {
-        const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
-        const resolution = resolveGuest(deps, ctx, paneId)
-        if (!resolution.ok) return resolution
-        const js = withInjected(`
-          const el = window.__pine.resolveEl(${JSON.stringify(selector)});
-          if (!el) return false;
-          el.checked = ${checked};
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          return true;
-        `)
-        return runSelectorJs(resolution.guest, js)
-      },
-    })
-  }
-  registerCheckMethod('browse.check', true)
-  registerCheckMethod('browse.uncheck', false)
-
-  registerTargetableMethod('browse.scrollIntoView', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, paneId } = (params ?? {}) as { selector: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const js = withInjected(`
-        const el = window.__pine.resolveEl(${JSON.stringify(selector)});
-        if (!el) return false;
-        el.scrollIntoView({ block: 'center' });
-        return true;
-      `)
-      return runSelectorJs(resolution.guest, js)
-    },
-  })
-
-  registerTargetableMethod('browse.fill', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, text, paneId } = (params ?? {}) as {
-        selector: string
-        text: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const js = withInjected(`
-        const el = window.__pine.resolveEl(${JSON.stringify(selector)});
-        if (!el) return false;
-        el.value = ${JSON.stringify(text)};
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
-      `)
-      return runSelectorJs(resolution.guest, js)
-    },
-  })
-
-  registerTargetableMethod('browse.select', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, value, paneId } = (params ?? {}) as {
-        selector: string
-        value: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const valueJs = JSON.stringify(value)
-      const js = withInjected(`
-        const el = window.__pine.resolveEl(${JSON.stringify(selector)});
-        if (!el) return false;
-        el.value = ${valueJs};
-        if (el.value !== ${valueJs}) {
-          for (const opt of Array.from(el.options || [])) {
-            if (opt.textContent.trim() === ${valueJs}) { el.value = opt.value; break; }
-          }
-        }
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
-      `)
-      return runSelectorJs(resolution.guest, js)
-    },
-  })
-
-  registerTargetableMethod('browse.scroll', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { x, y, selector, paneId } = (params ?? {}) as {
-        x?: number
-        y?: number
-        selector?: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const xJs = JSON.stringify(x ?? 0)
-      const yJs = JSON.stringify(y ?? 0)
-      const js = selector
-        ? withInjected(`
-            const el = window.__pine.resolveEl(${JSON.stringify(selector)});
-            if (!el) return false;
-            el.scrollBy(${xJs}, ${yJs});
-            return true;
-          `)
-        : `(() => { window.scrollTo(${xJs}, ${yJs}); return true; })()`
-      return runSelectorJs(resolution.guest, js)
-    },
-  })
-
-  registerTargetableMethod('browse.press', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { key, selector, paneId } = (params ?? {}) as {
-        key: string
-        selector?: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (selector) {
-        const focused = await runSelectorJs(resolution.guest, focusSelectorJs(selector))
-        if (!focused.ok) return focused
-      }
-      sendKeyDown(resolution.guest, key)
-      sendKeyUp(resolution.guest, key)
-      return { ok: true }
-    },
-  })
-
-  registerTargetableMethod('browse.keydown', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { key, selector, paneId } = (params ?? {}) as {
-        key: string
-        selector?: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (selector) {
-        const focused = await runSelectorJs(resolution.guest, focusSelectorJs(selector))
-        if (!focused.ok) return focused
-      }
-      sendKeyDown(resolution.guest, key)
-      return { ok: true }
-    },
-  })
-
-  registerTargetableMethod('browse.keyup', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { key, selector, paneId } = (params ?? {}) as {
-        key: string
-        selector?: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (selector) {
-        const focused = await runSelectorJs(resolution.guest, focusSelectorJs(selector))
-        if (!focused.ok) return focused
-      }
-      sendKeyUp(resolution.guest, key)
-      return { ok: true }
-    },
-  })
-
-  registerTargetableMethod('browse.eval', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { js, paneId } = (params ?? {}) as { js: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      return evalToResult(resolution.guest, js)
-    },
-  })
-
-  registerTargetableMethod('browse.wait', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, timeoutMs, paneId } = (params ?? {}) as {
-        selector: string
-        timeoutMs?: number
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const selJs = JSON.stringify(selector)
-      const js = withInjected(`return !!window.__pine.resolveEl(${selJs});`)
-      const deadline = Date.now() + Math.min(timeoutMs ?? 10_000, 30_000)
-      for (;;) {
-        try {
-          if (await resolution.guest.executeJavaScript(js, true)) return { found: true }
-        } catch {}
-        if (Date.now() >= deadline) return { found: false, timedOut: true }
-        await sleep(200)
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.screenshot', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { path, paneId } = (params ?? {}) as { path?: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      let outPath: string
-      if (path) {
-        const safe = resolveSafe(path, deps.screenshotRoots)
-        if (safe === null) return { ok: false, error: 'path-denied' }
-        outPath = safe
-      } else {
-        outPath = scratchScreenshotPath(resolution.rendererPaneId)
-      }
-      try {
-        const image = await resolution.guest.capturePage()
-        mkdirSync(dirname(outPath), { recursive: true })
-        writeFileSync(outPath, image.toPNG())
-        return { ok: true, path: outPath }
-      } catch (e) {
-        return { ok: false, error: 'screenshot-failed', message: errMessage(e) }
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.content', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { paneId } = (params ?? {}) as { paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      try {
-        const html = await resolution.guest.executeJavaScript(
-          `document.documentElement ? document.documentElement.outerHTML : ''`,
-          true,
-        )
-        const text = typeof html === 'string' ? html : String(html ?? '')
-        const truncated = text.length > MAX_HTML_CHARS
-        return { ok: true, html: truncated ? text.slice(0, MAX_HTML_CHARS) : text, truncated }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.snapshot', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, interactive, maxDepth, paneId } = (params ?? {}) as {
-        selector?: string
-        interactive?: boolean
-        maxDepth?: number
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const selJs = JSON.stringify(selector ?? null)
-      const interactiveJs = JSON.stringify(!!interactive)
-      const clampedMaxDepth = Math.min(
-        Math.max(maxDepth ?? DEFAULT_SNAPSHOT_MAX_DEPTH, 1),
-        MAX_SNAPSHOT_MAX_DEPTH,
-      )
-      const maxDepthJs = JSON.stringify(clampedMaxDepth)
-      const maxNodesJs = JSON.stringify(MAX_SNAPSHOT_NODES)
-      const body = `
-        const root = ${selJs} ? window.__pine.resolveEl(${selJs}) : document.body;
-        if (!root) return { found: false };
-        const maxNodes = ${maxNodesJs};
-        const maxDepth = ${maxDepthJs};
-        const interactiveOnly = ${interactiveJs};
-        const lines = [];
-        const refs = {};
-        let count = 0;
-        function isVisible(el) {
-          return el.offsetParent !== null || (el.getClientRects && el.getClientRects().length > 0) || el === document.body;
-        }
-        function hasOwnText(el) {
-          for (const node of el.childNodes) {
-            if (node.nodeType === 3 && node.textContent && node.textContent.trim()) return true;
-          }
-          return false;
-        }
-        function isActionable(el, role) {
-          const tag = el.tagName.toLowerCase();
-          if (tag === 'a' || tag === 'button' || tag === 'input' || tag === 'select' || tag === 'textarea') return true;
-          const actionableRoles = ['button','link','checkbox','radio','tab','menuitem','switch','textbox','combobox','slider','option'];
-          if (actionableRoles.includes(role)) return true;
-          if (el.hasAttribute('onclick')) return true;
-          if (el.hasAttribute('tabindex') && el.getAttribute('tabindex') !== '-1') return true;
-          if (el.isContentEditable) return true;
-          return false;
-        }
-        function walk(node, rawDepth, indent) {
-          if (count >= maxNodes || rawDepth > maxDepth || node.nodeType !== 1) return;
-          const role = window.__pine.roleOf(node);
-          const tag = node.tagName.toLowerCase();
-          const heading = /^h[1-6]$/.test(tag);
-          const actionable = isActionable(node, role);
-          const relevant =
-            (interactiveOnly ? actionable : (actionable || heading || node.hasAttribute('role') || hasOwnText(node))) &&
-            isVisible(node);
-          let nextIndent = indent;
-          if (relevant) {
-            const ref = window.__pine.ref(node);
-            const name = window.__pine.nameOf(node);
-            let line = '  '.repeat(indent) + '[' + ref + '] ' + role + ' "' + name + '"';
-            if (role === 'link') {
-              const href = node.getAttribute('href');
-              if (href) line += ' → ' + href;
-            }
-            lines.push(line);
-            refs[ref] = { tag, role, name };
-            count++;
-            nextIndent = indent + 1;
-          }
-          const children = node.children ? Array.from(node.children) : [];
-          for (const child of children) {
-            if (count >= maxNodes) break;
-            walk(child, rawDepth + 1, nextIndent);
-          }
-        }
-        walk(root, 0, 0);
-        return { found: true, snapshot: lines.join('\\n'), refs };
-      `
-      const js = withInjected(body)
-      try {
-        const result = (await resolution.guest.executeJavaScript(js, true)) as
-          | {
-              found: true
-              snapshot: string
-              refs: Record<string, { tag: string; role: string; name: string }>
-            }
-          | { found: false }
-        if (!result?.found) return { ok: false, error: 'not-found' }
+        if (url) await resolution.guest.loadURL(url).catch(() => {})
         return {
           ok: true,
-          snapshot: `${result.snapshot}\n\n[refs invalidate on navigation]`,
-          refs: result.refs,
+          tabId: getByPaneId(resolution.rendererPaneId)?.externalId,
+          url: resolution.guest.getURL(),
+          title: resolution.guest.getTitle(),
         }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
       }
+      if (resolution.error !== 'no-browser-pane' || p.paneId) return resolution
+      return openTab(ctx, url ?? 'about:blank')
     },
   })
 
-  const GET_SUBS_NEEDING_SELECTOR = new Set([
-    'text',
-    'html',
-    'value',
-    'attr',
-    'count',
-    'box',
-    'styles',
-  ])
-
-  registerTargetableMethod('browse.get', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { sub, selector, attr, property, paneId } = (params ?? {}) as {
-        sub: string
-        selector?: string
-        attr?: string
-        property?: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (GET_SUBS_NEEDING_SELECTOR.has(sub) && !selector) {
-        return { ok: false, error: 'selector-required' }
-      }
-      if (sub === 'attr' && !attr) return { ok: false, error: 'attr-required' }
-      const selJs = JSON.stringify(selector ?? null)
-      const attrJs = JSON.stringify(attr ?? '')
-      const propertyJs = JSON.stringify(property ?? null)
-      let body: string
-      switch (sub) {
-        case 'url':
-          body = 'return { found: true, value: location.href };'
-          break
-        case 'title':
-          body = 'return { found: true, value: document.title };'
-          break
-        case 'text':
-          body = `
-            const el = window.__pine.resolveEl(${selJs});
-            return el ? { found: true, value: el.innerText } : { found: false };
-          `
-          break
-        case 'html':
-          body = `
-            const el = window.__pine.resolveEl(${selJs});
-            return el ? { found: true, value: el.outerHTML } : { found: false };
-          `
-          break
-        case 'value':
-          body = `
-            const el = window.__pine.resolveEl(${selJs});
-            return el ? { found: true, value: el.value } : { found: false };
-          `
-          break
-        case 'attr':
-          body = `
-            const el = window.__pine.resolveEl(${selJs});
-            return el ? { found: true, value: el.getAttribute(${attrJs}) } : { found: false };
-          `
-          break
-        case 'count':
-          body = `return { found: true, value: document.querySelectorAll(${selJs}).length };`
-          break
-        case 'box':
-          body = `
-            const el = window.__pine.resolveEl(${selJs});
-            if (!el) return { found: false };
-            const r = el.getBoundingClientRect();
-            return { found: true, value: { x: r.x, y: r.y, w: r.width, h: r.height } };
-          `
-          break
-        case 'styles':
-          body = `
-            const el = window.__pine.resolveEl(${selJs});
-            if (!el) return { found: false };
-            const cs = getComputedStyle(el);
-            const prop = ${propertyJs};
-            if (prop) return { found: true, value: cs.getPropertyValue(prop) };
-            const dict = {};
-            for (const p of ['display','position','color','backgroundColor','fontSize','width','height']) {
-              dict[p] = cs.getPropertyValue(p);
-            }
-            return { found: true, value: dict };
-          `
-          break
-        default:
-          return { ok: false, error: 'bad-sub' }
-      }
-      const js = withInjected(body)
-      try {
-        const result = (await resolution.guest.executeJavaScript(js, true)) as
-          | { found: true; value: unknown }
-          | { found: false }
-        if (!result?.found) return { ok: false, error: 'not-found' }
-        return { ok: true, value: result.value }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-    },
+  method('back', (guest) => {
+    guest.navigationHistory.goBack()
+    return { ok: true }
+  })
+  method('forward', (guest) => {
+    guest.navigationHistory.goForward()
+    return { ok: true }
+  })
+  method('reload', (guest) => {
+    guest.reload()
+    return { ok: true }
   })
 
-  registerTargetableMethod('browse.is', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { sub, selector, paneId } = (params ?? {}) as {
-        sub: string
-        selector: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (!selector) return { ok: false, error: 'selector-required' }
-      const selJs = JSON.stringify(selector)
-      let body: string
-      switch (sub) {
-        case 'visible':
-          body = `
-            const el = window.__pine.resolveEl(${selJs});
-            if (!el) return { found: false };
-            const visible = el.offsetParent !== null || (el.getClientRects && el.getClientRects().length > 0);
-            return { found: true, value: visible };
-          `
-          break
-        case 'enabled':
-          body = `
-            const el = window.__pine.resolveEl(${selJs});
-            if (!el) return { found: false };
-            return { found: true, value: !el.disabled };
-          `
-          break
-        case 'checked':
-          body = `
-            const el = window.__pine.resolveEl(${selJs});
-            if (!el) return { found: false };
-            return { found: true, value: !!el.checked };
-          `
-          break
-        default:
-          return { ok: false, error: 'bad-sub' }
-      }
-      const js = withInjected(body)
-      try {
-        const result = (await resolution.guest.executeJavaScript(js, true)) as
-          | { found: true; value: boolean }
-          | { found: false }
-        if (!result?.found) return { ok: false, error: 'not-found' }
-        return { ok: true, value: result.value }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-    },
+  method('close', async (_guest, _p, ctx, rendererPaneId) => {
+    const identity = getByPaneId(rendererPaneId)
+    if (!identity) return fail('no-browser-pane')
+    const res = await deps.execCommand(commandTarget(identity), 'pane.close', {
+      paneId: identity.paneId,
+    })
+    if (!res.ok) return fail('command-failed', res.error.message)
+    if (activeTabs.get(ctx.identity.paneId) === rendererPaneId)
+      activeTabs.delete(ctx.identity.paneId)
+    return { ok: true }
   })
 
-  const VALID_FIND_BY = new Set([
-    'role',
-    'text',
-    'label',
-    'placeholder',
-    'alt',
-    'title',
-    'testid',
-    'first',
-    'last',
-    'nth',
-  ])
-
-  registerTargetableMethod('browse.find', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { by, query, exact, index, selector, paneId } = (params ?? {}) as {
-        by: string
-        query: string
-        exact?: boolean
-        index?: number
-        selector?: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (!VALID_FIND_BY.has(by)) return { ok: false, error: 'bad-by' }
-      if ((by === 'first' || by === 'last' || by === 'nth') && !selector) {
-        return { ok: false, error: 'selector-required' }
-      }
-      const byJs = JSON.stringify(by)
-      const queryJs = JSON.stringify(query ?? '')
-      const exactJs = JSON.stringify(!!exact)
-      const indexJs = JSON.stringify(index ?? 0)
-      const selJs = JSON.stringify(selector ?? null)
-      const body = `
-        function matchStr(value, q, ex) {
-          if (value == null) return false;
-          return ex ? value === q : value.includes(q);
-        }
-        const scopeSel = ${selJs};
-        const root = scopeSel ? (window.__pine.resolveEl(scopeSel) || document) : document;
-        const by = ${byJs};
-        const query = ${queryJs};
-        const exact = ${exactJs};
-        let match = null;
-        if (by === 'testid') {
-          const candidates = Array.from(root.querySelectorAll('[data-testid]'));
-          match = candidates.find((el) => matchStr(el.getAttribute('data-testid'), query, exact)) || null;
-        } else if (by === 'placeholder') {
-          const candidates = Array.from(root.querySelectorAll('[placeholder]'));
-          match = candidates.find((el) => matchStr(el.getAttribute('placeholder'), query, exact)) || null;
-        } else if (by === 'alt') {
-          const candidates = Array.from(root.querySelectorAll('[alt]'));
-          match = candidates.find((el) => matchStr(el.getAttribute('alt'), query, exact)) || null;
-        } else if (by === 'title') {
-          const candidates = Array.from(root.querySelectorAll('[title]'));
-          match = candidates.find((el) => matchStr(el.getAttribute('title'), query, exact)) || null;
-        } else if (by === 'label') {
-          const labels = Array.from(root.querySelectorAll('label[for]'));
-          const byFor = labels.find((l) => matchStr((l.innerText || '').trim(), query, exact));
-          if (byFor) match = document.getElementById(byFor.getAttribute('for'));
-          if (!match) {
-            const ariaCandidates = Array.from(root.querySelectorAll('[aria-label]'));
-            match = ariaCandidates.find((el) => matchStr(el.getAttribute('aria-label'), query, exact)) || null;
-          }
-        } else if (by === 'role') {
-          const candidates = Array.from(root.querySelectorAll('*'));
-          match = candidates.find((el) => matchStr(window.__pine.roleOf(el), query, exact)) || null;
-        } else if (by === 'text') {
-          const candidates = Array.from(root.querySelectorAll('*')).filter((el) =>
-            matchStr((el.innerText || el.textContent || '').trim(), query, exact),
-          );
-          candidates.sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
-          match = candidates[0] || null;
-        } else if (by === 'first' || by === 'last' || by === 'nth') {
-          const list = Array.from(document.querySelectorAll(scopeSel));
-          if (by === 'first') match = list[0] || null;
-          else if (by === 'last') match = list[list.length - 1] || null;
-          else match = list[${indexJs}] || null;
-        }
-        if (!match) return { found: false };
-        return { found: true, ref: window.__pine.ref(match) };
-      `
-      const js = withInjected(body)
-      try {
-        const result = (await resolution.guest.executeJavaScript(js, true)) as
-          | { found: true; ref: string }
-          | { found: false }
-        if (!result?.found) return { ok: false, error: 'not-found' }
-        return { ok: true, element_ref: `@${result.ref}` }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-    },
+  method('read', async (guest) => {
+    const text = await runInBrowseWorld<string>(guest, 'readText()')
+    return { ok: true, text, url: guest.getURL(), title: guest.getTitle() }
   })
 
-  registerTargetableMethod('browse.highlight', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, ms, paneId } = (params ?? {}) as {
-        selector: string
-        ms?: number
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (!selector) return { ok: false, error: 'selector-required' }
-      const selJs = JSON.stringify(selector)
-      const msJs = JSON.stringify(ms ?? 1500)
-      const js = withInjected(`
-        const el = window.__pine.resolveEl(${selJs});
-        if (!el) return false;
-        const prevOutline = el.style.outline;
-        const prevShadow = el.style.boxShadow;
-        const prevZ = el.style.zIndex;
-        el.style.outline = '2px solid #ff3366';
-        el.style.boxShadow = '0 0 0 4px rgba(255, 51, 102, 0.35)';
-        el.style.zIndex = '2147483647';
-        setTimeout(() => {
-          el.style.outline = prevOutline;
-          el.style.boxShadow = prevShadow;
-          el.style.zIndex = prevZ;
-        }, ${msJs});
-        return true;
-      `)
-      return runSelectorJs(resolution.guest, js)
-    },
+  method('click', async (guest, p, ctx) => {
+    const target = str(p.target) ?? ''
+    if (p.newTab === true) {
+      const link = await world<{ url: string }>(guest, `href(${jsArgs(target)})`)
+      if (!link.ok) return link
+      if (!NEW_TAB_URL.test(link.url)) return fail('unsupported-url', link.url)
+      return openTab(ctx, link.url)
+    }
+    return clickTarget(guest, target, 1)
   })
 
-  registerTargetableMethod('browse.url', {
-    cap: 'browse',
-    handler: (params, ctx) => {
-      const { paneId } = (params ?? {}) as { paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      return { ok: true, url: resolution.guest.getURL() }
-    },
+  method('dblclick', (guest, p) => clickTarget(guest, str(p.target) ?? '', 2))
+
+  method('hover', async (guest, p) => {
+    const at = await world<{ x: number; y: number }>(guest, `point(${jsArgs(str(p.target))})`)
+    if (!at.ok) return at
+    mouseMove(guest, at.x, at.y)
+    await settle(guest)
+    return { ok: true }
   })
 
-  registerTargetableMethod('browse.zoom', {
-    cap: 'browse',
-    handler: (params, ctx) => {
-      const { action, paneId } = (params ?? {}) as {
-        action: 'in' | 'out' | 'reset'
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const { guest } = resolution
-      let zoom: number
-      if (action === 'reset') zoom = 0
-      else if (action === 'in') zoom = guest.getZoomLevel() + 0.5
-      else if (action === 'out') zoom = guest.getZoomLevel() - 0.5
-      else return { ok: false, error: 'bad-action' }
-      guest.setZoomLevel(zoom)
-      return { ok: true, zoom }
-    },
+  method('focus', (guest, p) => world(guest, `focus(${jsArgs(str(p.target))})`))
+
+  method('fill', (guest, p) => world(guest, `fill(${jsArgs(str(p.target), str(p.text) ?? '')})`))
+
+  method('type', async (guest, p) => {
+    const focused = await world(guest, `focus(${jsArgs(str(p.target))})`)
+    if (!focused.ok) return focused
+    typeText(guest, str(p.text) ?? '')
+    await settle(guest)
+    return { ok: true }
   })
 
-  registerTargetableMethod('browse.devtools', {
-    cap: 'browse',
-    handler: (params, ctx) => {
-      const { action, paneId } = (params ?? {}) as {
-        action?: 'toggle' | 'open' | 'close' | 'console'
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const { guest } = resolution
-      switch (action ?? 'toggle') {
-        case 'open':
-        case 'console':
-          guest.openDevTools()
-          break
-        case 'close':
-          guest.closeDevTools()
-          break
-        case 'toggle':
-          if (guest.isDevToolsOpened()) guest.closeDevTools()
-          else guest.openDevTools()
-          break
-        default:
-          return { ok: false, error: 'bad-action' }
-      }
-      const note =
-        action === 'console'
-          ? "Electron can't target the Console panel specifically — opened DevTools"
-          : undefined
-      return { ok: true, open: guest.isDevToolsOpened(), note }
-    },
+  method('keyboard', async (guest, p) => {
+    const text = str(p.text) ?? ''
+    if (p.mode === 'inserttext') guest.insertText(text)
+    else if (p.mode === 'type') typeText(guest, text)
+    else return fail('bad-sub', String(p.mode))
+    await settle(guest)
+    return { ok: true }
   })
 
-  registerTargetableMethod('browse.focusWebview', {
-    cap: 'browse',
-    handler: (params, ctx) => {
-      const { paneId } = (params ?? {}) as { paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      resolution.guest.focus()
+  const keyMethod = (name: string, phase: 'down' | 'up' | 'press'): void => {
+    method(name, async (guest, p) => {
+      const combo = parseKeyCombo(str(p.key) ?? '')
+      if (!combo) return fail('bad-key', str(p.key))
+      sendCombo(guest, combo, phase)
+      await settle(guest)
       return { ok: true }
-    },
-  })
-
-  registerTargetableMethod('browse.isWebviewFocused', {
-    cap: 'browse',
-    handler: (params, ctx) => {
-      const { paneId } = (params ?? {}) as { paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      return { ok: true, focused: resolution.guest.isFocused() }
-    },
-  })
-
-  registerTargetableMethod('browse.identify', {
-    cap: 'browse',
-    handler: (params, ctx) => {
-      const { paneId } = (params ?? {}) as { paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const identity = getByPaneId(resolution.rendererPaneId)
-      if (!identity) return { ok: false, error: 'no-browser-pane' }
-      return {
-        ok: true,
-        paneId: identity.externalId,
-        url: resolution.guest.getURL(),
-        title: resolution.guest.getTitle(),
-        workspaceId: identity.workspaceId,
-        windowId: identity.windowId,
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.cookies', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { sub, name, value, url, domain, paneId } = (params ?? {}) as {
-        sub: 'get' | 'set' | 'clear'
-        name?: string
-        value?: string
-        url?: string
-        domain?: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const { guest } = resolution
-      try {
-        if (sub === 'get') {
-          const cookies = await guest.session.cookies.get({ url, name, domain })
-          return { ok: true, cookies }
-        }
-        if (sub === 'set') {
-          if (!name) return { ok: false, error: 'name-required' }
-          await guest.session.cookies.set({ url: url || guest.getURL(), name, value, domain })
-          return { ok: true }
-        }
-        if (sub === 'clear') {
-          if (!name && !url && !domain) {
-            await guest.session.clearStorageData({ storages: ['cookies'] })
-            return { ok: true }
-          }
-          const matches = await guest.session.cookies.get({ url, name, domain })
-          for (const cookie of matches) {
-            await guest.session.cookies.remove(url || cookieUrl(cookie), cookie.name)
-          }
-          return { ok: true }
-        }
-        return { ok: false, error: 'bad-sub' }
-      } catch (e) {
-        return { ok: false, error: 'cookie-op-failed', message: errMessage(e) }
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.storage', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { area, sub, key, value, paneId } = (params ?? {}) as {
-        area: 'local' | 'session'
-        sub: 'get' | 'set' | 'clear'
-        key?: string
-        value?: string
-        paneId?: string
-      }
-      if (area !== 'local' && area !== 'session') return { ok: false, error: 'bad-area' }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const storageExpr = area === 'local' ? 'localStorage' : 'sessionStorage'
-      const keyJs = JSON.stringify(key ?? null)
-      let js: string
-      switch (sub) {
-        case 'get':
-          js = `(() => {
-            const key = ${keyJs};
-            if (key === null) {
-              const out = {};
-              for (let i = 0; i < ${storageExpr}.length; i++) {
-                const k = ${storageExpr}.key(i);
-                out[k] = ${storageExpr}.getItem(k);
-              }
-              return out;
-            }
-            return ${storageExpr}.getItem(key);
-          })()`
-          break
-        case 'set':
-          if (!key) return { ok: false, error: 'key-required' }
-          js = `(() => { ${storageExpr}.setItem(${keyJs}, ${JSON.stringify(value ?? '')}); return true; })()`
-          break
-        case 'clear':
-          js = `(() => { ${storageExpr}.clear(); return true; })()`
-          break
-        default:
-          return { ok: false, error: 'bad-sub' }
-      }
-      try {
-        const result = await resolution.guest.executeJavaScript(js, true)
-        return sub === 'get' ? { ok: true, value: result } : { ok: true }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.state', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { sub, path, paneId } = (params ?? {}) as {
-        sub: 'save' | 'load'
-        path: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (!path) return { ok: false, error: 'path-required' }
-      const safePath = resolveSafe(path, deps.screenshotRoots)
-      if (safePath === null) return { ok: false, error: 'path-denied' }
-      const { guest } = resolution
-      if (sub === 'save') {
-        try {
-          const cookies = await guest.session.cookies.get({})
-          const storageJs = `(() => {
-            const dump = (storage) => {
-              const out = {};
-              for (let i = 0; i < storage.length; i++) {
-                const k = storage.key(i);
-                out[k] = storage.getItem(k);
-              }
-              return out;
-            };
-            return { localStorage: dump(localStorage), sessionStorage: dump(sessionStorage) };
-          })()`
-          const storage = (await guest.executeJavaScript(storageJs, true)) as {
-            localStorage: Record<string, string>
-            sessionStorage: Record<string, string>
-          }
-          const state: BrowseStateFile = {
-            cookies,
-            localStorage: storage.localStorage,
-            sessionStorage: storage.sessionStorage,
-          }
-          mkdirSync(dirname(safePath), { recursive: true })
-          writeFileSync(safePath, JSON.stringify(state, null, 2))
-          return { ok: true, path: safePath }
-        } catch (e) {
-          return { ok: false, error: 'state-save-failed', message: errMessage(e) }
-        }
-      }
-      if (sub === 'load') {
-        try {
-          const raw = readFileSync(safePath, 'utf8')
-          const state = JSON.parse(raw) as Partial<BrowseStateFile>
-          for (const cookie of state.cookies ?? []) {
-            await guest.session.cookies.set({
-              url: cookieUrl(cookie),
-              name: cookie.name,
-              value: cookie.value,
-              domain: cookie.domain,
-              path: cookie.path,
-              secure: cookie.secure,
-              httpOnly: cookie.httpOnly,
-              expirationDate: cookie.expirationDate,
-              sameSite: cookie.sameSite,
-            })
-          }
-          const restoreJs = `(() => {
-            const local = ${JSON.stringify(state.localStorage ?? {})};
-            const session = ${JSON.stringify(state.sessionStorage ?? {})};
-            Object.keys(local).forEach((k) => localStorage.setItem(k, local[k]));
-            Object.keys(session).forEach((k) => sessionStorage.setItem(k, session[k]));
-            return true;
-          })()`
-          await guest.executeJavaScript(restoreJs, true)
-          return { ok: true, path: safePath }
-        } catch (e) {
-          return { ok: false, error: 'state-load-failed', message: errMessage(e) }
-        }
-      }
-      return { ok: false, error: 'bad-sub' }
-    },
-  })
-
-  registerTargetableMethod('browse.history', {
-    cap: 'browse',
-    handler: (params, ctx) => {
-      const { sub, paneId } = (params ?? {}) as { sub: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (sub !== 'clear') return { ok: false, error: 'bad-sub' }
-      const { guest } = resolution
-      if (typeof guest.navigationHistory?.clear === 'function') {
-        guest.navigationHistory.clear()
-      } else {
-        guest.clearHistory()
-      }
-      return { ok: true }
-    },
-  })
-
-  registerTargetableMethod('browse.addscript', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { js, paneId } = (params ?? {}) as { js: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      return evalToResult(resolution.guest, js)
-    },
-  })
-
-  registerTargetableMethod('browse.addstyle', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { css, paneId } = (params ?? {}) as { css: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      try {
-        const key = await resolution.guest.insertCSS(css)
-        return { ok: true, key }
-      } catch (e) {
-        return { ok: false, error: 'insert-css-failed', message: errMessage(e) }
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.addinitscript', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { js, paneId } = (params ?? {}) as { js: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      return cdpAddInitScript(resolution.guest, js)
-    },
-  })
-
-  const registerBufferMethod = (
-    name: string,
-    pickBuffer: (d: BrowseDeps) => Map<number, ConsoleEntry[]>,
-  ): void => {
-    registerTargetableMethod(name, {
-      cap: 'browse',
-      handler: (params, ctx) => {
-        const { sub, paneId } = (params ?? {}) as { sub?: string; paneId?: string }
-        const resolution = resolveGuest(deps, ctx, paneId)
-        if (!resolution.ok) return resolution
-        const resolvedSub = sub ?? 'list'
-        if (resolvedSub !== 'list' && resolvedSub !== 'clear') {
-          return { ok: false, error: 'bad-sub' }
-        }
-        const buffer = pickBuffer(deps)
-        const wcId = resolution.guest.id
-        if (resolvedSub === 'clear') {
-          buffer.delete(wcId)
-          return { ok: true }
-        }
-        return { ok: true, entries: buffer.get(wcId) ?? [] }
-      },
     })
   }
-  registerBufferMethod('browse.console', (d) => d.consoleBuffers)
-  registerBufferMethod('browse.errors', (d) => d.errorBuffers)
+  keyMethod('press', 'press')
+  keyMethod('keydown', 'down')
+  keyMethod('keyup', 'up')
 
-  registerTargetableMethod('browse.frame', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { selector, paneId } = (params ?? {}) as { selector?: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const { guest } = resolution
-      const isReset = !selector || selector === 'main' || selector === 'top'
-      const selJs = JSON.stringify(isReset ? null : selector)
-      const js = withInjected(`
-        const sel = ${selJs};
-        if (!sel) { window.__pine.frameSel = null; return { ok: true }; }
-        let el;
-        try {
-          el = document.querySelector(sel);
-        } catch (e) {
-          return { ok: false, error: 'not-found' };
-        }
-        if (!el) return { ok: false, error: 'not-found' };
-        let doc;
-        try {
-          doc = el.contentDocument;
-        } catch (e) {
-          return { ok: false, error: 'cross-origin-frame' };
-        }
-        if (!doc) return { ok: false, error: 'cross-origin-frame' };
-        window.__pine.frameSel = sel;
-        return { ok: true };
-      `)
-      try {
-        const result = (await guest.executeJavaScript(js, true)) as
-          | { ok: true }
-          | { ok: false; error: string }
-        if (result.ok) {
-          if (isReset) clearGuestFrame(guest.id)
-          else frameSelectors.set(guest.id, selector as string)
-        }
-        return result
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-    },
+  method('select', (guest, p) => {
+    const values = Array.isArray(p.values) ? p.values.filter((v) => typeof v === 'string') : []
+    if (values.length === 0) return fail('value-required')
+    return world(guest, `select(${jsArgs(str(p.target), values)})`)
   })
 
-  const DEFAULT_DOWNLOAD_TIMEOUT_MS = 30_000
-  const MAX_DOWNLOAD_TIMEOUT_MS = 300_000
+  method('check', (guest, p) => setChecked(guest, str(p.target) ?? '', true))
+  method('uncheck', (guest, p) => setChecked(guest, str(p.target) ?? '', false))
 
-  registerTargetableMethod('browse.download', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { sub, path, timeoutMs, paneId } = (params ?? {}) as {
-        sub?: string
-        path?: string
-        timeoutMs?: number
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      if (sub !== 'wait') return { ok: false, error: 'bad-sub' }
-      let safePath: string | null = null
-      if (path) {
-        safePath = resolveSafe(path, deps.screenshotRoots)
-        if (safePath === null) return { ok: false, error: 'path-denied' }
-      }
-      const { guest } = resolution
-      const deadline = Math.min(timeoutMs ?? DEFAULT_DOWNLOAD_TIMEOUT_MS, MAX_DOWNLOAD_TIMEOUT_MS)
-      return new Promise((resolve) => {
-        let settled = false
-        const onWillDownload = (_event: Electron.Event, item: Electron.DownloadItem): void => {
-          if (settled) return
-          if (safePath) {
-            try {
-              mkdirSync(dirname(safePath), { recursive: true })
-            } catch {}
-            item.setSavePath(safePath)
-          }
-          item.once('done', (_doneEvent, state) => {
-            if (settled) return
-            settled = true
-            clearTimeout(timer)
-            resolve({ path: item.getSavePath(), filename: item.getFilename(), state })
-          })
-        }
-        guest.session.once('will-download', onWillDownload)
-        const timer = setTimeout(() => {
-          if (settled) return
-          settled = true
-          guest.session.removeListener('will-download', onWillDownload)
-          resolve({ timedOut: true })
-        }, deadline)
+  method('scroll', (guest, p) => {
+    const direction = p.direction ?? 'down'
+    if (!isScrollDirection(direction)) return fail('bad-direction', String(direction))
+    const { dx, dy } = scrollDelta(direction, num(p.amount) ?? DEFAULT_SCROLL_PX)
+    return world(guest, `scroll(${jsArgs(str(p.target) ?? null, dx, dy)})`)
+  })
+
+  method('scrollintoview', (guest, p) => world(guest, `scrollIntoView(${jsArgs(str(p.target))})`))
+
+  method('drag', async (guest, p) => {
+    const from = await world<{ x: number; y: number }>(guest, `point(${jsArgs(str(p.source))})`)
+    if (!from.ok) return from
+    const to = await world<{ x: number; y: number }>(guest, `point(${jsArgs(str(p.target))})`)
+    if (!to.ok) return to
+    mouseMove(guest, from.x, from.y)
+    mouseButton(guest, 'mouseDown', 'left', 1)
+    const steps = 10
+    for (let i = 1; i <= steps; i++) {
+      mouseMove(
+        guest,
+        from.x + ((to.x - from.x) * i) / steps,
+        from.y + ((to.y - from.y) * i) / steps,
+      )
+      await sleep(10)
+    }
+    mouseButton(guest, 'mouseUp', 'left', 1)
+    await settle(guest)
+    return { ok: true }
+  })
+
+  method('upload', async (guest, p) => {
+    const files = Array.isArray(p.files) ? p.files.filter((f) => typeof f === 'string') : []
+    if (files.length === 0) return fail('files-required')
+    const safe: string[] = []
+    for (const file of files) {
+      const path = safeOutPath(deps, file)
+      if (!path) return fail('path-denied', file)
+      if (!existsSync(path)) return fail('file-not-found', file)
+      safe.push(path)
+    }
+    const nonce = randomUUID()
+    const marked = await world(guest, `mark(${jsArgs(str(p.target), nonce)})`)
+    if (!marked.ok) return marked
+    try {
+      await debuggerCommand(guest, 'DOM.getDocument', { depth: 0 })
+      const search = await debuggerCommand<{ searchId: string; resultCount: number }>(
+        guest,
+        'DOM.performSearch',
+        { query: `[data-pine-mark="${nonce}"]` },
+      )
+      const found = await debuggerCommand<{ nodeIds: number[] }>(guest, 'DOM.getSearchResults', {
+        searchId: search.searchId,
+        fromIndex: 0,
+        toIndex: search.resultCount,
       })
-    },
+      await debuggerCommand(guest, 'DOM.discardSearchResults', { searchId: search.searchId })
+      const nodeId = found.nodeIds[0]
+      if (nodeId === undefined) return fail('not-found', str(p.target))
+      await debuggerCommand(guest, 'DOM.setFileInputFiles', { files: safe, nodeId })
+      return { ok: true, files: safe }
+    } finally {
+      await runInBrowseWorld(guest, `unmark(${jsArgs(nonce)})`).catch(() => {})
+    }
   })
 
-  registerTargetableMethod('browse.navigate', {
-    cap: 'browse',
-    handler: (params, ctx) => {
-      const { url, paneId } = (params ?? {}) as { url: string; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      resolution.guest.loadURL(url).catch(() => {})
-      return { ok: true, paneId: getByPaneId(resolution.rendererPaneId)?.externalId }
-    },
+  method('screenshot', async (guest, p, _ctx, rendererPaneId) => {
+    const requested = str(p.path)
+    const outPath = requested ? safeOutPath(deps, requested) : scratchPath(rendererPaneId, 'png')
+    if (!outPath) return fail('path-denied', requested)
+    if (p.full === true) {
+      const metrics = await debuggerCommand<{ cssContentSize: { width: number; height: number } }>(
+        guest,
+        'Page.getLayoutMetrics',
+      )
+      const shot = await debuggerCommand<{ data: string }>(guest, 'Page.captureScreenshot', {
+        format: 'png',
+        captureBeyondViewport: true,
+        clip: {
+          x: 0,
+          y: 0,
+          width: Math.ceil(metrics.cssContentSize.width),
+          height: Math.ceil(metrics.cssContentSize.height),
+          scale: 1,
+        },
+      })
+      writeOut(outPath, Buffer.from(shot.data, 'base64'))
+    } else {
+      const image = await guest.capturePage()
+      writeOut(outPath, image.toPNG())
+    }
+    return { ok: true, path: outPath }
   })
 
-  registerTargetableMethod('browse.openSplit', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { url } = (params ?? {}) as { url?: string; paneId?: string }
-      const target: CommandTarget = {
-        windowId: ctx.identity.windowId,
-        workspaceId: ctx.identity.workspaceId,
-        paneId: ctx.identity.paneId,
+  method('pdf', async (guest, p) => {
+    const requested = str(p.path)
+    if (!requested) return fail('path-required')
+    const outPath = safeOutPath(deps, requested)
+    if (!outPath) return fail('path-denied', requested)
+    writeOut(outPath, await guest.printToPDF({}))
+    return { ok: true, path: outPath }
+  })
+
+  method('snapshot', async (guest, p) => {
+    const result = await world<{ tree: SnapshotNode[] }>(
+      guest,
+      `snapshot(${jsArgs(str(p.selector) ?? null)})`,
+    )
+    if (!result.ok) return result
+    const { snapshot, refs } = formatSnapshot(result.tree, {
+      interactive: p.interactive === true,
+      compact: p.compact === true,
+      depth: num(p.depth),
+      urls: p.urls === true,
+    })
+    return { ok: true, snapshot, refs, url: guest.getURL(), title: guest.getTitle() }
+  })
+
+  method('eval', async (guest, p) => {
+    const js = str(p.js)
+    if (!js) return fail('js-required')
+    const result = await guest.executeJavaScript(js, true)
+    return { ok: true, result: result === undefined ? null : result }
+  })
+
+  method('get', (guest, p) => {
+    const sub = str(p.sub) ?? ''
+    if (sub === 'cdp-url') return fail('unsupported', 'Pine drives its own browser panes')
+    return world(guest, `get(${jsArgs(sub, str(p.target) ?? null, str(p.arg) ?? null)})`)
+  })
+
+  method('is', (guest, p) => world(guest, `is(${jsArgs(str(p.sub), str(p.target))})`))
+
+  method('find', async (guest, p) => {
+    const query: FindQuery = {
+      by: str(p.by) ?? '',
+      value: str(p.value) ?? '',
+      name: str(p.name),
+      exact: p.exact === true,
+      index: num(p.index),
+    }
+    const found = await world<{ ref: string }>(guest, `find(${jsArgs(query)})`)
+    if (!found.ok) return found
+    const ref = `@${found.ref}`
+    const action = str(p.action) ?? 'click'
+    const text = str(p.text) ?? ''
+    switch (action) {
+      case 'click':
+        return withRef(ref, await clickTarget(guest, ref, 1))
+      case 'fill':
+        return withRef(ref, await world(guest, `fill(${jsArgs(ref, text)})`))
+      case 'type': {
+        const focused = await world(guest, `focus(${jsArgs(ref)})`)
+        if (!focused.ok) return focused
+        typeText(guest, text)
+        await settle(guest)
+        return { ok: true, ref }
       }
-      const res = await deps.execCommand(target, 'browser.new', { url })
-      if (!res.ok) {
-        return { ok: false, error: 'browser-not-ready', message: res.error.message }
+      case 'check':
+        return withRef(ref, await setChecked(guest, ref, true))
+      case 'uncheck':
+        return withRef(ref, await setChecked(guest, ref, false))
+      case 'hover': {
+        const at = await world<{ x: number; y: number }>(guest, `point(${jsArgs(ref)})`)
+        if (!at.ok) return at
+        mouseMove(guest, at.x, at.y)
+        await settle(guest)
+        return { ok: true, ref }
       }
-      return { ok: true, created: true }
-    },
+      case 'text': {
+        const got = await world<{ value: unknown }>(guest, `get(${jsArgs('text', ref, null)})`)
+        return got.ok ? { ok: true, ref, value: got.value } : got
+      }
+      default:
+        return fail('bad-action', action)
+    }
+  })
+
+  method('wait', async (guest, p) => {
+    const timeoutMs = clampTimeout(p.timeoutMs)
+    if (num(p.ms) !== undefined) {
+      await sleep(Math.min(num(p.ms) ?? 0, MAX_TIMEOUT_MS))
+      return { ok: true }
+    }
+    let check: () => Promise<boolean>
+    const target = str(p.target)
+    const text = str(p.text)
+    const url = str(p.url)
+    const load = str(p.load)
+    const fn = str(p.fn)
+    if (target) {
+      const state = (str(p.state) ?? 'visible') as ElementState
+      if (!['visible', 'hidden', 'attached', 'detached'].includes(state)) {
+        return fail('bad-state', state)
+      }
+      check = () => runInBrowseWorld<boolean>(guest, `hasState(${jsArgs(target, state)})`)
+    } else if (text !== undefined) {
+      check = () => runInBrowseWorld<boolean>(guest, `hasText(${jsArgs(text)})`)
+    } else if (url !== undefined) {
+      check = async () => globMatches(url, guest.getURL())
+    } else if (load !== undefined) {
+      if (!['load', 'domcontentloaded', 'networkidle'].includes(load)) {
+        return fail('bad-load-state', load)
+      }
+      check = async () => {
+        const ready = await runInBrowseWorld<string>(guest, 'readyState()')
+        if (load === 'domcontentloaded') return ready !== 'loading'
+        if (ready !== 'complete' || guest.isLoading()) return false
+        return load === 'load' || networkIdleFor(guest.id, Date.now(), NETWORK_IDLE_MS)
+      }
+    } else if (fn !== undefined) {
+      check = async () => Boolean(await guest.executeJavaScript(`!!(${fn})`, false))
+    } else {
+      return fail('condition-required')
+    }
+    return (await waitFor(check, timeoutMs))
+      ? { ok: true }
+      : fail('timeout', `condition not met within ${timeoutMs}ms`)
+  })
+
+  method('mouse', async (guest, p) => {
+    const button = (str(p.button) ?? 'left') as MouseButton
+    if (!['left', 'right', 'middle'].includes(button)) return fail('bad-button', button)
+    switch (p.action) {
+      case 'move': {
+        const x = num(p.x)
+        const y = num(p.y)
+        if (x === undefined || y === undefined) return fail('coordinates-required')
+        mouseMove(guest, x, y)
+        break
+      }
+      case 'down':
+        mouseButton(guest, 'mouseDown', button, 1)
+        break
+      case 'up':
+        mouseButton(guest, 'mouseUp', button, 1)
+        break
+      case 'wheel': {
+        const pos = mousePositions.get(guest.id) ?? { x: 0, y: 0 }
+        const at = zoomed(guest, pos.x, pos.y)
+        guest.sendInputEvent({
+          type: 'mouseWheel',
+          x: at.x,
+          y: at.y,
+          deltaX: -(num(p.dx) ?? 0),
+          deltaY: -(num(p.dy) ?? 0),
+        })
+        break
+      }
+      default:
+        return fail('bad-sub', String(p.action))
+    }
+    await settle(guest)
+    return { ok: true }
+  })
+
+  method('set', async (guest, p) => {
+    switch (p.what) {
+      case 'viewport': {
+        const width = num(p.width)
+        const height = num(p.height)
+        if (!width || !height) return fail('size-required')
+        await debuggerCommand(guest, 'Emulation.setDeviceMetricsOverride', {
+          width: Math.round(width),
+          height: Math.round(height),
+          deviceScaleFactor: num(p.scale) ?? 0,
+          mobile: false,
+        })
+        return { ok: true }
+      }
+      case 'media': {
+        const features: { name: string; value: string }[] = []
+        if (p.colorScheme === 'dark' || p.colorScheme === 'light') {
+          features.push({ name: 'prefers-color-scheme', value: p.colorScheme })
+        }
+        features.push({
+          name: 'prefers-reduced-motion',
+          value: p.reducedMotion === true ? 'reduce' : '',
+        })
+        await debuggerCommand(guest, 'Emulation.setEmulatedMedia', { features })
+        return { ok: true }
+      }
+      case 'offline':
+        await debuggerCommand(guest, 'Network.emulateNetworkConditions', {
+          offline: p.offline === true,
+          latency: 0,
+          downloadThroughput: -1,
+          uploadThroughput: -1,
+        })
+        return { ok: true }
+      case 'headers': {
+        const headers = p.headers
+        if (!headers || typeof headers !== 'object' || Array.isArray(headers)) {
+          return fail('headers-required')
+        }
+        const clean: Record<string, string> = {}
+        for (const [k, v] of Object.entries(headers)) clean[k] = String(v)
+        await debuggerCommand(guest, 'Network.setExtraHTTPHeaders', { headers: clean })
+        return { ok: true }
+      }
+      case 'geo': {
+        const latitude = num(p.latitude)
+        const longitude = num(p.longitude)
+        if (latitude === undefined || longitude === undefined) return fail('coordinates-required')
+        await debuggerCommand(guest, 'Emulation.setGeolocationOverride', {
+          latitude,
+          longitude,
+          accuracy: 1,
+        })
+        return { ok: true }
+      }
+      default:
+        return fail('unsupported', String(p.what))
+    }
+  })
+
+  method('cookies', async (guest, p) => {
+    switch (p.sub ?? 'get') {
+      case 'get': {
+        const url = str(p.url)
+        return { ok: true, cookies: await listCookies(guest, url ? { url } : {}) }
+      }
+      case 'set': {
+        const name = str(p.name)
+        if (!name) return fail('name-required')
+        const url = str(p.url) ?? guest.getURL()
+        const domain = str(p.domain)
+        const host = (() => {
+          try {
+            return new URL(url).hostname
+          } catch {
+            return ''
+          }
+        })()
+        if (!domain && !host) return fail('url-required')
+        const sameSite = str(p.sameSite)?.toLowerCase()
+        await writeCookie(guest, {
+          name,
+          value: str(p.value) ?? '',
+          domain: domain ?? host,
+          path: str(p.path) ?? '/',
+          hostOnly: domain === undefined,
+          expires: num(p.expires) ?? null,
+          httpOnly: p.httpOnly === true,
+          secure: p.secure === true || url.startsWith('https:'),
+          sameSite:
+            sameSite === 'strict' || sameSite === 'lax'
+              ? sameSite
+              : sameSite === 'none'
+                ? 'no_restriction'
+                : 'unspecified',
+        })
+        return { ok: true }
+      }
+      case 'clear':
+        return clearStorage(guest, 'cookies')
+      default:
+        return fail('bad-sub', String(p.sub))
+    }
+  })
+
+  method('storage', async (guest, p) => {
+    const area = p.area
+    if (area !== 'local' && area !== 'session') return fail('bad-area', String(area))
+    switch (p.sub ?? 'get') {
+      case 'get': {
+        const dump = await readWebStorage(guest)
+        const values = area === 'local' ? dump.local : dump.session
+        const key = str(p.key)
+        if (key === undefined) return { ok: true, origin: dump.origin, values }
+        return { ok: true, key, value: key in values ? values[key] : null }
+      }
+      case 'set': {
+        const key = str(p.key)
+        if (!key) return fail('key-required')
+        return world(guest, `setStorage(${jsArgs(area as StorageArea, key, str(p.value) ?? '')})`)
+      }
+      case 'clear':
+        return world(guest, `clearStorage(${jsArgs(area)})`)
+      default:
+        return fail('bad-sub', String(p.sub))
+    }
+  })
+
+  method('network', async (guest, p) => {
+    switch (p.sub) {
+      case 'requests': {
+        if (p.clear === true) {
+          clearRequestLog(guest.id)
+          return { ok: true }
+        }
+        const filter: NetworkFilter = {
+          filter: str(p.filter),
+          types: Array.isArray(p.types) ? p.types.map(String) : undefined,
+          method: str(p.method),
+          status: str(p.status),
+        }
+        return {
+          ok: true,
+          requests: filterRequests(requestsFor(guest.id), filter).map(summarizeRequest),
+        }
+      }
+      case 'request': {
+        const id = str(p.requestId)
+        const found = requestsFor(guest.id).find((r) => r.requestId === id)
+        return found ? { ok: true, request: found } : fail('not-found', id)
+      }
+      case 'route': {
+        const pattern = str(p.url)
+        if (!pattern) return fail('url-required')
+        const routes = (guestRoutes.get(guest.id) ?? []).filter((r) => r.pattern !== pattern)
+        routes.push({ pattern, abort: p.abort === true, body: str(p.body) })
+        guestRoutes.set(guest.id, routes)
+        await applyRoutes(guest)
+        return { ok: true, routes: routes.map((r) => r.pattern) }
+      }
+      case 'unroute': {
+        const pattern = str(p.url)
+        const routes = pattern
+          ? (guestRoutes.get(guest.id) ?? []).filter((r) => r.pattern !== pattern)
+          : []
+        guestRoutes.set(guest.id, routes)
+        await applyRoutes(guest)
+        return { ok: true, routes: routes.map((r) => r.pattern) }
+      }
+      default:
+        return fail('bad-sub', String(p.sub))
+    }
   })
 
   registerTargetableMethod('browse.tab', {
     cap: 'browse',
     handler: async (params, ctx) => {
-      const { sub, url, target } = (params ?? {}) as {
-        sub: 'new' | 'list' | 'switch' | 'close'
-        url?: string
-        target?: string
-      }
-      if (sub === 'new') {
-        const cmdTarget: CommandTarget = {
-          windowId: ctx.identity.windowId,
-          workspaceId: ctx.identity.workspaceId,
-          paneId: ctx.identity.paneId,
-        }
-        const res = await deps.execCommand(cmdTarget, 'browser.new', { url })
-        if (!res.ok) return { ok: false, error: 'browser-not-ready', message: res.error.message }
-        return { ok: true, created: true }
-      }
+      const p = (params ?? {}) as Params
+      const sub = p.sub ?? 'list'
+      if (sub === 'new') return openTab(ctx, normalizeUrl(str(p.url) ?? 'about:blank'))
       if (sub === 'list') {
-        const tabs: { paneId: string; url: string; title: string }[] = []
-        for (const [rendererPaneId, wcId] of deps.browserPanes) {
-          const identity = getByPaneId(rendererPaneId)
-          if (!identity || identity.workspaceId !== ctx.identity.workspaceId) continue
-          const guest = webContents.fromId(wcId)
-          if (!guest || guest.isDestroyed()) continue
-          tabs.push({ paneId: identity.externalId, url: guest.getURL(), title: guest.getTitle() })
-        }
+        const current = await resolveGuest(deps, ctx)
+        const activeId = current.ok ? current.rendererPaneId : undefined
+        const tabs = [...workspaceBrowsers(ctx.identity.workspaceId)].flatMap((id) => {
+          const guest = liveGuest(deps.browserPanes.get(id))
+          return guest ? [tabEntry(id, guest, activeId)] : []
+        })
         return { ok: true, tabs }
       }
-      if (sub === 'switch' || sub === 'close') {
-        if (!target) return { ok: false, error: 'target-required' }
-        const resolution = resolveGuest(deps, ctx, target)
-        if (!resolution.ok) return resolution
-        const identity = getByPaneId(resolution.rendererPaneId)
-        if (!identity) return { ok: false, error: 'no-browser-pane' }
-        const cmdTarget: CommandTarget = {
-          windowId: identity.windowId,
-          workspaceId: identity.workspaceId,
-          paneId: identity.paneId,
-        }
-        const res = await deps.execCommand(
-          cmdTarget,
-          sub === 'switch' ? 'pane.focus' : 'pane.close',
-          { paneId: identity.paneId },
-        )
-        if (!res.ok) return { ok: false, error: 'command-failed', message: res.error.message }
-        return { ok: true }
-      }
-      return { ok: false, error: 'bad-sub' }
-    },
-  })
-
-  registerTargetableMethod('browse.dialog', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { sub, text, paneId } = (params ?? {}) as {
-        sub: 'accept' | 'dismiss' | 'list'
-        text?: string
-        paneId?: string
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const { guest } = resolution
-      if (sub === 'list') {
-        try {
-          const dialogs = await guest.executeJavaScript('window.__pineDialogs || []', true)
-          return { ok: true, dialogs }
-        } catch (e) {
-          return { ok: false, error: 'eval-failed', message: errMessage(e) }
-        }
-      }
-      if (sub !== 'accept' && sub !== 'dismiss') return { ok: false, error: 'bad-sub' }
-      const policy = { policy: sub, text: sub === 'accept' ? (text ?? null) : null }
-      dialogPolicies.set(guest.id, policy)
-      if (!dialogInitAttached.has(guest.id)) {
-        const cdpResult = await cdpAddInitScript(guest, DIALOG_OVERRIDE_JS)
-        if (!cdpResult.ok) return cdpResult
-        dialogInitAttached.add(guest.id)
-      }
-      try {
-        await guest.executeJavaScript(DIALOG_OVERRIDE_JS, true)
-        await guest.executeJavaScript(
-          `window.__pineDialogPolicy = ${JSON.stringify(policy)};`,
-          true,
-        )
-        return { ok: true }
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-    },
-  })
-
-  registerTargetableMethod('browse.focusMode', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { action, paneId } = (params ?? {}) as {
-        action: 'enter' | 'exit' | 'toggle'
-        paneId?: string
-      }
-      if (action !== 'enter' && action !== 'exit' && action !== 'toggle') {
-        return { ok: false, error: 'bad-action' }
-      }
-      const resolution = resolveGuest(deps, ctx, paneId)
+      if (sub !== 'switch' && sub !== 'close') return fail('bad-sub', String(sub))
+      const resolution = await resolveGuest(deps, ctx, str(p.target) ?? str(p.paneId))
       if (!resolution.ok) return resolution
       const identity = getByPaneId(resolution.rendererPaneId)
-      if (!identity) return { ok: false, error: 'no-browser-pane' }
-      const cmdTarget: CommandTarget = {
-        windowId: identity.windowId,
-        workspaceId: identity.workspaceId,
-        paneId: identity.paneId,
+      if (!identity) return fail('no-browser-pane')
+      const res = await deps.execCommand(
+        commandTarget(identity),
+        sub === 'switch' ? 'pane.focus' : 'pane.close',
+        { paneId: identity.paneId },
+      )
+      if (!res.ok) return fail('command-failed', res.error.message)
+      if (sub === 'switch') {
+        if (identity.workspaceId === ctx.identity.workspaceId) {
+          activeTabs.set(ctx.identity.paneId, identity.paneId)
+        }
+        return { ok: true, ...tabEntry(identity.paneId, resolution.guest, identity.paneId) }
       }
-      const zoom = action === 'enter' ? true : action === 'exit' ? false : undefined
-      const res = await deps.execCommand(cmdTarget, 'pane.zoom', { paneId: identity.paneId, zoom })
-      if (!res.ok) return { ok: false, error: 'command-failed', message: res.error.message }
+      if (activeTabs.get(ctx.identity.paneId) === identity.paneId) {
+        activeTabs.delete(ctx.identity.paneId)
+      }
       return { ok: true }
     },
   })
 
-  registerTargetableMethod('browse.reactGrab', {
-    cap: 'browse',
-    handler: async (params, ctx) => {
-      const { action, paneId } = (params ?? {}) as { action: 'toggle' | 'get'; paneId?: string }
-      const resolution = resolveGuest(deps, ctx, paneId)
-      if (!resolution.ok) return resolution
-      const { guest } = resolution
-      if (action === 'get') {
-        try {
-          const entry = await guest.executeJavaScript('window.__pineReactGrab || null', true)
-          return { ok: true, entry }
-        } catch (e) {
-          return { ok: false, error: 'eval-failed', message: errMessage(e) }
+  method('frame', (guest, p) => {
+    const target = str(p.target)
+    const reset = !target || target === 'main' || target === 'top'
+    return world(guest, `frame(${jsArgs(reset ? null : target)})`)
+  })
+
+  method('dialog', async (guest, p) => {
+    const sub = p.sub
+    if (sub === 'status') {
+      const dialogs = await guest.executeJavaScript('window.__pineDialogs || []', true)
+      return { ok: true, policy: dialogPolicies.get(guest.id)?.policy ?? null, dialogs }
+    }
+    if (sub !== 'accept' && sub !== 'dismiss') return fail('bad-sub', String(sub))
+    const policy = {
+      policy: sub as 'accept' | 'dismiss',
+      text: sub === 'accept' ? (str(p.text) ?? null) : null,
+    }
+    dialogPolicies.set(guest.id, policy)
+    if (!dialogInitAttached.has(guest.id)) {
+      await addInitScript(guest, DIALOG_OVERRIDE_JS)
+      dialogInitAttached.add(guest.id)
+    }
+    await guest.executeJavaScript(DIALOG_OVERRIDE_JS, true)
+    await guest.executeJavaScript(`window.__pineDialogPolicy = ${JSON.stringify(policy)};`, true)
+    return { ok: true }
+  })
+
+  const bufferMethod = (name: string, buffer: Map<number, ConsoleEntry[]>): void => {
+    method(name, (guest, p) => {
+      if (p.clear === true) {
+        buffer.delete(guest.id)
+        return { ok: true }
+      }
+      return { ok: true, entries: buffer.get(guest.id) ?? [] }
+    })
+  }
+  bufferMethod('console', deps.consoleBuffers)
+  bufferMethod('errors', deps.errorBuffers)
+
+  method('highlight', (guest, p) =>
+    world(guest, `highlight(${jsArgs(str(p.target), num(p.ms) ?? 1500)})`),
+  )
+
+  method('inspect', (guest) => {
+    guest.openDevTools()
+    return { ok: true }
+  })
+
+  method('state', async (guest, p) => {
+    const requested = str(p.path)
+    if (!requested) return fail('path-required')
+    const path = safeOutPath(deps, requested)
+    if (!path) return fail('path-denied', requested)
+    if (p.sub === 'save') {
+      const web: WebStorageDump = await readWebStorage(guest)
+      const state: StateFile = {
+        cookies: await listCookies(guest),
+        localStorage: web.local,
+        sessionStorage: web.session,
+      }
+      writeOut(path, JSON.stringify(state, null, 2))
+      return { ok: true, path }
+    }
+    if (p.sub === 'load') {
+      const state = JSON.parse(readFileSync(path, 'utf8')) as Partial<StateFile>
+      for (const cookie of state.cookies ?? []) await writeCookie(guest, cookie)
+      for (const [area, values] of [
+        ['local', state.localStorage ?? {}],
+        ['session', state.sessionStorage ?? {}],
+      ] as const) {
+        for (const [key, value] of Object.entries(values)) {
+          await runInBrowseWorld(guest, `setStorage(${jsArgs(area, key, String(value))})`)
         }
       }
-      if (action !== 'toggle') return { ok: false, error: 'bad-action' }
-      const turningOn = !reactGrabOn.has(guest.id)
-      try {
-        await guest.executeJavaScript(turningOn ? REACT_GRAB_ON_JS : REACT_GRAB_OFF_JS, true)
-      } catch (e) {
-        return { ok: false, error: 'eval-failed', message: errMessage(e) }
-      }
-      if (turningOn) reactGrabOn.add(guest.id)
-      else reactGrabOn.delete(guest.id)
-      return { ok: true, on: turningOn }
-    },
+      return { ok: true, path }
+    }
+    return fail('bad-sub', String(p.sub))
   })
+
+  method('pushstate', async (guest, p) => {
+    const url = str(p.url)
+    if (!url) return fail('url-required')
+    const via = await guest.executeJavaScript(
+      `(() => {
+        const url = ${JSON.stringify(url)};
+        const router = window.next && window.next.router;
+        if (router && typeof router.push === 'function') { router.push(url); return 'next-router'; }
+        history.pushState(history.state, '', url);
+        window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }));
+        return 'history';
+      })()`,
+      true,
+    )
+    return { ok: true, via, url: guest.getURL() }
+  })
+
+  method('addinitscript', (guest, p) => {
+    const js = str(p.js)
+    if (!js) return fail('js-required')
+    return addInitScript(guest, js)
+  })
+
+  method('removeinitscript', async (guest, p) => {
+    const identifier = str(p.identifier)
+    if (!identifier) return fail('identifier-required')
+    await debuggerCommand(guest, 'Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    return { ok: true }
+  })
+
+  method('addstyle', async (guest, p) => {
+    const css = str(p.css)
+    if (!css) return fail('css-required')
+    return { ok: true, key: await guest.insertCSS(css) }
+  })
+
+  method('download', async (guest, p) => {
+    const requested = str(p.path)
+    const savePath = requested ? safeOutPath(deps, requested) : null
+    if (requested && !savePath) return fail('path-denied', requested)
+    const timeoutMs = clampTimeout(p.timeoutMs)
+    return new Promise((resolve) => {
+      let settled = false
+      const onWillDownload = (_event: Electron.Event, item: Electron.DownloadItem): void => {
+        if (settled) return
+        if (savePath) {
+          mkdirSync(dirname(savePath), { recursive: true })
+          item.setSavePath(savePath)
+        }
+        item.once('done', (_doneEvent, state) => {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          resolve(
+            state === 'completed'
+              ? { ok: true, path: item.getSavePath(), filename: item.getFilename() }
+              : fail('download-failed', state),
+          )
+        })
+      }
+      guest.session.once('will-download', onWillDownload)
+      const timer = setTimeout(() => {
+        if (settled) return
+        settled = true
+        guest.session.removeListener('will-download', onWillDownload)
+        resolve(fail('timeout', `no download within ${timeoutMs}ms`))
+      }, timeoutMs)
+    })
+  })
+
+  method('history', (guest, p) => {
+    if (p.sub !== 'clear') return fail('bad-sub', String(p.sub))
+    guest.navigationHistory.clear()
+    return { ok: true }
+  })
+
+  method('identify', (guest, _p, _ctx, rendererPaneId) => {
+    const identity = getByPaneId(rendererPaneId)
+    if (!identity) return fail('no-browser-pane')
+    return {
+      ok: true,
+      tabId: identity.externalId,
+      url: guest.getURL(),
+      title: guest.getTitle(),
+      workspaceId: identity.workspaceId,
+      windowId: identity.windowId,
+    }
+  })
+
+  method('zoom', (guest, p) => {
+    const current = guest.getZoomLevel()
+    const zoom =
+      p.action === 'reset'
+        ? 0
+        : p.action === 'in'
+          ? current + 0.5
+          : p.action === 'out'
+            ? current - 0.5
+            : null
+    if (zoom === null) return fail('bad-action', String(p.action))
+    guest.setZoomLevel(zoom)
+    return { ok: true, zoom }
+  })
+
+  method('focusMode', async (_guest, p, _ctx, rendererPaneId) => {
+    const action = p.action
+    if (action !== 'enter' && action !== 'exit' && action !== 'toggle') {
+      return fail('bad-action', String(action))
+    }
+    const identity = getByPaneId(rendererPaneId)
+    if (!identity) return fail('no-browser-pane')
+    const zoom = action === 'enter' ? true : action === 'exit' ? false : undefined
+    const res = await deps.execCommand(commandTarget(identity), 'pane.zoom', {
+      paneId: identity.paneId,
+      zoom,
+    })
+    return res.ok ? { ok: true } : fail('command-failed', res.error.message)
+  })
+
+  method('reactGrab', async (guest, p) => {
+    if (p.action === 'get') {
+      return {
+        ok: true,
+        entry: await guest.executeJavaScript('window.__pineReactGrab || null', true),
+      }
+    }
+    if (p.action !== 'toggle') return fail('bad-action', String(p.action))
+    const turningOn = !reactGrabOn.has(guest.id)
+    await guest.executeJavaScript(turningOn ? REACT_GRAB_ON_JS : REACT_GRAB_OFF_JS, true)
+    if (turningOn) reactGrabOn.add(guest.id)
+    else reactGrabOn.delete(guest.id)
+    return { ok: true, on: turningOn }
+  })
+
+  method('focusWebview', (guest) => {
+    guest.focus()
+    return { ok: true }
+  })
+
+  method('isWebviewFocused', (guest) => ({ ok: true, focused: guest.isFocused() }))
+}
+
+function withRef(ref: string, outcome: BrowseOutcome): BrowseOutcome<{ ref?: string }> {
+  return outcome.ok ? { ok: true, ref } : outcome
 }

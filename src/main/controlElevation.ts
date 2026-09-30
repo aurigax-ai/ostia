@@ -18,7 +18,9 @@ export async function ensureCaps(
   const missing = [...new Set(caps)].filter((cap) => !connHasCap(authed, cap))
   if (missing.length === 0) return
   const approver = approvals()
-  if (!approver || identity.kind !== 'pane') throw needsElevation(missing[0])
+  if (!approver || identity.kind !== 'pane' || identity.externalId !== authed.externalId) {
+    throw needsElevation(missing[0])
+  }
   const outcome = await approver.request({
     externalId: authed.externalId,
     windowId: identity.windowId,
