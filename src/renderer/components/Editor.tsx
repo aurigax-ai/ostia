@@ -97,6 +97,7 @@ export function EditorView({
       automaticLayout: true,
       fontFamily: `"${initial.family}", ${EDITOR_FALLBACK}`,
       fontSize: initial.size,
+      fontWeight: String(initial.weight),
       fontLigatures: true,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
@@ -185,8 +186,9 @@ export function EditorView({
     editorRef.current?.updateOptions({
       fontFamily: `"${font.family}", ${EDITOR_FALLBACK}`,
       fontSize: font.size,
+      fontWeight: String(font.weight),
     })
-  }, [font.family, font.size])
+  }, [font.family, font.size, font.weight])
 
   return (
     <>

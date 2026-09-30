@@ -41,7 +41,8 @@ export function App(): JSX.Element {
   useEffect(() => {
     document.documentElement.style.setProperty('--font-ui', `"${uiFont.family}", ${SANS_FALLBACK}`)
     document.body.style.fontSize = `${uiFont.size}px`
-  }, [uiFont.family, uiFont.size])
+    document.documentElement.style.setProperty('--font-ui-weight', String(uiFont.weight))
+  }, [uiFont.family, uiFont.size, uiFont.weight])
 
   useEffect(() => {
     document.documentElement.lang = locale
@@ -52,7 +53,6 @@ export function App(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    void useSettingsStore.getState().init()
     void registerSettingsSchema()
   }, [])
 

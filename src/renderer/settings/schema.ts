@@ -7,6 +7,11 @@ const font = (title: string) => ({
   properties: {
     family: { type: 'string', description: 'Font family name.' },
     size: { type: 'number', minimum: 8, maximum: 32, description: 'Font size in px.' },
+    weight: {
+      type: 'number',
+      enum: [300, 400, 450, 500, 600, 700],
+      description: 'Regular text weight (bold text stays bold).',
+    },
   },
 })
 
@@ -58,6 +63,13 @@ export const SETTINGS_JSON_SCHEMA = {
           description: 'Terminal cursor shape.',
         },
         cursorBlink: { type: 'boolean', description: 'Blink the terminal cursor.' },
+        gpuAcceleration: {
+          type: 'boolean',
+          description:
+            'Draw terminals on the GPU (WebGL). Block and box-drawing characters then fill ' +
+            'their cells exactly. Falls back to the DOM renderer when WebGL is unavailable. ' +
+            'Applies to new terminals.',
+        },
         restoreWorkspace: {
           type: 'boolean',
           description:

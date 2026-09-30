@@ -25,6 +25,7 @@ import { type LspStatus, usePluginsStore } from '../stores/pluginsStore'
 import {
   CURSOR_STYLES,
   type CursorStyle,
+  FONT_WEIGHTS,
   type FontSurface,
   MOTION_MODES,
   type MotionMode,
@@ -32,6 +33,7 @@ import {
   useSettingsStore,
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { FontPicker } from './FontPicker'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { SyncSection } from './SyncSection'
@@ -178,6 +180,21 @@ export function SectionHead({ title, desc }: { title: string; desc?: string }): 
   )
 }
 
+export function SettingsGroup({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}): JSX.Element {
+  return (
+    <section className="mt-5 border-line border-t pt-5 first-of-type:mt-3 first-of-type:border-t-0 first-of-type:pt-0">
+      <h3 className="mb-2 font-semibold text-fg text-ui-emphasis">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
 export function SubHead({ title, desc }: { title: string; desc?: string }): JSX.Element {
   return (
     <div className="mb-2">
@@ -272,29 +289,32 @@ function AppearanceSection(): JSX.Element {
     full: d.settings.motionFull,
   }
   return (
-    <section>
+    <div>
       <SectionHead title={d.settings.appearance} />
-      <ControlRow label={d.settings.theme}>
-        <SelectField
-          value={theme}
-          onChange={setTheme}
-          label={d.settings.theme}
-          options={themes.map((t) => ({ value: t.id, label: t.name }))}
-        />
-      </ControlRow>
-      <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
-        <SelectField
-          value={motionMode(motion)}
-          onChange={setMotion}
-          label={d.settings.motion}
-          options={MOTION_MODES.map((m) => ({ value: m, label: motionLabel[m] }))}
-        />
-      </ControlRow>
-      <Separator />
-      <FontRow surface="ui" label={d.settings.uiFont} />
-      <FontRow surface="terminal" label={d.settings.terminalFont} />
-      <FontRow surface="editor" label={d.settings.editorFont} />
-    </section>
+      <SettingsGroup title={d.settings.groupTheme}>
+        <ControlRow label={d.settings.theme}>
+          <SelectField
+            value={theme}
+            onChange={setTheme}
+            label={d.settings.theme}
+            options={themes.map((t) => ({ value: t.id, label: t.name }))}
+          />
+        </ControlRow>
+        <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
+          <SelectField
+            value={motionMode(motion)}
+            onChange={setMotion}
+            label={d.settings.motion}
+            options={MOTION_MODES.map((m) => ({ value: m, label: motionLabel[m] }))}
+          />
+        </ControlRow>
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupFonts}>
+        <FontRow surface="ui" label={d.settings.uiFont} />
+        <FontRow surface="terminal" label={d.settings.terminalFont} />
+        <FontRow surface="editor" label={d.settings.editorFont} />
+      </SettingsGroup>
+    </div>
   )
 }
 
@@ -304,11 +324,17 @@ function FontRow({ surface, label }: { surface: FontSurface; label: string }): J
   const setSurfaceFont = useSettingsStore((s) => s.setSurfaceFont)
   return (
     <ControlRow label={label}>
-      <Input
+      <FontPicker
         value={font.family}
-        onChange={(e) => setSurfaceFont(surface, { family: e.target.value })}
-        aria-label={`${label}, ${d.settings.family}`}
-        className="h-7 w-44 font-mono"
+        label={`${label}, ${d.settings.family}`}
+        onChange={(family) => setSurfaceFont(surface, { family })}
+      />
+      <SelectField
+        value={String(font.weight)}
+        onChange={(w) => setSurfaceFont(surface, { weight: Number(w) })}
+        label={`${label}, ${d.settings.weight}`}
+        width="w-20"
+        options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))}
       />
       <Input
         type="number"
@@ -333,6 +359,7 @@ function TerminalSection(): JSX.Element {
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
   const restoreWorkspace = useSettingsStore((s) => s.behavior.restoreWorkspace)
+  const gpuAcceleration = useSettingsStore((s) => s.behavior.gpuAcceleration)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   const styleLabel: Record<CursorStyle, string> = {
     block: d.settings.styleBlock,
@@ -340,29 +367,41 @@ function TerminalSection(): JSX.Element {
     bar: d.settings.styleBar,
   }
   return (
-    <section>
+    <div>
       <SectionHead title={d.settings.terminal} />
-      <ControlRow label={d.settings.cursorStyle}>
-        <SelectField
-          value={cursorStyle}
-          onChange={(c) => setBehavior({ cursorStyle: c })}
-          label={d.settings.cursorStyle}
-          options={CURSOR_STYLES.map((c) => ({ value: c, label: styleLabel[c] }))}
+      <SettingsGroup title={d.settings.groupCursor}>
+        <ControlRow label={d.settings.cursorStyle}>
+          <SelectField
+            value={cursorStyle}
+            onChange={(c) => setBehavior({ cursorStyle: c })}
+            label={d.settings.cursorStyle}
+            options={CURSOR_STYLES.map((c) => ({ value: c, label: styleLabel[c] }))}
+          />
+        </ControlRow>
+        <ToggleRow
+          label={d.settings.cursorBlink}
+          desc={d.settings.cursorBlinkDesc}
+          checked={cursorBlink}
+          onChange={(v) => setBehavior({ cursorBlink: v })}
         />
-      </ControlRow>
-      <ToggleRow
-        label={d.settings.cursorBlink}
-        desc={d.settings.cursorBlinkDesc}
-        checked={cursorBlink}
-        onChange={(v) => setBehavior({ cursorBlink: v })}
-      />
-      <ToggleRow
-        label={d.settings.restoreWorkspace}
-        desc={d.settings.restoreWorkspaceDesc}
-        checked={restoreWorkspace}
-        onChange={(v) => setBehavior({ restoreWorkspace: v })}
-      />
-    </section>
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupRendering}>
+        <ToggleRow
+          label={d.settings.gpuAcceleration}
+          desc={d.settings.gpuAccelerationDesc}
+          checked={gpuAcceleration}
+          onChange={(v) => setBehavior({ gpuAcceleration: v })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupSession}>
+        <ToggleRow
+          label={d.settings.restoreWorkspace}
+          desc={d.settings.restoreWorkspaceDesc}
+          checked={restoreWorkspace}
+          onChange={(v) => setBehavior({ restoreWorkspace: v })}
+        />
+      </SettingsGroup>
+    </div>
   )
 }
 

@@ -12,7 +12,7 @@ the reasons live.
 |---|---|
 | Shell | Electron, electron-vite (dev/build), electron-builder (package) |
 | UI | React 18 + TypeScript strict, zustand, Tailwind v4, shadcn on Base UI, Phosphor icons (`@phosphor-icons/react`), cmdk |
-| Terminal | node-pty in main; `@xterm/xterm` 6 + fit, search, web-links, unicode11 addons (DOM renderer) |
+| Terminal | node-pty in main; `@xterm/xterm` 6 + fit, search, web-links, unicode11, webgl addons (WebGL renderer, DOM fallback; `behavior.gpuAcceleration`) |
 | Splits | allotment |
 | Editor | monaco-editor with locally bundled workers; hand-written LSP client over `vscode-jsonrpc` |
 | Control plane | `vscode-jsonrpc` over a unix socket; `pine` CLI bundled by esbuild |
