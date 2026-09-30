@@ -168,6 +168,8 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
   `wiki.json` here (and a global `$XDG_DATA_HOME/pine/wiki.json`); those extensions were removed in
   favour of Trellis, and pine leaves the files in place without reading them.
 - `userData/extensions.json`: per-extension `{enabled, approved}` records (§11).
+- `$XDG_DATA_HOME/pine/`: `chat-sessions/<id>.json` (assistant chats), `extension-secrets.json`
+  and `mcp-secrets.json` (encrypted with `safeStorage`, never synced; §11).
 - `$XDG_CONFIG_HOME/pine/views/<name>.json`: declarative views; `userData/views.json`: which of
   them the human enabled (§11). Neither is synced.
 - `userData/sync-state.json`: the sync folder last synced with, a hash per synced file at the
@@ -2074,7 +2076,8 @@ extension owns providers, prompts and requests.
   extension reports instead of "has a manifest entry": the built-in assistant is installed and
   enabled for everyone but must stay invisible until the human configures a provider.
 - `assist:request (point, requestId, input)` normalizes the input in main
-  (`normalizeAssistRequest`: known fields only, size caps, a chat must end with a user turn,
+  (`normalizeAssistRequest`: known fields only, size caps, a chat must end with a user turn or
+  a tool turn whose calls all have outcomes,
   context kinds from a fixed list) before anything reaches the extension, then sends
   `ext.assist {point, requestId, input}` with a jsonrpc cancellation token. The reply is
   normalized again (`normalizeAssistResult`), or mapped to a typed failure when it is
@@ -2082,8 +2085,8 @@ extension owns providers, prompts and requests.
   that). Timeouts: 30 s, 5 min for chat.
 - Streaming: the extension calls `ext.assistChunk {requestId, text}` (needs `assist`) for each
   delta; main forwards it on `assist:chunk` to the window that asked and answers `{live}` so the
-  extension stops producing once the request is gone. Chunks are capped (16 KiB each, 100k
-  characters per reply). Why chunk requests rather than notifications: the control server only
+  extension stops producing once the request is gone. Chunks are capped (256 KiB each, 1M
+  characters per request; a JSON chunk that doesn't fit is dropped whole rather than cut). Why chunk requests rather than notifications: the control server only
   dispatches requests, and a request gives the extension backpressure for free.
 - Cancellation: `assist:cancel (requestId)` from the renderer (Stop, a closed palette, a newer
   keystroke) cancels the token; main answers `cancelled` at once without waiting for the
@@ -2149,6 +2152,69 @@ past 16 MiB or 500 sessions; the result tells the renderer what was dropped so i
 Export writes markdown through a save dialog in main; "Save as file…" does the same for a code
 block. Why main writes them: the renderer has no fs access outside the confined `fs:*`, and a
 session holds terminal output the human chose to send, which belongs in the private data dir.
+Tool calls are stored as the AI SDK's `dynamic-tool` parts (input, output or error, the approval
+and its answer, `output-denied` for a denial); a tool part past the 64 KiB part cap is kept with
+its strings clipped (`…[truncated]`) rather than dropped, and export writes each call, its result,
+error or denial in order with the text around it.
+
+**Chat tools** (`lib/chatTools.ts`, `lib/chatToolPermissions.ts`, `stores/chatToolsStore.ts`,
+`lib/chatTransport.ts`; `main/chatFsTools.ts`, `chatSkills.ts`, `mcpHost.ts`, `chatToolsIpc.ts`;
+`shared/chatTools.ts`). The assistant chat can call tools; the split is:
+- The extension owns the model only. A chat request lists the tools core offers
+  (`ChatToolSpec`: name, description, JSON schema) and assistant turns carry their calls with a
+  `done`/`error`/`denied` outcome (`ChatToolCall`). The built-in assistant declares them to
+  `streamText` as `dynamicTool`s without `execute`, so a step that calls a tool simply ends; it
+  drops `tool-input-delta` chunks (the whole input comes in `tool-input-available`) and reports
+  `tools: true` on its chat status. Why no execute in the extension: every tool acts through
+  core (files, panes, the human's MCP servers), and an extension may only use the public API, so
+  the extension gains no new power; a third-party chat extension that ignores `tools` keeps
+  working as before.
+- The renderer runs the loop inside the chat transport (`createAssistTransport`): it sends the
+  request, collects the calls the model streamed, runs each one, emits the AI SDK chunks for it
+  (`tool-approval-request`/`-response`, `tool-output-available`/`-error`/`-denied`) into the same
+  assistant message, and asks again with the outcomes, at most `MAX_TOOL_ROUNDS` (8) per turn.
+  Why the transport and not `useChat`'s `onToolCall` + `sendAutomaticallyWhen`: one stream per
+  turn means Stop (the transport's `AbortSignal`) cancels the model, a waiting card and an
+  in-flight MCP call together, and one `onFinish` saves the whole turn. Tool outputs of turns
+  before the latest question go back to the model clipped to 2000 characters.
+- Permission (`decideTool`, pure): `read` tools (read, list, search, terminal context, git
+  status, load skill) run without asking inside the workspace folder (`workDir`); outside it they
+  ask once per chat (`read-outside`). `act` tools (open a file, open a URL) and every MCP tool ask
+  with Allow once / Allow for this chat / Deny. `confirm` tools ask every time with nothing to
+  grant: `write_file` shows a diff (jsdiff) of what main previews, and `propose_command` offers
+  Insert at prompt (`insertCommand` without Enter, else the clipboard) or Run in new terminal
+  (`runInNewTerminal`, `runWhenIdle`, the risky-paste dialog for newlines or control characters).
+  Grants live in memory per session and are never saved. Why no grant for writes and commands:
+  each one differs, and the diff or the exact command is what the human is approving.
+- Main does the fs work (`chatTools:read|list|search|preview|write`): paths are absolute (the
+  renderer resolves them against the workspace folder), confined by `resolveSafe` and then by
+  `realpath` to the fs roots (a symlink out of them is refused, unlike `fs:*`), and to the
+  workspace folder unless the renderer passes `outside` after the human approved. Reads cap at
+  4 MiB and 2000 lines / ~30k characters, refuse binary files; search walks up to 5000 files
+  skipping `.git` and `node_modules`; writes cap at 1 MiB and refuse to write through a symlink.
+- Skills: `assistant.skillFolders` (a folder with a `SKILL.md`, or a folder of them). Main reads
+  them (`chatSkills.ts`): front matter `name`/`description` parsed with `yaml` (aliases refused),
+  symlinked folders and files and files over 256 KiB skipped. The model sees only names and
+  descriptions (in `load_skill`'s description) and loads a body with `load_skill`, read-only.
+- MCP: `assistant.mcpServers` (`parseMcpServer`: a name, exactly one of an argv or an http(s)
+  URL, env for argv servers, the names of secrets, disabled tool names). `McpHost` (main,
+  `@ai-sdk/mcp`, bundled into main because it is ESM-only) connects a server only when a chat or
+  Settings asks (`chatTools:mcp-refresh`), reconnects when its command, URL, env or set secrets
+  change, and broadcasts status (`chatTools:mcp-status`). An argv server is spawned with
+  `shell: false` in the home folder and gets only HOME, LOGNAME, PATH, SHELL, TERM and USER plus
+  its env and secrets (so never `PINE_TOKEN`); secret values go in as env (argv) or headers
+  (URL). Why main hosts the clients: the servers are programs the human configured, like
+  `behavior.externalEditor`, and tool results must pass the same approval card whatever the chat
+  provider. Secrets are stored with the extension-secret store's `safeStorage` code in their own
+  `mcp-secrets.json` (never synced, never returned; `chatTools:set-mcp-secret` accepts only a key
+  the human declared on that server). Tool names are `mcp__<server>__<tool>`; main re-checks that
+  the server is enabled and the tool exists and is not switched off on every call.
+- `assistant` is not in the settings store's `DATA_KEYS`, so `pine settings set` cannot add a
+  server or a skill folder; Settings → Plugins → Assistant writes them (and flushes the file
+  before asking main to reconnect, since main reads `settings.json` itself).
+- Why the assist reply now carries `chunks`: an `ipcRenderer.invoke` reply can overtake the
+  `assist:chunk` events sent before it, and the last chunk of a round is often the tool call.
+  `assistRequest` waits (up to 3 s) until it has seen as many chunks as main forwarded.
 
 **Extension secrets** (`main/extensionSecrets.ts`). `contributes.secrets` declares up to 8 keys
 with descriptions. Settings → Plugins shows a password field per key; `extensions:set-secret`
