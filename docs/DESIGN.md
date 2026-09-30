@@ -182,6 +182,15 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
     dropping onto the lower half of a header highlights it (`--brand-glow` + 1px `--brand`
     inset) and means "into this group". While dragging, the empty space below the list is a drop
     zone for "last, ungrouped".
+  - **Workspaces in other windows** follow the main window's own rows, in window order: same row
+    layout, the kind icon replaced by `AppWindowIcon` (the "in another window" mark), the state
+    dot kept, the folder as the meta line, no close button and never an active highlight. A
+    click focuses their window; the context menu offers Show window and Move back to main
+    window. They take the next workspace digits, so Ctrl/⌘+1..9 reach them.
+- **Detached window** (`DetachedTitleBar.tsx`): no sidebar and no top-bar tools. The bar holds
+  only a Move back to main window icon button (`ArrowSquareInIcon`) on the left, the project name
+  centered (`ui-base`/600, `fg`, truncated) and the window controls; all of it is the drag
+  region. The work area below is the same split tree.
 - **Files panel** (`FilesPanel.tsx`): a 260px column to the right of the sidebar, toggled from the
   top bar. It shows the active workspace's focused pane cwd, so switching workspaces switches it.
 - **Cursor**: the normal arrow everywhere, like a desktop app. No pointer or grab cursors.

@@ -9,7 +9,6 @@ import type { ExtensionPanelContext, ExtensionResult } from '../shared/extension
 import { PRODUCT_NAME } from '../shared/product'
 import type {
   AppInfo,
-  AppSnapshot,
   CommandDescriptor,
   CommandResult,
   CommandTarget,
@@ -22,6 +21,7 @@ import type {
   PtyAttachResult,
   PtySpawnOptions,
   TerminalStateSnapshot,
+  WindowBounds,
 } from '../shared/types'
 import { clampZoom, zoomFactor } from '../shared/zoom'
 import { registerAgentTranscriptIpc } from './agentTranscript'
@@ -42,7 +42,7 @@ import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
 import { registerBrowserStorageIpc } from './browserStorage'
 import { registerBusMethods } from './bus'
 import { dropIdentity } from './capabilityStore'
-import { confirmAllWindowsClose, confirmWindowClose, registerCloseGuard } from './closeGuard'
+import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerCredentials } from './credentials'
@@ -59,6 +59,7 @@ import { configureGatewayControl, stopGateway } from './gateway/server'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import {
   getByPaneId,
+  panesOwnedBy,
   registerPane,
   removePane,
   removeWindow,
@@ -86,17 +87,15 @@ import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
+import { MAIN_SLOT } from './windowBook'
+import { WindowBroker } from './windowBroker'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
 import { removeWorkspace, setWorkspaceWorkDir, workDirForWorkspace } from './workspaceRegistry'
 import {
-  clearPersisted,
   dropRestoredScrollback,
   loadRestoredScrollback,
-  loadSnapshot,
-  parseSnapshot,
   pendingRestoredScrollback,
   saveScrollback,
-  saveSnapshot,
   stashScrollback,
   takeRestoredScrollback,
 } from './workspaceSnapshot'
@@ -136,12 +135,29 @@ function removeStateFile(entry: PtyEntry): void {
   rmSync(entry.stateFile, { force: true })
 }
 
-let restorePersistEnabled = true
-
 const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
 const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hibernation ──\x1b[0m\r\n'
 
 const hibernatedPanes = new Set<string>()
+const movingPanes = new Set<string>()
+
+function holdPtys(paneIds: readonly string[]): void {
+  for (const paneId of paneIds) {
+    const entry = ptys.get(paneId)
+    if (!entry) continue
+    movingPanes.add(paneId)
+    if (entry.killTimer) {
+      clearTimeout(entry.killTimer)
+      entry.killTimer = null
+    }
+  }
+}
+
+function releaseMovingPane(paneId: string): void {
+  if (!movingPanes.delete(paneId)) return
+  const entry = ptys.get(paneId)
+  if (entry && entry.session.ownerCount === 0) killPty(paneId)
+}
 
 const EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
 
@@ -228,6 +244,7 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
+let broker: WindowBroker | null = null
 let settingsSync: SettingsSyncHandle | null = null
 
 const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
@@ -330,19 +347,15 @@ function baseWebPreferences(): Electron.WebPreferences {
 
 let quitApproved = false
 let quitAsking = false
-const approvedWindows = new WeakSet<BrowserWindow>()
 
 function wireWindow(win: BrowserWindow): void {
   win.once('ready-to-show', () => win.show())
 
   win.on('close', (event) => {
-    if (quitApproved || approvedWindows.has(win)) return
+    if (quitApproved || broker?.isReturning(win)) return
     event.preventDefault()
-    void confirmWindowClose(win).then((approved) => {
-      if (!approved || win.isDestroyed()) return
-      approvedWindows.add(win)
-      win.close()
-    })
+    if (broker?.isDetached(win)) broker.requestReturn(win)
+    else app.quit()
   })
 
   const emitMaximized = (): void => win.webContents.send('window:maximized', win.isMaximized())
@@ -402,10 +415,9 @@ function wireWindow(win: BrowserWindow): void {
   })
 }
 
-function createWindow(): BrowserWindow {
+function createWindow(slot: string, bounds?: WindowBounds): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...(bounds ?? { width: 1280, height: 800 }),
     minWidth: 720,
     minHeight: 480,
     backgroundColor: '#1d2022',
@@ -418,10 +430,11 @@ function createWindow(): BrowserWindow {
   })
 
   wireWindow(win)
+  broker?.track(win, slot)
 
   if (devServerUrl) {
     win.loadURL(devServerUrl)
-    win.webContents.openDevTools({ mode: 'detach' })
+    if (slot === MAIN_SLOT) win.webContents.openDevTools({ mode: 'detach' })
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
@@ -443,30 +456,6 @@ function registerIpc(): void {
       platform: process.platform,
     }),
   )
-
-  ipcMain.on('workspace:save', (_e, snapshot: AppSnapshot | null) => {
-    try {
-      if (snapshot === null) {
-        restorePersistEnabled = false
-        clearPersisted()
-        return
-      }
-      const parsed = parseSnapshot(snapshot)
-      if (!parsed) return
-      restorePersistEnabled = true
-      saveSnapshot(parsed)
-    } catch (err) {
-      console.error('[workspace] snapshot save failed', err)
-    }
-  })
-  ipcMain.handle('workspace:load', (): AppSnapshot | null => {
-    try {
-      return loadSnapshot()
-    } catch (err) {
-      console.error('[workspace] snapshot load failed', err)
-      return null
-    }
-  })
 
   registerCloseGuard()
   ipcMain.on('window:minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize())
@@ -497,6 +486,8 @@ function registerIpc(): void {
 
   ipcMain.on('lifecycle:event', (e, event: LifecycleEvent) => {
     const windowId = String(e.sender.id)
+    const owner = 'paneId' in event ? getByPaneId(event.paneId)?.windowId : undefined
+    if (owner && owner !== windowId && windows.has(owner)) return
     if (event.type === 'pane-created') {
       const identity = registerPane({
         windowId,
@@ -518,6 +509,7 @@ function registerIpc(): void {
         })
       }
       extensionHost?.clearPaneChips(event.paneId)
+      releaseMovingPane(event.paneId)
       dropRestoredScrollback(event.paneId)
       hibernatedPanes.delete(event.paneId)
       removePane(event.paneId)
@@ -571,7 +563,9 @@ function registerIpc(): void {
     browserPanes.set(paneId, webContentsId)
     instrumentBrowserGuest(gc)
   })
-  ipcMain.on('browser:unregister', (_e, paneId: string) => {
+  ipcMain.on('browser:unregister', (e, paneId: string) => {
+    const owner = getByPaneId(paneId)?.windowId
+    if (owner && owner !== String(e.sender.id)) return
     cancelPick(paneId)
     const wcId = browserPanes.get(paneId)
     browserPanes.delete(paneId)
@@ -649,6 +643,9 @@ function registerExtensionIpc(host: ExtensionHost): void {
 function registerPtyIpc(): void {
   ipcMain.handle('pty:attach', (e, paneId: string, opts: PtySpawnOptions): PtyAttachResult => {
     const subId = String(e.sender.id)
+    if (!panesOwnedBy([paneId], subId)) {
+      return { created: false, buffer: '', cursor: 0, dropped: false }
+    }
     const mkSub = () => ({
       id: subId,
       role: (opts.role ?? 'owner') as 'owner' | 'observer',
@@ -663,6 +660,7 @@ function registerPtyIpc(): void {
         clearTimeout(existing.killTimer)
         existing.killTimer = null
       }
+      movingPanes.delete(paneId)
       existing.subs.set(subId, e.sender)
       existing.session.addLiveSubscriber(mkSub())
       const { data, cursor, dropped } = existing.session.since(opts.sinceCursor ?? 0)
@@ -706,7 +704,7 @@ function registerPtyIpc(): void {
     const session = new PtySession({
       capBytes: PTY_BUFFER_CAP,
       onNoOwners: () => {
-        if (ptys.get(paneId) !== entry || entry.killTimer) return
+        if (ptys.get(paneId) !== entry || entry.killTimer || movingPanes.has(paneId)) return
         entry.killTimer = setTimeout(() => killPty(paneId), DETACH_GRACE_MS)
       },
       onExit: (code) => {
@@ -717,7 +715,10 @@ function registerPtyIpc(): void {
         }
         entry.mirror.dispose()
         removeStateFile(entry)
-        if (ptys.get(paneId) === entry) ptys.delete(paneId)
+        if (ptys.get(paneId) === entry) {
+          ptys.delete(paneId)
+          movingPanes.delete(paneId)
+        }
       },
     })
     const entry: PtyEntry = {
@@ -794,6 +795,7 @@ function registerPtyIpc(): void {
 
 function registerFsIpc(): void {
   const allowedRoots = [homedir(), app.getPath('userData')]
+  const settingsFile = join(app.getPath('userData'), 'settings.json')
   registerOpenPathIpc(allowedRoots)
   registerProjectRootIpc(allowedRoots)
 
@@ -832,11 +834,18 @@ function registerFsIpc(): void {
 
   ipcMain.handle('fs:read-binary', (_e, path: unknown) => readBinaryConfined(path, allowedRoots))
 
-  ipcMain.handle('fs:write', (_e, path: string, content: string): boolean => {
+  ipcMain.handle('fs:write', (e, path: string, content: string): boolean => {
     const safe = resolveSafe(path, allowedRoots)
     if (safe === null) return false
     try {
       writeFileSync(safe, content, 'utf8')
+      if (safe === settingsFile) {
+        for (const win of windows.values()) {
+          if (!win.isDestroyed() && win.webContents.id !== e.sender.id) {
+            win.webContents.send('settings:changed')
+          }
+        }
+      }
       return true
     } catch {
       return false
@@ -853,7 +862,19 @@ export function getTerminalState(paneId: string): TerminalStateSnapshot | undefi
 }
 
 function primaryWindowId(): string | undefined {
-  return [...windows.keys()][0]
+  return broker?.windowIds()[0] ?? [...windows.keys()][0]
+}
+
+function windowIds(): string[] {
+  return broker?.windowIds() ?? [...windows.keys()]
+}
+
+function workspaceWindowId(workspaceId: string): string | undefined {
+  return broker?.windowOfWorkspace(workspaceId) ?? windowOfWorkspace(workspaceId)
+}
+
+function mainWindow(): BrowserWindow | undefined {
+  return broker?.mainWindow() ?? [...windows.values()][0]
 }
 
 let gwSubSeq = 0
@@ -898,7 +919,7 @@ export function execCommand(
   id: string,
   args?: unknown,
 ): Promise<CommandResult> {
-  const win = target.windowId ? windows.get(target.windowId) : [...windows.values()][0]
+  const win = target.windowId ? windows.get(target.windowId) : mainWindow()
   if (!win || win.isDestroyed()) {
     return Promise.resolve({
       ok: false,
@@ -927,8 +948,8 @@ function sendToWorkspaceWindow(
   channel: string,
   payload: unknown,
 ): void {
-  const windowId = workspaceId ? windowOfWorkspace(workspaceId) : undefined
-  const win = (windowId ? windows.get(windowId) : undefined) ?? [...windows.values()][0]
+  const windowId = workspaceId ? workspaceWindowId(workspaceId) : undefined
+  const win = (windowId ? windows.get(windowId) : undefined) ?? mainWindow()
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
@@ -951,8 +972,8 @@ let openTerminalSeq = 0
 function openTerminalInWindow(req: TerminalOpenRequest): Promise<string | null> {
   const { windowId: requestedWindow, ...payload } = req
   const windowId =
-    requestedWindow ?? (req.workspaceId ? windowOfWorkspace(req.workspaceId) : undefined)
-  const win = (windowId ? windows.get(windowId) : undefined) ?? [...windows.values()][0]
+    requestedWindow ?? (req.workspaceId ? workspaceWindowId(req.workspaceId) : undefined)
+  const win = (windowId ? windows.get(windowId) : undefined) ?? mainWindow()
   if (!win || win.isDestroyed()) return Promise.resolve(null)
   const wid = String(win.webContents.id)
   const requestId = `term-${++openTerminalSeq}`
@@ -1049,15 +1070,15 @@ app.whenReady().then(() => {
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
   )
-  registerPaneListMethods({ execCommand, getTerminalState, ptyPid })
+  registerPaneListMethods({ execCommand, getTerminalState, ptyPid, windowIds })
   registerGatewayMethods()
   registerGatewayIpc()
   configureGatewayControl({
     execCommand,
     listCommandsFor,
     getTerminalState,
-    listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid }),
-    listWorkspaces: () => listWorkspaces({ execCommand }),
+    listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+    listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
     primaryWindowId,
     attachPhoneObserver,
     ptyResize,
@@ -1076,7 +1097,9 @@ app.whenReady().then(() => {
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
-  createWindow()
+  broker = new WindowBroker({ createWindow, holdPtys, execCommand })
+  broker.register()
+  broker.openAll()
   extensionHost.startEager()
   extensionHost.watchUserExtensions()
   app.on('browser-window-focus', emitFocusChanged)
@@ -1084,12 +1107,12 @@ app.whenReady().then(() => {
   setInterval(autosaveScrollback, SCROLLBACK_AUTOSAVE_MS).unref()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(MAIN_SLOT)
   })
 })
 
 function persistScrollback(): void {
-  if (!restorePersistEnabled) return
+  if (broker && !broker.persisting) return
   try {
     const byPane = pendingRestoredScrollback()
     for (const [paneId, entry] of ptys) byPane[paneId] = entry.mirror.serialize()
@@ -1116,10 +1139,12 @@ app.on('before-quit', (event) => {
     event.preventDefault()
     if (quitAsking) return
     quitAsking = true
-    void confirmAllWindowsClose(BrowserWindow.getAllWindows()).then((approved) => {
+    const all = BrowserWindow.getAllWindows()
+    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow()).then((approved) => {
       quitAsking = false
       if (!approved) return
       quitApproved = true
+      freezeAll(all)
       app.quit()
     })
     return

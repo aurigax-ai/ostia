@@ -1,6 +1,9 @@
 import { cn } from '@/lib/utils'
 import {
+  AppWindowIcon,
   ArrowDownIcon,
+  ArrowSquareInIcon,
+  ArrowSquareOutIcon,
   ArrowUpIcon,
   CaretDownIcon,
   CaretRightIcon,
@@ -34,6 +37,8 @@ import { allPanes, paneIds } from '../layout/tree'
 import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '../lib/attention'
 import { requestCloseOthers, requestCloseWorkspace } from '../lib/closeConfirm'
 import { openSidebarUrl, visibleSidebarItems } from '../lib/sidebarItems'
+import { moveWorkspaceToNewWindow } from '../lib/windowHandoff'
+import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { markWorkspaceRead } from '../lib/workspaceActivity'
 import {
   type DragSource,
@@ -49,6 +54,7 @@ import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWindowsStore } from '../stores/windowsStore'
 import {
   type Workspace,
   type WorkspaceKind,
@@ -186,6 +192,8 @@ function WorkspacesView(): JSX.Element {
             block.workspaces.map(row)
           ),
         )}
+
+        <RemoteWorkspaces offset={workspaces.length} />
 
         {drag ? (
           <div
@@ -677,6 +685,9 @@ function WorkspaceRow({
           </MenuItem>
         ) : null}
         <ContextMenuSeparator />
+        <MenuItem icon={ArrowSquareOutIcon} onClick={() => void moveWorkspaceToNewWindow(w.id)}>
+          {d.window.moveToNewWindow}
+        </MenuItem>
         <MenuItem
           icon={XSquareIcon}
           disabled={count < 2}
@@ -686,6 +697,76 @@ function WorkspaceRow({
         </MenuItem>
         <MenuItem icon={XIcon} onClick={() => void requestCloseWorkspace(w.id)}>
           {d.rail.closeWorkspace}
+        </MenuItem>
+      </MenuContent>
+    </ContextMenu>
+  )
+}
+
+function RemoteWorkspaces({ offset }: { offset: number }): JSX.Element | null {
+  const windowId = useWindowsStore((s) => s.windowId)
+  const list = useWindowsStore((s) => s.list)
+  const remote = remoteWorkspacesOf(list, windowId)
+  if (remote.length === 0) return null
+  return (
+    <>
+      {remote.map((w, i) => (
+        <RemoteWorkspaceRow key={w.id} workspace={w} index={offset + i} />
+      ))}
+    </>
+  )
+}
+
+function RemoteWorkspaceRow({
+  workspace: w,
+  index,
+}: {
+  workspace: RemoteWorkspace
+  index: number
+}): JSX.Element {
+  const d = useDict()
+  const digitHints = useUIStore((s) => s.digitHints)
+  const show = (): void => window.pine.windows.focusWorkspace(w.id, false)
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger className="rail-row remote">
+        <TabRow
+          active={false}
+          onSelect={show}
+          closeLabel={d.rail.close}
+          icon={
+            <span className="tab-lead-wrap">
+              <span
+                className={`dot workspace-dot ${w.state}`}
+                role="img"
+                aria-label={stateLabel(d, w.state)}
+              />
+              <AppWindowIcon size={14} className="tab-lead" aria-label={d.window.inOtherWindow} />
+            </span>
+          }
+          title={w.name}
+          after={
+            // biome-ignore lint/a11y/useKeyWithClickEvents: the row button above is the keyboard target; this only widens the click area
+            <div className="tab-after" onClick={show}>
+              <span className="tab-meta">
+                <span className="tab-branch">{w.workDir}</span>
+              </span>
+            </div>
+          }
+          badge={
+            digitHints && index < 9 ? <Kbd className="tab-digit font-mono">{index + 1}</Kbd> : null
+          }
+        />
+      </ContextMenuTrigger>
+      <MenuContent>
+        <MenuItem icon={AppWindowIcon} onClick={show}>
+          {d.window.showWindow}
+        </MenuItem>
+        <MenuItem
+          icon={ArrowSquareInIcon}
+          onClick={() => window.pine.windows.returnWorkspace(w.id)}
+        >
+          {d.window.moveToMain}
         </MenuItem>
       </MenuContent>
     </ContextMenu>
@@ -767,7 +848,7 @@ function TabRow({
 }: {
   active: boolean
   onSelect: () => void
-  onClose: () => void
+  onClose?: () => void
   closeLabel: string
   icon: React.ReactNode
   title: string
@@ -807,9 +888,11 @@ function TabRow({
         </span>
         {badge}
       </button>
-      <span className="tab-actions">
-        <IconButton icon={XIcon} label={closeLabel} hintSide="right" onClick={onClose} />
-      </span>
+      {onClose ? (
+        <span className="tab-actions">
+          <IconButton icon={XIcon} label={closeLabel} hintSide="right" onClick={onClose} />
+        </span>
+      ) : null}
       {after}
     </div>
   )

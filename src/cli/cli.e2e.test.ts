@@ -480,6 +480,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
           ({ ok: true, result: id === 'workspace.groups' ? groups : workspaces }) as CommandResult,
         getTerminalState: () => undefined,
         ptyPid: () => undefined,
+        windowIds: () => ['1'],
       })
 
       const json = await runPine(['workspace', 'list', '--json'], env())

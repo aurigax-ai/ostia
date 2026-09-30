@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   getByPaneId,
+  panesOwnedBy,
   registerPane,
+  rehomePanes,
   removePane,
   removeWindow,
   resolveExternal,
@@ -95,5 +97,25 @@ describe('idRegistry', () => {
 
     expect(getByPaneId('p-multi-2a')).toBe(w2a)
     expect(resolveExternal(w2a.externalId)).toBe(w2a)
+  })
+
+  it('rehomePanes moves a pane to another window and keeps its token', () => {
+    const moving = registerPane({ windowId: 'w-src', workspaceId: 's-move', paneId: 'p-move' })
+    const token = moving.token
+
+    rehomePanes(['p-move', 'p-unknown'], 'w-dst')
+
+    expect(getByPaneId('p-move')?.windowId).toBe('w-dst')
+    expect(resolveToken(token)).toBe(moving)
+    removeWindow('w-src')
+    expect(getByPaneId('p-move')).toBe(moving)
+  })
+
+  it('panesOwnedBy refuses a pane another window owns', () => {
+    registerPane({ windowId: 'w-own-1', workspaceId: 's-own', paneId: 'p-own-1' })
+    registerPane({ windowId: 'w-own-2', workspaceId: 's-own', paneId: 'p-own-2' })
+
+    expect(panesOwnedBy(['p-own-1', 'p-never-registered'], 'w-own-1')).toBe(true)
+    expect(panesOwnedBy(['p-own-1', 'p-own-2'], 'w-own-1')).toBe(false)
   })
 })

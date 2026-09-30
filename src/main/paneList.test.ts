@@ -3,6 +3,8 @@ import type { CommandResult, TerminalStateSnapshot } from '../shared/types'
 import { registerPane } from './idRegistry'
 import { type PaneListDeps, listPanes, listWorkspaceGroups, listWorkspaces } from './paneList'
 
+const ONE_WINDOW = (): string[] => ['1']
+
 function ok<R>(result: R): CommandResult<R> {
   return { ok: true, result }
 }
@@ -25,7 +27,12 @@ describe('paneList.listPanes', () => {
       blockCount: 5,
       lastExitCode: 0,
     } satisfies TerminalStateSnapshot)
-    const deps: PaneListDeps = { execCommand, getTerminalState, ptyPid: () => undefined }
+    const deps: PaneListDeps = {
+      execCommand,
+      getTerminalState,
+      ptyPid: () => undefined,
+      windowIds: ONE_WINDOW,
+    }
 
     const panes = await listPanes(deps)
 
@@ -41,9 +48,13 @@ describe('paneList.listPanes', () => {
         lastExitCode: 0,
       },
     ])
-    expect(execCommand).toHaveBeenCalledWith({ workspaceId: '', paneId: null }, 'pane.list', {
-      allWorkspaces: true,
-    })
+    expect(execCommand).toHaveBeenCalledWith(
+      { windowId: '1', workspaceId: '', paneId: null },
+      'pane.list',
+      {
+        allWorkspaces: true,
+      },
+    )
   })
 
   it('reports the pty pid for a live terminal pane and never for other kinds', async () => {
@@ -57,7 +68,12 @@ describe('paneList.listPanes', () => {
     )
     const ptyPid = vi.fn().mockReturnValue(4242)
 
-    const panes = await listPanes({ execCommand, getTerminalState: vi.fn(), ptyPid })
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid,
+      windowIds: ONE_WINDOW,
+    })
 
     expect(panes.find((p) => p.paneId === term.externalId)?.pid).toBe(4242)
     expect(panes.find((p) => p.kind === 'editor')).not.toHaveProperty('pid')
@@ -79,7 +95,12 @@ describe('paneList.listPanes', () => {
       ]),
     )
 
-    const panes = await listPanes({ execCommand, getTerminalState: vi.fn(), ptyPid: vi.fn() })
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: vi.fn(),
+      windowIds: ONE_WINDOW,
+    })
 
     expect(panes[0]).toMatchObject({ paneId: editor.externalId, filePath: '/work/a.ts' })
   })
@@ -92,7 +113,12 @@ describe('paneList.listPanes', () => {
       )
     const getTerminalState = vi.fn().mockReturnValue(undefined)
 
-    const panes = await listPanes({ execCommand, getTerminalState, ptyPid: () => undefined })
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState,
+      ptyPid: () => undefined,
+      windowIds: ONE_WINDOW,
+    })
 
     expect(panes).toEqual([])
   })
@@ -108,7 +134,12 @@ describe('paneList.listPanes', () => {
       )
     const getTerminalState = vi.fn().mockReturnValue(undefined)
 
-    const panes = await listPanes({ execCommand, getTerminalState, ptyPid: () => undefined })
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState,
+      ptyPid: () => undefined,
+      windowIds: ONE_WINDOW,
+    })
 
     expect(panes).toEqual([
       {
@@ -132,6 +163,7 @@ describe('paneList.listPanes', () => {
       execCommand,
       getTerminalState: vi.fn(),
       ptyPid: () => undefined,
+      windowIds: ONE_WINDOW,
     })
     expect(panes).toEqual([])
   })
@@ -144,9 +176,9 @@ describe('paneList.listWorkspaceGroups', () => {
     ]
     const execCommand = vi.fn().mockResolvedValue(ok(groups))
 
-    expect(await listWorkspaceGroups({ execCommand })).toEqual(groups)
+    expect(await listWorkspaceGroups({ execCommand, windowIds: ONE_WINDOW })).toEqual(groups)
     expect(execCommand).toHaveBeenCalledWith(
-      { workspaceId: '', paneId: null },
+      { windowId: '1', workspaceId: '', paneId: null },
       'workspace.groups',
       {},
     )
@@ -156,7 +188,7 @@ describe('paneList.listWorkspaceGroups', () => {
     const execCommand = vi
       .fn()
       .mockResolvedValue({ ok: false, error: { code: 'command-failed', message: 'no window' } })
-    expect(await listWorkspaceGroups({ execCommand })).toEqual([])
+    expect(await listWorkspaceGroups({ execCommand, windowIds: ONE_WINDOW })).toEqual([])
   })
 })
 
@@ -167,11 +199,11 @@ describe('paneList.listWorkspaces', () => {
     ]
     const execCommand = vi.fn().mockResolvedValue(ok(workspaces))
 
-    const result = await listWorkspaces({ execCommand })
+    const result = await listWorkspaces({ execCommand, windowIds: ONE_WINDOW })
 
     expect(result).toEqual(workspaces)
     expect(execCommand).toHaveBeenCalledWith(
-      { workspaceId: '', paneId: null },
+      { windowId: '1', workspaceId: '', paneId: null },
       'workspace.list',
       {},
     )
@@ -192,7 +224,7 @@ describe('paneList.listWorkspaces', () => {
       ]),
     )
 
-    const result = await listWorkspaces({ execCommand })
+    const result = await listWorkspaces({ execCommand, windowIds: ONE_WINDOW })
 
     expect(result[0].activePaneId).toBe(identity.externalId)
     expect(result[1]).not.toHaveProperty('activePaneId')
@@ -202,6 +234,36 @@ describe('paneList.listWorkspaces', () => {
     const execCommand = vi
       .fn()
       .mockResolvedValue({ ok: false, error: { code: 'command-failed', message: 'no window' } })
-    expect(await listWorkspaces({ execCommand })).toEqual([])
+    expect(await listWorkspaces({ execCommand, windowIds: ONE_WINDOW })).toEqual([])
+  })
+})
+
+describe('paneList across windows', () => {
+  it('lists the workspaces of every window, main window first', async () => {
+    const execCommand = vi.fn(async (target: { windowId?: string }) =>
+      ok([{ workspaceId: `ws-${target.windowId}`, name: 'x', kind: 'terminal', workDir: '/x' }]),
+    )
+
+    const result = await listWorkspaces({ execCommand, windowIds: () => ['1', '2'] })
+
+    expect(result.map((w) => w.workspaceId)).toEqual(['ws-1', 'ws-2'])
+  })
+
+  it('keeps the panes of the windows that answered when one fails', async () => {
+    registerPane({ windowId: '2', workspaceId: 's9', paneId: 'p-second-window' })
+    const execCommand = vi.fn(async (target: { windowId?: string }) =>
+      target.windowId === '1'
+        ? { ok: false as const, error: { code: 'command-failed' as const, message: 'gone' } }
+        : ok([{ paneId: 'p-second-window', workspaceId: 's9', kind: 'terminal', title: 'zsh' }]),
+    )
+
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: () => undefined,
+      windowIds: () => ['1', '2'],
+    })
+
+    expect(panes.map((p) => p.workspaceId)).toEqual(['s9'])
   })
 })

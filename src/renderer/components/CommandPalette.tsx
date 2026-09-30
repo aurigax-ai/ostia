@@ -1,3 +1,4 @@
+import { AppWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
@@ -5,11 +6,13 @@ import { allPanes } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
 import { chordLabel } from '../lib/chords'
 import { PALETTE_MODES, type PaletteMode, paletteMode } from '../lib/paletteModes'
+import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { revealPane } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import {
   CommandDialog,
@@ -72,7 +75,11 @@ export function CommandPalette(): JSX.Element {
             <CommandEmpty>{d.palette.empty}</CommandEmpty>
             {mode === 'help' ? <HelpItems onPick={(symbol) => setSearch(symbol)} /> : null}
             {mode === 'all' || mode === 'workspaces' ? (
-              <WorkspaceItems workspaces={places.workspaces} onDone={finish} />
+              <WorkspaceItems
+                workspaces={places.workspaces}
+                remote={places.remote}
+                onDone={finish}
+              />
             ) : null}
             {mode === 'all' || mode === 'tabs' ? (
               <TabItems tabs={places.tabs} onDone={finish} />
@@ -158,10 +165,11 @@ function HelpItems({ onPick }: { onPick: (symbol: string) => void }): JSX.Elemen
 
 interface Places {
   workspaces: Workspace[]
+  remote: RemoteWorkspace[]
   tabs: { pane: PaneNode; workspace: Workspace }[]
 }
 
-const EMPTY_PLACES: Places = { workspaces: [], tabs: [] }
+const EMPTY_PLACES: Places = { workspaces: [], remote: [], tabs: [] }
 
 function snapshotPlaces(): Places {
   const { workspaces } = useWorkspacesStore.getState()
@@ -170,18 +178,21 @@ function snapshotPlaces(): Places {
     const layout = byWorkspace[workspace.id]
     return layout ? allPanes(layout.root).map((pane) => ({ pane, workspace })) : []
   })
-  return { workspaces, tabs }
+  const { list, windowId } = useWindowsStore.getState()
+  return { workspaces, remote: remoteWorkspacesOf(list, windowId), tabs }
 }
 
 function WorkspaceItems({
   workspaces,
+  remote,
   onDone,
 }: {
   workspaces: Workspace[]
+  remote: RemoteWorkspace[]
   onDone: () => void
 }): JSX.Element | null {
   const d = useDict()
-  if (workspaces.length === 0) return null
+  if (workspaces.length === 0 && remote.length === 0) return null
   const symbol = symbolOf('workspaces')
   return (
     <CommandGroup heading={d.palette.modes.workspaces}>
@@ -202,6 +213,20 @@ function WorkspaceItems({
           </CommandItem>
         )
       })}
+      {remote.map((w) => (
+        <CommandItem
+          key={w.id}
+          value={`${symbol} ${w.name} ${w.workDir} ${w.id}`}
+          onSelect={() => {
+            window.pine.windows.focusWorkspace(w.id, false)
+            onDone()
+          }}
+        >
+          <AppWindowIcon aria-label={d.window.inOtherWindow} />
+          <span>{w.name}</span>
+          <CommandShortcut>{w.workDir}</CommandShortcut>
+        </CommandItem>
+      ))}
     </CommandGroup>
   )
 }
