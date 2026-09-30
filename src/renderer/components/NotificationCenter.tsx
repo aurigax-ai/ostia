@@ -5,11 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { openExtensionPanel } from '../commands/extensionBridge'
 import { fmt, useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
+import { remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { revealPane } from '../lib/workspaceActivity'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useWindowsStore } from '../stores/windowsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ApprovalsInbox } from './ApprovalsInbox'
 import { IconButton } from './IconButton'
@@ -30,6 +32,8 @@ interface PaneLabel {
 function usePaneLabels(): (paneId: string | undefined) => PaneLabel | null {
   const byWorkspace = useLayoutStore((s) => s.byWorkspace)
   const workspaces = useWorkspacesStore((s) => s.workspaces)
+  const windowId = useWindowsStore((s) => s.windowId)
+  const list = useWindowsStore((s) => s.list)
   return useCallback(
     (paneId) => {
       if (!paneId) return null
@@ -38,9 +42,13 @@ function usePaneLabels(): (paneId: string | undefined) => PaneLabel | null {
         const pane = layout ? findPane(layout.root, paneId) : null
         if (pane) return { workspace: workspace.name, pane: pane.title }
       }
+      for (const workspace of remoteWorkspacesOf(list, windowId)) {
+        const pane = workspace.panes.find((p) => p.id === paneId)
+        if (pane) return { workspace: workspace.name, pane: pane.title }
+      }
       return null
     },
-    [byWorkspace, workspaces],
+    [byWorkspace, workspaces, list, windowId],
   )
 }
 
@@ -156,7 +164,12 @@ export function NotificationCenter(): JSX.Element {
                                 : { extId: ext.id },
                             )
                             setOpen(false)
-                          } else if (entry.paneId && revealPane(entry.paneId)) setOpen(false)
+                          } else if (entry.paneId) {
+                            if (!revealPane(entry.paneId)) {
+                              window.pine.notifications.reveal(entry.paneId)
+                            }
+                            setOpen(false)
+                          }
                         }}
                       />
                     }

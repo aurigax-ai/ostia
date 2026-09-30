@@ -50,13 +50,73 @@ main (Node, privileged)  ──ipcMain / webContents.send──  preload (contex
 Every window uses `contextIsolation`, `sandbox`, no `nodeIntegration`, and `webviewTag: true`
 (for browser panes). External links are denied in-window and opened by the OS. Windows are
 frameless: macOS keeps native traffic lights (`titleBarStyle: hidden`); Linux/Windows draw their
-own min/max/close (`WindowControls.tsx`). There is one main window; tear-off windows were removed.
+own min/max/close (`WindowControls.tsx`). There is one main window plus any number of detached
+windows (§2 Windows).
+
+### Windows
+
+A workspace (or a single pane, which becomes a new workspace on the same folder) can move into a
+detached window so it can live on another monitor. Every window runs the same renderer bundle;
+`windows.info()` tells a renderer whether it is detached.
+
+- **Ownership moves with the workspace.** Each renderer owns only its own workspaces and layouts.
+  `main/windowBroker.ts` is the broker: the source renderer sends the workspace as a handoff (a
+  `SnapshotWorkspace` built by `workspaceHandoff`, which also carries `hibernated` marks) over
+  `windows:detach`; main validates it (`parseHandoff`), checks the sender owns every pane
+  (`panesOwnedBy`) and the workspace (the window reports), opens the window, moves ownership, and
+  only then does the source release it (`workspacesStore.release` / `layoutStore.releasePane`),
+  which emits no `pane-closed` or `workspace-closed`. The new window gets the workspace as its
+  `workspace.load()` result and hydrates it, so pane ids are adopted, never minted.
+- **Moving ownership** (`moveOwnership`): `rehomePanes` updates each `PaneIdentity.windowId`
+  (tokens are kept, so an agent in the pane keeps working), `approvals.rehome` moves pending cards
+  and history to the new window, and `holdPtys` marks the ptys as moving. Why the hold: the target
+  attaches a terminal only when its host has a size, so a hidden or zoomed-away pane could stay
+  unattached past `DETACH_GRACE_MS` and get reaped. A moving pty is never reaped for lacking an
+  owner; the hold ends on the next `pty:attach` or on `pane-closed` (which then kills it if no
+  owner is attached).
+- **Ids never collide across windows.** Every renderer mints ids in its own random namespace
+  (`lib/idNamespace.ts`: `pane-3fa9c2-4`, `w3fa9c2-2`), set at boot before anything is minted.
+  Why: two renderers with separate counters minted the same `pane-5`, and a restored window could
+  mint an id a pane in another window already held. Adopted ids keep their old namespace.
+- **Closing a detached window** moves its workspaces back into the main window instead of killing
+  them: the window's `close` is prevented, main asks the renderer (`windows:return-request`), the
+  renderer confirms only unsaved files (a `move` close-confirm) and sends its handoffs over
+  `windows:return`, main rehomes them, sends `windows:adopt` to the main window and closes the
+  detached one. A crashed or loading renderer returns its last saved snapshot instead. Closing
+  the main window quits the app (through the close guard), so the detached windows reopen on the
+  next start. A detached window whose last workspace closes closes itself.
+- **Cross-window lists.** Each renderer reports a small summary of its workspaces (display name,
+  folder, live state, latest unread time, pane ids and titles) over `windows:report`; main
+  broadcasts all of them as `windows:list`, main window first. The main rail shows other windows'
+  workspaces after its own, marked with an app-window icon; a click focuses that window
+  (`windows:focus-workspace` → `windows:activate-workspace`). `Ctrl+1..9`
+  (`globalWorkspaceOrder`), jump to latest unread (`latestRemoteUnread`), the palette's workspace
+  list and the notification center (`notifications:reveal`) use the same list and focus the
+  owning window.
+- **A detached window** has no rail and a title bar with only the project name (the workspace
+  display name) and a Move back to main window button (`DetachedTitleBar.tsx`); the OS title
+  follows `appearance.windowTitle`. New workspace from a detached window opens in the main window
+  (`windows:new-workspace` → `workspace.new` there).
+- **What a move does not carry**: renderer-only state starts fresh in the new window. Terminal
+  blocks are rebuilt from the replayed ring (its OSC 133 marks), attention and zoom are reset,
+  browser `<webview>`s reload their URL, editors reopen from disk (unsaved changes are confirmed
+  first), and diff panes are dropped (their content lives in `diffStore`, like restore). Dragging
+  a tab out of the window is not built.
+- **Settings stay in step**: when a renderer writes `settings.json` through `fs:write`, main sends
+  `settings:changed` to the other windows, which reload it. Why: each renderer keeps its own
+  settings store, and a stale one would write its old copy back over the change.
+- **Security**: every window, detached included, is built by `createWindow` with
+  `baseWebPreferences()`. Pane-keyed IPC keeps checking the sender: `pty:attach` refuses a pane
+  another window owns, `browser:unregister` and lifecycle events from a window that no longer
+  owns the pane are ignored.
 
 ### Main module map
 
 | File | Owns |
 |---|---|
 | `index.ts` | App and window lifecycle, all core IPC handlers, pty spawn/attach, scrollback autosave, quit sequence, `execCommand` (control plane → renderer) |
+| `windowBroker.ts` | Detached windows: window slots, workspace handoff between windows, ownership moves, the per-window reports and `windows:*` IPC, `workspace:save`/`load` (§2 Windows, §8) |
+| `windowBook.ts` | Pure: per-window snapshots merged into one `workspaces.json`, split back per window, `clampBounds` for restoring onto connected displays |
 | `ptySession.ts` | `PtySession`: one pty fanned out to many subscribers (owners write and keep it alive; observers read) |
 | `ptyRingBuffer.ts` | Capped output ring with a monotonic cursor; `since(cursor)` reports `dropped` when the cursor fell off |
 | `shellIntegration.ts` | Generates zsh/bash init files that emit OSC 133 + OSC 7 and define the `pine()` shell function |
@@ -125,7 +185,8 @@ is typed as `PineBridge`, so drift breaks the build.
 | pty | `attach`, `detach`, `write`, `resize`, `onData`, `onExit` (push channels `pty:data:<id>`, `pty:exit:<id>`) |
 | fs | `list`, `read`, `write`, `readBinary` (confined by `resolveSafe` to `[homedir, userData]`; `readBinary` returns a `Uint8Array`, capped at 50 MiB) |
 | lsp | `list`, `start`, `send`, `stop`, `onMessage`, `onExit` |
-| settings / workspace | `settings.path`; `workspace.save`, `workspace.load` |
+| settings / workspace | `settings.path`; `workspace.save`, `workspace.load` (both answered for the sender's own window) |
+| windows | `info`, `detach`, `returnToMain`, `report`, `focusWorkspace`, `returnWorkspace`, `newWorkspace`, `onList`, `onAdopt`, `onActivateWorkspace`, `onReturnRequest` (push channels `windows:list`, `windows:adopt`, `windows:activate-workspace`, `windows:return-request`) |
 | lifecycle | `lifecycle.emit` (`pane-created`, `pane-closed`, `workspace-added`, `workspace-closed`, `workspace-activated`, `workspace-state`) |
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
 | terminal state | `terminalState.push` |
@@ -134,7 +195,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel` (context may carry a `path`), `sidebarItems`, `paneChips`, `setSetting`, `onChanged`, `onSidebar`, `onPaneChips`, `onOpenPanel`, `onOpenDiff`, `onOpenTerminal` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:chips`, `extensions:open-panel`, `extensions:open-diff`, `extensions:open-terminal`) |
 | external editor | `externalEditor.open({template, file, line?, column?})` (IPC `editor:open-external`, §9) |
 | gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke`, `bind-options`, `set-cap` (IPC only) |
-| notifications | `list` (newest first), `post`, `clear`, `onChanged`, `onActivate` (push channels `notifications:changed`, `notifications:activate`) |
+| notifications | `list` (newest first), `post`, `clear`, `reveal` (focus the window that owns a pane), `onChanged`, `onActivate` (push channels `notifications:changed`, `notifications:activate`) |
 
 - Main derives the window from `e.sender.id` and never trusts a window id the renderer sends.
 - `pane-closed` drops the pane's capabilities, identity, pending restored scrollback and cached
@@ -739,14 +800,17 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   is on. Closing an idle pane never asks, even when another pane of the workspace is busy.
   The base layer gives every element `border-color: var(--border)`, so a shadcn `border` without
   a color (the dialog footer's divider) uses the line token, not the text color; and
-  `--destructive` maps to `--attn-fg` so destructive button text keeps 4.5:1 on dark surfaces. Quit and window close use the
-  same dialog: main's `closeGuard.ts` sends `window:confirm-close` to each window, the renderer
-  answers through `window.pine.window.onConfirmClose` (`confirmQuit`, gated by
-  `workspaces.confirmQuit`). Why the answer comes from the renderer: only it knows which commands
-  run. In `main/index.ts` the window `close` handler and `before-quit` call `preventDefault()`
-  until every window approves; the approving pass sets `quitApproved` and calls `app.quit()`
-  again, so the scrollback save and pty kill loop in `before-quit` run exactly once, after the
-  human said yes. A loading or crashed window is approved without asking. E2E seeds
+  `--destructive` maps to `--attn-fg` so destructive button text keeps 4.5:1 on dark surfaces. Quit
+  uses the same dialog once for every window: main's `closeGuard.ts` asks each window for its
+  running groups (`window:running` → `quitGroups`, gated by `workspaces.confirmQuit`), then shows
+  them all in one dialog in the focused (else main) window (`window:confirm-close` →
+  `confirmQuit(groups)`), and on approval sends `window:freeze` to every window. Why the answer
+  comes from the renderers: only they know which commands run. Closing the main window quits;
+  closing a detached window never asks about commands, because nothing stops (§2 Windows). In
+  `main/index.ts` `before-quit` calls `preventDefault()` until the human approves; the approving
+  pass sets `quitApproved` and calls `app.quit()` again, so the scrollback save and pty kill loop
+  in `before-quit` run exactly once, after the human said yes. A loading or crashed window
+  counts as having nothing running. E2E seeds
   `workspaces.confirmQuit: false` (`DOM_RENDERER_SETTINGS`) so `app.close()` never waits on a
   dialog; `e2e/workspace-settings.spec.ts` turns it on.
 - **Wrapped titles**: `workspaces.wrapTitles` adds `.tab-title.wrap` (2-line clamp) to sidebar rows.
@@ -1020,7 +1084,9 @@ see external ids.
 - Other modules add methods with `registerControlMethod(name, {cap, callers, handler})`;
   `callers` defaults to `panes` (see §11 for extension identities).
 - `command.exec` goes through main's `execCommand`: `command:invoke` IPC to a window's registry,
-  answered by `command:result`, 5 s timeout. A target with no window goes to the first window.
+  answered by `command:result`, 5 s timeout. A target with no window goes to the main window.
+  `pane.list`, `workspace.list` and `workspace.groups` ask every window and concatenate the
+  answers, main window first (`paneList.ts`), so agents see detached workspaces too.
 - If the target differs from the caller's own pane, window or workspace in any way, the caller
   needs `all-workspaces`. Each command's declared capabilities are checked as well.
 - Workspace groups: `workspace.list` entries carry `groupId` for grouped workspaces, and
@@ -1175,8 +1241,23 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
 
 ## 8. Workspace restore
 
-Two files written by two processes (see CLAUDE.md §6): the renderer writes `workspaces.json`
+Two files written by two processes (see CLAUDE.md §6): the renderers write `workspaces.json`
 (layout), and main writes `scrollback.json` (each pane's serialized screen).
+
+- **One file, many windows** (`windowBroker.ts`, `windowBook.ts`): each renderer saves only its
+  own snapshot; main keeps one per window slot (`main` or a detached window's stable 8-char id)
+  and writes the merge: the main window at the top level, each detached window under `windows:
+  [{id, bounds, activeWorkspaceId, workspaces}]`. Why: a renderer that wrote the whole file erased
+  the other windows' workspaces. A move updates both slots in main at once, so the file never
+  holds a workspace twice or loses it between the two renderers' next saves. Bounds are the
+  window's normal bounds, saved after a move or resize (debounced) and on close.
+  - On start, main opens the main window, then one detached window per saved slot, with its bounds
+    clamped (`clampBounds`) onto the display it overlaps most, else the primary one, shrunk to
+    fit. Each renderer's `workspace.load()` returns only its own slot, restored idle like any
+    other workspace.
+  - `parseSnapshot` claims pane and workspace ids across all windows, so an id held twice keeps
+    only its first owner; a window with invalid bounds or id, or no workspaces, is dropped. A
+    `hibernated` mark is only accepted in a handoff (`parseHandoff`), never from the file.
 
 - **Layout** (`stores/persistence.ts`, `layout/snapshot.ts`): saved 400 ms after any change to the
   workspaces, layout or settings stores, plus once at start and once on `beforeunload`.

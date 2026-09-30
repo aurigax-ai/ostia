@@ -136,6 +136,7 @@ describe('built-in git extension against a real repository', () => {
         }) as CommandResult,
       getTerminalState: () => undefined,
       ptyPid: () => undefined,
+      windowIds: () => ['1'],
     })
     expect(identity.externalId).not.toBe(other.externalId)
     host = new ExtensionHost({

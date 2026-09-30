@@ -44,7 +44,11 @@ import type {
   Platform,
   PromptContext,
   PtyAttachResult,
+  RunningGroup,
+  SnapshotWorkspace,
   SyncStatus,
+  WindowInfo,
+  WindowSummary,
   WorkspaceProject,
 } from '../shared/types'
 import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
@@ -70,12 +74,25 @@ const bridge: PineBridge = {
       ipcRenderer.on('window:maximized', handler)
       return () => ipcRenderer.removeListener('window:maximized', handler)
     },
+    onRunningQuery: (cb) => {
+      const handler = (_event: unknown, requestId: number): void =>
+        ipcRenderer.send('window:close-answer', requestId, cb())
+      ipcRenderer.on('window:running', handler)
+      return () => ipcRenderer.removeListener('window:running', handler)
+    },
     onConfirmClose: (cb) => {
-      const handler = (_event: unknown, requestId: number): void => {
-        void cb().then((approved) => ipcRenderer.send('window:close-answer', requestId, approved))
+      const handler = (_event: unknown, requestId: number, groups: RunningGroup[]): void => {
+        void cb(groups).then((approved) =>
+          ipcRenderer.send('window:close-answer', requestId, approved),
+        )
       }
       ipcRenderer.on('window:confirm-close', handler)
       return () => ipcRenderer.removeListener('window:confirm-close', handler)
+    },
+    onFreeze: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('window:freeze', handler)
+      return () => ipcRenderer.removeListener('window:freeze', handler)
     },
   },
   pty: {
@@ -145,6 +162,38 @@ const bridge: PineBridge = {
   workspace: {
     save: (snapshot) => ipcRenderer.send('workspace:save', snapshot),
     load: () => ipcRenderer.invoke('workspace:load') as Promise<AppSnapshot | null>,
+  },
+  windows: {
+    info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,
+    detach: (workspace) => ipcRenderer.invoke('windows:detach', workspace) as Promise<boolean>,
+    returnToMain: (workspaces) =>
+      ipcRenderer.invoke('windows:return', workspaces) as Promise<boolean>,
+    report: (workspaces) => ipcRenderer.send('windows:report', workspaces),
+    focusWorkspace: (workspaceId, jumpToUnread) =>
+      ipcRenderer.send('windows:focus-workspace', workspaceId, jumpToUnread),
+    returnWorkspace: (workspaceId) => ipcRenderer.send('windows:return-workspace', workspaceId),
+    newWorkspace: (request) => ipcRenderer.send('windows:new-workspace', request),
+    onList: (cb) => {
+      const handler = (_e: unknown, list: WindowSummary[]): void => cb(list)
+      ipcRenderer.on('windows:list', handler)
+      return () => ipcRenderer.removeListener('windows:list', handler)
+    },
+    onAdopt: (cb) => {
+      const handler = (_e: unknown, workspaces: SnapshotWorkspace[]): void => cb(workspaces)
+      ipcRenderer.on('windows:adopt', handler)
+      return () => ipcRenderer.removeListener('windows:adopt', handler)
+    },
+    onActivateWorkspace: (cb) => {
+      const handler = (_e: unknown, workspaceId: string, jumpToUnread: boolean): void =>
+        cb(workspaceId, jumpToUnread)
+      ipcRenderer.on('windows:activate-workspace', handler)
+      return () => ipcRenderer.removeListener('windows:activate-workspace', handler)
+    },
+    onReturnRequest: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('windows:return-request', handler)
+      return () => ipcRenderer.removeListener('windows:return-request', handler)
+    },
   },
   lifecycle: {
     emit: (event) => ipcRenderer.send('lifecycle:event', event),
@@ -314,6 +363,7 @@ const bridge: PineBridge = {
     list: () => ipcRenderer.invoke('notifications:list') as Promise<NotificationEntry[]>,
     post: (post) => ipcRenderer.send('notifications:post', post),
     clear: () => ipcRenderer.send('notifications:clear'),
+    reveal: (paneId) => ipcRenderer.send('notifications:reveal', paneId),
     onChanged: (cb) => {
       const handler = (): void => cb()
       ipcRenderer.on('notifications:changed', handler)

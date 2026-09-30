@@ -47,14 +47,26 @@ export interface PaneListDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   ptyPid: (paneId: string) => number | undefined
+  windowIds: () => string[]
 }
 
-const GLOBAL_TARGET: CommandTarget = { workspaceId: '', paneId: null }
+async function listFromEveryWindow<T>(
+  deps: Pick<PaneListDeps, 'execCommand' | 'windowIds'>,
+  id: string,
+  args: unknown,
+): Promise<T[]> {
+  const results = await Promise.all(
+    deps
+      .windowIds()
+      .map((windowId) => deps.execCommand({ windowId, workspaceId: '', paneId: null }, id, args)),
+  )
+  return results.flatMap((res) => (res.ok && Array.isArray(res.result) ? (res.result as T[]) : []))
+}
 
 export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
-  const res = await deps.execCommand(GLOBAL_TARGET, 'pane.list', { allWorkspaces: true })
-  if (!res.ok) return []
-  const panes = (res.result as RendererPaneEntry[] | undefined) ?? []
+  const panes = await listFromEveryWindow<RendererPaneEntry>(deps, 'pane.list', {
+    allWorkspaces: true,
+  })
   const mapped: PaneEntry[] = []
   for (const p of panes) {
     const identity = getByPaneId(p.paneId)
@@ -78,11 +90,9 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
 }
 
 export async function listWorkspaces(
-  deps: Pick<PaneListDeps, 'execCommand'>,
+  deps: Pick<PaneListDeps, 'execCommand' | 'windowIds'>,
 ): Promise<WorkspaceEntry[]> {
-  const res = await deps.execCommand(GLOBAL_TARGET, 'workspace.list', {})
-  if (!res.ok) return []
-  const workspaces = (res.result as WorkspaceEntry[] | undefined) ?? []
+  const workspaces = await listFromEveryWindow<WorkspaceEntry>(deps, 'workspace.list', {})
   return workspaces.map(({ activePaneId, ...workspace }) => {
     const external = activePaneId ? getByPaneId(activePaneId)?.externalId : undefined
     return external ? { ...workspace, activePaneId: external } : workspace
@@ -90,11 +100,9 @@ export async function listWorkspaces(
 }
 
 export async function listWorkspaceGroups(
-  deps: Pick<PaneListDeps, 'execCommand'>,
+  deps: Pick<PaneListDeps, 'execCommand' | 'windowIds'>,
 ): Promise<WorkspaceGroupEntry[]> {
-  const res = await deps.execCommand(GLOBAL_TARGET, 'workspace.groups', {})
-  if (!res.ok) return []
-  return (res.result as WorkspaceGroupEntry[] | undefined) ?? []
+  return listFromEveryWindow<WorkspaceGroupEntry>(deps, 'workspace.groups', {})
 }
 
 const READ_BOARD: Capability = 'read-board'

@@ -1,8 +1,9 @@
-import type { AppSnapshot, WorkspaceLiveState } from '@shared/types'
+import type { AppSnapshot, SnapshotWorkspace, WorkspaceLiveState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { normalizeDescription } from '@shared/workspaceText'
 import { create } from 'zustand'
 import { restoreSnapshot } from '../layout/snapshot'
+import { namespacedId } from '../lib/idNamespace'
 import {
   type DragSource,
   type DropTarget,
@@ -68,18 +69,20 @@ interface WorkspacesState {
   closeOthers: (id: string) => void
   setState: (id: string, state: WorkspaceState) => void
   hydrate: (snapshot: AppSnapshot | null) => void
+  release: (id: string) => void
+  adopt: (workspaces: SnapshotWorkspace[]) => void
 }
 
 let seq = 0
-function nextId(): string {
+export function nextWorkspaceId(): string {
   seq += 1
-  return `w${seq}`
+  return namespacedId('w', seq, '')
 }
 
 let groupSeq = 0
 function nextGroupId(): string {
   groupSeq += 1
-  return `g${groupSeq}`
+  return namespacedId('g', groupSeq, '')
 }
 
 function highestId(ids: string[], prefix: 'w' | 'g', floor: number): number {
@@ -113,7 +116,7 @@ function nameFromWorkDir(workDir: string): string {
 }
 
 function makeWorkspace(workDir: string, kind: WorkspaceKind = 'terminal'): Workspace {
-  return { id: nextId(), name: nameFromWorkDir(workDir), kind, workDir, state: 'idle' }
+  return { id: nextWorkspaceId(), name: nameFromWorkDir(workDir), kind, workDir, state: 'idle' }
 }
 
 function grouping(s: WorkspacesState): Grouping<Workspace> {
@@ -323,5 +326,55 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
       workspaces: s.workspaces.map((c) => (c.id === id ? { ...c, state } : c)),
     }))
     window.pine?.lifecycle?.emit?.({ type: 'workspace-state', workspaceId: id, state })
+  },
+
+  release: (id) => {
+    if (!get().workspaces.some((w) => w.id === id)) return
+    useLayoutStore.getState().release(id)
+    set((s) => {
+      const idx = s.workspaces.findIndex((c) => c.id === id)
+      const remaining = s.workspaces.filter((c) => c.id !== id)
+      const activeWorkspaceId =
+        s.activeWorkspaceId === id
+          ? (remaining[Math.max(0, idx - 1)]?.id ?? remaining[0]?.id ?? null)
+          : s.activeWorkspaceId
+      const next = normalizeGroups({ workspaces: remaining, groups: s.groups })
+      return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId }
+    })
+  },
+
+  adopt: (incoming) => {
+    const known = new Set(get().workspaces.map((w) => w.id))
+    const fresh = incoming.filter((w) => !known.has(w.id))
+    if (fresh.length === 0) return
+    const { workspaces, layouts } = restoreSnapshot({
+      v: 1,
+      savedAt: '',
+      activeWorkspaceId: null,
+      workspaces: fresh,
+      groups: [],
+    })
+    adoptWorkspaceIds(workspaces.map((w) => w.id))
+    const adopted = workspaces.map((w): Workspace => ({ ...w, state: 'idle' }))
+    set((s) => {
+      const next = normalizeGroups({ workspaces: [...s.workspaces, ...adopted], groups: s.groups })
+      return {
+        workspaces: next.workspaces,
+        groups: next.groups,
+        activeWorkspaceId: adopted[adopted.length - 1].id,
+      }
+    })
+    useLayoutStore.getState().adopt(layouts)
+    for (const w of adopted) {
+      window.pine?.lifecycle?.emit?.({
+        type: 'workspace-added',
+        workspaceId: w.id,
+        workDir: w.workDir,
+      })
+    }
+    window.pine?.lifecycle?.emit?.({
+      type: 'workspace-activated',
+      workspaceId: adopted[adopted.length - 1].id,
+    })
   },
 }))

@@ -255,6 +255,21 @@
   border-bottom: 1px solid var(--line);
 }
 
+.detached-titlebar {
+  grid-template-columns: 1fr minmax(0, auto) 1fr;
+  justify-items: start;
+}
+
+.detached-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-ui-base);
+  font-weight: 600;
+  color: var(--fg);
+}
+
 .topbar-left {
   display: flex;
   align-items: center;
