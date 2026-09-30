@@ -14,6 +14,7 @@ import type {
   CommandInvokeRequest,
   ExternalEditorResult,
   FsEntry,
+  FsKind,
   GatewayBindOptions,
   GatewayDevice,
   GatewayEnableResult,
@@ -64,6 +65,7 @@ const bridge: PineBridge = {
   fs: {
     list: (path) => ipcRenderer.invoke('fs:list', path) as Promise<FsEntry[]>,
     read: (path) => ipcRenderer.invoke('fs:read', path) as Promise<string | null>,
+    stat: (path) => ipcRenderer.invoke('fs:stat', path) as Promise<FsKind | null>,
     write: (path, content) => ipcRenderer.invoke('fs:write', path, content) as Promise<boolean>,
   },
   lsp: {

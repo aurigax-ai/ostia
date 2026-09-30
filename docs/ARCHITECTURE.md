@@ -244,6 +244,14 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   prompt without running it. Why not Ctrl+R: that's the shell's own history search. History is
   what's in `blocksStore`, so it covers panes that exist now (restored scrollback re-parses its
   marks on replay), not closed panes.
+- **File links** (`lib/fileLinks.ts`, `lib/terminalFileLinks.ts`): an xterm link provider finds
+  paths in output (`src/a.ts:12:4`, `Program.cs(12,5)`, `File "x.py", line 8`, `~/…`, bare
+  `name.ext`), resolves them against the pane's OSC 7 cwd, and underlines only those `fs:stat`
+  reports as files (cached 5 s). Ctrl+click (⌘ on macOS) calls `openFileAt`, which queues the
+  position in `editorRevealStore`; the editor takes it once the model is set. Wrapped rows are
+  joined and every character keeps its cell, so wide characters and wrapping map back exactly.
+  Why stat first: a link that opens nothing is worse than no link. Why no pointer cursor: the
+  app keeps the arrow everywhere (DESIGN §5).
 - **Long-command notification**: when a command runs ≥ 10 s (`NOTIFY_AFTER_MS`) while the window
   is unfocused, the pane is marked `done` (or `error`) unread and the renderer posts it to main's
   notification log with a desktop notification. The command text comes from the buffer line at
