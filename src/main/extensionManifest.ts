@@ -235,6 +235,13 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof panel === 'string') return { ok: false, error: panel }
   const workflows = parseWorkflows(contributes.workflows)
   if (typeof workflows === 'string') return { ok: false, error: workflows }
+  const completions = contributes.completions
+  if (
+    completions !== undefined &&
+    (typeof completions !== 'string' || !isInsideDir(dir, completions))
+  ) {
+    return { ok: false, error: 'contributes.completions must be a folder inside the extension' }
+  }
   const sidebarItems = contributes.sidebarItems === true
   const paneChips = parsePaneChips(contributes.paneChips)
   if (typeof paneChips === 'string') return { ok: false, error: paneChips }
@@ -260,6 +267,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (main) manifest.main = main
   if (panel) manifest.contributes.panel = panel
   if (workflows && workflows.length > 0) manifest.contributes.workflows = workflows
+  if (completions !== undefined) manifest.contributes.completions = completions
   return { ok: true, manifest }
 }
 

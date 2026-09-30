@@ -40,6 +40,7 @@ import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
 import { registerBusMethods } from './bus'
 import { dropIdentity } from './capabilityStore'
 import { confirmAllWindowsClose, confirmWindowClose, registerCloseGuard } from './closeGuard'
+import { registerCompletionIpc } from './completionSpecs'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
@@ -1022,6 +1023,10 @@ app.whenReady().then(() => {
   }
   registerWorkflowIpc(workflowDeps)
   registerWorkflowMethods(workflowDeps)
+  registerCompletionIpc({
+    userDir: join(configDir(), 'completions'),
+    extensionDirs: () => extensionHost?.completionDirs() ?? [],
+  })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
   )

@@ -386,6 +386,21 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     the shell clears the screen and redraws its prompt while the draft stays. Ctrl+C/V/X/Z stay
     with the textarea (clear, paste, cut, undo). Keys match by physical key (`KeyboardEvent.code`)
     so other layouts work.
+  - Spec completions (`lib/specCompletion.ts`, `completeArgument` in `lib/inputEditor.ts`): Tab
+    on a word that isn't the command asks main for the command's spec (cached per editor) and
+    walks the finished words of the current simple command (`commandWords`: after the last
+    operator, assignments before the command skipped, quotes removed) through it
+    (`specAnswer`): an option's required arguments are skipped (`--opt=value` too), combined
+    short flags count as used, a subcommand only in first positional place, persistent options
+    carry down, `--` ends options. The current word then gets the option's argument values,
+    options not used yet (when it starts with `-`), or subcommands plus the positional
+    argument's suggestions; an argument with a `filepaths`/`folders` template, and any command
+    without a spec, falls back to path completion (folders only for `folders`). One match is
+    inserted with a space; several insert their common prefix and open the menu, which shows
+    each spec item's description. Why converted at build time and not Fig's runtime:
+    Fig specs are JS modules whose generators run shell commands and post-process output with
+    code; Pine ships only their static data, so nothing from a spec executes. Specs over 4 MB
+    with their `loadSpec` sub-specs expanded (aws, gcloud) are kept without them.
   - Hand-off (`shellKeyBytes`, `onHandOff` → Terminal `handOffInput`): any other Ctrl+letter or
     Alt+letter, and Escape with nothing to dismiss, suppresses the prompt, pastes the draft into
     the shell line (bracketed) and writes the key's bytes, then focuses xterm. Why: the shell's

@@ -157,6 +157,11 @@ Details: `docs/ARCHITECTURE.md`.
   list (`pty:commands`) answers only the pane's own window and returns names only: executables
   listed from the pane's PATH directories plus what the shell wrote to its main-chosen
   `PINE_SHELL_STATE` file. The renderer never names a directory or file for it.
+  Completion specs (`completions:spec`, `main/completionSpecs.ts`) are data only: the renderer
+  sends a command name (`SPEC_COMMAND_PATTERN`), main reads `<name>.json` from the user's
+  completions folder, then enabled extensions' `contributes.completions` folders, refusing
+  symlinks and files over `SPEC_FILE_MAX_BYTES`, and validates it (`parseCompletionSpec`). Fig
+  specs are converted to that JSON at build time; never ship or run their generator functions.
   The Pine prompt (`terminal.prompt.style: 'pine'`) only changes what the editor draws and the
   prompt of shells spawned while it's on: main passes `PINE_PROMPT` in the spawn env and the
   generated init sets a plain `cwd` + newline + `sep` prompt (one line `cwd sep` when
