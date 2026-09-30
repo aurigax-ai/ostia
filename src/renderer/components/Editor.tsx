@@ -1,9 +1,11 @@
 import { cn } from '@/lib/utils'
 import { CodeIcon, EyeIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react'
+import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browserEditorSettings'
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
 import { registerEditorPosition } from '../lib/editorPositions'
+import { createAutoSave, saveFormatted } from '../lib/editorSave'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import { openDocument } from '../lsp/client'
@@ -21,6 +23,18 @@ import { Alert } from './ui/alert'
 
 export const EDITOR_FALLBACK =
   '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
+
+function behaviorOptions(
+  s: EditorSettings,
+): monaco.editor.IEditorOptions & monaco.editor.IGlobalEditorOptions {
+  return {
+    wordWrap: s.wordWrap,
+    lineNumbers: s.lineNumbers,
+    tabSize: s.tabSize,
+    insertSpaces: s.insertSpaces,
+    detectIndentation: false,
+  }
+}
 
 const BINARY_SNIFF_BYTES = 8192
 
@@ -93,6 +107,7 @@ export function EditorView({
   const d = useDict()
   const pathRef = useRef(filePath)
   const font = useSettingsStore((s) => s.appearance.editor)
+  const editorSettings = useSettingsStore((s) => s.editor)
   const [binary, setBinary] = useState(false)
   const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
   const [preview, setPreview] = useState(false)
@@ -158,34 +173,52 @@ export function EditorView({
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
       smoothScrolling: true,
-      tabSize: 2,
+      ...behaviorOptions(useSettingsStore.getState().editor),
       renderWhitespace: 'selection',
       padding: { top: 8 },
     })
     editorRef.current = editor
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      const fp = pathRef.current
+    const save = async (): Promise<void> => {
       const model = editor.getModel()
-      if (!fp || !model) return
-      const version = model.getAlternativeVersionId()
-      window.pine.fs.write(fp, model.getValue()).then(
-        (ok) => {
-          if (!ok) {
-            setUnsavedPath(fp)
-            return
-          }
-          savedVersions.set(model.uri.toString(), version)
-          useEditorStatus.getState().setDirty(fp, isDirty(model))
-          setUnsavedPath(null)
+      if (!model) return
+      const fp = model.uri.path
+      let version = model.getAlternativeVersionId()
+      const ok = await saveFormatted({
+        formatOnSave: useSettingsStore.getState().editor.formatOnSave,
+        format: async () => editor.getAction('editor.action.formatDocument')?.run(),
+        write: () => {
+          version = model.getAlternativeVersionId()
+          return window.pine.fs.write(fp, model.getValue())
         },
-        () => setUnsavedPath(fp),
-      )
+      }).catch(() => false)
+      if (!ok) {
+        setUnsavedPath(fp)
+        return
+      }
+      savedVersions.set(model.uri.toString(), version)
+      useEditorStatus.getState().setDirty(fp, isDirty(model))
+      setUnsavedPath(null)
+    }
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => void save())
+
+    const saveIfDirty = (mode: EditorSettings['autoSave']): void => {
+      const model = editor.getModel()
+      if (useSettingsStore.getState().editor.autoSave !== mode) return
+      if (model && isDirty(model)) void save()
+    }
+    const autoSave = createAutoSave(() => saveIfDirty('afterDelay'), AUTO_SAVE_DELAY_MS)
+    const contentSub = editor.onDidChangeModelContent(() => {
+      if (useSettingsStore.getState().editor.autoSave === 'afterDelay') autoSave.schedule()
     })
+    const blurSub = editor.onDidBlurEditorText(() => saveIfDirty('onFocusChange'))
 
     const detachWheelZoom = attachWheelZoom(host, 'editor', isMac)
 
     return () => {
+      autoSave.cancel()
+      contentSub.dispose()
+      blurSub.dispose()
       detachWheelZoom()
       editor.dispose()
       editorRef.current = null
@@ -260,6 +293,10 @@ export function EditorView({
     if (!pendingReveal || !editor || !filePath || model?.uri.path !== filePath) return
     applyReveal(editor, filePath)
   }, [pendingReveal, filePath])
+
+  useEffect(() => {
+    editorRef.current?.updateOptions(behaviorOptions(editorSettings))
+  }, [editorSettings])
 
   useEffect(() => {
     editorRef.current?.updateOptions({
