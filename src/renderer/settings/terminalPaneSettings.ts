@@ -10,7 +10,11 @@ export interface TerminalSettings {
   warnOnRiskyPaste: boolean
   minimumContrast: number
   prompt: PromptSettings
+  clipboardKeys: ClipboardKeys
 }
+
+export const CLIPBOARD_KEYS = ['shift', 'smart'] as const
+export type ClipboardKeys = (typeof CLIPBOARD_KEYS)[number]
 
 export interface PaneSettings {
   dimInactive: boolean
@@ -32,6 +36,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   warnOnRiskyPaste: true,
   minimumContrast: 1,
   prompt: DEFAULT_PROMPT_SETTINGS,
+  clipboardKeys: 'shift',
 }
 
 export const DEFAULT_PANE_SETTINGS: PaneSettings = {
@@ -76,6 +81,9 @@ export function parseTerminalSettings(raw: unknown): TerminalSettings {
     scrollbackLines: clampScrollback(source.scrollbackLines),
     minimumContrast: clampContrast(source.minimumContrast),
     prompt: parsePromptSettings(source.prompt),
+    clipboardKeys: CLIPBOARD_KEYS.includes(source.clipboardKeys as ClipboardKeys)
+      ? (source.clipboardKeys as ClipboardKeys)
+      : DEFAULT_TERMINAL_SETTINGS.clipboardKeys,
   }
 }
 

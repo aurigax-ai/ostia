@@ -35,7 +35,8 @@ import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { openFileInWorkspace } from '../lib/openFile'
-import { platform } from '../platform'
+import { isMac, platform } from '../platform'
+import type { ClipboardKeys } from '../settings/terminalPaneSettings'
 import {
   CONTRAST_MAX,
   CONTRAST_MIN,
@@ -830,6 +831,7 @@ function TerminalSection(): JSX.Element {
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
   const warnOnRiskyPaste = useSettingsStore((s) => s.terminal.warnOnRiskyPaste)
+  const clipboardKeys = useSettingsStore((s) => s.terminal.clipboardKeys)
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
   const prompt = useSettingsStore((s) => s.terminal.prompt)
@@ -929,6 +931,19 @@ function TerminalSection(): JSX.Element {
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupPaste}>
+        {isMac ? null : (
+          <ControlRow label={d.settings.clipboardKeys} desc={d.settings.clipboardKeysDesc}>
+            <SelectField
+              value={clipboardKeys}
+              onChange={(v) => setTerminal({ clipboardKeys: v as ClipboardKeys })}
+              label={d.settings.clipboardKeys}
+              options={[
+                { value: 'shift', label: d.settings.clipboardShift },
+                { value: 'smart', label: d.settings.clipboardSmart },
+              ]}
+            />
+          </ControlRow>
+        )}
         <ToggleRow
           label={d.settings.warnRiskyPaste}
           desc={d.settings.warnRiskyPasteDesc}
