@@ -286,8 +286,15 @@ Attention, the second loud element, appears only when a pane needs you:
   right end of the line. It appears and disappears without animation (§8 Motion).
 
 Consolidation debt:
-- Primitives still missing: DropdownMenu. ContextMenu (`components/ui/context-menu.tsx`) backs
-  the block menu.
+- Primitives still missing: DropdownMenu.
+
+**Context menus** go through `components/Menu.tsx` (`MenuContent`, `MenuItem`, `MenuSubTrigger`,
+`MenuSubContent`, `MenuRadioItem`) over the shadcn ContextMenu, never the raw `ContextMenuItem`:
+`ui-base` labels, 28px rows, a fixed 14px leading column (a Phosphor icon, a state dot or color
+chip, or empty space) so every label shares one left edge, and right-aligned `ui-xs` hints only
+for real chords. Order groups open → reveal → copy → send, then destructive last after a
+separator. The row a menu belongs to shows it with `[data-popup-open]` (surface-2 plus a
+`--line-strong` inset for tree rows). Empty submenus say why in one disabled row.
 
 ## 8. Interaction and accessibility
 

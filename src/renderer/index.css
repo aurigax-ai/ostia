@@ -797,6 +797,12 @@
   color: var(--fg);
 }
 
+.file-row[data-popup-open] {
+  background: var(--surface-2);
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
 .file-row.active {
   background: var(--surface-3);
   color: var(--fg);
@@ -1027,6 +1033,11 @@
 }
 
 .pane-tab:hover {
+  color: var(--fg);
+}
+
+.pane-tab[data-popup-open] {
+  background: var(--surface-2);
   color: var(--fg);
 }
 

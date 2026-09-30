@@ -144,7 +144,9 @@ Details: `docs/ARCHITECTURE.md`.
   Rerun and history insert go through `insertCommand` (`lib/blockActions.ts`), need the `shell`
   capability, and paste via `term.paste`. The one widening: a report reference from pick
   element or send selection (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a
-  running agent that reported `waiting`/`done`; it's text only, never followed by Enter. A file
+  running agent: one whose running command is `claude`/`codex` (`commandAgent`; their input box
+  queues typed text), or any command that reported `waiting`/`done`; it's text only, never
+  followed by Enter. A file
   path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. Anything
   else goes to the clipboard.
   The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
@@ -384,6 +386,10 @@ Details: `docs/ARCHITECTURE.md`.
   (`normalizeOrigin`, http/https only), and the renderer only ever gets summaries (origin,
   username); "copy" writes the clipboard from main. No socket method or CLI verb returns a
   password; filling a page happens in main.
+- **The file menu never launches programs.** "Open with default app" (`main/openPath.ts`) is
+  confined like `fs:*` and refuses executables, scripts and launchers (`isProgram`); reveal only
+  shows the item in the file manager. "Send path to agent" lists only agents running in the
+  workspace (`runningAgent`).
 - **User actions are data, and elevated ones ask once.** `actions` in `settings.json` name a
   palette command + args (`parseActions`), never a shell string; agents may add them. Running
   one whose command needs a non-default capability shows the command and args and waits

@@ -2,13 +2,16 @@ import {
   CalendarBlankIcon,
   CheckCircleIcon,
   ClockIcon,
+  CopyIcon,
   CubeIcon,
   DesktopIcon,
   FilePyIcon,
+  FolderOpenIcon,
   FolderSimpleIcon,
   HexagonIcon,
   type Icon,
   PackageIcon,
+  PencilSimpleIcon,
   PuzzlePieceIcon,
   TimerIcon,
   UserIcon,
@@ -22,13 +25,8 @@ import type { ResolvedChip } from '../lib/promptChips'
 import { promptLine } from '../lib/promptChips'
 import { useUIStore } from '../stores/uiStore'
 import { Hint } from './Hint'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from './ui/context-menu'
+import { MenuContent, MenuItem } from './Menu'
+import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from './ui/context-menu'
 
 const CORE_CHIP_ICONS: Record<CoreChipId, Icon> = {
   conda: PackageIcon,
@@ -142,26 +140,35 @@ export function PromptChipRow({
           </ul>
         }
       />
-      <ContextMenuContent className="min-w-48">
-        <ContextMenuItem onClick={() => useUIStore.getState().openPromptEditor(paneId)}>
+      <MenuContent>
+        <MenuItem
+          icon={PencilSimpleIcon}
+          onClick={() => useUIStore.getState().openPromptEditor(paneId)}
+        >
           {d.prompt.edit}
-        </ContextMenuItem>
+        </MenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem
+        <MenuItem
+          icon={CopyIcon}
           onClick={() => void navigator.clipboard.writeText(promptLine(chips, separator))}
         >
           {d.prompt.copyPrompt}
-        </ContextMenuItem>
-        <ContextMenuItem
+        </MenuItem>
+        <MenuItem
+          icon={CopyIcon}
           disabled={!cwd}
           onClick={() => cwd && void navigator.clipboard.writeText(cwd)}
         >
           {d.prompt.copyCwd}
-        </ContextMenuItem>
-        <ContextMenuItem disabled={!cwd} onClick={() => useUIStore.getState().showFiles()}>
+        </MenuItem>
+        <MenuItem
+          icon={FolderOpenIcon}
+          disabled={!cwd}
+          onClick={() => useUIStore.getState().showFiles()}
+        >
           {d.prompt.revealCwd}
-        </ContextMenuItem>
-      </ContextMenuContent>
+        </MenuItem>
+      </MenuContent>
     </ContextMenu>
   )
 }
