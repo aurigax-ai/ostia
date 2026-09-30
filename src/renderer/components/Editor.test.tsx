@@ -1,5 +1,8 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
+import { openSelectionSend } from '../lib/selectionSenders'
 import { useEditorStatus } from '../stores/editorStatusStore'
 
 const fake = vi.hoisted(() => {
@@ -23,6 +26,12 @@ const fake = vi.hoisted(() => {
     getAlternativeVersionId() {
       return this.version
     }
+    getValueInRange(r: { startLineNumber: number; endLineNumber: number }) {
+      return this.value
+        .split('\n')
+        .slice(r.startLineNumber - 1, r.endLineNumber)
+        .join('\n')
+    }
     onDidChangeContent(l: Listener) {
       this.changeListeners.push(l)
       return { dispose() {} }
@@ -33,12 +42,20 @@ const fake = vi.hoisted(() => {
     }
   }
   const models = new Map<string, FakeModel>()
+  interface FakeSelection {
+    startLineNumber: number
+    startColumn: number
+    endLineNumber: number
+    endColumn: number
+    isEmpty(): boolean
+  }
   const state: {
     model: FakeModel | null
     save: (() => void) | null
     actions: { id: string; label: string; run: () => void }[]
     position: { lineNumber: number; column: number } | null
-  } = { model: null, save: null, actions: [], position: null }
+    selection: FakeSelection | null
+  } = { model: null, save: null, actions: [], position: null, selection: null }
   const editor = {
     setModel: (m: FakeModel | null) => {
       state.model = m
@@ -56,7 +73,9 @@ const fake = vi.hoisted(() => {
       }
     },
     getPosition: () => state.position,
+    getSelection: () => state.selection,
     updateOptions: () => {},
+    onDidChangeModel: () => ({ dispose() {} }),
     dispose: () => {},
   }
   const monaco = {
@@ -97,16 +116,16 @@ describe('EditorView', () => {
 
   it('does not overwrite a model with unsaved edits when the file is reopened', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('disk v1')
-    const { rerender } = render(<EditorView paneId="p1" filePath="/w/a.txt" />)
+    const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
 
     act(() => fake.state.model?.setValue('my edit'))
     expect(useEditorStatus.getState().dirty['/w/a.txt']).toBe(true)
 
     vi.mocked(window.pine.fs.read).mockResolvedValue('disk v2')
-    rerender(<EditorView paneId="p1" filePath="/w/b.txt" />)
+    rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/b.txt" />)
     await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/b.txt'))
-    rerender(<EditorView paneId="p1" filePath="/w/a.txt" />)
+    rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/a.txt'))
 
     expect(fake.state.model?.getValue()).toBe('my edit')
@@ -115,13 +134,13 @@ describe('EditorView', () => {
 
   it('refreshes a clean model from disk when the file is reopened', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('disk v1')
-    const { rerender } = render(<EditorView paneId="p1" filePath="/w/a.txt" />)
+    const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
 
     vi.mocked(window.pine.fs.read).mockResolvedValue('disk v2')
-    rerender(<EditorView paneId="p1" filePath="/w/b.txt" />)
+    rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/b.txt" />)
     await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/b.txt'))
-    rerender(<EditorView paneId="p1" filePath="/w/a.txt" />)
+    rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
 
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
     expect(useEditorStatus.getState().dirty['/w/a.txt']).toBeUndefined()
@@ -130,7 +149,7 @@ describe('EditorView', () => {
   it('keeps the file dirty and shows an error when the write fails', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('text')
     vi.mocked(window.pine.fs.write).mockResolvedValue(false)
-    render(<EditorView paneId="p1" filePath="/w/a.txt" />)
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))
 
@@ -142,7 +161,7 @@ describe('EditorView', () => {
 
   it('clears the dirty flag after a successful save', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('text')
-    render(<EditorView paneId="p1" filePath="/w/a.txt" />)
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))
 
@@ -154,7 +173,7 @@ describe('EditorView', () => {
 
   it('shows a binary-file message instead of opening a file containing NUL bytes', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('PNG\0\0data')
-    render(<EditorView paneId="p1" filePath="/w/img.png" />)
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/blob.bin" />)
 
     expect(await screen.findByText(/Binary file/)).toBeInTheDocument()
     expect(fake.models.size).toBe(0)
@@ -171,7 +190,7 @@ describe('EditorView → Open in External Editor', () => {
 
   it('opens the file at the cursor with the configured template', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('text')
-    render(<EditorView paneId="p1" filePath="/w/a b.ts" />)
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a b.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     fake.state.position = { lineNumber: 12, column: 5 }
 
@@ -192,12 +211,121 @@ describe('EditorView → Open in External Editor', () => {
   it('tells the user how to configure an editor when none is found', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('text')
     vi.mocked(window.pine.externalEditor.open).mockResolvedValue({ ok: false, error: 'no-editor' })
-    render(<EditorView paneId="p1" filePath="/w/a.ts" />)
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
 
     act(() => fake.state.actions[0]?.run())
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/behavior\.externalEditor/)
+  })
+})
+
+describe('EditorView → Send Selection to Agent', () => {
+  let unseed: () => void
+  beforeEach(() => {
+    unseed = seedSendTarget('w1')
+    vi.mocked(window.pine.selection.send).mockResolvedValue({
+      ok: true,
+      path: '/tmp/pine-reports-1/selection-1.md',
+      imagePath: null,
+    })
+  })
+  afterEach(() => {
+    unseed()
+    fake.models.clear()
+    fake.state.model = null
+    fake.state.actions = []
+    fake.state.selection = null
+  })
+
+  const select = (startLine: number, startColumn: number, endLine: number, endColumn: number) => {
+    fake.state.selection = {
+      startLineNumber: startLine,
+      startColumn,
+      endLineNumber: endLine,
+      endColumn,
+      isEmpty: () => startLine === endLine && startColumn === endColumn,
+    }
+  }
+
+  it('adds a context-menu action that opens the send panel with the file and range', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('one\ntwo\nthree')
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    select(2, 1, 3, 6)
+
+    const action = fake.state.actions.find((a) => a.id === 'pine.sendSelection')
+    expect(action?.label).toBe('Send Selection to Agent')
+    act(() => action?.run())
+
+    const panel = await screen.findByRole('region', { name: 'Send to agent' })
+    expect(panel).toHaveTextContent('a.ts:2:1-3:6')
+    expect(panel).toHaveTextContent('agent shell')
+    await userEvent.type(screen.getByLabelText('Note for the agent'), 'why two?')
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+
+    await waitFor(() =>
+      expect(window.pine.selection.send).toHaveBeenCalledWith({
+        capture: {
+          kind: 'text',
+          file: '/w/src/a.ts',
+          view: 'source',
+          range: { startLine: 2, startColumn: 1, endLine: 3, endColumn: 6 },
+          text: 'two\nthree',
+        },
+        sourcePaneId: 'p1',
+        targetPaneId: TARGET_PANE,
+        note: 'why two?',
+      }),
+    )
+    expect(await screen.findByText(/Sent to agent shell/)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Send to agent' })).toBeNull()
+  })
+
+  it('answers the palette command for its pane and says so when nothing is selected', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+
+    act(() => {
+      expect(openSelectionSend('p1')).toBe(true)
+    })
+
+    expect(await screen.findByText('Select some text first.')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Send to agent' })).toBeNull()
+  })
+
+  it('sends the Markdown preview selection with its source lines', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('# Title\n\nBody text here')
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    await userEvent.click(screen.getByRole('button', { name: 'Preview Markdown' }))
+    const body = await screen.findByText('Body text here')
+
+    const range = document.createRange()
+    range.setStart(body.firstChild as Node, 0)
+    range.setEnd(body.firstChild as Node, 4)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    act(() => {
+      document.dispatchEvent(new Event('selectionchange'))
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Send Selection to Agent' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Send' }))
+
+    await waitFor(() =>
+      expect(window.pine.selection.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          capture: {
+            kind: 'text',
+            file: '/w/README.md',
+            view: 'preview',
+            range: { startLine: 3, endLine: 3 },
+            text: 'Body',
+          },
+        }),
+      ),
+    )
   })
 })
 

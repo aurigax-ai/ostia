@@ -1,9 +1,10 @@
 import type { PickCapture } from '@shared/pick'
+import type { SelectionCapture } from '@shared/selection'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
-import { canInsertReference, sendPickToPane } from './sendPick'
+import { canInsertReference, sendPickToPane, sendSelectionToPane } from './sendPick'
 import { registerTerminal } from './terminalHandles'
 
 const TARGET = 'pane-agent'
@@ -120,6 +121,77 @@ describe('sendPickToPane', () => {
     })
     const res = await send()
     expect(res).toEqual({ ok: false, error: 'capture-expired' })
+    expect(term.paste).not.toHaveBeenCalled()
+    expect(useAttentionStore.getState().byPane[TARGET]).toBeUndefined()
+  })
+})
+
+describe('sendSelectionToPane', () => {
+  const SELECTION_REPORT = '/tmp/pine-reports-1000/selection-2.md'
+  const selection: SelectionCapture = {
+    kind: 'text',
+    file: '/w/src/app.ts',
+    view: 'source',
+    range: { startLine: 4, startColumn: 1, endLine: 6, endColumn: 3 },
+    text: 'const x = 1',
+  }
+
+  const sendSelection = (note = '', image?: Uint8Array) =>
+    sendSelectionToPane({
+      capture: selection,
+      image,
+      sourcePaneId: 'pane-editor',
+      targetPaneId: TARGET,
+      note,
+    })
+
+  beforeEach(() => {
+    vi.mocked(window.pine.selection.send).mockResolvedValue({
+      ok: true,
+      path: SELECTION_REPORT,
+      imagePath: null,
+    })
+  })
+
+  it('sends the capture, image, source, target and note to main', async () => {
+    idlePrompt()
+    const png = new Uint8Array([1, 2, 3])
+    await sendSelection('explain', png)
+    expect(window.pine.selection.send).toHaveBeenCalledWith({
+      capture: selection,
+      image: png,
+      sourcePaneId: 'pane-editor',
+      targetPaneId: TARGET,
+      note: 'explain',
+    })
+  })
+
+  it('pastes the report reference at an idle prompt under the pick rules', async () => {
+    idlePrompt()
+    const res = await sendSelection()
+    expect(res).toEqual({ ok: true, path: SELECTION_REPORT, imagePath: null, inserted: true })
+    expect(term.paste).toHaveBeenCalledWith(`@${SELECTION_REPORT} `)
+    expect(window.pine.pty.write).not.toHaveBeenCalled()
+  })
+
+  it('copies the reference when the target is busy', async () => {
+    running()
+    const res = await sendSelection()
+    expect(res.ok && res.inserted).toBe(false)
+    expect(term.paste).not.toHaveBeenCalled()
+    expect(writeText).toHaveBeenCalledWith(`@${SELECTION_REPORT}`)
+  })
+
+  it('labels the working target with the file and range when there is no note', async () => {
+    idlePrompt()
+    await sendSelection()
+    expect(useAttentionStore.getState().byPane[TARGET].message).toBe('app.ts:4:1-6:3')
+  })
+
+  it('touches nothing when main refuses the report', async () => {
+    idlePrompt()
+    vi.mocked(window.pine.selection.send).mockResolvedValue({ ok: false, error: 'invalid' })
+    expect(await sendSelection()).toEqual({ ok: false, error: 'invalid' })
     expect(term.paste).not.toHaveBeenCalled()
     expect(useAttentionStore.getState().byPane[TARGET]).toBeUndefined()
   })

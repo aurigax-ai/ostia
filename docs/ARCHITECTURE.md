@@ -15,6 +15,7 @@ the reasons live.
 | Terminal | node-pty in main; `@xterm/xterm` 6 + fit, search, web-links, unicode11, webgl addons (WebGL renderer, DOM fallback; `behavior.gpuAcceleration`) |
 | Splits | allotment |
 | Editor | monaco-editor with locally bundled workers; hand-written LSP client over `vscode-jsonrpc` |
+| File viewers | `<img>` from a blob URL for images; `pdfjs-dist` (legacy build) for PDFs |
 | Control plane | `vscode-jsonrpc` over a unix socket; `pine` CLI bundled by esbuild |
 | Gateway | node `https` + `ws`, `selfsigned` cert, `qrcode` in the renderer |
 | Tests | Vitest (node + jsdom projects), Playwright against the built app |
@@ -77,6 +78,8 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `settingsSync.ts`, `settingsSyncIpc.ts` | Settings sync: pure plan/merge + the file executor; triggers (startup, window focus, local file changes) and `sync:*` / `dialog:pick-folder` IPC (§5) |
 | `browse.ts` | `browse.*` automation of browser panes (§9) |
 | `browsePick.ts`, `guestNetwork.ts` | Pick element: `browse.pick`, `browser:pick-*` IPC, UI-issue reports; failed-request buffer per guest (§9) |
+| `selectionReport.ts` | Send-selection reports from file views: `selection:send` IPC, `selection-N.md` + PNG (§9) |
+| `fsBinary.ts` | `fs:read-binary`: confined, size-capped byte reads for the image and PDF viewers (§9) |
 | `externalEditor.ts` | "Open in External Editor": resolves `behavior.externalEditor` (or auto-detects code/cursor/zed on `PATH`) and spawns it with an argv array (§9) |
 | `gateway/` | LAN gateway: `index.ts` (methods + IPC), `server.ts`, `controlDispatch.ts`, `devices.ts`, `pairing.ts`, `cert.ts`, `interfaces.ts` (§7) |
 
@@ -115,13 +118,14 @@ is typed as `PineBridge`, so drift breaks the build.
 |---|---|
 | app / window | `ping`, `info`, `platform`; `minimize`, `toggleMaximize`, `close`, `isMaximized`, `onMaximizeChange` |
 | pty | `attach`, `detach`, `write`, `resize`, `onData`, `onExit` (push channels `pty:data:<id>`, `pty:exit:<id>`) |
-| fs | `list`, `read`, `write` (confined by `resolveSafe` to `[homedir, userData]`) |
+| fs | `list`, `read`, `write`, `readBinary` (confined by `resolveSafe` to `[homedir, userData]`; `readBinary` returns a `Uint8Array`, capped at 50 MiB) |
 | lsp | `list`, `start`, `send`, `stop`, `onMessage`, `onExit` |
 | settings / workspace | `settings.path`; `workspace.save`, `workspace.load` |
 | lifecycle | `lifecycle.emit` (`pane-created`, `pane-closed`, `workspace-added`, `workspace-closed`, `workspace-activated`, `workspace-state`) |
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
 | terminal state | `terminalState.push` |
 | browser | `register`, `unregister`, `pickStart`, `pickCancel`, `pickSend`, `onPickState` (push channel `browser:pick-state`) |
+| selection | `selection.send({capture, image?, sourcePaneId, targetPaneId, note})` (IPC `selection:send`, §9) |
 | extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel`, `sidebarItems`, `onChanged`, `onSidebar`, `onOpenPanel`, `onOpenDiff` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:open-panel`, `extensions:open-diff`) |
 | external editor | `externalEditor.open({template, file, line?, column?})` (IPC `editor:open-external`, §9) |
 | gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke`, `bind-options`, `set-cap` (IPC only) |
@@ -284,6 +288,11 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 
 - **Workspace** (`stores/workspacesStore.ts`) → **split tree** (`layout/tree.ts`, pure; `stores/layoutStore.ts`)
   → **Pane** → one **Surface**: `terminal | editor | browser | extension | diff`.
+  - An `editor` pane is a file view (`components/FileView.tsx`): images (`png jpg jpeg gif webp
+    svg bmp ico avif`) open in `ImageViewer`, `.pdf` in `PdfViewer`, anything else in Monaco
+    (`lib/fileKinds.ts`). Why not new surface kinds: a file view is still "the file this pane
+    shows", so `openFile`, restore, tabs, the Files panel and the pane title stay one code path;
+    switching the file swaps the viewer (keyed by path).
   - An `extension` pane carries `extensionId` and renders that extension's panel
     (`ExtensionPanelView`, §11). `openExtensionPanel` reuses the workspace's existing panel of the
     same extension.
@@ -448,6 +457,8 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   attached pty; restore happens only at boot.
 - **Chords** (`lib/chords.ts`): macOS uses Cmd+K (palette), Cmd+\ (sidebar), Cmd+, (settings),
   Cmd+Shift+U (jump to latest unread), Cmd+Shift+H (command history), Cmd+T (new workspace),
+  Cmd+Shift+E / Ctrl+Shift+E (send a file view's selection to an agent; Why E: Monaco already
+  binds Ctrl+Shift+A, C, G, I, K, L, M, O, R and Z),
   Cmd+↑/↓ (previous/next block) and native Cmd+C/V/F. Other platforms use Ctrl+Shift+P,
   Ctrl+Shift+B, Ctrl+, Ctrl+Shift+U, Ctrl+Shift+H, Ctrl+Shift+T, Ctrl+Shift+↑/↓ and
   Ctrl+Shift+C/V/F (copy/paste/find). Plain Ctrl+T stays with the shell (readline transpose). On Linux some IBus
@@ -757,6 +768,67 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   - Ctrl/Cmd+S saves through `fs.write`. Dirty state compares `getAlternativeVersionId` with the
     saved version (mirrored to `editorStatusStore`).
   - Files with a NUL byte in the first 8 KB are not opened.
+- **Image and PDF viewers** (`components/ImageViewer.tsx`, `PdfViewer.tsx`, `ViewerChrome.tsx`,
+  `lib/viewerHooks.ts`, `lib/regionSelect.ts`, `lib/pdf.ts`):
+  - Bytes come from `fs.readBinary` (`main/fsBinary.ts`): confined by `resolveSafe` like every
+    `fs:*` call; it `stat`s first and refuses a file over 50 MiB (`too-large` with the size)
+    without reading it. Why bytes and not a `file://` URL: the renderer has no file access and
+    the CSP allows only `self`, `data:` and `blob:` images; a `Uint8Array` crosses IPC without
+    base64 inflation.
+  - Images render from a blob URL (revoked on unmount) and fit the pane (never upscaled) or zoom
+    in steps (`ZOOM_STEPS`). PDFs render one page at a time on a canvas at `devicePixelRatio`,
+    fit to width by default, with pdf.js's `TextLayer` on top for selection (`index.css`
+    `.pdf-text`, a trimmed copy of pdf.js's `.textLayer` rules; the page sets
+    `--total-scale-factor`). Why the legacy build: the modern build calls
+    `Map.prototype.getOrInsertComputed` and `Math.sumPrecise`, which Electron 33's Chromium
+    lacks; the legacy build polyfills them. The worker is the same build's `pdf.worker.min.mjs`,
+    loaded with a Vite `?url` import. pdf.js is imported lazily, so it loads only when a PDF opens.
+    `pdfjs-dist` is a devDependency: Vite bundles it into the renderer, and as a runtime
+    dependency electron-builder would also ship its optional native `@napi-rs/canvas`.
+  - A region is dragged with pointer events in content coordinates (`toContentPoint` divides by
+    the zoom), normalized and clamped by `dragRegion` (whole units, at least 2×2). Image regions
+    are in image pixels; PDF regions are in PDF points with a top-left origin, scaled to canvas
+    pixels only when cropping (`pixelRect`). PDFs have a region mode that takes the text layer
+    off the pointer, so a drag never fights text selection.
+- **Send selection to agent** (`commands/selectionSend.ts`, `lib/selectionSenders.ts`,
+  `components/SelectionSend.tsx`, `lib/sendPick.ts` `sendSelectionToPane`,
+  `main/selectionReport.ts`, `shared/selection.ts`):
+  - Every file view registers a sender for its pane. The `selection.sendToAgent` command (palette,
+    Ctrl+Shift+E / ⌘⇧E, Monaco's context menu, the viewers' toolbar button, the Markdown
+    preview's button) runs the active pane's sender, which captures the selection and opens the
+    same send panel as pick element (`PickSendPanel`: targets with state dots, a note,
+    Ctrl/⌘+Enter sends).
+  - What is captured: Monaco's selection (`line:column`, 1-based, end exclusive) and its text; in
+    the Markdown preview, the DOM selection's text and the source lines of the blocks it spans (a
+    rehype plugin tags every element with `data-line-start`/`data-line-end`); in a PDF, the
+    text-layer selection and its page; for an image or PDF region (or the whole image or page
+    when nothing is drawn), a PNG cropped on a canvas in the renderer. DOM selections are tracked
+    on `selectionchange` and survive focus moving elsewhere, since opening the palette would
+    otherwise clear them before the command runs.
+  - Why the capture travels whole and not as an id (unlike pick element): the renderer already
+    holds the file, text and pixels, so main has nothing to look up. Main treats it as untrusted:
+    `normalizeSelection` checks the kind, an absolute path, positive integers and non-empty text
+    (clipped to 50 000 chars); the note is clipped to 4000; an image must be a PNG (signature
+    check) of at most 25 MiB; and the sender window must own the source pane.
+  - Main writes `selection-N.png` (when there is one) and `selection-N.md` with the same `N` in
+    `privateTmpDir('pine-reports')` (mode 0600, `wx`, never overwritten), and posts a `selection`
+    bus message from the source pane to the target:
+    `{"kind":"selection","report":"<md>","file":"<path>","image":"<png>|null","note":"…"}`.
+    The renderer delivers `@<report path> ` exactly like a pick report (`canInsertReference`,
+    otherwise the clipboard) and sets the target to `working`.
+  - Report format (`renderSelectionReport`), one `# <kind>: <label>` heading, then `## Note`
+    (the note or `(no note)`), `## Source` and, for text, `## Selected text`:
+
+    | Kind | Title | Source lines |
+    |---|---|---|
+    | Monaco text | `Text selection: a.ts:12:5-14:1` | `File`, `Lines: 12:5-14:1 (line:column, 1-based, end exclusive)`, `Captured` |
+    | Markdown preview text | `Text selection: README.md:3-6` | `File`, `Lines: 3-6 (source lines of the block selected in the Markdown preview)`, `Captured` |
+    | Image | `Image region: a.png (x 10, y 20, 100 × 50)` or `Image: a.png` | `File`, `Image size: W × H px`, `Region: x, y, w × h (image px, origin top-left)` or `whole image`, `Snapshot: <png>`, `Captured` |
+    | PDF text | `PDF text selection: a.pdf, page 2` | `File`, `Pages: 2 (1-based)`, `Captured` |
+    | PDF region | `PDF page region: a.pdf, page 2 (x …)` or `PDF page: a.pdf, page 2` | `File`, `Page: 2 (1-based), W × H pt`, `Region: … (PDF points, origin top-left)` or `whole page`, `Snapshot: <png>`, `Captured` |
+
+    `## Selected text` holds the selection in a fence (tagged with the file extension for Monaco
+    text), lengthened when the text itself contains a fence.
 - **Diff view** (`components/DiffView.tsx`): Monaco's `createDiffEditor`, read-only
   (`originalEditable: false`), side-by-side with an inline toggle, same theme and editor font as
   the editor. Models are plain in-memory models (no file URI), so they never collide with an open

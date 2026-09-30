@@ -52,6 +52,18 @@ describe('matchChord', () => {
     expect(chordLabel('attention.jumpToLatest', true)).toBe('⌘⇧U')
   })
 
+  it('maps send selection to Ctrl+Shift+E and Cmd+Shift+E, leaving Ctrl+E to the shell', () => {
+    const ctrlShiftE = matchChord(key('E', { ctrlKey: true, shiftKey: true }), false)
+    const cmdShiftE = matchChord(key('e', { metaKey: true, shiftKey: true }), true)
+    expect(ctrlShiftE).toBe('selection.sendToAgent')
+    expect(cmdShiftE).toBe('selection.sendToAgent')
+    expect(isAppChord(ctrlShiftE)).toBe(true)
+    expect(matchChord(key('e', { ctrlKey: true }), false)).toBeNull()
+    expect(matchChord(key('e', { ctrlKey: true, shiftKey: true }), true)).toBeNull()
+    expect(chordLabel('selection.sendToAgent', false)).toBe('Ctrl+Shift+E')
+    expect(chordLabel('selection.sendToAgent', true)).toBe('⌘⇧E')
+  })
+
   it('maps bare Cmd chords on macOS and ignores Ctrl there', () => {
     const cmd = { metaKey: true }
     expect(matchChord(key('k', cmd), true)).toBe('palette.toggle')

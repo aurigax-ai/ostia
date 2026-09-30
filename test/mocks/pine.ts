@@ -27,6 +27,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       read: vi.fn().mockResolvedValue(null),
       write: vi.fn().mockResolvedValue(true),
       stat: vi.fn().mockResolvedValue(null),
+      readBinary: vi.fn().mockResolvedValue({ ok: false, error: 'unreadable' }),
     },
     lsp: {
       list: vi.fn().mockResolvedValue([]),
@@ -71,6 +72,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       pickCancel: vi.fn(),
       pickSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       onPickState: vi.fn(noopUnsub),
+    },
+    selection: {
+      send: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
     },
     extensions: {
       list: vi.fn().mockResolvedValue([]),

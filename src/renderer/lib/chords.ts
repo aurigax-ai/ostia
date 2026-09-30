@@ -7,6 +7,7 @@ export type AppChord =
   | 'workspace.new'
   | 'agent.resume'
   | 'workspace.goto'
+  | 'selection.sendToAgent'
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
@@ -33,6 +34,7 @@ const MAC: Record<string, Chord> = {
 }
 
 const MAC_SHIFT: Record<string, Chord> = {
+  e: 'selection.sendToAgent',
   r: 'agent.resume',
   u: 'attention.jumpToLatest',
   h: 'history.search',
@@ -48,6 +50,7 @@ const CTRL_SHIFT: Record<string, Chord> = {
   h: 'history.search',
   t: 'workspace.new',
   r: 'agent.resume',
+  e: 'selection.sendToAgent',
   arrowup: 'block.selectPrev',
   arrowdown: 'block.selectNext',
 }
@@ -82,6 +85,7 @@ const APP_CHORDS: ReadonlySet<Chord> = new Set<AppChord>([
   'workspace.new',
   'agent.resume',
   'workspace.goto',
+  'selection.sendToAgent',
 ])
 
 export function isAppChord(chord: Chord | null): chord is AppChord {
@@ -99,6 +103,7 @@ const LABELS: Record<Chord, [mac: string, other: string]> = {
   'workspace.new': ['⌘T', 'Ctrl+Shift+T'],
   'agent.resume': ['⌘⇧R', 'Ctrl+Shift+R'],
   'workspace.goto': ['⌘1-9', 'Ctrl+1-9'],
+  'selection.sendToAgent': ['⌘⇧E', 'Ctrl+Shift+E'],
   copy: ['⌘C', 'Ctrl+Shift+C'],
   paste: ['⌘V', 'Ctrl+Shift+V'],
   find: ['⌘F', 'Ctrl+Shift+F'],

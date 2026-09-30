@@ -1,9 +1,10 @@
 import { cn } from '@/lib/utils'
-import { CodeIcon, EyeIcon } from '@phosphor-icons/react'
+import { CodeIcon, EyeIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
 import { registerEditorPosition } from '../lib/editorPositions'
+import { registerSelectionSender } from '../lib/selectionSenders'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import { openDocument } from '../lsp/client'
 import { langFor } from '../monaco/language'
@@ -13,7 +14,8 @@ import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
-import { MarkdownPreview, isMarkdownPath } from './MarkdownPreview'
+import { MarkdownPreview, type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
+import { useSelectionSend } from './SelectionSend'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
 
@@ -78,9 +80,11 @@ function applyReveal(editor: monaco.editor.IStandaloneCodeEditor, path: string):
 }
 
 export function EditorView({
+  workspaceId,
   paneId,
   filePath,
 }: {
+  workspaceId: string
   paneId: string
   filePath?: string
 }): JSX.Element {
@@ -97,6 +101,47 @@ export function EditorView({
   const external = useExternalEditorAction(paneId)
   const openExternalRef = useRef(external.open)
   openExternalRef.current = external.open
+  const selectionSend = useSelectionSend(workspaceId, paneId)
+  const previewSelectionRef = useRef<PreviewSelection | null>(null)
+  const sendSelectionRef = useRef<() => void>(() => {})
+  sendSelectionRef.current = () => {
+    const file = pathRef.current
+    if (!file || binary) return
+    if (markdown && preview) {
+      const sel = previewSelectionRef.current
+      if (!sel) {
+        selectionSend.notify(d.viewer.noSelection)
+        return
+      }
+      selectionSend.open({
+        kind: 'text',
+        file,
+        view: 'preview',
+        range: { startLine: sel.startLine, endLine: sel.endLine },
+        text: sel.text,
+      })
+      return
+    }
+    const editor = editorRef.current
+    const model = editor?.getModel()
+    const sel = editor?.getSelection()
+    if (!model || !sel || sel.isEmpty()) {
+      selectionSend.notify(d.viewer.noSelection)
+      return
+    }
+    selectionSend.open({
+      kind: 'text',
+      file,
+      view: 'source',
+      range: {
+        startLine: sel.startLineNumber,
+        startColumn: sel.startColumn,
+        endLine: sel.endLineNumber,
+        endColumn: sel.endColumn,
+      },
+      text: model.getValueInRange(sel),
+    })
+  }
 
   useEffect(() => {
     const host = hostRef.current
@@ -148,6 +193,7 @@ export function EditorView({
   }, [])
 
   const openExternalLabel = d.editor.openExternal
+  const sendSelectionLabel = d.viewer.sendSelection
   useEffect(() => {
     const editor = editorRef.current
     if (!editor) return
@@ -162,11 +208,21 @@ export function EditorView({
       contextMenuGroupId: 'navigation',
       run: () => openExternalRef.current(),
     })
+    const sendAction = editor.addAction({
+      id: 'pine.sendSelection',
+      label: sendSelectionLabel,
+      contextMenuGroupId: 'navigation',
+      precondition: 'editorHasSelection',
+      run: () => sendSelectionRef.current(),
+    })
+    const unregisterSender = registerSelectionSender(paneId, () => sendSelectionRef.current())
     return () => {
       action.dispose()
+      sendAction.dispose()
+      unregisterSender()
       unregister()
     }
-  }, [paneId, openExternalLabel])
+  }, [paneId, openExternalLabel, sendSelectionLabel])
 
   useEffect(() => {
     pathRef.current = filePath
@@ -216,7 +272,24 @@ export function EditorView({
   return (
     <>
       <div ref={hostRef} className="editor-host" style={binary ? { display: 'none' } : undefined} />
-      {markdown && preview ? <MarkdownPreview source={previewText} /> : null}
+      {markdown && preview ? (
+        <MarkdownPreview
+          source={previewText}
+          onSelectionChange={(sel) => {
+            previewSelectionRef.current = sel
+          }}
+        />
+      ) : null}
+      {markdown && preview ? (
+        <IconButton
+          className="editor-send"
+          icon={PaperPlaneTiltIcon}
+          label={d.viewer.sendSelection}
+          hintSide="left"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => sendSelectionRef.current()}
+        />
+      ) : null}
       {markdown ? (
         <IconButton
           className="editor-mode"
@@ -239,6 +312,8 @@ export function EditorView({
       ) : external.error ? (
         <Alert className={cn(ATTENTION_ALERT, 'editor-save-error')}>{external.error}</Alert>
       ) : null}
+      {selectionSend.panel}
+      {selectionSend.status}
     </>
   )
 }
