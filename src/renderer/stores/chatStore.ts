@@ -8,8 +8,10 @@ import {
   chatTitle,
 } from '@shared/chatSessions'
 import { create } from 'zustand'
+import { workspaceFolder } from '../lib/chatTools'
 import { type PineChatMessage, createAssistTransport, messageText } from '../lib/chatTransport'
 import { useSettingsStore } from './settingsStore'
+import { useWorkspacesStore } from './workspacesStore'
 
 export type ChatNotice = 'trimmed' | 'evicted' | 'saveFailed'
 
@@ -167,11 +169,22 @@ export async function saveSession(sessionId: string): Promise<void> {
   await refreshSessions()
 }
 
+function sessionWorkspace(sessionId: string): string | null {
+  return (
+    useChatStore.getState().meta[sessionId]?.workspaceId ??
+    useWorkspacesStore.getState().activeWorkspaceId
+  )
+}
+
 function createChat(sessionId: string, messages: PineChatMessage[]): Chat<PineChatMessage> {
   const chat = new Chat<PineChatMessage>({
     id: sessionId,
     messages,
-    transport: createAssistTransport(),
+    transport: createAssistTransport({
+      sessionId,
+      workspaceId: () => sessionWorkspace(sessionId),
+      root: () => workspaceFolder(sessionWorkspace(sessionId)),
+    }),
     onFinish: () => void saveSession(sessionId),
   })
   chats.set(sessionId, chat)

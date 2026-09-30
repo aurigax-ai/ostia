@@ -132,7 +132,9 @@ describe('chat', () => {
     useUIStore.setState(uiInit, true)
     useBlocksStore.setState(blocksInit, true)
     useAssistStore.setState({ availability: {} })
-    useSettingsStore.setState({ assistant: { chatHistory: true } })
+    useSettingsStore.setState({
+      assistant: { chatHistory: true, mcpServers: [], skillFolders: [] },
+    })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
     vi.mocked(window.pine.assist.request).mockReset()
@@ -258,7 +260,9 @@ describe('chat', () => {
   })
 
   it('keeps the chat in memory only while chat history is off', async () => {
-    useSettingsStore.setState({ assistant: { chatHistory: false } })
+    useSettingsStore.setState({
+      assistant: { chatHistory: false, mcpServers: [], skillFolders: [] },
+    })
     const { pending, chunk } = captureRequests()
     useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
     render(<CommandPalette />)

@@ -34,7 +34,13 @@ import { insertInto, looksLikeCommand } from '../lib/chatActions'
 import { fileLinkOf, isWebUrl, rehypeFileLinks, wholeFileLink } from '../lib/chatLinks'
 import type { FileLinkTarget } from '../lib/chatLinks'
 import { openChatPane } from '../lib/chatPane'
-import { type PineChatMessage, decodeChatError, messageText } from '../lib/chatTransport'
+import {
+  type PineChatMessage,
+  type ToolPartLike,
+  decodeChatError,
+  isToolPart,
+  messageText,
+} from '../lib/chatTransport'
 import { resolveLinkPath } from '../lib/fileLinks'
 import { openFileAt } from '../lib/openFile'
 import { openSidebarUrl } from '../lib/sidebarItems'
@@ -61,6 +67,8 @@ import {
 } from './ChatCodeActions'
 import { AttachmentChips, ChatContextPicker } from './ChatContextPicker'
 import { ChatSessions } from './ChatSessions'
+import { ChatToolPart } from './ChatToolPart'
+import { ChatToolsMenu } from './ChatToolsMenu'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import {
@@ -317,6 +325,7 @@ function ChatSession({
               <ChatMessageRow
                 key={message.id}
                 message={message}
+                workspaceId={workspaceId}
                 components={markdown}
                 streaming={busy && message === last}
                 stopped={stopped.has(message.id)}
@@ -434,6 +443,7 @@ function ChatSession({
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
+            {provider?.tools ? <ChatToolsMenu sessionId={sessionId} /> : null}
             {editing ? (
               <span className="flex min-w-0 items-center gap-1 px-1 text-fg-muted text-ui-xs">
                 <span className="truncate">{d.chatActions.editing}</span>
@@ -470,6 +480,24 @@ function ChatSession({
 }
 
 const EMPTY_ATTACHMENTS: ChatContextItem[] = []
+
+type Segment =
+  | { kind: 'text'; key: string; text: string }
+  | { kind: 'tool'; key: string; part: ToolPartLike }
+
+export function messageSegments(message: Pick<PineChatMessage, 'parts'>): Segment[] {
+  const out: Segment[] = []
+  message.parts.forEach((part, index) => {
+    if (part.type === 'text') {
+      const last = out[out.length - 1]
+      if (last?.kind === 'text') last.text += part.text
+      else out.push({ kind: 'text', key: `t${index}`, text: part.text })
+    } else if (isToolPart(part)) {
+      out.push({ kind: 'tool', key: part.toolCallId, part })
+    }
+  })
+  return out.filter((s) => s.kind === 'tool' || s.text.trim() !== '')
+}
 
 export function opensPicker(text: string, caret: number): boolean {
   if (caret < 1 || text[caret - 1] !== '@') return false
@@ -556,6 +584,7 @@ function ChatHeader({
 
 function ChatMessageRow({
   message,
+  workspaceId,
   components,
   streaming,
   stopped,
@@ -568,6 +597,7 @@ function ChatMessageRow({
   onRegenerate,
 }: {
   message: PineChatMessage
+  workspaceId: string | null
   components: Components
   streaming: boolean
   stopped: boolean
@@ -582,6 +612,7 @@ function ChatMessageRow({
   const d = useDict()
   const t = d.chatActions
   const text = messageText(message)
+  const segments = useMemo(() => messageSegments(message), [message])
   const contentRef = useRef<HTMLDivElement>(null)
   const copyPlain = (): void => {
     const plain = contentRef.current?.innerText ?? text
@@ -641,11 +672,26 @@ function ChatMessageRow({
       aria-busy={streaming}
     >
       <MessageContent>
-        {text ? (
-          <div ref={contentRef}>
-            <MessageResponse components={components} rehypePlugins={REHYPE_PLUGINS}>
-              {text}
-            </MessageResponse>
+        {segments.length > 0 ? (
+          <div ref={contentRef} className="flex flex-col gap-2">
+            {segments.map((segment) =>
+              segment.kind === 'text' ? (
+                <MessageResponse
+                  key={segment.key}
+                  components={components}
+                  rehypePlugins={REHYPE_PLUGINS}
+                >
+                  {segment.text}
+                </MessageResponse>
+              ) : (
+                <ChatToolPart
+                  key={segment.key}
+                  part={segment.part}
+                  workspaceId={workspaceId}
+                  busy={streaming}
+                />
+              ),
+            )}
           </div>
         ) : null}
       </MessageContent>

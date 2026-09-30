@@ -14,6 +14,11 @@ import {
   parseEditorSettings,
 } from '../../shared/browserEditorSettings'
 import type { Capability } from '../../shared/capabilities'
+import {
+  type ChatToolSettings,
+  DEFAULT_CHAT_TOOL_SETTINGS,
+  parseChatToolSettings,
+} from '../../shared/chatTools'
 import type { ExtensionSettingValues } from '../../shared/extensions'
 import {
   DEFAULT_MANAGER_SETTINGS,
@@ -95,7 +100,7 @@ export interface AgentSettings {
   autoResume: boolean
 }
 
-export interface AssistantSettings {
+export interface AssistantSettings extends ChatToolSettings {
   chatHistory: boolean
 }
 
@@ -329,7 +334,7 @@ const DEFAULTS: Persisted = {
     showSSH: true,
   },
   agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false },
-  assistant: { chatHistory: true },
+  assistant: { chatHistory: true, ...DEFAULT_CHAT_TOOL_SETTINGS },
   workspaceGroups: { byCwd: [] },
   extensionSettings: {},
   approvals: DEFAULT_APPROVAL_SETTINGS,
@@ -363,6 +368,7 @@ interface SettingsState extends Persisted {
   setEditor: (patch: Partial<EditorSettings>) => void
   setAutoResume: (autoResume: boolean) => void
   setChatHistory: (chatHistory: boolean) => void
+  setChatTools: (patch: Partial<ChatToolSettings>) => Promise<void>
   setHibernation: (patch: Partial<HibernationSettings>) => void
   previewSetting: (path: string, value: unknown) => SettingChange
   setByPath: (path: string, value: unknown) => SettingChange
@@ -429,7 +435,10 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,
     },
-    assistant: { chatHistory: p.assistant?.chatHistory !== false },
+    assistant: {
+      chatHistory: p.assistant?.chatHistory !== false,
+      ...parseChatToolSettings(p.assistant),
+    },
     workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
     extensionSettings: extensionSettingsOf(p.extensionSettings),
     capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
@@ -711,8 +720,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     scheduleSave(get)
   },
   setChatHistory: (chatHistory) => {
-    set({ assistant: { chatHistory } })
+    set((s) => ({ assistant: { ...s.assistant, chatHistory } }))
     scheduleSave(get)
+  },
+  setChatTools: async (patch) => {
+    set((s) => ({
+      assistant: { ...s.assistant, ...parseChatToolSettings({ ...s.assistant, ...patch }) },
+    }))
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = null
+    await writeSettings(get())
   },
   setAutoResume: (autoResume) => {
     set((s) => ({ agents: { ...s.agents, autoResume } }))
