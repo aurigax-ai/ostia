@@ -3,8 +3,8 @@
 An extension is a directory with a `pine.json` manifest and, usually, a program pine starts for
 you. The program talks JSON-RPC to pine over the same control socket the `pine` CLI uses. That
 gives it palette and CLI commands, events, sidebar status items, notifications and a panel
-surface. The built-in Git, Trellis and Keeper (`src/extensions/`) use nothing else, so they are the
-reference implementations.
+surface. The built-in Git, Trellis, Keeper and System (`src/extensions/`) use nothing else, so they
+are the reference implementations.
 
 How it works inside pine: `docs/ARCHITECTURE.md` §11. Why it's out-of-process: `docs/ROADMAP.md` §2.
 
@@ -35,7 +35,9 @@ extension has no process, no commands, no panel and no sidebar items.
       { "id": "ls", "title": "List ports", "usage": "ls [--all]", "palette": false,
         "capabilities": ["read-board"] },
       { "id": "note", "title": "Attach a note", "usage": "note <port>", "palette": false,
-        "stdin": true }
+        "stdin": true },
+      { "id": "kill", "title": "Stop a dev server", "usage": "kill <port>", "palette": false,
+        "interactive": true }
     ],
     "sidebarItems": true,
     "panel": { "title": "Ports", "icon": "server", "entry": "url" }
@@ -49,7 +51,7 @@ extension has no process, no commands, no panel and no sidebar items.
 | `name`, `version`, `description` | Shown in Settings and the approval dialog. |
 | `capabilities` | What the extension process may do through pine. It gets this list intersected with what the user approved. Names are pine's capability names (`shared/capabilities.ts`). |
 | `main` | Path inside the extension dir. `.js`/`.cjs`/`.mjs` run with pine's own Electron binary as Node (`ELECTRON_RUN_AS_NODE=1`), so no system Node is needed; anything else is executed directly (any language). cwd is the extension dir. Required if you contribute commands, sidebar items or a `url` panel. |
-| `contributes.commands[]` | `id` (no dots), `title`, optional `category`, `usage` (shown in `pine docs` / `pine ext ls`), `palette` (default `true`; `false` = CLI/agents only), `stdin` (CLI pipes stdin to you), `capabilities` (what the **caller** must hold; checked by pine before your process sees the call). |
+| `contributes.commands[]` | `id` (no dots), `title`, optional `category`, `usage` (shown in `pine docs` / `pine ext ls`), `palette` (default `true`; `false` = CLI/agents only), `stdin` (CLI pipes stdin to you), `interactive` (the command waits on the human, usually through `ext.confirm`: pine waits up to 10 min for your reply instead of 30 s), `capabilities` (what the **caller** must hold; checked by pine before your process sees the call). |
 | `contributes.sidebarItems` | `true` if you call `ext.setSidebarItem`. Such extensions start with the window instead of on first use. |
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand pine a loopback URL at runtime. |
 
@@ -99,7 +101,8 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.openDiff` | `{title, original, modified, language?, path?, workspaceId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that workspace, else the active one. Reuses the workspace's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
 | `workspace.list` | — | Needs `read-board`. `[{workspaceId, name, kind, workDir, state, activePaneId?}]`. |
 | `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, running, blockCount, lastExitCode?}]`; `cwd` is the live shell cwd for terminals. |
-| `ext.confirm` | `{title, message, detail?, confirmLabel?, cancelLabel?}` | Asks the human in a native dialog that names your extension; Cancel is the default. Returns `{ok, confirmed}`. Use it before anything that changes the user's files or data. It waits for the human, so a palette command that calls it may outlive the 30 s command timeout; finish the work anyway. |
+| `ext.confirm` | `{title, message, detail?, confirmLabel?, cancelLabel?}` | Asks the human in a native dialog that names your extension; Cancel is the default. Returns `{ok, confirmed}`. Use it before anything that changes the user's files or data. It waits for the human: mark a command that calls it `interactive` so its caller waits too. If the human answers after the timeout anyway, finish the work they chose. |
+| `ext.openTerminal` | `{command: string[], workspaceId?, afterPaneId?, cwd?, title?}` | Needs `shell`. Opens a **new** terminal pane right of `afterPaneId` (a pane id from `caller.paneId` or `pane.list`), else of the workspace's active pane (it becomes the first pane of an empty workspace), switches to that workspace, and runs `command` there once the shell shows its first prompt. Returns `{ok, paneId}`. `command` is an argv (1–64 strings, no control characters); pine quotes each argument for the shell, so pass data, never a shell string. `cwd` must be absolute. The command runs once, and never in an existing pane. Use it for things the human should watch or answer (sudo prompts), after `ext.confirm`. |
 
 `whoami` works too. Pane-scoped methods (`command.exec`, `pane.info`, `browse.*`, …) are refused
 for extension identities.
@@ -108,7 +111,7 @@ for extension identities.
 
 | Method | Params | Reply |
 |---|---|---|
-| `ext.command` | `{command, args, caller}` | A result (below). 30 s timeout. |
+| `ext.command` | `{command, args, caller}` | A result (below). 30 s timeout, 10 min for an `interactive` command. The CLI waits as long as pine does. |
 | `ext.panel` | `{caller}` | `{url}` for a `"url"` panel: must be `http://127.0.0.1:<port>/…` or `http://localhost:<port>/…`. |
 
 And the notification `ext.event {type, payload}`:
@@ -132,7 +135,8 @@ Every command and panel request carries who is asking:
 { kind: 'pane' | 'user', paneId?, workspaceId?, workDir?, cwd?, locale?, capabilities: string[] }
 ```
 
-- `pane`: an agent or shell via `pine`; `capabilities` are that pane's.
+- `pane`: an agent or shell via `pine`; `capabilities` are that pane's; `locale` is the app's
+  language, so text you show the human can follow it.
 - `user`: the palette (capabilities = the command's own declared ones) or your panel request.
 
 Use `workDir` for project-scoped data (it is the workspace's anchor directory, possibly `~`).
@@ -144,8 +148,10 @@ workspace's project unless the caller holds `all-workspaces`.
 
 ### Results
 
-Return `{ok: true, text?, data?}` or `{ok: false, error, message?}`. The CLI prints `text` if
-present, else `data` as JSON, else `ok`; a failure goes to stderr with exit code 1. The palette
+Return `{ok: true, text?, data?}` or `{ok: false, error, message?, data?}`. The CLI prints `text`
+if present, else `data` as JSON, else `ok`; a failure goes to stderr with exit code 1, after its
+`data` (if any) as JSON on stdout, so an agent can read a structured "no" (`pine system install`
+returns `{approved: false, command}` this way). The palette
 shows failures as a failed command. Anything else you return is wrapped as `{ok: true, data}`.
 
 Errors pine produces before reaching you: `unknown-extension`, `extension-disabled`,
@@ -286,6 +292,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 |---|---|
 | `git` | Branch and change counts per workspace in the sidebar, a changes panel ("Show Changes"), diffs of changed files, `pine git status|changes|diff|open` |
 | `trellis` | The Trellis web UI as a panel on the workspace's project, open/claimed card counts per workspace, notifications when an agent moves a card to review, "Trellis: Open Board", "Trellis: Init Project Here", `pine trellis status` |
+| `system` | `pine system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `pine system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications, "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue |
 
 Earlier versions also shipped `kanban` and `wiki` extensions. They were removed: boards, cards and

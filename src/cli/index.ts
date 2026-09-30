@@ -214,7 +214,7 @@ interface ExtInfo {
 
 type ExtResult =
   | { ok: true; text?: string; data?: unknown }
-  | { ok: false; error: string; message?: string }
+  | { ok: false; error: string; message?: string; data?: unknown }
 
 async function runExtList(conn: MessageConnection): Promise<void> {
   const list = await conn.sendRequest<ExtInfo[]>('ext.list')
@@ -255,6 +255,7 @@ async function runExtCommand(
   const res = await conn.sendRequest<ExtResult>('ext.invoke', { extId, command, args })
   if (!res.ok) {
     const detail = res.message ? `${res.error}: ${res.message}` : res.error
+    if (res.data !== undefined) console.log(JSON.stringify(res.data, null, 2))
     console.error(`pine: ${extId} ${command} failed (${detail})`)
     process.exitCode = 1
   } else if (res.text !== undefined) {
