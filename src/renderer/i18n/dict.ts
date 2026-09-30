@@ -515,8 +515,7 @@ export const en = {
     workspaceBody: 'Commands are still running in it. Closing stops them.',
     workspaceAction: 'Close workspace',
     paneTitle: 'Close this pane?',
-    paneBody:
-      'It is the last pane of the workspace and a command is still running. Closing stops it.',
+    paneBody: 'A command is still running in it. Closing stops it.',
     paneAction: 'Close pane',
     quitTitle: 'Quit with commands running?',
     quitBody: 'Commands are still running. Quitting stops them.',
@@ -1369,7 +1368,7 @@ export const zhHant: Dict = {
     workspaceBody: '其中仍有指令執行中，關閉會終止它們。',
     workspaceAction: '關閉工作區',
     paneTitle: '要關閉此窗格嗎？',
-    paneBody: '這是工作區的最後一個窗格，且仍有指令執行中，關閉會終止它。',
+    paneBody: '其中仍有指令執行中，關閉會終止它。',
     paneAction: '關閉窗格',
     quitTitle: '有指令執行中，仍要結束嗎？',
     quitBody: '仍有指令執行中，結束會終止它們。',
