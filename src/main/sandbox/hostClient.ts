@@ -1,5 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
+import type { PackageRef } from '../../shared/packages'
+import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
 import type { HostRequest, HostResponse, HostToMain, MainToHost } from './protocol'
 
 export class SandboxHostError extends Error {
@@ -20,6 +22,7 @@ export interface SandboxHostDeps {
   env?: NodeJS.ProcessEnv
   onAsk: (host: string, port: number | undefined) => Promise<boolean>
   onExit?: () => void
+  onPackageBlocked?: (pkg: PackageRef, reason: PackageBlockReason) => void
 }
 
 export class SandboxHost {
@@ -30,7 +33,7 @@ export class SandboxHost {
 
   constructor(private readonly deps: SandboxHostDeps) {}
 
-  async start(config: SandboxRuntimeConfig): Promise<void> {
+  async start(config: SandboxRuntimeConfig, packages?: PackagePolicy): Promise<void> {
     const child = spawn(this.deps.nodePath, [this.deps.hostScript], {
       env: { ...(this.deps.env ?? process.env), ELECTRON_RUN_AS_NODE: '1' },
       stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
@@ -46,7 +49,7 @@ export class SandboxHost {
       this.pending.clear()
       this.deps.onExit?.()
     })
-    await this.call({ type: 'init', config })
+    await this.call({ type: 'init', config, ...(packages ? { packages } : {}) })
   }
 
   get alive(): boolean {
@@ -68,8 +71,8 @@ export class SandboxHost {
     return res.wrapped
   }
 
-  async update(config: SandboxRuntimeConfig): Promise<void> {
-    await this.call({ type: 'update', config })
+  async update(config: SandboxRuntimeConfig, packages?: PackagePolicy): Promise<void> {
+    await this.call({ type: 'update', config, ...(packages ? { packages } : {}) })
   }
 
   async cleanup(): Promise<void> {
@@ -99,6 +102,10 @@ export class SandboxHost {
   }
 
   private onMessage(message: HostToMain): void {
+    if ('type' in message && message.type === 'package-blocked') {
+      this.deps.onPackageBlocked?.(message.pkg, message.reason)
+      return
+    }
     if ('type' in message) {
       void this.deps
         .onAsk(message.host, message.port)
