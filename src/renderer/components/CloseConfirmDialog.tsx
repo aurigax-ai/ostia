@@ -32,6 +32,11 @@ export function CloseConfirmDialog(): JSX.Element {
       body: d.closeConfirm.quitBody,
       action: d.closeConfirm.quitAction,
     },
+    move: {
+      title: d.closeConfirm.moveTitle,
+      body: d.closeConfirm.moveBody,
+      action: d.closeConfirm.moveAction,
+    },
   }
   const text = copy[pending?.kind ?? 'workspace']
 

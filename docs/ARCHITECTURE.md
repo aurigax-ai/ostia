@@ -50,13 +50,76 @@ main (Node, privileged)  ──ipcMain / webContents.send──  preload (contex
 Every window uses `contextIsolation`, `sandbox`, no `nodeIntegration`, and `webviewTag: true`
 (for browser panes). External links are denied in-window and opened by the OS. Windows are
 frameless: macOS keeps native traffic lights (`titleBarStyle: hidden`); Linux/Windows draw their
-own min/max/close (`WindowControls.tsx`). There is one main window; tear-off windows were removed.
+own min/max/close (`WindowControls.tsx`). There is one main window plus any number of detached
+windows (§2 Windows).
+
+### Windows
+
+A workspace (or a single pane, which becomes a new workspace on the same folder) can move into a
+detached window so it can live on another monitor. Every window runs the same renderer bundle;
+`windows.info()` tells a renderer whether it is detached.
+
+- **Ownership moves with the workspace.** Each renderer owns only its own workspaces and layouts.
+  `main/windowBroker.ts` is the broker: the source renderer sends the workspace as a handoff (a
+  `SnapshotWorkspace` built by `workspaceHandoff`, which also carries `hibernated` marks) over
+  `windows:detach`; main validates it (`parseHandoff`), checks the sender owns every pane
+  (`panesOwnedBy`) and the workspace (the window reports), opens the window, moves ownership, and
+  only then does the source release it (`workspacesStore.release` / `layoutStore.releasePane`),
+  which emits no `pane-closed` or `workspace-closed`. The new window gets the workspace as its
+  `workspace.load()` result and hydrates it, so pane ids are adopted, never minted.
+- **Moving ownership** (`moveOwnership`): `rehomePanes` updates each `PaneIdentity.windowId`
+  (tokens are kept, so an agent in the pane keeps working), `approvals.rehome` moves pending cards
+  and history to the new window, and `holdPtys` marks the ptys as moving. Why the hold: the target
+  attaches a terminal only when its host has a size, so a hidden or zoomed-away pane could stay
+  unattached past `DETACH_GRACE_MS` and get reaped. A moving pty is never reaped for lacking an
+  owner; the hold ends on the next `pty:attach` or on `pane-closed` (which then kills it if no
+  owner is attached).
+- **Ids never collide across windows.** Every renderer mints ids in its own random namespace
+  (`lib/idNamespace.ts`: `pane-3fa9c2-4`, `w3fa9c2-2`), set at boot before anything is minted.
+  Why: two renderers with separate counters minted the same `pane-5`, and a restored window could
+  mint an id a pane in another window already held. Adopted ids keep their old namespace.
+- **Closing a detached window** moves its workspaces back into the main window instead of killing
+  them: the window's `close` is prevented, main asks the renderer (`windows:return-request`), the
+  renderer confirms only unsaved files (a `move` close-confirm) and sends its handoffs over
+  `windows:return`, main rehomes them, sends `windows:adopt` to the main window and closes the
+  detached one. A crashed or loading renderer returns its last saved snapshot instead. Closing
+  the main window quits the app (through the close guard), so the detached windows reopen on the
+  next start. A detached window whose last workspace closes closes itself.
+- **Cross-window lists.** Each renderer reports a small summary of its workspaces (display name,
+  folder, live state, latest unread time, pane ids and titles) over `windows:report`; main
+  broadcasts all of them as `windows:list`, main window first. The main rail shows other windows'
+  workspaces after its own, marked with an app-window icon; a click focuses that window
+  (`windows:focus-workspace` → `windows:activate-workspace`). `Ctrl+1..9`
+  (`globalWorkspaceOrder`), jump to latest unread (`latestRemoteUnread`), the palette's workspace
+  list and the notification center (`notifications:reveal`) use the same list and focus the
+  owning window.
+- **A detached window** has no rail and a title bar with only the project name (the workspace
+  display name) and a Move back to main window button (`DetachedTitleBar.tsx`); the OS title
+  follows `appearance.windowTitle`. New workspace from a detached window opens in the main window
+  (`windows:new-workspace` → `workspace.new` there).
+- **What a move does not carry**: renderer-only state starts fresh in the new window. Terminal
+  blocks are rebuilt from the replayed ring (its OSC 133 marks), attention and zoom are reset,
+  browser `<webview>`s reload their URL, editors reopen from disk (unsaved changes are confirmed
+  first), diff panes are dropped (their content lives in `diffStore`, like restore), and the
+  workspace's Ask conversation stays behind (Ask lives in each window's palette and works in a
+  detached window, with its own history). The project (`name`, `projectDir`, `workDir`) and the
+  auto-resume marks (`agentRunning`) do travel with the handoff. Dragging
+  a tab out of the window is not built.
+- **Settings stay in step**: when a renderer writes `settings.json` through `fs:write`, main sends
+  `settings:changed` to the other windows, which reload it. Why: each renderer keeps its own
+  settings store, and a stale one would write its old copy back over the change.
+- **Security**: every window, detached included, is built by `createWindow` with
+  `baseWebPreferences()`. Pane-keyed IPC keeps checking the sender: `pty:attach` refuses a pane
+  another window owns, `browser:unregister` and lifecycle events from a window that no longer
+  owns the pane are ignored.
 
 ### Main module map
 
 | File | Owns |
 |---|---|
 | `index.ts` | App and window lifecycle, all core IPC handlers, pty spawn/attach, scrollback autosave, quit sequence, `execCommand` (control plane → renderer) |
+| `windowBroker.ts` | Detached windows: window slots, workspace handoff between windows, ownership moves, the per-window reports and `windows:*` IPC, `workspace:save`/`load` (§2 Windows, §8) |
+| `windowBook.ts` | Pure: per-window snapshots merged into one `workspaces.json`, split back per window, `clampBounds` for restoring onto connected displays |
 | `ptySession.ts` | `PtySession`: one pty fanned out to many subscribers (owners write and keep it alive; observers read) |
 | `ptyRingBuffer.ts` | Capped output ring with a monotonic cursor; `since(cursor)` reports `dropped` when the cursor fell off |
 | `shellIntegration.ts` | Generates zsh/bash init files that emit OSC 133 + OSC 7 and define the `pine()` shell function |
@@ -76,6 +139,7 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `extensionHost.ts`, `extensionManifest.ts`, `extensionStore.ts` | Extension host: discovery + manifest validation, approval records, extension processes, `ext.*` control methods (§11) |
 | `extensionConfirm.ts` | The native confirm dialog behind `ext.confirm` (§11) |
 | `iconThemes.ts` | VS Code file icon themes from `contributes.iconThemes`: confined, size-capped loading into `data:` URLs, `iconThemes:load` IPC (§5) |
+| `viewHost.ts`, `viewsIpc.ts` | Declarative views: confined loading of `~/.config/pine/views/*.json`, last good tree, enablement store, `views:*` IPC, `view.list` / `view.open` control methods (§11) |
 | `workflows.ts` | Saved workflows: confined YAML loading (workspace, user, extension manifests), `workflows:list`/`workflows:save` IPC, `workflow.list` control method (§4) |
 | `settingsSync.ts`, `settingsSyncIpc.ts` | Settings sync: pure plan/merge + the file executor; triggers (startup, window focus, local file changes) and `sync:*` / `dialog:pick-folder` IPC (§5) |
 | `browse.ts`, `browseWorld.ts` | `browse.*` automation of browser panes, agent-browser contract; the isolated browse world (§9) |
@@ -104,6 +168,8 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
   `wiki.json` here (and a global `$XDG_DATA_HOME/pine/wiki.json`); those extensions were removed in
   favour of Trellis, and pine leaves the files in place without reading them.
 - `userData/extensions.json`: per-extension `{enabled, approved}` records (§11).
+- `$XDG_CONFIG_HOME/pine/views/<name>.json`: declarative views; `userData/views.json`: which of
+  them the human enabled (§11). Neither is synced.
 - `userData/sync-state.json`: the sync folder last synced with, a hash per synced file at the
   last sync, the last sync time and the last conflict (§5). The sync folder itself holds
   `settings.json`, `extensions.json` and any `*.conflict-<time>-<host>.json` copies.
@@ -126,7 +192,8 @@ is typed as `PineBridge`, so drift breaks the build.
 | pty | `attach`, `detach`, `write`, `resize`, `onData`, `onExit` (push channels `pty:data:<id>`, `pty:exit:<id>`) |
 | fs | `list`, `read`, `write`, `readBinary` (confined by `resolveSafe` to `[homedir, userData]`; `readBinary` returns a `Uint8Array`, capped at 50 MiB) |
 | lsp | `list`, `start`, `send`, `stop`, `onMessage`, `onExit` |
-| settings / workspace | `settings.path`; `workspace.save`, `workspace.load` |
+| settings / workspace | `settings.path`; `workspace.save`, `workspace.load` (both answered for the sender's own window) |
+| windows | `info`, `detach`, `returnToMain`, `report`, `focusWorkspace`, `returnWorkspace`, `newWorkspace`, `onList`, `onAdopt`, `onActivateWorkspace`, `onReturnRequest` (push channels `windows:list`, `windows:adopt`, `windows:activate-workspace`, `windows:return-request`) |
 | lifecycle | `lifecycle.emit` (`pane-created`, `pane-closed`, `workspace-added`, `workspace-closed`, `workspace-activated`, `workspace-state`) |
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
 | terminal state | `terminalState.push` |
@@ -135,7 +202,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel` (context may carry a `path`), `sidebarItems`, `paneChips`, `setSetting`, `onChanged`, `onSidebar`, `onPaneChips`, `onOpenPanel`, `onOpenDiff`, `onOpenTerminal` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:chips`, `extensions:open-panel`, `extensions:open-diff`, `extensions:open-terminal`) |
 | external editor | `externalEditor.open({template, file, line?, column?})` (IPC `editor:open-external`, §9) |
 | gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke`, `bind-options`, `set-cap` (IPC only) |
-| notifications | `list` (newest first), `post`, `clear`, `onChanged`, `onActivate` (push channels `notifications:changed`, `notifications:activate`) |
+| notifications | `list` (newest first), `post`, `clear`, `reveal` (focus the window that owns a pane), `onChanged`, `onActivate` (push channels `notifications:changed`, `notifications:activate`) |
 
 - Main derives the window from `e.sender.id` and never trusts a window id the renderer sends.
 - `pane-closed` drops the pane's capabilities, identity, pending restored scrollback and cached
@@ -757,16 +824,31 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   is on. Closing an idle pane never asks, even when another pane of the workspace is busy.
   The base layer gives every element `border-color: var(--border)`, so a shadcn `border` without
   a color (the dialog footer's divider) uses the line token, not the text color; and
-  `--destructive` maps to `--attn-fg` so destructive button text keeps 4.5:1 on dark surfaces. Quit and window close use the
-  same dialog: main's `closeGuard.ts` sends `window:confirm-close` to each window, the renderer
-  answers through `window.pine.window.onConfirmClose` (`confirmQuit`, gated by
-  `workspaces.confirmQuit`). Why the answer comes from the renderer: only it knows which commands
-  run. In `main/index.ts` the window `close` handler and `before-quit` call `preventDefault()`
-  until every window approves; the approving pass sets `quitApproved` and calls `app.quit()`
-  again, so the scrollback save and pty kill loop in `before-quit` run exactly once, after the
-  human said yes. A loading or crashed window is approved without asking. E2E seeds
+  `--destructive` maps to `--attn-fg` so destructive button text keeps 4.5:1 on dark surfaces. Quit
+  uses the same dialog once for every window: main's `closeGuard.ts` asks each window for its
+  running groups (`window:running` → `quitGroups`, gated by `workspaces.confirmQuit`), then shows
+  them all in one dialog in the focused (else main) window (`window:confirm-close` →
+  `confirmQuit(groups)`), and on approval sends `window:freeze` to every window. Why the answer
+  comes from the renderers: only they know which commands run. Closing the main window quits;
+  closing a detached window never asks about commands, because nothing stops (§2 Windows). In
+  `main/index.ts` `before-quit` calls `preventDefault()` until the human approves; the approving
+  pass sets `quitApproved` and calls `app.quit()` again, so the scrollback save and pty kill loop
+  in `before-quit` run exactly once, after the human said yes. A loading or crashed window
+  counts as having nothing running. E2E seeds
   `workspaces.confirmQuit: false` (`DOM_RENDERER_SETTINGS`) so `app.close()` never waits on a
   dialog; `e2e/workspace-settings.spec.ts` turns it on.
+- **Close to tray** (`main/tray.ts`): with `workspaces.closeToTray` on, or when Pine was started
+  with `--hidden`, the main window's `close` handler hides it (`closeAction`) instead of asking
+  `closeGuard`; a detached window never goes to the tray, it returns its workspaces to the main
+  window (`broker.requestReturn`), and the manager workspace and its pane never move between
+  windows (`isRestorable`, `canMovePane`). Also `AppTray` shows a tray icon only while Pine is hidden (Show, Quit). Main
+  reads the setting from `settings.json` at close time (`readCloseToTray`), so it always follows
+  the file. Quit shows the window before `app.quit()`, because `closeGuard` asks through the
+  renderer and a dialog in a hidden window can't be answered. Why the tray labels live in main
+  (`trayLabels`) rather than `i18n/dict.ts`: main can't import the renderer's dictionary. Why
+  there is no single-instance lock: `pnpm dev` and the installed app share one `userData`, so a
+  lock would stop the dev build from starting while the installed Pine runs. `e2e/tray.spec.ts`
+  hides the window with a command running and checks its output after showing it again.
 - **Wrapped titles**: `workspaces.wrapTitles` adds `.tab-title.wrap` (2-line clamp) to sidebar rows.
 - **Hidden workspaces** (`WorkZone.tsx`): each workspace mounts on first visit and stays mounted.
   Inactive ones get `visibility: hidden` + `inert`.
@@ -1070,7 +1152,9 @@ see external ids.
 - Other modules add methods with `registerControlMethod(name, {cap, callers, handler})`;
   `callers` defaults to `panes` (see §11 for extension identities).
 - `command.exec` goes through main's `execCommand`: `command:invoke` IPC to a window's registry,
-  answered by `command:result`, 5 s timeout. A target with no window goes to the first window.
+  answered by `command:result`, 5 s timeout. A target with no window goes to the main window.
+  `pane.list`, `workspace.list` and `workspace.groups` ask every window and concatenate the
+  answers, main window first (`paneList.ts`), so agents see detached workspaces too.
 - If the target differs from the caller's own pane, window or workspace in any way, the caller
   needs `all-workspaces`. Each command's declared capabilities are checked as well.
 - Workspace groups: `workspace.list` entries carry `groupId` for grouped workspaces, and
@@ -1130,6 +1214,78 @@ dot-paths check every segment, not just the last one; snapshot pane-id keys are 
 - `pine settings get/set` goes through renderer commands so the Settings UI updates live.
 
 The agent-facing guide is the `pine` skill (`.claude/skills/pine/`).
+
+**Manager portal** (`portal.ts`, `portalCaller.ts`, `manager.ts`, `cli/portal.ts`; spec
+`specs/manager/`). From a terminal outside Pine, `pine <agent> [args…]` opens one manager
+workspace running that agent and mirrors it in the terminal.
+- The CLI takes this path only when `PINE_SOCKET` is unset and stdin and stdout are terminals;
+  otherwise it prints the old "not inside a Pine pane" error, so scripts and agents learn nothing
+  about the manager. It connects to `$XDG_RUNTIME_DIR/pine-portal.sock` (`pine-dev-portal.sock`
+  unpackaged, `PINE_PORTAL_SOCKET` overrides). If nothing answers and `PINE_APP_BIN` is set (the
+  `~/.local/bin/pine` launcher that `install-linux.sh` writes), it starts Pine with `--hidden`
+  and polls for up to 20 s.
+- The portal is a second socket, not the control socket, with one request (`portal.open {agent,
+  args, cwd, cols, rows, path}`) and three notifications (`mirror.data`/`mirror.exit` out,
+  `mirror.input`/`mirror.resize` in). It carries no token and grants nothing but the mirror; the
+  agent's own powers come from the manager pane's `PINE_TOKEN`. Why a second socket: the control
+  socket answers panes by token, and the portal's caller has none.
+- **Caller check.** Node can't read `SO_PEERCRED`, so `callerVerdict` fstat's the accepted
+  socket for its inode, runs `ss -xpnH` (execFile, no shell) and takes the pids holding the peer
+  end. Any of them inside Pine refuses the request (`inside-pine`): Pine's main pid among its
+  ancestors (covers pane shells, extensions and background processes), `PINE_TOKEN` in its
+  `/proc/<pid>/environ`, or a controlling tty that is one of Pine's ptys (the manager's own
+  included). Anything unreadable refuses too (`unknown-caller`). There is no approval prompt, so
+  this check is the whole gate (§8 has the gap).
+- **One manager, one mirror.** `ManagerService` keeps one `{paneId, agent}`: the same agent
+  attaches, another fails `manager-busy`, concurrent opens share one start. The portal keeps one
+  mirror slot (`mirror-attached`). Presets are `manager.agents` in settings.json merged over the
+  built-in claude and codex (`parseManagerAgents`); the renderer carries the section through
+  saves but it is not in `DATA_KEYS`.
+- **The agent is the pane's process.** Main asks the renderer for a manager workspace
+  (`manager:open`, answered by the main window's `managerBridge.ts` once it sent `manager:ready`;
+  `managerWindowId` waits for the main window, never a detached one), then spawns the
+  preset's argv plus the extra args directly with node-pty (`spawnManagerPty`): no shell, nothing
+  typed, the caller's cwd and PATH, and the pane's `PINE_*` env. Why: typing a command needs an
+  idle prompt and quoting; spawning an argv needs neither. The entry is `keepAlive`, so the detach
+  reaper skips it; it ends when the agent exits or the human closes its pane (`pane-closed` kills
+  it).
+- **Pine's view is read-only.** The `manager` pane kind renders `ManagerView`: an xterm with
+  `disableStdin` that attaches as an attach-only observer (`attachOnly` never spawns a shell), so
+  `pty:write` from it fails `canWrite`. Main ignores `pty:resize` for keep-alive entries; the
+  mirror is the owner and sets the size, and main tells observers through `pty:size:<paneId>`.
+  The manager workspace (`kind: 'manager'`) is left out of the snapshot, and closing it asks like
+  a running command.
+- While a manager is live, closing the window hides Pine to the tray (`closeAction`).
+- **Manager powers** (`managerMethods.ts`, `managerAgent.ts`). `spawnManagerPty` marks the
+  pane's identity (`markManager`) and sets `MANAGER_CAPABILITIES`: every cap but `phone`,
+  `gateway` and `destructive`, so it acts across workspaces without asking and `destructive`
+  still asks. `callers: 'manager'` methods: `manager.read` (the pane's `ScreenMirror.screenText`,
+  the active buffer so a TUI is readable, capped at 2000 lines), `manager.spawn` (a preset's argv
+  typed into a new terminal pane by `openTerminalInWindow`, in a new workspace from
+  `workspace.new`, which returns its id) and `manager.input` (text plus named keys, only with
+  `manager.allowInput`). Neither reaches the manager's own pane. Limits live in
+  `manager.limits`: live workers (panes still registered), spawns per 10 minutes and bus sends
+  per minute (`RateWindow`, `bus.send` asks `managerSendAllowed`). Why rate limits and not a hop
+  count: bus messages have no thread to count hops on. `pine docs` adds `MANAGER_HELP` only for
+  the manager, and the CLI verbs (`cli/manager.ts`) are not in its usage text.
+- **The manager's agent setup.** Before each spawn main rewrites
+  `privateTmpDir('pine-manager')`: a claude plugin (`pine-manager` skill, symlinks to the
+  human's `manager.skills` folders that hold a SKILL.md, and the same resume/state hooks as the
+  worker plugin) and a codex context file. `managerArgv` adds `--plugin-dir` for claude and
+  `codexHookArgs` for codex, recognized by program name; other presets run as given. Why a
+  separate plugin: the manager must not get the worker `pine` skill and workers must not get
+  the manager's, and a directly spawned agent skips the shell's `claude()`/`codex()` wrappers.
+- **Resume.** The hooks' `pine resume-token` reaches `pane.setResume`, which hands a manager's
+  token to `ManagerService.rememberResume` (`manager-resume.json` in the data dir). If Pine quits
+  with the manager running (`shutdown()` before the kill loop), the token stays and the next
+  `pine <same preset>` without extra args starts with `--resume <id>` / `resume <id>`. If the
+  agent exits on its own the token is cleared, so the next start is fresh.
+- **Approvals while hidden.** An approval card that waits for the human calls `reveal`, which
+  shows a hidden window from the tray; otherwise a manager's `destructive` request would time out
+  unseen.
+- **Settings → Manager** (`ManagerSection.tsx`, Linux only) edits `manager` through
+  `setManager`, which runs `parseManagerSettings` (shared with main); presets are typed as a
+  command line and split by `splitArgs` (`shared/argv.ts`, also the external editor's splitter).
 
 ## 7. Gateway (phone companion)
 
@@ -1225,8 +1381,23 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
 
 ## 8. Workspace restore
 
-Two files written by two processes (see CLAUDE.md §6): the renderer writes `workspaces.json`
+Two files written by two processes (see CLAUDE.md §6): the renderers write `workspaces.json`
 (layout), and main writes `scrollback.json` (each pane's serialized screen).
+
+- **One file, many windows** (`windowBroker.ts`, `windowBook.ts`): each renderer saves only its
+  own snapshot; main keeps one per window slot (`main` or a detached window's stable 8-char id)
+  and writes the merge: the main window at the top level, each detached window under `windows:
+  [{id, bounds, activeWorkspaceId, workspaces}]`. Why: a renderer that wrote the whole file erased
+  the other windows' workspaces. A move updates both slots in main at once, so the file never
+  holds a workspace twice or loses it between the two renderers' next saves. Bounds are the
+  window's normal bounds, saved after a move or resize (debounced) and on close.
+  - On start, main opens the main window, then one detached window per saved slot, with its bounds
+    clamped (`clampBounds`) onto the display it overlaps most, else the primary one, shrunk to
+    fit. Each renderer's `workspace.load()` returns only its own slot, restored idle like any
+    other workspace.
+  - `parseSnapshot` claims pane and workspace ids across all windows, so an id held twice keeps
+    only its first owner; a window with invalid bounds or id, or no workspaces, is dropped. A
+    `hibernated` mark is only accepted in a handoff (`parseHandoff`), never from the file.
 
 - **Layout** (`stores/persistence.ts`, `layout/snapshot.ts`): saved 400 ms after any change to the
   workspaces, layout or settings stores, plus once at start and once on `beforeunload`.
@@ -2151,3 +2322,52 @@ the asar (a process can't use an asar path as cwd). They use only the public API
 small SDK in `src/extensions/sdk/`; their panels are served by an HTTP server on 127.0.0.1 in
 the extension process, gated by a per-run secret in the URL/header, a `Host` check, and an
 `Origin` check, and pushed live changes over SSE.
+
+### Declarative views
+
+A view is UI an agent can build without an extension process: one JSON file in
+`$XDG_CONFIG_HOME/pine/views/<name>.json`, drawn by the renderer with Pine's own components
+(`docs/EXTENSIONS.md` has the format).
+
+- **Schema** (`shared/views.ts`, `shared/viewBindings.ts`, `shared/viewSchema.ts`,
+  `shared/jsonLocated.ts`). `parseViewText` parses with a small location-tracking JSON reader
+  (duplicate keys refused, every value's line recorded by path) and validates strictly: known
+  node types and properties only, enums, http/https URLs, bindings whose first name is a data
+  source or an enclosing list's `as`, and the static budget (200 nodes, 10 levels). It reports
+  every problem as `{path, line, message}` and records which data sources the view reads
+  (`sources`) and whether it needs a clock tick (`ticks`). `viewJsonSchema()` is the published
+  schema; a test keeps its node types equal to the validator's. Why a hand-written reader:
+  agents iterate on `file:line: path: message`, and `JSON.parse` gives neither lines nor paths.
+- **Bindings** are `{{path | filter}}`: a path is names and indices, nothing is evaluated.
+  `lookup` follows only own properties of plain objects and array indices, and refuses
+  `__proto__`/`constructor`/`prototype` again at runtime, so `{{x.constructor}}`,
+  `{{list.length}}` or `{{s.toString}}` are undefined, never a function. A whole-string binding
+  keeps its type (`resolveValue`), so `{"index": "{{ws.index}}"}` passes a number.
+- **Main** (`viewHost.ts`, `viewsIpc.ts`). `ViewHost` reads `*.json` whose stem is a view name
+  (at most 50), refuses symlinks, non-files and files over 64 KiB (`readViewFile`), and keeps the
+  last doc that parsed per name (`lastGood`), so a broken edit to an enabled view reports its
+  problems while the old tree stays (`stale`). `fs.watch` on the folder, 150 ms debounce,
+  rescans and broadcasts `views:changed` only when the listing changed. Enablement is
+  `userData/views.json` (`ViewStore`, `{name: {enabled}}`); a file with no record is `pending`,
+  and the tree (`doc`) is sent to the renderer only for enabled views. IPC: `views:list`,
+  `views:set-enabled`, `views:reveal` (main shows the file it knows; the renderer names a view,
+  never a path). Control methods: `view.list` (`read-board`) and `view.open` (`drive-self`,
+  enabled panel views only, runs the renderer command `views.open` for the caller's pane). Why no
+  enable method on the socket: approval is the human's, as with extensions (CLAUDE.md §4).
+- **Renderer.** `stores/viewsStore.ts` holds the listing; `lib/views.ts` registers
+  `views.open` (hidden, `{name}`) and one palette command per enabled panel view
+  (`views.open.<name>`, "Views: Open <title>"). `lib/useViewScope.ts` builds the data from the
+  stores (`lib/viewData.ts` `buildViewScope`, only the sources the view reads; notifications
+  load only when asked for; the clock ticks only when `ticks`). `lib/viewExpand.ts` turns the doc
+  plus data into a render tree: lists expand with their item scope, `if` drops nodes, URLs that
+  don't resolve to http/https become null, and the draw budget (50 items per list without
+  `limit`, 1000 nodes) fails the whole expansion with a reason. `DeclarativeView.tsx` maps the
+  tree to shadcn components and keeps the last good tree in a ref, showing the reason inline when
+  over budget. Sidebar views render in `ViewsRail` below the workspaces (collapsible, hidden when
+  the rail is collapsed); panel views are a `view` surface (`ViewSurface`, pane `viewName`,
+  persisted in `workspaces.json`; an unknown or disabled view shows the way to Settings). Buttons
+  go through `runCommandAction` (`lib/userActions.ts`), the same path as user actions, with the
+  template args as the trust fingerprint and the view file named in the confirm dialog; links
+  and `openUrl` go through `openSidebarUrl`. Why in core and not an extension: a data-only tree
+  drawn with core components needs no process or webview, and drawing it with the real
+  components is what makes it look native; the only inputs are data the stores already expose.

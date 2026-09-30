@@ -492,7 +492,7 @@ function ChatHeader({
     const open = extId ? `${extId}.open` : null
     useUIStore.getState().closePalette()
     if (open && commands.has(open)) void commands.exec(open)
-    else useUIStore.getState().openSettingsAt('plugins')
+    else useUIStore.getState().openSettings('plugins')
   }
   return (
     <div className="flex min-h-9 items-center gap-1.5 border-line border-b px-2">

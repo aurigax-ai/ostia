@@ -6,6 +6,7 @@ import { ActionConfirmDialog } from './components/ActionConfirmDialog'
 import { CloseConfirmDialog } from './components/CloseConfirmDialog'
 import { CommandPalette } from './components/CommandPalette'
 import { DeckRail } from './components/DeckRail'
+import { DetachedTitleBar } from './components/DetachedTitleBar'
 import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
 import { FilesPanel } from './components/FilesPanel'
 import { HistorySearch } from './components/HistorySearch'
@@ -17,7 +18,7 @@ import { WorkZone } from './components/WorkZone'
 import { WorkflowPicker } from './components/WorkflowPicker'
 import { TooltipProvider } from './components/ui/tooltip'
 import { WORKSPACE_GOTO, isAppChord, matchChord, workspaceIndex } from './lib/chords'
-import { confirmQuit } from './lib/closeConfirm'
+import { confirmQuit, quitGroups } from './lib/closeConfirm'
 import { useMotionAttribute } from './lib/motion'
 import { applyTheme, useEffectiveTheme } from './lib/theme'
 import { useModifierHint } from './lib/useModifierHint'
@@ -30,6 +31,7 @@ import { usePluginsStore } from './stores/pluginsStore'
 const ICON_STYLE = { weight: 'regular' } as const
 import { useSettingsStore } from './stores/settingsStore'
 import { useUIStore } from './stores/uiStore'
+import { useWindowsStore } from './stores/windowsStore'
 
 const SANS_FALLBACK =
   'system-ui, -apple-system, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", "Hiragino Sans", "Noto Sans CJK TC", "Noto Sans TC", sans-serif'
@@ -40,6 +42,7 @@ export function App(): JSX.Element {
   const filesOpen = useUIStore((s) => s.filesOpen)
   const accent = useSettingsStore((s) => s.appearance.accent)
   const zoom = useSettingsStore((s) => s.appearance.zoom)
+  const detached = useWindowsStore((s) => s.detached)
   const theme = useEffectiveTheme()
   useMotionAttribute()
 
@@ -73,15 +76,16 @@ export function App(): JSX.Element {
   useModifierHint(isMac)
   useWindowTitle()
 
-  useEffect(
-    () =>
-      window.pine.window.onConfirmClose(async () => {
-        const approved = await confirmQuit()
-        if (approved) freezeSnapshots()
-        return approved
-      }),
-    [],
-  )
+  useEffect(() => {
+    const offs = [
+      window.pine.window.onRunningQuery(quitGroups),
+      window.pine.window.onConfirmClose(confirmQuit),
+      window.pine.window.onFreeze(freezeSnapshots),
+    ]
+    return () => {
+      for (const off of offs) off()
+    }
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -101,9 +105,9 @@ export function App(): JSX.Element {
   return (
     <IconContext.Provider value={ICON_STYLE}>
       <TooltipProvider delay={350}>
-        <div className={`app${isMac ? ' is-mac' : ''}`}>
-          <TopBar />
-          <DeckRail />
+        <div className={`app${isMac ? ' is-mac' : ''}${detached ? ' is-detached' : ''}`}>
+          {detached ? <DetachedTitleBar /> : <TopBar />}
+          {detached ? null : <DeckRail />}
           {filesOpen ? <FilesPanel /> : null}
           <WorkZone />
           <WindowControls />

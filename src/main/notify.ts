@@ -197,6 +197,10 @@ export function registerNotifyIpc(deps: NotifyDeps): void {
     if (post.desktop) showDesktop(deps, title, body, post.paneId)
   })
 
+  ipcMain.on('notifications:reveal', (_e, paneId: unknown) => {
+    if (typeof paneId === 'string') activatePane(deps, paneId)
+  })
+
   ipcMain.on('notifications:clear', () => {
     saveJson(logPath(), [])
     broadcastChanged(deps)

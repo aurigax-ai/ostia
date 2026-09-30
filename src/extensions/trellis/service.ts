@@ -57,6 +57,9 @@ const ACK_DELAY_MS = 2000
 const FOLLOW_RESTART_MAX_MS = 5 * 60_000
 const FOLLOW_HEALTHY_MS = 60_000
 
+export const UNKNOWN_PROJECT_RETRIES = 5
+export const UNKNOWN_PROJECT_RETRY_MS = 1000
+
 export class TrellisUnavailable extends Error {
   constructor(
     readonly code: 'not-installed' | 'ui-failed',
@@ -413,8 +416,13 @@ export class TrellisService {
     void this.handleEvent(ev)
   }
 
-  private async handleEvent(ev: TrellisEvent): Promise<void> {
-    if (!(await this.isOpenProject(projectOfRef(ev.ref)))) return
+  private async handleEvent(ev: TrellisEvent, attempt = 0): Promise<void> {
+    if (!(await this.isOpenProject(projectOfRef(ev.ref)))) {
+      if (attempt < UNKNOWN_PROJECT_RETRIES && !this.stopped) {
+        setTimeout(() => void this.handleEvent(ev, attempt + 1), UNKNOWN_PROJECT_RETRY_MS)
+      }
+      return
+    }
     if (ev.entity === 'card') this.scheduleRefresh()
     const needs = needsUser(ev, this.notifyKinds)
     if (!needs) return

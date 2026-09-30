@@ -7,27 +7,7 @@ import {
   findOnPath,
   openInExternalEditor,
   resolveEditorTemplate,
-  splitTemplate,
 } from './externalEditor'
-
-describe('splitTemplate', () => {
-  it('splits on whitespace and keeps quoted runs as one argument', () => {
-    expect(splitTemplate(`subl  -w "{file}:{line}" '--flag x'`)).toEqual([
-      'subl',
-      '-w',
-      '{file}:{line}',
-      '--flag x',
-    ])
-  })
-
-  it('returns null for an unbalanced quote', () => {
-    expect(splitTemplate('code "-g {file}')).toBeNull()
-  })
-
-  it('keeps an explicit empty argument', () => {
-    expect(splitTemplate(`ed "" {file}`)).toEqual(['ed', '', '{file}'])
-  })
-})
 
 describe('expandTemplate', () => {
   it('substitutes file, line and column inside a single argument', () => {

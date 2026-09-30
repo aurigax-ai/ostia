@@ -80,6 +80,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
         }) as CommandResult,
       getTerminalState: () => undefined,
       ptyPid: () => undefined,
+      windowIds: () => ['1'],
     })
     registerControlServer(
       {

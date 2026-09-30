@@ -54,6 +54,10 @@ function groupOf(workspace: Workspace, panes: readonly PaneNode[]): RunningGroup
 }
 
 function runningGroup(workspace: Workspace): RunningGroup | null {
+  if (workspace.kind === 'manager') {
+    const name = workspace.customName ?? workspace.name
+    return { workspaceId: workspace.id, workspace: name, commands: [name], files: [] }
+  }
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
   return layout ? groupOf(workspace, allPanes(layout.root)) : null
 }
@@ -93,7 +97,13 @@ export async function requestCloseOthers(id: string): Promise<void> {
   }
 }
 
+function isManagerPane(workspaceId: string, paneId: string): boolean {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  return layout ? findPane(layout.root, paneId)?.kind === 'manager' : false
+}
+
 function paneGroup(workspace: Workspace, paneId: string): RunningGroup | null {
+  if (isManagerPane(workspace.id, paneId)) return runningGroup(workspace)
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
   const pane = layout ? findPane(layout.root, paneId) : null
   return pane ? groupOf(workspace, [pane]) : null
@@ -108,7 +118,24 @@ export async function requestClosePane(workspaceId: string, paneId: string): Pro
   }
 }
 
-export function confirmQuit(): Promise<boolean> {
+export function quitGroups(): RunningGroup[] {
   const { confirmQuit: enabled } = useSettingsStore.getState().workspaces
-  return confirmGroups('quit', groupsToConfirm(useWorkspacesStore.getState().workspaces, enabled))
+  return groupsToConfirm(useWorkspacesStore.getState().workspaces, enabled)
+}
+
+export function confirmQuit(groups: RunningGroup[]): Promise<boolean> {
+  return confirmGroups('quit', groups)
+}
+
+export function confirmMove(workspace: Workspace, panes: readonly PaneNode[]): Promise<boolean> {
+  const files = unsavedFilesOf(panes, useEditorStatus.getState().dirty)
+  if (files.length === 0) return Promise.resolve(true)
+  return confirmGroups('move', [
+    {
+      workspaceId: workspace.id,
+      workspace: workspace.customName ?? workspace.name,
+      commands: [],
+      files,
+    },
+  ])
 }

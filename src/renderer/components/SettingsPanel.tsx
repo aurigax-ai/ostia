@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import {
   ArrowsClockwiseIcon,
   BellIcon,
+  BroadcastIcon,
   CheckIcon,
   CodeIcon,
   CopyIcon,
@@ -12,6 +13,7 @@ import {
   InfoIcon,
   KeyIcon,
   KeyboardIcon,
+  LayoutIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
   PlusIcon,
@@ -77,10 +79,12 @@ import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
+import { ManagerSection } from './ManagerSection'
 import { PasswordsSection } from './PasswordsSection'
 import { activeTerminalPaneId } from './PromptEditorDialog'
 import { SyncSection } from './SyncSection'
 import { ThemeRows } from './ThemeSettings'
+import { ViewsSection } from './ViewsSection'
 import { WorkspacesSection } from './WorkspacesSection'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
@@ -93,6 +97,7 @@ import { Separator } from './ui/separator'
 import { Switch } from './ui/switch'
 
 type SectionId =
+  | 'manager'
   | 'appearance'
   | 'terminal'
   | 'keyboard'
@@ -106,6 +111,7 @@ type SectionId =
   | 'passwords'
   | 'editor'
   | 'plugins'
+  | 'views'
   | 'languageServers'
   | 'remote'
   | 'sync'
@@ -117,7 +123,7 @@ export function SettingsPanel(): JSX.Element | null {
   const open = useUIStore((s) => s.settingsActive)
   const close = useUIStore((s) => s.leaveSettings)
   const [active, setActive] = useState<SectionId>('appearance')
-  const requestedSection = useUIStore((s) => s.settingsSection)
+  const requested = useUIStore((s) => s.settingsSection)
   const [query, setQuery] = useState('')
   const navRef = useRef<HTMLElement>(null)
 
@@ -137,12 +143,6 @@ export function SettingsPanel(): JSX.Element | null {
     return () => prev?.focus?.()
   }, [open])
 
-  useEffect(() => {
-    if (!open || !requestedSection) return
-    setActive(requestedSection as SectionId)
-    useUIStore.getState().clearSettingsSection()
-  }, [open, requestedSection])
-
   const sections = useMemo(
     () =>
       [
@@ -154,11 +154,15 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'sidebar', icon: SidebarSimpleIcon, label: d.settings.sidebar },
         { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
         { id: 'agents', icon: RobotIcon, label: d.settings.agents },
+        ...(platform === 'linux'
+          ? [{ id: 'manager' as const, icon: BroadcastIcon, label: d.manager.settingsTitle }]
+          : []),
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
         { id: 'passwords', icon: KeyIcon, label: d.passwords.title },
         { id: 'editor', icon: CodeIcon, label: d.editorSettings.title },
         { id: 'plugins', icon: StackIcon, label: d.settings.plugins },
+        { id: 'views', icon: LayoutIcon, label: d.views.title },
         { id: 'languageServers', icon: HardDrivesIcon, label: d.settings.languageServers },
         { id: 'remote', icon: DeviceMobileIcon, label: d.settings.remote },
         { id: 'sync', icon: ArrowsClockwiseIcon, label: d.sync.title },
@@ -167,6 +171,12 @@ export function SettingsPanel(): JSX.Element | null {
       ] satisfies { id: SectionId; icon: IconComponent; label: string }[],
     [d],
   )
+
+  useEffect(() => {
+    if (!requested) return
+    if (sections.some((s) => s.id === requested)) setActive(requested as SectionId)
+    useUIStore.setState({ settingsSection: null })
+  }, [requested, sections])
 
   const openSettingsFile = async (): Promise<void> => {
     const path = await window.pine.settings.path()
@@ -238,11 +248,13 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'sidebar' ? <SidebarSection /> : null}
             {active === 'workspaces' ? <WorkspacesSection /> : null}
             {active === 'agents' ? <AgentsSection /> : null}
+            {active === 'manager' ? <ManagerSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'browser' ? <BrowserSettingsSection /> : null}
             {active === 'passwords' ? <PasswordsSection /> : null}
             {active === 'editor' ? <EditorSettingsSection /> : null}
             {active === 'plugins' ? <PluginsSection /> : null}
+            {active === 'views' ? <ViewsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}
             {active === 'remote' ? <GatewaySection /> : null}
             {active === 'sync' ? <SyncSection /> : null}
@@ -699,7 +711,7 @@ function SidebarSection(): JSX.Element {
   )
 }
 
-function NumberRow({
+export function NumberRow({
   label,
   desc,
   value,

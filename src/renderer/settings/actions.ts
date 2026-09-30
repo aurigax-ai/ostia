@@ -32,7 +32,14 @@ export const ACTION_ICONS = [
 ] as const
 export type ActionIcon = (typeof ACTION_ICONS)[number]
 
-const PANE_KINDS: readonly SurfaceKind[] = ['terminal', 'editor', 'browser', 'extension', 'diff']
+const PANE_KINDS: readonly SurfaceKind[] = [
+  'terminal',
+  'editor',
+  'browser',
+  'extension',
+  'diff',
+  'view',
+]
 
 export interface UserAction {
   id: string

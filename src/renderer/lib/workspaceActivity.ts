@@ -4,6 +4,7 @@ import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { focusSurface } from '../stores/surfaceSlotsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWindowsStore } from '../stores/windowsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import {
   type AttentionEvent,
@@ -11,6 +12,7 @@ import {
   latestUnread,
   paneLiveState,
 } from './attention'
+import { globalWorkspaceOrder, latestRemoteUnread } from './windowWorkspaces'
 
 export const NOTIFY_AFTER_MS = 10_000
 
@@ -84,8 +86,14 @@ export function markWorkspaceRead(workspaceId: string): void {
 }
 
 export function goToWorkspace(index: number): boolean {
-  const target = useWorkspacesStore.getState().workspaces[index]
+  const { windowId, list } = useWindowsStore.getState()
+  const local = useWorkspacesStore.getState().workspaces.map((w) => w.id)
+  const target = globalWorkspaceOrder(list, windowId, local)[index]
   if (!target) return false
+  if (target.windowId !== windowId && target.windowId !== null) {
+    window.pine.windows.focusWorkspace(target.id, false)
+    return true
+  }
   useUIStore.getState().leaveSettings()
   useWorkspacesStore.getState().setActive(target.id)
   return true
@@ -117,9 +125,24 @@ export function allPaneIds(): string[] {
 }
 
 export function jumpToLatestUnread(): string | null {
-  const target = latestUnread(useAttentionStore.getState().byPane, allPaneIds())
+  const { byPane } = useAttentionStore.getState()
+  const target = latestUnread(byPane, allPaneIds())
+  const { windowId, list } = useWindowsStore.getState()
+  const remote = latestRemoteUnread(list, windowId, target ? byPane[target].at : 0)
+  if (remote) {
+    window.pine.windows.focusWorkspace(remote.id, true)
+    return null
+  }
   if (!target) return null
   return revealPane(target) ? target : null
+}
+
+export function jumpToLatestUnreadIn(workspaceId: string): boolean {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  const target = layout
+    ? latestUnread(useAttentionStore.getState().byPane, paneIds(layout.root))
+    : null
+  return target !== null && revealPane(target)
 }
 
 export function startAttentionSync(): () => void {
