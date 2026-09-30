@@ -2,6 +2,7 @@ import type { ExtensionPanelContext, ExtensionPanelSource } from '@shared/extens
 import type { WebviewTag } from 'electron'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
+import { useReducedMotion } from '../lib/motion'
 import { panelThemeCss } from '../lib/panelTheme'
 import { themedTokens, useEffectiveTheme } from '../lib/theme'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -15,9 +16,15 @@ function useThemeCss(): string {
   const accent = useSettingsStore((s) => s.appearance.accent)
   const ui = useSettingsStore((s) => s.appearance.ui.family)
   const mono = useSettingsStore((s) => s.appearance.terminal.family)
+  const reducedMotion = useReducedMotion()
   return useMemo(
-    () => panelThemeCss(activeTheme ? themedTokens(activeTheme, accent) : {}, { ui, mono }),
-    [activeTheme, accent, ui, mono],
+    () =>
+      panelThemeCss(
+        activeTheme ? themedTokens(activeTheme, accent) : {},
+        { ui, mono },
+        reducedMotion,
+      ),
+    [activeTheme, accent, ui, mono, reducedMotion],
   )
 }
 
