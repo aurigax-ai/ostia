@@ -3,20 +3,39 @@
   "name": "Echo",
   "version": "0.1.0",
   "description": "Test fixture extension",
-  "capabilities": ["read-board", "notify"],
+  "capabilities": ["read-board", "notify", "browse", "process", "drive-self", "all-workspaces"],
   "main": "main.js",
   "contributes": {
     "commands": [
-      { "id": "echo", "title": "Echo" },
+      { "id": "echo", "title": "Echo", "argument": "What to echo" },
       { "id": "guarded", "title": "Needs all-workspaces", "capabilities": ["all-workspaces"] },
       { "id": "probe", "title": "Call a pane-only method", "palette": false },
       { "id": "notify", "title": "Post a notification", "palette": false },
       { "id": "diff", "title": "Open a diff", "palette": false },
       { "id": "workspaces", "title": "List workspaces", "palette": false },
       { "id": "crash", "title": "Exit the process", "palette": false },
-      { "id": "stdin", "title": "Print stdin back", "usage": "stdin", "palette": false, "stdin": true }
+      { "id": "stdin", "title": "Print stdin back", "usage": "stdin", "palette": false, "stdin": true },
+      { "id": "chip", "title": "Set a pane chip", "palette": false },
+      { "id": "unchip", "title": "Clear a pane chip", "palette": false },
+      { "id": "settings", "title": "Read settings", "palette": false },
+      { "id": "seen-settings", "title": "Last settings event", "palette": false },
+      { "id": "open-panel", "title": "Open the panel", "palette": false },
+      { "id": "notify-panel", "title": "Notify with a panel path", "palette": false },
+      { "id": "call", "title": "Call a control method", "palette": false }
     ],
     "sidebarItems": true,
-    "panel": { "title": "Echo", "entry": "url" }
+    "panel": { "title": "Echo", "entry": "url" },
+    "paneChips": [{ "id": "status", "title": "Echo status" }],
+    "settings": {
+      "greeting": { "type": "string", "default": "hi", "description": "What echo says" },
+      "count": { "type": "number", "default": 3, "description": "How many times" },
+      "loud": { "type": "boolean", "default": false, "description": "Shout it" },
+      "level": {
+        "type": "enum",
+        "values": ["low", "high"],
+        "default": "low",
+        "description": "How loud"
+      }
+    }
   }
 }

@@ -8,11 +8,13 @@ import {
   parseEditorSettings,
 } from '../../shared/browserEditorSettings'
 import type { Capability } from '../../shared/capabilities'
+import type { ExtensionSettingValues } from '../../shared/extensions'
 import {
   DEFAULT_NOTIFICATION_SETTINGS,
   type NotificationSettings,
   parseNotificationSettings,
 } from '../../shared/notificationSettings'
+import { parsePromptSettings } from '../../shared/promptSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
 import { normalizeGroupName } from '../../shared/workspaceGroups'
 import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
@@ -230,6 +232,7 @@ interface Persisted {
   keybindings: KeybindingMap
   agents: AgentSettings
   workspaceGroups: WorkspaceGroupSettings
+  extensionSettings: Record<string, ExtensionSettingValues>
   capabilities?: Capabilities
   sync?: SyncSettings
 }
@@ -291,6 +294,7 @@ const DEFAULTS: Persisted = {
   },
   agents: { hibernation: DEFAULT_HIBERNATION },
   workspaceGroups: { byCwd: [] },
+  extensionSettings: {},
 }
 
 interface SettingsState extends Persisted {
@@ -319,6 +323,7 @@ interface SettingsState extends Persisted {
   setKeybinding: (id: string, chord: string | null) => void
   resetKeybinding: (id: string) => void
   setKeybindings: (map: KeybindingMap) => void
+  setExtensionSettings: (extId: string, values: ExtensionSettingValues) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -338,6 +343,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     keybindings: s.keybindings,
     agents: s.agents,
     workspaceGroups: s.workspaceGroups,
+    extensionSettings: s.extensionSettings,
     capabilities: s.capabilities,
     sync: s.sync,
   }
@@ -348,6 +354,17 @@ async function writeSettings(s: SettingsState): Promise<void> {
 function scheduleSave(get: () => SettingsState): void {
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => void writeSettings(get()), 300)
+}
+
+const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues> => {
+  if (!isPlainObject(v)) return {}
+  const out: Record<string, ExtensionSettingValues> = {}
+  for (const [extId, values] of Object.entries(v)) {
+    if (!isDangerousSegment(extId) && isPlainObject(values)) {
+      out[extId] = values as ExtensionSettingValues
+    }
+  }
+  return out
 }
 
 const syncOf = (v: unknown): SyncSettings | undefined =>
@@ -408,6 +425,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         keybindings: parseKeybindings(p.keybindings),
         agents: { hibernation: parseHibernation(p.agents?.hibernation) },
         workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
+        extensionSettings: extensionSettingsOf(p.extensionSettings),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
         sync: syncOf(p.sync),
       })
@@ -467,6 +485,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         scrollSpeed: clampScrollSpeed(patch.scrollSpeed ?? s.terminal.scrollSpeed),
         scrollbackLines: clampScrollback(patch.scrollbackLines ?? s.terminal.scrollbackLines),
         minimumContrast: clampContrast(patch.minimumContrast ?? s.terminal.minimumContrast),
+        prompt: parsePromptSettings(patch.prompt ?? s.terminal.prompt),
       },
     }))
     scheduleSave(get)
@@ -517,6 +536,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setKeybindings: (keybindings) => {
     set({ keybindings })
+    scheduleSave(get)
+  },
+  setExtensionSettings: (extId, values) => {
+    set((s) => ({ extensionSettings: { ...s.extensionSettings, [extId]: values } }))
     scheduleSave(get)
   },
   setHibernation: (patch) => {

@@ -25,7 +25,7 @@ describe('groupByWorkspace', () => {
   it('merges the ports and ssh hosts of every terminal in a workspace', () => {
     const trees = new Map<number, TreeInfo>([
       [10, { ports: [5173, 3000], ssh: null }],
-      [11, { ports: [3000, 8080], ssh: 'prod-1' }],
+      [11, { ports: [3000, 8080], ssh: { user: 'deploy', host: 'prod-1' } }],
       [20, { ports: [], ssh: null }],
     ])
     const groups = groupByWorkspace(
@@ -49,6 +49,11 @@ describe('sidebarEntries', () => {
       url: 'http://localhost:3000/',
     })
     expect(entries).toHaveLength(1 + MAX_PORTS_PER_WORKSPACE)
+  })
+
+  it('links ports to the configured loopback host', () => {
+    const entries = sidebarEntries(new Map([['s1', { ports: [8000], ssh: [] }]]), '127.0.0.1')
+    expect(entries[0]?.url).toBe('http://127.0.0.1:8000/')
   })
 
   it('shows nothing for a workspace with no ports and no ssh', () => {

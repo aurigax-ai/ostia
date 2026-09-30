@@ -55,6 +55,21 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
     ),
   )
   writeFileSync(join(trellisDir, 'consumers.json'), '[{"name":"pine","cursor":0,"lag":0}]')
+  writeFileSync(
+    join(trellisDir, 'follow.jsonl'),
+    `${JSON.stringify({
+      seq: 1,
+      ts: 1789419958656,
+      actor: 'agent:e2e',
+      entity: 'card',
+      ref: 'DEMO-3',
+      title: 'Card 3',
+      action: 'moved',
+      field: 'column',
+      old: 'in-progress',
+      new: 'review',
+    })}\n`,
+  )
   copyFileSync(join(FIXTURES, 'keeper', 'status-running.txt'), join(keeperDir, 'status.txt'))
   copyFileSync(join(FIXTURES, 'keeper', 'approve-pending.json'), join(keeperDir, 'approve.json'))
   writeFileSync(join(keeperDir, 'ui.txt'), `${keeperUi.origin}\n`)
@@ -111,6 +126,31 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
       .toContain('Fake Trellis /p/DEMO')
 
     await win.keyboard.press('Control+Shift+P')
+    await win.locator('[data-slot="command-input"]').fill('Trellis: Open Card')
+    await waitForPaletteSelection(win, 'Trellis: Open Card')
+    await win.keyboard.press('Enter')
+    await expect(win.locator('[data-slot="command-input"]')).toHaveAttribute(
+      'placeholder',
+      'Card id, for example SHOP-12',
+    )
+    await win.locator('[data-slot="command-input"]').fill('demo-2')
+    await win.keyboard.press('Enter')
+    await expect
+      .poll(() => guestText(app, 'http://127.0.0.1'), { timeout: 15_000 })
+      .toContain('Fake Trellis /p/DEMO/card/DEMO-2')
+    await expect(win.locator('.pane-header .title').filter({ hasText: 'Trellis' })).toHaveCount(1)
+
+    await win.getByRole('button', { name: /Notifications/ }).click({ timeout: 10_000 })
+    await win
+      .getByRole('list', { name: 'Notifications' })
+      .getByRole('button', { name: /ready for your review: DEMO-3/ })
+      .click({ timeout: 10_000 })
+    await expect
+      .poll(() => guestText(app, 'http://127.0.0.1'), { timeout: 15_000 })
+      .toContain('Fake Trellis /p/DEMO/card/DEMO-3')
+    await expect(win.locator('.pane-header .title').filter({ hasText: 'Trellis' })).toHaveCount(1)
+
+    await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Keeper: Open Dashboard')
     await waitForPaletteSelection(win, 'Keeper: Open Dashboard')
     await win.keyboard.press('Enter')
@@ -120,6 +160,15 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
     await expect
       .poll(() => guestText(app, keeperUi.origin), { timeout: 15_000 })
       .toContain('Fake Keeper /')
+
+    await win.getByRole('button', { name: /Notifications/ }).click({ timeout: 10_000 })
+    await win
+      .getByRole('list', { name: 'Notifications' })
+      .getByRole('button', { name: /Keeper needs approval/ })
+      .click({ timeout: 10_000 })
+    await expect
+      .poll(() => guestText(app, keeperUi.origin), { timeout: 15_000 })
+      .toContain('Fake Keeper /approvals')
 
     const keeperCalls = readFileSync(join(keeperDir, 'calls.log'), 'utf8').trim().split('\n')
     expect(keeperCalls.filter((c) => c.startsWith('approve') && c !== 'approve --json')).toEqual([])

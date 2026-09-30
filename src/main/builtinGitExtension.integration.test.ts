@@ -1,14 +1,32 @@
 import { execFileSync, execSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { ExtensionCaller, ExtensionSidebarItem } from '../shared/extensions'
+import type {
+  ExtensionCaller,
+  ExtensionResult,
+  ExtensionSidebarItem,
+  PaneChip,
+} from '../shared/extensions'
 import type { CommandResult } from '../shared/types'
 import { registerControlServer, stopControlServer } from './controlServer'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
+import {
+  type ExtensionConfirmRequest,
+  ExtensionHost,
+  registerExtensionMethods,
+} from './extensionHost'
 import { ExtensionStore } from './extensionStore'
-import { registerPane } from './idRegistry'
+import { type PaneIdentity, registerPane } from './idRegistry'
 import { registerPaneListMethods } from './paneList'
 
 const repoRoot = process.cwd()
@@ -30,6 +48,8 @@ describe('built-in git extension against a real repository', () => {
   const broadcasts: { channel: string; payload: unknown }[] = []
   const openDiffIn = vi.fn()
   const openPanelIn = vi.fn()
+  const confirm = vi.fn<(req: ExtensionConfirmRequest) => Promise<boolean>>()
+  let fileIdentity: PaneIdentity
 
   const git = (...args: string[]): string =>
     execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd: repo, encoding: 'utf8' })
@@ -65,6 +85,7 @@ describe('built-in git extension against a real repository', () => {
     const socketPath = join(dir, 'control.sock')
     const identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-git' })
     const other = registerPane({ windowId: 'w1', workspaceId: 's2', paneId: 'p-plain' })
+    fileIdentity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-file' })
     registerPaneListMethods({
       execCommand: async (_target, id) =>
         ({
@@ -98,6 +119,13 @@ describe('built-in git extension against a real repository', () => {
                     cwd: join(repo, 'sub'),
                   },
                   {
+                    paneId: 'p-file',
+                    workspaceId: 's1',
+                    kind: 'editor',
+                    title: 'a.txt',
+                    filePath: join(repo, 'a.txt'),
+                  },
+                  {
                     paneId: 'p-plain',
                     workspaceId: 's2',
                     kind: 'terminal',
@@ -120,6 +148,7 @@ describe('built-in git extension against a real repository', () => {
       openPanelIn,
       openDiffIn,
       notify: () => {},
+      confirm,
       log: () => {},
     })
     registerExtensionMethods(() => host)
@@ -268,5 +297,200 @@ describe('built-in git extension against a real repository', () => {
     expect(openPanelIn).toHaveBeenCalledWith({ extId: 'git', workspaceId: 's1' })
     const panel = await host.resolvePanel('git', { workspaceId: 's1', locale: 'en' })
     expect(panel.ok && panel.src).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?/)
+  })
+
+  const chip = (paneId: string, id: string): PaneChip | undefined =>
+    host.paneChips().find((c) => c.extId === 'git' && c.paneId === paneId && c.id === id)
+
+  async function panelCall(command: string, args: unknown): Promise<ExtensionResult> {
+    const panel = await host.resolvePanel('git', { workspaceId: 's1', locale: 'en' })
+    if (!panel.ok) throw new Error(panel.error)
+    const url = new URL(panel.src)
+    const res = await fetch(new URL('/api', url), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-pine-panel': url.searchParams.get('t') ?? '',
+      },
+      body: JSON.stringify({ command, args, context: { workspaceId: 's1', locale: 'en' } }),
+    })
+    return (await res.json()) as ExtensionResult
+  }
+
+  describe('v2', () => {
+    it('puts the branch and diff stats chips on each terminal inside a repo, and nowhere else', async () => {
+      expect(await until(() => chip('p-git', 'branch'))).toMatchObject({
+        text: 'main',
+        command: 'show',
+        tone: 'neutral',
+      })
+      expect(await until(() => chip('p-git', 'diff-stats'))).toMatchObject({ text: '2 • +2 -1' })
+      expect(chip('p-plain', 'branch')).toBeUndefined()
+      expect(chip('p-file', 'branch')).toBeUndefined()
+    })
+
+    it('hides the diff stats chip when the showDiffStats setting is off', async () => {
+      expect(host.setSetting('git', 'showDiffStats', false).ok).toBe(true)
+      await until(() => (chip('p-git', 'diff-stats') ? undefined : true))
+      expect(chip('p-git', 'branch')?.text).toBe('main')
+      expect(host.setSetting('git', 'showDiffStats', null).ok).toBe(true)
+      expect((await until(() => chip('p-git', 'diff-stats'))).text).toBe('2 • +2 -1')
+    })
+
+    it('lists recent commits as text for people and as JSON with --json', async () => {
+      const head = git('rev-parse', 'HEAD').trim()
+      const text = await host.invoke('git', 'log', { argv: [] }, caller(repo))
+      expect(text.ok && text.text).toMatch(
+        new RegExp(`^${head.slice(0, 7)} \\d{4}-\\d\\d-\\d\\d Test  init$`),
+      )
+      const json = await host.invoke('git', 'log', { argv: ['--json'] }, caller(repo))
+      expect(json.ok && json.text).toBeUndefined()
+      expect(json).toMatchObject({
+        ok: true,
+        data: {
+          root: repo,
+          branch: 'main',
+          commits: [{ sha: head, author: 'Test', subject: 'init' }],
+        },
+      })
+    })
+
+    it('blames each line, marking lines that are not committed yet', async () => {
+      const head = git('rev-parse', 'HEAD').trim()
+      const res = await host.invoke(
+        'git',
+        'blame',
+        { argv: ['../a.txt', '--json'] },
+        caller(join(repo, 'sub')),
+      )
+      expect(res).toMatchObject({ ok: true, data: { root: repo, path: 'a.txt' } })
+      const lines = res.ok
+        ? (res.data as { lines: { sha: string; text: string; author: string }[] }).lines
+        : []
+      expect(lines.map((l) => l.text)).toEqual(['one', 'two'])
+      expect(lines[0]).toMatchObject({ sha: head, author: 'Test' })
+      expect(lines[1].sha).toMatch(/^0+$/)
+      const text = await host.invoke('git', 'blame', { argv: ['a.txt'] }, caller(repo))
+      expect(text.ok && text.text).toContain('Not committed yet\ttwo')
+      expect(await host.invoke('git', 'blame', { argv: [] }, caller(repo))).toMatchObject({
+        ok: false,
+        error: 'invalid-args',
+      })
+    })
+
+    it('opens the blame page for the active file view from the palette', async () => {
+      openPanelIn.mockClear()
+      const res = await host.invoke('git', 'blame-file', null, {
+        kind: 'user',
+        workspaceId: 's1',
+        paneId: fileIdentity.externalId,
+        capabilities: ['read-board'],
+      })
+      expect(res.ok).toBe(true)
+      const path = `/blame?file=${encodeURIComponent(join(repo, 'a.txt'))}`
+      expect(openPanelIn).toHaveBeenCalledWith({ extId: 'git', workspaceId: 's1', path })
+      const panel = await host.resolvePanel('git', { workspaceId: 's1', locale: 'en', path })
+      const src = new URL(panel.ok ? panel.src : 'http://x/')
+      expect(src.searchParams.get('page')).toBe('blame')
+      expect(src.searchParams.get('file')).toBe(join(repo, 'a.txt'))
+      const blamed = await panelCall('blame', { path: join(repo, 'a.txt') })
+      expect(blamed).toMatchObject({ ok: true, data: { path: 'a.txt' } })
+
+      const terminal = await host.invoke('git', 'blame-file', null, caller())
+      expect(terminal).toMatchObject({ ok: false, error: 'no-file' })
+    })
+
+    it('stages and unstages paths, and everything with --all', async () => {
+      const staged = (): string => git('diff', '--cached', '--name-only').trim()
+      expect(await host.invoke('git', 'stage', { argv: [] }, caller(repo))).toMatchObject({
+        ok: false,
+        error: 'invalid-args',
+      })
+      const res = await host.invoke('git', 'stage', { argv: ['a.txt'] }, caller(repo))
+      expect(res).toMatchObject({ ok: true, data: { staged: ['a.txt'], counts: { staged: 2 } } })
+      expect(staged()).toBe('a.txt\nsub/b.txt')
+      await host.invoke('git', 'unstage', { argv: ['../a.txt'] }, caller(join(repo, 'sub')))
+      expect(staged()).toBe('sub/b.txt')
+      await host.invoke('git', 'stage', { argv: ['--all'] }, caller(repo))
+      expect(staged()).toBe('a.txt\nc new.txt\nsub/b.txt')
+      await host.invoke('git', 'unstage', { argv: ['--all'] }, caller(repo))
+      expect(staged()).toBe('')
+      await panelCall('stage', { paths: [join(repo, 'sub', 'b.txt')] })
+      expect(staged()).toBe('sub/b.txt')
+    })
+
+    it('discards only after the human confirms, and only from the panel', async () => {
+      expect(await host.invoke('git', 'discard', { argv: ['a.txt'] }, caller(repo))).toMatchObject({
+        ok: false,
+        error: 'unknown-command',
+      })
+      confirm.mockResolvedValueOnce(false)
+      const denied = await panelCall('discard', { paths: [join(repo, 'a.txt')] })
+      expect(denied).toMatchObject({ ok: false, error: 'cancelled' })
+      expect(confirm).toHaveBeenCalledTimes(1)
+      expect(confirm.mock.calls[0][0]).toMatchObject({
+        extId: 'git',
+        title: 'Discard changes',
+        confirmLabel: 'Discard',
+      })
+      expect(confirm.mock.calls[0][0].detail).toContain('a.txt')
+      expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('one\ntwo\n')
+
+      confirm.mockResolvedValueOnce(true)
+      const done = await panelCall('discard', { paths: [join(repo, 'a.txt')] })
+      expect(done).toMatchObject({ ok: true, data: { discarded: ['a.txt'] } })
+      expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('one\n')
+      expect(existsSync(join(repo, 'c new.txt'))).toBe(true)
+      expect(git('diff', '--cached', '--name-only').trim()).toBe('sub/b.txt')
+    })
+
+    it('commits only the staged changes and reports errors from the tool', async () => {
+      expect(
+        await host.invoke('git', 'commit', { argv: ['-m', '  '] }, caller(repo)),
+      ).toMatchObject({ ok: false, error: 'invalid-args' })
+      const res = await host.invoke('git', 'commit', { argv: ['-m', 'stage b'] }, caller(repo))
+      const head = git('rev-parse', 'HEAD').trim()
+      expect(res).toMatchObject({ ok: true, text: head, data: { sha: head, subject: 'stage b' } })
+      expect(git('log', '-1', '--format=%s').trim()).toBe('stage b')
+      expect(git('show', '--name-only', '--format=', 'HEAD').trim()).toBe('sub/b.txt')
+      expect(git('status', '--porcelain').trim()).toBe('?? "c new.txt"')
+
+      const empty = await host.invoke('git', 'commit', { argv: ['-m', 'again'] }, caller(repo))
+      expect(empty).toMatchObject({ ok: false, error: 'git-failed' })
+      expect(empty.ok ? '' : empty.message).toMatch(/nothing/)
+    })
+
+    it('lists the files of a commit and opens one as parent vs commit', async () => {
+      const head = git('rev-parse', 'HEAD').trim()
+      const files = await panelCall('commitFiles', { sha: head })
+      expect(files).toMatchObject({
+        ok: true,
+        data: {
+          commit: { sha: head, subject: 'stage b' },
+          files: [{ path: 'sub/b.txt', code: 'M' }],
+        },
+      })
+      openDiffIn.mockClear()
+      const opened = await panelCall('openCommitFile', { sha: head, path: 'sub/b.txt' })
+      expect(opened.ok).toBe(true)
+      expect(openDiffIn).toHaveBeenCalledWith({
+        extId: 'git',
+        workspaceId: 's1',
+        title: `b.txt (${head.slice(0, 7)})`,
+        original: 'bee\n',
+        modified: 'bee staged\n',
+        path: join(repo, 'sub', 'b.txt'),
+      })
+      const initial = git('rev-list', '--max-parents=0', 'HEAD').trim()
+      const first = await panelCall('commitFiles', { sha: initial })
+      expect(first.ok && (first.data as { files: unknown[] }).files).toEqual([
+        { path: 'a.txt', code: 'A' },
+        { path: 'sub/b.txt', code: 'A' },
+      ])
+      expect(await panelCall('commitFiles', { sha: '--all' })).toMatchObject({
+        ok: false,
+        error: 'invalid-args',
+      })
+    })
   })
 })

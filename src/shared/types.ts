@@ -2,7 +2,9 @@ import type { AgentResume } from './agentResume'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
+import type { PromptSeparator } from './promptSettings'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
+import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
 import type { WorkspaceGroupColor } from './workspaceGroups'
 
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
@@ -32,6 +34,22 @@ export interface PtySpawnOptions {
   shell?: string
   role?: 'owner' | 'observer'
   sinceCursor?: number
+  pinePrompt?: PromptSeparator
+}
+
+export interface PromptContextRequest {
+  node: boolean
+  kube: boolean
+}
+
+export interface PromptContext {
+  user: string
+  host: string
+  home: string
+  virtualEnv: string | null
+  condaEnv: string | null
+  nodeVersion: string | null
+  kubeContext: string | null
 }
 
 export interface PtyAttachResult {
@@ -48,6 +66,7 @@ export interface PtyApi {
   write: (paneId: string, data: string) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
+  promptContext: (paneId: string, want: PromptContextRequest) => Promise<PromptContext | null>
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number) => void) => () => void
 }
@@ -129,6 +148,7 @@ export interface NotificationEntry {
   from: string
   paneId?: string
   extId?: string
+  panelPath?: string
 }
 
 export interface NotificationPost {
@@ -375,6 +395,11 @@ export interface ExternalEditorApi {
   open: (req: ExternalEditorRequest) => Promise<ExternalEditorResult>
 }
 
+export interface WorkflowsApi {
+  list: (workspaceId: string | null) => Promise<WorkflowListing>
+  save: (doc: WorkflowDocument) => Promise<WorkflowSaveResult>
+}
+
 export interface PineBridge {
   ping: () => Promise<'pong'>
   info: () => Promise<AppInfo>
@@ -395,6 +420,7 @@ export interface PineBridge {
   externalEditor: ExternalEditorApi
   gateway: GatewayApi
   notifications: NotificationsApi
+  workflows: WorkflowsApi
 }
 
 declare global {

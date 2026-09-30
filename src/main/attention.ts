@@ -1,7 +1,7 @@
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { AttentionState, CommandResult, CommandTarget } from '../shared/types'
 import { connHasCap } from './controlAuth'
-import { registerControlMethod } from './controlServer'
+import { registerTargetableMethod } from './controlServer'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 
 export type AttentionVerb = Exclude<AttentionState, 'none'> | 'clear'
@@ -35,7 +35,7 @@ function isVerb(value: unknown): value is AttentionVerb {
 }
 
 export function registerAttentionMethods(deps: AttentionDeps): void {
-  registerControlMethod('pane.setAttention', {
+  registerTargetableMethod('pane.setAttention', {
     cap: 'drive-self',
     handler: async (params: unknown, ctx) => {
       const { state, message, paneId } = (params ?? {}) as {

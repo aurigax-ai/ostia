@@ -1,5 +1,63 @@
 import { describe, expect, it } from 'vitest'
-import { branchLabel, parsePorcelainV2, sidebarText, summarize } from './status'
+import {
+  branchChipText,
+  branchLabel,
+  diffStatsChipText,
+  parsePorcelainV2,
+  parseShortstat,
+  sidebarText,
+  summarize,
+} from './status'
+
+describe('branchChipText', () => {
+  const branch = { oid: 'f'.repeat(40), head: 'main', upstream: null, ahead: 0, behind: 0 }
+
+  it('shows the branch alone when there is no upstream or it is in sync', () => {
+    expect(branchChipText(branch)).toBe('main')
+    expect(branchChipText({ ...branch, ahead: 3 })).toBe('main')
+    expect(branchChipText({ ...branch, upstream: 'origin/main' })).toBe('main')
+  })
+
+  it('adds ahead and behind after a bullet when tracking an upstream', () => {
+    const tracked = { ...branch, upstream: 'origin/main' }
+    expect(branchChipText({ ...tracked, ahead: 2, behind: 1 })).toBe('main • ↑2 ↓1')
+    expect(branchChipText({ ...tracked, behind: 4 })).toBe('main • ↓4')
+    expect(branchChipText({ ...tracked, ahead: 1200 })).toBe('main • ↑999+')
+  })
+
+  it('shows the short sha when detached and nothing without any commit or branch', () => {
+    expect(branchChipText({ ...branch, head: null })).toBe('fffffff')
+    expect(branchChipText({ ...branch, head: null, oid: null })).toBe('')
+  })
+})
+
+describe('diff stats', () => {
+  it('parses git diff --shortstat output', () => {
+    expect(parseShortstat(' 3 files changed, 12 insertions(+), 4 deletions(-)\n')).toEqual({
+      files: 3,
+      added: 12,
+      removed: 4,
+    })
+    expect(parseShortstat(' 1 file changed, 1 insertion(+)')).toEqual({
+      files: 1,
+      added: 1,
+      removed: 0,
+    })
+    expect(parseShortstat(' 1 file changed, 2 deletions(-)')).toEqual({
+      files: 1,
+      added: 0,
+      removed: 2,
+    })
+    expect(parseShortstat('')).toBeNull()
+  })
+
+  it('formats files • +added -removed and hides a clean tree', () => {
+    expect(diffStatsChipText({ files: 3, added: 12, removed: 4 })).toBe('3 • +12 -4')
+    expect(diffStatsChipText({ files: 1, added: 0, removed: 2 })).toBe('1 • -2')
+    expect(diffStatsChipText({ files: 1, added: 0, removed: 0 })).toBe('1')
+    expect(diffStatsChipText(null)).toBe('')
+  })
+})
 
 const Z = '\0'
 

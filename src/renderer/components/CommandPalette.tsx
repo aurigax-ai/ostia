@@ -1,6 +1,6 @@
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { commands } from '../commands/registry'
-import { useDict } from '../i18n/useDict'
+import { fmt, useDict } from '../i18n/useDict'
 import { allPanes } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
 import { chordLabel } from '../lib/chords'
@@ -30,14 +30,23 @@ export function CommandPalette(): JSX.Element {
   const open = useUIStore((s) => s.paletteOpen)
   const close = useUIStore((s) => s.closePalette)
   const [search, setSearch] = useState('')
+  const [asking, setAsking] = useState<ArgumentCommand | null>(null)
   const mode = paletteMode(search)
   const places = useMemo(() => (open ? snapshotPlaces() : EMPTY_PLACES), [open])
 
   useSyncExternalStore(subscribeCommands, commandsVersion)
 
-  const finish = (): void => {
+  useEffect(() => {
+    if (open) return
     setSearch('')
-    close()
+    setAsking(null)
+  }, [open])
+
+  const finish = close
+
+  const ask = (command: ArgumentCommand): void => {
+    setAsking(command)
+    setSearch('')
   }
 
   return (
@@ -50,17 +59,78 @@ export function CommandPalette(): JSX.Element {
       title={d.palette.title}
       description={d.palette.placeholder}
     >
-      <CommandInput placeholder={d.palette.placeholder} value={search} onValueChange={setSearch} />
-      <CommandList>
-        <CommandEmpty>{d.palette.empty}</CommandEmpty>
-        {mode === 'help' ? <HelpItems onPick={(symbol) => setSearch(symbol)} /> : null}
-        {mode === 'all' || mode === 'workspaces' ? (
-          <WorkspaceItems workspaces={places.workspaces} onDone={finish} />
-        ) : null}
-        {mode === 'all' || mode === 'tabs' ? <TabItems tabs={places.tabs} onDone={finish} /> : null}
-        {mode === 'all' || mode === 'commands' ? <CommandItems onDone={finish} /> : null}
-      </CommandList>
+      {asking ? (
+        <ArgumentStep command={asking} value={search} onValueChange={setSearch} onDone={finish} />
+      ) : (
+        <>
+          <CommandInput
+            placeholder={d.palette.placeholder}
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList>
+            <CommandEmpty>{d.palette.empty}</CommandEmpty>
+            {mode === 'help' ? <HelpItems onPick={(symbol) => setSearch(symbol)} /> : null}
+            {mode === 'all' || mode === 'workspaces' ? (
+              <WorkspaceItems workspaces={places.workspaces} onDone={finish} />
+            ) : null}
+            {mode === 'all' || mode === 'tabs' ? (
+              <TabItems tabs={places.tabs} onDone={finish} />
+            ) : null}
+            {mode === 'all' || mode === 'commands' ? (
+              <CommandItems onDone={finish} onAsk={ask} />
+            ) : null}
+          </CommandList>
+        </>
+      )}
     </CommandDialog>
+  )
+}
+
+interface ArgumentCommand {
+  id: string
+  title: string
+  argument: string
+}
+
+function ArgumentStep({
+  command,
+  value,
+  onValueChange,
+  onDone,
+}: {
+  command: ArgumentCommand
+  value: string
+  onValueChange: (value: string) => void
+  onDone: () => void
+}): JSX.Element {
+  const d = useDict()
+  const argument = value.trim()
+  const run = (): void => {
+    if (!argument) return
+    void commands.exec(command.id, { argument })
+    onDone()
+  }
+  return (
+    <>
+      <CommandInput
+        placeholder={command.argument}
+        value={value}
+        onValueChange={onValueChange}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return
+          e.preventDefault()
+          run()
+        }}
+      />
+      <CommandList>
+        <CommandEmpty>
+          {argument
+            ? fmt(d.palette.runWith, { title: command.title, value: argument })
+            : d.palette.argumentEmpty}
+        </CommandEmpty>
+      </CommandList>
+    </>
   )
 }
 
@@ -168,7 +238,13 @@ function TabItems({
   )
 }
 
-function CommandItems({ onDone }: { onDone: () => void }): JSX.Element {
+function CommandItems({
+  onDone,
+  onAsk,
+}: {
+  onDone: () => void
+  onAsk: (command: ArgumentCommand) => void
+}): JSX.Element {
   useSettingsStore((s) => s.keybindings)
   const byCat = new Map<string, ReturnType<typeof commands.list>>()
   for (const c of commands.list()) {
@@ -188,6 +264,10 @@ function CommandItems({ onDone }: { onDone: () => void }): JSX.Element {
                 key={c.id}
                 value={`${symbol} ${c.title} ${c.id} ${c.category ?? ''}`}
                 onSelect={() => {
+                  if (c.argument) {
+                    onAsk({ id: c.id, title: c.title, argument: c.argument })
+                    return
+                  }
                   void commands.exec(c.id)
                   onDone()
                 }}

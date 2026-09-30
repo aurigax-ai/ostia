@@ -9,6 +9,7 @@ import {
 } from 'vscode-jsonrpc/node'
 import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../shared/agentResume'
 import type { CommandResult } from '../shared/types'
+import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 
 interface ProcInfo {
   id: string
@@ -287,6 +288,7 @@ const CORE_VERBS = new Set([
   'browse',
   'gateway',
   'ext',
+  'workflow',
 ])
 
 interface BusOk {
@@ -1751,6 +1753,62 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
+const WORKFLOW_USAGE = 'pine workflow: usage: workflow list [--json] | show <name> [--json]'
+
+function describeWorkflow(w: WorkflowEntry): string {
+  const lines = [`name: ${w.name}`, `source: ${w.source} (${w.origin})`]
+  if (w.description) lines.push(`description: ${w.description}`)
+  if (w.tags.length > 0) lines.push(`tags: ${w.tags.join(', ')}`)
+  lines.push(`command: ${w.command}`)
+  if (w.arguments.length > 0) {
+    lines.push('arguments:')
+    for (const a of w.arguments) {
+      const about = a.description ? ` — ${a.description}` : ''
+      const fallback = a.defaultValue !== undefined ? ` (default: ${a.defaultValue})` : ''
+      lines.push(`  ${a.name}${about}${fallback}`)
+    }
+  }
+  if (w.shells) lines.push(`shells: ${w.shells.join(', ')}`)
+  if (w.author) lines.push(`author: ${w.author}`)
+  if (w.sourceUrl) lines.push(`source_url: ${w.sourceUrl}`)
+  return lines.join('\n')
+}
+
+async function runWorkflowVerb(conn: MessageConnection): Promise<void> {
+  const [sub, ...rest] = process.argv.slice(3)
+  const json = rest.includes('--json')
+  const name = rest
+    .filter((a) => a !== '--json')
+    .join(' ')
+    .trim()
+  if (sub !== 'list' && !(sub === 'show' && name)) {
+    console.error(WORKFLOW_USAGE)
+    process.exitCode = 1
+    return
+  }
+  const listing = await conn.sendRequest<WorkflowListing>('workflow.list')
+  if (sub === 'list') {
+    if (json) {
+      console.log(JSON.stringify(listing, null, 2))
+      return
+    }
+    for (const w of listing.workflows) {
+      console.log([w.name, `${w.source}:${w.origin}`, w.command.replace(/\n/g, ' ')].join('\t'))
+    }
+    for (const p of listing.problems) {
+      console.error(`pine workflow: couldn't read ${p.source}:${p.origin}: ${p.error}`)
+    }
+    return
+  }
+  const matches = listing.workflows.filter((w) => w.name === name)
+  if (matches.length === 0) {
+    console.error(`pine workflow show: no workflow named '${name}'`)
+    process.exitCode = 1
+    return
+  }
+  console.log(json ? JSON.stringify(matches, null, 2) : matches.map(describeWorkflow).join('\n\n'))
+}
+
 async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
   const [agent, raw] = process.argv.slice(3)
   if (!isResumableAgent(agent) || !raw) {
@@ -1786,6 +1844,7 @@ commands:
   workspace list [--json]   every workspace with its sidebar group (--json adds the groups)
   workspace group <name> | ungroup   move this workspace into a sidebar group, or out of it
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
+  workflow list [--json] | show <name> [--json]   saved command workflows (read-only)
   open <path>
   process | vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
@@ -1876,6 +1935,8 @@ async function main(): Promise<void> {
       await runWorkspaceVerb(conn)
     } else if (cmd === 'resume-token') {
       await runResumeTokenVerb(conn)
+    } else if (cmd === 'workflow') {
+      await runWorkflowVerb(conn)
     } else if (cmd === 'open') {
       const arg = process.argv[3]
       if (!arg) {

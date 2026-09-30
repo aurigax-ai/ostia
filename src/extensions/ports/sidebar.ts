@@ -33,7 +33,7 @@ export function groupByWorkspace(
     if (!tree) continue
     const group = out.get(pane.workspaceId) ?? { ports: [], ssh: [] }
     for (const port of tree.ports) if (!group.ports.includes(port)) group.ports.push(port)
-    if (tree.ssh && !group.ssh.includes(tree.ssh)) group.ssh.push(tree.ssh)
+    if (tree.ssh && !group.ssh.includes(tree.ssh.host)) group.ssh.push(tree.ssh.host)
     out.set(pane.workspaceId, group)
   }
   for (const group of out.values()) {
@@ -43,11 +43,16 @@ export function groupByWorkspace(
   return out
 }
 
-export function portUrl(port: number): string {
-  return `http://localhost:${port}/`
+export type PortHost = 'localhost' | '127.0.0.1'
+
+export function portUrl(port: number, host: PortHost = 'localhost'): string {
+  return `http://${host}:${port}/`
 }
 
-export function sidebarEntries(groups: Map<string, WorkspaceProcesses>): SidebarEntry[] {
+export function sidebarEntries(
+  groups: Map<string, WorkspaceProcesses>,
+  host: PortHost = 'localhost',
+): SidebarEntry[] {
   const out: SidebarEntry[] = []
   for (const [workspaceId, group] of groups) {
     if (group.ssh.length > 0) {
@@ -58,7 +63,7 @@ export function sidebarEntries(groups: Map<string, WorkspaceProcesses>): Sidebar
         workspaceId,
         key: `${PORT_KEY_PREFIX}${port}`,
         text: `:${port}`,
-        url: portUrl(port),
+        url: portUrl(port, host),
       })
     }
   }

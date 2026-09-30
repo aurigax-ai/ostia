@@ -75,6 +75,7 @@ own min/max/close (`WindowControls.tsx`). There is one main window; tear-off win
 | `processManager.ts`, `vault.ts`, `bus.ts`, `docs.ts` | Agent toolbelt control methods (§6) |
 | `extensionHost.ts`, `extensionManifest.ts`, `extensionStore.ts` | Extension host: discovery + manifest validation, approval records, extension processes, `ext.*` control methods (§11) |
 | `extensionConfirm.ts` | The native confirm dialog behind `ext.confirm` (§11) |
+| `workflows.ts` | Saved workflows: confined YAML loading (workspace, user, extension manifests), `workflows:list`/`workflows:save` IPC, `workflow.list` control method (§4) |
 | `settingsSync.ts`, `settingsSyncIpc.ts` | Settings sync: pure plan/merge + the file executor; triggers (startup, window focus, local file changes) and `sync:*` / `dialog:pick-folder` IPC (§5) |
 | `browse.ts` | `browse.*` automation of browser panes (§9) |
 | `browsePick.ts`, `guestNetwork.ts` | Pick element: `browse.pick`, `browser:pick-*` IPC, UI-issue reports; failed-request buffer per guest (§9) |
@@ -95,6 +96,8 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
 - `$XDG_DATA_HOME/pine/` (default `~/.local/share/pine/`): `workspaces.json`, `scrollback.json`,
   `notifications.json`, processes, bus, global vault, `gateway-devices.json`,
   `gateway-config.json`, `gateway-pair-audit.log`.
+- `$XDG_CONFIG_HOME/pine/workflows/*.yaml|yml` (user) and `<workDir>/.pine/workflows/*.yaml|yml`
+  (project): saved workflows (§4).
 - `<workDir>/.pine/`: project-scoped vault. Older versions also kept a kanban `board.json` and a
   `wiki.json` here (and a global `$XDG_DATA_HOME/pine/wiki.json`); those extensions were removed in
   favour of Trellis, and pine leaves the files in place without reading them.
@@ -127,7 +130,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | terminal state | `terminalState.push` |
 | browser | `register`, `unregister`, `pickStart`, `pickCancel`, `pickSend`, `onPickState` (push channel `browser:pick-state`) |
 | selection | `selection.send({capture, image?, sourcePaneId, targetPaneId, note})` (IPC `selection:send`, §9) |
-| extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel`, `sidebarItems`, `onChanged`, `onSidebar`, `onOpenPanel`, `onOpenDiff` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:open-panel`, `extensions:open-diff`) |
+| extensions | `list`, `setEnabled`, `approve`, `invoke`, `panel` (context may carry a `path`), `sidebarItems`, `paneChips`, `setSetting`, `onChanged`, `onSidebar`, `onPaneChips`, `onOpenPanel`, `onOpenDiff`, `onOpenTerminal` (push channels `extensions:changed`, `extensions:sidebar`, `extensions:chips`, `extensions:open-panel`, `extensions:open-diff`, `extensions:open-terminal`) |
 | external editor | `externalEditor.open({template, file, line?, column?})` (IPC `editor:open-external`, §9) |
 | gateway | `enable`, `disable`, `pair`, `status`, `devices`, `revoke`, `bind-options`, `set-cap` (IPC only) |
 | notifications | `list` (newest first), `post`, `clear`, `onChanged`, `onActivate` (push channels `notifications:changed`, `notifications:activate`) |
@@ -198,6 +201,12 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **bash**: `--rcfile`. The OSC 133;B mark is appended after the user's `PROMPT_COMMAND` runs,
   because starship and powerline rebuild `PS1` there. A bash 5.1 array `PROMPT_COMMAND` is kept
   and each element is eval'd.
+- **Pine prompt**: with `PINE_PROMPT=pine` in the spawn env, the generated init (which runs
+  after the user's rc and prompt framework) unsets it and, in each prompt hook after the user's
+  own, sets `PROMPT='%~ <sep> '` and clears `RPROMPT` (zsh) or `PS1='\w <sep> '` after the
+  user's `PROMPT_COMMAND` (bash); the B mark is then appended as usual. powerlevel10k is torn
+  down once (`prompt_powerlevel9k_teardown`). Why the teardown: p10k rebuilds `PROMPT` from its
+  own hooks and zle widgets (async segments), so a plain assignment would flicker back.
 - **Other shells** spawn with no integration.
 - **`pine()` shell function**: it runs `ELECTRON_RUN_AS_NODE=1 $PINE_NODE $PINE_CLI`, so no
   system Node is needed. electron-builder unpacks `out/cli/**` from the asar for this.
@@ -302,7 +311,39 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   first, deduped by text, with workspace and cwd; choosing one inserts it into the active pane's
   prompt without running it. Why not Ctrl+R: that's the shell's own history search. History is
   what's in `blocksStore`, so it covers panes that exist now (restored scrollback re-parses its
-  marks on replay), not closed panes.
+  marks on replay), not closed panes. Each row's save button opens "Save as workflow" with that
+  command.
+- **Saved workflows** (`shared/workflows.ts`, `main/workflows.ts`, `components/WorkflowPicker.tsx`,
+  `components/SaveWorkflowDialog.tsx`, `workflows.search`, `Ctrl+Shift+S` / `⌘⇧S`): Warp's
+  workflow YAML (`name`, `command` with `{{arg}}` placeholders, `description`, `tags`,
+  `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`). Main reads
+  them from three sources, in this order: the active workspace's `<workDir>/.pine/workflows/`,
+  the user's `$XDG_CONFIG_HOME/pine/workflows/`, and `contributes.workflows` in the manifests of
+  enabled, approved extensions. A file holds one workflow, a list, or several YAML documents.
+  The renderer asks with a workspace id only (`workflows:list`); main resolves the workDir from
+  `workspaceRegistry` and confines it with `resolveSafe`.
+  - Why main validates and caps: workflow files come from repos the user clones. Main skips
+    symlinked files and folders, files over 64 KiB, more than 200 files or 50 workflows per file,
+    YAML aliases (billion-laughs), and anything `parseWorkflow` rejects (field lengths, argument
+    names `[A-Za-z_][A-Za-z0-9_-]*`, http(s) `source_url` only). A bad file is reported as a
+    problem (shown at the bottom of the picker and on stderr of `pine workflow list`), never a
+    silent drop, and never stops the other files from loading.
+  - Placeholders are `{{name}}` tokens in the command; `{{{name}}}` is a literal `{{name}}` (Warp's
+    escape). Unlike Warp, a placeholder counts even if `arguments` doesn't declare it; declared
+    arguments only add a description and a default. Why: the save dialog detects arguments from
+    what the user typed into the command, and `{{ .Names }}`-style Go templates (spaces, dots)
+    still pass through untouched. Values are substituted verbatim, not shell-quoted, like Warp:
+    the form shows the exact line that will be inserted.
+  - Choosing a workflow with arguments opens the form (defaults prefilled, the first argument
+    focused, Tab to the next, placeholders highlighted in the live preview); one without arguments
+    is inserted at once. Insertion is `insertCommand` without Enter, so it needs an idle prompt
+    and fills the input editor when that is shown; anywhere else the command goes to the
+    clipboard and the form says so before you confirm. There is no hidden "insert workflow"
+    command and no run verb: only the human's click types, and agents run their own commands.
+  - "Save as workflow" (block menu, command history) writes `<stem>.yaml` into the user folder
+    (mode 0600, folder 0700) with `wx`, so an existing file is never overwritten (`-2`, `-3`…).
+    The stem is an ASCII slug of the name, so a name can't escape the folder. Main re-validates
+    the document with `parseWorkflow` before writing.
 - **Input editor** (`components/InputEditor.tsx`, `lib/inputEditor.ts`, setting
   `behavior.inputMode: 'terminal' | 'editor'`, palette `terminal.toggleInputEditor`): in
   `editor` mode a Warp-style editor is docked under the terminal (`.terminal-surface` is a flex
@@ -359,16 +400,61 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     line empty.
   - `pty:commands` (main, `shellCommands.ts`) answers only the window attached to the pane. It
     reads the pane's `PINE_SHELL_STATE` file (`readShellState`: a regular file, not a symlink,
-    at most 1 MiB; first line the shell's `$PATH`, then its builtins, keywords, aliases and
-    functions not starting with `_`), falling back to the spawn env's PATH, then lists the
+    at most 1 MiB; first line the shell's `$PATH`, then one line each for `VIRTUAL_ENV`,
+    `CONDA_DEFAULT_ENV` and `KUBECONFIG` (newlines stripped, empty when unset), then its
+    builtins, keywords, aliases and functions not starting with `_`), falling back to the spawn env's PATH, then lists the
     executables of every absolute PATH directory (`ExecutableIndex`: `readdir` + `stat` for
     the execute bit, names only, never file contents; relative entries such as `.` are
     skipped). Listings are cached per PATH string and reused until a directory's mtime
     changes (at most 16 PATHs). The shell writes the file in its prompt hook
-    (`__pine_report_shell`), only when the PATH or the names changed. Why the shell reports
+    (`__pine_report_shell`), only when one of those lines changed. Why the shell reports
     at all: the spawn env misses whatever `.zshrc`/`.bashrc` add to PATH (`~/.local/bin`,
     cargo, pnpm) and every alias and function, so those would all look unknown. Why a file and
     not an OSC like the other marks: see §6 of CLAUDE.md.
+  - Pine prompt (`terminal.prompt`, `shared/promptSettings.ts`, `lib/promptChips.ts`,
+    `lib/usePromptChips.ts`, `components/PromptChips.tsx`, `PromptEditorDialog.tsx`), Warp's
+    context-chip prompt. `style: 'shell'` (default) keeps the cwd line above; `'pine'` replaces
+    it with an ordered row of chips (`chips`), or puts the row before the textarea on the input
+    line when `sameLine` is on, followed by `separator` (`none`, `%`, `$`, `>`). A chip with no
+    value is hidden, like Warp's. Core chips and their sources: `cwd` (the pane's OSC 7 cwd,
+    `~`-abbreviated with main's home), `user`, `host` (main, `os.userInfo`, short hostname),
+    `virtualenv` (folder name of `VIRTUAL_ENV`), `conda` (`CONDA_DEFAULT_ENV`), `node`, `kube`,
+    `date`, `time12`, `time24` (a 15 s clock, only while one is in the list), `exitCode` and
+    `duration` (the newest finished block). The default order is Warp's default without ssh,
+    subshell and kube: conda, virtualenv, node, cwd, `git.branch`, `git.diff-stats`. Warp's
+    branch, diff stats, ssh and subshell chips are not core; branch and diff stats are the
+    built-in git extension's pane chips, listed by id only, so core imports no extension code
+    and a disabled git extension just leaves them hidden (no value). Values from main come from `pty:prompt-context`
+    (`main/promptContext.ts`), fetched when the editor shows and at every new prompt (A
+    marker), answered only for the window attached to the pane. It reads the shell state file
+    (above) and resolves `node` only when the cwd is inside a Node project (a `package.json` at
+    or above it): the version is read off a versioned install path (nvm, fnm, volta), else the
+    resolved binary is run once with `--version` (`execFile`, `shell: false`, 2 s timeout) and
+    cached by real path and mtime. `kube` reads `current-context` from the first `$KUBECONFIG`
+    file (as the shell reported it) or `~/.kube/config`, top-level key only, 1 MiB cap, cached
+    by mtime; it isn't in the default list. Why main runs node and not the shell hook: a
+    `node --version` in precmd costs every prompt tens of milliseconds, and the hook must stay
+    cheap (§6 of CLAUDE.md). Clicking the `cwd` chip opens Files (which follows the pane cwd);
+    right-click on the row offers Edit prompt, Copy prompt (chip texts and separator), Copy
+    working directory and Show in Files. Edit prompt (also Settings → Terminal) is a dialog
+    with a live preview from the active terminal's real values (chips without one are drawn
+    dashed as "no value here"), the ordered list (drag, the arrow buttons, or Alt+↑/↓ on a
+    row's handle, announced through a live region), the available chips, the same-line switch
+    and the separator; Save writes the whole object and sets `style: 'pine'`.
+    Extension chips are the pane chips of the extension API (`contributes.paneChips`,
+    `ext.setPaneChip`): the id `<extId>.<chip>` sits in the same ordered list, the dialog lists
+    every enabled extension's chips from `usePaneChipCatalog()`, and the row reads the pane's
+    values from `usePaneChips(paneId)` (`lib/paneChips.ts`, over `extensionsStore.chips`),
+    the same source as the pane-header badges. Tones `neutral` and `brand` draw as the default
+    chip. A click goes through `runPaneChip`: focus the pane, then run `<extId>.<command>`, so
+    the extension sees the pane as its caller. Why one source: a second prompt-only store would
+    need its own feed and drift from the header.
+    Plain shell prompt: when the Pine prompt is on in editor mode, `pty:attach` gets
+    `pinePrompt` (the separator) and main starts zsh/bash with `PINE_PROMPT=pine` and
+    `PINE_PROMPT_SEPARATOR` (see Shell integration). Why: the chips already show the context,
+    and a framework prompt left in scrollback (right prompts, clocks, multi-line frames) is
+    noise above every block. It is decided at spawn, so terminals already open keep their
+    prompt until a new shell starts (the settings text says so).
   - Syntax highlighting: `lib/shellTokens.ts` `tokenizeShell` splits the draft into tokens
     that cover every character (command, argument, flag, string, variable, assignment,
     operator, comment, space); a command token is colored as unknown (the palette's red) when
@@ -506,6 +592,15 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   `tabs` stack of panes with one shown (`activeId`). The pane header is a tab strip (one tab for
   a lone pane) with new terminal tab, new browser tab and split buttons; a tab's pane id is still
   the identity for its pty, attention and surface.
+  - Extension pane chips (`components/PaneChips.tsx`) sit between the attention message and the
+    Resume button as outline badges tinted by tone; a chip with a command is a button that
+    focuses the pane and runs `<extId>.<command>` from the palette registry, so the extension's
+    caller context names that pane. Other views read chips through `lib/paneChips.ts`:
+    `usePaneChips(paneId)` returns the pane's chips in catalog order with their titles, and
+    `usePaneChipCatalog()` lists every chip enabled extensions contribute
+    (`{extId, extName, id, title}`), both pure over `extensionsStore` (`chipsForPane`,
+    `paneChipCatalog`). Why a catalog: a view that lays chips out itself (a Warp-style prompt)
+    must know which chips exist before any has a value.
   - Splits (`insertBeside`) and edge drops target the tab stack's slot, not the pane inside it;
     a center drop moves the pane into the target's tabs (`addTab`). Why: splitting inside a tab
     would nest layouts in a tab, which nobody can see or navigate.
@@ -671,6 +766,7 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   Built-ins (`commands/builtins.ts`): `pane.*` (split/close/focus/zoom/move/list), `workspace.new/list/save`,
   `palette.toggle`, `view.toggleRail`, `app.openSettings`, `attention.set/notify/jumpToLatest`,
   `block.selectPrev/selectNext/copyCommand/copyOutput/copyBoth/rerun`, `history.search/insert`,
+  `workflows.search`,
   `editor.open`, `browser.new/open`, `settings.get/set`.
 - Extension palette commands (`<extId>.<command>`, e.g. `git.show`) are registered and
   unregistered at runtime by `commands/extensionBridge.ts` as extensions are enabled/disabled.
@@ -682,9 +778,10 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 - **Chords** (`lib/chords.ts`): macOS uses Cmd+K (palette), Cmd+\ (sidebar), Cmd+, (settings),
   Cmd+Shift+U (jump to latest unread), Cmd+Shift+H (command history), Cmd+T (new workspace),
   Cmd+Shift+E / Ctrl+Shift+E (send a file view's selection to an agent; Why E: Monaco already
-  binds Ctrl+Shift+A, C, G, I, K, L, M, O, R and Z),
+  binds Ctrl+Shift+A, C, G, I, K, L, M, O, R and Z), Cmd+Shift+S / Ctrl+Shift+S (search saved
+  workflows; Why not Warp's Ctrl+Shift+R: that is agent resume here, and S is free in Monaco),
   Cmd+↑/↓ (previous/next block) and native Cmd+C/V/F. Other platforms use Ctrl+Shift+P,
-  Ctrl+Shift+B, Ctrl+, Ctrl+Shift+U, Ctrl+Shift+H, Ctrl+Shift+T, Ctrl+Shift+↑/↓ and
+  Ctrl+Shift+B, Ctrl+, Ctrl+Shift+U, Ctrl+Shift+H, Ctrl+Shift+S, Ctrl+Shift+T, Ctrl+Shift+↑/↓ and
   Ctrl+Shift+C/V/F (copy/paste/find). Plain Ctrl+T stays with the shell (readline transpose). On Linux some IBus
   setups claim Ctrl+Shift+U for Unicode entry before the app sees it; the palette's "Jump to
   Latest Unread" and the bell still work there.
@@ -851,6 +948,7 @@ see external ids.
 | `attention.ts` | `pane.setAttention` | `pine state`; see §5 "Live workspace state and attention" |
 | `docs.ts` | `docs` | Static CLI help, no capability needed |
 | `paneList.ts` | `pane.list`, `workspace.list` | Needs `read-board`; panes without an external id are omitted |
+| `workflows.ts` | `workflow.list` | Needs `read-board`; the caller's own workspace's `.pine/workflows`, the user's folder and extension workflows as `{workflows, problems}`. `pine workflow list|show` read it; there is no run or save verb (§4) |
 
 - **`process.*`**:
   - Uses `child_process.spawn` with `detached`, so `killTree` can signal the process group and
@@ -1280,9 +1378,19 @@ over in-process JS extensions: `docs/ROADMAP.md` §2. Authoring guide: `docs/EXT
 **Discovery** (`extensionManifest.ts`). Every subdirectory of a root that has a `pine.json` is a
 candidate. Roots: the built-in dir, then the user dir. The manifest is validated strictly (id
 slug, known capabilities, `main` and file-panel paths must resolve inside the extension dir,
-anything with commands/sidebar items/url panel needs `main`). A broken manifest is logged and
+anything with commands/sidebar items/url panel needs `main`; `contributes.workflows` are checked
+with the same `parseWorkflow` as workflow files and need no `main`). A broken manifest is logged and
 skipped without affecting the others. A user extension reusing a built-in id is rejected.
-Discovery runs once at startup.
+Discovery runs at startup and again whenever the user extensions directory changes
+(`watchUserExtensions`: `fs.watch` on the root and each of its subdirectories, 250 ms debounce,
+then `rescan`). A new id gets a fresh runtime (a user extension is `pending-approval`, so the
+approval dialog appears on its own); a removed or now-invalid one is stopped and dropped with its
+sidebar items and chips; a changed manifest (compared as JSON with its dir) is stopped and
+swapped in, and restarted after its old process exits if it was running. Why each subdirectory
+too: on Linux a watch on the root sees `mkdir hello` but not `hello/pine.json` being written, so
+an extension copied in file by file would stay invisible. Why approval still holds: `rescan`
+never touches `extensions.json`; granted caps stay manifest ∩ approved, so a manifest edited to
+ask for more gets nothing new until the human reviews it.
 
 **Approval** (`extensionStore.ts`, `userData/extensions.json`).
 - Granted caps = manifest `capabilities` ∩ the human's approved list. Built-ins are pre-approved
@@ -1303,6 +1411,20 @@ panes can call everything else including `ext.list` / `ext.invoke`. Why: pane me
 "self" from a pane id, and an extension has none; letting it through would make `command.exec`
 target whichever window happened to be first.
 
+**Targetable methods** (`registerTargetableMethod`: every `browse.*` in `browse.ts`, every
+`process.*`, `pane.setAttention`). An extension may call them only with `targetPaneId` (an
+external pane id); `controlServer` then requires the method's own capability **and**
+`all-workspaces` from the extension's granted caps, strips `targetPaneId`, and runs the handler
+with the target pane's identity as "self" (window, workspace, pane) while capability checks still
+use the extension's connection. A missing target is `needs-target`, a non-pane id
+`unknown-target`. Pane callers are unchanged. Why `all-workspaces`: an extension owns no pane, so
+every pane is "another" pane, and acting on another pane has always needed `all-workspaces`;
+reusing it keeps the capability model as it was and still needs the human's approval in the
+manifest. Why act as the target instead of adding extension variants: the handlers already
+resolve everything from "self", so the default browser pane, the process's workspace and the
+attention target all follow the pane the extension named. `browsePick.ts` is not targetable: pick
+waits on the human's click and pastes into an agent pane.
+
 **Processes** (`extensionHost.ts`).
 - `main` ending in `.js/.cjs/.mjs` runs with the app's Electron binary and
   `ELECTRON_RUN_AS_NODE=1` (like the `pine` CLI), anything else is executed directly; cwd is the
@@ -1319,14 +1441,20 @@ target whichever window happened to be first.
   stdout as JSON before the error line and exits 1. Why: `pine system install` must tell the agent
   `{approved: false, command}` and still fail.
 - On exit the identity is revoked, the server-side connection is disposed (which rejects any
-  in-flight request immediately rather than at the 30 s timeout), subscriptions and sidebar items
-  are dropped, and the process is restarted after 500 ms · 2ⁿ, at most 3 times; then the status
-  is `crashed` until the user disables and re-enables it.
+  in-flight request immediately rather than at the 30 s timeout), subscriptions, sidebar items
+  and pane chips are dropped, and the process is restarted after 500 ms · 2ⁿ, at most 3 times;
+  then the status is `crashed` until the user disables and re-enables it.
+- Stopping (disable, removal, a changed manifest) revokes the identity and disposes the
+  connection at once, before SIGTERM. Enabling it again while the old process is still exiting
+  marks it `restartAfterExit`, and `onExit` starts the new process. Why: until the exit event the
+  runtime still held the dying connection, so an invoke right after off → on was sent to it and
+  failed with "connection got disposed".
 - `before-quit` sends SIGTERM to every extension process.
 
 **Methods.** Extension → pine: `ext.registerCommands`, `ext.subscribe`, `ext.setSidebarItem`,
+`ext.setPaneChip`, `ext.clearPaneChip`, `ext.getSettings`,
 `ext.notify` (needs `notify`), `ext.openPanel`, `ext.openDiff`, `ext.confirm`, `ext.openTerminal`
-(needs `shell`), plus the shared
+(needs `shell`), the targetable pane methods above, plus the shared
 read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`). Pine → extension:
 `ext.command` and `ext.panel` requests, `ext.event` notifications. Pane → pine: `ext.list`,
 `ext.invoke`.
@@ -1362,9 +1490,43 @@ read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`
   default; it resolves `{confirmed}`. Why a dialog in main rather than in the panel: the action
   may come from the palette or an agent's `pine` call with no panel open, and a confirm the
   extension draws itself proves nothing about the human.
-- `ext.notify {…, openPanel: true}` (extensions with a panel) records the notification with the
-  extension's id (`NotificationEntry.extId`); clicking it, on the desktop or in the notification
-  center, opens that extension's panel instead of jumping to a pane.
+- `ext.notify {…, openPanel: true | path}` (extensions with a panel) records the notification
+  with the extension's id (`NotificationEntry.extId`); clicking it, on the desktop or in the
+  notification center, opens that extension's panel (at `path` if given) instead of jumping to a
+  pane. The notification-center entry keeps that path (`NotificationEntry.panelPath`), so a
+  click in the bell opens the same page as a click on the desktop notice; the renderer hands it
+  back through `openExtensionPanel`, and main checks it again in `resolvePanel`.
+- Pane chips: `contributes.paneChips` declares up to 8 `{id, title}`; `ext.setPaneChip {paneId,
+  id, text, tooltip?, tone?, command?, url?}` resolves the external pane id to the renderer pane id,
+  keys the value by (extension, pane, chip), clips text to 40 and tooltip to 200 characters, and
+  accepts `command` only if it is one of the extension's own palette commands. Empty text or
+  `ext.clearPaneChip` removes it; `pane-closed` (`clearPaneChips`) and the extension stopping
+  remove all of theirs. Main pushes the whole list on `extensions:chips`; the renderer keeps it in
+  `extensionsStore.chips`. Why no capability: a chip is display on a pane like a sidebar item on
+  a workspace, and it can only run a command the extension already offers in the palette, through
+  the palette path with the human's click. A chip may instead carry a `url` (http/https,
+  `sidebarItemUrl`; never together with `command`): a click opens it in the browser pane of the
+  chip's pane's workspace (`paneChipAction` → `openSidebarUrl`), in the header and in the Pine
+  prompt's chip row alike. Why a URL and not `browse.open` from the extension: opening a page is
+  the human's click, and a link needs neither `browse` nor `all-workspaces` (the ports chip).
+- Command arguments: a manifest command may declare `argument` (a label, 80 chars). The palette
+  then shows a second step with that label as the input's placeholder; Enter runs the command
+  with `{argument}`, and `extensions:invoke` passes it on as `{argv: [value]}` only if the command
+  declares an argument and the value passes `commandArgument` (trimmed, 1–1000 chars, no control
+  characters, `ExtensionHost.paletteArgs`). Otherwise palette commands still get `null` args. Why
+  one value as `argv[0]`: the extension parses it exactly like `pine <ext> <command> <value>`, so
+  one handler serves the palette and the CLI, and there is no form language to maintain.
+- Settings: `contributes.settings` maps keys to `{type: string|number|boolean|enum, default,
+  description, values?}` (32 max; the default must match the type). Main keeps the stored values
+  (`extensionSettings` in `settings.json`, read at start and again when sync pulls
+  `settings.json`), validates every change from Settings → Plugins (`extensions:set-setting`,
+  `null` resets a key), answers `ext.getSettings` with defaults + valid stored values, and sends
+  `ext.event {type: 'settings.changed', payload: {values}}` to a running extension when its values
+  change. The renderer persists what main returned (`setExtensionSettings`) with the rest of
+  `settings.json`. Why main validates while the renderer writes: the renderer owns the file (it
+  rewrites it whole), and an extension must never see a value its manifest didn't allow; stored
+  values of the wrong type fall back to the default instead of failing. `extensionSettings` is not
+  in the settings store's `DATA_KEYS`, so `pine settings set` can't change it.
 - Command caps declared in the manifest are checked against the caller before the process is
   even started. The extension receives the caller context (`kind`, external `paneId`,
   `workspaceId`, `workDir`, `capabilities`) and may enforce conditional rules itself (for example
@@ -1382,6 +1544,8 @@ read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`
   opening a page needs no round trip, and an extension still can't drive the browser.
 - `pane.list` gives terminal panes with a live pty their shell `pid`. Why: the process tree
   below it is how an extension learns what a pane is running (ports, ssh) without a core view.
+  A file view (`kind: 'editor'`) carries its `filePath`. Why: a palette command's caller names
+  the focused pane, and without the path an extension can't act on "the open file" (git blame).
 
 **Panels.** `ExtensionPanelView` asks main for the source (`extensions:panel`):
 - file entry: `file://` URL of the html inside the extension dir;
@@ -1395,6 +1559,17 @@ renderer injects the theme into the guest as `--pine-*` custom properties (`lib/
 Why panels talk only to their own process: the guest has no `window.pine` and no token, so a
 compromised or buggy panel can do no more than its extension already can.
 
+Panel paths: `ext.openPanel {path}` and a notification with `openPanel: path` send the path to the
+renderer; `openExtensionPanel` focuses the extension's panel pane in that workspace (or opens it)
+and records `panelNav[paneId] = {path, seq}`. `ExtensionPanelView` re-resolves its source with
+the path and, if a page is already showing, keeps the webview and only changes its `src`, so the
+panel navigates instead of opening a second one. A path must start with one `/` and contain no
+whitespace, control characters or backslashes (`panelPath`). For a file panel main maps it into
+the extension dir (percent-decoded, query and hash kept); for a `url` panel it passes `path` to
+the process in `ext.panel` so the extension can build the URL with its own secret. Either way the
+result must pass `isAllowedPanelUrl` before it is returned. Why re-check in main: setting a
+webview's `src` does not fire `will-navigate`, so the attach-time check is the only other guard.
+
 **Git** (`src/extensions/git/`, the first built-in written for the API rather than migrated):
 - Sidebar: per workspace, the repo of the workspace's active pane cwd (else the last active
   terminal's, else the first terminal's, else the workDir; `workspaces.ts`) gets one item:
@@ -1402,19 +1577,48 @@ compromised or buggy panel can do no more than its extension already can.
   (untracked or staged adds) and `~changed` (everything else), counted per path from
   `git status --porcelain=v2 --branch -z --untracked-files=all` (`status.ts`). Non-repo → no
   item. Refreshed 300 ms after `cwd.changed`, `command.finished`, `pane.created/closed`, and
-  every 10 s only while a pine window is focused (`focus.changed`); a refresh in flight coalesces
-  the next. Why the poll: edits by an editor or agent outside a terminal command fire no event.
+  every `pollSeconds` (setting, default 10, clamped to 2..3600 by `readGitSettings`) only while
+  a pine window is focused (`focus.changed`); a refresh in flight coalesces the next. Why the
+  poll: edits by an editor or agent outside a terminal command fire no event. Why the cap: Node
+  turns a `setInterval` delay above 2^31-1 ms into 1 ms, so an unbounded value meant nonstop git.
+- Pane chips, in the same refresh: every terminal pane whose cwd is in a repo gets `branch`
+  (`branchChipText`: branch or short sha, then `• ↑ahead ↓behind` against an upstream, counts
+  capped at `999+`, Warp's branch status format) and `diff-stats` (`files • +added -removed` from
+  `git -c diff.autoRefreshIndex=false diff --shortstat HEAD`, Warp's GitDiffStats source;
+  hidden when clean or when the `showDiffStats` setting is off). Status and shortstat run once
+  per distinct cwd/root per refresh, and a chip is sent only when its text changed. The branch
+  chip carries `command: 'show'`, so clicking it opens the panel. Why `diff-stats` and not
+  `diffStats`: pane chip ids share the command id pattern (lowercase and dashes). Why shortstat
+  against `HEAD`: it counts staged and unstaged lines together and ignores untracked files, the
+  same numbers Warp shows, and it costs one process per repo.
 - Git runs with `GIT_OPTIONAL_LOCKS=0` so background status never takes the index lock from
   the user's own git commands.
 - Diff sides: staged = `HEAD` vs index, unstaged = index vs working file, untracked = empty vs
   working file, conflicted = `HEAD` vs working file (with markers); blobs via `git cat-file blob`.
   Binary (NUL in the first 8000 bytes) and > 2 MiB sides are refused; a symlink shows its target
   path, never the file it points to.
-- Commands: palette "Show Changes" opens the panel (served from its process by `startPanelServer`); the
-  panel lists conflicts/staged/changes/untracked and a click calls `open`, which calls
-  `ext.openDiff`. CLI/agents: `status`, `changes`, `diff <path> [--staged]` (unified patch),
-  `open <path> [--staged]`, all JSON. A path argument must match a changed file (resolved from
-  the caller's cwd, or repo-relative), so it can't be used to read arbitrary files.
+- Commands: palette "Show Changes", "Show Log" (`/log`) and "Blame File" (`/blame?file=…`)
+  open the panel (served from its process by `startPanelServer`; `ext.panel`'s path picks the
+  page). "Blame File" finds the focused file view through `pane.list`'s `filePath` for the
+  caller's pane and fails with `no-file` for anything else. The Changes page lists
+  conflicts/staged/changes/untracked; a row click calls `open` (`ext.openDiff`), and per-row and
+  per-section buttons stage (`git add -A`), unstage (`git reset -q HEAD`, or `git rm --cached`
+  before the first commit) and discard. The commit box commits the index only (`git commit -q
+  -m`) and shows git's own error text (stderr, else stdout: "nothing to commit" is on stdout).
+  The Log page lists `git log` records (`%H %an %ae %at %s` split by 0x1f/0x1e, `history.ts`)
+  with relative dates; expanding a commit lists its files (`git diff --name-status -z -M` against
+  the first parent, `diff-tree --root` for a root commit) and a file opens parent vs commit in
+  the diff pane. The Blame page renders `git blame --porcelain` (`parseBlamePorcelain`), one
+  author/sha/date cell per run of lines from the same commit. CLI/agents: `status`, `changes`,
+  `diff <path> [--staged]` (unified patch), `open <path> [--staged]`, `log [--limit n] [--json]`,
+  `blame <file> [--json]`, `stage|unstage <paths>|--all`, `commit -m <msg>`. A diff/open path
+  must match a changed file (resolved from the caller's cwd, or repo-relative), so it can't be
+  used to read arbitrary files; blame finds the repo from the file's own directory.
+- Discard is a panel-only handler (`panelHandlers`), not a manifest command, so neither the
+  palette nor `pine git` can reach it: it restores unstaged files from the index (`git checkout
+  --`) and deletes untracked ones (`git clean -f --`), only after `ext.confirm` lists the files.
+  Why: it destroys work that no commit holds, so only the human decides. Every path-taking call
+  passes `--literal-pathspecs`, so a file name like `:(glob)*` is a name, never pathspec magic.
 
 **Ports** (`src/extensions/ports/`). Every 3 s while a pine window is focused (and 400 ms after
 pane and command events) it takes the `pid` of each terminal from `pane.list` and walks the
@@ -1425,9 +1629,15 @@ no shell). Sockets that Pine's main process (the extension's parent) also holds 
 because pty children inherit main's descriptors. Per workspace, up to 6 ports become `:port`
 items with `url: http://localhost:<port>/`. A tree process named `ssh` in its terminal's
 foreground process group (`pgrp == tpgid`) gives an `ssh` item with the destination host,
-parsed from its argv (`sshTarget`: skips ssh's value options, handles `--` and `ssh://`,
-refuses anything that isn't a plain host name, and shows nothing for `-G`/`-V`/`-Q`/`-O`); no
-network calls. `pine ports ls [--all]` returns the same data (`--all` needs `all-workspaces`).
+parsed from its argv (`sshLogin`: skips ssh's value options, keeps `-l user` / `user@` /
+`ssh://user@`, handles `--`, refuses anything that isn't a plain host name, drops a user name
+that isn't plain text, and shows nothing for `-G`/`-V`/`-Q`/`-O`); no network calls. Per
+terminal pane it also sets two pane chips (`chips.ts`): `ports` (`:3000 :5173 +2`, cut to the
+40-char chip limit, with a `url` to its first port) and `ssh` (`user@host`, like Warp's remote
+login chip); chips are diffed like the sidebar items and cleared when their pane stops showing
+them. Settings: `intervalSeconds` (1–60, the focused scan interval) and `portHost`
+(`localhost` or `127.0.0.1` for the port links). Why a host setting: `localhost` may resolve to
+`::1` first, and a dev server bound to `127.0.0.1` only then fails to load. `pine ports ls [--all]` returns the same data (`--all` needs `all-workspaces`).
 The rail hides these items with `sidebar.showPorts` / `sidebar.showSSH`
 (`lib/sidebarItems.ts`), under `sidebar.showExtensionItems`.
 
@@ -1451,7 +1661,14 @@ but the public API.
   history doesn't notify; acks are batched every 2 s; the follower restarts with backoff
   (2 s · 2ⁿ, 5 min cap). A card moved by an `agent:` actor into a column named like
   review/needs-you/waiting (or blocked) in a project some workspace has open posts a notification
-  that opens the panel. "Trellis: Init Project Here" runs `trellis init` in the caller's cwd
+  whose click opens the panel at `/p/<KEY>/card/<REF>` (`cardPath`), or navigates the open panel
+  there; `ext.panel` with an allowed path (`isAppPath`: `/`, a project, a board or a card) returns
+  the proxy's entry link for it. When the card's project isn't in the last known set, the
+  extension lists the workspaces again before dropping the event. Why: the extension starts with
+  the window, before the renderer has reported its workspaces, so its first refresh sees none and
+  a review notice right after launch was lost. Settings: `notifyReview`, `notifyBlocked` and
+  `refreshSeconds` (10–3600). "Trellis: Open Card" (`card <REF>`, palette `argument`) opens the
+  panel at a card; the ref is upper-cased and must look like `KEY-123`. "Trellis: Init Project Here" runs `trellis init` in the caller's cwd
   (else workDir) after `ext.confirm`.
 - *keeper* (`src/extensions/keeper/`). Only three argv are ever run (`isAllowedKeeperCall`):
   `daemon status` (never starts the daemon), then `approve --json` (list mode: no ticket, so it
@@ -1459,8 +1676,12 @@ but the public API.
   dashboard origin). Both of the latter auto-start the daemon, so they run only when `daemon
   status` says it's up. Polling: 5 s while approvals wait or a window has focus, 60 s otherwise,
   exponential backoff (to 5 min) while the daemon is down, none once keeper is missing (focus
-  re-checks). The footer item appears only while something waits; a new ticket posts "Keeper
-  needs approval", which opens the panel on `/approvals`. The approval list keeps ticket, agent,
+  re-checks); the 5 s and 60 s are the `pollSeconds` and `idlePollSeconds` settings, and `notify`
+  turns the notices off. The footer item appears only while something waits; a new ticket posts
+  "Keeper needs approval" with the panel path `/approvals`. Why not the ticket's own page:
+  Keeper's dashboard routes are `/approvals`, `/r/:requestId` (a local input/authorization
+  request, not an approval ticket) and section pages; the approvals list keeps the open row in
+  component state, so no URL addresses one ticket. The approval list keeps ticket, agent,
   workspace, intent, connection, tier and age, never the SQL; nothing about connections or DSNs
   passes through pine.
 - Unavailable tools: no sidebar items, commands fail with a message that says what to install or

@@ -26,14 +26,35 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
   }
   if (command === 'crash') process.exit(3)
   if (command === 'stdin') return { ok: true, text: `stdin:${args.stdin}` }
+  if (command === 'chip') return conn.sendRequest('ext.setPaneChip', args)
+  if (command === 'unchip') return conn.sendRequest('ext.clearPaneChip', args)
+  if (command === 'settings') return { ok: true, data: await conn.sendRequest('ext.getSettings') }
+  if (command === 'seen-settings') return { ok: true, data: seenSettings }
+  if (command === 'open-panel') return conn.sendRequest('ext.openPanel', args)
+  if (command === 'notify-panel') {
+    return conn.sendRequest('ext.notify', { title: 'look', openPanel: args.openPanel })
+  }
+  if (command === 'call') {
+    try {
+      return { ok: true, data: await conn.sendRequest(args.method, args.params) }
+    } catch (err) {
+      return { ok: false, error: 'rejected', message: err.message }
+    }
+  }
   return { ok: false, error: 'unknown' }
 })
 
-conn.onRequest('ext.panel', ({ caller }) => ({
-  url: `http://127.0.0.1:9/?workspace=${encodeURIComponent(caller.workspaceId || '')}`,
+let seenSettings = null
+
+conn.onRequest('ext.panel', ({ caller, path }) => ({
+  url: `http://127.0.0.1:9${path || '/'}?workspace=${encodeURIComponent(caller.workspaceId || '')}`,
 }))
 
 conn.onNotification('ext.event', ({ type, payload }) => {
+  if (type === 'settings.changed') {
+    seenSettings = payload.values
+    return
+  }
   void conn.sendRequest('ext.setSidebarItem', { key: type, text: `${type}:${payload.paneId}` })
 })
 
@@ -44,6 +65,22 @@ socket.on('connect', async () => {
   await conn.sendRequest('hello', { token: process.env.PINE_TOKEN })
   await conn.sendRequest('ext.subscribe', { events: ['pane.created'] })
   await conn.sendRequest('ext.registerCommands', {
-    commands: ['echo', 'guarded', 'probe', 'notify', 'diff', 'workspaces', 'crash', 'stdin'],
+    commands: [
+      'echo',
+      'guarded',
+      'probe',
+      'notify',
+      'diff',
+      'workspaces',
+      'crash',
+      'stdin',
+      'chip',
+      'unchip',
+      'settings',
+      'seen-settings',
+      'open-panel',
+      'notify-panel',
+      'call',
+    ],
   })
 })

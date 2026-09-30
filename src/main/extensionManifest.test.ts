@@ -57,9 +57,89 @@ describe('parseManifest', () => {
           ],
           sidebarItems: true,
           panel: { title: 'Demo', icon: 'puzzle', entry: 'ui/panel.html' },
+          paneChips: [],
+          settings: [],
         },
       },
     })
+  })
+
+  it('parses pane chips and typed settings in manifest order', () => {
+    const res = parseManifest(
+      manifest({
+        contributes: {
+          paneChips: [
+            { id: 'branch', title: 'Git branch' },
+            { id: 'env', title: 'Python env' },
+          ],
+          settings: {
+            interval: { type: 'number', default: 5, description: 'Poll every N seconds' },
+            label: { type: 'string', default: '', description: 'Shown text' },
+            loud: { type: 'boolean', default: false, description: 'Notify' },
+            mode: {
+              type: 'enum',
+              values: ['fast', 'slow', 'fast'],
+              default: 'slow',
+              description: 'Speed',
+            },
+          },
+        },
+      }),
+      DIR,
+    )
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.paneChips).toEqual([
+      { id: 'branch', title: 'Git branch' },
+      { id: 'env', title: 'Python env' },
+    ])
+    expect(res.manifest.contributes.settings).toEqual([
+      { key: 'interval', type: 'number', default: 5, description: 'Poll every N seconds' },
+      { key: 'label', type: 'string', default: '', description: 'Shown text' },
+      { key: 'loud', type: 'boolean', default: false, description: 'Notify' },
+      {
+        key: 'mode',
+        type: 'enum',
+        values: ['fast', 'slow'],
+        default: 'slow',
+        description: 'Speed',
+      },
+    ])
+  })
+
+  it('rejects a setting whose default does not match its type', () => {
+    const setting = (s: Record<string, unknown>) =>
+      parseManifest(manifest({ contributes: { settings: { k: s } } }), DIR)
+    expect(setting({ type: 'number', default: '5', description: 'd' })).toEqual({
+      ok: false,
+      error: 'contributes.settings.k: default does not match type number',
+    })
+    expect(setting({ type: 'enum', values: ['a'], default: 'b', description: 'd' }).ok).toBe(false)
+    expect(setting({ type: 'enum', default: 'a', description: 'd' }).ok).toBe(false)
+    expect(setting({ type: 'date', default: 'x', description: 'd' }).ok).toBe(false)
+    expect(setting({ type: 'boolean', default: true }).ok).toBe(false)
+    expect(
+      parseManifest(
+        manifest({ contributes: { settings: { 'bad key': { type: 'boolean', default: true } } } }),
+        DIR,
+      ).ok,
+    ).toBe(false)
+  })
+
+  it('rejects duplicate pane chips and pane chips without a process', () => {
+    const dup = {
+      paneChips: [
+        { id: 'a', title: 'A' },
+        { id: 'a', title: 'B' },
+      ],
+    }
+    expect(parseManifest(manifest({ contributes: dup }), DIR).ok).toBe(false)
+    const noMain = {
+      id: 'demo',
+      name: 'Demo',
+      version: '1',
+      contributes: { paneChips: [{ id: 'a', title: 'A' }] },
+    }
+    expect(parseManifest(noMain, DIR).ok).toBe(false)
   })
 
   it('marks a command interactive only when the manifest says exactly true', () => {
@@ -78,6 +158,26 @@ describe('parseManifest', () => {
     const [ask, quick] = res.manifest.contributes.commands
     expect(ask.interactive).toBe(true)
     expect(quick).not.toHaveProperty('interactive')
+  })
+
+  it('keeps a command argument label only when it is short text', () => {
+    const res = parseManifest(
+      manifest({
+        contributes: {
+          commands: [
+            { id: 'card', title: 'Open Card', argument: 'Card id' },
+            { id: 'long', title: 'Long', argument: 'x'.repeat(81) },
+            { id: 'odd', title: 'Odd', argument: 3 },
+          ],
+        },
+      }),
+      DIR,
+    )
+    if (!res.ok) throw new Error(res.error)
+    const [card, long, odd] = res.manifest.contributes.commands
+    expect(card.argument).toBe('Card id')
+    expect(long).not.toHaveProperty('argument')
+    expect(odd).not.toHaveProperty('argument')
   })
 
   it('rejects ids that are not lowercase slugs', () => {
@@ -143,6 +243,39 @@ describe('parseManifest', () => {
       DIR,
     )
     expect(res.ok && res.manifest.contributes.panel).toEqual({ title: 'P', entry: 'url' })
+  })
+})
+
+describe('parseManifest — workflows', () => {
+  it('accepts workflows without a main process and validates each one', () => {
+    const noMain = { id: 'demo', name: 'Demo', version: '1' }
+    const res = parseManifest(
+      {
+        ...noMain,
+        contributes: {
+          workflows: [
+            {
+              name: 'Tail logs',
+              command: 'tail -f {{file}}',
+              arguments: [{ name: 'file', default_value: 'app.log' }],
+            },
+          ],
+        },
+      },
+      DIR,
+    )
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.workflows).toEqual([
+      {
+        name: 'Tail logs',
+        command: 'tail -f {{file}}',
+        tags: [],
+        arguments: [{ name: 'file', defaultValue: 'app.log' }],
+      },
+    ])
+    const bad = parseManifest({ ...noMain, contributes: { workflows: [{ name: 'x' }] } }, DIR)
+    expect(bad).toEqual({ ok: false, error: 'contributes.workflows[0]: missing command' })
+    expect(parseManifest({ ...noMain, contributes: { workflows: {} } }, DIR).ok).toBe(false)
   })
 })
 

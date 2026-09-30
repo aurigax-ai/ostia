@@ -21,9 +21,16 @@ export interface PollState {
   failures: number
 }
 
+export interface PollIntervals {
+  fastMs: number
+  idleMs: number
+}
+
 export const FAST_POLL_MS = 5_000
 export const IDLE_POLL_MS = 60_000
 export const MAX_BACKOFF_MS = 5 * 60_000
+export const DEFAULT_INTERVALS: PollIntervals = { fastMs: FAST_POLL_MS, idleMs: IDLE_POLL_MS }
+export const APPROVALS_PATH = '/approvals'
 
 const ALLOWED_ARGS: readonly (readonly string[])[] = [
   ['daemon', 'status'],
@@ -92,11 +99,14 @@ export function parseApprovals(stdout: string): KeeperApproval[] | null {
   return out
 }
 
-export function nextPollDelay(s: PollState): number | null {
+export function nextPollDelay(
+  s: PollState,
+  intervals: PollIntervals = DEFAULT_INTERVALS,
+): number | null {
   if (!s.installed) return null
   if (s.failures > 0) return Math.min(MAX_BACKOFF_MS, FAST_POLL_MS * 2 ** Math.min(s.failures, 10))
-  if (s.pending > 0 || s.focused) return FAST_POLL_MS
-  return IDLE_POLL_MS
+  if (s.pending > 0 || s.focused) return intervals.fastMs
+  return intervals.idleMs
 }
 
 export function newTickets(previous: ReadonlySet<string>, current: KeeperApproval[]): string[] {
