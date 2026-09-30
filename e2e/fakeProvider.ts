@@ -6,9 +6,18 @@ export interface FakeRequest {
   stream: boolean
   system: string
   last: string
+  tools: string[]
+  toolResult?: string
 }
 
-export type FakeAnswer = (req: FakeRequest) => string
+export interface FakeToolCall {
+  name: string
+  args: Record<string, unknown>
+}
+
+export type FakeReply = string | { toolCalls: FakeToolCall[] }
+
+export type FakeAnswer = (req: FakeRequest) => FakeReply
 
 export interface FakeProvider {
   server: Server
@@ -20,7 +29,43 @@ export interface FakeProvider {
 interface ChatBody {
   model?: string
   stream?: boolean
+  tools?: { function?: { name?: string } }[]
   messages?: { role: string; content: unknown }[]
+}
+
+let callSeq = 0
+
+function chunk(delta: unknown, finish: string | null = null): string {
+  return `data: ${JSON.stringify({
+    id: 'x',
+    object: 'chat.completion.chunk',
+    created: 1,
+    model: 'fake',
+    choices: [{ index: 0, delta, ...(finish ? { finish_reason: finish } : {}) }],
+  })}\n\n`
+}
+
+function streamToolCalls(res: ServerResponse, calls: FakeToolCall[]): void {
+  res.writeHead(200, { 'content-type': 'text/event-stream' })
+  calls.forEach((call, index) => {
+    callSeq += 1
+    res.write(
+      chunk({
+        role: 'assistant',
+        tool_calls: [
+          {
+            index,
+            id: `call_${callSeq}`,
+            type: 'function',
+            function: { name: call.name, arguments: JSON.stringify(call.args) },
+          },
+        ],
+      }),
+    )
+  })
+  res.write(chunk({}, 'tool_calls'))
+  res.write('data: [DONE]\n\n')
+  res.end()
 }
 
 function text(content: unknown): string {
@@ -102,6 +147,8 @@ export function startFakeProvider(answer: FakeAnswer): Promise<FakeProvider> {
     }
     const body = await readJson(req)
     const messages = body.messages ?? []
+    const lastUser = messages.map((m) => m.role).lastIndexOf('user')
+    const toolAfterUser = messages.slice(lastUser + 1).filter((m) => m.role === 'tool')
     const request: FakeRequest = {
       model: body.model ?? '',
       stream: body.stream === true,
@@ -110,10 +157,13 @@ export function startFakeProvider(answer: FakeAnswer): Promise<FakeProvider> {
         .map((m) => text(m.content))
         .join('\n'),
       last: text(messages.filter((m) => m.role === 'user').at(-1)?.content),
+      tools: (body.tools ?? []).map((t) => t.function?.name ?? ''),
+      ...(toolAfterUser.length > 0 ? { toolResult: text(toolAfterUser.at(-1)?.content) } : {}),
     }
     requests.push(request)
     const content = answer(request)
-    if (request.stream) stream(res, content)
+    if (typeof content !== 'string') streamToolCalls(res, content.toolCalls)
+    else if (request.stream) stream(res, content)
     else reply(res, content)
   })
   return new Promise((resolve) => {
