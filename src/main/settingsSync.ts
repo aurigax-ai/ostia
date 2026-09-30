@@ -12,6 +12,7 @@ export const SETTINGS_LOCAL_ONLY_KEYS = [
   'capabilities',
   'approvals',
   'trustedActions',
+  'sandbox',
 ] as const
 
 export interface SyncedFileSpec {

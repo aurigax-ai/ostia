@@ -133,6 +133,7 @@ export interface ConfirmRequest {
   detail?: string
   confirmLabel?: string
   cancelLabel?: string
+  hostTerminal?: string[]
 }
 
 export interface PineExtension {

@@ -47,7 +47,11 @@ function saveVault(path: string, data: VaultData): void {
   saveJson(path, data, { secure: true })
 }
 
-export function registerVaultMethods(): void {
+export interface VaultDeps {
+  isSandboxed?: (workspaceId: string) => boolean
+}
+
+export function registerVaultMethods(deps: VaultDeps = {}): void {
   registerControlMethod('vault.set', {
     cap: 'vault-write',
     handler: async (params, ctx) => {
@@ -73,6 +77,13 @@ export function registerVaultMethods(): void {
   registerControlMethod('vault.get', {
     cap: 'vault-read',
     handler: (params, ctx) => {
+      if (deps.isSandboxed?.(ctx.identity.workspaceId)) {
+        return {
+          ok: false,
+          error: 'sandboxed',
+          message: 'this workspace is sandboxed: ask for the value with `pine secret get <name>`',
+        }
+      }
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()
       const { key, scope } = (params ?? {}) as { key: string; scope?: StoreScope }
       const path = vaultStorePath(scope ?? 'project', ctx.identity.workspaceId)
@@ -120,4 +131,40 @@ export function registerVaultMethods(): void {
       return { ok: true }
     },
   })
+}
+
+export function setGlobalVaultValue(key: string, value: string): boolean {
+  if (!safeStorage.isEncryptionAvailable()) return false
+  const path = storePath('vault', 'global')
+  const store = loadVault(path)
+  store[key] = safeStorage.encryptString(value).toString('base64')
+  saveVault(path, store)
+  return true
+}
+
+export function deleteGlobalVaultValue(key: string): boolean {
+  const path = storePath('vault', 'global')
+  const store = loadVault(path)
+  if (!(key in store)) return false
+  delete store[key]
+  saveVault(path, store)
+  return true
+}
+
+export function vaultKeys(scope: StoreScope, workspaceId: string): string[] {
+  const path = vaultStorePath(scope, workspaceId)
+  return typeof path === 'string' ? Object.keys(loadVault(path)) : []
+}
+
+export function vaultValue(key: string, scope: StoreScope, workspaceId: string): string | null {
+  if (!safeStorage.isEncryptionAvailable()) return null
+  const path = vaultStorePath(scope, workspaceId)
+  if (typeof path !== 'string') return null
+  const raw = loadVault(path)[key]
+  if (raw === undefined) return null
+  try {
+    return safeStorage.decryptString(Buffer.from(raw, 'base64'))
+  } catch {
+    return null
+  }
 }

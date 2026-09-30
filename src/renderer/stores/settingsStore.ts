@@ -27,6 +27,7 @@ import {
 } from '../../shared/notificationSettings'
 import { parsePromptSettings } from '../../shared/promptSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
+import { type SandboxGlobals, parseSandboxGlobals } from '../../shared/sandbox'
 import { normalizeGroupName } from '../../shared/workspaceGroups'
 import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
 import type { Locale } from '../i18n/dict'
@@ -266,6 +267,7 @@ interface Persisted {
   approvals: ApprovalSettings
   actions: UserAction[]
   trustedActions: string[]
+  sandbox?: SandboxGlobals
 }
 
 const DATA_KEYS: readonly string[] = [
@@ -355,6 +357,7 @@ interface SettingsState extends Persisted {
   setTerminalLineHeight: (lineHeight: number) => void
   setSidebar: (patch: Partial<SidebarSettings>) => void
   setWorkspaces: (patch: Partial<WorkspaceSettings>) => void
+  setSandbox: (next: SandboxGlobals) => Promise<void>
   setManager: (patch: Partial<ManagerSettings>) => void
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
@@ -437,6 +440,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     trustedActions: Array.isArray(p.trustedActions)
       ? p.trustedActions.filter((f): f is string => typeof f === 'string')
       : [],
+    sandbox: p.sandbox === undefined ? undefined : parseSandboxGlobals(p.sandbox),
   }
 }
 
@@ -535,6 +539,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     approvals: s.approvals,
     actions: s.actions,
     trustedActions: s.trustedActions,
+    sandbox: s.sandbox,
   }
   const path = await window.pine.settings.path()
   await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
@@ -668,6 +673,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setWorkspaces: (patch) => {
     set((s) => ({ workspaces: { ...s.workspaces, ...patch } }))
     scheduleSave(get)
+  },
+  setSandbox: async (next) => {
+    set({ sandbox: next })
+    await writeSettings(get())
+    await window.pine.sandbox.globalsChanged()
   },
   setManager: (patch) => {
     set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))

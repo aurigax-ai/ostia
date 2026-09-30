@@ -12,12 +12,15 @@ interface UIState {
   filesOpen: boolean
   digitHints: boolean
   promptEditor: { paneId: string | null } | null
+  settingsWorkspaceId: string | null
+  settingsRequest: number
   openPalette: (mode?: PaletteOpenMode) => void
   setPaletteMode: (mode: PaletteOpenMode) => void
   closePalette: () => void
   togglePalette: () => void
   toggleRail: () => void
   openSettings: (section?: string) => void
+  openWorkspaceSettings: (workspaceId: string) => void
   closeSettings: () => void
   leaveSettings: () => void
   toggleFiles: () => void
@@ -37,6 +40,8 @@ export const useUIStore = create<UIState>((set) => ({
   filesOpen: false,
   digitHints: false,
   promptEditor: null,
+  settingsWorkspaceId: null,
+  settingsRequest: 0,
   openPalette: (mode = 'search') => set({ paletteOpen: true, paletteMode: mode }),
   setPaletteMode: (paletteMode) => set({ paletteMode }),
   closePalette: () => set({ paletteOpen: false, paletteMode: 'search' }),
@@ -44,6 +49,13 @@ export const useUIStore = create<UIState>((set) => ({
   toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
   openSettings: (section) =>
     set({ settingsTabOpen: true, settingsActive: true, settingsSection: section ?? null }),
+  openWorkspaceSettings: (workspaceId) =>
+    set((s) => ({
+      settingsTabOpen: true,
+      settingsActive: true,
+      settingsWorkspaceId: workspaceId,
+      settingsRequest: s.settingsRequest + 1,
+    })),
   closeSettings: () => set({ settingsTabOpen: false, settingsActive: false }),
   leaveSettings: () => set({ settingsActive: false }),
   toggleFiles: () => set((s) => ({ filesOpen: !s.filesOpen })),
