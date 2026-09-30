@@ -249,6 +249,10 @@ export const en = {
     notInstalled: 'Extension “{id}” is not installed.',
     panelDisabled: '{name} is disabled. Enable it in Settings → Plugins.',
     panelUnreachable: 'The extension panel did not load.',
+    settingsTitle: '{name} settings',
+    settingInvalid: 'Not saved: {error}',
+    chipsLabel: 'Extension status',
+    chipAction: '{title}: {text}. Click to run {command}.',
   },
   workspaceSettings: {
     title: 'Workspaces',
@@ -853,6 +857,10 @@ export const zhHant: Dict = {
     notInstalled: '未安裝擴充功能「{id}」。',
     panelDisabled: '{name} 已停用。請在「設定 → 外掛」中啟用。',
     panelUnreachable: '擴充功能面板無法載入。',
+    settingsTitle: '{name} 設定',
+    settingInvalid: '未儲存：{error}',
+    chipsLabel: '擴充功能狀態',
+    chipAction: '{title}：{text}。按一下以執行 {command}。',
   },
   workspaceSettings: {
     title: '工作區',
