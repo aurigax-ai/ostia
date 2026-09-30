@@ -76,7 +76,12 @@ export class WorkspaceSandboxes {
     return buildSrtConfig(policy, { ...this.deps.basePaths(), workDir, tmpDir })
   }
 
-  async wrap(workspaceId: string, command: string, binShell: string): Promise<string> {
+  async wrap(
+    workspaceId: string,
+    command: string,
+    binShell: string,
+    extraWrites: string[] = [],
+  ): Promise<string> {
     if (this.deps.store.isCorrupt) {
       throw new SandboxUnavailableError(
         'the sandbox settings file is unreadable; reset it in Settings › Sandbox',
@@ -84,7 +89,11 @@ export class WorkspaceSandboxes {
     }
     const host = await this.host(workspaceId)
     try {
-      return await host.wrap(command, binShell)
+      if (extraWrites.length === 0) return await host.wrap(command, binShell)
+      const { filesystem } = this.config(workspaceId)
+      return await host.wrap(command, binShell, {
+        filesystem: { ...filesystem, allowWrite: [...filesystem.allowWrite, ...extraWrites] },
+      })
     } catch (err) {
       throw new SandboxUnavailableError(err instanceof Error ? err.message : String(err))
     }

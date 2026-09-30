@@ -2,7 +2,13 @@ import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 
 export type HostRequest =
   | { id: number; type: 'init'; config: SandboxRuntimeConfig }
-  | { id: number; type: 'wrap'; command: string; binShell: string }
+  | {
+      id: number
+      type: 'wrap'
+      command: string
+      binShell: string
+      customConfig?: Partial<SandboxRuntimeConfig>
+    }
   | { id: number; type: 'update'; config: SandboxRuntimeConfig }
   | { id: number; type: 'cleanup' }
 

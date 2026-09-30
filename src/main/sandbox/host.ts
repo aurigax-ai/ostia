@@ -33,7 +33,11 @@ async function handle(message: MainToHost): Promise<void> {
       await SandboxManager.initialize(message.config, ({ host, port }) => ask(host, port))
       send({ id, ok: true })
     } else if (message.type === 'wrap') {
-      const wrapped = await SandboxManager.wrapWithSandbox(message.command, message.binShell)
+      const wrapped = await SandboxManager.wrapWithSandbox(
+        message.command,
+        message.binShell,
+        message.customConfig,
+      )
       send({ id, ok: true, wrapped })
     } else if (message.type === 'update') {
       SandboxManager.updateConfig(message.config)
