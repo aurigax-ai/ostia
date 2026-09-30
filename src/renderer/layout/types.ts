@@ -2,7 +2,14 @@ import type { AgentResume } from '@shared/agentResume'
 
 export type Direction = 'horizontal' | 'vertical'
 
-export type SurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension' | 'diff'
+export type SurfaceKind =
+  | 'terminal'
+  | 'editor'
+  | 'agent'
+  | 'browser'
+  | 'extension'
+  | 'diff'
+  | 'manager'
 
 export interface PaneNode {
   type: 'pane'

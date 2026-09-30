@@ -11,6 +11,7 @@ import { DiffView } from './DiffView'
 import { ExtensionPanelView } from './ExtensionPanelView'
 import { FileView } from './FileView'
 import { HibernatedView } from './HibernatedView'
+import { ManagerView } from './ManagerView'
 import { TerminalView } from './Terminal'
 
 interface SurfaceRef {
@@ -32,6 +33,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
       pane.kind === 'editor' ||
       pane.kind === 'browser' ||
       pane.kind === 'diff' ||
+      pane.kind === 'manager' ||
       (pane.kind === 'extension' && pane.extensionId)
     ) {
       out.push({
@@ -74,6 +76,8 @@ export function SurfacePool(): JSX.Element {
             <FileView workspaceId={s.workspaceId} paneId={s.paneId} filePath={s.filePath} />
           ) : s.kind === 'diff' ? (
             <DiffView paneId={s.paneId} />
+          ) : s.kind === 'manager' ? (
+            <ManagerView paneId={s.paneId} />
           ) : s.kind === 'browser' ? (
             <BrowserView workspaceId={s.workspaceId} paneId={s.paneId} url={s.url} />
           ) : s.kind === 'extension' && s.extensionId ? (

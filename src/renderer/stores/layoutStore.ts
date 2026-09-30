@@ -63,6 +63,7 @@ interface LayoutState {
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openDiff: (workspaceId: string, content: DiffContent) => string | null
   openTerminal: (workspaceId: string, opts: OpenTerminalPlacement) => string | null
+  openManager: (workspaceId: string, opts: { cwd: string; title: string }) => string | null
   removeWorkspace: (workspaceId: string) => void
 }
 
@@ -441,6 +442,9 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
     return diffPaneId
   },
+
+  openManager: (workspaceId, opts) =>
+    seedLayout(workspaceId, (p) => ({ ...p, kind: 'manager', cwd: opts.cwd, title: opts.title })),
 
   openTerminal: (workspaceId, opts) => {
     const seeded = seedLayout(workspaceId, (p) => describeTerminal(p, p.id, opts))

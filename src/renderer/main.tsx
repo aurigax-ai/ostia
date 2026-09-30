@@ -13,6 +13,7 @@ import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
 import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
+import { wireManagerBridge } from './commands/managerBridge'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { startHibernation } from './lib/hibernationScheduler'
@@ -32,6 +33,7 @@ registerSelectionSendCommand()
 wireCommandBridge()
 wireTerminalStateBridge()
 wireExtensionBridge()
+wireManagerBridge()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')

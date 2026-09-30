@@ -6,11 +6,12 @@ export interface CloseState {
   quitApproved: boolean
   closeToTray: boolean
   startedHidden: boolean
+  managerLive: boolean
 }
 
 export function closeAction(state: CloseState): CloseAction {
   if (state.quitApproved) return 'close'
-  return state.closeToTray || state.startedHidden ? 'hide' : 'close'
+  return state.closeToTray || state.startedHidden || state.managerLive ? 'hide' : 'close'
 }
 
 export function readCloseToTray(settings: unknown): boolean {

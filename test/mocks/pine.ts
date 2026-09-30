@@ -28,6 +28,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       promptContext: vi.fn().mockResolvedValue(null),
       onData: vi.fn(noopUnsub),
       onExit: vi.fn(noopUnsub),
+      onSize: vi.fn(noopUnsub),
+    },
+    manager: {
+      onOpen: vi.fn(noopUnsub),
     },
     fs: {
       list: vi.fn().mockResolvedValue([]),

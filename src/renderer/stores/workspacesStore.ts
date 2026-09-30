@@ -28,7 +28,7 @@ export type { WorkspaceGroup }
 
 export type WorkspaceState = WorkspaceLiveState
 
-export type WorkspaceKind = 'agent' | 'terminal' | 'scratch'
+export type WorkspaceKind = 'agent' | 'terminal' | 'scratch' | 'manager'
 
 export interface Workspace {
   id: string
@@ -47,7 +47,7 @@ interface WorkspacesState {
   groups: WorkspaceGroup[]
   activeWorkspaceId: string | null
   setActive: (id: string) => void
-  addWorkspace: (workDir?: string, placement?: NewWorkspacePlacement) => void
+  addWorkspace: (workDir?: string, placement?: NewWorkspacePlacement, kind?: WorkspaceKind) => void
   closeWorkspace: (id: string) => void
   setWorkDir: (id: string, workDir: string) => void
   rename: (id: string, name: string) => void
@@ -168,8 +168,8 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     window.pine?.lifecycle?.emit?.({ type: 'workspace-activated', workspaceId: id })
   },
 
-  addWorkspace: (workDir = '~', placement = 'end') => {
-    const workspace = makeWorkspace(workDir)
+  addWorkspace: (workDir = '~', placement = 'end', kind = 'terminal') => {
+    const workspace = makeWorkspace(workDir, kind)
     set((s) => {
       const next = placeNewWorkspace(s, workspace, placement)
       return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId: workspace.id }

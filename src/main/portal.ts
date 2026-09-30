@@ -14,6 +14,8 @@ import { ManagerError, type ManagerService, parseOpenRequest } from './manager'
 import type { CallerVerdict } from './portalCaller'
 
 export function portalSocketPath(packaged: boolean): string {
+  const override = process.env.PINE_PORTAL_SOCKET
+  if (override) return override
   const name = packaged ? PRODUCT_NAME : `${PRODUCT_NAME}-dev`
   return join(process.env.XDG_RUNTIME_DIR || tmpdir(), `${name}-portal.sock`)
 }

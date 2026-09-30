@@ -6,6 +6,7 @@ export const BUILTIN_MANAGER_AGENTS: Readonly<Record<string, readonly string[]>>
 const AGENT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 const MAX_ARGS = 64
 const MAX_ARG_LENGTH = 4096
+const MAX_PATH_LENGTH = 32 * 1024
 
 export function parseManagerAgents(settings: unknown): Record<string, string[]> {
   const agents: Record<string, string[]> = {}
@@ -41,6 +42,7 @@ export interface ManagerOpenRequest {
   cwd: string
   cols: number
   rows: number
+  path?: string
 }
 
 export interface ManagerInfo {
@@ -57,6 +59,7 @@ export interface ManagerDeps {
     cwd: string
     cols: number
     rows: number
+    path?: string
     onExit: () => void
   }) => boolean
 }
@@ -78,12 +81,16 @@ export function parseOpenRequest(raw: unknown): ManagerOpenRequest {
   if (typeof r.cwd !== 'string' || !r.cwd.startsWith('/')) {
     throw new ManagerError('bad-request: cwd')
   }
+  if (r.path !== undefined && (typeof r.path !== 'string' || r.path.length > MAX_PATH_LENGTH)) {
+    throw new ManagerError('bad-request: path')
+  }
   return {
     agent: r.agent,
     args: args as string[],
     cwd: r.cwd,
     cols: clampDim(r.cols, 80),
     rows: clampDim(r.rows, 24),
+    ...(typeof r.path === 'string' ? { path: r.path } : {}),
   }
 }
 
@@ -139,6 +146,7 @@ export class ManagerService {
       cwd: req.cwd,
       cols: req.cols,
       rows: req.rows,
+      ...(req.path === undefined ? {} : { path: req.path }),
       onExit: () => {
         if (this.current === info) this.current = null
       },
