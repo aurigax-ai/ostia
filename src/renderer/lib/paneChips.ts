@@ -32,8 +32,9 @@ export function paneChipCatalog(list: ExtensionInfo[]): PaneChipCatalogEntry[] {
 export function chipsForPane(
   chips: PaneChip[],
   catalog: PaneChipCatalogEntry[],
-  paneId: string,
+  paneId: string | null,
 ): ShownPaneChip[] {
+  if (!paneId) return []
   const shown: ShownPaneChip[] = []
   for (const entry of catalog) {
     const chip = chips.find(
@@ -49,7 +50,7 @@ export function usePaneChipCatalog(): PaneChipCatalogEntry[] {
   return useMemo(() => paneChipCatalog(list), [list])
 }
 
-export function usePaneChips(paneId: string): ShownPaneChip[] {
+export function usePaneChips(paneId: string | null): ShownPaneChip[] {
   const catalog = usePaneChipCatalog()
   const chips = useExtensionsStore((s) => s.chips)
   return useMemo(() => chipsForPane(chips, catalog, paneId), [chips, catalog, paneId])

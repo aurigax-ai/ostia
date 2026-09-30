@@ -7,23 +7,9 @@ import {
 } from '../../shared/promptSettings'
 import type { PromptContext, PromptContextRequest, PtySpawnOptions } from '../../shared/types'
 import type { CommandBlock } from '../stores/blocksStore'
+import type { ShownPaneChip } from './paneChips'
 
 export type ChipTone = 'default' | 'ok' | 'warn' | 'error'
-
-export interface ContributedChip {
-  extId: string
-  id: string
-  text: string
-  tooltip?: string
-  tone?: ChipTone
-  command?: string
-}
-
-export interface ContributedChipInfo {
-  extId: string
-  id: string
-  title: string
-}
 
 export interface ChipValue {
   text: string
@@ -34,7 +20,7 @@ export interface ChipValue {
 export interface ResolvedChip extends ChipValue {
   id: string
   core: CoreChipId | null
-  extension?: ContributedChip
+  extension?: ShownPaneChip
 }
 
 export interface LastCommand {
@@ -133,10 +119,13 @@ export function coreChipValue(id: CoreChipId, inputs: CoreChipInputs): ChipValue
   }
 }
 
+const paneChipTone = (tone: ShownPaneChip['tone']): ChipTone =>
+  tone === 'ok' || tone === 'warn' || tone === 'error' ? tone : 'default'
+
 export function resolvePromptChips(
   order: readonly string[],
   inputs: CoreChipInputs,
-  contributed: readonly ContributedChip[],
+  contributed: readonly ShownPaneChip[],
 ): ResolvedChip[] {
   const chips: ResolvedChip[] = []
   for (const id of order) {
@@ -152,7 +141,7 @@ export function resolvePromptChips(
       id,
       core: null,
       text: extension.text,
-      tone: extension.tone ?? 'default',
+      tone: paneChipTone(extension.tone),
       ...(extension.tooltip ? { tooltip: extension.tooltip } : {}),
       extension,
     })

@@ -17,7 +17,8 @@ import {
 import { type CoreChipId, type PromptSeparator, separatorText } from '@shared/promptSettings'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
-import type { ContributedChipInfo, ResolvedChip } from '../lib/promptChips'
+import { type PaneChipCatalogEntry, paneChipCommandId, runPaneChip } from '../lib/paneChips'
+import type { ResolvedChip } from '../lib/promptChips'
 import { promptLine } from '../lib/promptChips'
 import { useUIStore } from '../stores/uiStore'
 import { Hint } from './Hint'
@@ -50,7 +51,7 @@ export function chipIcon(core: CoreChipId | null, tone: ResolvedChip['tone'] = '
   return CORE_CHIP_ICONS[core]
 }
 
-export function chipName(d: Dict, id: string, catalog: readonly ContributedChipInfo[]): string {
+export function chipName(d: Dict, id: string, catalog: readonly PaneChipCatalogEntry[]): string {
   if (id in d.prompt.chip) return d.prompt.chip[id as CoreChipId]
   const info = catalog.find((c) => `${c.extId}.${c.id}` === id)
   return fmt(d.prompt.extensionChip, { name: info?.title ?? id })
@@ -98,7 +99,6 @@ export function PromptChip({
 
 export function PromptChipRow({
   paneId,
-  workspaceId,
   chips,
   catalog,
   cwd,
@@ -106,9 +106,8 @@ export function PromptChipRow({
   showSeparator,
 }: {
   paneId: string
-  workspaceId: string
   chips: readonly ResolvedChip[]
-  catalog: readonly ContributedChipInfo[]
+  catalog: readonly PaneChipCatalogEntry[]
   cwd?: string
   separator: PromptSeparator
   showSeparator: boolean
@@ -118,11 +117,8 @@ export function PromptChipRow({
   const activate = (chip: ResolvedChip): (() => void) | undefined => {
     if (chip.core === 'cwd') return () => useUIStore.getState().showFiles()
     const ext = chip.extension
-    if (!ext?.command) return undefined
-    const command = ext.command
-    return () => {
-      void window.pine.extensions.invoke(ext.extId, command, { workspaceId, paneId })
-    }
+    if (!ext || !paneChipCommandId(ext)) return undefined
+    return () => void runPaneChip(ext)
   }
   return (
     <ContextMenu>

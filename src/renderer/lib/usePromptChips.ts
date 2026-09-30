@@ -1,8 +1,8 @@
 import type { PromptContext } from '@shared/types'
 import { useEffect, useMemo, useState } from 'react'
 import { useBlocksStore } from '../stores/blocksStore'
-import { usePaneChips } from '../stores/paneChipsStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { usePaneChips } from './paneChips'
 import {
   type CoreChipInputs,
   type ResolvedChip,

@@ -1,9 +1,10 @@
 import type { PromptContext } from '@shared/types'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { commands } from '../commands/registry'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
-import { usePaneChipsStore } from '../stores/paneChipsStore'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { InputEditor } from './InputEditor'
@@ -41,7 +42,6 @@ function renderEditor() {
   return render(
     <InputEditor
       paneId={PANE}
-      workspaceId="ws-prompt"
       cwd="/home/u/proj"
       fontFamily="monospace"
       fontSize={13}
@@ -60,13 +60,13 @@ describe('Pine prompt in the input editor', () => {
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
-  let chipsInit: ReturnType<typeof usePaneChipsStore.getState>
+  let chipsInit: ReturnType<typeof useExtensionsStore.getState>
 
   beforeAll(() => {
     blocksInit = useBlocksStore.getState()
     settingsInit = useSettingsStore.getState()
     uiInit = useUIStore.getState()
-    chipsInit = usePaneChipsStore.getState()
+    chipsInit = useExtensionsStore.getState()
   })
 
   beforeEach(() => {
@@ -77,7 +77,7 @@ describe('Pine prompt in the input editor', () => {
     useBlocksStore.setState(blocksInit, true)
     useSettingsStore.setState(settingsInit, true)
     useUIStore.setState(uiInit, true)
-    usePaneChipsStore.setState(chipsInit, true)
+    useExtensionsStore.setState(chipsInit, true)
     vi.mocked(window.pine.pty.promptContext).mockReset()
   })
 
@@ -131,26 +131,79 @@ describe('Pine prompt in the input editor', () => {
     expect(useUIStore.getState().filesOpen).toBe(true)
   })
 
-  it('renders an extension chip where its id sits and runs its command on click', async () => {
-    const invoke = vi.mocked(window.pine.extensions.invoke)
-    invoke.mockResolvedValue(undefined as never)
-    usePaneChipsStore.setState({
-      byPane: { [PANE]: [{ extId: 'git', id: 'branch', text: 'main', command: 'branches' }] },
-      catalog: [{ extId: 'git', id: 'branch', title: 'Git branch' }],
+  it('renders pushed extension pane chips in the order setting and runs their command', async () => {
+    const calls: string[] = []
+    commands.register({
+      id: 'pane.focus',
+      title: 'Focus',
+      run: (args: { paneId: string }) => {
+        calls.push(`focus:${args.paneId}`)
+      },
     })
-    usePine(['git.branch', 'cwd'])
+    commands.register({ id: 'git.branches', title: 'Branches', run: () => calls.push('branches') })
+    useExtensionsStore.setState({
+      list: [
+        {
+          id: 'git',
+          name: 'Git',
+          version: '1.0.0',
+          description: '',
+          builtin: true,
+          enabled: true,
+          status: 'running',
+          requested: [],
+          granted: [],
+          unapproved: [],
+          commands: [],
+          panel: null,
+          paneChips: [
+            { id: 'branch', title: 'Git branch' },
+            { id: 'dirty', title: 'Changes' },
+          ],
+          settings: [],
+          settingValues: {},
+        },
+      ],
+    })
+    usePine(['git.dirty', 'cwd', 'git.branch'])
     idlePrompt()
     renderEditor()
     await within(chipRow()).findByText('~/proj')
-    const items = within(chipRow()).getAllByRole('listitem')
-    expect(items.map((li) => li.textContent)).toEqual(['main', '~/proj'])
+    expect(
+      within(chipRow())
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['~/proj'])
+    act(() =>
+      useExtensionsStore.getState().setChips([
+        {
+          extId: 'git',
+          id: 'branch',
+          paneId: PANE,
+          text: 'main',
+          tone: 'neutral',
+          command: 'branches',
+        },
+        { extId: 'git', id: 'dirty', paneId: PANE, text: '+2', tone: 'warn' },
+        { extId: 'git', id: 'branch', paneId: 'other-pane', text: 'dev', tone: 'neutral' },
+      ]),
+    )
+    expect(
+      within(chipRow())
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['+2', '~/proj', 'main'])
+    expect(within(chipRow()).getByText('+2').closest('[data-chip]')).toHaveAttribute(
+      'data-tone',
+      'warn',
+    )
+    expect(within(chipRow()).queryByRole('button', { name: /Changes/ })).toBeNull()
     await userEvent.click(
       within(chipRow()).getByRole('button', { name: 'Git branch (extension): main' }),
     )
-    expect(invoke).toHaveBeenCalledWith('git', 'branches', {
-      workspaceId: 'ws-prompt',
-      paneId: PANE,
-    })
+    await waitFor(() => expect(calls).toEqual([`focus:${PANE}`, 'branches']))
+    commands.unregister('pane.focus')
+    commands.unregister('git.branches')
   })
 
   it('offers Edit prompt, Copy prompt and Copy working directory on right-click', async () => {

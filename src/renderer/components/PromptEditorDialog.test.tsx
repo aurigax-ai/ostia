@@ -1,16 +1,36 @@
+import type { ExtensionInfo } from '@shared/extensions'
 import type { PromptContext } from '@shared/types'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PaneNode } from '../layout/types'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { usePaneChipsStore } from '../stores/paneChipsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { PromptEditorDialog, activeTerminalPaneId } from './PromptEditorDialog'
 
 const PANE = 'p1'
+
+const extension = (patch: Partial<ExtensionInfo>): ExtensionInfo => ({
+  id: 'git',
+  name: 'Git',
+  version: '1.0.0',
+  description: '',
+  builtin: true,
+  enabled: true,
+  status: 'running',
+  requested: [],
+  granted: [],
+  unapproved: [],
+  commands: [],
+  panel: null,
+  paneChips: [],
+  settings: [],
+  settingValues: {},
+  ...patch,
+})
 
 const CONTEXT: PromptContext = {
   user: 'ada',
@@ -54,14 +74,14 @@ describe('PromptEditorDialog', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
-  let chipsInit: ReturnType<typeof usePaneChipsStore.getState>
+  let chipsInit: ReturnType<typeof useExtensionsStore.getState>
 
   beforeAll(() => {
     settingsInit = useSettingsStore.getState()
     uiInit = useUIStore.getState()
     layoutInit = useLayoutStore.getState()
     workspacesInit = useWorkspacesStore.getState()
-    chipsInit = usePaneChipsStore.getState()
+    chipsInit = useExtensionsStore.getState()
   })
 
   beforeEach(() => {
@@ -73,7 +93,7 @@ describe('PromptEditorDialog', () => {
     useUIStore.setState(uiInit, true)
     useLayoutStore.setState(layoutInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
-    usePaneChipsStore.setState(chipsInit, true)
+    useExtensionsStore.setState(chipsInit, true)
     vi.mocked(window.pine.pty.promptContext).mockReset()
   })
 
@@ -124,11 +144,17 @@ describe('PromptEditorDialog', () => {
     expect(screen.getByRole('button', { name: 'Add User' })).toBeVisible()
   })
 
-  it('lists extension chips from the catalog as available', () => {
-    usePaneChipsStore.setState({ catalog: [{ extId: 'git', id: 'branch', title: 'Git branch' }] })
+  it('lists the pane chips of enabled extensions as available', () => {
+    useExtensionsStore.setState({
+      list: [
+        extension({ id: 'git', paneChips: [{ id: 'branch', title: 'Git branch' }] }),
+        extension({ id: 'off', enabled: false, paneChips: [{ id: 'x', title: 'Hidden chip' }] }),
+      ],
+    })
     useUIStore.getState().openPromptEditor(null)
     render(<PromptEditorDialog />)
     expect(screen.getByRole('button', { name: 'Add Git branch (extension)' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Add Hidden chip (extension)' })).toBeNull()
   })
 
   it('saves the order, same line and separator and switches to the Pine prompt', async () => {

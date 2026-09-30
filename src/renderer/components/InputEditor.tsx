@@ -24,6 +24,7 @@ import {
   recentCommands,
   suggestionWord,
 } from '../lib/inputEditor'
+import { usePaneChipCatalog } from '../lib/paneChips'
 import { type ShellToken, tokenizeShell } from '../lib/shellTokens'
 import { registerInputEditor } from '../lib/terminalHandles'
 import { usePromptChips } from '../lib/usePromptChips'
@@ -38,7 +39,6 @@ import {
 } from '../lib/vimMode'
 import { isMac } from '../platform'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
-import { useChipCatalog } from '../stores/paneChipsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { PromptChipRow } from './PromptChips'
 import type { TerminalPalette } from './terminalTheme'
@@ -50,7 +50,6 @@ const UNDO_LIMIT = 100
 
 export interface InputEditorProps {
   paneId: string
-  workspaceId: string
   cwd?: string
   fontFamily: string
   fontSize: number
@@ -171,7 +170,6 @@ function renderDraft(
 
 export function InputEditor({
   paneId,
-  workspaceId,
   cwd,
   fontFamily,
   fontSize,
@@ -188,7 +186,7 @@ export function InputEditor({
   const vimEnabled = useSettingsStore((s) => s.behavior.inputEditorVim)
   const prompt = useSettingsStore((s) => s.terminal.prompt)
   const pinePrompt = prompt.style === 'pine'
-  const catalog = useChipCatalog()
+  const catalog = usePaneChipCatalog()
   const { chips } = usePromptChips(paneId, cwd, prompt.chips, visible && pinePrompt)
   const promptLine = useBlocksStore((s) => s.drafts[paneId]?.promptLine)
   const byPane = useBlocksStore((s) => s.byPane)
@@ -542,7 +540,6 @@ export function InputEditor({
   const chipRow = (sameLine: boolean): JSX.Element => (
     <PromptChipRow
       paneId={paneId}
-      workspaceId={workspaceId}
       chips={chips}
       catalog={catalog}
       cwd={cwd}

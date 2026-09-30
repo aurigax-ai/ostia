@@ -15,10 +15,10 @@ import {
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
+import { usePaneChipCatalog } from '../lib/paneChips'
 import { addChip, contributedChipId, moveChip, removeChip } from '../lib/promptChips'
 import { usePromptChips } from '../lib/usePromptChips'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useChipCatalog } from '../stores/paneChipsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -56,7 +56,7 @@ function usePaneCwd(paneId: string | null): string | undefined {
 
 function Preview({ paneId, order }: { paneId: string | null; order: string[] }): JSX.Element {
   const d = useDict()
-  const catalog = useChipCatalog()
+  const catalog = usePaneChipCatalog()
   const cwd = usePaneCwd(paneId)
   const { chips } = usePromptChips(paneId, cwd, order, true)
   return (
@@ -98,7 +98,7 @@ function PromptEditorBody({ paneId }: { paneId: string | null }): JSX.Element {
   const saved = useSettingsStore((s) => s.terminal.prompt)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
   const close = useUIStore((s) => s.closePromptEditor)
-  const catalog = useChipCatalog()
+  const catalog = usePaneChipCatalog()
   const [order, setOrder] = useState<string[]>(() => [...saved.chips])
   const [sameLine, setSameLine] = useState(saved.sameLine)
   const [separator, setSeparator] = useState<PromptSeparator>(saved.separator)
