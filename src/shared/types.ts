@@ -29,6 +29,7 @@ import type {
   SandboxPortRow,
   WorkspaceSandbox,
 } from './sandbox'
+import type { SecretEntry, SecretGrant } from './secrets'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
 import type { RequirementsReport } from './systemRequirements'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
@@ -96,6 +97,13 @@ export interface PtyAttachResult {
 export interface SystemApi {
   requirements: (feature: string) => Promise<RequirementsReport | null>
   installRequirements: (feature: string, workspaceId: string) => Promise<ExtensionResult>
+}
+
+export interface SecretsApi {
+  view: (workspaceId: string) => Promise<{ secrets: SecretEntry[]; grants: SecretGrant[] } | null>
+  setGrants: (workspaceId: string, grants: SecretGrant[]) => Promise<SandboxEditResult>
+  vaultSet: (workspaceId: string, key: string, value: string) => Promise<boolean>
+  vaultDelete: (workspaceId: string, key: string) => Promise<boolean>
 }
 
 export interface SandboxApi {
@@ -516,6 +524,7 @@ export interface PineBridge {
   approvals: ApprovalsApi
   credentials: CredentialsApi
   sandbox: SandboxApi
+  secrets: SecretsApi
   system: SystemApi
   update: AppUpdateApi
   agentSession: AgentSessionApi

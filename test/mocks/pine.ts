@@ -100,6 +100,12 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       requirements: vi.fn().mockResolvedValue(null),
       installRequirements: vi.fn().mockResolvedValue({ ok: true }),
     },
+    secrets: {
+      view: vi.fn().mockResolvedValue(null),
+      setGrants: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
+      vaultSet: vi.fn().mockResolvedValue(true),
+      vaultDelete: vi.fn().mockResolvedValue(true),
+    },
     sandbox: {
       onBlocked: vi.fn(() => () => {}),
       get: vi.fn().mockResolvedValue(null),
