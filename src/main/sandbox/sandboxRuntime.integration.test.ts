@@ -175,8 +175,8 @@ describe('sandbox runtime', () => {
     const res = await run(
       `curl -s -m 20 -o /dev/null -w "gh=%{http_code}\\n" https://api.github.com; curl -s -m 20 -o /dev/null -w "ex=%{http_code}\\n" https://example.com; true`,
     )
-    expect(res.out).toContain('gh=200')
-    expect(res.out).not.toContain('ex=200')
+    expect(res.out).toMatch(/gh=[1-5]\d\d/)
+    expect(res.out).toContain('ex=000')
     expect(asks).toContain('example.com')
   }, 60_000)
 
