@@ -269,3 +269,37 @@ test('SBX-C3 sandboxes a terminal an extension opens in a sandboxed workspace', 
     await app.close()
   }
 })
+
+test('SBX-C57 shows every sandbox setting on the workspace page and in Settings › Sandbox', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launch()
+  try {
+    await win.locator('.rail-row').first().click({ button: 'right' })
+    await win.getByRole('menuitem', { name: 'Workspace settings…' }).click()
+    const page = win.getByRole('region', { name: 'Settings' })
+    await expect(page.getByRole('heading', { name: 'Workspace: project' })).toBeVisible({
+      timeout: 15_000,
+    })
+    const tabs: [string, string][] = [
+      ['General', 'Sandbox this workspace'],
+      ['Files', 'Readable folders'],
+      ['Network', 'Allowed domains'],
+      ['Ports', 'When a new server starts'],
+      ['Secrets', 'Env and file grants'],
+      ['Packages', 'Cooldown (days)'],
+      ['Pine access', 'Act on other workspaces'],
+    ]
+    for (const [tab, control] of tabs) {
+      await page.getByRole('tab', { name: tab }).click()
+      await expect(page.getByRole('tabpanel', { name: tab })).toContainText(control)
+    }
+    await page.getByRole('button', { name: 'Sandbox', exact: true }).click()
+    await expect(page.getByRole('group', { name: 'Allowed domains' })).toContainText(
+      'api.anthropic.com',
+    )
+    await expect(page.getByRole('group', { name: 'Readable folders' })).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Cooldown (days)' })).toBeVisible()
+  } finally {
+    await app.close()
+  }
+})
