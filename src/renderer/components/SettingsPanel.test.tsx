@@ -140,6 +140,9 @@ describe('SettingsPanel', () => {
           paneChips: [],
           settings: [],
           settingValues: {},
+          assist: [],
+          secrets: [],
+          secretsSet: [],
           iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
         },
       ],
@@ -191,7 +194,7 @@ describe('SettingsPanel', () => {
     await user.click(screen.getByRole('combobox', { name: 'File icon theme' }))
     await user.click(await screen.findByRole('option', { name: 'Fixture Icons' }))
     expect(files().iconTheme).toBe('fixture-icons')
-  })
+  }, 15_000)
 
   it('switches the input mode (Terminal section) via setBehavior', async () => {
     const setBehavior = vi

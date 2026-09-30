@@ -1,3 +1,4 @@
+import type { CommandSuggestion } from '@shared/assist'
 import type { SpecCommand } from '@shared/completionSpec'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import {
@@ -12,6 +13,7 @@ import {
   useState,
 } from 'react'
 import { useDict } from '../i18n/useDict'
+import { latestRequest, naturalCommandQuery } from '../lib/assistComposer'
 import { matchChord } from '../lib/chords'
 import {
   type CompletionItem,
@@ -43,8 +45,9 @@ import {
   enterNormal,
   parseVimKeys,
 } from '../lib/vimMode'
-import { isMac } from '../platform'
+import { isMac, platform } from '../platform'
 import type { TerminalColors } from '../plugins/types'
+import { assistRequest, useAssistProvider } from '../stores/assistStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { PromptChipRow } from './PromptChips'
@@ -54,6 +57,7 @@ import { Textarea } from './ui/textarea'
 
 const UNDO_LIMIT = 100
 const MAX_LINES = 8
+export const NATURAL_COMMAND_DEBOUNCE_MS = 600
 
 export interface InputEditorProps {
   paneId: string
@@ -76,6 +80,12 @@ type Tip = 'none' | 'noPaths' | 'noCommands'
 
 interface Menu {
   items: CompletionItem[]
+  index: number
+}
+
+interface NaturalCommands {
+  for: string
+  items: CommandSuggestion[]
   index: number
 }
 
@@ -236,6 +246,10 @@ export function InputEditor({
   const [commands, setCommands] = useState<string[] | null>(null)
   const [vimMode, setVimModeState] = useState<VimMode>('insert')
   const [vimPending, setVimPending] = useState('')
+  const [natural, setNatural] = useState<NaturalCommands | null>(null)
+  const [naturalDismissed, setNaturalDismissed] = useState<string | null>(null)
+  const naturalRequest = useRef(latestRequest())
+  const commandAssist = useAssistProvider('command')
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -356,6 +370,34 @@ export function InputEditor({
     })
   }, [paneId, visible])
 
+  useEffect(() => {
+    const request = naturalRequest.current
+    const query = visible && commandAssist ? naturalCommandQuery(text) : null
+    if (!query) {
+      request.cancel()
+      return
+    }
+    request.run(async (signal) => {
+      const res = await assistRequest(
+        'command',
+        { query, ...(cwd ? { cwd } : {}), platform },
+        { signal },
+      )
+      if (signal.aborted || !res.ok || res.result.suggestions.length === 0) return
+      setNatural({ for: text, items: res.result.suggestions, index: 0 })
+    }, NATURAL_COMMAND_DEBOUNCE_MS)
+  }, [text, visible, commandAssist, cwd])
+
+  useEffect(() => {
+    const request = naturalRequest.current
+    return () => request.cancel()
+  }, [])
+
+  const naturalOpen =
+    visible && !menu && natural !== null && natural.for === text && naturalDismissed !== text
+      ? natural
+      : null
+
   const menuOpen = menu !== null
   useEffect(() => {
     const root = menuRef.current
@@ -440,6 +482,7 @@ export function InputEditor({
     !composing &&
     !normal &&
     !menu &&
+    !naturalOpen &&
     !walk.current &&
     selection.start === selection.end &&
     selection.end === text.length &&
@@ -482,6 +525,34 @@ export function InputEditor({
       return true
     }
     return false
+  }
+
+  const onNaturalKey = (e: KeyboardEvent<HTMLTextAreaElement>, open: NaturalCommands): boolean => {
+    const plain = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
+    if (!plain) return false
+    const count = open.items.length
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const step = e.key === 'ArrowDown' ? 1 : -1
+      setNatural({ ...open, index: (open.index + step + count) % count })
+      return true
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      pickNatural(open.items[open.index])
+      return true
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setNaturalDismissed(text)
+      return true
+    }
+    return false
+  }
+
+  const pickNatural = (item: CommandSuggestion): void => {
+    setNatural(null)
+    replaceText(item.command)
   }
 
   const onNormalKey = (e: KeyboardEvent<HTMLTextAreaElement>): boolean => {
@@ -581,6 +652,7 @@ export function InputEditor({
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (e.nativeEvent.isComposing || composing) return
     const area = e.currentTarget
+    if (naturalOpen && onNaturalKey(e, naturalOpen)) return
     if (menu && onMenuKey(e, menu)) return
     if (menu && e.key !== 'Shift') setMenu(null)
     if (normal && onNormalKey(e)) return
@@ -738,7 +810,7 @@ export function InputEditor({
             : undefined
         }
       >
-        {menu || tipText ? (
+        {menu || tipText || naturalOpen ? (
           <div
             ref={menuRef}
             className="input-editor-menu"
@@ -765,6 +837,36 @@ export function InputEditor({
                       onSelect={() => pick(item)}
                     >
                       <span className="input-editor-menu-name">{itemLabel(item)}</span>
+                      {item.description ? (
+                        <span className="input-editor-menu-description">{item.description}</span>
+                      ) : null}
+                    </CommandItem>
+                  ))}
+                </CommandList>
+              </Command>
+            ) : naturalOpen ? (
+              <Command
+                shouldFilter={false}
+                value={naturalOpen.items[naturalOpen.index]?.command}
+                onValueChange={(value) => {
+                  const index = naturalOpen.items.findIndex((item) => item.command === value)
+                  if (index >= 0 && index !== naturalOpen.index) {
+                    setNatural({ ...naturalOpen, index })
+                  }
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+                className="h-auto rounded-md! border shadow-md"
+                style={{ fontFamily }}
+              >
+                <CommandList label={d.assist.suggestions}>
+                  {naturalOpen.items.map((item) => (
+                    <CommandItem
+                      key={item.command}
+                      value={item.command}
+                      className="input-editor-menu-item"
+                      onSelect={() => pickNatural(item)}
+                    >
+                      <span className="input-editor-menu-name">{item.command}</span>
                       {item.description ? (
                         <span className="input-editor-menu-description">{item.description}</span>
                       ) : null}

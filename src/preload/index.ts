@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AgentSessionInfo } from '../shared/agentSessionInfo'
 import type { ApprovalState } from '../shared/approvals'
+import type { AssistAvailability, AssistChunk } from '../shared/assist'
 import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
 import type { BuildInfo } from '../shared/buildInfo'
 import type { SpecCommand } from '../shared/completionSpec'
@@ -16,6 +17,7 @@ import type {
   ExtensionOpenTerminalRequest,
   ExtensionPanelSource,
   ExtensionResult,
+  ExtensionSecretResult,
   ExtensionSettingResult,
   ExtensionSettingsStored,
   ExtensionSidebarItem,
@@ -265,6 +267,13 @@ const bridge: PineBridge = {
         key,
         value,
       ) as Promise<ExtensionSettingResult>,
+    setSecret: (extId, key, value) =>
+      ipcRenderer.invoke(
+        'extensions:set-secret',
+        extId,
+        key,
+        value,
+      ) as Promise<ExtensionSecretResult>,
     onChanged: (cb) => {
       const handler = (_e: unknown, list: ExtensionInfo[]): void => cb(list)
       ipcRenderer.on('extensions:changed', handler)
@@ -300,6 +309,22 @@ const bridge: PineBridge = {
         ipcRenderer.send('extensions:open-terminal-result', req.requestId, cb(req))
       ipcRenderer.on('extensions:open-terminal', handler)
       return () => ipcRenderer.removeListener('extensions:open-terminal', handler)
+    },
+  },
+  assist: {
+    availability: () => ipcRenderer.invoke('assist:availability') as Promise<AssistAvailability>,
+    onAvailability: (cb) => {
+      const handler = (_e: unknown, availability: AssistAvailability): void => cb(availability)
+      ipcRenderer.on('assist:availability', handler)
+      return () => ipcRenderer.removeListener('assist:availability', handler)
+    },
+    request: (point, requestId, input) =>
+      ipcRenderer.invoke('assist:request', point, requestId, input),
+    cancel: (requestId) => ipcRenderer.send('assist:cancel', requestId),
+    onChunk: (cb) => {
+      const handler = (_e: unknown, chunk: AssistChunk): void => cb(chunk)
+      ipcRenderer.on('assist:chunk', handler)
+      return () => ipcRenderer.removeListener('assist:chunk', handler)
     },
   },
   externalEditor: {

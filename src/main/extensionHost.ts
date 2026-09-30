@@ -3,7 +3,24 @@ import { EventEmitter } from 'node:events'
 import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import type { MessageConnection } from 'vscode-jsonrpc/node'
+import {
+  type CancellationToken,
+  CancellationTokenSource,
+  type MessageConnection,
+} from 'vscode-jsonrpc/node'
+import {
+  ASSIST_ERRORS,
+  ASSIST_POINTS,
+  type AssistAvailability,
+  type AssistError,
+  type AssistPoint,
+  type AssistResponse,
+  type AssistStatus,
+  CHAT_REPLY_MAX,
+  normalizeAssistRequest,
+  normalizeAssistResult,
+  normalizeAssistStatus,
+} from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import {
   DIFF_TEXT_MAX,
@@ -20,6 +37,7 @@ import {
   type ExtensionPanelContext,
   type ExtensionPanelSource,
   type ExtensionResult,
+  type ExtensionSecretResult,
   type ExtensionSettingResult,
   type ExtensionSettingValues,
   type ExtensionSidebarItem,
@@ -68,6 +86,9 @@ const DIFF_TITLE_MAX = 200
 const DIFF_LANGUAGE_MAX = 40
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
 const RESCAN_DEBOUNCE_MS = 250
+export const ASSIST_TIMEOUT_MS = 30_000
+export const ASSIST_CHAT_TIMEOUT_MS = 5 * 60_000
+const ASSIST_CHUNK_MAX = 16_384
 
 type RunState = 'idle' | 'starting' | 'running' | 'crashed'
 
@@ -84,6 +105,18 @@ interface Runtime {
   stopping: boolean
   restartAfterExit: boolean
   panelOrigins: Set<string>
+  assistStatus: AssistStatus
+}
+
+interface AssistStream {
+  rt: Runtime
+  onChunk: (text: string) => void
+  sent: number
+}
+
+export interface AssistCallOptions {
+  onChunk?: (text: string) => void
+  token?: CancellationToken
 }
 
 function newRuntime(ext: DiscoveredExtension): Runtime {
@@ -100,7 +133,27 @@ function newRuntime(ext: DiscoveredExtension): Runtime {
     stopping: false,
     restartAfterExit: false,
     panelOrigins: new Set(),
+    assistStatus: {},
   }
+}
+
+function assistReply<P extends AssistPoint>(point: P, raw: unknown): AssistResponse<P> {
+  const error = isPlainRecord(raw) ? raw.error : undefined
+  if (ASSIST_ERRORS.includes(error as AssistError)) {
+    const message = isPlainRecord(raw) && typeof raw.message === 'string' ? raw.message : undefined
+    return message
+      ? { ok: false, error: error as AssistError, message: message.slice(0, 500) }
+      : { ok: false, error: error as AssistError }
+  }
+  return { ok: true, result: normalizeAssistResult(point, raw) }
+}
+
+function cancelled(token: CancellationToken | undefined): Promise<'cancelled'> {
+  return new Promise((resolve) => {
+    if (!token) return
+    if (token.isCancellationRequested) resolve('cancelled')
+    else token.onCancellationRequested(() => resolve('cancelled'))
+  })
 }
 
 function isPlainRecord(v: unknown): v is Record<string, unknown> {
@@ -120,6 +173,11 @@ function storedSettings(raw: unknown): Map<string, ExtensionSettingValues> {
     out.set(extId, kept)
   }
   return out
+}
+
+function startsWithWindow(rt: Runtime): boolean {
+  const c = rt.ext.manifest.contributes
+  return c.sidebarItems || c.assist.length > 0
 }
 
 function subdirectories(root: string): string[] {
@@ -156,11 +214,24 @@ export interface ExtensionHostDeps {
   interactiveTimeoutMs?: number
   log?: (extId: string, line: string) => void
   readExtensionSettings?: () => unknown
+  assistTimeoutMs?: number
+  assistChatTimeoutMs?: number
+  secrets?: ExtensionSecretStore
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
   notifyPanel?: (
     n: { title: string; body?: string; from: string; extId: string; panelPath?: string },
     openPanel: () => void,
   ) => void
+}
+
+export interface ExtensionSecretStore {
+  keys: (extId: string) => string[]
+  get: (extId: string, key: string) => string | null
+  set: (
+    extId: string,
+    key: string,
+    value: string | null,
+  ) => { ok: true } | { ok: false; error: string }
 }
 
 export interface TerminalOpenRequest {
@@ -280,6 +351,8 @@ export class ExtensionHost {
   private watchers: FSWatcher[] = []
   private rescanTimer: ReturnType<typeof setTimeout> | null = null
   private watching = false
+  private assistStreams = new Map<string, AssistStream>()
+  private assistSeq = 0
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
@@ -351,6 +424,9 @@ export class ExtensionHost {
       paneChips: m.contributes.paneChips,
       settings: m.contributes.settings,
       settingValues: this.settingValues(rt),
+      assist: m.contributes.assist,
+      secrets: m.contributes.secrets,
+      secretsSet: this.deps.secrets?.keys(m.id) ?? [],
       iconThemes: (m.contributes.iconThemes ?? []).map(({ id, label }) => ({ id, label })),
     }
   }
@@ -419,6 +495,7 @@ export class ExtensionHost {
   private changed(rt?: Runtime): void {
     if (rt) this.changes.emit(rt.ext.manifest.id)
     this.deps.broadcast('extensions:changed', this.list())
+    this.deps.broadcast('assist:availability', this.assistAvailability())
   }
 
   private sidebarChanged(): void {
@@ -443,13 +520,13 @@ export class ExtensionHost {
     if (!rt) return this.list()
     this.deps.store.set(extId, { enabled: true, approved: [...rt.ext.manifest.capabilities] })
     if (rt.identity) setCaps(rt.identity.externalId, this.granted(rt))
-    if (rt.ext.manifest.contributes.sidebarItems) this.start(rt)
+    if (startsWithWindow(rt)) this.start(rt)
     this.changed(rt)
     return this.list()
   }
 
   private eager(rt: Runtime): boolean {
-    return this.active(rt) && rt.ext.manifest.contributes.sidebarItems
+    return this.active(rt) && startsWithWindow(rt)
   }
 
   startEager(): void {
@@ -592,6 +669,8 @@ export class ExtensionHost {
     rt.ready.clear()
     rt.subscriptions.clear()
     rt.panelOrigins.clear()
+    rt.assistStatus = {}
+    this.dropAssistStreams(rt)
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
     if (rt.stopping || !this.active(rt)) {
@@ -634,6 +713,8 @@ export class ExtensionHost {
     this.revoke(rt)
     rt.proc?.kill('SIGTERM')
     if (!rt.proc) rt.state = 'idle'
+    rt.assistStatus = {}
+    this.dropAssistStreams(rt)
     const id = rt.ext.manifest.id
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
@@ -1118,13 +1199,140 @@ export class ExtensionHost {
     return { ok: true, confirmed: await this.deps.confirm(req) }
   }
 
+  private assistRuntime(point: AssistPoint): Runtime | undefined {
+    return [...this.runtimes.values()].find(
+      (rt) =>
+        this.active(rt) &&
+        rt.conn !== null &&
+        this.granted(rt).includes('assist') &&
+        rt.ext.manifest.contributes.assist.includes(point) &&
+        rt.assistStatus[point]?.ready === true,
+    )
+  }
+
+  assistAvailability(): AssistAvailability {
+    const out: AssistAvailability = {}
+    for (const point of ASSIST_POINTS) {
+      const rt = this.assistRuntime(point)
+      if (!rt) continue
+      const label = rt.assistStatus[point]?.label
+      const base = { extId: rt.ext.manifest.id, name: rt.ext.manifest.name }
+      out[point] = label ? { ...base, label } : base
+    }
+    return out
+  }
+
+  setAssistStatus(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const contributed = rt.ext.manifest.contributes.assist
+    if (contributed.length === 0)
+      return fail('not-contributed', 'manifest does not contribute assist')
+    const status = normalizeAssistStatus((params as { status?: unknown } | null)?.status)
+    rt.assistStatus = Object.fromEntries(
+      Object.entries(status).filter(([point]) => contributed.includes(point as AssistPoint)),
+    )
+    this.deps.broadcast('assist:availability', this.assistAvailability())
+    return { ok: true }
+  }
+
+  async assist<P extends AssistPoint>(
+    point: P,
+    input: unknown,
+    opts: AssistCallOptions = {},
+  ): Promise<AssistResponse<P>> {
+    const request = normalizeAssistRequest(point, input)
+    if (!request) return { ok: false, error: 'invalid' }
+    const rt = this.assistRuntime(point)
+    const conn = rt?.conn
+    if (!rt || !conn) return { ok: false, error: 'unavailable' }
+    const requestId = `a${++this.assistSeq}`
+    this.assistStreams.set(requestId, { rt, onChunk: opts.onChunk ?? (() => {}), sent: 0 })
+    const source = new CancellationTokenSource()
+    const sub = opts.token?.onCancellationRequested(() => source.cancel())
+    const timeoutMs =
+      point === 'chat'
+        ? (this.deps.assistChatTimeoutMs ?? ASSIST_CHAT_TIMEOUT_MS)
+        : (this.deps.assistTimeoutMs ?? ASSIST_TIMEOUT_MS)
+    try {
+      const reply = await Promise.race([
+        withTimeout(
+          conn.sendRequest('ext.assist', { point, requestId, input: request }, source.token),
+          timeoutMs,
+          `${rt.ext.manifest.id} assist`,
+        ),
+        cancelled(opts.token),
+      ])
+      if (reply === 'cancelled' || opts.token?.isCancellationRequested) {
+        return { ok: false, error: 'cancelled' }
+      }
+      return assistReply(point, reply)
+    } catch (err) {
+      if (opts.token?.isCancellationRequested) return { ok: false, error: 'cancelled' }
+      return { ok: false, error: 'failed', message: (err as Error).message }
+    } finally {
+      source.cancel()
+      source.dispose()
+      sub?.dispose()
+      this.assistStreams.delete(requestId)
+    }
+  }
+
+  assistChunk(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = (params ?? {}) as { requestId?: unknown; text?: unknown }
+    const stream = typeof p.requestId === 'string' ? this.assistStreams.get(p.requestId) : undefined
+    if (!stream || stream.rt !== rt) return { ok: true, live: false }
+    if (typeof p.text !== 'string') return fail('invalid-params', 'text must be a string')
+    const text = p.text.slice(0, Math.min(ASSIST_CHUNK_MAX, CHAT_REPLY_MAX - stream.sent))
+    if (!text) return { ok: true, live: stream.sent < CHAT_REPLY_MAX }
+    stream.sent += text.length
+    stream.onChunk(text)
+    return { ok: true, live: true }
+  }
+
+  private dropAssistStreams(rt: Runtime): void {
+    for (const [id, stream] of this.assistStreams) {
+      if (stream.rt === rt) this.assistStreams.delete(id)
+    }
+  }
+
+  getSecret(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const key = (params as { key?: unknown } | null)?.key
+    const declared = rt.ext.manifest.contributes.secrets.some((s) => s.key === key)
+    if (typeof key !== 'string' || !declared) {
+      return fail('not-contributed', `no secret '${String(key)}' in manifest`)
+    }
+    return { ok: true, value: this.deps.secrets?.get(rt.ext.manifest.id, key) ?? null }
+  }
+
+  setSecret(extId: string, key: string, value: unknown): ExtensionSecretResult {
+    const rt = this.runtimes.get(extId)
+    if (!rt) return { ok: false, error: 'unknown-extension' }
+    if (!rt.ext.manifest.contributes.secrets.some((s) => s.key === key)) {
+      return { ok: false, error: 'unknown-secret' }
+    }
+    if (value !== null && typeof value !== 'string') return { ok: false, error: 'invalid-value' }
+    if (!this.deps.secrets) return { ok: false, error: 'encryption-unavailable' }
+    const res = this.deps.secrets.set(extId, key, value)
+    if (!res.ok) return res
+    if (rt.conn) {
+      const payload = { values: this.settingValues(rt) }
+      void rt.conn
+        .sendNotification('ext.event', { type: SETTINGS_CHANGED_EVENT, payload })
+        .catch(() => {})
+    }
+    this.changed(rt)
+    return { ok: true, list: this.list() }
+  }
+
   reloadRecords(): void {
     for (const rt of this.runtimes.values()) {
       if (!this.active(rt)) {
         if (rt.proc || rt.restartTimer) this.stop(rt)
       } else {
         if (rt.identity) setCaps(rt.identity.externalId, this.granted(rt))
-        if (rt.ext.manifest.contributes.sidebarItems) this.start(rt)
+        if (startsWithWindow(rt)) this.start(rt)
       }
     }
     this.changed()
@@ -1210,6 +1418,19 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
       return h.invoke(p.extId, p.command, p.args, h.paneCaller(ctx.identity))
     },
   })
+
+  registerControlMethod('ext.setAssistStatus', {
+    ...forExtension((h, id, conn, p) => h.setAssistStatus(id, conn, p)),
+    cap: 'assist',
+  })
+  registerControlMethod('ext.assistChunk', {
+    ...forExtension((h, id, conn, p) => h.assistChunk(id, conn, p)),
+    cap: 'assist',
+  })
+  registerControlMethod(
+    'ext.getSecret',
+    forExtension((h, id, conn, p) => h.getSecret(id, conn, p)),
+  )
 
   registerControlMethod(
     'ext.confirm',
