@@ -16,6 +16,18 @@ export function authenticate(hello: { token?: unknown }): AuthedConn | null {
   return { externalId: id.externalId, paneId: id.paneId, workspaceId: id.workspaceId }
 }
 
+export type CapFilter = (conn: AuthedConn, cap: Capability) => boolean
+
+let capFilter: CapFilter = () => true
+
+export function setCapFilter(filter: CapFilter): void {
+  capFilter = filter
+}
+
+export function capAllowedHere(conn: AuthedConn, cap: Capability): boolean {
+  return capFilter(conn, cap)
+}
+
 export function connHasCap(conn: AuthedConn, cap: Capability): boolean {
-  return hasCap(conn.externalId, cap)
+  return capFilter(conn, cap) && hasCap(conn.externalId, cap)
 }

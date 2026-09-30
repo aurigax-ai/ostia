@@ -1,7 +1,12 @@
 import { mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
-import { type SandboxGlobals, type WorkspaceSandbox, resolveSandbox } from '../../shared/sandbox'
+import {
+  type ResolvedSandbox,
+  type SandboxGlobals,
+  type WorkspaceSandbox,
+  resolveSandbox,
+} from '../../shared/sandbox'
 import { SandboxHost, SandboxHostError } from './hostClient'
 import { type SandboxPaths, buildSrtConfig } from './srtConfig'
 import type { SandboxStore } from './store'
@@ -48,6 +53,12 @@ export class WorkspaceSandboxes {
     const next = this.deps.store.set(workspaceId, change(this.deps.store.get(workspaceId)))
     void this.refresh(workspaceId)
     return next
+  }
+
+  resolved(workspaceId: string): ResolvedSandbox {
+    return resolveSandbox(this.deps.globals(), this.deps.store.get(workspaceId), [
+      ...(this.sessionDomains.get(workspaceId) ?? []),
+    ])
   }
 
   tmpDir(workspaceId: string): string {

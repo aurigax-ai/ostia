@@ -46,6 +46,7 @@ import { registerBusMethods } from './bus'
 import { dropIdentity } from './capabilityStore'
 import { confirmAllWindowsClose, confirmWindowClose, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
+import { setCapFilter } from './controlAuth'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerCredentials } from './credentials'
 import { registerDocsMethods } from './docs'
@@ -64,6 +65,7 @@ import {
   registerPane,
   removePane,
   removeWindow,
+  resolveExternal,
   windowOfWorkspace,
 } from './idRegistry'
 import { storePath } from './jsonStore'
@@ -83,6 +85,7 @@ import { killAllProcesses, registerProcessMethods } from './processManager'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { attachWorkspace } from './sandbox/attachWorkspace'
+import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
 import { DomainRequests } from './sandbox/domainRequests'
 import { registerSandboxIpc } from './sandbox/ipc'
@@ -302,6 +305,43 @@ const domainRequests: DomainRequests = new DomainRequests({
 
 let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
 
+const browserFence = new BrowserFence({
+  policy: (workspaceId) => {
+    if (!workspaceId || !workspaceSandboxes.isEnabled(workspaceId)) return null
+    const resolved = workspaceSandboxes.resolved(workspaceId)
+    return { browser: resolved.controls.browser, domains: resolved.domains }
+  },
+  requestDomain: async (workspaceId, host) =>
+    (await domainRequests.request(workspaceId, '', host)).ok,
+})
+
+setCapFilter((conn, cap) => {
+  if (cap !== 'all-workspaces') return true
+  const workspaceId = resolveExternal(conn.externalId)?.workspaceId || conn.workspaceId
+  if (!workspaceId || !workspaceSandboxes.isEnabled(workspaceId)) return true
+  return workspaceSandboxes.resolved(workspaceId).controls.allWorkspaces
+})
+
+function workspaceOfGuest(guest: Electron.WebContents): string | undefined {
+  for (const [paneId, wcId] of browserPanes) {
+    if (wcId === guest.id) return getByPaneId(paneId)?.workspaceId
+  }
+  return undefined
+}
+
+function fenceBrowserGuest(guest: Electron.WebContents): void {
+  const guard = (e: Electron.Event, url: string): void => {
+    const workspaceId = workspaceOfGuest(guest)
+    if (!workspaceId || browserFence.allowedNow(workspaceId, url)) return
+    e.preventDefault()
+    void browserFence.check(workspaceId, url).then((ok) => {
+      if (ok && !guest.isDestroyed()) void guest.loadURL(url).catch(() => {})
+    })
+  }
+  guest.on('will-navigate', guard)
+  guest.on('will-redirect', guard)
+}
+
 const windows = new Map<string, BrowserWindow>()
 const commandsByWindow = new Map<string, CommandDescriptor[]>()
 
@@ -456,6 +496,7 @@ function wireWindow(win: BrowserWindow): void {
   win.webContents.on('did-attach-webview', (_e, guest) => {
     if (hardenExtensionGuest(guest)) return
     instrumentBrowserGuest(guest)
+    fenceBrowserGuest(guest)
     const wcId = guest.id
     guest.once('destroyed', () => {
       consoleBuffers.delete(wcId)
@@ -1260,6 +1301,7 @@ app.whenReady().then(() => {
     ptyWrite,
   })
   registerBrowseMethods({
+    allowNavigation: (workspaceId, url) => browserFence.check(workspaceId, url),
     browserPanes,
     execCommand,
     screenshotRoots: [homedir(), app.getPath('userData')],
