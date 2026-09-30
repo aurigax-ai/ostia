@@ -188,6 +188,17 @@ Details: `docs/ARCHITECTURE.md`.
   self-contained function (it's shipped with `toString()`): no imports or module-level references
   inside it. Captures are truncated in main (`normalizeCapture`); the renderer sends back only a
   capture id, and reports go to `privateTmpDir('pine-reports')`.
+- **Agent browsing keeps its state out of the page.** `pine browse` element work runs in
+  `browseRuntime` (`shared/browseRuntime.ts`) inside `executeJavaScriptInIsolatedWorld(BROWSE_WORLD_ID, …)`,
+  never the page's main world; like `pickRuntime` it is self-contained and shipped with
+  `toString()`. Only `eval`, `wait --fn`, `pushstate`, the dialog override and `react-grab` run in
+  the main world. Agent strings reach generated JS only as `JSON.stringify`-ed arguments, and
+  every output or upload path goes through `resolveSafe`. The verbs follow agent-browser's
+  contract (`cli/browseArgs.ts`); rename a verb there, in `docs.ts` and in the skill together.
+- **The storage viewer only touches the human's own pane.** `browser:storage-*` IPC resolves the
+  pane with `ownedGuest` (the sending window owns it) and validates every edit or removal in main
+  (`normalizeStorageEdit` / `normalizeStorageRemoval`) before touching cookies or web storage;
+  clear-all is confirmed in the panel first.
 - **Never inject into the user's dotfiles.** zsh via a generated `ZDOTDIR` (+ `PINE_ZDOTDIR_ORIG`);
   bash via `--rcfile`. Generated files live in `privateTmpDir('pine-shell-integration')`:
   `<tmp>/pine-shell-integration-<uid>`, mode 0700, refused if it's a symlink or not ours.
@@ -573,6 +584,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   against the fake CLIs (palette "Trellis: Open Card", notification clicks that open a card and
   Keeper's approvals page); `e2e/ports.spec.ts` checks the ports and ssh pane chips against a
   real listener and a fake `ssh`.
+  `e2e/browser-agent.spec.ts` grants `browse`, reads the pane's `PINE_*` env from its shell and
+  drives a local http page through the real `pine browse` CLI (snapshot refs, fill/click/type,
+  find, eval, storage, cookies, network, tabs, `--json`); `e2e/browser-storage.spec.ts` checks the
+  storage drawer shows and edits a page's cookies, local and session storage.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,
