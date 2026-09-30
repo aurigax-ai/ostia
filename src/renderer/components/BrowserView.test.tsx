@@ -2,6 +2,7 @@ import type { PickCapture, PickOutcome, PickState } from '@shared/pick'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { runAgentIn } from '../../../test/mocks/agentPanes'
 import { resetIds } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -52,7 +53,11 @@ beforeEach(() => {
   vi.spyOn(document, 'hasFocus').mockReturnValue(false)
 })
 
+let stopAgents: () => void = () => {}
+
 afterEach(() => {
+  stopAgents()
+  stopAgents = () => {}
   useWorkspacesStore.setState(workspacesInit, true)
   useLayoutStore.setState(layoutInit, true)
   useAttentionStore.setState(attentionInit, true)
@@ -67,6 +72,7 @@ function twoTerminals(): { workspaceId: string; a: string; b: string } {
   const a = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
   useLayoutStore.getState().split(workspaceId, a, 'horizontal')
   const b = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+  stopAgents = runAgentIn([a, b])
   return { workspaceId, a, b }
 }
 
