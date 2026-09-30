@@ -1,4 +1,3 @@
-import { homedir } from 'node:os'
 import {
   type ElectronApplication,
   type Page,
@@ -182,7 +181,8 @@ test('closing the only workspace shows the empty state, and New workspace opens 
     await waitForTerminalFocus(win)
     await win.keyboard.type('echo "pine_cwd:$PWD:"')
     await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows').first()).toContainText(`pine_cwd:${homedir()}:`, {
+    const home = await app.evaluate(({ app: electronApp }) => electronApp.getPath('home'))
+    await expect(win.locator('.xterm-rows').first()).toContainText(`pine_cwd:${home}:`, {
       timeout: 15_000,
     })
   } finally {

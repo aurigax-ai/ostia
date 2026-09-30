@@ -21,21 +21,39 @@ export function seedSettings(dataHome: string, settings: object): void {
   writeFileSync(join(userData, 'settings.json'), JSON.stringify(settings))
 }
 
+const TEST_GITCONFIG = '[user]\n\tname = Pine E2E\n\temail = e2e@example.com\n'
+
+export function testHome(dataHome: string): string {
+  const home = join(dataHome, 'home')
+  if (!existsSync(home)) {
+    mkdirSync(home, { recursive: true })
+    writeFileSync(join(home, '.zshrc'), '')
+    writeFileSync(join(home, '.bashrc'), '')
+    writeFileSync(join(home, '.gitconfig'), TEST_GITCONFIG)
+  }
+  return home
+}
+
 export function isolatedLaunch(dataHome: string = freshDataHome()): {
   args: string[]
   env: Record<string, string>
+  home: string
 } {
   if (!existsSync(join(dataHome, 'userData', 'settings.json'))) {
     seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   }
+  const { ZDOTDIR: _zdotdir, ...inherited } = process.env as Record<string, string>
+  const home = testHome(dataHome)
   return {
     args: [`--user-data-dir=${join(dataHome, 'userData')}`, '.'],
     env: {
-      ...(process.env as Record<string, string>),
+      ...inherited,
       NODE_ENV: 'test',
+      HOME: home,
       XDG_DATA_HOME: dataHome,
       XDG_CONFIG_HOME: join(dataHome, 'config'),
     },
+    home,
   }
 }
 

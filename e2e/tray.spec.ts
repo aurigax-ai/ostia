@@ -31,7 +31,9 @@ test('MGR-C1 closing the window with close-to-tray on hides it and the shell kee
 
     await expect
       .poll(() =>
-        app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => w.isVisible())),
+        app.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows().map((w) => w.isVisible()),
+        ),
       )
       .toEqual([false])
 
