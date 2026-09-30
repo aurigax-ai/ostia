@@ -25,6 +25,7 @@ import {
   TERMINAL_ARG_MAX,
   TERMINAL_COMMAND_MAX_ARGS,
   TERMINAL_TITLE_MAX,
+  sidebarItemUrl,
 } from '../shared/extensions'
 import { quoteArgv } from '../shared/shellQuote'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
@@ -643,6 +644,8 @@ export class ExtensionHost {
     const item: ExtensionSidebarItem = { extId, key, text, tone }
     if (workspaceId) item.workspaceId = workspaceId
     if (EXTENSION_ICONS.includes(p.icon as ExtensionIcon)) item.icon = p.icon as ExtensionIcon
+    const url = sidebarItemUrl(p.url)
+    if (url) item.url = url
     this.sidebar.set(slot, item)
     this.sidebarChanged()
     return { ok: true }

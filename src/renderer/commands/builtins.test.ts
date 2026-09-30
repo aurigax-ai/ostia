@@ -509,6 +509,20 @@ describe('agent resume', () => {
     expect(r).toMatchObject({ ok: true, result: { resumed: true } })
   })
 
+  it('wakes a hibernated pane and resumes at its first idle prompt', async () => {
+    const pane = { ...seedPane({ agent: 'codex', id: 'r-9' }), hibernated: true as const }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    const insert = vi.spyOn(blockActions, 'insertCommand')
+    const whenIdle = vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
+    const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
+    expect(r).toMatchObject({ ok: true, result: { resumed: true } })
+    expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('hibernated')
+    expect(whenIdle).toHaveBeenCalledWith(pane.id, 'codex resume r-9')
+    expect(insert).not.toHaveBeenCalled()
+  })
+
   it('does nothing for a pane without a token', async () => {
     const pane = seedPane()
     const insert = vi.spyOn(blockActions, 'insertCommand')

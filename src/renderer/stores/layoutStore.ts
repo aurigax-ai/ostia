@@ -19,6 +19,7 @@ import {
   setPaneDiff,
   setPaneEditor,
   setPaneExtension,
+  setPaneHibernated,
   setPaneResume,
   setPaneTitle,
   setPaneUrl,
@@ -53,6 +54,7 @@ interface LayoutState {
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
+  setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
   setTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
   openBrowser: (workspaceId: string, url: string) => void
@@ -288,6 +290,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const layout = s.byWorkspace[workspaceId]
       if (!layout) return s
       const root = setPaneResume(layout.root, paneId, resume)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  setHibernated: (workspaceId, paneId, hibernated) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setPaneHibernated(layout.root, paneId, hibernated)
       return root === layout.root
         ? s
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
