@@ -26,7 +26,7 @@ describe('parseManagerSettings', () => {
     expect(parseManagerSettings({ allowInput: 'yes' }).allowInput).toBe(false)
   })
 
-  it('MGR-C29 clamps limits and falls back to defaults for non-numbers', () => {
+  it('MGR-C37 clamps limits and falls back to defaults for non-numbers', () => {
     const parsed = parseManagerSettings({
       limits: { maxWorkers: 999, spawnsPer10Min: -3, busPerMinute: 'x' },
     })

@@ -1117,6 +1117,36 @@ workspace running that agent and mirrors it in the terminal.
   The manager workspace (`kind: 'manager'`) is left out of the snapshot, and closing it asks like
   a running command.
 - While a manager is live, closing the window hides Pine to the tray (`closeAction`).
+- **Manager powers** (`managerMethods.ts`, `managerAgent.ts`). `spawnManagerPty` marks the
+  pane's identity (`markManager`) and sets `MANAGER_CAPABILITIES`: every cap but `phone`,
+  `gateway` and `destructive`, so it acts across workspaces without asking and `destructive`
+  still asks. `callers: 'manager'` methods: `manager.read` (the pane's `ScreenMirror.screenText`,
+  the active buffer so a TUI is readable, capped at 2000 lines), `manager.spawn` (a preset's argv
+  typed into a new terminal pane by `openTerminalInWindow`, in a new workspace from
+  `workspace.new`, which returns its id) and `manager.input` (text plus named keys, only with
+  `manager.allowInput`). Neither reaches the manager's own pane. Limits live in
+  `manager.limits`: live workers (panes still registered), spawns per 10 minutes and bus sends
+  per minute (`RateWindow`, `bus.send` asks `managerSendAllowed`). Why rate limits and not a hop
+  count: bus messages have no thread to count hops on. `pine docs` adds `MANAGER_HELP` only for
+  the manager, and the CLI verbs (`cli/manager.ts`) are not in its usage text.
+- **The manager's agent setup.** Before each spawn main rewrites
+  `privateTmpDir('pine-manager')`: a claude plugin (`pine-manager` skill, symlinks to the
+  human's `manager.skills` folders that hold a SKILL.md, and the same resume/state hooks as the
+  worker plugin) and a codex context file. `managerArgv` adds `--plugin-dir` for claude and
+  `codexHookArgs` for codex, recognized by program name; other presets run as given. Why a
+  separate plugin: the manager must not get the worker `pine` skill and workers must not get
+  the manager's, and a directly spawned agent skips the shell's `claude()`/`codex()` wrappers.
+- **Resume.** The hooks' `pine resume-token` reaches `pane.setResume`, which hands a manager's
+  token to `ManagerService.rememberResume` (`manager-resume.json` in the data dir). If Pine quits
+  with the manager running (`shutdown()` before the kill loop), the token stays and the next
+  `pine <same preset>` without extra args starts with `--resume <id>` / `resume <id>`. If the
+  agent exits on its own the token is cleared, so the next start is fresh.
+- **Approvals while hidden.** An approval card that waits for the human calls `reveal`, which
+  shows a hidden window from the tray; otherwise a manager's `destructive` request would time out
+  unseen.
+- **Settings → Manager** (`ManagerSection.tsx`, Linux only) edits `manager` through
+  `setManager`, which runs `parseManagerSettings` (shared with main); presets are typed as a
+  command line and split by `splitArgs` (`shared/argv.ts`, also the external editor's splitter).
 
 ## 7. Gateway (phone companion)
 

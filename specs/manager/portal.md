@@ -14,6 +14,7 @@ Status: cases approved 2026-09-30 at 81e6c2b (the user said to start building)
 ## Cases
 | ID | Covers | Kind | Case |
 |---|---|---|---|
+| MGR-C34 | MGR-D7, MGR-D17 | expected | Given Settings → Manager, when the human adds or edits a preset as a command line, adds a skill folder, turns on typing or sets a limit, then settings.json's `manager` section changes; a bad name, an unclosed quote or a relative folder shows a message and saves nothing |
 | MGR-C7 | MGR-D1, MGR-D19 | expected | Given Pine is not running, when `pine claude` runs in an outside terminal, then the CLI starts Pine with `--hidden` once and connects when the portal comes up |
 | MGR-C8 | MGR-D1, MGR-D19 | unexpected | Given Pine does not come up within the timeout, or the CLI doesn't know where Pine is installed, when `pine claude` runs, then it exits 1 with a message and launches at most once |
 | MGR-C9 | MGR-D8, MGR-D2 | expected | Given a manager running claude, when `pine claude` runs again, then it attaches to the same pane and no second manager workspace appears |
@@ -29,4 +30,4 @@ Status: cases approved 2026-09-30 at 81e6c2b (the user said to start building)
 | MGR-C27 | MGR-D2 | unexpected | Given two `portal.open` calls at once, then one manager starts and both get the same pane |
 
 ## Open
-- The Settings → Manager editor for `manager.agents` (MGR-D7) is not built; the section is hand-edited.
+- `ss` (iproute2) is a system requirement of the portal. Once the system-requirements checker (feature/sandbox) is on main, `portal.open` should refuse early naming `iproute2` and the install command.

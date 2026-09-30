@@ -142,7 +142,10 @@ Details: `docs/ARCHITECTURE.md`.
   element or send selection (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a
   running agent that reported `waiting`/`done`; it's text only, never followed by Enter. A file
   path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. Anything
-  else goes to the clipboard.
+  else goes to the clipboard. The one exception outside this rule is `manager.input`
+  (`main/managerMethods.ts`): the manager may type text and named keys into any other pane,
+  prompt or not, but only while the human has `manager.allowInput` on (Settings → Manager); it
+  fails `input-off` otherwise. Never add another path that types into an existing pane.
   The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
   `insertCommand` too, and is shown only at an idle prompt on the normal buffer; anything
   running (or a TUI on the alternate screen) gets the keys straight through xterm. While it's
@@ -398,6 +401,14 @@ Details: `docs/ARCHITECTURE.md`.
   Pine's view of it (`ManagerView`) is an attach-only observer: it never writes to or resizes the
   pty; the mirror owns input and size. `manager` settings are not in `DATA_KEYS`, and the manager
   workspace is never saved.
+  The manager pane's identity is marked (`markManager`) and holds `MANAGER_CAPABILITIES` (every
+  cap but `phone`, `gateway` and `destructive`, which still asks). `manager.*` socket methods use
+  `callers: 'manager'`, so any other pane gets `not-available-to-pane` and never learns the
+  manager exists; only the manager's `pine docs` lists them, and the worker `pine` skill, CLI
+  usage and docs never mention them. Workers are ordinary panes typed through `openTerminal`
+  (`runWhenIdle`), capped by `manager.limits` (live workers, spawns per 10 min, bus messages per
+  minute). The manager gets its own plugin (`managerAgent.ts`: the `pine-manager` skill, the
+  human's `manager.skills` folders, resume and state hooks), never the worker `pine` skill.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -604,6 +615,8 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   `e2e/manager.spec.ts` runs the built CLI under `script` (a real tty) with `PINE_*` stripped and
   a fake agent (`test/fixtures/manager/bin/fake-agent`) first on `PATH`, against a Pine whose
   portal is at `PINE_PORTAL_SOCKET`; it also runs the CLI from a Pine pane to check the refusal.
+  It also runs a bash manager through `pine manager spawn|read|input` against a fake worker, with
+  `manager.allowInput` off and on, and checks a worker pane is refused.
   `e2e/tray.spec.ts` covers close-to-tray.
 
 Rules:

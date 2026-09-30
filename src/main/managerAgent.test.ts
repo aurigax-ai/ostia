@@ -84,7 +84,7 @@ describe('managerAgentKind', () => {
 })
 
 describe('manager plugin', () => {
-  it('MGR-C28 holds the manager skill, the picked skills and the hooks, never the worker skill', () => {
+  it('MGR-C28 holds the manager skill, the picked skills and the hooks; MGR-C36 skips a folder without SKILL.md', () => {
     dir = mkdtempSync(join(tmpdir(), 'pine-mgr-plugin-'))
     const review = skill(join(dir, 'user-skills'), 'review')
     const noSkill = join(dir, 'user-skills', 'empty')
@@ -130,7 +130,7 @@ describe('manager plugin', () => {
     expect(context).toContain(join(review, 'SKILL.md'))
   })
 
-  it('skips a picked skill whose name clashes with one already taken', () => {
+  it('MGR-C36 skips a picked skill whose name clashes with one already taken', () => {
     dir = mkdtempSync(join(tmpdir(), 'pine-mgr-clash-'))
     const a = skill(join(dir, 'a'), 'review')
     const b = skill(join(dir, 'b'), 'review')

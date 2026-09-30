@@ -145,7 +145,7 @@ describe('manager methods', () => {
     )
   })
 
-  it('MGR-C29 stops at the spawn rate limit until the window passes', async () => {
+  it('MGR-C37 stops at the spawn rate limit until the window passes', async () => {
     settings = {
       ...DEFAULT_MANAGER_SETTINGS,
       limits: { maxWorkers: 64, spawnsPer10Min: 2, busPerMinute: 60 },
@@ -162,7 +162,7 @@ describe('manager methods', () => {
     )
   })
 
-  it('MGR-C29 refuses an unknown preset and a relative cwd without opening anything', async () => {
+  it('MGR-C37 refuses an unknown preset and a relative cwd without opening anything', async () => {
     const mgr = await client(managerPane.token)
     await expect(mgr.sendRequest('manager.spawn', { agent: 'nope' })).rejects.toThrow(
       /unknown-agent: nope \(known: claude, codex\)/,
@@ -181,7 +181,7 @@ describe('manager methods', () => {
     expect(written).toHaveLength(0)
   })
 
-  it('MGR-C30 types text and named keys into another pane when allowInput is on', async () => {
+  it('MGR-C35 types text and named keys into another pane when allowInput is on', async () => {
     settings = { ...DEFAULT_MANAGER_SETTINGS, allowInput: true }
     const mgr = await client(managerPane.token)
     await mgr.sendRequest('manager.input', {
@@ -198,7 +198,7 @@ describe('manager methods', () => {
     ).rejects.toThrow('own-pane')
   })
 
-  it('MGR-C29 limits the manager bus messages per minute', () => {
+  it('MGR-C37 limits the manager bus messages per minute', () => {
     settings = {
       ...DEFAULT_MANAGER_SETTINGS,
       limits: { maxWorkers: 8, spawnsPer10Min: 20, busPerMinute: 2 },

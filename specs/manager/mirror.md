@@ -9,6 +9,7 @@ Status: cases approved 2026-09-30 at 81e6c2b (the user said to start building)
 ## Cases
 | ID | Covers | Kind | Case |
 |---|---|---|---|
+| MGR-C33 | MGR-D12 | expected | Given Pine quit while the claude manager ran with a saved resume token, when `pine claude` runs after the restart, then the manager starts with `--resume <id>`; after the agent exits on its own, or for another preset, extra args or a malformed token, it starts fresh |
 | MGR-C20 | MGR-D4, MGR-D13 | expected | Given the manager open in Pine, when the human types in its pane, then nothing reaches the agent, Pine never resizes its pty, and the pane says it is read-only |
 | MGR-C21 | MGR-D8, MGR-D13 | expected | Given a mirror attached, when the human types and resizes the outside terminal, then the agent gets the keys and the size, and Pine's view follows the size |
 | MGR-C22 | MGR-D8, MGR-D12 | expected | Given a mirror attached, when Ctrl+\\ is pressed, then the CLI exits 0, the manager keeps running, and the next `pine <agent>` reattaches with its screen replayed |
@@ -18,4 +19,3 @@ Status: cases approved 2026-09-30 at 81e6c2b (the user said to start building)
 | MGR-C26 | MGR-D13 | expected | Given the manager workspace, when the human closes it in Pine, then Pine asks first, and only on confirm ends the agent |
 
 ## Open
-- After a restart, `pine <agent>` does not resume the agent's previous session (MGR-D12): the manager runs without Pine's hooks, so no resume token is saved.
