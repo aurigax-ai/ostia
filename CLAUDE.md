@@ -177,14 +177,23 @@ Details: `docs/ARCHITECTURE.md`.
   `Ctrl+Shift+R` resume the pane's agent, `Ctrl+Shift+E` send a file view's selection to an
   agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
   macOS uses ⌘ (⌘⇧U unread, ⌘⇧H history, ⌘T new workspace, ⌘1..9 workspaces, ⌘⇧R resume,
-  ⌘⇧E send selection, ⌘↑/⌘↓ blocks). A new chord must also be free in Monaco (it already binds
-  Ctrl+Shift+A, C, G, I, K, L, M, O, R, Z). Holding the modifier alone for 500 ms shows each row's digit; any other key
-  cancels, so Ctrl shortcuts never flash it.
+  ⌘⇧E send selection, ⌘↑/⌘↓ blocks). A new default chord must also be free in Monaco (it already binds
+  Ctrl+Shift+A, C, G, I, K, L, M, O, R, Z; Settings → Keyboard warns on those via `usedByMonaco`).
+  Holding exactly the workspace jump's modifiers (Ctrl / ⌘ by default) for 500 ms shows each
+  row's digit; any other key cancels, so Ctrl shortcuts never flash it.
   Plain `Ctrl+<letter>` (incl. `Ctrl+R`), plain/Ctrl arrows and Escape belong to the shell;
-  Escape is swallowed only while a block is selected. All chords live in `lib/chords.ts`;
-  xterm's `attachCustomKeyEventHandler` lets app chords through. Block navigation is a terminal
-  chord (handled in xterm), never a window chord, so inputs and Monaco keep Shift/⌘+arrow
-  selection. Show hints via `chordLabel()`.
+  Escape is swallowed only while a block is selected. The chords above are defaults
+  (`DEFAULT_CHORDS` in `lib/chords.ts`); the user's `keybindings` setting overrides or unbinds
+  them and can bind any palette command. Everything reads the effective map
+  (`currentBindings`), never a hardcoded key. Every user chord passes `stealsTerminalKey`
+  (`lib/chordSpec.ts`): Escape, Tab, keys without Ctrl/Cmd, plain Ctrl keys other than digits,
+  `, . ; ' =` and F-keys, plain/Ctrl arrows, and on macOS anything without ⌘ are refused in
+  Settings → Keyboard and in `pine settings set` (keybindings aren't a grant, so agents may set
+  them), and ignored if hand-edited in. Don't loosen that guard. All chord code lives in
+  `lib/chords.ts` + `lib/chordSpec.ts`; xterm's `attachCustomKeyEventHandler` lets app chords
+  through. Block navigation is a terminal chord (handled in xterm), never a window chord, so
+  inputs and Monaco keep Shift/⌘+arrow selection. Show hints via `chordLabel()` /
+  `useChordLabel()` (null when unbound).
 - **Capabilities:** acting on any target other than your own pane/window/workspace needs
   `all-workspaces`. Agents can't grant themselves caps: `settings set` refuses `capabilities.*`;
   grants come only from a human editing `settings.json`. Phone caps map through `PHONE_CAP_ALLOWS`;

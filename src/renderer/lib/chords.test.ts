@@ -1,5 +1,28 @@
-import { describe, expect, it } from 'vitest'
-import { type KeyLike, chordLabel, isAppChord, matchChord, workspaceDigit } from './chords'
+import { afterEach, describe, expect, it } from 'vitest'
+import { commands } from '../commands/registry'
+import { useSettingsStore } from '../stores/settingsStore'
+import { parseChord } from './chordSpec'
+import {
+  type KeyLike,
+  bindableIds,
+  chordLabel,
+  conflictsWith,
+  effectiveBindings,
+  isAppChord,
+  matchChord,
+  setKeybindingSetting,
+  workspaceDigit,
+  workspaceIndex,
+} from './chords'
+
+const initialSettings = useSettingsStore.getState()
+
+afterEach(() => {
+  useSettingsStore.setState(initialSettings, true)
+})
+
+const bind = (keybindings: Record<string, string | null>): void =>
+  useSettingsStore.setState({ keybindings })
 
 const key = (k: string, mods: Partial<Omit<KeyLike, 'key'>> = {}): KeyLike => ({
   key: k,
@@ -138,5 +161,168 @@ describe('workspace digits', () => {
     expect(matchChord(key('1', { ctrlKey: true, shiftKey: true }), false)).toBeNull()
     expect(matchChord(key('1'), false)).toBeNull()
     expect(workspaceDigit('0')).toBeNull()
+  })
+})
+
+describe('effectiveBindings', () => {
+  it('starts from the platform defaults', () => {
+    const other = effectiveBindings({}, false)
+    const mac = effectiveBindings({}, true)
+    expect(other.bySignature.get('Ctrl+Shift+P')).toBe('palette.toggle')
+    expect(mac.bySignature.get('Cmd+K')).toBe('palette.toggle')
+    expect(other.bySignature.get('Ctrl+1-9')).toBe('workspace.goto')
+  })
+
+  it('overrides a default, unbinds with null, and binds commands without a default', () => {
+    const table = effectiveBindings(
+      {
+        'palette.toggle': 'Ctrl+Shift+Y',
+        'view.toggleRail': null,
+        'pane.splitRight': 'Ctrl+Alt+D',
+      },
+      false,
+    )
+    expect(table.bySignature.get('Ctrl+Shift+Y')).toBe('palette.toggle')
+    expect(table.bySignature.has('Ctrl+Shift+P')).toBe(false)
+    expect(table.byId.has('view.toggleRail')).toBe(false)
+    expect(table.bySignature.get('Ctrl+Alt+D')).toBe('pane.splitRight')
+  })
+
+  it('ignores an override that would steal a terminal key and keeps the default', () => {
+    const table = effectiveBindings({ 'palette.toggle': 'Ctrl+R', find: 'Escape' }, false)
+    expect(table.bySignature.get('Ctrl+Shift+P')).toBe('palette.toggle')
+    expect(table.bySignature.has('Ctrl+R')).toBe(false)
+    expect(table.bySignature.get('Ctrl+Shift+F')).toBe('find')
+  })
+
+  it('reads one setting per platform: a Ctrl chord is ignored on macOS, Mod works on both', () => {
+    const user = { 'palette.toggle': 'Ctrl+Shift+Y', 'history.search': 'Mod+Shift+J' }
+    expect(effectiveBindings(user, true).bySignature.get('Cmd+K')).toBe('palette.toggle')
+    expect(effectiveBindings(user, true).bySignature.get('Shift+Cmd+J')).toBe('history.search')
+    expect(effectiveBindings(user, false).bySignature.get('Ctrl+Shift+J')).toBe('history.search')
+  })
+
+  it('lets a user binding win a chord still held by a default', () => {
+    const table = effectiveBindings({ 'pane.splitDown': 'Ctrl+Shift+P' }, false)
+    expect(table.bySignature.get('Ctrl+Shift+P')).toBe('pane.splitDown')
+  })
+
+  it('keeps 1-9 for workspace.goto only', () => {
+    const table = effectiveBindings(
+      { 'workspace.goto': 'Ctrl+Shift+K', 'palette.toggle': 'Ctrl+Alt+1-9' },
+      false,
+    )
+    expect(table.bySignature.get('Ctrl+1-9')).toBe('workspace.goto')
+    expect(table.bySignature.get('Ctrl+Shift+P')).toBe('palette.toggle')
+  })
+})
+
+describe('user keybindings', () => {
+  it('match live: the new chord fires and the old one stops', () => {
+    bind({ 'palette.toggle': 'Ctrl+Shift+Y' })
+    const cs = { ctrlKey: true, shiftKey: true }
+    expect(matchChord(key('Y', cs), false)).toBe('palette.toggle')
+    expect(matchChord(key('P', cs), false)).toBeNull()
+    expect(chordLabel('palette.toggle', false)).toBe('Ctrl+Shift+Y')
+    bind({})
+    expect(matchChord(key('P', cs), false)).toBe('palette.toggle')
+  })
+
+  it('treat a bound palette command as an app chord', () => {
+    bind({ 'pane.splitRight': 'Ctrl+Alt+D' })
+    const chord = matchChord(key('d', { ctrlKey: true, altKey: true }), false)
+    expect(chord).toBe('pane.splitRight')
+    expect(isAppChord(chord)).toBe(true)
+  })
+
+  it('keep a rebound terminal chord out of the window handler', () => {
+    bind({ find: 'Ctrl+Alt+F' })
+    const chord = matchChord(key('f', { ctrlKey: true, altKey: true }), false)
+    expect(chord).toBe('find')
+    expect(isAppChord(chord)).toBe(false)
+  })
+
+  it('show no label once unbound', () => {
+    bind({ 'history.search': null })
+    expect(chordLabel('history.search', false)).toBeNull()
+    expect(matchChord(key('H', { ctrlKey: true, shiftKey: true }), false)).toBeNull()
+  })
+
+  it('move workspace jumps to another modifier and read the digit from the key code', () => {
+    bind({ 'workspace.goto': 'Ctrl+Shift+1-9' })
+    const e = { ...key('@', { ctrlKey: true, shiftKey: true }), code: 'Digit2' }
+    expect(matchChord(e, false)).toBe('workspace.goto')
+    expect(workspaceIndex(e)).toBe(1)
+    expect(matchChord(key('2', { ctrlKey: true }), false)).toBeNull()
+  })
+})
+
+describe('conflictsWith', () => {
+  it('names the other command bound to the same chord, including a digit in 1-9', () => {
+    const spec = (text: string) =>
+      parseChord(text, false) as NonNullable<ReturnType<typeof parseChord>>
+    expect(conflictsWith('view.toggleRail', spec('Ctrl+Shift+P'), false)).toEqual([
+      'palette.toggle',
+    ])
+    expect(conflictsWith('palette.toggle', spec('Ctrl+Shift+P'), false)).toEqual([])
+    expect(conflictsWith('palette.toggle', spec('Ctrl+4'), false)).toEqual(['workspace.goto'])
+    expect(conflictsWith('palette.toggle', spec('Ctrl+Shift+Y'), false)).toEqual([])
+  })
+})
+
+describe('bindableIds', () => {
+  it('lists every default chord and each visible palette command', () => {
+    commands.register({ id: 'test.visible', title: 'Visible', run: () => {} })
+    commands.register({ id: 'test.hidden', title: 'Hidden', hidden: true, run: () => {} })
+    try {
+      const ids = bindableIds()
+      expect(ids).toEqual(
+        expect.arrayContaining(['palette.toggle', 'copy', 'workspace.goto', 'test.visible']),
+      )
+      expect(ids).not.toContain('test.hidden')
+    } finally {
+      commands.unregister('test.visible')
+      commands.unregister('test.hidden')
+    }
+  })
+})
+
+describe('setKeybindingSetting', () => {
+  it('sets one command by its dotted id', () => {
+    setKeybindingSetting('keybindings.palette.toggle', 'Ctrl+Shift+Y', false)
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Shift+Y')
+    setKeybindingSetting('keybindings.view.toggleRail', null, false)
+    expect(useSettingsStore.getState().keybindings['view.toggleRail']).toBeNull()
+  })
+
+  it('refuses a chord that steals a terminal key, naming the reason', () => {
+    expect(() => setKeybindingSetting('keybindings.palette.toggle', 'Ctrl+R', false)).toThrow(
+      /plain Ctrl key the shell uses/,
+    )
+    expect(() => setKeybindingSetting('keybindings.find', 'Escape', false)).toThrow(/Escape/)
+    expect(() => setKeybindingSetting('keybindings.find', 'Alt+F', false)).toThrow(/Ctrl or Cmd/)
+    expect(() => setKeybindingSetting('keybindings.find', 42, false)).toThrow(
+      /chord string or null/,
+    )
+    expect(() => setKeybindingSetting('keybindings.find', 'Ctrl+Nope', false)).toThrow(
+      /is not a chord/,
+    )
+    expect(useSettingsStore.getState().keybindings).toEqual({})
+  })
+
+  it('replaces the whole map only when every entry passes', () => {
+    expect(() =>
+      setKeybindingSetting('keybindings', { find: 'Ctrl+Alt+F', 'palette.toggle': 'Tab' }, false),
+    ).toThrow(/Tab/)
+    expect(useSettingsStore.getState().keybindings).toEqual({})
+    setKeybindingSetting('keybindings', { find: 'Ctrl+Alt+F' }, false)
+    expect(useSettingsStore.getState().keybindings).toEqual({ find: 'Ctrl+Alt+F' })
+    expect(() => setKeybindingSetting('keybindings', ['Ctrl+K'], false)).toThrow(/object/)
+  })
+
+  it('refuses prototype keys', () => {
+    expect(() => setKeybindingSetting('keybindings.__proto__', 'Ctrl+Shift+Y', false)).toThrow(
+      /invalid keybinding id/,
+    )
   })
 })

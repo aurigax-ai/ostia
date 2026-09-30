@@ -3,9 +3,12 @@ import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
 import { allPanes } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
+import { chordLabel } from '../lib/chords'
 import { PALETTE_MODES, type PaletteMode, paletteMode } from '../lib/paletteModes'
 import { revealPane } from '../lib/workspaceActivity'
+import { isMac } from '../platform'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import {
@@ -166,6 +169,7 @@ function TabItems({
 }
 
 function CommandItems({ onDone }: { onDone: () => void }): JSX.Element {
+  useSettingsStore((s) => s.keybindings)
   const byCat = new Map<string, ReturnType<typeof commands.list>>()
   for (const c of commands.list()) {
     if (c.hidden) continue
@@ -177,19 +181,23 @@ function CommandItems({ onDone }: { onDone: () => void }): JSX.Element {
     <>
       {[...byCat.entries()].map(([category, items]) => (
         <CommandGroup key={category} heading={category}>
-          {items.map((c) => (
-            <CommandItem
-              key={c.id}
-              value={`${symbol} ${c.title} ${c.id} ${c.category ?? ''}`}
-              onSelect={() => {
-                void commands.exec(c.id)
-                onDone()
-              }}
-            >
-              <span>{c.title}</span>
-              <CommandShortcut>{c.id}</CommandShortcut>
-            </CommandItem>
-          ))}
+          {items.map((c) => {
+            const keys = chordLabel(c.id, isMac)
+            return (
+              <CommandItem
+                key={c.id}
+                value={`${symbol} ${c.title} ${c.id} ${c.category ?? ''}`}
+                onSelect={() => {
+                  void commands.exec(c.id)
+                  onDone()
+                }}
+              >
+                <span>{c.title}</span>
+                <CommandShortcut>{c.id}</CommandShortcut>
+                {keys ? <Kbd className="font-mono">{keys}</Kbd> : null}
+              </CommandItem>
+            )
+          })}
         </CommandGroup>
       ))}
     </>

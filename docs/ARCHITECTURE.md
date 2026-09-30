@@ -545,7 +545,32 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   Ctrl+Shift+C/V/F (copy/paste/find). Plain Ctrl+T stays with the shell (readline transpose). On Linux some IBus
   setups claim Ctrl+Shift+U for Unicode entry before the app sees it; the palette's "Jump to
   Latest Unread" and the bell still work there.
-  - Any combination with Alt is ignored.
+  - The defaults above are `DEFAULT_CHORDS`, one canonical chord string per platform. The
+    user's `keybindings` setting (command id → chord string, or `null` to unbind) overrides
+    them; `effectiveBindings(user, mac)` merges the two into an id → chord map plus a
+    signature → id index, and `currentBindings` caches it per settings object, so every reader
+    (`matchChord`, `isAppChord`, `chordLabel`/`useChordLabel`, the terminal key handler,
+    palette hints, the modifier-hold digit hints) sees a change at once. Any visible palette
+    command can be bound, not only the ones with a default (`bindableIds`); a bound command
+    that isn't a terminal chord is an app chord and runs through the window listener.
+  - Chord grammar and the guard live in `lib/chordSpec.ts`: `parseChord` (aliases, `Mod` =
+    Cmd on macOS / Ctrl elsewhere, `1-9` for the workspace jump), `formatChord` (canonical
+    string), `chordText` (label), `specFromEvent` (letters from `key`, other keys from `code`
+    so Shift+digit and Shift+punctuation still match), `stealsTerminalKey`, `usedByMonaco`.
+    Why the guard: Escape, Tab, keys without Ctrl/Cmd, plain Ctrl keys other than digits,
+    `, . ; ' =` and F-keys, and plain/Ctrl arrows reach the shell (readline, signals, TUIs);
+    on macOS only ⌘ chords are safe because Control and Option chords go to the shell. An
+    override that fails the guard on this platform (for example a Ctrl chord synced from Linux
+    to a Mac) is kept in `settings.json` but ignored, and Settings → Keyboard says why.
+  - Settings → Keyboard (`KeyboardSection.tsx`) records a chord from the next non-modifier
+    keydown (captured on `window` in the capture phase, so neither app chords nor the
+    settings Escape handler see it; a bare Escape cancels). A refused chord shows an inline
+    error and keeps recording; a chord another command holds (or a digit inside the
+    workspace jump's 1-9) asks to Replace, which unbinds the other; a known Monaco default
+    asks to confirm, because Monaco keeps that key while an editor has focus.
+  - `pine settings set keybindings.<id> <chord>` (or the whole `keybindings` object) goes
+    through `setKeybindingSetting`, which applies the same guard and refuses with a reason.
+    Keybindings are not a grant, so agents may change them.
   - App.tsx has a window keydown listener that runs app chords.
   - Inside the terminal, xterm's key handler returns false for app chords so they reach the
     window listener.
@@ -556,7 +581,9 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 
 - `stores/settingsStore.ts` persists `userData/settings.json` (debounced 300 ms): `locale`,
   `appearance` (theme + ui/terminal/editor fonts), `behavior` (`showHiddenFiles`, `cursorStyle`,
-  `cursorBlink`, `restoreWorkspace`), `capabilities.grants`, `sync.dir`.
+  `cursorBlink`, `restoreWorkspace`), `keybindings`, `capabilities.grants`, `sync.dir`.
+  - `keybindings` is validated on load by `parseKeybindings`: only string chords that parse
+    and `null` survive. The platform guard is applied when the effective map is built.
   - `setByPath` rejects prototype-pollution segments, keys outside locale/appearance/behavior,
     and type changes.
   - `capabilities.grants` is changed only by hand-editing the file, and is read at startup.

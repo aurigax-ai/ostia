@@ -5,7 +5,7 @@ const store = () => useSettingsStore.getState()
 
 type Persisted = Pick<
   ReturnType<typeof useSettingsStore.getState>,
-  'locale' | 'appearance' | 'behavior' | 'notifications' | 'sidebar'
+  'locale' | 'appearance' | 'behavior' | 'notifications' | 'sidebar' | 'keybindings'
 >
 
 describe('settingsStore', () => {
@@ -37,6 +37,7 @@ describe('settingsStore', () => {
       behavior: s.behavior,
       notifications: s.notifications,
       sidebar: s.sidebar,
+      keybindings: s.keybindings,
     })
   })
 
@@ -51,6 +52,26 @@ describe('settingsStore', () => {
   })
 
   describe('init', () => {
+    it('keeps parseable keybindings and unbinds, and drops malformed entries', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({
+          keybindings: {
+            'palette.toggle': ' Ctrl+Shift+K ',
+            'view.toggleRail': null,
+            'history.search': 'Hyper+Q',
+            'workspace.new': 42,
+            'app.openSettings': 'Ctrl+R',
+          },
+        }),
+      )
+      await store().init()
+      expect({ ...store().keybindings }).toEqual({
+        'palette.toggle': 'Ctrl+Shift+K',
+        'view.toggleRail': null,
+        'app.openSettings': 'Ctrl+R',
+      })
+    })
+
     it('keeps a known input mode and falls back to terminal for anything else', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue(
         JSON.stringify({ behavior: { inputMode: 'editor' } }),
@@ -136,6 +157,7 @@ describe('settingsStore', () => {
         behavior: s.behavior,
         notifications: s.notifications,
         sidebar: s.sidebar,
+        keybindings: s.keybindings,
       }).toEqual(DEFAULTS)
     })
 
@@ -165,6 +187,7 @@ describe('settingsStore', () => {
         behavior: s.behavior,
         notifications: s.notifications,
         sidebar: s.sidebar,
+        keybindings: s.keybindings,
       }).toEqual(DEFAULTS)
     })
   })

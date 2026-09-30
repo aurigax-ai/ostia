@@ -6,7 +6,7 @@ import {
   SidebarSimpleIcon,
 } from '@phosphor-icons/react'
 import { useDict } from '../i18n/useDict'
-import { chordLabel } from '../lib/chords'
+import { useChordLabel } from '../lib/chords'
 import { isMac } from '../platform'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -17,8 +17,6 @@ import { PanelToggles } from './PanelToggles'
 import { Button } from './ui/button'
 import { Kbd } from './ui/kbd'
 
-const PALETTE_KEYS = chordLabel('palette.toggle', isMac)
-
 export function TopBar(): JSX.Element {
   const d = useDict()
   const toggleRail = useUIStore((s) => s.toggleRail)
@@ -28,6 +26,7 @@ export function TopBar(): JSX.Element {
   const filesOpen = useUIStore((s) => s.filesOpen)
   const toggleFiles = useUIStore((s) => s.toggleFiles)
   const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
+  const paletteKeys = useChordLabel('palette.toggle', isMac)
 
   return (
     <header className="topbar drag-region">
@@ -57,7 +56,10 @@ export function TopBar(): JSX.Element {
         <PanelToggles />
       </div>
 
-      <Hint label={`${d.search.placeholder} (${PALETTE_KEYS})`} side="bottom">
+      <Hint
+        label={paletteKeys ? `${d.search.placeholder} (${paletteKeys})` : d.search.placeholder}
+        side="bottom"
+      >
         <Button
           variant="ghost"
           className="h-6 min-w-0 justify-start gap-1 rounded-sm bg-fg/6 pr-1 pl-2 font-normal text-fg-muted text-ui-base hover:bg-fg/10 hover:text-fg dark:hover:bg-fg/10"
@@ -65,7 +67,9 @@ export function TopBar(): JSX.Element {
         >
           <MagnifyingGlassIcon className="size-3.5" />
           <span className="flex-1 truncate text-left">{d.search.command}</span>
-          <Kbd className="h-4 bg-transparent font-mono text-ui-xs">{PALETTE_KEYS}</Kbd>
+          {paletteKeys ? (
+            <Kbd className="h-4 bg-transparent font-mono text-ui-xs">{paletteKeys}</Kbd>
+          ) : null}
         </Button>
       </Hint>
 

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
+import { commands } from '../commands/registry'
 import { monaco } from '../monaco/setup'
 import { SETTINGS_JSON_SCHEMA, registerSettingsSchema } from './schema'
 
@@ -55,6 +56,12 @@ describe('SETTINGS_JSON_SCHEMA', () => {
     ])
   })
 
+  it('lets keybindings map a command id to a chord string or null', () => {
+    const { keybindings } = SETTINGS_JSON_SCHEMA.properties
+    expect(Object.keys(keybindings.properties)).toContain('workspace.goto')
+    expect(keybindings.additionalProperties.type).toEqual(['string', 'null'])
+  })
+
   it('offers gateway among capabilities.grants, and only recognized capabilities', () => {
     const grants = SETTINGS_JSON_SCHEMA.properties.capabilities.properties.grants.items.enum
     expect(grants).toContain('gateway')
@@ -86,6 +93,26 @@ describe('registerSettingsSchema', () => {
     expect(options.schemas).toHaveLength(1)
     expect(options.schemas[0].uri).toBe('pine://settings-schema')
     expect(options.schemas[0].fileMatch).toEqual(['file:///custom/settings.json'])
-    expect(options.schemas[0].schema).toBe(SETTINGS_JSON_SCHEMA)
+    expect(options.schemas[0].schema).toMatchObject({
+      additionalProperties: false,
+      properties: { locale: SETTINGS_JSON_SCHEMA.properties.locale },
+    })
+  })
+
+  it('lists every default chord and each registered palette command under keybindings', async () => {
+    commands.register({ id: 'test.bindable', title: 'Bindable', run: () => {} })
+    commands.register({ id: 'test.hidden', title: 'Hidden', hidden: true, run: () => {} })
+    try {
+      await registerSettingsSchema()
+      const options = setDiagnosticsOptions.mock.calls[0][0] as {
+        schemas: { schema: { properties: { keybindings: { properties: object } } } }[]
+      }
+      const ids = Object.keys(options.schemas[0].schema.properties.keybindings.properties)
+      expect(ids).toEqual(expect.arrayContaining(['palette.toggle', 'copy', 'test.bindable']))
+      expect(ids).not.toContain('test.hidden')
+    } finally {
+      commands.unregister('test.bindable')
+      commands.unregister('test.hidden')
+    }
   })
 })
