@@ -49,16 +49,28 @@ them. Back to [the index](index.md).
   password; filling happens in main. Governs: pine secret fill, Browser secrets, credentials
   fill from the socket.
 
+- **SBX-D35** The human grants a secret to a workspace with one injection way. **env** sets a
+  variable (the name the human picks, default the secret's name) in shells spawned afterwards.
+  **file** writes the value to `$PINE_SECRETS_DIR/<name>` with mode 0600, in the workspace's private
+  tmp folder, which other sandboxes can't read and which is removed when the workspace closes or
+  the app quits. A file-granted SSH key also reaches git through a per-workspace `ssh-agent` that
+  Pine runs outside the sandbox, loaded with only the granted keys; its socket sits in that
+  private folder and becomes the sandbox's `SSH_AUTH_SOCK`, while srt's own `GIT_SSH_COMMAND`
+  carries the proxy. **request** injects nothing; the agent must ask (SBX-D27). Values are real,
+  not masked, and a change applies to shells spawned afterwards ("Restart to apply"). Why: srt
+  sets `GIT_SSH_COMMAND` itself and overrode the `-i` flag SBX-D26 relied on; everything else is
+  unchanged. Governs: secret grants, secret injection, PINE_SECRETS_DIR. Supersedes: SBX-D26.
+
 ## Cases
 | ID | Covers | Kind | Case |
 |---|---|---|---|
 | SBX-C67 | SBX-D25 | expected | Given `~/.ssh/id_ed25519` and `GITHUB_TOKEN` in Pine's environment, when the human opens the Secrets tab, then both are listed as Host, and the Pine vault's entries are listed as Pine |
 | SBX-C68 | SBX-D25 | unexpected | Given a Host secret, when the human looks for Edit, Rename or Delete, then none is offered, and no socket method or CLI verb changes it |
 | SBX-C69 | SBX-D25 | unexpected | Given a Host secret granted to a workspace, when the key file is later removed from `~/.ssh`, then the next shell spawn reports it missing in the pane and the Secrets tab, and spawns without it |
-| SBX-C70 | SBX-D26 | expected | Given `GITHUB_TOKEN` granted as env, when a sandboxed shell spawns, then `echo $GITHUB_TOKEN` prints the real value |
-| SBX-C71 | SBX-D26 | expected | Given `~/.ssh/id_ed25519` granted as file and `github.com:22` allowed, when the sandboxed shell runs `git fetch` over SSH, then it authenticates with that key, and `~/.ssh` itself is still unreadable |
-| SBX-C72 | SBX-D26 | unexpected | Given a file secret, when the workspace closes or the app quits, then its `$PINE_SECRETS_DIR` directory is gone from disk |
-| SBX-C73 | SBX-D26 | unexpected | Given two sandboxed workspaces, when one has a file secret, then the other's shell can't read that file |
+| SBX-C70 | SBX-D35 | expected | Given `GITHUB_TOKEN` granted as env, when a sandboxed shell spawns, then `echo $GITHUB_TOKEN` prints the real value |
+| SBX-C71 | SBX-D35 | expected | Given `~/.ssh/id_ed25519` granted as file and `github.com:22` allowed, when the sandboxed shell runs `git fetch` over SSH, then it authenticates with that key, and `~/.ssh` itself is still unreadable |
+| SBX-C72 | SBX-D35 | unexpected | Given a file secret, when the workspace closes or the app quits, then its `$PINE_SECRETS_DIR` directory is gone from disk |
+| SBX-C73 | SBX-D35 | unexpected | Given two sandboxed workspaces, when one has a file secret, then the other's shell can't read that file |
 | SBX-C74 | SBX-D27 | expected | Given a sandboxed agent, when it runs `pine secret get DB_PASSWORD --reason "run migrations"` and the human clicks Allow once, then the value is printed and a second get asks again |
 | SBX-C75 | SBX-D27 | expected | Given a sandboxed agent, when it runs `pine secret ls`, then it gets names and labels only, with no values |
 | SBX-C76 | SBX-D27 | unexpected | Given the human denies the card or it times out, when `pine secret get` returns, then it exits non-zero, prints no value, and approval history holds no value |

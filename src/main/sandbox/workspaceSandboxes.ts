@@ -73,7 +73,12 @@ export class WorkspaceSandboxes {
     const policy = resolveSandbox(this.deps.globals(), this.deps.store.get(workspaceId), [
       ...(this.sessionDomains.get(workspaceId) ?? []),
     ])
-    return buildSrtConfig(policy, { ...this.deps.basePaths(), workDir, tmpDir })
+    return buildSrtConfig(policy, {
+      ...this.deps.basePaths(),
+      workDir,
+      tmpDir,
+      tmpRoot: this.deps.tmpRoot,
+    })
   }
 
   async wrap(
