@@ -8,6 +8,7 @@ import { DeckRail } from './components/DeckRail'
 import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
 import { FilesPanel } from './components/FilesPanel'
 import { HistorySearch } from './components/HistorySearch'
+import { PromptEditorDialog } from './components/PromptEditorDialog'
 import { TopBar } from './components/TopBar'
 import { WindowControls } from './components/WindowControls'
 import { WorkZone } from './components/WorkZone'
@@ -95,6 +96,7 @@ export function App(): JSX.Element {
           <CommandPalette />
           <ExtensionApprovalDialog />
           <CloseConfirmDialog />
+          <PromptEditorDialog />
           <HistorySearch />
         </div>
       </TooltipProvider>

@@ -1,3 +1,9 @@
+import {
+  CORE_CHIP_IDS,
+  MAX_PROMPT_CHIPS,
+  PROMPT_SEPARATORS,
+  PROMPT_STYLES,
+} from '../../shared/promptSettings'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
 import { monaco } from '../monaco/setup'
 
@@ -196,6 +202,52 @@ export const SETTINGS_JSON_SCHEMA = {
           description:
             'Lowest contrast ratio allowed between terminal text and its background; ' +
             'text below it is adjusted. 1 turns it off. Default: 1.',
+        },
+        prompt: {
+          type: 'object',
+          additionalProperties: false,
+          description:
+            'The prompt the input editor shows (behavior.inputMode "editor"). Right-click the ' +
+            'prompt and choose Edit prompt to arrange it.',
+          properties: {
+            style: {
+              type: 'string',
+              enum: [...PROMPT_STYLES],
+              description:
+                '"shell" keeps your shell’s own prompt (PS1, prompt frameworks). "pine" shows ' +
+                'context chips above the input editor, and new shells get a plain "cwd" prompt ' +
+                'so scrollback stays readable. Terminals already open keep their prompt until ' +
+                'a new shell starts. Default: shell.',
+            },
+            chips: {
+              type: 'array',
+              maxItems: MAX_PROMPT_CHIPS,
+              uniqueItems: true,
+              items: {
+                type: 'string',
+                anyOf: [
+                  { enum: [...CORE_CHIP_IDS] },
+                  { pattern: '^[a-z][a-z0-9-]{1,39}\\.[a-z][a-z0-9-]{0,39}$' },
+                ],
+              },
+              description:
+                'Chips in order, left to right. Built in: conda, virtualenv, node, cwd, user, ' +
+                'host, kube (Kubernetes context), date, time12, time24, exitCode, duration. ' +
+                'Extensions add chips as "<extension>.<chip>". Chips without a value are hidden. ' +
+                'Default: ["conda", "virtualenv", "node", "cwd"].',
+            },
+            sameLine: {
+              type: 'boolean',
+              description: 'Show the chips on the same line as the command. Default: false.',
+            },
+            separator: {
+              type: 'string',
+              enum: [...PROMPT_SEPARATORS],
+              description:
+                'Character after the prompt: in the plain shell prompt, and after the chips ' +
+                'when sameLine is on. Default: none.',
+            },
+          },
         },
       },
     },

@@ -14,6 +14,7 @@ import {
   type NotificationSettings,
   parseNotificationSettings,
 } from '../../shared/notificationSettings'
+import { parsePromptSettings } from '../../shared/promptSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
 import { normalizeGroupName } from '../../shared/workspaceGroups'
 import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
@@ -484,6 +485,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         scrollSpeed: clampScrollSpeed(patch.scrollSpeed ?? s.terminal.scrollSpeed),
         scrollbackLines: clampScrollback(patch.scrollbackLines ?? s.terminal.scrollbackLines),
         minimumContrast: clampContrast(patch.minimumContrast ?? s.terminal.minimumContrast),
+        prompt: parsePromptSettings(patch.prompt ?? s.terminal.prompt),
       },
     }))
     scheduleSave(get)
