@@ -7,6 +7,17 @@ import {
 } from '../../shared/notificationSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
 import type { Locale } from '../i18n/dict'
+import {
+  DEFAULT_PANE_SETTINGS,
+  DEFAULT_TERMINAL_SETTINGS,
+  type PaneSettings,
+  type TerminalSettings,
+  clampContrast,
+  clampScrollSpeed,
+  clampScrollback,
+  parsePaneSettings,
+  parseTerminalSettings,
+} from '../settings/terminalPaneSettings'
 
 export type ThemeId = string
 
@@ -86,6 +97,8 @@ interface Persisted {
   locale: Locale
   appearance: Appearance
   behavior: Behavior
+  terminal: TerminalSettings
+  panes: PaneSettings
   notifications: NotificationSettings
   sidebar: SidebarSettings
   capabilities?: Capabilities
@@ -96,6 +109,8 @@ const DATA_KEYS: readonly string[] = [
   'locale',
   'appearance',
   'behavior',
+  'terminal',
+  'panes',
   'notifications',
   'sidebar',
 ]
@@ -123,6 +138,8 @@ const DEFAULTS: Persisted = {
     copyOnSelect: false,
     inputMode: 'terminal',
   },
+  terminal: DEFAULT_TERMINAL_SETTINGS,
+  panes: DEFAULT_PANE_SETTINGS,
   notifications: DEFAULT_NOTIFICATION_SETTINGS,
   sidebar: { showPath: true, showMessage: true, showDescription: true, showExtensionItems: true },
 }
@@ -134,6 +151,8 @@ interface SettingsState extends Persisted {
   setMotion: (m: MotionMode) => void
   setSurfaceFont: (surface: FontSurface, patch: Partial<SurfaceFont>) => void
   setBehavior: (patch: Partial<Behavior>) => void
+  setTerminal: (patch: Partial<TerminalSettings>) => void
+  setPanes: (patch: Partial<PaneSettings>) => void
   setNotifications: (patch: Partial<NotificationSettings>) => void
   setTerminalLineHeight: (lineHeight: number) => void
   setSidebar: (patch: Partial<SidebarSettings>) => void
@@ -148,6 +167,8 @@ async function writeSettings(s: SettingsState): Promise<void> {
     locale: s.locale,
     appearance: s.appearance,
     behavior: s.behavior,
+    terminal: s.terminal,
+    panes: s.panes,
     notifications: s.notifications,
     sidebar: s.sidebar,
     capabilities: s.capabilities,
@@ -204,6 +225,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           ...p.behavior,
           inputMode: inputMode(p.behavior?.inputMode),
         },
+        terminal: parseTerminalSettings(p.terminal),
+        panes: parsePaneSettings(p.panes),
         notifications: parseNotificationSettings(p.notifications),
         sidebar: pickBooleans(DEFAULTS.sidebar, p.sidebar),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
@@ -232,6 +255,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setBehavior: (patch) => {
     set((s) => ({ behavior: { ...s.behavior, ...patch } }))
+    scheduleSave(get)
+  },
+  setTerminal: (patch) => {
+    set((s) => ({
+      terminal: {
+        ...s.terminal,
+        ...patch,
+        scrollSpeed: clampScrollSpeed(patch.scrollSpeed ?? s.terminal.scrollSpeed),
+        scrollbackLines: clampScrollback(patch.scrollbackLines ?? s.terminal.scrollbackLines),
+        minimumContrast: clampContrast(patch.minimumContrast ?? s.terminal.minimumContrast),
+      },
+    }))
+    scheduleSave(get)
+  },
+  setPanes: (patch) => {
+    set((s) => ({ panes: { ...s.panes, ...patch } }))
     scheduleSave(get)
   },
   setNotifications: (patch) => {
@@ -270,6 +309,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       locale: s.locale,
       appearance: s.appearance,
       behavior: s.behavior,
+      terminal: s.terminal,
+      panes: s.panes,
       notifications: s.notifications,
       sidebar: s.sidebar,
       capabilities: s.capabilities,
@@ -291,6 +332,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       throw new Error(`cannot set ${path}: expected ${kindOf(existing)}, got ${kindOf(value)}`)
     }
     cursor[leaf] = value
+    root.terminal = parseTerminalSettings(root.terminal)
+    root.panes = parsePaneSettings(root.panes)
     set(root as Partial<SettingsState>)
     scheduleSave(get)
   },

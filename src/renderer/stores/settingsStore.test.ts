@@ -5,7 +5,7 @@ const store = () => useSettingsStore.getState()
 
 type Persisted = Pick<
   ReturnType<typeof useSettingsStore.getState>,
-  'locale' | 'appearance' | 'behavior' | 'notifications' | 'sidebar'
+  'locale' | 'appearance' | 'behavior' | 'terminal' | 'panes' | 'notifications' | 'sidebar'
 >
 
 describe('settingsStore', () => {
@@ -35,6 +35,8 @@ describe('settingsStore', () => {
       locale: s.locale,
       appearance: s.appearance,
       behavior: s.behavior,
+      terminal: s.terminal,
+      panes: s.panes,
       notifications: s.notifications,
       sidebar: s.sidebar,
     })
@@ -134,6 +136,8 @@ describe('settingsStore', () => {
         locale: s.locale,
         appearance: s.appearance,
         behavior: s.behavior,
+        terminal: s.terminal,
+        panes: s.panes,
         notifications: s.notifications,
         sidebar: s.sidebar,
       }).toEqual(DEFAULTS)
@@ -163,6 +167,8 @@ describe('settingsStore', () => {
         locale: s.locale,
         appearance: s.appearance,
         behavior: s.behavior,
+        terminal: s.terminal,
+        panes: s.panes,
         notifications: s.notifications,
         sidebar: s.sidebar,
       }).toEqual(DEFAULTS)
