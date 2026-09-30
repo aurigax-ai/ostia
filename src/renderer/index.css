@@ -446,6 +446,11 @@
   cursor: default;
 }
 
+.tab-after:empty,
+.tab-meta:empty {
+  display: none;
+}
+
 .tab-description {
   display: -webkit-box;
   overflow: hidden;

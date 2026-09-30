@@ -399,6 +399,16 @@ pane, message, time), reloads on `notifications:changed`, and each entry reveals
 The log (`main/notify.ts`, `notifications.json`, capped at 500) holds `pine notify` calls and the
 renderer's posts (terminal escapes, long commands). Clicking a desktop notification restores and
 focuses the window and sends `notifications:activate` with the pane id, which reveals it.
+**Desktop banner policy** (`shared/notificationSettings.ts`, settings key `notifications`): every
+event is logged; whether it also raises a system banner is split in two. The renderer decides per
+event with `wantsDesktopBanner(settings, kind, seen)`: the kind (`agentWaiting`, `agentDone`,
+`commandFinished`; a plain `message` is always eligible) must be on, and a pane you are looking at
+(`isPaneViewed`) is skipped unless `whenFocused`. Agent banners come from `attention.set` with
+`waiting`/`done` (`lib/agentNotification.ts`); `pine notify` asks the renderer through the
+`attention.notify` result (`{ desktop }`). Main then applies the master switch and sound
+(`desktop`, `sound` → `silent`) by reading `settings.json` at show time, so extension panel
+notifications obey them too. Why split: only the renderer knows what is on screen; only main
+creates the `Notification`.
 Why the log lives in main: `pine notify` arrives there without a renderer round-trip, the gateway
 listens to the same `notify` event, and the log survives restarts.
 

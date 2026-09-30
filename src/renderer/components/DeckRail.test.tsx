@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { DeckRail } from './DeckRail'
@@ -24,17 +25,38 @@ function rowFor(name: RegExp): HTMLElement {
 describe('DeckRail', () => {
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
+  let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
   beforeAll(() => {
     workspacesInit = useWorkspacesStore.getState()
     uiInit = useUIStore.getState()
+    settingsInit = useSettingsStore.getState()
   })
 
   afterEach(() => {
     cleanup()
     useWorkspacesStore.setState(workspacesInit, true)
     useUIStore.setState(uiInit, true)
+    useSettingsStore.setState(settingsInit, true)
     vi.restoreAllMocks()
+  })
+
+  it('shows or hides each row detail by the sidebar settings', () => {
+    seedWorkspaces()
+    useWorkspacesStore.setState((st) => ({
+      workspaces: st.workspaces.map((w) =>
+        w.id === 's1' ? { ...w, description: 'fix login' } : w,
+      ),
+    }))
+    const { rerender } = render(<DeckRail />)
+    expect(screen.getByText('/home/alpha')).toBeInTheDocument()
+    expect(screen.getByText('fix login')).toBeInTheDocument()
+
+    useSettingsStore.getState().setSidebar({ showPath: false, showDescription: false })
+    rerender(<DeckRail />)
+    expect(screen.queryByText('/home/alpha')).toBeNull()
+    expect(screen.queryByText('fix login')).toBeNull()
+    expect(rowFor(/alpha/).querySelector('.tab-meta')).toBeEmptyDOMElement()
   })
 
   it('renders one row per workspace and marks the active one', () => {
