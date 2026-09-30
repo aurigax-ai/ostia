@@ -1,6 +1,7 @@
 import type { AgentResume } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
+import type { AssistApi } from './assist'
 import type {
   BrowserStorageRead,
   StorageEdit,
@@ -521,6 +522,7 @@ export interface PineBridge {
   notifications: NotificationsApi
   workflows: WorkflowsApi
   completions: CompletionsApi
+  assist: AssistApi
   iconThemes: IconThemesApi
 }
 
