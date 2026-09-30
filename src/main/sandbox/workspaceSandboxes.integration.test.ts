@@ -9,12 +9,14 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox'
 import { sandboxFailureBanner } from './spawnBanner'
+import { sandboxSpawnEnv } from './spawnEnv'
 import { SandboxStore } from './store'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './workspaceSandboxes'
 
@@ -150,5 +152,42 @@ describe('WorkspaceSandboxes', () => {
     expect(await readIn(managerB, 'b')).not.toContain('NOTE-CONTENT')
     managerA.stopAll()
     managerB.stopAll()
+  }, 30_000)
+
+  it('SBX-C56 keeps an inherited ssh-agent socket out of reach and out of the environment', async () => {
+    const agentDir = mkdtempSync(join(tmpdir(), 'pine-c56-agent-'))
+    const agentSock = join(agentDir, 'agent.sock')
+    const server = createServer((socket) => socket.end('AGENT-REACHED'))
+    await new Promise<void>((resolve) => server.listen(agentSock, resolve))
+    try {
+      const env = sandboxSpawnEnv({ PATH: '/usr/bin', SSH_AUTH_SOCK: agentSock, KEEP: '1' })
+      expect(env).toEqual({ PATH: '/usr/bin', KEEP: '1' })
+      const store = new SandboxStore(join(root, 'c56.json'))
+      store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
+      const manager = new WorkspaceSandboxes({
+        store,
+        globals: () => DEFAULT_SANDBOX_GLOBALS,
+        basePaths: () => ({
+          home: join(root, 'home'),
+          dataDirs: [],
+          socketPath: join(root, 'pine.sock'),
+          runtimeReads: [],
+          agentSockets: [agentSock],
+        }),
+        workDir: () => workDir,
+        tmpRoot: join(root, 'tmp'),
+        nodePath: process.execPath,
+        hostScript,
+        onAsk: async () => false,
+      })
+      const probe = `node -e "require('net').connect('${agentSock}').on('data',d=>console.log(String(d))).on('error',e=>console.log('ERR',e.code))"`
+      const wrapped = await manager.wrap('ws', probe, 'bash')
+      const out = execFileSync('/bin/sh', ['-c', wrapped], { cwd: workDir, encoding: 'utf8' })
+      expect(out).not.toContain('AGENT-REACHED')
+      manager.stopAll()
+    } finally {
+      server.close()
+      rmSync(agentDir, { recursive: true, force: true })
+    }
   }, 30_000)
 })
