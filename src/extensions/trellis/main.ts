@@ -4,17 +4,21 @@ import { PRODUCT_NAME } from '../../shared/product'
 import {
   type CommandHandler,
   type ExtensionCaller,
+  type ExtensionSettingValues,
+  booleanSetting,
+  cliArgs,
   connect,
   failure,
+  numberSetting,
   ok,
   onShutdown,
   startMessageServer,
 } from '../sdk'
 import { type AuthProxy, type ProxyUpstream, startAuthProxy } from './proxy'
 import { TrellisService, TrellisUnavailable, type WorkspaceRef } from './service'
-import { isAppPath, loopbackHttpUrl, projectPath } from './trellis'
+import { cardPath, cardRef, isAppPath, loopbackHttpUrl, projectPath } from './trellis'
 
-const REFRESH_MS = 60_000
+const REFRESH_SECONDS = { min: 10, max: 3600 }
 const EVENTS: ExtensionEventType[] = ['pane.created', 'pane.closed', 'cwd.changed']
 const FOCUS_EVENT = 'focus.changed' as ExtensionEventType
 
@@ -45,7 +49,7 @@ async function main(): Promise<void> {
     host: {
       listWorkspaces: async () => workspacesFrom(await ext.call('workspace.list')),
       setSidebarItem: (item) => ext.setSidebarItem(item),
-      notifyPanel: (title, body) => ext.notifyPanel(title, body),
+      notifyPanel: (title, body, path) => ext.notifyPanel(title, body, path),
       log: (line) => console.error(line),
     },
   })
@@ -99,6 +103,24 @@ async function main(): Promise<void> {
       const res = await service.init(dir)
       return res.ok ? ok(res.text) : failure('init-failed', res.message)
     },
+    card: async (args, caller) => {
+      remember(caller)
+      const raw = cliArgs(args)?.argv[0]
+      if (!raw) return failure('missing-ref', service.strings.cardUsage)
+      const ref = cardRef(raw)
+      const path = ref ? cardPath(ref) : null
+      if (!ref || !path) return failure('invalid-ref', service.strings.invalidRef(raw))
+      try {
+        uiUrl = await service.ensureUi()
+      } catch (err) {
+        return failure(
+          err instanceof TrellisUnavailable ? err.code : 'ui-failed',
+          unavailableText(err),
+        )
+      }
+      await ext.openPanel(caller.workspaceId, path)
+      return ok(service.strings.cardOpened(ref), { ref, path })
+    },
     status: async (_args, caller) => {
       remember(caller)
       if (!(await service.isInstalled())) {
@@ -113,12 +135,13 @@ async function main(): Promise<void> {
     },
   }
 
-  ext.onPanel(async (caller) => {
+  ext.onPanel(async (caller, path) => {
     remember(caller)
     try {
       uiUrl = await service.ensureUi()
       const p = await ensureProxy()
-      return { url: p.entryUrl(projectPath(service.projectFor(caller.workDir))) }
+      const entry = path && isAppPath(path) ? path : projectPath(service.projectFor(caller.workDir))
+      return { url: p.entryUrl(entry) }
     } catch (err) {
       return { url: messages.url(service.strings.unavailableTitle, unavailableText(err)) }
     }
@@ -129,9 +152,22 @@ async function main(): Promise<void> {
   const onEvent = (): void => service.scheduleRefresh()
   const withFocus = (await ext.subscribe([...EVENTS, FOCUS_EVENT], onEvent)) as { ok?: boolean }
   if (withFocus?.ok === false) await ext.subscribe(EVENTS, onEvent)
+  let refresh: ReturnType<typeof setInterval> | null = null
+  const applySettings = (values: ExtensionSettingValues): void => {
+    service.notifyKinds = {
+      review: booleanSetting(values, 'notifyReview', true),
+      blocked: booleanSetting(values, 'notifyBlocked', true),
+    }
+    const seconds = numberSetting(values, 'refreshSeconds', 60, REFRESH_SECONDS)
+    if (refresh) clearInterval(refresh)
+    refresh = setInterval(() => void service.refreshSidebar(), seconds * 1000)
+    refresh.unref()
+  }
+  ext.onSettingsChanged(applySettings)
+  applySettings(await ext.getSettings())
+
   await service.refreshSidebar()
   void service.startEvents()
-  setInterval(() => void service.refreshSidebar(), REFRESH_MS).unref()
 }
 
 main().catch((err) => {

@@ -18,7 +18,7 @@ const CLAIM_LIVE_AT = 1790323096200 - 1
 
 interface Recorded {
   sidebar: { workspaceId: string; key: string; text: string; tone?: string }[]
-  notes: { title: string; body?: string }[]
+  notes: { title: string; body?: string; path?: string }[]
 }
 
 describe('TrellisService with a fake trellis on PATH', () => {
@@ -50,8 +50,8 @@ describe('TrellisService with a fake trellis on PATH', () => {
         setSidebarItem: async (item) => {
           recorded.sidebar.push(item)
         },
-        notifyPanel: async (title, body) => {
-          recorded.notes.push({ title, body })
+        notifyPanel: async (title, body, path) => {
+          recorded.notes.push({ title, body, path })
         },
         log: () => {},
       },
@@ -173,12 +173,53 @@ describe('TrellisService with a fake trellis on PATH', () => {
     expect(recorded.notes[0]).toEqual({
       title: 'Trellis: ready for your review',
       body: 'TRELLIS-13 Skill: when-to-use-trellis (the trigger layer)',
+      path: '/p/TRELLIS/card/TRELLIS-13',
     })
     expect(recorded.notes.map((n) => n.body?.split(' ')[0])).toEqual([
       'TRELLIS-13',
       'TRELLIS-14',
       'TRELLIS-4',
     ])
+  })
+
+  it('notifies for a project a workspace opened after the last sidebar refresh', async () => {
+    const svc = make()
+    await svc.refreshSidebar()
+    workspaces = [{ workspaceId: 's1', workDir: project('shop', '/DEMO') }]
+    svc.onEventLine(
+      JSON.stringify({
+        seq: 9,
+        actor: 'agent:x',
+        entity: 'card',
+        ref: 'DEMO-3',
+        title: 'Card 3',
+        action: 'moved',
+        field: 'column',
+        new: 'review',
+      }),
+    )
+    await vi.waitFor(() =>
+      expect(recorded.notes).toEqual([
+        {
+          title: 'Trellis: ready for your review',
+          body: 'DEMO-3 Card 3',
+          path: '/p/DEMO/card/DEMO-3',
+        },
+      ]),
+    )
+  })
+
+  it('notifies about nothing when the human turned review notices off', async () => {
+    writeFileSync(join(fake, 'consumers.json'), '[{"name":"pine","cursor":45,"lag":0,"gap":false}]')
+    copyFileSync(join(fake, 'events.jsonl'), join(fake, 'follow.jsonl'))
+    workspaces = [{ workspaceId: 's1', workDir: project('trellis', '/TRELLIS') }]
+    const svc = make()
+    svc.notifyKinds = { review: false, blocked: true }
+    await svc.refreshSidebar()
+    await svc.startEvents()
+    await vi.waitFor(() => expect(calls().some((c) => c.endsWith('--follow'))).toBe(true))
+    await new Promise((r) => setTimeout(r, 300))
+    expect(recorded.notes).toEqual([])
   })
 
   it('ignores events for projects no workspace has open', async () => {
