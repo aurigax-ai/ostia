@@ -107,6 +107,7 @@ export interface ExtensionManifest {
     paneChips: ExtensionPaneChipContribution[]
     settings: ExtensionSettingContribution[]
     workflows?: Workflow[]
+    completions?: string
   }
 }
 

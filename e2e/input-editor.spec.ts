@@ -270,3 +270,36 @@ test('the input editor sits on the shell prompt line and takes what is aimed at 
     await app.close()
   }
 })
+
+test('Tab completes subcommands and options with descriptions from the built-in specs', async () => {
+  test.setTimeout(90_000)
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
+  })
+  const app = await electron.launch(isolatedLaunch(dataHome))
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    const input = win.getByRole('textbox', { name: 'Command input' })
+    const menu = win.getByRole('listbox', { name: 'Completions' })
+    await expect(input).toBeVisible({ timeout: 15_000 })
+    await input.click()
+    await win.keyboard.type('git chec')
+    await win.keyboard.press('Tab')
+    await expect(input).toHaveValue('git checkout ', { timeout: 15_000 })
+    await win.keyboard.type('--')
+    await win.keyboard.press('Tab')
+    await expect(menu).toBeVisible({ timeout: 15_000 })
+    await expect(menu.getByRole('option', { name: /--force/ })).toContainText(/\S+\s+\S+/)
+    await win.keyboard.press('Escape')
+    await win.keyboard.press('Control+u')
+    await win.keyboard.type('tar --exc')
+    await win.keyboard.press('Tab')
+    await expect(input).toHaveValue(/^tar --exclude/)
+  } finally {
+    await app.close()
+  }
+})

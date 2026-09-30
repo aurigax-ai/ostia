@@ -115,6 +115,8 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Settings sync (a synced folder you own) | Warp | core (built): it rewrites extension approvals | S–M | 8 |
 | Phone: grant path above read-only, pty input, attention push (built) | cmux-like | gateway, in core until it moves out as a built-in extension | M | 10 |
 | Warp's IDE-style input editor (opt-in, only at an idle prompt, so agent TUIs keep the keys) | Warp | core (built) | L | 7 |
+| Spec completions: subcommands, options and values with descriptions (Fig's specs as data) | Warp/Fig | built-in extension `completions` + core loader (built) | M | 7 |
+| Shell-native completions (ask zsh's compsys), completion generators (branches, hosts) | Warp/Fig | not started | M | 7 |
 | Warp prompt: context chips in the input editor, Edit prompt dialog, plain shell prompt for new shells, extension pane chips in the chip row (built); git's branch and diff stats chips sit in the default order, and the `ports` extension publishes ports and ssh login chips (built) | Warp | core (built) + extensions | M | 7 |
 | Built-in AI chat | Warp | **not planned** | — | Pine hosts agent CLIs; it doesn't compete with them |
 

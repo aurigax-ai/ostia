@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { SpecCommand } from '../shared/completionSpec'
 import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
@@ -268,6 +269,10 @@ const bridge: PineBridge = {
     list: (workspaceId) =>
       ipcRenderer.invoke('workflows:list', workspaceId) as Promise<WorkflowListing>,
     save: (doc) => ipcRenderer.invoke('workflows:save', doc) as Promise<WorkflowSaveResult>,
+  },
+  completions: {
+    spec: (command) =>
+      ipcRenderer.invoke('completions:spec', command) as Promise<SpecCommand | null>,
   },
 }
 

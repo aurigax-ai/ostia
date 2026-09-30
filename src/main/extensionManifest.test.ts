@@ -279,6 +279,21 @@ describe('parseManifest — workflows', () => {
   })
 })
 
+describe('parseManifest — completions', () => {
+  it('accepts a completion spec folder inside the extension without a main process', () => {
+    const noMain = { id: 'specs', name: 'Specs', version: '1' }
+    const res = parseManifest({ ...noMain, contributes: { completions: 'specs' } }, DIR)
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.completions).toBe('specs')
+    for (const completions of ['../elsewhere', '/abs/specs', '.', 3]) {
+      expect(parseManifest({ ...noMain, contributes: { completions } }, DIR)).toEqual({
+        ok: false,
+        error: 'contributes.completions must be a folder inside the extension',
+      })
+    }
+  })
+})
+
 describe('isInsideDir', () => {
   it('is true only for paths strictly below the directory', () => {
     expect(isInsideDir('/a/b', 'c.html')).toBe(true)

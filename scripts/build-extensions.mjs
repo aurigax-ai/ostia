@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { build } from 'esbuild'
+import { writeFigSpecs } from './completionSpecs.mjs'
 
 const srcRoot = 'src/extensions'
 const outRoot = 'out/extensions'
@@ -43,6 +44,7 @@ for (const id of ids) {
       logLevel: 'warning',
     })
   }
+  if (id === 'completions') await writeFigSpecs(join(out, 'specs'))
 }
 
 console.log(`built ${ids.length} extension(s): ${ids.join(', ')}`)
