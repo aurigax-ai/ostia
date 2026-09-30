@@ -19,11 +19,11 @@ h2 {
 }
 
 h1 {
-  font-size: 13px;
+  font-size: var(--text-ui-base);
 }
 
 h2 {
-  font-size: 12px;
+  font-size: var(--text-ui-sm);
 }
 
 .spacer {
@@ -54,7 +54,7 @@ button:disabled {
   margin: 0;
   padding: 6px 10px;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background: var(--surface-2);
 }
 
@@ -79,7 +79,7 @@ button:disabled {
 }
 
 .small {
-  font-size: 11px;
+  font-size: var(--text-ui-xs);
 }
 
 .section {

@@ -1,5 +1,5 @@
 :root {
-  color-scheme: dark;
+  color-scheme: var(--pine-color-scheme, dark);
   --bg: var(--pine-bg, #1d2022);
   --surface-1: var(--pine-surface-1, #272a2d);
   --surface-2: var(--pine-surface-2, #2d3134);
@@ -27,6 +27,12 @@
   --group-pink: var(--pine-group-pink, #e38fc0);
   --font-ui: var(--pine-font-ui, system-ui, sans-serif);
   --font-mono: var(--pine-font-mono, ui-monospace, monospace);
+  --text-ui-xs: 11px;
+  --text-ui-sm: 12px;
+  --text-ui-base: 13px;
+  --text-ui-lg: 16px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
 }
 
 * {
@@ -40,7 +46,7 @@ body {
   background: var(--surface-1);
   color: var(--fg);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: var(--text-ui-sm);
   line-height: 18px;
 }
 
@@ -54,7 +60,7 @@ textarea {
 button {
   cursor: pointer;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   padding: 2px 8px;
 }
@@ -78,7 +84,7 @@ textarea:focus-visible {
 input,
 textarea {
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background: var(--bg);
   padding: 4px 6px;
   min-width: 0;

@@ -319,8 +319,11 @@ URL. Navigating keeps the existing panel pane and webview.
 pine injects its theme into the page as CSS custom properties once it loads and whenever the
 theme changes: `--pine-<token>` for every theme token (`--pine-bg`, `--pine-surface-1`,
 `--pine-fg`, `--pine-fg-muted`, `--pine-brand`, `--pine-line`, `--pine-attn-fg`, …) plus
-`--pine-font-ui` and `--pine-font-mono`. Use them with fallbacks
-(`var(--pine-surface-1, #272a2d)`); `src/extensions/sdk/panel.css` is a ready base.
+`--pine-font-ui`, `--pine-font-mono` and `--pine-color-scheme` (`dark` or `light`; set
+`color-scheme: var(--pine-color-scheme, dark)` so scrollbars and native controls follow a light
+theme). Use them with fallbacks (`var(--pine-surface-1, #272a2d)`);
+`src/extensions/sdk/panel.css` is a ready base, and also defines Pine's type scale
+(`--text-ui-xs|sm|base|lg`) and control radii (`--radius-sm`, `--radius-md`).
 
 ## Lifecycle
 
