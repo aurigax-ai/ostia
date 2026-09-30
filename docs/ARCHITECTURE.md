@@ -420,9 +420,11 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     `~`-abbreviated with main's home), `user`, `host` (main, `os.userInfo`, short hostname),
     `virtualenv` (folder name of `VIRTUAL_ENV`), `conda` (`CONDA_DEFAULT_ENV`), `node`, `kube`,
     `date`, `time12`, `time24` (a 15 s clock, only while one is in the list), `exitCode` and
-    `duration` (the newest finished block). The default order is Warp's default restricted to
-    what core fills: conda, virtualenv, node, cwd. Warp's branch, diff stats, ssh and subshell
-    chips are not core; branch, diff stats and ssh belong to extensions as pane chips. Values from main come from `pty:prompt-context`
+    `duration` (the newest finished block). The default order is Warp's default without ssh,
+    subshell and kube: conda, virtualenv, node, cwd, `git.branch`, `git.diff-stats`. Warp's
+    branch, diff stats, ssh and subshell chips are not core; branch and diff stats are the
+    built-in git extension's pane chips, listed by id only, so core imports no extension code
+    and a disabled git extension just leaves them hidden (no value). Values from main come from `pty:prompt-context`
     (`main/promptContext.ts`), fetched when the editor shows and at every new prompt (A
     marker), answered only for the window attached to the pane. It reads the shell state file
     (above) and resolves `node` only when the cwd is inside a Node project (a `package.json` at
@@ -1529,6 +1531,8 @@ read methods `workspace.list` / `pane.list` (`callers: 'all'`, need `read-board`
   opening a page needs no round trip, and an extension still can't drive the browser.
 - `pane.list` gives terminal panes with a live pty their shell `pid`. Why: the process tree
   below it is how an extension learns what a pane is running (ports, ssh) without a core view.
+  A file view (`kind: 'editor'`) carries its `filePath`. Why: a palette command's caller names
+  the focused pane, and without the path an extension can't act on "the open file" (git blame).
 
 **Panels.** `ExtensionPanelView` asks main for the source (`extensions:panel`):
 - file entry: `file://` URL of the html inside the extension dir;
@@ -1560,19 +1564,47 @@ webview's `src` does not fire `will-navigate`, so the attach-time check is the o
   (untracked or staged adds) and `~changed` (everything else), counted per path from
   `git status --porcelain=v2 --branch -z --untracked-files=all` (`status.ts`). Non-repo → no
   item. Refreshed 300 ms after `cwd.changed`, `command.finished`, `pane.created/closed`, and
-  every 10 s only while a pine window is focused (`focus.changed`); a refresh in flight coalesces
-  the next. Why the poll: edits by an editor or agent outside a terminal command fire no event.
+  every `pollSeconds` (setting, default 10, at least 2) only while a pine window is focused
+  (`focus.changed`); a refresh in flight coalesces the next. Why the poll: edits by an editor or
+  agent outside a terminal command fire no event.
+- Pane chips, in the same refresh: every terminal pane whose cwd is in a repo gets `branch`
+  (`branchChipText`: branch or short sha, then `• ↑ahead ↓behind` against an upstream, counts
+  capped at `999+`, Warp's branch status format) and `diff-stats` (`files • +added -removed` from
+  `git -c diff.autoRefreshIndex=false diff --shortstat HEAD`, Warp's GitDiffStats source;
+  hidden when clean or when the `showDiffStats` setting is off). Status and shortstat run once
+  per distinct cwd/root per refresh, and a chip is sent only when its text changed. The branch
+  chip carries `command: 'show'`, so clicking it opens the panel. Why `diff-stats` and not
+  `diffStats`: pane chip ids share the command id pattern (lowercase and dashes). Why shortstat
+  against `HEAD`: it counts staged and unstaged lines together and ignores untracked files, the
+  same numbers Warp shows, and it costs one process per repo.
 - Git runs with `GIT_OPTIONAL_LOCKS=0` so background status never takes the index lock from
   the user's own git commands.
 - Diff sides: staged = `HEAD` vs index, unstaged = index vs working file, untracked = empty vs
   working file, conflicted = `HEAD` vs working file (with markers); blobs via `git cat-file blob`.
   Binary (NUL in the first 8000 bytes) and > 2 MiB sides are refused; a symlink shows its target
   path, never the file it points to.
-- Commands: palette "Show Changes" opens the panel (served from its process by `startPanelServer`); the
-  panel lists conflicts/staged/changes/untracked and a click calls `open`, which calls
-  `ext.openDiff`. CLI/agents: `status`, `changes`, `diff <path> [--staged]` (unified patch),
-  `open <path> [--staged]`, all JSON. A path argument must match a changed file (resolved from
-  the caller's cwd, or repo-relative), so it can't be used to read arbitrary files.
+- Commands: palette "Show Changes", "Show Log" (`/log`) and "Blame File" (`/blame?file=…`)
+  open the panel (served from its process by `startPanelServer`; `ext.panel`'s path picks the
+  page). "Blame File" finds the focused file view through `pane.list`'s `filePath` for the
+  caller's pane and fails with `no-file` for anything else. The Changes page lists
+  conflicts/staged/changes/untracked; a row click calls `open` (`ext.openDiff`), and per-row and
+  per-section buttons stage (`git add -A`), unstage (`git reset -q HEAD`, or `git rm --cached`
+  before the first commit) and discard. The commit box commits the index only (`git commit -q
+  -m`) and shows git's own error text (stderr, else stdout: "nothing to commit" is on stdout).
+  The Log page lists `git log` records (`%H %an %ae %at %s` split by 0x1f/0x1e, `history.ts`)
+  with relative dates; expanding a commit lists its files (`git diff --name-status -z -M` against
+  the first parent, `diff-tree --root` for a root commit) and a file opens parent vs commit in
+  the diff pane. The Blame page renders `git blame --porcelain` (`parseBlamePorcelain`), one
+  author/sha/date cell per run of lines from the same commit. CLI/agents: `status`, `changes`,
+  `diff <path> [--staged]` (unified patch), `open <path> [--staged]`, `log [--limit n] [--json]`,
+  `blame <file> [--json]`, `stage|unstage <paths>|--all`, `commit -m <msg>`. A diff/open path
+  must match a changed file (resolved from the caller's cwd, or repo-relative), so it can't be
+  used to read arbitrary files; blame finds the repo from the file's own directory.
+- Discard is a panel-only handler (`panelHandlers`), not a manifest command, so neither the
+  palette nor `pine git` can reach it: it restores unstaged files from the index (`git checkout
+  --`) and deletes untracked ones (`git clean -f --`), only after `ext.confirm` lists the files.
+  Why: it destroys work that no commit holds, so only the human decides. Every path-taking call
+  passes `--literal-pathspecs`, so a file name like `:(glob)*` is a name, never pathspec magic.
 
 **Ports** (`src/extensions/ports/`). Every 3 s while a pine window is focused (and 400 ms after
 pane and command events) it takes the `pid` of each terminal from `pane.list` and walks the

@@ -106,7 +106,7 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Block actions: click to select, copy command/output, jump between blocks, sticky command header | Warp | core (built) | M | 7 |
 | Command history search across panes | Warp | core (built) | M | 7 |
 | Saved workflows / parameterized commands: YAML files (user, project `.pine/workflows`) and extension `contributes.workflows`, picker + argument form inserting at an idle prompt, save from a block or history, `pine workflow list/show` | Warp | core picker + data contributions (built): inserting needs the prompt, which only core may type into | M | 7 |
-| Git branch + dirty state in sidebar (built); listening ports and ssh host (built, `ports`) | cmux | built-in extension | M | 3 |
+| Git branch + dirty state in sidebar, branch and diff stats pane chips, stage/discard/commit, log and blame (built); listening ports and ssh host (built, `ports`) | cmux/Warp | built-in extension | M | 3 |
 | Diff view (Monaco diff editor) + "open in VS Code / Zed at file:line" (built) | Warp/VS Code | built-in extension + core surface | M | 3, 6 |
 | Pick element in browser → send selector, screenshot, console errors to an agent pane | new | with browser automation (built) | M | 3 |
 | Your real Chrome: document Chrome DevTools MCP for agents instead of re-implementing CDP | new | docs (built) | S | 3 |
@@ -115,7 +115,7 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Settings sync (a synced folder you own) | Warp | core (built): it rewrites extension approvals | S–M | 8 |
 | Phone: grant path above read-only, pty input, attention push | cmux-like | built-in extension (gateway) | M | 10 |
 | Warp's IDE-style input editor (opt-in, only at an idle prompt, so agent TUIs keep the keys) | Warp | core (built) | L | 7 |
-| Warp prompt: context chips in the input editor, Edit prompt dialog, plain shell prompt for new shells, extension pane chips in the chip row (built); built-in extensions don't publish branch, diff stats or ssh chips yet | Warp | core (built) + extensions | M | 7 |
+| Warp prompt: context chips in the input editor, Edit prompt dialog, plain shell prompt for new shells, extension pane chips in the chip row (built); git's branch and diff stats chips sit in the default order (built); no built-in publishes an ssh chip yet | Warp | core (built) + extensions | M | 7 |
 | Built-in AI chat | Warp | **not planned** | — | Pine hosts agent CLIs; it doesn't compete with them |
 
 ## 4. Phases
@@ -144,8 +144,13 @@ Each phase ships a working product; nothing half-built lands on `main`.
    git), `workspace.list`/`pane.list` for extensions (with `activePaneId`), the caller's `cwd`, and
    a `focus.changed` event so polling pauses when pine isn't focused. Core also gained "Open in
    External Editor" (editor, diff view, palette) driven by `behavior.externalEditor`, spawned
-   with argv, never a shell. Deferred: stage/unstage/commit actions, a git-log/blame view, and
-   a per-pane branch chip (the API exists since phase 8; the git extension doesn't use it yet).
+   with argv, never a shell. Its deferrals landed in git v2 on the phase 8 API: `git.branch`
+   (`main • ↑2 ↓1`) and `git.diff-stats` (`3 • +12 -4`) pane chips on every terminal in a repo,
+   also in the Pine prompt's default chip order right after `cwd` as in Warp; stage, unstage,
+   discard (panel only, behind `ext.confirm`) and commit in the panel; a Log page (commit →
+   files → parent-vs-commit diff) and "Git: Blame File"; `pine git log|blame|stage|unstage|commit`
+   for agents; `pollSeconds` and `showDiffStats` settings. API gap it exposed: `pane.list` now
+   gives a file view's `filePath`.
 5. **Browser → agent** — **done**: "Point at element" in browser panes (hover overlay in an
    isolated world, click to capture selector, html, box, style subset, a11y role/name, console
    errors, failed requests, element screenshot), a send panel that writes a markdown report,
