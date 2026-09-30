@@ -117,7 +117,7 @@ export function PickSendPanel({
     <section
       ref={panelRef}
       aria-label={d.send.title}
-      className="absolute top-10 right-2 z-10 flex w-80 flex-col gap-2 rounded-md border border-line bg-surface-3 p-3 text-fg text-ui-sm shadow-md"
+      className="motion-enter absolute top-10 right-2 z-10 flex origin-top-right w-80 flex-col gap-2 rounded-md border border-line bg-surface-3 p-3 text-fg text-ui-sm shadow-md"
       onKeyDown={onPanelKeyDown}
     >
       <div className="flex items-center gap-2">
