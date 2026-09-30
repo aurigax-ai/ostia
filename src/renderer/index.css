@@ -102,6 +102,7 @@
   --motion-fast: 90ms;
   --motion-base: 150ms;
   --motion-slow: 220ms;
+  --motion-highlight: 2000ms;
   --motion-fast-exit: 63ms;
   --motion-base-exit: 105ms;
   --motion-pulse: 1500ms;
@@ -2047,6 +2048,32 @@ button.prompt-chip:focus-visible {
 
 .pane-attn.loud {
   color: var(--attn-fg);
+}
+
+.editor-reload-highlight {
+  background: color-mix(in srgb, var(--ok) 22%, transparent);
+  animation: editor-reload-fade var(--motion-highlight) var(--ease-out) forwards;
+}
+
+.editor-reload-highlight-static {
+  animation: none;
+}
+
+@keyframes editor-reload-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.pane-disk-mark {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 9999px;
+  background: var(--attn);
 }
 
 .pane-attn-mark {

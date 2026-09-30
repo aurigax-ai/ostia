@@ -7,3 +7,9 @@ export function useMotionAttribute(): void {
     document.documentElement.dataset.motion = motionMode(motion)
   }, [motion])
 }
+
+export function reducedMotion(): boolean {
+  const mode = motionMode(useSettingsStore.getState().appearance.motion)
+  if (mode !== 'system') return mode === 'reduced'
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}

@@ -71,3 +71,21 @@ export function minimalLineEdit(current: string, next: string): LineEdit | null 
         text: `${newLines.join('\n')}\n`,
       }
 }
+
+export function changedLines(current: string, next: string): { start: number; end: number } | null {
+  if (current === next) return null
+  const a = current.split('\n')
+  const b = next.split('\n')
+  let head = 0
+  while (head < a.length && head < b.length && a[head] === b[head]) head += 1
+  let tail = 0
+  while (
+    tail < a.length - head &&
+    tail < b.length - head &&
+    a[a.length - 1 - tail] === b[b.length - 1 - tail]
+  ) {
+    tail += 1
+  }
+  const end = b.length - tail
+  return end > head ? { start: head + 1, end } : null
+}
