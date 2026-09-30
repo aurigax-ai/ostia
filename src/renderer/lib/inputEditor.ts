@@ -1,6 +1,7 @@
 import type { FsEntry } from '../../shared/types'
 import type { CommandBlock } from '../stores/blocksStore'
 import { resolveLinkPath } from './fileLinks'
+import { firstCommand, isCommandPosition } from './shellTokens'
 
 export function inputHistory(
   byPane: Record<string, readonly CommandBlock[] | undefined>,
@@ -60,9 +61,11 @@ export function completionDir(dir: string, cwd: string): string {
   return dir ? resolveLinkPath(dir, cwd) : cwd
 }
 
+export type CompletionItem = FsEntry
+
 export interface Completion {
   insert: string
-  candidates: FsEntry[]
+  candidates: CompletionItem[]
 }
 
 function commonPrefix(names: readonly string[]): string {
@@ -99,4 +102,74 @@ export async function completePath(
   const { word } = completionToken(text, caret)
   const { dir, base } = splitPathWord(word)
   return completeName(await list(completionDir(dir, cwd)), base)
+}
+
+export function historySuggestion(draft: string, history: readonly string[]): string {
+  if (!draft.trim()) return ''
+  const match = history.find((entry) => entry.length > draft.length && entry.startsWith(draft))
+  return match ? match.slice(draft.length) : ''
+}
+
+export function suggestionWord(suggestion: string): string {
+  return /^\s*\S+/.exec(suggestion)?.[0] ?? suggestion
+}
+
+export function recentCommands(history: readonly string[]): string[] {
+  const seen = new Set<string>()
+  for (const entry of history) {
+    const name = firstCommand(entry)
+    if (name) seen.add(name)
+  }
+  return [...seen]
+}
+
+export function rankCommands(
+  names: readonly string[],
+  prefix: string,
+  recent: readonly string[],
+): string[] {
+  const rank = new Map(recent.map((name, i) => [name, i]))
+  return names
+    .filter((name) => name.startsWith(prefix))
+    .sort((a, b) => {
+      const ra = rank.get(a) ?? Number.POSITIVE_INFINITY
+      const rb = rank.get(b) ?? Number.POSITIVE_INFINITY
+      if (ra !== rb) return ra - rb
+      if (a.length !== b.length) return a.length - b.length
+      return a < b ? -1 : a > b ? 1 : 0
+    })
+}
+
+export function completeCommand(
+  names: readonly string[],
+  word: string,
+  recent: readonly string[],
+): Completion {
+  const matches = rankCommands(names, word, recent)
+  if (matches.length === 0) return { insert: '', candidates: [] }
+  if (matches.length === 1) {
+    return { insert: `${escapeShellWord(matches[0].slice(word.length))} `, candidates: [] }
+  }
+  const prefix = commonPrefix(matches)
+  return {
+    insert: escapeShellWord(prefix.slice(word.length)),
+    candidates: matches.map((name) => ({ name, dir: false })),
+  }
+}
+
+export function isCommandWord(text: string, caret: number): boolean {
+  const { start, word } = completionToken(text, caret)
+  return !word.includes('/') && isCommandPosition(text, start)
+}
+
+export function applyCompletionItem(
+  text: string,
+  caret: number,
+  item: CompletionItem,
+): { text: string; caret: number } {
+  const { start } = completionToken(text, caret)
+  const raw = text.slice(start, caret)
+  const dir = raw.slice(0, raw.lastIndexOf('/') + 1)
+  const insert = `${dir}${escapeShellWord(item.name)}${item.dir ? '/' : ' '}`
+  return { text: text.slice(0, start) + insert + text.slice(caret), caret: start + insert.length }
 }

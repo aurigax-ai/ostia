@@ -69,6 +69,7 @@ const bridge: PineBridge = {
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<boolean>,
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
+    commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
     onData: (paneId, cb) => {
       const handler = (_e: unknown, data: string): void => cb(data)
       ipcRenderer.on(`pty:data:${paneId}`, handler)

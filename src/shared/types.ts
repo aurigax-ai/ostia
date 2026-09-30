@@ -47,6 +47,7 @@ export interface PtyApi {
   hibernate: (paneId: string) => Promise<boolean>
   write: (paneId: string, data: string) => void
   resize: (paneId: string, cols: number, rows: number) => void
+  commands: (paneId: string) => Promise<string[]>
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number) => void) => () => void
 }

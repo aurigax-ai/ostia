@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -149,6 +149,77 @@ describe('shellIntegrationSpawnOptions', () => {
       const init = readFileSync(BASH_INIT, 'utf8')
       expect(init).toContain('PROMPT_COMMAND=')
       expect(init).toMatch(/trap .*DEBUG/)
+    })
+
+    describe.each([
+      ['bash', ['--norc'], BASH_INIT],
+      ['zsh', ['-f'], ZSH_INIT],
+    ])('%s reports its PATH and command names', (shell, noRc, init) => {
+      let dir = ''
+      let stateFile = ''
+
+      beforeAll(() => {
+        dir = mkdtempSync(join(tmpdir(), 'pine-shell-state-'))
+        stateFile = join(dir, 'state')
+      })
+
+      afterAll(() => {
+        rmSync(dir, { recursive: true, force: true })
+      })
+
+      const report = (script: string, state: string | null = stateFile): string => {
+        rmSync(stateFile, { force: true })
+        shellIntegrationSpawnOptions(shell, { HOME: '/home/u' })
+        return spawnSync(
+          shell,
+          [
+            ...noRc,
+            '-c',
+            `source '${init}'; alias pine_ll='ls'; pine_fn() { :; }; _pine_private() { :; }; ${script}`,
+          ],
+          {
+            env: {
+              PATH: '/pine/bin:/usr/bin:/bin',
+              HOME: '/home/u',
+              ...(state ? { PINE_SHELL_STATE: state } : {}),
+            },
+            encoding: 'utf8',
+          },
+        ).stdout
+      }
+      const readState = (): { path: string; names: string[] } => {
+        const [path, names] = readFileSync(stateFile, 'utf8').split('\n')
+        return { path, names: names.split(' ') }
+      }
+
+      it('writes the PATH and its builtins, keywords, aliases and public functions to the state file, not the terminal', () => {
+        expect(report('__pine_report_shell')).toBe('')
+        const { path, names } = readState()
+        expect(path).toBe('/pine/bin:/usr/bin:/bin')
+        expect(names).toEqual(expect.arrayContaining(['cd', 'if', 'pine_ll', 'pine_fn']))
+        expect(names).not.toContain('_pine_private')
+        expect(names).not.toContain('__pine_report_shell')
+      })
+
+      it('rewrites the file only when the PATH or the names changed', () => {
+        const out = report(
+          [
+            '__pine_report_shell',
+            'rm -f "$PINE_SHELL_STATE"',
+            '__pine_report_shell',
+            '[ -e "$PINE_SHELL_STATE" ] && echo rewritten',
+            'PATH=/x:$PATH',
+            '__pine_report_shell',
+          ].join('; '),
+        )
+        expect(out).toBe('')
+        expect(readState().path).toBe('/x:/pine/bin:/usr/bin:/bin')
+      })
+
+      it('does nothing outside a Pine pane', () => {
+        expect(report('__pine_report_shell', null)).toBe('')
+        expect(existsSync(stateFile)).toBe(false)
+      })
     })
   })
 
