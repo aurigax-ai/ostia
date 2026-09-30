@@ -5,6 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { type FontWeight, type IMarker, Terminal as Xterm } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { wantsDesktopBanner } from '../../shared/notificationSettings'
 import { currentDict, fmt } from '../i18n/useDict'
 import {
   KittyNotificationAssembler,
@@ -73,7 +74,7 @@ export function TerminalView({
       fontFamily: fontStack(initial.family),
       fontSize: initial.size,
       fontWeight: initial.weight as FontWeight,
-      lineHeight: 1.15,
+      lineHeight: initial.lineHeight,
       cursorStyle: behavior.cursorStyle,
       cursorBlink: behavior.cursorBlink,
       scrollback: 10000,
@@ -161,7 +162,18 @@ export function TerminalView({
         message: body ? `${title}: ${body}` : title,
         at: Date.now(),
       })
-      if (long) window.pine.notifications.post({ paneId, title, body, desktop: true })
+      if (long) {
+        window.pine.notifications.post({
+          paneId,
+          title,
+          body,
+          desktop: wantsDesktopBanner(
+            useSettingsStore.getState().notifications,
+            'commandFinished',
+            false,
+          ),
+        })
+      }
     }
     const notifyFromTerminal = (n: OscNotification | null): boolean => {
       if (!n || replaying) return true
@@ -175,7 +187,11 @@ export function TerminalView({
         paneId,
         title: n.title,
         body: n.body,
-        desktop: !document.hasFocus() || !isPaneVisible(paneId),
+        desktop: wantsDesktopBanner(
+          useSettingsStore.getState().notifications,
+          'message',
+          document.hasFocus() && isPaneVisible(paneId),
+        ),
       })
       return true
     }
@@ -189,6 +205,10 @@ export function TerminalView({
     const oscNotify99 = term.parser.registerOscHandler(99, (data) => {
       const chunk = parseOsc99(data, decodeBase64Utf8)
       return notifyFromTerminal(chunk ? kitty.push(chunk) : null)
+    })
+    const copySelection = term.onSelectionChange(() => {
+      if (!useSettingsStore.getState().behavior.copyOnSelect || !term.hasSelection()) return
+      void navigator.clipboard.writeText(term.getSelection())
     })
     const titleChange = term.onTitleChange((raw) => {
       const title = terminalTitle(raw)
@@ -411,6 +431,7 @@ export function TerminalView({
       oscNotify777.dispose()
       oscNotify99.dispose()
       bell.dispose()
+      copySelection.dispose()
       titleChange.dispose()
       promptMarker?.dispose()
       disposeMarkers()
@@ -431,6 +452,7 @@ export function TerminalView({
     term.options.fontFamily = fontStack(font.family)
     term.options.fontSize = font.size
     term.options.fontWeight = font.weight as FontWeight
+    term.options.lineHeight = font.lineHeight
     if (!safeFit(hostRef.current, fitRef.current)) return
     const { cols, rows } = term
     const last = lastSizeRef.current
@@ -438,7 +460,7 @@ export function TerminalView({
       lastSizeRef.current = { cols, rows }
       window.pine.pty.resize(paneId, cols, rows)
     }
-  }, [font.family, font.size, font.weight, paneId])
+  }, [font.family, font.size, font.weight, font.lineHeight, paneId])
 
   useEffect(() => {
     const term = termRef.current

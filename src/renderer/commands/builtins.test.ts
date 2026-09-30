@@ -485,3 +485,67 @@ describe('workspace row commands', () => {
     expect(useWorkspacesStore.getState().workspaces[0].pinned).toBe(true)
   })
 })
+
+describe('agent notifications', () => {
+  function seedPane() {
+    const pane = { ...createPane('terminal'), title: 'claude' }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    return pane
+  }
+
+  function viewWorkspace() {
+    useWorkspacesStore.setState({ activeWorkspaceId: 's1' })
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+  }
+
+  afterEach(() => vi.mocked(window.pine.notifications.post).mockClear())
+
+  it('posts a desktop banner when an agent waits in a pane you are not looking at', async () => {
+    const pane = seedPane()
+    await commands.execWith(ctx('s1', pane.id), 'attention.set', {
+      state: 'waiting',
+      message: 'Allow Bash?',
+    })
+    expect(window.pine.notifications.post).toHaveBeenCalledWith({
+      paneId: pane.id,
+      title: 'Agent needs your input',
+      body: 'Allow Bash?',
+      desktop: true,
+    })
+  })
+
+  it('records a finished agent under the pane title without a banner when agentDone is off', async () => {
+    const pane = seedPane()
+    useSettingsStore.getState().setNotifications({ agentDone: false })
+    await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'done' })
+    expect(window.pine.notifications.post).toHaveBeenCalledWith({
+      paneId: pane.id,
+      title: 'Agent finished',
+      body: 'claude',
+      desktop: false,
+    })
+  })
+
+  it('posts nothing for a working state', async () => {
+    const pane = seedPane()
+    await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'working' })
+    expect(window.pine.notifications.post).not.toHaveBeenCalled()
+  })
+
+  it('tells pine notify to skip the banner for the pane being viewed unless whenFocused is on', async () => {
+    const pane = seedPane()
+    viewWorkspace()
+    const viewed = await commands.execWith(ctx('s1', pane.id), 'attention.notify', {
+      message: 'hi',
+    })
+    expect(viewed).toMatchObject({ ok: true, result: { desktop: false } })
+
+    useSettingsStore.getState().setNotifications({ whenFocused: true })
+    const focused = await commands.execWith(ctx('s1', pane.id), 'attention.notify', {
+      message: 'hi',
+    })
+    expect(focused).toMatchObject({ ok: true, result: { desktop: true } })
+  })
+})

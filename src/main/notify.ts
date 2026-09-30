@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import { type BrowserWindow, Notification, ipcMain } from 'electron'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { type BrowserWindow, Notification, app, ipcMain } from 'electron'
+import {
+  type NotificationSettings,
+  parseNotificationSettings,
+} from '../shared/notificationSettings'
 import type { NotificationEntry, NotificationPost } from '../shared/types'
 import { type AttentionDeps, clampMessage, targetOf } from './attention'
 import { registerControlMethod } from './controlServer'
@@ -39,9 +45,27 @@ function activatePane(deps: NotifyDeps, paneId: string): void {
   win.webContents.send('notifications:activate', paneId)
 }
 
+function readNotificationSettings(): NotificationSettings {
+  try {
+    const path = join(app.getPath('userData'), 'settings.json')
+    if (!existsSync(path)) return parseNotificationSettings(undefined)
+    const settings = JSON.parse(readFileSync(path, 'utf8')) as { notifications?: unknown }
+    return parseNotificationSettings(settings.notifications)
+  } catch {
+    return parseNotificationSettings(undefined)
+  }
+}
+
+function desktopNotification(title: string, body?: string): Notification | null {
+  if (!Notification.isSupported()) return null
+  const settings = readNotificationSettings()
+  if (!settings.desktop) return null
+  return new Notification({ title, body, silent: !settings.sound })
+}
+
 function showDesktop(deps: NotifyDeps, title: string, body?: string, paneId?: string): void {
-  if (!Notification.isSupported()) return
-  const n = new Notification({ title, body })
+  const n = desktopNotification(title, body)
+  if (!n) return
   if (paneId) n.on('click', () => activatePane(deps, paneId))
   n.show()
 }
@@ -81,8 +105,8 @@ export function postPanelNotification(
   input: { title: string; body?: string; from: string; extId: string },
   openPanel: () => void,
 ): void {
-  if (Notification.isSupported()) {
-    const n = new Notification({ title: input.title, body: input.body })
+  const n = desktopNotification(input.title, input.body)
+  if (n) {
     n.on('click', () => {
       const win = [...deps.windows()].find((w) => !w.isDestroyed())
       if (win) {
@@ -109,11 +133,12 @@ export function registerNotifyMethods(deps: NotifyDeps): void {
       const body = clampMessage(rawBody)
       if (!title) return { ok: false, error: 'missing-title' }
       const { paneId, externalId } = ctx.identity
-      showDesktop(deps, title, body, paneId)
       record(deps, { title, body, paneId, from: externalId })
-      await deps.execCommand(targetOf(ctx.identity), 'attention.notify', {
+      const res = await deps.execCommand(targetOf(ctx.identity), 'attention.notify', {
         message: body ? `${title}: ${body}` : title,
       })
+      const result = res.ok ? (res.result as { desktop?: unknown } | undefined) : undefined
+      if (!res.ok || result?.desktop !== false) showDesktop(deps, title, body, paneId)
       return { ok: true }
     },
   })

@@ -5,17 +5,39 @@ const store = () => useSettingsStore.getState()
 
 type Persisted = Pick<
   ReturnType<typeof useSettingsStore.getState>,
-  'locale' | 'appearance' | 'behavior'
+  'locale' | 'appearance' | 'behavior' | 'notifications' | 'sidebar'
 >
 
 describe('settingsStore', () => {
+  it('clamps the terminal line height and saves notification and sidebar changes', async () => {
+    vi.useFakeTimers()
+    store().setTerminalLineHeight(0.5)
+    expect(store().appearance.terminal.lineHeight).toBe(1)
+    store().setTerminalLineHeight(1.337)
+    expect(store().appearance.terminal.lineHeight).toBe(1.34)
+    store().setNotifications({ whenFocused: true })
+    store().setSidebar({ showDescription: false })
+    await vi.runAllTimersAsync()
+    const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+    expect(written.notifications.whenFocused).toBe(true)
+    expect(written.sidebar.showDescription).toBe(false)
+    expect(written.appearance.terminal.lineHeight).toBe(1.34)
+    vi.useRealTimers()
+  })
+
   let initialState: ReturnType<typeof useSettingsStore.getState>
   let DEFAULTS: Persisted
 
   beforeAll(() => {
     const s = useSettingsStore.getState()
     initialState = s
-    DEFAULTS = structuredClone({ locale: s.locale, appearance: s.appearance, behavior: s.behavior })
+    DEFAULTS = structuredClone({
+      locale: s.locale,
+      appearance: s.appearance,
+      behavior: s.behavior,
+      notifications: s.notifications,
+      sidebar: s.sidebar,
+    })
   })
 
   beforeEach(() => {
@@ -29,6 +51,27 @@ describe('settingsStore', () => {
   })
 
   describe('init', () => {
+    it('reads notification, sidebar and line-height settings, clamping and dropping bad values', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({
+          appearance: { terminal: { lineHeight: 5 } },
+          behavior: { copyOnSelect: true },
+          notifications: { sound: false, agentDone: 'nope' },
+          sidebar: { showPath: false, showMessage: 1 },
+        }),
+      )
+
+      await store().init()
+
+      const s = store()
+      expect(s.appearance.terminal.lineHeight).toBe(2)
+      expect(s.behavior.copyOnSelect).toBe(true)
+      expect(s.notifications.sound).toBe(false)
+      expect(s.notifications.agentDone).toBe(true)
+      expect(s.sidebar.showPath).toBe(false)
+      expect(s.sidebar.showMessage).toBe(true)
+    })
+
     it('merges a valid partial settings.json over DEFAULTS (mergeFont keeps default family)', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue(
         '{"locale":"zh-Hant","appearance":{"ui":{"size":16}}}',
@@ -73,7 +116,13 @@ describe('settingsStore', () => {
       await store().init()
 
       const s = store()
-      expect({ locale: s.locale, appearance: s.appearance, behavior: s.behavior }).toEqual(DEFAULTS)
+      expect({
+        locale: s.locale,
+        appearance: s.appearance,
+        behavior: s.behavior,
+        notifications: s.notifications,
+        sidebar: s.sidebar,
+      }).toEqual(DEFAULTS)
     })
 
     it('keeps capabilities.grants from settings.json so a later save round-trips it', async () => {
@@ -96,7 +145,13 @@ describe('settingsStore', () => {
       await store().init()
 
       const s = store()
-      expect({ locale: s.locale, appearance: s.appearance, behavior: s.behavior }).toEqual(DEFAULTS)
+      expect({
+        locale: s.locale,
+        appearance: s.appearance,
+        behavior: s.behavior,
+        notifications: s.notifications,
+        sidebar: s.sidebar,
+      }).toEqual(DEFAULTS)
     })
   })
 
