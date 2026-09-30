@@ -12,19 +12,27 @@ function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
-async function launchPine() {
+async function launchPine(manager: object = {}) {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
-    manager: { agents: { fake: ['fake-agent'] } },
+    manager: {
+      agents: { fake: ['fake-agent'], sh: ['bash', '--norc', '--noprofile'] },
+      ...manager,
+    },
   })
   const portal = join(dataHome, 'portal.sock')
   const launchOptions = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launchOptions,
-    env: { ...launchOptions.env, HOME: home, PINE_PORTAL_SOCKET: portal },
+    env: {
+      ...launchOptions.env,
+      HOME: home,
+      PINE_PORTAL_SOCKET: portal,
+      PATH: `${FAKE_AGENT_BIN}:${process.env.PATH ?? ''}`,
+    },
   })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
@@ -144,6 +152,82 @@ test('MGR-C11 a pine <agent> run from a Pine pane is refused even with PINE_SOCK
       timeout: 20_000,
     })
     await expect(win.locator('.rail-tab', { hasText: 'Manager' })).toHaveCount(0)
+  } finally {
+    await app.close().catch(() => {})
+  }
+})
+
+const PINE_FN = 'P() { ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" "$@"; }\r'
+
+async function spawnWorker(mirror: Mirror): Promise<string> {
+  mirror.type(PINE_FN)
+  mirror.type('P manager spawn fake --name worker-one -- hello\r')
+  await expect.poll(mirror.output, { timeout: 20_000 }).toMatch(/"paneId":"[0-9a-f-]{36}"/)
+  const id = /"paneId":"([0-9a-f-]{36})"/.exec(mirror.output())?.[1]
+  if (!id) throw new Error('no worker pane id')
+  return id
+}
+
+test('MGR-C29 the manager starts a worker in its own workspace and reads its screen', async () => {
+  test.setTimeout(90_000)
+  const { app, win, home, portal } = await launchPine()
+  const mirror = runMirror(portal, home, ['sh'])
+  try {
+    await expect(win.locator('.rail-tab', { hasText: 'Manager · sh' })).toBeVisible({
+      timeout: 20_000,
+    })
+    const worker = await spawnWorker(mirror)
+    const tab = win.locator('.rail-tab', { hasText: 'worker-one' })
+    await expect(tab).toBeVisible({ timeout: 20_000 })
+    await tab.click()
+    await expect(win.locator('.xterm-rows:visible').first()).toContainText('agent ready hello', {
+      timeout: 20_000,
+    })
+
+    mirror.type(`P manager read ${worker} --lines 5 | tr a-z A-Z\r`)
+    await expect.poll(mirror.output, { timeout: 10_000 }).toContain('AGENT READY HELLO')
+
+    mirror.type(`P manager input ${worker} --text ping --key enter\r`)
+    await expect.poll(mirror.output, { timeout: 10_000 }).toContain('input-off')
+
+    mirror.type('P docs | grep -c "manager spawn"\r')
+    await expect.poll(mirror.output, { timeout: 10_000 }).toMatch(/[\n\r]1\r*\n/)
+  } finally {
+    mirror.child.kill()
+    await app.close().catch(() => {})
+  }
+})
+
+test('MGR-C30 with typing allowed, the manager answers a worker', async () => {
+  test.setTimeout(90_000)
+  const { app, win, home, portal } = await launchPine({ allowInput: true })
+  const mirror = runMirror(portal, home, ['sh'])
+  try {
+    const worker = await spawnWorker(mirror)
+    const tab = win.locator('.rail-tab', { hasText: 'worker-one' })
+    await expect(tab).toBeVisible({ timeout: 20_000 })
+    await tab.click()
+    const screen = win.locator('.xterm-rows:visible').first()
+    await expect(screen).toContainText('agent ready hello', { timeout: 20_000 })
+
+    mirror.type(`P manager input ${worker} --text ping --key enter\r`)
+    await expect(screen).toContainText('got ping', { timeout: 10_000 })
+  } finally {
+    mirror.child.kill()
+    await app.close().catch(() => {})
+  }
+})
+
+test('MGR-C31 a worker pane cannot call the manager verbs', async () => {
+  test.setTimeout(90_000)
+  const { app, win } = await launchPine()
+  try {
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type('pine manager read x; pine docs | grep -c "manager spawn"')
+    await win.keyboard.press('Enter')
+    const screen = win.locator('.xterm-rows').first()
+    await expect(screen).toContainText(/not-available-to-pane\s*0/, { timeout: 20_000 })
   } finally {
     await app.close().catch(() => {})
   }

@@ -95,6 +95,8 @@ function mirror(socket: Socket, agent: string, args: string[], io: PortalIo): Pr
   )
   const decoder = new StringDecoder('utf8')
   let screenTaken = false
+  let attached = false
+  const early: string[] = []
 
   return new Promise((resolve) => {
     let finished = false
@@ -114,7 +116,8 @@ function mirror(socket: Socket, agent: string, args: string[], io: PortalIo): Pr
 
     const onInput = (chunk: Buffer): void => {
       const { input, detach } = stripDetach(decoder.write(chunk))
-      if (input) void conn.sendNotification('mirror.input', { data: input })
+      if (input && attached) void conn.sendNotification('mirror.input', { data: input })
+      else if (input) early.push(input)
       if (detach) finish(0, 'pine: detached; the manager keeps running')
     }
     const onResize = (): void => {
@@ -150,6 +153,11 @@ function mirror(socket: Socket, agent: string, args: string[], io: PortalIo): Pr
         cols: io.stdout.columns,
         rows: io.stdout.rows,
         ...(io.env.PATH ? { path: io.env.PATH } : {}),
+      })
+      .then(() => {
+        attached = true
+        if (early.length > 0) void conn.sendNotification('mirror.input', { data: early.join('') })
+        early.length = 0
       })
       .catch((err: unknown) => {
         finish(1, `pine: ${err instanceof Error ? err.message : String(err)}`)
