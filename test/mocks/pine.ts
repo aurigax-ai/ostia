@@ -90,6 +90,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
       reveal: vi.fn().mockResolvedValue({ ok: true }),
+      project: vi.fn().mockResolvedValue(null),
     },
     agentSession: {
       info: vi.fn().mockResolvedValue(null),

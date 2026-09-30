@@ -595,7 +595,9 @@ function WorkspaceRow({
                 {sidebar.showMessage ? <WorkspaceSubtitle workspaceId={w.id} /> : null}
                 {sidebar.showPath || sidebar.showExtensionItems ? (
                   <span className="tab-meta">
-                    {sidebar.showPath ? <span className="tab-branch">{w.workDir}</span> : null}
+                    {sidebar.showPath ? (
+                      <span className="tab-branch">{w.projectDir ?? w.workDir}</span>
+                    ) : null}
                     {sidebar.showExtensionItems ? <SidebarItems workspaceId={w.id} /> : null}
                   </span>
                 ) : null}

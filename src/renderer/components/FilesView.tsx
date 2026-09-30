@@ -1,4 +1,4 @@
-import { CaretRightIcon } from '@phosphor-icons/react'
+import { CaretRightIcon, XIcon } from '@phosphor-icons/react'
 import type { FsEntry } from '@shared/types'
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
@@ -6,9 +6,11 @@ import { findPane } from '../layout/tree'
 import { openFileInWorkspace } from '../lib/openFile'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { FileMenu } from './FileMenu'
 import { Hint } from './Hint'
+import { IconButton } from './IconButton'
 import { fileIcon } from './fileIcon'
 import { Empty, EmptyDescription } from './ui/empty'
 
@@ -44,7 +46,15 @@ export function FilesView(): JSX.Element {
 
   return (
     <>
-      <div className="rail-section">{d.rail.files}</div>
+      <div className="rail-section files-head">
+        <span>{d.rail.files}</span>
+        <IconButton
+          icon={XIcon}
+          label={d.rail.closeFiles}
+          className="files-close"
+          onClick={() => useUIStore.getState().toggleFiles()}
+        />
+      </div>
       <Hint label={cwd} side="bottom">
         <div className="files-crumb">
           {segments.map((seg, i) => (

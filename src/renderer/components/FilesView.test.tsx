@@ -214,7 +214,8 @@ describe('FilesView', () => {
     render(<FilesView />)
 
     expect(await screen.findByText('No folder open')).toBeInTheDocument()
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(document.querySelector('.file-row')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Close Files' })).toBeInTheDocument()
   })
 
   it('renders the cwd breadcrumb and exposes entries as named buttons (a11y)', async () => {
