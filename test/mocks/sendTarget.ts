@@ -1,5 +1,6 @@
 import { useLayoutStore } from '../../src/renderer/stores/layoutStore'
 import { useWorkspacesStore } from '../../src/renderer/stores/workspacesStore'
+import { runAgentIn } from './agentPanes'
 
 export const TARGET_PANE = 'term-target'
 
@@ -19,7 +20,9 @@ export function seedSendTarget(workspaceId: string): () => void {
       },
     },
   })
+  const stopAgent = runAgentIn([TARGET_PANE])
   return () => {
+    stopAgent()
     useWorkspacesStore.setState(workspacesInit, true)
     useLayoutStore.setState(layoutInit, true)
   }
