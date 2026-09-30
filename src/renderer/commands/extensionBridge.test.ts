@@ -1,4 +1,4 @@
-import type { ExtensionInfo } from '@shared/extensions'
+import type { ExtensionInfo, PaneChip } from '@shared/extensions'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { findPane, paneIds, resetIds } from '../layout/tree'
@@ -13,6 +13,7 @@ import {
   openExtensionPanel,
   openExtensionTerminal,
   syncExtensionCommands,
+  wireExtensionBridge,
 } from './extensionBridge'
 import { commands } from './registry'
 
@@ -40,6 +41,9 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
       { id: 'add', title: 'Add', palette: false, stdin: false, capabilities: ['notify'] },
     ],
     panel: { title: 'Board', icon: 'puzzle' },
+    paneChips: [],
+    settings: [],
+    settingValues: {},
     ...overrides,
   }
 }
@@ -148,6 +152,40 @@ describe('extensionBridge', () => {
       .filter((p) => p?.kind === 'extension')
     expect(panels).toHaveLength(1)
     expect(panels[0]).toMatchObject({ extensionId: 'demo', title: 'Board' })
+  })
+
+  it('openExtensionPanel with a path navigates the open panel instead of adding a second', () => {
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.getState().ensure('s1')
+    useExtensionsStore.setState({ list: [ext()] })
+
+    const first = openExtensionPanel({ extId: 'demo', workspaceId: 's1' })
+    expect(useExtensionsStore.getState().panelNav).toEqual({})
+    const second = openExtensionPanel({ extId: 'demo', workspaceId: 's1', path: '/cards/3' })
+    const third = openExtensionPanel({ extId: 'demo', path: '/cards/3' })
+
+    expect(second).toBe(first)
+    expect(third).toBe(first)
+    const root = useLayoutStore.getState().byWorkspace.s1.root
+    expect(paneIds(root).filter((id) => findPane(root, id)?.kind === 'extension')).toEqual([first])
+    const nav = useExtensionsStore.getState().panelNav[first as string]
+    expect(nav.path).toBe('/cards/3')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(first)
+  })
+
+  it('forwards pane chip updates from main into the store', () => {
+    const sink: { push?: (chips: PaneChip[]) => void } = {}
+    window.pine.extensions.onPaneChips = vi.fn((cb) => {
+      sink.push = cb
+      return () => {}
+    })
+    wireExtensionBridge()
+    const chip: PaneChip = { extId: 'demo', id: 'c', paneId: 'p1', text: 'x', tone: 'ok' }
+    sink.push?.([chip])
+    expect(useExtensionsStore.getState().chips).toEqual([chip])
   })
 
   it('openExtensionDiff opens one reusable diff pane and stores its content by pane id', () => {

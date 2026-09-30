@@ -73,7 +73,8 @@ API can't express a built-in, fix the API rather than reaching into core.
 - It registers **commands** (palette + CLI), subscribes to **events** (pane created/closed, command
   started/finished, cwd changed, notification), and contributes **UI through fixed slots**:
   - sidebar status items per workspace (text + icon + tone, e.g. git branch, ports);
-  - pane badges and attention state;
+  - pane chips (`contributes.paneChips`: short text on a pane's header, optionally running one
+    of the extension's commands) and pane attention (`pane.setAttention` with a target pane);
   - a **panel surface**: the extension serves a local HTML page, rendered in a sandboxed webview
     pane, which calls back over a scoped token.
 - The capability model already exists; an extension gets exactly the caps its manifest declares
@@ -131,9 +132,9 @@ Each phase ships a working product; nothing half-built lands on `main`.
    per-extension identity with manifest ∩ approved caps and a first-run approval dialog, lazy
    start with restart backoff, `ext.registerCommands/subscribe/setSidebarItem/notify/openPanel`,
    `pine ext …` and `pine <extId> …`, the sandboxed panel surface, and enable/disable in
-   Settings → Plugins. Kanban and wiki migrated (since removed for Trellis). Deferred: pane
-   badges/attention from extensions, hot reload of the extension list, extension settings, and letting extensions call
-   pane-scoped methods (browse, process) with an explicit target.
+   Settings → Plugins. Kanban and wiki migrated (since removed for Trellis). Its deferrals
+   (pane badges/attention, hot reload, extension settings, pane-scoped methods with an explicit
+   target) landed in Extension API v2 (phase 8).
 4. **Git & diff** — **done**: the `git` built-in extension (`src/extensions/git/`) shows each
    workspace's branch, ahead/behind and `+new ~changed` in the sidebar, lists staged/unstaged/
    untracked/conflicted files in its panel ("Git: Show Changes"), opens a file's diff, and
@@ -143,15 +144,15 @@ Each phase ships a working product; nothing half-built lands on `main`.
    a `focus.changed` event so polling pauses when pine isn't focused. Core also gained "Open in
    External Editor" (editor, diff view, palette) driven by `behavior.externalEditor`, spawned
    with argv, never a shell. Deferred: stage/unstage/commit actions, a git-log/blame view, and
-   letting an extension pane badge itself.
+   a per-pane branch chip (the API exists since phase 8; the git extension doesn't use it yet).
 5. **Browser → agent** — **done**: "Point at element" in browser panes (hover overlay in an
    isolated world, click to capture selector, html, box, style subset, a11y role/name, console
    errors, failed requests, element screenshot), a send panel that writes a markdown report,
    posts a bus message and pastes `@<report>` at the target pane's idle prompt, `pine browse pick`
    for agents to ask the human to click something, and `docs/CHROME.md` for pairing agents with
-   the user's real Chrome through Chrome DevTools MCP. It lives next to `browse.ts` in core
-   because the extension API can't yet drive pane-scoped browse methods (phase 3 deferral); it
-   moves out with browser automation.
+   the user's real Chrome through Chrome DevTools MCP. It lives next to `browse.ts` in core; since
+   phase 8 extensions can drive `browse.*` with an explicit target pane, so it can move out with
+   browser automation.
 6. **Your tools** — **done**: built-in `trellis` and `keeper` extensions on the public API only
    (panels, per-workspace and global sidebar items, notifications that open the panel, palette
    commands), and settings sync through a user-chosen folder (Settings → Sync). API added for
@@ -161,10 +162,21 @@ Each phase ships a working product; nothing half-built lands on `main`.
    extension, because it rewrites extension approvals (only core may) and must run before the
    extension host reads them. They rely on phase 4's `workspace.list` for extensions, `caller.cwd`
    and `focus.changed`; without those the Trellis sidebar stays empty and Keeper polls at its
-   idle rate. Deferred: opening a specific card or ticket from a notification, navigating an
-   already-open panel to a new path.
+   idle rate. Deferred: opening a specific card or ticket from a notification (the API for it,
+   `ext.notify {openPanel: path}` and `ext.openPanel {path}`, landed in phase 8; trellis and keeper
+   don't use it yet).
 7. **Remote** (done): phone grant path, input from the phone, attention push, bind-address
    picker with Tailscale detection.
+8. **Extension API v2** — **done**: pane chips (`contributes.paneChips`, `ext.setPaneChip` /
+   `ext.clearPaneChip`, badges in the pane header, cleared when the extension stops or the pane
+   closes, `usePaneChips(paneId)` / `usePaneChipCatalog()` for other renderer views such as a
+   prompt); typed extension settings (`contributes.settings`, validated in main, stored under
+   `extensionSettings.<id>` in `settings.json`, a form per extension in Settings → Plugins,
+   `ext.getSettings` and a `settings.changed` event); hot reload of the user extensions directory
+   (added, changed and removed manifests, new ones still wait for approval and new capabilities
+   stay unapproved); `targetPaneId` on `browse.*`, `process.*` and `pane.setAttention` for an
+   extension holding the method's capability plus `all-workspaces`; and panel paths
+   (`ext.openPanel {path}` navigates the open panel in place, `ext.notify {openPanel: path}`).
 
 ## 5. Guardrails that keep the core lean
 

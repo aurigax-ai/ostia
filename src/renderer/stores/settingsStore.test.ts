@@ -56,6 +56,7 @@ describe('settingsStore', () => {
       keybindings: s.keybindings,
       agents: s.agents,
       workspaceGroups: s.workspaceGroups,
+      extensionSettings: s.extensionSettings,
     })
   })
 
@@ -356,7 +357,22 @@ describe('settingsStore', () => {
         keybindings: s.keybindings,
         agents: s.agents,
         workspaceGroups: s.workspaceGroups,
+        extensionSettings: s.extensionSettings,
       }).toEqual(DEFAULTS)
+    })
+
+    it('round-trips extensionSettings and saves what main stored for an extension', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        '{"extensionSettings":{"git":{"fetch":true},"__proto__":{"x":1},"bad":[1]}}',
+      )
+
+      await store().init()
+      expect(store().extensionSettings).toEqual({ git: { fetch: true } })
+      store().setExtensionSettings('ports', { interval: 5 })
+      await vi.advanceTimersByTimeAsync(300)
+
+      const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+      expect(written.extensionSettings).toEqual({ git: { fetch: true }, ports: { interval: 5 } })
     })
 
     it('keeps capabilities.grants from settings.json so a later save round-trips it', async () => {
@@ -393,6 +409,7 @@ describe('settingsStore', () => {
         keybindings: s.keybindings,
         agents: s.agents,
         workspaceGroups: s.workspaceGroups,
+        extensionSettings: s.extensionSettings,
       }).toEqual(DEFAULTS)
     })
   })

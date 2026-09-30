@@ -58,7 +58,7 @@ interface LayoutState {
   setTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
   openBrowser: (workspaceId: string, url: string) => void
-  openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => void
+  openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openDiff: (workspaceId: string, content: DiffContent) => string | null
   openTerminal: (workspaceId: string, opts: OpenTerminalPlacement) => string | null
   removeWorkspace: (workspaceId: string) => void
@@ -357,15 +357,21 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   openExtensionPanel: (workspaceId, extensionId, title) => {
-    if (seedLayout(workspaceId, (p) => setPaneExtension(p, p.id, extensionId, title))) return
+    const seeded = seedLayout(workspaceId, (p) => setPaneExtension(p, p.id, extensionId, title))
+    if (seeded) return seeded
     let createdPaneId: string | null = null
+    let panelPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
         const existing = findExtensionPane(l.root, extensionId)
-        if (existing) return { ...l, activePaneId: existing.id }
+        if (existing) {
+          panelPaneId = existing.id
+          return { ...l, activePaneId: existing.id }
+        }
         const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
         if (!newPaneId) return l
         createdPaneId = newPaneId
+        panelPaneId = newPaneId
         return {
           ...l,
           root: setPaneExtension(root, newPaneId, extensionId, title),
@@ -377,6 +383,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     if (createdPaneId) {
       window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
+    return panelPaneId
   },
 
   openDiff: (workspaceId, content) => {

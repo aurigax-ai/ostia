@@ -11,6 +11,7 @@ export interface SettingsSyncDeps {
   userData: string
   broadcast: (channel: string, payload?: unknown) => void
   onExtensionsPulled: () => void
+  onSettingsPulled: () => void
 }
 
 export interface SettingsSyncHandle {
@@ -30,7 +31,10 @@ export function startSettingsSync(deps: SettingsSyncDeps): SettingsSyncHandle {
     running = true
     try {
       const { status, pulled } = sync.run()
-      if (pulled.includes(SETTINGS_FILE)) deps.broadcast('settings:changed')
+      if (pulled.includes(SETTINGS_FILE)) {
+        deps.broadcast('settings:changed')
+        deps.onSettingsPulled()
+      }
       if (pulled.includes(EXTENSIONS_FILE)) deps.onExtensionsPulled()
       deps.broadcast('sync:status', status)
       return status

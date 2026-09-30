@@ -1,6 +1,6 @@
-import type { ExtensionPanelSource } from '@shared/extensions'
+import type { ExtensionPanelContext, ExtensionPanelSource } from '@shared/extensions'
 import type { WebviewTag } from 'electron'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { panelThemeCss } from '../lib/panelTheme'
 import { themedTokens, useEffectiveTheme } from '../lib/theme'
@@ -24,23 +24,31 @@ function useThemeCss(): string {
 export function ExtensionPanelView({
   extId,
   workspaceId,
+  paneId,
 }: {
   extId: string
   workspaceId: string
+  paneId: string
 }): JSX.Element {
   const d = useDict()
   const info = useExtensionsStore((s) => s.list.find((e) => e.id === extId))
+  const nav = useExtensionsStore((s) => s.panelNav[paneId])
   const enabled = info?.enabled ?? false
   const locale = useSettingsStore((s) => s.locale)
   const themeCss = useThemeCss()
   const [source, setSource] = useState<ExtensionPanelSource | null>(null)
   const [webview, setWebview] = useState<HTMLElement | null>(null)
+  const showing = useRef(false)
+  showing.current = source?.ok === true
 
   const resolve = useCallback(
     (isAlive: () => boolean) => {
-      setSource(null)
+      if (!showing.current) setSource(null)
+      const context: ExtensionPanelContext = nav
+        ? { workspaceId, locale, path: nav.path }
+        : { workspaceId, locale }
       window.pine.extensions
-        .panel(extId, { workspaceId, locale })
+        .panel(extId, context)
         .then((res) => {
           if (isAlive()) setSource(res)
         })
@@ -50,7 +58,7 @@ export function ExtensionPanelView({
           }
         })
     },
-    [extId, workspaceId, locale],
+    [extId, workspaceId, locale, nav],
   )
 
   useEffect(() => {

@@ -259,13 +259,27 @@ Details: `docs/ARCHITECTURE.md`.
   user's data: never read, migrate or delete them.
 - **Extension identities are not panes.** `controlServer` gates every method by caller kind
   (`callers`); new pane-scoped methods keep the default `panes`. An extension's caps are manifest
-  ∩ human approval (`extensionStore.ts`), set with `setCaps` on each start.
+  ∩ human approval (`extensionStore.ts`), set with `setCaps` on each start. The one way an
+  extension acts on a pane is a targetable method (`registerTargetableMethod`: `browse.*` in
+  `browse.ts`, `process.*`, `pane.setAttention`) called with `targetPaneId`; it then needs the
+  method's cap **and** `all-workspaces`, and runs as that pane. Never make a method targetable
+  that types into a pane or waits on the human (`browse.pick`), and never drop the
+  `all-workspaces` check: an extension owns no pane, so every target is another pane.
+- **Extension settings are validated in main.** `extensions:set-setting` checks the value against
+  the manifest's `contributes.settings` before anything is stored or sent to the extension; the
+  renderer only persists what main returned (`extensionSettings` in `settings.json`, not in
+  `DATA_KEYS`, so `pine settings set` can't write it). Stored values of the wrong type fall back
+  to the default.
 - **Only the human approves or enables an extension** — the approval dialog or Settings, through
   `extensions:*` IPC. Never add a socket method or CLI verb that approves, enables, or changes an
-  extension's caps.
+  extension's caps. Hot reload (`ExtensionHost.rescan`, driven by `watchUserExtensions`) never
+  writes `extensions.json`: a new user extension starts `pending-approval` and a manifest that
+  asks for more runs with the approved subset.
 - **Extension panels stay sandboxed.** Partition `pine-ext-<id>`, src and every navigation must
   pass `ExtensionHost.isAllowedPanelUrl` (a file inside the extension dir, or the loopback origin
-  its process reported), no preload, permissions denied. A panel never gets `window.pine` or a
+  its process reported), no preload, permissions denied. A panel path (`ext.openPanel {path}`,
+  `ext.notify {openPanel: path}`) is resolved to a URL in main (`resolvePanel`) and checked there,
+  because changing a webview's `src` fires no `will-navigate`. A panel never gets `window.pine` or a
   token; it talks only to its own extension process.
 - **Core surfaces stay tool-agnostic.** The `diff` surface shows two texts an extension hands it
   (`ext.openDiff`); it never runs git or reads a repo. Diff content lives in `diffStore` (memory),
@@ -463,7 +477,9 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
 - **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`, `src/extensions/**`. Extension
   host integration tests spawn `test/fixtures/extensions/echo` over a real socket;
   `src/cli/cli.ext.e2e.test.ts` builds and drives the real git extension and the echo fixture
-  (stdin, errors, `pine ext ls`) via the CLI; `src/main/builtinGitExtension.integration.test.ts`
+  (stdin, errors, `pine ext ls`) via the CLI; `extensionHost.v2.integration.test.ts` drives pane
+  chips, settings, panel paths and `targetPaneId` through the echo fixture, and
+  `extensionHost.reload.integration.test.ts` writes extensions into a temp user dir for hot reload; `src/main/builtinGitExtension.integration.test.ts`
   runs the built git extension against a temp repo (sidebar, changes, diff sides, symlinks);
   `src/main/builtinPortsExtension.integration.test.ts` bundles the ports extension into a temp
   dir and points it at real process trees (a node listener, a fake `ssh` under `script` for a
@@ -481,7 +497,9 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   The app boots with no workspaces: a spec that needs a terminal starts with `openWorkspace(win)`
   (`e2e/helpers.ts`).
   `e2e/extensions.spec.ts` installs the `test/fixtures/extensions-e2e/hello` user extension
-  (bundled with esbuild) and covers approval, a palette-opened file panel and a `pine <ext>` call.
+  (bundled with esbuild) and covers approval, a palette-opened file panel and a `pine <ext>` call;
+  `e2e/extensions-v2.spec.ts` installs it while pine runs (hot reload) and covers its pane chip,
+  a panel path and its setting.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,
