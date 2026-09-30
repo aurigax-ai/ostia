@@ -294,6 +294,55 @@ describe('parseManifest — completions', () => {
   })
 })
 
+describe('parseManifest — icon themes', () => {
+  const noMain = { id: 'icons', name: 'Icons', version: '1' }
+  const theme = { id: 'material-icon-theme', label: 'Material', path: 'dist/theme.json' }
+
+  it('accepts icon themes without a main process', () => {
+    const res = parseManifest({ ...noMain, contributes: { iconThemes: [theme] } }, DIR)
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.iconThemes).toEqual([theme])
+  })
+
+  it('omits iconThemes when none are declared', () => {
+    const res = parseManifest(noMain, DIR)
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.iconThemes).toBeUndefined()
+  })
+
+  it('rejects a theme path outside the extension or not a .json file', () => {
+    for (const path of ['../theme.json', '/abs/theme.json', 'theme.js', 5]) {
+      expect(
+        parseManifest({ ...noMain, contributes: { iconThemes: [{ ...theme, path }] } }, DIR),
+      ).toEqual({
+        ok: false,
+        error: 'contributes.iconThemes[0]: path must be a .json file inside the extension',
+      })
+    }
+  })
+
+  it('rejects bad ids, missing labels and duplicates', () => {
+    const bad = (iconThemes: unknown) =>
+      parseManifest({ ...noMain, contributes: { iconThemes } }, DIR)
+    expect(bad([{ ...theme, id: '../x' }])).toEqual({
+      ok: false,
+      error: 'contributes.iconThemes[0]: invalid id',
+    })
+    expect(bad([{ ...theme, label: '' }])).toEqual({
+      ok: false,
+      error: 'contributes.iconThemes[0]: missing label',
+    })
+    expect(bad([theme, theme])).toEqual({
+      ok: false,
+      error: "contributes.iconThemes[1]: duplicate id 'material-icon-theme'",
+    })
+    expect(bad({})).toEqual({
+      ok: false,
+      error: 'contributes.iconThemes must be an array of at most 16',
+    })
+  })
+})
+
 describe('isInsideDir', () => {
   it('is true only for paths strictly below the directory', () => {
     expect(isInsideDir('/a/b', 'c.html')).toBe(true)

@@ -29,6 +29,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     paneChips: [],
     settings: [],
     settingValues: {},
+    iconThemes: [],
     ...overrides,
   }
 }

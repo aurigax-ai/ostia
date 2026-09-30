@@ -179,6 +179,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     completions: {
       spec: vi.fn().mockResolvedValue(null),
     },
+    iconThemes: {
+      load: vi.fn().mockResolvedValue(null),
+    },
   }
   return { ...base, ...overrides }
 }

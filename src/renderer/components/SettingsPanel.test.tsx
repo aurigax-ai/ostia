@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
@@ -20,6 +21,7 @@ describe('SettingsPanel', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
   let pluginsInit: ReturnType<typeof usePluginsStore.getState>
+  let extensionsInit: ReturnType<typeof useExtensionsStore.getState>
 
   beforeAll(() => {
     Object.assign(window, {
@@ -31,6 +33,7 @@ describe('SettingsPanel', () => {
     settingsInit = useSettingsStore.getState()
     uiInit = useUIStore.getState()
     pluginsInit = usePluginsStore.getState()
+    extensionsInit = useExtensionsStore.getState()
   })
 
   afterEach(() => {
@@ -38,6 +41,7 @@ describe('SettingsPanel', () => {
     useSettingsStore.setState(settingsInit, true)
     useUIStore.setState(uiInit, true)
     usePluginsStore.setState(pluginsInit, true)
+    useExtensionsStore.setState(extensionsInit, true)
     vi.restoreAllMocks()
   })
 
@@ -111,21 +115,76 @@ describe('SettingsPanel', () => {
     expect(setLocale).toHaveBeenCalledWith('zh-Hant')
   })
 
-  it('toggles Show hidden files (Files section) via setBehavior with the right patch', async () => {
-    useSettingsStore.setState((s) => ({ behavior: { ...s.behavior, showHiddenFiles: true } }))
-    const setBehavior = vi
-      .spyOn(useSettingsStore.getState(), 'setBehavior')
-      .mockImplementation(() => {})
+  it('edits every Files tree option from Settings → Files', async () => {
+    useExtensionsStore.setState({
+      list: [
+        {
+          id: 'fixture-icons',
+          name: 'Fixture Icons',
+          version: '1.0.0',
+          description: '',
+          builtin: false,
+          enabled: true,
+          status: 'idle',
+          requested: [],
+          granted: [],
+          unapproved: [],
+          commands: [],
+          panel: null,
+          paneChips: [],
+          settings: [],
+          settingValues: {},
+          iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
+        },
+      ],
+    })
     renderSettings()
     const user = userEvent.setup()
+    const files = () => useSettingsStore.getState().files
 
     await user.click(screen.getByRole('button', { name: 'Files' }))
-    const toggle = screen.getByRole('switch', { name: 'Show hidden files' })
-    expect(toggle).toBeChecked()
 
-    await user.click(toggle)
+    await user.click(screen.getByRole('switch', { name: 'Compact folders' }))
+    expect(files().compactFolders).toBe(false)
+    await user.click(screen.getByRole('switch', { name: 'Show hidden files' }))
+    expect(files().showExcluded).toBe(true)
 
-    expect(setBehavior).toHaveBeenCalledWith({ showHiddenFiles: false })
+    const excluded = screen.getByRole('list', { name: 'Hidden file patterns' })
+    expect(excluded).toHaveTextContent('**/.git')
+    await user.type(
+      screen.getByRole('textbox', { name: 'Pattern, e.g. **/dist' }),
+      '**/dist{Enter}',
+    )
+    expect(files().exclude).toContain('**/dist')
+    await user.click(screen.getByRole('button', { name: 'Remove **/.git' }))
+    expect(files().exclude).not.toContain('**/.git')
+
+    const rules = screen.getByRole('list', { name: 'Nesting rules' })
+    expect(rules).toHaveTextContent('Cargo.toml')
+    await user.type(screen.getByRole('textbox', { name: 'Parent, e.g. *.ts' }), '*.go')
+    await user.type(
+      screen.getByRole('textbox', { name: 'Children, e.g. ${capture}.test.ts' }),
+      '${{capture}_test.go',
+    )
+    await user.click(screen.getAllByRole('button', { name: 'Add' })[1])
+    expect(files().nesting.patterns['*.go']).toBe('${capture}_test.go')
+    await user.click(screen.getByRole('button', { name: 'Remove Cargo.toml' }))
+    expect(files().nesting.patterns['Cargo.toml']).toBeUndefined()
+    await user.click(screen.getByRole('button', { name: 'Restore default rules' }))
+    expect(files().nesting.patterns['Cargo.toml']).toBe('Cargo.lock')
+    await user.click(screen.getByRole('switch', { name: 'Nest related files' }))
+    expect(files().nesting.enabled).toBe(false)
+    expect(screen.queryByRole('list', { name: 'Nesting rules' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox', { name: 'Folder placement' }))
+    await user.click(await screen.findByRole('option', { name: 'Folders and files mixed' }))
+    expect(files().sortOrder).toBe('mixed')
+    await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
+    await user.click(await screen.findByRole('option', { name: 'By type' }))
+    expect(files().sortBy).toBe('type')
+    await user.click(screen.getByRole('combobox', { name: 'File icon theme' }))
+    await user.click(await screen.findByRole('option', { name: 'Fixture Icons' }))
+    expect(files().iconTheme).toBe('fixture-icons')
   })
 
   it('switches the input mode (Terminal section) via setBehavior', async () => {

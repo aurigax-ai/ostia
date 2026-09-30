@@ -2,6 +2,8 @@ import {
   ArrowSquareOutIcon,
   CodeIcon,
   CopyIcon,
+  EyeIcon,
+  EyeSlashIcon,
   FileIcon,
   FolderOpenIcon,
   PaperPlaneTiltIcon,
@@ -93,16 +95,23 @@ function agentLabel(d: Dict, t: PickTarget, agent: ResumableAgent | 'other'): st
   return title ? `${name} · ${title}` : name
 }
 
+export interface TreeVisibility {
+  hidden: boolean
+  toggle: () => void
+}
+
 export function FileMenuItems({
   workspaceId,
   path,
   dir = false,
   inPine = false,
+  visibility,
 }: {
   workspaceId: string
   path: string
   dir?: boolean
   inPine?: boolean
+  visibility?: TreeVisibility
 }): JSX.Element {
   const d = useDict()
   const targets = usePickTargets(workspaceId)
@@ -146,6 +155,11 @@ export function FileMenuItems({
       <MenuItem icon={FolderOpenIcon} onClick={() => void window.pine.openPath.reveal(path)}>
         {d.fileMenu.reveal}
       </MenuItem>
+      {visibility ? (
+        <MenuItem icon={visibility.hidden ? EyeIcon : EyeSlashIcon} onClick={visibility.toggle}>
+          {visibility.hidden ? d.filesView.showInTree : d.filesView.hideInTree}
+        </MenuItem>
+      ) : null}
       <ContextMenuSeparator />
       <MenuItem icon={CopyIcon} onClick={() => copy(path)}>
         {d.fileMenu.copyPath}
@@ -183,17 +197,19 @@ export function FileMenu({
   path,
   dir,
   trigger,
+  visibility,
 }: {
   workspaceId: string
   path: string
   dir?: boolean
   trigger: ReactElement
+  visibility?: TreeVisibility
 }): JSX.Element {
   return (
     <ContextMenu>
       <ContextMenuTrigger render={trigger} />
       <MenuContent>
-        <FileMenuItems workspaceId={workspaceId} path={path} dir={dir} />
+        <FileMenuItems workspaceId={workspaceId} path={path} dir={dir} visibility={visibility} />
       </MenuContent>
     </ContextMenu>
   )
