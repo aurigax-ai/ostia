@@ -77,6 +77,7 @@ import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
 import { privateTmpDir } from './privateTmp'
 import { killAllProcesses, registerProcessMethods } from './processManager'
+import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { ScreenMirror } from './screenMirror'
@@ -784,6 +785,7 @@ function registerPtyIpc(): void {
 function registerFsIpc(): void {
   const allowedRoots = [homedir(), app.getPath('userData')]
   registerOpenPathIpc(allowedRoots)
+  registerProjectRootIpc(allowedRoots)
 
   ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
     const safe = resolveSafe(dir, allowedRoots)

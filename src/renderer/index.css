@@ -310,6 +310,19 @@
   color: var(--fg-muted);
 }
 
+.files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  padding-bottom: 0;
+}
+
+.files-head .files-close {
+  margin-right: -4px;
+  letter-spacing: normal;
+}
+
 .workspaces {
   flex: 1 1 auto;
   overflow-y: auto;

@@ -45,6 +45,7 @@ import type {
   PromptContext,
   PtyAttachResult,
   SyncStatus,
+  WorkspaceProject,
 } from '../shared/types'
 import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
 
@@ -191,6 +192,8 @@ const bridge: PineBridge = {
     openDefault: (path) =>
       ipcRenderer.invoke('shell:open-default', path) as Promise<OpenPathResult>,
     reveal: (path) => ipcRenderer.invoke('shell:reveal', path) as Promise<OpenPathResult>,
+    project: (dir) =>
+      ipcRenderer.invoke('workspace:project', dir) as Promise<WorkspaceProject | null>,
   },
   agentSession: {
     info: (resume) =>

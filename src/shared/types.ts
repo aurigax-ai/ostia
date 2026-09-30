@@ -338,11 +338,17 @@ export interface SelectionApi {
   send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
 }
 
+export interface WorkspaceProject {
+  name: string
+  display: string
+}
+
 export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'program' | 'failed' }
 
 export interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
   reveal: (path: string) => Promise<OpenPathResult>
+  project: (dir: string) => Promise<WorkspaceProject | null>
 }
 
 export interface AgentSessionApi {

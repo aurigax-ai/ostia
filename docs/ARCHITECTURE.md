@@ -717,6 +717,12 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   above the pinned group) and picks the `workDir`: the active workspace's focused pane `cwd` when
   `workspaces.inheritFolder` is on and the pane has one, else `workspaces.defaultFolder` (`~`).
   The `workDir` stays the anchor; only its initial value is inherited.
+- **Workspace names follow the project** (`lib/workspaceProjects.ts`, `main/projectRoot.ts`): for
+  each workspace, the active pane's cwd goes to `workspace:project`, which returns the nearest
+  folder below home that has a `.git` (never home itself), else the folder, as `{name,
+  display}`; `setProject` stores it as the automatic `name` and `projectDir` (the rail's path
+  line). `customName` (Rename) always wins. `workDir` stays the anchor for new panes. Why: a
+  workspace created at `~` and then used in a repo was stuck being called "home".
 - **Close confirmation** (`lib/closeConfirm.ts`, `CloseConfirmDialog.tsx`, `closeConfirmStore`):
   a command is running when `blocksStore.running` has a block for a pane of the workspace.
   Closing a workspace (row X, context menu, `workspace.closeOthers`) and closing any pane or tab
