@@ -52,6 +52,7 @@ export function startAssistAvailability(): () => void {
 }
 
 let requestSeq = 0
+const CHUNK_CATCH_UP_MS = 3000
 
 export function nextAssistRequestId(): string {
   requestSeq += 1
@@ -70,15 +71,28 @@ export async function assistRequest<P extends AssistPoint>(
 ): Promise<AssistResponse<P>> {
   if (opts.signal?.aborted) return { ok: false, error: 'cancelled' }
   const requestId = nextAssistRequestId()
+  let received = 0
+  let caughtUp: (() => void) | null = null
+  let expected = Number.POSITIVE_INFINITY
   const offChunk = opts.onChunk
     ? window.pine.assist.onChunk((chunk) => {
-        if (chunk.requestId === requestId) opts.onChunk?.(chunk.text)
+        if (chunk.requestId !== requestId) return
+        received += 1
+        opts.onChunk?.(chunk.text)
+        if (received >= expected) caughtUp?.()
       })
     : () => {}
   const onAbort = (): void => window.pine.assist.cancel(requestId)
   opts.signal?.addEventListener('abort', onAbort, { once: true })
   try {
     const res = await window.pine.assist.request(point, requestId, input)
+    if (opts.onChunk && res.chunks && received < res.chunks) {
+      expected = res.chunks
+      await new Promise<void>((resolve) => {
+        caughtUp = resolve
+        setTimeout(resolve, CHUNK_CATCH_UP_MS)
+      })
+    }
     return opts.signal?.aborted ? { ok: false, error: 'cancelled' } : res
   } finally {
     opts.signal?.removeEventListener('abort', onAbort)

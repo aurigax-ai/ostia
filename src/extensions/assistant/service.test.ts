@@ -112,7 +112,7 @@ describe('AssistantService report', () => {
       command: { ready: true, label: 'model-runtime · gemma' },
       completion: { ready: false },
       terminal: { ready: false },
-      chat: { ready: true, label: 'model-runtime · big' },
+      chat: { ready: true, label: 'model-runtime · big', tools: true },
     })
     expect(report.label).toBe('model-runtime · gemma / big')
     expect(report.features?.find((f) => f.id === 'terminalCompletions')).toEqual({
@@ -139,7 +139,11 @@ describe('AssistantService report', () => {
     svc.configure({ provider: 'openrouter', fastModel: 'a/b' }, '  ')
     expect(svc.report().status.chat).toEqual({ ready: false })
     svc.configure({ provider: 'openrouter', fastModel: 'a/b' }, 'sk')
-    expect(svc.report().status.chat).toEqual({ ready: true, label: 'openrouter · a/b' })
+    expect(svc.report().status.chat).toEqual({
+      ready: true,
+      label: 'openrouter · a/b',
+      tools: true,
+    })
     svc.configure({ provider: 'openai-compatible', fastModel: 'm' }, null)
     expect(svc.report().setup).toBe('no-endpoint')
     svc.configure({ provider: 'openai-compatible', fastModel: 'm', baseUrl: 'http://h:1/v1' }, null)
