@@ -51,7 +51,7 @@ function SettingRow({
 }): JSX.Element {
   return (
     <div className="flex items-start justify-between gap-6 py-1.5">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="font-mono text-fg text-ui-sm">{setting.key}</div>
         <p className="mt-0.5 text-fg-muted text-ui-xs">{setting.description}</p>
       </div>

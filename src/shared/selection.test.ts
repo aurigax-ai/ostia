@@ -5,6 +5,7 @@ import {
   isPng,
   normalizeSelection,
   renderSelectionReport,
+  selectionBusMessage,
   selectionLabel,
 } from './selection'
 
@@ -176,5 +177,31 @@ describe('isPng', () => {
     expect(isPng(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]))).toBe(true)
     expect(isPng(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toBe(false)
     expect(isPng(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0]))).toBe(false)
+  })
+})
+
+describe('terminal captures', () => {
+  it('keeps terminal text without a file and drops a relative cwd', () => {
+    expect(normalizeSelection({ kind: 'terminal', cwd: 'rel', command: '', text: 'boom' })).toEqual(
+      { kind: 'terminal', cwd: null, command: null, text: 'boom' },
+    )
+    expect(normalizeSelection({ kind: 'terminal', cwd: '/w', command: null, text: '' })).toBeNull()
+  })
+
+  it('reports a block with its directory and command and no file', () => {
+    const capture: SelectionCapture = {
+      kind: 'terminal',
+      cwd: '/w/app',
+      command: 'pnpm test\n--watch',
+      text: 'FAIL a.test.ts',
+    }
+    expect(selectionLabel(capture)).toBe('$ pnpm test')
+    const md = renderSelectionReport(capture, 'why?', null, AT)
+    expect(md).toContain('# Terminal output: $ pnpm test')
+    expect(md).toContain('- Directory: /w/app')
+    expect(md).toContain('- Command: pnpm test')
+    expect(md).not.toContain('- File:')
+    expect(md).toContain('## Terminal text\n\n```\nFAIL a.test.ts\n```')
+    expect(JSON.parse(selectionBusMessage(capture, '', '/r.md', null)).file).toBeNull()
   })
 })

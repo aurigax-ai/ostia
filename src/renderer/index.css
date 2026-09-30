@@ -790,6 +790,11 @@
   color: var(--fg);
 }
 
+.file-row.active {
+  background: var(--surface-3);
+  color: var(--fg);
+}
+
 .file-twisty {
   flex: 0 0 auto;
   color: var(--fg-dim);
@@ -1449,6 +1454,10 @@ button.prompt-chip:focus-visible {
 
 .xterm-host .xterm {
   height: 100%;
+}
+
+.xterm-host:not(.link-modifier) .xterm .xterm-cursor-pointer {
+  cursor: inherit;
 }
 
 .xterm-host .xterm .xterm-viewport {

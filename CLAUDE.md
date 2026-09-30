@@ -139,7 +139,8 @@ Details: `docs/ARCHITECTURE.md`.
   Rerun and history insert go through `insertCommand` (`lib/blockActions.ts`), need the `shell`
   capability, and paste via `term.paste`. The one widening: a report reference from pick
   element or send selection (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a
-  running agent that reported `waiting`/`done`; it's text only, never followed by Enter. Anything
+  running agent that reported `waiting`/`done`; it's text only, never followed by Enter. A file
+  path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. Anything
   else goes to the clipboard.
   The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
   `insertCommand` too, and is shown only at an idle prompt on the normal buffer; anything

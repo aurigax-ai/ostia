@@ -6,6 +6,7 @@ import { externalEditorError, openPaneInExternalEditor } from '../commands/exter
 import { fmt, useDict } from '../i18n/useDict'
 import { registerEditorPosition } from '../lib/editorPositions'
 import { createAutoSave, saveFormatted } from '../lib/editorSave'
+import { lineReference } from '../lib/fileReference'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import { openDocument } from '../lsp/client'
@@ -229,6 +230,7 @@ export function EditorView({
 
   const openExternalLabel = d.editor.openExternal
   const sendSelectionLabel = d.viewer.sendSelection
+  const copyLinesLabel = d.fileMenu.copyLines
   useEffect(() => {
     const editor = editorRef.current
     if (!editor) return
@@ -250,14 +252,30 @@ export function EditorView({
       precondition: 'editorHasSelection',
       run: () => sendSelectionRef.current(),
     })
+    const copyLinesAction = editor.addAction({
+      id: 'pine.copyPathAndLines',
+      label: copyLinesLabel,
+      contextMenuGroupId: '9_cutcopypaste',
+      run: () => {
+        const file = pathRef.current
+        const sel = editor.getSelection()
+        if (!file || !sel) return
+        const endLine =
+          sel.endColumn === 1 && sel.endLineNumber > sel.startLineNumber
+            ? sel.endLineNumber - 1
+            : sel.endLineNumber
+        void navigator.clipboard.writeText(lineReference(file, sel.startLineNumber, endLine))
+      },
+    })
     const unregisterSender = registerSelectionSender(paneId, () => sendSelectionRef.current())
     return () => {
       action.dispose()
       sendAction.dispose()
+      copyLinesAction.dispose()
       unregisterSender()
       unregister()
     }
-  }, [paneId, openExternalLabel, sendSelectionLabel])
+  }, [paneId, openExternalLabel, sendSelectionLabel, copyLinesLabel])
 
   useEffect(() => {
     pathRef.current = filePath

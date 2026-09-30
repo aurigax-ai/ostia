@@ -15,13 +15,15 @@ import {
   parseOsc99,
   parseOsc777,
 } from '../lib/attention'
-import { canTypeInto, insertCommand, stepBlock } from '../lib/blockActions'
+import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
+import { attachLinkModifier, linkModifierHeld } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
+import { registerSelectionSender } from '../lib/selectionSenders'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
@@ -43,6 +45,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { Blocks } from './Blocks'
 import { InputEditor } from './InputEditor'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
+import { useSelectionSend } from './SelectionSend'
 import { TerminalFind, findOptions } from './TerminalFind'
 import { isPromptRepaint, nextSizeAction } from './terminalSizing'
 import { terminalPalette } from './terminalTheme'
@@ -80,6 +83,25 @@ export function TerminalView({
   const [alternateScreen, setAlternateScreen] = useState(false)
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(terminalPalette(themeId)), [themeId])
+  const selectionSend = useSelectionSend(workspaceId, paneId)
+  const sendSelectionRef = useRef<() => void>(() => {})
+  sendSelectionRef.current = () => {
+    const selected = termRef.current?.getSelection() ?? ''
+    const block = selected.trim() ? null : selectedBlockOutput(paneId)
+    const text = block ? block.output : selected
+    if (!text.trim()) {
+      selectionSend.notify(currentDict().viewer.noTerminalSelection)
+      return
+    }
+    selectionSend.open({
+      kind: 'terminal',
+      cwd: cwd ?? null,
+      command: block?.command || null,
+      text,
+    })
+  }
+
+  useEffect(() => registerSelectionSender(paneId, () => sendSelectionRef.current()), [paneId])
 
   useEffect(() => {
     const host = hostRef.current
@@ -107,7 +129,7 @@ export function TerminalView({
     term.unicode.activeVersion = '11'
     term.loadAddon(
       new WebLinksAddon((e, uri) => {
-        if (!(isMac ? e.metaKey : e.ctrlKey)) return
+        if (!linkModifierHeld(e, isMac)) return
         if (useSettingsStore.getState().browser.openTerminalLinks) {
           useLayoutStore.getState().openBrowser(workspaceId, uri)
         } else {
@@ -120,6 +142,7 @@ export function TerminalView({
     term.open(host)
     if (behavior.gpuAcceleration) loadWebglRenderer(term)
     const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
+    const detachLinkModifier = attachLinkModifier(host, isMac)
     termRef.current = term
     fitRef.current = fit
     setSearch(searchAddon)
@@ -284,7 +307,7 @@ export function TerminalView({
         cwd: () => cwdRef.current,
         stat: (path) => window.pine.fs.stat(path),
         open: openFileAt,
-        modifierHeld: (e) => (isMac ? e.metaKey : e.ctrlKey),
+        modifierHeld: (e) => linkModifierHeld(e, isMac),
       }),
     )
     const copySelection = term.onSelectionChange(() => {
@@ -530,6 +553,7 @@ export function TerminalView({
       copySelection.dispose()
       fileLinks.dispose()
       detachWheelZoom()
+      detachLinkModifier()
       titleChange.dispose()
       promptMarker?.dispose()
       disposeMarkers()
@@ -665,6 +689,8 @@ export function TerminalView({
         }}
         onCancel={closePasteDialog}
       />
+      {selectionSend.panel}
+      {selectionSend.status}
     </div>
   )
 }

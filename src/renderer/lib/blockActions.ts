@@ -46,6 +46,14 @@ export async function copyBlock(
   return true
 }
 
+export function selectedBlockOutput(paneId: string): { command: string; output: string } | null {
+  const term = terminalFor(paneId)
+  const blockId = useBlocksStore.getState().selected[paneId]
+  const block = blockId ? findBlock(paneId, blockId) : undefined
+  if (!term || !block) return null
+  return { command: block.command, output: blockOutput(term, block) }
+}
+
 export function revealBlock(paneId: string, block: CommandBlock): void {
   const term = terminalFor(paneId)
   if (!term) return

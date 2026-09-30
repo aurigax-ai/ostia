@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), reading the selection reports (text, image regions, PDF text or regions) a human sends from files Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, a cross-agent message bus, driving the in-app browser (open/read/click/type/eval/screenshot/cookies/storage/state/devtools/script-injection/console/errors/frame/download/pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection".
 ---
 
 # Pine — the agent toolbelt
@@ -468,16 +468,19 @@ The inspector runs in an isolated JavaScript world of the page, so page scripts 
 fake it (synthetic clicks are ignored). For your real Chrome (logged-in workspaces, extensions,
 performance traces) use Chrome DevTools MCP instead: see `docs/CHROME.md` in the Pine repo.
 
-### Selections sent from files (text, images, PDFs)
+### Selections sent from files and terminals (text, images, PDFs, terminal output)
 
 The human can also select something in a file Pine shows and send it to your pane: text in the
 editor or the Markdown preview (**Send Selection to Agent**, Ctrl+Shift+E / ⌘⇧E, or the editor's
-context menu), a dragged region of an image, or selected text or a region of a PDF page. Pine
+context menu), a dragged region of an image, or selected text or a region of a PDF page. From a
+terminal pane they can send selected text or a command block's output (the block's
+**Send output to agent…**). Pine
 writes `/tmp/pine-reports-<uid>/selection-N.md` (plus `selection-N.png` for image and PDF
 regions), pastes `@<report path> ` under the same rules as a pick report (idle prompt, or your
 agent reported `waiting`/`done`; otherwise the human's clipboard), sets your pane to `working`,
 and sends a bus message whose `text` is JSON:
-`{"kind":"selection","report":"<path>","file":"<path>","image":"<png path>|null","note":"…"}`.
+`{"kind":"selection","report":"<path>","file":"<path>|null","image":"<png path>|null","note":"…"}`
+(`file` is null for terminal text).
 
 Read the report: its title says what was sent (`Text selection`, `Image region`, `PDF text
 selection`, `PDF page region`, …), then the human's note, then `## Source` with the absolute
@@ -486,6 +489,12 @@ preview only source lines `12-14`), or the image size and `Region` in image pixe
 or `Page` with its size and `Region` in PDF points (origin top-left). Image and region reports
 have a `Snapshot` PNG path: open it to see exactly what the human pointed at. Text reports end
 with the selected text in a fenced block. Edit the file at `File` itself; the report is a copy.
+Terminal reports (`Terminal text`, or `Terminal output` for a block) have no `File`: `## Source`
+gives the pane's `Directory` and, for a block, the `Command` that printed it, and the report ends
+with `## Terminal text`.
+
+The human can also paste just a path at your prompt (`@<path> `, from the file tree's or an editor
+tab's **Send path to agent**): that is the file itself, not a report.
 
 ## Gateway — LAN phone pairing (elevated)
 

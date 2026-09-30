@@ -2,6 +2,8 @@ import type { ReactElement } from 'react'
 import { useDict } from '../i18n/useDict'
 import { copyBlock, rerunBlock } from '../lib/blockActions'
 import { isIdlePrompt } from '../lib/blocks'
+import { openSelectionSend } from '../lib/selectionSenders'
+import { terminalFor } from '../lib/terminalHandles'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useWorkflowsStore } from '../stores/workflowsStore'
 import {
@@ -47,6 +49,15 @@ export function BlockMenu({
         </ContextMenuItem>
         <ContextMenuItem onClick={() => void copyBlock(paneId, 'both', blockId)}>
           {d.blocks.copyBoth}
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            select()
+            terminalFor(paneId)?.clearSelection()
+            openSelectionSend(paneId)
+          }}
+        >
+          {d.blocks.sendOutput}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem disabled={!idle || !command} onClick={() => rerunBlock(paneId, blockId)}>

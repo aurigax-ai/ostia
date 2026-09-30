@@ -26,6 +26,9 @@ export type SelectionCapture =
       pageHeight: number
       region: Region | null
     }
+  | { kind: 'terminal'; cwd: string | null; command: string | null; text: string }
+
+export const SELECTION_COMMAND_MAX = 2000
 
 export interface SelectionSendRequest {
   capture: SelectionCapture
@@ -99,9 +102,22 @@ function text(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? clip(value, SELECTION_TEXT_MAX) : null
 }
 
+function normalizeTerminal(c: Record<string, unknown>): SelectionCapture | null {
+  const body = text(c.text)
+  if (body === null) return null
+  const cwd =
+    typeof c.cwd === 'string' && ABSOLUTE_PATH.test(c.cwd) ? clip(c.cwd, SELECTION_PATH_MAX) : null
+  const command =
+    typeof c.command === 'string' && c.command.length > 0
+      ? clip(c.command, SELECTION_COMMAND_MAX)
+      : null
+  return { kind: 'terminal', cwd, command, text: body }
+}
+
 export function normalizeSelection(value: unknown): SelectionCapture | null {
   if (!value || typeof value !== 'object') return null
   const c = value as Record<string, unknown>
+  if (c.kind === 'terminal') return normalizeTerminal(c)
   if (typeof c.file !== 'string' || !ABSOLUTE_PATH.test(c.file)) return null
   const file = clip(c.file, SELECTION_PATH_MAX)
   switch (c.kind) {
@@ -164,7 +180,14 @@ function regionText(region: Region): string {
   return `x ${region.x}, y ${region.y}, ${region.width} × ${region.height}`
 }
 
+function firstLine(value: string): string {
+  return value.split('\n', 1)[0]
+}
+
 export function selectionLabel(capture: SelectionCapture): string {
+  if (capture.kind === 'terminal') {
+    return capture.command ? `$ ${firstLine(capture.command)}` : 'Terminal selection'
+  }
   const name = baseName(capture.file)
   switch (capture.kind) {
     case 'text':
@@ -199,6 +222,8 @@ function title(capture: SelectionCapture): string {
       return 'PDF text selection'
     case 'pdf-region':
       return capture.region ? 'PDF page region' : 'PDF page'
+    case 'terminal':
+      return capture.command ? 'Terminal output' : 'Terminal text'
   }
 }
 
@@ -228,6 +253,11 @@ function sourceLines(capture: SelectionCapture, imagePath: string | null): strin
         `- Region: ${capture.region ? `${regionText(capture.region)} (PDF points, origin top-left)` : 'whole page'}`,
         snapshot,
       ]
+    case 'terminal':
+      return [
+        `- Directory: ${capture.cwd ?? '(unknown)'}`,
+        ...(capture.command ? [`- Command: ${capture.command}`] : []),
+      ]
   }
 }
 
@@ -242,10 +272,12 @@ export function renderSelectionReport(
   lines.push(`# ${title(capture)}: ${selectionLabel(capture)}`, '')
   lines.push('## Note', '', trimmedNote || '(no note)', '')
   lines.push('## Source', '')
-  lines.push(`- File: ${capture.file}`)
+  if (capture.kind !== 'terminal') lines.push(`- File: ${capture.file}`)
   lines.push(...sourceLines(capture, imagePath))
   lines.push(`- Captured: ${capturedAt.toISOString()}`, '')
-  if (capture.kind === 'text' || capture.kind === 'pdf-text') {
+  if (capture.kind === 'terminal') {
+    lines.push('## Terminal text', '', fence(capture.text), '')
+  } else if (capture.kind === 'text' || capture.kind === 'pdf-text') {
     const lang = capture.kind === 'text' && capture.view === 'source' ? fenceLang(capture.file) : ''
     lines.push('## Selected text', '', fence(capture.text, lang), '')
   }
@@ -255,7 +287,7 @@ export function renderSelectionReport(
 export interface SelectionBusMessage {
   kind: 'selection'
   report: string
-  file: string
+  file: string | null
   image: string | null
   note: string
 }
@@ -269,7 +301,7 @@ export function selectionBusMessage(
   const message: SelectionBusMessage = {
     kind: 'selection',
     report,
-    file: capture.file,
+    file: capture.kind === 'terminal' ? null : capture.file,
     image: imagePath,
     note: clip(note.trim(), SELECTION_NOTE_MAX),
   }
