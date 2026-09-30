@@ -3,6 +3,7 @@ import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
+import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
 import type { WorkspaceGroupColor } from './workspaceGroups'
 
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
@@ -375,6 +376,11 @@ export interface ExternalEditorApi {
   open: (req: ExternalEditorRequest) => Promise<ExternalEditorResult>
 }
 
+export interface WorkflowsApi {
+  list: (workspaceId: string | null) => Promise<WorkflowListing>
+  save: (doc: WorkflowDocument) => Promise<WorkflowSaveResult>
+}
+
 export interface PineBridge {
   ping: () => Promise<'pong'>
   info: () => Promise<AppInfo>
@@ -395,6 +401,7 @@ export interface PineBridge {
   externalEditor: ExternalEditorApi
   gateway: GatewayApi
   notifications: NotificationsApi
+  workflows: WorkflowsApi
 }
 
 declare global {

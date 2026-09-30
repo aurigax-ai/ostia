@@ -28,6 +28,7 @@ import {
   sidebarItemUrl,
 } from '../shared/extensions'
 import { quoteArgv } from '../shared/shellQuote'
+import type { Workflow } from '../shared/workflows'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
 import { registerControlMethod } from './controlServer'
 import {
@@ -283,6 +284,15 @@ export class ExtensionHost {
 
   list(): ExtensionInfo[] {
     return [...this.runtimes.values()].map((rt) => this.info(rt))
+  }
+
+  workflows(): { extId: string; workflows: Workflow[] }[] {
+    return [...this.runtimes.values()]
+      .filter((rt) => this.active(rt) && rt.ext.manifest.contributes.workflows)
+      .map((rt) => ({
+        extId: rt.ext.manifest.id,
+        workflows: rt.ext.manifest.contributes.workflows ?? [],
+      }))
   }
 
   sidebarItems(): ExtensionSidebarItem[] {

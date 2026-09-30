@@ -28,6 +28,12 @@ const CLI_HELP = `pine — control-socket CLI
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
                                  (session_id) from stdin
+  pine workflow list [--json]    saved command workflows this pane can use: this workspace's
+                                 .pine/workflows, the user's workflows folder and extensions;
+                                 --json prints {workflows,problems}
+  pine workflow show <name> [--json]
+                                 one workflow's command, arguments and defaults (read-only;
+                                 fill the {{placeholders}} and run the command yourself)
   pine process run "<cmd>" [--name X] [--cwd P]   start a tracked background process
   pine process ls                                 list tracked processes
   pine process logs <id|name> [--since N]         print captured output

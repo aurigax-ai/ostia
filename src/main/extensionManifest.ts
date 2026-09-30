@@ -9,10 +9,12 @@ import {
   type ExtensionManifest,
   type ExtensionPanelContribution,
 } from '../shared/extensions'
+import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
 const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
 const MAX_COMMANDS = 64
+const MAX_WORKFLOWS = 64
 const MAX_TEXT = 200
 
 export type ManifestResult =
@@ -97,6 +99,20 @@ function parsePanel(raw: unknown, dir: string): ExtensionPanelContribution | str
   return panel
 }
 
+function parseWorkflows(raw: unknown): Workflow[] | string | undefined {
+  if (raw === undefined) return undefined
+  if (!Array.isArray(raw) || raw.length > MAX_WORKFLOWS) {
+    return `contributes.workflows must be an array of at most ${MAX_WORKFLOWS}`
+  }
+  const workflows: Workflow[] = []
+  for (const [i, item] of raw.entries()) {
+    const workflow = parseWorkflow(item)
+    if (workflow instanceof Error) return `contributes.workflows[${i}]: ${workflow.message}`
+    workflows.push(workflow)
+  }
+  return workflows
+}
+
 export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (!isRecord(raw)) return { ok: false, error: 'manifest must be a JSON object' }
   const id = raw.id
@@ -136,6 +152,8 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   }
   const panel = parsePanel(contributes.panel, dir)
   if (typeof panel === 'string') return { ok: false, error: panel }
+  const workflows = parseWorkflows(contributes.workflows)
+  if (typeof workflows === 'string') return { ok: false, error: workflows }
   const sidebarItems = contributes.sidebarItems === true
   if ((commands.length > 0 || sidebarItems || panel?.entry === 'url') && !main) {
     return { ok: false, error: 'commands, sidebar items and url panels need a main process' }
@@ -151,6 +169,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   }
   if (main) manifest.main = main
   if (panel) manifest.contributes.panel = panel
+  if (workflows && workflows.length > 0) manifest.contributes.workflows = workflows
   return { ok: true, manifest }
 }
 

@@ -133,6 +133,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onChanged: vi.fn(noopUnsub),
       onActivate: vi.fn(noopUnsub),
     },
+    workflows: {
+      list: vi.fn().mockResolvedValue({ workflows: [], problems: [] }),
+      save: vi.fn().mockResolvedValue({ ok: true, file: 'workflow.yaml' }),
+    },
   }
   return { ...base, ...overrides }
 }

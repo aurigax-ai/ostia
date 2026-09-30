@@ -3,6 +3,7 @@ import { useDict } from '../i18n/useDict'
 import { copyBlock, rerunBlock } from '../lib/blockActions'
 import { isIdlePrompt } from '../lib/blocks'
 import { useBlocksStore } from '../stores/blocksStore'
+import { useWorkflowsStore } from '../stores/workflowsStore'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -24,9 +25,7 @@ export function BlockMenu({
 }): JSX.Element {
   const d = useDict()
   const idle = useBlocksStore((s) => isIdlePrompt(s, paneId))
-  const hasCommand = useBlocksStore((s) =>
-    Boolean(s.byPane[paneId]?.find((b) => b.id === blockId)?.command),
-  )
+  const command = useBlocksStore((s) => s.byPane[paneId]?.find((b) => b.id === blockId)?.command)
   const select = (): void => useBlocksStore.getState().select(paneId, blockId)
 
   return (
@@ -50,11 +49,14 @@ export function BlockMenu({
           {d.blocks.copyBoth}
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem
-          disabled={!idle || !hasCommand}
-          onClick={() => rerunBlock(paneId, blockId)}
-        >
+        <ContextMenuItem disabled={!idle || !command} onClick={() => rerunBlock(paneId, blockId)}>
           {d.blocks.rerun}
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={!command}
+          onClick={() => useWorkflowsStore.getState().startSave(command ?? null)}
+        >
+          {d.blocks.saveAsWorkflow}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
