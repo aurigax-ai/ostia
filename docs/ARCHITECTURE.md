@@ -1795,6 +1795,63 @@ the process in `ext.panel` so the extension can build the URL with its own secre
 result must pass `isAllowedPanelUrl` before it is returned. Why re-check in main: setting a
 webview's `src` does not fire `will-navigate`, so the attach-time check is the only other guard.
 
+**Assist** (`shared/assist.ts`, `ExtensionHost.assist*`, `main/assistIpc.ts`). Four hook points an
+extension can serve: `input` (typo fix and prompt review of a draft for an agent), `command`
+(natural language to shell command suggestions), `completion` (inline code completion in the
+editor) and `chat` (the palette's Ask conversation). The core UI for each is tool-agnostic; the
+extension owns providers, prompts and requests.
+- Declared by `contributes.assist` and gated by the `assist` capability (the manifest is rejected
+  without it; the host routes only to an extension whose granted caps include it). An extension
+  that contributes assist starts with the window, like one with sidebar items, so it can report
+  `ext.setAssistStatus {status: {<point>: {ready, label?}}}` (needs `assist`). Only points that are
+  contributed and `ready` count; `assistAvailability()` names the first such extension per point
+  (built-ins first) with its label, and main pushes it on `assist:availability` whenever the
+  extension list or a status changes and drops it when the extension stops. Why a status the
+  extension reports instead of "has a manifest entry": the built-in assistant is installed and
+  enabled for everyone but must stay invisible until the human configures a provider.
+- `assist:request (point, requestId, input)` normalizes the input in main
+  (`normalizeAssistRequest`: known fields only, size caps, a chat must end with a user turn,
+  context kinds from a fixed list) before anything reaches the extension, then sends
+  `ext.assist {point, requestId, input}` with a jsonrpc cancellation token. The reply is
+  normalized again (`normalizeAssistResult`), or mapped to a typed failure when it is
+  `{error: <AssistError>, message?}` (the SDK turns an `AssistFailure` thrown in the handler into
+  that). Timeouts: 30 s, 5 min for chat.
+- Streaming: the extension calls `ext.assistChunk {requestId, text}` (needs `assist`) for each
+  delta; main forwards it on `assist:chunk` to the window that asked and answers `{live}` so the
+  extension stops producing once the request is gone. Chunks are capped (16 KiB each, 100k
+  characters per reply). Why chunk requests rather than notifications: the control server only
+  dispatches requests, and a request gives the extension backpressure for free.
+- Cancellation: `assist:cancel (requestId)` from the renderer (Stop, a closed palette, a newer
+  keystroke) cancels the token; main answers `cancelled` at once without waiting for the
+  extension, and the SDK hands the handler an aborted `AbortSignal`. A window that closes cancels
+  everything it left running. At most 8 requests per window run at once (`busy`); debouncing is
+  the renderer's job, rate limiting the extension's.
+- What reaches the extension is only what the human's action put in the request: the draft they
+  typed in the composer, the words after `# ` in the input editor, the code around the cursor of
+  the file they are editing, and in Ask only the context chips they switched on (recent output,
+  selection, folder, pane chips) or the failed block they asked to explain.
+- Renderer: `stores/assistStore.ts` keeps the availability and wraps a request (`assistRequest`:
+  a fresh request id, chunks filtered by id, an `AbortSignal` that sends `assist:cancel`).
+  `AssistComposer.tsx` (chord `assist.compose`) sits over the bottom of a terminal pane without
+  resizing it: over a running agent it debounces typo requests (700 ms), shows the fix as a
+  word diff applied only on Tab, reviews on Ctrl/⌘+Enter, and pastes the draft through
+  `canInsertReference` without Enter; at an idle shell prompt it lists command suggestions and
+  inserts the pick with `insertCommand` without Enter. `InputEditor.tsx` asks `command` for a
+  `# ` draft (600 ms) and replaces the draft only on Tab/Enter. `monaco/inlineAssist.ts` is one
+  inline-completions provider for every language (300 ms debounce, Monaco's cancellation token
+  wired to the request) that answers nothing while no `completion` provider is ready. Ask lives
+  in the palette (`AskView.tsx`, `stores/askStore.ts`, in memory per workspace; closing the
+  palette stops the stream) with context chips from `lib/askContext.ts`.
+
+**Extension secrets** (`main/extensionSecrets.ts`). `contributes.secrets` declares up to 8 keys
+with descriptions. Settings → Plugins shows a password field per key; `extensions:set-secret`
+encrypts the value with `safeStorage` into `extension-secrets.json` in the data dir (mode 0600,
+never synced, refused when encryption is unavailable). The renderer only learns which keys are
+set (`ExtensionInfo.secretsSet`); the extension reads its own declared keys with
+`ext.getSecret {key}`, and gets `settings.changed` when the human changes one so it re-reads it.
+Why not a string setting: `extensionSettings` lives in `settings.json`, which the renderer
+holds whole and settings sync copies to a folder the user shares.
+
 **Git** (`src/extensions/git/`, the first built-in written for the API rather than migrated):
 - Sidebar: per workspace, the repo of the workspace's active pane cwd (else the last active
   terminal's, else the first terminal's, else the workDir; `workspaces.ts`) gets one item:
