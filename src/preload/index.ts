@@ -26,6 +26,7 @@ import type {
   AppInfo,
   AppSnapshot,
   CommandInvokeRequest,
+  CredentialFillResult,
   ExternalEditorResult,
   FsBinaryResult,
   FsEntry,
@@ -213,6 +214,12 @@ const bridge: PineBridge = {
     },
   },
   credentials: {
+    forPage: (paneId) =>
+      ipcRenderer.invoke('credentials:for-page', paneId) as Promise<CredentialSummary[]>,
+    fill: (paneId, id) =>
+      ipcRenderer.invoke('credentials:fill', paneId, id) as Promise<CredentialFillResult>,
+    saveFromPage: (paneId) =>
+      ipcRenderer.invoke('credentials:save-from-page', paneId) as Promise<CredentialSaveResult>,
     list: () => ipcRenderer.invoke('credentials:list') as Promise<CredentialSummary[]>,
     save: (input) => ipcRenderer.invoke('credentials:save', input) as Promise<CredentialSaveResult>,
     remove: (id) => ipcRenderer.invoke('credentials:remove', id) as Promise<boolean>,

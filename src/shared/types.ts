@@ -366,7 +366,14 @@ export interface AppUpdateApi {
   onAvailable: (cb: (info: BuildInfo) => void) => () => void
 }
 
+export type CredentialFillResult =
+  | { ok: true; username: string }
+  | { ok: false; error: 'no-login' | 'no-form' | 'origin-changed' | 'locked' }
+
 export interface CredentialsApi {
+  forPage: (paneId: string) => Promise<CredentialSummary[]>
+  fill: (paneId: string, id: string) => Promise<CredentialFillResult>
+  saveFromPage: (paneId: string) => Promise<CredentialSaveResult>
   list: () => Promise<CredentialSummary[]>
   save: (input: CredentialInput) => Promise<CredentialSaveResult>
   remove: (id: string) => Promise<boolean>

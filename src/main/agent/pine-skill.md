@@ -291,6 +291,14 @@ permissions (`behavior.externalEditor`, `notifications.command`, `capabilities`,
 `approvals`, `sync`) are the human's; you can't set them. `get` with no key returns every
 readable setting; with a key it prints `null` if absent.
 
+### Signing in with the human's saved logins
+
+`pine browse login [--user <name>]` fills the human's saved login for the browser pane's
+current site (exact origin) into its login form. Every call shows the human an approval card
+naming the site; you get back only `{origin, username}`, never the password. If there's no
+saved login it fails with `no-login`; ask the human to sign in or save one (the key button
+in the browser toolbar). Then submit the form yourself (`pine browse click` on the button).
+
 ## Customize Pine for the human (actions, keys, panels)
 
 When the human asks for a button, a menu entry or a shortcut, add it as data; never

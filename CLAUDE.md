@@ -387,7 +387,9 @@ Details: `docs/ARCHITECTURE.md`.
   encrypted with `safeStorage` in the data dir (never synced), keyed by exact origin
   (`normalizeOrigin`, http/https only), and the renderer only ever gets summaries (origin,
   username); "copy" writes the clipboard from main. No socket method or CLI verb returns a
-  password; filling a page happens in main.
+  password; filling a page happens in main, in `LOGIN_WORLD_ID`, only when the page's origin
+  still equals the login's. `browse.login` needs the `credentials` capability, which always
+  asks (`ALWAYS_ASK`) and never gets a session grant.
 - **The file menu never launches programs.** "Open with default app" (`main/openPath.ts`) is
   confined like `fs:*` and refuses executables, scripts and launchers (`isProgram`); reveal only
   shows the item in the file manager. "Send path to agent" lists only agents running in the

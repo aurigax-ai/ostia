@@ -550,6 +550,12 @@ const parsers: Record<string, Parser> = {
       ? ok('addstyle', 'browse.addstyle', { css: args.join(' ') })
       : usage('addstyle <css>'),
   identify: plainVerb('identify'),
+  login: (args) => {
+    const flags = parseFlags(args, { values: { '--user': 'user' } })
+    if (typeof flags === 'string') return { ok: false, error: flags }
+    if (flags.positional.length > 0) return usage('login [--user <name>]')
+    return ok('login', 'browse.login', flags.values.user ? { username: flags.values.user } : {})
+  },
   zoom: (args) =>
     args[0] === 'in' || args[0] === 'out' || args[0] === 'reset'
       ? ok('zoom', 'browse.zoom', { action: args[0] })
