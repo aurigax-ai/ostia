@@ -1,22 +1,10 @@
+import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
 import { en, zhHant } from '../i18n/dict'
 import { BUILTIN_PLUGINS } from './builtin'
 import type { Theme } from './types'
 
 const themes = (): Theme[] => BUILTIN_PLUGINS.flatMap((p) => p.contributes.themes ?? [])
-
-function luminance(hex: string): number {
-  const channels = [1, 3, 5].map((i) => {
-    const v = Number.parseInt(hex.slice(i, i + 2), 16) / 255
-    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
-  })
-  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-}
-
-function contrast(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
-  return (hi + 0.05) / (lo + 0.05)
-}
 
 const plugin = (id: string) => BUILTIN_PLUGINS.find((p) => p.id === id)
 
@@ -68,15 +56,15 @@ describe('BUILTIN_PLUGINS', () => {
   it('keeps text tokens readable on the surfaces they sit on', () => {
     for (const { id, tokens } of themes()) {
       expect(
-        contrast(tokens['fg-muted'], tokens['surface-2']),
+        wcagContrast(tokens['fg-muted'], tokens['surface-2']),
         `${id} fg-muted`,
       ).toBeGreaterThanOrEqual(4.5)
       expect(
-        contrast(tokens['attn-fg'], tokens['surface-1']),
+        wcagContrast(tokens['attn-fg'], tokens['surface-1']),
         `${id} attn-fg`,
       ).toBeGreaterThanOrEqual(4.5)
       expect(
-        contrast(tokens['fg-dim'], tokens['surface-1']),
+        wcagContrast(tokens['fg-dim'], tokens['surface-1']),
         `${id} fg-dim`,
       ).toBeGreaterThanOrEqual(3)
     }
@@ -103,7 +91,7 @@ describe('BUILTIN_PLUGINS', () => {
     for (const text of ['fg', 'fg-muted', 'brand', 'brand-bright', 'attn-fg', 'ok']) {
       for (const surface of surfaces) {
         expect(
-          contrast(tokens[text], tokens[surface]),
+          wcagContrast(tokens[text], tokens[surface]),
           `${text} on ${surface}`,
         ).toBeGreaterThanOrEqual(4.5)
       }
