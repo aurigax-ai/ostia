@@ -9,11 +9,13 @@ import type {
   ExtensionSidebarItem,
 } from '../shared/extensions'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
+import type { SelectionSendResult } from '../shared/selection'
 import type {
   AppInfo,
   AppSnapshot,
   CommandInvokeRequest,
   ExternalEditorResult,
+  FsBinaryResult,
   FsEntry,
   FsKind,
   GatewayBindOptions,
@@ -68,6 +70,7 @@ const bridge: PineBridge = {
     read: (path) => ipcRenderer.invoke('fs:read', path) as Promise<string | null>,
     stat: (path) => ipcRenderer.invoke('fs:stat', path) as Promise<FsKind | null>,
     write: (path, content) => ipcRenderer.invoke('fs:write', path, content) as Promise<boolean>,
+    readBinary: (path) => ipcRenderer.invoke('fs:read-binary', path) as Promise<FsBinaryResult>,
   },
   lsp: {
     list: () => ipcRenderer.invoke('lsp:list') as Promise<LspServerInfo[]>,
@@ -142,6 +145,9 @@ const bridge: PineBridge = {
       ipcRenderer.on('browser:pick-state', handler)
       return () => ipcRenderer.removeListener('browser:pick-state', handler)
     },
+  },
+  selection: {
+    send: (req) => ipcRenderer.invoke('selection:send', req) as Promise<SelectionSendResult>,
   },
   extensions: {
     list: () => ipcRenderer.invoke('extensions:list') as Promise<ExtensionInfo[]>,

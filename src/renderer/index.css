@@ -1624,3 +1624,216 @@
   right: 18px;
   z-index: 3;
 }
+
+.editor-send {
+  position: absolute;
+  top: 6px;
+  right: 46px;
+  z-index: 3;
+}
+
+.viewer-status {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 10;
+  max-width: calc(100% - 16px);
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.viewer-surface {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--surface-1);
+}
+
+.viewer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 4px 6px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.viewer-title {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 4px;
+  color: var(--fg);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-meta,
+.viewer-zoom {
+  flex: none;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.viewer-zoom {
+  min-width: 7ch;
+  text-align: center;
+}
+
+.viewer-hint {
+  display: block;
+  flex: none;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.viewer-stage {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  background: var(--bg-sunken);
+}
+
+.viewer-canvas,
+.pdf-page {
+  position: relative;
+  flex: none;
+  margin: auto;
+  user-select: none;
+}
+
+.viewer-canvas {
+  background: repeating-conic-gradient(var(--surface-2) 0% 25%, var(--surface-3) 0% 50%) 0 0 / 16px
+    16px;
+  outline: none;
+}
+
+.viewer-canvas img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: auto;
+  pointer-events: none;
+}
+
+.viewer-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.viewer-region {
+  position: absolute;
+  border: 1px solid var(--brand);
+  background: var(--brand-glow);
+  pointer-events: none;
+}
+
+.pdf-page {
+  margin: 0 auto auto;
+  outline: 1px solid var(--line-strong);
+}
+
+.pdf-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pdf-text {
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: transparent;
+  user-select: text;
+  z-index: 0;
+}
+
+.pdf-text :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  transform-origin: 0% 0%;
+  user-select: text;
+}
+
+.pdf-text > :not(.markedContent),
+.pdf-text .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  z-index: 1;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.pdf-text .markedContent {
+  display: contents;
+}
+
+.pdf-text ::selection {
+  background: var(--brand-glow);
+  color: transparent;
+}
+
+.pdf-text br::selection {
+  background: transparent;
+}
+
+.pdf-text .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  user-select: none;
+}
+
+.pdf-text.selecting .endOfContent {
+  top: 0;
+}
+
+.pdf-text[data-region-mode] {
+  pointer-events: none;
+  user-select: none;
+}
+
+.pdf-region-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  outline: none;
+}

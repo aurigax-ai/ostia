@@ -2,6 +2,7 @@ import type { AgentResume } from './agentResume'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
+import type { SelectionSendRequest, SelectionSendResult } from './selection'
 
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
 
@@ -54,7 +55,13 @@ export interface FsApi {
   read: (path: string) => Promise<string | null>
   write: (path: string, content: string) => Promise<boolean>
   stat: (path: string) => Promise<FsKind | null>
+  readBinary: (path: string) => Promise<FsBinaryResult>
 }
+
+export type FsBinaryResult =
+  | { ok: true; data: Uint8Array }
+  | { ok: false; error: 'denied' | 'unreadable' }
+  | { ok: false; error: 'too-large'; size: number }
 
 export type FsKind = 'file' | 'dir'
 
@@ -264,6 +271,10 @@ export interface BrowserApi {
   onPickState: (cb: (state: PickState) => void) => () => void
 }
 
+export interface SelectionApi {
+  send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
+}
+
 export interface GatewayStatus {
   running: boolean
   host: string | null
@@ -363,6 +374,7 @@ export interface PineBridge {
   commands: CommandsApi
   terminalState: TerminalStateApi
   browser: BrowserApi
+  selection: SelectionApi
   extensions: ExtensionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi

@@ -7,8 +7,8 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { releaseSurfaces, surfaceHost } from '../stores/surfaceSlotsStore'
 import { BrowserView } from './BrowserView'
 import { DiffView } from './DiffView'
-import { EditorView } from './Editor'
 import { ExtensionPanelView } from './ExtensionPanelView'
+import { FileView } from './FileView'
 import { TerminalView } from './Terminal'
 
 interface SurfaceRef {
@@ -65,7 +65,7 @@ export function SurfacePool(): JSX.Element {
       {surfaces.map((s) =>
         createPortal(
           s.kind === 'editor' ? (
-            <EditorView paneId={s.paneId} filePath={s.filePath} />
+            <FileView workspaceId={s.workspaceId} paneId={s.paneId} filePath={s.filePath} />
           ) : s.kind === 'diff' ? (
             <DiffView paneId={s.paneId} />
           ) : s.kind === 'browser' ? (
