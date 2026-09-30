@@ -117,7 +117,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.getSettings` | — | `{ok, values}`: every key of your `contributes.settings`, with the human's value when it is valid, else the default. You also get `settings.changed` (below) whenever the values change. |
 | `ext.openDiff` | `{title, original, modified, language?, path?, workspaceId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that workspace, else the active one. Reuses the workspace's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
 | `workspace.list` | — | Needs `read-board`. `[{workspaceId, name, kind, workDir, state, activePaneId?}]`. |
-| `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, running, blockCount, lastExitCode?, pid?}]`; `cwd` is the live shell cwd for terminals; `pid` is the shell process of a terminal whose pty is running (absent for other kinds and for a hibernated pane). Its descendants are what the pane runs. They inherit pine's own open descriptors, so ignore sockets your parent process (pine) also holds. |
+| `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, filePath?, running, blockCount, lastExitCode?, pid?}]`; `cwd` is the live shell cwd for terminals; `filePath` is the absolute path a file view (`kind: 'editor'`) shows, so a palette command can act on the file in the caller's pane; `pid` is the shell process of a terminal whose pty is running (absent for other kinds and for a hibernated pane). Its descendants are what the pane runs. They inherit pine's own open descriptors, so ignore sockets your parent process (pine) also holds. |
 | `ext.confirm` | `{title, message, detail?, confirmLabel?, cancelLabel?}` | Asks the human in a native dialog that names your extension; Cancel is the default. Returns `{ok, confirmed}`. Use it before anything that changes the user's files or data. It waits for the human: mark a command that calls it `interactive` so its caller waits too. If the human answers after the timeout anyway, finish the work they chose. |
 | `ext.openTerminal` | `{command: string[], workspaceId?, afterPaneId?, cwd?, title?}` | Needs `shell`. Opens a **new** terminal pane right of `afterPaneId` (a pane id from `caller.paneId` or `pane.list`), else of the workspace's active pane (it becomes the first pane of an empty workspace), switches to that workspace, and runs `command` there once the shell shows its first prompt. Returns `{ok, paneId}`. `command` is an argv (1–64 strings, no control characters); pine quotes each argument for the shell, so pass data, never a shell string. `cwd` must be absolute. The command runs once, and never in an existing pane. Use it for things the human should watch or answer (sudo prompts), after `ext.confirm`. |
 
@@ -178,7 +178,9 @@ Every command and panel request carries who is asking:
 
 - `pane`: an agent or shell via `pine`; `capabilities` are that pane's; `locale` is the app's
   language, so text you show the human can follow it.
-- `user`: the palette (capabilities = the command's own declared ones) or your panel request.
+- `user`: the palette (capabilities = the command's own declared ones; `paneId` is the focused
+  pane, and a chip click's pane) or your panel request (the SDK's panel server fills `locale`
+  from the page's query).
 
 Use `workDir` for project-scoped data (it is the workspace's anchor directory, possibly `~`).
 `cwd` is the live shell directory of the calling pane (CLI) or of the active pane (palette) when
@@ -341,7 +343,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 
 | Id | What it does |
 |---|---|
-| `git` | Branch and change counts per workspace in the sidebar, a changes panel ("Show Changes"), diffs of changed files, `pine git status|changes|diff|open` |
+| `git` | Branch and change counts per workspace in the sidebar; `git.branch` (`main • ↑2 ↓1`, click opens the panel) and `git.diff-stats` (`3 • +12 -4`) chips on every terminal in a repo; a Git panel with Changes (stage, unstage, discard after `ext.confirm`, commit), Log (a commit's files open as diffs) and Blame pages ("Show Changes", "Show Log", "Blame File"); settings `pollSeconds`, `showDiffStats`; `pine git status|changes|diff|open|log|blame|stage|unstage|commit` (discard is panel only) |
 | `trellis` | The Trellis web UI as a panel on the workspace's project, open/claimed card counts per workspace, notifications when an agent moves a card to review, "Trellis: Open Board", "Trellis: Init Project Here", `pine trellis status` |
 | `ports` | Per workspace, the TCP ports its terminals' processes listen on as `:port` links that open in the browser pane, and the host of a foreground `ssh`. Polls every 3 s only while pine is focused. `pine ports ls [--all]` |
 | `system` | `pine system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `pine system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |

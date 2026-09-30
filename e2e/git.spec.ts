@@ -5,7 +5,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 
-test('a dirty repo shows in the sidebar, lists its changes, and opens a diff', async () => {
+test('a dirty repo shows in the sidebar and pane chips, opens a diff, commits, and shows the log', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -32,15 +32,14 @@ test('a dirty repo shows in the sidebar, lists its changes, and opens a diff', a
       timeout: 15_000,
     })
 
-    await win.keyboard.press('Control+Shift+P')
-    await win.locator('[data-slot="command-input"]').fill('Show Changes')
-    await waitForPaletteSelection(win, 'Show Changes')
-    await expect(win.getByRole('dialog').getByText('Show Changes', { exact: true })).toBeVisible()
-    await win.keyboard.press('Enter')
+    const chips = win.locator('.pane-header .pane-chip')
+    await expect(chips.filter({ hasText: '1 • +1' })).toBeVisible({ timeout: 15_000 })
+    const branchChip = chips.filter({ hasText: /^main$/ })
+    await expect(branchChip).toBeVisible()
+    await branchChip.click()
 
-    await expect(win.locator('.pane-header .title').filter({ hasText: 'Changes' })).toBeVisible({
-      timeout: 15_000,
-    })
+    const panelTitle = win.locator('.pane-header .title').filter({ hasText: /^Git$/ })
+    await expect(panelTitle).toBeVisible({ timeout: 15_000 })
     const guestEval = (script: string): Promise<string> =>
       app.evaluate(async ({ webContents }, code) => {
         const guest = webContents
@@ -61,6 +60,33 @@ test('a dirty repo shows in the sidebar, lists its changes, and opens a diff', a
     await expect(diff).toBeVisible({ timeout: 15_000 })
     await expect(diff).toContainText('second line from e2e', { timeout: 15_000 })
     await expect(win.locator('.diff-title')).toHaveText(join(home, 'notes.txt'))
+
+    await guestEval(`document.querySelector('[aria-label="Stage: notes.txt"]').click(); 'ok'`)
+    await expect
+      .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
+      .toContain('STAGED')
+    await guestEval(`(() => {
+      const box = document.querySelector('textarea.message')
+      box.value = 'commit from e2e'
+      box.dispatchEvent(new Event('input'))
+      document.querySelector('.commit button.primary').click()
+      return 'ok'
+    })()`)
+    await expect
+      .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
+      .toContain('No changes')
+    const subject = execFileSync('git', ['log', '-1', '--format=%s'], { cwd: home })
+    expect(subject.toString().trim()).toBe('commit from e2e')
+    await expect(chips.filter({ hasText: '1 • +1' })).toHaveCount(0, { timeout: 15_000 })
+
+    await win.keyboard.press('Control+Shift+P')
+    await win.locator('[data-slot="command-input"]').fill('Show Log')
+    await waitForPaletteSelection(win, 'Show Log')
+    await win.keyboard.press('Enter')
+    await expect
+      .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
+      .toContain('commit from e2e')
+    await expect(panelTitle).toHaveCount(1)
   } finally {
     await app.close()
   }
