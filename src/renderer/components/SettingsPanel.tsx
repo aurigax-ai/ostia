@@ -3,8 +3,10 @@ import {
   ArrowsClockwiseIcon,
   BellIcon,
   CheckIcon,
+  CodeIcon,
   CopyIcon,
   DeviceMobileIcon,
+  GlobeIcon,
   HardDrivesIcon,
   type Icon as IconComponent,
   InfoIcon,
@@ -43,6 +45,7 @@ import {
   useSettingsStore,
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { FontPicker } from './FontPicker'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
@@ -66,6 +69,8 @@ type SectionId =
   | 'sidebar'
   | 'workspaces'
   | 'files'
+  | 'browser'
+  | 'editor'
   | 'plugins'
   | 'languageServers'
   | 'remote'
@@ -106,6 +111,8 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'sidebar', icon: SidebarSimpleIcon, label: d.settings.sidebar },
         { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
+        { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
+        { id: 'editor', icon: CodeIcon, label: d.editorSettings.title },
         { id: 'plugins', icon: StackIcon, label: d.settings.plugins },
         { id: 'languageServers', icon: HardDrivesIcon, label: d.settings.languageServers },
         { id: 'remote', icon: DeviceMobileIcon, label: d.settings.remote },
@@ -179,6 +186,8 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'sidebar' ? <SidebarSection /> : null}
             {active === 'workspaces' ? <WorkspacesSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
+            {active === 'browser' ? <BrowserSettingsSection /> : null}
+            {active === 'editor' ? <EditorSettingsSection /> : null}
             {active === 'plugins' ? <PluginsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}
             {active === 'remote' ? <GatewaySection /> : null}
@@ -249,7 +258,7 @@ export function ControlRow({
   )
 }
 
-function SelectField<T extends string>({
+export function SelectField<T extends string>({
   value,
   onChange,
   options,

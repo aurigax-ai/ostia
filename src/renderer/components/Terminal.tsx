@@ -94,7 +94,12 @@ export function TerminalView({
     term.unicode.activeVersion = '11'
     term.loadAddon(
       new WebLinksAddon((e, uri) => {
-        if (isMac ? e.metaKey : e.ctrlKey) window.open(uri, '_blank')
+        if (!(isMac ? e.metaKey : e.ctrlKey)) return
+        if (useSettingsStore.getState().browser.openTerminalLinks) {
+          useLayoutStore.getState().openBrowser(workspaceId, uri)
+        } else {
+          window.open(uri, '_blank')
+        }
       }),
     )
     const searchAddon = new SearchAddon()

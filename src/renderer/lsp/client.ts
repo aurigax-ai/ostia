@@ -5,6 +5,7 @@ import {
   DidChangeTextDocumentNotification,
   DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
+  DocumentFormattingRequest,
   HoverRequest,
   InitializeRequest,
   InitializedNotification,
@@ -17,6 +18,7 @@ import type {
   Location,
   LocationLink,
   Range,
+  TextEdit,
 } from 'vscode-languageserver-protocol'
 import { monaco } from '../monaco/setup'
 import { usePluginsStore } from '../stores/pluginsStore'
@@ -49,6 +51,7 @@ const CLIENT_CAPS = {
     },
     hover: { contentFormat: ['markdown', 'plaintext'] },
     definition: { dynamicRegistration: false },
+    formatting: { dynamicRegistration: false },
     publishDiagnostics: { relatedInformation: false },
   },
   workspace: { workspaceFolders: true },
@@ -260,6 +263,25 @@ function registerProviders(languageId: string): void {
         })) as Hover | null
         if (!res?.contents) return null
         return { contents: hoverContents(res.contents), range: res.range && toRange(res.range) }
+      } catch {
+        return null
+      }
+    },
+  })
+
+  monaco.languages.registerDocumentFormattingEditProvider(languageId, {
+    async provideDocumentFormattingEdits(model, options) {
+      const client = clientOf(model)
+      if (!client) return null
+      try {
+        const res = (await client.conn.sendRequest(DocumentFormattingRequest.method, {
+          textDocument: { uri: model.uri.toString() },
+          options: { tabSize: options.tabSize, insertSpaces: options.insertSpaces },
+        })) as TextEdit[] | null
+        return (res ?? []).map((edit) => ({
+          range: toRange(edit.range),
+          text: edit.newText,
+        }))
       } catch {
         return null
       }
