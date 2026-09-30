@@ -132,6 +132,10 @@ Details: `docs/ARCHITECTURE.md`.
   capability, and paste via `term.paste`. The one widening: a pick-element report reference
   (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a running agent that reported
   `waiting`/`done`; it's text only, never followed by Enter. Anything else goes to the clipboard.
+  The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
+  `insertCommand` too, and is shown only at an idle prompt on the normal buffer; anything
+  running (or a TUI on the alternate screen) gets the keys straight through xterm. While it's
+  shown, `insertCommand` without Enter fills the editor instead of the shell line.
 - **Pick element runs in an isolated world** (`PICK_WORLD_ID`, `executeJavaScriptInIsolatedWorld`),
   never the page's main world, and counts only `isTrusted` events. `pickRuntime` must stay a
   self-contained function (it's shipped with `toString()`): no imports or module-level references
@@ -325,6 +329,12 @@ Details: `docs/ARCHITECTURE.md`.
   `\xHH` escapes) from zsh's `preexec $1` / bash's latest history entry (only if it contains
   `$BASH_COMMAND`). Reading the command off the screen picks up a right-aligned RPROMPT and
   misses pasted text; the screen read is only the fallback for shells without the mark.
+- **Input editor suppression is keyed on the prompt's A marker** (`draft.promptLine`), never the
+  draft object: zsh re-emits OSC 133;B on every prompt redraw (p10k async segments, WINCH), which
+  replaces the draft and would bring the editor back over a shell line the user already typed
+  into. Submitting or typing into the terminal suppresses the current A marker; the next prompt
+  lifts it. Keystrokes are counted with `term.onKey`, not `onData`, because `onData` also
+  carries xterm's replies to terminal queries (cursor position, device attributes).
 - **OSC 7 is not percent-decoded**: hooks emit raw paths; decoding corrupts dirs like `100%20off`.
 - **Workspace restore is two files from two processes** (`workspaceSnapshot.ts`): the renderer
   autosaves `workspaces.json` as you work; main writes `scrollback.json` every 5 s when output

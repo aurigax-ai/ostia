@@ -54,6 +54,13 @@ export type CursorStyle = 'block' | 'underline' | 'bar'
 
 export const CURSOR_STYLES: CursorStyle[] = ['block', 'underline', 'bar']
 
+export type InputMode = 'terminal' | 'editor'
+
+export const INPUT_MODES: readonly InputMode[] = ['terminal', 'editor']
+
+export const inputMode = (v: unknown): InputMode =>
+  INPUT_MODES.includes(v as InputMode) ? (v as InputMode) : 'terminal'
+
 export interface Behavior {
   showHiddenFiles: boolean
   cursorStyle: CursorStyle
@@ -62,6 +69,7 @@ export interface Behavior {
   externalEditor: string
   gpuAcceleration: boolean
   copyOnSelect: boolean
+  inputMode: InputMode
 }
 
 export type FontSurface = 'ui' | 'terminal' | 'editor'
@@ -113,6 +121,7 @@ const DEFAULTS: Persisted = {
     externalEditor: 'auto',
     gpuAcceleration: true,
     copyOnSelect: false,
+    inputMode: 'terminal',
   },
   notifications: DEFAULT_NOTIFICATION_SETTINGS,
   sidebar: { showPath: true, showMessage: true, showDescription: true, showExtensionItems: true },
@@ -190,7 +199,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           },
           editor: mergeFont(DEFAULTS.appearance.editor, p.appearance?.editor),
         },
-        behavior: { ...DEFAULTS.behavior, ...p.behavior },
+        behavior: {
+          ...DEFAULTS.behavior,
+          ...p.behavior,
+          inputMode: inputMode(p.behavior?.inputMode),
+        },
         notifications: parseNotificationSettings(p.notifications),
         sidebar: pickBooleans(DEFAULTS.sidebar, p.sidebar),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,

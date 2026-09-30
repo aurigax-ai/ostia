@@ -144,6 +144,19 @@ describe('builtins route to store actions', () => {
     expect(failed).toEqual({ ok: false, error: { code: 'command-failed', message: 'no browser' } })
   })
 
+  it('terminal.toggleInputEditor flips behavior.inputMode and needs settings-write', async () => {
+    const described = commands.describe().find((c) => c.id === 'terminal.toggleInputEditor')
+    expect(described?.capabilities).toEqual(['settings-write'])
+
+    expect(await commands.exec('terminal.toggleInputEditor')).toEqual({
+      ok: true,
+      result: { inputMode: 'editor' },
+    })
+    expect(useSettingsStore.getState().behavior.inputMode).toBe('editor')
+    await commands.exec('terminal.toggleInputEditor')
+    expect(useSettingsStore.getState().behavior.inputMode).toBe('terminal')
+  })
+
   it('settings.set reports a rejected path as a failed command', async () => {
     const r = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'init',
