@@ -1,6 +1,7 @@
 import { execFile, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { promisify } from 'node:util'
 
 const run = promisify(execFile)
@@ -15,7 +16,7 @@ async function waitFor(path: string): Promise<boolean> {
   const start = Date.now()
   while (Date.now() - start < SOCKET_WAIT_MS) {
     if (existsSync(path)) return true
-    await new Promise((r) => setTimeout(r, 25))
+    await sleep(25)
   }
   return false
 }
