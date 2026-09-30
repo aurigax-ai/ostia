@@ -58,6 +58,7 @@ import {
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { MenuContent, MenuItem, MenuRadioItem, MenuSubContent, MenuSubTrigger } from './Menu'
+import { ViewsRail } from './ViewsRail'
 import { ATTENTION_BADGE } from './attentionStyles'
 import { extensionIcon } from './extensionIcons'
 import { Badge } from './ui/badge'
@@ -160,7 +161,7 @@ function WorkspacesView(): JSX.Element {
         {settingsTabOpen ? (
           <TabRow
             active={settingsActive}
-            onSelect={openSettings}
+            onSelect={() => openSettings()}
             onClose={closeSettings}
             closeLabel={d.rail.close}
             icon={<GearSixIcon size={14} className="tab-lead" />}
@@ -205,6 +206,7 @@ function WorkspacesView(): JSX.Element {
         ) : null}
       </div>
 
+      <ViewsRail />
       <SidebarFooter />
     </>
   )

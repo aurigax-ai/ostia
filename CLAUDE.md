@@ -302,7 +302,8 @@ Details: `docs/ARCHITECTURE.md`.
 - **What may live in core:** code that needs xterm or pty internals, or that every other feature
   depends on (windows, workspaces, panes, pty + shell integration, blocks, restore, command
   registry/palette/chords, attention/notifications, settings, control socket + capabilities,
-  extension host). Everything else is an extension (`docs/ROADMAP.md` §2). Don't add a new
+  extension host, and the declarative-view renderer that draws data-only views with core
+  components). Everything else is an extension (`docs/ROADMAP.md` §2). Don't add a new
   feature module to `src/main` or a feature view to `src/renderer`; write an extension, and if
   the extension API can't express it, extend the API rather than special-casing core.
 - **Extensions use only the public API.** Code in `src/extensions/**` imports only
@@ -408,6 +409,17 @@ Details: `docs/ARCHITECTURE.md`.
   for Run once / Run and trust (`runUserAction`); trust is keyed by command + args
   (`actionFingerprint`), stored in `trustedActions`, which only the dialog writes (not in
   `DATA_KEYS`, never synced). Never add a way for an agent to trust an action.
+- **Views are data, drawn by core, enabled only by the human.** A view
+  (`~/.config/pine/views/<name>.json`) is read only by `main/viewHost.ts` (symlinks and files over
+  64 KiB refused) and must pass `parseViewText` (`shared/views.ts`): known nodes and properties,
+  http/https URLs only, bindings that are property paths with a fixed filter list, never code or
+  HTML. `lookup` (`shared/viewBindings.ts`) reads own properties and indices only; don't add
+  expression evaluation, method calls or a way to reach prototypes. A new file is `pending` and
+  is drawn only after the human enables it in Settings → Views (`views:set-enabled` IPC, stored in
+  `userData/views.json`); never add a socket method or CLI verb that enables a view (`pine view`
+  is `list`, `validate`, `open`, `schema`). Buttons run palette commands only through
+  `runCommandAction`, so elevated commands ask like user actions; URLs open only in the browser
+  pane. The draw budget (`expandView`) keeps the last good render instead of drawing more.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -425,8 +437,9 @@ Details: `docs/ARCHITECTURE.md`.
   `useOtherStore.getState()`. Pure logic stays out of stores.
 - **Model:** a **Workspace** (sidebar; `kind`, `workDir`, live `state`) owns a split-tree whose
   leaves are **Panes** or **tab stacks** of panes;
-  each pane hosts one **Surface**: `terminal | editor | browser | extension | diff` (`agent` is
-  reserved in the type and snapshot format, not yet created; `diff` is never persisted). An
+  each pane hosts one **Surface**: `terminal | editor | browser | extension | diff | view`
+  (`agent` is reserved in the type and snapshot format, not yet created; `diff` is never
+  persisted; a `view` pane stores only its `viewName`). An
   `editor` pane is a file view (`FileView.tsx`): images and PDFs get viewers, the rest Monaco.
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
   selects, dialogs, tooltips, kbd, badges, alerts, empty states, list items and radio groups;
@@ -617,6 +630,12 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   branches and a merge, checks the uncommitted row and keyboard selection, switches to all
   branches, toggles the tree view, and changes `changesView` in Settings → Plugins to see the
   panel follow.
+  `e2e/views.spec.ts` writes view files into the isolated `XDG_CONFIG_HOME`, enables them in
+  Settings → Views (one while pine runs, for hot reload), checks the sidebar view's live
+  workspace names and a button that runs `workspace.new`, and opens the panel view from the
+  palette. Views' schema, bindings and draw budget are unit-tested in `src/shared/views*.test.ts`
+  and `src/renderer/lib/view*.test.ts`, the loader in `src/main/viewHost.test.ts`, the CLI verbs
+  in `src/cli/cli.e2e.test.ts`.
   `e2e/browser-agent.spec.ts` grants `browse`, reads the pane's `PINE_*` env from its shell and
   drives a local http page through the real `pine browse` CLI (snapshot refs, fill/click/type,
   find, eval, storage, cookies, network, tabs, `--json`); `e2e/browser-storage.spec.ts` checks the

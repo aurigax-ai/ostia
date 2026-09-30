@@ -34,6 +34,10 @@ const CLI_HELP = `pine — control-socket CLI
   pine workflow show <name> [--json]
                                  one workflow's command, arguments and defaults (read-only;
                                  fill the {{placeholders}} and run the command yourself)
+  pine view schema               JSON Schema of a view file (~/.config/pine/views/<name>.json)
+  pine view validate <file>      check a view file: file:line: path: message, exit 1 on problems
+  pine view list [--json]        view files and their status (pending until the human enables)
+  pine view open <name>          open an enabled panel view as a pane in this workspace
   pine process run "<cmd>" [--name X] [--cwd P]   start a tracked background process
   pine process ls                                 list tracked processes
   pine process logs <id|name> [--since N]         print captured output

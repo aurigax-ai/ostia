@@ -10,6 +10,7 @@ import {
   equalizeSizes,
   findExtensionPane,
   findPane,
+  findViewPane,
   firstPaneId,
   firstPaneOfKind,
   movePane,
@@ -24,6 +25,7 @@ import {
   setPaneResume,
   setPaneTitle,
   setPaneUrl,
+  setPaneView,
   setResumePending,
   setSizes,
   slotCount,
@@ -65,6 +67,7 @@ interface LayoutState {
   openTerminalTab: (workspaceId: string, cwd: string) => string | null
   openBrowser: (workspaceId: string, url: string) => void
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
+  openView: (workspaceId: string, viewName: string, title: string) => string | null
   openDiff: (workspaceId: string, content: DiffContent) => string | null
   openTerminal: (workspaceId: string, opts: OpenTerminalPlacement) => string | null
   removeWorkspace: (workspaceId: string) => void
@@ -120,6 +123,36 @@ function seedLayout(workspaceId: string, make: (pane: PaneNode) => LayoutNode): 
   }))
   window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: pane.id })
   return pane.id
+}
+
+function openSingleton(
+  workspaceId: string,
+  find: (root: LayoutNode) => PaneNode | null,
+  apply: (root: LayoutNode, paneId: string) => LayoutNode,
+): string | null {
+  const seeded = seedLayout(workspaceId, (p) => apply(p, p.id))
+  if (seeded) return seeded
+  let createdPaneId: string | null = null
+  let targetPaneId: string | null = null
+  useLayoutStore.setState((s) => {
+    const next = patch(s, workspaceId, (l) => {
+      const existing = find(l.root)
+      if (existing) {
+        targetPaneId = existing.id
+        return { ...l, activePaneId: existing.id }
+      }
+      const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
+      if (!newPaneId) return l
+      createdPaneId = newPaneId
+      targetPaneId = newPaneId
+      return { ...l, root: apply(root, newPaneId), activePaneId: newPaneId }
+    })
+    return next ?? s
+  })
+  if (createdPaneId) {
+    window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+  }
+  return targetPaneId
 }
 
 function successorOf(before: LayoutNode, after: LayoutNode, closedId: string): string {
@@ -412,35 +445,19 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
   },
 
-  openExtensionPanel: (workspaceId, extensionId, title) => {
-    const seeded = seedLayout(workspaceId, (p) => setPaneExtension(p, p.id, extensionId, title))
-    if (seeded) return seeded
-    let createdPaneId: string | null = null
-    let panelPaneId: string | null = null
-    set((s) => {
-      const next = patch(s, workspaceId, (l) => {
-        const existing = findExtensionPane(l.root, extensionId)
-        if (existing) {
-          panelPaneId = existing.id
-          return { ...l, activePaneId: existing.id }
-        }
-        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
-        if (!newPaneId) return l
-        createdPaneId = newPaneId
-        panelPaneId = newPaneId
-        return {
-          ...l,
-          root: setPaneExtension(root, newPaneId, extensionId, title),
-          activePaneId: newPaneId,
-        }
-      })
-      return next ?? s
-    })
-    if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
-    }
-    return panelPaneId
-  },
+  openExtensionPanel: (workspaceId, extensionId, title) =>
+    openSingleton(
+      workspaceId,
+      (root) => findExtensionPane(root, extensionId),
+      (root, paneId) => setPaneExtension(root, paneId, extensionId, title),
+    ),
+
+  openView: (workspaceId, viewName, title) =>
+    openSingleton(
+      workspaceId,
+      (root) => findViewPane(root, viewName),
+      (root, paneId) => setPaneView(root, paneId, viewName, title),
+    ),
 
   openDiff: (workspaceId, content) => {
     let createdPaneId: string | null = null

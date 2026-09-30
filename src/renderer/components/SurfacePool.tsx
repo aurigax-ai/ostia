@@ -12,6 +12,7 @@ import { ExtensionPanelView } from './ExtensionPanelView'
 import { FileView } from './FileView'
 import { HibernatedView } from './HibernatedView'
 import { TerminalView } from './Terminal'
+import { ViewSurface } from './ViewSurface'
 
 interface SurfaceRef {
   paneId: string
@@ -21,6 +22,7 @@ interface SurfaceRef {
   filePath?: string
   url?: string
   extensionId?: string
+  viewName?: string
   hibernated?: true
   resume?: AgentResume
 }
@@ -32,7 +34,8 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
       pane.kind === 'editor' ||
       pane.kind === 'browser' ||
       pane.kind === 'diff' ||
-      (pane.kind === 'extension' && pane.extensionId)
+      (pane.kind === 'extension' && pane.extensionId) ||
+      (pane.kind === 'view' && pane.viewName)
     ) {
       out.push({
         paneId: pane.id,
@@ -42,6 +45,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         filePath: pane.filePath,
         url: pane.url,
         extensionId: pane.extensionId,
+        viewName: pane.viewName,
         hibernated: pane.hibernated,
         resume: pane.resume,
       })
@@ -82,6 +86,8 @@ export function SurfacePool(): JSX.Element {
               workspaceId={s.workspaceId}
               paneId={s.paneId}
             />
+          ) : s.kind === 'view' && s.viewName ? (
+            <ViewSurface workspaceId={s.workspaceId} paneId={s.paneId} viewName={s.viewName} />
           ) : s.hibernated ? (
             <HibernatedView paneId={s.paneId} resume={s.resume} />
           ) : (
