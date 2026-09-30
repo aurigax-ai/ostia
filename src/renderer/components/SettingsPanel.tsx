@@ -43,6 +43,7 @@ import {
   SCROLL_SPEED_MAX,
   SCROLL_SPEED_MIN,
 } from '../settings/terminalPaneSettings'
+import { WINDOW_TITLE_MAX } from '../settings/windowTitle'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { type LspStatus, usePluginsStore } from '../stores/pluginsStore'
 import {
@@ -415,6 +416,7 @@ function AppearanceSection(): JSX.Element {
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupDisplay}>
         <ZoomRow />
+        <WindowTitleRow />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupFonts}>
         <FontRow surface="ui" label={d.settings.uiFont} />
@@ -423,6 +425,33 @@ function AppearanceSection(): JSX.Element {
         <FontRow surface="editor" label={d.settings.editorFont} />
       </SettingsGroup>
     </div>
+  )
+}
+
+function WindowTitleRow(): JSX.Element {
+  const d = useDict()
+  const template = useSettingsStore((s) => s.appearance.windowTitle)
+  const setWindowTitle = useSettingsStore((s) => s.setWindowTitle)
+  const [draft, setDraft] = useState(template)
+  useEffect(() => setDraft(template), [template])
+  const commit = (): void => {
+    if (draft !== template) setWindowTitle(draft)
+  }
+  return (
+    <ControlRow label={d.settings.windowTitle} desc={d.settings.windowTitleDesc}>
+      <Input
+        value={draft}
+        spellCheck={false}
+        maxLength={WINDOW_TITLE_MAX}
+        aria-label={d.settings.windowTitle}
+        className="h-7 w-56 font-mono text-ui-sm"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+        }}
+      />
+    </ControlRow>
   )
 }
 
