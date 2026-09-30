@@ -1396,7 +1396,7 @@ button.prompt-chip:focus-visible {
   left: 0;
   z-index: 20;
   min-width: 160px;
-  max-width: 100%;
+  max-width: min(100%, 640px);
   font-size: var(--text-ui-sm);
   line-height: var(--text-ui-sm--line-height);
 }
@@ -1415,6 +1415,24 @@ button.prompt-chip:focus-visible {
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.input-editor-menu-name {
+  flex: none;
+  min-width: 16ch;
+}
+
+.input-editor-menu-description {
+  flex: 1;
+  min-width: 0;
+  padding-left: 12px;
+  text-align: left;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-ui-xs);
   white-space: nowrap;
   text-overflow: ellipsis;
 }

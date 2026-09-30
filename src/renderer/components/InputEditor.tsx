@@ -1,3 +1,4 @@
+import type { SpecCommand } from '@shared/completionSpec'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import {
   type CSSProperties,
@@ -16,8 +17,8 @@ import {
   type CompletionItem,
   applyCompletionItem,
   caretOnFirstLine,
+  completeArgument,
   completeCommand,
-  completePath,
   completionToken,
   historyMatches,
   historySuggestion,
@@ -242,6 +243,7 @@ export function InputEditor({
   const wasVisible = useRef(false)
   const walk = useRef<{ index: number; saved: string; entries: string[] } | null>(null)
   const completing = useRef(0)
+  const specs = useRef(new Map<string, Promise<SpecCommand | null>>())
   const undo = useRef<VimBuffer[]>([])
   const pendingCaret = useRef<number | null>(null)
   const vimModeRef = useRef<VimMode>('insert')
@@ -390,6 +392,14 @@ export function InputEditor({
     return true
   }
 
+  const loadSpec = (command: string): Promise<SpecCommand | null> => {
+    const known = specs.current.get(command)
+    if (known) return known
+    const loading = window.pine.completions.spec(command).catch(() => null)
+    specs.current.set(command, loading)
+    return loading
+  }
+
   const pick = (item: CompletionItem): void => {
     const area = areaRef.current
     const caret = area ? area.selectionStart : text.length
@@ -405,7 +415,10 @@ export function InputEditor({
     const commandWord = isCommandWord(text, caret)
     const result = commandWord
       ? completeCommand(commands ?? [], completionToken(text, caret).word, recentCommands(history))
-      : await completePath(text, caret, cwd ?? '~', (p) => window.pine.fs.list(p))
+      : await completeArgument(text, caret, cwd ?? '~', {
+          spec: loadSpec,
+          list: (p) => window.pine.fs.list(p),
+        })
     if (ticket !== completing.current) return
     if (result.insert) {
       replaceText(
@@ -751,7 +764,10 @@ export function InputEditor({
                       className="input-editor-menu-item"
                       onSelect={() => pick(item)}
                     >
-                      {itemLabel(item)}
+                      <span className="input-editor-menu-name">{itemLabel(item)}</span>
+                      {item.description ? (
+                        <span className="input-editor-menu-description">{item.description}</span>
+                      ) : null}
                     </CommandItem>
                   ))}
                 </CommandList>

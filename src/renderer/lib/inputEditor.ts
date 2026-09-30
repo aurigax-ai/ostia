@@ -1,7 +1,9 @@
+import type { SpecCommand } from '../../shared/completionSpec'
 import type { FsEntry } from '../../shared/types'
 import type { CommandBlock } from '../stores/blocksStore'
 import { resolveLinkPath } from './fileLinks'
 import { firstCommand, isCommandPosition } from './shellTokens'
+import { type SpecItem, commandWords, specAnswer } from './specCompletion'
 
 export function inputHistory(
   byPane: Record<string, readonly CommandBlock[] | undefined>,
@@ -66,7 +68,7 @@ export function completionDir(dir: string, cwd: string): string {
   return dir ? resolveLinkPath(dir, cwd) : cwd
 }
 
-export type CompletionItem = FsEntry
+export type CompletionItem = FsEntry & { description?: string }
 
 export interface Completion {
   insert: string
@@ -160,6 +162,53 @@ export function completeCommand(
     insert: escapeShellWord(prefix.slice(word.length)),
     candidates: matches.map((name) => ({ name, dir: false })),
   }
+}
+
+export function completeItems(items: readonly SpecItem[], word: string): Completion {
+  const seen = new Set<string>()
+  const unique = items.filter((item) => !seen.has(item.name) && seen.add(item.name))
+  if (unique.length === 0) return { insert: '', candidates: [] }
+  if (unique.length === 1) {
+    return { insert: `${escapeShellWord(unique[0].name.slice(word.length))} `, candidates: [] }
+  }
+  const prefix = commonPrefix(unique.map((item) => item.name))
+  return {
+    insert: escapeShellWord(prefix.slice(word.length)),
+    candidates: unique.map((item) => ({
+      name: item.name,
+      dir: false,
+      description: item.description,
+    })),
+  }
+}
+
+export interface ArgumentSources {
+  spec: (command: string) => Promise<SpecCommand | null>
+  list: (path: string) => Promise<FsEntry[]>
+}
+
+export async function completeArgument(
+  text: string,
+  caret: number,
+  cwd: string,
+  sources: ArgumentSources,
+): Promise<Completion> {
+  const { start, word } = completionToken(text, caret)
+  const words = commandWords(text.slice(0, start))
+  const spec = words ? await sources.spec(words.command) : null
+  if (words && spec) {
+    const answer = specAnswer(spec, words.args, word)
+    if (answer.kind === 'items') return completeItems(answer.items, word)
+    if (answer.kind === 'paths' && answer.foldersOnly) {
+      const { dir, base } = splitPathWord(word)
+      const entries = await sources.list(completionDir(dir, cwd))
+      return completeName(
+        entries.filter((e) => e.dir),
+        base,
+      )
+    }
+  }
+  return completePath(text, caret, cwd, sources.list)
 }
 
 export function isCommandWord(text: string, caret: number): boolean {
