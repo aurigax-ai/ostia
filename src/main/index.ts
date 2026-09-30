@@ -91,6 +91,8 @@ import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
 import { DomainRequests } from './sandbox/domainRequests'
 import { registerSandboxIpc } from './sandbox/ipc'
+import { packageCooldownEnv } from './sandbox/packageEnv'
+import { PackageRequests } from './sandbox/packageRequests'
 import { PortForwarder } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
 import { sandboxFailureBanner } from './sandbox/spawnBanner'
@@ -281,6 +283,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   nodePath: process.execPath,
   hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
   onAsk: (workspaceId, host, port) => domainRequests.onBlocked(workspaceId, host, port),
+  onPackageBlocked: (workspaceId, pkg, reason) => packageRequests.blocked(workspaceId, pkg, reason),
 })
 
 function paneForWorkspace(workspaceId: string): string | undefined {
@@ -331,6 +334,33 @@ function sandboxedPids(workspaceId: string): number[] {
 }
 
 const portForwarder = new PortForwarder({ pidsOf: sandboxedPids })
+
+const PACKAGE_BATCH_MS = 600
+
+const packageRequests: PackageRequests = new PackageRequests({
+  batchMs: PACKAGE_BATCH_MS,
+  ask: async ({ workspaceId, kind, packages }) => {
+    const identity = getByPaneId(paneForWorkspace(workspaceId) ?? '')
+    const queue = approvals()
+    if (!identity || !queue) return 'deny'
+    const names = packages.map((p) => `${p.ref.name}@${p.ref.version}`)
+    return queue.request({
+      externalId: identity.externalId,
+      windowId: identity.windowId,
+      paneId: identity.paneId,
+      workspaceId,
+      caps: [],
+      kind,
+      subject: names.join(', '),
+      action: `install ${names.length} package${names.length === 1 ? '' : 's'}`,
+      detail: packages
+        .map((p) => `${p.ref.ecosystem} ${p.ref.name}@${p.ref.version}: ${p.reason}`)
+        .join('\n'),
+    })
+  },
+  allowWorkspace: (workspaceId, key) => workspaceSandboxes.allowPackage(workspaceId, key, true),
+  allowUntilRestart: (workspaceId, key) => workspaceSandboxes.allowPackage(workspaceId, key, false),
+})
 
 const portRequests: PortRequests = new PortRequests({
   platform: process.platform,
@@ -837,6 +867,7 @@ function registerIpc(): void {
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
       workspaceSandboxes.forget(event.workspaceId)
+      packageRequests.forget(event.workspaceId)
       workspaceAgents.stop(event.workspaceId)
       secretService.forget(event.workspaceId)
       void portForwarder.forget(event.workspaceId)
@@ -1081,7 +1112,14 @@ function registerPtyIpc(): void {
         )
         file = '/bin/sh'
         args = ['-c', wrapped]
-        env = { ...sandboxSpawnEnv(env), ...secrets.env }
+        env = {
+          ...sandboxSpawnEnv(env),
+          ...packageCooldownEnv(
+            workspaceSandboxes.packagePolicy(workspaceId).cooldownDays,
+            Date.now(),
+          ),
+          ...secrets.env,
+        }
         env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
         cwd = sandboxCwd(cwd, workDirForWorkspace(workspaceId))
       } catch (err) {

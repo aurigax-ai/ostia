@@ -1,11 +1,31 @@
 import { ShieldWarningIcon } from '@phosphor-icons/react'
-import type { ApprovalRequest } from '@shared/approvals'
+import {
+  type ApprovalAnswer,
+  type ApprovalKind,
+  type ApprovalRequest,
+  answersFor,
+} from '@shared/approvals'
+import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { Button } from './ui/button'
 
 export function capLabel(caps: Record<string, string>, cap: string): string {
   return caps[cap] ?? cap
+}
+
+const KIND_TEXT: Record<Exclude<ApprovalKind, 'capability'>, (d: Dict) => string> = {
+  'sandbox-domain': (d) => d.approvals.sandboxDomain,
+  'sandbox-port': (d) => d.approvals.sandboxPort,
+  secret: (d) => d.approvals.secret,
+  package: (d) => d.approvals.package,
+  'package-malware': (d) => d.approvals.packageMalware,
+}
+
+function answerLabel(d: Dict, kind: ApprovalKind, answer: ApprovalAnswer): string {
+  if (answer === 'once') return d.approvals.allowOnce
+  if (answer === 'workspace') return d.approvals.allowWorkspace
+  return kind === 'capability' ? d.approvals.allowSession : d.approvals.allowUntilRestart
 }
 
 export function ApprovalCard({
@@ -19,6 +39,9 @@ export function ApprovalCard({
   const answer = useApprovalsStore((s) => s.answer)
   const kind = request.kind ?? 'capability'
   const destructive = request.caps.includes('destructive')
+  const allows = [...answersFor(kind)]
+    .filter((a) => a !== 'deny' && !(destructive && a === 'session'))
+    .reverse()
   const subject = request.subject ?? ''
   return (
     <section
@@ -36,14 +59,7 @@ export function ApprovalCard({
         </p>
       ) : (
         <p className="[overflow-wrap:anywhere]">
-          {fmt(
-            kind === 'sandbox-domain'
-              ? d.approvals.sandboxDomain
-              : kind === 'secret'
-                ? d.approvals.secret
-                : d.approvals.sandboxPort,
-            { pane: paneTitle, subject },
-          )}
+          {fmt(KIND_TEXT[kind](d), { pane: paneTitle, subject })}
         </p>
       )}
       <div className="flex min-w-0 flex-col gap-0.5">
@@ -58,37 +74,16 @@ export function ApprovalCard({
         <Button variant="ghost" size="sm" onClick={() => void answer(request.id, 'deny')}>
           {d.approvals.deny}
         </Button>
-        {kind === 'capability' ? (
-          <>
-            {destructive ? null : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void answer(request.id, 'session')}
-              >
-                {d.approvals.allowSession}
-              </Button>
-            )}
-            <Button size="sm" onClick={() => void answer(request.id, 'once')}>
-              {d.approvals.allowOnce}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button variant="outline" size="sm" onClick={() => void answer(request.id, 'session')}>
-              {d.approvals.allowUntilRestart}
-            </Button>
-            {kind === 'secret' ? (
-              <Button size="sm" onClick={() => void answer(request.id, 'once')}>
-                {d.approvals.allowOnce}
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => void answer(request.id, 'workspace')}>
-                {d.approvals.allowWorkspace}
-              </Button>
-            )}
-          </>
-        )}
+        {allows.map((choice, index) => (
+          <Button
+            key={choice}
+            variant={index === allows.length - 1 ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => void answer(request.id, choice)}
+          >
+            {answerLabel(d, kind, choice)}
+          </Button>
+        ))}
       </div>
     </section>
   )

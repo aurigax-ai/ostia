@@ -1,7 +1,14 @@
-import { type SandboxGlobals, checkDomainPattern, parseSandboxGlobals } from '@shared/sandbox'
+import {
+  DEFAULT_PACKAGE_SETTINGS,
+  type PackageSettings,
+  type SandboxGlobals,
+  checkDomainPattern,
+  parseSandboxGlobals,
+} from '@shared/sandbox'
 import { useDict } from '../i18n/useDict'
 import { useSettingsStore } from '../stores/settingsStore'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
+import { PackagesEditor } from './SandboxPackagesTab'
 import { PortsPolicyRow } from './SandboxPortsTab'
 import { ControlRow, SectionHead, SettingsGroup } from './SettingsPanel'
 import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select'
@@ -63,6 +70,15 @@ export function SandboxSection(): JSX.Element {
         <PortsPolicyRow
           value={globals.portsPolicy ?? 'ask'}
           onChange={(portsPolicy) => void save({ ...globals, portsPolicy })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.sandbox.packages}>
+        <PackagesEditor
+          effective={globals.packages ?? DEFAULT_PACKAGE_SETTINGS}
+          onChange={async (next) => {
+            const base = globals.packages ?? DEFAULT_PACKAGE_SETTINGS
+            await save({ ...globals, packages: { ...base, ...next } as PackageSettings })
+          }}
         />
       </SettingsGroup>
       <SettingsGroup title={d.sandbox.pineAccess}>

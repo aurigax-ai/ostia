@@ -1,13 +1,16 @@
 import { mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
+import type { PackageRef } from '../../shared/packages'
 import {
   type ResolvedSandbox,
   type SandboxGlobals,
   type WorkspaceSandbox,
+  resolvePackages,
   resolveSandbox,
 } from '../../shared/sandbox'
 import { SandboxHost, SandboxHostError } from './hostClient'
+import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
 import { type SandboxPaths, buildSrtConfig } from './srtConfig'
 import type { SandboxStore } from './store'
 
@@ -21,6 +24,7 @@ export interface WorkspaceSandboxesDeps {
   hostScript: string
   hostEnv?: NodeJS.ProcessEnv
   onAsk: (workspaceId: string, host: string, port: number | undefined) => Promise<boolean>
+  onPackageBlocked?: (workspaceId: string, pkg: PackageRef, reason: PackageBlockReason) => void
 }
 
 export class SandboxUnavailableError extends Error {
@@ -35,6 +39,7 @@ export class SandboxUnavailableError extends Error {
 export class WorkspaceSandboxes {
   private readonly hosts = new Map<string, Promise<SandboxHost>>()
   private readonly sessionDomains = new Map<string, Set<string>>()
+  private readonly sessionPackages = new Map<string, Set<string>>()
 
   constructor(private readonly deps: WorkspaceSandboxesDeps) {}
 
@@ -59,6 +64,33 @@ export class WorkspaceSandboxes {
     return resolveSandbox(this.deps.globals(), this.deps.store.get(workspaceId), [
       ...(this.sessionDomains.get(workspaceId) ?? []),
     ])
+  }
+
+  packagePolicy(workspaceId: string): PackagePolicy {
+    const resolved = resolvePackages(this.deps.globals(), this.deps.store.get(workspaceId))
+    return {
+      ...resolved,
+      allowances: [...resolved.allowances, ...(this.sessionPackages.get(workspaceId) ?? [])],
+    }
+  }
+
+  allowPackage(workspaceId: string, versionKey: string, lasting: boolean): void {
+    if (lasting) {
+      this.update(workspaceId, (current) => {
+        const allowances = current.packages?.allowances ?? []
+        return allowances.includes(versionKey)
+          ? current
+          : {
+              ...current,
+              packages: { ...current.packages, allowances: [...allowances, versionKey] },
+            }
+      })
+      return
+    }
+    const set = this.sessionPackages.get(workspaceId) ?? new Set<string>()
+    set.add(versionKey)
+    this.sessionPackages.set(workspaceId, set)
+    void this.refresh(workspaceId)
   }
 
   tmpDir(workspaceId: string): string {
@@ -115,7 +147,7 @@ export class WorkspaceSandboxes {
     const pending = this.hosts.get(workspaceId)
     if (!pending) return
     const host = await pending.catch(() => null)
-    if (host?.alive) await host.update(this.config(workspaceId))
+    if (host?.alive) await host.update(this.config(workspaceId), this.packagePolicy(workspaceId))
   }
 
   async cleanup(workspaceId: string): Promise<void> {
@@ -132,6 +164,7 @@ export class WorkspaceSandboxes {
   forget(workspaceId: string): void {
     this.stop(workspaceId)
     this.sessionDomains.delete(workspaceId)
+    this.sessionPackages.delete(workspaceId)
     this.deps.store.remove(workspaceId)
     rmSync(this.tmpDir(workspaceId), { recursive: true, force: true })
   }
@@ -156,12 +189,13 @@ export class WorkspaceSandboxes {
       hostScript: this.deps.hostScript,
       env: this.deps.hostEnv,
       onAsk: (h, port) => this.deps.onAsk(workspaceId, h, port),
+      onPackageBlocked: (pkg, reason) => this.deps.onPackageBlocked?.(workspaceId, pkg, reason),
       onExit: () => {
         if (this.hosts.get(workspaceId) === started) this.hosts.delete(workspaceId)
       },
     })
     const started = (async () => {
-      await host.start(this.config(workspaceId))
+      await host.start(this.config(workspaceId), this.packagePolicy(workspaceId))
       return host
     })().catch((err: unknown) => {
       if (this.hosts.get(workspaceId) === started) this.hosts.delete(workspaceId)

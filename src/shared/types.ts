@@ -27,6 +27,7 @@ import type {
   SandboxEditResult,
   SandboxExposeResult,
   SandboxPortRow,
+  WorkspacePackages,
   WorkspaceSandbox,
 } from './sandbox'
 import type { SecretEntry, SecretGrant } from './secrets'
@@ -118,6 +119,10 @@ export interface SandboxApi {
   refusals: (workspaceId: string) => Promise<DomainRefusal[]>
   allowRefused: (workspaceId: string, host: string) => Promise<boolean>
   globalsChanged: () => Promise<boolean>
+  setPackages: (
+    workspaceId: string,
+    packages: WorkspacePackages,
+  ) => Promise<WorkspaceSandbox | null>
   ports: (workspaceId: string) => Promise<SandboxPortRow[]>
   expose: (workspaceId: string, port: number) => Promise<SandboxExposeResult>
   unexpose: (workspaceId: string, port: number) => Promise<boolean>
