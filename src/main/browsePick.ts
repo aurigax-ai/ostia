@@ -1,6 +1,6 @@
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ipcMain, webContents } from 'electron'
+import { ipcMain } from 'electron'
 import {
   PICK_NOTE_MAX,
   type PickCapture,
@@ -17,7 +17,7 @@ import {
   screenshotRect,
 } from '../shared/pick'
 import { PICK_RUNTIME_GLOBAL, pickRuntimeScript } from '../shared/pickRuntime'
-import { type ConsoleEntry, resolveGuest } from './browse'
+import { type ConsoleEntry, ownedGuest, resolveGuest } from './browse'
 import { postBusMessage } from './bus'
 import { registerControlMethod } from './controlServer'
 import { failedRequestsFor } from './guestNetwork'
@@ -217,20 +217,9 @@ export function writePickReport(req: PickSendRequest, senderWindowId: string): P
   return { ok: true, path }
 }
 
-function ownedGuest(
-  deps: PickDeps,
-  paneId: string,
-  senderWindowId: string,
-): Electron.WebContents | null {
-  if (typeof paneId !== 'string' || getByPaneId(paneId)?.windowId !== senderWindowId) return null
-  const wcId = deps.browserPanes.get(paneId)
-  const guest = wcId === undefined ? undefined : webContents.fromId(wcId)
-  return guest && !guest.isDestroyed() ? guest : null
-}
-
 export function registerPickIpc(deps: PickDeps): void {
   ipcMain.handle('browser:pick-start', (e, paneId: string, theme?: unknown) => {
-    const guest = ownedGuest(deps, paneId, String(e.sender.id))
+    const guest = ownedGuest(deps.browserPanes, paneId, String(e.sender.id))
     if (!guest) return { ok: false, error: 'browser-not-ready' } satisfies PickOutcome
     return runPick(deps, guest, paneId, {
       theme: sanitizeTheme(theme),

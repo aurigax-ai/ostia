@@ -232,3 +232,18 @@ describe('BrowserView address bar', () => {
     expect(address).toHaveValue('http://localhost/docs')
   })
 })
+
+describe('BrowserView storage panel', () => {
+  it('opens the storage panel for this pane from the toolbar and closes it again', async () => {
+    const { workspaceId } = twoTerminals()
+    renderView(workspaceId)
+    expect(screen.queryByRole('region', { name: 'Storage' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show storage' }))
+    expect(screen.getByRole('region', { name: 'Storage' })).toBeInTheDocument()
+    expect(window.pine.browser.storageRead).toHaveBeenCalledWith(BROWSER)
+    const toggle = screen.getByRole('button', { name: 'Hide storage' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(toggle)
+    expect(screen.queryByRole('region', { name: 'Storage' })).not.toBeInTheDocument()
+  })
+})

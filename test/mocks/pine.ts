@@ -79,6 +79,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       pickCancel: vi.fn(),
       pickSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       onPickState: vi.fn(noopUnsub),
+      storageRead: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
+      storageSet: vi.fn().mockResolvedValue({ ok: true }),
+      storageRemove: vi.fn().mockResolvedValue({ ok: true }),
+      storageClear: vi.fn().mockResolvedValue({ ok: true }),
     },
     selection: {
       send: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
