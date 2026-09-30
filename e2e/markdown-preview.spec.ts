@@ -18,7 +18,7 @@ test('a Markdown file can be previewed and switched back to its source', async (
   try {
     const win = await app.firstWindow()
     await openWorkspace(win)
-    await win.locator('.deck-rail').getByRole('button', { name: 'Files', exact: true }).click()
+    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
     await win.locator('.file-row').filter({ hasText: 'DATABASE.md' }).click()
     await expect(win.locator('.monaco-editor').first()).toBeVisible({ timeout: 15_000 })
 

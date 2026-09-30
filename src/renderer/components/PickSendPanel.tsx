@@ -123,7 +123,7 @@ export function PickSendPanel({
                 <label
                   key={t.paneId}
                   htmlFor={`${ids}-target-${t.paneId}`}
-                  className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1 hover:bg-surface-2 has-data-checked:bg-surface-2"
+                  className="flex items-center gap-2 rounded-sm px-2 py-1 hover:bg-surface-2 has-data-checked:bg-surface-2"
                 >
                   <RadioGroupItem id={`${ids}-target-${t.paneId}`} value={t.paneId} />
                   <span

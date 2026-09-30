@@ -84,20 +84,6 @@ describe('DeckRail', () => {
     expect(leaveSettings).toHaveBeenCalled()
   })
 
-  it('adds a workspace via the New workspace control', async () => {
-    seedWorkspaces()
-    const addWorkspace = vi
-      .spyOn(useWorkspacesStore.getState(), 'addWorkspace')
-      .mockImplementation(() => {})
-    const leaveSettings = vi.spyOn(useUIStore.getState(), 'leaveSettings')
-
-    render(<DeckRail />)
-    await userEvent.setup().click(screen.getByRole('button', { name: 'New workspace' }))
-
-    expect(addWorkspace).toHaveBeenCalledTimes(1)
-    expect(leaveSettings).toHaveBeenCalled()
-  })
-
   it('closes the clicked workspace with its own id', async () => {
     seedWorkspaces()
     const closeWorkspace = vi
@@ -128,22 +114,7 @@ describe('DeckRail', () => {
     render(<DeckRail />)
 
     expect(screen.getByRole('button', { name: /alpha/ }).tagName).toBe('BUTTON')
-    expect(screen.getByRole('button', { name: 'New workspace' })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(2)
-  })
-
-  it('toggles the sidebar view via the pressed switch buttons', async () => {
-    seedWorkspaces()
-    expect(useUIStore.getState().sidebarView).toBe('workspaces')
-    const setSidebarView = vi.spyOn(useUIStore.getState(), 'setSidebarView')
-
-    render(<DeckRail />)
-
-    const filesSwitch = screen.getByRole('button', { pressed: false })
-    expect(screen.getByRole('button', { pressed: true })).toBeInTheDocument()
-
-    await userEvent.setup().click(filesSwitch)
-    expect(setSidebarView).toHaveBeenCalledWith('files')
   })
 
   describe('cmux-style rows', () => {

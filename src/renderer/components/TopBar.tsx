@@ -1,11 +1,19 @@
-import { MagnifyingGlassIcon, SidebarSimpleIcon } from '@phosphor-icons/react'
+import {
+  FolderSimpleIcon,
+  GearSixIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  SidebarSimpleIcon,
+} from '@phosphor-icons/react'
 import { useDict } from '../i18n/useDict'
 import { chordLabel } from '../lib/chords'
 import { isMac } from '../platform'
 import { useUIStore } from '../stores/uiStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { NotificationCenter } from './NotificationCenter'
+import { PanelToggles } from './PanelToggles'
 import { Button } from './ui/button'
 import { Kbd } from './ui/kbd'
 
@@ -15,6 +23,11 @@ export function TopBar(): JSX.Element {
   const d = useDict()
   const toggleRail = useUIStore((s) => s.toggleRail)
   const openPalette = useUIStore((s) => s.openPalette)
+  const openSettings = useUIStore((s) => s.openSettings)
+  const leaveSettings = useUIStore((s) => s.leaveSettings)
+  const filesOpen = useUIStore((s) => s.filesOpen)
+  const toggleFiles = useUIStore((s) => s.toggleFiles)
+  const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
 
   return (
     <header className="topbar drag-region">
@@ -25,6 +38,31 @@ export function TopBar(): JSX.Element {
           label={d.topbar.toggleSidebar}
           onClick={toggleRail}
         />
+        <IconButton
+          size="bar"
+          icon={FolderSimpleIcon}
+          label={d.rail.files}
+          aria-pressed={filesOpen}
+          onClick={toggleFiles}
+        />
+        <PanelToggles />
+        <span className="topbar-left-end">
+          <IconButton
+            size="bar"
+            icon={PlusIcon}
+            label={d.rail.newWorkspace}
+            onClick={() => {
+              leaveSettings()
+              addWorkspace()
+            }}
+          />
+          <IconButton
+            size="bar"
+            icon={GearSixIcon}
+            label={d.topbar.settings}
+            onClick={openSettings}
+          />
+        </span>
       </div>
 
       <Hint label={`${d.search.placeholder} (${PALETTE_KEYS})`} side="bottom">

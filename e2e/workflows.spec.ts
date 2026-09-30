@@ -105,7 +105,7 @@ test('opening a file shows the Monaco editor', async () => {
     await openWorkspace(win)
     await expect(win.locator('.monaco-editor')).toHaveCount(0)
 
-    await win.locator('.deck-rail').getByRole('button', { name: 'Files', exact: true }).click()
+    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
 
     const fileRow = win.locator('.file-row:has(.file-twisty-spacer)').first()
     await expect(fileRow).toBeVisible({ timeout: 10_000 })
@@ -188,7 +188,7 @@ test('Ctrl+1 jumps to the first workspace from a focused terminal, and rows drag
   const { app, win } = await launchApp()
   try {
     await openWorkspace(win)
-    await win.locator('.deck-rail').getByRole('button', { name: 'New workspace' }).click()
+    await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
     await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
     const rows = win.locator('.rail-row')
     await expect(rows).toHaveCount(2)
