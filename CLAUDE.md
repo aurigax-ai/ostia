@@ -161,8 +161,13 @@ Details: `docs/ARCHITECTURE.md`.
 - **Layout tree transforms are pure** (`src/renderer/layout/tree.ts`): no React, no store access.
   Transforms return the same object when nothing changed. `resetIds`/`adoptIds` are the only
   exceptions.
-- **Ids minted from counters are adopted on restore** (`adoptIds`, `adoptWorkspaceIds`). Skip it and a
-  new pane reuses a restored pane's id, and two panes share one shell.
+- **Ids minted from counters are adopted on restore** (`adoptIds`, `adoptWorkspaceIds`,
+  `adoptGroupIds`). Skip it and a new pane reuses a restored pane's id, and two panes share one
+  shell (or a new group silently merges with a restored one).
+- **Workspace groups live on the flat workspace list.** `workspaces` is the one order; a group is
+  a `groupId` on its members, kept contiguous by `normalizeGroups` (`lib/workspaceGroups.ts`),
+  and a group with no members is dropped. Never add a second member list or order. Pinned and
+  grouped are exclusive. Deleting a group never closes a workspace.
 - **Nothing live is ever restored.** A restored workspace comes back idle with a fresh shell at its
   saved cwd; replayed scrollback is history. Same for `processManager` (running → exited at load;
   loaded entries can't be restarted).
@@ -225,7 +230,8 @@ Details: `docs/ARCHITECTURE.md`.
   wire (`session.list` → `{ sessions }`, `sessionId` in panes, the `session.state` /
   `agent.*` events in `main/events.ts`) is the companion app's contract
   (`pine-companion/NETWORK-CONTRACT.md`). `controlDispatch.ts` maps `workspaceId` → `sessionId`
-  at the boundary. Rename the wire only together with the companion.
+  at the boundary and drops sidebar-only fields (`groupId`). Rename the wire only together with
+  the companion.
 - **Attention goes through `reduceAttention`** (`lib/attention.ts`), dispatched via
   `attentionStore`/`signalPane`. Workspace state is derived from pane attention + running blocks by
   `startAttentionSync`; never `setState` a workspace's live state directly. A signal to the pane

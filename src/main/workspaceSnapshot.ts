@@ -3,11 +3,13 @@ import { parseAgentResume } from '../shared/agentResume'
 import { isDangerousSegment } from '../shared/protoGuard'
 import type {
   AppSnapshot,
+  SnapshotGroup,
   SnapshotNode,
   SnapshotPaneNode,
   SnapshotSurfaceKind,
   SnapshotWorkspace,
 } from '../shared/types'
+import { isWorkspaceGroupColor, normalizeGroupName } from '../shared/workspaceGroups'
 import { normalizeDescription } from '../shared/workspaceText'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { PtyRingBuffer } from './ptyRingBuffer'
@@ -17,6 +19,7 @@ const SNAPSHOT_VERSION = 1
 export const SCROLLBACK_CAP_BYTES = 131_072
 
 const MAX_WORKSPACES = 32
+const MAX_GROUPS = 32
 const CUSTOM_NAME_MAX = 120
 const MAX_PANES = 64
 const MAX_DEPTH = 12
@@ -113,8 +116,28 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
   }
 }
 
+function parseGroups(raw: unknown): SnapshotGroup[] {
+  if (!Array.isArray(raw)) return []
+  const groups: SnapshotGroup[] = []
+  for (const entry of raw) {
+    if (groups.length >= MAX_GROUPS) break
+    if (!isRecord(entry)) continue
+    const id = entry.id
+    const name = normalizeGroupName(entry.name)
+    if (typeof id !== 'string' || !id || !name || groups.some((g) => g.id === id)) continue
+    groups.push({
+      id,
+      name,
+      ...(isWorkspaceGroupColor(entry.color) ? { color: entry.color } : {}),
+      ...(entry.collapsed === true ? { collapsed: true } : {}),
+    })
+  }
+  return groups
+}
+
 export function parseSnapshot(raw: unknown): AppSnapshot | null {
   if (!isRecord(raw) || raw.v !== SNAPSHOT_VERSION || !Array.isArray(raw.workspaces)) return null
+  const knownGroups = parseGroups(raw.groups)
 
   const workspaces: SnapshotWorkspace[] = []
   const claimedPaneIds = new Set<string>()
@@ -143,6 +166,9 @@ export function parseSnapshot(raw: unknown): AppSnapshot | null {
       ...(customName ? { customName } : {}),
       ...(description ? { description } : {}),
       ...(entry.pinned === true ? { pinned: true } : {}),
+      ...(entry.pinned !== true && knownGroups.some((g) => g.id === entry.groupId)
+        ? { groupId: entry.groupId as string }
+        : {}),
       kind:
         typeof entry.kind === 'string' && WORKSPACE_KINDS.has(entry.kind)
           ? (entry.kind as SnapshotWorkspace['kind'])
@@ -171,6 +197,7 @@ export function parseSnapshot(raw: unknown): AppSnapshot | null {
     savedAt: typeof raw.savedAt === 'string' ? raw.savedAt : '',
     activeWorkspaceId,
     workspaces,
+    groups: knownGroups.filter((g) => workspaces.some((w) => w.groupId === g.id)),
   }
 }
 

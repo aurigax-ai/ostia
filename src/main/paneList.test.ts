@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CommandResult, TerminalStateSnapshot } from '../shared/types'
 import { registerPane } from './idRegistry'
-import { type PaneListDeps, listPanes, listWorkspaces } from './paneList'
+import { type PaneListDeps, listPanes, listWorkspaceGroups, listWorkspaces } from './paneList'
 
 function ok<R>(result: R): CommandResult<R> {
   return { ok: true, result }
@@ -115,6 +115,29 @@ describe('paneList.listPanes', () => {
       ptyPid: () => undefined,
     })
     expect(panes).toEqual([])
+  })
+})
+
+describe('paneList.listWorkspaceGroups', () => {
+  it('asks the renderer for its groups and passes them through', async () => {
+    const groups = [
+      { groupId: 'g1', name: 'api', color: 'blue', collapsed: false, workspaceIds: ['s1', 's2'] },
+    ]
+    const execCommand = vi.fn().mockResolvedValue(ok(groups))
+
+    expect(await listWorkspaceGroups({ execCommand })).toEqual(groups)
+    expect(execCommand).toHaveBeenCalledWith(
+      { workspaceId: '', paneId: null },
+      'workspace.groups',
+      {},
+    )
+  })
+
+  it('returns an empty array when the renderer round-trip fails', async () => {
+    const execCommand = vi
+      .fn()
+      .mockResolvedValue({ ok: false, error: { code: 'command-failed', message: 'no window' } })
+    expect(await listWorkspaceGroups({ execCommand })).toEqual([])
   })
 })
 

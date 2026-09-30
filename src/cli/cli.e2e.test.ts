@@ -12,6 +12,7 @@ import {
   stopControlServer,
 } from '../main/controlServer'
 import { type PaneIdentity, registerPane } from '../main/idRegistry'
+import { registerPaneListMethods } from '../main/paneList'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()
@@ -47,6 +48,26 @@ const fakeDeps: ControlServerDeps = {
         title: 'Describe Workspace',
         category: 'Workspace',
         hidden: true,
+        argsSchema: null,
+        resultSchema: null,
+        capabilities: ['drive-self'],
+        target: 'active',
+      },
+      {
+        id: 'workspace.group',
+        title: 'Move Workspace to Group',
+        category: 'Workspace',
+        hidden: true,
+        argsSchema: null,
+        resultSchema: null,
+        capabilities: ['drive-self'],
+        target: 'active',
+      },
+      {
+        id: 'workspace.ungroup',
+        title: 'Remove Workspace from Group',
+        category: 'Workspace',
+        hidden: false,
         argsSchema: null,
         resultSchema: null,
         capabilities: ['drive-self'],
@@ -368,6 +389,68 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       const empty = await runPine(['workspace', 'describe'], env())
       expect(empty.code).toBe(1)
       expect(empty.stderr).toContain('missing <text|->')
+    })
+  })
+
+  describe('pine workspace groups', () => {
+    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+
+    it('moves the caller’s own workspace into a named group', async () => {
+      const res = await runPine(['workspace', 'group', 'code', 'review'], env())
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        target: { workspaceId: 's1', paneId: 'pE2E' },
+        id: 'workspace.group',
+        args: { name: 'code review' },
+      })
+    })
+
+    it('refuses a missing group name', async () => {
+      const res = await runPine(['workspace', 'group'], env())
+      expect(res.code).toBe(1)
+      expect(res.stderr).toContain('missing <name>')
+      expect(execCalls).toEqual([])
+    })
+
+    it('takes the caller’s workspace out of its group', async () => {
+      const res = await runPine(['workspace', 'ungroup'], env())
+      expect(res.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        target: { workspaceId: 's1', paneId: 'pE2E' },
+        id: 'workspace.ungroup',
+      })
+    })
+
+    it('lists workspaces with their groups as JSON and as text', async () => {
+      const workspaces = [
+        {
+          workspaceId: 's1',
+          name: 'api',
+          kind: 'terminal',
+          workDir: '/a',
+          state: 'idle',
+          groupId: 'g1',
+        },
+        { workspaceId: 's2', name: 'web', kind: 'terminal', workDir: '/b', state: 'working' },
+      ]
+      const groups = [{ groupId: 'g1', name: 'backend', collapsed: false, workspaceIds: ['s1'] }]
+      registerPaneListMethods({
+        execCommand: async (_target, id) =>
+          ({ ok: true, result: id === 'workspace.groups' ? groups : workspaces }) as CommandResult,
+        getTerminalState: () => undefined,
+        ptyPid: () => undefined,
+      })
+
+      const json = await runPine(['workspace', 'list', '--json'], env())
+      expect(json.stderr).toBe('')
+      expect(JSON.parse(json.stdout)).toEqual({ workspaces, groups })
+
+      const text = await runPine(['workspace', 'list'], env())
+      expect(text.stdout.trim().split('\n')).toEqual([
+        's1\tbackend\tapi\tidle\t/a',
+        's2\t-\tweb\tworking\t/b',
+      ])
     })
   })
 })

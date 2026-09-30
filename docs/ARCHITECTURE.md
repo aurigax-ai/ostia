@@ -398,16 +398,48 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - The `agent` kind exists but has no surface (it shows a ghost title).
   - Zoom renders only `zoomedPaneId`.
   - Closing the zoomed pane clears the zoom.
-- **Workspace rows** (`components/DeckRail.tsx` `WorkspaceRow`, `lib/workspaceOrder.ts`): cmux-style
+- **Workspace rows** (`components/DeckRail.tsx` `WorkspaceRow`, `lib/workspaceOrder.ts`,
+  `lib/workspaceGroups.ts`): cmux-style
   rows. Title is the user's name or the folder; under it the latest message that still needs
   you (or the running program's title), then an optional description, then path and extension
   items. `pine workspace describe` (→ `workspace.describe`, drive-self, caller's workspace) or the
   row menu sets the description; it renders Markdown restricted to links, emphasis and code, as a
   sibling of the row button so links are real links (a link inside a button is invalid and would
-  select the row). The row menu renames, edits the description, pins, moves, marks read and
-  closes others; rows drag to reorder. Pinned workspaces stay contiguous at the top: every move
-  goes through `moveTo`, which clamps to the pinned or unpinned group. `Ctrl/⌘+1..9` runs
-  `workspace.goto` with the digit's index (`lib/useModifierHint.ts` shows the digits).
+  select the row). The row menu renames, edits the description, pins, moves, marks read, groups
+  and closes others; rows drag to reorder. Pinned workspaces stay contiguous at the top.
+  `Ctrl/⌘+1..9` runs `workspace.goto` with the digit's index (`lib/useModifierHint.ts` shows the
+  digits); a member of a collapsed group keeps its digit but shows no hint.
+- **Workspace groups** (`lib/workspaceGroups.ts`, pure; `workspacesStore` `groups`): a group is
+  `{id: g<n>, name, color?, collapsed?}`, and a workspace joins one through `groupId`. There is no
+  member list: the flat `workspaces` array stays the only order, and `normalizeGroups` keeps each
+  group's members contiguous (gathered at the first member), orders `groups` as they appear, and
+  drops a group that has no members left. The sidebar renders `toBlocks()`: a header per group
+  (caret, color swatch, name, member count, the members' aggregated state dot and summed unread
+  badge, shown even when collapsed) with its members indented, and a plain row per ungrouped
+  workspace. Why a flat array and not nested lists: `Ctrl+1..9`, `workspace.goto`, the palette,
+  `workspace.list` and the gateway's `session.list` all read one ordered list, and every existing
+  reorder, close and restore path keeps working on it.
+  - Pinned and grouped are exclusive: pinning takes a workspace out of its group, and joining a
+    group unpins it. Why: pinned rows are one block at the top and a group is one block, so a
+    member can't be in both.
+  - Moves (`moveWorkspaceBy`): a member moves only inside its group; an ungrouped workspace steps
+    over a whole group block. Drops (`applyDrop`, one drag state in `WorkspacesView`): a workspace
+    dropped next to a row takes that row's group (none for an ungrouped row), on the lower half of
+    a group header it becomes the first member, on the upper half it lands above the group
+    ungrouped, and in the space below the list it goes to the end ungrouped. A dragged group
+    header moves the whole block before or after the target's block.
+  - New workspaces (`addWorkspace`): the first `workspaceGroups.byCwd` rule whose glob matches
+    the workDir puts it in that group (created by name if missing, at the group's end). Otherwise,
+    when the active workspace is in a group, the new one joins it right after the active one.
+    Otherwise it is appended ungrouped. Globs (`globToRegExp`): `*` within one path segment, `**`
+    across, `?` one character, matched against the whole workDir (trailing slashes ignored), so a
+    workspace opened at `~` matches only a pattern that covers the literal `~`.
+  - Group ids come from their own counter and are adopted on restore (`adoptGroupIds`), like
+    workspace ids.
+  - Commands: `workspace.newGroup`, `workspace.ungroup`, `workspace.toggleGroup`,
+    `workspace.deleteGroup` act on the command target's workspace; `workspace.group {name}`
+    (hidden, drive-self) joins or creates the named group; `workspace.groups` (hidden, read-board)
+    lists them. The CLI's `pine workspace group|ungroup|list` use these (§6).
 - **Markdown preview** (`components/MarkdownPreview.tsx`, `typeset.css`): `.md` editors get a
   Preview toggle that renders the live model text with react-markdown + remark-gfm inside a
   `typeset typeset-pine` container. `typeset.css` is shadcn Typeset, copied in (comments stripped)
@@ -745,6 +777,12 @@ see external ids.
   answered by `command:result`, 5 s timeout. A target with no window goes to the first window.
 - If the target differs from the caller's own pane, window or workspace in any way, the caller
   needs `all-workspaces`. Each command's declared capabilities are checked as well.
+- Workspace groups: `workspace.list` entries carry `groupId` for grouped workspaces, and
+  `workspace.groups` (`paneList.ts`, read-board, all callers) returns `{groupId, name, color?,
+  collapsed, workspaceIds}`. `pine workspace group <name>` / `ungroup` run `workspace.group` /
+  `workspace.ungroup` on the caller's own workspace, so moving another workspace would need a
+  target and therefore `all-workspaces`. `pine workspace list [--json]` prints both lists. The
+  gateway's `toWireSession` drops `groupId`, so `session.list` stays the companion's contract.
 
 **Toolbelt** (all `registerControlMethod`):
 
@@ -904,6 +942,11 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
     content is in memory only (nothing live is restored).
   - The two node converters are a compile-time check that `layout/types.ts` and the snapshot
     types in `shared/types.ts` agree.
+  - Groups are saved as `groups: [{id, name, color?, collapsed?}]` plus each member's `groupId`;
+    a group with no members is not written. `parseSnapshot` keeps at most 32 groups with a known
+    color and a non-empty name (≤ 60 chars), drops a `groupId` that names no kept group or sits on
+    a pinned workspace, and drops groups nobody joins. The renderer normalizes the order again
+    on `hydrate`.
 - **Scrollback**: main saves it every 5 s (unref'd timer, skipped when no pane's ring cursor
   moved) and again at `before-quit`, so a crash loses at most 5 s. The saved copy is capped at
   128 KB per pane (the live ring holds 1 MB).

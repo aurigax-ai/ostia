@@ -14,10 +14,12 @@ import {
   parseNotificationSettings,
 } from '../../shared/notificationSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
+import { normalizeGroupName } from '../../shared/workspaceGroups'
 import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
 import type { Locale } from '../i18n/dict'
 import { type KeybindingMap, parseKeybindings } from '../lib/chordSpec'
 import { normalizeHex } from '../lib/color'
+import type { GroupRule } from '../lib/workspaceGroups'
 import {
   DEFAULT_PANE_SETTINGS,
   DEFAULT_TERMINAL_SETTINGS,
@@ -31,6 +33,10 @@ import {
 } from '../settings/terminalPaneSettings'
 
 export type ThemeId = string
+
+const kindOf = (v: unknown): string => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v)
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> => kindOf(v) === 'object'
 
 export interface SurfaceFont {
   family: string
@@ -95,6 +101,25 @@ function parseHibernation(raw: unknown): HibernationSettings {
     idleSeconds: clampIdleSeconds(raw.idleSeconds ?? DEFAULT_HIBERNATION.idleSeconds),
     maxLiveTerminals: clampMaxLive(raw.maxLiveTerminals ?? DEFAULT_HIBERNATION.maxLiveTerminals),
   }
+}
+
+export interface WorkspaceGroupSettings {
+  byCwd: GroupRule[]
+}
+
+const MAX_GROUP_RULES = 50
+
+export function parseWorkspaceGroupSettings(raw: unknown): WorkspaceGroupSettings {
+  const list = isPlainObject(raw) && Array.isArray(raw.byCwd) ? raw.byCwd : []
+  const byCwd: GroupRule[] = []
+  for (const entry of list) {
+    if (byCwd.length >= MAX_GROUP_RULES) break
+    if (!isPlainObject(entry) || typeof entry.pattern !== 'string') continue
+    const pattern = entry.pattern.trim()
+    const group = normalizeGroupName(entry.group)
+    if (pattern && group) byCwd.push({ pattern, group })
+  }
+  return { byCwd }
 }
 
 export const FONT_WEIGHTS: readonly number[] = [300, 400, 450, 500, 600, 700]
@@ -203,6 +228,7 @@ interface Persisted {
   editor: EditorSettings
   keybindings: KeybindingMap
   agents: AgentSettings
+  workspaceGroups: WorkspaceGroupSettings
   capabilities?: Capabilities
   sync?: SyncSettings
 }
@@ -219,11 +245,8 @@ const DATA_KEYS: readonly string[] = [
   'browser',
   'editor',
   'agents',
+  'workspaceGroups',
 ]
-
-const kindOf = (v: unknown): string => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v)
-
-const isPlainObject = (v: unknown): v is Record<string, unknown> => kindOf(v) === 'object'
 
 const DEFAULTS: Persisted = {
   locale: 'en',
@@ -265,6 +288,7 @@ const DEFAULTS: Persisted = {
     showSSH: true,
   },
   agents: { hibernation: DEFAULT_HIBERNATION },
+  workspaceGroups: { byCwd: [] },
 }
 
 interface SettingsState extends Persisted {
@@ -311,6 +335,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     editor: s.editor,
     keybindings: s.keybindings,
     agents: s.agents,
+    workspaceGroups: s.workspaceGroups,
     capabilities: s.capabilities,
     sync: s.sync,
   }
@@ -379,6 +404,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         editor: parseEditorSettings(p.editor),
         keybindings: parseKeybindings(p.keybindings),
         agents: { hibernation: parseHibernation(p.agents?.hibernation) },
+        workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
         sync: syncOf(p.sync),
       })
@@ -523,6 +549,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       browser: s.browser,
       editor: s.editor,
       agents: s.agents,
+      workspaceGroups: s.workspaceGroups,
       capabilities: s.capabilities,
     })
     let cursor = root
@@ -544,6 +571,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     cursor[leaf] = value
     root.terminal = parseTerminalSettings(root.terminal)
     root.panes = parsePaneSettings(root.panes)
+    root.workspaceGroups = parseWorkspaceGroupSettings(root.workspaceGroups)
     set(root as Partial<SettingsState>)
     scheduleSave(get)
   },

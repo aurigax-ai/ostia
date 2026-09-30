@@ -25,10 +25,11 @@ export function saveSnapshotNow(): void {
   }
   clearedForDisabled = false
 
-  const { workspaces, activeWorkspaceId } = useWorkspacesStore.getState()
+  const { workspaces, groups, activeWorkspaceId } = useWorkspacesStore.getState()
   api.save(
     buildSnapshot({
       workspaces,
+      groups,
       activeWorkspaceId,
       layouts: useLayoutStore.getState().byWorkspace,
       savedAt: new Date().toISOString(),

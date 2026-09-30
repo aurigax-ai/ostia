@@ -411,6 +411,31 @@ export const SETTINGS_JSON_SCHEMA = {
       },
     },
     keybindings: keybindingsSchema(Object.keys(DEFAULT_CHORDS)),
+    workspaceGroups: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        byCwd: {
+          type: 'array',
+          description:
+            'Put each new workspace into a sidebar group by its folder. The first rule whose ' +
+            'pattern matches the workspace folder wins; the group is created if it does not ' +
+            'exist. "*" matches within one folder name, "**" across folders, "?" one character.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['pattern', 'group'],
+            properties: {
+              pattern: {
+                type: 'string',
+                description: 'Glob matched against the whole workspace folder, e.g. ~/work/**.',
+              },
+              group: { type: 'string', description: 'Name of the group to put the workspace in.' },
+            },
+          },
+        },
+      },
+    },
     sync: {
       type: 'object',
       additionalProperties: false,

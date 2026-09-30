@@ -3,6 +3,7 @@ import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
+import type { WorkspaceGroupColor } from './workspaceGroups'
 
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
 
@@ -181,10 +182,18 @@ export interface SnapshotWorkspace {
   customName?: string
   description?: string
   pinned?: boolean
+  groupId?: string
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
   root?: SnapshotNode
   activePaneId?: string
+}
+
+export interface SnapshotGroup {
+  id: string
+  name: string
+  color?: WorkspaceGroupColor
+  collapsed?: boolean
 }
 
 export interface AppSnapshot {
@@ -192,6 +201,7 @@ export interface AppSnapshot {
   savedAt: string
   activeWorkspaceId: string | null
   workspaces: SnapshotWorkspace[]
+  groups: SnapshotGroup[]
 }
 
 export interface WorkspaceApi {
