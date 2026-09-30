@@ -1,6 +1,6 @@
 # Editor reload
 
-Status: cases approved 2026-09-30 at 0da11c5
+Status: cases approved 2026-09-30 at 75cd108
 
 Intent: a file open in Pine's text editor follows changes other programs (agents, git, a formatter)
 make on disk, without ever losing the human's unsaved edits or silently overwriting a newer file.
