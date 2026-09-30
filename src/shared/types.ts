@@ -17,11 +17,12 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from './credentials'
-import type { ExtensionsApi } from './extensions'
+import type { ExtensionResult, ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type { WorkspaceSandbox } from './sandbox'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
+import type { RequirementsReport } from './systemRequirements'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
 import type { WorkspaceGroupColor } from './workspaceGroups'
 
@@ -82,6 +83,11 @@ export interface PtyAttachResult {
   cursor: number
   dropped: boolean
   sandboxed?: boolean
+}
+
+export interface SystemApi {
+  requirements: (feature: string) => Promise<RequirementsReport | null>
+  installRequirements: (feature: string, workspaceId: string) => Promise<ExtensionResult>
 }
 
 export interface SandboxApi {
@@ -483,6 +489,7 @@ export interface PineBridge {
   approvals: ApprovalsApi
   credentials: CredentialsApi
   sandbox: SandboxApi
+  system: SystemApi
   update: AppUpdateApi
   agentSession: AgentSessionApi
   extensions: ExtensionsApi

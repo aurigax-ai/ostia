@@ -48,4 +48,27 @@ describe('sandbox IPC', () => {
     expect(await setEnabled?.(sender(1), 'ws', true)).toMatchObject({ enabled: true })
     expect(store.get('ws').enabled).toBe(true)
   })
+
+  it('SBX-C96 refuses to turn the sandbox on while a required program is missing', async () => {
+    const store = new SandboxStore(join(root, 'c96.json'))
+    const sandboxes = new WorkspaceSandboxes({
+      store,
+      globals: () => DEFAULT_SANDBOX_GLOBALS,
+      basePaths: () => ({ home: root, dataDirs: [], socketPath: '', runtimeReads: [] }),
+      workDir: () => root,
+      tmpRoot: join(root, 'tmp'),
+      nodePath: process.execPath,
+      hostScript: '',
+      onAsk: async () => false,
+    })
+    let missing = [{ program: 'bwrap', package: 'bubblewrap' }]
+    registerSandboxIpc({ sandboxes, ownerWindow: () => '1', missing: () => missing })
+    const setEnabled = handlers.get('sandbox:set-enabled')
+    expect(await setEnabled?.(sender(1), 'ws', true)).toBeNull()
+    expect(store.has('ws')).toBe(false)
+    missing = []
+    expect(await setEnabled?.(sender(1), 'ws', true)).toMatchObject({ enabled: true })
+    missing = [{ program: 'bwrap', package: 'bubblewrap' }]
+    expect(await setEnabled?.(sender(1), 'ws', false)).toMatchObject({ enabled: false })
+  })
 })
