@@ -178,7 +178,6 @@
   button {
     font-family: inherit;
     color: inherit;
-    cursor: pointer;
   }
 
   :focus-visible {
@@ -218,11 +217,11 @@
 
 .app {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto auto 1fr;
   grid-template-rows: var(--topbar-h) 1fr;
   grid-template-areas:
-    "topbar topbar"
-    "rail   work";
+    "topbar topbar topbar"
+    "rail   files  work";
   height: 100%;
   background: var(--bg);
 }
@@ -242,7 +241,26 @@
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  width: calc(var(--rail-w) - 8px);
+}
+
+.topbar-left-end {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.files-panel {
+  grid-area: files;
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-1);
+  border-right: 1px solid var(--line);
 }
 
 .topbar-right {
@@ -262,31 +280,6 @@
 
 .deck-rail.collapsed {
   width: var(--rail-w-collapsed);
-}
-
-.rail-switch {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--line);
-  flex: 0 0 auto;
-}
-
-.collapsed .rail-switch {
-  flex-direction: column;
-}
-
-.rail-switch-end {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: auto;
-}
-
-.collapsed .rail-switch-end {
-  flex-direction: column;
-  margin-left: 0;
 }
 
 .rail-section {
@@ -326,7 +319,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 8px 6px 8px 10px;
+  padding: 6px 6px 6px 10px;
   background: none;
   color: inherit;
   text-align: left;
@@ -386,7 +379,7 @@
 .tab-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
@@ -439,11 +432,10 @@
   display: flex;
   flex-basis: 100%;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
   margin-top: -4px;
-  padding: 0 10px 8px 34px;
-  cursor: default;
+  padding: 0 10px 6px 34px;
 }
 
 .tab-after:empty,
@@ -499,6 +491,7 @@
   min-width: 0;
   color: var(--fg-muted);
   font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
 }
 
 .tab-branch {
@@ -800,13 +793,8 @@
   padding-right: 4px;
   border-right: 1px solid var(--line);
   color: var(--fg-muted);
-  cursor: grab;
   transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast)
     var(--ease-out);
-}
-
-.pane-tab:active {
-  cursor: grabbing;
 }
 
 .pane-tab:hover {
@@ -844,7 +832,6 @@
   padding: 0 4px 0 10px;
   background: none;
   color: inherit;
-  cursor: inherit;
 }
 
 .pane-tab-main:focus-visible {
@@ -969,7 +956,6 @@
   border: none;
   background: transparent;
   pointer-events: auto;
-  cursor: pointer;
 }
 
 .block-bar {
@@ -1026,7 +1012,6 @@
   font-size: var(--text-ui-sm);
   line-height: var(--text-ui-sm--line-height);
   text-align: left;
-  cursor: pointer;
   pointer-events: auto;
 }
 
@@ -1210,7 +1195,7 @@
 }
 
 :root {
-  --winctl-w: 138px;
+  --winctl-w: 112px;
 }
 
 .app.is-mac {
@@ -1231,30 +1216,37 @@
   right: 0;
   height: var(--topbar-h);
   display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px 0 6px;
   z-index: 40;
 }
 
 .win-controls button {
-  width: 46px;
-  height: 100%;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
-  background: transparent;
   border: none;
-  color: var(--fg-muted);
-  transition-property: background-color, color;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+  color: var(--fg);
+  transition-property: background-color;
   transition-duration: var(--motion-fast);
   transition-timing-function: var(--ease-out);
 }
 
 .win-controls button:hover {
-  background: var(--surface-2);
-  color: var(--fg);
+  background: color-mix(in srgb, var(--fg) 18%, transparent);
 }
 
-.win-controls button.close:hover {
-  background: var(--attn);
-  color: var(--fg);
+.win-controls button:active {
+  background: color-mix(in srgb, var(--fg) 26%, transparent);
+}
+
+.win-controls button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
 }
 
 .term-find {

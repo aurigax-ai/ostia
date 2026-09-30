@@ -1,13 +1,11 @@
 import { create } from 'zustand'
 
-export type SidebarView = 'workspaces' | 'files'
-
 interface UIState {
   paletteOpen: boolean
   railCollapsed: boolean
   settingsTabOpen: boolean
   settingsActive: boolean
-  sidebarView: SidebarView
+  filesOpen: boolean
   digitHints: boolean
   openPalette: () => void
   closePalette: () => void
@@ -16,7 +14,7 @@ interface UIState {
   openSettings: () => void
   closeSettings: () => void
   leaveSettings: () => void
-  setSidebarView: (view: SidebarView) => void
+  toggleFiles: () => void
   setDigitHints: (shown: boolean) => void
 }
 
@@ -25,7 +23,7 @@ export const useUIStore = create<UIState>((set) => ({
   railCollapsed: false,
   settingsTabOpen: false,
   settingsActive: false,
-  sidebarView: 'workspaces',
+  filesOpen: false,
   digitHints: false,
   openPalette: () => set({ paletteOpen: true }),
   closePalette: () => set({ paletteOpen: false }),
@@ -34,6 +32,6 @@ export const useUIStore = create<UIState>((set) => ({
   openSettings: () => set({ settingsTabOpen: true, settingsActive: true }),
   closeSettings: () => set({ settingsTabOpen: false, settingsActive: false }),
   leaveSettings: () => set({ settingsActive: false }),
-  setSidebarView: (sidebarView) => set({ sidebarView }),
+  toggleFiles: () => set((s) => ({ filesOpen: !s.filesOpen })),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))
