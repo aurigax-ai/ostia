@@ -1,7 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from '@playwright/test'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
+} from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 

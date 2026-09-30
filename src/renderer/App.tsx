@@ -24,6 +24,7 @@ import { useModifierHint } from './lib/useModifierHint'
 import { useWindowTitle } from './lib/useWindowTitle'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/registerSettingsSchema'
+import { freezeSnapshots } from './stores/persistence'
 import { usePluginsStore } from './stores/pluginsStore'
 
 const ICON_STYLE = { weight: 'regular' } as const
@@ -72,7 +73,15 @@ export function App(): JSX.Element {
   useModifierHint(isMac)
   useWindowTitle()
 
-  useEffect(() => window.pine.window.onConfirmClose(confirmQuit), [])
+  useEffect(
+    () =>
+      window.pine.window.onConfirmClose(async () => {
+        const approved = await confirmQuit()
+        if (approved) freezeSnapshots()
+        return approved
+      }),
+    [],
+  )
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

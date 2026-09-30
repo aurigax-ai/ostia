@@ -187,6 +187,20 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().behavior.externalEditor).toBe('auto')
   })
 
+  it('settings.set refuses to turn on agent auto-resume, directly or via agents', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents.autoResume',
+      value: true,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents',
+      value: { ...useSettingsStore.getState().agents, autoResume: true },
+    })
+    expect(direct.ok).toBe(false)
+    expect(nested.ok).toBe(false)
+    expect(useSettingsStore.getState().agents.autoResume).toBe(false)
+  })
+
   it('settings.set --dry-run validates without applying, and reports the previous value', async () => {
     const dry = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'editor.tabSize',

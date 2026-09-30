@@ -24,6 +24,7 @@ import {
   setPaneResume,
   setPaneTitle,
   setPaneUrl,
+  setResumePending,
   setSizes,
   slotCount,
   slotPaneOfKind,
@@ -56,6 +57,7 @@ interface LayoutState {
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
+  setResumePending: (workspaceId: string, paneId: string, pending: boolean) => void
   setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
   setTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
@@ -292,6 +294,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const layout = s.byWorkspace[workspaceId]
       if (!layout) return s
       const root = setPaneResume(layout.root, paneId, resume)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  setResumePending: (workspaceId, paneId, pending) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setResumePending(layout.root, paneId, pending)
       return root === layout.root
         ? s
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }

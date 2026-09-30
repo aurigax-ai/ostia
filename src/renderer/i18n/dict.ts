@@ -712,6 +712,10 @@ export const en = {
     sidebarSshDesc: 'Show the host a running ssh in the workspace is connected to.',
     agents: 'Agents',
     groupPerformance: 'Performance',
+    groupResume: 'Resume',
+    autoResume: 'Resume agents after a restart',
+    autoResumeDesc:
+      'An agent session that was running when Pine quit resumes at its pane’s first idle prompt once the pane is visible. Background tabs and other workspaces resume when you open them. Only you can change this.',
     hibernate: 'Hibernate idle agents',
     hibernateDesc:
       'Stop the shell of an agent that is idle and out of sight once too many agents run. Only agents that stored a resume token; Resume brings them back.',
@@ -1569,6 +1573,10 @@ export const zhHant: Dict = {
     sidebarSshDesc: '顯示工作區中執行中的 ssh 所連線的主機。',
     agents: '代理程式',
     groupPerformance: '效能',
+    groupResume: '恢復',
+    autoResume: '重新啟動後自動恢復代理程式',
+    autoResumeDesc:
+      '結束 Pine 時仍在執行的代理程式工作階段，會在其窗格顯示後、於第一個閒置提示字元自動恢復。背景分頁與其他工作區會在你開啟時才恢復。只有你能變更此設定。',
     hibernate: '讓閒置的代理程式休眠',
     hibernateDesc:
       '執行中的代理程式過多時，停止閒置且不在畫面上的代理程式的 shell。僅限已儲存繼續權杖的代理程式；按「繼續」即可恢復。',
