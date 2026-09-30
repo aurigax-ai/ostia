@@ -441,6 +441,12 @@ Details: `docs/ARCHITECTURE.md`.
   synced, never returned to the renderer (only `secretsSet`), and read only by the extension that
   declared the key (`ext.getSecret`). Never add a socket method or CLI verb that reads or writes
   one.
+- **Chat sessions are saved by main, only what was sent.** `main/chatSessions.ts` writes one
+  JSON file per session into the data dir (0600, never synced), normalized by
+  `normalizeChatSession`, trimmed from the oldest turn past 512 KiB and evicted oldest-first past
+  16 MiB / 500 sessions, and the renderer says so. Context stored with a message is exactly the
+  text that was sent. `assistant.chatHistory` off keeps sessions in memory only. Messages keep
+  the AI SDK `UIMessage` shape (typed parts), so tool calls can be added without reshaping.
 - **UI shows only real data.** No mock numbers, placeholder branches, or buttons that pretend to do
   something. If a feature isn't built, the UI doesn't show it.
 
@@ -458,8 +464,9 @@ Details: `docs/ARCHITECTURE.md`.
   `useOtherStore.getState()`. Pure logic stays out of stores.
 - **Model:** a **Workspace** (sidebar; `kind`, `workDir`, live `state`) owns a split-tree whose
   leaves are **Panes** or **tab stacks** of panes;
-  each pane hosts one **Surface**: `terminal | editor | browser | extension | diff` (`agent` is
-  reserved in the type and snapshot format, not yet created; `diff` is never persisted). An
+  each pane hosts one **Surface**: `terminal | editor | browser | extension | diff | chat` (`agent` is
+  reserved in the type and snapshot format, not yet created; `diff` is never persisted; a `chat`
+  pane stores only its session id). An
   `editor` pane is a file view (`FileView.tsx`): images and PDFs get viewers, the rest Monaco.
 - **UI:** shadcn primitives (on Base UI, not Radix) from `components/ui/` for buttons, inputs,
   selects, dialogs, tooltips, kbd, badges, alerts, empty states, list items and radio groups;
@@ -635,7 +642,12 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   and secrets through `test/fixtures/extensions-assist/oracle`; the assistant extension's
   providers are tested against local fake OpenAI-compatible, Anthropic and model-runtime
   (unix socket) servers, never a real provider; `e2e/assistant.spec.ts` configures a fake
-  OpenAI-compatible server in Settings and drives Ask and the composer.
+  OpenAI-compatible server in Settings and drives Ask and the composer;
+  `e2e/assistant-chat.spec.ts` (fake server from `e2e/fakeProvider.ts`) opens the chat pane from
+  the top-bar Assistant menu, runs a shell block in a new terminal, opens a path from an answer,
+  finds the session after a restart, accepts terminal ghost text with Tab without running it,
+  and turns terminal completion off in the menu. Chat sessions are tested in
+  `src/main/chatSessions.test.ts` (caps, trim, eviction, delete).
   Tool extensions (trellis, keeper) are tested against fake `trellis`/`keeper` shell scripts in
   `test/fixtures/tools/bin/` put first on `PATH`, fed scrubbed real `--json` captures from
   `test/fixtures/tools/<tool>/`; never point a test at the real tools.
