@@ -358,6 +358,16 @@ describe('builtins route to store actions', () => {
     )
   })
 
+  it('MGR-C29 workspace.new returns the id of the workspace it created', async () => {
+    const res = await commands.execWith(ctx(null, null), 'workspace.new', {
+      dir: '/home/u/proj',
+      name: 'worker',
+    })
+    const created = useWorkspacesStore.getState().activeWorkspaceId
+    expect(created).not.toBeNull()
+    expect(res).toEqual({ ok: true, result: { workspaceId: created } })
+  })
+
   it('routes palette.toggle to ui.togglePalette', async () => {
     const togglePalette = vi
       .spyOn(useUIStore.getState(), 'togglePalette')

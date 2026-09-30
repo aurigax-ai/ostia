@@ -5,8 +5,12 @@ import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain, nativeTheme, session, shell, webContents } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
+import type { AgentResume } from '../shared/agentResume'
+import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import type { ExtensionPanelContext, ExtensionResult } from '../shared/extensions'
+import { managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { PRODUCT_NAME } from '../shared/product'
+import { quoteArgv } from '../shared/shellQuote'
 import type {
   AppInfo,
   AppSnapshot,
@@ -41,7 +45,7 @@ import {
 import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
 import { registerBrowserStorageIpc } from './browserStorage'
 import { registerBusMethods } from './bus'
-import { dropIdentity } from './capabilityStore'
+import { dropIdentity, setCaps } from './capabilityStore'
 import { confirmAllWindowsClose, confirmWindowClose, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
@@ -59,13 +63,17 @@ import { configureGatewayControl, stopGateway } from './gateway/server'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import {
   getByPaneId,
+  markManager,
   registerPane,
   removePane,
   removeWindow,
   windowOfWorkspace,
 } from './idRegistry'
+import { loadJson, saveJson, storePath } from './jsonStore'
 import { killAllLsp, registerLspIpc } from './lsp'
-import { ManagerService, parseManagerAgents } from './manager'
+import { ManagerService } from './manager'
+import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
+import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
 import {
   postNotification,
   postPanelNotification,
@@ -344,6 +352,7 @@ const approvedWindows = new WeakSet<BrowserWindow>()
 const startedHidden = app.commandLine.hasSwitch('hidden')
 let appTray: AppTray | null = null
 let managerService: ManagerService | null = null
+let managerLimiter: ManagerLimiter | null = null
 let portal: Portal | null = null
 
 function wireWindow(win: BrowserWindow): void {
@@ -859,6 +868,17 @@ function paneEnv(paneId: string, windowId: string, cwd: string): Record<string, 
   }
 }
 
+function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[] {
+  const { skills } = managerSettings()
+  const base = privateTmpDir('pine-manager')
+  const claudePluginDir = join(base, 'claude-plugin')
+  writeManagerClaudePlugin(claudePluginDir, skills)
+  const codexContextFile = writeManagerCodexContext(join(base, 'codex'), skills)
+  return managerArgv(argv, { claudePluginDir, codexContextFile, resume })
+}
+
+const managerResumePath = (): string => storePath('manager-resume', 'global')
+
 function spawnManagerPty(req: {
   paneId: string
   argv: string[]
@@ -866,11 +886,12 @@ function spawnManagerPty(req: {
   cols: number
   rows: number
   path?: string
+  resume: AgentResume | null
   onExit: () => void
 }): boolean {
   const mod = loadPty()
   const windowId = primaryWindowId()
-  const [file, ...args] = req.argv
+  const [file, ...args] = managerLaunchArgv(req.argv, req.resume)
   if (!mod || !windowId || !file) return false
   const cwd = resolveCwd(req.cwd)
   const env = {
@@ -878,6 +899,8 @@ function spawnManagerPty(req: {
     ...(req.path === undefined ? {} : { PATH: req.path }),
     ...paneEnv(req.paneId, windowId, cwd),
   } as Record<string, string>
+  const identity = markManager(req.paneId)
+  if (identity) setCaps(identity.externalId, MANAGER_CAPABILITIES)
   let pty: IPty
   try {
     pty = mod.spawn(file, args, {
@@ -1177,6 +1200,39 @@ async function createManagerPane(req: { agent: string; cwd: string }): Promise<s
   })
 }
 
+function managerSettings() {
+  return parseManagerSettings(readSettingsFile().manager)
+}
+
+function revealWindow(windowId: string): void {
+  const win = windows.get(windowId)
+  if (win && !win.isDestroyed() && !win.isVisible()) appTray?.showWindows()
+}
+
+async function openWorker(req: {
+  argv: string[]
+  cwd?: string
+  workspaceId?: string
+  name?: string
+}): Promise<string | null> {
+  let workspaceId = req.workspaceId
+  if (!workspaceId) {
+    const created = await execCommand({ workspaceId: '', paneId: null }, 'workspace.new', {
+      ...(req.cwd ? { dir: req.cwd } : {}),
+      ...(req.name ? { name: req.name } : {}),
+    })
+    const result = created.ok ? (created.result as { workspaceId?: unknown }) : undefined
+    if (typeof result?.workspaceId !== 'string') return null
+    workspaceId = result.workspaceId
+  }
+  return openTerminalInWindow({
+    command: quoteArgv(req.argv),
+    workspaceId,
+    ...(req.cwd ? { cwd: req.cwd } : {}),
+    title: req.argv[0],
+  })
+}
+
 function startPortal(): void {
   if (!managerService || !portalSupported(process.platform)) return
   const service = managerService
@@ -1211,7 +1267,7 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerSelectionIpc()
-  registerApprovals()
+  registerApprovals(revealWindow)
   registerCredentials()
   registerAppUpdate()
   registerAgentTranscriptIpc()
@@ -1224,11 +1280,16 @@ app.whenReady().then(() => {
   registerNotifyMethods(notifyDeps)
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand })
-  registerPaneResumeMethods({ execCommand })
+  registerPaneResumeMethods({
+    execCommand,
+    onResume: (identity, resume) => {
+      if (identity.manager) managerService?.rememberResume(resume)
+    },
+  })
   registerProcessMethods()
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods()
-  registerBusMethods()
+  registerBusMethods({ managerSendAllowed: () => managerLimiter?.busAllowed() ?? true })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   settingsSync = startSettingsSync({
     userData: app.getPath('userData'),
@@ -1302,8 +1363,30 @@ app.whenReady().then(() => {
   )
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   registerManagerIpc()
+  managerLimiter = registerManagerMethods({
+    settings: managerSettings,
+    agents: () => managerAgents(managerSettings()),
+    readPane: async (paneId, lines) => {
+      const entry = ptys.get(paneId)
+      return entry ? entry.mirror.screenText(lines) : null
+    },
+    writePane: (paneId, data) => {
+      const entry = ptys.get(paneId)
+      if (!entry) return false
+      entry.pty.write(data)
+      return true
+    },
+    openWorker,
+    paneAlive: (paneId) => getByPaneId(paneId) !== undefined,
+    now: Date.now,
+  })
   managerService = new ManagerService({
-    agents: () => parseManagerAgents(readSettingsFile()),
+    loadResume: () => loadJson<unknown>(managerResumePath(), null),
+    saveResume: (saved) => {
+      if (saved) saveJson(managerResumePath(), saved)
+      else rmSync(managerResumePath(), { force: true })
+    },
+    agents: () => managerAgents(managerSettings()),
     createPane: createManagerPane,
     spawn: spawnManagerPty,
   })
@@ -1365,6 +1448,7 @@ app.on('before-quit', (event) => {
     return
   }
   persistScrollback()
+  managerService?.shutdown()
   for (const entry of ptys.values()) {
     try {
       entry.pty.kill()

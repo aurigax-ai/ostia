@@ -23,7 +23,7 @@ export interface NewWorkspaceOptions {
   name?: string
 }
 
-export function startNewWorkspace(opts: NewWorkspaceOptions = {}): void {
+export function startNewWorkspace(opts: NewWorkspaceOptions = {}): string | null {
   const { placement, inheritFolder, defaultFolder } = useSettingsStore.getState().workspaces
   const store = useWorkspacesStore.getState()
   store.addWorkspace(
@@ -33,4 +33,5 @@ export function startNewWorkspace(opts: NewWorkspaceOptions = {}): void {
   const created = useWorkspacesStore.getState().activeWorkspaceId
   const name = opts.name?.trim()
   if (created && name) store.rename(created, name)
+  return created
 }

@@ -1,40 +1,11 @@
-export const BUILTIN_MANAGER_AGENTS: Readonly<Record<string, readonly string[]>> = {
-  claude: ['claude'],
-  codex: ['codex'],
-}
+import { type AgentResume, parseAgentResume } from '../shared/agentResume'
+import {
+  MANAGER_AGENT_NAME,
+  MANAGER_MAX_ARGS,
+  MANAGER_MAX_ARG_LENGTH,
+} from '../shared/managerSettings'
 
-const AGENT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
-const MAX_ARGS = 64
-const MAX_ARG_LENGTH = 4096
 const MAX_PATH_LENGTH = 32 * 1024
-
-export function parseManagerAgents(settings: unknown): Record<string, string[]> {
-  const agents: Record<string, string[]> = {}
-  for (const [name, argv] of Object.entries(BUILTIN_MANAGER_AGENTS)) agents[name] = [...argv]
-  const manager =
-    typeof settings === 'object' && settings !== null
-      ? (settings as { manager?: unknown }).manager
-      : undefined
-  const raw =
-    typeof manager === 'object' && manager !== null
-      ? (manager as { agents?: unknown }).agents
-      : undefined
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return agents
-  for (const [name, argv] of Object.entries(raw)) {
-    if (!AGENT_NAME.test(name) || !isArgv(argv)) continue
-    agents[name] = [...argv]
-  }
-  return agents
-}
-
-function isArgv(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) &&
-    value.length > 0 &&
-    value.length <= MAX_ARGS &&
-    value.every((a) => typeof a === 'string' && a.length > 0 && a.length <= MAX_ARG_LENGTH)
-  )
-}
 
 export interface ManagerOpenRequest {
   agent: string
@@ -60,21 +31,38 @@ export interface ManagerDeps {
     cols: number
     rows: number
     path?: string
+    resume: AgentResume | null
     onExit: () => void
   }) => boolean
+  loadResume: () => unknown
+  saveResume: (saved: SavedManagerResume | null) => void
+}
+
+export interface SavedManagerResume {
+  agent: string
+  resume: AgentResume
+}
+
+export function parseSavedResume(raw: unknown): SavedManagerResume | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const { agent, resume } = raw as { agent?: unknown; resume?: unknown }
+  const parsed = parseAgentResume(resume)
+  if (typeof agent !== 'string' || !MANAGER_AGENT_NAME.test(agent) || !parsed) return null
+  return { agent, resume: parsed }
 }
 
 export class ManagerError extends Error {}
 
 export function parseOpenRequest(raw: unknown): ManagerOpenRequest {
   const r = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
-  if (typeof r.agent !== 'string' || !AGENT_NAME.test(r.agent)) {
+  if (typeof r.agent !== 'string' || !MANAGER_AGENT_NAME.test(r.agent)) {
     throw new ManagerError('bad-request: agent')
   }
   const args = r.args ?? []
-  if (!Array.isArray(args) || args.length > MAX_ARGS) throw new ManagerError('bad-request: args')
+  if (!Array.isArray(args) || args.length > MANAGER_MAX_ARGS)
+    throw new ManagerError('bad-request: args')
   for (const a of args) {
-    if (typeof a !== 'string' || a.length > MAX_ARG_LENGTH) {
+    if (typeof a !== 'string' || a.length > MANAGER_MAX_ARG_LENGTH) {
       throw new ManagerError('bad-request: args')
     }
   }
@@ -102,6 +90,7 @@ function clampDim(value: unknown, fallback: number): number {
 export class ManagerService {
   private current: ManagerInfo | null = null
   private opening: Promise<ManagerInfo> | null = null
+  private stopping = false
 
   constructor(private readonly deps: ManagerDeps) {}
 
@@ -111,6 +100,14 @@ export class ManagerService {
 
   isManagerPane(paneId: string): boolean {
     return this.current?.paneId === paneId
+  }
+
+  rememberResume(resume: AgentResume): void {
+    if (this.current) this.deps.saveResume({ agent: this.current.agent, resume })
+  }
+
+  shutdown(): void {
+    this.stopping = true
   }
 
   async open(req: ManagerOpenRequest): Promise<{ info: ManagerInfo; created: boolean }> {
@@ -140,6 +137,8 @@ export class ManagerService {
     const paneId = await this.deps.createPane({ agent: req.agent, cwd: req.cwd })
     if (!paneId) throw new ManagerError('no-window: Pine could not open the manager workspace')
     const info: ManagerInfo = { paneId, agent: req.agent }
+    const saved = parseSavedResume(this.deps.loadResume())
+    const resume = saved?.agent === req.agent && req.args.length === 0 ? saved.resume : null
     const spawned = this.deps.spawn({
       paneId,
       argv,
@@ -147,8 +146,11 @@ export class ManagerService {
       cols: req.cols,
       rows: req.rows,
       ...(req.path === undefined ? {} : { path: req.path }),
+      resume,
       onExit: () => {
-        if (this.current === info) this.current = null
+        if (this.current !== info) return
+        this.current = null
+        if (!this.stopping) this.deps.saveResume(null)
       },
     })
     if (!spawned) throw new ManagerError(`spawn-failed: could not start ${argv[0]}`)

@@ -491,7 +491,7 @@ export function registerBuiltinCommands(): void {
     run: ({ index }) => ({ switched: goToWorkspace(index) }),
   })
 
-  commands.register<{ dir?: unknown; name?: unknown } | undefined>({
+  commands.register<{ dir?: unknown; name?: unknown } | undefined, { workspaceId: string | null }>({
     id: 'workspace.new',
     title: 'New Workspace',
     category: 'Workspace',
@@ -508,7 +508,7 @@ export function registerBuiltinCommands(): void {
       }
       if (name !== undefined && typeof name !== 'string') throw new Error('name must be a string')
       useUIStore.getState().leaveSettings()
-      startNewWorkspace({ dir, name })
+      return { workspaceId: startNewWorkspace({ dir, name }) }
     },
   })
 

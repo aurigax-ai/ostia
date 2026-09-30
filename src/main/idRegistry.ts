@@ -10,6 +10,7 @@ export interface PaneIdentity {
   workspaceId: string
   paneId: string
   extId?: string
+  manager?: true
 }
 
 const byPane = new Map<string, PaneIdentity>()
@@ -79,6 +80,12 @@ export function removeExtension(extId: string, externalId?: string): void {
   if (!id || (externalId !== undefined && id.externalId !== externalId)) return
   byExtension.delete(extId)
   unindex(id)
+}
+
+export function markManager(paneId: string): PaneIdentity | undefined {
+  const identity = byPane.get(paneId)
+  if (identity) identity.manager = true
+  return identity
 }
 
 export function getByPaneId(paneId: string): PaneIdentity | undefined {

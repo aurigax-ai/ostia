@@ -37,6 +37,7 @@ export interface ApprovalDeps {
   revoke: (externalId: string, cap: Capability) => void
   now: () => number
   timeoutMs: number
+  reveal: (windowId: string) => void
 }
 
 interface Owned {
@@ -117,6 +118,7 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
       }
       pending.set(req.id, { ...owned, req, settle })
       if (!publish(ask.windowId)) settle('deny')
+      else deps.reveal(ask.windowId)
     })
   }
 
@@ -179,7 +181,7 @@ export function approvals(): Approvals | null {
   return active
 }
 
-export function registerApprovals(): void {
+export function registerApprovals(reveal: (windowId: string) => void): void {
   active = createApprovals({
     mode: readApprovalMode,
     publish: publishToWindow,
@@ -187,6 +189,7 @@ export function registerApprovals(): void {
     revoke,
     now: Date.now,
     timeoutMs: APPROVAL_TIMEOUT_MS,
+    reveal,
   })
   const current = active
   ipcMain.handle('approvals:state', (e) => current.stateFor(String(e.sender.id)))

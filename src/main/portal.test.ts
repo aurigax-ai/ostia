@@ -9,7 +9,8 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { ManagerService, parseManagerAgents } from './manager'
+import { managerAgents, parseManagerSettings } from '../shared/managerSettings'
+import { ManagerService } from './manager'
 import { type MirrorSink, Portal, portalSupported } from './portal'
 import type { CallerVerdict } from './portalCaller'
 
@@ -40,7 +41,9 @@ async function startPortal(verdict: CallerVerdict = 'outside') {
   const ptys = new Map<string, FakePty>()
   let next = 0
   const manager = new ManagerService({
-    agents: () => parseManagerAgents(undefined),
+    loadResume: () => null,
+    saveResume: () => {},
+    agents: () => managerAgents(parseManagerSettings(undefined)),
     createPane: async () => `pane-${++next}`,
     spawn: (req) => {
       ptys.set(req.paneId, {
@@ -202,6 +205,8 @@ describe('Portal', () => {
     const other = new Portal(path, {
       judge: async () => 'outside',
       manager: new ManagerService({
+        loadResume: () => null,
+        saveResume: () => {},
         agents: () => ({}),
         createPane: async () => null,
         spawn: () => false,

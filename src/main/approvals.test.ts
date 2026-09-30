@@ -24,6 +24,7 @@ function setup(mode: ApprovalMode = 'ask', windowOpen = true) {
   const published: ApprovalState[] = []
   const grant = vi.fn()
   const revoke = vi.fn()
+  const reveal = vi.fn()
   let currentMode = mode
   const approvals = createApprovals({
     mode: () => currentMode,
@@ -35,12 +36,14 @@ function setup(mode: ApprovalMode = 'ask', windowOpen = true) {
     revoke,
     now: () => 1000,
     timeoutMs: 5000,
+    reveal,
   })
   return {
     approvals,
     published,
     grant,
     revoke,
+    reveal,
     setMode: (m: ApprovalMode) => {
       currentMode = m
     },
@@ -48,6 +51,18 @@ function setup(mode: ApprovalMode = 'ask', windowOpen = true) {
 }
 
 describe('approvals', () => {
+  it('MGR-C32 brings the pane window forward only when a request waits for the human', async () => {
+    const { approvals, reveal, setMode } = setup()
+    const waiting = approvals.request(ASK)
+    expect(reveal).toHaveBeenCalledWith(ASK.windowId)
+    approvals.answer(ASK.windowId, 'approval-1', 'once')
+    await waiting
+    reveal.mockClear()
+    setMode('allow')
+    await approvals.request({ ...ASK, caps: ['browse'] })
+    expect(reveal).not.toHaveBeenCalled()
+  })
+
   beforeEach(() => {
     vi.useFakeTimers()
   })
