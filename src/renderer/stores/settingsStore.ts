@@ -16,6 +16,11 @@ import {
 import type { Capability } from '../../shared/capabilities'
 import type { ExtensionSettingValues } from '../../shared/extensions'
 import {
+  DEFAULT_MANAGER_SETTINGS,
+  type ManagerSettings,
+  parseManagerSettings,
+} from '../../shared/managerSettings'
+import {
   DEFAULT_NOTIFICATION_SETTINGS,
   type NotificationSettings,
   parseNotificationSettings,
@@ -30,6 +35,11 @@ import { type KeybindingMap, parseKeybindings } from '../lib/chordSpec'
 import { normalizeHex } from '../lib/color'
 import type { GroupRule } from '../lib/workspaceGroups'
 import { type UserAction, parseActions } from '../settings/actions'
+import {
+  DEFAULT_FILE_TREE_SETTINGS,
+  type FileTreeSettings,
+  parseFileTreeSettings,
+} from '../settings/fileTreeSettings'
 import {
   DEFAULT_PANE_SETTINGS,
   DEFAULT_TERMINAL_SETTINGS,
@@ -82,6 +92,7 @@ export interface HibernationSettings {
 
 export interface AgentSettings {
   hibernation: HibernationSettings
+  autoResume: boolean
 }
 
 export const HIBERNATION_IDLE_MIN = 5
@@ -168,7 +179,6 @@ export const inputMode = (v: unknown): InputMode =>
   INPUT_MODES.includes(v as InputMode) ? (v as InputMode) : 'terminal'
 
 export interface Behavior {
-  showHiddenFiles: boolean
   cursorStyle: CursorStyle
   cursorBlink: boolean
   restoreWorkspace: boolean
@@ -193,6 +203,7 @@ export interface WorkspaceSettings {
   defaultFolder: string
   confirmClose: boolean
   confirmQuit: boolean
+  closeToTray: boolean
   wrapTitles: boolean
 }
 
@@ -202,6 +213,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   defaultFolder: '~',
   confirmClose: true,
   confirmQuit: true,
+  closeToTray: false,
   wrapTitles: false,
 }
 
@@ -232,6 +244,7 @@ interface Persisted {
   locale: Locale
   appearance: Appearance
   behavior: Behavior
+  files: FileTreeSettings
   terminal: TerminalSettings
   panes: PaneSettings
   notifications: NotificationSettings
@@ -244,6 +257,7 @@ interface Persisted {
   workspaceGroups: WorkspaceGroupSettings
   extensionSettings: Record<string, ExtensionSettingValues>
   capabilities?: Capabilities
+  manager: ManagerSettings
   sync?: SyncSettings
   approvals: ApprovalSettings
   actions: UserAction[]
@@ -255,6 +269,7 @@ const DATA_KEYS: readonly string[] = [
   'locale',
   'appearance',
   'behavior',
+  'files',
   'terminal',
   'panes',
   'notifications',
@@ -283,7 +298,6 @@ const DEFAULTS: Persisted = {
     windowTitle: DEFAULT_WINDOW_TITLE,
   },
   behavior: {
-    showHiddenFiles: true,
     cursorStyle: 'block',
     cursorBlink: true,
     restoreWorkspace: true,
@@ -293,6 +307,7 @@ const DEFAULTS: Persisted = {
     inputMode: 'terminal',
     inputEditorVim: false,
   },
+  files: DEFAULT_FILE_TREE_SETTINGS,
   terminal: DEFAULT_TERMINAL_SETTINGS,
   panes: DEFAULT_PANE_SETTINGS,
   notifications: DEFAULT_NOTIFICATION_SETTINGS,
@@ -308,12 +323,13 @@ const DEFAULTS: Persisted = {
     showPorts: true,
     showSSH: true,
   },
-  agents: { hibernation: DEFAULT_HIBERNATION },
+  agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false },
   workspaceGroups: { byCwd: [] },
   extensionSettings: {},
   approvals: DEFAULT_APPROVAL_SETTINGS,
   actions: [],
   trustedActions: [],
+  manager: DEFAULT_MANAGER_SETTINGS,
 }
 
 interface SettingsState extends Persisted {
@@ -328,6 +344,7 @@ interface SettingsState extends Persisted {
   setMotion: (m: MotionMode) => void
   setSurfaceFont: (surface: FontSurface, patch: Partial<SurfaceFont>) => void
   setBehavior: (patch: Partial<Behavior>) => void
+  setFiles: (patch: Partial<FileTreeSettings>) => void
   setTerminal: (patch: Partial<TerminalSettings>) => void
   setPanes: (patch: Partial<PaneSettings>) => void
   setNotifications: (patch: Partial<NotificationSettings>) => void
@@ -335,8 +352,10 @@ interface SettingsState extends Persisted {
   setSidebar: (patch: Partial<SidebarSettings>) => void
   setWorkspaces: (patch: Partial<WorkspaceSettings>) => void
   setSandbox: (next: SandboxGlobals) => Promise<void>
+  setManager: (patch: Partial<ManagerSettings>) => void
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
+  setAutoResume: (autoResume: boolean) => void
   setHibernation: (patch: Partial<HibernationSettings>) => void
   previewSetting: (path: string, value: unknown) => SettingChange
   setByPath: (path: string, value: unknown) => SettingChange
@@ -390,6 +409,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       windowTitle: parseWindowTitle(p.appearance?.windowTitle),
     },
     behavior: parseBehavior(p.behavior),
+    files: parseFileTreeSettings(p.files),
     terminal: parseTerminalSettings(p.terminal),
     panes: parsePaneSettings(p.panes),
     notifications: parseNotificationSettings(p.notifications),
@@ -398,10 +418,14 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     browser: parseBrowserSettings(p.browser),
     editor: parseEditorSettings(p.editor),
     keybindings: parseKeybindings(p.keybindings),
-    agents: { hibernation: parseHibernation(p.agents?.hibernation) },
+    agents: {
+      hibernation: parseHibernation(p.agents?.hibernation),
+      autoResume: p.agents?.autoResume === true,
+    },
     workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
     extensionSettings: extensionSettingsOf(p.extensionSettings),
     capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
+    manager: parseManagerSettings(p.manager),
     sync: syncOf(p.sync),
     approvals: parseApprovalSettings(p.approvals),
     actions: parseActions(p.actions),
@@ -488,6 +512,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     locale: s.locale,
     appearance: s.appearance,
     behavior: s.behavior,
+    files: s.files,
     terminal: s.terminal,
     panes: s.panes,
     notifications: s.notifications,
@@ -500,6 +525,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     workspaceGroups: s.workspaceGroups,
     extensionSettings: s.extensionSettings,
     capabilities: s.capabilities,
+    manager: s.manager,
     sync: s.sync,
     approvals: s.approvals,
     actions: s.actions,
@@ -597,6 +623,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((s) => ({ behavior: { ...s.behavior, ...patch } }))
     scheduleSave(get)
   },
+  setFiles: (patch) => {
+    set((s) => ({ files: parseFileTreeSettings({ ...s.files, ...patch }) }))
+    scheduleSave(get)
+  },
   setTerminal: (patch) => {
     set((s) => ({
       terminal: {
@@ -640,6 +670,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     await writeSettings(get())
     await window.pine.sandbox.globalsChanged()
   },
+  setManager: (patch) => {
+    set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))
+    scheduleSave(get)
+  },
   setBrowser: (patch) => {
     set((s) => ({ browser: parseBrowserSettings({ ...s.browser, ...patch }) }))
     scheduleSave(get)
@@ -665,6 +699,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setExtensionSettings: (extId, values) => {
     set((s) => ({ extensionSettings: { ...s.extensionSettings, [extId]: values } }))
+    scheduleSave(get)
+  },
+  setAutoResume: (autoResume) => {
+    set((s) => ({ agents: { ...s.agents, autoResume } }))
     scheduleSave(get)
   },
   setHibernation: (patch) => {

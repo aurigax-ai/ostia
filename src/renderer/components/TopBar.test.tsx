@@ -26,6 +26,10 @@ const git: ExtensionInfo = {
   paneChips: [],
   settings: [],
   settingValues: {},
+  assist: [],
+  secrets: [],
+  secretsSet: [],
+  iconThemes: [],
 }
 
 describe('TopBar', () => {

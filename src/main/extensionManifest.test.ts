@@ -59,8 +59,51 @@ describe('parseManifest', () => {
           panel: { title: 'Demo', icon: 'puzzle', entry: 'ui/panel.html' },
           paneChips: [],
           settings: [],
+          assist: [],
+          secrets: [],
         },
       },
+    })
+  })
+
+  it('parses assist points and secrets, and requires the assist capability', () => {
+    const ok = parseManifest(
+      manifest({
+        capabilities: ['assist'],
+        contributes: {
+          assist: ['chat', 'command', 'chat'],
+          secrets: { apiKey: { description: 'Provider key' } },
+        },
+      }),
+      DIR,
+    )
+    expect(ok.ok && ok.manifest.contributes.assist).toEqual(['chat', 'command'])
+    expect(ok.ok && ok.manifest.contributes.secrets).toEqual([
+      { key: 'apiKey', description: 'Provider key' },
+    ])
+    expect(parseManifest(manifest({ contributes: { assist: ['chat'] } }), DIR)).toEqual({
+      ok: false,
+      error: "contributes.assist needs the 'assist' capability",
+    })
+    expect(
+      parseManifest(manifest({ capabilities: ['assist'], contributes: { assist: ['shell'] } }), DIR)
+        .ok,
+    ).toBe(false)
+    expect(
+      parseManifest(
+        {
+          id: 'demo',
+          name: 'Demo',
+          version: '1',
+          capabilities: ['assist'],
+          contributes: { assist: ['chat'] },
+        },
+        DIR,
+      ).ok,
+    ).toBe(false)
+    expect(parseManifest(manifest({ contributes: { secrets: { apiKey: {} } } }), DIR)).toEqual({
+      ok: false,
+      error: 'contributes.secrets.apiKey: missing description',
     })
   })
 
@@ -291,6 +334,55 @@ describe('parseManifest — completions', () => {
         error: 'contributes.completions must be a folder inside the extension',
       })
     }
+  })
+})
+
+describe('parseManifest — icon themes', () => {
+  const noMain = { id: 'icons', name: 'Icons', version: '1' }
+  const theme = { id: 'material-icon-theme', label: 'Material', path: 'dist/theme.json' }
+
+  it('accepts icon themes without a main process', () => {
+    const res = parseManifest({ ...noMain, contributes: { iconThemes: [theme] } }, DIR)
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.iconThemes).toEqual([theme])
+  })
+
+  it('omits iconThemes when none are declared', () => {
+    const res = parseManifest(noMain, DIR)
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.iconThemes).toBeUndefined()
+  })
+
+  it('rejects a theme path outside the extension or not a .json file', () => {
+    for (const path of ['../theme.json', '/abs/theme.json', 'theme.js', 5]) {
+      expect(
+        parseManifest({ ...noMain, contributes: { iconThemes: [{ ...theme, path }] } }, DIR),
+      ).toEqual({
+        ok: false,
+        error: 'contributes.iconThemes[0]: path must be a .json file inside the extension',
+      })
+    }
+  })
+
+  it('rejects bad ids, missing labels and duplicates', () => {
+    const bad = (iconThemes: unknown) =>
+      parseManifest({ ...noMain, contributes: { iconThemes } }, DIR)
+    expect(bad([{ ...theme, id: '../x' }])).toEqual({
+      ok: false,
+      error: 'contributes.iconThemes[0]: invalid id',
+    })
+    expect(bad([{ ...theme, label: '' }])).toEqual({
+      ok: false,
+      error: 'contributes.iconThemes[0]: missing label',
+    })
+    expect(bad([theme, theme])).toEqual({
+      ok: false,
+      error: "contributes.iconThemes[1]: duplicate id 'material-icon-theme'",
+    })
+    expect(bad({})).toEqual({
+      ok: false,
+      error: 'contributes.iconThemes must be an array of at most 16',
+    })
   })
 })
 

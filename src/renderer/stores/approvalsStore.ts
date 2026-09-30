@@ -44,6 +44,7 @@ function announce(req: ApprovalRequest): void {
   signalPane(req.paneId, { type: 'set', state: 'waiting', message, at: Date.now() })
   window.pine.notifications.post({
     paneId: req.paneId,
+    kind: 'approval',
     title: d.approvals.title,
     body: `${message}: ${req.action}`,
     desktop: wantsDesktopBanner(

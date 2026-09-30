@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { splitTemplate } from './externalEditor'
+import { splitArgs } from '../shared/argv'
 
 export interface NotifyCommandValues {
   title: string
@@ -11,7 +11,7 @@ export function expandNotifyCommand(
   template: string,
   values: NotifyCommandValues,
 ): string[] | null {
-  const tokens = splitTemplate(template)
+  const tokens = splitArgs(template)
   if (!tokens || tokens.length === 0) return null
   return tokens.map((t) =>
     t.replace(/\{(title|body|pane)\}/g, (_m, key: keyof NotifyCommandValues) => values[key]),

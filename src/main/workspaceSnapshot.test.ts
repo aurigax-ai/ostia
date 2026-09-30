@@ -123,6 +123,44 @@ describe('parseSnapshot', () => {
     ).not.toHaveProperty('resume')
   })
 
+  it('keeps a view pane by name and drops one without a valid view name', () => {
+    const withView = (viewName: unknown) =>
+      parseSnapshot(
+        snap({
+          workspaces: [
+            {
+              ...snap().workspaces[0],
+              root: { type: 'pane', id: 'pane-1', title: 'Board', kind: 'view', viewName } as never,
+            },
+          ],
+        }),
+      )?.workspaces[0]?.root
+    expect(withView('board')).toEqual({
+      type: 'pane',
+      id: 'pane-1',
+      title: 'Board',
+      kind: 'view',
+      viewName: 'board',
+    })
+    expect(withView('../../etc/passwd')).toBeUndefined()
+    expect(withView(undefined)).toBeUndefined()
+  })
+
+  it('keeps the agent-running mark only on a pane with a valid resume token', () => {
+    const pane = snap().workspaces[0].root
+    const rootOf = (extra: object) =>
+      parseSnapshot(
+        snap({ workspaces: [{ ...snap().workspaces[0], root: { ...pane, ...extra } as never }] }),
+      )?.workspaces[0].root
+    expect(rootOf({ resume: { agent: 'claude', id: 'abc-1' }, agentRunning: true })).toMatchObject({
+      agentRunning: true,
+    })
+    expect(rootOf({ agentRunning: true })).not.toHaveProperty('agentRunning')
+    expect(
+      rootOf({ resume: { agent: 'claude', id: 'abc-1' }, agentRunning: 'yes' }),
+    ).not.toHaveProperty('agentRunning')
+  })
+
   it('keeps a tab stack and repairs an unknown shown tab', () => {
     const tabs = {
       type: 'tabs',

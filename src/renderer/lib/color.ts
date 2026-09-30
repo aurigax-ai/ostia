@@ -53,8 +53,22 @@ export function ensureContrast(hex: string, background: string, minimum = 4.5): 
 }
 
 export interface AccentTokens {
-  tokens: { brand: string; 'brand-bright': string; 'brand-glow': string }
-  onBrand: string
+  brand: string
+  'brand-bright': string
+  'brand-glow': string
+}
+
+const INK_DARK = '#0b0d10'
+const INK_LIGHT = '#ffffff'
+
+export function readableOn(fill: string, preferred: readonly string[], minimum = 4.5): string {
+  const base = normalizeHex(fill)
+  if (!base) return INK_DARK
+  for (const candidate of preferred) {
+    const hex = normalizeHex(candidate)
+    if (hex && contrastRatio(hex, base) >= minimum) return hex
+  }
+  return contrastRatio(base, INK_DARK) >= contrastRatio(base, INK_LIGHT) ? INK_DARK : INK_LIGHT
 }
 
 export function deriveAccent(
@@ -65,15 +79,10 @@ export function deriveAccent(
   const brand = ensureContrast(hex, background)
   const dark = appearance === 'dark'
   const bright = mix(brand, dark ? '#ffffff' : '#000000', dark ? 0.35 : 0.3)
-  const onBrand =
-    contrastRatio(brand, '#0b0d10') >= contrastRatio(brand, '#ffffff') ? '#0b0d10' : '#ffffff'
   return {
-    tokens: {
-      brand,
-      'brand-bright': bright,
-      'brand-glow': withAlpha(brand, dark ? 0.18 : 0.14),
-    },
-    onBrand,
+    brand,
+    'brand-bright': bright,
+    'brand-glow': withAlpha(brand, dark ? 0.18 : 0.14),
   }
 }
 

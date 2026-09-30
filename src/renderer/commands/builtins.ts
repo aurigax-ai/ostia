@@ -27,6 +27,7 @@ import {
 } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
 import { settingsSchemaAt } from '../settings/settingsSchema'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveSnapshotNow } from '../stores/persistence'
@@ -68,9 +69,13 @@ interface WorkspaceGroupEntry {
   workspaceIds: string[]
 }
 
-const PROGRAM_SETTINGS: readonly { group: 'behavior' | 'notifications'; field: string }[] = [
+const PROGRAM_SETTINGS: readonly {
+  group: 'behavior' | 'notifications' | 'agents'
+  field: string
+}[] = [
   { group: 'behavior', field: 'externalEditor' },
   { group: 'notifications', field: 'command' },
+  { group: 'agents', field: 'autoResume' },
 ]
 
 export function launchesProgram(key: string, value: unknown): string | null {
@@ -257,6 +262,7 @@ export function registerBuiltinCommands(): void {
     run: (resume, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
+      useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)
     },
   })
 
@@ -491,7 +497,7 @@ export function registerBuiltinCommands(): void {
     run: ({ index }) => ({ switched: goToWorkspace(index) }),
   })
 
-  commands.register<{ dir?: unknown; name?: unknown } | undefined>({
+  commands.register<{ dir?: unknown; name?: unknown } | undefined, { workspaceId: string | null }>({
     id: 'workspace.new',
     title: 'New Workspace',
     category: 'Workspace',
@@ -508,7 +514,7 @@ export function registerBuiltinCommands(): void {
       }
       if (name !== undefined && typeof name !== 'string') throw new Error('name must be a string')
       useUIStore.getState().leaveSettings()
-      startNewWorkspace({ dir, name })
+      return { workspaceId: startNewWorkspace({ dir, name }) }
     },
   })
 

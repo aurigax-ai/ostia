@@ -187,6 +187,20 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().behavior.externalEditor).toBe('auto')
   })
 
+  it('settings.set refuses to turn on agent auto-resume, directly or via agents', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents.autoResume',
+      value: true,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents',
+      value: { ...useSettingsStore.getState().agents, autoResume: true },
+    })
+    expect(direct.ok).toBe(false)
+    expect(nested.ok).toBe(false)
+    expect(useSettingsStore.getState().agents.autoResume).toBe(false)
+  })
+
   it('settings.set --dry-run validates without applying, and reports the previous value', async () => {
     const dry = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'editor.tabSize',
@@ -356,6 +370,16 @@ describe('builtins route to store actions', () => {
     expect(leaveSettings.mock.invocationCallOrder[0]).toBeLessThan(
       addWorkspace.mock.invocationCallOrder[0],
     )
+  })
+
+  it('MGR-C29 workspace.new returns the id of the workspace it created', async () => {
+    const res = await commands.execWith(ctx(null, null), 'workspace.new', {
+      dir: '/home/u/proj',
+      name: 'worker',
+    })
+    const created = useWorkspacesStore.getState().activeWorkspaceId
+    expect(created).not.toBeNull()
+    expect(res).toEqual({ ok: true, result: { workspaceId: created } })
   })
 
   it('routes palette.toggle to ui.togglePalette', async () => {
@@ -730,6 +754,7 @@ describe('agent notifications', () => {
     })
     expect(window.pine.notifications.post).toHaveBeenCalledWith({
       paneId: pane.id,
+      kind: 'waiting',
       title: 'Agent needs your input',
       body: 'Allow Bash?',
       desktop: true,
@@ -742,6 +767,7 @@ describe('agent notifications', () => {
     await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'done' })
     expect(window.pine.notifications.post).toHaveBeenCalledWith({
       paneId: pane.id,
+      kind: 'done',
       title: 'Agent finished',
       body: 'claude',
       desktop: false,

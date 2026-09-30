@@ -1,18 +1,16 @@
+import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import type { ReactElement } from 'react'
+import { useDict } from '../i18n/useDict'
 import type { PaneNode } from '../layout/types'
 import { runUserAction } from '../lib/userActions'
+import { movePaneToNewWindow } from '../lib/windowHandoff'
 import { actionsFor } from '../settings/actions'
 import { useSettingsStore } from '../stores/settingsStore'
 import { FileMenuItems } from './FileMenu'
 import { IconButton } from './IconButton'
+import { MenuContent, MenuItem } from './Menu'
 import { actionIcon } from './actionIcons'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from './ui/context-menu'
+import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from './ui/context-menu'
 
 export function PaneTabMenu({
   pane,
@@ -23,27 +21,40 @@ export function PaneTabMenu({
   workspaceId: string | null
   trigger: ReactElement
 }): JSX.Element {
+  const d = useDict()
   const actions = useSettingsStore((s) => s.actions)
   const tabActions = actionsFor(actions, 'tabMenu', pane.kind)
   const file = pane.kind === 'editor' && workspaceId ? pane.filePath : undefined
-  if (!file && tabActions.length === 0) return trigger
+  const movable = workspaceId !== null && pane.kind !== 'diff'
+  if (!file && tabActions.length === 0 && !movable) return trigger
 
   return (
     <ContextMenu>
       <ContextMenuTrigger render={trigger} />
-      <ContextMenuContent className="min-w-48">
-        {file && workspaceId ? <FileMenuItems workspaceId={workspaceId} path={file} /> : null}
+      <MenuContent>
+        {file && workspaceId ? (
+          <FileMenuItems workspaceId={workspaceId} path={file} inPine />
+        ) : null}
         {file && tabActions.length > 0 ? <ContextMenuSeparator /> : null}
-        {tabActions.map((action) => {
-          const Icon = actionIcon(action.icon)
-          return (
-            <ContextMenuItem key={action.id} onClick={() => void runUserAction(action, pane.id)}>
-              <Icon aria-hidden />
-              {action.title}
-            </ContextMenuItem>
-          )
-        })}
-      </ContextMenuContent>
+        {tabActions.map((action) => (
+          <MenuItem
+            key={action.id}
+            icon={actionIcon(action.icon)}
+            onClick={() => void runUserAction(action, pane.id)}
+          >
+            {action.title}
+          </MenuItem>
+        ))}
+        {movable && (file || tabActions.length > 0) ? <ContextMenuSeparator /> : null}
+        {movable && workspaceId ? (
+          <MenuItem
+            icon={ArrowSquareOutIcon}
+            onClick={() => void movePaneToNewWindow(workspaceId, pane.id)}
+          >
+            {d.window.movePaneToNewWindow}
+          </MenuItem>
+        ) : null}
+      </MenuContent>
     </ContextMenu>
   )
 }

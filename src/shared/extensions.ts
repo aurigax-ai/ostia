@@ -1,4 +1,6 @@
+import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
+import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
 import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'pine.json'
@@ -93,6 +95,13 @@ export function effectiveSettingValues(
   return out
 }
 
+export interface ExtensionSecretContribution {
+  key: string
+  description: string
+}
+
+export const EXTENSION_SECRET_MAX = 4096
+
 export interface ExtensionManifest {
   id: string
   name: string
@@ -108,6 +117,9 @@ export interface ExtensionManifest {
     settings: ExtensionSettingContribution[]
     workflows?: Workflow[]
     completions?: string
+    assist: AssistPoint[]
+    secrets: ExtensionSecretContribution[]
+    iconThemes?: IconThemeContribution[]
   }
 }
 
@@ -135,6 +147,10 @@ export interface ExtensionInfo {
   paneChips: ExtensionPaneChipContribution[]
   settings: ExtensionSettingContribution[]
   settingValues: ExtensionSettingValues
+  assist: AssistPoint[]
+  secrets: ExtensionSecretContribution[]
+  secretsSet: string[]
+  iconThemes: IconThemeInfo[]
 }
 
 export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as const
@@ -267,6 +283,14 @@ export type ExtensionSettingResult =
   | { ok: true; stored: ExtensionSettingValues; list: ExtensionInfo[] }
   | { ok: false; error: string }
 
+export type ExtensionSecretResult =
+  | { ok: true; list: ExtensionInfo[] }
+  | { ok: false; error: string }
+export interface ExtensionSettingsStored {
+  extId: string
+  stored: ExtensionSettingValues
+}
+
 export const DIFF_TEXT_MAX = 5 * 1024 * 1024
 
 export interface DiffContent {
@@ -319,9 +343,11 @@ export interface ExtensionsApi {
   sidebarItems: () => Promise<ExtensionSidebarItem[]>
   paneChips: () => Promise<PaneChip[]>
   setSetting: (extId: string, key: string, value: unknown) => Promise<ExtensionSettingResult>
+  setSecret: (extId: string, key: string, value: string | null) => Promise<ExtensionSecretResult>
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
   onPaneChips: (cb: (chips: PaneChip[]) => void) => () => void
+  onSettingsStored: (cb: (update: ExtensionSettingsStored) => void) => () => void
   onOpenPanel: (cb: (req: ExtensionOpenPanelRequest) => void) => () => void
   onOpenDiff: (cb: (req: ExtensionOpenDiffRequest) => void) => () => void
   onOpenTerminal: (cb: (req: ExtensionOpenTerminalRequest) => string | null) => () => void

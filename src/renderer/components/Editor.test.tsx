@@ -113,6 +113,7 @@ const fake = vi.hoisted(() => {
     Uri: { file: (p: string) => ({ path: p, toString: () => `file://${p}` }) },
     editor: {
       setTheme: vi.fn(),
+      defineTheme: vi.fn(),
       create: () => editor,
       getModel: (uri: { toString(): string }) => models.get(uri.toString()) ?? null,
       createModel: (value: string, _lang: string, uri: { toString(): string; path: string }) => {
@@ -127,8 +128,6 @@ const fake = vi.hoisted(() => {
 
 vi.mock('../monaco/setup', () => ({
   monaco: fake.monaco,
-  monacoThemeName: (appearance: string) =>
-    appearance === 'light' ? 'pine-light' : 'one-dark-vivid',
 }))
 vi.mock('../lsp/client', () => ({ openDocument: vi.fn().mockResolvedValue(undefined) }))
 

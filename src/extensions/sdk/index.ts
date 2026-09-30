@@ -5,11 +5,19 @@ import { createConnection } from 'node:net'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import {
+  type CancellationToken,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import type {
+  AssistError,
+  AssistPoint,
+  AssistRequests,
+  AssistResults,
+  AssistStatus,
+} from '../../shared/assist'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import type {
   DiffContent,
@@ -18,6 +26,7 @@ import type {
   ExtensionEventType,
   ExtensionIcon,
   ExtensionResult,
+  ExtensionSettingValue,
   ExtensionSettingValues,
   OpenTerminalOptions,
   SidebarTone,
@@ -82,6 +91,36 @@ export type PanelHandler = (
 
 export type SettingsHandler = (values: ExtensionSettingValues) => void
 
+export interface AssistContext {
+  requestId: string
+  signal: AbortSignal
+  chunk: (text: string) => Promise<boolean>
+}
+
+export class AssistFailure extends Error {
+  constructor(
+    readonly code: AssistError,
+    message?: string,
+  ) {
+    super(message ?? code)
+  }
+}
+
+function assistFailureReply(
+  err: unknown,
+  aborted: boolean,
+): { error: AssistError; message?: string } {
+  if (aborted) return { error: 'cancelled' }
+  if (err instanceof AssistFailure) return { error: err.code, message: err.message }
+  return { error: 'failed', message: errorMessage(err) }
+}
+
+export type AssistHandler = <P extends AssistPoint>(
+  point: P,
+  input: AssistRequests[P],
+  ctx: AssistContext,
+) => Promise<AssistResults[P]>
+
 export type EventHandler = <T extends ExtensionEventType>(
   type: T,
   payload: ExtensionEventPayloads[T],
@@ -116,6 +155,7 @@ export interface PineExtension {
   setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>
   clearPaneChip: (paneId: string, id: string) => Promise<ExtensionResult>
   getSettings: () => Promise<ExtensionSettingValues>
+  setSetting: (key: string, value: ExtensionSettingValue | null) => Promise<ExtensionResult>
   onSettingsChanged: (handler: SettingsHandler) => void
   callAs: <T = unknown>(paneId: string, method: string, params?: object) => Promise<T>
   setAttention: (paneId: string, state: AttentionVerb, message?: string) => Promise<unknown>
@@ -123,6 +163,9 @@ export interface PineExtension {
   openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
+  onAssist: (handler: AssistHandler) => void
+  setAssistStatus: (status: AssistStatus) => Promise<unknown>
+  getSecret: (key: string) => Promise<string | null>
 }
 
 export function ok(text?: string, data?: unknown): ExtensionResult {
@@ -177,6 +220,7 @@ export async function connect(): Promise<PineExtension> {
   let panelHandler: PanelHandler | null = null
   let eventHandler: EventHandler | null = null
   let settingsHandler: SettingsHandler | null = null
+  let assistHandler: AssistHandler | null = null
 
   conn.onRequest(
     'ext.command',
@@ -187,6 +231,36 @@ export async function connect(): Promise<PineExtension> {
         return await handler(params.args, params.caller)
       } catch (err) {
         return failure('command-failed', errorMessage(err))
+      }
+    },
+  )
+  conn.onRequest(
+    'ext.assist',
+    async (
+      params: { point: AssistPoint; requestId: string; input: never },
+      token: CancellationToken,
+    ) => {
+      if (!assistHandler) throw new Error('no assist handler')
+      const abort = new AbortController()
+      const sub = token.onCancellationRequested(() => abort.abort())
+      if (token.isCancellationRequested) abort.abort()
+      try {
+        return await assistHandler(params.point, params.input, {
+          requestId: params.requestId,
+          signal: abort.signal,
+          chunk: async (text) => {
+            if (abort.signal.aborted) return false
+            const res = await conn.sendRequest<{ live?: unknown }>('ext.assistChunk', {
+              requestId: params.requestId,
+              text,
+            })
+            return res?.live === true
+          },
+        })
+      } catch (err) {
+        return assistFailureReply(err, abort.signal.aborted)
+      } finally {
+        sub.dispose()
       }
     },
   )
@@ -240,6 +314,7 @@ export async function connect(): Promise<PineExtension> {
       const res = await conn.sendRequest<{ values?: ExtensionSettingValues }>('ext.getSettings')
       return res?.values ?? {}
     },
+    setSetting: (key, value) => conn.sendRequest('ext.setSetting', { key, value }),
     onSettingsChanged: (handler) => {
       settingsHandler = handler
     },
@@ -257,6 +332,14 @@ export async function connect(): Promise<PineExtension> {
     },
     listWorkspaces: () => conn.sendRequest('workspace.list'),
     listPanes: () => conn.sendRequest('pane.list'),
+    onAssist: (handler) => {
+      assistHandler = handler
+    },
+    setAssistStatus: (status) => conn.sendRequest('ext.setAssistStatus', { status }),
+    getSecret: async (key) => {
+      const res = await conn.sendRequest<{ value?: unknown }>('ext.getSecret', { key })
+      return typeof res?.value === 'string' ? res.value : null
+    },
   }
 }
 

@@ -1,4 +1,5 @@
 import type { AgentResume } from '@shared/agentResume'
+import { namespacedId } from '../lib/idNamespace'
 import type {
   Direction,
   DropZone,
@@ -19,7 +20,7 @@ export function resetIds(): void {
 
 function genId(prefix: string): string {
   counter += 1
-  return `${prefix}-${counter}`
+  return namespacedId(prefix, counter)
 }
 
 export function adoptIds(node: LayoutNode): void {
@@ -35,6 +36,8 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   browser: 'localhost',
   extension: 'Extension',
   diff: 'Diff',
+  view: 'View',
+  manager: 'Manager',
 }
 
 export function createPane(kind: SurfaceKind = 'terminal', title?: string, cwd?: string): PaneNode {
@@ -96,6 +99,15 @@ function mapPanes(node: LayoutNode, fn: (pane: PaneNode) => PaneNode): LayoutNod
 
 function mapPane(root: LayoutNode, paneId: string, fn: (pane: PaneNode) => PaneNode): LayoutNode {
   return mapPanes(root, (p) => (p.id === paneId ? fn(p) : p))
+}
+
+export function setResumePending(root: LayoutNode, paneId: string, pending: boolean): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (Boolean(p.resumePending) === pending) return p
+    if (pending) return { ...p, resumePending: true }
+    const { resumePending: _pending, ...rest } = p
+    return rest
+  })
 }
 
 export function setPaneCwd(root: LayoutNode, paneId: string, cwd: string): LayoutNode {
@@ -171,6 +183,15 @@ export function setPaneExtension(
   }))
 }
 
+export function setPaneView(
+  root: LayoutNode,
+  paneId: string,
+  viewName: string,
+  title: string,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => ({ type: 'pane', id: p.id, kind: 'view', title, viewName }))
+}
+
 export function setPaneDiff(
   root: LayoutNode,
   paneId: string,
@@ -218,6 +239,10 @@ export function withoutKind(root: LayoutNode, kind: SurfaceKind): LayoutNode | n
 
 export function findExtensionPane(node: LayoutNode, extensionId: string): PaneNode | null {
   return allPanes(node).find((p) => p.kind === 'extension' && p.extensionId === extensionId) ?? null
+}
+
+export function findViewPane(node: LayoutNode, viewName: string): PaneNode | null {
+  return allPanes(node).find((p) => p.kind === 'view' && p.viewName === viewName) ?? null
 }
 
 export function findPane(node: LayoutNode, id: string): PaneNode | null {

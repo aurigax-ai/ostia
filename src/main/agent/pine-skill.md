@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: pine sandbox request-domain/expose, pine secret ls/get/fill), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: pine sandbox request-domain/expose, pine secret ls/get/fill), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), building sidebar sections and panels for the human as data-only JSON views (pine view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Pine", "pine view".
 ---
 
 # Pine — the agent toolbelt
@@ -145,6 +145,94 @@ the placeholders yourself and run the command in your own shell. There is no
 parse are listed under `problems` (stderr in text mode). Needs `read-board`
 (a default capability).
 
+## Views — build UI for the human (sidebar sections and panels)
+
+A view is one JSON file, `~/.config/pine/views/<name>.json` (`$XDG_CONFIG_HOME/pine/views`;
+`<name>` is lowercase `a-z0-9-`). It is data only: no script, HTML or styling. Pine draws it
+with its own components, bound to live data, and reloads it whenever the file changes.
+A new file stays hidden until the human turns it on in Settings → Views; you cannot enable
+it, so tell them it is there. After that your edits show live; if an edit breaks the file,
+the last version that worked stays up and Settings lists the problems.
+
+```sh
+pine view schema                 # the JSON Schema (works outside Pine too)
+pine view validate <file>        # one "file:line: path: message" per problem, exit 1; "ok: ..." when valid
+pine view list [--json]          # name<TAB>status(pending|enabled|disabled)<TAB>placement<TAB>title
+pine view open <name>            # open an enabled panel view as a pane in your workspace
+```
+
+Always `pine view validate` before telling the human. Top level: `version` (1), `title`,
+`placement` (`sidebar`: a collapsible section in the rail under the workspaces; `panel`:
+a pane opened from the palette "Views: Open <title>" or `pine view open`), optional
+`icon` and `description`, and `root` (one node).
+
+| Node | Properties |
+|---|---|
+| `stack` / `row` | `children`, `gap` (none/sm/md/lg); row also `justify` (start/between/end), `wrap` |
+| `section` | `title`, `children`, `collapsed` |
+| `text` | `text`, `tone`, `size` (xs/sm/base), `weight` (regular/medium/semibold), `mono`, `truncate` |
+| `badge` | `text`, `tone` (hidden when the text is empty) |
+| `icon` | `name`, `tone` (not brand), `label` |
+| `list` | `for` (a data path), `as` (item name, default `item`), `item` (node), `limit`, `empty`, `gap` |
+| `button` | `label`, `icon`, `variant` (default/outline/ghost), `action` |
+| `link` | `label`, `url` (http/https only; opens in the workspace's browser pane) |
+| `progress` | `value` (number or one binding), `max` (default 100), `label`, `tone` |
+| `kv` | `items: [{key, value}]` |
+| `divider` | — |
+
+Every node may have `if: "{{path}}"` (drawn only when truthy; `[]`, `0`, `""` are falsy).
+Tones: neutral, muted, brand, ok, warn, error. Icons: `pine view schema` lists them.
+
+Text takes bindings: `{{path | filter}}`. A path is dot-separated names or indices
+(`workspaces.0.name`); nothing else is evaluated, and missing paths render empty.
+Filters: `upper`, `lower`, `count`, `not`, `relative` (ms → "5 minutes ago"), `time`,
+`date`. Data (read-only, refreshed live):
+
+| Source | Shape |
+|---|---|
+| `workspace` | the current workspace, or null: `{id, index, name (the display name), project ({name, path} of its detected project, or null), dir, description, state (idle/working/waiting/done/error), unread, active, pinned, panes, git, ports: [{port, url}]}` |
+| `workspaces` | every workspace, same shape (`git` is the Git extension's sidebar text, e.g. `main +2 ~1`, or null) |
+| `panes` | panes of the current workspace: `{id, title, kind, agent (claude/codex/null), attention (none/working/waiting/done/error), unread, message, active}` |
+| `ports` | listening ports: `{port, url, workspace, workspaceId}` |
+| `approvals` | `{pending}`: permission requests waiting on the human |
+| `notifications` | newest first, up to 50: `{id, title, body, kind, from, at}` |
+| `clock` | `{now}` in ms; ticks every second |
+
+Actions: `{"command": "<palette id>", "args": {...}}` runs a palette command (see
+`pine commands`) exactly like an `actions` entry in settings.json; strings in `args`
+take bindings, and an arg that is a single binding keeps its type
+(`{"index": "{{ws.index}}"}` passes a number). A command that needs a non-default
+capability asks the human first. `{"openUrl": "https://..."}` opens a URL in the
+browser pane. Budget: 200 nodes, 10 levels, 50 items per list (set `limit` for more
+data), 1000 drawn nodes; over budget, the last good render stays with a note.
+
+```json
+{
+  "version": 1,
+  "title": "Agents",
+  "placement": "sidebar",
+  "icon": "robot",
+  "root": {
+    "type": "list",
+    "for": "workspaces",
+    "as": "ws",
+    "empty": "No workspaces",
+    "item": {
+      "type": "row",
+      "justify": "between",
+      "children": [
+        { "type": "text", "text": "{{ws.name}}", "truncate": true },
+        { "type": "badge", "text": "{{ws.state}}", "tone": "warn", "if": "{{ws.unread}}" },
+        {
+          "type": "button", "label": "Go", "variant": "ghost",
+          "action": { "command": "workspace.goto", "args": { "index": "{{ws.index}}" } }
+        }
+      ]
+    }
+  }
+}
+```
+
 ## Vault — encrypted secrets
 
 ```sh
@@ -288,7 +376,8 @@ pine settings get appearance.terminal.size
 pine settings set appearance.terminal.size 14 --dry-run   # validate and show {previous, value}, change nothing
 pine settings set appearance.terminal.size 14      # value parsed as JSON if it parses...
 pine settings set locale '"en"'                    # ...else used as the raw string
-pine settings set behavior.showHiddenFiles true
+pine settings set files.compactFolders false
+pine settings set files.exclude '["**/.git", "**/node_modules"]'
 pine settings unset appearance.terminal.size       # back to the default
 pine settings set keybindings.palette.toggle '"Ctrl+Shift+Y"'   # rebind a command
 pine settings set keybindings.view.toggleRail null              # unbind it
@@ -310,6 +399,14 @@ doesn't exist (`unknown settings key`), the type differs, or the setting doesn't
 permissions (`behavior.externalEditor`, `notifications.command`, `capabilities`,
 `approvals`, `sync`) are the human's; you can't set them. `get` with no key returns every
 readable setting; with a key it prints `null` if absent.
+
+### Signing in with the human's saved logins
+
+`pine browse login [--user <name>]` fills the human's saved login for the browser pane's
+current site (exact origin) into its login form. Every call shows the human an approval card
+naming the site; you get back only `{origin, username}`, never the password. If there's no
+saved login it fails with `no-login`; ask the human to sign in or save one (the key button
+in the browser toolbar). Then submit the form yourself (`pine browse click` on the button).
 
 ## Customize Pine for the human (actions, keys, panels)
 

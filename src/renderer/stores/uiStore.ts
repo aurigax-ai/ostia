@@ -1,20 +1,25 @@
 import { create } from 'zustand'
 
+export type PaletteOpenMode = 'search' | 'ask'
+
 interface UIState {
   paletteOpen: boolean
+  paletteMode: PaletteOpenMode
   railCollapsed: boolean
   settingsTabOpen: boolean
   settingsActive: boolean
+  settingsSection: string | null
   filesOpen: boolean
   digitHints: boolean
   promptEditor: { paneId: string | null } | null
   settingsWorkspaceId: string | null
   settingsRequest: number
-  openPalette: () => void
+  openPalette: (mode?: PaletteOpenMode) => void
+  setPaletteMode: (mode: PaletteOpenMode) => void
   closePalette: () => void
   togglePalette: () => void
   toggleRail: () => void
-  openSettings: () => void
+  openSettings: (section?: string) => void
   openWorkspaceSettings: (workspaceId: string) => void
   closeSettings: () => void
   leaveSettings: () => void
@@ -27,19 +32,23 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   paletteOpen: false,
+  paletteMode: 'search',
   railCollapsed: false,
   settingsTabOpen: false,
   settingsActive: false,
+  settingsSection: null,
   filesOpen: false,
   digitHints: false,
   promptEditor: null,
   settingsWorkspaceId: null,
   settingsRequest: 0,
-  openPalette: () => set({ paletteOpen: true }),
-  closePalette: () => set({ paletteOpen: false }),
-  togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
+  openPalette: (mode = 'search') => set({ paletteOpen: true, paletteMode: mode }),
+  setPaletteMode: (paletteMode) => set({ paletteMode }),
+  closePalette: () => set({ paletteOpen: false, paletteMode: 'search' }),
+  togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search' })),
   toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
-  openSettings: () => set({ settingsTabOpen: true, settingsActive: true }),
+  openSettings: (section) =>
+    set({ settingsTabOpen: true, settingsActive: true, settingsSection: section ?? null }),
   openWorkspaceSettings: (workspaceId) =>
     set((s) => ({
       settingsTabOpen: true,

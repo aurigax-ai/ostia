@@ -6,6 +6,7 @@ export default defineWorkspace([
     test: {
       name: 'node',
       environment: 'node',
+      globalSetup: ['./test/buildOnce.ts'],
       include: [
         'src/main/**/*.test.ts',
         'src/shared/**/*.test.ts',

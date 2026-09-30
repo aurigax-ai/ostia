@@ -1,20 +1,33 @@
+import type { ResumableAgent } from '@shared/agentResume'
 import { type PickCapture, type PickSendResult, reportReference } from '@shared/pick'
 import { type SelectionCapture, type SelectionSendError, selectionLabel } from '@shared/selection'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { canTypeInto } from './blockActions'
+import { runningAgentOf } from './paneAgent'
 import { terminalFor } from './terminalHandles'
 import { signalPane } from './workspaceActivity'
 
 const AGENT_AT_PROMPT = new Set(['waiting', 'done'])
 const ATTENTION_NOTE_MAX = 120
 
+const AGENT_STATES = new Set(['working', 'waiting', 'done'])
+
+export function runningAgent(paneId: string): ResumableAgent | 'other' | null {
+  if (useBlocksStore.getState().running[paneId] === undefined) return null
+  const agent = runningAgentOf(paneId)
+  if (agent) return agent
+  const state = useAttentionStore.getState().byPane[paneId]?.state
+  return state !== undefined && AGENT_STATES.has(state) ? 'other' : null
+}
+
 export function canInsertReference(paneId: string): boolean {
   if (!terminalFor(paneId)) return false
   if (canTypeInto(paneId)) return true
-  const running = useBlocksStore.getState().running[paneId] !== undefined
+  if (useBlocksStore.getState().running[paneId] === undefined) return false
+  if (runningAgentOf(paneId)) return true
   const state = useAttentionStore.getState().byPane[paneId]?.state
-  return running && state !== undefined && AGENT_AT_PROMPT.has(state)
+  return state !== undefined && AGENT_AT_PROMPT.has(state)
 }
 
 export function insertPathReference(targetPaneId: string, path: string): boolean {

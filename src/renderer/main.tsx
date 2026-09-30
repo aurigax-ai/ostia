@@ -9,35 +9,50 @@ import './index.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { startAskCommand } from './commands/askCommand'
+import { startAssistCompose } from './commands/assistCompose'
 import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
 import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
+import { wireManagerBridge } from './commands/managerBridge'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
+import { registerWindowCommands } from './commands/windowCommands'
+import { startAutoResume } from './lib/autoResume'
 import { startHibernation } from './lib/hibernationScheduler'
+import { startAgentDetection } from './lib/paneAgent'
 import { startUserActions } from './lib/userActions'
+import { registerViewCommands, startViews } from './lib/views'
+import { initWindow, startWindowSync } from './lib/windowHandoff'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
+import { startWorkspaceProjects } from './lib/workspaceProjects'
 import { startApprovals } from './stores/approvalsStore'
+import { startAssistAvailability } from './stores/assistStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { useSettingsStore } from './stores/settingsStore'
 import { useSystemThemeStore } from './stores/systemThemeStore'
 import { startUpdateWatch } from './stores/updateStore'
+import { useWindowsStore } from './stores/windowsStore'
 import { useWorkspacesStore } from './stores/workspacesStore'
 
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()
+registerViewCommands()
 wireCommandBridge()
 wireTerminalStateBridge()
 wireExtensionBridge()
+wireManagerBridge()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')
 const root = createRoot(container)
 
 async function boot(): Promise<void> {
+  await initWindow()
+  registerWindowCommands(useWindowsStore.getState().detached)
   try {
     await useSettingsStore.getState().init()
   } catch (err) {
@@ -56,12 +71,20 @@ async function boot(): Promise<void> {
   }
   useWorkspacesStore.getState().hydrate(snapshot)
   startSnapshotAutosave()
+  startWindowSync()
   startAttentionSync()
   startPaneRecencySync()
   startHibernation()
+  startAutoResume()
+  startAgentDetection()
+  startWorkspaceProjects()
   startApprovals()
   startUserActions()
+  startViews()
   startUpdateWatch()
+  startAssistAvailability()
+  startAskCommand()
+  startAssistCompose()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(
