@@ -13,6 +13,7 @@ import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
 import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
+import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
@@ -22,6 +23,7 @@ import { useWorkspacesStore } from './stores/workspacesStore'
 
 registerBuiltinCommands()
 registerExternalEditorCommand()
+registerSelectionSendCommand()
 wireCommandBridge()
 wireTerminalStateBridge()
 wireExtensionBridge()

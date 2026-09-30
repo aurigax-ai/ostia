@@ -220,10 +220,10 @@ export function BrowserView({
       if (res.ok) {
         setCapture(null)
         setStatus(
-          fmt(res.inserted ? d.browser.sentInserted : d.browser.sentCopied, { pane: target.title }),
+          fmt(res.inserted ? d.send.sentInserted : d.send.sentCopied, { pane: target.title }),
         )
       } else {
-        setStatus(fmt(d.browser.sendFailed, { reason: res.error }))
+        setStatus(fmt(d.send.sendFailed, { reason: res.error }))
       }
     } finally {
       setSending(false)
@@ -295,7 +295,11 @@ export function BrowserView({
       ) : null}
       {capture ? (
         <PickSendPanel
-          capture={capture}
+          id={capture.id}
+          summary={capture.label || capture.selector}
+          noteLabel={d.browser.note}
+          notePlaceholder={d.browser.notePlaceholder}
+          closeLabel={d.browser.closeSend}
           targets={targets}
           sending={sending}
           onSend={(target, note) => void send(target, note)}

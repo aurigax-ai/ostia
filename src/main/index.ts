@@ -43,6 +43,7 @@ import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } fro
 import type { ExtensionRoot } from './extensionManifest'
 import { ExtensionStore } from './extensionStore'
 import { openInExternalEditor } from './externalEditor'
+import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
@@ -66,6 +67,7 @@ import { resolveSafe } from './pathGuard'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { ScreenMirror } from './screenMirror'
+import { registerSelectionIpc } from './selectionReport'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
@@ -708,6 +710,8 @@ function registerFsIpc(): void {
     }
   })
 
+  ipcMain.handle('fs:read-binary', (_e, path: unknown) => readBinaryConfined(path, allowedRoots))
+
   ipcMain.handle('fs:write', (_e, path: string, content: string): boolean => {
     const safe = resolveSafe(path, allowedRoots)
     if (safe === null) return false
@@ -859,6 +863,7 @@ app.whenReady().then(() => {
   registerIpc()
   registerPtyIpc()
   registerFsIpc()
+  registerSelectionIpc()
   registerLspIpc()
   const notifyDeps = {
     execCommand,

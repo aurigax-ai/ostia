@@ -219,6 +219,22 @@ Attention, the second loud element, appears only when a pane needs you:
 
 - **Popover**: `components/ui/popover.tsx` (Base UI), skinned via `className`; the notification
   center is the reference (`surface-3`, `radius-md`).
+- **File viewers** (image, PDF): a view toolbar (`.viewer-toolbar`, `surface-2`, `--line`
+  bottom border, `bar` icon buttons) over a `bg-sunken` stage with 16px padding. Order: file
+  name (`ui-sm`, truncates first), meta in mono `ui-xs` `fg-muted` `tabular-nums` (image size,
+  "Page n of m"), page arrows, zoom out / "Zoom n%" / zoom in / fit (pressed while fitting),
+  the PDF region toggle, clear region, and the send button last (`PaperPlaneTiltIcon`; its label
+  says what will be sent: region, selected text, image or page). Images sit on a
+  `surface-2`/`surface-3` checkerboard so transparency reads; a PDF page is the rendered paper
+  with a `--line-strong` outline and no shadow. A drawn region is a 1px `--brand` rectangle over
+  `--brand-glow`; PDF text selection uses `--brand-glow` too. A one-line `viewer-hint` bar (same
+  style as the browser's pick hint) explains region mode. Errors and "Loading…" use the ghost
+  empty line. The cursor stays the default arrow everywhere, including while dragging a region.
+- **Send panel** (`PickSendPanel.tsx`): one component for pick element and file-view selections.
+  It floats top-right of its surface (`surface-3`, `radius-md`, overlay shadow): title, a mono
+  `ui-xs` summary of what is being sent (`file:line:col-line:col`, `file (x, y, w × h)`,
+  `file, page n`), the note, and the target radio list with state dots. The result shows as a
+  small `viewer-status` chip bottom-right for 6 s.
 
 Consolidation debt:
 - Primitives still missing: DropdownMenu. ContextMenu (`components/ui/context-menu.tsx`) backs
