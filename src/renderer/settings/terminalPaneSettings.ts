@@ -3,6 +3,7 @@ import {
   type PromptSettings,
   parsePromptSettings,
 } from '../../shared/promptSettings'
+import { MATCH_PINE_THEME, parseThemeChoice } from '../../shared/themeChoice'
 
 export interface TerminalSettings {
   scrollSpeed: number
@@ -10,6 +11,7 @@ export interface TerminalSettings {
   warnOnRiskyPaste: boolean
   minimumContrast: number
   prompt: PromptSettings
+  theme: string
 }
 
 export interface PaneSettings {
@@ -32,6 +34,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   warnOnRiskyPaste: true,
   minimumContrast: 1,
   prompt: DEFAULT_PROMPT_SETTINGS,
+  theme: MATCH_PINE_THEME,
 }
 
 export const DEFAULT_PANE_SETTINGS: PaneSettings = {
@@ -76,6 +79,7 @@ export function parseTerminalSettings(raw: unknown): TerminalSettings {
     scrollbackLines: clampScrollback(source.scrollbackLines),
     minimumContrast: clampContrast(source.minimumContrast),
     prompt: parsePromptSettings(source.prompt),
+    theme: parseThemeChoice(source.theme),
   }
 }
 
