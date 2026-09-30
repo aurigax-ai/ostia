@@ -756,6 +756,16 @@ function registerPtyIpc(): void {
     const entry = ptys.get(paneId)
     if (entry?.session.canWrite(String(e.sender.id))) entry.pty.write(data)
   })
+  ipcMain.handle('pty:foreground', (e, paneId: string): string | null => {
+    const entry = ptys.get(paneId)
+    if (!entry?.subs.has(String(e.sender.id))) return null
+    try {
+      const name = entry.pty.process
+      return typeof name === 'string' && name ? (name.split('/').pop() ?? null) : null
+    } catch {
+      return null
+    }
+  })
   ipcMain.handle('pty:commands', async (e, paneId: string): Promise<string[]> => {
     const entry = ptys.get(paneId)
     if (!entry?.subs.has(String(e.sender.id))) return []

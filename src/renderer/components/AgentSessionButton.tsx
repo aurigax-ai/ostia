@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import type { PaneNode } from '../layout/types'
 import { agentSession } from '../lib/agentSession'
+import { commandAgent } from '../lib/hibernation'
 import { formatDuration } from '../lib/promptChips'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -76,7 +77,18 @@ export function AgentSessionButton({ pane }: { pane: PaneNode }): JSX.Element | 
   })
   const attention = useAttentionStore((s) => s.byPane[pane.id])
   const now = useNow(open)
-  const session = agentSession(pane, running, attention)
+  const agent = useBlocksStore((s) => {
+    const blockId = s.running[pane.id]
+    if (!blockId) return null
+    const marked = s.agentBlocks[pane.id]
+    return marked?.blockId === blockId ? marked.agent : null
+  })
+  const session = agentSession(
+    pane,
+    running,
+    attention,
+    running ? (commandAgent(running.command) ?? agent) : null,
+  )
   const info = useSessionInfo(
     session?.sessionId ? { agent: session.agent, id: session.sessionId } : null,
     open,

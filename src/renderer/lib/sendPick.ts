@@ -4,7 +4,7 @@ import { type SelectionCapture, type SelectionSendError, selectionLabel } from '
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { canTypeInto } from './blockActions'
-import { commandAgent } from './hibernation'
+import { runningAgentOf } from './paneAgent'
 import { terminalFor } from './terminalHandles'
 import { signalPane } from './workspaceActivity'
 
@@ -14,11 +14,8 @@ const ATTENTION_NOTE_MAX = 120
 const AGENT_STATES = new Set(['working', 'waiting', 'done'])
 
 export function runningAgent(paneId: string): ResumableAgent | 'other' | null {
-  const { running, byPane } = useBlocksStore.getState()
-  const blockId = running[paneId]
-  if (blockId === undefined) return null
-  const command = byPane[paneId]?.find((b) => b.id === blockId)?.command
-  const agent = command ? commandAgent(command) : null
+  if (useBlocksStore.getState().running[paneId] === undefined) return null
+  const agent = runningAgentOf(paneId)
   if (agent) return agent
   const state = useAttentionStore.getState().byPane[paneId]?.state
   return state !== undefined && AGENT_STATES.has(state) ? 'other' : null
@@ -27,11 +24,8 @@ export function runningAgent(paneId: string): ResumableAgent | 'other' | null {
 export function canInsertReference(paneId: string): boolean {
   if (!terminalFor(paneId)) return false
   if (canTypeInto(paneId)) return true
-  const { running, byPane } = useBlocksStore.getState()
-  const blockId = running[paneId]
-  if (blockId === undefined) return false
-  const command = byPane[paneId]?.find((b) => b.id === blockId)?.command
-  if (command && commandAgent(command)) return true
+  if (useBlocksStore.getState().running[paneId] === undefined) return false
+  if (runningAgentOf(paneId)) return true
   const state = useAttentionStore.getState().byPane[paneId]?.state
   return state !== undefined && AGENT_AT_PROMPT.has(state)
 }

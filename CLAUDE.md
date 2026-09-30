@@ -121,7 +121,7 @@ Details: `docs/ARCHITECTURE.md`.
   free-form command.
 - **Hibernation only stops what it can bring back** (`lib/hibernationScheduler.ts`, off by
   default). It kills a pane's pty only if the pane has a resume token, its running block is
-  that agent (`commandAgent`), it is not visible and idle past `idleSeconds`; never a shell at
+  that agent (`runningAgentOf`), it is not visible and idle past `idleSeconds`; never a shell at
   a prompt, a non-agent command, or a pane without a token. Main stashes the serialized screen
   first (`pty:hibernate`). Waking is always the human's act (the hibernated view's Resume, the
   header button, `agent.resume`): it spawns a fresh shell and types `resumeCommand` only at its
@@ -144,7 +144,7 @@ Details: `docs/ARCHITECTURE.md`.
   Rerun and history insert go through `insertCommand` (`lib/blockActions.ts`), need the `shell`
   capability, and paste via `term.paste`. The one widening: a report reference from pick
   element or send selection (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a
-  running agent: one whose running command is `claude`/`codex` (`commandAgent`; their input box
+  running agent: one whose running command is `claude`/`codex` (`runningAgentOf`; their input box
   queues typed text), or any command that reported `waiting`/`done`; it's text only, never
   followed by Enter. A file
   path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. Anything
