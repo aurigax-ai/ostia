@@ -1,8 +1,15 @@
+import {
+  DEFAULT_PROMPT_SETTINGS,
+  type PromptSettings,
+  parsePromptSettings,
+} from '../../shared/promptSettings'
+
 export interface TerminalSettings {
   scrollSpeed: number
   scrollbackLines: number
   warnOnRiskyPaste: boolean
   minimumContrast: number
+  prompt: PromptSettings
 }
 
 export interface PaneSettings {
@@ -24,6 +31,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   scrollbackLines: 10000,
   warnOnRiskyPaste: true,
   minimumContrast: 1,
+  prompt: DEFAULT_PROMPT_SETTINGS,
 }
 
 export const DEFAULT_PANE_SETTINGS: PaneSettings = {
@@ -67,6 +75,7 @@ export function parseTerminalSettings(raw: unknown): TerminalSettings {
     scrollSpeed: clampScrollSpeed(source.scrollSpeed),
     scrollbackLines: clampScrollback(source.scrollbackLines),
     minimumContrast: clampContrast(source.minimumContrast),
+    prompt: parsePromptSettings(source.prompt),
   }
 }
 
