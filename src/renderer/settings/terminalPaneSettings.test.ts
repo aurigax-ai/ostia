@@ -60,7 +60,13 @@ describe('parseTerminalSettings', () => {
         minimumContrast: 'x',
         warnOnRiskyPaste: 'no',
       }),
-    ).toEqual({ scrollSpeed: 5, scrollbackLines: 1000, minimumContrast: 1, warnOnRiskyPaste: true })
+    ).toEqual({
+      scrollSpeed: 5,
+      scrollbackLines: 1000,
+      minimumContrast: 1,
+      warnOnRiskyPaste: true,
+      prompt: DEFAULT_TERMINAL_SETTINGS.prompt,
+    })
   })
 
   it('keeps a valid off switch', () => {

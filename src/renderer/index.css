@@ -1220,8 +1220,116 @@
   font-size: var(--text-ui-xs);
 }
 
+.input-editor-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
 .input-editor-field {
   position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.prompt-chips {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 70%;
+  height: 20px;
+  overflow: hidden;
+}
+
+.prompt-preview {
+  flex-wrap: wrap;
+  max-width: 100%;
+  height: auto;
+}
+
+.input-editor-line > .prompt-chips {
+  max-width: 50%;
+  margin-top: 6px;
+}
+
+.prompt-chip-slot {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.prompt-chip {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  white-space: nowrap;
+}
+
+.prompt-chip svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+button.prompt-chip {
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+button.prompt-chip:hover {
+  background: var(--surface-3);
+}
+
+button.prompt-chip:focus-visible {
+  outline: 1px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.prompt-chip[data-tone="ok"] svg {
+  color: var(--ok);
+}
+
+.prompt-chip[data-tone="error"],
+.prompt-chip[data-tone="error"] svg {
+  color: var(--attn-fg);
+}
+
+.prompt-chip[data-tone="warn"] svg {
+  color: var(--group-yellow);
+}
+
+.prompt-chip[data-unavailable] {
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  color: var(--fg-muted);
+}
+
+.prompt-chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prompt-separator {
+  flex: none;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-sm);
 }
 
 .input-editor-area,

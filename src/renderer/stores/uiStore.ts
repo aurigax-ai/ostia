@@ -7,6 +7,7 @@ interface UIState {
   settingsActive: boolean
   filesOpen: boolean
   digitHints: boolean
+  promptEditor: { paneId: string | null } | null
   openPalette: () => void
   closePalette: () => void
   togglePalette: () => void
@@ -15,6 +16,9 @@ interface UIState {
   closeSettings: () => void
   leaveSettings: () => void
   toggleFiles: () => void
+  showFiles: () => void
+  openPromptEditor: (paneId: string | null) => void
+  closePromptEditor: () => void
   setDigitHints: (shown: boolean) => void
 }
 
@@ -25,6 +29,7 @@ export const useUIStore = create<UIState>((set) => ({
   settingsActive: false,
   filesOpen: false,
   digitHints: false,
+  promptEditor: null,
   openPalette: () => set({ paletteOpen: true }),
   closePalette: () => set({ paletteOpen: false }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
@@ -33,5 +38,8 @@ export const useUIStore = create<UIState>((set) => ({
   closeSettings: () => set({ settingsTabOpen: false, settingsActive: false }),
   leaveSettings: () => set({ settingsActive: false }),
   toggleFiles: () => set((s) => ({ filesOpen: !s.filesOpen })),
+  showFiles: () => set({ filesOpen: true }),
+  openPromptEditor: (paneId) => set({ promptEditor: { paneId } }),
+  closePromptEditor: () => set({ promptEditor: null }),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))
