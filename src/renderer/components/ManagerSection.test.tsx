@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ManagerSection } from './ManagerSection'
 
 if (!Element.prototype.getAnimations) {
@@ -13,14 +14,19 @@ const manager = () => useSettingsStore.getState().manager
 
 describe('ManagerSection', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 
   beforeAll(() => {
     settingsInit = useSettingsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
   })
 
   afterEach(() => {
     cleanup()
     useSettingsStore.setState(settingsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
+    vi.mocked(window.pine.system.requirements).mockResolvedValue(null)
+    vi.mocked(window.pine.system.installRequirements).mockClear()
   })
 
   it('MGR-C34 lists the built-in presets and adds one typed as a command line', async () => {
@@ -93,5 +99,41 @@ describe('ManagerSection', () => {
     await user.clear(workers)
     await user.type(workers, '3{Enter}')
     expect(manager().limits.maxWorkers).toBe(3)
+  })
+
+  const missingSs = (canInstall: boolean) => ({
+    missing: [{ program: 'ss', package: 'iproute2' }],
+    hint: { command: 'sudo pacman -S --needed iproute2', packages: ['iproute2'] },
+    canInstall,
+  })
+
+  it('MGR-C40 names the missing package and installs it through the approved flow', async () => {
+    vi.mocked(window.pine.system.requirements).mockResolvedValue(missingSs(true))
+    useWorkspacesStore.setState({ activeWorkspaceId: 'w1' })
+    render(<ManagerSection />)
+    const user = userEvent.setup()
+    expect(await screen.findByText(/needs iproute2/)).toBeInTheDocument()
+    expect(window.pine.system.requirements).toHaveBeenCalledWith('manager')
+    await user.click(screen.getByRole('button', { name: 'Install' }))
+    expect(window.pine.system.installRequirements).toHaveBeenCalledWith('manager', 'w1')
+  })
+
+  it('MGR-C40 shows the command to copy when the install flow is unavailable', async () => {
+    vi.mocked(window.pine.system.requirements).mockResolvedValue(missingSs(false))
+    render(<ManagerSection />)
+    expect(await screen.findByText('sudo pacman -S --needed iproute2')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Install' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Copy command' })).toBeInTheDocument()
+  })
+
+  it('MGR-C40 shows nothing when ss is installed', async () => {
+    vi.mocked(window.pine.system.requirements).mockResolvedValue({
+      missing: [],
+      hint: { command: null, packages: [] },
+      canInstall: false,
+    })
+    render(<ManagerSection />)
+    await screen.findByText('Agents')
+    expect(screen.queryByText(/needs/)).toBeNull()
   })
 })
