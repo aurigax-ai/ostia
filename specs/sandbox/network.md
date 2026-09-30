@@ -1,6 +1,6 @@
 # Sandbox: network and ports
 
-Status: cases approved 2026-09-30 at 8457e4a
+Status: cases approved 2026-09-30 at 0e21cd1
 
 Intent: a sandboxed workspace reaches only allowed hosts, new hosts are added only by the human
 answering a prompt, and a server inside it is reachable from the host only once the human

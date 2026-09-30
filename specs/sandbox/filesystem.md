@@ -1,6 +1,6 @@
 # Sandbox: filesystem
 
-Status: cases approved 2026-09-30 at 8457e4a
+Status: cases approved 2026-09-30 at 0e21cd1
 
 Intent: a sandboxed shell reads only the workspace folder, the paths the human allows and the
 system, and writes only the workspace folder, a private tmp and the agent CLIs' session data.
