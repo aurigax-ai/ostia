@@ -18,6 +18,8 @@ import {
 import { stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, matchChord } from '../lib/chords'
+import { openFileAt } from '../lib/openFile'
+import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
 import { loadWebglRenderer } from '../lib/webglRenderer'
@@ -208,6 +210,14 @@ export function TerminalView({
       const chunk = parseOsc99(data, decodeBase64Utf8)
       return notifyFromTerminal(chunk ? kitty.push(chunk) : null)
     })
+    const fileLinks = term.registerLinkProvider(
+      createFileLinkProvider(term, {
+        cwd: () => cwdRef.current,
+        stat: (path) => window.pine.fs.stat(path),
+        open: openFileAt,
+        modifierHeld: (e) => (isMac ? e.metaKey : e.ctrlKey),
+      }),
+    )
     const copySelection = term.onSelectionChange(() => {
       if (!useSettingsStore.getState().behavior.copyOnSelect || !term.hasSelection()) return
       void navigator.clipboard.writeText(term.getSelection())
@@ -434,6 +444,7 @@ export function TerminalView({
       oscNotify99.dispose()
       bell.dispose()
       copySelection.dispose()
+      fileLinks.dispose()
       detachWheelZoom()
       titleChange.dispose()
       promptMarker?.dispose()

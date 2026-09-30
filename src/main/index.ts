@@ -14,6 +14,7 @@ import type {
   CommandTarget,
   ExternalEditorRequest,
   FsEntry,
+  FsKind,
   LifecycleEvent,
   PtyAttachResult,
   PtySpawnOptions,
@@ -683,6 +684,17 @@ function registerFsIpc(): void {
         .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
     } catch {
       return []
+    }
+  })
+
+  ipcMain.handle('fs:stat', (_e, path: string): FsKind | null => {
+    const safe = resolveSafe(path, allowedRoots)
+    if (safe === null) return null
+    try {
+      const stat = statSync(safe)
+      return stat.isFile() ? 'file' : stat.isDirectory() ? 'dir' : null
+    } catch {
+      return null
     }
   })
 

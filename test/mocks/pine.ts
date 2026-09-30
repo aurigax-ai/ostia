@@ -26,6 +26,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       list: vi.fn().mockResolvedValue([]),
       read: vi.fn().mockResolvedValue(null),
       write: vi.fn().mockResolvedValue(true),
+      stat: vi.fn().mockResolvedValue(null),
     },
     lsp: {
       list: vi.fn().mockResolvedValue([]),
