@@ -272,6 +272,12 @@
   border-right: 1px solid var(--line);
 }
 
+.update-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .topbar-right {
   display: flex;
   align-items: center;

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { ApprovalState } from '../shared/approvals'
 import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
+import type { BuildInfo } from '../shared/buildInfo'
 import type { SpecCommand } from '../shared/completionSpec'
 import type {
   CredentialImportResult,
@@ -183,6 +184,15 @@ const bridge: PineBridge = {
       ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
     storageClear: (paneId, kind) =>
       ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
+  },
+  update: {
+    state: () => ipcRenderer.invoke('app:update-state') as Promise<BuildInfo | null>,
+    restart: () => ipcRenderer.invoke('app:restart') as Promise<void>,
+    onAvailable: (cb) => {
+      const handler = (_event: unknown, info: BuildInfo): void => cb(info)
+      ipcRenderer.on('app:update-available', handler)
+      return () => ipcRenderer.removeListener('app:update-available', handler)
+    },
   },
   credentials: {
     list: () => ipcRenderer.invoke('credentials:list') as Promise<CredentialSummary[]>,

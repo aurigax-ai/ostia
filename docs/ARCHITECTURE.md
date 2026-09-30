@@ -1324,6 +1324,17 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   `settings-write` approval), and a click is still the human's; why the trust prompt: an
   agent could otherwise label a button misleadingly over a command that types or
   destroys. `trustedActions` is not a `DATA_KEYS` key and is local-only in settings sync.
+- **Update detection** (`main/appUpdate.ts`, `scripts/build-info.mjs`, `stores/updateStore.ts`,
+  `UpdateNotice`): every build writes `{version, commit, builtAt}` to `out/build-info.json`,
+  which electron-builder copies next to the app as `resources/build-info.json`. A packaged app
+  reads it at start, then re-reads it every 30 s and on window focus; when the file on disk
+  names a different build (a reinstall with `pnpm install:local` replaced the app folder), main
+  sends `app:update-available` once per build. The top bar shows "Restart to update" (with
+  Later), and a desktop notification appears if the window isn't focused. Restart is
+  `app.relaunch()` + `app.quit()`, so the close guard still asks about running commands and
+  workspaces restore as usual. Why a file outside `app.asar`: Electron caches an archive's
+  header, so reading a replaced asar can return the old contents. Dev builds (`pnpm dev`) don't
+  watch.
 - **Saved passwords** (`main/credentials.ts`, `shared/credentials.ts`, `PasswordsSection`):
   `credentials.json` in the data dir holds `{id, origin, username, secret, updatedAt}` with
   `secret` = `safeStorage`-encrypted password. Entries key on the exact origin

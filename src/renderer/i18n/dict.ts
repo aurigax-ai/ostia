@@ -321,6 +321,12 @@ export const en = {
     sentCopied: 'Sent to {pane}. It was busy, so the report path is on your clipboard.',
     sendFailed: 'Could not send the report ({reason}).',
   },
+  update: {
+    title: '{product} was updated',
+    body: '{build} is installed. Restart to use it; your workspaces come back, running commands stop.',
+    restart: 'Restart to update',
+    later: 'Later',
+  },
   passwords: {
     title: 'Passwords',
     desc: 'Logins for sites you open in the browser pane, encrypted with your OS keyring. Each is saved for one exact site (scheme, host and port), so a look-alike domain never matches.',
@@ -1171,6 +1177,12 @@ export const zhHant: Dict = {
     sentInserted: '已傳送至 {pane}，報告路徑已放在提示字元。',
     sentCopied: '已傳送至 {pane}。該窗格忙碌中，報告路徑已複製到剪貼簿。',
     sendFailed: '無法傳送報告（{reason}）。',
+  },
+  update: {
+    title: '{product} 已更新',
+    body: '已安裝 {build}。重新啟動即可使用；工作區會還原，執行中的指令會停止。',
+    restart: '重新啟動以更新',
+    later: '稍後',
   },
   passwords: {
     title: '密碼',

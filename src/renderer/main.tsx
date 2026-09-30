@@ -23,6 +23,7 @@ import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { useSettingsStore } from './stores/settingsStore'
 import { useSystemThemeStore } from './stores/systemThemeStore'
+import { startUpdateWatch } from './stores/updateStore'
 import { useWorkspacesStore } from './stores/workspacesStore'
 
 registerBuiltinCommands()
@@ -60,6 +61,7 @@ async function boot(): Promise<void> {
   startHibernation()
   startApprovals()
   startUserActions()
+  startUpdateWatch()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(
