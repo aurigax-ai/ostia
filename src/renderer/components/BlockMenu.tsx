@@ -1,18 +1,22 @@
+import {
+  ArrowClockwiseIcon,
+  BookmarkSimpleIcon,
+  CopyIcon,
+  PaperPlaneTiltIcon,
+  SparkleIcon,
+} from '@phosphor-icons/react'
 import type { ReactElement } from 'react'
 import { useDict } from '../i18n/useDict'
+import { explainFailedBlock } from '../lib/askContext'
 import { copyBlock, rerunBlock } from '../lib/blockActions'
 import { isIdlePrompt } from '../lib/blocks'
 import { openSelectionSend } from '../lib/selectionSenders'
 import { terminalFor } from '../lib/terminalHandles'
+import { useAssistProvider } from '../stores/assistStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useWorkflowsStore } from '../stores/workflowsStore'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from './ui/context-menu'
+import { MenuContent, MenuItem } from './Menu'
+import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from './ui/context-menu'
 
 export function BlockMenu({
   paneId,
@@ -28,29 +32,34 @@ export function BlockMenu({
   const d = useDict()
   const idle = useBlocksStore((s) => isIdlePrompt(s, paneId))
   const command = useBlocksStore((s) => s.byPane[paneId]?.find((b) => b.id === blockId)?.command)
+  const failed = useBlocksStore((s) => {
+    const block = s.byPane[paneId]?.find((b) => b.id === blockId)
+    return Boolean(block?.endLine && block.exitCode !== null && block.exitCode !== 0)
+  })
+  const chat = useAssistProvider('chat')
   const select = (): void => useBlocksStore.getState().select(paneId, blockId)
 
   return (
     <ContextMenu>
       <ContextMenuTrigger render={trigger} onContextMenu={select} />
-      <ContextMenuContent
-        className="min-w-48"
+      <MenuContent
         finalFocus={() => {
           if (!onClosed) return true
           onClosed()
           return false
         }}
       >
-        <ContextMenuItem onClick={() => void copyBlock(paneId, 'command', blockId)}>
+        <MenuItem icon={CopyIcon} onClick={() => void copyBlock(paneId, 'command', blockId)}>
           {d.blocks.copyCommand}
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => void copyBlock(paneId, 'output', blockId)}>
+        </MenuItem>
+        <MenuItem icon={CopyIcon} onClick={() => void copyBlock(paneId, 'output', blockId)}>
           {d.blocks.copyOutput}
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => void copyBlock(paneId, 'both', blockId)}>
+        </MenuItem>
+        <MenuItem icon={CopyIcon} onClick={() => void copyBlock(paneId, 'both', blockId)}>
           {d.blocks.copyBoth}
-        </ContextMenuItem>
-        <ContextMenuItem
+        </MenuItem>
+        <MenuItem
+          icon={PaperPlaneTiltIcon}
           onClick={() => {
             select()
             terminalFor(paneId)?.clearSelection()
@@ -58,18 +67,36 @@ export function BlockMenu({
           }}
         >
           {d.blocks.sendOutput}
-        </ContextMenuItem>
+        </MenuItem>
+        {failed && chat ? (
+          <MenuItem
+            icon={SparkleIcon}
+            onClick={() =>
+              explainFailedBlock(paneId, blockId, {
+                prompt: d.ask.explainPrompt,
+                label: d.ask.context.error,
+              })
+            }
+          >
+            {d.ask.explain}
+          </MenuItem>
+        ) : null}
         <ContextMenuSeparator />
-        <ContextMenuItem disabled={!idle || !command} onClick={() => rerunBlock(paneId, blockId)}>
+        <MenuItem
+          icon={ArrowClockwiseIcon}
+          disabled={!idle || !command}
+          onClick={() => rerunBlock(paneId, blockId)}
+        >
           {d.blocks.rerun}
-        </ContextMenuItem>
-        <ContextMenuItem
+        </MenuItem>
+        <MenuItem
+          icon={BookmarkSimpleIcon}
           disabled={!command}
           onClick={() => useWorkflowsStore.getState().startSave(command ?? null)}
         >
           {d.blocks.saveAsWorkflow}
-        </ContextMenuItem>
-      </ContextMenuContent>
+        </MenuItem>
+      </MenuContent>
     </ContextMenu>
   )
 }

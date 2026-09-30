@@ -66,7 +66,16 @@ describe('parseTerminalSettings', () => {
       minimumContrast: 1,
       warnOnRiskyPaste: true,
       prompt: DEFAULT_TERMINAL_SETTINGS.prompt,
+      clipboardKeys: 'shift',
+      theme: 'match',
     })
+  })
+
+  it('keeps a picked color scheme and links an empty, oversized or non-string one', () => {
+    expect(parseTerminalSettings({ theme: ' nord ' }).theme).toBe('nord')
+    expect(parseTerminalSettings({ theme: '' }).theme).toBe('match')
+    expect(parseTerminalSettings({ theme: 42 }).theme).toBe('match')
+    expect(parseTerminalSettings({ theme: 'x'.repeat(81) }).theme).toBe('match')
   })
 
   it('keeps a valid off switch', () => {

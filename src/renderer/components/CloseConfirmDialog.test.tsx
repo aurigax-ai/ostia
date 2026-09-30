@@ -3,9 +3,15 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { LayoutNode } from '../layout/types'
-import { confirmQuit, requestClosePane, requestCloseWorkspace } from '../lib/closeConfirm'
+import {
+  confirmQuit,
+  quitGroups,
+  requestClosePane,
+  requestCloseWorkspace,
+} from '../lib/closeConfirm'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import { useCloseConfirmStore } from '../stores/closeConfirmStore'
+import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -161,6 +167,31 @@ describe('close confirmation', () => {
     expect(useLayoutStore.getState().byWorkspace.w1).toBeDefined()
   })
 
+  it('asks before closing an editor tab with unsaved changes', async () => {
+    seed(null)
+    const editor = {
+      type: 'pane',
+      id: 'p9',
+      title: 'main.rs',
+      kind: 'editor',
+      filePath: '/a/src/main.rs',
+    } as LayoutNode
+    useLayoutStore.setState({
+      byWorkspace: { w1: { root: editor, activePaneId: 'p9', zoomedPaneId: null } },
+    })
+    useEditorStatus.getState().setDirty('/a/src/main.rs', true)
+    render(<CloseConfirmDialog />)
+    const user = userEvent.setup()
+
+    const closing = requestClosePane('w1', 'p9')
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('main.rs has unsaved changes')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await closing
+    expect(useLayoutStore.getState().byWorkspace.w1).toBeDefined()
+    useEditorStatus.getState().setDirty('/a/src/main.rs', false)
+  })
+
   it('resolves the quit question from the dialog and lists every workspace with commands', async () => {
     seed('sleep 100')
     useBlocksStore.setState((s) => ({
@@ -175,7 +206,7 @@ describe('close confirmation', () => {
 
     let quit: Promise<boolean> = Promise.resolve(true)
     act(() => {
-      quit = confirmQuit()
+      quit = confirmQuit(quitGroups())
     })
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('sleep 100')
@@ -188,10 +219,10 @@ describe('close confirmation', () => {
   it('confirms quit immediately when the setting is off or nothing runs', async () => {
     seed('sleep 100')
     useSettingsStore.getState().setWorkspaces({ confirmQuit: false })
-    await expect(confirmQuit()).resolves.toBe(true)
+    await expect(confirmQuit(quitGroups())).resolves.toBe(true)
 
     useSettingsStore.getState().setWorkspaces({ confirmQuit: true })
     useBlocksStore.setState({ running: {} })
-    await expect(confirmQuit()).resolves.toBe(true)
+    await expect(confirmQuit(quitGroups())).resolves.toBe(true)
   })
 })

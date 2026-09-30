@@ -1,8 +1,15 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from '@playwright/test'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
+} from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { fakeAgentBin, startFakeAgent } from './fakeAgent'
 import { openWorkspace } from './helpers'
 
 const REPORT_REF = /@(\S*selection-\d+\.md)/
@@ -74,10 +81,15 @@ async function launchWithHome(
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
   for (const [name, body] of Object.entries(files)) writeFileSync(join(home, name), body)
+  const bin = fakeAgentBin(dataHome)
   const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
+  const app = await electron.launch({
+    ...launch,
+    env: { ...launch.env, HOME: home, PATH: `${bin}:${launch.env.PATH}` },
+  })
   const win = await app.firstWindow()
   await openWorkspace(win)
+  await startFakeAgent(win)
   return { app, win }
 }
 

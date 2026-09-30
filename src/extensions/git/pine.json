@@ -1,14 +1,19 @@
 {
   "id": "git",
   "name": "Git",
-  "version": "2.0.0",
-  "description": "Branch and changes per workspace and per terminal, a changes panel with stage, discard and commit, the commit log, blame, and diffs of changed files.",
+  "version": "2.1.0",
+  "description": "Branch and changes per workspace and per terminal, a changes panel with stage, discard and commit (flat list or folder tree), a commit graph of the current, all or chosen branches, blame, and diffs of changed files.",
   "capabilities": ["read-board"],
   "main": "main.js",
   "contributes": {
     "commands": [
       { "id": "show", "title": "Show Changes", "category": "Git", "capabilities": ["read-board"] },
-      { "id": "show-log", "title": "Show Log", "category": "Git", "capabilities": ["read-board"] },
+      {
+        "id": "show-graph",
+        "title": "Show Graph",
+        "category": "Git",
+        "capabilities": ["read-board"]
+      },
       {
         "id": "blame-file",
         "title": "Blame File",
@@ -95,6 +100,18 @@
         "type": "boolean",
         "default": true,
         "description": "Show the files changed and lines added and removed on each terminal"
+      },
+      "graphScope": {
+        "type": "enum",
+        "values": ["current", "all"],
+        "default": "current",
+        "description": "Branches the graph shows: the current branch, or all local and remote branches. Branches you choose in the panel for a repository take precedence"
+      },
+      "changesView": {
+        "type": "enum",
+        "values": ["list", "tree"],
+        "default": "list",
+        "description": "Show changed files as a flat list or as a folder tree"
       }
     }
   }

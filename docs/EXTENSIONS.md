@@ -3,10 +3,14 @@
 An extension is a directory with a `pine.json` manifest and, usually, a program pine starts for
 you. The program talks JSON-RPC to pine over the same control socket the `pine` CLI uses. That
 gives it palette and CLI commands, events, sidebar status items, pane chips, typed settings,
-notifications and a panel surface. The built-in Git, Trellis, Keeper and System (`src/extensions/`) use nothing else, so they
-are the reference implementations.
+encrypted secrets, the assist hook points (typo fix and prompt review, command suggestions, editor
+completions, the Ask conversation), notifications and a panel surface. The built-in Git, Trellis,
+Keeper, System and Assistant (`src/extensions/`) use nothing else, so they are the reference
+implementations.
 
 How it works inside pine: `docs/ARCHITECTURE.md` §11. Why it's out-of-process: `docs/ROADMAP.md` §2.
+If you only need to show something (a sidebar section, a panel with buttons), a
+[declarative view](#declarative-views-ui-without-a-process) is one JSON file and no process.
 
 ## Where extensions live
 
@@ -71,8 +75,54 @@ no sidebar items and no pane chips.
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
+| `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}`. Settings → Plugins shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
+| `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
+| `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
+
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`.
+
+## Icon themes
+
+`contributes.iconThemes` takes VS Code file icon themes as they ship in a `.vsix`, so a theme
+such as Material Icon Theme works without changes:
+
+1. Unzip the `.vsix` (it is a zip) and copy its `extension/` folder to
+   `~/.config/pine/extensions/<name>/`.
+2. Add a `pine.json` next to its `package.json`, pointing at the theme JSON the `package.json`
+   lists under `contributes.iconThemes[].path`:
+
+   ```json
+   {
+     "id": "material-icons",
+     "name": "Material Icon Theme",
+     "version": "5.0.0",
+     "contributes": {
+       "iconThemes": [
+         { "id": "material-icon-theme", "label": "Material Icon Theme", "path": "dist/material-icons.json" }
+       ]
+     }
+   }
+   ```
+
+3. Approve the extension when Pine asks, then pick the theme in Settings → Files → File icon
+   theme or the Files header's view options.
+
+What Pine reads from the theme JSON: `iconDefinitions` (entries with an `iconPath` to an SVG,
+PNG, JPEG, GIF or WebP file), `file`, `folder`, `folderExpanded`, `fileExtensions`, `fileNames`,
+`folderNames`, `folderNamesExpanded`, `languageIds`, and the same keys under `light` (used with a
+light Pine theme) and `highContrast`. A file resolves like VS Code: `fileNames`, then
+`fileExtensions` from the longest suffix (`d.ts` before `ts`), then `languageIds` (the VS Code
+language id of the name), then `file`; an open folder tries `folderNamesExpanded`, `folderNames`,
+`folderExpanded`, `folder`. Names match case-insensitively.
+
+Not supported: font icon themes (`fonts`, `fontCharacter` definitions are skipped),
+`rootFolder*` keys (Pine's tree has no root row), and `hidesExplorerArrows`.
+
+Main loads a theme only for an enabled extension and checks it: the theme JSON at most 4 MiB,
+each icon at most 512 KiB, all icons at most 48 MiB, every path inside the extension folder
+after resolving symlinks, and no symlinked file. Icons reach the renderer as `data:` URLs;
+the renderer never gets a path.
 
 ## Approval and capabilities
 
@@ -95,6 +145,7 @@ Your process gets:
 | `PINE_TOKEN` | This run's token (a new one on every start) |
 | `PINE_EXTENSION_ID` | Your `id` |
 | `PINE_EXTENSION_DIR` | Your directory |
+| `PINE_EXTENSION_DATA` | A folder for your own state (`<userData>/extension-data/<id>`); create it when you first write. It isn't synced. |
 
 Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 (`Content-Length: N\r\n\r\n<json>`); `vscode-jsonrpc` does this for Node. Then:
@@ -117,10 +168,14 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.setPaneChip` | `{paneId, id, text, tooltip?, tone?, command?, url?}` | Shows `text` (40 chars) as chip `id` (from your `contributes.paneChips`) on that pane's header; setting it again replaces the value. `paneId` is an external pane id (`caller.paneId`, `pane.list`, events). `tone`: as for sidebar items. `command`: one of your own palette commands; clicking the chip focuses the pane and runs it, so `caller.paneId` is that pane. `url` (http/https, instead of `command`): clicking the chip opens it in the browser pane of that pane's workspace. Empty `text` clears it. Chips vanish when the pane closes or your process stops; set them again after a restart. |
 | `ext.clearPaneChip` | `{paneId, id}` | Removes that chip. |
 | `ext.getSettings` | — | `{ok, values}`: every key of your `contributes.settings`, with the human's value when it is valid, else the default. You also get `settings.changed` (below) whenever the values change. |
+| `ext.setSetting` | `{key, value}` | Changes one of **your own** settings, for a control in your panel that mirrors it (Git's graph scope and changed-files view). Validated against your manifest exactly like Settings → Plugins (`unknown-setting`, `invalid-value`); `null` resets the key. Pine saves it in `settings.json`, shows it in Settings, and sends you `settings.changed`. Returns `{ok, values}`. You can't touch another extension's settings or any core setting. |
 | `ext.openDiff` | `{title, original, modified, language?, path?, workspaceId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that workspace, else the active one. Reuses the workspace's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
 | `workspace.list` | — | Needs `read-board`. `[{workspaceId, name, kind, workDir, state, activePaneId?}]`. |
 | `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, filePath?, running, blockCount, lastExitCode?, pid?}]`; `cwd` is the live shell cwd for terminals; `filePath` is the absolute path a file view (`kind: 'editor'`) shows, so a palette command can act on the file in the caller's pane; `pid` is the shell process of a terminal whose pty is running (absent for other kinds and for a hibernated pane). Its descendants are what the pane runs. They inherit pine's own open descriptors, so ignore sockets your parent process (pine) also holds. |
 | `ext.confirm` | `{title, message, detail?, confirmLabel?, cancelLabel?}` | Asks the human in a native dialog that names your extension; Cancel is the default. Returns `{ok, confirmed}`. Use it before anything that changes the user's files or data. It waits for the human: mark a command that calls it `interactive` so its caller waits too. If the human answers after the timeout anyway, finish the work they chose. |
+| `ext.getSecret` | `{key}` | `{ok, value}`: the value the human stored for one of your `contributes.secrets` keys, or `null`. Keep it in memory; don't log it. |
+| `ext.setAssistStatus` | `{status: {<point>: {ready, label?}}}` | Needs `assist`. Which of your assist points are usable right now and a short label naming the provider and model (`model-runtime · gemma`, 80 chars) that pine shows next to the feature. Only `ready` points are offered to the human. Call it at start and whenever your configuration changes. |
+| `ext.assistChunk` | `{requestId, text}` | Needs `assist`. One streamed delta of a `chat` answer (16 KiB max). Returns `{live}`; stop streaming when it is `false` (the human stopped or closed it). |
 | `ext.openTerminal` | `{command: string[], workspaceId?, afterPaneId?, cwd?, title?}` | Needs `shell`. Opens a **new** terminal pane right of `afterPaneId` (a pane id from `caller.paneId` or `pane.list`), else of the workspace's active pane (it becomes the first pane of an empty workspace), switches to that workspace, and runs `command` there once the shell shows its first prompt. Returns `{ok, paneId}`. `command` is an argv (1–64 strings, no control characters); pine quotes each argument for the shell, so pass data, never a shell string. `cwd` must be absolute. The command runs once, and never in an existing pane. Use it for things the human should watch or answer (sudo prompts), after `ext.confirm`. |
 
 `whoami` works too. Pane-scoped methods (`command.exec`, `pane.info`, `bus.*`, …) are refused
@@ -145,7 +200,7 @@ Errors: `needs-elevation: <cap>`, `needs-target: targetPaneId` (you left it out)
 extensions: it waits for the human's click.
 
 The SDK (`src/extensions/sdk/index.ts`, `connect()`) wraps all of this: `setPaneChip`,
-`clearPaneChip`, `getSettings`, `onSettingsChanged(values => …)`, `numberSetting(values, key,
+`clearPaneChip`, `getSettings`, `setSetting(key, value)`, `onSettingsChanged(values => …)`, `numberSetting(values, key,
 fallback, {min, max})` and `booleanSetting(values, key, fallback)` (read a value, clamped, with
 a fallback), `openPanel(workspaceId?, path?)`, `notifyPanel(title, body?, path?)`,
 `onPanel((caller, path) => ({url}))`, `callAs` and `setAttention`.
@@ -155,6 +210,7 @@ a fallback), `openPanel(workspaceId?, path?)`, `notifyPanel(title, body?, path?)
 | Method | Params | Reply |
 |---|---|---|
 | `ext.command` | `{command, args, caller}` | A result (below). 30 s timeout, 10 min for an `interactive` command. The CLI waits as long as pine does. |
+| `ext.assist` | `{point, requestId, input}` | The result for that point (below), or `{error, message?}` with `error` one of `unavailable`, `rate-limited`, `failed`, `cancelled`, `invalid`, `busy`. Carries a jsonrpc cancellation token: stop work when it fires. 30 s timeout, 5 min for `chat`. |
 | `ext.panel` | `{caller, path?}` | `{url}` for a `"url"` panel: must be `http://127.0.0.1:<port>/…` or `http://localhost:<port>/…`. `path` is present when the panel is opened or navigated to a path (`ext.openPanel {path}`, a notification with `openPanel: "/path"`); return the URL for it on the same origin. |
 
 And the notification `ext.event {type, payload}`:
@@ -167,7 +223,7 @@ And the notification `ext.event {type, payload}`:
 | `cwd.changed` | `{paneId, workspaceId, cwd}` |
 | `focus.changed` | `{focused}`: whether any pine window has focus. Assume focused at start; use it to pause polling while the user is elsewhere. |
 | `notification` | `{title, body?, from}` |
-| `settings.changed` | `{values}`: all your settings after the human changed one. Sent to every extension that contributes settings, without `ext.subscribe`. |
+| `settings.changed` | `{values}`: all your settings after the human changed one, or after the human changed one of your secrets (read it again with `ext.getSecret`). Sent without `ext.subscribe`. |
 
 `paneId` is always the external id agents see (`pine whoami`).
 
@@ -203,6 +259,26 @@ shows failures as a failed command. Anything else you return is wrapped as `{ok:
 Errors pine produces before reaching you: `unknown-extension`, `extension-disabled`,
 `unknown-command`, `needs-elevation` (message = the missing cap), `extension-unavailable`
 (didn't start, crashed, timed out).
+
+## Assist
+
+Pine draws the UI for four hook points and hands you the request; you own the model, the provider
+and the prompts. Nothing is sent to you until the human acts: every request comes from something
+they typed or clicked, and terminal output only when they switched a context chip on or asked to
+explain a failed block. Pine normalizes each request before you see it (size caps, known fields)
+and each result before the renderer sees it.
+
+| Point | Where the human sees it | `input` | Your result |
+|---|---|---|---|
+| `input` | The composer over an agent pane (Ctrl+Shift+J / ⌘J): a typo fix accepted with Tab, a prompt review on Ctrl+Enter | `{text, tasks: ('typos'\|'review')[], agent?}` | `{corrected?, review?: {score? (1-5), notes: string[] (≤5)}}` |
+| `command` | The composer at a shell prompt, and `# <what you want>` in the input editor | `{query, cwd?, shell?, platform?}` | `{suggestions: [{command, description?}]}` (≤3, inserted at the prompt only when the human picks one, never run) |
+| `completion` | Ghost text in the editor, accepted with Tab | `{path, language, prefix, suffix, neighbors?: [{path, text}]}` | `{text}`: only the insertion at the cursor |
+| `chat` | Ask in the palette (Tab), and "Explain error" on a failed block | `{messages: [{role, content}], context: [{kind, label, text}]}` | `{text}`, streamed with `ext.assistChunk` as it is produced |
+
+The SDK wraps it: `onAssist(async (point, input, {requestId, signal, chunk}) => result)`,
+`setAssistStatus(status)`, `getSecret(key)`, and `throw new AssistFailure('rate-limited')` for a
+typed failure. Debounce and rate-limit on your side too; pine debounces keystrokes and cancels
+stale requests.
 
 ## The CLI
 
@@ -337,6 +413,63 @@ The built-in `trellis` and `keeper` extensions are the reference for this. The p
 - `call(method, params)` reaches any other control method your identity may use, for example
   `workspace.list` to put an item on every workspace whose workDir belongs to the tool.
 
+## Declarative views: UI without a process
+
+When all you need is something for the human to look at (a sidebar section of agents and their
+state, a panel with a checklist, a few buttons that run palette commands), write a view instead
+of an extension. A view is one JSON file, `~/.config/pine/views/<name>.json` (`$XDG_CONFIG_HOME`
+is honored; `<name>` is lowercase `a-z0-9-`, up to 40 characters). It has no process, no HTML and
+no script: pine validates the file and draws it with its own components, bound to live data.
+
+```json
+{
+  "version": 1,
+  "title": "Agents",
+  "placement": "sidebar",
+  "icon": "robot",
+  "root": {
+    "type": "list", "for": "workspaces", "as": "ws", "empty": "No workspaces",
+    "item": {
+      "type": "row", "justify": "between",
+      "children": [
+        { "type": "text", "text": "{{ws.name}}", "truncate": true },
+        { "type": "badge", "text": "{{ws.unread}}", "tone": "warn", "if": "{{ws.unread}}" },
+        { "type": "button", "label": "Go", "variant": "ghost",
+          "action": { "command": "workspace.goto", "args": { "index": "{{ws.index}}" } } }
+      ]
+    }
+  }
+}
+```
+
+- **Placement.** `sidebar`: a collapsible section in the workspace rail, under the workspaces.
+  `panel`: a pane, opened from the palette ("Views: Open <title>") or with `pine view open <name>`.
+- **Components.** `stack`, `row`, `section`, `text`, `badge`, `icon` (a fixed list of Phosphor
+  icons), `list` (`for` a data path, `as` an item name), `button`, `link`, `progress`, `kv`,
+  `divider`. Every node may carry `if: "{{path}}"`. Unknown properties are errors.
+- **Data** (read-only, live): `workspace` (the current one), `workspaces`, `panes` (of the current
+  workspace, with their agent and attention), `ports` (from the Ports extension), `approvals`
+  (`{pending}`), `notifications` (newest 50), `clock` (`{now}`, ticking each second). A
+  workspace also carries `git`: the Git extension's sidebar text for it.
+- **Bindings.** `{{path | filter}}` inside strings: dot-separated names or indices only, own
+  properties only (`__proto__`, `constructor`, `prototype` are refused), missing paths render
+  empty. Filters: `upper`, `lower`, `count`, `not`, `relative`, `time`, `date`.
+- **Actions.** `{"command", "args"}` runs a palette command exactly like a user action in
+  `settings.json`: strings in `args` take bindings (a whole-string binding keeps its type), and a
+  command that needs a non-default capability asks the human first (Run once / Run and trust).
+  `{"openUrl"}` and `link` open http/https URLs in the workspace's browser pane; any other scheme
+  is refused when the file is read, and a binding that resolves to one draws a disabled control.
+- **Budget.** 200 nodes, 10 levels and a 64 KiB file when read; while drawing, 50 items per list
+  unless `limit` says fewer, and 1000 drawn nodes. Over budget, the last good render stays with a
+  note saying why.
+- **Approval.** A new file is pending: nothing is drawn until the human turns it on in
+  Settings → Views, which lists every file with its placement, errors (line and path) and a
+  reveal button. Agents can write files but can't enable them. Edits to an enabled view show
+  live; an edit that breaks it keeps the last version that worked on screen.
+- **Tools.** `pine view schema` prints the JSON Schema, `pine view validate <file>` prints one
+  `file:line: path: message` per problem (both work outside Pine), `pine view list` shows
+  each file's status.
+
 ## Built-in extensions
 
 `src/extensions/<id>/` holds `pine.json`, `main.ts` and optionally `panel.html`, `panel.ts`,
@@ -346,10 +479,11 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 
 | Id | What it does |
 |---|---|
-| `git` | Branch and change counts per workspace in the sidebar; `git.branch` (`main • ↑2 ↓1`, click opens the panel) and `git.diff-stats` (`3 • +12 -4`) chips on every terminal in a repo; a Git panel with Changes (stage, unstage, discard after `ext.confirm`, commit), Log (a commit's files open as diffs) and Blame pages ("Show Changes", "Show Log", "Blame File"); settings `pollSeconds`, `showDiffStats`; `pine git status|changes|diff|open|log|blame|stage|unstage|commit` (discard is panel only) |
+| `git` | Branch and change counts per workspace in the sidebar; `git.branch` (`main • ↑2 ↓1`, click opens the panel) and `git.diff-stats` (`3 • +12 -4`) chips on every terminal in a repo; a Git panel with Changes (stage, unstage, discard after `ext.confirm`, commit; flat list or folder tree), Graph (lanes, ref badges, an uncommitted-changes row, the current, all or chosen branches; a commit's files open as diffs) and Blame pages ("Show Changes", "Show Graph", "Blame File"); settings `pollSeconds`, `showDiffStats`, `graphScope`, `changesView` (the panel's controls write the last two with `ext.setSetting`); `pine git status|changes|diff|open|log|blame|stage|unstage|commit` (discard is panel only) |
 | `trellis` | The Trellis web UI as a panel on the workspace's project, open/claimed card counts per workspace, notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Init Project Here", `pine trellis status`. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
 | `ports` | Per workspace, the TCP ports its terminals' processes listen on as `:port` links that open in the browser pane, and the host of a foreground `ssh`; per terminal pane, a `ports` chip (click opens the first port) and an `ssh` chip with `user@host`. Polls only while pine is focused. `pine ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `pine system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `pine system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |
+| `assistant` | The assist points on a provider the human picks in its settings: `model-runtime` (the user's local runtime on `$XDG_RUNTIME_DIR/model-runtime.sock`, with load and unload in its panel), `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`; the API key is a secret. A fast model for typos, reviews, commands and completions, a chat model for Ask, a switch per feature and a requests-per-minute limit. Inert until a provider is chosen. "Assistant: Models" opens its panel with the provider's models |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications that open the approvals queue (Keeper has no per-ticket page), "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue. Settings: `notify`, `pollSeconds`, `idlePollSeconds` |
 
 Earlier versions also shipped `kanban` and `wiki` extensions. They were removed: boards, cards and

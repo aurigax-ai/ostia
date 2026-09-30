@@ -7,8 +7,11 @@ import type {
   SnapshotNode,
   SnapshotPaneNode,
   SnapshotSurfaceKind,
+  SnapshotWindow,
   SnapshotWorkspace,
+  WindowBounds,
 } from '../shared/types'
+import { VIEW_NAME } from '../shared/views'
 import { isWorkspaceGroupColor, normalizeGroupName } from '../shared/workspaceGroups'
 import { normalizeDescription } from '../shared/workspaceText'
 import { loadJson, saveJson, storePath } from './jsonStore'
@@ -19,6 +22,7 @@ const SNAPSHOT_VERSION = 1
 export const SCROLLBACK_CAP_BYTES = 131_072
 
 const MAX_WORKSPACES = 32
+const MAX_WINDOWS = 16
 const MAX_GROUPS = 32
 const CUSTOM_NAME_MAX = 120
 const MAX_PANES = 64
@@ -30,6 +34,7 @@ const SURFACE_KINDS: ReadonlySet<string> = new Set<SnapshotSurfaceKind>([
   'agent',
   'browser',
   'extension',
+  'view',
 ])
 const WORKSPACE_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal', 'scratch'])
 
@@ -54,7 +59,18 @@ function copyOptionalString(
   if (typeof value === 'string' && value.length > 0) dst[key] = value
 }
 
-function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode | null {
+interface ParseOptions {
+  hibernated: boolean
+}
+
+const SAVED: ParseOptions = { hibernated: false }
+
+function parseNode(
+  raw: unknown,
+  paneIds: string[],
+  depth: number,
+  opts: ParseOptions,
+): SnapshotNode | null {
   if (depth > MAX_DEPTH || !isRecord(raw)) return null
   const id = raw.id
   if (typeof id !== 'string' || id.length === 0) return null
@@ -72,9 +88,15 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     copyOptionalString(raw, pane, 'filePath')
     copyOptionalString(raw, pane, 'url')
     copyOptionalString(raw, pane, 'extensionId')
+    if (typeof raw.viewName === 'string' && VIEW_NAME.test(raw.viewName)) {
+      pane.viewName = raw.viewName
+    }
     const resume = parseAgentResume(raw.resume)
     if (resume) pane.resume = resume
+    if (resume && raw.agentRunning === true) pane.agentRunning = true
+    if (opts.hibernated && resume && raw.hibernated === true) pane.hibernated = true
     if (pane.kind === 'extension' && !pane.extensionId) return null
+    if (pane.kind === 'view' && !pane.viewName) return null
     paneIds.push(id)
     return pane
   }
@@ -84,7 +106,7 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     const tabs: SnapshotPaneNode[] = []
     for (const child of raw.children) {
       if (!isRecord(child) || child.type !== 'pane') return null
-      const parsed = parseNode(child, paneIds, depth + 1)
+      const parsed = parseNode(child, paneIds, depth + 1, opts)
       if (!parsed || parsed.type !== 'pane') return null
       tabs.push(parsed)
     }
@@ -98,7 +120,7 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
   const direction = raw.direction === 'vertical' ? 'vertical' : 'horizontal'
   const children: SnapshotNode[] = []
   for (const child of raw.children) {
-    const parsed = parseNode(child, paneIds, depth + 1)
+    const parsed = parseNode(child, paneIds, depth + 1, opts)
     if (!parsed) return null
     children.push(parsed)
   }
@@ -135,70 +157,161 @@ function parseGroups(raw: unknown): SnapshotGroup[] {
   return groups
 }
 
+interface Claims {
+  panes: Set<string>
+  workspaces: Set<string>
+}
+
+function parseWorkspace(
+  entry: unknown,
+  knownGroups: SnapshotGroup[],
+  claims: Claims,
+  opts: ParseOptions,
+): SnapshotWorkspace | null {
+  if (!isRecord(entry)) return null
+  const id = entry.id
+  if (typeof id !== 'string' || id.length === 0 || claims.workspaces.has(id)) return null
+
+  const paneIds: string[] = []
+  const root = entry.root === undefined ? undefined : parseNode(entry.root, paneIds, 0, opts)
+  if (root === null) return null
+  if (root && paneIds.length === 0) return null
+  if (new Set(paneIds).size !== paneIds.length) return null
+  if (paneIds.some((p) => claims.panes.has(p))) return null
+  const customName =
+    typeof entry.customName === 'string' ? entry.customName.trim().slice(0, CUSTOM_NAME_MAX) : ''
+
+  const workDir = typeof entry.workDir === 'string' && entry.workDir ? entry.workDir : '~'
+  const description = normalizeDescription(entry.description)
+  claims.workspaces.add(id)
+  for (const p of paneIds) claims.panes.add(p)
+  return {
+    id,
+    name: typeof entry.name === 'string' && entry.name ? entry.name : 'workspace',
+    ...(customName ? { customName } : {}),
+    ...(description ? { description } : {}),
+    ...(entry.pinned === true ? { pinned: true } : {}),
+    ...(entry.pinned !== true && knownGroups.some((g) => g.id === entry.groupId)
+      ? { groupId: entry.groupId as string }
+      : {}),
+    kind:
+      typeof entry.kind === 'string' && WORKSPACE_KINDS.has(entry.kind)
+        ? (entry.kind as SnapshotWorkspace['kind'])
+        : 'terminal',
+    workDir,
+    ...(typeof entry.projectDir === 'string' && entry.projectDir
+      ? { projectDir: entry.projectDir.slice(0, 4096) }
+      : {}),
+    ...(root
+      ? {
+          root,
+          activePaneId:
+            typeof entry.activePaneId === 'string' && paneIds.includes(entry.activePaneId)
+              ? entry.activePaneId
+              : paneIds[0],
+        }
+      : {}),
+  }
+}
+
+function parseWorkspaceList(
+  raw: unknown[],
+  knownGroups: SnapshotGroup[],
+  claims: Claims,
+  opts: ParseOptions,
+  limit: number,
+): SnapshotWorkspace[] {
+  const workspaces: SnapshotWorkspace[] = []
+  for (const entry of raw) {
+    if (workspaces.length >= limit) break
+    const parsed = parseWorkspace(entry, knownGroups, claims, opts)
+    if (parsed) workspaces.push(parsed)
+  }
+  return workspaces
+}
+
+function activeOf(raw: unknown, workspaces: SnapshotWorkspace[]): string | null {
+  return typeof raw === 'string' && workspaces.some((w) => w.id === raw)
+    ? raw
+    : (workspaces[0]?.id ?? null)
+}
+
+const BOUNDS_MIN = 100
+const BOUNDS_MAX = 100_000
+
+export function parseBounds(raw: unknown): WindowBounds | null {
+  if (!isRecord(raw)) return null
+  const { x, y, width, height } = raw
+  const coords = [x, y].every(
+    (n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= BOUNDS_MAX,
+  )
+  const sizes = [width, height].every(
+    (n) => typeof n === 'number' && Number.isFinite(n) && n >= BOUNDS_MIN && n <= BOUNDS_MAX,
+  )
+  if (!coords || !sizes) return null
+  return {
+    x: Math.round(x as number),
+    y: Math.round(y as number),
+    width: Math.round(width as number),
+    height: Math.round(height as number),
+  }
+}
+
+const WINDOW_ID = /^[A-Za-z0-9-]{1,40}$/
+
+function parseWindows(raw: unknown, claims: Claims, budget: number): SnapshotWindow[] {
+  if (!Array.isArray(raw)) return []
+  const windows: SnapshotWindow[] = []
+  let left = budget
+  for (const entry of raw) {
+    if (windows.length >= MAX_WINDOWS || left <= 0) break
+    if (!isRecord(entry) || !Array.isArray(entry.workspaces)) continue
+    const id = entry.id
+    const bounds = parseBounds(entry.bounds)
+    if (typeof id !== 'string' || !WINDOW_ID.test(id) || !bounds) continue
+    if (windows.some((w) => w.id === id)) continue
+    const workspaces = parseWorkspaceList(entry.workspaces, [], claims, SAVED, left)
+    if (workspaces.length === 0) continue
+    left -= workspaces.length
+    windows.push({
+      id,
+      bounds,
+      activeWorkspaceId: activeOf(entry.activeWorkspaceId, workspaces),
+      workspaces,
+    })
+  }
+  return windows
+}
+
 export function parseSnapshot(raw: unknown): AppSnapshot | null {
   if (!isRecord(raw) || raw.v !== SNAPSHOT_VERSION || !Array.isArray(raw.workspaces)) return null
   const knownGroups = parseGroups(raw.groups)
-
-  const workspaces: SnapshotWorkspace[] = []
-  const claimedPaneIds = new Set<string>()
-  const claimedWorkspaceIds = new Set<string>()
-
-  for (const entry of raw.workspaces) {
-    if (workspaces.length >= MAX_WORKSPACES) break
-    if (!isRecord(entry)) continue
-    const id = entry.id
-    if (typeof id !== 'string' || id.length === 0 || claimedWorkspaceIds.has(id)) continue
-
-    const paneIds: string[] = []
-    const root = entry.root === undefined ? undefined : parseNode(entry.root, paneIds, 0)
-    if (root === null) continue
-    if (root && paneIds.length === 0) continue
-    if (new Set(paneIds).size !== paneIds.length) continue
-    if (paneIds.some((p) => claimedPaneIds.has(p))) continue
-    const customName =
-      typeof entry.customName === 'string' ? entry.customName.trim().slice(0, CUSTOM_NAME_MAX) : ''
-
-    const workDir = typeof entry.workDir === 'string' && entry.workDir ? entry.workDir : '~'
-    const description = normalizeDescription(entry.description)
-    workspaces.push({
-      id,
-      name: typeof entry.name === 'string' && entry.name ? entry.name : 'workspace',
-      ...(customName ? { customName } : {}),
-      ...(description ? { description } : {}),
-      ...(entry.pinned === true ? { pinned: true } : {}),
-      ...(entry.pinned !== true && knownGroups.some((g) => g.id === entry.groupId)
-        ? { groupId: entry.groupId as string }
-        : {}),
-      kind:
-        typeof entry.kind === 'string' && WORKSPACE_KINDS.has(entry.kind)
-          ? (entry.kind as SnapshotWorkspace['kind'])
-          : 'terminal',
-      workDir,
-      ...(root
-        ? {
-            root,
-            activePaneId:
-              typeof entry.activePaneId === 'string' && paneIds.includes(entry.activePaneId)
-                ? entry.activePaneId
-                : paneIds[0],
-          }
-        : {}),
-    })
-    claimedWorkspaceIds.add(id)
-    for (const p of paneIds) claimedPaneIds.add(p)
-  }
-
-  const activeWorkspaceId =
-    typeof raw.activeWorkspaceId === 'string' && claimedWorkspaceIds.has(raw.activeWorkspaceId)
-      ? raw.activeWorkspaceId
-      : (workspaces[0]?.id ?? null)
+  const claims: Claims = { panes: new Set(), workspaces: new Set() }
+  const workspaces = parseWorkspaceList(raw.workspaces, knownGroups, claims, SAVED, MAX_WORKSPACES)
+  const windows = parseWindows(raw.windows, claims, MAX_WORKSPACES - workspaces.length)
   return {
     v: SNAPSHOT_VERSION,
     savedAt: typeof raw.savedAt === 'string' ? raw.savedAt : '',
-    activeWorkspaceId,
+    activeWorkspaceId: activeOf(raw.activeWorkspaceId, workspaces),
     workspaces,
     groups: knownGroups.filter((g) => workspaces.some((w) => w.groupId === g.id)),
+    ...(windows.length > 0 ? { windows } : {}),
   }
+}
+
+export function parseHandoff(raw: unknown): SnapshotWorkspace | null {
+  const claims: Claims = { panes: new Set(), workspaces: new Set() }
+  return parseWorkspace(raw, [], claims, { hibernated: true })
+}
+
+export function handoffPaneIds(workspace: SnapshotWorkspace): string[] {
+  const ids: string[] = []
+  const walk = (node: SnapshotNode): void => {
+    if (node.type === 'pane') ids.push(node.id)
+    else for (const child of node.children) walk(child)
+  }
+  if (workspace.root) walk(workspace.root)
+  return ids
 }
 
 export function saveSnapshot(snapshot: AppSnapshot): void {

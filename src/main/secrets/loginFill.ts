@@ -1,8 +1,6 @@
 import type { ApprovalOutcome } from '../../shared/approvals'
 import { normalizeOrigin } from '../../shared/credentials'
 
-export const FILL_WORLD_ID = 1026
-
 export interface FillGuest {
   url: () => string
   fill: (username: string, password: string) => Promise<boolean>

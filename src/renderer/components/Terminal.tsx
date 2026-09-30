@@ -18,6 +18,9 @@ import {
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
+import { smartClipboardAction } from '../lib/clipboardKeys'
+import { currentScheme, useScheme } from '../lib/colorScheme'
+import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
@@ -27,7 +30,6 @@ import { registerSelectionSender } from '../lib/selectionSenders'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
-import { DEFAULT_DARK_THEME, currentTheme, useEffectiveTheme } from '../lib/theme'
 import { loadWebglRenderer } from '../lib/webglRenderer'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import {
@@ -43,16 +45,16 @@ import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { AssistComposer } from './AssistComposer'
 import { Blocks } from './Blocks'
 import { InputEditor } from './InputEditor'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import { useSelectionSend } from './SelectionSend'
 import { TerminalFind, findOptions } from './TerminalFind'
 import { isPromptRepaint, nextSizeAction } from './terminalSizing'
-import { terminalPalette } from './terminalTheme'
 
 const MONO_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
-const fontStack = (family: string): string => `"${family}", ${MONO_FALLBACK}`
+export const fontStack = (family: string): string => `"${family}", ${MONO_FALLBACK}`
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 
 export function TerminalView({
@@ -73,7 +75,7 @@ export function TerminalView({
   const font = useSettingsStore((s) => s.appearance.terminal)
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
-  const themeId = useEffectiveTheme()?.id ?? DEFAULT_DARK_THEME
+  const palette = useScheme('terminal').colors
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
@@ -83,7 +85,7 @@ export function TerminalView({
   const [findOpen, setFindOpen] = useState(false)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
-  const searchOptions = useMemo(() => findOptions(terminalPalette(themeId)), [themeId])
+  const searchOptions = useMemo(() => findOptions(palette), [palette])
   const selectionSend = useSelectionSend(workspaceId, paneId)
   const sendSelectionRef = useRef<() => void>(() => {})
   sendSelectionRef.current = () => {
@@ -112,7 +114,7 @@ export function TerminalView({
     const behavior = useSettingsStore.getState().behavior
     const terminalSettings = useSettingsStore.getState().terminal
     const term = new Xterm({
-      theme: terminalPalette(currentTheme()?.id ?? DEFAULT_DARK_THEME),
+      theme: currentScheme('terminal').colors,
       fontFamily: fontStack(initial.family),
       fontSize: initial.size,
       fontWeight: initial.weight as FontWeight,
@@ -194,6 +196,23 @@ export function TerminalView({
         if (e.type === 'keydown') blocks.select(paneId, null)
         return false
       }
+      const smart = smartClipboardAction(
+        e,
+        useSettingsStore.getState().terminal.clipboardKeys,
+        term.hasSelection(),
+        isMac,
+      )
+      if (smart) {
+        if (e.type !== 'keydown') return false
+        e.preventDefault()
+        if (smart === 'copy') {
+          void navigator.clipboard.writeText(term.getSelection())
+          term.clearSelection()
+        } else {
+          void navigator.clipboard.readText().then(requestPaste)
+        }
+        return false
+      }
       const chord = matchChord(e, isMac)
       if (!chord) {
         const editor = inputEditorFor(paneId)
@@ -262,6 +281,7 @@ export function TerminalView({
       if (long) {
         window.pine.notifications.post({
           paneId,
+          kind: exitCode === 0 ? 'done' : 'error',
           title,
           body,
           desktop: wantsDesktopBanner(
@@ -282,6 +302,7 @@ export function TerminalView({
       })
       window.pine.notifications.post({
         paneId,
+        kind: 'message',
         title: n.title,
         body: n.body,
         desktop: wantsDesktopBanner(
@@ -606,8 +627,8 @@ export function TerminalView({
   useEffect(() => {
     const term = termRef.current
     if (!term) return
-    term.options.theme = terminalPalette(themeId)
-  }, [themeId])
+    term.options.theme = palette
+  }, [palette])
 
   useEffect(() => {
     const term = termRef.current
@@ -651,11 +672,26 @@ export function TerminalView({
     term.write(scrollUpSequence(term.rows, buf.cursorY, buf.cursorX, rows))
   }
 
-  const palette = terminalPalette(themeId)
   const background = palette.background
 
   return (
-    <div ref={surfaceRef} className="terminal-surface">
+    <div
+      ref={surfaceRef}
+      className="terminal-surface"
+      onDragOver={(e) => {
+        if (!acceptsPathDrop([...e.dataTransfer.types])) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+      }}
+      onDrop={(e) => {
+        if (!acceptsPathDrop([...e.dataTransfer.types])) return
+        e.preventDefault()
+        const text = pathsAsInput(droppedPaths(e.dataTransfer))
+        if (!text) return
+        pasteRef.current(text)
+        termRef.current?.focus()
+      }}
+    >
       <div className="terminal-stack">
         <div ref={hostRef} className="xterm-host" style={{ background }} />
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />
@@ -678,6 +714,7 @@ export function TerminalView({
           onShellKeys={sendShellKeys}
           onNeedRows={makeRows}
         />
+        <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
         {findOpen && search && (
           <TerminalFind
             search={search}

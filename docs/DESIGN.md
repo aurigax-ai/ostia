@@ -56,23 +56,34 @@ values inline on `<html>` at runtime (`lib/theme.ts` `applyTheme`, which also se
 show for the first frame before that runs.
 
 **Themes**: `adeberry` (default, a port of Warp's Adeberry), `one-dark-vivid`, `instrument-night`,
-`dracula`, `oxocarbon`, and the only light theme, `pine-light`.
+`dracula`, `oxocarbon`, and the only light theme, `pine-light`. Each names a color scheme
+(`colorScheme`) of the same id, so picking a theme also gives the terminal and the editor
+matching colors (section "Three color axes" below).
 
 `pine-light` values: `--bg` `#f6f7f9`, `--bg-sunken` `#eceef2`, `--surface-1/2/3` `#ffffff` /
 `#f0f2f5` / `#e6e9ee`, `--line` / `--line-strong` `rgba(0,0,0,.09)` / `.16`, `--fg` `#1c2127`,
 `--fg-muted` `#4f5866`, `--fg-dim` `#6b7280`, `--brand` / `--brand-bright` `#0b62c4` / `#084b96`,
 `--attn` / `--attn-fg` `#b3382c` / `#a12f24`, `--ok` / `--add` `#15703f`, `--del` `#b3382c`. Its
-terminal palette (`#fbfcfd` background) and the `pine-light` Monaco theme are tuned so every
-text color reads at 4.5:1 or better (checked in `plugins/builtin.test.ts` and
-`components/terminalTheme.test.ts`). Scrollbar thumbs derive from `--line-strong` / `--fg`, so
+`pine-light` color scheme (`#fbfcfd` background) is tuned so every ANSI text color reads at 4.5:1
+or better (checked in `plugins/builtin.test.ts`). Scrollbar thumbs derive from `--line-strong` / `--fg`, so
 they work on both appearances.
 
 **Appearance settings.** `appearance.followSystem` switches between `lightTheme` and
 `darkTheme` with the OS (main pushes `nativeTheme` changes; `systemThemeStore`). Off, `theme`
 applies. `appearance.accent` (`#rgb`/`#rrggbb`, validated by `lib/color.ts`) replaces `--brand`
-and derives `--brand-bright`, `--brand-glow` and the button text `--primary-foreground`; a
-color that would fall below 4.5:1 on the theme's `--bg` is darkened (light) or lightened (dark)
-until it reads. `appearance.zoom` (80 to 150, Ctrl/Cmd `=`, `-`, `0`) scales the window through
+and derives `--brand-bright` and `--brand-glow`; a color that would fall below 4.5:1 on the
+theme's `--bg` is darkened (light) or lightened (dark) until it reads. Text on a brand fill is
+always `--on-brand` (`--color-on-brand`, computed for every theme, with or without an accent,
+by `readableOn`): the theme's `--bg` if it reads at 4.5:1 on the brand, else its `--fg`, else
+near-black or white. So a light accent such as `#f2b347` on a dark theme gets dark text, and the
+same accent on `pine-light` (darkened to read on the light background) gets light text.
+`--primary-foreground` and `--sidebar-primary-foreground` point at it, so every primary button,
+badge, checked switch and radio uses it. Everything that marks active, selected or working reads
+`--brand` (or `--primary`, `--ring`, `--focus-border`, `--sidebar-primary`, which point at it):
+focus rings, the active pane tab's underline, the working dot, drop indicators, block gutter
+bars, pane chips. With a linked terminal or editor scheme the accent is also the cursor color.
+Settings → Appearance shows the preset swatches plus a custom swatch (a native color input)
+that is filled with the accent only when the accent is not a preset. `appearance.zoom` (80 to 150, Ctrl/Cmd `=`, `-`, `0`) scales the window through
 `webContents.setZoomFactor`.
 
 Adeberry values:
@@ -96,7 +107,11 @@ Workspace group colors are a separate label palette: `--group-red`, `--group-ora
 `--group-yellow`, `--group-green`, `--group-teal`, `--group-blue`, `--group-purple`,
 `--group-pink` (primitives `--color-group-*`, One Dark hues by default; a theme may remap them).
 They only tint a group's swatch and its member rule, never text or state; the group's name
-always carries its identity.
+always carries its identity. The one other use is the Git graph's lanes (`--lane-0..7` in the
+git panel, each group hue mixed 72% with `--fg` so it holds contrast on light and dark themes):
+a lane color only tells branches apart, and the ref badge names the branch. Panels get the
+palette as `--group-*` from the SDK's base CSS. Uncommitted work in the graph is drawn dashed
+and hollow, never by color alone.
 
 Elevation: `bg-sunken` < `bg` < `surface-1` < `surface-2` < `surface-3`. In the dark theme,
 elevation comes from lightness, not shadow; shadows are only for overlays. Every theme keeps
@@ -104,11 +119,56 @@ elevation comes from lightness, not shadow; shadows are only for overlays. Every
 `surface-1` (enforced in `plugins/builtin.test.ts`). `--fg-dim` is never text. `<html>` carries
 `class="dark"` so shadcn `dark:` variants apply.
 
-Three surfaces take their colors from different places. The UI uses the CSS tokens. The terminal
-uses `components/terminalTheme.ts`, because xterm draws to canvas and can't read CSS variables;
-only Adeberry, One Dark Vivid and Pine Light have palettes there. The editor uses the Monaco
-themes `one-dark-vivid` (dark themes) and `pine-light` (light themes). Changing a theme's colors means updating `builtin.ts` and `terminalTheme.ts`
-together.
+### Three color axes
+
+Three surfaces take their colors from different places, one setting each:
+
+| Axis | Setting | Source |
+|---|---|---|
+| UI (sidebar, tabs, menus, dialogs) | `appearance.theme` (+ `followSystem`, `lightTheme`, `darkTheme`) | the theme's CSS tokens |
+| Terminal | `terminal.theme` | a color scheme: 16 ANSI colors + background, foreground, cursor, cursor text, selection |
+| Editor (Monaco, diff) | `editor.theme` | Monaco theme derived from a color scheme |
+
+`terminal.theme` and `editor.theme` are `"match"` by default: linked to the Pine theme, they use
+the scheme the effective theme names, so they follow the light/dark switch too. Turning off
+"Match pine theme" on a row stores the scheme then in use and shows a searchable picker (each
+entry shows its background and six ANSI hues); from then on that axis keeps its scheme whatever
+the theme is. An unknown scheme id falls back to the linked scheme. Settings → Appearance shows a
+live preview under the rows: a terminal sample (prompt, pass/fail/warn lines, all 16 ANSI
+swatches) in the terminal scheme and a code sample in the editor scheme, drawn with the same
+colors the terminal and Monaco get.
+
+The editor theme is derived, not hand-written (`monaco/monacoTheme.ts`): keywords magenta,
+strings green, functions blue, types yellow, numbers and constants a red/yellow mix, variables and
+tags red, operators cyan, comments bright black in italics. Every token color is lifted to 4.5:1
+on the background (comments and line numbers to 3:1) with `ensureContrast`, so faint ANSI
+colors (Solarized's yellow, a bright black equal to the background) still read.
+
+Color schemes (`plugins/colorSchemes.ts`, contributed by the `pine.themes` plugin as
+`contributes.colorSchemes`; a plugin can add more the same way):
+
+| Scheme | Source |
+|---|---|
+| Adeberry | Warp's built-in Adeberry theme, sampled from the Warp app |
+| One Dark Vivid, Instrument Night, Pine Light | Pine's own |
+| Dracula, Oxocarbon | Ghostty theme files (mbadolato/iTerm2-Color-Schemes, `ghostty/`) |
+| Catppuccin Mocha, Macchiato, Frappé, Latte | Ghostty theme files |
+| Tokyo Night, Tokyo Night Day | Ghostty `TokyoNight`, `TokyoNight Day` |
+| Gruvbox Dark, Gruvbox Light | Ghostty theme files (the same values as warpdotdev/themes `gruvbox_*.yaml`) |
+| Nord | Ghostty theme file |
+| Solarized Dark | Ghostty `iTerm2 Solarized Dark` (Warp's copy has bright black equal to the background) |
+| Solarized Light | warpdotdev/themes `solarized_light.yaml` (foreground base01; the iTerm2 base00 reads at 4.1:1) |
+| Rosé Pine, Rosé Pine Dawn | Ghostty `Rose Pine`, `Rose Pine Dawn` |
+| Kanagawa Wave | Ghostty theme file |
+| Everforest Dark, Everforest Light | Ghostty `Everforest Dark Hard`, `Everforest Light Med` |
+| GitHub Dark, GitHub Light | Ghostty `GitHub Dark Default`, `GitHub Light Default` |
+| One Half Light | Ghostty `One Half Light` (Atom One Light's syntax colors) |
+| Monokai Classic | Ghostty `Monokai Classic`, cmux's built-in default terminal theme |
+
+Every scheme has all 16 ANSI colors and a foreground at 4.5:1 or better on its background
+(`plugins/colorSchemes.test.ts`). Oxocarbon's selection text is its foreground (the file's
+`#626262` was unreadable on its selection). Changing a Pine theme's colors means updating
+`builtin.ts` and, when its terminal should change too, its scheme in `colorSchemes.ts`.
 
 ## 4. Typography
 
@@ -182,8 +242,26 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
     dropping onto the lower half of a header highlights it (`--brand-glow` + 1px `--brand`
     inset) and means "into this group". While dragging, the empty space below the list is a drop
     zone for "last, ungrouped".
+  - **Workspaces in other windows** follow the main window's own rows, in window order: same row
+    layout, the kind icon replaced by `AppWindowIcon` (the "in another window" mark), the state
+    dot kept, the folder as the meta line, no close button and never an active highlight. A
+    click focuses their window; the context menu offers Show window and Move back to main
+    window. They take the next workspace digits, so Ctrl/⌘+1..9 reach them.
+- **Detached window** (`DetachedTitleBar.tsx`): no sidebar and no top-bar tools. The bar holds
+  only a Move back to main window icon button (`ArrowSquareInIcon`) on the left, the project name
+  centered (`ui-base`/600, `fg`, truncated) and the window controls; all of it is the drag
+  region. The work area below is the same split tree.
 - **Files panel** (`FilesPanel.tsx`): a 260px column to the right of the sidebar, toggled from the
   top bar. It shows the active workspace's focused pane cwd, so switching workspaces switches it.
+  Its header holds three row-size `IconButton`s, right-aligned: the eye (show hidden files,
+  `aria-pressed`), view options (a `DropdownMenu` from `Menu.tsx`: compact folders, nesting,
+  show hidden files, sort, icon theme) and close. Every option is also in Settings → Files.
+  Hidden rows shown by the eye are dimmed to 55% opacity. A compact folder row joins its names
+  with a muted `/`. A nesting parent has a twisty: the twisty or ArrowRight/ArrowLeft expands
+  it, a click on the name opens the file.
+  - **File icons**: Pine's own are Phosphor at 14px, tinted per type (`fileIcon.ts`). A VS Code
+    icon theme an extension contributes replaces them with its own images at 16px. These are
+    the user's content, the one place non-Phosphor icons appear in the app's chrome.
 - **Cursor**: the normal arrow everywhere, like a desktop app. No pointer or grab cursors.
 - **Work area**: the active workspace's split tree, rendered with Allotment. Each pane is an
   elevated surface with a header (title, split right, split down, close). The header is also the
@@ -285,9 +363,26 @@ Attention, the second loud element, appears only when a pane needs you:
   above the line, or below it when the prompt is in the upper half. The vim badge sits at the
   right end of the line. It appears and disappears without animation (§8 Motion).
 
+- **Declarative views** (`DeclarativeView.tsx`): an agent's JSON is drawn only with these
+  components, so it can't look foreign. Sidebar views sit under the workspaces in `.rail-views`
+  (a `--line` rule above), each headed like `.rail-section` (`ui-xs`/500 uppercase `fg-muted`,
+  caret + icon, collapsible) with the body indented to the title; the rail uses `xs` buttons and
+  12px icons, a panel uses `sm` buttons and 14px icons on `surface-1`, max 760px wide. Tones map
+  to tokens only (`neutral` fg, `muted` fg-muted, `brand`, `ok`, `warn`/`error` attn-fg); icons
+  never take `brand`. Badges are outline, 16px high, tone-colored text and border. Progress is
+  the shadcn bar on a `surface-3` track. Problems (over budget, a broken file showing its last
+  good version) are one compact attention alert above the view, never a replaced view.
+
 Consolidation debt:
-- Primitives still missing: DropdownMenu. ContextMenu (`components/ui/context-menu.tsx`) backs
-  the block menu.
+- Primitives still missing: DropdownMenu.
+
+**Context menus** go through `components/Menu.tsx` (`MenuContent`, `MenuItem`, `MenuSubTrigger`,
+`MenuSubContent`, `MenuRadioItem`) over the shadcn ContextMenu, never the raw `ContextMenuItem`:
+`ui-base` labels, 28px rows, a fixed 14px leading column (a Phosphor icon, a state dot or color
+chip, or empty space) so every label shares one left edge, and right-aligned `ui-xs` hints only
+for real chords. Order groups open → reveal → copy → send, then destructive last after a
+separator. The row a menu belongs to shows it with `[data-popup-open]` (surface-2 plus a
+`--line-strong` inset for tree rows). Empty submenus say why in one disabled row.
 
 ## 8. Interaction and accessibility
 

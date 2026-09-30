@@ -34,6 +34,10 @@ const CLI_HELP = `pine — control-socket CLI
   pine workflow show <name> [--json]
                                  one workflow's command, arguments and defaults (read-only;
                                  fill the {{placeholders}} and run the command yourself)
+  pine view schema               JSON Schema of a view file (~/.config/pine/views/<name>.json)
+  pine view validate <file>      check a view file: file:line: path: message, exit 1 on problems
+  pine view list [--json]        view files and their status (pending until the human enables)
+  pine view open <name>          open an enabled panel view as a pane in this workspace
   pine process run "<cmd>" [--name X] [--cwd P]   start a tracked background process
   pine process ls                                 list tracked processes
   pine process logs <id|name> [--since N]         print captured output
@@ -113,6 +117,17 @@ const CLI_HELP = `pine — control-socket CLI
                                   optional JSON-encoded args blob
 `
 
+export const MANAGER_HELP = `
+
+  Manager only (you are the manager):
+  pine manager read <paneId> [--lines N]     a pane's screen as plain text (default 200 lines)
+  pine manager spawn <preset> [--cwd DIR] [--workspace ID] [--name NAME] [-- args…]
+                                  start a worker agent in a new terminal pane; prints its paneId
+  pine manager input <paneId> [--text TEXT] [--key KEY]…
+                                  type into another pane (only with manager.allowInput on);
+                                  keys: enter tab escape backspace up down left right ctrl-c ctrl-d
+`
+
 export function extensionHelp(
   extensions: Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[],
 ): string {
@@ -132,8 +147,8 @@ export function registerDocsMethods(deps: {
   extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[]
 }): void {
   registerControlMethod('docs', {
-    handler: () => ({
-      cli: `${CLI_HELP}${extensionHelp(deps.extensions())}`,
+    handler: (_params, ctx) => ({
+      cli: `${CLI_HELP}${extensionHelp(deps.extensions())}${ctx.identity.manager ? MANAGER_HELP : ''}`,
       note: 'run `pine commands --json` for the machine-readable command list',
     }),
   })

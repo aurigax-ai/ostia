@@ -12,7 +12,7 @@ export const APPROVAL_TIMEOUT_MS = 90_000
 export const APPROVAL_HISTORY_MAX = 100
 export const APPROVAL_DETAIL_MAX = 600
 
-export const ALWAYS_ASK: readonly Capability[] = ['destructive']
+export const ALWAYS_ASK: readonly Capability[] = ['destructive', 'credentials']
 
 export const APPROVAL_KINDS = [
   'capability',

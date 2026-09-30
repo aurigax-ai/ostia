@@ -1,6 +1,7 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AgentSessionInfo } from '../shared/agentSessionInfo'
 import type { ApprovalState } from '../shared/approvals'
+import type { AssistAvailability, AssistChunk } from '../shared/assist'
 import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
 import type { BuildInfo } from '../shared/buildInfo'
 import type { SpecCommand } from '../shared/completionSpec'
@@ -16,10 +17,13 @@ import type {
   ExtensionOpenTerminalRequest,
   ExtensionPanelSource,
   ExtensionResult,
+  ExtensionSecretResult,
   ExtensionSettingResult,
+  ExtensionSettingsStored,
   ExtensionSidebarItem,
   PaneChip,
 } from '../shared/extensions'
+import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type {
   DomainRefusal,
@@ -35,6 +39,7 @@ import type {
   AppInfo,
   AppSnapshot,
   CommandInvokeRequest,
+  CredentialFillResult,
   ExternalEditorResult,
   FsBinaryResult,
   FsEntry,
@@ -47,13 +52,21 @@ import type {
   GatewayStatus,
   LspServerInfo,
   LspStartResult,
+  ManagerOpenPaneRequest,
   NotificationEntry,
+  OpenPathResult,
   PineBridge,
   Platform,
   PromptContext,
   PtyAttachResult,
+  RunningGroup,
+  SnapshotWorkspace,
   SyncStatus,
+  WindowInfo,
+  WindowSummary,
+  WorkspaceProject,
 } from '../shared/types'
+import type { ViewListing } from '../shared/views'
 import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
 
 const bridge: PineBridge = {
@@ -77,12 +90,25 @@ const bridge: PineBridge = {
       ipcRenderer.on('window:maximized', handler)
       return () => ipcRenderer.removeListener('window:maximized', handler)
     },
+    onRunningQuery: (cb) => {
+      const handler = (_event: unknown, requestId: number): void =>
+        ipcRenderer.send('window:close-answer', requestId, cb())
+      ipcRenderer.on('window:running', handler)
+      return () => ipcRenderer.removeListener('window:running', handler)
+    },
     onConfirmClose: (cb) => {
-      const handler = (_event: unknown, requestId: number): void => {
-        void cb().then((approved) => ipcRenderer.send('window:close-answer', requestId, approved))
+      const handler = (_event: unknown, requestId: number, groups: RunningGroup[]): void => {
+        void cb(groups).then((approved) =>
+          ipcRenderer.send('window:close-answer', requestId, approved),
+        )
       }
       ipcRenderer.on('window:confirm-close', handler)
       return () => ipcRenderer.removeListener('window:confirm-close', handler)
+    },
+    onFreeze: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('window:freeze', handler)
+      return () => ipcRenderer.removeListener('window:freeze', handler)
     },
   },
   pty: {
@@ -94,6 +120,7 @@ const bridge: PineBridge = {
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
+    foreground: (paneId) => ipcRenderer.invoke('pty:foreground', paneId) as Promise<string | null>,
     promptContext: (paneId, want) =>
       ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
     onData: (paneId, cb) => {
@@ -105,6 +132,20 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, code: number): void => cb(code)
       ipcRenderer.on(`pty:exit:${paneId}`, handler)
       return () => ipcRenderer.removeListener(`pty:exit:${paneId}`, handler)
+    },
+    onSize: (paneId, cb) => {
+      const handler = (_e: unknown, cols: number, rows: number): void => cb(cols, rows)
+      ipcRenderer.on(`pty:size:${paneId}`, handler)
+      return () => ipcRenderer.removeListener(`pty:size:${paneId}`, handler)
+    },
+  },
+  manager: {
+    onOpen: (cb) => {
+      const handler = (_e: unknown, requestId: string, req: ManagerOpenPaneRequest): void =>
+        ipcRenderer.send('manager:open-result', requestId, cb(req))
+      ipcRenderer.on('manager:open', handler)
+      ipcRenderer.send('manager:ready')
+      return () => ipcRenderer.removeListener('manager:open', handler)
     },
   },
   fs: {
@@ -153,6 +194,38 @@ const bridge: PineBridge = {
     save: (snapshot) => ipcRenderer.send('workspace:save', snapshot),
     load: () => ipcRenderer.invoke('workspace:load') as Promise<AppSnapshot | null>,
   },
+  windows: {
+    info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,
+    detach: (workspace) => ipcRenderer.invoke('windows:detach', workspace) as Promise<boolean>,
+    returnToMain: (workspaces) =>
+      ipcRenderer.invoke('windows:return', workspaces) as Promise<boolean>,
+    report: (workspaces) => ipcRenderer.send('windows:report', workspaces),
+    focusWorkspace: (workspaceId, jumpToUnread) =>
+      ipcRenderer.send('windows:focus-workspace', workspaceId, jumpToUnread),
+    returnWorkspace: (workspaceId) => ipcRenderer.send('windows:return-workspace', workspaceId),
+    newWorkspace: (request) => ipcRenderer.send('windows:new-workspace', request),
+    onList: (cb) => {
+      const handler = (_e: unknown, list: WindowSummary[]): void => cb(list)
+      ipcRenderer.on('windows:list', handler)
+      return () => ipcRenderer.removeListener('windows:list', handler)
+    },
+    onAdopt: (cb) => {
+      const handler = (_e: unknown, workspaces: SnapshotWorkspace[]): void => cb(workspaces)
+      ipcRenderer.on('windows:adopt', handler)
+      return () => ipcRenderer.removeListener('windows:adopt', handler)
+    },
+    onActivateWorkspace: (cb) => {
+      const handler = (_e: unknown, workspaceId: string, jumpToUnread: boolean): void =>
+        cb(workspaceId, jumpToUnread)
+      ipcRenderer.on('windows:activate-workspace', handler)
+      return () => ipcRenderer.removeListener('windows:activate-workspace', handler)
+    },
+    onReturnRequest: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('windows:return-request', handler)
+      return () => ipcRenderer.removeListener('windows:return-request', handler)
+    },
+  },
   lifecycle: {
     emit: (event) => ipcRenderer.send('lifecycle:event', event),
   },
@@ -195,6 +268,16 @@ const bridge: PineBridge = {
       ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
     storageClear: (paneId, kind) =>
       ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
+  },
+  files: {
+    pathForFile: (file) => webUtils.getPathForFile(file),
+  },
+  openPath: {
+    openDefault: (path) =>
+      ipcRenderer.invoke('shell:open-default', path) as Promise<OpenPathResult>,
+    reveal: (path) => ipcRenderer.invoke('shell:reveal', path) as Promise<OpenPathResult>,
+    project: (dir) =>
+      ipcRenderer.invoke('workspace:project', dir) as Promise<WorkspaceProject | null>,
   },
   agentSession: {
     info: (resume) =>
@@ -288,6 +371,12 @@ const bridge: PineBridge = {
       ) as Promise<WorkspaceSandbox | null>,
   },
   credentials: {
+    forPage: (paneId) =>
+      ipcRenderer.invoke('credentials:for-page', paneId) as Promise<CredentialSummary[]>,
+    fill: (paneId, id) =>
+      ipcRenderer.invoke('credentials:fill', paneId, id) as Promise<CredentialFillResult>,
+    saveFromPage: (paneId) =>
+      ipcRenderer.invoke('credentials:save-from-page', paneId) as Promise<CredentialSaveResult>,
     list: () => ipcRenderer.invoke('credentials:list') as Promise<CredentialSummary[]>,
     save: (input) => ipcRenderer.invoke('credentials:save', input) as Promise<CredentialSaveResult>,
     remove: (id) => ipcRenderer.invoke('credentials:remove', id) as Promise<boolean>,
@@ -331,6 +420,13 @@ const bridge: PineBridge = {
         key,
         value,
       ) as Promise<ExtensionSettingResult>,
+    setSecret: (extId, key, value) =>
+      ipcRenderer.invoke(
+        'extensions:set-secret',
+        extId,
+        key,
+        value,
+      ) as Promise<ExtensionSecretResult>,
     onChanged: (cb) => {
       const handler = (_e: unknown, list: ExtensionInfo[]): void => cb(list)
       ipcRenderer.on('extensions:changed', handler)
@@ -345,6 +441,11 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, chips: PaneChip[]): void => cb(chips)
       ipcRenderer.on('extensions:chips', handler)
       return () => ipcRenderer.removeListener('extensions:chips', handler)
+    },
+    onSettingsStored: (cb) => {
+      const handler = (_e: unknown, update: ExtensionSettingsStored): void => cb(update)
+      ipcRenderer.on('extensions:settings-stored', handler)
+      return () => ipcRenderer.removeListener('extensions:settings-stored', handler)
     },
     onOpenPanel: (cb) => {
       const handler = (_e: unknown, req: ExtensionOpenPanelRequest): void => cb(req)
@@ -361,6 +462,22 @@ const bridge: PineBridge = {
         ipcRenderer.send('extensions:open-terminal-result', req.requestId, cb(req))
       ipcRenderer.on('extensions:open-terminal', handler)
       return () => ipcRenderer.removeListener('extensions:open-terminal', handler)
+    },
+  },
+  assist: {
+    availability: () => ipcRenderer.invoke('assist:availability') as Promise<AssistAvailability>,
+    onAvailability: (cb) => {
+      const handler = (_e: unknown, availability: AssistAvailability): void => cb(availability)
+      ipcRenderer.on('assist:availability', handler)
+      return () => ipcRenderer.removeListener('assist:availability', handler)
+    },
+    request: (point, requestId, input) =>
+      ipcRenderer.invoke('assist:request', point, requestId, input),
+    cancel: (requestId) => ipcRenderer.send('assist:cancel', requestId),
+    onChunk: (cb) => {
+      const handler = (_e: unknown, chunk: AssistChunk): void => cb(chunk)
+      ipcRenderer.on('assist:chunk', handler)
+      return () => ipcRenderer.removeListener('assist:chunk', handler)
     },
   },
   externalEditor: {
@@ -389,6 +506,7 @@ const bridge: PineBridge = {
     list: () => ipcRenderer.invoke('notifications:list') as Promise<NotificationEntry[]>,
     post: (post) => ipcRenderer.send('notifications:post', post),
     clear: () => ipcRenderer.send('notifications:clear'),
+    reveal: (paneId) => ipcRenderer.send('notifications:reveal', paneId),
     onChanged: (cb) => {
       const handler = (): void => cb()
       ipcRenderer.on('notifications:changed', handler)
@@ -408,6 +526,20 @@ const bridge: PineBridge = {
   completions: {
     spec: (command) =>
       ipcRenderer.invoke('completions:spec', command) as Promise<SpecCommand | null>,
+  },
+  iconThemes: {
+    load: (id) => ipcRenderer.invoke('iconThemes:load', id) as Promise<LoadedIconTheme | null>,
+  },
+  views: {
+    list: () => ipcRenderer.invoke('views:list') as Promise<ViewListing>,
+    setEnabled: (name, enabled) =>
+      ipcRenderer.invoke('views:set-enabled', name, enabled) as Promise<ViewListing>,
+    reveal: (name) => ipcRenderer.invoke('views:reveal', name) as Promise<boolean>,
+    onChanged: (cb) => {
+      const handler = (_e: unknown, listing: ViewListing): void => cb(listing)
+      ipcRenderer.on('views:changed', handler)
+      return () => ipcRenderer.removeListener('views:changed', handler)
+    },
   },
 }
 

@@ -37,12 +37,12 @@ describe('agentSession', () => {
       ...createPane('terminal', '✳ Resume tokens'),
       resume: { agent: 'claude' as const, id: 'abc-123' },
     }
-    const session = agentSession(pane, running('claude --model opus'), {
-      state: 'waiting',
-      unread: true,
-      message: 'Needs input',
-      at: 1,
-    })
+    const session = agentSession(
+      pane,
+      running('claude --model opus'),
+      { state: 'waiting', unread: true, message: 'Needs input', at: 1 },
+      'claude',
+    )
     expect(session).toEqual({
       agent: 'claude',
       title: 'Resume tokens',
@@ -55,10 +55,19 @@ describe('agentSession', () => {
     })
   })
 
-  it('is null for a plain command or an idle terminal, and ignores another agent’s resume id', () => {
+  it('is null without a detected agent or when idle, and ignores another agent’s resume id', () => {
     const pane = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'x' } }
-    expect(agentSession(pane, running('pnpm test'), undefined)).toBeNull()
-    expect(agentSession(pane, undefined, undefined)).toBeNull()
-    expect(agentSession(pane, running('codex'), undefined)?.sessionId).toBeNull()
+    expect(agentSession(pane, running('pnpm test'), undefined, null)).toBeNull()
+    expect(agentSession(pane, undefined, undefined, 'claude')).toBeNull()
+    expect(agentSession(pane, running('codex'), undefined, 'codex')?.sessionId).toBeNull()
+  })
+
+  it('describes an agent started through an alias once it is detected', () => {
+    const pane = createPane('terminal')
+    expect(agentSession(pane, running('cc'), undefined, 'claude')).toMatchObject({
+      agent: 'claude',
+      command: 'cc',
+      sessionId: null,
+    })
   })
 })

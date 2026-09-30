@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import { BUILTIN_PLUGINS } from '../plugins/builtin'
-import type { LanguageContribution, PluginManifest, Theme } from '../plugins/types'
+import type { ColorScheme, LanguageContribution, PluginManifest, Theme } from '../plugins/types'
 
 const collectThemes = (plugins: PluginManifest[]): Theme[] =>
   plugins.flatMap((p) => p.contributes.themes ?? [])
+const collectColorSchemes = (plugins: PluginManifest[]): ColorScheme[] =>
+  plugins.flatMap((p) => p.contributes.colorSchemes ?? [])
 const collectLanguages = (plugins: PluginManifest[]): LanguageContribution[] =>
   plugins.flatMap((p) => p.contributes.languages ?? [])
 
@@ -18,6 +20,7 @@ export interface LspEntry {
 interface PluginsState {
   plugins: PluginManifest[]
   themes: Theme[]
+  colorSchemes: ColorScheme[]
   languages: LanguageContribution[]
   lsp: LspEntry[]
   loaded: boolean
@@ -28,6 +31,7 @@ interface PluginsState {
 export const usePluginsStore = create<PluginsState>((set, get) => ({
   plugins: BUILTIN_PLUGINS,
   themes: collectThemes(BUILTIN_PLUGINS),
+  colorSchemes: collectColorSchemes(BUILTIN_PLUGINS),
   languages: collectLanguages(BUILTIN_PLUGINS),
   lsp: [],
   loaded: false,

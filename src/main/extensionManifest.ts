@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
+import { type AssistPoint, isAssistPoint } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
@@ -11,10 +12,12 @@ import {
   type ExtensionManifest,
   type ExtensionPaneChipContribution,
   type ExtensionPanelContribution,
+  type ExtensionSecretContribution,
   type ExtensionSettingContribution,
   type ExtensionSettingType,
   validSettingValue,
 } from '../shared/extensions'
+import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
 import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
@@ -23,8 +26,10 @@ const MAX_COMMANDS = 64
 const MAX_WORKFLOWS = 64
 const MAX_TEXT = 200
 const MAX_PANE_CHIPS = 8
+const MAX_ICON_THEMES = 16
 const MAX_SETTINGS = 32
 const MAX_ENUM_VALUES = 32
+const MAX_SECRETS = 8
 const SETTING_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/
 
 export type ManifestResult =
@@ -180,6 +185,57 @@ function parseSettings(raw: unknown): ExtensionSettingContribution[] | string {
   return settings
 }
 
+function parseSecrets(raw: unknown): ExtensionSecretContribution[] | string {
+  if (raw === undefined) return []
+  if (!isRecord(raw)) return 'contributes.secrets must be an object'
+  const entries = Object.entries(raw)
+  if (entries.length > MAX_SECRETS) return `contributes.secrets has more than ${MAX_SECRETS} keys`
+  const secrets: ExtensionSecretContribution[] = []
+  for (const [key, value] of entries) {
+    const where = `contributes.secrets.${key}`
+    if (!SETTING_KEY_PATTERN.test(key)) return `${where}: invalid key`
+    const description = isRecord(value) ? text(value.description, 500) : null
+    if (!description) return `${where}: missing description`
+    secrets.push({ key, description })
+  }
+  return secrets
+}
+
+function parseAssist(raw: unknown, caps: Capability[]): AssistPoint[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || !raw.every(isAssistPoint)) {
+    return 'contributes.assist must be an array of input, command, completion, chat'
+  }
+  if (raw.length > 0 && !caps.includes('assist')) {
+    return "contributes.assist needs the 'assist' capability"
+  }
+  return [...new Set(raw)]
+}
+
+function parseIconThemes(raw: unknown, dir: string): IconThemeContribution[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.length > MAX_ICON_THEMES) {
+    return `contributes.iconThemes must be an array of at most ${MAX_ICON_THEMES}`
+  }
+  const themes: IconThemeContribution[] = []
+  for (const [i, item] of raw.entries()) {
+    const where = `contributes.iconThemes[${i}]`
+    if (!isRecord(item)) return `${where}: must be an object`
+    if (typeof item.id !== 'string' || !ICON_THEME_ID_PATTERN.test(item.id)) {
+      return `${where}: invalid id`
+    }
+    const label = text(item.label)
+    if (!label) return `${where}: missing label`
+    const path = item.path
+    if (typeof path !== 'string' || !path.endsWith('.json') || !isInsideDir(dir, path)) {
+      return `${where}: path must be a .json file inside the extension`
+    }
+    if (themes.some((t) => t.id === item.id)) return `${where}: duplicate id '${item.id}'`
+    themes.push({ id: item.id, label, path })
+  }
+  return themes
+}
+
 function parseWorkflows(raw: unknown): Workflow[] | string | undefined {
   if (raw === undefined) return undefined
   if (!Array.isArray(raw) || raw.length > MAX_WORKFLOWS) {
@@ -247,12 +303,22 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof paneChips === 'string') return { ok: false, error: paneChips }
   const settings = parseSettings(contributes.settings)
   if (typeof settings === 'string') return { ok: false, error: settings }
+  const secrets = parseSecrets(contributes.secrets)
+  if (typeof secrets === 'string') return { ok: false, error: secrets }
+  const assist = parseAssist(contributes.assist, caps)
+  if (typeof assist === 'string') return { ok: false, error: assist }
+  const iconThemes = parseIconThemes(contributes.iconThemes, dir)
+  if (typeof iconThemes === 'string') return { ok: false, error: iconThemes }
   const needsMain =
-    commands.length > 0 || sidebarItems || panel?.entry === 'url' || paneChips.length > 0
+    commands.length > 0 ||
+    sidebarItems ||
+    panel?.entry === 'url' ||
+    paneChips.length > 0 ||
+    assist.length > 0
   if (needsMain && !main) {
     return {
       ok: false,
-      error: 'commands, sidebar items, pane chips and url panels need a main process',
+      error: 'commands, sidebar items, pane chips, assist and url panels need a main process',
     }
   }
 
@@ -262,12 +328,13 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     version,
     description,
     capabilities: caps,
-    contributes: { commands, sidebarItems, paneChips, settings },
+    contributes: { commands, sidebarItems, paneChips, settings, assist, secrets },
   }
   if (main) manifest.main = main
   if (panel) manifest.contributes.panel = panel
   if (workflows && workflows.length > 0) manifest.contributes.workflows = workflows
   if (completions !== undefined) manifest.contributes.completions = completions
+  if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes
   return { ok: true, manifest }
 }
 

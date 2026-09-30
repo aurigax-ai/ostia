@@ -172,10 +172,18 @@ describe('pane attention ring', () => {
 
 describe('NotificationCenter', () => {
   const entries = (paneId: string): NotificationEntry[] => [
-    { id: 'n2', ts: '2026-09-28T10:05:00Z', title: 'build finished', from: 'x', paneId },
+    {
+      id: 'n2',
+      ts: '2026-09-28T10:05:00Z',
+      kind: 'done',
+      title: 'build finished',
+      from: 'x',
+      paneId,
+    },
     {
       id: 'n1',
       ts: '2026-09-28T10:00:00Z',
+      kind: 'message',
       title: 'Tests',
       body: 'all passed',
       from: 'x',
@@ -210,7 +218,7 @@ describe('NotificationCenter', () => {
     const list = await screen.findByRole('list', { name: 'Notifications' })
     const rows = within(list).getAllByRole('button')
     expect(rows[0]).toHaveTextContent('build finished')
-    expect(rows[0]).toHaveTextContent(/^home · /)
+    expect(within(list).getByRole('list', { name: 'home' })).toContainElement(rows[0])
     expect(rows[1]).toHaveTextContent('Tests: all passed')
     expect(rows[1]).toHaveTextContent('Closed pane')
     expect(rows[1]).toBeDisabled()
@@ -219,6 +227,40 @@ describe('NotificationCenter', () => {
     await user.click(rows[0])
     expect(useLayoutStore.getState().byWorkspace[workspaceId].activePaneId).toBe(a)
     expect(useAttentionStore.getState().byPane[a].unread).toBe(false)
+  })
+
+  it('filters by tab and groups entries by workspace', async () => {
+    const { a } = twoPanes()
+    vi.mocked(window.pine.notifications.list).mockResolvedValue([
+      {
+        id: 'w',
+        ts: '2026-09-28T10:06:00Z',
+        kind: 'waiting',
+        title: 'needs input',
+        from: 'x',
+        paneId: a,
+      },
+      {
+        id: 'd',
+        ts: '2026-09-28T10:05:00Z',
+        kind: 'done',
+        title: 'all done',
+        from: 'x',
+        paneId: a,
+      },
+    ])
+    renderBell()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Notifications/ }))
+    await screen.findByText('needs input')
+
+    await user.click(screen.getByRole('tab', { name: /Finished/ }))
+    expect(screen.queryByText('needs input')).toBeNull()
+    expect(screen.getByText('all done')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: /Needs you/ }))
+    expect(screen.getByText('needs input')).toBeInTheDocument()
+    expect(screen.queryByText('all done')).toBeNull()
   })
 
   it('clear all empties the log in main and marks every pane read', async () => {
@@ -250,7 +292,7 @@ describe('NotificationCenter', () => {
     await screen.findByText('No notifications')
 
     vi.mocked(window.pine.notifications.list).mockResolvedValue([
-      { id: 'n9', ts: '2026-09-28T10:00:00Z', title: 'fresh', from: 'x' },
+      { id: 'n9', ts: '2026-09-28T10:00:00Z', kind: 'message', title: 'fresh', from: 'x' },
     ])
     act(() => changed())
     expect(await screen.findByText('fresh')).toBeInTheDocument()
@@ -277,6 +319,10 @@ describe('NotificationCenter', () => {
           paneChips: [],
           settings: [],
           settingValues: {},
+          assist: [],
+          secrets: [],
+          secretsSet: [],
+          iconThemes: [],
         },
       ],
     })
@@ -284,6 +330,7 @@ describe('NotificationCenter', () => {
       {
         id: 'k1',
         ts: '2026-09-28T10:00:00Z',
+        kind: 'message',
         title: 'Keeper needs approval',
         from: 'extension:keeper',
         extId: 'keeper',

@@ -1,6 +1,7 @@
 import type { AgentResume } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
+import type { AssistApi } from './assist'
 import type {
   BrowserStorageRead,
   StorageEdit,
@@ -18,6 +19,7 @@ import type {
   CredentialSummary,
 } from './credentials'
 import type { ExtensionResult, ExtensionsApi } from './extensions'
+import type { IconThemesApi } from './iconTheme'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type {
@@ -33,6 +35,7 @@ import type {
 import type { SecretEntry, SecretGrant } from './secrets'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
 import type { RequirementsReport } from './systemRequirements'
+import type { ViewsApi } from './views'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
 import type { WorkspaceGroupColor } from './workspaceGroups'
 
@@ -53,7 +56,16 @@ export interface WindowControls {
   isSystemDark: () => Promise<boolean>
   onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
-  onConfirmClose: (cb: () => Promise<boolean>) => () => void
+  onRunningQuery: (cb: () => RunningGroup[]) => () => void
+  onConfirmClose: (cb: (groups: RunningGroup[]) => Promise<boolean>) => () => void
+  onFreeze: (cb: () => void) => () => void
+}
+
+export interface RunningGroup {
+  workspaceId: string
+  workspace: string
+  commands: string[]
+  files: string[]
 }
 
 export interface PtySpawnOptions {
@@ -66,6 +78,7 @@ export interface PtySpawnOptions {
   pinePrompt?: PinePromptSpawn
   workspaceId?: string
   hostToken?: string
+  attachOnly?: boolean
 }
 
 export interface PinePromptSpawn {
@@ -95,6 +108,8 @@ export interface PtyAttachResult {
   dropped: boolean
   sandboxed?: boolean
   host?: boolean
+  cols?: number
+  rows?: number
 }
 
 export interface SystemApi {
@@ -145,9 +160,20 @@ export interface PtyApi {
   write: (paneId: string, data: string) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
+  foreground: (paneId: string) => Promise<string | null>
   promptContext: (paneId: string, want: PromptContextRequest) => Promise<PromptContext | null>
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number) => void) => () => void
+  onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
+}
+
+export interface ManagerOpenPaneRequest {
+  agent: string
+  cwd: string
+}
+
+export interface ManagerApi {
+  onOpen: (cb: (req: ManagerOpenPaneRequest) => string | null) => () => void
 }
 
 export interface FsEntry {
@@ -219,9 +245,19 @@ export type WorkspaceLiveState = 'idle' | 'working' | 'waiting' | 'done' | 'erro
 
 export type AttentionState = 'none' | 'working' | 'waiting' | 'done' | 'error'
 
+export const NOTIFICATION_KINDS = ['waiting', 'approval', 'done', 'error', 'message'] as const
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
+
+export function notificationKindOf(value: unknown): NotificationKind {
+  return NOTIFICATION_KINDS.includes(value as NotificationKind)
+    ? (value as NotificationKind)
+    : 'message'
+}
+
 export interface NotificationEntry {
   id: string
   ts: string
+  kind: NotificationKind
   title: string
   body?: string
   from: string
@@ -232,6 +268,7 @@ export interface NotificationEntry {
 
 export interface NotificationPost {
   paneId: string
+  kind: NotificationKind
   title: string
   body?: string
   desktop: boolean
@@ -243,9 +280,10 @@ export interface NotificationsApi {
   clear: () => void
   onChanged: (cb: () => void) => () => void
   onActivate: (cb: (paneId: string) => void) => () => void
+  reveal: (paneId: string) => void
 }
 
-export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension'
+export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension' | 'view'
 
 export interface SnapshotPaneNode {
   type: 'pane'
@@ -256,7 +294,10 @@ export interface SnapshotPaneNode {
   filePath?: string
   url?: string
   extensionId?: string
+  viewName?: string
   resume?: AgentResume
+  agentRunning?: true
+  hibernated?: true
 }
 
 export interface SnapshotSplitNode {
@@ -285,6 +326,7 @@ export interface SnapshotWorkspace {
   groupId?: string
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
+  projectDir?: string
   root?: SnapshotNode
   activePaneId?: string
 }
@@ -302,6 +344,65 @@ export interface AppSnapshot {
   activeWorkspaceId: string | null
   workspaces: SnapshotWorkspace[]
   groups: SnapshotGroup[]
+  windows?: SnapshotWindow[]
+}
+
+export interface WindowBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface SnapshotWindow {
+  id: string
+  bounds: WindowBounds
+  activeWorkspaceId: string | null
+  workspaces: SnapshotWorkspace[]
+}
+
+export interface WindowInfo {
+  windowId: string
+  detached: boolean
+}
+
+export interface WindowPaneSummary {
+  id: string
+  title: string
+}
+
+export interface WindowWorkspaceSummary {
+  id: string
+  name: string
+  workDir: string
+  state: WorkspaceLiveState
+  unreadAt: number
+  panes: WindowPaneSummary[]
+}
+
+export interface WindowSummary {
+  windowId: string
+  detached: boolean
+  workspaces: WindowWorkspaceSummary[]
+}
+
+export interface NewWorkspaceRequest {
+  dir?: string
+  name?: string
+}
+
+export interface WindowsApi {
+  info: () => Promise<WindowInfo>
+  detach: (workspace: SnapshotWorkspace) => Promise<boolean>
+  returnToMain: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
+  report: (workspaces: WindowWorkspaceSummary[]) => void
+  focusWorkspace: (workspaceId: string, jumpToUnread: boolean) => void
+  returnWorkspace: (workspaceId: string) => void
+  newWorkspace: (request: NewWorkspaceRequest) => void
+  onList: (cb: (list: WindowSummary[]) => void) => () => void
+  onAdopt: (cb: (workspaces: SnapshotWorkspace[]) => void) => () => void
+  onActivateWorkspace: (cb: (workspaceId: string, jumpToUnread: boolean) => void) => () => void
+  onReturnRequest: (cb: () => void) => () => void
 }
 
 export interface WorkspaceApi {
@@ -394,6 +495,24 @@ export interface SelectionApi {
   send: (req: SelectionSendRequest) => Promise<SelectionSendResult>
 }
 
+export interface WorkspaceProject {
+  name: string
+  display: string
+  dir: string
+}
+
+export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'program' | 'failed' }
+
+export interface FilesApi {
+  pathForFile: (file: File) => string
+}
+
+export interface OpenPathApi {
+  openDefault: (path: string) => Promise<OpenPathResult>
+  reveal: (path: string) => Promise<OpenPathResult>
+  project: (dir: string) => Promise<WorkspaceProject | null>
+}
+
 export interface AgentSessionApi {
   info: (resume: AgentResume) => Promise<AgentSessionInfo | null>
 }
@@ -404,7 +523,14 @@ export interface AppUpdateApi {
   onAvailable: (cb: (info: BuildInfo) => void) => () => void
 }
 
+export type CredentialFillResult =
+  | { ok: true; username: string }
+  | { ok: false; error: 'no-login' | 'no-form' | 'origin-changed' | 'locked' }
+
 export interface CredentialsApi {
+  forPage: (paneId: string) => Promise<CredentialSummary[]>
+  fill: (paneId: string, id: string) => Promise<CredentialFillResult>
+  saveFromPage: (paneId: string) => Promise<CredentialSaveResult>
   list: () => Promise<CredentialSummary[]>
   save: (input: CredentialInput) => Promise<CredentialSaveResult>
   remove: (id: string) => Promise<boolean>
@@ -518,11 +644,13 @@ export interface PineBridge {
   platform: Platform
   window: WindowControls
   pty: PtyApi
+  manager: ManagerApi
   fs: FsApi
   lsp: LspApi
   settings: SettingsApi
   sync: SyncApi
   workspace: WorkspaceApi
+  windows: WindowsApi
   lifecycle: LifecycleApi
   commands: CommandsApi
   terminalState: TerminalStateApi
@@ -535,12 +663,17 @@ export interface PineBridge {
   system: SystemApi
   update: AppUpdateApi
   agentSession: AgentSessionApi
+  openPath: OpenPathApi
+  files: FilesApi
   extensions: ExtensionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi
   notifications: NotificationsApi
   workflows: WorkflowsApi
   completions: CompletionsApi
+  assist: AssistApi
+  iconThemes: IconThemesApi
+  views: ViewsApi
 }
 
 declare global {

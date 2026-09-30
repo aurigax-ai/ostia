@@ -1,4 +1,5 @@
 import {
+  BroadcastIcon,
   FileCodeIcon,
   GitDiffIcon,
   GlobeIcon,
@@ -31,6 +32,7 @@ import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePaneDnd } from '../stores/paneDndStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
+import { useViewsStore } from '../stores/viewsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { AgentSessionButton } from './AgentSessionButton'
 import { ApprovalCard } from './ApprovalCard'
@@ -41,6 +43,7 @@ import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
 import { HostPaneBadge, SandboxRestartButton } from './SandboxRestartButton'
 import { extensionIcon } from './extensionIcons'
 import { Button } from './ui/button'
+import { viewIcon } from './viewIcons'
 
 interface PaneProps {
   tabs: PaneNode[]
@@ -56,6 +59,8 @@ const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
   browser: GlobeIcon,
   extension: extensionIcon(undefined),
   diff: GitDiffIcon,
+  view: viewIcon(undefined),
+  manager: BroadcastIcon,
 }
 
 const PANE_DND = 'application/x-pine-pane'
@@ -263,11 +268,16 @@ function PaneTab({
       ? s.list.find((e) => e.id === pane.extensionId)?.panel?.icon
       : undefined,
   )
+  const viewIconName = useViewsStore((s) =>
+    pane.kind === 'view' ? s.views.find((v) => v.name === pane.viewName)?.icon : undefined,
+  )
   const Icon = pane.hibernated
     ? MoonIcon
     : pane.kind === 'extension'
       ? extensionIcon(panelIcon)
-      : SURFACE_ICON[pane.kind]
+      : pane.kind === 'view'
+        ? viewIcon(viewIconName)
+        : SURFACE_ICON[pane.kind]
   const dirty = useEditorStatus((s) =>
     pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
   )
@@ -286,6 +296,14 @@ function PaneTab({
         e.dataTransfer.effectAllowed = 'move'
       }}
       onDragEnd={onDragEnd}
+      onMouseDown={(e) => {
+        if (e.button === 1) e.preventDefault()
+      }}
+      onAuxClick={(e) => {
+        if (e.button !== 1) return
+        e.preventDefault()
+        void commands.exec('pane.close', { paneId: pane.id })
+      }}
     >
       <button
         type="button"

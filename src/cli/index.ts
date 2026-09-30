@@ -11,6 +11,9 @@ import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runBrowse } from './browse'
+import { runManagerVerb } from './manager'
+import { runPortalCommand } from './portal'
+import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
 
 interface ProcInfo {
   id: string
@@ -372,6 +375,7 @@ async function runExtCommand(
 
 const CORE_VERBS = new Set([
   'whoami',
+  'manager',
   'commands',
   'info',
   'cwd',
@@ -393,6 +397,7 @@ const CORE_VERBS = new Set([
   'gateway',
   'ext',
   'workflow',
+  'view',
 ])
 
 interface BusOk {
@@ -1079,6 +1084,8 @@ commands:
   workspace group <name> | ungroup   move this workspace into a sidebar group, or out of it
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
   workflow list [--json] | show <name> [--json]   saved command workflows (read-only)
+  view list [--json] | open <name>   declarative views (~/.config/pine/views/<name>.json)
+  view validate <file> | schema      check a view file / print its JSON schema (no app needed)
   open <path>
   process | vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
@@ -1106,9 +1113,19 @@ async function main(): Promise<void> {
     console.log(USAGE)
     return
   }
+  if (isOfflineViewVerb(process.argv.slice(2))) {
+    process.exitCode = runOfflineViewVerb(process.argv.slice(2))
+    return
+  }
   if (!socketPath) {
-    console.error('pine: not inside a Pine pane (PINE_SOCKET unset)')
-    process.exit(1)
+    process.exitCode = await runPortalCommand(process.argv.slice(2), {
+      stdin: process.stdin,
+      stdout: process.stdout,
+      stderr: process.stderr,
+      env: process.env,
+      cwd: process.cwd(),
+    })
+    return
   }
   let socket: Socket
   try {
@@ -1171,6 +1188,8 @@ async function main(): Promise<void> {
       await runResumeTokenVerb(conn)
     } else if (cmd === 'workflow') {
       await runWorkflowVerb(conn)
+    } else if (cmd === 'view') {
+      await runViewVerb(conn, process.argv.slice(3))
     } else if (cmd === 'open') {
       const arg = process.argv[3]
       if (!arg) {
@@ -1204,6 +1223,8 @@ async function main(): Promise<void> {
       else await runExtCommand(conn, process.argv[3], process.argv[4], process.argv.slice(5))
     } else if (cmd && !cmd.includes('.') && !CORE_VERBS.has(cmd)) {
       await runExtCommand(conn, cmd, process.argv[3], process.argv.slice(4))
+    } else if (cmd === 'manager') {
+      process.exitCode = await runManagerVerb(conn, process.argv.slice(3), process.cwd())
     } else if (cmd === 'bus') {
       await runBusVerb(conn)
     } else if (cmd === 'settings') {

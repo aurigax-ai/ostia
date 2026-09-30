@@ -9,6 +9,7 @@ type Persisted = Pick<
   | 'locale'
   | 'appearance'
   | 'behavior'
+  | 'files'
   | 'notifications'
   | 'sidebar'
   | 'workspaces'
@@ -47,6 +48,7 @@ describe('settingsStore', () => {
       locale: s.locale,
       appearance: s.appearance,
       behavior: s.behavior,
+      files: s.files,
       terminal: s.terminal,
       panes: s.panes,
       notifications: s.notifications,
@@ -61,6 +63,7 @@ describe('settingsStore', () => {
       approvals: s.approvals,
       actions: s.actions,
       trustedActions: s.trustedActions,
+      manager: s.manager,
     })
   })
 
@@ -151,6 +154,7 @@ describe('settingsStore', () => {
             defaultFolder: '  /work  ',
             confirmClose: false,
             confirmQuit: 'no',
+            closeToTray: 'yes',
             wrapTitles: true,
           },
         }),
@@ -162,6 +166,7 @@ describe('settingsStore', () => {
         defaultFolder: '/work',
         confirmClose: false,
         confirmQuit: true,
+        closeToTray: false,
         wrapTitles: true,
       })
 
@@ -376,6 +381,7 @@ describe('settingsStore', () => {
         locale: s.locale,
         appearance: s.appearance,
         behavior: s.behavior,
+        files: s.files,
         terminal: s.terminal,
         panes: s.panes,
         notifications: s.notifications,
@@ -390,6 +396,7 @@ describe('settingsStore', () => {
         approvals: s.approvals,
         actions: s.actions,
         trustedActions: s.trustedActions,
+        manager: s.manager,
       }).toEqual(DEFAULTS)
     })
 
@@ -421,6 +428,30 @@ describe('settingsStore', () => {
       expect(written.appearance.theme).toBe('dracula')
     })
 
+    it('MGR-C16 keeps the manager section from settings.json so a later save round-trips it', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        '{"locale":"en","manager":{"agents":{"aider":["aider","--yes"]}}}',
+      )
+
+      await store().init()
+      store().setTheme('dracula')
+      await vi.advanceTimersByTimeAsync(300)
+
+      const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+      expect(written.manager).toEqual({
+        agents: { aider: ['aider', '--yes'] },
+        skills: [],
+        allowInput: false,
+        limits: { maxWorkers: 8, spawnsPer10Min: 20, busPerMinute: 60 },
+      })
+    })
+
+    it('MGR-C16 refuses manager settings from pine settings set', () => {
+      expect(() => store().setByPath('manager.agents', { x: ['rm'] })).toThrow(
+        /unknown settings key/,
+      )
+    })
+
     it('keeps DEFAULTS when settings.json is invalid JSON (catch path)', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue('not json{')
 
@@ -431,6 +462,7 @@ describe('settingsStore', () => {
         locale: s.locale,
         appearance: s.appearance,
         behavior: s.behavior,
+        files: s.files,
         terminal: s.terminal,
         panes: s.panes,
         notifications: s.notifications,
@@ -445,6 +477,7 @@ describe('settingsStore', () => {
         approvals: s.approvals,
         actions: s.actions,
         trustedActions: s.trustedActions,
+        manager: s.manager,
       }).toEqual(DEFAULTS)
     })
   })
@@ -507,7 +540,6 @@ describe('settingsStore', () => {
       store().setBehavior({ cursorStyle: 'bar' })
       const behavior = store().behavior
       expect(behavior.cursorStyle).toBe('bar')
-      expect(behavior.showHiddenFiles).toBe(DEFAULTS.behavior.showHiddenFiles)
       expect(behavior.cursorBlink).toBe(DEFAULTS.behavior.cursorBlink)
     })
   })

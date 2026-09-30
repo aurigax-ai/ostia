@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import {
   ArrowsClockwiseIcon,
   BellIcon,
+  BroadcastIcon,
   CheckIcon,
   CodeIcon,
   CopyIcon,
@@ -12,8 +13,10 @@ import {
   InfoIcon,
   KeyIcon,
   KeyboardIcon,
+  LayoutIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
+  PlusIcon,
   RobotIcon,
   ShieldCheckIcon,
   SidebarSimpleIcon,
@@ -36,7 +39,9 @@ import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { openFileInWorkspace } from '../lib/openFile'
-import { platform } from '../platform'
+import { useEffectiveTheme } from '../lib/theme'
+import { isMac, platform } from '../platform'
+import type { ClipboardKeys } from '../settings/terminalPaneSettings'
 import {
   CONTRAST_MAX,
   CONTRAST_MIN,
@@ -70,15 +75,19 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ActionsSection } from './ActionsSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
+import { FileTreeSettingsGroups } from './FilesSettingsSection'
 import { FontPicker } from './FontPicker'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
+import { ManagerSection } from './ManagerSection'
 import { PasswordsSection } from './PasswordsSection'
 import { activeTerminalPaneId } from './PromptEditorDialog'
 import { SandboxSection } from './SandboxSection'
 import { SyncSection } from './SyncSection'
+import { ThemeRows } from './ThemeSettings'
+import { ViewsSection } from './ViewsSection'
 import { WorkspaceSandboxPage } from './WorkspaceSandboxPage'
 import { WorkspacesSection } from './WorkspacesSection'
 import { ATTENTION_ALERT } from './attentionStyles'
@@ -92,6 +101,7 @@ import { Separator } from './ui/separator'
 import { Switch } from './ui/switch'
 
 type SectionId =
+  | 'manager'
   | 'appearance'
   | 'terminal'
   | 'keyboard'
@@ -105,6 +115,7 @@ type SectionId =
   | 'passwords'
   | 'editor'
   | 'plugins'
+  | 'views'
   | 'languageServers'
   | 'remote'
   | 'sync'
@@ -118,6 +129,7 @@ export function SettingsPanel(): JSX.Element | null {
   const open = useUIStore((s) => s.settingsActive)
   const close = useUIStore((s) => s.leaveSettings)
   const [active, setActive] = useState<SectionId>('appearance')
+  const requested = useUIStore((s) => s.settingsSection)
   const [query, setQuery] = useState('')
   const settingsWorkspaceId = useUIStore((s) => s.settingsWorkspaceId)
   const settingsRequest = useUIStore((s) => s.settingsRequest)
@@ -158,11 +170,15 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
         { id: 'sandbox', icon: ShieldCheckIcon, label: d.sandbox.title },
         { id: 'agents', icon: RobotIcon, label: d.settings.agents },
+        ...(platform === 'linux'
+          ? [{ id: 'manager' as const, icon: BroadcastIcon, label: d.manager.settingsTitle }]
+          : []),
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
         { id: 'passwords', icon: KeyIcon, label: d.passwords.title },
         { id: 'editor', icon: CodeIcon, label: d.editorSettings.title },
         { id: 'plugins', icon: StackIcon, label: d.settings.plugins },
+        { id: 'views', icon: LayoutIcon, label: d.views.title },
         { id: 'languageServers', icon: HardDrivesIcon, label: d.settings.languageServers },
         { id: 'remote', icon: DeviceMobileIcon, label: d.settings.remote },
         { id: 'sync', icon: ArrowsClockwiseIcon, label: d.sync.title },
@@ -171,6 +187,12 @@ export function SettingsPanel(): JSX.Element | null {
       ] satisfies { id: SectionId; icon: IconComponent; label: string }[],
     [d],
   )
+
+  useEffect(() => {
+    if (!requested) return
+    if (sections.some((s) => s.id === requested)) setActive(requested as SectionId)
+    useUIStore.setState({ settingsSection: null })
+  }, [requested, sections])
 
   const openSettingsFile = async (): Promise<void> => {
     const path = await window.pine.settings.path()
@@ -256,11 +278,13 @@ export function SettingsPanel(): JSX.Element | null {
               />
             ) : null}
             {active === 'agents' ? <AgentsSection /> : null}
+            {active === 'manager' ? <ManagerSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'browser' ? <BrowserSettingsSection /> : null}
             {active === 'passwords' ? <PasswordsSection /> : null}
             {active === 'editor' ? <EditorSettingsSection /> : null}
             {active === 'plugins' ? <PluginsSection /> : null}
+            {active === 'views' ? <ViewsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}
             {active === 'remote' ? <GatewaySection /> : null}
             {active === 'sync' ? <SyncSection /> : null}
@@ -380,19 +404,8 @@ export function ToggleRow({
 
 function AppearanceSection(): JSX.Element {
   const d = useDict()
-  const theme = useSettingsStore((s) => s.appearance.theme)
-  const setTheme = useSettingsStore((s) => s.setTheme)
   const motion = useSettingsStore((s) => s.appearance.motion)
   const setMotion = useSettingsStore((s) => s.setMotion)
-  const themes = usePluginsStore((s) => s.themes)
-  const followSystem = useSettingsStore((s) => s.appearance.followSystem)
-  const setFollowSystem = useSettingsStore((s) => s.setFollowSystem)
-  const lightTheme = useSettingsStore((s) => s.appearance.lightTheme)
-  const setLightTheme = useSettingsStore((s) => s.setLightTheme)
-  const darkTheme = useSettingsStore((s) => s.appearance.darkTheme)
-  const setDarkTheme = useSettingsStore((s) => s.setDarkTheme)
-  const themeOptions = (appearance: 'light' | 'dark') =>
-    themes.filter((t) => t.appearance === appearance).map((t) => ({ value: t.id, label: t.name }))
   const motionLabel: Record<MotionMode, string> = {
     system: d.settings.motionSystem,
     reduced: d.settings.motionReduced,
@@ -402,41 +415,7 @@ function AppearanceSection(): JSX.Element {
     <div>
       <SectionHead title={d.settings.appearance} />
       <SettingsGroup title={d.settings.groupTheme}>
-        <ToggleRow
-          label={d.settings.followSystem}
-          desc={d.settings.followSystemDesc}
-          checked={followSystem}
-          onChange={setFollowSystem}
-        />
-        {followSystem ? (
-          <>
-            <ControlRow label={d.settings.lightTheme}>
-              <SelectField
-                value={lightTheme}
-                onChange={setLightTheme}
-                label={d.settings.lightTheme}
-                options={themeOptions('light')}
-              />
-            </ControlRow>
-            <ControlRow label={d.settings.darkTheme}>
-              <SelectField
-                value={darkTheme}
-                onChange={setDarkTheme}
-                label={d.settings.darkTheme}
-                options={themeOptions('dark')}
-              />
-            </ControlRow>
-          </>
-        ) : (
-          <ControlRow label={d.settings.theme}>
-            <SelectField
-              value={theme}
-              onChange={setTheme}
-              label={d.settings.theme}
-              options={themes.map((t) => ({ value: t.id, label: t.name }))}
-            />
-          </ControlRow>
-        )}
+        <ThemeRows />
         <ControlRow label={d.settings.motion} desc={d.settings.motionDesc}>
           <SelectField
             value={motionMode(motion)}
@@ -499,6 +478,8 @@ function AccentRow(): JSX.Element {
   const [draft, setDraft] = useState(accent)
   useEffect(() => setDraft(accent), [accent])
   const invalid = draft.trim() !== '' && normalizeHex(draft) === null
+  const custom = accent !== '' && !ACCENT_PRESETS.includes(accent)
+  const themeBrand = normalizeHex(useEffectiveTheme()?.tokens.brand) ?? ACCENT_PRESETS[0]
   return (
     <ControlRow label={d.settings.accent} desc={d.settings.accentDesc}>
       <div className="flex items-center gap-1.5">
@@ -513,6 +494,27 @@ function AccentRow(): JSX.Element {
             className="size-5 rounded-full border border-line-strong outline-offset-2 focus-visible:outline-2 focus-visible:outline-brand aria-pressed:outline-2 aria-pressed:outline-fg"
           />
         ))}
+        <label
+          data-testid="accent-custom"
+          data-selected={custom || undefined}
+          title={d.settings.accentCustom}
+          style={custom ? { background: accent } : undefined}
+          className={cn(
+            'relative flex size-5 cursor-pointer items-center justify-center rounded-full border outline-offset-2 has-focus-visible:outline-2 has-focus-visible:outline-brand',
+            custom
+              ? 'border-line-strong outline-2 outline-fg'
+              : 'border-line-strong border-dashed text-fg-muted hover:text-fg',
+          )}
+        >
+          {custom ? null : <PlusIcon size={12} aria-hidden />}
+          <input
+            type="color"
+            aria-label={d.settings.accentCustom}
+            value={custom ? accent : themeBrand}
+            onChange={(e) => setAccent(e.target.value)}
+            className="absolute inset-0 size-full cursor-pointer opacity-0"
+          />
+        </label>
       </div>
       <Input
         value={draft}
@@ -739,7 +741,7 @@ function SidebarSection(): JSX.Element {
   )
 }
 
-function NumberRow({
+export function NumberRow({
   label,
   desc,
   value,
@@ -785,6 +787,8 @@ function AgentsSection(): JSX.Element {
   const d = useDict()
   const hibernation = useSettingsStore((s) => s.agents.hibernation)
   const set = useSettingsStore((s) => s.setHibernation)
+  const autoResume = useSettingsStore((s) => s.agents.autoResume)
+  const setAutoResume = useSettingsStore((s) => s.setAutoResume)
   const approvalMode = useSettingsStore((s) => s.approvals.mode)
   const setApprovalMode = useSettingsStore((s) => s.setApprovalMode)
   return (
@@ -802,6 +806,14 @@ function AgentsSection(): JSX.Element {
             ]}
           />
         </ControlRow>
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupResume}>
+        <ToggleRow
+          label={d.settings.autoResume}
+          desc={d.settings.autoResumeDesc}
+          checked={autoResume}
+          onChange={setAutoResume}
+        />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupPerformance}>
         <ToggleRow
@@ -849,6 +861,7 @@ function TerminalSection(): JSX.Element {
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
   const warnOnRiskyPaste = useSettingsStore((s) => s.terminal.warnOnRiskyPaste)
+  const clipboardKeys = useSettingsStore((s) => s.terminal.clipboardKeys)
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
   const prompt = useSettingsStore((s) => s.terminal.prompt)
@@ -948,6 +961,19 @@ function TerminalSection(): JSX.Element {
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupPaste}>
+        {isMac ? null : (
+          <ControlRow label={d.settings.clipboardKeys} desc={d.settings.clipboardKeysDesc}>
+            <SelectField
+              value={clipboardKeys}
+              onChange={(v) => setTerminal({ clipboardKeys: v as ClipboardKeys })}
+              label={d.settings.clipboardKeys}
+              options={[
+                { value: 'shift', label: d.settings.clipboardShift },
+                { value: 'smart', label: d.settings.clipboardSmart },
+              ]}
+            />
+          </ControlRow>
+        )}
         <ToggleRow
           label={d.settings.warnRiskyPaste}
           desc={d.settings.warnRiskyPasteDesc}
@@ -1069,18 +1095,11 @@ function PanesSection(): JSX.Element {
 
 function FilesSection(): JSX.Element {
   const d = useDict()
-  const showHidden = useSettingsStore((s) => s.behavior.showHiddenFiles)
-  const setBehavior = useSettingsStore((s) => s.setBehavior)
   return (
     <section>
       <SectionHead title={d.settings.files} />
-      <ToggleRow
-        label={d.settings.showHiddenFiles}
-        desc={d.settings.showHiddenFilesDesc}
-        checked={showHidden}
-        onChange={(v) => setBehavior({ showHiddenFiles: v })}
-      />
       <ExternalEditorRow />
+      <FileTreeSettingsGroups />
     </section>
   )
 }

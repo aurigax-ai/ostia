@@ -16,7 +16,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       isSystemDark: vi.fn().mockResolvedValue(true),
       onSystemDarkChange: vi.fn(noopUnsub),
       onMaximizeChange: vi.fn(noopUnsub),
+      onRunningQuery: vi.fn(noopUnsub),
       onConfirmClose: vi.fn(noopUnsub),
+      onFreeze: vi.fn(noopUnsub),
     },
     pty: {
       attach: vi.fn().mockResolvedValue({ created: true, buffer: '', cursor: 0, dropped: false }),
@@ -26,9 +28,14 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       write: vi.fn(),
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),
+      foreground: vi.fn().mockResolvedValue(null),
       promptContext: vi.fn().mockResolvedValue(null),
       onData: vi.fn(noopUnsub),
       onExit: vi.fn(noopUnsub),
+      onSize: vi.fn(noopUnsub),
+    },
+    manager: {
+      onOpen: vi.fn(noopUnsub),
     },
     fs: {
       list: vi.fn().mockResolvedValue([]),
@@ -63,6 +70,19 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       save: vi.fn(),
       load: vi.fn().mockResolvedValue(null),
     },
+    windows: {
+      info: vi.fn().mockResolvedValue({ windowId: '1', detached: false }),
+      detach: vi.fn().mockResolvedValue(true),
+      returnToMain: vi.fn().mockResolvedValue(true),
+      report: vi.fn(),
+      focusWorkspace: vi.fn(),
+      returnWorkspace: vi.fn(),
+      newWorkspace: vi.fn(),
+      onList: vi.fn(noopUnsub),
+      onAdopt: vi.fn(noopUnsub),
+      onActivateWorkspace: vi.fn(noopUnsub),
+      onReturnRequest: vi.fn(noopUnsub),
+    },
     lifecycle: {
       emit: vi.fn(),
     },
@@ -87,6 +107,14 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     },
     selection: {
       send: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+    },
+    files: {
+      pathForFile: vi.fn(() => ''),
+    },
+    openPath: {
+      openDefault: vi.fn().mockResolvedValue({ ok: true }),
+      reveal: vi.fn().mockResolvedValue({ ok: true }),
+      project: vi.fn().mockResolvedValue(null),
     },
     agentSession: {
       info: vi.fn().mockResolvedValue(null),
@@ -123,6 +151,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       setPortsPolicy: vi.fn().mockResolvedValue(null),
     },
     credentials: {
+      forPage: vi.fn().mockResolvedValue([]),
+      fill: vi.fn().mockResolvedValue({ ok: true, username: 'me' }),
+      saveFromPage: vi.fn().mockResolvedValue({ ok: true, id: 'c1', updated: false }),
       list: vi.fn().mockResolvedValue([]),
       save: vi.fn().mockResolvedValue({ ok: true, id: 'c1', updated: false }),
       remove: vi.fn().mockResolvedValue(true),
@@ -144,12 +175,21 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       sidebarItems: vi.fn().mockResolvedValue([]),
       paneChips: vi.fn().mockResolvedValue([]),
       setSetting: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-extension' }),
+      setSecret: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-extension' }),
       onChanged: vi.fn(noopUnsub),
       onSidebar: vi.fn(noopUnsub),
       onPaneChips: vi.fn(noopUnsub),
+      onSettingsStored: vi.fn(noopUnsub),
       onOpenPanel: vi.fn(noopUnsub),
       onOpenDiff: vi.fn(noopUnsub),
       onOpenTerminal: vi.fn(noopUnsub),
+    },
+    assist: {
+      availability: vi.fn().mockResolvedValue({}),
+      onAvailability: vi.fn(noopUnsub),
+      request: vi.fn().mockResolvedValue({ ok: false, error: 'unavailable' }),
+      cancel: vi.fn(),
+      onChunk: vi.fn(noopUnsub),
     },
     externalEditor: {
       open: vi.fn().mockResolvedValue({ ok: true, argv: [] }),
@@ -184,6 +224,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       list: vi.fn().mockResolvedValue([]),
       post: vi.fn(),
       clear: vi.fn(),
+      reveal: vi.fn(),
       onChanged: vi.fn(noopUnsub),
       onActivate: vi.fn(noopUnsub),
     },
@@ -193,6 +234,15 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     },
     completions: {
       spec: vi.fn().mockResolvedValue(null),
+    },
+    iconThemes: {
+      load: vi.fn().mockResolvedValue(null),
+    },
+    views: {
+      list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),
+      setEnabled: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),
+      reveal: vi.fn().mockResolvedValue(true),
+      onChanged: vi.fn(noopUnsub),
     },
   }
   return { ...base, ...overrides }
