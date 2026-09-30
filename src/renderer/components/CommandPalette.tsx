@@ -43,6 +43,7 @@ export function CommandPalette(): JSX.Element {
       onOpenChange={(o) => {
         if (!o) finish()
       }}
+      className="top-[12vh] sm:max-w-2xl"
       title={d.palette.title}
       description={d.palette.placeholder}
     >

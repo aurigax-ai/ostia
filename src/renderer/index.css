@@ -277,6 +277,18 @@
   flex-direction: column;
 }
 
+.rail-switch-end {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.collapsed .rail-switch-end {
+  flex-direction: column;
+  margin-left: 0;
+}
+
 .rail-section {
   padding: 12px 10px 4px;
   font-size: var(--text-ui-xs);
@@ -350,7 +362,7 @@
 }
 
 .rail-tab.active .tab-lead {
-  color: var(--brand);
+  color: var(--fg-muted);
 }
 
 .tab-lead-wrap .workspace-dot {
@@ -649,14 +661,8 @@
   color: var(--fg-muted);
 }
 
-.collapsed .rail-section,
-.collapsed .rail-add span {
+.collapsed .rail-section {
   display: none;
-}
-
-.rail-add {
-  flex: 0 0 auto;
-  margin: 6px 4px 8px;
 }
 
 .dot {
@@ -864,8 +870,8 @@
   color: var(--fg-dim);
 }
 
-.pane.active .pane-tab.selected .pane-kind {
-  color: var(--brand);
+.pane-tab.selected .pane-kind {
+  color: var(--fg-muted);
 }
 
 .pane-slot {

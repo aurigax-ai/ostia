@@ -28,7 +28,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
         aria-label={label}
         className={cn(
           buttonVariants({ variant: 'ghost', size: BUTTON_SIZE[size] }),
-          'rounded-sm text-fg-muted hover:bg-surface-3 hover:text-fg dark:hover:bg-surface-3 aria-pressed:bg-surface-3 aria-pressed:text-brand',
+          'rounded-sm text-fg-muted hover:bg-surface-3 hover:text-fg dark:hover:bg-surface-3 aria-pressed:bg-surface-3 aria-pressed:text-fg',
           className,
         )}
         {...props}

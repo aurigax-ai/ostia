@@ -275,7 +275,9 @@ Details: `docs/ARCHITECTURE.md`.
   window controls). Tokens and type scale in `docs/DESIGN.md`; never hardcode colors or
   off-scale font sizes. `--fg-dim` is never used for text. Icon-only buttons are `IconButton`.
   Icons come only from `@phosphor-icons/react` (`*Icon` names; weight set once by `IconContext`
-  in `App.tsx`, never per icon). No other icon family and no hand-drawn SVG icons.
+  in `App.tsx`, never per icon). Extension panels (plain DOM) use `@phosphor-icons/core` SVGs
+  through the SDK's `icon()`. No other icon family, no hand-drawn SVG icons, and no Unicode
+  glyphs (`↻`, `×`) standing in for icons. Icons are never tinted with the brand color.
 - **Motion:** overlays built on `components/ui/` get `motion-overlay` (or `motion-hint` for
   tooltips) and animate through Base UI's `data-starting-style`/`data-ending-style`; don't add
   tw-animate `animate-in`/`zoom-*`/`slide-*` classes. No scale on press, springs, bounces,
