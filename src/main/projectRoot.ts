@@ -29,7 +29,7 @@ export function describeProject(dir: string, home: string, root: string | null):
         ? `~${project.slice(home.length)}`
         : project
   const name = project === home ? 'home' : basename(project) || project
-  return { name, display }
+  return { name, display, dir: project }
 }
 
 export function registerProjectRootIpc(roots: string[]): void {

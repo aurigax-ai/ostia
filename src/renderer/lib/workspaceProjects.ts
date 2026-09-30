@@ -8,8 +8,7 @@ export function focusedDirs(): Map<string, string> {
   for (const workspace of useWorkspacesStore.getState().workspaces) {
     const layout = layouts[workspace.id]
     const cwd = layout ? findPane(layout.root, layout.activePaneId)?.cwd : undefined
-    const dir = cwd ?? workspace.workDir
-    if (dir.startsWith('/')) dirs.set(workspace.id, dir)
+    if (cwd?.startsWith('/')) dirs.set(workspace.id, cwd)
   }
   return dirs
 }
