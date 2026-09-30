@@ -2,6 +2,7 @@ import { PlusIcon } from '@phosphor-icons/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { chordLabel } from '../lib/chords'
+import { startNewWorkspace } from '../lib/newWorkspace'
 import { isMac } from '../platform'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -74,7 +75,6 @@ function WorkspaceLayer({
 
 function NoWorkspaces(): JSX.Element {
   const d = useDict()
-  const addWorkspace = useWorkspacesStore((s) => s.addWorkspace)
   const leaveSettings = useUIStore((s) => s.leaveSettings)
   return (
     <Empty className="workzone-empty">
@@ -87,7 +87,7 @@ function NoWorkspaces(): JSX.Element {
       <Button
         onClick={() => {
           leaveSettings()
-          addWorkspace()
+          startNewWorkspace()
         }}
       >
         <PlusIcon data-icon="inline-start" />

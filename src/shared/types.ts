@@ -18,6 +18,7 @@ export interface WindowControls {
   close: () => void
   isMaximized: () => Promise<boolean>
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
+  onConfirmClose: (cb: () => Promise<boolean>) => () => void
 }
 
 export interface PtySpawnOptions {

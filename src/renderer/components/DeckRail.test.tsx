@@ -41,6 +41,16 @@ describe('DeckRail', () => {
     vi.restoreAllMocks()
   })
 
+  it('wraps long workspace titles only when the setting is on', () => {
+    seedWorkspaces()
+    const { rerender } = render(<DeckRail />)
+    expect(screen.getByText('alpha')).not.toHaveClass('wrap')
+
+    useSettingsStore.getState().setWorkspaces({ wrapTitles: true })
+    rerender(<DeckRail />)
+    expect(screen.getByText('alpha')).toHaveClass('wrap')
+  })
+
   it('shows or hides each row detail by the sidebar settings', () => {
     seedWorkspaces()
     useWorkspacesStore.setState((st) => ({

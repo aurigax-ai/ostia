@@ -387,6 +387,14 @@
   text-overflow: ellipsis;
 }
 
+.tab-title.wrap {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .rail-row {
   display: block;
   position: relative;

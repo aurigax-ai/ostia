@@ -169,6 +169,11 @@ Details: `docs/ARCHITECTURE.md`.
   Closing the last pane removes the layout and emits `pane-closed`. Opening a file, browser,
   panel or diff in an empty workspace makes it the first pane (`seedLayout`, only for a workspace
   that exists). Empty workspaces are saved without `root` and restored empty.
+- **Closing and quitting ask only about running commands.** `lib/closeConfirm.ts` confirms closing
+  a workspace, or its last pane, and `main/closeGuard.ts` confirms quit and window close through
+  the renderer; `before-quit` calls `preventDefault()` until approved, so the scrollback save
+  and pty kill run once, after approval. New workspace paths call `startNewWorkspace()` (placement
+  and folder settings), never `addWorkspace` directly. E2E seeds `workspaces.confirmQuit: false`.
 - **Workspace/pane guards:** `closePane` emits `pane-closed` only if the pane existed; a
   workspace's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,

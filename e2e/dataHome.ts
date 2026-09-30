@@ -10,7 +10,10 @@ export function freshDataHome(): string {
   return dir
 }
 
-export const DOM_RENDERER_SETTINGS = { behavior: { gpuAcceleration: false } }
+export const DOM_RENDERER_SETTINGS = {
+  behavior: { gpuAcceleration: false },
+  workspaces: { confirmQuit: false },
+}
 
 export function seedSettings(dataHome: string, settings: object): void {
   const userData = join(dataHome, 'userData')
