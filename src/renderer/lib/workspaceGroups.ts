@@ -1,4 +1,5 @@
 import type { WorkspaceGroupColor } from '@shared/workspaceGroups'
+import picomatch from 'picomatch/posix'
 import { setPinned, withPinned } from './workspaceOrder'
 
 export interface WorkspaceGroup {
@@ -289,32 +290,12 @@ export function insertWorkspace<W extends Groupable>(
   return dropWorkspace(appended, workspace.id, { kind: 'workspace', id: anchor.id, place: 'after' })
 }
 
-export function globToRegExp(pattern: string): RegExp {
-  let source = ''
-  for (let i = 0; i < pattern.length; i++) {
-    const c = pattern[i]
-    if (c === '*' && pattern[i + 1] === '*') {
-      source += '.*'
-      i++
-    } else if (c === '*') {
-      source += '[^/]*'
-    } else if (c === '?') {
-      source += '[^/]'
-    } else {
-      source += c.replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    }
-  }
-  return new RegExp(`^${source}$`)
-}
-
 function trimSlash(path: string): string {
   return path.length > 1 ? path.replace(/\/+$/, '') : path
 }
 
 export function matchGroupRule(rules: readonly GroupRule[], workDir: string): string | null {
   const dir = trimSlash(workDir)
-  for (const rule of rules) {
-    if (globToRegExp(trimSlash(rule.pattern)).test(dir)) return rule.group
-  }
-  return null
+  const rule = rules.find((r) => picomatch(trimSlash(r.pattern), { dot: true })(dir))
+  return rule?.group ?? null
 }

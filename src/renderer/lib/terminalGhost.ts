@@ -4,6 +4,7 @@ import type {
   TerminalHistoryEntry,
 } from '@shared/assist'
 import { TERMINAL_LINE_MAX } from '@shared/assist'
+import { LRUCache } from 'lru-cache'
 import type { CommandBlock } from '../stores/blocksStore'
 import { NATURAL_COMMAND_PATTERN } from './assistComposer'
 import type { ShownPaneChip } from './paneChips'
@@ -115,7 +116,7 @@ export function ghostRequester(
   onResult: (ghost: AiGhost) => void,
   delayMs = GHOST_DEBOUNCE_MS,
 ): GhostRequester {
-  const cache = new Map<string, string>()
+  const cache = new LRUCache<string, string>({ max: GHOST_CACHE_MAX })
   let timer: ReturnType<typeof setTimeout> | undefined
   let controller: AbortController | undefined
   const cancel = (): void => {
@@ -123,13 +124,6 @@ export function ghostRequester(
     timer = undefined
     controller?.abort()
     controller = undefined
-  }
-  const remember = (line: string, text: string): void => {
-    cache.set(line, text)
-    if (cache.size > GHOST_CACHE_MAX) {
-      const oldest = cache.keys().next().value
-      if (oldest !== undefined) cache.delete(oldest)
-    }
   }
   return {
     request: (line) => {
@@ -145,7 +139,7 @@ export function ghostRequester(
         timer = undefined
         void fetch(line, current.signal).then((text) => {
           if (current.signal.aborted || text === null) return
-          remember(line, text)
+          cache.set(line, text)
           onResult({ line, text })
         })
       }, delayMs)

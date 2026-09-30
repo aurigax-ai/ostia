@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from 'node:child_process'
+import { setTimeout as sleep } from 'node:timers/promises'
 import type { ExtensionIcon, SidebarTone } from '../../shared/extensions'
 import { type ToolRun, nextBackoff, runTool } from '../sdk/tool'
 import { type Strings, stringsFor } from './strings'
@@ -262,7 +263,7 @@ export class TrellisService {
         while (!settled && Date.now() < deadline && !this.stopped) {
           const url = await this.daemonUrl()
           if (url) return settle(null, url)
-          await new Promise((r) => setTimeout(r, 300))
+          await sleep(300)
         }
         if (!settled) {
           this.stopOwnedUi()
