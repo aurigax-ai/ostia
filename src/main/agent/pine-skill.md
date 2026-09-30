@@ -172,19 +172,31 @@ Trellis to the human (board panel, per-workspace card counts, review notificatio
 Extensions below. Files an older Pine left behind (`.pine/board.json`, `.pine/wiki.json`) are
 the user's data: don't read them as current state, and don't delete them.
 
-## Git — repo state of your cwd as JSON
+## Git — repo state of your cwd, log, blame, stage and commit
 
 ```sh
 pine git status                      # {root, branch:{head,oid,upstream,ahead,behind}, counts}
 pine git changes                     # + changes:[{path, origPath?, area, code}]
 pine git diff <path> [--staged]      # {root, path, area, code, patch}  (unified diff)
 pine git open <path> [--staged]      # show that file's diff to the human in a diff pane
+pine git log [--limit N] [--json]    # recent commits (default 50); --json: {root, branch,
+                                     #  commits:[{sha, author, email, time, subject}]}
+pine git blame <file> [--json]       # line by line; --json: {root, path,
+                                     #  lines:[{line, sha, author, time, summary, text}]}
+pine git stage <path...> | --all     # {root, staged, counts}
+pine git unstage <path...> | --all   # {root, unstaged, counts}
+pine git commit -m <message>         # commits what is staged; prints the new sha
 ```
 
-Scoped to your pane's current directory (falls back to the workspace's). `area` is
-`staged | unstaged | untracked | conflicted`; `code` is git's letter (`M A D R C T U ?`).
-Outside a repo you get `not-a-repo`; a path with no changes gives `not-changed`. Read-only:
-it never stages, commits or checks out. Use `git` itself for that.
+Scoped to your pane's current directory (falls back to the workspace's); `blame` uses the repo
+that holds the file. `area` is `staged | unstaged | untracked | conflicted`; `code` is git's
+letter (`M A D R C T U ?`). A blame line whose `sha` is all zeros is not committed yet; `time`
+is Unix seconds. Outside a repo you get `not-a-repo`; a path with no changes gives
+`not-changed`; a failed git command gives `git-failed` with git's own message (e.g. nothing
+staged to commit). `commit` never stages for you: stage first. There is no discard verb:
+throwing away uncommitted work is the human's call (the Git panel asks them first). Never
+checkout, reset or clean files the human didn't ask you to; the human sees your staged work and
+commits in the Git panel and on the terminal's branch chips.
 
 ## System — what machine you're on, and installing packages
 
