@@ -246,7 +246,9 @@ Details: `docs/ARCHITECTURE.md`.
   and pty kill run once, after approval. New workspace paths call `startNewWorkspace()` (placement
   and folder settings), never `addWorkspace` directly. E2E seeds `workspaces.confirmQuit: false`.
 - **Workspace/pane guards:** `closePane` emits `pane-closed` only if the pane existed; a
-  workspace's `workDir` is the anchor, a pane's `cwd` wanders.
+  workspace's `workDir` is the anchor for new panes and follows the project of its active pane
+  (`setProject`, `lib/workspaceProjects.ts`); a pane's `cwd` wanders. With no panes left, the
+  workspace keeps its last project (name, `projectDir`, `workDir`).
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
   `Ctrl+Shift+H` command history, `Ctrl+Shift+S` search saved workflows, `Ctrl+Shift+T` new

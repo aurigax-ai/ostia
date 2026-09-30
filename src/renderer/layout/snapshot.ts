@@ -17,6 +17,7 @@ export interface RestorableWorkspace {
   groupId?: string
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
+  projectDir?: string
 }
 
 export interface RestorableLayout {
@@ -100,6 +101,7 @@ export function buildSnapshot(input: {
       ...(workspace.groupId ? { groupId: workspace.groupId } : {}),
       kind: workspace.kind,
       workDir: workspace.workDir,
+      ...(workspace.projectDir ? { projectDir: workspace.projectDir } : {}),
       ...(layout && root
         ? {
             root: fromLayoutNode(root, live),
@@ -140,6 +142,7 @@ export function restoreSnapshot(snapshot: AppSnapshot): {
       ...(s.groupId ? { groupId: s.groupId } : {}),
       kind: s.kind,
       workDir: s.workDir,
+      ...(s.projectDir ? { projectDir: s.projectDir } : {}),
     })
     if (!s.root) continue
     const root = toLayoutNode(s.root)
