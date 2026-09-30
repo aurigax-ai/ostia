@@ -1,5 +1,5 @@
+import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
-import { contrastRatio } from '../lib/color'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import type { ColorScheme } from '../plugins/types'
 import {
@@ -56,9 +56,9 @@ describe('monacoThemeData', () => {
       const { comment, text: _text, ...code } = codeColors(s)
       const bg = s.colors.background
       for (const [token, color] of Object.entries(code)) {
-        expect(contrastRatio(color, bg), `${s.id} ${token}`).toBeGreaterThanOrEqual(CODE_CONTRAST)
+        expect(wcagContrast(color, bg), `${s.id} ${token}`).toBeGreaterThanOrEqual(CODE_CONTRAST)
       }
-      expect(contrastRatio(comment, bg), `${s.id} comment`).toBeGreaterThanOrEqual(COMMENT_CONTRAST)
+      expect(wcagContrast(comment, bg), `${s.id} comment`).toBeGreaterThanOrEqual(COMMENT_CONTRAST)
     }
   })
 

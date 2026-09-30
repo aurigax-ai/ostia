@@ -1,7 +1,7 @@
+import { wcagContrast } from 'culori'
 import { afterEach, describe, expect, it } from 'vitest'
 import { BUILTIN_PLUGINS } from '../plugins/builtin'
 import type { Theme } from '../plugins/types'
-import { contrastRatio } from './color'
 import { applyTheme, effectiveThemeId, resolveTheme, themedTokens } from './theme'
 
 const themes = BUILTIN_PLUGINS.flatMap((p) => p.contributes.themes ?? [])
@@ -52,7 +52,7 @@ describe('themedTokens', () => {
       for (const accent of ['', '#f2b347', '#1f3a8a', '#ffffff', '#000000']) {
         const tokens = themedTokens(theme, accent)
         expect(
-          contrastRatio(tokens['on-brand'], tokens.brand),
+          wcagContrast(tokens['on-brand'], tokens.brand),
           `${theme.id} ${accent}`,
         ).toBeGreaterThanOrEqual(4.5)
       }
