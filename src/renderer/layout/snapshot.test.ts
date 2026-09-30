@@ -206,3 +206,45 @@ describe('restoreSnapshot', () => {
     expect(restoreSnapshot(snapshot).layouts.s1.root).not.toBe(snapshot.workspaces[0].root)
   })
 })
+
+describe('agent running at save', () => {
+  const resume = { agent: 'claude' as const, id: 'abc-1' }
+  const workspace = {
+    id: 'w1',
+    name: 'w',
+    kind: 'terminal' as const,
+    workDir: '/w',
+  }
+
+  it('marks a pane whose agent is running and restores it as pending a resume', () => {
+    const agent = { ...createPane('terminal'), resume }
+    const idle = { ...createPane('terminal'), resume: { agent: 'claude' as const, id: 'old-2' } }
+    const root = splitOf('horizontal', agent, idle)
+    const snap = buildSnapshot({
+      workspaces: [workspace],
+      groups: [],
+      activeWorkspaceId: 'w1',
+      layouts: { w1: { root, activePaneId: agent.id } },
+      savedAt: 'now',
+      liveAgentPanes: new Set([agent.id]),
+    })
+    const restored = restoreSnapshot(snap).layouts.w1.root as LayoutNode & {
+      children: { id: string; resumePending?: true }[]
+    }
+    expect(restored.children.find((p) => p.id === agent.id)?.resumePending).toBe(true)
+    expect(restored.children.find((p) => p.id === idle.id)?.resumePending).toBeUndefined()
+  })
+
+  it('keeps a pending resume through another save until it happens', () => {
+    const pending = { ...createPane('terminal'), resume, resumePending: true as const }
+    const snap = buildSnapshot({
+      workspaces: [workspace],
+      groups: [],
+      activeWorkspaceId: 'w1',
+      layouts: { w1: { root: pending, activePaneId: pending.id } },
+      savedAt: 'now',
+    })
+    expect(snap.workspaces[0].root).toMatchObject({ agentRunning: true })
+    expect(snap.workspaces[0].root).not.toHaveProperty('resumePending')
+  })
+})

@@ -114,7 +114,11 @@ Details: `docs/ARCHITECTURE.md`.
 - **A resume token is data, never a command.** `pine resume-token` stores `{agent, id}` on the
   pane only after `parseAgentResume` checks the agent is known and the id is `[A-Za-z0-9._-]`;
   the command is built by `resumeCommand` and typed only at an idle prompt when the human asks
-  (Resume button, `agent.resume`). Never store or replay a free-form command.
+  (Resume button, `agent.resume`), or, if the human turned on `agents.autoResume` (Settings;
+  `settings.set` refuses it), for a pane whose agent was running at the last save
+  (`agentRunning` in the snapshot → `resumePending`), once that pane is visible
+  (`lib/autoResume.ts`). A command run in the pane first cancels it. Never store or replay a
+  free-form command.
 - **Hibernation only stops what it can bring back** (`lib/hibernationScheduler.ts`, off by
   default). It kills a pane's pty only if the pane has a resume token, its running block is
   that agent (`commandAgent`), it is not visible and idle past `idleSeconds`; never a shell at

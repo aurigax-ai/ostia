@@ -1310,6 +1310,18 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   like a send that did nothing. The tree highlights the row of the active editor pane's file
   (`aria-current`); since an editor pane's `cwd` is its file's folder, that row is always at the
   tree's top level.
+- **Auto-resume after a restart** (`agents.autoResume`, `lib/autoResume.ts`): the resume token
+  stays on a pane after its agent exits, so the snapshot also records `agentRunning` for panes
+  whose running command is that agent at save time (`liveAgentPanes` in `stores/persistence.ts`,
+  which re-saves when `running` changes); once quit is approved `freezeSnapshots()` saves one
+  last time and stops, so the shells dying at quit can't clear the mark. Restore turns it into
+  `resumePending` on the pane. `startAutoResume` then, when the setting is on and the pane is
+  visible (`isPaneVisible`: active workspace, shown tab, not behind Settings), types
+  `resumeCommand` at the pane's first idle prompt (`runWhenIdle`) and clears the mark; a
+  background tab or another workspace waits until it's shown. The mark is dropped (no resume)
+  when the setting is off or a command runs in the pane first. A still-pending pane is saved
+  as `agentRunning` again, so quitting before visiting it keeps it. Why visible only: restoring
+  many workspaces would otherwise start every agent at once.
 - **Agent session button** (`components/AgentSessionButton.tsx`, `lib/agentSession.ts`): the pane
   header shows a robot icon with a state dot only while the pane's running command is an agent
   (`commandAgent`). Its popover lists only what Pine knows: the title the agent set on the

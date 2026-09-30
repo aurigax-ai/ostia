@@ -25,7 +25,10 @@ test('Ctrl+click on a file path in terminal output opens it in the editor at tha
     const row = rows.locator('div', { hasText: /^error at notes\/app\.ts:27:7\s*$/ }).first()
     await expect(row).toHaveCount(1, { timeout: 15_000 })
     await expect(
-      row.locator('xpath=following-sibling::div').filter({ hasText: /[❯$%#]/ }).first(),
+      row
+        .locator('xpath=following-sibling::div')
+        .filter({ hasText: /[❯$%#]/ })
+        .first(),
     ).toBeAttached({ timeout: 15_000 })
     const target = await row.evaluate((el) => {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)

@@ -200,6 +200,7 @@ export interface SnapshotPaneNode {
   url?: string
   extensionId?: string
   resume?: AgentResume
+  agentRunning?: true
 }
 
 export interface SnapshotSplitNode {

@@ -1,3 +1,4 @@
+import { homedir } from 'node:os'
 import {
   type ElectronApplication,
   type Page,
@@ -5,9 +6,14 @@ import {
   expect,
   test,
 } from '@playwright/test'
-import { homedir } from 'node:os'
 import { isolatedLaunch } from './dataHome'
-import { PROMPT, emptyState, emptyWorkspace, openWorkspace, waitForPaletteSelection } from './helpers'
+import {
+  PROMPT,
+  emptyState,
+  emptyWorkspace,
+  openWorkspace,
+  waitForPaletteSelection,
+} from './helpers'
 
 interface Launched {
   app: ElectronApplication

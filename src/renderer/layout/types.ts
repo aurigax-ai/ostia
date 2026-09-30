@@ -15,6 +15,7 @@ export interface PaneNode {
   extensionId?: string
   resume?: AgentResume
   hibernated?: true
+  resumePending?: true
 }
 
 export interface SplitNode {
