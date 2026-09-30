@@ -136,6 +136,11 @@ export function quoteText(text: string): string {
     .join('\n')}\n\n`
 }
 
+function focusIsAround(area: HTMLTextAreaElement | null): boolean {
+  const active = document.activeElement
+  return !active || active === document.body || (area !== null && active.contains(area))
+}
+
 function focusAtEnd(area: HTMLTextAreaElement | null): void {
   if (!area) return
   area.focus()
@@ -176,8 +181,9 @@ function ChatSession({
   useEffect(() => {
     focusAtEnd(areaRef.current)
     const frame = requestAnimationFrame(() => {
-      const active = document.activeElement
-      if (!active || active === document.body) focusAtEnd(areaRef.current)
+      if (focusIsAround(areaRef.current) && document.activeElement !== areaRef.current) {
+        focusAtEnd(areaRef.current)
+      }
     })
     return () => cancelAnimationFrame(frame)
   }, [])

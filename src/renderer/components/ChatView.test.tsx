@@ -15,6 +15,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ChatPane } from './ChatPane'
+import { ChatView } from './ChatView'
 import { CommandPalette } from './CommandPalette'
 
 vi.mock('../lib/colorize', () => ({ colorizeCode: async () => null }))
@@ -153,6 +154,23 @@ describe('chat', () => {
       'find big files',
     )
     expect(screen.getByText(/Answers come from model-runtime · gemma/)).toBeInTheDocument()
+  })
+
+  it('takes focus back into the question box when the dialog grabs it as Ask opens', async () => {
+    let popup: HTMLDivElement | null = null
+    render(
+      <div
+        ref={(el) => {
+          popup = el
+        }}
+        tabIndex={-1}
+      >
+        <ChatView workspaceId="w1" variant="palette" seed="list files" />
+      </div>,
+    )
+    const box = await screen.findByRole('textbox', { name: 'Your question' })
+    act(() => popup?.focus())
+    await waitFor(() => expect(box).toHaveFocus())
   })
 
   it('streams UI message chunks into a markdown answer with a code block', async () => {
