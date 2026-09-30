@@ -17,6 +17,7 @@ type Request = Distribute<HostRequest>
 export interface SandboxHostDeps {
   nodePath: string
   hostScript: string
+  env?: NodeJS.ProcessEnv
   onAsk: (host: string, port: number | undefined) => Promise<boolean>
   onExit?: () => void
 }
@@ -31,7 +32,7 @@ export class SandboxHost {
 
   async start(config: SandboxRuntimeConfig): Promise<void> {
     const child = spawn(this.deps.nodePath, [this.deps.hostScript], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      env: { ...(this.deps.env ?? process.env), ELECTRON_RUN_AS_NODE: '1' },
       stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
     })
     this.child = child

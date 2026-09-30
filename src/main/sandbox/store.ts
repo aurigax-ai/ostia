@@ -1,53 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs'
 import {
-  DEFAULT_SANDBOX_GLOBALS,
-  type SandboxControls,
-  type SandboxGlobals,
   type WorkspaceSandbox,
   emptyWorkspaceSandbox,
+  parseWorkspaceSandbox,
 } from '../../shared/sandbox'
 import { saveJson } from '../jsonStore'
-
-function stringList(value: unknown): string[] | null {
-  return Array.isArray(value) && value.every((v) => typeof v === 'string') ? value : null
-}
-
-function parseControls(value: unknown): Partial<SandboxControls> | null {
-  if (value === undefined) return {}
-  if (typeof value !== 'object' || value === null) return null
-  const raw = value as Record<string, unknown>
-  const out: Partial<SandboxControls> = {}
-  if (raw.allWorkspaces !== undefined) {
-    if (typeof raw.allWorkspaces !== 'boolean') return null
-    out.allWorkspaces = raw.allWorkspaces
-  }
-  if (raw.browser !== undefined) {
-    if (raw.browser !== 'allowlist' && raw.browser !== 'unrestricted') return null
-    out.browser = raw.browser
-  }
-  return out
-}
-
-export function parseWorkspaceSandbox(value: unknown): WorkspaceSandbox | null {
-  if (typeof value !== 'object' || value === null) return null
-  const raw = value as Record<string, unknown>
-  const allowRead = stringList(raw.allowRead ?? [])
-  const domains = stringList(raw.domains ?? [])
-  const controls = parseControls(raw.controls)
-  if (typeof raw.enabled !== 'boolean' || !allowRead || !domains || !controls) return null
-  return { enabled: raw.enabled, allowRead, domains, controls }
-}
-
-export function parseSandboxGlobals(value: unknown): SandboxGlobals {
-  if (typeof value !== 'object' || value === null) return DEFAULT_SANDBOX_GLOBALS
-  const raw = value as Record<string, unknown>
-  const controls = parseControls(raw.controls) ?? {}
-  return {
-    allowRead: stringList(raw.allowRead) ?? DEFAULT_SANDBOX_GLOBALS.allowRead,
-    allowedDomains: stringList(raw.allowedDomains) ?? DEFAULT_SANDBOX_GLOBALS.allowedDomains,
-    controls: { ...DEFAULT_SANDBOX_GLOBALS.controls, ...controls },
-  }
-}
 
 export class SandboxStore {
   private entries = new Map<string, WorkspaceSandbox>()

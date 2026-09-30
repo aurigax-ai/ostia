@@ -14,6 +14,7 @@ export interface WorkspaceSandboxesDeps {
   tmpRoot: string
   nodePath: string
   hostScript: string
+  hostEnv?: NodeJS.ProcessEnv
   onAsk: (workspaceId: string, host: string, port: number | undefined) => Promise<boolean>
 }
 
@@ -120,6 +121,7 @@ export class WorkspaceSandboxes {
     const host = new SandboxHost({
       nodePath: this.deps.nodePath,
       hostScript: this.deps.hostScript,
+      env: this.deps.hostEnv,
       onAsk: (h, port) => this.deps.onAsk(workspaceId, h, port),
       onExit: () => {
         if (this.hosts.get(workspaceId) === started) this.hosts.delete(workspaceId)
