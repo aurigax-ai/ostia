@@ -755,6 +755,8 @@ function AgentsSection(): JSX.Element {
   const d = useDict()
   const hibernation = useSettingsStore((s) => s.agents.hibernation)
   const set = useSettingsStore((s) => s.setHibernation)
+  const autoResume = useSettingsStore((s) => s.agents.autoResume)
+  const setAutoResume = useSettingsStore((s) => s.setAutoResume)
   const approvalMode = useSettingsStore((s) => s.approvals.mode)
   const setApprovalMode = useSettingsStore((s) => s.setApprovalMode)
   return (
@@ -772,6 +774,14 @@ function AgentsSection(): JSX.Element {
             ]}
           />
         </ControlRow>
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupResume}>
+        <ToggleRow
+          label={d.settings.autoResume}
+          desc={d.settings.autoResumeDesc}
+          checked={autoResume}
+          onChange={setAutoResume}
+        />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupPerformance}>
         <ToggleRow

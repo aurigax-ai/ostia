@@ -52,7 +52,10 @@ test('copy on select puts selected terminal text on the clipboard', async () => 
     const output = rows.locator('div', { hasText: /^pinecopy42\s*$/ }).first()
     await expect(output).toHaveCount(1, { timeout: 15_000 })
     await expect(
-      output.locator('xpath=following-sibling::div').filter({ hasText: /[❯$%#]/ }).first(),
+      output
+        .locator('xpath=following-sibling::div')
+        .filter({ hasText: /[❯$%#]/ })
+        .first(),
     ).toBeAttached({ timeout: 15_000 })
     const box = await output.boundingBox()
     if (!box) throw new Error('output row has no box')

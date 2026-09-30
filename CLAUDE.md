@@ -114,7 +114,11 @@ Details: `docs/ARCHITECTURE.md`.
 - **A resume token is data, never a command.** `pine resume-token` stores `{agent, id}` on the
   pane only after `parseAgentResume` checks the agent is known and the id is `[A-Za-z0-9._-]`;
   the command is built by `resumeCommand` and typed only at an idle prompt when the human asks
-  (Resume button, `agent.resume`). Never store or replay a free-form command.
+  (Resume button, `agent.resume`), or, if the human turned on `agents.autoResume` (Settings;
+  `settings.set` refuses it), for a pane whose agent was running at the last save
+  (`agentRunning` in the snapshot → `resumePending`), once that pane is visible
+  (`lib/autoResume.ts`). A command run in the pane first cancels it. Never store or replay a
+  free-form command.
 - **Hibernation only stops what it can bring back** (`lib/hibernationScheduler.ts`, off by
   default). It kills a pane's pty only if the pane has a resume token, its running block is
   that agent (`commandAgent`), it is not visible and idle past `idleSeconds`; never a shell at
@@ -140,7 +144,9 @@ Details: `docs/ARCHITECTURE.md`.
   Rerun and history insert go through `insertCommand` (`lib/blockActions.ts`), need the `shell`
   capability, and paste via `term.paste`. The one widening: a report reference from pick
   element or send selection (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a
-  running agent that reported `waiting`/`done`; it's text only, never followed by Enter. A file
+  running agent: one whose running command is `claude`/`codex` (`commandAgent`; their input box
+  queues typed text), or any command that reported `waiting`/`done`; it's text only, never
+  followed by Enter. A file
   path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. Anything
   else goes to the clipboard.
   The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through
@@ -380,6 +386,10 @@ Details: `docs/ARCHITECTURE.md`.
   (`normalizeOrigin`, http/https only), and the renderer only ever gets summaries (origin,
   username); "copy" writes the clipboard from main. No socket method or CLI verb returns a
   password; filling a page happens in main.
+- **The file menu never launches programs.** "Open with default app" (`main/openPath.ts`) is
+  confined like `fs:*` and refuses executables, scripts and launchers (`isProgram`); reveal only
+  shows the item in the file manager. "Send path to agent" lists only agents running in the
+  workspace (`runningAgent`).
 - **User actions are data, and elevated ones ask once.** `actions` in `settings.json` name a
   palette command + args (`parseActions`), never a shell string; agents may add them. Running
   one whose command needs a non-default capability shows the command and args and waits

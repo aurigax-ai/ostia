@@ -5,14 +5,9 @@ import { actionsFor } from '../settings/actions'
 import { useSettingsStore } from '../stores/settingsStore'
 import { FileMenuItems } from './FileMenu'
 import { IconButton } from './IconButton'
+import { MenuContent, MenuItem } from './Menu'
 import { actionIcon } from './actionIcons'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from './ui/context-menu'
+import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from './ui/context-menu'
 
 export function PaneTabMenu({
   pane,
@@ -31,19 +26,21 @@ export function PaneTabMenu({
   return (
     <ContextMenu>
       <ContextMenuTrigger render={trigger} />
-      <ContextMenuContent className="min-w-48">
-        {file && workspaceId ? <FileMenuItems workspaceId={workspaceId} path={file} /> : null}
+      <MenuContent>
+        {file && workspaceId ? (
+          <FileMenuItems workspaceId={workspaceId} path={file} inPine />
+        ) : null}
         {file && tabActions.length > 0 ? <ContextMenuSeparator /> : null}
-        {tabActions.map((action) => {
-          const Icon = actionIcon(action.icon)
-          return (
-            <ContextMenuItem key={action.id} onClick={() => void runUserAction(action, pane.id)}>
-              <Icon aria-hidden />
-              {action.title}
-            </ContextMenuItem>
-          )
-        })}
-      </ContextMenuContent>
+        {tabActions.map((action) => (
+          <MenuItem
+            key={action.id}
+            icon={actionIcon(action.icon)}
+            onClick={() => void runUserAction(action, pane.id)}
+          >
+            {action.title}
+          </MenuItem>
+        ))}
+      </MenuContent>
     </ContextMenu>
   )
 }

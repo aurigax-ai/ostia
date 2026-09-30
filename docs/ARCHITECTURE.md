@@ -717,6 +717,12 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   above the pinned group) and picks the `workDir`: the active workspace's focused pane `cwd` when
   `workspaces.inheritFolder` is on and the pane has one, else `workspaces.defaultFolder` (`~`).
   The `workDir` stays the anchor; only its initial value is inherited.
+- **Workspace names follow the project** (`lib/workspaceProjects.ts`, `main/projectRoot.ts`): for
+  each workspace, the active pane's cwd goes to `workspace:project`, which returns the nearest
+  folder below home that has a `.git` (never home itself), else the folder, as `{name,
+  display}`; `setProject` stores it as the automatic `name` and `projectDir` (the rail's path
+  line). `customName` (Rename) always wins. `workDir` stays the anchor for new panes. Why: a
+  workspace created at `~` and then used in a repo was stuck being called "home".
 - **Close confirmation** (`lib/closeConfirm.ts`, `CloseConfirmDialog.tsx`, `closeConfirmStore`):
   a command is running when `blocksStore.running` has a block for a pane of the workspace.
   Closing a workspace (row X, context menu, `workspace.closeOthers`) and closing any pane or tab
@@ -1310,6 +1316,18 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   like a send that did nothing. The tree highlights the row of the active editor pane's file
   (`aria-current`); since an editor pane's `cwd` is its file's folder, that row is always at the
   tree's top level.
+- **Auto-resume after a restart** (`agents.autoResume`, `lib/autoResume.ts`): the resume token
+  stays on a pane after its agent exits, so the snapshot also records `agentRunning` for panes
+  whose running command is that agent at save time (`liveAgentPanes` in `stores/persistence.ts`,
+  which re-saves when `running` changes); once quit is approved `freezeSnapshots()` saves one
+  last time and stops, so the shells dying at quit can't clear the mark. Restore turns it into
+  `resumePending` on the pane. `startAutoResume` then, when the setting is on and the pane is
+  visible (`isPaneVisible`: active workspace, shown tab, not behind Settings), types
+  `resumeCommand` at the pane's first idle prompt (`runWhenIdle`) and clears the mark; a
+  background tab or another workspace waits until it's shown. The mark is dropped (no resume)
+  when the setting is off or a command runs in the pane first. A still-pending pane is saved
+  as `agentRunning` again, so quitting before visiting it keeps it. Why visible only: restoring
+  many workspaces would otherwise start every agent at once.
 - **Agent session button** (`components/AgentSessionButton.tsx`, `lib/agentSession.ts`): the pane
   header shows a robot icon with a state dot only while the pane's running command is an agent
   (`commandAgent`). Its popover lists only what Pine knows: the title the agent set on the

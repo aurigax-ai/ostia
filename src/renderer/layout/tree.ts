@@ -98,6 +98,15 @@ function mapPane(root: LayoutNode, paneId: string, fn: (pane: PaneNode) => PaneN
   return mapPanes(root, (p) => (p.id === paneId ? fn(p) : p))
 }
 
+export function setResumePending(root: LayoutNode, paneId: string, pending: boolean): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (Boolean(p.resumePending) === pending) return p
+    if (pending) return { ...p, resumePending: true }
+    const { resumePending: _pending, ...rest } = p
+    return rest
+  })
+}
+
 export function setPaneCwd(root: LayoutNode, paneId: string, cwd: string): LayoutNode {
   return mapPane(root, paneId, (p) => (p.cwd === cwd ? p : { ...p, cwd }))
 }

@@ -15,9 +15,11 @@ import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
+import { startAutoResume } from './lib/autoResume'
 import { startHibernation } from './lib/hibernationScheduler'
 import { startUserActions } from './lib/userActions'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
+import { startWorkspaceProjects } from './lib/workspaceProjects'
 import { startApprovals } from './stores/approvalsStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
@@ -59,6 +61,8 @@ async function boot(): Promise<void> {
   startAttentionSync()
   startPaneRecencySync()
   startHibernation()
+  startAutoResume()
+  startWorkspaceProjects()
   startApprovals()
   startUserActions()
   startUpdateWatch()
