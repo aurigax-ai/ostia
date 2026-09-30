@@ -146,7 +146,9 @@ Details: `docs/ARCHITECTURE.md`.
   element or send selection (`lib/sendPick.ts` `canInsertReference`) may also be pasted into a
   running agent: one whose running command is `claude`/`codex` (`runningAgentOf`; their input box
   queues typed text), or any command that reported `waiting`/`done`; it's text only, never
-  followed by Enter. A file
+  followed by Enter. A file dragged onto a terminal (from the tree or the OS) is the human's
+  own paste: its shell-quoted paths go through the normal paste path (`lib/dropPaths.ts`),
+  never with Enter. A file
   path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. Anything
   else goes to the clipboard.
   The input editor (`behavior.inputMode: 'editor'`, `InputEditor.tsx`) submits through

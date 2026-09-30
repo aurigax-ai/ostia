@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AgentSessionInfo } from '../shared/agentSessionInfo'
 import type { ApprovalState } from '../shared/approvals'
 import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
@@ -188,6 +188,9 @@ const bridge: PineBridge = {
       ipcRenderer.invoke('browser:storage-remove', paneId, removal) as Promise<StorageWriteResult>,
     storageClear: (paneId, kind) =>
       ipcRenderer.invoke('browser:storage-clear', paneId, kind) as Promise<StorageWriteResult>,
+  },
+  files: {
+    pathForFile: (file) => webUtils.getPathForFile(file),
   },
   openPath: {
     openDefault: (path) =>
