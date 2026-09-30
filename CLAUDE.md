@@ -361,6 +361,9 @@ Details: `docs/ARCHITECTURE.md`.
   dims, don't re-fit at flush; (c) zsh repaints with *relative* cursor moves, so skipping the
   cursor restore shifts the prompt up a row per resize and eats output above it; (d) the prompt
   row must come from an xterm marker, because reflow moves lines under a stored number.
+  (e) if the held bytes contain OSC 133;C, the user submitted a command during the hold: they are
+  command output, not a repaint, so write them without erasing (`isPromptRepaint`), else the
+  prompt and the typed command vanish (an extension opening a split pane right before Enter did it).
   Covered by `e2e/resize-prompt.spec.ts` (split + drag-resize with output above the prompt).
 - **Attention is silent during replay** (`Terminal.tsx` `replaying`): the attach replay buffer
   re-parses old OSC 9/777/99, BELs and failed OSC 133;D marks. Signals are dropped until

@@ -24,3 +24,9 @@ export function nextSizeAction({
   if (cols !== last.cols || rows !== last.rows) return { type: 'resize', cols, rows }
   return { type: 'none' }
 }
+
+const COMMAND_START_MARK = '\x1b]133;C'
+
+export function isPromptRepaint(held: string): boolean {
+  return !held.includes(COMMAND_START_MARK)
+}
