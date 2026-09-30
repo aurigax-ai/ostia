@@ -15,6 +15,7 @@ export type Capability =
   | 'browse'
   | 'settings-read'
   | 'settings-write'
+  | 'credentials'
 
 export const DEFAULT_CAPABILITIES: Capability[] = [
   'drive-self',
@@ -43,6 +44,7 @@ export const ALL_CAPABILITIES: Capability[] = [
   'browse',
   'settings-read',
   'settings-write',
+  'credentials',
 ]
 
 export const PHONE_BASE_CAPS = ['read', 'notify'] as const

@@ -105,6 +105,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onAvailable: vi.fn(() => () => {}),
     },
     credentials: {
+      forPage: vi.fn().mockResolvedValue([]),
+      fill: vi.fn().mockResolvedValue({ ok: true, username: 'me' }),
+      saveFromPage: vi.fn().mockResolvedValue({ ok: true, id: 'c1', updated: false }),
       list: vi.fn().mockResolvedValue([]),
       save: vi.fn().mockResolvedValue({ ok: true, id: 'c1', updated: false }),
       remove: vi.fn().mockResolvedValue(true),

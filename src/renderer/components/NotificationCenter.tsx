@@ -1,11 +1,17 @@
-import { cn } from '@/lib/utils'
-import { BellIcon } from '@phosphor-icons/react'
+import { TrayIcon } from '@phosphor-icons/react'
 import type { NotificationEntry } from '@shared/types'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { openExtensionPanel } from '../commands/extensionBridge'
 import { fmt, useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
+import {
+  NOTIFICATION_TABS,
+  type NotificationTab,
+  groupNotifications,
+  inTab,
+} from '../lib/notificationGroups'
 import { revealPane } from '../lib/workspaceActivity'
+import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -13,16 +19,16 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ApprovalsInbox } from './ApprovalsInbox'
 import { IconButton } from './IconButton'
-import { ATTENTION_BADGE } from './attentionStyles'
-import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Empty, EmptyDescription } from './ui/empty'
 import { Item, ItemContent, ItemHeader } from './ui/item'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs'
 
 const LIST_LIMIT = 50
 
 interface PaneLabel {
+  workspaceId: string
   workspace: string
   pane: string
 }
@@ -36,7 +42,13 @@ function usePaneLabels(): (paneId: string | undefined) => PaneLabel | null {
       for (const workspace of workspaces) {
         const layout = byWorkspace[workspace.id]
         const pane = layout ? findPane(layout.root, paneId) : null
-        if (pane) return { workspace: workspace.name, pane: pane.title }
+        if (pane) {
+          return {
+            workspaceId: workspace.id,
+            workspace: workspace.customName ?? workspace.name,
+            pane: pane.title,
+          }
+        }
       }
       return null
     },
@@ -58,6 +70,8 @@ export function NotificationCenter(): JSX.Element {
   const unread = useUnreadTotal()
   const [open, setOpen] = useState(false)
   const [entries, setEntries] = useState<NotificationEntry[]>([])
+  const [tab, setTab] = useState<NotificationTab>('all')
+  const approvalsPending = useApprovalsStore((s) => s.pending.length)
   const labelOf = usePaneLabels()
   const extensions = useExtensionsStore((s) => s.list)
   const panelOf = (extId: string | undefined) =>
@@ -84,21 +98,72 @@ export function NotificationCenter(): JSX.Element {
     [locale],
   )
 
+  const renderEntry = (entry: NotificationEntry): JSX.Element => {
+    const where = labelOf(entry.paneId)
+    const ext = panelOf(entry.extId)
+    const whereText = ext ? ext.name : where ? where.pane : d.attention.closedPane
+    return (
+      <li key={entry.id}>
+        <Item
+          size="xs"
+          className="gap-0.5 p-1.5 text-left hover:bg-surface-2 disabled:text-fg-muted disabled:hover:bg-transparent"
+          render={
+            <button
+              type="button"
+              disabled={!where && !ext}
+              onClick={() => {
+                if (ext) {
+                  openExtensionPanel(
+                    entry.panelPath ? { extId: ext.id, path: entry.panelPath } : { extId: ext.id },
+                  )
+                  setOpen(false)
+                } else if (entry.paneId && revealPane(entry.paneId)) setOpen(false)
+              }}
+            />
+          }
+        >
+          <ItemHeader className="text-fg-muted text-ui-xs tabular-nums">
+            <span className="truncate">{whereText}</span>
+            <time dateTime={entry.ts}>{time.format(new Date(entry.ts))}</time>
+          </ItemHeader>
+          <ItemContent className="basis-full text-ui-sm [overflow-wrap:anywhere]">
+            {entry.body ? `${entry.title}: ${entry.body}` : entry.title}
+          </ItemContent>
+        </Item>
+      </li>
+    )
+  }
+
+  const groups = groupNotifications(
+    entries.filter((e) => inTab(e, tab)),
+    (entry) => {
+      const ext = panelOf(entry.extId)
+      if (ext) return { key: `ext:${ext.id}`, label: ext.name }
+      const where = labelOf(entry.paneId)
+      return where
+        ? { key: where.workspaceId, label: where.workspace }
+        : { key: 'closed', label: d.attention.closedPane }
+    },
+  )
+
+  const tabLabel: Record<NotificationTab, string> = {
+    all: d.attention.tabAll,
+    needs: d.attention.tabNeeds,
+    done: d.attention.tabDone,
+    messages: d.attention.tabMessages,
+  }
+
   const label =
     unread > 0 ? fmt(d.attention.notificationsUnread, { n: unread }) : d.attention.notifications
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <span className="bell-wrap">
-        <PopoverTrigger render={<IconButton size="bar" icon={BellIcon} label={label} />} />
+        <PopoverTrigger render={<IconButton size="bar" icon={TrayIcon} label={label} />} />
         {unread > 0 ? (
-          <Badge
-            variant="outline"
-            className={cn(ATTENTION_BADGE, 'bell-count bg-surface-1')}
-            aria-hidden="true"
-          >
+          <span className="bell-count" aria-hidden="true">
             {unread > 99 ? '99+' : unread}
-          </Badge>
+          </span>
         ) : null}
       </span>
       <PopoverContent align="end" className="notif-popover">
@@ -117,61 +182,44 @@ export function NotificationCenter(): JSX.Element {
             {d.attention.clearAll}
           </Button>
         </div>
-        <ApprovalsInbox
-          whereOf={(paneId) => {
-            const where = labelOf(paneId)
-            return where ? `${where.workspace} · ${where.pane}` : null
-          }}
-          time={time}
-          onReveal={() => setOpen(false)}
-        />
-        {entries.length === 0 ? (
+        <Tabs value={tab} onValueChange={(value) => setTab(value as NotificationTab)}>
+          <TabsList className="w-full">
+            {NOTIFICATION_TABS.map((t) => {
+              const count =
+                t === 'needs' ? entries.filter((e) => inTab(e, t)).length + approvalsPending : null
+              return (
+                <TabsTrigger key={t} value={t} className="flex-1 gap-1 text-ui-sm">
+                  {tabLabel[t]}
+                  {count ? <span className="tabular-nums text-attn-fg">{count}</span> : null}
+                </TabsTrigger>
+              )
+            })}
+          </TabsList>
+        </Tabs>
+        {tab === 'all' || tab === 'needs' ? (
+          <ApprovalsInbox
+            whereOf={(paneId) => {
+              const where = labelOf(paneId)
+              return where ? `${where.workspace} · ${where.pane}` : null
+            }}
+            time={time}
+            onReveal={() => setOpen(false)}
+          />
+        ) : null}
+        {groups.length === 0 ? (
           <Empty className="p-3">
-            <EmptyDescription className="text-ui-sm">{d.attention.empty}</EmptyDescription>
+            <EmptyDescription className="text-ui-sm">
+              {tab === 'all' ? d.attention.empty : d.attention.emptyTab}
+            </EmptyDescription>
           </Empty>
         ) : (
           <ul className="notif-list" aria-label={d.attention.notifications}>
-            {entries.map((entry) => {
-              const where = labelOf(entry.paneId)
-              const ext = panelOf(entry.extId)
-              const whereText = ext
-                ? ext.name
-                : where
-                  ? `${where.workspace} · ${where.pane}`
-                  : d.attention.closedPane
-              return (
-                <li key={entry.id}>
-                  <Item
-                    size="xs"
-                    className="gap-0.5 p-1.5 text-left hover:bg-surface-2 disabled:text-fg-muted disabled:hover:bg-transparent"
-                    render={
-                      <button
-                        type="button"
-                        disabled={!where && !ext}
-                        onClick={() => {
-                          if (ext) {
-                            openExtensionPanel(
-                              entry.panelPath
-                                ? { extId: ext.id, path: entry.panelPath }
-                                : { extId: ext.id },
-                            )
-                            setOpen(false)
-                          } else if (entry.paneId && revealPane(entry.paneId)) setOpen(false)
-                        }}
-                      />
-                    }
-                  >
-                    <ItemHeader className="text-fg-muted text-ui-xs tabular-nums">
-                      <span className="truncate">{whereText}</span>
-                      <time dateTime={entry.ts}>{time.format(new Date(entry.ts))}</time>
-                    </ItemHeader>
-                    <ItemContent className="basis-full text-ui-sm [overflow-wrap:anywhere]">
-                      {entry.body ? `${entry.title}: ${entry.body}` : entry.title}
-                    </ItemContent>
-                  </Item>
-                </li>
-              )
-            })}
+            {groups.map((group) => (
+              <li key={group.key} className="notif-group">
+                <div className="notif-group-head">{group.label}</div>
+                <ul aria-label={group.label}>{group.entries.map(renderEntry)}</ul>
+              </li>
+            ))}
           </ul>
         )}
       </PopoverContent>
