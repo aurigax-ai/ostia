@@ -1235,7 +1235,9 @@ workspace running that agent and mirrors it in the terminal.
   ancestors (covers pane shells, extensions and background processes), `PINE_TOKEN` in its
   `/proc/<pid>/environ`, or a controlling tty that is one of Pine's ptys (the manager's own
   included). Anything unreadable refuses too (`unknown-caller`). There is no approval prompt, so
-  this check is the whole gate (§8 has the gap).
+  this check is the whole gate (§8 has the gap). `ss` is the `manager` system requirement
+  (`systemRequirements.ts`): without it `portal.open` refuses first with `missing-requirements`
+  and the install hint, and Settings → Manager offers the System extension's approved install.
 - **One manager, one mirror.** `ManagerService` keeps one `{paneId, agent}`: the same agent
   attaches, another fails `manager-busy`, concurrent opens share one start. The portal keeps one
   mirror slot (`mirror-attached`). Presets are `manager.agents` in settings.json merged over the
@@ -2056,10 +2058,11 @@ the process in `ext.panel` so the extension can build the URL with its own secre
 result must pass `isAllowedPanelUrl` before it is returned. Why re-check in main: setting a
 webview's `src` does not fire `will-navigate`, so the attach-time check is the only other guard.
 
-**Assist** (`shared/assist.ts`, `ExtensionHost.assist*`, `main/assistIpc.ts`). Four hook points an
+**Assist** (`shared/assist.ts`, `ExtensionHost.assist*`, `main/assistIpc.ts`). Five hook points an
 extension can serve: `input` (typo fix and prompt review of a draft for an agent), `command`
 (natural language to shell command suggestions), `completion` (inline code completion in the
-editor) and `chat` (the palette's Ask conversation). The core UI for each is tool-agnostic; the
+editor), `terminal` (ghost text continuing the command at a shell prompt) and `chat` (the chat
+pane and the palette's Ask). The core UI for each is tool-agnostic; the
 extension owns providers, prompts and requests.
 - Declared by `contributes.assist` and gated by the `assist` capability (the manifest is rejected
   without it; the host routes only to an extension whose granted caps include it). An extension
@@ -2100,9 +2103,52 @@ extension owns providers, prompts and requests.
   inserts the pick with `insertCommand` without Enter. `InputEditor.tsx` asks `command` for a
   `# ` draft (600 ms) and replaces the draft only on Tab/Enter. `monaco/inlineAssist.ts` is one
   inline-completions provider for every language (300 ms debounce, Monaco's cancellation token
-  wired to the request) that answers nothing while no `completion` provider is ready. Ask lives
-  in the palette (`AskView.tsx`, `stores/askStore.ts`, in memory per workspace; closing the
-  palette stops the stream) with context chips from `lib/askContext.ts`.
+  wired to the request) that answers nothing while no `completion` provider is ready.
+- Terminal ghost text (`lib/terminalGhost.ts`, `InputEditor.tsx`): `pickGhost` decides what shows
+  — nothing during IME, vim normal mode, the completion menu, the `# ` hint, history walking, a
+  selection or a caret before the end; else a history prefix match; else the AI continuation
+  while the draft is still a prefix of it. Requests go 300 ms after typing stops, each keystroke
+  aborts the previous one, answers are cached per exact line; the request carries the cwd,
+  platform, the pane's last 5 commands with exit codes and its pane chip values, never output.
+  Tab accepts an AI ghost (else Tab completes as before), → / End accept either.
+- Chat (`ChatView.tsx`, `ChatPane.tsx`, `stores/chatStore.ts`, `lib/chatTransport.ts`): the
+  `chat` pane surface and the palette's Ask render one `Chat` (`@ai-sdk/react`) per session with
+  Vercel AI Elements components adapted to Base UI (markdown stays react-markdown + remark-gfm
+  with Typeset, code colouring is Monaco's `colorize`). The transport turns the extension's
+  JSON `UIMessageChunk`s into the stream `useChat` reads. Why chunks rather than text: tool calls
+  and results arrive as parts of the same stream, so tools can be added without a new protocol.
+  A chat pane persists only its session id; the session itself is in main (below). Code-block
+  actions (`lib/chatActions.ts`) follow §4's typing rules; links in answers go through
+  `lib/chatLinks.ts` (`findFileLinks`); the @ picker attaches files (confined `fs.read`, capped),
+  the selection, a block's output or a browser page as context chips that show what is sent.
+- The extension runs its providers on the AI SDK: `streamText(...).toUIMessageStream()` for
+  chat, `generateText` with `Output.object` + zod (behind `extractJsonMiddleware`) for review and
+  commands, and `createOpenAICompatible` with an undici `fetch` over the unix socket plus
+  `simulateStreamingMiddleware` for model-runtime, which refuses `stream: true`. Why undici 6:
+  extensions run on Electron 33's Node 20, and undici 8 needs Node 22.
+
+**Feature switches and setup state.** `ext.setAssistStatus` also carries the extension's feature
+list (`{id, setting, ready}`, ids from `ASSIST_FEATURES`), a setup problem, the last provider
+error and a label. Main keeps only features bound to one of the extension's own boolean settings
+and reads `on` from that setting (`assistOverview`, pushed on `assist:overview`), so the top-bar
+menu, the in-context switches, Settings → Plugins and the extension's panel all flip the same
+value through the validated setting path. Why the extension names the setting: pine must stay
+tool-agnostic, and a switch that isn't a real setting would drift from Settings. `ext.shortcuts`
+answers the effective key labels the renderer reports (`assist:shortcuts`), and `ext.openAssistUi`
+opens pine's chat pane, Ask or composer for a point the extension contributes (a panel's "Try
+it"), never sending anything by itself.
+
+**Chat sessions** (`main/chatSessions.ts`, `chatSessionsIpc.ts`, `shared/chatSessions.ts`). One
+JSON file per session in `<data dir>/chat-sessions/` (mode 0600, never synced, not
+`settings.json`): title, workspace id, model label, created/updated times and messages shaped
+like the AI SDK's `UIMessage` (role + typed parts + metadata with the context items that were
+sent). Parts other than text are kept as bounded JSON so tool calls and results can be added
+later without reshaping. Each save is normalized in main, trimmed from the oldest turn when the
+session passes 512 KiB (`trimmed`), and the least recently updated other sessions are evicted
+past 16 MiB or 500 sessions; the result tells the renderer what was dropped so it can say so.
+Export writes markdown through a save dialog in main; "Save as file…" does the same for a code
+block. Why main writes them: the renderer has no fs access outside the confined `fs:*`, and a
+session holds terminal output the human chose to send, which belongs in the private data dir.
 
 **Extension secrets** (`main/extensionSecrets.ts`). `contributes.secrets` declares up to 8 keys
 with descriptions. Settings → Plugins shows a password field per key; `extensions:set-secret`
@@ -2340,3 +2386,54 @@ A view is UI an agent can build without an extension process: one JSON file in
   and `openUrl` go through `openSidebarUrl`. Why in core and not an extension: a data-only tree
   drawn with core components needs no process or webview, and drawing it with the real
   components is what makes it look native; the only inputs are data the stores already expose.
+
+## 12. Sandboxed workspaces
+
+Spec: `specs/sandbox/`. A human marks a workspace sandboxed; its pane shells and `pine process`
+runs are then wrapped by `@anthropic-ai/sandbox-runtime` (srt: bubblewrap on Linux, Seatbelt on
+macOS) and confined to the workspace folder and a firewalled network.
+
+- **One sandbox host process per sandboxed workspace** (`main/sandbox/host.ts`, built with esbuild
+  to `out/sandbox/host.mjs`, run with Pine's Electron as Node). Why: srt's `SandboxManager` is a
+  per-process singleton with one proxy and one allowlist, so per-workspace domains, the ask
+  callback and the package filter need a process each. If the host dies the workspace's network
+  dies with it (fail closed). Why ESM: srt is ESM-only and Electron 33's Node can't `require` it.
+- **`WorkspaceSandboxes`** (`main/sandbox/workspaceSandboxes.ts`) owns policy (`sandbox.json` in
+  userData, keyed by workspace id, written only by owner-window IPC), builds the srt config
+  (`srtConfig.ts`, pure) and wraps commands. `pty:attach` is async: a sandboxed shell spawns as
+  `/bin/sh -c <wrapped>` with `TMPDIR` set to the workspace's private tmp. Why the pane gets its
+  own state file as an extra write: the shell reports PATH and cwd through it, and a read-only
+  file silently broke blocks and cwd tracking.
+- **Reads**: home and Pine's data dirs are denied, the workspace folder, rc files and the human's
+  `allowRead` lists are carved back in; carve-outs inside Pine's data dirs are dropped. Why: srt's
+  `allowRead` beats `denyRead`, so listing the data dir would have exposed the vault. The shared
+  sandbox tmp root is denied so one workspace can't read another's secrets.
+- **Writes**: the workspace, its tmp and the agent CLIs' data folders, minus srt's mandatory list
+  plus `.envrc`, `.git/hooks`, `.git/config` and `.pine/vault.json`. Why the explicit git paths:
+  srt only protects hooks it finds when the shell starts, so a later `git init` left them
+  writable. Cost: `git init` of a non-repo workspace fails inside the sandbox.
+- **Network**: domains are global ∪ workspace ∪ until-restart. A host that isn't allowed is held by
+  srt's ask callback while a `sandbox-domain` card waits (`domainRequests.ts`); one card per host,
+  denied hosts refused until restart. Pine's browser in a sandboxed workspace follows the same
+  allowlist (`browserFence.ts`) on `browse.open`, `will-navigate` and `will-redirect`.
+- **Ports** (Linux): a sandboxed server lives in its own network namespace. `PortForwarder` listens
+  on host `127.0.0.1:<port>` and bridges each connection with `nsenter --user --net` + `socat`
+  into the namespace (no root, nothing running inside). Listeners are read from
+  `/proc/<pid>/net/tcp` of a process inside; srt's own proxy bridges (socat on 1080/3128) are
+  skipped. macOS needs no forwarding: loopback binding is allowed.
+- **Secrets** (`main/secrets/`): Host secrets (ssh keys, token-like env vars, `gh auth token`) are
+  read at use, never copied; Pine secrets are the vault. Saved browser logins are not secrets
+  here: they stay with `browse.login` (SBX-D36). Grants inject real values as env
+  or files; a granted SSH key is served by a per-workspace `ssh-agent`. Why not `GIT_SSH_COMMAND`:
+  srt sets its own (with the proxy) and overrides Pine's.
+- **Packages**: srt terminates TLS only for registry hosts (`excludeDomains` = every other allowed
+  domain) and the host's `filterRequest` parses each download (`shared/packages.ts`) and checks
+  deny/allow lists, OSV `MAL-*` records and the cooldown (`packagePolicy.ts`, lookups cached in
+  `packageLookups.ts`). A deny returns 403 with the reason and is reported to main, which batches
+  blocked packages into one card. The package managers' own cooldowns are set in the shell env.
+- **Host panes**: a system install from a sandbox runs unsandboxed only through a one-time token:
+  `ext.confirm({hostTerminal})` offers a grant bound to the exact argv after the human approves,
+  `ext.openTerminal({host: true})` claims it, `pty:attach` consumes it (`hostPanes.ts`).
+- **System requirements** (`main/systemRequirements.ts`): features register the programs they need;
+  the sandbox needs bubblewrap, socat, ripgrep and util-linux (nsenter) on Linux. Turning the
+  sandbox on is refused while any is missing, and the dialog offers the System extension's install.

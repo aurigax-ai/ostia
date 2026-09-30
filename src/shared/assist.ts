@@ -1,4 +1,4 @@
-export const ASSIST_POINTS = ['input', 'command', 'completion', 'chat'] as const
+export const ASSIST_POINTS = ['input', 'command', 'completion', 'terminal', 'chat'] as const
 
 export type AssistPoint = (typeof ASSIST_POINTS)[number]
 
@@ -23,10 +23,74 @@ export interface AssistProviderInfo {
 
 export type AssistAvailability = Partial<Record<AssistPoint, AssistProviderInfo>>
 
+export const ASSIST_FEATURES = [
+  'chat',
+  'typos',
+  'promptReview',
+  'commandSuggest',
+  'terminalCompletions',
+  'editorCompletions',
+  'explainError',
+] as const
+
+export type AssistFeatureId = (typeof ASSIST_FEATURES)[number]
+
+export interface AssistFeatureState {
+  id: AssistFeatureId
+  setting: string
+  on: boolean
+  ready: boolean
+}
+
+export const ASSIST_SETUP_PROBLEMS = [
+  'no-provider',
+  'no-endpoint',
+  'no-key',
+  'no-model',
+  'unreachable',
+] as const
+
+export type AssistSetupProblem = (typeof ASSIST_SETUP_PROBLEMS)[number]
+
+export interface AssistReport {
+  status: AssistStatus
+  features?: AssistFeatureState[]
+  setup?: AssistSetupProblem | null
+  lastError?: string
+  label?: string
+}
+
+export interface AssistExtensionState {
+  extId: string
+  name: string
+  label?: string
+  setup: AssistSetupProblem | null
+  lastError?: string
+  features: AssistFeatureState[]
+}
+
+export const ASSIST_UIS = ['chat', 'ask', 'compose'] as const
+
+export type AssistUi = (typeof ASSIST_UIS)[number]
+
+export interface AssistOpenUiRequest {
+  extId: string
+  ui: AssistUi
+  workspaceId?: string
+}
+
+export const ASSIST_ERROR_MAX = 240
+
 export const ASSIST_TASKS = ['typos', 'review'] as const
 
 export type AssistTask = (typeof ASSIST_TASKS)[number]
 
+export const TERMINAL_LINE_MAX = 1000
+export const TERMINAL_HISTORY_MAX = 10
+export const TERMINAL_HISTORY_COMMAND_MAX = 500
+export const TERMINAL_CONTEXT_MAX = 6
+export const TERMINAL_CONTEXT_TEXT_MAX = 200
+export const TERMINAL_COMPLETION_MAX = 500
 export const INPUT_TEXT_MAX = 8000
 export const COMMAND_QUERY_MAX = 1000
 export const COMPLETION_PREFIX_MAX = 6000
@@ -78,6 +142,29 @@ export interface CommandAssistResult {
   suggestions: CommandSuggestion[]
 }
 
+export interface TerminalHistoryEntry {
+  command: string
+  exitCode?: number
+}
+
+export interface TerminalContextEntry {
+  label: string
+  text: string
+}
+
+export interface TerminalAssistRequest {
+  line: string
+  cwd?: string
+  shell?: string
+  platform?: string
+  history?: TerminalHistoryEntry[]
+  context?: TerminalContextEntry[]
+}
+
+export interface TerminalAssistResult {
+  text: string
+}
+
 export interface CompletionNeighbor {
   path: string
   text: string
@@ -102,7 +189,15 @@ export interface ChatMessage {
   content: string
 }
 
-export const CHAT_CONTEXT_KINDS = ['output', 'selection', 'cwd', 'pane', 'error'] as const
+export const CHAT_CONTEXT_KINDS = [
+  'output',
+  'selection',
+  'cwd',
+  'pane',
+  'error',
+  'file',
+  'browser',
+] as const
 
 export type ChatContextKind = (typeof CHAT_CONTEXT_KINDS)[number]
 
@@ -125,6 +220,7 @@ export interface AssistRequests {
   input: InputAssistRequest
   command: CommandAssistRequest
   completion: CompletionAssistRequest
+  terminal: TerminalAssistRequest
   chat: ChatAssistRequest
 }
 
@@ -132,6 +228,7 @@ export interface AssistResults {
   input: InputAssistResult
   command: CommandAssistResult
   completion: CompletionAssistResult
+  terminal: TerminalAssistResult
   chat: ChatAssistResult
 }
 
@@ -167,6 +264,10 @@ export interface AssistApi {
   ) => Promise<AssistResponse<P>>
   cancel: (requestId: string) => void
   onChunk: (cb: (chunk: AssistChunk) => void) => () => void
+  overview: () => Promise<AssistExtensionState[]>
+  onOverview: (cb: (overview: AssistExtensionState[]) => void) => () => void
+  onOpenUi: (cb: (req: AssistOpenUiRequest) => void) => () => void
+  reportShortcuts: (shortcuts: Record<string, string>) => void
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -233,6 +334,40 @@ function completionRequest(raw: Record<string, unknown>): CompletionAssistReques
   return withOptional({ path, language, prefix, suffix }, { neighbors: neighbors(raw.neighbors) })
 }
 
+function terminalRequest(raw: Record<string, unknown>): TerminalAssistRequest | null {
+  const line = clip(raw.line, TERMINAL_LINE_MAX)
+  if (!line?.trim()) return null
+  const history: TerminalHistoryEntry[] = []
+  for (const item of Array.isArray(raw.history) ? raw.history.slice(-TERMINAL_HISTORY_MAX) : []) {
+    if (!isRecord(item)) continue
+    const command = optionalShort(item.command, TERMINAL_HISTORY_COMMAND_MAX)
+    if (!command) continue
+    const code = item.exitCode
+    history.push(
+      typeof code === 'number' && Number.isInteger(code)
+        ? { command, exitCode: code }
+        : { command },
+    )
+  }
+  const context: TerminalContextEntry[] = []
+  for (const item of Array.isArray(raw.context) ? raw.context.slice(0, TERMINAL_CONTEXT_MAX) : []) {
+    if (!isRecord(item)) continue
+    const label = optionalShort(item.label, 80)
+    const text = optionalShort(item.text, TERMINAL_CONTEXT_TEXT_MAX)
+    if (label && text) context.push({ label, text })
+  }
+  return withOptional(
+    { line },
+    {
+      cwd: optionalShort(raw.cwd, PATH_MAX),
+      shell: optionalShort(raw.shell, 40),
+      platform: optionalShort(raw.platform, 40),
+      history: history.length > 0 ? history : undefined,
+      context: context.length > 0 ? context : undefined,
+    },
+  )
+}
+
 function chatRequest(raw: Record<string, unknown>): ChatAssistRequest | null {
   if (!Array.isArray(raw.messages)) return null
   const messages: ChatMessage[] = []
@@ -263,6 +398,7 @@ export function normalizeAssistRequest<P extends AssistPoint>(
       input: inputRequest,
       command: commandRequest,
       completion: completionRequest,
+      terminal: terminalRequest,
       chat: chatRequest,
     }
   return parsers[point](raw) as AssistRequests[P] | null
@@ -316,6 +452,7 @@ export function normalizeAssistResult<P extends AssistPoint>(
     input: inputResult,
     command: commandResult,
     completion: (x) => textResult(x, COMPLETION_TEXT_MAX),
+    terminal: (x) => ({ text: (clip(x.text, TERMINAL_COMPLETION_MAX) ?? '').split('\n')[0] }),
     chat: (x) => textResult(x, CHAT_REPLY_MAX),
   }
   return parsers[point](r) as AssistResults[P]
@@ -333,4 +470,30 @@ export function normalizeAssistStatus(raw: unknown): AssistStatus {
     out[point] = status
   }
   return out
+}
+
+export function normalizeAssistFeatures(
+  raw: unknown,
+): { id: AssistFeatureId; setting: string; ready: boolean }[] {
+  const out: { id: AssistFeatureId; setting: string; ready: boolean }[] = []
+  for (const item of Array.isArray(raw) ? raw : []) {
+    if (!isRecord(item) || !ASSIST_FEATURES.includes(item.id as AssistFeatureId)) continue
+    if (typeof item.setting !== 'string' || out.some((f) => f.id === item.id)) continue
+    out.push({ id: item.id as AssistFeatureId, setting: item.setting, ready: item.ready === true })
+  }
+  return out
+}
+
+export function normalizeSetupProblem(raw: unknown): AssistSetupProblem | null {
+  return ASSIST_SETUP_PROBLEMS.includes(raw as AssistSetupProblem)
+    ? (raw as AssistSetupProblem)
+    : null
+}
+
+export function normalizeAssistError(raw: unknown): string | undefined {
+  return optionalShort(raw, ASSIST_ERROR_MAX)
+}
+
+export function normalizeAssistLabel(raw: unknown): string | undefined {
+  return optionalShort(raw, ASSIST_LABEL_MAX)
 }

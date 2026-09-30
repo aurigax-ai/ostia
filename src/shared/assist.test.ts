@@ -43,6 +43,18 @@ describe('normalizeAssistRequest', () => {
     })
     expect(req?.context[0].text.length).toBe(CHAT_CONTEXT_TEXT_MAX)
   })
+
+  it('keeps attached files and browser pages but drops unknown context kinds', () => {
+    const req = normalizeAssistRequest('chat', {
+      messages: [{ role: 'user', content: 'summarize' }],
+      context: [
+        { kind: 'file', label: 'README.md', text: 'hello' },
+        { kind: 'browser', label: 'Docs', text: 'Docs\nhttps://example.com' },
+        { kind: 'secret', label: 'x', text: 'y' },
+      ],
+    })
+    expect(req?.context.map((c) => c.kind)).toEqual(['file', 'browser'])
+  })
 })
 
 describe('normalizeAssistResult', () => {

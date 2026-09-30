@@ -12,6 +12,8 @@ extraResources:
     to: build-info.json
 asarUnpack:
   - out/cli/**
+  - out/sandbox/**
+  - node_modules/@anthropic-ai/sandbox-runtime/**
 npmRebuild: true
 linux:
   target: dir

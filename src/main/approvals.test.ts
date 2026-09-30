@@ -188,4 +188,53 @@ describe('approvals', () => {
     expect(approvals.answer('9', id, 'once')).toBe(true)
     await expect(outcome).resolves.toBe('once')
   })
+
+  describe('sandbox requests', () => {
+    const DOMAIN_ASK = {
+      ...ASK,
+      caps: [] as Capability[],
+      kind: 'sandbox-domain' as const,
+      subject: 'example.com',
+      action: 'reach example.com',
+    }
+
+    it('SBX-C18 still shows a card for a sandbox request when approvals.mode is allow', async () => {
+      const { approvals, published } = setup('allow')
+      const outcome = approvals.request(DOMAIN_ASK)
+      expect(published.at(-1)?.pending).toHaveLength(1)
+      expect(published.at(-1)?.pending[0]).toMatchObject({
+        kind: 'sandbox-domain',
+        subject: 'example.com',
+      })
+      expect(approvals.answer('7', published.at(-1)?.pending[0].id ?? '', 'workspace')).toBe(true)
+      await expect(outcome).resolves.toBe('workspace')
+    })
+
+    it('SBX-C19 denies a sandbox request whose card times out', async () => {
+      const { approvals, grant } = setup()
+      const outcome = approvals.request(DOMAIN_ASK)
+      vi.advanceTimersByTime(5000)
+      await expect(outcome).resolves.toBe('timeout')
+      expect(grant).not.toHaveBeenCalled()
+    })
+
+    it('SBX-C20 never turns a lasting sandbox answer into a capability grant', async () => {
+      const { approvals, published, grant } = setup()
+      const outcome = approvals.request(DOMAIN_ASK)
+      const id = published.at(-1)?.pending[0].id ?? ''
+      expect(approvals.answer('7', id, 'once')).toBe(false)
+      expect(approvals.answer('7', id, 'workspace')).toBe(true)
+      await expect(outcome).resolves.toBe('workspace')
+      expect(grant).not.toHaveBeenCalled()
+      expect(published.at(-1)?.history[0]).toMatchObject({
+        outcome: 'workspace',
+        revocable: false,
+      })
+      const capOutcome = approvals.request(ASK)
+      const capId = published.at(-1)?.pending[0].id ?? ''
+      expect(approvals.answer('7', capId, 'workspace')).toBe(false)
+      approvals.answer('7', capId, 'deny')
+      await capOutcome
+    })
+  })
 })

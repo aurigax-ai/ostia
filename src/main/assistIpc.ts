@@ -3,6 +3,7 @@ import { CancellationTokenSource } from 'vscode-jsonrpc/node'
 import {
   ASSIST_REQUEST_ID_PATTERN,
   type AssistAvailability,
+  type AssistExtensionState,
   type AssistPoint,
   type AssistResponse,
   isAssistPoint,
@@ -13,6 +14,8 @@ export const MAX_ASSIST_REQUESTS_PER_WINDOW = 8
 
 export interface AssistHost {
   assistAvailability: () => AssistAvailability
+  assistOverview: () => AssistExtensionState[]
+  setShortcuts: (raw: unknown) => void
   assist: <P extends AssistPoint>(
     point: P,
     input: unknown,
@@ -88,4 +91,6 @@ export function registerAssistIpc(host: () => AssistHost | null): void {
       router.request(e.sender, point, requestId, input),
   )
   ipcMain.on('assist:cancel', (e, requestId: unknown) => router.cancel(e.sender.id, requestId))
+  ipcMain.handle('assist:overview', () => host()?.assistOverview() ?? [])
+  ipcMain.on('assist:shortcuts', (_e, shortcuts: unknown) => host()?.setShortcuts(shortcuts))
 }

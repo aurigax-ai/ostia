@@ -11,14 +11,18 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { startAskCommand } from './commands/askCommand'
 import { startAssistCompose } from './commands/assistCompose'
+import { startAssistToggleCommands } from './commands/assistToggles'
 import { wireCommandBridge } from './commands/bridge'
 import { registerBuiltinCommands } from './commands/builtins'
+import { startChatCommand } from './commands/chatCommand'
 import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
 import { wireManagerBridge } from './commands/managerBridge'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
+import { startShortcutReporting } from './lib/assistShortcuts'
+import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
 import { startHibernation } from './lib/hibernationScheduler'
 import { startAgentDetection } from './lib/paneAgent'
@@ -84,7 +88,11 @@ async function boot(): Promise<void> {
   startUpdateWatch()
   startAssistAvailability()
   startAskCommand()
+  startChatCommand()
+  startAssistUi()
   startAssistCompose()
+  startAssistToggleCommands()
+  startShortcutReporting()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(

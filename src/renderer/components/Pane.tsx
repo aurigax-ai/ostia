@@ -1,5 +1,6 @@
 import {
   BroadcastIcon,
+  ChatCircleTextIcon,
   FileCodeIcon,
   GitDiffIcon,
   GlobeIcon,
@@ -40,6 +41,7 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneChips } from './PaneChips'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
+import { HostPaneBadge, SandboxRestartButton } from './SandboxRestartButton'
 import { extensionIcon } from './extensionIcons'
 import { Button } from './ui/button'
 import { viewIcon } from './viewIcons'
@@ -58,6 +60,7 @@ const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
   browser: GlobeIcon,
   extension: extensionIcon(undefined),
   diff: GitDiffIcon,
+  chat: ChatCircleTextIcon,
   view: viewIcon(undefined),
   manager: BroadcastIcon,
 }
@@ -187,6 +190,8 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         ) : null}
         <PaneChips paneId={shown.id} />
         <ResumeButton pane={shown} />
+        <SandboxRestartButton pane={shown} />
+        <HostPaneBadge pane={shown} />
         <div className="pane-actions">
           <AgentSessionButton pane={shown} />
           <PaneHeaderActions pane={shown} />

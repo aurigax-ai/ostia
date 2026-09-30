@@ -7,6 +7,7 @@ import type {
 import { runWhenIdle } from '../lib/blockActions'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { commands } from './registry'
@@ -102,6 +103,7 @@ export function openExtensionTerminal(req: ExtensionOpenTerminalRequest): string
     title: req.title,
   })
   if (!paneId) return null
+  if (req.hostToken) useSandboxStore.getState().setHostToken(paneId, req.hostToken)
   if (workspaces.activeWorkspaceId !== workspaceId) workspaces.setActive(workspaceId)
   runWhenIdle(paneId, req.command)
   return paneId

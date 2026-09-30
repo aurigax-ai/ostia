@@ -10,6 +10,7 @@ import {
   ok,
   runTool,
 } from '../sdk'
+import { installConfirm } from './confirm'
 import { type InstallContext, parseInstallArgs, planInstall } from './install'
 import { MANAGER_NAMES, type ManagerName, defaultManager, findOnPath } from './managers'
 import { type OsIdentity, parseOsRelease, parseSwVers, windowsRelease } from './os'
@@ -78,13 +79,7 @@ async function main(): Promise<void> {
     const planned = planInstall(parseInstallArgs(parsed.argv), await installContext(), s)
     if (!planned.ok) return failure(planned.error, planned.message)
     const { plan } = planned
-    const approved = await ext.confirm({
-      title: s.confirmTitle,
-      message: s.confirmMessage(plan.packages, plan.manager),
-      detail: s.confirmDetail(plan.command, plan.reason),
-      confirmLabel: s.approve,
-      cancelLabel: s.deny,
-    })
+    const approved = await ext.confirm(installConfirm(plan, s))
     if (!approved) {
       return {
         ok: false,
@@ -95,6 +90,7 @@ async function main(): Promise<void> {
     }
     const opened = await ext.openTerminal({
       command: plan.argv,
+      host: true,
       workspaceId: caller.workspaceId,
       afterPaneId: caller.paneId,
       cwd: caller.cwd,
