@@ -16,6 +16,7 @@ import { isMac } from '../platform'
 import { useAssistStore } from '../stores/assistStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useUIStore } from '../stores/uiStore'
+import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { Button } from './ui/button'
 import { Kbd } from './ui/kbd'
@@ -119,13 +120,13 @@ function ExtensionPanel({
         </span>
       </div>
       {ext.label ? (
-        <div className="truncate px-1.5 font-mono text-fg-muted text-ui-xs" title={ext.label}>
-          {ext.label}
-        </div>
+        <Hint label={ext.label}>
+          <div className="truncate px-1.5 font-mono text-fg-muted text-ui-xs">{ext.label}</div>
+        </Hint>
       ) : null}
       {ext.lastError ? (
         <p className="flex items-start gap-1 px-1.5 text-attn-fg text-ui-xs">
-          <WarningCircleIcon aria-hidden className="mt-px size-3.5 shrink-0" />
+          <WarningCircleIcon aria-hidden className="mt-0.5 size-3 shrink-0" />
           <span className="min-w-0 break-words">
             {fmt(d.assistMenu.lastError, { error: ext.lastError })}
           </span>
@@ -136,7 +137,6 @@ function ExtensionPanel({
         size="sm"
         className="mt-1 justify-start"
         disabled={!chatReady}
-        title={chatReady ? undefined : d.assistMenu.chatUnavailable}
         onClick={() => {
           openChatPane()
           onDone()
@@ -202,7 +202,7 @@ function FeatureRow({
       ? d.assistMenu.ready
       : d.assistMenu.notReady
   return (
-    <li className="flex h-7 items-center gap-2 rounded-sm px-1.5 hover:bg-fg/6">
+    <li className="flex h-7 items-center gap-2 rounded-sm px-1.5">
       <span className="min-w-0 flex-1 truncate text-fg text-ui-sm">{name}</span>
       <span className="text-fg-muted text-ui-xs">{state}</span>
       <Switch

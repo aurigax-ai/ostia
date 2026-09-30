@@ -147,6 +147,13 @@ export function PromptChipRow({
         >
           {d.prompt.edit}
         </MenuItem>
+        <MenuItem
+          icon={FolderOpenIcon}
+          disabled={!cwd}
+          onClick={() => useUIStore.getState().showFiles()}
+        >
+          {d.prompt.revealCwd}
+        </MenuItem>
         <ContextMenuSeparator />
         <MenuItem
           icon={CopyIcon}
@@ -160,13 +167,6 @@ export function PromptChipRow({
           onClick={() => cwd && void navigator.clipboard.writeText(cwd)}
         >
           {d.prompt.copyCwd}
-        </MenuItem>
-        <MenuItem
-          icon={FolderOpenIcon}
-          disabled={!cwd}
-          onClick={() => useUIStore.getState().showFiles()}
-        >
-          {d.prompt.revealCwd}
         </MenuItem>
       </MenuContent>
     </ContextMenu>

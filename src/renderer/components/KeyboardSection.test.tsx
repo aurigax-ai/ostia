@@ -83,6 +83,13 @@ describe('KeyboardSection', () => {
     expect(within(row(/Copy \(terminal\)/)).getByText('Ctrl+Shift+C')).toBeInTheDocument()
   })
 
+  it('names a default shortcut whose command is not registered yet by its title, not its id', () => {
+    expect(commands.has('assist.compose')).toBe(false)
+    render(<KeyboardSection />)
+    const compose = row(/assist\.compose/)
+    expect(within(compose).getByText('Compose with Assistant')).toBeVisible()
+  })
+
   it('filters rows by title, id or shortcut', async () => {
     render(<KeyboardSection />)
     await userEvent.type(screen.getByRole('textbox', { name: 'Search shortcuts' }), 'ctrl+shift+b')

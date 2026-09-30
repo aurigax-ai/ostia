@@ -157,7 +157,9 @@ export function ChatSessions({
                       <span className="w-full truncate text-fg text-ui-sm">{s.title}</span>
                       <span className="text-fg-muted text-ui-xs">
                         {relativeTime(s.updatedAt, now, locale)} ·{' '}
-                        {fmt(d.chat.messages, { count: s.messageCount })}
+                        {s.messageCount === 1
+                          ? d.chat.oneMessage
+                          : fmt(d.chat.messages, { count: s.messageCount })}
                       </span>
                     </button>
                   )}
@@ -211,11 +213,12 @@ export function ChatSessions({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirming(null)}>
+            <Button variant="outline" size="sm" onClick={() => setConfirming(null)}>
               {d.chat.cancel}
             </Button>
             <Button
               variant="destructive"
+              size="sm"
               onClick={() => {
                 const target = confirming
                 setConfirming(null)

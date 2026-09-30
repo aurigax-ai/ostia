@@ -21,7 +21,7 @@
     ],
     "panel": {
       "title": "Assistant",
-      "icon": "circle",
+      "icon": "chat",
       "entry": "url"
     },
     "secrets": {

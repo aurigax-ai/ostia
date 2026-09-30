@@ -1,9 +1,9 @@
-import { MoonIcon, PlayIcon } from '@phosphor-icons/react'
+import { PlayIcon } from '@phosphor-icons/react'
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import { fmt, useDict } from '../i18n/useDict'
 import { wakePane } from '../lib/hibernationScheduler'
 import { Button } from './ui/button'
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './ui/empty'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
 
 export function HibernatedView({
   paneId,
@@ -17,9 +17,6 @@ export function HibernatedView({
   return (
     <Empty className="hibernated-view" data-hibernated="">
       <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <MoonIcon aria-hidden />
-        </EmptyMedia>
         <EmptyTitle className="font-semibold text-fg text-ui-lg">
           {d.pane.hibernatedTitle}
         </EmptyTitle>

@@ -499,7 +499,7 @@ export function EditorView({
         <IconButton
           className="editor-send"
           icon={PaperPlaneTiltIcon}
-          label={d.viewer.sendSelection}
+          label={d.viewer.sendPdfSelection}
           hintSide="left"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => sendSelectionRef.current()}
@@ -510,7 +510,6 @@ export function EditorView({
           className="editor-mode"
           icon={preview ? CodeIcon : EyeIcon}
           label={preview ? d.editor.editSource : d.editor.preview}
-          aria-pressed={preview}
           hintSide="left"
           onClick={() => setPreview((p) => !p)}
         />

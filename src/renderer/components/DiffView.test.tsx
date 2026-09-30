@@ -134,7 +134,7 @@ describe('DiffView', () => {
     fake.state.position = { lineNumber: 7, column: 2 }
     expect(editorPositionOf('d1')).toEqual({ file: '/repo/src/a.ts', line: 7, column: 2 })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open in External Editor' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open in external editor' }))
 
     await waitFor(() =>
       expect(window.pine.externalEditor.open).toHaveBeenCalledWith({
@@ -149,7 +149,7 @@ describe('DiffView', () => {
   it('has no external-editor button or position without a path', () => {
     useDiffStore.getState().set('d1', { title: 'x', original: 'a', modified: 'b' })
     render(<DiffView paneId="d1" />)
-    expect(screen.queryByRole('button', { name: 'Open in External Editor' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open in external editor' })).toBeNull()
     expect(editorPositionOf('d1')).toBeNull()
   })
 

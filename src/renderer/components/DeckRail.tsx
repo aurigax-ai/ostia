@@ -3,12 +3,10 @@ import {
   AppWindowIcon,
   ArrowDownIcon,
   ArrowSquareInIcon,
-  ArrowSquareOutIcon,
   ArrowUpIcon,
   BroadcastIcon,
   CaretDownIcon,
   CaretRightIcon,
-  CaretUpIcon,
   ChecksIcon,
   EraserIcon,
   FlaskIcon,
@@ -352,7 +350,7 @@ function GroupBlock({
               </ContextMenuRadioGroup>
             </MenuSubContent>
           </ContextMenuSub>
-          <MenuItem icon={group.collapsed ? CaretDownIcon : CaretUpIcon} onClick={toggle}>
+          <MenuItem icon={group.collapsed ? CaretRightIcon : CaretDownIcon} onClick={toggle}>
             {group.collapsed ? d.rail.expandGroup : d.rail.collapseGroup}
           </MenuItem>
           <MenuItem icon={ChecksIcon} onClick={() => markGroupRead(members)}>
@@ -392,6 +390,7 @@ function GroupStatus({ members }: { members: Workspace[] }): JSX.Element {
 function SidebarItems({ workspaceId }: { workspaceId?: string }): JSX.Element | null {
   const d = useDict()
   const all = useExtensionsStore((s) => s.sidebar)
+  const extensions = useExtensionsStore((s) => s.list)
   const showPorts = useSettingsStore((s) => s.sidebar.showPorts)
   const showSSH = useSettingsStore((s) => s.sidebar.showSSH)
   const items = visibleSidebarItems(all, workspaceId, { showPorts, showSSH })
@@ -419,7 +418,10 @@ function SidebarItems({ workspaceId }: { workspaceId?: string }): JSX.Element | 
           )
         }
         return (
-          <Hint key={`${item.extId}:${item.key}`} label={`${item.extId}: ${item.text}`}>
+          <Hint
+            key={`${item.extId}:${item.key}`}
+            label={`${extensions.find((e) => e.id === item.extId)?.name ?? item.extId}: ${item.text}`}
+          >
             <span className={`ext-item tone-${item.tone}`}>
               {Icon ? <Icon size={12} aria-hidden /> : null}
               {item.text}
@@ -605,7 +607,7 @@ function WorkspaceRow({
           wrapTitle={wrapTitles}
           titleAdornment={
             w.pinned ? (
-              <PushPinSimpleIcon size={11} className="tab-pin" aria-label={d.rail.pinned} />
+              <PushPinSimpleIcon size={12} className="tab-pin" aria-label={d.rail.pinned} />
             ) : null
           }
           editor={editor}
@@ -645,6 +647,11 @@ function WorkspaceRow({
         <MenuItem icon={TextAlignLeftIcon} onClick={() => setEditing('description')}>
           {w.description ? d.rail.editDescription : d.rail.addDescription}
         </MenuItem>
+        {w.description ? (
+          <MenuItem icon={EraserIcon} onClick={() => store().describe(w.id, '')}>
+            {d.rail.clearDescription}
+          </MenuItem>
+        ) : null}
         <MenuItem
           icon={GearSixIcon}
           onClick={() => useUIStore.getState().openWorkspaceSettings(w.id)}
@@ -659,11 +666,6 @@ function WorkspaceRow({
         >
           {d.rail.sandbox}
         </MenuCheckboxItem>
-        {w.description ? (
-          <MenuItem icon={EraserIcon} onClick={() => store().describe(w.id, '')}>
-            {d.rail.clearDescription}
-          </MenuItem>
-        ) : null}
         <ContextMenuSeparator />
         <MenuItem
           icon={w.pinned ? PushPinSlashIcon : PushPinIcon}
@@ -716,9 +718,10 @@ function WorkspaceRow({
           </MenuItem>
         ) : null}
         <ContextMenuSeparator />
-        <MenuItem icon={ArrowSquareOutIcon} onClick={() => void moveWorkspaceToNewWindow(w.id)}>
+        <MenuItem icon={AppWindowIcon} onClick={() => void moveWorkspaceToNewWindow(w.id)}>
           {d.window.moveToNewWindow}
         </MenuItem>
+        <ContextMenuSeparator />
         <MenuItem
           icon={XSquareIcon}
           disabled={count < 2}

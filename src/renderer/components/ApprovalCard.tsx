@@ -49,7 +49,7 @@ export function ApprovalCard({
       className="motion-enter absolute right-2 bottom-2 left-2 z-20 flex origin-bottom flex-col gap-2 rounded-md border border-line bg-surface-3 p-3 text-fg text-ui-sm shadow-md"
     >
       <div className="flex items-center gap-2">
-        <ShieldWarningIcon size={16} aria-hidden />
+        <ShieldWarningIcon size={14} aria-hidden />
         <span className="font-medium">{d.approvals.title}</span>
       </div>
       {kind === 'capability' ? (

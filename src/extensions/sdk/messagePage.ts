@@ -20,7 +20,7 @@ export function messagePageHtml(title: string, body: string): string {
 <html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
 html,body{margin:0;height:100%;background:var(--pine-surface-1,#272a2d);color:var(--pine-fg,#e3edf5);font:13px/20px var(--pine-font-ui,system-ui,sans-serif);color-scheme:var(--pine-color-scheme,dark)}
-main{display:flex;flex-direction:column;justify-content:center;gap:6px;height:100%;max-width:560px;margin:0 auto;padding:0 24px}
+main{display:flex;flex-direction:column;justify-content:center;gap:8px;height:100%;max-width:560px;margin:0 auto;padding:0 24px}
 h1{font-size:16px;line-height:22px;font-weight:600;margin:0}
 p{margin:0;color:var(--pine-fg-muted,#9aa1a5);white-space:pre-wrap}
 </style></head>

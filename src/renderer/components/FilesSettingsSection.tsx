@@ -27,7 +27,7 @@ function PatternRow({
 }): JSX.Element {
   const d = useDict()
   return (
-    <li className="flex items-center gap-2 rounded-sm py-0.5 pr-1 pl-2 hover:bg-surface-2/60">
+    <li className="flex items-center gap-2 rounded-sm py-0.5 pr-1 pl-2">
       <span className="min-w-0 flex-1 truncate font-mono text-fg text-ui-sm">
         {label}
         {detail ? <span className="text-fg-muted"> → {detail}</span> : null}

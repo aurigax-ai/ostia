@@ -118,6 +118,31 @@ describe('TopBar', () => {
     expect(root ? findExtensionPane(root, 'git') : null).toBeNull()
   })
 
+  it('renders one button per top-bar control, with no nested buttons and no repeated names', () => {
+    seedWorkspace()
+    const assistant: ExtensionInfo = {
+      ...git,
+      id: 'assistant',
+      name: 'Assistant',
+      builtin: true,
+      panel: { title: 'Assistant', icon: 'chat' },
+      assist: ['chat'],
+    }
+    useExtensionsStore.setState({ list: [git, assistant] })
+    const { container } = render(<TopBar />)
+    expect(container.querySelectorAll('button button')).toHaveLength(0)
+    const names = Array.from(container.querySelectorAll('button')).map((b) =>
+      b.getAttribute('aria-label'),
+    )
+    expect(names.filter((n) => n?.startsWith('Assistant'))).toHaveLength(1)
+    const labelled = names.filter((n): n is string => n !== null)
+    expect(new Set(labelled).size).toBe(labelled.length)
+    expect(screen.getByRole('button', { name: /^Assistant/ })).toHaveAttribute(
+      'aria-haspopup',
+      'dialog',
+    )
+  })
+
   it('shows no panel toggle for a disabled extension', () => {
     seedWorkspace()
     useExtensionsStore.setState({ list: [{ ...git, enabled: false }] })

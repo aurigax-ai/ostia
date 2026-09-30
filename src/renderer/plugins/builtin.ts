@@ -173,8 +173,8 @@ const pineLight: Theme = {
 export const BUILTIN_PLUGINS: PluginManifest[] = [
   {
     id: 'pine.themes',
-    name: 'Core Themes',
-    description: 'The built-in Pine themes and terminal and editor color schemes.',
+    name: 'Core themes',
+    description: 'Built-in themes and their terminal and editor color schemes.',
     version: '1.0.0',
     builtin: true,
     contributes: {
@@ -184,7 +184,7 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
   },
   {
     id: 'pine.lsp',
-    name: 'Language Servers',
+    name: 'Language servers',
     description: 'Auto-detected language servers for the editor.',
     version: '1.0.0',
     builtin: true,

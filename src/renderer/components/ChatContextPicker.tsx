@@ -4,7 +4,9 @@ import {
   FileIcon,
   FolderSimpleIcon,
   SelectionIcon,
+  TagIcon,
   TextAlignLeftIcon,
+  WarningCircleIcon,
   XIcon,
 } from '@phosphor-icons/react'
 import type { ChatContextItem } from '@shared/assist'
@@ -223,9 +225,9 @@ const KIND_ICONS = {
   browser: BrowserIcon,
   output: TextAlignLeftIcon,
   selection: SelectionIcon,
-  error: TextAlignLeftIcon,
+  error: WarningCircleIcon,
   cwd: FolderSimpleIcon,
-  pane: TextAlignLeftIcon,
+  pane: TagIcon,
 } as const
 
 export function AttachmentChips({

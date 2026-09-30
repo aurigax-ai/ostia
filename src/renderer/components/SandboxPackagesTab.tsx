@@ -82,6 +82,7 @@ export function PackagesEditor({
             type="number"
             min={0}
             max={60}
+            aria-label={d.sandbox.cooldown}
             value={effective.cooldownDays}
             onChange={(e) => {
               const days = Number(e.target.value)

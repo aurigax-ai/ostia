@@ -45,6 +45,8 @@ export interface PanelStrings {
   >
   lastError: string
   tryIt: string
+  loading: string
+  working: string
 }
 
 const en: PanelStrings = {
@@ -118,6 +120,8 @@ const en: PanelStrings = {
   },
   lastError: 'Last error',
   tryIt: 'Try it',
+  loading: 'Loading…',
+  working: 'Working…',
 }
 
 const zhHant: PanelStrings = {
@@ -190,6 +194,8 @@ const zhHant: PanelStrings = {
   },
   lastError: '上次錯誤',
   tryIt: '試試看',
+  loading: '載入中…',
+  working: '處理中…',
 }
 
 export const PANEL_STRINGS = { en, 'zh-Hant': zhHant }

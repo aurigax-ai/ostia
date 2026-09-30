@@ -5,6 +5,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import { IconButton } from './IconButton'
 import { Button } from './ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
+import { Separator } from './ui/separator'
 
 export function LoginButton({
   paneId,
@@ -91,7 +92,7 @@ export function LoginButton({
             </Button>
           ))
         )}
-        <div className="-mx-1.5 my-1 h-px bg-border" />
+        <Separator className="-mx-1.5 my-1 w-auto" />
         <Button
           variant="ghost"
           size="sm"
