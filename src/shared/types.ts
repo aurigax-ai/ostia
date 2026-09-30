@@ -11,6 +11,7 @@ import type {
 } from './browserStorage'
 import type { BuildInfo } from './buildInfo'
 import type { Capability, PhoneGrantableCap } from './capabilities'
+import type { ChatSessionsApi } from './chatSessions'
 import type { SpecCommand } from './completionSpec'
 import type {
   CredentialImportResult,
@@ -226,7 +227,14 @@ export interface NotificationsApi {
   reveal: (paneId: string) => void
 }
 
-export type SnapshotSurfaceKind = 'terminal' | 'editor' | 'agent' | 'browser' | 'extension' | 'view'
+export type SnapshotSurfaceKind =
+  | 'terminal'
+  | 'editor'
+  | 'agent'
+  | 'browser'
+  | 'extension'
+  | 'chat'
+  | 'view'
 
 export interface SnapshotPaneNode {
   type: 'pane'
@@ -237,6 +245,7 @@ export interface SnapshotPaneNode {
   filePath?: string
   url?: string
   extensionId?: string
+  chatSessionId?: string
   viewName?: string
   resume?: AgentResume
   agentRunning?: true
@@ -612,6 +621,7 @@ export interface PineBridge {
   workflows: WorkflowsApi
   completions: CompletionsApi
   assist: AssistApi
+  chatSessions: ChatSessionsApi
   iconThemes: IconThemesApi
   views: ViewsApi
 }

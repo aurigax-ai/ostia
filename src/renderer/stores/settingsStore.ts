@@ -94,6 +94,10 @@ export interface AgentSettings {
   autoResume: boolean
 }
 
+export interface AssistantSettings {
+  chatHistory: boolean
+}
+
 export const HIBERNATION_IDLE_MIN = 5
 export const HIBERNATION_IDLE_MAX = 86_400
 export const HIBERNATION_LIVE_MAX = 64
@@ -253,6 +257,7 @@ interface Persisted {
   editor: EditorSettings
   keybindings: KeybindingMap
   agents: AgentSettings
+  assistant: AssistantSettings
   workspaceGroups: WorkspaceGroupSettings
   extensionSettings: Record<string, ExtensionSettingValues>
   capabilities?: Capabilities
@@ -322,6 +327,7 @@ const DEFAULTS: Persisted = {
     showSSH: true,
   },
   agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false },
+  assistant: { chatHistory: true },
   workspaceGroups: { byCwd: [] },
   extensionSettings: {},
   approvals: DEFAULT_APPROVAL_SETTINGS,
@@ -353,6 +359,7 @@ interface SettingsState extends Persisted {
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
   setAutoResume: (autoResume: boolean) => void
+  setChatHistory: (chatHistory: boolean) => void
   setHibernation: (patch: Partial<HibernationSettings>) => void
   previewSetting: (path: string, value: unknown) => SettingChange
   setByPath: (path: string, value: unknown) => SettingChange
@@ -419,6 +426,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,
     },
+    assistant: { chatHistory: p.assistant?.chatHistory !== false },
     workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
     extensionSettings: extensionSettingsOf(p.extensionSettings),
     capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
@@ -518,6 +526,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     editor: s.editor,
     keybindings: s.keybindings,
     agents: s.agents,
+    assistant: s.assistant,
     workspaceGroups: s.workspaceGroups,
     extensionSettings: s.extensionSettings,
     capabilities: s.capabilities,
@@ -689,6 +698,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setExtensionSettings: (extId, values) => {
     set((s) => ({ extensionSettings: { ...s.extensionSettings, [extId]: values } }))
+    scheduleSave(get)
+  },
+  setChatHistory: (chatHistory) => {
+    set({ assistant: { chatHistory } })
     scheduleSave(get)
   },
   setAutoResume: (autoResume) => {

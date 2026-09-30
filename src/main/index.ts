@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import {
   BrowserWindow,
   app,
@@ -56,6 +56,8 @@ import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
 import { registerBrowserStorageIpc } from './browserStorage'
 import { registerBusMethods } from './bus'
 import { dropIdentity, setCaps } from './capabilityStore'
+import { createChatSessionStore } from './chatSessions'
+import { registerChatSessionIpc } from './chatSessionsIpc'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
@@ -1383,6 +1385,7 @@ app.whenReady().then(() => {
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
     secrets: extensionSecretStore(),
+    openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
     broadcast,
     openPanelIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-panel', req),
     openDiffIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
@@ -1394,6 +1397,9 @@ app.whenReady().then(() => {
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
   registerAssistIpc(() => extensionHost)
+  registerChatSessionIpc(
+    createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
+  )
   const workflowDeps: WorkflowDeps = {
     userDir: join(configDir(), 'workflows'),
     roots: () => [homedir(), app.getPath('userData')],

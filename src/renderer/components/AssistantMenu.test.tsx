@@ -1,0 +1,146 @@
+import '@testing-library/jest-dom/vitest'
+import type { AssistExtensionState } from '@shared/assist'
+import type { ExtensionInfo } from '@shared/extensions'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { startAssistToggleCommands } from '../commands/assistToggles'
+import { commands } from '../commands/registry'
+import { shortcutMap, startShortcutReporting } from '../lib/assistShortcuts'
+import { useAssistStore } from '../stores/assistStore'
+import { useExtensionsStore } from '../stores/extensionsStore'
+import { useUIStore } from '../stores/uiStore'
+import { AssistantMenu } from './AssistantMenu'
+
+const assistant: ExtensionInfo = {
+  id: 'assistant',
+  name: 'Assistant',
+  version: '1.0.0',
+  description: '',
+  builtin: true,
+  enabled: true,
+  status: 'running',
+  requested: [],
+  granted: [],
+  unapproved: [],
+  commands: [],
+  panel: null,
+  paneChips: [],
+  settings: [],
+  settingValues: {},
+  assist: ['chat', 'terminal'],
+  secrets: [],
+  secretsSet: [],
+  iconThemes: [],
+}
+
+const ready: AssistExtensionState = {
+  extId: 'assistant',
+  name: 'Assistant',
+  label: 'model-runtime · gemma',
+  setup: null,
+  features: [
+    { id: 'chat', setting: 'chat', on: true, ready: true },
+    { id: 'terminalCompletions', setting: 'terminalCompletions', on: true, ready: true },
+  ],
+}
+
+describe('AssistantMenu', () => {
+  let uiInit: ReturnType<typeof useUIStore.getState>
+  let extInit: ReturnType<typeof useExtensionsStore.getState>
+  let assistInit: ReturnType<typeof useAssistStore.getState>
+
+  beforeAll(() => {
+    uiInit = useUIStore.getState()
+    extInit = useExtensionsStore.getState()
+    assistInit = useAssistStore.getState()
+  })
+
+  afterEach(() => {
+    cleanup()
+    useUIStore.setState(uiInit, true)
+    useExtensionsStore.setState(extInit, true)
+    useAssistStore.setState(assistInit, true)
+    vi.restoreAllMocks()
+  })
+
+  function seed(overview: AssistExtensionState[]): void {
+    useExtensionsStore.setState({ list: [assistant] })
+    useAssistStore.setState({
+      overview,
+      availability: { chat: { extId: 'assistant', name: 'Assistant', label: 'x' } },
+    })
+  }
+
+  it('stays hidden while no enabled extension serves assist', () => {
+    useExtensionsStore.setState({ list: [{ ...assistant, assist: [] }] })
+    render(<AssistantMenu />)
+    expect(screen.queryByRole('button', { name: /Assistant/ })).toBeNull()
+  })
+
+  it('turns a feature off by writing its own setting', async () => {
+    const setSetting = vi.spyOn(useExtensionsStore.getState(), 'setSetting').mockResolvedValue(null)
+    seed([ready])
+    render(<AssistantMenu />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Assistant' }))
+    const features = await screen.findByRole('list', { name: 'Features' })
+    expect(within(features).getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.getByText('model-runtime · gemma')).toBeInTheDocument()
+    await user.click(screen.getByRole('switch', { name: 'Terminal completion' }))
+    expect(setSetting).toHaveBeenCalledWith('assistant', 'terminalCompletions', false)
+  })
+
+  it('offers only the setup call to action while the provider is not set up', async () => {
+    seed([{ ...ready, setup: 'no-provider' }])
+    render(<AssistantMenu />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Assistant' }))
+    expect(await screen.findByText('No provider is chosen yet.')).toBeInTheDocument()
+    expect(screen.queryByRole('switch')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Set up the assistant' }))
+    expect(useUIStore.getState().settingsActive).toBe(true)
+    expect(useUIStore.getState().settingsSection).toBe('plugins')
+  })
+})
+
+describe('assist toggle commands', () => {
+  let assistInit: ReturnType<typeof useAssistStore.getState>
+  let extInit: ReturnType<typeof useExtensionsStore.getState>
+
+  beforeAll(() => {
+    assistInit = useAssistStore.getState()
+    extInit = useExtensionsStore.getState()
+  })
+
+  afterEach(() => {
+    useAssistStore.setState(assistInit, true)
+    useExtensionsStore.setState(extInit, true)
+    vi.restoreAllMocks()
+  })
+
+  it('registers a toggle per reported feature and drops them when the report goes', async () => {
+    const setSetting = vi.spyOn(useExtensionsStore.getState(), 'setSetting').mockResolvedValue(null)
+    const stop = startAssistToggleCommands()
+    useAssistStore.setState({ overview: [ready] })
+    const id = 'assist.toggle.assistant.chat'
+    expect(commands.list().find((c) => c.id === id)?.title).toBe('Toggle Ask chat')
+    await commands.exec(id)
+    expect(setSetting).toHaveBeenCalledWith('assistant', 'chat', false)
+    useAssistStore.setState({ overview: [] })
+    expect(commands.has(id)).toBe(false)
+    stop()
+  })
+})
+
+describe('shortcut reporting', () => {
+  it('reports the default composer chord to main', () => {
+    const report = vi.mocked(window.pine.assist.reportShortcuts)
+    report.mockClear()
+    const stop = startShortcutReporting()
+    expect(report).toHaveBeenCalledTimes(1)
+    expect(report.mock.calls[0][0]['assist.compose']).toBe(shortcutMap(false)['assist.compose'])
+    expect(report.mock.calls[0][0]['assist.compose']).toMatch(/J/)
+    stop()
+  })
+})

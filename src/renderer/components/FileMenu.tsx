@@ -1,5 +1,6 @@
 import {
   ArrowSquareOutIcon,
+  ChatCircleTextIcon,
   CodeIcon,
   CopyIcon,
   EyeIcon,
@@ -14,6 +15,8 @@ import {
 import type { ReactElement } from 'react'
 import { externalEditorError } from '../commands/externalEditor'
 import { currentDict, fmt, useDict } from '../i18n/useDict'
+import { askAboutFile } from '../lib/askContext'
+import { useChatAvailable } from '../lib/assistFeatures'
 import { relativePath } from '../lib/fileReference'
 import { startNewWorkspace } from '../lib/newWorkspace'
 import { openFileBeside, openFileInWorkspace, openTerminalIn } from '../lib/openFile'
@@ -105,6 +108,7 @@ export function FileMenuItems({
 }): JSX.Element {
   const d = useDict()
   const agents = useAgentTargets(workspaceId)
+  const askOn = useChatAvailable()
   const workDir = useWorkspacesStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.workDir)
   const relative = workDir ? relativePath(path, workDir) : null
   const copy = (text: string): void => void navigator.clipboard.writeText(text)
@@ -124,6 +128,14 @@ export function FileMenuItems({
           <MenuItem icon={CodeIcon} onClick={() => openExternal(workspaceId, path)}>
             {d.fileMenu.openExternal}
           </MenuItem>
+          {askOn ? (
+            <MenuItem
+              icon={ChatCircleTextIcon}
+              onClick={() => void askAboutFile(path, relative ?? path, workspaceId)}
+            >
+              {d.chatActions.askAboutFile}
+            </MenuItem>
+          ) : null}
         </>
       )}
       <MenuItem icon={SquaresFourIcon} onClick={() => openInNewWorkspace(path, dir)}>

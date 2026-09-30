@@ -1,5 +1,6 @@
 import type {
   AssistAvailability,
+  AssistExtensionState,
   AssistPoint,
   AssistProviderInfo,
   AssistRequests,
@@ -9,12 +10,16 @@ import { create } from 'zustand'
 
 interface AssistState {
   availability: AssistAvailability
+  overview: AssistExtensionState[]
   setAvailability: (availability: AssistAvailability) => void
+  setOverview: (overview: AssistExtensionState[]) => void
 }
 
 export const useAssistStore = create<AssistState>((set) => ({
   availability: {},
+  overview: [],
   setAvailability: (availability) => set({ availability }),
+  setOverview: (overview) => set({ overview }),
 }))
 
 export function useAssistProvider(point: AssistPoint): AssistProviderInfo | null {
@@ -28,12 +33,22 @@ export function assistProvider(point: AssistPoint): AssistProviderInfo | null {
 export function startAssistAvailability(): () => void {
   const apply = (availability: AssistAvailability): void =>
     useAssistStore.getState().setAvailability(availability)
+  const applyOverview = (overview: AssistExtensionState[]): void =>
+    useAssistStore.getState().setOverview(overview)
   const off = window.pine?.assist?.onAvailability?.(apply) ?? (() => {})
+  const offOverview = window.pine?.assist?.onOverview?.(applyOverview) ?? (() => {})
   void window.pine?.assist
     ?.availability?.()
     .then(apply)
     .catch(() => {})
-  return off
+  void window.pine?.assist
+    ?.overview?.()
+    .then(applyOverview)
+    .catch(() => {})
+  return () => {
+    off()
+    offOverview()
+  }
 }
 
 let requestSeq = 0
