@@ -36,6 +36,18 @@ async function setSandbox(win: Page, on: boolean): Promise<void> {
   await item.click()
 }
 
+async function sandboxedShell(win: Page): Promise<void> {
+  await setSandbox(win, true)
+  const restart = win.getByRole('button', { name: 'Restart to apply' })
+  await restart.click()
+  await expect(restart).toHaveCount(0)
+  const rows = win.locator('.xterm-rows').first()
+  await expect(async () => {
+    await run(win, 'echo "sandbox=${HTTPS_PROXY:+on}"')
+    await expect(rows).toContainText('sandbox=on', { timeout: 2_000 })
+  }).toPass({ timeout: 30_000 })
+}
+
 test('SBX-C5 a workspace with the sandbox off spawns an unwrapped shell', async () => {
   const { app, win, home } = await launch()
   try {
@@ -95,9 +107,7 @@ test('a blocked connection waits on the card and completes once the human allows
   test.setTimeout(120_000)
   const { app, win } = await launch()
   try {
-    await setSandbox(win, true)
-    await win.getByRole('button', { name: 'Restart to apply' }).click()
-    await expect(win.locator('.xterm-rows').first()).toContainText(/[❯$%#]/, { timeout: 20_000 })
+    await sandboxedShell(win)
     await run(win, 'curl -s -m 60 -o /dev/null -w "code=%{http_code}\\n" https://example.com')
     const card = win.getByRole('region', { name: 'Agent permission request' })
     await expect(card).toBeVisible({ timeout: 20_000 })
@@ -106,6 +116,39 @@ test('a blocked connection waits on the card and completes once the human allows
     await expect(win.locator('.xterm-rows').first()).toContainText(/code=[1-5]\d\d/, {
       timeout: 30_000,
     })
+  } finally {
+    await app.close()
+  }
+})
+
+
+test('SBX-C21 reads the workspace folder and the shell rc, and blocks and cwd still work', async () => {
+  const { app, win, home, project } = await launch()
+  try {
+    writeFileSync(join(project, 'readme.txt'), 'PROJECT-README')
+    writeFileSync(join(home, '.zshrc'), 'export C21_RC=loaded\n')
+    mkdirSync(join(project, 'sub'), { recursive: true })
+    await sandboxedShell(win)
+    await run(win, 'cat readme.txt; echo "rc=$C21_RC"; cat ~/.zshrc | head -1; cd sub')
+    const rows = win.locator('.xterm-rows').first()
+    await expect(rows).toContainText('PROJECT-README', { timeout: 15_000 })
+    await expect(rows).toContainText('export C21_RC=loaded')
+    await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
+    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
+    await expect(win.locator('.files-panel .crumb.current')).toHaveText('sub', {
+      timeout: 15_000,
+    })
+  } finally {
+    await app.close()
+  }
+})
+
+test('SBX-C24 reaches Pine from a sandboxed shell through the control socket', async () => {
+  const { app, win } = await launch()
+  try {
+    await sandboxedShell(win)
+    await run(win, 'pine whoami && echo C24-OK')
+    await expect(win.locator('.xterm-rows').first()).toContainText('C24-OK', { timeout: 15_000 })
   } finally {
     await app.close()
   }

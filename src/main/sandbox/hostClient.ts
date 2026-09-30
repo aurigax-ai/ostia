@@ -53,8 +53,17 @@ export class SandboxHost {
     return this.child !== null && !this.dead
   }
 
-  async wrap(command: string, binShell: string): Promise<string> {
-    const res = await this.call({ type: 'wrap', command, binShell })
+  async wrap(
+    command: string,
+    binShell: string,
+    customConfig?: Partial<SandboxRuntimeConfig>,
+  ): Promise<string> {
+    const res = await this.call({
+      type: 'wrap',
+      command,
+      binShell,
+      ...(customConfig ? { customConfig } : {}),
+    })
     if (!res.wrapped) throw new SandboxHostError('sandbox host returned no command')
     return res.wrapped
   }

@@ -882,10 +882,12 @@ function registerPtyIpc(): void {
     const sandboxed = workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
     if (sandboxed) {
       try {
+        writeFileSync(stateFile, '', { mode: 0o600 })
         const wrapped = await workspaceSandboxes.wrap(
           workspaceId,
           quoteArgv([shell, ...integration.args]),
           'bash',
+          [stateFile],
         )
         file = '/bin/sh'
         args = ['-c', wrapped]
