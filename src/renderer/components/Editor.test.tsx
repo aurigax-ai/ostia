@@ -60,7 +60,11 @@ const fake = vi.hoisted(() => {
     contentListeners: Listener[]
     blurListeners: Listener[]
     formatRuns: (() => void) | null
+    createOptions: Record<string, unknown> | null
+    optionUpdates: Record<string, unknown>[]
   } = {
+    createOptions: null,
+    optionUpdates: [],
     model: null,
     save: null,
     actions: [],
@@ -97,7 +101,9 @@ const fake = vi.hoisted(() => {
     },
     getPosition: () => state.position,
     getSelection: () => state.selection,
-    updateOptions: () => {},
+    updateOptions: (o: Record<string, unknown>) => {
+      state.optionUpdates.push(o)
+    },
     onDidChangeModelContent: (l: Listener) => listen(state.contentListeners, l),
     onDidBlurEditorText: (l: Listener) => listen(state.blurListeners, l),
     getAction: (id: string) =>
@@ -114,7 +120,10 @@ const fake = vi.hoisted(() => {
     editor: {
       setTheme: vi.fn(),
       defineTheme: vi.fn(),
-      create: () => editor,
+      create: (_host: unknown, options: Record<string, unknown>) => {
+        state.createOptions = options
+        return editor
+      },
       getModel: (uri: { toString(): string }) => models.get(uri.toString()) ?? null,
       createModel: (value: string, _lang: string, uri: { toString(): string; path: string }) => {
         const m = new FakeModel(value, uri)
@@ -147,8 +156,21 @@ describe('EditorView', () => {
     fake.state.actions = []
     fake.state.position = null
     fake.state.formatRuns = null
+    fake.state.createOptions = null
+    fake.state.optionUpdates = []
     useSettingsStore.setState(initSettings, true)
     useEditorStatus.setState(init, true)
+  })
+
+  it('scrolls without smooth animation while motion is reduced', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    act(() => useSettingsStore.getState().setMotion('reduced'))
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    expect(fake.state.createOptions?.smoothScrolling).toBe(false)
+
+    act(() => useSettingsStore.getState().setMotion('full'))
+    expect(fake.state.optionUpdates.at(-1)).toEqual({ smoothScrolling: true })
   })
 
   it('does not overwrite a model with unsaved edits when the file is reopened', async () => {

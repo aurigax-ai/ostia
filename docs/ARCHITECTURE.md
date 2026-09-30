@@ -2030,7 +2030,10 @@ The webview uses partition `pine-ext-<id>`, and `will-attach-webview` refuses it
 passes `isAllowedPanelUrl`. The guest gets the same hardening as browser panes (no preload, no
 node, sandbox, context isolation) plus: permission requests denied, `window.open` routed to
 `openExternalSafe`, and navigations/redirects outside the allowed file dir / origin blocked. The
-renderer injects the theme into the guest as `--pine-*` custom properties (`lib/panelTheme.ts`).
+renderer injects the theme into the guest as `--pine-*` custom properties (`lib/panelTheme.ts`),
+plus `--pine-motion-scale` from `useReducedMotion`. Why a scale and not a media query: the
+guest sees only the OS `prefers-reduced-motion`, not `appearance.motion`, and `insertCSS` only
+adds rules, so the value is re-sent as `0` or `1` on every change instead of being left out.
 Why panels talk only to their own process: the guest has no `window.pine` and no token, so a
 compromised or buggy panel can do no more than its extension already can.
 

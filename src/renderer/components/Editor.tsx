@@ -7,6 +7,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import { registerEditorPosition } from '../lib/editorPositions'
 import { createAutoSave, saveFormatted } from '../lib/editorSave'
 import { lineReference } from '../lib/fileReference'
+import { useReducedMotion } from '../lib/motion'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import { openDocument } from '../lsp/client'
@@ -111,6 +112,9 @@ export function EditorView({
   const pathRef = useRef(filePath)
   const font = useSettingsStore((s) => s.appearance.editor)
   const editorSettings = useSettingsStore((s) => s.editor)
+  const reducedMotion = useReducedMotion()
+  const reducedMotionRef = useRef(reducedMotion)
+  reducedMotionRef.current = reducedMotion
   const [binary, setBinary] = useState(false)
   const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
   const [preview, setPreview] = useState(false)
@@ -176,7 +180,7 @@ export function EditorView({
       fontLigatures: true,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
-      smoothScrolling: true,
+      smoothScrolling: !reducedMotionRef.current,
       ...behaviorOptions(useSettingsStore.getState().editor),
       renderWhitespace: 'selection',
       padding: { top: 8 },
@@ -322,6 +326,10 @@ export function EditorView({
   useEffect(() => {
     editorRef.current?.updateOptions(behaviorOptions(editorSettings))
   }, [editorSettings])
+
+  useEffect(() => {
+    editorRef.current?.updateOptions({ smoothScrolling: !reducedMotion })
+  }, [reducedMotion])
 
   useEffect(() => {
     editorRef.current?.updateOptions({

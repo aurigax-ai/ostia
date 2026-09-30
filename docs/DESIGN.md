@@ -432,6 +432,9 @@ Where it moves:
   center): `motion-overlay`, fade + scale .98 → 1 from Base UI's `--transform-origin` (the
   palette scales from its top), exit fade + scale to .98 with `--ease-in`. Dialog backdrops fade
   (`motion-backdrop`). Tooltips (`Hint`): `motion-hint`, opacity only, `--motion-fast`.
+  A floating card that is a plain element, not a Base UI popup (the approval card, the pick /
+  send-selection panel), has no `data-starting-style`, so it gets `motion-enter`: the same fade +
+  scale .98 → 1 as a keyframe, from its anchored edge (`origin-*`). It leaves at once.
 - **Attention**: the pane ring, the waiting dot, the working dot and the unread badge (§6).
 - **Blocks**: the selection frame fades in; the sticky command header slides down 4px + fades
   in and leaves faster the way it came; the find bar enters from 6px above.
@@ -445,10 +448,26 @@ nudge); lists (no stagger); workspace switches and Settings (no page transitions
 springs, bounces or overshoots. The one width transition is the sidebar collapse, which is
 safe because terminal resizes are debounced.
 
+Nothing loops for decoration: no spinners, shimmers, typing dots or skeleton sweeps. Work in
+progress is text ("Thinking…", "Loading…") or the working dot; a view's `Progress` bar shows the
+value it was given, with no transition and no indeterminate sweep. Scrolls jump: the chat's "scroll to latest" is
+instant (use-stick-to-bottom's default is a spring), and no code asks for
+`behavior: 'smooth'`. The one scroll animation is Monaco's `smoothScrolling`, which reduced
+motion turns off.
+
+Extension panels get the same tokens from `sdk/panel.css` (`base.css`), scaled by
+`--pine-motion-scale` (`docs/EXTENSIONS.md`). Guard: `src/renderer/lib/motion.test.tsx` fails
+on a raw duration or easing in any transition or animation (renderer and extension CSS), a
+second infinite loop, and, in renderer and extension code, Tailwind `duration-*` / `ease-*` /
+`delay-*`, tw-animate classes, `transition-all`, press scaling, inline transition styles and
+smooth `scrollIntoView`.
+
 Reduced motion: `appearance.motion` (Settings → Appearance → Motion) is `system` (follow
 `prefers-reduced-motion`), `reduced` or `full` (ignore the OS), mirrored to `<html
 data-motion>`. Reduced collapses every duration and delay to ~0 and runs loops once, so pulses
-become static indicators; the dots, ring and badge still show the state.
+become static indicators; the dots, ring and badge still show the state. JavaScript-driven
+motion reads the same decision through `useReducedMotion()` (`lib/motion.ts`): Monaco's smooth
+scrolling and the extension panels' `--pine-motion-scale` follow it.
 
 ## 9. Live surfaces (xterm, Monaco, webview)
 
