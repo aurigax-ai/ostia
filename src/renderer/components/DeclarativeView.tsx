@@ -208,16 +208,17 @@ function Node({ node, ctx }: { node: RenderNode; ctx: RenderContext }): JSX.Elem
       if (!url) return <span className="text-fg-muted text-ui-sm">{node.label}</span>
       return (
         <Hint label={fmt(ctx.d.views.openUrl, { url })}>
-          <button
-            type="button"
-            className="w-fit min-w-0 truncate rounded-sm text-brand text-ui-sm underline-offset-2 hover:underline"
+          <Button
+            variant="link"
+            size="xs"
+            className="h-auto w-fit min-w-0 justify-start p-0 font-normal text-ui-sm"
             onClick={(e) => {
               e.stopPropagation()
               runViewAction(ctx.view, node.label, { kind: 'url', url }, null, ctx.workspaceId)
             }}
           >
-            {node.label}
-          </button>
+            <span className="truncate">{node.label}</span>
+          </Button>
         </Hint>
       )
     }

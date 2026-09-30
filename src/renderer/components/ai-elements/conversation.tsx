@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/IconButton'
 import { cn } from '@/lib/utils'
 import { ArrowDownIcon } from '@phosphor-icons/react'
 import type { ComponentProps, ReactNode } from 'react'
@@ -44,26 +44,22 @@ export const ConversationEmptyState = ({
   </div>
 )
 
-export type ConversationScrollButtonProps = ComponentProps<typeof Button> & { label: string }
+export type ConversationScrollButtonProps = { label: string; className?: string }
 
-export const ConversationScrollButton = ({
-  className,
-  label,
-  ...props
-}: ConversationScrollButtonProps) => {
+export const ConversationScrollButton = ({ className, label }: ConversationScrollButtonProps) => {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext()
   if (isAtBottom) return null
   return (
-    <Button
-      aria-label={label}
-      className={cn('absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full', className)}
+    <IconButton
+      size="bar"
+      icon={ArrowDownIcon}
+      label={label}
+      hintSide="top"
+      className={cn(
+        'absolute bottom-2 left-1/2 -translate-x-1/2 border border-line bg-surface-2',
+        className,
+      )}
       onClick={() => void scrollToBottom()}
-      size="icon-sm"
-      type="button"
-      variant="outline"
-      {...props}
-    >
-      <ArrowDownIcon />
-    </Button>
+    />
   )
 }

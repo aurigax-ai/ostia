@@ -80,7 +80,7 @@ no sidebar items and no pane chips.
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
-`terminal`, `circle`, `check`, `alert`, `shield`.
+`terminal`, `circle`, `check`, `alert`, `shield`, `chat`.
 
 ## Icon themes
 

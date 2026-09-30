@@ -1,4 +1,4 @@
-import { FloppyDiskIcon } from '@phosphor-icons/react'
+import { BookmarkSimpleIcon } from '@phosphor-icons/react'
 import { useMemo } from 'react'
 import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
@@ -69,7 +69,7 @@ export function HistorySearch(): JSX.Element {
               </span>
             </span>
             <IconButton
-              icon={FloppyDiskIcon}
+              icon={BookmarkSimpleIcon}
               label={d.history.saveAsWorkflow}
               hintSide="left"
               onPointerDown={(ev) => ev.stopPropagation()}

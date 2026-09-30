@@ -472,7 +472,6 @@ button.scope-trigger[aria-expanded="true"] {
   min-height: 28px;
   padding: 0 8px;
   border-radius: 6px;
-  cursor: pointer;
 }
 
 .scope-option:hover,
@@ -598,7 +597,6 @@ button.scope-trigger[aria-expanded="true"] {
   height: 24px;
   padding-right: 12px;
   background: var(--row-bg);
-  cursor: pointer;
   white-space: nowrap;
 }
 

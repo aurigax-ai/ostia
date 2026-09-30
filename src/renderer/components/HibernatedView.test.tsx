@@ -59,7 +59,7 @@ describe('hibernated terminal pane', () => {
     render(<SurfacePool />)
     const host = surfaceHost('h1')
     document.body.appendChild(host)
-    expect(within(host).getByText('Hibernated — click to resume')).toBeInTheDocument()
+    expect(within(host).getByText('Hibernated')).toBeInTheDocument()
     expect(within(host).getByText(/claude --resume tok-1/)).toBeInTheDocument()
     expect(within(host).queryByTestId('terminal-h1')).toBeNull()
     expect(window.pine.pty.attach).not.toHaveBeenCalled()

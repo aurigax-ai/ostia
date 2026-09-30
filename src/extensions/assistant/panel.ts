@@ -59,9 +59,10 @@ function modelRow(model: ModelEntry, lifecycleOn: boolean): HTMLElement {
         'button',
         {
           disabled: pending !== '' || model.installed === false || model.busy === true,
+          'aria-busy': pending === model.id ? 'true' : false,
           onclick: () => void lifecycle(model),
         },
-        pending === model.id ? '…' : model.loaded ? t.unload : t.load,
+        pending === model.id ? t.working : model.loaded ? t.unload : t.load,
       )
     : copied === model.id
       ? h('span', { class: 'muted', role: 'status' }, t.copied)
@@ -189,7 +190,7 @@ function features(s: PanelState): HTMLElement {
 
 function render(): void {
   if (!state) {
-    root.replaceChildren(h('p', { class: 'center muted' }, error || '…'))
+    root.replaceChildren(h('p', { class: 'center muted' }, error || t.loading))
     return
   }
   const s = state

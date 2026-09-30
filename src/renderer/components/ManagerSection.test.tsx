@@ -33,7 +33,7 @@ describe('ManagerSection', () => {
     render(<ManagerSection />)
     const user = userEvent.setup()
     expect(screen.getByLabelText('Command for claude')).toHaveValue('claude')
-    expect(screen.getAllByText('Built in')).toHaveLength(2)
+    expect(screen.getAllByText('Built-in')).toHaveLength(2)
 
     await user.type(screen.getByLabelText('Name'), 'aider')
     await user.type(screen.getByLabelText('Command and arguments'), `aider --model 'gpt x'`)
@@ -67,7 +67,7 @@ describe('ManagerSection', () => {
     await user.clear(input)
     await user.type(input, 'claude --model opus{Enter}')
     expect(manager().agents).toEqual({ claude: ['claude', '--model', 'opus'] })
-    expect(screen.getAllByText('Built in')).toHaveLength(1)
+    expect(screen.getAllByText('Built-in')).toHaveLength(1)
 
     await user.click(screen.getByRole('button', { name: 'Remove claude' }))
     expect(manager().agents).toEqual({})

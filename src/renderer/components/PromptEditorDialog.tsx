@@ -190,7 +190,7 @@ function PromptEditorBody({ paneId }: { paneId: string | null }): JSX.Element {
                     }}
                     aria-label={fmt(d.prompt.reorder, { name })}
                     aria-describedby="prompt-reorder-hint"
-                    className="flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-1 focus-visible:ring-brand"
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-1 focus-visible:ring-brand"
                     onKeyDown={(e) => onHandleKey(e, index)}
                   >
                     <DotsSixVerticalIcon size={14} aria-hidden="true" className="text-fg-muted" />

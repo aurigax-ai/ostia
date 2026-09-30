@@ -2,13 +2,14 @@ import { cn } from '@/lib/utils'
 import {
   ArrowsClockwiseIcon,
   BellIcon,
+  BracketsCurlyIcon,
   BroadcastIcon,
   CheckIcon,
-  CodeIcon,
   CopyIcon,
   DeviceMobileIcon,
+  FileCodeIcon,
+  FolderSimpleIcon,
   GlobeIcon,
-  HardDrivesIcon,
   type Icon as IconComponent,
   InfoIcon,
   KeyIcon,
@@ -17,12 +18,12 @@ import {
   MagnifyingGlassIcon,
   PaletteIcon,
   PlusIcon,
+  PuzzlePieceIcon,
   RobotIcon,
   ShieldCheckIcon,
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
   SquaresFourIcon,
-  StackIcon,
   TerminalWindowIcon,
   TranslateIcon,
   TreeStructureIcon,
@@ -31,7 +32,7 @@ import type { ApprovalMode } from '@shared/approvals'
 import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import { PROMPT_STYLES, type PromptStyle } from '@shared/promptSettings'
-import type { AppInfo } from '@shared/types'
+import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import appIcon from '../../../resources/icon.svg'
@@ -92,6 +93,7 @@ import { WorkspaceSandboxPage } from './WorkspaceSandboxPage'
 import { WorkspacesSection } from './WorkspacesSection'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
+import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group'
@@ -176,10 +178,10 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
         { id: 'passwords', icon: KeyIcon, label: d.passwords.title },
-        { id: 'editor', icon: CodeIcon, label: d.editorSettings.title },
-        { id: 'plugins', icon: StackIcon, label: d.settings.plugins },
+        { id: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
+        { id: 'plugins', icon: PuzzlePieceIcon, label: d.settings.plugins },
         { id: 'views', icon: LayoutIcon, label: d.views.title },
-        { id: 'languageServers', icon: HardDrivesIcon, label: d.settings.languageServers },
+        { id: 'languageServers', icon: BracketsCurlyIcon, label: d.settings.languageServers },
         { id: 'remote', icon: DeviceMobileIcon, label: d.settings.remote },
         { id: 'sync', icon: ArrowsClockwiseIcon, label: d.sync.title },
         { id: 'language', icon: TranslateIcon, label: d.settings.language },
@@ -207,7 +209,7 @@ export function SettingsPanel(): JSX.Element | null {
     ? fmt(d.sandbox.workspacePage, { name: targetWorkspace.customName ?? targetWorkspace.name })
     : null
   const all = workspaceLabel
-    ? [...sections, { id: 'workspace' as const, icon: SquaresFourIcon, label: workspaceLabel }]
+    ? [...sections, { id: 'workspace' as const, icon: FolderSimpleIcon, label: workspaceLabel }]
     : sections
   const visible = q ? all.filter((s) => s.label.toLowerCase().includes(q)) : all
 
@@ -250,7 +252,7 @@ export function SettingsPanel(): JSX.Element | null {
             </ul>
           </ScrollArea>
           <Button variant="outline" size="sm" onClick={openSettingsFile} className="m-2">
-            <TerminalWindowIcon data-icon="inline-start" />
+            <FileCodeIcon data-icon="inline-start" />
             {d.settings.openFile}
           </Button>
         </nav>
@@ -337,17 +339,28 @@ export function WarningNote({ children }: { children: React.ReactNode }): JSX.El
 export function ControlRow({
   label,
   desc,
+  error,
+  errorId,
   children,
 }: {
   label: string
   desc?: string
+  error?: string | null
+  errorId?: string
   children: React.ReactNode
 }): JSX.Element {
   return (
-    <div className={`flex justify-between gap-6 py-1.5 ${desc ? 'items-start' : 'items-center'}`}>
+    <div
+      className={`flex justify-between gap-6 py-1.5 ${desc || error ? 'items-start' : 'items-center'}`}
+    >
       <div className="min-w-0">
         <div className="text-fg text-ui-base">{label}</div>
         {desc ? <p className="mt-0.5 text-fg-muted text-ui-sm">{desc}</p> : null}
+        {error ? (
+          <p id={errorId} role="alert" className="mt-0.5 text-attn-fg text-ui-sm">
+            {error}
+          </p>
+        ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>
@@ -424,8 +437,6 @@ function AppearanceSection(): JSX.Element {
             options={MOTION_MODES.map((m) => ({ value: m, label: motionLabel[m] }))}
           />
         </ControlRow>
-      </SettingsGroup>
-      <SettingsGroup title={d.settings.groupAccent}>
         <AccentRow />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupDisplay}>
@@ -481,7 +492,12 @@ function AccentRow(): JSX.Element {
   const custom = accent !== '' && !ACCENT_PRESETS.includes(accent)
   const themeBrand = normalizeHex(useEffectiveTheme()?.tokens.brand) ?? ACCENT_PRESETS[0]
   return (
-    <ControlRow label={d.settings.accent} desc={d.settings.accentDesc}>
+    <ControlRow
+      label={d.settings.accent}
+      desc={d.settings.accentDesc}
+      error={invalid ? d.settings.accentInvalid : null}
+      errorId="accent-hex-error"
+    >
       <div className="flex items-center gap-1.5">
         {ACCENT_PRESETS.map((color) => (
           <button
@@ -494,27 +510,28 @@ function AccentRow(): JSX.Element {
             className="size-5 rounded-full border border-line-strong outline-offset-2 focus-visible:outline-2 focus-visible:outline-brand aria-pressed:outline-2 aria-pressed:outline-fg"
           />
         ))}
-        <label
-          data-testid="accent-custom"
-          data-selected={custom || undefined}
-          title={d.settings.accentCustom}
-          style={custom ? { background: accent } : undefined}
-          className={cn(
-            'relative flex size-5 cursor-pointer items-center justify-center rounded-full border outline-offset-2 has-focus-visible:outline-2 has-focus-visible:outline-brand',
-            custom
-              ? 'border-line-strong outline-2 outline-fg'
-              : 'border-line-strong border-dashed text-fg-muted hover:text-fg',
-          )}
-        >
-          {custom ? null : <PlusIcon size={12} aria-hidden />}
-          <input
-            type="color"
-            aria-label={d.settings.accentCustom}
-            value={custom ? accent : themeBrand}
-            onChange={(e) => setAccent(e.target.value)}
-            className="absolute inset-0 size-full cursor-pointer opacity-0"
-          />
-        </label>
+        <Hint label={d.settings.accentCustom}>
+          <label
+            data-testid="accent-custom"
+            data-selected={custom || undefined}
+            style={custom ? { background: accent } : undefined}
+            className={cn(
+              'relative flex size-5 items-center justify-center rounded-full border outline-offset-2 has-focus-visible:outline-2 has-focus-visible:outline-brand',
+              custom
+                ? 'border-line-strong outline-2 outline-fg'
+                : 'border-line-strong border-dashed text-fg-muted hover:text-fg',
+            )}
+          >
+            {custom ? null : <PlusIcon size={12} aria-hidden />}
+            <input
+              type="color"
+              aria-label={d.settings.accentCustom}
+              value={custom ? accent : themeBrand}
+              onChange={(e) => setAccent(e.target.value)}
+              className="absolute inset-0 size-full opacity-0"
+            />
+          </label>
+        </Hint>
       </div>
       <Input
         value={draft}
@@ -522,7 +539,7 @@ function AccentRow(): JSX.Element {
         placeholder="#rrggbb"
         aria-label={d.settings.accentHex}
         aria-invalid={invalid}
-        title={invalid ? d.settings.accentInvalid : undefined}
+        aria-describedby={invalid ? 'accent-hex-error' : undefined}
         onChange={(e) => {
           setDraft(e.target.value)
           if (FULL_HEX.test(e.target.value.trim())) setAccent(e.target.value)
@@ -1129,19 +1146,18 @@ function PluginsSection(): JSX.Element {
       <SectionHead title={d.settings.plugins} />
       <div className="flex flex-col">
         {plugins.map((p) => (
-          <Hint key={p.id} label={p.id} side="left">
-            <div className="rounded-sm px-3 py-2 hover:bg-surface-2/60">
-              <div className="flex items-center gap-2">
-                <span className="text-fg text-ui-base">{p.name}</span>
-                {p.builtin ? (
-                  <span className="rounded-sm border border-line px-1.5 text-fg-muted text-ui-xs">
-                    {d.settings.builtin}
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-0.5 text-fg-muted text-ui-sm">{p.description}</p>
+          <div key={p.id} className="rounded-sm px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-fg text-ui-base">{p.name}</span>
+              <span className="font-mono text-fg-muted text-ui-xs">{p.id}</span>
+              {p.builtin ? (
+                <Badge variant="outline" className="text-ui-xs">
+                  {d.settings.builtin}
+                </Badge>
+              ) : null}
             </div>
-          </Hint>
+            <p className="mt-0.5 text-fg-muted text-ui-sm">{p.description}</p>
+          </div>
         ))}
       </div>
       <Separator className="my-3" />
@@ -1187,9 +1203,9 @@ export function ExtensionsSection(): JSX.Element {
                     <span className="text-fg text-ui-base">{ext.name}</span>
                     <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
                     {ext.builtin ? (
-                      <span className="rounded-sm border border-line px-1.5 text-fg-muted text-ui-xs">
+                      <Badge variant="outline" className="text-ui-xs">
                         {d.settings.builtin}
-                      </span>
+                      </Badge>
                     ) : null}
                   </div>
                   <p className="mt-0.5 text-fg-muted text-ui-sm">{ext.description}</p>
@@ -1268,6 +1284,12 @@ function LanguageServersSection(): JSX.Element {
   )
 }
 
+const PLATFORM_NAMES: Record<Platform, string> = {
+  linux: 'Linux',
+  darwin: 'macOS',
+  win32: 'Windows',
+}
+
 function LanguageSection(): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
@@ -1276,11 +1298,11 @@ function LanguageSection(): JSX.Element {
   return (
     <section>
       <SectionHead title={d.settings.language} />
-      <ControlRow label={d.settings.language}>
+      <ControlRow label={d.settings.displayLanguage}>
         <SelectField
           value={locale}
           onChange={(l) => setLocale(l as Locale)}
-          label={d.settings.language}
+          label={d.settings.displayLanguage}
           options={languages.map((l) => ({ value: l.id, label: l.label }))}
         />
       </ControlRow>
@@ -1313,7 +1335,7 @@ function AboutSection(): JSX.Element {
       <img src={appIcon} alt="" className="size-20" />
       <h2 className="font-semibold text-fg text-ui-lg">{name}</h2>
       <div className="flex items-center gap-1">
-        <span className="font-mono text-fg-muted text-ui-sm tabular-nums">{version}</span>
+        <span className="text-fg-muted text-ui-sm tabular-nums">{version}</span>
         <IconButton
           icon={copied ? CheckIcon : CopyIcon}
           label={copied ? d.settings.copied : d.settings.copyVersion}
@@ -1326,7 +1348,7 @@ function AboutSection(): JSX.Element {
       <p className="text-fg-muted text-ui-sm">
         {fmt(d.settings.copyright, { year: new Date().getFullYear(), name })}
       </p>
-      <p className="text-fg-muted text-ui-xs">{platform}</p>
+      <p className="text-fg-muted text-ui-xs">{PLATFORM_NAMES[platform]}</p>
     </section>
   )
 }

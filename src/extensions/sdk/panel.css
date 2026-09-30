@@ -52,9 +52,8 @@ textarea {
 }
 
 button {
-  cursor: pointer;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
   padding: 2px 8px;
 }
@@ -78,7 +77,7 @@ textarea:focus-visible {
 input,
 textarea {
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--bg);
   padding: 4px 6px;
   min-width: 0;

@@ -322,10 +322,10 @@ function PaneTab({
           className="pane-kind"
           aria-label={pane.hibernated ? d.pane.hibernated : undefined}
         />
-        <span className="title">
-          {dirty ? '• ' : ''}
-          {pane.title}
-        </span>
+        {dirty ? (
+          <span className="dot pane-tab-dirty" role="img" aria-label={d.pane.unsaved} />
+        ) : null}
+        <span className="title">{pane.title}</span>
         {unread ? (
           <span
             className={`pane-attn-mark${ring ? ' loud' : ''}`}

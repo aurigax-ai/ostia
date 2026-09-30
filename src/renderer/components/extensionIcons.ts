@@ -1,6 +1,7 @@
 import {
   BellIcon,
   BookOpenIcon,
+  ChatCircleDotsIcon,
   CheckIcon,
   CircleIcon,
   GitBranchIcon,
@@ -28,6 +29,7 @@ const ICONS: Record<ExtensionIcon, IconComponent> = {
   check: CheckIcon,
   alert: WarningIcon,
   shield: ShieldCheckIcon,
+  chat: ChatCircleDotsIcon,
 }
 
 export function extensionIcon(icon: ExtensionIcon | undefined): IconComponent {

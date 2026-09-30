@@ -25,7 +25,7 @@ export const Suggestion = ({
   ...props
 }: SuggestionProps) => (
   <Button
-    className={cn('rounded-full', className)}
+    className={className}
     onClick={() => onClick?.(suggestion)}
     size={size}
     type="button"

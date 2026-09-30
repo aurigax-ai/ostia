@@ -23,7 +23,10 @@ function seedAssistant(dataHome: string, url: string, extra: object = {}): void 
 }
 
 async function openAssistantMenu(win: Page) {
-  await win.locator('header.topbar button[aria-haspopup="dialog"][aria-label^="Assistant"]').click()
+  await win
+    .locator('header.topbar')
+    .getByRole('button', { name: /^Assistant/ })
+    .click()
   const menu = win.getByRole('dialog', { name: 'Assistant' })
   await expect(menu).toBeVisible()
   return menu
@@ -152,9 +155,7 @@ test.describe('assistant chat pane and terminal completion', () => {
       await win.waitForTimeout(1500)
       await expect(ghost).toHaveCount(0)
       expect(
-        provider.requests
-          .slice(before)
-          .some((r) => r.system.includes('autocomplete the command')),
+        provider.requests.slice(before).some((r) => r.system.includes('autocomplete the command')),
       ).toBe(false)
     } finally {
       await app.close()

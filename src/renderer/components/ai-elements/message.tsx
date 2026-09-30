@@ -1,5 +1,4 @@
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { IconButton, type IconButtonProps } from '@/components/IconButton'
 import { cn } from '@/lib/utils'
 import type { UIMessage } from 'ai'
 import type { ComponentProps, HTMLAttributes } from 'react'
@@ -46,28 +45,9 @@ export const MessageActions = ({ className, children, ...props }: MessageActions
   </div>
 )
 
-export type MessageActionProps = ComponentProps<typeof Button> & {
-  tooltip: string
-}
+export type MessageActionProps = Omit<IconButtonProps, 'size'>
 
-export const MessageAction = ({
-  tooltip,
-  children,
-  variant = 'ghost',
-  size = 'icon-sm',
-  ...props
-}: MessageActionProps) => (
-  <Tooltip>
-    <TooltipTrigger
-      render={
-        <Button size={size} type="button" variant={variant} aria-label={tooltip} {...props}>
-          {children}
-        </Button>
-      }
-    />
-    <TooltipContent>{tooltip}</TooltipContent>
-  </Tooltip>
-)
+export const MessageAction = (props: MessageActionProps) => <IconButton size="row" {...props} />
 
 const REMARK_PLUGINS = [remarkGfm]
 
@@ -98,11 +78,3 @@ export const MessageResponse = memo(
 )
 
 MessageResponse.displayName = 'MessageResponse'
-
-export type MessageToolbarProps = ComponentProps<'div'>
-
-export const MessageToolbar = ({ className, children, ...props }: MessageToolbarProps) => (
-  <div className={cn('flex w-full items-center justify-between gap-4', className)} {...props}>
-    {children}
-  </div>
-)
