@@ -1,6 +1,6 @@
 # Manager: identity
 
-Status: decisions in progress
+Status: decisions settled; cases not written (not built yet)
 
 ## Decisions
 - **MGR-D10** Manager skills: Settings → Manager holds a list of skill folders the human picks. Pine builds the manager's plugin dir from the manager skill plus those folders; for Codex it writes a context file that lists them. Worker panes never get the manager skill, and the manager never gets the worker `pine` skill. Why: the manager learns only what the human chose. Governs: the manager plugin dir, the Codex context file, `manager.skills`.

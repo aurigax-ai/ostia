@@ -245,6 +245,7 @@ interface Persisted {
   workspaceGroups: WorkspaceGroupSettings
   extensionSettings: Record<string, ExtensionSettingValues>
   capabilities?: Capabilities
+  manager?: Record<string, unknown>
   sync?: SyncSettings
   approvals: ApprovalSettings
   actions: UserAction[]
@@ -401,6 +402,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
     extensionSettings: extensionSettingsOf(p.extensionSettings),
     capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
+    manager: isPlainObject(p.manager) ? p.manager : undefined,
     sync: syncOf(p.sync),
     approvals: parseApprovalSettings(p.approvals),
     actions: parseActions(p.actions),
@@ -498,6 +500,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     workspaceGroups: s.workspaceGroups,
     extensionSettings: s.extensionSettings,
     capabilities: s.capabilities,
+    manager: s.manager,
     sync: s.sync,
     approvals: s.approvals,
     actions: s.actions,

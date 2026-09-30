@@ -422,6 +422,25 @@ describe('settingsStore', () => {
       expect(written.appearance.theme).toBe('dracula')
     })
 
+    it('MGR-C16 keeps the manager section from settings.json so a later save round-trips it', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        '{"locale":"en","manager":{"agents":{"aider":["aider","--yes"]}}}',
+      )
+
+      await store().init()
+      store().setTheme('dracula')
+      await vi.advanceTimersByTimeAsync(300)
+
+      const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+      expect(written.manager).toEqual({ agents: { aider: ['aider', '--yes'] } })
+    })
+
+    it('MGR-C16 refuses manager settings from pine settings set', () => {
+      expect(() => store().setByPath('manager.agents', { x: ['rm'] })).toThrow(
+        /unknown settings key/,
+      )
+    })
+
     it('keeps DEFAULTS when settings.json is invalid JSON (catch path)', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue('not json{')
 

@@ -1,7 +1,6 @@
 import { chmodSync, rmSync } from 'node:fs'
 import { type Server, type Socket, createConnection, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import {
   ErrorCodes,
   ResponseError,
@@ -9,15 +8,12 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { PRODUCT_NAME } from '../shared/product'
+import { portalSocketPath as sharedPortalSocketPath } from '../shared/portal'
 import { ManagerError, type ManagerService, parseOpenRequest } from './manager'
 import type { CallerVerdict } from './portalCaller'
 
 export function portalSocketPath(packaged: boolean): string {
-  const override = process.env.PINE_PORTAL_SOCKET
-  if (override) return override
-  const name = packaged ? PRODUCT_NAME : `${PRODUCT_NAME}-dev`
-  return join(process.env.XDG_RUNTIME_DIR || tmpdir(), `${name}-portal.sock`)
+  return sharedPortalSocketPath(packaged, process.env, tmpdir())
 }
 
 export function portalSupported(platform: NodeJS.Platform): boolean {
