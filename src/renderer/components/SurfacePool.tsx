@@ -5,6 +5,7 @@ import { allPanes } from '../layout/tree'
 import type { LayoutNode, SurfaceKind } from '../layout/types'
 import { useDiffStore } from '../stores/diffStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { releaseSurfaces, surfaceHost } from '../stores/surfaceSlotsStore'
 import { BrowserView } from './BrowserView'
 import { DiffView } from './DiffView'
@@ -51,6 +52,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
 
 export function SurfacePool(): JSX.Element {
   const byWorkspace = useLayoutStore((s) => s.byWorkspace)
+  const generation = useSandboxStore((s) => s.generation)
 
   const surfaces = useMemo(() => {
     const out: SurfaceRef[] = []
@@ -85,7 +87,12 @@ export function SurfacePool(): JSX.Element {
           ) : s.hibernated ? (
             <HibernatedView paneId={s.paneId} resume={s.resume} />
           ) : (
-            <TerminalView workspaceId={s.workspaceId} paneId={s.paneId} cwd={s.cwd} />
+            <TerminalView
+              key={generation[s.paneId] ?? 0}
+              workspaceId={s.workspaceId}
+              paneId={s.paneId}
+              cwd={s.cwd}
+            />
           ),
           surfaceHost(s.paneId),
           s.paneId,

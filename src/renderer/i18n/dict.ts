@@ -11,6 +11,7 @@ export const en = {
     renameWorkspace: 'Workspace name',
     describeWorkspace: 'Workspace description',
     rename: 'Rename',
+    sandbox: 'Sandbox',
     addDescription: 'Add description',
     editDescription: 'Edit description',
     clearDescription: 'Clear description',
@@ -98,6 +99,8 @@ export const en = {
     newBrowserTab: 'New browser tab',
     closeTab: 'Close tab',
     resume: 'Resume {agent}',
+    sandboxRestart: 'Restart to apply',
+    sandboxRestartHint: 'The sandbox setting changed. Restart this shell to apply it.',
     hibernated: 'Hibernated',
     hibernatedTitle: 'Hibernated — click to resume',
     hibernatedBody:
@@ -876,6 +879,7 @@ export const zhHant: Dict = {
     renameWorkspace: '工作區名稱',
     describeWorkspace: '工作區說明',
     rename: '重新命名',
+    sandbox: '沙箱',
     addDescription: '新增說明',
     editDescription: '編輯說明',
     clearDescription: '清除說明',
@@ -963,6 +967,8 @@ export const zhHant: Dict = {
     newBrowserTab: '新增瀏覽器分頁',
     closeTab: '關閉分頁',
     resume: '繼續 {agent}',
+    sandboxRestart: '重新啟動以套用',
+    sandboxRestartHint: '沙箱設定已變更。重新啟動此 shell 以套用。',
     hibernated: '已休眠',
     hibernatedTitle: '已休眠 — 按一下以繼續',
     hibernatedBody:

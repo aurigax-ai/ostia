@@ -20,6 +20,7 @@ import type {
 import type { ExtensionsApi } from './extensions'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
+import type { WorkspaceSandbox } from './sandbox'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
 import type { WorkspaceGroupColor } from './workspaceGroups'
@@ -52,6 +53,7 @@ export interface PtySpawnOptions {
   role?: 'owner' | 'observer'
   sinceCursor?: number
   pinePrompt?: PinePromptSpawn
+  workspaceId?: string
 }
 
 export interface PinePromptSpawn {
@@ -79,12 +81,19 @@ export interface PtyAttachResult {
   buffer: string
   cursor: number
   dropped: boolean
+  sandboxed?: boolean
+}
+
+export interface SandboxApi {
+  get: (workspaceId: string) => Promise<WorkspaceSandbox | null>
+  setEnabled: (workspaceId: string, enabled: boolean) => Promise<WorkspaceSandbox | null>
 }
 
 export interface PtyApi {
   attach: (paneId: string, opts: PtySpawnOptions) => Promise<PtyAttachResult>
   detach: (paneId: string) => void
   hibernate: (paneId: string) => Promise<boolean>
+  restart: (paneId: string) => Promise<boolean>
   write: (paneId: string, data: string) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
@@ -473,6 +482,7 @@ export interface PineBridge {
   selection: SelectionApi
   approvals: ApprovalsApi
   credentials: CredentialsApi
+  sandbox: SandboxApi
   update: AppUpdateApi
   agentSession: AgentSessionApi
   extensions: ExtensionsApi

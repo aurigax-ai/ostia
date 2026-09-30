@@ -22,6 +22,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       attach: vi.fn().mockResolvedValue({ created: true, buffer: '', cursor: 0, dropped: false }),
       detach: vi.fn(),
       hibernate: vi.fn().mockResolvedValue(true),
+      restart: vi.fn().mockResolvedValue(true),
       write: vi.fn(),
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),
@@ -94,6 +95,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       state: vi.fn().mockResolvedValue(null),
       restart: vi.fn().mockResolvedValue(undefined),
       onAvailable: vi.fn(() => () => {}),
+    },
+    sandbox: {
+      get: vi.fn().mockResolvedValue(null),
+      setEnabled: vi.fn().mockResolvedValue(null),
     },
     credentials: {
       list: vi.fn().mockResolvedValue([]),

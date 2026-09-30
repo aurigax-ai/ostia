@@ -21,6 +21,7 @@ import type {
   PaneChip,
 } from '../shared/extensions'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
+import type { WorkspaceSandbox } from '../shared/sandbox'
 import type { SelectionSendResult } from '../shared/selection'
 import type {
   AppInfo,
@@ -81,6 +82,7 @@ const bridge: PineBridge = {
       ipcRenderer.invoke('pty:attach', paneId, opts) as Promise<PtyAttachResult>,
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<boolean>,
+    restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
@@ -198,6 +200,16 @@ const bridge: PineBridge = {
       ipcRenderer.on('app:update-available', handler)
       return () => ipcRenderer.removeListener('app:update-available', handler)
     },
+  },
+  sandbox: {
+    get: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:get', workspaceId) as Promise<WorkspaceSandbox | null>,
+    setEnabled: (workspaceId, enabled) =>
+      ipcRenderer.invoke(
+        'sandbox:set-enabled',
+        workspaceId,
+        enabled,
+      ) as Promise<WorkspaceSandbox | null>,
   },
   credentials: {
     list: () => ipcRenderer.invoke('credentials:list') as Promise<CredentialSummary[]>,
