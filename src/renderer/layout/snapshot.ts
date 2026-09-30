@@ -1,4 +1,10 @@
-import type { AppSnapshot, SnapshotNode, SnapshotPaneNode, SnapshotWorkspace } from '@shared/types'
+import type {
+  AppSnapshot,
+  SnapshotGroup,
+  SnapshotNode,
+  SnapshotPaneNode,
+  SnapshotWorkspace,
+} from '@shared/types'
 import { adoptIds, findPane, firstPaneId, withoutKind } from './tree'
 import type { LayoutNode, PaneNode } from './types'
 
@@ -8,6 +14,7 @@ export interface RestorableWorkspace {
   customName?: string
   description?: string
   pinned?: boolean
+  groupId?: string
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
 }
@@ -47,8 +54,18 @@ function toLayoutNode(node: SnapshotNode): LayoutNode {
   return { ...node, children: node.children.map(toLayoutNode), sizes: [...node.sizes] }
 }
 
+function copyGroup(group: SnapshotGroup): SnapshotGroup {
+  return {
+    id: group.id,
+    name: group.name,
+    ...(group.color ? { color: group.color } : {}),
+    ...(group.collapsed ? { collapsed: true } : {}),
+  }
+}
+
 export function buildSnapshot(input: {
   workspaces: RestorableWorkspace[]
+  groups: SnapshotGroup[]
   activeWorkspaceId: string | null
   layouts: Record<string, { root: LayoutNode; activePaneId: string }>
   savedAt: string
@@ -63,6 +80,7 @@ export function buildSnapshot(input: {
       ...(workspace.customName ? { customName: workspace.customName } : {}),
       ...(workspace.description ? { description: workspace.description } : {}),
       ...(workspace.pinned ? { pinned: true } : {}),
+      ...(workspace.groupId ? { groupId: workspace.groupId } : {}),
       kind: workspace.kind,
       workDir: workspace.workDir,
       ...(layout && root
@@ -83,11 +101,13 @@ export function buildSnapshot(input: {
     savedAt: input.savedAt,
     activeWorkspaceId,
     workspaces,
+    groups: input.groups.filter((g) => workspaces.some((w) => w.groupId === g.id)).map(copyGroup),
   }
 }
 
 export function restoreSnapshot(snapshot: AppSnapshot): {
   workspaces: RestorableWorkspace[]
+  groups: SnapshotGroup[]
   activeWorkspaceId: string | null
   layouts: Record<string, RestorableLayout>
 } {
@@ -100,6 +120,7 @@ export function restoreSnapshot(snapshot: AppSnapshot): {
       ...(s.customName ? { customName: s.customName } : {}),
       ...(s.description ? { description: s.description } : {}),
       ...(s.pinned ? { pinned: true } : {}),
+      ...(s.groupId ? { groupId: s.groupId } : {}),
       kind: s.kind,
       workDir: s.workDir,
     })
@@ -108,5 +129,10 @@ export function restoreSnapshot(snapshot: AppSnapshot): {
     adoptIds(root)
     layouts[s.id] = { root, activePaneId: s.activePaneId ?? firstPaneId(root), zoomedPaneId: null }
   }
-  return { workspaces, activeWorkspaceId: snapshot.activeWorkspaceId, layouts }
+  return {
+    workspaces,
+    groups: snapshot.groups.map(copyGroup),
+    activeWorkspaceId: snapshot.activeWorkspaceId,
+    layouts,
+  }
 }

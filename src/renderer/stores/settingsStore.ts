@@ -6,9 +6,15 @@ import {
   parseNotificationSettings,
 } from '../../shared/notificationSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
+import { normalizeGroupName } from '../../shared/workspaceGroups'
 import type { Locale } from '../i18n/dict'
+import type { GroupRule } from '../lib/workspaceGroups'
 
 export type ThemeId = string
+
+const kindOf = (v: unknown): string => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v)
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> => kindOf(v) === 'object'
 
 export interface SurfaceFont {
   family: string
@@ -31,6 +37,25 @@ export interface SidebarSettings {
   showMessage: boolean
   showDescription: boolean
   showExtensionItems: boolean
+}
+
+export interface WorkspaceGroupSettings {
+  byCwd: GroupRule[]
+}
+
+const MAX_GROUP_RULES = 50
+
+export function parseWorkspaceGroupSettings(raw: unknown): WorkspaceGroupSettings {
+  const list = isPlainObject(raw) && Array.isArray(raw.byCwd) ? raw.byCwd : []
+  const byCwd: GroupRule[] = []
+  for (const entry of list) {
+    if (byCwd.length >= MAX_GROUP_RULES) break
+    if (!isPlainObject(entry) || typeof entry.pattern !== 'string') continue
+    const pattern = entry.pattern.trim()
+    const group = normalizeGroupName(entry.group)
+    if (pattern && group) byCwd.push({ pattern, group })
+  }
+  return { byCwd }
 }
 
 export const FONT_WEIGHTS: readonly number[] = [300, 400, 450, 500, 600, 700]
@@ -88,6 +113,7 @@ interface Persisted {
   behavior: Behavior
   notifications: NotificationSettings
   sidebar: SidebarSettings
+  workspaceGroups: WorkspaceGroupSettings
   capabilities?: Capabilities
   sync?: SyncSettings
 }
@@ -98,11 +124,8 @@ const DATA_KEYS: readonly string[] = [
   'behavior',
   'notifications',
   'sidebar',
+  'workspaceGroups',
 ]
-
-const kindOf = (v: unknown): string => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v)
-
-const isPlainObject = (v: unknown): v is Record<string, unknown> => kindOf(v) === 'object'
 
 const DEFAULTS: Persisted = {
   locale: 'en',
@@ -125,6 +148,7 @@ const DEFAULTS: Persisted = {
   },
   notifications: DEFAULT_NOTIFICATION_SETTINGS,
   sidebar: { showPath: true, showMessage: true, showDescription: true, showExtensionItems: true },
+  workspaceGroups: { byCwd: [] },
 }
 
 interface SettingsState extends Persisted {
@@ -150,6 +174,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     behavior: s.behavior,
     notifications: s.notifications,
     sidebar: s.sidebar,
+    workspaceGroups: s.workspaceGroups,
     capabilities: s.capabilities,
     sync: s.sync,
   }
@@ -206,6 +231,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         },
         notifications: parseNotificationSettings(p.notifications),
         sidebar: pickBooleans(DEFAULTS.sidebar, p.sidebar),
+        workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
         capabilities: isPlainObject(p.capabilities) ? p.capabilities : undefined,
         sync: syncOf(p.sync),
       })
@@ -272,6 +298,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       behavior: s.behavior,
       notifications: s.notifications,
       sidebar: s.sidebar,
+      workspaceGroups: s.workspaceGroups,
       capabilities: s.capabilities,
     })
     let cursor = root
@@ -291,6 +318,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       throw new Error(`cannot set ${path}: expected ${kindOf(existing)}, got ${kindOf(value)}`)
     }
     cursor[leaf] = value
+    root.workspaceGroups = parseWorkspaceGroupSettings(root.workspaceGroups)
     set(root as Partial<SettingsState>)
     scheduleSave(get)
   },

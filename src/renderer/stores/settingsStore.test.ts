@@ -37,6 +37,7 @@ describe('settingsStore', () => {
       behavior: s.behavior,
       notifications: s.notifications,
       sidebar: s.sidebar,
+      workspaceGroups: s.workspaceGroups,
     })
   })
 
@@ -84,6 +85,34 @@ describe('settingsStore', () => {
       expect(s.notifications.agentDone).toBe(true)
       expect(s.sidebar.showPath).toBe(false)
       expect(s.sidebar.showMessage).toBe(true)
+    })
+
+    it('keeps only well-formed workspace group rules from settings.json', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({
+          workspaceGroups: {
+            byCwd: [
+              { pattern: '~/work/**', group: ' Work ' },
+              { pattern: '', group: 'empty pattern' },
+              { pattern: '/srv/*', group: '   ' },
+              { pattern: 42, group: 'bad' },
+              'nonsense',
+            ],
+          },
+        }),
+      )
+
+      await store().init()
+
+      expect(store().workspaceGroups.byCwd).toEqual([{ pattern: '~/work/**', group: 'Work' }])
+    })
+
+    it('sets workspace group rules by path and drops a malformed rule', () => {
+      store().setByPath('workspaceGroups.byCwd', [
+        { pattern: '/src/*', group: 'src' },
+        { pattern: 3 },
+      ])
+      expect(store().workspaceGroups.byCwd).toEqual([{ pattern: '/src/*', group: 'src' }])
     })
 
     it('merges a valid partial settings.json over DEFAULTS (mergeFont keeps default family)', async () => {
@@ -136,6 +165,7 @@ describe('settingsStore', () => {
         behavior: s.behavior,
         notifications: s.notifications,
         sidebar: s.sidebar,
+        workspaceGroups: s.workspaceGroups,
       }).toEqual(DEFAULTS)
     })
 
@@ -165,6 +195,7 @@ describe('settingsStore', () => {
         behavior: s.behavior,
         notifications: s.notifications,
         sidebar: s.sidebar,
+        workspaceGroups: s.workspaceGroups,
       }).toEqual(DEFAULTS)
     })
   })
