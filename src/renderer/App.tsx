@@ -8,9 +8,11 @@ import { DeckRail } from './components/DeckRail'
 import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
 import { FilesPanel } from './components/FilesPanel'
 import { HistorySearch } from './components/HistorySearch'
+import { SaveWorkflowDialog } from './components/SaveWorkflowDialog'
 import { TopBar } from './components/TopBar'
 import { WindowControls } from './components/WindowControls'
 import { WorkZone } from './components/WorkZone'
+import { WorkflowPicker } from './components/WorkflowPicker'
 import { TooltipProvider } from './components/ui/tooltip'
 import { WORKSPACE_GOTO, isAppChord, matchChord, workspaceIndex } from './lib/chords'
 import { confirmQuit } from './lib/closeConfirm'
@@ -96,6 +98,8 @@ export function App(): JSX.Element {
           <ExtensionApprovalDialog />
           <CloseConfirmDialog />
           <HistorySearch />
+          <WorkflowPicker />
+          <SaveWorkflowDialog />
         </div>
       </TooltipProvider>
     </IconContext.Provider>

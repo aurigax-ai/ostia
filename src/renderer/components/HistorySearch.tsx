@@ -1,3 +1,4 @@
+import { FloppyDiskIcon } from '@phosphor-icons/react'
 import { useMemo } from 'react'
 import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
@@ -6,7 +7,9 @@ import { type PaneOrigin, collectHistory } from '../lib/blocks'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useWorkflowsStore } from '../stores/workflowsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { IconButton } from './IconButton'
 import { CommandDialog, CommandEmpty, CommandInput, CommandItem, CommandList } from './ui/command'
 
 export function paneOrigins(): Map<string, PaneOrigin> {
@@ -35,6 +38,11 @@ export function HistorySearch(): JSX.Element {
     void commands.exec('history.insert', { command })
   }
 
+  const saveAsWorkflow = (command: string): void => {
+    setOpen(false)
+    useWorkflowsStore.getState().startSave(command)
+  }
+
   return (
     <CommandDialog
       open={open}
@@ -54,10 +62,22 @@ export function HistorySearch(): JSX.Element {
             onSelect={() => insert(e.command)}
             className="history-row"
           >
-            <span className="history-command">{e.command}</span>
-            <span className="history-meta">
-              {e.cwd ? `${e.workspaceName} · ${e.cwd}` : e.workspaceName}
+            <span className="history-text">
+              <span className="history-command">{e.command}</span>
+              <span className="history-meta">
+                {e.cwd ? `${e.workspaceName} · ${e.cwd}` : e.workspaceName}
+              </span>
             </span>
+            <IconButton
+              icon={FloppyDiskIcon}
+              label={d.history.saveAsWorkflow}
+              hintSide="left"
+              onPointerDown={(ev) => ev.stopPropagation()}
+              onClick={(ev) => {
+                ev.stopPropagation()
+                saveAsWorkflow(e.command)
+              }}
+            />
           </CommandItem>
         ))}
       </CommandList>

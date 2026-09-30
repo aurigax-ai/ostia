@@ -32,6 +32,7 @@ import type {
   PtyAttachResult,
   SyncStatus,
 } from '../shared/types'
+import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
 
 const bridge: PineBridge = {
   ping: () => ipcRenderer.invoke('app:ping') as Promise<'pong'>,
@@ -238,6 +239,11 @@ const bridge: PineBridge = {
       ipcRenderer.on('notifications:activate', handler)
       return () => ipcRenderer.removeListener('notifications:activate', handler)
     },
+  },
+  workflows: {
+    list: (workspaceId) =>
+      ipcRenderer.invoke('workflows:list', workspaceId) as Promise<WorkflowListing>,
+    save: (doc) => ipcRenderer.invoke('workflows:save', doc) as Promise<WorkflowSaveResult>,
   },
 }
 
