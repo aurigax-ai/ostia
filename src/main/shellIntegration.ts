@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { version } from '../../package.json'
 import { PRODUCT_NAME } from '../shared/product'
+import { type PromptSeparator, isPromptSeparator } from '../shared/promptSettings'
 import pineSkill from './agent/pine-skill.md?raw'
 import { privateTmpDir } from './privateTmp'
 
@@ -43,10 +44,37 @@ zmodload -i zsh/parameter 2>/dev/null
 __pine_report_shell() {
   [[ -n "$PINE_SHELL_STATE" ]] || return 0
   local names="\${(j: :)\${(@ok)builtins}} \${(j: :)\${(@ok)reswords}} \${(j: :)\${(@ok)aliases}} \${(j: :)\${(@)\${(@ok)functions}:#_*}}"
-  local state="$PATH"$'\\n'"$names"
+  local nl=$'\\n'
+  local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl$names"
   [[ "$state" == "$__pine_last_state" ]] && return 0
   __pine_last_state=$state
   print -r -- "$state" >| "$PINE_SHELL_STATE" 2>/dev/null
+}
+
+typeset -gi __pine_prompt_on=0
+typeset -gi __pine_prompt_torn=0
+typeset -g __pine_prompt_tail=' '
+if [[ "$PINE_PROMPT" == pine ]]; then
+  __pine_prompt_on=1
+  case "$PINE_PROMPT_SEPARATOR" in
+    '%') __pine_prompt_tail=' %% ' ;;
+    '$'|'>') __pine_prompt_tail=" $PINE_PROMPT_SEPARATOR " ;;
+  esac
+fi
+unset PINE_PROMPT PINE_PROMPT_SEPARATOR
+
+# Pine prompt: the input editor draws the context, so the shell line is only "cwd sep". This
+# file loads after the user's rc; powerlevel10k rebuilds PROMPT in its own last precmd, so it is
+# torn down once.
+__pine_apply_prompt() {
+  (( __pine_prompt_on )) || return 0
+  if (( ! __pine_prompt_torn )); then
+    __pine_prompt_torn=1
+    (( $+functions[prompt_powerlevel9k_teardown] )) && prompt_powerlevel9k_teardown
+  fi
+  PROMPT="%~$__pine_prompt_tail"
+  RPROMPT=''
+  RPS1=''
 }
 
 __pine_precmd() {
@@ -57,6 +85,7 @@ __pine_precmd() {
   fi
   __pine_osc7
   __pine_report_shell
+  __pine_apply_prompt
   __pine_mark_a
   # Append the (zero-width) prompt-end mark once, so it always lands right after the
   # visible prompt text — works even when a prompt framework redraws PROMPT each cycle.
@@ -139,11 +168,22 @@ __pine_report_shell() {
   [ -n "$PINE_SHELL_STATE" ] || return 0
   local names
   names=$(compgen -abk -A function -X '_*' 2>/dev/null)
-  local state="$PATH"$'\\n'"\${names//$'\\n'/ }"
+  local nl=$'\\n'
+  local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl\${names//$nl/ }"
   [ "$state" = "$__pine_last_state" ] && return 0
   __pine_last_state=$state
   printf '%s\\n' "$state" >| "$PINE_SHELL_STATE" 2>/dev/null
 }
+
+__pine_prompt_on=0
+__pine_prompt_tail=' '
+if [ "$PINE_PROMPT" = pine ]; then
+  __pine_prompt_on=1
+  case "$PINE_PROMPT_SEPARATOR" in
+    '%'|'$'|'>') __pine_prompt_tail=" $PINE_PROMPT_SEPARATOR " ;;
+  esac
+fi
+unset PINE_PROMPT PINE_PROMPT_SEPARATOR
 
 __pine_prompt_command() {
   local ec=$?
@@ -158,6 +198,8 @@ __pine_prompt_command() {
     [ -n "$__pine_cmd" ] && eval "$__pine_cmd"
   done
   __pine_report_shell
+  # Pine prompt: after the user's PROMPT_COMMAND, so a framework's PS1 becomes only "cwd sep".
+  [ "$__pine_prompt_on" = 1 ] && PS1='\\w'"$__pine_prompt_tail"
   # Append the (zero-width) prompt-end mark AFTER the user's PROMPT_COMMAND has run — prompt
   # frameworks (starship, powerline, git-prompt) rebuild PS1 there, which would otherwise wipe
   # an earlier mark. Single-quoted so bash stores it byte-exact (see BASH_B_MARK doc above).
@@ -481,9 +523,15 @@ function ensureFiles(): IntegrationPaths {
   return cached
 }
 
+function promptEnv(separator: PromptSeparator | null): Record<string, string> {
+  if (separator === null || !isPromptSeparator(separator)) return {}
+  return { PINE_PROMPT: 'pine', PINE_PROMPT_SEPARATOR: separator }
+}
+
 export function shellIntegrationSpawnOptions(
   shellPath: string,
   baseEnv: NodeJS.ProcessEnv,
+  pinePromptSeparator: PromptSeparator | null = null,
 ): { args: string[]; env: Record<string, string> } {
   const name = basename(shellPath).toLowerCase()
 
@@ -494,13 +542,14 @@ export function shellIntegrationSpawnOptions(
       env: {
         ZDOTDIR: INTEGRATION_DIR,
         PINE_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
+        ...promptEnv(pinePromptSeparator),
       },
     }
   }
 
   if (name === 'bash') {
     const { bashRc } = ensureFiles()
-    return { args: ['--rcfile', bashRc], env: {} }
+    return { args: ['--rcfile', bashRc], env: promptEnv(pinePromptSeparator) }
   }
 
   return { args: [], env: {} }
