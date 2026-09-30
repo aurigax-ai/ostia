@@ -31,6 +31,7 @@ import type {
   NotificationEntry,
   PineBridge,
   Platform,
+  PromptContext,
   PtyAttachResult,
   SyncStatus,
 } from '../shared/types'
@@ -72,6 +73,8 @@ const bridge: PineBridge = {
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
+    promptContext: (paneId, want) =>
+      ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
     onData: (paneId, cb) => {
       const handler = (_e: unknown, data: string): void => cb(data)
       ipcRenderer.on(`pty:data:${paneId}`, handler)

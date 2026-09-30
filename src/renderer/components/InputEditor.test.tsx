@@ -33,6 +33,7 @@ function setMode(inputMode: 'terminal' | 'editor'): void {
 function renderEditor(overrides: Partial<InputEditorProps> = {}) {
   const props: InputEditorProps = {
     paneId: PANE,
+    workspaceId: 'ws-input',
     cwd: '/home/u/proj',
     fontFamily: 'monospace',
     fontSize: 13,

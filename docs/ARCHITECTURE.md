@@ -198,6 +198,12 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **bash**: `--rcfile`. The OSC 133;B mark is appended after the user's `PROMPT_COMMAND` runs,
   because starship and powerline rebuild `PS1` there. A bash 5.1 array `PROMPT_COMMAND` is kept
   and each element is eval'd.
+- **Pine prompt**: with `PINE_PROMPT=pine` in the spawn env, the generated init (which runs
+  after the user's rc and prompt framework) unsets it and, in each prompt hook after the user's
+  own, sets `PROMPT='%~ <sep> '` and clears `RPROMPT` (zsh) or `PS1='\w <sep> '` after the
+  user's `PROMPT_COMMAND` (bash); the B mark is then appended as usual. powerlevel10k is torn
+  down once (`prompt_powerlevel9k_teardown`). Why the teardown: p10k rebuilds `PROMPT` from its
+  own hooks and zle widgets (async segments), so a plain assignment would flicker back.
 - **Other shells** spawn with no integration.
 - **`pine()` shell function**: it runs `ELECTRON_RUN_AS_NODE=1 $PINE_NODE $PINE_CLI`, so no
   system Node is needed. electron-builder unpacks `out/cli/**` from the asar for this.
@@ -359,16 +365,56 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     line empty.
   - `pty:commands` (main, `shellCommands.ts`) answers only the window attached to the pane. It
     reads the pane's `PINE_SHELL_STATE` file (`readShellState`: a regular file, not a symlink,
-    at most 1 MiB; first line the shell's `$PATH`, then its builtins, keywords, aliases and
-    functions not starting with `_`), falling back to the spawn env's PATH, then lists the
+    at most 1 MiB; first line the shell's `$PATH`, then one line each for `VIRTUAL_ENV`,
+    `CONDA_DEFAULT_ENV` and `KUBECONFIG` (newlines stripped, empty when unset), then its
+    builtins, keywords, aliases and functions not starting with `_`), falling back to the spawn env's PATH, then lists the
     executables of every absolute PATH directory (`ExecutableIndex`: `readdir` + `stat` for
     the execute bit, names only, never file contents; relative entries such as `.` are
     skipped). Listings are cached per PATH string and reused until a directory's mtime
     changes (at most 16 PATHs). The shell writes the file in its prompt hook
-    (`__pine_report_shell`), only when the PATH or the names changed. Why the shell reports
+    (`__pine_report_shell`), only when one of those lines changed. Why the shell reports
     at all: the spawn env misses whatever `.zshrc`/`.bashrc` add to PATH (`~/.local/bin`,
     cargo, pnpm) and every alias and function, so those would all look unknown. Why a file and
     not an OSC like the other marks: see §6 of CLAUDE.md.
+  - Pine prompt (`terminal.prompt`, `shared/promptSettings.ts`, `lib/promptChips.ts`,
+    `lib/usePromptChips.ts`, `components/PromptChips.tsx`, `PromptEditorDialog.tsx`), Warp's
+    context-chip prompt. `style: 'shell'` (default) keeps the cwd line above; `'pine'` replaces
+    it with an ordered row of chips (`chips`), or puts the row before the textarea on the input
+    line when `sameLine` is on, followed by `separator` (`none`, `%`, `$`, `>`). A chip with no
+    value is hidden, like Warp's. Core chips and their sources: `cwd` (the pane's OSC 7 cwd,
+    `~`-abbreviated with main's home), `user`, `host` (main, `os.userInfo`, short hostname),
+    `virtualenv` (folder name of `VIRTUAL_ENV`), `conda` (`CONDA_DEFAULT_ENV`), `node`, `kube`,
+    `date`, `time12`, `time24` (a 15 s clock, only while one is in the list), `exitCode` and
+    `duration` (the newest finished block). The default order is Warp's default restricted to
+    what core fills: conda, virtualenv, node, cwd. Warp's branch, diff stats, ssh and subshell
+    chips are not core. Values from main come from `pty:prompt-context`
+    (`main/promptContext.ts`), fetched when the editor shows and at every new prompt (A
+    marker), answered only for the window attached to the pane. It reads the shell state file
+    (above) and resolves `node` only when the cwd is inside a Node project (a `package.json` at
+    or above it): the version is read off a versioned install path (nvm, fnm, volta), else the
+    resolved binary is run once with `--version` (`execFile`, `shell: false`, 2 s timeout) and
+    cached by real path and mtime. `kube` reads `current-context` from the first `$KUBECONFIG`
+    file (as the shell reported it) or `~/.kube/config`, top-level key only, 1 MiB cap, cached
+    by mtime; it isn't in the default list. Why main runs node and not the shell hook: a
+    `node --version` in precmd costs every prompt tens of milliseconds, and the hook must stay
+    cheap (§6 of CLAUDE.md). Clicking the `cwd` chip opens Files (which follows the pane cwd);
+    right-click on the row offers Edit prompt, Copy prompt (chip texts and separator), Copy
+    working directory and Show in Files. Edit prompt (also Settings → Terminal) is a dialog
+    with a live preview from the active terminal's real values (chips without one are drawn
+    dashed as "no value here"), the ordered list (drag, the arrow buttons, or Alt+↑/↓ on a
+    row's handle, announced through a live region), the available chips, the same-line switch
+    and the separator; Save writes the whole object and sets `style: 'pine'`.
+    Extension chips use the id `<extId>.<chip>` in the same list and render from
+    `usePaneChips(paneId)` (`stores/paneChipsStore.ts`: per pane `{extId, id, text, tooltip,
+    tone, command}`, plus a `catalog` of `{extId, id, title}` for the dialog); a click invokes
+    the chip's `command` on its extension with `{workspaceId, paneId}`. The store is the seam
+    for the extension pane-chips API, which only has to call `setPaneChips` and `setCatalog`.
+    Plain shell prompt: when the Pine prompt is on in editor mode, `pty:attach` gets
+    `pinePrompt` (the separator) and main starts zsh/bash with `PINE_PROMPT=pine` and
+    `PINE_PROMPT_SEPARATOR` (see Shell integration). Why: the chips already show the context,
+    and a framework prompt left in scrollback (right prompts, clocks, multi-line frames) is
+    noise above every block. It is decided at spawn, so terminals already open keep their
+    prompt until a new shell starts (the settings text says so).
   - Syntax highlighting: `lib/shellTokens.ts` `tokenizeShell` splits the draft into tokens
     that cover every character (command, argument, flag, string, variable, assignment,
     operator, comment, space); a command token is colored as unknown (the palette's red) when

@@ -10,7 +10,13 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ExecutableIndex, commandNames, pathDirs, readShellState } from './shellCommands'
+import {
+  ExecutableIndex,
+  commandNames,
+  parseShellState,
+  pathDirs,
+  readShellState,
+} from './shellCommands'
 
 let root = ''
 
@@ -34,16 +40,22 @@ afterEach(() => {
 })
 
 describe('readShellState', () => {
-  it('reads the PATH from the first line and the command names after it', async () => {
+  it('reads the PATH, the environment lines and the command names after them', async () => {
     const state = join(root, 'state')
-    writeFileSync(state, '/a b:/c\ncd  if\tll \n')
-    expect(await readShellState(state)).toEqual({ path: '/a b:/c', names: ['cd', 'if', 'll'] })
+    writeFileSync(state, '/a b:/c\n/p/.venv\nbase\n/k/config\ncd  if\tll \n')
+    expect(await readShellState(state)).toEqual({
+      path: '/a b:/c',
+      virtualEnv: '/p/.venv',
+      condaEnv: 'base',
+      kubeconfig: '/k/config',
+      names: ['cd', 'if', 'll'],
+    })
   })
 
   it('reads nothing from a missing, symlinked, oversized or malformed file', async () => {
     expect(await readShellState(join(root, 'missing'))).toBeNull()
     const real = join(root, 'real')
-    writeFileSync(real, '/usr/bin\nls\n')
+    writeFileSync(real, '/usr/bin\n\n\n\nls\n')
     const link = join(root, 'link')
     symlinkSync(real, link)
     expect(await readShellState(link)).toBeNull()
@@ -53,6 +65,23 @@ describe('readShellState', () => {
     const noNewline = join(root, 'partial')
     writeFileSync(noNewline, '/usr/bin')
     expect(await readShellState(noNewline)).toBeNull()
+  })
+})
+
+describe('parseShellState', () => {
+  it('reads empty environment lines as unset', () => {
+    expect(parseShellState('/usr/bin\n\n\n\nls cd\n')).toEqual({
+      path: '/usr/bin',
+      virtualEnv: null,
+      condaEnv: null,
+      kubeconfig: null,
+      names: ['ls', 'cd'],
+    })
+  })
+
+  it('refuses a file cut off before the command names', () => {
+    expect(parseShellState('/usr/bin\n/p/.venv\nbase')).toBeNull()
+    expect(parseShellState('/usr/bin\n/p/.venv\nbase\n/k')).toBeNull()
   })
 })
 

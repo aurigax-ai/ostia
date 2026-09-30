@@ -24,6 +24,7 @@ import {
 } from '@phosphor-icons/react'
 import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
+import { PROMPT_STYLES, type PromptStyle } from '@shared/promptSettings'
 import type { AppInfo } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -68,6 +69,7 @@ import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
+import { activeTerminalPaneId } from './PromptEditorDialog'
 import { SyncSection } from './SyncSection'
 import { WorkspacesSection } from './WorkspacesSection'
 import { ATTENTION_ALERT } from './attentionStyles'
@@ -763,6 +765,11 @@ function TerminalSection(): JSX.Element {
   const warnOnRiskyPaste = useSettingsStore((s) => s.terminal.warnOnRiskyPaste)
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
+  const prompt = useSettingsStore((s) => s.terminal.prompt)
+  const promptLabel: Record<PromptStyle, string> = {
+    shell: d.settings.promptStyleShell,
+    pine: d.settings.promptStylePine,
+  }
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
@@ -790,6 +797,25 @@ function TerminalSection(): JSX.Element {
           checked={vim}
           onChange={(v) => setBehavior({ inputEditorVim: v })}
         />
+        <ControlRow label={d.settings.promptStyle} desc={d.settings.promptStyleDesc}>
+          <SelectField
+            value={prompt.style}
+            onChange={(style) => setTerminal({ prompt: { ...prompt, style } })}
+            label={d.settings.promptStyle}
+            options={PROMPT_STYLES.map((p) => ({ value: p, label: promptLabel[p] }))}
+            width="w-36"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => useUIStore.getState().openPromptEditor(activeTerminalPaneId())}
+          >
+            {d.prompt.edit}
+          </Button>
+        </ControlRow>
+        {prompt.style === 'pine' && mode !== 'editor' ? (
+          <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
+        ) : null}
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupCursor}>
         <ControlRow label={d.settings.cursorStyle}>
