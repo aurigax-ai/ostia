@@ -1,8 +1,13 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { type FakeProvider, type FakeRequest, startFakeProvider } from './fakeProvider'
+import {
+  type FakeProvider,
+  type FakeReply,
+  type FakeRequest,
+  startFakeProvider,
+} from './fakeProvider'
 import { openWorkspace } from './helpers'
 
 const RUN_MARKER = 'pine-ran-from-chat'
@@ -156,6 +161,129 @@ test.describe('assistant chat pane and terminal completion', () => {
           .slice(before)
           .some((r) => r.system.includes('autocomplete the command')),
       ).toBe(false)
+    } finally {
+      await app.close()
+    }
+  })
+})
+
+const MCP_SERVER = join(__dirname, '..', 'test', 'fixtures', 'mcp', 'fake-server.mjs')
+
+function toolAnswer(req: FakeRequest): FakeReply {
+  if (req.toolResult !== undefined) {
+    if (req.last.includes('echo')) return `MCP answered: ${req.toolResult}`
+    if (req.last.includes('write')) return `Write result: ${req.toolResult.slice(0, 80)}`
+    const found = req.toolResult.includes('three marker line')
+    return `The notes say: ${found ? 'three marker line' : 'nothing'}`
+  }
+  if (req.last.includes('read the notes')) {
+    return { toolCalls: [{ name: 'read_file', args: { path: 'notes.txt' } }] }
+  }
+  if (req.last.includes('write')) {
+    return {
+      toolCalls: [{ name: 'write_file', args: { path: 'out.txt', content: 'hello from chat\n' } }],
+    }
+  }
+  if (req.last.includes('echo')) {
+    return { toolCalls: [{ name: 'mcp__fake__echo', args: { text: 'pine' } }] }
+  }
+  return 'Hello from the fake model.'
+}
+
+test.describe('assistant chat tools', () => {
+  let provider: FakeProvider
+
+  test.beforeAll(async () => {
+    provider = await startFakeProvider(toolAnswer)
+  })
+
+  test.afterAll(() => provider.close())
+
+  test('a read-only tool runs, a write waits for Deny or Allow once, and an MCP tool asks first', async () => {
+    const dataHome = freshDataHome()
+    const project = join(dataHome, 'userData', 'project')
+    mkdirSync(project, { recursive: true })
+    writeFileSync(join(project, 'notes.txt'), 'one\ntwo\nthree marker line\n')
+    seedAssistant(dataHome, provider.url, {
+      workspaces: { confirmQuit: false, defaultFolder: project },
+      assistant: {
+        chatHistory: true,
+        mcpServers: [{ name: 'fake', command: [process.execPath, MCP_SERVER] }],
+      },
+    })
+    const app = await electron.launch(isolatedLaunch(dataHome))
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openWorkspace(win)
+      const menu = await openAssistantMenu(win)
+      await expect(menu).toContainText('openai-compatible', { timeout: 15_000 })
+      await menu.getByRole('button', { name: /Open chat/ }).click()
+
+      const question = win.getByRole('textbox', { name: 'Your question' }).last()
+      await expect(question).toBeVisible({ timeout: 10_000 })
+
+      await win.getByRole('button', { name: 'Tools for this chat' }).click()
+      const tools = win.getByRole('dialog', { name: 'Tools for this chat' })
+      await expect(tools.getByText('5 tools')).toBeVisible({ timeout: 15_000 })
+      await win.keyboard.press('Escape')
+
+      await question.fill('read the notes please')
+      await question.press('Enter')
+      const readCall = win.locator('.chat-tool[data-tool="read_file"]').last()
+      await expect(readCall).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
+      await expect(win.locator('.ask-answer').last()).toContainText(
+        'The notes say: three marker line',
+        { timeout: 15_000 },
+      )
+      expect(provider.requests.some((r) => r.tools.includes('read_file'))).toBe(true)
+      expect(provider.requests.some((r) => r.tools.includes('mcp__fake__echo'))).toBe(true)
+      await expect(win.locator('.chat-tool-approval')).toHaveCount(0)
+
+      const out = join(project, 'out.txt')
+      await expect(win.locator('.ask-answer').last()).toHaveAttribute('aria-busy', 'false')
+      await question.fill('write the file')
+      await question.press('Enter')
+      const card = win.locator('.chat-tool-approval').last()
+      await expect(card).toContainText(`Create ${out}?`, { timeout: 15_000 })
+      await expect(card.locator('[data-diff="add"]')).toContainText('+hello from chat')
+      await expect(card.getByRole('button', { name: 'Allow for this chat' })).toHaveCount(0)
+      await card.getByRole('button', { name: 'Deny' }).click()
+      await expect(win.locator('.chat-tool[data-tool="write_file"]').last()).toHaveAttribute(
+        'data-state',
+        'output-denied',
+        { timeout: 15_000 },
+      )
+      await expect(win.locator('.ask-answer').last()).toContainText('Write result:', {
+        timeout: 15_000,
+      })
+      expect(existsSync(out)).toBe(false)
+
+      await expect(win.locator('.ask-answer').last()).toHaveAttribute('aria-busy', 'false')
+      await question.fill('write it again')
+      await question.press('Enter')
+      const again = win.locator('.chat-tool-approval').last()
+      await expect(again).toContainText(`Create ${out}?`, { timeout: 15_000 })
+      await again.getByRole('button', { name: 'Allow once' }).click()
+      await expect(win.locator('.chat-tool[data-tool="write_file"]').last()).toHaveAttribute(
+        'data-state',
+        'output-available',
+        { timeout: 15_000 },
+      )
+      await expect
+        .poll(() => (existsSync(out) ? readFileSync(out, 'utf8') : ''))
+        .toBe('hello from chat\n')
+
+      await expect(win.locator('.ask-answer').last()).toContainText('Write result:')
+      await expect(win.locator('.ask-answer').last()).toHaveAttribute('aria-busy', 'false')
+      await question.fill('echo through mcp')
+      await question.press('Enter')
+      const mcpCard = win.locator('.chat-tool-approval').last()
+      await expect(mcpCard).toContainText('Call echo on the fake MCP server?', { timeout: 15_000 })
+      await mcpCard.getByRole('button', { name: 'Allow once' }).click()
+      await expect(win.locator('.ask-answer').last()).toContainText('MCP answered: echo: pine', {
+        timeout: 15_000,
+      })
     } finally {
       await app.close()
     }
