@@ -27,6 +27,7 @@ import {
 } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
 import { settingsSchemaAt } from '../settings/settingsSchema'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveSnapshotNow } from '../stores/persistence'
@@ -261,6 +262,7 @@ export function registerBuiltinCommands(): void {
     run: (resume, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
       useLayoutStore.getState().setResume(ctx.activeWorkspaceId, ctx.activePaneId, resume)
+      useBlocksStore.getState().markAgent(ctx.activePaneId, resume.agent)
     },
   })
 

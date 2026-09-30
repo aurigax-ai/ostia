@@ -3,7 +3,6 @@ import type { AttentionState } from '@shared/types'
 import type { PaneNode } from '../layout/types'
 import type { CommandBlock } from '../stores/blocksStore'
 import type { PaneAttention } from './attention'
-import { commandAgent } from './hibernation'
 
 export interface AgentSession {
   agent: ResumableAgent
@@ -31,10 +30,9 @@ export function agentSession(
   pane: PaneNode,
   running: CommandBlock | undefined,
   attention: PaneAttention | undefined,
+  agent: ResumableAgent | null,
 ): AgentSession | null {
-  if (pane.kind !== 'terminal' || !running) return null
-  const agent = commandAgent(running.command)
-  if (!agent) return null
+  if (pane.kind !== 'terminal' || !running || !agent) return null
   return {
     agent,
     title: sessionTitle(pane.title, agent),

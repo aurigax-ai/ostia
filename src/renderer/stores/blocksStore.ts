@@ -1,3 +1,4 @@
+import type { ResumableAgent } from '@shared/agentResume'
 import { create } from 'zustand'
 
 export interface LineAnchor {
@@ -33,6 +34,8 @@ interface BlocksState {
   running: Record<string, string | undefined>
   gen: Record<string, number | undefined>
   selected: Record<string, string | undefined>
+  agentBlocks: Record<string, { blockId: string; agent: ResumableAgent } | undefined>
+  markAgent: (paneId: string, agent: ResumableAgent) => void
   promptStart: (paneId: string, line: LineAnchor, cwd: string | null) => void
   promptEnd: (paneId: string, line: LineAnchor) => void
   commandStart: (paneId: string, line: LineAnchor, command?: string) => void
@@ -48,6 +51,15 @@ export const useBlocksStore = create<BlocksState>((set) => ({
   running: {},
   gen: {},
   selected: {},
+  agentBlocks: {},
+
+  markAgent: (paneId, agent) =>
+    set((s) => {
+      const blockId = s.running[paneId]
+      const current = s.agentBlocks[paneId]
+      if (!blockId || (current?.blockId === blockId && current.agent === agent)) return s
+      return { agentBlocks: { ...s.agentBlocks, [paneId]: { blockId, agent } } }
+    }),
 
   promptStart: (paneId, line, cwd) =>
     set((s) => ({ drafts: { ...s.drafts, [paneId]: { promptLine: line, inputLine: null, cwd } } })),
@@ -124,6 +136,7 @@ export const useBlocksStore = create<BlocksState>((set) => ({
       drafts: { ...s.drafts, [paneId]: undefined },
       running: { ...s.running, [paneId]: undefined },
       gen: { ...s.gen, [paneId]: (s.gen[paneId] ?? 0) + 1 },
+      agentBlocks: { ...s.agentBlocks, [paneId]: undefined },
     })),
 
   dropPane: (paneId) =>
@@ -134,7 +147,8 @@ export const useBlocksStore = create<BlocksState>((set) => ({
           paneId in s.drafts ||
           paneId in s.running ||
           paneId in s.gen ||
-          paneId in s.selected
+          paneId in s.selected ||
+          paneId in s.agentBlocks
         )
       ) {
         return s
@@ -144,6 +158,7 @@ export const useBlocksStore = create<BlocksState>((set) => ({
       const { [paneId]: _r, ...running } = s.running
       const { [paneId]: _g, ...gen } = s.gen
       const { [paneId]: _s, ...selected } = s.selected
-      return { byPane, drafts, running, gen, selected }
+      const { [paneId]: _a, ...agentBlocks } = s.agentBlocks
+      return { byPane, drafts, running, gen, selected, agentBlocks }
     }),
 }))

@@ -17,6 +17,7 @@ import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { startAutoResume } from './lib/autoResume'
 import { startHibernation } from './lib/hibernationScheduler'
+import { startAgentDetection } from './lib/paneAgent'
 import { startUserActions } from './lib/userActions'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startWorkspaceProjects } from './lib/workspaceProjects'
@@ -62,6 +63,7 @@ async function boot(): Promise<void> {
   startPaneRecencySync()
   startHibernation()
   startAutoResume()
+  startAgentDetection()
   startWorkspaceProjects()
   startApprovals()
   startUserActions()
