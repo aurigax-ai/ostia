@@ -510,6 +510,21 @@ describe('builtins with zero workspaces', () => {
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(only.id)
     expect(useLayoutStore.getState().byWorkspace[only.id]).toBeUndefined()
   })
+
+  it('opens the workspace in the folder and under the name workspace.new was given', async () => {
+    const res = await commands.exec('workspace.new', { dir: '/home/u/sonar', name: 'Sonar search' })
+
+    expect(res.ok).toBe(true)
+    const [only] = useWorkspacesStore.getState().workspaces
+    expect(only).toMatchObject({ workDir: '/home/u/sonar', customName: 'Sonar search' })
+  })
+
+  it('refuses a relative dir for workspace.new instead of ignoring it', async () => {
+    const res = await commands.exec('workspace.new', { dir: 'sonar' })
+
+    expect(res.ok).toBe(false)
+    expect(useWorkspacesStore.getState().workspaces).toEqual([])
+  })
 })
 
 describe('agent resume', () => {

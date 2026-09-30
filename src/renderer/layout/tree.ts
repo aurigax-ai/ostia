@@ -234,6 +234,16 @@ export function tabsOfPane(node: LayoutNode, paneId: string): TabsNode | null {
   return null
 }
 
+export function slotPaneOfKind(
+  root: LayoutNode,
+  paneId: string,
+  kind: SurfaceKind,
+): PaneNode | null {
+  const tabs = tabsOfPane(root, paneId)
+  const slot = tabs ? tabs.children : [findPane(root, paneId)]
+  return slot.find((p): p is PaneNode => p?.kind === kind) ?? null
+}
+
 export function isPaneShown(root: LayoutNode, paneId: string): boolean {
   const tabs = tabsOfPane(root, paneId)
   return tabs ? tabs.activeId === paneId : findPane(root, paneId) !== null

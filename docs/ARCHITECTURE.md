@@ -577,6 +577,10 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     (`lib/fileKinds.ts`). Why not new surface kinds: a file view is still "the file this pane
     shows", so `openFile`, restore, tabs, the Files panel and the pane title stay one code path;
     switching the file swaps the viewer (keyed by path).
+  - Where `openFile` puts a file follows `editor.openFilesIn`. `tab` (default): focus an editor
+    already showing that path, else reuse an editor tab in the focused pane's slot
+    (`slotPaneOfKind`), else add a tab to that slot. `split`: reuse the workspace's first editor
+    pane, else split the focused pane to the right.
   - An `extension` pane carries `extensionId` and renders that extension's panel
     (`ExtensionPanelView`, §11). `openExtensionPanel` reuses the workspace's existing panel of the
     same extension.
