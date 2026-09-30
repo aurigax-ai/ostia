@@ -10,6 +10,7 @@ export type SurfaceKind =
   | 'extension'
   | 'diff'
   | 'view'
+  | 'manager'
 
 export interface PaneNode {
   type: 'pane'

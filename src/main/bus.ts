@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { ensureCaps } from './controlElevation'
 import { registerControlMethod } from './controlServer'
 import { loadJson, saveJson, storePath } from './jsonStore'
@@ -108,11 +109,21 @@ export function postBusMessage(from: string, to: string, text: string): string {
   return id
 }
 
-export function registerBusMethods(): void {
+export interface BusDeps {
+  managerSendAllowed: () => boolean
+}
+
+export function registerBusMethods(deps: BusDeps): void {
   registerControlMethod('bus.send', {
     handler: async (params, ctx) => {
       const { to, text } = (params ?? {}) as { to: string; text: string }
       const from = ctx.identity.externalId
+      if (ctx.identity.manager && !deps.managerSendAllowed()) {
+        throw new ResponseError(
+          ErrorCodes.InvalidRequest,
+          'limit: the manager sent too many bus messages this minute',
+        )
+      }
       if (to !== from) {
         await ensureCaps(ctx.authed, ctx.identity, ['send-other-pane'], 'bus.send', `to ${to}`)
       }

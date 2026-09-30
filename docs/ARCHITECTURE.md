@@ -837,6 +837,16 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   counts as having nothing running. E2E seeds
   `workspaces.confirmQuit: false` (`DOM_RENDERER_SETTINGS`) so `app.close()` never waits on a
   dialog; `e2e/workspace-settings.spec.ts` turns it on.
+- **Close to tray** (`main/tray.ts`): with `workspaces.closeToTray` on, or when Pine was started
+  with `--hidden`, the window `close` handler hides the window (`closeAction`) instead of asking
+  `closeGuard`, and `AppTray` shows a tray icon only while Pine is hidden (Show, Quit). Main
+  reads the setting from `settings.json` at close time (`readCloseToTray`), so it always follows
+  the file. Quit shows the window before `app.quit()`, because `closeGuard` asks through the
+  renderer and a dialog in a hidden window can't be answered. Why the tray labels live in main
+  (`trayLabels`) rather than `i18n/dict.ts`: main can't import the renderer's dictionary. Why
+  there is no single-instance lock: `pnpm dev` and the installed app share one `userData`, so a
+  lock would stop the dev build from starting while the installed Pine runs. `e2e/tray.spec.ts`
+  hides the window with a command running and checks its output after showing it again.
 - **Wrapped titles**: `workspaces.wrapTitles` adds `.tab-title.wrap` (2-line clamp) to sidebar rows.
 - **Hidden workspaces** (`WorkZone.tsx`): each workspace mounts on first visit and stays mounted.
   Inactive ones get `visibility: hidden` + `inert`.
@@ -1202,6 +1212,77 @@ dot-paths check every segment, not just the last one; snapshot pane-id keys are 
 - `pine settings get/set` goes through renderer commands so the Settings UI updates live.
 
 The agent-facing guide is the `pine` skill (`.claude/skills/pine/`).
+
+**Manager portal** (`portal.ts`, `portalCaller.ts`, `manager.ts`, `cli/portal.ts`; spec
+`specs/manager/`). From a terminal outside Pine, `pine <agent> [args…]` opens one manager
+workspace running that agent and mirrors it in the terminal.
+- The CLI takes this path only when `PINE_SOCKET` is unset and stdin and stdout are terminals;
+  otherwise it prints the old "not inside a Pine pane" error, so scripts and agents learn nothing
+  about the manager. It connects to `$XDG_RUNTIME_DIR/pine-portal.sock` (`pine-dev-portal.sock`
+  unpackaged, `PINE_PORTAL_SOCKET` overrides). If nothing answers and `PINE_APP_BIN` is set (the
+  `~/.local/bin/pine` launcher that `install-linux.sh` writes), it starts Pine with `--hidden`
+  and polls for up to 20 s.
+- The portal is a second socket, not the control socket, with one request (`portal.open {agent,
+  args, cwd, cols, rows, path}`) and three notifications (`mirror.data`/`mirror.exit` out,
+  `mirror.input`/`mirror.resize` in). It carries no token and grants nothing but the mirror; the
+  agent's own powers come from the manager pane's `PINE_TOKEN`. Why a second socket: the control
+  socket answers panes by token, and the portal's caller has none.
+- **Caller check.** Node can't read `SO_PEERCRED`, so `callerVerdict` fstat's the accepted
+  socket for its inode, runs `ss -xpnH` (execFile, no shell) and takes the pids holding the peer
+  end. Any of them inside Pine refuses the request (`inside-pine`): Pine's main pid among its
+  ancestors (covers pane shells, extensions and background processes), `PINE_TOKEN` in its
+  `/proc/<pid>/environ`, or a controlling tty that is one of Pine's ptys (the manager's own
+  included). Anything unreadable refuses too (`unknown-caller`). There is no approval prompt, so
+  this check is the whole gate (§8 has the gap).
+- **One manager, one mirror.** `ManagerService` keeps one `{paneId, agent}`: the same agent
+  attaches, another fails `manager-busy`, concurrent opens share one start. The portal keeps one
+  mirror slot (`mirror-attached`). Presets are `manager.agents` in settings.json merged over the
+  built-in claude and codex (`parseManagerAgents`); the renderer carries the section through
+  saves but it is not in `DATA_KEYS`.
+- **The agent is the pane's process.** Main asks the renderer for a manager workspace
+  (`manager:open`, answered by `managerBridge.ts` once it sent `manager:ready`), then spawns the
+  preset's argv plus the extra args directly with node-pty (`spawnManagerPty`): no shell, nothing
+  typed, the caller's cwd and PATH, and the pane's `PINE_*` env. Why: typing a command needs an
+  idle prompt and quoting; spawning an argv needs neither. The entry is `keepAlive`, so the detach
+  reaper skips it; it ends when the agent exits or the human closes its pane (`pane-closed` kills
+  it).
+- **Pine's view is read-only.** The `manager` pane kind renders `ManagerView`: an xterm with
+  `disableStdin` that attaches as an attach-only observer (`attachOnly` never spawns a shell), so
+  `pty:write` from it fails `canWrite`. Main ignores `pty:resize` for keep-alive entries; the
+  mirror is the owner and sets the size, and main tells observers through `pty:size:<paneId>`.
+  The manager workspace (`kind: 'manager'`) is left out of the snapshot, and closing it asks like
+  a running command.
+- While a manager is live, closing the window hides Pine to the tray (`closeAction`).
+- **Manager powers** (`managerMethods.ts`, `managerAgent.ts`). `spawnManagerPty` marks the
+  pane's identity (`markManager`) and sets `MANAGER_CAPABILITIES`: every cap but `phone`,
+  `gateway` and `destructive`, so it acts across workspaces without asking and `destructive`
+  still asks. `callers: 'manager'` methods: `manager.read` (the pane's `ScreenMirror.screenText`,
+  the active buffer so a TUI is readable, capped at 2000 lines), `manager.spawn` (a preset's argv
+  typed into a new terminal pane by `openTerminalInWindow`, in a new workspace from
+  `workspace.new`, which returns its id) and `manager.input` (text plus named keys, only with
+  `manager.allowInput`). Neither reaches the manager's own pane. Limits live in
+  `manager.limits`: live workers (panes still registered), spawns per 10 minutes and bus sends
+  per minute (`RateWindow`, `bus.send` asks `managerSendAllowed`). Why rate limits and not a hop
+  count: bus messages have no thread to count hops on. `pine docs` adds `MANAGER_HELP` only for
+  the manager, and the CLI verbs (`cli/manager.ts`) are not in its usage text.
+- **The manager's agent setup.** Before each spawn main rewrites
+  `privateTmpDir('pine-manager')`: a claude plugin (`pine-manager` skill, symlinks to the
+  human's `manager.skills` folders that hold a SKILL.md, and the same resume/state hooks as the
+  worker plugin) and a codex context file. `managerArgv` adds `--plugin-dir` for claude and
+  `codexHookArgs` for codex, recognized by program name; other presets run as given. Why a
+  separate plugin: the manager must not get the worker `pine` skill and workers must not get
+  the manager's, and a directly spawned agent skips the shell's `claude()`/`codex()` wrappers.
+- **Resume.** The hooks' `pine resume-token` reaches `pane.setResume`, which hands a manager's
+  token to `ManagerService.rememberResume` (`manager-resume.json` in the data dir). If Pine quits
+  with the manager running (`shutdown()` before the kill loop), the token stays and the next
+  `pine <same preset>` without extra args starts with `--resume <id>` / `resume <id>`. If the
+  agent exits on its own the token is cleared, so the next start is fresh.
+- **Approvals while hidden.** An approval card that waits for the human calls `reveal`, which
+  shows a hidden window from the tray; otherwise a manager's `destructive` request would time out
+  unseen.
+- **Settings → Manager** (`ManagerSection.tsx`, Linux only) edits `manager` through
+  `setManager`, which runs `parseManagerSettings` (shared with main); presets are typed as a
+  command line and split by `splitArgs` (`shared/argv.ts`, also the external editor's splitter).
 
 ## 7. Gateway (phone companion)
 

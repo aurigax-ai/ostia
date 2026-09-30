@@ -30,7 +30,7 @@ function unauthenticatedError(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
 }
 
-export type ControlCallers = 'panes' | 'extensions' | 'all'
+export type ControlCallers = 'panes' | 'extensions' | 'manager' | 'all'
 
 export interface ControlMethodContext {
   identity: PaneIdentity
@@ -59,6 +59,7 @@ function describeParams(method: string, params: unknown): string {
 
 function callerAllowed(identity: PaneIdentity, callers: ControlCallers): boolean {
   if (callers === 'all') return true
+  if (callers === 'manager') return identity.kind === 'pane' && identity.manager === true
   return callers === 'extensions' ? identity.kind === 'extension' : identity.kind === 'pane'
 }
 

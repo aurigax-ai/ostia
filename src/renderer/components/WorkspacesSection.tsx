@@ -99,6 +99,12 @@ export function WorkspacesSection(): JSX.Element {
           checked={settings.confirmQuit}
           onChange={(v) => set({ confirmQuit: v })}
         />
+        <ToggleRow
+          label={d.workspaceSettings.closeToTray}
+          desc={d.workspaceSettings.closeToTrayDesc}
+          checked={settings.closeToTray}
+          onChange={(v) => set({ closeToTray: v })}
+        />
       </SettingsGroup>
       <SettingsGroup title={d.workspaceSettings.groupSidebar}>
         <ToggleRow

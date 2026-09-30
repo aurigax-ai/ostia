@@ -43,6 +43,7 @@ import type {
   GatewayStatus,
   LspServerInfo,
   LspStartResult,
+  ManagerOpenPaneRequest,
   NotificationEntry,
   OpenPathResult,
   PineBridge,
@@ -121,6 +122,20 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, code: number): void => cb(code)
       ipcRenderer.on(`pty:exit:${paneId}`, handler)
       return () => ipcRenderer.removeListener(`pty:exit:${paneId}`, handler)
+    },
+    onSize: (paneId, cb) => {
+      const handler = (_e: unknown, cols: number, rows: number): void => cb(cols, rows)
+      ipcRenderer.on(`pty:size:${paneId}`, handler)
+      return () => ipcRenderer.removeListener(`pty:size:${paneId}`, handler)
+    },
+  },
+  manager: {
+    onOpen: (cb) => {
+      const handler = (_e: unknown, requestId: string, req: ManagerOpenPaneRequest): void =>
+        ipcRenderer.send('manager:open-result', requestId, cb(req))
+      ipcRenderer.on('manager:open', handler)
+      ipcRenderer.send('manager:ready')
+      return () => ipcRenderer.removeListener('manager:open', handler)
     },
   },
   fs: {

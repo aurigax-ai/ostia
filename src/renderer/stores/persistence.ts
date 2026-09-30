@@ -1,10 +1,14 @@
-import { buildSnapshot } from '../layout/snapshot'
+import { type RestorableWorkspace, buildSnapshot } from '../layout/snapshot'
 import { allPanes } from '../layout/tree'
 import { runningAgentOf } from '../lib/paneAgent'
 import { useBlocksStore } from './blocksStore'
 import { useLayoutStore } from './layoutStore'
 import { useSettingsStore } from './settingsStore'
-import { useWorkspacesStore } from './workspacesStore'
+import { type Workspace, useWorkspacesStore } from './workspacesStore'
+
+export function isRestorable(workspace: Workspace): workspace is Workspace & RestorableWorkspace {
+  return workspace.kind !== 'manager'
+}
 
 const SAVE_DEBOUNCE_MS = 400
 
@@ -47,7 +51,7 @@ export function saveSnapshotNow(): void {
   const { workspaces, groups, activeWorkspaceId } = useWorkspacesStore.getState()
   api.save(
     buildSnapshot({
-      workspaces,
+      workspaces: workspaces.filter(isRestorable),
       groups,
       activeWorkspaceId,
       layouts: useLayoutStore.getState().byWorkspace,

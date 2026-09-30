@@ -37,7 +37,7 @@ function fromPane(pane: PaneNode, marks: PaneMarks): SnapshotPaneNode {
   const keepHibernated = marks.hibernated && hibernated === true && Boolean(rest.resume)
   return {
     ...rest,
-    kind: kind === 'diff' ? 'terminal' : kind,
+    kind: kind === 'diff' || kind === 'manager' ? 'terminal' : kind,
     ...(agentRunning ? { agentRunning: true } : {}),
     ...(keepHibernated ? { hibernated: true } : {}),
   }

@@ -509,6 +509,13 @@ export const SETTINGS_JSON_SCHEMA = {
           description:
             'Ask before quitting or closing the window while commands are running. Default: true.',
         },
+        closeToTray: {
+          type: 'boolean',
+          description:
+            'Closing the window hides Pine instead of quitting; your terminals keep running and ' +
+            'a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a ' +
+            'system tray. Default: false.',
+        },
         wrapTitles: {
           type: 'boolean',
           description: 'Wrap long workspace titles onto up to two lines in the sidebar.',
@@ -677,6 +684,55 @@ export const SETTINGS_JSON_SCHEMA = {
               enum: ['terminal', 'editor', 'browser', 'extension', 'diff', 'view'],
             },
             description: 'Only show it on these pane kinds. Default: all.',
+          },
+        },
+      },
+    },
+    manager: {
+      type: 'object',
+      additionalProperties: false,
+      description:
+        'The manager: one agent you start with `pine <agent>` from a terminal outside Pine. ' +
+        'Only you can change this (Settings → Manager); agents cannot set it.',
+      properties: {
+        agents: {
+          type: 'object',
+          description:
+            'Presets for `pine <name>` and for the workers the manager starts: a name mapped to ' +
+            'the program and its arguments. claude and codex are built in; a preset with the ' +
+            'same name replaces them.',
+          additionalProperties: { type: 'array', items: { type: 'string' }, minItems: 1 },
+        },
+        skills: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Absolute paths of skill folders (each with a SKILL.md) the manager gets besides ' +
+            'its own guide. Workers never get these.',
+        },
+        allowInput: {
+          type: 'boolean',
+          description:
+            "Let the manager type into other panes, for example to answer a worker's " +
+            'permission prompt. Default: false.',
+        },
+        limits: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            maxWorkers: { type: 'integer', minimum: 0, maximum: 64, description: 'Default: 8.' },
+            spawnsPer10Min: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 200,
+              description: 'Default: 20.',
+            },
+            busPerMinute: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 600,
+              description: 'Default: 60.',
+            },
           },
         },
       },

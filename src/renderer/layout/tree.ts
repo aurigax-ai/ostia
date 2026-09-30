@@ -37,6 +37,7 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   extension: 'Extension',
   diff: 'Diff',
   view: 'View',
+  manager: 'Manager',
 }
 
 export function createPane(kind: SurfaceKind = 'terminal', title?: string, cwd?: string): PaneNode {

@@ -11,6 +11,8 @@ import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runBrowse } from './browse'
+import { runManagerVerb } from './manager'
+import { runPortalCommand } from './portal'
 import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
 
 interface ProcInfo {
@@ -272,6 +274,7 @@ async function runExtCommand(
 
 const CORE_VERBS = new Set([
   'whoami',
+  'manager',
   'commands',
   'info',
   'cwd',
@@ -1012,8 +1015,14 @@ async function main(): Promise<void> {
     return
   }
   if (!socketPath) {
-    console.error('pine: not inside a Pine pane (PINE_SOCKET unset)')
-    process.exit(1)
+    process.exitCode = await runPortalCommand(process.argv.slice(2), {
+      stdin: process.stdin,
+      stdout: process.stdout,
+      stderr: process.stderr,
+      env: process.env,
+      cwd: process.cwd(),
+    })
+    return
   }
   let socket: Socket
   try {
@@ -1107,6 +1116,8 @@ async function main(): Promise<void> {
       else await runExtCommand(conn, process.argv[3], process.argv[4], process.argv.slice(5))
     } else if (cmd && !cmd.includes('.') && !CORE_VERBS.has(cmd)) {
       await runExtCommand(conn, cmd, process.argv[3], process.argv.slice(4))
+    } else if (cmd === 'manager') {
+      process.exitCode = await runManagerVerb(conn, process.argv.slice(3), process.cwd())
     } else if (cmd === 'bus') {
       await runBusVerb(conn)
     } else if (cmd === 'settings') {
