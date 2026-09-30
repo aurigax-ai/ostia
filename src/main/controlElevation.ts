@@ -1,7 +1,7 @@
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { Capability } from '../shared/capabilities'
 import { approvals } from './approvals'
-import { type AuthedConn, connHasCap } from './controlAuth'
+import { type AuthedConn, capAllowedHere, connHasCap } from './controlAuth'
 import type { PaneIdentity } from './idRegistry'
 
 export function needsElevation(cap: Capability): ResponseError<void> {
@@ -17,6 +17,8 @@ export async function ensureCaps(
 ): Promise<void> {
   const missing = [...new Set(caps)].filter((cap) => !connHasCap(authed, cap))
   if (missing.length === 0) return
+  const fenced = missing.find((cap) => !capAllowedHere(authed, cap))
+  if (fenced) throw new ResponseError(ErrorCodes.InvalidRequest, `sandboxed: ${fenced}`)
   const approver = approvals()
   if (!approver || identity.kind !== 'pane' || identity.externalId !== authed.externalId) {
     throw needsElevation(missing[0])

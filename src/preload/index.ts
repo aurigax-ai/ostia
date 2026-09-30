@@ -36,7 +36,16 @@ import type {
 } from '../shared/extensions'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
+import type {
+  DomainRefusal,
+  SandboxEditResult,
+  SandboxExposeResult,
+  SandboxPortRow,
+  WorkspaceSandbox,
+} from '../shared/sandbox'
+import type { SecretEntry, SecretGrant } from '../shared/secrets'
 import type { SelectionSendResult } from '../shared/selection'
+import type { RequirementsReport } from '../shared/systemRequirements'
 import type {
   AppInfo,
   AppSnapshot,
@@ -118,6 +127,7 @@ const bridge: PineBridge = {
       ipcRenderer.invoke('pty:attach', paneId, opts) as Promise<PtyAttachResult>,
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<boolean>,
+    restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
@@ -292,6 +302,84 @@ const bridge: PineBridge = {
       ipcRenderer.on('app:update-available', handler)
       return () => ipcRenderer.removeListener('app:update-available', handler)
     },
+  },
+  system: {
+    requirements: (feature) =>
+      ipcRenderer.invoke('system:requirements', feature) as Promise<RequirementsReport | null>,
+    installRequirements: (feature, workspaceId) =>
+      ipcRenderer.invoke(
+        'system:install-requirements',
+        feature,
+        workspaceId,
+      ) as Promise<ExtensionResult>,
+  },
+  secrets: {
+    view: (workspaceId) =>
+      ipcRenderer.invoke('secrets:view', workspaceId) as Promise<{
+        secrets: SecretEntry[]
+        grants: SecretGrant[]
+      } | null>,
+    setGrants: (workspaceId, grants) =>
+      ipcRenderer.invoke('secrets:set-grants', workspaceId, grants) as Promise<SandboxEditResult>,
+    vaultSet: (workspaceId, key, value) =>
+      ipcRenderer.invoke('secrets:vault-set', workspaceId, key, value) as Promise<boolean>,
+    vaultDelete: (workspaceId, key) =>
+      ipcRenderer.invoke('secrets:vault-delete', workspaceId, key) as Promise<boolean>,
+  },
+  sandbox: {
+    onBlocked: (cb) => {
+      const handler = (
+        _event: unknown,
+        blocked: { workspaceId: string; report: RequirementsReport },
+      ): void => cb(blocked)
+      ipcRenderer.on('sandbox:blocked', handler)
+      return () => ipcRenderer.removeListener('sandbox:blocked', handler)
+    },
+    get: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:get', workspaceId) as Promise<WorkspaceSandbox | null>,
+    setAllowRead: (workspaceId, paths) =>
+      ipcRenderer.invoke(
+        'sandbox:set-allow-read',
+        workspaceId,
+        paths,
+      ) as Promise<SandboxEditResult>,
+    setDomains: (workspaceId, domains) =>
+      ipcRenderer.invoke('sandbox:set-domains', workspaceId, domains) as Promise<SandboxEditResult>,
+    setControls: (workspaceId, controls) =>
+      ipcRenderer.invoke(
+        'sandbox:set-controls',
+        workspaceId,
+        controls,
+      ) as Promise<WorkspaceSandbox | null>,
+    refusals: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:refusals', workspaceId) as Promise<DomainRefusal[]>,
+    allowRefused: (workspaceId, host) =>
+      ipcRenderer.invoke('sandbox:allow-refused', workspaceId, host) as Promise<boolean>,
+    globalsChanged: () => ipcRenderer.invoke('sandbox:globals-changed') as Promise<boolean>,
+    setPackages: (workspaceId, packages) =>
+      ipcRenderer.invoke(
+        'sandbox:set-packages',
+        workspaceId,
+        packages,
+      ) as Promise<WorkspaceSandbox | null>,
+    ports: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:ports', workspaceId) as Promise<SandboxPortRow[]>,
+    expose: (workspaceId, port) =>
+      ipcRenderer.invoke('sandbox:expose', workspaceId, port) as Promise<SandboxExposeResult>,
+    unexpose: (workspaceId, port) =>
+      ipcRenderer.invoke('sandbox:unexpose', workspaceId, port) as Promise<boolean>,
+    setPortsPolicy: (workspaceId, policy) =>
+      ipcRenderer.invoke(
+        'sandbox:set-ports-policy',
+        workspaceId,
+        policy,
+      ) as Promise<WorkspaceSandbox | null>,
+    setEnabled: (workspaceId, enabled) =>
+      ipcRenderer.invoke(
+        'sandbox:set-enabled',
+        workspaceId,
+        enabled,
+      ) as Promise<WorkspaceSandbox | null>,
   },
   credentials: {
     forPage: (paneId) =>

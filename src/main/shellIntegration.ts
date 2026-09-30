@@ -7,7 +7,7 @@ import { type PromptSeparator, isPromptSeparator } from '../shared/promptSetting
 import pineSkill from './agent/pine-skill.md?raw'
 import { privateTmpDir } from './privateTmp'
 
-const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
+export const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
 
 const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
 

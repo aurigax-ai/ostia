@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  SETTINGS_LOCAL_ONLY_KEYS,
   SettingsSync,
   canonicalJson,
   conflictName,
@@ -19,6 +20,7 @@ import {
   hashOf,
   mergeIntoLocal,
   planSync,
+  syncedPart,
 } from './settingsSync'
 
 describe('planSync', () => {
@@ -84,6 +86,17 @@ describe('sync helpers', () => {
       sync: { dir: '/a' },
       capabilities: { grants: ['shell'] },
     })
+  })
+
+  it('SBX-C16 never carries the sandbox policy to or from the sync folder', () => {
+    const local = { locale: 'en', sandbox: { allowedDomains: ['api.github.com'] } }
+    expect(syncedPart(local, SETTINGS_LOCAL_ONLY_KEYS)).toEqual({ locale: 'en' })
+    const merged = mergeIntoLocal(
+      local,
+      { locale: 'en', sandbox: { allowedDomains: ['*.evil.example'] } },
+      SETTINGS_LOCAL_ONLY_KEYS,
+    )
+    expect(merged.sandbox).toEqual({ allowedDomains: ['api.github.com'] })
   })
 
   it('names conflict copies with a filesystem-safe time and host', () => {

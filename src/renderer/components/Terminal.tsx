@@ -43,6 +43,7 @@ import { isRiskyPaste } from '../settings/terminalPaneSettings'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { AssistComposer } from './AssistComposer'
 import { Blocks } from './Blocks'
@@ -413,9 +414,12 @@ export function TerminalView({
         term.write(d)
       }
     })
-    const offExit = window.pine.pty.onExit(paneId, () =>
-      term.writeln('\r\n\x1b[2m[process exited]\x1b[0m'),
-    )
+    const offExit = window.pine.pty.onExit(paneId, () => {
+      term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')
+      if (useSandboxStore.getState().hostPanes[paneId]) {
+        useLayoutStore.getState().closePane(workspaceId, paneId)
+      }
+    })
 
     const attachAtCurrentSize = (cols: number, rows: number): void => {
       attached = true
@@ -431,10 +435,14 @@ export function TerminalView({
           cols,
           rows,
           role: 'owner',
+          workspaceId,
+          hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
-        .then(({ buffer }) => {
+        .then(({ buffer, sandboxed, host }) => {
           if (disposed) return
+          useSandboxStore.getState().notePane(paneId, sandboxed ?? false)
+          if (host) useSandboxStore.getState().noteHost(paneId)
           disposeMarkers()
           useBlocksStore.getState().resetPane(paneId)
           if (buffer) {

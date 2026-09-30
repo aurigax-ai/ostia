@@ -5,6 +5,7 @@ import { registerTargetableMethod } from './controlServer'
 import type { PaneIdentity } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { PtyRingBuffer } from './ptyRingBuffer'
+import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { workDirForWorkspace } from './workspaceRegistry'
 
 export interface ProcEntry {
@@ -95,20 +96,56 @@ function killTree(child: ChildProcess, signal: NodeJS.Signals): void {
   } catch {}
 }
 
-function spawnEntry(
+export interface ProcessSandbox {
+  isEnabled: (workspaceId: string) => boolean
+  wrap: (workspaceId: string, command: string) => Promise<string>
+  tmpDir: (workspaceId: string) => string
+}
+
+export interface ProcessDeps {
+  sandbox?: ProcessSandbox
+}
+
+let sandbox: ProcessSandbox | undefined
+
+async function spawnChild(
+  cmd: string,
+  cwd: string,
+  workspaceId: string,
+  env?: Record<string, string>,
+): Promise<ChildProcess> {
+  const merged = { ...process.env, ...env }
+  if (!sandbox?.isEnabled(workspaceId)) {
+    return spawn(cmd, { shell: true, detached: true, cwd, env: merged })
+  }
+  const wrapped = await sandbox.wrap(workspaceId, cmd)
+  return spawn('/bin/sh', ['-c', wrapped], {
+    detached: true,
+    cwd,
+    env: {
+      ...sandboxSpawnEnv(merged as Record<string, string>),
+      TMPDIR: sandbox.tmpDir(workspaceId),
+    },
+  })
+}
+
+function sandboxRefusal(err: unknown) {
+  return {
+    ok: false as const,
+    error: 'sandbox-unavailable' as const,
+    message: err instanceof Error ? err.message : String(err),
+  }
+}
+
+async function spawnEntry(
   id: string,
   name: string,
   cmd: string,
   cwd: string,
   workspaceId: string,
   env?: Record<string, string>,
-): ProcEntry {
-  const child = spawn(cmd, {
-    shell: true,
-    detached: true,
-    cwd,
-    env: { ...process.env, ...env },
-  })
+): Promise<ProcEntry> {
+  const child = await spawnChild(cmd, cwd, workspaceId, env)
   const entry: ProcEntry = {
     id,
     name,
@@ -138,12 +175,13 @@ function spawnEntry(
   return entry
 }
 
-export function registerProcessMethods(): void {
+export function registerProcessMethods(deps: ProcessDeps = {}): void {
+  sandbox = deps.sandbox
   loadPersisted()
 
   registerTargetableMethod('process.run', {
     cap: 'process',
-    handler: (params, ctx) => {
+    handler: async (params, ctx) => {
       const { cmd, name, cwd, env } = (params ?? {}) as {
         cmd: string
         name?: string
@@ -152,7 +190,12 @@ export function registerProcessMethods(): void {
       }
       const id = `proc-${++counter}`
       const resolvedCwd = cwd ?? workDirForWorkspace(ctx.identity.workspaceId) ?? process.cwd()
-      const entry = spawnEntry(id, name ?? id, cmd, resolvedCwd, ctx.identity.workspaceId, env)
+      let entry: ProcEntry
+      try {
+        entry = await spawnEntry(id, name ?? id, cmd, resolvedCwd, ctx.identity.workspaceId, env)
+      } catch (err) {
+        return sandboxRefusal(err)
+      }
       procs.set(id, entry)
       persist()
       return { id: entry.id, name: entry.name, pid: entry.pid }
@@ -204,20 +247,27 @@ export function registerProcessMethods(): void {
 
   registerTargetableMethod('process.restart', {
     cap: 'process',
-    handler: (params, ctx) => {
+    handler: async (params, ctx) => {
       const { id } = (params ?? {}) as { id: string }
       const entry = resolveAuthorized(id, ctx)
       if (!entry) return NOT_FOUND
       if (!entry.child) return { ok: false, error: 'not-restartable' as const }
       if (entry.status === 'running') killTree(entry.child, 'SIGTERM')
-      const fresh = spawnEntry(
-        entry.id,
-        entry.name,
-        entry.cmd,
-        entry.cwd,
-        entry.workspaceId,
-        entry.env,
-      )
+      let fresh: ProcEntry
+      try {
+        fresh = await spawnEntry(
+          entry.id,
+          entry.name,
+          entry.cmd,
+          entry.cwd,
+          entry.workspaceId,
+          entry.env,
+        )
+      } catch (err) {
+        entry.status = 'exited'
+        persist()
+        return sandboxRefusal(err)
+      }
       procs.set(entry.id, fresh)
       persist()
       return { id: fresh.id }

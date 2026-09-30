@@ -23,6 +23,7 @@ import {
   PushPinSimpleIcon,
   PushPinSlashIcon,
   RobotIcon,
+  ShieldCheckIcon,
   TerminalWindowIcon,
   TextAlignLeftIcon,
   TrashIcon,
@@ -53,6 +54,7 @@ import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
@@ -64,7 +66,14 @@ import {
 } from '../stores/workspacesStore'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
-import { MenuContent, MenuItem, MenuRadioItem, MenuSubContent, MenuSubTrigger } from './Menu'
+import {
+  MenuCheckboxItem,
+  MenuContent,
+  MenuItem,
+  MenuRadioItem,
+  MenuSubContent,
+  MenuSubTrigger,
+} from './Menu'
 import { ViewsRail } from './ViewsRail'
 import { ATTENTION_BADGE } from './attentionStyles'
 import { extensionIcon } from './extensionIcons'
@@ -537,6 +546,10 @@ function WorkspaceRow({
   const digitHints = useUIStore((s) => s.digitHints)
   const [editing, setEditing] = useState<'name' | 'description' | null>(null)
   const title = w.customName ?? w.name
+  const sandboxed = useSandboxStore((s) => s.enabled[w.id] ?? false)
+  useEffect(() => {
+    void useSandboxStore.getState().load(w.id)
+  }, [w.id])
   const otherGroups = groups.filter((g) => g.id !== w.groupId)
   const select = (): void => {
     useUIStore.getState().leaveSettings()
@@ -632,6 +645,20 @@ function WorkspaceRow({
         <MenuItem icon={TextAlignLeftIcon} onClick={() => setEditing('description')}>
           {w.description ? d.rail.editDescription : d.rail.addDescription}
         </MenuItem>
+        <MenuItem
+          icon={GearSixIcon}
+          onClick={() => useUIStore.getState().openWorkspaceSettings(w.id)}
+        >
+          {d.sandbox.workspaceSettings}
+        </MenuItem>
+        <MenuCheckboxItem
+          icon={ShieldCheckIcon}
+          checked={sandboxed}
+          closeOnClick
+          onCheckedChange={(checked) => void useSandboxStore.getState().setEnabled(w.id, checked)}
+        >
+          {d.rail.sandbox}
+        </MenuCheckboxItem>
         {w.description ? (
           <MenuItem icon={EraserIcon} onClick={() => store().describe(w.id, '')}>
             {d.rail.clearDescription}

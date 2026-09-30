@@ -19,11 +19,23 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from './credentials'
-import type { ExtensionsApi } from './extensions'
+import type { ExtensionResult, ExtensionsApi } from './extensions'
 import type { IconThemesApi } from './iconTheme'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
+import type {
+  DomainRefusal,
+  PortsPolicy,
+  SandboxControls,
+  SandboxEditResult,
+  SandboxExposeResult,
+  SandboxPortRow,
+  WorkspacePackages,
+  WorkspaceSandbox,
+} from './sandbox'
+import type { SecretEntry, SecretGrant } from './secrets'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
+import type { RequirementsReport } from './systemRequirements'
 import type { ViewsApi } from './views'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
 import type { WorkspaceGroupColor } from './workspaceGroups'
@@ -65,6 +77,8 @@ export interface PtySpawnOptions {
   role?: 'owner' | 'observer'
   sinceCursor?: number
   pinePrompt?: PinePromptSpawn
+  workspaceId?: string
+  hostToken?: string
   attachOnly?: boolean
 }
 
@@ -93,14 +107,57 @@ export interface PtyAttachResult {
   buffer: string
   cursor: number
   dropped: boolean
+  sandboxed?: boolean
+  host?: boolean
   cols?: number
   rows?: number
+}
+
+export interface SystemApi {
+  requirements: (feature: string) => Promise<RequirementsReport | null>
+  installRequirements: (feature: string, workspaceId: string) => Promise<ExtensionResult>
+}
+
+export interface SecretsApi {
+  view: (workspaceId: string) => Promise<{ secrets: SecretEntry[]; grants: SecretGrant[] } | null>
+  setGrants: (workspaceId: string, grants: SecretGrant[]) => Promise<SandboxEditResult>
+  vaultSet: (workspaceId: string, key: string, value: string) => Promise<boolean>
+  vaultDelete: (workspaceId: string, key: string) => Promise<boolean>
+}
+
+export interface SandboxApi {
+  get: (workspaceId: string) => Promise<WorkspaceSandbox | null>
+  setEnabled: (workspaceId: string, enabled: boolean) => Promise<WorkspaceSandbox | null>
+  setAllowRead: (workspaceId: string, paths: string[]) => Promise<SandboxEditResult>
+  setDomains: (workspaceId: string, domains: string[]) => Promise<SandboxEditResult>
+  setControls: (
+    workspaceId: string,
+    controls: Partial<SandboxControls>,
+  ) => Promise<WorkspaceSandbox | null>
+  refusals: (workspaceId: string) => Promise<DomainRefusal[]>
+  allowRefused: (workspaceId: string, host: string) => Promise<boolean>
+  globalsChanged: () => Promise<boolean>
+  setPackages: (
+    workspaceId: string,
+    packages: WorkspacePackages,
+  ) => Promise<WorkspaceSandbox | null>
+  ports: (workspaceId: string) => Promise<SandboxPortRow[]>
+  expose: (workspaceId: string, port: number) => Promise<SandboxExposeResult>
+  unexpose: (workspaceId: string, port: number) => Promise<boolean>
+  setPortsPolicy: (
+    workspaceId: string,
+    policy: PortsPolicy | undefined,
+  ) => Promise<WorkspaceSandbox | null>
+  onBlocked: (
+    cb: (blocked: { workspaceId: string; report: RequirementsReport }) => void,
+  ) => () => void
 }
 
 export interface PtyApi {
   attach: (paneId: string, opts: PtySpawnOptions) => Promise<PtyAttachResult>
   detach: (paneId: string) => void
   hibernate: (paneId: string) => Promise<boolean>
+  restart: (paneId: string) => Promise<boolean>
   write: (paneId: string, data: string) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
@@ -610,6 +667,9 @@ export interface PineBridge {
   selection: SelectionApi
   approvals: ApprovalsApi
   credentials: CredentialsApi
+  sandbox: SandboxApi
+  secrets: SecretsApi
+  system: SystemApi
   update: AppUpdateApi
   agentSession: AgentSessionApi
   openPath: OpenPathApi

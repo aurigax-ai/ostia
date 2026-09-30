@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -19,6 +20,7 @@ import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import type { ExtensionPanelContext, ExtensionResult } from '../shared/extensions'
 import { managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { PRODUCT_NAME } from '../shared/product'
+import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
 import type {
   AppInfo,
@@ -60,6 +62,7 @@ import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
+import { setCapFilter } from './controlAuth'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerCredentials } from './credentials'
 import { registerDocsMethods } from './docs'
@@ -82,6 +85,7 @@ import {
   registerPane,
   removePane,
   removeWindow,
+  resolveExternal,
   windowOfWorkspace,
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
@@ -91,6 +95,7 @@ import { ManagerService, managerWindowId } from './manager'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
 import {
+  postActionNotification,
   postNotification,
   postPanelNotification,
   registerNotifyIpc,
@@ -113,19 +118,51 @@ import { killAllProcesses, registerProcessMethods } from './processManager'
 import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { PtySession, type SubscriberRole } from './ptySession'
+import { attachWorkspace } from './sandbox/attachWorkspace'
+import { BrowserFence } from './sandbox/browserFence'
+import { registerSandboxMethods } from './sandbox/controlMethods'
+import { DomainRequests } from './sandbox/domainRequests'
+import { HostPaneGrants } from './sandbox/hostPanes'
+import { registerSandboxIpc } from './sandbox/ipc'
+import { packageCooldownEnv } from './sandbox/packageEnv'
+import { PackageRequests } from './sandbox/packageRequests'
+import { PortForwarder } from './sandbox/portForwarder'
+import { PortRequests } from './sandbox/portRequests'
+import { sandboxFailureBanner } from './sandbox/spawnBanner'
+import { sandboxSpawnEnv } from './sandbox/spawnEnv'
+import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
+import { SandboxStore } from './sandbox/store'
+import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScreenMirror } from './screenMirror'
+import { registerSecretMethods } from './secrets/register'
+import { prepareSecrets } from './secrets/secretInjection'
+import { SecretService } from './secrets/secretService'
+import { WorkspaceAgents } from './secrets/workspaceAgents'
 import { registerSelectionIpc } from './selectionReport'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
-import { shellIntegrationSpawnOptions } from './shellIntegration'
+import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
+import { SANDBOX_FEATURE, installHint, missingRequirements, onPath } from './systemRequirements'
+import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { AppTray, closeAction, readCloseToTray } from './tray'
-import { registerVaultMethods } from './vault'
+import {
+  deleteGlobalVaultValue,
+  registerVaultMethods,
+  setGlobalVaultValue,
+  vaultKeys,
+  vaultValue,
+} from './vault'
 import { ViewHost, ViewStore } from './viewHost'
 import { registerViewMethods, registerViewsIpc } from './viewsIpc'
 import { MAIN_SLOT } from './windowBook'
 import { WindowBroker } from './windowBroker'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
-import { removeWorkspace, setWorkspaceWorkDir, workDirForWorkspace } from './workspaceRegistry'
+import {
+  removeWorkspace,
+  setWorkspaceWorkDir,
+  windowForWorkspace,
+  workDirForWorkspace,
+} from './workspaceRegistry'
 import {
   dropRestoredScrollback,
   loadRestoredScrollback,
@@ -158,6 +195,8 @@ interface PtyEntry {
   killTimer: ReturnType<typeof setTimeout> | null
   spawnPath: string
   stateFile: string
+  workspaceId: string
+  sandboxed: boolean
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
 }
@@ -268,6 +307,261 @@ function resolveCwd(cwd?: string): string {
     if (statSync(p).isDirectory()) return p
   } catch {}
   return home
+}
+
+function sandboxCwd(cwd: string, workDir: string | undefined): string {
+  if (!workDir) return cwd
+  return cwd === workDir || cwd.startsWith(`${workDir}/`) ? cwd : workDir
+}
+
+const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
+  store: new SandboxStore(join(app.getPath('userData'), 'sandbox.json')),
+  globals: () => parseSandboxGlobals((readSettingsFile() as { sandbox?: unknown }).sandbox),
+  basePaths: () => ({
+    home: homedir(),
+    dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
+    runtimeDir: process.env.XDG_RUNTIME_DIR,
+    agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
+    socketPath: controlSocketPath(),
+    runtimeReads: [
+      INTEGRATION_DIR,
+      privateTmpDir('pine-shell-state'),
+      app.getAppPath(),
+      dirname(process.execPath),
+    ],
+  }),
+  workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+  tmpRoot: privateTmpDir('pine-sandbox'),
+  nodePath: process.execPath,
+  hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
+  onAsk: (workspaceId, host, port) => domainRequests.onBlocked(workspaceId, host, port),
+  onPackageBlocked: (workspaceId, pkg, reason) => packageRequests.blocked(workspaceId, pkg, reason),
+})
+
+function paneForWorkspace(workspaceId: string): string | undefined {
+  for (const [paneId, entry] of ptys) {
+    if (entry.workspaceId === workspaceId && entry.sandboxed) return paneId
+  }
+  return undefined
+}
+
+const domainRequests: DomainRequests = new DomainRequests({
+  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+  ask: async ({ workspaceId, paneId, host, origin }) => {
+    const pane = paneId ? getByPaneId(paneId) : undefined
+    const identity = pane ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
+    const queue = approvals()
+    if (!identity || !queue) return 'deny'
+    return queue.request({
+      externalId: identity.externalId,
+      windowId: identity.windowId,
+      paneId: identity.paneId,
+      workspaceId,
+      caps: [],
+      kind: 'sandbox-domain',
+      subject: host,
+      action: origin === 'agent' ? `pine sandbox request-domain ${host}` : `connect to ${host}`,
+      detail: '',
+    })
+  },
+  allowWorkspace: (workspaceId, domain) => {
+    workspaceSandboxes.update(workspaceId, (current) => ({
+      ...current,
+      domains: current.domains.includes(domain) ? current.domains : [...current.domains, domain],
+    }))
+  },
+  allowUntilRestart: (workspaceId, domain) =>
+    workspaceSandboxes.allowUntilRestart(workspaceId, domain),
+  now: Date.now,
+})
+
+let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
+
+function sandboxedPids(workspaceId: string): number[] {
+  const pids: number[] = []
+  for (const entry of ptys.values()) {
+    if (entry.workspaceId === workspaceId && entry.sandboxed) pids.push(entry.pty.pid)
+  }
+  return pids
+}
+
+const portForwarder = new PortForwarder({ pidsOf: sandboxedPids })
+
+const PACKAGE_BATCH_MS = 600
+
+const packageRequests: PackageRequests = new PackageRequests({
+  batchMs: PACKAGE_BATCH_MS,
+  ask: async ({ workspaceId, kind, packages }) => {
+    const identity = getByPaneId(paneForWorkspace(workspaceId) ?? '')
+    const queue = approvals()
+    if (!identity || !queue) return 'deny'
+    const names = packages.map((p) => `${p.ref.name}@${p.ref.version}`)
+    return queue.request({
+      externalId: identity.externalId,
+      windowId: identity.windowId,
+      paneId: identity.paneId,
+      workspaceId,
+      caps: [],
+      kind,
+      subject: names.join(', '),
+      action: `install ${names.length} package${names.length === 1 ? '' : 's'}`,
+      detail: packages
+        .map((p) => `${p.ref.ecosystem} ${p.ref.name}@${p.ref.version}: ${p.reason}`)
+        .join('\n'),
+    })
+  },
+  allowWorkspace: (workspaceId, key) => workspaceSandboxes.allowPackage(workspaceId, key, true),
+  allowUntilRestart: (workspaceId, key) => workspaceSandboxes.allowPackage(workspaceId, key, false),
+})
+
+const portRequests: PortRequests = new PortRequests({
+  platform: process.platform,
+  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+  policy: (workspaceId) => workspaceSandboxes.resolved(workspaceId).portsPolicy,
+  ask: async ({ workspaceId, paneId, port, process: owner, origin }) => {
+    const pane = paneId ? getByPaneId(paneId) : undefined
+    const identity = pane ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
+    const queue = approvals()
+    if (!identity || !queue) return 'deny'
+    return queue.request({
+      externalId: identity.externalId,
+      windowId: identity.windowId,
+      paneId: identity.paneId,
+      workspaceId,
+      caps: [],
+      kind: 'sandbox-port',
+      subject: String(port),
+      action:
+        origin === 'agent' ? `pine sandbox expose ${port}` : `a server started on port ${port}`,
+      detail: owner ?? '',
+    })
+  },
+  forwarder: portForwarder,
+})
+
+const PORT_SCAN_MS = 3000
+
+const HOST_GRANT_TTL_MS = 120_000
+const hostPaneGrants = new HostPaneGrants({ now: Date.now, ttlMs: HOST_GRANT_TTL_MS })
+
+function scanSandboxPorts(): void {
+  const workspaces = new Set<string>()
+  for (const entry of ptys.values()) if (entry.sandboxed) workspaces.add(entry.workspaceId)
+  for (const workspaceId of workspaces) void portRequests.scan(workspaceId)
+}
+
+const GH_TOKEN_TTL_MS = 60_000
+let ghTokenCache: { at: number; value: string | null } | null = null
+
+function ghToken(): string | null {
+  if (ghTokenCache && Date.now() - ghTokenCache.at < GH_TOKEN_TTL_MS) return ghTokenCache.value
+  let value: string | null = null
+  if (onPath('gh')) {
+    try {
+      value =
+        execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', timeout: 3000 }).trim() || null
+    } catch {
+      value = null
+    }
+  }
+  ghTokenCache = { at: Date.now(), value }
+  return value
+}
+
+const secretService: SecretService = new SecretService({
+  home: homedir,
+  env: () => process.env,
+  ghToken,
+  vault: {
+    list: (workspaceId) => [
+      ...vaultKeys('global', workspaceId).map((key) => ({ key, scope: 'global' as const })),
+      ...vaultKeys('project', workspaceId).map((key) => ({ key, scope: 'project' as const })),
+    ],
+    get: (key, scope, workspaceId) => vaultValue(key, scope, workspaceId),
+  },
+  grantedIds: (workspaceId) =>
+    (workspaceSandboxes.settings(workspaceId).secrets ?? []).map((g) => g.id),
+  ask: async ({ workspaceId, paneId, name, reason }) => {
+    const identity = getByPaneId(paneId) ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
+    const queue = approvals()
+    if (!identity || !queue) return 'deny'
+    return queue.request({
+      externalId: identity.externalId,
+      windowId: identity.windowId,
+      paneId: identity.paneId,
+      workspaceId,
+      caps: [],
+      kind: 'secret',
+      subject: name,
+      action: `pine secret get ${name}`,
+      detail: reason,
+    })
+  },
+})
+
+const workspaceAgents = new WorkspaceAgents()
+
+async function injectSecrets(
+  workspaceId: string,
+): Promise<{ env: Record<string, string>; notice: string }> {
+  const grants = workspaceSandboxes.settings(workspaceId).secrets ?? []
+  if (grants.length === 0) return { env: {}, notice: '' }
+  const dir = join(workspaceSandboxes.tmpDir(workspaceId), 'secrets')
+  const prepared = prepareSecrets({
+    grants,
+    list: secretService.list(workspaceId),
+    value: (id) => secretService.value(workspaceId, id),
+    dir,
+  })
+  const env = { ...prepared.env }
+  try {
+    const socket = await workspaceAgents.ensure(workspaceId, dir, prepared.sshKeys)
+    if (socket) env.SSH_AUTH_SOCK = socket
+  } catch {
+    prepared.missing.push('ssh-agent')
+  }
+  const notice =
+    prepared.missing.length > 0
+      ? `\x1b[33m Granted secrets not found: ${prepared.missing.join(', ')}\x1b[0m\r\n`
+      : ''
+  return { env, notice }
+}
+
+const browserFence = new BrowserFence({
+  policy: (workspaceId) => {
+    if (!workspaceId || !workspaceSandboxes.isEnabled(workspaceId)) return null
+    const resolved = workspaceSandboxes.resolved(workspaceId)
+    return { browser: resolved.controls.browser, domains: resolved.domains }
+  },
+  requestDomain: async (workspaceId, host) =>
+    (await domainRequests.request(workspaceId, '', host)).ok,
+})
+
+setCapFilter((conn, cap) => {
+  if (cap !== 'all-workspaces') return true
+  const workspaceId = resolveExternal(conn.externalId)?.workspaceId || conn.workspaceId
+  if (!workspaceId || !workspaceSandboxes.isEnabled(workspaceId)) return true
+  return workspaceSandboxes.resolved(workspaceId).controls.allWorkspaces
+})
+
+function workspaceOfGuest(guest: Electron.WebContents): string | undefined {
+  for (const [paneId, wcId] of browserPanes) {
+    if (wcId === guest.id) return getByPaneId(paneId)?.workspaceId
+  }
+  return undefined
+}
+
+function fenceBrowserGuest(guest: Electron.WebContents): void {
+  const guard = (e: Electron.Event, url: string): void => {
+    const workspaceId = workspaceOfGuest(guest)
+    if (!workspaceId || browserFence.allowedNow(workspaceId, url)) return
+    e.preventDefault()
+    void browserFence.check(workspaceId, url).then((ok) => {
+      if (ok && !guest.isDestroyed()) void guest.loadURL(url).catch(() => {})
+    })
+  }
+  guest.on('will-navigate', guard)
+  guest.on('will-redirect', guard)
 }
 
 const windows = new Map<string, BrowserWindow>()
@@ -441,6 +735,7 @@ function wireWindow(win: BrowserWindow): void {
   win.webContents.on('did-attach-webview', (_e, guest) => {
     if (hardenExtensionGuest(guest)) return
     instrumentBrowserGuest(guest)
+    fenceBrowserGuest(guest)
     const wcId = guest.id
     guest.once('destroyed', () => {
       consoleBuffers.delete(wcId)
@@ -573,9 +868,16 @@ function registerIpc(): void {
       removePane(event.paneId)
       terminalState.delete(event.paneId)
     } else if (event.type === 'workspace-added') {
-      setWorkspaceWorkDir(event.workspaceId, event.workDir)
+      setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
+      workspaceSandboxes.forget(event.workspaceId)
+      packageRequests.forget(event.workspaceId)
+      workspaceAgents.stop(event.workspaceId)
+      secretService.forget(event.workspaceId)
+      void portForwarder.forget(event.workspaceId)
+      portRequests.forget(event.workspaceId)
+      domainRequests.forget(event.workspaceId)
     } else if (event.type === 'workspace-activated') {
     } else if (event.type === 'workspace-state') {
       emitSessionState(event.workspaceId, event.state)
@@ -702,7 +1004,48 @@ function registerExtensionIpc(host: ExtensionHost): void {
 }
 
 function registerPtyIpc(): void {
-  ipcMain.handle('pty:attach', (e, paneId: string, opts: PtySpawnOptions): PtyAttachResult => {
+  registerSandboxIpc({
+    sandboxes: workspaceSandboxes,
+    ownerWindow: windowForWorkspace,
+    missing: () => missingRequirements(SANDBOX_FEATURE),
+    domains: domainRequests,
+    ports: portRequests,
+    readPathEnv: () => ({
+      home: homedir(),
+      dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
+    }),
+    refreshAll: () => workspaceSandboxes.refreshAll(),
+  })
+  registerSystemRequirementsIpc({
+    ownerWindow: windowForWorkspace,
+    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+    locale: readLocale,
+    systemExtensionEnabled: () =>
+      extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
+    missing: (feature) => missingRequirements(feature),
+    invokeInstall: (args, caller) =>
+      extensionHost
+        ? extensionHost.invoke('system', 'install', args, caller)
+        : Promise.resolve({ ok: false, error: 'extension-unavailable' }),
+  })
+  const attaching = new Map<string, Promise<PtyAttachResult>>()
+  ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {
+    const previous = attaching.get(paneId)
+    if (previous) await previous.catch(() => undefined)
+    const pending = attachPty(e, paneId, opts)
+    attaching.set(paneId, pending)
+    try {
+      return await pending
+    } finally {
+      if (attaching.get(paneId) === pending) attaching.delete(paneId)
+    }
+  })
+
+  async function attachPty(
+    e: Electron.IpcMainInvokeEvent,
+    paneId: string,
+    opts: PtySpawnOptions,
+  ): Promise<PtyAttachResult> {
     const subId = String(e.sender.id)
     if (!panesOwnedBy([paneId], subId)) {
       return { created: false, buffer: '', cursor: 0, dropped: false }
@@ -730,6 +1073,7 @@ function registerPtyIpc(): void {
         buffer: data,
         cursor,
         dropped,
+        sandboxed: existing.sandboxed,
         cols: existing.pty.cols,
         rows: existing.pty.rows,
       }
@@ -748,11 +1092,21 @@ function registerPtyIpc(): void {
     const shell =
       opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
     const integration = shellIntegrationSpawnOptions(shell, process.env, opts.pinePrompt ?? null)
-    const identity = registerPane({ windowId: subId, workspaceId: '', paneId })
+    const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
+    if (!resolved.ok) {
+      return {
+        created: false,
+        buffer: sandboxFailureBanner('the pane belongs to another workspace', []),
+        cursor: 0,
+        dropped: false,
+      }
+    }
+    const identity = registerPane({ windowId: subId, workspaceId: resolved.workspaceId, paneId })
+    const workspaceId = identity.workspaceId
     const cols = opts.cols || 80
     const rows = opts.rows || 24
     const stateFile = join(privateTmpDir('pine-shell-state'), randomUUID())
-    const env = {
+    let env = {
       ...process.env,
       ...integration.env,
       PINE_PANE_ID: identity.externalId,
@@ -763,11 +1117,53 @@ function registerPtyIpc(): void {
       PINE_NODE: process.execPath,
       PINE_SHELL_STATE: stateFile,
     } as Record<string, string>
-    const pty = mod.spawn(shell, integration.args, {
+    let secretNotice = ''
+    let file = shell
+    let args = integration.args
+    let cwd = resolveCwd(opts.cwd)
+    const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
+    const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
+    if (sandboxed) {
+      try {
+        writeFileSync(stateFile, '', { mode: 0o600 })
+        const secrets = await injectSecrets(workspaceId)
+        secretNotice = secrets.notice
+        const wrapped = await workspaceSandboxes.wrap(
+          workspaceId,
+          quoteArgv([shell, ...integration.args]),
+          'bash',
+          [stateFile],
+        )
+        file = '/bin/sh'
+        args = ['-c', wrapped]
+        env = {
+          ...sandboxSpawnEnv(env),
+          ...packageCooldownEnv(
+            workspaceSandboxes.packagePolicy(workspaceId).cooldownDays,
+            Date.now(),
+          ),
+          ...secrets.env,
+        }
+        env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
+        cwd = sandboxCwd(cwd, workDirForWorkspace(workspaceId))
+      } catch (err) {
+        const missing = err instanceof SandboxUnavailableError ? err.missing : []
+        onSandboxSpawnFailure?.(workspaceId, missing)
+        return {
+          created: false,
+          buffer: sandboxFailureBanner(err instanceof Error ? err.message : String(err), missing),
+          cursor: 0,
+          dropped: false,
+          sandboxed: true,
+        }
+      }
+    }
+    if (ptys.has(paneId)) return attachPty(e, paneId, opts)
+    const pty = mod.spawn(file, args, {
       name: 'xterm-color',
       cols,
       rows,
-      cwd: resolveCwd(opts.cwd),
+      cwd,
       env,
     })
     const entry = trackPty(paneId, pty, {
@@ -777,19 +1173,23 @@ function registerPtyIpc(): void {
       spawnPath: env.PATH ?? '',
       stateFile,
       keepAlive: false,
+      workspaceId,
+      sandboxed,
     })
     const { session } = entry
+    if (sandboxed) entry.exitListeners.add(() => void workspaceSandboxes.cleanup(workspaceId))
 
     const history = takeRestoredScrollback(paneId)
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) feedPty(entry, `${history}${seam}`)
+    if (secretNotice) feedPty(entry, secretNotice)
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
     const { data, cursor, dropped } = session.since(0)
     session.addLiveSubscriber(mkSub())
-    return { created: true, buffer: data, cursor, dropped }
-  })
+    return { created: true, buffer: data, cursor, dropped, sandboxed, host }
+  }
 
   ipcMain.on('pty:detach', (e, paneId: string) => {
     const entry = ptys.get(paneId)
@@ -800,6 +1200,13 @@ function registerPtyIpc(): void {
   })
 
   ipcMain.handle('pty:hibernate', (_e, paneId: string): boolean => hibernatePty(String(paneId)))
+
+  ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
+    const entry = ptys.get(String(paneId))
+    if (!entry?.subs.has(String(e.sender.id))) return false
+    killPty(String(paneId))
+    return true
+  })
 
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {
     const entry = ptys.get(paneId)
@@ -852,6 +1259,8 @@ function trackPty(
     spawnPath: string
     stateFile: string
     keepAlive: boolean
+    workspaceId?: string
+    sandboxed?: boolean
   },
 ): PtyEntry {
   const session = new PtySession({
@@ -892,6 +1301,8 @@ function trackPty(
     stateFile: opts.stateFile,
     keepAlive: opts.keepAlive,
     exitListeners: new Set(),
+    workspaceId: opts.workspaceId ?? '',
+    sandboxed: opts.sandboxed ?? false,
   }
   ptys.set(paneId, entry)
   return entry
@@ -1351,6 +1762,41 @@ app.whenReady().then(() => {
     windowById: (id: string) => windows.get(id),
   }
   registerNotifyMethods(notifyDeps)
+  registerSandboxMethods({ domains: domainRequests, ports: portRequests })
+  registerSecretMethods({
+    service: secretService,
+    sandboxes: workspaceSandboxes,
+    ownerWindow: windowForWorkspace,
+    vaultSet: setGlobalVaultValue,
+    vaultDelete: deleteGlobalVaultValue,
+  })
+  if (process.platform === 'linux') setInterval(scanSandboxPorts, PORT_SCAN_MS).unref()
+  onSandboxSpawnFailure = (workspaceId, errors) =>
+    reportSandboxSpawnFailure(
+      {
+        notify: (input, onClick) =>
+          postActionNotification(notifyDeps, { ...input, from: 'sandbox' }, onClick),
+        showRequirements: (id, report) => {
+          const windowId = windowForWorkspace(id)
+          const win = windowId ? windows.get(windowId) : undefined
+          if (!win || win.isDestroyed()) return
+          if (win.isMinimized()) win.restore()
+          win.show()
+          win.focus()
+          win.webContents.send('sandbox:blocked', { workspaceId: id, report })
+        },
+        report: () => {
+          const missing = missingRequirements(SANDBOX_FEATURE)
+          return {
+            missing,
+            hint: installHint(missing),
+            canInstall: extensionHost?.list().some((x) => x.id === 'system' && x.enabled) ?? false,
+          }
+        },
+      },
+      workspaceId,
+      errors,
+    )
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand })
   registerPaneResumeMethods({
@@ -1359,9 +1805,15 @@ app.whenReady().then(() => {
       if (identity.manager) managerService?.rememberResume(resume)
     },
   })
-  registerProcessMethods()
+  registerProcessMethods({
+    sandbox: {
+      isEnabled: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+      wrap: (workspaceId, command) => workspaceSandboxes.wrap(workspaceId, command, 'bash'),
+      tmpDir: (workspaceId) => workspaceSandboxes.tmpDir(workspaceId),
+    },
+  })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
-  registerVaultMethods()
+  registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
   registerBusMethods({ managerSendAllowed: () => managerLimiter?.busAllowed() ?? true })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   settingsSync = startSettingsSync({
@@ -1375,6 +1827,8 @@ app.whenReady().then(() => {
   })
   settingsSync.run()
   extensionHost = new ExtensionHost({
+    hostGrants: hostPaneGrants,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     roots: extensionRoots(),
     store: extensionStore,
     socketPath: controlSocketPath,
@@ -1442,6 +1896,7 @@ app.whenReady().then(() => {
     ptyWrite,
   })
   registerBrowseMethods({
+    allowNavigation: (workspaceId, url) => browserFence.check(workspaceId, url),
     browserPanes,
     execCommand,
     screenshotRoots: [homedir(), app.getPath('userData')],
@@ -1560,6 +2015,10 @@ app.on('before-quit', (event) => {
   ptys.clear()
   killAllLsp()
   killAllProcesses()
+  workspaceSandboxes.stopAll()
+  workspaceAgents.stopAll()
+  workspaceSandboxes.clearTmp()
+  portForwarder.stopAll()
   extensionHost?.stopAll()
   viewHost?.stop()
   settingsSync?.stop()

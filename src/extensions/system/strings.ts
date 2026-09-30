@@ -2,6 +2,7 @@ export interface Strings {
   confirmTitle: string
   confirmMessage: (packages: string[], manager: string) => string
   confirmDetail: (command: string, reason: string | undefined) => string
+  aurWarning: string
   approve: string
   deny: string
   terminalTitle: string
@@ -23,6 +24,8 @@ const en: Strings = {
     `An agent asks to install ${packages.join(', ')} with ${manager}.`,
   confirmDetail: (command, reason) =>
     `Command:\n${command}\n\nReason: ${reason ?? 'none given'}\n\nIt runs in a new terminal next to the agent, where you can see and answer any password prompt.`,
+  aurWarning:
+    'This is an AUR helper: it downloads and builds the package from its PKGBUILD, which runs code from the AUR on this computer, outside the sandbox.',
   approve: 'Approve',
   deny: 'Deny',
   terminalTitle: 'Install packages',
@@ -44,6 +47,8 @@ const zhHant: Strings = {
   confirmMessage: (packages, manager) => `代理程式要求以 ${manager} 安裝 ${packages.join('、')}。`,
   confirmDetail: (command, reason) =>
     `指令：\n${command}\n\n原因：${reason ?? '未提供'}\n\n它會在代理程式旁的新終端機中執行，你可以在那裡看到並回應密碼提示。`,
+  aurWarning:
+    '這是 AUR 輔助程式：它會下載並依 PKGBUILD 建置套件，也就是在這台電腦上、沙箱之外執行來自 AUR 的程式碼。',
   approve: '核准',
   deny: '拒絕',
   terminalTitle: '安裝套件',

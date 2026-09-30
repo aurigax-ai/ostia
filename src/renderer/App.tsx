@@ -11,6 +11,7 @@ import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
 import { FilesPanel } from './components/FilesPanel'
 import { HistorySearch } from './components/HistorySearch'
 import { PromptEditorDialog } from './components/PromptEditorDialog'
+import { SandboxRequirementsDialog } from './components/SandboxRequirementsDialog'
 import { SaveWorkflowDialog } from './components/SaveWorkflowDialog'
 import { TopBar } from './components/TopBar'
 import { WindowControls } from './components/WindowControls'
@@ -115,6 +116,7 @@ export function App(): JSX.Element {
           <ExtensionApprovalDialog />
           <CloseConfirmDialog />
           <ActionConfirmDialog />
+          <SandboxRequirementsDialog />
           <PromptEditorDialog />
           <HistorySearch />
           <WorkflowPicker />
