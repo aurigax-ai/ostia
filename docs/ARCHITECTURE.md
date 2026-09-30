@@ -1323,6 +1323,10 @@ Two files written by two processes (see CLAUDE.md §6): the renderer writes `wor
   `settings-write` approval), and a click is still the human's; why the trust prompt: an
   agent could otherwise label a button misleadingly over a command that types or
   destroys. `trustedActions` is not a `DATA_KEYS` key and is local-only in settings sync.
+- **Window title** (`settings/windowTitle.ts`, `lib/useWindowTitle.ts`): `appearance.windowTitle`
+  is a template (`{workspace}`, `{pane}`, `{cwd}`, `{product}`) set as `document.title`, which
+  Electron uses for the OS window title; separators left at the edges by an empty value are
+  trimmed, and an empty result falls back to the product name.
 - **Terminal link cursor** (`lib/linkModifier.ts`): file and URL links open only with Ctrl (⌘ on
   macOS), so the host carries `link-modifier` while that key is held and CSS lets xterm's
   `xterm-cursor-pointer` show only then; otherwise the cursor stays the I-beam.

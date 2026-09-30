@@ -21,6 +21,7 @@ import { confirmQuit } from './lib/closeConfirm'
 import { useMotionAttribute } from './lib/motion'
 import { applyTheme, useEffectiveTheme } from './lib/theme'
 import { useModifierHint } from './lib/useModifierHint'
+import { useWindowTitle } from './lib/useWindowTitle'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/registerSettingsSchema'
 import { usePluginsStore } from './stores/pluginsStore'
@@ -69,6 +70,7 @@ export function App(): JSX.Element {
   }, [])
 
   useModifierHint(isMac)
+  useWindowTitle()
 
   useEffect(() => window.pine.window.onConfirmClose(confirmQuit), [])
 

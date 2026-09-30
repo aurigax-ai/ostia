@@ -99,6 +99,13 @@ export const SETTINGS_JSON_SCHEMA = {
             'turns movement off (state stays visible), "full" animates regardless of the OS. ' +
             'Default: system.',
         },
+        windowTitle: {
+          type: 'string',
+          maxLength: 120,
+          description:
+            'Window title shown by the OS (taskbar, Alt+Tab). Placeholders: {workspace}, ' +
+            '{pane}, {cwd}, {product}. Default: "{workspace} · {product}".',
+        },
         ui: font('UI font'),
         terminal: {
           ...font('Terminal font'),

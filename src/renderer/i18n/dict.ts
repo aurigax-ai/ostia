@@ -582,6 +582,9 @@ export const en = {
     accentHex: 'Custom accent hex',
     accentInvalid: 'Use a hex color like #ff8800.',
     accentReset: 'Use theme color',
+    windowTitle: 'Window title',
+    windowTitleDesc:
+      'Shown in the taskbar and Alt+Tab. Use {workspace}, {pane}, {cwd} and {product}.',
     groupDisplay: 'Display',
     zoom: 'Interface zoom',
     zoomDesc: 'Scales the whole window, from 80% to 150%. Ctrl+= and Ctrl+- also change it.',
@@ -1346,6 +1349,8 @@ export const zhHant: Dict = {
     accentHex: '自訂強調色十六進位碼',
     accentInvalid: '請輸入十六進位色碼，例如 #ff8800。',
     accentReset: '使用主題顏色',
+    windowTitle: '視窗標題',
+    windowTitleDesc: '顯示於工作列與 Alt+Tab。可使用 {workspace}、{pane}、{cwd} 與 {product}。',
     groupDisplay: '顯示',
     zoom: '介面縮放',
     zoomDesc: '縮放整個視窗，範圍 80% 至 150%。也可用 Ctrl+= 與 Ctrl+- 調整。',

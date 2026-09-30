@@ -40,6 +40,7 @@ import {
   parsePaneSettings,
   parseTerminalSettings,
 } from '../settings/terminalPaneSettings'
+import { DEFAULT_WINDOW_TITLE, parseWindowTitle } from '../settings/windowTitle'
 
 export type ThemeId = string
 
@@ -151,6 +152,7 @@ export interface Appearance {
   ui: SurfaceFont
   terminal: TerminalFont
   editor: SurfaceFont
+  windowTitle: string
 }
 
 export type CursorStyle = 'block' | 'underline' | 'bar'
@@ -276,6 +278,7 @@ const DEFAULTS: Persisted = {
     ui: { family: 'Inter Variable', size: 13, weight: 450 },
     terminal: { family: 'Hack Nerd Font Mono', size: 13, weight: 500, lineHeight: 1.15 },
     editor: { family: 'Geist Mono Variable', size: 13, weight: 450 },
+    windowTitle: DEFAULT_WINDOW_TITLE,
   },
   behavior: {
     showHiddenFiles: true,
@@ -337,6 +340,7 @@ interface SettingsState extends Persisted {
   unsetByPath: (path: string) => SettingChange
   setSyncDir: (dir: string) => Promise<void>
   setApprovalMode: (mode: ApprovalMode) => void
+  setWindowTitle: (template: string) => void
   trustAction: (fingerprint: string) => void
   removeAction: (id: string) => void
   setKeybinding: (id: string, chord: string | null) => void
@@ -380,6 +384,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
         ),
       },
       editor: mergeFont(DEFAULTS.appearance.editor, p.appearance?.editor),
+      windowTitle: parseWindowTitle(p.appearance?.windowTitle),
     },
     behavior: parseBehavior(p.behavior),
     terminal: parseTerminalSettings(p.terminal),
@@ -668,6 +673,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   removeAction: (id) => {
     set((s) => ({ actions: s.actions.filter((a) => a.id !== id) }))
+    scheduleSave(get)
+  },
+  setWindowTitle: (windowTitle) => {
+    set((s) => ({ appearance: { ...s.appearance, windowTitle: parseWindowTitle(windowTitle) } }))
     scheduleSave(get)
   },
   setApprovalMode: (mode) => {
