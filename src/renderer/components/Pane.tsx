@@ -38,6 +38,7 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneChips } from './PaneChips'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
+import { SandboxRestartButton } from './SandboxRestartButton'
 import { extensionIcon } from './extensionIcons'
 import { Button } from './ui/button'
 
@@ -182,6 +183,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         ) : null}
         <PaneChips paneId={shown.id} />
         <ResumeButton pane={shown} />
+        <SandboxRestartButton pane={shown} />
         <div className="pane-actions">
           <AgentSessionButton pane={shown} />
           <PaneHeaderActions pane={shown} />

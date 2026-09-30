@@ -32,6 +32,7 @@ import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import {
@@ -47,6 +48,7 @@ import { extensionIcon } from './extensionIcons'
 import { Badge } from './ui/badge'
 import {
   ContextMenu,
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuRadioGroup,
@@ -509,6 +511,10 @@ function WorkspaceRow({
   const digitHints = useUIStore((s) => s.digitHints)
   const [editing, setEditing] = useState<'name' | 'description' | null>(null)
   const title = w.customName ?? w.name
+  const sandboxed = useSandboxStore((s) => s.enabled[w.id] ?? false)
+  useEffect(() => {
+    void useSandboxStore.getState().load(w.id)
+  }, [w.id])
   const otherGroups = groups.filter((g) => g.id !== w.groupId)
   const select = (): void => {
     useUIStore.getState().leaveSettings()
@@ -600,6 +606,13 @@ function WorkspaceRow({
         <ContextMenuItem onClick={() => setEditing('description')}>
           {w.description ? d.rail.editDescription : d.rail.addDescription}
         </ContextMenuItem>
+        <ContextMenuCheckboxItem
+          checked={sandboxed}
+          closeOnClick
+          onCheckedChange={(checked) => void useSandboxStore.getState().setEnabled(w.id, checked)}
+        >
+          {d.rail.sandbox}
+        </ContextMenuCheckboxItem>
         {w.description ? (
           <ContextMenuItem onClick={() => store().describe(w.id, '')}>
             {d.rail.clearDescription}

@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { BrowserWindow, app, ipcMain, nativeTheme, session, shell, webContents } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import type { ExtensionPanelContext, ExtensionResult } from '../shared/extensions'
 import { PRODUCT_NAME } from '../shared/product'
+import { quoteArgv } from '../shared/shellQuote'
 import type {
   AppInfo,
   AppSnapshot,
@@ -64,6 +65,7 @@ import {
   removeWindow,
   windowOfWorkspace,
 } from './idRegistry'
+import { storePath } from './jsonStore'
 import { killAllLsp, registerLspIpc } from './lsp'
 import {
   postNotification,
@@ -78,14 +80,23 @@ import { privateTmpDir } from './privateTmp'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { PtySession, type SubscriberRole } from './ptySession'
+import { registerSandboxIpc } from './sandbox/ipc'
+import { sandboxFailureBanner } from './sandbox/spawnBanner'
+import { SandboxStore, parseSandboxGlobals } from './sandbox/store'
+import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScreenMirror } from './screenMirror'
 import { registerSelectionIpc } from './selectionReport'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
-import { shellIntegrationSpawnOptions } from './shellIntegration'
+import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
-import { removeWorkspace, setWorkspaceWorkDir, workDirForWorkspace } from './workspaceRegistry'
+import {
+  removeWorkspace,
+  setWorkspaceWorkDir,
+  windowForWorkspace,
+  workDirForWorkspace,
+} from './workspaceRegistry'
 import {
   clearPersisted,
   dropRestoredScrollback,
@@ -122,6 +133,8 @@ interface PtyEntry {
   killTimer: ReturnType<typeof setTimeout> | null
   spawnPath: string
   stateFile: string
+  workspaceId: string
+  sandboxed: boolean
 }
 
 const ptys = new Map<string, PtyEntry>()
@@ -214,6 +227,33 @@ function resolveCwd(cwd?: string): string {
   } catch {}
   return home
 }
+
+function sandboxCwd(cwd: string, workDir: string | undefined): string {
+  if (!workDir) return cwd
+  return cwd === workDir || cwd.startsWith(`${workDir}/`) ? cwd : workDir
+}
+
+const workspaceSandboxes = new WorkspaceSandboxes({
+  store: new SandboxStore(join(app.getPath('userData'), 'sandbox.json')),
+  globals: () => parseSandboxGlobals((readSettingsFile() as { sandbox?: unknown }).sandbox),
+  basePaths: () => ({
+    home: homedir(),
+    dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
+    runtimeDir: process.env.XDG_RUNTIME_DIR,
+    socketPath: controlSocketPath(),
+    runtimeReads: [
+      INTEGRATION_DIR,
+      privateTmpDir('pine-shell-state'),
+      app.getAppPath(),
+      dirname(process.execPath),
+    ],
+  }),
+  workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+  tmpRoot: privateTmpDir('pine-sandbox'),
+  nodePath: process.execPath,
+  hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
+  onAsk: async () => false,
+})
 
 const windows = new Map<string, BrowserWindow>()
 const commandsByWindow = new Map<string, CommandDescriptor[]>()
@@ -521,9 +561,10 @@ function registerIpc(): void {
       removePane(event.paneId)
       terminalState.delete(event.paneId)
     } else if (event.type === 'workspace-added') {
-      setWorkspaceWorkDir(event.workspaceId, event.workDir)
+      setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
+      workspaceSandboxes.forget(event.workspaceId)
     } else if (event.type === 'workspace-activated') {
     } else if (event.type === 'workspace-state') {
       emitSessionState(event.workspaceId, event.state)
@@ -645,7 +686,25 @@ function registerExtensionIpc(host: ExtensionHost): void {
 }
 
 function registerPtyIpc(): void {
-  ipcMain.handle('pty:attach', (e, paneId: string, opts: PtySpawnOptions): PtyAttachResult => {
+  registerSandboxIpc({ sandboxes: workspaceSandboxes, ownerWindow: windowForWorkspace })
+  const attaching = new Map<string, Promise<PtyAttachResult>>()
+  ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {
+    const previous = attaching.get(paneId)
+    if (previous) await previous.catch(() => undefined)
+    const pending = attachPty(e, paneId, opts)
+    attaching.set(paneId, pending)
+    try {
+      return await pending
+    } finally {
+      if (attaching.get(paneId) === pending) attaching.delete(paneId)
+    }
+  })
+
+  async function attachPty(
+    e: Electron.IpcMainInvokeEvent,
+    paneId: string,
+    opts: PtySpawnOptions,
+  ): Promise<PtyAttachResult> {
     const subId = String(e.sender.id)
     const mkSub = () => ({
       id: subId,
@@ -664,7 +723,7 @@ function registerPtyIpc(): void {
       existing.subs.set(subId, e.sender)
       existing.session.addLiveSubscriber(mkSub())
       const { data, cursor, dropped } = existing.session.since(opts.sinceCursor ?? 0)
-      return { created: false, buffer: data, cursor, dropped }
+      return { created: false, buffer: data, cursor, dropped, sandboxed: existing.sandboxed }
     }
 
     const mod = loadPty()
@@ -679,7 +738,18 @@ function registerPtyIpc(): void {
     const shell =
       opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
     const integration = shellIntegrationSpawnOptions(shell, process.env, opts.pinePrompt ?? null)
-    const identity = registerPane({ windowId: subId, workspaceId: '', paneId })
+    const requestedWorkspace = opts.workspaceId ?? ''
+    const known = getByPaneId(paneId)
+    if (known?.workspaceId && requestedWorkspace && known.workspaceId !== requestedWorkspace) {
+      return {
+        created: false,
+        buffer: sandboxFailureBanner('the pane belongs to another workspace', []),
+        cursor: 0,
+        dropped: false,
+      }
+    }
+    const identity = registerPane({ windowId: subId, workspaceId: requestedWorkspace, paneId })
+    const workspaceId = identity.workspaceId
     const cols = opts.cols || 80
     const rows = opts.rows || 24
     const stateFile = join(privateTmpDir('pine-shell-state'), randomUUID())
@@ -694,11 +764,40 @@ function registerPtyIpc(): void {
       PINE_NODE: process.execPath,
       PINE_SHELL_STATE: stateFile,
     } as Record<string, string>
-    const pty = mod.spawn(shell, integration.args, {
+    let file = shell
+    let args = integration.args
+    let cwd = resolveCwd(opts.cwd)
+    const sandboxed = workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
+    if (sandboxed) {
+      try {
+        const wrapped = await workspaceSandboxes.wrap(
+          workspaceId,
+          quoteArgv([shell, ...integration.args]),
+          'bash',
+        )
+        file = '/bin/sh'
+        args = ['-c', wrapped]
+        env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
+        cwd = sandboxCwd(cwd, workDirForWorkspace(workspaceId))
+      } catch (err) {
+        return {
+          created: false,
+          buffer: sandboxFailureBanner(
+            err instanceof Error ? err.message : String(err),
+            err instanceof SandboxUnavailableError ? err.missing : [],
+          ),
+          cursor: 0,
+          dropped: false,
+          sandboxed: true,
+        }
+      }
+    }
+    if (ptys.has(paneId)) return attachPty(e, paneId, opts)
+    const pty = mod.spawn(file, args, {
       name: 'xterm-color',
       cols,
       rows,
-      cwd: resolveCwd(opts.cwd),
+      cwd,
       env,
     })
     const session = new PtySession({
@@ -715,6 +814,7 @@ function registerPtyIpc(): void {
         }
         entry.mirror.dispose()
         removeStateFile(entry)
+        if (entry.sandboxed) void workspaceSandboxes.cleanup(entry.workspaceId)
         if (ptys.get(paneId) === entry) ptys.delete(paneId)
       },
     })
@@ -726,6 +826,8 @@ function registerPtyIpc(): void {
       killTimer: null,
       spawnPath: env.PATH ?? '',
       stateFile,
+      workspaceId,
+      sandboxed,
     }
     ptys.set(paneId, entry)
 
@@ -737,8 +839,8 @@ function registerPtyIpc(): void {
     pty.onExit(({ exitCode }) => session.exit(exitCode))
     const { data, cursor, dropped } = session.since(0)
     session.addLiveSubscriber(mkSub())
-    return { created: true, buffer: data, cursor, dropped }
-  })
+    return { created: true, buffer: data, cursor, dropped, sandboxed }
+  }
 
   ipcMain.on('pty:detach', (e, paneId: string) => {
     const entry = ptys.get(paneId)
@@ -749,6 +851,13 @@ function registerPtyIpc(): void {
   })
 
   ipcMain.handle('pty:hibernate', (_e, paneId: string): boolean => hibernatePty(String(paneId)))
+
+  ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
+    const entry = ptys.get(String(paneId))
+    if (!entry?.subs.has(String(e.sender.id))) return false
+    killPty(String(paneId))
+    return true
+  })
 
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {
     const entry = ptys.get(paneId)
@@ -1121,6 +1230,7 @@ app.on('before-quit', (event) => {
   ptys.clear()
   killAllLsp()
   killAllProcesses()
+  workspaceSandboxes.stopAll()
   extensionHost?.stopAll()
   settingsSync?.stop()
   stopControlServer()

@@ -41,6 +41,7 @@ import { isRiskyPaste } from '../settings/terminalPaneSettings'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Blocks } from './Blocks'
 import { InputEditor } from './InputEditor'
@@ -410,10 +411,12 @@ export function TerminalView({
           cols,
           rows,
           role: 'owner',
+          workspaceId,
           ...spawnPromptOption(useSettingsStore.getState()),
         })
-        .then(({ buffer }) => {
+        .then(({ buffer, sandboxed }) => {
           if (disposed) return
+          useSandboxStore.getState().notePane(paneId, sandboxed ?? false)
           disposeMarkers()
           useBlocksStore.getState().resetPane(paneId)
           if (buffer) {
