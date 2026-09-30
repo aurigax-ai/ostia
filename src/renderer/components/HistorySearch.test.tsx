@@ -7,6 +7,7 @@ import { allPanes } from '../layout/tree'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useWorkflowsStore } from '../stores/workflowsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { HistorySearch } from './HistorySearch'
 
@@ -37,6 +38,7 @@ describe('HistorySearch', () => {
     useHistorySearchStore.setState(historyInit, true)
     useLayoutStore.setState(layoutInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
+    useWorkflowsStore.setState({ saveCommand: null })
     vi.restoreAllMocks()
   })
 
@@ -78,5 +80,19 @@ describe('HistorySearch', () => {
 
     expect(exec).toHaveBeenCalledWith('history.insert', { command: 'make test' })
     expect(useHistorySearchStore.getState().open).toBe(false)
+  })
+
+  it('saves a past command as a workflow without inserting it', async () => {
+    const pane = firstPaneId()
+    runCommand(pane, 'make test', 0)
+    const exec = vi.spyOn(commands, 'exec')
+    useHistorySearchStore.getState().setOpen(true)
+    render(<HistorySearch />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Save as workflow' }))
+
+    expect(useWorkflowsStore.getState().saveCommand).toBe('make test')
+    expect(useHistorySearchStore.getState().open).toBe(false)
+    expect(exec).not.toHaveBeenCalledWith('history.insert', expect.anything())
   })
 })

@@ -79,6 +79,7 @@ import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { shellIntegrationSpawnOptions } from './shellIntegration'
 import { registerVaultMethods } from './vault'
+import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
 import { removeWorkspace, setWorkspaceWorkDir, workDirForWorkspace } from './workspaceRegistry'
 import {
   clearPersisted,
@@ -224,14 +225,17 @@ let settingsSync: SettingsSyncHandle | null = null
 
 const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
 
+function configDir(): string {
+  return join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), PRODUCT_NAME)
+}
+
 function extensionRoots(): ExtensionRoot[] {
   const builtinDir = app.isPackaged
     ? join(process.resourcesPath, 'extensions')
     : join(app.getAppPath(), 'out/extensions')
-  const configHome = process.env.XDG_CONFIG_HOME || join(homedir(), '.config')
   return [
     { dir: builtinDir, builtin: true },
-    { dir: join(configHome, PRODUCT_NAME, 'extensions'), builtin: false },
+    { dir: join(configDir(), 'extensions'), builtin: false },
   ]
 }
 
@@ -1009,6 +1013,14 @@ app.whenReady().then(() => {
   })
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
+  const workflowDeps: WorkflowDeps = {
+    userDir: join(configDir(), 'workflows'),
+    roots: () => [homedir(), app.getPath('userData')],
+    workDirForWorkspace,
+    extensionWorkflows: () => extensionHost?.workflows() ?? [],
+  }
+  registerWorkflowIpc(workflowDeps)
+  registerWorkflowMethods(workflowDeps)
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
   )

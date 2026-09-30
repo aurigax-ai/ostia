@@ -105,7 +105,7 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Notification center (the bell, backed by the real notify log) | cmux | core (built) | S | 9 |
 | Block actions: click to select, copy command/output, jump between blocks, sticky command header | Warp | core (built) | M | 7 |
 | Command history search across panes | Warp | core (built) | M | 7 |
-| Saved workflows / parameterized commands | Warp | extension | M | 7 |
+| Saved workflows / parameterized commands: YAML files (user, project `.pine/workflows`) and extension `contributes.workflows`, picker + argument form inserting at an idle prompt, save from a block or history, `pine workflow list/show` | Warp | core picker + data contributions (built): inserting needs the prompt, which only core may type into | M | 7 |
 | Git branch + dirty state in sidebar (built); listening ports and ssh host (built, `ports`) | cmux | built-in extension | M | 3 |
 | Diff view (Monaco diff editor) + "open in VS Code / Zed at file:line" (built) | Warp/VS Code | built-in extension + core surface | M | 3, 6 |
 | Pick element in browser → send selector, screenshot, console errors to an agent pane | new | with browser automation (built) | M | 3 |

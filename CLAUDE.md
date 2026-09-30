@@ -155,6 +155,13 @@ Details: `docs/ARCHITECTURE.md`.
   only the pane's own window and runs node only as `execFile(..., { shell: false })`, never
   from the shell's prompt hook. Chips without a value are hidden (the editor's preview shows
   them as unavailable), never filled with placeholders.
+- **Saved workflows are data, typed only by the human's pick.** Main alone reads and writes
+  workflow YAML (`main/workflows.ts`): the renderer and agents name a workspace id, never a path;
+  symlinks, files over 64 KiB and YAML aliases are refused, and every workflow (file or extension
+  `contributes.workflows`) passes `parseWorkflow`. Saving writes a new file with `wx` into the
+  user's workflows folder and never overwrites. A chosen workflow reaches the pane only through
+  `insertCommand` without Enter (else the clipboard). Never add a command, socket method or CLI
+  verb that inserts, runs or saves a workflow: `pine workflow` is `list` and `show` only.
 - **Selection reports are checked in main.** A file view's capture travels whole over
   `selection:send`, so main re-validates it (`normalizeSelection`: kind, absolute path, clipped
   text, PNG signature, 25 MiB image cap, sender owns the source pane) and writes
@@ -201,12 +208,13 @@ Details: `docs/ARCHITECTURE.md`.
   workspace's `workDir` is the anchor, a pane's `cwd` wanders.
 - **App chords must not steal terminal keys.** Linux/Windows: `Ctrl+Shift+P` palette,
   `Ctrl+Shift+B` sidebar, `Ctrl+,` settings, `Ctrl+Shift+U` jump to latest unread,
-  `Ctrl+Shift+H` command history, `Ctrl+Shift+T` new workspace, `Ctrl+1..9` jump to a workspace,
+  `Ctrl+Shift+H` command history, `Ctrl+Shift+S` search saved workflows, `Ctrl+Shift+T` new
+  workspace, `Ctrl+1..9` jump to a workspace,
   `Ctrl+=` / `Ctrl+Shift+-` / `Ctrl+0` zoom in / out / reset (zoom out is not `Ctrl+-`: readline
   binds that to undo, and the keybinding guard refuses it),
   `Ctrl+Shift+R` resume the pane's agent, `Ctrl+Shift+E` send a file view's selection to an
   agent, `Ctrl+Shift+C/V` copy/paste, `Ctrl+Shift+F` find, `Ctrl+Shift+↑/↓` previous/next block.
-  macOS uses ⌘ (⌘= ⌘- ⌘0 zoom, ⌘⇧U unread, ⌘⇧H history, ⌘T new workspace, ⌘1..9 workspaces, ⌘⇧R resume,
+  macOS uses ⌘ (⌘= ⌘- ⌘0 zoom, ⌘⇧U unread, ⌘⇧H history, ⌘⇧S workflows, ⌘T new workspace, ⌘1..9 workspaces, ⌘⇧R resume,
   ⌘⇧E send selection, ⌘↑/⌘↓ blocks). A new default chord must also be free in Monaco (it already binds
   Ctrl+Shift+A, C, G, I, K, L, M, O, R, Z; Settings → Keyboard warns on those via `usedByMonaco`).
   Holding exactly the workspace jump's modifiers (Ctrl / ⌘ by default) for 500 ms shows each
