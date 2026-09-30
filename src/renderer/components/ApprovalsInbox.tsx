@@ -57,7 +57,9 @@ export function ApprovalsInbox({
     >
       {pending.length > 0 ? (
         <>
-          <span className="px-1.5 text-fg-muted text-ui-xs">{d.approvals.inbox}</span>
+          <span className="px-1.5 pt-1 font-medium text-fg-muted text-ui-xs">
+            {d.approvals.inbox}
+          </span>
           <ul className="flex flex-col gap-1">
             {pending.map((req) => (
               <li key={req.id} className="flex flex-col gap-1 rounded-sm bg-surface-2 p-1.5">
@@ -94,7 +96,9 @@ export function ApprovalsInbox({
       ) : null}
       {history.length > 0 ? (
         <>
-          <span className="px-1.5 text-fg-muted text-ui-xs">{d.approvals.history}</span>
+          <span className="px-1.5 pt-1 font-medium text-fg-muted text-ui-xs">
+            {d.approvals.history}
+          </span>
           <ul className="flex flex-col">
             {history.slice(0, HISTORY_SHOWN).map((record) => (
               <li key={record.id} className="flex items-center gap-2 px-1.5 py-1 text-ui-xs">

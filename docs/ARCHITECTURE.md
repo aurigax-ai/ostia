@@ -903,7 +903,7 @@ workspace's layer is still `inert` until its layout effect runs, and focus can't
 subtree.
 
 **Notification center** (`components/NotificationCenter.tsx`, the bell in the top bar): the badge
-is the number of unread panes; the popover lists main's notification log newest first (workspace ·
+is the number of unread panes (the same outlined attention pill as the sidebar's unread badge); the popover lists main's notification log newest first (workspace ·
 pane, message, time), reloads on `notifications:changed`, and each entry reveals its pane
 (entries whose pane is gone are disabled). "Clear all" empties the log and marks every pane read.
 The log (`main/notify.ts`, `notifications.json`, capped at 500) holds `pine notify` calls and the
