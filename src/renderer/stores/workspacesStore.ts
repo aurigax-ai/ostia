@@ -1,4 +1,4 @@
-import type { AppSnapshot, WorkspaceLiveState } from '@shared/types'
+import type { AppSnapshot, WorkspaceLiveState, WorkspaceProject } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { normalizeDescription } from '@shared/workspaceText'
 import { create } from 'zustand'
@@ -52,7 +52,7 @@ interface WorkspacesState {
   closeWorkspace: (id: string) => void
   setWorkDir: (id: string, workDir: string) => void
   rename: (id: string, name: string) => void
-  setProject: (id: string, project: { name: string; display: string }) => void
+  setProject: (id: string, project: WorkspaceProject) => void
   describe: (id: string, text: string) => void
   setPinned: (id: string, pinned: boolean) => void
   moveBy: (id: string, delta: number) => void
@@ -207,12 +207,19 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
   setProject: (id, project) =>
     set((s) => {
       const current = s.workspaces.find((w) => w.id === id)
-      if (!current || (current.name === project.name && current.projectDir === project.display)) {
+      if (
+        !current ||
+        (current.name === project.name &&
+          current.projectDir === project.display &&
+          current.workDir === project.dir)
+      ) {
         return s
       }
       return {
         workspaces: s.workspaces.map((w) =>
-          w.id === id ? { ...w, name: project.name, projectDir: project.display } : w,
+          w.id === id
+            ? { ...w, name: project.name, projectDir: project.display, workDir: project.dir }
+            : w,
         ),
       }
     }),

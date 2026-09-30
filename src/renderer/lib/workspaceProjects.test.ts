@@ -19,8 +19,12 @@ describe('startWorkspaceProjects', () => {
   it('names the workspace after the project its focused pane is in, and keeps a name you set', async () => {
     vi.mocked(window.pine.openPath.project).mockImplementation(async (dir) =>
       dir.startsWith('/home/u/Personal/model-runtime')
-        ? { name: 'model-runtime', display: '~/Personal/model-runtime' }
-        : { name: 'home', display: '~' },
+        ? {
+            name: 'model-runtime',
+            display: '~/Personal/model-runtime',
+            dir: '/home/u/Personal/model-runtime',
+          }
+        : { name: 'home', display: '~', dir: '/home/u' },
     )
     const pane = createPane('terminal', undefined, '/home/u/Personal/model-runtime/src')
     useWorkspacesStore.setState({
@@ -48,5 +52,16 @@ describe('startWorkspaceProjects', () => {
       }),
     )
     expect(useWorkspacesStore.getState().workspaces[1].customName).toBe('Mine')
+    expect(useWorkspacesStore.getState().workspaces[0].workDir).toBe(
+      '/home/u/Personal/model-runtime',
+    )
+
+    useLayoutStore.getState().closePane('w1', pane.id)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(useWorkspacesStore.getState().workspaces[0]).toMatchObject({
+      name: 'model-runtime',
+      projectDir: '~/Personal/model-runtime',
+      workDir: '/home/u/Personal/model-runtime',
+    })
   })
 })
