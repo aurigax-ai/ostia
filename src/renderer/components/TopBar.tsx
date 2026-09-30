@@ -34,6 +34,15 @@ export function TopBar(): JSX.Element {
       <div className="topbar-left">
         <IconButton
           size="bar"
+          icon={PlusIcon}
+          label={d.rail.newWorkspace}
+          onClick={() => {
+            leaveSettings()
+            addWorkspace()
+          }}
+        />
+        <IconButton
+          size="bar"
           icon={SidebarSimpleIcon}
           label={d.topbar.toggleSidebar}
           onClick={toggleRail}
@@ -46,23 +55,6 @@ export function TopBar(): JSX.Element {
           onClick={toggleFiles}
         />
         <PanelToggles />
-        <span className="topbar-left-end">
-          <IconButton
-            size="bar"
-            icon={PlusIcon}
-            label={d.rail.newWorkspace}
-            onClick={() => {
-              leaveSettings()
-              addWorkspace()
-            }}
-          />
-          <IconButton
-            size="bar"
-            icon={GearSixIcon}
-            label={d.topbar.settings}
-            onClick={openSettings}
-          />
-        </span>
       </div>
 
       <Hint label={`${d.search.placeholder} (${PALETTE_KEYS})`} side="bottom">
@@ -78,6 +70,12 @@ export function TopBar(): JSX.Element {
       </Hint>
 
       <div className="topbar-right">
+        <IconButton
+          size="bar"
+          icon={GearSixIcon}
+          label={d.topbar.settings}
+          onClick={openSettings}
+        />
         <NotificationCenter />
       </div>
     </header>
