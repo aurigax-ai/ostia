@@ -650,10 +650,10 @@ function AppearanceSection(): JSX.Element {
         <WindowTitleRow />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupFonts}>
-        <FontRow surface="ui" label={d.settings.uiFont} />
+        <FontRow surface="ui" label={d.settings.uiFont} desc={d.settings.uiFontDesc} />
         <FontRow surface="terminal" label={d.settings.terminalFont} />
         <LineHeightRow />
-        <FontRow surface="editor" label={d.settings.editorFont} />
+        <FontRow surface="editor" label={d.settings.editorFont} desc={d.settings.editorFontDesc} />
       </SettingsGroup>
     </div>
   )
@@ -794,12 +794,20 @@ function ZoomRow(): JSX.Element {
   )
 }
 
-function FontRow({ surface, label }: { surface: FontSurface; label: string }): JSX.Element {
+function FontRow({
+  surface,
+  label,
+  desc,
+}: {
+  surface: FontSurface
+  label: string
+  desc?: string
+}): JSX.Element {
   const d = useDict()
   const font = useSettingsStore((s) => s.appearance[surface])
   const setSurfaceFont = useSettingsStore((s) => s.setSurfaceFont)
   return (
-    <ControlRow label={label}>
+    <ControlRow label={label} desc={desc}>
       <FontPicker
         value={font.family}
         label={`${label}, ${d.settings.family}`}

@@ -1167,6 +1167,23 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
   `confirmClose`, `confirmQuit`, `wrapTitles`), `terminal` (`scrollSpeed`, `scrollbackLines`,
   `warnOnRiskyPaste`, `minimumContrast`, `theme`), `panes` (`dimInactive`, `focusOnHover`,
   `equalizeOnSplit`, `hideTabClose`), `keybindings`, `capabilities.grants`, `sync.dir`.
+  - Fonts reach the UI as CSS tokens, not per component: `lib/uiFonts.ts` writes `--font-ui`,
+    `--font-code` (the editor family), `--font-ui-size` and `--font-ui-weight` on `<html>` in
+    `main.tsx` before the first render and from `App.tsx` on change, and the type scale and
+    weight tokens in `index.css` are computed from them. Why: the UI size used to set only
+    `body`'s font size while every component used fixed `text-ui-*` pixels, so a 14px UI mixed
+    14px rows with 12 and 13px neighbors, and a 500 body weight equalled `font-medium`.
+    `preloadFonts` loads the configured families first. Why: xterm measures its cell at mount;
+    measured against a fallback (Noto Sans Mono CJK has half-width Latin cells and a taller
+    line) the grid stayed wrong after the real font arrived.
+  - Extension panels get the fonts as `--pine-font-*` plus `@font-face` rules for the bundled
+    Inter, Geist and Geist Mono (latin subset) embedded as `data:` URLs in the injected theme
+    CSS (`lib/panelFontFaces.ts`, built by the `?dataurl` Vite plugin in
+    `scripts/fontDataUrl.mjs`); the SDK's panel server and message page allow `font-src data:`.
+    Why: a panel is its own page in its own partition, so a family that exists only as Pine's
+    webfont resolved to nothing there and fell back to the system font. Data URLs keep the
+    panel invariants (no `file://`, no new protocol, no preload) and cost about 140 KB of CSS;
+    the previous injected sheet is removed before each new one (`removeInsertedCSS`).
   - `browser` and `editor` are their own groups, parsed by `shared/browserEditorSettings.ts`
     (invalid values fall back to defaults, zoom is clamped to 50 to 300).
   - `terminal.theme` and `editor.theme` go through `parseThemeChoice` (`shared/themeChoice.ts`):

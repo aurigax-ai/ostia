@@ -22,6 +22,7 @@ import { WORKSPACE_GOTO, isAppChord, matchChord, workspaceIndex } from './lib/ch
 import { confirmQuit, quitGroups } from './lib/closeConfirm'
 import { useMotionAttribute } from './lib/motion'
 import { applyTheme, useEffectiveTheme } from './lib/theme'
+import { applyUiFonts } from './lib/uiFonts'
 import { useModifierHint } from './lib/useModifierHint'
 import { useWindowTitle } from './lib/useWindowTitle'
 import { isMac } from './platform'
@@ -34,12 +35,10 @@ import { useSettingsStore } from './stores/settingsStore'
 import { useUIStore } from './stores/uiStore'
 import { useWindowsStore } from './stores/windowsStore'
 
-const SANS_FALLBACK =
-  'system-ui, -apple-system, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", "Hiragino Sans", "Noto Sans CJK TC", "Noto Sans TC", sans-serif'
-
 export function App(): JSX.Element {
   const locale = useSettingsStore((s) => s.locale)
   const uiFont = useSettingsStore((s) => s.appearance.ui)
+  const editorFont = useSettingsStore((s) => s.appearance.editor)
   const filesOpen = useUIStore((s) => s.filesOpen)
   const accent = useSettingsStore((s) => s.appearance.accent)
   const zoom = useSettingsStore((s) => s.appearance.zoom)
@@ -56,10 +55,8 @@ export function App(): JSX.Element {
   }, [zoom])
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--font-ui', `"${uiFont.family}", ${SANS_FALLBACK}`)
-    document.body.style.fontSize = `${uiFont.size}px`
-    document.documentElement.style.setProperty('--font-ui-weight', String(uiFont.weight))
-  }, [uiFont.family, uiFont.size, uiFont.weight])
+    applyUiFonts(document.documentElement, { ui: uiFont, editor: editorFont })
+  }, [uiFont, editorFont])
 
   useEffect(() => {
     document.documentElement.lang = locale

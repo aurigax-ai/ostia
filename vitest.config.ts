@@ -1,7 +1,9 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
+import { fontDataUrl } from './scripts/fontDataUrl.mjs'
 
 export default defineConfig({
+  plugins: [fontDataUrl()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src/renderer'),

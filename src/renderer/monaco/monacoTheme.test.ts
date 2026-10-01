@@ -1,11 +1,18 @@
 import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
+import { mix } from '../lib/color'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import type { ColorScheme } from '../plugins/types'
 import {
   CODE_CONTRAST,
   COMMENT_CONTRAST,
+  DIFF_CONTRAST_KEEP,
+  DIFF_LINE_ALPHA,
+  DIFF_MIN_STRENGTH,
+  DIFF_TOKEN_CONTRAST,
   codeColors,
+  diffColors,
+  diffTintStrength,
   monacoThemeData,
   monacoThemeId,
 } from './monacoTheme'
@@ -66,5 +73,86 @@ describe('monacoThemeData', () => {
     const ids = BUILTIN_COLOR_SCHEMES.map(monacoThemeId)
     expect(new Set(ids).size).toBe(ids.length)
     expect(monacoThemeId(scheme('nord'))).toBe('pine-scheme-nord')
+  })
+})
+
+const alphaOf = (hex: string): number => Number.parseInt(hex.slice(7, 9), 16) / 255
+
+describe('diffColors', () => {
+  it('tints added and removed lines with the scheme green and red, not fixed hues', () => {
+    const mocha = scheme('catppuccin-mocha')
+    const light = scheme('pine-light')
+    const dark = diffColors(mocha)
+    expect(dark.inserted).toBe(mocha.colors.green)
+    expect(dark.removed).toBe(mocha.colors.red)
+    expect(dark.insertedLine.slice(0, 7)).toBe(mocha.colors.green)
+    expect(dark.removedText.slice(0, 7)).toBe(mocha.colors.red)
+    expect(diffColors(light).inserted).toBe(light.colors.green)
+    const colors = monacoThemeData(mocha).colors
+    expect(colors['diffEditor.insertedLineBackground']).toBe(dark.insertedLine)
+    expect(colors['diffEditor.removedLineBackground']).toBe(dark.removedLine)
+    expect(colors['diffEditor.insertedTextBackground']).toBe(dark.insertedText)
+    expect(colors['diffEditor.removedTextBackground']).toBe(dark.removedText)
+  })
+
+  it('keeps line tints faint and changed characters a step stronger', () => {
+    for (const s of BUILTIN_COLOR_SCHEMES) {
+      const d = diffColors(s)
+      for (const [line, text] of [
+        [d.insertedLine, d.insertedText],
+        [d.removedLine, d.removedText],
+      ]) {
+        expect(alphaOf(line), s.id).toBeLessThanOrEqual(DIFF_LINE_ALPHA + 0.01)
+        expect(alphaOf(line), s.id).toBeGreaterThan(0)
+        expect(alphaOf(text), s.id).toBeGreaterThan(alphaOf(line))
+      }
+    }
+  })
+
+  it('keeps text readable on a changed character inside a changed line, in every scheme', () => {
+    for (const s of BUILTIN_COLOR_SCHEMES) {
+      const d = diffColors(s)
+      const bg = s.colors.background
+      const { comment: _comment, text, ...tokens } = codeColors(s)
+      for (const [tint, line, chars] of [
+        [d.inserted, d.insertedLine, d.insertedText],
+        [d.removed, d.removedLine, d.removedText],
+      ]) {
+        const changed = mix(mix(bg, tint, alphaOf(line)), tint, alphaOf(chars))
+        const floor = (color: string, target: number): number =>
+          Math.min(target, wcagContrast(color, bg) * DIFF_CONTRAST_KEEP) - 0.05
+        if (diffTintStrength(s, tint) > DIFF_MIN_STRENGTH) {
+          expect(wcagContrast(text, changed), `${s.id} text`).toBeGreaterThanOrEqual(
+            floor(text, CODE_CONTRAST),
+          )
+          for (const [token, color] of Object.entries(tokens)) {
+            expect(wcagContrast(color, changed), `${s.id} ${token}`).toBeGreaterThanOrEqual(
+              floor(color, DIFF_TOKEN_CONTRAST),
+            )
+          }
+        }
+        expect(wcagContrast(text, changed), `${s.id} text`).toBeGreaterThanOrEqual(
+          Math.min(CODE_CONTRAST, wcagContrast(text, bg)) * 0.85,
+        )
+      }
+    }
+  })
+
+  it('takes the change hues from the slot that holds them in a scheme with remapped ANSI colors', () => {
+    const oxocarbon = scheme('oxocarbon')
+    const d = diffColors(oxocarbon)
+    expect(d.removed).toBe(oxocarbon.colors.yellow)
+    expect(d.inserted).toBe(oxocarbon.colors.blue)
+    for (const s of BUILTIN_COLOR_SCHEMES.filter((x) => x.id !== 'oxocarbon')) {
+      expect(diffColors(s).removed, s.id).toBe(s.colors.red)
+      expect(diffColors(s).inserted, s.id).toBe(s.colors.green)
+    }
+  })
+
+  it('backs off the tint on a scheme whose code color matches the change hue', () => {
+    const dracula = scheme('dracula')
+    const mocha = scheme('catppuccin-mocha')
+    expect(diffTintStrength(dracula, dracula.colors.green)).toBeLessThan(1)
+    expect(diffTintStrength(mocha, mocha.colors.green)).toBe(1)
   })
 })

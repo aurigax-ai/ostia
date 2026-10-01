@@ -631,7 +631,7 @@ function WorkspaceRow({
           }
           badge={
             digitHints && index < 9 ? (
-              <Kbd className="tab-digit font-mono">{index + 1}</Kbd>
+              <Kbd className="tab-digit">{index + 1}</Kbd>
             ) : (
               <UnreadBadge workspaceIds={[w.id]} />
             )
@@ -784,9 +784,7 @@ function RemoteWorkspaceRow({
               <LocationLine path={w.workDir} items={NO_ITEMS} />
             </div>
           }
-          badge={
-            digitHints && index < 9 ? <Kbd className="tab-digit font-mono">{index + 1}</Kbd> : null
-          }
+          badge={digitHints && index < 9 ? <Kbd className="tab-digit">{index + 1}</Kbd> : null}
         />
       </ContextMenuTrigger>
       <MenuContent>
