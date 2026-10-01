@@ -51,7 +51,11 @@ longer have to: `pine pane.list` shows every pane's external id directly).
 ## Everyday actions
 
 ```sh
-pine open <file>                    # open <file> in this pane's editor surface
+pine open <file>...                 # show files to the human in the editor (text, image, PDF); any path
+                                    # on disk, file:line[:col] jumps there, several get a tab each. `pine <file>` is
+                                    # the same when the first word is a path (has a /, starts with . or ~)
+                                    # or names a file here that is no command or extension. From a
+                                    # sandboxed workspace only files under the home folder open.
 pine notify "<title>" ["<body>"]    # desktop notification + marks this pane unread in Pine's
                                     # sidebar/bell with that message (title required)
 ```
@@ -92,7 +96,7 @@ pine pane.splitRight
 pine pane.splitDown
 pine pane.close
 pine workspace.new
-pine editor.open '{"path":"src/index.ts"}'   # same as `pine open`, spelled out
+pine editor.open '{"path":"src/index.ts"}'   # the raw command: reuses the editor pane, home folder only
 ```
 
 `pine commands` is the authoritative list (id + argsSchema + capabilities) — check
