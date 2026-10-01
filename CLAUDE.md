@@ -259,6 +259,15 @@ Details: `docs/ARCHITECTURE.md`.
   a `groupId` on its members, kept contiguous by `normalizeGroups` (`lib/workspaceGroups.ts`),
   and a group with no members is dropped. Never add a second member list or order. Pinned and
   grouped are exclusive. Deleting a group never closes a workspace.
+- **Workspaces merge only on the human's confirm.** Two workspaces of one window merge only when
+  they share a project path (`lib/mergeEligibility.ts`), neither is the manager, and their
+  sandboxes are both off or identical; the human picks it from the row menu or the palette's
+  `workspace.mergeInto` (a `local` command: never published to main, so no socket method or CLI
+  verb reaches it) and confirms the dialog. Main checks again (`workspace:merge`) and rehomes the
+  pane identities before the renderer moves the layout (`mergeLayouts`, a split beside the
+  target). Panes keep their ids and ptys, nothing remounts, and no `pane-closed` or
+  `workspace-closed` is sent. A merged sandbox's host lives until its last confined process exits
+  (`releaseMergedSandbox`). Never merge automatically.
 - **Nothing live is ever restored.** A restored workspace comes back idle with a fresh shell at its
   saved cwd; replayed scrollback is history. Same for `processManager` (running → exited at load;
   loaded entries can't be restarted).
@@ -837,6 +846,13 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   (`fakeAgentBin` with a script) that reports `pine state waiting`, exits, and reports again from
   the background, and checks the workspace goes back to Idle; it also checks a plain OSC 9 in
   zsh is a notification, not "Waiting for input".
+  `e2e/workspace-merge.spec.ts` merges a workspace with a running command into another one in the
+  same folder through the row menu and the confirm, and checks the output keeps coming in the
+  target. Eligibility and `mergeLayouts` are unit-tested (`lib/mergeEligibility.test.ts`,
+  `layout/tree.test.ts`), the stores in `workspacesStore.merge.test.ts` and
+  `lib/workspaceMerge.test.ts`, the menu, palette and dialog in `MergeWorkspaces.test.tsx`, main's
+  checks in `src/main/workspaceMerge.test.ts` and the sandbox alias in
+  `workspaceSandboxes.merge.test.ts`.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,

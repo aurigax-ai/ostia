@@ -195,6 +195,34 @@ export function chatFor(sessionId: string): Chat<PineChatMessage> {
   return chats.get(sessionId) ?? createChat(sessionId, [])
 }
 
+function moveKey<T>(record: Record<string, T>, from: string, to: string): Record<string, T> {
+  if (!(from in record)) return record
+  const { [from]: moved, ...rest } = record
+  return to in rest ? rest : { ...rest, [to]: moved }
+}
+
+export function chatReplacedByMerge(sourceId: string, targetId: string): boolean {
+  const { current } = useChatStore.getState()
+  return Boolean(current[chatKey(sourceId)] && current[chatKey(targetId)])
+}
+
+export function mergeChatWorkspace(sourceId: string, targetId: string): void {
+  const from = chatKey(sourceId)
+  const to = chatKey(targetId)
+  useChatStore.setState((s) => {
+    const meta: Record<string, ChatSessionMeta> = {}
+    for (const [id, m] of Object.entries(s.meta)) {
+      meta[id] = m.workspaceId === sourceId ? { ...m, workspaceId: targetId } : m
+    }
+    return {
+      current: moveKey(s.current, from, to),
+      drafts: moveKey(s.drafts, from, to),
+      attachments: moveKey(s.attachments, from, to),
+      meta,
+    }
+  })
+}
+
 export function currentSessionId(workspaceId: string | null | undefined): string | null {
   return useChatStore.getState().current[chatKey(workspaceId)] ?? null
 }

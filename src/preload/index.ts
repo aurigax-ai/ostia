@@ -76,6 +76,7 @@ import type {
   SyncStatus,
   WindowInfo,
   WindowSummary,
+  WorkspaceMergeResult,
   WorkspaceProject,
 } from '../shared/types'
 import type { ViewListing } from '../shared/views'
@@ -213,6 +214,8 @@ const bridge: PineBridge = {
   workspace: {
     save: (snapshot) => ipcRenderer.send('workspace:save', snapshot),
     load: () => ipcRenderer.invoke('workspace:load') as Promise<AppSnapshot | null>,
+    merge: (sourceId, targetId) =>
+      ipcRenderer.invoke('workspace:merge', sourceId, targetId) as Promise<WorkspaceMergeResult>,
   },
   windows: {
     info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,
