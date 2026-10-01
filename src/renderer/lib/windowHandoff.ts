@@ -130,6 +130,24 @@ export async function movePaneToNewWindow(
   return true
 }
 
+export async function movePaneToDropWindow(workspaceId: string, paneId: string): Promise<boolean> {
+  if (!canMovePane(workspaceId, paneId)) return false
+  const workspace = findWorkspace(workspaceId)
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  const pane = layout ? findPane(layout.root, paneId) : null
+  if (!workspace || !pane || !(await confirmMove(workspace, [pane]))) return false
+  const owner = findWorkspace(workspaceId)
+  const current = useLayoutStore.getState().byWorkspace[workspaceId]
+  const moving = current ? findPane(current.root, paneId) : null
+  if (!owner || !isRestorable(owner) || !current || !moving) return false
+  const whole = isOnlyPane(workspaceId, paneId)
+  const handoff = whole ? handoffOf(owner) : paneHandoff(owner, current.root, moving)
+  if (!(await window.pine.windows.give(handoff))) return false
+  if (whole) useWorkspacesStore.getState().release(workspaceId)
+  else useLayoutStore.getState().releasePane(workspaceId, paneId)
+  return true
+}
+
 export async function returnToMainWindow(): Promise<boolean> {
   const { workspaces } = useWorkspacesStore.getState()
   const { byWorkspace } = useLayoutStore.getState()

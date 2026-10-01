@@ -12,6 +12,7 @@ import {
   graftNode,
   isPaneShown,
   movePane,
+  moveTab,
   paneIds,
   placementOf,
   resetIds,
@@ -823,5 +824,36 @@ describe('graftNode', () => {
   it('becomes the whole layout of a workspace with no panes', () => {
     const a = createPane()
     expect(graftNode(null, a)).toBe(a)
+  })
+})
+
+describe('moveTab', () => {
+  it('reorders tabs inside one stack and keeps the stack', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const stack = tabsOf(a.id, a, b, c)
+    const root = moveTab(stack, a.id, c.id, true)
+    expect(root).toMatchObject({ type: 'tabs', id: stack.id, activeId: a.id })
+    expect(paneIds(root)).toEqual([b.id, c.id, a.id])
+  })
+
+  it('moves a pane from a split into another stack before the hovered tab', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = moveTab(splitOf('horizontal', a, tabsOf(b.id, b, c)), a.id, c.id, false)
+    expect(root).toMatchObject({ type: 'tabs', activeId: a.id })
+    expect(paneIds(root)).toEqual([b.id, a.id, c.id])
+  })
+
+  it('turns a lone target pane into a stack', () => {
+    const [a, b] = [createPane(), createPane()]
+    const root = moveTab(splitOf('vertical', a, b), b.id, a.id, true)
+    expect(root).toMatchObject({ type: 'tabs' })
+    expect(paneIds(root)).toEqual([a.id, b.id])
+  })
+
+  it('returns the same tree for an unknown pane or a drop on itself', () => {
+    const [a, b] = [createPane(), createPane()]
+    const root = splitOf('horizontal', a, b)
+    expect(moveTab(root, a.id, a.id, true)).toBe(root)
+    expect(moveTab(root, 'nope', b.id, true)).toBe(root)
   })
 })

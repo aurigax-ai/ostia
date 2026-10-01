@@ -77,6 +77,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     windows: {
       info: vi.fn().mockResolvedValue({ windowId: '1', detached: false }),
       detach: vi.fn().mockResolvedValue(true),
+      dropPane: vi.fn(),
+      landing: vi.fn().mockResolvedValue(true),
+      give: vi.fn().mockResolvedValue(true),
       returnToMain: vi.fn().mockResolvedValue(true),
       report: vi.fn(),
       focusWorkspace: vi.fn(),

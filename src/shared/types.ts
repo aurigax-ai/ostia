@@ -425,9 +425,18 @@ export interface ScreenPoint {
   y: number
 }
 
+export interface PaneDrop {
+  paneId: string
+  workspaceId: string
+  placement: PanePlacement
+}
+
 export interface WindowsApi {
   info: () => Promise<WindowInfo>
   detach: (workspace: SnapshotWorkspace, at?: ScreenPoint) => Promise<boolean>
+  dropPane: (drop: PaneDrop) => void
+  landing: (paneId: string) => Promise<boolean>
+  give: (workspace: SnapshotWorkspace) => Promise<boolean>
   returnToMain: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
   report: (workspaces: WindowWorkspaceSummary[]) => void
   focusWorkspace: (workspaceId: string, jumpToUnread: boolean) => void

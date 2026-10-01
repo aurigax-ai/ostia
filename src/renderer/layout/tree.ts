@@ -488,3 +488,25 @@ export function graftNode(
   const direction: Direction = zone === 'left' || zone === 'right' ? 'horizontal' : 'vertical'
   return insertBeside(root, anchor.paneId, node, direction, zone === 'left' || zone === 'top')
 }
+
+export function moveTab(
+  root: LayoutNode,
+  sourceId: string,
+  targetId: string,
+  after: boolean,
+): LayoutNode {
+  const source = findPane(root, sourceId)
+  if (sourceId === targetId || !source || !findPane(root, targetId)) return root
+  const shared = tabsOfPane(root, sourceId)
+  const sameStack = shared !== null && shared === tabsOfPane(root, targetId)
+  const base = sameStack ? root : closePane(root, sourceId)
+  const slotId = slotIdOf(base, targetId)
+  if (!slotId) return root
+  return replaceSlot(base, slotId, (slot) => {
+    const panes = (slot.type === 'pane' ? [slot] : slot.children).filter((p) => p.id !== sourceId)
+    panes.splice(panes.findIndex((p) => p.id === targetId) + (after ? 1 : 0), 0, source)
+    return slot.type === 'pane'
+      ? tabsOf(sourceId, ...panes)
+      : { ...slot, children: panes, activeId: sourceId }
+  })
+}
