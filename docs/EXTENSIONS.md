@@ -468,6 +468,29 @@ const body = splitter({
 - Exit when the socket closes (pine went away).
 - stdout/stderr go to pine's log, prefixed `[ext:<id>]`.
 
+## The SDK package
+
+`@aurigax-ai/pine-extension-sdk` (repository `aurigax-ai/pine-extension-sdk`) is the same SDK the
+built-in extensions use, packaged for extensions written outside the app:
+
+```sh
+pnpm add -D github:aurigax-ai/pine-extension-sdk
+```
+
+| Part | What it is |
+|---|---|
+| `@aurigax-ai/pine-extension-sdk` | `connect()` and everything in "Talking to pine" below the raw protocol |
+| `…/panel`, `…/splitter`, `…/panel.css` | The panel page helpers and base styles |
+| `…/assist` | The assistant engine: `runAssistExtension({catalog})` with your own `ProviderCatalog` (needs `ai`, `zod`, `@ai-sdk-tool/parser`, `undici`) |
+| `schemas/pine.schema.json`, `schemas/pine-marketplace.schema.json` | JSON Schemas for the two manifest files; name one in `"$schema"` and your editor checks the file as you type |
+| `pine-extension validate [folder]` | Runs the loader's own checks on an extension folder (plus the marketplace install limits), or on a marketplace folder and every extension it lists. Exits 0 when pine would accept it |
+| `template/` | A starter extension: TypeScript source, a build that bundles it into one `main.js`, `pnpm validate` |
+
+It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and copied to
+its repository with `pnpm publish:sdk <checkout>`; its version is the app's version. The JSON
+Schemas come from `src/cli/manifestSchema.ts`; the loader (`parseManifest`) stays the authority,
+and `validate` runs that loader.
+
 ## Example: a minimal extension
 
 `~/.config/pine/extensions/hello/pine.json`:
@@ -626,7 +649,7 @@ These live in the same source tree and use the same SDK, but they wrap tools onl
 have, so they are not shipped in the app. `scripts/build-extensions.mjs` builds the ids in its
 `marketplaceIds` into `out/marketplace/` with a `pine-marketplace.json`, and
 `pnpm publish:marketplace <checkout>` copies that into a checkout of the marketplace repository
-(`mtch3n/pine-extensions`). Add that repository in Settings → Extensions → Marketplaces to install
+(`aurigax-ai/pine-extensions`). Add that repository in Settings → Extensions → Marketplaces to install
 them.
 
 | Id | What it does |

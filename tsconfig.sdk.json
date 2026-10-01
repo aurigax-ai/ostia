@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rootDir": "src",
+    "outDir": "out/sdk/types"
+  },
+  "files": [
+    "src/extensions/sdk/index.ts",
+    "src/extensions/sdk/assist/index.ts",
+    "src/extensions/sdk/panel.ts",
+    "src/extensions/sdk/splitter.ts"
+  ]
+}

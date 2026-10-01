@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/@aurigax-ai/pine-extension-sdk/schemas/pine.schema.json",
+  "id": "hello",
+  "name": "Hello",
+  "version": "0.1.0",
+  "description": "Starter extension: one command that greets you and posts a notification",
+  "category": "other",
+  "capabilities": ["notify"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      {
+        "id": "greet",
+        "title": "Hello: Greet",
+        "category": "Hello",
+        "argument": "Name",
+        "usage": "greet <name>"
+      }
+    ]
+  }
+}

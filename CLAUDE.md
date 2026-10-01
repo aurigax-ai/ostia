@@ -61,7 +61,9 @@ Package manager is **pnpm** only.
 | `pnpm dev` | electron-vite dev (HMR renderer, main/preload reload) | Daily development |
 | `pnpm build` | Build `out/{main,preload,renderer}`, the `pine` CLI, the built-in extensions (`out/extensions`), the marketplace extensions (`out/marketplace`), and the build stamp `out/build-info.json` (version, commit, time; packaged as `resources/build-info.json`) | Before `preview` / E2E |
 | `pnpm build:extensions` | Only the extensions (`scripts/build-extensions.mjs`): built-ins to `out/extensions`, the `marketplaceIds` ones to `out/marketplace` | After editing `src/extensions/**` while `pnpm dev` runs |
-| `pnpm publish:marketplace <checkout>` | Rebuild and copy `out/marketplace` into a checkout of the marketplace repository (`mtch3n/pine-extensions`); commit and push there | After changing trellis, keeper or model-runtime |
+| `pnpm build:sdk` | Build the extension SDK package into `out/sdk` (`scripts/build-sdk.mjs`): the bundled `src/extensions/sdk`, its types, the manifest JSON Schemas, the `pine-extension validate` command, `sdk-package/` (README, template) and `docs/EXTENSIONS.md` | After changing the SDK, `src/shared` contract types or manifest rules |
+| `pnpm publish:sdk <checkout>` | Rebuild and copy `out/sdk` into a checkout of `aurigax-ai/pine-extension-sdk`; commit and push there | After a change extension authors should get |
+| `pnpm publish:marketplace <checkout>` | Rebuild and copy `out/marketplace` into a checkout of the marketplace repository (`aurigax-ai/pine-extensions`); commit and push there | After changing trellis, keeper or model-runtime |
 | `pnpm preview` | Run the built app | Smoke-test a build |
 | `pnpm package` | `build` + electron-builder → `dist/linux-unpacked/` | Producing an installable build |
 | `pnpm icons` | Render the app icon PNG set from `resources/icon.svg` (`rsvg-convert`) | After changing the icon SVG |
@@ -92,12 +94,15 @@ Package manager is **pnpm** only.
 - **extensions** (`src/extensions/`): built-in extensions (git, system, ports, assistant,
   completions), marketplace extensions that are never bundled with the app (trellis, keeper,
   model-runtime: `marketplaceIds` in `scripts/build-extensions.mjs`, published to
-  `mtch3n/pine-extensions`) + their SDK. Each runs as its own process and talks to pine only over
+  `aurigax-ai/pine-extensions`) + their SDK. Each runs as its own process and talks to pine only over
   the control socket (`docs/EXTENSIONS.md`); the host is `src/main/extensionHost.ts`. trellis,
   keeper and model-runtime wrap the user's own tools, so never make one built-in or name one in
   core; trellis and keeper's fake stand-ins for tests are `test/fixtures/tools/bin/`. The assist
   engine both assistant and model-runtime run is `src/extensions/sdk/assist/`; each supplies only a
-  `ProviderCatalog`.
+  `ProviderCatalog`. The SDK is also published for outside authors as
+  `@aurigax-ai/pine-extension-sdk`, generated from this tree (`pnpm build:sdk`), never edited in
+  its own repository; a manifest rule changed in `parseManifest` changes `src/cli/manifestSchema.ts`
+  with it (guard: `src/cli/sdkPackage.integration.test.ts`).
 - **settings sync** (`src/main/settingsSync.ts` + `settingsSyncIpc.ts`): mirrors settings and
   extension choices through the folder in `sync.dir`.
 
@@ -704,7 +709,7 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
 Which spec covers what: Trellis vault `architecture/testing/test-map`.
 
 - **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`, `src/extensions/**`. Its global
-  setup (`test/buildOnce.ts`) builds the CLI and built-in extensions once per run; tests never
+  setup (`test/buildOnce.ts`) builds the CLI, the extensions and the SDK package once per run; tests never
   rebuild them. At most 8 workers (`vitest.config.ts`).
 - **dom** project (jsdom, `test/setup.ts`): `src/renderer/**`. The typed `window.pine` fake
   (`test/mocks/pine.ts`, typed as `PineBridge`) breaks when the contract drifts.

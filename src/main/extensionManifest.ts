@@ -26,16 +26,16 @@ import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/ico
 import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
-const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
-const MAX_COMMANDS = 64
-const MAX_WORKFLOWS = 64
-const MAX_TEXT = 200
-const MAX_PANE_CHIPS = 8
-const MAX_ICON_THEMES = 16
-const MAX_SETTINGS = 32
-const MAX_ENUM_VALUES = 32
-const MAX_SECRETS = 8
-const SETTING_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/
+export const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
+export const MAX_COMMANDS = 64
+export const MAX_WORKFLOWS = 64
+export const MAX_TEXT = 200
+export const MAX_PANE_CHIPS = 8
+export const MAX_ICON_THEMES = 16
+export const MAX_SETTINGS = 32
+export const MAX_ENUM_VALUES = 32
+export const MAX_SECRETS = 8
+export const SETTING_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/
 
 export type ManifestResult =
   | { ok: true; manifest: ExtensionManifest }
