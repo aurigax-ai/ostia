@@ -126,6 +126,7 @@ import {
 import { OpenFileGrants } from './openFileGrants'
 import { registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
+import type { OriginReach } from './originAgents'
 import { type PaneIo, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneResumeMethods } from './paneResume'
@@ -847,6 +848,8 @@ let viewHost: ViewHost | null = null
 let mcpHost: McpHost | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
+const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
+  broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let settingsSync: SettingsSyncHandle | null = null
 
 const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
@@ -2284,7 +2287,7 @@ app.whenReady().then(() => {
   registerIpc()
   registerPtyIpc()
   registerFsIpc()
-  registerSelectionIpc()
+  registerSelectionIpc(reachesPane)
   registerApprovals(revealWindow)
   registerQuestions()
   registerCredentials()
@@ -2540,7 +2543,7 @@ app.whenReady().then(() => {
     errorBuffers,
   })
   registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast })
-  registerPickIpc({ browserPanes, isSharedPane, errorBuffers, broadcast })
+  registerPickIpc({ browserPanes, isSharedPane, errorBuffers, broadcast }, reachesPane)
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
@@ -2583,6 +2586,7 @@ app.whenReady().then(() => {
     execCommand,
     agents: agentRunning,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     reveal: showWindow,
   })
   broker.register()

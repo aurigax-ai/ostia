@@ -263,11 +263,10 @@ function AgentAction({
             key={t.paneId}
             leading={<span className={`dot ${t.state === 'none' ? '' : t.state}`} />}
             onClick={() => {
-              if (sendToAgent(t.paneId, code.trim())) onNotice('sentToAgent')
-              else {
-                void navigator.clipboard?.writeText(code.trim()).catch(() => undefined)
-                onNotice('agentNotReady')
-              }
+              void sendToAgent(t, code.trim()).then((sent) => {
+                if (!sent) void navigator.clipboard?.writeText(code.trim()).catch(() => undefined)
+                onNotice(sent ? 'sentToAgent' : 'agentNotReady')
+              })
             }}
           >
             {t.title}

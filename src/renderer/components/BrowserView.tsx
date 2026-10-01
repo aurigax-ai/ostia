@@ -20,7 +20,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { BrowserStoragePanel } from './BrowserStoragePanel'
 import { IconButton } from './IconButton'
 import { LoginButton } from './LoginButton'
-import { PickSendPanel, useAgentTargets } from './PickSendPanel'
+import { PickSendPanel, useAgentTargets, useNoAgentsText } from './PickSendPanel'
 import { Button } from './ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
 import { Input } from './ui/input'
@@ -206,6 +206,7 @@ export function BrowserView({
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const targets = useAgentTargets(workspaceId)
+  const noTargets = useNoAgentsText(workspaceId)
 
   useEffect(
     () =>
@@ -247,6 +248,7 @@ export function BrowserView({
         capture,
         sourcePaneId: paneId,
         targetPaneId: target.paneId,
+        via: target.via,
         note,
       })
       if (res.ok) {
@@ -340,6 +342,7 @@ export function BrowserView({
           notePlaceholder={d.browser.notePlaceholder}
           closeLabel={d.browser.closeSend}
           targets={targets}
+          noTargets={noTargets}
           sending={sending}
           onSend={(target, note) => void send(target, note)}
           onClose={() => setCapture(null)}
