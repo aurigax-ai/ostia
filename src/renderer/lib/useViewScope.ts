@@ -61,6 +61,7 @@ export function useViewScope(doc: ViewDoc): { scope: Record<string, unknown>; fo
   const byWorkspace = useLayoutStore((s) => s.byWorkspace)
   const attention = useAttentionStore((s) => s.byPane)
   const sidebar = useExtensionsStore((s) => s.sidebar)
+  const workspaceChips = useExtensionsStore((s) => s.workspaceChips)
   const approvals = useApprovalsStore((s) => s.pending.length)
   const running = useBlocksStore((s) => s.running)
   const agentBlocks = useBlocksStore((s) => s.agentBlocks)
@@ -78,6 +79,7 @@ export function useViewScope(doc: ViewDoc): { scope: Record<string, unknown>; fo
         byWorkspace,
         attention,
         sidebar,
+        workspaceChips,
         approvals,
         notifications,
         agentOf: runningAgentOf,
@@ -92,6 +94,7 @@ export function useViewScope(doc: ViewDoc): { scope: Record<string, unknown>; fo
     byWorkspace,
     attention,
     sidebar,
+    workspaceChips,
     approvals,
     notifications,
     running,

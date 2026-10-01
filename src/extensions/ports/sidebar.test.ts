@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PaneInfo } from '../sdk'
 import type { TreeInfo } from './scan'
-import { MAX_PORTS_PER_WORKSPACE, groupByWorkspace, sidebarEntries, terminalPids } from './sidebar'
+import { groupByWorkspace, sidebarEntries, terminalPids } from './sidebar'
 
 const pane = (paneId: string, workspaceId: string, pid?: number, kind = 'terminal'): PaneInfo => ({
   paneId,
@@ -38,29 +38,11 @@ describe('groupByWorkspace', () => {
 })
 
 describe('sidebarEntries', () => {
-  it('makes one clickable item per port and one ssh item, capped per workspace', () => {
-    const ports = Array.from({ length: MAX_PORTS_PER_WORKSPACE + 2 }, (_, i) => 3000 + i)
-    const entries = sidebarEntries(new Map([['s1', { ports, ssh: ['box'] }]]))
-    expect(entries[0]).toEqual({
-      workspaceId: 's1',
-      key: 'ssh',
-      text: 'box',
-      icon: 'server',
-      kind: 'live',
-    })
-    expect(entries[1]).toEqual({
-      workspaceId: 's1',
-      key: 'port:3000',
-      text: ':3000',
-      kind: 'live',
-      url: 'http://localhost:3000/',
-    })
-    expect(entries).toHaveLength(1 + MAX_PORTS_PER_WORKSPACE)
-  })
-
-  it('links ports to the configured loopback host', () => {
-    const entries = sidebarEntries(new Map([['s1', { ports: [8000], ssh: [] }]]), '127.0.0.1')
-    expect(entries[0]?.url).toBe('http://127.0.0.1:8000/')
+  it('makes one ssh item per workspace and nothing for its ports', () => {
+    const entries = sidebarEntries(new Map([['s1', { ports: [3000, 5173], ssh: ['box', 'prod'] }]]))
+    expect(entries).toEqual([
+      { workspaceId: 's1', key: 'ssh', text: 'box prod', icon: 'server', kind: 'live' },
+    ])
   })
 
   it('shows nothing for a workspace with no ports and no ssh', () => {

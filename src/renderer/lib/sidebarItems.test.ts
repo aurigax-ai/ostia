@@ -13,38 +13,33 @@ const item = (extId: string, key: string, workspaceId = 's1'): ExtensionSidebarI
   kind: extId === 'git' ? 'location' : 'live',
 })
 
-const items = [
-  item('git', 'branch'),
-  item('ports', 'port:3000'),
-  item('ports', 'ssh'),
-  item('ports', 'port:5173', 's2'),
-]
+const items = [item('git', 'branch'), item('ports', 'ssh'), item('git', 'branch', 's2')]
 
 describe('visibleSidebarItems', () => {
-  it('keeps the row’s items when both toggles are on', () => {
-    expect(
-      visibleSidebarItems(items, 's1', { showPorts: true, showSSH: true }).map((i) => i.key),
-    ).toEqual(['branch', 'port:3000', 'ssh'])
+  it('keeps the items of the row’s own workspace', () => {
+    expect(visibleSidebarItems(items, 's1', { showSSH: true }).map((i) => i.key)).toEqual([
+      'branch',
+      'ssh',
+    ])
   })
 
-  it('hides ports and the ssh host each by their own toggle, never other extensions', () => {
-    expect(
-      visibleSidebarItems(items, 's1', { showPorts: false, showSSH: true }).map((i) => i.key),
-    ).toEqual(['branch', 'ssh'])
-    expect(
-      visibleSidebarItems(items, 's1', { showPorts: true, showSSH: false }).map((i) => i.key),
-    ).toEqual(['branch', 'port:3000'])
-    expect(
-      visibleSidebarItems([item('other', 'ssh')], 's1', { showPorts: false, showSSH: false }),
-    ).toHaveLength(1)
+  it('hides the ssh host by its toggle, never another extension’s item', () => {
+    expect(visibleSidebarItems(items, 's1', { showSSH: false }).map((i) => i.key)).toEqual([
+      'branch',
+    ])
+    expect(visibleSidebarItems([item('other', 'ssh')], 's1', { showSSH: false })).toHaveLength(1)
   })
 })
 
 describe('sidebarLines', () => {
   it('puts location items on one line and everything else on the live line, in order', () => {
-    const lines = sidebarLines(items)
+    const lines = sidebarLines([
+      item('other', 'count'),
+      item('git', 'branch'),
+      item('ports', 'ssh'),
+    ])
     expect(lines.location.map((i) => i.key)).toEqual(['branch'])
-    expect(lines.live.map((i) => i.key)).toEqual(['port:3000', 'ssh', 'port:5173'])
+    expect(lines.live.map((i) => i.key)).toEqual(['count', 'ssh'])
   })
 })
 
