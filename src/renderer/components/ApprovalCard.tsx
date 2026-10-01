@@ -1,5 +1,6 @@
 import { ShieldWarningIcon } from '@phosphor-icons/react'
 import {
+  ALWAYS_ASK,
   type ApprovalAnswer,
   type ApprovalKind,
   type ApprovalRequest,
@@ -38,9 +39,9 @@ export function ApprovalCard({
   const d = useDict()
   const answer = useApprovalsStore((s) => s.answer)
   const kind = request.kind ?? 'capability'
-  const destructive = request.caps.includes('destructive')
+  const alwaysAsks = request.caps.some((cap) => ALWAYS_ASK.includes(cap))
   const allows = [...answersFor(kind)]
-    .filter((a) => a !== 'deny' && !(destructive && a === 'session'))
+    .filter((a) => a !== 'deny' && !(alwaysAsks && a === 'session'))
     .reverse()
   const subject = request.subject ?? ''
   return (

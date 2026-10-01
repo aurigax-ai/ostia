@@ -487,3 +487,52 @@ describe('saveScrollback / takeRestoredScrollback', () => {
     expect(takeRestoredScrollback('pane-1')).toBeNull()
   })
 })
+
+describe('browser profile on a pane', () => {
+  function withRoot(root: unknown): unknown {
+    const base = snap()
+    return { ...base, workspaces: [{ ...base.workspaces[0], activePaneId: 'b1', root }] }
+  }
+
+  function browserPane(extra: Record<string, unknown>): Record<string, unknown> {
+    return { type: 'pane', id: 'b1', title: 'site', kind: 'browser', url: 'http://x/', ...extra }
+  }
+
+  it('keeps the shared profile of a browser pane through a save and restore', () => {
+    const root = parseSnapshot(withRoot(browserPane({ browserProfile: 'shared' })))?.workspaces[0]
+      .root
+    expect(root).toMatchObject({ kind: 'browser', browserProfile: 'shared' })
+  })
+
+  it('treats a missing or unknown profile as isolated by leaving it out', () => {
+    for (const browserProfile of [undefined, 'isolated', 'persist', 7, { shared: true }]) {
+      const root = parseSnapshot(withRoot(browserPane({ browserProfile })))?.workspaces[0].root
+      expect(root?.type === 'pane' && root.browserProfile).toBeFalsy()
+    }
+  })
+
+  it('never carries a profile on a pane that is not a browser', () => {
+    const root = parseSnapshot(
+      withRoot({
+        type: 'pane',
+        id: 'b1',
+        title: 'zsh',
+        kind: 'terminal',
+        browserProfile: 'shared',
+      }),
+    )?.workspaces[0].root
+    expect(root).not.toHaveProperty('browserProfile')
+  })
+
+  it('keeps a moving pane on the profile it had (handoff to another window)', () => {
+    const base = snap().workspaces[0]
+    const shared = parseHandoff({
+      ...base,
+      activePaneId: 'b1',
+      root: browserPane({ browserProfile: 'shared' }),
+    })
+    const isolated = parseHandoff({ ...base, activePaneId: 'b1', root: browserPane({}) })
+    expect(shared?.root).toMatchObject({ browserProfile: 'shared' })
+    expect(isolated?.root).not.toHaveProperty('browserProfile')
+  })
+})

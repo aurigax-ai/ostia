@@ -1,8 +1,9 @@
+import type { BrowserOpener } from '@shared/browserProfile'
 import type { ExtensionSidebarItem } from '@shared/extensions'
-import { useLayoutStore } from '../stores/layoutStore'
 import type { SidebarSettings } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { openBrowserAs } from './browserProfile'
 
 type ItemToggles = Pick<SidebarSettings, 'showSSH'>
 
@@ -37,10 +38,14 @@ export function sidebarLines(items: readonly ExtensionSidebarItem[]): SidebarLin
   }
 }
 
-export function openSidebarUrl(workspaceId: string | undefined, url: string): void {
+export function openSidebarUrl(
+  workspaceId: string | undefined,
+  url: string,
+  opener: BrowserOpener,
+): void {
   const target = workspaceId ?? useWorkspacesStore.getState().activeWorkspaceId
   if (!target) return
   useUIStore.getState().leaveSettings()
   useWorkspacesStore.getState().setActive(target)
-  useLayoutStore.getState().openBrowser(target, url)
+  openBrowserAs(target, url, opener)
 }

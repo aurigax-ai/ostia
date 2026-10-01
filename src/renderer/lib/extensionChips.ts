@@ -138,7 +138,7 @@ function chipWorkspace(chip: Pick<ShownChip, 'paneId' | 'workspaceId'>): string 
 
 export function openChipUrl(chip: Pick<ShownChip, 'paneId' | 'workspaceId'>, url: string): void {
   const workspaceId = chipWorkspace(chip)
-  if (workspaceId) openSidebarUrl(workspaceId, url)
+  if (workspaceId) openSidebarUrl(workspaceId, url, 'human')
 }
 
 export function chipAction(

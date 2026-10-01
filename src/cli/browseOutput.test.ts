@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatText, toResponse } from './browse'
+import { SHARED_TAB_TEXT, formatText, toResponse } from './browse'
 
 describe('toResponse', () => {
   it('wraps a successful result as {success, data, error}', () => {
@@ -50,6 +50,12 @@ describe('formatText', () => {
         ],
       }),
     ).toBe('* p1\tA\thttps://a.test/\n  p2\tB\thttps://b.test/')
+  })
+
+  it('lists a tab on the human’s profile without its page, saying driving it asks them', () => {
+    expect(formatText('tab', { tabs: [{ tabId: 'p3', profile: 'shared', active: false }] })).toBe(
+      `  p3\t${SHARED_TAB_TEXT}`,
+    )
   })
 
   it('lists console entries and network requests one per line', () => {

@@ -119,6 +119,7 @@ const CLI_HELP = `pine — control-socket CLI
   pine browse set viewport <w> <h> [scale] | media [dark|light] [reduced-motion]
                   | offline [on|off] | headers <json> | geo <lat> <lng>
   pine browse tab | tab new [url] | tab <tabId> | tab close [tabId]
+                  (a tab on the human's own browser profile asks them on every command)
   pine browse frame <sel|main> | dialog accept [text]|dismiss|status
   pine browse console [--clear] | errors [--clear] | highlight <sel> | inspect
   pine browse addinitscript <js> | removeinitscript <id> | addstyle <css>

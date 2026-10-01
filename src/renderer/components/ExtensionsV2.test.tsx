@@ -157,7 +157,7 @@ describe('Extension API v2 UI', () => {
       await userEvent
         .setup()
         .click(screen.getByRole('button', { name: /Branch: :3000.*http:\/\/localhost:3000\// }))
-      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/')
+      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/', 'shared')
       expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s2')
       useLayoutStore.setState(layoutInit, true)
       useWorkspacesStore.setState(workspacesInit, true)
@@ -208,7 +208,7 @@ describe('Extension API v2 UI', () => {
       await user.click(
         screen.getByRole('button', { name: 'Open http://localhost:3000/ in the browser pane' }),
       )
-      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/')
+      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/', 'shared')
       useLayoutStore.setState(layoutInit, true)
       useWorkspacesStore.setState(workspacesInit, true)
     })

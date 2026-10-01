@@ -18,6 +18,7 @@ export function wireCommandBridge(): void {
         activeWorkspaceId: req.target.workspaceId,
         activePaneId: req.target.paneId,
         target: req.target,
+        origin: 'remote',
       },
       req.id,
       req.args,
