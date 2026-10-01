@@ -74,7 +74,11 @@ test.describe('assistant chat pane and terminal completion', () => {
       await expect(menu).toContainText('openai-compatible · fake-small / fake-big', {
         timeout: 15_000,
       })
-      await menu.getByRole('button', { name: /Open chat/ }).click()
+      await win.keyboard.press('Escape')
+      await win
+        .locator('header.topbar')
+        .getByRole('button', { name: /^Open chat/ })
+        .click()
 
       const question = win.getByRole('combobox', { name: 'Your question' }).last()
       await expect(question).toBeVisible({ timeout: 10_000 })
@@ -133,7 +137,11 @@ test.describe('assistant chat pane and terminal completion', () => {
       await openWorkspace(win)
       const menu = await openAssistantMenu(win)
       await expect(menu).toContainText('openai-compatible', { timeout: 15_000 })
-      await menu.getByRole('button', { name: /Open chat/ }).click()
+      await win.keyboard.press('Escape')
+      await win
+        .locator('header.topbar')
+        .getByRole('button', { name: /^Open chat/ })
+        .click()
 
       const question = win.getByRole('combobox', { name: 'Your question' }).last()
       await expect(question).toBeVisible({ timeout: 10_000 })
@@ -265,7 +273,11 @@ test.describe('assistant chat tools', () => {
       await openWorkspace(win)
       const menu = await openAssistantMenu(win)
       await expect(menu).toContainText('openai-compatible', { timeout: 15_000 })
-      await menu.getByRole('button', { name: /Open chat/ }).click()
+      await win.keyboard.press('Escape')
+      await win
+        .locator('header.topbar')
+        .getByRole('button', { name: /^Open chat/ })
+        .click()
 
       const question = win.getByRole('combobox', { name: 'Your question' }).last()
       await expect(question).toBeVisible({ timeout: 10_000 })
