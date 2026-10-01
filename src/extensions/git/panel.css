@@ -43,9 +43,22 @@
   min-height: 100%;
 }
 
-.graph-page {
+.graph-page,
+.changes-page {
   height: 100vh;
   min-height: 0;
+}
+
+.changes-top {
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+}
+
+.changes-files {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
 }
 
 .spacer {
@@ -236,15 +249,19 @@ button.icon svg,
 
 .commit {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 8px;
   padding: 0 12px 12px;
-  border-bottom: 1px solid var(--line);
 }
 
 .commit .message {
+  flex: 1 1 auto;
   width: 100%;
-  resize: vertical;
+  min-height: calc(3 * 18px + 10px);
+  max-height: max(calc(3 * 18px + 10px), calc(100vh - 240px));
+  field-sizing: content;
+  resize: none;
   font-family: var(--font-mono);
 }
 
@@ -805,12 +822,12 @@ button.scope-trigger[aria-expanded="true"] {
 }
 
 .detail {
-  flex: 0 1 auto;
-  max-height: 45%;
-  min-height: 96px;
   overflow: auto;
-  border-top: 1px solid var(--line-strong);
   background: var(--surface-1);
+}
+
+.pine-split[data-collapsed] > .detail > :not(.detail-head) {
+  display: none;
 }
 
 .detail-head {

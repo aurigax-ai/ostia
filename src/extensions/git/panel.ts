@@ -17,7 +17,17 @@ import tag from '@phosphor-icons/core/regular/tag.svg'
 import treeStructure from '@phosphor-icons/core/regular/tree-structure.svg'
 import xIcon from '@phosphor-icons/core/regular/x.svg'
 import type { ExtensionResult } from '../../shared/extensions'
-import { call, context, errorText, h, icon, onChange, pickLocale } from '../sdk/panel'
+import {
+  call,
+  context,
+  errorText,
+  h,
+  icon,
+  loadPanelSizes,
+  onChange,
+  pickLocale,
+} from '../sdk/panel'
+import { splitter } from '../sdk/splitter'
 import { type TreeNode, buildFileTree } from './fileTree'
 import { type GraphEdge, type GraphNode, type GraphRow, layoutGraph } from './graph'
 import type { BlameLine, CommitFile, CommitRef, CommitSummary, GraphCommit } from './history'
@@ -118,6 +128,8 @@ const t = pickLocale({
     lastChosen: 'At least one branch stays chosen',
     noBranches: 'No branches yet',
     closeDetails: 'Close details',
+    resizeDetails: 'Resize details',
+    resizeCommit: 'Resize commit message',
     parents: 'Parents',
     head: 'HEAD',
     merge: 'Merge commit',
@@ -197,6 +209,8 @@ const t = pickLocale({
     lastChosen: '至少要保留一個分支',
     noBranches: '尚無分支',
     closeDetails: '關閉詳細資訊',
+    resizeDetails: '調整詳細資訊高度',
+    resizeCommit: '調整提交訊息高度',
     parents: '父提交',
     head: 'HEAD',
     merge: '合併提交',
@@ -233,12 +247,19 @@ const DETAIL_DELAY_MS = 120
 const MAX_CACHED_DETAILS = 200
 const LANE_COLORS = 8
 const SVG_NS = 'http://www.w3.org/2000/svg'
+const GRAPH_SPLIT = 'graph-details'
+const GRAPH_LIST_FRACTION = 0.55
+const GRAPH_MIN_LIST = 96
+const DETAIL_MIN = 96
+const CHANGES_SPLIT = 'changes-commit'
+const FILES_MIN = 72
 
 const root = document.getElementById('root') as HTMLElement
 const params = new URLSearchParams(location.search)
 let page: Page =
   (['changes', 'graph', 'blame'] as Page[]).find((p) => p === params.get('page')) ?? 'changes'
 const blameFile = params.get('file') ?? ''
+const sizesReady = loadPanelSizes()
 
 let banner: { text: string; tone: 'error' | 'ok' } | null = null
 let draft = ''
@@ -684,7 +705,6 @@ function branchHeader(data: ChangesData): HTMLElement {
 function commitBox(data: ChangesData): HTMLElement {
   const box = h('textarea', {
     class: 'message',
-    rows: '3',
     placeholder: t.commitPlaceholder,
     'aria-label': t.commitPlaceholder,
     oninput: (e) => {
@@ -724,13 +744,30 @@ function commitBox(data: ChangesData): HTMLElement {
 }
 
 function changesPage(data: ChangesData): HTMLElement {
-  return frame(
-    'changes-page',
+  const top = h(
+    'div',
+    { class: 'changes-top' },
     branchHeader(data),
     h('div', { class: 'muted root', title: data.root }, data.root),
     commitBox(data),
+  )
+  const files = h(
+    'div',
+    { class: 'changes-files', 'data-scroll': 'changes' },
     data.changes.length === 0 ? emptyState(t.clean) : null,
     ...changeSections(data, ''),
+  )
+  return frame(
+    'changes-page',
+    splitter({
+      key: CHANGES_SPLIT,
+      label: t.resizeCommit,
+      first: top,
+      second: files,
+      defaultFraction: 0,
+      minFirst: 0,
+      minSecond: FILES_MIN,
+    }),
   )
 }
 
@@ -1266,7 +1303,20 @@ function graphView(data: GraphData): HTMLElement {
     : entry.kind === 'worktree'
       ? worktreeDetail(data)
       : commitDetailView(m, entry.commit)
-  return frame('graph-page', graphToolbar(data), graphList(m), detail)
+  const list = graphList(m)
+  const body = detail
+    ? splitter({
+        key: GRAPH_SPLIT,
+        label: t.resizeDetails,
+        first: list,
+        second: detail,
+        defaultFraction: GRAPH_LIST_FRACTION,
+        minFirst: GRAPH_MIN_LIST,
+        minSecond: DETAIL_MIN,
+        collapseSecond: true,
+      })
+    : list
+  return frame('graph-page', graphToolbar(data), body)
 }
 
 function blameView(data: BlameData): HTMLElement {
@@ -1336,7 +1386,11 @@ async function refresh(): Promise<void> {
     render()
     return
   }
-  const [viewRes, { page: fetched, res }] = await Promise.all([call('view'), fetchPage()])
+  const [viewRes, { page: fetched, res }] = await Promise.all([
+    call('view'),
+    fetchPage(),
+    sizesReady,
+  ])
   if (seq !== requestSeq || fetched !== page) return
   if (viewRes.ok) changesView = (viewRes.data as { changesView: ChangesView }).changesView
   failure = res.ok ? null : res
