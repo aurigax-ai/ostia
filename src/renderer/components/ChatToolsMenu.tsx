@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { WrenchIcon } from '@phosphor-icons/react'
+import type { ChatToolMode } from '@shared/assist'
 import {
   BUILTIN_TOOL_ACCESS,
   type BuiltinChatTool,
@@ -104,7 +105,13 @@ function McpRow({ server, sessionId }: { server: McpServerStatus; sessionId: str
   )
 }
 
-export function ChatToolsMenu({ sessionId }: { sessionId: string }): JSX.Element {
+export function ChatToolsMenu({
+  sessionId,
+  mode,
+}: {
+  sessionId: string
+  mode: ChatToolMode
+}): JSX.Element {
   const d = useDict()
   const t = d.chatTools
   const [open, setOpen] = useState(false)
@@ -151,6 +158,7 @@ export function ChatToolsMenu({ sessionId }: { sessionId: string }): JSX.Element
       <PopoverContent side="top" align="start" className="w-80">
         <PopoverTitle className="text-fg text-ui-sm">{t.menuTitle}</PopoverTitle>
         <PopoverDescription className="text-fg-muted text-ui-xs">{t.menuDesc}</PopoverDescription>
+        {mode === 'prompted' ? <p className="text-fg-muted text-ui-xs">{t.prompted}</p> : null}
         <section aria-label={t.builtin} className="flex flex-col">
           <h3 className="pt-1 text-fg-muted text-ui-xs">{t.builtin}</h3>
           <ul className="flex flex-col">

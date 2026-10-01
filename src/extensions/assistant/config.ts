@@ -4,6 +4,7 @@ import type {
   AssistPoint,
   AssistSetupProblem,
   AssistStatus,
+  ChatToolMode,
 } from '../../shared/assist'
 import type { ExtensionSettingValues } from '../../shared/extensions'
 import { type Endpoint, UNIX_PREFIX, parseEndpoint } from './endpoint'
@@ -145,6 +146,7 @@ export function modelFor(config: AssistantConfig, point: AssistPoint): string {
 export function assistStatus(
   config: AssistantConfig,
   problem: AssistSetupProblem | null,
+  tools: ChatToolMode | null,
 ): AssistStatus {
   const status: AssistStatus = {}
   for (const point of Object.keys(POINT_FEATURES) as AssistPoint[]) {
@@ -153,7 +155,8 @@ export function assistStatus(
     const ready = problem === null && on && model !== ''
     const label = `${config.provider} · ${model}`
     if (!ready) status[point] = { ready: false }
-    else status[point] = point === 'chat' ? { ready, label, tools: true } : { ready, label }
+    else if (point === 'chat' && tools) status[point] = { ready, label, tools }
+    else status[point] = { ready, label }
   }
   return status
 }

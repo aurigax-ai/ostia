@@ -1107,7 +1107,8 @@ export const en = {
     exported: 'Saved to {path}',
     exportFailed: 'The chat could not be exported.',
     recording: 'Saved',
-    recordingHint: 'This chat is saved on this computer and never synced. Turn chat history off in Settings.',
+    recordingHint:
+      'This chat is saved on this computer and never synced. Turn chat history off in Settings.',
     notRecording: 'Not saved',
     notRecordingHint: 'Chat history is off. This chat is kept until the app quits.',
     saveHistory: 'Save chat history',
@@ -1134,6 +1135,8 @@ export const en = {
     menuDesc:
       'The model sees only the tools that are on. Anything that changes something asks you first.',
     noTools: 'This model does not use tools.',
+    prompted:
+      'This model has no native tool calling, so the tools are described in its prompt. Small models may call them wrongly or not at all.',
     builtin: 'Built-in',
     mcp: 'MCP servers',
     skills: 'Skills',
@@ -2581,6 +2584,8 @@ export const zhHant: Dict = {
     menuTitle: '此對話可用的工具',
     menuDesc: '模型只看得到已開啟的工具。會變更任何東西的工具都會先詢問你。',
     noTools: '此模型不使用工具。',
+    prompted:
+      '此模型沒有原生的工具呼叫，因此工具是寫在提示中告訴它的。小型模型可能會用錯工具或不呼叫工具。',
     builtin: '內建',
     mcp: 'MCP 伺服器',
     skills: '技能',
