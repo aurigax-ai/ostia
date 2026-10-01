@@ -744,6 +744,14 @@ Details: `docs/ARCHITECTURE.md`.
 - **Allotment is keyed by the child-id list**; its internal sizes go stale on structural changes.
   It reads the node's `sizes` only at mount (`defaultSizes`), so a size change the store makes
   (equalize, a remembered panel size) needs a remount: a new child list or a bumped `equalized`.
+  Always pass `defaultSizes` with one entry per child: without it (or with a length mismatch)
+  Allotment lays its views out only after a re-render that lands after a paint, and every new
+  split shows its new pane at the left edge for a few frames (`e2e/panel-open.spec.ts`). With
+  it, the pre-layout DOM still exists between the commit and Allotment's ResizeObserver callback,
+  so a rAF sample alone always sees it; what paints is the state after the frame's last
+  ResizeObserver callback. That spec samples there; a post-paint sampler misses the flash
+  (React's scheduler task runs first) and `layout-shift` entries report it even when it never
+  painted.
 - **The terminal's selection color must stand out from painted cells** (`terminalTheme` →
   `visibleSelection`, `lib/color.ts`). xterm colors a selected cell from the selection color
   alone (DOM replaces the cell background, WebGL blends 50/50 with it), so Oxocarbon's grey
@@ -884,7 +892,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   portal is at `PINE_PORTAL_SOCKET`; it also runs the CLI from a Pine pane to check the refusal.
   It also runs a bash manager through `pine manager spawn|read|input` against a fake worker, with
   `manager.allowInput` off and on, and checks a worker pane is refused.
-  `e2e/tray.spec.ts` covers close-to-tray. `e2e/fonts.spec.ts` sets a UI and code font and
+  `e2e/tray.spec.ts` covers close-to-tray. `e2e/panel-open.spec.ts` opens the Git panel from its
+  toggle (even and remembered size) and a view into a nested split, and fails if the new pane is
+  painted anywhere but its final split position (the pane's rect after each frame's last
+  ResizeObserver callback). `e2e/fonts.spec.ts` sets a UI and code font and
   checks the computed, loaded family in the UI, a settings list, a keycap, chat code and the Git
   panel's webview. `e2e/terminal-selection.spec.ts` runs a fake `claude`
   that paints `rgb(55,55,55)` rows with mouse tracking on, Shift-drags over them under Oxocarbon
