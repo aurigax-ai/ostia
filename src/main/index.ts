@@ -510,7 +510,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
     ],
   }),
   workDir: (workspaceId) => workDirForWorkspace(workspaceId),
-  tmpRoot: privateTmpDir('pine-sandbox'),
+  tmpRoot: privateTmpDir('pine-sandbox-tmp'),
   nodePath: process.execPath,
   hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
   onAsk: (workspaceId, host, port) =>
@@ -2244,6 +2244,7 @@ app.whenReady().then(() => {
   })
   loadRestoredScrollback()
   scratchFolders.sweep()
+  workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
   registerIpc()
   registerPtyIpc()
