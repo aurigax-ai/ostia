@@ -2,6 +2,8 @@ export type Capability =
   | 'drive-self'
   | 'read-board'
   | 'send-other-pane'
+  | 'type-other-pane'
+  | 'read-other-pane'
   | 'kill-pane'
   | 'all-workspaces'
   | 'shell'
@@ -32,6 +34,8 @@ export const ALL_CAPABILITIES: Capability[] = [
   'drive-self',
   'read-board',
   'send-other-pane',
+  'type-other-pane',
+  'read-other-pane',
   'kill-pane',
   'all-workspaces',
   'shell',

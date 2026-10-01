@@ -406,6 +406,8 @@ export interface ExtensionOpenTerminalRequest {
   afterPaneId?: string
   cwd?: string
   title?: string
+  backgroundTab?: boolean
+  pinTitle?: boolean
 }
 
 export interface ExtensionsApi {

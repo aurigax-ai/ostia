@@ -720,6 +720,19 @@ describe('tabs', () => {
     expect(tabsOfPane(root, c.id)?.children.map((p) => p.id)).toEqual([b.id, c.id])
   })
 
+  it('adds a background tab without changing which tab is shown', () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    const lone = addTab(a, a.id, b, true)
+    expect(lone).toMatchObject({ type: 'tabs', activeId: a.id })
+    expect(paneIds(lone)).toEqual([a.id, b.id])
+
+    const stack = addTab(tabsOf(b.id, a, b), a.id, c, true)
+    expect(stack).toMatchObject({ activeId: b.id })
+    expect(paneIds(stack)).toEqual([a.id, c.id, b.id])
+  })
+
   it('selects a tab and returns the same tree when it is already shown', () => {
     const a = createPane()
     const b = createPane()

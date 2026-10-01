@@ -655,7 +655,9 @@ export const en = {
     modeAsk: 'Ask me',
     modeAllow: 'Allow and record',
     caps: {
-      'send-other-pane': 'send input to other panes',
+      'send-other-pane': 'send messages to other panes',
+      'type-other-pane': 'type into other terminal panes',
+      'read-other-pane': 'read the screen of other terminal panes',
       'kill-pane': 'close panes',
       'all-workspaces': 'act on other panes and workspaces',
       shell: 'type commands into terminals',
@@ -2397,7 +2399,9 @@ export const zhHant: Dict = {
     modeAsk: '詢問我',
     modeAllow: '允許並記錄',
     caps: {
-      'send-other-pane': '傳送輸入到其他窗格',
+      'send-other-pane': '傳送訊息到其他窗格',
+      'type-other-pane': '在其他終端機窗格輸入',
+      'read-other-pane': '讀取其他終端機窗格的畫面',
       'kill-pane': '關閉窗格',
       'all-workspaces': '操作其他窗格與工作區',
       shell: '在終端機輸入指令',
