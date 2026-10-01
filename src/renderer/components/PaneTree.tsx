@@ -1,8 +1,10 @@
 import { GlobeIcon, TerminalWindowIcon } from '@phosphor-icons/react'
 import { Allotment } from 'allotment'
 import { useDict } from '../i18n/useDict'
+import { panelFractions } from '../layout/panelSize'
 import { findPane } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
+import { rememberPanelFractions } from '../lib/panelSizes'
 import { useLayoutStore } from '../stores/layoutStore'
 import { Pane } from './Pane'
 import { Button } from './ui/button'
@@ -63,7 +65,9 @@ function NodeView({
     <Allotment
       key={compositionKey}
       vertical={node.direction === 'vertical'}
+      defaultSizes={node.sizes}
       onChange={(sizes) => resize(workspaceId, node.id, sizes)}
+      onDragEnd={(sizes) => rememberPanelFractions(panelFractions(node, sizes))}
     >
       {node.children.map((child) => (
         <Allotment.Pane key={child.id} minSize={160}>

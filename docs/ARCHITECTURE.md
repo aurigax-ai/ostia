@@ -777,9 +777,22 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - `releaseSurfaces` drops hosts for pane ids that no longer exist.
   - Why: the portal target never changes, so split, move and zoom only move DOM nodes. xterm,
     Monaco and webview state survive, and ptys are not re-attached.
-- **Split rendering** (`PaneTree.tsx`): Allotment keyed by the child-id list. Why: Allotment
-  caches sizes, so a structural change must rebuild it or panes collapse to a sliver; a pure
-  resize keeps the instance.
+- **Split rendering** (`PaneTree.tsx`): Allotment keyed by the child-id list, mounted from the
+  node's `sizes` (`defaultSizes`, scaled to the container). Why: Allotment caches sizes, so a
+  structural change must rebuild it or panes collapse to a sliver; a pure resize keeps the
+  instance. Mounting from `sizes` is what lets a rebuilt, restored or newly sized split keep the
+  proportions the store holds instead of falling back to an even split.
+- **Remembered panel size** (`layout/panelSize.ts`, `lib/panelSizes.ts`): when the human finishes
+  dragging a splitter (Allotment `onDragEnd`), every direct pane child of that split that is a
+  panel (`panelKey`: `extension:<id>`, `view:<name>`, `chat`) has its share of the split stored,
+  clamped to 0.15–0.85. `openSingleton` (extension panels, views, the chat pane) gives a newly
+  created panel that share with the pure `sizePanel`, taking the room from the pane it split from
+  (never more than 85% of the two), after `equalizeOnSplit` so the human's size wins. An already
+  open panel is only focused. Why localStorage (key `panelSizes`, writes debounced 300 ms, read
+  fresh on every open): it is UI state, not a setting, so it stays out of `settings.json` and
+  settings sync; every Pine window loads the same `file://` origin in the default session, so
+  one synchronous store already serves all windows and survives restarts without a new IPC
+  method or main-side file. Hand-edited values are clamped or dropped on read.
 - **No workspaces** (`workspacesStore.ts`, `WorkZone.tsx`): zero workspaces is a valid state. The store
   starts empty (`activeWorkspaceId: null`); only the user (`workspace.new`, the sidebar or empty-state
   button, Ctrl+Shift+T / ⌘T, opening a file with no workspace via `lib/openFile.ts`) or restore
@@ -1079,7 +1092,7 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 - **Equalize on split** (`panes.equalizeOnSplit`): `patch` in `layoutStore` sees a layout whose slot
   count grew (`slotCount`; adding a tab does not count) and applies `equalizeSizes` (pure) to every
   split. Why an epoch (`WorkspaceLayout.equalized`, part of the Allotment key in `PaneTree`): Allotment
-  keeps its own pixel sizes and ignores `SplitNode.sizes`, so only a remount makes it lay out equally.
+  reads `SplitNode.sizes` only when it mounts, so only a remount makes it lay out equally.
 
 ### Settings sync
 
