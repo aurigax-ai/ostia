@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { findPane, firstPaneId, paneIds } from '../layout/tree'
+import { findPane, firstPaneId, paneIds, tabsOfPane } from '../layout/tree'
 import type { SplitNode } from '../layout/types'
 import { useLayoutStore } from './layoutStore'
 import { useSettingsStore } from './settingsStore'
@@ -341,6 +341,55 @@ describe('layoutStore', () => {
       expect(reused?.title).toBe('bar.ts')
       expect(layout.activePaneId).toBe(editorId)
       expect(emit()).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('openFileTab', () => {
+    it('adds every file as its own tab after the named pane and focuses the last', () => {
+      const { first, second } = twoPanes('sess')
+      useLayoutStore.getState().focusPane('sess', first)
+      emit().mockClear()
+
+      useLayoutStore.getState().openFileTab('sess', '/tmp/a.txt', second)
+      useLayoutStore.getState().openFileTab('sess', '/tmp/b.png')
+
+      const stack = tabsOfPane(layoutOf('sess').root, second)
+      expect(stack?.children.map((p) => p.filePath)).toEqual([
+        undefined,
+        '/tmp/a.txt',
+        '/tmp/b.png',
+      ])
+      expect(findPane(layoutOf('sess').root, layoutOf('sess').activePaneId)?.filePath).toBe(
+        '/tmp/b.png',
+      )
+      expect(tabsOfPane(layoutOf('sess').root, first)).toBeNull()
+      expect(emit()).toHaveBeenCalledTimes(2)
+    })
+
+    it('focuses the tab already showing the file instead of opening it twice', () => {
+      const first = ensure('sess')
+      useLayoutStore.getState().openFileTab('sess', '/tmp/a.txt')
+      const editorId = layoutOf('sess').activePaneId
+      useLayoutStore.getState().focusPane('sess', first)
+      emit().mockClear()
+
+      useLayoutStore.getState().openFileTab('sess', '/tmp/a.txt')
+
+      expect(layoutOf('sess').activePaneId).toBe(editorId)
+      expect(paneIds(layoutOf('sess').root)).toHaveLength(2)
+      expect(emit()).not.toHaveBeenCalled()
+    })
+
+    it('falls back to the active pane when the named pane is gone, and seeds an empty workspace', () => {
+      const first = ensure('sess')
+      useLayoutStore.getState().openFileTab('sess', '/tmp/a.txt', 'gone')
+      expect(tabsOfPane(layoutOf('sess').root, first)?.children).toHaveLength(2)
+
+      useWorkspacesStore.setState({
+        workspaces: [{ id: 'w9', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+      })
+      useLayoutStore.getState().openFileTab('w9', '/tmp/b.png')
+      expect(layoutOf('w9').root).toMatchObject({ kind: 'editor', filePath: '/tmp/b.png' })
     })
   })
 

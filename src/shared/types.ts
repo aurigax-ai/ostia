@@ -24,6 +24,7 @@ import type { ExtensionResult, ExtensionsApi } from './extensions'
 import type { IconThemesApi } from './iconTheme'
 import type { LanguagePacksApi } from './languagePack'
 import type { MarketplaceApi } from './marketplace'
+import type { OpenFileVerdict } from './openFiles'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type {
@@ -586,6 +587,7 @@ export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'p
 
 export interface FilesApi {
   pathForFile: (file: File) => string
+  admitDropped: (files: File[], workspaceId: string | null) => Promise<OpenFileVerdict[]>
 }
 
 export interface OpenPathApi {

@@ -1,5 +1,5 @@
 import { execSync, spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -13,10 +13,13 @@ import {
   stopControlServer,
 } from '../main/controlServer'
 import { type PaneIdentity, registerPane } from '../main/idRegistry'
+import { OpenFileGrants } from '../main/openFileGrants'
+import { registerOpenFileMethods } from '../main/openFileMethods'
 import { registerPaneListMethods } from '../main/paneList'
 import { ViewHost, ViewStore } from '../main/viewHost'
 import { registerViewMethods } from '../main/viewsIpc'
 import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workflows'
+import { OPEN_FILES_COMMAND } from '../shared/openFiles'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()
@@ -98,9 +101,9 @@ function withEnv(overrides: Record<string, string | undefined>): NodeJS.ProcessE
 
 const liveChildren = new Set<ReturnType<typeof spawn>>()
 
-function runPine(args: string[], env: NodeJS.ProcessEnv): Promise<RunResult> {
+function runPine(args: string[], env: NodeJS.ProcessEnv, cwd?: string): Promise<RunResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [cliPath, ...args], { env })
+    const child = spawn(process.execPath, [cliPath, ...args], { env, cwd })
     liveChildren.add(child)
     let stdout = ''
     let stderr = ''
@@ -679,6 +682,122 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       const sidebar = await runPine(['view', 'open', 'side'], env())
       expect(sidebar.code).toBe(1)
       expect(sidebar.stderr).toContain('only placement "panel" views open as a pane')
+    })
+  })
+
+  describe('pine <file>', () => {
+    let base: string
+    let home: string
+    let outside: string
+    const sandboxed = new Set<string>()
+    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+    const opened = () => execCalls.filter((c) => c.id === OPEN_FILES_COMMAND).map((c) => c.args)
+
+    beforeAll(() => {
+      base = realpathSync(mkdtempSync(join(tmpdir(), 'pine-cli-open-')))
+      home = join(base, 'home')
+      outside = join(base, 'outside')
+      mkdirSync(join(home, 'git'), { recursive: true })
+      mkdirSync(outside)
+      writeFileSync(join(home, 'README'), 'readme')
+      writeFileSync(join(home, 'echo'), 'a file named like an extension')
+      writeFileSync(join(home, 'pane.splitRight'), 'a file named like a command')
+      writeFileSync(join(home, 'state'), 'a file named like a verb')
+      writeFileSync(join(outside, 'app.log'), 'one\ntwo\nthree\n')
+      writeFileSync(join(outside, 'shot.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+      registerOpenFileMethods({
+        grants: new OpenFileGrants({ roots: () => [home], file: join(base, 'opened-files.json') }),
+        isSandboxed: (workspaceId) => sandboxed.has(workspaceId),
+        isScratch: () => false,
+        execCommand: fakeDeps.execCommand,
+      })
+      registerControlMethod('ext.list', {
+        handler: () => [{ id: 'echo', name: 'Echo', status: 'running', commands: [] }],
+      })
+    })
+
+    afterEach(() => sandboxed.clear())
+
+    afterAll(() => rmSync(base, { recursive: true, force: true }))
+
+    it('opens files anywhere on disk, each as its own target, in the caller pane', async () => {
+      const res = await runPine([join(outside, 'app.log'), join(outside, 'shot.png')], env())
+
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(execCalls).toEqual([
+        {
+          target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
+          id: OPEN_FILES_COMMAND,
+          args: {
+            files: [{ path: join(outside, 'app.log') }, { path: join(outside, 'shot.png') }],
+          },
+        },
+      ])
+    })
+
+    it('resolves a relative path against the caller folder and reads file:line:col', async () => {
+      const res = await runPine(['../outside/app.log:2:3'], env(), home)
+
+      expect(res.code).toBe(0)
+      expect(opened()).toEqual([
+        { files: [{ path: join(outside, 'app.log'), line: 2, column: 3 }] },
+      ])
+    })
+
+    it('opens a bare name that is a file here and neither a verb nor an extension', async () => {
+      const res = await runPine(['README'], env(), home)
+
+      expect(res.code).toBe(0)
+      expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }] }])
+    })
+
+    it('lets a core verb, an extension id and a command id win over a file of that name', async () => {
+      const verb = await runPine(['state', 'done'], env(), home)
+      expect(verb.code).toBe(0)
+      expect(execCalls.map((c) => c.id)).toEqual(['attention.set'])
+      execCalls.length = 0
+
+      const extension = await runPine(['echo', 'hi'], env(), home)
+      expect(extension.stderr).toContain("pine echo: unknown subcommand 'hi'")
+
+      const command = await runPine(['pane.splitRight'], env(), home)
+      expect(command.stdout).toContain('{"ran":"pane.splitRight"}')
+
+      const folder = await runPine(['git', 'status'], env(), home)
+      expect(folder.stderr).toContain("unknown command or extension 'git'")
+      expect(opened()).toEqual([])
+    })
+
+    it('pine open takes several files and still opens the ones it can', async () => {
+      const res = await runPine(
+        ['open', join(outside, 'app.log'), outside, join(outside, 'nope.txt')],
+        env(),
+      )
+
+      expect(res.code).toBe(1)
+      expect(res.stderr).toContain(`pine: ${outside}: is a directory`)
+      expect(res.stderr).toContain(`pine: ${join(outside, 'nope.txt')}: no such file`)
+      expect(opened()).toEqual([{ files: [{ path: join(outside, 'app.log') }] }])
+    })
+
+    it('refuses a sandboxed workspace a file outside the home folder', async () => {
+      sandboxed.add('s1')
+      const res = await runPine([join(outside, 'shot.png'), join(home, 'README')], env())
+
+      expect(res.code).toBe(1)
+      expect(res.stderr).toContain('outside what a sandboxed workspace may open')
+      expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }] }])
+    })
+
+    it('outside Pine: a file path does not start the manager', async () => {
+      const res = await runPine(
+        [join(outside, 'app.log')],
+        withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined }),
+      )
+
+      expect(res.code).toBe(1)
+      expect(res.stderr).toContain('files open from a terminal inside Pine')
     })
   })
 })

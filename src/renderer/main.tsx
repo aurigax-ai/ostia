@@ -27,6 +27,7 @@ import { startShortcutReporting } from './lib/assistShortcuts'
 import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
 import { errorDetails, reportError, startErrorReporting } from './lib/errorReporting'
+import { startFileDropTracking } from './lib/fileDrop'
 import { startHibernation } from './lib/hibernationScheduler'
 import { livePaneIds } from './lib/livePanes'
 import { startAgentDetection } from './lib/paneAgent'
@@ -95,6 +96,7 @@ async function boot(): Promise<void> {
   startSnapshotAutosave()
   startWindowSync()
   startPaneDragTracking()
+  startFileDropTracking()
   startAttentionSync()
   startPaneRecencySync()
   startHibernation()

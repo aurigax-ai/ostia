@@ -20,6 +20,7 @@ import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
+import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { PRODUCT_NAME } from '../shared/product'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
@@ -112,6 +113,8 @@ import {
   registerNotifyIpc,
   registerNotifyMethods,
 } from './notify'
+import { OpenFileGrants } from './openFileGrants'
+import { registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneResumeMethods } from './paneResume'
@@ -405,6 +408,11 @@ const scratchFolders = new ScratchFolders(privateTmpDir('pine-scratch'))
 function fileRoots(): string[] {
   return [homedir(), app.getPath('userData'), scratchFolders.root]
 }
+
+const openFileGrants = new OpenFileGrants({
+  roots: fileRoots,
+  file: join(app.getPath('userData'), 'opened-files.json'),
+})
 
 function isScratchPane(paneId: string): boolean {
   return scratchFolders.isScratch(getByPaneId(paneId)?.workspaceId)
@@ -1628,7 +1636,7 @@ function registerFsIpc(): void {
   })
 
   ipcMain.handle('fs:stat', (_e, path: string): FsKind | null => {
-    const safe = resolveSafe(path, allowedRoots)
+    const safe = openFileGrants.confine(path)
     if (safe === null) return null
     try {
       const stat = statSync(safe)
@@ -1639,7 +1647,7 @@ function registerFsIpc(): void {
   })
 
   ipcMain.handle('fs:read', (_e, path: string): string | null => {
-    const safe = resolveSafe(path, allowedRoots)
+    const safe = openFileGrants.confine(path)
     if (safe === null) return null
     try {
       return readFileSync(safe, 'utf8')
@@ -1648,10 +1656,20 @@ function registerFsIpc(): void {
     }
   })
 
-  ipcMain.handle('fs:read-binary', (_e, path: unknown) => readBinaryConfined(path, allowedRoots))
+  ipcMain.handle('fs:read-binary', (_e, path: unknown) =>
+    readBinaryConfined(path, (candidate) => openFileGrants.confine(candidate)),
+  )
+
+  ipcMain.handle('files:admit-dropped', (_e, paths: unknown, workspaceId: unknown) => {
+    if (!Array.isArray(paths) || paths.length > OPEN_FILES_MAX) return []
+    const remember = typeof workspaceId !== 'string' || !scratchFolders.isScratch(workspaceId)
+    return paths
+      .filter((path): path is string => typeof path === 'string')
+      .map((path) => openFileGrants.admit(path, { sandboxed: false, remember }))
+  })
 
   fileWatches = new FileWatches({
-    roots: allowedRoots,
+    confine: (path) => openFileGrants.confine(path),
     debounceMs: FILE_WATCH_DEBOUNCE_MS,
     onChange: ({ path, exists, owners }) => {
       for (const owner of owners) {
@@ -1668,7 +1686,7 @@ function registerFsIpc(): void {
   })
 
   ipcMain.handle('fs:write', (e, path: string, content: string): boolean => {
-    const safe = resolveSafe(path, allowedRoots)
+    const safe = openFileGrants.confine(path)
     if (safe === null) return false
     try {
       writeFileSync(safe, content, 'utf8')
@@ -2080,6 +2098,12 @@ app.whenReady().then(() => {
   })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
+  registerOpenFileMethods({
+    grants: openFileGrants,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+    execCommand,
+  })
   registerBusMethods({ managerSendAllowed: () => managerLimiter?.busAllowed() ?? true })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   settingsSync = startSettingsSync({
