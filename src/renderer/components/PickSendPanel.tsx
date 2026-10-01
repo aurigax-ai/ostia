@@ -3,13 +3,14 @@ import type { ResumableAgent } from '@shared/agentResume'
 import type { AttentionState } from '@shared/types'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { Dict } from '../i18n/dict'
-import { useDict } from '../i18n/useDict'
+import { fmt, useDict } from '../i18n/useDict'
 import { sessionTitle } from '../lib/agentSession'
 import { runningAgent } from '../lib/paneAgent'
 import { type PickTarget, pickTargets } from '../lib/pickTargets'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useOriginAgentsStore } from '../stores/originAgentsStore'
 import { usePaneRecencyStore } from '../stores/paneRecencyStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { IconButton } from './IconButton'
@@ -40,7 +41,7 @@ export function agentLabel(d: Dict, title: string, agent: ResumableAgent | 'othe
   return session ? `${name} · ${session}` : name
 }
 
-export function useAgentTargets(workspaceId: string): PickTarget[] {
+export function useLocalAgentTargets(workspaceId: string): PickTarget[] {
   const d = useDict()
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const layouts = useLayoutStore((s) => s.byWorkspace)
@@ -65,6 +66,39 @@ export function useAgentTargets(workspaceId: string): PickTarget[] {
   }, [workspaces, layouts, workspaceId, attention, touchedAt, running, agentBlocks, d])
 }
 
+export function useAgentTargets(workspaceId: string): PickTarget[] {
+  const d = useDict()
+  const local = useLocalAgentTargets(workspaceId)
+  const origin = useOriginAgentsStore((s) => s.byWorkspace[workspaceId])
+  return useMemo(() => {
+    if (!origin) return local
+    const remote = origin.targets.map(
+      (target): PickTarget => ({
+        paneId: target.paneId,
+        workspaceId: origin.workspaceId,
+        workspaceName: origin.workspaceName,
+        title: fmt(d.send.originTarget, {
+          agent: agentLabel(d, target.title, target.agent),
+          workspace: origin.workspaceName,
+        }),
+        ...(target.cwd ? { cwd: target.cwd } : {}),
+        state: target.state,
+        sameWorkspace: false,
+        via: workspaceId,
+      }),
+    )
+    return [...local, ...remote]
+  }, [local, origin, workspaceId, d])
+}
+
+export function useNoAgentsText(workspaceId: string): string {
+  const d = useDict()
+  const origin = useOriginAgentsStore((s) => s.byWorkspace[workspaceId])
+  if (origin === undefined) return d.send.noTargets
+  if (origin === null) return d.send.originGone
+  return fmt(d.send.noOriginTargets, { workspace: origin.workspaceName })
+}
+
 export interface PickSendPanelProps {
   id: string
   summary: string
@@ -72,6 +106,7 @@ export interface PickSendPanelProps {
   notePlaceholder: string
   closeLabel: string
   targets: PickTarget[]
+  noTargets: string
   sending: boolean
   onSend: (target: PickTarget, note: string) => void
   onClose: () => void
@@ -84,6 +119,7 @@ export function PickSendPanel({
   notePlaceholder,
   closeLabel,
   targets,
+  noTargets,
   sending,
   onSend,
   onClose,
@@ -138,7 +174,7 @@ export function PickSendPanel({
       <fieldset className="flex min-w-0 flex-col gap-1">
         <legend className="mb-1 text-fg-muted text-ui-xs">{d.send.target}</legend>
         {targets.length === 0 ? (
-          <p className="text-fg-muted">{d.send.noTargets}</p>
+          <p className="text-fg-muted">{noTargets}</p>
         ) : (
           <RadioGroup
             aria-label={d.send.target}
@@ -162,7 +198,7 @@ export function PickSendPanel({
                   />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className={checked ? 'truncate font-medium' : 'truncate'}>
-                      {t.sameWorkspace ? t.title : `${t.workspaceName} · ${t.title}`}
+                      {t.sameWorkspace || t.via ? t.title : `${t.workspaceName} · ${t.title}`}
                     </span>
                     {t.cwd ? (
                       <span className="truncate font-mono text-fg-muted text-ui-xs">{t.cwd}</span>

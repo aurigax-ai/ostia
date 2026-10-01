@@ -3,7 +3,7 @@ import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import type { PickTarget } from '../lib/pickTargets'
 import { sendSelectionToPane } from '../lib/sendPick'
-import { PickSendPanel, useAgentTargets } from './PickSendPanel'
+import { PickSendPanel, useAgentTargets, useNoAgentsText } from './PickSendPanel'
 
 const STATUS_MS = 6000
 
@@ -25,6 +25,7 @@ export interface SelectionSend {
 export function useSelectionSend(workspaceId: string, paneId: string): SelectionSend {
   const d = useDict()
   const targets = useAgentTargets(workspaceId)
+  const noTargets = useNoAgentsText(workspaceId)
   const [pending, setPending] = useState<PendingSelection | null>(null)
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
@@ -53,6 +54,7 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
         image: pending.image,
         sourcePaneId: paneId,
         targetPaneId: target.paneId,
+        via: target.via,
         note,
       })
       if (res.ok) {
@@ -77,6 +79,7 @@ export function useSelectionSend(workspaceId: string, paneId: string): Selection
       notePlaceholder={d.viewer.notePlaceholder}
       closeLabel={d.viewer.discard}
       targets={targets}
+      noTargets={noTargets}
       sending={sending}
       onSend={(t, note) => void send(t, note)}
       onClose={() => setPending(null)}

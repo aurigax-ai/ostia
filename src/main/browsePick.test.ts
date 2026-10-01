@@ -19,7 +19,10 @@ const {
   DEFAULT_AGENT_PICK_TIMEOUT_MS,
   MAX_PICK_TIMEOUT_MS,
 } = await import('./browsePick')
-const { registerPane, removePane } = await import('./idRegistry')
+const { getByPaneId, registerPane, removePane } = await import('./idRegistry')
+
+const sameWindow = (sender: string, _source: string, target: string): boolean =>
+  getByPaneId(target)?.windowId === sender
 
 const raw: RawPick = {
   url: 'http://localhost/page',
@@ -168,6 +171,7 @@ describe('writePickReport', () => {
     const res = writePickReport(
       { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: 'misaligned' },
       'w1',
+      sameWindow,
     )
     if (!res.ok) throw new Error(res.error)
     expect(res.path).toMatch(/pine-reports-\d+\/capture-\d+(-[a-z0-9-]+)?\.md$/)
@@ -183,8 +187,8 @@ describe('writePickReport', () => {
   it('numbers reports so a second one never overwrites the first', async () => {
     const id = await captureId()
     const req = { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' }
-    const a = writePickReport(req, 'w1')
-    const b = writePickReport(req, 'w1')
+    const a = writePickReport(req, 'w1', sameWindow)
+    const b = writePickReport(req, 'w1', sameWindow)
     if (!a.ok || !b.ok) throw new Error('write failed')
     expect(a.path).not.toBe(b.path)
   })
@@ -195,6 +199,7 @@ describe('writePickReport', () => {
       writePickReport(
         { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
         'w2',
+        sameWindow,
       ),
     ).toEqual({ ok: false, error: 'not-found' })
   })
@@ -204,6 +209,7 @@ describe('writePickReport', () => {
       writePickReport(
         { captureId: 'pick-nope', sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
         'w1',
+        sameWindow,
       ),
     ).toEqual({ ok: false, error: 'capture-expired' })
     const id = await captureId()
@@ -211,8 +217,27 @@ describe('writePickReport', () => {
       writePickReport(
         { captureId: id, sourcePaneId: 'term-1', targetPaneId: 'browser-1', note: '' },
         'w1',
+        sameWindow,
       ),
     ).toEqual({ ok: false, error: 'capture-expired' })
+  })
+
+  it('refuses a target the sender cannot reach and allows one it reaches in another window', async () => {
+    registerPane({ windowId: 'w9', workspaceId: 's9', paneId: 'agent-9' })
+    const id = await captureId()
+    const req = { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'agent-9', note: '' }
+
+    const refused = writePickReport(req, 'w1', sameWindow)
+    const asked: string[][] = []
+    const sent = writePickReport(req, 'w1', (...args) => {
+      asked.push(args)
+      return true
+    })
+    removePane('agent-9')
+
+    expect(refused).toEqual({ ok: false, error: 'not-found' })
+    expect(sent.ok).toBe(true)
+    expect(asked).toEqual([['w1', 'browser-1', 'agent-9']])
   })
 })
 
