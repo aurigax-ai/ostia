@@ -7,7 +7,8 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 import { writeFigSpecs } from './completionSpecs.mjs'
 
@@ -21,6 +22,21 @@ const marketplaceManifest = {
   extensions: marketplaceIds.map((id) => `extensions/${id}`),
 }
 const assets = ['pine.json', 'panel.html', 'panel.css']
+
+async function writeCatalog(exportName, file) {
+  const bundle = resolve(builtinRoot, 'dict-build.mjs')
+  await build({
+    entryPoints: ['src/renderer/i18n/dict.ts'],
+    outfile: bundle,
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    logLevel: 'warning',
+  })
+  const dict = await import(pathToFileURL(bundle).href)
+  rmSync(bundle)
+  writeFileSync(file, `${JSON.stringify(dict[exportName], null, 2)}\n`)
+}
 
 rmSync(builtinRoot, { recursive: true, force: true })
 rmSync(marketplaceRoot, { recursive: true, force: true })
@@ -64,6 +80,7 @@ for (const id of ids) {
     })
   }
   if (id === 'completions') await writeFigSpecs(join(out, 'specs'))
+  if (id === 'langpack-zh-hant') await writeCatalog('zhHant', join(out, 'zh-Hant.json'))
 }
 
 writeFileSync(

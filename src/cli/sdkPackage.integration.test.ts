@@ -55,6 +55,8 @@ describe('manifest schemas', () => {
       { ...base, capabilities: ['root'] },
       { ...base, contributes: { commands: [{ id: 'Run It', title: 'Run' }] } },
       { ...base, contributes: { assist: ['everything'] } },
+      { ...base, contributes: { languages: [{ id: 'not a tag', label: 'X', path: 'x.json' }] } },
+      { ...base, contributes: { languages: [{ id: 'fr', label: 'Français', path: 'fr.yaml' }] } },
       {
         ...base,
         contributes: { settings: { k: { type: 'color', default: '', description: 'd' } } },

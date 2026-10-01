@@ -1,6 +1,5 @@
 import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
-import { en, zhHant } from '../i18n/dict'
 import { BUILTIN_PLUGINS } from './builtin'
 import type { Theme } from './types'
 
@@ -106,20 +105,6 @@ describe('BUILTIN_PLUGINS', () => {
       expect(p.name.length, p.id).toBeGreaterThan(0)
       expect(p.version.length, p.id).toBeGreaterThan(0)
     }
-  })
-
-  it('ties the English language pack to the real `en` catalog by reference', () => {
-    const langs = plugin('pine.langpack.en')?.contributes.languages
-    expect(langs).toHaveLength(1)
-    expect(langs?.[0].id).toBe('en')
-    expect(langs?.[0].catalog).toBe(en)
-  })
-
-  it('ties the Traditional Chinese language pack to the real `zhHant` catalog by reference', () => {
-    const langs = plugin('pine.langpack.zh-hant')?.contributes.languages
-    expect(langs).toHaveLength(1)
-    expect(langs?.[0].id).toBe('zh-Hant')
-    expect(langs?.[0].catalog).toBe(zhHant)
   })
 
   it('ships the LSP plugin with an initially empty languageServers array', () => {
