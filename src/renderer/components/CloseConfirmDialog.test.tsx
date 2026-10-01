@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { LayoutNode } from '../layout/types'
 import {
   confirmQuit,
@@ -224,5 +224,71 @@ describe('close confirmation', () => {
     useSettingsStore.getState().setWorkspaces({ confirmQuit: true })
     useBlocksStore.setState({ running: {} })
     await expect(confirmQuit(quitGroups())).resolves.toBe(true)
+  })
+
+  describe('scratch workspaces', () => {
+    function seedScratch(files: number): void {
+      seed(null)
+      useWorkspacesStore.setState((st) => ({
+        workspaces: [
+          ...st.workspaces,
+          {
+            id: 'w3',
+            name: '1-aaaaaaaaaaaa',
+            customName: 'Scratch',
+            kind: 'scratch',
+            workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
+            state: 'idle',
+          },
+        ],
+      }))
+      vi.mocked(window.pine.scratch.files).mockResolvedValue(files)
+    }
+
+    afterEach(() => {
+      vi.mocked(window.pine.scratch.files).mockResolvedValue(0)
+      vi.mocked(window.pine.scratch.reveal).mockClear()
+    })
+
+    it('closes an empty scratch workspace without asking', async () => {
+      seedScratch(0)
+      render(<CloseConfirmDialog />)
+
+      await requestCloseWorkspace('w3')
+
+      expect(workspaceIds()).toEqual(['w1', 'w2'])
+      expect(window.pine.scratch.files).toHaveBeenCalledWith('w3')
+    })
+
+    it('asks before deleting the files in its folder, offers Reveal, and deletes on confirm', async () => {
+      seedScratch(2)
+      useSettingsStore.getState().setWorkspaces({ confirmClose: false })
+      render(<CloseConfirmDialog />)
+      const user = userEvent.setup()
+
+      const cancelled = requestCloseWorkspace('w3')
+      const dialog = await screen.findByRole('dialog')
+      expect(dialog).toHaveTextContent('Delete 2 files in the scratch folder?')
+      expect(dialog).toHaveTextContent('Scratch')
+      await user.click(screen.getByRole('button', { name: 'Reveal' }))
+      expect(window.pine.scratch.reveal).toHaveBeenCalledWith('w3')
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      await cancelled
+      expect(workspaceIds()).toEqual(['w1', 'w2', 'w3'])
+
+      const closing = requestCloseWorkspace('w3')
+      await screen.findByRole('dialog')
+      await user.click(screen.getByRole('button', { name: 'Delete' }))
+      await closing
+      expect(workspaceIds()).toEqual(['w1', 'w2'])
+    })
+
+    it('reports every scratch workspace to main at quit so main can count its files', () => {
+      seedScratch(2)
+      useSettingsStore.getState().setWorkspaces({ confirmQuit: false })
+      expect(quitGroups()).toEqual([
+        { workspaceId: 'w3', workspace: 'Scratch', commands: [], files: [] },
+      ])
+    })
   })
 })

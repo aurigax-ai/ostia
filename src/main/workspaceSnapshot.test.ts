@@ -8,6 +8,7 @@ import {
   clearPersisted,
   loadRestoredScrollback,
   loadSnapshot,
+  parseHandoff,
   parseSnapshot,
   saveScrollback,
   saveSnapshot,
@@ -240,6 +241,20 @@ describe('parseSnapshot', () => {
     expect(parsed?.activeWorkspaceId).toBe(empty.id)
   })
 
+  it('never restores a scratch workspace from disk, but lets one move between windows', () => {
+    const scratch = {
+      id: 's2',
+      name: 'Scratch',
+      kind: 'scratch' as const,
+      workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
+      activePaneId: 'pane-2',
+      root: { type: 'pane' as const, id: 'pane-2', title: 'zsh', kind: 'terminal' as const },
+    }
+    const parsed = parseSnapshot(snap({ workspaces: [...snap().workspaces, scratch] }))
+    expect(parsed?.workspaces.map((s) => s.id)).toEqual(['s1'])
+    expect(parseHandoff(scratch)?.kind).toBe('scratch')
+  })
+
   it('drops a workspace whose pane kind is unknown', () => {
     const bad = snap({
       workspaces: [
@@ -449,6 +464,13 @@ describe('saveScrollback / takeRestoredScrollback', () => {
     expect((takeRestoredScrollback('pane-1') ?? '').length).toBeLessThanOrEqual(
       SCROLLBACK_CAP_BYTES,
     )
+  })
+
+  it('never writes a scratch pane’s output', () => {
+    saveScrollback({ 'pane-1': 'kept', 'pane-2': 'scratch output' }, (id) => id === 'pane-2')
+    loadRestoredScrollback()
+    expect(takeRestoredScrollback('pane-1')).toBe('kept')
+    expect(takeRestoredScrollback('pane-2')).toBeNull()
   })
 
   it('skips panes with nothing to replay', () => {

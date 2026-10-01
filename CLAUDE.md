@@ -254,6 +254,16 @@ Details: `docs/ARCHITECTURE.md`.
 - **Nothing live is ever restored.** A restored workspace comes back idle with a fresh shell at its
   saved cwd; replayed scrollback is history. Same for `processManager` (running → exited at load;
   loaded entries can't be restarted).
+- **Scratch workspaces leave nothing behind.** A `kind: 'scratch'` workspace is never saved
+  (`isRestorable`; `parseSnapshot` drops one; its panes skip `scrollback.json`), only moved in
+  memory between windows. Its folder is made by main only (`main/scratchFolders.ts`, under
+  `privateTmpDir('pine-scratch')`, 0700, bound to the workspace by its first `workspace-added`
+  event); the renderer never names it. Closing the workspace deletes the folder (the close
+  dialog asks first if it holds files), quit deletes every scratch folder, and startup sweeps
+  folders of dead Pine processes. Its shells get `HISTFILE` in the folder through `PINE_HISTFILE`
+  in the generated init (never a dotfile); Pine's history search and suggestions, chat sessions
+  (`assistant.chatHistory` ignored) and the notification log keep its data in memory only.
+  New scratch workspaces go through `startScratchWorkspace()`.
 - **Zero workspaces is a valid state.** Workspaces are created only by the user (New workspace button,
   `workspace.new`, the chord, opening a file with none open) or by restore; never seed one at boot,
   on an empty restore, or when the last workspace closes. `activeWorkspaceId` is `null` then, and
@@ -265,7 +275,8 @@ Details: `docs/ARCHITECTURE.md`.
   Closing the last pane removes the layout and emits `pane-closed`. Opening a file, browser,
   panel or diff in an empty workspace makes it the first pane (`seedLayout`, only for a workspace
   that exists). Empty workspaces are saved without `root` and restored empty.
-- **Closing and quitting ask only about running commands.** `lib/closeConfirm.ts` confirms closing
+- **Closing and quitting ask only about running commands** (and a scratch folder's files, which
+  are deleted). `lib/closeConfirm.ts` confirms closing
   a workspace, or any pane or tab that has a running command, and `main/closeGuard.ts` confirms
   quit once for every window (it collects each window's running groups and shows one dialog);
   `before-quit` calls `preventDefault()` until approved, so the scrollback save and pty kill run
@@ -817,6 +828,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   It also runs a bash manager through `pine manager spawn|read|input` against a fake worker, with
   `manager.allowInput` off and on, and checks a worker pane is refused.
   `e2e/tray.spec.ts` covers close-to-tray.
+  `e2e/scratch-workspace.spec.ts` starts a scratch workspace from the top bar menu, checks the
+  pane's `$HISTFILE` is in its folder and nothing reaches `scrollback.json` or
+  `workspaces.json`, confirms deleting its file on close, and checks a restart restores nothing
+  and quit removed the other scratch folder.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,

@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import { useDict } from '../i18n/useDict'
 import type { PaneNode } from '../layout/types'
 import { runUserAction } from '../lib/userActions'
-import { movePaneToNewWindow } from '../lib/windowHandoff'
+import { canMovePane, movePaneToNewWindow } from '../lib/windowHandoff'
 import { actionsFor } from '../settings/actions'
 import { useSettingsStore } from '../stores/settingsStore'
 import { FileMenuItems } from './FileMenu'
@@ -25,7 +25,7 @@ export function PaneTabMenu({
   const actions = useSettingsStore((s) => s.actions)
   const tabActions = actionsFor(actions, 'tabMenu', pane.kind)
   const file = pane.kind === 'editor' && workspaceId ? pane.filePath : undefined
-  const movable = workspaceId !== null && pane.kind !== 'diff'
+  const movable = workspaceId !== null && canMovePane(workspaceId, pane.id)
   if (!file && tabActions.length === 0 && !movable) return trigger
 
   return (

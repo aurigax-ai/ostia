@@ -471,6 +471,17 @@ function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
     </span>
   )
 }
+function ScratchBadge(): JSX.Element {
+  const d = useDict()
+  return (
+    <Hint label={d.scratch.badgeHint}>
+      <Badge variant="outline" className="scratch-badge h-4 rounded-sm px-1 text-ui-xs">
+        {d.scratch.badge}
+      </Badge>
+    </Hint>
+  )
+}
+
 function UnreadBadge({ workspaceIds }: { workspaceIds: string[] }): JSX.Element | null {
   const d = useDict()
   const byWorkspace = useLayoutStore((s) => s.byWorkspace)
@@ -606,9 +617,12 @@ function WorkspaceRow({
           title={title}
           wrapTitle={wrapTitles}
           titleAdornment={
-            w.pinned ? (
-              <PushPinSimpleIcon size={12} className="tab-pin" aria-label={d.rail.pinned} />
-            ) : null
+            <>
+              {w.kind === 'scratch' ? <ScratchBadge /> : null}
+              {w.pinned ? (
+                <PushPinSimpleIcon size={12} className="tab-pin" aria-label={d.rail.pinned} />
+              ) : null}
+            </>
           }
           editor={editor}
           onDoubleClick={() => setEditing('name')}

@@ -214,6 +214,11 @@ const bridge: PineBridge = {
     save: (snapshot) => ipcRenderer.send('workspace:save', snapshot),
     load: () => ipcRenderer.invoke('workspace:load') as Promise<AppSnapshot | null>,
   },
+  scratch: {
+    create: () => ipcRenderer.invoke('scratch:create') as Promise<string | null>,
+    files: (workspaceId) => ipcRenderer.invoke('scratch:files', workspaceId) as Promise<number>,
+    reveal: (workspaceId) => ipcRenderer.send('scratch:reveal', workspaceId),
+  },
   windows: {
     info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,
     detach: (workspace) => ipcRenderer.invoke('windows:detach', workspace) as Promise<boolean>,

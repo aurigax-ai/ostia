@@ -137,6 +137,7 @@ import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { SandboxStore } from './sandbox/store'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
+import { ScratchFolders, registerScratchIpc } from './scratchFolders'
 import { ScreenMirror } from './screenMirror'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
@@ -316,6 +317,16 @@ function resolveCwd(cwd?: string): string {
 function sandboxCwd(cwd: string, workDir: string | undefined): string {
   if (!workDir) return cwd
   return cwd === workDir || cwd.startsWith(`${workDir}/`) ? cwd : workDir
+}
+
+const scratchFolders = new ScratchFolders(privateTmpDir('pine-scratch'))
+
+function fileRoots(): string[] {
+  return [homedir(), app.getPath('userData'), scratchFolders.root]
+}
+
+function isScratchPane(paneId: string): boolean {
+  return scratchFolders.isScratch(getByPaneId(paneId)?.workspaceId)
 }
 
 const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
@@ -876,8 +887,10 @@ function registerIpc(): void {
       terminalState.delete(event.paneId)
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
+      scratchFolders.bind(event.workspaceId, event.workDir, windowId)
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
+      scratchFolders.remove(event.workspaceId)
       workspaceSandboxes.forget(event.workspaceId)
       packageRequests.forget(event.workspaceId)
       workspaceAgents.stop(event.workspaceId)
@@ -1098,7 +1111,6 @@ function registerPtyIpc(): void {
     }
     const shell =
       opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
-    const integration = shellIntegrationSpawnOptions(shell, process.env, opts.pinePrompt ?? null)
     const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
     if (!resolved.ok) {
       return {
@@ -1110,6 +1122,12 @@ function registerPtyIpc(): void {
     }
     const identity = registerPane({ windowId: subId, workspaceId: resolved.workspaceId, paneId })
     const workspaceId = identity.workspaceId
+    const integration = shellIntegrationSpawnOptions(
+      shell,
+      process.env,
+      opts.pinePrompt ?? null,
+      scratchFolders.historyFile(workspaceId),
+    )
     const cols = opts.cols || 80
     const rows = opts.rows || 24
     const stateFile = join(privateTmpDir('pine-shell-state'), randomUUID())
@@ -1421,7 +1439,7 @@ const FILE_WATCH_DEBOUNCE_MS = 150
 let fileWatches: FileWatches | null = null
 
 function registerFsIpc(): void {
-  const allowedRoots = [homedir(), app.getPath('userData')]
+  const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
   registerOpenPathIpc(allowedRoots)
   registerProjectRootIpc(allowedRoots)
@@ -1792,6 +1810,8 @@ app.on('second-instance', (_event, argv) => {
 
 app.whenReady().then(() => {
   loadRestoredScrollback()
+  scratchFolders.sweep()
+  registerScratchIpc(scratchFolders)
   registerIpc()
   registerPtyIpc()
   registerFsIpc()
@@ -1803,6 +1823,7 @@ app.whenReady().then(() => {
   registerLspIpc()
   const notifyDeps = {
     execCommand,
+    isScratchPane,
     windows: () => windows.values(),
     windowById: (id: string) => windows.get(id),
   }
@@ -1907,7 +1928,7 @@ app.whenReady().then(() => {
     onStatus: (status) => broadcast('chatTools:mcp-status', status),
   })
   registerChatToolsIpc({
-    roots: () => [homedir(), app.getPath('userData')],
+    roots: fileRoots,
     settings: chatToolSettings,
     mcp: mcpHost,
     secrets: mcpSecrets,
@@ -2025,7 +2046,7 @@ function persistScrollback(): void {
   try {
     const byPane = pendingRestoredScrollback()
     for (const [paneId, entry] of ptys) byPane[paneId] = entry.mirror.serialize()
-    saveScrollback(byPane)
+    saveScrollback(byPane, isScratchPane)
   } catch (err) {
     console.error('[workspace] scrollback save failed', err)
   }
@@ -2049,7 +2070,9 @@ app.on('before-quit', (event) => {
     if (quitAsking) return
     quitAsking = true
     const all = BrowserWindow.getAllWindows()
-    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow()).then((approved) => {
+    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow(), (workspaceId) =>
+      scratchFolders.countFiles(workspaceId),
+    ).then((approved) => {
       quitAsking = false
       if (!approved) return
       quitApproved = true
@@ -2072,7 +2095,9 @@ app.on('before-quit', (event) => {
   killAllProcesses()
   workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
+  for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
   workspaceSandboxes.clearTmp()
+  scratchFolders.removeAll()
   portForwarder.stopAll()
   extensionHost?.stopAll()
   mcpHost?.closeAll()
