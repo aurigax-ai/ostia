@@ -50,8 +50,12 @@ export function WorkspacesSection(): JSX.Element {
             value={settings.placement}
             onValueChange={(v) => set({ placement: v as NewWorkspacePlacement })}
           >
-            <SelectTrigger size="sm" aria-label={d.workspaceSettings.placement} className="w-52">
-              {placementLabel[settings.placement]}
+            <SelectTrigger
+              size="sm"
+              aria-label={d.workspaceSettings.placement}
+              className="w-fit min-w-52 max-w-80"
+            >
+              <span className="min-w-0 truncate">{placementLabel[settings.placement]}</span>
             </SelectTrigger>
             <SelectContent>
               {NEW_WORKSPACE_PLACEMENTS.map((p) => (
