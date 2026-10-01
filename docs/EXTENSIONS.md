@@ -9,7 +9,7 @@ built-in Git, System, Ports, SSH and Assistant, and the marketplace's Trellis, K
 (`src/extensions/`), use nothing else, so they are the reference
 implementations.
 
-How it works inside pine: Trellis vault `architecture/extensions/overview`. Why it's out-of-process: `docs/ROADMAP.md` §2.
+Why it's out-of-process: `docs/ROADMAP.md` §2.
 If you only need to show something (a sidebar section, a panel with buttons), a
 [declarative view](#declarative-views-ui-without-a-process) is one JSON file and no process.
 
@@ -547,7 +547,7 @@ pnpm add -D @aurigax-ai/pine-extension-sdk
 | `schemas/pine.schema.json`, `schemas/pine-marketplace.schema.json` | JSON Schemas for the two manifest files; name one in `"$schema"` and your editor checks the file as you type |
 | `pine-extension validate [folder]` | Runs the loader's own checks on an extension folder (plus the marketplace install limits), or on a marketplace folder and every extension it lists or holds unlisted. Exits 0 when pine would accept it |
 | `pine-extension unlist <extension folder> [marketplace folder]` | Moves a listed extension to `unlisted` in `pine-marketplace.json` and generates its install code |
-| `template/` | A starter extension: TypeScript source, a build that bundles it into one `main.js`, `pnpm validate` |
+| `pine-extension create <id> [folder]` | Writes a new extension project from `template/`: a `pine.json` with that id, TypeScript source, a build that bundles it into one `main.js`, `pnpm validate` |
 
 It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and published
 to npm by `release.yml` on every `v*` tag; its version is the app's version. The JSON
