@@ -163,7 +163,79 @@ export const en = {
     refusalsEmpty: 'Nothing was refused.',
     refusalCount: '{count}× · {time}',
     allow: 'Allow',
-    restartNote: 'Changes to readable folders apply to shells started afterwards.',
+    restartNote: 'File and socket changes apply to shells started afterwards.',
+    workspaceDesc:
+      'Sandbox settings for this workspace. It also inherits the defaults in Settings › Sandbox.',
+    defaults: 'Defaults',
+    navList: 'Sandbox pages',
+    always: 'Always',
+    reading: 'Reading',
+    writing: 'Writing',
+    domainsGroup: 'Domains',
+    writePaths: 'Writable folders',
+    writePathsDesc: 'Paths outside the workspace folder that sandboxed shells may read and change.',
+    hidePaths: 'Hidden paths',
+    hidePathsDesc:
+      'Files and folders sandboxed shells cannot read, even inside a readable folder. A hidden socket cannot be connected to.',
+    readOnlyPaths: 'Read-only paths',
+    readOnlyPathsDesc:
+      'Files and folders that stay unchangeable inside a writable folder. The sandbox runtime also protects .git/hooks, shell rc files, .mcp.json, .vscode, .idea, .claude/commands and .claude/agents.',
+    gitConfig: 'Let git change its config',
+    gitConfigDesc:
+      'Allows writes to .git/config, which git remote and branch tracking need. A config file can name programs git runs, also outside the sandbox.',
+    deniedDomains: 'Blocked domains',
+    deniedDomainsDesc:
+      'Hosts that are always refused, without asking, even when a wider rule allows them.',
+    strictDomains: 'Never ask about other domains',
+    strictDomainsDesc:
+      'Refuse every host that is not on the allowed list instead of showing a request. Refused hosts appear under Blocked.',
+    unixSockets: 'Unix sockets',
+    allowUnixSockets: 'Allow Unix sockets',
+    allowUnixSocketsLinux:
+      'Linux can only allow or block all of them. Off, nothing in the sandbox can open a Unix socket, so the pine command, a granted SSH key and tools such as Docker stop working there. On, any socket whose path is not hidden can be reached.',
+    allowUnixSocketsMac:
+      "Off, nothing in the sandbox can open a Unix socket, so the pine command stops working there. On, only Pine's socket and the sockets listed below can be reached.",
+    unixSocketsUnsupported:
+      'This computer cannot block Unix sockets: the sandbox runtime has no filter for its processor.',
+    allowSockets: 'Allowed sockets',
+    allowSocketsDesc: 'Socket paths sandboxed shells may connect to.',
+    hiddenSockets: 'Hidden sockets',
+    hiddenSocketsDesc:
+      'Container and agent sockets Pine always hides. To hide another one, add its path to Hidden paths.',
+    hiddenSocketsEmpty: 'No container or agent socket is reachable on this computer.',
+    violations: 'Blocked',
+    violationsLinux:
+      'Connections the sandbox refused. While Unix sockets are off, writes outside the writable folders are listed too. Linux does not report blocked reads. Kept in memory until Pine quits.',
+    violationsMac:
+      'Connections the sandbox refused and what macOS reports as denied. Kept in memory until Pine quits.',
+    violationsEmpty: 'Nothing was blocked.',
+    violationsClear: 'Clear',
+    violationCount: '{count}× · {time}',
+    violationKinds: {
+      network: 'Network',
+      write: 'Write',
+      read: 'Read',
+      other: 'Other',
+    },
+    violationReasons: {
+      'not-allowed': 'Not on the allowed list',
+      blocked: 'On the blocked list',
+      refused: 'You refused it',
+      address: 'Resolves to a refused address',
+      request: 'Request refused',
+      outside: 'Outside the writable folders',
+      'read-only': 'On a read-only path',
+      other: '',
+    },
+    folderTitle: 'This folder cannot be sandboxed',
+    folderReasons: {
+      home: '{folder} is your home folder. A sandbox hides the home folder, so it cannot confine a workspace that is the home folder itself.',
+      'above-home':
+        '{folder} contains your home folder. A sandbox hides the home folder, so it cannot confine a workspace that holds it.',
+      'pine-data': "{folder} holds Pine's own data, which a sandbox must keep hidden.",
+    },
+    folderAdvice: 'Open a project folder as the workspace and sandbox that instead.',
+    folderClose: 'Close',
     errors: {
       empty: 'Enter a value.',
       invalid: 'Not a valid host name.',
@@ -175,6 +247,11 @@ export const en = {
       'too-broad': 'That would open the whole disk or home folder.',
       'pine-data': "Pine's own data folder always stays hidden.",
       missing: 'That path does not exist.',
+      pattern: 'Use a plain path without * ? [ ] { }.',
+      protected:
+        "Pine keeps that path closed: it holds Pine's sockets, an agent socket or a protected file.",
+      'too-long': 'That path is too long.',
+      'too-many': 'The list is full.',
       'package-key': 'Use ecosystem:name, for example npm:left-pad.',
     },
     secrets: 'Secrets',
@@ -1915,7 +1992,76 @@ export const zhHant: Dict = {
     refusalsEmpty: '沒有被拒絕的連線。',
     refusalCount: '{count} 次 · {time}',
     allow: '允許',
-    restartNote: '可讀取資料夾的變更會套用到之後啟動的 shell。',
+    restartNote: '檔案與 socket 的變更會套用到之後啟動的 shell。',
+    workspaceDesc: '此工作區的沙箱設定。它也會沿用「設定 › 沙箱」中的預設值。',
+    defaults: '預設值',
+    navList: '沙箱頁面',
+    always: '固定',
+    reading: '讀取',
+    writing: '寫入',
+    domainsGroup: '網域',
+    writePaths: '可寫入的資料夾',
+    writePathsDesc: '沙箱中的 shell 可以讀取並修改的工作區資料夾以外路徑。',
+    hidePaths: '隱藏的路徑',
+    hidePathsDesc:
+      '沙箱中的 shell 無法讀取的檔案與資料夾，即使位於可讀取的資料夾內。被隱藏的 socket 無法連線。',
+    readOnlyPaths: '唯讀路徑',
+    readOnlyPathsDesc:
+      '在可寫入資料夾內仍無法修改的檔案與資料夾。沙箱執行環境也會保護 .git/hooks、shell rc 檔、.mcp.json、.vscode、.idea、.claude/commands 與 .claude/agents。',
+    gitConfig: '允許 git 修改其設定',
+    gitConfigDesc:
+      '允許寫入 .git/config，git remote 與分支追蹤需要它。設定檔可以指定 git 執行的程式，在沙箱外也會生效。',
+    deniedDomains: '封鎖的網域',
+    deniedDomainsDesc: '一律拒絕且不詢問的主機，即使有較寬鬆的規則允許它們。',
+    strictDomains: '不詢問其他網域',
+    strictDomainsDesc:
+      '直接拒絕不在允許清單中的主機，而不顯示請求。被拒絕的主機會出現在「已封鎖」中。',
+    unixSockets: 'Unix socket',
+    allowUnixSockets: '允許 Unix socket',
+    allowUnixSocketsLinux:
+      'Linux 只能全部允許或全部封鎖。關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 pine 指令、已授予的 SSH 金鑰與 Docker 等工具在其中無法運作。開啟時，可以連線到任何未被隱藏的 socket。',
+    allowUnixSocketsMac:
+      '關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 pine 指令在其中無法運作。開啟時，只能連線到 Pine 的 socket 與下方列出的 socket。',
+    unixSocketsUnsupported:
+      '這台電腦無法封鎖 Unix socket：沙箱執行環境沒有適用於其處理器的過濾器。',
+    allowSockets: '允許的 socket',
+    allowSocketsDesc: '沙箱中的 shell 可以連線的 socket 路徑。',
+    hiddenSockets: '隱藏的 socket',
+    hiddenSocketsDesc:
+      'Pine 一律隱藏的容器與代理 socket。若要隱藏其他 socket，請將其路徑加入「隱藏的路徑」。',
+    hiddenSocketsEmpty: '這台電腦上沒有可連線的容器或代理 socket。',
+    violations: '已封鎖',
+    violationsLinux:
+      '沙箱拒絕的連線。Unix socket 關閉時，也會列出寫入可寫入資料夾以外位置的嘗試。Linux 不會回報被封鎖的讀取。資料只保留在記憶體中，直到 Pine 結束。',
+    violationsMac:
+      '沙箱拒絕的連線，以及 macOS 回報為拒絕的操作。資料只保留在記憶體中，直到 Pine 結束。',
+    violationsEmpty: '沒有被封鎖的項目。',
+    violationsClear: '清除',
+    violationCount: '{count} 次 · {time}',
+    violationKinds: {
+      network: '網路',
+      write: '寫入',
+      read: '讀取',
+      other: '其他',
+    },
+    violationReasons: {
+      'not-allowed': '不在允許清單中',
+      blocked: '在封鎖清單中',
+      refused: '你已拒絕',
+      address: '解析到被拒絕的位址',
+      request: '請求被拒絕',
+      outside: '位於可寫入資料夾之外',
+      'read-only': '位於唯讀路徑',
+      other: '',
+    },
+    folderTitle: '此資料夾無法放入沙箱',
+    folderReasons: {
+      home: '{folder} 是你的家目錄。沙箱會隱藏家目錄，因此無法限制本身就是家目錄的工作區。',
+      'above-home': '{folder} 包含你的家目錄。沙箱會隱藏家目錄，因此無法限制包含它的工作區。',
+      'pine-data': '{folder} 內有 Pine 自己的資料，沙箱必須將其隱藏。',
+    },
+    folderAdvice: '請改以專案資料夾開啟工作區，再將它放入沙箱。',
+    folderClose: '關閉',
     errors: {
       empty: '請輸入內容。',
       invalid: '不是有效的主機名稱。',
@@ -1927,6 +2073,10 @@ export const zhHant: Dict = {
       'too-broad': '這會開放整個磁碟或家目錄。',
       'pine-data': 'Pine 自己的資料夾永遠保持隱藏。',
       missing: '該路徑不存在。',
+      pattern: '請使用不含 * ? [ ] { } 的一般路徑。',
+      protected: 'Pine 會保持該路徑關閉：其中有 Pine 的 socket、代理 socket 或受保護的檔案。',
+      'too-long': '該路徑太長。',
+      'too-many': '清單已滿。',
       'package-key': '請使用 ecosystem:name，例如 npm:left-pad。',
     },
     secrets: '機密',

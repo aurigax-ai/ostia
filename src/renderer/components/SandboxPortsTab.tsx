@@ -70,7 +70,6 @@ export function SandboxPortsTab({ workspaceId }: { workspaceId: string }): JSX.E
 
   return (
     <fieldset aria-label={d.sandbox.ports} className="mb-4">
-      <p className="mb-2 text-fg-muted text-ui-sm">{d.sandbox.portsDesc}</p>
       {rows.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.sandbox.portsEmpty}</p>
       ) : (

@@ -1,5 +1,7 @@
 import type { ApprovalOutcome } from '../../shared/approvals'
-import { type DomainRefusal, checkDomainPattern } from '../../shared/sandbox'
+import { type DomainRefusal, checkDomainPattern, hostMatches } from '../../shared/sandbox'
+
+const WEB_PORT = 443
 
 export interface DomainAsk {
   workspaceId: string
@@ -10,6 +12,7 @@ export interface DomainAsk {
 
 export interface DomainRequestsDeps {
   isSandboxed: (workspaceId: string) => boolean
+  blockedDomains?: (workspaceId: string) => readonly string[]
   ask: (ask: DomainAsk) => Promise<ApprovalOutcome>
   allowWorkspace: (workspaceId: string, domain: string) => void
   allowUntilRestart: (workspaceId: string, domain: string) => void
@@ -31,8 +34,15 @@ export class DomainRequests {
     const checked = checkDomainPattern(host)
     if (!checked.ok) return { ok: false, error: 'invalid-domain', reason: checked.reason }
     if (!this.deps.isSandboxed(workspaceId)) return { ok: false, error: 'not-sandboxed' }
+    if (this.isBlocked(workspaceId, checked.domain)) return { ok: false, error: 'denied' }
     const allowed = await this.decide(workspaceId, checked.domain, 'agent', paneId)
     return allowed ? { ok: true, domain: checked.domain } : { ok: false, error: 'denied' }
+  }
+
+  private isBlocked(workspaceId: string, domain: string): boolean {
+    const blocked = this.deps.blockedDomains?.(workspaceId) ?? []
+    const [host, port] = domain.replace(/^\*\./, '').split(':')
+    return hostMatches(host, port ? Number(port) : WEB_PORT, blocked)
   }
 
   onBlocked(workspaceId: string, host: string, _port?: number): Promise<boolean> {

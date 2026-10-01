@@ -153,6 +153,7 @@ import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
+import { ViolationLog, recordViolations } from './sandbox/violations'
 import { type SandboxReadRules, sandboxEntries, sandboxPath } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
@@ -226,6 +227,7 @@ interface PtyEntry {
   workspaceId: string
   sandboxed: boolean
   shell: string
+  sandboxStamp: string | null
   confinedBy: string | null
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
@@ -495,7 +497,16 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
     domainRequests.onBlocked(workspaceSandboxes.owner(workspaceId), host, port),
   onPackageBlocked: (workspaceId, pkg, reason) =>
     packageRequests.blocked(workspaceSandboxes.owner(workspaceId), pkg, reason),
+  onViolations: (workspaceId, lines) =>
+    recordViolations(
+      sandboxViolations,
+      (path) => workspaceSandboxes.writeRefusal(workspaceId, path),
+      workspaceSandboxes.owner(workspaceId),
+      lines,
+    ),
 })
+
+const sandboxViolations = new ViolationLog()
 
 function paneForWorkspace(workspaceId: string): string | undefined {
   for (const [paneId, entry] of ptys) {
@@ -506,6 +517,7 @@ function paneForWorkspace(workspaceId: string): string | undefined {
 
 const domainRequests: DomainRequests = new DomainRequests({
   isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+  blockedDomains: (workspaceId) => workspaceSandboxes.resolved(workspaceId).deniedDomains,
   ask: async ({ workspaceId, paneId, host, origin }) => {
     const pane = paneId ? getByPaneId(paneId) : undefined
     const identity = pane ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
@@ -690,7 +702,11 @@ const browserFence = new BrowserFence({
   policy: (workspaceId) => {
     if (!workspaceId || !workspaceSandboxes.isEnabled(workspaceId)) return null
     const resolved = workspaceSandboxes.resolved(workspaceId)
-    return { browser: resolved.controls.browser, domains: resolved.domains }
+    return {
+      browser: resolved.controls.browser,
+      domains: resolved.domains,
+      denied: resolved.deniedDomains,
+    }
   },
   requestDomain: async (workspaceId, host) =>
     (await domainRequests.request(workspaceId, '', host)).ok,
@@ -1199,6 +1215,7 @@ function forgetWorkspaceRequests(workspaceId: string): void {
 
 function forgetSandboxRuntime(workspaceId: string): void {
   workspaceSandboxes.forget(workspaceId)
+  sandboxViolations.clear(workspaceId)
   workspaceAgents.stop(workspaceId)
   secretService.forget(workspaceId)
 }
@@ -1244,10 +1261,7 @@ function registerPtyIpc(): void {
     missing: () => missingRequirements(SANDBOX_FEATURE),
     domains: domainRequests,
     ports: portRequests,
-    readPathEnv: () => ({
-      home: homedir(),
-      dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
-    }),
+    violations: sandboxViolations,
     refreshAll: () => workspaceSandboxes.refreshAll(),
   })
   registerSystemRequirementsIpc({
@@ -1309,6 +1323,7 @@ function registerPtyIpc(): void {
         cursor,
         dropped,
         sandboxed: existing.sandboxed,
+        ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),
         cols: existing.pty.cols,
         rows: existing.pty.rows,
       }
@@ -1359,6 +1374,7 @@ function registerPtyIpc(): void {
       ...PTY_COLOR_ENV,
     } as Record<string, string>
     let secretNotice = ''
+    let sandboxStamp: string | null = null
     let file = shell
     let args = integration.args
     let cwd = resolveCwd(opts.cwd)
@@ -1375,6 +1391,7 @@ function registerPtyIpc(): void {
           'bash',
           [stateFile],
         )
+        sandboxStamp = workspaceSandboxes.wrapStamp(workspaceId)
         file = '/bin/sh'
         args = ['-c', wrapForTerminal(wrapped, terminalInjectionOff())]
         env = {
@@ -1386,7 +1403,7 @@ function registerPtyIpc(): void {
           ...secrets.env,
         }
         env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
-        cwd = sandboxCwd(cwd, workDirForWorkspace(workspaceId))
+        cwd = sandboxCwd(cwd, workspaceSandboxes.workDir(workspaceId))
       } catch (err) {
         const missing = err instanceof SandboxUnavailableError ? err.missing : []
         onSandboxSpawnFailure?.(workspaceId, missing)
@@ -1417,6 +1434,7 @@ function registerPtyIpc(): void {
       workspaceId,
       sandboxed,
       shell,
+      sandboxStamp,
     })
     const { session } = entry
     if (sandboxed) {
@@ -1435,7 +1453,15 @@ function registerPtyIpc(): void {
     pty.onExit(({ exitCode }) => session.exit(exitCode))
     const { data, cursor, dropped } = session.since(0)
     session.addLiveSubscriber(mkSub())
-    return { created: true, buffer: data, cursor, dropped, sandboxed, host }
+    return {
+      created: true,
+      buffer: data,
+      cursor,
+      dropped,
+      sandboxed,
+      host,
+      ...(sandboxStamp ? { sandboxStamp } : {}),
+    }
   }
 
   ipcMain.on('pty:detach', (e, paneId: string) => {
@@ -1531,6 +1557,7 @@ function trackPty(
     workspaceId?: string
     sandboxed?: boolean
     shell?: string
+    sandboxStamp?: string | null
   },
 ): PtyEntry {
   const spawnedAt = Date.now()
@@ -1586,6 +1613,7 @@ function trackPty(
     workspaceId: opts.workspaceId ?? '',
     sandboxed: opts.sandboxed ?? false,
     shell: opts.shell ?? '',
+    sandboxStamp: opts.sandboxStamp ?? null,
     confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
   }
   ptys.set(paneId, entry)

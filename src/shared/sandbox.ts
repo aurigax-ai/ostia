@@ -5,6 +5,32 @@ export interface SandboxControls {
   browser: 'allowlist' | 'unrestricted'
 }
 
+export interface SandboxSwitches {
+  unixSockets: boolean
+  gitConfig: boolean
+  strictDomains: boolean
+}
+
+export const SANDBOX_SWITCHES = ['unixSockets', 'gitConfig', 'strictDomains'] as const
+
+export const DEFAULT_SWITCHES: SandboxSwitches = {
+  unixSockets: true,
+  gitConfig: false,
+  strictDomains: false,
+}
+
+export const SANDBOX_PATH_KINDS = [
+  'allowRead',
+  'allowWrite',
+  'denyRead',
+  'denyWrite',
+  'allowSockets',
+] as const
+export type SandboxPathKind = (typeof SANDBOX_PATH_KINDS)[number]
+
+export const SANDBOX_LIST_MAX = 200
+export const SANDBOX_PATH_MAX = 1024
+
 export const PORTS_POLICIES = ['ask', 'allow', 'deny'] as const
 export type PortsPolicy = (typeof PORTS_POLICIES)[number]
 
@@ -27,8 +53,14 @@ export type WorkspacePackages = Partial<PackageSettings> & { allowances?: string
 export interface WorkspaceSandbox {
   enabled: boolean
   allowRead: string[]
+  allowWrite?: string[]
+  denyRead?: string[]
+  denyWrite?: string[]
   domains: string[]
+  deniedDomains?: string[]
+  allowSockets?: string[]
   controls: Partial<SandboxControls>
+  switches?: Partial<SandboxSwitches>
   ports?: PortsPolicy
   secrets?: SecretGrant[]
   packages?: WorkspacePackages
@@ -36,8 +68,14 @@ export interface WorkspaceSandbox {
 
 export interface SandboxGlobals {
   allowRead: string[]
+  allowWrite?: string[]
+  denyRead?: string[]
+  denyWrite?: string[]
   allowedDomains: string[]
+  deniedDomains?: string[]
+  allowSockets?: string[]
   controls: SandboxControls
+  switches?: SandboxSwitches
   portsPolicy?: PortsPolicy
   packages?: PackageSettings
 }
@@ -56,15 +94,73 @@ export interface DomainRefusal {
   last: number
 }
 
+export interface SandboxEditError {
+  value: string
+  reason: string
+}
+
 export type SandboxEditResult =
   | { ok: true; settings: WorkspaceSandbox }
-  | { ok: false; errors: { value: string; reason: string }[] }
+  | { ok: false; errors: SandboxEditError[] }
 
 export interface ResolvedSandbox {
   allowRead: string[]
+  allowWrite: string[]
+  denyRead: string[]
+  denyWrite: string[]
   domains: string[]
+  deniedDomains: string[]
+  allowSockets: string[]
   controls: SandboxControls
+  switches: SandboxSwitches
   portsPolicy: PortsPolicy
+}
+
+export interface SandboxFixedPolicy {
+  readable: string[]
+  writable: string[]
+  hidden: string[]
+  readOnly: string[]
+  hiddenSockets: string[]
+  socketBlocking: boolean
+}
+
+export const SANDBOX_FOLDER_PROBLEMS = ['home', 'above-home', 'pine-data'] as const
+export type SandboxFolderReason = (typeof SANDBOX_FOLDER_PROBLEMS)[number]
+
+export interface SandboxFolderProblem {
+  folder: string
+  reason: SandboxFolderReason
+}
+
+export type SandboxEnableResult =
+  | { ok: true; settings: WorkspaceSandbox }
+  | { ok: false; reason: 'not-owned' | 'missing-programs' }
+  | { ok: false; reason: 'folder'; problem: SandboxFolderProblem }
+
+export type SandboxViolationKind = 'network' | 'write' | 'read' | 'other'
+
+export const SANDBOX_VIOLATION_REASONS = [
+  'not-allowed',
+  'blocked',
+  'refused',
+  'address',
+  'request',
+  'outside',
+  'read-only',
+  'other',
+] as const
+export type SandboxViolationReason = (typeof SANDBOX_VIOLATION_REASONS)[number]
+
+export interface SandboxViolation {
+  id: string
+  kind: SandboxViolationKind
+  target: string
+  reason: SandboxViolationReason
+  detail: string
+  count: number
+  last: number
+  allowHost?: string
 }
 
 export const DEFAULT_CONTROLS: SandboxControls = { allWorkspaces: false, browser: 'allowlist' }
@@ -159,8 +255,14 @@ export function resolveSandbox(
 ): ResolvedSandbox {
   return {
     allowRead: union(globals.allowRead, workspace.allowRead),
+    allowWrite: union(globals.allowWrite ?? [], workspace.allowWrite ?? []),
+    denyRead: union(globals.denyRead ?? [], workspace.denyRead ?? []),
+    denyWrite: union(globals.denyWrite ?? [], workspace.denyWrite ?? []),
     domains: union(union(globals.allowedDomains, workspace.domains), sessionDomains),
+    deniedDomains: union(globals.deniedDomains ?? [], workspace.deniedDomains ?? []),
+    allowSockets: union(globals.allowSockets ?? [], workspace.allowSockets ?? []),
     controls: { ...globals.controls, ...workspace.controls },
+    switches: { ...DEFAULT_SWITCHES, ...globals.switches, ...workspace.switches },
     portsPolicy: workspace.ports ?? globals.portsPolicy ?? 'ask',
   }
 }
@@ -219,13 +321,49 @@ function parseControls(value: unknown): Partial<SandboxControls> | null {
   return out
 }
 
+export function parseSwitches(value: unknown): Partial<SandboxSwitches> | null {
+  if (value === undefined) return {}
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const raw = value as Record<string, unknown>
+  const out: Partial<SandboxSwitches> = {}
+  for (const key of SANDBOX_SWITCHES) {
+    if (raw[key] === undefined) continue
+    if (typeof raw[key] !== 'boolean') return null
+    out[key] = raw[key]
+  }
+  return out
+}
+
+const OPTIONAL_LISTS = [
+  'allowWrite',
+  'denyRead',
+  'denyWrite',
+  'deniedDomains',
+  'allowSockets',
+] as const
+
+function optionalLists(
+  raw: Record<string, unknown>,
+): Partial<Record<(typeof OPTIONAL_LISTS)[number], string[]>> | null {
+  const out: Partial<Record<(typeof OPTIONAL_LISTS)[number], string[]>> = {}
+  for (const key of OPTIONAL_LISTS) {
+    const list = stringList(raw[key] ?? [])
+    if (!list) return null
+    if (list.length > 0) out[key] = list
+  }
+  return out
+}
+
 export function parseWorkspaceSandbox(value: unknown): WorkspaceSandbox | null {
   if (typeof value !== 'object' || value === null) return null
   const raw = value as Record<string, unknown>
   const allowRead = stringList(raw.allowRead ?? [])
   const domains = stringList(raw.domains ?? [])
   const controls = parseControls(raw.controls)
+  const lists = optionalLists(raw)
+  const switches = parseSwitches(raw.switches)
   if (typeof raw.enabled !== 'boolean' || !allowRead || !domains || !controls) return null
+  if (!lists || !switches) return null
   if (raw.ports !== undefined && !PORTS_POLICIES.includes(raw.ports as PortsPolicy)) return null
   const secrets = parseSecretGrants(raw.secrets)
   if (!secrets) return null
@@ -236,6 +374,8 @@ export function parseWorkspaceSandbox(value: unknown): WorkspaceSandbox | null {
     allowRead,
     domains,
     controls,
+    ...lists,
+    ...(Object.keys(switches).length === 0 ? {} : { switches }),
     ...(raw.ports === undefined ? {} : { ports: raw.ports as PortsPolicy }),
     ...(secrets.length === 0 ? {} : { secrets }),
     ...(packages === undefined ? {} : { packages }),
@@ -248,8 +388,14 @@ export function parseSandboxGlobals(value: unknown): SandboxGlobals {
   const controls = parseControls(raw.controls) ?? {}
   return {
     allowRead: stringList(raw.allowRead) ?? DEFAULT_SANDBOX_GLOBALS.allowRead,
+    allowWrite: stringList(raw.allowWrite) ?? [],
+    denyRead: stringList(raw.denyRead) ?? [],
+    denyWrite: stringList(raw.denyWrite) ?? [],
     allowedDomains: stringList(raw.allowedDomains) ?? DEFAULT_SANDBOX_GLOBALS.allowedDomains,
+    deniedDomains: stringList(raw.deniedDomains) ?? [],
+    allowSockets: stringList(raw.allowSockets) ?? [],
     controls: { ...DEFAULT_SANDBOX_GLOBALS.controls, ...controls },
+    switches: { ...DEFAULT_SWITCHES, ...(parseSwitches(raw.switches) ?? {}) },
     packages: parsePackageSettings(raw.packages) ?? DEFAULT_PACKAGE_SETTINGS,
     portsPolicy: PORTS_POLICIES.includes(raw.portsPolicy as PortsPolicy)
       ? (raw.portsPolicy as PortsPolicy)

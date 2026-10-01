@@ -37,6 +37,32 @@ function withFirewall(config: SandboxRuntimeConfig): SandboxRuntimeConfig {
   }
 }
 
+const VIOLATION_FLUSH_MS = 200
+const VIOLATIONS_PER_FLUSH = 50
+
+let reported = 0
+let queued: string[] = []
+let flushTimer: NodeJS.Timeout | null = null
+
+function flushViolations(): void {
+  flushTimer = null
+  const lines = queued.slice(-VIOLATIONS_PER_FLUSH)
+  queued = []
+  if (lines.length > 0) send({ type: 'violations', lines })
+}
+
+function reportViolations(): void {
+  const store = SandboxManager.getSandboxViolationStore()
+  store.subscribe((violations) => {
+    const total = store.getTotalCount()
+    const fresh = Math.min(total - reported, violations.length)
+    reported = total
+    if (fresh <= 0) return
+    queued.push(...violations.slice(-fresh).map((v) => v.line))
+    flushTimer ??= setTimeout(flushViolations, VIOLATION_FLUSH_MS)
+  })
+}
+
 const pendingAsks = new Map<number, (allow: boolean) => void>()
 let askSeq = 0
 
@@ -67,9 +93,12 @@ async function handle(message: MainToHost): Promise<void> {
         return
       }
       packagePolicy = message.packages ?? null
-      await SandboxManager.initialize(withFirewall(message.config), ({ host, port }) =>
-        ask(host, port),
+      await SandboxManager.initialize(
+        withFirewall(message.config),
+        ({ host, port }) => ask(host, port),
+        true,
       )
+      reportViolations()
       send({ id, ok: true })
     } else if (message.type === 'wrap') {
       const wrapped = await SandboxManager.wrapWithSandbox(

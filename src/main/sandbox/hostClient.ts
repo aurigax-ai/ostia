@@ -23,6 +23,7 @@ export interface SandboxHostDeps {
   onAsk: (host: string, port: number | undefined) => Promise<boolean>
   onExit?: () => void
   onPackageBlocked?: (pkg: PackageRef, reason: PackageBlockReason) => void
+  onViolations?: (lines: string[]) => void
 }
 
 export class SandboxHost {
@@ -104,6 +105,12 @@ export class SandboxHost {
   private onMessage(message: HostToMain): void {
     if ('type' in message && message.type === 'package-blocked') {
       this.deps.onPackageBlocked?.(message.pkg, message.reason)
+      return
+    }
+    if ('type' in message && message.type === 'violations') {
+      if (Array.isArray(message.lines)) {
+        this.deps.onViolations?.(message.lines.filter((line) => typeof line === 'string'))
+      }
       return
     }
     if ('type' in message) {
