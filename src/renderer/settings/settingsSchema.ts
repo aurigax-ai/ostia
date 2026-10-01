@@ -597,7 +597,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description:
             'Ctrl/Cmd+click on a web link in a terminal opens it in Pine’s browser pane instead of ' +
-            'the system browser. Default: false.',
+            'the system browser; with Shift as well, the other way for that click. Default: false.',
         },
         defaultZoom: {
           type: 'number',
