@@ -58,16 +58,19 @@ export function filterSessions(
 export function ChatSessions({
   workspaceId,
   sessionId,
+  open,
+  onOpenChange: setOpen,
 }: {
   workspaceId: string | null
   sessionId: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }): JSX.Element {
   const d = useDict()
   const locale = useSettingsStore((s) => s.locale)
   const recording = useSettingsStore((s) => s.assistant.chatHistory)
   const title = useChatStore((s) => s.meta[sessionId]?.title) || d.chat.untitled
   const summaries = useChatStore((s) => s.summaries)
-  const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<ChatSessionSummary | null>(null)
