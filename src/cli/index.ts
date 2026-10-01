@@ -1,6 +1,6 @@
 #!/usr/bin/env node
+import { statSync } from 'node:fs'
 import { type Socket, createConnection } from 'node:net'
-import { resolve as resolvePath } from 'node:path'
 import {
   type MessageConnection,
   StreamMessageReader,
@@ -8,9 +8,11 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../shared/agentResume'
+import type { OpenFilesResult } from '../shared/openFiles'
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runBrowse } from './browse'
+import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
 import { runPortalCommand } from './portal'
 import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
@@ -383,6 +385,49 @@ const CORE_VERBS = new Set([
   'workflow',
   'view',
 ])
+
+const FILE_PROBE: FileProbe = {
+  cwd: process.cwd(),
+  isFile: (path) => {
+    try {
+      return statSync(path).isFile()
+    } catch {
+      return false
+    }
+  },
+}
+
+async function opensAsFile(conn: MessageConnection, word: string): Promise<boolean> {
+  const kind = fileWord(word, FILE_PROBE)
+  if (kind !== 'name') return kind === 'path'
+  const [extensions, commands] = await Promise.all([
+    conn.sendRequest<{ id: string }[]>('ext.list').catch(() => []),
+    conn.sendRequest<{ id: string }[]>('command.list').catch(() => []),
+  ])
+  return !isClaimedWord(word, {
+    extensionIds: extensions.map((e) => e.id),
+    commandIds: commands.map((c) => c.id),
+  })
+}
+
+async function runOpenFiles(conn: MessageConnection, args: string[]): Promise<void> {
+  if (args.length === 0) {
+    console.error('pine open: missing <path>')
+    process.exitCode = 1
+    return
+  }
+  const files = args.map((arg) => parseFileArg(arg, FILE_PROBE))
+  const res = await conn.sendRequest<OpenFilesResult>('file.open', { files })
+  if (!res.ok) {
+    console.error(`pine open: ${res.message}`)
+    process.exitCode = 1
+    return
+  }
+  const refused = res.results.flatMap((r) => (r.ok ? [] : [refusalLine(r.path, r.error)]))
+  for (const line of refused) console.error(line)
+  if (refused.length > 0) process.exitCode = 1
+  else console.log('ok')
+}
 
 interface BusOk {
   ok: true
@@ -1070,7 +1115,7 @@ commands:
   workflow list [--json] | show <name> [--json]   saved command workflows (read-only)
   view list [--json] | open <name>   declarative views (~/.config/pine/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
-  open <path>
+  <file>... | open <file>...   show files in Pine's viewer, any path (file:line[:col] jumps)
   process | vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. pine git status
@@ -1102,6 +1147,15 @@ async function main(): Promise<void> {
     return
   }
   if (!socketPath) {
+    if (
+      cmd &&
+      fileWord(cmd, FILE_PROBE) === 'path' &&
+      FILE_PROBE.isFile(parseFileArg(cmd, FILE_PROBE).path)
+    ) {
+      console.error('pine: files open from a terminal inside Pine (PINE_SOCKET unset)')
+      process.exitCode = 1
+      return
+    }
     process.exitCode = await runPortalCommand(process.argv.slice(2), {
       stdin: process.stdin,
       stdout: process.stdout,
@@ -1175,22 +1229,7 @@ async function main(): Promise<void> {
     } else if (cmd === 'view') {
       await runViewVerb(conn, process.argv.slice(3))
     } else if (cmd === 'open') {
-      const arg = process.argv[3]
-      if (!arg) {
-        console.error('pine open: missing <path>')
-        process.exitCode = 1
-        return
-      }
-      const res = await conn.sendRequest<CommandResult>('command.exec', {
-        id: 'editor.open',
-        args: { path: resolvePath(process.cwd(), arg) },
-      })
-      if (res.ok) {
-        console.log('ok')
-      } else {
-        console.error('pine:', res.error?.message)
-        process.exitCode = 1
-      }
+      await runOpenFiles(conn, process.argv.slice(3))
     } else if (cmd === 'docs') {
       const res = await conn.sendRequest<{ cli: string }>('docs')
       console.log(res.cli)
@@ -1205,6 +1244,8 @@ async function main(): Promise<void> {
     } else if (cmd === 'ext') {
       if (process.argv[3] === 'ls') await runExtList(conn)
       else await runExtCommand(conn, process.argv[3], process.argv[4], process.argv.slice(5))
+    } else if (cmd && !CORE_VERBS.has(cmd) && (await opensAsFile(conn, cmd))) {
+      await runOpenFiles(conn, process.argv.slice(2))
     } else if (cmd && !cmd.includes('.') && !CORE_VERBS.has(cmd)) {
       await runExtCommand(conn, cmd, process.argv[3], process.argv.slice(4))
     } else if (cmd === 'manager') {

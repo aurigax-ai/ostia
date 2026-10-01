@@ -1,5 +1,6 @@
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
+import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
@@ -20,6 +21,7 @@ import { requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
+import { openRequestedFiles } from '../lib/openFile'
 import { isStaleAgentReport } from '../lib/paneAgent'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
@@ -676,6 +678,21 @@ export function registerBuiltinCommands(): void {
     run: ({ path }, ctx) => {
       if (ctx.activeWorkspaceId && path)
         useLayoutStore.getState().openFile(ctx.activeWorkspaceId, path)
+    },
+  })
+
+  commands.register<{ files?: unknown }>({
+    id: OPEN_FILES_COMMAND,
+    title: 'Open Files',
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'active',
+    run: (args, ctx) => {
+      const files = parseFileTargets(args?.files)
+      if (!files) throw new Error('expected files: [{ path, line?, column? }]')
+      if (ctx.activeWorkspaceId) {
+        openRequestedFiles(ctx.activeWorkspaceId, files, ctx.activePaneId ?? undefined)
+      }
     },
   })
 

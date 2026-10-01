@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { type FSWatcher, existsSync, readFileSync, watch } from 'node:fs'
 import { basename, dirname } from 'node:path'
-import { resolveSafe } from './pathGuard'
 
 export interface FileChange {
   path: string
@@ -10,7 +9,7 @@ export interface FileChange {
 }
 
 export interface FileWatchesDeps {
-  roots: string[]
+  confine: (path: string) => string | null
   debounceMs: number
   onChange: (change: FileChange) => void
 }
@@ -36,7 +35,7 @@ export class FileWatches {
   constructor(private readonly deps: FileWatchesDeps) {}
 
   watch(owner: string, path: string): boolean {
-    const safe = resolveSafe(path, this.deps.roots)
+    const safe = this.deps.confine(path)
     if (safe === null) return false
     const dir = dirname(safe)
     let entry = this.dirs.get(dir)
@@ -62,7 +61,7 @@ export class FileWatches {
   }
 
   unwatch(owner: string, path: string): void {
-    const safe = resolveSafe(path, this.deps.roots)
+    const safe = this.deps.confine(path)
     if (safe === null) return
     const dir = dirname(safe)
     const entry = this.dirs.get(dir)
