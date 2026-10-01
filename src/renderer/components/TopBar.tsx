@@ -13,7 +13,9 @@ import { useChordLabel } from '../lib/chords'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { isMac } from '../platform'
 import { useUIStore } from '../stores/uiStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { AssistantMenu } from './AssistantMenu'
+import { WorkspaceChips } from './ExtensionChips'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { DropdownMenu, MenuItem } from './Menu'
@@ -33,6 +35,7 @@ export function TopBar(): JSX.Element {
   const filesOpen = useUIStore((s) => s.filesOpen)
   const toggleFiles = useUIStore((s) => s.toggleFiles)
   const paletteKeys = useChordLabel('palette.toggle', isMac)
+  const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
 
   return (
     <header className="topbar drag-region">
@@ -82,6 +85,7 @@ export function TopBar(): JSX.Element {
       </div>
 
       <div className="topbar-right">
+        <WorkspaceChips workspaceId={activeWorkspaceId} />
         <UpdateNotice />
         <IconButton
           size="bar"

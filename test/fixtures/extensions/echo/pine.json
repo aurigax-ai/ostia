@@ -32,6 +32,7 @@
     "sidebarItems": true,
     "panel": { "title": "Echo", "entry": "url" },
     "paneChips": [{ "id": "status", "title": "Echo status" }],
+    "workspaceChips": [{ "id": "repo", "title": "Echo repo" }],
     "settings": {
       "greeting": { "type": "string", "default": "hi", "description": "What echo says" },
       "count": { "type": "number", "default": 3, "description": "How many times" },

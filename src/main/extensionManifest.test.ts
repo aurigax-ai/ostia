@@ -58,6 +58,7 @@ describe('parseManifest', () => {
           sidebarItems: true,
           panel: { title: 'Demo', icon: 'puzzle', entry: 'ui/panel.html' },
           paneChips: [],
+          workspaceChips: [],
           settings: [],
           assist: [],
           secrets: [],

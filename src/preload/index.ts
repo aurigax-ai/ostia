@@ -34,6 +34,7 @@ import type {
   ExtensionSettingsStored,
   ExtensionSidebarItem,
   PaneChip,
+  WorkspaceChip,
 } from '../shared/extensions'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
@@ -470,6 +471,8 @@ const bridge: PineBridge = {
       ipcRenderer.invoke('extensions:panel', extId, context) as Promise<ExtensionPanelSource>,
     sidebarItems: () => ipcRenderer.invoke('extensions:sidebar') as Promise<ExtensionSidebarItem[]>,
     paneChips: () => ipcRenderer.invoke('extensions:chips') as Promise<PaneChip[]>,
+    workspaceChips: () =>
+      ipcRenderer.invoke('extensions:workspace-chips') as Promise<WorkspaceChip[]>,
     setSetting: (extId, key, value) =>
       ipcRenderer.invoke(
         'extensions:set-setting',
@@ -498,6 +501,11 @@ const bridge: PineBridge = {
       const handler = (_e: unknown, chips: PaneChip[]): void => cb(chips)
       ipcRenderer.on('extensions:chips', handler)
       return () => ipcRenderer.removeListener('extensions:chips', handler)
+    },
+    onWorkspaceChips: (cb) => {
+      const handler = (_e: unknown, chips: WorkspaceChip[]): void => cb(chips)
+      ipcRenderer.on('extensions:workspace-chips', handler)
+      return () => ipcRenderer.removeListener('extensions:workspace-chips', handler)
     },
     onSettingsStored: (cb) => {
       const handler = (_e: unknown, update: ExtensionSettingsStored): void => cb(update)

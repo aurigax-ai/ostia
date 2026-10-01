@@ -164,6 +164,7 @@ describe('Pine prompt in the input editor', () => {
             { id: 'branch', title: 'Git branch' },
             { id: 'dirty', title: 'Changes' },
           ],
+          workspaceChips: [],
           settings: [],
           settingValues: {},
           assist: [],
