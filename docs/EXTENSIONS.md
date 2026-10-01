@@ -354,6 +354,44 @@ pair, `--ease-out`, `--ease-in`), already multiplied by `--pine-motion-scale`: t
 transition with them and animate only opacity and transform (hover may change colors), so a
 panel follows Pine's motion rules and its reduced-motion setting (`docs/DESIGN.md` §8).
 
+### Resizable splits
+
+`splitter()` (`src/extensions/sdk/splitter.ts`, styles in `sdk/panel.css`) stacks two
+elements with a draggable divider between them, so the human sets how tall each part is:
+
+```ts
+import { splitter } from '../sdk/splitter'
+import { loadPanelSizes } from '../sdk/panel'
+
+await loadPanelSizes()
+const body = splitter({
+  key: 'list-details',
+  label: 'Resize details',
+  first: list,
+  second: details,
+  defaultFraction: 0.55,
+  minFirst: 96,
+  minSecond: 96,
+  collapseSecond: true,
+})
+```
+
+- The divider is a focusable `role="separator"` (`aria-orientation="horizontal"`,
+  `aria-valuenow|min|max` in percent of the height, `aria-label` from `label`). Drag it with the
+  pointer (captured, never selects text), move it 16px with ↑/↓, 64px with PageUp/PageDown, to
+  the minimum or maximum with Home/End; double-click resets it to `defaultFraction`.
+- Both minimums hold while the panel resizes. With `collapseSecond`, a panel too short for both
+  shrinks `second` to its own height (`.pine-split[data-collapsed]`; hide what shouldn't show,
+  e.g. everything but a header) and hides the divider. `first` never shrinks below its own
+  content when it isn't a scroll container, so content that grows (a textarea with
+  `field-sizing: content`) pushes the divider down.
+- Sizes are remembered per `key` as a fraction of the height, across reopen and restart:
+  `startPanelServer` keeps them in `$PINE_EXTENSION_DATA/panel-sizes.json` (64 keys of
+  `[A-Za-z0-9._-]`, values 0–1) and serves them at `/sizes` behind the panel secret;
+  `loadPanelSizes()` reads them once, before the first split is drawn. `localStorage` doesn't
+  work for this: the panel partition isn't persistent and its origin's port changes every run.
+- Nothing animates the layout: only the divider's highlight fades in (opacity).
+
 ## Lifecycle
 
 - Started on first use of a contribution (command, panel), or with the window if it contributes

@@ -34,6 +34,8 @@ import type {
   SidebarTone,
 } from '../../shared/extensions'
 import { SETTINGS_CHANGED_EVENT, TARGET_PANE_PARAM } from '../../shared/extensions'
+import { PANEL_SIZES_FILE, PanelSizeStore } from './panelSizes'
+import { PANEL_SIZES_PATH } from './split'
 
 export type {
   DiffContent,
@@ -500,6 +502,11 @@ export async function startPanelServer(opts: {
   handle: (command: string, args: unknown, caller: ExtensionCaller) => Promise<ExtensionResult>
 }): Promise<PanelServer> {
   const secret = randomBytes(24).toString('hex')
+  const sizes = new PanelSizeStore(
+    process.env.PINE_EXTENSION_DATA
+      ? join(process.env.PINE_EXTENSION_DATA, PANEL_SIZES_FILE)
+      : null,
+  )
   const streams = new Set<ServerResponse>()
   let port = 0
 
@@ -518,6 +525,24 @@ export async function startPanelServer(opts: {
       streams.add(res)
       req.on('close', () => streams.delete(res))
       return
+    }
+    if (url.pathname === PANEL_SIZES_PATH) {
+      if (req.headers['x-pine-panel'] !== secret) return send(res, 403, 'text/plain', 'forbidden')
+      if (req.method === 'GET')
+        return send(res, 200, 'application/json', JSON.stringify(sizes.all()))
+      if (req.method !== 'POST') return send(res, 405, 'text/plain', 'method not allowed')
+      try {
+        const body = JSON.parse(await readBody(req)) as { key?: unknown; fraction?: unknown }
+        if (!sizes.set(body.key, body.fraction ?? null)) throw new Error('key, fraction')
+        return send(res, 200, 'application/json', JSON.stringify(sizes.all()))
+      } catch (err) {
+        return send(
+          res,
+          400,
+          'application/json',
+          JSON.stringify(failure('bad-request', errorMessage(err))),
+        )
+      }
     }
     if (req.method === 'POST' && url.pathname === '/api') {
       if (req.headers['x-pine-panel'] !== secret) return send(res, 403, 'text/plain', 'forbidden')

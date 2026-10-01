@@ -392,6 +392,13 @@ Attention, the second loud element, appears only when a pane needs you:
   are `fg`, 600 and underlined (never color alone). The vim badge sits at the
   right end of the line. It appears and disappears without animation (§8 Motion).
 
+- **Panel splitter** (extension panels, `sdk/splitter.ts`): stacked regions in a panel (a list
+  over its details, a commit box over its files) are split by one 1px `--line-strong` divider,
+  never a fixed height. Its hit area is 9px tall and `row-resize`; on hover, focus or drag a 3px
+  `--brand` line fades in (opacity, `--motion-fast`). It is a keyboard separator (↑/↓ 16px,
+  PageUp/PageDown 64px, Home/End, double-click resets) and remembers its size per panel. A
+  details region that can't fit collapses to its header; the divider hides.
+
 - **Declarative views** (`DeclarativeView.tsx`): an agent's JSON is drawn only with these
   components, so it can't look foreign. Sidebar views sit under the workspaces in `.rail-views`
   (a `--line` rule above), each headed like `.rail-section` (`ui-xs`/500 uppercase `fg-muted`,
