@@ -107,6 +107,17 @@ Details: `docs/ARCHITECTURE.md`.
 - **The pty lives in main, keyed by pane id**, and outlives renderer remounts. `pty:attach`
   re-binds and replays a capped buffer; `pty:detach` keeps it alive for `DETACH_GRACE_MS`, then
   reaps. pty lifecycle closures must check `ptys.get(paneId) === entry` before touching the map.
+  The grace timer asks `orphanVerdict` (`main/ptyReaper.ts`) and kills only through
+  `killPty(paneId, reason)`: never reap a pty whose window is recovering (a render error, a
+  reload, a crashed renderer; up to `RECOVERY_GRACE_MS`) or that `finishRecovery` holds for a
+  pane the reloaded window still lists. A new kill path passes a reason and goes through
+  `killPty`, so `main.log` records it.
+- **Diagnostics never log what the user sees or types.** `main/appLog.ts` writes event fields
+  only; free text goes through `redactSecrets` and is clipped. Never log terminal output, pty
+  input, env, tokens or settings values. Renderer reports reach main only over
+  `diagnostics:report`, validated and rate-limited (`main/rendererReports.ts`). The app error
+  boundary and the per-surface boundaries stay; a new surface kind renders inside
+  `SurfaceErrorBoundary` (`SurfacePool.tsx`).
 - **Tabs are a leaf slot, never a split.** A `tabs` node holds only panes and shows `activeId`;
   splits and edge drops act on the whole stack, a center drop adds a tab, one tab left collapses
   back to a pane. Whatever sets `activePaneId` also shows that tab (`patch` in `layoutStore`
@@ -671,6 +682,15 @@ Details: `docs/ARCHITECTURE.md`.
 - **The input editor's root is transparent.** Only `.input-editor-line` and
   `.input-editor-chips` paint the terminal background; a background on the full-pane root hid
   every line of output.
+- **A cleanup that throws takes the whole window down** (React 18). Closing a diff tab ran
+  `DiffView`'s effects' cleanups in declaration order: the editor effect disposed the diff
+  editor, then the model effect called `setModel(null)` on it, which threw ("InstantiationService
+  has been disposed"). No boundary catches an error from a pane being removed except one above
+  it, so the root unmounted, every terminal detached and main reaped every pty 3 s later
+  (v0.0.9: blank window, no shells, `scrollback.json` `{}`). An effect cleanup must not touch an
+  object another effect's cleanup may already have disposed: check it is still current
+  (`diffRef.current === diff`). Recovery now keeps the ptys (§4), but the window still has to
+  reload.
 - **OSC 7 is not percent-decoded**: hooks emit raw paths; decoding corrupts dirs like `100%20off`.
 - **Workspace restore is two files from two processes** (`workspaceSnapshot.ts`): the renderer
   autosaves `workspaces.json` as you work; main writes `scrollback.json` every 5 s when output
@@ -827,6 +847,12 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   It also runs a bash manager through `pine manager spawn|read|input` against a fake worker, with
   `manager.allowInput` off and on, and checks a worker pane is refused.
   `e2e/tray.spec.ts` covers close-to-tray.
+  `e2e/crash-recovery.spec.ts` forces a render error through the test hook (recovery screen,
+  shells outlive the grace, Reload window re-attaches the same shells, `main.log` entries), kills
+  the renderer process (main reloads it, same shell), and closes a diff tab next to terminals.
+  The log writer, redaction and rotation are in `src/main/appLog.test.ts`, report validation and
+  the rate limit in `src/main/rendererReports.test.ts`, the reap guard in
+  `src/main/ptyReaper.test.ts`, the boundaries in `AppErrorBoundary.test.tsx`.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,

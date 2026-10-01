@@ -61,6 +61,7 @@
     "cmdk": "^1.1.1",
     "culori": "^4.0.2",
     "diff": "^9.0.0",
+    "electron-log": "^5.4.4",
     "es-toolkit": "^1.52.0",
     "lru-cache": "^11.5.3",
     "monaco-editor": "^0.55.1",

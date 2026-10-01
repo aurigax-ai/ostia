@@ -1048,6 +1048,36 @@
   min-height: 0;
 }
 
+.app-recovery {
+  position: fixed;
+  inset: 0;
+  background: var(--surface-1);
+}
+
+.app-recovery-error {
+  max-width: 640px;
+  max-height: 160px;
+  overflow: auto;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.app-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
 .workzone-empty {
   position: absolute;
   inset: 0;

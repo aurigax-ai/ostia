@@ -7,6 +7,15 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     ping: vi.fn().mockResolvedValue('pong'),
     info: vi.fn().mockResolvedValue({ name: 'pine', version: '0.0.0', platform: 'linux' }),
     platform: 'linux',
+    diagnostics: {
+      report: vi.fn(),
+      ready: vi.fn(),
+      reloadWindow: vi.fn(),
+      toggleDevTools: vi.fn(),
+      openLogFolder: vi.fn().mockResolvedValue(true),
+      testHooks: vi.fn().mockResolvedValue(false),
+      onTestCrash: vi.fn(noopUnsub),
+    },
     window: {
       minimize: vi.fn(),
       toggleMaximize: vi.fn(),

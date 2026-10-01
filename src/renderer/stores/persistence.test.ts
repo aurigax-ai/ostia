@@ -2,7 +2,12 @@ import type { AppSnapshot } from '@shared/types'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetIds } from '../layout/tree'
 import { useLayoutStore } from './layoutStore'
-import { saveSnapshotNow, startSnapshotAutosave } from './persistence'
+import {
+  SAVE_DEBOUNCE_MS,
+  SAVE_MAX_WAIT_MS,
+  saveSnapshotNow,
+  startSnapshotAutosave,
+} from './persistence'
 import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
 
@@ -130,6 +135,22 @@ describe('workspace autosave', () => {
 
       vi.runAllTimers()
       expect(save()).toHaveBeenCalledTimes(1)
+    })
+
+    it('still writes while edits never pause, so a crashed renderer restores recent panes', () => {
+      vi.useFakeTimers()
+      stop = startSnapshotAutosave()
+      save().mockClear()
+      const sid = activeSid()
+      for (let i = 0; i < 40; i++) {
+        useLayoutStore.getState().setCwd(sid, activePane(sid), `/busy/${i}`)
+        vi.advanceTimersByTime(SAVE_DEBOUNCE_MS / 2)
+      }
+      const busyMs = (40 * SAVE_DEBOUNCE_MS) / 2
+      expect(save().mock.calls.length).toBeGreaterThanOrEqual(busyMs / SAVE_MAX_WAIT_MS - 1)
+      expect(lastSnapshot().workspaces[0].root).toMatchObject({
+        cwd: expect.stringMatching(/^\/busy\//),
+      })
     })
 
     it('persists what changed, not a stale copy', () => {

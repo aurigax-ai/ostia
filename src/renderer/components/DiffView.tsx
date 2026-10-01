@@ -66,7 +66,7 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
     const modified = monaco.editor.createModel(content.modified, language)
     diff.setModel({ original, modified })
     return () => {
-      diff.setModel(null)
+      if (diffRef.current === diff) diff.setModel(null)
       original.dispose()
       modified.dispose()
     }

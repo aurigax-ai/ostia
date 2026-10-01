@@ -590,6 +590,24 @@ export function registerBuiltinCommands(): void {
     run: () => window.pine.window.quit(),
   })
 
+  commands.register({
+    id: 'developer.toggleDevTools',
+    title: 'Toggle Developer Tools',
+    category: 'Developer',
+    target: 'none',
+    capabilities: ['destructive'],
+    run: () => window.pine.diagnostics.toggleDevTools(),
+  })
+
+  commands.register<undefined, { opened: boolean }>({
+    id: 'developer.openLogFolder',
+    title: 'Open Log Folder',
+    category: 'Developer',
+    target: 'none',
+    capabilities: ['drive-self'],
+    run: async () => ({ opened: await window.pine.diagnostics.openLogFolder() }),
+  })
+
   commands.register<{ path: string }>({
     id: 'editor.open',
     title: 'Open File',
