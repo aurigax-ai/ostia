@@ -7,7 +7,7 @@ import { TERMINAL_LINE_MAX } from '@shared/assist'
 import { LRUCache } from 'lru-cache'
 import type { CommandBlock } from '../stores/blocksStore'
 import { NATURAL_COMMAND_PATTERN } from './assistComposer'
-import type { ShownPaneChip } from './paneChips'
+import type { ShownChip } from './extensionChips'
 
 export const GHOST_DEBOUNCE_MS = 300
 export const GHOST_CACHE_MAX = 100
@@ -85,7 +85,7 @@ export function recentHistory(
     )
 }
 
-export function chipContext(chips: readonly ShownPaneChip[]): TerminalContextEntry[] {
+export function chipContext(chips: readonly ShownChip[]): TerminalContextEntry[] {
   return chips.map((c) => ({ label: c.title, text: c.text }))
 }
 

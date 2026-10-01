@@ -2,7 +2,7 @@ import { DEFAULT_PROMPT_SETTINGS } from '@shared/promptSettings'
 import type { PromptContext } from '@shared/types'
 import { describe, expect, it } from 'vitest'
 import type { CommandBlock } from '../stores/blocksStore'
-import type { ShownPaneChip } from './paneChips'
+import type { ShownChip } from './extensionChips'
 import {
   type CoreChipInputs,
   abbreviateHome,
@@ -18,7 +18,7 @@ import {
   spawnPromptOption,
 } from './promptChips'
 
-const shown = (patch: Partial<ShownPaneChip>): ShownPaneChip => ({
+const shown = (patch: Partial<ShownChip>): ShownChip => ({
   extId: 'git',
   id: 'branch',
   paneId: 'p1',

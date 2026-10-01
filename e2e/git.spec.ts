@@ -5,7 +5,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 
-test('a dirty repo shows in the sidebar and pane chips, opens a diff, commits, and shows the graph', async () => {
+test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, and shows the graph', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -32,7 +32,7 @@ test('a dirty repo shows in the sidebar and pane chips, opens a diff, commits, a
       win.locator('.rail-meta.location .ext-item').filter({ hasText: 'main' }),
     ).toContainText('main ~1', { timeout: 15_000 })
 
-    const chips = win.locator('.pane-header .pane-chip')
+    const chips = win.locator('.topbar-right .workspace-chips .pane-chip')
     await expect(chips.filter({ hasText: '1 • +1' })).toBeVisible({ timeout: 15_000 })
     const branchChip = chips.filter({ hasText: /^main$/ })
     await expect(branchChip).toBeVisible()

@@ -28,6 +28,7 @@ const extension = (patch: Partial<ExtensionInfo>): ExtensionInfo => ({
   commands: [],
   panel: null,
   paneChips: [],
+  workspaceChips: [],
   settings: [],
   settingValues: {},
   assist: [],

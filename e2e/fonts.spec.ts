@@ -128,7 +128,9 @@ test.describe('fonts follow the settings everywhere', () => {
         loaded: true,
       })
 
-      const branchChip = win.locator('.pane-header .pane-chip').filter({ hasText: /^main$/ })
+      const branchChip = win
+        .locator('.topbar-right .workspace-chips .pane-chip')
+        .filter({ hasText: /^main$/ })
       await expect(branchChip.first()).toBeVisible({ timeout: 15_000 })
       await branchChip.first().click()
       await expect

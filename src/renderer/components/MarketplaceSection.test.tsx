@@ -185,6 +185,7 @@ describe('Uninstall in the installed list', () => {
       commands: [],
       panel: null,
       paneChips: [],
+      workspaceChips: [],
       settings: [],
       settingValues: {},
       assist: [],
