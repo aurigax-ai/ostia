@@ -4,8 +4,10 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 
-test('a browser tab shows why a page failed, then loads a page and takes its title', async () => {
-  const server = createServer((_req, res) => {
+test('a browser tab shows why a page failed, then loads a page as plain Chrome and takes its title', async () => {
+  const agents: string[] = []
+  const server = createServer((req, res) => {
+    agents.push(req.headers['user-agent'] ?? '')
     res.setHeader('content-type', 'text/html')
     res.end('<title>Pine test page</title><h1>hello pine</h1>')
   })
@@ -33,6 +35,8 @@ test('a browser tab shows why a page failed, then loads a page and takes its tit
     await address.press('Enter')
     await expect(error).toHaveCount(0, { timeout: 15_000 })
     await expect(win.getByRole('tab', { name: /Pine test page/ })).toBeVisible({ timeout: 15_000 })
+    expect(agents[0]).toMatch(/Chrome\/\d+/)
+    expect(agents[0]).not.toMatch(/Electron|pine/i)
   } finally {
     await app.close()
     server.close()

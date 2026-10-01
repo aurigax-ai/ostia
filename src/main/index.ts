@@ -60,6 +60,7 @@ import {
 } from './browse'
 import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
 import { registerBrowserStorageIpc } from './browserStorage'
+import { browserUserAgent } from './browserUserAgent'
 import { registerBusMethods } from './bus'
 import { dropIdentity, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
@@ -917,6 +918,9 @@ function wireWindow(win: BrowserWindow): void {
   })
   win.webContents.on('did-attach-webview', (_e, guest) => {
     if (hardenExtensionGuest(guest)) return
+    const agent = browserUserAgent(guest.session.getUserAgent(), app.getName())
+    guest.session.setUserAgent(agent)
+    guest.setUserAgent(agent)
     instrumentBrowserGuest(guest)
     fenceBrowserGuest(guest)
     const wcId = guest.id
