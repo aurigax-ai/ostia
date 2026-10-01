@@ -200,6 +200,7 @@ export function EditorView({
       renderWhitespace: 'selection',
       padding: { top: 8 },
       inlineSuggest: { enabled: true },
+      'semanticHighlighting.enabled': true,
     })
     editorRef.current = editor
 

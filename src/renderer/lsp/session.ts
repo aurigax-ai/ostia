@@ -12,12 +12,53 @@ import type {
   Diagnostic,
   ServerCapabilities,
   TextDocumentContentChangeEvent,
+  WorkspaceEdit,
 } from 'vscode-languageserver-protocol'
 import { monaco } from '../monaco/setup'
-import { toLspRange } from './converters'
+import { normalizeUri, toLspRange } from './converters'
+import { applyWorkspaceEdit } from './workspaceEdit'
 
 const SYNC_NONE = 0
 const SYNC_INCREMENTAL = 2
+
+export const SEMANTIC_TOKEN_TYPES = [
+  'namespace',
+  'type',
+  'class',
+  'enum',
+  'interface',
+  'struct',
+  'typeParameter',
+  'parameter',
+  'variable',
+  'property',
+  'enumMember',
+  'event',
+  'function',
+  'method',
+  'macro',
+  'keyword',
+  'modifier',
+  'comment',
+  'string',
+  'number',
+  'regexp',
+  'operator',
+  'decorator',
+] as const
+
+export const SEMANTIC_TOKEN_MODIFIERS = [
+  'declaration',
+  'definition',
+  'readonly',
+  'static',
+  'deprecated',
+  'abstract',
+  'async',
+  'modification',
+  'documentation',
+  'defaultLibrary',
+] as const
 
 export const CLIENT_CAPABILITIES: ClientCapabilities = {
   textDocument: {
@@ -39,12 +80,58 @@ export const CLIENT_CAPABILITIES: ClientCapabilities = {
     hover: { contentFormat: ['markdown', 'plaintext'] },
     definition: { linkSupport: true },
     formatting: { dynamicRegistration: false },
+    rangeFormatting: { dynamicRegistration: false },
+    references: { dynamicRegistration: false },
+    rename: { prepareSupport: true },
+    signatureHelp: {
+      contextSupport: true,
+      signatureInformation: {
+        documentationFormat: ['markdown', 'plaintext'],
+        parameterInformation: { labelOffsetSupport: true },
+        activeParameterSupport: true,
+      },
+    },
+    documentSymbol: { hierarchicalDocumentSymbolSupport: true, tagSupport: { valueSet: [1] } },
+    documentHighlight: { dynamicRegistration: false },
+    codeAction: {
+      isPreferredSupport: true,
+      disabledSupport: true,
+      dataSupport: true,
+      resolveSupport: { properties: ['edit', 'command'] },
+      codeActionLiteralSupport: {
+        codeActionKind: {
+          valueSet: [
+            '',
+            'quickfix',
+            'refactor',
+            'refactor.extract',
+            'refactor.inline',
+            'refactor.rewrite',
+            'source',
+            'source.organizeImports',
+            'source.fixAll',
+          ],
+        },
+      },
+    },
+    semanticTokens: {
+      requests: { full: true },
+      tokenTypes: [...SEMANTIC_TOKEN_TYPES],
+      tokenModifiers: [...SEMANTIC_TOKEN_MODIFIERS],
+      formats: ['relative'],
+      overlappingTokenSupport: false,
+      multilineTokenSupport: false,
+    },
+    inlayHint: { dynamicRegistration: false },
     publishDiagnostics: { relatedInformation: false, tagSupport: { valueSet: [1, 2] } },
   },
   workspace: {
     workspaceFolders: true,
     configuration: true,
     didChangeConfiguration: { dynamicRegistration: false },
+    applyEdit: true,
+    workspaceEdit: { documentChanges: true },
+    executeCommand: { dynamicRegistration: false },
   },
   general: { positionEncodings: ['utf-16'] },
 }
@@ -71,6 +158,7 @@ export class LspSession {
   capabilities: ServerCapabilities = {}
   private readonly conn: MessageConnection
   private readonly documents = new Map<string, SyncedDocument>()
+  private readonly diagnostics = new Map<string, Diagnostic[]>()
   private closed = false
 
   constructor(
@@ -82,9 +170,15 @@ export class LspSession {
     this.conn = createMessageConnection(reader, writer)
     this.conn.onNotification(
       'textDocument/publishDiagnostics',
-      (params: { uri: string; diagnostics: Diagnostic[] }) =>
-        this.hooks.onDiagnostics(params.uri, params.diagnostics ?? []),
+      (params: { uri: string; diagnostics: Diagnostic[] }) => {
+        const diagnostics = params.diagnostics ?? []
+        this.diagnostics.set(normalizeUri(params.uri), diagnostics)
+        this.hooks.onDiagnostics(params.uri, diagnostics)
+      },
     )
+    this.conn.onRequest('workspace/applyEdit', async (params: { edit: WorkspaceEdit }) => ({
+      applied: await applyWorkspaceEdit(params.edit),
+    }))
     this.conn.onRequest('workspace/workspaceFolders', () => this.workspaceFolders())
     this.conn.onRequest('client/registerCapability', () => null)
     this.conn.onRequest('client/unregisterCapability', () => null)
@@ -133,6 +227,10 @@ export class LspSession {
     return this.documents.has(uri)
   }
 
+  diagnosticsFor(uri: string): readonly Diagnostic[] {
+    return this.diagnostics.get(uri) ?? []
+  }
+
   openDocument(model: monaco.editor.ITextModel, languageId: string): void {
     const uri = model.uri.toString()
     if (this.closed || this.documents.has(uri)) return
@@ -167,6 +265,7 @@ export class LspSession {
     if (!document) return
     document.subscription.dispose()
     this.documents.delete(uri)
+    this.diagnostics.delete(uri)
     this.notify('textDocument/didClose', { textDocument: { uri } })
   }
 

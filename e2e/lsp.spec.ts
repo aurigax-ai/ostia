@@ -179,7 +179,19 @@ test('switching a server off stops its process, and Restart starts a fresh one',
     await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)', {
       timeout: 15_000,
     })
-    expect(recorded(project).slice(0, 7)).toEqual([
+    const lifecycle = [
+      '$start',
+      'initialize',
+      'initialized',
+      'textDocument/didOpen',
+      'shutdown',
+      'exit',
+    ]
+    expect(
+      recorded(project)
+        .filter((method) => lifecycle.includes(method))
+        .slice(0, 7),
+    ).toEqual([
       '$start',
       'initialize',
       'initialized',
@@ -293,6 +305,65 @@ test('two windows showing the same folder each get their own server and their ow
     await expect(second.locator('.squiggly-error')).toHaveCount(2, { timeout: 20_000 })
     await expect(win.locator('.monaco-editor:visible .squiggly-error')).toHaveCount(1)
     expect(starts(project)).toBe(2)
+  } finally {
+    await app.close()
+  }
+})
+
+test('rename, quick fix, signature help, inlay hints and semantic colours work in the editor', async () => {
+  test.setTimeout(60_000)
+  const { app, win } = await launch({
+    'rich.txt': [
+      'fn alpha uses ERROR and alpha',
+      'let count = fakeCall(first, second)',
+      'KEYWORD plain',
+      '',
+    ].join('\n'),
+  })
+  try {
+    await approveFakeLanguage(win)
+    await openWorkspace(win)
+    const editor = await openFile(win, 'rich.txt')
+    const lines = editor.locator('.view-lines')
+    await expect(editor.locator('.squiggly-error')).toHaveCount(1, { timeout: 20_000 })
+
+    await expect(lines).toContainText('count: fake', { timeout: 15_000 })
+    const token = (text: RegExp): Locator =>
+      editor.locator('.view-line span span').filter({ hasText: text }).first()
+    await expect(token(/^KEYWORD$/)).toBeVisible({ timeout: 15_000 })
+    expect(await token(/^KEYWORD$/).getAttribute('class')).not.toBe(
+      await token(/plain/).getAttribute('class'),
+    )
+
+    await editor
+      .locator('.view-line')
+      .first()
+      .click({ position: { x: 40, y: 8 } })
+    await win.keyboard.press('F2')
+    const rename = win.locator('.rename-box input')
+    await expect(rename).toBeVisible({ timeout: 10_000 })
+    await expect(rename).toHaveValue('alpha')
+    await rename.fill('beta')
+    await win.keyboard.press('Enter')
+    await expect(lines).toContainText('fn beta uses ERROR and beta', { timeout: 10_000 })
+
+    await editor.locator('.squiggly-error').hover({ force: true })
+    await editor.locator('.squiggly-error').click({ force: true })
+    await win.keyboard.press('Control+.')
+    const fix = win.locator('.action-widget').getByText('Replace ERROR with FIXED')
+    await expect(fix).toBeVisible({ timeout: 10_000 })
+    await win.keyboard.press('Enter')
+    await expect(lines).toContainText('fn beta uses FIXED and beta', { timeout: 10_000 })
+    await expect(editor.locator('.squiggly-error')).toHaveCount(0)
+
+    await editor.locator('.view-line').nth(1).click()
+    await win.keyboard.press('End')
+    await win.keyboard.press('ArrowLeft')
+    await win.keyboard.press('Control+Shift+Space')
+    await expect(win.locator('.parameter-hints-widget')).toContainText(
+      'fakeCall(first: string, second: number)',
+      { timeout: 10_000 },
+    )
   } finally {
     await app.close()
   }
