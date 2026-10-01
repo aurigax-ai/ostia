@@ -1,6 +1,8 @@
+import { languageForPath } from '@shared/editorLanguages'
 import type { LspSessionInfo } from '@shared/languageServers'
 import type { Diagnostic } from 'vscode-languageserver-protocol'
-import { monaco } from '../monaco/setup'
+import { claimedLanguages } from '../monaco/builtinFeatures'
+import { builtinFeatures, monaco } from '../monaco/setup'
 import { normalizeUri, toMarkers } from './converters'
 import { registerProviders } from './providers'
 import { LspSession } from './session'
@@ -168,9 +170,15 @@ function schedule(document: OpenDocument): void {
 
 function watchServers(): void {
   if (stopWatching) return
-  stopWatching = window.pine.lsp.onServersChanged(() => {
+  stopWatching = window.pine.lsp.onServersChanged((servers) => {
+    builtinFeatures.apply(claimedLanguages(servers))
     for (const document of documents.values()) schedule(document)
   })
+}
+
+export async function startLanguageServices(): Promise<void> {
+  watchServers()
+  builtinFeatures.apply(claimedLanguages(await window.pine.lsp.servers()))
 }
 
 function close(document: OpenDocument): void {
@@ -182,6 +190,7 @@ function close(document: OpenDocument): void {
 }
 
 export function openDocument(model: monaco.editor.ITextModel, paneId: string): () => void {
+  if (model.getLanguageId() !== languageForPath(model.uri.path)) return () => {}
   watchServers()
   const uri = model.uri.toString()
   let document = documents.get(uri)

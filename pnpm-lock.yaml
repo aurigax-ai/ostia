@@ -222,6 +222,9 @@ importers:
       pdfjs-dist:
         specifier: ^6.3.289
         version: 6.3.289
+      pyright:
+        specifier: 1.1.414
+        version: 1.1.414
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -241,8 +244,11 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
       typescript:
-        specifier: ^5.9.3
+        specifier: 5.9.3
         version: 5.9.3
+      typescript-language-server:
+        specifier: 5.3.0
+        version: 5.3.0
       vite:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@22.20.1)(lightningcss@1.32.0)
@@ -3644,6 +3650,11 @@ packages:
     resolution: {integrity: sha512-BbubeCEyTuQjVMakvJQ/Sxbc93F2pwmbsxONT/ZRrwU7Ua38d8unYTwXpTVLAKJ4BDuH9IGztCjQcd/N/39Dvg==}
     engines: {node: '>=16.0.0'}
 
+  pyright@1.1.414:
+    resolution: {integrity: sha512-FPZZb51jepDX4eP7TEYDeNFtmE3WgwkkEcJpvH3/QmUSsj0EAy3LXu+xB4T/FWDejtsXlCfFr/rbWFjwuwuXww==}
+    engines: {node: '>=14.0.0'}
+    hasBin: true
+
   qrcode@1.5.4:
     resolution: {integrity: sha512-1ca71Zgiu6ORjHqFBDpnSMTR2ReToX4l1Au1VFLyVeBTFavzQnv5JxMFr3ukHVKpSrSA2MCk0lNJSykjUfz7Zg==}
     engines: {node: '>=10.13.0'}
@@ -4161,6 +4172,11 @@ packages:
     resolution: {integrity: sha512-faYHw0anBbc/kWF3zFTEnxSFOAGUX9GFbOBthvDdLsIlEoWOFOtS0zgCiQYwIskL9iGXZL3kAXD8OoZ4GmMATA==}
     engines: {node: '>= 18'}
 
+  typescript-language-server@5.3.0:
+    resolution: {integrity: sha512-5puofxZHgFdAYtfNpmwCAvgtaYgg8wrUnH30m7Ze3QuguId5RNRadKASpOpyDxTyUdAF51FjhTdjntLw/EuWcQ==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   typescript@4.9.5:
     resolution: {integrity: sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==}
     engines: {node: '>=4.2.0'}
@@ -4341,6 +4357,10 @@ packages:
         optional: true
       jsdom:
         optional: true
+
+  vscode-jsonrpc@5.0.1:
+    resolution: {integrity: sha512-JvONPptw3GAQGXlVV2utDcHx0BiY34FupW/kI6mZ5x06ER5DdPG/tXWMVHjTNULF5uKPOUUD0SaXg5QaubJL0A==}
+    engines: {node: '>=8.0.0 || >=10.0.0'}
 
   vscode-jsonrpc@9.0.1:
     resolution: {integrity: sha512-rfuA6T75H6m5EkbhtEPzre9pT0HPcDI2MMy4+nPFIBks5J8JBAUHD4tRYSgaBOijIEC7SRkC1kKyXTLqbmh9jw==}
@@ -8138,6 +8158,10 @@ snapshots:
 
   pvutils@1.2.0: {}
 
+  pyright@1.1.414:
+    optionalDependencies:
+      fsevents: 2.3.3
+
   qrcode@1.5.4:
     dependencies:
       dijkstrajs: 1.0.3
@@ -8753,6 +8777,11 @@ snapshots:
       media-typer: 1.1.1
       mime-types: 3.0.2
 
+  typescript-language-server@5.3.0:
+    dependencies:
+      vscode-jsonrpc: 5.0.1
+      vscode-languageserver-protocol: 3.18.2
+
   typescript@4.9.5: {}
 
   typescript@5.9.3: {}
@@ -8927,6 +8956,8 @@ snapshots:
       - sugarss
       - supports-color
       - terser
+
+  vscode-jsonrpc@5.0.1: {}
 
   vscode-jsonrpc@9.0.1: {}
 

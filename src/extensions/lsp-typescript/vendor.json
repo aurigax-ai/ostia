@@ -1,0 +1,4 @@
+{
+  "typescript-language-server": "server/typescript-language-server",
+  "typescript": "server/typescript"
+}

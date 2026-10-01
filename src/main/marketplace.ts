@@ -30,7 +30,7 @@ import { missingRequirements } from './systemRequirements'
 
 export const MARKETPLACE_MANIFEST_MAX_BYTES = 64 * 1024
 export const MARKETPLACE_MAX_EXTENSIONS = 200
-export const EXTENSION_MAX_FILES = 2000
+export const EXTENSION_MAX_FILES = 8000
 export const EXTENSION_MAX_BYTES = 50 * 1024 * 1024
 const GIT_TIMEOUT_MS = 120_000
 const DETAIL_MAX = 400

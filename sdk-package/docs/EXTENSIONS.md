@@ -58,7 +58,7 @@ Rules for a listed extension:
 
 - It is installed by copying its folder as it is in the repository, so commit the built files
   (`main.js` bundled, panel HTML). pine never runs `npm install`, a build or any script from it.
-- Regular files and folders only: a symlink or special file refuses the install. At most 2000 files
+- Regular files and folders only: a symlink or special file refuses the install. At most 8000 files
   and 50 MiB.
 - An entry with a broken `pine.json`, a missing folder or an id another entry already uses is
   listed under "Entries that could not be offered" and the rest still work.
@@ -250,6 +250,12 @@ How pine runs it:
 - **The human's controls.** Settings → Languages lists every server with its status, an on/off
   switch, Restart and a log (start, exit, restarts, the server's stderr; kept in memory only).
   There is no socket method or CLI verb for any of it.
+
+- **The editor's own features step aside.** Monaco has built-in features for JSON, CSS, SCSS,
+  LESS and HTML. While an enabled server that can run claims one of those languages, pine turns
+  the built-in ones off for it (the tokenizer stays), and turns them back on when the server is
+  switched off, uninstalled or has crashed for good. `settings.json` is the exception: it always
+  keeps pine's own schema checks and is never sent to a server.
 
 Ship a server that is plain JavaScript inside your extension folder (`run.node`) so it works
 without anything else installed; name a native server as a `program`. pine never downloads a
@@ -773,6 +779,8 @@ them.
 
 | Id | What it does |
 |---|---|
+| `lsp-typescript` | TypeScript and JavaScript in the editor: `typescript-language-server` 5.3.0 and TypeScript 5.9.3, copied unchanged from their npm packages into `server/` by `scripts/build-extensions.mjs` (the extension's `vendor.json` lists them) and run with pine's Electron as Node. A project's own TypeScript is used when it has one. The app itself ships no TypeScript language features: without this extension a `.ts` or `.js` file is only highlighted |
+| `lsp-pyright` | Python in the editor: Pyright 1.1.414, copied the same way (about 5,400 files, mostly type stubs). Setting `typeCheckingMode` |
 | `lsp-rust-analyzer`, `lsp-gopls`, `lsp-clangd`, `lsp-lua` | One language server each, as a manifest with no process of its own: `rust-analyzer` for Rust, `gopls` for Go, `clangd` for C and C++, `lua-language-server` for Lua. Each names a program on `PATH`; when it is missing, Settings → Languages offers the install |
 | `trellis` | The Trellis web UI as a panel on the workspace's project, the open card count of the active workspace as a `cards` workspace chip in the top bar (click opens the board), notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Init Project Here", `pine trellis status`. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications that open the approvals queue (Keeper has no per-ticket page), "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue. Settings: `notify`, `pollSeconds`, `idlePollSeconds` |

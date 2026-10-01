@@ -37,6 +37,7 @@ function manifestFiles(): string[] {
     join(repoRoot, 'test/fixtures/extensions/echo/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-e2e/hello/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-lsp/fake-lang/pine.json'),
+    join(repoRoot, 'test/fixtures/extensions-lsp/fake-json/pine.json'),
   ]
 }
 

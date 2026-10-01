@@ -1,12 +1,18 @@
-import type { LspSessionInfo } from '@shared/languageServers'
+import type { LanguageServerInfo, LspSessionInfo } from '@shared/languageServers'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type ServerEndpoint, createServerEndpoint } from '../../../test/mocks/lspTransport'
 import { FakeModel, createFakeMonaco } from '../../../test/mocks/monaco'
 
 const fake = createFakeMonaco()
-vi.mock('../monaco/setup', () => ({ monaco: fake.monaco }))
+const applyBuiltin = vi.fn()
+vi.mock('../monaco/setup', () => ({
+  monaco: fake.monaco,
+  builtinFeatures: { apply: applyBuiltin },
+}))
 
-const { documentSaved, openDocument, resetLspClient } = await import('./client')
+const { documentSaved, openDocument, resetLspClient, startLanguageServices } = await import(
+  './client'
+)
 
 interface FakeServer {
   info: LspSessionInfo
@@ -23,7 +29,7 @@ interface Bridge {
     capabilities?: Record<string, unknown>,
   ) => FakeServer
   exit: (sessionId: string) => void
-  serversChanged: () => void
+  serversChanged: (list?: LanguageServerInfo[]) => void
 }
 
 function installBridge(): Bridge {
@@ -31,7 +37,7 @@ function installBridge(): Bridge {
   const onMessage = new Map<string, (message: unknown) => void>()
   const onExit = new Map<string, () => void>()
   const offered: LspSessionInfo[] = []
-  let changed: () => void = () => {}
+  let changed: (list: LanguageServerInfo[]) => void = () => {}
   const lsp = window.pine.lsp
   vi.mocked(lsp.open).mockImplementation(async () => [...offered])
   vi.mocked(lsp.onMessage).mockImplementation((sessionId, cb) => {
@@ -46,7 +52,7 @@ function installBridge(): Bridge {
     return () => onExit.delete(sessionId)
   })
   vi.mocked(lsp.onServersChanged).mockImplementation((cb) => {
-    changed = () => cb([])
+    changed = cb
     return () => {}
   })
   return {
@@ -79,7 +85,7 @@ function installBridge(): Bridge {
       if (index >= 0) offered.splice(index, 1)
       onExit.get(sessionId)?.()
     },
-    serversChanged: () => changed(),
+    serversChanged: (list = []) => changed(list),
   }
 }
 
@@ -108,6 +114,7 @@ beforeEach(() => {
   bridge = installBridge()
   fake.markers.clear()
   fake.registrations.length = 0
+  applyBuiltin.mockClear()
 })
 
 afterEach(() => {
@@ -214,6 +221,14 @@ describe('openDocument', () => {
     await flush()
     expect(methods(server).at(-1)).toBe('textDocument/didClose')
     expect(window.pine.lsp.release).toHaveBeenCalledWith('s1')
+  })
+
+  it('asks for no server for a model whose language is not the one its file name implies', async () => {
+    bridge.addServer('s1', 'ext/fake')
+    const release = openDocument(new FakeModel('/work/a.txt', 'one', 'pine-settings') as never, 'p')
+    await flush()
+    release()
+    expect(window.pine.lsp.open).not.toHaveBeenCalled()
   })
 
   it('releases a session whose server fails to initialize and attaches nothing', async () => {
@@ -333,5 +348,29 @@ describe('server lifecycle', () => {
       method: 'textDocument/didSave',
       params: { textDocument: { uri: URI } },
     })
+  })
+})
+
+describe('built-in editor features', () => {
+  const claimer = {
+    key: 'ext/css',
+    extId: 'ext',
+    extName: 'Ext',
+    serverId: 'css',
+    name: 'CSS server',
+    languages: ['css', 'scss'],
+    kind: 'bundled',
+    command: 'server.js',
+    enabled: true,
+    status: 'idle',
+    folders: 0,
+  } satisfies LanguageServerInfo
+
+  it('are switched for the languages enabled servers claim, at start and on every change', async () => {
+    vi.mocked(window.pine.lsp.servers).mockResolvedValue([claimer])
+    await startLanguageServices()
+    expect(applyBuiltin).toHaveBeenLastCalledWith(new Set(['css', 'scss']))
+    bridge.serversChanged([{ ...claimer, enabled: false, status: 'off' }])
+    expect(applyBuiltin).toHaveBeenLastCalledWith(new Set())
   })
 })
