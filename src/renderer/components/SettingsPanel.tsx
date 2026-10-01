@@ -1405,7 +1405,7 @@ export function ExtensionsSection({
               id={extensionAnchorId(ext.id)}
               tabIndex={-1}
               aria-label={ext.name}
-              className="relative flex scroll-mt-3 flex-col rounded-sm px-3 py-2 outline-none"
+              className="relative -mx-3 flex scroll-mt-3 flex-col rounded-sm px-3 py-2 outline-none"
             >
               {flash?.id === ext.id ? (
                 <span
