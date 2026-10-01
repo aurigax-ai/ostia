@@ -159,6 +159,11 @@ describe('chat', () => {
   })
 
   it('takes focus back into the question box when the dialog grabs it as Ask opens', async () => {
+    const frames: FrameRequestCallback[] = []
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      frames.push(cb)
+      return frames.length
+    })
     let popup: HTMLDivElement | null = null
     render(
       <div
@@ -172,7 +177,12 @@ describe('chat', () => {
     )
     const box = await screen.findByRole('textbox', { name: 'Your question' })
     act(() => popup?.focus())
-    await waitFor(() => expect(box).toHaveFocus())
+    expect(box).not.toHaveFocus()
+    act(() => {
+      for (const frame of frames.splice(0)) frame(0)
+    })
+    expect(box).toHaveFocus()
+    raf.mockRestore()
   })
 
   it('streams UI message chunks into a markdown answer with a code block', async () => {
