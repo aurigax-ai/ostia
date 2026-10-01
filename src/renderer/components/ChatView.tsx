@@ -19,7 +19,7 @@ import {
   TrashIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
-import type { AssistProviderInfo, ChatContextItem } from '@shared/assist'
+import type { ChatContextItem } from '@shared/assist'
 import type { UIMessage } from 'ai'
 import {
   type KeyboardEvent,
@@ -72,7 +72,7 @@ import {
 import { resolveLinkPath } from '../lib/fileLinks'
 import { openFileAt } from '../lib/openFile'
 import { openSidebarUrl } from '../lib/sidebarItems'
-import { useAssistProvider } from '../stores/assistStore'
+import { useChatModel } from '../stores/assistStore'
 import {
   type ChatNotice,
   chatFor,
@@ -99,9 +99,10 @@ import {
   useCopied,
   useTerminals,
 } from './ChatCodeActions'
+import { ChatModelSelect } from './ChatComposerControls'
 import { AttachmentChips, ChatContextPicker } from './ChatContextPicker'
 import { ChatSessions } from './ChatSessions'
-import { ChatSlashHelp, ChatSlashMenu, ChatSlashModel, SLASH_MENU_WIDTH } from './ChatSlashMenu'
+import { ChatSlashHelp, ChatSlashMenu, SLASH_MENU_WIDTH } from './ChatSlashMenu'
 import { ChatToolPart } from './ChatToolPart'
 import { ChatToolsMenu } from './ChatToolsMenu'
 import { Hint } from './Hint'
@@ -198,12 +199,7 @@ function focusAtEnd(area: HTMLTextAreaElement | null): void {
   area.setSelectionRange(area.value.length, area.value.length)
 }
 
-function openModelSettings(): void {
-  useUIStore.getState().closePalette()
-  useUIStore.getState().openSettings('assistant')
-}
-
-type SlashCard = 'help' | 'model' | null
+type SlashCard = 'help' | null
 
 function ChatSession({
   sessionId,
@@ -218,7 +214,8 @@ function ChatSession({
   const chat = useMemo(() => chatFor(sessionId), [sessionId])
   const { messages, sendMessage, setMessages, status, stop, regenerate, error, clearError } =
     useChat({ chat })
-  const provider = useAssistProvider('chat')
+  const modelRef = useChatStore((s) => s.meta[sessionId]?.modelRef)
+  const provider = useChatModel(modelRef)
   const historyOn = useSettingsStore((s) => s.assistant.chatHistory)
   const scratch = useChatStore((s) => s.meta[sessionId]?.scratch === true)
   const sessionNotice = useChatStore((s) => s.notice[sessionId] ?? null)
@@ -251,6 +248,7 @@ function ChatSession({
   const summaries = useChatStore((s) => s.summaries)
   const [sessionsOpen, setSessionsOpen] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
   const [pickerQuery, setPickerQuery] = useState('')
   const [focused, setFocused] = useState(false)
   const [slashKey, setSlashKey] = useState<string | null>(null)
@@ -437,7 +435,7 @@ function ChatSession({
           ? fmt(d.chatSlash.skillPrompt, { name, task })
           : fmt(d.chatSlash.skillPromptAlone, { name }),
       ),
-    showModel: () => setCard('model'),
+    showModel: () => setModelOpen(true),
     showHelp: () => setCard('help'),
   }
 
@@ -512,7 +510,6 @@ function ChatSession({
         variant={variant}
         workspaceId={workspaceId}
         sessionId={sessionId}
-        provider={provider}
         recording={historyOn && !scratch}
         scratch={scratch}
         busy={busy}
@@ -568,13 +565,6 @@ function ChatSession({
             ))
           )}
           {card === 'help' ? <ChatSlashHelp onClose={() => setCard(null)} /> : null}
-          {card === 'model' ? (
-            <ChatSlashModel
-              provider={provider}
-              onChange={() => openModelSettings()}
-              onClose={() => setCard(null)}
-            />
-          ) : null}
           {waiting ? <ChatWaiting model={provider?.label ?? provider?.name ?? null} /> : null}
           {errorInfo ? (
             <p role="alert" className="flex items-start gap-1.5 text-attn-fg text-ui-sm">
@@ -689,8 +679,8 @@ function ChatSession({
             }}
           />
         </PromptInputBody>
-        <PromptInputFooter>
-          <PromptInputTools>
+        <PromptInputFooter className="chat-composer-row flex-nowrap">
+          <PromptInputTools className="flex-1">
             {provider?.tools ? (
               <ChatToolsMenu
                 sessionId={sessionId}
@@ -721,13 +711,17 @@ function ChatSession({
               </p>
             )}
           </PromptInputTools>
-          <PromptInputSubmit
-            status={status}
-            onStop={onStop}
-            disabled={!busy && !provider}
-            submitLabel={d.ask.send}
-            stopLabel={d.ask.stop}
-          />
+          <div className="chat-composer-controls flex min-w-0 shrink items-center gap-1">
+            <ChatModelSelect sessionId={sessionId} open={modelOpen} onOpenChange={setModelOpen} />
+            <PromptInputSubmit
+              className="shrink-0"
+              status={status}
+              onStop={onStop}
+              disabled={!busy && !provider}
+              submitLabel={d.ask.send}
+              stopLabel={d.ask.stop}
+            />
+          </div>
         </PromptInputFooter>
       </PromptInput>
       {menu ? (
@@ -835,7 +829,6 @@ function ChatHeader({
   variant,
   workspaceId,
   sessionId,
-  provider,
   recording,
   scratch,
   busy,
@@ -845,7 +838,6 @@ function ChatHeader({
   variant: ChatVariant
   workspaceId: string | null
   sessionId: string
-  provider: AssistProviderInfo | null
   recording: boolean
   scratch: boolean
   busy: boolean
@@ -882,23 +874,7 @@ function ChatHeader({
           {recording ? d.chat.recording : d.chat.notRecording}
         </span>
       </Hint>
-      <span className="ml-auto flex min-w-0 items-center gap-1 text-fg-muted text-ui-xs">
-        {provider ? (
-          <>
-            <Hint label={d.chat.model}>
-              <span className="truncate">{provider.label ?? provider.name}</span>
-            </Hint>
-            <Button
-              variant="link"
-              size="xs"
-              className="h-5 px-1 text-ui-xs"
-              onClick={() => openModelSettings()}
-            >
-              {d.chat.change}
-            </Button>
-          </>
-        ) : null}
-      </span>
+      <span className="ml-auto" />
       {variant === 'palette' ? (
         <IconButton
           size="bar"

@@ -4,10 +4,16 @@ import {
   GearSixIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
-import type { AssistExtensionState, AssistFeatureState } from '@shared/assist'
+import {
+  type AssistCatalog,
+  type AssistFeatureState,
+  type AssistModelClass,
+  choiceLabel,
+  sameModelRef,
+} from '@shared/assist'
 import { useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
-import { toggleAssistFeature, useChatAvailable } from '../lib/assistFeatures'
+import { featuresInUse, toggleAssistFeature, useChatAvailable } from '../lib/assistFeatures'
 import { openChatPane } from '../lib/chatPane'
 import { useChordLabel } from '../lib/chords'
 import { isMac } from '../platform'
@@ -34,6 +40,7 @@ export function AssistantMenu(): JSX.Element | null {
   const d = useDict()
   const visible = useAssistMenuVisible()
   const overview = useAssistStore((s) => s.overview)
+  const catalog = useAssistStore((s) => s.catalog)
   const chatReady = useChatAvailable()
   const chatKeys = useChordLabel('assist.chat', isMac)
   const [open, setOpen] = useState(false)
@@ -64,20 +71,13 @@ export function AssistantMenu(): JSX.Element | null {
           }
         />
         <PopoverContent align="end" className="assist-menu" aria-label={d.assistMenu.title}>
-          {overview.length === 0 ? (
-            <SetupPanel reason={null} onDone={close} />
+          {catalog.models.length === 0 ? (
+            <SetupPanel
+              reason={d.assistMenu.setup[overview.find((ext) => ext.setup)?.setup ?? ''] ?? null}
+              onDone={close}
+            />
           ) : (
-            overview.map((ext) =>
-              ext.setup ? (
-                <SetupPanel
-                  key={ext.extId}
-                  reason={d.assistMenu.setup[ext.setup] ?? null}
-                  onDone={close}
-                />
-              ) : (
-                <ExtensionPanel key={ext.extId} ext={ext} />
-              ),
-            )
+            <ModelsPanel />
           )}
         </PopoverContent>
       </Popover>
@@ -105,35 +105,57 @@ function SetupPanel({ reason, onDone }: { reason: string | null; onDone: () => v
   )
 }
 
-function ExtensionPanel({ ext }: { ext: AssistExtensionState }): JSX.Element {
+function modelLabel(catalog: AssistCatalog, modelClass: AssistModelClass): string | null {
+  const choice = catalog.models.find((c) => sameModelRef(c.ref, catalog[modelClass]))
+  return choice ? choiceLabel(choice) : null
+}
+
+function ModelLine({ title, label }: { title: string; label: string | null }): JSX.Element {
   const d = useDict()
-  const anyReady = ext.features.some((f) => f.on && f.ready)
+  const shown = label ?? d.assistMenu.noModel
+  return (
+    <div className="flex items-baseline gap-2 px-1.5">
+      <span className="shrink-0 text-fg-muted text-ui-xs">{title}</span>
+      <Hint label={shown}>
+        <span className="min-w-0 flex-1 truncate text-right font-mono text-fg text-ui-xs">
+          {shown}
+        </span>
+      </Hint>
+    </div>
+  )
+}
+
+function ModelsPanel(): JSX.Element {
+  const d = useDict()
+  const overview = useAssistStore((s) => s.overview)
+  const catalog = useAssistStore((s) => s.catalog)
+  const features = featuresInUse({ overview, catalog })
+  const lastError = overview.find((ext) => ext.lastError)?.lastError
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-3 px-1.5 pt-0.5">
-        <span className="font-medium text-fg text-ui-sm">{ext.name}</span>
+        <span className="font-medium text-fg text-ui-sm">{d.assistMenu.title}</span>
         <span className="text-fg-muted text-ui-xs">
-          {anyReady ? d.assistMenu.ready : d.assistMenu.notReady}
+          {features.some((f) => f.feature.on && f.feature.ready)
+            ? d.assistMenu.ready
+            : d.assistMenu.notReady}
         </span>
       </div>
-      {ext.label ? (
-        <Hint label={ext.label}>
-          <div className="truncate px-1.5 font-mono text-fg-muted text-ui-xs">{ext.label}</div>
-        </Hint>
-      ) : null}
-      {ext.lastError ? (
+      <ModelLine title={d.assistMenu.chatModel} label={modelLabel(catalog, 'chat')} />
+      <ModelLine title={d.assistMenu.fastModel} label={modelLabel(catalog, 'fast')} />
+      {lastError ? (
         <p className="flex items-start gap-1 px-1.5 text-attn-fg text-ui-xs">
           <WarningCircleIcon aria-hidden className="mt-0.5 size-3 shrink-0" />
           <span className="min-w-0 break-words">
-            {fmt(d.assistMenu.lastError, { error: ext.lastError })}
+            {fmt(d.assistMenu.lastError, { error: lastError })}
           </span>
         </p>
       ) : null}
       <Separator className="my-1" />
       <div className="px-1.5 text-fg-muted text-ui-xs">{d.assistMenu.features}</div>
       <ul aria-label={d.assistMenu.features} className="flex flex-col">
-        {ext.features.map((feature) => (
-          <FeatureRow key={feature.id} extId={ext.extId} feature={feature} />
+        {features.map(({ extId, feature }) => (
+          <FeatureRow key={feature.id} extId={extId} feature={feature} />
         ))}
       </ul>
     </div>

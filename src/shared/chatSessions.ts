@@ -1,4 +1,10 @@
-import { CHAT_CONTEXT_KINDS, type ChatContextItem, type ChatContextKind } from './assist'
+import {
+  type AssistModelRef,
+  CHAT_CONTEXT_KINDS,
+  type ChatContextItem,
+  type ChatContextKind,
+  normalizeModelRef,
+} from './assist'
 
 export interface ChatPart {
   type: string
@@ -30,6 +36,7 @@ export interface ChatSessionSummary {
   createdAt: number
   updatedAt: number
   model?: string
+  modelRef?: AssistModelRef
   messageCount: number
   trimmed?: boolean
 }
@@ -195,6 +202,8 @@ export function normalizeChatSession(raw: unknown): ChatSession | null {
   if (workspaceId) session.workspaceId = workspaceId
   const model = short(raw.model)
   if (model) session.model = model
+  const modelRef = normalizeModelRef(raw.modelRef)
+  if (modelRef) session.modelRef = modelRef
   if (raw.trimmed === true) session.trimmed = true
   return session
 }

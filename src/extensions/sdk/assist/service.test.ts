@@ -2,8 +2,9 @@ import { APICallError, simulateStreamingMiddleware, wrapLanguageModel } from 'ai
 import { MockLanguageModelV4 } from 'ai/test'
 import { describe, expect, it, vi } from 'vitest'
 import { type AssistContext, AssistFailure } from '..'
+import type { AssistProviderEntry } from '../../../shared/assist'
 import type { Provider, ProviderCatalog } from './provider'
-import { AssistantService } from './service'
+import { type AssistServiceOptions, AssistantService } from './service'
 
 const ENV = { XDG_RUNTIME_DIR: '/run/user/1000' }
 
@@ -58,30 +59,44 @@ function fakeProvider(
   return { provider, calls }
 }
 
+const TARGET = { provider: 'p1', model: 'm' }
+
 function ctx(overrides: Partial<AssistContext> = {}): AssistContext {
   return {
     requestId: 'r1',
     signal: new AbortController().signal,
     chunk: async () => true,
+    model: TARGET,
     ...overrides,
   }
 }
 
-function service(provider: Provider, now: () => number = () => 0, onReport = vi.fn()) {
+function entry(kind: string, patch: Partial<AssistProviderEntry> = {}): AssistProviderEntry {
+  return { id: 'p1', kind, name: '', baseUrl: '', models: ['m'], apiKey: null, ...patch }
+}
+
+const KINDS = ['model-runtime', 'ollama', 'openai-compatible', 'openrouter', 'openai', 'anthropic']
+
+function service(
+  provider: Provider,
+  now: () => number = () => 0,
+  onReport = vi.fn(),
+  options: AssistServiceOptions = { configurable: true },
+) {
   const factory = vi.fn<ProviderCatalog['create']>(() => provider)
   const catalog: ProviderCatalog = {
-    kinds: ['model-runtime', 'ollama', 'openai-compatible', 'openrouter', 'openai', 'anthropic'],
+    kinds: KINDS,
     keyRequired: new Set(['openrouter', 'openai', 'anthropic']),
+    title: (kind, locale) => (locale === 'zh-Hant' ? `${kind}（中）` : kind.toUpperCase()),
     defaultBaseUrl: (kind, env) =>
       kind === 'model-runtime'
         ? `unix:${env.XDG_RUNTIME_DIR}/model-runtime.sock`
         : kind === 'openai-compatible'
           ? ''
           : `https://${kind}.example/v1`,
-    defaultFastModel: (kind) => (kind === 'model-runtime' ? 'gemma' : ''),
     create: factory,
   }
-  return { svc: new AssistantService(catalog, ENV, now, onReport), factory, onReport }
+  return { svc: new AssistantService(catalog, ENV, now, onReport, options), factory, onReport }
 }
 
 async function failureOf(p: Promise<unknown>): Promise<AssistFailure> {
@@ -93,9 +108,9 @@ async function failureOf(p: Promise<unknown>): Promise<AssistFailure> {
 const chatInput = { messages: [{ role: 'user' as const, content: 'hi' }], context: [] }
 
 describe('AssistantService report', () => {
-  it('is not ready anywhere until a provider is picked, and lists every feature', () => {
+  it('is not ready anywhere until a provider is added, and lists every feature', () => {
     const { svc, factory } = service(fakeProvider(() => '').provider)
-    svc.configure({ provider: 'none', fastModel: 'x' }, null)
+    svc.configure({}, [])
     const report = svc.report()
     expect(Object.values(report.status).every((s) => s.ready === false)).toBe(true)
     expect(Object.keys(report.status).sort()).toEqual([
@@ -106,6 +121,7 @@ describe('AssistantService report', () => {
       'terminal',
     ])
     expect(report.setup).toBe('no-provider')
+    expect(report.providers).toEqual([])
     expect(report.features?.map((f) => [f.id, f.setting, f.ready])).toEqual([
       ['chat', 'chat', false],
       ['typos', 'typos', false],
@@ -115,40 +131,127 @@ describe('AssistantService report', () => {
       ['editorCompletions', 'editorCompletions', false],
       ['explainError', 'explainError', false],
     ])
-    expect(report.label).toBeUndefined()
     expect(factory).not.toHaveBeenCalled()
   })
 
-  it('labels points with provider and model, gemma by default on model-runtime', async () => {
+  it('lists the kinds a human can add, titled in their language', () => {
+    const { svc } = service(fakeProvider(() => '').provider)
+    expect(svc.report().kinds).toContainEqual({
+      id: 'openrouter',
+      title: 'OPENROUTER',
+      baseUrl: 'https://openrouter.example/v1',
+      key: 'required',
+    })
+    expect(svc.report().kinds).toContainEqual({
+      id: 'openai-compatible',
+      title: 'OPENAI-COMPATIBLE',
+      baseUrl: '',
+      key: 'optional',
+    })
+    svc.setLocale('zh-Hant')
+    expect(svc.report().kinds?.[0].title).toBe('model-runtime（中）')
+    const fixed = service(fakeProvider(() => '').provider, undefined, undefined, {
+      listedModels: true,
+    })
+    expect(fixed.svc.report().kinds).toBeUndefined()
+  })
+
+  it('reports every provider with its models, their tool style and what it still needs', async () => {
     const { svc, factory } = service(
-      fakeProvider(() => '', { chatTools: async () => 'prompted' }).provider,
+      fakeProvider(() => '', { chatTools: async (id) => (id === 'small' ? 'prompted' : 'native') })
+        .provider,
     )
-    svc.configure(
-      {
-        provider: 'model-runtime',
-        chatModel: 'big',
-        editorCompletions: false,
-        terminalCompletions: false,
-      },
-      null,
-    )
-    expect(svc.report().status.chat).toEqual({ ready: true, label: 'model-runtime · big' })
+    svc.configure({ editorCompletions: false, terminalCompletions: false }, [
+      entry('ollama', { id: 'local', name: 'Local', models: ['small', 'big'] }),
+      entry('openrouter', { id: 'router', models: ['a/b'] }),
+      entry('openai-compatible', { id: 'lab', models: ['x'] }),
+      entry('ollama', { id: 'empty', models: [] }),
+      entry('not-a-kind', { id: 'other' }),
+    ])
     await svc.probe()
     const report = svc.report()
+    expect(report.providers).toEqual([
+      {
+        id: 'local',
+        kind: 'ollama',
+        name: 'Local',
+        setup: null,
+        lifecycle: false,
+        models: [
+          { id: 'small', tools: 'prompted' },
+          { id: 'big', tools: 'native' },
+        ],
+      },
+      {
+        id: 'router',
+        kind: 'openrouter',
+        name: 'OPENROUTER',
+        setup: 'no-key',
+        lifecycle: false,
+        models: [{ id: 'a/b' }],
+      },
+      {
+        id: 'lab',
+        kind: 'openai-compatible',
+        name: 'OPENAI-COMPATIBLE',
+        setup: 'no-endpoint',
+        lifecycle: false,
+        models: [{ id: 'x' }],
+      },
+      {
+        id: 'empty',
+        kind: 'ollama',
+        name: 'OLLAMA',
+        setup: 'no-model',
+        lifecycle: false,
+        models: [],
+      },
+    ])
+    expect(report.setup).toBeNull()
     expect(report.status).toEqual({
-      input: { ready: true, label: 'model-runtime · gemma' },
-      command: { ready: true, label: 'model-runtime · gemma' },
+      input: { ready: true },
+      command: { ready: true },
       completion: { ready: false },
       terminal: { ready: false },
-      chat: { ready: true, label: 'model-runtime · big', tools: 'prompted' },
+      chat: { ready: true },
     })
-    expect(report.label).toBe('model-runtime · gemma / big')
     expect(report.features?.find((f) => f.id === 'terminalCompletions')).toEqual({
       id: 'terminalCompletions',
       setting: 'terminalCompletions',
       ready: false,
       on: false,
     })
+    expect(factory).toHaveBeenCalledWith(
+      'ollama',
+      { origin: 'https://ollama.example', basePath: '/v1' },
+      null,
+    )
+  })
+
+  it('offers what a fixed provider lists as installed, at its default address', async () => {
+    const { provider } = fakeProvider(() => '', { chatTools: async () => 'prompted' })
+    vi.mocked(provider.models).mockResolvedValue([
+      { id: 'gemma', installed: true },
+      { id: 'big' },
+      { id: 'absent', installed: false },
+    ])
+    const { svc, factory } = service(provider, undefined, undefined, { listedModels: true })
+    svc.configure({}, [entry('model-runtime', { id: 'model-runtime', models: [] })])
+    expect(svc.report().setup).toBe('no-model')
+    await svc.probe()
+    expect(svc.report().providers).toEqual([
+      {
+        id: 'model-runtime',
+        kind: 'model-runtime',
+        name: 'MODEL-RUNTIME',
+        setup: null,
+        lifecycle: false,
+        models: [
+          { id: 'gemma', tools: 'prompted' },
+          { id: 'big', tools: 'prompted' },
+        ],
+      },
+    ])
     expect(factory).toHaveBeenCalledWith(
       'model-runtime',
       {
@@ -160,33 +263,32 @@ describe('AssistantService report', () => {
     )
   })
 
-  it('needs a key for hosted providers and a base URL for openai-compatible', async () => {
+  it('needs a key for hosted providers and a base URL for openai-compatible', () => {
     const { svc } = service(fakeProvider(() => '').provider)
-    svc.configure({ provider: 'openrouter', fastModel: 'a/b' }, null)
+    svc.configure({}, [entry('openrouter')])
     expect(svc.report().setup).toBe('no-key')
-    svc.configure({ provider: 'openrouter', fastModel: 'a/b' }, '  ')
+    svc.configure({}, [entry('openrouter', { apiKey: '  ' })])
     expect(svc.report().status.chat).toEqual({ ready: false })
-    svc.configure({ provider: 'openrouter', fastModel: 'a/b' }, 'sk')
-    await svc.probe()
-    expect(svc.report().status.chat).toEqual({
-      ready: true,
-      label: 'openrouter · a/b',
-      tools: 'native',
-    })
-    svc.configure({ provider: 'openai-compatible', fastModel: 'm' }, null)
+    svc.configure({}, [entry('openrouter', { apiKey: 'sk' })])
+    expect(svc.report().status.chat).toEqual({ ready: true })
+    svc.configure({}, [entry('openai-compatible')])
     expect(svc.report().setup).toBe('no-endpoint')
-    svc.configure({ provider: 'openai-compatible', fastModel: 'm', baseUrl: 'http://h:1/v1' }, null)
+    svc.configure({}, [entry('openai-compatible', { baseUrl: 'http://h:1/v1' })])
     expect(svc.report().status.chat?.ready).toBe(true)
   })
 
-  it('marks the provider unreachable when the model list probe fails', async () => {
+  it('marks a provider unreachable when the model list probe fails', async () => {
     const { provider } = fakeProvider(() => '')
     vi.mocked(provider.models).mockRejectedValueOnce(new Error('connect ENOENT'))
     const { svc } = service(provider)
-    svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+    svc.configure({}, [entry('ollama')])
     await svc.probe()
     const report = svc.report()
     expect(report.setup).toBe('unreachable')
+    expect(report.providers?.[0]).toMatchObject({
+      setup: 'unreachable',
+      lastError: 'connect ENOENT',
+    })
     expect(report.lastError).toBe('connect ENOENT')
     expect(report.status.chat?.ready).toBe(false)
     await svc.probe()
@@ -195,7 +297,7 @@ describe('AssistantService report', () => {
 
   it('keeps chat ready for Explain error when only chat is switched off', () => {
     const { svc } = service(fakeProvider(() => '').provider)
-    svc.configure({ provider: 'ollama', fastModel: 'm', chat: false }, null)
+    svc.configure({ chat: false }, [entry('ollama')])
     const report = svc.report()
     expect(report.status.chat?.ready).toBe(true)
     expect(report.features?.find((f) => f.id === 'chat')?.on).toBe(false)
@@ -205,13 +307,48 @@ describe('AssistantService report', () => {
 describe('AssistantService requests', () => {
   it('refuses a point whose features are off', async () => {
     const { svc } = service(fakeProvider(() => 'x').provider)
-    svc.configure({ provider: 'ollama', fastModel: 'm', chat: false, explainError: false }, null)
+    svc.configure({ chat: false, explainError: false }, [entry('ollama')])
     expect((await failureOf(svc.handle('chat', chatInput, ctx()))).code).toBe('unavailable')
+  })
+
+  it('refuses a request without a model, for an unknown provider or a model it does not offer', async () => {
+    const { svc } = service(fakeProvider(() => 'x').provider)
+    svc.configure({}, [entry('ollama')])
+    for (const model of [
+      undefined,
+      { provider: 'nope', model: 'm' },
+      { provider: 'p1', model: 'other' },
+    ]) {
+      expect((await failureOf(svc.handle('chat', chatInput, ctx({ model })))).code).toBe(
+        'unavailable',
+      )
+    }
+  })
+
+  it('sends each request to the provider and model it names', async () => {
+    const first = fakeProvider(() => 'one')
+    const second = fakeProvider(() => 'two')
+    const { svc, factory } = service(first.provider)
+    factory.mockImplementation((_kind, endpoint) =>
+      endpoint.origin === 'http://b:2' ? second.provider : first.provider,
+    )
+    svc.configure({}, [
+      entry('ollama', { id: 'a', models: ['small', 'big'] }),
+      entry('openai-compatible', { id: 'b', baseUrl: 'http://b:2/v1', models: ['remote'] }),
+    ])
+    expect(
+      await svc.handle('chat', chatInput, ctx({ model: { provider: 'a', model: 'big' } })),
+    ).toEqual({ text: 'one' })
+    expect(
+      await svc.handle('chat', chatInput, ctx({ model: { provider: 'b', model: 'remote' } })),
+    ).toEqual({ text: 'two' })
+    expect(first.calls.map((c) => c.modelId)).toEqual(['big'])
+    expect(second.calls.map((c) => c.modelId)).toEqual(['remote'])
   })
 
   it('streams chat as JSON UI message chunks in order and returns the full reply', async () => {
     const { svc } = service(fakeProvider(() => 'Hello world').provider)
-    svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+    svc.configure({}, [entry('ollama')])
     const chunks: { type: string; delta?: string }[] = []
     const res = await svc.handle(
       'chat',
@@ -249,7 +386,7 @@ describe('AssistantService requests', () => {
     const prompted = fakeProvider(reply, { chatTools: async () => 'prompted' })
     for (const fake of [native, prompted]) {
       const { svc } = service(fake.provider)
-      svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+      svc.configure({}, [entry('ollama')])
       await svc.probe()
       const chunks: { type: string; toolName?: string; input?: unknown }[] = []
       await svc.handle(
@@ -291,7 +428,7 @@ describe('AssistantService requests', () => {
       { serverCancels: false },
     )
     const { svc } = service(fake.provider)
-    svc.configure({ provider: 'model-runtime', fastModel: 'm' }, null)
+    svc.configure({}, [entry('model-runtime')])
     const req = { path: '/a.ts', language: 'typescript', prefix: 'x = ', suffix: '' }
     const stale = new AbortController()
     const first = svc.handle('completion', req, ctx({ signal: stale.signal }))
@@ -319,7 +456,7 @@ describe('AssistantService requests', () => {
     const hosted = fakeProvider(() => '1')
     for (const fake of [local, hosted]) {
       const { svc } = service(fake.provider)
-      svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+      svc.configure({}, [entry('ollama')])
       expect(await svc.handle('completion', req, ctx())).toEqual({ text: '1' })
     }
     expect(local.calls[0].last).not.toContain('/b.ts')
@@ -331,25 +468,25 @@ describe('AssistantService requests', () => {
 
   it('stops sending chunks once the host says nobody listens', async () => {
     const { svc } = service(fakeProvider(() => 'abcdefghi').provider)
-    svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+    svc.configure({}, [entry('ollama')])
     const chunk = vi.fn(async () => false)
     await svc.handle('chat', chatInput, ctx({ chunk }))
     expect(chunk).toHaveBeenCalledTimes(1)
   })
 
-  it('runs only the input tasks that are on, with the fast model', async () => {
+  it('runs only the input tasks that are on, with the named model', async () => {
     const { provider, calls } = fakeProvider((system) =>
       system.includes('spelling')
         ? 'fix the tests'
         : '```json\n{"score":"2","notes":["Name the file"]}\n```',
     )
     const { svc } = service(provider)
-    svc.configure({ provider: 'ollama', fastModel: 'small', chatModel: 'big' }, null)
+    svc.configure({}, [entry('ollama')])
     expect(
       await svc.handle('input', { text: 'fix teh tests', tasks: ['typos', 'review'] }, ctx()),
     ).toEqual({ corrected: 'fix the tests', review: { score: 2, notes: ['Name the file'] } })
-    expect(calls.map((c) => c.modelId)).toEqual(['small', 'small'])
-    svc.configure({ provider: 'ollama', fastModel: 'small', promptReview: false }, null)
+    expect(calls.map((c) => c.modelId)).toEqual(['m', 'm'])
+    svc.configure({ promptReview: false }, [entry('ollama')])
     calls.length = 0
     expect(
       (await failureOf(svc.handle('input', { text: 'fix teh tests', tasks: ['review'] }, ctx())))
@@ -364,7 +501,7 @@ describe('AssistantService requests', () => {
       n++ === 0 ? '{"suggestions": [{"command": "ls' : '{"suggestions":[{"command":"ls -S"}]}',
     )
     const { svc } = service(provider)
-    svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+    svc.configure({}, [entry('ollama')])
     expect(await svc.handle('command', { query: 'x' }, ctx())).toEqual({
       suggestions: [{ command: 'ls -S' }],
     })
@@ -373,7 +510,7 @@ describe('AssistantService requests', () => {
 
   it('returns no review when the model answers with something that is not one', async () => {
     const { svc } = service(fakeProvider(() => 'looks fine to me').provider)
-    svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+    svc.configure({}, [entry('ollama')])
     expect(await svc.handle('input', { text: 'x', tasks: ['review'] }, ctx())).toEqual({})
   })
 
@@ -386,7 +523,7 @@ describe('AssistantService requests', () => {
         return '```\n42;\n```'
       }).provider,
     )
-    svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+    svc.configure({}, [entry('ollama')])
     expect(await svc.handle('command', { query: 'biggest files' }, ctx())).toEqual({
       suggestions: [{ command: 'ls -S', description: 'by size' }],
     })
@@ -405,7 +542,7 @@ describe('AssistantService requests', () => {
   it('rate-limits each point to requestsPerMinute', async () => {
     let now = 0
     const { svc } = service(fakeProvider(() => '{"suggestions":[]}').provider, () => now)
-    svc.configure({ provider: 'ollama', fastModel: 'm', requestsPerMinute: 1 }, null)
+    svc.configure({ requestsPerMinute: 1 }, [entry('ollama')])
     const ask = () => svc.handle('command', { query: 'x' }, ctx())
     await ask()
     expect((await failureOf(ask())).code).toBe('rate-limited')
@@ -426,7 +563,7 @@ describe('AssistantService requests', () => {
         })
       }).provider,
     )
-    svc.configure({ provider: 'openai', fastModel: 'm' }, 'sk-secret-1')
+    svc.configure({}, [entry('openai', { apiKey: 'sk-secret-1' })])
     const err = await failureOf(svc.handle('command', { query: 'x' }, ctx()))
     expect(err.code).toBe('failed')
     expect(err.message).toBe('HTTP 401: bad key ***')
@@ -446,7 +583,7 @@ describe('AssistantService requests', () => {
         })
       }).provider,
     )
-    svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+    svc.configure({}, [entry('ollama')])
     expect(
       (
         await failureOf(
@@ -464,7 +601,7 @@ describe('AssistantService requests', () => {
         throw new Error('socket hang up')
       }).provider,
     )
-    svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+    svc.configure({}, [entry('ollama')])
     const err = await failureOf(
       svc.handle('command', { query: 'x' }, ctx({ signal: abort.signal })),
     )
@@ -476,22 +613,23 @@ describe('AssistantService models', () => {
   it('skips listing models without a key and still reports that it lists models', async () => {
     const { provider } = fakeProvider(() => '')
     const { svc } = service(provider)
-    svc.configure({ provider: 'anthropic', fastModel: 'claude-x' }, null)
-    expect(await svc.modelList()).toEqual({ lifecycle: false, models: [] })
+    svc.configure({}, [entry('anthropic')])
+    expect(await svc.modelList('p1')).toEqual({ lifecycle: false, models: [] })
     expect(svc.report().models).toBe(true)
     expect(provider.models).not.toHaveBeenCalled()
   })
 
   it('lists models and refuses lifecycle calls on providers without one', async () => {
     const { svc } = service(fakeProvider(() => '').provider)
-    svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
-    expect(await svc.modelList()).toEqual({ lifecycle: false, models: [{ id: 'm1' }] })
-    await expect(svc.setLoaded('m1', true)).rejects.toThrow(/no model lifecycle/)
+    svc.configure({}, [entry('ollama')])
+    expect(await svc.modelList('p1')).toEqual({ lifecycle: false, models: [{ id: 'm1' }] })
+    expect(await svc.modelList('nope')).toEqual({ lifecycle: false, models: [] })
+    await expect(svc.setLoaded('m1', true, 'p1')).rejects.toThrow(/no model lifecycle/)
   })
 
-  it('reports no model list while no provider is chosen', () => {
+  it('reports no model list while no provider is added', () => {
     const { svc } = service(fakeProvider(() => '').provider)
-    svc.configure({ provider: 'none' }, null)
+    svc.configure({}, [])
     expect(svc.report().models).toBe(false)
   })
 })

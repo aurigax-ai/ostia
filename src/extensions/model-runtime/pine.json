@@ -1,9 +1,9 @@
 {
   "id": "model-runtime",
   "name": "Model runtime",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "api": "1.3",
-  "description": "Your local model-runtime as the assistant: a chat pane, typo fixes and prompt review before you send to an agent, command suggestions and completions at the prompt, editor completions and Explain error, with model load and unload in Settings → Assistant → Models. Requests go only to the runtime's socket on this computer.",
+  "description": "Your local model-runtime as an assistant provider: its installed models join the model list in Settings → Assistant and the chat's model selector, with load and unload there. Requests go only to the runtime's socket on this computer.",
   "category": "ai",
   "capabilities": ["assist", "notify"],
   "main": "main.js",
@@ -23,18 +23,6 @@
         "title": "Address",
         "default": "",
         "description": "Runtime address: unix:/path.sock or an http(s) URL. Empty uses $XDG_RUNTIME_DIR/model-runtime.sock."
-      },
-      "fastModel": {
-        "type": "string",
-        "title": "Fast model",
-        "default": "",
-        "description": "Small, fast model for typo fixes, prompt review, command suggestions and completions. Empty uses gemma. Settings → Assistant → Models lists what the runtime has."
-      },
-      "chatModel": {
-        "type": "string",
-        "title": "Chat model",
-        "default": "",
-        "description": "Model for the chat pane and Ask. Empty uses the fast model."
       },
       "typos": {
         "type": "boolean",

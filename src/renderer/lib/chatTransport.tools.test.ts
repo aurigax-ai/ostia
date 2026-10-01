@@ -1,4 +1,9 @@
-import type { AssistChunk, ChatAssistRequest } from '@shared/assist'
+import {
+  type AssistChunk,
+  type AssistModelRef,
+  type ChatAssistRequest,
+  EMPTY_ASSIST_CATALOG,
+} from '@shared/assist'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAssistStore } from '../stores/assistStore'
@@ -65,11 +70,14 @@ function textRound(text: string): string[] {
   ]
 }
 
+let sessionModel: AssistModelRef | null = null
+
 function sendWithTools(messages: PineChatMessage[], abortSignal?: AbortSignal) {
   return createAssistTransport({
     sessionId: 's1',
     workspaceId: () => null,
     root: () => '/proj',
+    model: () => sessionModel,
   }).sendMessages({
     trigger: 'submit-message',
     chatId: 's1',
@@ -106,7 +114,9 @@ const DENY_ALL_BUILTINS = [
 describe('createAssistTransport with tools', () => {
   beforeEach(() => {
     useAssistStore.setState({
-      availability: { chat: { extId: 'a', name: 'A', label: 'fake', tools: 'native' } },
+      availability: {
+        chat: { extId: 'a', name: 'A', label: 'fake', tools: 'native', ref: { extId: 'a' } },
+      },
     })
   })
 
@@ -116,7 +126,8 @@ describe('createAssistTransport with tools', () => {
     vi.mocked(window.pine.chatTools.preview).mockReset()
     vi.mocked(window.pine.chatTools.write).mockReset()
     vi.mocked(window.pine.chatTools.mcpCall).mockReset()
-    useAssistStore.setState({ availability: {} })
+    sessionModel = null
+    useAssistStore.setState({ availability: {}, catalog: EMPTY_ASSIST_CATALOG })
     resetChatTools()
   })
 
@@ -239,6 +250,32 @@ describe('createAssistTransport with tools', () => {
     expect(chunks.filter((c) => c.type === 'tool-approval-request')).toHaveLength(2)
   })
 
+  it('sends the question to the model this chat picked', async () => {
+    sessionModel = { extId: 'a', provider: 'p2', model: 'big' }
+    useAssistStore.setState({
+      catalog: {
+        models: [
+          {
+            ref: { extId: 'a', provider: 'p1', model: 'small' },
+            group: 'One',
+            label: 'small',
+            points: ['chat'],
+          },
+          { ref: sessionModel, group: 'Two', label: 'big', tools: 'prompted', points: ['chat'] },
+        ],
+        chat: { extId: 'a', provider: 'p1', model: 'small' },
+        fast: null,
+      },
+    })
+    replySequence([textRound('hi')])
+    const chunks = await drain(await sendWithTools([user('1', 'x')]))
+    expect(vi.mocked(window.pine.assist.request).mock.calls[0][3]).toEqual(sessionModel)
+    expect(chunks.find((c) => c.type === 'start')).toMatchObject({
+      messageMetadata: { model: 'Two · big' },
+    })
+    expect(requestAt(0).tools?.length).toBeGreaterThan(0)
+  })
+
   it('asks for an MCP tool once per chat after Allow for this chat', async () => {
     useChatToolsStore.getState().setMcp([
       {
@@ -303,7 +340,9 @@ describe('createAssistTransport with tools', () => {
   })
 
   it('sends no tools when the provider does not use them', async () => {
-    useAssistStore.setState({ availability: { chat: { extId: 'a', name: 'A' } } })
+    useAssistStore.setState({
+      availability: { chat: { extId: 'a', name: 'A', ref: { extId: 'a' } } },
+    })
     replySequence([textRound('plain')])
     await drain(await sendWithTools([user('1', 'x')]))
     expect(requestAt(0).tools).toBeUndefined()

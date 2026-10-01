@@ -12,9 +12,9 @@ import {
   requestJson,
 } from '../sdk/assist/endpoint'
 import type { Provider, ProviderCatalog } from '../sdk/assist/provider'
+import { createTranslator } from '../sdk/i18n'
 
 export const PROVIDER_KINDS = [
-  'none',
   'ollama',
   'openai-compatible',
   'openrouter',
@@ -91,7 +91,7 @@ function bearer(apiKey: string | null): Record<string, string> {
 }
 
 export function createProvider(
-  kind: Exclude<ProviderKind, 'none'>,
+  kind: ProviderKind,
   endpoint: Endpoint,
   apiKey: string | null,
 ): Provider {
@@ -163,11 +163,26 @@ const DEFAULT_BASE_URLS: Partial<Record<ProviderKind, string>> = {
   anthropic: 'https://api.anthropic.com/v1',
 }
 
+const KIND_TITLES: Record<ProviderKind, string> = {
+  ollama: 'Ollama',
+  'openai-compatible': 'OpenAI-compatible',
+  openrouter: 'OpenRouter',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+}
+
+const translate = createTranslator()
+
+export function kindTitle(kind: string, locale: string): string {
+  const key = `kind.${kind}`
+  const title = translate(locale)(key)
+  return title === key ? (KIND_TITLES[kind as ProviderKind] ?? kind) : title
+}
+
 export const ASSISTANT_CATALOG: ProviderCatalog = {
-  kinds: PROVIDER_KINDS.filter((kind) => kind !== 'none'),
+  kinds: PROVIDER_KINDS,
   keyRequired: new Set(['openrouter', 'openai', 'anthropic']),
+  title: kindTitle,
   defaultBaseUrl: (kind) => DEFAULT_BASE_URLS[kind as ProviderKind] ?? '',
-  defaultFastModel: () => '',
-  create: (kind, endpoint, apiKey) =>
-    createProvider(kind as Exclude<ProviderKind, 'none'>, endpoint, apiKey),
+  create: (kind, endpoint, apiKey) => createProvider(kind as ProviderKind, endpoint, apiKey),
 }

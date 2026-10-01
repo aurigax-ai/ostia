@@ -9,7 +9,12 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { InputEditor, type InputEditorProps } from './InputEditor'
 
 const PANE = 'pane-ghost'
-const PROVIDER = { extId: 'assistant', name: 'Assistant', label: 'model-runtime · gemma' }
+const PROVIDER = {
+  extId: 'assistant',
+  name: 'Assistant',
+  label: 'model-runtime · gemma',
+  ref: { extId: 'assistant' },
+}
 const WAIT = { timeout: 5000 }
 
 function assistOn(on = true): void {
@@ -21,6 +26,9 @@ function assistOn(on = true): void {
         name: 'Assistant',
         setup: null,
         models: false,
+        providers: [],
+        kinds: [],
+        keysSet: [],
         features: [{ id: 'terminalCompletions', setting: 'terminalCompletions', on, ready: true }],
       },
     ],
