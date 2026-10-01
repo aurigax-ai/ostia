@@ -15,6 +15,7 @@ import {
   FolderSimplePlusIcon,
   GearSixIcon,
   type Icon as IconComponent,
+  MoonIcon,
   PaletteIcon,
   PencilSimpleIcon,
   PushPinIcon,
@@ -452,8 +453,9 @@ function stateLabel(d: Dict, state: WorkspaceState): string {
 
 function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
   const d = useDict()
-  const KindIcon = KIND_ICON[workspace.kind]
   const root = useLayoutStore((s) => s.byWorkspace[workspace.id]?.root)
+  const hibernated = root ? allPanes(root).some((p) => p.hibernated) : false
+  const KindIcon = hibernated ? MoonIcon : KIND_ICON[workspace.kind]
   const waitingAt = useAttentionStore((s) => (root ? latestWaitingAt(s.byPane, paneIds(root)) : 0))
   return (
     <span className="tab-lead-wrap">
@@ -463,7 +465,12 @@ function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
         role="img"
         aria-label={stateLabel(d, workspace.state)}
       />
-      <KindIcon size={14} className="tab-lead" />
+      <KindIcon
+        size={14}
+        className="tab-lead"
+        role={hibernated ? 'img' : undefined}
+        aria-label={hibernated ? d.pane.hibernated : undefined}
+      />
     </span>
   )
 }
