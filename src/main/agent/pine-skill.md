@@ -76,8 +76,10 @@ pine workspace list --json                    # {workspaces, groups}: who is gro
 Use `waiting` whenever you block on the human (a question, an approval) and `done` when a long
 task finishes, so a human supervising many panes can jump straight to yours (Ctrl+Shift+U /
 ⌘⇧U jumps to the latest unread pane). Focusing the pane clears the unread flag; typing into a
-waiting pane clears `waiting`. Default capability `drive-self`. Printing an OSC 9 notification
-(`printf '\e]9;%s\a' "msg"`) does the same as `state waiting` from any program. For wiring
+waiting pane clears `waiting`, and so does your command exiting: report `waiting` only while you
+are still running. Default capability `drive-self`. Printing an OSC 9 notification
+(`printf '\e]9;%s\a' "msg"`) marks the pane unread with that message; it counts as `waiting`
+only while an agent runs in the pane. For wiring
 Claude Code/Codex hooks to this automatically, see `docs/AGENT-HOOKS.md` in the Pine repo.
 
 ## Raw UI commands

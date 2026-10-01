@@ -14,7 +14,10 @@ attention state of the pane the agent runs in:
 | `clear` | back to normal | nothing |
 
 Focusing the pane clears its unread flag and turns `done` back to normal. Typing into a `waiting`
-pane clears the waiting state.
+pane clears the waiting state, and so does the agent exiting. A `waiting` or `working` report that
+arrives once the pane is back at an idle shell prompt (a hook that finished after its agent
+exited) is ignored. A terminal notification marks the pane `waiting` only while an agent runs in
+it; from any other command it is an unread message.
 
 ## Why the commands look like this
 
