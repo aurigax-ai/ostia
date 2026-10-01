@@ -17,6 +17,7 @@ export interface SuggestionSources {
   extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'enabled' | 'status'>[]
   listings: () => LanguageListing[]
   dismissed: () => readonly string[]
+  languageOf?: (path: string) => string
 }
 
 interface Candidate {
@@ -28,7 +29,7 @@ export function suggestionFor(
   path: string,
   sources: SuggestionSources,
 ): ExtensionSuggestion | null {
-  const language = languageForPath(path)
+  const language = (sources.languageOf ?? languageForPath)(path)
   const servers = sources.servers()
   const covers = (source: LanguageServerSource): boolean =>
     source.server.languages.includes(language)

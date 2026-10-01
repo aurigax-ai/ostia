@@ -1,7 +1,7 @@
-import { languageForPath } from '@shared/editorLanguages'
 import type { LspSessionInfo } from '@shared/languageServers'
 import type { Diagnostic } from 'vscode-languageserver-protocol'
 import { claimedLanguages } from '../monaco/builtinFeatures'
+import { fileLanguage } from '../monaco/language'
 import { builtinFeatures, monaco } from '../monaco/setup'
 import { normalizeUri, toMarkers } from './converters'
 import { registerProviders } from './providers'
@@ -190,7 +190,7 @@ function close(document: OpenDocument): void {
 }
 
 export function openDocument(model: monaco.editor.ITextModel, paneId: string): () => void {
-  if (model.getLanguageId() !== languageForPath(model.uri.path)) return () => {}
+  if (model.getLanguageId() !== fileLanguage(model.uri.path)) return () => {}
   watchServers()
   const uri = model.uri.toString()
   let document = documents.get(uri)

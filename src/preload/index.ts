@@ -22,6 +22,7 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from '../shared/credentials'
+import type { EditorLanguage } from '../shared/editorLanguages'
 import type { ExtensionSuggestion } from '../shared/extensionSuggestions'
 import type {
   ExtensionInfo,
@@ -695,6 +696,9 @@ const bridge: PineBridge = {
   },
   languagePacks: {
     load: () => ipcRenderer.invoke('languagePacks:load') as Promise<LanguagePack[]>,
+  },
+  editorLanguages: {
+    load: () => ipcRenderer.invoke('editorLanguages:load') as Promise<EditorLanguage[]>,
   },
   views: {
     list: () => ipcRenderer.invoke('views:list') as Promise<ViewListing>,

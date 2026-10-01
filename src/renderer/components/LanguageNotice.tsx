@@ -1,9 +1,9 @@
-import { languageForPath } from '@shared/editorLanguages'
 import type { ExtensionSuggestion } from '@shared/extensionSuggestions'
 import type { LanguageServerInfo } from '@shared/languageServers'
 import type { MarketplaceError } from '@shared/marketplace'
 import { useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
+import { fileLanguage } from '../monaco/language'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLanguageNoticeStore } from '../stores/languageNoticeStore'
 import { useLanguageServersStore } from '../stores/languageServersStore'
@@ -25,7 +25,7 @@ export function serverNoticeFor(
   servers: readonly LanguageServerInfo[],
   path: string,
 ): LanguageServerInfo | null {
-  const language = languageForPath(path)
+  const language = fileLanguage(path)
   const claiming = servers.filter((s) => s.enabled && s.languages.includes(language))
   if (claiming.some((s) => s.status === 'running')) return null
   return claiming.find((s) => SERVER_NOTICES.includes(s.status as ServerNotice)) ?? null

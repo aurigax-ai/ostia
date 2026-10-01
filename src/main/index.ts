@@ -18,6 +18,7 @@ import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
+import { languageForPath } from '../shared/editorLanguages'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
@@ -72,6 +73,7 @@ import { controlSocketPath, registerControlServer, stopControlServer } from './c
 import { registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { registerDocsMethods } from './docs'
+import { registerEditorLanguageIpc } from './editorLanguages'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
 import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
@@ -515,6 +517,13 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
 
 let languageServers: LanguageServers | null = null
 
+function editorLanguageOf(path: string): string {
+  return languageForPath(
+    path,
+    (extensionHost?.editorLanguages() ?? []).map((source) => source.language),
+  )
+}
+
 const managedServers = new ManagedServers({
   dir: join(app.getPath('userData'), 'language-servers'),
   userAgent: releaseUserAgent(app.getVersion()),
@@ -555,6 +564,7 @@ function createLanguageServers(): LanguageServers {
       }),
     },
     findProgram: (program) => programPath(program),
+    languageOf: editorLanguageOf,
     managed: managedServers,
     registerRequirements,
     post: (windowId, channel, ...args) => {
@@ -1271,6 +1281,7 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
       extensions: () => extensionHost?.list() ?? [],
       listings: () => marketplace.languageListings(),
       dismissed: () => dismissed.list(),
+      languageOf: editorLanguageOf,
     })
   })
   ipcMain.handle('suggestions:dismiss', (_e, extId: unknown) => dismissed.dismiss(extId))
@@ -2410,6 +2421,10 @@ app.whenReady().then(() => {
   registerLanguagePackIpc({
     languages: () => extensionHost?.languages() ?? [],
     onError: (extId, error) => console.warn(`[language pack ${extId}] ${error}`),
+  })
+  registerEditorLanguageIpc({
+    languages: () => extensionHost?.editorLanguages() ?? [],
+    onError: (extId, error) => console.warn(`[editor language ${extId}] ${error}`),
   })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),

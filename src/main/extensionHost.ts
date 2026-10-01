@@ -87,6 +87,7 @@ import { quoteArgv } from '../shared/shellQuote'
 import type { Workflow } from '../shared/workflows'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
 import { registerControlMethod } from './controlServer'
+import type { EditorLanguageSource } from './editorLanguages'
 import {
   type DiscoveredExtension,
   type ExtensionRoot,
@@ -526,6 +527,18 @@ export class ExtensionHost {
       .filter((rt) => this.active(rt))
       .flatMap((rt) =>
         (rt.ext.manifest.contributes.languages ?? []).map((language) => ({
+          extId: rt.ext.manifest.id,
+          dir: rt.ext.dir,
+          language,
+        })),
+      )
+  }
+
+  editorLanguages(): EditorLanguageSource[] {
+    return [...this.runtimes.values()]
+      .filter((rt) => this.active(rt))
+      .flatMap((rt) =>
+        (rt.ext.manifest.contributes.editorLanguages ?? []).map((language) => ({
           extId: rt.ext.manifest.id,
           dir: rt.ext.dir,
           language,

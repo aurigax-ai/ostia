@@ -38,6 +38,7 @@ function manifestFiles(): string[] {
     join(repoRoot, 'test/fixtures/extensions-e2e/hello/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-lsp/fake-lang/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-lsp/fake-json/pine.json'),
+    join(repoRoot, 'test/fixtures/extensions-lsp/fake-grammar/pine.json'),
   ]
 }
 
@@ -113,6 +114,29 @@ describe('manifest schemas', () => {
               languages: ['python'],
               run: { program: 'demo' },
               ...server,
+            },
+          ],
+        },
+      })),
+      ...[
+        { id: 'Bad Id' },
+        { id: 'typescript' },
+        { name: '' },
+        { extensions: ['gleam'] },
+        { filenames: ['a/b'] },
+        { grammar: 'grammar.js' },
+        { configuration: { lineComment: 'x'.repeat(11) } },
+        { configuration: { brackets: [['{']] } },
+      ].map((language) => ({
+        ...base,
+        contributes: {
+          editorLanguages: [
+            {
+              id: 'gleam',
+              name: 'Gleam',
+              extensions: ['.gleam'],
+              grammar: 'gleam.monarch.json',
+              ...language,
             },
           ],
         },

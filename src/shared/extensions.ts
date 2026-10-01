@@ -1,5 +1,6 @@
 import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
+import type { EditorLanguageContribution } from './editorLanguages'
 import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
 import type { LanguageContribution, LanguageInfo } from './languagePack'
 import type { LanguageServerContribution, LanguageServerSummary } from './languageServers'
@@ -159,6 +160,7 @@ export interface ExtensionManifest {
     iconThemes?: IconThemeContribution[]
     languages?: LanguageContribution[]
     languageServers?: LanguageServerContribution[]
+    editorLanguages?: EditorLanguageContribution[]
   }
 }
 

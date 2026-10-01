@@ -22,7 +22,7 @@ interface Launched {
   project: string
 }
 
-async function launch(files: Record<string, string>): Promise<Launched> {
+async function launch(files: Record<string, string>, fixture = 'fake-lang'): Promise<Launched> {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   const project = join(home, 'project')
@@ -34,7 +34,10 @@ async function launch(files: Record<string, string>): Promise<Launched> {
     workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
   })
   const options = isolatedLaunch(dataHome)
-  installFakeLanguageExtension(join(options.env.XDG_CONFIG_HOME, PRODUCT_NAME, 'extensions'))
+  installFakeLanguageExtension(
+    join(options.env.XDG_CONFIG_HOME, PRODUCT_NAME, 'extensions'),
+    fixture,
+  )
   const app = await electron.launch({
     ...options,
     env: { ...options.env, HOME: home, PATH: `${FAKE_SYSTEM_BIN}:${process.env.PATH}` },
@@ -55,8 +58,11 @@ async function approveFakeLanguage(win: Page): Promise<void> {
 }
 
 async function openFile(win: Page, name: string): Promise<Locator> {
-  await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
-  await win.locator('.file-row').filter({ hasText: name }).click()
+  const files = win.locator('.file-row')
+  if ((await files.count()) === 0) {
+    await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
+  }
+  await files.filter({ hasText: name }).click()
   const editor = win.locator('.monaco-editor:visible').first()
   await expect(editor).toBeVisible({ timeout: 15_000 })
   return editor
@@ -364,6 +370,47 @@ test('rename, quick fix, signature help, inlay hints and semantic colours work i
       'fakeCall(first: string, second: number)',
       { timeout: 10_000 },
     )
+  } finally {
+    await app.close()
+  }
+})
+
+test('an extension adds an editor language: its grammar colours the file and its server is started for it', async () => {
+  const { app, win } = await launch(
+    { 'demo.fake': 'fn alpha KEYWORD\nplain ERROR here\n', Fakefile: 'let beta\n' },
+    'fake-grammar',
+  )
+  try {
+    const approval = win.getByRole('dialog').filter({ hasText: 'Fake grammar' })
+    await expect(approval).toBeVisible({ timeout: 15_000 })
+    await approval.getByRole('button', { name: 'Approve and enable' }).click()
+    await expect(approval).toBeHidden()
+    await openWorkspace(win)
+
+    const editor = await openFile(win, 'demo.fake')
+    await expect(win.locator('.editor-host:visible')).toHaveAttribute('data-mode-id', 'fakelang', {
+      timeout: 15_000,
+    })
+    const token = (text: RegExp): Locator =>
+      editor.locator('.view-line span span').filter({ hasText: text }).first()
+    const classOf = (text: RegExp): Promise<string | null> =>
+      token(text).getAttribute('class', { timeout: 5_000 })
+    await expect(token(/^fn$/)).toBeVisible({ timeout: 15_000 })
+    expect(await classOf(/^fn$/)).toBe(await classOf(/^KEYWORD$/))
+    expect(await classOf(/^fn$/)).not.toBe(await classOf(/^alpha$/))
+    await expect(editor.locator('.squiggly-error')).toHaveCount(1, { timeout: 20_000 })
+    const hover = await hoverText(win, editor, 'fn')
+    await expect(hover).toContainText('fake hover: fn')
+
+    const byName = await openFile(win, 'Fakefile')
+    await expect(
+      byName.locator('.view-line span span').filter({ hasText: /^let$/ }).first(),
+    ).toBeVisible({ timeout: 15_000 })
+
+    const settings = await openLanguages(win)
+    const row = settings.getByRole('listitem', { name: 'Fake grammar server' })
+    await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
+    await expect(row).toContainText('fakelang')
   } finally {
     await app.close()
   }
