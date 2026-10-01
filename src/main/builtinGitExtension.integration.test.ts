@@ -70,6 +70,7 @@ describe('built-in git extension against a real repository', () => {
   const sidebar = (): ExtensionSidebarItem[] =>
     (broadcasts.filter((b) => b.channel === 'extensions:sidebar').at(-1)?.payload ??
       []) as ExtensionSidebarItem[]
+  let repoWorkspaceKnown = false
   const itemText = (workspaceId: string): string | undefined =>
     sidebar().find((i) => i.extId === 'git' && i.workspaceId === workspaceId)?.text
   const caller = (cwd?: string): ExtensionCaller => ({
@@ -158,7 +159,7 @@ describe('built-in git extension against a real repository', () => {
       socketPath: () => socketPath,
       nodePath: process.execPath,
       dataDir: join(dir, 'ext-data'),
-      workDirForWorkspace: (sid) => (sid === 's1' ? repo : dir),
+      workDirForWorkspace: (sid) => (sid === 's1' ? (repoWorkspaceKnown ? repo : undefined) : dir),
       broadcast: (channel, payload) => broadcasts.push({ channel, payload }),
       openPanelIn,
       openDiffIn,
@@ -194,6 +195,14 @@ describe('built-in git extension against a real repository', () => {
       kind: 'location',
     })
     expect(itemText('s2')).toBeUndefined()
+  })
+
+  it('puts a chip up once main knows the workspace, even if it was refused before', async () => {
+    await until(() => chip('s2', 'diff-stats') ?? chip('s2', 'branch') ?? itemText('s1'))
+    await new Promise((r) => setTimeout(r, 400))
+    expect(chip('s1', 'branch')).toBeUndefined()
+    repoWorkspaceKnown = true
+    expect((await until(() => chip('s1', 'branch'))).text).toBe('main')
   })
 
   it('updates the sidebar after a command finishes', async () => {
