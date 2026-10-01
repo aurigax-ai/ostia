@@ -31,7 +31,7 @@
         "capabilities": ["read-board"]
       }
     ],
-    "sidebarItems": true,
+    "workspaceChips": [{ "id": "cards", "title": "Trellis cards" }],
     "panel": { "title": "Trellis", "icon": "kanban", "entry": "url" },
     "settings": {
       "notifyReview": {
@@ -53,7 +53,7 @@
         "minimum": 10,
         "maximum": 3600,
         "unit": "seconds",
-        "description": "Time between card count refreshes in the sidebar"
+        "description": "Time between card count refreshes"
       }
     }
   }
