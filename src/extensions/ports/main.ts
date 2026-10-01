@@ -3,14 +3,16 @@ import {
   type ExtensionSettingValues,
   type PaneChipValue,
   type PineExtension,
+  type WorkspaceChipValue,
   cliArgs,
   connect,
   failure,
+  nextBackoff,
   numberSetting,
   ok,
   parseFlags,
 } from '../sdk'
-import { chipSlot, paneChipValues } from './chips'
+import { chipSlot, paneChipValues, workspaceChipSlot, workspaceChipValues } from './chips'
 import { scanTrees } from './scan'
 import {
   type PortHost,
@@ -25,10 +27,14 @@ import {
 const POLL_SECONDS = { min: 1, max: 60 }
 const DEFAULT_POLL_SECONDS = 3
 const REFRESH_DEBOUNCE_MS = 400
+const CHIP_RETRY_MS = 300
+const CHIP_RETRY_MAX_MS = 5000
 
 class PortsExtension {
   private shown = new Map<string, SidebarEntry>()
   private chips = new Map<string, PaneChipValue>()
+  private workspaceChips = new Map<string, WorkspaceChipValue>()
+  private chipRefusals = 0
   private groups = new Map<string, WorkspaceProcesses>()
   private poll: ReturnType<typeof setInterval> | null = null
   private timer: ReturnType<typeof setTimeout> | null = null
@@ -76,8 +82,9 @@ class PortsExtension {
       const panes = await this.ext.listPanes()
       const trees = await scanTrees(terminalPids(panes), process.ppid)
       this.groups = groupByWorkspace(panes, trees)
-      await this.sync(sidebarEntries(this.groups, this.host))
-      await this.syncChips(paneChipValues(panes, trees, this.host))
+      await this.sync(sidebarEntries(this.groups))
+      await this.syncChips(paneChipValues(panes, trees))
+      await this.syncWorkspaceChips(workspaceChipValues(this.groups, this.host))
     } catch (err) {
       console.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -109,6 +116,28 @@ class PortsExtension {
       await this.ext.setPaneChip(chip)
     }
     this.chips = next
+  }
+
+  private async syncWorkspaceChips(chips: WorkspaceChipValue[]): Promise<void> {
+    const next = new Map(chips.map((c) => [workspaceChipSlot(c), c]))
+    for (const [slot, chip] of this.workspaceChips) {
+      if (next.has(slot)) continue
+      await this.ext.clearWorkspaceChip(chip.workspaceId, chip.id)
+    }
+    const accepted = new Map<string, WorkspaceChipValue>()
+    for (const [slot, chip] of next) {
+      if (JSON.stringify(this.workspaceChips.get(slot)) === JSON.stringify(chip)) {
+        accepted.set(slot, chip)
+        continue
+      }
+      const res = await this.ext.setWorkspaceChip(chip)
+      if (res.ok) accepted.set(slot, chip)
+    }
+    this.workspaceChips = accepted
+    this.chipRefusals = accepted.size < next.size ? this.chipRefusals + 1 : 0
+    if (this.chipRefusals > 0) {
+      this.schedule(nextBackoff(this.chipRefusals, CHIP_RETRY_MS, CHIP_RETRY_MAX_MS))
+    }
   }
 
   handlers(): Record<string, CommandHandler> {

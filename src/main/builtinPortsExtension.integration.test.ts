@@ -13,7 +13,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { ExtensionCaller, ExtensionSidebarItem, PaneChip } from '../shared/extensions'
+import type {
+  ExtensionCaller,
+  ExtensionSidebarItem,
+  PaneChip,
+  WorkspaceChip,
+} from '../shared/extensions'
 import type { CommandResult } from '../shared/types'
 import { registerControlServer, stopControlServer } from './controlServer'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
@@ -64,6 +69,10 @@ describe.runIf(process.platform === 'linux')(
         []) as ExtensionSidebarItem[]
     const itemsOf = (workspaceId: string): ExtensionSidebarItem[] =>
       sidebar().filter((i) => i.extId === 'ports' && i.workspaceId === workspaceId)
+    const workspaceChip = (workspaceId: string): WorkspaceChip | undefined =>
+      host
+        .workspaceChips()
+        .find((c) => c.extId === 'ports' && c.id === 'ports' && c.workspaceId === workspaceId)
     const chipsOf = (paneId: string): PaneChip[] =>
       (
         (broadcasts.filter((b) => b.channel === 'extensions:chips').at(-1)?.payload ??
@@ -169,26 +178,23 @@ describe.runIf(process.platform === 'linux')(
       rmSync(dir, { recursive: true, force: true })
     })
 
-    it('shows the port a process in the pane’s tree listens on, linked to localhost', async () => {
-      const item = await until(() => itemsOf('s1').find((i) => i.key === `port:${port}`))
-      expect(item).toMatchObject({ text: `:${port}`, url: `http://localhost:${port}/` })
-    })
-
-    it('shows the host of a foreground ssh and no ports for it', async () => {
+    it('shows the host of a foreground ssh in the sidebar and no line for ports', async () => {
       const item = await until(() => itemsOf('s2').find((i) => i.key === 'ssh'))
       expect(item).toMatchObject({ text: 'build-box', icon: 'server' })
-      expect(itemsOf('s2').some((i) => i.key.startsWith('port:'))).toBe(false)
+      await until(() => workspaceChip('s1'))
+      expect(itemsOf('s1')).toEqual([])
     })
 
-    it('puts a ports icon chip on the pane that lists each port with its link', async () => {
-      const chip = await until(() => chipsOf('p-web').find((c) => c.id === 'ports'))
+    it('puts a ports icon chip on the workspace that lists each port with its link', async () => {
+      const chip = await until(() => workspaceChip('s1'))
       expect(chip).toMatchObject({
         extId: 'ports',
         icon: 'plugs',
         text: '1',
         items: [{ text: `:${port}`, url: `http://localhost:${port}/` }],
       })
-      expect(chipsOf('p-web').some((c) => c.id === 'ssh')).toBe(false)
+      expect(chipsOf('p-web')).toEqual([])
+      expect(workspaceChip('s2')).toBeUndefined()
     })
 
     it('puts the user@host of a foreground ssh on its pane as a chip', async () => {
@@ -198,30 +204,29 @@ describe.runIf(process.platform === 'linux')(
     })
 
     it('links ports to 127.0.0.1 once the human picks that host', async () => {
-      await until(() => chipsOf('p-web').find((c) => c.id === 'ports'))
+      await until(() => workspaceChip('s1'))
       expect(host.setSetting('ports', 'portHost', '127.0.0.1')).toMatchObject({ ok: true })
-      const chip = await until(() =>
-        chipsOf('p-web').find((c) => c.id === 'ports' && c.items?.[0]?.url?.includes('127.0.0.1')),
-      )
+      const chip = await until(() => {
+        const c = workspaceChip('s1')
+        return c?.items?.[0]?.url?.includes('127.0.0.1') ? c : undefined
+      })
       expect(chip.items?.[0]?.url).toBe(`http://127.0.0.1:${port}/`)
-      const item = await until(() =>
-        itemsOf('s1').find((i) => i.key === `port:${port}` && i.url?.includes('127.0.0.1')),
-      )
-      expect(item.url).toBe(`http://127.0.0.1:${port}/`)
       host.setSetting('ports', 'portHost', null)
-      await until(() =>
-        chipsOf('p-web').find((c) => c.id === 'ports' && c.items?.[0]?.url?.includes('localhost')),
-      )
+      await until(() => {
+        const c = workspaceChip('s1')
+        return c?.items?.[0]?.url?.includes('localhost') ? c : undefined
+      })
     })
 
     it('ignores a listening socket the terminal only inherited from Pine itself', async () => {
-      await until(() => itemsOf('s1')[0])
+      await until(() => workspaceChip('s1'))
       await until(() => itemsOf('s2')[0])
-      expect(itemsOf('s4')).toEqual([])
+      expect(workspaceChip('s4')).toBeUndefined()
     })
 
     it('never scans panes that are not terminals', async () => {
-      await until(() => itemsOf('s1')[0])
+      await until(() => workspaceChip('s1'))
+      expect(workspaceChip('s3')).toBeUndefined()
       expect(itemsOf('s3')).toEqual([])
     })
 
@@ -253,11 +258,10 @@ describe.runIf(process.platform === 'linux')(
       ).toEqual(['s1', 's2', 's4'])
     })
 
-    it('drops the port and its chip once the listener exits', async () => {
-      await until(() => itemsOf('s1')[0])
+    it('drops the workspace’s ports chip once the listener exits', async () => {
+      await until(() => workspaceChip('s1'))
       web.kill('SIGKILL')
-      await until(() => (itemsOf('s1').length === 0 ? true : undefined))
-      await until(() => (chipsOf('p-web').length === 0 ? true : undefined))
+      await until(() => (workspaceChip('s1') === undefined ? true : undefined))
     })
   },
 )

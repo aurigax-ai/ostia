@@ -85,7 +85,6 @@ export interface SidebarSettings {
   showMessage: boolean
   showDescription: boolean
   showExtensionItems: boolean
-  showPorts: boolean
   showSSH: boolean
 }
 
@@ -332,7 +331,6 @@ const DEFAULTS: Persisted = {
     showMessage: true,
     showDescription: true,
     showExtensionItems: true,
-    showPorts: true,
     showSSH: true,
   },
   agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false },

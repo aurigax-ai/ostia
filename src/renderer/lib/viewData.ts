@@ -1,4 +1,4 @@
-import type { ExtensionSidebarItem } from '@shared/extensions'
+import type { ExtensionSidebarItem, WorkspaceChip } from '@shared/extensions'
 import type { NotificationEntry } from '@shared/types'
 import type { ViewSource } from '@shared/views'
 import { allPanes } from '../layout/tree'
@@ -9,7 +9,7 @@ import { EMPTY_ATTENTION, type PaneAttention, unreadCount } from './attention'
 export const VIEW_NOTIFICATIONS_MAX = 50
 
 const PORTS_EXTENSION = 'ports'
-const PORT_KEY_PREFIX = 'port:'
+const PORTS_CHIP = 'ports'
 const GIT_EXTENSION = 'git'
 
 export interface ViewDataInputs {
@@ -18,6 +18,7 @@ export interface ViewDataInputs {
   byWorkspace: Readonly<Record<string, WorkspaceLayout | undefined>>
   attention: Readonly<Record<string, PaneAttention>>
   sidebar: readonly ExtensionSidebarItem[]
+  workspaceChips: readonly WorkspaceChip[]
   approvals: number
   notifications: readonly NotificationEntry[]
   agentOf: (paneId: string) => string | null
@@ -31,19 +32,31 @@ interface PortData {
   workspaceId: string
 }
 
+function portOf(url: string | undefined): number | null {
+  if (!url) return null
+  try {
+    const port = Number(new URL(url).port)
+    return Number.isInteger(port) && port > 0 ? port : null
+  } catch {
+    return null
+  }
+}
+
 function portsOf(inputs: ViewDataInputs): PortData[] {
   const names = new Map(inputs.workspaces.map((w) => [w.id, w.name]))
   const out: PortData[] = []
-  for (const item of inputs.sidebar) {
-    if (item.extId !== PORTS_EXTENSION || !item.key.startsWith(PORT_KEY_PREFIX)) continue
-    const port = Number(item.key.slice(PORT_KEY_PREFIX.length))
-    if (!Number.isInteger(port) || !item.workspaceId) continue
-    out.push({
-      port,
-      url: item.url ?? null,
-      workspace: names.get(item.workspaceId) ?? '',
-      workspaceId: item.workspaceId,
-    })
+  for (const chip of inputs.workspaceChips) {
+    if (chip.extId !== PORTS_EXTENSION || chip.id !== PORTS_CHIP) continue
+    for (const item of chip.items ?? []) {
+      const port = portOf(item.url)
+      if (port === null) continue
+      out.push({
+        port,
+        url: item.url ?? null,
+        workspace: names.get(chip.workspaceId) ?? '',
+        workspaceId: chip.workspaceId,
+      })
+    }
   }
   return out.sort((a, b) => a.port - b.port)
 }
