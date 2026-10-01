@@ -38,6 +38,8 @@ import {
   askContextOptions,
   explainSources,
   isShellLanguage,
+  liveSelectionContext,
+  selectionRef,
 } from '../lib/askContext'
 import { type MenuAnchor, menuAnchor } from '../lib/caretPoint'
 import { insertInto, looksLikeCommand } from '../lib/chatActions'
@@ -86,6 +88,7 @@ import {
   useChatStore,
 } from '../stores/chatStore'
 import { refreshSkills, useChatToolsStore } from '../stores/chatToolsStore'
+import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -231,6 +234,14 @@ function ChatSession({
   const [enabled, setEnabled] = useState<ReadonlySet<AskContextKind>>(
     () => new Set(options.cwd ? (['cwd'] as const) : []),
   )
+  const liveSelection = useLiveSelectionStore((s) =>
+    workspaceId ? s.byWorkspace[workspaceId] : undefined,
+  )
+  const selectedText = liveSelection?.text
+  useEffect(() => {
+    if (!selectedText) return
+    setEnabled((prev) => (prev.has('selection') ? prev : new Set([...prev, 'selection'])))
+  }, [selectedText])
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const busy = status === 'submitted' || status === 'streaming'
@@ -300,7 +311,8 @@ function ChatSession({
     const question = text.trim()
     if (!question || busy) return
     setCard(null)
-    const fresh = askContextOptions(labels)
+    const selection = liveSelectionContext(workspaceId, labels.selection)
+    const fresh = { ...askContextOptions(labels), ...(selection ? { selection } : {}) }
     setOptions(fresh)
     const context = [
       ...extra,
@@ -358,7 +370,10 @@ function ChatSession({
     [workspaceId, sessionId, onInserted],
   )
 
-  const available = ASK_CONTEXT_ORDER.filter((kind) => options[kind])
+  const available = ASK_CONTEXT_ORDER.filter((kind) =>
+    kind === 'selection' ? liveSelection !== undefined : options[kind],
+  )
+  const selectedRef = liveSelection ? selectionRef(liveSelection) : null
   const last = messages[messages.length - 1]
 
   const slashCtx: SlashContext = {
@@ -614,6 +629,9 @@ function ChatSession({
                       <span className="max-w-48 truncate font-mono text-ui-xs">
                         {options.cwd.text}
                       </span>
+                    ) : null}
+                    {kind === 'selection' && selectedRef ? (
+                      <span className="max-w-48 truncate font-mono text-ui-xs">{selectedRef}</span>
                     ) : null}
                   </Button>
                 )
