@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { type AssistPoint, isAssistPoint } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
+import { apiProblem } from '../shared/extensionApi'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_CATEGORIES,
@@ -372,6 +373,9 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   const version = text(raw.version, 40)
   if (!name) return { ok: false, error: 'missing name' }
   if (!version) return { ok: false, error: 'missing version' }
+  if (raw.api === undefined) return { ok: false, error: 'missing api' }
+  const incompatible = apiProblem(raw.api)
+  if (incompatible) return { ok: false, error: incompatible }
   const description = typeof raw.description === 'string' ? raw.description.slice(0, 500) : ''
   const caps = capabilities(raw.capabilities, 'manifest')
   if (typeof caps === 'string') return { ok: false, error: caps }
@@ -447,6 +451,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     id,
     name,
     version,
+    api: raw.api as string,
     description,
     category: category as ExtensionCategory,
     capabilities: caps,

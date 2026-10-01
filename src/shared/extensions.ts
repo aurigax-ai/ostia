@@ -138,6 +138,7 @@ export interface ExtensionManifest {
   id: string
   name: string
   version: string
+  api: string
   description: string
   category: ExtensionCategory
   capabilities: Capability[]
