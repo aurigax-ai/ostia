@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, rmSync } from 'node:fs'
+import { mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageRef } from '../../shared/packages'
@@ -15,6 +15,7 @@ import {
   resolveSandbox,
   sandboxMergeRefusal,
 } from '../../shared/sandbox'
+import { processAlive } from '../processAlive'
 import { SandboxHost, SandboxHostError } from './hostClient'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
 import type { SandboxPathEnv } from './pathChecks'
@@ -38,6 +39,8 @@ export interface WorkspaceSandboxesDeps {
   basePaths: () => Omit<SandboxPaths, 'workDir' | 'tmpDir'>
   workDir: (workspaceId: string) => string | undefined
   tmpRoot: string
+  pid?: number
+  processAlive?: (pid: number) => boolean
   nodePath: string
   hostScript: string
   hostEnv?: NodeJS.ProcessEnv
@@ -47,6 +50,7 @@ export interface WorkspaceSandboxesDeps {
 }
 
 const KERNEL_MOUNTS = ['/dev', '/proc']
+const INSTANCE_TMP_NAME = /^\d+$/
 
 const FOLDER_PROBLEM_TEXT: Record<SandboxFolderProblem['reason'], string> = {
   home: 'is your home folder',
@@ -56,6 +60,14 @@ const FOLDER_PROBLEM_TEXT: Record<SandboxFolderProblem['reason'], string> = {
 
 export function folderProblemMessage(problem: SandboxFolderProblem): string {
   return `${problem.folder} ${FOLDER_PROBLEM_TEXT[problem.reason]}, so a sandbox cannot confine it; open a project folder instead`
+}
+
+function instanceTmpNames(tmpRoot: string): string[] {
+  try {
+    return readdirSync(tmpRoot).filter((name) => INSTANCE_TMP_NAME.test(name))
+  } catch {
+    return []
+  }
 }
 
 export class SandboxUnavailableError extends Error {
@@ -74,7 +86,13 @@ export class WorkspaceSandboxes {
   private readonly mergedInto = new Map<string, string>()
   private readonly paneWrites = new Map<string, Set<string>>()
 
-  constructor(private readonly deps: WorkspaceSandboxesDeps) {}
+  private readonly pid: number
+  private readonly instanceTmp: string
+
+  constructor(private readonly deps: WorkspaceSandboxesDeps) {
+    this.pid = deps.pid ?? process.pid
+    this.instanceTmp = join(deps.tmpRoot, String(this.pid))
+  }
 
   owner(workspaceId: string): string {
     return this.mergedInto.get(workspaceId) ?? workspaceId
@@ -221,7 +239,7 @@ export class WorkspaceSandboxes {
   }
 
   tmpDir(workspaceId: string): string {
-    return join(this.deps.tmpRoot, workspaceId)
+    return join(this.instanceTmp, workspaceId)
   }
 
   config(workspaceId: string): SandboxRuntimeConfig {
@@ -321,7 +339,20 @@ export class WorkspaceSandboxes {
   }
 
   clearTmp(): void {
-    rmSync(this.deps.tmpRoot, { recursive: true, force: true })
+    rmSync(this.instanceTmp, { recursive: true, force: true })
+  }
+
+  sweepTmp(): string[] {
+    const alive = this.deps.processAlive ?? processAlive
+    const removed: string[] = []
+    for (const name of instanceTmpNames(this.deps.tmpRoot)) {
+      const pid = Number(name)
+      if (pid === this.pid || alive(pid)) continue
+      const dir = join(this.deps.tmpRoot, name)
+      rmSync(dir, { recursive: true, force: true })
+      removed.push(dir)
+    }
+    return removed
   }
 
   stopAll(): void {
