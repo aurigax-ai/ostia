@@ -8,3 +8,7 @@ coverage/
 test-results/
 playwright-report/
 .claude/worktrees/
+
+.sdd/
+.serena/
+docs/
