@@ -1,5 +1,6 @@
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -23,6 +24,7 @@ const marketplaceManifest = {
   extensions: marketplaceIds.map((id) => `extensions/${id}`),
 }
 const assets = ['pine.json', 'panel.html', 'panel.css']
+const localesDir = 'locales'
 
 async function writeCatalog(exportName, file) {
   const bundle = resolve(builtinRoot, 'dict-build.mjs')
@@ -56,6 +58,9 @@ for (const id of ids) {
   mkdirSync(out, { recursive: true })
   for (const file of assets) {
     if (existsSync(join(src, file))) copyFileSync(join(src, file), join(out, file))
+  }
+  if (existsSync(join(src, localesDir))) {
+    cpSync(join(src, localesDir), join(out, localesDir), { recursive: true })
   }
   if (existsSync(join(src, 'panel.html')))
     copyFileSync(join(srcRoot, 'sdk/panel.css'), join(out, 'base.css'))

@@ -22,6 +22,11 @@ import type {
 } from '../../shared/assist'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import { EXTENSION_API_ENV, EXTENSION_API_VERSION, apiProblem } from '../../shared/extensionApi'
+import {
+  EXTENSION_BASE_LOCALE,
+  type ExtensionLocaleChangedPayload,
+  LOCALE_CHANGED_EVENT,
+} from '../../shared/extensionLocales'
 import type {
   DiffContent,
   ExtensionCaller,
@@ -48,6 +53,15 @@ export type {
   OpenTerminalOptions,
   PaneChipItem,
 } from '../../shared/extensions'
+
+export {
+  type MessageVars,
+  type Translate,
+  formatMessage,
+  localized,
+  matchLocale,
+} from '../../shared/extensionLocales'
+export { createTranslator } from './i18n'
 
 export type AttentionVerb = 'waiting' | 'done' | 'working' | 'error' | 'clear'
 
@@ -107,6 +121,8 @@ export type PanelHandler = (
 ) => { url: string } | Promise<{ url: string }>
 
 export type SettingsHandler = (values: ExtensionSettingValues) => void
+
+export type LocaleHandler = (locale: string) => void
 
 export interface AssistContext {
   requestId: string
@@ -177,6 +193,8 @@ export interface PineExtension {
   getSettings: () => Promise<ExtensionSettingValues>
   setSetting: (key: string, value: ExtensionSettingValue | null) => Promise<ExtensionResult>
   onSettingsChanged: (handler: SettingsHandler) => void
+  getLocale: () => Promise<string>
+  onLocaleChanged: (handler: LocaleHandler) => void
   callAs: <T = unknown>(paneId: string, method: string, params?: object) => Promise<T>
   setAttention: (paneId: string, state: AttentionVerb, message?: string) => Promise<unknown>
   openDiff: (diff: DiffContent & { workspaceId?: string }) => Promise<ExtensionResult>
@@ -253,6 +271,7 @@ export async function connect(): Promise<PineExtension> {
   let panelHandler: PanelHandler | null = null
   let eventHandler: EventHandler | null = null
   let settingsHandler: SettingsHandler | null = null
+  let localeHandler: LocaleHandler | null = null
   let assistHandler: AssistHandler | null = null
   let modelsHandler: AssistModelsHandler | null = null
 
@@ -317,9 +336,14 @@ export async function connect(): Promise<PineExtension> {
   })
   conn.onNotification(
     'ext.event',
-    (params: { type: ExtensionEventType | typeof SETTINGS_CHANGED_EVENT; payload: never }) => {
+    (params: {
+      type: ExtensionEventType | typeof SETTINGS_CHANGED_EVENT | typeof LOCALE_CHANGED_EVENT
+      payload: never
+    }) => {
       if (params.type === SETTINGS_CHANGED_EVENT) {
         settingsHandler?.((params.payload as { values: ExtensionSettingValues }).values)
+      } else if (params.type === LOCALE_CHANGED_EVENT) {
+        localeHandler?.((params.payload as ExtensionLocaleChangedPayload).locale)
       } else {
         eventHandler?.(params.type, params.payload)
       }
@@ -367,6 +391,13 @@ export async function connect(): Promise<PineExtension> {
     setSetting: (key, value) => conn.sendRequest('ext.setSetting', { key, value }),
     onSettingsChanged: (handler) => {
       settingsHandler = handler
+    },
+    getLocale: async () => {
+      const res = await conn.sendRequest<{ locale?: unknown }>('ext.locale')
+      return typeof res?.locale === 'string' ? res.locale : EXTENSION_BASE_LOCALE
+    },
+    onLocaleChanged: (handler) => {
+      localeHandler = handler
     },
     callAs: <T>(paneId: string, method: string, params?: object) =>
       conn.sendRequest<T>(method, { ...params, [TARGET_PANE_PARAM]: paneId }),

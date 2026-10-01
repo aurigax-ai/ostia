@@ -117,6 +117,7 @@ installs, updates or uninstalls, from Settings.
 |---|---|
 | `id` | Lowercase letters, digits and dashes, 2–40 chars. It is the CLI verb (`pine ports ls`) and the command prefix (`ports.open`). |
 | `name`, `version`, `description` | Shown in Settings and the approval dialog. |
+| `locales` | Optional. Up to 32 language tags (`"zh-Hant"`, `"fr"`) you ship a catalog for, each read from `locales/<tag>.json` in the extension. See "Translations" below. |
 | `capabilities` | What the extension process may do through pine. It gets this list intersected with what the user approved. Names are pine's capability names (`shared/capabilities.ts`). |
 | `main` | Path inside the extension dir. `.js`/`.cjs`/`.mjs` run with pine's own Electron binary as Node (`ELECTRON_RUN_AS_NODE=1`), so no system Node is needed; anything else is executed directly (any language). cwd is the extension dir. Required if you contribute commands, sidebar items or a `url` panel. |
 | `contributes.commands[]` | `id` (no dots), `title`, optional `category`, `usage` (shown in `pine docs` / `pine ext ls`), `palette` (default `true`; `false` = CLI/agents only), `stdin` (CLI pipes stdin to you), `interactive` (the command waits on the human, usually through `ext.confirm`: pine waits up to 10 min for your reply instead of 30 s), `argument` (a label, 80 chars: picking the command in the palette asks the human for one value, shown with this label, and you get it as `args.argv[0]`, the same shape as `pine <id> <command> <value>`; without `argument` palette runs get `null` args), `capabilities` (what the **caller** must hold; checked by pine before your process sees the call). |
@@ -126,8 +127,8 @@ installs, updates or uninstalls, from Settings.
 | `contributes.workspaceChips` | Up to 8 `{id, title}`, like `paneChips` but for a value that describes a whole workspace (for example its repository's branch and changes). You set it with `ext.setWorkspaceChip`; the top bar shows the chips of the active workspace. The Pine prompt can show it too (same `<extId>.<chip>` id): a pane's prompt shows its own pane chip if there is one, otherwise its workspace's. Needs `main`. |
 | `api` | Required. The extension API version you wrote against, `major.minor` (`"1.0"`). pine loads the extension only when it provides that major and at least that minor; otherwise the manifest is refused with `needs extension API X; this pine provides Y`, in the log, in `pine-extension validate` and under a marketplace's "Entries that could not be offered". See "API version" |
 | `category` | Optional, one of `ai`, `scm`, `tools`, `themes`, `langpack`, `completions`, `other` (the default). Settings → Extensions and the marketplace show it as a badge. Anything else refuses the manifest |
-| `contributes.languages` | Up to 8 language packs, each `{id, label, path}`: `id` is a language tag (`fr`, `zh-Hant`), `label` the name shown in Settings → Language, `path` a `.json` file inside the extension. The file is a nested object of strings shaped like pine's English catalog (`src/renderer/i18n/dict.ts`, `en`): translate the keys you want, anything missing stays English, and keys English doesn't have are ignored. Keep `{placeholders}` as they are. No `main` needed. Main reads the file (no symlinks, ≤ 1 MiB, strings ≤ 4000 characters) only while the extension is enabled; disabling it puts the interface back in English. The first enabled extension to provide a language wins, and none can replace English |
-| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
+| `contributes.languages` | Up to 8 language packs, each `{id, label, path}`: `id` is a language tag (`fr`, `zh-Hant`), `label` the name shown in Settings → Language, `path` a `.json` file inside the extension. The file is a nested object of strings shaped like pine's English catalog (`src/renderer/i18n/dict.ts`, `en`): translate the keys you want, anything missing stays English, and keys English doesn't have are ignored. Keep `{placeholders}` as they are. No `main` needed. Main reads the file (no symlinks, ≤ 1 MiB, strings ≤ 4000 characters) only while the extension is enabled; disabling it puts the interface back in English. The first enabled extension to provide a language wins, and none can replace English. A language pack translates pine's own interface only: it cannot carry strings for another extension, which translates itself ("Translations" below) |
+| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Write them in English and translate them in your own catalogs ("Translations" below). Settings → Extensions shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
@@ -137,6 +138,141 @@ installs, updates or uninstalls, from Settings.
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`, `chat`.
+
+## Translations
+
+Each extension owns its wording in every language. pine translates nothing for you and no other
+extension can: a language pack (`contributes.languages`) covers pine's own interface only.
+Catalogs, `ext.locale` and `locale.changed` are API 1.3: set `"api": "1.3"` when you use them.
+
+Write the manifest in English, list the languages you translate into, and ship one catalog per
+language:
+
+```json
+{ "id": "ports", "name": "Ports", "locales": ["zh-Hant"], "contributes": { … } }
+```
+
+```
+ports/
+  pine.json
+  main.js
+  locales/
+    en.json         messages only: the English your process shows
+    zh-Hant.json    manifest strings and messages in Traditional Chinese
+```
+
+```json
+{
+  "manifest": {
+    "name": "連接埠",
+    "description": "顯示每個工作區正在監聽的開發伺服器。",
+    "commands.open.title": "開啟連接埠",
+    "commands.find.argument": "連接埠號碼",
+    "panel.title": "連接埠",
+    "workspaceChips.ports.title": "監聽中的連接埠",
+    "settings.interval.title": "掃描間隔",
+    "settings.interval.description": "{product} 在前景時，每次掃描的間隔時間",
+    "settings.sort.valueTitles.port": "依連接埠"
+  },
+  "messages": {
+    "found": "找到 {count} 個連接埠"
+  }
+}
+```
+
+A catalog has two sections and nothing else, each a flat object of strings.
+
+### `manifest`: what pine shows for you
+
+Keys name a string your manifest declares:
+
+| Key | Translates |
+|---|---|
+| `name`, `description` | The extension's name and description |
+| `commands.<id>.title`, `.category`, `.argument` | A command's palette title, its group and its argument prompt |
+| `panel.title` | The panel's toggle and tab title |
+| `paneChips.<id>.title`, `workspaceChips.<id>.title` | A chip's name in tooltips and Settings → Prompt |
+| `settings.<key>.title`, `.description`, `.valueTitles.<value>` | A setting's label, help text and enum option labels |
+| `secrets.<key>.title`, `.description` | A secret's label and help text |
+
+pine reads `locales/<tag>.json` for every tag in `locales`, in main, the way it reads your
+manifest: a regular file inside the extension (no symlink anywhere on its path), at most 256 KiB.
+It keeps a string only when its key is one of the above **for something your manifest declares**
+and its value fits the limits of the string it replaces (non-empty, the same maximum length, no
+control characters). So a catalog can reword what the manifest says and nothing more: it cannot
+add a command, a setting, an option or a title the manifest lacks, and it never carries ids,
+`usage`, values, capabilities, markup or code. Anything else in the section is dropped and logged
+(`pine-extension validate` reports it as an error), and the rest of the catalog still applies.
+
+Not translatable: `id`s, `version`, `usage` (it is command syntax, shown to agents), enum `values`,
+`contributes.workflows`, and the `label`s of icon themes and languages (write a language's label
+in that language). Keep `{product}` as it is.
+
+pine resolves the strings for the human's language before the interface sees them, string by
+string: a key your catalog leaves out shows the manifest's English. Wherever the manifest is shown
+(Settings → Extensions and your settings form, the marketplace list, the approval dialog, the
+palette, your panel's toggle and tab, chip names) follows, and switches when the human changes the
+language or your extension folder changes; nothing restarts. A catalog is read with its manifest,
+so the approval dialog and a marketplace listing are translated before the extension is enabled.
+Agents always get the manifest's own strings (`pine ext ls`, `pine docs`).
+
+### `messages`: what your process and panel show
+
+Text you send at runtime (chip text, sidebar items, `ext.confirm` dialogs, notifications, command
+results, panel pages) is yours to translate. pine passes it through as written and never reads
+the `messages` section. The SDK reads it for you:
+
+```ts
+import { connect, createTranslator, ok } from '@aurigax-ai/pine-extension-sdk'
+
+const ext = await connect()
+const translate = createTranslator()
+
+await ext.registerCommands({
+  find: async (_args, caller) => {
+    const t = translate(caller.locale)
+    return ok(t('found', { count: 3 }))
+  },
+})
+```
+
+`createTranslator(dir?)` reads the `messages` of every `locales/*.json` once (from
+`PINE_EXTENSION_DIR`, your extension folder, unless you pass one) and returns a function from a
+locale to `t(key, vars?)`. `t` looks the key up in the language's catalog, then in `en`, then
+returns the key itself; `{name}` placeholders are filled from `vars`. `locales/en.json` holds your
+English messages and needs no entry in `locales` (that list is only for the manifest).
+
+If your strings are typed objects in code instead of JSON, `localized({ en, 'zh-Hant': zhHant },
+locale)` picks one by the same rule. In a panel page, `pickLocale(dicts)` and
+`panelTranslator(catalogs)` from `…/panel` do the same for the panel's `context.locale`; bundle
+the catalogs into the page (`import zhHant from '../locales/zh-Hant.json'`).
+
+### Which language you get
+
+There is one language: the one the human picked in Settings → Language (`locale` in
+`settings.json`, a tag such as `en` or `zh-Hant`; `en` when unset). You see it in three places,
+always the same value:
+
+- `caller.locale` on every command and panel request, read when the request is made;
+- `ext.getLocale()` (`ext.locale`), for text you push without a caller: chips, sidebar items,
+  notifications;
+- `ext.onLocaleChanged(handler)` (the `locale.changed` event, sent without `ext.subscribe`) when
+  the human changes it while you run. Set your chips and sidebar items again in the new language;
+  pine does not re-ask for them. An open `url` panel is asked for its URL again (`ext.panel`) with
+  the new `caller.locale`.
+
+A catalog matches a locale by tag: the exact tag first (case does not matter), then the tag with
+trailing subtags dropped (`zh-Hant-TW` → `zh-Hant` → `zh`), then the first catalog you list for
+the same language (`zh-TW` → `zh-Hant`). No match means English.
+
+### Translating someone else's extension
+
+You cannot, from outside it. pine reads an extension's catalogs only from that extension's own
+folder, and a language pack's keys are limited to pine's own catalog. That is deliberate: an
+extension's name, command titles and setting descriptions are what the human reads before
+approving it, so only the author it was approved from may word them. To add a language to an
+extension you do not own, send its author the `locales/<tag>.json` file (one file and one entry in
+`locales`), or publish your own build of it under a different id.
 
 ## Icon themes
 
@@ -230,6 +366,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.openDiff` | `{title, original, modified, language?, path?, workspaceId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that workspace, else the active one. Reuses the workspace's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
 | `workspace.list` | — | Needs `read-board`. `[{workspaceId, name, kind, workDir, state, activePaneId?}]`. |
 | `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, filePath?, running, blockCount, lastExitCode?, pid?}]`; `cwd` is the live shell cwd for terminals; `filePath` is the absolute path a file view (`kind: 'editor'`) shows, so a palette command can act on the file in the caller's pane; `pid` is the shell process of a terminal whose pty is running (absent for other kinds and for a hibernated pane). Its descendants are what the pane runs. They inherit pine's own open descriptors, so ignore sockets your parent process (pine) also holds. |
+| `ext.locale` | — | `{ok, locale}`: the human's language (`ext.getLocale()` in the SDK). See "Translations". |
 | `ext.confirm` | `{title, message, detail?, confirmLabel?, cancelLabel?}` | Asks the human in a native dialog that names your extension; Cancel is the default. Returns `{ok, confirmed}`. Use it before anything that changes the user's files or data. It waits for the human: mark a command that calls it `interactive` so its caller waits too. If the human answers after the timeout anyway, finish the work they chose. |
 | `ext.getSecret` | `{key}` | `{ok, value}`: the value the human stored for one of your `contributes.secrets` keys, or `null`. Keep it in memory; don't log it. |
 | `ext.setAssistStatus` | `{status: {<point>: {ready, label?, tools?}}, features?, setup?, lastError?, label?}` | Needs `assist`. Which of your assist points are usable right now and a short label naming the provider and model (`model-runtime · gemma`, 80 chars) that pine shows next to the feature. Only `ready` points are offered to the human. `tools` on `chat` says you handle the tool fields of a chat request (see [Chat tools](#chat-tools)) and how: `'native'` when the model gets them as real tool definitions, `'prompted'` when you describe them in its prompt and parse its calls from the reply (pine then tells the human they are less reliable); without it pine sends none and shows no tools. `features` lists the switches pine shows in its Assistant menu and next to each feature: `[{id, setting, ready}]` with `id` one of `chat`, `typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `explainError` and `setting` one of your own boolean settings (pine reads on/off from it and flips it when the human does). `setup` names what is missing (`no-provider`, `no-endpoint`, `no-key`, `no-model`, `unreachable`, or `null`), `lastError` the last provider error (240 chars). `models: true` says you answer `ext.assistModels`. Call it at start and whenever your configuration or health changes. |
@@ -289,6 +426,7 @@ And the notification `ext.event {type, payload}`:
 | `focus.changed` | `{focused}`: whether any pine window has focus. Assume focused at start; use it to pause polling while the user is elsewhere. |
 | `notification` | `{title, body?, from}` |
 | `settings.changed` | `{values}`: all your settings after the human changed one, or after the human changed one of your secrets (read it again with `ext.getSecret`). Sent without `ext.subscribe`. |
+| `locale.changed` | `{locale}`: the human changed the language (`ext.onLocaleChanged` in the SDK). Sent without `ext.subscribe`. |
 
 `paneId` is always the external id agents see (`pine whoami`).
 
@@ -300,8 +438,8 @@ Every command and panel request carries who is asking:
 { kind: 'pane' | 'user', paneId?, workspaceId?, workDir?, cwd?, locale?, sandboxed?, capabilities: string[] }
 ```
 
-- `pane`: an agent or shell via `pine`; `capabilities` are that pane's; `locale` is the app's
-  language, so text you show the human can follow it.
+- `pane`: an agent or shell via `pine`; `capabilities` are that pane's; `locale` is the human's
+  language ("Translations"), so text you show the human can follow it.
 - `user`: the palette (capabilities = the command's own declared ones; `paneId` is the focused
   pane, and a chip click's pane) or your panel request (the SDK's panel server fills `locale`
   from the page's query).
@@ -524,8 +662,8 @@ pnpm add -D github:aurigax-ai/pine-extension-sdk
 | `…/panel`, `…/splitter`, `…/panel.css` | The panel page helpers and base styles |
 | `…/assist` | The assistant engine: `runAssistExtension({catalog})` with your own `ProviderCatalog` (needs `ai`, `zod`, `@ai-sdk-tool/parser`, `undici`) |
 | `schemas/pine.schema.json`, `schemas/pine-marketplace.schema.json` | JSON Schemas for the two manifest files; name one in `"$schema"` and your editor checks the file as you type |
-| `pine-extension validate [folder]` | Runs the loader's own checks on an extension folder (plus the marketplace install limits), or on a marketplace folder and every extension it lists. Exits 0 when pine would accept it |
-| `template/` | A starter extension: TypeScript source, a build that bundles it into one `main.js`, `pnpm validate` |
+| `pine-extension validate [folder]` | Runs the loader's own checks on an extension folder (its manifest, every catalog under `locales/`, plus the marketplace install limits), or on a marketplace folder and every extension it lists. Exits 0 when pine would accept it |
+| `template/` | A starter extension: TypeScript source, a build that bundles it into one `main.js`, English and Traditional Chinese catalogs under `locales/`, `pnpm validate` |
 
 It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and copied to
 its repository with `pnpm publish:sdk <checkout>`; its version is the app's version. The JSON
@@ -673,7 +811,7 @@ no script: pine validates the file and draws it with its own components, bound t
 ## Built-in extensions
 
 `src/extensions/<id>/` holds `pine.json`, `main.ts` and optionally `panel.html`, `panel.ts`,
-`panel.css`. `scripts/build-extensions.mjs` (part of `pnpm build`) bundles them into
+`panel.css` and `locales/` (every extension here ships `locales/zh-Hant.json`). `scripts/build-extensions.mjs` (part of `pnpm build`) bundles them into
 `out/extensions/<id>/`; electron-builder ships that dir as `resources/extensions`. They import
 only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/renderer`.
 

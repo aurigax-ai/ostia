@@ -1,0 +1,10 @@
+{
+  "manifest": {
+    "name": "哈囉",
+    "commands.open.title": "哈囉：開啟面板",
+    "commands.open.category": "哈囉",
+    "panel.title": "哈囉面板",
+    "paneChips.greeting.title": "問候",
+    "settings.greeting.description": "打招呼時使用的字詞"
+  }
+}

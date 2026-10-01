@@ -1,0 +1,16 @@
+{
+  "manifest": {
+    "description": "你的 Trellis 看板：以面板顯示網頁介面、每個工作區未完成與已認領的卡片，以及代理程式把卡片移到審閱或阻擋時可開啟該卡片的通知。",
+    "commands.open.title": "Trellis：開啟看板",
+    "commands.card.title": "Trellis：開啟卡片",
+    "commands.card.argument": "卡片編號，例如 SHOP-12",
+    "commands.init.title": "Trellis：在這裡初始化專案",
+    "workspaceChips.cards.title": "Trellis 卡片",
+    "settings.notifyReview.title": "審閱時通知",
+    "settings.notifyReview.description": "代理程式把卡片移到審閱欄時發出通知",
+    "settings.notifyBlocked.title": "阻擋時通知",
+    "settings.notifyBlocked.description": "代理程式把卡片移到阻擋欄時發出通知",
+    "settings.refreshSeconds.title": "卡片數量重新整理",
+    "settings.refreshSeconds.description": "每次重新整理卡片數量的間隔時間"
+  }
+}

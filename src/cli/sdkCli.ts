@@ -1,5 +1,6 @@
 import { existsSync, lstatSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { localeProblems } from '../main/extensionLocales'
 import { readManifest } from '../main/extensionManifest'
 import { parseMarketplaceManifest, planCopy } from '../main/marketplace'
 import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../shared/extensions'
@@ -18,6 +19,8 @@ type ExtensionCheck = { ok: true; manifest: ExtensionManifest } | { ok: false; p
 function checkExtension(dir: string): ExtensionCheck {
   const res = readManifest(dir)
   if (!res.ok) return { ok: false, problem: res.error }
+  const locales = localeProblems(dir, res.manifest)
+  if (locales.length > 0) return { ok: false, problem: locales.join('; ') }
   const plan = planCopy(dir)
   if (plan.ok) return { ok: true, manifest: res.manifest }
   return {

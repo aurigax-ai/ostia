@@ -1,3 +1,4 @@
+import { localized } from '../../shared/extensionLocales'
 import type { CardCounts } from './trellis'
 
 export interface Strings {
@@ -67,5 +68,5 @@ const zhHant: Strings = {
 }
 
 export function stringsFor(locale: string | undefined): Strings {
-  return locale?.startsWith('zh') ? zhHant : en
+  return localized({ en, 'zh-Hant': zhHant }, locale)
 }

@@ -1,0 +1,7 @@
+{
+  "messages": {
+    "usage": "greet <name>",
+    "greetingTitle": "Hello",
+    "greeting": "Hello, {name}"
+  }
+}

@@ -58,6 +58,9 @@ describe('manifest schemas', () => {
       { ...base, contributes: { assist: ['everything'] } },
       { ...base, contributes: { languages: [{ id: 'not a tag', label: 'X', path: 'x.json' }] } },
       { ...base, contributes: { languages: [{ id: 'fr', label: 'Français', path: 'fr.yaml' }] } },
+      { ...base, locales: 'zh-Hant' },
+      { ...base, locales: ['../zh-Hant'] },
+      { ...base, locales: Array.from({ length: 33 }, (_, i) => `zh-T${i}`) },
       {
         ...base,
         contributes: { settings: { k: { type: 'color', default: '', description: 'd' } } },
@@ -71,6 +74,9 @@ describe('manifest schemas', () => {
     }
     expect(parseManifest(base, '/ext').ok).toBe(true)
     expect(extensionManifestSchema.safeParse(base).success).toBe(true)
+    const translated = { ...base, locales: ['zh-Hant', 'fr'] }
+    expect(parseManifest(translated, '/ext').ok).toBe(true)
+    expect(extensionManifestSchema.safeParse(translated).success).toBe(true)
   })
 
   it('describe a marketplace file', () => {
@@ -173,7 +179,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
     expect(res.status).toBe(0)
   })
 
-  it('reports a broken manifest, a linked file and a bad marketplace entry', () => {
+  it('reports a broken manifest, a linked file, a bad catalog and a bad marketplace entry', () => {
     const broken = join(project, 'broken')
     mkdirSync(broken)
     writeFileSync(join(broken, 'pine.json'), JSON.stringify({ id: 'broken' }))
@@ -185,6 +191,24 @@ describe('the SDK package, used the way an extension author uses it', () => {
     expect(runSdkCli(['validate', linked])).toEqual({
       code: 1,
       lines: ['pine.json: holds a link or special file, which a marketplace install refuses'],
+    })
+
+    const mistranslated = join(project, 'mistranslated')
+    cpSync(built, mistranslated, { recursive: true })
+    writeFileSync(
+      join(mistranslated, 'locales/zh-Hant.json'),
+      JSON.stringify({ manifest: { name: '哈囉', 'commands.wipe.title': '清除' } }),
+    )
+    expect(runSdkCli(['validate', mistranslated])).toEqual({
+      code: 1,
+      lines: [
+        "pine.json: locales/zh-Hant.json: manifest.commands.wipe.title: not a string this extension's manifest declares",
+      ],
+    })
+    rmSync(join(mistranslated, 'locales/zh-Hant.json'))
+    expect(runSdkCli(['validate', mistranslated])).toEqual({
+      code: 1,
+      lines: ['pine.json: locales/zh-Hant.json: missing'],
     })
 
     const marketplace = join(project, 'marketplace')
@@ -215,7 +239,9 @@ describe('the SDK package, used the way an extension author uses it', () => {
     const dir = mkdtempSync(join(tmpdir(), 'pine-sdk-host-'))
     const socketPath = join(dir, 'control.sock')
     const notify = vi.fn()
+    let language = 'en'
     const host = new ExtensionHost({
+      locale: () => language,
       roots: [{ dir: join(project, 'dist'), builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,
@@ -250,7 +276,19 @@ describe('the SDK package, used the way an extension author uses it', () => {
       expect(await host.invoke('hello', 'greet', { argv: [] }, caller)).toMatchObject({
         ok: false,
         error: 'invalid-args',
+        message: 'greet <name>',
       })
+      expect(
+        await host.invoke('hello', 'greet', { argv: ['you'] }, { ...caller, locale: 'zh-Hant' }),
+      ).toMatchObject({ ok: true, text: '你好，you' })
+      expect(notify).toHaveBeenLastCalledWith(
+        expect.objectContaining({ title: '哈囉', body: '你好，you' }),
+      )
+      const title = (): string | undefined =>
+        host.list().find((e) => e.id === 'hello')?.commands[0].title
+      expect(title()).toBe('Hello: Greet')
+      language = 'zh-Hant'
+      expect(title()).toBe('哈囉：打招呼')
     } finally {
       host.stopAll()
       stopControlServer()

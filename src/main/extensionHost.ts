@@ -40,6 +40,13 @@ import {
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import { EXTENSION_API_ENV, EXTENSION_API_VERSION } from '../shared/extensionApi'
 import {
+  EXTENSION_BASE_LOCALE,
+  EXTENSION_LOCALES_DIR,
+  type ExtensionLocaleChangedPayload,
+  LOCALE_CHANGED_EVENT,
+  type LocaleCatalogs,
+} from '../shared/extensionLocales'
+import {
   DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
   EXTENSION_ICONS,
@@ -51,6 +58,7 @@ import {
   type ExtensionEventType,
   type ExtensionIcon,
   type ExtensionInfo,
+  type ExtensionManifest,
   type ExtensionOpenDiffRequest,
   type ExtensionOpenPanelRequest,
   type ExtensionPanelContext,
@@ -86,6 +94,7 @@ import { quoteArgv } from '../shared/shellQuote'
 import type { Workflow } from '../shared/workflows'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
 import { registerControlMethod } from './controlServer'
+import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
 import {
   type DiscoveredExtension,
   type ExtensionRoot,
@@ -119,8 +128,12 @@ const ASSIST_CHUNK_MAX = 262_144
 
 type RunState = 'idle' | 'starting' | 'running' | 'crashed'
 
+interface LoadedExtension extends DiscoveredExtension {
+  catalogs: LocaleCatalogs
+}
+
 interface Runtime {
-  ext: DiscoveredExtension
+  ext: LoadedExtension
   proc: ChildProcess | null
   identity: PaneIdentity | null
   conn: MessageConnection | null
@@ -159,7 +172,7 @@ export interface AssistCallOptions {
   token?: CancellationToken
 }
 
-function newRuntime(ext: DiscoveredExtension): Runtime {
+function newRuntime(ext: LoadedExtension): Runtime {
   return {
     ext,
     proc: null,
@@ -233,8 +246,8 @@ function subdirectories(root: string): string[] {
   }
 }
 
-function manifestSignature(ext: DiscoveredExtension): string {
-  return JSON.stringify([ext.dir, ext.builtin, ext.manifest])
+function manifestSignature(ext: LoadedExtension): string {
+  return JSON.stringify([ext.dir, ext.builtin, ext.manifest, ext.catalogs])
 }
 
 export interface ExtensionHostDeps {
@@ -410,15 +423,30 @@ export class ExtensionHost {
   private assistStreams = new Map<string, AssistStream>()
   private assistSeq = 0
   private shortcuts: Record<string, string> = {}
+  private announcedLocale: string
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
     for (const ext of this.discover()) this.runtimes.set(ext.manifest.id, newRuntime(ext))
     this.settings = storedSettings(deps.readExtensionSettings?.())
+    this.announcedLocale = this.currentLocale()
   }
 
-  private discover(): DiscoveredExtension[] {
-    return discoverExtensions(this.deps.roots, (dir, error) => this.log(dir, error))
+  private discover(): LoadedExtension[] {
+    return discoverExtensions(this.deps.roots, (dir, error) => this.log(dir, error)).map((ext) => ({
+      ...ext,
+      catalogs: loadLocaleCatalogs(ext.dir, ext.manifest, (problem) =>
+        this.log(ext.manifest.id, problem),
+      ),
+    }))
+  }
+
+  private manifestIn(rt: Runtime, locale: string | undefined): ExtensionManifest {
+    return manifestIn(rt.ext.manifest, rt.ext.catalogs, locale)
+  }
+
+  private shownName(rt: Runtime): string {
+    return this.manifestIn(rt, this.deps.locale?.()).name
   }
 
   private log(extId: string, line: string): void {
@@ -454,14 +482,16 @@ export class ExtensionHost {
     return value ? { argv: [value] } : null
   }
 
-  private commandsOf(rt: Runtime): ExtensionCommandContribution[] {
-    const declared = rt.ext.manifest.contributes.commands
+  private commandsOf(
+    rt: Runtime,
+    declared: ExtensionCommandContribution[] = rt.ext.manifest.contributes.commands,
+  ): ExtensionCommandContribution[] {
     const dynamic = [...rt.ready.values()].filter((c) => !declared.some((d) => d.id === c.id))
     return [...declared, ...dynamic]
   }
 
-  private info(rt: Runtime): ExtensionInfo {
-    const m = rt.ext.manifest
+  private info(rt: Runtime, locale: string | undefined): ExtensionInfo {
+    const m = this.manifestIn(rt, locale)
     const granted = this.granted(rt)
     return {
       id: m.id,
@@ -475,7 +505,7 @@ export class ExtensionHost {
       requested: m.capabilities,
       granted,
       unapproved: m.capabilities.filter((c) => !granted.includes(c)),
-      commands: this.commandsOf(rt),
+      commands: this.commandsOf(rt, m.contributes.commands),
       panel: m.contributes.panel
         ? { title: m.contributes.panel.title, icon: m.contributes.panel.icon }
         : null,
@@ -499,7 +529,33 @@ export class ExtensionHost {
   }
 
   list(): ExtensionInfo[] {
-    return [...this.runtimes.values()].map((rt) => this.info(rt))
+    return this.listIn(this.deps.locale?.())
+  }
+
+  private listIn(locale: string | undefined): ExtensionInfo[] {
+    return [...this.runtimes.values()].map((rt) => this.info(rt, locale))
+  }
+
+  private currentLocale(): string {
+    return this.deps.locale?.() ?? EXTENSION_BASE_LOCALE
+  }
+
+  refreshLocale(): void {
+    const locale = this.currentLocale()
+    if (locale === this.announcedLocale) return
+    this.announcedLocale = locale
+    const payload: ExtensionLocaleChangedPayload = { locale }
+    for (const rt of this.runtimes.values()) {
+      void rt.conn
+        ?.sendNotification('ext.event', { type: LOCALE_CHANGED_EVENT, payload })
+        .catch(() => {})
+    }
+    this.changed()
+  }
+
+  getLocale(identity: PaneIdentity, conn: MessageConnection) {
+    this.runtimeOf(identity, conn)
+    return { ok: true, locale: this.currentLocale() }
   }
 
   workflows(): { extId: string; workflows: Workflow[] }[] {
@@ -660,7 +716,7 @@ export class ExtensionHost {
     this.watchRoots()
   }
 
-  private replace(rt: Runtime, ext: DiscoveredExtension): void {
+  private replace(rt: Runtime, ext: LoadedExtension): void {
     this.stop(rt)
     rt.ext = ext
     rt.restarts = 0
@@ -686,7 +742,9 @@ export class ExtensionHost {
     if (!this.watching) return
     this.closeWatchers()
     const roots = this.deps.roots.filter((r) => !r.builtin).map((r) => r.dir)
-    const dirs = [...roots, ...roots.flatMap(subdirectories)]
+    const extensionDirs = roots.flatMap(subdirectories)
+    const localeDirs = extensionDirs.map((dir) => join(dir, EXTENSION_LOCALES_DIR))
+    const dirs = [...roots, ...extensionDirs, ...localeDirs]
     for (const dir of dirs) {
       try {
         const watcher = watch(dir, () => this.scheduleRescan())
@@ -1334,7 +1392,7 @@ export class ExtensionHost {
   }
 
   listForAgents() {
-    return this.list()
+    return this.listIn(undefined)
       .filter((e) => e.enabled)
       .map((e) => ({ id: e.id, name: e.name, status: e.status, commands: e.commands }))
   }
@@ -1350,7 +1408,7 @@ export class ExtensionHost {
     if (!this.deps.confirm) return fail('no-window')
     const req: ExtensionConfirmRequest = {
       extId: rt.ext.manifest.id,
-      extName: rt.ext.manifest.name,
+      extName: this.shownName(rt),
       title,
       message,
     }
@@ -1389,7 +1447,7 @@ export class ExtensionHost {
       const rt = this.assistRuntime(point)
       if (!rt) continue
       const status = rt.assistStatus[point]
-      const info: AssistProviderInfo = { extId: rt.ext.manifest.id, name: rt.ext.manifest.name }
+      const info: AssistProviderInfo = { extId: rt.ext.manifest.id, name: this.shownName(rt) }
       if (status?.label) info.label = status.label
       if (status?.tools) info.tools = status.tools
       out[point] = info
@@ -1432,7 +1490,7 @@ export class ExtensionHost {
       const values = this.settingValues(rt)
       const state: AssistExtensionState = {
         extId: rt.ext.manifest.id,
-        name: rt.ext.manifest.name,
+        name: this.shownName(rt),
         setup: report.setup,
         features: report.features.map((f) => ({ ...f, on: values[f.setting] === true })),
         models: report.models,
@@ -1735,6 +1793,10 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
     ...forExtension((h, id, conn, p) => h.assistChunk(id, conn, p)),
     cap: 'assist',
   })
+  registerControlMethod(
+    'ext.locale',
+    forExtension((h, id, conn) => h.getLocale(id, conn)),
+  )
   registerControlMethod(
     'ext.shortcuts',
     forExtension((h, id, conn, p) => h.getShortcuts(id, conn, p)),

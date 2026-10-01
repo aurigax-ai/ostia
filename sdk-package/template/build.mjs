@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, cpSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 
@@ -16,4 +16,5 @@ await build({
   logLevel: 'warning',
 })
 copyFileSync('pine.json', join(out, 'pine.json'))
+cpSync('locales', join(out, 'locales'), { recursive: true })
 console.log(`built ${out}`)
