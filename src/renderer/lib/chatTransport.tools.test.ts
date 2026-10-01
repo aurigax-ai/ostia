@@ -140,6 +140,14 @@ async function pendingApproval(): Promise<string> {
   throw new Error('no approval was requested')
 }
 
+async function waitForPending(match: (p: { kind: string }) => boolean): Promise<void> {
+  for (let i = 0; i < 200; i++) {
+    if (Object.values(useChatToolsStore.getState().pending).some(match)) return
+    await new Promise((r) => setTimeout(r, 5))
+  }
+  throw new Error('no matching approval')
+}
+
 function requestAt(n: number): ChatAssistRequest {
   return vi.mocked(window.pine.assist.request).mock.calls[n][2] as ChatAssistRequest
 }
@@ -330,6 +338,7 @@ describe('createAssistTransport with tools', () => {
       path: '/proj/b.txt',
       root: '/proj',
       edits: [{ oldText: 'two', newText: '2' }],
+      outside: false,
     })
     expect(useChatToolsStore.getState().pending[id].detail).toMatchObject({
       path: '/proj/b.txt',
@@ -402,6 +411,94 @@ describe('createAssistTransport with tools', () => {
       symlinks: flags.symlink,
     })
     expect(useChatToolsStore.getState().edits.e1.auto).toBe(false)
+  })
+
+  it('asks to read outside the folder before planning an edit there, then shows the edit for approval', async () => {
+    useChatToolsStore.getState().setMode('s1', 'write')
+    vi.mocked(window.pine.chatTools.plan)
+      .mockResolvedValueOnce({ ok: false, error: 'outside-folder', path: '/etc/x.conf' })
+      .mockResolvedValueOnce(plan({ path: '/etc/x.conf', outside: true }))
+    vi.mocked(window.pine.chatTools.write).mockResolvedValue(written({ path: '/etc/x.conf' }))
+    replySequence([
+      toolRound('e1', 'edit_file', {
+        path: '/etc/x.conf',
+        edits: [{ old_text: 'two', new_text: '2' }],
+      }),
+      textRound('done'),
+    ])
+    const draining = sendWithTools([user('1', 'edit')]).then(drain)
+    const first = await pendingApproval()
+    expect(useChatToolsStore.getState().pending[first]).toMatchObject({ kind: 'read-outside' })
+    expect(vi.mocked(window.pine.chatTools.plan).mock.calls[0][0].outside).toBe(false)
+    answerApproval(first, { approved: true, scope: 'once' })
+    await waitForPending((p) => p.kind === 'write')
+    const second = Object.keys(useChatToolsStore.getState().pending)[0]
+    expect(vi.mocked(window.pine.chatTools.plan).mock.calls[1][0].outside).toBe(true)
+    expect(useChatToolsStore.getState().pending[second].detail.reason).toBe('outside')
+    answerApproval(second, { approved: true, scope: 'once' })
+    await draining
+    expect(window.pine.chatTools.write).toHaveBeenCalledTimes(1)
+  })
+
+  it('says nothing about the file and writes nothing when the human refuses the outside read', async () => {
+    vi.mocked(window.pine.chatTools.plan).mockResolvedValueOnce({
+      ok: false,
+      error: 'outside-folder',
+      path: '/etc/x.conf',
+    })
+    replySequence([
+      toolRound('e1', 'edit_file', {
+        path: '/etc/x.conf',
+        edits: [{ old_text: 'two', new_text: '2' }],
+      }),
+      textRound('ok'),
+    ])
+    const draining = sendWithTools([user('1', 'edit')]).then(drain)
+    answerApproval(await pendingApproval(), { approved: false })
+    const chunks = await draining
+    expect(window.pine.chatTools.plan).toHaveBeenCalledTimes(1)
+    expect(chunks.some((c) => c.type === 'tool-output-denied')).toBe(true)
+  })
+
+  it('in Write mode an edit inside a .git folder still asks', async () => {
+    useChatToolsStore.getState().setMode('s1', 'write')
+    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(plan({ path: '/proj/.git/config' }))
+    replySequence([
+      toolRound('e1', 'edit_file', {
+        path: '.git/config',
+        edits: [{ old_text: 'two', new_text: '2' }],
+      }),
+      textRound('ok'),
+    ])
+    const draining = sendWithTools([user('1', 'edit')]).then(drain)
+    const id = await pendingApproval()
+    expect(useChatToolsStore.getState().pending[id].detail.reason).toBe('repository')
+    answerApproval(id, { approved: false })
+    await draining
+    expect(window.pine.chatTools.write).not.toHaveBeenCalled()
+  })
+
+  it('undoes once even when Undo is clicked twice', async () => {
+    useChatToolsStore.getState().recordEdit({
+      toolCallId: 'e1',
+      sessionId: 's1',
+      path: '/proj/b.txt',
+      root: '/proj',
+      existed: true,
+      before: 'one two',
+      after: 'one 2',
+      version: 'v-new',
+      outside: false,
+      symlink: false,
+      auto: true,
+      state: 'applied',
+    })
+    vi.mocked(window.pine.chatTools.undo)
+      .mockResolvedValueOnce({ ok: true, path: '/proj/b.txt', removed: false, version: 'v-old' })
+      .mockResolvedValueOnce({ ok: false, error: 'changed' })
+    await Promise.all([undoEdit('e1'), undoEdit('e1')])
+    expect(window.pine.chatTools.undo).toHaveBeenCalledTimes(1)
+    expect(useChatToolsStore.getState().edits.e1.state).toBe('undone')
   })
 
   it('in Write mode a file with unsaved edits in the editor still asks', async () => {

@@ -104,6 +104,7 @@ describe('decideTool', () => {
   it.each([
     ['outside', { outside: true }],
     ['symlink', { symlink: true }],
+    ['repository', { repository: true }],
     ['unsaved', { unsaved: true }],
   ] as const)('still asks in either mode when the edit is %s', (reason, flags) => {
     for (const mode of CHAT_MODES) {

@@ -263,6 +263,19 @@ describe('AssistantService report', () => {
     )
   })
 
+  it('keeps what a provider listed when the settings change but that provider did not', async () => {
+    const { provider } = fakeProvider(() => '')
+    vi.mocked(provider.models).mockResolvedValue([{ id: 'gemma', installed: true }])
+    const { svc } = service(provider, undefined, undefined, { listedModels: true })
+    const runtime = entry('model-runtime', { id: 'model-runtime', models: [] })
+    svc.configure({}, [runtime])
+    await svc.probe()
+    svc.configure({ typos: false }, [runtime])
+    expect(svc.report().providers?.[0]).toMatchObject({ setup: null, models: [{ id: 'gemma' }] })
+    svc.configure({}, [{ ...runtime, baseUrl: 'unix:/elsewhere.sock' }])
+    expect(svc.report().providers?.[0]).toMatchObject({ setup: 'no-model', models: [] })
+  })
+
   it('needs a key for hosted providers and a base URL for openai-compatible', () => {
     const { svc } = service(fakeProvider(() => '').provider)
     svc.configure({}, [entry('openrouter')])

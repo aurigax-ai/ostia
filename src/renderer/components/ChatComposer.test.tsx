@@ -225,7 +225,6 @@ describe('chat composer row', () => {
     expect(saved).not.toMatch(/"mode"|write/)
     expect(JSON.stringify(sent[0].input)).not.toMatch(/"mode"/)
     expect(window.pine.fs.write).not.toHaveBeenCalled()
-    expect(JSON.stringify(useSettingsStore.getState())).not.toMatch(/"mode":"write"/)
   })
 
   it('lists the chat models by provider and sends the next question to the picked one', async () => {

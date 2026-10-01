@@ -1939,6 +1939,17 @@ function encryptedStore(path: string) {
   })
 }
 
+function readSettingsFileOrNull(): { assistant?: unknown } | null {
+  try {
+    const parsed: unknown = JSON.parse(
+      readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'),
+    )
+    return typeof parsed === 'object' && parsed !== null ? parsed : null
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ENOENT' ? {} : null
+  }
+}
+
 function readSettingsFile(): {
   locale?: unknown
   extensionSettings?: unknown
@@ -2274,7 +2285,7 @@ app.whenReady().then(() => {
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
-    readAssistSettings: () => readSettingsFile().assistant,
+    readAssistSettings: readSettingsFileOrNull,
     assistKeys: assistKeyStore(),
     secrets: extensionSecretStore(),
     openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),

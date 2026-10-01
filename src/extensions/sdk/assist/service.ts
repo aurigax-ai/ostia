@@ -162,17 +162,19 @@ export class AssistantService {
     this.config = readConfig(values, entries, this.catalog)
     this.limiters.clear()
     this.flights.clear()
+    const previous = this.slots
     this.slots = this.config.entries.map((raw) => {
       const entry = { ...raw, apiKey: raw.apiKey?.trim() ? raw.apiKey.trim() : null }
       const endpoint = endpointOf(entry, this.catalog, this.env)
       const problem = entryProblem(entry, this.catalog, this.env)
+      const same = previous.find((slot) => JSON.stringify(slot.entry) === JSON.stringify(entry))
       return {
         entry,
         provider: endpoint ? this.catalog.create(entry.kind, endpoint, entry.apiKey) : null,
         problem,
-        unreachable: false,
-        listed: [],
-        tools: new Map(),
+        unreachable: same?.unreachable ?? false,
+        listed: same?.listed ?? [],
+        tools: same?.tools ?? new Map(),
       }
     })
   }

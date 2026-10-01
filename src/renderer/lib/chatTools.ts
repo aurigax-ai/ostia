@@ -27,7 +27,12 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { workspaceTerminal } from './askContext'
 import { idleTerminals, insertInto, runInNewTerminal } from './chatActions'
 import { diffSummary } from './chatDiff'
-import { type ApprovalAnswer, type ToolCheck, decideTool } from './chatToolPermissions'
+import {
+  type ApprovalAnswer,
+  READ_OUTSIDE_GRANT,
+  type ToolCheck,
+  decideTool,
+} from './chatToolPermissions'
 import { resolveLinkPath } from './fileLinks'
 import { openFileAt } from './openFile'
 import { openSidebarUrl } from './sidebarItems'
@@ -324,6 +329,10 @@ function writeFailure(run: ToolRun, failure: ChatFsFailure, path: string): ToolO
   return fsError(failure, path)
 }
 
+export function isRepositoryPath(path: string): boolean {
+  return path.split('/').includes('.git')
+}
+
 function changedSinceRead(run: ToolRun, path: string, version: string | null): boolean {
   const known = knownVersion(run.sessionId, path)
   return known !== null && known !== version
@@ -348,7 +357,14 @@ async function applyWrite(
   const unsaved = useEditorStatus.getState().dirty[plan.path] === true
   const answer = await gate(
     run,
-    { name, access: 'write', outside: plan.outside, symlink: plan.symlink, unsaved },
+    {
+      name,
+      access: 'write',
+      outside: plan.outside,
+      symlink: plan.symlink,
+      unsaved,
+      repository: isRepositoryPath(plan.path),
+    },
     input,
     { path: plan.path, exists: plan.existed, before: plan.before, after: plan.after },
   )
@@ -388,7 +404,16 @@ async function editFile(input: Record<string, unknown>, run: ToolRun): Promise<T
     return { state: 'error', error: 'edits must be a list of {old_text, new_text} replacements' }
   }
   const path = pathOf(input, run)
-  const plan = await window.pine.chatTools.plan({ path, root: run.root, edits })
+  const call = (outside: boolean) =>
+    window.pine.chatTools.plan({ path, root: run.root, edits, outside })
+  let plan = await call(grantsFor(run.sessionId).has(READ_OUTSIDE_GRANT))
+  if (!plan.ok && plan.error === 'outside-folder') {
+    const answer = await gate(run, { name: 'edit_file', access: 'read', outside: true }, input, {
+      path,
+    })
+    if (answer && !answer.approved) return DENIED
+    plan = await call(true)
+  }
   if (!plan.ok) return writeFailure(run, plan, path)
   if (changedSinceRead(run, plan.path, plan.version)) {
     return writeFailure(run, { ok: false, error: 'changed' }, plan.path)

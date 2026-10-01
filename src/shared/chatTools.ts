@@ -293,6 +293,7 @@ export interface ChatPlanRequest {
   path: string
   root: string
   edits: ChatEdit[]
+  outside: boolean
 }
 
 export interface ChatPlanOutput {
