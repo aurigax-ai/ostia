@@ -531,7 +531,7 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     cargo, pnpm) and every alias and function, so those would all look unknown. Why a file and
     not an OSC like the other marks: see §6 of CLAUDE.md.
   - Pine prompt (`terminal.prompt`, `shared/promptSettings.ts`, `lib/promptChips.ts`,
-    `lib/usePromptChips.ts`, `components/PromptChips.tsx`, `PromptEditorDialog.tsx`), Warp's
+    `lib/usePromptChips.ts`, `components/PromptChips.tsx`, `PromptSection.tsx`), Warp's
     context-chip prompt. `style: 'shell'` (default) keeps the cwd line above; `'pine'` replaces
     it with an ordered row of chips (`chips`), or puts the row before the textarea on the input
     line when `sameLine` is on, followed by `separator` (`none`, `%`, `$`, `>`). A chip with no
@@ -555,13 +555,17 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     `node --version` in precmd costs every prompt tens of milliseconds, and the hook must stay
     cheap (§6 of CLAUDE.md). Clicking the `cwd` chip opens Files (which follows the pane cwd);
     right-click on the row offers Edit prompt, Copy prompt (chip texts and separator), Copy
-    working directory and Show in Files. Edit prompt (also Settings → Terminal) is a dialog
-    with a live preview from the active terminal's real values (chips without one are drawn
-    dashed as "no value here"), the ordered list (drag, the arrow buttons, or Alt+↑/↓ on a
-    row's handle, announced through a live region), the available chips, the same-line switch
-    and the separator; Save writes the whole object and sets `style: 'pine'`.
+    working directory and Show in Files. Edit prompt opens Settings → Prompt
+    (`openSettings('prompt', paneId)`; the Terminal page links there too), an ordinary Settings
+    page, not a dialog: the style select, a live preview from that pane's real values (else the
+    active terminal; `promptPreviewPaneId` in `uiStore`; chips without one are drawn dashed as
+    "no value here"), the ordered list (drag, the arrow buttons, or Alt+↑/↓ on a row's handle,
+    announced through a live region), the available chips, the same-line switch, the separator
+    and Restore default chips. Every change is written at once through `setTerminal`
+    (`parsePromptSettings`), like every other setting; the chip editor stays usable under the
+    shell prompt and says it applies to the Pine prompt.
     Extension chips are the pane chips of the extension API (`contributes.paneChips`,
-    `ext.setPaneChip`): the id `<extId>.<chip>` sits in the same ordered list, the dialog lists
+    `ext.setPaneChip`): the id `<extId>.<chip>` sits in the same ordered list, Settings → Prompt lists
     every enabled extension's chips from `usePaneChipCatalog()`, and the row reads the pane's
     values from `usePaneChips(paneId)` (`lib/paneChips.ts`, over `extensionsStore.chips`),
     the same source as the pane-header badges. Tones `neutral` and `brand` draw as the default

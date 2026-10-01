@@ -193,7 +193,7 @@ Details: `docs/ARCHITECTURE.md`.
   `sameLine`, `PINE_PROMPT_LINES`) after the user's rc; never touch dotfiles, and
   never rewrite the prompt of a shell that's already running. `pty:prompt-context` answers
   only the pane's own window and runs node only as `execFile(..., { shell: false })`, never
-  from the shell's prompt hook. Chips without a value are hidden (the editor's preview shows
+  from the shell's prompt hook. Chips without a value are hidden (Settings → Prompt's preview shows
   them as unavailable), never filled with placeholders.
 - **Saved workflows are data, typed only by the human's pick.** Main alone reads and writes
   workflow YAML (`main/workflows.ts`): the renderer and agents name a workspace id, never a path;
