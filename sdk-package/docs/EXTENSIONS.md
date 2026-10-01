@@ -977,9 +977,18 @@ The `trellis` and `keeper` extensions (in the marketplace) are the reference for
   backoff (`nextBackoff`), never in a tight loop.
 - If you start a long-running server, stop it in `onShutdown(fn)` (runs on exit, SIGTERM, SIGINT,
   SIGHUP). If you found it already running, leave it alone.
-- If the tool's web UI needs a token, keep it in your process: serve a loopback proxy that adds
-  the token upstream (trellis's `proxy.ts`), so the panel URL pine sees carries only your own
-  per-run secret.
+- Draw the tool's data yourself instead of embedding its web UI (trellis's `panel.ts`): serve
+  your panel with `startPanelServer`, answer its `call()`s by running the tool, and call
+  `changed()` when the tool reports a change (trellis follows `trellis events --consumer`). Write
+  handlers that only the panel may use go in the `handle` you give `startPanelServer`, never in
+  `registerCommands`, so no pane or agent can reach them.
+- Pass free text to the tool so it cannot be read as a flag, a file or stdin (trellis reads
+  `@path` and `-` in `--title` and `--body`, so the extension hands text over as private temp
+  files), validate every id the panel sends, and build each call as an argv.
+- If you read from a local daemon the tool already runs, keep its token in your process and never
+  start or stop that daemon yourself.
+- Build panel text from data with `h()` and text nodes, never `innerHTML`; render Markdown to a
+  fixed set of elements and keep only http, https and mailto links (trellis's `markdown.ts`).
 - Confirm with `ext.confirm` before changing the user's data. Never automate a decision the tool
   reserves for a human (keeper approvals).
 - `call(method, params)` reaches any other control method your identity may use, for example
@@ -1075,7 +1084,7 @@ them.
 | `lsp-pyright` | Python in the editor: Pyright 1.1.414, copied the same way (about 5,400 files, mostly type stubs). Setting `typeCheckingMode` |
 | `lsp-yaml` | YAML in the editor: `yaml-language-server` 1.24.0 with its 19 dependencies, copied unchanged into `server/node_modules/` (`vendor.json` `closures`). Setting `schemaStore` (off by default) lets the server fetch schemas from schemastore.org |
 | `lsp-bash` | Shell scripts in the editor: `bash-language-server` 5.8.1 with its 35 dependencies, copied the same way. It lints with `shellcheck` when that is on `PATH` |
-| `trellis` | The Trellis web UI as a panel on the workspace's project, the open card count of the active workspace as a `cards` workspace chip in the top bar (click opens the board), notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Init Project Here", `pine trellis status`. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
+| `trellis` | A board, card and vault panel drawn from the `trellis` CLI's JSON for the workspace's project (or any project you pick): columns and cards with labels, priority and claims, a card pane with its Markdown body, relations, comments and activity (read from a Trellis daemon that is already running; never started), move, comment, claim, renew, release and a new-card form, a read-only vault browser, all updated live from `trellis events --consumer`. The open card count of the active workspace as a `cards` workspace chip in the top bar (click opens the board), notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Open Vault", "Trellis: Init Project Here", `pine trellis status`. Agents get no verb that changes a card. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications that open the approvals queue (Keeper has no per-ticket page), "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue. Settings: `notify`, `pollSeconds`, `idlePollSeconds` |
 | `model-runtime` | The assist points on the user's local model-runtime (`$XDG_RUNTIME_DIR/model-runtime.sock` unless `baseUrl` says otherwise, `gemma` as the fast model unless set), with load and unload in Settings → Assistant → Models. It runs the same engine as `assistant` (`src/extensions/sdk/assist/`, `runAssistExtension`) with its own one-provider catalog; tools are described in the prompt. When both are ready, the built-in `assistant` answers |
 

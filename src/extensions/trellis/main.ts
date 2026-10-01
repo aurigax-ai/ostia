@@ -7,19 +7,21 @@ import {
   booleanSetting,
   cliArgs,
   connect,
+  createTranslator,
   failure,
   numberSetting,
   ok,
   onShutdown,
-  startMessageServer,
+  startPanelServer,
 } from '../sdk'
-import { type AuthProxy, type ProxyUpstream, startAuthProxy } from './proxy'
-import { TrellisService, TrellisUnavailable, type WorkspaceRef } from './service'
-import { cardPath, cardRef, isAppPath, loopbackHttpUrl, projectPath } from './trellis'
+import { initHere, panelHandlers } from './panelApi'
+import { TrellisService, type WorkspaceRef } from './service'
+import { BOARD_PATH, HUMAN_ACTOR, VAULT_PATH, cardPath, cardRef, panelTarget } from './trellis'
 
 const REFRESH_SECONDS = { min: 10, max: 3600 }
 const EVENTS: ExtensionEventType[] = ['pane.created', 'pane.closed', 'cwd.changed']
 const FOCUS_EVENT = 'focus.changed' as ExtensionEventType
+const PANEL_FILES = ['panel.html', 'panel.js', 'panel.css', 'base.css']
 
 function workspacesFrom(raw: unknown): WorkspaceRef[] {
   if (!Array.isArray(raw)) throw new Error('workspace.list returned no list')
@@ -31,116 +33,87 @@ function workspacesFrom(raw: unknown): WorkspaceRef[] {
     .map((s) => ({ workspaceId: s.workspaceId, workDir: s.workDir }))
 }
 
-function upstreamOf(uiUrl: string | null): ProxyUpstream | null {
-  const url = loopbackHttpUrl(uiUrl)
-  if (!url) return null
-  const headers: Record<string, string> = {}
-  const token = url.searchParams.get('token')
-  if (token) headers['x-trellis-token'] = token
-  return { origin: url.origin, headers }
-}
-
 async function main(): Promise<void> {
+  process.env.TRELLIS_AGENT = HUMAN_ACTOR
   const ext = await connect()
+  const translate = createTranslator()
+  let panelChanged = (): void => {}
   const service = new TrellisService({
     home: homedir(),
     consumer: PRODUCT_NAME,
+    translate,
     host: {
       listWorkspaces: async () => workspacesFrom(await ext.call('workspace.list')),
       setWorkspaceChip: (chip) => ext.setWorkspaceChip(chip),
       clearWorkspaceChip: (workspaceId, id) => ext.clearWorkspaceChip(workspaceId, id),
       notifyPanel: (title, body, path) => ext.notifyPanel(title, body, path),
+      changed: () => panelChanged(),
       log: (line) => console.error(line),
     },
   })
   onShutdown(() => service.stop())
 
-  let uiUrl: string | null = null
-  let proxy: AuthProxy | null = null
-  const messages = await startMessageServer()
-  const ensureProxy = async (): Promise<AuthProxy> => {
-    proxy ??= await startAuthProxy({ upstream: () => upstreamOf(uiUrl), isAllowedEntry: isAppPath })
-    return proxy
-  }
+  const deps = { service, translate, confirm: ext.confirm }
+  const panelOnly = panelHandlers(deps)
+  const panel = await startPanelServer({
+    dir: __dirname,
+    files: PANEL_FILES,
+    handle: async (command, args, caller) => {
+      const handler = panelOnly[command]
+      return handler ? handler(args, caller) : failure('unknown-command', command)
+    },
+  })
+  panelChanged = () => panel.changed()
 
   service.locale = await ext.getLocale()
   ext.onLocaleChanged((locale) => {
     service.locale = locale
+    void service.refreshSidebar()
   })
-
-  const unavailableText = (err: unknown): string =>
-    err instanceof TrellisUnavailable ? err.message : service.strings.uiFailed
 
   const handlers: Record<string, CommandHandler> = {
     open: async (_args, caller) => {
-      try {
-        uiUrl = await service.ensureUi()
-      } catch (err) {
-        return failure(
-          err instanceof TrellisUnavailable ? err.code : 'ui-failed',
-          unavailableText(err),
-        )
-      }
-      await ext.openPanel(caller.workspaceId)
+      await ext.openPanel(caller.workspaceId, BOARD_PATH)
       return ok('ok')
     },
-    init: async (_args, caller) => {
-      const dir = caller.cwd ?? caller.workDir
-      if (!dir) return failure('no-dir', service.strings.noDir)
-      if (!(await service.isInstalled())) {
-        return failure('not-installed', service.strings.notInstalled)
-      }
-      const s = service.strings
-      const confirmed = await ext.confirm({
-        title: s.initTitle,
-        message: s.initMessage(dir),
-        detail: s.initDetail,
-        confirmLabel: s.initConfirm,
-        cancelLabel: s.cancel,
-      })
-      if (!confirmed) return ok(s.initCancelled)
-      const res = await service.init(dir)
-      return res.ok ? ok(res.text) : failure('init-failed', res.message)
+    vault: async (_args, caller) => {
+      await ext.openPanel(caller.workspaceId, VAULT_PATH)
+      return ok('ok')
     },
+    init: async (_args, caller) => initHere(deps, caller),
     card: async (args, caller) => {
+      const t = translate(caller.locale)
       const raw = cliArgs(args)?.argv[0]
-      if (!raw) return failure('missing-ref', service.strings.cardUsage)
+      if (!raw) return failure('missing-ref', t('cardUsage'))
       const ref = cardRef(raw)
       const path = ref ? cardPath(ref) : null
-      if (!ref || !path) return failure('invalid-ref', service.strings.invalidRef(raw))
-      try {
-        uiUrl = await service.ensureUi()
-      } catch (err) {
-        return failure(
-          err instanceof TrellisUnavailable ? err.code : 'ui-failed',
-          unavailableText(err),
-        )
-      }
+      if (!ref || !path) return failure('invalid-ref', t('invalidRef', { raw }))
+      if (!(await service.isInstalled())) return failure('not-installed', t('notInstalled'))
       await ext.openPanel(caller.workspaceId, path)
-      return ok(service.strings.cardOpened(ref), { ref, path })
+      return ok(t('cardOpened', { ref }), { ref, path })
     },
     status: async (_args, caller) => {
-      if (!(await service.isInstalled())) {
-        return failure('not-installed', service.strings.notInstalled)
-      }
+      const t = translate(caller.locale)
+      if (!(await service.isInstalled())) return failure('not-installed', t('notInstalled'))
       const project = service.projectFor(caller.workDir)
-      if (!project) return ok('no trellis project', null)
+      if (!project) return ok(t('noProject'), null)
       const counts = await service.counts(project)
-      if (!counts) return failure('trellis-failed', service.strings.uiFailed)
+      if (!counts) return failure('trellis-failed', t('statusFailed'))
       const data = { project: project.project, board: project.board ?? null, ...counts }
-      return ok(`${project.project}: ${service.strings.sidebar(counts)}`, data)
+      return ok(`${project.project}: ${service.chipTooltip(counts, t)}`, data)
     },
   }
 
-  ext.onPanel(async (caller, path) => {
-    try {
-      uiUrl = await service.ensureUi()
-      const p = await ensureProxy()
-      const entry = path && isAppPath(path) ? path : projectPath(service.projectFor(caller.workDir))
-      return { url: p.entryUrl(entry) }
-    } catch (err) {
-      return { url: messages.url(service.strings.unavailableTitle, unavailableText(err)) }
+  ext.onPanel((caller, path) => {
+    const target = panelTarget(path)
+    const query: Record<string, string> = {
+      workDir: caller.workDir ?? '',
+      workspaceId: caller.workspaceId ?? '',
+      locale: caller.locale ?? 'en',
+      view: target.view,
     }
+    if (target.card) query.card = target.card
+    return { url: panel.url(query) }
   })
 
   await ext.registerCommands(handlers)

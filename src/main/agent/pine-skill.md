@@ -329,8 +329,9 @@ toolchains prefer user-space installers (mise, uv, pixi) inside the workspace.
 Pine has no kanban board or wiki of its own. Task boards, cards and knowledge entries live in
 Trellis: run the `trellis` CLI directly from your pane, following its own Claude Code skills
 (`trellis:trellis` for commands, `trellis:when-to-use-trellis` for when work belongs on a board,
-`trellis:writing-knowledge` for recording findings). Pine's `trellis` extension only *shows*
-Trellis to the human (board panel, per-workspace card counts, review notifications); see
+`trellis:writing-knowledge` for recording findings). Pine's `trellis` extension is the human's
+view of Trellis (a board, card and vault panel they act in, per-workspace card counts, review
+notifications); it has no verbs that change cards for you; see
 Extensions below. Files an older Pine left behind (`.pine/board.json`, `.pine/wiki.json`) are
 the user's data: don't read them as current state, and don't delete them.
 
@@ -394,8 +395,9 @@ If the user disabled one in Settings → Extensions you'll get `extension-disabl
 enable it yourself (there is no verb for that — only the human approves/enables extensions).
 `extension-unavailable` means its process didn't start or crashed; retry once, then tell the
 user. Third-party extensions show up the same way — check `pine ext ls` before assuming a verb.
-Built-in tool extensions: `pine trellis open|status|init` (the user's Trellis board for this
-project; `init` asks the human first) and `pine keeper open|approvals` (Keeper's dashboard and the
+Built-in tool extensions: `pine trellis open|card <REF>|vault|status|init` (the user's Trellis
+board, one card or the vault in a panel for the human; `status` counts open and claimed cards;
+`init` asks the human first; to change cards yourself use the `trellis` CLI) and `pine keeper open|approvals` (Keeper's dashboard and the
 pending-approval list — read-only; approving is always the human's job, never an agent's).
 
 ## Bus — cross-agent messages & handoffs
