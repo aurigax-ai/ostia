@@ -34,18 +34,24 @@
     "settings": {
       "notifyReview": {
         "type": "boolean",
+        "title": "Notify on review",
         "default": true,
         "description": "Notify when an agent moves a card to a review column"
       },
       "notifyBlocked": {
         "type": "boolean",
+        "title": "Notify on blocked",
         "default": true,
         "description": "Notify when an agent moves a card to a blocked column"
       },
       "refreshSeconds": {
         "type": "number",
+        "title": "Card count refresh",
         "default": 60,
-        "description": "Seconds between card count refreshes in the sidebar (10 to 3600)"
+        "minimum": 10,
+        "maximum": 3600,
+        "unit": "seconds",
+        "description": "Time between card count refreshes in the sidebar"
       }
     }
   }

@@ -353,6 +353,21 @@ Attention, the second loud element, appears only when a pane needs you:
   for a group inside a section), `ControlRow`, and `WarningNote` (the one warning callout).
   Version numbers are sans `tabular-nums`, not mono. `SettingsGroup` takes an optional one-line
   `desc` and a right-aligned `action` (an "Add …" button or a refresh `IconButton`).
+- **Settings nav disclosure**: a nav entry with children (Plugins → one entry per extension)
+  keeps its own button, which opens the section, plus a `row` `IconButton` caret
+  (`aria-expanded`, `aria-controls`) whose `CaretRightIcon` turns 90° when open. Children are
+  `sm` ghost buttons, `ui-sm`, indented under a `--line` left rule, with the item's icon or an
+  icon-sized gap. Right/Left on the parent expand/collapse; Left on a child returns to the
+  parent. The open state is remembered (localStorage). A child that anchors into the page marks
+  itself `aria-current="location"`, scrolls its block to the top (instant, never smooth), focuses
+  it, and tints it with `.settings-anchor-highlight`, which holds then fades out by opacity over
+  `--motion-highlight`; under reduced motion it stays still for the same time and disappears.
+  While searching, children that match show without the caret.
+- **Extension setting rows** use `ControlRow` like core rows: the manifest `title` (or the
+  humanized key) as the label, the raw key after it in mono `ui-xs` muted, the description with
+  `{product}` filled in and the range and unit appended, and the same controls as core (switch,
+  `SelectField` showing value titles, a `w-24` mono number input clamped to the range, a `w-56`
+  mono text input).
 - **Settings lists** of configured objects (MCP servers, skill folders, models in Settings →
   Assistant): shadcn `Item` rows (`outline`, `sm`, `radius-md`, `--line` border) in a `ul`, each
   with a title, a mono `ui-xs` target line, a status line (6px dot + text, `attn-fg` error

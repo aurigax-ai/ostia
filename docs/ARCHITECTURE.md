@@ -626,7 +626,7 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     cheap (§6 of CLAUDE.md). Clicking the `cwd` chip opens Files (which follows the pane cwd);
     right-click on the row offers Edit prompt, Copy prompt (chip texts and separator), Copy
     working directory and Show in Files. Edit prompt opens Settings → Prompt
-    (`openSettings('prompt', paneId)`; the Terminal page links there too), an ordinary Settings
+    (`openSettings('prompt', { previewPaneId })`; the Terminal page links there too), an ordinary Settings
     page, not a dialog: the style select, a live preview from that pane's real values (else the
     active terminal; `promptPreviewPaneId` in `uiStore`; chips without one are drawn dashed as
     "no value here"), the ordered list (drag, the arrow buttons, or Alt+↑/↓ on a row's handle,
