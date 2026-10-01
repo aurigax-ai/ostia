@@ -218,7 +218,7 @@ export function renderPickReport(capture: PickCapture, note: string): string {
   const lines: string[] = []
   const trimmedNote = clip(note.trim(), PICK_NOTE_MAX)
   lines.push(`# Captured element: ${capture.label || capture.selector}`, '')
-  lines.push('## What is wrong', '', trimmedNote || '(no note)', '')
+  lines.push('## Note', '', trimmedNote || '(no note)', '')
   lines.push('## Element', '')
   lines.push(`- Page: ${capture.title ? `${capture.title} — ` : ''}${capture.url}`)
   lines.push(`- Selector: ${inlineCode(capture.selector)}`)
