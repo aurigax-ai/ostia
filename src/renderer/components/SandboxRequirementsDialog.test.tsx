@@ -23,7 +23,10 @@ const report = (canInstall: boolean) => ({
 
 describe('SandboxRequirementsDialog', () => {
   it('SBX-C95 keeps the sandbox off and names the missing package with an Install button', async () => {
-    vi.mocked(window.pine.sandbox.setEnabled).mockResolvedValue(null)
+    vi.mocked(window.pine.sandbox.setEnabled).mockResolvedValue({
+      ok: false,
+      reason: 'missing-programs',
+    })
     vi.mocked(window.pine.system.requirements).mockResolvedValue(report(true))
     render(<SandboxRequirementsDialog />)
     await act(() => useSandboxStore.getState().setEnabled('ws', true))
@@ -35,7 +38,10 @@ describe('SandboxRequirementsDialog', () => {
   })
 
   it('SBX-C98 offers the command to copy when the system extension is not enabled', async () => {
-    vi.mocked(window.pine.sandbox.setEnabled).mockResolvedValue(null)
+    vi.mocked(window.pine.sandbox.setEnabled).mockResolvedValue({
+      ok: false,
+      reason: 'missing-programs',
+    })
     vi.mocked(window.pine.system.requirements).mockResolvedValue(report(false))
     render(<SandboxRequirementsDialog />)
     await act(() => useSandboxStore.getState().setEnabled('ws', true))

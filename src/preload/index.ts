@@ -44,9 +44,13 @@ import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { ReleaseCheckResult, ReleaseInfo } from '../shared/releases'
 import type {
   DomainRefusal,
+  SandboxEditError,
   SandboxEditResult,
+  SandboxEnableResult,
   SandboxExposeResult,
+  SandboxFixedPolicy,
   SandboxPortRow,
+  SandboxViolation,
   WorkspaceSandbox,
 } from '../shared/sandbox'
 import type { SecretEntry, SecretGrant } from '../shared/secrets'
@@ -399,14 +403,37 @@ const bridge: PineBridge = {
     },
     get: (workspaceId) =>
       ipcRenderer.invoke('sandbox:get', workspaceId) as Promise<WorkspaceSandbox | null>,
-    setAllowRead: (workspaceId, paths) =>
+    setPaths: (workspaceId, kind, paths) =>
       ipcRenderer.invoke(
-        'sandbox:set-allow-read',
+        'sandbox:set-paths',
         workspaceId,
+        kind,
         paths,
       ) as Promise<SandboxEditResult>,
+    checkPaths: (kind, paths) =>
+      ipcRenderer.invoke('sandbox:check-paths', kind, paths) as Promise<SandboxEditError[]>,
     setDomains: (workspaceId, domains) =>
       ipcRenderer.invoke('sandbox:set-domains', workspaceId, domains) as Promise<SandboxEditResult>,
+    setDeniedDomains: (workspaceId, domains) =>
+      ipcRenderer.invoke(
+        'sandbox:set-denied-domains',
+        workspaceId,
+        domains,
+      ) as Promise<SandboxEditResult>,
+    setSwitches: (workspaceId, switches) =>
+      ipcRenderer.invoke(
+        'sandbox:set-switches',
+        workspaceId,
+        switches,
+      ) as Promise<WorkspaceSandbox | null>,
+    fixedPolicy: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:fixed-policy', workspaceId) as Promise<SandboxFixedPolicy | null>,
+    stamp: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:stamp', workspaceId) as Promise<string | null>,
+    violations: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:violations', workspaceId) as Promise<SandboxViolation[]>,
+    clearViolations: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:clear-violations', workspaceId) as Promise<boolean>,
     setControls: (workspaceId, controls) =>
       ipcRenderer.invoke(
         'sandbox:set-controls',
@@ -441,7 +468,7 @@ const bridge: PineBridge = {
         'sandbox:set-enabled',
         workspaceId,
         enabled,
-      ) as Promise<WorkspaceSandbox | null>,
+      ) as Promise<SandboxEnableResult>,
   },
   credentials: {
     forPage: (paneId) =>

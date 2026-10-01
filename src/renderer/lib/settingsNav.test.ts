@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { installLocalStorage } from '../../../test/mocks/memoryStorage'
 import {
   EXTENSIONS_NAV_EXPANDED_KEY,
-  extensionsNavExpanded,
+  SANDBOX_NAV_EXPANDED_KEY,
+  navExpanded,
   parseSettingsTarget,
-  rememberExtensionsNavExpanded,
+  rememberNavExpanded,
 } from './settingsNav'
 
 describe('parseSettingsTarget', () => {
@@ -36,15 +37,24 @@ describe('parseSettingsTarget', () => {
   })
 })
 
-describe('extensionsNavExpanded', () => {
+describe('navExpanded', () => {
   beforeEach(() => installLocalStorage())
-  afterEach(() => window.localStorage.removeItem(EXTENSIONS_NAV_EXPANDED_KEY))
+  afterEach(() => {
+    window.localStorage.removeItem(EXTENSIONS_NAV_EXPANDED_KEY)
+    window.localStorage.removeItem(SANDBOX_NAV_EXPANDED_KEY)
+  })
 
   it('is collapsed until the human expands it, and remembers the choice', () => {
-    expect(extensionsNavExpanded()).toBe(false)
-    rememberExtensionsNavExpanded(true)
-    expect(extensionsNavExpanded()).toBe(true)
-    rememberExtensionsNavExpanded(false)
-    expect(extensionsNavExpanded()).toBe(false)
+    expect(navExpanded(EXTENSIONS_NAV_EXPANDED_KEY)).toBe(false)
+    rememberNavExpanded(EXTENSIONS_NAV_EXPANDED_KEY, true)
+    expect(navExpanded(EXTENSIONS_NAV_EXPANDED_KEY)).toBe(true)
+    rememberNavExpanded(EXTENSIONS_NAV_EXPANDED_KEY, false)
+    expect(navExpanded(EXTENSIONS_NAV_EXPANDED_KEY)).toBe(false)
+  })
+
+  it('remembers each nested list on its own', () => {
+    rememberNavExpanded(SANDBOX_NAV_EXPANDED_KEY, true)
+    expect(navExpanded(SANDBOX_NAV_EXPANDED_KEY)).toBe(true)
+    expect(navExpanded(EXTENSIONS_NAV_EXPANDED_KEY)).toBe(false)
   })
 })

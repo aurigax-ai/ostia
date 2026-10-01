@@ -40,4 +40,24 @@ describe('BrowserFence', () => {
     const open = setup('unrestricted')
     expect(open.fence.allowedNow('sbx', 'https://evil.test/login')).toBe(true)
   })
+
+  it('refuses a blocked host in the browser without asking, even when a wider rule allows it', async () => {
+    const asked: string[] = []
+    const fence = new BrowserFence({
+      policy: () => ({
+        browser: 'allowlist',
+        domains: ['*.example.org'],
+        denied: ['ads.example.org', 'tracker.test'],
+      }),
+      requestDomain: async (_ws, host) => {
+        asked.push(host)
+        return true
+      },
+    })
+    expect(fence.allowedNow('sbx', 'https://docs.example.org/')).toBe(true)
+    expect(fence.allowedNow('sbx', 'https://ads.example.org/pixel')).toBe(false)
+    await expect(fence.check('sbx', 'https://ads.example.org/pixel')).resolves.toBe(false)
+    await expect(fence.check('sbx', 'https://tracker.test/')).resolves.toBe(false)
+    expect(asked).toEqual([])
+  })
 })

@@ -3,6 +3,7 @@ import { type SandboxControls, hostMatches } from '../../shared/sandbox'
 export interface BrowserPolicy {
   browser: SandboxControls['browser']
   domains: readonly string[]
+  denied?: readonly string[]
 }
 
 export interface BrowserFenceDeps {
@@ -30,13 +31,16 @@ export class BrowserFence {
     const policy = this.deps.policy(workspaceId)
     if (!policy || policy.browser === 'unrestricted') return true
     const target = parse(url)
-    return target !== null && hostMatches(target.host, target.port, policy.domains)
+    if (!target || hostMatches(target.host, target.port, policy.denied ?? [])) return false
+    return hostMatches(target.host, target.port, policy.domains)
   }
 
   async check(workspaceId: string, url: string): Promise<boolean> {
     if (this.allowedNow(workspaceId, url)) return true
     const target = parse(url)
     if (!target) return false
+    const denied = this.deps.policy(workspaceId)?.denied ?? []
+    if (hostMatches(target.host, target.port, denied)) return false
     return (
       (await this.deps.requestDomain(workspaceId, target.host)) && this.allowedNow(workspaceId, url)
     )

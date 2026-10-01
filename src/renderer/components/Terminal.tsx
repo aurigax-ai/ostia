@@ -442,9 +442,9 @@ export function TerminalView({
           hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
-        .then(({ buffer, sandboxed, host }) => {
+        .then(({ buffer, sandboxed, sandboxStamp, host }) => {
           if (disposed) return
-          useSandboxStore.getState().notePane(paneId, sandboxed ?? false)
+          useSandboxStore.getState().notePane(paneId, sandboxed ?? false, sandboxStamp)
           if (host) useSandboxStore.getState().noteHost(paneId)
           disposeMarkers()
           useBlocksStore.getState().resetPane(paneId)
