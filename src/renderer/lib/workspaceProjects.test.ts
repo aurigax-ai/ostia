@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { anchorToFocusedPane, startWorkspaceProjects } from './workspaceProjects'
 
@@ -96,10 +97,20 @@ describe('startWorkspaceProjects', () => {
       workDir: '/home/u/app',
     })
 
+    useSandboxStore.setState({ enabled: { w1: true } })
+    expect(await anchorToFocusedPane('w1')).toBe(false)
+    expect(useWorkspacesStore.getState().workspaces[0].workDir).toBe('/home/u/app')
+
+    useSandboxStore.setState({ enabled: {} })
     expect(await anchorToFocusedPane('w1')).toBe(true)
     expect(useWorkspacesStore.getState().workspaces[0]).toMatchObject({
       name: 'other',
       projectDir: '~/other',
+      workDir: '/home/u/other',
+    })
+    expect(window.pine.lifecycle.emit).toHaveBeenCalledWith({
+      type: 'workspace-added',
+      workspaceId: 'w1',
       workDir: '/home/u/other',
     })
   })
