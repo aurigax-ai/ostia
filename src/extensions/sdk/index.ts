@@ -31,6 +31,7 @@ import type {
   ExtensionSettingValue,
   ExtensionSettingValues,
   OpenTerminalOptions,
+  PaneChipItem,
   SidebarKind,
   SidebarTone,
 } from '../../shared/extensions'
@@ -44,6 +45,7 @@ export type {
   ExtensionResult,
   ExtensionSettingValues,
   OpenTerminalOptions,
+  PaneChipItem,
 } from '../../shared/extensions'
 
 export type AttentionVerb = 'waiting' | 'done' | 'working' | 'error' | 'clear'
@@ -54,6 +56,8 @@ export interface PaneChipValue {
   text: string
   tooltip?: string
   tone?: SidebarTone
+  icon?: ExtensionIcon
+  items?: PaneChipItem[]
   command?: string
   url?: string
 }
