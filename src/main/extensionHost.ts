@@ -38,6 +38,7 @@ import {
   normalizeSetupProblem,
 } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
+import { EXTENSION_API_ENV, EXTENSION_API_VERSION } from '../shared/extensionApi'
 import {
   DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
@@ -709,6 +710,7 @@ export class ExtensionHost {
       ...inherited,
       PINE_SOCKET: this.deps.socketPath(),
       PINE_TOKEN: identity.token,
+      [EXTENSION_API_ENV]: EXTENSION_API_VERSION,
       PINE_EXTENSION_ID: id,
       PINE_EXTENSION_DIR: rt.ext.dir,
     }

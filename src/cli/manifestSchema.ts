@@ -18,6 +18,7 @@ import {
 } from '../main/marketplace'
 import { ASSIST_POINTS } from '../shared/assist'
 import { ALL_CAPABILITIES } from '../shared/capabilities'
+import { EXTENSION_API_PATTERN } from '../shared/extensionApi'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_CATEGORIES,
@@ -114,6 +115,7 @@ export const extensionManifestSchema = z.looseObject({
   id: z.string().regex(EXTENSION_ID_PATTERN),
   name: text,
   version: z.string().min(1).max(VERSION_MAX),
+  api: z.string().regex(EXTENSION_API_PATTERN),
   description: z.string().optional(),
   category: z.enum(EXTENSION_CATEGORIES).optional(),
   capabilities: capabilities.optional(),

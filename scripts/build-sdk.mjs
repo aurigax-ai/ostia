@@ -3,6 +3,8 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
+import { apiVersion, contractDigest } from './api-contract.mjs'
+import { copyBundledSources } from './bundled-sources.mjs'
 
 const out = 'out/sdk'
 const sdk = 'src/extensions/sdk'
@@ -16,7 +18,8 @@ const assistPeers = ['ai', 'zod', '@ai-sdk-tool/parser', 'undici']
 rmSync(out, { recursive: true, force: true })
 mkdirSync(join(out, 'schemas'), { recursive: true })
 
-await build({
+const library = await build({
+  metafile: true,
   entryPoints: {
     index: join(sdk, 'index.ts'),
     assist: join(sdk, 'assist/index.ts'),
@@ -33,7 +36,8 @@ await build({
   logLevel: 'warning',
 })
 
-await build({
+const cli = await build({
+  metafile: true,
   entryPoints: ['src/cli/sdkCliEntry.ts'],
   outfile: join(out, 'dist/cli.cjs'),
   bundle: true,
@@ -47,7 +51,8 @@ await build({
 execFileSync('pnpm', ['exec', 'tsc', '-p', 'tsconfig.sdk.json'], { stdio: 'inherit' })
 
 const schemaModule = resolve(out, 'schema-build.mjs')
-await build({
+const schema = await build({
+  metafile: true,
   entryPoints: ['src/cli/manifestSchema.ts'],
   outfile: schemaModule,
   bundle: true,
@@ -63,6 +68,9 @@ const writeJson = (file, value) =>
 writeJson('schemas/pine.schema.json', schemas.extension)
 writeJson('schemas/pine-marketplace.schema.json', schemas.marketplace)
 
+writeJson('api.json', { version: apiVersion(), digest: contractDigest(out) })
+
+copyBundledSources([library, cli, schema], out)
 cpSync(join(sdk, 'panel.css'), join(out, 'panel.css'))
 cpSync(join(assets, 'README.md'), join(out, 'README.md'))
 cpSync(join(assets, 'template'), join(out, 'template'), { recursive: true })
@@ -74,6 +82,7 @@ writeJson('package.json', {
   name: packageName,
   version: app.version,
   description: 'SDK for writing Pine extensions',
+  pineExtensionApi: apiVersion(),
   license: app.license,
   repository: { type: 'git', url: `git+${repository}.git` },
   type: 'module',
@@ -88,6 +97,7 @@ writeJson('package.json', {
     './panel.css': './panel.css',
     './schemas/pine.schema.json': './schemas/pine.schema.json',
     './schemas/pine-marketplace.schema.json': './schemas/pine-marketplace.schema.json',
+    './api.json': './api.json',
     './package.json': './package.json',
   },
   dependencies: { 'vscode-jsonrpc': versionOf('vscode-jsonrpc') },

@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { EXTENSION_API_VERSION } from '../shared/extensionApi'
 import type { ExtensionCaller, ExtensionSidebarItem } from '../shared/extensions'
 import type { CommandResult } from '../shared/types'
 import { registerControlServer, stopControlServer } from './controlServer'
@@ -107,6 +108,13 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       data: { args: { argv: ['a', 'b'] }, caller },
     })
     expect(status()).toBe('running')
+  })
+
+  it('tells the extension process which extension API version it provides', async () => {
+    expect(await host.invoke('echo', 'api', null, caller)).toMatchObject({
+      ok: true,
+      text: EXTENSION_API_VERSION,
+    })
   })
 
   it('never lets the extension identity call pane-only control methods', async () => {

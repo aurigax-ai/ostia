@@ -58,6 +58,7 @@ function weather(version: string): Record<string, unknown> {
     id: 'weather',
     name: 'Weather',
     version,
+    api: '1.0',
     description: 'Shows the weather',
     capabilities: ['notify'],
     main: 'main.js',
