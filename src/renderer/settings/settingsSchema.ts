@@ -822,6 +822,8 @@ export const SETTINGS_JSON_SCHEMA = {
             type: 'string',
             enum: [
               'send-other-pane',
+              'type-other-pane',
+              'read-other-pane',
               'kill-pane',
               'all-workspaces',
               'shell',

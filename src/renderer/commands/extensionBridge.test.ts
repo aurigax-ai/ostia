@@ -1,7 +1,8 @@
 import type { ExtensionInfo, ExtensionSettingsStored, PaneChip } from '@shared/extensions'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { findPane, paneIds, resetIds } from '../layout/tree'
+import { findPane, isPaneShown, paneIds, resetIds, tabsOfPane } from '../layout/tree'
+import { isTitlePinned, resetPinnedTitles } from '../lib/pinnedTitles'
 import { registerTerminal } from '../lib/terminalHandles'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useDiffStore } from '../stores/diffStore'
@@ -310,6 +311,7 @@ describe('extensionBridge', () => {
 
     afterEach(() => {
       useBlocksStore.setState(blocksInit, true)
+      resetPinnedTitles()
     })
 
     function twoWorkspaces(): void {
@@ -363,6 +365,44 @@ describe('extensionBridge', () => {
       expect(paste).not.toHaveBeenCalled()
       blocks.promptEnd(paneId as string, { line: 0 })
       expect(paste).toHaveBeenCalledWith('sudo pacman -S --needed ripgrep')
+      expect(window.pine.pty.write).toHaveBeenCalledWith(paneId, '\r')
+      unregister()
+    })
+
+    it('opens a background tab beside the caller without taking the focus or the workspace', () => {
+      twoWorkspaces()
+      useLayoutStore.getState().ensure('s1')
+      const agent = useLayoutStore.getState().byWorkspace.s1.activePaneId
+      useLayoutStore.getState().split('s1', agent, 'horizontal')
+      const focused = useLayoutStore.getState().byWorkspace.s1.activePaneId
+      expect(focused).not.toBe(agent)
+
+      const paneId = openExtensionTerminal({
+        requestId: 'r5',
+        workspaceId: 's1',
+        afterPaneId: agent,
+        command: `claude 'fix the "login" bug'`,
+        title: 'worker',
+        backgroundTab: true,
+        pinTitle: true,
+      }) as string
+
+      const layout = useLayoutStore.getState().byWorkspace.s1
+      expect(layout.activePaneId).toBe(focused)
+      expect(tabsOfPane(layout.root, agent)).toMatchObject({ activeId: agent })
+      expect(tabsOfPane(layout.root, agent)?.children.map((p) => p.id)).toEqual([agent, paneId])
+      expect(findPane(layout.root, paneId)).toMatchObject({ kind: 'terminal', title: 'worker' })
+      expect(isPaneShown(layout.root, paneId)).toBe(false)
+      expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s2')
+      expect(isTitlePinned(paneId)).toBe(true)
+      expect(isTitlePinned(agent)).toBe(false)
+
+      const paste = vi.fn()
+      const unregister = registerTerminal(paneId, { paste, focus: vi.fn() } as unknown as Terminal)
+      const blocks = useBlocksStore.getState()
+      blocks.promptStart(paneId, { line: 0 }, '/a')
+      blocks.promptEnd(paneId, { line: 0 })
+      expect(paste).toHaveBeenCalledWith(`claude 'fix the "login" bug'`)
       expect(window.pine.pty.write).toHaveBeenCalledWith(paneId, '\r')
       unregister()
     })

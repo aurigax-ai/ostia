@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { statSync } from 'node:fs'
 import { type Socket, createConnection } from 'node:net'
+import { resolve as resolvePath } from 'node:path'
 import {
   type MessageConnection,
   StreamMessageReader,
@@ -14,6 +15,7 @@ import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runBrowse } from './browse'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
+import { runPaneVerb } from './pane'
 import { runPortalCommand } from './portal'
 import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
 
@@ -21,11 +23,15 @@ interface ProcInfo {
   id: string
   name: string
   cmd: string
-  cwd: string
-  status: 'running' | 'exited' | 'killed'
-  pid?: number
+  cwd?: string
+  status: 'starting' | 'running' | 'exited' | 'closed'
   exitCode?: number
+  paneId: string
   startedAt: string
+}
+
+function processStatus(p: ProcInfo): string {
+  return p.status === 'exited' && p.exitCode !== undefined ? `exited(${p.exitCode})` : p.status
 }
 
 function extractGlobalFlag(argv: string[]): { global: boolean; rest: string[] } {
@@ -374,6 +380,7 @@ const CORE_VERBS = new Set([
   'open',
   'docs',
   'process',
+  'pane',
   'vault',
   'sandbox',
   'secret',
@@ -741,9 +748,9 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<{ id: string; name: string; pid?: number } | ErrResult>(
+    const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
       'process.run',
-      { cmd, name: flags.name, cwd: flags.cwd },
+      { cmd, name: flags.name, cwd: resolvePath(flags.cwd ?? '.') },
     )
     if (isErrResult(res)) {
       console.error(`pine: process run failed (${describeErrResult(res)})`)
@@ -764,7 +771,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       return
     }
     for (const p of list) {
-      console.log(`${p.id}\t${p.name}\t${p.status}\t${p.pid ?? '-'}\t${p.cmd}`)
+      console.log(`${p.id}\t${p.name}\t${processStatus(p)}\t${p.paneId}\t${p.cmd}`)
     }
   } else if (sub === 'logs') {
     const { flags, rest } = parseFlags(rawArgs, ['since'])
@@ -776,10 +783,10 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
     }
     const sinceCursor = numberFlag(flags, 'since')
     const res = await conn.sendRequest<
-      { data: string; cursor: number; dropped: boolean } | { ok: false; error: string }
+      { data: string; cursor: number; dropped: boolean } | ErrResult
     >('process.output', { id, sinceCursor })
-    if ('ok' in res) {
-      console.error(`pine: process logs failed (${res.error})`)
+    if (isErrResult(res)) {
+      console.error(`pine: process logs failed (${describeErrResult(res)})`)
       process.exitCode = 1
       return
     }
@@ -792,12 +799,13 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<{ ok: true } | { ok: false; error: string }>(
-      'process.kill',
-      { id },
-    )
-    if (!res.ok) process.exitCode = 1
-    console.log(res.ok ? 'ok' : `pine: process.kill failed (${res.error})`)
+    const res = await conn.sendRequest<{ ok: true } | ErrResult>('process.kill', { id })
+    if (isErrResult(res)) {
+      console.error(`pine: process kill failed (${describeErrResult(res)})`)
+      process.exitCode = 1
+      return
+    }
+    console.log('ok')
   } else if (sub === 'restart') {
     const id = rawArgs[0]
     if (!id) {
@@ -805,12 +813,9 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<{ id: string } | { ok: false; error: string }>(
-      'process.restart',
-      { id },
-    )
-    if ('ok' in res) {
-      console.error(`pine: process restart failed (${res.error})`)
+    const res = await conn.sendRequest<{ id: string } | ErrResult>('process.restart', { id })
+    if (isErrResult(res)) {
+      console.error(`pine: process restart failed (${describeErrResult(res)})`)
       process.exitCode = 1
       return
     }
@@ -1116,7 +1121,12 @@ commands:
   view list [--json] | open <name>   declarative views (~/.config/pine/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
   <file>... | open <file>...   show files in Pine's viewer, any path (file:line[:col] jumps)
-  process | vault | bus | settings | browse | gateway <subcommand> ...
+  process run "<cmd>" [--name N] [--cwd DIR] | ls | logs | kill | restart <id|name>
+                            run a command in a new terminal tab the human can watch
+  pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]
+                            type into or read another terminal pane (asks the human unless
+                            you opened it with pine process run)
+  vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. pine git status
   <command.id> [json-args]     run any registered command (see: pine commands)
@@ -1235,6 +1245,8 @@ async function main(): Promise<void> {
       console.log(res.cli)
     } else if (cmd === 'process') {
       await runProcessVerb(conn)
+    } else if (cmd === 'pane') {
+      process.exitCode = await runPaneVerb(conn, process.argv.slice(3))
     } else if (cmd === 'vault') {
       await runVaultVerb(conn)
     } else if (cmd === 'sandbox') {
@@ -1271,7 +1283,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, workspace.list, notify, state, open, docs, process, vault, bus, settings, browse, gateway, ext)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, workspace.list, notify, state, open, docs, process, pane, vault, bus, settings, browse, gateway, ext)`,
       )
       process.exitCode = 1
     }
