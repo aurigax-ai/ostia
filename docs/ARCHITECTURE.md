@@ -2498,7 +2498,17 @@ holds whole and settings sync copies to a folder the user shares.
   and the extension re-reads them from `onSettingsChanged`, so the panel and Settings → Plugins
   stay in sync. "Choose branches" can't be a setting (it names one repository's refs), so it
   lives per repository root in `$PINE_EXTENSION_DATA/view.json` (`viewState.ts`, 200 repos),
-  and wins over `graphScope` until the panel picks Current or All again. The toolbar shows the
+  and wins over `graphScope` until the panel picks Current or All again. The graph list and an
+  open detail, and the Changes page's commit area and file list, are split by the SDK splitter
+  (`sdk/splitter.ts`, keys `graph-details` and `changes-commit`); the detail collapses to its
+  header when the panel can't fit both minimums. The commit message box grows with its text
+  (`field-sizing: content`, capped so the file list keeps room) on top of the height the
+  divider gives it. Staged, unstaged and untracked groups share one scroll, so they need no
+  divider. Why split sizes live in `$PINE_EXTENSION_DATA/panel-sizes.json` (served by
+  `startPanelServer` at `/sizes`) and not in `localStorage`: the panel partition `pine-ext-<id>`
+  isn't `persist:`, and the panel origin's port changes every run, so `localStorage` forgets on
+  restart; and they aren't extension settings because a drag isn't something Settings → Plugins
+  should list or sync. The toolbar shows the
   branch and its upstream with ahead/behind counts. The Blame page renders `git blame --porcelain` (`parseBlamePorcelain`), one
   author/sha/date cell per run of lines from the same commit. CLI/agents: `status`, `changes`,
   `diff <path> [--staged]` (unified patch), `open <path> [--staged]`, `log [--limit n] [--json]`,

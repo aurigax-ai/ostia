@@ -829,9 +829,13 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   theme, picks it in Settings → Files, and checks theme icons, compact folders, nesting and
   Hide in tree.
   `e2e/git-graph.spec.ts` opens Git: Show Graph on a repo with
-  branches and a merge, checks the uncommitted row and keyboard selection, switches to all
+  branches and a merge, checks the uncommitted row and keyboard selection, drags and keys the
+  details divider (real input through `sendInputEvent`) and checks the size survives a panel
+  reload, checks the commit box grows with its message, switches to all
   branches, toggles the tree view, and changes `changesView` in Settings → Plugins to see the
-  panel follow.
+  panel follow. The SDK splitter's clamp, keyboard and size validation are unit-tested in
+  `src/extensions/sdk/split.test.ts` and `panelSizes.test.ts`; the `/sizes` route in
+  `builtinGitExtension.integration.test.ts`.
   `e2e/views.spec.ts` writes view files into the isolated `XDG_CONFIG_HOME`, enables them in
   Settings → Views (one while pine runs, for hot reload), checks the sidebar view's live
   workspace names and a button that runs `workspace.new`, and opens the panel view from the
