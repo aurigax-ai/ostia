@@ -26,14 +26,14 @@ test('a custom OpenAI-compatible provider set in Settings answers in Ask and sug
     await expect(settings).toBeVisible({ timeout: 10_000 })
     await settings.getByRole('button', { name: 'Assistant', exact: true }).click()
     const assistant = settings.getByRole('group', { name: 'Assistant settings' })
-    await assistant.getByRole('combobox', { name: 'provider' }).click()
-    await win.getByRole('option', { name: 'openai-compatible', exact: true }).click()
-    for (const [key, value] of [
-      ['baseUrl', provider.url],
-      ['fastModel', 'fake-small'],
-      ['chatModel', 'fake-big'],
+    await assistant.getByRole('combobox', { name: 'Provider' }).click()
+    await win.getByRole('option', { name: 'OpenAI-compatible', exact: true }).click()
+    for (const [label, value] of [
+      ['Base URL', provider.url],
+      ['Fast model', 'fake-small'],
+      ['Chat model', 'fake-big'],
     ]) {
-      const box = assistant.getByRole('textbox', { name: key, exact: true })
+      const box = assistant.getByRole('textbox', { name: label, exact: true })
       await box.fill(value)
       await box.press('Enter')
     }

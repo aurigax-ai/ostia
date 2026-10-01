@@ -219,9 +219,9 @@ describe('Extension API v2 UI', () => {
       render(<ExtensionsSection />)
       expect(screen.getByRole('group', { name: 'Demo settings' })).toBeInTheDocument()
       expect(screen.getByText('Shout it')).toBeInTheDocument()
-      expect(screen.getByRole('switch', { name: 'loud' })).not.toBeChecked()
-      expect(screen.getByRole('spinbutton', { name: 'count' })).toHaveValue(3)
-      expect(screen.getByRole('textbox', { name: 'greeting' })).toHaveValue('hi')
+      expect(screen.getByRole('switch', { name: 'Loud' })).not.toBeChecked()
+      expect(screen.getByRole('spinbutton', { name: 'Count' })).toHaveValue(3)
+      expect(screen.getByRole('textbox', { name: 'Greeting' })).toHaveValue('hi')
     })
 
     it('saves through main and persists what main stored into settings.json', async () => {
@@ -235,10 +235,10 @@ describe('Extension API v2 UI', () => {
       useExtensionsStore.setState({ list: [withSettings] })
       render(<ExtensionsSection />)
 
-      await userEvent.setup().click(screen.getByRole('switch', { name: 'loud' }))
+      await userEvent.setup().click(screen.getByRole('switch', { name: 'Loud' }))
 
       expect(setSetting).toHaveBeenCalledWith('demo', 'loud', true)
-      await waitFor(() => expect(screen.getByRole('switch', { name: 'loud' })).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('switch', { name: 'Loud' })).toBeChecked())
       expect(useSettingsStore.getState().extensionSettings).toEqual({ demo: { loud: true } })
     })
 
@@ -248,7 +248,7 @@ describe('Extension API v2 UI', () => {
       useExtensionsStore.setState({ list: [withSettings] })
       render(<ExtensionsSection />)
       const user = userEvent.setup()
-      const input = screen.getByRole('spinbutton', { name: 'count' })
+      const input = screen.getByRole('spinbutton', { name: 'Count' })
 
       await user.clear(input)
       await user.type(input, '7{Enter}')

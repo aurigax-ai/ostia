@@ -23,11 +23,16 @@
     "settings": {
       "intervalSeconds": {
         "type": "number",
+        "title": "Scan interval",
         "default": 3,
-        "description": "Seconds between scans while Pine is focused (1 to 60)"
+        "minimum": 1,
+        "maximum": 60,
+        "unit": "seconds",
+        "description": "Time between port scans while {product} is focused"
       },
       "portHost": {
         "type": "enum",
+        "title": "Port host",
         "values": ["localhost", "127.0.0.1"],
         "default": "localhost",
         "description": "Host used to open a port in the browser pane; pick 127.0.0.1 for servers that listen on IPv4 only"
