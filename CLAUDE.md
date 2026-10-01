@@ -592,6 +592,11 @@ The trap, the rule, the guard. Full stories: the Trellis vault's `architecture/`
 - **PATH and command names go through a file, never the terminal** (`__pine_report_shell` →
   `$PINE_SHELL_STATE`), only when changed, from a hook with no subprocesses. As an OSC it delayed
   zsh startup ~1.8 s under p10k.
+- **The Pine prompt tears powerlevel10k down at load, never first in precmd**
+  (`__pine_apply_prompt` is called when `init.zsh` is sourced), and the generated `.zshrc` sets
+  `POWERLEVEL9K_INSTANT_PROMPT=off` before the user's rc. Otherwise p10k runs its full init first
+  (~1.1 s per pane), its instant prompt swallows the pane's output, and its exit cleanup deletes
+  the user's p10k caches.
 - **OSC 7 is not percent-decoded**: decoding corrupts dirs like `100%20off`.
 - **Codex hooks are trusted by hash, never `--dangerously-bypass-hook-trust`** (`codexHookArgs`; the
   flag also runs unreviewed user hooks). `codexHookTrustHash` must match Codex's `hook_hash` (pinned

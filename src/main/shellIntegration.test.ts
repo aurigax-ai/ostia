@@ -142,6 +142,50 @@ describe('shellIntegrationSpawnOptions', () => {
         )
       })
 
+      it('tears powerlevel10k down while loading, before its first precmd can run', () => {
+        const out = spawnSync(
+          'zsh',
+          [
+            '-f',
+            '-c',
+            [
+              'typeset -i torn=0',
+              'prompt_powerlevel9k_teardown() { (( torn++ )) }',
+              `source '${ZSH_INIT}'`,
+              'print -rn -- "$torn|$PROMPT"',
+              '__pine_precmd >/dev/null',
+              'print -rn -- "|$torn"',
+            ].join('; '),
+          ],
+          {
+            env: { PATH: '/usr/bin:/bin', HOME: '/home/u', PINE_PROMPT: 'pine' },
+            encoding: 'utf8',
+          },
+        ).stdout
+        expect(out).toBe('1|%~ |1')
+      })
+
+      it('turns the powerlevel10k instant prompt off for the user’s rc only with the Pine prompt', () => {
+        const home = mkdtempSync(join(tmpdir(), 'pine-zsh-home-'))
+        try {
+          writeFileSync(
+            join(home, '.zshrc'),
+            'print -rn -- "instant=${POWERLEVEL9K_INSTANT_PROMPT-unset}"\n',
+          )
+          const seen = (pinePrompt: Record<string, string>): string => {
+            const { env } = shellIntegrationSpawnOptions('zsh', { HOME: home })
+            return spawnSync('zsh', ['-i', '-c', 'true'], {
+              env: { PATH: '/usr/bin:/bin', HOME: home, ...env, ...pinePrompt },
+              encoding: 'utf8',
+            }).stdout
+          }
+          expect(seen({ PINE_PROMPT: 'pine' })).toContain('instant=off')
+          expect(seen({})).toContain('instant=unset')
+        } finally {
+          rmSync(home, { recursive: true, force: true })
+        }
+      })
+
       it('leaves the user’s prompt alone when the Pine prompt is off', () => {
         expect(prompt({})).toBe(`0|user> %{${B_MARK}%}|right|`)
       })
