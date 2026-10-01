@@ -55,6 +55,10 @@ export class PtySession {
     if (sub.role === 'owner' && this.ownerCount === 0) this.onNoOwners?.()
   }
 
+  get cursor(): number {
+    return this.ring.end
+  }
+
   get ownerCount(): number {
     let n = 0
     for (const s of this.subs.values()) if (s.role === 'owner') n++

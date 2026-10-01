@@ -1,7 +1,14 @@
 export const DETACH_GRACE_MS = 3000
 export const RECOVERY_GRACE_MS = 10 * 60_000
 
-export type ReapReason = 'grace-expired' | 'exit' | 'closed' | 'restart' | 'hibernated' | 'quit'
+export type ReapReason =
+  | 'grace-expired'
+  | 'exit'
+  | 'closed'
+  | 'restart'
+  | 'hibernated'
+  | 'quit'
+  | 'process-kill'
 
 export class RecoveryBook {
   private readonly until = new Map<string, number>()

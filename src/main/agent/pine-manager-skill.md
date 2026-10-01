@@ -53,8 +53,8 @@ Example: `pine manager spawn claude --cwd ~/src/api --name "api tests" -- "run t
 `pine manager input <paneId> [--text TEXT] [--key KEY]…`
 
 Sends text and keys to another pane, for example to answer a worker's permission prompt:
-`pine manager input <paneId> --text y --key enter`. Keys: enter, tab, escape, backspace, up,
-down, left, right, ctrl-c, ctrl-d. This works only while the human has turned on
+`pine manager input <paneId> --text y --key enter`. Keys: enter, tab, shift-tab, escape, backspace,
+delete, space, up, down, left, right, home, end, pageup, pagedown, ctrl-a to ctrl-z. This works only while the human has turned on
 **Allow typing into other panes** in Settings → Manager; otherwise it fails with `input-off`.
 Don't ask the human to turn it on unless they asked you to answer prompts for them. Read the
 pane first and type only what answers the prompt on screen.

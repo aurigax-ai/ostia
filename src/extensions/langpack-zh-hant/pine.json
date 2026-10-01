@@ -2,7 +2,7 @@
   "id": "langpack-zh-hant",
   "name": "繁體中文 (Traditional Chinese)",
   "version": "1.0.0",
-  "api": "1.1",
+  "api": "1.2",
   "description": "Traditional Chinese for {product}'s interface. Pick it in Settings → Language.",
   "category": "langpack",
   "contributes": {
