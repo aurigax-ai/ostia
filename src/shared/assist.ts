@@ -8,10 +8,18 @@ export function isAssistPoint(v: unknown): v is AssistPoint {
 
 export const ASSIST_LABEL_MAX = 80
 
+export const CHAT_TOOL_MODES = ['native', 'prompted'] as const
+
+export type ChatToolMode = (typeof CHAT_TOOL_MODES)[number]
+
+export function isChatToolMode(v: unknown): v is ChatToolMode {
+  return CHAT_TOOL_MODES.includes(v as ChatToolMode)
+}
+
 export interface AssistPointStatus {
   ready: boolean
   label?: string
-  tools?: boolean
+  tools?: ChatToolMode
 }
 
 export type AssistStatus = Partial<Record<AssistPoint, AssistPointStatus>>
@@ -20,7 +28,7 @@ export interface AssistProviderInfo {
   extId: string
   name: string
   label?: string
-  tools?: boolean
+  tools?: ChatToolMode
 }
 
 export type AssistAvailability = Partial<Record<AssistPoint, AssistProviderInfo>>
@@ -560,7 +568,7 @@ export function normalizeAssistStatus(raw: unknown): AssistStatus {
     const status: AssistPointStatus = { ready: entry.ready === true }
     const label = optionalShort(entry.label, ASSIST_LABEL_MAX)
     if (label) status.label = label
-    if (point === 'chat' && entry.tools === true) status.tools = true
+    if (point === 'chat' && isChatToolMode(entry.tools)) status.tools = entry.tools
     out[point] = status
   }
   return out

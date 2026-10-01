@@ -440,7 +440,7 @@ function ChatSession({
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
-            {provider?.tools ? <ChatToolsMenu sessionId={sessionId} /> : null}
+            {provider?.tools ? <ChatToolsMenu sessionId={sessionId} mode={provider.tools} /> : null}
             {editing ? (
               <span className="flex min-w-0 items-center gap-1 px-1 text-fg-muted text-ui-xs">
                 <span className="truncate">{d.chatActions.editing}</span>
