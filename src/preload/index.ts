@@ -85,6 +85,19 @@ const bridge: PineBridge = {
   ping: () => ipcRenderer.invoke('app:ping') as Promise<'pong'>,
   info: () => ipcRenderer.invoke('app:info') as Promise<AppInfo>,
   platform: process.platform as Platform,
+  diagnostics: {
+    report: (report) => ipcRenderer.send('diagnostics:report', report),
+    ready: (paneIds) => ipcRenderer.send('diagnostics:ready', paneIds),
+    reloadWindow: () => ipcRenderer.send('diagnostics:reload-window'),
+    toggleDevTools: () => ipcRenderer.send('diagnostics:toggle-devtools'),
+    openLogFolder: () => ipcRenderer.invoke('diagnostics:open-log-folder') as Promise<boolean>,
+    testHooks: () => ipcRenderer.invoke('diagnostics:test-hooks') as Promise<boolean>,
+    onTestCrash: (handler) => {
+      const listener = (): void => handler()
+      ipcRenderer.on('diagnostics:test-crash', listener)
+      return () => ipcRenderer.removeListener('diagnostics:test-crash', listener)
+    },
+  },
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     toggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),

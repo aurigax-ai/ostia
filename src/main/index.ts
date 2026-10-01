@@ -41,6 +41,7 @@ import type {
 } from '../shared/types'
 import { clampZoom, zoomFactor } from '../shared/zoom'
 import { registerAgentTranscriptIpc } from './agentTranscript'
+import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
 import { registerAppUpdate } from './appUpdate'
 import { approvals, registerApprovals } from './approvals'
 import { registerAssistIpc } from './assistIpc'
@@ -67,6 +68,7 @@ import { registerCompletionIpc } from './completionSpecs'
 import { setCapFilter } from './controlAuth'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerCredentials } from './credentials'
+import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { registerDocsMethods } from './docs'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
@@ -121,6 +123,7 @@ import { privateTmpDir } from './privateTmp'
 import { killAllProcesses, registerProcessMethods } from './processManager'
 import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
+import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
@@ -207,7 +210,6 @@ interface PtyEntry {
 
 const ptys = new Map<string, PtyEntry>()
 const PTY_BUFFER_CAP = 1_000_000
-const DETACH_GRACE_MS = 3000
 const executables = new ExecutableIndex()
 const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
 
@@ -220,6 +222,71 @@ const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hibernation �
 
 const hibernatedPanes = new Set<string>()
 const movingPanes = new Set<string>()
+
+const recovery = new RecoveryBook()
+const recoveryHeld = new Set<string>()
+const closedPanes = new Set<string>()
+let appLog: AppLog | null = null
+let diagnostics: Diagnostics | null = null
+
+function windowOfPane(paneId: string): string | undefined {
+  return getByPaneId(paneId)?.windowId
+}
+
+function scheduleReap(paneId: string, entry: PtyEntry): void {
+  if (entry.killTimer) clearTimeout(entry.killTimer)
+  entry.killTimer = setTimeout(
+    () => reapIfOrphaned(paneId, entry),
+    recovery.graceFor(windowOfPane(paneId)),
+  )
+}
+
+function reapIfOrphaned(paneId: string, entry: PtyEntry): void {
+  entry.killTimer = null
+  const verdict = orphanVerdict({
+    current: ptys.get(paneId) === entry,
+    owners: entry.session.ownerCount,
+    moving: movingPanes.has(paneId) || entry.keepAlive,
+    held: recoveryHeld.has(paneId),
+    recovering: recovery.isRecovering(windowOfPane(paneId)),
+  })
+  if (verdict === 'wait') scheduleReap(paneId, entry)
+  else if (verdict === 'reap') killPty(paneId, closedPanes.has(paneId) ? 'closed' : 'grace-expired')
+}
+
+function startRecovery(windowId: string, reason: string): void {
+  recovery.start(windowId)
+  appLog?.info('window-recovering', { window: windowId, reason })
+  for (const [paneId, entry] of ptys) {
+    if (entry.killTimer && windowOfPane(paneId) === windowId) scheduleReap(paneId, entry)
+  }
+}
+
+function finishRecovery(windowId: string, livePaneIds: Set<string>): void {
+  if (!recovery.end(windowId)) return
+  const windowPtys = [...ptys]
+    .filter(([paneId, entry]) => !entry.keepAlive && windowOfPane(paneId) === windowId)
+    .map(([paneId, entry]) => ({ paneId, owners: entry.session.ownerCount }))
+  const { hold, reap } = planRecovery(windowPtys, livePaneIds)
+  for (const paneId of hold) {
+    const entry = ptys.get(paneId)
+    if (entry?.killTimer) clearTimeout(entry.killTimer)
+    if (entry) entry.killTimer = null
+    recoveryHeld.add(paneId)
+  }
+  for (const paneId of reap) killPty(paneId, 'closed')
+  appLog?.info('window-recovered', { window: windowId, held: hold.length, reaped: reap.length })
+}
+
+function releaseWindowPtys(windowId: string): void {
+  recovery.end(windowId)
+  for (const paneId of [...recoveryHeld]) {
+    if (windowOfPane(paneId) !== windowId) continue
+    recoveryHeld.delete(paneId)
+    const entry = ptys.get(paneId)
+    if (entry && entry.session.ownerCount === 0) scheduleReap(paneId, entry)
+  }
+}
 
 function holdPtys(paneIds: readonly string[]): void {
   for (const paneId of paneIds) {
@@ -236,7 +303,7 @@ function holdPtys(paneIds: readonly string[]): void {
 function releaseMovingPane(paneId: string): void {
   if (!movingPanes.delete(paneId)) return
   const entry = ptys.get(paneId)
-  if (entry && entry.session.ownerCount === 0) killPty(paneId)
+  if (entry && entry.session.ownerCount === 0) killPty(paneId, 'closed')
 }
 
 const EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
@@ -253,9 +320,12 @@ function openExternalSafe(url: string): boolean {
   return true
 }
 
-function killPty(paneId: string): void {
+function killPty(paneId: string, reason: ReapReason): void {
   const entry = ptys.get(paneId)
   if (!entry) return
+  appLog?.info('pty-reap', { pane: paneId, reason })
+  recoveryHeld.delete(paneId)
+  closedPanes.delete(paneId)
   if (entry.killTimer) clearTimeout(entry.killTimer)
   try {
     entry.pty.kill()
@@ -271,7 +341,7 @@ function hibernatePty(paneId: string): boolean {
   stashScrollback(paneId, entry.mirror.serialize())
   hibernatedPanes.add(paneId)
   entry.subs.clear()
-  killPty(paneId)
+  killPty(paneId, 'hibernated')
   terminalState.delete(paneId)
   return true
 }
@@ -750,8 +820,10 @@ function wireWindow(win: BrowserWindow): void {
 
   const wid = String(win.webContents.id)
   windows.set(wid, win)
+  diagnostics?.watchWindow(win)
   win.on('closed', () => {
     windows.delete(wid)
+    releaseWindowPtys(wid)
     fileWatches?.unwatchOwner(wid)
     commandsByWindow.delete(wid)
     for (const [paneId, wcId] of browserPanes) {
@@ -869,7 +941,8 @@ function registerIpc(): void {
       }
       extensionHost?.clearPaneChips(event.paneId)
       releaseMovingPane(event.paneId)
-      if (managerService?.isManagerPane(event.paneId)) killPty(event.paneId)
+      if (managerService?.isManagerPane(event.paneId)) killPty(event.paneId, 'closed')
+      if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
       dropRestoredScrollback(event.paneId)
       hibernatedPanes.delete(event.paneId)
       removePane(event.paneId)
@@ -1072,6 +1145,7 @@ function registerPtyIpc(): void {
         existing.killTimer = null
       }
       movingPanes.delete(paneId)
+      recoveryHeld.delete(paneId)
       existing.subs.set(subId, e.sender)
       existing.session.addLiveSubscriber(mkSub())
       const { data, cursor, dropped } = existing.session.since(opts.sinceCursor ?? 0)
@@ -1211,7 +1285,7 @@ function registerPtyIpc(): void {
   ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
     const entry = ptys.get(String(paneId))
     if (!entry?.subs.has(String(e.sender.id))) return false
-    killPty(String(paneId))
+    killPty(String(paneId), 'restart')
     return true
   })
 
@@ -1281,9 +1355,10 @@ function trackPty(
       ) {
         return
       }
-      entry.killTimer = setTimeout(() => killPty(paneId), DETACH_GRACE_MS)
+      scheduleReap(paneId, entry)
     },
     onExit: (code) => {
+      appLog?.info('pty-exit', { pane: paneId, code })
       if (entry.killTimer) clearTimeout(entry.killTimer)
       entry.killTimer = null
       for (const wc of entry.subs.values()) {
@@ -1295,6 +1370,8 @@ function trackPty(
       if (ptys.get(paneId) === entry) {
         ptys.delete(paneId)
         movingPanes.delete(paneId)
+        recoveryHeld.delete(paneId)
+        closedPanes.delete(paneId)
       }
     },
   })
@@ -1791,6 +1868,16 @@ app.on('second-instance', (_event, argv) => {
 })
 
 app.whenReady().then(() => {
+  const logDir = join(app.getPath('userData'), 'logs')
+  appLog = createAppLog(join(logDir, LOG_FILE_NAME))
+  diagnostics = registerDiagnostics({
+    log: appLog,
+    logDir,
+    testHooks: process.env.NODE_ENV === 'test',
+    startRecovery,
+    finishRecovery,
+    openPath: (path) => shell.openPath(path),
+  })
   loadRestoredScrollback()
   registerIpc()
   registerPtyIpc()
@@ -2060,6 +2147,7 @@ app.on('before-quit', (event) => {
   }
   persistScrollback()
   managerService?.shutdown()
+  appLog?.info('app-quit', { ptys: ptys.size })
   for (const entry of ptys.values()) {
     try {
       entry.pty.kill()

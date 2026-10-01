@@ -2,6 +2,7 @@ import type { ExtensionInfo, ExtensionSidebarItem } from '@shared/extensions'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { commands } from '../commands/registry'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { DeckRail } from './DeckRail'
@@ -189,6 +190,22 @@ describe('Extensions UI', () => {
       expect(screen.getByText('Extension “gone” is not installed.')).toBeVisible()
       expect(container.querySelector('webview')).toBeNull()
       expect(panel).not.toHaveBeenCalled()
+    })
+
+    it('says a restored pane’s extension no longer has a panel and offers to close it', async () => {
+      const panel = vi.fn()
+      window.pine.extensions.panel = panel
+      const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+      useExtensionsStore.setState({
+        list: [ext({ id: 'assistant', name: 'Assistant', panel: null })],
+      })
+      render(<ExtensionPanelView extId="assistant" workspaceId="s1" paneId="p4" />)
+
+      expect(screen.getByText('Assistant no longer has a panel.')).toBeVisible()
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Close pane' }))
+      expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'p4' })
+      expect(panel).not.toHaveBeenCalled()
+      exec.mockRestore()
     })
   })
 
