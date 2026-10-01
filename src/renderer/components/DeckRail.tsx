@@ -61,6 +61,7 @@ import {
   toBlocks,
 } from '../lib/workspaceGroups'
 import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
+import { anchorToFocusedPane, focusedDir } from '../lib/workspaceProjects'
 import { latestAttentionMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -720,6 +721,13 @@ function WorkspaceRow({
         </MenuItem>
         <MenuItem icon={TextAlignLeftIcon} onClick={() => setEditing('description')}>
           {w.description ? d.rail.editDescription : d.rail.addDescription}
+        </MenuItem>
+        <MenuItem
+          icon={FolderSimpleIcon}
+          disabled={focusedDir(w.id) === null}
+          onClick={() => void anchorToFocusedPane(w.id)}
+        >
+          {d.rail.useFocusedFolder}
         </MenuItem>
         {w.description ? (
           <MenuItem icon={EraserIcon} onClick={() => store().describe(w.id, '')}>
