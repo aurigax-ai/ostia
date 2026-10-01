@@ -378,7 +378,8 @@ Attention, the second loud element, appears only when a pane needs you:
   shell's prompt stays to its left; with the Pine prompt a chip row (chips at the cell height)
   replaces the cwd line above. Placeholder "Run commands" in `fg-muted`. The completion menu
   and the "No matching paths" note are popovers (`surface-1`, `--line` border, `radius-md`)
-  above the line, or below it when the prompt is in the upper half. The vim badge sits at the
+  above the line, or below it when the prompt is in the upper half; the characters a row matched
+  are `fg`, 600 and underlined (never color alone). The vim badge sits at the
   right end of the line. It appears and disappears without animation (§8 Motion).
 
 - **Declarative views** (`DeclarativeView.tsx`): an agent's JSON is drawn only with these

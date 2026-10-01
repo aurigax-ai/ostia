@@ -339,8 +339,8 @@ describe('InputEditor', () => {
     await user.clear(editor() as HTMLElement)
     await user.type(editor() as HTMLElement, 'cd s')
     await user.keyboard('{Tab}')
-    expect(await screen.findByText('src/')).toBeVisible()
-    expect(screen.getByText('scripts/')).toBeVisible()
+    expect(await screen.findByRole('option', { name: 'src/' })).toBeVisible()
+    expect(screen.getByRole('option', { name: 'scripts/' })).toBeVisible()
     await user.clear(editor() as HTMLElement)
     await user.type(editor() as HTMLElement, 'cd zz')
     await user.keyboard('{Tab}')
@@ -549,6 +549,147 @@ describe('InputEditor', () => {
       await user.type(editor() as HTMLElement, 'zzz')
       await user.keyboard('{Tab}')
       expect(await screen.findByText('No matching commands')).toBeVisible()
+    })
+  })
+
+  describe('live completion', () => {
+    const options = () => screen.queryAllByRole('option').map((o) => o.textContent)
+
+    function folders(): void {
+      vi.mocked(window.pine.fs.list).mockReset()
+      vi.mocked(window.pine.fs.list).mockImplementation(async (path) => {
+        if (path === '/home/u/proj') {
+          return [
+            { name: 'avail', dir: true },
+            { name: 'avail-mock-feat', dir: true },
+            { name: 'avail-mock-qa', dir: true },
+            { name: 'other', dir: true },
+          ]
+        }
+        if (path === '/home/u/proj/avail') {
+          return [
+            { name: 'src', dir: true },
+            { name: 'docs', dir: true },
+          ]
+        }
+        return []
+      })
+    }
+
+    async function openAvail() {
+      setMode('editor')
+      idlePrompt()
+      folders()
+      const rendered = renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'cd av')
+      await user.keyboard('{Tab}')
+      await screen.findByRole('listbox', { name: 'Completions' })
+      expect(editor()).toHaveValue('cd avail')
+      return { user, ...rendered }
+    }
+
+    it('keeps the menu open and narrows it while typing, without listing the folder again', async () => {
+      const { user } = await openAvail()
+      expect(options()).toEqual(['avail/', 'avail-mock-feat/', 'avail-mock-qa/'])
+      await user.keyboard('-m')
+      expect(options()).toEqual(['avail-mock-feat/', 'avail-mock-qa/'])
+      await user.keyboard('q')
+      expect(options()).toEqual(['avail-mock-qa/'])
+      const row = screen.getByRole('option', { name: 'avail-mock-qa/' })
+      expect(
+        Array.from(row.querySelectorAll('.input-editor-menu-match'), (m) => m.textContent),
+      ).toEqual(['avail-m', 'q'])
+      expect(window.pine.fs.list).toHaveBeenCalledTimes(1)
+    })
+
+    it('widens on Backspace, hides when nothing matches and comes back when something does', async () => {
+      const { user } = await openAvail()
+      await user.keyboard('-mq')
+      expect(options()).toEqual(['avail-mock-qa/'])
+      await user.keyboard('{Backspace}')
+      expect(options()).toEqual(['avail-mock-feat/', 'avail-mock-qa/'])
+      await user.keyboard('zz')
+      expect(screen.queryByRole('listbox')).toBeNull()
+      await user.keyboard('{Backspace}{Backspace}')
+      expect(options()).toEqual(['avail-mock-feat/', 'avail-mock-qa/'])
+    })
+
+    it('keeps the selected item selected while it still matches', async () => {
+      const { user } = await openAvail()
+      await user.keyboard('{ArrowDown}{ArrowDown}')
+      expect(screen.getByRole('option', { name: 'avail-mock-qa/' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      await user.keyboard('-m')
+      expect(screen.getByRole('option', { name: 'avail-mock-qa/' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+    })
+
+    it('closes when the word ends with a space and stays closed after deleting it', async () => {
+      const { user } = await openAvail()
+      await user.keyboard(' ')
+      expect(screen.queryByRole('listbox')).toBeNull()
+      await user.keyboard('{Backspace}')
+      expect(screen.queryByRole('listbox')).toBeNull()
+      expect(editor()).toHaveValue('cd avail')
+    })
+
+    it('closes on Escape without handing off, and Backspace does not bring it back', async () => {
+      const { user, props } = await openAvail()
+      await user.keyboard('{Escape}')
+      expect(screen.queryByRole('listbox')).toBeNull()
+      expect(props.onHandOff).not.toHaveBeenCalled()
+      await user.keyboard('{Backspace}')
+      expect(screen.queryByRole('listbox')).toBeNull()
+    })
+
+    it('closes when the caret leaves the word with Home', async () => {
+      const { user } = await openAvail()
+      await user.keyboard('{Home}')
+      expect(screen.queryByRole('listbox')).toBeNull()
+    })
+
+    it('picks the filtered item with Enter without running the draft', async () => {
+      const { user, props } = await openAvail()
+      await user.keyboard('-m{ArrowDown}{Enter}')
+      expect(editor()).toHaveValue('cd avail-mock-qa/')
+      expect(screen.queryByRole('listbox')).toBeNull()
+      expect(props.onSubmit).not.toHaveBeenCalled()
+    })
+
+    it('lists the new folder when a typed slash moves into it, without inserting anything', async () => {
+      const { user } = await openAvail()
+      await user.keyboard('/')
+      await waitFor(() => expect(options()).toEqual(['src/', 'docs/']))
+      expect(window.pine.fs.list).toHaveBeenLastCalledWith('/home/u/proj/avail')
+      expect(editor()).toHaveValue('cd avail/')
+      await user.keyboard('d')
+      expect(options()).toEqual(['docs/'])
+      await user.keyboard('{Tab}')
+      expect(editor()).toHaveValue('cd avail/docs/')
+    })
+
+    it('filters command names live too', async () => {
+      setMode('editor')
+      idlePrompt()
+      vi.mocked(window.pine.pty.commands).mockResolvedValue(['gitk', 'git', 'gist', 'ls'])
+      renderEditor()
+      await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalled())
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'gi')
+      await user.keyboard('{Tab}')
+      await screen.findByRole('listbox', { name: 'Completions' })
+      expect(options()).toEqual(['git', 'gist', 'gitk'])
+      await user.keyboard('s')
+      expect(options()).toEqual(['gist'])
+      await user.keyboard('{Backspace}k')
+      expect(options()).toEqual(['gitk'])
+      await user.keyboard('{Enter}')
+      expect(editor()).toHaveValue('gitk ')
     })
   })
 

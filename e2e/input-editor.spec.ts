@@ -303,3 +303,66 @@ test('Tab completes subcommands and options with descriptions from the built-in 
     await app.close()
   }
 })
+
+test('the completion menu stays open and narrows while typing, and a slash lists the folder', async () => {
+  test.setTimeout(90_000)
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
+  })
+  const launch = isolatedLaunch(dataHome)
+  const goji = join(launch.home, 'Work', 'goji')
+  for (const name of ['avail', 'avail-mock-feat', 'avail-mock-qa']) {
+    mkdirSync(join(goji, name), { recursive: true })
+  }
+  mkdirSync(join(goji, 'avail', 'src'))
+  const app = await electron.launch(launch)
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    const input = win.getByRole('textbox', { name: 'Command input' })
+    const menu = win.getByRole('listbox', { name: 'Completions' })
+    await expect(input).toBeVisible({ timeout: 15_000 })
+    await input.click()
+
+    await win.keyboard.type('cd ~/Work/goji/av')
+    await win.keyboard.press('Tab')
+    await expect(input).toHaveValue('cd ~/Work/goji/avail', { timeout: 15_000 })
+    await expect(menu.getByRole('option')).toHaveText([
+      'avail/',
+      'avail-mock-feat/',
+      'avail-mock-qa/',
+    ])
+    await win.keyboard.type('-m')
+    await expect(menu.getByRole('option')).toHaveText(['avail-mock-feat/', 'avail-mock-qa/'])
+    await win.keyboard.type('q')
+    await expect(menu.getByRole('option')).toHaveText(['avail-mock-qa/'])
+    await win.keyboard.press('Backspace')
+    await expect(menu.getByRole('option')).toHaveText(['avail-mock-feat/', 'avail-mock-qa/'])
+    await expect(menu.getByRole('option', { name: 'avail-mock-qa/' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await win.keyboard.press('Enter')
+    await expect(input).toHaveValue('cd ~/Work/goji/avail-mock-qa/')
+    await expect(menu).toBeHidden()
+    await win.keyboard.press('Control+c')
+
+    await win.keyboard.type('cd ~/Work/goji/av')
+    await win.keyboard.press('Tab')
+    await expect(menu).toBeVisible({ timeout: 15_000 })
+    await win.keyboard.type('/')
+    await expect(menu.getByRole('option')).toHaveText(['src/'], { timeout: 15_000 })
+    await expect(input).toHaveValue('cd ~/Work/goji/avail/')
+    await win.keyboard.press('Enter')
+    await expect(input).toHaveValue('cd ~/Work/goji/avail/src/')
+    await win.keyboard.press('Enter')
+    await expect(win.locator('.xterm-rows').first()).toContainText('goji/avail/src', {
+      timeout: 15_000,
+    })
+  } finally {
+    await app.close()
+  }
+})
