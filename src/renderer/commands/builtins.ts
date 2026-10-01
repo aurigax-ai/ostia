@@ -71,12 +71,13 @@ interface WorkspaceGroupEntry {
 }
 
 const PROGRAM_SETTINGS: readonly {
-  group: 'behavior' | 'notifications' | 'agents'
+  group: 'behavior' | 'notifications' | 'agents' | 'terminal'
   field: string
 }[] = [
   { group: 'behavior', field: 'externalEditor' },
   { group: 'notifications', field: 'command' },
   { group: 'agents', field: 'autoResume' },
+  { group: 'terminal', field: 'warnOnRiskyPaste' },
 ]
 
 export function launchesProgram(key: string, value: unknown): string | null {

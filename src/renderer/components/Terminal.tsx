@@ -24,6 +24,7 @@ import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
+import { planHumanPaste } from '../lib/pasteGate'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
 import { registerSelectionSender } from '../lib/selectionSenders'
@@ -39,7 +40,6 @@ import {
   signalPane,
 } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
-import { isRiskyPaste } from '../settings/terminalPaneSettings'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -156,17 +156,18 @@ export function TerminalView({
       else term.paste(text)
     }
     pasteRef.current = pasteConfirmed
+    const planPaste = (text: string) =>
+      planHumanPaste(text, useSettingsStore.getState().terminal.warnOnRiskyPaste)
     const requestPaste = (text: string): void => {
-      if (!text || disposed) return
-      if (useSettingsStore.getState().terminal.warnOnRiskyPaste && isRiskyPaste(text)) {
-        setPendingPaste(text)
-        return
-      }
-      pasteConfirmed(text)
+      if (disposed) return
+      const plan = planPaste(text)
+      if (plan.confirm) setPendingPaste(plan.text)
+      else if (plan.text) pasteConfirmed(plan.text)
     }
     const interceptPaste = (e: ClipboardEvent): void => {
       const text = e.clipboardData?.getData('text/plain') ?? ''
-      if (!useSettingsStore.getState().terminal.warnOnRiskyPaste || !isRiskyPaste(text)) return
+      const plan = planPaste(text)
+      if (!plan.confirm && plan.text === text) return
       e.preventDefault()
       e.stopImmediatePropagation()
       requestPaste(text)
@@ -728,6 +729,7 @@ export function TerminalView({
       </div>
       <RiskyPasteDialog
         text={pendingPaste}
+        source="human"
         onPaste={(text) => {
           pasteRef.current(text)
           closePasteDialog()

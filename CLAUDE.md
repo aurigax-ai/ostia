@@ -150,7 +150,15 @@ Details: `docs/ARCHITECTURE.md`.
   queues typed text), or any command that reported `waiting`/`done`; it's text only, never
   followed by Enter. A file dragged onto a terminal (from the tree or the OS) is the human's
   own paste: its shell-quoted paths go through the normal paste path (`lib/dropPaths.ts`),
-  never with Enter. A file
+  never with Enter. The human's own clipboard pastes (paste chord, smart Ctrl+V, middle-click,
+  context menu) go through `planHumanPaste` (`lib/pasteGate.ts`): one line is pasted without
+  its trailing newline and control characters, never asking; two or more lines show the
+  risky-paste dialog unless the human turned off `terminal.warnOnRiskyPaste` (Settings →
+  Terminal or the dialog's Don't ask again). That setting is human-only (`settings.set` and
+  `settings.unset` refuse it, `PROGRAM_SETTINGS` in `commands/builtins.ts`) and covers only
+  those human pastes: text Pine or an agent produced (chat Run in new terminal, a proposed
+  command) goes through `confirmsGeneratedText` and always asks for a newline or control
+  character. Never let the setting reach a non-human source. A file
   path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. A prompt
   the human wrote in the assist composer follows the report rule (`canInsertReference`, text
   only, never Enter); a command suggestion from the composer, the input editor's `# ` hint or

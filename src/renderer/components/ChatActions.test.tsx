@@ -10,6 +10,7 @@ import { useAssistStore } from '../stores/assistStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { resetChats, useChatStore } from '../stores/chatStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkflowsStore } from '../stores/workflowsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -142,11 +143,13 @@ async function askInPane(question: string, reply: string): Promise<HTMLElement> 
 describe('chat actions', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
+  let settingsInit: ReturnType<typeof useSettingsStore.getState>
 
   beforeAll(() => {
     if (!commands.has('palette.toggle')) registerBuiltinCommands()
     uiInit = useUIStore.getState()
     blocksInit = useBlocksStore.getState()
+    settingsInit = useSettingsStore.getState()
   })
 
   beforeEach(() => {
@@ -168,6 +171,7 @@ describe('chat actions', () => {
       attachments: {},
     })
     useUIStore.setState(uiInit, true)
+    useSettingsStore.setState(settingsInit, true)
     useBlocksStore.setState(blocksInit, true)
     useAssistStore.setState({ availability: {}, overview: [] })
     useWorkflowsStore.setState({ saveCommand: null })
@@ -233,6 +237,17 @@ describe('chat actions', () => {
     expect(blockActions.runWhenIdle).not.toHaveBeenCalled()
     await userEvent.click(within(dialog).getAllByRole('button').at(-1) as HTMLElement)
     expect(blockActions.runWhenIdle.mock.calls[0][1]).toBe('cd /tmp\nls')
+  })
+
+  it('still asks before running a multi-line script when paste confirmation is off', async () => {
+    useSettingsStore.getState().setTerminal({ warnOnRiskyPaste: false })
+    const answer = await askInPane('setup', '```bash\ncd /tmp\nls\n```')
+    await userEvent.click(within(answer).getByRole('button', { name: 'Run in new terminal' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('It has 2 lines')
+    expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(blockActions.runWhenIdle).not.toHaveBeenCalled()
   })
 
   it('pastes a block into an agent as text only', async () => {

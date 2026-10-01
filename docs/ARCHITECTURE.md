@@ -1091,15 +1091,26 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 
 ### Terminal and pane behavior settings
 
-- **Risky paste** (`terminal.warnOnRiskyPaste`): `Terminal.tsx` funnels the paste chord
-  (`requestPaste`) and native `paste` events (a capturing listener on the host, which also sees the
-  Linux middle-click paste: xterm moves its textarea under the pointer and the browser pastes the
-  primary selection into it) through `isRiskyPaste` (a newline or a control character other than
-  tab). A risky paste is held in `RiskyPasteDialog` (shadcn Dialog, preview via `pastePreview`);
-  Paste calls `term.paste`, Cancel drops it. Why intercept in the capture phase and stop the event:
-  xterm's own textarea handler would otherwise paste before the dialog could answer. Programmatic
-  pastes (`insertCommand`, report references) are not gated; they already have their own idle-prompt
-  rules.
+- **Risky paste** (`terminal.warnOnRiskyPaste`, `lib/pasteGate.ts`): two entry points, one per
+  source. `planHumanPaste` is for the human's own clipboard: `Terminal.tsx` funnels the paste
+  chord (`requestPaste`) and native `paste` events (a capturing listener on the host, which also
+  sees the Linux middle-click paste: xterm moves its textarea under the pointer and the browser
+  pastes the primary selection into it) through it. One line (after dropping one trailing
+  `\r?\n`) is pasted with C0/C1 control characters and DEL stripped (tab kept) and never asks;
+  two or more lines open `RiskyPasteDialog` while the setting is on, else are pasted with control
+  characters stripped. Why strip instead of passing through: a raw ESC can end bracketed paste
+  and let the rest run as typed keys; why drop the trailing newline: a copied line would
+  otherwise run by itself. `confirmsGeneratedText` is for text Pine or an agent produced (chat
+  Run in new terminal, `propose_command`): any newline or control character asks, whatever the
+  setting, and its dialog has no Don't ask again. The dialog (shadcn Dialog,
+  `min(90vw, 56rem)` wide) previews through `pastePreview` (control characters as `^[`-style
+  tokens, `\xNN` for C1), shows the line and character count, and focuses Paste so Enter pastes;
+  Escape and Cancel drop it. Don't ask again sets `warnOnRiskyPaste: false` on Paste. The setting
+  is human-only: `settings.set`/`settings.unset` refuse it like `behavior.externalEditor`
+  (`PROGRAM_SETTINGS`), so an agent can't switch the check off. Why intercept in the capture
+  phase and stop the event: xterm's own textarea handler would otherwise paste before the dialog
+  could answer. Programmatic pastes (`insertCommand`, report references) are not gated; they
+  already have their own idle-prompt rules.
 - **Scrollback, wheel speed, contrast** are xterm options (`scrollback`, `scrollSensitivity`,
   `minimumContrastRatio`), set at construction and updated on change.
 - **Dim / hover focus / tab close** (`panes.*`): `Pane.tsx` adds `.dimmed` only when `dimInactive`,
@@ -1733,7 +1744,8 @@ Two files written by two processes (see CLAUDE.md §6): the renderers write `wor
     appended. The file must be absolute.
   - `settings.set` (agents, phone) refuses `behavior.externalEditor`, directly or through a
     `behavior` object. Why: it names a program pine runs on the user's click, so only the human
-    edits it (Settings → Files, or `settings.json`).
+    edits it (Settings → Files, or `settings.json`). The same list (`PROGRAM_SETTINGS`) holds
+    `notifications.command`, `agents.autoResume` and `terminal.warnOnRiskyPaste`.
 - **Appearance settings** (`lib/theme.ts`, `lib/color.ts`, `stores/systemThemeStore.ts`):
   - The effective theme is `theme`, or with `followSystem` the `lightTheme`/`darkTheme` picked by
     the OS. Why main and not `matchMedia`: in Electron on Linux `prefers-color-scheme` does not

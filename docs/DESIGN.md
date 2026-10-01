@@ -322,7 +322,9 @@ Attention, the second loud element, appears only when a pane needs you:
   shared component per role. Tooltips go through `Hint`, never native `title=`.
 - **Settings numbers** (`NumberRow`): a number input that commits only in-range values while you
   type and snaps back to the stored value on blur, so typing `5000` never passes through a clamped
-  `5`. Risky-paste confirmation is a shadcn `Dialog` with a monospace, scrollable preview.
+  `5`. Risky-paste confirmation is a shadcn `Dialog`, `min(90vw, 56rem)` wide, with a monospace,
+  pre-wrap, scrollable preview (control characters as muted `^[` tokens), the line and
+  character count, and Paste focused so Enter pastes.
 - **Settings row**: label (plus an optional description) on the left, control on the right,
   about `py-1.5`. Group heads are `ui-lg`/600 with a `--line` divider. Use rows, not cards,
   unless the item is a separable object with its own actions (a plugin). The shared pieces live
