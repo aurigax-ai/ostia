@@ -7,10 +7,13 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { startAssistToggleCommands } from '../commands/assistToggles'
 import { commands } from '../commands/registry'
 import { shortcutMap, startShortcutReporting } from '../lib/assistShortcuts'
+import { openChatPane } from '../lib/chatPane'
 import { useAssistStore } from '../stores/assistStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useUIStore } from '../stores/uiStore'
 import { AssistantMenu } from './AssistantMenu'
+
+vi.mock('../lib/chatPane', () => ({ openChatPane: vi.fn() }))
 
 const assistant: ExtensionInfo = {
   id: 'assistant',
@@ -66,6 +69,7 @@ describe('AssistantMenu', () => {
     useExtensionsStore.setState(extInit, true)
     useAssistStore.setState(assistInit, true)
     vi.restoreAllMocks()
+    vi.mocked(openChatPane).mockClear()
   })
 
   function seed(overview: AssistExtensionState[]): void {
@@ -94,6 +98,25 @@ describe('AssistantMenu', () => {
     expect(screen.queryByRole('button', { name: /settings|Models/i })).toBeNull()
     await user.click(screen.getByRole('switch', { name: 'Terminal completion' }))
     expect(setSetting).toHaveBeenCalledWith('assistant', 'terminalCompletions', false)
+  })
+
+  it('opens the chat from the main button without showing the feature list', async () => {
+    seed([ready])
+    render(<AssistantMenu />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /^Open chat/ }))
+    expect(openChatPane).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('list', { name: 'Features' })).toBeNull()
+  })
+
+  it('shows how to set it up from the main button while chat is not ready', async () => {
+    useExtensionsStore.setState({ list: [assistant] })
+    useAssistStore.setState({ overview: [{ ...ready, setup: 'no-provider' }], availability: {} })
+    render(<AssistantMenu />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /^Open chat/ }))
+    expect(openChatPane).not.toHaveBeenCalled()
+    expect(await screen.findByRole('button', { name: 'Set up the assistant' })).toBeInTheDocument()
   })
 
   it('offers only the setup call to action while the provider is not set up', async () => {
