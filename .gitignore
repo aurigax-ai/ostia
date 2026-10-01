@@ -12,3 +12,7 @@ playwright-report/
 .sdd/
 .serena/
 specs/
+CLAUDE.md
+PRODUCT.md
+.claude/
+scripts/install-skills.sh
