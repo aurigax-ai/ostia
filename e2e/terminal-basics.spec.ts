@@ -29,6 +29,18 @@ test('Ctrl+K reaches the shell as readline kill-line', async () => {
   }
 })
 
+test('a pane shell reports a 256-color, truecolor terminal so TUIs keep their highlight colors', async () => {
+  test.setTimeout(60_000)
+  const { app, win, rows } = await launch()
+  try {
+    await win.keyboard.type('echo "term=$TERM color=$COLORTERM"')
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('term=xterm-256color color=truecolor', { timeout: 15_000 })
+  } finally {
+    await app.close()
+  }
+})
+
 test('Ctrl+Shift+P opens the command palette from a focused terminal', async () => {
   const { app, win } = await launch()
   try {

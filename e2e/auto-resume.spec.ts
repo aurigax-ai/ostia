@@ -42,6 +42,14 @@ function seedAgentTabs(dataHome: string): void {
           },
           activePaneId: 'pane-1',
         },
+        {
+          id: 's2',
+          name: 'elsewhere',
+          kind: 'terminal',
+          workDir: dataHome,
+          root: tab('pane-3', 'other-3333'),
+          activePaneId: 'pane-3',
+        },
       ],
     }),
   )
@@ -62,7 +70,7 @@ function launchWithFakeClaude(dataHome: string) {
   })
 }
 
-test('with auto-resume on, the shown tab resumes its agent and a background tab waits until opened', async () => {
+test('with auto-resume on, every agent resumes at startup: shown tab, background tab and unopened workspace', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, agents: { autoResume: true } })
   seedAgentTabs(dataHome)
@@ -70,13 +78,17 @@ test('with auto-resume on, the shown tab resumes its agent and a background tab 
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    const shown = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
+    const shown = win.locator(
+      '.workzone-workspace:not([aria-hidden="true"]) .pane-slot:not([data-hidden]) .xterm-rows',
+    )
     await expect(shown).toContainText('claude --resume front-1111', { timeout: 20_000 })
     await expect(shown).toContainText('fake claude', { timeout: 10_000 })
-    await expect(win.locator('.xterm-rows').filter({ hasText: 'back-2222' })).toHaveCount(0)
-
-    await win.getByRole('tab').nth(1).click()
-    await expect(shown).toContainText('claude --resume back-2222', { timeout: 20_000 })
+    for (const id of ['back-2222', 'other-3333']) {
+      await expect(
+        win.locator('.xterm-rows').filter({ hasText: new RegExp(`fake claude .*--resume ${id}`) }),
+      ).toHaveCount(1, { timeout: 20_000 })
+    }
+    await expect(win.getByRole('tab', { selected: true })).toHaveCount(1)
   } finally {
     await app.close()
   }
