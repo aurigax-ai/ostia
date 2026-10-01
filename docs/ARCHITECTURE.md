@@ -882,7 +882,12 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   node's `sizes` (`defaultSizes`, scaled to the container). Why: Allotment caches sizes, so a
   structural change must rebuild it or panes collapse to a sliver; a pure resize keeps the
   instance. Mounting from `sizes` is what lets a rebuilt, restored or newly sized split keep the
-  proportions the store holds instead of falling back to an even split.
+  proportions the store holds instead of falling back to an even split. It is also what keeps a
+  new split from flashing: with `defaultSizes` Allotment builds its views in a layout effect and
+  places them in its first ResizeObserver callback, before that frame paints. Without it the views
+  are added only after a state update made in that callback, which React renders after the paint,
+  so a newly opened panel was painted for a few frames at the left edge over its neighbour, then
+  jumped to the right (v0.0.9, fixed by 72fa997; `e2e/panel-open.spec.ts` checks every frame).
 - **Remembered panel size** (`layout/panelSize.ts`, `lib/panelSizes.ts`): when the human finishes
   dragging a splitter (Allotment `onDragEnd`), every direct pane child of that split that is a
   panel (`panelKey`: `extension:<id>`, `view:<name>`, `chat`) has its share of the split stored,
