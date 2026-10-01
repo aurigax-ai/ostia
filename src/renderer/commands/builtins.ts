@@ -45,6 +45,7 @@ import {
   useSettingsStore,
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useUpdateStore } from '../stores/updateStore'
 import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { type CommandContext, commands } from './registry'
@@ -81,6 +82,7 @@ const PROGRAM_SETTINGS: readonly {
   field: string
 }[] = [
   { group: 'behavior', field: 'externalEditor' },
+  { group: 'behavior', field: 'checkForUpdates' },
   { group: 'notifications', field: 'command' },
   { group: 'agents', field: 'autoResume' },
   { group: 'terminal', field: 'warnOnRiskyPaste' },
@@ -640,6 +642,18 @@ export function registerBuiltinCommands(): void {
     category: 'Assistant',
     target: 'none',
     run: () => useUIStore.getState().openSettings('assistant'),
+  })
+
+  commands.register({
+    id: 'app.checkForUpdates',
+    title: 'Check for Updates',
+    category: 'App',
+    local: true,
+    target: 'none',
+    run: () => {
+      useUIStore.getState().openSettings('about')
+      void useUpdateStore.getState().checkForUpdates()
+    },
   })
 
   commands.register({

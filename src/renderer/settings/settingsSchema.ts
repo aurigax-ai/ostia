@@ -188,6 +188,13 @@ export const SETTINGS_JSON_SCHEMA = {
             'Shells are always respawned fresh; this restores the workspace’s shape and ' +
             'history, not live processes. Turning it off erases what is already stored.',
         },
+        checkForUpdates: {
+          type: 'boolean',
+          description:
+            'Ask GitHub once after launch and then once a day whether a newer release exists, ' +
+            'and show a notice when one does. Nothing is downloaded or installed. Only you can ' +
+            'change this, in Settings → About. Default: true.',
+        },
         externalEditor: {
           type: 'string',
           description:
