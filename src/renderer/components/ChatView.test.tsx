@@ -15,7 +15,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ChatPane } from './ChatPane'
-import { ChatView } from './ChatView'
+import { ChatView, hasVisibleContent } from './ChatView'
 import { CommandPalette } from './CommandPalette'
 
 vi.mock('../lib/colorize', () => ({ colorizeCode: async () => null }))
@@ -92,9 +92,43 @@ async function streamAnswer(
 }
 
 async function ask(question: string): Promise<void> {
-  await userEvent.type(await screen.findByRole('textbox', { name: 'Your question' }), question)
+  await userEvent.type(await screen.findByRole('combobox', { name: 'Your question' }), question)
   await userEvent.keyboard('{Enter}')
 }
+
+describe('hasVisibleContent', () => {
+  const message = (parts: object[]) => ({ id: 'a', role: 'assistant' as const, parts }) as never
+
+  it('is false with no message, no parts, or only blank text and step markers', () => {
+    expect(hasVisibleContent(undefined)).toBe(false)
+    expect(hasVisibleContent(message([]))).toBe(false)
+    expect(
+      hasVisibleContent(message([{ type: 'step-start' }, { type: 'text', text: '  \n' }])),
+    ).toBe(false)
+    expect(hasVisibleContent(message([{ type: 'reasoning', text: 'thinking' }]))).toBe(false)
+  })
+
+  it('is true once there is text or a tool part', () => {
+    expect(hasVisibleContent(message([{ type: 'text', text: 'Hi' }]))).toBe(true)
+    expect(
+      hasVisibleContent(
+        message([
+          {
+            type: 'dynamic-tool',
+            toolName: 'read_file',
+            toolCallId: 't1',
+            state: 'input-streaming',
+          },
+        ]),
+      ),
+    ).toBe(true)
+    expect(
+      hasVisibleContent(
+        message([{ type: 'tool-read_file', toolCallId: 't1', state: 'input-available' }]),
+      ),
+    ).toBe(true)
+  })
+})
 
 describe('chat', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
@@ -152,7 +186,7 @@ describe('chat', () => {
     await userEvent.type(await screen.findByRole('combobox'), 'find big files')
     await userEvent.keyboard('{Tab}')
 
-    expect(await screen.findByRole('textbox', { name: 'Your question' })).toHaveValue(
+    expect(await screen.findByRole('combobox', { name: 'Your question' })).toHaveValue(
       'find big files',
     )
     expect(screen.getByText(/Answers come from model-runtime · gemma/)).toBeInTheDocument()
@@ -175,7 +209,7 @@ describe('chat', () => {
         <ChatView workspaceId="w1" variant="palette" seed="list files" />
       </div>,
     )
-    const box = await screen.findByRole('textbox', { name: 'Your question' })
+    const box = await screen.findByRole('combobox', { name: 'Your question' })
     act(() => popup?.focus())
     expect(box).not.toHaveFocus()
     act(() => {
@@ -307,6 +341,39 @@ describe('chat', () => {
         chatSessionId: useChatStore.getState().current.w1,
       }),
     )
+  })
+
+  it('names the model and counts seconds until the answer shows text', async () => {
+    const { pending, chunk } = captureRequests()
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+    try {
+      render(<ChatPane workspaceId="w1" paneId="p-chat" />)
+      await ask('hi')
+      await waitFor(() => expect(pending).toHaveLength(1))
+
+      expect(screen.getByText('Waiting for model-runtime · gemma… 0s')).toBeInTheDocument()
+      act(() => {
+        chunk({ type: 'start' })
+        chunk({ type: 'text-start', id: 't' })
+      })
+      act(() => vi.advanceTimersByTime(2000))
+      expect(screen.getByText('Waiting for model-runtime · gemma… 2s')).toBeInTheDocument()
+
+      act(() => chunk({ type: 'text-delta', id: 't', delta: 'Hello' }))
+      expect(await screen.findByText('Hello')).toBeInTheDocument()
+      expect(screen.queryByText(/Waiting for/)).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('names the provider while waiting when it reports no model label', async () => {
+    useAssistStore.setState({ availability: { chat: { extId: 'assistant', name: 'Assistant' } } })
+    const { pending } = captureRequests()
+    render(<ChatPane workspaceId="w1" paneId="p-chat" />)
+    await ask('hi')
+    await waitFor(() => expect(pending).toHaveLength(1))
+    expect(screen.getByText('Waiting for Assistant… 0s')).toBeInTheDocument()
   })
 
   describe('session list', () => {
