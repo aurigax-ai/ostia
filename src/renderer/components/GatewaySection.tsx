@@ -203,10 +203,12 @@ export function GatewaySection(): JSX.Element {
           <SelectTrigger
             size="sm"
             aria-label={d.settings.remoteHost}
-            className="w-64"
+            className="w-fit min-w-64 max-w-80"
             disabled={running || toggling}
           >
-            {selectedAddress ? bindLabel(d, selectedAddress) : host}
+            <span className="min-w-0 truncate">
+              {selectedAddress ? bindLabel(d, selectedAddress) : host}
+            </span>
           </SelectTrigger>
           <SelectContent>
             {addresses.map((a) => (

@@ -373,7 +373,7 @@ export function SelectField<T extends string>({
   onChange,
   options,
   label,
-  width = 'w-44',
+  width = 'w-fit min-w-44 max-w-80',
 }: {
   value: T
   onChange: (v: T) => void
@@ -385,7 +385,7 @@ export function SelectField<T extends string>({
   return (
     <Select value={value} onValueChange={(v) => onChange(v as T)}>
       <SelectTrigger size="sm" aria-label={label} className={width}>
-        {current}
+        <span className="min-w-0 truncate">{current}</span>
       </SelectTrigger>
       <SelectContent>
         {options.map((o) => (

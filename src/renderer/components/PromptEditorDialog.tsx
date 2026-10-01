@@ -265,8 +265,12 @@ function PromptEditorBody({ paneId }: { paneId: string | null }): JSX.Element {
           <p className="text-fg-muted text-ui-sm">{d.prompt.separatorDesc}</p>
         </div>
         <Select value={separator} onValueChange={(v) => setSeparator(v as PromptSeparator)}>
-          <SelectTrigger size="sm" aria-label={d.prompt.separator} className="w-24">
-            {separatorLabel(separator)}
+          <SelectTrigger
+            size="sm"
+            aria-label={d.prompt.separator}
+            className="w-fit min-w-24 max-w-80"
+          >
+            <span className="min-w-0 truncate">{separatorLabel(separator)}</span>
           </SelectTrigger>
           <SelectContent>
             {PROMPT_SEPARATORS.map((s) => (

@@ -120,8 +120,8 @@ export function BrowserSelect({
         if (next === 'allowlist' || next === 'unrestricted') onChange(next)
       }}
     >
-      <SelectTrigger size="sm" aria-label={d.sandbox.browser} className="w-48">
-        {label}
+      <SelectTrigger size="sm" aria-label={d.sandbox.browser} className="w-fit min-w-48 max-w-80">
+        <span className="min-w-0 truncate">{label}</span>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="allowlist">{d.sandbox.browserAllowlist}</SelectItem>

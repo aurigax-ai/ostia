@@ -180,8 +180,8 @@ function SettingControl({
   if (setting.type === 'enum') {
     return (
       <Select value={String(value)} onValueChange={(v) => onSave(v)}>
-        <SelectTrigger size="sm" aria-label={setting.key} className="w-44">
-          {String(value)}
+        <SelectTrigger size="sm" aria-label={setting.key} className="w-fit min-w-44 max-w-80">
+          <span className="min-w-0 truncate">{String(value)}</span>
         </SelectTrigger>
         <SelectContent>
           {(setting.values ?? []).map((option) => (

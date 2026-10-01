@@ -91,9 +91,9 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
                 <SelectTrigger
                   size="sm"
                   aria-label={fmt(d.sandbox.secretMode, { name: secret.name })}
-                  className="w-40"
+                  className="w-fit min-w-40 max-w-80"
                 >
-                  {modeLabel[mode]}
+                  <span className="min-w-0 truncate">{modeLabel[mode]}</span>
                 </SelectTrigger>
                 <SelectContent>
                   {choices.map((choice) => (

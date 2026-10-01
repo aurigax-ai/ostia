@@ -30,8 +30,12 @@ export function PortsPolicySelect({
         if (next === 'ask' || next === 'allow' || next === 'deny') onChange(next)
       }}
     >
-      <SelectTrigger size="sm" aria-label={d.sandbox.portsPolicy} className="w-40">
-        {labels[value]}
+      <SelectTrigger
+        size="sm"
+        aria-label={d.sandbox.portsPolicy}
+        className="w-fit min-w-40 max-w-80"
+      >
+        <span className="min-w-0 truncate">{labels[value]}</span>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="ask">{labels.ask}</SelectItem>
