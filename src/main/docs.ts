@@ -32,6 +32,9 @@ const CLI_HELP = `pine — control-socket CLI
                                  a JSON object on stdin contributes its "message" field,
                                  or names its "tool_name" for a permission request);
                                  --pane targets another pane (needs all-workspaces)
+  pine workspace dir [path]      make this folder (default: your current one) the workspace's folder:
+                                 its name, where new tabs start, and what its vault and chat tools
+                                 are scoped to. Refused for a sandboxed or scratch workspace
   pine workspace describe <text|-> | --clear
                                  show a short summary (Markdown links allowed) under this
                                  pane's workspace in the sidebar, e.g. the PR you're on

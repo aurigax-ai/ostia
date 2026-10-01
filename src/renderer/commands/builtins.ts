@@ -33,7 +33,7 @@ import {
   signalPane,
 } from '../lib/workspaceActivity'
 import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
-import { anchorToFocusedPane } from '../lib/workspaceProjects'
+import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/workspaceProjects'
 import { isMac } from '../platform'
 import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -534,6 +534,26 @@ export function registerBuiltinCommands(): void {
     local: true,
     run: async (_args, ctx) => {
       if (ctx.activeWorkspaceId) await anchorToFocusedPane(ctx.activeWorkspaceId)
+    },
+  })
+
+  commands.register<{ dir: string }>({
+    id: 'workspace.setFolder',
+    title: 'Set Workspace Folder',
+    category: 'Workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: async (args, ctx) => {
+      if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
+      if (typeof args?.dir !== 'string' || !args.dir.startsWith('/')) {
+        throw new Error('missing folder')
+      }
+      if (!canMoveWorkspace(ctx.activeWorkspaceId)) {
+        throw new Error('fixed-folder: a sandboxed or scratch workspace keeps its folder')
+      }
+      if (!(await moveWorkspaceTo(ctx.activeWorkspaceId, args.dir))) {
+        throw new Error('not-a-folder: the folder must exist under your home folder')
+      }
     },
   })
 

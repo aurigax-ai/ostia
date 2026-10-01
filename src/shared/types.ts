@@ -377,6 +377,7 @@ export interface SnapshotWorkspace {
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
   projectDir?: string
+  anchored?: true
   root?: SnapshotNode
   activePaneId?: string
   origin?: WorkspaceOrigin
@@ -592,6 +593,7 @@ export interface WorkspaceProject {
   name: string
   display: string
   dir: string
+  repo: boolean
 }
 
 export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'program' | 'failed' }
@@ -604,7 +606,7 @@ export interface FilesApi {
 export interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
   reveal: (path: string) => Promise<OpenPathResult>
-  project: (dir: string) => Promise<WorkspaceProject | null>
+  project: (dir: string, exact?: boolean) => Promise<WorkspaceProject | null>
 }
 
 export interface AgentSessionApi {

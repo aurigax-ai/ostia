@@ -958,7 +958,7 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
 
 const WORKSPACE_USAGE =
   'pine workspace: usage: workspace list [--json] | describe <text|-> | describe --clear | ' +
-  'group <name> | ungroup'
+  'group <name> | ungroup | dir [path]'
 
 interface WorkspaceListing {
   workspaceId: string
@@ -1022,6 +1022,20 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   }
   if (sub === 'ungroup') {
     await runWorkspaceCommand(conn, 'ungroup', 'workspace.ungroup')
+    return
+  }
+  if (sub === 'dir') {
+    const dir = resolvePath(rest[0] ?? '.')
+    const res = await conn.sendRequest<CommandResult>('command.exec', {
+      id: 'workspace.setFolder',
+      args: { dir },
+    })
+    if (res.ok) {
+      console.log(dir)
+    } else {
+      console.error(`pine workspace dir: ${res.error?.message ?? 'failed'}`)
+      process.exitCode = 1
+    }
     return
   }
   if (sub !== 'describe') {
@@ -1140,6 +1154,7 @@ commands:
                             out, 4 pane closed)
   state <waiting|done|working|error|clear> [message|-] [--pane <externalId>]
   workspace describe <text|-> | --clear   one-line summary under this workspace in the sidebar
+  workspace dir [path]      make this folder (default: the current one) the workspace's folder
   workspace list [--json]   every workspace with its sidebar group (--json adds the groups)
   workspace group <name> | ungroup   move this workspace into a sidebar group, or out of it
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart

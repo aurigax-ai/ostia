@@ -247,6 +247,7 @@ function parseWorkspace(
     ...(typeof entry.projectDir === 'string' && entry.projectDir
       ? { projectDir: entry.projectDir.slice(0, 4096) }
       : {}),
+    ...(entry.anchored === true ? { anchored: true as const } : {}),
     ...(root
       ? {
           root,

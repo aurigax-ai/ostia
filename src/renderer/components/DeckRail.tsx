@@ -61,7 +61,7 @@ import {
   toBlocks,
 } from '../lib/workspaceGroups'
 import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
-import { anchorToFocusedPane, canMoveWorkspace } from '../lib/workspaceProjects'
+import { anchorToFocusedPane, canMoveWorkspace, focusedDir } from '../lib/workspaceProjects'
 import { latestAttentionMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -725,7 +725,7 @@ function WorkspaceRow({
         </MenuItem>
         <MenuItem
           icon={FolderSimpleIcon}
-          disabled={!canMoveWorkspace(w.id)}
+          disabled={!canMoveWorkspace(w.id) || focusedDir(w.id) === null}
           onClick={() => void anchorToFocusedPane(w.id)}
         >
           {d.rail.useFocusedFolder}

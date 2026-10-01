@@ -3,10 +3,8 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 
-const HOME_PROJECT = '~'
-
-export function isAnchored(workspace: Pick<Workspace, 'projectDir'>): boolean {
-  return workspace.projectDir !== undefined && workspace.projectDir !== HOME_PROJECT
+export function isAnchored(workspace: Pick<Workspace, 'anchored'>): boolean {
+  return workspace.anchored === true
 }
 
 export function focusedDir(workspaceId: string): string | null {
@@ -18,17 +16,20 @@ export function focusedDir(workspaceId: string): string | null {
 export function canMoveWorkspace(workspaceId: string): boolean {
   const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)
   if (!workspace || workspace.kind === 'scratch' || workspace.kind === 'manager') return false
-  if (useSandboxStore.getState().enabled[workspaceId]) return false
-  return focusedDir(workspaceId) !== null
+  return !useSandboxStore.getState().enabled[workspaceId]
+}
+
+export async function moveWorkspaceTo(workspaceId: string, dir: string): Promise<boolean> {
+  if (!canMoveWorkspace(workspaceId)) return false
+  const project = await window.pine.openPath.project(dir, true)
+  if (!project) return false
+  useWorkspacesStore.getState().setProject(workspaceId, project, true)
+  return true
 }
 
 export async function anchorToFocusedPane(workspaceId: string): Promise<boolean> {
-  if (!canMoveWorkspace(workspaceId)) return false
   const dir = focusedDir(workspaceId)
-  const project = dir ? await window.pine.openPath.project(dir) : null
-  if (!project) return false
-  useWorkspacesStore.getState().setProject(workspaceId, project)
-  return true
+  return dir ? moveWorkspaceTo(workspaceId, dir) : false
 }
 
 export function focusedDirs(): Map<string, string> {

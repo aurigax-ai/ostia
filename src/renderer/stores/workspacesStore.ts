@@ -48,6 +48,7 @@ export interface Workspace {
   workDir: string
   state: WorkspaceState
   projectDir?: string
+  anchored?: true
   origin?: WorkspaceOrigin
 }
 
@@ -60,7 +61,7 @@ interface WorkspacesState {
   closeWorkspace: (id: string) => void
   setWorkDir: (id: string, workDir: string) => void
   rename: (id: string, name: string) => void
-  setProject: (id: string, project: WorkspaceProject) => void
+  setProject: (id: string, project: WorkspaceProject, anchor?: boolean) => void
   describe: (id: string, text: string) => void
   setPinned: (id: string, pinned: boolean) => void
   moveBy: (id: string, delta: number) => void
@@ -216,20 +217,28 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     window.pine?.lifecycle?.emit?.({ type: 'workspace-added', workspaceId: id, workDir })
   },
 
-  setProject: (id, project) => {
+  setProject: (id, project, anchor = false) => {
     const current = get().workspaces.find((w) => w.id === id)
+    const anchored = anchor || project.repo || current?.anchored === true
     if (
       !current ||
       (current.name === project.name &&
         current.projectDir === project.display &&
-        current.workDir === project.dir)
+        current.workDir === project.dir &&
+        (current.anchored === true) === anchored)
     ) {
       return
     }
     set((s) => ({
       workspaces: s.workspaces.map((w) =>
         w.id === id
-          ? { ...w, name: project.name, projectDir: project.display, workDir: project.dir }
+          ? {
+              ...w,
+              name: project.name,
+              projectDir: project.display,
+              workDir: project.dir,
+              ...(anchored ? { anchored: true as const } : {}),
+            }
           : w,
       ),
     }))

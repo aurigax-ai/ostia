@@ -363,8 +363,8 @@ const bridge: PineBridge = {
     openDefault: (path) =>
       ipcRenderer.invoke('shell:open-default', path) as Promise<OpenPathResult>,
     reveal: (path) => ipcRenderer.invoke('shell:reveal', path) as Promise<OpenPathResult>,
-    project: (dir) =>
-      ipcRenderer.invoke('workspace:project', dir) as Promise<WorkspaceProject | null>,
+    project: (dir, exact) =>
+      ipcRenderer.invoke('workspace:project', dir, exact) as Promise<WorkspaceProject | null>,
   },
   agentSession: {
     info: (resume) =>
