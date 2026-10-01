@@ -709,6 +709,13 @@ export const en = {
     sendPath: 'Send path to agent',
     noAgents: 'No agent is running in this workspace.',
   },
+  openFile: {
+    'not-found': '{path} doesn’t exist.',
+    directory: '{path} is a folder. Drop files to view them.',
+    'not-a-file': '{path} isn’t a regular file.',
+    unreadable: 'You don’t have permission to read {path}.',
+    'outside-sandbox': '{path} is outside what a sandboxed workspace may open.',
+  },
   viewer: {
     note: 'Note for the agent',
     notePlaceholder: 'For example: explain this, or fix the value on line 3',
@@ -2432,6 +2439,13 @@ export const zhHant: Dict = {
     copyLines: '複製路徑與行號',
     sendPath: '將路徑傳送給代理程式',
     noAgents: '此工作區沒有執行中的代理程式。',
+  },
+  openFile: {
+    'not-found': '{path} 不存在。',
+    directory: '{path} 是資料夾。請拖放檔案來檢視。',
+    'not-a-file': '{path} 不是一般檔案。',
+    unreadable: '你沒有讀取 {path} 的權限。',
+    'outside-sandbox': '{path} 超出沙箱工作區可開啟的範圍。',
   },
   viewer: {
     note: '給代理程式的說明',

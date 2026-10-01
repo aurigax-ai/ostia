@@ -220,6 +220,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
     <div
       className={`pane${active ? ' active' : ''}${split && !active && dimInactive ? ' dimmed' : ''}${ring ? ' attn-ring' : ''}`}
       data-attention={unread ? attention?.state : undefined}
+      data-pane-id={shown.id}
       ref={frameRef}
     >
       <div
@@ -295,6 +296,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
           <span key={attention?.at} className="pane-attn-pulse" />
         </span>
       ) : null}
+      {shown.kind === 'terminal' ? null : <div className="pane-file-drop" />}
       {dragging ? (
         <div
           className="pane-drop-layer"
