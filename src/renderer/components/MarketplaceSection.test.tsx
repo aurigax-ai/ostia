@@ -31,6 +31,7 @@ function marketplace(overrides: Partial<MarketplaceInfo> = {}): MarketplaceInfo 
     description: 'Tools from Acme',
     problems: [],
     extensions: [WEATHER],
+    unlisted: false,
     ...overrides,
   }
 }
@@ -212,5 +213,57 @@ describe('Uninstall in the installed list', () => {
     expect(within(dialog).getByText('Uninstall “Weather”?')).toBeVisible()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Uninstall' }))
     expect(window.pine.marketplace.uninstall).toHaveBeenCalledWith('weather')
+  })
+
+  it('offers the install code field only for a marketplace that has unlisted extensions', async () => {
+    vi.mocked(window.pine.marketplace.list).mockResolvedValue(stateWith(marketplace()))
+    render(<MarketplaceSection />)
+    await screen.findByRole('listitem', { name: 'Acme extensions' })
+    expect(screen.queryByLabelText('Install code for Acme extensions')).toBeNull()
+  })
+
+  it('installs an unlisted extension by the typed code and then lists it', async () => {
+    const tides: MarketplaceExtension = {
+      ...WEATHER,
+      id: 'tides',
+      name: 'Tides',
+      state: 'installed',
+    }
+    vi.mocked(window.pine.marketplace.list).mockResolvedValue(
+      stateWith(marketplace({ unlisted: true })),
+    )
+    vi.mocked(window.pine.marketplace.installCode).mockResolvedValue({
+      ok: true,
+      state: stateWith(marketplace({ unlisted: true, extensions: [WEATHER, tides] }), ['tides']),
+    })
+    render(<MarketplaceSection />)
+    const field = await screen.findByLabelText('Install code for Acme extensions')
+    const form = field.closest('form') as HTMLFormElement
+    expect(within(form).getByRole('button', { name: 'Install' })).toBeDisabled()
+    await userEvent.type(field, 'abcdefghijklmnopqrstuvwx23')
+    await userEvent.click(within(form).getByRole('button', { name: 'Install' }))
+    expect(window.pine.marketplace.installCode).toHaveBeenCalledWith(
+      'abc123',
+      'abcdefghijklmnopqrstuvwx23',
+    )
+    expect(await screen.findByRole('listitem', { name: 'Tides' })).toBeVisible()
+    expect(field).toHaveValue('')
+  })
+
+  it('keeps the typed code and says so when no unlisted extension has it', async () => {
+    const info = marketplace({ unlisted: true })
+    vi.mocked(window.pine.marketplace.list).mockResolvedValue(stateWith(info))
+    vi.mocked(window.pine.marketplace.installCode).mockResolvedValue({
+      ok: false,
+      error: 'unknown-code',
+      state: stateWith(info),
+    })
+    render(<MarketplaceSection />)
+    const field = await screen.findByLabelText('Install code for Acme extensions')
+    await userEvent.type(field, 'wrong{Enter}')
+    expect(
+      await screen.findByText('No unlisted extension in this marketplace has this install code.'),
+    ).toBeVisible()
+    expect(field).toHaveValue('wrong')
   })
 })

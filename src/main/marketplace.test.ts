@@ -65,6 +65,27 @@ function weather(version: string): Record<string, unknown> {
   }
 }
 
+const CODE = 'abcdefghijklmnopqrstuvwx23'
+
+function tides(version: string): Record<string, unknown> {
+  return { id: 'tides', name: 'Tides', version, api: '1.0', main: 'main.js' }
+}
+
+function repoWithUnlisted(): string {
+  const repo = marketplaceRepo()
+  writeExtension(repo, 'extensions/tides', tides('1.0.0'))
+  writeFileSync(
+    join(repo, MARKETPLACE_MANIFEST_FILE),
+    JSON.stringify({
+      name: 'Test marketplace',
+      extensions: ['extensions/weather'],
+      unlisted: [{ path: 'extensions/tides', code: CODE }],
+    }),
+  )
+  commit(repo)
+  return repo
+}
+
 function marketplaceRepo(): string {
   const repo = tmp()
   git(repo, 'init', '-b', 'main')
@@ -164,7 +185,34 @@ describe('parseMarketplaceManifest', () => {
       name: 'Mine',
       description: '',
       extensions: ['a', 'tools/b'],
+      unlisted: [],
     })
+  })
+
+  it('accepts unlisted folders, each with its own install code', () => {
+    const unlisted = [{ path: 'tools/c', code: CODE }]
+    expect(parseMarketplaceManifest({ name: 'Mine', extensions: ['a'], unlisted })).toEqual({
+      name: 'Mine',
+      description: '',
+      extensions: ['a'],
+      unlisted,
+    })
+  })
+
+  it('refuses an unlisted entry with a weak, shared or missing code, or a path listed twice', () => {
+    const parse = (unlisted: unknown): unknown =>
+      parseMarketplaceManifest({ name: 'x', extensions: ['a'], unlisted })
+    expect(typeof parse('tools/c')).toBe('string')
+    expect(typeof parse([{ path: 'tools/c' }])).toBe('string')
+    expect(typeof parse([{ path: 'tools/c', code: 'keeper' }])).toBe('string')
+    expect(typeof parse([{ path: '../c', code: CODE }])).toBe('string')
+    expect(typeof parse([{ path: 'a', code: CODE }])).toBe('string')
+    expect(
+      typeof parse([
+        { path: 'tools/c', code: CODE },
+        { path: 'tools/d', code: CODE },
+      ]),
+    ).toBe('string')
   })
 
   it('refuses a missing name and paths that leave the repository', () => {
@@ -214,6 +262,7 @@ describe('Marketplace', () => {
         name: 'Test marketplace',
         description: 'For tests',
         problems: [],
+        unlisted: false,
         extensions: [
           {
             id: 'weather',
@@ -405,5 +454,68 @@ describe('Marketplace', () => {
     expect(res.state.installed).toEqual(['weather'])
     expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
     expect((await h.marketplace.uninstall('weather')).ok).toBe(true)
+  })
+
+  it('never sends an unlisted extension to the window, only that the marketplace has some', async () => {
+    const h = harness()
+    const { state } = await h.marketplace.add(repoWithUnlisted())
+    expect(state.marketplaces[0]?.unlisted).toBe(true)
+    expect(state.marketplaces[0]?.extensions.map((e) => e.id)).toEqual(['weather'])
+    expect(JSON.stringify(state)).not.toContain('tides')
+  })
+
+  it('does not report a broken unlisted entry among the problems it shows', async () => {
+    const repo = repoWithUnlisted()
+    writeFileSync(join(repo, 'extensions/tides/pine.json'), '{}')
+    commit(repo)
+    const h = harness()
+    const { state } = await h.marketplace.add(repo)
+    expect(state.marketplaces[0]?.problems).toEqual([])
+    const res = await h.marketplace.installCode(state.marketplaces[0]?.id, CODE)
+    expect(res).toMatchObject({ ok: false, error: 'invalid-extension' })
+  })
+
+  it('installs an unlisted extension only by its exact code, never by its id', async () => {
+    const h = harness()
+    const { state } = await h.marketplace.add(repoWithUnlisted())
+    const id = state.marketplaces[0]?.id
+    expect(await h.marketplace.install(id, 'tides')).toMatchObject({
+      ok: false,
+      error: 'unknown-extension',
+    })
+    for (const wrong of ['tides', CODE.slice(0, 25), `${CODE.slice(0, 25)}a`, 42, '']) {
+      expect(await h.marketplace.installCode(id, wrong)).toMatchObject({
+        ok: false,
+        error: 'unknown-code',
+      })
+    }
+    expect(existsSync(join(h.extensionsDir, 'tides'))).toBe(false)
+    const res = await h.marketplace.installCode(id, ` ${CODE} `)
+    expect(res.ok).toBe(true)
+    expect(JSON.parse(readFileSync(join(h.extensionsDir, 'tides', 'pine.json'), 'utf8'))).toEqual(
+      tides('1.0.0'),
+    )
+    expect(h.forgotten).toEqual(['tides'])
+    expect(res.state.installed).toEqual(['tides'])
+  })
+
+  it('shows an unlisted extension once it is installed, and updates it like any other', async () => {
+    const repo = repoWithUnlisted()
+    const h = harness()
+    const { state } = await h.marketplace.add(repo)
+    const id = state.marketplaces[0]?.id
+    const installed = await h.marketplace.installCode(id, CODE)
+    expect(installed.state.marketplaces[0]?.extensions.map((e) => [e.id, e.state])).toEqual([
+      ['weather', 'available'],
+      ['tides', 'installed'],
+    ])
+    writeExtension(repo, 'extensions/tides', tides('1.1.0'))
+    commit(repo)
+    await h.marketplace.refresh(id)
+    const updated = await h.marketplace.install(id, 'tides')
+    expect(updated.ok).toBe(true)
+    expect(readFileSync(join(h.extensionsDir, 'tides', 'main.js'), 'utf8')).toContain('1.1.0')
+    const removed = await h.marketplace.uninstall('tides')
+    expect(removed.state.marketplaces[0]?.extensions.map((e) => e.id)).toEqual(['weather'])
   })
 })

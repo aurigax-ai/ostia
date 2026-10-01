@@ -1,7 +1,12 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
-import type { ExtensionIcon, SidebarTone } from '../../shared/extensions'
-import { type ToolRun, nextBackoff, runTool } from '../sdk/tool'
+import {
+  type ExtensionIcon,
+  type SidebarTone,
+  type ToolRun,
+  nextBackoff,
+  runTool,
+} from '@aurigax-ai/pine-extension-sdk'
 import { type Strings, stringsFor } from './strings'
 import {
   ALL_NOTIFY_KINDS,
