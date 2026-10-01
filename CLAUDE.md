@@ -407,6 +407,17 @@ Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts
   `extensions:*` IPC). Never add a socket method or CLI verb that approves, enables or changes an
   extension's caps. Hot reload (`ExtensionHost.rescan`) never writes `extensions.json`: a new
   extension starts `pending-approval`; a manifest asking for more runs with the approved subset.
+- **Only the human installs an extension, and installing never runs or approves it**
+  (`main/marketplace.ts`, `marketplace:*` IPC from Settings → Extensions). A marketplace is a git
+  repository with `pine-marketplace.json`; its URL passes `normalizeMarketplaceUrl` (https, ssh,
+  `owner/repo` or an absolute folder) and reaches `git clone` as an argv after `--`, `shell: false`,
+  no submodules, `core.symlinks=false`. Install only copies regular files (`planCopy`; no symlinks,
+  size caps, `pine.json` last) into the user extensions folder; never run a build, a package manager
+  or a script from one. A fresh install and an uninstall drop the id's approval and secrets
+  (`forget`), so it always starts `pending-approval`; an id used by a built-in, a hand-installed
+  extension or another marketplace is never overwritten, and uninstall removes only what the
+  marketplace installed. Never add a socket method or CLI verb that adds a marketplace or installs,
+  updates or uninstalls an extension, and never sync `marketplaces.json`.
 - **Extension identities are not panes.** `controlServer` gates methods by caller kind (`callers`;
   new pane-scoped methods keep `panes`). Caps are manifest ∩ human approval (`extensionStore.ts`,
   `setCaps` on each start). An extension acts on a pane only through a targetable method
@@ -422,7 +433,7 @@ Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts
   before they're stored or sent; the renderer persists only what main returned; wrong-typed stored
   values fall back to the default. Never let an extension reach another's settings or a core one.
 - **Extension secrets stay in main and their extension.** Written only via `extensions:set-secret`
-  (Settings → Plugins / Assistant), `safeStorage`-encrypted (`main/extensionSecrets.ts`), never in
+  (Settings → Extensions / Assistant), `safeStorage`-encrypted (`main/extensionSecrets.ts`), never in
   `settings.json`, never synced, never returned to the renderer (only `secretsSet`), read only by
   the declaring extension (`ext.getSecret`). Never add a socket method or CLI verb for them.
 - **A palette argument is data for one command**: delivered only as `{argv: [value]}` after main

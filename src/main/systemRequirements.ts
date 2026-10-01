@@ -1,6 +1,7 @@
 import { constants, accessSync, statSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { MANAGER_FEATURE } from '../shared/managerSettings'
+import { MARKETPLACE_FEATURE } from '../shared/marketplace'
 import type { InstallHint, MissingRequirement } from '../shared/systemRequirements'
 
 export interface Requirement {
@@ -27,6 +28,10 @@ const registry = new Map<string, Requirement[]>([
     ],
   ],
   [MANAGER_FEATURE, [{ program: 'ss', package: 'iproute2', platforms: ['linux'] }]],
+  [
+    MARKETPLACE_FEATURE,
+    [{ program: 'git', package: 'git', platforms: ['linux', 'darwin', 'win32'] }],
+  ],
 ])
 
 export function registerRequirements(feature: string, requirements: Requirement[]): void {

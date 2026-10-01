@@ -519,7 +519,7 @@ describe('SettingsPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Files' }))
     expect(screen.getByRole('switch', { name: 'Show hidden files' })).toBeInTheDocument()
   })
-  it('keeps only the plugin switch in Plugins and links an assist plugin to Settings → Assistant', async () => {
+  it('keeps only the extension switch in Extensions and links an assist extension to Settings → Assistant', async () => {
     useExtensionsStore.setState({
       list: [
         {
@@ -547,7 +547,7 @@ describe('SettingsPanel', () => {
     })
     renderSettings()
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Plugins' }))
+    await user.click(screen.getByRole('button', { name: 'Extensions' }))
     expect(screen.getByRole('switch', { name: 'Enable Assistant' })).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Base url' })).toBeNull()
     expect(screen.queryByText('MCP servers')).toBeNull()

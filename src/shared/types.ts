@@ -22,6 +22,7 @@ import type {
 } from './credentials'
 import type { ExtensionResult, ExtensionsApi } from './extensions'
 import type { IconThemesApi } from './iconTheme'
+import type { MarketplaceApi } from './marketplace'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type {
@@ -747,6 +748,7 @@ export interface PineBridge {
   openPath: OpenPathApi
   files: FilesApi
   extensions: ExtensionsApi
+  marketplace: MarketplaceApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi
   notifications: NotificationsApi
