@@ -1,0 +1,5 @@
+{
+  "closures": {
+    "yaml-language-server": "server/node_modules"
+  }
+}
