@@ -4,6 +4,7 @@ import {
   BellIcon,
   BracketsCurlyIcon,
   BroadcastIcon,
+  CaretRightIcon,
   CheckIcon,
   CopyIcon,
   DeviceMobileIcon,
@@ -24,6 +25,7 @@ import {
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
   SquaresFourIcon,
+  TerminalIcon,
   TerminalWindowIcon,
   TranslateIcon,
   TreeStructureIcon,
@@ -31,7 +33,6 @@ import {
 import type { ApprovalMode } from '@shared/approvals'
 import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
-import { PROMPT_STYLES, type PromptStyle } from '@shared/promptSettings'
 import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -85,7 +86,7 @@ import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
 import { ManagerSection } from './ManagerSection'
 import { PasswordsSection } from './PasswordsSection'
-import { activeTerminalPaneId } from './PromptEditorDialog'
+import { PromptSection } from './PromptSection'
 import { SandboxSection } from './SandboxSection'
 import { SyncSection } from './SyncSection'
 import { ThemeRows } from './ThemeSettings'
@@ -107,6 +108,7 @@ type SectionId =
   | 'manager'
   | 'appearance'
   | 'terminal'
+  | 'prompt'
   | 'keyboard'
   | 'panes'
   | 'notifications'
@@ -166,6 +168,7 @@ export function SettingsPanel(): JSX.Element | null {
       [
         { id: 'appearance', icon: PaletteIcon, label: d.settings.appearance },
         { id: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
+        { id: 'prompt', icon: TerminalIcon, label: d.prompt.title },
         { id: 'keyboard', icon: KeyboardIcon, label: d.keyboard.title },
         { id: 'panes', icon: SquareSplitHorizontalIcon, label: d.settings.panes },
         { id: 'notifications', icon: BellIcon, label: d.settings.notifications },
@@ -262,6 +265,7 @@ export function SettingsPanel(): JSX.Element | null {
           <div className="mx-auto max-w-3xl px-8 py-5">
             {active === 'appearance' ? <AppearanceSection /> : null}
             {active === 'terminal' ? <TerminalSection /> : null}
+            {active === 'prompt' ? <PromptSection /> : null}
             {active === 'keyboard' ? (
               <>
                 <KeyboardSection />
@@ -882,11 +886,7 @@ function TerminalSection(): JSX.Element {
   const clipboardKeys = useSettingsStore((s) => s.terminal.clipboardKeys)
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
-  const prompt = useSettingsStore((s) => s.terminal.prompt)
-  const promptLabel: Record<PromptStyle, string> = {
-    shell: d.settings.promptStyleShell,
-    pine: d.settings.promptStylePine,
-  }
+  const promptStyle = useSettingsStore((s) => s.terminal.prompt.style)
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
@@ -914,23 +914,20 @@ function TerminalSection(): JSX.Element {
           checked={vim}
           onChange={(v) => setBehavior({ inputEditorVim: v })}
         />
-        <ControlRow label={d.settings.promptStyle} desc={d.settings.promptStyleDesc}>
-          <SelectField
-            value={prompt.style}
-            onChange={(style) => setTerminal({ prompt: { ...prompt, style } })}
-            label={d.settings.promptStyle}
-            options={PROMPT_STYLES.map((p) => ({ value: p, label: promptLabel[p] }))}
-            width="w-36"
-          />
+        <ControlRow
+          label={d.prompt.title}
+          desc={promptStyle === 'pine' ? d.settings.promptStylePine : d.settings.promptStyleShell}
+        >
           <Button
             variant="outline"
             size="sm"
-            onClick={() => useUIStore.getState().openPromptEditor(activeTerminalPaneId())}
+            onClick={() => useUIStore.getState().openSettings('prompt')}
           >
-            {d.prompt.edit}
+            {d.settings.promptOpen}
+            <CaretRightIcon data-icon="inline-end" />
           </Button>
         </ControlRow>
-        {prompt.style === 'pine' && mode !== 'editor' ? (
+        {promptStyle === 'pine' && mode !== 'editor' ? (
           <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
         ) : null}
       </SettingsGroup>
