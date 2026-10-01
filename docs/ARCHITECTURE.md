@@ -123,7 +123,13 @@ window. Every window runs the same renderer bundle;
   it in `Landings` for 3 s, the source claims it once, confirms unsaved files and hands the
   pane over with `windows:give` (one pane only; main adds the placement as the origin, so the
   target grafts it exactly where it was dropped). Why the source drives it: the target never
-  names or pulls another window's pane, and the source alone can release it. A workspace row
+  names or pulls another window's pane, and the source alone can release it. Why a drop layer
+  and not the frame: surfaces are portaled, so their drag events never reach `Pane`'s React
+  handlers, a `<webview>` swallows them, and a frame-level `onDragOver` only ever saw the header
+  and always chose the top zone. Why `endedOutside` compares the `dragend` point in the drag's
+  own coordinates (screen minus client, taken at `dragstart`) and never `window.screenX`:
+  synthetic drags report client coordinates as screen ones, and a refused drop inside the window
+  also fires a `dragleave` with no `relatedTarget`. A workspace row
   dragged out of the window detaches the same way (no cross-window drop for rows). Known gap:
   Escape pressed while the cursor is outside every Pine window also detaches, since HTML5 drag
   events can't tell a cancel from a drop on the desktop.
@@ -359,6 +365,14 @@ when the pty goes; see the input editor in §Terminal), plus the shell-integrati
 - Renderer attach order (`Terminal.tsx`): subscribe `onData`, then attach, then dispose the pane's
   markers and call `blocksStore.resetPane`, then write the replay, then flush queued bytes.
   `resetPane` also bumps the pane's generation, which lets main reject stale terminal-state snapshots.
+- Prompt-aware resize (`Terminal.tsx` `syncSize`/`flushHold`, rules in CLAUDE.md §6). Why the
+  cursor goes back to where the shell left it before the held repaint is written: zsh repaints
+  with relative cursor moves, so without it the prompt moved up a row per resize and ate the
+  output above it. Why the prompt row comes from an xterm marker: reflow moves lines under a
+  stored number. Why held bytes containing OSC 133;C are written without erasing
+  (`isPromptRepaint`): the user submitted a command during the hold, so they are command output,
+  not a repaint; erasing made the prompt and the typed command vanish (an extension opening a
+  split pane right before Enter did it).
 
 ### Crashes and diagnostics
 
@@ -386,7 +400,12 @@ whole root on an error that no boundary catches, and an error thrown by an effec
 pane being removed reaches only boundaries above that pane (its own boundary is being removed
 with it). That unmount runs every `TerminalView` cleanup, which detaches every pty; before the
 recovery grace, main reaped them all 3 s later and wrote an empty `scrollback.json` (the closed
-diff tab crash, CLAUDE.md §6).
+diff tab crash, CLAUDE.md §6). That crash (v0.0.9: blank window, no shells, `scrollback.json`
+`{}`): closing a diff tab ran `DiffView`'s effect cleanups in declaration order; the editor effect
+disposed the diff editor, then the model effect called `setModel(null)` on it, which threw
+("InstantiationService has been disposed"). Why the rule that a cleanup checks its object is
+still current (`diffRef.current === diff`): another effect's cleanup may already have disposed
+it. Recovery now keeps the ptys, but the window still has to reload.
 
 Recovery (`RecoveryBook`): a window is recovering from a `render` report, a main-frame reload
 (`did-start-navigation` after the first load), `diagnostics:reload-window`, or
@@ -417,7 +436,11 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   skipped and integration silently vanishes.
 - **bash**: `--rcfile`. The OSC 133;B mark is appended after the user's `PROMPT_COMMAND` runs,
   because starship and powerline rebuild `PS1` there. A bash 5.1 array `PROMPT_COMMAND` is kept
-  and each element is eval'd.
+  and each element is eval'd. `BASH_B_MARK` is built with `String.raw` and interpolated as a
+  value, single-quoted in the rc. Why: an inline double-quoted copy let bash collapse `\]` and
+  leak a `]` into the prompt. The preexec DEBUG trap also fires for `PROMPT_COMMAND`'s own body;
+  `__pine_interactive_mode` and running the user's `PROMPT_COMMAND` inside a function keep that
+  from being reported as a command.
 - **Pine prompt**: with `PINE_PROMPT=pine` in the spawn env, the generated init (which runs
   after the user's rc and prompt framework) unsets it and, in each prompt hook after the user's
   own, sets `PROMPT` to `%~`, a newline and `<sep> ` and clears `RPROMPT` (zsh), or `PS1` to
@@ -689,7 +712,10 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     (`__pine_report_shell`), only when one of those lines changed. Why the shell reports
     at all: the spawn env misses whatever `.zshrc`/`.bashrc` add to PATH (`~/.local/bin`,
     cargo, pnpm) and every alias and function, so those would all look unknown. Why a file and
-    not an OSC like the other marks: see §6 of CLAUDE.md.
+    not an OSC like the other marks: sent as a ~12 KB OSC 633 from the first precmd, the report
+    held up zsh startup by about 1.8 s under p10k's instant prompt, so commands typed at the
+    first prompt ran late and restore specs lost their history. The hook runs no subprocesses
+    for the same reason.
   - Pine prompt (`terminal.prompt`, `shared/promptSettings.ts`, `lib/promptChips.ts`,
     `lib/usePromptChips.ts`, `components/PromptChips.tsx`, `PromptSection.tsx`), Warp's
     context-chip prompt. `style: 'shell'` (default) keeps the cwd line above; `'pine'` replaces
@@ -986,6 +1012,12 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   are added only after a state update made in that callback, which React renders after the paint,
   so a newly opened panel was painted for a few frames at the left edge over its neighbour, then
   jumped to the right (v0.0.9, fixed by 72fa997; `e2e/panel-open.spec.ts` checks every frame).
+  Allotment reads `sizes` only at mount, so a size change the store makes (equalize, a remembered
+  panel size) needs a remount: a new child list or a bumped `equalized`. Why the spec samples
+  after each frame's last ResizeObserver callback: with `defaultSizes` the pre-layout DOM still
+  exists between the commit and that callback, so a rAF sample alone always sees it; a post-paint
+  sampler misses the flash (React's scheduler task runs first), and `layout-shift` entries report
+  it even when it never painted.
 - **Remembered panel size** (`layout/panelSize.ts`, `lib/panelSizes.ts`): when the human finishes
   dragging a splitter (Allotment `onDragEnd`), every direct pane child of that split that is a
   panel (`panelKey`: `extension:<id>`, `view:<name>`, `chat`) has its share of the split stored,
@@ -2177,10 +2209,91 @@ and their panes are in neither (§5 Scratch workspaces).
   DevTools MCP.
   - **Limits**: console and errors 500 each, dialogs 200, network log 500, snapshot 3000 nodes,
     names 200 characters.
+  - **Guest instrumentation**: every browser guest is instrumented once, at
+    `did-attach-webview`, tracked in the `instrumentedGuests` WeakSet; the debugger attach is
+    checked separately with `debugger.isAttached()`. Why not `listenerCount`: Electron itself
+    listens to a guest's `console-message` (to forward it to the `<webview>` element), so
+    `listenerCount === 0` was never true and the console and error buffers silently stayed empty.
 
 ## 10. Testing and packaging
 
-- Test layout and house rules: CLAUDE.md §7.
+- House rules and the test projects: CLAUDE.md §7. The map below says which test covers what.
+- The node project's global setup (`test/buildOnce.ts`) builds the CLI and the built-in
+  extensions once per run. Why: two test files building into `out/extensions` at once raced.
+  Vitest runs at most 8 workers (`vitest.config.ts`) so integration tests don't time out under
+  load.
+- `isolatedLaunch()` also sets `HOME` to a temp folder whose `.zshrc`/`.bashrc` only set a `❯`
+  prompt, plus a test git identity (`testHome`). Why: shells must never run the developer's rc
+  files or agents. So a spec compares paths against the app's `app.getPath('home')`, never the
+  test process's `homedir()`. `XDG_CONFIG_HOME` keeps the developer's user extensions (and their
+  approval dialog) out.
+
+### Test map
+
+Unit and integration (Vitest):
+
+| Test | Covers |
+|---|---|
+| `test/fixtures/extensions/echo` + `extensionHost*.integration.test.ts` | Extension host over a real socket; `.v2` pane chips, settings, panel paths, `targetPaneId`; `.reload` hot reload from a temp user dir |
+| `src/cli/cli.ext.e2e.test.ts` | Real git extension and the echo fixture via the CLI (stdin, errors, `pine ext ls`); `pine system info\|install` with fake `pacman`/`apt`/`sudo` (`test/fixtures/system/bin/`) and a fake confirm |
+| `src/cli/cli.e2e.test.ts` | CLI verbs, including `pine view` |
+| `src/main/builtinGitExtension.integration.test.ts` | Built git extension on a temp repo: sidebar, changes, diff sides, symlinks, pane chips and their setting, log, blame, stage/unstage, commit, discard through the panel API with a fake confirm, the graph over branches and a merge (scopes, paging, `graphScope`/`changesView` written by the panel and followed from Settings, chosen branches in `PINE_EXTENSION_DATA`), the `/sizes` route |
+| `src/extensions/git/*.test.ts` | Graph lane layout, file tree, scope planning (pure) |
+| `src/extensions/sdk/split.test.ts`, `panelSizes.test.ts` | SDK splitter clamp, keyboard, size validation |
+| `src/main/builtinPortsExtension.integration.test.ts` | Ports extension bundled into a temp dir against real process trees: a node listener, a fake `ssh` under `script` (foreground process group), a child that only inherited the host's listening socket |
+| `extensionHost.assist.integration.test.ts` | Assist points, streaming, cancellation, secrets and `ext.assistModels` through `test/fixtures/extensions-assist/oracle` |
+| Assistant provider tests | Local fake OpenAI-compatible, Anthropic and model-runtime (unix socket) servers |
+| `src/extensions/assistant/promptedTools.test.ts`, `prompts.test.ts`, `flight.test.ts` | Prompted tools parser; editor completion cleaning on real Gemma echoes; the one-in-flight slot |
+| `src/main/chatSessions.test.ts` | Chat session caps, trim, eviction, delete |
+| `src/renderer/lib/chatToolPermissions.test.ts` | `decideTool` permission logic |
+| `src/renderer/lib/chatTransport.tools.test.ts` | Transport tool loop: approval, deny, Stop, grants, MCP |
+| `ChatToolPart.test.tsx`, `src/renderer/lib/chatSlash.test.ts`, `ChatSlash.test.tsx` | Tool cards; slash command registry and menu |
+| `src/main/chatFsTools.test.ts`, `src/main/chatSkills.test.ts`, `src/shared/chatTools.test.ts` | File tool confinement; skills; MCP settings and session clipping |
+| `src/main/mcpHost.integration.test.ts` | `McpHost` against `test/fixtures/mcp/fake-server.mjs` |
+| `src/main/chatTools.integration.test.ts` | Whole tool loop: fake provider streaming a tool call, the assistant extension, the fake MCP server, a fake model-runtime socket answering tagged and `tool_code` calls as text |
+| `src/shared/views*.test.ts`, `src/renderer/lib/view*.test.ts`, `src/main/viewHost.test.ts` | View schema, bindings, draw budget; the loader |
+| `src/renderer/layout/panelSize.test.ts`, `src/renderer/lib/panelSizes.test.ts`, `layoutStore.panelSize.test.ts` | Remembered panel size: pure parts, storage, store |
+| `src/renderer/lib/railWidth.test.ts`, `RailResizer.test.tsx` | Rail width clamp, keyboard, storage; the separator |
+| `lib/mergeEligibility.test.ts`, `layout/tree.test.ts`, `workspacesStore.merge.test.ts`, `lib/workspaceMerge.test.ts`, `MergeWorkspaces.test.tsx`, `src/main/workspaceMerge.test.ts`, `workspaceSandboxes.merge.test.ts` | Workspace merge: eligibility, `mergeLayouts`, stores, menu/palette/dialog, main's checks, the sandbox alias |
+| `src/main/appLog.test.ts`, `src/main/rendererReports.test.ts`, `src/main/ptyReaper.test.ts`, `AppErrorBoundary.test.tsx` | Log writer, redaction, rotation; report validation and rate limit; the reap guard; the boundaries |
+| `lib/color.test.ts` | Selection visibility math |
+| `src/renderer/lib/motion.test.tsx`, `src/renderer/lib/typography.test.ts` | Motion and typography guards (CLAUDE.md §5) |
+
+Tool extensions (trellis, keeper) run against fake shell scripts in `test/fixtures/tools/bin/`
+first on `PATH`, fed scrubbed real `--json` captures from `test/fixtures/tools/<tool>/`.
+
+E2E (Playwright, `e2e/`; a spec not listed here is named after the feature it covers):
+
+| Spec | Covers |
+|---|---|
+| `extensions.spec.ts` | Installs `test/fixtures/extensions-e2e/hello` (bundled with esbuild): approval, a palette-opened file panel, a `pine <ext>` call |
+| `extensions-v2.spec.ts` | Same extension installed while pine runs (hot reload): pane chip, panel path, setting |
+| `tools.spec.ts` | trellis and keeper against the fake CLIs: "Trellis: Open Card", notification clicks that open a card, Keeper's approvals page |
+| `ports.spec.ts` | Ports and ssh pane chips against a real listener and a fake `ssh` |
+| `system.spec.ts` | `pine system install`; answers the native dialog by stubbing `dialog.showMessageBox` via `app.evaluate` |
+| `files-tree.spec.ts` | Installs the `test/fixtures/extensions-e2e/icons` VS Code-format icon theme, picks it in Settings → Files; theme icons, compact folders, nesting, Hide in tree |
+| `git-graph.spec.ts` | Git: Show Graph on a repo with branches and a merge: uncommitted row, keyboard selection, details divider drag and keys (`sendInputEvent`) surviving a panel reload, commit box growth, all branches, tree view, `changesView` from Settings → Plugins |
+| `views.spec.ts` | View files in the isolated `XDG_CONFIG_HOME` enabled in Settings → Views (one while running): live workspace names, a `workspace.new` button, the panel view from the palette; Board panel splitter width kept across reopen and restart |
+| `detached-windows.spec.ts` | Workspace with a running command moved to a new window and back, restore of a detached window, approval card in a detached pane's window, a pane out and back, tab drag-out and drop onto the main window (synthetic `dragstart`/`dragend` with screen coordinates; xvfb has no real cross-window drag), main window kept in the tray when a detached one closes |
+| `pane-dnd.spec.ts` | Real drags: split right and down over a terminal, tab bar reorder, editor tab merged into a terminal's stack, drop layer over a browser page |
+| `browser-agent.spec.ts` | Grants `browse`, reads the pane's `PINE_*` env, drives a local page through the real `pine browse` CLI (refs, fill/click/type, find, eval, storage, cookies, network, tabs, `--json`) |
+| `browser-storage.spec.ts` | Storage drawer shows and edits cookies, local and session storage |
+| `manager.spec.ts` | Built CLI under `script` with `PINE_*` stripped and `test/fixtures/manager/bin/fake-agent` on `PATH`, portal at `PINE_PORTAL_SOCKET`; refusal from a Pine pane; a bash manager through `pine manager spawn\|read\|input` with `manager.allowInput` off and on; a worker pane refused |
+| `tray.spec.ts` | Close-to-tray |
+| `panel-open.spec.ts` | Git panel from its toggle (even and remembered size) and a view in a nested split; fails if the new pane paints anywhere but its final position |
+| `rail-resize.spec.ts` | Sidebar edge drag, width after restart, double-click reset, drag-to-collapse |
+| `resize-prompt.spec.ts` | Split and drag-resize with output above the prompt; rail collapse toggle and edge drag |
+| `fonts.spec.ts` | UI and code font: computed, loaded family in the UI, a settings list, a keycap, chat code, the Git panel's webview |
+| `terminal-selection.spec.ts` | Fake `claude` painting `rgb(55,55,55)` rows with mouse tracking; Shift-drag under Oxocarbon in WebGL and DOM; copied text and visible selection color |
+| `terminal-webgl.spec.ts` | The GPU renderer |
+| `stale-waiting.spec.ts` | Fake `claude` (`fakeAgentBin`) reports waiting, exits, reports again from the background: workspace back to Idle; a plain OSC 9 in zsh is a notification, not waiting |
+| `workspace-merge.spec.ts` | Merge a workspace with a running command through the row menu and confirm; output keeps coming in the target |
+| `scratch-workspace.spec.ts` | Scratch workspace from the top bar: `$HISTFILE` in its folder, nothing in `scrollback.json` or `workspaces.json`, delete-on-close confirm, nothing restored, quit removes scratch folders |
+| `crash-recovery.spec.ts` | Render error through the test hook (recovery screen, shells outlive the grace, Reload re-attaches the same shells, `main.log`), renderer process killed (main reloads it, same shell), closing a diff tab next to terminals |
+| `assistant.spec.ts` | Fake OpenAI-compatible server configured in Settings; Ask and the composer |
+| `assistant-chat.spec.ts` | Fake server (`e2e/fakeProvider.ts`): chat pane from the top-bar menu, a shell block run in a new terminal, opening a path from an answer, the session after a restart, `/new` and `/help` without a model request, ghost text accepted with Tab without running, terminal completion off; chat tools: read without a card, deny then allow a write shown as a diff, approve a tool from the fake stdio MCP server |
+| `input-editor.spec.ts` | The input editor; prompt not duplicated |
+| `workspace-restore.spec.ts` | Restore across two launches (see above) |
 - E2E runs the built app serially (`workers: 1`) because each instance owns a pty set and a
   per-PID socket. Every launch spreads `isolatedLaunch()` (`e2e/dataHome.ts`) to get a throwaway
   `XDG_DATA_HOME` and `--user-data-dir`. The app boots with no workspaces, so a spec that needs a
@@ -2767,9 +2880,12 @@ but the public API.
   whose click opens the panel at `/p/<KEY>/card/<REF>` (`cardPath`), or navigates the open panel
   there; `ext.panel` with an allowed path (`isAppPath`: `/`, a project, a board or a card) returns
   the proxy's entry link for it. When the card's project isn't in the last known set, the
-  extension lists the workspaces again before dropping the event. Why: the extension starts with
-  the window, before the renderer has reported its workspaces, so its first refresh sees none and
-  a review notice right after launch was lost. Settings: `notifyReview`, `notifyBlocked` and
+  extension lists the workspaces again (`isOpenProject`) and retries (`UNKNOWN_PROJECT_RETRIES`,
+  1 s apart) before dropping the event. Why: the extension starts with the window, before the
+  renderer has reported its workspaces, so its first refresh sees none and a review notice right
+  after launch was lost. trellis prints its JSON errors on stderr, and `trellis version` appends
+  an update notice after its JSON on stdout, so the extension parses the first line. `events
+  --consumer` doesn't advance the cursor by reading; `events ack` does. Settings: `notifyReview`, `notifyBlocked` and
   `refreshSeconds` (10–3600). "Trellis: Open Card" (`card <REF>`, palette `argument`) opens the
   panel at a card; the ref is upper-cased and must look like `KEY-123`. "Trellis: Init Project Here" runs `trellis init` in the caller's cwd
   (else workDir) after `ext.confirm`.
