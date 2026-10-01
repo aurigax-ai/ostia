@@ -138,7 +138,7 @@ Each phase ships a working product; nothing half-built lands on `main`.
    per-extension identity with manifest ∩ approved caps and a first-run approval dialog, lazy
    start with restart backoff, `ext.registerCommands/subscribe/setSidebarItem/notify/openPanel`,
    `pine ext …` and `pine <extId> …`, the sandboxed panel surface, and enable/disable in
-   Settings → Plugins. Kanban and wiki migrated (since removed for Trellis). Its deferrals
+   Settings → Extensions. Kanban and wiki migrated (since removed for Trellis). Its deferrals
    (pane badges/attention, hot reload, extension settings, pane-scoped methods with an explicit
    target) landed in Extension API v2 (phase 8).
 4. **Git & diff** — **done**: the `git` built-in extension (`src/extensions/git/`) shows each
@@ -181,7 +181,7 @@ Each phase ships a working product; nothing half-built lands on `main`.
    `ext.clearPaneChip`, badges in the pane header, cleared when the extension stops or the pane
    closes, and placeable in the Pine prompt's chip row through `usePaneChips(paneId)` /
    `usePaneChipCatalog()`); typed extension settings (`contributes.settings`, validated in main, stored under
-   `extensionSettings.<id>` in `settings.json`, a form per extension in Settings → Plugins,
+   `extensionSettings.<id>` in `settings.json`, a form per extension in Settings → Extensions,
    `ext.getSettings` and a `settings.changed` event); hot reload of the user extensions directory
    (added, changed and removed manifests, new ones still wait for approval and new capabilities
    stay unapproved); `targetPaneId` on `browse.*`, `process.*` and `pane.setAttention` for an

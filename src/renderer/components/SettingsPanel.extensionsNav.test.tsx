@@ -4,7 +4,7 @@ import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installLocalStorage } from '../../../test/mocks/memoryStorage'
-import { PLUGINS_NAV_EXPANDED_KEY } from '../lib/settingsNav'
+import { EXTENSIONS_NAV_EXPANDED_KEY } from '../lib/settingsNav'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -67,7 +67,7 @@ function disclosure(): HTMLElement {
   return within(nav()).getByRole('button', { name: 'Installed extensions' })
 }
 
-describe('SettingsPanel plugins nav', () => {
+describe('SettingsPanel extensions nav', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
   let pluginsInit: ReturnType<typeof usePluginsStore.getState>
   let extensionsInit: ReturnType<typeof useExtensionsStore.getState>
@@ -95,7 +95,7 @@ describe('SettingsPanel plugins nav', () => {
     vi.restoreAllMocks()
   })
 
-  it('expands Plugins into one entry per extension and remembers it', async () => {
+  it('expands Extensions into one entry per extension and remembers it', async () => {
     renderSettings()
     const user = userEvent.setup()
     expect(disclosure()).toHaveAttribute('aria-expanded', 'false')
@@ -108,7 +108,7 @@ describe('SettingsPanel plugins nav', () => {
     expect(disclosure()).toHaveAttribute('aria-controls', list.id)
     expect(within(list).getByRole('button', { name: 'Ports' })).toBeInTheDocument()
     expect(within(list).getByRole('button', { name: 'Git' }).querySelector('svg')).not.toBeNull()
-    expect(window.localStorage.getItem(PLUGINS_NAV_EXPANDED_KEY)).toBe('true')
+    expect(window.localStorage.getItem(EXTENSIONS_NAV_EXPANDED_KEY)).toBe('true')
 
     cleanup()
     renderSettings()
@@ -116,15 +116,15 @@ describe('SettingsPanel plugins nav', () => {
     expect(within(nav()).getByRole('button', { name: 'Ports' })).toBeInTheDocument()
   })
 
-  it('opens Plugins scrolled to the extension a child entry names, and highlights it', async () => {
+  it('opens Extensions scrolled to the extension a child entry names, and highlights it', async () => {
     const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView')
-    window.localStorage.setItem(PLUGINS_NAV_EXPANDED_KEY, 'true')
+    window.localStorage.setItem(EXTENSIONS_NAV_EXPANDED_KEY, 'true')
     renderSettings()
     const user = userEvent.setup()
 
     await user.click(within(nav()).getByRole('button', { name: 'Ports' }))
 
-    expect(screen.getByRole('heading', { level: 2, name: 'Plugins' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Extensions' })).toBeInTheDocument()
     const block = document.getElementById('settings-extension-ports')
     expect(block).not.toBeNull()
     expect(scrolled.mock.contexts).toContain(block)
@@ -136,7 +136,7 @@ describe('SettingsPanel plugins nav', () => {
       'aria-current',
       'location',
     )
-    expect(within(nav()).getByRole('button', { name: 'Plugins' })).not.toHaveAttribute(
+    expect(within(nav()).getByRole('button', { name: 'Extensions' })).not.toHaveAttribute(
       'aria-current',
     )
   })
@@ -144,7 +144,7 @@ describe('SettingsPanel plugins nav', () => {
   it('clears the highlight after a moment', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
-      window.localStorage.setItem(PLUGINS_NAV_EXPANDED_KEY, 'true')
+      window.localStorage.setItem(EXTENSIONS_NAV_EXPANDED_KEY, 'true')
       renderSettings()
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       await user.click(within(nav()).getByRole('button', { name: 'Git' }))
@@ -158,11 +158,11 @@ describe('SettingsPanel plugins nav', () => {
     }
   })
 
-  it('expands and collapses from the keyboard and walks back from a child to Plugins', async () => {
+  it('expands and collapses from the keyboard and walks back from a child to Extensions', async () => {
     renderSettings()
     const user = userEvent.setup()
-    const plugins = within(nav()).getByRole('button', { name: 'Plugins' })
-    plugins.focus()
+    const extensionsButton = within(nav()).getByRole('button', { name: 'Extensions' })
+    extensionsButton.focus()
 
     await user.keyboard('{ArrowRight}')
     expect(disclosure()).toHaveAttribute('aria-expanded', 'true')
@@ -182,16 +182,16 @@ describe('SettingsPanel plugins nav', () => {
 
     ports.focus()
     await user.keyboard('{ArrowLeft}')
-    expect(plugins).toHaveFocus()
+    expect(extensionsButton).toHaveFocus()
   })
 
   it('anchors to an extension from a deep link, in either form', () => {
     const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView')
     renderSettings()
 
-    act(() => useUIStore.getState().openSettings('plugins/git'))
+    act(() => useUIStore.getState().openSettings('extensions/git'))
 
-    expect(screen.getByRole('heading', { level: 2, name: 'Plugins' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Extensions' })).toBeInTheDocument()
     expect(scrolled.mock.contexts).toContain(document.getElementById('settings-extension-git'))
     expect(disclosure()).toHaveAttribute('aria-expanded', 'true')
     expect(within(nav()).getByRole('button', { name: 'Git' })).toHaveAttribute(
@@ -200,7 +200,7 @@ describe('SettingsPanel plugins nav', () => {
     )
     expect(useUIStore.getState().settingsExtension).toBeNull()
 
-    act(() => useUIStore.getState().openSettings('plugins', { extension: 'ports' }))
+    act(() => useUIStore.getState().openSettings('extensions', { extension: 'ports' }))
 
     expect(scrolled.mock.contexts).toContain(document.getElementById('settings-extension-ports'))
     expect(within(nav()).getByRole('button', { name: 'Ports' })).toHaveAttribute(
@@ -215,7 +215,7 @@ describe('SettingsPanel plugins nav', () => {
     const search = screen.getByRole('textbox', { name: 'Search settings' })
 
     await user.type(search, 'scan interval')
-    expect(within(nav()).getByRole('button', { name: 'Plugins' })).toBeInTheDocument()
+    expect(within(nav()).getByRole('button', { name: 'Extensions' })).toBeInTheDocument()
     expect(within(nav()).getByRole('button', { name: 'Ports' })).toBeInTheDocument()
     expect(within(nav()).queryByRole('button', { name: 'Git' })).toBeNull()
     expect(within(nav()).queryByRole('button', { name: 'Appearance' })).toBeNull()
@@ -227,6 +227,6 @@ describe('SettingsPanel plugins nav', () => {
 
     await user.clear(search)
     await user.type(search, 'no such thing')
-    expect(within(nav()).queryByRole('button', { name: 'Plugins' })).toBeNull()
+    expect(within(nav()).queryByRole('button', { name: 'Extensions' })).toBeNull()
   })
 })

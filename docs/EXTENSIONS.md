@@ -23,12 +23,56 @@ Extensions are discovered at startup, and pine watches your extensions directory
 runs: adding, changing or removing a `pine.json` takes effect within a moment, no restart needed.
 A new extension still asks for approval first, and a changed manifest that asks for more
 capabilities runs with what you approved before until you review it. A changed extension that
-was running is restarted. Settings → Plugins lists every extension with its status, permissions,
+was running is restarted. Settings → Extensions lists every extension with its status, permissions,
 settings form and an enable switch. A disabled extension has no process, no commands, no panel,
-no sidebar items and no pane chips. Plugins in the Settings nav expands into one entry per
+no sidebar items and no pane chips. Extensions in the Settings nav expands into one entry per
 extension (its panel icon, if it has one) that scrolls to that extension's block; core code links
-there with `openSettings('plugins', { extension: id })` or `openSettings('plugins/<id>')`, and the
+there with `openSettings('extensions', { extension: id })` or `openSettings('extensions/<id>')`, and the
 Settings search box finds an extension by its name, a setting title or a setting key.
+
+## Marketplaces
+
+A marketplace is a git repository that lists extensions. The human adds one in Settings →
+Extensions → Marketplaces by typing `owner/repo` (GitHub), an `https://` or `ssh` git URL, or an
+absolute folder path for one you are still writing. pine clones it with the system `git` (shallow,
+no submodules, symlinks off) into its data folder and shows what it offers.
+
+The repository has a `pine-marketplace.json` at its root:
+
+```json
+{
+  "name": "Acme extensions",
+  "description": "Tools from Acme",
+  "extensions": ["extensions/weather", "extensions/timer"]
+}
+```
+
+| Field | Rules |
+|---|---|
+| `name` | 1 to 80 characters |
+| `description` | Optional |
+| `extensions` | Up to 200 folder paths inside the repository. Each folder is one extension with its own `pine.json` |
+
+Rules for a listed extension:
+
+- It is installed by copying its folder as it is in the repository, so commit the built files
+  (`main.js` bundled, panel HTML). pine never runs `npm install`, a build or any script from it.
+- Regular files and folders only: a symlink or special file refuses the install. At most 2000 files
+  and 50 MiB.
+- An entry with a broken `pine.json`, a missing folder or an id another entry already uses is
+  listed under "Entries that could not be offered" and the rest still work.
+
+Install copies the folder to `~/.config/pine/extensions/<id>/`, where it is an ordinary user
+extension: it waits for the approval dialog before anything runs, and any approval an earlier
+extension with that id had is dropped first. Refresh re-downloads the marketplace; when the listed
+version differs from the installed one the row offers Update, which replaces the files and keeps
+the approval (new capabilities still wait for review). Uninstall, on the installed extension's row,
+deletes the folder, its approval and its saved secrets; its settings stay in `settings.json`. An id
+that a built-in uses, or that you installed by hand or from another marketplace, is never
+overwritten. Removing a marketplace leaves its installed extensions in place.
+
+There is no `pine` CLI verb or socket method for any of this: only the human adds marketplaces and
+installs, updates or uninstalls, from Settings.
 
 ## Manifest (`pine.json`)
 
@@ -78,11 +122,11 @@ Settings search box finds an extension by its name, a setting title or a setting
 | `contributes.sidebarItems` | `true` if you call `ext.setSidebarItem`. Such extensions start with the window instead of on first use. |
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand pine a loopback URL at runtime. |
 | `contributes.paneChips` | Up to 8 `{id, title}`. Each is a slot for a short value you put on a pane's header with `ext.setPaneChip` (for example a branch, a venv, a test count). `title` names it in tooltips and in Settings → Prompt: the human can also place your chip in the Pine prompt's chip row (`terminal.prompt.chips` id `<extId>.<chip>`), where it shows the same value. Needs `main`. |
-| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Plugins shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
+| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
-| `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Plugins shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
+| `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Extensions shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
 
@@ -175,7 +219,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.setPaneChip` | `{paneId, id, text, tooltip?, tone?, command?, url?}` | Shows `text` (40 chars) as chip `id` (from your `contributes.paneChips`) on that pane's header; setting it again replaces the value. `paneId` is an external pane id (`caller.paneId`, `pane.list`, events). `tone`: as for sidebar items. `command`: one of your own palette commands; clicking the chip focuses the pane and runs it, so `caller.paneId` is that pane. `url` (http/https, instead of `command`): clicking the chip opens it in the browser pane of that pane's workspace. Empty `text` clears it. Chips vanish when the pane closes or your process stops; set them again after a restart. |
 | `ext.clearPaneChip` | `{paneId, id}` | Removes that chip. |
 | `ext.getSettings` | — | `{ok, values}`: every key of your `contributes.settings`, with the human's value when it is valid, else the default. You also get `settings.changed` (below) whenever the values change. |
-| `ext.setSetting` | `{key, value}` | Changes one of **your own** settings, for a control in your panel that mirrors it (Git's graph scope and changed-files view). Validated against your manifest exactly like Settings → Plugins (`unknown-setting`, `invalid-value`); `null` resets the key. Pine saves it in `settings.json`, shows it in Settings, and sends you `settings.changed`. Returns `{ok, values}`. You can't touch another extension's settings or any core setting. |
+| `ext.setSetting` | `{key, value}` | Changes one of **your own** settings, for a control in your panel that mirrors it (Git's graph scope and changed-files view). Validated against your manifest exactly like Settings → Extensions (`unknown-setting`, `invalid-value`); `null` resets the key. Pine saves it in `settings.json`, shows it in Settings, and sends you `settings.changed`. Returns `{ok, values}`. You can't touch another extension's settings or any core setting. |
 | `ext.openDiff` | `{title, original, modified, language?, path?, workspaceId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that workspace, else the active one. Reuses the workspace's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
 | `workspace.list` | — | Needs `read-board`. `[{workspaceId, name, kind, workDir, state, activePaneId?}]`. |
 | `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, filePath?, running, blockCount, lastExitCode?, pid?}]`; `cwd` is the live shell cwd for terminals; `filePath` is the absolute path a file view (`kind: 'editor'`) shows, so a palette command can act on the file in the caller's pane; `pid` is the shell process of a terminal whose pty is running (absent for other kinds and for a hibernated pane). Its descendants are what the pane runs. They inherit pine's own open descriptors, so ignore sockets your parent process (pine) also holds. |

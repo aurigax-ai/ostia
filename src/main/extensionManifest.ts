@@ -419,7 +419,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   return { ok: true, manifest }
 }
 
-function readManifest(dir: string): ManifestResult {
+export function readManifest(dir: string): ManifestResult {
   const path = join(dir, EXTENSION_MANIFEST_FILE)
   let raw: unknown
   try {

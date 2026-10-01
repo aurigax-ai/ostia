@@ -1,5 +1,5 @@
-export const PLUGINS_NAV_EXPANDED_KEY = 'settingsNav.pluginsExpanded'
-export const PLUGINS_SECTION = 'plugins'
+export const EXTENSIONS_NAV_EXPANDED_KEY = 'settingsNav.extensionsExpanded'
+export const EXTENSIONS_SECTION = 'extensions'
 
 export interface SettingsTarget {
   section: string | null
@@ -12,23 +12,26 @@ export function parseSettingsTarget(section?: string, extension?: string): Setti
   if (slash < 0) return { section, extension: extension ?? null }
   const head = section.slice(0, slash)
   const tail = section.slice(slash + 1)
-  return { section: head, extension: head === PLUGINS_SECTION && tail ? tail : (extension ?? null) }
+  return {
+    section: head,
+    extension: head === EXTENSIONS_SECTION && tail ? tail : (extension ?? null),
+  }
 }
 
 export function extensionAnchorId(extId: string): string {
   return `settings-extension-${extId}`
 }
 
-export function pluginsNavExpanded(): boolean {
+export function extensionsNavExpanded(): boolean {
   try {
-    return window.localStorage.getItem(PLUGINS_NAV_EXPANDED_KEY) === 'true'
+    return window.localStorage.getItem(EXTENSIONS_NAV_EXPANDED_KEY) === 'true'
   } catch {
     return false
   }
 }
 
-export function rememberPluginsNavExpanded(expanded: boolean): void {
+export function rememberExtensionsNavExpanded(expanded: boolean): void {
   try {
-    window.localStorage.setItem(PLUGINS_NAV_EXPANDED_KEY, String(expanded))
+    window.localStorage.setItem(EXTENSIONS_NAV_EXPANDED_KEY, String(expanded))
   } catch {}
 }

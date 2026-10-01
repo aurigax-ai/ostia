@@ -429,7 +429,7 @@ Attention, the second loud element, appears only when a pane needs you:
   for a group inside a section), `ControlRow`, and `WarningNote` (the one warning callout).
   Version numbers are sans `tabular-nums`, not mono. `SettingsGroup` takes an optional one-line
   `desc` and a right-aligned `action` (an "Add …" button or a refresh `IconButton`).
-- **Settings nav disclosure**: a nav entry with children (Plugins → one entry per extension)
+- **Settings nav disclosure**: a nav entry with children (Extensions → one entry per extension)
   keeps its own button, which opens the section, plus a `row` `IconButton` caret
   (`aria-expanded`, `aria-controls`) whose `CaretRightIcon` turns 90° when open. Children are
   `sm` ghost buttons, `ui-sm`, indented under a `--line` left rule, with the item's icon or an
