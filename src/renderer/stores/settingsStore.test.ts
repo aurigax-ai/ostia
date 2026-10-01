@@ -416,6 +416,19 @@ describe('settingsStore', () => {
       expect(written.extensionSettings).toEqual({ git: { fetch: true }, ports: { interval: 5 } })
     })
 
+    it('logs a failed save instead of leaving the rejection unhandled', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue('{"locale":"en"}')
+      await store().init()
+      vi.mocked(window.pine.fs.write).mockRejectedValueOnce(new Error('disk full'))
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      store().setTheme('dracula')
+      await vi.advanceTimersByTimeAsync(300)
+
+      expect(logged).toHaveBeenCalledWith('[settings] save failed', expect.any(Error))
+      logged.mockRestore()
+    })
+
     it('keeps capabilities.grants from settings.json so a later save round-trips it', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue(
         '{"locale":"en","capabilities":{"grants":["browse","gateway"]}}',

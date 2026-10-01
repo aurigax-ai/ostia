@@ -556,7 +556,9 @@ async function writeSettings(s: SettingsState): Promise<void> {
 
 function scheduleSave(get: () => SettingsState): void {
   if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => void writeSettings(get()), 300)
+  saveTimer = setTimeout(() => {
+    writeSettings(get()).catch((err: unknown) => console.error('[settings] save failed', err))
+  }, 300)
 }
 
 const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues> => {
