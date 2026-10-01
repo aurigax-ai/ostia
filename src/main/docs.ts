@@ -47,6 +47,11 @@ const CLI_HELP = `pine — control-socket CLI
                                  you, where the human can watch and type; your shell line is
                                  pasted as written and run by the tab's own shell (zsh or bash).
                                  Prints {id,name,paneId}; your pane keeps the focus
+  pine agent run <agent> [--name X] [--cwd P] <prompt|->   start another agent (claude, codex or
+                                 one the human configured) in a new terminal tab with that prompt
+                                 as its one argument, quoted for you (- reads it from stdin).
+                                 Same result and rules as process run: follow it with pine process
+                                 logs, talk to it with pine pane send and pine pane read
   pine process ls                id, name, status, paneId, command of this workspace's
                                  processes: starting, running, exited(code), or closed (the
                                  human closed the tab)

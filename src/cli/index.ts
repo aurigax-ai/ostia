@@ -736,6 +736,27 @@ function describeErrResult(res: ErrResult): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
+async function runAgentVerb(conn: MessageConnection): Promise<void> {
+  const { flags, rest } = parseFlags(process.argv.slice(4), ['name', 'cwd'])
+  const [agent, given] = rest
+  if (process.argv[3] !== 'run' || !agent || given === undefined) {
+    console.error('usage: pine agent run <agent> [--name N] [--cwd DIR] <prompt|->')
+    process.exitCode = 1
+    return
+  }
+  const prompt = given === '-' ? await readAllStdin() : given
+  const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
+    'agent.run',
+    { agent, prompt, name: flags.name, ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}) },
+  )
+  if (isErrResult(res)) {
+    console.error(`pine: agent run failed (${describeErrResult(res)})`)
+    process.exitCode = 1
+    return
+  }
+  console.log(JSON.stringify(res))
+}
+
 async function runProcessVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const rawArgs = process.argv.slice(4)
@@ -1123,6 +1144,9 @@ commands:
   <file>... | open <file>...   show files in Pine's viewer, any path (file:line[:col] jumps)
   process run "<cmd>" [--name N] [--cwd DIR] | ls | logs | kill | restart <id|name>
                             run a command in a new terminal tab the human can watch
+  agent run <agent> [--name N] [--cwd DIR] <prompt|->
+                            start claude, codex or an agent the human configured in a new
+                            terminal tab with that prompt; talk to it with pine pane
   pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]
                             type into or read another terminal pane (asks the human unless
                             you opened it with pine process run)
@@ -1245,6 +1269,8 @@ async function main(): Promise<void> {
       console.log(res.cli)
     } else if (cmd === 'process') {
       await runProcessVerb(conn)
+    } else if (cmd === 'agent') {
+      await runAgentVerb(conn)
     } else if (cmd === 'pane') {
       process.exitCode = await runPaneVerb(conn, process.argv.slice(3))
     } else if (cmd === 'vault') {
