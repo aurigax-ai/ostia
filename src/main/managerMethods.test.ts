@@ -17,7 +17,8 @@ import type { CommandResult } from '../shared/types'
 import { registerControlServer, stopControlServer } from './controlServer'
 import { registerDocsMethods } from './docs'
 import { markManager, registerPane } from './idRegistry'
-import { type ManagerMethodDeps, RateWindow, registerManagerMethods } from './managerMethods'
+import { type ManagerMethodDeps, registerManagerMethods } from './managerMethods'
+import { RateWindow } from './rateWindow'
 
 let settings: ManagerSettings = DEFAULT_MANAGER_SETTINGS
 const written: { paneId: string; data: string }[] = []
