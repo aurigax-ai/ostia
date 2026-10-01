@@ -18,6 +18,7 @@ import { startChatCommand } from './commands/chatCommand'
 import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
 import { wireManagerBridge } from './commands/managerBridge'
+import { wirePaneRunBridge } from './commands/paneRunBridge'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
@@ -59,6 +60,7 @@ registerViewCommands()
 wireCommandBridge()
 wireTerminalStateBridge()
 wireExtensionBridge()
+wirePaneRunBridge()
 wireManagerBridge()
 
 const container = document.getElementById('root')

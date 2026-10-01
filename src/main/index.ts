@@ -67,7 +67,7 @@ import { registerChatSessionIpc } from './chatSessionsIpc'
 import { registerChatToolsIpc } from './chatToolsIpc'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
-import { setCapFilter } from './controlAuth'
+import { connHasCap, setCapFilter } from './controlAuth'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
@@ -116,6 +116,7 @@ import {
 import { OpenFileGrants } from './openFileGrants'
 import { registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
+import { type PaneIo, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
@@ -128,7 +129,7 @@ import {
 } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
 import { privateTmpDir } from './privateTmp'
-import { killAllProcesses, registerProcessMethods } from './processManager'
+import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from './processManager'
 import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
@@ -209,6 +210,7 @@ function loadPty(): typeof import('node-pty') | null {
 }
 
 interface PtyEntry {
+  paneId: string
   pty: IPty
   session: PtySession
   mirror: ScreenMirror
@@ -243,6 +245,7 @@ const recoveryHeld = new Set<string>()
 const closedPanes = new Set<string>()
 let appLog: AppLog | null = null
 let diagnostics: Diagnostics | null = null
+let processes: ProcessRegistry | null = null
 
 function windowOfPane(paneId: string): string | undefined {
   return getByPaneId(paneId)?.windowId
@@ -368,6 +371,20 @@ function ptyPid(paneId: string): number | undefined {
 function feedPty(entry: PtyEntry, data: string): void {
   entry.session.push(data)
   entry.mirror.write(data)
+  processes?.feed(entry.paneId, data, entry.session.cursor)
+}
+
+const paneIo: PaneIo = {
+  read: async (paneId, lines) => {
+    const entry = ptys.get(paneId)
+    return entry ? entry.mirror.screenText(lines) : null
+  },
+  write: (paneId, data) => {
+    const entry = ptys.get(paneId)
+    if (!entry) return false
+    entry.pty.write(data)
+    return true
+  },
 }
 
 function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
@@ -987,12 +1004,14 @@ function registerIpc(): void {
       hibernatedPanes.delete(event.paneId)
       removePane(event.paneId)
       terminalState.delete(event.paneId)
+      processes?.paneClosed(event.paneId)
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
       extensionHost?.publishWorkspaceChips()
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
+      processes?.workspaceClosed(event.workspaceId)
       extensionHost?.clearWorkspaceChips(event.workspaceId)
       scratchFolders.remove(event.workspaceId)
       forgetWorkspaceRequests(event.workspaceId)
@@ -1482,6 +1501,7 @@ function trackPty(
         if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code)
       }
       for (const listener of entry.exitListeners) listener(code)
+      processes?.shellEnded(paneId, (from) => session.since(from))
       entry.mirror.dispose()
       removeStateFile(entry)
       if (ptys.get(paneId) === entry) {
@@ -1494,6 +1514,7 @@ function trackPty(
     },
   })
   const entry: PtyEntry = {
+    paneId,
     pty,
     session,
     mirror: new ScreenMirror(opts.cols, opts.rows),
@@ -2089,12 +2110,41 @@ app.whenReady().then(() => {
       if (identity.manager) managerService?.rememberResume(resume)
     },
   })
-  registerProcessMethods({
-    sandbox: {
-      isEnabled: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
-      wrap: (workspaceId, command) => workspaceSandboxes.wrap(workspaceId, command, 'bash'),
-      tmpDir: (workspaceId) => workspaceSandboxes.tmpDir(workspaceId),
+  const registry = registerProcessMethods({
+    openTab: openTerminalInWindow,
+    ring: (paneId) => {
+      const session = ptys.get(paneId)?.session
+      return session ? (from) => session.since(from) : undefined
     },
+    writePane: paneIo.write,
+    endShell: (paneId) => killPty(paneId, 'process-kill'),
+    hasShell: (paneId) => ptys.has(paneId),
+    runInPane: (paneId, command) => {
+      const windowId = getByPaneId(paneId)?.windowId
+      const win = windowId ? windows.get(windowId) : undefined
+      if (!win || win.isDestroyed()) return false
+      win.webContents.send('pty:run', paneId, command)
+      return true
+    },
+    cwdOfPane: (paneId) => terminalState.get(paneId)?.cwd,
+    interruptGraceMs: INTERRUPT_GRACE_MS,
+  })
+  processes = registry
+  registerPaneIoMethods({
+    io: paneIo,
+    state: getTerminalState,
+    processPane: (ref, ctx) => {
+      const entry = registry.resolve(
+        ref,
+        ctx.identity.workspaceId,
+        connHasCap(ctx.authed, 'all-workspaces'),
+      )
+      return entry && entry.status !== 'closed' ? entry.paneId : undefined
+    },
+    isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
+    managerAllowsInput: () => managerSettings().allowInput,
   })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
@@ -2243,16 +2293,7 @@ app.whenReady().then(() => {
   managerLimiter = registerManagerMethods({
     settings: managerSettings,
     agents: () => managerAgents(managerSettings()),
-    readPane: async (paneId, lines) => {
-      const entry = ptys.get(paneId)
-      return entry ? entry.mirror.screenText(lines) : null
-    },
-    writePane: (paneId, data) => {
-      const entry = ptys.get(paneId)
-      if (!entry) return false
-      entry.pty.write(data)
-      return true
-    },
+    io: paneIo,
     openWorker,
     paneAlive: (paneId) => getByPaneId(paneId) !== undefined,
     now: Date.now,
@@ -2359,7 +2400,6 @@ app.on('before-quit', (event) => {
   }
   ptys.clear()
   killAllLsp()
-  killAllProcesses()
   workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)

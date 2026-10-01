@@ -170,6 +170,11 @@ const bridge: PineBridge = {
       ipcRenderer.on(`pty:size:${paneId}`, handler)
       return () => ipcRenderer.removeListener(`pty:size:${paneId}`, handler)
     },
+    onRun: (cb) => {
+      const handler = (_e: unknown, paneId: string, command: string): void => cb(paneId, command)
+      ipcRenderer.on('pty:run', handler)
+      return () => ipcRenderer.removeListener('pty:run', handler)
+    },
   },
   manager: {
     onOpen: (cb) => {

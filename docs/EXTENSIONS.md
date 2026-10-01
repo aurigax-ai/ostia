@@ -243,13 +243,17 @@ for extension identities, except the targetable ones below.
 
 ### Acting on a pane: `targetPaneId`
 
-The browser methods (`browse.*`, as the `pine browse` CLI uses them), the background process
-methods (`process.run|list|info|output|kill|restart`) and `pane.setAttention` accept an extra
+The browser methods (`browse.*`, as the `pine browse` CLI uses them), the read-only process
+methods (`process.list|info|output`) and `pane.setAttention` accept an extra
 `targetPaneId` (an external pane id) from an extension. Pine then runs the method as if the pane
 you named had called it: `browse.read` without `paneId` reads that pane's workspace's browser,
-`process.run` starts the process in that pane's workspace, `pane.setAttention {state, message?}`
+`process.list` lists the processes of that pane's workspace, `pane.setAttention {state, message?}`
 sets that pane's attention (`waiting`, `done`, `working`, `error`, `clear`), which rings like any
 other signal.
+
+`process.run`, `process.kill` and `process.restart` type into a terminal, so they are for panes
+only, like `pane.input` and `pane.read`. To run a command the human can watch, use
+`ext.openTerminal`.
 
 Your extension needs both the method's own capability (`browse`, `process`, `drive-self`) and
 `all-workspaces` in its manifest, approved by the human. Why `all-workspaces`: an extension has

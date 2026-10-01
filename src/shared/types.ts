@@ -194,6 +194,7 @@ export interface PtyApi {
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number) => void) => () => void
   onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
+  onRun: (cb: (paneId: string, command: string) => void) => () => void
 }
 
 export interface ManagerOpenPaneRequest {

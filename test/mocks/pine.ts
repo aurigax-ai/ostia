@@ -44,6 +44,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onData: vi.fn(noopUnsub),
       onExit: vi.fn(noopUnsub),
       onSize: vi.fn(noopUnsub),
+      onRun: vi.fn(noopUnsub),
     },
     manager: {
       onOpen: vi.fn(noopUnsub),
