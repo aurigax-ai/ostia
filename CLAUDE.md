@@ -726,6 +726,14 @@ Details: `docs/ARCHITECTURE.md`.
 - **Allotment is keyed by the child-id list**; its internal sizes go stale on structural changes.
   It reads the node's `sizes` only at mount (`defaultSizes`), so a size change the store makes
   (equalize, a remembered panel size) needs a remount: a new child list or a bumped `equalized`.
+  Always pass `defaultSizes` with one entry per child: without it (or with a length mismatch)
+  Allotment lays its views out only after a re-render that lands after a paint, and every new
+  split shows its new pane at the left edge for a few frames (`e2e/panel-open.spec.ts`). With
+  it, the pre-layout DOM still exists between the commit and Allotment's ResizeObserver callback,
+  so a rAF sample alone always sees it; what paints is the state after the frame's last
+  ResizeObserver callback. That spec samples there; a post-paint sampler misses the flash
+  (React's scheduler task runs first) and `layout-shift` entries report it even when it never
+  painted.
 - **xterm's viewport paints black by default.** `.xterm-host .xterm .xterm-viewport` is
   transparent and the host is painted with the terminal theme background.
 - **Dispose the server-side connection when an extension process exits** (`extensionHost.ts`
@@ -857,7 +865,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   portal is at `PINE_PORTAL_SOCKET`; it also runs the CLI from a Pine pane to check the refusal.
   It also runs a bash manager through `pine manager spawn|read|input` against a fake worker, with
   `manager.allowInput` off and on, and checks a worker pane is refused.
-  `e2e/tray.spec.ts` covers close-to-tray. `e2e/stale-waiting.spec.ts` runs a fake `claude`
+  `e2e/tray.spec.ts` covers close-to-tray. `e2e/panel-open.spec.ts` opens the Git panel from its
+  toggle (even and remembered size) and a view into a nested split, and fails if the new pane is
+  painted anywhere but its final split position (the pane's rect after each frame's last
+  ResizeObserver callback). `e2e/stale-waiting.spec.ts` runs a fake `claude`
   (`fakeAgentBin` with a script) that reports `pine state waiting`, exits, and reports again from
   the background, and checks the workspace goes back to Idle; it also checks a plain OSC 9 in
   zsh is a notification, not "Waiting for input".
