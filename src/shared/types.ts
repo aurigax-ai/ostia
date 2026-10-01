@@ -32,10 +32,16 @@ import type {
   DomainRefusal,
   PortsPolicy,
   SandboxControls,
+  SandboxEditError,
   SandboxEditResult,
+  SandboxEnableResult,
   SandboxExposeResult,
+  SandboxFixedPolicy,
   SandboxMergeRefusal,
+  SandboxPathKind,
   SandboxPortRow,
+  SandboxSwitches,
+  SandboxViolation,
   WorkspacePackages,
   WorkspaceSandbox,
 } from './sandbox'
@@ -136,6 +142,7 @@ export interface PtyAttachResult {
   cursor: number
   dropped: boolean
   sandboxed?: boolean
+  sandboxStamp?: string
   host?: boolean
   cols?: number
   rows?: number
@@ -155,9 +162,23 @@ export interface SecretsApi {
 
 export interface SandboxApi {
   get: (workspaceId: string) => Promise<WorkspaceSandbox | null>
-  setEnabled: (workspaceId: string, enabled: boolean) => Promise<WorkspaceSandbox | null>
-  setAllowRead: (workspaceId: string, paths: string[]) => Promise<SandboxEditResult>
+  setEnabled: (workspaceId: string, enabled: boolean) => Promise<SandboxEnableResult>
+  setPaths: (
+    workspaceId: string,
+    kind: SandboxPathKind,
+    paths: string[],
+  ) => Promise<SandboxEditResult>
+  checkPaths: (kind: SandboxPathKind, paths: string[]) => Promise<SandboxEditError[]>
   setDomains: (workspaceId: string, domains: string[]) => Promise<SandboxEditResult>
+  setDeniedDomains: (workspaceId: string, domains: string[]) => Promise<SandboxEditResult>
+  setSwitches: (
+    workspaceId: string,
+    switches: Partial<SandboxSwitches>,
+  ) => Promise<WorkspaceSandbox | null>
+  fixedPolicy: (workspaceId?: string) => Promise<SandboxFixedPolicy | null>
+  stamp: (workspaceId: string) => Promise<string | null>
+  violations: (workspaceId: string) => Promise<SandboxViolation[]>
+  clearViolations: (workspaceId: string) => Promise<boolean>
   setControls: (
     workspaceId: string,
     controls: Partial<SandboxControls>,

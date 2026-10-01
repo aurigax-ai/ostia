@@ -1,14 +1,23 @@
 import {
   DEFAULT_PACKAGE_SETTINGS,
+  DEFAULT_SWITCHES,
   type PackageSettings,
+  type SandboxFixedPolicy,
   type SandboxGlobals,
   checkDomainPattern,
   parseSandboxGlobals,
 } from '@shared/sandbox'
+import { useEffect, useState } from 'react'
 import { useDict } from '../i18n/useDict'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
 import { PackagesEditor } from './SandboxPackagesTab'
+import {
+  SandboxFilesGroups,
+  type SandboxListKey,
+  SandboxNetworkGroups,
+  type SandboxPolicyScope,
+} from './SandboxPolicyGroups'
 import { PortsPolicyRow } from './SandboxPortsTab'
 import { ControlRow, SectionHead, SettingsGroup } from './SettingsPanel'
 import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select'
@@ -19,53 +28,78 @@ export function useSandboxGlobals(): SandboxGlobals {
   return parseSandboxGlobals(raw)
 }
 
+export const GLOBAL_LISTS: Record<SandboxListKey, keyof SandboxGlobals> = {
+  allowRead: 'allowRead',
+  allowWrite: 'allowWrite',
+  denyRead: 'denyRead',
+  denyWrite: 'denyWrite',
+  allowSockets: 'allowSockets',
+  domains: 'allowedDomains',
+  deniedDomains: 'deniedDomains',
+}
+
+function isDomainList(key: SandboxListKey): key is 'domains' | 'deniedDomains' {
+  return key === 'domains' || key === 'deniedDomains'
+}
+
+export function useFixedPolicy(
+  workspaceId?: string,
+  revision?: unknown,
+): SandboxFixedPolicy | null {
+  const [fixed, setFixed] = useState<SandboxFixedPolicy | null>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: revision refetches after an edit
+  useEffect(() => {
+    let live = true
+    void window.pine.sandbox.fixedPolicy(workspaceId).then((next) => {
+      if (live) setFixed(next)
+    })
+    return () => {
+      live = false
+    }
+  }, [workspaceId, revision])
+  return fixed
+}
+
 export function SandboxSection(): JSX.Element {
   const d = useDict()
   const globals = useSandboxGlobals()
-  const save = useSettingsStore((s) => s.setSandbox)
+  const store = useSettingsStore((s) => s.setSandbox)
+  const switches = { ...DEFAULT_SWITCHES, ...globals.switches }
+  const fixed = useFixedPolicy(undefined, switches.gitConfig)
 
-  const setDomains = async (next: string[]): Promise<ListEditResult> => {
-    const errors = next.flatMap((value) => {
-      const check = checkDomainPattern(value)
-      return check.ok ? [] : [{ value, reason: check.reason }]
-    })
-    if (errors.length > 0) return { ok: false, errors }
-    await save({ ...globals, allowedDomains: next })
-    return { ok: true }
+  const save = async (next: SandboxGlobals): Promise<void> => {
+    await store(next)
+    await useSandboxStore.getState().reloadAll()
   }
 
-  const setReadPaths = async (next: string[]): Promise<ListEditResult> => {
-    const errors = next.flatMap((value) =>
-      value === '~' || value.startsWith('~/') || value.startsWith('/')
-        ? []
-        : [{ value, reason: 'not-absolute' }],
-    )
-    if (errors.length > 0) return { ok: false, errors }
-    await save({ ...globals, allowRead: next })
-    return { ok: true }
+  const listOf = (key: SandboxListKey): string[] => (globals[GLOBAL_LISTS[key]] as string[]) ?? []
+
+  const scope: SandboxPolicyScope = {
+    items: listOf,
+    inherited: () => [],
+    setList: async (key, next) => {
+      const added = next.filter((value) => !listOf(key).includes(value))
+      const errors = isDomainList(key)
+        ? added.flatMap((value) => {
+            const check = checkDomainPattern(value)
+            return check.ok ? [] : [{ value, reason: check.reason }]
+          })
+        : await window.pine.sandbox.checkPaths(key, added)
+      if (errors.length > 0) return { ok: false, errors }
+      await save({ ...globals, [GLOBAL_LISTS[key]]: next })
+      return { ok: true }
+    },
+    switches,
+    setSwitch: (key, value) =>
+      void save({ ...globals, switches: { ...switches, [key]: value ?? DEFAULT_SWITCHES[key] } }),
+    fixed,
   }
 
   return (
     <div>
       <SectionHead title={d.sandbox.title} desc={d.sandbox.desc} />
-      <SettingsGroup title={d.sandbox.network}>
-        <SandboxListEditor
-          label={d.sandbox.domains}
-          desc={d.sandbox.domainsDesc}
-          items={globals.allowedDomains}
-          placeholder="api.example.com"
-          onChange={setDomains}
-        />
-      </SettingsGroup>
-      <SettingsGroup title={d.sandbox.files}>
-        <SandboxListEditor
-          label={d.sandbox.readPaths}
-          desc={d.sandbox.readPathsDesc}
-          items={globals.allowRead}
-          placeholder="~/.config/tool"
-          onChange={setReadPaths}
-        />
-      </SettingsGroup>
+      <SandboxNetworkGroups scope={scope} />
+      <SandboxFilesGroups scope={scope} />
       <SettingsGroup title={d.sandbox.ports}>
         <PortsPolicyRow
           value={globals.portsPolicy ?? 'ask'}

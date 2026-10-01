@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { ApprovalOutcome } from '../../shared/approvals'
 import { DomainRequests } from './domainRequests'
 
-function setup(opts: { sandboxed?: boolean } = {}) {
+function setup(opts: { sandboxed?: boolean; blocked?: string[] } = {}) {
   const asks: { workspaceId: string; host: string; resolve: (o: ApprovalOutcome) => void }[] = []
   const stored: string[] = []
   const session: string[] = []
   const requests = new DomainRequests({
     isSandboxed: () => opts.sandboxed ?? true,
+    blockedDomains: () => opts.blocked ?? [],
     ask: ({ workspaceId, host }) =>
       new Promise<ApprovalOutcome>((resolve) => asks.push({ workspaceId, host, resolve })),
     allowWorkspace: (_ws, domain) => stored.push(domain),
@@ -94,5 +95,22 @@ describe('DomainRequests', () => {
     expect(requests.refusals('ws')).toEqual([])
     const later = requests.onBlocked('ws', 'example.com', 443)
     await expect(later).resolves.toBe(true)
+  })
+
+  it('refuses an agent request for a host on the blocked list without showing a card', async () => {
+    const { requests, asks, stored } = setup({ blocked: ['ads.example.com', '*.tracker.test'] })
+    for (const host of ['ads.example.com', 'ADS.example.com:443', 'pixel.tracker.test']) {
+      await expect(requests.request('ws', 'pane', host)).resolves.toEqual({
+        ok: false,
+        error: 'denied',
+      })
+    }
+    expect(asks).toHaveLength(0)
+    expect(stored).toEqual([])
+    const allowed = requests.request('ws', 'pane', 'example.com')
+    await tick()
+    expect(asks).toHaveLength(1)
+    asks[0].resolve('deny')
+    await allowed
   })
 })

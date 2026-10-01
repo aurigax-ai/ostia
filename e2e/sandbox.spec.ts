@@ -309,11 +309,17 @@ test('SBX-C57 shows every sandbox setting on the workspace page and in Settings 
     const tabs: [string, string][] = [
       ['General', 'Sandbox this workspace'],
       ['Files', 'Readable folders'],
+      ['Files', 'Writable folders'],
+      ['Files', 'Hidden paths'],
+      ['Files', 'Read-only paths'],
       ['Network', 'Allowed domains'],
+      ['Network', 'Blocked domains'],
+      ['Network', 'Allow Unix sockets'],
       ['Ports', 'When a new server starts'],
       ['Secrets', 'Env and file grants'],
       ['Packages', 'Cooldown (days)'],
       ['Pine access', 'Act on other workspaces'],
+      ['Blocked', 'Nothing was blocked.'],
     ]
     for (const [tab, control] of tabs) {
       await page.getByRole('tab', { name: tab }).click()
@@ -324,6 +330,8 @@ test('SBX-C57 shows every sandbox setting on the workspace page and in Settings 
       'api.anthropic.com',
     )
     await expect(page.getByRole('group', { name: 'Readable folders' })).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Writable folders' })).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Allow Unix sockets' })).toBeVisible()
     await expect(page.getByRole('group', { name: 'Cooldown (days)' })).toBeVisible()
   } finally {
     await app.close()
@@ -348,6 +356,196 @@ test('a sandboxed shell survives Ctrl+C, which still interrupts its command, and
 
     await run(win, 'touch "$TMPDIR/probe" && test -d "$TMPDIR" && echo TMP-$((4+4))')
     await expect(rows).toContainText('TMP-8', { timeout: 15_000 })
+  } finally {
+    await app.close()
+  }
+})
+
+async function openWorkspacePage(win: Page, tab: string) {
+  await win.locator('.rail-row').first().click({ button: 'right' })
+  await win.getByRole('menuitem', { name: 'Workspace settings…' }).click()
+  const page = win.getByRole('region', { name: 'Settings' })
+  await page.getByRole('tab', { name: tab }).click()
+  return page
+}
+
+async function addToList(page: ReturnType<Page['getByRole']>, list: string, value: string) {
+  const group = page.getByRole('group', { name: list })
+  await group.getByRole('textbox').fill(value)
+  await group.getByRole('button', { name: 'Add' }).click()
+  await expect(group.getByRole('button', { name: `Remove ${value}` })).toBeVisible()
+}
+
+async function restartShell(win: Page, marker: string): Promise<void> {
+  const restart = win.getByRole('button', { name: 'Restart to apply' })
+  await expect(restart).toBeVisible({ timeout: 10_000 })
+  await restart.click()
+  await expect(restart).toHaveCount(0)
+  const rows = win.locator('.xterm-rows').first()
+  await expect(async () => {
+    await run(win, `echo "${marker}=\${HTTPS_PROXY:+on}"`)
+    await expect(rows).toContainText(`${marker}=on`, { timeout: 2_000 })
+  }).toPass({ timeout: 30_000 })
+}
+
+test('a folder added as writable in Settings can be written from the sandbox once the shell restarts', async () => {
+  test.setTimeout(120_000)
+  const { app, win, home } = await launch()
+  try {
+    mkdirSync(join(home, 'builds'))
+    await sandboxedShell(win)
+    const rows = win.locator('.xterm-rows').first()
+    await run(win, `echo early > ${home}/builds/early.txt; echo BEFORE-$((1+1))`)
+    await expect(rows).toContainText('BEFORE-2', { timeout: 15_000 })
+    expect(existsSync(join(home, 'builds', 'early.txt'))).toBe(false)
+
+    const page = await openWorkspacePage(win, 'Files')
+    const writable = page.getByRole('group', { name: 'Writable folders' })
+    await expect(writable).toContainText(join(home, 'project'))
+    await addToList(page, 'Writable folders', '~/builds')
+    await win.keyboard.press('Escape')
+
+    await restartShell(win, 'rw')
+    await run(win, `echo built > ${home}/builds/out.txt && echo AFTER-$((2+2))`)
+    await expect(rows).toContainText('AFTER-4', { timeout: 15_000 })
+    expect(readFileSync(join(home, 'builds', 'out.txt'), 'utf8')).toBe('built\n')
+  } finally {
+    await app.close()
+  }
+})
+
+test('a path hidden in Settings cannot be read from the sandbox, even inside the workspace folder', async () => {
+  test.setTimeout(120_000)
+  const { app, win, project } = await launch()
+  try {
+    mkdirSync(join(project, 'secrets'))
+    writeFileSync(join(project, 'secrets', 'token.txt'), 'WORKSPACE-TOKEN-VALUE')
+    await sandboxedShell(win)
+    const rows = win.locator('.xterm-rows').first()
+    await run(win, 'cat secrets/token.txt')
+    await expect(rows).toContainText('WORKSPACE-TOKEN-VALUE', { timeout: 15_000 })
+    await run(win, 'clear')
+    await expect(rows).not.toContainText('WORKSPACE-TOKEN-VALUE')
+
+    const page = await openWorkspacePage(win, 'Files')
+    await addToList(page, 'Hidden paths', join(project, 'secrets'))
+    await win.keyboard.press('Escape')
+
+    await restartShell(win, 'hid')
+    await run(win, 'cat secrets/token.txt || echo HIDDEN-$((3+3))')
+    await expect(rows).toContainText('HIDDEN-6', { timeout: 15_000 })
+    await expect(rows).not.toContainText('WORKSPACE-TOKEN-VALUE')
+  } finally {
+    await app.close()
+  }
+})
+
+test('a refused connection shows up under Blocked with its host, and Clear empties the list', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launch()
+  try {
+    await sandboxedShell(win)
+    const page = await openWorkspacePage(win, 'Network')
+    await page
+      .getByRole('group', { name: 'Never ask about other domains' })
+      .getByRole('switch')
+      .click()
+    await win.keyboard.press('Escape')
+    await expect(win.getByRole('button', { name: 'Restart to apply' })).toHaveCount(0)
+
+    const rows = win.locator('.xterm-rows').first()
+    await run(win, 'curl -s -m 10 -o /dev/null http://unlisted.invalid/; echo CURL-$((5+5))')
+    await expect(rows).toContainText('CURL-10', { timeout: 20_000 })
+    await expect(win.getByRole('region', { name: 'Agent permission request' })).toHaveCount(0)
+
+    const blocked = await openWorkspacePage(win, 'Blocked')
+    const list = blocked.getByRole('list', { name: 'Blocked' })
+    const row = list.getByRole('listitem').filter({ hasText: 'unlisted.invalid:80' })
+    await expect(row).toBeVisible({ timeout: 15_000 })
+    await expect(row).toContainText('Network')
+    await expect(row).toContainText('Not on the allowed list')
+    await expect(row.getByRole('button', { name: 'Allow' })).toBeVisible()
+    await blocked.getByRole('button', { name: 'Clear' }).click()
+    await expect(blocked.getByRole('tabpanel', { name: 'Blocked' })).toContainText(
+      'Nothing was blocked.',
+    )
+  } finally {
+    await app.close()
+  }
+})
+
+test('with Unix sockets off the shell still starts, pine cannot reach Pine, and a write outside is listed', async () => {
+  test.skip(process.platform !== 'linux', 'Linux blocks Unix sockets through seccomp')
+  test.setTimeout(120_000)
+  const { app, win } = await launch()
+  try {
+    await sandboxedShell(win)
+    const rows = win.locator('.xterm-rows').first()
+    await run(win, 'pine whoami >/dev/null && echo REACHED-$((7+7))')
+    await expect(rows).toContainText('REACHED-14', { timeout: 15_000 })
+
+    const page = await openWorkspacePage(win, 'Network')
+    const sockets = page.getByRole('group', { name: 'Allow Unix sockets' })
+    await expect(sockets).toContainText('the pine command')
+    await sockets.getByRole('switch').click()
+    await expect(sockets).toContainText('Overridden')
+    await win.keyboard.press('Escape')
+
+    await restartShell(win, 'nosock')
+    await run(win, 'pine whoami >/dev/null 2>&1 || echo UNREACHABLE-$((8+8))')
+    await expect(rows).toContainText('UNREACHABLE-16', { timeout: 15_000 })
+    await run(win, 'echo x > /etc/pine-e2e-probe; echo PROBED-$((9+9))')
+    await expect(rows).toContainText('PROBED-18', { timeout: 15_000 })
+    await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
+
+    const blocked = await openWorkspacePage(win, 'Blocked')
+    const row = blocked
+      .getByRole('list', { name: 'Blocked' })
+      .getByRole('listitem')
+      .filter({ hasText: '/etc/pine-e2e-probe' })
+    await expect(row).toBeVisible({ timeout: 15_000 })
+    await expect(row).toContainText('Write')
+  } finally {
+    await app.close()
+  }
+})
+
+test('refuses to sandbox a workspace whose folder is the home folder, says why, and leaves the shell alone', async () => {
+  test.setTimeout(120_000)
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+  const launchOptions = isolatedLaunch(dataHome)
+  const app = await electron.launch({ ...launchOptions, env: { ...launchOptions.env, HOME: home } })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    const rows = win.locator('.xterm-rows').first()
+    await run(win, 'echo ALIVE-$((6*7))')
+    await expect(rows).toContainText('ALIVE-42', { timeout: 15_000 })
+
+    await win.locator('.rail-row').first().click({ button: 'right' })
+    await win.getByRole('menuitemcheckbox', { name: 'Sandbox' }).click()
+    const dialog = win.getByRole('dialog')
+    await expect(dialog).toContainText('This folder cannot be sandboxed', { timeout: 10_000 })
+    await expect(dialog).toContainText(`${home} is your home folder`)
+    await expect(dialog).toContainText('Open a project folder')
+    await dialog.getByRole('button', { name: 'Close' }).click()
+    await expect(dialog).toHaveCount(0)
+
+    await expect(win.getByRole('button', { name: 'Restart to apply' })).toHaveCount(0)
+    await win.locator('.rail-row').first().click({ button: 'right' })
+    await expect(win.getByRole('menuitemcheckbox', { name: 'Sandbox' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    )
+    await win.keyboard.press('Escape')
+    await run(win, 'echo "still=${HTTPS_PROXY:-unsandboxed}"')
+    await expect(rows).toContainText('still=unsandboxed', { timeout: 15_000 })
+    await expect(rows).not.toContainText('process exited')
+    await expect(rows).not.toContainText('chdir')
   } finally {
     await app.close()
   }
