@@ -744,6 +744,12 @@ Details: `docs/ARCHITECTURE.md`.
 - **Allotment is keyed by the child-id list**; its internal sizes go stale on structural changes.
   It reads the node's `sizes` only at mount (`defaultSizes`), so a size change the store makes
   (equalize, a remembered panel size) needs a remount: a new child list or a bumped `equalized`.
+- **The terminal's selection color must stand out from painted cells** (`terminalTheme` →
+  `visibleSelection`, `lib/color.ts`). xterm colors a selected cell from the selection color
+  alone (DOM replaces the cell background, WebGL blends 50/50 with it), so Oxocarbon's grey
+  `#393939` selection vanished on Claude Code's `rgb(55,55,55)` panels while the shell showed
+  it fine. Every xterm takes its theme through `terminalTheme`; never hand xterm a scheme's
+  `colors` directly. Covered by `e2e/terminal-selection.spec.ts` (WebGL and DOM).
 - **xterm's viewport paints black by default.** `.xterm-host .xterm .xterm-viewport` is
   transparent and the host is painted with the terminal theme background.
 - **Dispose the server-side connection when an extension process exits** (`extensionHost.ts`
@@ -766,7 +772,8 @@ Details: `docs/ARCHITECTURE.md`.
   without that the first review notice after launch was lost.
 - **E2E reads terminal text from the DOM renderer.** WebGL draws to a canvas, so `isolatedLaunch()`
   seeds `behavior.gpuAcceleration: false` (`DOM_RENDERER_SETTINGS`); a spec that seeds its own
-  `settings.json` spreads it in. Only `terminal-webgl.spec.ts` runs the GPU renderer.
+  `settings.json` spreads it in. Only `terminal-webgl.spec.ts` and `terminal-selection.spec.ts`
+  run the GPU renderer.
 - **pty children inherit Electron's file descriptors**, listening sockets included (Playwright's
   and Chromium's debugging ports). The ports extension drops every socket its parent (pine's
   main process) also holds; without that each terminal "listened" on pine's own ports.
@@ -879,7 +886,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   `manager.allowInput` off and on, and checks a worker pane is refused.
   `e2e/tray.spec.ts` covers close-to-tray. `e2e/fonts.spec.ts` sets a UI and code font and
   checks the computed, loaded family in the UI, a settings list, a keycap, chat code and the Git
-  panel's webview. `e2e/stale-waiting.spec.ts` runs a fake `claude`
+  panel's webview. `e2e/terminal-selection.spec.ts` runs a fake `claude`
+  that paints `rgb(55,55,55)` rows with mouse tracking on, Shift-drags over them under Oxocarbon
+  in the WebGL and DOM renderers, and checks the copied text and that the selected cells' color
+  differs from the panel (the selection math is unit-tested in `lib/color.test.ts`). `e2e/stale-waiting.spec.ts` runs a fake `claude`
   (`fakeAgentBin` with a script) that reports `pine state waiting`, exits, and reports again from
   the background, and checks the workspace goes back to Idle; it also checks a plain OSC 9 in
   zsh is a notification, not "Waiting for input".

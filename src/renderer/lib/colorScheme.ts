@@ -1,9 +1,9 @@
 import { isLinkedTheme } from '@shared/themeChoice'
 import { useMemo } from 'react'
-import type { ColorScheme, Theme } from '../plugins/types'
+import type { ColorScheme, TerminalColors, Theme } from '../plugins/types'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { normalizeHex } from './color'
+import { normalizeHex, visibleSelection } from './color'
 import { currentTheme, themedTokens, useEffectiveTheme } from './theme'
 
 export type SchemeSurface = 'terminal' | 'editor'
@@ -53,4 +53,11 @@ export function useScheme(surface: SchemeSurface): ColorScheme {
     () => accentScheme(resolveScheme(schemes, choice, theme), choice, theme, accent),
     [schemes, choice, theme, accent],
   )
+}
+
+export function terminalTheme(colors: TerminalColors): TerminalColors {
+  const selectionBackground = visibleSelection(colors.selectionBackground, colors.background)
+  return selectionBackground === colors.selectionBackground
+    ? colors
+    : { ...colors, selectionBackground }
 }
