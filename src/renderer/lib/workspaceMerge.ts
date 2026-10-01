@@ -134,7 +134,7 @@ function finishMerge(sourceId: string, targetId: string): void {
   })
   const ui = useUIStore.getState()
   if (ui.settingsWorkspaceId === sourceId) useUIStore.setState({ settingsWorkspaceId: targetId })
-  ui.leaveSettings()
+  ui.showWorkspaces()
 }
 
 export async function requestMergeWorkspace(sourceId: string, targetId: string): Promise<boolean> {

@@ -584,7 +584,7 @@ export function registerBuiltinCommands(): void {
         throw new Error('dir must be an absolute path or start with ~')
       }
       if (name !== undefined && typeof name !== 'string') throw new Error('name must be a string')
-      useUIStore.getState().leaveSettings()
+      useUIStore.getState().showWorkspaces()
       return { workspaceId: startNewWorkspace({ dir, name }) }
     },
   })
@@ -603,7 +603,7 @@ export function registerBuiltinCommands(): void {
       if (sandboxed !== undefined && typeof sandboxed !== 'boolean') {
         throw new Error('sandboxed must be a boolean')
       }
-      useUIStore.getState().leaveSettings()
+      useUIStore.getState().showWorkspaces()
       return { workspaceId: await startScratchWorkspace({ sandboxed }) }
     },
   })
@@ -659,6 +659,14 @@ export function registerBuiltinCommands(): void {
     category: 'App',
     target: 'none',
     run: () => useUIStore.getState().openSettings(),
+  })
+
+  commands.register({
+    id: 'dashboard.toggle',
+    title: 'Toggle Dashboard',
+    category: 'View',
+    target: 'none',
+    run: () => useUIStore.getState().toggleDashboard(),
   })
 
   commands.register({

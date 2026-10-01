@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
 import type { PaneNode } from '../layout/types'
 import { useBlocksStore } from '../stores/blocksStore'
+import { useQuestionsStore } from '../stores/questionsStore'
+import { useUIStore } from '../stores/uiStore'
 import { Pane } from './Pane'
 
 const pane: PaneNode = { type: 'pane', id: 'p9', kind: 'terminal', title: 'zsh' }
@@ -51,6 +53,38 @@ describe('Pane', () => {
     expect(frame).toHaveClass('dimmed')
     rerender(<Pane tabs={[pane]} shownId={pane.id} active split />)
     expect(frame).not.toHaveClass('dimmed')
+  })
+
+  it('shows an open question on its pane and opens the dashboard at it', async () => {
+    useQuestionsStore.setState({
+      pending: [
+        {
+          id: 'question-4',
+          paneId: 'p9',
+          question: 'Which database?',
+          context: '',
+          choices: [],
+          mode: 'text',
+          at: 1,
+        },
+      ],
+    })
+    try {
+      render(<Pane tabs={[pane]} shownId={pane.id} active />)
+      const notice = screen.getByRole('region', { name: 'Agent asks' })
+      expect(notice).toHaveTextContent('Which database?')
+      await userEvent.setup().click(within(notice).getByRole('button', { name: 'Answer' }))
+      expect(useUIStore.getState().dashboardActive).toBe(true)
+      expect(useQuestionsStore.getState().focusId).toBe('question-4')
+    } finally {
+      useQuestionsStore.setState({ pending: [], focusId: null })
+      useUIStore.setState({ dashboardActive: false })
+    }
+  })
+
+  it('shows no question notice on a pane that asked nothing', () => {
+    render(<Pane tabs={[pane]} shownId={pane.id} active />)
+    expect(screen.queryByRole('region', { name: 'Agent asks' })).toBeNull()
   })
 
   describe('tabs', () => {

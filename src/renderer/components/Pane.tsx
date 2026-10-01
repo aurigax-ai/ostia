@@ -39,6 +39,7 @@ import { useBlocksStore } from '../stores/blocksStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePaneDnd } from '../stores/paneDndStore'
+import { useQuestionsStore } from '../stores/questionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
 import { useViewsStore } from '../stores/viewsStore'
@@ -49,6 +50,7 @@ import { PaneChips } from './ExtensionChips'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
+import { QuestionNotice } from './QuestionNotice'
 import { HostPaneBadge, SandboxRestartButton } from './SandboxRestartButton'
 import { extensionIcon } from './extensionIcons'
 import { Button } from './ui/button'
@@ -85,6 +87,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
   const tabDrop = usePaneDnd((s) => (s.overId === shown.id ? s.tab : null))
   const attention = useAttentionStore((s) => s.byPane[shown.id])
   const approval = useApprovalsStore((s) => s.pending.find((r) => r.paneId === shown.id))
+  const question = useQuestionsStore((s) => s.pending.find((q) => q.paneId === shown.id))
   const ring = needsRing(attention)
   const unread = attention?.unread ?? false
   const frameRef = useRef<HTMLDivElement>(null)
@@ -288,7 +291,11 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         {tabs.map((tab) => (
           <TabBody key={tab.id} pane={tab} shown={tab.id === shown.id} />
         ))}
-        {approval ? <ApprovalCard request={approval} paneTitle={shown.title} /> : null}
+        {approval ? (
+          <ApprovalCard request={approval} paneTitle={shown.title} />
+        ) : question ? (
+          <QuestionNotice question={question} />
+        ) : null}
       </div>
 
       {ring ? (

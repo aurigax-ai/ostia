@@ -163,7 +163,7 @@ interface NavChild {
 export function SettingsPanel(): JSX.Element | null {
   const d = useDict()
   const open = useUIStore((s) => s.settingsActive)
-  const close = useUIStore((s) => s.leaveSettings)
+  const close = useUIStore((s) => s.showWorkspaces)
   const [active, setActive] = useState<SectionId>('appearance')
   const requested = useUIStore((s) => s.settingsSection)
   const requestedExtension = useUIStore((s) => s.settingsExtension)

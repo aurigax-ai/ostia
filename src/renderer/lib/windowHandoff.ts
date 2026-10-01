@@ -186,7 +186,7 @@ function rejoin(workspace: SnapshotWorkspace, home: string): string | null {
 }
 
 export function adoptWorkspaces(workspaces: SnapshotWorkspace[]): void {
-  useUIStore.getState().leaveSettings()
+  useUIStore.getState().showWorkspaces()
   const localIds = new Set(useWorkspacesStore.getState().workspaces.map((w) => w.id))
   const standalone: SnapshotWorkspace[] = []
   let focus: string | null = null
@@ -209,7 +209,7 @@ function focusPaneWhenReady(paneId: string): void {
 
 export function activateWorkspace(workspaceId: string, jumpToUnread: boolean): void {
   if (!findWorkspace(workspaceId)) return
-  useUIStore.getState().leaveSettings()
+  useUIStore.getState().showWorkspaces()
   if (jumpToUnread && jumpToLatestUnreadIn(workspaceId)) return
   useWorkspacesStore.getState().setActive(workspaceId)
 }

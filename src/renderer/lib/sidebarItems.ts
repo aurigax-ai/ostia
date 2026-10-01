@@ -45,7 +45,7 @@ export function openSidebarUrl(
 ): void {
   const target = workspaceId ?? useWorkspacesStore.getState().activeWorkspaceId
   if (!target) return
-  useUIStore.getState().leaveSettings()
+  useUIStore.getState().showWorkspaces()
   useWorkspacesStore.getState().setActive(target)
   openBrowserAs(target, url, opener)
 }
