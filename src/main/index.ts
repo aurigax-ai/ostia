@@ -173,7 +173,7 @@ import { registerViewMethods, registerViewsIpc } from './viewsIpc'
 import { MAIN_SLOT } from './windowBook'
 import { WindowBroker } from './windowBroker'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
-import { workspaceChipsForWindow } from './workspaceChips'
+import { firstKnownOwner, workspaceChipsForWindow } from './workspaceChips'
 import { registerWorkspaceMergeIpc } from './workspaceMerge'
 import {
   removeWorkspace,
@@ -1702,9 +1702,11 @@ function windowIds(): string[] {
   return broker?.windowIds() ?? [...windows.keys()]
 }
 
-function workspaceWindowId(workspaceId: string): string | undefined {
-  return broker?.windowOfWorkspace(workspaceId) ?? windowOfWorkspace(workspaceId)
-}
+const workspaceWindowId = firstKnownOwner(
+  (workspaceId) => broker?.windowOfWorkspace(workspaceId),
+  windowOfWorkspace,
+  windowForWorkspace,
+)
 
 function mainWindow(): BrowserWindow | undefined {
   return broker?.mainWindow() ?? [...windows.values()][0]
