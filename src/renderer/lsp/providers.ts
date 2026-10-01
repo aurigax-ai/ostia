@@ -1,23 +1,91 @@
 import type {
+  CodeAction,
+  Command,
   CompletionItem,
   CompletionList,
+  DocumentHighlight,
+  DocumentSymbol,
   Hover,
+  InlayHint,
   Location,
   LocationLink,
+  Range,
+  SemanticTokens,
   ServerCapabilities,
+  SignatureHelp,
+  SymbolInformation,
   TextEdit,
+  WorkspaceEdit,
 } from 'vscode-languageserver-protocol'
+import { currentDict } from '../i18n/useDict'
 import { monaco } from '../monaco/setup'
 import {
   type LspCompletion,
   markup,
+  rangesOverlap,
   toCompletion,
+  toDocumentSymbols,
+  toHighlights,
   toHover,
+  toInlayHints,
   toLocations,
   toLspPosition,
+  toLspRange,
+  toMarkers,
+  toMonacoRange,
+  toSignatureHelp,
   toTextEdits,
 } from './converters'
 import type { LspSession } from './session'
+import {
+  applyClosedFileEdits,
+  applyWorkspaceEdit,
+  openModelEdits,
+  textEditsByUri,
+} from './workspaceEdit'
+
+export const APPLY_CODE_ACTION_COMMAND = 'pine.lsp.applyCodeAction'
+const TRIGGER_INVOKE = 1
+const TRIGGER_AUTOMATIC = 2
+let applyCommand: monaco.IDisposable | null = null
+
+export async function applyCodeAction(
+  session: LspSession,
+  action: CodeAction | Command,
+): Promise<void> {
+  let chosen = action
+  const provider = session.capabilities.codeActionProvider
+  const resolves = typeof provider === 'object' && provider.resolveProvider === true
+  if ('title' in chosen && !('edit' in chosen) && typeof chosen.command !== 'string' && resolves) {
+    chosen = (await session.request<CodeAction>('codeAction/resolve', chosen)) ?? chosen
+  }
+  if (typeof chosen.command === 'string') {
+    const command = chosen as Command
+    await session.request('workspace/executeCommand', {
+      command: command.command,
+      arguments: command.arguments,
+    })
+    return
+  }
+  const codeAction = chosen as CodeAction
+  if (codeAction.edit) await applyWorkspaceEdit(codeAction.edit)
+  if (codeAction.command) {
+    await session.request('workspace/executeCommand', {
+      command: codeAction.command.command,
+      arguments: codeAction.command.arguments,
+    })
+  }
+}
+
+function ensureApplyCommand(): void {
+  if (applyCommand) return
+  applyCommand = monaco.editor.registerCommand(
+    APPLY_CODE_ACTION_COMMAND,
+    (_accessor, session: LspSession, action: CodeAction | Command) => {
+      void applyCodeAction(session, action)
+    },
+  )
+}
 
 export type SessionLookup = (model: monaco.editor.ITextModel) => LspSession | undefined
 
@@ -27,6 +95,19 @@ interface SessionCompletion extends LspCompletion {
 
 const TRIGGER_CHARACTER = 2
 const TRIGGER_INVOKED = 1
+
+function fallbackWordRange(
+  model: monaco.editor.ITextModel,
+  position: monaco.IPosition,
+): monaco.IRange {
+  const word = model.getWordAtPosition(position)
+  return {
+    startLineNumber: position.lineNumber,
+    startColumn: word?.startColumn ?? position.column,
+    endLineNumber: position.lineNumber,
+    endColumn: word?.endColumn ?? position.column,
+  }
+}
 
 function documentPosition(
   model: monaco.editor.ITextModel,
@@ -169,6 +250,258 @@ export function registerProviders(
             ),
           )
         },
+      }),
+    )
+  }
+
+  if (capabilities.documentRangeFormattingProvider) {
+    registrations.push(
+      languages.registerDocumentRangeFormattingEditProvider(language, {
+        async provideDocumentRangeFormattingEdits(model, range, options, token) {
+          const session = sessionOf(model)
+          if (!session) return null
+          return toTextEdits(
+            await session.request<TextEdit[]>(
+              'textDocument/rangeFormatting',
+              {
+                textDocument: { uri: model.uri.toString() },
+                range: toLspRange(range),
+                options: { tabSize: options.tabSize, insertSpaces: options.insertSpaces },
+              },
+              token,
+            ),
+          )
+        },
+      }),
+    )
+  }
+
+  if (capabilities.referencesProvider) {
+    registrations.push(
+      languages.registerReferenceProvider(language, {
+        async provideReferences(model, position, context, token) {
+          const session = sessionOf(model)
+          if (!session) return null
+          return toLocations(
+            await session.request<Location[]>(
+              'textDocument/references',
+              {
+                ...documentPosition(model, position),
+                context: { includeDeclaration: context.includeDeclaration },
+              },
+              token,
+            ),
+          )
+        },
+      }),
+    )
+  }
+
+  if (capabilities.renameProvider) {
+    const prepares =
+      typeof capabilities.renameProvider === 'object' &&
+      capabilities.renameProvider.prepareProvider === true
+    registrations.push(
+      languages.registerRenameProvider(language, {
+        async provideRenameEdits(model, position, newName, token) {
+          const session = sessionOf(model)
+          if (!session) return { edits: [] }
+          const edit = await session.request<WorkspaceEdit>(
+            'textDocument/rename',
+            { ...documentPosition(model, position), newName },
+            token,
+          )
+          const byUri = edit ? textEditsByUri(edit) : null
+          if (!byUri)
+            return { edits: [], rejectReason: currentDict().languageServers.renameRefused }
+          await applyClosedFileEdits(byUri)
+          return openModelEdits(byUri)
+        },
+        ...(prepares
+          ? {
+              async resolveRenameLocation(model, position, token) {
+                const session = sessionOf(model)
+                const prepared = session
+                  ? await session.request<
+                      Range | { range: Range; placeholder: string } | { defaultBehavior: boolean }
+                    >('textDocument/prepareRename', documentPosition(model, position), token)
+                  : null
+                if (!prepared)
+                  return {
+                    range: fallbackWordRange(model, position),
+                    text: '',
+                    rejectReason: currentDict().languageServers.renameRefused,
+                  }
+                if ('defaultBehavior' in prepared) {
+                  const range = fallbackWordRange(model, position)
+                  return { range, text: model.getValueInRange(range) }
+                }
+                const range = toMonacoRange('range' in prepared ? prepared.range : prepared)
+                return {
+                  range,
+                  text:
+                    'placeholder' in prepared ? prepared.placeholder : model.getValueInRange(range),
+                }
+              },
+            }
+          : {}),
+      }),
+    )
+  }
+
+  if (capabilities.signatureHelpProvider) {
+    const options = capabilities.signatureHelpProvider
+    registrations.push(
+      languages.registerSignatureHelpProvider(language, {
+        signatureHelpTriggerCharacters: options.triggerCharacters ?? [],
+        signatureHelpRetriggerCharacters: options.retriggerCharacters ?? [],
+        async provideSignatureHelp(model, position, token, context) {
+          const session = sessionOf(model)
+          if (!session) return null
+          const value = toSignatureHelp(
+            await session.request<SignatureHelp>(
+              'textDocument/signatureHelp',
+              {
+                ...documentPosition(model, position),
+                context: {
+                  triggerKind: context.triggerKind,
+                  isRetrigger: context.isRetrigger,
+                  ...(context.triggerCharacter !== undefined
+                    ? { triggerCharacter: context.triggerCharacter }
+                    : {}),
+                },
+              },
+              token,
+            ),
+          )
+          return value ? { value, dispose: () => {} } : null
+        },
+      }),
+    )
+  }
+
+  if (capabilities.documentSymbolProvider) {
+    registrations.push(
+      languages.registerDocumentSymbolProvider(language, {
+        async provideDocumentSymbols(model, token) {
+          const session = sessionOf(model)
+          if (!session) return null
+          return toDocumentSymbols(
+            await session.request<(DocumentSymbol | SymbolInformation)[]>(
+              'textDocument/documentSymbol',
+              { textDocument: { uri: model.uri.toString() } },
+              token,
+            ),
+          )
+        },
+      }),
+    )
+  }
+
+  if (capabilities.documentHighlightProvider) {
+    registrations.push(
+      languages.registerDocumentHighlightProvider(language, {
+        async provideDocumentHighlights(model, position, token) {
+          const session = sessionOf(model)
+          if (!session) return null
+          return toHighlights(
+            await session.request<DocumentHighlight[]>(
+              'textDocument/documentHighlight',
+              documentPosition(model, position),
+              token,
+            ),
+          )
+        },
+      }),
+    )
+  }
+
+  if (capabilities.codeActionProvider) {
+    ensureApplyCommand()
+    registrations.push(
+      languages.registerCodeActionProvider(language, {
+        async provideCodeActions(model, range, context, token) {
+          const session = sessionOf(model)
+          if (!session) return null
+          const lspRange = toLspRange(range)
+          const result = await session.request<(CodeAction | Command)[]>(
+            'textDocument/codeAction',
+            {
+              textDocument: { uri: model.uri.toString() },
+              range: lspRange,
+              context: {
+                diagnostics: session
+                  .diagnosticsFor(model.uri.toString())
+                  .filter((diagnostic) => rangesOverlap(diagnostic.range, lspRange)),
+                triggerKind:
+                  context.trigger === languages.CodeActionTriggerType.Invoke
+                    ? TRIGGER_INVOKE
+                    : TRIGGER_AUTOMATIC,
+                ...(context.only ? { only: [context.only] } : {}),
+              },
+            },
+            token,
+          )
+          const actions = (result ?? []).map((action): monaco.languages.CodeAction => {
+            const literal = typeof action.command === 'string' ? null : (action as CodeAction)
+            return {
+              title: action.title,
+              command: {
+                id: APPLY_CODE_ACTION_COMMAND,
+                title: action.title,
+                arguments: [session, action],
+              },
+              ...(literal?.kind ? { kind: literal.kind } : {}),
+              ...(literal?.isPreferred ? { isPreferred: true } : {}),
+              ...(literal?.disabled ? { disabled: literal.disabled.reason } : {}),
+              ...(literal?.diagnostics ? { diagnostics: toMarkers(literal.diagnostics) } : {}),
+            }
+          })
+          return { actions, dispose: () => {} }
+        },
+      }),
+    )
+  }
+
+  if (capabilities.inlayHintProvider) {
+    registrations.push(
+      languages.registerInlayHintsProvider(language, {
+        async provideInlayHints(model, range, token) {
+          const session = sessionOf(model)
+          if (!session) return null
+          const hints = toInlayHints(
+            await session.request<InlayHint[]>(
+              'textDocument/inlayHint',
+              { textDocument: { uri: model.uri.toString() }, range: toLspRange(range) },
+              token,
+            ),
+          )
+          return { hints, dispose: () => {} }
+        },
+      }),
+    )
+  }
+
+  const semantic = capabilities.semanticTokensProvider
+  if (semantic?.legend && semantic.full) {
+    const { legend } = semantic
+    registrations.push(
+      languages.registerDocumentSemanticTokensProvider(language, {
+        getLegend: () => ({
+          tokenTypes: [...legend.tokenTypes],
+          tokenModifiers: [...legend.tokenModifiers],
+        }),
+        async provideDocumentSemanticTokens(model, _lastResultId, token) {
+          const session = sessionOf(model)
+          if (!session) return null
+          const tokens = await session.request<SemanticTokens>(
+            'textDocument/semanticTokens/full',
+            { textDocument: { uri: model.uri.toString() } },
+            token,
+          )
+          return tokens ? { data: new Uint32Array(tokens.data) } : null
+        },
+        releaseDocumentSemanticTokens: () => {},
       }),
     )
   }

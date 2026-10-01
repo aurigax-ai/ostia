@@ -1,13 +1,18 @@
 import type {
   CompletionItem,
   Diagnostic,
+  DocumentHighlight,
+  DocumentSymbol,
   Hover,
+  InlayHint,
   InsertReplaceEdit,
   Location,
   LocationLink,
   MarkupContent,
   Position,
   Range,
+  SignatureHelp,
+  SymbolInformation,
   TextEdit,
 } from 'vscode-languageserver-protocol'
 import { monaco } from '../monaco/setup'
@@ -212,4 +217,107 @@ export function toLocations(
         }
       : { uri: monaco.Uri.parse(location.uri), range: toMonacoRange(location.range) },
   )
+}
+
+export function symbolKind(kind: number): monaco.languages.SymbolKind {
+  return Math.max(0, Math.min(25, kind - 1)) as monaco.languages.SymbolKind
+}
+
+function symbolTags(
+  tags: readonly number[] | undefined,
+  deprecated: boolean | undefined,
+): monaco.languages.SymbolTag[] {
+  return deprecated || tags?.includes(DEPRECATED_TAG) ? [monaco.languages.SymbolTag.Deprecated] : []
+}
+
+export function toDocumentSymbols(
+  result: readonly (DocumentSymbol | SymbolInformation)[] | null | undefined,
+): monaco.languages.DocumentSymbol[] {
+  return (result ?? []).map((symbol): monaco.languages.DocumentSymbol => {
+    if ('location' in symbol) {
+      const range = toMonacoRange(symbol.location.range)
+      return {
+        name: symbol.name,
+        detail: '',
+        kind: symbolKind(symbol.kind),
+        tags: symbolTags(symbol.tags, symbol.deprecated),
+        ...(symbol.containerName ? { containerName: symbol.containerName } : {}),
+        range,
+        selectionRange: range,
+      }
+    }
+    return {
+      name: symbol.name,
+      detail: symbol.detail ?? '',
+      kind: symbolKind(symbol.kind),
+      tags: symbolTags(symbol.tags, symbol.deprecated),
+      range: toMonacoRange(symbol.range),
+      selectionRange: toMonacoRange(symbol.selectionRange),
+      ...(symbol.children ? { children: toDocumentSymbols(symbol.children) } : {}),
+    }
+  })
+}
+
+export function toSignatureHelp(
+  help: SignatureHelp | null | undefined,
+): monaco.languages.SignatureHelp | null {
+  if (!help || help.signatures.length === 0) return null
+  return {
+    activeSignature: help.activeSignature ?? 0,
+    activeParameter: help.activeParameter ?? 0,
+    signatures: help.signatures.map((signature) => {
+      const documentation = markup(signature.documentation)
+      return {
+        label: signature.label,
+        ...(documentation !== undefined ? { documentation } : {}),
+        ...(typeof signature.activeParameter === 'number'
+          ? { activeParameter: signature.activeParameter }
+          : {}),
+        parameters: (signature.parameters ?? []).map((parameter) => {
+          const parameterDocumentation = markup(parameter.documentation)
+          return {
+            label: parameter.label,
+            ...(parameterDocumentation !== undefined
+              ? { documentation: parameterDocumentation }
+              : {}),
+          }
+        }),
+      }
+    }),
+  }
+}
+
+export function toHighlights(
+  list: readonly DocumentHighlight[] | null | undefined,
+): monaco.languages.DocumentHighlight[] {
+  return (list ?? []).map((highlight) => ({
+    range: toMonacoRange(highlight.range),
+    kind: Math.max(0, (highlight.kind ?? 1) - 1) as monaco.languages.DocumentHighlightKind,
+  }))
+}
+
+export function toInlayHints(
+  list: readonly InlayHint[] | null | undefined,
+): monaco.languages.InlayHint[] {
+  return (list ?? []).map((hint) => {
+    const tooltip = markup(hint.tooltip)
+    return {
+      position: { lineNumber: hint.position.line + 1, column: hint.position.character + 1 },
+      label:
+        typeof hint.label === 'string'
+          ? hint.label
+          : hint.label.map((part) => ({ label: part.value })),
+      ...(hint.kind ? { kind: hint.kind as monaco.languages.InlayHintKind } : {}),
+      ...(tooltip !== undefined ? { tooltip } : {}),
+      ...(hint.paddingLeft ? { paddingLeft: true } : {}),
+      ...(hint.paddingRight ? { paddingRight: true } : {}),
+      ...(hint.textEdits ? { textEdits: toTextEdits(hint.textEdits) } : {}),
+    }
+  })
+}
+
+export function rangesOverlap(a: Range, b: Range): boolean {
+  const before = (x: Position, y: Position): boolean =>
+    x.line < y.line || (x.line === y.line && x.character < y.character)
+  return !before(a.end, b.start) && !before(b.end, a.start)
 }

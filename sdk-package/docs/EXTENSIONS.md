@@ -185,9 +185,18 @@ the renderer never gets a path.
 
 An extension gives the editor a language server by describing it in `contributes.languageServers`.
 It is data, not code: pine spawns the process, speaks LSP to it over stdio, and wires its answers
-into the editor (diagnostics, completion, hover, go to definition, formatting; providers are
-registered from what the server reports in `initialize`). Your extension never owns the process
-and needs no `main`.
+into the editor. Providers are registered from what the server reports in `initialize`, with its
+trigger characters. Your extension never owns the process and needs no `main`.
+
+What the editor uses when the server offers it: diagnostics (push), completion (text edits, extra
+edits such as auto-imports, snippets, resolve), hover, go to definition, references, rename with
+prepare, signature help, document symbols (the outline), document highlights, document and range
+formatting (also format on save), code actions (edits and commands, `workspace/applyEdit`),
+semantic tokens (full document) and inlay hints. Text is synced incrementally when the server
+asks for it, and `didSave` is sent when it asked for saves. A workspace edit changes open
+documents through the editor (undoable) and closed files on disk; an edit that creates, renames
+or deletes files is refused. Not wired yet: pull diagnostics, workspace symbols, code lens,
+folding ranges, type hierarchy, and dynamic registration.
 
 ```json
 {

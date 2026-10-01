@@ -5,7 +5,12 @@ const fake = createFakeMonaco()
 vi.mock('../monaco/setup', () => ({ monaco: fake.monaco }))
 
 const {
+  rangesOverlap,
   toCompletion,
+  toDocumentSymbols,
+  toHighlights,
+  toInlayHints,
+  toSignatureHelp,
   toHover,
   toLocations,
   toLspPosition,
@@ -144,5 +149,124 @@ describe('toLocations and toTextEdits', () => {
   it('turns LSP edits into editor edits', () => {
     expect(toTextEdits([{ range, newText: 'x' }])).toEqual([{ range: monacoRange, text: 'x' }])
     expect(toTextEdits(null)).toEqual([])
+  })
+})
+
+describe('symbols, signatures, highlights and hints', () => {
+  it('keeps the hierarchy of document symbols and flattens symbol information', () => {
+    expect(
+      toDocumentSymbols([
+        {
+          name: 'Outer',
+          kind: 5,
+          range,
+          selectionRange: range,
+          children: [{ name: 'inner', kind: 6, range, selectionRange: range, detail: '()' }],
+        },
+      ]),
+    ).toEqual([
+      {
+        name: 'Outer',
+        detail: '',
+        kind: 4,
+        tags: [],
+        range: monacoRange,
+        selectionRange: monacoRange,
+        children: [
+          {
+            name: 'inner',
+            detail: '()',
+            kind: 5,
+            tags: [],
+            range: monacoRange,
+            selectionRange: monacoRange,
+          },
+        ],
+      },
+    ])
+    expect(
+      toDocumentSymbols([
+        {
+          name: 'old',
+          kind: 12,
+          deprecated: true,
+          containerName: 'mod',
+          location: { uri: 'file:///p/a.ts', range },
+        },
+      ]),
+    ).toEqual([
+      {
+        name: 'old',
+        detail: '',
+        kind: 11,
+        tags: [1],
+        containerName: 'mod',
+        range: monacoRange,
+        selectionRange: monacoRange,
+      },
+    ])
+    expect(toDocumentSymbols(null)).toEqual([])
+  })
+
+  it('maps signature help with documentation and label offsets', () => {
+    expect(
+      toSignatureHelp({
+        signatures: [
+          {
+            label: 'f(a, b)',
+            documentation: { kind: 'markdown', value: '**doc**' },
+            parameters: [{ label: [2, 3] }, { label: 'b', documentation: 'second' }],
+          },
+        ],
+        activeParameter: 1,
+      }),
+    ).toEqual({
+      activeSignature: 0,
+      activeParameter: 1,
+      signatures: [
+        {
+          label: 'f(a, b)',
+          documentation: { value: '**doc**' },
+          parameters: [{ label: [2, 3] }, { label: 'b', documentation: 'second' }],
+        },
+      ],
+    })
+    expect(toSignatureHelp({ signatures: [] })).toBeNull()
+    expect(toSignatureHelp(null)).toBeNull()
+  })
+
+  it('maps highlight kinds and inlay hints', () => {
+    expect(toHighlights([{ range }, { range, kind: 3 }])).toEqual([
+      { range: monacoRange, kind: 0 },
+      { range: monacoRange, kind: 2 },
+    ])
+    expect(
+      toInlayHints([
+        { position: { line: 1, character: 4 }, label: ': number', kind: 1, paddingLeft: true },
+        {
+          position: { line: 0, character: 0 },
+          label: [{ value: 'a' }, { value: ':' }],
+          tooltip: 'tip',
+        },
+      ]),
+    ).toEqual([
+      { position: { lineNumber: 2, column: 5 }, label: ': number', kind: 1, paddingLeft: true },
+      {
+        position: { lineNumber: 1, column: 1 },
+        label: [{ label: 'a' }, { label: ':' }],
+        tooltip: 'tip',
+      },
+    ])
+  })
+
+  it('tells whether two ranges touch', () => {
+    const at = (l1: number, c1: number, l2: number, c2: number) => ({
+      start: { line: l1, character: c1 },
+      end: { line: l2, character: c2 },
+    })
+    expect(rangesOverlap(at(1, 0, 1, 5), at(1, 5, 1, 9))).toBe(true)
+    expect(rangesOverlap(at(1, 0, 1, 5), at(1, 6, 1, 9))).toBe(false)
+    expect(rangesOverlap(at(0, 0, 3, 0), at(1, 2, 1, 3))).toBe(true)
+    expect(rangesOverlap(at(2, 0, 2, 1), at(1, 0, 1, 9))).toBe(false)
   })
 })

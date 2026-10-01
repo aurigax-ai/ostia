@@ -97,6 +97,13 @@ export class FakeModel {
       : { word: line.slice(start, end), startColumn: start + 1, endColumn: end + 1 }
   }
 
+  getValueInRange(range: FakeRange): string {
+    return this.value.slice(
+      this.offsetAt(range.startLineNumber, range.startColumn),
+      this.offsetAt(range.endLineNumber, range.endColumn),
+    )
+  }
+
   private offsetAt(line: number, column: number): number {
     const lines = this.value.split('\n')
     let offset = 0
@@ -155,6 +162,7 @@ export interface FakeMonaco {
   markers: Map<string, unknown[]>
   registrations: Registration[]
   models: Map<string, FakeModel>
+  commands: Map<string, (...args: unknown[]) => void>
   active: (kind: string) => Registration[]
   addModel: (model: FakeModel) => FakeModel
 }
@@ -167,6 +175,7 @@ export function createFakeMonaco(): FakeMonaco {
   const markers = new Map<string, unknown[]>()
   const registrations: Registration[] = []
   const models = new Map<string, FakeModel>()
+  const commands = new Map<string, (...args: unknown[]) => void>()
   const constants: Record<string, unknown> = {
     CompletionItemKind: enumOf([
       'Method',
@@ -261,6 +270,10 @@ export function createFakeMonaco(): FakeMonaco {
     MarkerSeverity: { Hint: 1, Info: 2, Warning: 4, Error: 8 },
     MarkerTag: { Unnecessary: 1, Deprecated: 2 },
     editor: {
+      registerCommand: (id: string, handler: (...args: unknown[]) => void) => {
+        commands.set(id, handler)
+        return { dispose: () => commands.delete(id) }
+      },
       setModelMarkers: (model: FakeModel, owner: string, list: unknown[]) => {
         markers.set(`${owner} ${model.uri.toString()}`, list)
       },
@@ -274,6 +287,7 @@ export function createFakeMonaco(): FakeMonaco {
     markers,
     registrations,
     models,
+    commands,
     active: (kind) => registrations.filter((r) => r.kind === kind && !r.disposed),
     addModel: (model) => {
       models.set(model.uri.toString(), model)

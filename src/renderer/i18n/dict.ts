@@ -187,6 +187,7 @@ export const en = {
     downloads: 'Downloads {program} {version} from {host} when it is not on your PATH',
     goInstalls: 'Runs {command} when {binary} is not on your PATH',
     runs: 'Runs {command} for {languages} files',
+    renameRefused: 'The language server cannot rename this.',
     runsTitle: 'Language servers',
   },
   languageNotice: {
@@ -2033,6 +2034,7 @@ export const zhHant: Dict = {
     downloads: '不在 PATH 上時，從 {host} 下載 {program} {version}',
     goInstalls: '{binary} 不在 PATH 上時，執行 {command}',
     runs: '對 {languages} 檔案執行 {command}',
+    renameRefused: '語言伺服器無法重新命名此項目。',
     runsTitle: '語言伺服器',
   },
   languageNotice: {
