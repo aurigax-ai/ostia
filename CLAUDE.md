@@ -752,7 +752,9 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   OpenAI-compatible server in Settings and drives Ask and the composer;
   `e2e/assistant-chat.spec.ts` (fake server from `e2e/fakeProvider.ts`) opens the chat pane from
   the top-bar Assistant menu, runs a shell block in a new terminal, opens a path from an answer,
-  finds the session after a restart, accepts terminal ghost text with Tab without running it,
+  finds the session after a restart, runs `/new` and `/help` without a request to the model
+  (slash commands: registry in `src/renderer/lib/chatSlash.test.ts`, menu in
+  `ChatSlash.test.tsx`), accepts terminal ghost text with Tab without running it,
   and turns terminal completion off in the menu; its chat tools spec reads a file without a
   card, denies then allows a write shown as a diff, and approves a tool from the fake stdio MCP
   server (`test/fixtures/mcp/fake-server.mjs`, run with the test's node). Chat sessions are

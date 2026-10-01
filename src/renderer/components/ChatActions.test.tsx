@@ -127,7 +127,7 @@ function captureRequests(): { pending: Pending[]; answer: (text: string) => Prom
 }
 
 async function ask(question: string): Promise<void> {
-  await userEvent.type(await screen.findByRole('textbox', { name: 'Your question' }), question)
+  await userEvent.type(await screen.findByRole('combobox', { name: 'Your question' }), question)
   await userEvent.keyboard('{Enter}')
 }
 
@@ -191,7 +191,7 @@ describe('chat actions', () => {
     await userEvent.type(await screen.findByRole('combobox'), 'how do I list files')
     await userEvent.keyboard('{Tab}')
 
-    const question = await screen.findByRole('textbox', { name: 'Your question' })
+    const question = await screen.findByRole('combobox', { name: 'Your question' })
     await waitFor(() => expect(question).toHaveFocus())
     expect(question).toHaveValue('how do I list files')
     expect((question as HTMLTextAreaElement).selectionStart).toBe('how do I list files'.length)
@@ -283,7 +283,7 @@ describe('chat actions', () => {
     await userEvent.click(
       within(firstTurn as HTMLElement).getByRole('button', { name: 'Edit and resend' }),
     )
-    const box = screen.getByRole('textbox', { name: 'Your question' })
+    const box = screen.getByRole('combobox', { name: 'Your question' })
     expect(box).toHaveValue('first question')
     await userEvent.clear(box)
     await userEvent.type(box, 'better question{Enter}')
@@ -301,13 +301,13 @@ describe('chat actions', () => {
     const { pending } = captureRequests()
     render(<ChatPane workspaceId="w1" paneId="p-chat" />)
 
-    await userEvent.type(await screen.findByRole('textbox', { name: 'Your question' }), '@')
+    await userEvent.type(await screen.findByRole('combobox', { name: 'Your question' }), '@')
     await userEvent.click(await screen.findByRole('option', { name: /README\.md/ }))
 
     const chips = await screen.findByRole('list', { name: 'Attached to the next question' })
     const chip = within(chips).getByRole('button', { name: /README\.md sends/ })
     expect(chip).toHaveTextContent('5')
-    expect(screen.getByRole('textbox', { name: 'Your question' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Your question' })).toHaveValue('')
 
     await ask('summarize')
     await waitFor(() => expect(pending).toHaveLength(1))

@@ -76,7 +76,7 @@ test.describe('assistant chat pane and terminal completion', () => {
       })
       await menu.getByRole('button', { name: /Open chat/ }).click()
 
-      const question = win.getByRole('textbox', { name: 'Your question' }).last()
+      const question = win.getByRole('combobox', { name: 'Your question' }).last()
       await expect(question).toBeVisible({ timeout: 10_000 })
       await question.fill('print a marker for me')
       await question.press('Enter')
@@ -118,6 +118,52 @@ test.describe('assistant chat pane and terminal completion', () => {
       const win = await app.firstWindow()
       await win.waitForLoadState('domcontentloaded')
       await expect(win.getByText('print a marker for me').first()).toBeVisible({ timeout: 15_000 })
+    } finally {
+      await app.close()
+    }
+  })
+
+  test('slash commands run in the chat without reaching the model: /new starts a fresh chat and /help lists the commands', async () => {
+    const dataHome = freshDataHome()
+    seedAssistant(dataHome, provider.url)
+    const app = await electron.launch(isolatedLaunch(dataHome))
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openWorkspace(win)
+      const menu = await openAssistantMenu(win)
+      await expect(menu).toContainText('openai-compatible', { timeout: 15_000 })
+      await menu.getByRole('button', { name: /Open chat/ }).click()
+
+      const question = win.getByRole('combobox', { name: 'Your question' }).last()
+      await expect(question).toBeVisible({ timeout: 10_000 })
+      await question.fill('say hello')
+      await question.press('Enter')
+      await expect(win.locator('.ask-answer').last()).toContainText('Hello from the fake model.', {
+        timeout: 15_000,
+      })
+      await expect(win.locator('.ask-answer').last()).toHaveAttribute('aria-busy', 'false')
+      const chatRequests = () => provider.requests.filter((r) => r.model === 'fake-big').length
+      const sent = chatRequests()
+
+      await question.press('/')
+      const commands = win.getByRole('listbox', { name: 'Chat commands' })
+      await expect(commands).toBeVisible()
+      await expect(commands.getByRole('option')).toHaveCount(12)
+      await question.pressSequentially('ne')
+      await expect(commands.getByRole('option')).toHaveCount(1)
+      await question.press('Enter')
+      await expect(win.locator('.ask-answer')).toHaveCount(0)
+      await expect(win.getByRole('button', { name: 'Switch chat: New chat' })).toBeVisible()
+      await expect(question).toHaveValue('')
+
+      await question.pressSequentially('/he')
+      await question.press('Enter')
+      const help = win.getByRole('region', { name: 'Chat commands' })
+      await expect(help).toBeVisible()
+      await expect(help).toContainText('/skill')
+      await expect(question).toHaveValue('')
+      expect(chatRequests()).toBe(sent)
     } finally {
       await app.close()
     }
@@ -221,7 +267,7 @@ test.describe('assistant chat tools', () => {
       await expect(menu).toContainText('openai-compatible', { timeout: 15_000 })
       await menu.getByRole('button', { name: /Open chat/ }).click()
 
-      const question = win.getByRole('textbox', { name: 'Your question' }).last()
+      const question = win.getByRole('combobox', { name: 'Your question' }).last()
       await expect(question).toBeVisible({ timeout: 10_000 })
 
       await win.getByRole('button', { name: 'Tools for this chat' }).click()
