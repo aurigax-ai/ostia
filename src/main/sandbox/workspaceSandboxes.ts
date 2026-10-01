@@ -222,7 +222,7 @@ export class WorkspaceSandboxes {
     const host = new SandboxHost({
       nodePath: this.deps.nodePath,
       hostScript: this.deps.hostScript,
-      env: this.deps.hostEnv,
+      env: { ...(this.deps.hostEnv ?? process.env), CLAUDE_CODE_TMPDIR: this.tmpDir(workspaceId) },
       onAsk: (h, port) => this.deps.onAsk(workspaceId, h, port),
       onPackageBlocked: (pkg, reason) => this.deps.onPackageBlocked?.(workspaceId, pkg, reason),
       onExit: () => {

@@ -99,6 +99,11 @@ pine workspace.new
 pine editor.open '{"path":"src/index.ts"}'   # the raw command: reuses the editor pane, home folder only
 ```
 
+`pine pane.close` (with `'{"paneId":"…"}'` for another pane, which needs `kill-pane`) closes
+the pane at once, even while a command runs in it; the human is asked only when it holds their
+unsaved file changes. A pane the human locked answers `pane-locked`: leave it open, you can't
+unlock it.
+
 `pine commands` is the authoritative list (id + argsSchema + capabilities) — check
 it before guessing an id or an args shape.
 

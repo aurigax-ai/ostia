@@ -6,6 +6,7 @@ import {
   GitDiffIcon,
   GlobeIcon,
   type Icon as IconComponent,
+  LockSimpleIcon,
   MoonIcon,
   PlayIcon,
   PlusIcon,
@@ -371,7 +372,12 @@ function PaneTab({
 
   const tab = (
     <div
-      className={cn('pane-tab', selected && 'selected', dropMark && `drop-${dropMark}`)}
+      className={cn(
+        'pane-tab',
+        selected && 'selected',
+        pane.locked && 'locked',
+        dropMark && `drop-${dropMark}`,
+      )}
       data-attention={unread ? attention?.state : undefined}
       data-tab-id={pane.id}
       draggable
@@ -401,7 +407,7 @@ function PaneTab({
         }}
       >
         <Icon
-          size={14}
+          size={16}
           className="pane-kind"
           aria-label={pane.hibernated ? d.pane.hibernated : undefined}
         />
@@ -424,7 +430,14 @@ function PaneTab({
           />
         ) : null}
       </button>
-      {showClose ? (
+      {pane.locked ? (
+        <IconButton
+          icon={LockSimpleIcon}
+          label={d.pane.unlock}
+          className="pane-tab-lock"
+          onClick={() => commands.exec('pane.toggleLock', { paneId: pane.id })}
+        />
+      ) : showClose ? (
         <IconButton
           icon={XIcon}
           label={d.pane.closeTab}

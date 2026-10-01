@@ -1,8 +1,11 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
+import * as closeConfirm from '../lib/closeConfirm'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
+import { useCloseConfirmStore } from '../stores/closeConfirmStore'
+import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
@@ -371,6 +374,72 @@ describe('builtins route to store actions', () => {
     await commands.execWith(ctx('s1', 'pA'), 'pane.close')
 
     expect(closePane).toHaveBeenCalledWith('s1', 'pA')
+  })
+
+  it('asks the human before closing a pane but closes at once for an agent on the socket', async () => {
+    const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
+    const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
+
+    await commands.execWith(ctx('s1', 'pA'), 'pane.close', { paneId: 'pX' })
+    expect(ask).toHaveBeenCalledWith('s1', 'pX')
+    expect(closePane).not.toHaveBeenCalled()
+
+    ask.mockClear()
+    const fromSocket = { ...ctx('s1', 'pA'), target: { workspaceId: 's1', paneId: 'pA' } }
+    await commands.execWith(fromSocket, 'pane.close', { paneId: 'pX' })
+    expect(ask).not.toHaveBeenCalled()
+    expect(closePane).toHaveBeenCalledWith('s1', 'pX')
+  })
+
+  it('still asks the human when an agent closes a pane holding unsaved changes', async () => {
+    const ask = vi.spyOn(useCloseConfirmStore.getState(), 'ask').mockResolvedValue(false)
+    const editor = { ...createPane('editor'), filePath: '/w/notes.md' }
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: editor, activePaneId: editor.id, zoomedPaneId: null } },
+    })
+    useEditorStatus.setState({ dirty: { '/w/notes.md': true } })
+    const fromSocket = { ...ctx('s1', editor.id), target: { workspaceId: 's1', paneId: editor.id } }
+
+    await commands.execWith(fromSocket, 'pane.close')
+
+    expect(ask).toHaveBeenCalledWith('pane', [
+      expect.objectContaining({ workspaceId: 's1', files: ['/w/notes.md'] }),
+    ])
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toBe(editor)
+    useEditorStatus.setState({ dirty: {} })
+  })
+
+  it('refuses an agent closing a locked pane, and never lets the socket lock or unlock one', async () => {
+    const kept = { ...createPane('terminal'), locked: true as const }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: kept, activePaneId: kept.id, zoomedPaneId: null } },
+    })
+    const fromSocket = { ...ctx('s1', kept.id), target: { workspaceId: 's1', paneId: kept.id } }
+
+    const refused = await commands.execWith(fromSocket, 'pane.close', { paneId: kept.id })
+
+    expect(refused).toMatchObject({ ok: false, error: { code: 'command-failed' } })
+    expect(refused.ok ? '' : refused.error.message).toContain('pane-locked')
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toBe(kept)
+    expect(commands.isLocal('pane.toggleLock')).toBe(true)
+  })
+
+  it('toggles the lock of the target pane for the human', async () => {
+    const pane = createPane('terminal')
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+
+    await commands.execWith(ctx('s1', pane.id), 'pane.toggleLock')
+    expect(useLayoutStore.getState().isLocked('s1', pane.id)).toBe(true)
+    await commands.execWith(ctx('s1', pane.id), 'pane.close')
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({ id: pane.id })
+
+    await commands.execWith(ctx('s1', pane.id), 'pane.toggleLock')
+    expect(useLayoutStore.getState().isLocked('s1', pane.id)).toBe(false)
   })
 
   it('routes pane.focus to layout.focusPane', async () => {

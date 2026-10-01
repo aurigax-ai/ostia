@@ -17,7 +17,7 @@ import {
   stepBlock,
 } from '../lib/blockActions'
 import { setKeybindingSetting } from '../lib/chords'
-import { requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
+import { closePaneForAgent, requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
@@ -137,6 +137,7 @@ async function delegate(ctx: CommandContext, id: string, args?: unknown): Promis
 }
 
 const WORKSPACE_DIR = /^(\/|~(\/|$))/
+const PANE_LOCKED = 'pane-locked: the human locked this pane; only they can unlock it'
 
 export function registerBuiltinCommands(): void {
   commands.setContextProvider((): CommandContext => {
@@ -204,9 +205,31 @@ export function registerBuiltinCommands(): void {
     capabilities: ['kill-pane'],
     run: async (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
-      if (ctx.activeWorkspaceId && target) {
+      if (!ctx.activeWorkspaceId || !target) return
+      const layout = useLayoutStore.getState()
+      if (!ctx.target) {
         await requestClosePane(ctx.activeWorkspaceId, target)
+        return
       }
+      if (layout.isLocked(ctx.activeWorkspaceId, target)) throw new Error(PANE_LOCKED)
+      await closePaneForAgent(ctx.activeWorkspaceId, target)
+    },
+  })
+
+  commands.register<{ paneId?: string } | undefined>({
+    id: 'pane.toggleLock',
+    title: 'Lock or Unlock Pane',
+    category: 'Pane',
+    local: true,
+    run: (args, ctx) => {
+      const target = args?.paneId ?? ctx.activePaneId
+      if (!ctx.activeWorkspaceId || !target) return
+      const layout = useLayoutStore.getState()
+      layout.setLocked(
+        ctx.activeWorkspaceId,
+        target,
+        !layout.isLocked(ctx.activeWorkspaceId, target),
+      )
     },
   })
 

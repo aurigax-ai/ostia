@@ -329,3 +329,26 @@ test('SBX-C57 shows every sandbox setting on the workspace page and in Settings 
     await app.close()
   }
 })
+
+test('a sandboxed shell survives Ctrl+C, which still interrupts its command, and has a temp folder that exists', async () => {
+  const { app, win } = await launch()
+  try {
+    await sandboxedShell(win)
+    const rows = win.locator('.xterm-rows').first()
+
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type('half-typed')
+    await win.keyboard.press('Control+c')
+    await run(win, 'sleep 30; echo SLEPT-$((2+3))')
+    await win.waitForTimeout(800)
+    await win.keyboard.press('Control+c')
+    await run(win, 'echo ALIVE-$((6*7))')
+    await expect(rows).toContainText('ALIVE-42', { timeout: 15_000 })
+    await expect(rows).not.toContainText('SLEPT-5')
+
+    await run(win, 'touch "$TMPDIR/probe" && test -d "$TMPDIR" && echo TMP-$((4+4))')
+    await expect(rows).toContainText('TMP-8', { timeout: 15_000 })
+  } finally {
+    await app.close()
+  }
+})

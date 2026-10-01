@@ -82,6 +82,12 @@ export const DEFAULT_ALLOW_READ = [
   '~/.rustup',
   '~/.local/bin',
   '~/.nvm',
+  '~/.dircolors',
+  '~/.config/vivid',
+  '~/.config/bat',
+  '~/.config/eza',
+  '~/.config/lsd',
+  '~/.config/starship.toml',
 ]
 
 export const DEFAULT_ALLOWED_DOMAINS = [

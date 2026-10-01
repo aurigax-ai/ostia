@@ -27,6 +27,7 @@ export interface PaneNode {
   resume?: AgentResume
   hibernated?: true
   resumePending?: true
+  locked?: true
 }
 
 export interface SplitNode {
