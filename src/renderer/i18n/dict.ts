@@ -1410,8 +1410,9 @@ export const en = {
     notifyDesktopDesc: 'Show a system notification banner.',
     notifySound: 'Sound',
     notifySoundDesc: 'Play the system notification sound with each banner.',
-    notifyWhenFocused: 'Notify for the pane you are looking at',
-    notifyWhenFocusedDesc: 'Also show banners for the pane in front of you while Pine is focused.',
+    notifyWhenFocused: 'System notifications while {product} is focused',
+    notifyWhenFocusedDesc:
+      'Off: while a {product} window is in front, notifications only appear in {product}. On: they also go to the system.',
     notifyAgentWaiting: 'Agent needs input',
     notifyAgentWaitingDesc: 'An agent is waiting for your answer or permission.',
     notifyAgentDone: 'Agent finished',
@@ -2926,8 +2927,9 @@ export const zhHant: Dict = {
     notifyDesktopDesc: '顯示系統通知橫幅。',
     notifySound: '音效',
     notifySoundDesc: '每則橫幅都播放系統通知音效。',
-    notifyWhenFocused: '也通知目前檢視的面板',
-    notifyWhenFocusedDesc: 'Pine 在前景時，也為你正在看的面板顯示橫幅。',
+    notifyWhenFocused: '{product} 在前景時也傳送系統通知',
+    notifyWhenFocusedDesc:
+      '關閉時，{product} 視窗在前景時通知只顯示在 {product} 內；開啟時也會傳送到系統。',
     notifyAgentWaiting: '代理程式需要輸入',
     notifyAgentWaitingDesc: '代理程式正在等待你的回覆或授權。',
     notifyAgentDone: '代理程式已完成',

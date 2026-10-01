@@ -687,8 +687,8 @@ function NotificationsSection(): JSX.Element {
           onChange={(v) => set({ sound: v })}
         />
         <ToggleRow
-          label={d.settings.notifyWhenFocused}
-          desc={d.settings.notifyWhenFocusedDesc}
+          label={fmt(d.settings.notifyWhenFocused, { product: PRODUCT_NAME })}
+          desc={fmt(d.settings.notifyWhenFocusedDesc, { product: PRODUCT_NAME })}
           checked={n.whenFocused}
           onChange={(v) => set({ whenFocused: v })}
         />
