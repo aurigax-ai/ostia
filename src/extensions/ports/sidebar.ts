@@ -2,9 +2,7 @@ import type { ExtensionIcon, SidebarKind } from '../../shared/extensions'
 import type { PaneInfo } from '../sdk'
 import type { TreeInfo } from './scan'
 
-export const MAX_PORTS_PER_WORKSPACE = 6
 export const SSH_KEY = 'ssh'
-export const PORT_KEY_PREFIX = 'port:'
 
 export interface WorkspaceProcesses {
   ports: number[]
@@ -17,7 +15,6 @@ export interface SidebarEntry {
   text: string
   icon?: ExtensionIcon
   kind: SidebarKind
-  url?: string
 }
 
 export function terminalPids(panes: PaneInfo[]): number[] {
@@ -50,30 +47,17 @@ export function portUrl(port: number, host: PortHost = 'localhost'): string {
   return `http://${host}:${port}/`
 }
 
-export function sidebarEntries(
-  groups: Map<string, WorkspaceProcesses>,
-  host: PortHost = 'localhost',
-): SidebarEntry[] {
+export function sidebarEntries(groups: Map<string, WorkspaceProcesses>): SidebarEntry[] {
   const out: SidebarEntry[] = []
   for (const [workspaceId, group] of groups) {
-    if (group.ssh.length > 0) {
-      out.push({
-        workspaceId,
-        key: SSH_KEY,
-        text: group.ssh.join(' '),
-        icon: 'server',
-        kind: 'live',
-      })
-    }
-    for (const port of group.ports.slice(0, MAX_PORTS_PER_WORKSPACE)) {
-      out.push({
-        workspaceId,
-        key: `${PORT_KEY_PREFIX}${port}`,
-        text: `:${port}`,
-        kind: 'live',
-        url: portUrl(port, host),
-      })
-    }
+    if (group.ssh.length === 0) continue
+    out.push({
+      workspaceId,
+      key: SSH_KEY,
+      text: group.ssh.join(' '),
+      icon: 'server',
+      kind: 'live',
+    })
   }
   return out
 }

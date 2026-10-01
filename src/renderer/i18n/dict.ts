@@ -1595,9 +1595,6 @@ export const en = {
     sidebarDescriptionDesc: 'Show custom workspace descriptions.',
     sidebarItems: 'Extension details',
     sidebarItemsDesc: 'Show details extensions add, such as the git branch.',
-    sidebarPorts: 'Listening ports',
-    sidebarPortsDesc:
-      'Show the ports a workspace’s terminals listen on. Click one to open it in the browser pane.',
     sidebarSsh: 'SSH host',
     sidebarSshDesc: 'Show the host a running ssh in the workspace is connected to.',
     agents: 'Agents',
@@ -3319,8 +3316,6 @@ export const zhHant: Dict = {
     sidebarDescriptionDesc: '顯示自訂的工作區描述。',
     sidebarItems: '擴充功能資訊',
     sidebarItemsDesc: '顯示擴充功能加入的資訊，例如 git 分支。',
-    sidebarPorts: '監聽中的連接埠',
-    sidebarPortsDesc: '顯示工作區終端機正在監聽的連接埠。按一下即可在瀏覽器面板開啟。',
     sidebarSsh: 'SSH 主機',
     sidebarSshDesc: '顯示工作區中執行中的 ssh 所連線的主機。',
     agents: '代理程式',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PaneInfo } from '../sdk'
-import { paneChipValues } from './chips'
+import { paneChipValues, workspaceChipValues } from './chips'
 import type { TreeInfo } from './scan'
 
 const pane = (paneId: string, pid?: number, kind = 'terminal'): PaneInfo => ({
@@ -20,45 +20,50 @@ describe('paneChipValues', () => {
     [12, { ports: [], ssh: null }],
   ])
 
-  it('gives a terminal with listeners an icon chip with its port count and one link per port', () => {
-    expect(paneChipValues([pane('a', 10)], trees, 'localhost')).toEqual([
+  it('gives a terminal running ssh a login chip with user@host', () => {
+    expect(paneChipValues([pane('b', 11)], trees)).toEqual([
+      { paneId: 'b', id: 'ssh', text: 'deploy@build-box', tone: 'brand' },
+    ])
+  })
+
+  it('gives no pane chip for listening ports, idle terminals, panes without a pty or other kinds', () => {
+    expect(
+      paneChipValues([pane('a', 10), pane('c', 12), pane('d'), pane('e', 11, 'browser')], trees),
+    ).toEqual([])
+  })
+})
+
+describe('workspaceChipValues', () => {
+  it('gives a workspace with listeners one icon chip with the port count and a link per port', () => {
+    const groups = new Map([
+      ['s1', { ports: [3000, 5173], ssh: [] }],
+      ['s2', { ports: [], ssh: ['box'] }],
+    ])
+    expect(workspaceChipValues(groups, 'localhost')).toEqual([
       {
-        paneId: 'a',
+        workspaceId: 's1',
         id: 'ports',
         icon: 'plugs',
         text: '2',
         items: [
-          { text: ':5173', url: 'http://localhost:5173/' },
           { text: ':3000', url: 'http://localhost:3000/' },
+          { text: ':5173', url: 'http://localhost:5173/' },
         ],
       },
     ])
   })
 
   it('lists at most the chip item limit, while the count says how many listen', () => {
-    const many = new Map<number, TreeInfo>([
-      [20, { ports: Array.from({ length: 25 }, (_, i) => 30000 + i), ssh: null }],
-    ])
-    const [chip] = paneChipValues([pane('m', 20)], many, 'localhost')
+    const ports = Array.from({ length: 25 }, (_, i) => 30000 + i)
+    const [chip] = workspaceChipValues(new Map([['s1', { ports, ssh: [] }]]), 'localhost')
     expect(chip?.text).toBe('25')
     expect(chip?.items).toHaveLength(20)
   })
 
-  it('gives a terminal running ssh a login chip with user@host', () => {
-    expect(paneChipValues([pane('b', 11)], trees, 'localhost')).toEqual([
-      { paneId: 'b', id: 'ssh', text: 'deploy@build-box', tone: 'brand' },
-    ])
-  })
-
   it('uses the configured host in the port link', () => {
-    expect(paneChipValues([pane('a', 10)], trees, '127.0.0.1')[0]?.items?.[0]?.url).toBe(
+    const groups = new Map([['s1', { ports: [5173], ssh: [] }]])
+    expect(workspaceChipValues(groups, '127.0.0.1')[0]?.items?.[0]?.url).toBe(
       'http://127.0.0.1:5173/',
     )
-  })
-
-  it('gives nothing to idle terminals, panes without a pty or other kinds', () => {
-    expect(
-      paneChipValues([pane('c', 12), pane('d'), pane('e', 10, 'browser')], trees, 'localhost'),
-    ).toEqual([])
   })
 })
