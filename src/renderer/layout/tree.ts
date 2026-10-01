@@ -406,6 +406,10 @@ export function setSizes(root: LayoutNode, splitId: string, sizes: number[]): La
   return recur(root)
 }
 
+export function mergeLayouts(target: LayoutNode, source: LayoutNode): LayoutNode {
+  return makeSplit('horizontal', [target, source])
+}
+
 export function movePane(
   root: LayoutNode,
   sourceId: string,

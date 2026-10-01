@@ -3,12 +3,13 @@ import { ArrowSquareOutIcon, ColumnsIcon, RowsIcon } from '@phosphor-icons/react
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { registerEditorPosition } from '../lib/editorPositions'
+import { codeFontStack } from '../lib/uiFonts'
 import { langFor } from '../monaco/language'
 import { monaco } from '../monaco/setup'
 import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
 import { useDiffStore } from '../stores/diffStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { EDITOR_FALLBACK, useExternalEditorAction } from './Editor'
+import { useExternalEditorAction } from './Editor'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { ATTENTION_ALERT } from './attentionStyles'
@@ -36,7 +37,7 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
       readOnly: true,
       originalEditable: false,
       renderSideBySide: true,
-      fontFamily: `"${initial.family}", ${EDITOR_FALLBACK}`,
+      fontFamily: codeFontStack(initial.family),
       fontSize: initial.size,
       fontWeight: String(initial.weight),
       fontLigatures: true,
@@ -78,7 +79,7 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
 
   useEffect(() => {
     diffRef.current?.updateOptions({
-      fontFamily: `"${font.family}", ${EDITOR_FALLBACK}`,
+      fontFamily: codeFontStack(font.family),
       fontSize: font.size,
       fontWeight: String(font.weight),
     })

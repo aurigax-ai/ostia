@@ -19,17 +19,20 @@ import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../l
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
 import { smartClipboardAction } from '../lib/clipboardKeys'
-import { currentScheme, useScheme } from '../lib/colorScheme'
+import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
+import { terminalNotification } from '../lib/paneAgent'
+import { planHumanPaste } from '../lib/pasteGate'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
+import { terminalFontStack } from '../lib/uiFonts'
 import { loadWebglRenderer } from '../lib/webglRenderer'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import {
@@ -39,7 +42,6 @@ import {
   signalPane,
 } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
-import { isRiskyPaste } from '../settings/terminalPaneSettings'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -53,8 +55,6 @@ import { useSelectionSend } from './SelectionSend'
 import { TerminalFind, findOptions } from './TerminalFind'
 import { isPromptRepaint, nextSizeAction } from './terminalSizing'
 
-const MONO_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
-export const fontStack = (family: string): string => `"${family}", ${MONO_FALLBACK}`
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 
 export function TerminalView({
@@ -72,6 +72,8 @@ export function TerminalView({
   const fitRef = useRef<FitAddon | null>(null)
   const lastSizeRef = useRef({ cols: 0, rows: 0 })
   const spawnCwd = useRef(cwd)
+  const workspaceIdRef = useRef(workspaceId)
+  workspaceIdRef.current = workspaceId
   const font = useSettingsStore((s) => s.appearance.terminal)
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
@@ -114,8 +116,8 @@ export function TerminalView({
     const behavior = useSettingsStore.getState().behavior
     const terminalSettings = useSettingsStore.getState().terminal
     const term = new Xterm({
-      theme: currentScheme('terminal').colors,
-      fontFamily: fontStack(initial.family),
+      theme: terminalTheme(currentScheme('terminal').colors),
+      fontFamily: terminalFontStack(initial.family),
       fontSize: initial.size,
       fontWeight: initial.weight as FontWeight,
       lineHeight: initial.lineHeight,
@@ -134,7 +136,7 @@ export function TerminalView({
       new WebLinksAddon((e, uri) => {
         if (!linkModifierHeld(e, isMac)) return
         if (useSettingsStore.getState().browser.openTerminalLinks) {
-          useLayoutStore.getState().openBrowser(workspaceId, uri)
+          useLayoutStore.getState().openBrowser(workspaceIdRef.current, uri)
         } else {
           window.open(uri, '_blank')
         }
@@ -156,17 +158,18 @@ export function TerminalView({
       else term.paste(text)
     }
     pasteRef.current = pasteConfirmed
+    const planPaste = (text: string) =>
+      planHumanPaste(text, useSettingsStore.getState().terminal.warnOnRiskyPaste)
     const requestPaste = (text: string): void => {
-      if (!text || disposed) return
-      if (useSettingsStore.getState().terminal.warnOnRiskyPaste && isRiskyPaste(text)) {
-        setPendingPaste(text)
-        return
-      }
-      pasteConfirmed(text)
+      if (disposed) return
+      const plan = planPaste(text)
+      if (plan.confirm) setPendingPaste(plan.text)
+      else if (plan.text) pasteConfirmed(plan.text)
     }
     const interceptPaste = (e: ClipboardEvent): void => {
       const text = e.clipboardData?.getData('text/plain') ?? ''
-      if (!useSettingsStore.getState().terminal.warnOnRiskyPaste || !isRiskyPaste(text)) return
+      const plan = planPaste(text)
+      if (!plan.confirm && plan.text === text) return
       e.preventDefault()
       e.stopImmediatePropagation()
       requestPaste(text)
@@ -264,7 +267,10 @@ export function TerminalView({
       blocks.commandEnd(paneId, anchor(), exitCode, term.buffer.active.cursorX)
       if (!block || replaying) return
       const long = shouldNotifyCommandEnd(Date.now() - block.startedAt, document.hasFocus())
-      if (isPaneViewed(paneId) || (exitCode === 0 && !long)) return
+      if (isPaneViewed(paneId) || (exitCode === 0 && !long)) {
+        useAttentionStore.getState().dispatch(paneId, { type: 'waitEnded', at: Date.now() })
+        return
+      }
       const d = currentDict()
       const title =
         exitCode === 0
@@ -294,12 +300,7 @@ export function TerminalView({
     }
     const notifyFromTerminal = (n: OscNotification | null): boolean => {
       if (!n || replaying) return true
-      signalPane(paneId, {
-        type: 'notify',
-        message: notificationMessage(n),
-        waiting: true,
-        at: Date.now(),
-      })
+      signalPane(paneId, terminalNotification(paneId, notificationMessage(n), Date.now()))
       window.pine.notifications.post({
         paneId,
         kind: 'message',
@@ -338,7 +339,7 @@ export function TerminalView({
     })
     const titleChange = term.onTitleChange((raw) => {
       const title = terminalTitle(raw)
-      if (title) useLayoutStore.getState().setTitle(workspaceId, paneId, title)
+      if (title) useLayoutStore.getState().setTitle(workspaceIdRef.current, paneId, title)
     })
     const bell = term.onBell(() => {
       if (replaying || isPaneViewed(paneId)) return
@@ -348,7 +349,7 @@ export function TerminalView({
       const path = decodeOsc7(data)
       if (path) {
         cwdRef.current = path
-        useLayoutStore.getState().setCwd(workspaceId, paneId, path)
+        useLayoutStore.getState().setCwd(workspaceIdRef.current, paneId, path)
       }
       return true
     })
@@ -417,7 +418,7 @@ export function TerminalView({
     const offExit = window.pine.pty.onExit(paneId, () => {
       term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')
       if (useSandboxStore.getState().hostPanes[paneId]) {
-        useLayoutStore.getState().closePane(workspaceId, paneId)
+        useLayoutStore.getState().closePane(workspaceIdRef.current, paneId)
       }
     })
 
@@ -435,7 +436,7 @@ export function TerminalView({
           cols,
           rows,
           role: 'owner',
-          workspaceId,
+          workspaceId: workspaceIdRef.current,
           hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
@@ -599,12 +600,12 @@ export function TerminalView({
       setSuppressedPrompt(null)
       setPendingPaste(null)
     }
-  }, [workspaceId, paneId])
+  }, [paneId])
 
   useEffect(() => {
     const term = termRef.current
     if (!term) return
-    term.options.fontFamily = fontStack(font.family)
+    term.options.fontFamily = terminalFontStack(font.family)
     term.options.fontSize = font.size
     term.options.fontWeight = font.weight as FontWeight
     term.options.lineHeight = font.lineHeight
@@ -627,7 +628,7 @@ export function TerminalView({
   useEffect(() => {
     const term = termRef.current
     if (!term) return
-    term.options.theme = palette
+    term.options.theme = terminalTheme(palette)
   }, [palette])
 
   useEffect(() => {
@@ -698,7 +699,7 @@ export function TerminalView({
         <InputEditor
           paneId={paneId}
           cwd={cwd}
-          fontFamily={fontStack(font.family)}
+          fontFamily={terminalFontStack(font.family)}
           fontSize={font.size}
           palette={palette}
           alternateScreen={alternateScreen}
@@ -728,6 +729,7 @@ export function TerminalView({
       </div>
       <RiskyPasteDialog
         text={pendingPaste}
+        source="human"
         onPaste={(text) => {
           pasteRef.current(text)
           closePasteDialog()

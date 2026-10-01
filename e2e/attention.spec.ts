@@ -2,7 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 
-test('a terminal notification in a background pane raises attention and Ctrl+Shift+U jumps to it', async () => {
+test('a terminal notification in a background pane marks it unread and Ctrl+Shift+U jumps to it', async () => {
   test.setTimeout(90_000)
   const app = await electron.launch(isolatedLaunch())
   try {
@@ -24,16 +24,16 @@ test('a terminal notification in a background pane raises attention and Ctrl+Shi
     await second.locator('.xterm').click()
     await expect(second).toHaveClass(/\bactive\b/)
 
-    await expect(first).toHaveClass(/\battn-ring\b/, { timeout: 15_000 })
-    await expect(first.locator('.pane-attn-msg')).toHaveText('build finished')
-    await expect(second).not.toHaveClass(/\battn-ring\b/)
+    await expect(first.locator('.pane-attn-msg')).toHaveText('build finished', { timeout: 15_000 })
+    await expect(first).not.toHaveClass(/\battn-ring\b/)
+    await expect(first.getByRole('img', { name: 'Unread' })).toBeVisible()
     await expect(win.getByRole('img', { name: '1 unread' })).toBeVisible()
     await expect(win.getByRole('button', { name: 'Notifications, 1 unread' })).toBeVisible()
 
     await win.keyboard.press('Control+Shift+U')
 
     await expect(first).toHaveClass(/\bactive\b/)
-    await expect(first).not.toHaveClass(/\battn-ring\b/)
+    await expect(first.locator('.pane-attn-msg')).toHaveCount(0)
     await expect(win.getByRole('img', { name: '1 unread' })).toHaveCount(0)
     await expect
       .poll(() =>

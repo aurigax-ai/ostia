@@ -43,7 +43,7 @@ function announce(info: BuildInfo): void {
   }
 }
 
-export function registerAppUpdate(): void {
+export function registerAppUpdate(quit: () => void): void {
   let watcher: UpdateWatcher | null = null
   if (app.isPackaged) {
     const path = join(process.resourcesPath, 'build-info.json')
@@ -62,6 +62,6 @@ export function registerAppUpdate(): void {
   ipcMain.handle('app:update-state', () => watcher?.check() ?? watcher?.available() ?? null)
   ipcMain.handle('app:restart', () => {
     app.relaunch()
-    app.quit()
+    quit()
   })
 }

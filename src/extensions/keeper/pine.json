@@ -20,18 +20,27 @@
     "settings": {
       "notify": {
         "type": "boolean",
+        "title": "Approval notifications",
         "default": true,
         "description": "Notify when a query starts waiting for your approval"
       },
       "pollSeconds": {
         "type": "number",
+        "title": "Active check interval",
         "default": 5,
-        "description": "Seconds between queue checks while Pine is focused or approvals wait (2 to 300)"
+        "minimum": 2,
+        "maximum": 300,
+        "unit": "seconds",
+        "description": "Time between queue checks while {product} is focused or approvals wait"
       },
       "idlePollSeconds": {
         "type": "number",
+        "title": "Background check interval",
         "default": 60,
-        "description": "Seconds between queue checks in the background with nothing waiting (10 to 3600)"
+        "minimum": 10,
+        "maximum": 3600,
+        "unit": "seconds",
+        "description": "Time between queue checks in the background with nothing waiting"
       }
     }
   }

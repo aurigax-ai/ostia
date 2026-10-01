@@ -21,12 +21,14 @@ import { wireManagerBridge } from './commands/managerBridge'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
+import { startAgentRunningReport } from './lib/agentRunningReport'
 import { startShortcutReporting } from './lib/assistShortcuts'
 import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
 import { startHibernation } from './lib/hibernationScheduler'
 import { startAgentDetection } from './lib/paneAgent'
 import { startPaneDragTracking } from './lib/paneDrag'
+import { applyUiFonts, preloadFonts } from './lib/uiFonts'
 import { startUserActions } from './lib/userActions'
 import { registerViewCommands, startViews } from './lib/views'
 import { initWindow, startWindowSync } from './lib/windowHandoff'
@@ -64,6 +66,9 @@ async function boot(): Promise<void> {
   } catch (err) {
     console.error('[settings] load failed', err)
   }
+  const { ui, editor, terminal } = useSettingsStore.getState().appearance
+  applyUiFonts(document.documentElement, { ui, editor })
+  await preloadFonts({ ui, editor, terminal })
   try {
     await useSystemThemeStore.getState().init()
   } catch (err) {
@@ -84,6 +89,7 @@ async function boot(): Promise<void> {
   startHibernation()
   startAutoResume()
   startAgentDetection()
+  startAgentRunningReport()
   startWorkspaceProjects()
   startApprovals()
   startUserActions()

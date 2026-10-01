@@ -21,20 +21,45 @@ import {
 } from '@phosphor-icons/react'
 import type { AssistProviderInfo, ChatContextItem } from '@shared/assist'
 import type { UIMessage } from 'ai'
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import type { Components } from 'react-markdown'
-import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import {
   ASK_CONTEXT_ORDER,
   type AskContextKind,
   askContextOptions,
+  explainSources,
   isShellLanguage,
 } from '../lib/askContext'
+import { type MenuAnchor, menuAnchor } from '../lib/caretPoint'
 import { insertInto, looksLikeCommand } from '../lib/chatActions'
 import { fileLinkOf, isWebUrl, rehypeFileLinks, wholeFileLink } from '../lib/chatLinks'
 import type { FileLinkTarget } from '../lib/chatLinks'
 import { openChatPane } from '../lib/chatPane'
+import {
+  type SlashActions,
+  type SlashContext,
+  type SlashRow,
+  activeRow,
+  findSlashCommand,
+  parseSlash,
+  pickChoice,
+  pickCommand,
+  runSlash,
+  slashIndex,
+  slashMenu,
+  slashRows,
+  stepRow,
+} from '../lib/chatSlash'
+import { SKILLS_GROUP } from '../lib/chatTools'
 import {
   type PineChatMessage,
   type ToolPartLike,
@@ -50,12 +75,17 @@ import {
   type ChatNotice,
   chatFor,
   chatKey,
+  clearSession,
   ensureSession,
   nameSession,
+  openSession,
+  refreshSessions,
+  renameSession,
   saveSession,
   startNewSession,
   useChatStore,
 } from '../stores/chatStore'
+import { refreshSkills, useChatToolsStore } from '../stores/chatToolsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -68,6 +98,7 @@ import {
 } from './ChatCodeActions'
 import { AttachmentChips, ChatContextPicker } from './ChatContextPicker'
 import { ChatSessions } from './ChatSessions'
+import { ChatSlashHelp, ChatSlashMenu, ChatSlashModel, SLASH_MENU_WIDTH } from './ChatSlashMenu'
 import { ChatToolPart } from './ChatToolPart'
 import { ChatToolsMenu } from './ChatToolsMenu'
 import { Hint } from './Hint'
@@ -103,6 +134,14 @@ import {
 import { Suggestion, Suggestions } from './ai-elements/suggestion'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog'
 
 const CONTEXT_ICONS: Record<AskContextKind, Icon> = {
   cwd: FolderSimpleIcon,
@@ -156,6 +195,13 @@ function focusAtEnd(area: HTMLTextAreaElement | null): void {
   area.setSelectionRange(area.value.length, area.value.length)
 }
 
+function openModelSettings(): void {
+  useUIStore.getState().closePalette()
+  useUIStore.getState().openSettings('assistant')
+}
+
+type SlashCard = 'help' | 'model' | null
+
 function ChatSession({
   sessionId,
   workspaceId,
@@ -170,7 +216,8 @@ function ChatSession({
   const { messages, sendMessage, setMessages, status, stop, regenerate, error, clearError } =
     useChat({ chat })
   const provider = useAssistProvider('chat')
-  const recording = useSettingsStore((s) => s.assistant.chatHistory)
+  const historyOn = useSettingsStore((s) => s.assistant.chatHistory)
+  const scratch = useChatStore((s) => s.meta[sessionId]?.scratch === true)
   const sessionNotice = useChatStore((s) => s.notice[sessionId] ?? null)
   const draftSeed = useChatStore((s) => s.drafts[key])
   const attachments = useChatStore((s) => s.attachments[key] ?? EMPTY_ATTACHMENTS)
@@ -185,7 +232,44 @@ function ChatSession({
     () => new Set(options.cwd ? (['cwd'] as const) : []),
   )
   const areaRef = useRef<HTMLTextAreaElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const busy = status === 'submitted' || status === 'streaming'
+  const skills = useChatToolsStore((s) => s.skills)
+  const skillsOn = useChatToolsStore((s) => !(s.off[sessionId] ?? []).includes(SKILLS_GROUP))
+  const skillFolders = useSettingsStore((s) => s.assistant.skillFolders.length)
+  const summaries = useChatStore((s) => s.summaries)
+  const [sessionsOpen, setSessionsOpen] = useState(false)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const [pickerQuery, setPickerQuery] = useState('')
+  const [focused, setFocused] = useState(false)
+  const [slashKey, setSlashKey] = useState<string | null>(null)
+  const [slashDismissed, setSlashDismissed] = useState(false)
+  const [slashNotice, setSlashNotice] = useState<string | null>(null)
+  const [card, setCard] = useState<SlashCard>(null)
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
+  const slashing = parseSlash(draft) !== null
+  const sourceLabels = useMemo(
+    () => ({
+      selection: d.chatSlash.sources.selection,
+      block: (command: string) => fmt(d.chatSlash.sources.block, { command }),
+      output: (command: string) => fmt(d.chatSlash.sources.output, { command }),
+    }),
+    [d],
+  )
+  const sources = useMemo(
+    () => (slashing ? explainSources(workspaceId, sourceLabels) : []),
+    [slashing, workspaceId, sourceLabels],
+  )
+
+  useEffect(() => {
+    if (!slashing) {
+      setSlashDismissed(false)
+      return
+    }
+    void refreshSessions()
+    void refreshSkills()
+  }, [slashing])
 
   useEffect(() => {
     focusAtEnd(areaRef.current)
@@ -215,6 +299,7 @@ function ChatSession({
   const ask = (text: string, extra: ChatContextItem[] = []): void => {
     const question = text.trim()
     if (!question || busy) return
+    setCard(null)
     const fresh = askContextOptions(labels)
     setOptions(fresh)
     const context = [
@@ -275,19 +360,136 @@ function ChatSession({
 
   const available = ASK_CONTEXT_ORDER.filter((kind) => options[kind])
   const last = messages[messages.length - 1]
+
+  const slashCtx: SlashContext = {
+    busy,
+    messageCount: messages.length,
+    lastRole: last?.role ?? null,
+    recording: historyOn && !scratch,
+    provider: provider !== null,
+    tools: Boolean(provider?.tools),
+    skillFolders,
+    skills,
+    skillsOn,
+    sessions: summaries.filter((s) => s.id !== sessionId),
+    sources: sources.map((s) => ({ value: s.value, label: s.item.label })),
+  }
+  const menu =
+    focused && !slashDismissed
+      ? slashMenu(draft, slashCtx, (id) => d.chatSlash.commands[id].title)
+      : null
+  const rows = menu ? slashRows(menu, slashCtx) : []
+  const active = activeRow(rows, slashKey)
+  const menuOpen = menu !== null
+
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    const area = areaRef.current
+    if (!menuOpen || !root || !area) return
+    setAnchor(menuAnchor(root, area, slashIndex(draft), SLASH_MENU_WIDTH))
+  }, [menuOpen, draft])
+
+  const slashActions: SlashActions = {
+    newChat: () => startNewSession(workspaceId),
+    clear: () => setConfirmClear(true),
+    openSessions: () => setSessionsOpen(true),
+    openSession: (id) => void openSession(workspaceId, id),
+    rename: (title) => {
+      void renameSession(sessionId, title)
+      setSlashNotice(fmt(d.chatSlash.renamed, { title }))
+    },
+    exportMarkdown: () =>
+      void window.pine.chatSessions.exportMarkdown(sessionId).then((res) => {
+        if (res.ok) setSlashNotice(fmt(d.chat.exported, { path: res.path }))
+        else if (res.error !== 'cancelled') setSlashNotice(d.chat.exportFailed)
+      }),
+    retry: () => {
+      clearError()
+      void regenerate()
+    },
+    explain: (value) => {
+      const source = explainSources(workspaceId, sourceLabels).find((s) => s.value === value)
+      if (source) ask(d.chat.explainOutputPrompt, [source.item])
+    },
+    attach: (query) => {
+      setPickerQuery(query)
+      setPicking(true)
+    },
+    openTools: () => setToolsOpen(true),
+    applySkill: (name, task) =>
+      ask(
+        task
+          ? fmt(d.chatSlash.skillPrompt, { name, task })
+          : fmt(d.chatSlash.skillPromptAlone, { name }),
+      ),
+    showModel: () => setCard('model'),
+    showHelp: () => setCard('help'),
+  }
+
+  const executeSlash = (text: string): boolean => {
+    const outcome = runSlash(text, slashCtx, slashActions)
+    if (!outcome) return false
+    setSlashKey(null)
+    if (outcome.ran) setDraft('')
+    else setSlashNotice(d.chatSlash.reasons[outcome.reason])
+    return true
+  }
+
+  const pickRow = (row: SlashRow, tab: boolean): void => {
+    if (row.reason) {
+      setSlashNotice(d.chatSlash.reasons[row.reason])
+      return
+    }
+    const pick = row.choice
+      ? pickChoice(row.command, row.choice)
+      : pickCommand(row.command, slashCtx, tab)
+    if (pick.kind === 'run') {
+      executeSlash(pick.draft)
+      return
+    }
+    setDraft(pick.draft)
+    setSlashKey(null)
+    requestAnimationFrame(() => focusAtEnd(areaRef.current))
+  }
+
+  const onSlashKey = (e: KeyboardEvent<HTMLTextAreaElement>): boolean => {
+    if (e.nativeEvent.isComposing) return false
+    const plain = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
+    if (menu && plain && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      setSlashKey(stepRow(rows, active?.key, e.key === 'ArrowDown' ? 1 : -1))
+      return true
+    }
+    if (menu && plain && (e.key === 'Enter' || e.key === 'Tab')) {
+      if (active) pickRow(active, e.key === 'Tab')
+      return true
+    }
+    if (menu && e.key === 'Escape') {
+      setSlashDismissed(true)
+      return true
+    }
+    const parsed = plain && e.key === 'Enter' ? parseSlash(draft) : null
+    if (parsed && findSlashCommand(parsed.name)) {
+      executeSlash(draft)
+      return true
+    }
+    return false
+  }
   const waiting = busy && (last?.role === 'user' || !hasVisibleContent(last))
   const errorInfo = error ? decodeChatError(error.message) : null
   const shownNotice = notice ?? sessionNotice
-  const noticeText = shownNotice
-    ? ((d.chatActions.notices as Record<string, string>)[shownNotice] ??
-      (d.chat.notices as Record<string, string>)[shownNotice] ??
-      '')
-    : ''
+  const noticeText =
+    slashNotice ??
+    (shownNotice
+      ? ((d.chatActions.notices as Record<string, string>)[shownNotice] ??
+        (d.chat.notices as Record<string, string>)[shownNotice] ??
+        '')
+      : '')
 
   return (
     <div
+      ref={rootRef}
       className={cn(
-        'chat-view flex min-h-0 flex-col',
+        'chat-view relative flex min-h-0 flex-col',
         variant === 'palette' ? 'max-h-[72vh]' : 'h-full bg-bg',
       )}
     >
@@ -296,8 +498,11 @@ function ChatSession({
         workspaceId={workspaceId}
         sessionId={sessionId}
         provider={provider}
-        recording={recording}
+        recording={historyOn && !scratch}
+        scratch={scratch}
         busy={busy}
+        sessionsOpen={sessionsOpen}
+        onSessionsOpenChange={setSessionsOpen}
       />
       <Conversation className={variant === 'palette' ? 'max-h-[48vh]' : undefined}>
         <ConversationContent>
@@ -347,6 +552,14 @@ function ChatSession({
               />
             ))
           )}
+          {card === 'help' ? <ChatSlashHelp onClose={() => setCard(null)} /> : null}
+          {card === 'model' ? (
+            <ChatSlashModel
+              provider={provider}
+              onChange={() => openModelSettings()}
+              onClose={() => setCard(null)}
+            />
+          ) : null}
           {waiting ? <ChatWaiting model={provider?.label ?? provider?.name ?? null} /> : null}
           {errorInfo ? (
             <p role="alert" className="flex items-start gap-1.5 text-attn-fg text-ui-sm">
@@ -361,14 +574,22 @@ function ChatSession({
         </ConversationContent>
         <ConversationScrollButton label={d.chat.scrollDown} />
       </Conversation>
-      <PromptInput className="border-line border-t p-2" onSubmit={(message) => ask(message.text)}>
+      <PromptInput
+        className="border-line border-t p-2"
+        onSubmit={(message) => {
+          if (!executeSlash(message.text)) ask(message.text)
+        }}
+      >
         <PromptInputHeader>
           <ChatContextPicker
             workspaceId={workspaceId}
             open={picking}
+            query={pickerQuery}
             onOpenChange={(open) => {
               setPicking(open)
-              if (!open) requestAnimationFrame(() => focusAtEnd(areaRef.current))
+              if (open) return
+              setPickerQuery('')
+              requestAnimationFrame(() => focusAtEnd(areaRef.current))
             }}
             onAttach={(item) => useChatStore.getState().attach(key, item)}
           />
@@ -408,11 +629,18 @@ function ChatSession({
           <PromptInputTextarea
             ref={areaRef}
             value={draft}
+            role="combobox"
             aria-label={d.ask.question}
-            placeholder={d.ask.placeholder}
+            aria-expanded={menuOpen}
+            aria-autocomplete="list"
+            aria-haspopup="listbox"
+            placeholder={d.chatSlash.placeholder}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             onChange={(e) => {
               const next = e.target.value
               const caret = e.target.selectionStart
+              setSlashNotice(null)
               if (opensPicker(next, caret)) {
                 setDraft(next.slice(0, caret - 1) + next.slice(caret))
                 setPicking(true)
@@ -421,6 +649,11 @@ function ChatSession({
               setDraft(next)
             }}
             onKeyDown={(e) => {
+              if (onSlashKey(e)) {
+                e.preventDefault()
+                e.stopPropagation()
+                return
+              }
               if (e.key === 'Escape') {
                 if (editing) {
                   e.preventDefault()
@@ -440,7 +673,14 @@ function ChatSession({
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
-            {provider?.tools ? <ChatToolsMenu sessionId={sessionId} /> : null}
+            {provider?.tools ? (
+              <ChatToolsMenu
+                sessionId={sessionId}
+                mode={provider.tools}
+                open={toolsOpen}
+                onOpenChange={setToolsOpen}
+              />
+            ) : null}
             {editing ? (
               <span className="flex min-w-0 items-center gap-1 px-1 text-fg-muted text-ui-xs">
                 <span className="truncate">{d.chatActions.editing}</span>
@@ -466,12 +706,58 @@ function ChatSession({
           <PromptInputSubmit
             status={status}
             onStop={onStop}
-            disabled={!busy && (!draft.trim() || !provider)}
+            disabled={!busy && !provider}
             submitLabel={d.ask.send}
             stopLabel={d.ask.stop}
           />
         </PromptInputFooter>
       </PromptInput>
+      {menu ? (
+        <ChatSlashMenu
+          menu={menu}
+          rows={rows}
+          activeKey={active?.key}
+          anchor={anchor}
+          areaRef={areaRef}
+          onActive={setSlashKey}
+          onPick={(row) => pickRow(row, false)}
+        />
+      ) : null}
+      <Dialog
+        open={confirmClear}
+        onOpenChange={(open) => {
+          if (!open) setConfirmClear(false)
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>{d.chatSlash.clearTitle}</DialogTitle>
+            <DialogDescription>
+              {fmt(d.chatSlash.clearBody, { count: messages.length })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setConfirmClear(false)}>
+              {d.chatSlash.cancel}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setConfirmClear(false)
+                setEditing(null)
+                setStopped(new Set())
+                setCard(null)
+                clearError()
+                void clearSession(sessionId)
+                requestAnimationFrame(() => focusAtEnd(areaRef.current))
+              }}
+            >
+              {d.chatSlash.clearConfirm}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -533,23 +819,22 @@ function ChatHeader({
   sessionId,
   provider,
   recording,
+  scratch,
   busy,
+  sessionsOpen,
+  onSessionsOpenChange,
 }: {
   variant: ChatVariant
   workspaceId: string | null
   sessionId: string
   provider: AssistProviderInfo | null
   recording: boolean
+  scratch: boolean
   busy: boolean
+  sessionsOpen: boolean
+  onSessionsOpenChange: (open: boolean) => void
 }): JSX.Element {
   const d = useDict()
-  const changeModel = (): void => {
-    const extId = provider?.extId
-    const open = extId ? `${extId}.open` : null
-    useUIStore.getState().closePalette()
-    if (open && commands.has(open)) void commands.exec(open)
-    else useUIStore.getState().openSettings('plugins')
-  }
   return (
     <div className="flex min-h-9 items-center gap-1.5 border-line border-b px-2">
       {variant === 'palette' ? (
@@ -557,8 +842,17 @@ function ChatHeader({
           {d.ask.mode}
         </Badge>
       ) : null}
-      <ChatSessions workspaceId={workspaceId} sessionId={sessionId} />
-      <Hint label={recording ? d.chat.recordingHint : d.chat.notRecordingHint}>
+      <ChatSessions
+        workspaceId={workspaceId}
+        sessionId={sessionId}
+        open={sessionsOpen}
+        onOpenChange={onSessionsOpenChange}
+      />
+      <Hint
+        label={
+          scratch ? d.chat.scratchHint : recording ? d.chat.recordingHint : d.chat.notRecordingHint
+        }
+      >
         <span
           className={cn(
             'chat-recording flex shrink-0 items-center gap-1 text-ui-xs',
@@ -576,7 +870,12 @@ function ChatHeader({
             <Hint label={d.chat.model}>
               <span className="truncate">{provider.label ?? provider.name}</span>
             </Hint>
-            <Button variant="link" size="xs" className="h-5 px-1 text-ui-xs" onClick={changeModel}>
+            <Button
+              variant="link"
+              size="xs"
+              className="h-5 px-1 text-ui-xs"
+              onClick={() => openModelSettings()}
+            >
               {d.chat.change}
             </Button>
           </>

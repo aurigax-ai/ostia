@@ -3,6 +3,7 @@ import { MATCH_PINE_THEME, isLinkedTheme } from '@shared/themeChoice'
 import { fmt, useDict } from '../i18n/useDict'
 import { type SchemeSurface, useScheme } from '../lib/colorScheme'
 import { useEffectiveTheme } from '../lib/theme'
+import { codeFontStack, terminalFontStack } from '../lib/uiFonts'
 import { type CodeColors, codeColors, monacoThemeData } from '../monaco/monacoTheme'
 import { ANSI_NAMES, type ColorScheme } from '../plugins/types'
 import { usePluginsStore } from '../stores/pluginsStore'
@@ -279,11 +280,11 @@ export function ThemePreview(): JSX.Element {
     >
       <div className="flex min-w-0 flex-col" data-preview="terminal">
         <PreviewCaption label={d.settings.previewTerminal} scheme={terminal.name} />
-        <TerminalSample scheme={terminal} font={`"${terminalFont}", monospace`} />
+        <TerminalSample scheme={terminal} font={terminalFontStack(terminalFont)} />
       </div>
       <div className="flex min-w-0 flex-col" data-preview="editor">
         <PreviewCaption label={d.settings.previewEditor} scheme={editor.name} />
-        <EditorSample scheme={editor} font={`"${editorFont}", monospace`} />
+        <EditorSample scheme={editor} font={codeFontStack(editorFont)} />
       </div>
     </figure>
   )

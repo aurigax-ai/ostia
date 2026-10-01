@@ -120,7 +120,14 @@ Details: `docs/ARCHITECTURE.md`.
   `settings.set` refuses it), for a pane whose agent was running at the last save
   (`agentRunning` in the snapshot → `resumePending`), once that pane is visible
   (`lib/autoResume.ts`). A command run in the pane first cancels it. Never store or replay a
-  free-form command.
+  free-form command. Main owns `agentRunning` (`main/agentRunning.ts`, applied to every merged
+  snapshot): it is set while the pane's agent runs and stays set when Pine takes the shell away
+  (detach-grace reap, hibernation, quit, a broken renderer); it clears only when the agent's
+  block ends or another command runs while the reporting window is attached to the live pty
+  (`pty:agent-running`), or when the shell exits by itself. Never clear it on unmount, reset or
+  reap. A quit Pine didn't start (SIGTERM/SIGINT/SIGHUP; Electron turns them into
+  `app.quit()`) is approved without asking and exits within 5 s (`main/quitPlan.ts`); Pine's own
+  quits go through `requestQuit()` so they still ask.
 - **Hibernation only stops what it can bring back** (`lib/hibernationScheduler.ts`, off by
   default). It kills a pane's pty only if the pane has a resume token, its running block is
   that agent (`runningAgentOf`), it is not visible and idle past `idleSeconds`; never a shell at
@@ -150,7 +157,15 @@ Details: `docs/ARCHITECTURE.md`.
   queues typed text), or any command that reported `waiting`/`done`; it's text only, never
   followed by Enter. A file dragged onto a terminal (from the tree or the OS) is the human's
   own paste: its shell-quoted paths go through the normal paste path (`lib/dropPaths.ts`),
-  never with Enter. A file
+  never with Enter. The human's own clipboard pastes (paste chord, smart Ctrl+V, middle-click,
+  context menu) go through `planHumanPaste` (`lib/pasteGate.ts`): one line is pasted without
+  its trailing newline and control characters, never asking; two or more lines show the
+  risky-paste dialog unless the human turned off `terminal.warnOnRiskyPaste` (Settings →
+  Terminal or the dialog's Don't ask again). That setting is human-only (`settings.set` and
+  `settings.unset` refuse it, `PROGRAM_SETTINGS` in `commands/builtins.ts`) and covers only
+  those human pastes: text Pine or an agent produced (chat Run in new terminal, a proposed
+  command) goes through `confirmsGeneratedText` and always asks for a newline or control
+  character. Never let the setting reach a non-human source. A file
   path from the file menu (`insertPathReference`, `@<path> `) follows the same rule. A prompt
   the human wrote in the assist composer follows the report rule (`canInsertReference`, text
   only, never Enter); a command suggestion from the composer, the input editor's `# ` hint or
@@ -247,8 +262,8 @@ Details: `docs/ARCHITECTURE.md`.
   group, the neighbor it sat beside), saved with the detached window; on return main routes it
   to the window that still holds that workspace (`planReturn`) and the renderer grafts it back
   (`graftNode`), else it becomes its own workspace at the old index. A pane never moves alone
-  into or out of a sandboxed workspace (`crossesSandbox`); the last pane of a workspace moves
-  the workspace. Drag-out (`lib/paneDrag.ts`) goes through the same `windows:detach`; a drop on
+  into or out of a sandboxed workspace (`crossesSandbox`), nor out of or into a scratch one
+  (`canMovePane`, `reportForeignDrop`); the last pane of a workspace moves the workspace. Drag-out (`lib/paneDrag.ts`) goes through the same `windows:detach`; a drop on
   another window is a landing the target reports (`windows:drop-pane`, only for its own
   workspace and pane) and the source claims once (`windows:landing`, `Landings`) before it
   hands the pane over with `windows:give`; the target never pulls a pane.
@@ -260,9 +275,28 @@ Details: `docs/ARCHITECTURE.md`.
   a `groupId` on its members, kept contiguous by `normalizeGroups` (`lib/workspaceGroups.ts`),
   and a group with no members is dropped. Never add a second member list or order. Pinned and
   grouped are exclusive. Deleting a group never closes a workspace.
+- **Workspaces merge only on the human's confirm.** Two workspaces of one window merge only when
+  they share a project path (`lib/mergeEligibility.ts`), neither is the manager, and their
+  sandboxes are both off or identical; the human picks it from the row menu or the palette's
+  `workspace.mergeInto` (a `local` command: never published to main, so no socket method or CLI
+  verb reaches it) and confirms the dialog. Main checks again (`workspace:merge`) and rehomes the
+  pane identities before the renderer moves the layout (`mergeLayouts`, a split beside the
+  target). Panes keep their ids and ptys, nothing remounts, and no `pane-closed` or
+  `workspace-closed` is sent. A merged sandbox's host lives until its last confined process exits
+  (`releaseMergedSandbox`). Never merge automatically.
 - **Nothing live is ever restored.** A restored workspace comes back idle with a fresh shell at its
   saved cwd; replayed scrollback is history. Same for `processManager` (running → exited at load;
   loaded entries can't be restarted).
+- **Scratch workspaces leave nothing behind.** A `kind: 'scratch'` workspace is never saved
+  (`isRestorable`; `parseSnapshot` drops one; its panes skip `scrollback.json`), only moved in
+  memory between windows. Its folder is made by main only (`main/scratchFolders.ts`, under
+  `privateTmpDir('pine-scratch')`, 0700, bound to the workspace by its first `workspace-added`
+  event); the renderer never names it. Closing the workspace deletes the folder (the close
+  dialog asks first if it holds files), quit deletes every scratch folder, and startup sweeps
+  folders of dead Pine processes. Its shells get `HISTFILE` in the folder through `PINE_HISTFILE`
+  in the generated init (never a dotfile); Pine's history search and suggestions, chat sessions
+  (`assistant.chatHistory` ignored) and the notification log keep its data in memory only.
+  New scratch workspaces go through `startScratchWorkspace()`.
 - **Zero workspaces is a valid state.** Workspaces are created only by the user (New workspace button,
   `workspace.new`, the chord, opening a file with none open) or by restore; never seed one at boot,
   on an empty restore, or when the last workspace closes. `activeWorkspaceId` is `null` then, and
@@ -274,11 +308,13 @@ Details: `docs/ARCHITECTURE.md`.
   Closing the last pane removes the layout and emits `pane-closed`. Opening a file, browser,
   panel or diff in an empty workspace makes it the first pane (`seedLayout`, only for a workspace
   that exists). Empty workspaces are saved without `root` and restored empty.
-- **Closing and quitting ask only about running commands.** `lib/closeConfirm.ts` confirms closing
+- **Closing and quitting ask only about running commands** (and a scratch folder's files, which
+  are deleted). `lib/closeConfirm.ts` confirms closing
   a workspace, or any pane or tab that has a running command, and `main/closeGuard.ts` confirms
   quit once for every window (it collects each window's running groups and shows one dialog);
   `before-quit` calls `preventDefault()` until approved, so the scrollback save and pty kill run
-  once, after approval. Moving a workspace or pane to another window, and closing a detached
+  once, after approval. Every quit Pine starts goes through `requestQuit()`; an unmarked quit is
+  a signal (pkill, logout, shutdown) and is approved without asking (`planQuit`). Moving a workspace or pane to another window, and closing a detached
   window, never ask about commands (nothing stops); they ask only about unsaved files, which
   the new window reopens from disk. New workspace paths call `startNewWorkspace()` (placement
   and folder settings), never `addWorkspace` directly. E2E seeds `workspaces.confirmQuit: false`.
@@ -349,6 +385,13 @@ Details: `docs/ARCHITECTURE.md`.
   `attentionStore`/`signalPane`. Workspace state is derived from pane attention + running blocks by
   `startAttentionSync`; never `setState` a workspace's live state directly. A signal to the pane
   being viewed must apply `view` immediately (`signalPane` does), or it rings while you look at it.
+  `waiting` means something in the pane waits for the human now: it is set only by an agent
+  (`pine state waiting` while a command runs, an OSC 9/777/99 while `runningAgent` finds one) or
+  a pending approval. A plain command's terminal notification is unread + message, never
+  `waiting`. `waiting` ends on input, on the next command, when the command that waited ends
+  (OSC 133;D → `waitEnded`, or `error`/`done` per `commandEnd`) and when its approval leaves the
+  queue; `view` keeps it. A `waiting`/`working` report that reaches a pane at an idle prompt is
+  late and dropped (`isStaleAgentReport` in the `attention.set` command).
 - **Renderer attention commands act on the command target only** (`ctx.activePaneId`), never on
   a pane id in args: `command.exec` checks capabilities against the target, so an args pane id
   would bypass `all-workspaces`.
@@ -500,9 +543,14 @@ Details: `docs/ARCHITECTURE.md`.
   extension granted `assist` that reported the point `ready` (`ExtensionHost.assistRuntime`),
   and cancels on Stop, close or a newer keystroke. Nothing is offered until a provider is
   configured (the built-in assistant reports nothing ready while its provider is `none`), and
-  the UI names the provider and model each feature uses (the status `label`).
+  the UI names the provider and model each feature uses (the status `label`). The assistant
+  is configured in Settings → Assistant (`AssistantSection.tsx`), never in an extension panel;
+  model load and unload reach the extension only as `ext.assistModels` from that page
+  (`assist:models`, `assist:set-model-loaded`), for an enabled extension granted `assist` that
+  reported `models: true`, with every reply normalized (`normalizeAssistModels`).
 - **Extension secrets stay in main and their extension.** `contributes.secrets` values are
-  written only through `extensions:set-secret` (Settings → Plugins), encrypted with
+  written only through `extensions:set-secret` (Settings → Plugins, or Settings → Assistant
+  for an assist extension), encrypted with
   `safeStorage` in the data dir (`main/extensionSecrets.ts`), never in `settings.json`, never
   synced, never returned to the renderer (only `secretsSet`), and read only by the extension that
   declared the key (`ext.getSecret`). Never add a socket method or CLI verb that reads or writes
@@ -515,7 +563,10 @@ Details: `docs/ARCHITECTURE.md`.
   the AI SDK `UIMessage` shape (typed parts): tool calls are `dynamic-tool` parts, denied and
   failed ones included, clipped (never dropped) past the part cap, and exported to Markdown.
 - **Chat tools act only with the human's approval, through core.** The chat extension only
-  declares the tools pine lists in the request (`dynamicTool` without `execute`); the renderer's
+  declares the tools pine lists in the request (`dynamicTool` without `execute`), natively or,
+  for a model without tool calling, described in its prompt with the calls parsed from its reply
+  (`tools: 'prompted'`, `src/extensions/assistant/promptedTools.ts`); it reports which on its chat
+  status and the tools menu shows only when one is reported. Either way the renderer's
   chat transport runs every call (`lib/chatTools.ts`) and sends the outcome back, at most 8
   rounds per question, and Stop cancels the model, a waiting card and MCP calls together.
   `decideTool` (`lib/chatToolPermissions.ts`) is the only permission logic: read-only tools run
@@ -537,7 +588,8 @@ Details: `docs/ARCHITECTURE.md`.
   http(s), connected only when a chat or Settings asks, and main re-checks the server and tool on
   every call. `assistant` is not in `DATA_KEYS`, so `pine settings set` can't add a server or a
   skill folder; MCP tokens are secrets (`mcp-secrets.json`, `safeStorage`, never synced, never
-  returned, set only through `chatTools:set-mcp-secret` for a key the human declared). Never let
+  returned, set only through `chatTools:set-mcp-secret` for a key the human declared, written
+  from Settings → Assistant's server dialog). Never let
   the extension execute a tool, spawn an MCP server or read a skill itself.
 - **The manager is opened only from outside Pine.** `portal.open` (`main/portal.ts`) refuses any
   caller that `callerVerdict` (`main/portalCaller.ts`) finds inside Pine or can't check; there is
@@ -594,6 +646,13 @@ Details: `docs/ARCHITECTURE.md`.
   staggered lists, page transitions or decorative loops (spinners, shimmers). JS-driven motion
   follows `useReducedMotion()`; extension panels time transitions with `sdk/panel.css`'s
   tokens. `src/renderer/lib/motion.test.tsx` enforces the raw-timing and class rules.
+- **Typography:** sizes `text-ui-xs|sm|base|emphasis|lg` (CSS `var(--text-ui-*)` with
+  `var(--text-ui-*--line-height)`), families `font-sans`/`var(--font-ui)` and, for machine text
+  only, `font-mono`/`var(--font-code)`, weights `font-normal|medium|semibold`
+  (`var(--font-weight-*)`), `tracking-caps` for all-caps labels. Never set a font size, family,
+  weight, line height or letter spacing outside the tokens; the typography guard
+  (`src/renderer/lib/typography.test.ts`) fails on it. UI fonts follow the user's settings via
+  the font tokens (`lib/uiFonts.ts`; panels via `--pine-font-*`). `docs/DESIGN.md` §4.
 - **Strings:** every user-visible string goes through `i18n/dict.ts` (en + zh-Hant).
 
 ---
@@ -703,6 +762,12 @@ Details: `docs/ARCHITECTURE.md`.
 - **Allotment is keyed by the child-id list**; its internal sizes go stale on structural changes.
   It reads the node's `sizes` only at mount (`defaultSizes`), so a size change the store makes
   (equalize, a remembered panel size) needs a remount: a new child list or a bumped `equalized`.
+- **The terminal's selection color must stand out from painted cells** (`terminalTheme` →
+  `visibleSelection`, `lib/color.ts`). xterm colors a selected cell from the selection color
+  alone (DOM replaces the cell background, WebGL blends 50/50 with it), so Oxocarbon's grey
+  `#393939` selection vanished on Claude Code's `rgb(55,55,55)` panels while the shell showed
+  it fine. Every xterm takes its theme through `terminalTheme`; never hand xterm a scheme's
+  `colors` directly. Covered by `e2e/terminal-selection.spec.ts` (WebGL and DOM).
 - **xterm's viewport paints black by default.** `.xterm-host .xterm .xterm-viewport` is
   transparent and the host is painted with the terminal theme background.
 - **Dispose the server-side connection when an extension process exits** (`extensionHost.ts`
@@ -725,7 +790,8 @@ Details: `docs/ARCHITECTURE.md`.
   without that the first review notice after launch was lost.
 - **E2E reads terminal text from the DOM renderer.** WebGL draws to a canvas, so `isolatedLaunch()`
   seeds `behavior.gpuAcceleration: false` (`DOM_RENDERER_SETTINGS`); a spec that seeds its own
-  `settings.json` spreads it in. Only `terminal-webgl.spec.ts` runs the GPU renderer.
+  `settings.json` spreads it in. Only `terminal-webgl.spec.ts` and `terminal-selection.spec.ts`
+  run the GPU renderer.
 - **pty children inherit Electron's file descriptors**, listening sockets included (Playwright's
   and Chromium's debugging ports). The ports extension drops every socket its parent (pine's
   main process) also holds; without that each terminal "listened" on pine's own ports.
@@ -765,14 +831,16 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   from `test/fixtures/system/bin/` (never the real ones) and a fake confirm; `e2e/system.spec.ts`
   answers the native dialog by stubbing `dialog.showMessageBox` via `app.evaluate`. Extension tests that need `src/main`
   live in `src/main` or `src/cli`, never under `src/extensions`.
-  `extensionHost.assist.integration.test.ts` drives the assist points, streaming, cancellation
-  and secrets through `test/fixtures/extensions-assist/oracle`; the assistant extension's
+  `extensionHost.assist.integration.test.ts` drives the assist points, streaming, cancellation,
+  secrets and the model list (`ext.assistModels`) through `test/fixtures/extensions-assist/oracle`; the assistant extension's
   providers are tested against local fake OpenAI-compatible, Anthropic and model-runtime
   (unix socket) servers, never a real provider; `e2e/assistant.spec.ts` configures a fake
   OpenAI-compatible server in Settings and drives Ask and the composer;
   `e2e/assistant-chat.spec.ts` (fake server from `e2e/fakeProvider.ts`) opens the chat pane from
   the top-bar Assistant menu, runs a shell block in a new terminal, opens a path from an answer,
-  finds the session after a restart, accepts terminal ghost text with Tab without running it,
+  finds the session after a restart, runs `/new` and `/help` without a request to the model
+  (slash commands: registry in `src/renderer/lib/chatSlash.test.ts`, menu in
+  `ChatSlash.test.tsx`), accepts terminal ghost text with Tab without running it,
   and turns terminal completion off in the menu; its chat tools spec reads a file without a
   card, denies then allows a write shown as a diff, and approves a tool from the fake stdio MCP
   server (`test/fixtures/mcp/fake-server.mjs`, run with the test's node). Chat sessions are
@@ -783,8 +851,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   `src/main/chatSkills.test.ts`, MCP settings and session clipping in
   `src/shared/chatTools.test.ts`, `McpHost` against the fake MCP server in
   `src/main/mcpHost.integration.test.ts`, and the whole loop (fake provider streaming a tool
-  call, the assistant extension, the fake MCP server) in
-  `src/main/chatTools.integration.test.ts`. Never point a test at a real MCP server.
+  call, the assistant extension, the fake MCP server, and a fake model-runtime socket answering
+  tagged and `tool_code` calls as text) in `src/main/chatTools.integration.test.ts`; the prompted
+  tools parser in `src/extensions/assistant/promptedTools.test.ts`, editor completion cleaning
+  on real Gemma echoes in `prompts.test.ts` and the one-in-flight slot in `flight.test.ts`. Never point a test at a real MCP server.
   Tool extensions (trellis, keeper) are tested against fake `trellis`/`keeper` shell scripts in
   `test/fixtures/tools/bin/` put first on `PATH`, fed scrubbed real `--json` captures from
   `test/fixtures/tools/<tool>/`; never point a test at the real tools.
@@ -804,9 +874,13 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   theme, picks it in Settings → Files, and checks theme icons, compact folders, nesting and
   Hide in tree.
   `e2e/git-graph.spec.ts` opens Git: Show Graph on a repo with
-  branches and a merge, checks the uncommitted row and keyboard selection, switches to all
+  branches and a merge, checks the uncommitted row and keyboard selection, drags and keys the
+  details divider (real input through `sendInputEvent`) and checks the size survives a panel
+  reload, checks the commit box grows with its message, switches to all
   branches, toggles the tree view, and changes `changesView` in Settings → Plugins to see the
-  panel follow.
+  panel follow. The SDK splitter's clamp, keyboard and size validation are unit-tested in
+  `src/extensions/sdk/split.test.ts` and `panelSizes.test.ts`; the `/sizes` route in
+  `builtinGitExtension.integration.test.ts`.
   `e2e/views.spec.ts` writes view files into the isolated `XDG_CONFIG_HOME`, enables them in
   Settings → Views (one while pine runs, for hot reload), checks the sidebar view's live
   workspace names and a button that runs `workspace.new`, and opens the panel view from the
@@ -834,7 +908,26 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   portal is at `PINE_PORTAL_SOCKET`; it also runs the CLI from a Pine pane to check the refusal.
   It also runs a bash manager through `pine manager spawn|read|input` against a fake worker, with
   `manager.allowInput` off and on, and checks a worker pane is refused.
-  `e2e/tray.spec.ts` covers close-to-tray.
+  `e2e/tray.spec.ts` covers close-to-tray. `e2e/fonts.spec.ts` sets a UI and code font and
+  checks the computed, loaded family in the UI, a settings list, a keycap, chat code and the Git
+  panel's webview. `e2e/terminal-selection.spec.ts` runs a fake `claude`
+  that paints `rgb(55,55,55)` rows with mouse tracking on, Shift-drags over them under Oxocarbon
+  in the WebGL and DOM renderers, and checks the copied text and that the selected cells' color
+  differs from the panel (the selection math is unit-tested in `lib/color.test.ts`). `e2e/stale-waiting.spec.ts` runs a fake `claude`
+  (`fakeAgentBin` with a script) that reports `pine state waiting`, exits, and reports again from
+  the background, and checks the workspace goes back to Idle; it also checks a plain OSC 9 in
+  zsh is a notification, not "Waiting for input".
+  `e2e/workspace-merge.spec.ts` merges a workspace with a running command into another one in the
+  same folder through the row menu and the confirm, and checks the output keeps coming in the
+  target. Eligibility and `mergeLayouts` are unit-tested (`lib/mergeEligibility.test.ts`,
+  `layout/tree.test.ts`), the stores in `workspacesStore.merge.test.ts` and
+  `lib/workspaceMerge.test.ts`, the menu, palette and dialog in `MergeWorkspaces.test.tsx`, main's
+  checks in `src/main/workspaceMerge.test.ts` and the sandbox alias in
+  `workspaceSandboxes.merge.test.ts`.
+  `e2e/scratch-workspace.spec.ts` starts a scratch workspace from the top bar menu, checks the
+  pane's `$HISTFILE` is in its folder and nothing reaches `scrollback.json` or
+  `workspaces.json`, confirms deleting its file on close, and checks a restart restores nothing
+  and quit removed the other scratch folder.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,

@@ -93,23 +93,32 @@
     "settings": {
       "pollSeconds": {
         "type": "number",
+        "title": "Refresh interval",
         "default": 10,
-        "description": "Seconds between git refreshes while Pine is focused (2 to 3600)"
+        "minimum": 2,
+        "maximum": 3600,
+        "unit": "seconds",
+        "description": "Time between git refreshes while {product} is focused"
       },
       "showDiffStats": {
         "type": "boolean",
+        "title": "Diff stats on terminals",
         "default": true,
         "description": "Show the files changed and lines added and removed on each terminal"
       },
       "graphScope": {
         "type": "enum",
+        "title": "Graph branches",
         "values": ["current", "all"],
+        "valueTitles": { "current": "Current branch", "all": "All branches" },
         "default": "current",
         "description": "Branches the graph shows: the current branch, or all local and remote branches. Branches you choose in the panel for a repository take precedence"
       },
       "changesView": {
         "type": "enum",
+        "title": "Changed files layout",
         "values": ["list", "tree"],
+        "valueTitles": { "list": "List", "tree": "Folder tree" },
         "default": "list",
         "description": "Show changed files as a flat list or as a folder tree"
       }

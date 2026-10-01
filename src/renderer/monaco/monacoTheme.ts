@@ -1,7 +1,10 @@
-import { formatHex, parse } from 'culori/fn'
+import { converter, formatHex, modeOklch, parse, useMode, wcagContrast } from 'culori/fn'
 import type { editor } from 'monaco-editor'
 import { ensureContrast, mix } from '../lib/color'
 import type { ColorScheme } from '../plugins/types'
+
+useMode(modeOklch)
+const toOklch = converter('oklch')
 
 export const CODE_CONTRAST = 4.5
 export const COMMENT_CONTRAST = 3
@@ -47,6 +50,97 @@ export function codeColors(scheme: ColorScheme): CodeColors {
 
 export const monacoThemeId = (scheme: ColorScheme): string => `pine-scheme-${scheme.id}`
 
+export const DIFF_LINE_ALPHA = 0.1
+export const DIFF_TEXT_ALPHA = 0.18
+export const DIFF_MARK_ALPHA = 0.7
+export const DIFF_TOKEN_CONTRAST = 3
+export const DIFF_CONTRAST_KEEP = 0.9
+export const DIFF_MIN_STRENGTH = 0.25
+export const REMOVED_HUE = 25
+export const INSERTED_HUE = 145
+const HUE_TOLERANCE = 45
+const MIN_CHROMA = 0.06
+
+export interface DiffColors {
+  inserted: string
+  removed: string
+  insertedLine: string
+  removedLine: string
+  insertedText: string
+  removedText: string
+  insertedMark: string
+  removedMark: string
+}
+
+const withAlpha = (hex: string, alpha: number): string =>
+  `${hex}${Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, '0')}`
+
+function keepsContrast(color: string, changed: string, bg: string, target: number): boolean {
+  return (
+    wcagContrast(color, changed) >= Math.min(target, wcagContrast(color, bg) * DIFF_CONTRAST_KEEP)
+  )
+}
+
+export function diffTintStrength(scheme: ColorScheme, tint: string): number {
+  const bg = scheme.colors.background
+  const { comment: _comment, text, ...tokens } = codeColors(scheme)
+  for (let step = 0; 1 - step / 20 > DIFF_MIN_STRENGTH; step++) {
+    const strength = 1 - step / 20
+    const line = mix(bg, tint, DIFF_LINE_ALPHA * strength)
+    const changed = mix(line, tint, DIFF_TEXT_ALPHA * strength)
+    const readable =
+      keepsContrast(text, changed, bg, CODE_CONTRAST) &&
+      Object.values(tokens).every((color) => keepsContrast(color, changed, bg, DIFF_TOKEN_CONTRAST))
+    if (readable) return strength
+  }
+  return DIFF_MIN_STRENGTH
+}
+
+function hueDistance(color: string, hue: number): number {
+  const lch = toOklch(color)
+  if (!lch || (lch.c ?? 0) < MIN_CHROMA) return Number.POSITIVE_INFINITY
+  const d = Math.abs((lch.h ?? 0) - hue) % 360
+  return d > 180 ? 360 - d : d
+}
+
+export function changeHue(scheme: ColorScheme, slot: 'red' | 'green', hue: number): string {
+  const c = scheme.colors
+  if (hueDistance(c[slot], hue) <= HUE_TOLERANCE) return c[slot]
+  const ansi = [c.red, c.green, c.yellow, c.blue, c.magenta, c.cyan]
+  const bright = [c.brightRed, c.brightGreen, c.brightYellow, c.brightBlue, c.brightMagenta]
+  const nearest = [...ansi, ...bright, c.brightCyan].reduce((best, color) =>
+    hueDistance(color, hue) < hueDistance(best, hue) ? color : best,
+  )
+  return hueDistance(nearest, hue) <= HUE_TOLERANCE ? nearest : c[slot]
+}
+
+export function diffColors(scheme: ColorScheme): DiffColors {
+  const tinted = (color: string) => {
+    const hex = solid(color, scheme.colors.background)
+    const strength = diffTintStrength(scheme, hex)
+    return {
+      base: hex,
+      line: withAlpha(hex, DIFF_LINE_ALPHA * strength),
+      text: withAlpha(hex, DIFF_TEXT_ALPHA * strength),
+      mark: withAlpha(hex, DIFF_MARK_ALPHA),
+    }
+  }
+  const inserted = tinted(changeHue(scheme, 'green', INSERTED_HUE))
+  const removed = tinted(changeHue(scheme, 'red', REMOVED_HUE))
+  return {
+    inserted: inserted.base,
+    removed: removed.base,
+    insertedLine: inserted.line,
+    removedLine: removed.line,
+    insertedText: inserted.text,
+    removedText: removed.text,
+    insertedMark: inserted.mark,
+    removedMark: removed.mark,
+  }
+}
+
 function selectionColor(scheme: ColorScheme): string {
   const { background, selectionBackground, selectionForeground } = scheme.colors
   const base = solid(selectionBackground, background)
@@ -61,6 +155,7 @@ export function monacoThemeData(scheme: ColorScheme): editor.IStandaloneThemeDat
   const toward = (amount: number): string => mix(bg, c.foreground, amount)
   const widget = dark ? mix(bg, '#000000', 0.2) : mix(bg, '#ffffff', 0.6)
   const selection = selectionColor(scheme)
+  const diff = diffColors(scheme)
   const rule = (token: string, color: string, fontStyle?: string) =>
     fontStyle ? { token, foreground: bare(color), fontStyle } : { token, foreground: bare(color) }
   return {
@@ -106,6 +201,15 @@ export function monacoThemeData(scheme: ColorScheme): editor.IStandaloneThemeDat
       'editorSuggestWidget.selectedBackground': toward(0.14),
       'editorGutter.background': bg,
       'editorWhitespace.foreground': toward(0.18),
+      'diffEditor.insertedLineBackground': diff.insertedLine,
+      'diffEditor.removedLineBackground': diff.removedLine,
+      'diffEditor.insertedTextBackground': diff.insertedText,
+      'diffEditor.removedTextBackground': diff.removedText,
+      'diffEditorGutter.insertedLineBackground': diff.insertedLine,
+      'diffEditorGutter.removedLineBackground': diff.removedLine,
+      'diffEditorOverview.insertedForeground': diff.insertedMark,
+      'diffEditorOverview.removedForeground': diff.removedMark,
+      'diffEditor.diagonalFill': toward(0.12),
       'scrollbarSlider.background': `${c.foreground}22`,
       'scrollbarSlider.hoverBackground': `${c.foreground}44`,
     },

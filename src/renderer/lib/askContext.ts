@@ -185,6 +185,49 @@ export async function askAboutFile(
   return item ? attachAndOpenChat(item, workspaceId) : false
 }
 
+export type ExplainSourceKind = 'selection' | 'block' | 'output'
+
+export interface ExplainSource {
+  value: ExplainSourceKind
+  item: ChatContextItem
+}
+
+export function explainSources(
+  workspaceId: string | null | undefined,
+  labels: {
+    selection: string
+    block: (command: string) => string
+    output: (command: string) => string
+  },
+): ExplainSource[] {
+  const pane = workspaceTerminal(workspaceId)
+  if (!pane) return []
+  const out: ExplainSource[] = []
+  const selection = terminalSelectionContext(pane.paneId, labels.selection)
+  if (selection) out.push({ value: 'selection', item: selection })
+  const blocks = useBlocksStore.getState()
+  const selectedId = blocks.selected[pane.paneId]
+  const chosen = selectedId
+    ? blocks.byPane[pane.paneId]?.find((b) => b.id === selectedId)
+    : undefined
+  if (chosen) {
+    const label = labels.block(chosen.command)
+    out.push({
+      value: 'block',
+      item: { kind: 'output', label, text: blockContext(pane.paneId, chosen) },
+    })
+  }
+  const last = lastFinishedBlock(pane.paneId)
+  if (last && last.id !== chosen?.id) {
+    const label = labels.output(last.command)
+    out.push({
+      value: 'output',
+      item: { kind: 'output', label, text: blockContext(pane.paneId, last) },
+    })
+  }
+  return out
+}
+
 export function attachAndOpenChat(item: ChatContextItem, workspaceId?: string | null): boolean {
   const id = workspaceId ?? useWorkspacesStore.getState().activeWorkspaceId
   if (!id) return false

@@ -1,18 +1,22 @@
 import {
+  CaretDownIcon,
+  FlaskIcon,
   FolderSimpleIcon,
   GearSixIcon,
   MagnifyingGlassIcon,
   PlusIcon,
+  ShieldCheckIcon,
   SidebarSimpleIcon,
 } from '@phosphor-icons/react'
 import { useDict } from '../i18n/useDict'
 import { useChordLabel } from '../lib/chords'
-import { startNewWorkspace } from '../lib/newWorkspace'
+import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { isMac } from '../platform'
 import { useUIStore } from '../stores/uiStore'
 import { AssistantMenu } from './AssistantMenu'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
+import { DropdownMenu, MenuItem } from './Menu'
 import { NotificationCenter } from './NotificationCenter'
 import { PanelToggles } from './PanelToggles'
 import { UpdateNotice } from './UpdateNotice'
@@ -41,6 +45,7 @@ export function TopBar(): JSX.Element {
             startNewWorkspace()
           }}
         />
+        <NewWorkspaceMenu />
         <IconButton
           size="bar"
           icon={SidebarSimpleIcon}
@@ -66,9 +71,7 @@ export function TopBar(): JSX.Element {
           >
             <MagnifyingGlassIcon className="size-3.5" />
             <span className="flex-1 truncate text-left">{d.search.command}</span>
-            {paletteKeys ? (
-              <Kbd className="h-4 bg-transparent font-mono text-ui-xs">{paletteKeys}</Kbd>
-            ) : null}
+            {paletteKeys ? <Kbd className="h-4 bg-transparent">{paletteKeys}</Kbd> : null}
           </Button>
         </Hint>
         <AssistantMenu />
@@ -85,5 +88,36 @@ export function TopBar(): JSX.Element {
         <NotificationCenter />
       </div>
     </header>
+  )
+}
+
+function NewWorkspaceMenu(): JSX.Element {
+  const d = useDict()
+  const leaveSettings = useUIStore((s) => s.leaveSettings)
+  const scratch = (sandboxed: boolean): void => {
+    leaveSettings()
+    void startScratchWorkspace({ sandboxed })
+  }
+  return (
+    <DropdownMenu
+      align="start"
+      trigger={<IconButton size="bar" icon={CaretDownIcon} label={d.scratch.newMenu} />}
+    >
+      <MenuItem
+        icon={PlusIcon}
+        onClick={() => {
+          leaveSettings()
+          startNewWorkspace()
+        }}
+      >
+        {d.rail.newWorkspace}
+      </MenuItem>
+      <MenuItem icon={FlaskIcon} onClick={() => scratch(false)}>
+        {d.scratch.newScratch}
+      </MenuItem>
+      <MenuItem icon={ShieldCheckIcon} onClick={() => scratch(true)}>
+        {d.scratch.newSandboxedScratch}
+      </MenuItem>
+    </DropdownMenu>
   )
 }

@@ -16,6 +16,7 @@ import {
   firstPaneId,
   firstPaneOfKind,
   graftNode,
+  mergeLayouts,
   movePane,
   moveTab,
   paneIds,
@@ -83,6 +84,7 @@ interface LayoutState {
   removeWorkspace: (workspaceId: string) => void
   release: (workspaceId: string) => void
   releasePane: (workspaceId: string, paneId: string) => void
+  merge: (sourceId: string, targetId: string) => void
   adopt: (layouts: Record<string, WorkspaceLayout>) => void
   graft: (workspaceId: string, layout: WorkspaceLayout, beside?: PanePlacement) => void
 }
@@ -646,6 +648,21 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
     }
   },
+  merge: (sourceId, targetId) =>
+    set((s) => {
+      const source = s.byWorkspace[sourceId]
+      if (sourceId === targetId || !source) return s
+      const { [sourceId]: _moved, ...byWorkspace } = s.byWorkspace
+      if (!byWorkspace[targetId]) return { byWorkspace: { ...byWorkspace, [targetId]: source } }
+      return (
+        patch({ ...s, byWorkspace }, targetId, (l) => ({
+          ...l,
+          root: mergeLayouts(l.root, source.root),
+          activePaneId: source.activePaneId,
+          zoomedPaneId: null,
+        })) ?? s
+      )
+    }),
 
   adopt: (layouts) => {
     set((s) => ({ byWorkspace: { ...s.byWorkspace, ...layouts } }))

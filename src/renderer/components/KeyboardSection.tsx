@@ -182,7 +182,7 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
             onCancel={cancel}
           />
         ) : current ? (
-          <Kbd className="font-mono">{chordText(current, isMac)}</Kbd>
+          <Kbd>{chordText(current, isMac)}</Kbd>
         ) : (
           <span className="text-fg-muted text-ui-sm">{d.keyboard.unassigned}</span>
         )}
@@ -245,7 +245,7 @@ function PendingChoice({
   const keys = chordText(pending.spec, isMac)
   return (
     <div className="flex flex-col gap-1.5">
-      <Kbd className="font-mono">{keys}</Kbd>
+      <Kbd>{keys}</Kbd>
       {pending.conflicts.map((other) => (
         <WarningNote key={other}>
           {fmt(d.keyboard.conflict, { keys, command: commandTitle(other, d) })}

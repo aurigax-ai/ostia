@@ -111,6 +111,37 @@ export function emptyWorkspaceSandbox(): WorkspaceSandbox {
   return { enabled: false, allowRead: [], domains: [], controls: {} }
 }
 
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .map(canonical)
+      .map((item) => JSON.stringify(item))
+      .sort()
+  }
+  if (typeof value !== 'object' || value === null) return value
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(value).sort()) {
+    const item = (value as Record<string, unknown>)[key]
+    if (item !== undefined) out[key] = canonical(item)
+  }
+  return out
+}
+
+export function sameWorkspaceSandbox(a: WorkspaceSandbox, b: WorkspaceSandbox): boolean {
+  return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b))
+}
+
+export type SandboxMergeRefusal = 'sandbox-mixed' | 'sandbox-differs'
+
+export function sandboxMergeRefusal(
+  source: WorkspaceSandbox,
+  target: WorkspaceSandbox,
+): SandboxMergeRefusal | null {
+  if (source.enabled !== target.enabled) return 'sandbox-mixed'
+  if (source.enabled && !sameWorkspaceSandbox(source, target)) return 'sandbox-differs'
+  return null
+}
+
 function union(a: readonly string[], b: readonly string[]): string[] {
   return [...new Set([...a, ...b])]
 }

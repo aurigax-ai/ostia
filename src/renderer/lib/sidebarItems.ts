@@ -27,6 +27,18 @@ export function visibleSidebarItems(
   })
 }
 
+export interface SidebarLines {
+  location: ExtensionSidebarItem[]
+  live: ExtensionSidebarItem[]
+}
+
+export function sidebarLines(items: readonly ExtensionSidebarItem[]): SidebarLines {
+  return {
+    location: items.filter((item) => item.kind === 'location'),
+    live: items.filter((item) => item.kind !== 'location'),
+  }
+}
+
 export function openSidebarUrl(workspaceId: string | undefined, url: string): void {
   const target = workspaceId ?? useWorkspacesStore.getState().activeWorkspaceId
   if (!target) return

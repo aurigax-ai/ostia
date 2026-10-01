@@ -4,6 +4,7 @@ import { PRODUCT_NAME } from '@shared/product'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
+import { currentDict } from '../i18n/useDict'
 import { type DropZone, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
@@ -17,7 +18,9 @@ import {
 import { setKeybindingSetting } from '../lib/chords'
 import { requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
-import { startNewWorkspace } from '../lib/newWorkspace'
+import { mergeRefusalText } from '../lib/mergeRefusalText'
+import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
+import { isStaleAgentReport } from '../lib/paneAgent'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
   goToWorkspace,
@@ -26,6 +29,7 @@ import {
   markWorkspaceRead,
   signalPane,
 } from '../lib/workspaceActivity'
+import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
 import { isMac } from '../platform'
 import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -71,12 +75,13 @@ interface WorkspaceGroupEntry {
 }
 
 const PROGRAM_SETTINGS: readonly {
-  group: 'behavior' | 'notifications' | 'agents'
+  group: 'behavior' | 'notifications' | 'agents' | 'terminal'
   field: string
 }[] = [
   { group: 'behavior', field: 'externalEditor' },
   { group: 'notifications', field: 'command' },
   { group: 'agents', field: 'autoResume' },
+  { group: 'terminal', field: 'warnOnRiskyPaste' },
 ]
 
 export function launchesProgram(key: string, value: unknown): string | null {
@@ -258,6 +263,7 @@ export function registerBuiltinCommands(): void {
     capabilities: ['drive-self'],
     run: ({ state, message }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
+      if (isStaleAgentReport(ctx.activePaneId, state)) return
       const seen = isPaneViewed(ctx.activePaneId)
       signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
       if (state === 'waiting' || state === 'done') {
@@ -501,6 +507,29 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  commands.register<{ argument?: string } | undefined, { merged: boolean }>({
+    id: 'workspace.mergeInto',
+    title: 'Merge Into…',
+    category: 'Workspace',
+    local: true,
+    argument: 'Workspace to merge into',
+    choices: async () => {
+      const source = useWorkspacesStore.getState().activeWorkspaceId
+      if (!source) return []
+      const d = currentDict()
+      return (await loadMergeTargets(source)).map((t) => {
+        const reason = mergeRefusalText(d, t.refusal)
+        return { value: t.id, label: t.name, ...(reason ? { disabledReason: reason } : {}) }
+      })
+    },
+    emptyChoices: () => currentDict().merge.noTargets,
+    run: async (args, ctx) => {
+      const target = args?.argument
+      if (!ctx.activeWorkspaceId || !target) return { merged: false }
+      return { merged: await requestMergeWorkspace(ctx.activeWorkspaceId, target) }
+    },
+  })
+
   commands.register<{ index: number }, { switched: boolean }>({
     id: 'workspace.goto',
     title: 'Go to Workspace',
@@ -528,6 +557,25 @@ export function registerBuiltinCommands(): void {
       if (name !== undefined && typeof name !== 'string') throw new Error('name must be a string')
       useUIStore.getState().leaveSettings()
       return { workspaceId: startNewWorkspace({ dir, name }) }
+    },
+  })
+
+  commands.register<{ sandboxed?: unknown } | undefined, { workspaceId: string | null }>({
+    id: 'workspace.newScratch',
+    title: 'New Scratch Workspace',
+    category: 'Workspace',
+    target: 'none',
+    argsSchema: {
+      type: 'object',
+      properties: { sandboxed: { type: 'boolean' } },
+    },
+    run: async (args) => {
+      const sandboxed = args?.sandboxed
+      if (sandboxed !== undefined && typeof sandboxed !== 'boolean') {
+        throw new Error('sandboxed must be a boolean')
+      }
+      useUIStore.getState().leaveSettings()
+      return { workspaceId: await startScratchWorkspace({ sandboxed }) }
     },
   })
 
@@ -582,6 +630,14 @@ export function registerBuiltinCommands(): void {
     category: 'App',
     target: 'none',
     run: () => useUIStore.getState().openSettings(),
+  })
+
+  commands.register({
+    id: 'assist.settings',
+    title: 'Assistant: Settings',
+    category: 'Assistant',
+    target: 'none',
+    run: () => useUIStore.getState().openSettings('assistant'),
   })
 
   commands.register({

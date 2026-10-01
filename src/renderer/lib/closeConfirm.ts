@@ -86,19 +86,51 @@ function groupsToConfirm(workspaces: readonly Workspace[], enabled: boolean): Ru
   return enabled ? runningGroups(workspaces) : []
 }
 
+function emptyGroup(workspace: Workspace): RunningGroup {
+  return {
+    workspaceId: workspace.id,
+    workspace: workspace.customName ?? workspace.name,
+    commands: [],
+    files: [],
+  }
+}
+
+export function withScratchGroups(
+  workspaces: readonly Workspace[],
+  groups: readonly RunningGroup[],
+  scratchFiles: Readonly<Record<string, number>>,
+): RunningGroup[] {
+  const out: RunningGroup[] = []
+  for (const workspace of workspaces) {
+    const count = workspace.kind === 'scratch' ? (scratchFiles[workspace.id] ?? 0) : 0
+    const group = groups.find((g) => g.workspaceId === workspace.id)
+    if (count > 0) out.push({ ...(group ?? emptyGroup(workspace)), scratchFiles: count })
+    else if (group) out.push(group)
+  }
+  return out
+}
+
+async function closeGroups(workspaces: readonly Workspace[]): Promise<RunningGroup[]> {
+  const { confirmClose } = useSettingsStore.getState().workspaces
+  const counts: Record<string, number> = {}
+  for (const workspace of workspaces) {
+    if (workspace.kind !== 'scratch') continue
+    counts[workspace.id] = await window.pine.scratch.files(workspace.id).catch(() => 0)
+  }
+  return withScratchGroups(workspaces, groupsToConfirm(workspaces, confirmClose), counts)
+}
+
 export async function requestCloseWorkspace(id: string): Promise<void> {
   const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === id)
   if (!workspace) return
-  const { confirmClose } = useSettingsStore.getState().workspaces
-  if (await confirmGroups('workspace', groupsToConfirm([workspace], confirmClose))) {
+  if (await confirmGroups('workspace', await closeGroups([workspace]))) {
     useWorkspacesStore.getState().closeWorkspace(id)
   }
 }
 
 export async function requestCloseOthers(id: string): Promise<void> {
   const others = useWorkspacesStore.getState().workspaces.filter((w) => w.id !== id)
-  const { confirmClose } = useSettingsStore.getState().workspaces
-  if (await confirmGroups('workspace', groupsToConfirm(others, confirmClose))) {
+  if (await confirmGroups('workspace', await closeGroups(others))) {
     useWorkspacesStore.getState().closeOthers(id)
   }
 }
@@ -126,7 +158,12 @@ export async function requestClosePane(workspaceId: string, paneId: string): Pro
 
 export function quitGroups(): RunningGroup[] {
   const { confirmQuit: enabled } = useSettingsStore.getState().workspaces
-  return groupsToConfirm(useWorkspacesStore.getState().workspaces, enabled)
+  const { workspaces } = useWorkspacesStore.getState()
+  const groups = groupsToConfirm(workspaces, enabled)
+  const scratch = workspaces.filter(
+    (w) => w.kind === 'scratch' && !groups.some((g) => g.workspaceId === w.id),
+  )
+  return [...groups, ...scratch.map(emptyGroup)]
 }
 
 export function confirmQuit(groups: RunningGroup[]): Promise<boolean> {

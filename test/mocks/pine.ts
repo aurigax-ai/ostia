@@ -26,6 +26,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       detach: vi.fn(),
       hibernate: vi.fn().mockResolvedValue(true),
       restart: vi.fn().mockResolvedValue(true),
+      reportAgentRunning: vi.fn(),
       write: vi.fn(),
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),
@@ -73,6 +74,12 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     workspace: {
       save: vi.fn(),
       load: vi.fn().mockResolvedValue(null),
+      merge: vi.fn().mockResolvedValue({ ok: true }),
+    },
+    scratch: {
+      create: vi.fn().mockResolvedValue('/tmp/pine-scratch-1000/1-aaaaaaaaaaaa'),
+      files: vi.fn().mockResolvedValue(0),
+      reveal: vi.fn(),
     },
     windows: {
       info: vi.fn().mockResolvedValue({ windowId: '1', detached: false }),
@@ -201,6 +208,8 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onOverview: vi.fn(noopUnsub),
       onOpenUi: vi.fn(noopUnsub),
       reportShortcuts: vi.fn(),
+      models: vi.fn().mockResolvedValue({ ok: false, error: 'unavailable' }),
+      setModelLoaded: vi.fn().mockResolvedValue({ ok: true }),
     },
     chatSessions: {
       list: vi.fn().mockResolvedValue([]),

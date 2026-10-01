@@ -39,6 +39,7 @@ const ready: AssistExtensionState = {
   name: 'Assistant',
   label: 'model-runtime · gemma',
   setup: null,
+  models: false,
   features: [
     { id: 'chat', setting: 'chat', on: true, ready: true },
     { id: 'terminalCompletions', setting: 'terminalCompletions', on: true, ready: true },
@@ -87,6 +88,7 @@ describe('AssistantMenu', () => {
     const features = await screen.findByRole('list', { name: 'Features' })
     expect(within(features).getAllByRole('listitem')).toHaveLength(2)
     expect(screen.getByText('model-runtime · gemma')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /settings|Models/i })).toBeNull()
     await user.click(screen.getByRole('switch', { name: 'Terminal completion' }))
     expect(setSetting).toHaveBeenCalledWith('assistant', 'terminalCompletions', false)
   })
@@ -100,7 +102,7 @@ describe('AssistantMenu', () => {
     expect(screen.queryByRole('switch')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Set up the assistant' }))
     expect(useUIStore.getState().settingsActive).toBe(true)
-    expect(useUIStore.getState().settingsSection).toBe('plugins')
+    expect(useUIStore.getState().settingsSection).toBe('assistant')
   })
 })
 

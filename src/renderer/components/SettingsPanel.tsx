@@ -5,6 +5,7 @@ import {
   BracketsCurlyIcon,
   BroadcastIcon,
   CaretRightIcon,
+  ChatCircleDotsIcon,
   CheckIcon,
   CopyIcon,
   DeviceMobileIcon,
@@ -40,7 +41,14 @@ import appIcon from '../../../resources/icon.svg'
 import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
+import { extensionMatchesQuery, withProductName } from '../lib/extensionSettingText'
+import { useReducedMotion } from '../lib/motion'
 import { openFileInWorkspace } from '../lib/openFile'
+import {
+  extensionAnchorId,
+  pluginsNavExpanded,
+  rememberPluginsNavExpanded,
+} from '../lib/settingsNav'
 import { useEffectiveTheme } from '../lib/theme'
 import { isMac, platform } from '../platform'
 import type { ClipboardKeys } from '../settings/terminalPaneSettings'
@@ -75,8 +83,8 @@ import {
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ActionsSection } from './ActionsSection'
+import { AssistantSection, isAssistExtension } from './AssistantSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
-import { ChatToolsSettings } from './ChatToolsSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { FileTreeSettingsGroups } from './FilesSettingsSection'
 import { FontPicker } from './FontPicker'
@@ -94,6 +102,7 @@ import { ViewsSection } from './ViewsSection'
 import { WorkspaceSandboxPage } from './WorkspaceSandboxPage'
 import { WorkspacesSection } from './WorkspacesSection'
 import { ATTENTION_ALERT } from './attentionStyles'
+import { extensionIcon } from './extensionIcons'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -115,6 +124,7 @@ type SectionId =
   | 'sidebar'
   | 'workspaces'
   | 'agents'
+  | 'assistant'
   | 'files'
   | 'browser'
   | 'passwords'
@@ -129,12 +139,25 @@ type SectionId =
   | 'sandbox'
   | 'workspace'
 
+interface ExtensionAnchor {
+  id: string
+  nonce: number
+}
+
+const ANCHOR_HIGHLIGHT_MS = 2000
+const PLUGINS_NAV_LIST_ID = 'settings-nav-plugins'
+
 export function SettingsPanel(): JSX.Element | null {
   const d = useDict()
   const open = useUIStore((s) => s.settingsActive)
   const close = useUIStore((s) => s.leaveSettings)
   const [active, setActive] = useState<SectionId>('appearance')
   const requested = useUIStore((s) => s.settingsSection)
+  const requestedExtension = useUIStore((s) => s.settingsExtension)
+  const extensions = useExtensionsStore((s) => s.list)
+  const [pluginsExpanded, setPluginsExpanded] = useState(pluginsNavExpanded)
+  const [anchor, setAnchor] = useState<ExtensionAnchor | null>(null)
+  const pluginsButtonRef = useRef<HTMLButtonElement>(null)
   const [query, setQuery] = useState('')
   const settingsWorkspaceId = useUIStore((s) => s.settingsWorkspaceId)
   const settingsRequest = useUIStore((s) => s.settingsRequest)
@@ -176,6 +199,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
         { id: 'sandbox', icon: ShieldCheckIcon, label: d.sandbox.title },
         { id: 'agents', icon: RobotIcon, label: d.settings.agents },
+        { id: 'assistant', icon: ChatCircleDotsIcon, label: d.assistantSettings.title },
         ...(platform === 'linux'
           ? [{ id: 'manager' as const, icon: BroadcastIcon, label: d.manager.settingsTitle }]
           : []),
@@ -194,11 +218,35 @@ export function SettingsPanel(): JSX.Element | null {
     [d],
   )
 
+  const expandPlugins = (expanded: boolean): void => {
+    setPluginsExpanded(expanded)
+    rememberPluginsNavExpanded(expanded)
+  }
+
+  const openSection = (id: SectionId): void => {
+    setActive(id)
+    setAnchor(null)
+  }
+
+  const openExtension = (id: string): void => {
+    setActive('plugins')
+    setAnchor((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }))
+  }
+
   useEffect(() => {
     if (!requested) return
-    if (sections.some((s) => s.id === requested)) setActive(requested as SectionId)
-    useUIStore.setState({ settingsSection: null })
-  }, [requested, sections])
+    if (sections.some((s) => s.id === requested)) {
+      setActive(requested as SectionId)
+      if (requested === 'plugins' && requestedExtension) {
+        setAnchor((prev) => ({ id: requestedExtension, nonce: (prev?.nonce ?? 0) + 1 }))
+        setPluginsExpanded(true)
+        rememberPluginsNavExpanded(true)
+      } else {
+        setAnchor(null)
+      }
+    }
+    useUIStore.setState({ settingsSection: null, settingsExtension: null })
+  }, [requested, requestedExtension, sections])
 
   const openSettingsFile = async (): Promise<void> => {
     const path = await window.pine.settings.path()
@@ -215,7 +263,16 @@ export function SettingsPanel(): JSX.Element | null {
   const all = workspaceLabel
     ? [...sections, { id: 'workspace' as const, icon: FolderSimpleIcon, label: workspaceLabel }]
     : sections
-  const visible = q ? all.filter((s) => s.label.toLowerCase().includes(q)) : all
+  const matchingExtensions = q ? extensions.filter((e) => extensionMatchesQuery(e, q)) : extensions
+  const visible = q
+    ? all.filter(
+        (s) =>
+          s.label.toLowerCase().includes(q) ||
+          (s.id === 'plugins' && matchingExtensions.length > 0),
+      )
+    : all
+  const navExtensions = q ? matchingExtensions : extensions
+  const pluginsChildrenShown = navExtensions.length > 0 && (q !== '' || pluginsExpanded)
 
   return (
     <section
@@ -237,22 +294,39 @@ export function SettingsPanel(): JSX.Element | null {
           </InputGroup>
           <ScrollArea className="min-h-0 flex-1">
             <ul className="flex flex-col gap-0.5 px-2 pb-2">
-              {visible.map((s) => (
-                <li key={s.id}>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setActive(s.id)}
-                    aria-current={active === s.id ? 'page' : undefined}
-                    className={cn(
-                      'w-full justify-start gap-2.5 font-normal text-ui-base',
-                      active === s.id ? 'bg-surface-2 text-fg' : 'text-fg-muted',
-                    )}
-                  >
-                    <s.icon className={active === s.id ? 'text-fg' : 'text-fg-muted'} />
-                    {s.label}
-                  </Button>
-                </li>
-              ))}
+              {visible.map((s) =>
+                s.id === 'plugins' ? (
+                  <PluginsNavItem
+                    key={s.id}
+                    label={s.label}
+                    icon={s.icon}
+                    current={active === 'plugins' && !anchor}
+                    extensions={navExtensions}
+                    anchoredId={active === 'plugins' ? (anchor?.id ?? null) : null}
+                    expanded={pluginsChildrenShown}
+                    canToggle={q === '' && extensions.length > 0}
+                    buttonRef={pluginsButtonRef}
+                    onOpen={() => openSection('plugins')}
+                    onToggle={expandPlugins}
+                    onOpenExtension={openExtension}
+                  />
+                ) : (
+                  <li key={s.id}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => openSection(s.id)}
+                      aria-current={active === s.id ? 'page' : undefined}
+                      className={cn(
+                        'w-full justify-start gap-2.5 font-normal text-ui-base',
+                        active === s.id ? 'bg-surface-2 text-fg' : 'text-fg-muted',
+                      )}
+                    >
+                      <s.icon className={active === s.id ? 'text-fg' : 'text-fg-muted'} />
+                      {s.label}
+                    </Button>
+                  </li>
+                ),
+              )}
             </ul>
           </ScrollArea>
           <Button variant="outline" size="sm" onClick={openSettingsFile} className="m-2">
@@ -285,12 +359,13 @@ export function SettingsPanel(): JSX.Element | null {
               />
             ) : null}
             {active === 'agents' ? <AgentsSection /> : null}
+            {active === 'assistant' ? <AssistantSection /> : null}
             {active === 'manager' ? <ManagerSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'browser' ? <BrowserSettingsSection /> : null}
             {active === 'passwords' ? <PasswordsSection /> : null}
             {active === 'editor' ? <EditorSettingsSection /> : null}
-            {active === 'plugins' ? <PluginsSection /> : null}
+            {active === 'plugins' ? <PluginsSection anchor={anchor} /> : null}
             {active === 'views' ? <ViewsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}
             {active === 'remote' ? <GatewaySection /> : null}
@@ -301,6 +376,113 @@ export function SettingsPanel(): JSX.Element | null {
         </ScrollArea>
       </div>
     </section>
+  )
+}
+
+function PluginsNavItem({
+  label,
+  icon: SectionIcon,
+  current,
+  extensions,
+  anchoredId,
+  expanded,
+  canToggle,
+  buttonRef,
+  onOpen,
+  onToggle,
+  onOpenExtension,
+}: {
+  label: string
+  icon: IconComponent
+  current: boolean
+  extensions: ExtensionInfo[]
+  anchoredId: string | null
+  expanded: boolean
+  canToggle: boolean
+  buttonRef: React.RefObject<HTMLButtonElement>
+  onOpen: () => void
+  onToggle: (expanded: boolean) => void
+  onOpenExtension: (id: string) => void
+}): JSX.Element {
+  const d = useDict()
+  const emphasized = current || anchoredId !== null
+  return (
+    <li>
+      <div className={cn('flex items-center gap-0.5 rounded-lg', current && 'bg-surface-2')}>
+        <Button
+          ref={buttonRef}
+          variant="ghost"
+          onClick={onOpen}
+          onKeyDown={(e) => {
+            if (!canToggle) return
+            if (e.key === 'ArrowRight' && !expanded) {
+              e.preventDefault()
+              onToggle(true)
+            } else if (e.key === 'ArrowLeft' && expanded) {
+              e.preventDefault()
+              onToggle(false)
+            }
+          }}
+          aria-current={current ? 'page' : undefined}
+          className={cn(
+            'min-w-0 flex-1 justify-start gap-2.5 font-normal text-ui-base',
+            emphasized ? 'text-fg' : 'text-fg-muted',
+          )}
+        >
+          <SectionIcon className={emphasized ? 'text-fg' : 'text-fg-muted'} />
+          {label}
+        </Button>
+        {canToggle ? (
+          <IconButton
+            icon={CaretRightIcon}
+            label={d.settings.pluginsNavList}
+            aria-expanded={expanded}
+            aria-controls={expanded ? PLUGINS_NAV_LIST_ID : undefined}
+            onClick={() => onToggle(!expanded)}
+            className={cn('mr-1 [&_svg]:transition-transform', expanded && '[&_svg]:rotate-90')}
+          />
+        ) : null}
+      </div>
+      {expanded ? (
+        <ul
+          id={PLUGINS_NAV_LIST_ID}
+          aria-label={d.settings.pluginsNavList}
+          className="mt-0.5 ml-4 flex flex-col gap-0.5 border-line border-l pl-1.5"
+        >
+          {extensions.map((ext) => {
+            const ExtIcon = ext.panel?.icon ? extensionIcon(ext.panel.icon) : null
+            const isCurrent = anchoredId === ext.id
+            return (
+              <li key={ext.id}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onOpenExtension(ext.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowLeft') {
+                      e.preventDefault()
+                      buttonRef.current?.focus()
+                    }
+                  }}
+                  aria-current={isCurrent ? 'location' : undefined}
+                  className={cn(
+                    'w-full justify-start gap-2 font-normal text-ui-sm',
+                    isCurrent ? 'bg-surface-2 text-fg' : 'text-fg-muted',
+                  )}
+                >
+                  {ExtIcon ? (
+                    <ExtIcon className={isCurrent ? 'text-fg' : 'text-fg-muted'} />
+                  ) : (
+                    <span aria-hidden className="size-4 shrink-0" />
+                  )}
+                  <span className="min-w-0 truncate">{ext.name}</span>
+                </Button>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+    </li>
   )
 }
 
@@ -315,14 +497,24 @@ export function SectionHead({ title, desc }: { title: string; desc?: string }): 
 
 export function SettingsGroup({
   title,
+  desc,
+  action,
   children,
 }: {
   title: string
+  desc?: string
+  action?: React.ReactNode
   children: React.ReactNode
 }): JSX.Element {
   return (
     <section className="mt-5 border-line border-t pt-5 first-of-type:mt-3 first-of-type:border-t-0 first-of-type:pt-0">
-      <h3 className="mb-2 font-semibold text-fg text-ui-emphasis">{title}</h3>
+      <div className="mb-2 flex items-start justify-between gap-6">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-fg text-ui-emphasis">{title}</h3>
+          {desc ? <p className="mt-0.5 text-fg-muted text-ui-sm">{desc}</p> : null}
+        </div>
+        {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+      </div>
       {children}
     </section>
   )
@@ -346,12 +538,14 @@ export function ControlRow({
   desc,
   error,
   errorId,
+  labelHint,
   children,
 }: {
   label: string
   desc?: string
   error?: string | null
   errorId?: string
+  labelHint?: React.ReactNode
   children: React.ReactNode
 }): JSX.Element {
   return (
@@ -359,7 +553,14 @@ export function ControlRow({
       className={`flex justify-between gap-6 py-1.5 ${desc || error ? 'items-start' : 'items-center'}`}
     >
       <div className="min-w-0">
-        <div className="text-fg text-ui-base">{label}</div>
+        {labelHint ? (
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="text-fg text-ui-base">{label}</span>
+            {labelHint}
+          </div>
+        ) : (
+          <div className="text-fg text-ui-base">{label}</div>
+        )}
         {desc ? <p className="mt-0.5 text-fg-muted text-ui-sm">{desc}</p> : null}
         {error ? (
           <p id={errorId} role="alert" className="mt-0.5 text-attn-fg text-ui-sm">
@@ -449,10 +650,10 @@ function AppearanceSection(): JSX.Element {
         <WindowTitleRow />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupFonts}>
-        <FontRow surface="ui" label={d.settings.uiFont} />
+        <FontRow surface="ui" label={d.settings.uiFont} desc={d.settings.uiFontDesc} />
         <FontRow surface="terminal" label={d.settings.terminalFont} />
         <LineHeightRow />
-        <FontRow surface="editor" label={d.settings.editorFont} />
+        <FontRow surface="editor" label={d.settings.editorFont} desc={d.settings.editorFontDesc} />
       </SettingsGroup>
     </div>
   )
@@ -593,12 +794,20 @@ function ZoomRow(): JSX.Element {
   )
 }
 
-function FontRow({ surface, label }: { surface: FontSurface; label: string }): JSX.Element {
+function FontRow({
+  surface,
+  label,
+  desc,
+}: {
+  surface: FontSurface
+  label: string
+  desc?: string
+}): JSX.Element {
   const d = useDict()
   const font = useSettingsStore((s) => s.appearance[surface])
   const setSurfaceFont = useSettingsStore((s) => s.setSurfaceFont)
   return (
-    <ControlRow label={label}>
+    <ControlRow label={label} desc={desc}>
       <FontPicker
         value={font.family}
         label={`${label}, ${d.settings.family}`}
@@ -673,8 +882,8 @@ function NotificationsSection(): JSX.Element {
           onChange={(v) => set({ sound: v })}
         />
         <ToggleRow
-          label={d.settings.notifyWhenFocused}
-          desc={d.settings.notifyWhenFocusedDesc}
+          label={fmt(d.settings.notifyWhenFocused, { product: PRODUCT_NAME })}
+          desc={fmt(d.settings.notifyWhenFocusedDesc, { product: PRODUCT_NAME })}
           checked={n.whenFocused}
           onChange={(v) => set({ whenFocused: v })}
         />
@@ -1136,7 +1345,7 @@ function ExternalEditorRow(): JSX.Element {
   )
 }
 
-function PluginsSection(): JSX.Element {
+function PluginsSection({ anchor }: { anchor: ExtensionAnchor | null }): JSX.Element {
   const d = useDict()
   const plugins = usePluginsStore((s) => s.plugins)
   return (
@@ -1159,7 +1368,7 @@ function PluginsSection(): JSX.Element {
         ))}
       </div>
       <Separator className="my-3" />
-      <ExtensionsSection />
+      <ExtensionsSection anchor={anchor} />
     </section>
   )
 }
@@ -1181,12 +1390,28 @@ function extensionStatusLabel(d: Dict, ext: ExtensionInfo): string {
   }
 }
 
-export function ExtensionsSection(): JSX.Element {
+export function ExtensionsSection({
+  anchor = null,
+}: {
+  anchor?: ExtensionAnchor | null
+}): JSX.Element {
   const d = useDict()
   const list = useExtensionsStore((s) => s.list)
   const setEnabled = useExtensionsStore((s) => s.setEnabled)
   const review = useExtensionsStore((s) => s.review)
-  const chatExt = list.find((e) => e.enabled && e.assist.includes('chat'))?.id
+  const reducedMotion = useReducedMotion()
+  const [flash, setFlash] = useState<ExtensionAnchor | null>(null)
+  const anchorListed = anchor !== null && list.some((e) => e.id === anchor.id)
+
+  useEffect(() => {
+    if (!anchor || !anchorListed) return
+    const block = document.getElementById(extensionAnchorId(anchor.id))
+    block?.scrollIntoView({ block: 'start' })
+    block?.focus({ preventScroll: true })
+    setFlash(anchor)
+    const timer = setTimeout(() => setFlash(null), ANCHOR_HIGHLIGHT_MS)
+    return () => clearTimeout(timer)
+  }, [anchor, anchorListed])
   return (
     <section aria-label={d.extensions.title}>
       <SubHead title={d.extensions.title} desc={d.extensions.desc} />
@@ -1195,7 +1420,24 @@ export function ExtensionsSection(): JSX.Element {
       ) : (
         <ul className="flex flex-col">
           {list.map((ext) => (
-            <li key={ext.id} className="flex flex-col rounded-sm px-3 py-2">
+            <li
+              key={ext.id}
+              id={extensionAnchorId(ext.id)}
+              tabIndex={-1}
+              aria-label={ext.name}
+              className="relative flex scroll-mt-3 flex-col rounded-sm px-3 py-2 outline-none"
+            >
+              {flash?.id === ext.id ? (
+                <span
+                  key={flash.nonce}
+                  aria-hidden
+                  data-testid="extension-anchor-highlight"
+                  className={cn(
+                    'settings-anchor-highlight pointer-events-none absolute inset-0 rounded-sm',
+                    reducedMotion && 'settings-anchor-highlight-static',
+                  )}
+                />
+              ) : null}
               <div className="flex items-start justify-between gap-6">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -1207,7 +1449,9 @@ export function ExtensionsSection(): JSX.Element {
                       </Badge>
                     ) : null}
                   </div>
-                  <p className="mt-0.5 text-fg-muted text-ui-sm">{ext.description}</p>
+                  <p className="mt-0.5 text-fg-muted text-ui-sm">
+                    {withProductName(ext.description)}
+                  </p>
                   <p className="mt-0.5 text-fg-muted text-ui-xs">
                     {extensionStatusLabel(d, ext)} · {d.extensions.permissions}:{' '}
                     {ext.granted.length > 0 ? ext.granted.join(', ') : d.extensions.noPermissions}
@@ -1232,8 +1476,18 @@ export function ExtensionsSection(): JSX.Element {
                   />
                 </div>
               </div>
-              <ExtensionSettingsForm ext={ext} />
-              {ext.id === chatExt ? <ChatToolsSettings /> : null}
+              {!isAssistExtension(ext) ? (
+                <ExtensionSettingsForm ext={ext} />
+              ) : ext.enabled ? (
+                <Button
+                  variant="link"
+                  size="xs"
+                  className="h-5 self-start px-0 text-ui-sm"
+                  onClick={() => useUIStore.getState().openSettings('assistant')}
+                >
+                  {d.assistantSettings.configure}
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>

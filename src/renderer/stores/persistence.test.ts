@@ -67,6 +67,21 @@ describe('workspace autosave', () => {
       expect(snapshot.workspaces[0].root).toMatchObject({ type: 'pane', kind: 'terminal' })
     })
 
+    it('never saves a scratch workspace, even when it is the active one', () => {
+      const kept = activeSid()
+      useWorkspacesStore
+        .getState()
+        .addWorkspace('/tmp/pine-scratch-1000/1-aaaaaaaaaaaa', 'end', 'scratch')
+      const scratch = activeSid()
+      useLayoutStore.getState().ensure(scratch)
+
+      saveSnapshotNow()
+
+      const snapshot = lastSnapshot()
+      expect(snapshot.workspaces.map((s) => s.id)).toEqual([kept])
+      expect(snapshot.activeWorkspaceId).toBe(kept)
+    })
+
     it('stamps the save time so a stored snapshot can be dated by hand', () => {
       saveSnapshotNow()
       expect(Number.isNaN(Date.parse(lastSnapshot().savedAt))).toBe(false)

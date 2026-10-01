@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import { AppWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ASK_COMMAND_ID } from '../commands/askCommand'
-import { commands } from '../commands/registry'
+import { type CommandChoice, commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, firstPaneOfKind } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
@@ -156,6 +156,8 @@ interface ArgumentCommand {
   id: string
   title: string
   argument: string
+  choices?: () => Promise<CommandChoice[]>
+  emptyChoices?: () => string
 }
 
 function ArgumentStep({
@@ -175,6 +177,17 @@ function ArgumentStep({
     if (!argument) return
     void commands.exec(command.id, { argument })
     onDone()
+  }
+  if (command.choices) {
+    return (
+      <ChoiceStep
+        command={command}
+        choices={command.choices}
+        value={value}
+        onValueChange={onValueChange}
+        onDone={onDone}
+      />
+    )
   }
   return (
     <>
@@ -199,6 +212,55 @@ function ArgumentStep({
   )
 }
 
+function ChoiceStep({
+  command,
+  choices: loadChoices,
+  value,
+  onValueChange,
+  onDone,
+}: {
+  command: ArgumentCommand
+  choices: () => Promise<CommandChoice[]>
+  value: string
+  onValueChange: (value: string) => void
+  onDone: () => void
+}): JSX.Element {
+  const [choices, setChoices] = useState<CommandChoice[] | null>(null)
+  useEffect(() => {
+    let live = true
+    void loadChoices().then((next) => {
+      if (live) setChoices(next)
+    })
+    return () => {
+      live = false
+    }
+  }, [loadChoices])
+  return (
+    <>
+      <CommandInput placeholder={command.argument} value={value} onValueChange={onValueChange} />
+      <CommandList>
+        {choices !== null && choices.length === 0 ? (
+          <CommandEmpty>{command.emptyChoices?.() ?? command.argument}</CommandEmpty>
+        ) : null}
+        {choices?.map((choice) => (
+          <CommandItem
+            key={choice.value}
+            value={`${choice.label} ${choice.value}`}
+            disabled={choice.disabledReason !== undefined}
+            onSelect={() => {
+              void commands.exec(command.id, { argument: choice.value })
+              onDone()
+            }}
+          >
+            <span>{choice.label}</span>
+            {choice.disabledReason ? <ItemMeta>{choice.disabledReason}</ItemMeta> : null}
+          </CommandItem>
+        ))}
+      </CommandList>
+    </>
+  )
+}
+
 function symbolOf(mode: PaletteMode): string {
   return PALETTE_MODES.find((m) => m.mode === mode)?.symbol ?? ''
 }
@@ -217,7 +279,7 @@ function HelpItems({
     <CommandGroup heading={d.palette.helpHeading}>
       {askName ? (
         <CommandItem value={`? tab ${fmt(d.ask.tabHint, { name: askName })}`} onSelect={onAsk}>
-          <Kbd className="font-mono">Tab</Kbd>
+          <Kbd>Tab</Kbd>
           <span>{fmt(d.ask.tabHint, { name: askName })}</span>
         </CommandItem>
       ) : null}
@@ -227,7 +289,7 @@ function HelpItems({
           value={`? ${m.symbol} ${d.palette.modes[m.mode]}`}
           onSelect={() => onPick(m.symbol)}
         >
-          <Kbd className="font-mono">{m.symbol}</Kbd>
+          <Kbd>{m.symbol}</Kbd>
           <span>{d.palette.modes[m.mode]}</span>
         </CommandItem>
       ))}
@@ -382,7 +444,13 @@ function CommandItems({
                     return
                   }
                   if (c.argument) {
-                    onAsk({ id: c.id, title: c.title, argument: c.argument })
+                    onAsk({
+                      id: c.id,
+                      title: c.title,
+                      argument: c.argument,
+                      choices: c.choices,
+                      emptyChoices: c.emptyChoices,
+                    })
                     return
                   }
                   void commands.exec(c.id)
@@ -391,7 +459,7 @@ function CommandItems({
               >
                 <span>{c.title}</span>
                 <ItemMeta mono>{c.id}</ItemMeta>
-                {keys ? <Kbd className="font-mono">{keys}</Kbd> : null}
+                {keys ? <Kbd>{keys}</Kbd> : null}
               </CommandItem>
             )
           })}
