@@ -3,13 +3,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IconThemeContribution } from '../shared/iconTheme'
+import { readConfined } from './confinedRead'
 import { discoverExtensions } from './extensionManifest'
 import {
   ICON_FILE_MAX_BYTES,
   ICON_THEME_MAX_BYTES,
   iconThemeFor,
   loadIconTheme,
-  readConfined,
 } from './iconThemes'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
