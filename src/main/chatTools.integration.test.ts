@@ -10,6 +10,7 @@ import { MODEL_RUNTIME_CATALOG } from '../extensions/model-runtime/provider'
 import type { AssistContext } from '../extensions/sdk'
 import { AssistantService } from '../extensions/sdk/assist/service'
 import { type ChatAssistRequest, type ChatToolCall, normalizeAssistRequest } from '../shared/assist'
+import { parseEdits } from '../shared/chatEdits'
 import { mcpToolName } from '../shared/chatTools'
 import { McpHost } from './mcpHost'
 
@@ -99,12 +100,14 @@ function fakeProvider(toolName: string): Promise<{ url: string; bodies: Body[] }
 async function chat(
   svc: AssistantService,
   request: ChatAssistRequest,
+  model = { provider: 'fake', model: 'fake' },
 ): Promise<{ text: string; chunks: UIMessageChunk[] }> {
   const input = normalizeAssistRequest('chat', request)
   if (!input) throw new Error('invalid request')
   const chunks: UIMessageChunk[] = []
   const ctx: AssistContext = {
     requestId: 'r',
+    model,
     signal: new AbortController().signal,
     chunk: async (text) => {
       chunks.push(JSON.parse(text) as UIMessageChunk)
@@ -147,15 +150,16 @@ describe('chat tool loop: fake provider, assistant extension and fake MCP server
     const name = mcpToolName('fake', tool.name)
     const provider = await fakeProvider(name)
     const svc = new AssistantService(ASSISTANT_CATALOG, {})
-    svc.configure(
+    svc.configure({}, [
       {
-        provider: 'openai-compatible',
+        id: 'fake',
+        kind: 'openai-compatible',
+        name: 'Fake',
         baseUrl: provider.url,
-        fastModel: 'fake',
-        chatModel: 'fake',
+        models: ['fake'],
+        apiKey: null,
       },
-      null,
-    )
+    ])
     const tools = [{ name, description: tool.description, inputSchema: tool.inputSchema }]
     const first = await chat(svc, {
       messages: [{ role: 'user', content: 'echo something' }],
@@ -200,15 +204,16 @@ describe('chat tool loop: fake provider, assistant extension and fake MCP server
   it('tells the model a denied call was denied', async () => {
     const provider = await fakeProvider('write_file')
     const svc = new AssistantService(ASSISTANT_CATALOG, {})
-    svc.configure(
+    svc.configure({}, [
       {
-        provider: 'openai-compatible',
+        id: 'fake',
+        kind: 'openai-compatible',
+        name: 'Fake',
         baseUrl: provider.url,
-        fastModel: 'fake',
-        chatModel: 'fake',
+        models: ['fake'],
+        apiKey: null,
       },
-      null,
-    )
+    ])
     await chat(svc, {
       messages: [
         { role: 'user', content: 'write it' },
@@ -284,14 +289,47 @@ const READ_FILE = {
   },
 }
 
+const EDIT_FILE = {
+  name: 'edit_file',
+  description: 'Change part of a text file by replacing exact text.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'File path' },
+      edits: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { old_text: { type: 'string' }, new_text: { type: 'string' } },
+          required: ['old_text', 'new_text'],
+        },
+      },
+    },
+    required: ['path', 'edits'],
+  },
+}
+
+const RUNTIME_MODEL = { provider: 'model-runtime', model: 'gemma' }
+
 const TAGGED_CALL =
   '<tool_call>\n{"name": "read_file", "arguments": {"path": "notes.txt"}}\n</tool_call>'
 const TOOL_CODE_CALL =
   'I will read it.\n```tool_code\nprint(default_api.read_file(path="notes.txt"))\n```'
 
 async function runtimeService(socket: string): Promise<AssistantService> {
-  const svc = new AssistantService(MODEL_RUNTIME_CATALOG, {})
-  svc.configure({ provider: 'model-runtime', baseUrl: `unix:${socket}`, chatModel: 'gemma' }, null)
+  const svc = new AssistantService(MODEL_RUNTIME_CATALOG, {}, undefined, undefined, {
+    listedModels: true,
+  })
+  svc.configure({}, [
+    {
+      id: 'model-runtime',
+      kind: 'model-runtime',
+      name: '',
+      baseUrl: `unix:${socket}`,
+      models: [],
+      apiKey: null,
+    },
+  ])
   await svc.probe()
   return svc
 }
@@ -303,12 +341,16 @@ describe('chat tool loop on model-runtime: tools described in the prompt', () =>
   ])('parses %s from the reply and sends the result back as text', async (_label, reply) => {
     const runtime = await fakeModelRuntime([reply, 'The notes say: buy milk.'])
     const svc = await runtimeService(runtime.socket)
-    expect(svc.report().status.chat).toMatchObject({ ready: true, tools: 'prompted' })
-    const first = await chat(svc, {
-      messages: [{ role: 'user', content: 'read notes.txt and summarise' }],
-      context: [],
-      tools: [READ_FILE],
-    })
+    expect(svc.report().providers?.[0].models).toEqual([{ id: 'gemma', tools: 'prompted' }])
+    const first = await chat(
+      svc,
+      {
+        messages: [{ role: 'user', content: 'read notes.txt and summarise' }],
+        context: [],
+        tools: [READ_FILE],
+      },
+      RUNTIME_MODEL,
+    )
     const sent = runtime.bodies[0]
     expect(sent.tools).toBeUndefined()
     expect(sent.stream).not.toBe(true)
@@ -327,14 +369,18 @@ describe('chat tool loop on model-runtime: tools described in the prompt', () =>
       state: 'done',
       output: 'buy milk',
     }
-    const second = await chat(svc, {
-      messages: [
-        { role: 'user', content: 'read notes.txt and summarise' },
-        { role: 'assistant', content: '', tools: [done] },
-      ],
-      context: [],
-      tools: [READ_FILE],
-    })
+    const second = await chat(
+      svc,
+      {
+        messages: [
+          { role: 'user', content: 'read notes.txt and summarise' },
+          { role: 'assistant', content: '', tools: [done] },
+        ],
+        context: [],
+        tools: [READ_FILE],
+      },
+      RUNTIME_MODEL,
+    )
     const messages = runtime.bodies[1].messages
     expect(messages.map((m) => m.role)).toEqual(['system', 'user', 'assistant', 'user'])
     expect(messages.every((m) => typeof m.content === 'string')).toBe(true)
@@ -346,12 +392,47 @@ describe('chat tool loop on model-runtime: tools described in the prompt', () =>
     const reply = 'Call it like this:\n```tool_code\nread_file(path=\n```'
     const runtime = await fakeModelRuntime([reply])
     const svc = await runtimeService(runtime.socket)
-    const res = await chat(svc, {
-      messages: [{ role: 'user', content: 'how do I read a file?' }],
-      context: [],
-      tools: [READ_FILE],
-    })
+    const res = await chat(
+      svc,
+      {
+        messages: [{ role: 'user', content: 'how do I read a file?' }],
+        context: [],
+        tools: [READ_FILE],
+      },
+      RUNTIME_MODEL,
+    )
     expect(res.chunks.some((c) => c.type === 'tool-input-available')).toBe(false)
     expect(res.text).toBe(reply)
+  })
+
+  it.each([
+    [
+      'a tagged call',
+      '<tool_call>\n{"name": "edit_file", "arguments": {"path": "notes.txt", "edits": [{"old_text": "milk", "new_text": "oat milk"}]}}\n</tool_call>',
+    ],
+    [
+      'a tool_code block',
+      '```tool_code\nedit_file(path="notes.txt", edits=[{"old_text": "milk", "new_text": "oat milk"}])\n```',
+    ],
+  ])('parses an edit with a list of replacements from %s', async (_label, reply) => {
+    const runtime = await fakeModelRuntime([reply])
+    const svc = await runtimeService(runtime.socket)
+    const res = await chat(
+      svc,
+      {
+        messages: [{ role: 'user', content: 'buy oat milk instead' }],
+        context: [],
+        tools: [EDIT_FILE],
+      },
+      RUNTIME_MODEL,
+    )
+    expect(String(runtime.bodies[0].messages[0].content)).toContain('old_text')
+    const call = res.chunks.find((c) => c.type === 'tool-input-available')
+    expect(call).toMatchObject({
+      toolName: 'edit_file',
+      input: { path: 'notes.txt', edits: [{ old_text: 'milk', new_text: 'oat milk' }] },
+    })
+    if (call?.type !== 'tool-input-available') throw new Error('no tool call')
+    expect(parseEdits(call.input)).toEqual([{ oldText: 'milk', newText: 'oat milk' }])
   })
 })

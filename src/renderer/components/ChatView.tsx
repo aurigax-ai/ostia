@@ -6,6 +6,7 @@ import {
   CheckIcon,
   ClockCounterClockwiseIcon,
   CopyIcon,
+  FileIcon,
   FolderSimpleIcon,
   type Icon,
   NotePencilIcon,
@@ -19,7 +20,7 @@ import {
   TrashIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
-import type { AssistProviderInfo, ChatContextItem } from '@shared/assist'
+import type { ChatContextItem } from '@shared/assist'
 import type { UIMessage } from 'ai'
 import {
   type KeyboardEvent,
@@ -40,6 +41,7 @@ import {
   isShellLanguage,
   liveSelectionContext,
   selectionRef,
+  useWorkspaceEditorFile,
 } from '../lib/askContext'
 import { type MenuAnchor, menuAnchor } from '../lib/caretPoint'
 import { insertInto, looksLikeCommand } from '../lib/chatActions'
@@ -72,7 +74,7 @@ import {
 import { resolveLinkPath } from '../lib/fileLinks'
 import { openFileAt } from '../lib/openFile'
 import { openSidebarUrl } from '../lib/sidebarItems'
-import { useAssistProvider } from '../stores/assistStore'
+import { useChatModel } from '../stores/assistStore'
 import {
   type ChatNotice,
   chatFor,
@@ -99,9 +101,10 @@ import {
   useCopied,
   useTerminals,
 } from './ChatCodeActions'
+import { ChatModeSelect, ChatModelSelect } from './ChatComposerControls'
 import { AttachmentChips, ChatContextPicker } from './ChatContextPicker'
 import { ChatSessions } from './ChatSessions'
-import { ChatSlashHelp, ChatSlashMenu, ChatSlashModel, SLASH_MENU_WIDTH } from './ChatSlashMenu'
+import { ChatSlashHelp, ChatSlashMenu, SLASH_MENU_WIDTH } from './ChatSlashMenu'
 import { ChatToolPart } from './ChatToolPart'
 import { ChatToolsMenu } from './ChatToolsMenu'
 import { Hint } from './Hint'
@@ -148,6 +151,7 @@ import {
 
 const CONTEXT_ICONS: Record<AskContextKind, Icon> = {
   cwd: FolderSimpleIcon,
+  editor: FileIcon,
   output: TextAlignLeftIcon,
   selection: SelectionIcon,
   pane: TagIcon,
@@ -198,12 +202,18 @@ function focusAtEnd(area: HTMLTextAreaElement | null): void {
   area.setSelectionRange(area.value.length, area.value.length)
 }
 
-function openModelSettings(): void {
-  useUIStore.getState().closePalette()
-  useUIStore.getState().openSettings('assistant')
-}
+type SlashCard = 'help' | null
 
-type SlashCard = 'help' | 'model' | null
+function sentContext(
+  enabled: ReadonlySet<AskContextKind>,
+  fresh: Partial<Record<AskContextKind, ChatContextItem>>,
+): ChatContextItem[] {
+  const sameFile =
+    enabled.has('selection') && fresh.selection?.path === fresh.editor?.path && fresh.editor
+  return ASK_CONTEXT_ORDER.filter((kind) => enabled.has(kind) && !(kind === 'editor' && sameFile))
+    .map((kind) => fresh[kind])
+    .filter((item): item is ChatContextItem => item !== undefined)
+}
 
 function ChatSession({
   sessionId,
@@ -218,7 +228,8 @@ function ChatSession({
   const chat = useMemo(() => chatFor(sessionId), [sessionId])
   const { messages, sendMessage, setMessages, status, stop, regenerate, error, clearError } =
     useChat({ chat })
-  const provider = useAssistProvider('chat')
+  const modelRef = useChatStore((s) => s.meta[sessionId]?.modelRef)
+  const provider = useChatModel(modelRef)
   const historyOn = useSettingsStore((s) => s.assistant.chatHistory)
   const scratch = useChatStore((s) => s.meta[sessionId]?.scratch === true)
   const sessionNotice = useChatStore((s) => s.notice[sessionId] ?? null)
@@ -230,10 +241,11 @@ function ChatSession({
   const [picking, setPicking] = useState(false)
   const [stopped, setStopped] = useState<ReadonlySet<string>>(() => new Set())
   const labels = d.ask.context
-  const [options, setOptions] = useState(() => askContextOptions(labels))
+  const [options, setOptions] = useState(() => askContextOptions(labels, workspaceId))
   const [enabled, setEnabled] = useState<ReadonlySet<AskContextKind>>(
-    () => new Set(options.cwd ? (['cwd'] as const) : []),
+    () => new Set<AskContextKind>(options.cwd ? ['cwd', 'editor'] : ['editor']),
   )
+  const editorFile = useWorkspaceEditorFile(workspaceId)
   const liveSelection = useLiveSelectionStore((s) =>
     workspaceId ? s.byWorkspace[workspaceId] : undefined,
   )
@@ -251,6 +263,7 @@ function ChatSession({
   const summaries = useChatStore((s) => s.summaries)
   const [sessionsOpen, setSessionsOpen] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
   const [pickerQuery, setPickerQuery] = useState('')
   const [focused, setFocused] = useState(false)
   const [slashKey, setSlashKey] = useState<string | null>(null)
@@ -312,15 +325,12 @@ function ChatSession({
     if (!question || busy) return
     setCard(null)
     const selection = liveSelectionContext(workspaceId, labels.selection)
-    const fresh = { ...askContextOptions(labels), ...(selection ? { selection } : {}) }
+    const fresh = {
+      ...askContextOptions(labels, workspaceId),
+      ...(selection ? { selection } : {}),
+    }
     setOptions(fresh)
-    const context = [
-      ...extra,
-      ...attachments,
-      ...ASK_CONTEXT_ORDER.filter((kind) => enabled.has(kind))
-        .map((kind) => fresh[kind])
-        .filter((item): item is ChatContextItem => item !== undefined),
-    ]
+    const context = [...extra, ...attachments, ...sentContext(enabled, fresh)]
     if (editing) {
       const at = messages.findIndex((m) => m.id === editing)
       if (at >= 0) setMessages(messages.slice(0, at))
@@ -370,9 +380,11 @@ function ChatSession({
     [workspaceId, sessionId, onInserted],
   )
 
-  const available = ASK_CONTEXT_ORDER.filter((kind) =>
-    kind === 'selection' ? liveSelection !== undefined : options[kind],
-  )
+  const available = ASK_CONTEXT_ORDER.filter((kind) => {
+    if (kind === 'selection') return liveSelection !== undefined
+    if (kind === 'editor') return editorFile !== null
+    return options[kind]
+  })
   const selectedRef = liveSelection ? selectionRef(liveSelection) : null
   const last = messages[messages.length - 1]
 
@@ -437,7 +449,7 @@ function ChatSession({
           ? fmt(d.chatSlash.skillPrompt, { name, task })
           : fmt(d.chatSlash.skillPromptAlone, { name }),
       ),
-    showModel: () => setCard('model'),
+    showModel: () => setModelOpen(true),
     showHelp: () => setCard('help'),
   }
 
@@ -512,7 +524,6 @@ function ChatSession({
         variant={variant}
         workspaceId={workspaceId}
         sessionId={sessionId}
-        provider={provider}
         recording={historyOn && !scratch}
         scratch={scratch}
         busy={busy}
@@ -568,13 +579,6 @@ function ChatSession({
             ))
           )}
           {card === 'help' ? <ChatSlashHelp onClose={() => setCard(null)} /> : null}
-          {card === 'model' ? (
-            <ChatSlashModel
-              provider={provider}
-              onChange={() => openModelSettings()}
-              onClose={() => setCard(null)}
-            />
-          ) : null}
           {waiting ? <ChatWaiting model={provider?.label ?? provider?.name ?? null} /> : null}
           {errorInfo ? (
             <p role="alert" className="flex items-start gap-1.5 text-attn-fg text-ui-sm">
@@ -633,6 +637,11 @@ function ChatSession({
                     {kind === 'selection' && selectedRef ? (
                       <span className="max-w-48 truncate font-mono text-ui-xs">{selectedRef}</span>
                     ) : null}
+                    {kind === 'editor' && editorFile ? (
+                      <span className="max-w-48 truncate font-mono text-ui-xs">
+                        {editorFile.split('/').pop()}
+                      </span>
+                    ) : null}
                   </Button>
                 )
               })}
@@ -689,16 +698,16 @@ function ChatSession({
             }}
           />
         </PromptInputBody>
-        <PromptInputFooter>
-          <PromptInputTools>
-            {provider?.tools ? (
-              <ChatToolsMenu
-                sessionId={sessionId}
-                mode={provider.tools}
-                open={toolsOpen}
-                onOpenChange={setToolsOpen}
-              />
-            ) : null}
+        <PromptInputFooter className="chat-composer-row @container flex-nowrap">
+          {provider?.tools ? (
+            <ChatToolsMenu
+              sessionId={sessionId}
+              mode={provider.tools}
+              open={toolsOpen}
+              onOpenChange={setToolsOpen}
+            />
+          ) : null}
+          <PromptInputTools className="flex-1 overflow-hidden">
             {editing ? (
               <span className="flex min-w-0 items-center gap-1 px-1 text-fg-muted text-ui-xs">
                 <span className="truncate">{d.chatActions.editing}</span>
@@ -721,13 +730,18 @@ function ChatSession({
               </p>
             )}
           </PromptInputTools>
-          <PromptInputSubmit
-            status={status}
-            onStop={onStop}
-            disabled={!busy && !provider}
-            submitLabel={d.ask.send}
-            stopLabel={d.ask.stop}
-          />
+          <div className="chat-composer-controls flex min-w-0 shrink items-center gap-1">
+            {provider ? <ChatModeSelect sessionId={sessionId} /> : null}
+            <ChatModelSelect sessionId={sessionId} open={modelOpen} onOpenChange={setModelOpen} />
+            <PromptInputSubmit
+              className="shrink-0"
+              status={status}
+              onStop={onStop}
+              disabled={!busy && !provider}
+              submitLabel={d.ask.send}
+              stopLabel={d.ask.stop}
+            />
+          </div>
         </PromptInputFooter>
       </PromptInput>
       {menu ? (
@@ -835,7 +849,6 @@ function ChatHeader({
   variant,
   workspaceId,
   sessionId,
-  provider,
   recording,
   scratch,
   busy,
@@ -845,7 +858,6 @@ function ChatHeader({
   variant: ChatVariant
   workspaceId: string | null
   sessionId: string
-  provider: AssistProviderInfo | null
   recording: boolean
   scratch: boolean
   busy: boolean
@@ -882,23 +894,7 @@ function ChatHeader({
           {recording ? d.chat.recording : d.chat.notRecording}
         </span>
       </Hint>
-      <span className="ml-auto flex min-w-0 items-center gap-1 text-fg-muted text-ui-xs">
-        {provider ? (
-          <>
-            <Hint label={d.chat.model}>
-              <span className="truncate">{provider.label ?? provider.name}</span>
-            </Hint>
-            <Button
-              variant="link"
-              size="xs"
-              className="h-5 px-1 text-ui-xs"
-              onClick={() => openModelSettings()}
-            >
-              {d.chat.change}
-            </Button>
-          </>
-        ) : null}
-      </span>
+      <span className="ml-auto" />
       {variant === 'palette' ? (
         <IconButton
           size="bar"

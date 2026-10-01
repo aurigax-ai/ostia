@@ -22,7 +22,12 @@ import { CommandPalette } from './CommandPalette'
 vi.mock('../lib/colorize', () => ({ colorizeCode: async () => null }))
 
 const PANE = 'p-chat-term'
-const CHAT = { extId: 'assistant', name: 'Assistant', label: 'model-runtime · gemma' }
+const CHAT = {
+  extId: 'assistant',
+  name: 'Assistant',
+  label: 'model-runtime · gemma',
+  ref: { extId: 'assistant' },
+}
 
 function seedWorkspace(): void {
   useWorkspacesStore.setState({
@@ -169,7 +174,14 @@ describe('chat', () => {
     useBlocksStore.setState(blocksInit, true)
     useAssistStore.setState({ availability: {} })
     useSettingsStore.setState({
-      assistant: { chatHistory: true, mcpServers: [], skillFolders: [] },
+      assistant: {
+        chatHistory: true,
+        mcpServers: [],
+        skillFolders: [],
+        providers: [],
+        fastModel: null,
+        chatModel: null,
+      },
     })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
@@ -278,7 +290,14 @@ describe('chat', () => {
     await waitFor(() => expect(pending).toHaveLength(1))
     expect(pending[0].input).toMatchObject({
       context: expect.arrayContaining([
-        { kind: 'selection', label: 'Selection a.ts:2-4', text: 'two\nthree' },
+        {
+          kind: 'selection',
+          label: 'Selection a.ts:2-4',
+          text: 'two\nthree',
+          path: '/home/u/proj/src/a.ts',
+          startLine: 2,
+          endLine: 4,
+        },
       ]),
     })
   })
@@ -357,7 +376,14 @@ describe('chat', () => {
 
   it('keeps the chat in memory only while chat history is off', async () => {
     useSettingsStore.setState({
-      assistant: { chatHistory: false, mcpServers: [], skillFolders: [] },
+      assistant: {
+        chatHistory: false,
+        mcpServers: [],
+        skillFolders: [],
+        providers: [],
+        fastModel: null,
+        chatModel: null,
+      },
     })
     const { pending, chunk } = captureRequests()
     useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
@@ -446,7 +472,11 @@ describe('chat', () => {
   })
 
   it('names the provider while waiting when it reports no model label', async () => {
-    useAssistStore.setState({ availability: { chat: { extId: 'assistant', name: 'Assistant' } } })
+    useAssistStore.setState({
+      availability: {
+        chat: { extId: 'assistant', name: 'Assistant', ref: { extId: 'assistant' } },
+      },
+    })
     const { pending } = captureRequests()
     render(<ChatPane workspaceId="w1" paneId="p-chat" />)
     await ask('hi')

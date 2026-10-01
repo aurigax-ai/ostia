@@ -8,6 +8,6 @@ export {
   parseEndpoint,
   requestJson,
 } from './endpoint'
-export { NO_PROVIDER, type Provider, type ProviderCatalog } from './provider'
+export type { Provider, ProviderCatalog } from './provider'
 export { type AssistExtensionOptions, runAssistExtension } from './run'
 export { AssistantService } from './service'

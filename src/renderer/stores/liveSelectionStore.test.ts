@@ -35,6 +35,9 @@ describe('liveSelectionContext', () => {
       kind: 'selection',
       label: 'Selection a.ts:2-4',
       text: 'two\nthree\nfour',
+      path: '/w/src/a.ts',
+      startLine: 2,
+      endLine: 4,
     })
     expect(liveSelectionContext('w2', 'Selection')).toEqual({
       kind: 'selection',

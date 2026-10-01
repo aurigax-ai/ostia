@@ -119,16 +119,22 @@ export function DropdownMenu({
   children,
   className,
   align = 'end',
+  side = 'bottom',
+  open,
+  onOpenChange,
 }: {
   trigger: ReactElement
   children: ReactNode
   className?: string
   align?: 'start' | 'end'
+  side?: 'top' | 'bottom'
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }): JSX.Element {
   return (
-    <MenuPrimitive.Root>
+    <MenuPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <MenuPrimitive.Trigger render={trigger} />
-      <MenuContent side="bottom" align={align} alignOffset={0} sideOffset={4} className={className}>
+      <MenuContent side={side} align={align} alignOffset={0} sideOffset={4} className={className}>
         {children}
       </MenuContent>
     </MenuPrimitive.Root>

@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net'
 import { APICallError, type UIMessageChunk, generateText, streamText } from 'ai'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parseEndpoint } from '../sdk/assist/endpoint'
-import { createProvider } from './providers'
+import { ASSISTANT_CATALOG, createProvider, kindTitle } from './providers'
 
 interface Seen {
   method: string
@@ -269,5 +269,26 @@ describe('Anthropic provider', () => {
     expect(seen[0].url).toBe('/v1/messages')
     expect(seen[0].headers['x-api-key']).toBe('ak')
     expect(seen[0].body).toMatchObject({ system: [{ type: 'text', text: 'be brief' }] })
+  })
+})
+
+describe('assistant catalog', () => {
+  it('offers five kinds, needs a key for the hosted ones and knows their addresses', () => {
+    expect([...ASSISTANT_CATALOG.kinds]).toEqual([
+      'ollama',
+      'openai-compatible',
+      'openrouter',
+      'openai',
+      'anthropic',
+    ])
+    expect([...ASSISTANT_CATALOG.keyRequired].sort()).toEqual(['anthropic', 'openai', 'openrouter'])
+    expect(ASSISTANT_CATALOG.defaultBaseUrl('ollama', {})).toBe('http://127.0.0.1:11434/v1')
+    expect(ASSISTANT_CATALOG.defaultBaseUrl('openai-compatible', {})).toBe('')
+  })
+
+  it('titles a kind in English, and in the catalog language when it has the message', () => {
+    expect(kindTitle('openai-compatible', 'en')).toBe('OpenAI-compatible')
+    expect(kindTitle('anthropic', 'zh-Hant')).toBe('Anthropic')
+    expect(kindTitle('unknown-kind', 'en')).toBe('unknown-kind')
   })
 })

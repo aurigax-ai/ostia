@@ -126,11 +126,11 @@ describe('model-runtime provider', () => {
     expect(provider.lifecycle).toBe(true)
   })
 
-  it('defaults to the runtime socket and gemma', () => {
+  it('defaults to the runtime socket and names itself', () => {
     expect(MODEL_RUNTIME_CATALOG.defaultBaseUrl(MODEL_RUNTIME, { XDG_RUNTIME_DIR: '/run/u' })).toBe(
       'unix:/run/u/model-runtime.sock',
     )
     expect(MODEL_RUNTIME_CATALOG.defaultBaseUrl(MODEL_RUNTIME, {})).toBe('')
-    expect(MODEL_RUNTIME_CATALOG.defaultFastModel(MODEL_RUNTIME)).toBe('gemma')
+    expect(MODEL_RUNTIME_CATALOG.title(MODEL_RUNTIME, 'en')).toBe('Model runtime')
   })
 })

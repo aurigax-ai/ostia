@@ -1,6 +1,7 @@
 import {
   ASSIST_ERRORS,
   type AssistError,
+  type AssistModelRef,
   CHAT_CONTEXT_MAX,
   CHAT_TOOL_CALLS_MAX,
   CHAT_TOOL_ERROR_MAX,
@@ -12,7 +13,7 @@ import {
 } from '@shared/assist'
 import type { ChatMessageMetadata } from '@shared/chatSessions'
 import type { ChatTransport, UIMessage, UIMessageChunk } from 'ai'
-import { assistProvider, assistRequest } from '../stores/assistStore'
+import { assistRequest, chatModel } from '../stores/assistStore'
 import { type ChatToolDef, type ToolOutcome, type ToolRun, chatToolDefs } from './chatTools'
 
 export type PineChatMessage = UIMessage<ChatMessageMetadata>
@@ -148,6 +149,7 @@ export interface TransportSession {
   sessionId: string
   workspaceId: () => string | null
   root: () => string
+  model: () => AssistModelRef | null
 }
 
 interface PendingCall {
@@ -173,9 +175,9 @@ export function createAssistTransport(session?: TransportSession): ChatTransport
   return {
     sendMessages: async ({ messages, abortSignal }) => {
       const base = toChatRequest(messages)
-      const model = assistProvider('chat')?.label
-      const defs: ChatToolDef[] =
-        session && assistProvider('chat')?.tools ? chatToolDefs(session.sessionId) : []
+      const target = chatModel(session?.model())
+      const model = target?.label
+      const defs: ChatToolDef[] = session && target?.tools ? chatToolDefs(session.sessionId) : []
       const signal = abortSignal ?? new AbortController().signal
       return new ReadableStream<UIMessageChunk>({
         start: async (controller) => {
@@ -223,6 +225,7 @@ export function createAssistTransport(session?: TransportSession): ChatTransport
             const calls: PendingCall[] = []
             const res = await assistRequest('chat', request, {
               signal,
+              ...(target ? { model: target.ref } : {}),
               onChunk: (text) => {
                 const chunk = parseChunk(text)
                 if (!chunk) {
