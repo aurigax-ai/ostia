@@ -106,3 +106,43 @@ test('drag-resizing the window keeps command output and a single prompt', async 
     await app.close()
   }
 })
+
+test('dragging the sidebar edge keeps command output and a single prompt', async () => {
+  test.setTimeout(90_000)
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    const rows = win.locator('.xterm-rows').first()
+    await win.waitForTimeout(2_000)
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type("printf 'pine_rail_%s\\n' 1 2 3")
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('pine_rail_3', { timeout: 15_000 })
+    await win.waitForTimeout(1_000)
+
+    const promptLines = async (): Promise<number> =>
+      (await rows.innerText()).split('\n').filter((l) => l.includes('❯')).length
+    const before = await promptLines()
+
+    const handle = win.getByRole('separator', { name: 'Resize sidebar' })
+    const box = await handle.boundingBox()
+    if (!box) throw new Error('rail handle not laid out')
+    const x = box.x + box.width / 2
+    const y = box.y + box.height / 2
+    await win.mouse.move(x, y)
+    await win.mouse.down()
+    for (const dx of [200, -50, 150, 0, 220, 40]) {
+      await win.mouse.move(x + dx, y, { steps: 30 })
+    }
+    await win.mouse.up()
+    await win.waitForTimeout(2_000)
+
+    const text = await rows.innerText()
+    for (const n of [1, 2, 3]) expect(text).toContain(`pine_rail_${n}`)
+    expect(await promptLines()).toBe(before)
+  } finally {
+    await app.close()
+  }
+})

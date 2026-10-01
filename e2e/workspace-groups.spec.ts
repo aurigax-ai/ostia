@@ -75,14 +75,14 @@ test('workspace groups: create, add, collapse with attention, restore, drag out'
     await expect(groupHead(win).getByLabel('Members: 2')).toHaveText('2')
 
     await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
-    await win.keyboard.type("sleep 2; printf '\\e]9;group ping\\a'")
+    await win.keyboard.type('sleep 2; false')
     await win.keyboard.press('Enter')
     await ungroupedRows(win).locator('.rail-tab-main').click()
 
     await groupToggle(win).click()
     await expect(groupToggle(win)).toHaveAttribute('aria-expanded', 'false')
     await expect(memberRows(win)).toHaveCount(0)
-    await expect(groupHead(win).getByRole('img', { name: 'Waiting for input' })).toBeVisible({
+    await expect(groupHead(win).getByRole('img', { name: 'Error' })).toBeVisible({
       timeout: 15_000,
     })
     await expect(groupHead(win).getByRole('img', { name: '1 unread' })).toBeVisible()
