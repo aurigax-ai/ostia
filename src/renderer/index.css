@@ -1301,12 +1301,13 @@
   align-items: center;
   gap: 2px;
   flex: 0 0 auto;
-  opacity: 0;
+  opacity: 0.6;
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .pane:hover .pane-actions,
-.pane.active .pane-actions {
+.pane.active .pane-actions,
+.pane-actions:focus-within {
   opacity: 1;
 }
 
