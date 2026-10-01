@@ -56,7 +56,8 @@ windows (§2 Windows).
 ### Windows
 
 A workspace (or a single pane, which becomes a new workspace on the same folder) can move into a
-detached window so it can live on another monitor. Every window runs the same renderer bundle;
+detached window so it can live on another monitor, from a menu or by dragging it out of the
+window. Every window runs the same renderer bundle;
 `windows.info()` tells a renderer whether it is detached.
 
 - **Ownership moves with the workspace.** Each renderer owns only its own workspaces and layouts.
@@ -78,13 +79,53 @@ detached window so it can live on another monitor. Every window runs the same re
   (`lib/idNamespace.ts`: `pane-3fa9c2-4`, `w3fa9c2-2`), set at boot before anything is minted.
   Why: two renderers with separate counters minted the same `pane-5`, and a restored window could
   mint an id a pane in another window already held. Adopted ids keep their old namespace.
-- **Closing a detached window** moves its workspaces back into the main window instead of killing
-  them: the window's `close` is prevented, main asks the renderer (`windows:return-request`), the
-  renderer confirms only unsaved files (a `move` close-confirm) and sends its handoffs over
-  `windows:return`, main rehomes them, sends `windows:adopt` to the main window and closes the
-  detached one. A crashed or loading renderer returns its last saved snapshot instead. Closing
-  the main window quits the app (through the close guard), so the detached windows reopen on the
-  next start. A detached window whose last workspace closes closes itself.
+- **Closing a detached window** moves its workspaces back instead of killing them: the window's
+  `close` is prevented, main asks the renderer (`windows:return-request`), the renderer confirms
+  only unsaved files (a `move` close-confirm) and sends its handoffs over `windows:return`, main
+  rehomes them, sends `windows:adopt` to each destination and closes the detached one. A crashed
+  or loading renderer returns its last saved snapshot instead. If the main window is hidden in
+  the tray, a return caused by closing keeps it there (Move back shows it); a window shown any
+  way removes the tray icon (`AppTray.hide` listens for `show`). Closing the main window hides
+  it to the tray (or quits), so the detached windows reopen on the next start. A detached window
+  whose last workspace closes or moves away closes itself.
+- **Origins: a moved pane goes back where it came from.** A handoff carries `origin`
+  (`WorkspaceOrigin`: source workspace id, its index in the list, its group, and `beside`, the
+  neighbor and side it sat on, from `placementOf`). A pane moved alone gets a new workspace whose
+  origin is the workspace it left; a whole workspace's origin is itself. The origin is saved with
+  the detached window, so it survives a restart. On return main's `planReturn` sends the
+  workspace to the window that now holds the origin workspace (from the window reports), unless
+  either side is sandboxed; otherwise it rewrites the origin to the workspace itself so the main
+  window only uses its index and group. The receiving renderer (`adoptWorkspaces`) grafts a
+  workspace whose origin it holds into that workspace (`layoutStore.graft` → `graftNode`: a tab
+  next to the old neighbor, a split on the old side, or a split on the right when the neighbor
+  is gone), emits `pane-created` for the new home and `workspace-closed` for the merged id;
+  anything else is inserted at the origin index (`workspacesStore.adopt`). Why main routes and
+  the renderer grafts: only main knows which window holds a workspace, and only the renderer
+  owns its layout. The book stores returned workspaces without origin, so a crash right after a
+  return never re-merges. Moving the last pane of a workspace moves the workspace, so no empty
+  workspace is left behind. Why sandboxes block single panes: sandbox policy is keyed by
+  workspace id (`sandbox.json`), so a pane in a new workspace would spawn unwrapped shells and
+  its agent would lose the sandbox's controls (`crossesSandbox` in main, `canMovePane` in the
+  renderer).
+- **Drag and drop** (`lib/paneDrag.ts`, `lib/dropZone.ts`, `Pane.tsx`). A tab drag sets
+  `usePaneDnd.dragging`; every pane then renders `.pane-drop-layer` over its body and computes
+  the zone from its frame (`dropZoneAt`: edge bands of 28% with a 48 px minimum, capped at a
+  third, corners to the nearest edge). A tab-bar drop inserts at the hovered tab
+  (`tabDropTarget`, `moveTab`); a tab dropped on its own stack's edge splits out beside the
+  other tabs (`paneDropTarget`). On `dragend` the source settles the drag: a drop in this window
+  already ran (`droppedHere`); otherwise it asks main for a landing (`windows:landing`, which
+  waits up to 500 ms for the target's report), and only then, if the drag ended outside the
+  window (`endedOutside`), opens a new window there (`windows:detach` with the point; main's
+  `boundsAt` puts the title bar under the cursor on that display). A drop on another Pine
+  window's pane or tab bar is reported by that window (`windows:drop-pane`: it must own the
+  workspace and target pane, and the dragged pane must belong to another window); main keeps
+  it in `Landings` for 3 s, the source claims it once, confirms unsaved files and hands the
+  pane over with `windows:give` (one pane only; main adds the placement as the origin, so the
+  target grafts it exactly where it was dropped). Why the source drives it: the target never
+  names or pulls another window's pane, and the source alone can release it. A workspace row
+  dragged out of the window detaches the same way (no cross-window drop for rows). Known gap:
+  Escape pressed while the cursor is outside every Pine window also detaches, since HTML5 drag
+  events can't tell a cancel from a drop on the desktop.
 - **Cross-window lists.** Each renderer reports a small summary of its workspaces (display name,
   folder, live state, latest unread time, pane ids and titles) over `windows:report`; main
   broadcasts all of them as `windows:list`, main window first. The main rail shows other windows'
@@ -103,8 +144,7 @@ detached window so it can live on another monitor. Every window runs the same re
   first), diff panes are dropped (their content lives in `diffStore`, like restore), and the
   workspace's Ask conversation stays behind (Ask lives in each window's palette and works in a
   detached window, with its own history). The project (`name`, `projectDir`, `workDir`) and the
-  auto-resume marks (`agentRunning`) do travel with the handoff. Dragging
-  a tab out of the window is not built.
+  auto-resume marks (`agentRunning`) do travel with the handoff.
 - **Settings stay in step**: when a renderer writes `settings.json` through `fs:write`, main sends
   `settings:changed` to the other windows, which reload it. Why: each renderer keeps its own
   settings store, and a stale one would write its old copy back over the change.
@@ -195,7 +235,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | fs | `list`, `read`, `write`, `readBinary` (confined by `resolveSafe` to `[homedir, userData]`; `readBinary` returns a `Uint8Array`, capped at 50 MiB) |
 | lsp | `list`, `start`, `send`, `stop`, `onMessage`, `onExit` |
 | settings / workspace | `settings.path`; `workspace.save`, `workspace.load` (both answered for the sender's own window) |
-| windows | `info`, `detach`, `returnToMain`, `report`, `focusWorkspace`, `returnWorkspace`, `newWorkspace`, `onList`, `onAdopt`, `onActivateWorkspace`, `onReturnRequest` (push channels `windows:list`, `windows:adopt`, `windows:activate-workspace`, `windows:return-request`) |
+| windows | `info`, `detach`, `dropPane`, `landing`, `give`, `returnToMain`, `report`, `focusWorkspace`, `returnWorkspace`, `newWorkspace`, `onList`, `onAdopt`, `onActivateWorkspace`, `onReturnRequest` (push channels `windows:list`, `windows:adopt`, `windows:activate-workspace`, `windows:return-request`) |
 | lifecycle | `lifecycle.emit` (`pane-created`, `pane-closed`, `workspace-added`, `workspace-closed`, `workspace-activated`, `workspace-state`) |
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
 | terminal state | `terminalState.push` |
