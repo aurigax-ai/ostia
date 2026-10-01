@@ -226,9 +226,8 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 
 - **Top bar**: on the left, over the sidebar: New workspace first, then the sidebar
   toggle, the Files toggle and one toggle per enabled extension panel (git Changes, Keeper,
-  Trellis; `PanelToggles.tsx`, pressed while the panel is open in the active workspace). An
-  extension that serves assist points gets no toggle: its panel opens from the Assistant menu
-  (Models…), so the bar never shows two buttons with one name.
+  Trellis; `PanelToggles.tsx`, pressed while the panel is open in the active workspace). The
+  assistant has no panel; it is configured in Settings → Assistant.
   Centre: the command-center button that opens the palette, then the Assistant menu. Right:
   Settings, then the notification bell. Every trigger renders exactly one `<button>` (Base UI
   `render={<IconButton …/>}`, never a Trigger wrapping a button as its child).
@@ -329,7 +328,16 @@ Attention, the second loud element, appears only when a pane needs you:
   unless the item is a separable object with its own actions (a plugin). The shared pieces live
   in `SettingsPanel.tsx`: `SectionHead` (title + optional `ui-sm` intro), `SubHead` (`ui-base`/500
   for a group inside a section), `ControlRow`, and `WarningNote` (the one warning callout).
-  Version numbers are sans `tabular-nums`, not mono.
+  Version numbers are sans `tabular-nums`, not mono. `SettingsGroup` takes an optional one-line
+  `desc` and a right-aligned `action` (an "Add …" button or a refresh `IconButton`).
+- **Settings lists** of configured objects (MCP servers, skill folders, models in Settings →
+  Assistant): shadcn `Item` rows (`outline`, `sm`, `radius-md`, `--line` border) in a `ul`, each
+  with a title, a mono `ui-xs` target line, a status line (6px dot + text, `attn-fg` error
+  message under it) and `ItemActions` (switch, edit, remove as `row` `IconButton`s). Adding or
+  editing opens a shadcn `Dialog` with labeled fields and inline `role="alert"` errors; removing
+  an object that loses data confirms in a `Dialog`. An empty list is a dashed `Empty` with a
+  title, one muted line and the add button. Security and limits live in the docs, not in helper
+  text: at most one short line per group.
 - **Controls**: Switch (instant toggle), Select (`size="sm"`, the trigger shows the value), Input,
   Textarea, and ToggleGroup for ≤ 4 short options. Control height is 28px.
 - **Icon buttons**: always `IconButton` (ghost button + `Hint` + required `aria-label`). `bar`

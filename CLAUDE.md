@@ -491,9 +491,14 @@ Details: `docs/ARCHITECTURE.md`.
   extension granted `assist` that reported the point `ready` (`ExtensionHost.assistRuntime`),
   and cancels on Stop, close or a newer keystroke. Nothing is offered until a provider is
   configured (the built-in assistant reports nothing ready while its provider is `none`), and
-  the UI names the provider and model each feature uses (the status `label`).
+  the UI names the provider and model each feature uses (the status `label`). The assistant
+  is configured in Settings → Assistant (`AssistantSection.tsx`), never in an extension panel;
+  model load and unload reach the extension only as `ext.assistModels` from that page
+  (`assist:models`, `assist:set-model-loaded`), for an enabled extension granted `assist` that
+  reported `models: true`, with every reply normalized (`normalizeAssistModels`).
 - **Extension secrets stay in main and their extension.** `contributes.secrets` values are
-  written only through `extensions:set-secret` (Settings → Plugins), encrypted with
+  written only through `extensions:set-secret` (Settings → Plugins, or Settings → Assistant
+  for an assist extension), encrypted with
   `safeStorage` in the data dir (`main/extensionSecrets.ts`), never in `settings.json`, never
   synced, never returned to the renderer (only `secretsSet`), and read only by the extension that
   declared the key (`ext.getSecret`). Never add a socket method or CLI verb that reads or writes
@@ -528,7 +533,8 @@ Details: `docs/ARCHITECTURE.md`.
   http(s), connected only when a chat or Settings asks, and main re-checks the server and tool on
   every call. `assistant` is not in `DATA_KEYS`, so `pine settings set` can't add a server or a
   skill folder; MCP tokens are secrets (`mcp-secrets.json`, `safeStorage`, never synced, never
-  returned, set only through `chatTools:set-mcp-secret` for a key the human declared). Never let
+  returned, set only through `chatTools:set-mcp-secret` for a key the human declared, written
+  from Settings → Assistant's server dialog). Never let
   the extension execute a tool, spawn an MCP server or read a skill itself.
 - **The manager is opened only from outside Pine.** `portal.open` (`main/portal.ts`) refuses any
   caller that `callerVerdict` (`main/portalCaller.ts`) finds inside Pine or can't check; there is
@@ -747,8 +753,8 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   from `test/fixtures/system/bin/` (never the real ones) and a fake confirm; `e2e/system.spec.ts`
   answers the native dialog by stubbing `dialog.showMessageBox` via `app.evaluate`. Extension tests that need `src/main`
   live in `src/main` or `src/cli`, never under `src/extensions`.
-  `extensionHost.assist.integration.test.ts` drives the assist points, streaming, cancellation
-  and secrets through `test/fixtures/extensions-assist/oracle`; the assistant extension's
+  `extensionHost.assist.integration.test.ts` drives the assist points, streaming, cancellation,
+  secrets and the model list (`ext.assistModels`) through `test/fixtures/extensions-assist/oracle`; the assistant extension's
   providers are tested against local fake OpenAI-compatible, Anthropic and model-runtime
   (unix socket) servers, never a real provider; `e2e/assistant.spec.ts` configures a fake
   OpenAI-compatible server in Settings and drives Ask and the composer;

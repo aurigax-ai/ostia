@@ -519,4 +519,41 @@ describe('SettingsPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Files' }))
     expect(screen.getByRole('switch', { name: 'Show hidden files' })).toBeInTheDocument()
   })
+  it('keeps only the plugin switch in Plugins and links an assist plugin to Settings → Assistant', async () => {
+    useExtensionsStore.setState({
+      list: [
+        {
+          id: 'assistant',
+          name: 'Assistant',
+          version: '1.0.0',
+          description: '',
+          builtin: true,
+          enabled: true,
+          status: 'running',
+          requested: ['assist'],
+          granted: ['assist'],
+          unapproved: [],
+          commands: [],
+          panel: null,
+          paneChips: [],
+          settings: [{ key: 'baseUrl', type: 'string', default: '', description: 'Address' }],
+          settingValues: {},
+          assist: ['chat'],
+          secrets: [],
+          secretsSet: [],
+          iconThemes: [],
+        },
+      ],
+    })
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Plugins' }))
+    expect(screen.getByRole('switch', { name: 'Enable Assistant' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'baseUrl' })).toBeNull()
+    expect(screen.queryByText('MCP servers')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Configure in Assistant settings' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Assistant' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'baseUrl' })).toBeInTheDocument()
+    expect(screen.getByText('MCP servers')).toBeInTheDocument()
+  })
 })

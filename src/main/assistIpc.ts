@@ -4,6 +4,8 @@ import {
   ASSIST_REQUEST_ID_PATTERN,
   type AssistAvailability,
   type AssistExtensionState,
+  type AssistModelChangeResult,
+  type AssistModelsResult,
   type AssistPoint,
   type AssistResponse,
   isAssistPoint,
@@ -16,6 +18,12 @@ export interface AssistHost {
   assistAvailability: () => AssistAvailability
   assistOverview: () => AssistExtensionState[]
   setShortcuts: (raw: unknown) => void
+  assistModels: (extId: unknown) => Promise<AssistModelsResult>
+  setAssistModelLoaded: (
+    extId: unknown,
+    id: unknown,
+    loaded: unknown,
+  ) => Promise<AssistModelChangeResult>
   assist: <P extends AssistPoint>(
     point: P,
     input: unknown,
@@ -97,4 +105,15 @@ export function registerAssistIpc(host: () => AssistHost | null): void {
   ipcMain.on('assist:cancel', (e, requestId: unknown) => router.cancel(e.sender.id, requestId))
   ipcMain.handle('assist:overview', () => host()?.assistOverview() ?? [])
   ipcMain.on('assist:shortcuts', (_e, shortcuts: unknown) => host()?.setShortcuts(shortcuts))
+  ipcMain.handle(
+    'assist:models',
+    (_e, extId: unknown): Promise<AssistModelsResult> =>
+      host()?.assistModels(extId) ?? Promise.resolve({ ok: false, error: 'unavailable' }),
+  )
+  ipcMain.handle(
+    'assist:set-model-loaded',
+    (_e, extId: unknown, id: unknown, loaded: unknown): Promise<AssistModelChangeResult> =>
+      host()?.setAssistModelLoaded(extId, id, loaded) ??
+      Promise.resolve({ ok: false, error: 'unavailable' }),
+  )
 }

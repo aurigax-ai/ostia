@@ -1,4 +1,4 @@
-import { ASSIST_POINTS } from '@shared/assist'
+import { cn } from '@/lib/utils'
 import type {
   ExtensionInfo,
   ExtensionSecretContribution,
@@ -7,28 +7,35 @@ import type {
 } from '@shared/extensions'
 import { useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
-import { useAssistStore } from '../stores/assistStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select'
 import { Switch } from './ui/switch'
 
-export function ExtensionSettingsForm({ ext }: { ext: ExtensionInfo }): JSX.Element | null {
+export function ExtensionSettingsForm({
+  ext,
+  omit = [],
+  bare = false,
+}: {
+  ext: ExtensionInfo
+  omit?: readonly string[]
+  bare?: boolean
+}): JSX.Element | null {
   const d = useDict()
   const setSetting = useExtensionsStore((s) => s.setSetting)
   const [error, setError] = useState<string | null>(null)
-  if (ext.settings.length === 0 && ext.secrets.length === 0 && ext.assist.length === 0) return null
+  const settings = ext.settings.filter((s) => !omit.includes(s.key))
+  if (settings.length === 0 && ext.secrets.length === 0) return null
   const save = (key: string, value: unknown): void => {
     void setSetting(ext.id, key, value).then(setError)
   }
   return (
     <fieldset
-      className="mt-2 flex flex-col border-line border-l pl-3"
+      className={cn('flex flex-col', !bare && 'mt-2 border-line border-l pl-3')}
       aria-label={fmt(d.extensions.settingsTitle, { name: ext.name })}
     >
-      {ext.assist.length > 0 ? <AssistFeatures ext={ext} /> : null}
-      {ext.settings.map((setting) => (
+      {settings.map((setting) => (
         <SettingRow
           key={setting.key}
           setting={setting}
@@ -50,31 +57,6 @@ export function ExtensionSettingsForm({ ext }: { ext: ExtensionInfo }): JSX.Elem
         </p>
       ) : null}
     </fieldset>
-  )
-}
-
-function AssistFeatures({ ext }: { ext: ExtensionInfo }): JSX.Element {
-  const d = useDict()
-  const availability = useAssistStore((s) => s.availability)
-  const points = ASSIST_POINTS.filter((p) => ext.assist.includes(p))
-  return (
-    <div className="py-1.5">
-      <div className="font-medium text-fg text-ui-sm">{d.assist.features}</div>
-      <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-0.5 text-ui-xs">
-        {points.map((point) => {
-          const provider = availability[point]
-          const serving = provider?.extId === ext.id ? provider : null
-          return (
-            <div key={point} className="contents">
-              <dt className="text-fg-muted">{d.assist.points[point] ?? point}</dt>
-              <dd className={serving ? 'font-mono text-fg' : 'text-fg-muted'}>
-                {serving ? (serving.label ?? serving.name) : d.assist.notConfigured}
-              </dd>
-            </div>
-          )
-        })}
-      </dl>
-    </div>
   )
 }
 
