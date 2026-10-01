@@ -1,11 +1,12 @@
+import type { SpecCommand } from '@shared/completionSpec'
 import { describe, expect, it, vi } from 'vitest'
 import type { CommandBlock } from '../stores/blocksStore'
 import {
   applyCompletionItem,
+  argumentCandidates,
   caretOnFirstLine,
-  completeCommand,
-  completeName,
-  completePath,
+  commandCandidates,
+  completionScope,
   completionToken,
   escapeShellWord,
   historySuggestion,
@@ -64,37 +65,13 @@ describe('completionToken', () => {
   })
 })
 
-describe('completeName', () => {
-  const entries = [
-    { name: 'src', dir: true },
-    { name: 'scripts', dir: true },
-    { name: 'README.md', dir: false },
-    { name: '.git', dir: true },
-    { name: 'my file.txt', dir: false },
-  ]
-
-  it('completes a unique directory with a slash', () => {
-    expect(completeName(entries, 'sr')).toEqual({ insert: 'c/', candidates: [] })
-  })
-
-  it('completes a unique file with a space and escapes shell characters', () => {
-    expect(completeName(entries, 'R')).toEqual({ insert: 'EADME.md ', candidates: [] })
-    expect(completeName(entries, 'my')).toEqual({ insert: '\\ file.txt ', candidates: [] })
-  })
-
-  it('extends to the common prefix and lists every candidate when ambiguous', () => {
-    const result = completeName(entries, 's')
-    expect(result.insert).toBe('')
-    expect(result.candidates.map((e) => e.name)).toEqual(['src', 'scripts'])
-  })
-
-  it('hides dotfiles unless the word starts with a dot', () => {
-    expect(completeName(entries, '').candidates.map((e) => e.name)).not.toContain('.git')
-    expect(completeName(entries, '.g')).toEqual({ insert: 'it/', candidates: [] })
-  })
-
-  it('reports no completion when nothing matches', () => {
-    expect(completeName(entries, 'zzz')).toEqual({ insert: '', candidates: [] })
+describe('completionScope', () => {
+  it('is the directory part of the word plus a leading option dash', () => {
+    expect(completionScope('avail-m')).toBe('')
+    expect(completionScope('~/Work/goji/av')).toBe('~/Work/goji/')
+    expect(completionScope('avail/')).toBe('avail/')
+    expect(completionScope('-v')).toBe('-')
+    expect(completionScope('--for')).toBe('--')
   })
 })
 
@@ -104,20 +81,54 @@ describe('escapeShellWord', () => {
   })
 })
 
-describe('completePath', () => {
-  it('lists the directory of the word relative to the cwd', async () => {
-    const list = vi.fn().mockResolvedValue([{ name: 'renderer', dir: true }])
-    const result = await completePath('cd src/re', 9, '/home/u/proj', list)
+describe('argumentCandidates', () => {
+  const noSpec = { spec: async () => null }
+
+  it('lists every entry of the word’s directory relative to the cwd, unfiltered', async () => {
+    const entries = [
+      { name: 'renderer', dir: true },
+      { name: 'main', dir: true },
+    ]
+    const list = vi.fn().mockResolvedValue(entries)
+    const pool = await argumentCandidates('cd src/re', 9, '/home/u/proj', { ...noSpec, list })
     expect(list).toHaveBeenCalledWith('/home/u/proj/src')
-    expect(result.insert).toBe('nderer/')
+    expect(pool).toEqual(entries)
   })
 
   it('lists the cwd itself for a bare word and absolute or home paths as given', async () => {
     const list = vi.fn().mockResolvedValue([])
-    await completePath('ls', 2, '/w', list)
-    await completePath('ls /etc/', 8, '/w', list)
-    await completePath('ls ~/Doc', 8, '/w', list)
+    await argumentCandidates('ls ', 3, '/w', { ...noSpec, list })
+    await argumentCandidates('ls /etc/', 8, '/w', { ...noSpec, list })
+    await argumentCandidates('ls ~/Doc', 8, '/w', { ...noSpec, list })
     expect(list.mock.calls.map((c) => c[0])).toEqual(['/w', '/etc', '~/'])
+  })
+
+  it('offers every spec item of the same kind as the word, not only its prefix matches', async () => {
+    const spec = async () => ({
+      names: ['git'],
+      subcommands: [{ names: ['checkout'] }, { names: ['cherry-pick'] }, { names: ['add'] }],
+      options: [{ names: ['--version'] }, { names: ['--help'] }],
+    })
+    const list = vi.fn().mockResolvedValue([])
+    const names = async (text: string) =>
+      (await argumentCandidates(text, text.length, '/w', { spec, list })).map((i) => i.name)
+    expect(await names('git ch')).toEqual(['checkout', 'cherry-pick', 'add'])
+    expect(await names('git --v')).toEqual(['--version', '--help'])
+    expect(list).not.toHaveBeenCalled()
+  })
+
+  it('keeps only folders when the spec asks for folders', async () => {
+    const spec = async (): Promise<SpecCommand> => ({
+      names: ['cd'],
+      args: [{ template: ['folders'] }],
+    })
+    const list = vi.fn().mockResolvedValue([
+      { name: 'src', dir: true },
+      { name: 'README.md', dir: false },
+    ])
+    expect(await argumentCandidates('cd s', 4, '/w', { spec, list })).toEqual([
+      { name: 'src', dir: true },
+    ])
   })
 })
 
@@ -160,18 +171,15 @@ describe('suggestionWord', () => {
 describe('rankCommands', () => {
   it('puts recently run commands first, then shorter names, then alphabetical', () => {
     const names = ['gitk', 'git', 'gist', 'git-lfs', 'gio', 'grep']
-    expect(rankCommands(names, 'gi', ['git-lfs'])).toEqual([
+    expect(rankCommands(names, ['git-lfs'])).toEqual([
       'git-lfs',
       'gio',
       'git',
       'gist',
       'gitk',
+      'grep',
     ])
-    expect(rankCommands(names, 'gi', [])).toEqual(['gio', 'git', 'gist', 'gitk', 'git-lfs'])
-  })
-
-  it('matches only names starting with the prefix, case-sensitively', () => {
-    expect(rankCommands(['Make', 'make', 'cmake'], 'ma', [])).toEqual(['make'])
+    expect(rankCommands(names, [])).toEqual(['gio', 'git', 'gist', 'gitk', 'grep', 'git-lfs'])
   })
 })
 
@@ -184,26 +192,13 @@ describe('recentCommands', () => {
   })
 })
 
-describe('completeCommand', () => {
-  it('finishes a unique command with a trailing space', () => {
-    expect(completeCommand(['docker', 'dig'], 'doc', [])).toEqual({
-      insert: 'ker ',
-      candidates: [],
-    })
-  })
-
-  it('extends to the common prefix and lists every ranked match', () => {
-    expect(completeCommand(['python3', 'python', 'pip'], 'py', ['python3'])).toEqual({
-      insert: 'thon',
-      candidates: [
-        { name: 'python3', dir: false },
-        { name: 'python', dir: false },
-      ],
-    })
-  })
-
-  it('returns nothing when no command matches', () => {
-    expect(completeCommand(['ls'], 'zz', [])).toEqual({ insert: '', candidates: [] })
+describe('commandCandidates', () => {
+  it('offers every command name in rank order as a non-directory item', () => {
+    expect(commandCandidates(['python3', 'python', 'pip'], ['python3'])).toEqual([
+      { name: 'python3', dir: false },
+      { name: 'pip', dir: false },
+      { name: 'python', dir: false },
+    ])
   })
 })
 

@@ -457,7 +457,7 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     the shell clears the screen and redraws its prompt while the draft stays. Ctrl+C/V/X/Z stay
     with the textarea (clear, paste, cut, undo). Keys match by physical key (`KeyboardEvent.code`)
     so other layouts work.
-  - Spec completions (`lib/specCompletion.ts`, `completeArgument` in `lib/inputEditor.ts`): Tab
+  - Spec completions (`lib/specCompletion.ts`, `argumentCandidates` in `lib/inputEditor.ts`): Tab
     on a word that isn't the command asks main for the command's spec (cached per editor) and
     walks the finished words of the current simple command (`commandWords`: after the last
     operator, assignments before the command skipped, quotes removed) through it
@@ -466,9 +466,10 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     carry down, `--` ends options. The current word then gets the option's argument values,
     options not used yet (when it starts with `-`), or subcommands plus the positional
     argument's suggestions; an argument with a `filepaths`/`folders` template, and any command
-    without a spec, falls back to path completion (folders only for `folders`). One match is
-    inserted with a space; several insert their common prefix and open the menu, which shows
-    each spec item's description. Why converted at build time and not Fig's runtime:
+    without a spec, falls back to path completion (folders only for `folders`). The word decides
+    which kind of answer it is; the menu's candidates are then every item of that kind (the
+    spec walked again with only the word's leading `-`/`--`), so typing can filter them. The
+    menu shows each spec item's description. Why converted at build time and not Fig's runtime:
     Fig specs are JS modules whose generators run shell commands and post-process output with
     code; Pine ships only their static data, so nothing from a spec executes. Specs over 4 MB
     with their `loadSpec` sub-specs expanded (aws, gcloud) are kept without them.
@@ -502,18 +503,31 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - Tab completes the command name in command position (`isCommandWord`: the word the
     tokenizer would read as a command, first word or after `|`, `&&`, `;`, `$(`, past
     `FOO=1` assignments, without a `/`), and paths everywhere else. Commands come from
-    `pty.commands(paneId)`, fetched each time a prompt shows; `completeCommand` ranks the
-    prefix matches (`rankCommands`: commands this history ran first, newest first, then shorter
-    names, then alphabetical). Paths: the word before the caret (backslash-escaped spaces
-    understood) is split into dir and base, the dir is resolved against the pane cwd
-    (`resolveLinkPath`; `~` is expanded in main), and `fs.list` supplies the names; dotfiles
-    need a leading dot. Either way one match is inserted (escaped, `/` for a directory, a space
-    otherwise); several extend to the common prefix and open a completion menu (shadcn
-    `Command` with a controlled value, `shouldFilter={false}`) above the editor: Up/Down move,
-    Enter or Tab picks (`applyCompletionItem` replaces the word, keeping its directory part),
-    Escape or any other key closes it. Focus stays in the textarea, which gets
-    `aria-activedescendant` from the menu's selected option. None shows "No matching commands"
-    or "No matching paths". Why not ask the shell: bash and zsh draw their completion menus in
+    `pty.commands(paneId)`, fetched each time a prompt shows; `commandCandidates` orders all of
+    them (`rankCommands`: commands this history ran first, newest first, then shorter names,
+    then alphabetical). Paths: the word before the caret (backslash-escaped spaces understood)
+    is split into dir and base, the dir is resolved against the pane cwd (`resolveLinkPath`; `~`
+    is expanded in main), and `fs.list` supplies the whole folder (`pathCandidates`). The
+    completers return only candidates; `lib/completionMatch.ts` matches them against the base
+    (`filterCompletions`: exact-case prefix, then any-case prefix, then substring, then
+    subsequence, pool order kept within a tier; dotfiles need a leading dot). Tab (`tabStep`)
+    inserts the one prefix match (or the one match at all) whole, escaped, `/` for a directory,
+    a space otherwise; several extend to the exact-case common prefix and open a completion menu
+    (shadcn `Command` with a controlled value, `shouldFilter={false}`, at most 200 rows) above
+    the editor: Up/Down move, Enter or Tab picks (`applyCompletionItem` replaces the word,
+    keeping its directory part). None shows "No matching commands" or "No matching paths".
+  - The menu stays live while the human types, like fish and VS Code. It keeps its origin (the
+    word's start, its scope and the full candidate list) and `followDraft` re-filters that list
+    on every change of the word or caret, with no new `fs.list`; the selected row stays on the
+    same item while it still matches, and matched characters are drawn in
+    `.input-editor-menu-match` spans, so the option's accessible name stays the whole name. When
+    the scope changes (`completionScope`: the word's directory part plus a leading `-`/`--`,
+    e.g. a typed `/`), the candidates are listed again for the new scope and shown as they are:
+    nothing is inserted, and one match is a one-row menu. A list with no matches hides the menu
+    but keeps the origin, so Backspace back into a match shows it again. It closes for good on
+    a space that ends the word, the caret leaving the word (a click, ←/→ past its start, Home,
+    End), Escape, a pick, history, an accepted suggestion or vim normal mode. Focus stays in
+    the textarea, which gets `aria-activedescendant` from the menu's selected option. Why not ask the shell: bash and zsh draw their completion menus in
     the terminal and edit their own line, which the editor would then have to read back off the
     screen (the RPROMPT problem in §6 of CLAUDE.md) and which conflicts with keeping the shell
     line empty.

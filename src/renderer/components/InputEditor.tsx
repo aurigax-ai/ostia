@@ -18,17 +18,29 @@ import { latestRequest, naturalCommandQuery } from '../lib/assistComposer'
 import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatures'
 import { matchChord } from '../lib/chords'
 import {
+  type CompletionMatch,
+  type CompletionOrigin,
+  completionLabel,
+  followDraft,
+  keepSelection,
+  markRuns,
+  tabStep,
+} from '../lib/completionMatch'
+import {
   type CompletionItem,
   applyCompletionItem,
+  argumentCandidates,
   caretOnFirstLine,
-  completeArgument,
-  completeCommand,
+  commandCandidates,
+  completionScope,
   completionToken,
+  escapeShellWord,
   historyMatches,
   historySuggestion,
   inputHistory,
   isCommandWord,
   recentCommands,
+  splitPathWord,
   suggestionWord,
 } from '../lib/inputEditor'
 import { applyLineEdit, lineEditOp, shellKeyBytes } from '../lib/lineEditing'
@@ -73,6 +85,7 @@ import { Textarea } from './ui/textarea'
 
 const UNDO_LIMIT = 100
 const MAX_LINES = 8
+const MENU_LIMIT = 200
 export const NATURAL_COMMAND_DEBOUNCE_MS = 600
 
 export interface InputEditorProps {
@@ -95,7 +108,8 @@ export interface InputEditorProps {
 type Tip = 'none' | 'noPaths' | 'noCommands'
 
 interface Menu {
-  items: CompletionItem[]
+  origin: CompletionOrigin
+  matches: CompletionMatch[]
   index: number
 }
 
@@ -160,8 +174,20 @@ function charWidth(fontFamily: string, fontSize: number): number | null {
   return width > 0 ? width / sample.length : null
 }
 
-function itemLabel(item: CompletionItem): string {
-  return item.dir ? `${item.name}/` : item.name
+function shownMatches(matches: CompletionMatch[]): CompletionMatch[] {
+  return matches.length > MENU_LIMIT ? matches.slice(0, MENU_LIMIT) : matches
+}
+
+function highlightedName(label: string, marks: readonly number[]): ReactNode[] {
+  return markRuns(label, marks).map((run) =>
+    run.marked ? (
+      <span key={run.at} className="input-editor-menu-match">
+        {run.text}
+      </span>
+    ) : (
+      <span key={run.at}>{run.text}</span>
+    ),
+  )
 }
 
 function unescapeWord(word: string): string {
@@ -256,7 +282,8 @@ export function InputEditor({
   const [text, setText] = useState('')
   const [selection, setSelection] = useState<Selection>({ start: 0, end: 0 })
   const [tip, setTip] = useState<Tip>('none')
-  const [menu, setMenu] = useState<Menu | null>(null)
+  const [menu, setMenuState] = useState<Menu | null>(null)
+  const liveMenu = useRef<Menu | null>(null)
   const [dismissed, setDismissed] = useState<string | null>(null)
   const [composing, setComposing] = useState(false)
   const [commands, setCommands] = useState<string[] | null>(null)
@@ -312,10 +339,16 @@ export function InputEditor({
   const history = useMemo(() => inputHistory(byPane, paneId), [byPane, paneId])
   const commandSet = useMemo(() => (commands ? new Set(commands) : null), [commands])
 
+  const setMenu = (next: Menu | null): void => {
+    liveMenu.current = next
+    setMenuState(next)
+  }
+
   const setVimMode = (mode: VimMode): void => {
     vimModeRef.current = mode
     setVimModeState(mode)
     setVimPending('')
+    if (mode === 'normal') setMenu(null)
   }
 
   useEffect(() => {
@@ -387,7 +420,8 @@ export function InputEditor({
         pendingCaret.current = command.length
         walk.current = null
         setTip('none')
-        setMenu(null)
+        liveMenu.current = null
+        setMenuState(null)
         areaRef.current?.focus()
       },
       type: (chunk) => {
@@ -400,7 +434,8 @@ export function InputEditor({
         setSelection({ start: start + chunk.length, end: start + chunk.length })
         pendingCaret.current = start + chunk.length
         walk.current = null
-        setMenu(null)
+        liveMenu.current = null
+        setMenuState(null)
         area?.focus()
       },
       focus: () => areaRef.current?.focus(),
@@ -430,12 +465,13 @@ export function InputEditor({
     return () => request.cancel()
   }, [])
 
+  const menuShown = menu !== null && menu.matches.length > 0 ? menu : null
   const naturalOpen =
-    visible && !menu && natural !== null && natural.for === text && naturalDismissed !== text
+    visible && !menuShown && natural !== null && natural.for === text && naturalDismissed !== text
       ? natural
       : null
 
-  const menuOpen = menu !== null
+  const menuOpen = menuShown !== null
   useEffect(() => {
     const root = menuRef.current
     const area = areaRef.current
@@ -467,6 +503,7 @@ export function InputEditor({
     const index = dir === 'older' ? state.index + 1 : state.index - 1
     if (index >= state.entries.length || index < -1) return false
     walk.current = index === -1 ? null : { ...state, index }
+    setMenu(null)
     replaceText(index === -1 ? state.saved : state.entries[index])
     return true
   }
@@ -488,36 +525,77 @@ export function InputEditor({
     replaceText(next.text, next.caret)
   }
 
+  const candidatesAt = (draft: string, caret: number): Promise<CompletionItem[]> =>
+    isCommandWord(draft, caret)
+      ? Promise.resolve(commandCandidates(commands ?? [], recentCommands(history)))
+      : argumentCandidates(draft, caret, cwd ?? '~', {
+          spec: loadSpec,
+          list: (p) => window.pine.fs.list(p),
+        })
+
+  const relist = async (draft: string, caret: number): Promise<void> => {
+    const ticket = ++completing.current
+    const pool = await candidatesAt(draft, caret)
+    const live = liveMenu.current
+    const area = areaRef.current
+    if (ticket !== completing.current || !live || !area) return
+    const origin = { ...live.origin, pool }
+    const step = followDraft(origin, area.value, area.selectionStart)
+    if (step.kind !== 'filter') return
+    setMenu({ origin, matches: shownMatches(step.matches), index: 0 })
+  }
+
+  const followMenu = (draft: string, start: number, end: number): void => {
+    const live = liveMenu.current
+    if (!live) return
+    if (start !== end) {
+      setMenu(null)
+      return
+    }
+    const step = followDraft(live.origin, draft, start)
+    if (step.kind === 'close') {
+      setMenu(null)
+    } else if (step.kind === 'relist') {
+      setMenu({ origin: { ...live.origin, scope: step.scope, pool: [] }, matches: [], index: 0 })
+      void relist(draft, start)
+    } else {
+      const matches = shownMatches(step.matches)
+      setMenu({ ...live, matches, index: keepSelection(live.matches, live.index, matches) })
+    }
+  }
+
   const complete = async (area: HTMLTextAreaElement): Promise<void> => {
     const caret = area.selectionStart
     const ticket = ++completing.current
     const commandWord = isCommandWord(text, caret)
-    const result = commandWord
-      ? completeCommand(commands ?? [], completionToken(text, caret).word, recentCommands(history))
-      : await completeArgument(text, caret, cwd ?? '~', {
-          spec: loadSpec,
-          list: (p) => window.pine.fs.list(p),
-        })
+    const { start, word } = completionToken(text, caret)
+    const pool = await candidatesAt(text, caret)
     if (ticket !== completing.current) return
-    if (result.insert) {
-      replaceText(
-        text.slice(0, caret) + result.insert + text.slice(caret),
-        caret + result.insert.length,
-      )
-    }
-    if (result.candidates.length > 0) {
-      setMenu({ items: result.candidates, index: 0 })
-      setTip('none')
-    } else {
+    const step = tabStep(pool, splitPathWord(word).base)
+    if (step.kind === 'none') {
       setMenu(null)
-      setTip(result.insert ? 'none' : commandWord ? 'noCommands' : 'noPaths')
+      setTip(commandWord ? 'noCommands' : 'noPaths')
+      return
     }
+    setTip('none')
+    if (step.kind === 'pick') {
+      const next = applyCompletionItem(text, caret, step.item)
+      setMenu(null)
+      replaceText(next.text, next.caret)
+      return
+    }
+    if (step.extend) {
+      const insert = escapeShellWord(step.extend)
+      replaceText(text.slice(0, caret) + insert + text.slice(caret), caret + insert.length)
+    }
+    const origin = { start, scope: completionScope(word), pool }
+    setMenu({ origin, matches: shownMatches(step.matches), index: 0 })
   }
 
   const blockers: GhostBlockers = {
     composing,
     vimNormal: normal,
-    menuOpen: menu !== null,
+    menuOpen: menuShown !== null,
     naturalOpen: naturalOpen !== null,
     walking: walk.current !== null,
     collapsed: selection.start === selection.end,
@@ -530,6 +608,7 @@ export function InputEditor({
   const suggestion = ghost?.text ?? ''
 
   const acceptSuggestion = (part: string): void => {
+    setMenu(null)
     replaceText(text + part)
     setDismissed(null)
   }
@@ -557,7 +636,7 @@ export function InputEditor({
   const onMenuKey = (e: KeyboardEvent<HTMLTextAreaElement>, open: Menu): boolean => {
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
     if (!plain) return false
-    const count = open.items.length
+    const count = open.matches.length
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       const step = e.key === 'ArrowDown' ? 1 : -1
@@ -566,7 +645,7 @@ export function InputEditor({
     }
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault()
-      pick(open.items[open.index])
+      pick(open.matches[open.index].item)
       return true
     }
     if (e.key === 'Escape') {
@@ -602,6 +681,7 @@ export function InputEditor({
 
   const pickNatural = (item: CommandSuggestion): void => {
     setNatural(null)
+    setMenu(null)
     replaceText(item.command)
   }
 
@@ -686,11 +766,9 @@ export function InputEditor({
     }
     const result = applyLineEdit(op, { text, caret: area.selectionStart }, killRing.current)
     if (result.killed) killRing.current = result.killed
-    if (result.text !== text) {
-      walk.current = null
-      setMenu(null)
-    }
+    if (result.text !== text) walk.current = null
     replaceText(result.text, result.caret)
+    followMenu(result.text, result.caret, result.caret)
     return true
   }
 
@@ -703,8 +781,8 @@ export function InputEditor({
     if (e.nativeEvent.isComposing || composing) return
     const area = e.currentTarget
     if (naturalOpen && onNaturalKey(e, naturalOpen)) return
-    if (menu && onMenuKey(e, menu)) return
-    if (menu && e.key !== 'Shift') setMenu(null)
+    if (menuShown && onMenuKey(e, menuShown)) return
+    if (e.key === 'Home' || e.key === 'End' || e.key === 'Escape') setMenu(null)
     if (normal && onNormalKey(e)) return
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey
     if (e.key === 'Enter' && plain && !e.shiftKey) {
@@ -909,33 +987,37 @@ export function InputEditor({
             : undefined
         }
       >
-        {menu || tipText || naturalOpen ? (
+        {menuShown || tipText || naturalOpen ? (
           <div
             ref={menuRef}
             className="input-editor-menu"
             data-side={popoverAbove ? 'top' : 'bottom'}
           >
-            {menu ? (
+            {menuShown ? (
               <Command
                 shouldFilter={false}
-                value={itemLabel(menu.items[menu.index])}
+                value={completionLabel(menuShown.matches[menuShown.index].item)}
                 onValueChange={(value) => {
-                  const index = menu.items.findIndex((item) => itemLabel(item) === value)
-                  if (index >= 0 && index !== menu.index) setMenu({ ...menu, index })
+                  const index = menuShown.matches.findIndex(
+                    (match) => completionLabel(match.item) === value,
+                  )
+                  if (index >= 0 && index !== menuShown.index) setMenu({ ...menuShown, index })
                 }}
                 onMouseDown={(e) => e.preventDefault()}
                 className="h-auto rounded-md! border shadow-md"
                 style={{ fontFamily }}
               >
                 <CommandList label={d.inputEditor.completions}>
-                  {menu.items.map((item) => (
+                  {menuShown.matches.map(({ item, marks }) => (
                     <CommandItem
-                      key={itemLabel(item)}
-                      value={itemLabel(item)}
+                      key={completionLabel(item)}
+                      value={completionLabel(item)}
                       className="input-editor-menu-item"
                       onSelect={() => pick(item)}
                     >
-                      <span className="input-editor-menu-name">{itemLabel(item)}</span>
+                      <span className="input-editor-menu-name">
+                        {highlightedName(completionLabel(item), marks)}
+                      </span>
                       {item.description ? (
                         <span className="input-editor-menu-description">{item.description}</span>
                       ) : null}
@@ -1005,12 +1087,13 @@ export function InputEditor({
                 setSelection({ start: e.target.selectionStart, end: e.target.selectionEnd })
                 walk.current = null
                 if (tip !== 'none') setTip('none')
-                if (menu) setMenu(null)
+                followMenu(e.target.value, e.target.selectionStart, e.target.selectionEnd)
                 if (!line) termRef.current?.scrollToBottom()
               }}
               onSelect={(e) => {
                 const area = e.currentTarget
                 setSelection({ start: area.selectionStart, end: area.selectionEnd })
+                followMenu(area.value, area.selectionStart, area.selectionEnd)
               }}
               onScroll={(e) => {
                 if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop

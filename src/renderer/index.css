@@ -1530,6 +1530,13 @@ button.prompt-chip:focus-visible {
   min-width: 16ch;
 }
 
+.input-editor-menu-match {
+  color: var(--fg);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .input-editor-menu-description {
   flex: 1;
   min-width: 0;
