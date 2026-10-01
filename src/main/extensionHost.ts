@@ -889,6 +889,7 @@ export class ExtensionHost {
       caller.workspaceId = workspaceId
       const workDir = this.deps.workDirForWorkspace(workspaceId)
       if (workDir) caller.workDir = workDir
+      if (this.deps.isSandboxed?.(workspaceId)) caller.sandboxed = true
     }
     return caller
   }
@@ -906,6 +907,7 @@ export class ExtensionHost {
     if (cwd) caller.cwd = cwd
     const locale = this.deps.locale?.()
     if (locale) caller.locale = locale
+    if (this.deps.isSandboxed?.(identity.workspaceId)) caller.sandboxed = true
     return caller
   }
 
