@@ -23,6 +23,7 @@ import type {
 import type { ExtensionResult, ExtensionsApi } from './extensions'
 import type { IconThemesApi } from './iconTheme'
 import type { LanguagePacksApi } from './languagePack'
+import type { LspApi } from './languageServers'
 import type { MarketplaceApi } from './marketplace'
 import type { OpenFileVerdict } from './openFiles'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
@@ -231,26 +232,6 @@ export type FsBinaryResult =
   | { ok: false; error: 'too-large'; size: number }
 
 export type FsKind = 'file' | 'dir'
-
-export interface LspStartResult {
-  id: string
-  root: string
-}
-
-export interface LspServerInfo {
-  languageId: string
-  command: string
-  installed: boolean
-}
-
-export interface LspApi {
-  list: () => Promise<LspServerInfo[]>
-  start: (languageId: string, filePath: string) => Promise<LspStartResult | null>
-  send: (id: string, message: unknown) => void
-  stop: (id: string) => void
-  onMessage: (id: string, cb: (message: unknown) => void) => () => void
-  onExit: (id: string, cb: () => void) => () => void
-}
 
 export interface SettingsApi {
   path: () => Promise<string>

@@ -1,0 +1,24 @@
+{
+  "id": "lsp-clangd",
+  "name": "C and C++ (clangd)",
+  "version": "1.0.0",
+  "api": "1.2",
+  "description": "C and C++ diagnostics, completion, hover and navigation in the editor. Uses the clangd program on your PATH.",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "languageServers": [
+      {
+        "id": "clangd",
+        "name": "clangd",
+        "languages": ["c", "cpp"],
+        "run": {
+          "program": "clangd",
+          "package": "clang",
+          "args": []
+        },
+        "rootMarkers": ["compile_commands.json", "compile_flags.txt", ".clangd"]
+      }
+    ]
+  }
+}

@@ -18,6 +18,7 @@ import {
 } from '../main/marketplace'
 import { ASSIST_POINTS } from '../shared/assist'
 import { ALL_CAPABILITIES } from '../shared/capabilities'
+import { EDITOR_LANGUAGE_ID_PATTERN } from '../shared/editorLanguages'
 import { EXTENSION_API_PATTERN } from '../shared/extensionApi'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
@@ -29,6 +30,20 @@ import {
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN } from '../shared/iconTheme'
 import { LANGUAGE_ID_PATTERN } from '../shared/languagePack'
+import {
+  LANGUAGE_SERVER_DOCUMENT_ID_PATTERN,
+  LANGUAGE_SERVER_ID_PATTERN,
+  LANGUAGE_SERVER_MARKER_PATTERN,
+  LANGUAGE_SERVER_PROGRAM_PATTERN,
+  LANGUAGE_SERVER_SCRIPT_PATTERN,
+  LANGUAGE_SERVER_SETTING_PATH_PATTERN,
+  MAX_LANGUAGE_SERVERS,
+  MAX_ROOT_MARKERS,
+  MAX_SERVER_ARGS,
+  MAX_SERVER_LANGUAGES,
+  SERVER_ARG_MAX,
+  SERVER_NAME_MAX,
+} from '../shared/languageServers'
 
 const SETTING_DESCRIPTION_MAX = 500
 const VERSION_MAX = 40
@@ -72,6 +87,38 @@ const chips = z
 
 const settingKey = z.string().regex(SETTING_KEY_PATTERN)
 
+const serverArgs = z.array(z.string().max(SERVER_ARG_MAX)).max(MAX_SERVER_ARGS)
+const serverProgram = z.string().regex(LANGUAGE_SERVER_PROGRAM_PATTERN)
+
+const languageServer = z.looseObject({
+  id: z.string().regex(LANGUAGE_SERVER_ID_PATTERN),
+  name: z.string().min(1).max(SERVER_NAME_MAX),
+  languages: z.array(z.string().regex(EDITOR_LANGUAGE_ID_PATTERN)).min(1).max(MAX_SERVER_LANGUAGES),
+  documentLanguageIds: z
+    .record(z.string(), z.string().regex(LANGUAGE_SERVER_DOCUMENT_ID_PATTERN))
+    .optional(),
+  run: z.union([
+    z.strictObject({
+      node: z.string().regex(LANGUAGE_SERVER_SCRIPT_PATTERN),
+      args: serverArgs.optional(),
+    }),
+    z.strictObject({
+      program: serverProgram,
+      package: serverProgram.optional(),
+      args: serverArgs.optional(),
+    }),
+  ]),
+  rootMarkers: z
+    .array(z.string().regex(LANGUAGE_SERVER_MARKER_PATTERN))
+    .max(MAX_ROOT_MARKERS)
+    .optional(),
+  initializationOptions: z.looseObject({}).optional(),
+  settings: z.looseObject({}).optional(),
+  settingPaths: z
+    .record(settingKey, z.string().regex(LANGUAGE_SERVER_SETTING_PATH_PATTERN))
+    .optional(),
+})
+
 const contributes = z.looseObject({
   commands: z.array(command).max(MAX_COMMANDS).optional(),
   sidebarItems: z.boolean().optional(),
@@ -109,6 +156,7 @@ const contributes = z.looseObject({
     )
     .max(MAX_LANGUAGES)
     .optional(),
+  languageServers: z.array(languageServer).max(MAX_LANGUAGE_SERVERS).optional(),
 })
 
 export const extensionManifestSchema = z.looseObject({

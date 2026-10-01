@@ -99,9 +99,10 @@ import {
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { registerLanguagePackIpc } from './languagePacks'
+import { LanguageServers } from './languageServers'
+import { registerLanguageServersIpc } from './languageServersIpc'
 import { atLocalPrompt } from './localPrompt'
 import { registerLoginFill } from './loginFill'
-import { killAllLsp, registerLspIpc } from './lsp'
 import { ManagerService, managerWindowId } from './manager'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
@@ -153,7 +154,12 @@ import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
-import { type SandboxReadRules, sandboxEntries, sandboxPath } from './sandbox/visibility'
+import {
+  type SandboxReadRules,
+  sandboxEntries,
+  sandboxPath,
+  visibleInSandbox,
+} from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
 import { ScreenMirror } from './screenMirror'
@@ -166,7 +172,15 @@ import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
 import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
-import { SANDBOX_FEATURE, installHint, missingRequirements, onPath } from './systemRequirements'
+import {
+  SANDBOX_FEATURE,
+  installHint,
+  missingRequirements,
+  onPath,
+  programPath,
+  registerRequirements,
+  requirementLabel,
+} from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME } from './terminalType'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray } from './tray'
@@ -496,6 +510,50 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   onPackageBlocked: (workspaceId, pkg, reason) =>
     packageRequests.blocked(workspaceSandboxes.owner(workspaceId), pkg, reason),
 })
+
+let languageServers: LanguageServers | null = null
+
+function sandboxCanRead(workspaceId: string, path: string): boolean {
+  try {
+    const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
+    return visibleInSandbox(path, { denyRead, allowRead: allowRead ?? [] })
+  } catch {
+    return false
+  }
+}
+
+function createLanguageServers(): LanguageServers {
+  return new LanguageServers({
+    sources: () => extensionHost?.languageServers() ?? [],
+    nodePath: process.execPath,
+    env: () => process.env,
+    pane: (paneId) => getByPaneId(paneId),
+    confine: (path) => openFileGrants.confine(path),
+    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+    roots: fileRoots,
+    sandbox: {
+      owner: (workspaceId) =>
+        workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
+          ? workspaceSandboxes.owner(workspaceId)
+          : null,
+      readable: sandboxCanRead,
+      wrap: (workspaceId, command, extraReads) =>
+        workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
+      env: (workspaceId, env) => ({
+        ...sandboxSpawnEnv(env as Record<string, string>),
+        TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
+      }),
+    },
+    findProgram: (program) => programPath(program),
+    registerRequirements,
+    post: (windowId, channel, ...args) => {
+      const win = windows.get(windowId)
+      if (win && !win.isDestroyed()) win.webContents.send(channel, ...args)
+    },
+    changed: (list) => broadcast('lsp:servers-changed', list),
+    log: (event, fields) => appLog?.info(event, fields),
+  })
+}
 
 function paneForWorkspace(workspaceId: string): string | undefined {
   for (const [paneId, entry] of ptys) {
@@ -1257,6 +1315,7 @@ function registerPtyIpc(): void {
     systemExtensionEnabled: () =>
       extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
     missing: (feature) => missingRequirements(feature),
+    label: requirementLabel,
     invokeInstall: (args, caller) =>
       extensionHost
         ? extensionHost.invoke('system', 'install', args, caller)
@@ -2118,7 +2177,6 @@ app.whenReady().then(() => {
     log: appLog,
   })
   registerAgentTranscriptIpc()
-  registerLspIpc()
   const notifyDeps = {
     execCommand,
     isScratchPane,
@@ -2226,6 +2284,7 @@ app.whenReady().then(() => {
   })
   settingsSync.run()
   extensionHost = new ExtensionHost({
+    onChanged: () => languageServers?.refresh(),
     hostGrants: hostPaneGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     roots: extensionRoots(),
@@ -2250,6 +2309,13 @@ app.whenReady().then(() => {
   })
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
+  languageServers = createLanguageServers()
+  languageServers.refresh()
+  registerLanguageServersIpc({
+    servers: languageServers,
+    setEnabled: (extId, serverId, enabled) =>
+      extensionHost?.setLanguageServerEnabled(extId, serverId, enabled),
+  })
   registerMarketplaceIpc(
     new Marketplace({
       recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
@@ -2458,7 +2524,7 @@ app.on('before-quit', (event) => {
     removeStateFile(entry)
   }
   ptys.clear()
-  killAllLsp()
+  languageServers?.stopAll()
   workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)

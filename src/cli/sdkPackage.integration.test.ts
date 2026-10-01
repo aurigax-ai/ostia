@@ -36,6 +36,7 @@ function manifestFiles(): string[] {
     join(repoRoot, 'sdk-package/template/pine.json'),
     join(repoRoot, 'test/fixtures/extensions/echo/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-e2e/hello/pine.json'),
+    join(repoRoot, 'test/fixtures/extensions-lsp/fake-lang/pine.json'),
   ]
 }
 
@@ -62,6 +63,32 @@ describe('manifest schemas', () => {
         ...base,
         contributes: { settings: { k: { type: 'color', default: '', description: 'd' } } },
       },
+      ...[
+        { id: 'Bad Id' },
+        { languages: [] },
+        { languages: ['Python'] },
+        { run: { node: 'main.py' } },
+        { run: { node: 'main.js', program: 'main' } },
+        { run: { program: '/usr/bin/main' } },
+        { run: { program: 'main', args: ['a'.repeat(201)] } },
+        { rootMarkers: ['a/b'] },
+        { settingPaths: { mode: 'a..b' } },
+      ].map((server) => ({
+        ...base,
+        capabilities: ['language-server'],
+        contributes: {
+          settings: { mode: { type: 'string', default: '', description: 'd' } },
+          languageServers: [
+            {
+              id: 'demo',
+              name: 'Demo',
+              languages: ['python'],
+              run: { program: 'demo' },
+              ...server,
+            },
+          ],
+        },
+      })),
     ]
     for (const manifest of bad) {
       expect(parseManifest(manifest, '/ext').ok, JSON.stringify(manifest)).toBe(false)

@@ -25,6 +25,7 @@ import {
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
 import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../shared/languagePack'
+import { parseLanguageServers } from '../shared/languageServers'
 import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
@@ -433,6 +434,12 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof iconThemes === 'string') return { ok: false, error: iconThemes }
   const languages = parseLanguages(contributes.languages, dir)
   if (typeof languages === 'string') return { ok: false, error: languages }
+  const languageServers = parseLanguageServers(contributes.languageServers, {
+    isInside: (path) => isInsideDir(dir, path),
+    capabilities: caps,
+    settingKeys: settings.map((setting) => setting.key),
+  })
+  if (typeof languageServers === 'string') return { ok: false, error: languageServers }
   const needsMain =
     commands.length > 0 ||
     sidebarItems ||
@@ -463,6 +470,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (completions !== undefined) manifest.contributes.completions = completions
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes
   if (languages.length > 0) manifest.contributes.languages = languages
+  if (languageServers.length > 0) manifest.contributes.languageServers = languageServers
   return { ok: true, manifest }
 }
 

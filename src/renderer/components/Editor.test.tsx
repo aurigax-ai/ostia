@@ -190,7 +190,10 @@ const fake = vi.hoisted(() => {
 vi.mock('../monaco/setup', () => ({
   monaco: fake.monaco,
 }))
-vi.mock('../lsp/client', () => ({ openDocument: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('../lsp/client', () => ({
+  openDocument: vi.fn(() => () => {}),
+  documentSaved: vi.fn(),
+}))
 
 const { EditorView, isBinary } = await import('./Editor')
 

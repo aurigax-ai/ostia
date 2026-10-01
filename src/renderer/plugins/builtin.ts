@@ -181,12 +181,4 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
       colorSchemes: BUILTIN_COLOR_SCHEMES,
     },
   },
-  {
-    id: 'pine.lsp',
-    name: 'Language servers',
-    description: 'Auto-detected language servers for the editor.',
-    version: '1.0.0',
-    builtin: true,
-    contributes: { languageServers: [] },
-  },
 ]

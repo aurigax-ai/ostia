@@ -316,7 +316,8 @@ export class Marketplace {
           description: manifest.description,
           category: manifest.category,
           capabilities: manifest.capabilities,
-          runsProcess: manifest.main !== undefined,
+          runsProcess:
+            manifest.main !== undefined || (manifest.contributes.languageServers ?? []).length > 0,
           state,
           ...(installedVersion ? { installedVersion } : {}),
         }

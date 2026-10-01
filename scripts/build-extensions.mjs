@@ -16,7 +16,15 @@ import { writeFigSpecs } from './completionSpecs.mjs'
 const srcRoot = 'src/extensions'
 const builtinRoot = 'out/extensions'
 const marketplaceRoot = 'out/marketplace'
-const marketplaceIds = ['keeper', 'model-runtime', 'trellis']
+const marketplaceIds = [
+  'keeper',
+  'lsp-clangd',
+  'lsp-gopls',
+  'lsp-lua',
+  'lsp-rust-analyzer',
+  'model-runtime',
+  'trellis',
+]
 const marketplaceManifest = {
   name: 'Pine extensions',
   description: 'Extensions for Pine that are not built in',
