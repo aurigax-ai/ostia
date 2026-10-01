@@ -84,6 +84,23 @@ describe('wireCommandBridge', () => {
     }
   })
 
+  it('hides a local command from main and refuses to run it for a socket caller', async () => {
+    const run = vi.fn()
+    commands.register({ id: 'test.local.only', title: 'Local', local: true, run })
+
+    wireCommandBridge()
+
+    expect(commands.describe().some((d) => d.id === 'test.local.only')).toBe(false)
+    const handler = vi.mocked(window.pine.commands.onInvoke).mock.calls[0][0]
+    const result = await handler({
+      id: 'test.local.only',
+      target: { workspaceId: 's1', paneId: 'p1' },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('unknown-command')
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('does not throw when window.pine.commands is undefined', () => {
     window.pine.commands = undefined as unknown as CommandsApi
     expect(() => wireCommandBridge()).not.toThrow()

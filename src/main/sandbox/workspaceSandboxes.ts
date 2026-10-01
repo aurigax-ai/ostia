@@ -5,9 +5,11 @@ import type { PackageRef } from '../../shared/packages'
 import {
   type ResolvedSandbox,
   type SandboxGlobals,
+  type SandboxMergeRefusal,
   type WorkspaceSandbox,
   resolvePackages,
   resolveSandbox,
+  sandboxMergeRefusal,
 } from '../../shared/sandbox'
 import { SandboxHost, SandboxHostError } from './hostClient'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
@@ -40,37 +42,62 @@ export class WorkspaceSandboxes {
   private readonly hosts = new Map<string, Promise<SandboxHost>>()
   private readonly sessionDomains = new Map<string, Set<string>>()
   private readonly sessionPackages = new Map<string, Set<string>>()
+  private readonly mergedInto = new Map<string, string>()
 
   constructor(private readonly deps: WorkspaceSandboxesDeps) {}
 
+  owner(workspaceId: string): string {
+    return this.mergedInto.get(workspaceId) ?? workspaceId
+  }
+
   isEnabled(workspaceId: string): boolean {
-    return this.deps.store.isCorrupt || this.deps.store.get(workspaceId).enabled
+    return this.deps.store.isCorrupt || this.deps.store.get(this.owner(workspaceId)).enabled
   }
 
   settings(workspaceId: string): WorkspaceSandbox {
-    return this.deps.store.get(workspaceId)
+    return this.deps.store.get(this.owner(workspaceId))
+  }
+
+  mergeRefusal(sourceId: string, targetId: string): SandboxMergeRefusal | null {
+    return sandboxMergeRefusal(
+      { ...this.settings(sourceId), enabled: this.isEnabled(sourceId) },
+      { ...this.settings(targetId), enabled: this.isEnabled(targetId) },
+    )
+  }
+
+  merge(sourceId: string, targetId: string): void {
+    const owner = this.owner(targetId)
+    for (const [id, into] of this.mergedInto) if (into === sourceId) this.mergedInto.set(id, owner)
+    this.mergedInto.set(sourceId, owner)
+    this.sessionDomains.delete(sourceId)
+    this.sessionPackages.delete(sourceId)
+    this.deps.store.remove(sourceId)
+    void this.refresh(owner)
   }
 
   update(
     workspaceId: string,
     change: (current: WorkspaceSandbox) => WorkspaceSandbox,
   ): WorkspaceSandbox {
-    const next = this.deps.store.set(workspaceId, change(this.deps.store.get(workspaceId)))
-    void this.refresh(workspaceId)
+    const owner = this.owner(workspaceId)
+    const next = this.deps.store.set(owner, change(this.deps.store.get(owner)))
+    void this.refresh(owner)
     return next
   }
 
   resolved(workspaceId: string): ResolvedSandbox {
-    return resolveSandbox(this.deps.globals(), this.deps.store.get(workspaceId), [
-      ...(this.sessionDomains.get(workspaceId) ?? []),
+    const owner = this.owner(workspaceId)
+    return resolveSandbox(this.deps.globals(), this.deps.store.get(owner), [
+      ...(this.sessionDomains.get(owner) ?? []),
     ])
   }
 
   packagePolicy(workspaceId: string): PackagePolicy {
-    const resolved = resolvePackages(this.deps.globals(), this.deps.store.get(workspaceId))
+    const owner = this.owner(workspaceId)
+    const resolved = resolvePackages(this.deps.globals(), this.deps.store.get(owner))
     return {
       ...resolved,
-      allowances: [...resolved.allowances, ...(this.sessionPackages.get(workspaceId) ?? [])],
+      allowances: [...resolved.allowances, ...(this.sessionPackages.get(owner) ?? [])],
     }
   }
 
@@ -87,10 +114,11 @@ export class WorkspaceSandboxes {
       })
       return
     }
-    const set = this.sessionPackages.get(workspaceId) ?? new Set<string>()
+    const owner = this.owner(workspaceId)
+    const set = this.sessionPackages.get(owner) ?? new Set<string>()
     set.add(versionKey)
-    this.sessionPackages.set(workspaceId, set)
-    void this.refresh(workspaceId)
+    this.sessionPackages.set(owner, set)
+    void this.refresh(owner)
   }
 
   tmpDir(workspaceId: string): string {
@@ -98,13 +126,11 @@ export class WorkspaceSandboxes {
   }
 
   config(workspaceId: string): SandboxRuntimeConfig {
-    const workDir = this.deps.workDir(workspaceId)
+    const workDir = this.deps.workDir(this.owner(workspaceId))
     if (!workDir) throw new SandboxUnavailableError('the workspace folder is not known yet')
     const tmpDir = this.tmpDir(workspaceId)
     mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
-    const policy = resolveSandbox(this.deps.globals(), this.deps.store.get(workspaceId), [
-      ...(this.sessionDomains.get(workspaceId) ?? []),
-    ])
+    const policy = this.resolved(workspaceId)
     return buildSrtConfig(policy, {
       ...this.deps.basePaths(),
       workDir,
@@ -137,13 +163,21 @@ export class WorkspaceSandboxes {
   }
 
   allowUntilRestart(workspaceId: string, domain: string): void {
-    const set = this.sessionDomains.get(workspaceId) ?? new Set<string>()
+    const owner = this.owner(workspaceId)
+    const set = this.sessionDomains.get(owner) ?? new Set<string>()
     set.add(domain)
-    this.sessionDomains.set(workspaceId, set)
-    void this.refresh(workspaceId)
+    this.sessionDomains.set(owner, set)
+    void this.refresh(owner)
   }
 
   async refresh(workspaceId: string): Promise<void> {
+    const owner = this.owner(workspaceId)
+    const merged = [...this.mergedInto].filter(([, into]) => into === owner).map(([id]) => id)
+    await this.refreshHost(owner)
+    for (const id of merged) await this.refreshHost(id).catch(() => undefined)
+  }
+
+  private async refreshHost(workspaceId: string): Promise<void> {
     const pending = this.hosts.get(workspaceId)
     if (!pending) return
     const host = await pending.catch(() => null)
@@ -163,6 +197,7 @@ export class WorkspaceSandboxes {
 
   forget(workspaceId: string): void {
     this.stop(workspaceId)
+    this.mergedInto.delete(workspaceId)
     this.sessionDomains.delete(workspaceId)
     this.sessionPackages.delete(workspaceId)
     this.deps.store.remove(workspaceId)
