@@ -4,13 +4,13 @@ import {
   ArrowClockwiseIcon,
   ArrowsOutSimpleIcon,
   CheckIcon,
+  ClockCounterClockwiseIcon,
   CopyIcon,
   FolderSimpleIcon,
   type Icon,
   NotePencilIcon,
   PencilSimpleIcon,
   QuotesIcon,
-  RecordIcon,
   SelectionIcon,
   TagIcon,
   TerminalWindowIcon,
@@ -20,6 +20,7 @@ import {
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 import type { AssistProviderInfo, ChatContextItem } from '@shared/assist'
+import type { UIMessage } from 'ai'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import type { Components } from 'react-markdown'
 import { commands } from '../commands/registry'
@@ -274,7 +275,7 @@ function ChatSession({
 
   const available = ASK_CONTEXT_ORDER.filter((kind) => options[kind])
   const last = messages[messages.length - 1]
-  const waiting = busy && last?.role === 'user'
+  const waiting = busy && (last?.role === 'user' || !hasVisibleContent(last))
   const errorInfo = error ? decodeChatError(error.message) : null
   const shownNotice = notice ?? sessionNotice
   const noticeText = shownNotice
@@ -346,11 +347,7 @@ function ChatSession({
               />
             ))
           )}
-          {waiting ? (
-            <p className="px-0.5 text-fg-muted text-ui-base" aria-live="polite">
-              {d.ask.thinking}
-            </p>
-          ) : null}
+          {waiting ? <ChatWaiting model={provider?.label ?? provider?.name ?? null} /> : null}
           {errorInfo ? (
             <p role="alert" className="flex items-start gap-1.5 text-attn-fg text-ui-sm">
               <WarningCircleIcon className="mt-0.5 size-3.5 shrink-0" />
@@ -481,6 +478,31 @@ function ChatSession({
 
 const EMPTY_ATTACHMENTS: ChatContextItem[] = []
 
+export function hasVisibleContent(message: UIMessage | undefined): boolean {
+  if (!message) return false
+  return message.parts.some(
+    (part) =>
+      (part.type === 'text' && part.text.trim() !== '') ||
+      part.type.startsWith('tool-') ||
+      part.type === 'dynamic-tool',
+  )
+}
+
+function ChatWaiting({ model }: { model: string | null }): JSX.Element {
+  const d = useDict()
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const started = Date.now()
+    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  return (
+    <output className="block px-0.5 text-fg-muted text-ui-base" aria-live="polite">
+      {model ? fmt(d.ask.waitingFor, { model, seconds: String(seconds) }) : d.ask.thinking}
+    </output>
+  )
+}
+
 type Segment =
   | { kind: 'text'; key: string; text: string }
   | { kind: 'tool'; key: string; part: ToolPartLike }
@@ -544,7 +566,7 @@ function ChatHeader({
           )}
           data-recording={recording || undefined}
         >
-          <RecordIcon className="size-3" />
+          <ClockCounterClockwiseIcon className="size-3" />
           {recording ? d.chat.recording : d.chat.notRecording}
         </span>
       </Hint>
