@@ -346,6 +346,21 @@ export interface SnapshotWorkspace {
   projectDir?: string
   root?: SnapshotNode
   activePaneId?: string
+  origin?: WorkspaceOrigin
+}
+
+export type PanePlacementZone = 'left' | 'right' | 'top' | 'bottom' | 'center'
+
+export interface PanePlacement {
+  paneId: string
+  zone: PanePlacementZone
+}
+
+export interface WorkspaceOrigin {
+  workspaceId: string
+  index: number
+  groupId?: string
+  beside?: PanePlacement
 }
 
 export interface SnapshotGroup {
@@ -416,9 +431,23 @@ export interface ScratchApi {
   reveal: (workspaceId: string) => void
 }
 
+export interface ScreenPoint {
+  x: number
+  y: number
+}
+
+export interface PaneDrop {
+  paneId: string
+  workspaceId: string
+  placement: PanePlacement
+}
+
 export interface WindowsApi {
   info: () => Promise<WindowInfo>
-  detach: (workspace: SnapshotWorkspace) => Promise<boolean>
+  detach: (workspace: SnapshotWorkspace, at?: ScreenPoint) => Promise<boolean>
+  dropPane: (drop: PaneDrop) => void
+  landing: (paneId: string) => Promise<boolean>
+  give: (workspace: SnapshotWorkspace) => Promise<boolean>
   returnToMain: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
   report: (workspaces: WindowWorkspaceSummary[]) => void
   focusWorkspace: (workspaceId: string, jumpToUnread: boolean) => void

@@ -1,4 +1,10 @@
-import type { AppSnapshot, SnapshotWorkspace, WindowBounds } from '../shared/types'
+import type {
+  AppSnapshot,
+  PanePlacement,
+  ScreenPoint,
+  SnapshotWorkspace,
+  WindowBounds,
+} from '../shared/types'
 
 export const MAIN_SLOT = 'main'
 
@@ -103,6 +109,137 @@ export function clampBounds(bounds: WindowBounds, areas: readonly WindowBounds[]
   const x = Math.min(Math.max(bounds.x, area.x), area.x + area.width - width)
   const y = Math.min(Math.max(bounds.y, area.y), area.y + area.height - height)
   return { x, y, width, height }
+}
+
+const POINT_MAX = 100_000
+const GRAB_OFFSET = { x: 120, y: 16 }
+
+export function parsePoint(raw: unknown): ScreenPoint | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const { x, y } = raw as Record<string, unknown>
+  const valid = [x, y].every(
+    (n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= POINT_MAX,
+  )
+  return valid ? { x: Math.round(x as number), y: Math.round(y as number) } : null
+}
+
+export function boundsAt(
+  point: ScreenPoint,
+  size: { width: number; height: number },
+  areas: readonly WindowBounds[],
+): WindowBounds {
+  const bounds = { x: point.x - GRAB_OFFSET.x, y: point.y - GRAB_OFFSET.y, ...size }
+  const home = areas.find(
+    (a) => point.x >= a.x && point.x < a.x + a.width && point.y >= a.y && point.y < a.y + a.height,
+  )
+  return clampBounds(bounds, home ? [home] : areas)
+}
+
+export function withoutOrigin(workspace: SnapshotWorkspace): SnapshotWorkspace {
+  const { origin: _origin, ...rest } = workspace
+  return rest
+}
+
+export function crossesSandbox(
+  paneWorkspaces: readonly (string | undefined)[],
+  destination: string,
+  isSandboxed: (workspaceId: string) => boolean,
+): boolean {
+  return paneWorkspaces.some(
+    (from) =>
+      from !== undefined &&
+      from !== '' &&
+      from !== destination &&
+      (isSandboxed(from) || isSandboxed(destination)),
+  )
+}
+
+export interface ReturnPlan {
+  windowId: string
+  workspace: SnapshotWorkspace
+}
+
+export function planReturn(
+  workspace: SnapshotWorkspace,
+  sourceWindowId: string,
+  mainWindowId: string,
+  ownerOf: (workspaceId: string) => string | undefined,
+  isSandboxed: (workspaceId: string) => boolean,
+): ReturnPlan {
+  const origin = workspace.origin
+  const home = origin && origin.workspaceId !== workspace.id ? origin.workspaceId : null
+  const owner = home ? ownerOf(home) : undefined
+  if (
+    home &&
+    owner &&
+    owner !== sourceWindowId &&
+    !crossesSandbox([workspace.id], home, isSandboxed)
+  ) {
+    return { windowId: owner, workspace }
+  }
+  if (!origin) return { windowId: mainWindowId, workspace }
+  return {
+    windowId: mainWindowId,
+    workspace: {
+      ...workspace,
+      origin: {
+        workspaceId: workspace.id,
+        index: origin.index,
+        ...(origin.groupId ? { groupId: origin.groupId } : {}),
+      },
+    },
+  }
+}
+
+export const LANDING_CLAIM_MS = 3000
+export const LANDING_GIVE_MS = 60_000
+
+export interface Landing {
+  windowId: string
+  workspaceId: string
+  placement: PanePlacement
+}
+
+interface LandingEntry extends Landing {
+  at: number
+  claimedAt?: number
+}
+
+export class Landings {
+  private readonly entries = new Map<string, LandingEntry>()
+
+  record(paneId: string, landing: Landing, now: number): void {
+    this.entries.set(paneId, { ...landing, at: now })
+  }
+
+  private live(paneId: string, now: number): LandingEntry | null {
+    const entry = this.entries.get(paneId)
+    if (!entry) return null
+    const expired = entry.claimedAt
+      ? now - entry.claimedAt > LANDING_GIVE_MS
+      : now - entry.at > LANDING_CLAIM_MS
+    if (expired) this.entries.delete(paneId)
+    return expired ? null : entry
+  }
+
+  pending(paneId: string, now: number): boolean {
+    const entry = this.live(paneId, now)
+    return entry !== null && entry.claimedAt === undefined
+  }
+
+  claim(paneId: string, now: number): boolean {
+    const entry = this.live(paneId, now)
+    if (!entry || entry.claimedAt !== undefined) return false
+    entry.claimedAt = now
+    return true
+  }
+
+  take(paneId: string, now: number): Landing | null {
+    const entry = this.live(paneId, now)
+    if (!entry || entry.claimedAt === undefined) return null
+    this.entries.delete(paneId)
+    return { windowId: entry.windowId, workspaceId: entry.workspaceId, placement: entry.placement }
+  }
 }
 
 export class WindowBook {

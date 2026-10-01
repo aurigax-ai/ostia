@@ -9,10 +9,13 @@ import {
   findPane,
   firstPaneId,
   firstPaneOfKind,
+  graftNode,
   isPaneShown,
   mergeLayouts,
   movePane,
+  moveTab,
   paneIds,
+  placementOf,
   resetIds,
   selectTab,
   setPaneBrowser,
@@ -795,5 +798,103 @@ describe('setPaneHibernated', () => {
     const awake = setPaneHibernated(asleep, root.id, false)
     expect(awake).not.toHaveProperty('hibernated')
     expect(setPaneHibernated(awake, root.id, false)).toBe(awake)
+  })
+})
+
+describe('placementOf', () => {
+  it('remembers the tab before a tab that leaves a stack', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    expect(placementOf(tabsOf(b.id, a, b, c), b.id)).toEqual({ paneId: a.id, zone: 'center' })
+    expect(placementOf(tabsOf(a.id, a, b), a.id)).toEqual({ paneId: b.id, zone: 'center' })
+  })
+
+  it('remembers the neighbor and side of a pane in a split', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const row = splitOf('horizontal', a, b)
+    expect(placementOf(row, b.id)).toEqual({ paneId: a.id, zone: 'right' })
+    expect(placementOf(row, a.id)).toEqual({ paneId: b.id, zone: 'left' })
+    const column = splitOf('vertical', splitOf('horizontal', a, b), c)
+    expect(placementOf(column, c.id)).toEqual({ paneId: b.id, zone: 'bottom' })
+  })
+
+  it('has no placement for a lone pane', () => {
+    const a = createPane()
+    expect(placementOf(a, a.id)).toBeNull()
+  })
+})
+
+describe('graftNode', () => {
+  it('puts a returning pane back as a tab next to its old neighbor', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = graftNode(splitOf('horizontal', a, b), c, { paneId: a.id, zone: 'center' })
+    expect(tabsOfPane(root, c.id)?.children.map((p) => p.id)).toEqual([a.id, c.id])
+    expect(paneIds(root)).toEqual([a.id, c.id, b.id])
+  })
+
+  it('puts every tab of a returning stack next to the anchor', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = graftNode(a, tabsOf(b.id, b, c), { paneId: a.id, zone: 'center' })
+    expect(root).toMatchObject({ type: 'tabs' })
+    expect(paneIds(root)).toEqual([a.id, b.id, c.id])
+  })
+
+  it('splits beside the anchor on the remembered side', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = graftNode(splitOf('vertical', a, b), c, { paneId: a.id, zone: 'left' })
+    expect(root.type === 'split' && root.children[0]).toMatchObject({
+      type: 'split',
+      direction: 'horizontal',
+    })
+    expect(paneIds(root)).toEqual([c.id, a.id, b.id])
+  })
+
+  it('splits a returning split beside the anchor instead of flattening it into tabs', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = graftNode(a, splitOf('vertical', b, c), { paneId: a.id, zone: 'center' })
+    expect(root).toMatchObject({ type: 'split', direction: 'horizontal' })
+    expect(paneIds(root)).toEqual([a.id, b.id, c.id])
+  })
+
+  it('adds a new split on the right when the anchor is gone', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = graftNode(a, b, { paneId: c.id, zone: 'center' })
+    expect(root).toMatchObject({ type: 'split', direction: 'horizontal' })
+    expect(paneIds(root)).toEqual([a.id, b.id])
+  })
+
+  it('becomes the whole layout of a workspace with no panes', () => {
+    const a = createPane()
+    expect(graftNode(null, a)).toBe(a)
+  })
+})
+
+describe('moveTab', () => {
+  it('reorders tabs inside one stack and keeps the stack', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const stack = tabsOf(a.id, a, b, c)
+    const root = moveTab(stack, a.id, c.id, true)
+    expect(root).toMatchObject({ type: 'tabs', id: stack.id, activeId: a.id })
+    expect(paneIds(root)).toEqual([b.id, c.id, a.id])
+  })
+
+  it('moves a pane from a split into another stack before the hovered tab', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = moveTab(splitOf('horizontal', a, tabsOf(b.id, b, c)), a.id, c.id, false)
+    expect(root).toMatchObject({ type: 'tabs', activeId: a.id })
+    expect(paneIds(root)).toEqual([b.id, a.id, c.id])
+  })
+
+  it('turns a lone target pane into a stack', () => {
+    const [a, b] = [createPane(), createPane()]
+    const root = moveTab(splitOf('vertical', a, b), b.id, a.id, true)
+    expect(root).toMatchObject({ type: 'tabs' })
+    expect(paneIds(root)).toEqual([a.id, b.id])
+  })
+
+  it('returns the same tree for an unknown pane or a drop on itself', () => {
+    const [a, b] = [createPane(), createPane()]
+    const root = splitOf('horizontal', a, b)
+    expect(moveTab(root, a.id, a.id, true)).toBe(root)
+    expect(moveTab(root, 'nope', b.id, true)).toBe(root)
   })
 })

@@ -56,6 +56,11 @@ export class AppTray {
   hide(win: BrowserWindow): void {
     win.hide()
     this.ensure()
+    win.once('show', () => this.removeWhenAllShown())
+  }
+
+  private removeWhenAllShown(): void {
+    if (this.deps.windows().every((w) => w.isDestroyed() || w.isVisible())) this.remove()
   }
 
   showWindows(): void {

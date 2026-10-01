@@ -243,6 +243,18 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  commands.register<{ sourceId: string; targetId: string; after: boolean }>({
+    id: 'pane.moveTab',
+    title: 'Move Tab',
+    category: 'Pane',
+    hidden: true,
+    run: ({ sourceId, targetId, after }, ctx) => {
+      if (ctx.activeWorkspaceId) {
+        useLayoutStore.getState().moveTab(ctx.activeWorkspaceId, sourceId, targetId, after)
+      }
+    },
+  })
+
   commands.register<{ state: AttentionState; message?: string }>({
     id: 'attention.set',
     title: 'Set Pane Attention',

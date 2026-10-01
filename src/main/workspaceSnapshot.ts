@@ -3,6 +3,9 @@ import { parseAgentResume } from '../shared/agentResume'
 import { isDangerousSegment } from '../shared/protoGuard'
 import type {
   AppSnapshot,
+  PaneDrop,
+  PanePlacement,
+  PanePlacementZone,
   SnapshotGroup,
   SnapshotNode,
   SnapshotPaneNode,
@@ -10,6 +13,7 @@ import type {
   SnapshotWindow,
   SnapshotWorkspace,
   WindowBounds,
+  WorkspaceOrigin,
 } from '../shared/types'
 import { VIEW_NAME } from '../shared/views'
 import { isWorkspaceGroupColor, normalizeGroupName } from '../shared/workspaceGroups'
@@ -38,6 +42,15 @@ const SURFACE_KINDS: ReadonlySet<string> = new Set<SnapshotSurfaceKind>([
   'view',
 ])
 const WORKSPACE_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal', 'scratch'])
+const PLACEMENT_ZONES: ReadonlySet<string> = new Set<PanePlacementZone>([
+  'left',
+  'right',
+  'top',
+  'bottom',
+  'center',
+])
+const ID_MAX = 256
+const ORIGIN_INDEX_MAX = 1000
 
 export function snapshotPath(): string {
   return storePath('workspaces', 'global')
@@ -160,6 +173,37 @@ function parseGroups(raw: unknown): SnapshotGroup[] {
   return groups
 }
 
+function isId(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0 && v.length <= ID_MAX
+}
+
+export function parsePlacement(raw: unknown): PanePlacement | null {
+  if (!isRecord(raw) || !isId(raw.paneId)) return null
+  if (typeof raw.zone !== 'string' || !PLACEMENT_ZONES.has(raw.zone)) return null
+  return { paneId: raw.paneId, zone: raw.zone as PanePlacementZone }
+}
+
+export function parsePaneDrop(raw: unknown): PaneDrop | null {
+  if (!isRecord(raw) || !isId(raw.paneId) || !isId(raw.workspaceId)) return null
+  const placement = parsePlacement(raw.placement)
+  return placement ? { paneId: raw.paneId, workspaceId: raw.workspaceId, placement } : null
+}
+
+export function parseOrigin(raw: unknown): WorkspaceOrigin | null {
+  if (!isRecord(raw) || !isId(raw.workspaceId)) return null
+  const index = raw.index
+  const beside = parsePlacement(raw.beside)
+  return {
+    workspaceId: raw.workspaceId,
+    index:
+      typeof index === 'number' && Number.isInteger(index)
+        ? Math.min(Math.max(index, 0), ORIGIN_INDEX_MAX)
+        : 0,
+    ...(isId(raw.groupId) ? { groupId: raw.groupId } : {}),
+    ...(beside ? { beside } : {}),
+  }
+}
+
 interface Claims {
   panes: Set<string>
   workspaces: Set<string>
@@ -187,6 +231,7 @@ function parseWorkspace(
 
   const workDir = typeof entry.workDir === 'string' && entry.workDir ? entry.workDir : '~'
   const description = normalizeDescription(entry.description)
+  const origin = parseOrigin(entry.origin)
   claims.workspaces.add(id)
   for (const p of paneIds) claims.panes.add(p)
   return {
@@ -215,6 +260,7 @@ function parseWorkspace(
               : paneIds[0],
         }
       : {}),
+    ...(origin ? { origin } : {}),
   }
 }
 

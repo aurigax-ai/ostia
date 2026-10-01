@@ -1,4 +1,5 @@
 import type { AgentResume } from '@shared/agentResume'
+import type { PanePlacement } from '@shared/types'
 import { namespacedId } from '../lib/idNamespace'
 import type {
   Direction,
@@ -429,4 +430,87 @@ export function movePane(
   const direction: Direction = zone === 'left' || zone === 'right' ? 'horizontal' : 'vertical'
   const before = zone === 'left' || zone === 'top'
   return insertBeside(detached, targetId, source, direction, before)
+}
+
+function parentOfSlot(node: LayoutNode, slotId: string): SplitNode | null {
+  if (node.type !== 'split') return null
+  if (node.children.some((c) => c.type !== 'split' && c.id === slotId)) return node
+  for (const child of node.children) {
+    const found = parentOfSlot(child, slotId)
+    if (found) return found
+  }
+  return null
+}
+
+function lastPaneId(node: LayoutNode): string {
+  const panes = allPanes(node)
+  return panes[panes.length - 1].id
+}
+
+export function placementOf(root: LayoutNode, paneId: string): PanePlacement | null {
+  const tabs = tabsOfPane(root, paneId)
+  if (tabs && tabs.children.length > 1) {
+    const index = tabs.children.findIndex((c) => c.id === paneId)
+    const neighbor = tabs.children[index - 1] ?? tabs.children[index + 1]
+    return { paneId: neighbor.id, zone: 'center' }
+  }
+  const slotId = slotIdOf(root, paneId)
+  const parent = slotId ? parentOfSlot(root, slotId) : null
+  if (!parent) return null
+  const index = parent.children.findIndex((c) => c.type !== 'split' && c.id === slotId)
+  const horizontal = parent.direction === 'horizontal'
+  const before = parent.children[index - 1]
+  if (before) return { paneId: lastPaneId(before), zone: horizontal ? 'right' : 'bottom' }
+  return { paneId: firstPaneId(parent.children[index + 1]), zone: horizontal ? 'left' : 'top' }
+}
+
+function panesOfSlot(node: LayoutNode): PaneNode[] | null {
+  if (node.type === 'pane') return [node]
+  if (node.type === 'tabs') return node.children
+  return null
+}
+
+export function graftNode(
+  root: LayoutNode | null,
+  node: LayoutNode,
+  beside?: PanePlacement,
+): LayoutNode {
+  if (!root) return node
+  const anchor = beside && findPane(root, beside.paneId) ? beside : null
+  if (!anchor) return makeSplit('horizontal', [root, node])
+  const tabs = anchor.zone === 'center' ? panesOfSlot(node) : null
+  if (tabs) {
+    let next = root
+    let after = anchor.paneId
+    for (const pane of tabs) {
+      next = addTab(next, after, pane)
+      after = pane.id
+    }
+    return next
+  }
+  const zone = anchor.zone === 'center' ? 'right' : anchor.zone
+  const direction: Direction = zone === 'left' || zone === 'right' ? 'horizontal' : 'vertical'
+  return insertBeside(root, anchor.paneId, node, direction, zone === 'left' || zone === 'top')
+}
+
+export function moveTab(
+  root: LayoutNode,
+  sourceId: string,
+  targetId: string,
+  after: boolean,
+): LayoutNode {
+  const source = findPane(root, sourceId)
+  if (sourceId === targetId || !source || !findPane(root, targetId)) return root
+  const shared = tabsOfPane(root, sourceId)
+  const sameStack = shared !== null && shared === tabsOfPane(root, targetId)
+  const base = sameStack ? root : closePane(root, sourceId)
+  const slotId = slotIdOf(base, targetId)
+  if (!slotId) return root
+  return replaceSlot(base, slotId, (slot) => {
+    const panes = (slot.type === 'pane' ? [slot] : slot.children).filter((p) => p.id !== sourceId)
+    panes.splice(panes.findIndex((p) => p.id === targetId) + (after ? 1 : 0), 0, source)
+    return slot.type === 'pane'
+      ? tabsOf(sourceId, ...panes)
+      : { ...slot, children: panes, activeId: sourceId }
+  })
 }

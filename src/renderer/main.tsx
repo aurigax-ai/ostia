@@ -27,6 +27,7 @@ import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
 import { startHibernation } from './lib/hibernationScheduler'
 import { startAgentDetection } from './lib/paneAgent'
+import { startPaneDragTracking } from './lib/paneDrag'
 import { applyStoredRailWidth } from './lib/railWidth'
 import { applyUiFonts, preloadFonts } from './lib/uiFonts'
 import { startUserActions } from './lib/userActions'
@@ -83,6 +84,7 @@ async function boot(): Promise<void> {
   useWorkspacesStore.getState().hydrate(snapshot)
   startSnapshotAutosave()
   startWindowSync()
+  startPaneDragTracking()
   startAttentionSync()
   startPaneRecencySync()
   startHibernation()
