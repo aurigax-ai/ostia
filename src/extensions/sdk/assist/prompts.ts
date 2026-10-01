@@ -12,8 +12,8 @@ import {
   REVIEW_NOTES_MAX,
   TERMINAL_COMPLETION_MAX,
   type TerminalAssistRequest,
-} from '../../shared/assist'
-import { PRODUCT_NAME } from '../../shared/product'
+} from '../../../shared/assist'
+import { PRODUCT_NAME } from '../../../shared/product'
 
 export interface Prompt {
   system: string

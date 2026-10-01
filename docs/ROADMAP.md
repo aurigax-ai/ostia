@@ -164,7 +164,7 @@ Each phase ships a working product; nothing half-built lands on `main`.
    the user's real Chrome through Chrome DevTools MCP. It lives next to `browse.ts` in core; since
    phase 8 extensions can drive `browse.*` with an explicit target pane, so it can move out with
    browser automation.
-6. **Your tools** — **done**: built-in `trellis` and `keeper` extensions on the public API only
+6. **Your tools** — **done**: `trellis` and `keeper` extensions (since moved to the marketplace) on the public API only
    (panels, per-workspace and global sidebar items, notifications that open the panel, palette
    commands), and settings sync through a user-chosen folder (Settings → Sync). API added for
    them, generic for any extension: `ext.confirm` (a human confirm dialog), `ext.notify

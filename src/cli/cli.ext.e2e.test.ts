@@ -198,7 +198,8 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     expect(res.stdout).toContain('pine git diff <path> [--staged]')
     expect(res.stdout).toContain('pine git commit -m <message>')
     expect(res.stdout).not.toContain('discard')
-    expect(res.stdout).toContain('trellis\t')
+    expect(res.stdout).toContain('system\t')
+    expect(res.stdout).not.toContain('trellis\t')
     expect(res.stdout).not.toContain('kanban\t')
   }, 30_000)
 

@@ -1,8 +1,8 @@
 import { APICallError, simulateStreamingMiddleware, wrapLanguageModel } from 'ai'
 import { MockLanguageModelV4 } from 'ai/test'
 import { describe, expect, it, vi } from 'vitest'
-import { type AssistContext, AssistFailure } from '../sdk'
-import type { Provider } from './providers'
+import { type AssistContext, AssistFailure } from '..'
+import type { Provider, ProviderCatalog } from './provider'
 import { AssistantService } from './service'
 
 const ENV = { XDG_RUNTIME_DIR: '/run/user/1000' }
@@ -68,8 +68,20 @@ function ctx(overrides: Partial<AssistContext> = {}): AssistContext {
 }
 
 function service(provider: Provider, now: () => number = () => 0, onReport = vi.fn()) {
-  const factory = vi.fn(() => provider)
-  return { svc: new AssistantService(ENV, factory, now, onReport), factory, onReport }
+  const factory = vi.fn<ProviderCatalog['create']>(() => provider)
+  const catalog: ProviderCatalog = {
+    kinds: ['model-runtime', 'ollama', 'openai-compatible', 'openrouter', 'openai', 'anthropic'],
+    keyRequired: new Set(['openrouter', 'openai', 'anthropic']),
+    defaultBaseUrl: (kind, env) =>
+      kind === 'model-runtime'
+        ? `unix:${env.XDG_RUNTIME_DIR}/model-runtime.sock`
+        : kind === 'openai-compatible'
+          ? ''
+          : `https://${kind}.example/v1`,
+    defaultFastModel: (kind) => (kind === 'model-runtime' ? 'gemma' : ''),
+    create: factory,
+  }
+  return { svc: new AssistantService(catalog, ENV, now, onReport), factory, onReport }
 }
 
 async function failureOf(p: Promise<unknown>): Promise<AssistFailure> {

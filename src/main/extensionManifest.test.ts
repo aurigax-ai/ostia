@@ -244,8 +244,17 @@ describe('parseManifest', () => {
     ).toEqual({ ok: false, error: 'contributes.secrets.apiKey: title must be 1-80 characters' })
   })
 
-  it('accepts every built-in manifest', () => {
-    for (const id of ['assistant', 'completions', 'git', 'keeper', 'ports', 'system', 'trellis']) {
+  it('accepts every built-in and marketplace manifest', () => {
+    for (const id of [
+      'assistant',
+      'completions',
+      'git',
+      'keeper',
+      'model-runtime',
+      'ports',
+      'system',
+      'trellis',
+    ]) {
       const dir = join(__dirname, '..', 'extensions', id)
       const raw: unknown = JSON.parse(readFileSync(join(dir, 'pine.json'), 'utf8'))
       const res = parseManifest(raw, dir)

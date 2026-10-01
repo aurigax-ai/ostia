@@ -3,6 +3,7 @@ directories:
 files:
   - out/**
   - "!out/extensions/**"
+  - "!out/marketplace/**"
   - package.json
   - resources/icon.png
 extraResources:
