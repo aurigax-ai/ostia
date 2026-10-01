@@ -43,6 +43,7 @@ import { startAssistAvailability } from './stores/assistStore'
 import { startChatTools } from './stores/chatToolsStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
+import { usePluginsStore } from './stores/pluginsStore'
 import { useSettingsStore } from './stores/settingsStore'
 import { useSystemThemeStore } from './stores/systemThemeStore'
 import { startUpdateWatch } from './stores/updateStore'
@@ -70,6 +71,11 @@ async function boot(): Promise<void> {
     await useSettingsStore.getState().init()
   } catch (err) {
     console.error('[settings] load failed', err)
+  }
+  try {
+    await usePluginsStore.getState().loadLanguages()
+  } catch (err) {
+    console.error('[languages] load failed', err)
   }
   const { ui, editor, terminal } = useSettingsStore.getState().appearance
   applyUiFonts(document.documentElement, { ui, editor })

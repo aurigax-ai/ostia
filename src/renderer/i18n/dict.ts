@@ -779,6 +779,15 @@ export const en = {
   },
   extensions: {
     title: 'Extensions',
+    categories: {
+      ai: 'AI',
+      scm: 'Source control',
+      tools: 'Tools',
+      themes: 'Themes',
+      langpack: 'Language pack',
+      completions: 'Completions',
+      other: 'Other',
+    },
     installed: 'Installed',
     desc: 'Features that run as separate processes and use the public extension API. Disabling one stops its process and removes its commands, panel and sidebar items.',
     none: 'No extensions installed.',
@@ -2493,6 +2502,15 @@ export const zhHant: Dict = {
   },
   extensions: {
     title: '擴充功能',
+    categories: {
+      ai: 'AI',
+      scm: '原始碼控制',
+      tools: '工具',
+      themes: '佈景主題',
+      langpack: '語言套件',
+      completions: '自動完成',
+      other: '其他',
+    },
     installed: '已安裝',
     desc: '以獨立程序執行、只使用公開擴充 API 的功能。停用後會停止其程序，並移除其指令、面板與側欄項目。',
     none: '尚未安裝擴充功能。',
@@ -3407,8 +3425,6 @@ export const zhHant: Dict = {
     remoteCancel: '取消',
   },
 }
-
-export const catalogs: Record<Locale, Dict> = { en, 'zh-Hant': zhHant }
 
 export function resolveLocale(tag: string | undefined): Locale {
   if (!tag) return 'en'

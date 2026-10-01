@@ -1,6 +1,7 @@
 import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
 import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
+import type { LanguageContribution, LanguageInfo } from './languagePack'
 import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'pine.json'
@@ -121,11 +122,24 @@ export interface ExtensionSecretContribution {
 
 export const EXTENSION_SECRET_MAX = 4096
 
+export const EXTENSION_CATEGORIES = [
+  'ai',
+  'scm',
+  'tools',
+  'themes',
+  'langpack',
+  'completions',
+  'other',
+] as const
+
+export type ExtensionCategory = (typeof EXTENSION_CATEGORIES)[number]
+
 export interface ExtensionManifest {
   id: string
   name: string
   version: string
   description: string
+  category: ExtensionCategory
   capabilities: Capability[]
   main?: string
   contributes: {
@@ -140,6 +154,7 @@ export interface ExtensionManifest {
     assist: AssistPoint[]
     secrets: ExtensionSecretContribution[]
     iconThemes?: IconThemeContribution[]
+    languages?: LanguageContribution[]
   }
 }
 
@@ -156,6 +171,7 @@ export interface ExtensionInfo {
   name: string
   version: string
   description: string
+  category: ExtensionCategory
   builtin: boolean
   enabled: boolean
   status: ExtensionStatus
@@ -172,6 +188,7 @@ export interface ExtensionInfo {
   secrets: ExtensionSecretContribution[]
   secretsSet: string[]
   iconThemes: IconThemeInfo[]
+  languages: LanguageInfo[]
 }
 
 export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as const

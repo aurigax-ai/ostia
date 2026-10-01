@@ -34,6 +34,7 @@ describe('parseManifest', () => {
         name: 'Demo',
         version: '1.0.0',
         description: 'd',
+        category: 'other',
         capabilities: ['notify', 'read-board'],
         main: 'main.js',
         contributes: {
@@ -245,8 +246,52 @@ describe('parseManifest', () => {
     ).toEqual({ ok: false, error: 'contributes.secrets.apiKey: title must be 1-80 characters' })
   })
 
-  it('accepts every built-in manifest', () => {
-    for (const id of ['assistant', 'completions', 'git', 'keeper', 'ports', 'system', 'trellis']) {
+  it('defaults the category to other and refuses one it does not know', () => {
+    const res = parseManifest(manifest({}), DIR)
+    expect(res.ok && res.manifest.category).toBe('other')
+    const scm = parseManifest(manifest({ category: 'scm' }), DIR)
+    expect(scm.ok && scm.manifest.category).toBe('scm')
+    expect(parseManifest(manifest({ category: 'games' }), DIR)).toEqual({
+      ok: false,
+      error: 'category must be one of ai, scm, tools, themes, langpack, completions, other',
+    })
+  })
+
+  it('accepts language packs and checks their tag, label and file', () => {
+    const languages = (list: unknown) =>
+      parseManifest(manifest({ contributes: { languages: list } }), DIR)
+    const ok = languages([{ id: 'zh-Hant', label: '繁體中文', path: 'zh-Hant.json' }])
+    expect(ok.ok && ok.manifest.contributes.languages).toEqual([
+      { id: 'zh-Hant', label: '繁體中文', path: 'zh-Hant.json' },
+    ])
+    expect(languages([{ id: 'french!', label: 'F', path: 'fr.json' }])).toEqual({
+      ok: false,
+      error: 'contributes.languages[0]: id must be a language tag such as fr or zh-Hant',
+    })
+    expect(languages([{ id: 'fr', label: 'F', path: '../fr.json' }])).toEqual({
+      ok: false,
+      error: 'contributes.languages[0]: path must be a .json file inside the extension',
+    })
+    expect(
+      languages([
+        { id: 'fr', label: 'F', path: 'fr.json' },
+        { id: 'fr', label: 'G', path: 'fr2.json' },
+      ]),
+    ).toEqual({ ok: false, error: "contributes.languages[1]: duplicate id 'fr'" })
+  })
+
+  it('accepts every built-in and marketplace manifest', () => {
+    for (const id of [
+      'assistant',
+      'completions',
+      'git',
+      'keeper',
+      'langpack-zh-hant',
+      'model-runtime',
+      'ports',
+      'system',
+      'trellis',
+    ]) {
       const dir = join(__dirname, '..', 'extensions', id)
       const raw: unknown = JSON.parse(readFileSync(join(dir, 'pine.json'), 'utf8'))
       const res = parseManifest(raw, dir)

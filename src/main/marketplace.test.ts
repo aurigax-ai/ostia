@@ -219,6 +219,7 @@ describe('Marketplace', () => {
             name: 'Weather',
             version: '1.0.0',
             description: 'Shows the weather',
+            category: 'other',
             capabilities: ['notify'],
             runsProcess: true,
             state: 'available',

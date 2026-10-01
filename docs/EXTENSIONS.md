@@ -4,8 +4,9 @@ An extension is a directory with a `pine.json` manifest and, usually, a program 
 you. The program talks JSON-RPC to pine over the same control socket the `pine` CLI uses. That
 gives it palette and CLI commands, events, sidebar status items, pane and workspace chips, typed
 settings, encrypted secrets, the assist hook points (typo fix and prompt review, command
-suggestions, editor completions, the Ask conversation), notifications and a panel surface. The built-in Git, Trellis,
-Keeper, System and Assistant (`src/extensions/`) use nothing else, so they are the reference
+suggestions, editor completions, the Ask conversation), notifications and a panel surface. The
+built-in Git, System, Ports and Assistant, and the marketplace's Trellis, Keeper and Model runtime
+(`src/extensions/`), use nothing else, so they are the reference
 implementations.
 
 How it works inside pine: Trellis vault `architecture/extensions/overview`. Why it's out-of-process: `docs/ROADMAP.md` §2.
@@ -123,6 +124,8 @@ installs, updates or uninstalls, from Settings.
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand pine a loopback URL at runtime. |
 | `contributes.paneChips` | Up to 8 `{id, title}`. Each is a slot for a short value you put on a pane's header with `ext.setPaneChip` (for example a venv or a test count). `title` names it in tooltips and in Settings → Prompt: the human can also place your chip in the Pine prompt's chip row (`terminal.prompt.chips` id `<extId>.<chip>`), where it shows the same value. Needs `main`. |
 | `contributes.workspaceChips` | Up to 8 `{id, title}`, like `paneChips` but for a value that describes a whole workspace (for example its repository's branch and changes). You set it with `ext.setWorkspaceChip`; the top bar shows the chips of the active workspace. The Pine prompt can show it too (same `<extId>.<chip>` id): a pane's prompt shows its own pane chip if there is one, otherwise its workspace's. Needs `main`. |
+| `category` | Optional, one of `ai`, `scm`, `tools`, `themes`, `langpack`, `completions`, `other` (the default). Settings → Extensions and the marketplace show it as a badge. Anything else refuses the manifest |
+| `contributes.languages` | Up to 8 language packs, each `{id, label, path}`: `id` is a language tag (`fr`, `zh-Hant`), `label` the name shown in Settings → Language, `path` a `.json` file inside the extension. The file is a nested object of strings shaped like pine's English catalog (`src/renderer/i18n/dict.ts`, `en`): translate the keys you want, anything missing stays English, and keys English doesn't have are ignored. Keep `{placeholders}` as they are. No `main` needed. Main reads the file (no symlinks, ≤ 1 MiB, strings ≤ 4000 characters) only while the extension is enabled; disabling it puts the interface back in English. The first enabled extension to provide a language wins, and none can replace English |
 | `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
@@ -470,6 +473,29 @@ const body = splitter({
 - Exit when the socket closes (pine went away).
 - stdout/stderr go to pine's log, prefixed `[ext:<id>]`.
 
+## The SDK package
+
+`@aurigax-ai/pine-extension-sdk` (repository `aurigax-ai/pine-extension-sdk`) is the same SDK the
+built-in extensions use, packaged for extensions written outside the app:
+
+```sh
+pnpm add -D github:aurigax-ai/pine-extension-sdk
+```
+
+| Part | What it is |
+|---|---|
+| `@aurigax-ai/pine-extension-sdk` | `connect()` and everything in "Talking to pine" below the raw protocol |
+| `…/panel`, `…/splitter`, `…/panel.css` | The panel page helpers and base styles |
+| `…/assist` | The assistant engine: `runAssistExtension({catalog})` with your own `ProviderCatalog` (needs `ai`, `zod`, `@ai-sdk-tool/parser`, `undici`) |
+| `schemas/pine.schema.json`, `schemas/pine-marketplace.schema.json` | JSON Schemas for the two manifest files; name one in `"$schema"` and your editor checks the file as you type |
+| `pine-extension validate [folder]` | Runs the loader's own checks on an extension folder (plus the marketplace install limits), or on a marketplace folder and every extension it lists. Exits 0 when pine would accept it |
+| `template/` | A starter extension: TypeScript source, a build that bundles it into one `main.js`, `pnpm validate` |
+
+It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and copied to
+its repository with `pnpm publish:sdk <checkout>`; its version is the app's version. The JSON
+Schemas come from `src/cli/manifestSchema.ts`; the loader (`parseManifest`) stays the authority,
+and `validate` runs that loader.
+
 ## Example: a minimal extension
 
 `~/.config/pine/extensions/hello/pine.json`:
@@ -532,7 +558,7 @@ palette.
 
 ## Wrapping a CLI tool you already have
 
-The built-in `trellis` and `keeper` extensions are the reference for this. The pattern:
+The `trellis` and `keeper` extensions (in the marketplace) are the reference for this. The pattern:
 
 - Run the tool with `runTool(bin, args, {cwd, timeoutMs})` from the SDK: no shell, stdin
   closed, a timeout, and `missing: true` when the binary isn't on `PATH`. Parse its `--json`
@@ -618,11 +644,25 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 | Id | What it does |
 |---|---|
 | `git` | Branch and change counts per workspace in the sidebar; `git.branch` (`main • ↑2 ↓1`, click opens the panel) and `git.diff-stats` (`3 • +12 -4`) chips on every terminal in a repo; a Git panel with Changes (stage, unstage, discard after `ext.confirm`, commit; flat list or folder tree), Graph (lanes, ref badges, an uncommitted-changes row, the current, all or chosen branches; a commit's files open as diffs) and Blame pages ("Show Changes", "Show Graph", "Blame File"); settings `pollSeconds`, `showDiffStats`, `graphScope`, `changesView` (the panel's controls write the last two with `ext.setSetting`); `pine git status|changes|diff|open|log|blame|stage|unstage|commit` (discard is panel only) |
-| `trellis` | The Trellis web UI as a panel on the workspace's project, open/claimed card counts per workspace, notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Init Project Here", `pine trellis status`. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
+| `langpack-zh-hant` | Traditional Chinese (`zh-Hant`) for the interface, as a `contributes.languages` pack with no process. Its `zh-Hant.json` is generated at build time from `zhHant` in `src/renderer/i18n/dict.ts`, which stays typed against the English catalog so a missing string fails the typecheck |
 | `ports` | Per workspace, the TCP ports its terminals' processes listen on as `:port` links that open in the browser pane, and the host of a foreground `ssh`; per terminal pane, a `ports` chip (click opens the first port) and an `ssh` chip with `user@host`. Polls only while pine is focused. `pine ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `pine system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `pine system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |
-| `assistant` | The assist points on a provider the human picks in its settings: `model-runtime` (the user's local runtime on `$XDG_RUNTIME_DIR/model-runtime.sock`, with load and unload in Settings → Assistant → Models), `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`; the API key is a secret. Built on the AI SDK (`ai`, `@ai-sdk/openai-compatible` with a unix-socket `fetch` for model-runtime, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, zod for structured answers). A fast model for typos, reviews, commands and terminal/editor completions, a chat model for the chat pane and Ask, a switch per feature (`typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `chat`, `explainError`) and a requests-per-minute limit. Inert until a provider is chosen. It has no panel: Settings → Assistant shows each feature with its switch, readiness, shortcut and "Try it", its settings, and the provider's models (`ext.assistModels`); "Assistant: Chat" opens the chat pane |
+| `assistant` | The assist points on a provider the human picks in its settings: `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`; the API key is a secret. Built on the AI SDK (`ai`, `@ai-sdk/openai-compatible` with a unix-socket `fetch` for model-runtime, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, zod for structured answers). A fast model for typos, reviews, commands and terminal/editor completions, a chat model for the chat pane and Ask, a switch per feature (`typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `chat`, `explainError`) and a requests-per-minute limit. Inert until a provider is chosen. It has no panel: Settings → Assistant shows each feature with its switch, readiness, shortcut and "Try it", its settings, and the provider's models (`ext.assistModels`); "Assistant: Chat" opens the chat pane |
+
+### Marketplace extensions
+
+These live in the same source tree and use the same SDK, but they wrap tools only some people
+have, so they are not shipped in the app. `scripts/build-extensions.mjs` builds the ids in its
+`marketplaceIds` into `out/marketplace/` with a `pine-marketplace.json`, and
+`pnpm publish:marketplace <checkout>` copies that into a checkout of the marketplace repository
+(`aurigax-ai/pine-extensions`). Add that repository in Settings → Extensions → Marketplaces to install
+them.
+
+| Id | What it does |
+|---|---|
+| `trellis` | The Trellis web UI as a panel on the workspace's project, open/claimed card counts per workspace, notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Init Project Here", `pine trellis status`. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications that open the approvals queue (Keeper has no per-ticket page), "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue. Settings: `notify`, `pollSeconds`, `idlePollSeconds` |
+| `model-runtime` | The assist points on the user's local model-runtime (`$XDG_RUNTIME_DIR/model-runtime.sock` unless `baseUrl` says otherwise, `gemma` as the fast model unless set), with load and unload in Settings → Assistant → Models. It runs the same engine as `assistant` (`src/extensions/sdk/assist/`, `runAssistExtension`) with its own one-provider catalog; tools are described in the prompt. When both are ready, the built-in `assistant` answers |
 
 Earlier versions also shipped `kanban` and `wiki` extensions. They were removed: boards, cards and
 knowledge entries live in Trellis (the `trellis` extension and the `trellis` CLI). pine leaves

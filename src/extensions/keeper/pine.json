@@ -3,6 +3,7 @@
   "name": "Keeper",
   "version": "1.1.0",
   "description": "The Keeper dashboard as a panel, a count of queries waiting for your approval, and a notice that opens the approval queue when one arrives. The extension only reads the queue; approving is always your click in the dashboard.",
+  "category": "tools",
   "capabilities": ["read-board", "notify"],
   "main": "main.js",
   "contributes": {

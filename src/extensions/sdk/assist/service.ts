@@ -13,6 +13,7 @@ import {
   wrapLanguageModel,
 } from 'ai'
 import type { z } from 'zod'
+import { type AssistContext, AssistFailure } from '..'
 import type {
   AssistModelList,
   AssistPoint,
@@ -28,9 +29,8 @@ import type {
   InputAssistRequest,
   InputAssistResult,
   TerminalAssistRequest,
-} from '../../shared/assist'
-import type { ExtensionSettingValues } from '../../shared/extensions'
-import { type AssistContext, AssistFailure } from '../sdk'
+} from '../../../shared/assist'
+import type { ExtensionSettingValues } from '../../../shared/extensions'
 import {
   type AssistantConfig,
   assistStatus,
@@ -61,7 +61,7 @@ import {
   terminalPrompt,
   typoPrompt,
 } from './prompts'
-import { type Provider, createProvider } from './providers'
+import { NO_PROVIDER, type Provider, type ProviderCatalog } from './provider'
 
 export const TIMEOUTS: Record<AssistPoint, number> = {
   completion: 15_000,
@@ -77,8 +77,6 @@ const SMALL_SUFFIX_MAX = 600
 const SINGLE_FLIGHT: ReadonlySet<AssistPoint> = new Set(['completion', 'terminal'])
 const OBJECT_ATTEMPTS = 2
 const ERROR_MESSAGE_MAX = 240
-
-export type ProviderFactory = typeof createProvider
 
 export function chatToolSet(specs: ChatToolSpec[]): ToolSet {
   const tools: ToolSet = {}
@@ -108,7 +106,7 @@ function messageOf(err: unknown): string {
 }
 
 export class AssistantService {
-  private config: AssistantConfig = readConfig({})
+  private config: AssistantConfig
   private apiKey: string | null = null
   private provider: Provider | null = null
   private limiters = new Map<AssistPoint, Limiter>()
@@ -118,14 +116,16 @@ export class AssistantService {
   private lastError: string | undefined
 
   constructor(
+    private readonly catalog: ProviderCatalog,
     private readonly env: NodeJS.ProcessEnv = process.env,
-    private readonly factory: ProviderFactory = createProvider,
     private readonly now: () => number = Date.now,
     private readonly onReport: () => void = () => {},
-  ) {}
+  ) {
+    this.config = readConfig({}, catalog)
+  }
 
   configure(values: ExtensionSettingValues, apiKey: string | null): void {
-    this.config = readConfig(values)
+    this.config = readConfig(values, this.catalog)
     this.apiKey = apiKey?.trim() ? apiKey.trim() : null
     this.limiters.clear()
     this.flights.clear()
@@ -134,9 +134,9 @@ export class AssistantService {
     this.lastError = undefined
     const endpoint = endpointOf(this.config, this.env)
     this.provider =
-      this.config.provider === 'none' || !endpoint
+      this.config.provider === NO_PROVIDER || !endpoint
         ? null
-        : this.factory(this.config.provider, endpoint, this.apiKey)
+        : this.catalog.create(this.config.provider, endpoint, this.apiKey)
   }
 
   async probe(): Promise<void> {
