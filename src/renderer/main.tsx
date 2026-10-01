@@ -48,6 +48,7 @@ import { startChatTools } from './stores/chatToolsStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { usePluginsStore } from './stores/pluginsStore'
+import { startQuestions } from './stores/questionsStore'
 import { useSettingsStore } from './stores/settingsStore'
 import { useSystemThemeStore } from './stores/systemThemeStore'
 import { startUpdateWatch } from './stores/updateStore'
@@ -119,6 +120,7 @@ async function boot(): Promise<void> {
   startAgentRunningReport()
   startWorkspaceProjects()
   startApprovals()
+  startQuestions()
   startUserActions()
   startViews()
   startUpdateWatch()

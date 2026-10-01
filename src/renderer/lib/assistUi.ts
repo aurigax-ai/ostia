@@ -16,7 +16,7 @@ export function openAssistUi(req: AssistOpenUiRequest): void {
     workspaces.setActive(req.workspaceId)
   }
   const ui = useUIStore.getState()
-  ui.leaveSettings()
+  ui.showWorkspaces()
   if (req.ui === 'ask') ui.openPalette('ask')
   else if (commands.has(ASSIST_COMPOSE_COMMAND)) void commands.exec(ASSIST_COMPOSE_COMMAND)
 }

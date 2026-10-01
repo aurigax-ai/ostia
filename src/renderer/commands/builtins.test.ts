@@ -544,9 +544,9 @@ describe('builtins route to store actions', () => {
     expect(movePane).not.toHaveBeenCalled()
   })
 
-  it('routes workspace.new to leaveSettings then addWorkspace, in that order', async () => {
-    const leaveSettings = vi
-      .spyOn(useUIStore.getState(), 'leaveSettings')
+  it('routes workspace.new to showWorkspaces then addWorkspace, in that order', async () => {
+    const showWorkspaces = vi
+      .spyOn(useUIStore.getState(), 'showWorkspaces')
       .mockImplementation(() => {})
     const addWorkspace = vi
       .spyOn(useWorkspacesStore.getState(), 'addWorkspace')
@@ -554,9 +554,9 @@ describe('builtins route to store actions', () => {
 
     await commands.execWith(ctx(null, null), 'workspace.new')
 
-    expect(leaveSettings).toHaveBeenCalled()
+    expect(showWorkspaces).toHaveBeenCalled()
     expect(addWorkspace).toHaveBeenCalled()
-    expect(leaveSettings.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(showWorkspaces.mock.invocationCallOrder[0]).toBeLessThan(
       addWorkspace.mock.invocationCallOrder[0],
     )
   })
@@ -597,6 +597,15 @@ describe('builtins route to store actions', () => {
     await commands.execWith(ctx(null, null), 'app.openSettings')
 
     expect(openSettings).toHaveBeenCalled()
+  })
+
+  it('toggles the dashboard from dashboard.toggle without a target', async () => {
+    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
+    expect(byId['dashboard.toggle'].target).toBe('none')
+    await commands.execWith(ctx(null, null), 'dashboard.toggle')
+    expect(useUIStore.getState().dashboardActive).toBe(true)
+    await commands.execWith(ctx(null, null), 'dashboard.toggle')
+    expect(useUIStore.getState().dashboardActive).toBe(false)
   })
 
   it('MGR-C43 quits through the window bridge and needs destructive', async () => {

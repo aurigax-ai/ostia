@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { useUIStore } from './uiStore'
+import { coversWorkspaces, useUIStore } from './uiStore'
 
 const state = () => useUIStore.getState()
 
@@ -40,6 +40,40 @@ describe('uiStore', () => {
     })
   })
 
+  describe('dashboard', () => {
+    it('opens and toggles the dashboard', () => {
+      state().openDashboard()
+      expect(state().dashboardActive).toBe(true)
+      state().toggleDashboard()
+      expect(state().dashboardActive).toBe(false)
+      state().toggleDashboard()
+      expect(state().dashboardActive).toBe(true)
+    })
+
+    it('shows the dashboard or Settings, never both', () => {
+      state().openSettings()
+      state().openDashboard()
+      expect(state().settingsActive).toBe(false)
+      expect(state().settingsTabOpen).toBe(true)
+      state().openSettings()
+      expect(state().dashboardActive).toBe(false)
+      state().openDashboard()
+      state().openWorkspaceSettings('w1')
+      expect(state().dashboardActive).toBe(false)
+    })
+
+    it('showWorkspaces leaves the dashboard, and either one covers the workspaces', () => {
+      expect(coversWorkspaces(state())).toBe(false)
+      state().openDashboard()
+      expect(coversWorkspaces(state())).toBe(true)
+      state().showWorkspaces()
+      expect(state().dashboardActive).toBe(false)
+      expect(coversWorkspaces(state())).toBe(false)
+      state().openSettings()
+      expect(coversWorkspaces(state())).toBe(true)
+    })
+  })
+
   describe('toggleRail', () => {
     it('flips railCollapsed, and back to the original on a second call', () => {
       state().toggleRail()
@@ -65,10 +99,10 @@ describe('uiStore', () => {
       expect(state().settingsActive).toBe(false)
     })
 
-    it('leaveSettings clears only settingsActive, keeping the tab open', () => {
+    it('showWorkspaces clears only settingsActive, keeping the tab open', () => {
       state().openSettings()
 
-      state().leaveSettings()
+      state().showWorkspaces()
       expect(state().settingsActive).toBe(false)
       expect(state().settingsTabOpen).toBe(true)
     })

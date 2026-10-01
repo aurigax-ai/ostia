@@ -29,7 +29,7 @@ export function PanelToggles(): JSX.Element | null {
             label={title}
             aria-pressed={open !== null}
             onClick={() => {
-              useUIStore.getState().leaveSettings()
+              useUIStore.getState().showWorkspaces()
               const layout = useLayoutStore.getState()
               if (open) layout.closePane(workspaceId, open.id)
               else layout.openExtensionPanel(workspaceId, ext.id, title)
