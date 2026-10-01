@@ -678,6 +678,11 @@ export const en = {
     title: 'Send to agent',
     target: 'Send to',
     noTargets: 'No agent is running in this workspace.',
+    originTarget: '{agent} ({workspace}, other window)',
+    originGone:
+      'No agent is running in this workspace, and the workspace this pane came from is no longer open.',
+    noOriginTargets:
+      'No agent is running in this workspace or in {workspace}, where this pane came from.',
     send: 'Send',
     sentInserted: 'Sent to {pane}. The report is at its prompt.',
     sentCopied: 'Sent to {pane}. It was busy, so the report path is on your clipboard.',
@@ -947,7 +952,6 @@ export const en = {
     copyRelativePath: 'Copy relative path',
     copyLines: 'Copy Path and Lines',
     sendPath: 'Send path to agent',
-    noAgents: 'No agent is running in this workspace.',
   },
   openFile: {
     'not-found': '{path} doesn’t exist.',
@@ -2746,6 +2750,9 @@ export const zhHant: Dict = {
     title: '傳送給代理程式',
     target: '傳送至',
     noTargets: '此工作區沒有執行中的代理程式。',
+    originTarget: '{agent}（{workspace}，其他視窗）',
+    originGone: '此工作區沒有執行中的代理程式，而此窗格原本所在的工作區已不再開啟。',
+    noOriginTargets: '此工作區和此窗格原本所在的 {workspace} 都沒有執行中的代理程式。',
     send: '傳送',
     sentInserted: '已傳送至 {pane}，報告路徑已放在提示字元。',
     sentCopied: '已傳送至 {pane}。該窗格忙碌中，報告路徑已複製到剪貼簿。',
@@ -3010,7 +3017,6 @@ export const zhHant: Dict = {
     copyRelativePath: '複製相對路徑',
     copyLines: '複製路徑與行號',
     sendPath: '將路徑傳送給代理程式',
-    noAgents: '此工作區沒有執行中的代理程式。',
   },
   openFile: {
     'not-found': '{path} 不存在。',

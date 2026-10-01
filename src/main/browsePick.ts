@@ -24,6 +24,7 @@ import { postBusMessage } from './bus'
 import { registerControlMethod } from './controlServer'
 import { failedRequestsFor } from './guestNetwork'
 import { getByPaneId } from './idRegistry'
+import type { OriginReach } from './originAgents'
 import { privateTmpDir } from './privateTmp'
 
 export interface PickDeps {
@@ -197,10 +198,17 @@ function nextReportPath(dir: string, url: string): string {
   return join(dir, pickReportName(nextPickReportNumber(readdirSync(dir)), url))
 }
 
-export function writePickReport(req: PickSendRequest, senderWindowId: string): PickSendResult {
+export function writePickReport(
+  req: PickSendRequest,
+  senderWindowId: string,
+  reaches: OriginReach,
+): PickSendResult {
   const source = getByPaneId(req.sourcePaneId)
   const target = getByPaneId(req.targetPaneId)
   if (!source || source.windowId !== senderWindowId || !target) {
+    return { ok: false, error: 'not-found' }
+  }
+  if (!reaches(senderWindowId, source.paneId, target.paneId)) {
     return { ok: false, error: 'not-found' }
   }
   const stored = captures.get(req.captureId)
@@ -217,7 +225,7 @@ export function writePickReport(req: PickSendRequest, senderWindowId: string): P
   return { ok: true, path }
 }
 
-export function registerPickIpc(deps: PickDeps): void {
+export function registerPickIpc(deps: PickDeps, reaches: OriginReach): void {
   ipcMain.handle('browser:pick-start', (e, paneId: string, theme?: unknown) => {
     const guest = ownedGuest(deps.browserPanes, paneId, String(e.sender.id))
     if (!guest) return { ok: false, error: 'browser-not-ready' } satisfies PickOutcome
@@ -231,7 +239,7 @@ export function registerPickIpc(deps: PickDeps): void {
     if (getByPaneId(paneId)?.windowId === String(e.sender.id)) cancelPick(paneId)
   })
   ipcMain.handle('browser:pick-send', (e, req: PickSendRequest) =>
-    writePickReport(req ?? ({} as PickSendRequest), String(e.sender.id)),
+    writePickReport(req ?? ({} as PickSendRequest), String(e.sender.id), reaches),
   )
 }
 

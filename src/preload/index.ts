@@ -79,10 +79,12 @@ import type {
   ManagerOpenPaneRequest,
   NotificationEntry,
   OpenPathResult,
+  OriginAgents,
   PineBridge,
   Platform,
   PromptContext,
   PtyAttachResult,
+  ReferenceInsert,
   RunningGroup,
   SnapshotWorkspace,
   SyncStatus,
@@ -304,6 +306,22 @@ const bridge: PineBridge = {
       ipcRenderer.on('windows:return-request', handler)
       return () => ipcRenderer.removeListener('windows:return-request', handler)
     },
+    originAgents: (workspaceId) =>
+      ipcRenderer.invoke('windows:origin-agents', workspaceId) as Promise<OriginAgents | null>,
+    onOriginAgentsChanged: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('windows:origin-agents-changed', handler)
+      return () => ipcRenderer.removeListener('windows:origin-agents-changed', handler)
+    },
+    insertReference: (request) =>
+      ipcRenderer.invoke('windows:insert-reference', request) as Promise<boolean>,
+    onInsertReference: (cb) => {
+      const handler = (_e: unknown, insert: ReferenceInsert): void => cb(insert)
+      ipcRenderer.on('windows:reference-insert', handler)
+      return () => ipcRenderer.removeListener('windows:reference-insert', handler)
+    },
+    answerInsertReference: (requestId, inserted) =>
+      ipcRenderer.send('windows:reference-inserted', requestId, inserted),
   },
   lifecycle: {
     emit: (event) => ipcRenderer.send('lifecycle:event', event),
