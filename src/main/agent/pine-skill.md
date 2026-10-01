@@ -234,7 +234,7 @@ Filters: `upper`, `lower`, `count`, `not`, `relative` (ms → "5 minutes ago"), 
 | Source | Shape |
 |---|---|
 | `workspace` | the current workspace, or null: `{id, index, name (the display name), project ({name, path} of its detected project, or null), dir, description, state (idle/working/waiting/done/error), unread, active, pinned, panes, git, ports: [{port, url}]}` |
-| `workspaces` | every workspace, same shape (`git` is the Git extension's sidebar text, e.g. `main +2 ~1`, or null) |
+| `workspaces` | every workspace, same shape (`git` is the Git extension's sidebar text: the branch, e.g. `main`, or null) |
 | `panes` | panes of the current workspace: `{id, title, kind, agent (claude/codex/null), attention (none/working/waiting/done/error), unread, message, active}` |
 | `ports` | listening ports: `{port, url, workspace, workspaceId}` |
 | `approvals` | `{pending}`: permission requests waiting on the human |

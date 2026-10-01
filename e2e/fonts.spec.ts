@@ -1,7 +1,13 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from '@playwright/test'
+import {
+  type ElectronApplication,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
+} from '@playwright/test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type FakeProvider, startFakeProvider } from './fakeProvider'
 import { openWorkspace } from './helpers'
@@ -112,10 +118,9 @@ test.describe('fonts follow the settings everywhere', () => {
       })
       await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
 
-      await win.locator('header.topbar').getByRole('button', { name: /^Assistant/ }).click()
       await win
-        .getByRole('dialog', { name: 'Assistant' })
-        .getByRole('button', { name: /Open chat/ })
+        .locator('header.topbar')
+        .getByRole('button', { name: /^Open chat/ })
         .click()
       const question = win.getByRole('combobox', { name: 'Your question' }).last()
       await question.fill('how do I run it')
