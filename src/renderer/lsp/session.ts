@@ -19,6 +19,7 @@ import { normalizeUri, toLspRange } from './converters'
 import { applyWorkspaceEdit } from './workspaceEdit'
 
 const SYNC_NONE = 0
+export const INITIALIZE_TIMEOUT_MS = 60_000
 const SYNC_INCREMENTAL = 2
 
 export const SEMANTIC_TOKEN_TYPES = [
@@ -166,6 +167,7 @@ export class LspSession {
     reader: MessageReader,
     writer: MessageWriter,
     private readonly hooks: LspSessionHooks,
+    private readonly initializeTimeoutMs = INITIALIZE_TIMEOUT_MS,
   ) {
     this.conn = createMessageConnection(reader, writer)
     this.conn.onNotification(
@@ -177,7 +179,7 @@ export class LspSession {
       },
     )
     this.conn.onRequest('workspace/applyEdit', async (params: { edit: WorkspaceEdit }) => ({
-      applied: await applyWorkspaceEdit(params.edit),
+      applied: await applyWorkspaceEdit(params.edit, this.info.editRoot),
     }))
     this.conn.onRequest('workspace/workspaceFolders', () => this.workspaceFolders())
     this.conn.onRequest('client/registerCapability', () => null)
@@ -195,14 +197,21 @@ export class LspSession {
   }
 
   async initialize(): Promise<void> {
-    const result = (await this.conn.sendRequest('initialize', {
-      processId: null,
-      clientInfo: { name: PRODUCT_NAME },
-      rootUri: fileUri(this.info.root),
-      capabilities: CLIENT_CAPABILITIES,
-      initializationOptions: this.info.initializationOptions,
-      workspaceFolders: this.workspaceFolders(),
-    })) as { capabilities?: ServerCapabilities } | null
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timedOut = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error('initialize timed out')), this.initializeTimeoutMs)
+    })
+    const result = (await Promise.race([
+      this.conn.sendRequest('initialize', {
+        processId: null,
+        clientInfo: { name: PRODUCT_NAME },
+        rootUri: fileUri(this.info.root),
+        capabilities: CLIENT_CAPABILITIES,
+        initializationOptions: this.info.initializationOptions,
+        workspaceFolders: this.workspaceFolders(),
+      }),
+      timedOut,
+    ]).finally(() => clearTimeout(timer))) as { capabilities?: ServerCapabilities } | null
     this.capabilities = result?.capabilities ?? {}
     await this.conn.sendNotification('initialized', {})
   }

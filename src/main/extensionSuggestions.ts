@@ -1,5 +1,6 @@
 import { languageForPath } from '../shared/editorLanguages'
 import {
+  EXTENSION_SUGGESTIONS,
   type ExtensionSuggestion,
   filesLabel,
   suggestedExtension,
@@ -17,6 +18,7 @@ export interface SuggestionSources {
   extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'enabled' | 'status'>[]
   listings: () => LanguageListing[]
   dismissed: () => readonly string[]
+  official: string
   languageOf?: (path: string) => string
 }
 
@@ -47,7 +49,14 @@ export function suggestionFor(
   const fromTable = suggestedExtension(path)
   if (fromTable) add(fromTable.extId, fromTable.files)
   for (const source of servers) if (covers(source)) add(source.extId, files)
-  for (const listing of sources.listings()) {
+  const trusted = sources
+    .listings()
+    .filter(
+      (listing) =>
+        listing.marketplaceId === sources.official ||
+        !Object.hasOwn(EXTENSION_SUGGESTIONS, listing.extId),
+    )
+  for (const listing of trusted) {
     if (listing.languages.includes(language)) add(listing.extId, files)
   }
   const [first] = candidates
@@ -64,7 +73,7 @@ export function suggestionFor(
       others,
     }
   }
-  const listing = sources.listings().find((l) => l.extId === first.extId)
+  const listing = trusted.find((l) => l.extId === first.extId)
   return {
     kind: 'install',
     extId: first.extId,

@@ -14,14 +14,18 @@ export interface FakeChange {
 type Listener<T> = (event: T) => void
 
 export class FakeUri {
-  constructor(readonly path: string) {}
+  constructor(
+    readonly path: string,
+    readonly scheme = 'file',
+  ) {}
 
   static file(path: string): FakeUri {
     return new FakeUri(path)
   }
 
   static parse(text: string): FakeUri {
-    return new FakeUri(decodeURIComponent(text.replace(/^file:\/\//, '')))
+    const match = /^([a-z][a-z0-9+.-]*):\/\/(.*)$/i.exec(text)
+    return match ? new FakeUri(decodeURIComponent(match[2]), match[1]) : new FakeUri(text)
   }
 
   get fsPath(): string {
@@ -29,7 +33,7 @@ export class FakeUri {
   }
 
   toString(): string {
-    return `file://${this.path}`
+    return `${this.scheme}://${this.path}`
   }
 }
 

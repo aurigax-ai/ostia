@@ -12,6 +12,7 @@ const info = {
   sessionId: 's1',
   serverKey: 'ext/fake',
   root: '/work/proj',
+  editRoot: '/work/proj',
   languageId: 'fake',
   initializationOptions: { flavor: 'test' },
 }

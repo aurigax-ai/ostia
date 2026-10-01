@@ -65,6 +65,7 @@ beforeAll(async () => {
       sessionId: 's1',
       serverKey: 'fake-lang/fake',
       root,
+      editRoot: root,
       languageId: 'fake',
       initializationOptions: {},
     },

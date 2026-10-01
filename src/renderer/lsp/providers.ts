@@ -40,6 +40,7 @@ import type { LspSession } from './session'
 import {
   applyClosedFileEdits,
   applyWorkspaceEdit,
+  editsStayInside,
   openModelEdits,
   textEditsByUri,
 } from './workspaceEdit'
@@ -68,7 +69,7 @@ export async function applyCodeAction(
     return
   }
   const codeAction = chosen as CodeAction
-  if (codeAction.edit) await applyWorkspaceEdit(codeAction.edit)
+  if (codeAction.edit) await applyWorkspaceEdit(codeAction.edit, session.info.editRoot)
   if (codeAction.command) {
     await session.request('workspace/executeCommand', {
       command: codeAction.command.command,
@@ -315,7 +316,7 @@ export function registerProviders(
             token,
           )
           const byUri = edit ? textEditsByUri(edit) : null
-          if (!byUri)
+          if (!byUri || !editsStayInside(byUri, session.info.editRoot))
             return { edits: [], rejectReason: currentDict().languageServers.renameRefused }
           await applyClosedFileEdits(byUri)
           return openModelEdits(byUri)

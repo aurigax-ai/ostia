@@ -65,6 +65,7 @@ function installBridge(): Bridge {
           sessionId,
           serverKey,
           root: '/work',
+          editRoot: '/work',
           languageId: 'fake',
           initializationOptions: {},
         },
