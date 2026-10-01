@@ -5,7 +5,7 @@ you. The program talks JSON-RPC to pine over the same control socket the `pine` 
 gives it palette and CLI commands, events, sidebar status items, pane and workspace chips, typed
 settings, encrypted secrets, the assist hook points (typo fix and prompt review, command
 suggestions, editor completions, the Ask conversation), notifications and a panel surface. The
-built-in Git, System, Ports and Assistant, and the marketplace's Trellis, Keeper and Model runtime
+built-in Git, System, Ports, SSH and Assistant, and the marketplace's Trellis, Keeper and Model runtime
 (`src/extensions/`), use nothing else, so they are the reference
 implementations.
 
@@ -293,7 +293,7 @@ And the notification `ext.event {type, payload}`:
 Every command and panel request carries who is asking:
 
 ```ts
-{ kind: 'pane' | 'user', paneId?, workspaceId?, workDir?, cwd?, locale?, capabilities: string[] }
+{ kind: 'pane' | 'user', paneId?, workspaceId?, workDir?, cwd?, locale?, sandboxed?, capabilities: string[] }
 ```
 
 - `pane`: an agent or shell via `pine`; `capabilities` are that pane's; `locale` is the app's
@@ -308,6 +308,10 @@ that is a terminal; use it for "where the user is" (the git extension finds the 
 Panel requests carry no `cwd`; derive one from `workspace.list` + `pane.list` if you need it.
 Enforce conditional rules yourself from `capabilities`, for example refuse a write outside the
 workspace's project unless the caller holds `all-workspaces`.
+
+`sandboxed` is `true` when the caller's workspace is sandboxed (API 1.1). Your process runs
+outside every sandbox, so refuse such a caller anything the sandbox would have kept from it: the
+SSH extension gives it no host list and opens no session.
 
 ### Results
 
@@ -675,6 +679,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 | `langpack-zh-hant` | Traditional Chinese (`zh-Hant`) for the interface, as a `contributes.languages` pack with no process. Its `zh-Hant.json` is generated at build time from `zhHant` in `src/renderer/i18n/dict.ts`, which stays typed against the English catalog so a missing string fails the typecheck |
 | `ports` | Per workspace, the TCP ports its terminals' processes listen on as `:port` links that open in the browser pane, and the host of a foreground `ssh`; per terminal pane, a `ports` chip (click opens the first port) and an `ssh` chip with `user@host`. Polls only while pine is focused. `pine ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `pine system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `pine system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |
+| `ssh` | The hosts of your ssh config and a session in a new terminal, with the system OpenSSH client. "SSH: Connect to Host…" and `pine ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>` take ssh's own spelling and nothing else (any other option is refused), resolve the target with `ssh -G`, and open `ssh … -- <host>` beside the caller with `ext.openTerminal`; a pane caller is asked first, with the exact command, the resolved `user@host:port` and the bastion hops. `pine ssh ls` lists the aliases (it reads `~/.ssh/config` and its `Include`s and runs nothing); `pine ssh show <host>` resolves one. A caller in a sandboxed workspace is refused. Bastions come from `ProxyJump` in your config or from `-J`; the `user@host` chip is the Ports extension's |
 | `assistant` | The assist points on a provider the human picks in its settings: `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`; the API key is a secret. Built on the AI SDK (`ai`, `@ai-sdk/openai-compatible` with a unix-socket `fetch` for model-runtime, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, zod for structured answers). A fast model for typos, reviews, commands and terminal/editor completions, a chat model for the chat pane and Ask, a switch per feature (`typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `chat`, `explainError`) and a requests-per-minute limit. Inert until a provider is chosen. It has no panel: Settings → Assistant shows each feature with its switch, readiness, shortcut and "Try it", its settings, and the provider's models (`ext.assistModels`); "Assistant: Chat" opens the chat pane |
 
 ### Marketplace extensions

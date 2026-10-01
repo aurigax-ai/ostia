@@ -1,6 +1,13 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { apiVersion, readLock, writeApiVersion, writeLock } from './api-contract.mjs'
+import {
+  apiVersion,
+  inTreeManifests,
+  readLock,
+  writeApiVersion,
+  writeLock,
+  writeManifestApi,
+} from './api-contract.mjs'
 
 const kind = process.argv[2]
 if (kind !== 'minor' && kind !== 'major') {
@@ -13,6 +20,7 @@ if (kind !== 'minor' && kind !== 'major') {
 const [major, minor] = readLock().version.split('.').map(Number)
 const next = kind === 'major' ? `${major + 1}.0` : `${major}.${minor + 1}`
 writeApiVersion(next)
+for (const file of inTreeManifests()) writeManifestApi(file, next)
 execFileSync('node', ['scripts/build-sdk.mjs'], { stdio: 'inherit' })
 const built = JSON.parse(readFileSync('out/sdk/api.json', 'utf8'))
 writeLock({ version: apiVersion(), digest: built.digest })
