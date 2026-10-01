@@ -15,6 +15,7 @@ import { attachWheelZoom } from '../lib/wheelZoom'
 import { openDocument } from '../lsp/client'
 import { useAskSelectionAction, useAssistCompletionsAction } from '../monaco/assistAction'
 import { langFor } from '../monaco/language'
+import { useLiveEditorSelection } from '../monaco/liveSelection'
 import { monaco } from '../monaco/setup'
 import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
 import { isMac } from '../platform'
@@ -345,6 +346,7 @@ export function EditorView({
   const copyLinesLabel = d.fileMenu.copyLines
   useAssistCompletionsAction(editorRef)
   useAskSelectionAction(editorRef, pathRef)
+  useLiveEditorSelection(editorRef, pathRef, workspaceId, paneId)
 
   useEffect(() => {
     const editor = editorRef.current

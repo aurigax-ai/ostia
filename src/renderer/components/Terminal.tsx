@@ -1,3 +1,4 @@
+import { CHAT_CONTEXT_TEXT_MAX } from '@shared/assist'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
@@ -7,6 +8,7 @@ import '@xterm/xterm/css/xterm.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { wantsDesktopBanner } from '../../shared/notificationSettings'
 import { currentDict, fmt } from '../i18n/useDict'
+import { tail } from '../lib/askContext'
 import {
   KittyNotificationAssembler,
   type OscNotification,
@@ -46,6 +48,7 @@ import { isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { AssistComposer } from './AssistComposer'
@@ -334,6 +337,14 @@ export function TerminalView({
       }),
     )
     const copySelection = term.onSelectionChange(() => {
+      useLiveSelectionStore
+        .getState()
+        .report(
+          workspaceIdRef.current,
+          paneId,
+          { kind: 'terminal' },
+          tail(term.getSelection(), CHAT_CONTEXT_TEXT_MAX),
+        )
       if (!useSettingsStore.getState().behavior.copyOnSelect || !term.hasSelection()) return
       void navigator.clipboard.writeText(term.getSelection())
     })
@@ -585,6 +596,7 @@ export function TerminalView({
       oscNotify99.dispose()
       bell.dispose()
       copySelection.dispose()
+      useLiveSelectionStore.getState().clear(paneId)
       fileLinks.dispose()
       detachWheelZoom()
       detachLinkModifier()

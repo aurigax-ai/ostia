@@ -4,6 +4,7 @@ import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import { chatKey, useChatStore } from '../stores/chatStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { type LiveSelection, useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { usePaneRecencyStore } from '../stores/paneRecencyStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { blockText, canTypeInto, insertCommand } from './blockActions'
@@ -85,13 +86,34 @@ export function askContextOptions(labels: Record<AskContextKind, string>): AskCo
   const block = lastFinishedBlock(pane.paneId)
   if (block)
     out.output = { kind: 'output', label: labels.output, text: blockContext(pane.paneId, block) }
-  const selection = terminalFor(pane.paneId)?.getSelection() ?? ''
-  if (selection.trim()) {
-    out.selection = { kind: 'selection', label: labels.selection, text: tail(selection) }
-  }
   const info = paneInfo(pane.paneId)
   if (info) out.pane = { kind: 'pane', label: labels.pane, text: info }
   return out
+}
+
+export function selectionRef(selection: LiveSelection): string | null {
+  const { source } = selection
+  if (source.kind !== 'editor') return null
+  const name = source.file.split('/').pop() || source.file
+  return source.startLine === source.endLine
+    ? `${name}:${source.startLine}`
+    : `${name}:${source.startLine}-${source.endLine}`
+}
+
+export function liveSelectionContext(
+  workspaceId: string | null | undefined,
+  label: string,
+): ChatContextItem | null {
+  const selection = workspaceId
+    ? useLiveSelectionStore.getState().byWorkspace[workspaceId]
+    : undefined
+  if (!selection) return null
+  const ref = selectionRef(selection)
+  return {
+    kind: 'selection',
+    label: ref ? `${label} ${ref}` : label,
+    text: tail(selection.text, CHAT_CONTEXT_TEXT_MAX),
+  }
 }
 
 export function failedBlock(paneId: string, blockId: string): CommandBlock | null {
