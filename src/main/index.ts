@@ -1771,6 +1771,7 @@ function registerFsIpc(): void {
             win.webContents.send('settings:changed')
           }
         }
+        extensionHost?.refreshLocale()
       }
       return true
     } catch {
@@ -2222,7 +2223,10 @@ app.whenReady().then(() => {
       extensionStore.reload()
       extensionHost?.reloadRecords()
     },
-    onSettingsPulled: () => extensionHost?.reloadSettings(),
+    onSettingsPulled: () => {
+      extensionHost?.reloadSettings()
+      extensionHost?.refreshLocale()
+    },
   })
   settingsSync.run()
   extensionHost = new ExtensionHost({
@@ -2266,6 +2270,7 @@ app.whenReady().then(() => {
         for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
       },
       rescan: () => extensionHost?.rescan(),
+      locale: readLocale,
     }),
   )
   registerAssistIpc(() => extensionHost)

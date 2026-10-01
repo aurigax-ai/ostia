@@ -1,0 +1,7 @@
+{
+  "manifest": {
+    "description": "列出你 ssh 設定中的主機，並在新終端機中開啟 ssh 工作階段；指定跳板主機時會經由它們連線。代理程式要求的工作階段，只有在你核准確切的指令後才會開啟。",
+    "commands.connect.title": "SSH：連線到主機…",
+    "commands.connect.argument": "主機，寫法與 ssh 後面的參數相同：[-J bastion] [-p port] [user@]host"
+  }
+}
