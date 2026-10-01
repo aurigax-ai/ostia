@@ -37,6 +37,13 @@ describe('ApprovalCard', () => {
     expect(screen.queryByRole('button', { name: 'Allow for this pane' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Allow once' })).toBeTruthy()
   })
+
+  it('offers no session grant for credentials, which main would refuse', () => {
+    render(<ApprovalCard request={{ ...REQUEST, caps: ['credentials'] }} paneTitle="claude" />)
+
+    expect(screen.queryByRole('button', { name: 'Allow for this pane' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeTruthy()
+  })
 })
 
 describe('newRequests', () => {
