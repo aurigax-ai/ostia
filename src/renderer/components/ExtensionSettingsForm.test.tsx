@@ -22,6 +22,7 @@ function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     commands: [],
     panel: null,
     paneChips: [],
+    workspaceChips: [],
     settings: [],
     settingValues: {},
     iconThemes: [],
@@ -29,6 +30,7 @@ function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     secrets: [{ key: 'apiKey', description: 'Key for the provider' }],
     secretsSet: [],
     category: 'other',
+    languages: [],
     ...overrides,
   }
 }

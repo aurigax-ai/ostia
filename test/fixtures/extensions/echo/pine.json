@@ -2,6 +2,7 @@
   "id": "echo",
   "name": "Echo",
   "version": "0.1.0",
+  "api": "1.0",
   "description": "Test fixture extension",
   "capabilities": ["read-board", "notify", "browse", "process", "drive-self", "all-workspaces"],
   "main": "main.js",
@@ -10,6 +11,7 @@
       { "id": "echo", "title": "Echo", "argument": "What to echo" },
       { "id": "guarded", "title": "Needs all-workspaces", "capabilities": ["all-workspaces"] },
       { "id": "probe", "title": "Call a pane-only method", "palette": false },
+      { "id": "api", "title": "Report the extension API version", "palette": false },
       { "id": "notify", "title": "Post a notification", "palette": false },
       { "id": "diff", "title": "Open a diff", "palette": false },
       { "id": "workspaces", "title": "List workspaces", "palette": false },
@@ -32,6 +34,7 @@
     "sidebarItems": true,
     "panel": { "title": "Echo", "entry": "url" },
     "paneChips": [{ "id": "status", "title": "Echo status" }],
+    "workspaceChips": [{ "id": "repo", "title": "Echo repo" }],
     "settings": {
       "greeting": { "type": "string", "default": "hi", "description": "What echo says" },
       "count": { "type": "number", "default": 3, "description": "How many times" },

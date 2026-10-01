@@ -16,7 +16,7 @@ import type {
   ExtensionCaller,
   ExtensionResult,
   ExtensionSidebarItem,
-  PaneChip,
+  WorkspaceChip,
 } from '../shared/extensions'
 import type { CommandResult } from '../shared/types'
 import { registerControlServer, stopControlServer } from './controlServer'
@@ -319,8 +319,10 @@ describe('built-in git extension against a real repository', () => {
     expect(panel.ok && panel.src).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/\?/)
   })
 
-  const chip = (paneId: string, id: string): PaneChip | undefined =>
-    host.paneChips().find((c) => c.extId === 'git' && c.paneId === paneId && c.id === id)
+  const chip = (workspaceId: string, id: string): WorkspaceChip | undefined =>
+    host
+      .workspaceChips()
+      .find((c) => c.extId === 'git' && c.workspaceId === workspaceId && c.id === id)
 
   async function panelCall(command: string, args: unknown): Promise<ExtensionResult> {
     const panel = await host.resolvePanel('git', { workspaceId: 's1', locale: 'en' })
@@ -361,23 +363,23 @@ describe('built-in git extension against a real repository', () => {
   })
 
   describe('v2', () => {
-    it('puts the branch and diff stats chips on each terminal inside a repo, and nowhere else', async () => {
-      expect(await until(() => chip('p-git', 'branch'))).toMatchObject({
+    it('puts the branch and diff stats chips on each workspace inside a repo, and on no pane', async () => {
+      expect(await until(() => chip('s1', 'branch'))).toMatchObject({
         text: 'main',
         command: 'show',
         tone: 'neutral',
       })
-      expect(await until(() => chip('p-git', 'diff-stats'))).toMatchObject({ text: '2 • +2 -1' })
-      expect(chip('p-plain', 'branch')).toBeUndefined()
-      expect(chip('p-file', 'branch')).toBeUndefined()
+      expect(await until(() => chip('s1', 'diff-stats'))).toMatchObject({ text: '2 • +2 -1' })
+      expect(chip('s2', 'branch')).toBeUndefined()
+      expect(host.paneChips().filter((c) => c.extId === 'git')).toEqual([])
     })
 
     it('hides the diff stats chip when the showDiffStats setting is off', async () => {
       expect(host.setSetting('git', 'showDiffStats', false).ok).toBe(true)
-      await until(() => (chip('p-git', 'diff-stats') ? undefined : true))
-      expect(chip('p-git', 'branch')?.text).toBe('main')
+      await until(() => (chip('s1', 'diff-stats') ? undefined : true))
+      expect(chip('s1', 'branch')?.text).toBe('main')
       expect(host.setSetting('git', 'showDiffStats', null).ok).toBe(true)
-      expect((await until(() => chip('p-git', 'diff-stats'))).text).toBe('2 • +2 -1')
+      expect((await until(() => chip('s1', 'diff-stats'))).text).toBe('2 • +2 -1')
     })
 
     it('lists recent commits as text for people and as JSON with --json', async () => {

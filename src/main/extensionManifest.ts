@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { type AssistPoint, isAssistPoint } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
+import { apiProblem } from '../shared/extensionApi'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_CATEGORIES,
@@ -11,10 +12,10 @@ import {
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
   type ExtensionCategory,
+  type ExtensionChipContribution,
   type ExtensionCommandContribution,
   type ExtensionIcon,
   type ExtensionManifest,
-  type ExtensionPaneChipContribution,
   type ExtensionPanelContribution,
   type ExtensionSecretContribution,
   type ExtensionSettingContribution,
@@ -23,6 +24,7 @@ import {
   validSettingValue,
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
+import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../shared/languagePack'
 import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
@@ -30,8 +32,9 @@ export const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
 export const MAX_COMMANDS = 64
 export const MAX_WORKFLOWS = 64
 export const MAX_TEXT = 200
-export const MAX_PANE_CHIPS = 8
+export const MAX_CHIPS = 8
 export const MAX_ICON_THEMES = 16
+export const MAX_LANGUAGES = 8
 export const MAX_SETTINGS = 32
 export const MAX_ENUM_VALUES = 32
 export const MAX_SECRETS = 8
@@ -121,14 +124,17 @@ function parsePanel(raw: unknown, dir: string): ExtensionPanelContribution | str
   return panel
 }
 
-function parsePaneChips(raw: unknown): ExtensionPaneChipContribution[] | string {
+function parseChips(
+  raw: unknown,
+  field: 'paneChips' | 'workspaceChips',
+): ExtensionChipContribution[] | string {
   if (raw === undefined) return []
-  if (!Array.isArray(raw) || raw.length > MAX_PANE_CHIPS) {
-    return `contributes.paneChips must be an array of at most ${MAX_PANE_CHIPS}`
+  if (!Array.isArray(raw) || raw.length > MAX_CHIPS) {
+    return `contributes.${field} must be an array of at most ${MAX_CHIPS}`
   }
-  const chips: ExtensionPaneChipContribution[] = []
+  const chips: ExtensionChipContribution[] = []
   for (const [i, chip] of raw.entries()) {
-    const where = `contributes.paneChips[${i}]`
+    const where = `contributes.${field}[${i}]`
     if (!isRecord(chip)) return `${where}: must be an object`
     if (typeof chip.id !== 'string' || !COMMAND_ID_PATTERN.test(chip.id)) {
       return `${where}: invalid id`
@@ -319,6 +325,30 @@ function parseIconThemes(raw: unknown, dir: string): IconThemeContribution[] | s
   return themes
 }
 
+function parseLanguages(raw: unknown, dir: string): LanguageContribution[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.length > MAX_LANGUAGES) {
+    return `contributes.languages must be an array of at most ${MAX_LANGUAGES}`
+  }
+  const languages: LanguageContribution[] = []
+  for (const [i, item] of raw.entries()) {
+    const where = `contributes.languages[${i}]`
+    if (!isRecord(item)) return `${where}: must be an object`
+    if (typeof item.id !== 'string' || !LANGUAGE_ID_PATTERN.test(item.id)) {
+      return `${where}: id must be a language tag such as fr or zh-Hant`
+    }
+    const label = text(item.label)
+    if (!label) return `${where}: missing label`
+    const path = item.path
+    if (typeof path !== 'string' || !path.endsWith('.json') || !isInsideDir(dir, path)) {
+      return `${where}: path must be a .json file inside the extension`
+    }
+    if (languages.some((l) => l.id === item.id)) return `${where}: duplicate id '${item.id}'`
+    languages.push({ id: item.id, label, path })
+  }
+  return languages
+}
+
 function parseWorkflows(raw: unknown): Workflow[] | string | undefined {
   if (raw === undefined) return undefined
   if (!Array.isArray(raw) || raw.length > MAX_WORKFLOWS) {
@@ -343,6 +373,9 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   const version = text(raw.version, 40)
   if (!name) return { ok: false, error: 'missing name' }
   if (!version) return { ok: false, error: 'missing version' }
+  if (raw.api === undefined) return { ok: false, error: 'missing api' }
+  const incompatible = apiProblem(raw.api)
+  if (incompatible) return { ok: false, error: incompatible }
   const description = typeof raw.description === 'string' ? raw.description.slice(0, 500) : ''
   const caps = capabilities(raw.capabilities, 'manifest')
   if (typeof caps === 'string') return { ok: false, error: caps }
@@ -386,8 +419,10 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     return { ok: false, error: 'contributes.completions must be a folder inside the extension' }
   }
   const sidebarItems = contributes.sidebarItems === true
-  const paneChips = parsePaneChips(contributes.paneChips)
+  const paneChips = parseChips(contributes.paneChips, 'paneChips')
   if (typeof paneChips === 'string') return { ok: false, error: paneChips }
+  const workspaceChips = parseChips(contributes.workspaceChips, 'workspaceChips')
+  if (typeof workspaceChips === 'string') return { ok: false, error: workspaceChips }
   const settings = parseSettings(contributes.settings)
   if (typeof settings === 'string') return { ok: false, error: settings }
   const secrets = parseSecrets(contributes.secrets)
@@ -396,16 +431,19 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof assist === 'string') return { ok: false, error: assist }
   const iconThemes = parseIconThemes(contributes.iconThemes, dir)
   if (typeof iconThemes === 'string') return { ok: false, error: iconThemes }
+  const languages = parseLanguages(contributes.languages, dir)
+  if (typeof languages === 'string') return { ok: false, error: languages }
   const needsMain =
     commands.length > 0 ||
     sidebarItems ||
     panel?.entry === 'url' ||
     paneChips.length > 0 ||
+    workspaceChips.length > 0 ||
     assist.length > 0
   if (needsMain && !main) {
     return {
       ok: false,
-      error: 'commands, sidebar items, pane chips, assist and url panels need a main process',
+      error: 'commands, sidebar items, chips, assist and url panels need a main process',
     }
   }
 
@@ -413,16 +451,18 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     id,
     name,
     version,
+    api: raw.api as string,
     description,
     category: category as ExtensionCategory,
     capabilities: caps,
-    contributes: { commands, sidebarItems, paneChips, settings, assist, secrets },
+    contributes: { commands, sidebarItems, paneChips, workspaceChips, settings, assist, secrets },
   }
   if (main) manifest.main = main
   if (panel) manifest.contributes.panel = panel
   if (workflows && workflows.length > 0) manifest.contributes.workflows = workflows
   if (completions !== undefined) manifest.contributes.completions = completions
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes
+  if (languages.length > 0) manifest.contributes.languages = languages
   return { ok: true, manifest }
 }
 

@@ -28,6 +28,7 @@ const assistant: ExtensionInfo = {
   commands: [],
   panel: null,
   paneChips: [],
+  workspaceChips: [],
   settings: [
     {
       key: 'provider',
@@ -46,6 +47,7 @@ const assistant: ExtensionInfo = {
   secrets: [],
   secretsSet: [],
   category: 'other',
+  languages: [],
 }
 
 const overview: AssistExtensionState = {

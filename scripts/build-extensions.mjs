@@ -7,8 +7,10 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
+import { copyBundledSources } from './bundled-sources.mjs'
 import { writeFigSpecs } from './completionSpecs.mjs'
 
 const srcRoot = 'src/extensions'
@@ -22,12 +24,29 @@ const marketplaceManifest = {
 }
 const assets = ['pine.json', 'panel.html', 'panel.css']
 
+async function writeCatalog(exportName, file) {
+  const bundle = resolve(builtinRoot, 'dict-build.mjs')
+  await build({
+    entryPoints: ['src/renderer/i18n/dict.ts'],
+    outfile: bundle,
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    logLevel: 'warning',
+  })
+  const dict = await import(pathToFileURL(bundle).href)
+  rmSync(bundle)
+  writeFileSync(file, `${JSON.stringify(dict[exportName], null, 2)}\n`)
+}
+
 rmSync(builtinRoot, { recursive: true, force: true })
 rmSync(marketplaceRoot, { recursive: true, force: true })
 
 const ids = readdirSync(srcRoot).filter(
   (name) => name !== 'sdk' && statSync(join(srcRoot, name)).isDirectory(),
 )
+
+const marketplaceBuilds = []
 
 for (const id of ids) {
   const src = join(srcRoot, id)
@@ -41,7 +60,8 @@ for (const id of ids) {
   if (existsSync(join(src, 'panel.html')))
     copyFileSync(join(srcRoot, 'sdk/panel.css'), join(out, 'base.css'))
   if (existsSync(join(src, 'main.ts'))) {
-    await build({
+    const result = await build({
+      metafile: true,
       entryPoints: [join(src, 'main.ts')],
       outfile: join(out, 'main.js'),
       bundle: true,
@@ -50,9 +70,11 @@ for (const id of ids) {
       target: 'node20',
       logLevel: 'warning',
     })
+    if (marketplaceIds.includes(id)) marketplaceBuilds.push(result)
   }
   if (existsSync(join(src, 'panel.ts'))) {
-    await build({
+    const result = await build({
+      metafile: true,
       entryPoints: [join(src, 'panel.ts')],
       outfile: join(out, 'panel.js'),
       bundle: true,
@@ -62,9 +84,13 @@ for (const id of ids) {
       loader: { '.svg': 'text' },
       logLevel: 'warning',
     })
+    if (marketplaceIds.includes(id)) marketplaceBuilds.push(result)
   }
   if (id === 'completions') await writeFigSpecs(join(out, 'specs'))
+  if (id === 'langpack-zh-hant') await writeCatalog('zhHant', join(out, 'zh-Hant.json'))
 }
+
+copyBundledSources(marketplaceBuilds, marketplaceRoot)
 
 writeFileSync(
   join(marketplaceRoot, 'pine-marketplace.json'),

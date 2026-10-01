@@ -19,7 +19,7 @@ import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
-import { usePaneChipCatalog } from '../lib/paneChips'
+import { useChipCatalog } from '../lib/extensionChips'
 import { addChip, contributedChipId, moveChip, removeChip } from '../lib/promptChips'
 import { usePromptChips } from '../lib/usePromptChips'
 import { type WorkspaceLayout, useLayoutStore } from '../stores/layoutStore'
@@ -64,7 +64,7 @@ function usePreviewPane(): PaneNode | null {
 
 function Preview({ order }: { order: string[] }): JSX.Element {
   const d = useDict()
-  const catalog = usePaneChipCatalog()
+  const catalog = useChipCatalog()
   const pane = usePreviewPane()
   const paneId = pane?.id ?? null
   const { chips } = usePromptChips(paneId, pane?.cwd, order, true)
@@ -109,7 +109,7 @@ function SelectedChips({
   setOrder: (chips: string[]) => void
 }): JSX.Element {
   const d = useDict()
-  const catalog = usePaneChipCatalog()
+  const catalog = useChipCatalog()
   const [dragging, setDragging] = useState<number | null>(null)
   const [announcement, setAnnouncement] = useState('')
   const handles = useRef(new Map<string, HTMLButtonElement>())
@@ -232,7 +232,7 @@ function AvailableChips({
   setOrder: (chips: string[]) => void
 }): JSX.Element {
   const d = useDict()
-  const catalog = usePaneChipCatalog()
+  const catalog = useChipCatalog()
   const available = [
     ...CORE_CHIP_IDS,
     ...catalog.map((c) => contributedChipId(c.extId, c.id)),

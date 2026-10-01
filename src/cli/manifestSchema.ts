@@ -2,10 +2,11 @@ import { z } from 'zod'
 import {
   COMMAND_ID_PATTERN,
   EXTENSION_ID_PATTERN,
+  MAX_CHIPS,
   MAX_COMMANDS,
   MAX_ENUM_VALUES,
   MAX_ICON_THEMES,
-  MAX_PANE_CHIPS,
+  MAX_LANGUAGES,
   MAX_TEXT,
   MAX_WORKFLOWS,
   SETTING_KEY_PATTERN,
@@ -17,6 +18,7 @@ import {
 } from '../main/marketplace'
 import { ASSIST_POINTS } from '../shared/assist'
 import { ALL_CAPABILITIES } from '../shared/capabilities'
+import { EXTENSION_API_PATTERN } from '../shared/extensionApi'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_CATEGORIES,
@@ -26,6 +28,7 @@ import {
   EXTENSION_SETTING_UNITS,
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN } from '../shared/iconTheme'
+import { LANGUAGE_ID_PATTERN } from '../shared/languagePack'
 
 const SETTING_DESCRIPTION_MAX = 500
 const VERSION_MAX = 40
@@ -63,6 +66,10 @@ const secret = z.looseObject({
   title: title.optional(),
 })
 
+const chips = z
+  .array(z.looseObject({ id: z.string().regex(COMMAND_ID_PATTERN), title: text }))
+  .max(MAX_CHIPS)
+
 const settingKey = z.string().regex(SETTING_KEY_PATTERN)
 
 const contributes = z.looseObject({
@@ -75,10 +82,8 @@ const contributes = z.looseObject({
       icon: z.enum(EXTENSION_ICONS).optional(),
     })
     .optional(),
-  paneChips: z
-    .array(z.looseObject({ id: z.string().regex(COMMAND_ID_PATTERN), title: text }))
-    .max(MAX_PANE_CHIPS)
-    .optional(),
+  paneChips: chips.optional(),
+  workspaceChips: chips.optional(),
   settings: z.record(settingKey, setting).optional(),
   secrets: z.record(settingKey, secret).optional(),
   assist: z.array(z.enum(ASSIST_POINTS)).optional(),
@@ -94,12 +99,23 @@ const contributes = z.looseObject({
     )
     .max(MAX_ICON_THEMES)
     .optional(),
+  languages: z
+    .array(
+      z.looseObject({
+        id: z.string().regex(LANGUAGE_ID_PATTERN),
+        label: text,
+        path: z.string().regex(/\.json$/),
+      }),
+    )
+    .max(MAX_LANGUAGES)
+    .optional(),
 })
 
 export const extensionManifestSchema = z.looseObject({
   id: z.string().regex(EXTENSION_ID_PATTERN),
   name: text,
   version: z.string().min(1).max(VERSION_MAX),
+  api: z.string().regex(EXTENSION_API_PATTERN),
   description: z.string().optional(),
   category: z.enum(EXTENSION_CATEGORIES).optional(),
   capabilities: capabilities.optional(),

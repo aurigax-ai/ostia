@@ -208,11 +208,13 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       panel: vi.fn().mockResolvedValue({ ok: false, error: 'no-panel' }),
       sidebarItems: vi.fn().mockResolvedValue([]),
       paneChips: vi.fn().mockResolvedValue([]),
+      workspaceChips: vi.fn().mockResolvedValue([]),
       setSetting: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-extension' }),
       setSecret: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-extension' }),
       onChanged: vi.fn(noopUnsub),
       onSidebar: vi.fn(noopUnsub),
       onPaneChips: vi.fn(noopUnsub),
+      onWorkspaceChips: vi.fn(noopUnsub),
       onSettingsStored: vi.fn(noopUnsub),
       onOpenPanel: vi.fn(noopUnsub),
       onOpenDiff: vi.fn(noopUnsub),
@@ -302,6 +304,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     },
     iconThemes: {
       load: vi.fn().mockResolvedValue(null),
+    },
+    languagePacks: {
+      load: vi.fn().mockResolvedValue([]),
     },
     views: {
       list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),

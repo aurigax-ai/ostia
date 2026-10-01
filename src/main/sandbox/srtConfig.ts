@@ -12,6 +12,7 @@ export interface SandboxPaths {
   runtimeReads: string[]
   agentSockets?: string[]
   tmpRoot?: string
+  srtVendorDir?: string
 }
 
 export const AGENT_DATA_DIRS = ['.claude', '.codex']
@@ -30,6 +31,30 @@ export const AGENT_PROTECTED_FILES = [
 export const WORKDIR_PROTECTED_FILES = ['.envrc', '.git/hooks', '.git/config']
 export const WORKDIR_HIDDEN_FILES = ['.pine/vault.json']
 
+export function srtVendorDir(appPath: string): string {
+  return join(
+    appPath.replace(/\.asar$/, '.asar.unpacked'),
+    'node_modules',
+    '@anthropic-ai',
+    'sandbox-runtime',
+    'vendor',
+  )
+}
+
+function vendoredBinaries(
+  vendorDir: string | undefined,
+  platform: NodeJS.Platform,
+  arch: string,
+): Partial<SandboxRuntimeConfig> {
+  if (!vendorDir) return {}
+  return {
+    javaAgentJarPath: join(vendorDir, 'java-proxy-agent', 'srt-proxy-agent.jar'),
+    ...(platform === 'linux' && (arch === 'x64' || arch === 'arm64')
+      ? { seccomp: { applyPath: join(vendorDir, 'seccomp', arch, 'apply-seccomp') } }
+      : {}),
+  }
+}
+
 function expandHome(path: string, home: string): string {
   if (path === '~') return home
   return path.startsWith('~/') ? join(home, path.slice(2)) : path
@@ -39,6 +64,7 @@ export function buildSrtConfig(
   policy: Omit<ResolvedSandbox, 'portsPolicy'>,
   paths: SandboxPaths,
   platform: NodeJS.Platform = process.platform,
+  arch: string = process.arch,
 ): SandboxRuntimeConfig {
   const { home, workDir } = paths
   const agentDirs = AGENT_DATA_DIRS.map((d) => join(home, d))
@@ -79,6 +105,7 @@ export function buildSrtConfig(
       ],
     },
     ...(isMac ? { allowPty: true } : {}),
+    ...vendoredBinaries(paths.srtVendorDir, platform, arch),
   }
 }
 

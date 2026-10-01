@@ -3,13 +3,13 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
-import { chipsForPane, paneChipCatalog } from '../lib/paneChips'
+import { chipsForPane, paneChipCatalog } from '../lib/extensionChips'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { PaneChips } from './ExtensionChips'
 import { ExtensionPanelView } from './ExtensionPanelView'
-import { PaneChips } from './PaneChips'
 import { ExtensionsSection } from './SettingsPanel'
 
 function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
@@ -27,12 +27,14 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     commands: [],
     panel: { title: 'Board', icon: 'puzzle' },
     paneChips: [],
+    workspaceChips: [],
     settings: [],
     settingValues: {},
     assist: [],
     secrets: [],
     secretsSet: [],
     category: 'other',
+    languages: [],
     iconThemes: [],
     ...overrides,
   }
@@ -166,6 +168,46 @@ describe('Extension API v2 UI', () => {
       act(() => useExtensionsStore.getState().setChips([chip({ text: 'dev' })]))
       expect(screen.getByText('dev')).toBeInTheDocument()
       expect(screen.queryByText('main')).toBeNull()
+    })
+
+    it('shows an icon chip with its count and lists its items to open or copy', async () => {
+      const openBrowser = vi.fn()
+      const layoutInit = useLayoutStore.getState()
+      const workspacesInit = useWorkspacesStore.getState()
+      useLayoutStore.setState({
+        byWorkspace: {
+          s2: { root: { type: 'pane', id: 'p1', kind: 'terminal', title: 'zsh' } },
+        },
+        openBrowser,
+      } as unknown as Partial<ReturnType<typeof useLayoutStore.getState>>)
+      useExtensionsStore.setState({
+        list: [git],
+        chips: [
+          chip({
+            text: '2',
+            icon: 'plugs',
+            items: [
+              { text: ':3000', url: 'http://localhost:3000/' },
+              { text: ':5173', url: 'http://localhost:5173/' },
+            ],
+          }),
+        ],
+      })
+      render(<PaneChips paneId="p1" />)
+      const user = userEvent.setup()
+      expect(screen.queryByText(':3000')).toBeNull()
+
+      await user.click(screen.getByRole('button', { name: 'Branch: 2. Click to list them.' }))
+      const copy = await screen.findByRole('button', { name: 'Copy http://localhost:5173/' })
+      await user.click(copy)
+      expect(await navigator.clipboard.readText()).toBe('http://localhost:5173/')
+
+      await user.click(
+        screen.getByRole('button', { name: 'Open http://localhost:3000/ in the browser pane' }),
+      )
+      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/')
+      useLayoutStore.setState(layoutInit, true)
+      useWorkspacesStore.setState(workspacesInit, true)
     })
   })
 

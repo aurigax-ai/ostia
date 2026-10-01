@@ -26,6 +26,7 @@ import {
   markRuns,
   tabStep,
 } from '../lib/completionMatch'
+import { chipCatalog, promptExtensionChips, useChipCatalog } from '../lib/extensionChips'
 import {
   type CompletionItem,
   applyCompletionItem,
@@ -44,7 +45,6 @@ import {
   suggestionWord,
 } from '../lib/inputEditor'
 import { applyLineEdit, lineEditOp, shellKeyBytes } from '../lib/lineEditing'
-import { chipsForPane, paneChipCatalog, usePaneChipCatalog } from '../lib/paneChips'
 import { cellBox, rowsToMake } from '../lib/promptOverlay'
 import { scratchPaneIds } from '../lib/scratchPanes'
 import { type ShellToken, tokenizeShell } from '../lib/shellTokens'
@@ -71,6 +71,7 @@ import {
   enterNormal,
   parseVimKeys,
 } from '../lib/vimMode'
+import { workspaceOfPane } from '../lib/workspaceActivity'
 import { isMac, platform } from '../platform'
 import type { TerminalColors } from '../plugins/types'
 import { assistRequest, useAssistProvider } from '../stores/assistStore'
@@ -269,7 +270,7 @@ export function InputEditor({
   const vimEnabled = useSettingsStore((s) => s.behavior.inputEditorVim)
   const prompt = useSettingsStore((s) => s.terminal.prompt)
   const pinePrompt = prompt.style === 'pine'
-  const catalog = usePaneChipCatalog()
+  const catalog = useChipCatalog()
   const { chips } = usePromptChips(paneId, cwd, prompt.chips, visible && pinePrompt)
   const geo = usePromptGeometry(
     termRef,
@@ -304,7 +305,13 @@ export function InputEditor({
     ghostRequester(async (line, signal) => {
       const { paneId: pane, cwd: dir } = ghostContext.current
       const ext = useExtensionsStore.getState()
-      const chips = chipsForPane(ext.chips, paneChipCatalog(ext.list), pane)
+      const chips = promptExtensionChips(
+        ext.chips,
+        ext.workspaceChips,
+        chipCatalog(ext.list),
+        pane,
+        workspaceOfPane(pane) ?? null,
+      )
       const req = terminalRequest(line, {
         cwd: dir,
         platform,

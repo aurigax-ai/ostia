@@ -21,6 +21,7 @@ import type {
   AssistUi,
 } from '../../shared/assist'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
+import { EXTENSION_API_ENV, EXTENSION_API_VERSION, apiProblem } from '../../shared/extensionApi'
 import type {
   DiffContent,
   ExtensionCaller,
@@ -31,6 +32,7 @@ import type {
   ExtensionSettingValue,
   ExtensionSettingValues,
   OpenTerminalOptions,
+  PaneChipItem,
   SidebarKind,
   SidebarTone,
 } from '../../shared/extensions'
@@ -44,18 +46,28 @@ export type {
   ExtensionResult,
   ExtensionSettingValues,
   OpenTerminalOptions,
+  PaneChipItem,
 } from '../../shared/extensions'
 
 export type AttentionVerb = 'waiting' | 'done' | 'working' | 'error' | 'clear'
 
-export interface PaneChipValue {
-  paneId: string
+export interface ChipValue {
   id: string
   text: string
   tooltip?: string
   tone?: SidebarTone
+  icon?: ExtensionIcon
+  items?: PaneChipItem[]
   command?: string
   url?: string
+}
+
+export interface PaneChipValue extends ChipValue {
+  paneId: string
+}
+
+export interface WorkspaceChipValue extends ChipValue {
+  workspaceId: string
 }
 
 export type OpenTerminalResult =
@@ -160,6 +172,8 @@ export interface PineExtension {
   openPanel: (workspaceId?: string, path?: string) => Promise<unknown>
   setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>
   clearPaneChip: (paneId: string, id: string) => Promise<ExtensionResult>
+  setWorkspaceChip: (chip: WorkspaceChipValue) => Promise<ExtensionResult>
+  clearWorkspaceChip: (workspaceId: string, id: string) => Promise<ExtensionResult>
   getSettings: () => Promise<ExtensionSettingValues>
   setSetting: (key: string, value: ExtensionSettingValue | null) => Promise<ExtensionResult>
   onSettingsChanged: (handler: SettingsHandler) => void
@@ -181,6 +195,8 @@ export interface AssistModelsHandler {
   list: () => Promise<AssistModelList>
   setLoaded: (id: string, loaded: boolean) => Promise<void>
 }
+
+export { EXTENSION_API_VERSION } from '../../shared/extensionApi'
 
 export function ok(text?: string, data?: unknown): ExtensionResult {
   const result: ExtensionResult = { ok: true }
@@ -221,6 +237,9 @@ export async function connect(): Promise<PineExtension> {
   const socketPath = process.env.PINE_SOCKET
   const token = process.env.PINE_TOKEN
   if (!socketPath || !token) throw new Error('PINE_SOCKET / PINE_TOKEN missing')
+  const provided = process.env[EXTENSION_API_ENV]
+  const incompatible = provided ? apiProblem(EXTENSION_API_VERSION, provided) : null
+  if (incompatible) throw new Error(`this extension ${incompatible}`)
   const socket = createConnection(socketPath)
   await new Promise<void>((resolve, reject) => {
     socket.once('connect', resolve)
@@ -338,6 +357,9 @@ export async function connect(): Promise<PineExtension> {
     openPanel: (workspaceId, path) => conn.sendRequest('ext.openPanel', { workspaceId, path }),
     setPaneChip: (chip) => conn.sendRequest('ext.setPaneChip', chip),
     clearPaneChip: (paneId, id) => conn.sendRequest('ext.clearPaneChip', { paneId, id }),
+    setWorkspaceChip: (chip) => conn.sendRequest('ext.setWorkspaceChip', chip),
+    clearWorkspaceChip: (workspaceId, id) =>
+      conn.sendRequest('ext.clearWorkspaceChip', { workspaceId, id }),
     getSettings: async () => {
       const res = await conn.sendRequest<{ values?: ExtensionSettingValues }>('ext.getSettings')
       return res?.values ?? {}

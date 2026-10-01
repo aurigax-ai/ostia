@@ -3,7 +3,7 @@
 A terminal-first desktop workspace for running shells and AI coding agents side by side. It has
 Warp-style command blocks, split panes, a Monaco editor, browser panes an agent can drive, and a
 `pine` CLI that agents use to control the app. It is built with Electron, React and TypeScript,
-and targets Linux first. Product intent and status are in [`PRODUCT.md`](PRODUCT.md).
+and targets Linux first.
 
 ## Install for daily use
 
@@ -31,8 +31,6 @@ Without `pnpm rebuild`, terminals stay disabled and main logs `node-pty unavaila
 
 ## Docs
 
-- [`CLAUDE.md`](CLAUDE.md): commands, invariants, known pitfalls, and testing rules. Read this
-  before changing code.
 - Trellis vault `architecture/` (`trellis vault show architecture/index`): processes, modules,
   IPC, control plane, gateway, workspace restore, and the why behind non-obvious code.
 - [`docs/DESIGN.md`](docs/DESIGN.md): tokens, themes, type, layout, component rules.

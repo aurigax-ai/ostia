@@ -1,6 +1,7 @@
 import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
 import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
+import type { LanguageContribution, LanguageInfo } from './languagePack'
 import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'pine.json'
@@ -19,6 +20,7 @@ export const EXTENSION_ICONS = [
   'alert',
   'shield',
   'chat',
+  'plugs',
 ] as const
 
 export type ExtensionIcon = (typeof EXTENSION_ICONS)[number]
@@ -41,7 +43,7 @@ export interface ExtensionPanelContribution {
   entry: string
 }
 
-export interface ExtensionPaneChipContribution {
+export interface ExtensionChipContribution {
   id: string
   title: string
 }
@@ -125,6 +127,7 @@ export const EXTENSION_CATEGORIES = [
   'scm',
   'tools',
   'themes',
+  'langpack',
   'completions',
   'other',
 ] as const
@@ -135,6 +138,7 @@ export interface ExtensionManifest {
   id: string
   name: string
   version: string
+  api: string
   description: string
   category: ExtensionCategory
   capabilities: Capability[]
@@ -143,13 +147,15 @@ export interface ExtensionManifest {
     commands: ExtensionCommandContribution[]
     sidebarItems: boolean
     panel?: ExtensionPanelContribution
-    paneChips: ExtensionPaneChipContribution[]
+    paneChips: ExtensionChipContribution[]
+    workspaceChips: ExtensionChipContribution[]
     settings: ExtensionSettingContribution[]
     workflows?: Workflow[]
     completions?: string
     assist: AssistPoint[]
     secrets: ExtensionSecretContribution[]
     iconThemes?: IconThemeContribution[]
+    languages?: LanguageContribution[]
   }
 }
 
@@ -175,13 +181,15 @@ export interface ExtensionInfo {
   unapproved: Capability[]
   commands: ExtensionCommandContribution[]
   panel: { title: string; icon?: ExtensionIcon } | null
-  paneChips: ExtensionPaneChipContribution[]
+  paneChips: ExtensionChipContribution[]
+  workspaceChips: ExtensionChipContribution[]
   settings: ExtensionSettingContribution[]
   settingValues: ExtensionSettingValues
   assist: AssistPoint[]
   secrets: ExtensionSecretContribution[]
   secretsSet: string[]
   iconThemes: IconThemeInfo[]
+  languages: LanguageInfo[]
 }
 
 export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as const
@@ -207,16 +215,32 @@ export const SIDEBAR_URL_MAX = 2048
 
 export const PANE_CHIP_TEXT_MAX = 40
 export const PANE_CHIP_TOOLTIP_MAX = 200
+export const PANE_CHIP_ITEMS_MAX = 20
+export const PANE_CHIP_ITEM_TEXT_MAX = 80
 
-export interface PaneChip {
+export interface PaneChipItem {
+  text: string
+  url?: string
+}
+
+export interface ExtensionChip {
   extId: string
   id: string
-  paneId: string
   text: string
   tooltip?: string
   tone: SidebarTone
+  icon?: ExtensionIcon
+  items?: PaneChipItem[]
   command?: string
   url?: string
+}
+
+export interface PaneChip extends ExtensionChip {
+  paneId: string
+}
+
+export interface WorkspaceChip extends ExtensionChip {
+  workspaceId: string
 }
 
 export const COMMAND_ARGUMENT_LABEL_MAX = 80
@@ -253,6 +277,24 @@ export function sidebarItemUrl(raw: unknown): string | null {
   } catch {
     return null
   }
+}
+
+export function paneChipItems(raw: unknown): PaneChipItem[] | null {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > PANE_CHIP_ITEMS_MAX) return null
+  const items: PaneChipItem[] = []
+  for (const entry of raw) {
+    const e = (entry ?? {}) as Record<string, unknown>
+    const text = typeof e.text === 'string' ? e.text.trim().slice(0, PANE_CHIP_ITEM_TEXT_MAX) : ''
+    if (!text) return null
+    if (e.url === undefined) {
+      items.push({ text })
+      continue
+    }
+    const url = sidebarItemUrl(e.url)
+    if (!url) return null
+    items.push({ text, url })
+  }
+  return items
 }
 
 export type ExtensionCallerKind = 'pane' | 'user'
@@ -379,11 +421,13 @@ export interface ExtensionsApi {
   panel: (extId: string, context: ExtensionPanelContext) => Promise<ExtensionPanelSource>
   sidebarItems: () => Promise<ExtensionSidebarItem[]>
   paneChips: () => Promise<PaneChip[]>
+  workspaceChips: () => Promise<WorkspaceChip[]>
   setSetting: (extId: string, key: string, value: unknown) => Promise<ExtensionSettingResult>
   setSecret: (extId: string, key: string, value: string | null) => Promise<ExtensionSecretResult>
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
   onPaneChips: (cb: (chips: PaneChip[]) => void) => () => void
+  onWorkspaceChips: (cb: (chips: WorkspaceChip[]) => void) => () => void
   onSettingsStored: (cb: (update: ExtensionSettingsStored) => void) => () => void
   onOpenPanel: (cb: (req: ExtensionOpenPanelRequest) => void) => () => void
   onOpenDiff: (cb: (req: ExtensionOpenDiffRequest) => void) => () => void

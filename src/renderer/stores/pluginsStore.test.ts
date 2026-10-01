@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { en } from '../i18n/dict'
 import { BUILTIN_PLUGINS } from '../plugins/builtin'
 import { usePluginsStore } from './pluginsStore'
 
@@ -16,14 +17,9 @@ describe('pluginsStore', () => {
   })
 
   describe('registry seed', () => {
-    it('seeds the four built-in plugins in manifest order, all marked builtin', () => {
+    it('seeds the built-in plugins in manifest order, all marked builtin', () => {
       expect(store().plugins).toBe(BUILTIN_PLUGINS)
-      expect(store().plugins.map((p) => p.id)).toEqual([
-        'pine.themes',
-        'pine.lsp',
-        'pine.langpack.en',
-        'pine.langpack.zh-hant',
-      ])
+      expect(store().plugins.map((p) => p.id)).toEqual(['pine.themes', 'pine.lsp'])
       expect(store().plugins.every((p) => p.builtin)).toBe(true)
     })
   })
@@ -57,14 +53,39 @@ describe('pluginsStore', () => {
     })
   })
 
-  describe('derived languages', () => {
-    it('aggregates contributes.languages across plugins (en + zh-Hant packs)', () => {
-      expect(store().languages.map((l) => l.id)).toEqual(['en', 'zh-Hant'])
-      expect(store().languages.map((l) => l.label)).toEqual(['English', '繁體中文'])
-      for (const lang of store().languages) {
-        expect(typeof lang.catalog).toBe('object')
-        expect(Object.keys(lang.catalog).length).toBeGreaterThan(0)
-      }
+  describe('languages', () => {
+    it('offers only English until language packs are loaded', () => {
+      expect(store().languages.map((l) => l.id)).toEqual(['en'])
+      expect(store().languages[0]?.catalog).toBe(en)
+    })
+
+    it('adds the language packs main returns, translated over English', async () => {
+      vi.mocked(window.pine.languagePacks.load).mockResolvedValue([
+        {
+          extId: 'langpack-zh-hant',
+          id: 'zh-Hant',
+          label: '繁體中文',
+          catalog: { settings: { title: '設定' } },
+        },
+      ])
+      await store().loadLanguages()
+      expect(store().languages.map((l) => [l.id, l.label])).toEqual([
+        ['en', 'English'],
+        ['zh-Hant', '繁體中文'],
+      ])
+      const zh = store().languages[1]?.catalog
+      expect(zh?.settings.title).toBe('設定')
+      expect(zh?.settings.search).toBe(en.settings.search)
+    })
+
+    it('drops a pack again when main no longer returns it', async () => {
+      vi.mocked(window.pine.languagePacks.load).mockResolvedValue([
+        { extId: 'x', id: 'fr', label: 'Français', catalog: {} },
+      ])
+      await store().loadLanguages()
+      vi.mocked(window.pine.languagePacks.load).mockResolvedValue([])
+      await store().loadLanguages()
+      expect(store().languages.map((l) => l.id)).toEqual(['en'])
     })
   })
 
