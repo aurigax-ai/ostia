@@ -243,7 +243,16 @@ Details: `docs/ARCHITECTURE.md`.
   (`holdPtys`) and only then lets the source release it (`release` / `releasePane`, which emit
   no `pane-closed`). The target adopts the same pane ids; the pty is never killed or respawned
   by a move. Never close and recreate panes to move them, and never let a renderer name
-  another window. Closing a detached window moves its workspaces back into the main window;
+  another window. A moved pane's handoff carries its `origin` (source workspace, list index,
+  group, the neighbor it sat beside), saved with the detached window; on return main routes it
+  to the window that still holds that workspace (`planReturn`) and the renderer grafts it back
+  (`graftNode`), else it becomes its own workspace at the old index. A pane never moves alone
+  into or out of a sandboxed workspace (`crossesSandbox`); the last pane of a workspace moves
+  the workspace. Drag-out (`lib/paneDrag.ts`) goes through the same `windows:detach`; a drop on
+  another window is a landing the target reports (`windows:drop-pane`, only for its own
+  workspace and pane) and the source claims once (`windows:landing`, `Landings`) before it
+  hands the pane over with `windows:give`; the target never pulls a pane.
+  Closing a detached window moves its workspaces back into the main window;
   closing the main window hides it to the tray (quits when close-to-tray is off). Main merges the per-window snapshots into one
   `workspaces.json` (`windowBook.ts`); a renderer never writes another window's workspaces.
   Every window, detached included, is created by `createWindow` with `baseWebPreferences()`.
@@ -622,6 +631,15 @@ Details: `docs/ARCHITECTURE.md`.
 - **Portaled surfaces don't bubble React events to their `Pane`.** SurfacePool portals each
   surface, so its React parent is SurfacePool. Pane activation uses native `mousedown`/`focusin`
   listeners on the frame; a React `onMouseDownCapture` there only saw header clicks.
+- **Pane drops land on `.pane-drop-layer`, never on the surface.** Surfaces are portaled, so
+  their drag events never reach `Pane`'s React handlers, and a `<webview>` swallows them; a
+  frame-level `onDragOver` only ever saw the header and always chose the top zone. While a pane
+  drag is on (`usePaneDnd.dragging`, set on `dragstart` or, for another window's drag, on
+  `dragenter`), every pane renders a transparent layer over its body; zones come from the pane
+  frame's rect (`dropZoneAt`). Drag-out compares the `dragend` point with the window in the
+  drag's own coordinates (screen minus client, taken at `dragstart`, `endedOutside`), never
+  `window.screenX`: synthetic drags report client coordinates as screen ones, and a refused
+  drop inside the window also fires a `dragleave` with no `relatedTarget`.
 - **Never gate webview-guest instrumentation on `listenerCount`.** Electron itself listens to a
   `<webview>` guest's `console-message` (to forward it to the element), so `listenerCount === 0`
   is never true and Pine's console/error buffers silently stayed empty. Browser guests are
@@ -800,7 +818,13 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   in `src/cli/cli.e2e.test.ts`.
   `e2e/detached-windows.spec.ts` moves a workspace with a running command into a new window
   (output continues, title is the project), closes it back into the main window, restores a
-  detached window after a restart, and gets an approval card in a detached pane's own window.
+  detached window after a restart, gets an approval card in a detached pane's own window,
+  moves a pane out and back into its own workspace, drags a tab out (synthetic `dragstart`/
+  `dragend` with screen coordinates, since xvfb has no real cross-window drag), drops a
+  detached pane onto the main window (synthetic drop + dragend), and keeps the main window in
+  the tray when a detached window closes. `e2e/pane-dnd.spec.ts` drags tabs with real
+  Playwright drags to split right and down over a terminal, reorders a tab bar, merges an
+  editor tab into a terminal's stack, and checks the drop layer covers a browser pane's page.
   `e2e/browser-agent.spec.ts` grants `browse`, reads the pane's `PINE_*` env from its shell and
   drives a local http page through the real `pine browse` CLI (snapshot refs, fill/click/type,
   find, eval, storage, cookies, network, tabs, `--json`); `e2e/browser-storage.spec.ts` checks the
