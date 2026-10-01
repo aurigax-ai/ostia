@@ -107,9 +107,7 @@ test('quitting with a running command asks first, and Cancel keeps the window op
   try {
     await startLongCommand(win, 'quit')
 
-    await app.evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
+    await win.evaluate(() => window.pine.window.quit())
     const dialog = win.getByRole('dialog')
     await expect(dialog).toBeVisible({ timeout: 5_000 })
     await expect(dialog).toContainText('sleep 100')
@@ -124,9 +122,7 @@ test('quitting with a running command asks first, and Cancel keeps the window op
     await expect(dialog).toHaveCount(0)
     expect(win.isClosed()).toBe(false)
 
-    await app.evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
+    await win.evaluate(() => window.pine.window.quit())
     await expect(dialog).toBeVisible({ timeout: 5_000 })
     await Promise.all([
       app.waitForEvent('close'),

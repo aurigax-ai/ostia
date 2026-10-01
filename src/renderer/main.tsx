@@ -21,6 +21,7 @@ import { wireManagerBridge } from './commands/managerBridge'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
+import { startAgentRunningReport } from './lib/agentRunningReport'
 import { startShortcutReporting } from './lib/assistShortcuts'
 import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
@@ -82,6 +83,7 @@ async function boot(): Promise<void> {
   startHibernation()
   startAutoResume()
   startAgentDetection()
+  startAgentRunningReport()
   startWorkspaceProjects()
   startApprovals()
   startUserActions()

@@ -26,6 +26,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       detach: vi.fn(),
       hibernate: vi.fn().mockResolvedValue(true),
       restart: vi.fn().mockResolvedValue(true),
+      reportAgentRunning: vi.fn(),
       write: vi.fn(),
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),
