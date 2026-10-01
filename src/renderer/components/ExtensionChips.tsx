@@ -56,12 +56,14 @@ function Chip({ chip }: { chip: ShownChip }): JSX.Element {
 function IconChip({ chip }: { chip: ShownChip }): JSX.Element {
   const d = useDict()
   const Icon = extensionIcon(chip.icon)
-  const count = (
+  const items = chip.items
+  const count = items ? (
+    <span className="pane-chip-dot" aria-hidden="true" />
+  ) : (
     <span className="pane-chip-count" aria-hidden="true">
       {chip.text}
     </span>
   )
-  const items = chip.items
   if (!items) {
     const action = chipAction(chip)
     return (

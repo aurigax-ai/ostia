@@ -194,9 +194,11 @@ describe('Extension API v2 UI', () => {
           }),
         ],
       })
-      render(<PaneChips paneId="p1" />)
+      const { container } = render(<PaneChips paneId="p1" />)
       const user = userEvent.setup()
       expect(screen.queryByText(':3000')).toBeNull()
+      expect(container.querySelector('.pane-chip-dot')).not.toBeNull()
+      expect(screen.queryByText('2')).toBeNull()
 
       await user.click(screen.getByRole('button', { name: 'Branch: 2. Click to list them.' }))
       const copy = await screen.findByRole('button', { name: 'Copy http://localhost:5173/' })
