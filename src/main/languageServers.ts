@@ -120,9 +120,7 @@ interface Session {
   key: string
   signature: string
   windowId: string
-  workspaceId: string
   root: string
-  dir: string
   proc: ChildProcessWithoutNullStreams
   writer: StreamMessageWriter
   refs: number
@@ -635,7 +633,7 @@ export class LanguageServers {
     const args: string[] = []
     if (!isNodeRun(run)) {
       const binary = await this.binaryFor(key, source)
-      if (binary === null || this.stopped) return null
+      if (binary === null || this.stopped || !this.enabledSource(key)) return null
       command = binary.path
       managedFolder = binary.managedFolder
     } else {
@@ -716,9 +714,7 @@ export class LanguageServers {
       key,
       signature: sourceSignature(source),
       windowId: pane.windowId,
-      workspaceId: pane.workspaceId,
       root,
-      dir: source.dir,
       proc,
       writer: new StreamMessageWriter(proc.stdin),
       refs: 0,

@@ -1,5 +1,6 @@
 import { PRODUCT_NAME } from '@shared/product'
 import { fmt, useDict } from '../i18n/useDict'
+import { withProductName } from '../lib/extensionSettingText'
 import { pendingApproval, useExtensionsStore } from '../stores/extensionsStore'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -43,7 +44,9 @@ export function ExtensionApprovalDialog(): JSX.Element {
               : fmt(d.extensions.approveNone, { app: PRODUCT_NAME })}
           </DialogDescription>
         </DialogHeader>
-        {ext?.description ? <p className="text-fg-muted text-ui-sm">{ext.description}</p> : null}
+        {ext?.description ? (
+          <p className="text-fg-muted text-ui-sm">{withProductName(ext.description)}</p>
+        ) : null}
         {caps.length > 0 ? (
           <ul aria-label={d.extensions.permissions} className="flex flex-wrap gap-1.5">
             {caps.map((cap) => (

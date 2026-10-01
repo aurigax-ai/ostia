@@ -119,6 +119,7 @@ describe('Extensions UI', () => {
     it('lists what each language server runs, for which files, and what the app would fetch', () => {
       const withServers = {
         ...pending,
+        description: 'Without one, {product} downloads the pinned release.',
         requested: ['language-server' as const],
         languageServers: [
           { id: 'gleam', name: 'Gleam', languages: ['gleam'], command: 'gleam lsp' },
@@ -141,6 +142,11 @@ describe('Extensions UI', () => {
       }
       useExtensionsStore.setState({ list: [withServers] })
       render(<ExtensionApprovalDialog />)
+      expect(
+        within(screen.getByRole('dialog')).getByText(
+          'Without one, pine downloads the pinned release.',
+        ),
+      ).toBeInTheDocument()
       const servers = within(screen.getByRole('dialog')).getByRole('list', {
         name: 'Language servers',
       })

@@ -292,15 +292,15 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
             className={`mt-1.5 size-2 shrink-0 rounded-full ${STATUS_DOT[server.status]}`}
           />
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-fg text-ui-base">{server.name}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0 break-words text-fg text-ui-base">{server.name}</span>
               <Badge variant="outline" className="text-ui-xs">
                 {t.kinds[server.kind]}
               </Badge>
             </div>
-            <p className="mt-0.5 truncate text-fg-muted text-ui-xs">
+            <p className="mt-0.5 break-words text-fg-muted text-ui-xs">
               {server.extName} · {server.languages.join(', ')} ·{' '}
-              <span className="font-mono">{server.command}</span>
+              <span className="break-all font-mono">{server.command}</span>
             </p>
             <p
               data-testid="language-server-status"

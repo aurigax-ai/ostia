@@ -827,6 +827,18 @@ describe('LanguageServers with a server Pine fetches', () => {
     ])
   })
 
+  it('does not start a server that was switched off while its download ran', async () => {
+    const h = harness()
+    h.sources = [source(downloadServer)]
+    h.fetchBinary.mockImplementation(async () => {
+      h.sources = [source(downloadServer, { state: 'off' })]
+      h.copies.set('ext/native', '/data/ls/ext/native/1.2.3/tool')
+      return '/data/ls/ext/native/1.2.3/tool'
+    })
+    expect(await h.servers.open('w1', 'p1', rustFile())).toEqual([])
+    expect(h.spawned).toHaveLength(0)
+  })
+
   it('downloads once for two files that open together', async () => {
     const h = harness()
     h.sources = [source(downloadServer)]
