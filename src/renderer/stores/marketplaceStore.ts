@@ -15,6 +15,7 @@ interface MarketplaceStoreState {
   remove: (marketplaceId: string) => Promise<boolean>
   refresh: (marketplaceId: string) => Promise<boolean>
   install: (marketplaceId: string, extId: string) => Promise<boolean>
+  installCode: (marketplaceId: string, code: string) => Promise<boolean>
   uninstall: (extId: string) => Promise<boolean>
 }
 
@@ -38,6 +39,7 @@ export const useMarketplaceStore = create<MarketplaceStoreState>((set) => {
     remove: (id) => run(() => window.pine.marketplace.remove(id)),
     refresh: (id) => run(() => window.pine.marketplace.refresh(id)),
     install: (id, extId) => run(() => window.pine.marketplace.install(id, extId)),
+    installCode: (id, code) => run(() => window.pine.marketplace.installCode(id, code)),
     uninstall: (extId) => run(() => window.pine.marketplace.uninstall(extId)),
   }
 })

@@ -1,5 +1,9 @@
-import type { ExtensionIcon, SidebarTone } from '../../shared/extensions'
-import { type ToolRun, runTool } from '../sdk/tool'
+import {
+  type ExtensionIcon,
+  type SidebarTone,
+  type ToolRun,
+  runTool,
+} from '@aurigax-ai/pine-extension-sdk'
 import {
   APPROVALS_PATH,
   DEFAULT_INTERVALS,

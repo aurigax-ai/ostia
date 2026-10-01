@@ -29,6 +29,7 @@ import {
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN } from '../shared/iconTheme'
 import { LANGUAGE_ID_PATTERN } from '../shared/languagePack'
+import { MARKETPLACE_CODE_PATTERN } from '../shared/marketplace'
 
 const SETTING_DESCRIPTION_MAX = 500
 const VERSION_MAX = 40
@@ -127,6 +128,15 @@ export const marketplaceManifestSchema = z.looseObject({
   name: z.string().min(1).max(MARKETPLACE_NAME_MAX),
   description: z.string().max(MARKETPLACE_DESCRIPTION_MAX).optional(),
   extensions: z.array(z.string().min(1)).max(MARKETPLACE_MAX_EXTENSIONS),
+  unlisted: z
+    .array(
+      z.looseObject({
+        path: z.string().min(1),
+        code: z.string().regex(MARKETPLACE_CODE_PATTERN),
+      }),
+    )
+    .max(MARKETPLACE_MAX_EXTENSIONS)
+    .optional(),
 })
 
 export function jsonSchemas(): { extension: unknown; marketplace: unknown } {
