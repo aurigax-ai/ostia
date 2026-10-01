@@ -74,7 +74,32 @@ describe('DeckRail', () => {
     rerender(<DeckRail />)
     expect(screen.queryByText('/home/alpha')).toBeNull()
     expect(screen.queryByText('fix login')).toBeNull()
-    expect(rowFor(/alpha/).querySelector('.tab-meta')).toBeEmptyDOMElement()
+    expect(rowFor(/alpha/).querySelector('.rail-meta')).toBeNull()
+  })
+
+  it('collapses each row to its icon with no close button or details', () => {
+    seedWorkspaces()
+    useWorkspacesStore.setState((st) => ({
+      workspaces: st.workspaces.map((w) =>
+        w.id === 's1' ? { ...w, description: 'fix login' } : w,
+      ),
+    }))
+    useUIStore.setState({ railCollapsed: true })
+    render(<DeckRail />)
+
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+    expect(screen.queryByText('fix login')).toBeNull()
+    expect(screen.queryByText('/home/alpha')).toBeNull()
+    const row = rowFor(/alpha/)
+    expect(row.querySelector('.tab-after')).toBeNull()
+    expect(row.querySelector('.tab-lead-wrap .workspace-dot')).toHaveClass('working')
+    expect(screen.getByRole('button', { name: 'beta' })).toBeInTheDocument()
+  })
+
+  it('keeps the close button on expanded rows', () => {
+    seedWorkspaces()
+    render(<DeckRail />)
+    expect(within(rowFor(/alpha/)).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
   it('renders one row per workspace and marks the active one', () => {

@@ -1,4 +1,4 @@
-import type { ExtensionIcon } from '../../shared/extensions'
+import type { ExtensionIcon, SidebarKind } from '../../shared/extensions'
 import type { PaneInfo } from '../sdk'
 import type { TreeInfo } from './scan'
 
@@ -16,6 +16,7 @@ export interface SidebarEntry {
   key: string
   text: string
   icon?: ExtensionIcon
+  kind: SidebarKind
   url?: string
 }
 
@@ -56,13 +57,20 @@ export function sidebarEntries(
   const out: SidebarEntry[] = []
   for (const [workspaceId, group] of groups) {
     if (group.ssh.length > 0) {
-      out.push({ workspaceId, key: SSH_KEY, text: group.ssh.join(' '), icon: 'server' })
+      out.push({
+        workspaceId,
+        key: SSH_KEY,
+        text: group.ssh.join(' '),
+        icon: 'server',
+        kind: 'live',
+      })
     }
     for (const port of group.ports.slice(0, MAX_PORTS_PER_WORKSPACE)) {
       out.push({
         workspaceId,
         key: `${PORT_KEY_PREFIX}${port}`,
         text: `:${port}`,
+        kind: 'live',
         url: portUrl(port, host),
       })
     }

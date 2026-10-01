@@ -187,7 +187,12 @@ describe('built-in git extension against a real repository', () => {
   it('shows the branch and +new ~changed for a repo workspace and nothing for a plain dir', async () => {
     expect(await until(() => itemText('s1'))).toBe('main +1 ~2')
     const item = sidebar().find((i) => i.workspaceId === 's1')
-    expect(item).toMatchObject({ icon: 'git-branch', tone: 'neutral', key: 'branch' })
+    expect(item).toMatchObject({
+      icon: 'git-branch',
+      tone: 'neutral',
+      key: 'branch',
+      kind: 'location',
+    })
     expect(itemText('s2')).toBeUndefined()
   })
 
