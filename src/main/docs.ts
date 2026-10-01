@@ -43,11 +43,29 @@ const CLI_HELP = `pine — control-socket CLI
   pine view validate <file>      check a view file: file:line: path: message, exit 1 on problems
   pine view list [--json]        view files and their status (pending until the human enables)
   pine view open <name>          open an enabled panel view as a pane in this workspace
-  pine process run "<cmd>" [--name X] [--cwd P]   start a tracked background process
-  pine process ls                                 list tracked processes
-  pine process logs <id|name> [--since N]         print captured output
-  pine process kill <id|name>                     kill a tracked process
-  pine process restart <id|name>                   kill (if running) and re-run
+  pine process run "<cmd>" [--name X] [--cwd P]   run a command in a new terminal tab beside
+                                 you, where the human can watch and type; your shell line is
+                                 pasted as written and run by the tab's own shell (zsh or bash).
+                                 Prints {id,name,paneId}; your pane keeps the focus
+  pine process ls                id, name, status, paneId, command of this workspace's
+                                 processes: starting, running, exited(code), or closed (the
+                                 human closed the tab)
+  pine process logs <id|name> [--since N]   that command's output only, as plain text; prints
+                                 (cursor=N) on stderr, pass it to --since to read on. For a
+                                 full-screen program use pine pane read
+  pine process kill <id|name>    interrupt it (Ctrl+C); if it keeps running, end the tab's
+                                 shell. The tab stays open with its output
+  pine process restart <id|name> interrupt it and run the same line again in the same tab
+  pine pane send <pane> [--enter] [--] <text…>   type text into another terminal pane; no Enter
+                                 unless --enter. <pane> is a paneId from pine pane.list, or a
+                                 process id or name
+  pine pane key <pane> <key>…    press keys there: enter tab shift-tab escape backspace delete
+                                 space up down left right home end pageup pagedown ctrl-a..ctrl-z
+  pine pane read <pane> [--lines N] [--json]   that pane's screen as plain text (default 200
+                                 lines, max 2000); --json adds cwd, running, lastExitCode.
+                                 A tab you opened with pine process run needs nothing more;
+                                 any other pane asks the human (type-other-pane,
+                                 read-other-pane, plus all-workspaces outside your workspace)
   pine vault set <KEY> [--global]  store a secret (value read from stdin, no echo)
   pine vault get <KEY> [--global]  print a stored secret
   pine vault ls [--global]         list stored secret keys (never values)
@@ -129,7 +147,8 @@ export const MANAGER_HELP = `
                                   start a worker agent in a new terminal pane; prints its paneId
   pine manager input <paneId> [--text TEXT] [--key KEY]…
                                   type into another pane (only with manager.allowInput on);
-                                  keys: enter tab escape backspace up down left right ctrl-c ctrl-d
+                                  keys: enter tab shift-tab escape backspace delete space up down
+                                  left right home end pageup pagedown ctrl-a..ctrl-z
 `
 
 export function extensionHelp(

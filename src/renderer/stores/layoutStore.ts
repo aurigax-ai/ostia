@@ -94,6 +94,7 @@ export interface OpenTerminalPlacement {
   afterPaneId?: string
   cwd?: string
   title?: string
+  backgroundTab?: boolean
 }
 
 function describeTerminal(root: LayoutNode, paneId: string, opts: OpenTerminalPlacement) {
@@ -595,6 +596,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const next = patch(s, workspaceId, (l) => {
         const beside =
           opts.afterPaneId && findPane(l.root, opts.afterPaneId) ? opts.afterPaneId : l.activePaneId
+        if (opts.backgroundTab) {
+          const pane = createPane()
+          createdPaneId = pane.id
+          return { ...l, root: describeTerminal(addTab(l.root, beside, pane, true), pane.id, opts) }
+        }
         const { root, newPaneId } = splitPane(l.root, beside, 'horizontal')
         if (!newPaneId) return l
         createdPaneId = newPaneId

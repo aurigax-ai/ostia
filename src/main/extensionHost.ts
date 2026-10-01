@@ -292,6 +292,8 @@ export interface TerminalOpenRequest {
   afterPaneId?: string
   cwd?: string
   title?: string
+  backgroundTab?: boolean
+  pinTitle?: boolean
 }
 
 export interface ExtensionConfirmRequest {

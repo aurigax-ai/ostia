@@ -26,6 +26,7 @@ import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
 import { planHumanPaste } from '../lib/pasteGate'
+import { isTitlePinned } from '../lib/pinnedTitles'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
 import { registerSelectionSender } from '../lib/selectionSenders'
@@ -338,7 +339,9 @@ export function TerminalView({
     })
     const titleChange = term.onTitleChange((raw) => {
       const title = terminalTitle(raw)
-      if (title) useLayoutStore.getState().setTitle(workspaceIdRef.current, paneId, title)
+      if (title && !isTitlePinned(paneId)) {
+        useLayoutStore.getState().setTitle(workspaceIdRef.current, paneId, title)
+      }
     })
     const bell = term.onBell(() => {
       if (replaying || isPaneViewed(paneId)) return
