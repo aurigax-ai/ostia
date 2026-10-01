@@ -25,8 +25,19 @@ vi.mock('electron', () => {
     },
   }
 })
-vi.mock('./jsonStore', () => ({ loadJson: () => [], saveJson: vi.fn(), storePath: () => 'log' }))
+const saved: unknown[][] = []
+vi.mock('./jsonStore', () => ({
+  loadJson: () => [],
+  saveJson: (_path: string, log: unknown[]) => saved.push(log),
+  storePath: () => 'log',
+}))
 vi.mock('./events', () => ({ emitPlatformEvent: vi.fn() }))
+
+const listHandlers = new Map<string, () => unknown>()
+const electron = await import('electron')
+vi.mocked(electron.ipcMain.handle).mockImplementation((channel, fn) => {
+  listHandlers.set(channel, fn as () => unknown)
+})
 
 const { registerNotifyIpc } = await import('./notify')
 
@@ -34,12 +45,13 @@ registerNotifyIpc({
   windows: () => [],
   windowById: () => undefined,
   execCommand: vi.fn(),
+  isScratchPane: (paneId: string) => paneId === 'scratch-pane',
 } as unknown as Parameters<typeof registerNotifyIpc>[0])
 
-function post(desktop: boolean): void {
+function post(desktop: boolean, paneId = 'p1'): void {
   ipcHandlers.get('notifications:post')?.(
     { sender: { id: 1 } },
-    { paneId: 'p1', title: 'Agent finished', desktop },
+    { paneId, title: 'Agent finished', desktop },
   )
 }
 
@@ -49,6 +61,7 @@ function settings(notifications: object): void {
 
 afterEach(() => {
   shown.length = 0
+  saved.length = 0
 })
 
 describe('desktop notifications', () => {
@@ -70,5 +83,19 @@ describe('desktop notifications', () => {
     settings({})
     post(false)
     expect(shown).toEqual([])
+  })
+})
+
+describe('scratch panes', () => {
+  it('lists a scratch pane notification live but never writes it to the log file', () => {
+    settings({})
+    post(true, 'scratch-pane')
+    expect(shown).toHaveLength(1)
+    expect(saved).toEqual([])
+    const list = listHandlers.get('notifications:list')?.() as { paneId?: string }[]
+    expect(list.map((entry) => entry.paneId)).toEqual(['scratch-pane'])
+    post(false, 'p1')
+    expect(saved).toHaveLength(1)
+    expect((saved[0] as { paneId?: string }[]).map((entry) => entry.paneId)).toEqual(['p1'])
   })
 })

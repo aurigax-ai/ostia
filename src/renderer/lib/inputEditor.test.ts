@@ -46,6 +46,16 @@ describe('inputHistory', () => {
   it('returns other panes’ commands when the pane has none', () => {
     expect(inputHistory({ b: [block('b', 'make', 1)] }, 'a')).toEqual(['make'])
   })
+
+  it('never suggests a scratch pane’s commands to another pane, but keeps the pane’s own', () => {
+    const byPane = {
+      a: [block('a', 'ls', 1)],
+      s: [block('s', 'curl secret.example', 9)],
+    }
+    const scratch = new Set(['s'])
+    expect(inputHistory(byPane, 'a', scratch)).toEqual(['ls'])
+    expect(inputHistory(byPane, 's', scratch)).toEqual(['curl secret.example', 'ls'])
+  })
 })
 
 describe('caretOnFirstLine', () => {

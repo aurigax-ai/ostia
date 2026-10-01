@@ -69,6 +69,7 @@ export interface RunningGroup {
   workspace: string
   commands: string[]
   files: string[]
+  scratchFiles?: number
 }
 
 export interface PtySpawnOptions {
@@ -403,6 +404,14 @@ export interface WindowSummary {
 export interface NewWorkspaceRequest {
   dir?: string
   name?: string
+  scratch?: boolean
+  sandboxed?: boolean
+}
+
+export interface ScratchApi {
+  create: () => Promise<string | null>
+  files: (workspaceId: string) => Promise<number>
+  reveal: (workspaceId: string) => void
 }
 
 export interface WindowsApi {
@@ -664,6 +673,7 @@ export interface PineBridge {
   settings: SettingsApi
   sync: SyncApi
   workspace: WorkspaceApi
+  scratch: ScratchApi
   windows: WindowsApi
   lifecycle: LifecycleApi
   commands: CommandsApi

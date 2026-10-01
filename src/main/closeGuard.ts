@@ -73,13 +73,27 @@ export function parseRunningGroups(raw: unknown): RunningGroup[] {
   return groups
 }
 
+export function withScratchFiles(
+  groups: readonly RunningGroup[],
+  scratchFiles: (workspaceId: string) => number,
+): RunningGroup[] {
+  const out: RunningGroup[] = []
+  for (const group of groups) {
+    const count = scratchFiles(group.workspaceId)
+    const next = count > 0 ? { ...group, scratchFiles: count } : group
+    if (next.commands.length > 0 || next.files.length > 0 || count > 0) out.push(next)
+  }
+  return out
+}
+
 export async function confirmQuit(
   windows: readonly BrowserWindow[],
   asker: BrowserWindow | undefined,
+  scratchFiles: (workspaceId: string) => number,
 ): Promise<boolean> {
   const live = windows.filter((w) => !w.isDestroyed())
   const answers = await Promise.all(live.map((w) => ask(w, 'window:running', undefined, [])))
-  const groups = answers.flatMap(parseRunningGroups)
+  const groups = withScratchFiles(answers.flatMap(parseRunningGroups), scratchFiles)
   if (groups.length === 0) return true
   const target = asker && !unresponsive(asker) ? asker : live.find((w) => !unresponsive(w))
   if (!target) return true
