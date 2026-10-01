@@ -320,7 +320,7 @@ test('dragging a tab out of the window opens it in a new window with its command
       clientX: 600,
       clientY: 50,
       screenX: origin.x + 600,
-      screenY: origin.y - 40,
+      screenY: origin.y + 300,
     })
     await win.waitForTimeout(800)
     expect(app.windows()).toHaveLength(1)
