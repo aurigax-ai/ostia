@@ -128,18 +128,6 @@ export function branchLabel(branch: BranchInfo): string {
   return branch.oid ? `(${branch.oid.slice(0, 7)})` : '(no commits)'
 }
 
-export function sidebarText(status: RepoStatus): string {
-  const s = summarize(status)
-  const parts = [branchLabel(status.branch)]
-  if (status.branch.upstream) {
-    if (status.branch.ahead) parts.push(`↑${status.branch.ahead}`)
-    if (status.branch.behind) parts.push(`↓${status.branch.behind}`)
-  }
-  if (s.added) parts.push(`+${s.added}`)
-  if (s.changed) parts.push(`~${s.changed}`)
-  return parts.join(' ')
-}
-
 const MAX_TRACKING_COUNT = 999
 
 function trackingCount(n: number): string {

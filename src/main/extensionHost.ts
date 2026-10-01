@@ -218,7 +218,9 @@ function storedSettings(raw: unknown): Map<string, ExtensionSettingValues> {
 
 function startsWithWindow(rt: Runtime): boolean {
   const c = rt.ext.manifest.contributes
-  return c.sidebarItems || c.assist.length > 0
+  return (
+    c.sidebarItems || c.paneChips.length > 0 || c.workspaceChips.length > 0 || c.assist.length > 0
+  )
 }
 
 function subdirectories(root: string): string[] {

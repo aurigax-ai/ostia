@@ -17,7 +17,8 @@ const FIXTURES = join(__dirname, '../../../test/fixtures/tools')
 const CLAIM_LIVE_AT = 1790323096200 - 1
 
 interface Recorded {
-  sidebar: { workspaceId: string; key: string; text: string; tone?: string }[]
+  chips: Record<string, unknown>[]
+  cleared: { workspaceId: string; id: string }[]
   notes: { title: string; body?: string; path?: string }[]
 }
 
@@ -29,6 +30,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
   let service: TrellisService | null
   let recorded: Recorded
   let workspaces: WorkspaceRef[] | Error
+  let chipsAccepted = true
 
   const calls = (): string[] => {
     const log = join(fake, 'calls.log')
@@ -47,8 +49,12 @@ describe('TrellisService with a fake trellis on PATH', () => {
           if (workspaces instanceof Error) throw workspaces
           return workspaces
         },
-        setSidebarItem: async (item) => {
-          recorded.sidebar.push(item)
+        setWorkspaceChip: async (chip) => {
+          recorded.chips.push(chip)
+          return { ok: chipsAccepted }
+        },
+        clearWorkspaceChip: async (workspaceId, id) => {
+          recorded.cleared.push({ workspaceId, id })
         },
         notifyPanel: async (title, body, path) => {
           recorded.notes.push({ title, body, path })
@@ -79,7 +85,8 @@ describe('TrellisService with a fake trellis on PATH', () => {
     savedPath = process.env.PATH
     process.env.PATH = `${join(FIXTURES, 'bin')}:${savedPath}`
     process.env.FAKE_TRELLIS_DIR = fake
-    recorded = { sidebar: [], notes: [] }
+    recorded = { chips: [], cleared: [], notes: [] }
+    chipsAccepted = true
     workspaces = []
     service = null
   })
@@ -99,16 +106,30 @@ describe('TrellisService with a fake trellis on PATH', () => {
       { workspaceId: 's2', workDir: home },
     ]
     await make().refreshSidebar()
-    expect(recorded.sidebar).toEqual([
+    expect(recorded.chips).toEqual([
       {
         workspaceId: 's1',
-        key: 'cards',
-        text: '4 open · 1 claimed',
+        id: 'cards',
+        text: '4',
+        tooltip: '4 open · 1 claimed',
         icon: 'kanban',
         tone: 'brand',
+        command: 'open',
       },
     ])
     expect(calls()).toContain('card ls --json --all --project DEMO')
+  })
+
+  it('sends the chip again on the next refresh when the app refused it', async () => {
+    const shop = project('shop', '/DEMO')
+    workspaces = [{ workspaceId: 's1', workDir: shop }]
+    chipsAccepted = false
+    const svc = make()
+    await svc.refreshSidebar()
+    workspaces = []
+    await svc.refreshSidebar()
+    expect(recorded.chips).toHaveLength(1)
+    expect(recorded.cleared).toEqual([])
   })
 
   it('clears a workspace item once the workspace is gone', async () => {
@@ -118,14 +139,14 @@ describe('TrellisService with a fake trellis on PATH', () => {
     await svc.refreshSidebar()
     workspaces = []
     await svc.refreshSidebar()
-    expect(recorded.sidebar.at(-1)).toEqual({ workspaceId: 's1', key: 'cards', text: '' })
+    expect(recorded.cleared).toEqual([{ workspaceId: 's1', id: 'cards' }])
   })
 
   it('shows nothing when pine cannot list workspaces', async () => {
     project('shop', '/DEMO')
     workspaces = new Error('refused')
     await make().refreshSidebar()
-    expect(recorded.sidebar).toEqual([])
+    expect(recorded.chips).toEqual([])
   })
 
   it('degrades quietly when trellis is not installed', async () => {
@@ -136,7 +157,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
     await expect(svc.ensureUi()).rejects.toMatchObject({ code: 'not-installed' })
     await svc.startEvents()
     await new Promise((r) => setTimeout(r, 200))
-    expect(recorded.sidebar).toEqual([])
+    expect(recorded.chips).toEqual([])
     expect(svc.followRestarts()).toBe(0)
     expect(svc.owned()).toBe(false)
   })

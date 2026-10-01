@@ -48,7 +48,8 @@ async function main(): Promise<void> {
     consumer: PRODUCT_NAME,
     host: {
       listWorkspaces: async () => workspacesFrom(await ext.call('workspace.list')),
-      setSidebarItem: (item) => ext.setSidebarItem(item),
+      setWorkspaceChip: (chip) => ext.setWorkspaceChip(chip),
+      clearWorkspaceChip: (workspaceId, id) => ext.clearWorkspaceChip(workspaceId, id),
       notifyPanel: (title, body, path) => ext.notifyPanel(title, body, path),
       log: (line) => console.error(line),
     },

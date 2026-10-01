@@ -5,7 +5,6 @@ import {
   diffStatsChipText,
   parsePorcelainV2,
   parseShortstat,
-  sidebarText,
   summarize,
 } from './status'
 
@@ -155,26 +154,7 @@ describe('summarize', () => {
   })
 })
 
-describe('sidebarText', () => {
-  it('shows only the branch when clean', () => {
-    expect(sidebarText(parsePorcelainV2(porcelain('# branch.head main')))).toBe('main')
-  })
-
-  it('shows ahead/behind only with an upstream, then +new ~changed', () => {
-    const withUpstream = parsePorcelainV2(
-      porcelain(
-        '# branch.head main',
-        '# branch.upstream origin/main',
-        '# branch.ab +2 -5',
-        `1 .M N... ${MODES} a.ts`,
-        '? b.ts',
-      ),
-    )
-    expect(sidebarText(withUpstream)).toBe('main ↑2 ↓5 +1 ~1')
-    const noUpstream = parsePorcelainV2(porcelain('# branch.head main', '# branch.ab +2 -5'))
-    expect(sidebarText(noUpstream)).toBe('main')
-  })
-
+describe('branchLabel', () => {
   it('labels a detached HEAD by short sha and truncates long branch names', () => {
     expect(branchLabel({ oid: HASH, head: null, upstream: null, ahead: 0, behind: 0 })).toBe(
       '(aaaaaaa)',
