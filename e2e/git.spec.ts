@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace, waitForPaletteSelection } from './helpers'
+import { emptyState, emptyWorkspace, openWorkspace, waitForPaletteSelection } from './helpers'
 
 test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, and shows the graph', async () => {
   const dataHome = freshDataHome()
@@ -87,6 +87,43 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
       .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
       .toContain('commit from e2e')
     await expect(panelTitle).toHaveCount(1)
+  } finally {
+    await app.close()
+  }
+})
+
+test('the branch chip shows for a workspace in a repo that has no panes yet', async () => {
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  const vcs = (...args: string[]): void => {
+    execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd: home })
+  }
+  vcs('init', '-q', '-b', 'main')
+  vcs('config', 'user.email', 'e2e@example.com')
+  vcs('config', 'user.name', 'E2E')
+  writeFileSync(join(home, 'notes.txt'), 'first line\n')
+  vcs('add', 'notes.txt')
+  vcs('commit', '-q', '-m', 'init')
+
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await emptyState(win)
+      .getByRole('button', { name: /New workspace/ })
+      .click()
+    await expect(emptyWorkspace(win)).toBeVisible()
+
+    const branchChip = win
+      .locator('.topbar-right .workspace-chips .pane-chip')
+      .filter({ hasText: /^main$/ })
+    await expect(branchChip).toBeVisible({ timeout: 15_000 })
+
+    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+    await expect(branchChip).toBeVisible()
   } finally {
     await app.close()
   }
