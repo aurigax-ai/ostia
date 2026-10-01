@@ -185,8 +185,8 @@ describe('built-in git extension against a real repository', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  it('shows the branch and +new ~changed for a repo workspace and nothing for a plain dir', async () => {
-    expect(await until(() => itemText('s1'))).toBe('main +1 ~2')
+  it('shows only the branch for a repo workspace and nothing for a plain dir', async () => {
+    expect(await until(() => itemText('s1'))).toBe('main')
     const item = sidebar().find((i) => i.workspaceId === 's1')
     expect(item).toMatchObject({
       icon: 'git-branch',
@@ -205,15 +205,17 @@ describe('built-in git extension against a real repository', () => {
     expect((await until(() => chip('s1', 'branch'))).text).toBe('main')
   })
 
-  it('updates the sidebar after a command finishes', async () => {
-    writeFileSync(join(repo, 'd.txt'), 'another\n')
+  it('updates the diff stats chip after a command finishes', async () => {
+    const file = join(repo, 'a.txt')
+    const original = readFileSync(file, 'utf8')
+    const before = (await until(() => chip('s1', 'diff-stats'))).text
+    writeFileSync(file, `${original}one more\nand another\n`)
     host.emitEvent('command.finished', { paneId: 'x', workspaceId: 's1', exitCode: 0 })
-    expect(await until(() => (itemText('s1') === 'main +2 ~2' ? itemText('s1') : undefined))).toBe(
-      'main +2 ~2',
-    )
-    rmSync(join(repo, 'd.txt'))
+    await until(() => (chip('s1', 'diff-stats')?.text !== before ? true : undefined))
+    expect(itemText('s1')).toBe('main')
+    writeFileSync(file, original)
     host.emitEvent('command.finished', { paneId: 'x', workspaceId: 's1', exitCode: 0 })
-    await until(() => (itemText('s1') === 'main +1 ~2' ? true : undefined))
+    await until(() => (chip('s1', 'diff-stats')?.text === before ? true : undefined))
   })
 
   it('lists staged, unstaged and untracked changes for the workspace repo', async () => {

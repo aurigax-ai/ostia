@@ -29,13 +29,16 @@ export interface WorkspaceRef {
 
 export interface TrellisHost {
   listWorkspaces: () => Promise<WorkspaceRef[]>
-  setSidebarItem: (item: {
+  setWorkspaceChip: (chip: {
     workspaceId: string
-    key: string
+    id: string
     text: string
-    icon?: ExtensionIcon
-    tone?: SidebarTone
-  }) => Promise<unknown>
+    tooltip: string
+    icon: ExtensionIcon
+    tone: SidebarTone
+    command: string
+  }) => Promise<{ ok: boolean }>
+  clearWorkspaceChip: (workspaceId: string, id: string) => Promise<unknown>
   notifyPanel: (title: string, body?: string, path?: string) => Promise<unknown>
   log: (line: string) => void
 }
@@ -51,7 +54,8 @@ export interface TrellisServiceOptions {
   followRestartBaseMs?: number
 }
 
-const SIDEBAR_KEY = 'cards'
+const CARDS_CHIP = 'cards'
+const OPEN_COMMAND = 'open'
 const PRIME_PAGE = 5000
 const PRIME_MAX_PAGES = 50
 const ACK_DELAY_MS = 2000
@@ -148,26 +152,26 @@ export class TrellisService {
       if (!byProject.has(key)) byProject.set(key, this.counts(project))
       const counts = await byProject.get(key)
       if (!counts) continue
-      next.add(workspaceId)
-      await this.opts.host.setSidebarItem({
+      const res = await this.opts.host.setWorkspaceChip({
         workspaceId,
-        key: SIDEBAR_KEY,
-        text: this.strings.sidebar(counts),
+        id: CARDS_CHIP,
+        text: String(counts.open),
+        tooltip: this.strings.sidebar(counts),
         icon: 'kanban',
         tone: counts.claimed > 0 ? 'brand' : 'neutral',
+        command: OPEN_COMMAND,
       })
+      if (res.ok) next.add(workspaceId)
     }
     for (const workspaceId of this.shown) {
-      if (!next.has(workspaceId)) {
-        await this.opts.host.setSidebarItem({ workspaceId, key: SIDEBAR_KEY, text: '' })
-      }
+      if (!next.has(workspaceId)) await this.opts.host.clearWorkspaceChip(workspaceId, CARDS_CHIP)
     }
     this.shown = next
   }
 
   private async clearSidebar(): Promise<void> {
     for (const workspaceId of this.shown) {
-      await this.opts.host.setSidebarItem({ workspaceId, key: SIDEBAR_KEY, text: '' })
+      await this.opts.host.clearWorkspaceChip(workspaceId, CARDS_CHIP)
     }
     this.shown.clear()
   }

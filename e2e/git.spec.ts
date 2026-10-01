@@ -30,7 +30,7 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
 
     await expect(
       win.locator('.rail-meta.location .ext-item').filter({ hasText: 'main' }),
-    ).toContainText('main ~1', { timeout: 15_000 })
+    ).toHaveText('main', { timeout: 15_000 })
 
     const chips = win.locator('.topbar-right .workspace-chips .pane-chip')
     await expect(chips.filter({ hasText: '1 • +1' })).toBeVisible({ timeout: 15_000 })
