@@ -1,0 +1,7 @@
+{
+  "manifest": {
+    "name": "Markdown（Marksman）",
+    "description": "在編輯器中提供 Markdown 的連結、參照、自動完成與診斷。使用 PATH 中的 marksman；若沒有，{product} 會從 GitHub 下載固定版本，驗證後存放在自己的資料夾中。"
+  },
+  "messages": {}
+}
