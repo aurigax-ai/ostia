@@ -117,7 +117,7 @@ test.describe('fonts follow the settings everywhere', () => {
         .getByRole('dialog', { name: 'Assistant' })
         .getByRole('button', { name: /Open chat/ })
         .click()
-      const question = win.getByRole('textbox', { name: 'Your question' }).last()
+      const question = win.getByRole('combobox', { name: 'Your question' }).last()
       await question.fill('how do I run it')
       await question.press('Enter')
       await expect(win.locator('.ask-answer pre').last()).toContainText('node sample.ts', {

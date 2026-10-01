@@ -1222,7 +1222,7 @@
   border-radius: 6px;
   background: var(--surface-2);
   color: var(--fg);
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--text-ui-sm);
   line-height: var(--text-ui-sm--line-height);
   text-align: left;
