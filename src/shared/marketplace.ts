@@ -4,6 +4,7 @@ import type { ExtensionCategory } from './extensions'
 export const MARKETPLACE_FEATURE = 'marketplace'
 export const MARKETPLACE_MANIFEST_FILE = 'pine-marketplace.json'
 export const MARKETPLACE_URL_MAX = 2000
+export const MARKETPLACE_CODE_PATTERN = /^[a-z2-7]{26}$/
 
 export type MarketplaceInstallState = 'available' | 'installed' | 'update' | 'conflict'
 
@@ -27,6 +28,7 @@ export interface MarketplaceInfo {
   error?: string
   problems: string[]
   extensions: MarketplaceExtension[]
+  unlisted: boolean
 }
 
 export interface MarketplaceState {
@@ -42,6 +44,7 @@ export type MarketplaceError =
   | 'invalid-marketplace'
   | 'unknown-marketplace'
   | 'unknown-extension'
+  | 'unknown-code'
   | 'conflict'
   | 'invalid-extension'
   | 'too-large'
@@ -58,5 +61,6 @@ export interface MarketplaceApi {
   remove: (marketplaceId: string) => Promise<MarketplaceResult>
   refresh: (marketplaceId: string) => Promise<MarketplaceResult>
   install: (marketplaceId: string, extId: string) => Promise<MarketplaceResult>
+  installCode: (marketplaceId: string, code: string) => Promise<MarketplaceResult>
   uninstall: (extId: string) => Promise<MarketplaceResult>
 }

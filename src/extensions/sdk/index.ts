@@ -43,10 +43,13 @@ import { PANEL_SIZES_PATH } from './split'
 export type {
   DiffContent,
   ExtensionCaller,
+  ExtensionEventType,
+  ExtensionIcon,
   ExtensionResult,
   ExtensionSettingValues,
   OpenTerminalOptions,
   PaneChipItem,
+  SidebarTone,
 } from '../../shared/extensions'
 
 export type AttentionVerb = 'waiting' | 'done' | 'working' | 'error' | 'clear'
@@ -197,6 +200,7 @@ export interface AssistModelsHandler {
 }
 
 export { EXTENSION_API_VERSION } from '../../shared/extensionApi'
+export { PRODUCT_NAME } from '../../shared/product'
 
 export function ok(text?: string, data?: unknown): ExtensionResult {
   const result: ExtensionResult = { ok: true }

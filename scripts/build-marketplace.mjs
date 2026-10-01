@@ -1,0 +1,77 @@
+import { execFileSync } from 'node:child_process'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { marketplaceIds, marketplaceProject } from './marketplace.mjs'
+
+const out = 'out/marketplace'
+const sdk = 'out/sdk'
+const sdkName = '@aurigax-ai/pine-extension-sdk'
+const repository = 'https://github.com/aurigax-ai/pine-extensions'
+const toolFixtures = 'test/fixtures/tools'
+const app = JSON.parse(readFileSync('package.json', 'utf8'))
+const versionOf = (name) => app.dependencies[name] ?? app.devDependencies[name]
+const dependencies = [
+  '@ai-sdk-tool/parser',
+  '@ai-sdk/openai-compatible',
+  '@types/node',
+  'ai',
+  'esbuild',
+  'typescript',
+  'undici',
+  'vitest',
+  'zod',
+]
+
+if (!existsSync(join(sdk, 'package.json'))) {
+  console.error(`${sdk} is missing: run pnpm build:sdk first`)
+  process.exit(1)
+}
+
+rmSync(out, { recursive: true, force: true })
+cpSync(marketplaceProject, out, { recursive: true })
+for (const id of marketplaceIds()) {
+  cpSync(join('src/extensions', id), join(out, 'src/extensions', id), { recursive: true })
+}
+cpSync(toolFixtures, join(out, toolFixtures), { recursive: true })
+
+writeFileSync(
+  join(out, 'package.json'),
+  `${JSON.stringify(
+    {
+      name: 'pine-extensions',
+      version: app.version,
+      private: true,
+      description: 'Extensions for Pine that are not built in',
+      license: app.license,
+      repository: { type: 'git', url: `git+${repository}.git` },
+      packageManager: app.packageManager,
+      engines: { node: '>=20' },
+      scripts: {
+        build: 'node build.mjs',
+        typecheck: 'tsc --noEmit',
+        test: 'vitest run',
+        validate: 'pine-extension validate .',
+      },
+      devDependencies: {
+        [sdkName]: app.version,
+        ...Object.fromEntries(dependencies.map((name) => [name, versionOf(name)])),
+      },
+    },
+    null,
+    2,
+  )}\n`,
+)
+
+const sdkLink = join(out, 'node_modules', sdkName)
+mkdirSync(dirname(sdkLink), { recursive: true })
+symlinkSync(resolve(sdk), sdkLink, 'dir')
+
+execFileSync(process.execPath, ['build.mjs'], { cwd: out, stdio: 'inherit' })

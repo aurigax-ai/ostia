@@ -474,6 +474,8 @@ const bridge: PineBridge = {
     refresh: (id) => ipcRenderer.invoke('marketplace:refresh', id) as Promise<MarketplaceResult>,
     install: (id, extId) =>
       ipcRenderer.invoke('marketplace:install', id, extId) as Promise<MarketplaceResult>,
+    installCode: (id, code) =>
+      ipcRenderer.invoke('marketplace:install-code', id, code) as Promise<MarketplaceResult>,
     uninstall: (extId) =>
       ipcRenderer.invoke('marketplace:uninstall', extId) as Promise<MarketplaceResult>,
   },

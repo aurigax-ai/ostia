@@ -15,7 +15,9 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["src/shared/*"],
+      "@aurigax-ai/pine-extension-sdk": ["src/extensions/sdk/index.ts"],
+      "@aurigax-ai/pine-extension-sdk/assist": ["src/extensions/sdk/assist/index.ts"]
     }
   },
   "include": [

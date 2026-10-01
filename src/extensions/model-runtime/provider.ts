@@ -1,14 +1,15 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { simulateStreamingMiddleware, wrapLanguageModel } from 'ai'
-import type { AssistModel } from '../../shared/assist'
 import {
+  type AssistModel,
   type Endpoint,
+  type Provider,
+  type ProviderCatalog,
   UNIX_PREFIX,
   baseUrl,
   endpointFetch,
   requestJson,
-} from '../sdk/assist/endpoint'
-import type { Provider, ProviderCatalog } from '../sdk/assist/provider'
+} from '@aurigax-ai/pine-extension-sdk/assist'
+import { simulateStreamingMiddleware, wrapLanguageModel } from 'ai'
 
 export const MODEL_RUNTIME = 'model-runtime'
 const MODELS_TIMEOUT_MS = 15_000

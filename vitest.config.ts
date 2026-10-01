@@ -8,6 +8,8 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, 'src/renderer'),
       '@shared': resolve(__dirname, 'src/shared'),
+      '@aurigax-ai/pine-extension-sdk/assist': resolve(__dirname, 'src/extensions/sdk/assist'),
+      '@aurigax-ai/pine-extension-sdk': resolve(__dirname, 'src/extensions/sdk'),
     },
   },
   test: {
