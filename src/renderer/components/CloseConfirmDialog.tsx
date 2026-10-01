@@ -1,6 +1,11 @@
-import { FileDashedIcon, TerminalWindowIcon } from '@phosphor-icons/react'
+import { FileDashedIcon, FlaskIcon, TerminalWindowIcon } from '@phosphor-icons/react'
+import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
-import { type CloseConfirmKind, useCloseConfirmStore } from '../stores/closeConfirmStore'
+import {
+  type CloseConfirmKind,
+  type RunningGroup,
+  useCloseConfirmStore,
+} from '../stores/closeConfirmStore'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -38,7 +43,7 @@ export function CloseConfirmDialog(): JSX.Element {
       action: d.closeConfirm.moveAction,
     },
   }
-  const text = copy[pending?.kind ?? 'workspace']
+  const text = withScratch(d, pending?.kind ?? 'workspace', pending?.groups ?? [], copy)
 
   return (
     <Dialog
@@ -69,6 +74,24 @@ export function CloseConfirmDialog(): JSX.Element {
                     </span>
                   </li>
                 ))}
+                {group.scratchFiles ? (
+                  <li className="flex min-w-0 items-center gap-2 text-fg-muted">
+                    <FlaskIcon size={14} className="shrink-0" aria-hidden />
+                    <span className="truncate text-fg text-ui-sm">
+                      {group.scratchFiles === 1
+                        ? d.closeConfirm.scratchFilesOne
+                        : fmt(d.closeConfirm.scratchFiles, { count: group.scratchFiles })}
+                    </span>
+                    <Button
+                      variant="link"
+                      size="xs"
+                      className="h-5 px-1 text-ui-sm"
+                      onClick={() => window.pine.scratch.reveal(group.workspaceId)}
+                    >
+                      {d.closeConfirm.reveal}
+                    </Button>
+                  </li>
+                ) : null}
                 {group.files.map((file) => (
                   <li key={file} className="flex min-w-0 items-center gap-2 text-fg-muted">
                     <FileDashedIcon size={14} className="shrink-0" aria-hidden />
@@ -92,4 +115,27 @@ export function CloseConfirmDialog(): JSX.Element {
       </DialogContent>
     </Dialog>
   )
+}
+
+interface ConfirmCopy {
+  title: string
+  body: string
+  action: string
+}
+
+function withScratch(
+  d: Dict,
+  kind: CloseConfirmKind,
+  groups: readonly RunningGroup[],
+  copy: Record<CloseConfirmKind, ConfirmCopy>,
+): ConfirmCopy {
+  const count = groups.reduce((sum, g) => sum + (g.scratchFiles ?? 0), 0)
+  const onlyScratch = groups.every((g) => g.commands.length === 0 && g.files.length === 0)
+  if (count === 0 || !onlyScratch) return copy[kind]
+  return {
+    title:
+      count === 1 ? d.closeConfirm.scratchTitleOne : fmt(d.closeConfirm.scratchTitle, { count }),
+    body: d.closeConfirm.scratchBody,
+    action: kind === 'quit' ? copy.quit.action : d.closeConfirm.scratchAction,
+  }
 }

@@ -75,6 +75,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       load: vi.fn().mockResolvedValue(null),
       merge: vi.fn().mockResolvedValue({ ok: true }),
     },
+    scratch: {
+      create: vi.fn().mockResolvedValue('/tmp/pine-scratch-1000/1-aaaaaaaaaaaa'),
+      files: vi.fn().mockResolvedValue(0),
+      reveal: vi.fn(),
+    },
     windows: {
       info: vi.fn().mockResolvedValue({ windowId: '1', detached: false }),
       detach: vi.fn().mockResolvedValue(true),

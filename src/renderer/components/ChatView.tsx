@@ -216,7 +216,8 @@ function ChatSession({
   const { messages, sendMessage, setMessages, status, stop, regenerate, error, clearError } =
     useChat({ chat })
   const provider = useAssistProvider('chat')
-  const recording = useSettingsStore((s) => s.assistant.chatHistory)
+  const historyOn = useSettingsStore((s) => s.assistant.chatHistory)
+  const scratch = useChatStore((s) => s.meta[sessionId]?.scratch === true)
   const sessionNotice = useChatStore((s) => s.notice[sessionId] ?? null)
   const draftSeed = useChatStore((s) => s.drafts[key])
   const attachments = useChatStore((s) => s.attachments[key] ?? EMPTY_ATTACHMENTS)
@@ -364,7 +365,7 @@ function ChatSession({
     busy,
     messageCount: messages.length,
     lastRole: last?.role ?? null,
-    recording,
+    recording: historyOn && !scratch,
     provider: provider !== null,
     tools: Boolean(provider?.tools),
     skillFolders,
@@ -497,7 +498,8 @@ function ChatSession({
         workspaceId={workspaceId}
         sessionId={sessionId}
         provider={provider}
-        recording={recording}
+        recording={historyOn && !scratch}
+        scratch={scratch}
         busy={busy}
         sessionsOpen={sessionsOpen}
         onSessionsOpenChange={setSessionsOpen}
@@ -812,6 +814,7 @@ function ChatHeader({
   sessionId,
   provider,
   recording,
+  scratch,
   busy,
   sessionsOpen,
   onSessionsOpenChange,
@@ -821,6 +824,7 @@ function ChatHeader({
   sessionId: string
   provider: AssistProviderInfo | null
   recording: boolean
+  scratch: boolean
   busy: boolean
   sessionsOpen: boolean
   onSessionsOpenChange: (open: boolean) => void
@@ -839,7 +843,11 @@ function ChatHeader({
         open={sessionsOpen}
         onOpenChange={onSessionsOpenChange}
       />
-      <Hint label={recording ? d.chat.recordingHint : d.chat.notRecordingHint}>
+      <Hint
+        label={
+          scratch ? d.chat.scratchHint : recording ? d.chat.recordingHint : d.chat.notRecordingHint
+        }
+      >
         <span
           className={cn(
             'chat-recording flex shrink-0 items-center gap-1 text-ui-xs',

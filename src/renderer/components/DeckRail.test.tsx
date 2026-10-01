@@ -49,6 +49,26 @@ describe('DeckRail', () => {
     vi.restoreAllMocks()
   })
 
+  it('marks a scratch workspace row with a Scratch badge, and no other row', () => {
+    seedWorkspaces()
+    useWorkspacesStore.setState((st) => ({
+      workspaces: [
+        ...st.workspaces,
+        {
+          id: 's3',
+          name: '1-aaaaaaaaaaaa',
+          customName: 'Scratch 2',
+          kind: 'scratch',
+          workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
+          state: 'idle',
+        },
+      ],
+    }))
+    render(<DeckRail />)
+    expect(within(rowFor(/Scratch 2/)).getByText('Scratch')).toHaveClass('scratch-badge')
+    expect(within(rowFor(/beta/)).queryByText('Scratch')).toBeNull()
+  })
+
   it('wraps long workspace titles only when the setting is on', () => {
     seedWorkspaces()
     const { rerender } = render(<DeckRail />)
