@@ -26,7 +26,7 @@ import { Switch } from './ui/switch'
 
 const STATUS_DOT: Record<LanguageServerStatus, string> = {
   running: 'bg-ok',
-  idle: 'bg-brand',
+  idle: 'bg-fg-muted',
   off: 'bg-fg-dim',
   'program-missing': 'bg-attn',
   'toolchain-missing': 'bg-attn',
