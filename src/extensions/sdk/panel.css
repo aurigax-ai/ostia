@@ -196,3 +196,73 @@ input[type="radio"]:focus-visible {
   cursor: default;
   opacity: 0.5;
 }
+
+.pine-split {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pine-split > .pine-split-first {
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+.pine-split > .pine-split-second {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.pine-split[data-collapsed] > .pine-split-first {
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+.pine-split[data-collapsed] > .pine-split-second {
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-top: 1px solid var(--line-strong);
+}
+
+.pine-split-handle {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 1px;
+  background: var(--line-strong);
+  cursor: row-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.pine-split-handle::before {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+
+.pine-split-handle::after {
+  content: "";
+  position: absolute;
+  inset: -1px 0;
+  background: var(--brand);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.pine-split-handle:hover::after,
+.pine-split-handle:focus-visible::after,
+.pine-split-dragging .pine-split-handle::after {
+  opacity: 1;
+}
+
+.pine-split-handle:focus-visible {
+  outline: none;
+}
+
+.pine-split-dragging,
+.pine-split-dragging * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}

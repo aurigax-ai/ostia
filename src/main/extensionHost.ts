@@ -17,6 +17,8 @@ import {
   type AssistError,
   type AssistExtensionState,
   type AssistFeatureId,
+  type AssistModelChangeResult,
+  type AssistModelsResult,
   type AssistOpenUiRequest,
   type AssistPoint,
   type AssistProviderInfo,
@@ -25,9 +27,11 @@ import {
   type AssistStatus,
   type AssistUi,
   CHAT_STREAM_MAX,
+  isAssistModelId,
   normalizeAssistError,
   normalizeAssistFeatures,
   normalizeAssistLabel,
+  normalizeAssistModels,
   normalizeAssistRequest,
   normalizeAssistResult,
   normalizeAssistStatus,
@@ -58,7 +62,9 @@ import {
   PANE_CHIP_TOOLTIP_MAX,
   type PaneChip,
   SETTINGS_CHANGED_EVENT,
+  SIDEBAR_KINDS,
   SIDEBAR_TONES,
+  type SidebarKind,
   type SidebarTone,
   TERMINAL_ARG_MAX,
   TERMINAL_COMMAND_MAX_ARGS,
@@ -100,6 +106,8 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
 const RESCAN_DEBOUNCE_MS = 250
 export const ASSIST_TIMEOUT_MS = 60_000
 export const ASSIST_CHAT_TIMEOUT_MS = 5 * 60_000
+export const ASSIST_MODELS_TIMEOUT_MS = 15_000
+export const ASSIST_MODEL_CHANGE_TIMEOUT_MS = 5 * 60_000
 const ASSIST_CHUNK_MAX = 262_144
 
 type RunState = 'idle' | 'starting' | 'running' | 'crashed'
@@ -126,6 +134,7 @@ interface AssistRuntimeReport {
   setup: AssistSetupProblem | null
   lastError?: string
   label?: string
+  models: boolean
 }
 
 const SHORTCUT_IDS_MAX = 64
@@ -242,6 +251,7 @@ export interface ExtensionHostDeps {
   assistTimeoutMs?: number
   openAssistUiIn?: (req: AssistOpenUiRequest) => void
   assistChatTimeoutMs?: number
+  assistModelsTimeoutMs?: number
   secrets?: ExtensionSecretStore
   confirm?: (req: ExtensionConfirmRequest) => Promise<boolean>
   isSandboxed?: (workspaceId: string) => boolean
@@ -995,7 +1005,8 @@ export class ExtensionHost {
     const count = [...this.sidebar.values()].filter((i) => i.extId === extId).length
     if (!this.sidebar.has(slot) && count >= MAX_SIDEBAR_ITEMS) return fail('too-many-items')
     const tone = SIDEBAR_TONES.includes(p.tone as SidebarTone) ? (p.tone as SidebarTone) : 'neutral'
-    const item: ExtensionSidebarItem = { extId, key, text, tone }
+    const kind = SIDEBAR_KINDS.includes(p.kind as SidebarKind) ? (p.kind as SidebarKind) : 'live'
+    const item: ExtensionSidebarItem = { extId, key, text, tone, kind }
     if (workspaceId) item.workspaceId = workspaceId
     if (EXTENSION_ICONS.includes(p.icon as ExtensionIcon)) item.icon = p.icon as ExtensionIcon
     const url = sidebarItemUrl(p.url)
@@ -1292,6 +1303,7 @@ export class ExtensionHost {
     const report: AssistRuntimeReport = {
       features: normalizeAssistFeatures(p.features).filter((f) => booleans.has(f.setting)),
       setup: normalizeSetupProblem(p.setup),
+      models: p.models === true,
     }
     const lastError = normalizeAssistError(p.lastError)
     if (lastError) report.lastError = lastError
@@ -1313,12 +1325,59 @@ export class ExtensionHost {
         name: rt.ext.manifest.name,
         setup: report.setup,
         features: report.features.map((f) => ({ ...f, on: values[f.setting] === true })),
+        models: report.models,
       }
       if (report.label) state.label = report.label
       if (report.lastError) state.lastError = report.lastError
       out.push(state)
     }
     return out
+  }
+
+  private modelsRuntime(extId: unknown): Runtime | null {
+    if (typeof extId !== 'string') return null
+    const rt = this.runtimes.get(extId)
+    if (!rt?.conn || !rt.assistReport?.models || !this.active(rt)) return null
+    return this.granted(rt).includes('assist') ? rt : null
+  }
+
+  async assistModels(extId: unknown): Promise<AssistModelsResult> {
+    const rt = this.modelsRuntime(extId)
+    const conn = rt?.conn
+    if (!rt || !conn) return { ok: false, error: 'unavailable' }
+    try {
+      const reply = await withTimeout(
+        conn.sendRequest('ext.assistModels', { action: 'list' }),
+        this.deps.assistModelsTimeoutMs ?? ASSIST_MODELS_TIMEOUT_MS,
+        `${rt.ext.manifest.id} models`,
+      )
+      const list = normalizeAssistModels(reply)
+      return list ? { ok: true, ...list } : { ok: false, error: 'invalid' }
+    } catch (err) {
+      return { ok: false, error: normalizeAssistError((err as Error).message) ?? 'failed' }
+    }
+  }
+
+  async setAssistModelLoaded(
+    extId: unknown,
+    id: unknown,
+    loaded: unknown,
+  ): Promise<AssistModelChangeResult> {
+    if (!isAssistModelId(id) || typeof loaded !== 'boolean') return { ok: false, error: 'invalid' }
+    const rt = this.modelsRuntime(extId)
+    const conn = rt?.conn
+    if (!rt || !conn) return { ok: false, error: 'unavailable' }
+    try {
+      const reply = (await withTimeout(
+        conn.sendRequest('ext.assistModels', { action: loaded ? 'load' : 'unload', id }),
+        this.deps.assistModelsTimeoutMs ?? ASSIST_MODEL_CHANGE_TIMEOUT_MS,
+        `${rt.ext.manifest.id} models`,
+      )) as { ok?: unknown; error?: unknown } | null
+      if (reply?.ok === true) return { ok: true }
+      return { ok: false, error: normalizeAssistError(reply?.error) ?? 'failed' }
+    } catch (err) {
+      return { ok: false, error: normalizeAssistError((err as Error).message) ?? 'failed' }
+    }
   }
 
   setShortcuts(raw: unknown): void {

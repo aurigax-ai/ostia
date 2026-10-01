@@ -7,7 +7,7 @@ import {
   type McpServerState,
   type McpServerStatus,
 } from '@shared/chatTools'
-import { type ReactNode, useEffect, useId, useState } from 'react'
+import { type ReactNode, useEffect, useId } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { SKILLS_GROUP, builtinAvailable, groupOf, mcpGroup } from '../lib/chatTools'
 import { refreshMcp, refreshSkills, useChatToolsStore } from '../stores/chatToolsStore'
@@ -108,13 +108,16 @@ function McpRow({ server, sessionId }: { server: McpServerStatus; sessionId: str
 export function ChatToolsMenu({
   sessionId,
   mode,
+  open,
+  onOpenChange,
 }: {
   sessionId: string
   mode: ChatToolMode
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }): JSX.Element {
   const d = useDict()
   const t = d.chatTools
-  const [open, setOpen] = useState(false)
   const off = useChatToolsStore((s) => s.off[sessionId] ?? [])
   const toggle = useChatToolsStore((s) => s.toggle)
   const mcp = useChatToolsStore((s) => s.mcp)
@@ -125,6 +128,11 @@ export function ChatToolsMenu({
     void refreshMcp()
     void refreshSkills()
   }, [])
+  useEffect(() => {
+    if (!open) return
+    void refreshMcp()
+    void refreshSkills()
+  }, [open])
   const builtins = (Object.keys(BUILTIN_TOOL_ACCESS) as BuiltinChatTool[]).filter(
     (name) => name !== 'load_skill' && builtinAvailable(name, skills),
   )
@@ -133,16 +141,7 @@ export function ChatToolsMenu({
     builtins.filter((n) => !off.includes(groupOf(n))).length +
     servers.filter((s) => s.state === 'ready' && !off.includes(mcpGroup(s.name))).length
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (next) {
-          void refreshMcp()
-          void refreshSkills()
-        }
-      }}
-    >
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
         type="button"
         aria-label={t.menuTitle}

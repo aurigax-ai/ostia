@@ -13,6 +13,7 @@ import {
 } from 'vscode-jsonrpc/node'
 import type {
   AssistError,
+  AssistModelList,
   AssistPoint,
   AssistReport,
   AssistRequests,
@@ -30,9 +31,12 @@ import type {
   ExtensionSettingValue,
   ExtensionSettingValues,
   OpenTerminalOptions,
+  SidebarKind,
   SidebarTone,
 } from '../../shared/extensions'
 import { SETTINGS_CHANGED_EVENT, TARGET_PANE_PARAM } from '../../shared/extensions'
+import { PANEL_SIZES_FILE, PanelSizeStore } from './panelSizes'
+import { PANEL_SIZES_PATH } from './split'
 
 export type {
   DiffContent,
@@ -149,6 +153,7 @@ export interface PineExtension {
     text: string
     icon?: ExtensionIcon
     tone?: SidebarTone
+    kind?: SidebarKind
     url?: string
   }) => Promise<unknown>
   notify: (title: string, body?: string) => Promise<unknown>
@@ -165,10 +170,16 @@ export interface PineExtension {
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
   onAssist: (handler: AssistHandler) => void
+  onAssistModels: (handler: AssistModelsHandler) => void
   setAssistStatus: (report: AssistReport) => Promise<unknown>
   getShortcuts: (ids: string[]) => Promise<Record<string, string | null>>
   openAssistUi: (ui: AssistUi, workspaceId?: string) => Promise<ExtensionResult>
   getSecret: (key: string) => Promise<string | null>
+}
+
+export interface AssistModelsHandler {
+  list: () => Promise<AssistModelList>
+  setLoaded: (id: string, loaded: boolean) => Promise<void>
 }
 
 export function ok(text?: string, data?: unknown): ExtensionResult {
@@ -224,6 +235,7 @@ export async function connect(): Promise<PineExtension> {
   let eventHandler: EventHandler | null = null
   let settingsHandler: SettingsHandler | null = null
   let assistHandler: AssistHandler | null = null
+  let modelsHandler: AssistModelsHandler | null = null
 
   conn.onRequest(
     'ext.command',
@@ -267,6 +279,19 @@ export async function connect(): Promise<PineExtension> {
       }
     },
   )
+  conn.onRequest('ext.assistModels', async (params: { action?: unknown; id?: unknown }) => {
+    if (!modelsHandler) throw new Error('no models handler')
+    if (params.action === 'list') return modelsHandler.list()
+    if ((params.action !== 'load' && params.action !== 'unload') || typeof params.id !== 'string') {
+      return { ok: false, error: 'invalid' }
+    }
+    try {
+      await modelsHandler.setLoaded(params.id, params.action === 'load')
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) }
+    }
+  })
   conn.onRequest('ext.panel', async (params: { caller: ExtensionCaller; path?: string }) => {
     if (!panelHandler) throw new Error('no panel handler')
     return panelHandler(params.caller, params.path)
@@ -337,6 +362,9 @@ export async function connect(): Promise<PineExtension> {
     listPanes: () => conn.sendRequest('pane.list'),
     onAssist: (handler) => {
       assistHandler = handler
+    },
+    onAssistModels: (handler) => {
+      modelsHandler = handler
     },
     setAssistStatus: (report) => conn.sendRequest('ext.setAssistStatus', report),
     getShortcuts: async (ids) => {
@@ -476,6 +504,11 @@ export async function startPanelServer(opts: {
   handle: (command: string, args: unknown, caller: ExtensionCaller) => Promise<ExtensionResult>
 }): Promise<PanelServer> {
   const secret = randomBytes(24).toString('hex')
+  const sizes = new PanelSizeStore(
+    process.env.PINE_EXTENSION_DATA
+      ? join(process.env.PINE_EXTENSION_DATA, PANEL_SIZES_FILE)
+      : null,
+  )
   const streams = new Set<ServerResponse>()
   let port = 0
 
@@ -494,6 +527,24 @@ export async function startPanelServer(opts: {
       streams.add(res)
       req.on('close', () => streams.delete(res))
       return
+    }
+    if (url.pathname === PANEL_SIZES_PATH) {
+      if (req.headers['x-pine-panel'] !== secret) return send(res, 403, 'text/plain', 'forbidden')
+      if (req.method === 'GET')
+        return send(res, 200, 'application/json', JSON.stringify(sizes.all()))
+      if (req.method !== 'POST') return send(res, 405, 'text/plain', 'method not allowed')
+      try {
+        const body = JSON.parse(await readBody(req)) as { key?: unknown; fraction?: unknown }
+        if (!sizes.set(body.key, body.fraction ?? null)) throw new Error('key, fraction')
+        return send(res, 200, 'application/json', JSON.stringify(sizes.all()))
+      } catch (err) {
+        return send(
+          res,
+          400,
+          'application/json',
+          JSON.stringify(failure('bad-request', errorMessage(err))),
+        )
+      }
     }
     if (req.method === 'POST' && url.pathname === '/api') {
       if (req.headers['x-pine-panel'] !== secret) return send(res, 403, 'text/plain', 'forbidden')

@@ -1,4 +1,5 @@
 import type { ExtensionResult } from '../../shared/extensions'
+import { PANEL_SIZES_PATH, parsePanelSizes, withPanelSize } from './split'
 
 const params = new URLSearchParams(location.search)
 const secret = params.get('t') ?? ''
@@ -24,6 +25,32 @@ export async function call(command: string, args?: unknown): Promise<ExtensionRe
       message: err instanceof Error ? err.message : String(err),
     }
   }
+}
+
+let sizes: Record<string, number> = {}
+
+export async function loadPanelSizes(): Promise<void> {
+  try {
+    const res = await fetch(PANEL_SIZES_PATH, { headers: { 'x-pine-panel': secret } })
+    if (res.ok) sizes = { ...parsePanelSizes(await res.json()), ...sizes }
+  } catch {}
+}
+
+export function panelSize(key: string): number | undefined {
+  return sizes[key]
+}
+
+export function setPanelSize(key: string, fraction: number | null): void {
+  sizes = withPanelSize(sizes, key, fraction)
+}
+
+export function savePanelSize(key: string, fraction: number | null): void {
+  setPanelSize(key, fraction)
+  void fetch(PANEL_SIZES_PATH, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-pine-panel': secret },
+    body: JSON.stringify({ key, fraction }),
+  }).catch(() => {})
 }
 
 export function onChange(cb: () => void): void {

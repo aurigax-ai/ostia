@@ -1,4 +1,5 @@
 import type { ExtensionInfo } from '@shared/extensions'
+import { DEFAULT_PROMPT_CHIPS } from '@shared/promptSettings'
 import type { PromptContext } from '@shared/types'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -9,7 +10,7 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
-import { PromptEditorDialog, activeTerminalPaneId } from './PromptEditorDialog'
+import { PromptSection } from './PromptSection'
 
 const PANE = 'p1'
 
@@ -46,34 +47,38 @@ const CONTEXT: PromptContext = {
   kubeContext: null,
 }
 
-const pane = (id: string, kind: PaneNode['kind'] = 'terminal'): PaneNode => ({
+const pane = (id: string, cwd: string, kind: PaneNode['kind'] = 'terminal'): PaneNode => ({
   type: 'pane',
   id,
   title: id,
   kind,
-  cwd: '/home/u/proj',
+  cwd,
 })
 
 function seed(kind: PaneNode['kind'] = 'terminal'): void {
   useWorkspacesStore.setState({ activeWorkspaceId: 'w1' })
   useLayoutStore.setState({
-    byWorkspace: { w1: { root: pane(PANE, kind), activePaneId: PANE, zoomedPaneId: null } },
+    byWorkspace: {
+      w1: { root: pane(PANE, '/home/u/proj', kind), activePaneId: PANE, zoomedPaneId: null },
+      w2: { root: pane('p2', '/home/u/other'), activePaneId: 'p2', zoomedPaneId: null },
+    },
   })
 }
 
-function setChips(chips: string[]): void {
+function setChips(chips: string[], style: 'shell' | 'pine' = 'pine'): void {
   useSettingsStore.setState((s) => ({
-    terminal: { ...s.terminal, prompt: { ...s.terminal.prompt, chips } },
+    terminal: { ...s.terminal, prompt: { ...s.terminal.prompt, chips, style } },
   }))
 }
 
+const saved = () => useSettingsStore.getState().terminal.prompt
 const selected = () => screen.getByRole('list', { name: 'In the prompt' })
 const selectedIds = () =>
   within(selected())
     .getAllByRole('listitem')
     .map((li) => li.getAttribute('data-chip'))
 
-describe('PromptEditorDialog', () => {
+describe('PromptSection', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
@@ -101,18 +106,10 @@ describe('PromptEditorDialog', () => {
     vi.mocked(window.pine.pty.promptContext).mockReset()
   })
 
-  it('finds the active terminal pane and nothing for another surface', () => {
-    seed()
-    expect(activeTerminalPaneId()).toBe(PANE)
-    seed('browser')
-    expect(activeTerminalPaneId()).toBeNull()
-  })
-
-  it('previews the active pane’s real values and marks chips without one', async () => {
+  it('previews the active terminal’s real values and marks chips without one', async () => {
     seed()
     setChips(['user', 'kube', 'cwd'])
-    useUIStore.getState().openPromptEditor(PANE)
-    render(<PromptEditorDialog />)
+    render(<PromptSection />)
     const preview = screen.getByRole('region', { name: 'Preview' })
     expect(await within(preview).findByText('ada')).toBeVisible()
     expect(within(preview).getByText('~/proj')).toBeVisible()
@@ -121,30 +118,50 @@ describe('PromptEditorDialog', () => {
     )
   })
 
+  it('previews the pane Settings was opened from, even outside the active workspace', async () => {
+    seed()
+    setChips(['cwd'])
+    useUIStore.getState().openSettings('prompt', 'p2')
+    render(<PromptSection />)
+    const preview = screen.getByRole('region', { name: 'Preview' })
+    expect(await within(preview).findByText('~/other')).toBeVisible()
+  })
+
+  it('falls back to the active terminal when the requested pane is gone', async () => {
+    seed()
+    setChips(['cwd'])
+    useUIStore.getState().openSettings('prompt', 'closed-pane')
+    render(<PromptSection />)
+    const preview = screen.getByRole('region', { name: 'Preview' })
+    expect(await within(preview).findByText('~/proj')).toBeVisible()
+  })
+
   it('shows no preview values without a terminal', () => {
-    useUIStore.getState().openPromptEditor(null)
-    render(<PromptEditorDialog />)
+    seed('browser')
+    render(<PromptSection />)
     expect(screen.getByText('Open a terminal to preview its values.')).toBeVisible()
     expect(window.pine.pty.promptContext).not.toHaveBeenCalled()
   })
 
-  it('adds, removes and reorders chips with buttons and Alt+arrow keys', async () => {
+  it('adds, removes and reorders chips with buttons and Alt+arrow keys, saving each change', async () => {
     seed()
     setChips(['cwd', 'user'])
-    useUIStore.getState().openPromptEditor(PANE)
-    render(<PromptEditorDialog />)
+    render(<PromptSection />)
     await userEvent.click(screen.getByRole('button', { name: 'Add Time (24-hour)' }))
     expect(selectedIds()).toEqual(['cwd', 'user', 'time24'])
+    expect(saved().chips).toEqual(['cwd', 'user', 'time24'])
     await userEvent.click(screen.getByRole('button', { name: 'Move Time (24-hour) up' }))
     expect(selectedIds()).toEqual(['cwd', 'time24', 'user'])
     const handle = screen.getByRole('button', { name: 'Reorder Working directory' })
     handle.focus()
     await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}')
     expect(selectedIds()).toEqual(['time24', 'cwd', 'user'])
+    expect(saved().chips).toEqual(['time24', 'cwd', 'user'])
     expect(screen.getByRole('button', { name: 'Reorder Working directory' })).toHaveFocus()
     expect(screen.getByText('Working directory moved to position 2')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Remove User' }))
     expect(selectedIds()).toEqual(['time24', 'cwd'])
+    expect(saved().chips).toEqual(['time24', 'cwd'])
     expect(screen.getByRole('button', { name: 'Add User' })).toBeVisible()
   })
 
@@ -155,17 +172,15 @@ describe('PromptEditorDialog', () => {
         extension({ id: 'off', enabled: false, paneChips: [{ id: 'x', title: 'Hidden chip' }] }),
       ],
     })
-    useUIStore.getState().openPromptEditor(null)
-    render(<PromptEditorDialog />)
+    render(<PromptSection />)
     expect(screen.getByRole('button', { name: 'Add Listening port (extension)' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Add Hidden chip (extension)' })).toBeNull()
   })
 
-  it("places the git extension's branch and diff stats chips after the directory by default", () => {
+  it('places the branch and diff stats chips after the directory by default', () => {
     useExtensionsStore.setState({
       list: [
         extension({
-          id: 'git',
           paneChips: [
             { id: 'branch', title: 'Git branch' },
             { id: 'diff-stats', title: 'Git diff stats' },
@@ -173,38 +188,47 @@ describe('PromptEditorDialog', () => {
         }),
       ],
     })
-    useUIStore.getState().openPromptEditor(null)
-    render(<PromptEditorDialog />)
+    render(<PromptSection />)
     expect(screen.getByRole('button', { name: 'Remove Git branch (extension)' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Remove Git diff stats (extension)' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Add Git branch (extension)' })).toBeNull()
   })
 
-  it('saves the order, same line and separator and switches to the Pine prompt', async () => {
-    setChips(['cwd'])
-    useUIStore.getState().openPromptEditor(null)
-    render(<PromptEditorDialog />)
-    await userEvent.click(screen.getByRole('button', { name: 'Add Host' }))
+  it('applies the style, same line and separator as soon as they change', async () => {
+    setChips(['cwd'], 'shell')
+    render(<PromptSection />)
+    await userEvent.click(screen.getByRole('combobox', { name: 'Prompt style' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Pine prompt' }))
+    expect(saved().style).toBe('pine')
     await userEvent.click(screen.getByRole('switch', { name: 'Same line prompt' }))
+    expect(saved().sameLine).toBe(true)
     await userEvent.click(screen.getByRole('combobox', { name: 'Separator' }))
     await userEvent.click(await screen.findByRole('option', { name: '>' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    expect(useSettingsStore.getState().terminal.prompt).toEqual({
-      style: 'pine',
-      chips: ['cwd', 'host'],
-      sameLine: true,
-      separator: '>',
-    })
-    expect(useUIStore.getState().promptEditor).toBeNull()
+    expect(saved()).toEqual({ style: 'pine', chips: ['cwd'], sameLine: true, separator: '>' })
   })
 
-  it('leaves the settings alone on Cancel', async () => {
-    setChips(['cwd'])
-    useUIStore.getState().openPromptEditor(null)
-    render(<PromptEditorDialog />)
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Working directory' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(useSettingsStore.getState().terminal.prompt.chips).toEqual(['cwd'])
-    expect(useSettingsStore.getState().terminal.prompt.style).toBe('shell')
+  it('keeps the chip editor under the shell prompt and says when it applies', async () => {
+    setChips(['cwd'], 'shell')
+    render(<PromptSection />)
+    expect(screen.getByText('These chips show when Prompt style is Pine prompt.')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Add Host' }))
+    expect(saved()).toMatchObject({ style: 'shell', chips: ['cwd', 'host'] })
+  })
+
+  it('restores the default chips, line and separator without changing the style', async () => {
+    useSettingsStore.setState((s) => ({
+      terminal: {
+        ...s.terminal,
+        prompt: { style: 'pine', chips: ['host'], sameLine: true, separator: '$' },
+      },
+    }))
+    render(<PromptSection />)
+    await userEvent.click(screen.getByRole('button', { name: 'Restore' }))
+    expect(saved()).toEqual({
+      style: 'pine',
+      chips: [...DEFAULT_PROMPT_CHIPS],
+      sameLine: false,
+      separator: 'none',
+    })
   })
 })

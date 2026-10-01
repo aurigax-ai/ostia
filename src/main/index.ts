@@ -86,10 +86,12 @@ import {
   markManager,
   panesOwnedBy,
   registerPane,
+  rehomeWorkspace,
   removePane,
   removeWindow,
   resolveExternal,
   windowOfWorkspace,
+  workspaceHasManager,
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { registerLoginFill } from './loginFill'
@@ -137,6 +139,7 @@ import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { SandboxStore } from './sandbox/store'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
+import { ScratchFolders, registerScratchIpc } from './scratchFolders'
 import { ScreenMirror } from './screenMirror'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
@@ -161,6 +164,7 @@ import { registerViewMethods, registerViewsIpc } from './viewsIpc'
 import { MAIN_SLOT } from './windowBook'
 import { WindowBroker } from './windowBroker'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
+import { registerWorkspaceMergeIpc } from './workspaceMerge'
 import {
   removeWorkspace,
   setWorkspaceWorkDir,
@@ -201,6 +205,7 @@ interface PtyEntry {
   stateFile: string
   workspaceId: string
   sandboxed: boolean
+  confinedBy: string | null
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
 }
@@ -318,6 +323,16 @@ function sandboxCwd(cwd: string, workDir: string | undefined): string {
   return cwd === workDir || cwd.startsWith(`${workDir}/`) ? cwd : workDir
 }
 
+const scratchFolders = new ScratchFolders(privateTmpDir('pine-scratch'))
+
+function fileRoots(): string[] {
+  return [homedir(), app.getPath('userData'), scratchFolders.root]
+}
+
+function isScratchPane(paneId: string): boolean {
+  return scratchFolders.isScratch(getByPaneId(paneId)?.workspaceId)
+}
+
 const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   store: new SandboxStore(join(app.getPath('userData'), 'sandbox.json')),
   globals: () => parseSandboxGlobals((readSettingsFile() as { sandbox?: unknown }).sandbox),
@@ -338,8 +353,10 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   tmpRoot: privateTmpDir('pine-sandbox'),
   nodePath: process.execPath,
   hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
-  onAsk: (workspaceId, host, port) => domainRequests.onBlocked(workspaceId, host, port),
-  onPackageBlocked: (workspaceId, pkg, reason) => packageRequests.blocked(workspaceId, pkg, reason),
+  onAsk: (workspaceId, host, port) =>
+    domainRequests.onBlocked(workspaceSandboxes.owner(workspaceId), host, port),
+  onPackageBlocked: (workspaceId, pkg, reason) =>
+    packageRequests.blocked(workspaceSandboxes.owner(workspaceId), pkg, reason),
 })
 
 function paneForWorkspace(workspaceId: string): string | undefined {
@@ -876,15 +893,12 @@ function registerIpc(): void {
       terminalState.delete(event.paneId)
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
+      scratchFolders.bind(event.workspaceId, event.workDir, windowId)
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
-      workspaceSandboxes.forget(event.workspaceId)
-      packageRequests.forget(event.workspaceId)
-      workspaceAgents.stop(event.workspaceId)
-      secretService.forget(event.workspaceId)
-      void portForwarder.forget(event.workspaceId)
-      portRequests.forget(event.workspaceId)
-      domainRequests.forget(event.workspaceId)
+      scratchFolders.remove(event.workspaceId)
+      forgetWorkspaceRequests(event.workspaceId)
+      forgetSandboxRuntime(event.workspaceId)
     } else if (event.type === 'workspace-activated') {
     } else if (event.type === 'workspace-state') {
       emitSessionState(event.workspaceId, event.state)
@@ -1010,7 +1024,54 @@ function registerExtensionIpc(host: ExtensionHost): void {
   )
 }
 
+function forgetWorkspaceRequests(workspaceId: string): void {
+  packageRequests.forget(workspaceId)
+  void portForwarder.forget(workspaceId)
+  portRequests.forget(workspaceId)
+  domainRequests.forget(workspaceId)
+}
+
+function forgetSandboxRuntime(workspaceId: string): void {
+  workspaceSandboxes.forget(workspaceId)
+  workspaceAgents.stop(workspaceId)
+  secretService.forget(workspaceId)
+}
+
+const mergedSandboxes = new Set<string>()
+
+function releaseMergedSandbox(workspaceId: string, exiting?: PtyEntry): void {
+  if (!mergedSandboxes.has(workspaceId)) return
+  for (const entry of ptys.values()) {
+    if (entry !== exiting && entry.confinedBy === workspaceId) return
+  }
+  mergedSandboxes.delete(workspaceId)
+  forgetSandboxRuntime(workspaceId)
+}
+
+function mergeWorkspace(sourceId: string, targetId: string): void {
+  for (const identity of rehomeWorkspace(sourceId, targetId)) {
+    extensionHost?.emitEvent('pane.created', {
+      paneId: identity.externalId,
+      workspaceId: targetId,
+    })
+  }
+  for (const entry of ptys.values()) {
+    if (entry.workspaceId === sourceId) entry.workspaceId = targetId
+  }
+  workspaceSandboxes.merge(sourceId, targetId)
+  removeWorkspace(sourceId)
+  forgetWorkspaceRequests(sourceId)
+  mergedSandboxes.add(sourceId)
+  releaseMergedSandbox(sourceId)
+}
+
 function registerPtyIpc(): void {
+  registerWorkspaceMergeIpc({
+    ownerWindow: windowForWorkspace,
+    hasManager: workspaceHasManager,
+    sandboxRefusal: (sourceId, targetId) => workspaceSandboxes.mergeRefusal(sourceId, targetId),
+    merge: mergeWorkspace,
+  })
   registerSandboxIpc({
     sandboxes: workspaceSandboxes,
     ownerWindow: windowForWorkspace,
@@ -1098,7 +1159,6 @@ function registerPtyIpc(): void {
     }
     const shell =
       opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
-    const integration = shellIntegrationSpawnOptions(shell, process.env, opts.pinePrompt ?? null)
     const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
     if (!resolved.ok) {
       return {
@@ -1110,6 +1170,12 @@ function registerPtyIpc(): void {
     }
     const identity = registerPane({ windowId: subId, workspaceId: resolved.workspaceId, paneId })
     const workspaceId = identity.workspaceId
+    const integration = shellIntegrationSpawnOptions(
+      shell,
+      process.env,
+      opts.pinePrompt ?? null,
+      scratchFolders.historyFile(workspaceId),
+    )
     const cols = opts.cols || 80
     const rows = opts.rows || 24
     const stateFile = join(privateTmpDir('pine-shell-state'), randomUUID())
@@ -1184,7 +1250,12 @@ function registerPtyIpc(): void {
       sandboxed,
     })
     const { session } = entry
-    if (sandboxed) entry.exitListeners.add(() => void workspaceSandboxes.cleanup(workspaceId))
+    if (sandboxed) {
+      entry.exitListeners.add(() => {
+        void workspaceSandboxes.cleanup(workspaceId)
+        releaseMergedSandbox(workspaceId, entry)
+      })
+    }
 
     const history = takeRestoredScrollback(paneId)
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
@@ -1310,6 +1381,7 @@ function trackPty(
     exitListeners: new Set(),
     workspaceId: opts.workspaceId ?? '',
     sandboxed: opts.sandboxed ?? false,
+    confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
   }
   ptys.set(paneId, entry)
   return entry
@@ -1421,7 +1493,7 @@ const FILE_WATCH_DEBOUNCE_MS = 150
 let fileWatches: FileWatches | null = null
 
 function registerFsIpc(): void {
-  const allowedRoots = [homedir(), app.getPath('userData')]
+  const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
   registerOpenPathIpc(allowedRoots)
   registerProjectRootIpc(allowedRoots)
@@ -1792,6 +1864,8 @@ app.on('second-instance', (_event, argv) => {
 
 app.whenReady().then(() => {
   loadRestoredScrollback()
+  scratchFolders.sweep()
+  registerScratchIpc(scratchFolders)
   registerIpc()
   registerPtyIpc()
   registerFsIpc()
@@ -1803,6 +1877,7 @@ app.whenReady().then(() => {
   registerLspIpc()
   const notifyDeps = {
     execCommand,
+    isScratchPane,
     windows: () => windows.values(),
     windowById: (id: string) => windows.get(id),
   }
@@ -1907,7 +1982,7 @@ app.whenReady().then(() => {
     onStatus: (status) => broadcast('chatTools:mcp-status', status),
   })
   registerChatToolsIpc({
-    roots: () => [homedir(), app.getPath('userData')],
+    roots: fileRoots,
     settings: chatToolSettings,
     mcp: mcpHost,
     secrets: mcpSecrets,
@@ -2025,7 +2100,7 @@ function persistScrollback(): void {
   try {
     const byPane = pendingRestoredScrollback()
     for (const [paneId, entry] of ptys) byPane[paneId] = entry.mirror.serialize()
-    saveScrollback(byPane)
+    saveScrollback(byPane, isScratchPane)
   } catch (err) {
     console.error('[workspace] scrollback save failed', err)
   }
@@ -2049,7 +2124,9 @@ app.on('before-quit', (event) => {
     if (quitAsking) return
     quitAsking = true
     const all = BrowserWindow.getAllWindows()
-    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow()).then((approved) => {
+    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow(), (workspaceId) =>
+      scratchFolders.countFiles(workspaceId),
+    ).then((approved) => {
       quitAsking = false
       if (!approved) return
       quitApproved = true
@@ -2072,7 +2149,9 @@ app.on('before-quit', (event) => {
   killAllProcesses()
   workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
+  for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
   workspaceSandboxes.clearTmp()
+  scratchFolders.removeAll()
   portForwarder.stopAll()
   extensionHost?.stopAll()
   mcpHost?.closeAll()

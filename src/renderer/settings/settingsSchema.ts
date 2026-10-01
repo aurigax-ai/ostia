@@ -292,8 +292,9 @@ export const SETTINGS_JSON_SCHEMA = {
         warnOnRiskyPaste: {
           type: 'boolean',
           description:
-            'Ask before pasting text that contains a newline or unsafe control characters ' +
-            'into a terminal. Default: true.',
+            'Ask before pasting two or more lines into a terminal from the clipboard. A single ' +
+            'line is always pasted without its trailing newline or control characters. Only ' +
+            'you can change this, in Settings; agents cannot. Default: true.',
         },
         minimumContrast: {
           type: 'number',
@@ -307,8 +308,8 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'object',
           additionalProperties: false,
           description:
-            'The prompt the input editor shows (behavior.inputMode "editor"). Right-click the ' +
-            'prompt and choose Edit prompt to arrange it.',
+            'The prompt the input editor shows (behavior.inputMode "editor"). Arrange it in ' +
+            'Settings → Prompt, or right-click the prompt and choose Edit prompt.',
           properties: {
             style: {
               type: 'string',
@@ -455,7 +456,7 @@ export const SETTINGS_JSON_SCHEMA = {
           description:
             'MCP servers the assistant chat can call tools from. Each one runs a program from ' +
             'an argv (never a shell) or connects to an http(s) URL. Every tool call asks you ' +
-            'in the chat first. Tokens go in Settings → Plugins → Assistant (stored encrypted, ' +
+            'in the chat first. Tokens go in Settings → Assistant (stored encrypted, ' +
             'never here). Only you can change this; pine settings set refuses it.',
           items: {
             type: 'object',

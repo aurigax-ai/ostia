@@ -69,6 +69,12 @@ if [[ "$PINE_PROMPT" == pine ]]; then
 fi
 unset PINE_PROMPT PINE_PROMPT_SEPARATOR PINE_PROMPT_LINES
 
+# Scratch workspace: keep this shell's history in its scratch folder, never the user's file.
+if [[ -n "$PINE_HISTFILE" ]]; then
+  HISTFILE="$PINE_HISTFILE"
+fi
+unset PINE_HISTFILE
+
 # Pine prompt: the input editor draws the context, so the shell line is only "cwd sep". This
 # file loads after the user's rc; powerlevel10k rebuilds PROMPT in its own last precmd, so it is
 # torn down once.
@@ -196,6 +202,12 @@ if [ "$PINE_PROMPT" = pine ]; then
   fi
 fi
 unset PINE_PROMPT PINE_PROMPT_SEPARATOR PINE_PROMPT_LINES
+
+# Scratch workspace: keep this shell's history in its scratch folder, never the user's file.
+if [ -n "$PINE_HISTFILE" ]; then
+  HISTFILE="$PINE_HISTFILE"
+fi
+unset PINE_HISTFILE
 
 __pine_prompt_command() {
   local ec=$?
@@ -549,10 +561,15 @@ function promptEnv(option: PinePromptOption | null): Record<string, string> {
   }
 }
 
+function historyEnv(histFile: string | null): Record<string, string> {
+  return histFile ? { PINE_HISTFILE: histFile } : {}
+}
+
 export function shellIntegrationSpawnOptions(
   shellPath: string,
   baseEnv: NodeJS.ProcessEnv,
   pinePrompt: PinePromptOption | null = null,
+  histFile: string | null = null,
 ): { args: string[]; env: Record<string, string> } {
   const name = basename(shellPath).toLowerCase()
 
@@ -564,13 +581,17 @@ export function shellIntegrationSpawnOptions(
         ZDOTDIR: INTEGRATION_DIR,
         PINE_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
         ...promptEnv(pinePrompt),
+        ...historyEnv(histFile),
       },
     }
   }
 
   if (name === 'bash') {
     const { bashRc } = ensureFiles()
-    return { args: ['--rcfile', bashRc], env: promptEnv(pinePrompt) }
+    return {
+      args: ['--rcfile', bashRc],
+      env: { ...promptEnv(pinePrompt), ...historyEnv(histFile) },
+    }
   }
 
   return { args: [], env: {} }

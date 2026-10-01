@@ -213,6 +213,16 @@ describe('SettingsPanel', () => {
     expect(setBehavior).toHaveBeenCalledWith({ inputMode: 'editor' })
   })
 
+  it('opens the Prompt page from the Terminal page’s Edit prompt button', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Terminal' }))
+    await user.click(screen.getByRole('button', { name: 'Edit prompt' }))
+    expect(screen.getByRole('heading', { level: 2, name: 'Prompt' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Prompt' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('combobox', { name: 'Prompt style' })).toBeInTheDocument()
+  })
+
   it('changes the cursor style (Terminal section) via setBehavior', async () => {
     const setBehavior = vi
       .spyOn(useSettingsStore.getState(), 'setBehavior')
@@ -508,5 +518,42 @@ describe('SettingsPanel', () => {
 
     await user.click(screen.getByRole('button', { name: 'Files' }))
     expect(screen.getByRole('switch', { name: 'Show hidden files' })).toBeInTheDocument()
+  })
+  it('keeps only the plugin switch in Plugins and links an assist plugin to Settings → Assistant', async () => {
+    useExtensionsStore.setState({
+      list: [
+        {
+          id: 'assistant',
+          name: 'Assistant',
+          version: '1.0.0',
+          description: '',
+          builtin: true,
+          enabled: true,
+          status: 'running',
+          requested: ['assist'],
+          granted: ['assist'],
+          unapproved: [],
+          commands: [],
+          panel: null,
+          paneChips: [],
+          settings: [{ key: 'baseUrl', type: 'string', default: '', description: 'Address' }],
+          settingValues: {},
+          assist: ['chat'],
+          secrets: [],
+          secretsSet: [],
+          iconThemes: [],
+        },
+      ],
+    })
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Plugins' }))
+    expect(screen.getByRole('switch', { name: 'Enable Assistant' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'baseUrl' })).toBeNull()
+    expect(screen.queryByText('MCP servers')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Configure in Assistant settings' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Assistant' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'baseUrl' })).toBeInTheDocument()
+    expect(screen.getByText('MCP servers')).toBeInTheDocument()
   })
 })

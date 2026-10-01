@@ -28,12 +28,6 @@ export function parseEndpoint(raw: string): Endpoint | null {
   }
 }
 
-export function describeEndpoint(endpoint: Endpoint): string {
-  return endpoint.socketPath
-    ? `${UNIX_PREFIX}${endpoint.socketPath}`
-    : `${endpoint.origin}${endpoint.basePath}`
-}
-
 export function baseUrl(endpoint: Endpoint, extra = ''): string {
   return `${endpoint.origin}${endpoint.basePath}${extra}`
 }

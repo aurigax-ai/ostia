@@ -16,11 +16,16 @@ export type AttentionEvent =
   | { type: 'commandStart'; at: number }
   | { type: 'commandEnd'; exitCode: number; long: boolean; message?: string; at: number }
   | { type: 'input'; at: number }
+  | { type: 'waitEnded'; at: number }
   | { type: 'view'; at: number }
 
 export const EMPTY_ATTENTION: PaneAttention = { state: 'none', unread: false, at: 0 }
 
 const LOUD: ReadonlySet<AttentionState> = new Set(['waiting', 'done', 'error'])
+
+function endWait(prev: PaneAttention, at: number): PaneAttention {
+  return prev.state === 'waiting' ? { state: 'none', unread: false, at } : prev
+}
 
 export function reduceAttention(prev: PaneAttention, event: AttentionEvent): PaneAttention {
   switch (event.type) {
@@ -48,9 +53,11 @@ export function reduceAttention(prev: PaneAttention, event: AttentionEvent): Pan
         return { state: 'error', unread: true, message: event.message, at: event.at }
       }
       if (event.long) return { state: 'done', unread: true, message: event.message, at: event.at }
-      return prev
+      return endWait(prev, event.at)
     case 'input':
       return prev.state === 'waiting' ? { ...prev, state: 'none' } : prev
+    case 'waitEnded':
+      return endWait(prev, event.at)
     case 'view':
       if (!prev.unread && prev.state !== 'done') return prev
       return { ...prev, unread: false, state: prev.state === 'done' ? 'none' : prev.state }

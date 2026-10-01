@@ -4,6 +4,8 @@ import {
   BellIcon,
   BracketsCurlyIcon,
   BroadcastIcon,
+  CaretRightIcon,
+  ChatCircleDotsIcon,
   CheckIcon,
   CopyIcon,
   DeviceMobileIcon,
@@ -24,6 +26,7 @@ import {
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
   SquaresFourIcon,
+  TerminalIcon,
   TerminalWindowIcon,
   TranslateIcon,
   TreeStructureIcon,
@@ -31,7 +34,6 @@ import {
 import type { ApprovalMode } from '@shared/approvals'
 import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
-import { PROMPT_STYLES, type PromptStyle } from '@shared/promptSettings'
 import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -74,8 +76,8 @@ import {
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ActionsSection } from './ActionsSection'
+import { AssistantSection, isAssistExtension } from './AssistantSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
-import { ChatToolsSettings } from './ChatToolsSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { FileTreeSettingsGroups } from './FilesSettingsSection'
 import { FontPicker } from './FontPicker'
@@ -85,7 +87,7 @@ import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
 import { ManagerSection } from './ManagerSection'
 import { PasswordsSection } from './PasswordsSection'
-import { activeTerminalPaneId } from './PromptEditorDialog'
+import { PromptSection } from './PromptSection'
 import { SandboxSection } from './SandboxSection'
 import { SyncSection } from './SyncSection'
 import { ThemeRows } from './ThemeSettings'
@@ -107,12 +109,14 @@ type SectionId =
   | 'manager'
   | 'appearance'
   | 'terminal'
+  | 'prompt'
   | 'keyboard'
   | 'panes'
   | 'notifications'
   | 'sidebar'
   | 'workspaces'
   | 'agents'
+  | 'assistant'
   | 'files'
   | 'browser'
   | 'passwords'
@@ -166,6 +170,7 @@ export function SettingsPanel(): JSX.Element | null {
       [
         { id: 'appearance', icon: PaletteIcon, label: d.settings.appearance },
         { id: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
+        { id: 'prompt', icon: TerminalIcon, label: d.prompt.title },
         { id: 'keyboard', icon: KeyboardIcon, label: d.keyboard.title },
         { id: 'panes', icon: SquareSplitHorizontalIcon, label: d.settings.panes },
         { id: 'notifications', icon: BellIcon, label: d.settings.notifications },
@@ -173,6 +178,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
         { id: 'sandbox', icon: ShieldCheckIcon, label: d.sandbox.title },
         { id: 'agents', icon: RobotIcon, label: d.settings.agents },
+        { id: 'assistant', icon: ChatCircleDotsIcon, label: d.assistantSettings.title },
         ...(platform === 'linux'
           ? [{ id: 'manager' as const, icon: BroadcastIcon, label: d.manager.settingsTitle }]
           : []),
@@ -262,6 +268,7 @@ export function SettingsPanel(): JSX.Element | null {
           <div className="mx-auto max-w-3xl px-8 py-5">
             {active === 'appearance' ? <AppearanceSection /> : null}
             {active === 'terminal' ? <TerminalSection /> : null}
+            {active === 'prompt' ? <PromptSection /> : null}
             {active === 'keyboard' ? (
               <>
                 <KeyboardSection />
@@ -281,6 +288,7 @@ export function SettingsPanel(): JSX.Element | null {
               />
             ) : null}
             {active === 'agents' ? <AgentsSection /> : null}
+            {active === 'assistant' ? <AssistantSection /> : null}
             {active === 'manager' ? <ManagerSection /> : null}
             {active === 'files' ? <FilesSection /> : null}
             {active === 'browser' ? <BrowserSettingsSection /> : null}
@@ -311,14 +319,24 @@ export function SectionHead({ title, desc }: { title: string; desc?: string }): 
 
 export function SettingsGroup({
   title,
+  desc,
+  action,
   children,
 }: {
   title: string
+  desc?: string
+  action?: React.ReactNode
   children: React.ReactNode
 }): JSX.Element {
   return (
     <section className="mt-5 border-line border-t pt-5 first-of-type:mt-3 first-of-type:border-t-0 first-of-type:pt-0">
-      <h3 className="mb-2 font-semibold text-fg text-ui-emphasis">{title}</h3>
+      <div className="mb-2 flex items-start justify-between gap-6">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-fg text-ui-emphasis">{title}</h3>
+          {desc ? <p className="mt-0.5 text-fg-muted text-ui-sm">{desc}</p> : null}
+        </div>
+        {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+      </div>
       {children}
     </section>
   )
@@ -669,8 +687,8 @@ function NotificationsSection(): JSX.Element {
           onChange={(v) => set({ sound: v })}
         />
         <ToggleRow
-          label={d.settings.notifyWhenFocused}
-          desc={d.settings.notifyWhenFocusedDesc}
+          label={fmt(d.settings.notifyWhenFocused, { product: PRODUCT_NAME })}
+          desc={fmt(d.settings.notifyWhenFocusedDesc, { product: PRODUCT_NAME })}
           checked={n.whenFocused}
           onChange={(v) => set({ whenFocused: v })}
         />
@@ -882,11 +900,7 @@ function TerminalSection(): JSX.Element {
   const clipboardKeys = useSettingsStore((s) => s.terminal.clipboardKeys)
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
-  const prompt = useSettingsStore((s) => s.terminal.prompt)
-  const promptLabel: Record<PromptStyle, string> = {
-    shell: d.settings.promptStyleShell,
-    pine: d.settings.promptStylePine,
-  }
+  const promptStyle = useSettingsStore((s) => s.terminal.prompt.style)
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
@@ -914,23 +928,20 @@ function TerminalSection(): JSX.Element {
           checked={vim}
           onChange={(v) => setBehavior({ inputEditorVim: v })}
         />
-        <ControlRow label={d.settings.promptStyle} desc={d.settings.promptStyleDesc}>
-          <SelectField
-            value={prompt.style}
-            onChange={(style) => setTerminal({ prompt: { ...prompt, style } })}
-            label={d.settings.promptStyle}
-            options={PROMPT_STYLES.map((p) => ({ value: p, label: promptLabel[p] }))}
-            width="w-36"
-          />
+        <ControlRow
+          label={d.prompt.title}
+          desc={promptStyle === 'pine' ? d.settings.promptStylePine : d.settings.promptStyleShell}
+        >
           <Button
             variant="outline"
             size="sm"
-            onClick={() => useUIStore.getState().openPromptEditor(activeTerminalPaneId())}
+            onClick={() => useUIStore.getState().openSettings('prompt')}
           >
-            {d.prompt.edit}
+            {d.settings.promptOpen}
+            <CaretRightIcon data-icon="inline-end" />
           </Button>
         </ControlRow>
-        {prompt.style === 'pine' && mode !== 'editor' ? (
+        {promptStyle === 'pine' && mode !== 'editor' ? (
           <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
         ) : null}
       </SettingsGroup>
@@ -1189,7 +1200,6 @@ export function ExtensionsSection(): JSX.Element {
   const list = useExtensionsStore((s) => s.list)
   const setEnabled = useExtensionsStore((s) => s.setEnabled)
   const review = useExtensionsStore((s) => s.review)
-  const chatExt = list.find((e) => e.enabled && e.assist.includes('chat'))?.id
   return (
     <section aria-label={d.extensions.title}>
       <SubHead title={d.extensions.title} desc={d.extensions.desc} />
@@ -1235,8 +1245,18 @@ export function ExtensionsSection(): JSX.Element {
                   />
                 </div>
               </div>
-              <ExtensionSettingsForm ext={ext} />
-              {ext.id === chatExt ? <ChatToolsSettings /> : null}
+              {!isAssistExtension(ext) ? (
+                <ExtensionSettingsForm ext={ext} />
+              ) : ext.enabled ? (
+                <Button
+                  variant="link"
+                  size="xs"
+                  className="h-5 self-start px-0 text-ui-sm"
+                  onClick={() => useUIStore.getState().openSettings('assistant')}
+                >
+                  {d.assistantSettings.configure}
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>

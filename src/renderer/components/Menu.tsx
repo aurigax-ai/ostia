@@ -118,15 +118,17 @@ export function DropdownMenu({
   trigger,
   children,
   className,
+  align = 'end',
 }: {
   trigger: ReactElement
   children: ReactNode
   className?: string
+  align?: 'start' | 'end'
 }): JSX.Element {
   return (
     <MenuPrimitive.Root>
       <MenuPrimitive.Trigger render={trigger} />
-      <MenuContent side="bottom" align="end" alignOffset={0} sideOffset={4} className={className}>
+      <MenuContent side="bottom" align={align} alignOffset={0} sideOffset={4} className={className}>
         {children}
       </MenuContent>
     </MenuPrimitive.Root>

@@ -76,8 +76,10 @@ pine workspace list --json                    # {workspaces, groups}: who is gro
 Use `waiting` whenever you block on the human (a question, an approval) and `done` when a long
 task finishes, so a human supervising many panes can jump straight to yours (Ctrl+Shift+U /
 ⌘⇧U jumps to the latest unread pane). Focusing the pane clears the unread flag; typing into a
-waiting pane clears `waiting`. Default capability `drive-self`. Printing an OSC 9 notification
-(`printf '\e]9;%s\a' "msg"`) does the same as `state waiting` from any program. For wiring
+waiting pane clears `waiting`, and so does your command exiting: report `waiting` only while you
+are still running. Default capability `drive-self`. Printing an OSC 9 notification
+(`printf '\e]9;%s\a' "msg"`) marks the pane unread with that message; it counts as `waiting`
+only while an agent runs in the pane. For wiring
 Claude Code/Codex hooks to this automatically, see `docs/AGENT-HOOKS.md` in the Pine repo.
 
 ## Raw UI commands
@@ -395,8 +397,9 @@ restart) and saves `settings.json`. It prints `{previous, value, applied}`; keep
 doesn't exist (`unknown settings key`), the type differs, or the setting doesn't accept it
 (`invalid value for <key>`, e.g. an enum value it doesn't list); look the key up with
 `pine settings schema <key>` instead of guessing. Keys that launch programs or grant
-permissions (`behavior.externalEditor`, `notifications.command`, `capabilities`,
-`approvals`, `sync`) are the human's; you can't set them. `get` with no key returns every
+permissions or guard the human (`behavior.externalEditor`, `notifications.command`,
+`agents.autoResume`, `terminal.warnOnRiskyPaste`, `capabilities`, `approvals`, `sync`) are the
+human's; you can't set them. `get` with no key returns every
 readable setting; with a key it prints `null` if absent.
 
 ### Signing in with the human's saved logins

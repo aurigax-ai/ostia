@@ -10,7 +10,7 @@ import { DetachedTitleBar } from './components/DetachedTitleBar'
 import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
 import { FilesPanel } from './components/FilesPanel'
 import { HistorySearch } from './components/HistorySearch'
-import { PromptEditorDialog } from './components/PromptEditorDialog'
+import { MergeConfirmDialog } from './components/MergeConfirmDialog'
 import { SandboxRequirementsDialog } from './components/SandboxRequirementsDialog'
 import { SaveWorkflowDialog } from './components/SaveWorkflowDialog'
 import { TopBar } from './components/TopBar'
@@ -115,9 +115,9 @@ export function App(): JSX.Element {
           <CommandPalette />
           <ExtensionApprovalDialog />
           <CloseConfirmDialog />
+          <MergeConfirmDialog />
           <ActionConfirmDialog />
           <SandboxRequirementsDialog />
-          <PromptEditorDialog />
           <HistorySearch />
           <WorkflowPicker />
           <SaveWorkflowDialog />

@@ -17,12 +17,21 @@ export interface CommandContext {
   target?: { windowId?: string; workspaceId: string; paneId: string | null } | null
 }
 
+export interface CommandChoice {
+  value: string
+  label: string
+  disabledReason?: string
+}
+
 export interface CommandDef<Args = void, R = void> {
   id: string
   title: string
   category?: string
   hidden?: boolean
+  local?: boolean
   argument?: string
+  choices?: () => Promise<CommandChoice[]>
+  emptyChoices?: () => string
   argsSchema?: JSONSchema
   resultSchema?: JSONSchema
   capabilities?: Capability[]
@@ -80,8 +89,13 @@ export class CommandRegistry {
     return [...this.commands.values()]
   }
 
+  isLocal(id: string): boolean {
+    return Boolean(this.commands.get(id)?.local)
+  }
+
   describe(): CommandDescriptor[] {
     return this.list()
+      .filter((c) => !c.local)
       .map((c) => ({
         id: c.id,
         title: c.title,

@@ -14,6 +14,7 @@ import {
 } from 'ai'
 import type { z } from 'zod'
 import type {
+  AssistModelList,
   AssistPoint,
   AssistReport,
   AssistRequests,
@@ -40,10 +41,9 @@ import {
   setupProblem,
   statusLabel,
 } from './config'
-import { HttpError, describeEndpoint } from './endpoint'
+import { HttpError } from './endpoint'
 import { type Flight, createFlight } from './flight'
 import { type Limiter, createLimiter } from './limiter'
-import type { PanelState } from './models'
 import { withPromptedTools } from './promptedTools'
 import {
   type Prompt,
@@ -172,6 +172,7 @@ export class AssistantService {
         on: this.config.features[f.id],
       })),
       setup: problem,
+      models: this.provider !== null,
     }
     const label = statusLabel(this.config)
     if (label) report.label = label
@@ -380,27 +381,15 @@ export class AssistantService {
     return { text: await result.text }
   }
 
-  async panelState(): Promise<PanelState> {
-    const endpoint = endpointOf(this.config, this.env)
-    const report = this.report()
-    const state: PanelState = {
-      provider: this.config.provider,
-      endpoint: endpoint ? describeEndpoint(endpoint) : '',
-      fastModel: modelFor(this.config, 'input'),
-      chatModel: modelFor(this.config, 'chat'),
-      problem: report.setup ?? null,
-      lifecycle: this.provider?.lifecycle === true,
-      features: report.features ?? [],
-      models: [],
-    }
-    if (report.lastError) state.lastError = report.lastError
-    if (!this.provider || state.problem === 'no-key') return state
+  async modelList(): Promise<AssistModelList> {
+    const list: AssistModelList = { lifecycle: this.provider?.lifecycle === true, models: [] }
+    if (!this.provider || this.problem() === 'no-key') return list
     try {
-      state.models = await this.provider.models()
+      list.models = await this.provider.models()
     } catch (err) {
-      state.modelsError = this.redact(messageOf(err))
+      list.error = this.redact(messageOf(err))
     }
-    return state
+    return list
   }
 
   async setLoaded(id: string, loaded: boolean): Promise<void> {
