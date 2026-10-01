@@ -1,0 +1,13 @@
+#!/bin/sh
+if [ -n "$FAKE_SSH_LOG" ]; then printf 'ssh %s\n' "$*" >> "$FAKE_SSH_LOG"; fi
+if [ "$1" = "-G" ]; then
+  for last in "$@"; do :; done
+  capture="${FAKE_SSH_DIR:?FAKE_SSH_DIR is not set}/${last##*@}.txt"
+  if [ -f "$capture" ]; then
+    cat "$capture"
+    exit 0
+  fi
+  echo "fake ssh: Could not resolve hostname ${last##*@}" >&2
+  exit 255
+fi
+echo "fake ssh session: $*"
