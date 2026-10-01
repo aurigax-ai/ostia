@@ -89,7 +89,7 @@
 
   --radius: 10px;
   --rail-w: 240px;
-  --rail-w-collapsed: 56px;
+  --rail-w-collapsed: 44px;
   --topbar-h: 36px;
   --tabstrip-h: 34px;
 
@@ -363,7 +363,7 @@
 .workspaces {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 2px 8px;
+  padding: 4px 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -374,9 +374,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  width: calc(100% - 12px);
-  min-height: 34px;
-  margin: 2px 6px;
+  min-height: 32px;
   padding-right: 4px;
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
@@ -388,11 +386,36 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 6px 6px 6px 10px;
+  padding: 6px 4px 6px 8px;
   background: none;
   color: inherit;
   text-align: left;
   border-radius: inherit;
+}
+
+.collapsed .workspaces {
+  align-items: center;
+}
+
+.collapsed .rail-tab {
+  flex-wrap: nowrap;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+
+.collapsed .rail-tab-main {
+  flex: none;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+}
+
+.collapsed .rail-tab .unread-badge {
+  display: none;
 }
 
 .rail-tab-main:focus-visible {
@@ -429,7 +452,7 @@
 
 .tab-lead-wrap .workspace-dot {
   position: absolute;
-  right: -4px;
+  right: -3px;
   bottom: -3px;
   width: 7px;
   height: 7px;
@@ -544,7 +567,7 @@
 .rail-group-head {
   display: block;
   position: relative;
-  margin: 6px 6px 0;
+  margin-top: 4px;
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
 }
@@ -569,7 +592,7 @@
   gap: 8px;
   width: 100%;
   min-height: 24px;
-  padding: 2px 6px 2px 12px;
+  padding: 2px 4px 2px 10px;
   background: none;
   color: inherit;
   font-size: var(--text-ui-xs);
@@ -636,7 +659,7 @@
   position: absolute;
   top: 4px;
   bottom: 4px;
-  left: 17px;
+  left: 15px;
   width: 2px;
   border-radius: 1px;
   background: var(--group-color);
@@ -644,8 +667,7 @@
 }
 
 .rail-group-members .rail-tab {
-  width: calc(100% - 30px);
-  margin-left: 24px;
+  margin-left: 22px;
 }
 
 .rail-group[data-drop="before"]::before,
@@ -677,17 +699,45 @@
 
 .collapsed .rail-group-name,
 .collapsed .rail-group-count,
+.collapsed .rail-group-caret,
 .collapsed .rail-group-main .unread-badge {
   display: none;
 }
 
+.collapsed .rail-group-head {
+  width: 32px;
+}
+
+.collapsed .rail-group-main {
+  position: relative;
+  justify-content: center;
+  min-height: 16px;
+  padding: 4px 0;
+}
+
+.collapsed .rail-group-swatch {
+  width: 12px;
+  height: 4px;
+}
+
+.collapsed .rail-group-dot {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+}
+
+.collapsed .rail-group-members {
+  align-items: center;
+}
+
 .collapsed .rail-group-members .rail-tab {
-  width: calc(100% - 12px);
-  margin-left: 6px;
+  margin-left: 0;
 }
 
 .collapsed .rail-group-members::before {
-  left: 2px;
+  left: -4px;
 }
 
 .tab-title-row {
@@ -709,11 +759,10 @@
   gap: 2px;
   min-width: 0;
   margin-top: -4px;
-  padding: 0 10px 6px 34px;
+  padding: 0 8px 6px 32px;
 }
 
-.tab-after:empty,
-.tab-meta:empty {
+.tab-after:empty {
   display: none;
 }
 
@@ -758,20 +807,75 @@
   color: var(--fg);
 }
 
-.tab-meta {
+.rail-meta {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
+  overflow: hidden;
   color: var(--fg-muted);
   font-size: var(--text-ui-xs);
   line-height: var(--text-ui-xs--line-height);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.tab-branch {
+.rail-meta-path {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
+  font-family: var(--font-mono);
   text-overflow: ellipsis;
+}
+
+.rail-meta .ext-item {
+  flex: none;
+  max-width: 100%;
+}
+
+.rail-meta.location .rail-meta-path + .ext-item {
+  max-width: 60%;
+}
+
+.rail-meta.live:not([data-measuring]) .ext-item:first-child {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.rail-meta-more {
+  flex: none;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  font: inherit;
+  transition: color var(--motion-fast) var(--ease-out), background-color var(--motion-fast)
+    var(--ease-out);
+}
+
+.rail-meta-more:hover,
+.rail-meta-more[data-popup-open] {
+  background: var(--surface-3);
+  color: var(--fg);
+}
+
+.rail-meta-more:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.rail-meta-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.rail-meta-overflow {
+  align-items: flex-start;
+  font-size: var(--text-ui-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .tab-actions {
@@ -787,8 +891,7 @@
 }
 
 .collapsed .tab-rename,
-.collapsed .tab-body,
-.collapsed .tab-actions {
+.collapsed .tab-body {
   display: none;
 }
 
@@ -2224,13 +2327,22 @@ button.prompt-chip:focus-visible {
 .ext-item {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   flex-shrink: 0;
-  max-width: 120px;
-  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
   white-space: nowrap;
-  text-overflow: ellipsis;
   color: var(--fg-muted);
+}
+
+.ext-item > svg {
+  flex: none;
+}
+
+.ext-item-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ext-item-link {
@@ -2243,7 +2355,11 @@ button.prompt-chip:focus-visible {
 
 .ext-item-link:hover {
   color: var(--fg);
+}
+
+.ext-item-link:hover .ext-item-text {
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .ext-item.tone-brand {

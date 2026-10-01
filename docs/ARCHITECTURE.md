@@ -677,8 +677,15 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **Workspace rows** (`components/DeckRail.tsx` `WorkspaceRow`, `lib/workspaceOrder.ts`,
   `lib/workspaceGroups.ts`): cmux-style
   rows. Title is the user's name or the folder; under it the latest message that still needs
-  you (or the running program's title), then an optional description, then path and extension
-  items. `pine workspace describe` (→ `workspace.describe`, drive-self, caller's workspace) or the
+  you (or the running program's title), then an optional description, then a location line (the
+  folder plus extension items of kind `location`) and a live line (items of kind `live`)
+  (`components/RailMeta.tsx`, `lib/sidebarItems.ts` `sidebarLines`). Why measure in a layout
+  effect: the folder is shortened by segment (`lib/railMeta.ts`) and live items fold into `+N`
+  (`fitCount`), and CSS alone can only cut text at the end, which turned the folder into `~/...`
+  and pushed ports out of sight. The live line renders every item once to record natural widths,
+  then shows what fits before paint; a `ResizeObserver` recounts from those widths. In the
+  collapsed rail a row renders only its icon (no close button, no details), so nothing is
+  measured while hidden. `pine workspace describe` (→ `workspace.describe`, drive-self, caller's workspace) or the
   row menu sets the description; it renders Markdown restricted to links, emphasis and code, as a
   sibling of the row button so links are real links (a link inside a button is invalid and would
   select the row). The row menu renames, edits the description, pins, moves, marks read, groups

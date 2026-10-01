@@ -44,7 +44,7 @@ Three tiers in `index.css`:
    `--line-strong`, `--fg`, `--fg-muted`, `--fg-dim`, `--brand`, `--brand-bright`, `--brand-glow`,
    `--attn`, `--attn-fg`, `--attn-glow`, `--ok`. Metrics: one radius ladder in `@theme`
    (`--radius-sm` 6px for controls, rows and keycaps; `--radius-md` 8px for inputs, popovers and
-   cards; `--radius-lg` 10px), `--radius` 10px for the shadcn bridge, `--rail-w` 240px (56px
+   cards; `--radius-lg` 10px), `--radius` 10px for the shadcn bridge, `--rail-w` 240px (44px
    collapsed), `--topbar-h` 36px.
 3. **shadcn bridge** in `@theme inline`: maps shadcn names (`--background`, `--primary`, `--muted`,
    `--border`, `--ring`, `--sidebar-*`, …) onto the semantic tokens, so Base UI components in
@@ -237,7 +237,28 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
   (`WindowControls.tsx`, 24px circles). There is no wordmark, status strip or inspector.
 - **Sidebar** (`DeckRail.tsx`): only workspaces: one row per workspace showing a kind icon, a
   state dot, an unread badge and the details chosen in Settings → Sidebar, plus a pinned Settings
-  row. It collapses to a 56px icon rail.
+  row. Rows sit 6px from the rail's edges with 2px between them; a row's icon is centered 22px
+  from the rail edge, on the same axis as the top bar's New workspace button.
+  - **Row anatomy** (top to bottom, each line `ui-xs` `fg-muted`, one line high, never wrapping,
+    ellipsized at any width; details start under the title at 32px):
+    1. kind icon (14px) with the state dot on its bottom-right corner, the title, the pin, the
+       unread badge, and the close button on hover;
+    2. the description and the latest message or running command, when there are any;
+    3. **location line** (`.rail-meta.location`): the folder in mono, then extension items of
+       kind `location` (Git's branch with its icon, then `↑↓` and `+new ~changed`). The folder is
+       shortened from the middle to fit (`~/…/goji/avail`, then `~/…/avail`, then `avail`;
+       `lib/railMeta.ts` `shortenPath`), never to a bare `~/...`; its Hint shows the full path. A
+       location item takes at most 60% of the line;
+    4. **live line** (`.rail-meta.live`), only when there are live items: extension items of
+       kind `live` (ports `:5173`, the ssh host, Trellis counts) 8px apart, tabular. Items that
+       don't fit collapse into a `+N` button (`fitCount`) whose popover lists the rest, still
+       clickable; the first item truncates rather than hide. No wrapping, no horizontal scroll.
+    The lines appear and disappear with their data; nothing reserves height for them.
+  - **Collapsed** (44px icon rail): each row is a 32px square centered on the rail's axis, with
+    the active or hover highlight filling the square and the state dot on the icon's corner,
+    inside it. No close button, details or unread badge (the dot carries state; the row's Hint
+    names it). A group header becomes a 12×4 swatch with its state dot; members keep the 2px
+    group rule. Only the rail's width animates.
   - **Group header** (cmux's workspace groups): a 24px `ui-xs`/500 uppercase row with a 12px
     caret (right when collapsed, down when open), an 8px `radius 2px` swatch in the group color
     (`--line-strong` without one), the name, the member count (`fg-muted`, tabular), then the

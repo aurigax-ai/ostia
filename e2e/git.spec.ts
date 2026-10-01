@@ -28,9 +28,9 @@ test('a dirty repo shows in the sidebar and pane chips, opens a diff, commits, a
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
 
-    await expect(win.locator('.ext-item').filter({ hasText: 'main' })).toContainText('main ~1', {
-      timeout: 15_000,
-    })
+    await expect(
+      win.locator('.rail-meta.location .ext-item').filter({ hasText: 'main' }),
+    ).toContainText('main ~1', { timeout: 15_000 })
 
     const chips = win.locator('.pane-header .pane-chip')
     await expect(chips.filter({ hasText: '1 • +1' })).toBeVisible({ timeout: 15_000 })
