@@ -35,4 +35,3 @@ Without `pnpm rebuild`, terminals stay disabled and main logs `node-pty unavaila
   before changing code.
 - Trellis vault `architecture/` (`trellis vault show architecture/index`): processes, modules,
   IPC, control plane, gateway, workspace restore, and the why behind non-obvious code.
-- [`docs/DESIGN.md`](docs/DESIGN.md): tokens, themes, type, layout, component rules.
