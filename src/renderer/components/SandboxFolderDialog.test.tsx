@@ -45,6 +45,6 @@ describe('SandboxFolderDialog', () => {
         refusedFolder: { folder: '/home/u/.config', reason: 'pine-data' },
       }),
     )
-    expect(screen.getByRole('dialog')).toHaveTextContent("/home/u/.config holds Pine's own data")
+    expect(screen.getByRole('dialog')).toHaveTextContent('/home/u/.config holds Pine’s own data')
   })
 })

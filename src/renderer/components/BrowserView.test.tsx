@@ -160,7 +160,7 @@ describe('BrowserView send panel', () => {
 
   it('opens after a capture with the note focused and the most recent terminal selected', async () => {
     const { a } = await capturedPanel()
-    expect(screen.getByLabelText(/what's wrong/i)).toHaveFocus()
+    expect(screen.getByLabelText(/what’s wrong/i)).toHaveFocus()
     expect(screen.getByText('button#save 80×24')).toBeInTheDocument()
     const radios = screen.getAllByRole('radio')
     expect(radios).toHaveLength(2)
@@ -174,7 +174,7 @@ describe('BrowserView send panel', () => {
       ok: true,
       path: '/tmp/pine-reports-1000/ui-issue-1.md',
     })
-    await userEvent.type(screen.getByLabelText(/what's wrong/i), 'Save overlaps the footer')
+    await userEvent.type(screen.getByLabelText(/what’s wrong/i), 'Save overlaps the footer')
     await userEvent.click(screen.getAllByRole('radio')[1])
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
     expect(window.pine.browser.pickSend).toHaveBeenCalledWith({
