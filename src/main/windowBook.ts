@@ -33,11 +33,9 @@ export function withoutWorkspace(snapshot: AppSnapshot, workspaceId: string): Ap
   }
 }
 
-function withoutMarks(workspace: SnapshotWorkspace): SnapshotWorkspace {
+function withoutGroup(workspace: SnapshotWorkspace): SnapshotWorkspace {
   const { groupId: _group, ...rest } = workspace
-  return JSON.parse(
-    JSON.stringify(rest, (key, value) => (key === 'hibernated' ? undefined : value)),
-  )
+  return rest
 }
 
 export function withWorkspace(snapshot: AppSnapshot, workspace: SnapshotWorkspace): AppSnapshot {
@@ -45,7 +43,7 @@ export function withWorkspace(snapshot: AppSnapshot, workspace: SnapshotWorkspac
   return {
     ...base,
     activeWorkspaceId: workspace.id,
-    workspaces: [...base.workspaces, withoutMarks(workspace)],
+    workspaces: [...base.workspaces, withoutGroup(workspace)],
   }
 }
 

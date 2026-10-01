@@ -108,13 +108,23 @@ export function startPaneDragTracking(): () => void {
   const over = (e: DragEvent): void => {
     if (isPaneDrag([...(e.dataTransfer?.types ?? [])])) watch()
   }
+  const drop = (): void => {
+    endForeign()
+    usePaneDnd.getState().release()
+  }
+  const pointerBack = (): void => {
+    const s = usePaneDnd.getState()
+    if (s.dragging || s.sourceId !== null) s.reset()
+  }
   document.addEventListener('dragenter', enter)
   document.addEventListener('dragover', over)
-  document.addEventListener('drop', endForeign)
+  document.addEventListener('drop', drop)
+  document.addEventListener('mousemove', pointerBack)
   return () => {
     endForeign()
     document.removeEventListener('dragenter', enter)
     document.removeEventListener('dragover', over)
-    document.removeEventListener('drop', endForeign)
+    document.removeEventListener('drop', drop)
+    document.removeEventListener('mousemove', pointerBack)
   }
 }
