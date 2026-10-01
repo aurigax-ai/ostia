@@ -45,8 +45,8 @@ import {
 } from './workspaceEdit'
 
 export const APPLY_CODE_ACTION_COMMAND = 'pine.lsp.applyCodeAction'
-const TRIGGER_INVOKE = 1
-const TRIGGER_AUTOMATIC = 2
+const CODE_ACTION_INVOKED = 1
+const CODE_ACTION_AUTOMATIC = 2
 let applyCommand: monaco.IDisposable | null = null
 
 export async function applyCodeAction(
@@ -93,8 +93,8 @@ interface SessionCompletion extends LspCompletion {
   session: LspSession
 }
 
-const TRIGGER_CHARACTER = 2
-const TRIGGER_INVOKED = 1
+const COMPLETION_INVOKED = 1
+const COMPLETION_TRIGGER_CHARACTER = 2
 
 function fallbackWordRange(
   model: monaco.editor.ITextModel,
@@ -132,8 +132,11 @@ function completionProvider(
           ...documentPosition(model, position),
           context:
             context.triggerCharacter !== undefined
-              ? { triggerKind: TRIGGER_CHARACTER, triggerCharacter: context.triggerCharacter }
-              : { triggerKind: TRIGGER_INVOKED },
+              ? {
+                  triggerKind: COMPLETION_TRIGGER_CHARACTER,
+                  triggerCharacter: context.triggerCharacter,
+                }
+              : { triggerKind: COMPLETION_INVOKED },
         },
         token,
       )
@@ -435,8 +438,8 @@ export function registerProviders(
                   .filter((diagnostic) => rangesOverlap(diagnostic.range, lspRange)),
                 triggerKind:
                   context.trigger === languages.CodeActionTriggerType.Invoke
-                    ? TRIGGER_INVOKE
-                    : TRIGGER_AUTOMATIC,
+                    ? CODE_ACTION_INVOKED
+                    : CODE_ACTION_AUTOMATIC,
                 ...(context.only ? { only: [context.only] } : {}),
               },
             },
