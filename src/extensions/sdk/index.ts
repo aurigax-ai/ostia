@@ -13,6 +13,7 @@ import {
 } from 'vscode-jsonrpc/node'
 import type {
   AssistError,
+  AssistModelList,
   AssistPoint,
   AssistReport,
   AssistRequests,
@@ -165,10 +166,16 @@ export interface PineExtension {
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
   onAssist: (handler: AssistHandler) => void
+  onAssistModels: (handler: AssistModelsHandler) => void
   setAssistStatus: (report: AssistReport) => Promise<unknown>
   getShortcuts: (ids: string[]) => Promise<Record<string, string | null>>
   openAssistUi: (ui: AssistUi, workspaceId?: string) => Promise<ExtensionResult>
   getSecret: (key: string) => Promise<string | null>
+}
+
+export interface AssistModelsHandler {
+  list: () => Promise<AssistModelList>
+  setLoaded: (id: string, loaded: boolean) => Promise<void>
 }
 
 export function ok(text?: string, data?: unknown): ExtensionResult {
@@ -224,6 +231,7 @@ export async function connect(): Promise<PineExtension> {
   let eventHandler: EventHandler | null = null
   let settingsHandler: SettingsHandler | null = null
   let assistHandler: AssistHandler | null = null
+  let modelsHandler: AssistModelsHandler | null = null
 
   conn.onRequest(
     'ext.command',
@@ -267,6 +275,19 @@ export async function connect(): Promise<PineExtension> {
       }
     },
   )
+  conn.onRequest('ext.assistModels', async (params: { action?: unknown; id?: unknown }) => {
+    if (!modelsHandler) throw new Error('no models handler')
+    if (params.action === 'list') return modelsHandler.list()
+    if ((params.action !== 'load' && params.action !== 'unload') || typeof params.id !== 'string') {
+      return { ok: false, error: 'invalid' }
+    }
+    try {
+      await modelsHandler.setLoaded(params.id, params.action === 'load')
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) }
+    }
+  })
   conn.onRequest('ext.panel', async (params: { caller: ExtensionCaller; path?: string }) => {
     if (!panelHandler) throw new Error('no panel handler')
     return panelHandler(params.caller, params.path)
@@ -337,6 +358,9 @@ export async function connect(): Promise<PineExtension> {
     listPanes: () => conn.sendRequest('pane.list'),
     onAssist: (handler) => {
       assistHandler = handler
+    },
+    onAssistModels: (handler) => {
+      modelsHandler = handler
     },
     setAssistStatus: (report) => conn.sendRequest('ext.setAssistStatus', report),
     getShortcuts: async (ids) => {

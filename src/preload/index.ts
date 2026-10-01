@@ -511,6 +511,9 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener('assist:open-ui', handler)
     },
     reportShortcuts: (shortcuts) => ipcRenderer.send('assist:shortcuts', shortcuts),
+    models: (extId) => ipcRenderer.invoke('assist:models', extId),
+    setModelLoaded: (extId, id, loaded) =>
+      ipcRenderer.invoke('assist:set-model-loaded', extId, id, loaded),
   },
   chatSessions: {
     list: () => ipcRenderer.invoke('chat:list') as Promise<ChatSessionSummary[]>,

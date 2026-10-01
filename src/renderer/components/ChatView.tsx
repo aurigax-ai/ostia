@@ -23,7 +23,6 @@ import type { AssistProviderInfo, ChatContextItem } from '@shared/assist'
 import type { UIMessage } from 'ai'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import type { Components } from 'react-markdown'
-import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import {
   ASK_CONTEXT_ORDER,
@@ -544,11 +543,8 @@ function ChatHeader({
 }): JSX.Element {
   const d = useDict()
   const changeModel = (): void => {
-    const extId = provider?.extId
-    const open = extId ? `${extId}.open` : null
     useUIStore.getState().closePalette()
-    if (open && commands.has(open)) void commands.exec(open)
-    else useUIStore.getState().openSettings('plugins')
+    useUIStore.getState().openSettings('assistant')
   }
   return (
     <div className="flex min-h-9 items-center gap-1.5 border-line border-b px-2">

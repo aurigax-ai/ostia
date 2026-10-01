@@ -198,6 +198,8 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onOverview: vi.fn(noopUnsub),
       onOpenUi: vi.fn(noopUnsub),
       reportShortcuts: vi.fn(),
+      models: vi.fn().mockResolvedValue({ ok: false, error: 'unavailable' }),
+      setModelLoaded: vi.fn().mockResolvedValue({ ok: true }),
     },
     chatSessions: {
       list: vi.fn().mockResolvedValue([]),

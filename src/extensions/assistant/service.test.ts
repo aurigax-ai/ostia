@@ -349,26 +349,26 @@ describe('AssistantService requests', () => {
   })
 })
 
-describe('AssistantService panel', () => {
-  it('shows the setup problem and skips listing models without a key', async () => {
+describe('AssistantService models', () => {
+  it('skips listing models without a key and still reports that it lists models', async () => {
     const { provider } = fakeProvider(() => '')
     const { svc } = service(provider)
     svc.configure({ provider: 'anthropic', fastModel: 'claude-x' }, null)
-    expect(await svc.panelState()).toMatchObject({
-      provider: 'anthropic',
-      endpoint: 'https://api.anthropic.com/v1',
-      problem: 'no-key',
-      models: [],
-    })
+    expect(await svc.modelList()).toEqual({ lifecycle: false, models: [] })
+    expect(svc.report().models).toBe(true)
     expect(provider.models).not.toHaveBeenCalled()
   })
 
-  it('lists models and features, and refuses lifecycle calls on providers without one', async () => {
+  it('lists models and refuses lifecycle calls on providers without one', async () => {
     const { svc } = service(fakeProvider(() => '').provider)
-    svc.configure({ provider: 'ollama', fastModel: 'm', typos: false }, null)
-    const state = await svc.panelState()
-    expect(state.models).toEqual([{ id: 'm1' }])
-    expect(state.features.find((f) => f.id === 'typos')).toMatchObject({ on: false, ready: false })
+    svc.configure({ provider: 'ollama', fastModel: 'm' }, null)
+    expect(await svc.modelList()).toEqual({ lifecycle: false, models: [{ id: 'm1' }] })
     await expect(svc.setLoaded('m1', true)).rejects.toThrow(/no model lifecycle/)
+  })
+
+  it('reports no model list while no provider is chosen', () => {
+    const { svc } = service(fakeProvider(() => '').provider)
+    svc.configure({ provider: 'none' }, null)
+    expect(svc.report().models).toBe(false)
   })
 })

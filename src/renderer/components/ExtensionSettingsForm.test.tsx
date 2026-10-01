@@ -81,17 +81,15 @@ describe('ExtensionSettingsForm secrets', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('encryption-unavailable')
   })
 
-  it('lists each assist feature with the provider serving it', () => {
-    useAssistStore.setState({
-      availability: {
-        chat: { extId: 'assistant', name: 'Assistant', label: 'openrouter · claude-haiku' },
-      },
+  it('leaves out the settings it is told to omit', () => {
+    const ext = assistant({
+      settings: [
+        { key: 'baseUrl', type: 'string', default: '', description: 'Address' },
+        { key: 'chat', type: 'boolean', default: true, description: 'Chat switch' },
+      ],
     })
-    render(<ExtensionSettingsForm ext={assistant()} />)
-    expect(screen.getByText('Ask')).toBeInTheDocument()
-    expect(screen.getByText('openrouter · claude-haiku')).toBeInTheDocument()
-    expect(screen.getByText('Command suggestions').nextElementSibling).toHaveTextContent(
-      'Not configured',
-    )
+    render(<ExtensionSettingsForm ext={ext} omit={['chat']} />)
+    expect(screen.getByRole('textbox', { name: 'baseUrl' })).toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: 'chat' })).toBeNull()
   })
 })
