@@ -21,7 +21,7 @@ import { NotificationCenter } from './NotificationCenter'
 import { PanelToggles } from './PanelToggles'
 import { UpdateNotice } from './UpdateNotice'
 import { Button } from './ui/button'
-import { ButtonGroup, ButtonGroupSeparator } from './ui/button-group'
+import { ButtonGroup } from './ui/button-group'
 import { Kbd } from './ui/kbd'
 
 export function TopBar(): JSX.Element {
@@ -37,7 +37,7 @@ export function TopBar(): JSX.Element {
   return (
     <header className="topbar drag-region">
       <div className="topbar-left">
-        <ButtonGroup aria-label={d.rail.newWorkspace} className="rounded-sm border border-line">
+        <ButtonGroup aria-label={d.rail.newWorkspace} className="topbar-split rounded-sm">
           <IconButton
             size="bar"
             icon={PlusIcon}
@@ -48,7 +48,6 @@ export function TopBar(): JSX.Element {
               startNewWorkspace()
             }}
           />
-          <ButtonGroupSeparator className="my-0 bg-line" />
           <NewWorkspaceMenu />
         </ButtonGroup>
         <IconButton
@@ -111,7 +110,7 @@ function NewWorkspaceMenu(): JSX.Element {
           size="bar"
           icon={CaretDownIcon}
           label={d.scratch.newMenu}
-          className="w-5 rounded-l-none"
+          className="topbar-split-caret w-4 rounded-l-none"
         />
       }
     >
