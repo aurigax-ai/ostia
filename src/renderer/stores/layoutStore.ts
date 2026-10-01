@@ -71,6 +71,7 @@ interface LayoutState {
   setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
   setTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
+  openFileTab: (workspaceId: string, path: string, paneId?: string) => void
   openFileBeside: (workspaceId: string, path: string) => void
   openTerminalTab: (workspaceId: string, cwd: string) => string | null
   openBrowser: (workspaceId: string, url: string) => void
@@ -425,6 +426,30 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         if (!newPaneId) return l
         createdPaneId = newPaneId
         return { ...l, root: setPaneEditor(root, newPaneId, title, path), activePaneId: newPaneId }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+  },
+
+  openFileTab: (workspaceId, path, paneId) => {
+    const title = path.split('/').pop() || path
+    if (seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const showing = allPanes(l.root).find((p) => p.kind === 'editor' && p.filePath === path)
+        if (showing) return { ...l, activePaneId: showing.id }
+        const target = paneId && findPane(l.root, paneId) ? paneId : l.activePaneId
+        const pane = createPane('editor')
+        createdPaneId = pane.id
+        return {
+          ...l,
+          root: setPaneEditor(addTab(l.root, target, pane), pane.id, title, path),
+          activePaneId: pane.id,
+        }
       })
       return next ?? s
     })

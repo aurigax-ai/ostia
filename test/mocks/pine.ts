@@ -133,6 +133,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     },
     files: {
       pathForFile: vi.fn(() => ''),
+      admitDropped: vi.fn().mockResolvedValue([]),
     },
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
