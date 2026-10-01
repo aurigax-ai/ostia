@@ -1,5 +1,6 @@
 import { findPane } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 
 const HOME_PROJECT = '~'
@@ -14,7 +15,15 @@ export function focusedDir(workspaceId: string): string | null {
   return cwd?.startsWith('/') ? cwd : null
 }
 
+export function canMoveWorkspace(workspaceId: string): boolean {
+  const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)
+  if (!workspace || workspace.kind === 'scratch' || workspace.kind === 'manager') return false
+  if (useSandboxStore.getState().enabled[workspaceId]) return false
+  return focusedDir(workspaceId) !== null
+}
+
 export async function anchorToFocusedPane(workspaceId: string): Promise<boolean> {
+  if (!canMoveWorkspace(workspaceId)) return false
   const dir = focusedDir(workspaceId)
   const project = dir ? await window.pine.openPath.project(dir) : null
   if (!project) return false

@@ -216,25 +216,31 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     window.pine?.lifecycle?.emit?.({ type: 'workspace-added', workspaceId: id, workDir })
   },
 
-  setProject: (id, project) =>
-    set((s) => {
-      const current = s.workspaces.find((w) => w.id === id)
-      if (
-        !current ||
-        (current.name === project.name &&
-          current.projectDir === project.display &&
-          current.workDir === project.dir)
-      ) {
-        return s
-      }
-      return {
-        workspaces: s.workspaces.map((w) =>
-          w.id === id
-            ? { ...w, name: project.name, projectDir: project.display, workDir: project.dir }
-            : w,
-        ),
-      }
-    }),
+  setProject: (id, project) => {
+    const current = get().workspaces.find((w) => w.id === id)
+    if (
+      !current ||
+      (current.name === project.name &&
+        current.projectDir === project.display &&
+        current.workDir === project.dir)
+    ) {
+      return
+    }
+    set((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === id
+          ? { ...w, name: project.name, projectDir: project.display, workDir: project.dir }
+          : w,
+      ),
+    }))
+    if (current.workDir !== project.dir) {
+      window.pine?.lifecycle?.emit?.({
+        type: 'workspace-added',
+        workspaceId: id,
+        workDir: project.dir,
+      })
+    }
+  },
 
   rename: (id, name) => {
     const customName = name.trim()
