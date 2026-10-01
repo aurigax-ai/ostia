@@ -1,5 +1,7 @@
+import { mkdtempSync, rmSync } from 'node:fs'
 import { type Server, type ServerResponse, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -20,6 +22,7 @@ interface Body {
 
 const servers: Server[] = []
 const hosts: McpHost[] = []
+const dirs: string[] = []
 
 afterEach(() => {
   for (const s of servers.splice(0)) {
@@ -27,6 +30,7 @@ afterEach(() => {
     s.close()
   }
   for (const h of hosts.splice(0)) h.closeAll()
+  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
 })
 
 function sse(res: ServerResponse, deltas: unknown[], finish: string): void {
@@ -223,5 +227,129 @@ describe('chat tool loop: fake provider, assistant extension and fake MCP server
     })
     const tool = provider.bodies[0].messages.find((m) => m.role === 'tool')
     expect(String(tool?.content)).toContain('denied')
+  })
+})
+
+interface RuntimeBody {
+  model: string
+  stream?: boolean
+  tools?: unknown
+  messages: { role: string; content: unknown }[]
+}
+
+function fakeModelRuntime(replies: string[]): Promise<{ socket: string; bodies: RuntimeBody[] }> {
+  const bodies: RuntimeBody[] = []
+  const dir = mkdtempSync(join(tmpdir(), 'pine-runtime-'))
+  dirs.push(dir)
+  const socket = join(dir, 'model-runtime.sock')
+  const server = createServer((req, res) => {
+    let raw = ''
+    req.on('data', (c) => {
+      raw += c
+    })
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      if (req.url === '/models') {
+        res.end(JSON.stringify({ models: [{ id: 'gemma', installed: true, loaded: true }] }))
+        return
+      }
+      const body = JSON.parse(raw) as RuntimeBody
+      bodies.push(body)
+      const content = replies[bodies.length - 1] ?? ''
+      res.end(
+        JSON.stringify({
+          id: 'c',
+          object: 'chat.completion',
+          created: 1,
+          model: body.model,
+          choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+      )
+    })
+  })
+  servers.push(server)
+  return new Promise((resolve) => server.listen(socket, () => resolve({ socket, bodies })))
+}
+
+const READ_FILE = {
+  name: 'read_file',
+  description: 'Read a text file in the workspace folder.',
+  inputSchema: {
+    type: 'object',
+    properties: { path: { type: 'string', description: 'File path' } },
+    required: ['path'],
+  },
+}
+
+const TAGGED_CALL =
+  '<tool_call>\n{"name": "read_file", "arguments": {"path": "notes.txt"}}\n</tool_call>'
+const TOOL_CODE_CALL =
+  'I will read it.\n```tool_code\nprint(default_api.read_file(path="notes.txt"))\n```'
+
+async function runtimeService(socket: string): Promise<AssistantService> {
+  const svc = new AssistantService({})
+  svc.configure({ provider: 'model-runtime', baseUrl: `unix:${socket}`, chatModel: 'gemma' }, null)
+  await svc.probe()
+  return svc
+}
+
+describe('chat tool loop on model-runtime: tools described in the prompt', () => {
+  it.each([
+    ['a tagged call', TAGGED_CALL],
+    ['a tool_code block', TOOL_CODE_CALL],
+  ])('parses %s from the reply and sends the result back as text', async (_label, reply) => {
+    const runtime = await fakeModelRuntime([reply, 'The notes say: buy milk.'])
+    const svc = await runtimeService(runtime.socket)
+    expect(svc.report().status.chat).toMatchObject({ ready: true, tools: 'prompted' })
+    const first = await chat(svc, {
+      messages: [{ role: 'user', content: 'read notes.txt and summarise' }],
+      context: [],
+      tools: [READ_FILE],
+    })
+    const sent = runtime.bodies[0]
+    expect(sent.tools).toBeUndefined()
+    expect(sent.stream).not.toBe(true)
+    expect(sent.messages[0].role).toBe('system')
+    expect(String(sent.messages[0].content)).toContain('read_file')
+    expect(sent.messages.filter((m) => m.role === 'system')).toHaveLength(1)
+    const call = first.chunks.find((c) => c.type === 'tool-input-available')
+    expect(call).toMatchObject({ toolName: 'read_file', input: { path: 'notes.txt' } })
+    expect(first.text).not.toContain('tool_call')
+    if (call?.type !== 'tool-input-available') throw new Error('no tool call')
+
+    const done: ChatToolCall = {
+      id: call.toolCallId,
+      name: 'read_file',
+      input: { path: 'notes.txt' },
+      state: 'done',
+      output: 'buy milk',
+    }
+    const second = await chat(svc, {
+      messages: [
+        { role: 'user', content: 'read notes.txt and summarise' },
+        { role: 'assistant', content: '', tools: [done] },
+      ],
+      context: [],
+      tools: [READ_FILE],
+    })
+    const messages = runtime.bodies[1].messages
+    expect(messages.map((m) => m.role)).toEqual(['system', 'user', 'assistant', 'user'])
+    expect(messages.every((m) => typeof m.content === 'string')).toBe(true)
+    expect(String(messages[3].content)).toContain('buy milk')
+    expect(second.text).toBe('The notes say: buy milk.')
+  })
+
+  it('keeps a reply that only looks like a call as text', async () => {
+    const reply = 'Call it like this:\n```tool_code\nread_file(path=\n```'
+    const runtime = await fakeModelRuntime([reply])
+    const svc = await runtimeService(runtime.socket)
+    const res = await chat(svc, {
+      messages: [{ role: 'user', content: 'how do I read a file?' }],
+      context: [],
+      tools: [READ_FILE],
+    })
+    expect(res.chunks.some((c) => c.type === 'tool-input-available')).toBe(false)
+    expect(res.text).toBe(reply)
   })
 })

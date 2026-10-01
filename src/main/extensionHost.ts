@@ -1281,7 +1281,7 @@ export class ExtensionHost {
       const status = rt.assistStatus[point]
       const info: AssistProviderInfo = { extId: rt.ext.manifest.id, name: rt.ext.manifest.name }
       if (status?.label) info.label = status.label
-      if (status?.tools) info.tools = true
+      if (status?.tools) info.tools = status.tools
       out[point] = info
     }
     return out

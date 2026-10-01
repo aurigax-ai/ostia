@@ -2084,6 +2084,12 @@ button.prompt-chip:focus-visible {
   align-items: flex-start;
   gap: 0;
   padding: 4px 8px;
+  background-color: transparent;
+}
+
+.assist-composer-item[aria-selected="true"] {
+  background-color: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
 .assist-composer-command {
@@ -2846,15 +2852,28 @@ button.prompt-chip:focus-visible {
 }
 
 .chat-inline-command {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  vertical-align: baseline;
+  position: relative;
 }
 
 .chat-inline-insert {
+  position: absolute;
+  inset-inline-start: 100%;
+  top: 50%;
   height: 1.25em;
   width: 1.25em;
+  transform: translateY(-50%);
+  background-color: var(--surface-3);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  pointer-events: none;
+}
+
+.chat-inline-insert:hover {
+  background-color: var(--accent);
+}
+
+.chat-inline-command:hover .chat-inline-insert,
+.chat-inline-command:focus-within .chat-inline-insert {
+  pointer-events: auto;
 }
 
 @media (hover: none) {
@@ -2862,6 +2881,14 @@ button.prompt-chip:focus-visible {
   .chat-message-actions,
   .chat-inline-insert {
     opacity: 1;
+  }
+
+  .chat-inline-insert {
+    position: static;
+    margin-inline-start: 2px;
+    vertical-align: middle;
+    transform: none;
+    pointer-events: auto;
   }
 }
 

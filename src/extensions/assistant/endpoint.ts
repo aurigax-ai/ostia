@@ -67,6 +67,7 @@ export interface JsonRequest {
   url: string
   method?: 'GET' | 'POST'
   headers?: Record<string, string>
+  body?: unknown
   signal?: AbortSignal
   timeoutMs: number
 }
@@ -76,7 +77,12 @@ export async function requestJson<T>(req: JsonRequest): Promise<T> {
   const signal = req.signal ? AbortSignal.any([req.signal, timeout]) : timeout
   const res = await req.fetch(req.url, {
     method: req.method ?? 'GET',
-    headers: { accept: 'application/json', ...req.headers },
+    headers: {
+      accept: 'application/json',
+      ...(req.body === undefined ? {} : { 'content-type': 'application/json' }),
+      ...req.headers,
+    },
+    ...(req.body === undefined ? {} : { body: JSON.stringify(req.body) }),
     signal,
   })
   const body = await res.text()

@@ -181,6 +181,32 @@ describe('OpenAI-compatible provider', () => {
   })
 })
 
+describe('chat tool modes', () => {
+  it('asks Ollama whether the chat model takes tools, prompting them when it does not', async () => {
+    const { base, seen } = await serve((_req, res, s) => {
+      const tools = (s.body as { model?: string } | null)?.model === 'qwen3'
+      if (s.body?.model === 'gone') json(res, 404, { error: 'model not found' })
+      else json(res, 200, { capabilities: tools ? ['completion', 'tools'] : ['completion'] })
+    }, onPort)
+    const provider = createProvider('ollama', endpoint(base), null)
+    expect(await provider.chatTools('qwen3')).toBe('native')
+    expect(await provider.chatTools('gemma3')).toBe('prompted')
+    expect(await provider.chatTools('gone')).toBe('prompted')
+    expect(seen[0]).toMatchObject({ method: 'POST', url: '/api/show', body: { model: 'qwen3' } })
+  })
+
+  it('prompts tools on model-runtime and keeps them native on hosted providers', async () => {
+    const runtime = createProvider('model-runtime', endpoint('unix:/nowhere.sock'), null)
+    expect(await runtime.chatTools('gemma')).toBe('prompted')
+    expect(runtime.serverCancels).toBe(false)
+    for (const kind of ['openai', 'anthropic', 'openrouter', 'openai-compatible'] as const) {
+      const provider = createProvider(kind, endpoint('http://127.0.0.1:9/v1'), 'k')
+      expect(await provider.chatTools('m')).toBe('native')
+      expect(provider.serverCancels).toBe(true)
+    }
+  })
+})
+
 describe('OpenRouter and OpenAI providers', () => {
   it('sends the OpenRouter title header and key to chat completions', async () => {
     const { base, seen } = await serve((_req, res) => json(res, 200, completion('ok')), onPort)

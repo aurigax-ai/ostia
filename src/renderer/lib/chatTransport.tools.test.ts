@@ -106,7 +106,7 @@ const DENY_ALL_BUILTINS = [
 describe('createAssistTransport with tools', () => {
   beforeEach(() => {
     useAssistStore.setState({
-      availability: { chat: { extId: 'a', name: 'A', label: 'fake', tools: true } },
+      availability: { chat: { extId: 'a', name: 'A', label: 'fake', tools: 'native' } },
     })
   })
 

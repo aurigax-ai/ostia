@@ -674,7 +674,12 @@ function ChatSession({
         <PromptInputFooter>
           <PromptInputTools>
             {provider?.tools ? (
-              <ChatToolsMenu sessionId={sessionId} open={toolsOpen} onOpenChange={setToolsOpen} />
+              <ChatToolsMenu
+                sessionId={sessionId}
+                mode={provider.tools}
+                open={toolsOpen}
+                onOpenChange={setToolsOpen}
+              />
             ) : null}
             {editing ? (
               <span className="flex min-w-0 items-center gap-1 px-1 text-fg-muted text-ui-xs">
