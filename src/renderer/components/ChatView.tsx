@@ -701,7 +701,7 @@ function ChatSession({
           <PromptInputSubmit
             status={status}
             onStop={onStop}
-            disabled={!busy && (!draft.trim() || !provider)}
+            disabled={!busy && !provider}
             submitLabel={d.ask.send}
             stopLabel={d.ask.stop}
           />
