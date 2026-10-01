@@ -3,8 +3,8 @@ import '@xterm/xterm/css/xterm.css'
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { currentScheme, useScheme } from '../lib/colorScheme'
+import { terminalFontStack } from '../lib/uiFonts'
 import { useSettingsStore } from '../stores/settingsStore'
-import { fontStack } from './Terminal'
 
 export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
   const d = useDict()
@@ -19,7 +19,7 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
     const font = useSettingsStore.getState().appearance.terminal
     const term = new Xterm({
       theme: currentScheme('terminal').colors,
-      fontFamily: fontStack(font.family),
+      fontFamily: terminalFontStack(font.family),
       fontSize: font.size,
       fontWeight: font.weight as FontWeight,
       lineHeight: font.lineHeight,

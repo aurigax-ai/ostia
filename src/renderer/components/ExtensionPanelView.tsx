@@ -3,6 +3,7 @@ import type { WebviewTag } from 'electron'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { useReducedMotion } from '../lib/motion'
+import { panelFontFaces } from '../lib/panelFontFaces'
 import { panelThemeCss } from '../lib/panelTheme'
 import { themedTokens, useEffectiveTheme } from '../lib/theme'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -15,18 +16,18 @@ export const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
 function useThemeCss(): string {
   const activeTheme = useEffectiveTheme()
   const accent = useSettingsStore((s) => s.appearance.accent)
-  const ui = useSettingsStore((s) => s.appearance.ui.family)
-  const mono = useSettingsStore((s) => s.appearance.terminal.family)
+  const ui = useSettingsStore((s) => s.appearance.ui)
+  const code = useSettingsStore((s) => s.appearance.editor.family)
   const reducedMotion = useReducedMotion()
   return useMemo(
     () =>
-      panelThemeCss(
+      `${panelFontFaces([ui.family, code])}\n${panelThemeCss(
         activeTheme ? themedTokens(activeTheme, accent) : {},
-        { ui, mono },
+        { ui: ui.family, code, size: ui.size, weight: ui.weight },
         activeTheme?.appearance ?? 'dark',
         reducedMotion,
-      ),
-    [activeTheme, accent, ui, mono, reducedMotion],
+      )}`,
+    [activeTheme, accent, ui, code, reducedMotion],
   )
 }
 
@@ -79,10 +80,19 @@ export function ExtensionPanelView({
     }
   }, [enabled, resolve])
 
+  const insertedCss = useRef<string | null>(null)
   const applyTheme = useCallback(() => {
     const wv = webview as unknown as WebviewTag | null
+    if (!wv) return
     try {
-      wv?.insertCSS(themeCss).catch(() => undefined)
+      const previous = insertedCss.current
+      insertedCss.current = null
+      if (previous) wv.removeInsertedCSS(previous).catch(() => undefined)
+      wv.insertCSS(themeCss)
+        .then((key) => {
+          insertedCss.current = key
+        })
+        .catch(() => undefined)
     } catch {}
   }, [webview, themeCss])
 

@@ -591,6 +591,13 @@ Details: `docs/ARCHITECTURE.md`.
   staggered lists, page transitions or decorative loops (spinners, shimmers). JS-driven motion
   follows `useReducedMotion()`; extension panels time transitions with `sdk/panel.css`'s
   tokens. `src/renderer/lib/motion.test.tsx` enforces the raw-timing and class rules.
+- **Typography:** sizes `text-ui-xs|sm|base|emphasis|lg` (CSS `var(--text-ui-*)` with
+  `var(--text-ui-*--line-height)`), families `font-sans`/`var(--font-ui)` and, for machine text
+  only, `font-mono`/`var(--font-code)`, weights `font-normal|medium|semibold`
+  (`var(--font-weight-*)`), `tracking-caps` for all-caps labels. Never set a font size, family,
+  weight, line height or letter spacing outside the tokens; the typography guard
+  (`src/renderer/lib/typography.test.ts`) fails on it. UI fonts follow the user's settings via
+  the font tokens (`lib/uiFonts.ts`; panels via `--pine-font-*`). `docs/DESIGN.md` §4.
 - **Strings:** every user-visible string goes through `i18n/dict.ts` (en + zh-Hant).
 
 ---
@@ -816,7 +823,9 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   portal is at `PINE_PORTAL_SOCKET`; it also runs the CLI from a Pine pane to check the refusal.
   It also runs a bash manager through `pine manager spawn|read|input` against a fake worker, with
   `manager.allowInput` off and on, and checks a worker pane is refused.
-  `e2e/tray.spec.ts` covers close-to-tray.
+  `e2e/tray.spec.ts` covers close-to-tray. `e2e/fonts.spec.ts` sets a UI and code font and
+  checks the computed, loaded family in the UI, a settings list, a keycap, chat code and the Git
+  panel's webview.
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,

@@ -30,6 +30,7 @@ import { registerSelectionSender } from '../lib/selectionSenders'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
+import { terminalFontStack } from '../lib/uiFonts'
 import { loadWebglRenderer } from '../lib/webglRenderer'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import {
@@ -53,8 +54,6 @@ import { useSelectionSend } from './SelectionSend'
 import { TerminalFind, findOptions } from './TerminalFind'
 import { isPromptRepaint, nextSizeAction } from './terminalSizing'
 
-const MONO_FALLBACK = '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
-export const fontStack = (family: string): string => `"${family}", ${MONO_FALLBACK}`
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 
 export function TerminalView({
@@ -115,7 +114,7 @@ export function TerminalView({
     const terminalSettings = useSettingsStore.getState().terminal
     const term = new Xterm({
       theme: currentScheme('terminal').colors,
-      fontFamily: fontStack(initial.family),
+      fontFamily: terminalFontStack(initial.family),
       fontSize: initial.size,
       fontWeight: initial.weight as FontWeight,
       lineHeight: initial.lineHeight,
@@ -604,7 +603,7 @@ export function TerminalView({
   useEffect(() => {
     const term = termRef.current
     if (!term) return
-    term.options.fontFamily = fontStack(font.family)
+    term.options.fontFamily = terminalFontStack(font.family)
     term.options.fontSize = font.size
     term.options.fontWeight = font.weight as FontWeight
     term.options.lineHeight = font.lineHeight
@@ -698,7 +697,7 @@ export function TerminalView({
         <InputEditor
           paneId={paneId}
           cwd={cwd}
-          fontFamily={fontStack(font.family)}
+          fontFamily={terminalFontStack(font.family)}
           fontSize={font.size}
           palette={palette}
           alternateScreen={alternateScreen}
