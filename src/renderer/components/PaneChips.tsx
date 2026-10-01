@@ -1,7 +1,12 @@
+import { CopyIcon } from '@phosphor-icons/react'
+import type { PaneChipItem } from '@shared/extensions'
 import { fmt, useDict } from '../i18n/useDict'
-import { type ShownPaneChip, paneChipAction, usePaneChips } from '../lib/paneChips'
+import { type ShownPaneChip, openPaneChipUrl, paneChipAction, usePaneChips } from '../lib/paneChips'
 import { Hint } from './Hint'
+import { IconButton } from './IconButton'
+import { extensionIcon } from './extensionIcons'
 import { Badge } from './ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
 export function PaneChips({ paneId }: { paneId: string }): JSX.Element | null {
   const d = useDict()
@@ -19,6 +24,83 @@ export function PaneChips({ paneId }: { paneId: string }): JSX.Element | null {
 }
 
 function Chip({ chip }: { chip: ShownPaneChip }): JSX.Element {
+  return chip.icon ? <IconChip chip={chip} /> : <TextChip chip={chip} />
+}
+
+function IconChip({ chip }: { chip: ShownPaneChip }): JSX.Element {
+  const d = useDict()
+  const Icon = extensionIcon(chip.icon)
+  const count = (
+    <span className="pane-chip-count" aria-hidden="true">
+      {chip.text}
+    </span>
+  )
+  const items = chip.items
+  if (!items) {
+    const action = paneChipAction(chip)
+    return (
+      <span className="pane-chip-icon">
+        <IconButton
+          icon={Icon}
+          label={fmt(d.extensions.chipStatus, { title: chip.title, text: chip.text })}
+          disabled={!action}
+          onClick={action ? () => void action() : undefined}
+        />
+        {count}
+      </span>
+    )
+  }
+  return (
+    <Popover>
+      <span className="pane-chip-icon">
+        <PopoverTrigger
+          render={
+            <IconButton
+              icon={Icon}
+              label={fmt(d.extensions.chipItems, { title: chip.title, text: chip.text })}
+            />
+          }
+        />
+        {count}
+      </span>
+      <PopoverContent align="end" className="pane-chip-popover" aria-label={chip.title}>
+        <p className="text-ui-xs text-fg-muted">{chip.tooltip ?? chip.title}</p>
+        <ul className="pane-chip-items">
+          {items.map((item, i) => (
+            <li key={`${i}:${item.text}`}>
+              <ChipItem chip={chip} item={item} />
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function ChipItem({ chip, item }: { chip: ShownPaneChip; item: PaneChipItem }): JSX.Element {
+  const d = useDict()
+  const url = item.url
+  if (!url) return <span className="pane-chip-item font-mono text-ui-sm">{item.text}</span>
+  return (
+    <span className="pane-chip-item">
+      <button
+        type="button"
+        className="pane-chip-item-open font-mono text-ui-sm"
+        aria-label={fmt(d.extensions.chipOpenItem, { url })}
+        onClick={() => openPaneChipUrl(chip, url)}
+      >
+        {item.text}
+      </button>
+      <IconButton
+        icon={CopyIcon}
+        label={fmt(d.extensions.chipCopyUrl, { url })}
+        onClick={() => void navigator.clipboard.writeText(url)}
+      />
+    </span>
+  )
+}
+
+function TextChip({ chip }: { chip: ShownPaneChip }): JSX.Element {
   const d = useDict()
   const action = paneChipAction(chip)
   const hint = chip.tooltip ?? `${chip.extName} · ${chip.title}`

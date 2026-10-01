@@ -19,6 +19,7 @@ export const EXTENSION_ICONS = [
   'alert',
   'shield',
   'chat',
+  'plugs',
 ] as const
 
 export type ExtensionIcon = (typeof EXTENSION_ICONS)[number]
@@ -194,6 +195,13 @@ export const SIDEBAR_URL_MAX = 2048
 
 export const PANE_CHIP_TEXT_MAX = 40
 export const PANE_CHIP_TOOLTIP_MAX = 200
+export const PANE_CHIP_ITEMS_MAX = 20
+export const PANE_CHIP_ITEM_TEXT_MAX = 80
+
+export interface PaneChipItem {
+  text: string
+  url?: string
+}
 
 export interface PaneChip {
   extId: string
@@ -202,6 +210,8 @@ export interface PaneChip {
   text: string
   tooltip?: string
   tone: SidebarTone
+  icon?: ExtensionIcon
+  items?: PaneChipItem[]
   command?: string
   url?: string
 }
@@ -240,6 +250,24 @@ export function sidebarItemUrl(raw: unknown): string | null {
   } catch {
     return null
   }
+}
+
+export function paneChipItems(raw: unknown): PaneChipItem[] | null {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > PANE_CHIP_ITEMS_MAX) return null
+  const items: PaneChipItem[] = []
+  for (const entry of raw) {
+    const e = (entry ?? {}) as Record<string, unknown>
+    const text = typeof e.text === 'string' ? e.text.trim().slice(0, PANE_CHIP_ITEM_TEXT_MAX) : ''
+    if (!text) return null
+    if (e.url === undefined) {
+      items.push({ text })
+      continue
+    }
+    const url = sidebarItemUrl(e.url)
+    if (!url) return null
+    items.push({ text, url })
+  }
+  return items
 }
 
 export type ExtensionCallerKind = 'pane' | 'user'

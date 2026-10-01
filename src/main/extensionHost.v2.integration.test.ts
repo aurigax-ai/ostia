@@ -237,6 +237,53 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     })
   })
 
+  describe('icon chips with items', () => {
+    it('keeps an allowed icon and a list of http(s) items', async () => {
+      const res = await host.invoke(
+        'echo',
+        'chip',
+        {
+          paneId: pane.externalId,
+          id: 'status',
+          text: '2',
+          icon: 'plugs',
+          items: [{ text: ':3000', url: 'http://localhost:3000/' }, { text: 'idle' }],
+        },
+        caller,
+      )
+      expect(res).toEqual({ ok: true })
+      expect(host.paneChips()[0]).toMatchObject({
+        icon: 'plugs',
+        text: '2',
+        items: [{ text: ':3000', url: 'http://localhost:3000/' }, { text: 'idle' }],
+      })
+      await host.invoke('echo', 'unchip', { paneId: pane.externalId, id: 'status' }, caller)
+    })
+
+    it('refuses an unknown icon, bad items, and items next to a url or command', async () => {
+      const set = (extra: Record<string, unknown>) =>
+        host.invoke(
+          'echo',
+          'chip',
+          { paneId: pane.externalId, id: 'status', text: 'x', ...extra },
+          caller,
+        )
+      const tooMany = Array.from({ length: 21 }, (_, i) => ({ text: `:${3000 + i}` }))
+      for (const extra of [
+        { icon: 'rocket' },
+        { items: [] },
+        { items: tooMany },
+        { items: [{ text: '' }] },
+        { items: [{ text: 'a', url: 'file:///etc/passwd' }] },
+        { items: [{ text: 'a' }], url: 'http://a/' },
+        { items: [{ text: 'a' }], command: 'echo' },
+      ]) {
+        expect(await set(extra)).toMatchObject({ ok: false, error: 'invalid-params' })
+      }
+      expect(host.paneChips()).toEqual([])
+    })
+  })
+
   describe('palette arguments', () => {
     it('lists the argument label of a command that asks for one', () => {
       expect(echo().commands.find((c) => c.id === 'echo')?.argument).toBe('What to echo')
