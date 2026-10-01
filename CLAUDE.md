@@ -191,10 +191,11 @@ Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts
   clear it on unmount, reset or reap.
 - **Hibernation only stops what it can bring back** (`lib/hibernationScheduler.ts`, off by default):
   a pane with a resume token whose running block is that agent (`runningAgentOf`), not visible and
-  idle past `idleSeconds`; never a shell at a prompt, a non-agent command, or a pane without a
-  token. Main stashes the screen first (`pty:hibernate`). Waking is only the human's act and types
-  `resumeCommand` at the fresh shell's first idle prompt (`runWhenIdle`); revealing a pane never
-  wakes it. `hibernated` is never persisted.
+  idle past `idleSeconds`, or, when the human picks Hibernate agents on a workspace row
+  (`hibernateWorkspace`), every such pane in it, shown or not; never a shell at a prompt, a
+  non-agent command, or a pane without a token. Main stashes the screen first (`pty:hibernate`).
+  Waking is only the human's act and types `resumeCommand` at the fresh shell's first idle prompt
+  (`runWhenIdle`); revealing a pane never wakes it. `hibernated` is never persisted.
 - **Attention goes through `reduceAttention`** (`lib/attention.ts`) via
   `attentionStore`/`signalPane`; workspace state is derived by `startAttentionSync`, never
   `setState` directly. A signal to the viewed pane applies `view` immediately. `waiting` is set only
@@ -249,7 +250,9 @@ Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts
   list or order. Pinned and grouped are exclusive. Deleting a group never closes a workspace.
 - **Workspaces merge only on the human's confirm, never automatically.** Eligible only when they
   share a project path, neither is the manager, and their sandboxes are both off or identical
-  (`lib/mergeEligibility.ts`). `workspace.mergeInto` is a `local` command (no socket method or CLI
+  (`lib/mergeEligibility.ts`). The human starts one from the row menu, the palette, or by dropping a
+  workspace on the middle of an eligible row (`rowDropZone`); each asks the same confirm
+  (`requestMergeWorkspace`). `workspace.mergeInto` is a `local` command (no socket method or CLI
   verb). Main re-checks (`workspace:merge`) and rehomes identities before `mergeLayouts`; panes keep
   ids and ptys, nothing remounts, no close events. A merged sandbox's host lives until its last
   confined process exits (`releaseMergedSandbox`).
