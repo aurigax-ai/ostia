@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
-import { startWorkspaceProjects } from './workspaceProjects'
+import { anchorToFocusedPane, startWorkspaceProjects } from './workspaceProjects'
 
 describe('startWorkspaceProjects', () => {
   const init = { layout: useLayoutStore.getState(), workspaces: useWorkspacesStore.getState() }
@@ -62,6 +62,45 @@ describe('startWorkspaceProjects', () => {
       name: 'model-runtime',
       projectDir: '~/Personal/model-runtime',
       workDir: '/home/u/Personal/model-runtime',
+    })
+  })
+
+  it('stays on its project once it has one, until the human moves it', async () => {
+    vi.mocked(window.pine.openPath.project).mockImplementation(async (dir) => ({
+      name: dir.split('/').pop() ?? dir,
+      display: dir.replace('/home/u', '~'),
+      dir,
+    }))
+    const pane = createPane('terminal', undefined, '/home/u/other')
+    useWorkspacesStore.setState({
+      workspaces: [
+        {
+          id: 'w1',
+          name: 'app',
+          kind: 'terminal',
+          workDir: '/home/u/app',
+          projectDir: '~/app',
+          state: 'idle',
+        },
+      ],
+    })
+    useLayoutStore.setState({
+      byWorkspace: { w1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+
+    stop = startWorkspaceProjects()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(window.pine.openPath.project).not.toHaveBeenCalled()
+    expect(useWorkspacesStore.getState().workspaces[0]).toMatchObject({
+      name: 'app',
+      workDir: '/home/u/app',
+    })
+
+    expect(await anchorToFocusedPane('w1')).toBe(true)
+    expect(useWorkspacesStore.getState().workspaces[0]).toMatchObject({
+      name: 'other',
+      projectDir: '~/other',
+      workDir: '/home/u/other',
     })
   })
 })

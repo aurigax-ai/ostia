@@ -33,6 +33,7 @@ import {
   signalPane,
 } from '../lib/workspaceActivity'
 import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
+import { anchorToFocusedPane } from '../lib/workspaceProjects'
 import { isMac } from '../platform'
 import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -523,6 +524,16 @@ export function registerBuiltinCommands(): void {
     category: 'Workspace',
     run: (_args, ctx) => {
       if (ctx.activeWorkspaceId) markWorkspaceRead(ctx.activeWorkspaceId)
+    },
+  })
+
+  commands.register({
+    id: 'workspace.useFocusedFolder',
+    title: 'Use This Pane’s Folder for the Workspace',
+    category: 'Workspace',
+    local: true,
+    run: async (_args, ctx) => {
+      if (ctx.activeWorkspaceId) await anchorToFocusedPane(ctx.activeWorkspaceId)
     },
   })
 
