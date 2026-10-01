@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from 'node:child_process'
+import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { type Server, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -18,6 +18,7 @@ let root: string
 let host: SandboxHost
 let inner: ChildProcess
 let forwarder: PortForwarder
+let canJoinSandbox = false
 
 async function until<T>(
   read: () => T | undefined | Promise<T | undefined>,
@@ -80,6 +81,10 @@ beforeAll(async () => {
     const pid = findNamespacePid([inner.pid ?? 0])
     return pid && forwarder.listeners('ws').some((l) => l.port === INNER_PORT) ? true : undefined
   })
+  const pid = findNamespacePid([inner.pid ?? 0])
+  canJoinSandbox =
+    spawnSync('nsenter', ['-t', String(pid), '--user', '--net', '--preserve-credentials', 'true'])
+      .status === 0
 }, 60_000)
 
 afterAll(() => {
@@ -94,7 +99,8 @@ afterAll(() => {
 })
 
 describe('PortForwarder', () => {
-  it('SBX-C45 forwards host 127.0.0.1:<port> to the same port inside the sandbox', async () => {
+  it('SBX-C45 forwards host 127.0.0.1:<port> to the same port inside the sandbox', async (ctx) => {
+    if (!canJoinSandbox) ctx.skip()
     await expect(fetch(`http://127.0.0.1:${INNER_PORT}/`)).rejects.toThrow()
     await expect(forwarder.expose('ws', INNER_PORT)).resolves.toEqual({
       ok: true,

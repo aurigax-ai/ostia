@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  NODE_OPTIONS: --max-old-space-size=5120
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  package:
+    needs: ci
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tag matches package.json version
+        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      - run: pnpm exec electron-builder --linux AppImage dir --publish never
+      - name: Archive the unpacked app
+        run: |
+          name="pine-${GITHUB_REF_NAME#v}-linux-x64"
+          mv dist/linux-unpacked "dist/$name"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: |
+            dist/*.AppImage
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Notes from the commits since the previous tag
+        run: |
+          prev=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          git log --no-merges --pretty='- %s (%h)' ${prev:+$prev..}"$GITHUB_REF_NAME" \
+            | grep -v 'chore(release)' > notes.md || true
+      - uses: actions/download-artifact@v8
+        with:
+          name: packages
+          path: dist
+      - uses: softprops/action-gh-release@v3
+        with:
+          body_path: notes.md
+          files: |
+            dist/*.AppImage
+            dist/*.tar.gz
+          prerelease: ${{ contains(github.ref_name, '-') }}
