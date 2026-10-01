@@ -2,7 +2,7 @@
   "id": "system",
   "name": "System",
   "version": "1.0.0",
-  "api": "1.0",
+  "api": "1.1",
   "description": "Tells agents about this computer (OS, kernel, shell, package managers) and lets them ask you to install system packages. Nothing is installed unless you approve the exact command, and it runs in a new terminal where you see it.",
   "category": "tools",
   "capabilities": ["shell"],

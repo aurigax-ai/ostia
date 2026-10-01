@@ -123,6 +123,12 @@ describe('extension API version', () => {
     }
   })
 
+  it('is what every extension built from this tree declares, since each bundles this SDK', () => {
+    for (const file of manifestFiles().filter((f) => !f.includes('/test/fixtures/'))) {
+      expect(JSON.parse(readFileSync(file, 'utf8')).api, file).toBe(EXTENSION_API_VERSION)
+    }
+  })
+
   it('is published in the package for authors and tools', () => {
     const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
     expect(pkg.pineExtensionApi).toBe(EXTENSION_API_VERSION)
