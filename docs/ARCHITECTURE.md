@@ -875,9 +875,18 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   `main/index.ts` `before-quit` calls `preventDefault()` until the human approves; the approving
   pass sets `quitApproved` and calls `app.quit()` again, so the scrollback save and pty kill loop
   in `before-quit` run exactly once, after the human said yes. A loading or crashed window
-  counts as having nothing running. E2E seeds
-  `workspaces.confirmQuit: false` (`DOM_RENDERER_SETTINGS`) so `app.close()` never waits on a
-  dialog; `e2e/workspace-settings.spec.ts` turns it on.
+  counts as having nothing running. Pine's own quits (tray Quit, palette `app.quit` /
+  `window:quit`, closing the main window, the last window closing, the update restart) go
+  through `requestQuit()`, which marks the quit as Pine's; `planQuit` (`main/quitPlan.ts`) then
+  asks. A quit Pine didn't start is a signal: Electron turns SIGTERM, SIGINT and SIGHUP (pkill,
+  logout, shutdown) into `app.quit()` itself, and `process.on(signal)` handlers never run in
+  Electron's main process, so the unmarked quit is the only way to see one. It is approved
+  without asking (the signal is the instruction), sends `window:freeze`, runs the same
+  `before-quit` saves, and arms `exitAfterDeadline` (5 s) so a stuck window can't keep the
+  process alive. On macOS the app menu's Quit also arrives unmarked, so there it still asks.
+  E2E seeds `workspaces.confirmQuit: false` (`DOM_RENDERER_SETTINGS`); `app.close()` arrives
+  unmarked and never waits on a dialog. `e2e/workspace-settings.spec.ts` turns it on and quits
+  through `window.pine.window.quit()`.
 - **Close to tray** (`main/tray.ts`): with `workspaces.closeToTray` on (the default), or when Pine was started
   with `--hidden`, the main window's `close` handler hides it (`closeAction`) instead of asking
   `closeGuard`; a detached window never goes to the tray, it returns its workspaces to the main
@@ -1627,9 +1636,20 @@ Two files written by two processes (see CLAUDE.md §6): the renderers write `wor
   tree's top level.
 - **Auto-resume after a restart** (`agents.autoResume`, `lib/autoResume.ts`): the resume token
   stays on a pane after its agent exits, so the snapshot also records `agentRunning` for panes
-  whose running command is that agent at save time (`liveAgentPanes` in `stores/persistence.ts`,
-  which re-saves when `running` changes); once quit is approved `freezeSnapshots()` saves one
-  last time and stops, so the shells dying at quit can't clear the mark. Restore turns it into
+  whose agent was running when Pine stopped or when Pine took its shell away. The truth lives in
+  main (`AgentRunningPanes`, `main/agentRunning.ts`): the renderer reports each pane's agent
+  starting and stopping (`pty:agent-running`, `lib/agentRunningReport.ts`), and the broker marks
+  every merged `workspaces.json` with it (`persist` → `mark`), on top of the renderer's own
+  `liveAgentPanes` mark. The mark is sticky: it is set when the agent runs, cleared only when
+  the agent's block ends or another command runs in the pane while the reporting window is
+  attached to a live pty, or when the shell exits by itself. Reaping after the detach grace,
+  hibernation, a sandbox restart, the quit kill loop and a renderer that unmounted its
+  terminals (`dropPane`/`resetPane` report nothing) leave it set. Why main: in v0.0.9 a render
+  error unmounted every terminal, `dropPane` cleared `running`, main reaped the ptys after the
+  grace, and the broken renderer kept autosaving without `agentRunning`; a `pkill` then lost
+  every agent. Main re-persists when the set changes, so a crash or `kill -9` keeps the mark
+  from the last change, and seeds the set from the loaded file so a restored, still-pending
+  pane stays marked until something clears it. Restore turns it into
   `resumePending` on the pane. `startAutoResume` then, when the setting is on and the pane is
   visible (`isPaneVisible`: active workspace, shown tab, not behind Settings), types
   `resumeCommand` at the pane's first idle prompt (`runWhenIdle`) and clears the mark; a
