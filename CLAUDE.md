@@ -120,7 +120,14 @@ Details: `docs/ARCHITECTURE.md`.
   `settings.set` refuses it), for a pane whose agent was running at the last save
   (`agentRunning` in the snapshot → `resumePending`), once that pane is visible
   (`lib/autoResume.ts`). A command run in the pane first cancels it. Never store or replay a
-  free-form command.
+  free-form command. Main owns `agentRunning` (`main/agentRunning.ts`, applied to every merged
+  snapshot): it is set while the pane's agent runs and stays set when Pine takes the shell away
+  (detach-grace reap, hibernation, quit, a broken renderer); it clears only when the agent's
+  block ends or another command runs while the reporting window is attached to the live pty
+  (`pty:agent-running`), or when the shell exits by itself. Never clear it on unmount, reset or
+  reap. A quit Pine didn't start (SIGTERM/SIGINT/SIGHUP; Electron turns them into
+  `app.quit()`) is approved without asking and exits within 5 s (`main/quitPlan.ts`); Pine's own
+  quits go through `requestQuit()` so they still ask.
 - **Hibernation only stops what it can bring back** (`lib/hibernationScheduler.ts`, off by
   default). It kills a pane's pty only if the pane has a resume token, its running block is
   that agent (`runningAgentOf`), it is not visible and idle past `idleSeconds`; never a shell at
@@ -277,7 +284,8 @@ Details: `docs/ARCHITECTURE.md`.
   a workspace, or any pane or tab that has a running command, and `main/closeGuard.ts` confirms
   quit once for every window (it collects each window's running groups and shows one dialog);
   `before-quit` calls `preventDefault()` until approved, so the scrollback save and pty kill run
-  once, after approval. Moving a workspace or pane to another window, and closing a detached
+  once, after approval. Every quit Pine starts goes through `requestQuit()`; an unmarked quit is
+  a signal (pkill, logout, shutdown) and is approved without asking (`planQuit`). Moving a workspace or pane to another window, and closing a detached
   window, never ask about commands (nothing stops); they ask only about unsaved files, which
   the new window reopens from disk. New workspace paths call `startNewWorkspace()` (placement
   and folder settings), never `addWorkspace` directly. E2E seeds `workspaces.confirmQuit: false`.
