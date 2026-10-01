@@ -159,9 +159,6 @@ export const en = {
     enabled: 'Sandbox this workspace',
     enabledDesc:
       'Shells and processes are confined to the workspace folder and the allowed domains.',
-    refusals: 'Recently refused',
-    refusalsEmpty: 'Nothing was refused.',
-    refusalCount: '{count}× · {time}',
     allow: 'Allow',
     restartNote: 'File and socket changes apply to shells started afterwards.',
     workspaceDesc:
@@ -1988,9 +1985,6 @@ export const zhHant: Dict = {
     network: '網路',
     enabled: '將此工作區放入沙箱',
     enabledDesc: 'Shell 與程序只能存取工作區資料夾與允許的網域。',
-    refusals: '最近拒絕的連線',
-    refusalsEmpty: '沒有被拒絕的連線。',
-    refusalCount: '{count} 次 · {time}',
     allow: '允許',
     restartNote: '檔案與 socket 的變更會套用到之後啟動的 shell。',
     workspaceDesc: '此工作區的沙箱設定。它也會沿用「設定 › 沙箱」中的預設值。',

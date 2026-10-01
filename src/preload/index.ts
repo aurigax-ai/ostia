@@ -43,7 +43,6 @@ import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { ReleaseCheckResult, ReleaseInfo } from '../shared/releases'
 import type {
-  DomainRefusal,
   SandboxEditError,
   SandboxEditResult,
   SandboxEnableResult,
@@ -440,8 +439,6 @@ const bridge: PineBridge = {
         workspaceId,
         controls,
       ) as Promise<WorkspaceSandbox | null>,
-    refusals: (workspaceId) =>
-      ipcRenderer.invoke('sandbox:refusals', workspaceId) as Promise<DomainRefusal[]>,
     allowRefused: (workspaceId, host) =>
       ipcRenderer.invoke('sandbox:allow-refused', workspaceId, host) as Promise<boolean>,
     globalsChanged: () => ipcRenderer.invoke('sandbox:globals-changed') as Promise<boolean>,

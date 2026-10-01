@@ -180,7 +180,6 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       violations: vi.fn().mockResolvedValue([]),
       clearViolations: vi.fn().mockResolvedValue(true),
       setControls: vi.fn().mockResolvedValue(null),
-      refusals: vi.fn().mockResolvedValue([]),
       allowRefused: vi.fn().mockResolvedValue(true),
       globalsChanged: vi.fn().mockResolvedValue(true),
       setPackages: vi.fn().mockResolvedValue(null),

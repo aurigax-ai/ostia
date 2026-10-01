@@ -1,6 +1,5 @@
 import { ipcMain } from 'electron'
 import {
-  type DomainRefusal,
   PORTS_POLICIES,
   type PortsPolicy,
   SANDBOX_LIST_MAX,
@@ -213,11 +212,6 @@ export function registerSandboxIpc(deps: SandboxIpcDeps): void {
       if (!ownsWorkspace(deps, e.sender.id, workspaceId) || !controls) return null
       return deps.sandboxes.update(workspaceId, (c) => ({ ...c, controls }))
     },
-  )
-  ipcMain.handle('sandbox:refusals', (e, workspaceId: unknown): DomainRefusal[] =>
-    ownsWorkspace(deps, e.sender.id, workspaceId)
-      ? (deps.domains?.refusals(workspaceId) ?? [])
-      : [],
   )
   ipcMain.handle('sandbox:allow-refused', (e, workspaceId: unknown, host: unknown): boolean => {
     if (!ownsWorkspace(deps, e.sender.id, workspaceId) || typeof host !== 'string') return false

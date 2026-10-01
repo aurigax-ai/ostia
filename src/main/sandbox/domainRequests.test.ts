@@ -78,7 +78,6 @@ describe('DomainRequests', () => {
     expect(asks).toHaveLength(1)
     asks[0].resolve('session')
     await expect(Promise.all(held)).resolves.toEqual(Array(21).fill(true))
-    expect(requests.refusals('ws')).toEqual([])
   })
 
   it('SBX-C44 refuses a denied host at once until restart, and the Allow button still works', async () => {
@@ -89,10 +88,8 @@ describe('DomainRequests', () => {
     await expect(first).resolves.toBe(false)
     await expect(requests.onBlocked('ws', 'example.com', 443)).resolves.toBe(false)
     expect(asks).toHaveLength(1)
-    expect(requests.refusals('ws')).toEqual([{ host: 'example.com', count: 2, last: 1000 }])
     requests.allowFromView('ws', 'example.com')
     expect(stored).toEqual(['example.com'])
-    expect(requests.refusals('ws')).toEqual([])
     const later = requests.onBlocked('ws', 'example.com', 443)
     await expect(later).resolves.toBe(true)
   })
