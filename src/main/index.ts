@@ -143,6 +143,7 @@ import { PortRequests } from './sandbox/portRequests'
 import { sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
+import { srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
@@ -416,6 +417,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
     runtimeDir: process.env.XDG_RUNTIME_DIR,
     agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
     socketPath: controlSocketPath(),
+    srtVendorDir: srtVendorDir(app.getAppPath()),
     runtimeReads: [
       INTEGRATION_DIR,
       privateTmpDir('pine-shell-state'),
