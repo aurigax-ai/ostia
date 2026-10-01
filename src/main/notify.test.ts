@@ -30,8 +30,24 @@ vi.mock('./events', () => ({ emitPlatformEvent: vi.fn() }))
 
 const { registerNotifyIpc } = await import('./notify')
 
+let windows: {
+  isDestroyed: () => boolean
+  isVisible: () => boolean
+  isFocused: () => boolean
+  webContents: { send: () => void }
+}[] = []
+
+function pineWindow(state: { visible: boolean; focused: boolean }) {
+  return {
+    isDestroyed: () => false,
+    isVisible: () => state.visible,
+    isFocused: () => state.focused,
+    webContents: { send: () => {} },
+  }
+}
+
 registerNotifyIpc({
-  windows: () => [],
+  windows: () => windows,
   windowById: () => undefined,
   execCommand: vi.fn(),
 } as unknown as Parameters<typeof registerNotifyIpc>[0])
@@ -49,9 +65,33 @@ function settings(notifications: object): void {
 
 afterEach(() => {
   shown.length = 0
+  windows = []
 })
 
 describe('desktop notifications', () => {
+  it('sends nothing to the system while a Pine window is focused', () => {
+    settings({})
+    windows = [pineWindow({ visible: true, focused: true })]
+    post(true)
+    expect(shown).toEqual([])
+  })
+
+  it('still notifies the system when Pine is in the background or hidden in the tray', () => {
+    settings({})
+    windows = [pineWindow({ visible: true, focused: false })]
+    post(true)
+    windows = [pineWindow({ visible: false, focused: true })]
+    post(true)
+    expect(shown).toHaveLength(2)
+  })
+
+  it('notifies the system while focused when the human asked for it', () => {
+    settings({ whenFocused: true })
+    windows = [pineWindow({ visible: true, focused: true })]
+    post(true)
+    expect(shown).toHaveLength(1)
+  })
+
   it('shows a banner with sound by default', () => {
     settings({})
     post(true)

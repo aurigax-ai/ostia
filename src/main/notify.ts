@@ -62,15 +62,23 @@ function readNotificationSettings(): NotificationSettings {
   }
 }
 
-function desktopNotification(title: string, body?: string): Notification | null {
+export function pineInFront(windows: Iterable<BrowserWindow>): boolean {
+  for (const win of windows) {
+    if (!win.isDestroyed() && win.isVisible() && win.isFocused()) return true
+  }
+  return false
+}
+
+function desktopNotification(deps: NotifyDeps, title: string, body?: string): Notification | null {
   if (!Notification.isSupported()) return null
   const settings = readNotificationSettings()
   if (!settings.desktop) return null
+  if (!settings.whenFocused && pineInFront(deps.windows())) return null
   return new Notification({ title, body, silent: !settings.sound })
 }
 
 function showDesktop(deps: NotifyDeps, title: string, body?: string, paneId?: string): void {
-  const n = desktopNotification(title, body)
+  const n = desktopNotification(deps, title, body)
   if (!n) return
   if (paneId) n.on('click', () => activatePane(deps, paneId))
   n.show()
@@ -126,7 +134,7 @@ export function postActionNotification(
   input: { title: string; body?: string; from: string },
   onClick: () => void,
 ): void {
-  const n = desktopNotification(input.title, input.body)
+  const n = desktopNotification(deps, input.title, input.body)
   if (n) {
     n.on('click', onClick)
     n.show()
@@ -139,7 +147,7 @@ export function postPanelNotification(
   input: { title: string; body?: string; from: string; extId: string; panelPath?: string },
   openPanel: () => void,
 ): void {
-  const n = desktopNotification(input.title, input.body)
+  const n = desktopNotification(deps, input.title, input.body)
   if (n) {
     n.on('click', () => {
       const win = [...deps.windows()].find((w) => !w.isDestroyed())
