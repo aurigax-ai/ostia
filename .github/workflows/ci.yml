@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  NODE_OPTIONS: --max-old-space-size=5120
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+              - '!docs/**'
+
+  static:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm typecheck
+      - run: pnpm lint
+
+  unit:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh bubblewrap socat ripgrep
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_unconfined=0
+          zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
+          git config --global user.name 'Pine CI'
+          git config --global user.email 'ci@pine.invalid'
+      - uses: ./.github/actions/setup
+      - run: pnpm test
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: out
+          path: out
+          retention-days: 3
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_unconfined=0
+          zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
+          git config --global user.name 'Pine CI'
+          git config --global user.email 'ci@pine.invalid'
+      - uses: ./.github/actions/setup
+      - uses: actions/cache@v6
+        id: pty
+        with:
+          path: node_modules/node-pty/build
+          key: node-pty-electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - if: steps.pty.outputs.cache-hit != 'true'
+        run: pnpm rebuild
+      - uses: actions/download-artifact@v8
+        with:
+          name: out
+          path: out
+      - run: pnpm test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: blob-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 3
+
+  e2e-report:
+    needs: e2e
+    if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: blob-*
+          path: all-blob
+          merge-multiple: true
+      - run: pnpm exec playwright merge-reports --reporter html ./all-blob
+      - uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: playwright-report
+          retention-days: 14
+
+  ci-result:
+    needs: [changes, static, unit, build, e2e]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+          CODE: ${{ needs.changes.outputs.code }}
+        run: |
+          echo "$NEEDS" | jq -e --arg code "$CODE" '
+            .changes.result == "success" and
+            (del(.changes) | to_entries
+              | all(.value.result == (if $code == "true" then "success" else "skipped" end)))'

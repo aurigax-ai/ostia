@@ -9,6 +9,7 @@
     "pine": "./out/cli/index.js"
   },
   "author": "",
+  "packageManager": "pnpm@11.10.0",
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",

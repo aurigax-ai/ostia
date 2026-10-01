@@ -30,6 +30,8 @@ test('Ctrl+Shift+V pastes in the default mode, and Ctrl+V goes to the shell', as
   const { app, win } = await launch('shift')
   try {
     await win.keyboard.press('Control+v')
+    await win.keyboard.press('x')
+    await expect(win.locator('.xterm-rows')).not.toContainText('pasted_')
     await win.keyboard.press('Control+c')
     await win.keyboard.press('Control+Shift+v')
     await win.keyboard.press('Enter')
