@@ -90,7 +90,9 @@ interface Harness {
   reopen: () => Marketplace
 }
 
-function harness(opts: { builtinIds?: string[]; git?: GitRunner } = {}): Harness {
+function harness(
+  opts: { builtinIds?: string[]; git?: GitRunner; locale?: () => string } = {},
+): Harness {
   const data = tmp()
   const extensionsDir = join(data, 'extensions')
   mkdirSync(extensionsDir)
@@ -108,6 +110,7 @@ function harness(opts: { builtinIds?: string[]; git?: GitRunner } = {}): Harness
         rescans++
       },
       gitMissing: () => false,
+      ...(opts.locale ? { locale: opts.locale } : {}),
       ...(opts.git ? { git: opts.git } : {}),
     })
   return {
@@ -296,6 +299,32 @@ describe('Marketplace', () => {
       'extensions/broken: missing name',
       'extensions/missing: not a folder in the repository',
     ])
+  })
+
+  it('lists an extension in the language when it ships a catalog, and installs the catalog with it', async () => {
+    const repo = marketplaceRepo()
+    writeExtension(repo, 'extensions/weather', { ...weather('1.0.0'), locales: ['zh-Hant'] })
+    mkdirSync(join(repo, 'extensions/weather/locales'))
+    writeFileSync(
+      join(repo, 'extensions/weather/locales/zh-Hant.json'),
+      JSON.stringify({ manifest: { name: '天氣', description: '顯示天氣' } }),
+    )
+    commit(repo)
+    let locale = 'zh-Hant'
+    const h = harness({ locale: () => locale })
+    const { state } = await h.marketplace.add(repo)
+    expect(state.marketplaces[0]?.extensions[0]).toMatchObject({
+      id: 'weather',
+      name: '天氣',
+      description: '顯示天氣',
+    })
+    locale = 'en'
+    expect(h.marketplace.state().marketplaces[0]?.extensions[0]).toMatchObject({
+      name: 'Weather',
+      description: 'Shows the weather',
+    })
+    await h.marketplace.install(state.marketplaces[0]?.id, 'weather')
+    expect(existsSync(join(h.extensionsDir, 'weather', 'locales', 'zh-Hant.json'))).toBe(true)
   })
 
   it('installs an extension into the extensions folder and asks the host to rescan', async () => {

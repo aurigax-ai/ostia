@@ -1,0 +1,13 @@
+{
+  "manifest": {
+    "description": "以面板顯示 Keeper 儀表板、等待你核准的查詢數量，以及有查詢進來時可開啟核准佇列的通知。這個擴充功能只讀取佇列；核准永遠是你在儀表板上的點按。",
+    "commands.open.title": "Keeper：開啟儀表板",
+    "commands.approvals.title": "Keeper：顯示待核准項目",
+    "settings.notify.title": "核准通知",
+    "settings.notify.description": "有查詢開始等待你核准時發出通知",
+    "settings.pollSeconds.title": "使用中的檢查間隔",
+    "settings.pollSeconds.description": "{product} 視窗在前景或有項目等待核准時，每次檢查佇列的間隔時間",
+    "settings.idlePollSeconds.title": "背景檢查間隔",
+    "settings.idlePollSeconds.description": "在背景且沒有項目等待時，每次檢查佇列的間隔時間"
+  }
+}

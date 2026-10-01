@@ -3,7 +3,6 @@ import type { ExtensionEventType } from '../../shared/extensions'
 import { PRODUCT_NAME } from '../../shared/product'
 import {
   type CommandHandler,
-  type ExtensionCaller,
   type ExtensionSettingValues,
   booleanSetting,
   cliArgs,
@@ -64,16 +63,16 @@ async function main(): Promise<void> {
     return proxy
   }
 
-  const remember = (caller: ExtensionCaller): void => {
-    if (caller.locale) service.locale = caller.locale
-  }
+  service.locale = await ext.getLocale()
+  ext.onLocaleChanged((locale) => {
+    service.locale = locale
+  })
 
   const unavailableText = (err: unknown): string =>
     err instanceof TrellisUnavailable ? err.message : service.strings.uiFailed
 
   const handlers: Record<string, CommandHandler> = {
     open: async (_args, caller) => {
-      remember(caller)
       try {
         uiUrl = await service.ensureUi()
       } catch (err) {
@@ -86,7 +85,6 @@ async function main(): Promise<void> {
       return ok('ok')
     },
     init: async (_args, caller) => {
-      remember(caller)
       const dir = caller.cwd ?? caller.workDir
       if (!dir) return failure('no-dir', service.strings.noDir)
       if (!(await service.isInstalled())) {
@@ -105,7 +103,6 @@ async function main(): Promise<void> {
       return res.ok ? ok(res.text) : failure('init-failed', res.message)
     },
     card: async (args, caller) => {
-      remember(caller)
       const raw = cliArgs(args)?.argv[0]
       if (!raw) return failure('missing-ref', service.strings.cardUsage)
       const ref = cardRef(raw)
@@ -123,7 +120,6 @@ async function main(): Promise<void> {
       return ok(service.strings.cardOpened(ref), { ref, path })
     },
     status: async (_args, caller) => {
-      remember(caller)
       if (!(await service.isInstalled())) {
         return failure('not-installed', service.strings.notInstalled)
       }
@@ -137,7 +133,6 @@ async function main(): Promise<void> {
   }
 
   ext.onPanel(async (caller, path) => {
-    remember(caller)
     try {
       uiUrl = await service.ensureUi()
       const p = await ensureProxy()

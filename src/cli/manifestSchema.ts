@@ -4,6 +4,7 @@ import {
   EXTENSION_ID_PATTERN,
   MAX_CHIPS,
   MAX_COMMANDS,
+  MAX_DESCRIPTION,
   MAX_ENUM_VALUES,
   MAX_ICON_THEMES,
   MAX_LANGUAGES,
@@ -19,6 +20,7 @@ import {
 import { ASSIST_POINTS } from '../shared/assist'
 import { ALL_CAPABILITIES } from '../shared/capabilities'
 import { EXTENSION_API_PATTERN } from '../shared/extensionApi'
+import { EXTENSION_LOCALES_MAX } from '../shared/extensionLocales'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_CATEGORIES,
@@ -30,7 +32,6 @@ import {
 import { ICON_THEME_ID_PATTERN } from '../shared/iconTheme'
 import { LANGUAGE_ID_PATTERN } from '../shared/languagePack'
 
-const SETTING_DESCRIPTION_MAX = 500
 const VERSION_MAX = 40
 
 const text = z.string().min(1).max(MAX_TEXT)
@@ -52,7 +53,7 @@ const command = z.looseObject({
 const setting = z.looseObject({
   type: z.enum(EXTENSION_SETTING_TYPES),
   default: z.union([z.string(), z.number(), z.boolean()]),
-  description: z.string().min(1).max(SETTING_DESCRIPTION_MAX),
+  description: z.string().min(1).max(MAX_DESCRIPTION),
   title: title.optional(),
   values: z.array(z.string().min(1)).min(1).max(MAX_ENUM_VALUES).optional(),
   valueTitles: z.record(z.string(), title).optional(),
@@ -62,7 +63,7 @@ const setting = z.looseObject({
 })
 
 const secret = z.looseObject({
-  description: z.string().min(1).max(SETTING_DESCRIPTION_MAX),
+  description: z.string().min(1).max(MAX_DESCRIPTION),
   title: title.optional(),
 })
 
@@ -120,6 +121,7 @@ export const extensionManifestSchema = z.looseObject({
   category: z.enum(EXTENSION_CATEGORIES).optional(),
   capabilities: capabilities.optional(),
   main: z.string().min(1).optional(),
+  locales: z.array(z.string().regex(LANGUAGE_ID_PATTERN)).max(EXTENSION_LOCALES_MAX).optional(),
   contributes: contributes.optional(),
 })
 

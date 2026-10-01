@@ -143,6 +143,7 @@ export interface ExtensionManifest {
   category: ExtensionCategory
   capabilities: Capability[]
   main?: string
+  locales?: string[]
   contributes: {
     commands: ExtensionCommandContribution[]
     sidebarItems: boolean

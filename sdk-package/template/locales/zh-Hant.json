@@ -1,0 +1,13 @@
+{
+  "manifest": {
+    "name": "哈囉",
+    "description": "入門擴充功能：一個向你打招呼並發出通知的指令",
+    "commands.greet.title": "哈囉：打招呼",
+    "commands.greet.category": "哈囉",
+    "commands.greet.argument": "名字"
+  },
+  "messages": {
+    "greetingTitle": "哈囉",
+    "greeting": "你好，{name}"
+  }
+}
