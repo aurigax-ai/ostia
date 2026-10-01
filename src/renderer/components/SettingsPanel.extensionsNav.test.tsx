@@ -30,6 +30,7 @@ function ext(id: string, name: string, overrides: Partial<ExtensionInfo> = {}): 
     commands: [],
     panel: null,
     paneChips: [],
+    workspaceChips: [],
     settings: [],
     settingValues: {},
     assist: [],

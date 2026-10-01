@@ -2396,6 +2396,10 @@ button.prompt-chip:focus-visible {
   text-overflow: ellipsis;
 }
 
+.workspace-chips {
+  -webkit-app-region: no-drag;
+}
+
 .pane-chips {
   display: flex;
   align-items: center;

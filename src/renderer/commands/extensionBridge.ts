@@ -119,6 +119,7 @@ export function wireExtensionBridge(): void {
   })
   api.onSidebar((items) => store.setSidebar(items))
   api.onPaneChips((chips) => store.setChips(chips))
+  api.onWorkspaceChips((chips) => store.setWorkspaceChips(chips))
   api.onSettingsStored(({ extId, stored }) =>
     useSettingsStore.getState().setExtensionSettings(extId, stored),
   )

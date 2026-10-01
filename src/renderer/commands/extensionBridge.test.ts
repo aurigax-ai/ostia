@@ -43,6 +43,7 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     ],
     panel: { title: 'Board', icon: 'puzzle' },
     paneChips: [],
+    workspaceChips: [],
     settings: [],
     settingValues: {},
     assist: [],

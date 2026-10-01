@@ -50,8 +50,7 @@ export type {
 
 export type AttentionVerb = 'waiting' | 'done' | 'working' | 'error' | 'clear'
 
-export interface PaneChipValue {
-  paneId: string
+export interface ChipValue {
   id: string
   text: string
   tooltip?: string
@@ -60,6 +59,14 @@ export interface PaneChipValue {
   items?: PaneChipItem[]
   command?: string
   url?: string
+}
+
+export interface PaneChipValue extends ChipValue {
+  paneId: string
+}
+
+export interface WorkspaceChipValue extends ChipValue {
+  workspaceId: string
 }
 
 export type OpenTerminalResult =
@@ -164,6 +171,8 @@ export interface PineExtension {
   openPanel: (workspaceId?: string, path?: string) => Promise<unknown>
   setPaneChip: (chip: PaneChipValue) => Promise<ExtensionResult>
   clearPaneChip: (paneId: string, id: string) => Promise<ExtensionResult>
+  setWorkspaceChip: (chip: WorkspaceChipValue) => Promise<ExtensionResult>
+  clearWorkspaceChip: (workspaceId: string, id: string) => Promise<ExtensionResult>
   getSettings: () => Promise<ExtensionSettingValues>
   setSetting: (key: string, value: ExtensionSettingValue | null) => Promise<ExtensionResult>
   onSettingsChanged: (handler: SettingsHandler) => void
@@ -342,6 +351,9 @@ export async function connect(): Promise<PineExtension> {
     openPanel: (workspaceId, path) => conn.sendRequest('ext.openPanel', { workspaceId, path }),
     setPaneChip: (chip) => conn.sendRequest('ext.setPaneChip', chip),
     clearPaneChip: (paneId, id) => conn.sendRequest('ext.clearPaneChip', { paneId, id }),
+    setWorkspaceChip: (chip) => conn.sendRequest('ext.setWorkspaceChip', chip),
+    clearWorkspaceChip: (workspaceId, id) =>
+      conn.sendRequest('ext.clearWorkspaceChip', { workspaceId, id }),
     getSettings: async () => {
       const res = await conn.sendRequest<{ values?: ExtensionSettingValues }>('ext.getSettings')
       return res?.values ?? {}

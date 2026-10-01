@@ -34,6 +34,7 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     commands: [],
     panel: null,
     paneChips: [],
+    workspaceChips: [],
     settings: [setting({ title: 'Scan interval' })],
     settingValues: {},
     assist: [],

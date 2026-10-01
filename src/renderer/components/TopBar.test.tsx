@@ -1,8 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import type { ExtensionInfo } from '@shared/extensions'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import type { ExtensionInfo, WorkspaceChip } from '@shared/extensions'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { extensionCommandId } from '../commands/extensionBridge'
+import { commands } from '../commands/registry'
 import { createPane, findExtensionPane } from '../layout/tree'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -24,6 +26,7 @@ const git: ExtensionInfo = {
   commands: [],
   panel: { title: 'Changes', icon: 'git-branch' },
   paneChips: [],
+  workspaceChips: [],
   settings: [],
   settingValues: {},
   assist: [],
@@ -166,6 +169,68 @@ describe('TopBar', () => {
       'aria-haspopup',
       'dialog',
     )
+  })
+
+  it("shows the active workspace's chips in the top bar and swaps them with the workspace", async () => {
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'app', kind: 'terminal', workDir: '/app', state: 'idle' },
+        { id: 's2', name: 'api', kind: 'terminal', workDir: '/api', state: 'idle' },
+      ],
+      activeWorkspaceId: 's1',
+    })
+    const chip = (workspaceId: string, id: string, text: string): WorkspaceChip => ({
+      extId: 'git',
+      id,
+      workspaceId,
+      text,
+      tone: 'neutral',
+      ...(id === 'branch' ? { command: 'show' } : {}),
+    })
+    useExtensionsStore.setState({
+      list: [
+        {
+          ...git,
+          workspaceChips: [
+            { id: 'branch', title: 'Git branch' },
+            { id: 'diff-stats', title: 'Git diff stats' },
+          ],
+        },
+      ],
+      workspaceChips: [
+        chip('s1', 'branch', 'main'),
+        chip('s1', 'diff-stats', '2 · +51 -3'),
+        chip('s2', 'branch', 'dev'),
+      ],
+    })
+    const run = vi.fn()
+    const showId = extensionCommandId('git', 'show')
+    commands.register({ id: showId, title: 'Show', run })
+    try {
+      const { container } = render(<TopBar />)
+      const chips = () => screen.getByRole('list', { name: 'Workspace status' })
+      expect(container.querySelector('.topbar-right')).toContainElement(chips())
+      expect(
+        within(chips())
+          .getAllByRole('listitem')
+          .map((li) => li.textContent),
+      ).toEqual(['main', '2 · +51 -3'])
+
+      await userEvent.setup().click(within(chips()).getByRole('button', { name: /main/ }))
+      expect(run).toHaveBeenCalledTimes(1)
+
+      act(() => useWorkspacesStore.setState({ activeWorkspaceId: 's2' }))
+      expect(
+        within(chips())
+          .getAllByRole('listitem')
+          .map((li) => li.textContent),
+      ).toEqual(['dev'])
+
+      act(() => useWorkspacesStore.setState({ activeWorkspaceId: null }))
+      expect(screen.queryByRole('list', { name: 'Workspace status' })).toBeNull()
+    } finally {
+      commands.unregister(showId)
+    }
   })
 
   it('shows no panel toggle for a disabled extension', () => {

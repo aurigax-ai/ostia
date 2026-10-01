@@ -102,7 +102,9 @@ test('the graph shows the uncommitted row, switches to all branches, and changes
     const inPanel = guest(app)
     const panelText = (): Promise<string> => inPanel('document.body.innerText')
 
-    await expect(win.locator('.pane-header .pane-chip').filter({ hasText: /^main$/ })).toBeVisible({
+    await expect(
+      win.locator('.topbar-right .workspace-chips .pane-chip').filter({ hasText: /^main$/ }),
+    ).toBeVisible({
       timeout: 15_000,
     })
     await win.keyboard.press('Control+Shift+P')

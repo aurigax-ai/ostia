@@ -2,7 +2,7 @@ import type { PromptContext } from '@shared/types'
 import { useEffect, useMemo, useState } from 'react'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { usePaneChips } from './paneChips'
+import { usePromptExtensionChips } from './extensionChips'
 import {
   type CoreChipInputs,
   type ResolvedChip,
@@ -39,7 +39,7 @@ export function usePromptChips(
   const locale = useSettingsStore((s) => s.locale)
   const promptLine = useBlocksStore((s) => (paneId ? s.drafts[paneId]?.promptLine : undefined))
   const blocks = useBlocksStore((s) => (paneId ? s.byPane[paneId] : undefined))
-  const contributed = usePaneChips(paneId)
+  const contributed = usePromptExtensionChips(paneId)
   const [context, setContext] = useState<PromptContext | null>(null)
   const want = contextRequest(order)
   const now = useClock(active && needsClock(order))
