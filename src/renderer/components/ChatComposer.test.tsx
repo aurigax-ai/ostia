@@ -7,7 +7,7 @@ import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
 import { useAssistStore } from '../stores/assistStore'
 import { currentSessionId, resetChats, startNewSession, useChatStore } from '../stores/chatStore'
-import { resetChatTools } from '../stores/chatToolsStore'
+import { modeFor, resetChatTools } from '../stores/chatToolsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
@@ -110,6 +110,7 @@ async function ask(question: string): Promise<void> {
   await userEvent.keyboard('{Enter}')
 }
 
+const modeButton = (): Promise<HTMLElement> => screen.findByRole('button', { name: /^Mode: / })
 const modelButton = (): Promise<HTMLElement> => screen.findByRole('button', { name: /^Model: / })
 
 describe('chat composer row', () => {
@@ -155,18 +156,25 @@ describe('chat composer row', () => {
     vi.mocked(window.pine.assist.request).mockReset()
     vi.mocked(window.pine.chatSessions.save).mockReset()
     vi.mocked(window.pine.chatSessions.list).mockReset()
+    vi.mocked(window.pine.fs.write).mockClear()
   })
 
-  it('puts tools on the left and model and send on the right of one row that never wraps', async () => {
+  it('puts tools on the left and mode, model and send on the right of one row that never wraps', async () => {
     render(<ChatPane workspaceId="w1" paneId="p-chat" />)
     const send = await screen.findByRole('button', { name: 'Send' })
     const row = send.closest('.chat-composer-row') as HTMLElement
     expect(row).toHaveClass('flex-nowrap')
     const order = [...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))
-    expect(order).toEqual(['Tools for this chat', 'Model: Ollama · qwen-small', 'Send'])
+    expect(order).toEqual([
+      'Tools for this chat',
+      'Mode: Ask',
+      'Model: Ollama · qwen-small',
+      'Send',
+    ])
     const model = await modelButton()
     expect(model).toHaveClass('min-w-0', 'shrink')
     expect(within(model).getByText('qwen-small')).toHaveClass('truncate')
+    expect(await modeButton()).toHaveClass('shrink-0')
   })
 
   it('keeps only the session title, saved state and new chat in the header', async () => {
@@ -176,6 +184,48 @@ describe('chat composer row', () => {
     const header = screen.getByRole('button', { name: 'New chat' }).parentElement as HTMLElement
     expect(header).not.toHaveTextContent('qwen-small')
     expect(header).toHaveTextContent('Saved')
+  })
+
+  it('starts every chat in Ask mode and switches to Write only from its menu, by keyboard too', async () => {
+    render(<ChatPane workspaceId="w1" paneId="p-chat" />)
+    const button = await modeButton()
+    expect(button).toHaveAttribute('data-mode', 'ask')
+    const first = currentSessionId('w1') as string
+    button.focus()
+    await userEvent.keyboard('{Enter}')
+    const write = await screen.findByRole('menuitemradio', { name: /^Write/ })
+    expect(write).toHaveTextContent(
+      'Edits inside the workspace folder apply right away. Each one can be undone.',
+    )
+    expect(screen.getByRole('menuitemradio', { name: /^Ask/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await userEvent.keyboard('{ArrowDown}{Enter}')
+    await waitFor(() => expect(modeFor(first)).toBe('write'))
+    expect(await modeButton()).toHaveAttribute('data-mode', 'write')
+    expect(await modeButton()).toHaveAccessibleName('Mode: Write')
+
+    await userEvent.click(screen.getByRole('button', { name: 'New chat' }))
+    const second = currentSessionId('w1') as string
+    expect(second).not.toBe(first)
+    expect(await modeButton()).toHaveAttribute('data-mode', 'ask')
+    expect(modeFor(first)).toBe('write')
+  })
+
+  it('never saves the mode with the chat or in settings', async () => {
+    const sent = captureRequests()
+    render(<ChatPane workspaceId="w1" paneId="p-chat" />)
+    await userEvent.click(await modeButton())
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: /^Write/ }))
+    await ask('hi')
+    await waitFor(() => expect(window.pine.chatSessions.save).toHaveBeenCalled())
+    expect(sent).toHaveLength(1)
+    const saved = JSON.stringify(vi.mocked(window.pine.chatSessions.save).mock.calls)
+    expect(saved).not.toMatch(/"mode"|write/)
+    expect(JSON.stringify(sent[0].input)).not.toMatch(/"mode"/)
+    expect(window.pine.fs.write).not.toHaveBeenCalled()
+    expect(JSON.stringify(useSettingsStore.getState())).not.toMatch(/"mode":"write"/)
   })
 
   it('lists the chat models by provider and sends the next question to the picked one', async () => {
@@ -235,16 +285,91 @@ describe('chat composer row', () => {
     expect(useUIStore.getState().settingsSection).toBe('assistant')
   })
 
-  it('shows no model, and cannot send, until a provider is set up', async () => {
+  it('shows no mode and no model, and cannot send, until a provider is set up', async () => {
     useAssistStore.setState({ availability: {}, catalog: { models: [], chat: null, fast: null } })
     render(<ChatPane workspaceId="w1" paneId="p-chat" />)
     expect(await screen.findByRole('button', { name: 'Model: No model' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Mode: / })).toBeNull()
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
   })
 
   it('has the same row in the palette Ask view', async () => {
     useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
     render(<CommandPalette />)
+    expect(await modeButton()).toHaveAttribute('data-mode', 'ask')
     expect(await modelButton()).toHaveAccessibleName('Model: Ollama · qwen-small')
+  })
+})
+
+describe('open file context', () => {
+  beforeEach(() => {
+    seed()
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: {
+          root: {
+            type: 'split',
+            id: 's1',
+            direction: 'row',
+            sizes: [50, 50],
+            children: [
+              { type: 'pane', id: 'p-term', title: 'zsh', kind: 'terminal', cwd: '/home/u/proj' },
+              {
+                type: 'pane',
+                id: 'p-edit',
+                title: 'a.ts',
+                kind: 'editor',
+                filePath: '/home/u/proj/src/a.ts',
+              },
+            ],
+          } as never,
+          activePaneId: 'p-term',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    vi.mocked(window.pine.chatSessions.list).mockResolvedValue([])
+  })
+
+  afterEach(() => {
+    cleanup()
+    resetChats()
+    resetChatTools()
+    useChatStore.setState({
+      current: {},
+      meta: {},
+      summaries: [],
+      notice: {},
+      drafts: {},
+      attachments: {},
+    })
+    useAssistStore.setState({ availability: {}, catalog: { models: [], chat: null, fast: null } })
+    useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
+    useLayoutStore.setState({ byWorkspace: {} })
+    vi.mocked(window.pine.assist.request).mockReset()
+    vi.mocked(window.pine.chatSessions.list).mockReset()
+  })
+
+  it('sends the path of the file open in the editor, and nothing once its chip is off', async () => {
+    const sent = captureRequests()
+    render(<ChatPane workspaceId="w1" paneId="p-chat" />)
+    const chip = await screen.findByRole('button', { name: /Open file/ })
+    expect(chip).toHaveAttribute('aria-pressed', 'true')
+    expect(chip).toHaveTextContent('a.ts')
+    await ask('rename the function here')
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect((sent[0].input as { context: unknown[] }).context).toContainEqual({
+      kind: 'editor',
+      label: 'Open file a.ts',
+      text: 'The file the user has open in the editor.',
+      path: '/home/u/proj/src/a.ts',
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'New chat' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Open file/ }))
+    await ask('again')
+    await waitFor(() => expect(sent).toHaveLength(2))
+    expect(
+      (sent[1].input as { context: { kind: string }[] }).context.some((c) => c.kind === 'editor'),
+    ).toBe(false)
   })
 })

@@ -251,7 +251,7 @@ test.describe('assistant chat tools', () => {
 
   test.afterAll(() => provider.close())
 
-  test('a read-only tool runs, a write waits for Deny or Allow once, and an MCP tool asks first', async () => {
+  test('a read-only tool runs, a write waits for Reject or Accept, and an MCP tool asks first', async () => {
     const dataHome = freshDataHome()
     const project = join(dataHome, 'userData', 'project')
     mkdirSync(project, { recursive: true })
@@ -300,16 +300,14 @@ test.describe('assistant chat tools', () => {
       await expect(win.locator('.ask-answer').last()).toHaveAttribute('aria-busy', 'false')
       await question.fill('write the file')
       await question.press('Enter')
-      const card = win.locator('.chat-tool-approval').last()
-      await expect(card).toContainText(`Create ${out}?`, { timeout: 15_000 })
+      const card = win.locator('.chat-edit[data-tool="write_file"]').last()
+      await expect(card).toHaveAttribute('data-state', 'pending', { timeout: 15_000 })
+      await expect(card).toContainText('out.txt')
+      await expect(card).toContainText('New file')
       await expect(card.locator('[data-diff="add"]')).toContainText('+hello from chat')
       await expect(card.getByRole('button', { name: 'Allow for this chat' })).toHaveCount(0)
-      await card.getByRole('button', { name: 'Deny' }).click()
-      await expect(win.locator('.chat-tool[data-tool="write_file"]').last()).toHaveAttribute(
-        'data-state',
-        'output-denied',
-        { timeout: 15_000 },
-      )
+      await card.getByRole('button', { name: 'Reject' }).click()
+      await expect(card).toHaveAttribute('data-state', 'rejected', { timeout: 15_000 })
       await expect(win.locator('.ask-answer').last()).toContainText('Write result:', {
         timeout: 15_000,
       })
@@ -318,14 +316,10 @@ test.describe('assistant chat tools', () => {
       await expect(win.locator('.ask-answer').last()).toHaveAttribute('aria-busy', 'false')
       await question.fill('write it again')
       await question.press('Enter')
-      const again = win.locator('.chat-tool-approval').last()
-      await expect(again).toContainText(`Create ${out}?`, { timeout: 15_000 })
-      await again.getByRole('button', { name: 'Allow once' }).click()
-      await expect(win.locator('.chat-tool[data-tool="write_file"]').last()).toHaveAttribute(
-        'data-state',
-        'output-available',
-        { timeout: 15_000 },
-      )
+      const again = win.locator('.chat-edit[data-tool="write_file"]').last()
+      await expect(again).toHaveAttribute('data-state', 'pending', { timeout: 15_000 })
+      await again.getByRole('button', { name: 'Accept' }).click()
+      await expect(again).toHaveAttribute('data-state', 'applied', { timeout: 15_000 })
       await expect
         .poll(() => (existsSync(out) ? readFileSync(out, 'utf8') : ''))
         .toBe('hello from chat\n')

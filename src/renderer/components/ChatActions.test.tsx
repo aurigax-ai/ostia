@@ -335,6 +335,7 @@ describe('chat actions', () => {
       kind: 'file',
       label: 'README.md',
       text: 'hello',
+      path: '/home/u/proj/README.md',
     })
     expect(screen.queryByRole('list', { name: 'Attached to the next question' })).toBeNull()
   })

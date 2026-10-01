@@ -1219,6 +1219,7 @@ export const en = {
     contextGroup: 'Include with the next question',
     context: {
       cwd: 'Folder',
+      editor: 'Open file',
       output: 'Recent output',
       selection: 'Selection',
       pane: 'Pane info',
@@ -1334,6 +1335,18 @@ export const en = {
     modelNow: 'Model: {model}',
     noModel: 'No model',
     manageModels: 'Manage models…',
+    mode: 'Mode',
+    modeNow: 'Mode: {mode}',
+    modes: {
+      ask: {
+        name: 'Ask',
+        desc: 'Reads the workspace. Every edit waits for your Accept.',
+      },
+      write: {
+        name: 'Write',
+        desc: 'Edits inside the workspace folder apply right away. Each one can be undone.',
+      },
+    },
     noProvider: 'No assistant is ready. Add a provider in Settings → Assistant.',
     scrollDown: 'Scroll to the latest message',
     insertBusy: 'This workspace’s terminal is not at an idle prompt.',
@@ -1415,7 +1428,7 @@ export const en = {
     menu: 'Tools',
     menuTitle: 'Tools for this chat',
     menuDesc:
-      'The model sees only the tools that are on. Anything that changes something asks you first.',
+      'The model sees only the tools that are on. Edits follow the mode next to the model; commands always ask.',
     noTools: 'This model does not use tools.',
     prompted:
       'This model has no native tool calling, so the tools are described in its prompt. Small models may call them wrongly or not at all.',
@@ -1436,6 +1449,7 @@ export const en = {
       git_status: 'Git status',
       load_skill: 'Load a skill',
       propose_command: 'Propose a command',
+      edit_file: 'Edit a file',
       write_file: 'Write a file',
       open_file: 'Open a file',
       open_url: 'Open a URL',
@@ -1443,7 +1457,8 @@ export const en = {
     access: {
       read: 'Runs without asking',
       act: 'Asks first',
-      confirm: 'Asks every time',
+      write: 'Follows the mode',
+      command: 'Asks every time',
     },
     states: {
       'input-streaming': 'Preparing',
@@ -1466,8 +1481,43 @@ export const en = {
     askReadOutside: 'Read outside the workspace folder: {path}?',
     askOpenFile: 'Open {path} in the editor?',
     askOpenUrl: 'Open {url} in the browser pane?',
-    askWrite: 'Write {path}?',
-    askWriteNew: 'Create {path}?',
+    edit: {
+      card: 'Edit to {path}',
+      created: 'New file',
+      states: {
+        preparing: 'Preparing',
+        pending: 'Waiting for you',
+        applied: 'Applied',
+        auto: 'Applied automatically',
+        undone: 'Undone',
+        rejected: 'Rejected',
+        failed: 'Not applied',
+        stopped: 'Stopped',
+      },
+      accept: 'Accept',
+      reject: 'Reject',
+      undo: 'Undo',
+      openDiff: 'Open diff',
+      openFile: 'Open {path}',
+      diffTitle: '{name} (assistant edit)',
+      reasons: {
+        outside: 'Outside the workspace folder, so it waits for you in every mode.',
+        symlink: 'The path goes through a symlink, so it waits for you in every mode.',
+        unsaved:
+          'You have unsaved edits in this file, so it waits for you. Accepting changes the file on disk; the editor then asks which version to keep.',
+      },
+      failures: {
+        changed: 'The file changed on disk first, so nothing was written.',
+        'no-match': 'The text to replace is not in the file, so nothing was written.',
+        ambiguous: 'The text to replace appears more than once, so nothing was written.',
+        'no-change': 'The edit would leave the file as it is.',
+        other: 'The edit could not be written.',
+      },
+      undoFailed: {
+        changed: 'Not undone: the file changed after this edit, so it was left as it is.',
+        other: 'Not undone: the file could not be restored.',
+      },
+    },
     askCommand:
       'The assistant proposes this command. Insert it at the prompt, or run it in a new terminal in {folder}?',
     askMcp: 'Call {tool} on the {server} MCP server?',
@@ -1487,8 +1537,11 @@ export const en = {
       'Files in the workspace folder, the terminal folder and recent commands, Git status and skills.',
     accessActTitle: 'Open files and links',
     accessActDesc: 'Also reading outside the workspace folder, and every MCP tool.',
-    accessConfirmTitle: 'Write files and run commands',
-    accessConfirmDesc: 'You see the diff or the exact command first.',
+    accessWriteTitle: 'Edit files',
+    accessWriteDesc:
+      'In Ask mode every diff waits for your Accept. In Write mode edits inside the workspace folder apply right away and can be undone; anything outside it, through a symlink or with your unsaved edits still waits.',
+    accessCommandTitle: 'Run commands',
+    accessCommandDesc: 'You see the exact command first, in every mode.',
     mcpTitle: 'MCP servers',
     mcpDesc: 'Every tool call asks the first time in each chat.',
     noServers: 'No MCP servers',
@@ -3074,6 +3127,7 @@ export const zhHant: Dict = {
     contextGroup: '隨下一個問題一併送出',
     context: {
       cwd: '資料夾',
+      editor: '開啟的檔案',
       output: '最近的輸出',
       selection: '選取內容',
       pane: '窗格資訊',
@@ -3098,7 +3152,7 @@ export const zhHant: Dict = {
     answer: '回答',
     conversation: '對話',
     errors: {
-      unavailable: '沒有可用的助理。請在「設定 → 擴充功能」中設定提供者。',
+      unavailable: '沒有可用的助理。請在「設定 → 助理」新增提供者。',
       'rate-limited': '請求過多。請稍候，再重新產生。',
       failed: '請求失敗。',
       invalid: '無法送出這個問題。',
@@ -3187,6 +3241,18 @@ export const zhHant: Dict = {
     modelNow: '模型：{model}',
     noModel: '沒有模型',
     manageModels: '管理模型…',
+    mode: '模式',
+    modeNow: '模式：{mode}',
+    modes: {
+      ask: {
+        name: '詢問',
+        desc: '可讀取工作區。每一項編輯都等你按下接受。',
+      },
+      write: {
+        name: '寫入',
+        desc: '工作區資料夾內的編輯會立即套用，每一項都可以復原。',
+      },
+    },
     noProvider: '沒有可用的助理。請在「設定 → 助理」新增提供者。',
     scrollDown: '捲動到最新訊息',
     insertBusy: '這個工作區的終端機不在閒置提示字元。',
@@ -3265,7 +3331,7 @@ export const zhHant: Dict = {
   chatTools: {
     menu: '工具',
     menuTitle: '此對話可用的工具',
-    menuDesc: '模型只看得到已開啟的工具。會變更任何東西的工具都會先詢問你。',
+    menuDesc: '模型只看得到已開啟的工具。編輯依模型旁的模式而定；指令一律先詢問。',
     noTools: '此模型不使用工具。',
     prompted:
       '此模型沒有原生的工具呼叫，因此工具是寫在提示中告訴它的。小型模型可能會用錯工具或不呼叫工具。',
@@ -3286,6 +3352,7 @@ export const zhHant: Dict = {
       git_status: 'Git 狀態',
       load_skill: '載入技能',
       propose_command: '提議指令',
+      edit_file: '編輯檔案',
       write_file: '寫入檔案',
       open_file: '開啟檔案',
       open_url: '開啟網址',
@@ -3293,7 +3360,8 @@ export const zhHant: Dict = {
     access: {
       read: '不需詢問即執行',
       act: '先詢問',
-      confirm: '每次都詢問',
+      write: '依模式而定',
+      command: '每次都詢問',
     },
     states: {
       'input-streaming': '準備中',
@@ -3316,8 +3384,43 @@ export const zhHant: Dict = {
     askReadOutside: '要讀取工作區資料夾以外的 {path} 嗎？',
     askOpenFile: '要在編輯器開啟 {path} 嗎？',
     askOpenUrl: '要在瀏覽器窗格開啟 {url} 嗎？',
-    askWrite: '要寫入 {path} 嗎？',
-    askWriteNew: '要建立 {path} 嗎？',
+    edit: {
+      card: '對 {path} 的編輯',
+      created: '新檔案',
+      states: {
+        preparing: '準備中',
+        pending: '等你決定',
+        applied: '已套用',
+        auto: '已自動套用',
+        undone: '已復原',
+        rejected: '已拒絕',
+        failed: '未套用',
+        stopped: '已停止',
+      },
+      accept: '接受',
+      reject: '拒絕',
+      undo: '復原',
+      openDiff: '開啟差異',
+      openFile: '開啟 {path}',
+      diffTitle: '{name}（助理的編輯）',
+      reasons: {
+        outside: '位於工作區資料夾之外，因此任何模式下都會等你決定。',
+        symlink: '路徑經過符號連結，因此任何模式下都會等你決定。',
+        unsaved:
+          '這個檔案有你尚未儲存的編輯，因此會等你決定。接受後會變更磁碟上的檔案，編輯器接著會問你要保留哪個版本。',
+      },
+      failures: {
+        changed: '磁碟上的檔案已先被變更，因此沒有寫入任何內容。',
+        'no-match': '檔案中找不到要取代的文字，因此沒有寫入任何內容。',
+        ambiguous: '要取代的文字出現不只一次，因此沒有寫入任何內容。',
+        'no-change': '這項編輯不會改變檔案。',
+        other: '無法寫入這項編輯。',
+      },
+      undoFailed: {
+        changed: '未復原：這項編輯之後檔案又有變更，因此保持原狀。',
+        other: '未復原：無法還原檔案。',
+      },
+    },
     askCommand: '助理提議這個指令。要插入提示字元，還是在 {folder} 的新終端機執行？',
     askMcp: '要呼叫 {server} MCP 伺服器的 {tool} 嗎？',
     diffSame: '內容沒有變更。',
@@ -3335,8 +3438,11 @@ export const zhHant: Dict = {
     accessReadDesc: '工作區資料夾中的檔案、終端機資料夾與最近的指令、Git 狀態與技能。',
     accessActTitle: '開啟檔案與連結',
     accessActDesc: '也包括讀取工作區資料夾以外的內容，以及每個 MCP 工具。',
-    accessConfirmTitle: '寫入檔案與執行指令',
-    accessConfirmDesc: '你會先看到差異或確切的指令。',
+    accessWriteTitle: '編輯檔案',
+    accessWriteDesc:
+      '在詢問模式下，每個差異都等你按下接受。在寫入模式下，工作區資料夾內的編輯會立即套用並可復原；資料夾之外、經過符號連結，或有你未儲存編輯的檔案仍會等你決定。',
+    accessCommandTitle: '執行指令',
+    accessCommandDesc: '任何模式下你都會先看到確切的指令。',
     mcpTitle: 'MCP 伺服器',
     mcpDesc: '每個對話第一次呼叫工具時都會詢問你。',
     noServers: '沒有 MCP 伺服器',

@@ -1,10 +1,19 @@
 import { cn } from '@/lib/utils'
-import { CaretDownIcon, CubeIcon, GearSixIcon } from '@phosphor-icons/react'
+import {
+  CaretDownIcon,
+  ChatCircleIcon,
+  CubeIcon,
+  GearSixIcon,
+  type Icon,
+  PencilSimpleIcon,
+} from '@phosphor-icons/react'
 import { type AssistModelChoice, type AssistModelRef, modelRefKey } from '@shared/assist'
 import { useMemo } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
+import { CHAT_MODES, type ChatMode } from '../lib/chatToolPermissions'
 import { chatChoices, useAssistStore, useChatModel } from '../stores/assistStore'
 import { setSessionModel, useChatStore } from '../stores/chatStore'
+import { useChatMode, useChatToolsStore } from '../stores/chatToolsStore'
 import { useUIStore } from '../stores/uiStore'
 import { Hint } from './Hint'
 import { DropdownMenu, MenuItem, MenuLabel, MenuRadioItem } from './Menu'
@@ -13,9 +22,74 @@ import { ContextMenuGroup, ContextMenuRadioGroup, ContextMenuSeparator } from '.
 
 const TRIGGER = 'h-6 gap-1 px-1.5 text-ui-xs'
 
+const MODE_ICONS: Record<ChatMode, Icon> = { ask: ChatCircleIcon, write: PencilSimpleIcon }
+
 export function openAssistantSettings(): void {
   useUIStore.getState().closePalette()
   useUIStore.getState().openSettings('assistant')
+}
+
+export function ChatModeSelect({ sessionId }: { sessionId: string }): JSX.Element {
+  const d = useDict()
+  const mode = useChatMode(sessionId)
+  const ModeIcon = MODE_ICONS[mode]
+  const name = d.chat.modes[mode].name
+  return (
+    <DropdownMenu
+      side="top"
+      className="w-72"
+      trigger={
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          aria-label={fmt(d.chat.modeNow, { mode: name })}
+          data-mode={mode}
+          className={cn(
+            TRIGGER,
+            'chat-mode-trigger shrink-0',
+            mode === 'write' ? 'font-medium text-fg' : 'text-fg-muted',
+          )}
+        >
+          <ModeIcon aria-hidden />
+          <span className="@max-3xs:hidden">{name}</span>
+          <CaretDownIcon aria-hidden className="size-3 @max-3xs:hidden" />
+        </Button>
+      }
+    >
+      <ContextMenuGroup>
+        <MenuLabel>{d.chat.mode}</MenuLabel>
+      </ContextMenuGroup>
+      <ContextMenuRadioGroup
+        value={mode}
+        onValueChange={(value) =>
+          useChatToolsStore.getState().setMode(sessionId, value as ChatMode)
+        }
+      >
+        {CHAT_MODES.map((value) => (
+          <MenuRadioItem
+            key={value}
+            value={value}
+            closeOnClick
+            leading={<ModeLeading mode={value} />}
+            className="h-auto items-start py-1.5"
+          >
+            <span className="flex flex-col gap-0.5">
+              <span className="text-fg">{d.chat.modes[value].name}</span>
+              <span className="whitespace-normal text-fg-muted text-ui-xs">
+                {d.chat.modes[value].desc}
+              </span>
+            </span>
+          </MenuRadioItem>
+        ))}
+      </ContextMenuRadioGroup>
+    </DropdownMenu>
+  )
+}
+
+function ModeLeading({ mode }: { mode: ChatMode }): JSX.Element {
+  const ModeIcon = MODE_ICONS[mode]
+  return <ModeIcon className="size-3.5 text-fg-muted" />
 }
 
 function grouped(choices: AssistModelChoice[]): { group: string; items: AssistModelChoice[] }[] {
@@ -67,7 +141,7 @@ export function ChatModelSelect({
           <Hint label={label}>
             <span className="min-w-0 truncate">{short}</span>
           </Hint>
-          <CaretDownIcon aria-hidden className="size-3" />
+          <CaretDownIcon aria-hidden className="size-3 @max-3xs:hidden" />
         </Button>
       }
     >

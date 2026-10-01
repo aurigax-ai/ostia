@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto'
 import { existsSync, realpathSync } from 'node:fs'
-import { lstat, mkdir, open, readFile, readdir, stat, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, open, readFile, readdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { CHAT_TOOL_OUTPUT_MAX } from '../shared/assist'
+import { CHAT_EDITS_MAX, applyEdits } from '../shared/chatEdits'
 import {
   CHAT_LIST_MAX,
   CHAT_QUERY_MAX,
@@ -13,15 +15,20 @@ import {
   CHAT_WRITE_MAX,
   type ChatDirEntry,
   type ChatFsError,
+  type ChatFsFailure,
   type ChatFsResult,
   type ChatFsTarget,
   type ChatListOutput,
+  type ChatPlanOutput,
+  type ChatPlanRequest,
   type ChatPreviewOutput,
   type ChatReadOutput,
   type ChatReadRequest,
   type ChatSearchMatch,
   type ChatSearchOutput,
   type ChatSearchRequest,
+  type ChatUndoOutput,
+  type ChatUndoRequest,
   type ChatWriteOutput,
   type ChatWriteRequest,
 } from '../shared/chatTools'
@@ -33,7 +40,11 @@ const SEARCH_LINE_MAX = 200
 const BINARY_SNIFF = 8192
 const SKIPPED_DIRS = new Set(['.git', 'node_modules'])
 
-type Fail = { ok: false; error: ChatFsError; path?: string }
+type Fail = ChatFsFailure
+
+export function versionOf(content: Buffer | string): string {
+  return createHash('sha256').update(content).digest('hex')
+}
 
 function fail(error: ChatFsError, path?: string): Fail {
   return path ? { ok: false, error, path } : { ok: false, error }
@@ -64,6 +75,27 @@ function realOfNearest(path: string): string | null {
 interface Located {
   path: string
   real: string
+  outside: boolean
+  symlink: boolean
+}
+
+function nearestExisting(path: string): string {
+  let current = path
+  while (!existsSync(current)) {
+    const parent = dirname(current)
+    if (parent === current) break
+    current = parent
+  }
+  return current
+}
+
+function throughSymlink(path: string, real: string, folder: string | null): boolean {
+  const nearest = nearestExisting(path)
+  const realFolder = folder ? realOrNull(folder) : null
+  if (folder && realFolder && inside(folder, nearest)) {
+    return real !== resolve(realFolder, relative(folder, nearest))
+  }
+  return real !== nearest
 }
 
 export function locate(req: ChatFsTarget, roots: readonly string[]): Located | Fail {
@@ -76,12 +108,11 @@ export function locate(req: ChatFsTarget, roots: readonly string[]): Located | F
   const realRoots = roots.map((r) => realOrNull(resolve(expandHome(r)))).filter(Boolean)
   const real = realOfNearest(path)
   if (!real || !realRoots.some((r) => inside(r as string, real))) return fail('not-allowed', path)
-  if (req.outside !== true) {
-    const folder = typeof req.root === 'string' ? resolveSafe(req.root, [...roots]) : null
-    const realFolder = folder ? realOrNull(folder) : null
-    if (!realFolder || !inside(realFolder, real)) return fail('outside-folder', path)
-  }
-  return { path, real }
+  const folder = typeof req.root === 'string' ? resolveSafe(req.root, [...roots]) : null
+  const realFolder = folder ? realOrNull(folder) : null
+  const outside = !realFolder || !inside(realFolder, real)
+  if (outside && req.outside !== true) return fail('outside-folder', path)
+  return { path, real, outside, symlink: throughSymlink(path, real, folder) }
 }
 
 function isFail(v: unknown): v is Fail {
@@ -136,6 +167,7 @@ export async function readTool(
       endLine,
       totalLines,
       truncated,
+      version: versionOf(buf),
     }
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === 'ENOENT'
@@ -250,25 +282,75 @@ export async function searchTool(
   }
 }
 
+async function existingText(
+  path: string,
+): Promise<{ text: string; version: string } | Fail | null> {
+  try {
+    const info = await lstat(path)
+    if (info.isSymbolicLink() || !info.isFile()) return fail('not-a-file', path)
+    if (info.size > CHAT_WRITE_MAX) return fail('too-large', path)
+    const buf = await readFile(path)
+    if (looksBinary(buf)) return fail('binary', path)
+    return { text: buf.toString('utf8'), version: versionOf(buf) }
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ENOENT' ? null : fail('failed', path)
+  }
+}
+
 export async function previewTool(
-  req: ChatFsTarget,
+  req: Omit<ChatFsTarget, 'outside'>,
   roots: readonly string[],
 ): Promise<ChatFsResult<ChatPreviewOutput>> {
+  const at = locate({ ...req, outside: true }, roots)
+  if (isFail(at)) return at
+  const current = await existingText(at.path)
+  if (isFail(current)) return current
+  return {
+    ok: true,
+    path: at.path,
+    exists: current !== null,
+    text: current?.text ?? '',
+    version: current?.version ?? null,
+    outside: at.outside,
+    symlink: at.symlink,
+  }
+}
+
+export async function planEditTool(
+  req: ChatPlanRequest,
+  roots: readonly string[],
+): Promise<ChatFsResult<ChatPlanOutput>> {
+  const edits = Array.isArray(req?.edits) ? req.edits : []
+  const valid = edits.every(
+    (e) => typeof e?.oldText === 'string' && e.oldText !== '' && typeof e.newText === 'string',
+  )
+  if (edits.length === 0 || edits.length > CHAT_EDITS_MAX || !valid) return fail('invalid')
+  const at = locate({ path: req.path, root: req.root, outside: true }, roots)
+  if (isFail(at)) return at
+  const current = await existingText(at.path)
+  if (isFail(current)) return current
+  if (current === null) return fail('not-found', at.path)
+  const result = applyEdits(current.text, edits)
+  if (!result.ok) {
+    const { ok: _ok, ...problem } = result
+    return { ok: false, path: at.path, ...problem }
+  }
+  if (Buffer.byteLength(result.text) > CHAT_WRITE_MAX) return fail('too-large', at.path)
+  return {
+    ok: true,
+    path: at.path,
+    before: current.text,
+    after: result.text,
+    version: current.version,
+    outside: at.outside,
+    symlink: at.symlink,
+  }
+}
+
+function writable(req: ChatFsTarget & { symlinks: boolean }, roots: readonly string[]) {
   const at = locate(req, roots)
   if (isFail(at)) return at
-  try {
-    const info = await lstat(at.path)
-    if (info.isSymbolicLink() || !info.isFile()) return fail('not-a-file', at.path)
-    if (info.size > CHAT_WRITE_MAX) return fail('too-large', at.path)
-    const buf = await readFile(at.path)
-    if (looksBinary(buf)) return fail('binary', at.path)
-    return { ok: true, path: at.path, exists: true, text: buf.toString('utf8') }
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      return { ok: true, path: at.path, exists: false, text: '' }
-    }
-    return fail('failed', at.path)
-  }
+  return at.symlink && req.symlinks !== true ? fail('through-symlink', at.path) : at
 }
 
 export async function writeTool(
@@ -278,16 +360,13 @@ export async function writeTool(
   if (typeof req?.content !== 'string' || Buffer.byteLength(req.content) > CHAT_WRITE_MAX) {
     return fail('too-large')
   }
-  const at = locate(req, roots)
+  const at = writable(req, roots)
   if (isFail(at)) return at
-  let created = true
-  try {
-    const info = await lstat(at.path)
-    if (info.isSymbolicLink() || !info.isFile()) return fail('not-a-file', at.path)
-    created = false
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return fail('failed', at.path)
-  }
+  const current = await existingText(at.path)
+  if (isFail(current)) return current
+  const base = typeof req.base === 'string' ? req.base : null
+  if ((current?.version ?? null) !== base) return fail('changed', at.path)
+  const created = current === null
   try {
     await mkdir(dirname(at.path), { recursive: true })
     const parent = realOrNull(dirname(at.path))
@@ -296,7 +375,41 @@ export async function writeTool(
       return fail('not-allowed', at.path)
     }
     await writeFile(at.path, req.content, { encoding: 'utf8', flag: created ? 'wx' : 'w' })
-    return { ok: true, path: at.path, created, bytes: Buffer.byteLength(req.content) }
+    return {
+      ok: true,
+      path: at.path,
+      created,
+      bytes: Buffer.byteLength(req.content),
+      version: versionOf(req.content),
+    }
+  } catch {
+    return fail('failed', at.path)
+  }
+}
+
+export async function undoTool(
+  req: ChatUndoRequest,
+  roots: readonly string[],
+): Promise<ChatFsResult<ChatUndoOutput>> {
+  const restore = req?.restore ?? null
+  if (
+    restore !== null &&
+    (typeof restore !== 'string' || Buffer.byteLength(restore) > CHAT_WRITE_MAX)
+  ) {
+    return fail('too-large')
+  }
+  const at = writable(req, roots)
+  if (isFail(at)) return at
+  const current = await existingText(at.path)
+  if (isFail(current)) return current
+  if (current === null || current.version !== req.wrote) return fail('changed', at.path)
+  try {
+    if (restore === null) {
+      await unlink(at.path)
+      return { ok: true, path: at.path, removed: true, version: null }
+    }
+    await writeFile(at.path, restore, { encoding: 'utf8', flag: 'w' })
+    return { ok: true, path: at.path, removed: false, version: versionOf(restore) }
   } catch {
     return fail('failed', at.path)
   }

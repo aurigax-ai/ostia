@@ -1,8 +1,10 @@
 import { CHAT_TOOL_DESCRIPTION_MAX, type ChatToolSpec } from '@shared/assist'
+import { parseEdits } from '@shared/chatEdits'
 import {
   BUILTIN_TOOL_ACCESS,
   type BuiltinChatTool,
   type ChatFsError,
+  type ChatFsFailure,
   type ChatFsResult,
   type McpServerStatus,
   type SkillSummary,
@@ -13,15 +15,19 @@ import {
   type ApprovalDetail,
   grantsFor,
   isToolOn,
+  knownVersion,
+  modeFor,
   requestApproval,
   useChatToolsStore,
 } from '../stores/chatToolsStore'
+import { useEditorStatus } from '../stores/editorStatusStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { workspaceTerminal } from './askContext'
 import { idleTerminals, insertInto, runInNewTerminal } from './chatActions'
-import { type ApprovalAnswer, type ToolAccess, decideTool } from './chatToolPermissions'
+import { diffSummary } from './chatDiff'
+import { type ApprovalAnswer, type ToolCheck, decideTool } from './chatToolPermissions'
 import { resolveLinkPath } from './fileLinks'
 import { openFileAt } from './openFile'
 import { openSidebarUrl } from './sidebarItems'
@@ -71,22 +77,44 @@ const FS_ERRORS: Record<ChatFsError, string> = {
   'not-a-directory': 'That path is not a folder.',
   'too-large': 'The file is too large.',
   binary: 'The file is binary, not text.',
-  invalid: 'The path or query is invalid.',
+  invalid: 'The path, query or edits are invalid.',
   failed: 'The operation failed.',
+  changed:
+    'The file changed on disk since it was last read; nothing was written. Read it again, then retry.',
+  'through-symlink': 'That path goes through a symlink.',
+  'no-match':
+    'old_text was not found. It must match the file exactly, including whitespace and indentation. Read the file again.',
+  ambiguous:
+    'old_text matches more than one place. Add surrounding lines so it matches once, or set replace_all.',
+  'no-change': 'The edits leave the file unchanged.',
+}
+
+export function fsErrorText(failure: ChatFsFailure, path: string): string {
+  const which = failure.edit === undefined ? '' : `Edit ${failure.edit + 1}: `
+  const count = failure.count === undefined ? '' : ` (${failure.count} matches)`
+  return `${which}${FS_ERRORS[failure.error]}${count} (${failure.path ?? path})`
+}
+
+function fsError(failure: ChatFsFailure, path: string): ToolOutcome {
+  return { state: 'error', error: fsErrorText(failure, path) }
 }
 
 export const DENIED: ToolOutcome = { state: 'denied' }
 
 async function gate(
   run: ToolRun,
-  name: string,
-  access: ToolAccess,
+  check: Omit<ToolCheck, 'mode' | 'grants'>,
   input: Record<string, unknown>,
-  detail: ApprovalDetail,
-  outside = false,
+  shown: ApprovalDetail,
 ): Promise<ApprovalAnswer | null> {
-  const decision = decideTool(name, access, grantsFor(run.sessionId), outside)
+  const { name } = check
+  const decision = decideTool({
+    ...check,
+    mode: modeFor(run.sessionId),
+    grants: grantsFor(run.sessionId),
+  })
   if (decision.run) return null
+  const detail = decision.reason ? { ...shown, reason: decision.reason } : shown
   const approvalId = `ap-${run.toolCallId}`
   run.onApproval(approvalId)
   const answer = await requestApproval(
@@ -121,11 +149,11 @@ async function readGated<T>(
   const outside = grantsFor(run.sessionId).has('read-outside')
   let res = await call(outside)
   if (!res.ok && res.error === 'outside-folder') {
-    const answer = await gate(run, name, 'read', input, { path }, true)
+    const answer = await gate(run, { name, access: 'read', outside: true }, input, { path })
     if (answer && !answer.approved) return DENIED
     res = await call(true)
   }
-  if (!res.ok) return { state: 'error', error: `${FS_ERRORS[res.error]} (${res.path ?? path})` }
+  if (!res.ok) return fsError(res, path)
   const { ok: _ok, ...output } = res
   return { state: 'done', output }
 }
@@ -135,7 +163,7 @@ const OBJECT = 'object'
 const BUILTIN_SPECS: Record<BuiltinChatTool, Omit<ChatToolSpec, 'name'>> = {
   read_file: {
     description:
-      'Read a text file. Relative paths start at the workspace folder. Returns up to 2000 lines from offset (1-based).',
+      'Read a text file. Relative paths start at the workspace folder. Returns up to 2000 lines from offset (1-based), and the absolute path the edit tools also take.',
     inputSchema: {
       type: OBJECT,
       properties: {
@@ -195,9 +223,36 @@ const BUILTIN_SPECS: Record<BuiltinChatTool, Omit<ChatToolSpec, 'name'>> = {
       required: ['command'],
     },
   },
+  edit_file: {
+    description:
+      'Change part of an existing text file by replacing exact text. Each old_text must match the file exactly (whitespace and indentation included) and exactly once, so include enough surrounding lines; edits apply in order. Prefer this over write_file for changes to an existing file. The user sees the diff; it is applied when they accept it, or right away when they chose Write mode.',
+    inputSchema: {
+      type: OBJECT,
+      properties: {
+        path: { type: 'string', description: 'File path, absolute or from the workspace folder' },
+        edits: {
+          type: 'array',
+          description: 'Replacements, applied in order',
+          items: {
+            type: OBJECT,
+            properties: {
+              old_text: { type: 'string', description: 'Exact text to replace' },
+              new_text: { type: 'string', description: 'Text to put in its place' },
+              replace_all: {
+                type: 'boolean',
+                description: 'Replace every match instead of requiring one',
+              },
+            },
+            required: ['old_text', 'new_text'],
+          },
+        },
+      },
+      required: ['path', 'edits'],
+    },
+  },
   write_file: {
     description:
-      'Create or replace a text file with the full new content. The user reviews a diff and approves or denies it.',
+      'Create a new text file, or replace a whole file, with the full content. Use edit_file to change part of an existing file. The user sees the diff; it is applied when they accept it, or right away when they chose Write mode.',
     inputSchema: {
       type: OBJECT,
       properties: {
@@ -248,7 +303,7 @@ function isWebUrl(url: string): boolean {
 async function proposeCommand(input: Record<string, unknown>, run: ToolRun): Promise<ToolOutcome> {
   const command = str(input.command).replace(/\s+$/, '')
   if (!command.trim()) return { state: 'error', error: 'command is empty' }
-  const answer = await gate(run, 'propose_command', 'confirm', input, { command })
+  const answer = await gate(run, { name: 'propose_command', access: 'command' }, input, { command })
   if (!answer?.approved) return DENIED
   if (answer.choice === 'run') {
     const paneId = runInNewTerminal(run.workspaceId, command)
@@ -264,29 +319,128 @@ async function proposeCommand(input: Record<string, unknown>, run: ToolRun): Pro
   return { state: 'done', output: { action: 'copied-to-clipboard' } }
 }
 
+function writeFailure(run: ToolRun, failure: ChatFsFailure, path: string): ToolOutcome {
+  useChatToolsStore.getState().recordFailure(run.toolCallId, failure.error)
+  return fsError(failure, path)
+}
+
+function changedSinceRead(run: ToolRun, path: string, version: string | null): boolean {
+  const known = knownVersion(run.sessionId, path)
+  return known !== null && known !== version
+}
+
+interface PlannedWrite {
+  path: string
+  existed: boolean
+  before: string
+  after: string
+  base: string | null
+  outside: boolean
+  symlink: boolean
+}
+
+async function applyWrite(
+  name: BuiltinChatTool,
+  input: Record<string, unknown>,
+  run: ToolRun,
+  plan: PlannedWrite,
+): Promise<ToolOutcome> {
+  const unsaved = useEditorStatus.getState().dirty[plan.path] === true
+  const answer = await gate(
+    run,
+    { name, access: 'write', outside: plan.outside, symlink: plan.symlink, unsaved },
+    input,
+    { path: plan.path, exists: plan.existed, before: plan.before, after: plan.after },
+  )
+  if (answer && !answer.approved) return DENIED
+  const res = await window.pine.chatTools.write({
+    path: plan.path,
+    root: run.root,
+    outside: plan.outside,
+    symlinks: plan.symlink,
+    content: plan.after,
+    base: plan.base,
+  })
+  if (!res.ok) return writeFailure(run, res, plan.path)
+  const store = useChatToolsStore.getState()
+  store.recordEdit({
+    toolCallId: run.toolCallId,
+    sessionId: run.sessionId,
+    path: res.path,
+    root: run.root,
+    existed: plan.existed,
+    before: plan.before,
+    after: plan.after,
+    version: res.version,
+    outside: plan.outside,
+    symlink: plan.symlink,
+    auto: answer === null,
+    state: 'applied',
+  })
+  store.setVersion(run.sessionId, res.path, res.version)
+  const { added, removed } = diffSummary(plan.before, plan.after)
+  return { state: 'done', output: { path: res.path, created: res.created, added, removed } }
+}
+
+async function editFile(input: Record<string, unknown>, run: ToolRun): Promise<ToolOutcome> {
+  const edits = parseEdits(input)
+  if (!edits) {
+    return { state: 'error', error: 'edits must be a list of {old_text, new_text} replacements' }
+  }
+  const path = pathOf(input, run)
+  const plan = await window.pine.chatTools.plan({ path, root: run.root, edits })
+  if (!plan.ok) return writeFailure(run, plan, path)
+  if (changedSinceRead(run, plan.path, plan.version)) {
+    return writeFailure(run, { ok: false, error: 'changed' }, plan.path)
+  }
+  return applyWrite('edit_file', input, run, {
+    path: plan.path,
+    existed: true,
+    before: plan.before,
+    after: plan.after,
+    base: plan.version,
+    outside: plan.outside,
+    symlink: plan.symlink,
+  })
+}
+
 async function writeFile(input: Record<string, unknown>, run: ToolRun): Promise<ToolOutcome> {
   if (typeof input.content !== 'string') return { state: 'error', error: 'content is required' }
   const path = pathOf(input, run)
-  const preview = await window.pine.chatTools.preview({ path, root: run.root, outside: true })
-  if (!preview.ok) {
-    return { state: 'error', error: `${FS_ERRORS[preview.error]} (${preview.path ?? path})` }
+  const preview = await window.pine.chatTools.preview({ path, root: run.root })
+  if (!preview.ok) return writeFailure(run, preview, path)
+  if (preview.exists && changedSinceRead(run, preview.path, preview.version)) {
+    return writeFailure(run, { ok: false, error: 'changed' }, preview.path)
   }
-  const answer = await gate(run, 'write_file', 'confirm', input, {
+  if (preview.exists && preview.text === input.content) {
+    return writeFailure(run, { ok: false, error: 'no-change' }, preview.path)
+  }
+  return applyWrite('write_file', input, run, {
     path: preview.path,
-    exists: preview.exists,
+    existed: preview.exists,
     before: preview.text,
     after: input.content,
+    base: preview.version,
+    outside: preview.outside,
+    symlink: preview.symlink,
   })
-  if (!answer?.approved) return DENIED
-  const res = await window.pine.chatTools.write({
-    path: preview.path,
-    root: run.root,
-    outside: true,
-    content: input.content,
+}
+
+function readFile(input: Record<string, unknown>, run: ToolRun): Promise<ToolOutcome> {
+  const path = pathOf(input, run)
+  return readGated('read_file', input, run, path, async (outside) => {
+    const res = await window.pine.chatTools.read({
+      path,
+      root: run.root,
+      outside,
+      offset: int(input.offset),
+      limit: int(input.limit),
+    })
+    if (!res.ok) return res
+    useChatToolsStore.getState().setVersion(run.sessionId, res.path, res.version)
+    const { version: _version, ...shown } = res
+    return shown
   })
-  if (!res.ok) return { state: 'error', error: `${FS_ERRORS[res.error]} (${res.path ?? path})` }
-  const { ok: _ok, ...output } = res
-  return { state: 'done', output }
 }
 
 function builtinRunners(): Record<
@@ -294,18 +448,7 @@ function builtinRunners(): Record<
   (input: Record<string, unknown>, run: ToolRun) => Promise<ToolOutcome>
 > {
   return {
-    read_file: (input, run) => {
-      const path = pathOf(input, run)
-      return readGated('read_file', input, run, path, (outside) =>
-        window.pine.chatTools.read({
-          path,
-          root: run.root,
-          outside,
-          offset: int(input.offset),
-          limit: int(input.limit),
-        }),
-      )
-    },
+    read_file: readFile,
     list_directory: (input, run) => {
       const path = pathOf(input, run)
       return readGated('list_directory', input, run, path, (outside) =>
@@ -342,10 +485,11 @@ function builtinRunners(): Record<
       return { state: 'done', output: res.body }
     },
     propose_command: proposeCommand,
+    edit_file: editFile,
     write_file: writeFile,
     open_file: async (input, run) => {
       const path = pathOf(input, run)
-      const answer = await gate(run, 'open_file', 'act', input, { path })
+      const answer = await gate(run, { name: 'open_file', access: 'act' }, input, { path })
       if (answer && !answer.approved) return DENIED
       openFileAt(path, int(input.line))
       return { state: 'done', output: { opened: path } }
@@ -353,7 +497,7 @@ function builtinRunners(): Record<
     open_url: async (input, run) => {
       const url = str(input.url).trim()
       if (!isWebUrl(url)) return { state: 'error', error: 'Only http and https URLs open.' }
-      const answer = await gate(run, 'open_url', 'act', input, { url })
+      const answer = await gate(run, { name: 'open_url', access: 'act' }, input, { url })
       if (answer && !answer.approved) return DENIED
       openSidebarUrl(run.workspaceId ?? undefined, url)
       return { state: 'done', output: { opened: url } }
@@ -402,7 +546,7 @@ function mcpTools(server: McpServerStatus): ChatToolDef[] {
           inputSchema: tool.inputSchema,
         },
         run: async (input, run) => {
-          const answer = await gate(run, name, 'mcp', input, {
+          const answer = await gate(run, { name, access: 'mcp' }, input, {
             server: server.name,
             tool: tool.name,
           })

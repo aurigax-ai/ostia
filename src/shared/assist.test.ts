@@ -7,6 +7,7 @@ import {
   normalizeAssistRequest,
   normalizeAssistResult,
   normalizeAssistStatus,
+  normalizeChatContextItem,
   normalizeModelRef,
   normalizeProviderKinds,
   normalizeProviderStates,
@@ -327,5 +328,41 @@ describe('provider reports', () => {
       { id: 'openai', title: 'OpenAI', baseUrl: 'https://api.openai.com/v1', key: 'required' },
       { id: 'ollama', title: 'ollama', baseUrl: '', key: 'optional' },
     ])
+  })
+})
+
+describe('chat context items', () => {
+  it('keeps an absolute file path and a valid line range, and drops anything else', () => {
+    expect(
+      normalizeChatContextItem({
+        kind: 'selection',
+        label: 'Selection a.ts:2-4',
+        text: 'x',
+        path: '/p/a.ts',
+        startLine: 2,
+        endLine: 4,
+      }),
+    ).toEqual({
+      kind: 'selection',
+      label: 'Selection a.ts:2-4',
+      text: 'x',
+      path: '/p/a.ts',
+      startLine: 2,
+      endLine: 4,
+    })
+    expect(
+      normalizeChatContextItem({ kind: 'editor', label: 'Open file', text: 'x', path: 'a.ts' }),
+    ).toEqual({ kind: 'editor', label: 'Open file', text: 'x' })
+    expect(
+      normalizeChatContextItem({
+        kind: 'selection',
+        label: 'S',
+        text: 'x',
+        path: '/p/a.ts',
+        startLine: 5,
+        endLine: 2,
+      }),
+    ).toEqual({ kind: 'selection', label: 'S', text: 'x', path: '/p/a.ts' })
+    expect(normalizeChatContextItem({ kind: 'nope', label: 'S', text: 'x' })).toBeNull()
   })
 })

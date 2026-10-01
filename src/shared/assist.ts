@@ -355,6 +355,7 @@ export const CHAT_CONTEXT_KINDS = [
   'pane',
   'error',
   'file',
+  'editor',
   'browser',
 ] as const
 
@@ -364,6 +365,32 @@ export interface ChatContextItem {
   kind: ChatContextKind
   label: string
   text: string
+  path?: string
+  startLine?: number
+  endLine?: number
+}
+
+function lineNumber(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : undefined
+}
+
+export function normalizeChatContextItem(raw: unknown): ChatContextItem | null {
+  if (!isRecord(raw) || !CHAT_CONTEXT_KINDS.includes(raw.kind as ChatContextKind)) return null
+  const label = optionalShort(raw.label, SHORT_MAX)
+  const text = clip(raw.text, CHAT_CONTEXT_TEXT_MAX)
+  if (!label || !text) return null
+  const item: ChatContextItem = { kind: raw.kind as ChatContextKind, label, text }
+  const path = optionalShort(raw.path, PATH_MAX)
+  if (path?.startsWith('/')) {
+    item.path = path
+    const startLine = lineNumber(raw.startLine)
+    const endLine = lineNumber(raw.endLine)
+    if (startLine && endLine && endLine >= startLine) {
+      item.startLine = startLine
+      item.endLine = endLine
+    }
+  }
+  return item
 }
 
 export interface ChatAssistRequest {
@@ -610,10 +637,8 @@ function chatRequest(raw: Record<string, unknown>): ChatAssistRequest | null {
   if (!endsTurn(messages)) return null
   const context: ChatContextItem[] = []
   for (const item of Array.isArray(raw.context) ? raw.context.slice(0, CHAT_CONTEXT_MAX) : []) {
-    if (!isRecord(item) || !CHAT_CONTEXT_KINDS.includes(item.kind as ChatContextKind)) continue
-    const label = optionalShort(item.label, SHORT_MAX)
-    const text = clip(item.text, CHAT_CONTEXT_TEXT_MAX)
-    if (label && text) context.push({ kind: item.kind as ChatContextKind, label, text })
+    const normalized = normalizeChatContextItem(item)
+    if (normalized) context.push(normalized)
   }
   const tools = toolSpecs(raw.tools)
   return tools ? { messages, context, tools } : { messages, context }

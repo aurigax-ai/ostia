@@ -10,6 +10,7 @@ import { MODEL_RUNTIME_CATALOG } from '../extensions/model-runtime/provider'
 import type { AssistContext } from '../extensions/sdk'
 import { AssistantService } from '../extensions/sdk/assist/service'
 import { type ChatAssistRequest, type ChatToolCall, normalizeAssistRequest } from '../shared/assist'
+import { parseEdits } from '../shared/chatEdits'
 import { mcpToolName } from '../shared/chatTools'
 import { McpHost } from './mcpHost'
 
@@ -288,6 +289,26 @@ const READ_FILE = {
   },
 }
 
+const EDIT_FILE = {
+  name: 'edit_file',
+  description: 'Change part of a text file by replacing exact text.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'File path' },
+      edits: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { old_text: { type: 'string' }, new_text: { type: 'string' } },
+          required: ['old_text', 'new_text'],
+        },
+      },
+    },
+    required: ['path', 'edits'],
+  },
+}
+
 const RUNTIME_MODEL = { provider: 'model-runtime', model: 'gemma' }
 
 const TAGGED_CALL =
@@ -382,5 +403,36 @@ describe('chat tool loop on model-runtime: tools described in the prompt', () =>
     )
     expect(res.chunks.some((c) => c.type === 'tool-input-available')).toBe(false)
     expect(res.text).toBe(reply)
+  })
+
+  it.each([
+    [
+      'a tagged call',
+      '<tool_call>\n{"name": "edit_file", "arguments": {"path": "notes.txt", "edits": [{"old_text": "milk", "new_text": "oat milk"}]}}\n</tool_call>',
+    ],
+    [
+      'a tool_code block',
+      '```tool_code\nedit_file(path="notes.txt", edits=[{"old_text": "milk", "new_text": "oat milk"}])\n```',
+    ],
+  ])('parses an edit with a list of replacements from %s', async (_label, reply) => {
+    const runtime = await fakeModelRuntime([reply])
+    const svc = await runtimeService(runtime.socket)
+    const res = await chat(
+      svc,
+      {
+        messages: [{ role: 'user', content: 'buy oat milk instead' }],
+        context: [],
+        tools: [EDIT_FILE],
+      },
+      RUNTIME_MODEL,
+    )
+    expect(String(runtime.bodies[0].messages[0].content)).toContain('old_text')
+    const call = res.chunks.find((c) => c.type === 'tool-input-available')
+    expect(call).toMatchObject({
+      toolName: 'edit_file',
+      input: { path: 'notes.txt', edits: [{ old_text: 'milk', new_text: 'oat milk' }] },
+    })
+    if (call?.type !== 'tool-input-available') throw new Error('no tool call')
+    expect(parseEdits(call.input)).toEqual([{ oldText: 'milk', newText: 'oat milk' }])
   })
 })
