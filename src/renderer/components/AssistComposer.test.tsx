@@ -215,6 +215,31 @@ describe('AssistComposer', () => {
     expect(useAssistComposerStore.getState().paneId).toBeNull()
   })
 
+  it('marks the first suggestion selected and moves the selection with the arrow keys', async () => {
+    agentState.agent = null
+    idlePrompt()
+    answer(async (point) =>
+      point === 'command'
+        ? {
+            ok: true,
+            result: { suggestions: [{ command: 'ls -S' }, { command: 'du -sh *' }] },
+          }
+        : { ok: false, error: 'invalid' },
+    )
+    const term = fakeTerm()
+    unregister = registerTerminal(PANE, term)
+    mount(term)
+    await userEvent.type(screen.getByRole('textbox', { name: 'Describe a command' }), 'sizes')
+    await screen.findByText('ls -S', {}, WAIT)
+    const options = (): HTMLElement[] => screen.getAllByRole('option')
+    await waitFor(() => expect(options()[0]).toHaveAttribute('aria-selected', 'true'))
+    expect(options()[0]).toHaveClass('assist-composer-item')
+    expect(options()[1]).toHaveAttribute('aria-selected', 'false')
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => expect(options()[1]).toHaveAttribute('aria-selected', 'true'))
+    expect(options()[0]).toHaveAttribute('aria-selected', 'false')
+  })
+
   it('offers the compose command only while an assist point is ready', () => {
     useAssistStore.setState({ availability: {} })
     const stop = startAssistCompose()
