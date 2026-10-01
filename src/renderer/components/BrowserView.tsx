@@ -2,7 +2,7 @@ import {
   ArrowClockwiseIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
-  CrosshairIcon,
+  CursorClickIcon,
   DatabaseIcon,
 } from '@phosphor-icons/react'
 import type { PickCapture, PickTheme } from '@shared/pick'
@@ -283,7 +283,7 @@ export function BrowserView({
           onKeyDown={onAddressKeyDown}
         />
         <IconButton
-          icon={CrosshairIcon}
+          icon={CursorClickIcon}
           label={picking ? d.browser.pickStop : d.browser.pick}
           aria-pressed={picking !== null}
           onClick={() => void togglePick()}
