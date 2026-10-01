@@ -17,6 +17,7 @@
     "build:sandbox-host": "esbuild src/main/sandbox/host.ts --bundle --platform=node --format=esm --packages=external --outfile=out/sandbox/host.mjs",
     "build:extensions": "node scripts/build-extensions.mjs",
     "build:sdk": "node scripts/build-sdk.mjs",
+    "api:bump": "node scripts/api-bump.mjs",
     "publish:marketplace": "node scripts/build-extensions.mjs && node scripts/publish.mjs marketplace",
     "publish:sdk": "node scripts/build-sdk.mjs && node scripts/publish.mjs sdk",
     "preview": "electron-vite preview",

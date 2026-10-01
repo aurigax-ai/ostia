@@ -5,7 +5,7 @@ const targets = {
   marketplace: {
     source: 'out/marketplace',
     marker: 'pine-marketplace.json',
-    replace: ['extensions'],
+    replace: ['extensions', 'src'],
   },
   sdk: { source: 'out/sdk', marker: 'package.json', replace: null },
 }

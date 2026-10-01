@@ -71,7 +71,22 @@ A marketplace is a git repository with a `pine-marketplace.json` that lists exte
 Commit your built folder to one, and people add the repository in Pine under Settings →
 Extensions → Marketplaces. See "Marketplaces" in [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 
+## Source
+
+`dist/` is what you import: the SDK bundled into a few plain, unminified JavaScript files.
+`src/` holds the TypeScript it was built from, at the same paths as in the Pine repository
+(`src/extensions/sdk` is the library, `src/shared` the contract types, `src/cli` and `src/main` the
+`validate` command and the manifest loader it runs). It is there to read; build and change it in
+[the Pine repository](https://github.com/aurigax-ai/pine), which this package is generated from.
+
 ## Versions
 
-The SDK's version is the version of Pine it was built from. This repository holds build output;
+Two numbers matter:
+
+- **The extension API version** (`EXTENSION_API_VERSION`, `pineExtensionApi` in `package.json`,
+  `api.json`): the version of the contract, `major.minor`. Put it in your manifest as `"api"`.
+  A minor adds things and keeps every existing extension working; Pine provides exactly one
+  major. Pine refuses an extension whose `api` it doesn't provide, and `connect()` refuses to
+  run against an app older than the SDK it was built with.
+- **The package version**: the version of Pine this SDK was built from. This repository holds build output;
 it is generated from Pine's own source, so the SDK and the app cannot drift apart.

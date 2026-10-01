@@ -124,6 +124,7 @@ installs, updates or uninstalls, from Settings.
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand pine a loopback URL at runtime. |
 | `contributes.paneChips` | Up to 8 `{id, title}`. Each is a slot for a short value you put on a pane's header with `ext.setPaneChip` (for example a venv or a test count). `title` names it in tooltips and in Settings → Prompt: the human can also place your chip in the Pine prompt's chip row (`terminal.prompt.chips` id `<extId>.<chip>`), where it shows the same value. Needs `main`. |
 | `contributes.workspaceChips` | Up to 8 `{id, title}`, like `paneChips` but for a value that describes a whole workspace (for example its repository's branch and changes). You set it with `ext.setWorkspaceChip`; the top bar shows the chips of the active workspace. The Pine prompt can show it too (same `<extId>.<chip>` id): a pane's prompt shows its own pane chip if there is one, otherwise its workspace's. Needs `main`. |
+| `api` | Required. The extension API version you wrote against, `major.minor` (`"1.0"`). pine loads the extension only when it provides that major and at least that minor; otherwise the manifest is refused with `needs extension API X; this pine provides Y`, in the log, in `pine-extension validate` and under a marketplace's "Entries that could not be offered". See "API version" |
 | `category` | Optional, one of `ai`, `scm`, `tools`, `themes`, `langpack`, `completions`, `other` (the default). Settings → Extensions and the marketplace show it as a badge. Anything else refuses the manifest |
 | `contributes.languages` | Up to 8 language packs, each `{id, label, path}`: `id` is a language tag (`fr`, `zh-Hant`), `label` the name shown in Settings → Language, `path` a `.json` file inside the extension. The file is a nested object of strings shaped like pine's English catalog (`src/renderer/i18n/dict.ts`, `en`): translate the keys you want, anything missing stays English, and keys English doesn't have are ignored. Keep `{placeholders}` as they are. No `main` needed. Main reads the file (no symlinks, ≤ 1 MiB, strings ≤ 4000 characters) only while the extension is enabled; disabling it puts the interface back in English. The first enabled extension to provide a language wins, and none can replace English |
 | `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
@@ -472,6 +473,33 @@ const body = splitter({
   subscriptions are cleared on exit; set them again after you reconnect.
 - Exit when the socket closes (pine went away).
 - stdout/stderr go to pine's log, prefixed `[ext:<id>]`.
+
+## API version
+
+The contract between pine and an extension (the manifest fields, the `ext.*` methods and events,
+the SDK's types) has one version, `EXTENSION_API_VERSION` in `src/shared/extensionApi.ts`,
+written `major.minor`:
+
+- **minor** goes up when something is added and every existing extension keeps working;
+- **major** goes up when something an extension may rely on is removed or changes meaning.
+  pine provides exactly one major: an extension written for another major is not loaded.
+
+Three places check it:
+
+| Where | What happens |
+|---|---|
+| `pine.json` `api` | Checked when the manifest is read (startup, hot reload, a marketplace catalog, `pine-extension validate`). A newer minor or another major refuses the extension before anything runs |
+| `PINE_EXTENSION_API` | pine puts the version it provides in the environment of every extension process, next to `PINE_SOCKET` and `PINE_TOKEN`, for extensions that speak the protocol without the SDK |
+| SDK `connect()` | The SDK is built for one API version (`EXTENSION_API_VERSION`, also `pineExtensionApi` in its `package.json` and `api.json`). `connect()` throws when the app provides an older one, so an extension built with a newer SDK fails with a clear message instead of calling methods that aren't there |
+
+Set `api` to the version of the SDK you build with. Raise it only when you start using something
+newer; an extension that declares `1.0` keeps loading in every `1.x`.
+
+For people changing pine: `sdk-package/api-lock.json` holds the version and a digest of the
+published contract (the SDK's type declarations and the two manifest schemas). A change to any of
+them fails `src/cli/sdkPackage.integration.test.ts` until you run `pnpm api:bump minor` (or
+`major`), which raises `EXTENSION_API_VERSION` and rewrites the lock in one step. There is no way
+to refresh the digest without bumping.
 
 ## The SDK package
 
