@@ -2,6 +2,7 @@ import type {
   AppSnapshot,
   SnapshotWorkspace,
   WorkspaceLiveState,
+  WorkspaceOrigin,
   WorkspaceProject,
 } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
@@ -47,6 +48,7 @@ export interface Workspace {
   workDir: string
   state: WorkspaceState
   projectDir?: string
+  origin?: WorkspaceOrigin
 }
 
 interface WorkspacesState {
@@ -380,26 +382,37 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
       groups: [],
     })
     adoptWorkspaceIds(workspaces.map((w) => w.id))
-    const adopted = workspaces.map((w): Workspace => ({ ...w, state: 'idle' }))
+    const adopted = workspaces.map(({ origin, ...w }) => {
+      const workspace: Workspace = {
+        ...w,
+        ...(origin?.groupId ? { groupId: origin.groupId } : {}),
+        state: 'idle',
+      }
+      return { workspace, index: origin?.index }
+    })
     set((s) => {
-      const next = normalizeGroups({ workspaces: [...s.workspaces, ...adopted], groups: s.groups })
+      const list = [...s.workspaces]
+      for (const { workspace, index } of adopted) {
+        list.splice(Math.min(index ?? list.length, list.length), 0, workspace)
+      }
+      const next = normalizeGroups({ workspaces: list, groups: s.groups })
       return {
         workspaces: next.workspaces,
         groups: next.groups,
-        activeWorkspaceId: adopted[adopted.length - 1].id,
+        activeWorkspaceId: adopted[adopted.length - 1].workspace.id,
       }
     })
     useLayoutStore.getState().adopt(layouts)
-    for (const w of adopted) {
+    for (const { workspace } of adopted) {
       window.pine?.lifecycle?.emit?.({
         type: 'workspace-added',
-        workspaceId: w.id,
-        workDir: w.workDir,
+        workspaceId: workspace.id,
+        workDir: workspace.workDir,
       })
     }
     window.pine?.lifecycle?.emit?.({
       type: 'workspace-activated',
-      workspaceId: adopted[adopted.length - 1].id,
+      workspaceId: adopted[adopted.length - 1].workspace.id,
     })
   },
 }))

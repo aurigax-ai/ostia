@@ -4,6 +4,7 @@ import type {
   SnapshotNode,
   SnapshotPaneNode,
   SnapshotWorkspace,
+  WorkspaceOrigin,
 } from '@shared/types'
 import { adoptIds, findPane, firstPaneId, withoutKind } from './tree'
 import type { LayoutNode, PaneNode } from './types'
@@ -18,6 +19,7 @@ export interface RestorableWorkspace {
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
   projectDir?: string
+  origin?: WorkspaceOrigin
 }
 
 export interface RestorableLayout {
@@ -86,6 +88,15 @@ function copyGroup(group: SnapshotGroup): SnapshotGroup {
   }
 }
 
+function copyOrigin(origin: WorkspaceOrigin): WorkspaceOrigin {
+  return {
+    workspaceId: origin.workspaceId,
+    index: origin.index,
+    ...(origin.groupId ? { groupId: origin.groupId } : {}),
+    ...(origin.beside ? { beside: { ...origin.beside } } : {}),
+  }
+}
+
 function snapshotWorkspace(
   workspace: RestorableWorkspace,
   layout: { root: LayoutNode; activePaneId: string } | undefined,
@@ -102,6 +113,7 @@ function snapshotWorkspace(
     kind: workspace.kind,
     workDir: workspace.workDir,
     ...(workspace.projectDir ? { projectDir: workspace.projectDir } : {}),
+    ...(workspace.origin ? { origin: copyOrigin(workspace.origin) } : {}),
     ...(layout && root
       ? {
           root: fromLayoutNode(root, marks),
@@ -165,6 +177,7 @@ export function restoreSnapshot(snapshot: AppSnapshot): {
       kind: s.kind,
       workDir: s.workDir,
       ...(s.projectDir ? { projectDir: s.projectDir } : {}),
+      ...(s.origin ? { origin: copyOrigin(s.origin) } : {}),
     })
     if (!s.root) continue
     const root = toLayoutNode(s.root)

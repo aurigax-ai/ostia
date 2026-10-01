@@ -1,5 +1,6 @@
 import type { AgentResume } from '@shared/agentResume'
 import type { DiffContent } from '@shared/extensions'
+import type { PanePlacement } from '@shared/types'
 import { create } from 'zustand'
 import { panelKey, sizePanel } from '../layout/panelSize'
 import {
@@ -14,8 +15,10 @@ import {
   findViewPane,
   firstPaneId,
   firstPaneOfKind,
+  graftNode,
   mergeLayouts,
   movePane,
+  moveTab,
   paneIds,
   selectTab,
   setPaneBrowser,
@@ -60,6 +63,7 @@ interface LayoutState {
   resize: (workspaceId: string, splitId: string, sizes: number[]) => void
   zoomPane: (workspaceId: string, paneId: string, zoom?: boolean) => void
   movePane: (workspaceId: string, sourceId: string, targetId: string, zone: DropZone) => void
+  moveTab: (workspaceId: string, sourceId: string, targetId: string, after: boolean) => void
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
@@ -82,6 +86,7 @@ interface LayoutState {
   releasePane: (workspaceId: string, paneId: string) => void
   merge: (sourceId: string, targetId: string) => void
   adopt: (layouts: Record<string, WorkspaceLayout>) => void
+  graft: (workspaceId: string, layout: WorkspaceLayout, beside?: PanePlacement) => void
 }
 
 export interface OpenTerminalPlacement {
@@ -314,6 +319,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         patch(s, workspaceId, (l) => ({
           ...l,
           root: movePane(l.root, sourceId, targetId, zone),
+          activePaneId: sourceId,
+        })) ?? s,
+    ),
+
+  moveTab: (workspaceId, sourceId, targetId, after) =>
+    set(
+      (s) =>
+        patch(s, workspaceId, (l) => ({
+          ...l,
+          root: moveTab(l.root, sourceId, targetId, after),
           activePaneId: sourceId,
         })) ?? s,
     ),
@@ -615,6 +630,24 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     )
   },
 
+  graft: (workspaceId, incoming, beside) => {
+    set((s) => {
+      if (!s.byWorkspace[workspaceId]) {
+        return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...incoming } } }
+      }
+      return (
+        patch(s, workspaceId, (l) => ({
+          ...l,
+          root: graftNode(l.root, incoming.root, beside),
+          activePaneId: incoming.activePaneId,
+          zoomedPaneId: null,
+        })) ?? s
+      )
+    })
+    for (const paneId of paneIds(incoming.root)) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+    }
+  },
   merge: (sourceId, targetId) =>
     set((s) => {
       const source = s.byWorkspace[sourceId]
