@@ -10,7 +10,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
 import { copyBundledSources } from './bundled-sources.mjs'
@@ -21,12 +21,15 @@ const builtinRoot = 'out/extensions'
 const marketplaceRoot = 'out/marketplace'
 const marketplaceIds = [
   'keeper',
+  'lsp-bash',
   'lsp-clangd',
   'lsp-gopls',
   'lsp-lua',
+  'lsp-marksman',
   'lsp-pyright',
   'lsp-rust-analyzer',
   'lsp-typescript',
+  'lsp-yaml',
   'model-runtime',
   'trellis',
 ]
@@ -52,16 +55,42 @@ async function writeCatalog(exportName, file) {
   writeFileSync(file, `${JSON.stringify(dict[exportName], null, 2)}\n`)
 }
 
+function withoutNestedModules(from) {
+  return (path) => !path.slice(from.length).split(/[\\/]/).includes('node_modules')
+}
+
+function copyPackage(from, to) {
+  cpSync(from, to, { recursive: true, dereference: true, filter: withoutNestedModules(from) })
+}
+
+function dependencyClosure(dir, found = new Map()) {
+  const real = realpathSync(dir)
+  const manifest = JSON.parse(readFileSync(join(real, 'package.json'), 'utf8'))
+  const known = found.get(manifest.name)
+  if (known) {
+    if (known !== real) throw new Error(`two versions of ${manifest.name} in one server`)
+    return found
+  }
+  found.set(manifest.name, real)
+  const marker = `${sep}node_modules${sep}`
+  const modules = real.slice(0, real.lastIndexOf(marker) + marker.length)
+  for (const name of Object.keys(manifest.dependencies ?? {})) {
+    dependencyClosure(join(modules, name), found)
+  }
+  return found
+}
+
 function copyVendoredPackages(src, out) {
   const list = join(src, 'vendor.json')
   if (!existsSync(list)) return
-  for (const [name, target] of Object.entries(JSON.parse(readFileSync(list, 'utf8')))) {
-    const from = realpathSync(join('node_modules', name))
-    cpSync(from, join(out, target), {
-      recursive: true,
-      dereference: true,
-      filter: (path) => !path.slice(from.length).split(/[\\/]/).includes('node_modules'),
-    })
+  const { packages = {}, closures = {} } = JSON.parse(readFileSync(list, 'utf8'))
+  for (const [name, target] of Object.entries(packages)) {
+    copyPackage(realpathSync(join('node_modules', name)), join(out, target))
+  }
+  for (const [name, target] of Object.entries(closures)) {
+    for (const [dependency, from] of dependencyClosure(join('node_modules', name))) {
+      copyPackage(from, join(out, target, dependency))
+    }
   }
 }
 

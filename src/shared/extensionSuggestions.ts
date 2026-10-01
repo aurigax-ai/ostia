@@ -15,6 +15,9 @@ export const EXTENSION_SUGGESTIONS: Readonly<Record<string, ExtensionSuggestionR
   'lsp-gopls': { names: ['go.mod', 'go.work'], suffixes: ['go'] },
   'lsp-clangd': { names: [], suffixes: ['c', 'h', 'cpp', 'cc', 'cxx', 'hpp', 'hh'] },
   'lsp-lua': { names: [], suffixes: ['lua'] },
+  'lsp-yaml': { names: [], suffixes: ['yaml', 'yml'] },
+  'lsp-bash': { names: [], suffixes: ['sh', 'bash'] },
+  'lsp-marksman': { names: [], suffixes: ['md'] },
 }
 
 export interface SuggestedExtension {

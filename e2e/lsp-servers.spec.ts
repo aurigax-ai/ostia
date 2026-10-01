@@ -66,11 +66,15 @@ async function openFile(win: Page, name: string): Promise<Locator> {
   return editor
 }
 
-async function hoverOn(win: Page, target: Locator): Promise<Locator> {
+async function hoverOn(
+  win: Page,
+  target: Locator,
+  position?: { x: number; y: number },
+): Promise<Locator> {
   await win.mouse.move(2, 2)
   await win.keyboard.press('Escape')
   await expect(win.locator('.monaco-hover:visible')).toHaveCount(0)
-  await target.hover({ force: true })
+  await target.hover({ force: true, ...(position ? { position } : {}) })
   const hover = win.locator('.monaco-hover:visible')
   await expect(hover).toBeVisible({ timeout: 15_000 })
   return hover
@@ -219,6 +223,54 @@ test('a server that claims JSON replaces Monaco’s JSON features, except in the
     await expect(settings.locator('.squiggly-error')).toHaveCount(0)
     const fromSchema = await hoverOn(win, settings.locator('.squiggly-warning').first())
     await expect(fromSchema).toContainText(/Incorrect type|not allowed/)
+  } finally {
+    await app.close()
+  }
+})
+
+test('the YAML extension’s bundled server checks a .yaml file', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launch(
+    { 'config.yaml': 'name: demo\nitems:\n  - one\nbad: [unclosed\n' },
+    fromMarketplace('lsp-yaml'),
+  )
+  try {
+    await approve(win, 'YAML', 'server/node_modules/yaml-language-server/out/server/src/server.js')
+    await openWorkspace(win)
+    const editor = await openFile(win, 'config.yaml')
+    await expect(editor.locator('.squiggly-error').first()).toBeVisible({ timeout: 60_000 })
+    const row = await serverRow(win, 'yaml-language-server')
+    await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
+    await row.getByRole('button', { name: 'Show the log of yaml-language-server' }).click()
+    await expect(win.getByRole('dialog').filter({ hasText: 'Log of' })).toContainText(
+      'Initialized yaml-language-server',
+    )
+  } finally {
+    await app.close()
+  }
+})
+
+test('the Bash extension’s bundled server describes a function in a .sh file', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launch(
+    { 'run.sh': '#!/bin/bash\ngreet() {\n  echo "hi $1"\n}\ngreet world\n' },
+    fromMarketplace('lsp-bash'),
+  )
+  try {
+    await approve(
+      win,
+      'Shell scripts (Bash)',
+      'server/node_modules/bash-language-server/out/cli.js',
+    )
+    await openWorkspace(win)
+    const editor = await openFile(win, 'run.sh')
+    const call = editor.locator('.view-line').nth(4)
+    await expect(async () => {
+      const hover = await hoverOn(win, call, { x: 6, y: 8 })
+      await expect(hover).toContainText('Function: greet', { timeout: 3_000 })
+    }).toPass({ timeout: 60_000 })
+    const row = await serverRow(win, 'bash-language-server')
+    await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
   } finally {
     await app.close()
   }
