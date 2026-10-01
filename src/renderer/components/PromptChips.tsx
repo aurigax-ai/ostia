@@ -20,7 +20,7 @@ import {
 import { type CoreChipId, type PromptSeparator, separatorText } from '@shared/promptSettings'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
-import { type PaneChipCatalogEntry, paneChipAction } from '../lib/paneChips'
+import { type ChipCatalogEntry, chipAction } from '../lib/extensionChips'
 import type { ResolvedChip } from '../lib/promptChips'
 import { promptLine } from '../lib/promptChips'
 import { useUIStore } from '../stores/uiStore'
@@ -49,7 +49,7 @@ export function chipIcon(core: CoreChipId | null, tone: ResolvedChip['tone'] = '
   return CORE_CHIP_ICONS[core]
 }
 
-export function chipName(d: Dict, id: string, catalog: readonly PaneChipCatalogEntry[]): string {
+export function chipName(d: Dict, id: string, catalog: readonly ChipCatalogEntry[]): string {
   if (id in d.prompt.chip) return d.prompt.chip[id as CoreChipId]
   const info = catalog.find((c) => `${c.extId}.${c.id}` === id)
   return fmt(d.prompt.extensionChip, { name: info?.title ?? id })
@@ -105,7 +105,7 @@ export function PromptChipRow({
 }: {
   paneId: string
   chips: readonly ResolvedChip[]
-  catalog: readonly PaneChipCatalogEntry[]
+  catalog: readonly ChipCatalogEntry[]
   cwd?: string
   separator: PromptSeparator
   showSeparator: boolean
@@ -115,7 +115,7 @@ export function PromptChipRow({
   const activate = (chip: ResolvedChip): (() => void) | undefined => {
     if (chip.core === 'cwd') return () => useUIStore.getState().showFiles()
     const ext = chip.extension
-    const action = ext ? paneChipAction(ext) : null
+    const action = ext ? chipAction(ext) : null
     return action ? () => void action() : undefined
   }
   return (

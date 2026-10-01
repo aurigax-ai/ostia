@@ -26,12 +26,14 @@ const assistant: ExtensionInfo = {
   commands: [],
   panel: null,
   paneChips: [],
+  workspaceChips: [],
   settings: [],
   settingValues: {},
   assist: ['chat', 'terminal'],
   secrets: [],
   secretsSet: [],
   category: 'other',
+  languages: [],
   iconThemes: [],
 }
 

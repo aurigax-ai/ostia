@@ -15,7 +15,7 @@ function writeExt(root: string, id: string, manifest: Record<string, unknown>): 
   mkdirSync(dir, { recursive: true })
   writeFileSync(
     join(dir, 'pine.json'),
-    JSON.stringify({ id, name: id, version: '1.0.0', ...manifest }),
+    JSON.stringify({ id, name: id, version: '1.0.0', api: '1.0', ...manifest }),
   )
   return dir
 }

@@ -2,6 +2,7 @@
   "id": "git",
   "name": "Git",
   "version": "2.1.0",
+  "api": "1.0",
   "description": "Branch and changes per workspace and per terminal, a changes panel with stage, discard and commit (flat list or folder tree), a commit graph of the current, all or chosen branches, blame, and diffs of changed files.",
   "category": "scm",
   "capabilities": ["read-board"],
@@ -87,7 +88,7 @@
     ],
     "sidebarItems": true,
     "panel": { "title": "Git", "icon": "git-branch", "entry": "url" },
-    "paneChips": [
+    "workspaceChips": [
       { "id": "branch", "title": "Git branch" },
       { "id": "diff-stats", "title": "Git diff stats" }
     ],

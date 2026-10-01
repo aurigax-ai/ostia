@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { languagesFrom } from '../lib/languagePacks'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -109,6 +110,11 @@ describe('SettingsPanel', () => {
     const setLocale = vi
       .spyOn(useSettingsStore.getState(), 'setLocale')
       .mockImplementation(() => {})
+    usePluginsStore.setState({
+      languages: languagesFrom([
+        { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: {} },
+      ]),
+    })
     renderSettings()
     const user = userEvent.setup()
 
@@ -138,12 +144,14 @@ describe('SettingsPanel', () => {
           commands: [],
           panel: null,
           paneChips: [],
+          workspaceChips: [],
           settings: [],
           settingValues: {},
           assist: [],
           secrets: [],
           secretsSet: [],
           category: 'other',
+          languages: [],
           iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
         },
       ],
@@ -537,12 +545,14 @@ describe('SettingsPanel', () => {
           commands: [],
           panel: null,
           paneChips: [],
+          workspaceChips: [],
           settings: [{ key: 'baseUrl', type: 'string', default: '', description: 'Address' }],
           settingValues: {},
           assist: ['chat'],
           secrets: [],
           secretsSet: [],
           category: 'other',
+          languages: [],
           iconThemes: [],
         },
       ],

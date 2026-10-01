@@ -180,12 +180,13 @@ describe.runIf(process.platform === 'linux')(
       expect(itemsOf('s2').some((i) => i.key.startsWith('port:'))).toBe(false)
     })
 
-    it('puts a ports chip on the pane that links its first port', async () => {
+    it('puts a ports icon chip on the pane that lists each port with its link', async () => {
       const chip = await until(() => chipsOf('p-web').find((c) => c.id === 'ports'))
       expect(chip).toMatchObject({
         extId: 'ports',
-        text: `:${port}`,
-        url: `http://localhost:${port}/`,
+        icon: 'plugs',
+        text: '1',
+        items: [{ text: `:${port}`, url: `http://localhost:${port}/` }],
       })
       expect(chipsOf('p-web').some((c) => c.id === 'ssh')).toBe(false)
     })
@@ -200,16 +201,16 @@ describe.runIf(process.platform === 'linux')(
       await until(() => chipsOf('p-web').find((c) => c.id === 'ports'))
       expect(host.setSetting('ports', 'portHost', '127.0.0.1')).toMatchObject({ ok: true })
       const chip = await until(() =>
-        chipsOf('p-web').find((c) => c.id === 'ports' && c.url?.includes('127.0.0.1')),
+        chipsOf('p-web').find((c) => c.id === 'ports' && c.items?.[0]?.url?.includes('127.0.0.1')),
       )
-      expect(chip.url).toBe(`http://127.0.0.1:${port}/`)
+      expect(chip.items?.[0]?.url).toBe(`http://127.0.0.1:${port}/`)
       const item = await until(() =>
         itemsOf('s1').find((i) => i.key === `port:${port}` && i.url?.includes('127.0.0.1')),
       )
       expect(item.url).toBe(`http://127.0.0.1:${port}/`)
       host.setSetting('ports', 'portHost', null)
       await until(() =>
-        chipsOf('p-web').find((c) => c.id === 'ports' && c.url?.includes('localhost')),
+        chipsOf('p-web').find((c) => c.id === 'ports' && c.items?.[0]?.url?.includes('localhost')),
       )
     })
 

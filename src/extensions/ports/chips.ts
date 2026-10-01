@@ -1,3 +1,4 @@
+import { PANE_CHIP_ITEMS_MAX } from '../../shared/extensions'
 import type { PaneChipValue, PaneInfo } from '../sdk'
 import type { TreeInfo } from './scan'
 import { type PortHost, portUrl } from './sidebar'
@@ -5,19 +6,6 @@ import { sshLabel } from './ssh'
 
 export const SSH_CHIP = 'ssh'
 export const PORTS_CHIP = 'ports'
-export const CHIP_TEXT_MAX = 40
-
-export function portsText(ports: readonly number[]): string {
-  let text = ''
-  for (let i = 0; i < ports.length; i++) {
-    const next = text ? `${text} :${ports[i]}` : `:${ports[i]}`
-    const more = i + 1 < ports.length ? ` +${ports.length - i - 1}` : ''
-    if (next.length + more.length > CHIP_TEXT_MAX) return `${text} +${ports.length - i}`
-    text = next
-  }
-  return text
-}
-
 export function paneChipValues(
   panes: PaneInfo[],
   trees: Map<number, TreeInfo>,
@@ -35,8 +23,11 @@ export function paneChipValues(
       out.push({
         paneId: pane.paneId,
         id: PORTS_CHIP,
-        text: portsText(tree.ports),
-        url: portUrl(tree.ports[0], host),
+        icon: 'plugs',
+        text: String(tree.ports.length),
+        items: tree.ports
+          .slice(0, PANE_CHIP_ITEMS_MAX)
+          .map((port) => ({ text: `:${port}`, url: portUrl(port, host) })),
       })
     }
   }

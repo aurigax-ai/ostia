@@ -1,6 +1,6 @@
 {
   "name": "pine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Terminal Workspace — the ultimate CLI workspace (terminal + IDE + agents)",
   "private": true,
   "type": "commonjs",
@@ -17,6 +17,7 @@
     "build:sandbox-host": "esbuild src/main/sandbox/host.ts --bundle --platform=node --format=esm --packages=external --outfile=out/sandbox/host.mjs",
     "build:extensions": "node scripts/build-extensions.mjs",
     "build:sdk": "node scripts/build-sdk.mjs",
+    "api:bump": "node scripts/api-bump.mjs",
     "publish:marketplace": "node scripts/build-extensions.mjs && node scripts/publish.mjs marketplace",
     "publish:sdk": "node scripts/build-sdk.mjs && node scripts/publish.mjs sdk",
     "preview": "electron-vite preview",

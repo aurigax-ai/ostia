@@ -784,6 +784,7 @@ export const en = {
       scm: 'Source control',
       tools: 'Tools',
       themes: 'Themes',
+      langpack: 'Language pack',
       completions: 'Completions',
       other: 'Other',
     },
@@ -823,8 +824,13 @@ export const en = {
     unitPerMinute: '{range} per minute',
     bounds: '({text})',
     chipsLabel: 'Extension status',
+    workspaceChipsLabel: 'Workspace status',
     chipAction: '{title}: {text}. Click to run {command}.',
     chipLink: '{title}: {text}. Click to open {url} in the browser pane.',
+    chipStatus: '{title}: {text}',
+    chipItems: '{title}: {text}. Click to list them.',
+    chipOpenItem: 'Open {url} in the browser pane',
+    chipCopyUrl: 'Copy {url}',
   },
   workspaceSettings: {
     title: 'Workspaces',
@@ -2501,6 +2507,7 @@ export const zhHant: Dict = {
       scm: '原始碼控制',
       tools: '工具',
       themes: '佈景主題',
+      langpack: '語言套件',
       completions: '自動完成',
       other: '其他',
     },
@@ -2539,8 +2546,13 @@ export const zhHant: Dict = {
     unitPerMinute: '每分鐘 {range} 次',
     bounds: '（{text}）',
     chipsLabel: '擴充功能狀態',
+    workspaceChipsLabel: '工作區狀態',
     chipAction: '{title}：{text}。按一下以執行 {command}。',
     chipLink: '{title}：{text}。按一下以在瀏覽器面板開啟 {url}。',
+    chipStatus: '{title}：{text}',
+    chipItems: '{title}：{text}。按一下以列出。',
+    chipOpenItem: '在瀏覽器面板開啟 {url}',
+    chipCopyUrl: '複製 {url}',
   },
   workspaceSettings: {
     title: '工作區',
@@ -3413,8 +3425,6 @@ export const zhHant: Dict = {
     remoteCancel: '取消',
   },
 }
-
-export const catalogs: Record<Locale, Dict> = { en, 'zh-Hant': zhHant }
 
 export function resolveLocale(tag: string | undefined): Locale {
   if (!tag) return 'en'

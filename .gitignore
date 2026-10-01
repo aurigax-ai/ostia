@@ -8,3 +8,11 @@ coverage/
 test-results/
 playwright-report/
 .claude/worktrees/
+
+.sdd/
+.serena/
+specs/
+CLAUDE.md
+PRODUCT.md
+.claude/
+scripts/install-skills.sh

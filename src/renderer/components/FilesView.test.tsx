@@ -59,12 +59,14 @@ function iconThemeExtension(): ExtensionInfo {
     commands: [],
     panel: null,
     paneChips: [],
+    workspaceChips: [],
     settings: [],
     settingValues: {},
     assist: [],
     secrets: [],
     secretsSet: [],
     category: 'other',
+    languages: [],
     iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
   }
 }
