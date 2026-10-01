@@ -373,6 +373,17 @@ when the pty goes; see the input editor in §Terminal), plus the shell-integrati
   (`isPromptRepaint`): the user submitted a command during the hold, so they are command output,
   not a repaint; erasing made the prompt and the typed command vanish (an extension opening a
   split pane right before Enter did it).
+- Every fit settles (`settleFit` in `terminalSizing.ts`, used by `safeFit`): fit again until the
+  size stops changing, at most `MAX_FIT_PASSES`. Why: FitAddon divides by the renderer's CSS cell
+  width, and the DOM renderer computes it as `round(charWidth × cols) / cols`, so it depends on
+  the column count the terminal had before the fit. With a fractional glyph advance (Hack at
+  8 px is 4.816 px) one fit from 80 columns said 155 and the next said 154 for the same 760 px
+  host. The pty spawned at 155, the mount-time font effect re-fit to 154 and resized the pty
+  while zsh was starting, and zsh drew its first PROMPT_SP mark for 155 columns on a 154-column
+  grid, leaving a `%` line under the restore seam (`e2e/workspace-restore.spec.ts`). It surfaced
+  when the configured terminal font started loading before the first render (`preloadFonts`):
+  the old fallback measure happened to be a fixed point at that width. Font option changes go
+  through `syncSize` too, so a new cell size at an idle prompt takes the prompt-aware resize.
 
 ### Crashes and diagnostics
 
