@@ -75,6 +75,7 @@ import {
 } from './Menu'
 import { MergeMenuItems } from './MergeMenuItems'
 import { LiveLine, LocationLine, SidebarItem } from './RailMeta'
+import { RAIL_ID, RailResizer } from './RailResizer'
 import { ViewsRail } from './ViewsRail'
 import { ATTENTION_BADGE } from './attentionStyles'
 import { Badge } from './ui/badge'
@@ -131,9 +132,12 @@ interface DragHandlers {
 export function DeckRail(): JSX.Element {
   const collapsed = useUIStore((s) => s.railCollapsed)
   return (
-    <aside className={`deck-rail${collapsed ? ' collapsed' : ''}`}>
-      <WorkspacesView />
-    </aside>
+    <>
+      <aside id={RAIL_ID} className={`deck-rail${collapsed ? ' collapsed' : ''}`}>
+        <WorkspacesView />
+      </aside>
+      <RailResizer />
+    </>
   )
 }
 
