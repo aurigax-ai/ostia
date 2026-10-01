@@ -10,6 +10,7 @@ import {
   expandHome,
   failure,
   namedArgs,
+  nextBackoff,
   ok,
   parseFlags,
   startPanelServer,
@@ -50,6 +51,8 @@ import { ViewStateStore } from './viewState'
 import { WorkspaceCwds } from './workspaces'
 
 const REFRESH_DEBOUNCE_MS = 300
+const CHIP_RETRY_MS = 300
+const CHIP_RETRY_MAX_MS = 5000
 const SIDEBAR_KEY = 'branch'
 const BRANCH_CHIP = 'branch'
 const DIFF_STATS_CHIP = 'diff-stats'
@@ -143,6 +146,7 @@ class GitExtension {
   private cwds = new WorkspaceCwds()
   private shown = new Map<string, string>()
   private chips = new Map<string, string>()
+  private chipRefusals = 0
   private signature = ''
   private timer: ReturnType<typeof setTimeout> | null = null
   private poll: ReturnType<typeof setInterval> | null = null
@@ -309,22 +313,31 @@ class GitExtension {
         if (diff) next.set(`${workspaceId}\u0000${DIFF_STATS_CHIP}`, diff)
       }
     }
+    const accepted = new Map<string, string>()
     for (const [key, text] of next) {
-      if (this.chips.get(key) === text) continue
+      if (this.chips.get(key) === text) {
+        accepted.set(key, text)
+        continue
+      }
       const [workspaceId, id] = key.split('\u0000')
-      await this.ext.setWorkspaceChip({
+      const res = await this.ext.setWorkspaceChip({
         workspaceId,
         id,
         text,
         ...(id === BRANCH_CHIP ? { command: 'show' } : {}),
       })
+      if (res.ok) accepted.set(key, text)
     }
     for (const key of this.chips.keys()) {
       if (next.has(key)) continue
       const [workspaceId, id] = key.split('\u0000')
       if (cwds.has(workspaceId)) await this.ext.clearWorkspaceChip(workspaceId, id)
     }
-    this.chips = next
+    this.chips = accepted
+    this.chipRefusals = accepted.size < next.size ? this.chipRefusals + 1 : 0
+    if (this.chipRefusals > 0) {
+      this.schedule(nextBackoff(this.chipRefusals, CHIP_RETRY_MS, CHIP_RETRY_MAX_MS))
+    }
   }
 
   private changed(): void {

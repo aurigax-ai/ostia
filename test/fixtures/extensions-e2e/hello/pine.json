@@ -2,6 +2,7 @@
   "id": "hello",
   "name": "Hello",
   "version": "0.1.0",
+  "api": "1.0",
   "description": "E2E fixture: a user extension with a palette command, CLI commands, a file panel, a pane chip and a setting",
   "capabilities": ["notify"],
   "main": "main.js",

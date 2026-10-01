@@ -21,6 +21,7 @@ import type {
   AssistUi,
 } from '../../shared/assist'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
+import { EXTENSION_API_ENV, EXTENSION_API_VERSION, apiProblem } from '../../shared/extensionApi'
 import type {
   DiffContent,
   ExtensionCaller,
@@ -195,6 +196,8 @@ export interface AssistModelsHandler {
   setLoaded: (id: string, loaded: boolean) => Promise<void>
 }
 
+export { EXTENSION_API_VERSION } from '../../shared/extensionApi'
+
 export function ok(text?: string, data?: unknown): ExtensionResult {
   const result: ExtensionResult = { ok: true }
   if (text !== undefined) result.text = text
@@ -234,6 +237,9 @@ export async function connect(): Promise<PineExtension> {
   const socketPath = process.env.PINE_SOCKET
   const token = process.env.PINE_TOKEN
   if (!socketPath || !token) throw new Error('PINE_SOCKET / PINE_TOKEN missing')
+  const provided = process.env[EXTENSION_API_ENV]
+  const incompatible = provided ? apiProblem(EXTENSION_API_VERSION, provided) : null
+  if (incompatible) throw new Error(`this extension ${incompatible}`)
   const socket = createConnection(socketPath)
   await new Promise<void>((resolve, reject) => {
     socket.once('connect', resolve)

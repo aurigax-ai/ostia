@@ -2,6 +2,7 @@
   "id": "model-runtime",
   "name": "Model runtime",
   "version": "1.0.0",
+  "api": "1.0",
   "description": "Your local model-runtime as the assistant: a chat pane, typo fixes and prompt review before you send to an agent, command suggestions and completions at the prompt, editor completions and Explain error, with model load and unload in Settings → Assistant → Models. Requests go only to the runtime's socket on this computer.",
   "category": "ai",
   "capabilities": ["assist", "notify"],
