@@ -28,6 +28,8 @@ export type HostPackageBlocked = {
   reason: PackageBlockReason
 }
 
-export type HostToMain = HostResponse | HostAsk | HostPackageBlocked
+export type HostViolations = { type: 'violations'; lines: string[] }
+
+export type HostToMain = HostResponse | HostAsk | HostPackageBlocked | HostViolations
 
 export type MainToHost = HostRequest | HostAskAnswer

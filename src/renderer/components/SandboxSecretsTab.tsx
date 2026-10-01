@@ -65,7 +65,6 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
 
   return (
     <fieldset aria-label={d.sandbox.secrets} className="mb-4">
-      <p className="mb-2 text-fg-muted text-ui-sm">{d.sandbox.secretsDesc}</p>
       <ul className="flex flex-col gap-1">
         {secrets.map((secret) => {
           const grant = grants.find((g) => g.id === secret.id)

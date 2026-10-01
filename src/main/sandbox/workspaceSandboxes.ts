@@ -1,20 +1,36 @@
+import { createHash } from 'node:crypto'
 import { mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageRef } from '../../shared/packages'
 import {
   type ResolvedSandbox,
+  type SandboxFixedPolicy,
+  type SandboxFolderProblem,
   type SandboxGlobals,
   type SandboxMergeRefusal,
   type WorkspaceSandbox,
+  emptyWorkspaceSandbox,
   resolvePackages,
   resolveSandbox,
   sandboxMergeRefusal,
 } from '../../shared/sandbox'
 import { SandboxHost, SandboxHostError } from './hostClient'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
-import { type SandboxPaths, buildSrtConfig } from './srtConfig'
+import type { SandboxPathEnv } from './pathChecks'
+import {
+  type SandboxPaths,
+  buildSrtConfig,
+  expandHome,
+  fixedPolicy,
+  folderProblem,
+  protectedFiles,
+  protectedPaths,
+  realPath,
+  within,
+} from './srtConfig'
 import type { SandboxStore } from './store'
+import type { WriteRefusal } from './violations'
 
 export interface WorkspaceSandboxesDeps {
   store: SandboxStore
@@ -27,6 +43,19 @@ export interface WorkspaceSandboxesDeps {
   hostEnv?: NodeJS.ProcessEnv
   onAsk: (workspaceId: string, host: string, port: number | undefined) => Promise<boolean>
   onPackageBlocked?: (workspaceId: string, pkg: PackageRef, reason: PackageBlockReason) => void
+  onViolations?: (workspaceId: string, lines: string[]) => void
+}
+
+const KERNEL_MOUNTS = ['/dev', '/proc']
+
+const FOLDER_PROBLEM_TEXT: Record<SandboxFolderProblem['reason'], string> = {
+  home: 'is your home folder',
+  'above-home': 'contains your home folder',
+  'pine-data': "holds Pine's own data",
+}
+
+export function folderProblemMessage(problem: SandboxFolderProblem): string {
+  return `${problem.folder} ${FOLDER_PROBLEM_TEXT[problem.reason]}, so a sandbox cannot confine it; open a project folder instead`
 }
 
 export class SandboxUnavailableError extends Error {
@@ -43,6 +72,7 @@ export class WorkspaceSandboxes {
   private readonly sessionDomains = new Map<string, Set<string>>()
   private readonly sessionPackages = new Map<string, Set<string>>()
   private readonly mergedInto = new Map<string, string>()
+  private readonly paneWrites = new Map<string, Set<string>>()
 
   constructor(private readonly deps: WorkspaceSandboxesDeps) {}
 
@@ -83,6 +113,75 @@ export class WorkspaceSandboxes {
     const next = this.deps.store.set(owner, change(this.deps.store.get(owner)))
     void this.refresh(owner)
     return next
+  }
+
+  workDir(workspaceId: string): string | undefined {
+    const folder = this.deps.workDir(this.owner(workspaceId))
+    return folder === undefined ? undefined : expandHome(folder, this.deps.basePaths().home)
+  }
+
+  private basePaths(): Omit<SandboxPaths, 'workDir' | 'tmpDir'> {
+    return { ...this.deps.basePaths(), tmpRoot: this.deps.tmpRoot }
+  }
+
+  folderProblem(workspaceId: string): SandboxFolderProblem | null {
+    const folder = this.workDir(workspaceId)
+    if (!folder) return null
+    const reason = folderProblem(folder, this.basePaths())
+    return reason ? { folder, reason } : null
+  }
+
+  pathEnv(workspaceId?: string): SandboxPathEnv {
+    const base = this.basePaths()
+    const workDir = workspaceId ? this.workDir(workspaceId) : undefined
+    return {
+      home: base.home,
+      dataDirs: base.dataDirs,
+      protectedDirs: protectedPaths(base),
+      protectedFiles: protectedFiles(base, workDir),
+    }
+  }
+
+  fixedPolicy(workspaceId?: string): SandboxFixedPolicy {
+    const workDir = workspaceId ? this.workDir(workspaceId) : undefined
+    const switches = workspaceId
+      ? this.resolved(workspaceId).switches
+      : resolveSandbox(this.deps.globals(), emptyWorkspaceSandbox()).switches
+    return fixedPolicy(
+      this.basePaths(),
+      workspaceId && workDir ? { workDir, tmpDir: this.tmpDir(workspaceId) } : null,
+      switches,
+    )
+  }
+
+  wrapStamp(workspaceId: string): string | null {
+    try {
+      const { network, filesystem } = this.config(workspaceId)
+      const baked = {
+        filesystem,
+        allowUnixSockets: network.allowUnixSockets,
+        allowAllUnixSockets: network.allowAllUnixSockets,
+        allowLocalBinding: network.allowLocalBinding,
+      }
+      return createHash('sha256').update(JSON.stringify(baked)).digest('hex').slice(0, 16)
+    } catch {
+      return null
+    }
+  }
+
+  writeRefusal(workspaceId: string, path: string): WriteRefusal | null {
+    if (KERNEL_MOUNTS.some((mount) => within(path, mount))) return null
+    try {
+      const { filesystem } = this.config(workspaceId)
+      const extra = this.paneWrites.get(this.owner(workspaceId)) ?? []
+      const real = realPath(path)
+      const under = (list: readonly string[]): boolean =>
+        list.some((entry) => within(path, entry) || within(real, realPath(entry)))
+      if (under(filesystem.denyWrite)) return 'read-only'
+      return under([...filesystem.allowWrite, ...extra]) ? null : 'outside'
+    } catch {
+      return 'outside'
+    }
   }
 
   resolved(workspaceId: string): ResolvedSandbox {
@@ -126,17 +225,13 @@ export class WorkspaceSandboxes {
   }
 
   config(workspaceId: string): SandboxRuntimeConfig {
-    const workDir = this.deps.workDir(this.owner(workspaceId))
+    const workDir = this.workDir(workspaceId)
     if (!workDir) throw new SandboxUnavailableError('the workspace folder is not known yet')
+    const problem = this.folderProblem(workspaceId)
+    if (problem) throw new SandboxUnavailableError(folderProblemMessage(problem))
     const tmpDir = this.tmpDir(workspaceId)
     mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
-    const policy = this.resolved(workspaceId)
-    return buildSrtConfig(policy, {
-      ...this.deps.basePaths(),
-      workDir,
-      tmpDir,
-      tmpRoot: this.deps.tmpRoot,
-    })
+    return buildSrtConfig(this.resolved(workspaceId), { ...this.basePaths(), workDir, tmpDir })
   }
 
   async wrap(
@@ -150,9 +245,15 @@ export class WorkspaceSandboxes {
         'the sandbox settings file is unreadable; reset it in Settings › Sandbox',
       )
     }
+    const problem = this.folderProblem(workspaceId)
+    if (problem) throw new SandboxUnavailableError(folderProblemMessage(problem))
     const host = await this.host(workspaceId)
     try {
       if (extraWrites.length === 0) return await host.wrap(command, binShell)
+      const owner = this.owner(workspaceId)
+      const seen = this.paneWrites.get(owner) ?? new Set<string>()
+      for (const path of extraWrites) seen.add(path)
+      this.paneWrites.set(owner, seen)
       const { filesystem } = this.config(workspaceId)
       return await host.wrap(command, binShell, {
         filesystem: { ...filesystem, allowWrite: [...filesystem.allowWrite, ...extraWrites] },
@@ -181,7 +282,8 @@ export class WorkspaceSandboxes {
     const pending = this.hosts.get(workspaceId)
     if (!pending) return
     const host = await pending.catch(() => null)
-    if (host?.alive) await host.update(this.config(workspaceId), this.packagePolicy(workspaceId))
+    if (!host?.alive || this.folderProblem(workspaceId)) return
+    await host.update(this.config(workspaceId), this.packagePolicy(workspaceId))
   }
 
   async cleanup(workspaceId: string): Promise<void> {
@@ -200,6 +302,7 @@ export class WorkspaceSandboxes {
     this.mergedInto.delete(workspaceId)
     this.sessionDomains.delete(workspaceId)
     this.sessionPackages.delete(workspaceId)
+    this.paneWrites.delete(workspaceId)
     this.deps.store.remove(workspaceId)
     rmSync(this.tmpDir(workspaceId), { recursive: true, force: true })
   }
@@ -225,6 +328,7 @@ export class WorkspaceSandboxes {
       env: { ...(this.deps.hostEnv ?? process.env), CLAUDE_CODE_TMPDIR: this.tmpDir(workspaceId) },
       onAsk: (h, port) => this.deps.onAsk(workspaceId, h, port),
       onPackageBlocked: (pkg, reason) => this.deps.onPackageBlocked?.(workspaceId, pkg, reason),
+      onViolations: (lines) => this.deps.onViolations?.(workspaceId, lines),
       onExit: () => {
         if (this.hosts.get(workspaceId) === started) this.hosts.delete(workspaceId)
       },

@@ -11,6 +11,7 @@ import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
 import { FilesPanel } from './components/FilesPanel'
 import { HistorySearch } from './components/HistorySearch'
 import { MergeConfirmDialog } from './components/MergeConfirmDialog'
+import { SandboxFolderDialog } from './components/SandboxFolderDialog'
 import { SandboxRequirementsDialog } from './components/SandboxRequirementsDialog'
 import { SaveWorkflowDialog } from './components/SaveWorkflowDialog'
 import { TopBar } from './components/TopBar'
@@ -115,6 +116,7 @@ export function App(): JSX.Element {
           <MergeConfirmDialog />
           <ActionConfirmDialog />
           <SandboxRequirementsDialog />
+          <SandboxFolderDialog />
           <HistorySearch />
           <WorkflowPicker />
           <SaveWorkflowDialog />
