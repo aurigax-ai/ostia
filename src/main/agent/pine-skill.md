@@ -669,7 +669,7 @@ The human and the agent can both point at an element in a browser pane:
 
 - **Human → agent.** The human clicks **Point at element** in a browser pane's toolbar, clicks the
   broken thing, writes what's wrong, and sends it to a terminal pane. Pine writes a markdown
-  report to a private tmp dir (`/tmp/pine-reports-<uid>/capture-N.md`) and:
+  report to a private tmp dir (`/tmp/pine-reports-<uid>/capture-N-<page>.md`, where `<page>` is the page's host and path) and:
   - pastes `@<report path> ` at that pane's prompt (never presses Enter) if the pane is at an idle
     shell prompt or its agent reported `pine state waiting`/`done`; otherwise the path goes to the
     human's clipboard;
