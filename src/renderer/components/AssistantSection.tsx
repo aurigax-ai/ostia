@@ -352,7 +352,14 @@ export function AssistantSection(): JSX.Element {
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button size="sm" onClick={() => useUIStore.getState().openSettings('plugins')}>
+            <Button
+              size="sm"
+              onClick={() =>
+                useUIStore
+                  .getState()
+                  .openSettings('plugins', { extension: list.find(isAssistExtension)?.id })
+              }
+            >
               {d.assistantSettings.openPlugins}
             </Button>
           </EmptyContent>

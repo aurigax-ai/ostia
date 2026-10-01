@@ -96,6 +96,7 @@ describe('AssistantSection', () => {
     expect(screen.queryByText('Chat tools')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Open Plugins' }))
     expect(useUIStore.getState().settingsSection).toBe('plugins')
+    expect(useUIStore.getState().settingsExtension).toBe(assistant.id)
   })
 
   it('lists features with status and Try it, and flips a feature through its setting', async () => {
@@ -113,9 +114,9 @@ describe('AssistantSection', () => {
   it('shows provider settings without repeating the feature switches', () => {
     seed()
     render(<AssistantSection />)
-    expect(screen.getByRole('combobox', { name: 'provider' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'fastModel' })).toHaveValue('gemma')
-    expect(screen.queryByRole('switch', { name: 'chat' })).toBeNull()
+    expect(screen.getByRole('combobox', { name: 'Provider' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Fast model' })).toHaveValue('gemma')
+    expect(screen.queryByRole('switch', { name: 'Chat' })).toBeNull()
     expect(screen.getByText('Chat tools')).toBeInTheDocument()
   })
 

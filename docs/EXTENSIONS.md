@@ -25,7 +25,10 @@ A new extension still asks for approval first, and a changed manifest that asks 
 capabilities runs with what you approved before until you review it. A changed extension that
 was running is restarted. Settings → Plugins lists every extension with its status, permissions,
 settings form and an enable switch. A disabled extension has no process, no commands, no panel,
-no sidebar items and no pane chips.
+no sidebar items and no pane chips. Plugins in the Settings nav expands into one entry per
+extension (its panel icon, if it has one) that scrolls to that extension's block; core code links
+there with `openSettings('plugins', { extension: id })` or `openSettings('plugins/<id>')`, and the
+Settings search box finds an extension by its name, a setting title or a setting key.
 
 ## Manifest (`pine.json`)
 
@@ -52,9 +55,13 @@ no sidebar items and no pane chips.
     "panel": { "title": "Ports", "icon": "server", "entry": "url" },
     "paneChips": [{ "id": "port", "title": "Listening port" }],
     "settings": {
-      "interval": { "type": "number", "default": 3, "description": "Seconds between scans" },
-      "showSsh": { "type": "boolean", "default": true, "description": "Show the ssh host" },
-      "sort": { "type": "enum", "values": ["port", "name"], "default": "port",
+      "interval": { "type": "number", "title": "Scan interval", "default": 3,
+        "minimum": 1, "maximum": 60, "unit": "seconds",
+        "description": "Time between scans while {product} is focused" },
+      "showSsh": { "type": "boolean", "title": "Show ssh host", "default": true,
+        "description": "Show the host of a foreground ssh" },
+      "sort": { "type": "enum", "title": "Sort order", "values": ["port", "name"],
+        "valueTitles": { "port": "By port", "name": "By name" }, "default": "port",
         "description": "Order of the items" }
     }
   }
@@ -71,11 +78,11 @@ no sidebar items and no pane chips.
 | `contributes.sidebarItems` | `true` if you call `ext.setSidebarItem`. Such extensions start with the window instead of on first use. |
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand pine a loopback URL at runtime. |
 | `contributes.paneChips` | Up to 8 `{id, title}`. Each is a slot for a short value you put on a pane's header with `ext.setPaneChip` (for example a branch, a venv, a test count). `title` names it in tooltips and in Settings → Prompt: the human can also place your chip in the Pine prompt's chip row (`terminal.prompt.chips` id `<extId>.<chip>`), where it shows the same value. Needs `main`. |
-| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Settings → Plugins shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
+| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Plugins shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
-| `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}`. Settings → Plugins shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
+| `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Plugins shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
 
