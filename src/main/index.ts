@@ -1153,6 +1153,9 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
   ipcMain.handle('marketplace:install', (_e, id: unknown, extId: unknown) =>
     marketplace.install(id, extId),
   )
+  ipcMain.handle('marketplace:install-code', (_e, id: unknown, code: unknown) =>
+    marketplace.installCode(id, code),
+  )
   ipcMain.handle('marketplace:uninstall', (_e, extId: unknown) => marketplace.uninstall(extId))
 }
 

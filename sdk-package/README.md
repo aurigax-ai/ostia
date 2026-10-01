@@ -11,7 +11,7 @@ The full contract is in [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 ## Install
 
 ```sh
-pnpm add -D github:aurigax-ai/pine-extension-sdk
+pnpm add -D @aurigax-ai/pine-extension-sdk
 ```
 
 The package is built: there is no install script to approve. It needs Node 20 or newer.
@@ -59,6 +59,7 @@ runs the same checks Pine runs when it loads the extension.
 ```sh
 pnpm exec pine-extension validate dist/hello     # one extension folder
 pnpm exec pine-extension validate .              # a marketplace: a folder with pine-marketplace.json
+pnpm exec pine-extension unlist extensions/hello # hide it in Pine: installable only by the printed code
 ```
 
 It exits 0 when Pine would accept it and prints one line per problem otherwise. For an extension it

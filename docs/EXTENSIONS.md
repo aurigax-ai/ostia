@@ -52,7 +52,28 @@ The repository has a `pine-marketplace.json` at its root:
 |---|---|
 | `name` | 1 to 80 characters |
 | `description` | Optional |
-| `extensions` | Up to 200 folder paths inside the repository. Each folder is one extension with its own `pine.json` |
+| `extensions` | Folder paths inside the repository. Each folder is one extension with its own `pine.json` |
+| `unlisted` | Optional. `{ "path", "code" }` entries: extensions the marketplace holds but Settings does not show. `code` is 26 characters of `a-z` and `2-7`, unique in the file. `extensions` and `unlisted` together hold at most 200 |
+
+### Unlisted extensions
+
+An unlisted extension is one pine does not show. Main never sends it to the window: the card only
+gets an "install code" field when the marketplace has any. The human types the code; an exact
+match installs the extension the usual way (copied, then waiting for approval), and from then on
+it is shown in that marketplace's card like any other, with Update when a refresh brings a new
+version. A wrong code answers the same whether or not anything is unlisted under it, and a broken
+unlisted entry is not named under "Entries that could not be offered".
+
+```sh
+pnpm exec pine-extension unlist extensions/timer     # run in the marketplace folder
+```
+
+moves the path from `extensions` to `unlisted`, generates its code and prints it. Give the code to
+whoever should install it. To list it again, move the path back by hand.
+
+Unlisted is not private. The code and the extension's files are in the repository, so anyone who
+can read the repository can read both; it only keeps an entry out of pine's Settings. Use a
+private repository (an `ssh` URL) for extensions that must not be public.
 
 Rules for a listed extension:
 
@@ -511,11 +532,11 @@ to refresh the digest without bumping.
 
 ## The SDK package
 
-`@aurigax-ai/pine-extension-sdk` (repository `aurigax-ai/pine-extension-sdk`) is the same SDK the
-built-in extensions use, packaged for extensions written outside the app:
+`@aurigax-ai/pine-extension-sdk` on npm is the same SDK the built-in extensions use, packaged for
+extensions written outside the app:
 
 ```sh
-pnpm add -D github:aurigax-ai/pine-extension-sdk
+pnpm add -D @aurigax-ai/pine-extension-sdk
 ```
 
 | Part | What it is |
@@ -524,11 +545,12 @@ pnpm add -D github:aurigax-ai/pine-extension-sdk
 | `…/panel`, `…/splitter`, `…/panel.css` | The panel page helpers and base styles |
 | `…/assist` | The assistant engine: `runAssistExtension({catalog})` with your own `ProviderCatalog` (needs `ai`, `zod`, `@ai-sdk-tool/parser`, `undici`) |
 | `schemas/pine.schema.json`, `schemas/pine-marketplace.schema.json` | JSON Schemas for the two manifest files; name one in `"$schema"` and your editor checks the file as you type |
-| `pine-extension validate [folder]` | Runs the loader's own checks on an extension folder (plus the marketplace install limits), or on a marketplace folder and every extension it lists. Exits 0 when pine would accept it |
+| `pine-extension validate [folder]` | Runs the loader's own checks on an extension folder (plus the marketplace install limits), or on a marketplace folder and every extension it lists or holds unlisted. Exits 0 when pine would accept it |
+| `pine-extension unlist <extension folder> [marketplace folder]` | Moves a listed extension to `unlisted` in `pine-marketplace.json` and generates its install code |
 | `template/` | A starter extension: TypeScript source, a build that bundles it into one `main.js`, `pnpm validate` |
 
-It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and copied to
-its repository with `pnpm publish:sdk <checkout>`; its version is the app's version. The JSON
+It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and published
+to npm by `release.yml` on every `v*` tag; its version is the app's version. The JSON
 Schemas come from `src/cli/manifestSchema.ts`; the loader (`parseManifest`) stays the authority,
 and `validate` runs that loader.
 
@@ -688,12 +710,18 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 
 ### Marketplace extensions
 
-These live in the same source tree and use the same SDK, but they wrap tools only some people
-have, so they are not shipped in the app. `scripts/build-extensions.mjs` builds the ids in its
-`marketplaceIds` into `out/marketplace/` with a `pine-marketplace.json`, and
-`pnpm publish:marketplace <checkout>` copies that into a checkout of the marketplace repository
-(`aurigax-ai/pine-extensions`). Add that repository in Settings → Extensions → Marketplaces to install
-them.
+These live in the same source tree, but they wrap tools only some people have, so they are not
+shipped in the app. They import the SDK only by its package name
+(`@aurigax-ai/pine-extension-sdk`), never by a path into this tree, because they are published as
+a project of their own: `pnpm build:marketplace` (`scripts/build-marketplace.mjs`) assembles
+`out/marketplace/` from `marketplace-package/` (build script, `tsconfig.json`, CI,
+`pine-marketplace.json`), the extensions listed there, their tests and `test/fixtures/tools`,
+writes its `package.json`, and builds it against `out/sdk`. `pnpm publish:marketplace <checkout>`
+copies that into a checkout of the marketplace repository (`aurigax-ai/pine-extensions`), installs
+its dependencies there (the SDK from npm) and rebuilds `extensions/`. That repository's own `sync.yml` workflow does this every hour: when Pine's
+latest release is newer than its `package.json` version it checks that tag out, runs the command,
+its checks, and commits. It needs no credentials from this repository. Add that repository in
+Settings → Extensions → Marketplaces to install them.
 
 | Id | What it does |
 |---|---|

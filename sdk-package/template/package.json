@@ -8,7 +8,6 @@
     "validate": "node build.mjs && pine-extension validate dist/hello"
   },
   "devDependencies": {
-    "@aurigax-ai/pine-extension-sdk": "github:aurigax-ai/pine-extension-sdk",
     "@types/node": "^22.0.0",
     "esbuild": "^0.21.5",
     "typescript": "^5.9.3"

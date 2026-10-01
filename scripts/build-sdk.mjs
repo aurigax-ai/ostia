@@ -10,7 +10,7 @@ const out = 'out/sdk'
 const sdk = 'src/extensions/sdk'
 const assets = 'sdk-package'
 const packageName = '@aurigax-ai/pine-extension-sdk'
-const repository = 'https://github.com/aurigax-ai/pine-extension-sdk'
+const repository = 'https://github.com/aurigax-ai/pine'
 const app = JSON.parse(readFileSync('package.json', 'utf8'))
 const versionOf = (name) => app.dependencies[name] ?? app.devDependencies[name]
 const assistPeers = ['ai', 'zod', '@ai-sdk-tool/parser', 'undici']
@@ -74,6 +74,11 @@ copyBundledSources([library, cli, schema], out)
 cpSync(join(sdk, 'panel.css'), join(out, 'panel.css'))
 cpSync(join(assets, 'README.md'), join(out, 'README.md'))
 cpSync(join(assets, 'template'), join(out, 'template'), { recursive: true })
+const template = JSON.parse(readFileSync(join(assets, 'template/package.json'), 'utf8'))
+writeJson('template/package.json', {
+  ...template,
+  devDependencies: { [packageName]: `^${app.version}`, ...template.devDependencies },
+})
 mkdirSync(join(out, 'docs'))
 cpSync('docs/EXTENSIONS.md', join(out, 'docs/EXTENSIONS.md'))
 
@@ -84,7 +89,8 @@ writeJson('package.json', {
   description: 'SDK for writing Pine extensions',
   pineExtensionApi: apiVersion(),
   license: app.license,
-  repository: { type: 'git', url: `git+${repository}.git` },
+  repository: { type: 'git', url: `git+${repository}.git`, directory: sdk },
+  publishConfig: { access: 'public' },
   type: 'module',
   engines: { node: '>=20' },
   bin: { 'pine-extension': './dist/cli.cjs' },

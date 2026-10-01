@@ -1,10 +1,10 @@
 import { homedir } from 'node:os'
-import type { ExtensionEventType } from '../../shared/extensions'
-import { PRODUCT_NAME } from '../../shared/product'
 import {
   type CommandHandler,
   type ExtensionCaller,
+  type ExtensionEventType,
   type ExtensionSettingValues,
+  PRODUCT_NAME,
   booleanSetting,
   cliArgs,
   connect,
@@ -13,7 +13,7 @@ import {
   ok,
   onShutdown,
   startMessageServer,
-} from '../sdk'
+} from '@aurigax-ai/pine-extension-sdk'
 import { type AuthProxy, type ProxyUpstream, startAuthProxy } from './proxy'
 import { TrellisService, TrellisUnavailable, type WorkspaceRef } from './service'
 import { cardPath, cardRef, isAppPath, loopbackHttpUrl, projectPath } from './trellis'
