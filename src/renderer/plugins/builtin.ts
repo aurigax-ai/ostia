@@ -191,7 +191,7 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
     contributes: { languageServers: [] },
   },
   {
-    id: 'pine.lang.en',
+    id: 'pine.langpack.en',
     name: 'English',
     description: 'English language pack.',
     version: '1.0.0',
@@ -199,7 +199,7 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
     contributes: { languages: [{ id: 'en', label: 'English', catalog: en }] },
   },
   {
-    id: 'pine.lang.zh-hant',
+    id: 'pine.langpack.zh-hant',
     name: 'Traditional Chinese · 繁體中文',
     description: 'Traditional Chinese language pack.',
     version: '1.0.0',

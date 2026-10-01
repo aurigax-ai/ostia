@@ -34,6 +34,7 @@ describe('parseManifest', () => {
         name: 'Demo',
         version: '1.0.0',
         description: 'd',
+        category: 'other',
         capabilities: ['notify', 'read-board'],
         main: 'main.js',
         contributes: {
@@ -242,6 +243,17 @@ describe('parseManifest', () => {
         DIR,
       ),
     ).toEqual({ ok: false, error: 'contributes.secrets.apiKey: title must be 1-80 characters' })
+  })
+
+  it('defaults the category to other and refuses one it does not know', () => {
+    const res = parseManifest(manifest({}), DIR)
+    expect(res.ok && res.manifest.category).toBe('other')
+    const scm = parseManifest(manifest({ category: 'scm' }), DIR)
+    expect(scm.ok && scm.manifest.category).toBe('scm')
+    expect(parseManifest(manifest({ category: 'games' }), DIR)).toEqual({
+      ok: false,
+      error: 'category must be one of ai, scm, tools, themes, completions, other',
+    })
   })
 
   it('accepts every built-in and marketplace manifest', () => {

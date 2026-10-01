@@ -455,6 +455,7 @@ export class ExtensionHost {
       name: m.name,
       version: m.version,
       description: m.description,
+      category: m.category,
       builtin: rt.ext.builtin,
       enabled: this.active(rt),
       status: this.status(rt),

@@ -4,11 +4,13 @@ import { type AssistPoint, isAssistPoint } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
+  EXTENSION_CATEGORIES,
   EXTENSION_ICONS,
   EXTENSION_MANIFEST_FILE,
   EXTENSION_SETTING_TITLE_MAX,
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
+  type ExtensionCategory,
   type ExtensionCommandContribution,
   type ExtensionIcon,
   type ExtensionManifest,
@@ -344,6 +346,10 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   const description = typeof raw.description === 'string' ? raw.description.slice(0, 500) : ''
   const caps = capabilities(raw.capabilities, 'manifest')
   if (typeof caps === 'string') return { ok: false, error: caps }
+  const category = raw.category === undefined ? 'other' : raw.category
+  if (!EXTENSION_CATEGORIES.includes(category as ExtensionCategory)) {
+    return { ok: false, error: `category must be one of ${EXTENSION_CATEGORIES.join(', ')}` }
+  }
 
   let main: string | undefined
   if (raw.main !== undefined) {
@@ -408,6 +414,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     name,
     version,
     description,
+    category: category as ExtensionCategory,
     capabilities: caps,
     contributes: { commands, sidebarItems, paneChips, settings, assist, secrets },
   }

@@ -1428,6 +1428,9 @@ export function ExtensionsSection({
                   <div className="flex items-center gap-2">
                     <span className="text-fg text-ui-base">{ext.name}</span>
                     <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
+                    <Badge variant="outline" className="text-ui-xs">
+                      {d.extensions.categories[ext.category]}
+                    </Badge>
                     {ext.builtin ? (
                       <Badge variant="outline" className="text-ui-xs">
                         {d.settings.builtin}

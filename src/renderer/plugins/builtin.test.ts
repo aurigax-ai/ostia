@@ -109,14 +109,14 @@ describe('BUILTIN_PLUGINS', () => {
   })
 
   it('ties the English language pack to the real `en` catalog by reference', () => {
-    const langs = plugin('pine.lang.en')?.contributes.languages
+    const langs = plugin('pine.langpack.en')?.contributes.languages
     expect(langs).toHaveLength(1)
     expect(langs?.[0].id).toBe('en')
     expect(langs?.[0].catalog).toBe(en)
   })
 
   it('ties the Traditional Chinese language pack to the real `zhHant` catalog by reference', () => {
-    const langs = plugin('pine.lang.zh-hant')?.contributes.languages
+    const langs = plugin('pine.langpack.zh-hant')?.contributes.languages
     expect(langs).toHaveLength(1)
     expect(langs?.[0].id).toBe('zh-Hant')
     expect(langs?.[0].catalog).toBe(zhHant)

@@ -1,4 +1,5 @@
 import type { Capability } from './capabilities'
+import type { ExtensionCategory } from './extensions'
 
 export const MARKETPLACE_FEATURE = 'marketplace'
 export const MARKETPLACE_MANIFEST_FILE = 'pine-marketplace.json'
@@ -11,6 +12,7 @@ export interface MarketplaceExtension {
   name: string
   version: string
   description: string
+  category: ExtensionCategory
   capabilities: Capability[]
   runsProcess: boolean
   state: MarketplaceInstallState

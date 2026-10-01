@@ -29,6 +29,7 @@ const git: ExtensionInfo = {
   assist: [],
   secrets: [],
   secretsSet: [],
+  category: 'other',
   iconThemes: [],
 }
 

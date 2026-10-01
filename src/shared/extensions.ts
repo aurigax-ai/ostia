@@ -120,11 +120,23 @@ export interface ExtensionSecretContribution {
 
 export const EXTENSION_SECRET_MAX = 4096
 
+export const EXTENSION_CATEGORIES = [
+  'ai',
+  'scm',
+  'tools',
+  'themes',
+  'completions',
+  'other',
+] as const
+
+export type ExtensionCategory = (typeof EXTENSION_CATEGORIES)[number]
+
 export interface ExtensionManifest {
   id: string
   name: string
   version: string
   description: string
+  category: ExtensionCategory
   capabilities: Capability[]
   main?: string
   contributes: {
@@ -154,6 +166,7 @@ export interface ExtensionInfo {
   name: string
   version: string
   description: string
+  category: ExtensionCategory
   builtin: boolean
   enabled: boolean
   status: ExtensionStatus

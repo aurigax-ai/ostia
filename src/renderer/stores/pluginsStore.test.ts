@@ -21,8 +21,8 @@ describe('pluginsStore', () => {
       expect(store().plugins.map((p) => p.id)).toEqual([
         'pine.themes',
         'pine.lsp',
-        'pine.lang.en',
-        'pine.lang.zh-hant',
+        'pine.langpack.en',
+        'pine.langpack.zh-hant',
       ])
       expect(store().plugins.every((p) => p.builtin)).toBe(true)
     })

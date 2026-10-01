@@ -35,6 +35,7 @@ function ext(id: string, name: string, overrides: Partial<ExtensionInfo> = {}): 
     assist: [],
     secrets: [],
     secretsSet: [],
+    category: 'other',
     iconThemes: [],
     ...overrides,
   }
