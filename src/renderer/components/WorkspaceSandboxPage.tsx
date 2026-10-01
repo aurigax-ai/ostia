@@ -1,13 +1,12 @@
 import {
   DEFAULT_PACKAGE_SETTINGS,
-  type DomainRefusal,
   type PortsPolicy,
   type SandboxControls,
   type WorkspaceSandbox,
   resolvePackages,
   resolveSandbox,
 } from '@shared/sandbox'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { isMac } from '../platform'
 import { useSandboxStore } from '../stores/sandboxStore'
@@ -23,7 +22,7 @@ import { SandboxSecretsTab } from './SandboxSecretsTab'
 import { BrowserSelect, GLOBAL_LISTS, useFixedPolicy, useSandboxGlobals } from './SandboxSection'
 import { SandboxViolations } from './SandboxViolations'
 import { SectionTab, SectionTabsList } from './SectionTabs'
-import { ControlRow, SectionHead, SettingsGroup, SubHead } from './SettingsPanel'
+import { ControlRow, SectionHead, SettingsGroup } from './SettingsPanel'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Switch } from './ui/switch'
@@ -48,47 +47,6 @@ function OverrideBadge({
         </Button>
       ) : null}
     </>
-  )
-}
-
-function Refusals({ workspaceId }: { workspaceId: string }): JSX.Element {
-  const d = useDict()
-  const [list, setList] = useState<DomainRefusal[]>([])
-  const load = useCallback(
-    () => void window.pine.sandbox.refusals(workspaceId).then(setList),
-    [workspaceId],
-  )
-  useEffect(() => {
-    load()
-  }, [load])
-  const time = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' })
-  return (
-    <fieldset aria-label={d.sandbox.refusals} className="mb-4">
-      <SubHead title={d.sandbox.refusals} />
-      {list.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.sandbox.refusalsEmpty}</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {list.map((r) => (
-            <li key={r.host} className="flex items-center gap-2 text-ui-sm">
-              <span className="min-w-0 flex-1 truncate font-mono text-fg">{r.host}</span>
-              <span className="text-fg-muted tabular-nums">
-                {fmt(d.sandbox.refusalCount, { count: r.count, time: time.format(r.last) })}
-              </span>
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() =>
-                  void window.pine.sandbox.allowRefused(workspaceId, r.host).then(load)
-                }
-              >
-                {d.sandbox.allow}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </fieldset>
   )
 }
 
@@ -200,9 +158,7 @@ export function WorkspaceSandboxPage({
           <SandboxFilesGroups scope={scope} />
         </TabsContent>
         <TabsContent value="network">
-          <SandboxNetworkGroups scope={scope}>
-            <Refusals workspaceId={workspaceId} />
-          </SandboxNetworkGroups>
+          <SandboxNetworkGroups scope={scope} />
         </TabsContent>
         <TabsContent value="ports">
           <SettingsGroup title={d.sandbox.ports} desc={isMac ? undefined : d.sandbox.portsDesc}>

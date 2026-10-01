@@ -4,7 +4,6 @@ import type {
   SandboxPathKind,
   SandboxSwitches,
 } from '@shared/sandbox'
-import type { ReactNode } from 'react'
 import { useDict } from '../i18n/useDict'
 import { isMac } from '../platform'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
@@ -167,10 +166,8 @@ function HiddenSockets({ sockets }: { sockets: readonly string[] }): JSX.Element
 
 export function SandboxNetworkGroups({
   scope,
-  children,
 }: {
   scope: SandboxPolicyScope
-  children?: ReactNode
 }): JSX.Element {
   const d = useDict()
   const canBlock = scope.fixed?.socketBlocking ?? true
@@ -197,7 +194,6 @@ export function SandboxNetworkGroups({
           label={d.sandbox.strictDomains}
           desc={d.sandbox.strictDomainsDesc}
         />
-        {children}
       </SettingsGroup>
       <SettingsGroup title={d.sandbox.unixSockets} desc={d.sandbox.restartNote}>
         <SwitchRow

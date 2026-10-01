@@ -29,7 +29,6 @@ import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme
 import type { PromptSeparator } from './promptSettings'
 import type { ReleaseCheckResult, ReleaseInfo } from './releases'
 import type {
-  DomainRefusal,
   PortsPolicy,
   SandboxControls,
   SandboxEditError,
@@ -183,7 +182,6 @@ export interface SandboxApi {
     workspaceId: string,
     controls: Partial<SandboxControls>,
   ) => Promise<WorkspaceSandbox | null>
-  refusals: (workspaceId: string) => Promise<DomainRefusal[]>
   allowRefused: (workspaceId: string, host: string) => Promise<boolean>
   globalsChanged: () => Promise<boolean>
   setPackages: (

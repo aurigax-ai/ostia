@@ -57,10 +57,6 @@ export class DomainRequests {
     return this.decide(workspaceId, domain, 'blocked')
   }
 
-  refusals(workspaceId: string): DomainRefusal[] {
-    return [...(this.denied.get(workspaceId)?.values() ?? [])].map((r) => ({ ...r }))
-  }
-
   allowFromView(workspaceId: string, host: string): void {
     const domain = host.toLowerCase()
     this.denied.get(workspaceId)?.delete(domain)
