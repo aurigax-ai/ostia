@@ -16,6 +16,7 @@ import {
   rerunBlock,
   stepBlock,
 } from '../lib/blockActions'
+import { browserProfileIn, openerOf } from '../lib/browserProfile'
 import { setKeybindingSetting } from '../lib/chords'
 import { closePaneForAgent, requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
@@ -179,7 +180,8 @@ export function registerBuiltinCommands(): void {
     run: (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
-        useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'browser')
+        const profile = browserProfileIn(ctx.activeWorkspaceId, openerOf(ctx))
+        useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'browser', profile)
       }
     },
   })
@@ -741,7 +743,13 @@ export function registerBuiltinCommands(): void {
     target: 'active',
     run: (args, ctx) => {
       if (ctx.activeWorkspaceId) {
-        useLayoutStore.getState().openBrowser(ctx.activeWorkspaceId, args?.url || 'about:blank')
+        useLayoutStore
+          .getState()
+          .openBrowser(
+            ctx.activeWorkspaceId,
+            args?.url || 'about:blank',
+            browserProfileIn(ctx.activeWorkspaceId, openerOf(ctx)),
+          )
       }
     },
   })

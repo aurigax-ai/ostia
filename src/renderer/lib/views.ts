@@ -26,7 +26,7 @@ export function runViewAction(
   workspaceId: string | undefined,
 ): void {
   if (action.kind === 'url') {
-    if (action.url) openSidebarUrl(workspaceId, action.url)
+    if (action.url) openSidebarUrl(workspaceId, action.url, 'human')
     return
   }
   void runCommandAction(

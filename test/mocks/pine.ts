@@ -1,3 +1,4 @@
+import type { BrowserProfile } from '@shared/browserProfile'
 import type { PineBridge } from '@shared/types'
 import { vi } from 'vitest'
 
@@ -126,6 +127,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       push: vi.fn(),
     },
     browser: {
+      claimProfile: vi.fn(async (_paneId: string, profile: BrowserProfile) => profile),
       register: vi.fn(),
       unregister: vi.fn(),
       pickStart: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),

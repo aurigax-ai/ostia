@@ -355,7 +355,7 @@ function builtinRunners(): Record<
       if (!isWebUrl(url)) return { state: 'error', error: 'Only http and https URLs open.' }
       const answer = await gate(run, 'open_url', 'act', input, { url })
       if (answer && !answer.approved) return DENIED
-      openSidebarUrl(run.workspaceId ?? undefined, url)
+      openSidebarUrl(run.workspaceId ?? undefined, url, 'agent')
       return { state: 'done', output: { opened: url } }
     },
   }

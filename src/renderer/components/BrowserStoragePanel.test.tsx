@@ -40,10 +40,10 @@ const snapshot: BrowserStorageSnapshot = {
   session: [{ key: 'step', value: '2' }],
 }
 
-function renderPanel(onClose = vi.fn()) {
+function renderPanel(onClose = vi.fn(), shared = false) {
   render(
     <TooltipProvider>
-      <BrowserStoragePanel paneId={PANE} refreshKey={0} onClose={onClose} />
+      <BrowserStoragePanel paneId={PANE} shared={shared} refreshKey={0} onClose={onClose} />
     </TooltipProvider>,
   )
   return { onClose }
@@ -151,6 +151,23 @@ describe('BrowserStoragePanel', () => {
     expect(window.pine.browser.storageClear).not.toHaveBeenCalled()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Clear' }))
     expect(window.pine.browser.storageClear).toHaveBeenCalledWith(PANE, 'session')
+  })
+
+  it('warns that clearing the shared profile signs out every tab that uses it, and still asks first', async () => {
+    renderPanel(vi.fn(), true)
+    await screen.findByRole('table', { name: 'Cookies' })
+    await userEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+    const cookies = await screen.findByRole('dialog', { name: 'Clear all cookies?' })
+    expect(within(cookies).getByText(/for every browser tab that uses it/)).toBeInTheDocument()
+    expect(window.pine.browser.storageClear).not.toHaveBeenCalled()
+    await userEvent.click(within(cookies).getByRole('button', { name: 'Cancel' }))
+
+    await userEvent.click(screen.getByRole('tab', { name: /Local storage/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+    const local = await screen.findByRole('dialog', { name: 'Clear local storage?' })
+    expect(within(local).getByText(/for every browser tab that uses it/)).toBeInTheDocument()
+    await userEvent.click(within(local).getByRole('button', { name: 'Clear' }))
+    expect(window.pine.browser.storageClear).toHaveBeenCalledWith(PANE, 'local')
   })
 
   it('copies a value to the clipboard', async () => {

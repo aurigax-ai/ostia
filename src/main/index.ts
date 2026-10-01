@@ -16,6 +16,7 @@ import {
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
+import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
 import { languageForPath } from '../shared/editorLanguages'
@@ -61,6 +62,7 @@ import {
   registerBrowseMethods,
 } from './browse'
 import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
+import { BrowserProfiles } from './browserProfiles'
 import { registerBrowserStorageIpc } from './browserStorage'
 import { browserUserAgent } from './browserUserAgent'
 import { registerBusMethods } from './bus'
@@ -779,6 +781,15 @@ async function injectSecrets(
   return { env, notice }
 }
 
+const browserProfiles = new BrowserProfiles({
+  ownerOf: (paneId) => {
+    const identity = getByPaneId(paneId)
+    return identity ? { windowId: identity.windowId, workspaceId: identity.workspaceId } : null
+  },
+  isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+})
+
 const browserFence = new BrowserFence({
   policy: (workspaceId) => {
     if (!workspaceId || !workspaceSandboxes.isEnabled(workspaceId)) return null
@@ -986,7 +997,7 @@ function wireWindow(win: BrowserWindow): void {
     const extId = extensionOfPartition(params.partition)
     const allowed = extId
       ? (extensionHost?.isAllowedPanelUrl(extId, params.src) ?? false)
-      : params.partition?.startsWith('pine-browser')
+      : browserProfiles.acceptsAttach(params.partition, String(win.webContents.id))
     if (!allowed) {
       event.preventDefault()
       return
@@ -1137,6 +1148,7 @@ function registerIpc(): void {
       if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
       dropRestoredScrollback(event.paneId)
       hibernatedPanes.delete(event.paneId)
+      browserProfiles.forget(event.paneId)
       removePane(event.paneId)
       terminalState.delete(event.paneId)
       processes?.paneClosed(event.paneId)
@@ -1188,11 +1200,16 @@ function registerIpc(): void {
     }
   })
 
+  ipcMain.handle('browser:claim-profile', (e, paneId: unknown, profile: unknown) =>
+    browserProfiles.claim(paneId, String(e.sender.id), profile),
+  )
   ipcMain.on('browser:register', (e, paneId: string, webContentsId: number) => {
     const wid = String(e.sender.id)
     if (getByPaneId(paneId)?.windowId !== wid) return
     const gc = webContents.fromId(webContentsId)
     if (!gc || gc.getType() !== 'webview' || gc.hostWebContents?.id !== e.sender.id) return
+    const expected = browserPartition(browserProfiles.profileOf(paneId), paneId)
+    if (gc.session !== session.fromPartition(expected)) return
     browserPanes.set(paneId, webContentsId)
     instrumentBrowserGuest(gc)
   })
@@ -2487,21 +2504,26 @@ app.whenReady().then(() => {
     ptyResize,
     ptyWrite,
   })
+  const sharedBrowser = session.fromPartition(SHARED_BROWSER_PARTITION)
+  sharedBrowser.setUserAgent(browserUserAgent(sharedBrowser.getUserAgent(), app.getName()))
+  const isSharedPane = (paneId: string): boolean => browserProfiles.isShared(paneId)
   registerBrowseMethods({
     allowNavigation: (workspaceId, url) => browserFence.check(workspaceId, url),
     browserPanes,
+    isSharedPane,
     execCommand,
     screenshotRoots: [homedir(), app.getPath('userData')],
     consoleBuffers,
     errorBuffers,
   })
-  registerPickMethods({ browserPanes, errorBuffers, broadcast })
-  registerPickIpc({ browserPanes, errorBuffers, broadcast })
+  registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast })
+  registerPickIpc({ browserPanes, isSharedPane, errorBuffers, broadcast })
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
   registerLoginFill({
     browserPanes,
+    isSharedPane,
     ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
   })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })

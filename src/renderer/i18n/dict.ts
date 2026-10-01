@@ -662,6 +662,12 @@ export const en = {
     clearLocalBody: 'This deletes every local storage entry for {origin}.',
     clearSessionTitle: 'Clear session storage?',
     clearSessionBody: 'This deletes every session storage entry for {origin}.',
+    clearCookiesSharedBody:
+      'This deletes every cookie in your browser profile, for every browser tab that uses it. Sites will sign you out everywhere.',
+    clearLocalSharedBody:
+      'This deletes every local storage entry for {origin} in your browser profile, for every browser tab that uses it.',
+    sharedNotice:
+      'Your browser profile: cookies and local storage changed here change in every browser tab that uses it.',
     clearConfirm: 'Clear',
   },
   send: {
@@ -837,7 +843,7 @@ export const en = {
       gateway: 'control the LAN gateway',
       browse: 'drive the in-app browser',
       'settings-write': 'change settings',
-      credentials: 'sign in with your saved passwords',
+      credentials: 'use your saved passwords and your signed-in browser',
     } as Record<string, string>,
   },
   filesView: {
@@ -2574,6 +2580,12 @@ export const zhHant: Dict = {
     clearLocalBody: '這會刪除 {origin} 的所有 Local Storage 項目。',
     clearSessionTitle: '要清除 Session Storage 嗎？',
     clearSessionBody: '這會刪除 {origin} 的所有 Session Storage 項目。',
+    clearCookiesSharedBody:
+      '這會刪除你瀏覽器設定檔中的所有 Cookie，影響每個使用它的瀏覽器分頁。所有網站都會將你登出。',
+    clearLocalSharedBody:
+      '這會刪除你瀏覽器設定檔中 {origin} 的所有 Local Storage 項目，影響每個使用它的瀏覽器分頁。',
+    sharedNotice:
+      '你的瀏覽器設定檔：在這裡變更的 Cookie 與 Local Storage，會在每個使用它的瀏覽器分頁中一起變更。',
     clearConfirm: '清除',
   },
   send: {
@@ -2746,7 +2758,7 @@ export const zhHant: Dict = {
       gateway: '控制區域網路閘道',
       browse: '操作內建瀏覽器',
       'settings-write': '變更設定',
-      credentials: '使用你儲存的密碼登入',
+      credentials: '使用你儲存的密碼與已登入的瀏覽器',
     } as Record<string, string>,
   },
   filesView: {

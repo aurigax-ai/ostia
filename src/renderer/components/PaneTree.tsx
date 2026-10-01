@@ -4,6 +4,7 @@ import { useDict } from '../i18n/useDict'
 import { panelFractions } from '../layout/panelSize'
 import { findPane } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
+import { openBrowserAs } from '../lib/browserProfile'
 import { rememberPanelFractions } from '../lib/panelSizes'
 import { useLayoutStore } from '../stores/layoutStore'
 import { Pane } from './Pane'
@@ -87,7 +88,6 @@ function NodeView({
 function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
   const d = useDict()
   const ensure = useLayoutStore((s) => s.ensure)
-  const openBrowser = useLayoutStore((s) => s.openBrowser)
   return (
     <Empty className="workspace-empty h-full">
       <EmptyHeader>
@@ -101,7 +101,10 @@ function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
           <TerminalWindowIcon data-icon="inline-start" />
           {d.pane.newTerminal}
         </Button>
-        <Button variant="outline" onClick={() => openBrowser(workspaceId, 'about:blank')}>
+        <Button
+          variant="outline"
+          onClick={() => openBrowserAs(workspaceId, 'about:blank', 'human')}
+        >
           <GlobeIcon data-icon="inline-start" />
           {d.pane.newBrowser}
         </Button>
