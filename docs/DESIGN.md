@@ -389,7 +389,7 @@ The loudest element is the state dot on each sidebar row (`.dot` in `index.css`)
 | error | `--attn`, static, square (so it differs from waiting by shape, not only motion) |
 
 Only non-idle states show; each dot has an `aria-label` with the state name. The state comes from
-the workspace's panes (ARCHITECTURE.md §5, "Live workspace state and attention"). Under reduced
+the workspace's panes (Trellis vault `architecture/renderer/attention`). Under reduced
 motion, animations collapse to static dots and the working dot stays fully opaque.
 
 Attention, the second loud element, appears only when a pane needs you:
