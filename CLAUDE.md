@@ -587,7 +587,12 @@ The trap, the rule, the guard. Full stories: `docs/ARCHITECTURE.md`.
 - **Never fit a 0×0 host** (a parked host is 0×0) and never forward a 0×0 or unchanged size.
   Debounce resize (~90 ms + rAF); cancel the rAF on unmount.
 - **Spawn the pty at the real fitted size**, never 80×24 (prompt "staircase"); `nextSizeAction()`
-  decides attach/resize/noop, don't re-inline it.
+  decides attach/resize/noop, don't re-inline it. The real size is the settled one: one FitAddon
+  pass is not a fixed point under the DOM renderer (cell width = `round(charWidth × cols) / cols`),
+  so `safeFit` re-fits until stable (`settleFit`). The configured fonts load before the first
+  render (`preloadFonts`) so the spawn measures the real glyphs; font changes go through
+  `syncSize`, never a bare `pty.resize`. A pty resized while the shell starts leaves zsh's
+  PROMPT_SP `%` on screen (`e2e/workspace-restore.spec.ts`).
 - **Prompt-aware atomic resize** (`syncSize`/`flushHold`): at an idle prompt resize the pty only,
   hold bytes until the repaint idles (~24 ms, 150 ms cap), then in one batch erase from
   `min(prompt-marker row, cursor row)`, **restore the cursor where the shell left it**, regrid to
