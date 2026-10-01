@@ -1,3 +1,4 @@
+import { constants, accessSync, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { ResolvedSandbox } from '../../shared/sandbox'
@@ -11,6 +12,7 @@ export interface SandboxPaths {
   socketPath: string
   runtimeReads: string[]
   agentSockets?: string[]
+  containerSockets?: string[]
   tmpRoot?: string
   srtVendorDir?: string
 }
@@ -30,6 +32,39 @@ export const AGENT_PROTECTED_FILES = [
 
 export const WORKDIR_PROTECTED_FILES = ['.envrc', '.git/hooks', '.git/config']
 export const WORKDIR_HIDDEN_FILES = ['.pine/vault.json']
+
+export const CONTAINER_SOCKETS = [
+  '/run/docker.sock',
+  '/var/run/docker.sock',
+  '/run/containerd/containerd.sock',
+  '/run/podman/podman.sock',
+  '/run/crio/crio.sock',
+]
+
+function canConnect(path: string): boolean {
+  try {
+    accessSync(path, constants.R_OK | constants.W_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function reachableContainerSockets(
+  reachable: (path: string) => boolean = canConnect,
+  resolve: (path: string) => string = realpathSync,
+): string[] {
+  const found = new Set<string>()
+  for (const candidate of CONTAINER_SOCKETS) {
+    if (!reachable(candidate)) continue
+    try {
+      found.add(resolve(candidate))
+    } catch {
+      found.add(candidate)
+    }
+  }
+  return [...found]
+}
 
 export function srtVendorDir(appPath: string): string {
   return join(
@@ -70,7 +105,13 @@ export function buildSrtConfig(
   const agentDirs = AGENT_DATA_DIRS.map((d) => join(home, d))
   const hidden = WORKDIR_HIDDEN_FILES.map((f) => join(workDir, f))
   const agentSocketDirs = (paths.agentSockets ?? []).map((sock) => dirname(sock))
-  const denyRead = [home, ...paths.dataDirs, ...hidden, ...agentSocketDirs]
+  const denyRead = [
+    home,
+    ...paths.dataDirs,
+    ...hidden,
+    ...agentSocketDirs,
+    ...(paths.containerSockets ?? []),
+  ]
   if (paths.runtimeDir) denyRead.push(paths.runtimeDir)
   if (paths.tmpRoot) denyRead.push(paths.tmpRoot)
   const insideData = (path: string): boolean =>

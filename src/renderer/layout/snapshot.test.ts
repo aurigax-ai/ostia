@@ -256,6 +256,20 @@ describe('agent running at save', () => {
     expect(restored.children.find((p) => p.id === idle.id)?.resumePending).toBeUndefined()
   })
 
+  it('saves and restores a locked pane as locked', () => {
+    const kept = { ...createPane('terminal'), locked: true as const }
+    const snap = buildSnapshot({
+      workspaces: [workspace],
+      groups: [],
+      activeWorkspaceId: 'w1',
+      layouts: { w1: { root: kept, activePaneId: kept.id } },
+      savedAt: 'now',
+      liveAgentPanes: new Set(),
+    })
+    expect(snap.workspaces[0].root).toMatchObject({ locked: true })
+    expect(restoreSnapshot(snap).layouts.w1.root).toMatchObject({ id: kept.id, locked: true })
+  })
+
   it('saves a hibernated agent pane as hibernated, not as an agent to resume', () => {
     const asleep = { ...createPane('terminal'), resume, hibernated: true as const }
     const snap = buildSnapshot({

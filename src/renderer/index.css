@@ -22,6 +22,7 @@
   --color-attn: #bf5f54;
   --color-attn-glow: rgba(191, 95, 84, 0.2);
   --color-attn-fg: #db8176;
+  --color-on-attn: #e3edf5;
   --color-ok: #58c98c;
   --color-add: #58c98c;
   --color-del: #bf5f54;
@@ -76,6 +77,8 @@
   --attn: var(--color-attn);
   --attn-glow: var(--color-attn-glow);
   --attn-fg: var(--color-attn-fg);
+  --lock: var(--color-group-yellow);
+  --on-attn: var(--color-on-attn);
   --ok: var(--color-ok);
   --group-red: var(--color-group-red);
   --group-orange: var(--color-group-orange);
@@ -479,8 +482,16 @@
   padding: 0;
 }
 
-.collapsed .rail-tab .unread-badge {
+.tab-lead-wrap .unread-badge + .tab-lead {
   display: none;
+}
+
+.collapsed .tab-lead-wrap .unread-badge {
+  display: none;
+}
+
+.collapsed .tab-lead-wrap .unread-badge + .tab-lead {
+  display: inline;
 }
 
 .rail-tab-main:focus-visible {
@@ -853,6 +864,11 @@
   color: var(--fg-muted);
 }
 
+.tab-lock {
+  flex-shrink: 0;
+  color: var(--lock);
+}
+
 .tab-after {
   display: flex;
   flex-basis: 100%;
@@ -1096,7 +1112,6 @@
 .file-icon-theme {
   width: 16px;
   height: 16px;
-  margin: 0 -1px;
   object-fit: contain;
 }
 
@@ -1350,6 +1365,24 @@
 
 .pane.active .pane-tab.selected {
   box-shadow: inset 0 2px 0 var(--brand);
+}
+
+.pane-tab.locked {
+  background: color-mix(in srgb, var(--lock) 8%, transparent);
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--lock) 55%, transparent);
+}
+
+.pane-tab.locked.selected {
+  background: color-mix(in srgb, var(--lock) 10%, var(--surface-1));
+}
+
+.pane-tab.locked.selected,
+.pane.active .pane-tab.locked.selected {
+  box-shadow: inset 0 2px 0 var(--lock);
+}
+
+.pane-tab-lock {
+  color: var(--lock);
 }
 
 .pane.dimmed .pane-body-term::after {
@@ -2523,7 +2556,6 @@ button.prompt-chip:focus-visible {
   position: absolute;
   top: -2px;
   right: -4px;
-  background: var(--surface-1);
   pointer-events: none;
 }
 

@@ -191,6 +191,7 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
   },
 
   closeWorkspace: (id) => {
+    if (useLayoutStore.getState().isLocked(id)) return
     useLayoutStore.getState().removeWorkspace(id)
     window.pine?.lifecycle?.emit?.({ type: 'workspace-closed', workspaceId: id })
 

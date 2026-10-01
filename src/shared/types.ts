@@ -340,6 +340,7 @@ export interface SnapshotPaneNode {
   resume?: AgentResume
   agentRunning?: true
   hibernated?: true
+  locked?: true
 }
 
 export interface SnapshotSplitNode {

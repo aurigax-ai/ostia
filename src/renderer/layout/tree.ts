@@ -143,6 +143,19 @@ export function setPaneHibernated(
   })
 }
 
+export function setPaneLocked(root: LayoutNode, paneId: string, locked: boolean): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (Boolean(p.locked) === locked) return p
+    if (locked) return { ...p, locked: true }
+    const { locked: _locked, ...open } = p
+    return open
+  })
+}
+
+export function hasLockedPane(root: LayoutNode): boolean {
+  return allPanes(root).some((p) => p.locked === true)
+}
+
 export function firstPaneOfKind(node: LayoutNode, kind: SurfaceKind): PaneNode | null {
   return allPanes(node).find((p) => p.kind === kind) ?? null
 }

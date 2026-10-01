@@ -16,6 +16,7 @@ import {
   firstPaneId,
   firstPaneOfKind,
   graftNode,
+  hasLockedPane,
   mergeLayouts,
   movePane,
   moveTab,
@@ -28,6 +29,7 @@ import {
   setPaneEditor,
   setPaneExtension,
   setPaneHibernated,
+  setPaneLocked,
   setPaneResume,
   setPaneTitle,
   setPaneUrl,
@@ -69,6 +71,8 @@ interface LayoutState {
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
   setResumePending: (workspaceId: string, paneId: string, pending: boolean) => void
   setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
+  setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
+  isLocked: (workspaceId: string, paneId?: string) => boolean
   setTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
   openFileTab: (workspaceId: string, path: string, paneId?: string) => void
@@ -263,6 +267,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   closePane: (workspaceId, paneId) => {
+    if (get().isLocked(workspaceId, paneId)) return
     const current = get().byWorkspace[workspaceId]
     if (current?.root.type === 'pane' && current.root.id === paneId) {
       set((s) => {
@@ -394,6 +399,22 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         ? s
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
     }),
+
+  setLocked: (workspaceId, paneId, locked) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout || findPane(layout.root, paneId)?.kind === 'manager') return s
+      const root = setPaneLocked(layout.root, paneId, locked)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  isLocked: (workspaceId, paneId) => {
+    const root = get().byWorkspace[workspaceId]?.root
+    if (!root) return false
+    return paneId === undefined ? hasLockedPane(root) : findPane(root, paneId)?.locked === true
+  },
 
   openFile: (workspaceId, path) => {
     const title = path.split('/').pop() || path

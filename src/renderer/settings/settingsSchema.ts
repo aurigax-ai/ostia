@@ -81,7 +81,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'string',
           description:
             'Theme id (built-in: adeberry, one-dark-vivid, instrument-night, dracula, oxocarbon, pine-light; ' +
-            'or a plugin theme). Default: adeberry.',
+            'or an extension theme). Default: adeberry.',
         },
         followSystem: {
           type: 'boolean',

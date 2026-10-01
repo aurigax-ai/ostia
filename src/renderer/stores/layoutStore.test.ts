@@ -122,6 +122,35 @@ describe('layoutStore', () => {
     })
   })
 
+  describe('locked panes', () => {
+    it('keeps a locked pane through closePane and closes it once unlocked', () => {
+      const { first, second } = twoPanes('sess')
+      useLayoutStore.getState().setLocked('sess', second, true)
+      emit().mockClear()
+
+      useLayoutStore.getState().closePane('sess', second)
+
+      expect(paneIds(layoutOf('sess').root)).toEqual([first, second])
+      expect(useLayoutStore.getState().isLocked('sess')).toBe(true)
+      expect(useLayoutStore.getState().isLocked('sess', first)).toBe(false)
+      expect(emit()).not.toHaveBeenCalled()
+
+      useLayoutStore.getState().setLocked('sess', second, false)
+      useLayoutStore.getState().closePane('sess', second)
+
+      expect(paneIds(layoutOf('sess').root)).toEqual([first])
+    })
+
+    it('keeps the only pane of a workspace when it is locked', () => {
+      const only = ensure('sess')
+      useLayoutStore.getState().setLocked('sess', only, true)
+
+      useLayoutStore.getState().closePane('sess', only)
+
+      expect(layoutOf('sess').root).toMatchObject({ id: only, locked: true })
+    })
+  })
+
   describe('closePane (conditional pane-closed emit)', () => {
     it('removes a real pane in a 2-pane layout, moves focus, and emits pane-closed once', () => {
       const { first, second } = twoPanes('sess')

@@ -146,10 +146,11 @@ import { packageCooldownEnv } from './sandbox/packageEnv'
 import { PackageRequests } from './sandbox/packageRequests'
 import { PortForwarder } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
+import { terminalInjectionOff, wrapForTerminal } from './sandbox/ptyWrap'
 import { sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import { srtVendorDir } from './sandbox/srtConfig'
+import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
@@ -444,6 +445,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
     dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
     runtimeDir: process.env.XDG_RUNTIME_DIR,
     agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
+    containerSockets: reachableContainerSockets(),
     socketPath: controlSocketPath(),
     srtVendorDir: srtVendorDir(app.getAppPath()),
     runtimeReads: [
@@ -1342,7 +1344,7 @@ function registerPtyIpc(): void {
           [stateFile],
         )
         file = '/bin/sh'
-        args = ['-c', wrapped]
+        args = ['-c', wrapForTerminal(wrapped, terminalInjectionOff())]
         env = {
           ...sandboxSpawnEnv(env),
           ...packageCooldownEnv(

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createPortal } from 'react-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -85,6 +85,17 @@ describe('Pane', () => {
 
       await user.click(screen.getAllByRole('button', { name: 'Close tab' })[0])
       expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'pa' })
+    })
+
+    it('shows a locked tab with an unlock button in place of its close button', async () => {
+      const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+      render(<Pane tabs={[{ ...a, locked: true }, b]} shownId="pb" active />)
+      const locked = screen.getByRole('tab', { name: /claude/ }).closest('.pane-tab') as HTMLElement
+
+      expect(locked).toHaveClass('locked')
+      expect(within(locked).queryByRole('button', { name: 'Close tab' })).toBeNull()
+      await userEvent.setup().click(within(locked).getByRole('button', { name: 'Unlock tab' }))
+      expect(exec).toHaveBeenCalledWith('pane.toggleLock', { paneId: 'pa' })
     })
 
     it('closes a tab on middle-click and ignores other auxiliary buttons', () => {

@@ -125,6 +125,16 @@ describe('WindowBook', () => {
     expect(saved?.root).toMatchObject({ id: 'pane-2', hibernated: true })
   })
 
+  it('keeps the lock of a pane carried by a handoff', () => {
+    const book = new WindowBook(null)
+    book.open('d1', BOUNDS)
+    const moving = workspace('w2', 'pane-2')
+    if (moving.root?.type === 'pane') moving.root.locked = true
+    book.move(moving, MAIN_SLOT, 'd1')
+    const saved = book.merged('t').windows?.[0]?.workspaces[0]
+    expect(saved?.root).toMatchObject({ id: 'pane-2', locked: true })
+  })
+
   it('restores detached windows with their bounds from the merged file', () => {
     const book = new WindowBook(
       snapshot([workspace('w1', 'pane-1')], {

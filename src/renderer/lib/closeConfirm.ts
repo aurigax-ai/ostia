@@ -122,14 +122,16 @@ async function closeGroups(workspaces: readonly Workspace[]): Promise<RunningGro
 
 export async function requestCloseWorkspace(id: string): Promise<void> {
   const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === id)
-  if (!workspace) return
+  if (!workspace || useLayoutStore.getState().isLocked(id)) return
   if (await confirmGroups('workspace', await closeGroups([workspace]))) {
     useWorkspacesStore.getState().closeWorkspace(id)
   }
 }
 
 export async function requestCloseOthers(id: string): Promise<void> {
-  const others = useWorkspacesStore.getState().workspaces.filter((w) => w.id !== id)
+  const others = useWorkspacesStore
+    .getState()
+    .workspaces.filter((w) => w.id !== id && !useLayoutStore.getState().isLocked(w.id))
   if (await confirmGroups('workspace', await closeGroups(others))) {
     useWorkspacesStore.getState().closeOthers(id)
   }
@@ -148,12 +150,22 @@ function paneGroup(workspace: Workspace, paneId: string): RunningGroup | null {
 }
 
 export async function requestClosePane(workspaceId: string, paneId: string): Promise<void> {
+  if (useLayoutStore.getState().isLocked(workspaceId, paneId)) return
   const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)
   const { confirmClose } = useSettingsStore.getState().workspaces
   const group = workspace && confirmClose ? paneGroup(workspace, paneId) : null
   if (await confirmGroups('pane', group ? [group] : [])) {
     useLayoutStore.getState().closePane(workspaceId, paneId)
   }
+}
+
+export async function closePaneForAgent(workspaceId: string, paneId: string): Promise<void> {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  const pane = layout ? findPane(layout.root, paneId) : null
+  const { dirty, disk } = useEditorStatus.getState()
+  const asks = pane?.kind === 'manager' || (pane && unsavedFilesOf([pane], dirty, disk).length > 0)
+  if (asks) await requestClosePane(workspaceId, paneId)
+  else useLayoutStore.getState().closePane(workspaceId, paneId)
 }
 
 export function quitGroups(): RunningGroup[] {

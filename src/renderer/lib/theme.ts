@@ -29,7 +29,11 @@ export function themedTokens(theme: Theme, accent: string): Record<string, strin
   const tokens = hex
     ? { ...theme.tokens, ...deriveAccent(hex, theme.appearance, theme.tokens.bg) }
     : theme.tokens
-  return { ...tokens, 'on-brand': readableOn(tokens.brand, [tokens.bg, tokens.fg]) }
+  return {
+    ...tokens,
+    'on-brand': readableOn(tokens.brand, [tokens.bg, tokens.fg]),
+    'on-attn': readableOn(tokens.attn, [tokens.fg, tokens.bg]),
+  }
 }
 
 export function applyTheme(root: HTMLElement, theme: Theme | undefined, accent: string): void {

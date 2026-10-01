@@ -16,6 +16,7 @@ import {
   FolderSimplePlusIcon,
   GearSixIcon,
   type Icon as IconComponent,
+  LockSimpleIcon,
   MoonIcon,
   PaletteIcon,
   PencilSimpleIcon,
@@ -37,7 +38,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
-import { allPanes, paneIds } from '../layout/tree'
+import { allPanes, hasLockedPane, paneIds } from '../layout/tree'
 import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '../lib/attention'
 import { requestCloseOthers, requestCloseWorkspace } from '../lib/closeConfirm'
 import {
@@ -224,7 +225,7 @@ function WorkspacesView(): JSX.Element {
             onSelect={() => openSettings()}
             onClose={closeSettings}
             closeLabel={d.rail.close}
-            icon={<GearSixIcon size={14} className="tab-lead" />}
+            icon={<GearSixIcon size={16} className="tab-lead" />}
             title={d.topbar.settings}
           />
         ) : null}
@@ -355,6 +356,7 @@ function GroupBlock({
             >
               <Caret size={12} className="rail-group-caret" aria-hidden />
               <span className="rail-group-swatch" aria-hidden />
+              <UnreadBadge workspaceIds={members.map((w) => w.id)} />
               <span className="rail-group-name">{group.name}</span>
               <span
                 className="rail-group-count"
@@ -416,20 +418,12 @@ function markGroupRead(members: Workspace[]): void {
   for (const w of members) markWorkspaceRead(w.id)
 }
 
-function GroupStatus({ members }: { members: Workspace[] }): JSX.Element {
+function GroupStatus({ members }: { members: Workspace[] }): JSX.Element | null {
   const d = useDict()
   const state = aggregateWorkspaceState(members.map((w) => w.state))
+  if (state === 'idle') return null
   return (
-    <>
-      {state === 'idle' ? null : (
-        <span
-          className={`dot rail-group-dot ${state}`}
-          role="img"
-          aria-label={stateLabel(d, state)}
-        />
-      )}
-      <UnreadBadge workspaceIds={members.map((w) => w.id)} />
-    </>
+    <span className={`dot rail-group-dot ${state}`} role="img" aria-label={stateLabel(d, state)} />
   )
 }
 function useSidebarItems(workspaceId: string | undefined): ExtensionSidebarItem[] {
@@ -500,8 +494,9 @@ function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
         role="img"
         aria-label={stateLabel(d, workspace.state)}
       />
+      <UnreadBadge workspaceIds={[workspace.id]} />
       <KindIcon
-        size={14}
+        size={16}
         className="tab-lead"
         role={hibernated ? 'img' : undefined}
         aria-label={hibernated ? d.pane.hibernated : undefined}
@@ -600,6 +595,10 @@ function WorkspaceRow({
   const [editing, setEditing] = useState<'name' | 'description' | null>(null)
   const title = w.customName ?? w.name
   const sandboxed = useSandboxStore((s) => s.enabled[w.id] ?? false)
+  const locked = useLayoutStore((s) => {
+    const root = s.byWorkspace[w.id]?.root
+    return root ? hasLockedPane(root) : false
+  })
   useEffect(() => {
     void useSandboxStore.getState().load(w.id)
   }, [w.id])
@@ -661,7 +660,7 @@ function WorkspaceRow({
         <TabRow
           active={active}
           onSelect={select}
-          onClose={() => void requestCloseWorkspace(w.id)}
+          onClose={locked ? undefined : () => void requestCloseWorkspace(w.id)}
           closeLabel={d.rail.close}
           icon={<WorkspaceIcon workspace={w} />}
           title={title}
@@ -671,6 +670,14 @@ function WorkspaceRow({
               {w.kind === 'scratch' ? <ScratchBadge /> : null}
               {w.pinned ? (
                 <PushPinSimpleIcon size={12} className="tab-pin" aria-label={d.rail.pinned} />
+              ) : null}
+              {locked ? (
+                <LockSimpleIcon
+                  size={12}
+                  className="tab-lock"
+                  role="img"
+                  aria-label={d.rail.locked}
+                />
               ) : null}
             </>
           }
@@ -688,13 +695,7 @@ function WorkspaceRow({
               </div>
             ) : null
           }
-          badge={
-            digitHints && index < 9 ? (
-              <Kbd className="tab-digit">{index + 1}</Kbd>
-            ) : (
-              <UnreadBadge workspaceIds={[w.id]} />
-            )
-          }
+          badge={digitHints && index < 9 ? <Kbd className="tab-digit">{index + 1}</Kbd> : null}
         />
         {drop === 'merge' ? (
           <output className="rail-merge-chip motion-enter">
@@ -796,7 +797,7 @@ function WorkspaceRow({
         >
           {d.rail.closeOthers}
         </MenuItem>
-        <MenuItem icon={XIcon} onClick={() => void requestCloseWorkspace(w.id)}>
+        <MenuItem icon={XIcon} disabled={locked} onClick={() => void requestCloseWorkspace(w.id)}>
           {d.rail.closeWorkspace}
         </MenuItem>
       </MenuContent>
@@ -866,7 +867,7 @@ function RemoteWorkspaceRow({
                 role="img"
                 aria-label={stateLabel(d, w.state)}
               />
-              <AppWindowIcon size={14} className="tab-lead" aria-label={d.window.inOtherWindow} />
+              <AppWindowIcon size={16} className="tab-lead" aria-label={d.window.inOtherWindow} />
             </span>
           }
           title={w.name}

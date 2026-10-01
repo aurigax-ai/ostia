@@ -104,9 +104,9 @@
       },
       "showDiffStats": {
         "type": "boolean",
-        "title": "Diff stats on terminals",
+        "title": "Diff stats in the top bar",
         "default": true,
-        "description": "Show the files changed and lines added and removed on each terminal"
+        "description": "Show the files changed and lines added and removed for the active workspace in the top bar"
       },
       "graphScope": {
         "type": "enum",

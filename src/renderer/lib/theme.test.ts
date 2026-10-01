@@ -36,11 +36,12 @@ describe('resolveTheme', () => {
 })
 
 describe('themedTokens', () => {
-  it('keeps the theme tokens without an accent or with an invalid one, adding only on-brand', () => {
+  it('keeps the theme tokens without an accent or with an invalid one, adding only on-brand and on-attn', () => {
     for (const accent of ['', 'not-a-color']) {
-      const { 'on-brand': onBrand, ...rest } = themedTokens(dark, accent)
+      const { 'on-brand': onBrand, 'on-attn': onAttn, ...rest } = themedTokens(dark, accent)
       expect(rest).toEqual(dark.tokens)
       expect(onBrand).toBe(dark.tokens.bg)
+      expect(wcagContrast(onAttn, dark.tokens.attn)).toBeGreaterThanOrEqual(4.5)
     }
   })
 
