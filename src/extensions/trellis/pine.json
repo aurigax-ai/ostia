@@ -2,6 +2,7 @@
   "id": "trellis",
   "name": "Trellis",
   "version": "1.1.0",
+  "api": "1.0",
   "description": "Your Trellis boards: the web UI as a panel, open and claimed cards per workspace, and a notice that opens the card when an agent moves it to review or blocked.",
   "category": "tools",
   "capabilities": ["read-board", "notify"],

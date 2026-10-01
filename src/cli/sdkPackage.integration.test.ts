@@ -16,6 +16,7 @@ import { registerControlServer, stopControlServer } from '../main/controlServer'
 import { ExtensionHost, registerExtensionMethods } from '../main/extensionHost'
 import { parseManifest } from '../main/extensionManifest'
 import { ExtensionStore } from '../main/extensionStore'
+import { EXTENSION_API_VERSION } from '../shared/extensionApi'
 import type { ExtensionCaller } from '../shared/extensions'
 import { MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
 import type { CommandResult } from '../shared/types'
@@ -47,7 +48,7 @@ describe('manifest schemas', () => {
   })
 
   it('refuse what the loader refuses', () => {
-    const base = { id: 'demo', name: 'Demo', version: '1.0.0' }
+    const base = { id: 'demo', name: 'Demo', version: '1.0.0', api: '1.0' }
     const bad: Record<string, unknown>[] = [
       { ...base, id: 'Bad Id' },
       { ...base, name: '' },
@@ -86,8 +87,45 @@ describe('manifest schemas', () => {
     const schema = JSON.parse(
       readFileSync(join(sdkPackage, 'schemas/pine.schema.json'), 'utf8'),
     ) as { required: string[]; properties: Record<string, { enum?: string[] }> }
-    expect(schema.required).toEqual(['id', 'name', 'version'])
+    expect(schema.required).toEqual(['id', 'name', 'version', 'api'])
     expect(schema.properties.category?.enum).toContain('scm')
+  })
+})
+
+describe('extension API version', () => {
+  it('is bumped whenever the published contract changes', () => {
+    const built = JSON.parse(readFileSync(join(sdkPackage, 'api.json'), 'utf8'))
+    const lock = JSON.parse(readFileSync(join(repoRoot, 'sdk-package/api-lock.json'), 'utf8'))
+    expect(lock.version, 'run pnpm api:bump <minor|major>').toBe(EXTENSION_API_VERSION)
+    expect(
+      built.digest,
+      'the SDK types or manifest schemas changed: run pnpm api:bump <minor|major>',
+    ).toBe(lock.digest)
+  })
+
+  it('ships the TypeScript it was built from, unchanged', () => {
+    for (const file of [
+      'src/extensions/sdk/index.ts',
+      'src/extensions/sdk/assist/service.ts',
+      'src/shared/extensions.ts',
+      'src/main/extensionManifest.ts',
+      'src/cli/manifestSchema.ts',
+    ]) {
+      expect(readFileSync(join(sdkPackage, file), 'utf8'), file).toBe(
+        readFileSync(join(repoRoot, file), 'utf8'),
+      )
+    }
+    const marketplace = join(repoRoot, 'out/marketplace')
+    for (const file of ['src/extensions/trellis/main.ts', 'src/extensions/sdk/index.ts']) {
+      expect(readFileSync(join(marketplace, file), 'utf8'), file).toBe(
+        readFileSync(join(repoRoot, file), 'utf8'),
+      )
+    }
+  })
+
+  it('is published in the package for authors and tools', () => {
+    const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
+    expect(pkg.pineExtensionApi).toBe(EXTENSION_API_VERSION)
   })
 })
 
