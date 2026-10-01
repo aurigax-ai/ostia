@@ -152,6 +152,7 @@ import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
+import { type SandboxReadRules, sandboxEntries, sandboxPath } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
 import { ScreenMirror } from './screenMirror'
@@ -162,6 +163,7 @@ import { WorkspaceAgents } from './secrets/workspaceAgents'
 import { registerSelectionIpc } from './selectionReport'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
+import { closesPaneOnExit } from './shellExit'
 import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
 import { SANDBOX_FEATURE, installHint, missingRequirements, onPath } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
@@ -231,6 +233,26 @@ const ptys = new Map<string, PtyEntry>()
 const PTY_BUFFER_CAP = 1_000_000
 const executables = new ExecutableIndex()
 const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
+
+function listDir(dir: string): FsEntry[] {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .map((d) => ({ name: d.name, dir: d.isDirectory() }))
+      .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
+  } catch {
+    return []
+  }
+}
+
+function sandboxReadRules(entry: PtyEntry): SandboxReadRules | null {
+  if (!entry.sandboxed) return null
+  try {
+    const { denyRead, allowRead } = workspaceSandboxes.config(entry.workspaceId).filesystem
+    return { denyRead, allowRead: allowRead ?? [] }
+  } catch {
+    return { denyRead: ['/'], allowRead: [] }
+  }
+}
 
 function removeStateFile(entry: PtyEntry): void {
   rmSync(entry.stateFile, { force: true })
@@ -1446,7 +1468,18 @@ function registerPtyIpc(): void {
     const entry = ptys.get(paneId)
     if (!entry?.subs.has(String(e.sender.id))) return []
     const state = await readShellState(entry.stateFile)
-    return commandNames(executables, state?.path ?? entry.spawnPath, state?.names ?? [])
+    const path = state?.path ?? entry.spawnPath
+    const rules = sandboxReadRules(entry)
+    return commandNames(executables, rules ? sandboxPath(path, rules) : path, state?.names ?? [])
+  })
+  ipcMain.handle('pty:list-dir', (e, paneId: string, dir: string): FsEntry[] => {
+    const entry = ptys.get(paneId)
+    if (!entry?.subs.has(String(e.sender.id))) return []
+    const safe = resolveSafe(dir, fileRoots())
+    if (safe === null) return []
+    const rules = sandboxReadRules(entry)
+    const entries = listDir(safe)
+    return rules ? sandboxEntries(safe, entries, rules) : entries
   })
   ipcMain.handle(
     'pty:prompt-context',
@@ -1483,6 +1516,7 @@ function trackPty(
     sandboxed?: boolean
   },
 ): PtyEntry {
+  const spawnedAt = Date.now()
   const session = new PtySession({
     capBytes: PTY_BUFFER_CAP,
     onNoOwners: () => {
@@ -1500,8 +1534,13 @@ function trackPty(
       appLog?.info('pty-exit', { pane: paneId, code })
       if (entry.killTimer) clearTimeout(entry.killTimer)
       entry.killTimer = null
+      const closes = closesPaneOnExit({
+        ownExit: ptys.get(paneId) === entry,
+        code,
+        livedMs: Date.now() - spawnedAt,
+      })
       for (const wc of entry.subs.values()) {
-        if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code)
+        if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code, closes)
       }
       for (const listener of entry.exitListeners) listener(code)
       processes?.shellEnded(paneId, (from) => session.since(from))
@@ -1650,13 +1689,7 @@ function registerFsIpc(): void {
   ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
     const safe = resolveSafe(dir, allowedRoots)
     if (safe === null) return []
-    try {
-      return readdirSync(safe, { withFileTypes: true })
-        .map((d) => ({ name: d.name, dir: d.isDirectory() }))
-        .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
-    } catch {
-      return []
-    }
+    return listDir(safe)
   })
 
   ipcMain.handle('fs:stat', (_e, path: string): FsKind | null => {

@@ -37,11 +37,11 @@ further feature that moves out (vault, bus, processes, browser automation, gatew
 reduction.
 
 **Kanban and wiki removed** (2026-09-28). With Trellis as the user's board and knowledge store
-(the `trellis` built-in extension wraps its CLI), pine's own kanban and wiki were redundant and
+(the `trellis` marketplace extension wraps its CLI), pine's own kanban and wiki were redundant and
 were deleted: ~965 lines of extension TypeScript plus ~400 of panel HTML/CSS and manifests, the
 phone gateway's `board.get`/`board.update` and its `board.read`/`board.write` caps, the
 `wiki-read`/`wiki-write`/`board-write` pane caps, the `phone` extension caller kind, and the SDK's
-JSON-store helpers that only they used. Built-in extensions are now git, trellis, keeper, system and ports. Old
+JSON-store helpers that only they used. Built-in extensions are now git, system, ports, ssh, assistant, completions and langpack-zh-hant; trellis, keeper and model-runtime install from the marketplace. Old
 `.pine/board.json` / `wiki.json` files stay on disk unread.
 
 ## 2. Architecture: three rings
@@ -111,7 +111,7 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Pick element in browser → send selector, screenshot, console errors to an agent pane | new | with browser automation (built) | M | 3 |
 | Your real Chrome: document Chrome DevTools MCP for agents instead of re-implementing CDP | new | docs (built) | S | 3 |
 | Agent resume on restore (relaunch the agent CLI with its session id; `pine resume-token`, Resume button, opt-in hibernation) | cmux | core (built): it types into the prompt, which only core may | M | 5 |
-| Trellis board panel with card deep links from notifications and "Trellis: Open Card", Keeper approvals panel opened on its queue from notifications | yours | built-in extensions (built) | M each | 4 |
+| Trellis board panel with card deep links from notifications and "Trellis: Open Card", Keeper approvals panel opened on its queue from notifications | yours | marketplace extensions (built) | M each | 4 |
 | Settings sync (a synced folder you own) | Warp | core (built): it rewrites extension approvals | S–M | 8 |
 | Phone: grant path above read-only, pty input, attention push (built) | cmux-like | gateway, in core until it moves out as a built-in extension | M | 10 |
 | Warp's IDE-style input editor (opt-in, only at an idle prompt, so agent TUIs keep the keys) | Warp | core (built) | L | 7 |

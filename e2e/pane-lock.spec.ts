@@ -55,3 +55,37 @@ test('an agent closes a busy tab without a confirm, but never a tab the human lo
     await app.close()
   }
 })
+
+test('a tab closes when its shell exits by itself, unless the human locked it', async () => {
+  const app = await electron.launch(isolatedLaunch(freshDataHome()))
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    const tabs = win.locator('.pane-tab')
+    const newTab = win.getByRole('button', { name: 'New terminal tab' })
+
+    await newTab.click()
+    await expect(tabs).toHaveCount(2)
+    await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
+    await win.locator('.xterm').nth(1).click()
+    await win.keyboard.type('sleep 3.5; false; exit')
+    await win.keyboard.press('Enter')
+    await expect(tabs).toHaveCount(1, { timeout: 15_000 })
+
+    await newTab.click()
+    await expect(tabs).toHaveCount(2)
+    await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
+    await tabs.nth(1).click({ button: 'right' })
+    await win.getByRole('menuitem', { name: 'Lock tab' }).click()
+    await win.locator('.xterm').nth(1).click()
+    await win.keyboard.type('exit')
+    await win.keyboard.press('Enter')
+    await expect(win.locator('.xterm-rows').nth(1)).toContainText('[process exited]', {
+      timeout: 15_000,
+    })
+    await expect(tabs).toHaveCount(2)
+  } finally {
+    await app.close()
+  }
+})

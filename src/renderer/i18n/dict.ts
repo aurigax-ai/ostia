@@ -40,6 +40,7 @@ export const en = {
     describeWorkspace: 'Workspace description',
     rename: 'Rename',
     sandbox: 'Sandbox',
+    sandboxed: 'Sandboxed',
     addDescription: 'Add description',
     editDescription: 'Edit description',
     clearDescription: 'Clear description',
@@ -952,7 +953,6 @@ export const en = {
     reveal: 'Reveal',
   },
   scratch: {
-    name: 'Scratch',
     badge: 'Scratch',
     badgeHint:
       'Never saved. Its folder is private and deleted when the workspace closes or the app quits, and shell history stays in it.',
@@ -1794,6 +1794,7 @@ export const zhHant: Dict = {
     describeWorkspace: '工作區說明',
     rename: '重新命名',
     sandbox: '沙箱',
+    sandboxed: '已啟用沙箱',
     addDescription: '新增說明',
     editDescription: '編輯說明',
     clearDescription: '清除說明',
@@ -2690,7 +2691,6 @@ export const zhHant: Dict = {
     reveal: '顯示資料夾',
   },
   scratch: {
-    name: '暫存',
     badge: '暫存',
     badgeHint:
       '永不儲存。它的資料夾是私人的，在工作區關閉或應用程式結束時刪除，殼層歷史記錄也只留在其中。',

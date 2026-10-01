@@ -21,7 +21,11 @@ const TOOLS = [
     description: 'Answers after a delay',
     inputSchema: { type: 'object', properties: { ms: { type: 'number' } } },
   },
-  { name: 'exit', description: 'Stops the server', inputSchema: { type: 'object', properties: {} } },
+  {
+    name: 'exit',
+    description: 'Stops the server',
+    inputSchema: { type: 'object', properties: {} },
+  },
 ]
 
 function send(message) {
@@ -70,7 +74,8 @@ async function handle(message) {
   if (method === 'tools/call') {
     const result = await call(params.name, params.arguments ?? {})
     if (result) send({ jsonrpc: '2.0', id, result })
-    else send({ jsonrpc: '2.0', id, error: { code: -32602, message: `unknown tool ${params.name}` } })
+    else
+      send({ jsonrpc: '2.0', id, error: { code: -32602, message: `unknown tool ${params.name}` } })
     return
   }
   send({ jsonrpc: '2.0', id, error: { code: -32601, message: `unknown method ${method}` } })

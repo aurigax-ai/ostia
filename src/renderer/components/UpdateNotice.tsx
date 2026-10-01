@@ -1,10 +1,50 @@
-import { ArrowClockwiseIcon, ArrowSquareOutIcon, XIcon } from '@phosphor-icons/react'
+import {
+  ArrowClockwiseIcon,
+  ArrowSquareOutIcon,
+  type Icon as IconComponent,
+  XIcon,
+} from '@phosphor-icons/react'
 import { buildLabel } from '@shared/buildInfo'
 import { fmt, useDict } from '../i18n/useDict'
 import { showsUpdate, useUpdateStore } from '../stores/updateStore'
 import { Hint } from './Hint'
-import { IconButton } from './IconButton'
 import { Button } from './ui/button'
+import { ButtonGroup, ButtonGroupSeparator } from './ui/button-group'
+
+function NoticeGroup({
+  icon: Icon,
+  label,
+  hint,
+  onAct,
+  dismissLabel,
+  onDismiss,
+}: {
+  icon: IconComponent
+  label: string
+  hint: string
+  onAct: () => void
+  dismissLabel: string
+  onDismiss: () => void
+}): JSX.Element {
+  return (
+    <output className="update-notice no-drag">
+      <ButtonGroup aria-label={label}>
+        <Hint label={hint} side="bottom">
+          <Button size="xs" onClick={onAct}>
+            <Icon data-icon="inline-start" aria-hidden />
+            {label}
+          </Button>
+        </Hint>
+        <ButtonGroupSeparator className="bg-on-brand/25" />
+        <Hint label={dismissLabel} side="bottom">
+          <Button size="icon-xs" aria-label={dismissLabel} onClick={onDismiss}>
+            <XIcon aria-hidden />
+          </Button>
+        </Hint>
+      </ButtonGroup>
+    </output>
+  )
+}
 
 export function UpdateNotice(): JSX.Element | null {
   const d = useDict()
@@ -15,27 +55,25 @@ export function UpdateNotice(): JSX.Element | null {
   const dismissRelease = useUpdateStore((s) => s.dismissRelease)
   if (restartVisible && available) {
     return (
-      <output className="update-notice no-drag">
-        <Hint label={fmt(d.update.body, { build: buildLabel(available) })} side="bottom">
-          <Button size="xs" onClick={() => void window.pine.update.restart()}>
-            <ArrowClockwiseIcon data-icon="inline-start" aria-hidden />
-            {d.update.restart}
-          </Button>
-        </Hint>
-        <IconButton icon={XIcon} label={d.update.later} onClick={dismiss} />
-      </output>
+      <NoticeGroup
+        icon={ArrowClockwiseIcon}
+        label={d.update.restart}
+        hint={fmt(d.update.body, { build: buildLabel(available) })}
+        onAct={() => void window.pine.update.restart()}
+        dismissLabel={d.update.later}
+        onDismiss={dismiss}
+      />
     )
   }
   if (!release) return null
   return (
-    <output className="update-notice no-drag">
-      <Hint label={d.update.releaseHint} side="bottom">
-        <Button size="xs" onClick={() => void window.pine.update.openRelease()}>
-          <ArrowSquareOutIcon data-icon="inline-start" aria-hidden />
-          {fmt(d.update.releaseAvailable, { version: release.version })}
-        </Button>
-      </Hint>
-      <IconButton icon={XIcon} label={d.update.dismissRelease} onClick={dismissRelease} />
-    </output>
+    <NoticeGroup
+      icon={ArrowSquareOutIcon}
+      label={fmt(d.update.releaseAvailable, { version: release.version })}
+      hint={d.update.releaseHint}
+      onAct={() => void window.pine.update.openRelease()}
+      dismissLabel={d.update.dismissRelease}
+      onDismiss={dismissRelease}
+    />
   )
 }

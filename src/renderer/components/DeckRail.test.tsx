@@ -15,6 +15,7 @@ import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useMergeConfirmStore } from '../stores/mergeConfirmStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
@@ -63,6 +64,7 @@ describe('DeckRail', () => {
     useAttentionStore.setState(attentionInit, true)
     useMergeConfirmStore.setState(mergeConfirmInit, true)
     useBlocksStore.setState(blocksInit, true)
+    useSandboxStore.setState({ enabled: {} })
     vi.restoreAllMocks()
   })
 
@@ -161,6 +163,19 @@ describe('DeckRail', () => {
     ).toBeInTheDocument()
     expect(within(rowFor(/alpha/)).queryByRole('button', { name: 'Close' })).toBeNull()
     expect(within(rowFor(/beta/)).getByRole('button', { name: 'Close' })).toBeInTheDocument()
+  })
+
+  it('marks a sandboxed workspace row, and no other row', async () => {
+    seedWorkspaces()
+    vi.mocked(window.pine.sandbox.get).mockImplementation(async (id) => ({
+      enabled: id === 's1',
+      allowRead: [],
+      domains: [],
+      controls: {},
+    }))
+    render(<DeckRail />)
+    expect(await within(rowFor(/alpha/)).findByRole('img', { name: 'Sandboxed' })).toBeVisible()
+    expect(within(rowFor(/beta/)).queryByRole('img', { name: 'Sandboxed' })).toBeNull()
   })
 
   it('keeps the close button on expanded rows', () => {
