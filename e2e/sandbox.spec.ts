@@ -1,12 +1,14 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { type Server, createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
 import { buildSync } from 'esbuild'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace } from './helpers'
+import { PROMPT, openWorkspace } from './helpers'
 
-async function launch() {
+async function launch(env: Record<string, string> = {}) {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   const project = join(home, 'project')
@@ -18,11 +20,28 @@ async function launch() {
     workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
   })
   const launchOptions = isolatedLaunch(dataHome)
-  const app = await electron.launch({ ...launchOptions, env: { ...launchOptions.env, HOME: home } })
+  const app = await electron.launch({
+    ...launchOptions,
+    env: { ...launchOptions.env, HOME: home, ...env },
+  })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
   return { app, win, home, project, dataHome }
+}
+
+const UPSTREAM_BODY = 'UPSTREAM-REACHED'
+
+async function fakeUpstream(): Promise<{ server: Server; url: string; requested: string[] }> {
+  const requested: string[] = []
+  const server = createServer((req, res) => {
+    requested.push(req.url ?? '')
+    res.writeHead(200, { 'content-type': 'text/plain' })
+    res.end(UPSTREAM_BODY)
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address() as AddressInfo
+  return { server, url: `http://127.0.0.1:${port}`, requested }
 }
 
 async function run(win: Page, command: string): Promise<void> {
@@ -107,19 +126,29 @@ test('SBX-C1 a new pane in a sandboxed workspace runs under srt and cannot read 
 
 test('a blocked connection waits on the card and completes once the human allows the host', async () => {
   test.setTimeout(120_000)
-  const { app, win } = await launch()
+  const upstream = await fakeUpstream()
+  const target = 'http://allowed.pine-e2e.test/hello'
+  const { app, win } = await launch({
+    HTTP_PROXY: upstream.url,
+    http_proxy: upstream.url,
+    NO_PROXY: '',
+    no_proxy: '',
+  })
   try {
     await sandboxedShell(win)
-    await run(win, 'curl -s -m 60 -o /dev/null -w "code=%{http_code}\\n" https://example.com')
+    await run(win, `curl -s -m 60 -w "\\ncode=%{http_code}\\n" ${target}`)
     const card = win.getByRole('region', { name: 'Agent permission request' })
     await expect(card).toBeVisible({ timeout: 20_000 })
-    await expect(card).toContainText('example.com')
+    await expect(card).toContainText('allowed.pine-e2e.test')
+    expect(upstream.requested).toEqual([])
     await card.getByRole('button', { name: 'Allow for this workspace' }).click()
-    await expect(win.locator('.xterm-rows').first()).toContainText(/code=[1-5]\d\d/, {
-      timeout: 30_000,
-    })
+    const rows = win.locator('.xterm-rows').first()
+    await expect(rows).toContainText('code=200', { timeout: 30_000 })
+    await expect(rows).toContainText(UPSTREAM_BODY)
+    expect(upstream.requested).toEqual([target])
   } finally {
     await app.close()
+    upstream.server.close()
   }
 })
 
@@ -346,16 +375,37 @@ test('a sandboxed shell survives Ctrl+C, which still interrupts its command, and
 
     await win.locator('.xterm').first().click()
     await win.keyboard.type('half-typed')
+    await expect(rows).toContainText('half-typed')
     await win.keyboard.press('Control+c')
-    await run(win, 'sleep 30; echo SLEPT-$((2+3))')
-    await win.waitForTimeout(800)
+    await expect(rows).toContainText(new RegExp(`half-typed.*${PROMPT.source}`), {
+      timeout: 15_000,
+    })
+    await run(win, "sh -c 'echo SLEEPING-$((1+2)); exec sleep 30'; echo SLEPT-$((2+3))")
+    await expect(rows).toContainText('SLEEPING-3', { timeout: 15_000 })
     await win.keyboard.press('Control+c')
+    await expect(rows).toContainText(new RegExp(`SLEEPING-3.*${PROMPT.source}`), {
+      timeout: 15_000,
+    })
     await run(win, 'echo ALIVE-$((6*7))')
     await expect(rows).toContainText('ALIVE-42', { timeout: 15_000 })
     await expect(rows).not.toContainText('SLEPT-5')
 
     await run(win, 'touch "$TMPDIR/probe" && test -d "$TMPDIR" && echo TMP-$((4+4))')
     await expect(rows).toContainText('TMP-8', { timeout: 15_000 })
+  } finally {
+    await app.close()
+  }
+})
+
+test('a sandboxed shell keeps its temp folder when another Pine quits', async () => {
+  const { app, win } = await launch()
+  try {
+    await sandboxedShell(win)
+    const other = await electron.launch(isolatedLaunch())
+    await other.firstWindow()
+    await other.close()
+    await run(win, 'touch "$TMPDIR/probe" && test -d "$TMPDIR" && echo KEPT-$((5+4))')
+    await expect(win.locator('.xterm-rows').first()).toContainText('KEPT-9', { timeout: 15_000 })
   } finally {
     await app.close()
   }
