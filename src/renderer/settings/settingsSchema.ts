@@ -292,8 +292,9 @@ export const SETTINGS_JSON_SCHEMA = {
         warnOnRiskyPaste: {
           type: 'boolean',
           description:
-            'Ask before pasting text that contains a newline or unsafe control characters ' +
-            'into a terminal. Default: true.',
+            'Ask before pasting two or more lines into a terminal from the clipboard. A single ' +
+            'line is always pasted without its trailing newline or control characters. Only ' +
+            'you can change this, in Settings; agents cannot. Default: true.',
         },
         minimumContrast: {
           type: 'number',

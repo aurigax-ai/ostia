@@ -201,6 +201,30 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().agents.autoResume).toBe(false)
   })
 
+  it('settings.set and settings.unset refuse the multi-line paste confirmation, directly or via terminal', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.warnOnRiskyPaste',
+      value: false,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal',
+      value: { ...useSettingsStore.getState().terminal, warnOnRiskyPaste: false },
+    })
+    const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
+      key: 'terminal.warnOnRiskyPaste',
+    })
+    const unrelated = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal',
+      value: { ...useSettingsStore.getState().terminal, scrollSpeed: 2 },
+    })
+    expect(direct.ok).toBe(false)
+    if (!direct.ok) expect(direct.error.message).toMatch(/terminal.warnOnRiskyPaste/)
+    expect(nested.ok).toBe(false)
+    expect(unset.ok).toBe(false)
+    expect(unrelated.ok).toBe(true)
+    expect(useSettingsStore.getState().terminal.warnOnRiskyPaste).toBe(true)
+  })
+
   it('settings.set --dry-run validates without applying, and reports the previous value', async () => {
     const dry = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'editor.tabSize',

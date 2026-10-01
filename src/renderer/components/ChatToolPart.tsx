@@ -5,7 +5,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import type { ApprovalAnswer } from '../lib/chatToolPermissions'
 import { workspaceFolder } from '../lib/chatTools'
 import { type ToolPartLike, outputText, toolNameOf } from '../lib/chatTransport'
-import { isRiskyPaste } from '../settings/terminalPaneSettings'
+import { confirmsGeneratedText } from '../lib/pasteGate'
 import { type PendingApproval, answerApproval, useChatToolsStore } from '../stores/chatToolsStore'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import {
@@ -153,7 +153,7 @@ function ApprovalCard({
             <ConfirmationAction
               onClick={() => {
                 const command = detail.command ?? ''
-                if (isRiskyPaste(command)) setRisky(command)
+                if (confirmsGeneratedText(command)) setRisky(command)
                 else answer({ approved: true, scope: 'once', choice: 'run' })
               }}
             >
@@ -178,6 +178,7 @@ function ApprovalCard({
       </ConfirmationActions>
       <RiskyPasteDialog
         text={risky}
+        source="generated"
         onPaste={() => {
           setRisky(null)
           answer({ approved: true, scope: 'once', choice: 'run' })

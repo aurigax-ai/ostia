@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { ApprovalAnswer } from '../lib/chatToolPermissions'
 import { decideTool } from '../lib/chatToolPermissions'
 import {
@@ -10,11 +10,23 @@ import {
   resetChatTools,
   useChatToolsStore,
 } from '../stores/chatToolsStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { ChatToolPart, diffLines } from './ChatToolPart'
+
+if (!Element.prototype.getAnimations) {
+  Element.prototype.getAnimations = () => []
+}
+
+let settingsInit: ReturnType<typeof useSettingsStore.getState>
+
+beforeAll(() => {
+  settingsInit = useSettingsStore.getState()
+})
 
 afterEach(() => {
   cleanup()
   resetChatTools()
+  useSettingsStore.setState(settingsInit, true)
 })
 
 function ask(request: PendingApproval): Promise<ApprovalAnswer> {
@@ -91,6 +103,26 @@ describe('ChatToolPart', () => {
     expect(screen.getByText('ls -la')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Insert at prompt' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Run in new terminal' }))
+    expect(await answer).toEqual({ approved: true, scope: 'once', choice: 'run' })
+  })
+
+  it('confirms a multi-line proposed command even when the human turned paste confirmation off', async () => {
+    useSettingsStore.getState().setTerminal({ warnOnRiskyPaste: false })
+    const answer = ask({
+      toolCallId: 't1',
+      sessionId: 's1',
+      toolName: 'propose_command',
+      kind: 'command',
+      grantable: false,
+      input: { command: 'cd /tmp\nls' },
+      detail: { command: 'cd /tmp\nls' },
+    })
+    render(<ChatToolPart part={part('propose_command')} workspaceId={null} busy />)
+    await userEvent.click(screen.getByRole('button', { name: 'Run in new terminal' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('It has 2 lines')
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Paste' }))
     expect(await answer).toEqual({ approved: true, scope: 'once', choice: 'run' })
   })
 

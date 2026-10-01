@@ -395,8 +395,9 @@ restart) and saves `settings.json`. It prints `{previous, value, applied}`; keep
 doesn't exist (`unknown settings key`), the type differs, or the setting doesn't accept it
 (`invalid value for <key>`, e.g. an enum value it doesn't list); look the key up with
 `pine settings schema <key>` instead of guessing. Keys that launch programs or grant
-permissions (`behavior.externalEditor`, `notifications.command`, `capabilities`,
-`approvals`, `sync`) are the human's; you can't set them. `get` with no key returns every
+permissions or guard the human (`behavior.externalEditor`, `notifications.command`,
+`agents.autoResume`, `terminal.warnOnRiskyPaste`, `capabilities`, `approvals`, `sync`) are the
+human's; you can't set them. `get` with no key returns every
 readable setting; with a key it prints `null` if absent.
 
 ### Signing in with the human's saved logins
