@@ -170,14 +170,14 @@ describe('writePickReport', () => {
       'w1',
     )
     if (!res.ok) throw new Error(res.error)
-    expect(res.path).toMatch(/pine-reports-\d+\/ui-issue-\d+\.md$/)
+    expect(res.path).toMatch(/pine-reports-\d+\/capture-\d+\.md$/)
     const md = readFileSync(res.path, 'utf8')
     expect(md).toContain('`#save`')
     expect(md).toContain('misaligned')
     expect(statSync(res.path).mode & 0o777).toBe(0o600)
     const [from, to, text] = vi.mocked(postBusMessage).mock.calls[0]
     expect(from).not.toBe(to)
-    expect(JSON.parse(text)).toMatchObject({ kind: 'ui-issue', report: res.path })
+    expect(JSON.parse(text)).toMatchObject({ kind: 'capture', report: res.path })
   })
 
   it('numbers reports so a second one never overwrites the first', async () => {

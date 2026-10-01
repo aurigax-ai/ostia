@@ -217,7 +217,7 @@ function time(ts: number): string {
 export function renderPickReport(capture: PickCapture, note: string): string {
   const lines: string[] = []
   const trimmedNote = clip(note.trim(), PICK_NOTE_MAX)
-  lines.push(`# UI issue: ${capture.label || capture.selector}`, '')
+  lines.push(`# Captured element: ${capture.label || capture.selector}`, '')
   lines.push('## What is wrong', '', trimmedNote || '(no note)', '')
   lines.push('## Element', '')
   lines.push(`- Page: ${capture.title ? `${capture.title} — ` : ''}${capture.url}`)
@@ -254,7 +254,7 @@ export function renderPickReport(capture: PickCapture, note: string): string {
 }
 
 export interface PickBusMessage {
-  kind: 'ui-issue'
+  kind: 'capture'
   report: string
   url: string
   selector: string
@@ -263,7 +263,7 @@ export interface PickBusMessage {
 
 export function pickBusMessage(capture: PickCapture, note: string, report: string): string {
   const message: PickBusMessage = {
-    kind: 'ui-issue',
+    kind: 'capture',
     report,
     url: capture.url,
     selector: capture.selector,

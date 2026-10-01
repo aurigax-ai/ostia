@@ -669,12 +669,12 @@ The human and the agent can both point at an element in a browser pane:
 
 - **Human → agent.** The human clicks **Point at element** in a browser pane's toolbar, clicks the
   broken thing, writes what's wrong, and sends it to a terminal pane. Pine writes a markdown
-  report to a private tmp dir (`/tmp/pine-reports-<uid>/ui-issue-N.md`) and:
+  report to a private tmp dir (`/tmp/pine-reports-<uid>/capture-N.md`) and:
   - pastes `@<report path> ` at that pane's prompt (never presses Enter) if the pane is at an idle
     shell prompt or its agent reported `pine state waiting`/`done`; otherwise the path goes to the
     human's clipboard;
   - delivers a bus message to that pane whose `text` is JSON:
-    `{"kind":"ui-issue","report":"<path>","url":"…","selector":"…","note":"…"}` (read it with
+    `{"kind":"capture","report":"<path>","url":"…","selector":"…","note":"…"}` (read it with
     `pine bus inbox`);
   - sets the pane's attention to `working` (no ring).
   Read the report file: it has the note, page URL/title, a robust CSS selector, role/name, box,

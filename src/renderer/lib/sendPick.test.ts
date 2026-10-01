@@ -8,7 +8,7 @@ import { canInsertReference, sendPickToPane, sendSelectionToPane } from './sendP
 import { registerTerminal } from './terminalHandles'
 
 const TARGET = 'pane-agent'
-const REPORT = '/tmp/pine-reports-1000/ui-issue-3.md'
+const REPORT = '/tmp/pine-reports-1000/capture-3.md'
 
 const capture: PickCapture = {
   id: 'pick-1',

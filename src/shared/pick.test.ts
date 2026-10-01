@@ -108,7 +108,7 @@ function capture(over: Partial<PickCapture> = {}): PickCapture {
 describe('renderPickReport', () => {
   it('contains the note, selector, page, screenshot path, style and html', () => {
     const md = renderPickReport(capture(), '  The Pay button is cut off  ')
-    expect(md).toContain('# UI issue: button.primary  120×32')
+    expect(md).toContain('# Captured element: button.primary  120×32')
     expect(md).toContain('The Pay button is cut off')
     expect(md).toContain('- Selector: `[data-testid="pay"]`')
     expect(md).toContain('Checkout — http://localhost:5173/checkout')
@@ -148,10 +148,10 @@ describe('renderPickReport', () => {
 
 describe('pickBusMessage', () => {
   it('is JSON an agent can parse', () => {
-    const msg = JSON.parse(pickBusMessage(capture(), ' fix it ', '/tmp/r/ui-issue-1.md'))
+    const msg = JSON.parse(pickBusMessage(capture(), ' fix it ', '/tmp/r/capture-1.md'))
     expect(msg).toEqual({
-      kind: 'ui-issue',
-      report: '/tmp/r/ui-issue-1.md',
+      kind: 'capture',
+      report: '/tmp/r/capture-1.md',
       url: 'http://localhost:5173/checkout',
       selector: '[data-testid="pay"]',
       note: 'fix it',
@@ -161,12 +161,12 @@ describe('pickBusMessage', () => {
 
 describe('reportReference', () => {
   it('prefixes @ and ends with a space so the user can keep typing', () => {
-    expect(reportReference('/tmp/pine-reports-1000/ui-issue-3.md')).toBe(
-      '@/tmp/pine-reports-1000/ui-issue-3.md ',
+    expect(reportReference('/tmp/pine-reports-1000/capture-3.md')).toBe(
+      '@/tmp/pine-reports-1000/capture-3.md ',
     )
   })
 
   it('quotes a path containing whitespace', () => {
-    expect(reportReference('/tmp/my dir/ui-issue-1.md')).toBe('@"/tmp/my dir/ui-issue-1.md" ')
+    expect(reportReference('/tmp/my dir/capture-1.md')).toBe('@"/tmp/my dir/capture-1.md" ')
   })
 })

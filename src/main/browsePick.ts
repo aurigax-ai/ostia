@@ -193,7 +193,7 @@ export function cancelPick(paneId: string): boolean {
 
 function nextReportPath(dir: string): string {
   for (let n = 1; ; n++) {
-    const path = join(dir, `ui-issue-${n}.md`)
+    const path = join(dir, `capture-${n}.md`)
     if (!existsSync(path)) return path
   }
 }

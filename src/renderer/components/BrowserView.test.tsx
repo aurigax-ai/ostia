@@ -178,7 +178,7 @@ describe('BrowserView send panel', () => {
     const { b } = await capturedPanel()
     vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
       ok: true,
-      path: '/tmp/pine-reports-1000/ui-issue-1.md',
+      path: '/tmp/pine-reports-1000/capture-1.md',
     })
     await userEvent.type(screen.getByLabelText(/what’s wrong/i), 'Save overlaps the footer')
     await userEvent.click(screen.getAllByRole('radio')[1])
