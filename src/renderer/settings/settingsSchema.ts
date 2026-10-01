@@ -432,12 +432,6 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description: 'Show items extensions add to a workspace row (git branch, counts).',
         },
-        showPorts: {
-          type: 'boolean',
-          description:
-            'Show the TCP ports a workspace’s terminals listen on (the Ports extension). ' +
-            'Click one to open it in the browser pane. Needs showExtensionItems.',
-        },
         showSSH: {
           type: 'boolean',
           description:

@@ -958,12 +958,6 @@ function SidebarSection(): JSX.Element {
           onChange={(v) => set({ showExtensionItems: v })}
         />
         <ToggleRow
-          label={d.settings.sidebarPorts}
-          desc={d.settings.sidebarPortsDesc}
-          checked={sidebar.showPorts}
-          onChange={(v) => set({ showPorts: v })}
-        />
-        <ToggleRow
           label={d.settings.sidebarSsh}
           desc={d.settings.sidebarSshDesc}
           checked={sidebar.showSSH}

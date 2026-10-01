@@ -434,9 +434,8 @@ function GroupStatus({ members }: { members: Workspace[] }): JSX.Element {
 }
 function useSidebarItems(workspaceId: string | undefined): ExtensionSidebarItem[] {
   const all = useExtensionsStore((s) => s.sidebar)
-  const showPorts = useSettingsStore((s) => s.sidebar.showPorts)
   const showSSH = useSettingsStore((s) => s.sidebar.showSSH)
-  return visibleSidebarItems(all, workspaceId, { showPorts, showSSH })
+  return visibleSidebarItems(all, workspaceId, { showSSH })
 }
 
 function WorkspaceMeta({ workspace: w }: { workspace: Workspace }): JSX.Element {

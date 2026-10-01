@@ -262,12 +262,11 @@ describe('settingsStore', () => {
         idleSeconds: 600,
         maxLiveTerminals: 6,
       })
-      expect(store().sidebar.showPorts).toBe(true)
       expect(store().sidebar.showSSH).toBe(true)
       vi.mocked(window.pine.fs.read).mockResolvedValue(
         JSON.stringify({
           agents: { hibernation: { enabled: true, idleSeconds: 1, maxLiveTerminals: 900 } },
-          sidebar: { showPorts: false },
+          sidebar: { showSSH: false },
         }),
       )
 
@@ -278,8 +277,7 @@ describe('settingsStore', () => {
         idleSeconds: 5,
         maxLiveTerminals: 64,
       })
-      expect(store().sidebar.showPorts).toBe(false)
-      expect(store().sidebar.showSSH).toBe(true)
+      expect(store().sidebar.showSSH).toBe(false)
     })
     it('keeps only well-formed workspace group rules from settings.json', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue(

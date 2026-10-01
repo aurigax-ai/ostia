@@ -1,4 +1,4 @@
-import type { ExtensionSidebarItem } from '@shared/extensions'
+import type { ExtensionSidebarItem, WorkspaceChip } from '@shared/extensions'
 import type { NotificationEntry } from '@shared/types'
 import { describe, expect, it } from 'vitest'
 import type { LayoutNode } from '../layout/types'
@@ -26,24 +26,6 @@ const root: LayoutNode = {
 }
 
 const sidebar: ExtensionSidebarItem[] = [
-  {
-    extId: 'ports',
-    key: 'port:5173',
-    workspaceId: 'w1',
-    text: ':5173',
-    tone: 'neutral',
-    kind: 'live',
-    url: 'http://localhost:5173/',
-  },
-  {
-    extId: 'ports',
-    key: 'port:3000',
-    workspaceId: 'w2',
-    text: ':3000',
-    tone: 'neutral',
-    kind: 'live',
-    url: 'http://localhost:3000/',
-  },
   { extId: 'ports', key: 'ssh', workspaceId: 'w1', text: 'me@box', tone: 'neutral', kind: 'live' },
   {
     extId: 'git',
@@ -53,14 +35,23 @@ const sidebar: ExtensionSidebarItem[] = [
     tone: 'neutral',
     kind: 'location',
   },
-  {
-    extId: 'other',
-    key: 'port:1',
-    workspaceId: 'w1',
-    text: 'not a port',
-    tone: 'neutral',
-    kind: 'live',
-  },
+]
+
+const portsChip = (workspaceId: string, extId: string, ports: number[]): WorkspaceChip => ({
+  extId,
+  id: 'ports',
+  workspaceId,
+  text: String(ports.length),
+  tone: 'neutral',
+  icon: 'plugs',
+  items: ports.map((port) => ({ text: `:${port}`, url: `http://localhost:${port}/` })),
+})
+
+const workspaceChips: WorkspaceChip[] = [
+  portsChip('w1', 'ports', [5173]),
+  portsChip('w2', 'ports', [3000]),
+  portsChip('w1', 'other', [1]),
+  { extId: 'git', id: 'branch', workspaceId: 'w1', text: 'main', tone: 'neutral' },
 ]
 
 function inputs(extra: Partial<ViewDataInputs> = {}): ViewDataInputs {
@@ -72,6 +63,7 @@ function inputs(extra: Partial<ViewDataInputs> = {}): ViewDataInputs {
       p1: { state: 'waiting', unread: true, message: 'needs input', at: 1 },
     },
     sidebar,
+    workspaceChips,
     approvals: 2,
     notifications: [],
     agentOf: (paneId) => (paneId === 'p1' ? 'claude' : null),

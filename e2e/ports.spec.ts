@@ -60,14 +60,14 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
     await win.keyboard.press('Enter')
 
     const portsChip = win
-      .locator('.pane-header')
+      .locator('.topbar-right .workspace-chips')
       .getByRole('button', { name: 'Listening ports: 1. Click to list them.' })
     await expect(portsChip).toBeVisible({ timeout: 20_000 })
-    const sidebarPort = win
-      .locator('.rail-meta.live .ext-item-link')
-      .filter({ hasText: `:${port}` })
-    await expect(sidebarPort).toBeVisible({ timeout: 20_000 })
-    await expect(win.locator('.rail-meta.location')).not.toContainText(`:${port}`)
+    await expect(win.locator('.pane-header')).not.toContainText('Listening ports')
+    await expect(
+      win.locator('.pane-header').getByRole('button', { name: /Listening ports/ }),
+    ).toHaveCount(0)
+    await expect(win.locator('.rail-meta')).not.toContainText(`:${port}`)
     await portsChip.click()
     await win
       .getByRole('button', { name: `Open http://127.0.0.1:${port}/ in the browser pane` })

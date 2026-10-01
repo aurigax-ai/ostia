@@ -3,7 +3,7 @@
   "name": "Ports",
   "version": "1.1.0",
   "api": "1.1",
-  "description": "Shows the TCP ports your terminals listen on and the login of a foreground ssh, per workspace in the sidebar and per pane as chips. Click a port to open it in the browser pane.",
+  "description": "Shows the TCP ports a workspace's terminals listen on as a plug in the top bar (click it for the list, click a port to open it in the browser pane) and the login of a foreground ssh on its pane and in the sidebar.",
   "category": "tools",
   "capabilities": ["read-board"],
   "main": "main.js",
@@ -18,10 +18,8 @@
       }
     ],
     "sidebarItems": true,
-    "paneChips": [
-      { "id": "ssh", "title": "Remote login" },
-      { "id": "ports", "title": "Listening ports" }
-    ],
+    "paneChips": [{ "id": "ssh", "title": "Remote login" }],
+    "workspaceChips": [{ "id": "ports", "title": "Listening ports" }],
     "settings": {
       "intervalSeconds": {
         "type": "number",

@@ -4,15 +4,13 @@ import type { SidebarSettings } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 
-type ItemToggles = Pick<SidebarSettings, 'showPorts' | 'showSSH'>
+type ItemToggles = Pick<SidebarSettings, 'showSSH'>
 
 const PORTS_EXTENSION = 'ports'
 
 function toggleFor(item: ExtensionSidebarItem): keyof ItemToggles | null {
   if (item.extId !== PORTS_EXTENSION) return null
-  if (item.key === 'ssh') return 'showSSH'
-  if (item.key.startsWith('port:')) return 'showPorts'
-  return null
+  return item.key === 'ssh' ? 'showSSH' : null
 }
 
 export function visibleSidebarItems(

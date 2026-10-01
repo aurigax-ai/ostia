@@ -28,7 +28,7 @@ function launchIn(dataHome: string, bin?: string) {
   return electron.launch({ ...launch, env: { ...launch.env, HOME: home, PATH: path } })
 }
 
-test('a port a terminal listens on shows in the sidebar and opens in the browser pane', async () => {
+test('a port a terminal listens on shows in the top bar and opens in the browser pane', async () => {
   const dataHome = freshDataHome()
   const port = await freePort()
   const app = await launchIn(dataHome)
@@ -38,9 +38,14 @@ test('a port a terminal listens on shows in the sidebar and opens in the browser
     await openWorkspace(win)
     await typeLine(win, `python3 -m http.server ${port} --bind 127.0.0.1`)
 
-    const item = win.locator('.ext-item-link').filter({ hasText: `:${port}` })
-    await expect(item).toBeVisible({ timeout: 20_000 })
-    await item.click()
+    const chip = win
+      .locator('.topbar-right .workspace-chips')
+      .getByRole('button', { name: 'Listening ports: 1. Click to list them.' })
+    await expect(chip).toBeVisible({ timeout: 20_000 })
+    await chip.click()
+    await win
+      .getByRole('button', { name: `Open http://localhost:${port}/ in the browser pane` })
+      .click()
 
     await expect(win.locator('.pane-tab .title').filter({ hasText: /./ })).toHaveCount(2, {
       timeout: 15_000,
@@ -63,7 +68,7 @@ test('a port a terminal listens on shows in the sidebar and opens in the browser
     await expect(win.locator('.xterm-rows').first()).toContainText('Keyboard interrupt', {
       timeout: 10_000,
     })
-    await expect(item).toHaveCount(0, { timeout: 20_000 })
+    await expect(chip).toHaveCount(0, { timeout: 20_000 })
   } finally {
     await app.close()
   }
