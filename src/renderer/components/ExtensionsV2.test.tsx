@@ -3,13 +3,13 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
-import { chipsForPane, paneChipCatalog } from '../lib/paneChips'
+import { chipsForPane, paneChipCatalog } from '../lib/extensionChips'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { PaneChips } from './ExtensionChips'
 import { ExtensionPanelView } from './ExtensionPanelView'
-import { PaneChips } from './PaneChips'
 import { ExtensionsSection } from './SettingsPanel'
 
 function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
@@ -27,6 +27,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     commands: [],
     panel: { title: 'Board', icon: 'puzzle' },
     paneChips: [],
+    workspaceChips: [],
     settings: [],
     settingValues: {},
     assist: [],

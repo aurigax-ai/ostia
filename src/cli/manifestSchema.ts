@@ -2,11 +2,11 @@ import { z } from 'zod'
 import {
   COMMAND_ID_PATTERN,
   EXTENSION_ID_PATTERN,
+  MAX_CHIPS,
   MAX_COMMANDS,
   MAX_ENUM_VALUES,
   MAX_ICON_THEMES,
   MAX_LANGUAGES,
-  MAX_PANE_CHIPS,
   MAX_TEXT,
   MAX_WORKFLOWS,
   SETTING_KEY_PATTERN,
@@ -65,6 +65,10 @@ const secret = z.looseObject({
   title: title.optional(),
 })
 
+const chips = z
+  .array(z.looseObject({ id: z.string().regex(COMMAND_ID_PATTERN), title: text }))
+  .max(MAX_CHIPS)
+
 const settingKey = z.string().regex(SETTING_KEY_PATTERN)
 
 const contributes = z.looseObject({
@@ -77,10 +81,8 @@ const contributes = z.looseObject({
       icon: z.enum(EXTENSION_ICONS).optional(),
     })
     .optional(),
-  paneChips: z
-    .array(z.looseObject({ id: z.string().regex(COMMAND_ID_PATTERN), title: text }))
-    .max(MAX_PANE_CHIPS)
-    .optional(),
+  paneChips: chips.optional(),
+  workspaceChips: chips.optional(),
   settings: z.record(settingKey, setting).optional(),
   secrets: z.record(settingKey, secret).optional(),
   assist: z.array(z.enum(ASSIST_POINTS)).optional(),

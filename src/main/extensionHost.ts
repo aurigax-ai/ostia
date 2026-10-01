@@ -43,6 +43,8 @@ import {
   EXTENSION_EVENT_TYPES,
   EXTENSION_ICONS,
   type ExtensionCaller,
+  type ExtensionChip,
+  type ExtensionChipContribution,
   type ExtensionCommandContribution,
   type ExtensionEventPayloads,
   type ExtensionEventType,
@@ -70,6 +72,7 @@ import {
   TERMINAL_ARG_MAX,
   TERMINAL_COMMAND_MAX_ARGS,
   TERMINAL_TITLE_MAX,
+  type WorkspaceChip,
   commandArgument,
   effectiveSettingValues,
   paneChipItems,
@@ -241,6 +244,7 @@ export interface ExtensionHostDeps {
   cwdForPane?: (paneId: string) => string | undefined
   locale?: () => string | undefined
   broadcast: (channel: string, payload: unknown) => void
+  publishWorkspaceChips?: (chips: WorkspaceChip[]) => void
   openPanelIn: (req: ExtensionOpenPanelRequest) => void
   openDiffIn?: (req: ExtensionOpenDiffRequest) => void
   openTerminalIn?: (req: TerminalOpenRequest) => Promise<string | null>
@@ -392,6 +396,7 @@ export class ExtensionHost {
   private runtimes = new Map<string, Runtime>()
   private sidebar = new Map<string, ExtensionSidebarItem>()
   private chips = new Map<string, PaneChip>()
+  private workspaceChipSlots = new Map<string, WorkspaceChip>()
   private settings: Map<string, ExtensionSettingValues>
   private changes = new EventEmitter()
   private watchers: FSWatcher[] = []
@@ -470,6 +475,7 @@ export class ExtensionHost {
         ? { title: m.contributes.panel.title, icon: m.contributes.panel.icon }
         : null,
       paneChips: m.contributes.paneChips,
+      workspaceChips: m.contributes.workspaceChips,
       settings: m.contributes.settings,
       settingValues: this.settingValues(rt),
       assist: m.contributes.assist,
@@ -551,6 +557,29 @@ export class ExtensionHost {
 
   clearPaneChips(rendererPaneId: string): void {
     this.clearChipsWhere((chip) => chip.paneId === rendererPaneId)
+  }
+
+  workspaceChips(): WorkspaceChip[] {
+    return [...this.workspaceChipSlots.values()]
+  }
+
+  publishWorkspaceChips(): void {
+    this.deps.publishWorkspaceChips?.(this.workspaceChips())
+  }
+
+  private clearWorkspaceChipsWhere(match: (chip: WorkspaceChip) => boolean): void {
+    let removed = false
+    for (const [slot, chip] of this.workspaceChipSlots) {
+      if (match(chip)) {
+        this.workspaceChipSlots.delete(slot)
+        removed = true
+      }
+    }
+    if (removed) this.publishWorkspaceChips()
+  }
+
+  clearWorkspaceChips(workspaceId: string): void {
+    this.clearWorkspaceChipsWhere((chip) => chip.workspaceId === workspaceId)
   }
 
   private changed(rt?: Runtime): void {
@@ -732,6 +761,7 @@ export class ExtensionHost {
     this.dropAssistStreams(rt)
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
+    this.clearWorkspaceChipsWhere((chip) => chip.extId === id)
     if (rt.stopping || !this.active(rt)) {
       rt.state = 'idle'
     } else if (rt.restarts < MAX_RESTARTS) {
@@ -778,6 +808,7 @@ export class ExtensionHost {
     const id = rt.ext.manifest.id
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
+    this.clearWorkspaceChipsWhere((chip) => chip.extId === id)
   }
 
   stopAll(): void {
@@ -1033,22 +1064,15 @@ export class ExtensionHost {
     return { ok: true }
   }
 
-  setPaneChip(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
-    const extId = rt.ext.manifest.id
-    const p = (params ?? {}) as Record<string, unknown>
-    const declared = rt.ext.manifest.contributes.paneChips.find((c) => c.id === p.id)
-    if (!declared) return fail('not-contributed', `no pane chip '${String(p.id)}' in manifest`)
-    const pane = typeof p.paneId === 'string' ? resolveExternal(p.paneId) : undefined
-    if (pane?.kind !== 'pane') return fail('unknown-pane', 'paneId is not a pane')
-    const slot = `${extId}\u0000${pane.paneId}\u0000${declared.id}`
+  private chipValue(
+    rt: Runtime,
+    declared: ExtensionChipContribution,
+    p: Record<string, unknown>,
+  ): ExtensionChip | null | ExtensionResult {
     const text = typeof p.text === 'string' ? p.text.trim().slice(0, PANE_CHIP_TEXT_MAX) : ''
-    if (!text) {
-      if (this.chips.delete(slot)) this.chipsChanged()
-      return { ok: true }
-    }
+    if (!text) return null
     const tone = SIDEBAR_TONES.includes(p.tone as SidebarTone) ? (p.tone as SidebarTone) : 'neutral'
-    const chip: PaneChip = { extId, id: declared.id, paneId: pane.paneId, text, tone }
+    const chip: ExtensionChip = { extId: rt.ext.manifest.id, id: declared.id, text, tone }
     if (typeof p.tooltip === 'string' && p.tooltip.trim()) {
       chip.tooltip = p.tooltip.trim().slice(0, PANE_CHIP_TOOLTIP_MAX)
     }
@@ -1081,7 +1105,24 @@ export class ExtensionHost {
       if (!url) return fail('invalid-params', 'url must be http(s)')
       chip.url = url
     }
-    this.chips.set(slot, chip)
+    return chip
+  }
+
+  setPaneChip(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = (params ?? {}) as Record<string, unknown>
+    const declared = rt.ext.manifest.contributes.paneChips.find((c) => c.id === p.id)
+    if (!declared) return fail('not-contributed', `no pane chip '${String(p.id)}' in manifest`)
+    const pane = typeof p.paneId === 'string' ? resolveExternal(p.paneId) : undefined
+    if (pane?.kind !== 'pane') return fail('unknown-pane', 'paneId is not a pane')
+    const slot = `${rt.ext.manifest.id}\u0000${pane.paneId}\u0000${declared.id}`
+    const value = this.chipValue(rt, declared, p)
+    if (value === null) {
+      if (this.chips.delete(slot)) this.chipsChanged()
+      return { ok: true }
+    }
+    if ('ok' in value) return value
+    this.chips.set(slot, { ...value, paneId: pane.paneId })
     this.chipsChanged()
     return { ok: true }
   }
@@ -1089,6 +1130,34 @@ export class ExtensionHost {
   clearPaneChip(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const p = (params ?? {}) as Record<string, unknown>
     return this.setPaneChip(identity, conn, { paneId: p.paneId, id: p.id, text: '' })
+  }
+
+  setWorkspaceChip(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = (params ?? {}) as Record<string, unknown>
+    const declared = rt.ext.manifest.contributes.workspaceChips.find((c) => c.id === p.id)
+    if (!declared) {
+      return fail('not-contributed', `no workspace chip '${String(p.id)}' in manifest`)
+    }
+    const workspaceId = typeof p.workspaceId === 'string' ? p.workspaceId : ''
+    if (!workspaceId || this.deps.workDirForWorkspace(workspaceId) === undefined) {
+      return fail('unknown-workspace', 'workspaceId is not an open workspace')
+    }
+    const slot = `${rt.ext.manifest.id}\u0000${workspaceId}\u0000${declared.id}`
+    const value = this.chipValue(rt, declared, p)
+    if (value === null) {
+      if (this.workspaceChipSlots.delete(slot)) this.publishWorkspaceChips()
+      return { ok: true }
+    }
+    if ('ok' in value) return value
+    this.workspaceChipSlots.set(slot, { ...value, workspaceId })
+    this.publishWorkspaceChips()
+    return { ok: true }
+  }
+
+  clearWorkspaceChip(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const p = (params ?? {}) as Record<string, unknown>
+    return this.setWorkspaceChip(identity, conn, { workspaceId: p.workspaceId, id: p.id, text: '' })
   }
 
   getSettings(identity: PaneIdentity, conn: MessageConnection) {
@@ -1606,6 +1675,14 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod(
     'ext.clearPaneChip',
     forExtension((h, id, conn, p) => h.clearPaneChip(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.setWorkspaceChip',
+    forExtension((h, id, conn, p) => h.setWorkspaceChip(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.clearWorkspaceChip',
+    forExtension((h, id, conn, p) => h.clearWorkspaceChip(id, conn, p)),
   )
   registerControlMethod(
     'ext.getSettings',

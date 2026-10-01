@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ExtensionCaller, PaneChip } from '../shared/extensions'
+import type { ExtensionCaller, PaneChip, WorkspaceChip } from '../shared/extensions'
 import type { CommandResult, CommandTarget } from '../shared/types'
 import { registerAttentionMethods } from './attention'
 import { registerBrowseMethods } from './browse'
@@ -41,6 +41,9 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
   const pane = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p1' })
   const other = registerPane({ windowId: 'w1', workspaceId: 's2', paneId: 'p2' })
 
+  const openWorkspaces = new Set<string>()
+  const publishedWorkspaceChips: WorkspaceChip[][] = []
+  const lastWorkspaceChips = (): WorkspaceChip[] => publishedWorkspaceChips.at(-1) ?? []
   const chipBroadcast = (): PaneChip[] =>
     (broadcasts.filter((b) => b.channel === 'extensions:chips').at(-1)?.payload ?? []) as PaneChip[]
   const call = (method: string, params?: unknown) =>
@@ -60,9 +63,10 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       store,
       socketPath: () => socketPath,
       nodePath: process.execPath,
-      workDirForWorkspace: () => undefined,
+      workDirForWorkspace: (id) => (id && openWorkspaces.has(id) ? '/w' : undefined),
       readExtensionSettings: () => stored,
       broadcast: (channel, payload) => broadcasts.push({ channel, payload }),
+      publishWorkspaceChips: (chips) => publishedWorkspaceChips.push(chips),
       openPanelIn,
       notify,
       notifyPanel,
@@ -234,6 +238,61 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       expect(both).toMatchObject({ ok: false, error: 'invalid-params' })
       expect(host.paneChips()[0]?.text).toBe(':3000')
       await host.invoke('echo', 'unchip', { paneId: pane.externalId, id: 'status' }, caller)
+    })
+  })
+
+  describe('workspace chips', () => {
+    const setChip = (params: Record<string, unknown>) =>
+      call('ext.setWorkspaceChip', { workspaceId: 's1', id: 'repo', text: 'main', ...params })
+
+    it('publishes a declared chip for an open workspace, validated like a pane chip', async () => {
+      openWorkspaces.add('s1')
+      expect(await setChip({ tone: 'ok', command: 'echo' })).toEqual({
+        ok: true,
+        data: { ok: true },
+      })
+      const chip = {
+        extId: 'echo',
+        id: 'repo',
+        workspaceId: 's1',
+        text: 'main',
+        tone: 'ok',
+        command: 'echo',
+      }
+      expect(lastWorkspaceChips()).toEqual([chip])
+      expect(host.workspaceChips()).toEqual([chip])
+      expect(echo().workspaceChips).toEqual([{ id: 'repo', title: 'Echo repo' }])
+      await call('ext.clearWorkspaceChip', { workspaceId: 's1', id: 'repo' })
+      expect(lastWorkspaceChips()).toEqual([])
+    })
+
+    it('refuses an unknown workspace, an undeclared chip and a bad url or icon', async () => {
+      openWorkspaces.add('s1')
+      const refused = async (params: Record<string, unknown>, error: string) =>
+        expect((await setChip(params)) as { data: unknown }).toMatchObject({
+          data: { ok: false, error },
+        })
+      await refused({ workspaceId: 'nope' }, 'unknown-workspace')
+      await refused({ workspaceId: '' }, 'unknown-workspace')
+      await refused({ id: 'status' }, 'not-contributed')
+      await refused({ url: 'file:///etc/passwd' }, 'invalid-params')
+      await refused({ icon: 'rocket' }, 'invalid-params')
+      await refused({ command: 'probe' }, 'invalid-params')
+      expect(host.workspaceChips()).toEqual([])
+    })
+
+    it('clears a workspace chip when its workspace closes or the extension stops', async () => {
+      openWorkspaces.add('s1')
+      openWorkspaces.add('s2')
+      await setChip({})
+      await setChip({ workspaceId: 's2', text: 'dev' })
+      expect(host.workspaceChips().map((c) => c.workspaceId)).toEqual(['s1', 's2'])
+      host.clearWorkspaceChips('s1')
+      expect(lastWorkspaceChips().map((c) => c.workspaceId)).toEqual(['s2'])
+      host.setEnabled('echo', false)
+      expect(lastWorkspaceChips()).toEqual([])
+      host.setEnabled('echo', true)
+      expect(await host.invoke('echo', 'echo', null, caller)).toMatchObject({ ok: true })
     })
   })
 

@@ -317,6 +317,7 @@ describe('NotificationCenter', () => {
           commands: [],
           panel: { title: 'Keeper', icon: 'shield' },
           paneChips: [],
+          workspaceChips: [],
           settings: [],
           settingValues: {},
           assist: [],

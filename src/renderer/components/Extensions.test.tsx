@@ -25,6 +25,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     commands: [],
     panel: { title: 'Board', icon: 'puzzle' },
     paneChips: [],
+    workspaceChips: [],
     settings: [],
     settingValues: {},
     assist: [],

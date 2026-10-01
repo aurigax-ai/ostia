@@ -43,7 +43,7 @@ export interface ExtensionPanelContribution {
   entry: string
 }
 
-export interface ExtensionPaneChipContribution {
+export interface ExtensionChipContribution {
   id: string
   title: string
 }
@@ -146,7 +146,8 @@ export interface ExtensionManifest {
     commands: ExtensionCommandContribution[]
     sidebarItems: boolean
     panel?: ExtensionPanelContribution
-    paneChips: ExtensionPaneChipContribution[]
+    paneChips: ExtensionChipContribution[]
+    workspaceChips: ExtensionChipContribution[]
     settings: ExtensionSettingContribution[]
     workflows?: Workflow[]
     completions?: string
@@ -179,7 +180,8 @@ export interface ExtensionInfo {
   unapproved: Capability[]
   commands: ExtensionCommandContribution[]
   panel: { title: string; icon?: ExtensionIcon } | null
-  paneChips: ExtensionPaneChipContribution[]
+  paneChips: ExtensionChipContribution[]
+  workspaceChips: ExtensionChipContribution[]
   settings: ExtensionSettingContribution[]
   settingValues: ExtensionSettingValues
   assist: AssistPoint[]
@@ -220,10 +222,9 @@ export interface PaneChipItem {
   url?: string
 }
 
-export interface PaneChip {
+export interface ExtensionChip {
   extId: string
   id: string
-  paneId: string
   text: string
   tooltip?: string
   tone: SidebarTone
@@ -231,6 +232,14 @@ export interface PaneChip {
   items?: PaneChipItem[]
   command?: string
   url?: string
+}
+
+export interface PaneChip extends ExtensionChip {
+  paneId: string
+}
+
+export interface WorkspaceChip extends ExtensionChip {
+  workspaceId: string
 }
 
 export const COMMAND_ARGUMENT_LABEL_MAX = 80
@@ -410,11 +419,13 @@ export interface ExtensionsApi {
   panel: (extId: string, context: ExtensionPanelContext) => Promise<ExtensionPanelSource>
   sidebarItems: () => Promise<ExtensionSidebarItem[]>
   paneChips: () => Promise<PaneChip[]>
+  workspaceChips: () => Promise<WorkspaceChip[]>
   setSetting: (extId: string, key: string, value: unknown) => Promise<ExtensionSettingResult>
   setSecret: (extId: string, key: string, value: string | null) => Promise<ExtensionSecretResult>
   onChanged: (cb: (list: ExtensionInfo[]) => void) => () => void
   onSidebar: (cb: (items: ExtensionSidebarItem[]) => void) => () => void
   onPaneChips: (cb: (chips: PaneChip[]) => void) => () => void
+  onWorkspaceChips: (cb: (chips: WorkspaceChip[]) => void) => () => void
   onSettingsStored: (cb: (update: ExtensionSettingsStored) => void) => () => void
   onOpenPanel: (cb: (req: ExtensionOpenPanelRequest) => void) => () => void
   onOpenDiff: (cb: (req: ExtensionOpenDiffRequest) => void) => () => void

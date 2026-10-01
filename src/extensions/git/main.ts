@@ -4,7 +4,6 @@ import {
   type ExtensionCaller,
   type ExtensionResult,
   type ExtensionSettingValues,
-  type PaneInfo,
   type PineExtension,
   cliArgs,
   connect,
@@ -235,8 +234,9 @@ class GitExtension {
         }
         return found
       }
-      await this.syncSidebar(this.cwds.resolve(workspaces, panes), repoFor)
-      await this.syncChips(panes, repoFor)
+      const cwds = this.cwds.resolve(workspaces, panes)
+      await this.syncSidebar(cwds, repoFor)
+      await this.syncChips(cwds, repoFor)
     } catch (err) {
       console.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -284,7 +284,7 @@ class GitExtension {
   }
 
   private async syncChips(
-    panes: PaneInfo[],
+    cwds: Map<string, string>,
     repoFor: (cwd: string) => Promise<Repo | null>,
   ): Promise<void> {
     const stats = new Map<string, Promise<string>>()
@@ -299,23 +299,21 @@ class GitExtension {
       return found
     }
     const next = new Map<string, string>()
-    for (const pane of panes) {
-      if (pane.kind !== 'terminal' || !pane.cwd) continue
-      const repo = await repoFor(expandHome(pane.cwd))
+    for (const [workspaceId, cwd] of cwds) {
+      const repo = await repoFor(cwd)
       if (!repo) continue
       const branch = branchChipText(repo.status.branch)
-      if (branch) next.set(`${pane.paneId}\u0000${BRANCH_CHIP}`, branch)
+      if (branch) next.set(`${workspaceId}\u0000${BRANCH_CHIP}`, branch)
       if (this.settings.showDiffStats) {
         const diff = await statsFor(repo.root)
-        if (diff) next.set(`${pane.paneId}\u0000${DIFF_STATS_CHIP}`, diff)
+        if (diff) next.set(`${workspaceId}\u0000${DIFF_STATS_CHIP}`, diff)
       }
     }
-    const live = new Set(panes.map((p) => p.paneId))
     for (const [key, text] of next) {
       if (this.chips.get(key) === text) continue
-      const [paneId, id] = key.split('\u0000')
-      await this.ext.setPaneChip({
-        paneId,
+      const [workspaceId, id] = key.split('\u0000')
+      await this.ext.setWorkspaceChip({
+        workspaceId,
         id,
         text,
         ...(id === BRANCH_CHIP ? { command: 'show' } : {}),
@@ -323,8 +321,8 @@ class GitExtension {
     }
     for (const key of this.chips.keys()) {
       if (next.has(key)) continue
-      const [paneId, id] = key.split('\u0000')
-      if (live.has(paneId)) await this.ext.clearPaneChip(paneId, id)
+      const [workspaceId, id] = key.split('\u0000')
+      if (cwds.has(workspaceId)) await this.ext.clearWorkspaceChip(workspaceId, id)
     }
     this.chips = next
   }
