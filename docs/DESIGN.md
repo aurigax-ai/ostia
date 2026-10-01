@@ -44,8 +44,8 @@ Three tiers in `index.css`:
    `--line-strong`, `--fg`, `--fg-muted`, `--fg-dim`, `--brand`, `--brand-bright`, `--brand-glow`,
    `--attn`, `--attn-fg`, `--attn-glow`, `--ok`. Metrics: one radius ladder in `@theme`
    (`--radius-sm` 6px for controls, rows and keycaps; `--radius-md` 8px for inputs, popovers and
-   cards; `--radius-lg` 10px), `--radius` 10px for the shadcn bridge, `--rail-w` 240px (44px
-   collapsed), `--topbar-h` 36px.
+   cards; `--radius-lg` 10px), `--radius` 10px for the shadcn bridge, `--rail-w` 240px by default (resizable
+   180–480px; 44px collapsed), `--topbar-h` 36px.
 3. **shadcn bridge** in `@theme inline`: maps shadcn names (`--background`, `--primary`, `--muted`,
    `--border`, `--ring`, `--sidebar-*`, …) onto the semantic tokens, so Base UI components in
    `components/ui/` use Pine colors with no per-component work. `--primary` is the brand.
@@ -323,6 +323,17 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
     inside it. No close button, details or unread badge (the dot carries state; the row's Hint
     names it). A group header becomes a 12×4 swatch with its state dot; members keep the 2px
     group rule. Only the rail's width animates.
+  - **Width** (`RailResizer.tsx`, `lib/railWidth.ts`): the rail's right edge is a 6px
+    `col-resize` handle (`role="separator"`, vertical, `aria-valuenow/min/max`) that straddles
+    the border and shows a 2px `--focus-border` line on hover, focus or drag. The width runs
+    from 180px (icon plus about 12 characters) to 480px or 40% of the window, whichever is
+    smaller; ←/→ move it 16px, Home/End jump to the ends, double-click resets 240px. Dragging
+    below 90px collapses the rail (VS Code's snap) and keeps the width the drag started from
+    for the next expand; dragging back out in the same drag expands it again. Nothing selects
+    text and webviews don't take the pointer while dragging. The handle is hidden while
+    collapsed. The width is UI state, not a setting: `localStorage` `railWidth`, shared by
+    every window, applied before the first render. The top bar's left cluster follows
+    `--rail-w`. Row meta lines re-fit live as the width changes (their `ResizeObserver`).
   - **Group header** (cmux's workspace groups): a 24px `ui-xs`/500 uppercase row with a 12px
     caret (right when collapsed, down when open), an 8px `radius 2px` swatch in the group color
     (`--line-strong` without one), the name, the member count (`fg-muted`, tabular), then the
@@ -555,7 +566,7 @@ Motion reports state or confirms an action; it never decorates. Tokens live in `
 |---|---|---|
 | `--motion-fast` | 90 ms | hover/focus color feedback, tooltips, block selection frame |
 | `--motion-base` | 150 ms | overlays, badge pop, sticky header, find bar, new pane content, ring fade-in |
-| `--motion-slow` | 220 ms | sidebar collapse width |
+| `--motion-slow` | 220 ms | sidebar collapse width (not the edge drag) |
 | `--motion-highlight` | 2000 ms | fade of the lines an on-disk reload changed (the one long fade; reduced motion shows it without fading) |
 | `--motion-fast-exit` / `--motion-base-exit` | 63 / 105 ms | exits, about 70% of the enter |
 | `--motion-pulse` | 1.5 s | one attention pulse (ring, waiting dot) |
@@ -585,7 +596,8 @@ What stays still: pane size, position and splits; the Allotment sashes; anything
 an xterm host (it would fit and resize the pty every frame); buttons on press (no scale or
 nudge); lists (no stagger); workspace switches and Settings (no page transitions). Nothing
 springs, bounces or overshoots. The one width transition is the sidebar collapse, which is
-safe because terminal resizes are debounced.
+safe because terminal resizes are debounced; dragging the sidebar edge follows the pointer
+with the transition off.
 
 Nothing loops for decoration: no spinners, shimmers, typing dots or skeleton sweeps. Work in
 progress is text ("Thinking…", "Loading…") or the working dot; a view's `Progress` bar shows the

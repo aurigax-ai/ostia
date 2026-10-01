@@ -26,6 +26,7 @@ interface UIState {
   closePalette: () => void
   togglePalette: () => void
   toggleRail: () => void
+  setRailCollapsed: (collapsed: boolean) => void
   openSettings: (section?: string, options?: OpenSettingsOptions) => void
   openWorkspaceSettings: (workspaceId: string) => void
   closeSettings: () => void
@@ -53,6 +54,7 @@ export const useUIStore = create<UIState>((set) => ({
   closePalette: () => set({ paletteOpen: false, paletteMode: 'search' }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search' })),
   toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
+  setRailCollapsed: (railCollapsed) => set({ railCollapsed }),
   openSettings: (section, options = {}) => {
     const target = parseSettingsTarget(section, options.extension)
     set({

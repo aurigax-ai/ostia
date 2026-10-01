@@ -775,7 +775,15 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   and pushed ports out of sight. The live line renders every item once to record natural widths,
   then shows what fits before paint; a `ResizeObserver` recounts from those widths. In the
   collapsed rail a row renders only its icon (no close button, no details), so nothing is
-  measured while hidden. `pine workspace describe` (→ `workspace.describe`, drive-self, caller's workspace) or the
+  measured while hidden. The rail's width (`components/RailResizer.tsx`, `lib/railWidth.ts`) is
+  `--rail-w` on the root element, stored in `localStorage` (`railWidth`) like remembered panel
+  sizes, so every window shares it. Why `main.tsx` applies it before the first render: the
+  location line measures in a layout effect that runs before the resizer's, which forced a
+  layout at the CSS default and made a restart animate the rail from 240px to the stored
+  width. Why `data-rail-resizing` on the root: it turns the collapse transition off for a drag
+  (each frame would ease behind the pointer), blocks text selection and keeps webviews from
+  taking the pointer mid-drag. Terminals follow through their debounced resize.
+  `pine workspace describe` (→ `workspace.describe`, drive-self, caller's workspace) or the
   row menu sets the description; it renders Markdown restricted to links, emphasis and code, as a
   sibling of the row button so links are real links (a link inside a button is invalid and would
   select the row). The row menu renames, edits the description, pins, moves, marks read, groups
