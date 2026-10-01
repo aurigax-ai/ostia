@@ -25,6 +25,7 @@ import { applyTheme, useEffectiveTheme } from './lib/theme'
 import { applyUiFonts } from './lib/uiFonts'
 import { useModifierHint } from './lib/useModifierHint'
 import { useWindowTitle } from './lib/useWindowTitle'
+import { startLanguageServices } from './lsp/client'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/registerSettingsSchema'
 import { freezeSnapshots } from './stores/persistence'
@@ -60,6 +61,10 @@ export function App(): JSX.Element {
   useEffect(() => {
     document.documentElement.lang = locale
   }, [locale])
+
+  useEffect(() => {
+    void startLanguageServices()
+  }, [])
 
   useEffect(() => {
     void registerSettingsSchema()

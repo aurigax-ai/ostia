@@ -1,8 +1,11 @@
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -21,7 +24,9 @@ const marketplaceIds = [
   'lsp-clangd',
   'lsp-gopls',
   'lsp-lua',
+  'lsp-pyright',
   'lsp-rust-analyzer',
+  'lsp-typescript',
   'model-runtime',
   'trellis',
 ]
@@ -47,6 +52,19 @@ async function writeCatalog(exportName, file) {
   writeFileSync(file, `${JSON.stringify(dict[exportName], null, 2)}\n`)
 }
 
+function copyVendoredPackages(src, out) {
+  const list = join(src, 'vendor.json')
+  if (!existsSync(list)) return
+  for (const [name, target] of Object.entries(JSON.parse(readFileSync(list, 'utf8')))) {
+    const from = realpathSync(join('node_modules', name))
+    cpSync(from, join(out, target), {
+      recursive: true,
+      dereference: true,
+      filter: (path) => !path.slice(from.length).split(/[\\/]/).includes('node_modules'),
+    })
+  }
+}
+
 rmSync(builtinRoot, { recursive: true, force: true })
 rmSync(marketplaceRoot, { recursive: true, force: true })
 
@@ -65,6 +83,7 @@ for (const id of ids) {
   for (const file of assets) {
     if (existsSync(join(src, file))) copyFileSync(join(src, file), join(out, file))
   }
+  copyVendoredPackages(src, out)
   if (existsSync(join(src, 'panel.html')))
     copyFileSync(join(srcRoot, 'sdk/panel.css'), join(out, 'base.css'))
   if (existsSync(join(src, 'main.ts'))) {

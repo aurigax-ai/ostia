@@ -194,6 +194,14 @@ describe('planCopy', () => {
     expect(planCopy(dir)).toEqual({ ok: false, error: 'invalid-extension' })
   })
 
+  it('takes an extension that ships a language server with thousands of small files', () => {
+    const dir = tmp()
+    mkdirSync(join(dir, 'server', 'stubs'), { recursive: true })
+    for (let i = 0; i < 5500; i++) writeFileSync(join(dir, 'server', 'stubs', `s${i}.pyi`), '')
+    const plan = planCopy(dir)
+    expect(plan.ok && plan.files.length).toBe(5500)
+  })
+
   it('refuses a folder with too many files', () => {
     const dir = tmp()
     for (let i = 0; i <= EXTENSION_MAX_FILES; i++) writeFileSync(join(dir, `f${i}`), '')
