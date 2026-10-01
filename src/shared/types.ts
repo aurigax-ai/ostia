@@ -27,6 +27,7 @@ import type { MarketplaceApi } from './marketplace'
 import type { OpenFileVerdict } from './openFiles'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
+import type { ReleaseCheckResult, ReleaseInfo } from './releases'
 import type {
   DomainRefusal,
   PortsPolicy,
@@ -604,6 +605,11 @@ export interface AppUpdateApi {
   state: () => Promise<BuildInfo | null>
   restart: () => Promise<void>
   onAvailable: (cb: (info: BuildInfo) => void) => () => void
+  release: () => Promise<ReleaseInfo | null>
+  checkRelease: () => Promise<ReleaseCheckResult>
+  openRelease: () => Promise<boolean>
+  dismissRelease: () => Promise<void>
+  onRelease: (cb: (release: ReleaseInfo | null) => void) => () => void
 }
 
 export type CredentialFillResult =
