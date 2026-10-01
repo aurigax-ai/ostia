@@ -683,6 +683,8 @@ Details: `docs/ARCHITECTURE.md`.
   panes on defaults. The first render must already see the restored workspaces (or none), else the work zone flashes the empty state and a pane mounted
   before hydration would spawn a pty that's orphaned a tick later.
 - **Allotment is keyed by the child-id list**; its internal sizes go stale on structural changes.
+  It reads the node's `sizes` only at mount (`defaultSizes`), so a size change the store makes
+  (equalize, a remembered panel size) needs a remount: a new child list or a bumped `equalized`.
 - **xterm's viewport paints black by default.** `.xterm-host .xterm .xterm-viewport` is
   transparent and the host is painted with the terminal theme background.
 - **Dispose the server-side connection when an extension process exits** (`extensionHost.ts`
@@ -790,7 +792,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   `e2e/views.spec.ts` writes view files into the isolated `XDG_CONFIG_HOME`, enables them in
   Settings → Views (one while pine runs, for hot reload), checks the sidebar view's live
   workspace names and a button that runs `workspace.new`, and opens the panel view from the
-  palette. Views' schema, bindings and draw budget are unit-tested in `src/shared/views*.test.ts`
+  palette; a second test drags the Board panel's splitter, closes and reopens it, and checks
+  it comes back at that width, also after a restart (remembered panel size; the pure parts are
+  in `src/renderer/layout/panelSize.test.ts`, storage in `src/renderer/lib/panelSizes.test.ts`,
+  the store in `layoutStore.panelSize.test.ts`). Views' schema, bindings and draw budget are unit-tested in `src/shared/views*.test.ts`
   and `src/renderer/lib/view*.test.ts`, the loader in `src/main/viewHost.test.ts`, the CLI verbs
   in `src/cli/cli.e2e.test.ts`.
   `e2e/detached-windows.spec.ts` moves a workspace with a running command into a new window

@@ -6,6 +6,7 @@ import {
 } from '@shared/browseRuntime'
 import { formatSnapshot } from '@shared/browseSnapshot'
 import { afterEach, describe, expect, it } from 'vitest'
+import { MemoryStorage } from '../../../test/mocks/memoryStorage'
 
 const FIXTURE = `
   <header><nav aria-label="Main"><a href="/docs">Docs</a></nav></header>
@@ -40,28 +41,6 @@ function snapshotText(options = {}): string {
   const result = rt.snapshot(null)
   if (!result.ok) throw new Error(result.error)
   return formatSnapshot(result.tree, options).snapshot
-}
-
-class MemoryStorage implements Storage {
-  private items = new Map<string, string>()
-  get length(): number {
-    return this.items.size
-  }
-  clear(): void {
-    this.items.clear()
-  }
-  getItem(key: string): string | null {
-    return this.items.get(key) ?? null
-  }
-  key(index: number): string | null {
-    return [...this.items.keys()][index] ?? null
-  }
-  removeItem(key: string): void {
-    this.items.delete(key)
-  }
-  setItem(key: string, value: string): void {
-    this.items.set(key, String(value))
-  }
 }
 
 function installStorage(): { local: Storage; session: Storage } {
