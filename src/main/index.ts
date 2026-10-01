@@ -86,10 +86,12 @@ import {
   markManager,
   panesOwnedBy,
   registerPane,
+  rehomeWorkspace,
   removePane,
   removeWindow,
   resolveExternal,
   windowOfWorkspace,
+  workspaceHasManager,
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { registerLoginFill } from './loginFill'
@@ -161,6 +163,7 @@ import { registerViewMethods, registerViewsIpc } from './viewsIpc'
 import { MAIN_SLOT } from './windowBook'
 import { WindowBroker } from './windowBroker'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
+import { registerWorkspaceMergeIpc } from './workspaceMerge'
 import {
   removeWorkspace,
   setWorkspaceWorkDir,
@@ -201,6 +204,7 @@ interface PtyEntry {
   stateFile: string
   workspaceId: string
   sandboxed: boolean
+  confinedBy: string | null
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
 }
@@ -338,8 +342,10 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   tmpRoot: privateTmpDir('pine-sandbox'),
   nodePath: process.execPath,
   hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
-  onAsk: (workspaceId, host, port) => domainRequests.onBlocked(workspaceId, host, port),
-  onPackageBlocked: (workspaceId, pkg, reason) => packageRequests.blocked(workspaceId, pkg, reason),
+  onAsk: (workspaceId, host, port) =>
+    domainRequests.onBlocked(workspaceSandboxes.owner(workspaceId), host, port),
+  onPackageBlocked: (workspaceId, pkg, reason) =>
+    packageRequests.blocked(workspaceSandboxes.owner(workspaceId), pkg, reason),
 })
 
 function paneForWorkspace(workspaceId: string): string | undefined {
@@ -878,13 +884,8 @@ function registerIpc(): void {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
-      workspaceSandboxes.forget(event.workspaceId)
-      packageRequests.forget(event.workspaceId)
-      workspaceAgents.stop(event.workspaceId)
-      secretService.forget(event.workspaceId)
-      void portForwarder.forget(event.workspaceId)
-      portRequests.forget(event.workspaceId)
-      domainRequests.forget(event.workspaceId)
+      forgetWorkspaceRequests(event.workspaceId)
+      forgetSandboxRuntime(event.workspaceId)
     } else if (event.type === 'workspace-activated') {
     } else if (event.type === 'workspace-state') {
       emitSessionState(event.workspaceId, event.state)
@@ -1010,7 +1011,54 @@ function registerExtensionIpc(host: ExtensionHost): void {
   )
 }
 
+function forgetWorkspaceRequests(workspaceId: string): void {
+  packageRequests.forget(workspaceId)
+  void portForwarder.forget(workspaceId)
+  portRequests.forget(workspaceId)
+  domainRequests.forget(workspaceId)
+}
+
+function forgetSandboxRuntime(workspaceId: string): void {
+  workspaceSandboxes.forget(workspaceId)
+  workspaceAgents.stop(workspaceId)
+  secretService.forget(workspaceId)
+}
+
+const mergedSandboxes = new Set<string>()
+
+function releaseMergedSandbox(workspaceId: string, exiting?: PtyEntry): void {
+  if (!mergedSandboxes.has(workspaceId)) return
+  for (const entry of ptys.values()) {
+    if (entry !== exiting && entry.confinedBy === workspaceId) return
+  }
+  mergedSandboxes.delete(workspaceId)
+  forgetSandboxRuntime(workspaceId)
+}
+
+function mergeWorkspace(sourceId: string, targetId: string): void {
+  for (const identity of rehomeWorkspace(sourceId, targetId)) {
+    extensionHost?.emitEvent('pane.created', {
+      paneId: identity.externalId,
+      workspaceId: targetId,
+    })
+  }
+  for (const entry of ptys.values()) {
+    if (entry.workspaceId === sourceId) entry.workspaceId = targetId
+  }
+  workspaceSandboxes.merge(sourceId, targetId)
+  removeWorkspace(sourceId)
+  forgetWorkspaceRequests(sourceId)
+  mergedSandboxes.add(sourceId)
+  releaseMergedSandbox(sourceId)
+}
+
 function registerPtyIpc(): void {
+  registerWorkspaceMergeIpc({
+    ownerWindow: windowForWorkspace,
+    hasManager: workspaceHasManager,
+    sandboxRefusal: (sourceId, targetId) => workspaceSandboxes.mergeRefusal(sourceId, targetId),
+    merge: mergeWorkspace,
+  })
   registerSandboxIpc({
     sandboxes: workspaceSandboxes,
     ownerWindow: windowForWorkspace,
@@ -1184,7 +1232,12 @@ function registerPtyIpc(): void {
       sandboxed,
     })
     const { session } = entry
-    if (sandboxed) entry.exitListeners.add(() => void workspaceSandboxes.cleanup(workspaceId))
+    if (sandboxed) {
+      entry.exitListeners.add(() => {
+        void workspaceSandboxes.cleanup(workspaceId)
+        releaseMergedSandbox(workspaceId, entry)
+      })
+    }
 
     const history = takeRestoredScrollback(paneId)
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
@@ -1310,6 +1363,7 @@ function trackPty(
     exitListeners: new Set(),
     workspaceId: opts.workspaceId ?? '',
     sandboxed: opts.sandboxed ?? false,
+    confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
   }
   ptys.set(paneId, entry)
   return entry

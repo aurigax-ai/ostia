@@ -73,6 +73,7 @@ import {
   MenuSubContent,
   MenuSubTrigger,
 } from './Menu'
+import { MergeMenuItems } from './MergeMenuItems'
 import { LiveLine, LocationLine, SidebarItem } from './RailMeta'
 import { ViewsRail } from './ViewsRail'
 import { ATTENTION_BADGE } from './attentionStyles'
@@ -704,6 +705,7 @@ function WorkspaceRow({
         <MenuItem icon={AppWindowIcon} onClick={() => void moveWorkspaceToNewWindow(w.id)}>
           {d.window.moveToNewWindow}
         </MenuItem>
+        <MergeMenuItems workspaceId={w.id} />
         <ContextMenuSeparator />
         <MenuItem
           icon={XSquareIcon}

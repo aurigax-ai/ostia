@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
   getByPaneId,
+  markManager,
   panesOwnedBy,
   registerPane,
   rehomePanes,
+  rehomeWorkspace,
   removePane,
   removeWindow,
   resolveExternal,
   resolveToken,
+  workspaceHasManager,
 } from './idRegistry'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -117,5 +120,31 @@ describe('idRegistry', () => {
 
     expect(panesOwnedBy(['p-own-1', 'p-never-registered'], 'w-own-1')).toBe(true)
     expect(panesOwnedBy(['p-own-1', 'p-own-2'], 'w-own-1')).toBe(false)
+  })
+
+  it('moves every pane of a merged workspace to the target and keeps their tokens', () => {
+    const a = registerPane({ windowId: 'w-merge', workspaceId: 's-merge-src', paneId: 'p-merge-a' })
+    const b = registerPane({ windowId: 'w-merge', workspaceId: 's-merge-src', paneId: 'p-merge-b' })
+    registerPane({ windowId: 'w-merge', workspaceId: 's-merge-dst', paneId: 'p-merge-c' })
+    const tokens = [a.token, b.token]
+
+    const moved = rehomeWorkspace('s-merge-src', 's-merge-dst')
+
+    expect(moved.map((m) => m.paneId).sort()).toEqual(['p-merge-a', 'p-merge-b'])
+    expect(getByPaneId('p-merge-a')?.workspaceId).toBe('s-merge-dst')
+    expect(getByPaneId('p-merge-b')?.workspaceId).toBe('s-merge-dst')
+    expect([resolveToken(tokens[0])?.paneId, resolveToken(tokens[1])?.paneId]).toEqual([
+      'p-merge-a',
+      'p-merge-b',
+    ])
+  })
+
+  it('knows which workspace holds the manager pane', () => {
+    registerPane({ windowId: 'w-mgr', workspaceId: 's-mgr', paneId: 'p-mgr' })
+    registerPane({ windowId: 'w-mgr', workspaceId: 's-plain', paneId: 'p-plain' })
+    markManager('p-mgr')
+
+    expect(workspaceHasManager('s-mgr')).toBe(true)
+    expect(workspaceHasManager('s-plain')).toBe(false)
   })
 })

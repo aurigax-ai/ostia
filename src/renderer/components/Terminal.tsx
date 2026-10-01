@@ -73,6 +73,8 @@ export function TerminalView({
   const fitRef = useRef<FitAddon | null>(null)
   const lastSizeRef = useRef({ cols: 0, rows: 0 })
   const spawnCwd = useRef(cwd)
+  const workspaceIdRef = useRef(workspaceId)
+  workspaceIdRef.current = workspaceId
   const font = useSettingsStore((s) => s.appearance.terminal)
   const cursorStyle = useSettingsStore((s) => s.behavior.cursorStyle)
   const cursorBlink = useSettingsStore((s) => s.behavior.cursorBlink)
@@ -135,7 +137,7 @@ export function TerminalView({
       new WebLinksAddon((e, uri) => {
         if (!linkModifierHeld(e, isMac)) return
         if (useSettingsStore.getState().browser.openTerminalLinks) {
-          useLayoutStore.getState().openBrowser(workspaceId, uri)
+          useLayoutStore.getState().openBrowser(workspaceIdRef.current, uri)
         } else {
           window.open(uri, '_blank')
         }
@@ -338,7 +340,7 @@ export function TerminalView({
     })
     const titleChange = term.onTitleChange((raw) => {
       const title = terminalTitle(raw)
-      if (title) useLayoutStore.getState().setTitle(workspaceId, paneId, title)
+      if (title) useLayoutStore.getState().setTitle(workspaceIdRef.current, paneId, title)
     })
     const bell = term.onBell(() => {
       if (replaying || isPaneViewed(paneId)) return
@@ -348,7 +350,7 @@ export function TerminalView({
       const path = decodeOsc7(data)
       if (path) {
         cwdRef.current = path
-        useLayoutStore.getState().setCwd(workspaceId, paneId, path)
+        useLayoutStore.getState().setCwd(workspaceIdRef.current, paneId, path)
       }
       return true
     })
@@ -417,7 +419,7 @@ export function TerminalView({
     const offExit = window.pine.pty.onExit(paneId, () => {
       term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')
       if (useSandboxStore.getState().hostPanes[paneId]) {
-        useLayoutStore.getState().closePane(workspaceId, paneId)
+        useLayoutStore.getState().closePane(workspaceIdRef.current, paneId)
       }
     })
 
@@ -435,7 +437,7 @@ export function TerminalView({
           cols,
           rows,
           role: 'owner',
-          workspaceId,
+          workspaceId: workspaceIdRef.current,
           hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
@@ -599,7 +601,7 @@ export function TerminalView({
       setSuppressedPrompt(null)
       setPendingPaste(null)
     }
-  }, [workspaceId, paneId])
+  }, [paneId])
 
   useEffect(() => {
     const term = termRef.current

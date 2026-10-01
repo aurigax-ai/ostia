@@ -30,6 +30,7 @@ import type {
   SandboxControls,
   SandboxEditResult,
   SandboxExposeResult,
+  SandboxMergeRefusal,
   SandboxPortRow,
   WorkspacePackages,
   WorkspaceSandbox,
@@ -419,9 +420,14 @@ export interface WindowsApi {
   onReturnRequest: (cb: () => void) => () => void
 }
 
+export type WorkspaceMergeError = 'not-owned' | 'manager' | SandboxMergeRefusal
+
+export type WorkspaceMergeResult = { ok: true } | { ok: false; error: WorkspaceMergeError }
+
 export interface WorkspaceApi {
   save: (snapshot: AppSnapshot | null) => void
   load: () => Promise<AppSnapshot | null>
+  merge: (sourceId: string, targetId: string) => Promise<WorkspaceMergeResult>
 }
 
 export type LifecycleEvent =

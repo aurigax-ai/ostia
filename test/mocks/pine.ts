@@ -73,6 +73,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     workspace: {
       save: vi.fn(),
       load: vi.fn().mockResolvedValue(null),
+      merge: vi.fn().mockResolvedValue({ ok: true }),
     },
     windows: {
       info: vi.fn().mockResolvedValue({ windowId: '1', detached: false }),
