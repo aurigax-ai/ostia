@@ -197,6 +197,21 @@ describe('ExtensionHost — command routing guards', () => {
       cwd: '/proj/sub',
     })
   })
+
+  it('SSH-C2 marks pane and user callers of a sandboxed workspace as sandboxed', () => {
+    const identity = registerPane({ windowId: 'w1', workspaceId: 'ws-sbx', paneId: 'p-sbx' })
+    const { host } = makeHost({ isSandboxed: (workspaceId) => workspaceId === 'ws-sbx' })
+    expect(host.paneCaller(identity).sandboxed).toBe(true)
+    expect(host.userCaller('ws-sbx').sandboxed).toBe(true)
+  })
+
+  it('SSH-C3 leaves sandboxed off a caller whose workspace is open or missing', () => {
+    const identity = registerPane({ windowId: 'w1', workspaceId: 'ws-open', paneId: 'p-open' })
+    const { host } = makeHost({ isSandboxed: (workspaceId) => workspaceId === 'ws-sbx' })
+    expect(host.paneCaller(identity)).not.toHaveProperty('sandboxed')
+    expect(host.userCaller('ws-open')).not.toHaveProperty('sandboxed')
+    expect(host.userCaller(null)).not.toHaveProperty('sandboxed')
+  })
 })
 
 describe('ExtensionHost — panels', () => {

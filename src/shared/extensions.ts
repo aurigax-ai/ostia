@@ -264,6 +264,7 @@ export interface ExtensionCaller {
   workDir?: string
   cwd?: string
   locale?: string
+  sandboxed?: boolean
   capabilities: Capability[]
 }
 
