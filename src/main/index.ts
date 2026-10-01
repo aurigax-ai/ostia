@@ -97,6 +97,7 @@ import {
   workspaceHasManager,
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
+import { registerLanguagePackIpc } from './languagePacks'
 import { registerLoginFill } from './loginFill'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { ManagerService, managerWindowId } from './manager'
@@ -2155,6 +2156,10 @@ app.whenReady().then(() => {
   registerIconThemeIpc({
     themes: () => extensionHost?.iconThemes() ?? [],
     onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
+  })
+  registerLanguagePackIpc({
+    languages: () => extensionHost?.languages() ?? [],
+    onError: (extId, error) => console.warn(`[language pack ${extId}] ${error}`),
   })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),

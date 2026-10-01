@@ -23,6 +23,7 @@ import {
   validSettingValue,
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
+import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../shared/languagePack'
 import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
@@ -32,6 +33,7 @@ export const MAX_WORKFLOWS = 64
 export const MAX_TEXT = 200
 export const MAX_PANE_CHIPS = 8
 export const MAX_ICON_THEMES = 16
+export const MAX_LANGUAGES = 8
 export const MAX_SETTINGS = 32
 export const MAX_ENUM_VALUES = 32
 export const MAX_SECRETS = 8
@@ -319,6 +321,30 @@ function parseIconThemes(raw: unknown, dir: string): IconThemeContribution[] | s
   return themes
 }
 
+function parseLanguages(raw: unknown, dir: string): LanguageContribution[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.length > MAX_LANGUAGES) {
+    return `contributes.languages must be an array of at most ${MAX_LANGUAGES}`
+  }
+  const languages: LanguageContribution[] = []
+  for (const [i, item] of raw.entries()) {
+    const where = `contributes.languages[${i}]`
+    if (!isRecord(item)) return `${where}: must be an object`
+    if (typeof item.id !== 'string' || !LANGUAGE_ID_PATTERN.test(item.id)) {
+      return `${where}: id must be a language tag such as fr or zh-Hant`
+    }
+    const label = text(item.label)
+    if (!label) return `${where}: missing label`
+    const path = item.path
+    if (typeof path !== 'string' || !path.endsWith('.json') || !isInsideDir(dir, path)) {
+      return `${where}: path must be a .json file inside the extension`
+    }
+    if (languages.some((l) => l.id === item.id)) return `${where}: duplicate id '${item.id}'`
+    languages.push({ id: item.id, label, path })
+  }
+  return languages
+}
+
 function parseWorkflows(raw: unknown): Workflow[] | string | undefined {
   if (raw === undefined) return undefined
   if (!Array.isArray(raw) || raw.length > MAX_WORKFLOWS) {
@@ -396,6 +422,8 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof assist === 'string') return { ok: false, error: assist }
   const iconThemes = parseIconThemes(contributes.iconThemes, dir)
   if (typeof iconThemes === 'string') return { ok: false, error: iconThemes }
+  const languages = parseLanguages(contributes.languages, dir)
+  if (typeof languages === 'string') return { ok: false, error: languages }
   const needsMain =
     commands.length > 0 ||
     sidebarItems ||
@@ -423,6 +451,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (workflows && workflows.length > 0) manifest.contributes.workflows = workflows
   if (completions !== undefined) manifest.contributes.completions = completions
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes
+  if (languages.length > 0) manifest.contributes.languages = languages
   return { ok: true, manifest }
 }
 

@@ -46,6 +46,7 @@ const assistant: ExtensionInfo = {
   secrets: [],
   secretsSet: [],
   category: 'other',
+  languages: [],
 }
 
 const overview: AssistExtensionState = {

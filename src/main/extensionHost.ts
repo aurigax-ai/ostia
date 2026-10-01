@@ -96,6 +96,7 @@ import {
   removeExtension,
   resolveExternal,
 } from './idRegistry'
+import type { LanguageSource } from './languagePacks'
 
 export const MAX_RESTARTS = 3
 export const REQUEST_TIMEOUT_MS = 30_000
@@ -475,6 +476,7 @@ export class ExtensionHost {
       secrets: m.contributes.secrets,
       secretsSet: this.deps.secrets?.keys(m.id) ?? [],
       iconThemes: (m.contributes.iconThemes ?? []).map(({ id, label }) => ({ id, label })),
+      languages: (m.contributes.languages ?? []).map(({ id, label }) => ({ id, label })),
     }
   }
 
@@ -502,6 +504,18 @@ export class ExtensionHost {
     return [...this.runtimes.values()]
       .filter((rt) => this.active(rt) && rt.ext.manifest.contributes.completions)
       .map((rt) => join(rt.ext.dir, rt.ext.manifest.contributes.completions ?? ''))
+  }
+
+  languages(): LanguageSource[] {
+    return [...this.runtimes.values()]
+      .filter((rt) => this.active(rt))
+      .flatMap((rt) =>
+        (rt.ext.manifest.contributes.languages ?? []).map((language) => ({
+          extId: rt.ext.manifest.id,
+          dir: rt.ext.dir,
+          language,
+        })),
+      )
   }
 
   iconThemes(): { dir: string; theme: IconThemeContribution }[] {

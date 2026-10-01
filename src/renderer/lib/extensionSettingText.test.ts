@@ -40,6 +40,7 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     secrets: [{ key: 'apiKey', title: 'API key', description: 'k' }],
     secretsSet: [],
     category: 'other',
+    languages: [],
     iconThemes: [],
     ...overrides,
   }

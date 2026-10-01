@@ -62,7 +62,6 @@ export interface PluginContributions {
   themes?: Theme[]
   colorSchemes?: ColorScheme[]
   languageServers?: LanguageServerSpec[]
-  languages?: LanguageContribution[]
 }
 
 export interface PluginManifest {

@@ -784,6 +784,7 @@ export const en = {
       scm: 'Source control',
       tools: 'Tools',
       themes: 'Themes',
+      langpack: 'Language pack',
       completions: 'Completions',
       other: 'Other',
     },
@@ -2505,6 +2506,7 @@ export const zhHant: Dict = {
       scm: '原始碼控制',
       tools: '工具',
       themes: '佈景主題',
+      langpack: '語言套件',
       completions: '自動完成',
       other: '其他',
     },
@@ -3421,8 +3423,6 @@ export const zhHant: Dict = {
     remoteCancel: '取消',
   },
 }
-
-export const catalogs: Record<Locale, Dict> = { en, 'zh-Hant': zhHant }
 
 export function resolveLocale(tag: string | undefined): Locale {
   if (!tag) return 'en'

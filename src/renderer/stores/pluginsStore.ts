@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { BASE_LANGUAGE, languagesFrom } from '../lib/languagePacks'
 import { BUILTIN_PLUGINS } from '../plugins/builtin'
 import type { ColorScheme, LanguageContribution, PluginManifest, Theme } from '../plugins/types'
 
@@ -6,8 +7,6 @@ const collectThemes = (plugins: PluginManifest[]): Theme[] =>
   plugins.flatMap((p) => p.contributes.themes ?? [])
 const collectColorSchemes = (plugins: PluginManifest[]): ColorScheme[] =>
   plugins.flatMap((p) => p.contributes.colorSchemes ?? [])
-const collectLanguages = (plugins: PluginManifest[]): LanguageContribution[] =>
-  plugins.flatMap((p) => p.contributes.languages ?? [])
 
 export type LspStatus = 'running' | 'installed' | 'missing' | 'error'
 
@@ -25,6 +24,7 @@ interface PluginsState {
   lsp: LspEntry[]
   loaded: boolean
   load: () => Promise<void>
+  loadLanguages: () => Promise<void>
   setLspStatus: (languageId: string, status: LspStatus) => void
 }
 
@@ -32,7 +32,7 @@ export const usePluginsStore = create<PluginsState>((set, get) => ({
   plugins: BUILTIN_PLUGINS,
   themes: collectThemes(BUILTIN_PLUGINS),
   colorSchemes: collectColorSchemes(BUILTIN_PLUGINS),
-  languages: collectLanguages(BUILTIN_PLUGINS),
+  languages: [BASE_LANGUAGE],
   lsp: [],
   loaded: false,
 
@@ -47,6 +47,10 @@ export const usePluginsStore = create<PluginsState>((set, get) => ({
         status: s.installed ? 'installed' : 'missing',
       })),
     })
+  },
+
+  loadLanguages: async () => {
+    set({ languages: languagesFrom(await window.pine.languagePacks.load()) })
   },
 
   setLspStatus: (languageId, status) =>

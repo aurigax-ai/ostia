@@ -323,6 +323,7 @@ describe('NotificationCenter', () => {
           secrets: [],
           secretsSet: [],
           category: 'other',
+          languages: [],
           iconThemes: [],
         },
       ],

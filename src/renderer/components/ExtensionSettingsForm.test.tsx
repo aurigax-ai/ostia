@@ -29,6 +29,7 @@ function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     secrets: [{ key: 'apiKey', description: 'Key for the provider' }],
     secretsSet: [],
     category: 'other',
+    languages: [],
     ...overrides,
   }
 }

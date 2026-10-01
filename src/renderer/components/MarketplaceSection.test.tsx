@@ -193,6 +193,7 @@ describe('Uninstall in the installed list', () => {
       secrets: [],
       secretsSet: [],
       category: 'other',
+      languages: [],
       iconThemes: [],
     }
   }

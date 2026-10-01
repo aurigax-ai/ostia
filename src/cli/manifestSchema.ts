@@ -5,6 +5,7 @@ import {
   MAX_COMMANDS,
   MAX_ENUM_VALUES,
   MAX_ICON_THEMES,
+  MAX_LANGUAGES,
   MAX_PANE_CHIPS,
   MAX_TEXT,
   MAX_WORKFLOWS,
@@ -26,6 +27,7 @@ import {
   EXTENSION_SETTING_UNITS,
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN } from '../shared/iconTheme'
+import { LANGUAGE_ID_PATTERN } from '../shared/languagePack'
 
 const SETTING_DESCRIPTION_MAX = 500
 const VERSION_MAX = 40
@@ -93,6 +95,16 @@ const contributes = z.looseObject({
       }),
     )
     .max(MAX_ICON_THEMES)
+    .optional(),
+  languages: z
+    .array(
+      z.looseObject({
+        id: z.string().regex(LANGUAGE_ID_PATTERN),
+        label: text,
+        path: z.string().regex(/\.json$/),
+      }),
+    )
+    .max(MAX_LANGUAGES)
     .optional(),
 })
 
