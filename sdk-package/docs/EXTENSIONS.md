@@ -195,8 +195,10 @@ prepare, signature help, document symbols (the outline), document highlights, do
 formatting (also format on save), code actions (edits and commands, `workspace/applyEdit`),
 semantic tokens (full document) and inlay hints. Text is synced incrementally when the server
 asks for it, and `didSave` is sent when it asked for saves. A workspace edit changes open
-documents through the editor (undoable) and closed files on disk; an edit that creates, renames
-or deletes files is refused. Not wired yet: pull diagnostics, workspace symbols, code lens,
+documents through the editor (undoable) and closed files on disk, and only inside the server's
+root folder: an edit that touches a file outside it, a URI that is not `file:`, or one that
+creates, renames or deletes files is refused as a whole. In a sandboxed workspace the root must
+also be inside the workspace folder, otherwise the server cannot edit at all. Not wired yet: pull diagnostics, workspace symbols, code lens,
 folding ranges, type hierarchy, and dynamic registration.
 
 ```json
@@ -407,7 +409,8 @@ your extension then waits for approval like any other. No is remembered per exte
 pine also carries a small compiled table (`src/shared/extensionSuggestions.ts`) of the language
 extensions it publishes itself and the file names and suffixes each is suggested for, so the
 offer works before any marketplace has been added; Install then adds the official marketplace
-first.
+first. An id in that table is only ever taken from the official marketplace, whatever another
+marketplace lists under the same id.
 
 ## Approval and capabilities
 

@@ -19,6 +19,7 @@ import type { AgentResume } from '../shared/agentResume'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
 import { languageForPath } from '../shared/editorLanguages'
+import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
@@ -110,7 +111,7 @@ import { ManagedServers, downloadBaseUrl } from './managedServers'
 import { ManagerService, managerWindowId } from './manager'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
-import { Marketplace } from './marketplace'
+import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './marketplace'
 import { McpHost } from './mcpHost'
 import {
   postActionNotification,
@@ -1281,12 +1282,17 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
       extensions: () => extensionHost?.list() ?? [],
       listings: () => marketplace.languageListings(),
       dismissed: () => dismissed.list(),
+      official: marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? ''),
       languageOf: editorLanguageOf,
     })
   })
   ipcMain.handle('suggestions:dismiss', (_e, extId: unknown) => dismissed.dismiss(extId))
   ipcMain.handle('suggestions:install', (_e, extId: unknown) =>
-    marketplace.installSuggested(extId, OFFICIAL_MARKETPLACE),
+    marketplace.installSuggested(
+      extId,
+      OFFICIAL_MARKETPLACE,
+      typeof extId === 'string' && Object.hasOwn(EXTENSION_SUGGESTIONS, extId),
+    ),
   )
 }
 

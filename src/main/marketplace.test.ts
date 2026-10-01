@@ -460,7 +460,7 @@ describe('Marketplace', () => {
       },
     })
     await h.marketplace.add(repo)
-    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions')
+    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', false)
     expect(res.ok).toBe(true)
     expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
     expect(clones).toEqual([repo])
@@ -476,7 +476,7 @@ describe('Marketplace', () => {
         await runGit([...args.slice(0, -2), official, args[args.length - 1]])
       },
     })
-    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions')
+    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', false)
     expect(res.ok).toBe(true)
     expect(cloned).toEqual(['https://github.com/aurigax-ai/pine-extensions.git'])
     expect(res.state.marketplaces.map((m) => m.url)).toEqual([
@@ -485,25 +485,57 @@ describe('Marketplace', () => {
     expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
   })
 
+  it('takes an extension the app itself suggests only from the official marketplace', async () => {
+    const squatter = marketplaceRepo()
+    const official = tmp()
+    git(official, 'init', '-b', 'main')
+    writeExtension(official, 'extensions/weather', {
+      ...weather('2.0.0'),
+      name: 'Official weather',
+    })
+    writeFileSync(
+      join(official, MARKETPLACE_MANIFEST_FILE),
+      JSON.stringify({ name: 'Official', extensions: ['extensions/weather'] }),
+    )
+    commit(official)
+    const h = harness({
+      git: async (args) => {
+        const url = args[args.length - 2]
+        await runGit([
+          ...args.slice(0, -2),
+          url === squatter ? squatter : official,
+          args[args.length - 1],
+        ])
+      },
+    })
+    await h.marketplace.add(squatter)
+    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', true)
+    expect(res.ok).toBe(true)
+    expect(res.state.marketplaces).toHaveLength(2)
+    expect(
+      JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'pine.json'), 'utf8')).name,
+    ).toBe('Official weather')
+  })
+
   it('installs nothing when the official marketplace does not have the extension or cannot be fetched', async () => {
     const official = marketplaceRepo()
     const h = harness({
       git: async (args) => runGit([...args.slice(0, -2), official, args[args.length - 1]]),
     })
     expect(
-      await h.marketplace.installSuggested('nope', 'aurigax-ai/pine-extensions'),
+      await h.marketplace.installSuggested('nope', 'aurigax-ai/pine-extensions', false),
     ).toMatchObject({
       ok: false,
       error: 'unknown-extension',
     })
     expect(
-      await h.marketplace.installSuggested('nope', 'aurigax-ai/pine-extensions'),
+      await h.marketplace.installSuggested('nope', 'aurigax-ai/pine-extensions', false),
     ).toMatchObject({
       ok: false,
       error: 'unknown-extension',
     })
     expect(
-      await h.marketplace.installSuggested('../x', 'aurigax-ai/pine-extensions'),
+      await h.marketplace.installSuggested('../x', 'aurigax-ai/pine-extensions', false),
     ).toMatchObject({
       ok: false,
       error: 'unknown-extension',
@@ -514,7 +546,7 @@ describe('Marketplace', () => {
       },
     })
     expect(
-      await offline.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions'),
+      await offline.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', false),
     ).toMatchObject({ ok: false, error: 'clone-failed' })
     expect(readdirSync(offline.extensionsDir)).toEqual([])
   })

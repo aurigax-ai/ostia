@@ -4,7 +4,7 @@ import { isDangerousSegment } from './protoGuard'
 
 export const LANGUAGE_SERVER_CAPABILITY = 'language-server'
 export const LANGUAGE_SERVER_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
-export const LANGUAGE_SERVER_PROGRAM_PATTERN = /^[A-Za-z0-9._+-]{1,64}$/
+export const LANGUAGE_SERVER_PROGRAM_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9._+-]{0,63}$/
 export const LANGUAGE_SERVER_SCRIPT_PATTERN = /\.(c|m)?js$/
 export const LANGUAGE_SERVER_MARKER_PATTERN = /^[^/\\]{1,100}$/
 export const LANGUAGE_SERVER_SUFFIX_PATTERN = /^\.[A-Za-z0-9._+-]{1,40}$/
@@ -194,6 +194,7 @@ export interface LspSessionInfo {
   sessionId: string
   serverKey: string
   root: string
+  editRoot: string | null
   languageId: string
   initializationOptions: JsonObject
 }
@@ -587,6 +588,14 @@ function parseSettingPaths(
   return out
 }
 
+function hasControlCharacter(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i)
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
+}
+
 function parseServer(
   raw: unknown,
   index: number,
@@ -598,7 +607,12 @@ function parseServer(
   const id = raw.id
   if (typeof id !== 'string' || !LANGUAGE_SERVER_ID_PATTERN.test(id)) return `${where}: invalid id`
   const name = raw.name
-  if (typeof name !== 'string' || !name.trim() || name.length > SERVER_NAME_MAX) {
+  if (
+    typeof name !== 'string' ||
+    !name.trim() ||
+    name.length > SERVER_NAME_MAX ||
+    hasControlCharacter(name)
+  ) {
     return `${where}: name must be 1-${SERVER_NAME_MAX} characters`
   }
   const languages = parseLanguages(raw.languages, where)
@@ -659,7 +673,9 @@ export function parseLanguageServers(
 }
 
 export function substitutePlaceholders(text: string, extensionDir: string, root: string): string {
-  return text.replaceAll(EXTENSION_DIR_PLACEHOLDER, extensionDir).replaceAll(ROOT_PLACEHOLDER, root)
+  return text
+    .replaceAll(EXTENSION_DIR_PLACEHOLDER, () => extensionDir)
+    .replaceAll(ROOT_PLACEHOLDER, () => root)
 }
 
 export function substituteJson(value: JsonValue, extensionDir: string, root: string): JsonValue {

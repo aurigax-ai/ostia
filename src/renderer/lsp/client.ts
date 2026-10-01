@@ -136,6 +136,7 @@ async function attach(document: OpenDocument): Promise<void> {
   if (!isCurrent(document)) return
   const uri = document.model.uri.toString()
   const offered = await window.pine.lsp.open(document.paneId, document.model.uri.path)
+  if (isCurrent(document)) for (const info of offered) ensureSession(info)
   for (const info of offered) {
     if (!isCurrent(document) || document.attached.get(info.serverKey) === info.sessionId) {
       window.pine.lsp.release(info.sessionId)

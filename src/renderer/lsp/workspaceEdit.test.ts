@@ -4,9 +4,8 @@ import { FakeModel, createFakeMonaco } from '../../../test/mocks/monaco'
 const fake = createFakeMonaco()
 vi.mock('../monaco/setup', () => ({ monaco: fake.monaco }))
 
-const { applyTextEdits, applyWorkspaceEdit, openModelEdits, textEditsByUri } = await import(
-  './workspaceEdit'
-)
+const { applyTextEdits, applyWorkspaceEdit, editsStayInside, openModelEdits, textEditsByUri } =
+  await import('./workspaceEdit')
 
 const edit = (line: number, start: number, end: number, newText: string) => ({
   range: { start: { line, character: start }, end: { line, character: end } },
@@ -75,12 +74,15 @@ describe('applyWorkspaceEdit', () => {
     const model = fake.addModel(new FakeModel('/p/open.txt', 'open one'))
     vi.mocked(window.pine.fs.read).mockResolvedValue('closed one\n')
     vi.mocked(window.pine.fs.write).mockResolvedValue(true)
-    const applied = await applyWorkspaceEdit({
-      changes: {
-        'file:///p/open.txt': [edit(0, 5, 8, 'two')],
-        'file:///p/closed.txt': [edit(0, 7, 10, 'two')],
+    const applied = await applyWorkspaceEdit(
+      {
+        changes: {
+          'file:///p/open.txt': [edit(0, 5, 8, 'two')],
+          'file:///p/closed.txt': [edit(0, 7, 10, 'two')],
+        },
       },
-    })
+      '/p',
+    )
     expect(applied).toBe(true)
     expect(model.getValue()).toBe('open two')
     expect(window.pine.fs.read).toHaveBeenCalledTimes(1)
@@ -91,12 +93,45 @@ describe('applyWorkspaceEdit', () => {
   it('reports failure when a closed file cannot be read or written, and for file operations', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue(null)
     expect(
-      await applyWorkspaceEdit({ changes: { 'file:///outside/x.txt': [edit(0, 0, 0, 'x')] } }),
+      await applyWorkspaceEdit({ changes: { 'file:///p/x.txt': [edit(0, 0, 0, 'x')] } }, '/p'),
     ).toBe(false)
     expect(window.pine.fs.write).not.toHaveBeenCalled()
     expect(
-      await applyWorkspaceEdit({ documentChanges: [{ kind: 'delete', uri: 'file:///p/a.txt' }] }),
+      await applyWorkspaceEdit(
+        { documentChanges: [{ kind: 'delete', uri: 'file:///p/a.txt' }] },
+        '/p',
+      ),
     ).toBe(false)
+  })
+
+  it('refuses the whole edit when any file is outside the folder the server may edit', async () => {
+    const model = fake.addModel(new FakeModel('/p/open.txt', 'open one'))
+    vi.mocked(window.pine.fs.read).mockResolvedValue('secret\n')
+    for (const uri of [
+      'file:///home/u/.zshrc',
+      'file:///p/../home/u/.zshrc',
+      'file:///p-other/x.txt',
+      'untitled:///p/x.txt',
+    ]) {
+      expect(
+        await applyWorkspaceEdit(
+          {
+            changes: { 'file:///p/open.txt': [edit(0, 0, 4, 'OPEN')], [uri]: [edit(0, 0, 0, 'x')] },
+          },
+          '/p',
+        ),
+        uri,
+      ).toBe(false)
+    }
+    expect(
+      await applyWorkspaceEdit(
+        { changes: { 'file:///p/open.txt': [edit(0, 0, 4, 'OPEN')] } },
+        null,
+      ),
+    ).toBe(false)
+    expect(model.getValue()).toBe('open one')
+    expect(window.pine.fs.write).not.toHaveBeenCalled()
+    expect(editsStayInside(new Map(), null)).toBe(true)
   })
 })
 

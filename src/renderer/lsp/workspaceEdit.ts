@@ -49,6 +49,20 @@ export function applyTextEdits(text: string, edits: readonly TextEdit[]): string
   return out
 }
 
+export function editsStayInside(
+  byUri: ReadonlyMap<string, TextEdit[]>,
+  editRoot: string | null,
+): boolean {
+  if (editRoot === null) return byUri.size === 0
+  const base = editRoot.endsWith('/') ? editRoot : `${editRoot}/`
+  for (const uri of byUri.keys()) {
+    const parsed = monaco.Uri.parse(uri)
+    if (parsed.scheme !== 'file') return false
+    if (parsed.path.split('/').includes('..') || !parsed.path.startsWith(base)) return false
+  }
+  return true
+}
+
 function openModel(uri: string): monaco.editor.ITextModel | null {
   const model = monaco.editor.getModel(monaco.Uri.parse(uri))
   return model && !model.isDisposed() ? model : null
@@ -87,9 +101,12 @@ export async function applyClosedFileEdits(
   return applied
 }
 
-export async function applyWorkspaceEdit(edit: WorkspaceEdit): Promise<boolean> {
+export async function applyWorkspaceEdit(
+  edit: WorkspaceEdit,
+  editRoot: string | null,
+): Promise<boolean> {
   const byUri = textEditsByUri(edit)
-  if (byUri === null) return false
+  if (byUri === null || !editsStayInside(byUri, editRoot)) return false
   for (const [uri, list] of byUri) {
     const model = openModel(uri)
     if (!model) continue

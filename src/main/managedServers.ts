@@ -279,7 +279,7 @@ export class ManagedServers {
     run: LanguageServerRun,
     hooks: FetchHooks = {},
   ): Promise<string> {
-    const key = `${extId}/${serverId}`
+    const key = `${extId}/${serverId}@${pinnedVersion(run) ?? ''}`
     const pending = this.running.get(key)
     if (pending) return pending
     const started = this.install(extId, serverId, run, hooks).finally(() => {
@@ -466,6 +466,8 @@ export class ManagedServers {
           report(String(stderr))
           if (!error) {
             done()
+          } else if (error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
+            fail(new FetchError('command-failed', 'go install printed too much'))
           } else if (error.killed) {
             fail(new FetchError('timeout', 'go install took too long'))
           } else {
@@ -496,6 +498,11 @@ export class ManagedServers {
     rmSync(join(this.deps.dir, extId), { recursive: true, force: true })
   }
 
+  private fetching(key: string): boolean {
+    const prefix = `${key}@`
+    return [...this.running.keys()].some((running) => running.startsWith(prefix))
+  }
+
   retain(keep: ReadonlyMap<string, string>): void {
     for (const extId of this.children(this.deps.dir)) {
       const extDir = join(this.deps.dir, extId)
@@ -504,11 +511,11 @@ export class ManagedServers {
         const version = keep.get(key)
         const serverDir = join(extDir, serverId)
         if (version === undefined) {
-          if (!this.running.has(key)) rmSync(serverDir, { recursive: true, force: true })
+          if (!this.fetching(key)) rmSync(serverDir, { recursive: true, force: true })
           continue
         }
         for (const name of this.children(serverDir)) {
-          if (name === version || this.running.has(key)) continue
+          if (name === version || this.fetching(key)) continue
           rmSync(join(serverDir, name), { recursive: true, force: true })
         }
       }

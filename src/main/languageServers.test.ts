@@ -336,6 +336,7 @@ describe('LanguageServers.open', () => {
       sessionId: expect.any(String),
       serverKey: 'ext/fake',
       root,
+      editRoot: root,
       languageId: 'fake',
       initializationOptions: { home: extensionDir, nested: { root } },
     })
@@ -442,6 +443,30 @@ describe('LanguageServers sessions', () => {
     h.spawned[1].child.peer.sendNotification('custom/ping', { n: 1 })
     await vi.waitFor(() => expect(h.posts).toHaveLength(1))
     expect(h.posts[0]).toMatchObject({ windowId: 'w2', channel: `lsp:msg:${second.sessionId}` })
+  })
+
+  it('does not offer a session whose process died while another server was starting', async () => {
+    const h = harness()
+    h.sources = [source(nodeServer), source(downloadServerFor('plaintext'))]
+    h.fetchBinary.mockImplementation(async () => {
+      h.spawned[0].child.exit(1, null)
+      h.copies.set('ext/native', '/data/ls/ext/native/1.2.3/tool')
+      return '/data/ls/ext/native/1.2.3/tool'
+    })
+    const offered = await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))
+    expect(offered.map((s) => s.serverKey)).toEqual(['ext/native'])
+  })
+
+  it('hands nothing to a window that went away while its server was starting, and lets it idle out', async () => {
+    const h = harness()
+    h.sources = [source(downloadServerFor('plaintext'))]
+    h.fetchBinary.mockImplementation(async () => {
+      h.servers.dropWindow('w1')
+      h.copies.set('ext/native', '/data/ls/ext/native/1.2.3/tool')
+      return '/data/ls/ext/native/1.2.3/tool'
+    })
+    expect(await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))).toEqual([])
+    await vi.waitFor(() => expect(h.spawned[0]?.child.exited).toBe(true))
   })
 
   it('takes messages and releases only from the window that opened the session', async () => {
@@ -687,6 +712,33 @@ describe('LanguageServers in a sandboxed workspace', () => {
     expect(h.spawned).toHaveLength(2)
   })
 
+  it('lets a sandboxed server edit files only inside the workspace folder', async () => {
+    const h = harness({ workDir: () => join(workDir, 'pkg') })
+    h.sandboxed.add('ws1')
+    const [inside] = await h.servers.open('w1', 'p1', join(workDir, 'pkg', 'src', 'a.txt'))
+    expect(inside.editRoot).toBe(join(workDir, 'pkg'))
+    const [outside] = await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))
+    expect(outside.root).toBe(workDir)
+    expect(outside.editRoot).toBeNull()
+  })
+
+  it('announces a refusal once, not on every attempt', async () => {
+    const h = harness()
+    h.sandboxed.add('ws1')
+    h.unreadable.add(workDir)
+    const file = join(workDir, 'loose.txt')
+    expect(await h.servers.open('w1', 'p1', file)).toEqual([])
+    const announced = h.changed.mock.calls.length
+    expect(announced).toBeGreaterThan(0)
+    expect(await h.servers.open('w1', 'p1', file)).toEqual([])
+    expect(await h.servers.open('w1', 'p1', file)).toEqual([])
+    expect(h.changed.mock.calls.length).toBe(announced)
+    expect(h.servers.servers()[0]).toMatchObject({
+      status: 'sandbox-unavailable',
+      sandboxProblem: 'folder-unreadable',
+    })
+  })
+
   it('spawns nothing when the wrap fails and says why', async () => {
     const h = harness()
     h.sandboxed.add('ws1')
@@ -737,6 +789,10 @@ const downloadServer: LanguageServerContribution = {
     args: ['--lsp'],
   },
   rootMarkers: [],
+}
+
+function downloadServerFor(language: string): LanguageServerContribution {
+  return { ...downloadServer, languages: [language] }
 }
 
 const goServer: LanguageServerContribution = {

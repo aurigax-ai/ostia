@@ -35,6 +35,7 @@ function sources(extra: Partial<Record<keyof SuggestionSources, unknown>> = {}):
     extensions: () => (extra.extensions as ReturnType<SuggestionSources['extensions']>) ?? [],
     listings: () => (extra.listings as ReturnType<SuggestionSources['listings']>) ?? [],
     dismissed: () => (extra.dismissed as string[]) ?? [],
+    official: 'official',
   }
 }
 
@@ -53,10 +54,11 @@ describe('suggestionFor', () => {
     })
   })
 
-  it('uses the listing’s name when a marketplace on disk offers the extension', () => {
+  it('names an extension from the table by the official marketplace’s listing, never another one’s', () => {
     const listings = [
+      { marketplaceId: 'm1', extId: 'lsp-rust-analyzer', name: 'Squatter', languages: ['rust'] },
       {
-        marketplaceId: 'm1',
+        marketplaceId: 'official',
         extId: 'lsp-rust-analyzer',
         name: 'Rust (rust-analyzer)',
         languages: ['rust'],
@@ -65,6 +67,10 @@ describe('suggestionFor', () => {
     expect(suggestionFor('/p/main.rs', sources({ listings }))).toMatchObject({
       kind: 'install',
       name: 'Rust (rust-analyzer)',
+      others: 0,
+    })
+    expect(suggestionFor('/p/main.rs', sources({ listings: listings.slice(0, 1) }))).toMatchObject({
+      name: 'lsp-rust-analyzer',
     })
   })
 

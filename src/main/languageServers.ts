@@ -233,6 +233,8 @@ export class LanguageServers {
   private readonly starting = new Map<string, Promise<Session | null>>()
   private readonly slots = new Map<string, Slot>()
   private readonly records = new Map<string, ServerRecord>()
+  private readonly refusals = new Map<string, string>()
+  private readonly epochs = new Map<string, number>()
   private registered = new Set<string>()
   private seq = 0
   private stopped = false
@@ -531,6 +533,9 @@ export class LanguageServers {
     for (const slotKey of [...this.slots.keys()]) {
       if (slotKey.startsWith(prefix)) this.slots.delete(slotKey)
     }
+    for (const slotKey of [...this.refusals.keys()]) {
+      if (slotKey.startsWith(prefix)) this.refusals.delete(slotKey)
+    }
   }
 
   private pushSettings(session: Session, source: LanguageServerSource): void {
@@ -552,6 +557,9 @@ export class LanguageServers {
     const file = this.deps.confine(filePath)
     if (file === null) return []
     const language = (this.deps.languageOf ?? languageForPath)(file)
+    const epoch = this.epochs.get(windowId) ?? 0
+    const sandboxed = this.deps.sandbox.owner(pane.workspaceId) !== null
+    const workDir = this.deps.workDir(pane.workspaceId)
     const matching = this.deps
       .sources()
       .filter((source) => source.state === 'on' && source.server.languages.includes(language))
@@ -563,6 +571,10 @@ export class LanguageServers {
           sessionId: session.id,
           serverKey: session.key,
           root: session.root,
+          editRoot:
+            !sandboxed || (workDir !== undefined && isInside(session.root, workDir))
+              ? session.root
+              : null,
           languageId: documentLanguageId(source.server, file, language),
           initializationOptions: substituteJson(
             source.server.initializationOptions ?? {},
@@ -572,7 +584,12 @@ export class LanguageServers {
         }
       }),
     )
-    return opened.filter((info): info is LspSessionInfo => info !== null)
+    const alive = opened.filter(
+      (info): info is LspSessionInfo => info !== null && this.sessions.has(info.sessionId),
+    )
+    if ((this.epochs.get(windowId) ?? 0) === epoch) return alive
+    for (const info of alive) this.release(windowId, info.sessionId)
+    return []
   }
 
   private async acquire(
@@ -655,6 +672,9 @@ export class LanguageServers {
       const { sandbox } = this.deps
       const refuse = (problem: LanguageServerSandboxProblem, detail: string): null => {
         record.sandboxProblem = { problem, detail }
+        const refusal = `${problem}\n${detail}`
+        if (this.refusals.get(slotKey) === refusal) return null
+        this.refusals.set(slotKey, refusal)
         this.deps.log?.('lsp-sandbox-refused', { server: key, problem })
         this.changed()
         return null
@@ -686,6 +706,7 @@ export class LanguageServers {
       if (this.stopped) return null
     }
     record.sandboxProblem = null
+    this.refusals.delete(slotKey)
     let proc: ChildProcessWithoutNullStreams
     try {
       proc = (this.deps.spawn ?? spawnProcess)(spawnCommand, spawnArgs, {
@@ -850,12 +871,16 @@ export class LanguageServers {
   }
 
   dropWindow(windowId: string): void {
+    this.epochs.set(windowId, (this.epochs.get(windowId) ?? 0) + 1)
     for (const session of [...this.sessions.values()]) {
       if (session.windowId === windowId) void this.stop(session, 'window')
     }
     const suffix = `\n${windowId}`
     for (const slotKey of [...this.slots.keys()]) {
       if (slotKey.endsWith(suffix)) this.slots.delete(slotKey)
+    }
+    for (const slotKey of [...this.refusals.keys()]) {
+      if (slotKey.endsWith(suffix)) this.refusals.delete(slotKey)
     }
   }
 

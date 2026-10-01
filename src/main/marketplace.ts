@@ -433,8 +433,9 @@ export class Marketplace {
     return this.serialized(() => this.addSource(input))
   }
 
-  private sourceListing(extId: string): Source | undefined {
+  private sourceListing(extId: string, onlyUrl: string | null): Source | undefined {
     return this.records.sources.find((source) => {
+      if (onlyUrl !== null && source.url !== onlyUrl) return false
       const dir = this.cloneDir(source.id)
       const catalog = existsSync(dir) ? readCatalog(dir) : null
       if (catalog === null || typeof catalog === 'string') return false
@@ -443,20 +444,26 @@ export class Marketplace {
     })
   }
 
-  installSuggested(extId: unknown, officialUrl: string): Promise<MarketplaceResult> {
+  installSuggested(
+    extId: unknown,
+    officialUrl: string,
+    officialOnly: boolean,
+  ): Promise<MarketplaceResult> {
     return this.serialized(async () => {
       if (typeof extId !== 'string' || !EXTENSION_ID_PATTERN.test(extId)) {
         return this.fail('unknown-extension')
       }
-      let source = this.sourceListing(extId)
+      const official = normalizeMarketplaceUrl(officialUrl)
+      const only = officialOnly ? official : null
+      if (officialOnly && !official) return this.fail('unknown-extension')
+      let source = this.sourceListing(extId, only)
       if (!source) {
-        const official = normalizeMarketplaceUrl(officialUrl)
         if (!official || this.records.sources.some((s) => s.url === official)) {
           return this.fail('unknown-extension')
         }
         const added = await this.addSource(official)
         if (!added.ok) return added
-        source = this.sourceListing(extId)
+        source = this.sourceListing(extId, only)
         if (!source) return this.fail('unknown-extension')
       }
       return this.installFrom(source.id, extId)
