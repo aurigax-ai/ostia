@@ -24,6 +24,7 @@ import {
   type MarketplaceResult,
   type MarketplaceState,
 } from '../shared/marketplace'
+import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
 import { EXTENSION_ID_PATTERN, isInsideDir, readManifest } from './extensionManifest'
 import { loadJson, saveJson } from './jsonStore'
 import { missingRequirements } from './systemRequirements'
@@ -190,6 +191,7 @@ export interface MarketplaceDeps {
   builtinIds: () => string[]
   forget: (extId: string) => void
   rescan: () => void
+  locale?: () => string | undefined
   git?: GitRunner
   gitMissing?: () => boolean
 }
@@ -288,6 +290,7 @@ export class Marketplace {
 
   private info(source: Source): MarketplaceInfo {
     const base = { id: source.id, url: source.url }
+    const locale = this.deps.locale?.()
     const catalog = existsSync(this.cloneDir(source.id))
       ? readCatalog(this.cloneDir(source.id))
       : 'not downloaded yet'
@@ -306,14 +309,15 @@ export class Marketplace {
       name: catalog.name,
       description: catalog.description,
       problems: catalog.problems,
-      extensions: catalog.entries.map(({ manifest }): MarketplaceExtension => {
+      extensions: catalog.entries.map(({ dir, manifest }): MarketplaceExtension => {
         const state = this.installState(source.id, manifest)
         const installedVersion = state === 'update' ? this.installedVersion(manifest.id) : undefined
+        const shown = manifestIn(manifest, loadLocaleCatalogs(dir, manifest), locale)
         return {
           id: manifest.id,
-          name: manifest.name,
+          name: shown.name,
           version: manifest.version,
-          description: manifest.description,
+          description: shown.description,
           category: manifest.category,
           capabilities: manifest.capabilities,
           runsProcess: manifest.main !== undefined,

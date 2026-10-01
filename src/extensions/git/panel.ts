@@ -175,7 +175,7 @@ const t = pickLocale({
     committed: (sha: string) => `已提交 ${sha}`,
     noCommits: '尚無提交',
     noFiles: '沒有檔案變更',
-    noBlameFile: '請開啟檔案後執行「Git: Blame File」',
+    noBlameFile: '請開啟檔案後執行「Git：逐行追溯檔案」',
     uncommitted: '尚未提交',
     viewAs: '變更檔案顯示為',
     viewList: '平面清單',

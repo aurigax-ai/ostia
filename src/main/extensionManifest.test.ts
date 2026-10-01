@@ -468,6 +468,39 @@ describe('parseManifest', () => {
   })
 })
 
+describe('parseManifest — locales', () => {
+  const locales = (list: unknown) => parseManifest(manifest({ locales: list }), DIR)
+
+  it('keeps the language tags an extension translates itself into', () => {
+    const res = locales(['zh-Hant', 'fr'])
+    expect(res.ok && res.manifest.locales).toEqual(['zh-Hant', 'fr'])
+  })
+
+  it('leaves the field out when nothing is declared', () => {
+    const res = parseManifest(manifest({}), DIR)
+    expect(res.ok && 'locales' in res.manifest).toBe(false)
+  })
+
+  it('refuses anything that is not a list of distinct language tags', () => {
+    const tag = 'locales: each entry must be a language tag such as fr or zh-Hant'
+    expect(locales('zh-Hant')).toEqual({
+      ok: false,
+      error: 'locales must be an array of at most 32 language tags',
+    })
+    expect(locales(['../zh-Hant'])).toEqual({ ok: false, error: tag })
+    expect(locales(['zh-Hant/x'])).toEqual({ ok: false, error: tag })
+    expect(locales([7])).toEqual({ ok: false, error: tag })
+    expect(locales(['zh-Hant', 'ZH-hant'])).toEqual({
+      ok: false,
+      error: "locales: duplicate 'ZH-hant'",
+    })
+    expect(
+      locales(Array.from({ length: 33 }, (_, i) => `x${String.fromCharCode(97 + (i % 26))}-A${i}`))
+        .ok,
+    ).toBe(false)
+  })
+})
+
 describe('parseManifest — workflows', () => {
   it('accepts workflows without a main process and validates each one', () => {
     const noMain = { id: 'demo', name: 'Demo', version: '1', api: '1.0' }

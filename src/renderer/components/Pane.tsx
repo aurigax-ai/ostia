@@ -338,10 +338,8 @@ function PaneTab({
   showClose: boolean
 }): JSX.Element {
   const d = useDict()
-  const panelIcon = useExtensionsStore((s) =>
-    pane.kind === 'extension'
-      ? s.list.find((e) => e.id === pane.extensionId)?.panel?.icon
-      : undefined,
+  const panel = useExtensionsStore((s) =>
+    pane.kind === 'extension' ? s.list.find((e) => e.id === pane.extensionId)?.panel : undefined,
   )
   const viewIconName = useViewsStore((s) =>
     pane.kind === 'view' ? s.views.find((v) => v.name === pane.viewName)?.icon : undefined,
@@ -349,7 +347,7 @@ function PaneTab({
   const Icon = pane.hibernated
     ? MoonIcon
     : pane.kind === 'extension'
-      ? extensionIcon(panelIcon)
+      ? extensionIcon(panel?.icon)
       : pane.kind === 'view'
         ? viewIcon(viewIconName)
         : SURFACE_ICON[pane.kind]
@@ -414,7 +412,7 @@ function PaneTab({
           <span className="dot pane-tab-dirty" role="img" aria-label={d.pane.unsaved} />
         ) : null}
         <span className={cn('title', diskProblem === 'deleted' && 'line-through')}>
-          {pane.title}
+          {panel?.title ?? pane.title}
         </span>
         {diskProblem ? (
           <Hint label={diskLabel[diskProblem]}>

@@ -1,13 +1,16 @@
-import { cliArgs, connect, failure, ok } from '@aurigax-ai/pine-extension-sdk'
+import { cliArgs, connect, createTranslator, failure, ok } from '@aurigax-ai/pine-extension-sdk'
 
 async function main(): Promise<void> {
   const ext = await connect()
+  const translate = createTranslator()
   await ext.registerCommands({
-    greet: async (args) => {
+    greet: async (args, caller) => {
+      const t = translate(caller.locale)
       const name = cliArgs(args)?.argv[0]
-      if (!name) return failure('invalid-args', 'greet <name>')
-      await ext.notify('Hello', `Hello, ${name}`)
-      return ok(`Hello, ${name}`, { name })
+      if (!name) return failure('invalid-args', t('usage'))
+      const greeting = t('greeting', { name })
+      await ext.notify(t('greetingTitle'), greeting)
+      return ok(greeting, { name })
     },
   })
 }

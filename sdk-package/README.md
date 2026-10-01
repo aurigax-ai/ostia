@@ -22,13 +22,18 @@ Copy [`template/`](template) and run:
 
 ```sh
 pnpm install
-pnpm build        # bundles src/main.ts into dist/hello/main.js and copies pine.json
+pnpm build        # bundles src/main.ts into dist/hello/main.js, copies pine.json and locales/
 pnpm validate     # checks dist/hello the way Pine will
 ```
 
 `dist/hello` is the extension. To try it, copy that folder to `~/.config/pine/extensions/hello`;
 Pine notices it within a moment and asks you to approve it. Then run `pine hello greet you` in a
 pane, or "Hello: Greet" from the palette.
+
+The template translates itself: `locales/zh-Hant.json` holds its manifest strings and messages in
+Traditional Chinese, `locales/en.json` its English messages, and `src/main.ts` answers in the
+caller's language with `createTranslator()`. See "Translations" in
+[docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 
 Pine never runs a build, a package manager or a script from an extension, so ship one bundled
 `main.js`, as the template's `build.mjs` does.
@@ -37,7 +42,7 @@ Pine never runs a build, a package manager or a script from an extension, so shi
 
 | Import | What it is |
 |---|---|
-| `@aurigax-ai/pine-extension-sdk` | `connect()` and the `PineExtension` API: commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, `runTool`, `startPanelServer`, `onShutdown` |
+| `@aurigax-ai/pine-extension-sdk` | `connect()` and the `PineExtension` API: commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, the human's language, `createTranslator`, `runTool`, `startPanelServer`, `onShutdown` |
 | `@aurigax-ai/pine-extension-sdk/panel` | For the page inside a panel: `call`, `onChange`, `context`, `h`, `icon`, panel sizes |
 | `@aurigax-ai/pine-extension-sdk/splitter` | A resizable split for panel pages |
 | `@aurigax-ai/pine-extension-sdk/panel.css` | Base panel styles on Pine's theme variables |

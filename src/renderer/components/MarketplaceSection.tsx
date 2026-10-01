@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { withProductName } from '../lib/extensionSettingText'
+import { useExtensionsStore } from '../stores/extensionsStore'
 import { useMarketplaceStore } from '../stores/marketplaceStore'
 import { IconButton } from './IconButton'
 import { RequirementsNote } from './RequirementsNote'
@@ -190,6 +191,9 @@ export function MarketplaceSection(): JSX.Element {
   const [url, setUrl] = useState('')
   useEffect(() => {
     void load()
+    return useExtensionsStore.subscribe((next, previous) => {
+      if (next.list !== previous.list) void load()
+    })
   }, [load])
   const submit = async (): Promise<void> => {
     if (!url.trim() || busy) return
