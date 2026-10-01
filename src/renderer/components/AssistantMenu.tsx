@@ -1,13 +1,11 @@
 import {
   ChatCircleDotsIcon,
   ChatCircleTextIcon,
-  CubeIcon,
   GearSixIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 import type { AssistExtensionState, AssistFeatureState } from '@shared/assist'
-import { useState, useSyncExternalStore } from 'react'
-import { commands } from '../commands/registry'
+import { useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { toggleAssistFeature, useChatAvailable } from '../lib/assistFeatures'
 import { openChatPane } from '../lib/chatPane'
@@ -24,15 +22,12 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Separator } from './ui/separator'
 import { Switch } from './ui/switch'
 
-const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
-const commandsVersion = (): number => commands.version()
-
 export function useAssistMenuVisible(): boolean {
   return useExtensionsStore((s) => s.list.some((e) => e.enabled && e.assist.length > 0))
 }
 
-function openPluginSettings(): void {
-  useUIStore.getState().openSettings('plugins')
+function openAssistantSettings(): void {
+  useUIStore.getState().openSettings('assistant')
 }
 
 export function AssistantMenu(): JSX.Element | null {
@@ -84,7 +79,7 @@ function SetupPanel({ reason, onDone }: { reason: string | null; onDone: () => v
       <Button
         size="sm"
         onClick={() => {
-          openPluginSettings()
+          openAssistantSettings()
           onDone()
         }}
       >
@@ -107,9 +102,6 @@ function ExtensionPanel({
   onDone: () => void
 }): JSX.Element {
   const d = useDict()
-  useSyncExternalStore(subscribeCommands, commandsVersion)
-  const modelsCommand = `${ext.extId}.open`
-  const hasModels = commands.has(modelsCommand)
   const anyReady = ext.features.some((f) => f.on && f.ready)
   return (
     <div className="flex flex-col gap-1">
@@ -156,33 +148,6 @@ function ExtensionPanel({
           <FeatureRow key={feature.id} extId={ext.extId} feature={feature} />
         ))}
       </ul>
-      <Separator className="my-1" />
-      <Button
-        variant="ghost"
-        size="sm"
-        className="justify-start"
-        onClick={() => {
-          openPluginSettings()
-          onDone()
-        }}
-      >
-        <GearSixIcon />
-        {d.assistMenu.settings}
-      </Button>
-      {hasModels ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="justify-start"
-          onClick={() => {
-            void commands.exec(modelsCommand)
-            onDone()
-          }}
-        >
-          <CubeIcon />
-          {d.assistMenu.models}
-        </Button>
-      ) : null}
     </div>
   )
 }

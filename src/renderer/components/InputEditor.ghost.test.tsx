@@ -20,6 +20,7 @@ function assistOn(on = true): void {
         extId: 'assistant',
         name: 'Assistant',
         setup: null,
+        models: false,
         features: [{ id: 'terminalCompletions', setting: 'terminalCompletions', on, ready: true }],
       },
     ],

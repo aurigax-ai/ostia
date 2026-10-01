@@ -455,7 +455,7 @@ export const SETTINGS_JSON_SCHEMA = {
           description:
             'MCP servers the assistant chat can call tools from. Each one runs a program from ' +
             'an argv (never a shell) or connects to an http(s) URL. Every tool call asks you ' +
-            'in the chat first. Tokens go in Settings → Plugins → Assistant (stored encrypted, ' +
+            'in the chat first. Tokens go in Settings → Assistant (stored encrypted, ' +
             'never here). Only you can change this; pine settings set refuses it.',
           items: {
             type: 'object',

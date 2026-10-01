@@ -9,21 +9,11 @@
     "assist": ["input", "command", "completion", "terminal", "chat"],
     "commands": [
       {
-        "id": "open",
-        "title": "Assistant: Open",
-        "category": "Assistant"
-      },
-      {
         "id": "chat",
         "title": "Assistant: Chat",
         "category": "Assistant"
       }
     ],
-    "panel": {
-      "title": "Assistant",
-      "icon": "chat",
-      "entry": "url"
-    },
     "secrets": {
       "apiKey": {
         "description": "API key for OpenRouter, OpenAI, Anthropic or an OpenAI-compatible server that needs one. Stored encrypted on this computer, never synced."
@@ -52,12 +42,12 @@
       "fastModel": {
         "type": "string",
         "default": "",
-        "description": "Small, fast model for typo fixes, prompt review, command suggestions and completions (model-runtime: gemma when empty). \"Assistant: Open\" lists what the provider has."
+        "description": "Small, fast model for typo fixes, prompt review, command suggestions and completions (model-runtime: gemma when empty). Settings → Assistant → Models lists what the provider has."
       },
       "chatModel": {
         "type": "string",
         "default": "",
-        "description": "Model for the palette conversation. Empty uses fastModel."
+        "description": "Model for the chat pane and Ask. Empty uses fastModel."
       },
       "typos": {
         "type": "boolean",

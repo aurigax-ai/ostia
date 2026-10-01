@@ -1,29 +1,43 @@
 import { cn } from '@/lib/utils'
-import { XIcon } from '@phosphor-icons/react'
-import { splitArgs } from '@shared/argv'
 import {
-  MCP_ENV_KEY,
-  MCP_SERVER_NAME,
+  CaretRightIcon,
+  FolderSimpleIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+  TrashIcon,
+  XIcon,
+} from '@phosphor-icons/react'
+import {
   type McpServerSettings,
   type McpServerState,
   type McpServerStatus,
-  isMcpArgv,
-  isMcpSecretKey,
-  isMcpUrl,
   mcpTransportOf,
 } from '@shared/chatTools'
 import { isSkillPath } from '@shared/managerSettings'
 import { quoteArgv } from '@shared/shellQuote'
 import { useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
+import { skillsInFolder } from '../lib/mcpServerForm'
 import { refreshMcp, refreshSkills, useChatToolsStore } from '../stores/chatToolsStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { Hint } from './Hint'
 import { IconButton } from './IconButton'
-import { SubHead, WarningNote } from './SettingsPanel'
+import { McpServerDialog, saveMcpServers } from './McpServerDialog'
+import { ControlRow, SettingsGroup, WarningNote } from './SettingsPanel'
+import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { Input } from './ui/input'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from './ui/item'
 import { Switch } from './ui/switch'
-import { Textarea } from './ui/textarea'
 
 const STATE_DOT: Record<McpServerState, string> = {
   off: 'bg-fg-dim',
@@ -33,159 +47,70 @@ const STATE_DOT: Record<McpServerState, string> = {
   error: 'bg-attn',
 }
 
-async function saveServers(servers: McpServerSettings[]): Promise<void> {
-  await useSettingsStore.getState().setChatTools({ mcpServers: servers })
-  await refreshMcp()
-}
+const ROW = 'rounded-md border-line px-3 py-2'
 
 function updateServer(name: string, patch: Partial<McpServerSettings>): Promise<void> {
   const servers = useSettingsStore.getState().assistant.mcpServers
-  return saveServers(servers.map((s) => (s.name === name ? { ...s, ...patch } : s)))
+  return saveMcpServers(servers.map((s) => (s.name === name ? { ...s, ...patch } : s)))
 }
 
-export function envText(env: Record<string, string>): string {
-  return Object.entries(env)
-    .map(([k, v]) => `${k}=${v}`)
-    .join('\n')
-}
-
-export function parseEnvText(text: string): Record<string, string> | null {
-  const env: Record<string, string> = {}
-  for (const raw of text.split('\n')) {
-    const line = raw.trim()
-    if (!line) continue
-    const at = line.indexOf('=')
-    const key = at > 0 ? line.slice(0, at) : ''
-    if (!MCP_ENV_KEY.test(key)) return null
-    env[key] = line.slice(at + 1)
+async function removeServer(server: McpServerSettings): Promise<void> {
+  for (const key of server.secrets) {
+    await window.pine.chatTools.setMcpSecret(server.name, key, null)
   }
-  return env
-}
-
-export function parseServerTarget(text: string): Pick<McpServerSettings, 'command' | 'url'> | null {
-  const value = text.trim()
-  if (isMcpUrl(value)) return { url: value }
-  const argv = splitArgs(value)
-  return argv && isMcpArgv(argv) ? { command: argv } : null
-}
-
-function EnvEditor({ server }: { server: McpServerSettings }): JSX.Element {
-  const d = useDict()
-  const t = d.chatTools
-  const [draft, setDraft] = useState(envText(server.env))
-  const [invalid, setInvalid] = useState(false)
-  useEffect(() => setDraft(envText(server.env)), [server.env])
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-fg-muted text-ui-xs">{t.envTitle}</span>
-      <Textarea
-        value={draft}
-        spellCheck={false}
-        aria-label={`${server.name} ${t.envTitle}`}
-        aria-invalid={invalid}
-        placeholder={t.envHint}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          const env = parseEnvText(draft)
-          setInvalid(env === null)
-          if (env && envText(env) !== envText(server.env)) void updateServer(server.name, { env })
-        }}
-        className="min-h-12 font-mono text-ui-sm"
-      />
-      {invalid ? <WarningNote>{t.badEnv}</WarningNote> : null}
-    </div>
+  await saveMcpServers(
+    useSettingsStore.getState().assistant.mcpServers.filter((s) => s.name !== server.name),
   )
 }
 
-function SecretsEditor({
-  server,
-  status,
+function EmptyList({
+  title,
+  desc,
+  action,
 }: {
-  server: McpServerSettings
-  status: McpServerStatus | undefined
+  title: string
+  desc: string
+  action: React.ReactNode
 }): JSX.Element {
+  return (
+    <Empty className="gap-3 rounded-md border border-line border-dashed p-5">
+      <EmptyHeader className="gap-1">
+        <EmptyTitle className="text-fg text-ui-base">{title}</EmptyTitle>
+        <EmptyDescription className="text-fg-muted text-ui-sm">{desc}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>{action}</EmptyContent>
+    </Empty>
+  )
+}
+
+function AccessRows(): JSX.Element {
   const d = useDict()
   const t = d.chatTools
-  const [key, setKey] = useState('')
-  const [value, setValue] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const transport = mcpTransportOf(server)
-  const set = new Set(status?.secretsSet ?? [])
-  const add = async (): Promise<void> => {
-    const name = key.trim()
-    if (!isMcpSecretKey(transport, name) || !value) {
-      setError(t.badSecretKey)
-      return
-    }
-    if (!server.secrets.includes(name)) {
-      await useSettingsStore.getState().setChatTools({
-        mcpServers: useSettingsStore
-          .getState()
-          .assistant.mcpServers.map((s) =>
-            s.name === server.name ? { ...s, secrets: [...s.secrets, name] } : s,
-          ),
-      })
-    }
-    const res = await window.pine.chatTools.setMcpSecret(server.name, name, value)
-    setError(res.ok ? null : t.secretFailed)
-    if (res.ok) {
-      setKey('')
-      setValue('')
-    }
-    await refreshMcp()
-  }
-  const remove = async (name: string): Promise<void> => {
-    await window.pine.chatTools.setMcpSecret(server.name, name, null)
-    await updateServer(server.name, { secrets: server.secrets.filter((k) => k !== name) })
-  }
+  const rows = [
+    { title: t.accessReadTitle, desc: t.accessReadDesc, access: t.access.read },
+    { title: t.accessActTitle, desc: t.accessActDesc, access: t.access.act },
+    { title: t.accessConfirmTitle, desc: t.accessConfirmDesc, access: t.access.confirm },
+  ]
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-fg-muted text-ui-xs">{t.secretsTitle}</span>
-      <p className="text-fg-muted text-ui-xs">{t.secretsHint}</p>
-      {server.secrets.length > 0 ? (
-        <ul className="flex flex-col">
-          {server.secrets.map((name) => (
-            <li key={name} className="flex items-center gap-2 py-0.5">
-              <span className="min-w-0 flex-1 truncate font-mono text-fg text-ui-sm">{name}</span>
-              <span className="text-fg-muted text-ui-xs">
-                {set.has(name) ? t.secretSet : t.secretNotSet}
-              </span>
-              <IconButton
-                icon={XIcon}
-                label={fmt(t.removeSecret, { key: name })}
-                onClick={() => void remove(name)}
-              />
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <div className="flex items-center gap-2">
-        <Input
-          value={key}
-          spellCheck={false}
-          placeholder={t.secretKey}
-          aria-label={`${server.name} ${t.secretKey}`}
-          onChange={(e) => setKey(e.target.value)}
-          className="h-7 w-44 shrink-0 font-mono"
-        />
-        <Input
-          type="password"
-          value={value}
-          placeholder={t.secretValue}
-          aria-label={`${server.name} ${t.secretValue}`}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void add()
-          }}
-          className="h-7 flex-1"
-        />
-        <Button variant="outline" size="sm" onClick={() => void add()}>
-          {t.addSecret}
-        </Button>
-      </div>
-      {error ? <WarningNote>{error}</WarningNote> : null}
+    <div className="flex flex-col">
+      {rows.map((row) => (
+        <ControlRow key={row.title} label={row.title} desc={row.desc}>
+          <span className="text-fg-muted text-ui-sm">{row.access}</span>
+        </ControlRow>
+      ))}
     </div>
   )
+}
+
+function statusText(
+  t: ReturnType<typeof useDict>['chatTools'],
+  state: McpServerState,
+  status: McpServerStatus | undefined,
+): string {
+  if (state === 'ready' && status) {
+    return `${t.mcpStates.ready} · ${fmt(t.toolCount, { count: status.tools.length })}`
+  }
+  return t.mcpStates[state]
 }
 
 function ServerTools({
@@ -193,162 +118,196 @@ function ServerTools({
   status,
 }: {
   server: McpServerSettings
-  status: McpServerStatus | undefined
-}): JSX.Element | null {
+  status: McpServerStatus
+}): JSX.Element {
   const d = useDict()
   const t = d.chatTools
-  if (!status || status.tools.length === 0) return null
+  const [open, setOpen] = useState(false)
+  const on = status.tools.filter((tool) => !server.disabledTools.includes(tool.name)).length
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-fg-muted text-ui-xs">{t.toolsTitle}</span>
-      <ul className="flex flex-col">
-        {status.tools.map((tool) => {
-          const on = !server.disabledTools.includes(tool.name)
-          return (
-            <li key={tool.name} className="flex items-center gap-2 py-0.5">
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-mono text-fg text-ui-sm">{tool.name}</p>
-                <p className="truncate text-fg-muted text-ui-xs" title={tool.description}>
-                  {tool.description}
-                </p>
-              </div>
-              <Switch
-                size="sm"
-                checked={on}
-                aria-label={fmt(t.enableTool, { tool: tool.name })}
-                onCheckedChange={(next) =>
-                  void updateServer(server.name, {
-                    disabledTools: next
-                      ? server.disabledTools.filter((n) => n !== tool.name)
-                      : [...server.disabledTools, tool.name],
-                  })
-                }
-              />
-            </li>
-          )
-        })}
-      </ul>
-    </div>
+    <Collapsible open={open} onOpenChange={setOpen} className="basis-full">
+      <CollapsibleTrigger
+        render={
+          <Button variant="ghost" size="xs" className="-ml-2 text-fg-muted hover:text-fg">
+            <CaretRightIcon className={cn('transition-transform', open && 'rotate-90')} />
+            {t.toolsTitle}
+            <span className="tabular-nums">
+              {on}/{status.tools.length}
+            </span>
+          </Button>
+        }
+      />
+      <CollapsibleContent>
+        <ul aria-label={fmt(t.enableServer, { name: server.name })} className="mt-1 flex flex-col">
+          {status.tools.map((tool) => {
+            const checked = !server.disabledTools.includes(tool.name)
+            return (
+              <li key={tool.name} className="flex items-center gap-3 py-1">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-mono text-fg text-ui-sm">{tool.name}</p>
+                  {tool.description ? (
+                    <Hint label={tool.description}>
+                      <p className="truncate text-fg-muted text-ui-xs">{tool.description}</p>
+                    </Hint>
+                  ) : null}
+                </div>
+                <Switch
+                  size="sm"
+                  checked={checked}
+                  aria-label={fmt(t.enableTool, { tool: tool.name })}
+                  onCheckedChange={(next) =>
+                    void updateServer(server.name, {
+                      disabledTools: next
+                        ? server.disabledTools.filter((n) => n !== tool.name)
+                        : [...server.disabledTools, tool.name],
+                    })
+                  }
+                />
+              </li>
+            )
+          })}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
-function ServerRow({ server }: { server: McpServerSettings }): JSX.Element {
+function ServerItem({
+  server,
+  onEdit,
+  onRemove,
+}: {
+  server: McpServerSettings
+  onEdit: () => void
+  onRemove: () => void
+}): JSX.Element {
   const d = useDict()
   const t = d.chatTools
   const status = useChatToolsStore((s) => s.mcp.find((m) => m.name === server.name))
-  const state: McpServerState = status?.state ?? (server.enabled ? 'idle' : 'off')
+  const state: McpServerState = server.enabled ? (status?.state ?? 'idle') : 'off'
+  const http = mcpTransportOf(server) === 'http'
   const target = server.url ?? quoteArgv(server.command ?? [])
   return (
-    <li
-      className="flex flex-col gap-2 rounded-sm border border-line px-3 py-2"
-      data-mcp={server.name}
-    >
-      <div className="flex items-center gap-2">
-        <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', STATE_DOT[state])} />
-        <span className="font-mono text-fg text-ui-base">{server.name}</span>
-        <span className="text-fg-muted text-ui-xs">{t.mcpStates[state]}</span>
-        <span className="ml-auto flex items-center gap-2">
-          {server.enabled && (state === 'error' || state === 'idle') ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void window.pine.chatTools.mcpReconnect(server.name)}
-            >
-              {state === 'idle' ? t.connect : t.reconnect}
-            </Button>
-          ) : null}
-          <Switch
-            checked={server.enabled}
-            aria-label={fmt(t.enableServer, { name: server.name })}
-            onCheckedChange={(enabled) => void updateServer(server.name, { enabled })}
-          />
-          <IconButton
-            icon={XIcon}
-            label={fmt(t.removeServer, { name: server.name })}
-            onClick={() =>
-              void saveServers(
-                useSettingsStore
-                  .getState()
-                  .assistant.mcpServers.filter((s) => s.name !== server.name),
-              )
-            }
-          />
-        </span>
-      </div>
-      <code className="truncate font-mono text-fg-muted text-ui-sm" title={target}>
-        {target}
-      </code>
-      {status?.error ? (
-        <p role="alert" className="text-attn-fg text-ui-xs">
-          {status.error}
+    <Item variant="outline" size="sm" render={<li />} className={ROW} data-mcp={server.name}>
+      <ItemContent className="min-w-0 gap-0.5">
+        <ItemTitle className="text-fg text-ui-base">
+          {server.name}
+          <Badge variant="outline" className="font-normal text-fg-muted text-ui-xs">
+            {http ? t.typeUrl : t.typeCommand}
+          </Badge>
+        </ItemTitle>
+        <Hint label={target}>
+          <ItemDescription className="truncate font-mono text-fg-muted text-ui-xs">
+            {target}
+          </ItemDescription>
+        </Hint>
+        <p className="flex items-center gap-1.5 text-fg-muted text-ui-xs">
+          <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', STATE_DOT[state])} />
+          <output>{statusText(t, state, status)}</output>
         </p>
+        {server.enabled && status?.error ? (
+          <p role="alert" className="break-words text-attn-fg text-ui-xs">
+            {status.error}
+          </p>
+        ) : null}
+      </ItemContent>
+      <ItemActions className="self-start">
+        {server.enabled && (state === 'error' || state === 'idle') ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void window.pine.chatTools.mcpReconnect(server.name)}
+          >
+            {state === 'idle' ? t.connect : t.reconnect}
+          </Button>
+        ) : null}
+        <Switch
+          checked={server.enabled}
+          aria-label={fmt(t.enableServer, { name: server.name })}
+          onCheckedChange={(enabled) => void updateServer(server.name, { enabled })}
+        />
+        <IconButton
+          icon={PencilSimpleIcon}
+          label={fmt(t.editServer, { name: server.name })}
+          onClick={onEdit}
+        />
+        <IconButton
+          icon={TrashIcon}
+          label={fmt(t.removeServer, { name: server.name })}
+          className="hover:text-attn-fg"
+          onClick={onRemove}
+        />
+      </ItemActions>
+      {server.enabled && status && status.tools.length > 0 ? (
+        <ServerTools server={server} status={status} />
       ) : null}
-      {server.command ? <EnvEditor server={server} /> : null}
-      <SecretsEditor server={server} status={status} />
-      <ServerTools server={server} status={status} />
-    </li>
+    </Item>
   )
 }
 
-function AddServer(): JSX.Element {
+function McpServers(): JSX.Element {
   const d = useDict()
   const t = d.chatTools
   const servers = useSettingsStore((s) => s.assistant.mcpServers)
-  const [name, setName] = useState('')
-  const [target, setTarget] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const add = (): void => {
-    const trimmed = name.trim()
-    if (!MCP_SERVER_NAME.test(trimmed) || servers.some((s) => s.name === trimmed)) {
-      setError(t.badServerName)
-      return
-    }
-    const parsed = parseServerTarget(target)
-    if (!parsed) {
-      setError(t.badServerTarget)
-      return
-    }
-    const server: McpServerSettings = {
-      name: trimmed,
-      enabled: true,
-      env: {},
-      secrets: [],
-      disabledTools: [],
-      ...parsed,
-    }
-    setName('')
-    setTarget('')
-    setError(null)
-    void saveServers([...servers, server])
-  }
+  const [editing, setEditing] = useState<{ server: McpServerSettings | null } | null>(null)
+  const [removing, setRemoving] = useState<McpServerSettings | null>(null)
+  const add = (): void => setEditing({ server: null })
+  const addButton = (
+    <Button variant="outline" size="sm" onClick={add}>
+      <PlusIcon />
+      {t.addServer}
+    </Button>
+  )
   return (
-    <div className="pt-1">
-      <div className="flex items-center gap-2">
-        <Input
-          value={name}
-          spellCheck={false}
-          placeholder={t.serverName}
-          aria-label={t.serverName}
-          onChange={(e) => setName(e.target.value)}
-          className="h-7 w-32 shrink-0 font-mono"
-        />
-        <Input
-          value={target}
-          spellCheck={false}
-          placeholder={t.serverTarget}
-          aria-label={t.serverTarget}
-          onChange={(e) => setTarget(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') add()
-          }}
-          className="h-7 flex-1 font-mono"
-        />
-        <Button variant="outline" size="sm" onClick={add}>
-          {t.addServer}
-        </Button>
-      </div>
-      {error ? <WarningNote>{error}</WarningNote> : null}
-    </div>
+    <SettingsGroup
+      title={t.mcpTitle}
+      desc={t.mcpDesc}
+      action={servers.length > 0 ? addButton : null}
+    >
+      {servers.length === 0 ? (
+        <EmptyList title={t.noServers} desc={t.noServersDesc} action={addButton} />
+      ) : (
+        <ul aria-label={t.mcpTitle} className="flex flex-col gap-2">
+          {servers.map((server) => (
+            <ServerItem
+              key={server.name}
+              server={server}
+              onEdit={() => setEditing({ server })}
+              onRemove={() => setRemoving(server)}
+            />
+          ))}
+        </ul>
+      )}
+      <McpServerDialog
+        open={editing !== null}
+        server={editing?.server ?? null}
+        onClose={() => setEditing(null)}
+      />
+      <Dialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>{fmt(t.removeServerTitle, { name: removing?.name ?? '' })}</DialogTitle>
+            <DialogDescription>{t.removeServerBody}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setRemoving(null)}>
+              {t.cancel}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                const target = removing
+                setRemoving(null)
+                if (target) void removeServer(target)
+              }}
+            >
+              {t.remove}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </SettingsGroup>
   )
 }
 
@@ -357,94 +316,85 @@ function SkillFolders(): JSX.Element {
   const t = d.chatTools
   const folders = useSettingsStore((s) => s.assistant.skillFolders)
   const skills = useChatToolsStore((s) => s.skills)
-  const [draft, setDraft] = useState('')
   const [invalid, setInvalid] = useState(false)
   const save = async (next: string[]): Promise<void> => {
     await useSettingsStore.getState().setChatTools({ skillFolders: next })
     await refreshSkills()
   }
-  const add = (): void => {
-    const path = draft.trim().replace(/\/+$/, '')
+  const add = async (): Promise<void> => {
+    const picked = await window.pine.sync.pickFolder()
+    if (picked === null) return
+    const path = picked.replace(/\/+$/, '')
     if (!isSkillPath(path)) {
       setInvalid(true)
       return
     }
-    setDraft('')
     setInvalid(false)
-    if (!folders.includes(path)) void save([...folders, path])
+    if (!folders.includes(path)) await save([...folders, path])
   }
+  const addButton = (
+    <Button variant="outline" size="sm" onClick={() => void add()}>
+      <FolderSimpleIcon />
+      {t.addSkillFolder}
+    </Button>
+  )
   return (
-    <div className="flex flex-col gap-1">
-      <SubHead title={t.skillsTitle} desc={t.skillsDesc} />
-      {folders.length > 0 ? (
-        <ul className="flex flex-col">
-          {folders.map((path) => (
-            <li key={path} className="flex items-center gap-3 py-1">
-              <span className="min-w-0 flex-1 truncate font-mono text-fg text-ui-sm">{path}</span>
-              <IconButton
-                icon={XIcon}
-                label={fmt(t.removeSkillFolder, { path })}
-                onClick={() => void save(folders.filter((f) => f !== path))}
-              />
-            </li>
-          ))}
+    <SettingsGroup
+      title={t.skillsTitle}
+      desc={t.skillsDesc}
+      action={folders.length > 0 ? addButton : null}
+    >
+      {folders.length === 0 ? (
+        <EmptyList title={t.noFolders} desc={t.noFoldersDesc} action={addButton} />
+      ) : (
+        <ul aria-label={t.skillsTitle} className="flex flex-col gap-2">
+          {folders.map((path) => {
+            const found = skillsInFolder(skills, path)
+            return (
+              <Item key={path} variant="outline" size="sm" render={<li />} className={ROW}>
+                <ItemContent className="min-w-0 gap-0.5">
+                  <Hint label={path}>
+                    <ItemTitle className="block w-full truncate font-mono font-normal text-fg text-ui-sm">
+                      {path}
+                    </ItemTitle>
+                  </Hint>
+                  <ItemDescription className="truncate text-fg-muted text-ui-xs">
+                    {found.length > 0
+                      ? fmt(t.foundSkills, { names: found.map((s) => s.name).join(', ') })
+                      : t.noSkillsInFolder}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <IconButton
+                    icon={XIcon}
+                    label={fmt(t.removeSkillFolder, { path })}
+                    onClick={() => void save(folders.filter((f) => f !== path))}
+                  />
+                </ItemActions>
+              </Item>
+            )
+          })}
         </ul>
-      ) : null}
-      {folders.length > 0 ? (
-        <p className="text-fg-muted text-ui-xs">
-          {skills.length > 0
-            ? fmt(t.foundSkills, { names: skills.map((s) => s.name).join(', ') })
-            : t.noFoundSkills}
-        </p>
-      ) : null}
-      <div className="flex items-center gap-3 pt-1">
-        <Input
-          value={draft}
-          spellCheck={false}
-          placeholder={t.skillPath}
-          aria-label={t.skillsTitle}
-          aria-invalid={invalid}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') add()
-          }}
-          className="h-7 flex-1 font-mono"
-        />
-        <Button variant="outline" size="sm" onClick={add}>
-          {t.addSkillFolder}
-        </Button>
-      </div>
+      )}
       {invalid ? <WarningNote>{t.badSkillFolder}</WarningNote> : null}
-    </div>
+    </SettingsGroup>
   )
 }
 
 export function ChatToolsSettings(): JSX.Element {
   const d = useDict()
   const t = d.chatTools
-  const servers = useSettingsStore((s) => s.assistant.mcpServers)
   useEffect(() => {
     void refreshMcp()
     void refreshSkills()
   }, [])
   return (
-    <section
-      aria-label={t.settingsTitle}
-      className="mt-3 flex flex-col gap-4 border-line border-t pt-3"
-    >
-      <SubHead title={t.settingsTitle} desc={t.settingsDesc} />
-      <div className="flex flex-col gap-2">
-        <SubHead title={t.mcpTitle} desc={t.mcpDesc} />
-        {servers.length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {servers.map((server) => (
-              <ServerRow key={server.name} server={server} />
-            ))}
-          </ul>
-        ) : null}
-        <AddServer />
-      </div>
+    <>
+      <SettingsGroup title={t.settingsTitle} desc={t.settingsDesc}>
+        <AccessRows />
+      </SettingsGroup>
+      <McpServers />
       <SkillFolders />
-    </section>
+    </>
   )
 }

@@ -3,9 +3,9 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { type LanguageModel, simulateStreamingMiddleware, wrapLanguageModel } from 'ai'
+import type { AssistModel } from '../../shared/assist'
 import { PRODUCT_NAME } from '../../shared/product'
 import { type Endpoint, type FetchFn, baseUrl, endpointFetch, requestJson } from './endpoint'
-import type { ModelEntry } from './models'
 
 export const PROVIDER_KINDS = [
   'none',
@@ -23,7 +23,7 @@ export interface Provider {
   kind: ProviderKind
   lifecycle: boolean
   model: (id: string) => Exclude<LanguageModel, string>
-  models: (signal?: AbortSignal, timeoutMs?: number) => Promise<ModelEntry[]>
+  models: (signal?: AbortSignal, timeoutMs?: number) => Promise<AssistModel[]>
   load?: (id: string) => Promise<void>
   unload?: (id: string) => Promise<void>
 }
@@ -39,11 +39,11 @@ interface ListedModel {
   display_name?: unknown
 }
 
-function listed(data: ListedModel[] | undefined, nameKey: 'name' | 'display_name'): ModelEntry[] {
+function listed(data: ListedModel[] | undefined, nameKey: 'name' | 'display_name'): AssistModel[] {
   return (data ?? [])
     .filter((m) => typeof m.id === 'string' && m.id)
     .map((m) => {
-      const entry: ModelEntry = { id: m.id as string }
+      const entry: AssistModel = { id: m.id as string }
       const name = m[nameKey]
       if (typeof name === 'string' && name && name !== m.id) entry.name = name
       return entry
@@ -56,7 +56,7 @@ function listModels(
   headers: Record<string, string>,
   nameKey: 'name' | 'display_name',
 ) {
-  return async (signal?: AbortSignal, timeoutMs = MODELS_TIMEOUT_MS): Promise<ModelEntry[]> => {
+  return async (signal?: AbortSignal, timeoutMs = MODELS_TIMEOUT_MS): Promise<AssistModel[]> => {
     const res = await requestJson<{ data?: ListedModel[] }>({
       fetch,
       url,
@@ -111,7 +111,7 @@ export function modelRuntimeProvider(endpoint: Endpoint): Provider {
       return (res.models ?? [])
         .filter((m) => typeof m.id === 'string' && m.id)
         .map((m) => {
-          const entry: ModelEntry = {
+          const entry: AssistModel = {
             id: m.id as string,
             installed: m.installed === true,
             loaded: m.loaded === true,

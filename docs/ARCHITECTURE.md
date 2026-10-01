@@ -2147,12 +2147,25 @@ extension owns providers, prompts and requests.
 list (`{id, setting, ready}`, ids from `ASSIST_FEATURES`), a setup problem, the last provider
 error and a label. Main keeps only features bound to one of the extension's own boolean settings
 and reads `on` from that setting (`assistOverview`, pushed on `assist:overview`), so the top-bar
-menu, the in-context switches, Settings → Plugins and the extension's panel all flip the same
-value through the validated setting path. Why the extension names the setting: pine must stay
+menu, the in-context switches and Settings → Assistant all flip the same value through the
+validated setting path. Why the extension names the setting: pine must stay
 tool-agnostic, and a switch that isn't a real setting would drift from Settings. `ext.shortcuts`
 answers the effective key labels the renderer reports (`assist:shortcuts`), and `ext.openAssistUi`
-opens pine's chat pane, Ask or composer for a point the extension contributes (a panel's "Try
-it"), never sending anything by itself.
+opens pine's chat pane, Ask or composer for a point the extension contributes, never sending
+anything by itself.
+
+**Settings → Assistant** (`AssistantSection.tsx`). The assistant is configured in its own
+Settings section, not under Plugins (Plugins keeps only its switch and a link): Features (status,
+each feature's switch, shortcut hint and "Try it", which calls `openAssistUi` directly; chat
+history), Provider and models (the extension's own `contributes.settings` and secrets through
+`ExtensionSettingsForm`, minus the feature switches, so main still validates and stores them),
+Models, then the core chat tools, MCP servers and skill folders (`ChatToolsSettings.tsx`,
+`McpServerDialog.tsx`, pure form logic in `lib/mcpServerForm.ts`). Models come from the
+extension through `ext.assistModels` (`list`, `load`, `unload`), asked by main only for an
+enabled extension granted `assist` whose report said `models: true` (`assist:models`,
+`assist:set-model-loaded`), with replies normalized by `normalizeAssistModels`. Why not the
+extension's panel: chat tools run in core, and one settings page for the whole assistant reads
+as part of Pine rather than a plugin's own UI; the assistant extension no longer has a panel.
 
 **Chat sessions** (`main/chatSessions.ts`, `chatSessionsIpc.ts`, `shared/chatSessions.ts`). One
 JSON file per session in `<data dir>/chat-sessions/` (mode 0600, never synced, not
@@ -2223,7 +2236,7 @@ error or denial in order with the text around it.
   the human declared on that server). Tool names are `mcp__<server>__<tool>`; main re-checks that
   the server is enabled and the tool exists and is not switched off on every call.
 - `assistant` is not in the settings store's `DATA_KEYS`, so `pine settings set` cannot add a
-  server or a skill folder; Settings → Plugins → Assistant writes them (and flushes the file
+  server or a skill folder; Settings → Assistant writes them (and flushes the file
   before asking main to reconnect, since main reads `settings.json` itself).
 - Why the assist reply now carries `chunks`: an `ipcRenderer.invoke` reply can overtake the
   `assist:chunk` events sent before it, and the last chunk of a round is often the tool call.
