@@ -1,18 +1,9 @@
 {
   "manifest": {
     "name": "助理",
-    "description": "使用你選擇的語言模型（Ollama、OpenRouter、OpenAI、Anthropic 或任何 OpenAI 相容伺服器），提供對話窗格、送給代理程式前的錯字修正與提示詞檢查、提示列的指令建議與補全、編輯器補全，以及解釋錯誤。在你選擇提供者之前不會送出任何資料。",
+    "description": "使用你選擇的語言模型（Ollama、OpenRouter、OpenAI、Anthropic 或任何 OpenAI 相容伺服器），提供可與你一起編輯檔案的對話窗格、送給代理程式前的錯字修正與提示詞檢查、提示列的指令建議與補全、編輯器補全，以及解釋錯誤。在你於「設定 → 助理」新增提供者之前不會送出任何資料。",
     "commands.chat.title": "助理：對話",
     "commands.chat.category": "助理",
-    "secrets.apiKey.title": "API 金鑰",
-    "secrets.apiKey.description": "OpenRouter、OpenAI、Anthropic，或需要金鑰的 OpenAI 相容伺服器所用的 API 金鑰。以加密方式儲存在這台電腦上，永不同步。",
-    "settings.provider.title": "提供者",
-    "settings.provider.valueTitles.none": "無",
-    "settings.provider.valueTitles.openai-compatible": "OpenAI 相容",
-    "settings.provider.description": "要求送往的地方。選「無」則不送出任何資料。",
-    "settings.baseUrl.title": "基底網址",
-    "settings.baseUrl.description": "提供者位址：http(s) 網址或 unix:/path.sock。留空會使用提供者的預設值（Ollama：http://127.0.0.1:11434/v1）。openai-compatible 必須填寫。",
-    "settings.fastModel.description": "用於錯字修正、提示詞檢查、指令建議與補全的小型快速模型。「設定 → 助理 → 模型」會列出提供者擁有的模型。",
     "settings.typos.title": "錯字修正",
     "settings.typos.description": "為你寫給代理程式的提示詞提供錯字修正",
     "settings.promptReview.title": "提示詞檢查",
@@ -28,9 +19,9 @@
     "settings.explainError.title": "解釋錯誤",
     "settings.explainError.description": "在失敗的指令區塊上解釋錯誤（按下時會送出該指令與其輸出）",
     "settings.requestsPerMinute.title": "要求上限",
-    "settings.requestsPerMinute.description": "每項功能每分鐘最多的要求次數",
-    "settings.chatModel.title": "對話模型",
-    "settings.chatModel.description": "對話窗格與「詢問」使用的模型。留空會使用快速模型。",
-    "settings.fastModel.title": "快速模型"
+    "settings.requestsPerMinute.description": "每項功能每分鐘最多的要求次數"
+  },
+  "messages": {
+    "kind.openai-compatible": "OpenAI 相容"
   }
 }

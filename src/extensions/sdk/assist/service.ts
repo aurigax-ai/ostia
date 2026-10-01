@@ -15,8 +15,12 @@ import {
 import type { z } from 'zod'
 import { type AssistContext, AssistFailure } from '..'
 import type {
+  AssistCatalogModel,
+  AssistModel,
   AssistModelList,
   AssistPoint,
+  AssistProviderEntry,
+  AssistProviderState,
   AssistReport,
   AssistRequests,
   AssistResults,
@@ -33,13 +37,13 @@ import type {
 import type { ExtensionSettingValues } from '../../../shared/extensions'
 import {
   type AssistantConfig,
-  assistStatus,
+  type EntryProblem,
+  FEATURES,
+  POINT_FEATURES,
   endpointOf,
-  featureStates,
-  modelFor,
+  entryProblem,
+  pointOn,
   readConfig,
-  setupProblem,
-  statusLabel,
 } from './config'
 import { HttpError } from './endpoint'
 import { type Flight, createFlight } from './flight'
@@ -61,7 +65,7 @@ import {
   terminalPrompt,
   typoPrompt,
 } from './prompts'
-import { NO_PROVIDER, type Provider, type ProviderCatalog } from './provider'
+import type { Provider, ProviderCatalog } from './provider'
 
 export const TIMEOUTS: Record<AssistPoint, number> = {
   completion: 15_000,
@@ -77,6 +81,12 @@ const SMALL_SUFFIX_MAX = 600
 const SINGLE_FLIGHT: ReadonlySet<AssistPoint> = new Set(['completion', 'terminal'])
 const OBJECT_ATTEMPTS = 2
 const ERROR_MESSAGE_MAX = 240
+
+interface Run {
+  provider: Provider
+  model: string
+  tools: ChatToolMode | null
+}
 
 export function chatToolSet(specs: ChatToolSpec[]): ToolSet {
   const tools: ToolSet = {}
@@ -105,106 +115,191 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
+export const BASE_LOCALE = 'en'
+
+interface Slot {
+  entry: AssistProviderEntry
+  provider: Provider | null
+  problem: EntryProblem | null
+  unreachable: boolean
+  lastError?: string
+  listed: AssistModel[]
+  tools: Map<string, ChatToolMode>
+}
+
+export interface AssistModelTarget {
+  provider: string
+  model: string
+}
+
+export interface AssistServiceOptions {
+  listedModels?: boolean
+  configurable?: boolean
+}
+
 export class AssistantService {
   private config: AssistantConfig
-  private apiKey: string | null = null
-  private provider: Provider | null = null
+  private slots: Slot[] = []
   private limiters = new Map<AssistPoint, Limiter>()
   private flights = new Map<AssistPoint, Flight>()
-  private toolMode: ChatToolMode | null = null
-  private unreachable = false
-  private lastError: string | undefined
+  private locale = BASE_LOCALE
 
   constructor(
     private readonly catalog: ProviderCatalog,
     private readonly env: NodeJS.ProcessEnv = process.env,
     private readonly now: () => number = Date.now,
     private readonly onReport: () => void = () => {},
+    private readonly options: AssistServiceOptions = {},
   ) {
-    this.config = readConfig({}, catalog)
+    this.config = readConfig({}, [], catalog)
   }
 
-  configure(values: ExtensionSettingValues, apiKey: string | null): void {
-    this.config = readConfig(values, this.catalog)
-    this.apiKey = apiKey?.trim() ? apiKey.trim() : null
+  setLocale(locale: string): void {
+    this.locale = locale
+  }
+
+  configure(values: ExtensionSettingValues, entries: readonly AssistProviderEntry[]): void {
+    this.config = readConfig(values, entries, this.catalog)
     this.limiters.clear()
     this.flights.clear()
-    this.toolMode = null
-    this.unreachable = false
-    this.lastError = undefined
-    const endpoint = endpointOf(this.config, this.env)
-    this.provider =
-      this.config.provider === NO_PROVIDER || !endpoint
-        ? null
-        : this.catalog.create(this.config.provider, endpoint, this.apiKey)
+    this.slots = this.config.entries.map((raw) => {
+      const entry = { ...raw, apiKey: raw.apiKey?.trim() ? raw.apiKey.trim() : null }
+      const endpoint = endpointOf(entry, this.catalog, this.env)
+      const problem = entryProblem(entry, this.catalog, this.env)
+      return {
+        entry,
+        provider: endpoint ? this.catalog.create(entry.kind, endpoint, entry.apiKey) : null,
+        problem,
+        unreachable: false,
+        listed: [],
+        tools: new Map(),
+      }
+    })
+  }
+
+  private modelIds(slot: Slot): string[] {
+    if (!this.options.listedModels) return slot.entry.models
+    return slot.listed.filter((m) => m.installed !== false).map((m) => m.id)
+  }
+
+  private async probeSlot(slot: Slot): Promise<void> {
+    const provider = slot.provider
+    if (!provider || slot.problem) return
+    try {
+      slot.listed = await provider.models(undefined, PROBE_TIMEOUT_MS)
+      slot.unreachable = false
+    } catch (err) {
+      slot.unreachable = true
+      slot.lastError = this.redact(slot, messageOf(err))
+    }
+    const modes = await Promise.all(
+      this.modelIds(slot).map(async (id) => {
+        const mode = await provider.chatTools(id, AbortSignal.timeout(PROBE_TIMEOUT_MS))
+        return [id, mode] as const
+      }),
+    )
+    slot.tools = new Map(modes)
   }
 
   async probe(): Promise<void> {
-    const provider = this.provider
-    if (!provider || setupProblem(this.config, this.env, this.apiKey !== null)) return
-    const chatModel = modelFor(this.config, 'chat')
-    const [reached, toolMode] = await Promise.all([
-      provider.models(undefined, PROBE_TIMEOUT_MS).then(
-        () => null,
-        (err: unknown) => err,
-      ),
-      chatModel ? provider.chatTools(chatModel, AbortSignal.timeout(PROBE_TIMEOUT_MS)) : null,
-    ])
-    if (this.provider !== provider) return
-    this.toolMode = toolMode
-    this.unreachable = reached !== null
-    if (reached !== null) this.lastError = this.redact(messageOf(reached))
+    const slots = this.slots
+    await Promise.all(slots.map((slot) => this.probeSlot(slot)))
+  }
+
+  private slotProblem(slot: Slot): AssistSetupProblem | null {
+    if (slot.problem) return slot.problem
+    if (slot.unreachable) return 'unreachable'
+    return this.modelIds(slot).length === 0 ? 'no-model' : null
+  }
+
+  private usable(slot: Slot): boolean {
+    return slot.provider !== null && this.slotProblem(slot) === null
   }
 
   private problem(): AssistSetupProblem | null {
-    return (
-      setupProblem(this.config, this.env, this.apiKey !== null) ??
-      (this.unreachable ? 'unreachable' : null)
-    )
+    if (this.slots.length === 0) return 'no-provider'
+    if (this.slots.some((slot) => this.usable(slot))) return null
+    return this.slotProblem(this.slots[0])
+  }
+
+  private providerStates(): AssistProviderState[] {
+    return this.slots.map((slot) => {
+      const models: AssistCatalogModel[] = this.modelIds(slot).map((id) => {
+        const tools = slot.tools.get(id)
+        return tools ? { id, tools } : { id }
+      })
+      const state: AssistProviderState = {
+        id: slot.entry.id,
+        kind: slot.entry.kind,
+        name: slot.entry.name || this.catalog.title(slot.entry.kind, this.locale),
+        setup: this.slotProblem(slot),
+        lifecycle: slot.provider?.lifecycle === true,
+        models,
+      }
+      if (slot.lastError) state.lastError = slot.lastError
+      return state
+    })
   }
 
   report(): AssistReport {
     const problem = this.problem()
+    const status: AssistReport['status'] = {}
+    for (const point of Object.keys(POINT_FEATURES) as AssistPoint[]) {
+      status[point] = { ready: problem === null && pointOn(this.config, point) }
+    }
     const report: AssistReport = {
-      status: assistStatus(this.config, problem, this.toolMode),
-      features: featureStates(this.config, problem).map((f) => ({
-        ...f,
-        on: this.config.features[f.id],
+      status,
+      features: FEATURES.map((id) => ({
+        id,
+        setting: id,
+        on: this.config.features[id],
+        ready: problem === null && this.config.features[id],
       })),
       setup: problem,
-      models: this.provider !== null,
+      models: this.slots.some((slot) => slot.provider !== null),
+      providers: this.providerStates(),
     }
-    const label = statusLabel(this.config)
-    if (label) report.label = label
-    if (this.lastError) report.lastError = this.lastError
+    if (this.options.configurable) {
+      report.kinds = this.catalog.kinds.map((id) => ({
+        id,
+        title: this.catalog.title(id, this.locale),
+        baseUrl: this.catalog.defaultBaseUrl(id, this.env),
+        key: this.catalog.keyRequired.has(id) ? 'required' : 'optional',
+      }))
+    }
+    const lastError = this.slots.find((slot) => slot.lastError)?.lastError
+    if (lastError) report.lastError = lastError
     return report
   }
 
-  private redact(message: string): string {
-    const clean = this.apiKey ? message.split(this.apiKey).join('***') : message
+  private redact(slot: Slot, message: string): string {
+    const key = slot.entry.apiKey
+    const clean = key ? message.split(key).join('***') : message
     return clean.replace(/\s+/g, ' ').trim().slice(0, ERROR_MESSAGE_MAX)
   }
 
-  private noteOutcome(error: string | undefined): void {
-    const recovered = this.unreachable && error === undefined
-    if (recovered) this.unreachable = false
-    if (error === this.lastError && !recovered) return
-    this.lastError = error
+  private noteOutcome(slot: Slot, error: string | undefined): void {
+    const recovered = slot.unreachable && error === undefined
+    if (recovered) slot.unreachable = false
+    if (error === slot.lastError && !recovered) return
+    slot.lastError = error
     this.onReport()
   }
 
-  private failure(err: unknown, signal: AbortSignal): AssistFailure {
+  private failure(slot: Slot | null, err: unknown, signal: AbortSignal): AssistFailure {
     if (err instanceof AssistFailure) return err
     if (signal.aborted) return new AssistFailure('cancelled')
-    const message = this.redact(messageOf(err))
-    this.noteOutcome(message)
+    if (!slot) return new AssistFailure('failed', messageOf(err).slice(0, ERROR_MESSAGE_MAX))
+    const message = this.redact(slot, messageOf(err))
+    this.noteOutcome(slot, message)
     if (statusOf(err) === 429) return new AssistFailure('rate-limited', message)
     return new AssistFailure('failed', message)
   }
 
-  private ready(point: AssistPoint): Provider {
-    const provider = this.provider
-    if (!provider || this.report().status[point]?.ready !== true) {
+  private ready(point: AssistPoint, target: AssistModelTarget | undefined): Slot {
+    const slot = this.slots.find((s) => s.entry.id === target?.provider)
+    const offered = slot && target ? this.modelIds(slot).includes(target.model) : false
+    if (!slot || !offered || !this.usable(slot) || this.report().status[point]?.ready !== true) {
       throw new AssistFailure('unavailable', 'This assistant feature is off or not set up.')
     }
     let limiter = this.limiters.get(point)
@@ -213,18 +308,13 @@ export class AssistantService {
       this.limiters.set(point, limiter)
     }
     if (!limiter.take()) throw new AssistFailure('rate-limited', 'Too many requests; slow down.')
-    return provider
+    return slot
   }
 
-  private settings(
-    provider: Provider,
-    point: AssistPoint,
-    prompt: Prompt,
-    signal: AbortSignal | null,
-  ) {
+  private settings(run: Run, point: AssistPoint, prompt: Prompt, signal: AbortSignal | null) {
     const timeout = AbortSignal.timeout(signal ? TIMEOUTS[point] : UNCANCELLED_TIMEOUT_MS)
     return {
-      model: provider.model(modelFor(this.config, point)),
+      model: run.provider.model(run.model),
       system: prompt.system,
       messages: prompt.messages,
       temperature: prompt.temperature,
@@ -244,23 +334,23 @@ export class AssistantService {
   }
 
   private async text(
-    provider: Provider,
+    run: Run,
     point: AssistPoint,
     prompt: Prompt,
     ctx: AssistContext,
   ): Promise<string> {
     if (!SINGLE_FLIGHT.has(point)) {
-      return (await generateText(this.settings(provider, point, prompt, ctx.signal))).text
+      return (await generateText(this.settings(run, point, prompt, ctx.signal))).text
     }
-    const signal = provider.serverCancels ? ctx.signal : null
+    const signal = run.provider.serverCancels ? ctx.signal : null
     return this.flight(point).run(ctx.signal, async () => {
-      const res = await generateText(this.settings(provider, point, prompt, signal))
+      const res = await generateText(this.settings(run, point, prompt, signal))
       return res.text
     })
   }
 
   private async object<S extends z.ZodType>(
-    provider: Provider,
+    run: Run,
     point: AssistPoint,
     prompt: Prompt,
     schema: S,
@@ -269,9 +359,9 @@ export class AssistantService {
     for (let attempt = 0; attempt < OBJECT_ATTEMPTS; attempt++) {
       try {
         const res = await generateText({
-          ...this.settings(provider, point, prompt, ctx.signal),
+          ...this.settings(run, point, prompt, ctx.signal),
           model: wrapLanguageModel({
-            model: provider.model(modelFor(this.config, point)),
+            model: run.provider.model(run.model),
             middleware: extractJsonMiddleware(),
           }),
           output: Output.object({ schema }),
@@ -289,27 +379,33 @@ export class AssistantService {
     input: AssistRequests[P],
     ctx: AssistContext,
   ): Promise<AssistResults[P]> {
+    let slot: Slot | null = null
     try {
-      const provider = this.ready(point)
+      slot = this.ready(point, ctx.model)
+      const run: Run = {
+        provider: slot.provider as Provider,
+        model: (ctx.model as AssistModelTarget).model,
+        tools: slot.tools.get((ctx.model as AssistModelTarget).model) ?? null,
+      }
       const handlers: {
         [K in AssistPoint]: (req: AssistRequests[K]) => Promise<AssistResults[K]>
       } = {
-        input: (req) => this.input(provider, req, ctx),
-        command: (req) => this.command(provider, req, ctx),
-        completion: (req) => this.completion(provider, req, ctx),
-        terminal: (req) => this.terminal(provider, req, ctx),
-        chat: (req) => this.chat(provider, req, ctx),
+        input: (req) => this.input(run, req, ctx),
+        command: (req) => this.command(run, req, ctx),
+        completion: (req) => this.completion(run, req, ctx),
+        terminal: (req) => this.terminal(run, req, ctx),
+        chat: (req) => this.chat(run, slot as Slot, req, ctx),
       }
       const result = (await handlers[point](input)) as AssistResults[P]
-      this.noteOutcome(undefined)
+      this.noteOutcome(slot, undefined)
       return result
     } catch (err) {
-      throw this.failure(err, ctx.signal)
+      throw this.failure(slot, err, ctx.signal)
     }
   }
 
   private async input(
-    provider: Provider,
+    run: Run,
     req: InputAssistRequest,
     ctx: AssistContext,
   ): Promise<InputAssistResult> {
@@ -319,9 +415,9 @@ export class AssistantService {
       throw new AssistFailure('unavailable', 'Typo fixes and prompt review are off.')
     }
     const [typos, review] = await Promise.all([
-      wantTypos ? this.text(provider, 'input', typoPrompt(req.text), ctx) : null,
+      wantTypos ? this.text(run, 'input', typoPrompt(req.text), ctx) : null,
       wantReview
-        ? this.object(provider, 'input', reviewPrompt(req.text, req.agent), reviewSchema, ctx)
+        ? this.object(run, 'input', reviewPrompt(req.text, req.agent), reviewSchema, ctx)
         : null,
     ])
     const result: InputAssistResult = {}
@@ -332,13 +428,13 @@ export class AssistantService {
     return result
   }
 
-  private async command(provider: Provider, req: CommandAssistRequest, ctx: AssistContext) {
-    const parsed = await this.object(provider, 'command', commandPrompt(req), commandSchema, ctx)
+  private async command(run: Run, req: CommandAssistRequest, ctx: AssistContext) {
+    const parsed = await this.object(run, 'command', commandPrompt(req), commandSchema, ctx)
     return { suggestions: parsed ? commandsFrom(parsed) : [] }
   }
 
-  private async completion(provider: Provider, req: CompletionAssistRequest, ctx: AssistContext) {
-    const sent: CompletionAssistRequest = provider.smallPrompts
+  private async completion(run: Run, req: CompletionAssistRequest, ctx: AssistContext) {
+    const sent: CompletionAssistRequest = run.provider.smallPrompts
       ? {
           path: req.path,
           language: req.language,
@@ -346,24 +442,22 @@ export class AssistantService {
           suffix: req.suffix.slice(0, SMALL_SUFFIX_MAX),
         }
       : req
-    const raw = await this.text(provider, 'completion', completionPrompt(sent), ctx)
+    const raw = await this.text(run, 'completion', completionPrompt(sent), ctx)
     return { text: cleanCompletion(raw, sent.prefix, sent.suffix) }
   }
 
-  private async terminal(provider: Provider, req: TerminalAssistRequest, ctx: AssistContext) {
-    const raw = await this.text(provider, 'terminal', terminalPrompt(req), ctx)
+  private async terminal(run: Run, req: TerminalAssistRequest, ctx: AssistContext) {
+    const raw = await this.text(run, 'terminal', terminalPrompt(req), ctx)
     return { text: cleanTerminal(raw, req.line) }
   }
 
-  private async chat(provider: Provider, req: ChatAssistRequest, ctx: AssistContext) {
+  private async chat(run: Run, slot: Slot, req: ChatAssistRequest, ctx: AssistContext) {
     let failure: unknown = null
-    const settings = this.settings(provider, 'chat', chatPrompt(req), ctx.signal)
+    const settings = this.settings(run, 'chat', chatPrompt(req), ctx.signal)
     const tools = req.tools?.length ? req.tools : null
     const result = streamText({
       ...settings,
-      ...(tools && this.toolMode === 'prompted'
-        ? { model: withPromptedTools(settings.model) }
-        : {}),
+      ...(tools && run.tools === 'prompted' ? { model: withPromptedTools(settings.model) } : {}),
       ...(tools ? { tools: chatToolSet(tools) } : {}),
       onError: ({ error }) => {
         failure = error
@@ -371,7 +465,7 @@ export class AssistantService {
     })
     let live = true
     const stream = result.toUIMessageStream({
-      onError: (error) => this.redact(messageOf(error)),
+      onError: (error) => this.redact(slot, messageOf(error)),
     })
     for await (const chunk of stream) {
       if (!live || chunk.type === 'tool-input-delta') continue
@@ -381,19 +475,24 @@ export class AssistantService {
     return { text: await result.text }
   }
 
-  async modelList(): Promise<AssistModelList> {
-    const list: AssistModelList = { lifecycle: this.provider?.lifecycle === true, models: [] }
-    if (!this.provider || this.problem() === 'no-key') return list
+  private slotFor(providerId: string | undefined): Slot | undefined {
+    return providerId ? this.slots.find((s) => s.entry.id === providerId) : this.slots[0]
+  }
+
+  async modelList(providerId?: string): Promise<AssistModelList> {
+    const slot = this.slotFor(providerId)
+    const list: AssistModelList = { lifecycle: slot?.provider?.lifecycle === true, models: [] }
+    if (!slot?.provider || slot.problem === 'no-key') return list
     try {
-      list.models = await this.provider.models()
+      list.models = await slot.provider.models()
     } catch (err) {
-      list.error = this.redact(messageOf(err))
+      list.error = this.redact(slot, messageOf(err))
     }
     return list
   }
 
-  async setLoaded(id: string, loaded: boolean): Promise<void> {
-    const provider = this.provider
+  async setLoaded(id: string, loaded: boolean, providerId?: string): Promise<void> {
+    const provider = this.slotFor(providerId)?.provider
     const action = loaded ? provider?.load : provider?.unload
     if (!provider || !action) throw new Error('this provider has no model lifecycle')
     await action(id)

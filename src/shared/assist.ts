@@ -24,11 +24,27 @@ export interface AssistPointStatus {
 
 export type AssistStatus = Partial<Record<AssistPoint, AssistPointStatus>>
 
+export interface AssistModelRef {
+  extId: string
+  provider?: string
+  model?: string
+}
+
+export function sameModelRef(a: AssistModelRef | null, b: AssistModelRef | null): boolean {
+  if (!a || !b) return a === b
+  return a.extId === b.extId && a.provider === b.provider && a.model === b.model
+}
+
+export function modelRefKey(ref: AssistModelRef): string {
+  return JSON.stringify([ref.extId, ref.provider ?? null, ref.model ?? null])
+}
+
 export interface AssistProviderInfo {
   extId: string
   name: string
   label?: string
   tools?: ChatToolMode
+  ref: AssistModelRef
 }
 
 export type AssistAvailability = Partial<Record<AssistPoint, AssistProviderInfo>>
@@ -44,6 +60,10 @@ export const ASSIST_FEATURES = [
 ] as const
 
 export type AssistFeatureId = (typeof ASSIST_FEATURES)[number]
+
+export function featureModelClass(id: AssistFeatureId): 'chat' | 'fast' {
+  return id === 'chat' || id === 'explainError' ? 'chat' : 'fast'
+}
 
 export interface AssistFeatureState {
   id: AssistFeatureId
@@ -62,6 +82,39 @@ export const ASSIST_SETUP_PROBLEMS = [
 
 export type AssistSetupProblem = (typeof ASSIST_SETUP_PROBLEMS)[number]
 
+export const ASSIST_PROVIDER_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/
+export const ASSIST_PROVIDERS_MAX = 16
+export const ASSIST_PROVIDER_MODELS_MAX = 32
+export const ASSIST_PROVIDER_NAME_MAX = 60
+export const ASSIST_PROVIDER_URL_MAX = 2048
+export const ASSIST_KINDS_MAX = 16
+
+export const ASSIST_KEY_NEEDS = ['required', 'optional'] as const
+
+export type AssistKeyNeed = (typeof ASSIST_KEY_NEEDS)[number]
+
+export interface AssistProviderKind {
+  id: string
+  title: string
+  baseUrl: string
+  key: AssistKeyNeed
+}
+
+export interface AssistCatalogModel {
+  id: string
+  tools?: ChatToolMode
+}
+
+export interface AssistProviderState {
+  id: string
+  kind: string
+  name: string
+  setup: AssistSetupProblem | null
+  lastError?: string
+  lifecycle: boolean
+  models: AssistCatalogModel[]
+}
+
 export interface AssistReport {
   status: AssistStatus
   features?: AssistFeatureState[]
@@ -69,6 +122,8 @@ export interface AssistReport {
   lastError?: string
   label?: string
   models?: boolean
+  providers?: AssistProviderState[]
+  kinds?: AssistProviderKind[]
 }
 
 export interface AssistExtensionState {
@@ -79,7 +134,69 @@ export interface AssistExtensionState {
   lastError?: string
   features: AssistFeatureState[]
   models: boolean
+  providers: AssistProviderState[]
+  kinds: AssistProviderKind[]
+  keysSet: string[]
 }
+
+export interface AssistProviderConfig {
+  id: string
+  extId: string
+  kind: string
+  name: string
+  baseUrl: string
+  enabled: boolean
+  models: string[]
+}
+
+export interface AssistModelSettings {
+  providers: AssistProviderConfig[]
+  fastModel: AssistModelRef | null
+  chatModel: AssistModelRef | null
+}
+
+export const DEFAULT_ASSIST_MODEL_SETTINGS: AssistModelSettings = {
+  providers: [],
+  fastModel: null,
+  chatModel: null,
+}
+
+export interface AssistProviderEntry {
+  id: string
+  kind: string
+  name: string
+  baseUrl: string
+  models: string[]
+  apiKey: string | null
+}
+
+export interface AssistModelChoice {
+  ref: AssistModelRef
+  group: string
+  label: string
+  tools?: ChatToolMode
+  points: AssistPoint[]
+}
+
+export interface AssistCatalog {
+  models: AssistModelChoice[]
+  chat: AssistModelRef | null
+  fast: AssistModelRef | null
+}
+
+export const EMPTY_ASSIST_CATALOG: AssistCatalog = { models: [], chat: null, fast: null }
+
+export type AssistModelClass = 'chat' | 'fast'
+
+export function modelClassOf(point: AssistPoint): AssistModelClass {
+  return point === 'chat' ? 'chat' : 'fast'
+}
+
+export function choiceLabel(choice: Pick<AssistModelChoice, 'group' | 'label'>): string {
+  return choice.group === choice.label ? choice.label : `${choice.group} · ${choice.label}`
+}
+
+export type AssistKeyResult = { ok: true } | { ok: false; error: string }
 
 export const ASSIST_UIS = ['chat', 'ask', 'compose'] as const
 
@@ -305,6 +422,7 @@ export interface AssistApi {
     point: P,
     requestId: string,
     input: AssistRequests[P],
+    model?: AssistModelRef,
   ) => Promise<AssistResponse<P>>
   cancel: (requestId: string) => void
   onChunk: (cb: (chunk: AssistChunk) => void) => () => void
@@ -312,8 +430,16 @@ export interface AssistApi {
   onOverview: (cb: (overview: AssistExtensionState[]) => void) => () => void
   onOpenUi: (cb: (req: AssistOpenUiRequest) => void) => () => void
   reportShortcuts: (shortcuts: Record<string, string>) => void
-  models: (extId: string) => Promise<AssistModelsResult>
-  setModelLoaded: (extId: string, id: string, loaded: boolean) => Promise<AssistModelChangeResult>
+  models: (extId: string, provider?: string) => Promise<AssistModelsResult>
+  setModelLoaded: (
+    extId: string,
+    id: string,
+    loaded: boolean,
+    provider?: string,
+  ) => Promise<AssistModelChangeResult>
+  catalog: () => Promise<AssistCatalog>
+  onCatalog: (cb: (catalog: AssistCatalog) => void) => () => void
+  setProviderKey: (providerId: string, value: string | null) => Promise<AssistKeyResult>
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -602,6 +728,112 @@ export function normalizeAssistError(raw: unknown): string | undefined {
 
 export function normalizeAssistLabel(raw: unknown): string | undefined {
   return optionalShort(raw, ASSIST_LABEL_MAX)
+}
+
+function providerId(v: unknown): string | null {
+  return typeof v === 'string' && ASSIST_PROVIDER_ID_PATTERN.test(v) ? v : null
+}
+
+function modelIds(raw: unknown): string[] {
+  const out: string[] = []
+  for (const item of Array.isArray(raw) ? raw : []) {
+    const id = typeof item === 'string' ? item.trim() : ''
+    if (isAssistModelId(id) && !out.includes(id)) out.push(id)
+    if (out.length === ASSIST_PROVIDER_MODELS_MAX) break
+  }
+  return out
+}
+
+export function normalizeModelRef(raw: unknown): AssistModelRef | null {
+  if (!isRecord(raw)) return null
+  const extId = optionalShort(raw.extId, 64)
+  if (!extId) return null
+  const provider = providerId(raw.provider)
+  if (!provider || !isAssistModelId(raw.model)) return { extId }
+  return { extId, provider, model: raw.model }
+}
+
+export function normalizeProviderConfig(raw: unknown): AssistProviderConfig | null {
+  if (!isRecord(raw)) return null
+  const id = providerId(raw.id)
+  const kind = providerId(raw.kind)
+  const extId = optionalShort(raw.extId, 64)
+  if (!id || !kind || !extId) return null
+  const baseUrl = typeof raw.baseUrl === 'string' ? raw.baseUrl.trim() : ''
+  if (baseUrl.length > ASSIST_PROVIDER_URL_MAX) return null
+  return {
+    id,
+    extId,
+    kind,
+    name: optionalShort(raw.name, ASSIST_PROVIDER_NAME_MAX) ?? kind,
+    baseUrl,
+    enabled: raw.enabled !== false,
+    models: modelIds(raw.models),
+  }
+}
+
+export function parseAssistModelSettings(raw: unknown): AssistModelSettings {
+  const src = isRecord(raw) ? raw : {}
+  const providers: AssistProviderConfig[] = []
+  for (const item of Array.isArray(src.providers) ? src.providers : []) {
+    if (providers.length === ASSIST_PROVIDERS_MAX) break
+    const provider = normalizeProviderConfig(item)
+    if (provider && !providers.some((p) => p.id === provider.id)) providers.push(provider)
+  }
+  return {
+    providers,
+    fastModel: normalizeModelRef(src.fastModel),
+    chatModel: normalizeModelRef(src.chatModel),
+  }
+}
+
+export function normalizeProviderKinds(raw: unknown): AssistProviderKind[] {
+  const out: AssistProviderKind[] = []
+  for (const item of Array.isArray(raw) ? raw : []) {
+    if (out.length === ASSIST_KINDS_MAX) break
+    if (!isRecord(item)) continue
+    const id = providerId(item.id)
+    if (!id || out.some((k) => k.id === id)) continue
+    out.push({
+      id,
+      title: optionalShort(item.title, ASSIST_PROVIDER_NAME_MAX) ?? id,
+      baseUrl: optionalShort(item.baseUrl, ASSIST_PROVIDER_URL_MAX) ?? '',
+      key: item.key === 'required' ? 'required' : 'optional',
+    })
+  }
+  return out
+}
+
+export function normalizeProviderStates(raw: unknown): AssistProviderState[] {
+  const out: AssistProviderState[] = []
+  for (const item of Array.isArray(raw) ? raw : []) {
+    if (out.length === ASSIST_PROVIDERS_MAX) break
+    if (!isRecord(item)) continue
+    const id = providerId(item.id)
+    const kind = providerId(item.kind)
+    if (!id || !kind || out.some((p) => p.id === id)) continue
+    const models: AssistCatalogModel[] = []
+    for (const entry of Array.isArray(item.models) ? item.models : []) {
+      if (models.length === ASSIST_MODELS_MAX) break
+      if (!isRecord(entry) || !isAssistModelId(entry.id)) continue
+      if (models.some((m) => m.id === entry.id)) continue
+      models.push(
+        isChatToolMode(entry.tools) ? { id: entry.id, tools: entry.tools } : { id: entry.id },
+      )
+    }
+    const state: AssistProviderState = {
+      id,
+      kind,
+      name: optionalShort(item.name, ASSIST_PROVIDER_NAME_MAX) ?? id,
+      setup: normalizeSetupProblem(item.setup),
+      lifecycle: item.lifecycle === true,
+      models,
+    }
+    const lastError = normalizeAssistError(item.lastError)
+    if (lastError) state.lastError = lastError
+    out.push(state)
+  }
+  return out
 }
 
 export const ASSIST_MODELS_MAX = 64

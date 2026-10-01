@@ -66,7 +66,12 @@ vi.mock('../lib/openFile', async (importOriginal) => ({
 }))
 
 const PANE = 'p-term'
-const CHAT = { extId: 'assistant', name: 'Assistant', label: 'fake · big' }
+const CHAT = {
+  extId: 'assistant',
+  name: 'Assistant',
+  label: 'fake · big',
+  ref: { extId: 'assistant' },
+}
 
 function seedWorkspace(): void {
   useWorkspacesStore.setState({

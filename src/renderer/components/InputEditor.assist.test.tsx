@@ -8,7 +8,12 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { InputEditor, type InputEditorProps } from './InputEditor'
 
 const PANE = 'pane-natural'
-const PROVIDER = { extId: 'assistant', name: 'Assistant', label: 'ollama · qwen' }
+const PROVIDER = {
+  extId: 'assistant',
+  name: 'Assistant',
+  label: 'ollama · qwen',
+  ref: { extId: 'assistant' },
+}
 const WAIT = { timeout: 5000 }
 
 function renderEditor() {

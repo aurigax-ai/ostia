@@ -6,24 +6,22 @@ import {
   type FakeProvider,
   type FakeReply,
   type FakeRequest,
+  fakeAssistantSettings,
   startFakeProvider,
 } from './fakeProvider'
 import { openWorkspace } from './helpers'
 
 const RUN_MARKER = 'pine-ran-from-chat'
 
-function seedAssistant(dataHome: string, url: string, extra: object = {}): void {
+function seedAssistant(
+  dataHome: string,
+  url: string,
+  extra: { assistant?: object; [key: string]: unknown } = {},
+): void {
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
     ...extra,
-    extensionSettings: {
-      assistant: {
-        provider: 'openai-compatible',
-        baseUrl: url,
-        fastModel: 'fake-small',
-        chatModel: 'fake-big',
-      },
-    },
+    assistant: { ...fakeAssistantSettings(url), ...extra.assistant },
   })
 }
 
@@ -71,9 +69,8 @@ test.describe('assistant chat pane and terminal completion', () => {
       await openWorkspace(win)
 
       const menu = await openAssistantMenu(win)
-      await expect(menu).toContainText('openai-compatible · fake-small / fake-big', {
-        timeout: 15_000,
-      })
+      await expect(menu).toContainText('Fake · fake-big', { timeout: 15_000 })
+      await expect(menu).toContainText('Fake · fake-small')
       await win.keyboard.press('Escape')
       await win
         .locator('header.topbar')
@@ -136,7 +133,7 @@ test.describe('assistant chat pane and terminal completion', () => {
       await win.waitForLoadState('domcontentloaded')
       await openWorkspace(win)
       const menu = await openAssistantMenu(win)
-      await expect(menu).toContainText('openai-compatible', { timeout: 15_000 })
+      await expect(menu).toContainText('Fake · fake-big', { timeout: 15_000 })
       await win.keyboard.press('Escape')
       await win
         .locator('header.topbar')
@@ -272,7 +269,7 @@ test.describe('assistant chat tools', () => {
       await win.waitForLoadState('domcontentloaded')
       await openWorkspace(win)
       const menu = await openAssistantMenu(win)
-      await expect(menu).toContainText('openai-compatible', { timeout: 15_000 })
+      await expect(menu).toContainText('Fake · fake-big', { timeout: 15_000 })
       await win.keyboard.press('Escape')
       await win
         .locator('header.topbar')

@@ -9,7 +9,7 @@ import {
   test,
 } from '@playwright/test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { type FakeProvider, startFakeProvider } from './fakeProvider'
+import { type FakeProvider, fakeAssistantSettings, startFakeProvider } from './fakeProvider'
 import { openWorkspace } from './helpers'
 
 const UI_FAMILY = 'Geist Variable'
@@ -82,14 +82,7 @@ test.describe('fonts follow the settings everywhere', () => {
         ui: { family: UI_FAMILY, size: 14, weight: 400 },
         editor: { family: CODE_FAMILY, size: 13, weight: 400 },
       },
-      extensionSettings: {
-        assistant: {
-          provider: 'openai-compatible',
-          baseUrl: provider.url,
-          fastModel: 'fake-small',
-          chatModel: 'fake-big',
-        },
-      },
+      assistant: fakeAssistantSettings(provider.url),
     })
 
     const launch = isolatedLaunch(dataHome)

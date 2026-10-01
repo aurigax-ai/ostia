@@ -1800,6 +1800,7 @@ function registerFsIpc(): void {
           }
         }
         extensionHost?.refreshLocale()
+        extensionHost?.reloadAssistSettings()
       }
       return true
     } catch {
@@ -1922,6 +1923,10 @@ function sendToWorkspaceWindow(
 
 function extensionSecretStore() {
   return encryptedStore(storePath('extension-secrets', 'global'))
+}
+
+function assistKeyStore() {
+  return encryptedStore(storePath('assist-keys', 'global'))
 }
 
 function encryptedStore(path: string) {
@@ -2269,6 +2274,8 @@ app.whenReady().then(() => {
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
+    readAssistSettings: () => readSettingsFile().assistant,
+    assistKeys: assistKeyStore(),
     secrets: extensionSecretStore(),
     openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
     broadcast,
@@ -2294,8 +2301,9 @@ app.whenReady().then(() => {
           .map((ext) => ext.id) ?? [],
       forget: (extId) => {
         extensionStore.delete(extId)
-        const secrets = extensionSecretStore()
-        for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
+        for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
+          for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
+        }
       },
       rescan: () => extensionHost?.rescan(),
       locale: readLocale,

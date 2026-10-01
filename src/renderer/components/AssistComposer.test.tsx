@@ -28,7 +28,12 @@ const { AssistComposer } = await import('./AssistComposer')
 const { ASSIST_COMPOSE_COMMAND, startAssistCompose } = await import('../commands/assistCompose')
 
 const PANE = 'pane-assist'
-const PROVIDER = { extId: 'assistant', name: 'Assistant', label: 'model-runtime · gemma' }
+const PROVIDER = {
+  extId: 'assistant',
+  name: 'Assistant',
+  label: 'model-runtime · gemma',
+  ref: { extId: 'assistant' },
+}
 const WAIT = { timeout: 5000 }
 
 function fakeTerm(): Xterm & { paste: ReturnType<typeof vi.fn> } {
@@ -93,6 +98,9 @@ describe('AssistComposer', () => {
           name: 'Assistant',
           setup: null,
           models: false,
+          providers: [],
+          kinds: [],
+          keysSet: [],
           features: [
             { id: 'typos', setting: 'typos', on: false, ready: true },
             { id: 'promptReview', setting: 'promptReview', on: true, ready: true },

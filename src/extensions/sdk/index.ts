@@ -15,6 +15,7 @@ import type {
   AssistError,
   AssistModelList,
   AssistPoint,
+  AssistProviderEntry,
   AssistReport,
   AssistRequests,
   AssistResults,
@@ -41,7 +42,11 @@ import type {
   SidebarKind,
   SidebarTone,
 } from '../../shared/extensions'
-import { SETTINGS_CHANGED_EVENT, TARGET_PANE_PARAM } from '../../shared/extensions'
+import {
+  ASSIST_PROVIDERS_CHANGED_EVENT,
+  SETTINGS_CHANGED_EVENT,
+  TARGET_PANE_PARAM,
+} from '../../shared/extensions'
 import { PANEL_SIZES_FILE, PanelSizeStore } from './panelSizes'
 import { PANEL_SIZES_PATH } from './split'
 
@@ -128,7 +133,10 @@ export interface AssistContext {
   requestId: string
   signal: AbortSignal
   chunk: (text: string) => Promise<boolean>
+  model?: { provider: string; model: string }
 }
+
+export type AssistProvidersHandler = (providers: AssistProviderEntry[]) => void
 
 export class AssistFailure extends Error {
   constructor(
@@ -207,11 +215,13 @@ export interface PineExtension {
   getShortcuts: (ids: string[]) => Promise<Record<string, string | null>>
   openAssistUi: (ui: AssistUi, workspaceId?: string) => Promise<ExtensionResult>
   getSecret: (key: string) => Promise<string | null>
+  getAssistProviders: () => Promise<AssistProviderEntry[]>
+  onAssistProvidersChanged: (handler: AssistProvidersHandler) => void
 }
 
 export interface AssistModelsHandler {
-  list: () => Promise<AssistModelList>
-  setLoaded: (id: string, loaded: boolean) => Promise<void>
+  list: (provider?: string) => Promise<AssistModelList>
+  setLoaded: (id: string, loaded: boolean, provider?: string) => Promise<void>
 }
 
 export { EXTENSION_API_VERSION } from '../../shared/extensionApi'
@@ -273,6 +283,7 @@ export async function connect(): Promise<PineExtension> {
   let settingsHandler: SettingsHandler | null = null
   let localeHandler: LocaleHandler | null = null
   let assistHandler: AssistHandler | null = null
+  let providersHandler: AssistProvidersHandler | null = null
   let modelsHandler: AssistModelsHandler | null = null
 
   conn.onRequest(
@@ -290,7 +301,12 @@ export async function connect(): Promise<PineExtension> {
   conn.onRequest(
     'ext.assist',
     async (
-      params: { point: AssistPoint; requestId: string; input: never },
+      params: {
+        point: AssistPoint
+        requestId: string
+        input: never
+        model?: { provider: string; model: string }
+      },
       token: CancellationToken,
     ) => {
       if (!assistHandler) throw new Error('no assist handler')
@@ -301,6 +317,7 @@ export async function connect(): Promise<PineExtension> {
         return await assistHandler(params.point, params.input, {
           requestId: params.requestId,
           signal: abort.signal,
+          ...(params.model ? { model: params.model } : {}),
           chunk: async (text) => {
             if (abort.signal.aborted) return false
             const res = await conn.sendRequest<{ live?: unknown }>('ext.assistChunk', {
@@ -317,19 +334,26 @@ export async function connect(): Promise<PineExtension> {
       }
     },
   )
-  conn.onRequest('ext.assistModels', async (params: { action?: unknown; id?: unknown }) => {
-    if (!modelsHandler) throw new Error('no models handler')
-    if (params.action === 'list') return modelsHandler.list()
-    if ((params.action !== 'load' && params.action !== 'unload') || typeof params.id !== 'string') {
-      return { ok: false, error: 'invalid' }
-    }
-    try {
-      await modelsHandler.setLoaded(params.id, params.action === 'load')
-      return { ok: true }
-    } catch (err) {
-      return { ok: false, error: errorMessage(err) }
-    }
-  })
+  conn.onRequest(
+    'ext.assistModels',
+    async (params: { action?: unknown; id?: unknown; provider?: unknown }) => {
+      if (!modelsHandler) throw new Error('no models handler')
+      const provider = typeof params.provider === 'string' ? params.provider : undefined
+      if (params.action === 'list') return modelsHandler.list(provider)
+      if (
+        (params.action !== 'load' && params.action !== 'unload') ||
+        typeof params.id !== 'string'
+      ) {
+        return { ok: false, error: 'invalid' }
+      }
+      try {
+        await modelsHandler.setLoaded(params.id, params.action === 'load', provider)
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, error: errorMessage(err) }
+      }
+    },
+  )
   conn.onRequest('ext.panel', async (params: { caller: ExtensionCaller; path?: string }) => {
     if (!panelHandler) throw new Error('no panel handler')
     return panelHandler(params.caller, params.path)
@@ -337,11 +361,17 @@ export async function connect(): Promise<PineExtension> {
   conn.onNotification(
     'ext.event',
     (params: {
-      type: ExtensionEventType | typeof SETTINGS_CHANGED_EVENT | typeof LOCALE_CHANGED_EVENT
+      type:
+        | ExtensionEventType
+        | typeof SETTINGS_CHANGED_EVENT
+        | typeof LOCALE_CHANGED_EVENT
+        | typeof ASSIST_PROVIDERS_CHANGED_EVENT
       payload: never
     }) => {
       if (params.type === SETTINGS_CHANGED_EVENT) {
         settingsHandler?.((params.payload as { values: ExtensionSettingValues }).values)
+      } else if (params.type === ASSIST_PROVIDERS_CHANGED_EVENT) {
+        providersHandler?.((params.payload as { providers: AssistProviderEntry[] }).providers)
       } else if (params.type === LOCALE_CHANGED_EVENT) {
         localeHandler?.((params.payload as ExtensionLocaleChangedPayload).locale)
       } else {
@@ -432,6 +462,15 @@ export async function connect(): Promise<PineExtension> {
     getSecret: async (key) => {
       const res = await conn.sendRequest<{ value?: unknown }>('ext.getSecret', { key })
       return typeof res?.value === 'string' ? res.value : null
+    },
+    getAssistProviders: async () => {
+      const res = await conn.sendRequest<{ providers?: AssistProviderEntry[] }>(
+        'ext.assistProviders',
+      )
+      return Array.isArray(res?.providers) ? res.providers : []
+    },
+    onAssistProvidersChanged: (handler) => {
+      providersHandler = handler
     },
   }
 }
