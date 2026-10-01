@@ -219,6 +219,14 @@ describe('chat', () => {
     raf.mockRestore()
   })
 
+  it('keeps Send enabled on an empty draft and sends nothing when clicked', async () => {
+    render(<ChatView workspaceId="w1" variant="pane" />)
+    const send = await screen.findByRole('button', { name: 'Send' })
+    expect(send).toBeEnabled()
+    await userEvent.click(send)
+    expect(window.pine.assist.request).not.toHaveBeenCalled()
+  })
+
   it('streams UI message chunks into a markdown answer with a code block', async () => {
     const { pending, chunk } = captureRequests()
     idlePrompt()
