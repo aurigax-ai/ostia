@@ -2,7 +2,7 @@
   "id": "ports",
   "name": "Ports",
   "version": "1.1.0",
-  "api": "1.0",
+  "api": "1.1",
   "description": "Shows the TCP ports your terminals listen on and the login of a foreground ssh, per workspace in the sidebar and per pane as chips. Click a port to open it in the browser pane.",
   "category": "tools",
   "capabilities": ["read-board"],

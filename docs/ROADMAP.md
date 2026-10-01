@@ -106,7 +106,7 @@ app theme (`--pine-*` variables). Authoring guide: `docs/EXTENSIONS.md`.
 | Block actions: click to select, copy command/output, jump between blocks, sticky command header | Warp | core (built) | M | 7 |
 | Command history search across panes | Warp | core (built) | M | 7 |
 | Saved workflows / parameterized commands: YAML files (user, project `.pine/workflows`) and extension `contributes.workflows`, picker + argument form inserting at an idle prompt, save from a block or history, `pine workflow list/show` | Warp | core picker + data contributions (built): inserting needs the prompt, which only core may type into | M | 7 |
-| Git branch + dirty state in sidebar, branch and diff stats pane chips, stage/discard/commit, log and blame (built); listening ports and ssh host in the sidebar and as pane chips (built, `ports`) | cmux/Warp | built-in extension | M | 3 |
+| Git branch + dirty state in sidebar, branch and diff stats pane chips, stage/discard/commit, log and blame (built); listening ports and ssh host in the sidebar and as pane chips (built, `ports`); ssh config hosts and a session in a new terminal through bastion hosts (built, `ssh`; connection sharing, port forwards, a host picker and remote files are later steps) | cmux/Warp | built-in extension | M | 3 |
 | Diff view (Monaco diff editor) + "open in VS Code / Zed at file:line" (built) | Warp/VS Code | built-in extension + core surface | M | 3, 6 |
 | Pick element in browser → send selector, screenshot, console errors to an agent pane | new | with browser automation (built) | M | 3 |
 | Your real Chrome: document Chrome DevTools MCP for agents instead of re-implementing CDP | new | docs (built) | S | 3 |
