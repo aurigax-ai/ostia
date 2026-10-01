@@ -573,6 +573,14 @@ export function registerBuiltinCommands(): void {
   })
 
   commands.register({
+    id: 'assist.settings',
+    title: 'Assistant: Settings',
+    category: 'Assistant',
+    target: 'none',
+    run: () => useUIStore.getState().openSettings('assistant'),
+  })
+
+  commands.register({
     id: 'app.quit',
     title: `Quit ${PRODUCT_NAME}`,
     category: 'App',

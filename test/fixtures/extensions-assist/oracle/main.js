@@ -64,6 +64,25 @@ conn.onRequest('ext.assist', async ({ point, requestId, input }, token) => {
   return { error: 'failed', message: 'not served' }
 })
 
+const loaded = new Set()
+conn.onRequest('ext.assistModels', async ({ action, id }) => {
+  if (action === 'list') {
+    return {
+      lifecycle: true,
+      models: [
+        { id: 'small', name: 'Small', loaded: loaded.has('small'), idleSecs: 12.7 },
+        { id: 'small', name: 'Duplicate' },
+        { id: '', name: 'No id' },
+        { id: 'big', description: 'x'.repeat(1000), installed: false, loaded: 'yes' },
+      ],
+    }
+  }
+  if (id === 'broken') return { ok: false, error: 'runtime refused' }
+  if (action === 'load') loaded.add(id)
+  else loaded.delete(id)
+  return { ok: true }
+})
+
 socket.on('close', () => process.exit(0))
 conn.listen()
 socket.on('connect', async () => {
@@ -84,6 +103,7 @@ socket.on('connect', async () => {
     setup: null,
     lastError: 'model busy',
     label: 'fake',
+    models: true,
   })
   await conn.sendRequest('ext.registerCommands', { commands: ['secret', 'events', 'status', 'shortcuts', 'openui'] })
 })

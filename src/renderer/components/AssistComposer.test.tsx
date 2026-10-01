@@ -88,6 +88,7 @@ describe('AssistComposer', () => {
           extId: 'assistant',
           name: 'Assistant',
           setup: null,
+          models: false,
           features: [
             { id: 'typos', setting: 'typos', on: false, ready: true },
             { id: 'promptReview', setting: 'promptReview', on: true, ready: true },
