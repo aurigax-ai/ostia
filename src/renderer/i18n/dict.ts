@@ -825,6 +825,10 @@ export const en = {
     chipsLabel: 'Extension status',
     chipAction: '{title}: {text}. Click to run {command}.',
     chipLink: '{title}: {text}. Click to open {url} in the browser pane.',
+    chipStatus: '{title}: {text}',
+    chipItems: '{title}: {text}. Click to list them.',
+    chipOpenItem: 'Open {url} in the browser pane',
+    chipCopyUrl: 'Copy {url}',
   },
   workspaceSettings: {
     title: 'Workspaces',
@@ -2541,6 +2545,10 @@ export const zhHant: Dict = {
     chipsLabel: '擴充功能狀態',
     chipAction: '{title}：{text}。按一下以執行 {command}。',
     chipLink: '{title}：{text}。按一下以在瀏覽器面板開啟 {url}。',
+    chipStatus: '{title}：{text}',
+    chipItems: '{title}：{text}。按一下以列出。',
+    chipOpenItem: '在瀏覽器面板開啟 {url}',
+    chipCopyUrl: '複製 {url}',
   },
   workspaceSettings: {
     title: '工作區',

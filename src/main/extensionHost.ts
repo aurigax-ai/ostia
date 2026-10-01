@@ -58,6 +58,7 @@ import {
   type ExtensionSettingValues,
   type ExtensionSidebarItem,
   type ExtensionStatus,
+  PANE_CHIP_ITEMS_MAX,
   PANE_CHIP_TEXT_MAX,
   PANE_CHIP_TOOLTIP_MAX,
   type PaneChip,
@@ -71,6 +72,7 @@ import {
   TERMINAL_TITLE_MAX,
   commandArgument,
   effectiveSettingValues,
+  paneChipItems,
   panelPath,
   sidebarItemUrl,
   validSettingValue,
@@ -1036,8 +1038,24 @@ export class ExtensionHost {
     if (typeof p.tooltip === 'string' && p.tooltip.trim()) {
       chip.tooltip = p.tooltip.trim().slice(0, PANE_CHIP_TOOLTIP_MAX)
     }
-    if (p.command !== undefined && p.url !== undefined) {
-      return fail('invalid-params', 'a chip has either a command or a url')
+    if ([p.command, p.url, p.items].filter((v) => v !== undefined).length > 1) {
+      return fail('invalid-params', 'a chip has at most one of a command, a url or items')
+    }
+    if (p.icon !== undefined) {
+      if (!EXTENSION_ICONS.includes(p.icon as ExtensionIcon)) {
+        return fail('invalid-params', `icon must be one of ${EXTENSION_ICONS.join(', ')}`)
+      }
+      chip.icon = p.icon as ExtensionIcon
+    }
+    if (p.items !== undefined) {
+      const items = paneChipItems(p.items)
+      if (!items) {
+        return fail(
+          'invalid-params',
+          `items must be 1-${PANE_CHIP_ITEMS_MAX} entries of {text, url?} with http(s) urls`,
+        )
+      }
+      chip.items = items
     }
     if (p.command !== undefined) {
       const command = this.commandsOf(rt).find((c) => c.id === p.command && c.palette)

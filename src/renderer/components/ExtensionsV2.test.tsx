@@ -167,6 +167,46 @@ describe('Extension API v2 UI', () => {
       expect(screen.getByText('dev')).toBeInTheDocument()
       expect(screen.queryByText('main')).toBeNull()
     })
+
+    it('shows an icon chip with its count and lists its items to open or copy', async () => {
+      const openBrowser = vi.fn()
+      const layoutInit = useLayoutStore.getState()
+      const workspacesInit = useWorkspacesStore.getState()
+      useLayoutStore.setState({
+        byWorkspace: {
+          s2: { root: { type: 'pane', id: 'p1', kind: 'terminal', title: 'zsh' } },
+        },
+        openBrowser,
+      } as unknown as Partial<ReturnType<typeof useLayoutStore.getState>>)
+      useExtensionsStore.setState({
+        list: [git],
+        chips: [
+          chip({
+            text: '2',
+            icon: 'plugs',
+            items: [
+              { text: ':3000', url: 'http://localhost:3000/' },
+              { text: ':5173', url: 'http://localhost:5173/' },
+            ],
+          }),
+        ],
+      })
+      render(<PaneChips paneId="p1" />)
+      const user = userEvent.setup()
+      expect(screen.queryByText(':3000')).toBeNull()
+
+      await user.click(screen.getByRole('button', { name: 'Branch: 2. Click to list them.' }))
+      const copy = await screen.findByRole('button', { name: 'Copy http://localhost:5173/' })
+      await user.click(copy)
+      expect(await navigator.clipboard.readText()).toBe('http://localhost:5173/')
+
+      await user.click(
+        screen.getByRole('button', { name: 'Open http://localhost:3000/ in the browser pane' }),
+      )
+      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/')
+      useLayoutStore.setState(layoutInit, true)
+      useWorkspacesStore.setState(workspacesInit, true)
+    })
   })
 
   describe('extension panel navigation', () => {
