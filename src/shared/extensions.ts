@@ -1,7 +1,9 @@
 import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
+import type { EditorLanguageContribution } from './editorLanguages'
 import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
 import type { LanguageContribution, LanguageInfo } from './languagePack'
+import type { LanguageServerContribution, LanguageServerSummary } from './languageServers'
 import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'pine.json'
@@ -129,6 +131,7 @@ export const EXTENSION_CATEGORIES = [
   'themes',
   'langpack',
   'completions',
+  'languages',
   'other',
 ] as const
 
@@ -157,6 +160,8 @@ export interface ExtensionManifest {
     secrets: ExtensionSecretContribution[]
     iconThemes?: IconThemeContribution[]
     languages?: LanguageContribution[]
+    languageServers?: LanguageServerContribution[]
+    editorLanguages?: EditorLanguageContribution[]
   }
 }
 
@@ -191,6 +196,7 @@ export interface ExtensionInfo {
   secretsSet: string[]
   iconThemes: IconThemeInfo[]
   languages: LanguageInfo[]
+  languageServers: LanguageServerSummary[]
 }
 
 export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as const

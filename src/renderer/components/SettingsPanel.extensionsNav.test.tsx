@@ -38,6 +38,7 @@ function ext(id: string, name: string, overrides: Partial<ExtensionInfo> = {}): 
     secretsSet: [],
     category: 'other',
     languages: [],
+    languageServers: [],
     iconThemes: [],
     ...overrides,
   }

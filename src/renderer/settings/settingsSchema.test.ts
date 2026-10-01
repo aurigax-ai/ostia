@@ -1,25 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import { commands } from '../commands/registry'
-import { monaco } from '../monaco/setup'
+import { langFor, setSettingsFile } from '../monaco/language'
+import { settingsJsonDefaults } from '../monaco/settingsLanguage'
 import { useSettingsStore } from '../stores/settingsStore'
 import { registerSettingsSchema } from './registerSettingsSchema'
 import { SETTINGS_JSON_SCHEMA } from './settingsSchema'
 
 vi.mock('../monaco/setup', () => ({
-  monaco: {
-    Uri: { file: (p: string) => ({ toString: () => `file://${p}` }) },
-    languages: { json: { jsonDefaults: { setDiagnosticsOptions: vi.fn() } } },
-  },
+  monaco: { Uri: { file: (p: string) => ({ toString: () => `file://${p}` }) } },
+}))
+vi.mock('../monaco/settingsLanguage', () => ({
+  settingsJsonDefaults: { setDiagnosticsOptions: vi.fn() },
 }))
 
-const setDiagnosticsOptions = vi.mocked(
-  (
-    monaco.languages.json as unknown as {
-      jsonDefaults: { setDiagnosticsOptions: (options: unknown) => void }
-    }
-  ).jsonDefaults.setDiagnosticsOptions,
-)
+const setDiagnosticsOptions = vi.mocked(settingsJsonDefaults.setDiagnosticsOptions)
 
 beforeEach(() => {
   setDiagnosticsOptions.mockClear()
@@ -119,6 +114,16 @@ describe('registerSettingsSchema', () => {
       additionalProperties: false,
       properties: { locale: SETTINGS_JSON_SCHEMA.properties.locale },
     })
+  })
+
+  it('gives the settings file, and only it, the language Monaco’s own JSON features always serve', async () => {
+    vi.mocked(window.pine.settings.path).mockResolvedValue('/custom/settings.json')
+    await registerSettingsSchema()
+    expect(langFor('/custom/settings.json')).toBe('pine-settings')
+    expect(langFor('/custom/other.json')).toBe('json')
+    expect(langFor('/elsewhere/settings.json')).toBe('json')
+    setSettingsFile(null)
+    expect(langFor('/custom/settings.json')).toBe('json')
   })
 
   it('lists every default chord and each registered palette command under keybindings', async () => {

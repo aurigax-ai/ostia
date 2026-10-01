@@ -40,6 +40,8 @@ import { registerViewCommands, startViews } from './lib/views'
 import { initWindow, startWindowSync } from './lib/windowHandoff'
 import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startWorkspaceProjects } from './lib/workspaceProjects'
+import { loadEditorLanguages } from './monaco/contributedLanguages'
+import { setSettingsFile } from './monaco/language'
 import { startApprovals } from './stores/approvalsStore'
 import { startAssistAvailability } from './stores/assistStore'
 import { startChatTools } from './stores/chatToolsStore'
@@ -74,6 +76,16 @@ async function boot(): Promise<void> {
     await useSettingsStore.getState().init()
   } catch (err) {
     console.error('[settings] load failed', err)
+  }
+  try {
+    setSettingsFile(await window.pine.settings.path())
+  } catch (err) {
+    console.error('[settings] path unavailable', err)
+  }
+  try {
+    await loadEditorLanguages()
+  } catch (err) {
+    console.error('[editor languages] load failed', err)
   }
   try {
     await usePluginsStore.getState().loadLanguages()

@@ -19,7 +19,7 @@ describe('pluginsStore', () => {
   describe('registry seed', () => {
     it('seeds the built-in plugins in manifest order, all marked builtin', () => {
       expect(store().plugins).toBe(BUILTIN_PLUGINS)
-      expect(store().plugins.map((p) => p.id)).toEqual(['pine.themes', 'pine.lsp'])
+      expect(store().plugins.map((p) => p.id)).toEqual(['pine.themes'])
       expect(store().plugins.every((p) => p.builtin)).toBe(true)
     })
   })
@@ -86,80 +86,6 @@ describe('pluginsStore', () => {
       vi.mocked(window.pine.languagePacks.load).mockResolvedValue([])
       await store().loadLanguages()
       expect(store().languages.map((l) => l.id)).toEqual(['en'])
-    })
-  })
-
-  describe('lsp: initial state + load()', () => {
-    it('starts with an empty lsp list and loaded=false', () => {
-      expect(store().lsp).toEqual([])
-      expect(store().loaded).toBe(false)
-    })
-
-    it('maps lsp:list results to entries (installed→installed, not-installed→missing) and sets loaded', async () => {
-      vi.mocked(window.pine.lsp.list).mockResolvedValue([
-        { languageId: 'typescript', command: 'typescript-language-server', installed: true },
-        { languageId: 'python', command: 'pylsp', installed: false },
-      ])
-
-      await store().load()
-
-      expect(store().loaded).toBe(true)
-      expect(store().lsp).toEqual([
-        { languageId: 'typescript', command: 'typescript-language-server', status: 'installed' },
-        { languageId: 'python', command: 'pylsp', status: 'missing' },
-      ])
-      expect(window.pine.lsp.list).toHaveBeenCalledTimes(1)
-    })
-
-    it('marks loaded even when main reports no configured servers', async () => {
-      await store().load()
-
-      expect(store().loaded).toBe(true)
-      expect(store().lsp).toEqual([])
-      expect(window.pine.lsp.list).toHaveBeenCalledTimes(1)
-    })
-
-    it('is idempotent — a second load() does not re-fetch from main', async () => {
-      await store().load()
-      expect(window.pine.lsp.list).toHaveBeenCalledTimes(1)
-
-      vi.mocked(window.pine.lsp.list).mockClear()
-      await store().load()
-
-      expect(window.pine.lsp.list).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('setLspStatus', () => {
-    it('updates the matching entry and leaves the others untouched', async () => {
-      vi.mocked(window.pine.lsp.list).mockResolvedValue([
-        { languageId: 'typescript', command: 'typescript-language-server', installed: true },
-        { languageId: 'python', command: 'pylsp', installed: false },
-      ])
-      await store().load()
-
-      store().setLspStatus('python', 'running')
-
-      const byId = Object.fromEntries(store().lsp.map((e) => [e.languageId, e.status]))
-      expect(byId.python).toBe('running')
-      expect(byId.typescript).toBe('installed')
-    })
-
-    it('is a no-op for an unknown languageId', async () => {
-      vi.mocked(window.pine.lsp.list).mockResolvedValue([
-        { languageId: 'typescript', command: 'typescript-language-server', installed: true },
-      ])
-      await store().load()
-      const before = store().lsp
-
-      store().setLspStatus('rust', 'running')
-
-      expect(store().lsp).toEqual(before)
-    })
-
-    it('is a safe no-op when called before load() (empty list)', () => {
-      store().setLspStatus('typescript', 'running')
-      expect(store().lsp).toEqual([])
     })
   })
 })

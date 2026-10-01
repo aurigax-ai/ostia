@@ -67,6 +67,7 @@ function iconThemeExtension(): ExtensionInfo {
     secretsSet: [],
     category: 'other',
     languages: [],
+    languageServers: [],
     iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
   }
 }

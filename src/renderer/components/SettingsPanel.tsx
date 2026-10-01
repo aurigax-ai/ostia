@@ -63,7 +63,7 @@ import {
 } from '../settings/terminalPaneSettings'
 import { WINDOW_TITLE_MAX } from '../settings/windowTitle'
 import { useExtensionsStore } from '../stores/extensionsStore'
-import { type LspStatus, usePluginsStore } from '../stores/pluginsStore'
+import { usePluginsStore } from '../stores/pluginsStore'
 import {
   CURSOR_STYLES,
   type CursorStyle,
@@ -93,6 +93,7 @@ import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
+import { LanguagesSection } from './LanguagesSection'
 import { ManagerSection } from './ManagerSection'
 import { MarketplaceSection, UninstallExtensionButton } from './MarketplaceSection'
 import { PasswordsSection } from './PasswordsSection'
@@ -231,7 +232,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
         { id: 'extensions', icon: PuzzlePieceIcon, label: d.settings.extensions },
         { id: 'views', icon: LayoutIcon, label: d.views.title },
-        { id: 'languageServers', icon: BracketsCurlyIcon, label: d.settings.languageServers },
+        { id: 'languageServers', icon: BracketsCurlyIcon, label: d.languageServers.title },
         { id: 'remote', icon: DeviceMobileIcon, label: d.settings.remote },
         { id: 'sync', icon: ArrowsClockwiseIcon, label: d.sync.title },
         { id: 'language', icon: TranslateIcon, label: d.settings.language },
@@ -451,7 +452,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'editor' ? <EditorSettingsSection /> : null}
             {active === 'extensions' ? <ExtensionsPage anchor={anchor} /> : null}
             {active === 'views' ? <ViewsSection /> : null}
-            {active === 'languageServers' ? <LanguageServersSection /> : null}
+            {active === 'languageServers' ? <LanguagesSection /> : null}
             {active === 'remote' ? <GatewaySection /> : null}
             {active === 'sync' ? <SyncSection /> : null}
             {active === 'language' ? <LanguageSection /> : null}
@@ -1561,48 +1562,6 @@ export function ExtensionsSection({
           ))}
         </ul>
       )}
-    </section>
-  )
-}
-
-const LSP_DOT: Record<LspStatus, string> = {
-  running: 'ok',
-  installed: 'brand',
-  missing: 'dim',
-  error: 'attn',
-}
-
-function LanguageServersSection(): JSX.Element {
-  const d = useDict()
-  const lsp = usePluginsStore((s) => s.lsp)
-  const load = usePluginsStore((s) => s.load)
-  useEffect(() => {
-    void load()
-  }, [load])
-  const statusLabel = (s: LspStatus): string =>
-    s === 'running'
-      ? d.lspStatus.running
-      : s === 'installed'
-        ? d.lspStatus.available
-        : s === 'error'
-          ? d.lspStatus.error
-          : d.lspStatus.notInstalled
-  return (
-    <section>
-      <SectionHead title={d.settings.languageServers} />
-      <div className="plugins">
-        {lsp.map((e) => (
-          <div key={e.languageId} className="plugin">
-            <span className={`dot plugin-dot ${LSP_DOT[e.status]}`} />
-            <span className="plugin-body">
-              <span className="plugin-name">{e.command}</span>
-              <span className="plugin-meta">
-                {e.languageId} · {statusLabel(e.status)}
-              </span>
-            </span>
-          </div>
-        ))}
-      </div>
     </section>
   )
 }

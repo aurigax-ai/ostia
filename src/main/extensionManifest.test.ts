@@ -249,6 +249,58 @@ describe('parseManifest', () => {
     ).toEqual({ ok: false, error: 'contributes.secrets.apiKey: title must be 1-80 characters' })
   })
 
+  it('takes language servers as data, without a main process, when the capability is declared', () => {
+    const languageServers = [
+      {
+        id: 'pyright',
+        name: 'Pyright',
+        languages: ['python'],
+        run: { node: 'server/langserver.index.js', args: ['--stdio'] },
+        settingPaths: { mode: 'python.analysis.typeCheckingMode' },
+      },
+    ]
+    const settings = {
+      mode: { type: 'enum', values: ['basic', 'strict'], default: 'basic', description: 'Mode' },
+    }
+    const base = { id: 'lsp-demo', name: 'Demo', version: '1.0.0', api: '1.0' }
+    const res = parseManifest(
+      {
+        ...base,
+        category: 'languages',
+        capabilities: ['language-server'],
+        contributes: { settings, languageServers },
+      },
+      DIR,
+    )
+    expect(res.ok && res.manifest.main).toBeUndefined()
+    expect(res.ok && res.manifest.category).toBe('languages')
+    expect(res.ok && res.manifest.contributes.languageServers).toEqual([
+      { ...languageServers[0], rootMarkers: [] },
+    ])
+    expect(parseManifest({ ...base, contributes: { settings, languageServers } }, DIR)).toEqual({
+      ok: false,
+      error: "contributes.languageServers needs the 'language-server' capability",
+    })
+    expect(
+      parseManifest(
+        {
+          ...base,
+          capabilities: ['language-server'],
+          contributes: {
+            languageServers: [{ ...languageServers[0], run: { node: '../../evil.js' } }],
+          },
+        },
+        DIR,
+      ),
+    ).toMatchObject({ ok: false, error: expect.stringContaining('inside the extension') })
+    expect(
+      parseManifest(
+        { ...base, capabilities: ['language-server'], contributes: { languageServers } },
+        DIR,
+      ),
+    ).toMatchObject({ ok: false, error: expect.stringContaining("extension's settings") })
+  })
+
   it('defaults the category to other and refuses one it does not know', () => {
     const res = parseManifest(manifest({}), DIR)
     expect(res.ok && res.manifest.category).toBe('other')
@@ -256,7 +308,8 @@ describe('parseManifest', () => {
     expect(scm.ok && scm.manifest.category).toBe('scm')
     expect(parseManifest(manifest({ category: 'games' }), DIR)).toEqual({
       ok: false,
-      error: 'category must be one of ai, scm, tools, themes, langpack, completions, other',
+      error:
+        'category must be one of ai, scm, tools, themes, langpack, completions, languages, other',
     })
   })
 
@@ -308,6 +361,15 @@ describe('parseManifest', () => {
       'git',
       'keeper',
       'langpack-zh-hant',
+      'lsp-bash',
+      'lsp-clangd',
+      'lsp-gopls',
+      'lsp-lua',
+      'lsp-marksman',
+      'lsp-pyright',
+      'lsp-rust-analyzer',
+      'lsp-typescript',
+      'lsp-yaml',
       'model-runtime',
       'ports',
       'system',

@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { type AssistPoint, isAssistPoint } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
+import { parseEditorLanguages } from '../shared/editorLanguages'
 import { apiProblem } from '../shared/extensionApi'
 import { EXTENSION_LOCALES_MAX } from '../shared/extensionLocales'
 import {
@@ -26,6 +27,7 @@ import {
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
 import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../shared/languagePack'
+import { parseLanguageServers } from '../shared/languageServers'
 import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
@@ -456,6 +458,16 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof languages === 'string') return { ok: false, error: languages }
   const locales = parseLocales(raw.locales)
   if (typeof locales === 'string') return { ok: false, error: locales }
+  const languageServers = parseLanguageServers(contributes.languageServers, {
+    isInside: (path) => isInsideDir(dir, path),
+    capabilities: caps,
+    settingKeys: settings.map((setting) => setting.key),
+  })
+  if (typeof languageServers === 'string') return { ok: false, error: languageServers }
+  const editorLanguages = parseEditorLanguages(contributes.editorLanguages, (path) =>
+    isInsideDir(dir, path),
+  )
+  if (typeof editorLanguages === 'string') return { ok: false, error: editorLanguages }
   const needsMain =
     commands.length > 0 ||
     sidebarItems ||
@@ -487,6 +499,8 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (completions !== undefined) manifest.contributes.completions = completions
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes
   if (languages.length > 0) manifest.contributes.languages = languages
+  if (languageServers.length > 0) manifest.contributes.languageServers = languageServers
+  if (editorLanguages.length > 0) manifest.contributes.editorLanguages = editorLanguages
   return { ok: true, manifest }
 }
 

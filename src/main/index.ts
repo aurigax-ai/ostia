@@ -18,10 +18,12 @@ import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
+import { languageForPath } from '../shared/editorLanguages'
+import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
-import { PRODUCT_NAME } from '../shared/product'
+import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
 import type {
@@ -73,12 +75,14 @@ import { controlSocketPath, registerControlServer, stopControlServer } from './c
 import { registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { registerDocsMethods } from './docs'
+import { registerEditorLanguageIpc } from './editorLanguages'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
 import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
 import { createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
+import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
 import { openInExternalEditor } from './externalEditor'
 import { FileWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
@@ -100,13 +104,15 @@ import {
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { registerLanguagePackIpc } from './languagePacks'
+import { LanguageServers, scrubbedEnv } from './languageServers'
+import { registerLanguageServersIpc } from './languageServersIpc'
 import { atLocalPrompt } from './localPrompt'
 import { registerLoginFill } from './loginFill'
-import { killAllLsp, registerLspIpc } from './lsp'
+import { ManagedServers, downloadBaseUrl } from './managedServers'
 import { ManagerService, managerWindowId } from './manager'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
-import { Marketplace } from './marketplace'
+import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './marketplace'
 import { McpHost } from './mcpHost'
 import {
   postActionNotification,
@@ -137,7 +143,7 @@ import { KubeContextReader, NodeVersionResolver, promptContext } from './promptC
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { exitAfterDeadline, planQuit } from './quitPlan'
-import { registerReleaseCheck } from './releaseCheck'
+import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -155,7 +161,12 @@ import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { ViolationLog, recordViolations } from './sandbox/violations'
-import { type SandboxReadRules, sandboxEntries, sandboxPath } from './sandbox/visibility'
+import {
+  type SandboxReadRules,
+  sandboxEntries,
+  sandboxPath,
+  visibleInSandbox,
+} from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
 import { ScreenMirror } from './screenMirror'
@@ -168,7 +179,15 @@ import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
 import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
-import { SANDBOX_FEATURE, installHint, missingRequirements, onPath } from './systemRequirements'
+import {
+  SANDBOX_FEATURE,
+  installHint,
+  missingRequirements,
+  onPath,
+  programPath,
+  registerRequirements,
+  requirementLabel,
+} from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME } from './terminalType'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray } from './tray'
@@ -508,6 +527,67 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
 })
 
 const sandboxViolations = new ViolationLog()
+
+let languageServers: LanguageServers | null = null
+
+function editorLanguageOf(path: string): string {
+  return languageForPath(
+    path,
+    (extensionHost?.editorLanguages() ?? []).map((source) => source.language),
+  )
+}
+
+const managedServers = new ManagedServers({
+  dir: join(app.getPath('userData'), 'language-servers'),
+  userAgent: releaseUserAgent(app.getVersion()),
+  findProgram: (program) => programPath(program),
+  env: () => scrubbedEnv(process.env),
+  baseUrl: downloadBaseUrl(app.isPackaged, process.env),
+})
+
+function sandboxCanRead(workspaceId: string, path: string): boolean {
+  try {
+    const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
+    return visibleInSandbox(path, { denyRead, allowRead: allowRead ?? [] })
+  } catch {
+    return false
+  }
+}
+
+function createLanguageServers(): LanguageServers {
+  return new LanguageServers({
+    sources: () => extensionHost?.languageServers() ?? [],
+    nodePath: process.execPath,
+    env: () => process.env,
+    pane: (paneId) => getByPaneId(paneId),
+    confine: (path) => openFileGrants.confine(path),
+    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+    roots: fileRoots,
+    sandbox: {
+      owner: (workspaceId) =>
+        workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
+          ? workspaceSandboxes.owner(workspaceId)
+          : null,
+      readable: sandboxCanRead,
+      wrap: (workspaceId, command, extraReads) =>
+        workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
+      env: (workspaceId, env) => ({
+        ...sandboxSpawnEnv(env as Record<string, string>),
+        TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
+      }),
+    },
+    findProgram: (program) => programPath(program),
+    languageOf: editorLanguageOf,
+    managed: managedServers,
+    registerRequirements,
+    post: (windowId, channel, ...args) => {
+      const win = windows.get(windowId)
+      if (win && !win.isDestroyed()) win.webContents.send(channel, ...args)
+    },
+    changed: (list) => broadcast('lsp:servers-changed', list),
+    log: (event, fields) => appLog?.info(event, fields),
+  })
+}
 
 function paneForWorkspace(workspaceId: string): string | undefined {
   for (const [paneId, entry] of ptys) {
@@ -1208,6 +1288,32 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
     marketplace.install(id, extId),
   )
   ipcMain.handle('marketplace:uninstall', (_e, extId: unknown) => marketplace.uninstall(extId))
+
+  const dismissed = new DismissedSuggestions(
+    join(app.getPath('userData'), 'extension-suggestions.json'),
+  )
+  ipcMain.handle('suggestions:for-file', (e, paneId: unknown, path: unknown) => {
+    if (typeof paneId !== 'string' || typeof path !== 'string') return null
+    if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return null
+    const file = openFileGrants.confine(path)
+    if (file === null) return null
+    return suggestionFor(file, {
+      servers: () => extensionHost?.languageServers() ?? [],
+      extensions: () => extensionHost?.list() ?? [],
+      listings: () => marketplace.languageListings(),
+      dismissed: () => dismissed.list(),
+      official: marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? ''),
+      languageOf: editorLanguageOf,
+    })
+  })
+  ipcMain.handle('suggestions:dismiss', (_e, extId: unknown) => dismissed.dismiss(extId))
+  ipcMain.handle('suggestions:install', (_e, extId: unknown) =>
+    marketplace.installSuggested(
+      extId,
+      OFFICIAL_MARKETPLACE,
+      typeof extId === 'string' && Object.hasOwn(EXTENSION_SUGGESTIONS, extId),
+    ),
+  )
 }
 
 function forgetWorkspaceRequests(workspaceId: string): void {
@@ -1275,6 +1381,7 @@ function registerPtyIpc(): void {
     systemExtensionEnabled: () =>
       extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
     missing: (feature) => missingRequirements(feature),
+    label: requirementLabel,
     invokeInstall: (args, caller) =>
       extensionHost
         ? extensionHost.invoke('system', 'install', args, caller)
@@ -2151,7 +2258,6 @@ app.whenReady().then(() => {
     log: appLog,
   })
   registerAgentTranscriptIpc()
-  registerLspIpc()
   const notifyDeps = {
     execCommand,
     isScratchPane,
@@ -2263,6 +2369,7 @@ app.whenReady().then(() => {
   })
   settingsSync.run()
   extensionHost = new ExtensionHost({
+    onChanged: () => languageServers?.refresh(),
     hostGrants: hostPaneGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     roots: extensionRoots(),
@@ -2287,6 +2394,13 @@ app.whenReady().then(() => {
   })
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
+  languageServers = createLanguageServers()
+  languageServers.refresh()
+  registerLanguageServersIpc({
+    servers: languageServers,
+    setEnabled: (extId, serverId, enabled) =>
+      extensionHost?.setLanguageServerEnabled(extId, serverId, enabled),
+  })
   registerMarketplaceIpc(
     new Marketplace({
       recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
@@ -2298,6 +2412,7 @@ app.whenReady().then(() => {
           .filter((ext) => ext.builtin)
           .map((ext) => ext.id) ?? [],
       forget: (extId) => {
+        managedServers.forgetExtension(extId)
         extensionStore.delete(extId)
         const secrets = extensionSecretStore()
         for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
@@ -2350,6 +2465,10 @@ app.whenReady().then(() => {
   registerLanguagePackIpc({
     languages: () => extensionHost?.languages() ?? [],
     onError: (extId, error) => console.warn(`[language pack ${extId}] ${error}`),
+  })
+  registerEditorLanguageIpc({
+    languages: () => extensionHost?.editorLanguages() ?? [],
+    onError: (extId, error) => console.warn(`[editor language ${extId}] ${error}`),
   })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
@@ -2496,7 +2615,7 @@ app.on('before-quit', (event) => {
     removeStateFile(entry)
   }
   ptys.clear()
-  killAllLsp()
+  languageServers?.stopAll()
   workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
