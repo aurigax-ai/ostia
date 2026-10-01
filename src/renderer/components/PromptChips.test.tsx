@@ -214,7 +214,7 @@ describe('Pine prompt in the input editor', () => {
     commands.unregister('git.branches')
   })
 
-  it('offers Edit prompt, Copy prompt and Copy working directory on right-click', async () => {
+  it('offers Edit prompt (Settings → Prompt for this pane), Copy prompt and Copy working directory on right-click', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     usePine(['user', 'cwd'], { separator: '$' })
@@ -229,7 +229,11 @@ describe('Pine prompt in the input editor', () => {
     expect(writeText).toHaveBeenCalledWith('/home/u/proj')
     fireEvent.contextMenu(chipRow())
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit prompt…' }))
-    expect(useUIStore.getState().promptEditor).toEqual({ paneId: PANE })
+    expect(useUIStore.getState()).toMatchObject({
+      settingsActive: true,
+      settingsSection: 'prompt',
+      promptPreviewPaneId: PANE,
+    })
   })
 
   it('asks main again at each new prompt', async () => {

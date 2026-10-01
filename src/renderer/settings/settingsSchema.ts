@@ -307,8 +307,8 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'object',
           additionalProperties: false,
           description:
-            'The prompt the input editor shows (behavior.inputMode "editor"). Right-click the ' +
-            'prompt and choose Edit prompt to arrange it.',
+            'The prompt the input editor shows (behavior.inputMode "editor"). Arrange it in ' +
+            'Settings → Prompt, or right-click the prompt and choose Edit prompt.',
           properties: {
             style: {
               type: 'string',

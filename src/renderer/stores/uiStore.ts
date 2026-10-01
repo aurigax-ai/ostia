@@ -11,7 +11,7 @@ interface UIState {
   settingsSection: string | null
   filesOpen: boolean
   digitHints: boolean
-  promptEditor: { paneId: string | null } | null
+  promptPreviewPaneId: string | null
   settingsWorkspaceId: string | null
   settingsRequest: number
   openPalette: (mode?: PaletteOpenMode) => void
@@ -19,14 +19,12 @@ interface UIState {
   closePalette: () => void
   togglePalette: () => void
   toggleRail: () => void
-  openSettings: (section?: string) => void
+  openSettings: (section?: string, previewPaneId?: string) => void
   openWorkspaceSettings: (workspaceId: string) => void
   closeSettings: () => void
   leaveSettings: () => void
   toggleFiles: () => void
   showFiles: () => void
-  openPromptEditor: (paneId: string | null) => void
-  closePromptEditor: () => void
   setDigitHints: (shown: boolean) => void
 }
 
@@ -39,7 +37,7 @@ export const useUIStore = create<UIState>((set) => ({
   settingsSection: null,
   filesOpen: false,
   digitHints: false,
-  promptEditor: null,
+  promptPreviewPaneId: null,
   settingsWorkspaceId: null,
   settingsRequest: 0,
   openPalette: (mode = 'search') => set({ paletteOpen: true, paletteMode: mode }),
@@ -47,8 +45,13 @@ export const useUIStore = create<UIState>((set) => ({
   closePalette: () => set({ paletteOpen: false, paletteMode: 'search' }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search' })),
   toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
-  openSettings: (section) =>
-    set({ settingsTabOpen: true, settingsActive: true, settingsSection: section ?? null }),
+  openSettings: (section, previewPaneId) =>
+    set({
+      settingsTabOpen: true,
+      settingsActive: true,
+      settingsSection: section ?? null,
+      promptPreviewPaneId: previewPaneId ?? null,
+    }),
   openWorkspaceSettings: (workspaceId) =>
     set((s) => ({
       settingsTabOpen: true,
@@ -60,7 +63,5 @@ export const useUIStore = create<UIState>((set) => ({
   leaveSettings: () => set({ settingsActive: false }),
   toggleFiles: () => set((s) => ({ filesOpen: !s.filesOpen })),
   showFiles: () => set({ filesOpen: true }),
-  openPromptEditor: (paneId) => set({ promptEditor: { paneId } }),
-  closePromptEditor: () => set({ promptEditor: null }),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))

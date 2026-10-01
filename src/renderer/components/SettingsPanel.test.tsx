@@ -213,6 +213,16 @@ describe('SettingsPanel', () => {
     expect(setBehavior).toHaveBeenCalledWith({ inputMode: 'editor' })
   })
 
+  it('opens the Prompt page from the Terminal page’s Edit prompt button', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Terminal' }))
+    await user.click(screen.getByRole('button', { name: 'Edit prompt' }))
+    expect(screen.getByRole('heading', { level: 2, name: 'Prompt' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Prompt' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('combobox', { name: 'Prompt style' })).toBeInTheDocument()
+  })
+
   it('changes the cursor style (Terminal section) via setBehavior', async () => {
     const setBehavior = vi
       .spyOn(useSettingsStore.getState(), 'setBehavior')
