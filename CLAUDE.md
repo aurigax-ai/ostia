@@ -475,8 +475,10 @@ Details: `docs/ARCHITECTURE.md`.
   (`--motion-fast/base/slow`, `--ease-out/in`); no raw durations or easings. Never animate pane
   size, position or splits, the Allotment layout, or anything else that resizes an xterm host:
   each frame would fit and resize the pty and bring back the duplicated-prompt bugs (§6). The
-  rail width transition is the one exception, and it is safe only because the terminal resize is
-  debounced (`e2e/resize-prompt.spec.ts` toggles it). Attention is the only thing that pulses,
+  rail width transition (the collapse toggle) is the one exception, and it is safe only because
+  the terminal resize is debounced (`e2e/resize-prompt.spec.ts` toggles it and drags the rail
+  edge). Dragging the rail edge never animates: `data-rail-resizing` on the root turns the
+  transition off for the drag (`RailResizer.tsx`). Attention is the only thing that pulses,
   and every pulse stops (ring ×2, waiting dot ×3); only the `working` dot breathes forever.
   Reduced motion (`appearance.motion`, `prefers-reduced-motion`) collapses motion but never hides
   state. Details: `docs/DESIGN.md` §8.
@@ -884,7 +886,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   portal is at `PINE_PORTAL_SOCKET`; it also runs the CLI from a Pine pane to check the refusal.
   It also runs a bash manager through `pine manager spawn|read|input` against a fake worker, with
   `manager.allowInput` off and on, and checks a worker pane is refused.
-  `e2e/tray.spec.ts` covers close-to-tray. `e2e/fonts.spec.ts` sets a UI and code font and
+  `e2e/tray.spec.ts` covers close-to-tray. `e2e/rail-resize.spec.ts` drags the sidebar edge wider (the folder
+  line shows more of the path), checks the width after a restart and the double-click reset, and
+  drags far left to collapse; the clamp, keyboard and storage helpers are in
+  `src/renderer/lib/railWidth.test.ts`, the separator in `RailResizer.test.tsx`. `e2e/fonts.spec.ts` sets a UI and code font and
   checks the computed, loaded family in the UI, a settings list, a keycap, chat code and the Git
   panel's webview. `e2e/terminal-selection.spec.ts` runs a fake `claude`
   that paints `rgb(55,55,55)` rows with mouse tracking on, Shift-drags over them under Oxocarbon

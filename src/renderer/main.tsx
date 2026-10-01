@@ -27,6 +27,7 @@ import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
 import { startHibernation } from './lib/hibernationScheduler'
 import { startAgentDetection } from './lib/paneAgent'
+import { applyStoredRailWidth } from './lib/railWidth'
 import { applyUiFonts, preloadFonts } from './lib/uiFonts'
 import { startUserActions } from './lib/userActions'
 import { registerViewCommands, startViews } from './lib/views'
@@ -101,6 +102,7 @@ async function boot(): Promise<void> {
   startAssistCompose()
   startAssistToggleCommands()
   startShortcutReporting()
+  applyStoredRailWidth()
   window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(
