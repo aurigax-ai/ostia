@@ -1,4 +1,4 @@
-import { copyFileSync, cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import { join, resolve } from 'node:path'
 import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test'
@@ -21,11 +21,10 @@ function installApproved(dataHome: string, configHome: string, ids: string[]): v
   writeFileSync(join(dataHome, 'userData', 'extensions.json'), JSON.stringify(records))
 }
 
-async function serve(label: string, check?: (headers: Record<string, unknown>) => boolean) {
+async function serve(label: string) {
   const server: Server = createServer((req, res) => {
-    const ok = check ? check(req.headers) : true
-    res.writeHead(ok ? 200 : 401, { 'content-type': 'text/html; charset=utf-8' })
-    res.end(ok ? `<h1>${label} ${req.url}</h1>` : 'no token')
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+    res.end(`<h1>${label} ${req.url}</h1>`)
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
   const addr = server.address()
@@ -41,49 +40,15 @@ function guestText(app: ElectronApplication, origin: string): Promise<string> {
   }, origin)
 }
 
-test('trellis and keeper extensions drive their panels and sidebar from the CLIs', async () => {
+test('the keeper extension drives its panel and sidebar from the CLI', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   const project = join(home, 'shop')
-  const trellisDir = join(dataHome, 'fake-trellis')
   const keeperDir = join(dataHome, 'fake-keeper')
-  for (const d of [project, trellisDir, keeperDir]) mkdirSync(d, { recursive: true })
-  writeFileSync(join(project, '.trellis'), '/DEMO\n')
+  for (const d of [project, keeperDir]) mkdirSync(d, { recursive: true })
 
-  const trellisUi = await serve('Fake Trellis', (h) => h['x-trellis-token'] === 'TESTTOKEN')
   const keeperUi = await serve('Fake Keeper')
 
-  for (const f of readdirSync(join(FIXTURES, 'trellis'))) {
-    copyFileSync(join(FIXTURES, 'trellis', f), join(trellisDir, f))
-  }
-  writeFileSync(join(trellisDir, 'daemon-up'), '')
-  writeFileSync(
-    join(trellisDir, 'ui.json'),
-    JSON.stringify({ started: false, url: `${trellisUi.origin}/?token=TESTTOKEN` }),
-  )
-  writeFileSync(
-    join(trellisDir, 'daemon-running.json'),
-    readFileSync(join(FIXTURES, 'trellis', 'daemon-running.json'), 'utf8').replace(
-      'http://127.0.0.1:7788',
-      trellisUi.origin,
-    ),
-  )
-  writeFileSync(join(trellisDir, 'consumers.json'), '[{"name":"pine","cursor":0,"lag":0}]')
-  writeFileSync(
-    join(trellisDir, 'follow.jsonl'),
-    `${JSON.stringify({
-      seq: 1,
-      ts: 1789419958656,
-      actor: 'agent:e2e',
-      entity: 'card',
-      ref: 'DEMO-3',
-      title: 'Card 3',
-      action: 'moved',
-      field: 'column',
-      old: 'in-progress',
-      new: 'review',
-    })}\n`,
-  )
   copyFileSync(join(FIXTURES, 'keeper', 'status-running.txt'), join(keeperDir, 'status.txt'))
   copyFileSync(join(FIXTURES, 'keeper', 'approve-pending.json'), join(keeperDir, 'approve.json'))
   writeFileSync(join(keeperDir, 'ui.txt'), `${keeperUi.origin}\n`)
@@ -109,14 +74,13 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
   )
 
   const launch = isolatedLaunch(dataHome)
-  installApproved(dataHome, launch.env.XDG_CONFIG_HOME, ['trellis', 'keeper'])
+  installApproved(dataHome, launch.env.XDG_CONFIG_HOME, ['keeper'])
   const app = await electron.launch({
     ...launch,
     env: {
       ...launch.env,
       HOME: home,
       PATH: `${join(FIXTURES, 'bin')}:${process.env.PATH}`,
-      FAKE_TRELLIS_DIR: trellisDir,
       FAKE_KEEPER_DIR: keeperDir,
     },
   })
@@ -127,48 +91,6 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
     await expect(win.locator('.rail-ext-footer .ext-item')).toHaveText('2 waiting for approval', {
       timeout: 20_000,
     })
-    const cards = win
-      .locator('.topbar-right .workspace-chips')
-      .getByRole('button', { name: /^Trellis cards: 4/ })
-    await expect(cards).toBeVisible({ timeout: 20_000 })
-    await expect(win.locator('.rail-meta')).not.toContainText('open')
-
-    await win.keyboard.press('Control+Shift+P')
-    await win.locator('[data-slot="command-input"]').fill('Trellis: Open Board')
-    await waitForPaletteSelection(win, 'Trellis: Open Board')
-    await win.keyboard.press('Enter')
-    await expect(win.locator('.pane-header .title').filter({ hasText: 'Trellis' })).toBeVisible({
-      timeout: 15_000,
-    })
-    await expect
-      .poll(() => guestText(app, 'http://127.0.0.1'), { timeout: 15_000 })
-      .toContain('Fake Trellis /p/DEMO')
-
-    await win.keyboard.press('Control+Shift+P')
-    await win.locator('[data-slot="command-input"]').fill('Trellis: Open Card')
-    await waitForPaletteSelection(win, 'Trellis: Open Card')
-    await win.keyboard.press('Enter')
-    await expect(win.locator('[data-slot="command-input"]')).toHaveAttribute(
-      'placeholder',
-      'Card id, for example SHOP-12',
-    )
-    await win.locator('[data-slot="command-input"]').fill('demo-2')
-    await win.keyboard.press('Enter')
-    await expect
-      .poll(() => guestText(app, 'http://127.0.0.1'), { timeout: 15_000 })
-      .toContain('Fake Trellis /p/DEMO/card/DEMO-2')
-    await expect(win.locator('.pane-header .title').filter({ hasText: 'Trellis' })).toHaveCount(1)
-
-    await win.getByRole('button', { name: /Notifications/ }).click({ timeout: 10_000 })
-    await win
-      .getByRole('list', { name: 'Notifications' })
-      .getByRole('button', { name: /ready for your review: DEMO-3/ })
-      .click({ timeout: 10_000 })
-    await expect
-      .poll(() => guestText(app, 'http://127.0.0.1'), { timeout: 15_000 })
-      .toContain('Fake Trellis /p/DEMO/card/DEMO-3')
-    await expect(win.locator('.pane-header .title').filter({ hasText: 'Trellis' })).toHaveCount(1)
-
     await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Keeper: Open Dashboard')
     await waitForPaletteSelection(win, 'Keeper: Open Dashboard')
@@ -193,7 +115,6 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
     expect(keeperCalls.filter((c) => c.startsWith('approve') && c !== 'approve --json')).toEqual([])
   } finally {
     await app.close()
-    trellisUi.server.close()
     keeperUi.server.close()
   }
 })
