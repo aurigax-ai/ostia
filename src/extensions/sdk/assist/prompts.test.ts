@@ -265,6 +265,50 @@ describe('chat prompt', () => {
     expect(prompt.messages).toEqual([{ role: 'user', content: 'why?' }])
   })
 
+  it('names the file and lines of a selection so the edit tools can target it', () => {
+    const system = chatPrompt({
+      messages: [{ role: 'user', content: 'rename this' }],
+      context: [
+        {
+          kind: 'selection',
+          label: 'Selection a.ts:3-4',
+          text: 'const a = 1',
+          path: '/proj/a.ts',
+          startLine: 3,
+          endLine: 4,
+        },
+        {
+          kind: 'editor',
+          label: 'Open file b.ts',
+          text: 'The file the user has open in the editor, cursor at line 7.',
+          path: '/proj/b.ts',
+        },
+        {
+          kind: 'selection',
+          label: 'Selection a.ts:9',
+          text: 'x',
+          path: '/proj/a.ts',
+          startLine: 9,
+          endLine: 9,
+        },
+      ],
+      tools: [{ name: 'edit_file', description: 'Edit', inputSchema: { type: 'object' } }],
+    }).system
+    expect(system).toContain(
+      '## Selection a.ts:3-4 (selection)\nFile: /proj/a.ts, lines 3-4\n```\nconst a = 1\n```',
+    )
+    expect(system).toContain('## Open file b.ts (editor)\nFile: /proj/b.ts\n```')
+    expect(system).toContain('File: /proj/a.ts, line 9\n')
+    expect(system).toMatch(/call edit_file with the exact text to replace/)
+    expect(system).toMatch(/use that path with the read and edit tools/)
+  })
+
+  it('does not mention edit tools when the chat has no tools', () => {
+    expect(
+      chatPrompt({ messages: [{ role: 'user', content: 'hi' }], context: [] }).system,
+    ).not.toMatch(/edit_file/)
+  })
+
   it('has no context section when nothing was shared', () => {
     expect(
       chatPrompt({ messages: [{ role: 'user', content: 'hi' }], context: [] }).system,

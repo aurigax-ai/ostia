@@ -483,7 +483,7 @@ and each result before the renderer sees it.
 | `command` | The composer at a shell prompt, and `# <what you want>` in the input editor | `{query, cwd?, shell?, platform?}` | `{suggestions: [{command, description?}]}` (≤3, inserted at the prompt only when the human picks one, never run) |
 | `completion` | Ghost text in the editor, accepted with Tab | `{path, language, prefix, suffix, neighbors?: [{path, text}]}` | `{text}`: only the insertion at the cursor |
 | `terminal` | Ghost text continuing the command in the input editor at a shell prompt, accepted with Tab or → | `{line, cwd?, shell?, platform?, history?: [{command, exitCode?}], context?: [{label, text}]}` (never terminal output) | `{text}`: the rest of the line (pine keeps the first line only) |
-| `chat` | The chat pane, Ask in the palette (Tab), and "Explain error" on a failed block | `{messages: [{role, content, tools?}], context: [{kind, label, text}], tools?: [{name, description, inputSchema}]}` | `{text}`. While producing it, send each AI SDK `UIMessageChunk` (`streamText(...).toUIMessageStream()`) JSON-encoded as one `ext.assistChunk`; pine feeds them to `useChat` |
+| `chat` | The chat pane, Ask in the palette (Tab), and "Explain error" on a failed block | `{messages: [{role, content, tools?}], context: [{kind, label, text, path?, startLine?, endLine?}], tools?: [{name, description, inputSchema}]}`. A context item that comes from a file (the editor selection, the open file, an attached file) carries its absolute `path`, and a selection its 1-based line range, so the model can aim the read and edit tools at it | `{text}`. While producing it, send each AI SDK `UIMessageChunk` (`streamText(...).toUIMessageStream()`) JSON-encoded as one `ext.assistChunk`; pine feeds them to `useChat` |
 
 The SDK wraps it: `onAssist(async (point, input, {requestId, signal, chunk, model?}) => result)`,
 `setAssistStatus(status)`, `getSecret(key)`, and `throw new AssistFailure('rate-limited')` for a
@@ -529,8 +529,10 @@ request may carry:
 - `tools`: the tools the human left on for that chat, each `{name, description, inputSchema}`
   (a JSON schema object; names match `[A-Za-z0-9_-]{1,64}`, up to 64). Built-ins are
   `read_file`, `list_directory`, `search_files`, `terminal_context`, `git_status`, `load_skill`,
-  `propose_command`, `write_file`, `open_file`, `open_url`; tools from the human's MCP servers
-  are named `mcp__<server>__<tool>`.
+  `propose_command`, `edit_file` (exact-text replacements in an existing file:
+  `{path, edits: [{old_text, new_text, replace_all?}]}`), `write_file` (a new file or a whole
+  file), `open_file`, `open_url`; tools from the human's MCP servers are named
+  `mcp__<server>__<tool>`.
 - `messages[].tools` on assistant turns: the calls of that step with their outcome,
   `{id, name, input, state: 'done' | 'error' | 'denied', output?, error?}` (`output` is text,
   at most 32 000 characters). A request may end with such a turn instead of a user turn.
@@ -538,9 +540,13 @@ request may carry:
 Declare the tools to your model without executing them (the AI SDK's `dynamicTool` with
 `jsonSchema(inputSchema)` and no `execute`) and stream as usual: when the model calls one, the
 `tool-input-available` chunk ends your step and your reply. Pine then runs the call (asking the
-human when the tool acts: writes and commands every time, opening files or URLs and MCP tools
-until the human allows them for the chat, reads outside the workspace folder once), records it in
-the conversation, and sends you a new request with the outcome, up to 8 rounds per question.
+human when the tool acts: commands every time; file edits one by one in the chat's Ask mode, and
+in its Write mode only when the file is outside the workspace folder, behind a symlink or has
+unsaved edits; opening files or URLs and MCP tools until the human allows them for the chat;
+reads outside the workspace folder once), records it in the conversation, and sends you a new
+request with the outcome, up to 8 rounds per question. An edit fails with a plain message when
+its `old_text` is missing or not unique, or when the file changed on disk since the model read
+it; the mode is the human's choice in the composer and no request tells you which one it is.
 Treat `denied` as the human's answer, not an error to retry. Skip `tool-input-delta` chunks if
 you like; pine uses only the complete input. A model without native tool calling still works:
 describe the tools in its prompt and turn the calls it writes into the same tool-call chunks

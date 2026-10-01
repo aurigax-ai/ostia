@@ -89,7 +89,8 @@ function AccessRows(): JSX.Element {
   const rows = [
     { title: t.accessReadTitle, desc: t.accessReadDesc, access: t.access.read },
     { title: t.accessActTitle, desc: t.accessActDesc, access: t.access.act },
-    { title: t.accessConfirmTitle, desc: t.accessConfirmDesc, access: t.access.confirm },
+    { title: t.accessWriteTitle, desc: t.accessWriteDesc, access: t.access.write },
+    { title: t.accessCommandTitle, desc: t.accessCommandDesc, access: t.access.command },
   ]
   return (
     <div className="flex flex-col">

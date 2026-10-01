@@ -147,11 +147,11 @@ export function ChatToolsMenu({
         aria-label={t.menuTitle}
         className={cn(
           buttonVariants({ variant: 'ghost', size: 'xs' }),
-          'chat-tools-trigger gap-1 text-fg-muted',
+          'chat-tools-trigger shrink-0 gap-1 text-fg-muted',
         )}
       >
         <WrenchIcon />
-        <span>{t.menu}</span>
+        <span className="@max-xs:hidden">{t.menu}</span>
         <span className="tabular-nums">{onCount}</span>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-80">

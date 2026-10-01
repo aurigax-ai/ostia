@@ -1,15 +1,25 @@
 import { ipcMain } from 'electron'
 import {
   type ChatFsTarget,
+  type ChatPlanRequest,
   type ChatReadRequest,
   type ChatSearchRequest,
   type ChatToolSettings,
+  type ChatUndoRequest,
   type ChatWriteRequest,
   type McpSecretResult,
   isMcpSecretKey,
   mcpTransportOf,
 } from '../shared/chatTools'
-import { listTool, previewTool, readTool, searchTool, writeTool } from './chatFsTools'
+import {
+  listTool,
+  planEditTool,
+  previewTool,
+  readTool,
+  searchTool,
+  undoTool,
+  writeTool,
+} from './chatFsTools'
 import { listSkills, loadSkill } from './chatSkills'
 import type { ExtensionSecretStore } from './extensionHost'
 import type { McpHost } from './mcpHost'
@@ -43,7 +53,9 @@ export function registerChatToolsIpc(deps: ChatToolsDeps): void {
   ipcMain.handle('chatTools:list', (_e, req: ChatFsTarget) => listTool(req, deps.roots()))
   ipcMain.handle('chatTools:search', (_e, req: ChatSearchRequest) => searchTool(req, deps.roots()))
   ipcMain.handle('chatTools:preview', (_e, req: ChatFsTarget) => previewTool(req, deps.roots()))
+  ipcMain.handle('chatTools:plan', (_e, req: ChatPlanRequest) => planEditTool(req, deps.roots()))
   ipcMain.handle('chatTools:write', (_e, req: ChatWriteRequest) => writeTool(req, deps.roots()))
+  ipcMain.handle('chatTools:undo', (_e, req: ChatUndoRequest) => undoTool(req, deps.roots()))
   ipcMain.handle('chatTools:skills', () => listSkills(deps.settings().skillFolders))
   ipcMain.handle('chatTools:load-skill', (_e, name: unknown) =>
     loadSkill(deps.settings().skillFolders, name),

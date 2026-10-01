@@ -290,7 +290,14 @@ describe('chat', () => {
     await waitFor(() => expect(pending).toHaveLength(1))
     expect(pending[0].input).toMatchObject({
       context: expect.arrayContaining([
-        { kind: 'selection', label: 'Selection a.ts:2-4', text: 'two\nthree' },
+        {
+          kind: 'selection',
+          label: 'Selection a.ts:2-4',
+          text: 'two\nthree',
+          path: '/home/u/proj/src/a.ts',
+          startLine: 2,
+          endLine: 4,
+        },
       ]),
     })
   })

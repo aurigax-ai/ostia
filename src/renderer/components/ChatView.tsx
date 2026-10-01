@@ -6,6 +6,7 @@ import {
   CheckIcon,
   ClockCounterClockwiseIcon,
   CopyIcon,
+  FileIcon,
   FolderSimpleIcon,
   type Icon,
   NotePencilIcon,
@@ -40,6 +41,7 @@ import {
   isShellLanguage,
   liveSelectionContext,
   selectionRef,
+  useWorkspaceEditorFile,
 } from '../lib/askContext'
 import { type MenuAnchor, menuAnchor } from '../lib/caretPoint'
 import { insertInto, looksLikeCommand } from '../lib/chatActions'
@@ -99,7 +101,7 @@ import {
   useCopied,
   useTerminals,
 } from './ChatCodeActions'
-import { ChatModelSelect } from './ChatComposerControls'
+import { ChatModeSelect, ChatModelSelect } from './ChatComposerControls'
 import { AttachmentChips, ChatContextPicker } from './ChatContextPicker'
 import { ChatSessions } from './ChatSessions'
 import { ChatSlashHelp, ChatSlashMenu, SLASH_MENU_WIDTH } from './ChatSlashMenu'
@@ -149,6 +151,7 @@ import {
 
 const CONTEXT_ICONS: Record<AskContextKind, Icon> = {
   cwd: FolderSimpleIcon,
+  editor: FileIcon,
   output: TextAlignLeftIcon,
   selection: SelectionIcon,
   pane: TagIcon,
@@ -201,6 +204,17 @@ function focusAtEnd(area: HTMLTextAreaElement | null): void {
 
 type SlashCard = 'help' | null
 
+function sentContext(
+  enabled: ReadonlySet<AskContextKind>,
+  fresh: Partial<Record<AskContextKind, ChatContextItem>>,
+): ChatContextItem[] {
+  const sameFile =
+    enabled.has('selection') && fresh.selection?.path === fresh.editor?.path && fresh.editor
+  return ASK_CONTEXT_ORDER.filter((kind) => enabled.has(kind) && !(kind === 'editor' && sameFile))
+    .map((kind) => fresh[kind])
+    .filter((item): item is ChatContextItem => item !== undefined)
+}
+
 function ChatSession({
   sessionId,
   workspaceId,
@@ -227,10 +241,11 @@ function ChatSession({
   const [picking, setPicking] = useState(false)
   const [stopped, setStopped] = useState<ReadonlySet<string>>(() => new Set())
   const labels = d.ask.context
-  const [options, setOptions] = useState(() => askContextOptions(labels))
+  const [options, setOptions] = useState(() => askContextOptions(labels, workspaceId))
   const [enabled, setEnabled] = useState<ReadonlySet<AskContextKind>>(
-    () => new Set(options.cwd ? (['cwd'] as const) : []),
+    () => new Set<AskContextKind>(options.cwd ? ['cwd', 'editor'] : ['editor']),
   )
+  const editorFile = useWorkspaceEditorFile(workspaceId)
   const liveSelection = useLiveSelectionStore((s) =>
     workspaceId ? s.byWorkspace[workspaceId] : undefined,
   )
@@ -310,15 +325,12 @@ function ChatSession({
     if (!question || busy) return
     setCard(null)
     const selection = liveSelectionContext(workspaceId, labels.selection)
-    const fresh = { ...askContextOptions(labels), ...(selection ? { selection } : {}) }
+    const fresh = {
+      ...askContextOptions(labels, workspaceId),
+      ...(selection ? { selection } : {}),
+    }
     setOptions(fresh)
-    const context = [
-      ...extra,
-      ...attachments,
-      ...ASK_CONTEXT_ORDER.filter((kind) => enabled.has(kind))
-        .map((kind) => fresh[kind])
-        .filter((item): item is ChatContextItem => item !== undefined),
-    ]
+    const context = [...extra, ...attachments, ...sentContext(enabled, fresh)]
     if (editing) {
       const at = messages.findIndex((m) => m.id === editing)
       if (at >= 0) setMessages(messages.slice(0, at))
@@ -368,9 +380,11 @@ function ChatSession({
     [workspaceId, sessionId, onInserted],
   )
 
-  const available = ASK_CONTEXT_ORDER.filter((kind) =>
-    kind === 'selection' ? liveSelection !== undefined : options[kind],
-  )
+  const available = ASK_CONTEXT_ORDER.filter((kind) => {
+    if (kind === 'selection') return liveSelection !== undefined
+    if (kind === 'editor') return editorFile !== null
+    return options[kind]
+  })
   const selectedRef = liveSelection ? selectionRef(liveSelection) : null
   const last = messages[messages.length - 1]
 
@@ -623,6 +637,11 @@ function ChatSession({
                     {kind === 'selection' && selectedRef ? (
                       <span className="max-w-48 truncate font-mono text-ui-xs">{selectedRef}</span>
                     ) : null}
+                    {kind === 'editor' && editorFile ? (
+                      <span className="max-w-48 truncate font-mono text-ui-xs">
+                        {editorFile.split('/').pop()}
+                      </span>
+                    ) : null}
                   </Button>
                 )
               })}
@@ -679,16 +698,16 @@ function ChatSession({
             }}
           />
         </PromptInputBody>
-        <PromptInputFooter className="chat-composer-row flex-nowrap">
-          <PromptInputTools className="flex-1">
-            {provider?.tools ? (
-              <ChatToolsMenu
-                sessionId={sessionId}
-                mode={provider.tools}
-                open={toolsOpen}
-                onOpenChange={setToolsOpen}
-              />
-            ) : null}
+        <PromptInputFooter className="chat-composer-row @container flex-nowrap">
+          {provider?.tools ? (
+            <ChatToolsMenu
+              sessionId={sessionId}
+              mode={provider.tools}
+              open={toolsOpen}
+              onOpenChange={setToolsOpen}
+            />
+          ) : null}
+          <PromptInputTools className="flex-1 overflow-hidden">
             {editing ? (
               <span className="flex min-w-0 items-center gap-1 px-1 text-fg-muted text-ui-xs">
                 <span className="truncate">{d.chatActions.editing}</span>
@@ -712,6 +731,7 @@ function ChatSession({
             )}
           </PromptInputTools>
           <div className="chat-composer-controls flex min-w-0 shrink items-center gap-1">
+            {provider ? <ChatModeSelect sessionId={sessionId} /> : null}
             <ChatModelSelect sessionId={sessionId} open={modelOpen} onOpenChange={setModelOpen} />
             <PromptInputSubmit
               className="shrink-0"

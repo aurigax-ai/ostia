@@ -1,12 +1,12 @@
-import { isBuiltinChatTool, mcpToolName } from '@shared/chatTools'
-import { structuredPatch } from 'diff'
-import { useMemo, useState } from 'react'
+import { BUILTIN_TOOL_ACCESS, isBuiltinChatTool, mcpToolName } from '@shared/chatTools'
+import { useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import type { ApprovalAnswer } from '../lib/chatToolPermissions'
 import { workspaceFolder } from '../lib/chatTools'
 import { type ToolPartLike, outputText, toolNameOf } from '../lib/chatTransport'
 import { confirmsGeneratedText } from '../lib/pasteGate'
 import { type PendingApproval, answerApproval, useChatToolsStore } from '../stores/chatToolsStore'
+import { ChatEditCard } from './ChatEditCard'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import {
   Confirmation,
@@ -22,7 +22,6 @@ import {
   type ToolState,
 } from './ai-elements/tool'
 
-const DIFF_LINES_MAX = 400
 const SHOWN_OUTPUT_MAX = 4000
 
 export function toolTitle(d: ReturnType<typeof useDict>, name: string): string {
@@ -32,61 +31,6 @@ export function toolTitle(d: ReturnType<typeof useDict>, name: string): string {
     if (tool) return `${server.name} · ${tool.name}`
   }
   return name
-}
-
-interface DiffLine {
-  kind: 'add' | 'del' | 'ctx' | 'hunk'
-  text: string
-}
-
-export function diffLines(before: string, after: string): DiffLine[] {
-  const patch = structuredPatch('a', 'b', before, after, undefined, undefined, { context: 3 })
-  const out: DiffLine[] = []
-  for (const hunk of patch.hunks) {
-    out.push({
-      kind: 'hunk',
-      text: `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`,
-    })
-    for (const line of hunk.lines) {
-      if (line.startsWith('\\')) continue
-      const kind = line[0] === '+' ? 'add' : line[0] === '-' ? 'del' : 'ctx'
-      out.push({ kind, text: line })
-    }
-  }
-  return out
-}
-
-const DIFF_TONES: Record<DiffLine['kind'], string> = {
-  add: 'text-add',
-  del: 'text-del',
-  ctx: 'text-fg-muted',
-  hunk: 'text-fg-muted',
-}
-
-function WriteDiff({ before, after }: { before: string; after: string }): JSX.Element {
-  const d = useDict()
-  const lines = useMemo(() => diffLines(before, after), [before, after])
-  if (lines.length === 0) return <p className="text-fg-muted text-ui-xs">{d.chatTools.diffSame}</p>
-  const shown = lines.slice(0, DIFF_LINES_MAX)
-  return (
-    <div className="flex flex-col gap-1">
-      <pre
-        aria-label="diff"
-        className="max-h-72 overflow-auto rounded-sm bg-bg-sunken p-2 font-mono text-ui-xs"
-      >
-        {shown.map((line, i) => (
-          <div key={`${i}-${line.kind}`} className={DIFF_TONES[line.kind]} data-diff={line.kind}>
-            {line.text || ' '}
-          </div>
-        ))}
-      </pre>
-      {lines.length > shown.length ? (
-        <p className="text-fg-muted text-ui-xs">
-          {fmt(d.chatTools.diffMore, { count: lines.length - shown.length })}
-        </p>
-      ) : null}
-    </div>
-  )
 }
 
 function approvalTitle(
@@ -99,8 +43,6 @@ function approvalTitle(
   switch (pending.kind) {
     case 'read-outside':
       return fmt(t.askReadOutside, { path: detail.path ?? '' })
-    case 'write':
-      return fmt(detail.exists ? t.askWrite : t.askWriteNew, { path: detail.path ?? '' })
     case 'command':
       return fmt(t.askCommand, { folder: workspaceFolder(workspaceId) })
     case 'mcp':
@@ -131,9 +73,6 @@ function ApprovalCard({
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-bg-sunken p-2 font-mono text-fg text-ui-sm">
           {detail.command}
         </pre>
-      ) : null}
-      {pending.kind === 'write' ? (
-        <WriteDiff before={detail.before ?? ''} after={detail.after ?? ''} />
       ) : null}
       {pending.kind === 'mcp' ? (
         <Section label={t.input} code={JSON.stringify(pending.input, null, 2)} />
@@ -209,11 +148,28 @@ export function ChatToolPart({
   workspaceId: string | null
   busy: boolean
 }): JSX.Element {
+  const name = toolNameOf(part)
+  if (isBuiltinChatTool(name) && BUILTIN_TOOL_ACCESS[name] === 'write') {
+    return <ChatEditCard part={part} name={name} workspaceId={workspaceId} busy={busy} />
+  }
+  return <GenericToolPart part={part} name={name} workspaceId={workspaceId} busy={busy} />
+}
+
+function GenericToolPart({
+  part,
+  name,
+  workspaceId,
+  busy,
+}: {
+  part: ToolPartLike
+  name: string
+  workspaceId: string | null
+  busy: boolean
+}): JSX.Element {
   const d = useDict()
   const t = d.chatTools
   const pending = useChatToolsStore((s) => s.pending[part.toolCallId])
   const [open, setOpen] = useState(false)
-  const name = toolNameOf(part)
   const state = shownState(part, pending !== undefined, busy)
   const headerState: ToolState = state === 'stopped' ? 'output-denied' : state
   const label = state === 'stopped' ? t.stopped : t.states[state]

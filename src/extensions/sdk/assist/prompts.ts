@@ -4,6 +4,7 @@ import {
   COMMAND_SUGGESTIONS_MAX,
   COMPLETION_TEXT_MAX,
   type ChatAssistRequest,
+  type ChatContextItem,
   type ChatToolCall,
   type CommandAssistRequest,
   type CommandSuggestion,
@@ -416,6 +417,17 @@ export function cleanTerminal(raw: string, line: string): string {
   return rest.trim() ? rest.slice(0, TERMINAL_COMPLETION_MAX) : ''
 }
 
+function contextSection(item: ChatContextItem): string {
+  const lines =
+    item.startLine === undefined
+      ? ''
+      : item.startLine === item.endLine
+        ? `, line ${item.startLine}`
+        : `, lines ${item.startLine}-${item.endLine}`
+  const where = item.path ? `File: ${item.path}${lines}\n` : ''
+  return `## ${item.label} (${item.kind})\n${where}\`\`\`\n${item.text}\n\`\`\``
+}
+
 export function chatSystem(req: ChatAssistRequest): string {
   const base = [
     `You are the assistant built into ${PRODUCT_NAME}, a terminal workspace where developers run shells and coding agents.`,
@@ -429,11 +441,11 @@ export function chatSystem(req: ChatAssistRequest): string {
         base,
         'You can call tools. Read-only tools run right away; tools that change something wait for the user to approve them in the chat, and a denied call means the user said no: do not retry it.',
         'Propose shell commands with the propose_command tool when it is available instead of claiming to run them.',
+        'To change a file, call edit_file with the exact text to replace and its replacement; read the file first unless the user shared that part of it. Use write_file only for a new file or a full rewrite. Never paste a whole changed file into your answer when an edit tool is available.',
+        'When the shared context names a file and lines, "this" and "here" mean that place: use that path with the read and edit tools.',
       ].join(' ')
     : base
-  const sections = req.context.map(
-    (item) => `## ${item.label} (${item.kind})\n\`\`\`\n${item.text}\n\`\`\``,
-  )
+  const sections = req.context.map(contextSection)
   return sections.length > 0
     ? `${tools}\n\nContext the user shared:\n\n${sections.join('\n\n')}`
     : tools
