@@ -31,12 +31,22 @@ import {
 import { ICON_THEME_ID_PATTERN } from '../shared/iconTheme'
 import { LANGUAGE_ID_PATTERN } from '../shared/languagePack'
 import {
+  DOWNLOAD_URL_MAX,
+  GO_MODULE_MAX,
+  LANGUAGE_SERVER_ARCHIVES,
   LANGUAGE_SERVER_DOCUMENT_ID_PATTERN,
+  LANGUAGE_SERVER_DOWNLOAD_HOSTS,
+  LANGUAGE_SERVER_EXECUTABLE_PATTERN,
+  LANGUAGE_SERVER_GO_MODULE_PATTERN,
+  LANGUAGE_SERVER_GO_VERSION_PATTERN,
   LANGUAGE_SERVER_ID_PATTERN,
   LANGUAGE_SERVER_MARKER_PATTERN,
+  LANGUAGE_SERVER_PLATFORMS,
   LANGUAGE_SERVER_PROGRAM_PATTERN,
   LANGUAGE_SERVER_SCRIPT_PATTERN,
   LANGUAGE_SERVER_SETTING_PATH_PATTERN,
+  LANGUAGE_SERVER_SHA256_PATTERN,
+  LANGUAGE_SERVER_VERSION_PATTERN,
   MAX_LANGUAGE_SERVERS,
   MAX_ROOT_MARKERS,
   MAX_SERVER_ARGS,
@@ -89,6 +99,16 @@ const settingKey = z.string().regex(SETTING_KEY_PATTERN)
 
 const serverArgs = z.array(z.string().max(SERVER_ARG_MAX)).max(MAX_SERVER_ARGS)
 const serverProgram = z.string().regex(LANGUAGE_SERVER_PROGRAM_PATTERN)
+const downloadUrl = new RegExp(
+  `^https://(${LANGUAGE_SERVER_DOWNLOAD_HOSTS.map((host) => host.replaceAll('.', '\\.')).join('|')})/`,
+)
+
+const serverAsset = z.strictObject({
+  url: z.string().max(DOWNLOAD_URL_MAX).regex(downloadUrl),
+  sha256: z.string().regex(LANGUAGE_SERVER_SHA256_PATTERN),
+  archive: z.enum(LANGUAGE_SERVER_ARCHIVES),
+  executable: z.string().regex(LANGUAGE_SERVER_EXECUTABLE_PATTERN),
+})
 
 const languageServer = z.looseObject({
   id: z.string().regex(LANGUAGE_SERVER_ID_PATTERN),
@@ -105,6 +125,24 @@ const languageServer = z.looseObject({
     z.strictObject({
       program: serverProgram,
       package: serverProgram.optional(),
+      args: serverArgs.optional(),
+    }),
+    z.strictObject({
+      download: z.strictObject({
+        program: serverProgram,
+        version: z.string().regex(LANGUAGE_SERVER_VERSION_PATTERN),
+        assets: z
+          .partialRecord(z.enum(LANGUAGE_SERVER_PLATFORMS), serverAsset)
+          .refine((assets) => Object.keys(assets).length > 0),
+      }),
+      args: serverArgs.optional(),
+    }),
+    z.strictObject({
+      goInstall: z.strictObject({
+        module: z.string().max(GO_MODULE_MAX).regex(LANGUAGE_SERVER_GO_MODULE_PATTERN),
+        version: z.string().regex(LANGUAGE_SERVER_GO_VERSION_PATTERN),
+        binary: serverProgram,
+      }),
       args: serverArgs.optional(),
     }),
   ]),

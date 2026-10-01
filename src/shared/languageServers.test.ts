@@ -3,7 +3,9 @@ import {
   SERVER_JSON_MAX_BYTES,
   configurationSection,
   documentLanguageId,
+  downloadUrlProblem,
   languageServerCommand,
+  languageServerSummary,
   overlaySettings,
   parseLanguageServers,
   splitLanguageServerKey,
@@ -90,7 +92,7 @@ describe('parseLanguageServers', () => {
   })
 
   it('takes exactly one run form: a script inside the extension or a bare program name', () => {
-    expect(problem({ run: {} })).toMatch(/exactly one of node or program/)
+    expect(problem({ run: {} })).toMatch(/exactly one of node, program, download or goInstall/)
     expect(problem({ run: { node: 'a.js', program: 'a' } })).toMatch(/exactly one/)
     expect(problem({ run: { node: '../outside.js' } })).toMatch(/inside the extension/)
     expect(problem({ run: { node: 'server.py' } })).toMatch(/\.js, \.mjs or \.cjs/)
@@ -154,6 +156,146 @@ describe('parseLanguageServers', () => {
     )
     expect(problem({ settingPaths: { mode: 'a..b' } })).toMatch(/dotted path/)
     expect(problem({ settingPaths: { mode: 'a.__proto__.b' } })).toMatch(/dotted path/)
+  })
+})
+
+describe('parseLanguageServers: servers the app fetches', () => {
+  const asset = {
+    url: 'https://github.com/owner/repo/releases/download/1.2.3/tool-linux.gz',
+    sha256: 'a'.repeat(64),
+    archive: 'gz',
+    executable: 'tool',
+  }
+  const download = (
+    extra: Record<string, unknown> = {},
+    assetExtra: Record<string, unknown> = {},
+  ) => ({
+    run: {
+      download: {
+        program: 'tool',
+        version: '1.2.3',
+        assets: { 'linux-x64': { ...asset, ...assetExtra } },
+        ...extra,
+      },
+    },
+  })
+  const goInstall = (extra: Record<string, unknown> = {}) => ({
+    run: {
+      goInstall: {
+        module: 'golang.org/x/tools/gopls',
+        version: 'v0.20.0',
+        binary: 'gopls',
+        ...extra,
+      },
+    },
+  })
+
+  it('takes a pinned, checksummed download per platform', () => {
+    expect(parseLanguageServers([server(download())], options)).toMatchObject([
+      {
+        run: {
+          download: { program: 'tool', version: '1.2.3', assets: { 'linux-x64': asset } },
+          args: [],
+        },
+      },
+    ])
+    expect(problem(download({}, { archive: 'zip', executable: 'tool_1.2.3/bin/tool.exe' }))).toBe(
+      '',
+    )
+  })
+
+  it('refuses a download that is not https on an allowed host', () => {
+    for (const url of [
+      'http://github.com/o/r/tool.gz',
+      'https://evil.example/tool.gz',
+      'https://github.com.evil.example/tool.gz',
+      'https://user:pw@github.com/o/r/tool.gz',
+      'https://github.com:444/o/r/tool.gz',
+      'https://github.com/o/r/../../tool.gz',
+      'file:///etc/passwd',
+      42,
+    ]) {
+      expect(problem(download({}, { url })), String(url)).toMatch(/assets\.linux-x64\.url/)
+    }
+    expect(downloadUrlProblem('https://objects.githubusercontent.com/a/b')).toBeNull()
+    expect(downloadUrlProblem('https://release-assets.githubusercontent.com/a/b?x=1')).toBeNull()
+  })
+
+  it('needs a pinned version, a sha256, a known archive kind and platform', () => {
+    expect(problem(download({ version: 'latest' }))).toMatch(/pinned version/)
+    expect(problem(download({ version: 'LATEST' }))).toMatch(/pinned version/)
+    expect(problem(download({ version: '' }))).toMatch(/pinned version/)
+    expect(problem(download({}, { sha256: 'abc' }))).toMatch(/sha256 must be 64/)
+    expect(problem(download({}, { sha256: 'A'.repeat(64) }))).toMatch(/sha256/)
+    expect(problem(download({}, { sha256: undefined }))).toMatch(/sha256/)
+    expect(problem(download({}, { archive: 'rar' }))).toMatch(/archive must be one of/)
+    expect(problem(download({ assets: {} }))).toMatch(/at least one platform/)
+    expect(problem(download({ assets: { 'solaris-x64': asset } }))).toMatch(
+      /must be one of linux-x64/,
+    )
+    expect(problem(download({ program: '/usr/bin/tool' }))).toMatch(/program name/)
+    expect(problem(download({ extra: 1 }))).toMatch(/extra is not allowed/)
+    expect(problem(download({}, { run: 'sh' }))).toMatch(/run is not allowed/)
+  })
+
+  it('keeps the executable inside the download', () => {
+    for (const executable of ['../tool', '/bin/sh', 'a/../../tool', 'bin\\tool', 'a/./tool', '']) {
+      expect(problem(download({}, { archive: 'zip', executable })), executable).toMatch(
+        /relative path inside the download/,
+      )
+    }
+    expect(problem(download({}, { archive: 'gz', executable: 'bin/tool' }))).toMatch(
+      /file name for a gz download/,
+    )
+    expect(problem(download({}, { archive: 'plain', executable: 'bin/tool' }))).toMatch(
+      /file name for a plain download/,
+    )
+  })
+
+  it('takes go install of a pinned module version and nothing that could be a flag', () => {
+    expect(parseLanguageServers([server(goInstall())], options)).toMatchObject([
+      {
+        run: {
+          goInstall: { module: 'golang.org/x/tools/gopls', version: 'v0.20.0', binary: 'gopls' },
+        },
+      },
+    ])
+    for (const module of [
+      '-modfile=x',
+      'golang.org/x/tools/gopls@latest',
+      'golang.org/x/tools/gopls -ldflags=x',
+      'Golang.org/x/tools/gopls',
+      'gopls',
+      './local',
+      'golang.org',
+      'golang.org/x/../y',
+      'golang.org//x',
+    ]) {
+      expect(problem(goInstall({ module })), module).toMatch(/Go module path/)
+    }
+    for (const version of ['latest', 'master', 'v1.2', '1.2.3', 'v1.2.3-rc1', 'v1.2.3 -x', '']) {
+      expect(problem(goInstall({ version })), version).toMatch(/pinned version such as/)
+    }
+    expect(problem(goInstall({ binary: 'bin/gopls' }))).toMatch(/program name/)
+    expect(problem(goInstall({ args: ['-x'] }))).toMatch(/args is not allowed/)
+    expect(problem({ run: { goInstall: goInstall().run.goInstall, program: 'gopls' } })).toMatch(
+      /exactly one/,
+    )
+  })
+
+  it('describes what a server runs and what the app would fetch for it', () => {
+    const [native, go] = parseLanguageServers(
+      [server(download()), server({ id: 'go', ...goInstall() })],
+      options,
+    ) as Parameters<typeof languageServerSummary>[0][]
+    expect(languageServerSummary(native)).toMatchObject({
+      command: 'tool',
+      download: { program: 'tool', version: '1.2.3', host: 'github.com' },
+    })
+    expect(languageServerSummary(go)).toMatchObject({
+      command: 'gopls',
+      goInstall: { command: 'go install golang.org/x/tools/gopls@v0.20.0', binary: 'gopls' },
+    })
   })
 })
 

@@ -209,4 +209,134 @@ describe('LanguagesSection', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+
+  it('shows where a fetched server’s program comes from and lets the human remove the copy', async () => {
+    show([
+      server({
+        key: 'lsp-rust-analyzer/rust-analyzer',
+        name: 'rust-analyzer',
+        kind: 'download',
+        program: 'rust-analyzer',
+        version: '2026-09-28',
+        status: 'running',
+        folders: 1,
+        binary: { source: 'managed', version: '2026-09-28' },
+        managedCopy: true,
+        fetchable: true,
+      }),
+      server({
+        key: 'lsp-clangd/clangd',
+        name: 'clangd',
+        kind: 'download',
+        program: 'clangd',
+        version: '23.1.0',
+        binary: { source: 'path' },
+        fetchable: true,
+      }),
+    ])
+    const user = userEvent.setup()
+    const managed = await screen.findByRole('listitem', { name: 'rust-analyzer' })
+    expect(within(managed).getByText('Download')).toBeInTheDocument()
+    expect(
+      within(managed).getByText('Using the copy pine keeps, version 2026-09-28.'),
+    ).toBeInTheDocument()
+    await user.click(
+      within(managed).getByRole('button', {
+        name: 'Remove the copy of rust-analyzer that pine keeps',
+      }),
+    )
+    expect(window.pine.lsp.removeDownload).toHaveBeenCalledWith('lsp-rust-analyzer/rust-analyzer')
+    const onPath = screen.getByRole('listitem', { name: 'clangd' })
+    expect(within(onPath).getByText('Using clangd from your PATH.')).toBeInTheDocument()
+    expect(within(onPath).queryByRole('button', { name: /Remove the copy/ })).toBeNull()
+    expect(within(onPath).queryByRole('button', { name: /Fetch clangd now/ })).toBeNull()
+  })
+
+  it('says a server will be downloaded on first use and fetches it now on request', async () => {
+    show([
+      server({
+        key: 'lsp-lua/lua',
+        name: 'lua-language-server',
+        kind: 'download',
+        program: 'lua-language-server',
+        version: '3.19.1',
+        fetchable: true,
+      }),
+    ])
+    const user = userEvent.setup()
+    expect(
+      await screen.findByText(
+        'Not on your PATH. pine downloads version 3.19.1 when a matching file opens.',
+      ),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Fetch lua-language-server now' }))
+    expect(window.pine.lsp.fetch).toHaveBeenCalledWith('lsp-lua/lua')
+  })
+
+  it('shows download progress, and a failed fetch with its reason and Retry', async () => {
+    show([
+      server({
+        key: 'a/down',
+        name: 'downloading-server',
+        kind: 'download',
+        status: 'downloading',
+        progress: 35,
+      }),
+      server({
+        key: 'a/failed',
+        name: 'failed-server',
+        kind: 'download',
+        status: 'download-failed',
+        failure: 'http-error',
+        failureDetail: '404',
+        fetchable: true,
+      }),
+      server({
+        key: 'lsp-gopls/gopls',
+        name: 'gopls',
+        kind: 'go-install',
+        status: 'install-failed',
+        failure: 'timeout',
+        fetchable: true,
+        fetchCommand: 'go install golang.org/x/tools/gopls@v0.23.0',
+      }),
+    ])
+    const user = userEvent.setup()
+    expect(await screen.findByText('Downloading… 35%')).toBeInTheDocument()
+    const failed = screen.getByRole('listitem', { name: 'failed-server' })
+    expect(within(failed).getByText('Download failed: the server answered 404')).toBeInTheDocument()
+    await user.click(within(failed).getByRole('button', { name: 'Retry' }))
+    expect(window.pine.lsp.fetch).toHaveBeenCalledWith('a/failed')
+    const gopls = screen.getByRole('listitem', { name: 'gopls' })
+    expect(within(gopls).getByText('Install failed: it took too long')).toBeInTheDocument()
+    expect(
+      within(gopls).getByText(
+        'Not on your PATH. pine runs go install golang.org/x/tools/gopls@v0.23.0 when a matching file opens.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('offers to install Go when go install has no toolchain to run', async () => {
+    useWorkspacesStore.setState({ activeWorkspaceId: 'ws-1' })
+    vi.mocked(window.pine.system.requirements).mockResolvedValue({
+      missing: [{ program: 'go', package: 'go' }],
+      hint: { command: 'sudo pacman -S --needed go', packages: ['go'] },
+      canInstall: true,
+    })
+    show([
+      server({
+        key: 'lsp-gopls/gopls',
+        name: 'gopls',
+        kind: 'go-install',
+        status: 'toolchain-missing',
+        requirement: 'lsp:lsp-gopls/gopls',
+      }),
+    ])
+    expect(await screen.findByText('Go is not installed')).toBeInTheDocument()
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Install gopls' }))
+    expect(window.pine.system.installRequirements).toHaveBeenCalledWith(
+      'lsp:lsp-gopls/gopls',
+      'ws-1',
+    )
+  })
 })

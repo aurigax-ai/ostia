@@ -63,6 +63,14 @@ export function ExtensionApprovalDialog(): JSX.Element {
                   command: server.command,
                   languages: server.languages.join(', '),
                 })}
+                {server.download ? (
+                  <span className="block">{fmt(d.languageServers.downloads, server.download)}</span>
+                ) : null}
+                {server.goInstall ? (
+                  <span className="block">
+                    {fmt(d.languageServers.goInstalls, server.goInstall)}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>

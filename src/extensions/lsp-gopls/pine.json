@@ -3,7 +3,7 @@
   "name": "Go (gopls)",
   "version": "1.0.0",
   "api": "1.2",
-  "description": "Go diagnostics, completion, hover and navigation in the editor. Uses the gopls program on your PATH.",
+  "description": "Go diagnostics, completion, hover and navigation in the editor. Uses the gopls on your PATH; without one, {product} runs go install for the pinned gopls version into its own data folder. Needs Go.",
   "category": "languages",
   "capabilities": ["language-server"],
   "contributes": {
@@ -13,8 +13,11 @@
         "name": "gopls",
         "languages": ["go"],
         "run": {
-          "program": "gopls",
-          "package": "gopls",
+          "goInstall": {
+            "module": "golang.org/x/tools/gopls",
+            "version": "v0.23.0",
+            "binary": "gopls"
+          },
           "args": []
         },
         "rootMarkers": ["go.work", "go.mod"]

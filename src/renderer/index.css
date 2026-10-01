@@ -1905,6 +1905,24 @@ button.prompt-chip:focus-visible {
   height: 100%;
 }
 
+.language-notice {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: var(--language-notice-height);
+}
+
+.surface-host:has(> .language-notice) {
+  --language-notice-height: 1.75rem;
+}
+
+.language-notice ~ .editor-host {
+  height: calc(100% - var(--language-notice-height));
+  margin-top: var(--language-notice-height);
+}
+
 .editor-save-error {
   position: absolute;
   top: 6px;

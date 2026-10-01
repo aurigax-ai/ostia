@@ -72,6 +72,8 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       setEnabled: vi.fn().mockResolvedValue([]),
       restart: vi.fn().mockResolvedValue(undefined),
       log: vi.fn().mockResolvedValue({ entries: [], errors: {} }),
+      fetch: vi.fn().mockResolvedValue(undefined),
+      removeDownload: vi.fn().mockResolvedValue(undefined),
     },
     settings: {
       path: vi.fn().mockResolvedValue('/tmp/pine-test/settings.json'),
@@ -212,6 +214,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
         ok: true,
         state: { marketplaces: [], installed: [] },
       }),
+    },
+    suggestions: {
+      forFile: vi.fn().mockResolvedValue(null),
+      dismiss: vi.fn().mockResolvedValue(undefined),
+      install: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
     },
     extensions: {
       list: vi.fn().mockResolvedValue([]),

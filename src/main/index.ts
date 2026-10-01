@@ -21,7 +21,7 @@ import { parseChatToolSettings } from '../shared/chatTools'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
-import { PRODUCT_NAME } from '../shared/product'
+import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
 import type {
@@ -78,6 +78,7 @@ import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } fro
 import type { ExtensionRoot } from './extensionManifest'
 import { createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
+import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
 import { openInExternalEditor } from './externalEditor'
 import { FileWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
@@ -99,10 +100,11 @@ import {
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { registerLanguagePackIpc } from './languagePacks'
-import { LanguageServers } from './languageServers'
+import { LanguageServers, scrubbedEnv } from './languageServers'
 import { registerLanguageServersIpc } from './languageServersIpc'
 import { atLocalPrompt } from './localPrompt'
 import { registerLoginFill } from './loginFill'
+import { ManagedServers, downloadBaseUrl } from './managedServers'
 import { ManagerService, managerWindowId } from './manager'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
@@ -137,7 +139,7 @@ import { KubeContextReader, NodeVersionResolver, promptContext } from './promptC
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { exitAfterDeadline, planQuit } from './quitPlan'
-import { registerReleaseCheck } from './releaseCheck'
+import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -513,6 +515,14 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
 
 let languageServers: LanguageServers | null = null
 
+const managedServers = new ManagedServers({
+  dir: join(app.getPath('userData'), 'language-servers'),
+  userAgent: releaseUserAgent(app.getVersion()),
+  findProgram: (program) => programPath(program),
+  env: () => scrubbedEnv(process.env),
+  baseUrl: downloadBaseUrl(app.isPackaged, process.env),
+})
+
 function sandboxCanRead(workspaceId: string, path: string): boolean {
   try {
     const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
@@ -545,6 +555,7 @@ function createLanguageServers(): LanguageServers {
       }),
     },
     findProgram: (program) => programPath(program),
+    managed: managedServers,
     registerRequirements,
     post: (windowId, channel, ...args) => {
       const win = windows.get(windowId)
@@ -1246,6 +1257,26 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
     marketplace.install(id, extId),
   )
   ipcMain.handle('marketplace:uninstall', (_e, extId: unknown) => marketplace.uninstall(extId))
+
+  const dismissed = new DismissedSuggestions(
+    join(app.getPath('userData'), 'extension-suggestions.json'),
+  )
+  ipcMain.handle('suggestions:for-file', (e, paneId: unknown, path: unknown) => {
+    if (typeof paneId !== 'string' || typeof path !== 'string') return null
+    if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return null
+    const file = openFileGrants.confine(path)
+    if (file === null) return null
+    return suggestionFor(file, {
+      servers: () => extensionHost?.languageServers() ?? [],
+      extensions: () => extensionHost?.list() ?? [],
+      listings: () => marketplace.languageListings(),
+      dismissed: () => dismissed.list(),
+    })
+  })
+  ipcMain.handle('suggestions:dismiss', (_e, extId: unknown) => dismissed.dismiss(extId))
+  ipcMain.handle('suggestions:install', (_e, extId: unknown) =>
+    marketplace.installSuggested(extId, OFFICIAL_MARKETPLACE),
+  )
 }
 
 function forgetWorkspaceRequests(workspaceId: string): void {
@@ -2327,6 +2358,7 @@ app.whenReady().then(() => {
           .filter((ext) => ext.builtin)
           .map((ext) => ext.id) ?? [],
       forget: (extId) => {
+        managedServers.forgetExtension(extId)
         extensionStore.delete(extId)
         const secrets = extensionSecretStore()
         for (const key of secrets.keys(extId)) secrets.set(extId, key, null)

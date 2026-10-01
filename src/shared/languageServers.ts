@@ -39,7 +39,69 @@ export interface LanguageServerProgramRun {
   args: string[]
 }
 
-export type LanguageServerRun = LanguageServerNodeRun | LanguageServerProgramRun
+export const LANGUAGE_SERVER_DOWNLOAD_HOSTS: readonly string[] = [
+  'github.com',
+  'objects.githubusercontent.com',
+  'release-assets.githubusercontent.com',
+]
+export const LANGUAGE_SERVER_PLATFORMS = [
+  'linux-x64',
+  'linux-arm64',
+  'darwin-x64',
+  'darwin-arm64',
+  'win32-x64',
+  'win32-arm64',
+] as const
+export const LANGUAGE_SERVER_ARCHIVES = ['plain', 'gz', 'tar.gz', 'zip'] as const
+export const LANGUAGE_SERVER_VERSION_PATTERN =
+  /^(?![Ll][Aa][Tt][Ee][Ss][Tt]$)[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/
+export const LANGUAGE_SERVER_SHA256_PATTERN = /^[a-f0-9]{64}$/
+export const LANGUAGE_SERVER_EXECUTABLE_PATTERN =
+  /^[A-Za-z0-9_+-][A-Za-z0-9._+-]{0,99}(\/[A-Za-z0-9_+-][A-Za-z0-9._+-]{0,99}){0,7}$/
+export const LANGUAGE_SERVER_GO_MODULE_PATTERN =
+  /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+(\/[a-z0-9][a-z0-9._-]{0,63}){1,8}$/
+export const LANGUAGE_SERVER_GO_VERSION_PATTERN =
+  /^v(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/
+export const DOWNLOAD_URL_MAX = 500
+export const GO_MODULE_MAX = 200
+
+export type LanguageServerPlatform = (typeof LANGUAGE_SERVER_PLATFORMS)[number]
+export type LanguageServerArchive = (typeof LANGUAGE_SERVER_ARCHIVES)[number]
+
+export interface LanguageServerAsset {
+  url: string
+  sha256: string
+  archive: LanguageServerArchive
+  executable: string
+}
+
+export interface LanguageServerDownload {
+  program: string
+  version: string
+  assets: Partial<Record<LanguageServerPlatform, LanguageServerAsset>>
+}
+
+export interface LanguageServerDownloadRun {
+  download: LanguageServerDownload
+  args: string[]
+}
+
+export interface LanguageServerGoInstall {
+  module: string
+  version: string
+  binary: string
+}
+
+export interface LanguageServerGoInstallRun {
+  goInstall: LanguageServerGoInstall
+  args: string[]
+}
+
+export type LanguageServerRun =
+  | LanguageServerNodeRun
+  | LanguageServerProgramRun
+  | LanguageServerDownloadRun
+  | LanguageServerGoInstallRun
 
 export interface LanguageServerContribution {
   id: string
@@ -58,18 +120,43 @@ export interface LanguageServerSummary {
   name: string
   languages: string[]
   command: string
+  download?: { program: string; version: string; host: string }
+  goInstall?: { command: string; binary: string }
 }
 
-export type LanguageServerKind = 'bundled' | 'program'
+export type LanguageServerKind = 'bundled' | 'program' | 'download' | 'go-install'
 
 export type LanguageServerStatus =
   | 'running'
   | 'idle'
   | 'off'
   | 'program-missing'
+  | 'toolchain-missing'
+  | 'downloading'
+  | 'download-failed'
+  | 'installing'
+  | 'install-failed'
   | 'sandbox-unavailable'
   | 'crashed'
   | 'pending-approval'
+
+export type LanguageServerFetchFailure =
+  | 'host-not-allowed'
+  | 'redirect-refused'
+  | 'http-error'
+  | 'too-large'
+  | 'checksum-mismatch'
+  | 'bad-archive'
+  | 'executable-missing'
+  | 'offline'
+  | 'timeout'
+  | 'command-failed'
+  | 'write-failed'
+
+export interface LanguageServerBinary {
+  source: 'path' | 'managed'
+  version?: string
+}
 
 export type LanguageServerSandboxProblem =
   | 'program-unreadable'
@@ -92,6 +179,15 @@ export interface LanguageServerInfo {
   requirement?: string
   sandboxProblem?: LanguageServerSandboxProblem
   sandboxDetail?: string
+  version?: string
+  binary?: LanguageServerBinary
+  managedCopy?: boolean
+  fetchable?: boolean
+  fetchHeld?: boolean
+  progress?: number
+  failure?: LanguageServerFetchFailure
+  failureDetail?: string
+  fetchCommand?: string
 }
 
 export interface LspSessionInfo {
@@ -111,6 +207,11 @@ export type LspLogEntry =
   | { at: number; kind: 'stop'; reason: LspStopReason }
   | { at: number; kind: 'spawn-failed'; text: string }
   | { at: number; kind: 'stderr'; text: string }
+  | { at: number; kind: 'fetch-start'; how: 'download' | 'go-install'; version: string }
+  | { at: number; kind: 'fetch-done'; version: string }
+  | { at: number; kind: 'fetch-failed'; reason: LanguageServerFetchFailure; detail: string }
+  | { at: number; kind: 'fetch-output'; text: string }
+  | { at: number; kind: 'fetch-removed' }
 
 export type LspStopReason = 'idle' | 'restart' | 'off' | 'quit' | 'window'
 
@@ -133,6 +234,8 @@ export interface LspApi {
   setEnabled: (serverKey: string, enabled: boolean) => Promise<LanguageServerInfo[]>
   restart: (serverKey: string) => Promise<void>
   log: (serverKey: string) => Promise<LspLog>
+  fetch: (serverKey: string) => Promise<void>
+  removeDownload: (serverKey: string) => Promise<void>
 }
 
 export function languageServerKey(extId: string, serverId: string): string {
@@ -154,17 +257,85 @@ export function isProgramRun(run: LanguageServerRun): run is LanguageServerProgr
   return 'program' in run
 }
 
+export function isNodeRun(run: LanguageServerRun): run is LanguageServerNodeRun {
+  return 'node' in run
+}
+
+export function isDownloadRun(run: LanguageServerRun): run is LanguageServerDownloadRun {
+  return 'download' in run
+}
+
+export function isGoInstallRun(run: LanguageServerRun): run is LanguageServerGoInstallRun {
+  return 'goInstall' in run
+}
+
+export function languageServerKind(run: LanguageServerRun): LanguageServerKind {
+  if (isNodeRun(run)) return 'bundled'
+  if (isDownloadRun(run)) return 'download'
+  return isGoInstallRun(run) ? 'go-install' : 'program'
+}
+
+export function pathProgram(run: LanguageServerRun): string | null {
+  if (isProgramRun(run)) return run.program
+  if (isDownloadRun(run)) return run.download.program
+  return isGoInstallRun(run) ? run.goInstall.binary : null
+}
+
+export function pinnedVersion(run: LanguageServerRun): string | null {
+  if (isDownloadRun(run)) return run.download.version
+  return isGoInstallRun(run) ? run.goInstall.version : null
+}
+
+export function goInstallArgs(install: LanguageServerGoInstall): string[] {
+  return ['install', `${install.module}@${install.version}`]
+}
+
 export function languageServerCommand(run: LanguageServerRun): string {
-  return [isProgramRun(run) ? run.program : run.node, ...run.args].join(' ')
+  return [isNodeRun(run) ? run.node : pathProgram(run), ...run.args].join(' ')
 }
 
 export function languageServerSummary(server: LanguageServerContribution): LanguageServerSummary {
+  const { run } = server
+  const first = isDownloadRun(run) ? Object.values(run.download.assets)[0] : undefined
   return {
     id: server.id,
     name: server.name,
     languages: server.languages,
-    command: languageServerCommand(server.run),
+    command: languageServerCommand(run),
+    ...(isDownloadRun(run) && first
+      ? {
+          download: {
+            program: run.download.program,
+            version: run.download.version,
+            host: new URL(first.url).host,
+          },
+        }
+      : {}),
+    ...(isGoInstallRun(run)
+      ? {
+          goInstall: {
+            command: ['go', ...goInstallArgs(run.goInstall)].join(' '),
+            binary: run.goInstall.binary,
+          },
+        }
+      : {}),
   }
+}
+
+export function downloadUrlProblem(raw: unknown): string | null {
+  if (typeof raw !== 'string' || raw.length > DOWNLOAD_URL_MAX) return 'must be an https URL'
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    return 'must be an https URL'
+  }
+  if (url.protocol !== 'https:') return 'must be an https URL'
+  if (url.username || url.password || url.port) return 'must not carry credentials or a port'
+  if (!LANGUAGE_SERVER_DOWNLOAD_HOSTS.includes(url.hostname)) {
+    return `host must be one of ${LANGUAGE_SERVER_DOWNLOAD_HOSTS.join(', ')}`
+  }
+  return url.href === raw ? null : 'must be a plain, already encoded URL'
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -208,20 +379,116 @@ function parseArgs(raw: unknown, where: string): string[] | string {
   return [...(raw as string[])]
 }
 
+function onlyKeys(raw: Record<string, unknown>, allowed: readonly string[]): string | null {
+  return Object.keys(raw).find((key) => !allowed.includes(key)) ?? null
+}
+
+function parseAsset(raw: unknown, where: string): LanguageServerAsset | string {
+  if (!isRecord(raw)) return `${where} must be an object`
+  const extra = onlyKeys(raw, ['url', 'sha256', 'archive', 'executable'])
+  if (extra !== null) return `${where}.${extra} is not allowed here`
+  const urlProblem = downloadUrlProblem(raw.url)
+  if (urlProblem) return `${where}.url ${urlProblem}`
+  if (typeof raw.sha256 !== 'string' || !LANGUAGE_SERVER_SHA256_PATTERN.test(raw.sha256)) {
+    return `${where}.sha256 must be 64 lowercase hex characters`
+  }
+  const archive = raw.archive
+  if (!LANGUAGE_SERVER_ARCHIVES.includes(archive as LanguageServerArchive)) {
+    return `${where}.archive must be one of ${LANGUAGE_SERVER_ARCHIVES.join(', ')}`
+  }
+  const executable = raw.executable
+  if (
+    typeof executable !== 'string' ||
+    !LANGUAGE_SERVER_EXECUTABLE_PATTERN.test(executable) ||
+    executable.split('/').some((segment) => segment === '..' || segment === '.')
+  ) {
+    return `${where}.executable must be a relative path inside the download`
+  }
+  if ((archive === 'plain' || archive === 'gz') && executable.includes('/')) {
+    return `${where}.executable must be a file name for a ${archive} download`
+  }
+  return {
+    url: raw.url as string,
+    sha256: raw.sha256,
+    archive: archive as LanguageServerArchive,
+    executable,
+  }
+}
+
+function parseDownload(raw: unknown, where: string): LanguageServerDownload | string {
+  if (!isRecord(raw)) return `${where} must be an object`
+  const extra = onlyKeys(raw, ['program', 'version', 'assets'])
+  if (extra !== null) return `${where}.${extra} is not allowed here`
+  if (typeof raw.program !== 'string' || !LANGUAGE_SERVER_PROGRAM_PATTERN.test(raw.program)) {
+    return `${where}.program must be a program name without a path`
+  }
+  const version = raw.version
+  if (typeof version !== 'string' || !LANGUAGE_SERVER_VERSION_PATTERN.test(version)) {
+    return `${where}.version must be a pinned version`
+  }
+  if (!isRecord(raw.assets) || Object.keys(raw.assets).length === 0) {
+    return `${where}.assets must name at least one platform`
+  }
+  const assets: LanguageServerDownload['assets'] = {}
+  for (const [platform, value] of Object.entries(raw.assets)) {
+    if (!LANGUAGE_SERVER_PLATFORMS.includes(platform as LanguageServerPlatform)) {
+      return `${where}.assets.${platform} must be one of ${LANGUAGE_SERVER_PLATFORMS.join(', ')}`
+    }
+    const asset = parseAsset(value, `${where}.assets.${platform}`)
+    if (typeof asset === 'string') return asset
+    assets[platform as LanguageServerPlatform] = asset
+  }
+  return { program: raw.program, version, assets }
+}
+
+function parseGoInstall(raw: unknown, where: string): LanguageServerGoInstall | string {
+  if (!isRecord(raw)) return `${where} must be an object`
+  const extra = onlyKeys(raw, ['module', 'version', 'binary'])
+  if (extra !== null) return `${where}.${extra} is not allowed here`
+  const { module, version, binary } = raw
+  if (
+    typeof module !== 'string' ||
+    module.length > GO_MODULE_MAX ||
+    !LANGUAGE_SERVER_GO_MODULE_PATTERN.test(module)
+  ) {
+    return `${where}.module must be a Go module path such as golang.org/x/tools/gopls`
+  }
+  if (typeof version !== 'string' || !LANGUAGE_SERVER_GO_VERSION_PATTERN.test(version)) {
+    return `${where}.version must be a pinned version such as v0.20.0`
+  }
+  if (typeof binary !== 'string' || !LANGUAGE_SERVER_PROGRAM_PATTERN.test(binary)) {
+    return `${where}.binary must be a program name without a path`
+  }
+  return { module, version, binary }
+}
+
 function parseRun(
   raw: unknown,
   where: string,
   isInside: (path: string) => boolean,
 ): LanguageServerRun | string {
   if (!isRecord(raw)) return `${where} must be an object`
-  const hasNode = raw.node !== undefined
-  const hasProgram = raw.program !== undefined
-  if (hasNode === hasProgram) return `${where} needs exactly one of node or program`
-  const allowed = hasNode ? ['node', 'args'] : ['program', 'package', 'args']
+  const forms = (['node', 'program', 'download', 'goInstall'] as const).filter(
+    (form) => raw[form] !== undefined,
+  )
+  if (forms.length !== 1) {
+    return `${where} needs exactly one of node, program, download or goInstall`
+  }
+  const [form] = forms
+  const hasNode = form === 'node'
+  const allowed = form === 'program' ? ['program', 'package', 'args'] : [form, 'args']
   const unknown = Object.keys(raw).find((key) => !allowed.includes(key))
   if (unknown !== undefined) return `${where}.${unknown} is not allowed here`
   const args = parseArgs(raw.args, where)
   if (typeof args === 'string') return args
+  if (form === 'download') {
+    const download = parseDownload(raw.download, `${where}.download`)
+    return typeof download === 'string' ? download : { download, args }
+  }
+  if (form === 'goInstall') {
+    const goInstall = parseGoInstall(raw.goInstall, `${where}.goInstall`)
+    return typeof goInstall === 'string' ? goInstall : { goInstall, args }
+  }
   if (hasNode) {
     const node = raw.node
     if (typeof node !== 'string' || !LANGUAGE_SERVER_SCRIPT_PATTERN.test(node) || !isInside(node)) {

@@ -23,6 +23,7 @@ import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
+import { LanguageNotice } from './LanguageNotice'
 import { MarkdownPreview, type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
 import { useSelectionSend } from './SelectionSend'
 import { ATTENTION_ALERT } from './attentionStyles'
@@ -487,6 +488,7 @@ export function EditorView({
 
   return (
     <>
+      {filePath && !binary ? <LanguageNotice paneId={paneId} filePath={filePath} /> : null}
       <div ref={hostRef} className="editor-host" style={binary ? { display: 'none' } : undefined} />
       {markdown && preview ? (
         <MarkdownPreview

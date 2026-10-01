@@ -1,4 +1,9 @@
-import { ArrowClockwiseIcon, ListMagnifyingGlassIcon } from '@phosphor-icons/react'
+import {
+  ArrowClockwiseIcon,
+  DownloadSimpleIcon,
+  ListMagnifyingGlassIcon,
+  TrashIcon,
+} from '@phosphor-icons/react'
 import type {
   LanguageServerInfo,
   LanguageServerStatus,
@@ -24,9 +29,36 @@ const STATUS_DOT: Record<LanguageServerStatus, string> = {
   idle: 'bg-brand',
   off: 'bg-fg-dim',
   'program-missing': 'bg-attn',
+  'toolchain-missing': 'bg-attn',
+  downloading: 'bg-brand',
+  'download-failed': 'bg-attn',
+  installing: 'bg-brand',
+  'install-failed': 'bg-attn',
   'sandbox-unavailable': 'bg-attn',
   crashed: 'bg-attn',
   'pending-approval': 'bg-fg-dim',
+}
+
+function failureReason(d: Dict, server: LanguageServerInfo): string {
+  if (!server.failure) return ''
+  return fmt(d.languageServers.fetchReasons[server.failure], {
+    detail: server.failureDetail ?? '',
+  })
+}
+
+function binaryNote(d: Dict, server: LanguageServerInfo): string | null {
+  const t = d.languageServers
+  if (!server.enabled || server.kind === 'bundled' || server.kind === 'program') return null
+  if (server.binary?.source === 'path') {
+    return fmt(t.usingPath, { program: server.program ?? server.command })
+  }
+  if (server.binary?.source === 'managed') {
+    return fmt(t.usingManaged, { app: PRODUCT_NAME, version: server.version ?? '' })
+  }
+  if (!server.fetchable || server.fetchHeld) return null
+  return server.fetchCommand
+    ? fmt(t.willGoInstall, { app: PRODUCT_NAME, command: server.fetchCommand })
+    : fmt(t.willDownload, { app: PRODUCT_NAME, version: server.version ?? '' })
 }
 
 function statusLabel(d: Dict, server: LanguageServerInfo): string {
@@ -42,6 +74,16 @@ function statusLabel(d: Dict, server: LanguageServerInfo): string {
       return t.statusOff
     case 'program-missing':
       return fmt(t.statusMissing, { program: server.program ?? server.command })
+    case 'toolchain-missing':
+      return t.statusToolchain
+    case 'downloading':
+      return fmt(t.statusDownloading, { percent: server.progress ?? 0 })
+    case 'download-failed':
+      return fmt(t.statusDownloadFailed, { reason: failureReason(d, server) })
+    case 'installing':
+      return t.statusInstalling
+    case 'install-failed':
+      return fmt(t.statusInstallFailed, { reason: failureReason(d, server) })
     case 'sandbox-unavailable':
       return t.statusSandbox
     case 'crashed':
@@ -90,7 +132,20 @@ function logLine(d: Dict, entry: LspLogEntry): string {
     case 'spawn-failed':
       return fmt(t.logSpawnFailed, { error: entry.text })
     case 'stderr':
+    case 'fetch-output':
       return entry.text
+    case 'fetch-start':
+      return fmt(entry.how === 'download' ? t.logFetchDownload : t.logFetchGoInstall, {
+        version: entry.version,
+      })
+    case 'fetch-done':
+      return fmt(t.logFetchDone, { version: entry.version })
+    case 'fetch-failed':
+      return fmt(t.logFetchFailed, {
+        reason: fmt(t.fetchReasons[entry.reason], { detail: entry.detail }),
+      })
+    case 'fetch-removed':
+      return fmt(t.logFetchRemoved, { app: PRODUCT_NAME })
   }
 }
 
@@ -137,7 +192,7 @@ function ServerLogDialog({
                 <span className="shrink-0 text-fg-muted tabular-nums">{logTime(entry.at)}</span>
                 <span
                   className={
-                    entry.kind === 'stderr'
+                    entry.kind === 'stderr' || entry.kind === 'fetch-output'
                       ? 'min-w-0 break-words text-fg-muted'
                       : 'min-w-0 break-words text-fg'
                   }
@@ -216,10 +271,13 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
   const restart = useLanguageServersStore((s) => s.restart)
   const [showLog, setShowLog] = useState(false)
   const reason = server.status === 'sandbox-unavailable' ? sandboxReason(d, server) : null
+  const note = binaryNote(d, server)
+  const failed = server.status === 'download-failed' || server.status === 'install-failed'
+  const needsProgram = server.status === 'program-missing' || server.status === 'toolchain-missing'
+  const canFetchNow =
+    failed || (server.status === 'idle' && server.fetchable === true && !server.binary)
   const problem =
-    server.status === 'program-missing' ||
-    server.status === 'sandbox-unavailable' ||
-    server.status === 'crashed'
+    needsProgram || failed || server.status === 'sandbox-unavailable' || server.status === 'crashed'
   return (
     <li
       aria-label={server.name}
@@ -237,7 +295,7 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
             <div className="flex items-center gap-2">
               <span className="truncate text-fg text-ui-base">{server.name}</span>
               <Badge variant="outline" className="text-ui-xs">
-                {server.kind === 'bundled' ? t.bundled : t.program}
+                {t.kinds[server.kind]}
               </Badge>
             </div>
             <p className="mt-0.5 truncate text-fg-muted text-ui-xs">
@@ -251,10 +309,35 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
               {statusLabel(d, server)}
             </p>
             {reason ? <p className="mt-0.5 text-fg-muted text-ui-xs">{reason}</p> : null}
-            {server.status === 'program-missing' ? <InstallProgram server={server} /> : null}
+            {note ? <p className="mt-0.5 text-fg-muted text-ui-xs">{note}</p> : null}
+            {needsProgram ? <InstallProgram server={server} /> : null}
+            {failed ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-1"
+                onClick={() => void window.pine.lsp.fetch(server.key)}
+              >
+                {t.retry}
+              </Button>
+            ) : null}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {canFetchNow && !failed ? (
+            <IconButton
+              icon={DownloadSimpleIcon}
+              label={fmt(t.fetchNow, { name: server.name })}
+              onClick={() => void window.pine.lsp.fetch(server.key)}
+            />
+          ) : null}
+          {server.managedCopy ? (
+            <IconButton
+              icon={TrashIcon}
+              label={fmt(t.removeDownload, { name: server.name, app: PRODUCT_NAME })}
+              onClick={() => void window.pine.lsp.removeDownload(server.key)}
+            />
+          ) : null}
           <IconButton
             icon={ListMagnifyingGlassIcon}
             label={fmt(t.showLog, { name: server.name })}

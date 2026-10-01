@@ -35,6 +35,8 @@ export function registerLanguageServersIpc(deps: LanguageServersIpcDeps): void {
   )
   ipcMain.handle('lsp:restart', (_e, key: unknown) => servers.restart(key))
   ipcMain.handle('lsp:log', (_e, key: unknown) => servers.log(key))
+  ipcMain.handle('lsp:fetch', (_e, key: unknown) => servers.fetch(key))
+  ipcMain.handle('lsp:remove-download', (_e, key: unknown) => servers.removeDownload(key))
   ipcMain.handle(
     'extensions:set-language-server',
     (_e, key: unknown, enabled: unknown): LanguageServerInfo[] => {
