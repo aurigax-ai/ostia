@@ -80,12 +80,43 @@ describe('reduceAttention', () => {
     expect(reduceAttention(idle, { type: 'commandEnd', exitCode: 0, long: false, at })).toBe(idle)
   })
 
+  it('ends waiting when the command that waited exits quietly', () => {
+    const waiting = pane({ state: 'waiting', unread: true, message: 'Allow Bash?' })
+    expect(reduceAttention(waiting, { type: 'commandEnd', exitCode: 0, long: false, at })).toEqual({
+      state: 'none',
+      unread: false,
+      at,
+    })
+    expect(
+      reduceAttention(waiting, { type: 'commandEnd', exitCode: 130, long: false, at }),
+    ).toMatchObject({ state: 'error', unread: true })
+    expect(
+      reduceAttention(waiting, { type: 'commandEnd', exitCode: 0, long: true, at }),
+    ).toMatchObject({ state: 'done', unread: true })
+  })
+
+  it('waitEnded clears only waiting', () => {
+    const ended = { type: 'waitEnded', at } as const
+    expect(reduceAttention(pane({ state: 'waiting', unread: true }), ended)).toEqual({
+      state: 'none',
+      unread: false,
+      at,
+    })
+    for (const state of ['none', 'working', 'done', 'error'] as const) {
+      const prev = pane({ state, unread: true, message: 'm' })
+      expect(reduceAttention(prev, ended)).toBe(prev)
+    }
+  })
+
   it('clears a stale agent state when a new command starts, keeping unread', () => {
     const next = reduceAttention(pane({ state: 'error', unread: true }), {
       type: 'commandStart',
       at,
     })
     expect(next).toMatchObject({ state: 'none', unread: true })
+    expect(
+      reduceAttention(pane({ state: 'waiting', unread: true }), { type: 'commandStart', at }),
+    ).toMatchObject({ state: 'none' })
   })
 
   it('drops waiting once the user types into the pane', () => {
