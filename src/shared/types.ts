@@ -1,4 +1,4 @@
-import type { AgentResume } from './agentResume'
+import type { AgentResume, ResumableAgent } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
 import type { AssistApi } from './assist'
@@ -451,6 +451,47 @@ export interface WindowSummary {
   workspaces: WindowWorkspaceSummary[]
 }
 
+export type PaneAgentKind = ResumableAgent | 'other'
+
+export interface WindowPaneReport extends WindowPaneSummary {
+  agent?: PaneAgentKind
+  state?: AttentionState
+  cwd?: string
+}
+
+export interface WindowWorkspaceReport extends WindowWorkspaceSummary {
+  origin?: string
+  panes: WindowPaneReport[]
+}
+
+export interface OriginAgentTarget {
+  paneId: string
+  title: string
+  agent: PaneAgentKind
+  state: AttentionState
+  cwd?: string
+}
+
+export interface OriginAgents {
+  workspaceId: string
+  workspaceName: string
+  targets: OriginAgentTarget[]
+}
+
+export interface OriginReferenceRequest {
+  workspaceId: string
+  paneId: string
+  text: string
+  note?: string
+}
+
+export interface ReferenceInsert {
+  requestId: string
+  paneId: string
+  text: string
+  note?: string
+}
+
 export interface NewWorkspaceRequest {
   dir?: string
   name?: string
@@ -482,7 +523,7 @@ export interface WindowsApi {
   landing: (paneId: string) => Promise<boolean>
   give: (workspace: SnapshotWorkspace) => Promise<boolean>
   returnToMain: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
-  report: (workspaces: WindowWorkspaceSummary[]) => void
+  report: (workspaces: WindowWorkspaceReport[]) => void
   focusWorkspace: (workspaceId: string, jumpToUnread: boolean) => void
   returnWorkspace: (workspaceId: string) => void
   newWorkspace: (request: NewWorkspaceRequest) => void
@@ -490,6 +531,11 @@ export interface WindowsApi {
   onAdopt: (cb: (workspaces: SnapshotWorkspace[]) => void) => () => void
   onActivateWorkspace: (cb: (workspaceId: string, jumpToUnread: boolean) => void) => () => void
   onReturnRequest: (cb: () => void) => () => void
+  originAgents: (workspaceId: string) => Promise<OriginAgents | null>
+  onOriginAgentsChanged: (cb: () => void) => () => void
+  insertReference: (request: OriginReferenceRequest) => Promise<boolean>
+  onInsertReference: (cb: (insert: ReferenceInsert) => void) => () => void
+  answerInsertReference: (requestId: string, inserted: boolean) => void
 }
 
 export type WorkspaceMergeError = 'not-owned' | 'manager' | SandboxMergeRefusal

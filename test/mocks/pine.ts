@@ -115,6 +115,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onAdopt: vi.fn(noopUnsub),
       onActivateWorkspace: vi.fn(noopUnsub),
       onReturnRequest: vi.fn(noopUnsub),
+      originAgents: vi.fn().mockResolvedValue(null),
+      onOriginAgentsChanged: vi.fn(noopUnsub),
+      insertReference: vi.fn().mockResolvedValue(false),
+      onInsertReference: vi.fn(noopUnsub),
+      answerInsertReference: vi.fn(),
     },
     lifecycle: {
       emit: vi.fn(),

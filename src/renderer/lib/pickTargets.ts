@@ -11,6 +11,7 @@ export interface PickTarget {
   cwd?: string
   state: AttentionState
   sameWorkspace: boolean
+  via?: string
 }
 
 export interface PickTargetInput {

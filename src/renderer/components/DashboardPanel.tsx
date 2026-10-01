@@ -29,7 +29,7 @@ import { ApprovalCard } from './ApprovalCard'
 import { WorkspaceChips } from './ExtensionChips'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
-import { stateLabel, useAgentTargets } from './PickSendPanel'
+import { stateLabel, useLocalAgentTargets } from './PickSendPanel'
 import { QuestionCard } from './QuestionCard'
 import { ATTENTION_BADGE } from './attentionStyles'
 import { Badge } from './ui/badge'
@@ -250,7 +250,7 @@ function WorkspaceEntry({ workspace: w }: { workspace: Workspace }): JSX.Element
   const unread = useAttentionStore((s) =>
     layout ? unreadCount(s.byPane, paneIds(layout.root)) : 0,
   )
-  const agents = useAgentTargets(w.id)
+  const agents = useLocalAgentTargets(w.id)
   const [composing, setComposing] = useState(false)
   const name = w.customName ?? w.name
   const summary = message ?? running
