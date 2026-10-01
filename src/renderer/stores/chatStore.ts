@@ -292,6 +292,20 @@ export async function renameSession(sessionId: string, title: string): Promise<b
   return true
 }
 
+export async function clearSession(sessionId: string): Promise<void> {
+  const chat = chats.get(sessionId)
+  if (chat) chat.messages = []
+  const store = useChatStore.getState()
+  const meta = store.meta[sessionId]
+  if (meta) {
+    const { trimmed: _trimmed, ...kept } = meta
+    store.setMeta({ ...kept, title: '' })
+  }
+  store.setNotice(sessionId, null)
+  await window.pine.chatSessions.remove(sessionId).catch(() => false)
+  await refreshSessions()
+}
+
 export async function deleteSession(sessionId: string): Promise<void> {
   chats.get(sessionId)?.stop()
   chats.delete(sessionId)

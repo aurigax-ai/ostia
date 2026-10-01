@@ -2180,6 +2180,20 @@ extension owns providers, prompts and requests.
   actions (`lib/chatActions.ts`) follow §4's typing rules; links in answers go through
   `lib/chatLinks.ts` (`findFileLinks`); the @ picker attaches files (confined `fs.read`, capped),
   the selection, a block's output or a browser page as context chips that show what is sent.
+- Slash commands (`lib/chatSlash.ts`, `ChatSlashMenu.tsx`): a `/` at the start of the draft
+  opens a cmdk list above the composer, at the caret's column (`lib/caretPoint.ts`), driven from
+  the textarea like the input editor's completion menu (controlled `value`, `aria-activedescendant`
+  synced from cmdk's selected item). The registry is a data table (`id`, `icon`, `arg`,
+  `unavailable(ctx)`, `run(actions, arg, ctx)`); titles, descriptions and reasons live in
+  `chatSlash` in the dictionary. Commands run in the renderer and call the same functions as the
+  buttons they stand for (new chat, session list, rename, export, regenerate, the @ picker, the
+  tools menu); a draft whose first word is a known command never reaches the model. Only
+  `/explain` (the terminal selection, the selected block or the last output, as the human picks,
+  sent like the Explain output suggestion) and `/skill` (asks the model to `load_skill`) build an
+  ordinary question. Why a registry of local actions rather than prompt templates: a command
+  must not send anything the human didn't put in the question (§4 assist rule), and nothing it
+  does may type into a terminal; answers still go through the code-block rules. `/clear` asks
+  first and deletes the saved copy too (`clearSession`), since an empty chat is never saved.
 - The extension runs its providers on the AI SDK: `streamText(...).toUIMessageStream()` for
   chat, `generateText` with `Output.object` + zod (behind `extractJsonMiddleware`) for review and
   commands, and `createOpenAICompatible` with an undici `fetch` over the unix socket plus

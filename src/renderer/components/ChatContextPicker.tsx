@@ -84,11 +84,13 @@ function gatherSources(
 export function ChatContextPicker({
   workspaceId,
   open,
+  query: seedQuery = '',
   onOpenChange,
   onAttach,
 }: {
   workspaceId: string | null
   open: boolean
+  query?: string
   onOpenChange: (open: boolean) => void
   onAttach: (item: ChatContextItem) => void
 }): JSX.Element {
@@ -126,10 +128,13 @@ export function ChatContextPicker({
   }, [open, root, query.dir])
 
   useEffect(() => {
-    if (open) return
+    if (open) {
+      setTyped(seedQuery)
+      return
+    }
     setTyped('')
     setFailed(null)
-  }, [open])
+  }, [open, seedQuery])
 
   const base = relativeTo(root, query.dir)
   const matches = entries
