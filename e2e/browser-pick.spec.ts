@@ -93,7 +93,7 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
       .poll(() => guestEval<boolean>('!!document.querySelector("[data-pine-pick]")'))
       .toBe(false)
 
-    await panel.getByLabel("What's wrong?").fill('Checkout button is misaligned')
+    await panel.getByLabel('What’s wrong?').fill('Checkout button is misaligned')
     await expect(panel.getByRole('radio')).toHaveCount(1)
     await panel.getByRole('button', { name: 'Send' }).click()
 

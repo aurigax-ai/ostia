@@ -44,7 +44,9 @@ export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX
             const reason = d.sandbox.violationReasons[v.reason] || v.detail
             return (
               <li key={v.id} className="flex items-center gap-2 text-ui-sm">
-                <Badge variant="outline">{d.sandbox.violationKinds[v.kind]}</Badge>
+                <Badge variant="outline" className="min-w-16 justify-center text-ui-xs">
+                  {d.sandbox.violationKinds[v.kind]}
+                </Badge>
                 <span className="min-w-0 flex-1 truncate font-mono text-fg">{v.target}</span>
                 <span className="shrink-0 text-fg-muted">{reason}</span>
                 <span className="shrink-0 text-fg-muted tabular-nums">
