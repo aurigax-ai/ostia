@@ -1,6 +1,12 @@
 import { create } from 'zustand'
+import { parseSettingsTarget } from '../lib/settingsNav'
 
 export type PaletteOpenMode = 'search' | 'ask'
+
+export interface OpenSettingsOptions {
+  previewPaneId?: string
+  extension?: string
+}
 
 interface UIState {
   paletteOpen: boolean
@@ -9,6 +15,7 @@ interface UIState {
   settingsTabOpen: boolean
   settingsActive: boolean
   settingsSection: string | null
+  settingsExtension: string | null
   filesOpen: boolean
   digitHints: boolean
   promptPreviewPaneId: string | null
@@ -19,7 +26,7 @@ interface UIState {
   closePalette: () => void
   togglePalette: () => void
   toggleRail: () => void
-  openSettings: (section?: string, previewPaneId?: string) => void
+  openSettings: (section?: string, options?: OpenSettingsOptions) => void
   openWorkspaceSettings: (workspaceId: string) => void
   closeSettings: () => void
   leaveSettings: () => void
@@ -35,6 +42,7 @@ export const useUIStore = create<UIState>((set) => ({
   settingsTabOpen: false,
   settingsActive: false,
   settingsSection: null,
+  settingsExtension: null,
   filesOpen: false,
   digitHints: false,
   promptPreviewPaneId: null,
@@ -45,13 +53,16 @@ export const useUIStore = create<UIState>((set) => ({
   closePalette: () => set({ paletteOpen: false, paletteMode: 'search' }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search' })),
   toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
-  openSettings: (section, previewPaneId) =>
+  openSettings: (section, options = {}) => {
+    const target = parseSettingsTarget(section, options.extension)
     set({
       settingsTabOpen: true,
       settingsActive: true,
-      settingsSection: section ?? null,
-      promptPreviewPaneId: previewPaneId ?? null,
-    }),
+      settingsSection: target.section,
+      settingsExtension: target.extension,
+      promptPreviewPaneId: options.previewPaneId ?? null,
+    })
+  },
   openWorkspaceSettings: (workspaceId) =>
     set((s) => ({
       settingsTabOpen: true,

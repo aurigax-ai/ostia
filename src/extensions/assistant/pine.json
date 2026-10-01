@@ -16,12 +16,14 @@
     ],
     "secrets": {
       "apiKey": {
+        "title": "API key",
         "description": "API key for OpenRouter, OpenAI, Anthropic or an OpenAI-compatible server that needs one. Stored encrypted on this computer, never synced."
       }
     },
     "settings": {
       "provider": {
         "type": "enum",
+        "title": "Provider",
         "values": [
           "none",
           "model-runtime",
@@ -31,63 +33,86 @@
           "openai",
           "anthropic"
         ],
+        "valueTitles": {
+          "none": "None",
+          "model-runtime": "Model runtime",
+          "ollama": "Ollama",
+          "openai-compatible": "OpenAI-compatible",
+          "openrouter": "OpenRouter",
+          "openai": "OpenAI",
+          "anthropic": "Anthropic"
+        },
         "default": "none",
-        "description": "Where requests go. none sends nothing."
+        "description": "Where requests go. None sends nothing."
       },
       "baseUrl": {
         "type": "string",
+        "title": "Base URL",
         "default": "",
         "description": "Provider address: http(s) URL or unix:/path.sock. Empty uses the provider's default (model-runtime: $XDG_RUNTIME_DIR/model-runtime.sock, Ollama: http://127.0.0.1:11434/v1). Required for openai-compatible."
       },
       "fastModel": {
         "type": "string",
+        "title": "Fast model",
         "default": "",
         "description": "Small, fast model for typo fixes, prompt review, command suggestions and completions (model-runtime: gemma when empty). Settings → Assistant → Models lists what the provider has."
       },
       "chatModel": {
         "type": "string",
+        "title": "Chat model",
         "default": "",
-        "description": "Model for the chat pane and Ask. Empty uses fastModel."
+        "description": "Model for the chat pane and Ask. Empty uses the fast model."
       },
       "typos": {
         "type": "boolean",
+        "title": "Typo fixes",
         "default": true,
         "description": "Offer typo fixes for prompts you compose for an agent"
       },
       "promptReview": {
         "type": "boolean",
+        "title": "Prompt review",
         "default": true,
         "description": "Review the quality of prompts you compose for an agent"
       },
       "commandSuggest": {
         "type": "boolean",
+        "title": "Command suggestions",
         "default": true,
         "description": "Suggest a shell command from a plain-language request at the prompt"
       },
       "terminalCompletions": {
         "type": "boolean",
+        "title": "Terminal completions",
         "default": true,
         "description": "Ghost-text completion of the command you are typing at a shell prompt (sends the line, the folder, recent commands with exit codes and pane chips such as the git branch; never output)"
       },
       "editorCompletions": {
         "type": "boolean",
+        "title": "Editor completions",
         "default": true,
         "description": "Inline completions in the editor (sends the code around the cursor)"
       },
       "chat": {
         "type": "boolean",
+        "title": "Chat",
         "default": true,
         "description": "The assistant chat pane and Ask in the command palette"
       },
       "explainError": {
         "type": "boolean",
+        "title": "Explain error",
         "default": true,
         "description": "Explain error on a failed command block (sends that command and its output when you click it)"
       },
       "requestsPerMinute": {
         "type": "number",
+        "title": "Request limit",
         "default": 30,
-        "description": "Most requests per minute for each feature (1 to 600)"
+        "minimum": 1,
+        "maximum": 600,
+        "unit": "per-minute",
+        "description": "Most requests per minute for each feature"
       }
     }
   }

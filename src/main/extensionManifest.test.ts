@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -147,6 +147,110 @@ describe('parseManifest', () => {
         description: 'Speed',
       },
     ])
+  })
+
+  it('keeps setting and secret titles, value titles, bounds and units', () => {
+    const res = parseManifest(
+      manifest({
+        contributes: {
+          settings: {
+            intervalSeconds: {
+              type: 'number',
+              title: 'Scan interval',
+              default: 3,
+              minimum: 1,
+              maximum: 60,
+              unit: 'seconds',
+              description: 'Time between scans while {product} is focused',
+            },
+            scope: {
+              type: 'enum',
+              values: ['current', 'all'],
+              valueTitles: { current: 'Current branch', all: 'All branches' },
+              default: 'current',
+              description: 'Branches',
+            },
+            plain: { type: 'boolean', default: true, description: 'No title' },
+          },
+          secrets: { apiKey: { title: 'API key', description: 'Key' } },
+        },
+      }),
+      DIR,
+    )
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.settings).toEqual([
+      {
+        key: 'intervalSeconds',
+        type: 'number',
+        title: 'Scan interval',
+        default: 3,
+        minimum: 1,
+        maximum: 60,
+        unit: 'seconds',
+        description: 'Time between scans while {product} is focused',
+      },
+      {
+        key: 'scope',
+        type: 'enum',
+        values: ['current', 'all'],
+        valueTitles: { current: 'Current branch', all: 'All branches' },
+        default: 'current',
+        description: 'Branches',
+      },
+      { key: 'plain', type: 'boolean', default: true, description: 'No title' },
+    ])
+    expect(res.manifest.contributes.secrets).toEqual([
+      { key: 'apiKey', title: 'API key', description: 'Key' },
+    ])
+  })
+
+  it('rejects a bad title, value title, bound or unit', () => {
+    const setting = (s: Record<string, unknown>) =>
+      parseManifest(manifest({ contributes: { settings: { k: s } } }), DIR)
+    const number = { type: 'number', default: 5, description: 'd' }
+    expect(setting({ ...number, title: '' })).toEqual({
+      ok: false,
+      error: 'contributes.settings.k: title must be 1-80 characters',
+    })
+    expect(setting({ ...number, title: 'x'.repeat(81) }).ok).toBe(false)
+    expect(setting({ ...number, title: 'two\nlines' }).ok).toBe(false)
+    expect(setting({ ...number, title: 7 }).ok).toBe(false)
+    expect(setting({ ...number, minimum: 6 })).toEqual({
+      ok: false,
+      error: 'contributes.settings.k: default does not match type number',
+    })
+    expect(setting({ ...number, minimum: 9, maximum: 1 })).toEqual({
+      ok: false,
+      error: 'contributes.settings.k: minimum is greater than maximum',
+    })
+    expect(setting({ ...number, maximum: '10' }).ok).toBe(false)
+    expect(setting({ ...number, unit: 'hours' }).ok).toBe(false)
+    expect(setting({ type: 'string', default: '', description: 'd', unit: 'seconds' })).toEqual({
+      ok: false,
+      error: 'contributes.settings.k: minimum, maximum and unit are for number settings',
+    })
+    const enumSetting = { type: 'enum', values: ['a'], default: 'a', description: 'd' }
+    expect(setting({ ...enumSetting, valueTitles: { b: 'B' } })).toEqual({
+      ok: false,
+      error: 'contributes.settings.k: valueTitles.b is not one of the values',
+    })
+    expect(setting({ ...enumSetting, valueTitles: { a: '' } }).ok).toBe(false)
+    expect(setting({ ...number, valueTitles: {} }).ok).toBe(false)
+    expect(
+      parseManifest(
+        manifest({ contributes: { secrets: { apiKey: { title: '', description: 'd' } } } }),
+        DIR,
+      ),
+    ).toEqual({ ok: false, error: 'contributes.secrets.apiKey: title must be 1-80 characters' })
+  })
+
+  it('accepts every built-in manifest', () => {
+    for (const id of ['assistant', 'completions', 'git', 'keeper', 'ports', 'system', 'trellis']) {
+      const dir = join(__dirname, '..', 'extensions', id)
+      const raw: unknown = JSON.parse(readFileSync(join(dir, 'pine.json'), 'utf8'))
+      const res = parseManifest(raw, dir)
+      expect(res.ok ? null : res.error, id).toBeNull()
+    }
   })
 
   it('rejects a setting whose default does not match its type', () => {

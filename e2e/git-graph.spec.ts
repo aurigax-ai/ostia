@@ -148,11 +148,13 @@ test('the graph shows the uncommitted row, switches to all branches, and changes
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible({ timeout: 10_000 })
     await settings.getByRole('button', { name: 'Plugins', exact: true }).click()
-    const changesView = settings.getByRole('combobox', { name: 'changesView' })
-    await expect(changesView).toContainText('tree')
-    await expect(settings.getByRole('combobox', { name: 'graphScope' })).toContainText('all')
+    const changesView = settings.getByRole('combobox', { name: 'Changed files layout' })
+    await expect(changesView).toContainText('Folder tree')
+    await expect(settings.getByRole('combobox', { name: 'Graph branches' })).toContainText(
+      'All branches',
+    )
     await changesView.click()
-    await win.getByRole('option', { name: 'list', exact: true }).click()
+    await win.getByRole('option', { name: 'List', exact: true }).click()
     await expect
       .poll(() => inPanel(`document.querySelectorAll('button.folder').length`), { timeout: 15_000 })
       .toBe('0')

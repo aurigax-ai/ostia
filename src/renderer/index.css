@@ -2080,6 +2080,25 @@ button.prompt-chip:focus-visible {
   }
 }
 
+.settings-anchor-highlight {
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  animation: settings-anchor-fade var(--motion-highlight) var(--ease-out) forwards;
+}
+
+.settings-anchor-highlight-static {
+  animation: none;
+}
+
+@keyframes settings-anchor-fade {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .pane-disk-mark {
   width: 7px;
   height: 7px;

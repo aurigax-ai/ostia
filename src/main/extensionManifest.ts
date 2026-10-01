@@ -6,7 +6,9 @@ import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_ICONS,
   EXTENSION_MANIFEST_FILE,
+  EXTENSION_SETTING_TITLE_MAX,
   EXTENSION_SETTING_TYPES,
+  EXTENSION_SETTING_UNITS,
   type ExtensionCommandContribution,
   type ExtensionIcon,
   type ExtensionManifest,
@@ -15,6 +17,7 @@ import {
   type ExtensionSecretContribution,
   type ExtensionSettingContribution,
   type ExtensionSettingType,
+  type ExtensionSettingUnit,
   validSettingValue,
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
@@ -145,12 +148,18 @@ function parseSetting(key: string, raw: unknown): ExtensionSettingContribution |
   }
   const description = text(raw.description, 500)
   if (!description) return `${where}: missing description`
+  const title = optionalTitle(raw.title)
+  if (title === null) return `${where}: title must be 1-${EXTENSION_SETTING_TITLE_MAX} characters`
   const setting: ExtensionSettingContribution = {
     key,
     type: raw.type as ExtensionSettingType,
     default: '',
+    ...(title ? { title } : {}),
     description,
   }
+  const numeric = parseNumberBounds(raw, setting.type)
+  if (typeof numeric === 'string') return `${where}: ${numeric}`
+  Object.assign(setting, numeric)
   if (setting.type === 'enum') {
     const values = raw.values
     if (
@@ -162,12 +171,82 @@ function parseSetting(key: string, raw: unknown): ExtensionSettingContribution |
       return `${where}: enum needs 1-${MAX_ENUM_VALUES} string values`
     }
     setting.values = [...new Set(values as string[])]
+    const valueTitles = parseValueTitles(raw.valueTitles, setting.values)
+    if (typeof valueTitles === 'string') return `${where}: ${valueTitles}`
+    if (valueTitles) setting.valueTitles = valueTitles
+  } else if (raw.valueTitles !== undefined) {
+    return `${where}: valueTitles is for enum settings`
   }
   if (!validSettingValue(setting, raw.default)) {
     return `${where}: default does not match type ${setting.type}`
   }
   setting.default = raw.default
   return setting
+}
+
+function optionalTitle(raw: unknown): string | undefined | null {
+  if (raw === undefined) return undefined
+  const title = text(raw, EXTENSION_SETTING_TITLE_MAX)
+  if (!title || hasControlCharacter(title)) return null
+  return title
+}
+
+function hasControlCharacter(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i)
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
+}
+
+function parseValueTitles(
+  raw: unknown,
+  values: readonly string[],
+): Record<string, string> | string | undefined {
+  if (raw === undefined) return undefined
+  if (!isRecord(raw)) return 'valueTitles must be an object'
+  const titles: Record<string, string> = {}
+  for (const [value, title] of Object.entries(raw)) {
+    if (!values.includes(value)) return `valueTitles.${value} is not one of the values`
+    const parsed = optionalTitle(title)
+    if (!parsed) return `valueTitles.${value} must be 1-${EXTENSION_SETTING_TITLE_MAX} characters`
+    titles[value] = parsed
+  }
+  return titles
+}
+
+type NumberBounds = Pick<ExtensionSettingContribution, 'minimum' | 'maximum' | 'unit'>
+
+function parseNumberBounds(
+  raw: Record<string, unknown>,
+  type: ExtensionSettingType,
+): NumberBounds | string {
+  const { minimum, maximum, unit } = raw
+  if (minimum === undefined && maximum === undefined && unit === undefined) return {}
+  if (type !== 'number') return 'minimum, maximum and unit are for number settings'
+  const bounds: NumberBounds = {}
+  for (const [name, value] of [
+    ['minimum', minimum],
+    ['maximum', maximum],
+  ] as const) {
+    if (value === undefined) continue
+    if (typeof value !== 'number' || !Number.isFinite(value)) return `${name} must be a number`
+    bounds[name] = value
+  }
+  if (
+    bounds.minimum !== undefined &&
+    bounds.maximum !== undefined &&
+    bounds.minimum > bounds.maximum
+  ) {
+    return 'minimum is greater than maximum'
+  }
+  if (unit !== undefined) {
+    if (!EXTENSION_SETTING_UNITS.includes(unit as ExtensionSettingUnit)) {
+      return `unit must be one of ${EXTENSION_SETTING_UNITS.join(', ')}`
+    }
+    bounds.unit = unit as ExtensionSettingUnit
+  }
+  return bounds
 }
 
 function parseSettings(raw: unknown): ExtensionSettingContribution[] | string {
@@ -196,7 +275,9 @@ function parseSecrets(raw: unknown): ExtensionSecretContribution[] | string {
     if (!SETTING_KEY_PATTERN.test(key)) return `${where}: invalid key`
     const description = isRecord(value) ? text(value.description, 500) : null
     if (!description) return `${where}: missing description`
-    secrets.push({ key, description })
+    const title = optionalTitle((value as Record<string, unknown>).title)
+    if (title === null) return `${where}: title must be 1-${EXTENSION_SETTING_TITLE_MAX} characters`
+    secrets.push({ key, ...(title ? { title } : {}), description })
   }
   return secrets
 }

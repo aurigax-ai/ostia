@@ -143,7 +143,7 @@ export function PromptChipRow({
       <MenuContent>
         <MenuItem
           icon={PencilSimpleIcon}
-          onClick={() => useUIStore.getState().openSettings('prompt', paneId)}
+          onClick={() => useUIStore.getState().openSettings('prompt', { previewPaneId: paneId })}
         >
           {d.prompt.edit}
         </MenuItem>
