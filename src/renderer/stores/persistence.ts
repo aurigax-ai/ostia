@@ -7,8 +7,12 @@ import { useLayoutStore } from './layoutStore'
 import { useSettingsStore } from './settingsStore'
 import { type Workspace, useWorkspacesStore } from './workspacesStore'
 
-export function isRestorable(workspace: Workspace): workspace is Workspace & RestorableWorkspace {
+export function isMovable(workspace: Workspace): workspace is Workspace & RestorableWorkspace {
   return workspace.kind !== 'manager'
+}
+
+export function isRestorable(workspace: Workspace): workspace is Workspace & RestorableWorkspace {
+  return isMovable(workspace) && workspace.kind !== 'scratch'
 }
 
 const SAVE_DEBOUNCE_MS = 400

@@ -8,11 +8,13 @@ export function isolatedHome(dataHome: string): string {
   return home
 }
 
-export function fakeAgentBin(dataHome: string): string {
+const ECHO_AGENT = '#!/bin/sh\necho fake-agent-ready\nexec cat\n'
+
+export function fakeAgentBin(dataHome: string, script: string = ECHO_AGENT): string {
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
   const claude = join(bin, 'claude')
-  writeFileSync(claude, '#!/bin/sh\necho fake-agent-ready\nexec cat\n')
+  writeFileSync(claude, script)
   chmodSync(claude, 0o755)
   return bin
 }

@@ -23,45 +23,65 @@ async function typeInTerminal(win: Page, command: string): Promise<void> {
   await win.keyboard.press('Enter')
 }
 
-test('risky paste asks first; Cancel pastes nothing and Paste runs the text', async () => {
+test('a multi-line paste asks first; Cancel pastes nothing, Enter pastes, and Don’t ask again turns it off', async () => {
   const { app, win } = await launch()
   try {
-    await app.evaluate(({ clipboard }) => clipboard.writeText('echo pinecancelled\n'))
+    await app.evaluate(({ clipboard }) => clipboard.writeText('echo pinecancelled\necho two\n'))
     await win.locator('.xterm').first().click()
     await win.keyboard.press('Control+Shift+V')
 
     const dialog = win.getByRole('dialog')
     await expect(dialog).toBeVisible()
+    await expect(dialog).toContainText('It has 2 lines')
     await expect(dialog.getByLabel('Text to paste')).toContainText('echo pinecancelled')
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     await expect(dialog).toHaveCount(0)
     await win.waitForTimeout(500)
     await expect(win.locator('.xterm-rows').first()).not.toContainText('pinecancelled')
 
-    await app.evaluate(({ clipboard }) => clipboard.writeText('echo pinepasted42\n'))
+    await app.evaluate(({ clipboard }) => clipboard.writeText('echo pinefirst\necho pinepasted42'))
     await win.keyboard.press('Control+Shift+V')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: 'Paste' }).click()
+    await expect(dialog.getByRole('button', { name: 'Paste' })).toBeFocused()
+    await win.keyboard.press('Enter')
+    await expect(dialog).toHaveCount(0)
     await win.keyboard.press('Enter')
     await expect(
       win.locator('.xterm-rows div', { hasText: /^pinepasted42\s*$/ }).first(),
     ).toBeAttached({ timeout: 15_000 })
+
+    await app.evaluate(({ clipboard }) => clipboard.writeText('echo a\necho b'))
+    await win.keyboard.press('Control+Shift+V')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('checkbox', { name: /Don’t ask again/ }).click()
+    await dialog.getByRole('button', { name: 'Paste' }).click()
+    await expect(dialog).toHaveCount(0)
+    const settings = await openSettings(win, 'Terminal')
+    await expect(
+      settings.getByRole('switch', { name: 'Confirm multi-line paste' }),
+    ).not.toBeChecked()
   } finally {
     await app.close()
   }
 })
 
-test('a single-line paste goes straight in, and the warning can be turned off', async () => {
+test('a single-line paste goes straight in without its newline, and confirmation can be turned off', async () => {
   const { app, win } = await launch()
   try {
-    await app.evaluate(({ clipboard }) => clipboard.writeText('echo pineplain'))
+    await app.evaluate(({ clipboard }) => clipboard.writeText('echo pineplain\n'))
     await win.locator('.xterm').first().click()
     await win.keyboard.press('Control+Shift+V')
     await expect(win.locator('.xterm-rows').first()).toContainText('echo pineplain')
     await expect(win.getByRole('dialog')).toHaveCount(0)
+    await win.waitForTimeout(500)
+    await expect(win.locator('.xterm-rows div', { hasText: /^pineplain\s*$/ })).toHaveCount(0)
+    await win.keyboard.press('Enter')
+    await expect(
+      win.locator('.xterm-rows div', { hasText: /^pineplain\s*$/ }).first(),
+    ).toBeAttached({ timeout: 15_000 })
 
     const settings = await openSettings(win, 'Terminal')
-    await settings.getByRole('switch', { name: 'Warn before risky paste' }).click()
+    await settings.getByRole('switch', { name: 'Confirm multi-line paste' }).click()
     await win.keyboard.press('Escape')
     await app.evaluate(({ clipboard }) => clipboard.writeText('\necho pinequiet77\n'))
     await win.locator('.xterm').first().click()

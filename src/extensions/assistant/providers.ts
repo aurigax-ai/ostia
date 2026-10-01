@@ -3,9 +3,9 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { type LanguageModel, simulateStreamingMiddleware, wrapLanguageModel } from 'ai'
+import type { AssistModel, ChatToolMode } from '../../shared/assist'
 import { PRODUCT_NAME } from '../../shared/product'
 import { type Endpoint, type FetchFn, baseUrl, endpointFetch, requestJson } from './endpoint'
-import type { ModelEntry } from './models'
 
 export const PROVIDER_KINDS = [
   'none',
@@ -22,8 +22,11 @@ export type ProviderKind = (typeof PROVIDER_KINDS)[number]
 export interface Provider {
   kind: ProviderKind
   lifecycle: boolean
+  serverCancels: boolean
+  smallPrompts: boolean
+  chatTools: (id: string, signal?: AbortSignal) => Promise<ChatToolMode>
   model: (id: string) => Exclude<LanguageModel, string>
-  models: (signal?: AbortSignal, timeoutMs?: number) => Promise<ModelEntry[]>
+  models: (signal?: AbortSignal, timeoutMs?: number) => Promise<AssistModel[]>
   load?: (id: string) => Promise<void>
   unload?: (id: string) => Promise<void>
 }
@@ -31,6 +34,9 @@ export interface Provider {
 export const ANTHROPIC_VERSION = '2023-06-01'
 export const OPENROUTER_HEADERS = { 'X-Title': PRODUCT_NAME }
 const MODELS_TIMEOUT_MS = 15_000
+const SHOW_TIMEOUT_MS = 5000
+const native = async (): Promise<ChatToolMode> => 'native'
+const prompted = async (): Promise<ChatToolMode> => 'prompted'
 const LIFECYCLE_TIMEOUT_MS = 120_000
 
 interface ListedModel {
@@ -39,11 +45,11 @@ interface ListedModel {
   display_name?: unknown
 }
 
-function listed(data: ListedModel[] | undefined, nameKey: 'name' | 'display_name'): ModelEntry[] {
+function listed(data: ListedModel[] | undefined, nameKey: 'name' | 'display_name'): AssistModel[] {
   return (data ?? [])
     .filter((m) => typeof m.id === 'string' && m.id)
     .map((m) => {
-      const entry: ModelEntry = { id: m.id as string }
+      const entry: AssistModel = { id: m.id as string }
       const name = m[nameKey]
       if (typeof name === 'string' && name && name !== m.id) entry.name = name
       return entry
@@ -56,7 +62,7 @@ function listModels(
   headers: Record<string, string>,
   nameKey: 'name' | 'display_name',
 ) {
-  return async (signal?: AbortSignal, timeoutMs = MODELS_TIMEOUT_MS): Promise<ModelEntry[]> => {
+  return async (signal?: AbortSignal, timeoutMs = MODELS_TIMEOUT_MS): Promise<AssistModel[]> => {
     const res = await requestJson<{ data?: ListedModel[] }>({
       fetch,
       url,
@@ -65,6 +71,27 @@ function listModels(
       timeoutMs,
     })
     return listed(res.data, nameKey)
+  }
+}
+
+function ollamaChatTools(fetch: FetchFn, endpoint: Endpoint) {
+  const url = `${endpoint.origin}${endpoint.basePath.replace(/\/v1$/, '')}/api/show`
+  return async (id: string, signal?: AbortSignal): Promise<ChatToolMode> => {
+    try {
+      const res = await requestJson<{ capabilities?: unknown }>({
+        fetch,
+        url,
+        method: 'POST',
+        body: { model: id },
+        signal,
+        timeoutMs: SHOW_TIMEOUT_MS,
+      })
+      return Array.isArray(res.capabilities) && res.capabilities.includes('tools')
+        ? 'native'
+        : 'prompted'
+    } catch {
+      return 'prompted'
+    }
   }
 }
 
@@ -99,6 +126,9 @@ export function modelRuntimeProvider(endpoint: Endpoint): Provider {
   return {
     kind: 'model-runtime',
     lifecycle: true,
+    serverCancels: false,
+    smallPrompts: true,
+    chatTools: prompted,
     model: (id) =>
       wrapLanguageModel({ model: compat.chatModel(id), middleware: simulateStreamingMiddleware() }),
     models: async (signal, timeoutMs = MODELS_TIMEOUT_MS) => {
@@ -111,7 +141,7 @@ export function modelRuntimeProvider(endpoint: Endpoint): Provider {
       return (res.models ?? [])
         .filter((m) => typeof m.id === 'string' && m.id)
         .map((m) => {
-          const entry: ModelEntry = {
+          const entry: AssistModel = {
             id: m.id as string,
             installed: m.installed === true,
             loaded: m.loaded === true,
@@ -144,6 +174,9 @@ export function createProvider(
       return {
         kind,
         lifecycle: false,
+        serverCancels: true,
+        smallPrompts: false,
+        chatTools: native,
         model: (id) => anthropic(id),
         models: listModels(fetch, `${base}/models`, headers, 'display_name'),
       }
@@ -158,6 +191,9 @@ export function createProvider(
       return {
         kind,
         lifecycle: false,
+        serverCancels: true,
+        smallPrompts: false,
+        chatTools: native,
         model: (id) => openrouter.chat(id),
         models: listModels(fetch, `${base}/models`, bearer(apiKey), 'name'),
       }
@@ -167,6 +203,9 @@ export function createProvider(
       return {
         kind,
         lifecycle: false,
+        serverCancels: true,
+        smallPrompts: false,
+        chatTools: native,
         model: (id) => openai.chat(id),
         models: listModels(fetch, `${base}/models`, bearer(apiKey), 'name'),
       }
@@ -176,6 +215,9 @@ export function createProvider(
       return {
         kind,
         lifecycle: false,
+        serverCancels: true,
+        smallPrompts: false,
+        chatTools: kind === 'ollama' ? ollamaChatTools(fetch, endpoint) : native,
         model: (id) => compat.chatModel(id),
         models: listModels(fetch, `${base}/models`, bearer(apiKey), 'name'),
       }

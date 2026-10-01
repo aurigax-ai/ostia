@@ -11,6 +11,7 @@ import {
   firstPaneOfKind,
   graftNode,
   isPaneShown,
+  mergeLayouts,
   movePane,
   moveTab,
   paneIds,
@@ -103,6 +104,46 @@ describe('closePane', () => {
     if (c.type === 'split') {
       expect(c.children.every((ch) => ch.type === 'pane')).toBe(true)
     }
+  })
+})
+
+describe('mergeLayouts', () => {
+  it('puts the source root beside the target root in a new horizontal split', () => {
+    const target = splitOf('vertical', createPane(), createPane())
+    const a = createPane()
+    const b = createPane()
+    const source = tabsOf(b.id, a, b)
+
+    const merged = mergeLayouts(target, source)
+
+    expect(merged.type).toBe('split')
+    if (merged.type !== 'split') return
+    expect(merged.direction).toBe('horizontal')
+    expect(merged.children).toEqual([target, source])
+    expect(merged.sizes).toEqual([1, 1])
+  })
+
+  it('keeps every pane id of both layouts and leaves the inputs untouched', () => {
+    const target = createPane()
+    const source = splitOf('horizontal', createPane(), createPane())
+    const before = JSON.stringify([target, source])
+
+    const merged = mergeLayouts(target, source)
+
+    expect(paneIds(merged)).toEqual([...paneIds(target), ...paneIds(source)])
+    expect(JSON.stringify([target, source])).toBe(before)
+  })
+
+  it('keeps a single source pane as its own slot, never a tab of the target', () => {
+    const t1 = createPane()
+    const t2 = createPane()
+    const target = tabsOf(t1.id, t1, t2)
+    const source = createPane()
+
+    const merged = mergeLayouts(target, source)
+
+    expect(tabsOfPane(merged, source.id)).toBeNull()
+    expect(tabsOfPane(merged, t1.id)?.children.map((p) => p.id)).toEqual([t1.id, t2.id])
   })
 })
 

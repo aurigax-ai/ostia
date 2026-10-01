@@ -22,6 +22,7 @@ export interface ChatSessionMeta {
   createdAt: number
   model?: string
   trimmed?: boolean
+  scratch?: boolean
 }
 
 interface ChatStoreState {
@@ -151,7 +152,7 @@ export function sessionOf(
 export async function saveSession(sessionId: string): Promise<void> {
   const chat = chats.get(sessionId)
   const meta = useChatStore.getState().meta[sessionId]
-  if (!chat || !meta || !historyOn() || chat.messages.length === 0) return
+  if (!chat || !meta || meta.scratch || !historyOn() || chat.messages.length === 0) return
   const session = sessionOf(meta, chat.messages)
   if (!meta.title) useChatStore.getState().setMeta({ ...meta, title: session.title })
   const res = await window.pine.chatSessions.save(session).catch(() => null)
@@ -167,6 +168,12 @@ export async function saveSession(sessionId: string): Promise<void> {
     store.setNotice(sessionId, 'evicted')
   }
   await refreshSessions()
+}
+
+export function isScratchWorkspace(workspaceId: string | null | undefined): boolean {
+  return useWorkspacesStore
+    .getState()
+    .workspaces.some((w) => w.id === workspaceId && w.kind === 'scratch')
 }
 
 function sessionWorkspace(sessionId: string): string | null {
@@ -195,6 +202,34 @@ export function chatFor(sessionId: string): Chat<PineChatMessage> {
   return chats.get(sessionId) ?? createChat(sessionId, [])
 }
 
+function moveKey<T>(record: Record<string, T>, from: string, to: string): Record<string, T> {
+  if (!(from in record)) return record
+  const { [from]: moved, ...rest } = record
+  return to in rest ? rest : { ...rest, [to]: moved }
+}
+
+export function chatReplacedByMerge(sourceId: string, targetId: string): boolean {
+  const { current } = useChatStore.getState()
+  return Boolean(current[chatKey(sourceId)] && current[chatKey(targetId)])
+}
+
+export function mergeChatWorkspace(sourceId: string, targetId: string): void {
+  const from = chatKey(sourceId)
+  const to = chatKey(targetId)
+  useChatStore.setState((s) => {
+    const meta: Record<string, ChatSessionMeta> = {}
+    for (const [id, m] of Object.entries(s.meta)) {
+      meta[id] = m.workspaceId === sourceId ? { ...m, workspaceId: targetId } : m
+    }
+    return {
+      current: moveKey(s.current, from, to),
+      drafts: moveKey(s.drafts, from, to),
+      attachments: moveKey(s.attachments, from, to),
+      meta,
+    }
+  })
+}
+
 export function currentSessionId(workspaceId: string | null | undefined): string | null {
   return useChatStore.getState().current[chatKey(workspaceId)] ?? null
 }
@@ -203,6 +238,7 @@ export function startNewSession(workspaceId: string | null | undefined): string 
   const id = newSessionId()
   const meta: ChatSessionMeta = { id, title: '', createdAt: Date.now() }
   if (workspaceId) meta.workspaceId = workspaceId
+  if (isScratchWorkspace(workspaceId)) meta.scratch = true
   const store = useChatStore.getState()
   store.setMeta(meta)
   createChat(id, [])
@@ -269,7 +305,7 @@ export function ensureSession(
   if (pending) return pending
   const work = (async () => {
     if (preferred && (await openSession(workspaceId, preferred))) return preferred
-    const list = historyOn() ? await refreshSessions() : []
+    const list = historyOn() && !isScratchWorkspace(workspaceId) ? await refreshSessions() : []
     const last = list.find((s) => (s.workspaceId ?? '') === key)
     const already = useChatStore.getState().current[key]
     if (already) return already
@@ -290,6 +326,20 @@ export async function renameSession(sessionId: string, title: string): Promise<b
   const saved = await window.pine.chatSessions.rename(sessionId, next).catch(() => null)
   if (saved) await refreshSessions()
   return true
+}
+
+export async function clearSession(sessionId: string): Promise<void> {
+  const chat = chats.get(sessionId)
+  if (chat) chat.messages = []
+  const store = useChatStore.getState()
+  const meta = store.meta[sessionId]
+  if (meta) {
+    const { trimmed: _trimmed, ...kept } = meta
+    store.setMeta({ ...kept, title: '' })
+  }
+  store.setNotice(sessionId, null)
+  await window.pine.chatSessions.remove(sessionId).catch(() => false)
+  await refreshSessions()
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

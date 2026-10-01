@@ -23,6 +23,8 @@ function hangingHost() {
     assistAvailability: () => ({}),
     assistOverview: () => [],
     setShortcuts: () => {},
+    assistModels: async () => ({ ok: false, error: 'unavailable' }),
+    setAssistModelLoaded: async () => ({ ok: false, error: 'unavailable' }),
     assist: <P extends AssistPoint>(_point: P, _input: unknown, opts: AssistCallOptions = {}) => {
       calls.push(opts)
       return new Promise<AssistResponse<P>>((resolve) => {
@@ -39,6 +41,8 @@ describe('createAssistRouter', () => {
       assistAvailability: () => ({}),
       assistOverview: () => [],
       setShortcuts: () => {},
+      assistModels: async () => ({ ok: false, error: 'unavailable' }),
+      setAssistModelLoaded: async () => ({ ok: false, error: 'unavailable' }),
       assist: async <P extends AssistPoint>(
         _point: P,
         _input: unknown,

@@ -2,9 +2,9 @@ import { type FontWeight, Terminal as Xterm } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
-import { currentScheme, useScheme } from '../lib/colorScheme'
+import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
+import { terminalFontStack } from '../lib/uiFonts'
 import { useSettingsStore } from '../stores/settingsStore'
-import { fontStack } from './Terminal'
 
 export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
   const d = useDict()
@@ -18,8 +18,8 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
     if (!host) return
     const font = useSettingsStore.getState().appearance.terminal
     const term = new Xterm({
-      theme: currentScheme('terminal').colors,
-      fontFamily: fontStack(font.family),
+      theme: terminalTheme(currentScheme('terminal').colors),
+      fontFamily: terminalFontStack(font.family),
       fontSize: font.size,
       fontWeight: font.weight as FontWeight,
       lineHeight: font.lineHeight,
@@ -65,7 +65,7 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
   }, [paneId])
 
   useEffect(() => {
-    if (termRef.current) termRef.current.options.theme = palette
+    if (termRef.current) termRef.current.options.theme = terminalTheme(palette)
   }, [palette])
 
   const background = palette.background

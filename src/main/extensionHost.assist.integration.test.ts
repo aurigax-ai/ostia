@@ -203,11 +203,35 @@ describe('assist contribution points over a real control socket', () => {
         setup: null,
         lastError: 'model busy',
         features: [{ id: 'chat', setting: 'chat', ready: true, on: true }],
+        models: true,
       },
     ])
     host.setSetting('oracle', 'chat', false)
     expect(host.assistOverview()[0].features[0].on).toBe(false)
     host.setSetting('oracle', 'chat', null)
+  })
+
+  it('lists the models an extension reports, normalized, and loads and unloads one', async () => {
+    const list = await host.assistModels('oracle')
+    expect(list).toMatchObject({ ok: true, lifecycle: true })
+    if (!list.ok) throw new Error('no list')
+    expect(list.models.map((m) => m.id)).toEqual(['small', 'big'])
+    expect(list.models[0]).toEqual({ id: 'small', name: 'Small', loaded: false, idleSecs: 12 })
+    expect(list.models[1].installed).toBe(false)
+    expect(list.models[1].loaded).toBeUndefined()
+    expect(list.models[1].description?.length).toBe(400)
+    expect(await host.setAssistModelLoaded('oracle', 'small', true)).toEqual({ ok: true })
+    const after = await host.assistModels('oracle')
+    expect(after.ok && after.models[0].loaded).toBe(true)
+    expect(await host.setAssistModelLoaded('oracle', 'broken', true)).toEqual({
+      ok: false,
+      error: 'runtime refused',
+    })
+    expect(await host.setAssistModelLoaded('oracle', '', true)).toEqual({
+      ok: false,
+      error: 'invalid',
+    })
+    expect(await host.assistModels('nobody')).toEqual({ ok: false, error: 'unavailable' })
   })
 
   it('keeps a terminal completion to one line', async () => {
@@ -242,5 +266,6 @@ describe('assist contribution points over a real control socket', () => {
     expect(host.assistAvailability()).toEqual({})
     expect(lastAvailability()).toEqual({})
     expect(host.assistOverview()).toEqual([])
+    expect(await host.assistModels('oracle')).toEqual({ ok: false, error: 'unavailable' })
   })
 })

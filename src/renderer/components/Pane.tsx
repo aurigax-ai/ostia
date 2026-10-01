@@ -25,7 +25,13 @@ import { isIdlePrompt } from '../lib/blocks'
 import { useChordLabel } from '../lib/chords'
 import { type TabDrop, dropZoneAt, paneDropTarget, tabDropTarget } from '../lib/dropZone'
 import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '../lib/hoverFocus'
-import { PANE_DND, beginPaneDrag, endPaneDrag, isPaneDrag } from '../lib/paneDrag'
+import {
+  PANE_DND,
+  beginPaneDrag,
+  endPaneDrag,
+  isPaneDrag,
+  reportForeignDrop,
+} from '../lib/paneDrag'
 import { isMac } from '../platform'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -142,14 +148,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
       void commands.exec('pane.move', { sourceId, targetId, zone })
       return
     }
-    const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
-    if (workspaceId) {
-      window.pine.windows.dropPane({
-        paneId: sourceId,
-        workspaceId,
-        placement: { paneId: targetId, zone },
-      })
-    }
+    reportForeignDrop(sourceId, { paneId: targetId, zone })
   }
 
   const onLayerDragOver = (e: DragEvent<HTMLDivElement>): void => {
@@ -214,14 +213,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
       })
       return
     }
-    const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
-    if (workspaceId) {
-      window.pine.windows.dropPane({
-        paneId: sourceId,
-        workspaceId,
-        placement: { paneId: target.targetId, zone: 'center' },
-      })
-    }
+    reportForeignDrop(sourceId, { paneId: target.targetId, zone: 'center' })
   }
 
   return (

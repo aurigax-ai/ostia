@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@ai-sdk-tool/parser':
+        specifier: ^5.1.6
+        version: 5.1.6(@ai-sdk/provider-utils@5.0.51(zod@4.6.5))(@ai-sdk/provider@4.0.19)
       '@ai-sdk/anthropic':
         specifier: ^4.0.68
         version: 4.0.68(zod@4.6.5)
@@ -248,6 +251,13 @@ packages:
 
   '@adobe/css-tools@4.5.0':
     resolution: {integrity: sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q==}
+
+  '@ai-sdk-tool/parser@5.1.6':
+    resolution: {integrity: sha512-YwcSsELIw/SV28QqzAWvQzBK8QhqXJg7OK7+MtfGJvNCw/3FMHsNGrh4lbk+3SChxvFrxflOl+2uNAH/ebUKsw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@ai-sdk/provider': ^4.0.0
+      '@ai-sdk/provider-utils': ^5.0.0
 
   '@ai-sdk/anthropic@4.0.68':
     resolution: {integrity: sha512-7PzZEf2brum218FSdXf6gE9yz4gKkLwkoLkPwoBExWYFj/Qsbi2JetWDKnFOdV6eezOnP72pGs3T0OKUaAEcLw==}
@@ -4509,6 +4519,15 @@ packages:
 snapshots:
 
   '@adobe/css-tools@4.5.0': {}
+
+  '@ai-sdk-tool/parser@5.1.6(@ai-sdk/provider-utils@5.0.51(zod@4.6.5))(@ai-sdk/provider@4.0.19)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.19
+      '@ai-sdk/provider-utils': 5.0.51(zod@4.6.5)
+      dedent: 1.7.2
+      yaml: 2.9.1
+    transitivePeerDependencies:
+      - babel-plugin-macros
 
   '@ai-sdk/anthropic@4.0.68(zod@4.6.5)':
     dependencies:

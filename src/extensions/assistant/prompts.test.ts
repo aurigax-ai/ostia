@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  CURSOR_MARK,
   chatPrompt,
   cleanCompletion,
   cleanTerminal,
@@ -105,8 +104,12 @@ describe('command suggestions', () => {
   })
 })
 
+const POINT = 'interface Point {\n  x: number\n  y: number\n}\n\n'
+const DISTANCE = 'export function distance(a: Point, b: Point): number {\n'
+const MIDPOINT = 'export function midpoint(a: Point, b: Point): Point {\n'
+
 describe('inline completion', () => {
-  it('marks the cursor between prefix and suffix and includes neighbors', () => {
+  it('frames prefix and suffix for fill-in-the-middle after worked examples', () => {
     const prompt = completionPrompt({
       path: '/p/a.ts',
       language: 'typescript',
@@ -115,20 +118,108 @@ describe('inline completion', () => {
       neighbors: [{ path: '/p/b.ts', text: 'export const y = 1' }],
     })
     const content = lastUser(prompt)
-    expect(content).toContain(`const x = ${CURSOR_MARK}\nexport {}`)
+    expect(content).toContain('<prefix>const x = </prefix>\n<suffix>\nexport {}</suffix>')
     expect(content).toContain('Other open file /p/b.ts')
     expect(content.indexOf('/p/b.ts')).toBeLessThan(content.indexOf('File /p/a.ts'))
+    expect(prompt.messages.map((m) => m.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'user',
+    ])
+    expect(prompt.system).toMatch(/never repeat code from the prefix or the suffix/)
   })
 
-  it('strips fences, the echoed line and the repeated next line', () => {
+  it('strips fences, tags, the echoed line and the repeated next line', () => {
     expect(cleanCompletion('```ts\nconst x = 42;\n```', 'let a\nconst x = ', '\n')).toBe('42;')
     expect(cleanCompletion('foo(1)\n}', 'call ', '}\nrest')).toBe('foo(1)')
-    expect(cleanCompletion(`a${CURSOR_MARK}b  \n`, '', '')).toBe('ab')
+    expect(cleanCompletion('a<prefix>b</suffix>  \n', '', '')).toBe('ab')
   })
 
   it('drops indentation the prefix already has and a closing brace the suffix holds', () => {
     const prefix = 'function multiply(a, b) {\n  '
     expect(cleanCompletion('  return a * b\n}', prefix, '\n}\n')).toBe('return a * b')
+  })
+
+  it('drops an unindented echo of the current line and indents the lines after it', () => {
+    const prefix = `${POINT}${DISTANCE}  const dx = `
+    const raw = 'const dx = b.x - a.x\nconst dy = b.y - a.y\nreturn Math.sqrt(dx * dx + dy * dy)'
+    expect(cleanCompletion(raw, prefix, '\n}\n')).toBe(
+      'b.x - a.x\n  const dy = b.y - a.y\n  return Math.sqrt(dx * dx + dy * dy)',
+    )
+  })
+
+  it('drops an echo of the whole function before the cursor', () => {
+    const body = '  const dx = b.x - a.x\n  const dy = b.y - a.y\n'
+    const prefix = `${POINT}${DISTANCE}${body}  return Math.sqrt(`
+    const raw = `${DISTANCE}${body}  return Math.sqrt(dx * dx + dy * dy)\n}`
+    expect(cleanCompletion(raw, prefix, '\n}\n')).toBe('dx * dx + dy * dy)')
+  })
+
+  it('drops an echo that lost the indentation of every line', () => {
+    const prefix = `${POINT}${DISTANCE}  const dx = b.x - a.x\n  return Math.sqrt(`
+    const raw = `${DISTANCE}const dx = b.x - a.x\nreturn Math.sqrt(dx * dx)\n}`
+    expect(cleanCompletion(raw, prefix, '\n}\n')).toBe('dx * dx)')
+  })
+
+  it('drops a re-echoed header on a new function body and keeps the body indented', () => {
+    const prefix = `${POINT}${DISTANCE}  return 0\n}\n\n${MIDPOINT}  `
+    const body = ['const x = (a.x + b.x) / 2', 'const y = (a.y + b.y) / 2', 'return { x, y }']
+    const want = 'const x = (a.x + b.x) / 2\n  const y = (a.y + b.y) / 2\n  return { x, y }'
+    expect(cleanCompletion(`${MIDPOINT}${body.join('\n')}\n}`, prefix, '\n}\n')).toBe(want)
+    const indented = body.map((l) => `  ${l}`).join('\n')
+    expect(cleanCompletion(`${MIDPOINT}${indented}\n}`, prefix, '\n}\n')).toBe(want)
+  })
+
+  it('drops an echo of the end of the current line', () => {
+    const prefix = `${DISTANCE}  return Math.sqrt(`
+    expect(cleanCompletion('Math.sqrt(dx * dx + dy * dy)', prefix, ')\n}')).toBe(
+      'dx * dx + dy * dy',
+    )
+  })
+
+  it('indents continuation lines the model wrote flush left', () => {
+    const prefix = 'function f() {\n  const total = items'
+    const raw = '.length\nconsole.log(total)\nreturn total'
+    expect(cleanCompletion(raw, prefix, '\n}')).toBe(
+      '.length\n  console.log(total)\n  return total',
+    )
+  })
+
+  it('keeps continuation lines that are already indented and a dedenting closer', () => {
+    const prefix = 'function f(xs) {\n  for (const x of xs) {'
+    expect(cleanCompletion('\n    use(x)\n  }', prefix, '\n  return xs\n}')).toBe(
+      '\n    use(x)\n  }',
+    )
+  })
+
+  it('keeps a closing brace that closes what the completion opened', () => {
+    const prefix = `${MIDPOINT}  return `
+    expect(cleanCompletion('{\n    x: 0,\n    y: 0\n  }', prefix, '\n}\n')).toBe(
+      '{\n    x: 0,\n    y: 0\n  }',
+    )
+  })
+
+  it('drops a closing paren that nothing before it opened', () => {
+    const prefix = `${POINT}${DISTANCE}  const dx = `
+    expect(cleanCompletion('b.x - a.x)', prefix, '\n}\n')).toBe('b.x - a.x')
+    expect(cleanCompletion('f(a))', prefix, '\n}\n')).toBe('f(a)')
+  })
+
+  it('keeps a completion at column 0 as written', () => {
+    expect(cleanCompletion('    return 1', 'def f():\n', '\n')).toBe('    return 1')
+  })
+
+  it('drops lines the suffix already holds', () => {
+    const prefix = `${DISTANCE}  const dx = `
+    const suffix = '\n  const dy = b.y - a.y\n  return Math.sqrt(dx * dx + dy * dy)\n}\n'
+    const raw = 'b.x - a.x\nconst dy = b.y - a.y\nreturn Math.sqrt(dx * dx + dy * dy)'
+    expect(cleanCompletion(raw, prefix, suffix)).toBe('b.x - a.x')
+  })
+
+  it('does not take a short identifier for an echo', () => {
+    expect(cleanCompletion('xs.length', 'const n = x', '')).toBe('xs.length')
   })
 })
 

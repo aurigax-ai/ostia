@@ -77,6 +77,7 @@ interface WorkspacesState {
   setState: (id: string, state: WorkspaceState) => void
   hydrate: (snapshot: AppSnapshot | null) => void
   release: (id: string) => void
+  merge: (sourceId: string, targetId: string) => void
   adopt: (workspaces: SnapshotWorkspace[]) => void
 }
 
@@ -355,6 +356,18 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
       const next = normalizeGroups({ workspaces: remaining, groups: s.groups })
       return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId }
     })
+  },
+
+  merge: (sourceId, targetId) => {
+    const ids = get().workspaces.map((w) => w.id)
+    if (sourceId === targetId || !ids.includes(sourceId) || !ids.includes(targetId)) return
+    useLayoutStore.getState().merge(sourceId, targetId)
+    set((s) => {
+      const remaining = s.workspaces.filter((w) => w.id !== sourceId)
+      const next = normalizeGroups({ workspaces: remaining, groups: s.groups })
+      return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId: targetId }
+    })
+    window.pine?.lifecycle?.emit?.({ type: 'workspace-activated', workspaceId: targetId })
   },
 
   adopt: (incoming) => {

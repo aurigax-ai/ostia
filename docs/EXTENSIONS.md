@@ -25,7 +25,10 @@ A new extension still asks for approval first, and a changed manifest that asks 
 capabilities runs with what you approved before until you review it. A changed extension that
 was running is restarted. Settings → Plugins lists every extension with its status, permissions,
 settings form and an enable switch. A disabled extension has no process, no commands, no panel,
-no sidebar items and no pane chips.
+no sidebar items and no pane chips. Plugins in the Settings nav expands into one entry per
+extension (its panel icon, if it has one) that scrolls to that extension's block; core code links
+there with `openSettings('plugins', { extension: id })` or `openSettings('plugins/<id>')`, and the
+Settings search box finds an extension by its name, a setting title or a setting key.
 
 ## Manifest (`pine.json`)
 
@@ -52,9 +55,13 @@ no sidebar items and no pane chips.
     "panel": { "title": "Ports", "icon": "server", "entry": "url" },
     "paneChips": [{ "id": "port", "title": "Listening port" }],
     "settings": {
-      "interval": { "type": "number", "default": 3, "description": "Seconds between scans" },
-      "showSsh": { "type": "boolean", "default": true, "description": "Show the ssh host" },
-      "sort": { "type": "enum", "values": ["port", "name"], "default": "port",
+      "interval": { "type": "number", "title": "Scan interval", "default": 3,
+        "minimum": 1, "maximum": 60, "unit": "seconds",
+        "description": "Time between scans while {product} is focused" },
+      "showSsh": { "type": "boolean", "title": "Show ssh host", "default": true,
+        "description": "Show the host of a foreground ssh" },
+      "sort": { "type": "enum", "title": "Sort order", "values": ["port", "name"],
+        "valueTitles": { "port": "By port", "name": "By name" }, "default": "port",
         "description": "Order of the items" }
     }
   }
@@ -71,11 +78,11 @@ no sidebar items and no pane chips.
 | `contributes.sidebarItems` | `true` if you call `ext.setSidebarItem`. Such extensions start with the window instead of on first use. |
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand pine a loopback URL at runtime. |
 | `contributes.paneChips` | Up to 8 `{id, title}`. Each is a slot for a short value you put on a pane's header with `ext.setPaneChip` (for example a branch, a venv, a test count). `title` names it in tooltips and in Settings → Prompt: the human can also place your chip in the Pine prompt's chip row (`terminal.prompt.chips` id `<extId>.<chip>`), where it shows the same value. Needs `main`. |
-| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Settings → Plugins shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
+| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Plugins shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
-| `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}`. Settings → Plugins shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
+| `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Plugins shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
 
@@ -162,7 +169,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 |---|---|---|
 | `ext.registerCommands` | `{commands: (string \| CommandContribution)[]}` | Returns `{ok, commands}`. |
 | `ext.subscribe` | `{events: string[]}` | `pane.created`, `pane.closed`, `command.started`, `command.finished`, `cwd.changed`, `focus.changed` need `read-board`; `notification` needs `notify`. |
-| `ext.setSidebarItem` | `{key?, workspaceId?, text, icon?, tone?, url?}` | With `workspaceId` it shows on that workspace's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. Empty `text` removes the item. 80 chars, 32 items. With an http(s) `url` the item is a link: clicking it switches to that workspace and opens the URL in its browser pane. |
+| `ext.setSidebarItem` | `{key?, workspaceId?, text, icon?, tone?, kind?, url?}` | With `workspaceId` it shows on that workspace's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. `kind` places a row item: `location` (where the workspace is, like a branch) shares the line with the folder; `live` (the default; what is running, like ports or counts) goes on the line below, where items that don't fit fold into a `+N` popover. The footer ignores `kind`. Empty `text` removes the item. 80 chars, 32 items. With an http(s) `url` the item is a link: clicking it switches to that workspace and opens the URL in its browser pane. |
 | `ext.notify` | `{title, body?, openPanel?}` | Needs `notify`. Goes into the notification center and the desktop. With `openPanel: true` (and a panel in your manifest) clicking it opens your panel instead of jumping to a pane; with `openPanel: "/path"` it opens the panel at that path (or navigates your open panel there), from the desktop notice and from the notification center alike. |
 | `ext.openPanel` | `{workspaceId?, path?}` | Opens (or focuses) your panel in that workspace, else the active one. An already-open panel is focused, not reloaded; with `path` it navigates the open panel there instead of opening a second one. See [Panels](#panels) for what `path` means. |
 | `ext.setPaneChip` | `{paneId, id, text, tooltip?, tone?, command?, url?}` | Shows `text` (40 chars) as chip `id` (from your `contributes.paneChips`) on that pane's header; setting it again replaces the value. `paneId` is an external pane id (`caller.paneId`, `pane.list`, events). `tone`: as for sidebar items. `command`: one of your own palette commands; clicking the chip focuses the pane and runs it, so `caller.paneId` is that pane. `url` (http/https, instead of `command`): clicking the chip opens it in the browser pane of that pane's workspace. Empty `text` clears it. Chips vanish when the pane closes or your process stops; set them again after a restart. |
@@ -174,7 +181,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, filePath?, running, blockCount, lastExitCode?, pid?}]`; `cwd` is the live shell cwd for terminals; `filePath` is the absolute path a file view (`kind: 'editor'`) shows, so a palette command can act on the file in the caller's pane; `pid` is the shell process of a terminal whose pty is running (absent for other kinds and for a hibernated pane). Its descendants are what the pane runs. They inherit pine's own open descriptors, so ignore sockets your parent process (pine) also holds. |
 | `ext.confirm` | `{title, message, detail?, confirmLabel?, cancelLabel?}` | Asks the human in a native dialog that names your extension; Cancel is the default. Returns `{ok, confirmed}`. Use it before anything that changes the user's files or data. It waits for the human: mark a command that calls it `interactive` so its caller waits too. If the human answers after the timeout anyway, finish the work they chose. |
 | `ext.getSecret` | `{key}` | `{ok, value}`: the value the human stored for one of your `contributes.secrets` keys, or `null`. Keep it in memory; don't log it. |
-| `ext.setAssistStatus` | `{status: {<point>: {ready, label?, tools?}}, features?, setup?, lastError?, label?}` | Needs `assist`. Which of your assist points are usable right now and a short label naming the provider and model (`model-runtime · gemma`, 80 chars) that pine shows next to the feature. Only `ready` points are offered to the human. `tools: true` on `chat` says you handle the tool fields of a chat request (see [Chat tools](#chat-tools)); without it pine sends none. `features` lists the switches pine shows in its Assistant menu and next to each feature: `[{id, setting, ready}]` with `id` one of `chat`, `typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `explainError` and `setting` one of your own boolean settings (pine reads on/off from it and flips it when the human does). `setup` names what is missing (`no-provider`, `no-endpoint`, `no-key`, `no-model`, `unreachable`, or `null`), `lastError` the last provider error (240 chars). Call it at start and whenever your configuration or health changes. |
+| `ext.setAssistStatus` | `{status: {<point>: {ready, label?, tools?}}, features?, setup?, lastError?, label?}` | Needs `assist`. Which of your assist points are usable right now and a short label naming the provider and model (`model-runtime · gemma`, 80 chars) that pine shows next to the feature. Only `ready` points are offered to the human. `tools` on `chat` says you handle the tool fields of a chat request (see [Chat tools](#chat-tools)) and how: `'native'` when the model gets them as real tool definitions, `'prompted'` when you describe them in its prompt and parse its calls from the reply (pine then tells the human they are less reliable); without it pine sends none and shows no tools. `features` lists the switches pine shows in its Assistant menu and next to each feature: `[{id, setting, ready}]` with `id` one of `chat`, `typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `explainError` and `setting` one of your own boolean settings (pine reads on/off from it and flips it when the human does). `setup` names what is missing (`no-provider`, `no-endpoint`, `no-key`, `no-model`, `unreachable`, or `null`), `lastError` the last provider error (240 chars). `models: true` says you answer `ext.assistModels`. Call it at start and whenever your configuration or health changes. |
 | `ext.shortcuts` | `{ids: string[]}` | `{ok, shortcuts: {<command id>: label \| null}}`: the human's effective key for pine palette commands (`assist.chat`, `assist.compose`, `palette.toggle`, …), so a panel can show the real shortcut. |
 | `ext.openAssistUi` | `{ui, workspaceId?}` | Opens pine's own UI for an assist point you contribute: `chat` (the chat pane), `ask` (the palette's Ask) or `compose` (the composer on the active terminal). It opens the UI only; nothing is sent until the human asks. |
 | `ext.assistChunk` | `{requestId, text}` | Needs `assist`. One streamed delta of a `chat` answer (256 KiB max; a JSON chunk that doesn't fit the request's 1M-character budget is dropped whole). Returns `{live}`; stop streaming when it is `false` (the human stopped or closed it). |
@@ -213,6 +220,7 @@ a fallback), `openPanel(workspaceId?, path?)`, `notifyPanel(title, body?, path?)
 |---|---|---|
 | `ext.command` | `{command, args, caller}` | A result (below). 30 s timeout, 10 min for an `interactive` command. The CLI waits as long as pine does. |
 | `ext.assist` | `{point, requestId, input}` | The result for that point (below), or `{error, message?}` with `error` one of `unavailable`, `rate-limited`, `failed`, `cancelled`, `invalid`, `busy`. Carries a jsonrpc cancellation token: stop work when it fires. 30 s timeout, 5 min for `chat`. |
+| `ext.assistModels` | `{action: 'list'}` or `{action: 'load' \| 'unload', id}` | Sent only to an extension whose last `ext.setAssistStatus` said `models: true`, when the human opens or acts in Settings → Assistant → Models. `list` replies `{lifecycle, models: [{id, name?, description?, installed?, loaded?, busy?, idleSecs?}], error?}` (64 models, normalized by `normalizeAssistModels`); `lifecycle: true` shows Load/Unload, otherwise each id gets Copy. `load`/`unload` reply `{ok: true}` or `{ok: false, error}`. 15 s timeout for `list`, 5 min for a load. The SDK wraps it: `onAssistModels({list, setLoaded})`. |
 | `ext.panel` | `{caller, path?}` | `{url}` for a `"url"` panel: must be `http://127.0.0.1:<port>/…` or `http://localhost:<port>/…`. `path` is present when the panel is opened or navigated to a path (`ext.openPanel {path}`, a notification with `openPanel: "/path"`); return the URL for it on the same origin. |
 
 And the notification `ext.event {type, payload}`:
@@ -286,7 +294,8 @@ stale requests.
 ### Chat tools
 
 Pine, not your extension, runs the chat's tools, so a chat extension gains no power beyond the
-public API. If you report `tools: true` on the `chat` status, a chat request may carry:
+public API. If you report `tools: 'native'` or `tools: 'prompted'` on the `chat` status, a chat
+request may carry:
 
 - `tools`: the tools the human left on for that chat, each `{name, description, inputSchema}`
   (a JSON schema object; names match `[A-Za-z0-9_-]{1,64}`, up to 64). Built-ins are
@@ -304,7 +313,11 @@ human when the tool acts: writes and commands every time, opening files or URLs 
 until the human allows them for the chat, reads outside the workspace folder once), records it in
 the conversation, and sends you a new request with the outcome, up to 8 rounds per question.
 Treat `denied` as the human's answer, not an error to retry. Skip `tool-input-delta` chunks if
-you like; pine uses only the complete input.
+you like; pine uses only the complete input. A model without native tool calling still works:
+describe the tools in its prompt and turn the calls it writes into the same tool-call chunks
+(the built-in assistant does this with `@ai-sdk-tool/parser`'s Hermes middleware plus a
+`tool_code` fallback for Gemma), and report `'prompted'`. Report nothing when tools can't run at
+all, so pine never offers them.
 
 ## The CLI
 
@@ -342,16 +355,60 @@ URL. Navigating keeps the existing panel pane and webview.
 pine injects its theme into the page as CSS custom properties once it loads and whenever the
 theme changes: `--pine-<token>` for every theme token (`--pine-bg`, `--pine-surface-1`,
 `--pine-fg`, `--pine-fg-muted`, `--pine-brand`, `--pine-line`, `--pine-attn-fg`, …) plus
-`--pine-font-ui`, `--pine-font-mono`, `--pine-color-scheme` (`dark` or `light`; set
+`--pine-font-ui` (the human's UI font), `--pine-font-code` (their code font, the editor
+font), `--pine-font-size` and `--pine-font-weight` (UI size and body weight), `--pine-color-scheme` (`dark` or `light`; set
 `color-scheme: var(--pine-color-scheme, dark)` so scrollbars and native controls follow a light
 theme) and `--pine-motion-scale` (`1`, or `0` while the human has reduced motion on). Use them
 with fallbacks (`var(--pine-surface-1, #272a2d)`); `src/extensions/sdk/panel.css` is a ready
-base. It also defines Pine's type scale (`--text-ui-xs|sm|base|lg`), control radii
+base. It also defines Pine's typography tokens, derived from those: `--font-ui`, `--font-code`,
+the type scale (`--text-ui-xs|sm|base|lg` with `--text-ui-*--line-height`), the weights
+(`--font-weight-normal|medium|semibold`, which step up from the human's body weight) and
+`--tracking-caps` for all-caps labels; set type only through them (`docs/DESIGN.md` §4). Pine
+embeds its bundled Inter Variable and Geist Mono Variable (latin) in the injected CSS, so a
+panel gets them even though they are not system fonts. It also defines control radii
 (`--radius-sm`, `--radius-md`), a `.switch` class that draws an `<input type="checkbox">` like
 Pine's switch, and motion tokens (`--motion-fast`, `--motion-base`, their `-exit`
 pair, `--ease-out`, `--ease-in`), already multiplied by `--pine-motion-scale`: time every
 transition with them and animate only opacity and transform (hover may change colors), so a
 panel follows Pine's motion rules and its reduced-motion setting (`docs/DESIGN.md` §8).
+
+### Resizable splits
+
+`splitter()` (`src/extensions/sdk/splitter.ts`, styles in `sdk/panel.css`) stacks two
+elements with a draggable divider between them, so the human sets how tall each part is:
+
+```ts
+import { splitter } from '../sdk/splitter'
+import { loadPanelSizes } from '../sdk/panel'
+
+await loadPanelSizes()
+const body = splitter({
+  key: 'list-details',
+  label: 'Resize details',
+  first: list,
+  second: details,
+  defaultFraction: 0.55,
+  minFirst: 96,
+  minSecond: 96,
+  collapseSecond: true,
+})
+```
+
+- The divider is a focusable `role="separator"` (`aria-orientation="horizontal"`,
+  `aria-valuenow|min|max` in percent of the height, `aria-label` from `label`). Drag it with the
+  pointer (captured, never selects text), move it 16px with ↑/↓, 64px with PageUp/PageDown, to
+  the minimum or maximum with Home/End; double-click resets it to `defaultFraction`.
+- Both minimums hold while the panel resizes. With `collapseSecond`, a panel too short for both
+  shrinks `second` to its own height (`.pine-split[data-collapsed]`; hide what shouldn't show,
+  e.g. everything but a header) and hides the divider. `first` never shrinks below its own
+  content when it isn't a scroll container, so content that grows (a textarea with
+  `field-sizing: content`) pushes the divider down.
+- Sizes are remembered per `key` as a fraction of the height, across reopen and restart:
+  `startPanelServer` keeps them in `$PINE_EXTENSION_DATA/panel-sizes.json` (64 keys of
+  `[A-Za-z0-9._-]`, values 0–1) and serves them at `/sizes` behind the panel secret;
+  `loadPanelSizes()` reads them once, before the first split is drawn. `localStorage` doesn't
+  work for this: the panel partition isn't persistent and its origin's port changes every run.
+- Nothing animates the layout: only the divider's highlight fades in (opacity).
 
 ## Lifecycle
 
@@ -517,7 +574,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 | `trellis` | The Trellis web UI as a panel on the workspace's project, open/claimed card counts per workspace, notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Init Project Here", `pine trellis status`. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
 | `ports` | Per workspace, the TCP ports its terminals' processes listen on as `:port` links that open in the browser pane, and the host of a foreground `ssh`; per terminal pane, a `ports` chip (click opens the first port) and an `ssh` chip with `user@host`. Polls only while pine is focused. `pine ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `pine system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `pine system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |
-| `assistant` | The assist points on a provider the human picks in its settings: `model-runtime` (the user's local runtime on `$XDG_RUNTIME_DIR/model-runtime.sock`, with load and unload in its panel), `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`; the API key is a secret. Built on the AI SDK (`ai`, `@ai-sdk/openai-compatible` with a unix-socket `fetch` for model-runtime, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, zod for structured answers). A fast model for typos, reviews, commands and terminal/editor completions, a chat model for the chat pane and Ask, a switch per feature (`typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `chat`, `explainError`) and a requests-per-minute limit. Inert until a provider is chosen. "Assistant: Open" opens its panel: each feature with its switch, readiness, shortcut and "Try it", then the provider's models; "Assistant: Chat" opens the chat pane |
+| `assistant` | The assist points on a provider the human picks in its settings: `model-runtime` (the user's local runtime on `$XDG_RUNTIME_DIR/model-runtime.sock`, with load and unload in Settings → Assistant → Models), `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`; the API key is a secret. Built on the AI SDK (`ai`, `@ai-sdk/openai-compatible` with a unix-socket `fetch` for model-runtime, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, zod for structured answers). A fast model for typos, reviews, commands and terminal/editor completions, a chat model for the chat pane and Ask, a switch per feature (`typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `chat`, `explainError`) and a requests-per-minute limit. Inert until a provider is chosen. It has no panel: Settings → Assistant shows each feature with its switch, readiness, shortcut and "Try it", its settings, and the provider's models (`ext.assistModels`); "Assistant: Chat" opens the chat pane |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications that open the approvals queue (Keeper has no per-ticket page), "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue. Settings: `notify`, `pollSeconds`, `idlePollSeconds` |
 
 Earlier versions also shipped `kanban` and `wiki` extensions. They were removed: boards, cards and

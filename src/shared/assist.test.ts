@@ -146,12 +146,15 @@ describe('normalizeAssistStatus', () => {
     ).toEqual({ chat: { ready: false, label: 'x' } })
   })
 
-  it('keeps the tools flag only on the chat point', () => {
+  it('keeps a known tool mode only on the chat point', () => {
     expect(
       normalizeAssistStatus({
-        chat: { ready: true, tools: true },
-        input: { ready: true, tools: true },
+        chat: { ready: true, tools: 'prompted' },
+        input: { ready: true, tools: 'native' },
       }),
-    ).toEqual({ chat: { ready: true, tools: true }, input: { ready: true } })
+    ).toEqual({ chat: { ready: true, tools: 'prompted' }, input: { ready: true } })
+    expect(normalizeAssistStatus({ chat: { ready: true, tools: true } })).toEqual({
+      chat: { ready: true },
+    })
   })
 })

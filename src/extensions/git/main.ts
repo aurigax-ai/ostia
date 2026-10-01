@@ -262,7 +262,13 @@ class GitExtension {
     }
     for (const [workspaceId, text] of next) {
       if (this.shown.get(workspaceId) === text) continue
-      await this.ext.setSidebarItem({ workspaceId, key: SIDEBAR_KEY, text, icon: 'git-branch' })
+      await this.ext.setSidebarItem({
+        workspaceId,
+        key: SIDEBAR_KEY,
+        text,
+        icon: 'git-branch',
+        kind: 'location',
+      })
     }
     for (const workspaceId of this.shown.keys()) {
       if (!next.has(workspaceId)) {

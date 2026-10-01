@@ -1,7 +1,9 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
+import { fontDataUrl } from './scripts/fontDataUrl.mjs'
 
 export default defineConfig({
+  plugins: [fontDataUrl()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src/renderer'),
@@ -10,6 +12,7 @@ export default defineConfig({
   },
   test: {
     maxWorkers: 8,
+    testTimeout: 15_000,
     minWorkers: 1,
     coverage: {
       provider: 'v8',

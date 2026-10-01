@@ -28,6 +28,7 @@ import {
   XIcon,
   XSquareIcon,
 } from '@phosphor-icons/react'
+import type { ExtensionSidebarItem } from '@shared/extensions'
 import { WORKSPACE_GROUP_COLORS, type WorkspaceGroupColor } from '@shared/workspaceGroups'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
@@ -37,7 +38,7 @@ import { allPanes, paneIds } from '../layout/tree'
 import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '../lib/attention'
 import { requestCloseOthers, requestCloseWorkspace } from '../lib/closeConfirm'
 import { beginDrag, endWorkspaceDrag } from '../lib/paneDrag'
-import { openSidebarUrl, visibleSidebarItems } from '../lib/sidebarItems'
+import { sidebarLines, visibleSidebarItems } from '../lib/sidebarItems'
 import { moveWorkspaceToNewWindow } from '../lib/windowHandoff'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { markWorkspaceRead } from '../lib/workspaceActivity'
@@ -73,9 +74,10 @@ import {
   MenuSubContent,
   MenuSubTrigger,
 } from './Menu'
+import { MergeMenuItems } from './MergeMenuItems'
+import { LiveLine, LocationLine, SidebarItem } from './RailMeta'
 import { ViewsRail } from './ViewsRail'
 import { ATTENTION_BADGE } from './attentionStyles'
-import { extensionIcon } from './extensionIcons'
 import { Badge } from './ui/badge'
 import {
   ContextMenu,
@@ -97,6 +99,7 @@ const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
 const WORKSPACE_DND = 'application/x-pine-workspace'
 const GROUP_DND = 'application/x-pine-workspace-group'
 const NO_COLOR = 'none'
+const NO_ITEMS: ExtensionSidebarItem[] = []
 
 interface RailDrag {
   source: DragSource
@@ -388,48 +391,36 @@ function GroupStatus({ members }: { members: Workspace[] }): JSX.Element {
     </>
   )
 }
-function SidebarItems({ workspaceId }: { workspaceId?: string }): JSX.Element | null {
-  const d = useDict()
+function useSidebarItems(workspaceId: string | undefined): ExtensionSidebarItem[] {
   const all = useExtensionsStore((s) => s.sidebar)
-  const extensions = useExtensionsStore((s) => s.list)
   const showPorts = useSettingsStore((s) => s.sidebar.showPorts)
   const showSSH = useSettingsStore((s) => s.sidebar.showSSH)
-  const items = visibleSidebarItems(all, workspaceId, { showPorts, showSSH })
-  if (items.length === 0) return null
+  return visibleSidebarItems(all, workspaceId, { showPorts, showSSH })
+}
+
+function WorkspaceMeta({ workspace: w }: { workspace: Workspace }): JSX.Element {
+  const sidebar = useSettingsStore((s) => s.sidebar)
+  const items = useSidebarItems(w.id)
+  const lines = sidebarLines(sidebar.showExtensionItems ? items : [])
   return (
     <>
-      {items.map((item) => {
-        const Icon = item.icon ? extensionIcon(item.icon) : null
-        const url = item.url
-        if (url) {
-          return (
-            <Hint key={`${item.extId}:${item.key}`} label={fmt(d.rail.openUrl, { url })}>
-              <button
-                type="button"
-                className={`ext-item ext-item-link tone-${item.tone}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  openSidebarUrl(workspaceId, url)
-                }}
-              >
-                {Icon ? <Icon size={12} aria-hidden /> : null}
-                {item.text}
-              </button>
-            </Hint>
-          )
-        }
-        return (
-          <Hint
-            key={`${item.extId}:${item.key}`}
-            label={`${extensions.find((e) => e.id === item.extId)?.name ?? item.extId}: ${item.text}`}
-          >
-            <span className={`ext-item tone-${item.tone}`}>
-              {Icon ? <Icon size={12} aria-hidden /> : null}
-              {item.text}
-            </span>
-          </Hint>
-        )
-      })}
+      <LocationLine
+        path={sidebar.showPath ? (w.projectDir ?? w.workDir) : undefined}
+        items={lines.location}
+        workspaceId={w.id}
+      />
+      <LiveLine items={lines.live} workspaceId={w.id} />
+    </>
+  )
+}
+
+function FooterItems(): JSX.Element {
+  const items = useSidebarItems(undefined)
+  return (
+    <>
+      {items.map((item) => (
+        <SidebarItem key={`${item.extId}:${item.key}`} item={item} />
+      ))}
     </>
   )
 }
@@ -439,7 +430,7 @@ function SidebarFooter(): JSX.Element | null {
   if (!hasGlobal) return null
   return (
     <div className="rail-ext-footer">
-      <SidebarItems />
+      <FooterItems />
     </div>
   )
 }
@@ -472,6 +463,17 @@ function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
     </span>
   )
 }
+function ScratchBadge(): JSX.Element {
+  const d = useDict()
+  return (
+    <Hint label={d.scratch.badgeHint}>
+      <Badge variant="outline" className="scratch-badge h-4 rounded-sm px-1 text-ui-xs">
+        {d.scratch.badge}
+      </Badge>
+    </Hint>
+  )
+}
+
 function UnreadBadge({ workspaceIds }: { workspaceIds: string[] }): JSX.Element | null {
   const d = useDict()
   const byWorkspace = useLayoutStore((s) => s.byWorkspace)
@@ -611,9 +613,12 @@ function WorkspaceRow({
           title={title}
           wrapTitle={wrapTitles}
           titleAdornment={
-            w.pinned ? (
-              <PushPinSimpleIcon size={12} className="tab-pin" aria-label={d.rail.pinned} />
-            ) : null
+            <>
+              {w.kind === 'scratch' ? <ScratchBadge /> : null}
+              {w.pinned ? (
+                <PushPinSimpleIcon size={12} className="tab-pin" aria-label={d.rail.pinned} />
+              ) : null}
+            </>
           }
           editor={editor}
           onDoubleClick={() => setEditing('name')}
@@ -625,20 +630,13 @@ function WorkspaceRow({
                   <WorkspaceDescription text={w.description} />
                 ) : null}
                 {sidebar.showMessage ? <WorkspaceSubtitle workspaceId={w.id} /> : null}
-                {sidebar.showPath || sidebar.showExtensionItems ? (
-                  <span className="tab-meta">
-                    {sidebar.showPath ? (
-                      <span className="tab-branch">{w.projectDir ?? w.workDir}</span>
-                    ) : null}
-                    {sidebar.showExtensionItems ? <SidebarItems workspaceId={w.id} /> : null}
-                  </span>
-                ) : null}
+                <WorkspaceMeta workspace={w} />
               </div>
             ) : null
           }
           badge={
             digitHints && index < 9 ? (
-              <Kbd className="tab-digit font-mono">{index + 1}</Kbd>
+              <Kbd className="tab-digit">{index + 1}</Kbd>
             ) : (
               <UnreadBadge workspaceIds={[w.id]} />
             )
@@ -726,6 +724,7 @@ function WorkspaceRow({
         <MenuItem icon={AppWindowIcon} onClick={() => void moveWorkspaceToNewWindow(w.id)}>
           {d.window.moveToNewWindow}
         </MenuItem>
+        <MergeMenuItems workspaceId={w.id} />
         <ContextMenuSeparator />
         <MenuItem
           icon={XSquareIcon}
@@ -787,14 +786,10 @@ function RemoteWorkspaceRow({
           after={
             // biome-ignore lint/a11y/useKeyWithClickEvents: the row button above is the keyboard target; this only widens the click area
             <div className="tab-after" onClick={show}>
-              <span className="tab-meta">
-                <span className="tab-branch">{w.workDir}</span>
-              </span>
+              <LocationLine path={w.workDir} items={NO_ITEMS} />
             </div>
           }
-          badge={
-            digitHints && index < 9 ? <Kbd className="tab-digit font-mono">{index + 1}</Kbd> : null
-          }
+          badge={digitHints && index < 9 ? <Kbd className="tab-digit">{index + 1}</Kbd> : null}
         />
       </ContextMenuTrigger>
       <MenuContent>
@@ -899,6 +894,7 @@ function TabRow({
   after?: React.ReactNode
   badge?: React.ReactNode
 }): JSX.Element {
+  const collapsed = useUIStore((s) => s.railCollapsed)
   if (editor) {
     return (
       <div className={`rail-tab${active ? ' active' : ''}`}>
@@ -909,24 +905,37 @@ function TabRow({
       </div>
     )
   }
+  const main = (
+    <button
+      type="button"
+      className="rail-tab-main"
+      aria-label={collapsed ? title : undefined}
+      onClick={onSelect}
+      onDoubleClick={onDoubleClick}
+    >
+      {icon}
+      <span className="tab-body">
+        <span className="tab-title-row">
+          <span className={wrapTitle ? 'tab-title wrap' : 'tab-title'}>{title}</span>
+          {titleAdornment}
+        </span>
+        {meta}
+      </span>
+      {badge}
+    </button>
+  )
+  if (collapsed) {
+    return (
+      <div className={`rail-tab${active ? ' active' : ''}`}>
+        <Hint label={title} side="right">
+          {main}
+        </Hint>
+      </div>
+    )
+  }
   return (
     <div className={`rail-tab${active ? ' active' : ''}`}>
-      <button
-        type="button"
-        className="rail-tab-main"
-        onClick={onSelect}
-        onDoubleClick={onDoubleClick}
-      >
-        {icon}
-        <span className="tab-body">
-          <span className="tab-title-row">
-            <span className={wrapTitle ? 'tab-title wrap' : 'tab-title'}>{title}</span>
-            {titleAdornment}
-          </span>
-          {meta}
-        </span>
-        {badge}
-      </button>
+      {main}
       {onClose ? (
         <span className="tab-actions">
           <IconButton icon={XIcon} label={closeLabel} hintSide="right" onClick={onClose} />

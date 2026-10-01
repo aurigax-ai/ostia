@@ -13,6 +13,7 @@ import type {
   WindowWorkspaceSummary,
   WorkspaceLiveState,
 } from '../shared/types'
+import type { AgentRunningPanes } from './agentRunning'
 import { approvals } from './approvals'
 import { getByPaneId, panesOwnedBy, rehomePanes } from './idRegistry'
 import {
@@ -40,6 +41,7 @@ export interface WindowBrokerDeps {
   createWindow: (slot: string, bounds?: WindowBounds) => BrowserWindow
   holdPtys: (paneIds: readonly string[]) => void
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  agents: AgentRunningPanes
   isSandboxed: (workspaceId: string) => boolean
   reveal: (win: BrowserWindow) => void
 }
@@ -116,7 +118,9 @@ export class WindowBroker {
   private persistEnabled = true
   private boundsTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(private readonly deps: WindowBrokerDeps) {}
+  constructor(private readonly deps: WindowBrokerDeps) {
+    deps.agents.seed(this.book.merged(''))
+  }
 
   get persisting(): boolean {
     return this.persistEnabled
@@ -206,11 +210,11 @@ export class WindowBroker {
     win.webContents.send('windows:return-request')
   }
 
-  private persist(): void {
+  persist(): void {
     if (!this.persistEnabled) return
     try {
       const merged = parseSnapshot(this.book.merged(new Date().toISOString()))
-      if (merged) saveSnapshot(merged)
+      if (merged) saveSnapshot(this.deps.agents.mark(merged))
     } catch (err) {
       console.error('[workspace] snapshot save failed', err)
     }
@@ -414,17 +418,18 @@ export class WindowBroker {
   private newWorkspaceInMain(raw: unknown): void {
     const main = this.mainWindow()
     if (!main || main.isDestroyed()) return
-    const { dir, name } = (raw ?? {}) as Record<string, unknown>
+    const { dir, name, scratch, sandboxed } = (raw ?? {}) as Record<string, unknown>
+    this.deps.reveal(main)
+    const target = { windowId: windowIdOf(main), workspaceId: '', paneId: null }
+    if (scratch === true) {
+      void this.deps.execCommand(target, 'workspace.newScratch', { sandboxed: sandboxed === true })
+      return
+    }
     const request: NewWorkspaceRequest = {
       ...(typeof dir === 'string' && WORKSPACE_DIR.test(dir) ? { dir } : {}),
       ...(typeof name === 'string' ? { name: name.slice(0, TEXT_MAX) } : {}),
     }
-    this.deps.reveal(main)
-    void this.deps.execCommand(
-      { windowId: windowIdOf(main), workspaceId: '', paneId: null },
-      'workspace.new',
-      request,
-    )
+    void this.deps.execCommand(target, 'workspace.new', request)
   }
 
   register(): void {

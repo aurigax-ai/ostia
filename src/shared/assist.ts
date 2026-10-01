@@ -8,10 +8,18 @@ export function isAssistPoint(v: unknown): v is AssistPoint {
 
 export const ASSIST_LABEL_MAX = 80
 
+export const CHAT_TOOL_MODES = ['native', 'prompted'] as const
+
+export type ChatToolMode = (typeof CHAT_TOOL_MODES)[number]
+
+export function isChatToolMode(v: unknown): v is ChatToolMode {
+  return CHAT_TOOL_MODES.includes(v as ChatToolMode)
+}
+
 export interface AssistPointStatus {
   ready: boolean
   label?: string
-  tools?: boolean
+  tools?: ChatToolMode
 }
 
 export type AssistStatus = Partial<Record<AssistPoint, AssistPointStatus>>
@@ -20,7 +28,7 @@ export interface AssistProviderInfo {
   extId: string
   name: string
   label?: string
-  tools?: boolean
+  tools?: ChatToolMode
 }
 
 export type AssistAvailability = Partial<Record<AssistPoint, AssistProviderInfo>>
@@ -60,6 +68,7 @@ export interface AssistReport {
   setup?: AssistSetupProblem | null
   lastError?: string
   label?: string
+  models?: boolean
 }
 
 export interface AssistExtensionState {
@@ -69,6 +78,7 @@ export interface AssistExtensionState {
   setup: AssistSetupProblem | null
   lastError?: string
   features: AssistFeatureState[]
+  models: boolean
 }
 
 export const ASSIST_UIS = ['chat', 'ask', 'compose'] as const
@@ -302,6 +312,8 @@ export interface AssistApi {
   onOverview: (cb: (overview: AssistExtensionState[]) => void) => () => void
   onOpenUi: (cb: (req: AssistOpenUiRequest) => void) => () => void
   reportShortcuts: (shortcuts: Record<string, string>) => void
+  models: (extId: string) => Promise<AssistModelsResult>
+  setModelLoaded: (extId: string, id: string, loaded: boolean) => Promise<AssistModelChangeResult>
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -560,7 +572,7 @@ export function normalizeAssistStatus(raw: unknown): AssistStatus {
     const status: AssistPointStatus = { ready: entry.ready === true }
     const label = optionalShort(entry.label, ASSIST_LABEL_MAX)
     if (label) status.label = label
-    if (point === 'chat' && entry.tools === true) status.tools = true
+    if (point === 'chat' && isChatToolMode(entry.tools)) status.tools = entry.tools
     out[point] = status
   }
   return out
@@ -590,4 +602,62 @@ export function normalizeAssistError(raw: unknown): string | undefined {
 
 export function normalizeAssistLabel(raw: unknown): string | undefined {
   return optionalShort(raw, ASSIST_LABEL_MAX)
+}
+
+export const ASSIST_MODELS_MAX = 64
+export const ASSIST_MODEL_ID_MAX = 200
+export const ASSIST_MODEL_DESCRIPTION_MAX = 400
+
+export interface AssistModel {
+  id: string
+  name?: string
+  description?: string
+  installed?: boolean
+  loaded?: boolean
+  busy?: boolean
+  idleSecs?: number
+}
+
+export interface AssistModelList {
+  lifecycle: boolean
+  models: AssistModel[]
+  error?: string
+}
+
+export type AssistModelsResult = ({ ok: true } & AssistModelList) | { ok: false; error: string }
+
+export type AssistModelChangeResult = { ok: true } | { ok: false; error: string }
+
+export function isAssistModelId(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0 && v.length <= ASSIST_MODEL_ID_MAX
+}
+
+function assistModel(raw: unknown): AssistModel | null {
+  if (!isRecord(raw) || !isAssistModelId(raw.id)) return null
+  const model: AssistModel = { id: raw.id }
+  const name = optionalShort(raw.name)
+  if (name) model.name = name
+  const description = optionalShort(raw.description, ASSIST_MODEL_DESCRIPTION_MAX)
+  if (description) model.description = description
+  if (typeof raw.installed === 'boolean') model.installed = raw.installed
+  if (typeof raw.loaded === 'boolean') model.loaded = raw.loaded
+  if (typeof raw.busy === 'boolean') model.busy = raw.busy
+  if (typeof raw.idleSecs === 'number' && Number.isFinite(raw.idleSecs) && raw.idleSecs >= 0) {
+    model.idleSecs = Math.floor(raw.idleSecs)
+  }
+  return model
+}
+
+export function normalizeAssistModels(raw: unknown): AssistModelList | null {
+  if (!isRecord(raw)) return null
+  const models: AssistModel[] = []
+  for (const item of Array.isArray(raw.models) ? raw.models : []) {
+    const model = assistModel(item)
+    if (model && !models.some((m) => m.id === model.id)) models.push(model)
+    if (models.length === ASSIST_MODELS_MAX) break
+  }
+  const list: AssistModelList = { lifecycle: raw.lifecycle === true, models }
+  const error = normalizeAssistError(raw.error)
+  if (error) list.error = error
+  return list
 }

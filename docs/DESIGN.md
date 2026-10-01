@@ -44,7 +44,7 @@ Three tiers in `index.css`:
    `--line-strong`, `--fg`, `--fg-muted`, `--fg-dim`, `--brand`, `--brand-bright`, `--brand-glow`,
    `--attn`, `--attn-fg`, `--attn-glow`, `--ok`. Metrics: one radius ladder in `@theme`
    (`--radius-sm` 6px for controls, rows and keycaps; `--radius-md` 8px for inputs, popovers and
-   cards; `--radius-lg` 10px), `--radius` 10px for the shadcn bridge, `--rail-w` 240px (56px
+   cards; `--radius-lg` 10px), `--radius` 10px for the shadcn bridge, `--rail-w` 240px (44px
    collapsed), `--topbar-h` 36px.
 3. **shadcn bridge** in `@theme inline`: maps shadcn names (`--background`, `--primary`, `--muted`,
    `--border`, `--ring`, `--sidebar-*`, …) onto the semantic tokens, so Base UI components in
@@ -151,6 +151,13 @@ tags red, operators cyan, comments bright black in italics. Every token color is
 on the background (comments and line numbers to 3:1) with `ensureContrast`, so faint ANSI
 colors (Solarized's yellow, a bright black equal to the background) still read.
 
+Diff colors are derived the same way (`diffColors`), never Monaco's fixed pure red and green:
+added and removed lines are a faint tint of the scheme's green and red (10% line, 18% more on the
+changed characters, 70% for the overview ruler marks). The hue comes from the ANSI slot that
+holds it (a scheme that remaps red, such as Oxocarbon, gives its pink), and the tint backs off
+(`diffTintStrength`, down to a quarter) until the text keeps 4.5:1, or 90% of its contrast on the
+plain background, and syntax colors keep 3:1.
+
 Color schemes (`plugins/colorSchemes.ts`, contributed by the `pine.themes` plugin as
 `contributes.colorSchemes`; a plugin can add more the same way):
 
@@ -179,31 +186,89 @@ Every scheme has all 16 ANSI colors and a foreground at 4.5:1 or better on its b
 
 ## 4. Typography
 
-| Surface | Default family | Setting |
+Three families, one setting each. The UI and the code bits inside it follow the human's
+settings through CSS tokens; nothing in the UI names a family, size, weight, line height or
+letter spacing of its own.
+
+| Role | Default | Setting | Token |
+|---|---|---|---|
+| UI text (chrome, menus, settings, chat prose, panels) | Inter Variable 13 / 400 | `appearance.ui` (family, size, weight) | `--font-ui` (Tailwind `font-sans`) |
+| Code in the UI (paths, domains, hashes, ports, command ids, chat and markdown code) | Geist Mono Variable | `appearance.editor.family` | `--font-code` (Tailwind `font-mono`) |
+| Terminal | Hack Nerd Font Mono 13 / 400, line height 1.15 (Powerline and icon glyphs; MesloLGS Nerd Font Mono is bundled too) | `appearance.terminal` | xterm options only |
+| Editor and diff (Monaco) | Geist Mono Variable 13 / 400 | `appearance.editor` | Monaco options only |
+
+**Code in the UI uses the editor font**, not the terminal font: it is code read in the GUI, like
+the editor, while terminal fonts are tuned for a cell grid with Powerline glyphs. One setting
+changes the editor, the diff, chat code blocks, inline code, paths in Settings and the code text
+in plugin panels together. Use `font-mono` / `var(--font-code)` only for literal machine text;
+chords in keycaps (`Kbd`) are UI text. For changing numbers in UI text use `tabular-nums`.
+
+`lib/uiFonts.ts` turns the settings into tokens on `<html>` (`--font-ui`, `--font-code`,
+`--font-ui-size`, `--font-ui-weight`) before the first render and on every change. Its fallback
+stacks start with the bundled fonts, then Latin system monos, then CJK fonts, so a family that
+isn't installed falls back to a font with the same metrics. Extension panels get the same values
+(`--pine-font-ui`, `--pine-font-code`, `--pine-font-size`, `--pine-font-weight`) plus the bundled
+Inter and Geist Mono embedded in the injected CSS (`lib/panelFontFaces.ts`), so plugin panels
+match Pine although those fonts aren't installed on the system.
+
+### Scale
+
+Every step derives from `appearance.ui.size` (default 13): a 14px UI moves the whole scale by one
+pixel and neighbors stay in proportion. Nothing is smaller than 11px. Each step has its own line
+height (`--text-ui-<step>--line-height`); the Tailwind class `text-ui-<step>` sets both.
+
+| Step | At 13 | Size / line height | Use |
+|---|---|---|---|
+| `ui-xs` | 11 / 16 | base − 2 / +5 | captions, metadata, badges, pane chips, all-caps section heads |
+| `ui-sm` | 12 / 18 | base − 1 / +6 | tree and list rows, tabs, tooltips, keycaps, settings lists, code blocks |
+| `ui-base` | 13 / 20 | base / +7 | body: sidebar rows, menus, inputs, buttons, dialogs, chat prose |
+| `ui-emphasis` | 14 / 20 | base + 1 / +6 | emphasized body, markdown in the editor preview |
+| `ui-lg` | 16 / 22 | base + 3 / +6 | section headings, dialog titles |
+
+Tailwind's `text-xs`, `text-sm` and `text-base` exist only for generated shadcn files and map onto
+`ui-sm`, `ui-base` and `ui-lg`. Markdown (`typeset.css`, vendored shadcn Typeset) sizes headings
+in ems on top of `--typeset-size`, which Pine sets to `ui-base`. Dense rows use a fixed box height
+(22px at 13px text, 20px at 12px) rather than leading.
+
+### Weights
+
+`appearance.ui.weight` is the body weight (default 400). Emphasis steps up from it, so a human who
+picks a heavier body still sees a hierarchy:
+
+| Token (Tailwind) | Value | Use |
 |---|---|---|
-| UI chrome | Inter Variable (`--font-sans`, applied via `--font-ui`) | `appearance.ui.font` |
-| Terminal | Hack Nerd Font Mono (bundled; covers Powerline and icon glyphs). MesloLGS Nerd Font Mono (Apache-2.0) is bundled too and appears in the font picker | `appearance.terminal.font` |
-| Editor | Geist Mono Variable (`--font-mono`) | `appearance.editor.font` |
+| `--font-weight-normal` (`font-normal`) | body | body text, rows, values |
+| `--font-weight-medium` (`font-medium`) | body + 100 | active row, button labels, keycaps, section heads, chips |
+| `--font-weight-semibold` (`font-semibold`) | body + 200 | page and dialog headings |
 
-Each surface has its own family and size (default 13). The whole UI uses one theme. All chrome
-is sans. Use mono only for literal machine text: paths, hashes, ports, code. For changing numbers
-in sans text, use `tabular-nums` rather than switching family. Don't set global
-`-webkit-font-smoothing: antialiased`, because it thins small text on Linux and macOS.
+No bold, light or thin utilities in the UI. Terminal and editor weights only reach xterm and
+Monaco.
 
-Scale: `--text-ui-*` in `@theme` (Tailwind `text-ui-*`, CSS `var(--text-ui-*)`). Nothing is
-smaller than 11px. Tailwind's `text-sm` is remapped to 13px so shadcn primitives sit on the scale.
+### Letter spacing
 
-| Name | px / line-height | Use |
-|---|---|---|
-| `ui-xs` | 11 / 16 | captions, metadata, keycaps, badges, all-caps heads |
-| `ui-sm` | 12 / 18 | tree and list rows, tooltips |
-| `ui-base` | 13 / 20 | primary UI body |
-| `ui-emphasis` | 14 / 20 | emphasized body, markdown |
-| `ui-lg` | 16 / 22 | section headings, dialog titles |
+Default tracking everywhere. All-caps labels (rail section heads, group names, panel section
+headers) use `--tracking-caps` (0.06em, Tailwind `tracking-caps`); nothing else sets tracking.
 
-Weights: 400 body, 500 emphasis (active row, button labels, section heads), 600 headings. Use 700
-only at 20px and above; never use 300. Dense rows use a fixed box height (22px at 13px text,
-20px at 12px) rather than leading.
+### Rendering on Linux
+
+Why the defaults are what they are, measured on the target setup (GNOME, 1x, grayscale
+antialiasing, slight hinting, which Chromium takes from fontconfig and GTK):
+- **Smoothing is the desktop's.** `-webkit-font-smoothing` only acts on macOS, and Chromium's
+  `--font-render-hinting` switch changed no pixel, so Pine sets neither and adds no font flags.
+  Antialiasing (grayscale or rgba) is a GNOME setting that applies to every app.
+- **Body 400, not 450.** At 13px under grayscale AA, 450 sat 50 units under `font-medium`, so body
+  and emphasis looked alike; 400 with 500/600 for emphasis keeps the steps visible.
+- **Terminal 400.** Hack ships Regular and Bold only, so 500 picked the Regular face anyway (a
+  pixel-identical render); the default says what renders. Bold output uses the Bold face.
+- **Whole-pixel line heights.** The body used to inherit Tailwind's `1.5` (19.5px at 13), which
+  put rows on half pixels.
+- **Fonts load before the first terminal.** `preloadFonts` loads the configured families before
+  the first render, so xterm measures its cells with the real font, not a fallback.
+
+The typography guard (`src/renderer/lib/typography.test.ts`, part of `pnpm test`) fails on a font
+size, family, weight, line height or letter spacing set outside these tokens: renderer and
+extension CSS, CSS written in code, Tailwind classes and inline styles. Only the files that hand
+font settings to xterm or Monaco (and the font previews) may set them inline.
 
 Spacing base is 4px: 4, 8, 12, 16, 20, 24, 32. Use 8 within a group, 16–24 between groups and 32
 between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
@@ -226,9 +291,8 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
 
 - **Top bar**: on the left, over the sidebar: New workspace first, then the sidebar
   toggle, the Files toggle and one toggle per enabled extension panel (git Changes, Keeper,
-  Trellis; `PanelToggles.tsx`, pressed while the panel is open in the active workspace). An
-  extension that serves assist points gets no toggle: its panel opens from the Assistant menu
-  (Models…), so the bar never shows two buttons with one name.
+  Trellis; `PanelToggles.tsx`, pressed while the panel is open in the active workspace). The
+  assistant has no panel; it is configured in Settings → Assistant.
   Centre: the command-center button that opens the palette, then the Assistant menu. Right:
   Settings, then the notification bell. Every trigger renders exactly one `<button>` (Base UI
   `render={<IconButton …/>}`, never a Trigger wrapping a button as its child).
@@ -237,7 +301,28 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
   (`WindowControls.tsx`, 24px circles). There is no wordmark, status strip or inspector.
 - **Sidebar** (`DeckRail.tsx`): only workspaces: one row per workspace showing a kind icon, a
   state dot, an unread badge and the details chosen in Settings → Sidebar, plus a pinned Settings
-  row. It collapses to a 56px icon rail.
+  row. Rows sit 6px from the rail's edges with 2px between them; a row's icon is centered 22px
+  from the rail edge, on the same axis as the top bar's New workspace button.
+  - **Row anatomy** (top to bottom, each line `ui-xs` `fg-muted`, one line high, never wrapping,
+    ellipsized at any width; details start under the title at 32px):
+    1. kind icon (14px) with the state dot on its bottom-right corner, the title, the pin, the
+       unread badge, and the close button on hover;
+    2. the description and the latest message or running command, when there are any;
+    3. **location line** (`.rail-meta.location`): the folder in mono, then extension items of
+       kind `location` (Git's branch with its icon, then `↑↓` and `+new ~changed`). The folder is
+       shortened from the middle to fit (`~/…/goji/avail`, then `~/…/avail`, then `avail`;
+       `lib/railMeta.ts` `shortenPath`), never to a bare `~/...`; its Hint shows the full path. A
+       location item takes at most 60% of the line;
+    4. **live line** (`.rail-meta.live`), only when there are live items: extension items of
+       kind `live` (ports `:5173`, the ssh host, Trellis counts) 8px apart, tabular. Items that
+       don't fit collapse into a `+N` button (`fitCount`) whose popover lists the rest, still
+       clickable; the first item truncates rather than hide. No wrapping, no horizontal scroll.
+    The lines appear and disappear with their data; nothing reserves height for them.
+  - **Collapsed** (44px icon rail): each row is a 32px square centered on the rail's axis, with
+    the active or hover highlight filling the square and the state dot on the icon's corner,
+    inside it. No close button, details or unread badge (the dot carries state; the row's Hint
+    names it). A group header becomes a 12×4 swatch with its state dot; members keep the 2px
+    group rule. Only the rail's width animates.
   - **Group header** (cmux's workspace groups): a 24px `ui-xs`/500 uppercase row with a 12px
     caret (right when collapsed, down when open), an 8px `radius 2px` swatch in the group color
     (`--line-strong` without one), the name, the member count (`fg-muted`, tabular), then the
@@ -323,13 +408,39 @@ Attention, the second loud element, appears only when a pane needs you:
   shared component per role. Tooltips go through `Hint`, never native `title=`.
 - **Settings numbers** (`NumberRow`): a number input that commits only in-range values while you
   type and snaps back to the stored value on blur, so typing `5000` never passes through a clamped
-  `5`. Risky-paste confirmation is a shadcn `Dialog` with a monospace, scrollable preview.
+  `5`. Risky-paste confirmation is a shadcn `Dialog`, `min(90vw, 56rem)` wide, with a monospace,
+  pre-wrap, scrollable preview (control characters as muted `^[` tokens), the line and
+  character count, and Paste focused so Enter pastes.
 - **Settings row**: label (plus an optional description) on the left, control on the right,
   about `py-1.5`. Group heads are `ui-lg`/600 with a `--line` divider. Use rows, not cards,
   unless the item is a separable object with its own actions (a plugin). The shared pieces live
   in `SettingsPanel.tsx`: `SectionHead` (title + optional `ui-sm` intro), `SubHead` (`ui-base`/500
   for a group inside a section), `ControlRow`, and `WarningNote` (the one warning callout).
-  Version numbers are sans `tabular-nums`, not mono.
+  Version numbers are sans `tabular-nums`, not mono. `SettingsGroup` takes an optional one-line
+  `desc` and a right-aligned `action` (an "Add …" button or a refresh `IconButton`).
+- **Settings nav disclosure**: a nav entry with children (Plugins → one entry per extension)
+  keeps its own button, which opens the section, plus a `row` `IconButton` caret
+  (`aria-expanded`, `aria-controls`) whose `CaretRightIcon` turns 90° when open. Children are
+  `sm` ghost buttons, `ui-sm`, indented under a `--line` left rule, with the item's icon or an
+  icon-sized gap. Right/Left on the parent expand/collapse; Left on a child returns to the
+  parent. The open state is remembered (localStorage). A child that anchors into the page marks
+  itself `aria-current="location"`, scrolls its block to the top (instant, never smooth), focuses
+  it, and tints it with `.settings-anchor-highlight`, which holds then fades out by opacity over
+  `--motion-highlight`; under reduced motion it stays still for the same time and disappears.
+  While searching, children that match show without the caret.
+- **Extension setting rows** use `ControlRow` like core rows: the manifest `title` (or the
+  humanized key) as the label, the raw key after it in mono `ui-xs` muted, the description with
+  `{product}` filled in and the range and unit appended, and the same controls as core (switch,
+  `SelectField` showing value titles, a `w-24` mono number input clamped to the range, a `w-56`
+  mono text input).
+- **Settings lists** of configured objects (MCP servers, skill folders, models in Settings →
+  Assistant): shadcn `Item` rows (`outline`, `sm`, `radius-md`, `--line` border) in a `ul`, each
+  with a title, a mono `ui-xs` target line, a status line (6px dot + text, `attn-fg` error
+  message under it) and `ItemActions` (switch, edit, remove as `row` `IconButton`s). Adding or
+  editing opens a shadcn `Dialog` with labeled fields and inline `role="alert"` errors; removing
+  an object that loses data confirms in a `Dialog`. An empty list is a dashed `Empty` with a
+  title, one muted line and the add button. Security and limits live in the docs, not in helper
+  text: at most one short line per group.
 - **Controls**: Switch (instant toggle), Select (`size="sm"`, the trigger shows the value), Input,
   Textarea, and ToggleGroup for ≤ 4 short options. Control height is 28px.
 - **Icon buttons**: always `IconButton` (ghost button + `Hint` + required `aria-label`). `bar`
@@ -378,8 +489,16 @@ Attention, the second loud element, appears only when a pane needs you:
   shell's prompt stays to its left; with the Pine prompt a chip row (chips at the cell height)
   replaces the cwd line above. Placeholder "Run commands" in `fg-muted`. The completion menu
   and the "No matching paths" note are popovers (`surface-1`, `--line` border, `radius-md`)
-  above the line, or below it when the prompt is in the upper half. The vim badge sits at the
+  above the line, or below it when the prompt is in the upper half; the characters a row matched
+  are `fg`, 600 and underlined (never color alone). The vim badge sits at the
   right end of the line. It appears and disappears without animation (§8 Motion).
+
+- **Panel splitter** (extension panels, `sdk/splitter.ts`): stacked regions in a panel (a list
+  over its details, a commit box over its files) are split by one 1px `--line-strong` divider,
+  never a fixed height. Its hit area is 9px tall and `row-resize`; on hover, focus or drag a 3px
+  `--brand` line fades in (opacity, `--motion-fast`). It is a keyboard separator (↑/↓ 16px,
+  PageUp/PageDown 64px, Home/End, double-click resets) and remembers its size per panel. A
+  details region that can't fit collapses to its header; the divider hides.
 
 - **Declarative views** (`DeclarativeView.tsx`): an agent's JSON is drawn only with these
   components, so it can't look foreign. Sidebar views sit under the workspaces in `.rail-views`

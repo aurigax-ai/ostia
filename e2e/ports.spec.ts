@@ -61,6 +61,11 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
 
     const portsChip = win.locator('.pane-header .pane-chip').filter({ hasText: `:${port}` })
     await expect(portsChip).toBeVisible({ timeout: 20_000 })
+    const sidebarPort = win
+      .locator('.rail-meta.live .ext-item-link')
+      .filter({ hasText: `:${port}` })
+    await expect(sidebarPort).toBeVisible({ timeout: 20_000 })
+    await expect(win.locator('.rail-meta.location')).not.toContainText(`:${port}`)
     await portsChip.click()
     await expect
       .poll(() => browserUrls(app), { timeout: 15_000 })

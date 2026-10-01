@@ -1,5 +1,6 @@
-import type { ScreenPoint } from '@shared/types'
+import type { PanePlacement, ScreenPoint } from '@shared/types'
 import { usePaneDnd } from '../stores/paneDndStore'
+import { useWorkspacesStore } from '../stores/workspacesStore'
 import { endedOutside } from './dropZone'
 import {
   canMovePane,
@@ -19,6 +20,13 @@ interface DragPoint {
   clientY: number
   screenX: number
   screenY: number
+}
+
+export function reportForeignDrop(paneId: string, placement: PanePlacement): void {
+  const { workspaces, activeWorkspaceId } = useWorkspacesStore.getState()
+  const workspace = workspaces.find((w) => w.id === activeWorkspaceId)
+  if (!workspace || workspace.kind === 'scratch' || workspace.kind === 'manager') return
+  window.pine.windows.dropPane({ paneId, workspaceId: workspace.id, placement })
 }
 
 export function isPaneDrag(types: readonly string[]): boolean {

@@ -54,15 +54,26 @@ export type ExtensionSettingValue = string | number | boolean
 
 export type ExtensionSettingValues = Record<string, ExtensionSettingValue>
 
+export const EXTENSION_SETTING_UNITS = ['seconds', 'per-minute'] as const
+
+export type ExtensionSettingUnit = (typeof EXTENSION_SETTING_UNITS)[number]
+
 export interface ExtensionSettingContribution {
   key: string
   type: ExtensionSettingType
   default: ExtensionSettingValue
+  title?: string
   description: string
   values?: string[]
+  valueTitles?: Record<string, string>
+  minimum?: number
+  maximum?: number
+  unit?: ExtensionSettingUnit
 }
 
 export const EXTENSION_SETTING_STRING_MAX = 1000
+export const EXTENSION_SETTING_TITLE_MAX = 80
+export const PRODUCT_PLACEHOLDER = '{product}'
 
 export function validSettingValue(
   setting: ExtensionSettingContribution,
@@ -72,7 +83,12 @@ export function validSettingValue(
     case 'string':
       return typeof value === 'string' && value.length <= EXTENSION_SETTING_STRING_MAX
     case 'number':
-      return typeof value === 'number' && Number.isFinite(value)
+      return (
+        typeof value === 'number' &&
+        Number.isFinite(value) &&
+        (setting.minimum === undefined || value >= setting.minimum) &&
+        (setting.maximum === undefined || value <= setting.maximum)
+      )
     case 'boolean':
       return typeof value === 'boolean'
     case 'enum':
@@ -98,6 +114,7 @@ export function effectiveSettingValues(
 
 export interface ExtensionSecretContribution {
   key: string
+  title?: string
   description: string
 }
 
@@ -158,6 +175,10 @@ export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as cons
 
 export type SidebarTone = (typeof SIDEBAR_TONES)[number]
 
+export const SIDEBAR_KINDS = ['location', 'live'] as const
+
+export type SidebarKind = (typeof SIDEBAR_KINDS)[number]
+
 export interface ExtensionSidebarItem {
   extId: string
   key: string
@@ -165,6 +186,7 @@ export interface ExtensionSidebarItem {
   text: string
   icon?: ExtensionIcon
   tone: SidebarTone
+  kind: SidebarKind
   url?: string
 }
 

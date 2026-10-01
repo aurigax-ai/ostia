@@ -75,9 +75,10 @@ function copyOptionalString(
 
 interface ParseOptions {
   hibernated: boolean
+  scratch: boolean
 }
 
-const SAVED: ParseOptions = { hibernated: false }
+const SAVED: ParseOptions = { hibernated: false, scratch: false }
 
 function parseNode(
   raw: unknown,
@@ -217,6 +218,7 @@ function parseWorkspace(
   if (!isRecord(entry)) return null
   const id = entry.id
   if (typeof id !== 'string' || id.length === 0 || claims.workspaces.has(id)) return null
+  if (entry.kind === 'scratch' && !opts.scratch) return null
 
   const paneIds: string[] = []
   const root = entry.root === undefined ? undefined : parseNode(entry.root, paneIds, 0, opts)
@@ -349,7 +351,7 @@ export function parseSnapshot(raw: unknown): AppSnapshot | null {
 
 export function parseHandoff(raw: unknown): SnapshotWorkspace | null {
   const claims: Claims = { panes: new Set(), workspaces: new Set() }
-  return parseWorkspace(raw, [], claims, { hibernated: true })
+  return parseWorkspace(raw, [], claims, { hibernated: true, scratch: true })
 }
 
 export function handoffPaneIds(workspace: SnapshotWorkspace): string[] {
@@ -379,12 +381,15 @@ export function trimScrollback(data: string, capBytes = SCROLLBACK_CAP_BYTES): s
 
 const restored = new Map<string, string>()
 
-export function saveScrollback(byPane: Record<string, string>): void {
+export function saveScrollback(
+  byPane: Record<string, string>,
+  unsaved: (paneId: string) => boolean = () => false,
+): void {
   const out: Record<string, string> = {}
   let kept = 0
   for (const [paneId, data] of Object.entries(byPane)) {
     if (kept >= MAX_PANES) break
-    if (!data || isDangerousSegment(paneId)) continue
+    if (!data || isDangerousSegment(paneId) || unsaved(paneId)) continue
     out[paneId] = trimScrollback(data)
     kept++
   }

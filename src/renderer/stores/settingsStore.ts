@@ -302,9 +302,9 @@ const DEFAULTS: Persisted = {
     accent: '',
     zoom: ZOOM_DEFAULT,
     motion: 'system',
-    ui: { family: 'Inter Variable', size: 13, weight: 450 },
-    terminal: { family: 'Hack Nerd Font Mono', size: 13, weight: 500, lineHeight: 1.15 },
-    editor: { family: 'Geist Mono Variable', size: 13, weight: 450 },
+    ui: { family: 'Inter Variable', size: 13, weight: 400 },
+    terminal: { family: 'Hack Nerd Font Mono', size: 13, weight: 400, lineHeight: 1.15 },
+    editor: { family: 'Geist Mono Variable', size: 13, weight: 400 },
     windowTitle: DEFAULT_WINDOW_TITLE,
   },
   behavior: {

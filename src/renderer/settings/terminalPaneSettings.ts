@@ -94,30 +94,3 @@ export function parseTerminalSettings(raw: unknown): TerminalSettings {
 export function parsePaneSettings(raw: unknown): PaneSettings {
   return pickBooleans(DEFAULT_PANE_SETTINGS, isRecord(raw) ? raw : {})
 }
-
-const isNewline = (code: number): boolean => code === 10 || code === 13
-const isTab = (code: number): boolean => code === 9
-const isUnsafeControl = (code: number): boolean =>
-  (code < 32 && !isNewline(code) && !isTab(code)) || code === 127
-
-export function isRiskyPaste(text: string): boolean {
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i)
-    if (isNewline(code) || isUnsafeControl(code)) return true
-  }
-  return false
-}
-
-const PREVIEW_LIMIT = 2000
-const ESC = 27
-
-export function pastePreview(text: string): string {
-  let out = ''
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i)
-    if (code === ESC) out += '␛'
-    else if (isUnsafeControl(code)) out += `\\x${code.toString(16).padStart(2, '0')}`
-    else out += text[i]
-  }
-  return out.length > PREVIEW_LIMIT ? `${out.slice(0, PREVIEW_LIMIT)}…` : out
-}

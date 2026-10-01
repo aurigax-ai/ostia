@@ -43,9 +43,22 @@
   min-height: 100%;
 }
 
-.graph-page {
+.graph-page,
+.changes-page {
   height: 100vh;
   min-height: 0;
+}
+
+.changes-top {
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+}
+
+.changes-files {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
 }
 
 .spacer {
@@ -68,7 +81,7 @@ button.tab {
   border: 0;
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 button.tab[aria-selected="true"] {
@@ -134,8 +147,8 @@ button.icon svg,
 
 .empty-title {
   font-size: var(--text-ui-base);
-  line-height: 20px;
-  font-weight: 500;
+  line-height: var(--text-ui-base--line-height);
+  font-weight: var(--font-weight-medium);
   color: var(--fg);
 }
 
@@ -161,8 +174,8 @@ button.icon svg,
   align-items: center;
   gap: 6px;
   min-width: 0;
-  font-family: var(--font-mono);
-  font-weight: 500;
+  font-family: var(--font-code);
+  font-weight: var(--font-weight-medium);
   white-space: nowrap;
 }
 
@@ -177,7 +190,7 @@ button.icon svg,
   gap: 8px;
   min-width: 0;
   font-size: var(--text-ui-xs);
-  line-height: 16px;
+  line-height: var(--text-ui-xs--line-height);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -190,7 +203,7 @@ button.icon svg,
 }
 
 .tracking .upstream {
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -198,7 +211,7 @@ button.icon svg,
 .tracking .ahead,
 .tracking .behind {
   color: var(--fg);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .tracking .synced {
@@ -229,23 +242,27 @@ button.icon svg,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--text-ui-xs);
-  line-height: 16px;
+  line-height: var(--text-ui-xs--line-height);
 }
 
 .commit {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 8px;
   padding: 0 12px 12px;
-  border-bottom: 1px solid var(--line);
 }
 
 .commit .message {
+  flex: 1 1 auto;
   width: 100%;
-  resize: vertical;
-  font-family: var(--font-mono);
+  min-height: calc(3 * 18px + 10px);
+  max-height: max(calc(3 * 18px + 10px), calc(100vh - 240px));
+  field-sizing: content;
+  resize: none;
+  font-family: var(--font-code);
 }
 
 .commit-bar {
@@ -257,7 +274,7 @@ button.icon svg,
 
 .commit-bar .hint {
   font-size: var(--text-ui-xs);
-  line-height: 16px;
+  line-height: var(--text-ui-xs--line-height);
 }
 
 .area h2 {
@@ -267,10 +284,10 @@ button.icon svg,
   margin: 0;
   padding: 12px 8px 4px 12px;
   font-size: var(--text-ui-xs);
-  line-height: 16px;
-  font-weight: 500;
+  line-height: var(--text-ui-xs--line-height);
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-caps);
   color: var(--fg-muted);
 }
 
@@ -281,7 +298,7 @@ button.icon svg,
   background: var(--surface-2);
   text-align: center;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
+  letter-spacing: normal;
 }
 
 .area-conflicted .area-title {
@@ -373,8 +390,8 @@ button.change .dir {
 
 .code {
   flex: 0 0 12px;
-  font-family: var(--font-mono);
-  font-weight: 500;
+  font-family: var(--font-code);
+  font-weight: var(--font-weight-medium);
   text-align: center;
   color: var(--fg-muted);
 }
@@ -425,7 +442,7 @@ button.scope-trigger {
   padding: 0 8px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 button.scope-trigger[aria-expanded="true"] {
@@ -485,13 +502,13 @@ button.scope-trigger[aria-expanded="true"] {
 }
 
 .scope-option-label {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .scope-hint {
   margin-left: auto;
   font-size: var(--text-ui-xs);
-  line-height: 16px;
+  line-height: var(--text-ui-xs--line-height);
   white-space: nowrap;
 }
 
@@ -545,10 +562,10 @@ button.scope-trigger[aria-expanded="true"] {
 .branch-group-title {
   padding: 8px 8px 2px;
   font-size: var(--text-ui-xs);
-  line-height: 16px;
-  font-weight: 500;
+  line-height: var(--text-ui-xs--line-height);
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-caps);
   color: var(--fg-muted);
 }
 
@@ -557,7 +574,7 @@ button.scope-trigger[aria-expanded="true"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
 }
 
 .branch-choice:has(input:disabled) {
@@ -677,7 +694,7 @@ button.scope-trigger[aria-expanded="true"] {
   border: 1px solid var(--line-strong);
   border-radius: 4px;
   font-size: var(--text-ui-xs);
-  line-height: 16px;
+  line-height: var(--text-ui-xs--line-height);
   color: var(--fg-muted);
 }
 
@@ -698,7 +715,7 @@ button.scope-trigger[aria-expanded="true"] {
 
 .ref-current,
 .ref-head {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   border-color: var(--lane, var(--line-strong));
   background: color-mix(in srgb, var(--lane, var(--fg)) 14%, transparent);
 }
@@ -712,7 +729,7 @@ button.scope-trigger[aria-expanded="true"] {
 
 .worktree-title {
   flex: 0 0 auto;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .wt-counts {
@@ -736,7 +753,7 @@ button.scope-trigger[aria-expanded="true"] {
   border-radius: 9px;
   background: var(--surface-2);
   font-size: var(--text-ui-xs);
-  line-height: 16px;
+  line-height: var(--text-ui-xs--line-height);
   font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
 }
@@ -771,7 +788,7 @@ button.scope-trigger[aria-expanded="true"] {
 }
 
 .sha {
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--text-ui-xs);
 }
 
@@ -780,10 +797,12 @@ button.scope-trigger[aria-expanded="true"] {
   top: 0;
   left: 0;
   right: 0;
+  display: flex;
+  align-items: center;
   height: 24px;
   padding-left: calc(var(--graph-width) + 8px);
-  line-height: 24px;
   font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
 }
 
 @container (max-width: 560px) {
@@ -805,12 +824,12 @@ button.scope-trigger[aria-expanded="true"] {
 }
 
 .detail {
-  flex: 0 1 auto;
-  max-height: 45%;
-  min-height: 96px;
   overflow: auto;
-  border-top: 1px solid var(--line-strong);
   background: var(--surface-1);
+}
+
+.pine-split[data-collapsed] > .detail > :not(.detail-head) {
+  display: none;
 }
 
 .detail-head {
@@ -835,8 +854,8 @@ button.scope-trigger[aria-expanded="true"] {
 
 .detail-subject {
   font-size: var(--text-ui-base);
-  line-height: 20px;
-  font-weight: 500;
+  line-height: var(--text-ui-base--line-height);
+  font-weight: var(--font-weight-medium);
   overflow-wrap: anywhere;
 }
 
@@ -846,7 +865,7 @@ button.scope-trigger[aria-expanded="true"] {
   align-items: center;
   gap: 4px 12px;
   font-size: var(--text-ui-xs);
-  line-height: 16px;
+  line-height: var(--text-ui-xs--line-height);
 }
 
 .parents {
@@ -884,9 +903,9 @@ button.link:disabled {
 table.blame {
   border-collapse: collapse;
   width: 100%;
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--text-ui-sm);
-  line-height: 18px;
+  line-height: var(--text-ui-sm--line-height);
 }
 
 .blame td {

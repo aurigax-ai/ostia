@@ -4,11 +4,17 @@ import { type FakeRequest, startFakeProvider } from './fakeProvider'
 import { PROMPT, openWorkspace } from './helpers'
 
 const SUGGESTED = 'echo pine-assist-suggested'
-const ANSWER = 'Use this to list files:\n\n```bash\nls -la\n```\n'
+const SECOND = 'echo pine-assist-second'
+const ANSWER = 'Use this to list files:\n\n```bash\nls -la\n```\n\nOr run `ls -la` here.\n'
 
 function answer(req: FakeRequest): string {
   if (req.system.includes('"suggestions"')) {
-    return JSON.stringify({ suggestions: [{ command: SUGGESTED, description: 'prints a marker' }] })
+    return JSON.stringify({
+      suggestions: [
+        { command: SUGGESTED, description: 'prints a marker' },
+        { command: SECOND, description: 'prints another marker' },
+      ],
+    })
   }
   return ANSWER
 }
@@ -24,20 +30,20 @@ test('a custom OpenAI-compatible provider set in Settings answers in Ask and sug
     await win.keyboard.press('Control+,')
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible({ timeout: 10_000 })
-    await settings.getByRole('button', { name: 'Plugins', exact: true }).click()
-    const assistant = settings.getByRole('group', { name: /Assistant/ })
-    await assistant.getByRole('combobox', { name: 'provider' }).click()
-    await win.getByRole('option', { name: 'openai-compatible', exact: true }).click()
-    for (const [key, value] of [
-      ['baseUrl', provider.url],
-      ['fastModel', 'fake-small'],
-      ['chatModel', 'fake-big'],
+    await settings.getByRole('button', { name: 'Assistant', exact: true }).click()
+    const assistant = settings.getByRole('group', { name: 'Assistant settings' })
+    await assistant.getByRole('combobox', { name: 'Provider' }).click()
+    await win.getByRole('option', { name: 'OpenAI-compatible', exact: true }).click()
+    for (const [label, value] of [
+      ['Base URL', provider.url],
+      ['Fast model', 'fake-small'],
+      ['Chat model', 'fake-big'],
     ]) {
-      const box = assistant.getByRole('textbox', { name: key, exact: true })
+      const box = assistant.getByRole('textbox', { name: label, exact: true })
       await box.fill(value)
       await box.press('Enter')
     }
-    await expect(assistant).toContainText('openai-compatible · fake-big', {
+    await expect(settings).toContainText('openai-compatible · fake-small / fake-big', {
       timeout: 15_000,
     })
     await win.keyboard.press('Escape')
@@ -52,6 +58,10 @@ test('a custom OpenAI-compatible provider set in Settings answers in Ask and sug
     const reply = palette.locator('.ask-answer').last()
     await expect(reply).toContainText('Use this to list files', { timeout: 15_000 })
     await expect(reply.locator('pre')).toContainText('ls -la')
+    const chip = reply.locator('.chat-inline-command')
+    const chipBox = await chip.boundingBox()
+    const codeBox = await chip.locator('code').boundingBox()
+    expect(chipBox && codeBox && chipBox.width - codeBox.width).toBeLessThan(1)
     expect(provider.requests.map((r) => r.model)).toContain('fake-big')
     await win.keyboard.press('Escape')
     await expect(palette).toBeHidden()
@@ -63,6 +73,11 @@ test('a custom OpenAI-compatible provider set in Settings answers in Ask and sug
     await win.keyboard.type('print a marker')
     const suggestion = composer.getByRole('option', { name: new RegExp(SUGGESTED) })
     await expect(suggestion).toBeVisible({ timeout: 15_000 })
+    await expect(suggestion).toHaveAttribute('aria-selected', 'true')
+    const second = composer.getByRole('option', { name: new RegExp(SECOND) })
+    const background = (el: Element) => getComputedStyle(el).backgroundColor
+    expect(await suggestion.evaluate(background)).not.toBe(await second.evaluate(background))
+    expect(await suggestion.evaluate(background)).not.toBe(await composer.evaluate(background))
     await win.keyboard.press('Enter')
     await expect(composer).toBeHidden()
     const rows = win.locator('.xterm-rows').first()

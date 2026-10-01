@@ -14,12 +14,14 @@ import {
 } from 'ai'
 import type { z } from 'zod'
 import type {
+  AssistModelList,
   AssistPoint,
   AssistReport,
   AssistRequests,
   AssistResults,
   AssistSetupProblem,
   ChatAssistRequest,
+  ChatToolMode,
   ChatToolSpec,
   CommandAssistRequest,
   CompletionAssistRequest,
@@ -39,9 +41,10 @@ import {
   setupProblem,
   statusLabel,
 } from './config'
-import { HttpError, describeEndpoint } from './endpoint'
+import { HttpError } from './endpoint'
+import { type Flight, createFlight } from './flight'
 import { type Limiter, createLimiter } from './limiter'
-import type { PanelState } from './models'
+import { withPromptedTools } from './promptedTools'
 import {
   type Prompt,
   chatPrompt,
@@ -68,6 +71,10 @@ export const TIMEOUTS: Record<AssistPoint, number> = {
   chat: 5 * 60_000,
 }
 const PROBE_TIMEOUT_MS = 3000
+const UNCANCELLED_TIMEOUT_MS = 55_000
+const SMALL_PREFIX_MAX = 2000
+const SMALL_SUFFIX_MAX = 600
+const SINGLE_FLIGHT: ReadonlySet<AssistPoint> = new Set(['completion', 'terminal'])
 const OBJECT_ATTEMPTS = 2
 const ERROR_MESSAGE_MAX = 240
 
@@ -105,6 +112,8 @@ export class AssistantService {
   private apiKey: string | null = null
   private provider: Provider | null = null
   private limiters = new Map<AssistPoint, Limiter>()
+  private flights = new Map<AssistPoint, Flight>()
+  private toolMode: ChatToolMode | null = null
   private unreachable = false
   private lastError: string | undefined
 
@@ -119,6 +128,8 @@ export class AssistantService {
     this.config = readConfig(values)
     this.apiKey = apiKey?.trim() ? apiKey.trim() : null
     this.limiters.clear()
+    this.flights.clear()
+    this.toolMode = null
     this.unreachable = false
     this.lastError = undefined
     const endpoint = endpointOf(this.config, this.env)
@@ -131,13 +142,18 @@ export class AssistantService {
   async probe(): Promise<void> {
     const provider = this.provider
     if (!provider || setupProblem(this.config, this.env, this.apiKey !== null)) return
-    try {
-      await provider.models(undefined, PROBE_TIMEOUT_MS)
-      this.unreachable = false
-    } catch (err) {
-      this.unreachable = true
-      this.lastError = this.redact(messageOf(err))
-    }
+    const chatModel = modelFor(this.config, 'chat')
+    const [reached, toolMode] = await Promise.all([
+      provider.models(undefined, PROBE_TIMEOUT_MS).then(
+        () => null,
+        (err: unknown) => err,
+      ),
+      chatModel ? provider.chatTools(chatModel, AbortSignal.timeout(PROBE_TIMEOUT_MS)) : null,
+    ])
+    if (this.provider !== provider) return
+    this.toolMode = toolMode
+    this.unreachable = reached !== null
+    if (reached !== null) this.lastError = this.redact(messageOf(reached))
   }
 
   private problem(): AssistSetupProblem | null {
@@ -150,12 +166,13 @@ export class AssistantService {
   report(): AssistReport {
     const problem = this.problem()
     const report: AssistReport = {
-      status: assistStatus(this.config, problem),
+      status: assistStatus(this.config, problem, this.toolMode),
       features: featureStates(this.config, problem).map((f) => ({
         ...f,
         on: this.config.features[f.id],
       })),
       setup: problem,
+      models: this.provider !== null,
     }
     const label = statusLabel(this.config)
     if (label) report.label = label
@@ -199,7 +216,13 @@ export class AssistantService {
     return provider
   }
 
-  private settings(provider: Provider, point: AssistPoint, prompt: Prompt, ctx: AssistContext) {
+  private settings(
+    provider: Provider,
+    point: AssistPoint,
+    prompt: Prompt,
+    signal: AbortSignal | null,
+  ) {
+    const timeout = AbortSignal.timeout(signal ? TIMEOUTS[point] : UNCANCELLED_TIMEOUT_MS)
     return {
       model: provider.model(modelFor(this.config, point)),
       system: prompt.system,
@@ -207,8 +230,17 @@ export class AssistantService {
       temperature: prompt.temperature,
       maxOutputTokens: prompt.maxOutputTokens,
       maxRetries: point === 'chat' ? 1 : 0,
-      abortSignal: AbortSignal.any([ctx.signal, AbortSignal.timeout(TIMEOUTS[point])]),
+      abortSignal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     }
+  }
+
+  private flight(point: AssistPoint): Flight {
+    let flight = this.flights.get(point)
+    if (!flight) {
+      flight = createFlight()
+      this.flights.set(point, flight)
+    }
+    return flight
   }
 
   private async text(
@@ -217,8 +249,14 @@ export class AssistantService {
     prompt: Prompt,
     ctx: AssistContext,
   ): Promise<string> {
-    const res = await generateText(this.settings(provider, point, prompt, ctx))
-    return res.text
+    if (!SINGLE_FLIGHT.has(point)) {
+      return (await generateText(this.settings(provider, point, prompt, ctx.signal))).text
+    }
+    const signal = provider.serverCancels ? ctx.signal : null
+    return this.flight(point).run(ctx.signal, async () => {
+      const res = await generateText(this.settings(provider, point, prompt, signal))
+      return res.text
+    })
   }
 
   private async object<S extends z.ZodType>(
@@ -231,7 +269,7 @@ export class AssistantService {
     for (let attempt = 0; attempt < OBJECT_ATTEMPTS; attempt++) {
       try {
         const res = await generateText({
-          ...this.settings(provider, point, prompt, ctx),
+          ...this.settings(provider, point, prompt, ctx.signal),
           model: wrapLanguageModel({
             model: provider.model(modelFor(this.config, point)),
             middleware: extractJsonMiddleware(),
@@ -300,8 +338,16 @@ export class AssistantService {
   }
 
   private async completion(provider: Provider, req: CompletionAssistRequest, ctx: AssistContext) {
-    const raw = await this.text(provider, 'completion', completionPrompt(req), ctx)
-    return { text: cleanCompletion(raw, req.prefix, req.suffix) }
+    const sent: CompletionAssistRequest = provider.smallPrompts
+      ? {
+          path: req.path,
+          language: req.language,
+          prefix: req.prefix.slice(-SMALL_PREFIX_MAX),
+          suffix: req.suffix.slice(0, SMALL_SUFFIX_MAX),
+        }
+      : req
+    const raw = await this.text(provider, 'completion', completionPrompt(sent), ctx)
+    return { text: cleanCompletion(raw, sent.prefix, sent.suffix) }
   }
 
   private async terminal(provider: Provider, req: TerminalAssistRequest, ctx: AssistContext) {
@@ -311,9 +357,14 @@ export class AssistantService {
 
   private async chat(provider: Provider, req: ChatAssistRequest, ctx: AssistContext) {
     let failure: unknown = null
+    const settings = this.settings(provider, 'chat', chatPrompt(req), ctx.signal)
+    const tools = req.tools?.length ? req.tools : null
     const result = streamText({
-      ...this.settings(provider, 'chat', chatPrompt(req), ctx),
-      ...(req.tools ? { tools: chatToolSet(req.tools) } : {}),
+      ...settings,
+      ...(tools && this.toolMode === 'prompted'
+        ? { model: withPromptedTools(settings.model) }
+        : {}),
+      ...(tools ? { tools: chatToolSet(tools) } : {}),
       onError: ({ error }) => {
         failure = error
       },
@@ -330,27 +381,15 @@ export class AssistantService {
     return { text: await result.text }
   }
 
-  async panelState(): Promise<PanelState> {
-    const endpoint = endpointOf(this.config, this.env)
-    const report = this.report()
-    const state: PanelState = {
-      provider: this.config.provider,
-      endpoint: endpoint ? describeEndpoint(endpoint) : '',
-      fastModel: modelFor(this.config, 'input'),
-      chatModel: modelFor(this.config, 'chat'),
-      problem: report.setup ?? null,
-      lifecycle: this.provider?.lifecycle === true,
-      features: report.features ?? [],
-      models: [],
-    }
-    if (report.lastError) state.lastError = report.lastError
-    if (!this.provider || state.problem === 'no-key') return state
+  async modelList(): Promise<AssistModelList> {
+    const list: AssistModelList = { lifecycle: this.provider?.lifecycle === true, models: [] }
+    if (!this.provider || this.problem() === 'no-key') return list
     try {
-      state.models = await this.provider.models()
+      list.models = await this.provider.models()
     } catch (err) {
-      state.modelsError = this.redact(messageOf(err))
+      list.error = this.redact(messageOf(err))
     }
-    return state
+    return list
   }
 
   async setLoaded(id: string, loaded: boolean): Promise<void> {

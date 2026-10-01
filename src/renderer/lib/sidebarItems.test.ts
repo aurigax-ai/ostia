@@ -2,7 +2,7 @@ import type { ExtensionSidebarItem } from '@shared/extensions'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
-import { openSidebarUrl, visibleSidebarItems } from './sidebarItems'
+import { openSidebarUrl, sidebarLines, visibleSidebarItems } from './sidebarItems'
 
 const item = (extId: string, key: string, workspaceId = 's1'): ExtensionSidebarItem => ({
   extId,
@@ -10,6 +10,7 @@ const item = (extId: string, key: string, workspaceId = 's1'): ExtensionSidebarI
   workspaceId,
   text: key,
   tone: 'neutral',
+  kind: extId === 'git' ? 'location' : 'live',
 })
 
 const items = [
@@ -36,6 +37,14 @@ describe('visibleSidebarItems', () => {
     expect(
       visibleSidebarItems([item('other', 'ssh')], 's1', { showPorts: false, showSSH: false }),
     ).toHaveLength(1)
+  })
+})
+
+describe('sidebarLines', () => {
+  it('puts location items on one line and everything else on the live line, in order', () => {
+    const lines = sidebarLines(items)
+    expect(lines.location.map((i) => i.key)).toEqual(['branch'])
+    expect(lines.live.map((i) => i.key)).toEqual(['port:3000', 'ssh', 'port:5173'])
   })
 })
 

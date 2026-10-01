@@ -187,7 +187,12 @@ describe('built-in git extension against a real repository', () => {
   it('shows the branch and +new ~changed for a repo workspace and nothing for a plain dir', async () => {
     expect(await until(() => itemText('s1'))).toBe('main +1 ~2')
     const item = sidebar().find((i) => i.workspaceId === 's1')
-    expect(item).toMatchObject({ icon: 'git-branch', tone: 'neutral', key: 'branch' })
+    expect(item).toMatchObject({
+      icon: 'git-branch',
+      tone: 'neutral',
+      key: 'branch',
+      kind: 'location',
+    })
     expect(itemText('s2')).toBeUndefined()
   })
 
@@ -331,6 +336,29 @@ describe('built-in git extension against a real repository', () => {
     })
     return (await res.json()) as ExtensionResult
   }
+
+  it('remembers panel split sizes in its data folder, only for the panel secret', async () => {
+    const panel = await host.resolvePanel('git', { workspaceId: 's1', locale: 'en' })
+    if (!panel.ok) throw new Error(panel.error)
+    const url = new URL(panel.src)
+    const sizes = new URL('/sizes', url)
+    const headers = {
+      'content-type': 'application/json',
+      'x-pine-panel': url.searchParams.get('t') ?? '',
+    }
+    const save = (body: unknown): Promise<Response> =>
+      fetch(sizes, { method: 'POST', headers, body: JSON.stringify(body) })
+
+    expect((await fetch(sizes)).status).toBe(403)
+    expect((await save({ key: 'graph-details', fraction: 0.3 })).status).toBe(200)
+    expect((await save({ key: 'graph-details', fraction: 3 })).status).toBe(400)
+    expect((await save({ key: '../x', fraction: 0.5 })).status).toBe(400)
+    expect(await (await fetch(sizes, { headers })).json()).toEqual({ 'graph-details': 0.3 })
+    const file = join(dir, 'ext-data', 'git', 'panel-sizes.json')
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ 'graph-details': 0.3 })
+    expect((await save({ key: 'graph-details', fraction: null })).status).toBe(200)
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({})
+  })
 
   describe('v2', () => {
     it('puts the branch and diff stats chips on each terminal inside a repo, and nowhere else', async () => {

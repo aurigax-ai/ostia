@@ -121,7 +121,7 @@ describe('PromptSection', () => {
   it('previews the pane Settings was opened from, even outside the active workspace', async () => {
     seed()
     setChips(['cwd'])
-    useUIStore.getState().openSettings('prompt', 'p2')
+    useUIStore.getState().openSettings('prompt', { previewPaneId: 'p2' })
     render(<PromptSection />)
     const preview = screen.getByRole('region', { name: 'Preview' })
     expect(await within(preview).findByText('~/other')).toBeVisible()
@@ -130,7 +130,7 @@ describe('PromptSection', () => {
   it('falls back to the active terminal when the requested pane is gone', async () => {
     seed()
     setChips(['cwd'])
-    useUIStore.getState().openSettings('prompt', 'closed-pane')
+    useUIStore.getState().openSettings('prompt', { previewPaneId: 'closed-pane' })
     render(<PromptSection />)
     const preview = screen.getByRole('region', { name: 'Preview' })
     expect(await within(preview).findByText('~/proj')).toBeVisible()

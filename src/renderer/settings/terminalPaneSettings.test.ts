@@ -5,10 +5,8 @@ import {
   clampContrast,
   clampScrollSpeed,
   clampScrollback,
-  isRiskyPaste,
   parsePaneSettings,
   parseTerminalSettings,
-  pastePreview,
 } from './terminalPaneSettings'
 
 describe('clampScrollSpeed', () => {
@@ -95,36 +93,5 @@ describe('parsePaneSettings', () => {
       equalizeOnSplit: false,
       hideTabClose: true,
     })
-  })
-})
-
-describe('isRiskyPaste', () => {
-  it('flags text with a newline or carriage return', () => {
-    expect(isRiskyPaste('ls\n')).toBe(true)
-    expect(isRiskyPaste('a\r\nb')).toBe(true)
-  })
-
-  it('flags escape and other control characters', () => {
-    expect(isRiskyPaste('\x1b[201~rm -rf')).toBe(true)
-    expect(isRiskyPaste('a\x07b')).toBe(true)
-    expect(isRiskyPaste('a\x7fb')).toBe(true)
-  })
-
-  it('accepts a single plain line, tabs included', () => {
-    expect(isRiskyPaste('git status -sb')).toBe(false)
-    expect(isRiskyPaste('a\tb')).toBe(false)
-    expect(isRiskyPaste('')).toBe(false)
-  })
-})
-
-describe('pastePreview', () => {
-  it('shows escape and control characters visibly and keeps newlines', () => {
-    expect(pastePreview('a\x1bb\x07c\nd')).toBe('a␛b\\x07c\nd')
-  })
-
-  it('truncates long text', () => {
-    const preview = pastePreview('x'.repeat(5000))
-    expect(preview.length).toBe(2001)
-    expect(preview.endsWith('…')).toBe(true)
   })
 })
