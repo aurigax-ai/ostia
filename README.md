@@ -11,7 +11,7 @@
   &nbsp;&nbsp;
   <a href="https://github.com/aurigax-ai/pine/releases/latest">Download</a>
   &nbsp;&nbsp;
-  <a href="sdk-package/docs/EXTENSIONS.md">Write an extension</a>
+  <a href="https://github.com/aurigax-ai/pine-extension-sdk">Write an extension</a>
 </p>
 
 ![Pine with six projects in the sidebar, an agent session and the diff of its change](.github/readme/hero.webp)
