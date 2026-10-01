@@ -113,6 +113,10 @@ function describeTerminal(root: LayoutNode, paneId: string, opts: OpenTerminalPl
   return opts.title ? setPaneTitle(withCwd, paneId, opts.title) : withCwd
 }
 
+function workDirOf(workspaceId: string): string | undefined {
+  return useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)?.workDir
+}
+
 export type NewTabKind = Extract<SurfaceKind, 'terminal' | 'browser'>
 
 function layoutOf(root: LayoutNode): WorkspaceLayout {
@@ -210,10 +214,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     let createdPaneId: string | null = null
     set((s) => {
       if (s.byWorkspace[workspaceId]) return s
-      const workDir = useWorkspacesStore
-        .getState()
-        .workspaces.find((sess) => sess.id === workspaceId)?.workDir
-      const root = createPane('terminal', undefined, workDir)
+      const root = createPane('terminal', undefined, workDirOf(workspaceId))
       createdPaneId = firstPaneId(root)
       return {
         byWorkspace: {
@@ -242,7 +243,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const next = patch(s, workspaceId, (l) => {
         const result = splitPane(l.root, paneId, direction)
         createdPaneId = result.newPaneId
-        return { ...l, root: result.root, activePaneId: result.newPaneId ?? l.activePaneId }
+        const workDir = workDirOf(workspaceId)
+        const root =
+          result.newPaneId && workDir
+            ? setPaneCwd(result.root, result.newPaneId, workDir)
+            : result.root
+        return { ...l, root, activePaneId: result.newPaneId ?? l.activePaneId }
       })
       return next ?? s
     })
@@ -257,7 +263,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const next = patch(s, workspaceId, (l) => {
         const target = findPane(l.root, paneId)
         if (!target) return l
-        const pane = createPane(kind, undefined, target.cwd)
+        const pane = createPane(
+          kind,
+          undefined,
+          kind === 'terminal' ? workDirOf(workspaceId) : undefined,
+        )
         const root =
           kind === 'browser'
             ? setPaneBrowser(addTab(l.root, paneId, pane), pane.id, 'about:blank', browserProfile)

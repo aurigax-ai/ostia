@@ -670,15 +670,35 @@ describe('layoutStore', () => {
   })
 
   describe('tabs', () => {
-    it('opens a terminal tab in the pane’s cwd, focuses it and announces it', () => {
+    it('opens a terminal tab in the workspace folder, not where the neighbouring tab went', () => {
+      useWorkspacesStore.setState({
+        workspaces: [
+          { id: 's1', name: 'app', kind: 'terminal', workDir: '/work/app', state: 'idle' },
+        ],
+      })
       const first = ensure('s1')
-      useLayoutStore.getState().setCwd('s1', first, '/work/app')
+      useLayoutStore.getState().setCwd('s1', first, '/tmp/elsewhere')
       const id = useLayoutStore.getState().newTab('s1', first, 'terminal') as string
 
       expect(layoutOf('s1').activePaneId).toBe(id)
       expect(layoutOf('s1').root).toMatchObject({ type: 'tabs', activeId: id })
       expect(findPane(layoutOf('s1').root, id)?.cwd).toBe('/work/app')
       expect(emit()).toHaveBeenCalledWith({ type: 'pane-created', workspaceId: 's1', paneId: id })
+    })
+
+    it('starts a split terminal in the workspace folder', () => {
+      useWorkspacesStore.setState({
+        workspaces: [
+          { id: 's1', name: 'app', kind: 'terminal', workDir: '/work/app', state: 'idle' },
+        ],
+      })
+      const first = ensure('s1')
+      useLayoutStore.getState().setCwd('s1', first, '/tmp/elsewhere')
+      useLayoutStore.getState().split('s1', first, 'horizontal')
+
+      const created = layoutOf('s1').activePaneId
+      expect(created).not.toBe(first)
+      expect(findPane(layoutOf('s1').root, created)?.cwd).toBe('/work/app')
     })
 
     it('opens a browser tab on a blank page', () => {
