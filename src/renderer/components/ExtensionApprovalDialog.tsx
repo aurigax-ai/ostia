@@ -55,6 +55,18 @@ export function ExtensionApprovalDialog(): JSX.Element {
             ))}
           </ul>
         ) : null}
+        {ext && ext.languageServers.length > 0 ? (
+          <ul aria-label={d.languageServers.runsTitle} className="flex flex-col gap-1">
+            {ext.languageServers.map((server) => (
+              <li key={server.id} className="text-fg-muted text-ui-sm">
+                {fmt(d.languageServers.runs, {
+                  command: server.command,
+                  languages: server.languages.join(', '),
+                })}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <DialogFooter>
           <Button
             variant="outline"

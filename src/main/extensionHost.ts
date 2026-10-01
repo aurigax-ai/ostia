@@ -82,6 +82,7 @@ import {
   validSettingValue,
 } from '../shared/extensions'
 import type { IconThemeContribution } from '../shared/iconTheme'
+import { LANGUAGE_SERVER_CAPABILITY, languageServerSummary } from '../shared/languageServers'
 import { quoteArgv } from '../shared/shellQuote'
 import type { Workflow } from '../shared/workflows'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
@@ -101,6 +102,7 @@ import {
   resolveExternal,
 } from './idRegistry'
 import type { LanguageSource } from './languagePacks'
+import type { LanguageServerSource } from './languageServers'
 
 export const MAX_RESTARTS = 3
 export const REQUEST_TIMEOUT_MS = 30_000
@@ -247,6 +249,7 @@ export interface ExtensionHostDeps {
   cwdForPane?: (paneId: string) => string | undefined
   locale?: () => string | undefined
   broadcast: (channel: string, payload: unknown) => void
+  onChanged?: () => void
   publishWorkspaceChips?: (chips: WorkspaceChip[]) => void
   openPanelIn: (req: ExtensionOpenPanelRequest) => void
   openDiffIn?: (req: ExtensionOpenDiffRequest) => void
@@ -488,6 +491,7 @@ export class ExtensionHost {
       secretsSet: this.deps.secrets?.keys(m.id) ?? [],
       iconThemes: (m.contributes.iconThemes ?? []).map(({ id, label }) => ({ id, label })),
       languages: (m.contributes.languages ?? []).map(({ id, label }) => ({ id, label })),
+      languageServers: (m.contributes.languageServers ?? []).map(languageServerSummary),
     }
   }
 
@@ -527,6 +531,48 @@ export class ExtensionHost {
           language,
         })),
       )
+  }
+
+  private languageServerState(rt: Runtime, serverId: string): LanguageServerSource['state'] {
+    if (this.pending(rt)) return 'pending'
+    const record = this.record(rt)
+    if (!record.enabled) return 'off'
+    if (!this.granted(rt).includes(LANGUAGE_SERVER_CAPABILITY)) return 'pending'
+    return record.serversOff?.includes(serverId) ? 'off' : 'on'
+  }
+
+  languageServers(): LanguageServerSource[] {
+    return [...this.runtimes.values()].flatMap((rt) =>
+      (rt.ext.manifest.contributes.languageServers ?? []).map((server) => ({
+        extId: rt.ext.manifest.id,
+        extName: rt.ext.manifest.name,
+        dir: rt.ext.dir,
+        builtin: rt.ext.builtin,
+        state: this.languageServerState(rt, server.id),
+        server,
+        settingValues: this.settingValues(rt),
+      })),
+    )
+  }
+
+  setLanguageServerEnabled(extId: string, serverId: string, enabled: boolean): void {
+    const rt = this.runtimes.get(extId)
+    if (!rt || this.pending(rt)) return
+    const declared = rt.ext.manifest.contributes.languageServers ?? []
+    if (!declared.some((server) => server.id === serverId)) return
+    const record = this.record(rt)
+    const off = new Set(record.serversOff ?? [])
+    if (enabled) off.delete(serverId)
+    else off.add(serverId)
+    const { serversOff: _previous, ...kept } = record
+    this.deps.store.set(extId, {
+      ...kept,
+      enabled: enabled ? true : record.enabled,
+      approved: record.approved ?? [],
+      ...(off.size > 0 ? { serversOff: [...off] } : {}),
+    })
+    if (enabled && !record.enabled && this.eager(rt)) this.start(rt)
+    this.changed(rt)
   }
 
   iconThemes(): { dir: string; theme: IconThemeContribution }[] {
@@ -591,6 +637,7 @@ export class ExtensionHost {
     if (rt) this.changes.emit(rt.ext.manifest.id)
     this.deps.broadcast('extensions:changed', this.list())
     this.assistChanged()
+    this.deps.onChanged?.()
   }
 
   private assistChanged(): void {
@@ -605,7 +652,8 @@ export class ExtensionHost {
   setEnabled(extId: string, enabled: boolean): ExtensionInfo[] {
     const rt = this.runtimes.get(extId)
     if (!rt) return this.list()
-    this.deps.store.set(extId, { enabled, approved: this.record(rt).approved ?? [] })
+    const record = this.record(rt)
+    this.deps.store.set(extId, { ...record, enabled, approved: record.approved ?? [] })
     rt.restarts = 0
     if (rt.state === 'crashed') rt.state = 'idle'
     if (!enabled) this.stop(rt)
@@ -618,7 +666,11 @@ export class ExtensionHost {
   approve(extId: string): ExtensionInfo[] {
     const rt = this.runtimes.get(extId)
     if (!rt) return this.list()
-    this.deps.store.set(extId, { enabled: true, approved: [...rt.ext.manifest.capabilities] })
+    this.deps.store.set(extId, {
+      ...this.record(rt),
+      enabled: true,
+      approved: [...rt.ext.manifest.capabilities],
+    })
     if (rt.identity) setCaps(rt.identity.externalId, this.granted(rt))
     if (startsWithWindow(rt)) this.start(rt)
     this.changed(rt)

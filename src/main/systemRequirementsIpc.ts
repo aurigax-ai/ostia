@@ -9,6 +9,7 @@ export interface SystemRequirementsIpcDeps {
   locale: () => string | undefined
   systemExtensionEnabled: () => boolean
   missing: (feature: string) => MissingRequirement[]
+  label?: (feature: string) => string
   invokeInstall: (args: { argv: string[] }, caller: ExtensionCaller) => Promise<ExtensionResult>
 }
 
@@ -44,13 +45,16 @@ export function registerSystemRequirementsIpc(deps: SystemRequirementsIpcDeps): 
       const missing = deps.missing(feature)
       if (missing.length === 0) return { ok: true }
       const workDir = deps.workDir(workspaceId)
-      return deps.invokeInstall(requirementsInstallArgs(feature, missing), {
-        kind: 'user',
-        workspaceId,
-        ...(workDir ? { workDir, cwd: workDir } : {}),
-        locale: deps.locale(),
-        capabilities: ['shell'],
-      })
+      return deps.invokeInstall(
+        requirementsInstallArgs(deps.label?.(feature) ?? feature, missing),
+        {
+          kind: 'user',
+          workspaceId,
+          ...(workDir ? { workDir, cwd: workDir } : {}),
+          locale: deps.locale(),
+          capabilities: ['shell'],
+        },
+      )
     },
   )
 }

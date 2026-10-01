@@ -37,6 +37,7 @@ const assistant: ExtensionInfo = {
   secretsSet: [],
   category: 'other',
   languages: [],
+  languageServers: [],
   iconThemes: [],
 }
 

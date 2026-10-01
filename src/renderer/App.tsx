@@ -28,7 +28,6 @@ import { useWindowTitle } from './lib/useWindowTitle'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/registerSettingsSchema'
 import { freezeSnapshots } from './stores/persistence'
-import { usePluginsStore } from './stores/pluginsStore'
 
 const ICON_STYLE = { weight: 'regular' } as const
 import { useSettingsStore } from './stores/settingsStore'
@@ -61,10 +60,6 @@ export function App(): JSX.Element {
   useEffect(() => {
     document.documentElement.lang = locale
   }, [locale])
-
-  useEffect(() => {
-    void usePluginsStore.getState().load()
-  }, [])
 
   useEffect(() => {
     void registerSettingsSchema()

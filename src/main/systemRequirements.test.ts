@@ -7,7 +7,9 @@ import {
   SANDBOX_FEATURE,
   installHint,
   missingRequirements,
+  programPath,
   registerRequirements,
+  requirementLabel,
 } from './systemRequirements'
 
 const root = mkdtempSync(join(tmpdir(), 'pine-reqs-'))
@@ -60,6 +62,27 @@ describe('systemRequirements', () => {
     expect(missingRequirements('noexec-feature', { platform: 'linux', path: dir })).toEqual([
       { program: 'tool', package: 'tool-pkg' },
     ])
+  })
+
+  it('finds a program’s absolute path on PATH, names a feature for the human, and forgets one', () => {
+    const dir = binDir('lsp-bin', ['gopls'])
+    expect(programPath('gopls', `/nonexistent:${dir}`)).toBe(join(dir, 'gopls'))
+    expect(programPath('gopls', '/nonexistent')).toBeNull()
+    registerRequirements(
+      'lsp:lsp-gopls/gopls',
+      [{ program: 'gopls', package: 'gopls', platforms: ['linux'] }],
+      'gopls',
+    )
+    expect(requirementLabel('lsp:lsp-gopls/gopls')).toBe('gopls')
+    expect(requirementLabel('sandbox')).toBe('sandbox')
+    expect(
+      missingRequirements('lsp:lsp-gopls/gopls', { platform: 'linux', path: '/nonexistent' }),
+    ).toEqual([{ program: 'gopls', package: 'gopls' }])
+    registerRequirements('lsp:lsp-gopls/gopls', [])
+    expect(
+      missingRequirements('lsp:lsp-gopls/gopls', { platform: 'linux', path: '/nonexistent' }),
+    ).toEqual([])
+    expect(requirementLabel('lsp:lsp-gopls/gopls')).toBe('lsp:lsp-gopls/gopls')
   })
 
   it('SBX-C98 builds a copyable install command for the package manager on PATH', () => {

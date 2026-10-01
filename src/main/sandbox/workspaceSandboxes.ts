@@ -144,6 +144,7 @@ export class WorkspaceSandboxes {
     command: string,
     binShell: string,
     extraWrites: string[] = [],
+    extraReads: string[] = [],
   ): Promise<string> {
     if (this.deps.store.isCorrupt) {
       throw new SandboxUnavailableError(
@@ -152,10 +153,16 @@ export class WorkspaceSandboxes {
     }
     const host = await this.host(workspaceId)
     try {
-      if (extraWrites.length === 0) return await host.wrap(command, binShell)
+      if (extraWrites.length === 0 && extraReads.length === 0) {
+        return await host.wrap(command, binShell)
+      }
       const { filesystem } = this.config(workspaceId)
       return await host.wrap(command, binShell, {
-        filesystem: { ...filesystem, allowWrite: [...filesystem.allowWrite, ...extraWrites] },
+        filesystem: {
+          ...filesystem,
+          allowWrite: [...filesystem.allowWrite, ...extraWrites],
+          allowRead: [...(filesystem.allowRead ?? []), ...extraReads],
+        },
       })
     } catch (err) {
       throw new SandboxUnavailableError(err instanceof Error ? err.message : String(err))

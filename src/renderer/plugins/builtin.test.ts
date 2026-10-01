@@ -5,8 +5,6 @@ import type { Theme } from './types'
 
 const themes = (): Theme[] => BUILTIN_PLUGINS.flatMap((p) => p.contributes.themes ?? [])
 
-const plugin = (id: string) => BUILTIN_PLUGINS.find((p) => p.id === id)
-
 const REQUIRED_TOKEN_KEYS = [
   'bg',
   'bg-sunken',
@@ -105,11 +103,5 @@ describe('BUILTIN_PLUGINS', () => {
       expect(p.name.length, p.id).toBeGreaterThan(0)
       expect(p.version.length, p.id).toBeGreaterThan(0)
     }
-  })
-
-  it('ships the LSP plugin with an initially empty languageServers array', () => {
-    const servers = plugin('pine.lsp')?.contributes.languageServers
-    expect(Array.isArray(servers)).toBe(true)
-    expect(servers).toHaveLength(0)
   })
 })

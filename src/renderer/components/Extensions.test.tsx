@@ -33,6 +33,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     secretsSet: [],
     category: 'other',
     languages: [],
+    languageServers: [],
     iconThemes: [],
     ...overrides,
   }
@@ -113,6 +114,27 @@ describe('Extensions UI', () => {
           .getAllByRole('listitem')
           .map((li) => li.textContent),
       ).toEqual(['notify', 'read-board'])
+    })
+
+    it('lists the program each language server runs and for which files', () => {
+      const withServers = {
+        ...pending,
+        requested: ['language-server' as const],
+        languageServers: [
+          { id: 'gleam', name: 'Gleam', languages: ['gleam'], command: 'gleam lsp' },
+          { id: 'fmt', name: 'Fmt', languages: ['go', 'rust'], command: 'server/fmt.js --stdio' },
+        ],
+      }
+      useExtensionsStore.setState({ list: [withServers] })
+      render(<ExtensionApprovalDialog />)
+      const servers = within(screen.getByRole('dialog')).getByRole('list', {
+        name: 'Language servers',
+      })
+      expect(
+        within(servers)
+          .getAllByRole('listitem')
+          .map((li) => li.textContent),
+      ).toEqual(['Runs gleam lsp for gleam files', 'Runs server/fmt.js --stdio for go, rust files'])
     })
 
     it('approving goes through the bridge and closes the dialog', async () => {

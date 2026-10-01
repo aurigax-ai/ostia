@@ -1,0 +1,24 @@
+{
+  "id": "lsp-rust-analyzer",
+  "name": "Rust (rust-analyzer)",
+  "version": "1.0.0",
+  "api": "1.2",
+  "description": "Rust diagnostics, completion, hover and navigation in the editor. Uses the rust-analyzer program on your PATH.",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "languageServers": [
+      {
+        "id": "rust-analyzer",
+        "name": "rust-analyzer",
+        "languages": ["rust"],
+        "run": {
+          "program": "rust-analyzer",
+          "package": "rust-analyzer",
+          "args": []
+        },
+        "rootMarkers": ["Cargo.toml", "rust-project.json"]
+      }
+    ]
+  }
+}

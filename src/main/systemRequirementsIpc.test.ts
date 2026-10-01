@@ -38,4 +38,24 @@ describe('system requirements IPC', () => {
     expect((args as { argv: string[] }).argv).toContain('--reason')
     expect(caller).toMatchObject({ kind: 'user', workspaceId: 'ws', capabilities: ['shell'] })
   })
+
+  it('tells the human which feature needs the packages by its registered name', async () => {
+    const reasons: string[] = []
+    registerSystemRequirementsIpc({
+      ownerWindow: () => '1',
+      workDir: () => undefined,
+      locale: () => 'en',
+      systemExtensionEnabled: () => true,
+      missing: () => [{ program: 'gopls', package: 'gopls' }],
+      label: (feature) => (feature === 'lsp:lsp-gopls/gopls' ? 'gopls' : feature),
+      invokeInstall: async (args) => {
+        reasons.push(args.argv[args.argv.indexOf('--reason') + 1])
+        return { ok: true }
+      },
+    })
+    const install = handlers.get('system:install-requirements')
+    await install?.({ sender: { id: 1 } }, 'lsp:lsp-gopls/gopls', 'ws')
+    expect(reasons).toEqual([expect.stringContaining('gopls feature')])
+    expect(reasons[0]).not.toContain('lsp:')
+  })
 })

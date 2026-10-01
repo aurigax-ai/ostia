@@ -1,0 +1,24 @@
+{
+  "id": "lsp-gopls",
+  "name": "Go (gopls)",
+  "version": "1.0.0",
+  "api": "1.2",
+  "description": "Go diagnostics, completion, hover and navigation in the editor. Uses the gopls program on your PATH.",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "languageServers": [
+      {
+        "id": "gopls",
+        "name": "gopls",
+        "languages": ["go"],
+        "run": {
+          "program": "gopls",
+          "package": "gopls",
+          "args": []
+        },
+        "rootMarkers": ["go.work", "go.mod"]
+      }
+    ]
+  }
+}

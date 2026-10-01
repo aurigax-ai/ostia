@@ -1,0 +1,24 @@
+{
+  "id": "lsp-lua",
+  "name": "Lua (lua-language-server)",
+  "version": "1.0.0",
+  "api": "1.2",
+  "description": "Lua diagnostics, completion, hover and navigation in the editor. Uses the lua-language-server program on your PATH.",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "languageServers": [
+      {
+        "id": "lua",
+        "name": "lua-language-server",
+        "languages": ["lua"],
+        "run": {
+          "program": "lua-language-server",
+          "package": "lua-language-server",
+          "args": []
+        },
+        "rootMarkers": [".luarc.json", ".luarc.jsonc"]
+      }
+    ]
+  }
+}

@@ -34,8 +34,25 @@ const registry = new Map<string, Requirement[]>([
   ],
 ])
 
-export function registerRequirements(feature: string, requirements: Requirement[]): void {
+const labels = new Map<string, string>()
+
+export function registerRequirements(
+  feature: string,
+  requirements: Requirement[],
+  label?: string,
+): void {
+  if (requirements.length === 0) {
+    registry.delete(feature)
+    labels.delete(feature)
+    return
+  }
   registry.set(feature, requirements)
+  if (label) labels.set(feature, label)
+  else labels.delete(feature)
+}
+
+export function requirementLabel(feature: string): string {
+  return labels.get(feature) ?? feature
 }
 
 function isExecutable(file: string): boolean {
@@ -48,11 +65,15 @@ function isExecutable(file: string): boolean {
   }
 }
 
+export function programPath(program: string, path = process.env.PATH ?? ''): string | null {
+  for (const dir of path.split(delimiter)) {
+    if (dir && isExecutable(join(dir, program))) return join(dir, program)
+  }
+  return null
+}
+
 export function onPath(program: string, path = process.env.PATH ?? ''): boolean {
-  return path
-    .split(delimiter)
-    .filter(Boolean)
-    .some((dir) => isExecutable(join(dir, program)))
+  return programPath(program, path) !== null
 }
 
 export function missingRequirements(

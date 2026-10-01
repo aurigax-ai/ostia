@@ -12,7 +12,7 @@ import { useReducedMotion } from '../lib/motion'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { codeFontStack } from '../lib/uiFonts'
 import { attachWheelZoom } from '../lib/wheelZoom'
-import { openDocument } from '../lsp/client'
+import { documentSaved, openDocument } from '../lsp/client'
 import { useAskSelectionAction, useAssistCompletionsAction } from '../monaco/assistAction'
 import { langFor } from '../monaco/language'
 import { monaco } from '../monaco/setup'
@@ -230,6 +230,7 @@ export function EditorView({
         return
       }
       savedVersions.set(model.uri.toString(), version)
+      documentSaved(model)
       useEditorStatus.getState().setDirty(fp, isDirty(model))
       setUnsavedPath(null)
       setDiskBar(null)
@@ -398,6 +399,7 @@ export function EditorView({
     const editor = editorRef.current
     if (!editor || !filePath) return
     let alive = true
+    let releaseDocument = (): void => {}
     window.pine.fs.read(filePath).then((content) => {
       if (!alive || !editorRef.current) return
       if (content !== null && isBinary(content)) {
@@ -415,15 +417,16 @@ export function EditorView({
       if (!existing || !isDirty(existing)) diskBase.set(model.uri.toString(), content)
       editor.setModel(model)
       applyReveal(editor, filePath)
-      void openDocument(model, langFor(filePath))
+      releaseDocument = openDocument(model, paneId)
     })
     void window.pine.fs.watch(filePath)
     setDiskBar(null)
     return () => {
       alive = false
+      releaseDocument()
       window.pine.fs.unwatch(filePath)
     }
-  }, [filePath])
+  }, [filePath, paneId])
 
   useEffect(() => {
     const offChanged = window.pine.fs.onChanged((change) => {

@@ -38,6 +38,7 @@ import type {
 } from '../shared/extensions'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { LanguagePack } from '../shared/languagePack'
+import type { LanguageServerInfo, LspLog, LspSessionInfo } from '../shared/languageServers'
 import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
@@ -67,8 +68,6 @@ import type {
   GatewayPairResult,
   GatewaySetCapResult,
   GatewayStatus,
-  LspServerInfo,
-  LspStartResult,
   ManagerOpenPaneRequest,
   NotificationEntry,
   OpenPathResult,
@@ -203,21 +202,32 @@ const bridge: PineBridge = {
     },
   },
   lsp: {
-    list: () => ipcRenderer.invoke('lsp:list') as Promise<LspServerInfo[]>,
-    start: (languageId, filePath) =>
-      ipcRenderer.invoke('lsp:start', languageId, filePath) as Promise<LspStartResult | null>,
-    send: (id, message) => ipcRenderer.send('lsp:send', id, message),
-    stop: (id) => ipcRenderer.send('lsp:stop', id),
-    onMessage: (id, cb) => {
+    servers: () => ipcRenderer.invoke('lsp:servers') as Promise<LanguageServerInfo[]>,
+    onServersChanged: (cb) => {
+      const handler = (_e: unknown, list: LanguageServerInfo[]): void => cb(list)
+      ipcRenderer.on('lsp:servers-changed', handler)
+      return () => ipcRenderer.removeListener('lsp:servers-changed', handler)
+    },
+    open: (paneId, filePath) =>
+      ipcRenderer.invoke('lsp:open', paneId, filePath) as Promise<LspSessionInfo[]>,
+    send: (sessionId, message) => ipcRenderer.send('lsp:send', sessionId, message),
+    release: (sessionId) => ipcRenderer.send('lsp:release', sessionId),
+    onMessage: (sessionId, cb) => {
       const handler = (_e: unknown, message: unknown): void => cb(message)
-      ipcRenderer.on(`lsp:msg:${id}`, handler)
-      return () => ipcRenderer.removeListener(`lsp:msg:${id}`, handler)
+      ipcRenderer.on(`lsp:msg:${sessionId}`, handler)
+      return () => ipcRenderer.removeListener(`lsp:msg:${sessionId}`, handler)
     },
-    onExit: (id, cb) => {
+    onExit: (sessionId, cb) => {
       const handler = (): void => cb()
-      ipcRenderer.on(`lsp:exit:${id}`, handler)
-      return () => ipcRenderer.removeListener(`lsp:exit:${id}`, handler)
+      ipcRenderer.on(`lsp:exit:${sessionId}`, handler)
+      return () => ipcRenderer.removeListener(`lsp:exit:${sessionId}`, handler)
     },
+    setEnabled: (serverKey, enabled) =>
+      ipcRenderer.invoke('extensions:set-language-server', serverKey, enabled) as Promise<
+        LanguageServerInfo[]
+      >,
+    restart: (serverKey) => ipcRenderer.invoke('lsp:restart', serverKey) as Promise<void>,
+    log: (serverKey) => ipcRenderer.invoke('lsp:log', serverKey) as Promise<LspLog>,
   },
   settings: {
     path: () => ipcRenderer.invoke('settings:path') as Promise<string>,

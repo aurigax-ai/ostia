@@ -125,7 +125,7 @@ installs, updates or uninstalls, from Settings.
 | `contributes.paneChips` | Up to 8 `{id, title}`. Each is a slot for a short value you put on a pane's header with `ext.setPaneChip` (for example a venv or a test count). `title` names it in tooltips and in Settings → Prompt: the human can also place your chip in the Pine prompt's chip row (`terminal.prompt.chips` id `<extId>.<chip>`), where it shows the same value. Needs `main`. |
 | `contributes.workspaceChips` | Up to 8 `{id, title}`, like `paneChips` but for a value that describes a whole workspace (for example its repository's branch and changes). You set it with `ext.setWorkspaceChip`; the top bar shows the chips of the active workspace. The Pine prompt can show it too (same `<extId>.<chip>` id): a pane's prompt shows its own pane chip if there is one, otherwise its workspace's. Needs `main`. |
 | `api` | Required. The extension API version you wrote against, `major.minor` (`"1.0"`). pine loads the extension only when it provides that major and at least that minor; otherwise the manifest is refused with `needs extension API X; this pine provides Y`, in the log, in `pine-extension validate` and under a marketplace's "Entries that could not be offered". See "API version" |
-| `category` | Optional, one of `ai`, `scm`, `tools`, `themes`, `langpack`, `completions`, `other` (the default). Settings → Extensions and the marketplace show it as a badge. Anything else refuses the manifest |
+| `category` | Optional, one of `ai`, `scm`, `tools`, `themes`, `langpack`, `completions`, `languages`, `other` (the default). Settings → Extensions and the marketplace show it as a badge. Anything else refuses the manifest |
 | `contributes.languages` | Up to 8 language packs, each `{id, label, path}`: `id` is a language tag (`fr`, `zh-Hant`), `label` the name shown in Settings → Language, `path` a `.json` file inside the extension. The file is a nested object of strings shaped like pine's English catalog (`src/renderer/i18n/dict.ts`, `en`): translate the keys you want, anything missing stays English, and keys English doesn't have are ignored. Keep `{placeholders}` as they are. No `main` needed. Main reads the file (no symlinks, ≤ 1 MiB, strings ≤ 4000 characters) only while the extension is enabled; disabling it puts the interface back in English. The first enabled extension to provide a language wins, and none can replace English |
 | `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
@@ -134,6 +134,7 @@ installs, updates or uninstalls, from Settings.
 | `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Extensions shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
+| `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: pine starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`, `chat`.
@@ -180,9 +181,84 @@ each icon at most 512 KiB, all icons at most 48 MiB, every path inside the exten
 after resolving symlinks, and no symlinked file. Icons reach the renderer as `data:` URLs;
 the renderer never gets a path.
 
+## Language servers
+
+An extension gives the editor a language server by describing it in `contributes.languageServers`.
+It is data, not code: pine spawns the process, speaks LSP to it over stdio, and wires its answers
+into the editor (diagnostics, completion, hover, go to definition, formatting; providers are
+registered from what the server reports in `initialize`). Your extension never owns the process
+and needs no `main`.
+
+```json
+{
+  "id": "lsp-pyright",
+  "name": "Python (Pyright)",
+  "version": "1.0.0",
+  "api": "1.2",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "settings": {
+      "typeCheckingMode": { "type": "enum", "values": ["off", "basic", "standard", "strict"],
+        "default": "standard", "description": "How strictly Pyright checks types" }
+    },
+    "languageServers": [
+      {
+        "id": "pyright",
+        "name": "Pyright",
+        "languages": ["python"],
+        "documentLanguageIds": { ".pyi": "python" },
+        "run": { "node": "server/langserver.index.js", "args": ["--stdio"] },
+        "rootMarkers": ["pyproject.toml", "setup.py", "requirements.txt", "pyrightconfig.json"],
+        "initializationOptions": {},
+        "settings": { "python": { "analysis": { "typeCheckingMode": "standard" } } },
+        "settingPaths": { "typeCheckingMode": "python.analysis.typeCheckingMode" }
+      }
+    ]
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `id` | Lowercase letters, digits and dashes, unique in the extension. The server's key is `<extension id>/<id>`. |
+| `name` | 1–200 characters, shown in Settings → Languages and the approval dialog. |
+| `languages` | 1–16 editor (Monaco) language ids, `[a-z][a-z0-9+#-]*`: the files this server is started for. |
+| `documentLanguageIds` | Optional. Maps an editor language id, or a file suffix starting with `.`, to the LSP `languageId` sent in `didOpen` (`"shell": "shellscript"`, `".tsx": "typescriptreact"`). The longest matching suffix wins, then the editor language id; without an entry the editor language id is sent. |
+| `run` | Exactly one of two forms. `{ "node": "<path>", "args": [] }`: a `.js`, `.mjs` or `.cjs` file inside the extension, run with pine's own Electron as Node (`ELECTRON_RUN_AS_NODE=1`), so no system Node is needed. `{ "program": "<name>", "args": [], "package": "<name>" }`: a bare program name looked up on `PATH`; `package` is what the System extension is asked to install when the program is missing (default: the program name). Nothing else is allowed in `run`. |
+| `run.args` | At most 32 strings of at most 200 characters. `{extensionDir}` and `{root}` are replaced, per argument. There is no shell: an argument is never split or expanded. |
+| `rootMarkers` | At most 16 file names. The server's root is the nearest folder, from the file upward, that holds one, never above the workspace folder. Without markers, or when none is found, the root is the workspace folder. |
+| `initializationOptions`, `settings` | JSON objects of at most 16 KiB each. String values get the same two replacements. `initializationOptions` goes into `initialize`; `settings` answers the server's `workspace/configuration` requests by section. |
+| `settingPaths` | Maps one of your own `contributes.settings` keys to a dotted path in `settings`. pine lays the human's value over `settings` before answering, and sends `workspace/didChangeConfiguration` when it changes. |
+
+How pine runs it:
+
+- **Start.** A server starts when a file of one of its languages opens in the editor, once per
+  server, root folder and window. cwd is the root.
+- **Environment.** The process gets pine's environment without any `PINE_*` variable: no socket,
+  no token. A language server cannot call pine.
+- **Sandboxed workspaces.** In a sandboxed workspace the server runs inside that workspace's
+  sandbox, or not at all. Your extension's folder is readable there; a `program` that lives under
+  the home folder (for example `~/.cargo/bin`) is not until the human adds a read path, and
+  Settings says so.
+- **Stop.** With no document open for a minute pine sends `shutdown` and `exit`. A crash restarts
+  it with a growing delay, at most five times; after that it is shown as crashed until the human
+  presses Restart.
+- **Missing program.** A `program` that is not on `PATH` leaves the server off and Settings →
+  Languages offers to install `package` through the System extension, which shows the human the
+  exact command first.
+- **The human's controls.** Settings → Languages lists every server with its status, an on/off
+  switch, Restart and a log (start, exit, restarts, the server's stderr; kept in memory only).
+  There is no socket method or CLI verb for any of it.
+
+Ship a server that is plain JavaScript inside your extension folder (`run.node`) so it works
+without anything else installed; name a native server as a `program`. pine never downloads a
+server by itself: installing the extension from a marketplace is the download.
+
 ## Approval and capabilities
 
-- The first launch of a user extension shows a dialog listing its `capabilities`. Approve and it
+- The first launch of a user extension shows a dialog listing its `capabilities` and, for each
+  language server, the command it runs and for which files. Approve and it
   runs with exactly those; "Keep disabled" records the decision. Built-ins skip the dialog.
 - If a new version asks for more, it runs with the previously approved subset until the user
   reviews it in Settings.
@@ -697,6 +773,7 @@ them.
 
 | Id | What it does |
 |---|---|
+| `lsp-rust-analyzer`, `lsp-gopls`, `lsp-clangd`, `lsp-lua` | One language server each, as a manifest with no process of its own: `rust-analyzer` for Rust, `gopls` for Go, `clangd` for C and C++, `lua-language-server` for Lua. Each names a program on `PATH`; when it is missing, Settings → Languages offers the install |
 | `trellis` | The Trellis web UI as a panel on the workspace's project, the open card count of the active workspace as a `cards` workspace chip in the top bar (click opens the board), notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Init Project Here", `pine trellis status`. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications that open the approvals queue (Keeper has no per-ticket page), "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue. Settings: `notify`, `pollSeconds`, `idlePollSeconds` |
 | `model-runtime` | The assist points on the user's local model-runtime (`$XDG_RUNTIME_DIR/model-runtime.sock` unless `baseUrl` says otherwise, `gemma` as the fast model unless set), with load and unload in Settings → Assistant → Models. It runs the same engine as `assistant` (`src/extensions/sdk/assist/`, `runAssistExtension`) with its own one-provider catalog; tools are described in the prompt. When both are ready, the built-in `assistant` answers |
