@@ -9,7 +9,9 @@ import {
   LSP_LOG_LINE_MAX,
   LSP_LOG_MAX_ENTRIES,
   type LanguageServerContribution,
+  type LanguageServerFetchFailure,
   type LanguageServerInfo,
+  type LanguageServerRun,
   type LanguageServerSandboxProblem,
   type LanguageServerStatus,
   type LspLog,
@@ -18,11 +20,17 @@ import {
   type LspStopReason,
   configurationSection,
   documentLanguageId,
-  isProgramRun,
+  goInstallArgs,
+  isDownloadRun,
+  isGoInstallRun,
+  isNodeRun,
   languageServerCommand,
   languageServerFeature,
   languageServerKey,
+  languageServerKind,
   overlaySettings,
+  pathProgram,
+  pinnedVersion,
   substituteJson,
   substitutePlaceholders,
 } from '../shared/languageServers'
@@ -38,6 +46,8 @@ export const LSP_STOP_GRACE_MS = 2_000
 const HOST_SCOPE = 'host'
 const MAX_TRACKED_REQUESTS = 2_000
 const PROGRAM_PLATFORMS: NodeJS.Platform[] = ['linux', 'darwin', 'win32']
+const GO_PROGRAM = 'go'
+const PROGRESS_STEP = 5
 
 export interface LanguageServerSource {
   extId: string
@@ -61,6 +71,20 @@ export interface LanguageServerSandbox {
   env: (workspaceId: string, env: NodeJS.ProcessEnv) => NodeJS.ProcessEnv
 }
 
+export interface ManagedServerFiles {
+  canFetch: (run: LanguageServerRun) => boolean
+  executable: (extId: string, serverId: string, run: LanguageServerRun) => string | null
+  folder: (extId: string, serverId: string, version: string) => string
+  fetch: (
+    extId: string,
+    serverId: string,
+    run: LanguageServerRun,
+    hooks: { onProgress?: (percent: number) => void; onOutput?: (line: string) => void },
+  ) => Promise<string>
+  remove: (extId: string, serverId: string) => void
+  retain: (keep: ReadonlyMap<string, string>) => void
+}
+
 export type SpawnServer = (
   command: string,
   args: string[],
@@ -77,6 +101,7 @@ export interface LanguageServersDeps {
   roots: () => string[]
   sandbox: LanguageServerSandbox
   findProgram: (program: string) => string | null
+  managed: ManagedServerFiles
   registerRequirements: (feature: string, requirements: Requirement[], label?: string) => void
   post: (windowId: string, channel: string, ...args: unknown[]) => void
   changed: (list: LanguageServerInfo[]) => void
@@ -122,6 +147,21 @@ interface ServerRecord {
   entries: LspLogEntry[]
   errors: Map<string, number>
   sandboxProblem: { problem: LanguageServerSandboxProblem; detail: string } | null
+  fetching: { percent: number; done: Promise<string | null> } | null
+  fetchFailure: { reason: LanguageServerFetchFailure; detail: string } | null
+  fetchHeld: boolean
+}
+
+interface Binary {
+  path: string
+  managedFolder: string | null
+}
+
+function failureOf(err: unknown): { reason: LanguageServerFetchFailure; detail: string } {
+  const { reason, detail } = err as { reason?: LanguageServerFetchFailure; detail?: string }
+  return typeof reason === 'string'
+    ? { reason, detail: typeof detail === 'string' ? detail : '' }
+    : { reason: 'write-failed', detail: '' }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -207,7 +247,14 @@ export class LanguageServers {
   private record(key: string): ServerRecord {
     let record = this.records.get(key)
     if (!record) {
-      record = { entries: [], errors: new Map(), sandboxProblem: null }
+      record = {
+        entries: [],
+        errors: new Map(),
+        sandboxProblem: null,
+        fetching: null,
+        fetchFailure: null,
+        fetchHeld: false,
+      }
       this.records.set(key, record)
     }
     return record
@@ -237,17 +284,50 @@ export class LanguageServers {
     this.deps.changed(this.servers())
   }
 
+  private managedCopy(source: LanguageServerSource): string | null {
+    return this.deps.managed.executable(source.extId, source.server.id, source.server.run)
+  }
+
+  private fetchable(source: LanguageServerSource): boolean {
+    const { run } = source.server
+    if (isGoInstallRun(run)) return this.deps.findProgram(GO_PROGRAM) !== null
+    return this.deps.managed.canFetch(run)
+  }
+
+  private located(source: LanguageServerSource): Binary | null {
+    const { run } = source.server
+    const program = pathProgram(run)
+    if (program === null) return null
+    const onPath = this.deps.findProgram(program)
+    if (onPath !== null) return { path: onPath, managedFolder: null }
+    const copy = this.managedCopy(source)
+    const version = pinnedVersion(run)
+    if (copy === null || version === null) return null
+    return {
+      path: copy,
+      managedFolder: this.deps.managed.folder(source.extId, source.server.id, version),
+    }
+  }
+
   private status(source: LanguageServerSource, key: string): LanguageServerStatus {
     if (source.state === 'pending') return 'pending-approval'
     if (source.state === 'off') return 'off'
     const { run } = source.server
-    if (isProgramRun(run) && this.deps.findProgram(run.program) === null) return 'program-missing'
+    const record = this.record(key)
+    if (!isNodeRun(run) && this.located(source) === null) {
+      if (record.fetching) return isGoInstallRun(run) ? 'installing' : 'downloading'
+      if (record.fetchFailure) return isGoInstallRun(run) ? 'install-failed' : 'download-failed'
+      if (!this.fetchable(source)) {
+        return isGoInstallRun(run) ? 'toolchain-missing' : 'program-missing'
+      }
+      return 'idle'
+    }
     if (this.live(key).length > 0) return 'running'
     const prefix = `${key}\n`
     for (const [slotKey, slot] of this.slots) {
       if (slot.crashed && slotKey.startsWith(prefix)) return 'crashed'
     }
-    return this.record(key).sandboxProblem ? 'sandbox-unavailable' : 'idle'
+    return record.sandboxProblem ? 'sandbox-unavailable' : 'idle'
   }
 
   servers(): LanguageServerInfo[] {
@@ -255,7 +335,13 @@ export class LanguageServers {
       const key = languageServerKey(source.extId, source.server.id)
       const { run } = source.server
       const status = this.status(source, key)
-      const sandbox = this.record(key).sandboxProblem
+      const record = this.record(key)
+      const sandbox = record.sandboxProblem
+      const program = pathProgram(run)
+      const version = pinnedVersion(run)
+      const binary = source.state === 'on' ? this.located(source) : null
+      const needsInstall = status === 'program-missing' || status === 'toolchain-missing'
+      const failed = status === 'download-failed' || status === 'install-failed'
       return {
         key,
         extId: source.extId,
@@ -263,13 +349,32 @@ export class LanguageServers {
         serverId: source.server.id,
         name: source.server.name,
         languages: source.server.languages,
-        kind: isProgramRun(run) ? 'program' : 'bundled',
+        kind: languageServerKind(run),
         command: languageServerCommand(run),
         enabled: source.state === 'on',
         status,
         folders: new Set(this.live(key).map((s) => s.root)).size,
-        ...(isProgramRun(run)
-          ? { program: run.program, requirement: languageServerFeature(key) }
+        ...(program !== null ? { program } : {}),
+        ...(needsInstall ? { requirement: languageServerFeature(key) } : {}),
+        ...(version !== null ? { version } : {}),
+        ...(binary
+          ? {
+              binary: binary.managedFolder
+                ? { source: 'managed' as const, ...(version !== null ? { version } : {}) }
+                : { source: 'path' as const },
+            }
+          : {}),
+        ...(this.managedCopy(source) !== null ? { managedCopy: true } : {}),
+        ...(source.state === 'on' && !isNodeRun(run) && this.fetchable(source)
+          ? { fetchable: true }
+          : {}),
+        ...(record.fetchHeld ? { fetchHeld: true } : {}),
+        ...(record.fetching ? { progress: record.fetching.percent } : {}),
+        ...(failed && record.fetchFailure
+          ? { failure: record.fetchFailure.reason, failureDetail: record.fetchFailure.detail }
+          : {}),
+        ...(isGoInstallRun(run)
+          ? { fetchCommand: [GO_PROGRAM, ...goInstallArgs(run.goInstall)].join(' ') }
           : {}),
         ...(status === 'sandbox-unavailable' && sandbox
           ? { sandboxProblem: sandbox.problem, sandboxDetail: sandbox.detail }
@@ -290,22 +395,20 @@ export class LanguageServers {
     const sources = this.deps.sources()
     const on = new Map<string, LanguageServerSource>()
     const programs = new Set<string>()
+    const pinned = new Map<string, string>()
     for (const source of sources) {
       const key = languageServerKey(source.extId, source.server.id)
       if (source.state === 'on') on.set(key, source)
       const { run } = source.server
-      if (!isProgramRun(run)) continue
+      const version = pinnedVersion(run)
+      if (version !== null) pinned.set(key, version)
+      const needed = this.requiredProgram(run)
+      if (needed === null) continue
       const feature = languageServerFeature(key)
       programs.add(feature)
       this.deps.registerRequirements(
         feature,
-        [
-          {
-            program: run.program,
-            package: run.package ?? run.program,
-            platforms: PROGRAM_PLATFORMS,
-          },
-        ],
+        [{ ...needed, platforms: PROGRAM_PLATFORMS }],
         source.server.name,
       )
     }
@@ -313,6 +416,7 @@ export class LanguageServers {
       if (!programs.has(feature)) this.deps.registerRequirements(feature, [])
     }
     this.registered = programs
+    this.deps.managed.retain(pinned)
     for (const session of [...this.sessions.values()]) {
       if (session.stopping !== null) continue
       const source = on.get(session.key)
@@ -325,6 +429,101 @@ export class LanguageServers {
       this.forgetSlots(key)
       this.record(key).sandboxProblem = null
     }
+    this.changed()
+  }
+
+  private requiredProgram(run: LanguageServerRun): { program: string; package: string } | null {
+    if (isNodeRun(run)) return null
+    if (isGoInstallRun(run)) return { program: GO_PROGRAM, package: GO_PROGRAM }
+    if (isDownloadRun(run)) {
+      return this.deps.managed.canFetch(run)
+        ? null
+        : { program: run.download.program, package: run.download.program }
+    }
+    return { program: run.program, package: run.package ?? run.program }
+  }
+
+  private fetchNow(key: string, source: LanguageServerSource): Promise<string | null> {
+    const record = this.record(key)
+    if (record.fetching) return record.fetching.done
+    const { run } = source.server
+    const version = pinnedVersion(run) ?? ''
+    record.fetchFailure = null
+    this.note(key, {
+      at: this.now(),
+      kind: 'fetch-start',
+      how: isGoInstallRun(run) ? 'go-install' : 'download',
+      version,
+    })
+    this.deps.log?.('lsp-fetch', { server: key, how: languageServerKind(run) })
+    const state = { percent: 0, done: Promise.resolve<string | null>(null) }
+    record.fetching = state
+    state.done = this.deps.managed
+      .fetch(source.extId, source.server.id, run, {
+        onProgress: (percent) => {
+          if (percent < state.percent + PROGRESS_STEP && percent < 100) return
+          state.percent = percent
+          this.changed()
+        },
+        onOutput: (text) => this.note(key, { at: this.now(), kind: 'fetch-output', text }),
+      })
+      .then(
+        (path) => {
+          this.note(key, { at: this.now(), kind: 'fetch-done', version })
+          return path
+        },
+        (err: unknown) => {
+          const failure = failureOf(err)
+          record.fetchFailure = failure
+          this.note(key, { at: this.now(), kind: 'fetch-failed', ...failure })
+          this.deps.log?.('lsp-fetch-failed', { server: key, reason: failure.reason })
+          return null
+        },
+      )
+      .finally(() => {
+        record.fetching = null
+        this.changed()
+      })
+    this.changed()
+    return state.done
+  }
+
+  private async binaryFor(key: string, source: LanguageServerSource): Promise<Binary | null> {
+    const found = this.located(source)
+    if (found !== null) return found
+    const record = this.record(key)
+    if (record.fetchFailure || record.fetchHeld || !this.fetchable(source)) return null
+    await this.fetchNow(key, source)
+    return this.located(source)
+  }
+
+  private enabledSource(key: unknown): LanguageServerSource | undefined {
+    return this.deps
+      .sources()
+      .find((s) => s.state === 'on' && languageServerKey(s.extId, s.server.id) === key)
+  }
+
+  async fetch(key: unknown): Promise<void> {
+    const source = this.enabledSource(key)
+    if (!source || typeof key !== 'string' || isNodeRun(source.server.run)) return
+    this.record(key).fetchFailure = null
+    this.record(key).fetchHeld = false
+    if (this.located(source) !== null || !this.fetchable(source)) {
+      this.changed()
+      return
+    }
+    await this.fetchNow(key, source)
+  }
+
+  async removeDownload(key: unknown): Promise<void> {
+    if (typeof key !== 'string') return
+    const source = this.deps.sources().find((s) => languageServerKey(s.extId, s.server.id) === key)
+    if (!source || this.record(key).fetching) return
+    await Promise.all(this.live(key).map((session) => this.stop(session, 'restart')))
+    this.deps.managed.remove(source.extId, source.server.id)
+    this.record(key).fetchFailure = null
+    this.record(key).fetchHeld = true
+    this.note(key, { at: this.now(), kind: 'fetch-removed' })
     this.changed()
   }
 
@@ -426,18 +625,18 @@ export class LanguageServers {
     const wait = slot.restartAt - this.now()
     if (wait > 0) await sleep(wait)
     if (this.stopped || this.slot(slotKey).crashed) return null
-    const source = this.deps
-      .sources()
-      .find((s) => s.state === 'on' && languageServerKey(s.extId, s.server.id) === key)
+    const source = this.enabledSource(key)
     if (!source) return null
     const { run } = source.server
     const env = scrubbedEnv(this.deps.env())
     let command: string
+    let managedFolder: string | null = null
     const args: string[] = []
-    if (isProgramRun(run)) {
-      const program = this.deps.findProgram(run.program)
-      if (program === null) return null
-      command = program
+    if (!isNodeRun(run)) {
+      const binary = await this.binaryFor(key, source)
+      if (binary === null || this.stopped) return null
+      command = binary.path
+      managedFolder = binary.managedFolder
     } else {
       const script = confinedScript(source.dir, run.node)
       if (script === null) {
@@ -461,7 +660,11 @@ export class LanguageServers {
         this.changed()
         return null
       }
-      if (isProgramRun(run) && !sandbox.readable(pane.workspaceId, command)) {
+      if (
+        !isNodeRun(run) &&
+        managedFolder === null &&
+        !sandbox.readable(pane.workspaceId, command)
+      ) {
         return refuse('program-unreadable', dirname(command))
       }
       if (!sandbox.readable(pane.workspaceId, root)) return refuse('folder-unreadable', root)
@@ -469,7 +672,11 @@ export class LanguageServers {
         const wrapped = await sandbox.wrap(
           pane.workspaceId,
           quoteArgv([command, ...args]),
-          isProgramRun(run) || source.builtin ? [] : [source.dir],
+          managedFolder !== null
+            ? [managedFolder]
+            : isNodeRun(run) && !source.builtin
+              ? [source.dir]
+              : [],
         )
         spawnCommand = '/bin/sh'
         spawnArgs = ['-c', wrapped]
@@ -639,6 +846,8 @@ export class LanguageServers {
     if (typeof key !== 'string') return
     this.forgetSlots(key)
     this.record(key).sandboxProblem = null
+    this.record(key).fetchFailure = null
+    this.record(key).fetchHeld = false
     await Promise.all(this.live(key).map((session) => this.stop(session, 'restart')))
     this.changed()
   }

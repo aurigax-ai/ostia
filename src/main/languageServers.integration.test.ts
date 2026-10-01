@@ -110,6 +110,14 @@ beforeEach(() => {
       env: (_workspaceId, env) => env,
     },
     findProgram: (program) => programPath(program, FAKE_LSP_BIN),
+    managed: {
+      canFetch: () => false,
+      executable: () => null,
+      folder: () => '',
+      fetch: async () => '',
+      remove: () => {},
+      retain: () => {},
+    },
     registerRequirements: () => {},
     post: (_windowId, channel, message) =>
       posted.push({ channel, message: message as Record<string, unknown> | undefined }),

@@ -74,6 +74,33 @@ describe('manifest schemas', () => {
         { run: { program: 'main', args: ['a'.repeat(201)] } },
         { rootMarkers: ['a/b'] },
         { settingPaths: { mode: 'a..b' } },
+        ...[
+          { url: 'http://github.com/o/r/t.gz' },
+          { url: 'https://evil.example/t.gz' },
+          { sha256: 'abc' },
+          { archive: 'rar' },
+          { executable: '../t' },
+        ].map((asset) => ({
+          run: {
+            download: {
+              program: 'demo',
+              version: '1.0.0',
+              assets: {
+                'linux-x64': {
+                  url: 'https://github.com/o/r/releases/download/1/t.gz',
+                  sha256: 'a'.repeat(64),
+                  archive: 'gz',
+                  executable: 't',
+                  ...asset,
+                },
+              },
+            },
+          },
+        })),
+        { run: { download: { program: 'demo', version: 'latest', assets: {} } } },
+        { run: { goInstall: { module: '-x', version: 'v1.0.0', binary: 'demo' } } },
+        { run: { goInstall: { module: 'example.org/x/demo', version: 'latest', binary: 'demo' } } },
+        { run: { goInstall: { module: 'example.org/x/demo', version: 'v1.0.0', binary: 'a/b' } } },
       ].map((server) => ({
         ...base,
         capabilities: ['language-server'],

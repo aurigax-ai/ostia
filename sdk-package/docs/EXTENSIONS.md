@@ -225,46 +225,145 @@ and needs no `main`.
 | `name` | 1–200 characters, shown in Settings → Languages and the approval dialog. |
 | `languages` | 1–16 editor (Monaco) language ids, `[a-z][a-z0-9+#-]*`: the files this server is started for. |
 | `documentLanguageIds` | Optional. Maps an editor language id, or a file suffix starting with `.`, to the LSP `languageId` sent in `didOpen` (`"shell": "shellscript"`, `".tsx": "typescriptreact"`). The longest matching suffix wins, then the editor language id; without an entry the editor language id is sent. |
-| `run` | Exactly one of two forms. `{ "node": "<path>", "args": [] }`: a `.js`, `.mjs` or `.cjs` file inside the extension, run with pine's own Electron as Node (`ELECTRON_RUN_AS_NODE=1`), so no system Node is needed. `{ "program": "<name>", "args": [], "package": "<name>" }`: a bare program name looked up on `PATH`; `package` is what the System extension is asked to install when the program is missing (default: the program name). Nothing else is allowed in `run`. |
+| `run` | Exactly one of four forms, each with optional `args`: `node`, `program`, `download` or `goInstall`. See [How the server's program gets there](#how-the-servers-program-gets-there). Nothing else is allowed in `run`. |
 | `run.args` | At most 32 strings of at most 200 characters. `{extensionDir}` and `{root}` are replaced, per argument. There is no shell: an argument is never split or expanded. |
 | `rootMarkers` | At most 16 file names. The server's root is the nearest folder, from the file upward, that holds one, never above the workspace folder. Without markers, or when none is found, the root is the workspace folder. |
 | `initializationOptions`, `settings` | JSON objects of at most 16 KiB each. String values get the same two replacements. `initializationOptions` goes into `initialize`; `settings` answers the server's `workspace/configuration` requests by section. |
 | `settingPaths` | Maps one of your own `contributes.settings` keys to a dotted path in `settings`. pine lays the human's value over `settings` before answering, and sends `workspace/didChangeConfiguration` when it changes. |
 
-How pine runs it:
+### How the server's program gets there
+
+A server reaches the human's machine in one of four ways. Pick the one that fits the server; you
+cannot mix them in one `run`.
+
+| `run` form | Use it for | What happens |
+|---|---|---|
+| `{ "node": "server/cli.mjs" }` | A server written in JavaScript | Its files ship inside your extension folder, so installing the extension is the download. pine runs the `.js`, `.mjs` or `.cjs` file with its own Electron as Node (`ELECTRON_RUN_AS_NODE=1`); no system Node is needed. The path must be a regular file inside the extension, checked again after symlinks are resolved. |
+| `{ "download": { … } }` | A native server with release binaries | pine uses the program on the human's `PATH` when there is one. Otherwise it downloads the pinned asset for the platform, checks its SHA-256, unpacks it into its own data folder and runs that copy. |
+| `{ "goInstall": { … } }` | A Go server without release binaries | pine uses the binary on `PATH` when there is one. Otherwise it runs `go install <module>@<version>` with `GOBIN` in its own data folder. Needs Go on `PATH`. |
+| `{ "program": "name", "package": "name" }` | A server pine cannot fetch | Looked up on `PATH` only. While it is missing the server is off and Settings → Languages offers to install `package` (default: the program name) through the System extension, which shows the human the exact command first. |
+
+The `download` form:
+
+```json
+"run": {
+  "download": {
+    "program": "rust-analyzer",
+    "version": "2026-09-28",
+    "assets": {
+      "linux-x64": {
+        "url": "https://github.com/rust-lang/rust-analyzer/releases/download/2026-09-28/rust-analyzer-x86_64-unknown-linux-gnu.gz",
+        "sha256": "23f711d86b5f826e22886f01d7355dc01e0f4c1357dafa29710a95b903b48c85",
+        "archive": "gz",
+        "executable": "rust-analyzer"
+      }
+    }
+  },
+  "args": []
+}
+```
+
+- `program` is the name looked up on `PATH` first. The human's own binary always wins.
+- `version` is the pinned version, 1–64 characters of `[A-Za-z0-9._+-]`. `latest` is refused.
+- `assets` has one entry per platform you support: `linux-x64`, `linux-arm64`, `darwin-x64`,
+  `darwin-arm64`, `win32-x64`, `win32-arm64`. On a platform without an entry the server is
+  `PATH`-only, like the `program` form.
+- `url` must be `https` on `github.com`, `objects.githubusercontent.com` or
+  `release-assets.githubusercontent.com`, with no credentials and no port. Redirects are followed
+  only to those hosts.
+- `sha256` is required: 64 lowercase hex characters of the file at `url`. Compute it from the file
+  you downloaded yourself (`sha256sum <file>`); pine refuses the download when it differs.
+- `archive` is `plain` (the file is the program), `gz` (one gzipped program), `tar.gz` or `zip`.
+- `executable` is the program's path inside the unpacked archive (`clangd_23.1.0/bin/clangd`), or
+  the file name to give a `plain` or `gz` download. No `..`, no leading `/`.
+
+The `goInstall` form:
+
+```json
+"run": {
+  "goInstall": { "module": "golang.org/x/tools/gopls", "version": "v0.23.0", "binary": "gopls" },
+  "args": []
+}
+```
+
+- `module` is a Go module path: lowercase host and path segments, nothing that could be a flag.
+- `version` is `vX.Y.Z` exactly. `latest`, branches and pre-releases are refused.
+- `binary` is the program name `go install` produces, also the name looked up on `PATH` first.
+- pine runs exactly `go install <module>@<version>` and nothing else: no other subcommand, no
+  extra arguments from the manifest, never through a shell.
+
+What pine guarantees for `download` and `goInstall`:
+
+- **Only after approval, only on demand.** Nothing is fetched for an extension that is merely
+  listed, disabled or waiting for approval, and nothing at app start. The fetch happens when a
+  file of one of the server's languages opens, or when the human presses the fetch button in
+  Settings → Languages. The approval dialog states what will be downloaded, or the exact
+  `go install` command, before the human approves.
+- **`PATH` first.** A program the human installed themselves is never replaced or shadowed.
+- **Checked before it can run.** A download is limited to 256 MiB, hashed while it is written, and
+  thrown away when the SHA-256 differs. Only then is it unpacked: at most 1 GiB and 20,000 files,
+  no entry outside the folder, no symlinks, hard links or special files. Nothing from the archive
+  is executed while installing, and nothing goes through a shell or a package manager.
+- **In pine's own folder.** The copy lives in `language-servers/<extension id>/<server id>/<version>/`
+  under pine's data folder (mode 0700), never in the workspace. An older version is removed when a
+  new one is in place, and everything of an extension is removed when it is uninstalled. The human
+  can remove a copy in Settings → Languages; pine then does not fetch it again until asked.
+- **Little is sent.** The request carries a `User-Agent` with the product name and version and
+  nothing else: no cookies, no token.
+- **`go install` runs with a scrubbed environment**: no `PINE_*` variable, `GOFLAGS` cleared, a
+  time limit, and its output only in the server's in-memory log.
+
+How pine runs a server:
 
 - **Start.** A server starts when a file of one of its languages opens in the editor, once per
   server, root folder and window. cwd is the root.
 - **Environment.** The process gets pine's environment without any `PINE_*` variable: no socket,
   no token. A language server cannot call pine.
 - **Sandboxed workspaces.** In a sandboxed workspace the server runs inside that workspace's
-  sandbox, or not at all. Your extension's folder is readable there; a `program` that lives under
-  the home folder (for example `~/.cargo/bin`) is not until the human adds a read path, and
-  Settings says so.
+  sandbox, or not at all. Your extension's folder and the folder of the copy pine fetched are
+  readable there (read-only, and only that server's version folder). A program from the human's
+  `PATH` that lives under the home folder (for example `~/.cargo/bin`) is not readable until the
+  human adds a read path, and Settings says so. The fetch itself runs on the host: it is pine's
+  action after the human's approval, not something the sandboxed workspace does.
 - **Stop.** With no document open for a minute pine sends `shutdown` and `exit`. A crash restarts
   it with a growing delay, at most five times; after that it is shown as crashed until the human
   presses Restart.
-- **Missing program.** A `program` that is not on `PATH` leaves the server off and Settings →
-  Languages offers to install `package` through the System extension, which shows the human the
-  exact command first.
-- **The human's controls.** Settings → Languages lists every server with its status, an on/off
-  switch, Restart and a log (start, exit, restarts, the server's stderr; kept in memory only).
-  There is no socket method or CLI verb for any of it.
-
+- **The human's controls.** Settings → Languages lists every server with its status (including
+  `Downloading… 40%` and a failed fetch with its reason and Retry), where its program comes from
+  (`PATH` or pine's copy and its version), an on/off switch, Restart, a way to remove pine's copy,
+  and a log (start, exit, restarts, fetches, the server's stderr; kept in memory only). There is
+  no socket method or CLI verb for any of it.
 - **The editor's own features step aside.** Monaco has built-in features for JSON, CSS, SCSS,
   LESS and HTML. While an enabled server that can run claims one of those languages, pine turns
   the built-in ones off for it (the tokenizer stays), and turns them back on when the server is
   switched off, uninstalled or has crashed for good. `settings.json` is the exception: it always
-  keeps pine's own schema checks and is never sent to a server.
+  keeps pine's own schema checks and is never sent to a server. pine ships no language features
+  for any other language: TypeScript, JavaScript, Python and the rest are only highlighted until
+  an extension provides a server.
+- **No folder trust prompt.** pine has no per-folder trust setting. A server runs project code
+  (build scripts, plugins) with the human's rights once its extension is approved and a matching
+  file opens; a sandboxed workspace is the way to confine it.
 
-Ship a server that is plain JavaScript inside your extension folder (`run.node`) so it works
-without anything else installed; name a native server as a `program`. pine never downloads a
-server by itself: installing the extension from a marketplace is the download.
+### Being suggested
+
+Nothing extra is needed to be offered to the right people. When someone opens a file and no
+enabled server claims its language, pine looks through the marketplaces they have added (the
+copies already on disk; it never fetches for this) for an extension whose
+`contributes.languageServers` covers that language, and shows one quiet line above the editor:
+"<your extension> adds language features for .x files." with **Install** and **No**. Install
+copies the extension from the marketplace, exactly like the button in Settings → Extensions;
+your extension then waits for approval like any other. No is remembered per extension.
+
+pine also carries a small compiled table (`src/shared/extensionSuggestions.ts`) of the language
+extensions it publishes itself and the file names and suffixes each is suggested for, so the
+offer works before any marketplace has been added; Install then adds the official marketplace
+first.
 
 ## Approval and capabilities
 
 - The first launch of a user extension shows a dialog listing its `capabilities` and, for each
-  language server, the command it runs and for which files. Approve and it
+  language server, the command it runs, for which files, and what pine would fetch for it (the
+  download's program, version and host, or the exact `go install` command). Approve and it
   runs with exactly those; "Keep disabled" records the decision. Built-ins skip the dialog.
 - If a new version asks for more, it runs with the previously approved subset until the user
   reviews it in Settings.
@@ -779,9 +878,10 @@ them.
 
 | Id | What it does |
 |---|---|
+| `lsp-rust-analyzer`, `lsp-clangd`, `lsp-lua` | One native language server each, with the `download` form: `rust-analyzer` 2026-09-28 (Linux, macOS and Windows on x64 and arm64), `clangd` 23.1.0 (Linux x64, macOS, Windows x64; other platforms use `PATH`) and `lua-language-server` 3.19.1 (Linux and macOS on x64 and arm64, Windows x64). Each pins the official GitHub release asset and its SHA-256 |
+| `lsp-gopls` | `gopls` for Go with the `goInstall` form: `go install golang.org/x/tools/gopls@v0.23.0` when no `gopls` is on `PATH`. Needs Go; without it Settings → Languages offers to install Go |
 | `lsp-typescript` | TypeScript and JavaScript in the editor: `typescript-language-server` 5.3.0 and TypeScript 5.9.3, copied unchanged from their npm packages into `server/` by `scripts/build-extensions.mjs` (the extension's `vendor.json` lists them) and run with pine's Electron as Node. A project's own TypeScript is used when it has one. The app itself ships no TypeScript language features: without this extension a `.ts` or `.js` file is only highlighted |
 | `lsp-pyright` | Python in the editor: Pyright 1.1.414, copied the same way (about 5,400 files, mostly type stubs). Setting `typeCheckingMode` |
-| `lsp-rust-analyzer`, `lsp-gopls`, `lsp-clangd`, `lsp-lua` | One language server each, as a manifest with no process of its own: `rust-analyzer` for Rust, `gopls` for Go, `clangd` for C and C++, `lua-language-server` for Lua. Each names a program on `PATH`; when it is missing, Settings → Languages offers the install |
 | `trellis` | The Trellis web UI as a panel on the workspace's project, the open card count of the active workspace as a `cards` workspace chip in the top bar (click opens the board), notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Init Project Here", `pine trellis status`. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications that open the approvals queue (Keeper has no per-ticket page), "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue. Settings: `notify`, `pollSeconds`, `idlePollSeconds` |
 | `model-runtime` | The assist points on the user's local model-runtime (`$XDG_RUNTIME_DIR/model-runtime.sock` unless `baseUrl` says otherwise, `gemma` as the fast model unless set), with load and unload in Settings → Assistant → Models. It runs the same engine as `assistant` (`src/extensions/sdk/assist/`, `runAssistExtension`) with its own one-provider catalog; tools are described in the prompt. When both are ready, the built-in `assistant` answers |

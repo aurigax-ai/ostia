@@ -20,6 +20,7 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from './credentials'
+import type { SuggestionsApi } from './extensionSuggestions'
 import type { ExtensionResult, ExtensionsApi } from './extensions'
 import type { IconThemesApi } from './iconTheme'
 import type { LanguagePacksApi } from './languagePack'
@@ -743,6 +744,7 @@ export interface PineBridge {
   files: FilesApi
   extensions: ExtensionsApi
   marketplace: MarketplaceApi
+  suggestions: SuggestionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi
   notifications: NotificationsApi

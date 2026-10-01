@@ -58,6 +58,14 @@ function start(builtin: boolean): void {
       }),
     },
     findProgram: () => null,
+    managed: {
+      canFetch: () => false,
+      executable: () => null,
+      folder: () => '',
+      fetch: async () => '',
+      remove: () => {},
+      retain: () => {},
+    },
     registerRequirements: () => {},
     post: (_windowId, channel, message) => {
       if (channel.startsWith('lsp:msg:')) posted.push(message as Record<string, unknown>)

@@ -22,6 +22,7 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from '../shared/credentials'
+import type { ExtensionSuggestion } from '../shared/extensionSuggestions'
 import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
@@ -228,6 +229,9 @@ const bridge: PineBridge = {
       >,
     restart: (serverKey) => ipcRenderer.invoke('lsp:restart', serverKey) as Promise<void>,
     log: (serverKey) => ipcRenderer.invoke('lsp:log', serverKey) as Promise<LspLog>,
+    fetch: (serverKey) => ipcRenderer.invoke('lsp:fetch', serverKey) as Promise<void>,
+    removeDownload: (serverKey) =>
+      ipcRenderer.invoke('lsp:remove-download', serverKey) as Promise<void>,
   },
   settings: {
     path: () => ipcRenderer.invoke('settings:path') as Promise<string>,
@@ -488,6 +492,17 @@ const bridge: PineBridge = {
       ipcRenderer.invoke('marketplace:install', id, extId) as Promise<MarketplaceResult>,
     uninstall: (extId) =>
       ipcRenderer.invoke('marketplace:uninstall', extId) as Promise<MarketplaceResult>,
+  },
+  suggestions: {
+    forFile: (paneId, path) =>
+      ipcRenderer.invoke(
+        'suggestions:for-file',
+        paneId,
+        path,
+      ) as Promise<ExtensionSuggestion | null>,
+    dismiss: (extId) => ipcRenderer.invoke('suggestions:dismiss', extId) as Promise<void>,
+    install: (extId) =>
+      ipcRenderer.invoke('suggestions:install', extId) as Promise<MarketplaceResult>,
   },
   extensions: {
     list: () => ipcRenderer.invoke('extensions:list') as Promise<ExtensionInfo[]>,

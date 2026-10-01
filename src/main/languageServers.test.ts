@@ -84,6 +84,10 @@ interface Harness {
   sandboxed: Set<string>
   unreadable: Set<string>
   changed: ReturnType<typeof vi.fn>
+  copies: Map<string, string>
+  fetchBinary: ReturnType<typeof vi.fn>
+  retained: Map<string, string>[]
+  platformAsset: boolean
 }
 
 let tmp: string
@@ -138,6 +142,14 @@ function harness(overrides: Partial<LanguageServersDeps> = {}): Harness {
     sandboxed: new Set(),
     unreadable: new Set(),
     changed: vi.fn(),
+    copies: new Map(),
+    retained: [],
+    platformAsset: true,
+    fetchBinary: vi.fn(async (extId: string, serverId: string) => {
+      const path = `/data/ls/${extId}/${serverId}/1.2.3/bin/tool`
+      h.copies.set(`${extId}/${serverId}`, path)
+      return path
+    }),
   } as unknown as Harness
   const spawn: SpawnServer = (command, args, options) => {
     const child = new FakeChild()
@@ -164,6 +176,18 @@ function harness(overrides: Partial<LanguageServersDeps> = {}): Harness {
       env: (_workspaceId, env) => ({ ...env, TMPDIR: '/sandbox-tmp' }),
     },
     findProgram: (program) => h.programs.get(program) ?? null,
+    managed: {
+      canFetch: (run) => 'goInstall' in run || ('download' in run && h.platformAsset),
+      executable: (extId, serverId) => h.copies.get(`${extId}/${serverId}`) ?? null,
+      folder: (extId, serverId, version) => `/data/ls/${extId}/${serverId}/${version}`,
+      fetch: h.fetchBinary as unknown as LanguageServersDeps['managed']['fetch'],
+      remove: (extId, serverId) => {
+        h.copies.delete(`${extId}/${serverId}`)
+      },
+      retain: (keep) => {
+        h.retained.push(new Map(keep))
+      },
+    },
     registerRequirements: (feature, requirements, label) => {
       if (requirements.length === 0) h.requirements.delete(feature)
       else h.requirements.set(feature, { requirements, label })
@@ -689,6 +713,239 @@ describe('LanguageServers in a sandboxed workspace', () => {
       status: 'sandbox-unavailable',
       sandboxProblem: 'program-unreadable',
       sandboxDetail: '/home/u/.cargo/bin',
+    })
+  })
+})
+
+const downloadServer: LanguageServerContribution = {
+  id: 'native',
+  name: 'Native',
+  languages: ['rust'],
+  run: {
+    download: {
+      program: 'native-ls',
+      version: '1.2.3',
+      assets: {
+        'linux-x64': {
+          url: 'https://github.com/o/r/releases/download/1.2.3/native.gz',
+          sha256: 'a'.repeat(64),
+          archive: 'gz',
+          executable: 'tool',
+        },
+      },
+    },
+    args: ['--lsp'],
+  },
+  rootMarkers: [],
+}
+
+const goServer: LanguageServerContribution = {
+  id: 'gopher',
+  name: 'Gopher',
+  languages: ['go'],
+  run: {
+    goInstall: { module: 'example.org/x/tools/gopher', version: 'v1.2.3', binary: 'gopher' },
+    args: [],
+  },
+  rootMarkers: [],
+}
+
+describe('LanguageServers with a server Pine fetches', () => {
+  const rustFile = (): string => {
+    writeFileSync(join(workDir, 'main.rs'), '')
+    return join(workDir, 'main.rs')
+  }
+  const native = (h: Harness) => h.servers.servers().find((s) => s.key === 'ext/native')
+
+  it('runs the human’s own program from PATH and never downloads', async () => {
+    const h = harness()
+    h.sources = [source(downloadServer)]
+    h.programs.set('native-ls', '/usr/bin/native-ls')
+    const [session] = await h.servers.open('w1', 'p1', rustFile())
+    expect(session).toBeDefined()
+    expect(h.spawned[0].command).toBe('/usr/bin/native-ls')
+    expect(h.spawned[0].args).toEqual(['--lsp'])
+    expect(h.fetchBinary).not.toHaveBeenCalled()
+    expect(native(h)).toMatchObject({
+      kind: 'download',
+      status: 'running',
+      version: '1.2.3',
+      binary: { source: 'path' },
+    })
+  })
+
+  it('runs its own copy of the pinned version when there is one', async () => {
+    const h = harness()
+    h.sources = [source(downloadServer)]
+    h.copies.set('ext/native', '/data/ls/ext/native/1.2.3/tool')
+    await h.servers.open('w1', 'p1', rustFile())
+    expect(h.spawned[0].command).toBe('/data/ls/ext/native/1.2.3/tool')
+    expect(h.fetchBinary).not.toHaveBeenCalled()
+    expect(native(h)).toMatchObject({
+      binary: { source: 'managed', version: '1.2.3' },
+      managedCopy: true,
+    })
+  })
+
+  it('downloads when a matching file opens, shows progress, then starts the server', async () => {
+    const h = harness()
+    h.sources = [source(downloadServer)]
+    let finish: (path: string) => void = () => {}
+    let progress: (percent: number) => void = () => {}
+    h.fetchBinary.mockImplementation(
+      (
+        _extId: string,
+        _serverId: string,
+        _run: unknown,
+        hooks: { onProgress: (n: number) => void },
+      ) => {
+        progress = hooks.onProgress
+        return new Promise<string>((resolve) => {
+          finish = (path) => {
+            h.copies.set('ext/native', path)
+            resolve(path)
+          }
+        })
+      },
+    )
+    expect(native(h)).toMatchObject({ status: 'idle', fetchable: true })
+    const opening = h.servers.open('w1', 'p1', rustFile())
+    await vi.waitFor(() => expect(native(h)?.status).toBe('downloading'))
+    progress(3)
+    expect(native(h)?.progress).toBe(0)
+    progress(40)
+    expect(native(h)?.progress).toBe(40)
+    expect(h.spawned).toHaveLength(0)
+    finish('/data/ls/ext/native/1.2.3/tool')
+    const [session] = await opening
+    expect(session.serverKey).toBe('ext/native')
+    expect(h.spawned[0].command).toBe('/data/ls/ext/native/1.2.3/tool')
+    expect(native(h)).toMatchObject({ status: 'running', binary: { source: 'managed' } })
+    expect(h.servers.log('ext/native').entries.slice(0, 2)).toEqual([
+      expect.objectContaining({ kind: 'fetch-start', how: 'download', version: '1.2.3' }),
+      expect.objectContaining({ kind: 'fetch-done', version: '1.2.3' }),
+    ])
+  })
+
+  it('downloads once for two files that open together', async () => {
+    const h = harness()
+    h.sources = [source(downloadServer)]
+    const file = rustFile()
+    await Promise.all([h.servers.open('w1', 'p1', file), h.servers.open('w1', 'p1', file)])
+    expect(h.fetchBinary).toHaveBeenCalledTimes(1)
+    expect(h.spawned).toHaveLength(1)
+  })
+
+  it('reports a failed download with its reason and tries again only when the human asks', async () => {
+    const h = harness()
+    h.sources = [source(downloadServer)]
+    h.fetchBinary.mockRejectedValueOnce(
+      Object.assign(new Error('bad'), { reason: 'checksum-mismatch', detail: '' }),
+    )
+    const file = rustFile()
+    expect(await h.servers.open('w1', 'p1', file)).toEqual([])
+    expect(native(h)).toMatchObject({ status: 'download-failed', failure: 'checksum-mismatch' })
+    expect(await h.servers.open('w1', 'p1', file)).toEqual([])
+    expect(h.fetchBinary).toHaveBeenCalledTimes(1)
+    expect(h.spawned).toHaveLength(0)
+
+    await h.servers.fetch('ext/native')
+    expect(h.fetchBinary).toHaveBeenCalledTimes(2)
+    expect(native(h)).toMatchObject({ status: 'idle', managedCopy: true })
+    expect(await h.servers.open('w1', 'p1', file)).toHaveLength(1)
+  })
+
+  it('never fetches for a server that is off or waiting for approval', async () => {
+    const h = harness()
+    h.sources = [source(downloadServer, { state: 'pending' })]
+    await h.servers.open('w1', 'p1', rustFile())
+    await h.servers.fetch('ext/native')
+    h.sources = [source(downloadServer, { state: 'off' })]
+    await h.servers.fetch('ext/native')
+    expect(h.fetchBinary).not.toHaveBeenCalled()
+  })
+
+  it('treats a platform without an asset as PATH only and offers the program install', async () => {
+    const h = harness()
+    h.platformAsset = false
+    h.sources = [source(downloadServer)]
+    h.servers.refresh()
+    expect(await h.servers.open('w1', 'p1', rustFile())).toEqual([])
+    expect(h.fetchBinary).not.toHaveBeenCalled()
+    expect(native(h)).toMatchObject({ status: 'program-missing', requirement: 'lsp:ext/native' })
+    expect(h.requirements.get('lsp:ext/native')?.requirements).toEqual([
+      { program: 'native-ls', package: 'native-ls', platforms: ['linux', 'darwin', 'win32'] },
+    ])
+  })
+
+  it('lets the sandbox read only the folder of the copy it runs', async () => {
+    const h = harness()
+    h.sandboxed.add('ws1')
+    h.sources = [source(downloadServer)]
+    h.copies.set('ext/native', '/data/ls/ext/native/1.2.3/tool')
+    h.unreadable.add('/data/ls/ext/native/1.2.3/tool')
+    await h.servers.open('w1', 'p1', rustFile())
+    expect(h.wrap).toHaveBeenCalledWith('ws1', '/data/ls/ext/native/1.2.3/tool --lsp', [
+      '/data/ls/ext/native/1.2.3',
+    ])
+    expect(h.spawned).toHaveLength(1)
+  })
+
+  it('removes its copy on the human’s request and does not fetch it again until asked', async () => {
+    const h = harness()
+    h.sources = [source(downloadServer)]
+    await h.servers.open('w1', 'p1', rustFile())
+    await h.servers.removeDownload('ext/native')
+    expect(h.spawned[0].child.exited).toBe(true)
+    expect(h.copies.has('ext/native')).toBe(false)
+    expect(native(h)).toMatchObject({ status: 'idle', fetchable: true, fetchHeld: true })
+    expect(native(h)?.managedCopy).toBeUndefined()
+    expect(h.servers.log('ext/native').entries.at(-1)?.kind).toBe('fetch-removed')
+    expect(await h.servers.open('w1', 'p1', rustFile())).toEqual([])
+    expect(h.fetchBinary).toHaveBeenCalledTimes(1)
+    await h.servers.fetch('ext/native')
+    expect(h.fetchBinary).toHaveBeenCalledTimes(2)
+    expect(await h.servers.open('w1', 'p1', rustFile())).toHaveLength(1)
+  })
+
+  it('keeps only the pinned version of every declared server', () => {
+    const h = harness()
+    h.sources = [source(downloadServer), source(goServer, { state: 'off' }), source(nodeServer)]
+    h.servers.refresh()
+    expect(h.retained.at(-1)).toEqual(
+      new Map([
+        ['ext/native', '1.2.3'],
+        ['ext/gopher', 'v1.2.3'],
+      ]),
+    )
+  })
+
+  it('installs with go when gopls is not on PATH, and says so when Go is missing', async () => {
+    const h = harness()
+    h.sources = [source(goServer)]
+    h.servers.refresh()
+    writeFileSync(join(workDir, 'main.go'), '')
+    const gopher = () => h.servers.servers().find((s) => s.key === 'ext/gopher')
+    expect(await h.servers.open('w1', 'p1', join(workDir, 'main.go'))).toEqual([])
+    expect(h.fetchBinary).not.toHaveBeenCalled()
+    expect(gopher()).toMatchObject({
+      kind: 'go-install',
+      status: 'toolchain-missing',
+      requirement: 'lsp:ext/gopher',
+      fetchCommand: 'go install example.org/x/tools/gopher@v1.2.3',
+    })
+    expect(h.requirements.get('lsp:ext/gopher')?.requirements).toEqual([
+      { program: 'go', package: 'go', platforms: ['linux', 'darwin', 'win32'] },
+    ])
+
+    h.programs.set('go', '/usr/bin/go')
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'main.go'))
+    expect(session.serverKey).toBe('ext/gopher')
+    expect(h.fetchBinary).toHaveBeenCalledTimes(1)
+    expect(h.servers.log('ext/gopher').entries[0]).toMatchObject({
+      kind: 'fetch-start',
+      how: 'go-install',
+      version: 'v1.2.3',
     })
   })
 })
