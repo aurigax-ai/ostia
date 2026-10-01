@@ -229,7 +229,7 @@ ROADMAP §3, "Built-in AI chat: not planned". Telemetry is out too, because Pine
 - User actions: palette commands as buttons and tab-menu entries, with trust.
 - Declarative views that users enable one by one (Settings → Views).
 - Saved browser passwords, kept encrypted in main.
-- Extension settings and secrets (Settings → Plugins), plus VS Code file icon themes.
+- Extension settings and secrets (Settings → Extensions), plus VS Code file icon themes.
 - A VS Code-style Files tree: `files.exclude`, nesting, compact folders, sort, icon theme.
 - Language servers (Settings → Language servers).
 - Separate UI, terminal and editor fonts, and terminal and editor color schemes unlinked from the app theme.

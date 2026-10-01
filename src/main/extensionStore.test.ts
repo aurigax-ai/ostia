@@ -58,6 +58,17 @@ describe('ExtensionStore', () => {
     })
   })
 
+  it('deletes a record so the extension needs approval again', () => {
+    const path = join(tmp(), 'extensions.json')
+    const store = new ExtensionStore(path)
+    store.set('demo', { enabled: true, approved: ['notify'] })
+    store.set('other', { enabled: false, approved: [] })
+    store.delete('demo')
+    expect(store.get('demo')).toBeUndefined()
+    expect(new ExtensionStore(path).get('demo')).toBeUndefined()
+    expect(new ExtensionStore(path).get('other')).toEqual({ enabled: false, approved: [] })
+  })
+
   it('drops unknown capabilities and ignores prototype keys in a hand-edited file', () => {
     const path = join(tmp(), 'extensions.json')
     writeFileSync(

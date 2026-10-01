@@ -337,7 +337,7 @@ pine <extId> <command> [args]        # same, when <extId> isn't a core verb (thi
 ```
 
 Git, trellis, keeper and system are built-in extensions, so their commands behave exactly as documented.
-If the user disabled one in Settings → Plugins you'll get `extension-disabled`; don't try to
+If the user disabled one in Settings → Extensions you'll get `extension-disabled`; don't try to
 enable it yourself (there is no verb for that — only the human approves/enables extensions).
 `extension-unavailable` means its process didn't start or crashed; retry once, then tell the
 user. Third-party extensions show up the same way — check `pine ext ls` before assuming a verb.

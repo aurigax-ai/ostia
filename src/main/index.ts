@@ -102,6 +102,7 @@ import { killAllLsp, registerLspIpc } from './lsp'
 import { ManagerService, managerWindowId } from './manager'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
+import { Marketplace } from './marketplace'
 import { McpHost } from './mcpHost'
 import {
   postActionNotification,
@@ -1107,6 +1108,17 @@ function registerExtensionIpc(host: ExtensionHost): void {
   )
 }
 
+function registerMarketplaceIpc(marketplace: Marketplace): void {
+  ipcMain.handle('marketplace:list', () => marketplace.state())
+  ipcMain.handle('marketplace:add', (_e, url: unknown) => marketplace.add(url))
+  ipcMain.handle('marketplace:remove', (_e, id: unknown) => marketplace.remove(id))
+  ipcMain.handle('marketplace:refresh', (_e, id: unknown) => marketplace.refresh(id))
+  ipcMain.handle('marketplace:install', (_e, id: unknown, extId: unknown) =>
+    marketplace.install(id, extId),
+  )
+  ipcMain.handle('marketplace:uninstall', (_e, extId: unknown) => marketplace.uninstall(extId))
+}
+
 function forgetWorkspaceRequests(workspaceId: string): void {
   packageRequests.forget(workspaceId)
   void portForwarder.forget(workspaceId)
@@ -2083,6 +2095,24 @@ app.whenReady().then(() => {
   })
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
+  registerMarketplaceIpc(
+    new Marketplace({
+      recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
+      clonesDir: join(app.getPath('userData'), 'marketplaces'),
+      extensionsDir: join(configDir(), 'extensions'),
+      builtinIds: () =>
+        extensionHost
+          ?.list()
+          .filter((ext) => ext.builtin)
+          .map((ext) => ext.id) ?? [],
+      forget: (extId) => {
+        extensionStore.delete(extId)
+        const secrets = extensionSecretStore()
+        for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
+      },
+      rescan: () => extensionHost?.rescan(),
+    }),
+  )
   registerAssistIpc(() => extensionHost)
   registerChatSessionIpc(
     createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),

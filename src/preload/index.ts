@@ -36,6 +36,7 @@ import type {
   PaneChip,
 } from '../shared/extensions'
 import type { LoadedIconTheme } from '../shared/iconTheme'
+import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type {
   DomainRefusal,
@@ -441,6 +442,16 @@ const bridge: PineBridge = {
   },
   selection: {
     send: (req) => ipcRenderer.invoke('selection:send', req) as Promise<SelectionSendResult>,
+  },
+  marketplace: {
+    list: () => ipcRenderer.invoke('marketplace:list') as Promise<MarketplaceState>,
+    add: (url) => ipcRenderer.invoke('marketplace:add', url) as Promise<MarketplaceResult>,
+    remove: (id) => ipcRenderer.invoke('marketplace:remove', id) as Promise<MarketplaceResult>,
+    refresh: (id) => ipcRenderer.invoke('marketplace:refresh', id) as Promise<MarketplaceResult>,
+    install: (id, extId) =>
+      ipcRenderer.invoke('marketplace:install', id, extId) as Promise<MarketplaceResult>,
+    uninstall: (extId) =>
+      ipcRenderer.invoke('marketplace:uninstall', extId) as Promise<MarketplaceResult>,
   },
   extensions: {
     list: () => ipcRenderer.invoke('extensions:list') as Promise<ExtensionInfo[]>,
