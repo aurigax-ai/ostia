@@ -36,6 +36,7 @@ import { registerSelectionSender } from '../lib/selectionSenders'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
+import { createTitleCommitter } from '../lib/titleCommit'
 import { terminalFontStack } from '../lib/uiFonts'
 import { loadWebglRenderer } from '../lib/webglRenderer'
 import { attachWheelZoom } from '../lib/wheelZoom'
@@ -349,11 +350,13 @@ export function TerminalView({
       if (!useSettingsStore.getState().behavior.copyOnSelect || !term.hasSelection()) return
       void navigator.clipboard.writeText(term.getSelection())
     })
+    const titles = createTitleCommitter((title) => {
+      if (isTitlePinned(paneId)) return
+      useLayoutStore.getState().setTitle(workspaceIdRef.current, paneId, title)
+    })
     const titleChange = term.onTitleChange((raw) => {
       const title = terminalTitle(raw)
-      if (title && !isTitlePinned(paneId)) {
-        useLayoutStore.getState().setTitle(workspaceIdRef.current, paneId, title)
-      }
+      if (title) titles.push(title)
     })
     const bell = term.onBell(() => {
       if (replaying || isPaneViewed(paneId)) return
@@ -602,6 +605,7 @@ export function TerminalView({
       detachWheelZoom()
       detachLinkModifier()
       titleChange.dispose()
+      titles.cancel()
       promptMarker?.dispose()
       disposeMarkers()
       unregisterTerminal()
