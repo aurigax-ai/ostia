@@ -1,6 +1,6 @@
 import {
+  CaretDownIcon,
   ChatCircleDotsIcon,
-  ChatCircleTextIcon,
   GearSixIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
@@ -17,7 +17,7 @@ import { useUIStore } from '../stores/uiStore'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { Button } from './ui/button'
-import { Kbd } from './ui/kbd'
+import { ButtonGroup } from './ui/button-group'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Separator } from './ui/separator'
 import { Switch } from './ui/switch'
@@ -38,35 +38,50 @@ export function AssistantMenu(): JSX.Element | null {
   const chatKeys = useChordLabel('assist.chat', isMac)
   const [open, setOpen] = useState(false)
   if (!visible) return null
-  const label = chatKeys ? `${d.assistMenu.button} (${chatKeys})` : d.assistMenu.button
+  const chatLabel = chatKeys ? `${d.assistMenu.openChat} (${chatKeys})` : d.assistMenu.openChat
   const close = (): void => setOpen(false)
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<IconButton size="bar" icon={ChatCircleDotsIcon} label={label} />} />
-      <PopoverContent align="end" className="assist-menu" aria-label={d.assistMenu.title}>
-        {overview.length === 0 ? (
-          <SetupPanel reason={null} onDone={close} />
-        ) : (
-          overview.map((ext) =>
-            ext.setup ? (
-              <SetupPanel
-                key={ext.extId}
-                reason={d.assistMenu.setup[ext.setup] ?? null}
-                onDone={close}
-              />
-            ) : (
-              <ExtensionPanel
-                key={ext.extId}
-                ext={ext}
-                chatReady={chatReady}
-                chatKeys={chatKeys}
-                onDone={close}
-              />
-            ),
-          )
-        )}
-      </PopoverContent>
-    </Popover>
+    <ButtonGroup aria-label={d.assistMenu.title} className="topbar-split rounded-sm">
+      <IconButton
+        size="bar"
+        icon={ChatCircleDotsIcon}
+        label={chatLabel}
+        className="rounded-r-none"
+        onClick={() => {
+          if (chatReady) openChatPane()
+          else setOpen(true)
+        }}
+      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <IconButton
+              size="bar"
+              icon={CaretDownIcon}
+              label={d.assistMenu.button}
+              className="topbar-split-caret w-4 rounded-l-none"
+            />
+          }
+        />
+        <PopoverContent align="end" className="assist-menu" aria-label={d.assistMenu.title}>
+          {overview.length === 0 ? (
+            <SetupPanel reason={null} onDone={close} />
+          ) : (
+            overview.map((ext) =>
+              ext.setup ? (
+                <SetupPanel
+                  key={ext.extId}
+                  reason={d.assistMenu.setup[ext.setup] ?? null}
+                  onDone={close}
+                />
+              ) : (
+                <ExtensionPanel key={ext.extId} ext={ext} />
+              ),
+            )
+          )}
+        </PopoverContent>
+      </Popover>
+    </ButtonGroup>
   )
 }
 
@@ -90,17 +105,7 @@ function SetupPanel({ reason, onDone }: { reason: string | null; onDone: () => v
   )
 }
 
-function ExtensionPanel({
-  ext,
-  chatReady,
-  chatKeys,
-  onDone,
-}: {
-  ext: AssistExtensionState
-  chatReady: boolean
-  chatKeys: string | null
-  onDone: () => void
-}): JSX.Element {
+function ExtensionPanel({ ext }: { ext: AssistExtensionState }): JSX.Element {
   const d = useDict()
   const anyReady = ext.features.some((f) => f.on && f.ready)
   return (
@@ -124,23 +129,6 @@ function ExtensionPanel({
           </span>
         </p>
       ) : null}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="mt-1 justify-start"
-        disabled={!chatReady}
-        onClick={() => {
-          openChatPane()
-          onDone()
-        }}
-      >
-        <ChatCircleTextIcon />
-        <span className="flex-1 text-left">{d.assistMenu.openChat}</span>
-        {chatKeys ? <Kbd>{chatKeys}</Kbd> : null}
-      </Button>
-      {chatReady ? null : (
-        <p className="px-1.5 text-fg-muted text-ui-xs">{d.assistMenu.chatUnavailable}</p>
-      )}
       <Separator className="my-1" />
       <div className="px-1.5 text-fg-muted text-ui-xs">{d.assistMenu.features}</div>
       <ul aria-label={d.assistMenu.features} className="flex flex-col">
