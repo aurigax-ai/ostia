@@ -1,4 +1,5 @@
 export const EXTENSIONS_NAV_EXPANDED_KEY = 'settingsNav.extensionsExpanded'
+export const SANDBOX_NAV_EXPANDED_KEY = 'settingsNav.sandboxExpanded'
 export const EXTENSIONS_SECTION = 'extensions'
 
 export interface SettingsTarget {
@@ -22,16 +23,16 @@ export function extensionAnchorId(extId: string): string {
   return `settings-extension-${extId}`
 }
 
-export function extensionsNavExpanded(): boolean {
+export function navExpanded(key: string): boolean {
   try {
-    return window.localStorage.getItem(EXTENSIONS_NAV_EXPANDED_KEY) === 'true'
+    return window.localStorage.getItem(key) === 'true'
   } catch {
     return false
   }
 }
 
-export function rememberExtensionsNavExpanded(expanded: boolean): void {
+export function rememberNavExpanded(key: string, expanded: boolean): void {
   try {
-    window.localStorage.setItem(EXTENSIONS_NAV_EXPANDED_KEY, String(expanded))
+    window.localStorage.setItem(key, String(expanded))
   } catch {}
 }
