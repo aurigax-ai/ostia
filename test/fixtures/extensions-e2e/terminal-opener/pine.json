@@ -2,7 +2,7 @@
   "id": "opener",
   "name": "Opener",
   "version": "0.1.0",
-  "api": "1.4",
+  "api": "1.5",
   "description": "E2E fixture: opens a terminal next to the caller and runs the argv it was given",
   "capabilities": ["shell"],
   "main": "main.js",
