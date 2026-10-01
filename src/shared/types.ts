@@ -195,6 +195,7 @@ export interface PtyApi {
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number, closes: boolean) => void) => () => void
   listDir: (paneId: string, dir: string) => Promise<FsEntry[]>
+  localPrompt: (paneId: string) => Promise<boolean>
   onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
   onRun: (cb: (paneId: string, command: string) => void) => () => void
 }

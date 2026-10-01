@@ -83,8 +83,8 @@ task finishes, so a human supervising many panes can jump straight to yours (Ctr
 waiting pane clears `waiting`, and so does your command exiting: report `waiting` only while you
 are still running. Default capability `drive-self`. Printing an OSC 9 notification
 (`printf '\e]9;%s\a' "msg"`) marks the pane unread with that message; it counts as `waiting`
-only while an agent runs in the pane. For wiring
-Claude Code/Codex hooks to this automatically, see `docs/AGENT-HOOKS.md` in the Pine repo.
+only while an agent runs in the pane. Pine wires Claude Code's and Codex's own hooks to this
+when it starts them in a pane.
 
 ## Raw UI commands
 
@@ -647,7 +647,7 @@ The human and the agent can both point at an element in a browser pane:
 
 The inspector runs in an isolated JavaScript world of the page, so page scripts can't see or
 fake it (synthetic clicks are ignored). For your real Chrome (logged-in workspaces, extensions,
-performance traces) use Chrome DevTools MCP instead: see `docs/CHROME.md` in the Pine repo.
+performance traces) use Chrome DevTools MCP instead.
 
 ### Selections sent from files and terminals (text, images, PDFs, terminal output)
 

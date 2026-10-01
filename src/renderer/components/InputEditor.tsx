@@ -344,9 +344,10 @@ export function InputEditor({
   onNeedRowsRef.current = onNeedRows
 
   const normal = vimEnabled && vimMode === 'normal'
+  const [localPrompt, setLocalPrompt] = useState(true)
   const history = useMemo(
-    () => inputHistory(byPane, paneId, historyHiddenFrom(paneId)),
-    [byPane, paneId],
+    () => (localPrompt ? inputHistory(byPane, paneId, historyHiddenFrom(paneId)) : []),
+    [byPane, paneId, localPrompt],
   )
   const commandSet = useMemo(() => (commands ? new Set(commands) : null), [commands])
 
@@ -386,6 +387,12 @@ export function InputEditor({
       .commands(paneId)
       .then((names) => {
         if (live) setCommands(names.length > 0 ? names : null)
+      })
+      .catch(() => {})
+    window.pine.pty
+      .localPrompt(paneId)
+      .then((local) => {
+        if (live) setLocalPrompt(local)
       })
       .catch(() => {})
     return () => {
@@ -509,10 +516,7 @@ export function InputEditor({
     const state = walk.current ?? {
       index: -1,
       saved: text,
-      entries: historyMatches(
-        inputHistory(useBlocksStore.getState().byPane, paneId, historyHiddenFrom(paneId)),
-        text,
-      ),
+      entries: historyMatches(history, text),
     }
     const index = dir === 'older' ? state.index + 1 : state.index - 1
     if (index >= state.entries.length || index < -1) return false

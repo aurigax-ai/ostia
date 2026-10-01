@@ -40,6 +40,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),
       listDir: vi.fn().mockResolvedValue([]),
+      localPrompt: vi.fn().mockResolvedValue(true),
       foreground: vi.fn().mockResolvedValue(null),
       promptContext: vi.fn().mockResolvedValue(null),
       onData: vi.fn(noopUnsub),

@@ -75,7 +75,7 @@ cpSync(join(sdk, 'panel.css'), join(out, 'panel.css'))
 cpSync(join(assets, 'README.md'), join(out, 'README.md'))
 cpSync(join(assets, 'template'), join(out, 'template'), { recursive: true })
 mkdirSync(join(out, 'docs'))
-cpSync('docs/EXTENSIONS.md', join(out, 'docs/EXTENSIONS.md'))
+cpSync('sdk-package/docs/EXTENSIONS.md', join(out, 'docs/EXTENSIONS.md'))
 
 const types = (entry) => `./types/extensions/sdk/${entry}.d.ts`
 writeJson('package.json', {
