@@ -272,7 +272,7 @@ describe('layoutStore', () => {
   describe('setUrl', () => {
     it("records the browser pane's url and is a no-op when unchanged", () => {
       ensure('sess')
-      useLayoutStore.getState().openBrowser('sess', 'https://a.test/')
+      useLayoutStore.getState().openBrowser('sess', 'https://a.test/', 'isolated')
       const paneId = layoutOf('sess').activePaneId
 
       useLayoutStore.getState().setUrl('sess', paneId, 'https://a.test/next')
@@ -427,7 +427,7 @@ describe('layoutStore', () => {
       const terminal = ensure('sess')
       emit().mockClear()
 
-      useLayoutStore.getState().openBrowser('sess', 'https://example.com/path')
+      useLayoutStore.getState().openBrowser('sess', 'https://example.com/path', 'isolated')
       const layout = layoutOf('sess')
       const ids = paneIds(layout.root)
       const browserId = ids.find((id) => id !== terminal) as string
@@ -448,11 +448,11 @@ describe('layoutStore', () => {
 
     it('with an existing browser pane, reuses it (no new pane, no pane-created emit)', () => {
       const terminal = ensure('sess')
-      useLayoutStore.getState().openBrowser('sess', 'https://example.com')
+      useLayoutStore.getState().openBrowser('sess', 'https://example.com', 'isolated')
       const browserId = paneIds(layoutOf('sess').root).find((id) => id !== terminal) as string
       emit().mockClear()
 
-      useLayoutStore.getState().openBrowser('sess', 'https://other.example')
+      useLayoutStore.getState().openBrowser('sess', 'https://other.example', 'isolated')
       const layout = layoutOf('sess')
       const reused = findPane(layout.root, browserId)
 
@@ -462,6 +462,43 @@ describe('layoutStore', () => {
       expect(reused?.title).toBe('other.example')
       expect(layout.activePaneId).toBe(browserId)
       expect(emit()).not.toHaveBeenCalled()
+    })
+
+    it('records the shared profile on a pane opened with it', () => {
+      const terminal = ensure('sess')
+      useLayoutStore.getState().openBrowser('sess', 'https://example.com', 'shared')
+      const browserId = paneIds(layoutOf('sess').root).find((id) => id !== terminal) as string
+      expect(findPane(layoutOf('sess').root, browserId)?.browserProfile).toBe('shared')
+    })
+
+    it('never reuses a pane of the other profile', () => {
+      const terminal = ensure('sess')
+      useLayoutStore.getState().openBrowser('sess', 'https://mine.example', 'shared')
+      useLayoutStore.getState().openBrowser('sess', 'https://agent.example', 'isolated')
+      const panes = paneIds(layoutOf('sess').root)
+        .filter((id) => id !== terminal)
+        .map((id) => findPane(layoutOf('sess').root, id))
+      expect(panes).toHaveLength(2)
+      expect(panes.find((p) => p?.browserProfile === 'shared')?.url).toBe('https://mine.example')
+      expect(panes.find((p) => p?.browserProfile !== 'shared')?.url).toBe('https://agent.example')
+
+      useLayoutStore.getState().openBrowser('sess', 'https://mine2.example', 'shared')
+      const shared = paneIds(layoutOf('sess').root)
+        .map((id) => findPane(layoutOf('sess').root, id))
+        .filter((p) => p?.browserProfile === 'shared')
+      expect(shared).toHaveLength(1)
+      expect(shared[0]?.url).toBe('https://mine2.example')
+    })
+
+    it('keeps a pane’s profile when it navigates', () => {
+      ensure('sess')
+      useLayoutStore.getState().openBrowser('sess', 'https://a.example', 'shared')
+      const id = layoutOf('sess').activePaneId
+      useLayoutStore.getState().openBrowser('sess', 'https://b.example', 'shared')
+      expect(findPane(layoutOf('sess').root, id)).toMatchObject({
+        url: 'https://b.example',
+        browserProfile: 'shared',
+      })
     })
   })
 
@@ -563,7 +600,7 @@ describe('layoutStore', () => {
       store.movePane('ghost', 'a', 'b', 'center')
       store.setCwd('ghost', 'p', '/x')
       store.openFile('ghost', '/f')
-      store.openBrowser('ghost', 'https://x')
+      store.openBrowser('ghost', 'https://x', 'isolated')
       store.openExtensionPanel('ghost', 'demo', 'Board')
 
       expect(useLayoutStore.getState().byWorkspace).toBe(before)
@@ -697,7 +734,7 @@ describe('layoutStore', () => {
 
     it('makes a browser the first pane of an empty workspace', () => {
       seedWorkspace('w9')
-      useLayoutStore.getState().openBrowser('w9', 'about:blank')
+      useLayoutStore.getState().openBrowser('w9', 'about:blank', 'isolated')
       expect(layoutOf('w9').root).toMatchObject({ kind: 'browser', url: 'about:blank' })
     })
   })

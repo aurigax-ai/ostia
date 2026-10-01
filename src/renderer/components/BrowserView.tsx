@@ -5,6 +5,7 @@ import {
   CursorClickIcon,
   DatabaseIcon,
 } from '@phosphor-icons/react'
+import { type BrowserProfile, browserPartition } from '@shared/browserProfile'
 import type { PickCapture, PickTheme } from '@shared/pick'
 import type { WebviewTag } from 'electron'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
@@ -14,6 +15,7 @@ import type { PickTarget } from '../lib/pickTargets'
 import { sendPickToPane } from '../lib/sendPick'
 import { terminalTitle } from '../lib/terminalTitle'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { BrowserStoragePanel } from './BrowserStoragePanel'
 import { IconButton } from './IconButton'
@@ -31,16 +33,44 @@ function pickTheme(): PickTheme {
   return { accent: read('--brand'), surface: read('--surface-3'), fg: read('--fg') }
 }
 
+function useGrantedProfile(
+  workspaceId: string,
+  paneId: string,
+  profile: BrowserProfile,
+): BrowserProfile | null {
+  const sandboxed = useSandboxStore((s) => s.enabled[workspaceId] === true)
+  const requested: BrowserProfile = sandboxed ? 'isolated' : profile
+  const [granted, setGranted] = useState<BrowserProfile | null>(null)
+  useEffect(() => {
+    let live = true
+    const claim = window.pine?.browser?.claimProfile
+    const answer = claim ? claim(paneId, requested) : Promise.resolve<BrowserProfile>('isolated')
+    void answer
+      .catch((): BrowserProfile => 'isolated')
+      .then((next) => {
+        if (live) setGranted(next)
+      })
+    return () => {
+      live = false
+    }
+  }, [paneId, requested])
+  return granted
+}
+
 export function BrowserView({
   workspaceId,
   paneId,
   url,
+  profile,
 }: {
   workspaceId: string
   paneId: string
   url?: string
+  profile: BrowserProfile
 }): JSX.Element {
   const d = useDict()
+  const granted = useGrantedProfile(workspaceId, paneId, profile)
+  const partition = granted ? browserPartition(granted, paneId) : null
   const webviewRef = useRef<HTMLElement | null>(null)
   const startUrl = useRef(url || 'about:blank')
   const lastAppliedUrlRef = useRef(startUrl.current)
@@ -96,7 +126,7 @@ export function BrowserView({
 
   useEffect(() => {
     const el = webviewRef.current
-    if (!el) return
+    if (!el || !partition) return
 
     const syncNavState = (): void => {
       const ok = withGuest((wv) => {
@@ -151,11 +181,12 @@ export function BrowserView({
       el.removeEventListener('did-navigate-in-page', onNavigate)
       el.removeEventListener('did-fail-load', onFailLoad)
     }
-  }, [workspaceId, paneId, withGuest, showAddress])
+  }, [workspaceId, paneId, withGuest, showAddress, partition])
 
   useEffect(() => {
     const el = webviewRef.current
-    if (!el) return
+    if (!el || !partition) return
+    readyRef.current = false
     const onDomReady = (): void => {
       readyRef.current = true
       withGuest((wv) => wv.setZoomFactor(useSettingsStore.getState().browser.defaultZoom / 100))
@@ -168,7 +199,7 @@ export function BrowserView({
       el.removeEventListener('dom-ready', onDomReady)
       window.pine?.browser?.unregister?.(paneId)
     }
-  }, [paneId, withGuest, load])
+  }, [paneId, withGuest, load, partition])
 
   const [picking, setPicking] = useState<{ byAgent: boolean } | null>(null)
   const [capture, setCapture] = useState<PickCapture | null>(null)
@@ -315,14 +346,17 @@ export function BrowserView({
         />
       ) : null}
       <div className="browser-stage">
-        <webview
-          ref={(el) => {
-            webviewRef.current = el
-          }}
-          className="browser-webview"
-          src={src}
-          partition={`pine-browser-${paneId}`}
-        />
+        {partition ? (
+          <webview
+            key={partition}
+            ref={(el) => {
+              webviewRef.current = el
+            }}
+            className="browser-webview"
+            src={src}
+            partition={partition}
+          />
+        ) : null}
         {loadError ? (
           <Empty className="browser-error" role="alert">
             <EmptyHeader className="max-w-full">
@@ -346,6 +380,7 @@ export function BrowserView({
       {storageOpen ? (
         <BrowserStoragePanel
           paneId={paneId}
+          shared={granted === 'shared'}
           refreshKey={navCount}
           onClose={() => setStorageOpen(false)}
         />

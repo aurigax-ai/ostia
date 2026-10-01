@@ -19,6 +19,7 @@ import {
 } from '../lib/attention'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
+import { openBrowserAs } from '../lib/browserProfile'
 import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
 import { smartClipboardAction } from '../lib/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
@@ -140,7 +141,7 @@ export function TerminalView({
       new WebLinksAddon((e, uri) => {
         if (!linkModifierHeld(e, isMac)) return
         if (useSettingsStore.getState().browser.openTerminalLinks) {
-          useLayoutStore.getState().openBrowser(workspaceIdRef.current, uri)
+          openBrowserAs(workspaceIdRef.current, uri, 'human')
         } else {
           window.open(uri, '_blank')
         }

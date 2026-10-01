@@ -56,6 +56,7 @@ const asGuest = (g: FakeGuest): Electron.WebContents => g as unknown as Electron
 function deps() {
   return {
     browserPanes: new Map<string, number>(),
+    isSharedPane: () => false,
     errorBuffers: new Map([[42, [{ level: 'error', text: 'boom', ts: 1 }]]]),
     broadcast: vi.fn(),
   }

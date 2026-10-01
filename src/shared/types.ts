@@ -2,6 +2,7 @@ import type { AgentResume } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
 import type { AssistApi } from './assist'
+import type { BrowserProfile } from './browserProfile'
 import type {
   BrowserStorageRead,
   StorageEdit,
@@ -341,6 +342,7 @@ export interface SnapshotPaneNode {
   extensionId?: string
   chatSessionId?: string
   viewName?: string
+  browserProfile?: BrowserProfile
   resume?: AgentResume
   agentRunning?: true
   hibernated?: true
@@ -568,6 +570,7 @@ export interface TerminalStateApi {
 }
 
 export interface BrowserApi {
+  claimProfile: (paneId: string, profile: BrowserProfile) => Promise<BrowserProfile>
   register: (paneId: string, webContentsId: number) => void
   unregister: (paneId: string) => void
   pickStart: (paneId: string, theme: PickTheme) => Promise<PickOutcome>

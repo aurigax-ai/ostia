@@ -15,6 +15,7 @@ export interface CommandContext {
   activeWorkspaceId: string | null
   activePaneId: string | null
   target?: { windowId?: string; workspaceId: string; paneId: string | null } | null
+  origin?: 'remote'
 }
 
 export interface CommandChoice {

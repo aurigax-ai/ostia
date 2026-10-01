@@ -1,4 +1,5 @@
 import type { AgentResume } from '@shared/agentResume'
+import type { BrowserProfile } from '@shared/browserProfile'
 import type { DiffContent } from '@shared/extensions'
 import type { PanePlacement } from '@shared/types'
 import { create } from 'zustand'
@@ -13,6 +14,7 @@ import {
   findExtensionPane,
   findPane,
   findViewPane,
+  firstBrowserPane,
   firstPaneId,
   firstPaneOfKind,
   graftNode,
@@ -59,7 +61,12 @@ interface LayoutState {
   ensure: (workspaceId: string) => void
   hydrate: (layouts: Record<string, WorkspaceLayout>) => void
   split: (workspaceId: string, paneId: string, direction: Direction) => void
-  newTab: (workspaceId: string, paneId: string, kind: NewTabKind) => string | null
+  newTab: (
+    workspaceId: string,
+    paneId: string,
+    kind: NewTabKind,
+    browserProfile?: BrowserProfile,
+  ) => string | null
   closePane: (workspaceId: string, paneId: string) => void
   focusPane: (workspaceId: string, paneId: string) => void
   resize: (workspaceId: string, splitId: string, sizes: number[]) => void
@@ -78,7 +85,7 @@ interface LayoutState {
   openFileTab: (workspaceId: string, path: string, paneId?: string) => void
   openFileBeside: (workspaceId: string, path: string) => void
   openTerminalTab: (workspaceId: string, cwd: string) => string | null
-  openBrowser: (workspaceId: string, url: string) => void
+  openBrowser: (workspaceId: string, url: string, profile: BrowserProfile) => void
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openView: (workspaceId: string, viewName: string, title: string) => string | null
   openDiff: (workspaceId: string, content: DiffContent) => string | null
@@ -244,7 +251,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
   },
 
-  newTab: (workspaceId, paneId, kind) => {
+  newTab: (workspaceId, paneId, kind, browserProfile = 'isolated') => {
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
@@ -253,7 +260,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const pane = createPane(kind, undefined, target.cwd)
         const root =
           kind === 'browser'
-            ? setPaneBrowser(addTab(l.root, paneId, pane), pane.id, 'about:blank')
+            ? setPaneBrowser(addTab(l.root, paneId, pane), pane.id, 'about:blank', browserProfile)
             : addTab(l.root, paneId, pane)
         createdPaneId = pane.id
         return { ...l, root, activePaneId: pane.id, zoomedPaneId: null }
@@ -506,12 +513,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     return paneId
   },
 
-  openBrowser: (workspaceId, url) => {
-    if (seedLayout(workspaceId, (p) => setPaneBrowser(p, p.id, url))) return
+  openBrowser: (workspaceId, url, profile) => {
+    if (seedLayout(workspaceId, (p) => setPaneBrowser(p, p.id, url, profile))) return
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
-        const existing = firstPaneOfKind(l.root, 'browser')
+        const existing = firstBrowserPane(l.root, profile)
         if (existing) {
           return {
             ...l,
@@ -522,7 +529,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
         if (!newPaneId) return l
         createdPaneId = newPaneId
-        return { ...l, root: setPaneBrowser(root, newPaneId, url), activePaneId: newPaneId }
+        return {
+          ...l,
+          root: setPaneBrowser(root, newPaneId, url, profile),
+          activePaneId: newPaneId,
+        }
       })
       return next ?? s
     })
