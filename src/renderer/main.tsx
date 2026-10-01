@@ -26,6 +26,7 @@ import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
 import { startHibernation } from './lib/hibernationScheduler'
 import { startAgentDetection } from './lib/paneAgent'
+import { applyUiFonts, preloadFonts } from './lib/uiFonts'
 import { startUserActions } from './lib/userActions'
 import { registerViewCommands, startViews } from './lib/views'
 import { initWindow, startWindowSync } from './lib/windowHandoff'
@@ -63,6 +64,9 @@ async function boot(): Promise<void> {
   } catch (err) {
     console.error('[settings] load failed', err)
   }
+  const { ui, editor, terminal } = useSettingsStore.getState().appearance
+  applyUiFonts(document.documentElement, { ui, editor })
+  await preloadFonts({ ui, editor, terminal })
   try {
     await useSystemThemeStore.getState().init()
   } catch (err) {

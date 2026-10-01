@@ -66,9 +66,7 @@ export function TopBar(): JSX.Element {
           >
             <MagnifyingGlassIcon className="size-3.5" />
             <span className="flex-1 truncate text-left">{d.search.command}</span>
-            {paletteKeys ? (
-              <Kbd className="h-4 bg-transparent font-mono text-ui-xs">{paletteKeys}</Kbd>
-            ) : null}
+            {paletteKeys ? <Kbd className="h-4 bg-transparent">{paletteKeys}</Kbd> : null}
           </Button>
         </Hint>
         <AssistantMenu />

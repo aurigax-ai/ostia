@@ -10,6 +10,7 @@ import { createAutoSave, saveFormatted } from '../lib/editorSave'
 import { lineReference } from '../lib/fileReference'
 import { useReducedMotion } from '../lib/motion'
 import { registerSelectionSender } from '../lib/selectionSenders'
+import { codeFontStack } from '../lib/uiFonts'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import { openDocument } from '../lsp/client'
 import { useAskSelectionAction, useAssistCompletionsAction } from '../monaco/assistAction'
@@ -27,9 +28,6 @@ import { useSelectionSend } from './SelectionSend'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
 import { Button } from './ui/button'
-
-export const EDITOR_FALLBACK =
-  '"Hack Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace'
 
 function behaviorOptions(
   s: EditorSettings,
@@ -190,7 +188,7 @@ export function EditorView({
     const editor = monaco.editor.create(host, {
       theme: initialMonacoTheme(),
       automaticLayout: true,
-      fontFamily: `"${initial.family}", ${EDITOR_FALLBACK}`,
+      fontFamily: codeFontStack(initial.family),
       fontSize: initial.size,
       fontWeight: String(initial.weight),
       fontLigatures: true,
@@ -478,7 +476,7 @@ export function EditorView({
 
   useEffect(() => {
     editorRef.current?.updateOptions({
-      fontFamily: `"${font.family}", ${EDITOR_FALLBACK}`,
+      fontFamily: codeFontStack(font.family),
       fontSize: font.size,
       fontWeight: String(font.weight),
     })

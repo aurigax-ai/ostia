@@ -136,7 +136,7 @@ function ExtensionPanel({
       >
         <ChatCircleTextIcon />
         <span className="flex-1 text-left">{d.assistMenu.openChat}</span>
-        {chatKeys ? <Kbd className="font-mono">{chatKeys}</Kbd> : null}
+        {chatKeys ? <Kbd>{chatKeys}</Kbd> : null}
       </Button>
       {chatReady ? null : (
         <p className="px-1.5 text-fg-muted text-ui-xs">{d.assistMenu.chatUnavailable}</p>

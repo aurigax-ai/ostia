@@ -489,7 +489,7 @@ function send(res: ServerResponse, status: number, type: string, body: string | 
     'content-type': type,
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
-    'content-security-policy': "default-src 'self'; img-src 'self' data:",
+    'content-security-policy': "default-src 'self'; img-src 'self' data:; font-src 'self' data:",
   })
   res.end(body)
 }

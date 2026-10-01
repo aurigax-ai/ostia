@@ -26,7 +26,8 @@ const font = (title: string) => ({
     weight: {
       type: 'number',
       enum: [300, 400, 450, 500, 600, 700],
-      description: 'Regular text weight (bold text stays bold).',
+      description:
+        'Body text weight. In the UI, emphasis and headings step up from it (+100, +200).',
     },
   },
 })
