@@ -21,11 +21,14 @@ import { wireManagerBridge } from './commands/managerBridge'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
+import { AppErrorBoundary, CrashTestHook, RecoveryScreen } from './components/AppErrorBoundary'
 import { startAgentRunningReport } from './lib/agentRunningReport'
 import { startShortcutReporting } from './lib/assistShortcuts'
 import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
+import { errorDetails, reportError, startErrorReporting } from './lib/errorReporting'
 import { startHibernation } from './lib/hibernationScheduler'
+import { livePaneIds } from './lib/livePanes'
 import { startAgentDetection } from './lib/paneAgent'
 import { startPaneDragTracking } from './lib/paneDrag'
 import { applyStoredRailWidth } from './lib/railWidth'
@@ -46,6 +49,7 @@ import { startUpdateWatch } from './stores/updateStore'
 import { useWindowsStore } from './stores/windowsStore'
 import { useWorkspacesStore } from './stores/workspacesStore'
 
+startErrorReporting()
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()
@@ -109,9 +113,16 @@ async function boot(): Promise<void> {
   window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(
     <StrictMode>
-      <App />
+      <AppErrorBoundary>
+        <App />
+        <CrashTestHook />
+      </AppErrorBoundary>
     </StrictMode>,
   )
+  window.pine?.diagnostics?.ready(livePaneIds())
 }
 
-void boot()
+boot().catch((err: unknown) => {
+  reportError('render', err, 'boot')
+  root.render(<RecoveryScreen error={errorDetails(err)} />)
+})

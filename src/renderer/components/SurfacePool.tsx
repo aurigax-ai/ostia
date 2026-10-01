@@ -14,6 +14,7 @@ import { ExtensionPanelView } from './ExtensionPanelView'
 import { FileView } from './FileView'
 import { HibernatedView } from './HibernatedView'
 import { ManagerView } from './ManagerView'
+import { SurfaceErrorBoundary } from './SurfaceErrorBoundary'
 import { TerminalView } from './Terminal'
 import { ViewSurface } from './ViewSurface'
 
@@ -82,38 +83,38 @@ export function SurfacePool(): JSX.Element {
     <>
       {surfaces.map((s) =>
         createPortal(
-          s.kind === 'editor' ? (
-            <FileView workspaceId={s.workspaceId} paneId={s.paneId} filePath={s.filePath} />
-          ) : s.kind === 'diff' ? (
-            <DiffView paneId={s.paneId} />
-          ) : s.kind === 'chat' ? (
-            <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
-          ) : s.kind === 'manager' ? (
-            <ManagerView paneId={s.paneId} />
-          ) : s.kind === 'browser' ? (
-            <BrowserView workspaceId={s.workspaceId} paneId={s.paneId} url={s.url} />
-          ) : s.kind === 'extension' && s.extensionId ? (
-            <ExtensionPanelView
-              extId={s.extensionId}
-              workspaceId={s.workspaceId}
-              paneId={s.paneId}
-            />
-          ) : s.kind === 'view' && s.viewName ? (
-            <ViewSurface workspaceId={s.workspaceId} paneId={s.paneId} viewName={s.viewName} />
-          ) : s.hibernated ? (
-            <HibernatedView paneId={s.paneId} resume={s.resume} />
-          ) : (
-            <TerminalView
-              key={generation[s.paneId] ?? 0}
-              workspaceId={s.workspaceId}
-              paneId={s.paneId}
-              cwd={s.cwd}
-            />
-          ),
+          <SurfaceErrorBoundary paneId={s.paneId}>
+            <Surface surface={s} generation={generation[s.paneId] ?? 0} />
+          </SurfaceErrorBoundary>,
           surfaceHost(s.paneId),
           s.paneId,
         ),
       )}
     </>
+  )
+}
+
+function Surface({
+  surface: s,
+  generation,
+}: { surface: SurfaceRef; generation: number }): JSX.Element {
+  return s.kind === 'editor' ? (
+    <FileView workspaceId={s.workspaceId} paneId={s.paneId} filePath={s.filePath} />
+  ) : s.kind === 'diff' ? (
+    <DiffView paneId={s.paneId} />
+  ) : s.kind === 'chat' ? (
+    <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
+  ) : s.kind === 'manager' ? (
+    <ManagerView paneId={s.paneId} />
+  ) : s.kind === 'browser' ? (
+    <BrowserView workspaceId={s.workspaceId} paneId={s.paneId} url={s.url} />
+  ) : s.kind === 'extension' && s.extensionId ? (
+    <ExtensionPanelView extId={s.extensionId} workspaceId={s.workspaceId} paneId={s.paneId} />
+  ) : s.kind === 'view' && s.viewName ? (
+    <ViewSurface workspaceId={s.workspaceId} paneId={s.paneId} viewName={s.viewName} />
+  ) : s.hibernated ? (
+    <HibernatedView paneId={s.paneId} resume={s.resume} />
+  ) : (
+    <TerminalView key={generation} workspaceId={s.workspaceId} paneId={s.paneId} cwd={s.cwd} />
   )
 }

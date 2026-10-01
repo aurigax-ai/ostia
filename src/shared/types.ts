@@ -50,6 +50,26 @@ export interface AppInfo {
   platform: Platform
 }
 
+export const RENDERER_ERROR_KINDS = ['error', 'rejection', 'render', 'surface'] as const
+export type RendererErrorKind = (typeof RENDERER_ERROR_KINDS)[number]
+
+export interface RendererErrorReport {
+  kind: RendererErrorKind
+  message: string
+  stack?: string
+  source?: string
+}
+
+export interface DiagnosticsApi {
+  report: (report: RendererErrorReport) => void
+  ready: (paneIds: string[]) => void
+  reloadWindow: () => void
+  toggleDevTools: () => void
+  openLogFolder: () => Promise<boolean>
+  testHooks: () => Promise<boolean>
+  onTestCrash: (handler: () => void) => () => void
+}
+
 export interface WindowControls {
   minimize: () => void
   toggleMaximize: () => void
@@ -702,6 +722,7 @@ export interface PineBridge {
   info: () => Promise<AppInfo>
   platform: Platform
   window: WindowControls
+  diagnostics: DiagnosticsApi
   pty: PtyApi
   manager: ManagerApi
   fs: FsApi
