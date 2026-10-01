@@ -1,49 +1,34 @@
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
-import { tmpdir } from 'node:os'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TrellisService, type WorkspaceRef } from './service'
-
-const FIXTURES = join(__dirname, '../../../test/fixtures/tools')
-const CLAIM_LIVE_AT = 1790323096200 - 1
+import { type FakeTrellis, fakeTrellis, translate } from './testFake'
 
 interface Recorded {
   chips: Record<string, unknown>[]
   cleared: { workspaceId: string; id: string }[]
   notes: { title: string; body?: string; path?: string }[]
+  changes: number
 }
 
 describe('TrellisService with a fake trellis on PATH', () => {
+  let env: FakeTrellis
   let root: string
   let fake: string
   let home: string
-  let savedPath: string | undefined
   let service: TrellisService | null
   let recorded: Recorded
   let workspaces: WorkspaceRef[] | Error
   let chipsAccepted = true
 
-  const calls = (): string[] => {
-    const log = join(fake, 'calls.log')
-    return existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : []
-  }
+  const calls = (): string[] => env.calls()
 
   const make = (opts: Partial<ConstructorParameters<typeof TrellisService>[0]> = {}) => {
     service = new TrellisService({
       home,
       consumer: 'pine',
-      now: () => CLAIM_LIVE_AT,
-      uiProbeMs: 150,
-      uiStartTimeoutMs: 3000,
+      translate,
+      changeDelayMs: 10,
       host: {
         listWorkspaces: async () => {
           if (workspaces instanceof Error) throw workspaces
@@ -58,6 +43,9 @@ describe('TrellisService with a fake trellis on PATH', () => {
         },
         notifyPanel: async (title, body, path) => {
           recorded.notes.push({ title, body, path })
+        },
+        changed: () => {
+          recorded.changes += 1
         },
         log: () => {},
       },
@@ -74,18 +62,11 @@ describe('TrellisService with a fake trellis on PATH', () => {
   }
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'pine-trellis-svc-'))
-    fake = join(root, 'fake')
-    home = join(root, 'home')
-    mkdirSync(fake)
-    mkdirSync(home)
-    for (const f of readdirSync(join(FIXTURES, 'trellis'))) {
-      copyFileSync(join(FIXTURES, 'trellis', f), join(fake, f))
-    }
-    savedPath = process.env.PATH
-    process.env.PATH = `${join(FIXTURES, 'bin')}:${savedPath}`
-    process.env.FAKE_TRELLIS_DIR = fake
-    recorded = { chips: [], cleared: [], notes: [] }
+    env = fakeTrellis()
+    root = env.root
+    fake = env.dir
+    home = env.home
+    recorded = { chips: [], cleared: [], notes: [], changes: 0 }
     chipsAccepted = true
     workspaces = []
     service = null
@@ -94,9 +75,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
   afterEach(async () => {
     service?.stop()
     await new Promise((r) => setTimeout(r, 120))
-    process.env.PATH = savedPath
-    Reflect.deleteProperty(process.env, 'FAKE_TRELLIS_DIR')
-    rmSync(root, { recursive: true, force: true })
+    env.restore()
   })
 
   it('shows open and claimed counts on workspaces whose workDir is a trellis project', async () => {
@@ -111,13 +90,13 @@ describe('TrellisService with a fake trellis on PATH', () => {
         workspaceId: 's1',
         id: 'cards',
         text: '4',
-        tooltip: '4 open · 1 claimed',
+        tooltip: '4 open · 2 claimed',
         icon: 'kanban',
         tone: 'brand',
         command: 'open',
       },
     ])
-    expect(calls()).toContain('card ls --json --all --project DEMO')
+    expect(calls()).toContain('board show --project DEMO --json')
   })
 
   it('sends the chip again on the next refresh when the app refused it', async () => {
@@ -150,35 +129,61 @@ describe('TrellisService with a fake trellis on PATH', () => {
   })
 
   it('degrades quietly when trellis is not installed', async () => {
-    process.env.PATH = join(root, 'empty-bin')
     workspaces = [{ workspaceId: 's1', workDir: project('shop', '/DEMO') }]
-    const svc = make({ followRestartBaseMs: 20 })
+    const svc = make({ bin: join(root, 'no-such-trellis'), followRestartBaseMs: 20 })
     await svc.refreshSidebar()
-    await expect(svc.ensureUi()).rejects.toMatchObject({ code: 'not-installed' })
     await svc.startEvents()
     await new Promise((r) => setTimeout(r, 200))
     expect(recorded.chips).toEqual([])
     expect(svc.followRestarts()).toBe(0)
-    expect(svc.owned()).toBe(false)
-  })
-
-  it('uses the running daemon UI without starting a server', async () => {
-    writeFileSync(join(fake, 'daemon-up'), '')
-    const svc = make()
-    await expect(svc.ensureUi()).resolves.toBe('http://127.0.0.1:7788/?token=TESTTOKEN')
-    expect(svc.owned()).toBe(false)
-    expect(calls()).toContain('ui --json')
-  })
-
-  it('serves the UI itself when no daemon runs, and stops it on shutdown', async () => {
-    const svc = make()
-    await expect(svc.ensureUi()).resolves.toBe('http://127.0.0.1:7788/?token=TESTTOKEN')
-    expect(svc.owned()).toBe(true)
-    expect(existsSync(join(fake, 'serving'))).toBe(true)
-    svc.stop()
-    await vi.waitFor(() => expect(existsSync(join(fake, 'serving'))).toBe(false), {
-      timeout: 2000,
+    expect(await svc.init(home)).toEqual({
+      ok: false,
+      message: expect.stringContaining('Trellis is not installed'),
     })
+  })
+
+  it('never starts or asks for the trellis web UI', async () => {
+    workspaces = [{ workspaceId: 's1', workDir: project('shop', '/DEMO') }]
+    const svc = make()
+    await svc.refreshSidebar()
+    await svc.startEvents()
+    await vi.waitFor(() => expect(calls().some((c) => c.endsWith('--follow'))).toBe(true))
+    expect(calls().filter((c) => c.startsWith('ui') || c.startsWith('daemon'))).toEqual([])
+  })
+
+  it('tells the panel once for a burst of card, comment and entry events', async () => {
+    const svc = make()
+    await svc.refreshSidebar()
+    for (const [seq, entity, ref] of [
+      [1, 'card', 'DEMO-1'],
+      [2, 'comment', 'DEMO-1'],
+      [3, 'entry', '/DEMO/vault/database-concurrency'],
+      [4, 'label', 'bug'],
+    ] as const) {
+      svc.onEventLine(JSON.stringify({ seq, actor: 'agent:x', entity, ref, action: 'created' }))
+    }
+    await vi.waitFor(() => expect(recorded.changes).toBe(1))
+    await new Promise((r) => setTimeout(r, 60))
+    expect(recorded.changes).toBe(1)
+    svc.onEventLine(JSON.stringify({ seq: 5, entity: 'label', ref: 'bug', action: 'created' }))
+    await new Promise((r) => setTimeout(r, 60))
+    expect(recorded.changes).toBe(1)
+  })
+
+  it('acks the newest event it read so the consumer cursor advances', async () => {
+    vi.useFakeTimers()
+    try {
+      const svc = make()
+      svc.onEventLine(JSON.stringify({ seq: 7, entity: 'label', ref: 'bug', action: 'created' }))
+      svc.onEventLine(JSON.stringify({ seq: 9, entity: 'label', ref: 'bug', action: 'created' }))
+      svc.onEventLine('{"gap":true,"oldest":46}')
+      expect(calls().filter((c) => c.startsWith('events ack'))).toEqual([])
+      await vi.advanceTimersByTimeAsync(2100)
+    } finally {
+      vi.useRealTimers()
+    }
+    await vi.waitFor(() => expect(calls()).toContain('events ack pine 9'))
+    expect(calls().filter((c) => c.startsWith('events ack'))).toEqual(['events ack pine 9'])
   })
 
   it('primes a new consumer without notifying, then notifies for agent moves to review', async () => {
@@ -194,7 +199,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
     expect(recorded.notes[0]).toEqual({
       title: 'Trellis: ready for your review',
       body: 'TRELLIS-13 Skill: when-to-use-trellis (the trigger layer)',
-      path: '/p/TRELLIS/card/TRELLIS-13',
+      path: '/card/TRELLIS-13',
     })
     expect(recorded.notes.map((n) => n.body?.split(' ')[0])).toEqual([
       'TRELLIS-13',
@@ -224,7 +229,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
         {
           title: 'Trellis: ready for your review',
           body: 'DEMO-3 Card 3',
-          path: '/p/DEMO/card/DEMO-3',
+          path: '/card/DEMO-3',
         },
       ]),
     )
@@ -254,7 +259,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
           {
             title: 'Trellis: ready for your review',
             body: 'DEMO-3 Card 3',
-            path: '/p/DEMO/card/DEMO-3',
+            path: '/card/DEMO-3',
           },
         ]),
       { timeout: 3000 },
@@ -306,5 +311,6 @@ describe('TrellisService with a fake trellis on PATH', () => {
     const res = await make().init(dir)
     expect(res).toEqual({ ok: true, text: `Trellis project SHOP is set up in ${dir}` })
     expect(readFileSync(join(fake, 'init-cwd'), 'utf8').trim()).toBe(dir)
+    expect(calls()).toContain('init --json')
   })
 })

@@ -3,40 +3,41 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  boardSlug,
   cardPath,
   cardRef,
-  countCards,
+  cardTitle,
+  columnName,
+  countBoard,
+  entrySlug,
   findProject,
-  isAppPath,
+  longText,
   needsUser,
-  parseCards,
-  parseColumns,
+  panelTarget,
+  parseBoard,
+  parseBoards,
+  parseCard,
+  parseCardDetail,
+  parseCardThread,
   parseDaemonStatus,
   parseError,
   parseEventLine,
   parseMarker,
-  parseUiInfo,
+  parseObjectOutput,
+  parseProjects,
+  parseVaultEntry,
+  parseVaultList,
+  priority,
+  projectKey,
   projectOfRef,
-  projectPath,
 } from './trellis'
 
 const fixture = (name: string): string =>
   readFileSync(join(__dirname, '../../../test/fixtures/tools/trellis', name), 'utf8')
 
+const LIVE_AT = 1790892187647 - 1
+
 describe('trellis CLI output parsing', () => {
-  it('reads the running UI address from trellis ui --json', () => {
-    expect(parseUiInfo(fixture('ui.json'))).toEqual({
-      url: 'http://127.0.0.1:7788/?token=TESTTOKEN',
-      started: false,
-    })
-  })
-
-  it('rejects a UI address that is not loopback http', () => {
-    expect(parseUiInfo('{"url":"http://10.0.0.5:7788/"}')).toBeNull()
-    expect(parseUiInfo('{"url":"https://127.0.0.1:7788/"}')).toBeNull()
-    expect(parseUiInfo('not json')).toBeNull()
-  })
-
   it('reads daemon status in both states', () => {
     expect(parseDaemonStatus(fixture('daemon-running.json'))).toEqual({
       running: true,
@@ -48,49 +49,173 @@ describe('trellis CLI output parsing', () => {
     })
   })
 
-  it('tolerates the update notice trellis appends after its JSON', () => {
-    expect(fixture('version.json')).toContain('new Trellis release')
-    expect(
-      parseUiInfo(`${fixture('ui.json').trim()}\nnew Trellis release available`),
-    ).not.toBeNull()
+  it('drops a daemon address that is not loopback http', () => {
+    expect(parseDaemonStatus('{"running":true,"url":"http://10.0.0.5:7788/?token=x"}')).toEqual({
+      running: true,
+      url: null,
+    })
+    expect(parseDaemonStatus('{"running":true,"url":"https://127.0.0.1:7788/"}')?.url).toBeNull()
   })
 
-  it('reads the structured error trellis prints on failure', () => {
+  it('reads the first line when trellis appends its update notice after the JSON', () => {
+    expect(fixture('version.json')).toContain('new Trellis release')
+    expect(parseObjectOutput(fixture('version.json'))).toMatchObject({ version: 'v0.0.7' })
+    expect(parseObjectOutput('not json')).toBeNull()
+  })
+
+  it('reads the structured error trellis prints on stderr', () => {
     expect(parseError(fixture('error-project-not-found.json'))).toEqual({
       code: 'project_not_found',
       message: 'no project NOPE',
-      fix: 'trellis card ls --all-projects   # known: ALPHA, DEMO',
+      fix: 'trellis card ls --all-projects   # known: DEMO',
     })
-    expect(parseError(fixture('ui.json'))).toBeNull()
+    expect(parseError(fixture('error-contention.json'))?.code).toBe('contention')
+    expect(parseError(fixture('error-usage.txt'))).toBeNull()
+    expect(parseError(fixture('board.json'))).toBeNull()
   })
 
-  it('reads cards with their claims', () => {
-    const cards = parseCards(fixture('cards.json'))
-    expect(cards).toHaveLength(6)
-    expect(cards?.[0]).toEqual({
-      ref: 'DEMO-1',
-      title: 'Card 1',
-      column: 'review',
-      claimedBy: 'agent:b4f918133cdb93fa1ce15681360c3cec',
-      claimUntil: 1790323096200,
-    })
-    expect(cards?.[1].claimedBy).toBeUndefined()
-  })
-
-  it('reads columns and which one is done', () => {
-    expect(parseColumns(fixture('columns.json'))).toEqual([
-      { name: 'backlog', isDone: false },
-      { name: 'in-progress', isDone: false },
-      { name: 'review', isDone: false },
-      { name: 'done', isDone: true },
+  it('reads a board as columns of cards with labels, priority and claims', () => {
+    const board = parseBoard(fixture('board.json'))
+    expect(board).toMatchObject({ project: 'DEMO', board: 'demo', slug: 'demo' })
+    expect(board?.columns.map((c) => [c.name, c.done, c.cards.map((x) => x.ref)])).toEqual([
+      ['backlog', false, ['DEMO-5', 'DEMO-3']],
+      ['in-progress', false, ['DEMO-1']],
+      ['review', false, ['DEMO-2']],
+      ['done', true, ['DEMO-4']],
     ])
+    expect(board?.columns[1].cards[0]).toEqual({
+      ref: 'DEMO-1',
+      title: 'Checkout fails on an empty cart',
+      column: 'in-progress',
+      priority: 'high',
+      labels: ['bug'],
+      version: 3,
+      updatedAt: 1790890387653,
+      claimedBy: 'agent:5f3c9a1e7b2d4c6f8a0b1c2d3e4f5a6b',
+      claimUntil: 1790892187647,
+    })
+    expect(parseBoard('{"cards":[]}')).toBeNull()
   })
 
   it('counts open cards and live claims, not done cards or expired claims', () => {
-    const cards = parseCards(fixture('cards.json')) ?? []
-    const columns = parseColumns(fixture('columns.json')) ?? []
-    expect(countCards(cards, columns, 1790323096200 - 1)).toEqual({ open: 4, claimed: 1 })
-    expect(countCards(cards, columns, 1790323096200 + 1)).toEqual({ open: 4, claimed: 0 })
+    const board = parseBoard(fixture('board.json'))
+    if (!board) throw new Error('no board')
+    expect(countBoard(board, LIVE_AT)).toEqual({ open: 4, claimed: 2 })
+    expect(countBoard(board, LIVE_AT + 60_000)).toEqual({ open: 4, claimed: 0 })
+  })
+
+  it('reads boards and projects', () => {
+    expect(parseBoards(fixture('boards.json'))).toEqual([
+      { name: 'demo', slug: 'demo', isDefault: true, cardCount: 5 },
+    ])
+    expect(parseProjects(fixture('projects.json'))).toEqual([{ key: 'DEMO', name: 'DEMO' }])
+    expect(parseProjects('{"projects":[{"key":"../x"}]}')).toEqual([])
+  })
+
+  it('reads a card with its body and relations', () => {
+    const card = parseCardDetail(fixture('card-DEMO-3.json'))
+    expect(card).toMatchObject({ ref: 'DEMO-3', body: '', priority: 'low', labels: ['docs'] })
+    expect(card?.relations).toEqual([
+      {
+        rel: 'blocked_by',
+        ref: 'DEMO-1',
+        title: 'Checkout fails on an empty cart',
+        column: 'in-progress',
+        done: false,
+      },
+    ])
+    expect(parseCardDetail(fixture('card-DEMO-2.json'))?.body).toContain(
+      '<script>alert(1)</script>',
+    )
+  })
+
+  it('reads what the write commands print', () => {
+    expect(parseCard(fixture('card-new.json'))).toMatchObject({ ref: 'DEMO-6', column: 'backlog' })
+    expect(parseCard(fixture('card-move.json'))).toMatchObject({
+      ref: 'DEMO-5',
+      column: 'in-progress',
+    })
+    expect(parseCard(fixture('card-claim.json'))?.claimedBy).toBe('human:pine')
+    expect(parseCard(fixture('card-renew.json'))).toBeNull()
+  })
+
+  it('reads comments and activity from the daemon card answer', () => {
+    const thread = parseCardThread(fixture('http-card-DEMO-1.json'))
+    expect(thread?.comments).toEqual([
+      {
+        id: '01a0f962-a8cb-7af5-af56-8492f1dc3d9f',
+        actor: 'agent:5f3c9a1e7b2d4c6f8a0b1c2d3e4f5a6b',
+        body: 'Reproduced on **main**; the cart total is `null`.\n',
+        createdAt: 1790890387659,
+      },
+    ])
+    expect(thread?.activity.find((a) => a.action === 'moved')).toMatchObject({
+      field: 'column',
+      old: 'backlog',
+      new: 'in-progress',
+    })
+    expect(parseCardThread('{"error":"no card"}')).toBeNull()
+  })
+
+  it('reads vault entries and one entry with its body and sources', () => {
+    const list = parseVaultList(fixture('vault-ls.json'))
+    expect(list?.map((e) => [e.slug, e.template, e.private])).toEqual([
+      ['ops/deploy/rollback-a-deploy', 'runbook', false],
+      ['database-concurrency', 'decision', false],
+    ])
+    const entry = parseVaultEntry(fixture('vault-database-concurrency.json'))
+    expect(entry).toMatchObject({
+      slug: 'database-concurrency',
+      title: 'Database concurrency',
+      summary: 'WAL mode so readers never block checkout',
+      tags: ['db'],
+      sources: ['/DEMO/cards/DEMO-1'],
+    })
+    expect(entry?.body.startsWith('## Context')).toBe(true)
+  })
+})
+
+describe('panel input checks', () => {
+  it('accepts only card refs, project keys and slugs trellis could have made', () => {
+    expect(cardRef(' shop-12 ')).toBe('SHOP-12')
+    expect(cardRef('MY-APP-3')).toBe('MY-APP-3')
+    expect(cardRef('shop')).toBeNull()
+    expect(cardRef('SHOP-12/../x')).toBeNull()
+    expect(cardRef('--help')).toBeNull()
+    expect(cardRef(12)).toBeNull()
+    expect(projectKey('DEMO')).toBe('DEMO')
+    expect(projectKey('GLOBAL')).toBeNull()
+    expect(projectKey('--board')).toBeNull()
+    expect(boardSlug('main-board')).toBe('main-board')
+    expect(boardSlug('Main')).toBeNull()
+    expect(entrySlug('ops/deploy/rollback-a-deploy')).toBe('ops/deploy/rollback-a-deploy')
+    expect(entrySlug('../secret')).toBeNull()
+    expect(entrySlug('-x')).toBeNull()
+    expect(entrySlug('/DEMO/vault/x')).toBeNull()
+  })
+
+  it('keeps titles on one line and refuses oversized or control text', () => {
+    expect(cardTitle('  Fix\n the   cart ')).toBe('Fix the cart')
+    expect(cardTitle('   ')).toBeNull()
+    expect(cardTitle('x'.repeat(301))).toBeNull()
+    expect(columnName(' in-progress ')).toBe('in-progress')
+    expect(columnName('a\u0000b')).toBeNull()
+    expect(columnName('')).toBeNull()
+    expect(longText('a\r\nb')).toBe('a\nb')
+    expect(longText('x'.repeat(64 * 1024 + 1))).toBeNull()
+    expect(priority('high')).toBe('high')
+    expect(priority('highest')).toBeNull()
+  })
+
+  it('maps panel paths to a view and a card', () => {
+    expect(cardPath('shop-12')).toBe('/card/SHOP-12')
+    expect(cardPath('nope')).toBeNull()
+    expect(panelTarget(undefined)).toEqual({ view: 'board' })
+    expect(panelTarget('/board')).toEqual({ view: 'board' })
+    expect(panelTarget('/vault')).toEqual({ view: 'vault' })
+    expect(panelTarget('/card/SHOP-12')).toEqual({ view: 'board', card: 'SHOP-12' })
+    expect(panelTarget('/card/../x')).toEqual({ view: 'board' })
+    expect(panelTarget('/p/SHOP/card/SHOP-12')).toEqual({ view: 'board' })
   })
 })
 
@@ -164,6 +289,8 @@ describe('trellis events', () => {
     expect(projectOfRef('TRELLIS-13')).toBe('TRELLIS')
     expect(projectOfRef('TELUS-CHR-12')).toBe('TELUS-CHR')
     expect(projectOfRef('claimrx-demo')).toBeNull()
+    expect(projectOfRef('/DEMO/vault/ops/rollback')).toBe('DEMO')
+    expect(projectOfRef('/GLOBAL/vault/x')).toBeNull()
   })
 })
 
@@ -205,27 +332,5 @@ describe('trellis project markers', () => {
     expect(findProject(repo, home)).toBeNull()
     expect(findProject(home, home)).toBeNull()
     expect(findProject(join(root, 'missing'), home)).toBeNull()
-  })
-
-  it('builds UI paths and only allows app paths as proxy entries', () => {
-    expect(projectPath({ project: 'SHOP', marker: '' })).toBe('/p/SHOP')
-    expect(projectPath({ project: 'SHOP', board: 'ops', marker: '' })).toBe('/p/SHOP/b/ops')
-    expect(projectPath(null)).toBe('/')
-    expect(isAppPath('/p/SHOP/b/ops')).toBe(true)
-    expect(isAppPath('//evil.example')).toBe(false)
-    expect(isAppPath('/api/p/SHOP')).toBe(false)
-  })
-
-  it('builds a card deep link from its ref and allows it as a proxy entry', () => {
-    expect(cardRef(' shop-12 ')).toBe('SHOP-12')
-    expect(cardRef('MY-APP-3')).toBe('MY-APP-3')
-    expect(cardRef('shop')).toBeNull()
-    expect(cardRef('SHOP-12/../x')).toBeNull()
-    expect(cardPath('shop-12')).toBe('/p/SHOP/card/SHOP-12')
-    expect(cardPath('MY-APP-3')).toBe('/p/MY-APP/card/MY-APP-3')
-    expect(cardPath('nope')).toBeNull()
-    expect(isAppPath('/p/SHOP/card/SHOP-12')).toBe(true)
-    expect(isAppPath('/p/SHOP/card/SHOP-12?x=1')).toBe(false)
-    expect(isAppPath('/p/SHOP/card/../api')).toBe(false)
   })
 })
