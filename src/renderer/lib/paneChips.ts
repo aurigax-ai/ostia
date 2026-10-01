@@ -64,14 +64,14 @@ function paneChipCommandId(chip: PaneChip): string | null {
   return commands.has(id) ? id : null
 }
 
+export function openPaneChipUrl(chip: Pick<PaneChip, 'paneId'>, url: string): void {
+  const workspaceId = workspaceOfPane(chip.paneId)
+  if (workspaceId) openSidebarUrl(workspaceId, url)
+}
+
 export function paneChipAction(chip: PaneChip): (() => Promise<void>) | null {
   const url = chip.url
-  if (url) {
-    return async () => {
-      const workspaceId = workspaceOfPane(chip.paneId)
-      if (workspaceId) openSidebarUrl(workspaceId, url)
-    }
-  }
+  if (url) return async () => openPaneChipUrl(chip, url)
   const id = paneChipCommandId(chip)
   if (!id) return null
   return async () => {

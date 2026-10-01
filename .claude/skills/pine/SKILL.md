@@ -1,1 +1,0 @@
-../../../src/main/agent/pine-skill.md
