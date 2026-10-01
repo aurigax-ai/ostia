@@ -31,6 +31,7 @@ import type {
   ExtensionSettingValue,
   ExtensionSettingValues,
   OpenTerminalOptions,
+  SidebarKind,
   SidebarTone,
 } from '../../shared/extensions'
 import { SETTINGS_CHANGED_EVENT, TARGET_PANE_PARAM } from '../../shared/extensions'
@@ -150,6 +151,7 @@ export interface PineExtension {
     text: string
     icon?: ExtensionIcon
     tone?: SidebarTone
+    kind?: SidebarKind
     url?: string
   }) => Promise<unknown>
   notify: (title: string, body?: string) => Promise<unknown>

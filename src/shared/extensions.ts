@@ -158,6 +158,10 @@ export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as cons
 
 export type SidebarTone = (typeof SIDEBAR_TONES)[number]
 
+export const SIDEBAR_KINDS = ['location', 'live'] as const
+
+export type SidebarKind = (typeof SIDEBAR_KINDS)[number]
+
 export interface ExtensionSidebarItem {
   extId: string
   key: string
@@ -165,6 +169,7 @@ export interface ExtensionSidebarItem {
   text: string
   icon?: ExtensionIcon
   tone: SidebarTone
+  kind: SidebarKind
   url?: string
 }
 

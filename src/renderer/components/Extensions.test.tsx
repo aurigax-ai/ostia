@@ -207,15 +207,16 @@ describe('Extensions UI', () => {
           text: 'main*',
           tone: 'warn',
           icon: 'git-branch',
+          kind: 'location',
         },
-        { extId: 'ports', key: 'default', text: ':3000', tone: 'ok' },
+        { extId: 'ports', key: 'default', text: ':3000', tone: 'ok', kind: 'live' },
       ]
       render(<DeckRail />)
       act(() => useExtensionsStore.setState({ sidebar: items }))
 
       const row = (name: RegExp) =>
         screen.getByRole('button', { name }).closest('.rail-tab') as HTMLElement
-      expect(within(row(/alpha/)).getByText('main*')).toHaveClass('ext-item', 'tone-warn')
+      expect(within(row(/alpha/)).getByText('main*').closest('.ext-item')).toHaveClass('tone-warn')
       expect(within(row(/beta/)).queryByText('main*')).toBeNull()
       expect(document.querySelector('.rail-ext-footer')).toHaveTextContent(':3000')
     })
