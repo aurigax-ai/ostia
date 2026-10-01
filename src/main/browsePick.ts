@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync } from 'node:fs'
+import { readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcMain } from 'electron'
 import {
@@ -11,8 +11,10 @@ import {
   type PickTheme,
   type RawPick,
   clip,
+  nextPickReportNumber,
   normalizeCapture,
   pickBusMessage,
+  pickReportName,
   renderPickReport,
   screenshotRect,
 } from '../shared/pick'
@@ -191,11 +193,8 @@ export function cancelPick(paneId: string): boolean {
   return true
 }
 
-function nextReportPath(dir: string): string {
-  for (let n = 1; ; n++) {
-    const path = join(dir, `capture-${n}.md`)
-    if (!existsSync(path)) return path
-  }
+function nextReportPath(dir: string, url: string): string {
+  return join(dir, pickReportName(nextPickReportNumber(readdirSync(dir)), url))
 }
 
 export function writePickReport(req: PickSendRequest, senderWindowId: string): PickSendResult {
@@ -209,7 +208,7 @@ export function writePickReport(req: PickSendRequest, senderWindowId: string): P
   const note = clip(typeof req.note === 'string' ? req.note : '', PICK_NOTE_MAX)
   let path: string
   try {
-    path = nextReportPath(privateTmpDir(REPORT_DIR_NAME))
+    path = nextReportPath(privateTmpDir(REPORT_DIR_NAME), stored.capture.url)
     writeFileSync(path, renderPickReport(stored.capture, note), { mode: 0o600, flag: 'wx' })
   } catch {
     return { ok: false, error: 'write-failed' }

@@ -275,3 +275,35 @@ export function pickBusMessage(capture: PickCapture, note: string, report: strin
 export function reportReference(path: string): string {
   return /\s/.test(path) ? `@"${path}" ` : `@${path} `
 }
+
+export const REPORT_SLUG_MAX = 48
+
+export function urlSlug(url: string): string {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return ''
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return ''
+  return `${parsed.host}${parsed.pathname}`
+    .toLowerCase()
+    .replace(/^www\./, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .slice(0, REPORT_SLUG_MAX)
+    .replace(/^-+|-+$/g, '')
+}
+
+export function pickReportName(n: number, url: string): string {
+  const slug = urlSlug(url)
+  return slug ? `capture-${n}-${slug}.md` : `capture-${n}.md`
+}
+
+export function nextPickReportNumber(names: readonly string[]): number {
+  let highest = 0
+  for (const name of names) {
+    const match = /^capture-(\d+)(?:-[a-z0-9-]*)?\.md$/.exec(name)
+    if (match) highest = Math.max(highest, Number(match[1]))
+  }
+  return highest + 1
+}

@@ -170,7 +170,7 @@ describe('writePickReport', () => {
       'w1',
     )
     if (!res.ok) throw new Error(res.error)
-    expect(res.path).toMatch(/pine-reports-\d+\/capture-\d+\.md$/)
+    expect(res.path).toMatch(/pine-reports-\d+\/capture-\d+(-[a-z0-9-]+)?\.md$/)
     const md = readFileSync(res.path, 'utf8')
     expect(md).toContain('`#save`')
     expect(md).toContain('misaligned')
