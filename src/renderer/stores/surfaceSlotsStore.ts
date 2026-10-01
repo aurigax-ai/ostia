@@ -33,12 +33,28 @@ export function parkSurface(paneId: string, slot: HTMLElement): void {
   if (host && host.parentNode === slot) parking().appendChild(host)
 }
 
-export function focusSurface(paneId: string): void {
+function focusTarget(paneId: string): HTMLElement | null {
   const host = hosts.get(paneId)
-  const target =
+  return (
     host?.querySelector<HTMLElement>('.input-editor:not([hidden]) textarea') ??
-    host?.querySelector<HTMLElement>('.xterm-helper-textarea')
-  target?.focus()
+    host?.querySelector<HTMLElement>('.xterm-helper-textarea') ??
+    null
+  )
+}
+
+export function focusSurface(paneId: string): void {
+  focusTarget(paneId)?.focus()
+}
+
+const FOCUS_WAIT_FRAMES = 120
+
+export function focusSurfaceWhenReady(paneId: string, frames = FOCUS_WAIT_FRAMES): void {
+  const target = focusTarget(paneId)
+  if (target) {
+    target.focus()
+    return
+  }
+  if (frames > 0) requestAnimationFrame(() => focusSurfaceWhenReady(paneId, frames - 1))
 }
 
 export function releaseSurfaces(live: ReadonlySet<string>): void {

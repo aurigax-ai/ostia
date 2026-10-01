@@ -1,16 +1,25 @@
-import type { SnapshotNode, SnapshotWorkspace, WindowWorkspaceSummary } from '@shared/types'
+import type {
+  ScreenPoint,
+  SnapshotNode,
+  SnapshotWorkspace,
+  WindowWorkspaceSummary,
+  WorkspaceOrigin,
+} from '@shared/types'
 import type { RestorableWorkspace } from '../layout/snapshot'
-import { workspaceHandoff } from '../layout/snapshot'
-import { allPanes, findPane, paneIds } from '../layout/tree'
+import { restoreSnapshot, workspaceHandoff } from '../layout/snapshot'
+import { allPanes, findPane, paneIds, placementOf } from '../layout/tree'
+import type { LayoutNode, PaneNode } from '../layout/types'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { isRestorable, liveAgentPanes } from '../stores/persistence'
+import { useSandboxStore } from '../stores/sandboxStore'
+import { focusSurfaceWhenReady } from '../stores/surfaceSlotsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, nextWorkspaceId, useWorkspacesStore } from '../stores/workspacesStore'
 import { confirmMove } from './closeConfirm'
 import { setIdNamespace } from './idNamespace'
-import { jumpToLatestUnreadIn } from './workspaceActivity'
+import { jumpToLatestUnreadIn, revealPane } from './workspaceActivity'
 
 const REPORT_DEBOUNCE_MS = 100
 
@@ -41,7 +50,19 @@ function closeDropped(workspaceId: string, before: readonly string[], kept: Snap
   }
 }
 
-export async function moveWorkspaceToNewWindow(workspaceId: string): Promise<boolean> {
+function originOf(workspace: Workspace): WorkspaceOrigin {
+  const index = useWorkspacesStore.getState().workspaces.findIndex((w) => w.id === workspace.id)
+  return {
+    workspaceId: workspace.id,
+    index: Math.max(0, index),
+    ...(workspace.groupId ? { groupId: workspace.groupId } : {}),
+  }
+}
+
+export async function moveWorkspaceToNewWindow(
+  workspaceId: string,
+  at?: ScreenPoint,
+): Promise<boolean> {
   const workspace = findWorkspace(workspaceId)
   if (!workspace) return false
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
@@ -49,41 +70,62 @@ export async function moveWorkspaceToNewWindow(workspaceId: string): Promise<boo
   const current = findWorkspace(workspaceId)
   if (!current || !isRestorable(current)) return false
   const before = layout ? paneIds(layout.root) : []
-  const handoff = handoffOf(current)
-  if (!(await window.pine.windows.detach(handoff))) return false
+  const handoff = { ...handoffOf(current), origin: current.origin ?? originOf(current) }
+  if (!(await window.pine.windows.detach(handoff, at))) return false
   useWorkspacesStore.getState().release(workspaceId)
   closeDropped(workspaceId, before, handoff)
   return true
 }
 
+function isOnlyPane(workspaceId: string, paneId: string): boolean {
+  const root = useLayoutStore.getState().byWorkspace[workspaceId]?.root
+  return root?.type === 'pane' && root.id === paneId
+}
+
 export function canMovePane(workspaceId: string, paneId: string): boolean {
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const pane = layout ? findPane(layout.root, paneId) : null
-  return pane !== null && pane.kind !== 'diff' && pane.kind !== 'manager'
+  if (pane === null || pane.kind === 'diff' || pane.kind === 'manager') return false
+  return isOnlyPane(workspaceId, paneId) || !useSandboxStore.getState().enabled[workspaceId]
 }
 
-export async function movePaneToNewWindow(workspaceId: string, paneId: string): Promise<boolean> {
+function paneHandoff(workspace: Workspace, root: LayoutNode, pane: PaneNode): SnapshotWorkspace {
+  const beside = placementOf(root, pane.id)
+  return {
+    ...workspaceHandoff(
+      {
+        id: nextWorkspaceId(),
+        name: workspace.name,
+        kind: workspace.kind === 'manager' ? 'terminal' : workspace.kind,
+        workDir: workspace.workDir,
+        ...(workspace.projectDir ? { projectDir: workspace.projectDir } : {}),
+      },
+      { root: pane, activePaneId: pane.id },
+      liveAgentPanes(),
+    ),
+    origin: { ...originOf(workspace), ...(beside ? { beside } : {}) },
+  }
+}
+
+export async function movePaneToNewWindow(
+  workspaceId: string,
+  paneId: string,
+  at?: ScreenPoint,
+): Promise<boolean> {
+  if (!canMovePane(workspaceId, paneId)) return false
+  if (isOnlyPane(workspaceId, paneId)) return moveWorkspaceToNewWindow(workspaceId, at)
   const workspace = findWorkspace(workspaceId)
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   const pane = layout ? findPane(layout.root, paneId) : null
-  if (!workspace || !isRestorable(workspace) || !pane || !canMovePane(workspaceId, paneId)) {
-    return false
-  }
+  if (!workspace || !isRestorable(workspace) || !pane) return false
   if (!(await confirmMove(workspace, [pane]))) return false
   const current = useLayoutStore.getState().byWorkspace[workspaceId]
   const moving = current ? findPane(current.root, paneId) : null
-  if (!moving) return false
-  const handoff = workspaceHandoff(
-    {
-      id: nextWorkspaceId(),
-      name: workspace.name,
-      kind: workspace.kind,
-      workDir: workspace.workDir,
-    },
-    { root: moving, activePaneId: moving.id },
-    liveAgentPanes(),
-  )
-  if (!(await window.pine.windows.detach(handoff))) return false
+  const owner = findWorkspace(workspaceId)
+  if (!current || !moving || !owner) return false
+  if (!(await window.pine.windows.detach(paneHandoff(owner, current.root, moving), at))) {
+    return false
+  }
   useLayoutStore.getState().releasePane(workspaceId, paneId)
   return true
 }
@@ -100,9 +142,50 @@ export async function returnToMainWindow(): Promise<boolean> {
   )
 }
 
+export function rejoinTarget(
+  workspace: SnapshotWorkspace,
+  localIds: ReadonlySet<string>,
+): string | null {
+  const home = workspace.origin?.workspaceId
+  return home && home !== workspace.id && localIds.has(home) ? home : null
+}
+
+function rejoin(workspace: SnapshotWorkspace, home: string): string | null {
+  const { layouts } = restoreSnapshot({
+    v: 1,
+    savedAt: '',
+    activeWorkspaceId: null,
+    workspaces: [workspace],
+    groups: [],
+  })
+  const layout = layouts[workspace.id]
+  if (!layout) return null
+  useLayoutStore.getState().graft(home, layout, workspace.origin?.beside)
+  useWorkspacesStore.getState().setActive(home)
+  window.pine?.lifecycle?.emit?.({ type: 'workspace-closed', workspaceId: workspace.id })
+  return layout.activePaneId
+}
+
 export function adoptWorkspaces(workspaces: SnapshotWorkspace[]): void {
   useUIStore.getState().leaveSettings()
-  useWorkspacesStore.getState().adopt(workspaces)
+  const localIds = new Set(useWorkspacesStore.getState().workspaces.map((w) => w.id))
+  const standalone: SnapshotWorkspace[] = []
+  let focus: string | null = null
+  for (const workspace of workspaces) {
+    const home = rejoinTarget(workspace, localIds)
+    if (home) focus = rejoin(workspace, home) ?? focus
+    else standalone.push(workspace)
+  }
+  if (standalone.length > 0) {
+    useWorkspacesStore.getState().adopt(standalone)
+    const active = useWorkspacesStore.getState().activeWorkspaceId
+    focus = (active && useLayoutStore.getState().byWorkspace[active]?.activePaneId) || focus
+  }
+  if (focus) focusPaneWhenReady(focus)
+}
+
+function focusPaneWhenReady(paneId: string): void {
+  if (revealPane(paneId)) focusSurfaceWhenReady(paneId)
 }
 
 export function activateWorkspace(workspaceId: string, jumpToUnread: boolean): void {
@@ -167,11 +250,13 @@ export function startWindowSync(): () => void {
     if (!timer) timer = setTimeout(report, REPORT_DEBOUNCE_MS)
   }
   report()
-  if (
-    useWindowsStore.getState().detached &&
-    useWorkspacesStore.getState().workspaces.length === 0
-  ) {
-    window.pine.window.close()
+  if (useWindowsStore.getState().detached) {
+    const { workspaces, activeWorkspaceId } = useWorkspacesStore.getState()
+    if (workspaces.length === 0) window.pine.window.close()
+    const paneId = activeWorkspaceId
+      ? useLayoutStore.getState().byWorkspace[activeWorkspaceId]?.activePaneId
+      : undefined
+    if (paneId) focusSurfaceWhenReady(paneId)
   }
   const offs = [
     useWorkspacesStore.subscribe(schedule),

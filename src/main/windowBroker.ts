@@ -14,8 +14,17 @@ import type {
   WorkspaceLiveState,
 } from '../shared/types'
 import { approvals } from './approvals'
-import { panesOwnedBy, rehomePanes } from './idRegistry'
-import { MAIN_SLOT, WindowBook, clampBounds } from './windowBook'
+import { getByPaneId, panesOwnedBy, rehomePanes } from './idRegistry'
+import {
+  MAIN_SLOT,
+  WindowBook,
+  boundsAt,
+  clampBounds,
+  crossesSandbox,
+  parsePoint,
+  planReturn,
+  withoutOrigin,
+} from './windowBook'
 import {
   clearPersisted,
   handoffPaneIds,
@@ -29,6 +38,8 @@ export interface WindowBrokerDeps {
   createWindow: (slot: string, bounds?: WindowBounds) => BrowserWindow
   holdPtys: (paneIds: readonly string[]) => void
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  isSandboxed: (workspaceId: string) => boolean
+  reveal: (win: BrowserWindow) => void
 }
 
 const DETACHED_SIZE = { width: 1100, height: 760 }
@@ -61,13 +72,6 @@ function parsePanes(raw: unknown): WindowPaneSummary[] {
 
 function windowIdOf(win: BrowserWindow): string {
   return String(win.webContents.id)
-}
-
-function focusWindow(win: BrowserWindow): void {
-  if (win.isDestroyed()) return
-  if (win.isMinimized()) win.restore()
-  win.show()
-  win.focus()
 }
 
 function workAreas(): WindowBounds[] {
@@ -103,6 +107,7 @@ export class WindowBroker {
   private readonly boot = new Map<string, AppSnapshot>()
   private readonly reports = new Map<string, WindowWorkspaceSummary[]>()
   private readonly returning = new WeakSet<BrowserWindow>()
+  private readonly closing = new WeakSet<BrowserWindow>()
   private persistEnabled = true
   private boundsTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -183,14 +188,16 @@ export class WindowBroker {
     return undefined
   }
 
-  requestReturn(win: BrowserWindow): void {
+  requestReturn(win: BrowserWindow, closing = false): void {
     const slot = this.slots.get(windowIdOf(win))
     if (!slot || slot === MAIN_SLOT) return
     if (win.webContents.isCrashed() || win.webContents.isLoading()) {
-      this.returnWorkspaces(win, slot, this.book.load(slot)?.workspaces ?? [])
+      this.returnWorkspaces(win, slot, this.book.load(slot)?.workspaces ?? [], closing)
       return
     }
-    focusWindow(win)
+    if (closing) this.closing.add(win)
+    else this.closing.delete(win)
+    this.deps.reveal(win)
     win.webContents.send('windows:return-request')
   }
 
@@ -240,13 +247,20 @@ export class WindowBroker {
     )
   }
 
-  private detach(source: BrowserWindow, raw: unknown): boolean {
+  private leavesSandbox(workspace: SnapshotWorkspace, destination: string): boolean {
+    const from = handoffPaneIds(workspace).map((paneId) => getByPaneId(paneId)?.workspaceId)
+    return crossesSandbox(from, destination, this.deps.isSandboxed)
+  }
+
+  private detach(source: BrowserWindow, raw: unknown, rawPoint: unknown): boolean {
     const sourceId = windowIdOf(source)
     const sourceSlot = this.slots.get(sourceId)
     const workspace = parseHandoff(raw)
     if (!sourceSlot || !workspace || !this.ownsWorkspace(workspace, sourceId)) return false
+    if (this.leavesSandbox(workspace, workspace.id)) return false
     const slot = randomUUID().slice(0, 8)
-    const bounds = this.detachedBounds(source)
+    const point = parsePoint(rawPoint)
+    const bounds = point ? boundsAt(point, DETACHED_SIZE, workAreas()) : this.detachedBounds(source)
     this.book.open(slot, bounds)
     this.book.move(workspace, sourceSlot, slot)
     this.boot.set(slot, {
@@ -266,18 +280,34 @@ export class WindowBroker {
     source: BrowserWindow,
     slot: string,
     workspaces: SnapshotWorkspace[],
+    quiet: boolean,
   ): boolean {
     const main = this.mainWindow()
     if (!main || main.isDestroyed()) return false
     const mainId = windowIdOf(main)
+    const sourceId = windowIdOf(source)
+    const byWindow = new Map<string, SnapshotWorkspace[]>()
     for (const workspace of workspaces) {
-      this.moveOwnership(workspace, mainId)
-      this.book.move(workspace, slot, MAIN_SLOT)
+      const plan = planReturn(
+        workspace,
+        sourceId,
+        mainId,
+        (id) => this.windowOfWorkspace(id),
+        this.deps.isSandboxed,
+      )
+      const targetId = this.windows.has(plan.windowId) ? plan.windowId : mainId
+      this.moveOwnership(plan.workspace, targetId)
+      this.book.move(withoutOrigin(plan.workspace), slot, this.slots.get(targetId) ?? MAIN_SLOT)
+      byWindow.set(targetId, [...(byWindow.get(targetId) ?? []), plan.workspace])
     }
     this.book.drop(slot)
     this.persist()
-    if (workspaces.length > 0) main.webContents.send('windows:adopt', workspaces)
-    focusWindow(main)
+    for (const [targetId, adopted] of byWindow) {
+      const target = this.windows.get(targetId)
+      if (!target || target.isDestroyed()) continue
+      target.webContents.send('windows:adopt', adopted)
+      if (!quiet || target.isVisible()) this.deps.reveal(target)
+    }
     this.returning.add(source)
     if (!source.isDestroyed()) source.close()
     return true
@@ -286,12 +316,14 @@ export class WindowBroker {
   private returnFrom(source: BrowserWindow, raw: unknown): boolean {
     const sourceId = windowIdOf(source)
     const slot = this.slots.get(sourceId)
+    const quiet = this.closing.has(source)
+    this.closing.delete(source)
     if (!slot || slot === MAIN_SLOT || !Array.isArray(raw)) return false
     const workspaces = raw.map(parseHandoff)
     if (workspaces.some((w) => w === null)) return false
     const parsed = workspaces as SnapshotWorkspace[]
     if (!parsed.every((w) => this.ownsWorkspace(w, sourceId))) return false
-    return this.returnWorkspaces(source, slot, parsed)
+    return this.returnWorkspaces(source, slot, parsed, quiet)
   }
 
   private list(): WindowSummary[] {
@@ -313,7 +345,7 @@ export class WindowBroker {
     const windowId = this.windowOfWorkspace(workspaceId)
     const win = windowId ? this.windows.get(windowId) : undefined
     if (!win || win.isDestroyed()) return
-    focusWindow(win)
+    this.deps.reveal(win)
     win.webContents.send('windows:activate-workspace', workspaceId, jumpToUnread)
   }
 
@@ -325,7 +357,7 @@ export class WindowBroker {
       ...(typeof dir === 'string' && WORKSPACE_DIR.test(dir) ? { dir } : {}),
       ...(typeof name === 'string' ? { name: name.slice(0, TEXT_MAX) } : {}),
     }
-    focusWindow(main)
+    this.deps.reveal(main)
     void this.deps.execCommand(
       { windowId: windowIdOf(main), workspaceId: '', paneId: null },
       'workspace.new',
@@ -368,9 +400,9 @@ export class WindowBroker {
       this.persist()
     })
 
-    ipcMain.handle('windows:detach', (e, raw: unknown) => {
+    ipcMain.handle('windows:detach', (e, raw: unknown, point: unknown) => {
       const source = senderWindow(e)
-      return source ? this.detach(source, raw) : false
+      return source ? this.detach(source, raw, point) : false
     })
 
     ipcMain.handle('windows:return', (e, raw: unknown) => {

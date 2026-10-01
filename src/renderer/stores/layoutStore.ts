@@ -1,5 +1,6 @@
 import type { AgentResume } from '@shared/agentResume'
 import type { DiffContent } from '@shared/extensions'
+import type { PanePlacement } from '@shared/types'
 import { create } from 'zustand'
 import { panelKey, sizePanel } from '../layout/panelSize'
 import {
@@ -14,6 +15,7 @@ import {
   findViewPane,
   firstPaneId,
   firstPaneOfKind,
+  graftNode,
   movePane,
   paneIds,
   selectTab,
@@ -80,6 +82,7 @@ interface LayoutState {
   release: (workspaceId: string) => void
   releasePane: (workspaceId: string, paneId: string) => void
   adopt: (layouts: Record<string, WorkspaceLayout>) => void
+  graft: (workspaceId: string, layout: WorkspaceLayout, beside?: PanePlacement) => void
 }
 
 export interface OpenTerminalPlacement {
@@ -611,6 +614,25 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
           }
         }) ?? s,
     )
+  },
+
+  graft: (workspaceId, incoming, beside) => {
+    set((s) => {
+      if (!s.byWorkspace[workspaceId]) {
+        return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...incoming } } }
+      }
+      return (
+        patch(s, workspaceId, (l) => ({
+          ...l,
+          root: graftNode(l.root, incoming.root, beside),
+          activePaneId: incoming.activePaneId,
+          zoomedPaneId: null,
+        })) ?? s
+      )
+    })
+    for (const paneId of paneIds(incoming.root)) {
+      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+    }
   },
 
   adopt: (layouts) => {

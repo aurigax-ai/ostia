@@ -25,11 +25,24 @@ vi.mock('electron', () => ({
 const { AppTray, closeAction, isHiddenLaunch, readCloseToTray, trayLabels } = await import('./tray')
 
 function fakeWindow(events: string[]) {
+  let visible = true
+  const onShow: (() => void)[] = []
   return {
     isDestroyed: () => false,
-    hide: () => events.push('hide'),
-    show: () => events.push('show'),
+    isVisible: () => visible,
+    hide: () => {
+      visible = false
+      events.push('hide')
+    },
+    show: () => {
+      visible = true
+      events.push('show')
+      for (const listener of onShow.splice(0)) listener()
+    },
     focus: () => events.push('focus'),
+    once: (event: string, listener: () => void) => {
+      if (event === 'show') onShow.push(listener)
+    },
   } as unknown as Electron.BrowserWindow
 }
 
@@ -71,6 +84,16 @@ describe('AppTray', () => {
     expect(events).toEqual(['hide', 'show', 'focus'])
     expect(trays.at(-1)?.destroyed).toBe(true)
     expect(tray.visible).toBe(false)
+  })
+
+  it('removes the tray icon when the hidden window is shown some other way', () => {
+    const events: string[] = []
+    const win = fakeWindow(events)
+    const tray = makeTray(events, win)
+    tray.hide(win)
+    win.show()
+    expect(tray.visible).toBe(false)
+    expect(trays.at(-1)?.destroyed).toBe(true)
   })
 
   it('MGR-C4 Quit shows the window before quitting so the close guard can ask', () => {
