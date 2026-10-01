@@ -19,6 +19,16 @@ import {
 } from '../main/marketplace'
 import { ASSIST_POINTS } from '../shared/assist'
 import { ALL_CAPABILITIES } from '../shared/capabilities'
+import {
+  BUILTIN_EDITOR_LANGUAGE_IDS,
+  EDITOR_LANGUAGE_EXTENSION_PATTERN,
+  EDITOR_LANGUAGE_FILENAME_PATTERN,
+  EDITOR_LANGUAGE_GRAMMAR_PATTERN,
+  EDITOR_LANGUAGE_ID_PATTERN,
+  EDITOR_LANGUAGE_NAME_MAX,
+  MAX_EDITOR_LANGUAGES,
+  MAX_LANGUAGE_FILE_PATTERNS,
+} from '../shared/editorLanguages'
 import { EXTENSION_API_PATTERN } from '../shared/extensionApi'
 import { EXTENSION_LOCALES_MAX } from '../shared/extensionLocales'
 import {
@@ -31,6 +41,30 @@ import {
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN } from '../shared/iconTheme'
 import { LANGUAGE_ID_PATTERN } from '../shared/languagePack'
+import {
+  DOWNLOAD_URL_MAX,
+  GO_MODULE_MAX,
+  LANGUAGE_SERVER_ARCHIVES,
+  LANGUAGE_SERVER_DOCUMENT_ID_PATTERN,
+  LANGUAGE_SERVER_DOWNLOAD_HOSTS,
+  LANGUAGE_SERVER_EXECUTABLE_PATTERN,
+  LANGUAGE_SERVER_GO_MODULE_PATTERN,
+  LANGUAGE_SERVER_GO_VERSION_PATTERN,
+  LANGUAGE_SERVER_ID_PATTERN,
+  LANGUAGE_SERVER_MARKER_PATTERN,
+  LANGUAGE_SERVER_PLATFORMS,
+  LANGUAGE_SERVER_PROGRAM_PATTERN,
+  LANGUAGE_SERVER_SCRIPT_PATTERN,
+  LANGUAGE_SERVER_SETTING_PATH_PATTERN,
+  LANGUAGE_SERVER_SHA256_PATTERN,
+  LANGUAGE_SERVER_VERSION_PATTERN,
+  MAX_LANGUAGE_SERVERS,
+  MAX_ROOT_MARKERS,
+  MAX_SERVER_ARGS,
+  MAX_SERVER_LANGUAGES,
+  SERVER_ARG_MAX,
+  SERVER_NAME_MAX,
+} from '../shared/languageServers'
 
 const VERSION_MAX = 40
 
@@ -73,6 +107,93 @@ const chips = z
 
 const settingKey = z.string().regex(SETTING_KEY_PATTERN)
 
+const serverArgs = z.array(z.string().max(SERVER_ARG_MAX)).max(MAX_SERVER_ARGS)
+const serverProgram = z.string().regex(LANGUAGE_SERVER_PROGRAM_PATTERN)
+const downloadUrl = new RegExp(
+  `^https://(${LANGUAGE_SERVER_DOWNLOAD_HOSTS.map((host) => host.replaceAll('.', '\\.')).join('|')})/`,
+)
+
+const serverAsset = z.strictObject({
+  url: z.string().max(DOWNLOAD_URL_MAX).regex(downloadUrl),
+  sha256: z.string().regex(LANGUAGE_SERVER_SHA256_PATTERN),
+  archive: z.enum(LANGUAGE_SERVER_ARCHIVES),
+  executable: z.string().regex(LANGUAGE_SERVER_EXECUTABLE_PATTERN),
+})
+
+const languageServer = z.looseObject({
+  id: z.string().regex(LANGUAGE_SERVER_ID_PATTERN),
+  name: z.string().min(1).max(SERVER_NAME_MAX),
+  languages: z.array(z.string().regex(EDITOR_LANGUAGE_ID_PATTERN)).min(1).max(MAX_SERVER_LANGUAGES),
+  documentLanguageIds: z
+    .record(z.string(), z.string().regex(LANGUAGE_SERVER_DOCUMENT_ID_PATTERN))
+    .optional(),
+  run: z.union([
+    z.strictObject({
+      node: z.string().regex(LANGUAGE_SERVER_SCRIPT_PATTERN),
+      args: serverArgs.optional(),
+    }),
+    z.strictObject({
+      program: serverProgram,
+      package: serverProgram.optional(),
+      args: serverArgs.optional(),
+    }),
+    z.strictObject({
+      download: z.strictObject({
+        program: serverProgram,
+        version: z.string().regex(LANGUAGE_SERVER_VERSION_PATTERN),
+        assets: z
+          .partialRecord(z.enum(LANGUAGE_SERVER_PLATFORMS), serverAsset)
+          .refine((assets) => Object.keys(assets).length > 0),
+      }),
+      args: serverArgs.optional(),
+    }),
+    z.strictObject({
+      goInstall: z.strictObject({
+        module: z.string().max(GO_MODULE_MAX).regex(LANGUAGE_SERVER_GO_MODULE_PATTERN),
+        version: z.string().regex(LANGUAGE_SERVER_GO_VERSION_PATTERN),
+        binary: serverProgram,
+      }),
+      args: serverArgs.optional(),
+    }),
+  ]),
+  rootMarkers: z
+    .array(z.string().regex(LANGUAGE_SERVER_MARKER_PATTERN))
+    .max(MAX_ROOT_MARKERS)
+    .optional(),
+  initializationOptions: z.looseObject({}).optional(),
+  settings: z.looseObject({}).optional(),
+  settingPaths: z
+    .record(settingKey, z.string().regex(LANGUAGE_SERVER_SETTING_PATH_PATTERN))
+    .optional(),
+})
+
+const shortPair = z.tuple([z.string().min(1).max(10), z.string().min(1).max(10)])
+
+const editorLanguage = z.looseObject({
+  id: z
+    .string()
+    .regex(EDITOR_LANGUAGE_ID_PATTERN)
+    .refine((id) => !BUILTIN_EDITOR_LANGUAGE_IDS.has(id)),
+  name: z.string().min(1).max(EDITOR_LANGUAGE_NAME_MAX),
+  extensions: z
+    .array(z.string().regex(EDITOR_LANGUAGE_EXTENSION_PATTERN))
+    .max(MAX_LANGUAGE_FILE_PATTERNS)
+    .optional(),
+  filenames: z
+    .array(z.string().regex(EDITOR_LANGUAGE_FILENAME_PATTERN))
+    .max(MAX_LANGUAGE_FILE_PATTERNS)
+    .optional(),
+  configuration: z
+    .looseObject({
+      lineComment: z.string().min(1).max(10).optional(),
+      blockComment: shortPair.optional(),
+      brackets: z.array(shortPair).max(16).optional(),
+      autoClosingPairs: z.array(shortPair).max(16).optional(),
+    })
+    .optional(),
+  grammar: z.string().regex(EDITOR_LANGUAGE_GRAMMAR_PATTERN),
+})
+
 const contributes = z.looseObject({
   commands: z.array(command).max(MAX_COMMANDS).optional(),
   sidebarItems: z.boolean().optional(),
@@ -110,6 +231,8 @@ const contributes = z.looseObject({
     )
     .max(MAX_LANGUAGES)
     .optional(),
+  languageServers: z.array(languageServer).max(MAX_LANGUAGE_SERVERS).optional(),
+  editorLanguages: z.array(editorLanguage).max(MAX_EDITOR_LANGUAGES).optional(),
 })
 
 export const extensionManifestSchema = z.looseObject({

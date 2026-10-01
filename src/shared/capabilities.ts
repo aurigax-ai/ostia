@@ -19,6 +19,7 @@ export type Capability =
   | 'settings-write'
   | 'assist'
   | 'credentials'
+  | 'language-server'
 
 export const DEFAULT_CAPABILITIES: Capability[] = [
   'drive-self',
@@ -51,6 +52,7 @@ export const ALL_CAPABILITIES: Capability[] = [
   'settings-write',
   'assist',
   'credentials',
+  'language-server',
 ]
 
 export const MANAGER_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(

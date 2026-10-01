@@ -31,7 +31,7 @@ import { missingRequirements } from './systemRequirements'
 
 export const MARKETPLACE_MANIFEST_MAX_BYTES = 64 * 1024
 export const MARKETPLACE_MAX_EXTENSIONS = 200
-export const EXTENSION_MAX_FILES = 2000
+export const EXTENSION_MAX_FILES = 8000
 export const EXTENSION_MAX_BYTES = 50 * 1024 * 1024
 const GIT_TIMEOUT_MS = 120_000
 const DETAIL_MAX = 400
@@ -256,16 +256,47 @@ function readCatalog(clone: string): Catalog | string {
   return { name: manifest.name, description: manifest.description, problems, entries }
 }
 
+export interface LanguageListing {
+  marketplaceId: string
+  extId: string
+  name: string
+  languages: string[]
+}
+
 export class Marketplace {
   private records: Records
   private queue: Promise<unknown> = Promise.resolve()
+  private listed: LanguageListing[] | null = null
 
   constructor(private readonly deps: MarketplaceDeps) {
     this.records = sanitizeRecords(loadJson<unknown>(deps.recordsPath, {}))
   }
 
   private save(): void {
+    this.listed = null
     saveJson(this.deps.recordsPath, this.records)
+  }
+
+  languageListings(): LanguageListing[] {
+    if (this.listed) return this.listed
+    const listed: LanguageListing[] = []
+    for (const source of this.records.sources) {
+      const dir = this.cloneDir(source.id)
+      const catalog = existsSync(dir) ? readCatalog(dir) : null
+      if (catalog === null || typeof catalog === 'string') continue
+      for (const { manifest } of catalog.entries) {
+        const languages = (manifest.contributes.languageServers ?? []).flatMap((s) => s.languages)
+        if (this.installState(source.id, manifest) === 'conflict') continue
+        listed.push({
+          marketplaceId: source.id,
+          extId: manifest.id,
+          name: manifest.name,
+          languages: [...new Set(languages)],
+        })
+      }
+    }
+    this.listed = listed
+    return listed
   }
 
   private cloneDir(id: string): string {
@@ -320,7 +351,8 @@ export class Marketplace {
           description: shown.description,
           category: manifest.category,
           capabilities: manifest.capabilities,
-          runsProcess: manifest.main !== undefined,
+          runsProcess:
+            manifest.main !== undefined || (manifest.contributes.languageServers ?? []).length > 0,
           state,
           ...(installedVersion ? { installedVersion } : {}),
         }
@@ -385,20 +417,60 @@ export class Marketplace {
     }
     rmSync(target, { recursive: true, force: true })
     renameSync(staging, target)
+    this.listed = null
     return null
   }
 
+  private async addSource(input: unknown): Promise<MarketplaceResult> {
+    const url = normalizeMarketplaceUrl(input)
+    if (!url) return this.fail('invalid-url')
+    if (this.records.sources.some((s) => s.url === url)) return this.fail('already-added')
+    const source = { id: marketplaceId(url), url }
+    const failure = await this.download(source)
+    if (failure) return failure
+    this.records = { ...this.records, sources: [...this.records.sources, source] }
+    this.save()
+    return this.ok()
+  }
+
   add(input: unknown): Promise<MarketplaceResult> {
+    return this.serialized(() => this.addSource(input))
+  }
+
+  private sourceListing(extId: string, onlyUrl: string | null): Source | undefined {
+    return this.records.sources.find((source) => {
+      if (onlyUrl !== null && source.url !== onlyUrl) return false
+      const dir = this.cloneDir(source.id)
+      const catalog = existsSync(dir) ? readCatalog(dir) : null
+      if (catalog === null || typeof catalog === 'string') return false
+      const entry = catalog.entries.find((e) => e.manifest.id === extId)
+      return entry !== undefined && this.installState(source.id, entry.manifest) !== 'conflict'
+    })
+  }
+
+  installSuggested(
+    extId: unknown,
+    officialUrl: string,
+    officialOnly: boolean,
+  ): Promise<MarketplaceResult> {
     return this.serialized(async () => {
-      const url = normalizeMarketplaceUrl(input)
-      if (!url) return this.fail('invalid-url')
-      if (this.records.sources.some((s) => s.url === url)) return this.fail('already-added')
-      const source = { id: marketplaceId(url), url }
-      const failure = await this.download(source)
-      if (failure) return failure
-      this.records = { ...this.records, sources: [...this.records.sources, source] }
-      this.save()
-      return this.ok()
+      if (typeof extId !== 'string' || !EXTENSION_ID_PATTERN.test(extId)) {
+        return this.fail('unknown-extension')
+      }
+      const official = normalizeMarketplaceUrl(officialUrl)
+      const only = officialOnly ? official : null
+      if (officialOnly && !official) return this.fail('unknown-extension')
+      let source = this.sourceListing(extId, only)
+      if (!source) {
+        if (!official || this.records.sources.some((s) => s.url === official)) {
+          return this.fail('unknown-extension')
+        }
+        const added = await this.addSource(official)
+        if (!added.ok) return added
+        source = this.sourceListing(extId, only)
+        if (!source) return this.fail('unknown-extension')
+      }
+      return this.installFrom(source.id, extId)
     })
   }
 
@@ -425,42 +497,44 @@ export class Marketplace {
   }
 
   install(id: unknown, extId: unknown): Promise<MarketplaceResult> {
-    return this.serialized(async () => {
-      const source = this.records.sources.find((s) => s.id === id)
-      if (!source) return this.fail('unknown-marketplace')
-      const catalog = readCatalog(this.cloneDir(source.id))
-      if (typeof catalog === 'string') return this.fail('invalid-marketplace', catalog)
-      const entry = catalog.entries.find((e) => e.manifest.id === extId)
-      if (!entry) return this.fail('unknown-extension')
-      const state = this.installState(source.id, entry.manifest)
-      if (state === 'conflict') return this.fail('conflict')
-      const plan = planCopy(entry.dir)
-      if (!plan.ok) return this.fail(plan.error)
-      const target = this.installDir(entry.manifest.id)
-      try {
-        if (state === 'available') this.deps.forget(entry.manifest.id)
-        rmSync(target, { recursive: true, force: true })
-        const manifestLast = [
-          ...plan.files.filter((f) => f !== EXTENSION_MANIFEST_FILE),
-          EXTENSION_MANIFEST_FILE,
-        ]
-        for (const file of manifestLast) {
-          mkdirSync(dirname(join(target, file)), { recursive: true })
-          copyFileSync(join(entry.dir, file), join(target, file))
-        }
-      } catch (err) {
-        rmSync(target, { recursive: true, force: true })
-        this.deps.rescan()
-        return this.fail('write-failed', (err as Error).message)
+    return this.serialized(() => this.installFrom(id, extId))
+  }
+
+  private async installFrom(id: unknown, extId: unknown): Promise<MarketplaceResult> {
+    const source = this.records.sources.find((s) => s.id === id)
+    if (!source) return this.fail('unknown-marketplace')
+    const catalog = readCatalog(this.cloneDir(source.id))
+    if (typeof catalog === 'string') return this.fail('invalid-marketplace', catalog)
+    const entry = catalog.entries.find((e) => e.manifest.id === extId)
+    if (!entry) return this.fail('unknown-extension')
+    const state = this.installState(source.id, entry.manifest)
+    if (state === 'conflict') return this.fail('conflict')
+    const plan = planCopy(entry.dir)
+    if (!plan.ok) return this.fail(plan.error)
+    const target = this.installDir(entry.manifest.id)
+    try {
+      if (state === 'available') this.deps.forget(entry.manifest.id)
+      rmSync(target, { recursive: true, force: true })
+      const manifestLast = [
+        ...plan.files.filter((f) => f !== EXTENSION_MANIFEST_FILE),
+        EXTENSION_MANIFEST_FILE,
+      ]
+      for (const file of manifestLast) {
+        mkdirSync(dirname(join(target, file)), { recursive: true })
+        copyFileSync(join(entry.dir, file), join(target, file))
       }
-      this.records = {
-        ...this.records,
-        installs: { ...this.records.installs, [entry.manifest.id]: source.id },
-      }
-      this.save()
+    } catch (err) {
+      rmSync(target, { recursive: true, force: true })
       this.deps.rescan()
-      return this.ok()
-    })
+      return this.fail('write-failed', (err as Error).message)
+    }
+    this.records = {
+      ...this.records,
+      installs: { ...this.records.installs, [entry.manifest.id]: source.id },
+    }
+    this.save()
+    this.deps.rescan()
+    return this.ok()
   }
 
   uninstall(extId: unknown): Promise<MarketplaceResult> {

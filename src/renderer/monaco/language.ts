@@ -1,39 +1,26 @@
-const LANG: Record<string, string> = {
-  ts: 'typescript',
-  tsx: 'typescript',
-  mts: 'typescript',
-  cts: 'typescript',
-  js: 'javascript',
-  jsx: 'javascript',
-  mjs: 'javascript',
-  cjs: 'javascript',
-  json: 'json',
-  jsonc: 'json',
-  css: 'css',
-  scss: 'scss',
-  less: 'less',
-  html: 'html',
-  htm: 'html',
-  md: 'markdown',
-  mdx: 'markdown',
-  py: 'python',
-  rs: 'rust',
-  go: 'go',
-  sh: 'shell',
-  zsh: 'shell',
-  bash: 'shell',
-  yaml: 'yaml',
-  yml: 'yaml',
-  toml: 'ini',
-  ini: 'ini',
-  sql: 'sql',
-  c: 'c',
-  cpp: 'cpp',
-  java: 'java',
-  lua: 'lua',
+import {
+  type EditorLanguageMapping,
+  SETTINGS_LANGUAGE_ID,
+  languageForPath,
+} from '@shared/editorLanguages'
+
+export { SETTINGS_LANGUAGE_ID }
+
+let settingsFile: string | null = null
+let contributed: readonly EditorLanguageMapping[] = []
+
+export function setSettingsFile(path: string | null): void {
+  settingsFile = path
+}
+
+export function setContributedLanguages(languages: readonly EditorLanguageMapping[]): void {
+  contributed = languages
+}
+
+export function fileLanguage(path: string): string {
+  return languageForPath(path, contributed)
 }
 
 export function langFor(path: string): string {
-  const ext = path.includes('.') ? path.slice(path.lastIndexOf('.') + 1).toLowerCase() : ''
-  return LANG[ext] ?? 'plaintext'
+  return path === settingsFile ? SETTINGS_LANGUAGE_ID : fileLanguage(path)
 }

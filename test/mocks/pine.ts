@@ -62,12 +62,18 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onChanged: vi.fn(() => () => {}),
     },
     lsp: {
-      list: vi.fn().mockResolvedValue([]),
-      start: vi.fn().mockResolvedValue(null),
+      servers: vi.fn().mockResolvedValue([]),
+      onServersChanged: vi.fn(noopUnsub),
+      open: vi.fn().mockResolvedValue([]),
       send: vi.fn(),
-      stop: vi.fn(),
+      release: vi.fn(),
       onMessage: vi.fn(noopUnsub),
       onExit: vi.fn(noopUnsub),
+      setEnabled: vi.fn().mockResolvedValue([]),
+      restart: vi.fn().mockResolvedValue(undefined),
+      log: vi.fn().mockResolvedValue({ entries: [], errors: {} }),
+      fetch: vi.fn().mockResolvedValue(undefined),
+      removeDownload: vi.fn().mockResolvedValue(undefined),
     },
     settings: {
       path: vi.fn().mockResolvedValue('/tmp/pine-test/settings.json'),
@@ -215,6 +221,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
         state: { marketplaces: [], installed: [] },
       }),
     },
+    suggestions: {
+      forFile: vi.fn().mockResolvedValue(null),
+      dismiss: vi.fn().mockResolvedValue(undefined),
+      install: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
+    },
     extensions: {
       list: vi.fn().mockResolvedValue([]),
       setEnabled: vi.fn().mockResolvedValue([]),
@@ -321,6 +332,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       load: vi.fn().mockResolvedValue(null),
     },
     languagePacks: {
+      load: vi.fn().mockResolvedValue([]),
+    },
+    editorLanguages: {
       load: vi.fn().mockResolvedValue([]),
     },
     views: {

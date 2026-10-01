@@ -58,7 +58,7 @@ Rules for a listed extension:
 
 - It is installed by copying its folder as it is in the repository, so commit the built files
   (`main.js` bundled, panel HTML). pine never runs `npm install`, a build or any script from it.
-- Regular files and folders only: a symlink or special file refuses the install. At most 2000 files
+- Regular files and folders only: a symlink or special file refuses the install. At most 8000 files
   and 50 MiB.
 - An entry with a broken `pine.json`, a missing folder or an id another entry already uses is
   listed under "Entries that could not be offered" and the rest still work.
@@ -126,15 +126,17 @@ installs, updates or uninstalls, from Settings.
 | `contributes.paneChips` | Up to 8 `{id, title}`. Each is a slot for a short value you put on a pane's header with `ext.setPaneChip` (for example a venv or a test count). `title` names it in tooltips and in Settings → Prompt: the human can also place your chip in the Pine prompt's chip row (`terminal.prompt.chips` id `<extId>.<chip>`), where it shows the same value. Needs `main`. |
 | `contributes.workspaceChips` | Up to 8 `{id, title}`, like `paneChips` but for a value that describes a whole workspace (for example its repository's branch and changes). You set it with `ext.setWorkspaceChip`; the top bar shows the chips of the active workspace. The Pine prompt can show it too (same `<extId>.<chip>` id): a pane's prompt shows its own pane chip if there is one, otherwise its workspace's. Needs `main`. |
 | `api` | Required. The extension API version you wrote against, `major.minor` (`"1.0"`). pine loads the extension only when it provides that major and at least that minor; otherwise the manifest is refused with `needs extension API X; this pine provides Y`, in the log, in `pine-extension validate` and under a marketplace's "Entries that could not be offered". See "API version" |
-| `category` | Optional, one of `ai`, `scm`, `tools`, `themes`, `langpack`, `completions`, `other` (the default). Settings → Extensions and the marketplace show it as a badge. Anything else refuses the manifest |
-| `contributes.languages` | Up to 8 language packs, each `{id, label, path}`: `id` is a language tag (`fr`, `zh-Hant`), `label` the name shown in Settings → Language, `path` a `.json` file inside the extension. The file is a nested object of strings shaped like pine's English catalog (`src/renderer/i18n/dict.ts`, `en`): translate the keys you want, anything missing stays English, and keys English doesn't have are ignored. Keep `{placeholders}` as they are. No `main` needed. Main reads the file (no symlinks, ≤ 1 MiB, strings ≤ 4000 characters) only while the extension is enabled; disabling it puts the interface back in English. The first enabled extension to provide a language wins, and none can replace English. A language pack translates pine's own interface only: it cannot carry strings for another extension, which translates itself ("Translations" below) |
-| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Write them in English and translate them in your own catalogs ("Translations" below). Settings → Extensions shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
+| `category` | Optional, one of `ai`, `scm`, `tools`, `themes`, `langpack`, `completions`, `languages`, `other` (the default). Settings → Extensions and the marketplace show it as a badge. Anything else refuses the manifest |
+| `contributes.languages` | Up to 8 language packs, each `{id, label, path}`: `id` is a language tag (`fr`, `zh-Hant`), `label` the name shown in Settings → Language, `path` a `.json` file inside the extension. The file is a nested object of strings shaped like pine's English catalog (`src/renderer/i18n/dict.ts`, `en`): translate the keys you want, anything missing stays English, and keys English doesn't have are ignored. Keep `{placeholders}` as they are. No `main` needed. Main reads the file (no symlinks, ≤ 1 MiB, strings ≤ 4000 characters) only while the extension is enabled; disabling it puts the interface back in English. The first enabled extension to provide a language wins, and none can replace English |
+| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
 | `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Extensions shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
+| `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: pine starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
+| `contributes.editorLanguages[]` | Up to 16 languages the editor does not know yet, each with a Monarch grammar as JSON. Data only: no `main` and no capability needed. See [Editor languages](#editor-languages). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`, `chat`.
@@ -316,9 +318,241 @@ each icon at most 512 KiB, all icons at most 48 MiB, every path inside the exten
 after resolving symlinks, and no symlinked file. Icons reach the renderer as `data:` URLs;
 the renderer never gets a path.
 
+## Language servers
+
+An extension gives the editor a language server by describing it in `contributes.languageServers`.
+It is data, not code: pine spawns the process, speaks LSP to it over stdio, and wires its answers
+into the editor. Providers are registered from what the server reports in `initialize`, with its
+trigger characters. Your extension never owns the process and needs no `main`.
+
+What the editor uses when the server offers it: diagnostics (push), completion (text edits, extra
+edits such as auto-imports, snippets, resolve), hover, go to definition, references, rename with
+prepare, signature help, document symbols (the outline), document highlights, document and range
+formatting (also format on save), code actions (edits and commands, `workspace/applyEdit`),
+semantic tokens (full document) and inlay hints. Text is synced incrementally when the server
+asks for it, and `didSave` is sent when it asked for saves. A workspace edit changes open
+documents through the editor (undoable) and closed files on disk, and only inside the server's
+root folder: an edit that touches a file outside it, a URI that is not `file:`, or one that
+creates, renames or deletes files is refused as a whole. In a sandboxed workspace the root must
+also be inside the workspace folder, otherwise the server cannot edit at all. Not wired yet: pull diagnostics, workspace symbols, code lens,
+folding ranges, type hierarchy, and dynamic registration.
+
+```json
+{
+  "id": "lsp-pyright",
+  "name": "Python (Pyright)",
+  "version": "1.0.0",
+  "api": "1.2",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "settings": {
+      "typeCheckingMode": { "type": "enum", "values": ["off", "basic", "standard", "strict"],
+        "default": "standard", "description": "How strictly Pyright checks types" }
+    },
+    "languageServers": [
+      {
+        "id": "pyright",
+        "name": "Pyright",
+        "languages": ["python"],
+        "documentLanguageIds": { ".pyi": "python" },
+        "run": { "node": "server/langserver.index.js", "args": ["--stdio"] },
+        "rootMarkers": ["pyproject.toml", "setup.py", "requirements.txt", "pyrightconfig.json"],
+        "initializationOptions": {},
+        "settings": { "python": { "analysis": { "typeCheckingMode": "standard" } } },
+        "settingPaths": { "typeCheckingMode": "python.analysis.typeCheckingMode" }
+      }
+    ]
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `id` | Lowercase letters, digits and dashes, unique in the extension. The server's key is `<extension id>/<id>`. |
+| `name` | 1–200 characters, shown in Settings → Languages and the approval dialog. |
+| `languages` | 1–16 editor (Monaco) language ids, `[a-z][a-z0-9+#-]*`: the files this server is started for. |
+| `documentLanguageIds` | Optional. Maps an editor language id, or a file suffix starting with `.`, to the LSP `languageId` sent in `didOpen` (`"shell": "shellscript"`, `".tsx": "typescriptreact"`). The longest matching suffix wins, then the editor language id; without an entry the editor language id is sent. |
+| `run` | Exactly one of four forms, each with optional `args`: `node`, `program`, `download` or `goInstall`. See [How the server's program gets there](#how-the-servers-program-gets-there). Nothing else is allowed in `run`. |
+| `run.args` | At most 32 strings of at most 200 characters. `{extensionDir}` and `{root}` are replaced, per argument. There is no shell: an argument is never split or expanded. |
+| `rootMarkers` | At most 16 file names. The server's root is the nearest folder, from the file upward, that holds one, never above the workspace folder. Without markers, or when none is found, the root is the workspace folder. |
+| `initializationOptions`, `settings` | JSON objects of at most 16 KiB each. String values get the same two replacements. `initializationOptions` goes into `initialize`; `settings` answers the server's `workspace/configuration` requests by section. |
+| `settingPaths` | Maps one of your own `contributes.settings` keys to a dotted path in `settings`. pine lays the human's value over `settings` before answering, and sends `workspace/didChangeConfiguration` when it changes. |
+
+### How the server's program gets there
+
+A server reaches the human's machine in one of four ways. Pick the one that fits the server; you
+cannot mix them in one `run`.
+
+| `run` form | Use it for | What happens |
+|---|---|---|
+| `{ "node": "server/cli.mjs" }` | A server written in JavaScript | Its files ship inside your extension folder, so installing the extension is the download. pine runs the `.js`, `.mjs` or `.cjs` file with its own Electron as Node (`ELECTRON_RUN_AS_NODE=1`); no system Node is needed. The path must be a regular file inside the extension, checked again after symlinks are resolved. |
+| `{ "download": { … } }` | A native server with release binaries | pine uses the program on the human's `PATH` when there is one. Otherwise it downloads the pinned asset for the platform, checks its SHA-256, unpacks it into its own data folder and runs that copy. |
+| `{ "goInstall": { … } }` | A Go server without release binaries | pine uses the binary on `PATH` when there is one. Otherwise it runs `go install <module>@<version>` with `GOBIN` in its own data folder. Needs Go on `PATH`. |
+| `{ "program": "name", "package": "name" }` | A server pine cannot fetch | Looked up on `PATH` only. While it is missing the server is off and Settings → Languages offers to install `package` (default: the program name) through the System extension, which shows the human the exact command first. |
+
+The `download` form:
+
+```json
+"run": {
+  "download": {
+    "program": "rust-analyzer",
+    "version": "2026-09-28",
+    "assets": {
+      "linux-x64": {
+        "url": "https://github.com/rust-lang/rust-analyzer/releases/download/2026-09-28/rust-analyzer-x86_64-unknown-linux-gnu.gz",
+        "sha256": "23f711d86b5f826e22886f01d7355dc01e0f4c1357dafa29710a95b903b48c85",
+        "archive": "gz",
+        "executable": "rust-analyzer"
+      }
+    }
+  },
+  "args": []
+}
+```
+
+- `program` is the name looked up on `PATH` first. The human's own binary always wins.
+- `version` is the pinned version, 1–64 characters of `[A-Za-z0-9._+-]`. `latest` is refused.
+- `assets` has one entry per platform you support: `linux-x64`, `linux-arm64`, `darwin-x64`,
+  `darwin-arm64`, `win32-x64`, `win32-arm64`. On a platform without an entry the server is
+  `PATH`-only, like the `program` form.
+- `url` must be `https` on `github.com`, `objects.githubusercontent.com` or
+  `release-assets.githubusercontent.com`, with no credentials and no port. Redirects are followed
+  only to those hosts.
+- `sha256` is required: 64 lowercase hex characters of the file at `url`. Compute it from the file
+  you downloaded yourself (`sha256sum <file>`); pine refuses the download when it differs.
+- `archive` is `plain` (the file is the program), `gz` (one gzipped program), `tar.gz` or `zip`.
+- `executable` is the program's path inside the unpacked archive (`clangd_23.1.0/bin/clangd`), or
+  the file name to give a `plain` or `gz` download. No `..`, no leading `/`.
+
+The `goInstall` form:
+
+```json
+"run": {
+  "goInstall": { "module": "golang.org/x/tools/gopls", "version": "v0.23.0", "binary": "gopls" },
+  "args": []
+}
+```
+
+- `module` is a Go module path: lowercase host and path segments, nothing that could be a flag.
+- `version` is `vX.Y.Z` exactly. `latest`, branches and pre-releases are refused.
+- `binary` is the program name `go install` produces, also the name looked up on `PATH` first.
+- pine runs exactly `go install <module>@<version>` and nothing else: no other subcommand, no
+  extra arguments from the manifest, never through a shell.
+
+What pine guarantees for `download` and `goInstall`:
+
+- **Only after approval, only on demand.** Nothing is fetched for an extension that is merely
+  listed, disabled or waiting for approval, and nothing at app start. The fetch happens when a
+  file of one of the server's languages opens, or when the human presses the fetch button in
+  Settings → Languages. The approval dialog states what will be downloaded, or the exact
+  `go install` command, before the human approves.
+- **`PATH` first.** A program the human installed themselves is never replaced or shadowed.
+- **Checked before it can run.** A download is limited to 256 MiB, hashed while it is written, and
+  thrown away when the SHA-256 differs. Only then is it unpacked: at most 1 GiB and 20,000 files,
+  no entry outside the folder, no symlinks, hard links or special files. Nothing from the archive
+  is executed while installing, and nothing goes through a shell or a package manager.
+- **In pine's own folder.** The copy lives in `language-servers/<extension id>/<server id>/<version>/`
+  under pine's data folder (mode 0700), never in the workspace. An older version is removed when a
+  new one is in place, and everything of an extension is removed when it is uninstalled. The human
+  can remove a copy in Settings → Languages; pine then does not fetch it again until asked.
+- **Little is sent.** The request carries a `User-Agent` with the product name and version and
+  nothing else: no cookies, no token.
+- **`go install` runs with a scrubbed environment**: no `PINE_*` variable, `GOFLAGS` cleared, a
+  time limit, and its output only in the server's in-memory log.
+
+How pine runs a server:
+
+- **Start.** A server starts when a file of one of its languages opens in the editor, once per
+  server, root folder and window. cwd is the root.
+- **Environment.** The process gets pine's environment without any `PINE_*` variable: no socket,
+  no token. A language server cannot call pine.
+- **Sandboxed workspaces.** In a sandboxed workspace the server runs inside that workspace's
+  sandbox, or not at all. Your extension's folder and the folder of the copy pine fetched are
+  readable there (read-only, and only that server's version folder). A program from the human's
+  `PATH` that lives under the home folder (for example `~/.cargo/bin`) is not readable until the
+  human adds a read path, and Settings says so. The fetch itself runs on the host: it is pine's
+  action after the human's approval, not something the sandboxed workspace does.
+- **Stop.** With no document open for a minute pine sends `shutdown` and `exit`. A crash restarts
+  it with a growing delay, at most five times; after that it is shown as crashed until the human
+  presses Restart.
+- **The human's controls.** Settings → Languages lists every server with its status (including
+  `Downloading… 40%` and a failed fetch with its reason and Retry), where its program comes from
+  (`PATH` or pine's copy and its version), an on/off switch, Restart, a way to remove pine's copy,
+  and a log (start, exit, restarts, fetches, the server's stderr; kept in memory only). There is
+  no socket method or CLI verb for any of it.
+- **The editor's own features step aside.** Monaco has built-in features for JSON, CSS, SCSS,
+  LESS and HTML. While an enabled server that can run claims one of those languages, pine turns
+  the built-in ones off for it (the tokenizer stays), and turns them back on when the server is
+  switched off, uninstalled or has crashed for good. `settings.json` is the exception: it always
+  keeps pine's own schema checks and is never sent to a server. pine ships no language features
+  for any other language: TypeScript, JavaScript, Python and the rest are only highlighted until
+  an extension provides a server.
+- **No folder trust prompt.** pine has no per-folder trust setting. A server runs project code
+  (build scripts, plugins) with the human's rights once its extension is approved and a matching
+  file opens; a sandboxed workspace is the way to confine it.
+
+### Editor languages
+
+A language server is started for an editor language id. The editor knows the common ones
+(`typescript`, `python`, `rust`, `go`, `yaml`, `shell`, `markdown`, …); for a language it does
+not know, declare it in `contributes.editorLanguages` and name its id in your server's
+`languages`:
+
+```json
+"editorLanguages": [
+  {
+    "id": "gleam",
+    "name": "Gleam",
+    "extensions": [".gleam"],
+    "filenames": ["gleam.toml"],
+    "configuration": {
+      "lineComment": "//",
+      "blockComment": ["/*", "*/"],
+      "brackets": [["{", "}"], ["[", "]"], ["(", ")"]],
+      "autoClosingPairs": [["{", "}"], ["\"", "\""]]
+    },
+    "grammar": "gleam.monarch.json"
+  }
+]
+```
+
+| Field | Meaning |
+|---|---|
+| `id` | `[a-z][a-z0-9+#-]*`, at most 40 characters. An id the editor already has is refused: a contribution adds a language, it never replaces one. |
+| `name` | 1–80 characters, shown as the language's name. |
+| `extensions`, `filenames` | Up to 16 each; at least one in total. An extension starts with a dot (`.gleam`, `.test.gleam`; the longest match wins), a file name is matched whole (`Justfile`). A file the editor already has a language for keeps it. |
+| `configuration` | Optional: `lineComment`, `blockComment` (a pair), `brackets` and `autoClosingPairs` (up to 16 pairs each). Every string is 1–10 characters. |
+| `grammar` | A `.json` file inside the extension holding a [Monarch](https://microsoft.github.io/monaco-editor/monarch.html) grammar with every regular expression written as a string. |
+
+Main reads the grammar only while the extension is enabled and checks it: no symlink, inside the
+extension folder after symlinks are resolved, at most 256 KiB, at most 200 states of 500 rules,
+every rule starts with a regular expression of at most 2000 characters that compiles
+(`@name` references are allowed), and prototype keys are dropped. A grammar is data: it cannot
+hold functions. TextMate grammars are not supported. A slow regular expression still runs on the
+editor's thread, so keep rules simple.
+
+### Being suggested
+
+Nothing extra is needed to be offered to the right people. When someone opens a file and no
+enabled server claims its language, pine looks through the marketplaces they have added (the
+copies already on disk; it never fetches for this) for an extension whose
+`contributes.languageServers` covers that language, and shows one quiet line above the editor:
+"<your extension> adds language features for .x files." with **Install** and **No**. Install
+copies the extension from the marketplace, exactly like the button in Settings → Extensions;
+your extension then waits for approval like any other. No is remembered per extension.
+
+pine also carries a small compiled table (`src/shared/extensionSuggestions.ts`) of the language
+extensions it publishes itself and the file names and suffixes each is suggested for, so the
+offer works before any marketplace has been added; Install then adds the official marketplace
+first. An id in that table is only ever taken from the official marketplace, whatever another
+marketplace lists under the same id.
+
 ## Approval and capabilities
 
-- The first launch of a user extension shows a dialog listing its `capabilities`. Approve and it
+- The first launch of a user extension shows a dialog listing its `capabilities` and, for each
+  language server, the command it runs, for which files, and what pine would fetch for it (the
+  download's program, version and host, or the exact `go install` command). Approve and it
   runs with exactly those; "Keep disabled" records the decision. Built-ins skip the dialog.
 - If a new version asks for more, it runs with the previously approved subset until the user
   reviews it in Settings.
@@ -835,6 +1069,12 @@ them.
 
 | Id | What it does |
 |---|---|
+| `lsp-rust-analyzer`, `lsp-clangd`, `lsp-lua`, `lsp-marksman` | One native language server each, with the `download` form: `rust-analyzer` 2026-09-28 (Linux, macOS and Windows on x64 and arm64), `clangd` 23.1.0 (Linux x64, macOS, Windows x64; other platforms use `PATH`), `lua-language-server` 3.19.1 (Linux and macOS on x64 and arm64, Windows x64) and `marksman` 2026-02-08 for Markdown (Linux x64 and arm64, macOS, Windows x64). Each pins the official GitHub release asset and its SHA-256 |
+| `lsp-gopls` | `gopls` for Go with the `goInstall` form: `go install golang.org/x/tools/gopls@v0.23.0` when no `gopls` is on `PATH`. Needs Go; without it Settings → Languages offers to install Go |
+| `lsp-typescript` | TypeScript and JavaScript in the editor: `typescript-language-server` 5.3.0 and TypeScript 5.9.3, copied unchanged from their npm packages into `server/` by `scripts/build-extensions.mjs` (the extension's `vendor.json` lists them: `packages` copies one package to a folder, `closures` copies a package and everything it depends on into a `node_modules` folder) and run with pine's Electron as Node. A project's own TypeScript is used when it has one. The app itself ships no TypeScript language features: without this extension a `.ts` or `.js` file is only highlighted |
+| `lsp-pyright` | Python in the editor: Pyright 1.1.414, copied the same way (about 5,400 files, mostly type stubs). Setting `typeCheckingMode` |
+| `lsp-yaml` | YAML in the editor: `yaml-language-server` 1.24.0 with its 19 dependencies, copied unchanged into `server/node_modules/` (`vendor.json` `closures`). Setting `schemaStore` (off by default) lets the server fetch schemas from schemastore.org |
+| `lsp-bash` | Shell scripts in the editor: `bash-language-server` 5.8.1 with its 35 dependencies, copied the same way. It lints with `shellcheck` when that is on `PATH` |
 | `trellis` | The Trellis web UI as a panel on the workspace's project, the open card count of the active workspace as a `cards` workspace chip in the top bar (click opens the board), notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Init Project Here", `pine trellis status`. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications that open the approvals queue (Keeper has no per-ticket page), "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue. Settings: `notify`, `pollSeconds`, `idlePollSeconds` |
 | `model-runtime` | The assist points on the user's local model-runtime (`$XDG_RUNTIME_DIR/model-runtime.sock` unless `baseUrl` says otherwise, `gemma` as the fast model unless set), with load and unload in Settings → Assistant → Models. It runs the same engine as `assistant` (`src/extensions/sdk/assist/`, `runAssistExtension`) with its own one-provider catalog; tools are described in the prompt. When both are ready, the built-in `assistant` answers |

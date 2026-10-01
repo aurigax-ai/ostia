@@ -239,6 +239,7 @@ export class WorkspaceSandboxes {
     command: string,
     binShell: string,
     extraWrites: string[] = [],
+    extraReads: string[] = [],
   ): Promise<string> {
     if (this.deps.store.isCorrupt) {
       throw new SandboxUnavailableError(
@@ -249,14 +250,22 @@ export class WorkspaceSandboxes {
     if (problem) throw new SandboxUnavailableError(folderProblemMessage(problem))
     const host = await this.host(workspaceId)
     try {
-      if (extraWrites.length === 0) return await host.wrap(command, binShell)
-      const owner = this.owner(workspaceId)
-      const seen = this.paneWrites.get(owner) ?? new Set<string>()
-      for (const path of extraWrites) seen.add(path)
-      this.paneWrites.set(owner, seen)
+      if (extraWrites.length === 0 && extraReads.length === 0) {
+        return await host.wrap(command, binShell)
+      }
+      if (extraWrites.length > 0) {
+        const owner = this.owner(workspaceId)
+        const seen = this.paneWrites.get(owner) ?? new Set<string>()
+        for (const path of extraWrites) seen.add(path)
+        this.paneWrites.set(owner, seen)
+      }
       const { filesystem } = this.config(workspaceId)
       return await host.wrap(command, binShell, {
-        filesystem: { ...filesystem, allowWrite: [...filesystem.allowWrite, ...extraWrites] },
+        filesystem: {
+          ...filesystem,
+          allowWrite: [...filesystem.allowWrite, ...extraWrites],
+          allowRead: [...(filesystem.allowRead ?? []), ...extraReads],
+        },
       })
     } catch (err) {
       throw new SandboxUnavailableError(err instanceof Error ? err.message : String(err))

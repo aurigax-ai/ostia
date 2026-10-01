@@ -31,6 +31,7 @@ function greeter(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     status: 'idle',
     requested: [],
     granted: [],
+    languageServers: [],
     unapproved: [],
     commands: [
       {

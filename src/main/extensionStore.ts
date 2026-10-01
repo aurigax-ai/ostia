@@ -4,7 +4,10 @@ import { loadJson, saveJson } from './jsonStore'
 export interface ExtensionRecord {
   enabled: boolean
   approved: Capability[] | null
+  serversOff?: string[]
 }
+
+const MAX_SERVERS_OFF = 64
 
 export type ExtensionRecords = Record<string, ExtensionRecord>
 
@@ -35,12 +38,21 @@ function sanitize(raw: unknown): ExtensionRecords {
   const out: ExtensionRecords = {}
   for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
     if (typeof value !== 'object' || value === null) continue
-    const v = value as { enabled?: unknown; approved?: unknown }
+    const v = value as { enabled?: unknown; approved?: unknown; serversOff?: unknown }
     const approved = Array.isArray(v.approved)
       ? v.approved.filter((c): c is Capability => ALL_CAPABILITIES.includes(c as Capability))
       : null
+    const serversOff = Array.isArray(v.serversOff)
+      ? v.serversOff
+          .filter((s): s is string => typeof s === 'string' && s.length <= 40)
+          .slice(0, MAX_SERVERS_OFF)
+      : []
     Object.defineProperty(out, id, {
-      value: { enabled: v.enabled === true, approved },
+      value: {
+        enabled: v.enabled === true,
+        approved,
+        ...(serversOff.length > 0 ? { serversOff } : {}),
+      },
       enumerable: true,
       writable: true,
       configurable: true,

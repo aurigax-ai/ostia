@@ -33,6 +33,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     secretsSet: [],
     category: 'other',
     languages: [],
+    languageServers: [],
     iconThemes: [],
     ...overrides,
   }
@@ -113,6 +114,52 @@ describe('Extensions UI', () => {
           .getAllByRole('listitem')
           .map((li) => li.textContent),
       ).toEqual(['notify', 'read-board'])
+    })
+
+    it('lists what each language server runs, for which files, and what the app would fetch', () => {
+      const withServers = {
+        ...pending,
+        description: 'Without one, {product} downloads the pinned release.',
+        requested: ['language-server' as const],
+        languageServers: [
+          { id: 'gleam', name: 'Gleam', languages: ['gleam'], command: 'gleam lsp' },
+          { id: 'fmt', name: 'Fmt', languages: ['go', 'rust'], command: 'server/fmt.js --stdio' },
+          {
+            id: 'ra',
+            name: 'rust-analyzer',
+            languages: ['rust'],
+            command: 'rust-analyzer',
+            download: { program: 'rust-analyzer', version: '2026-09-28', host: 'github.com' },
+          },
+          {
+            id: 'gopls',
+            name: 'gopls',
+            languages: ['go'],
+            command: 'gopls',
+            goInstall: { command: 'go install golang.org/x/tools/gopls@v0.23.0', binary: 'gopls' },
+          },
+        ],
+      }
+      useExtensionsStore.setState({ list: [withServers] })
+      render(<ExtensionApprovalDialog />)
+      expect(
+        within(screen.getByRole('dialog')).getByText(
+          'Without one, pine downloads the pinned release.',
+        ),
+      ).toBeInTheDocument()
+      const servers = within(screen.getByRole('dialog')).getByRole('list', {
+        name: 'Language servers',
+      })
+      expect(
+        within(servers)
+          .getAllByRole('listitem')
+          .map((li) => li.textContent),
+      ).toEqual([
+        'Runs gleam lsp for gleam files',
+        'Runs server/fmt.js --stdio for go, rust files',
+        'Runs rust-analyzer for rust filesDownloads rust-analyzer 2026-09-28 from github.com when it is not on your PATH',
+        'Runs gopls for go filesRuns go install golang.org/x/tools/gopls@v0.23.0 when gopls is not on your PATH',
+      ])
     })
 
     it('approving goes through the bridge and closes the dialog', async () => {
