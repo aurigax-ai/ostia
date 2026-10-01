@@ -7,6 +7,7 @@ import { useBlocksStore } from '../stores/blocksStore'
 import { useCloseConfirmStore } from '../stores/closeConfirmStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useUpdateStore } from '../stores/updateStore'
@@ -134,6 +135,59 @@ describe('builtins route to store actions', () => {
     expect(r).toEqual({ ok: false, error: { code: 'command-failed', message: 'split exploded' } })
   })
 
+  describe('browser profile of a new browser pane', () => {
+    const openBrowserSpy = () =>
+      vi.spyOn(useLayoutStore.getState(), 'openBrowser').mockImplementation(() => {})
+    const workspaces = (kind: 'terminal' | 'scratch') =>
+      useWorkspacesStore.setState({
+        workspaces: [{ id: 's7', name: 'a', kind, workDir: '/a', state: 'idle' }],
+        activeWorkspaceId: 's7',
+      })
+
+    afterEach(() => useSandboxStore.setState({ enabled: {} }))
+
+    it('gives the human the shared profile', async () => {
+      workspaces('terminal')
+      const openBrowser = openBrowserSpy()
+      await commands.execWith(ctx('s7', null), 'browser.new', { url: 'http://a.test/' })
+      expect(openBrowser).toHaveBeenCalledWith('s7', 'http://a.test/', 'shared')
+    })
+
+    it('keeps a pane opened over the control socket isolated, whatever the args say', async () => {
+      workspaces('terminal')
+      const openBrowser = openBrowserSpy()
+      const remote: CommandContext = { ...ctx('s7', null), origin: 'remote' }
+      await commands.execWith(remote, 'browser.new', { url: 'http://a.test/', profile: 'shared' })
+      await commands.execWith(remote, 'browser.open')
+      expect(openBrowser).toHaveBeenNthCalledWith(1, 's7', 'http://a.test/', 'isolated')
+      expect(openBrowser).toHaveBeenNthCalledWith(2, 's7', 'about:blank', 'isolated')
+    })
+
+    it('keeps the human’s pane isolated in a scratch workspace', async () => {
+      workspaces('scratch')
+      const openBrowser = openBrowserSpy()
+      await commands.execWith(ctx('s7', null), 'browser.new')
+      expect(openBrowser).toHaveBeenCalledWith('s7', 'about:blank', 'isolated')
+    })
+
+    it('keeps the human’s pane isolated in a sandboxed workspace', async () => {
+      workspaces('terminal')
+      useSandboxStore.setState({ enabled: { s7: true } })
+      const openBrowser = openBrowserSpy()
+      await commands.execWith(ctx('s7', null), 'browser.new')
+      expect(openBrowser).toHaveBeenCalledWith('s7', 'about:blank', 'isolated')
+    })
+
+    it('gives a new browser tab the opener’s profile', async () => {
+      workspaces('terminal')
+      const newTab = vi.spyOn(useLayoutStore.getState(), 'newTab').mockImplementation(() => null)
+      await commands.execWith(ctx('s7', 'p1'), 'tab.newBrowser')
+      await commands.execWith({ ...ctx('s7', 'p1'), origin: 'remote' }, 'tab.newBrowser')
+      expect(newTab).toHaveBeenNthCalledWith(1, 's7', 'p1', 'browser', 'shared')
+      expect(newTab).toHaveBeenNthCalledWith(2, 's7', 'p1', 'browser', 'isolated')
+    })
+  })
+
   it('browser.open opens about:blank in the caller ctx workspace and propagates failures', async () => {
     const openBrowser = vi
       .spyOn(useLayoutStore.getState(), 'openBrowser')
@@ -141,7 +195,7 @@ describe('builtins route to store actions', () => {
 
     const ok = await commands.execWith(ctx('s7', null), 'browser.open')
     expect(ok.ok).toBe(true)
-    expect(openBrowser).toHaveBeenCalledWith('s7', 'about:blank')
+    expect(openBrowser).toHaveBeenCalledWith('s7', 'about:blank', 'shared')
 
     openBrowser.mockImplementation(() => {
       throw new Error('no browser')

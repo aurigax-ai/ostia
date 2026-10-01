@@ -8,6 +8,7 @@ import type {
   AssistExtensionState,
   AssistOpenUiRequest,
 } from '../shared/assist'
+import type { BrowserProfile } from '../shared/browserProfile'
 import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
 import type { BuildInfo } from '../shared/buildInfo'
 import type {
@@ -325,6 +326,8 @@ const bridge: PineBridge = {
     push: (snapshot) => ipcRenderer.send('terminal:state', snapshot),
   },
   browser: {
+    claimProfile: (paneId, profile) =>
+      ipcRenderer.invoke('browser:claim-profile', paneId, profile) as Promise<BrowserProfile>,
     register: (paneId, webContentsId) =>
       ipcRenderer.send('browser:register', paneId, webContentsId),
     unregister: (paneId) => ipcRenderer.send('browser:unregister', paneId),

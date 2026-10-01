@@ -499,7 +499,7 @@ know agent-browser, replace `agent-browser` with `pine browse`. The whole group 
 The core loop:
 
 ```sh
-pine browse open localhost:3000        # loads the url; creates a browser pane if the workspace has none
+pine browse open localhost:3000        # loads the url; creates your own browser pane if you have none
 pine browse snapshot -i                # interactive elements with refs:  - button "Submit" [ref=e2]
 pine browse fill @e3 "ada@example.com" # act on refs from the snapshot
 pine browse click @e2
@@ -598,8 +598,8 @@ Relative paths resolve against your cwd and must stay under your home directory.
 
 **Tabs.** A tab is a browser pane in your workspace; its id is the pane's external id.
 Commands go to your active tab: the one `open` created, `tab new` opened or `tab <id>` switched to,
-else the first browser pane in your workspace. Another workspace's pane needs `--pane` and
-`all-workspaces`.
+else the first browser pane in your workspace that is not on the human's profile. Another
+workspace's pane needs `--pane` and `all-workspaces`.
 
 **Refs.** `snapshot` (and `find`) give each element an `eN` ref. An element keeps its ref across
 snapshots while it stays in the page; a navigation resets them, so snapshot again after `open`,
@@ -607,9 +607,15 @@ a link click or `back`. Same-origin iframes are inlined in the snapshot and thei
 directly; `frame <sel>` scopes selectors and snapshots to one iframe, `frame main` goes back.
 Refs live in an isolated JavaScript world, so the page can't read or fake them.
 
-**Isolation.** Each browser pane has its own in-memory cookie and storage jar; nothing is shared
-with other panes or with the user's Chrome. The human can see and edit the same cookies,
-local storage and session storage from the pane's storage button.
+**Profiles.** A browser pane you open (`open`, `tab new`, `click --new-tab`) has its own
+in-memory cookie and storage jar, shared with nothing and gone when it closes. Browser panes the
+human opens share their own persistent profile: their cookies, logins and open sessions.
+`pine browse tab` lists those as `[the human's browser profile…]` without their page, and
+`open` never falls back to one. Every command that targets one (`--pane`, or `tab <id>` then any
+command) shows the human an approval card for `credentials`, every time; it is never granted for
+the session. Use one only when the human asked you to work in their signed-in browser. Scratch
+and sandboxed workspaces never use the human's profile. The human can see and edit a pane's
+cookies, local storage and session storage from its storage button.
 
 **Console and errors** are captured from the moment the pane opens (500 entries each). `errors`
 also catches uncaught exceptions and unhandled rejections through a hook Pine adds to every page.

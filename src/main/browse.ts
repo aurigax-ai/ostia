@@ -37,6 +37,7 @@ type MethodCtx = { identity: PaneIdentity; authed: AuthedConn }
 
 export interface BrowseDeps {
   browserPanes: Map<string, number>
+  isSharedPane: (paneId: string) => boolean
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   screenshotRoots: string[]
   consoleBuffers: Map<number, ConsoleEntry[]>
@@ -201,8 +202,46 @@ function liveGuest(wcId: number | undefined): Electron.WebContents | null {
   return guest && !guest.isDestroyed() ? guest : null
 }
 
+export const SHARED_PROFILE_DETAIL =
+  "act in the human's signed-in browser: this tab uses their own browser profile, with their cookies, logins and open sessions"
+
+type GuestDeps = Pick<BrowseDeps, 'browserPanes' | 'isSharedPane'>
+
+async function elevate(
+  ctx: MethodCtx,
+  cap: 'all-workspaces' | 'credentials',
+  detail: string,
+): Promise<GuestResolution | null> {
+  try {
+    await ensureCaps(ctx.authed, ctx.identity, [cap], 'browse', detail)
+    return null
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('needs-elevation')) {
+      return { ok: false, error: 'needs-elevation' }
+    }
+    throw e
+  }
+}
+
+function sharedDetail(tabId: string): string {
+  return `${SHARED_PROFILE_DETAIL} (tab ${tabId})`
+}
+
+export function defaultBrowserPane(deps: GuestDeps, ctx: MethodCtx): string | undefined {
+  const active = activeTabs.get(ctx.identity.paneId)
+  if (active && getByPaneId(active)?.workspaceId === ctx.identity.workspaceId) {
+    if (liveGuest(deps.browserPanes.get(active))) return active
+  }
+  for (const [rendererPaneId, wcId] of deps.browserPanes) {
+    if (getByPaneId(rendererPaneId)?.workspaceId !== ctx.identity.workspaceId) continue
+    if (deps.isSharedPane(rendererPaneId)) continue
+    if (liveGuest(wcId)) return rendererPaneId
+  }
+  return undefined
+}
+
 export async function resolveGuest(
-  deps: Pick<BrowseDeps, 'browserPanes'>,
+  deps: GuestDeps,
   ctx: MethodCtx,
   paneId?: string,
 ): Promise<GuestResolution> {
@@ -215,30 +254,26 @@ export async function resolveGuest(
       identity.workspaceId !== ctx.identity.workspaceId ||
       identity.windowId !== ctx.identity.windowId
     if (crossBoundary) {
-      try {
-        await ensureCaps(ctx.authed, ctx.identity, ['all-workspaces'], 'browse', `pane ${paneId}`)
-      } catch (e) {
-        if (e instanceof Error && e.message.startsWith('needs-elevation')) {
-          return { ok: false, error: 'needs-elevation' }
-        }
-        throw e
-      }
+      const refused = await elevate(ctx, 'all-workspaces', `pane ${paneId}`)
+      if (refused) return refused
+    }
+    if (deps.isSharedPane(identity.paneId)) {
+      const refused = await elevate(ctx, 'credentials', sharedDetail(paneId))
+      if (refused) return refused
     }
     const guest = liveGuest(wcId)
     if (!guest) return { ok: false, error: 'browser-not-ready' }
     return { ok: true, guest, rendererPaneId: identity.paneId }
   }
-  const active = activeTabs.get(ctx.identity.paneId)
-  if (active && getByPaneId(active)?.workspaceId === ctx.identity.workspaceId) {
-    const guest = liveGuest(deps.browserPanes.get(active))
-    if (guest) return { ok: true, guest, rendererPaneId: active }
+  const rendererPaneId = defaultBrowserPane(deps, ctx)
+  const guest = rendererPaneId ? liveGuest(deps.browserPanes.get(rendererPaneId)) : null
+  if (!rendererPaneId || !guest) return { ok: false, error: 'no-browser-pane' }
+  if (deps.isSharedPane(rendererPaneId)) {
+    const tabId = getByPaneId(rendererPaneId)?.externalId ?? rendererPaneId
+    const refused = await elevate(ctx, 'credentials', sharedDetail(tabId))
+    if (refused) return refused
   }
-  for (const [rendererPaneId, wcId] of deps.browserPanes) {
-    if (getByPaneId(rendererPaneId)?.workspaceId !== ctx.identity.workspaceId) continue
-    const guest = liveGuest(wcId)
-    if (guest) return { ok: true, guest, rendererPaneId }
-  }
-  return { ok: false, error: 'no-browser-pane' }
+  return { ok: true, guest, rendererPaneId }
 }
 
 export function ownedGuest(
@@ -397,6 +432,14 @@ function tabEntry(rendererPaneId: string, guest: Electron.WebContents, activeId?
     tabId: getByPaneId(rendererPaneId)?.externalId ?? rendererPaneId,
     url: guest.getURL(),
     title: guest.getTitle(),
+    active: rendererPaneId === activeId,
+  }
+}
+
+function sharedTabEntry(rendererPaneId: string, activeId?: string) {
+  return {
+    tabId: getByPaneId(rendererPaneId)?.externalId ?? rendererPaneId,
+    profile: 'shared' as const,
     active: rendererPaneId === activeId,
   }
 }
@@ -1102,11 +1145,13 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const sub = p.sub ?? 'list'
       if (sub === 'new') return openTab(ctx, normalizeUrl(str(p.url) ?? 'about:blank'))
       if (sub === 'list') {
-        const current = await resolveGuest(deps, ctx)
-        const activeId = current.ok ? current.rendererPaneId : undefined
+        const activeId = defaultBrowserPane(deps, ctx)
         const tabs = [...workspaceBrowsers(ctx.identity.workspaceId)].flatMap((id) => {
           const guest = liveGuest(deps.browserPanes.get(id))
-          return guest ? [tabEntry(id, guest, activeId)] : []
+          if (!guest) return []
+          return [
+            deps.isSharedPane(id) ? sharedTabEntry(id, activeId) : tabEntry(id, guest, activeId),
+          ]
         })
         return { ok: true, tabs }
       }

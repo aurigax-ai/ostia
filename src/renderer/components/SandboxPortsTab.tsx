@@ -1,8 +1,8 @@
 import type { PortsPolicy, SandboxPortRow } from '@shared/sandbox'
 import { useCallback, useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
+import { openBrowserAs } from '../lib/browserProfile'
 import { isMac } from '../platform'
-import { useLayoutStore } from '../stores/layoutStore'
 import { ControlRow } from './SettingsPanel'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -85,9 +85,7 @@ export function SandboxPortsTab({ workspaceId }: { workspaceId: string }): JSX.E
                     variant="outline"
                     size="xs"
                     onClick={() =>
-                      useLayoutStore
-                        .getState()
-                        .openBrowser(workspaceId, `http://127.0.0.1:${row.port}/`)
+                      openBrowserAs(workspaceId, `http://127.0.0.1:${row.port}/`, 'human')
                     }
                   >
                     {d.sandbox.open}

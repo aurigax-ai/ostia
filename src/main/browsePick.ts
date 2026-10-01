@@ -26,6 +26,7 @@ import { privateTmpDir } from './privateTmp'
 
 export interface PickDeps {
   browserPanes: Map<string, number>
+  isSharedPane: (paneId: string) => boolean
   errorBuffers: Map<number, ConsoleEntry[]>
   broadcast: (channel: string, payload: unknown) => void
 }

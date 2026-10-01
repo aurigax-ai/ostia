@@ -1,4 +1,5 @@
 import type { AgentResume } from '@shared/agentResume'
+import type { BrowserProfile } from '@shared/browserProfile'
 
 export type Direction = 'horizontal' | 'vertical'
 
@@ -24,6 +25,7 @@ export interface PaneNode {
   extensionId?: string
   chatSessionId?: string
   viewName?: string
+  browserProfile?: BrowserProfile
   resume?: AgentResume
   hibernated?: true
   resumePending?: true

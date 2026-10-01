@@ -36,7 +36,7 @@ describe('wireCommandBridge', () => {
     const result = await handler(req)
 
     expect(execSpy).toHaveBeenCalledWith(
-      { activeWorkspaceId: 's9', activePaneId: 'p9', target: req.target },
+      { activeWorkspaceId: 's9', activePaneId: 'p9', target: req.target, origin: 'remote' },
       req.id,
       req.args,
     )

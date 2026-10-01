@@ -1177,7 +1177,7 @@ function markdownComponents(ctx: MarkdownContext): Components {
             onClick={(e) => {
               e.preventDefault()
               useUIStore.getState().closePalette()
-              openSidebarUrl(ctx.workspaceId ?? undefined, href)
+              openSidebarUrl(ctx.workspaceId ?? undefined, href, 'human')
             }}
           >
             {children}
