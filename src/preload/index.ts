@@ -37,6 +37,7 @@ import type {
   WorkspaceChip,
 } from '../shared/extensions'
 import type { LoadedIconTheme } from '../shared/iconTheme'
+import type { LanguagePack } from '../shared/languagePack'
 import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type {
@@ -642,6 +643,9 @@ const bridge: PineBridge = {
   },
   iconThemes: {
     load: (id) => ipcRenderer.invoke('iconThemes:load', id) as Promise<LoadedIconTheme | null>,
+  },
+  languagePacks: {
+    load: () => ipcRenderer.invoke('languagePacks:load') as Promise<LanguagePack[]>,
   },
   views: {
     list: () => ipcRenderer.invoke('views:list') as Promise<ViewListing>,

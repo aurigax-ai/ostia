@@ -1,11 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { APICallError, type UIMessageChunk, generateText, streamText } from 'ai'
 import { afterEach, describe, expect, it } from 'vitest'
-import { parseEndpoint } from './endpoint'
+import { parseEndpoint } from '../sdk/assist/endpoint'
 import { createProvider } from './providers'
 
 interface Seen {
@@ -56,13 +54,6 @@ function onPort(server: Server): Promise<string> {
       resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`),
     ),
   )
-}
-
-function onSocket(server: Server): Promise<string> {
-  const dir = mkdtempSync(join(tmpdir(), 'assistant-runtime-'))
-  dirs.push(dir)
-  const path = join(dir, 'model-runtime.sock')
-  return new Promise((resolve) => server.listen(path, () => resolve(`unix:${path}`)))
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -195,10 +186,7 @@ describe('chat tool modes', () => {
     expect(seen[0]).toMatchObject({ method: 'POST', url: '/api/show', body: { model: 'qwen3' } })
   })
 
-  it('prompts tools on model-runtime and keeps them native on hosted providers', async () => {
-    const runtime = createProvider('model-runtime', endpoint('unix:/nowhere.sock'), null)
-    expect(await runtime.chatTools('gemma')).toBe('prompted')
-    expect(runtime.serverCancels).toBe(false)
+  it('keeps tools native on hosted providers', async () => {
     for (const kind of ['openai', 'anthropic', 'openrouter', 'openai-compatible'] as const) {
       const provider = createProvider(kind, endpoint('http://127.0.0.1:9/v1'), 'k')
       expect(await provider.chatTools('m')).toBe('native')
@@ -224,55 +212,6 @@ describe('OpenRouter and OpenAI providers', () => {
     await generateText({ model: provider.model('gpt'), ...prompt, maxRetries: 0 })
     expect(seen[0].url).toBe('/v1/chat/completions')
     expect(seen[0].headers.authorization).toBe('Bearer sk-o')
-  })
-})
-
-describe('model-runtime provider', () => {
-  it('lists, loads, unloads and chats without streaming over its unix socket', async () => {
-    const { base, seen } = await serve((req, res) => {
-      if (req.url === '/models') {
-        json(res, 200, {
-          models: [
-            {
-              id: 'gemma',
-              installed: true,
-              loaded: true,
-              busy: false,
-              idle_secs: 12,
-              description: 'chat',
-            },
-            { id: 'pii', installed: true, loaded: false, busy: false },
-          ],
-        })
-      } else if (req.url?.startsWith('/models/')) {
-        res.writeHead(204)
-        res.end()
-      } else json(res, 200, completion('Hej!'))
-    }, onSocket)
-    const provider = createProvider('model-runtime', endpoint(base), null)
-    expect(await provider.models()).toEqual([
-      {
-        id: 'gemma',
-        installed: true,
-        loaded: true,
-        busy: false,
-        idleSecs: 12,
-        description: 'chat',
-      },
-      { id: 'pii', installed: true, loaded: false, busy: false },
-    ])
-    await provider.load?.('pii')
-    await provider.unload?.('gemma')
-    const result = streamText({ model: provider.model('gemma'), ...prompt, maxRetries: 0 })
-    const chunks = await chunksOf(result.toUIMessageStream())
-    expect(chunks.filter((c) => c.type === 'text-delta').map((c) => c.delta)).toEqual(['Hej!'])
-    expect(seen.map((s) => `${s.method} ${s.url}`)).toEqual([
-      'GET /models',
-      'POST /models/pii/load',
-      'POST /models/gemma/unload',
-      'POST /v1/chat/completions',
-    ])
-    expect(seen[3].body?.stream).not.toBe(true)
   })
 })
 

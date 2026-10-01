@@ -108,6 +108,16 @@ describe('Pane', () => {
       expect(exec).toHaveBeenCalledWith('tab.newBrowser', { paneId: 'pa' })
     })
 
+    it('opens a new terminal tab on a double-click in the empty part of the tab strip, not on a tab', async () => {
+      const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+      render(<Pane tabs={[a, b]} shownId="pb" active />)
+      const user = userEvent.setup()
+      await user.dblClick(screen.getByRole('tab', { name: /claude/ }))
+      expect(exec).not.toHaveBeenCalledWith('tab.new', expect.anything())
+      await user.dblClick(screen.getByRole('tablist'))
+      expect(exec).toHaveBeenCalledWith('tab.new', { paneId: 'pb' })
+    })
+
     it('offers Resume only for a terminal with a saved token at an idle prompt', () => {
       const blocksInit = useBlocksStore.getState()
       const withToken: PaneNode = { ...a, resume: { agent: 'claude', id: 'abc' } }

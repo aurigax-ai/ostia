@@ -1,4 +1,3 @@
-import { en, zhHant } from '../i18n/dict'
 import { BUILTIN_COLOR_SCHEMES } from './colorSchemes'
 import type { PluginManifest, Theme } from './types'
 
@@ -189,21 +188,5 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
     version: '1.0.0',
     builtin: true,
     contributes: { languageServers: [] },
-  },
-  {
-    id: 'pine.lang.en',
-    name: 'English',
-    description: 'English language pack.',
-    version: '1.0.0',
-    builtin: true,
-    contributes: { languages: [{ id: 'en', label: 'English', catalog: en }] },
-  },
-  {
-    id: 'pine.lang.zh-hant',
-    name: 'Traditional Chinese · 繁體中文',
-    description: 'Traditional Chinese language pack.',
-    version: '1.0.0',
-    builtin: true,
-    contributes: { languages: [{ id: 'zh-Hant', label: '繁體中文', catalog: zhHant }] },
   },
 ]

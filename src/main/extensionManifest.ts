@@ -4,11 +4,13 @@ import { type AssistPoint, isAssistPoint } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
+  EXTENSION_CATEGORIES,
   EXTENSION_ICONS,
   EXTENSION_MANIFEST_FILE,
   EXTENSION_SETTING_TITLE_MAX,
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
+  type ExtensionCategory,
   type ExtensionChipContribution,
   type ExtensionCommandContribution,
   type ExtensionIcon,
@@ -21,19 +23,21 @@ import {
   validSettingValue,
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
+import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../shared/languagePack'
 import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
-const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
-const MAX_COMMANDS = 64
-const MAX_WORKFLOWS = 64
-const MAX_TEXT = 200
-const MAX_CHIPS = 8
-const MAX_ICON_THEMES = 16
-const MAX_SETTINGS = 32
-const MAX_ENUM_VALUES = 32
-const MAX_SECRETS = 8
-const SETTING_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/
+export const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
+export const MAX_COMMANDS = 64
+export const MAX_WORKFLOWS = 64
+export const MAX_TEXT = 200
+export const MAX_CHIPS = 8
+export const MAX_ICON_THEMES = 16
+export const MAX_LANGUAGES = 8
+export const MAX_SETTINGS = 32
+export const MAX_ENUM_VALUES = 32
+export const MAX_SECRETS = 8
+export const SETTING_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/
 
 export type ManifestResult =
   | { ok: true; manifest: ExtensionManifest }
@@ -320,6 +324,30 @@ function parseIconThemes(raw: unknown, dir: string): IconThemeContribution[] | s
   return themes
 }
 
+function parseLanguages(raw: unknown, dir: string): LanguageContribution[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.length > MAX_LANGUAGES) {
+    return `contributes.languages must be an array of at most ${MAX_LANGUAGES}`
+  }
+  const languages: LanguageContribution[] = []
+  for (const [i, item] of raw.entries()) {
+    const where = `contributes.languages[${i}]`
+    if (!isRecord(item)) return `${where}: must be an object`
+    if (typeof item.id !== 'string' || !LANGUAGE_ID_PATTERN.test(item.id)) {
+      return `${where}: id must be a language tag such as fr or zh-Hant`
+    }
+    const label = text(item.label)
+    if (!label) return `${where}: missing label`
+    const path = item.path
+    if (typeof path !== 'string' || !path.endsWith('.json') || !isInsideDir(dir, path)) {
+      return `${where}: path must be a .json file inside the extension`
+    }
+    if (languages.some((l) => l.id === item.id)) return `${where}: duplicate id '${item.id}'`
+    languages.push({ id: item.id, label, path })
+  }
+  return languages
+}
+
 function parseWorkflows(raw: unknown): Workflow[] | string | undefined {
   if (raw === undefined) return undefined
   if (!Array.isArray(raw) || raw.length > MAX_WORKFLOWS) {
@@ -347,6 +375,10 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   const description = typeof raw.description === 'string' ? raw.description.slice(0, 500) : ''
   const caps = capabilities(raw.capabilities, 'manifest')
   if (typeof caps === 'string') return { ok: false, error: caps }
+  const category = raw.category === undefined ? 'other' : raw.category
+  if (!EXTENSION_CATEGORIES.includes(category as ExtensionCategory)) {
+    return { ok: false, error: `category must be one of ${EXTENSION_CATEGORIES.join(', ')}` }
+  }
 
   let main: string | undefined
   if (raw.main !== undefined) {
@@ -395,6 +427,8 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof assist === 'string') return { ok: false, error: assist }
   const iconThemes = parseIconThemes(contributes.iconThemes, dir)
   if (typeof iconThemes === 'string') return { ok: false, error: iconThemes }
+  const languages = parseLanguages(contributes.languages, dir)
+  if (typeof languages === 'string') return { ok: false, error: languages }
   const needsMain =
     commands.length > 0 ||
     sidebarItems ||
@@ -414,6 +448,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     name,
     version,
     description,
+    category: category as ExtensionCategory,
     capabilities: caps,
     contributes: { commands, sidebarItems, paneChips, workspaceChips, settings, assist, secrets },
   }
@@ -422,6 +457,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (workflows && workflows.length > 0) manifest.contributes.workflows = workflows
   if (completions !== undefined) manifest.contributes.completions = completions
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes
+  if (languages.length > 0) manifest.contributes.languages = languages
   return { ok: true, manifest }
 }
 

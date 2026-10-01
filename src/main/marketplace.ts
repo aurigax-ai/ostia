@@ -34,8 +34,8 @@ export const EXTENSION_MAX_FILES = 2000
 export const EXTENSION_MAX_BYTES = 50 * 1024 * 1024
 const GIT_TIMEOUT_MS = 120_000
 const DETAIL_MAX = 400
-const NAME_MAX = 80
-const DESCRIPTION_MAX = 500
+export const MARKETPLACE_NAME_MAX = 80
+export const MARKETPLACE_DESCRIPTION_MAX = 500
 
 const GITHUB_SHORTHAND = /^[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9_.-]+$/
 const SCP_LIKE = /^[A-Za-z0-9_.-]+@[A-Za-z0-9.-]+:[A-Za-z0-9_./~-]+$/
@@ -74,8 +74,8 @@ export function parseMarketplaceManifest(raw: unknown): MarketplaceManifest | st
     return 'the marketplace file must be a JSON object'
   }
   const { name, description, extensions } = raw as Record<string, unknown>
-  if (typeof name !== 'string' || !name.trim() || name.length > NAME_MAX) {
-    return `name must be 1-${NAME_MAX} characters`
+  if (typeof name !== 'string' || !name.trim() || name.length > MARKETPLACE_NAME_MAX) {
+    return `name must be 1-${MARKETPLACE_NAME_MAX} characters`
   }
   if (description !== undefined && typeof description !== 'string') {
     return 'description must be a string'
@@ -90,7 +90,7 @@ export function parseMarketplaceManifest(raw: unknown): MarketplaceManifest | st
   }
   return {
     name: name.trim(),
-    description: (description ?? '').slice(0, DESCRIPTION_MAX),
+    description: (description ?? '').slice(0, MARKETPLACE_DESCRIPTION_MAX),
     extensions: [...new Set(extensions as string[])],
   }
 }
@@ -314,6 +314,7 @@ export class Marketplace {
           name: manifest.name,
           version: manifest.version,
           description: manifest.description,
+          category: manifest.category,
           capabilities: manifest.capabilities,
           runsProcess: manifest.main !== undefined,
           state,

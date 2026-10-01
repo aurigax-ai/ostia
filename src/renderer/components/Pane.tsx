@@ -228,7 +228,14 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         onDragLeave={() => usePaneDnd.getState().leave(shown.id)}
         onDrop={onHeaderDrop}
       >
-        <div className="pane-tabs" role="tablist" aria-label={d.pane.tabs}>
+        <div
+          className="pane-tabs"
+          role="tablist"
+          aria-label={d.pane.tabs}
+          onDoubleClick={(e) => {
+            if (e.target === e.currentTarget) void commands.exec('tab.new', { paneId: shown.id })
+          }}
+        >
           {tabs.map((tab) => (
             <PaneTab
               key={tab.id}
