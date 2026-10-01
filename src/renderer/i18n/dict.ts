@@ -1479,8 +1479,11 @@ export const en = {
     notifyCommandDesc:
       'Runs directly, not through a shell, for every notification. Placeholders: {title}, {body}, {pane}. Empty turns it off.',
     uiFont: 'UI font',
+    uiFontDesc: 'Size and weight set the body text; labels, captions and headings scale from them.',
     terminalFont: 'Terminal font',
     editorFont: 'Editor font',
+    editorFontDesc:
+      'Also used for code, paths and other machine text in the interface and in plugin panels.',
     family: 'Family',
     weight: 'Weight',
     notifications: 'Notifications',
@@ -3109,8 +3112,10 @@ export const zhHant: Dict = {
     notifyCommandDesc:
       '每則通知都會直接執行（不經過 shell）。佔位符：{title}、{body}、{pane}。留空即關閉。',
     uiFont: '介面字型',
+    uiFontDesc: '大小與粗細決定內文；標籤、說明文字與標題都依此縮放。',
     terminalFont: '終端機字型',
     editorFont: '編輯器字型',
+    editorFontDesc: '介面與外掛面板中的程式碼、路徑等機器文字也使用此字型。',
     family: '字型',
     weight: '粗細',
     notifications: '通知',

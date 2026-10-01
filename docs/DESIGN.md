@@ -151,6 +151,13 @@ tags red, operators cyan, comments bright black in italics. Every token color is
 on the background (comments and line numbers to 3:1) with `ensureContrast`, so faint ANSI
 colors (Solarized's yellow, a bright black equal to the background) still read.
 
+Diff colors are derived the same way (`diffColors`), never Monaco's fixed pure red and green:
+added and removed lines are a faint tint of the scheme's green and red (10% line, 18% more on the
+changed characters, 70% for the overview ruler marks). The hue comes from the ANSI slot that
+holds it (a scheme that remaps red, such as Oxocarbon, gives its pink), and the tint backs off
+(`diffTintStrength`, down to a quarter) until the text keeps 4.5:1, or 90% of its contrast on the
+plain background, and syntax colors keep 3:1.
+
 Color schemes (`plugins/colorSchemes.ts`, contributed by the `pine.themes` plugin as
 `contributes.colorSchemes`; a plugin can add more the same way):
 
@@ -179,31 +186,89 @@ Every scheme has all 16 ANSI colors and a foreground at 4.5:1 or better on its b
 
 ## 4. Typography
 
-| Surface | Default family | Setting |
+Three families, one setting each. The UI and the code bits inside it follow the human's
+settings through CSS tokens; nothing in the UI names a family, size, weight, line height or
+letter spacing of its own.
+
+| Role | Default | Setting | Token |
+|---|---|---|---|
+| UI text (chrome, menus, settings, chat prose, panels) | Inter Variable 13 / 400 | `appearance.ui` (family, size, weight) | `--font-ui` (Tailwind `font-sans`) |
+| Code in the UI (paths, domains, hashes, ports, command ids, chat and markdown code) | Geist Mono Variable | `appearance.editor.family` | `--font-code` (Tailwind `font-mono`) |
+| Terminal | Hack Nerd Font Mono 13 / 400, line height 1.15 (Powerline and icon glyphs; MesloLGS Nerd Font Mono is bundled too) | `appearance.terminal` | xterm options only |
+| Editor and diff (Monaco) | Geist Mono Variable 13 / 400 | `appearance.editor` | Monaco options only |
+
+**Code in the UI uses the editor font**, not the terminal font: it is code read in the GUI, like
+the editor, while terminal fonts are tuned for a cell grid with Powerline glyphs. One setting
+changes the editor, the diff, chat code blocks, inline code, paths in Settings and the code text
+in plugin panels together. Use `font-mono` / `var(--font-code)` only for literal machine text;
+chords in keycaps (`Kbd`) are UI text. For changing numbers in UI text use `tabular-nums`.
+
+`lib/uiFonts.ts` turns the settings into tokens on `<html>` (`--font-ui`, `--font-code`,
+`--font-ui-size`, `--font-ui-weight`) before the first render and on every change. Its fallback
+stacks start with the bundled fonts, then Latin system monos, then CJK fonts, so a family that
+isn't installed falls back to a font with the same metrics. Extension panels get the same values
+(`--pine-font-ui`, `--pine-font-code`, `--pine-font-size`, `--pine-font-weight`) plus the bundled
+Inter and Geist Mono embedded in the injected CSS (`lib/panelFontFaces.ts`), so plugin panels
+match Pine although those fonts aren't installed on the system.
+
+### Scale
+
+Every step derives from `appearance.ui.size` (default 13): a 14px UI moves the whole scale by one
+pixel and neighbors stay in proportion. Nothing is smaller than 11px. Each step has its own line
+height (`--text-ui-<step>--line-height`); the Tailwind class `text-ui-<step>` sets both.
+
+| Step | At 13 | Size / line height | Use |
+|---|---|---|---|
+| `ui-xs` | 11 / 16 | base − 2 / +5 | captions, metadata, badges, pane chips, all-caps section heads |
+| `ui-sm` | 12 / 18 | base − 1 / +6 | tree and list rows, tabs, tooltips, keycaps, settings lists, code blocks |
+| `ui-base` | 13 / 20 | base / +7 | body: sidebar rows, menus, inputs, buttons, dialogs, chat prose |
+| `ui-emphasis` | 14 / 20 | base + 1 / +6 | emphasized body, markdown in the editor preview |
+| `ui-lg` | 16 / 22 | base + 3 / +6 | section headings, dialog titles |
+
+Tailwind's `text-xs`, `text-sm` and `text-base` exist only for generated shadcn files and map onto
+`ui-sm`, `ui-base` and `ui-lg`. Markdown (`typeset.css`, vendored shadcn Typeset) sizes headings
+in ems on top of `--typeset-size`, which Pine sets to `ui-base`. Dense rows use a fixed box height
+(22px at 13px text, 20px at 12px) rather than leading.
+
+### Weights
+
+`appearance.ui.weight` is the body weight (default 400). Emphasis steps up from it, so a human who
+picks a heavier body still sees a hierarchy:
+
+| Token (Tailwind) | Value | Use |
 |---|---|---|
-| UI chrome | Inter Variable (`--font-sans`, applied via `--font-ui`) | `appearance.ui.font` |
-| Terminal | Hack Nerd Font Mono (bundled; covers Powerline and icon glyphs). MesloLGS Nerd Font Mono (Apache-2.0) is bundled too and appears in the font picker | `appearance.terminal.font` |
-| Editor | Geist Mono Variable (`--font-mono`) | `appearance.editor.font` |
+| `--font-weight-normal` (`font-normal`) | body | body text, rows, values |
+| `--font-weight-medium` (`font-medium`) | body + 100 | active row, button labels, keycaps, section heads, chips |
+| `--font-weight-semibold` (`font-semibold`) | body + 200 | page and dialog headings |
 
-Each surface has its own family and size (default 13). The whole UI uses one theme. All chrome
-is sans. Use mono only for literal machine text: paths, hashes, ports, code. For changing numbers
-in sans text, use `tabular-nums` rather than switching family. Don't set global
-`-webkit-font-smoothing: antialiased`, because it thins small text on Linux and macOS.
+No bold, light or thin utilities in the UI. Terminal and editor weights only reach xterm and
+Monaco.
 
-Scale: `--text-ui-*` in `@theme` (Tailwind `text-ui-*`, CSS `var(--text-ui-*)`). Nothing is
-smaller than 11px. Tailwind's `text-sm` is remapped to 13px so shadcn primitives sit on the scale.
+### Letter spacing
 
-| Name | px / line-height | Use |
-|---|---|---|
-| `ui-xs` | 11 / 16 | captions, metadata, keycaps, badges, all-caps heads |
-| `ui-sm` | 12 / 18 | tree and list rows, tooltips |
-| `ui-base` | 13 / 20 | primary UI body |
-| `ui-emphasis` | 14 / 20 | emphasized body, markdown |
-| `ui-lg` | 16 / 22 | section headings, dialog titles |
+Default tracking everywhere. All-caps labels (rail section heads, group names, panel section
+headers) use `--tracking-caps` (0.06em, Tailwind `tracking-caps`); nothing else sets tracking.
 
-Weights: 400 body, 500 emphasis (active row, button labels, section heads), 600 headings. Use 700
-only at 20px and above; never use 300. Dense rows use a fixed box height (22px at 13px text,
-20px at 12px) rather than leading.
+### Rendering on Linux
+
+Why the defaults are what they are, measured on the target setup (GNOME, 1x, grayscale
+antialiasing, slight hinting, which Chromium takes from fontconfig and GTK):
+- **Smoothing is the desktop's.** `-webkit-font-smoothing` only acts on macOS, and Chromium's
+  `--font-render-hinting` switch changed no pixel, so Pine sets neither and adds no font flags.
+  Antialiasing (grayscale or rgba) is a GNOME setting that applies to every app.
+- **Body 400, not 450.** At 13px under grayscale AA, 450 sat 50 units under `font-medium`, so body
+  and emphasis looked alike; 400 with 500/600 for emphasis keeps the steps visible.
+- **Terminal 400.** Hack ships Regular and Bold only, so 500 picked the Regular face anyway (a
+  pixel-identical render); the default says what renders. Bold output uses the Bold face.
+- **Whole-pixel line heights.** The body used to inherit Tailwind's `1.5` (19.5px at 13), which
+  put rows on half pixels.
+- **Fonts load before the first terminal.** `preloadFonts` loads the configured families before
+  the first render, so xterm measures its cells with the real font, not a fallback.
+
+The typography guard (`src/renderer/lib/typography.test.ts`, part of `pnpm test`) fails on a font
+size, family, weight, line height or letter spacing set outside these tokens: renderer and
+extension CSS, CSS written in code, Tailwind classes and inline styles. Only the files that hand
+font settings to xterm or Monaco (and the font previews) may set them inline.
 
 Spacing base is 4px: 4, 8, 12, 16, 20, 24, 32. Use 8 within a group, 16–24 between groups and 32
 between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.

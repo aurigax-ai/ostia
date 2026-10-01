@@ -279,7 +279,7 @@ function HelpItems({
     <CommandGroup heading={d.palette.helpHeading}>
       {askName ? (
         <CommandItem value={`? tab ${fmt(d.ask.tabHint, { name: askName })}`} onSelect={onAsk}>
-          <Kbd className="font-mono">Tab</Kbd>
+          <Kbd>Tab</Kbd>
           <span>{fmt(d.ask.tabHint, { name: askName })}</span>
         </CommandItem>
       ) : null}
@@ -289,7 +289,7 @@ function HelpItems({
           value={`? ${m.symbol} ${d.palette.modes[m.mode]}`}
           onSelect={() => onPick(m.symbol)}
         >
-          <Kbd className="font-mono">{m.symbol}</Kbd>
+          <Kbd>{m.symbol}</Kbd>
           <span>{d.palette.modes[m.mode]}</span>
         </CommandItem>
       ))}
@@ -459,7 +459,7 @@ function CommandItems({
               >
                 <span>{c.title}</span>
                 <ItemMeta mono>{c.id}</ItemMeta>
-                {keys ? <Kbd className="font-mono">{keys}</Kbd> : null}
+                {keys ? <Kbd>{keys}</Kbd> : null}
               </CommandItem>
             )
           })}
