@@ -1,11 +1,9 @@
 import { XIcon } from '@phosphor-icons/react'
-import type { AssistProviderInfo } from '@shared/assist'
 import { type RefObject, useLayoutEffect, useRef } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import type { MenuAnchor } from '../lib/caretPoint'
 import { SLASH_COMMANDS, type SlashMenu, type SlashRow } from '../lib/chatSlash'
 import { IconButton } from './IconButton'
-import { Button } from './ui/button'
 import { Command, CommandItem, CommandList } from './ui/command'
 
 export const SLASH_MENU_WIDTH = 320
@@ -191,40 +189,6 @@ export function ChatSlashHelp({ onClose }: { onClose: () => void }): JSX.Element
           )
         })}
       </ul>
-    </section>
-  )
-}
-
-export function ChatSlashModel({
-  provider,
-  onChange,
-  onClose,
-}: {
-  provider: AssistProviderInfo | null
-  onChange: () => void
-  onClose: () => void
-}): JSX.Element {
-  const d = useDict()
-  const t = d.chatSlash
-  return (
-    <section
-      aria-label={t.modelTitle}
-      className="chat-slash-card motion-enter flex flex-col gap-1 rounded-md border border-line bg-surface-1 p-3"
-    >
-      <header className="flex items-center gap-2">
-        <h3 className="flex-1 font-medium text-fg text-ui-sm">{t.modelTitle}</h3>
-        <IconButton icon={XIcon} label={t.close} onClick={onClose} />
-      </header>
-      <p className="text-fg text-ui-sm">
-        {provider
-          ? fmt(t.modelBody, { model: provider.label ?? provider.name, name: provider.name })
-          : t.reasons.noProvider}
-      </p>
-      <div>
-        <Button variant="link" size="xs" className="h-5 px-0 text-ui-xs" onClick={onChange}>
-          {t.change}
-        </Button>
-      </div>
     </section>
   )
 }

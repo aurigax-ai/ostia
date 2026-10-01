@@ -1,4 +1,4 @@
 import { runAssistExtension } from '../sdk/assist/run'
 import { ASSISTANT_CATALOG } from './providers'
 
-runAssistExtension({ catalog: ASSISTANT_CATALOG, secret: 'apiKey' })
+runAssistExtension({ catalog: ASSISTANT_CATALOG })

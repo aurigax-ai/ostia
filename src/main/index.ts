@@ -1911,6 +1911,7 @@ function registerFsIpc(): void {
           }
         }
         extensionHost?.refreshLocale()
+        extensionHost?.reloadAssistSettings()
       }
       return true
     } catch {
@@ -2035,6 +2036,10 @@ function extensionSecretStore() {
   return encryptedStore(storePath('extension-secrets', 'global'))
 }
 
+function assistKeyStore() {
+  return encryptedStore(storePath('assist-keys', 'global'))
+}
+
 function encryptedStore(path: string) {
   return createSecretStore({
     load: () => loadJson<unknown>(path, {}),
@@ -2043,6 +2048,17 @@ function encryptedStore(path: string) {
     encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
     decrypt: (secret) => safeStorage.decryptString(Buffer.from(secret, 'base64')),
   })
+}
+
+function readSettingsFileOrNull(): { assistant?: unknown } | null {
+  try {
+    const parsed: unknown = JSON.parse(
+      readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'),
+    )
+    return typeof parsed === 'object' && parsed !== null ? parsed : null
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ENOENT' ? {} : null
+  }
 }
 
 function readSettingsFile(): {
@@ -2381,6 +2397,8 @@ app.whenReady().then(() => {
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
+    readAssistSettings: readSettingsFileOrNull,
+    assistKeys: assistKeyStore(),
     secrets: extensionSecretStore(),
     openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
     broadcast,
@@ -2414,8 +2432,9 @@ app.whenReady().then(() => {
       forget: (extId) => {
         managedServers.forgetExtension(extId)
         extensionStore.delete(extId)
-        const secrets = extensionSecretStore()
-        for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
+        for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
+          for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
+        }
       },
       rescan: () => extensionHost?.rescan(),
       locale: readLocale,

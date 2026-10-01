@@ -3,6 +3,7 @@ import type { AgentSessionInfo } from '../shared/agentSessionInfo'
 import type { ApprovalState } from '../shared/approvals'
 import type {
   AssistAvailability,
+  AssistCatalog,
   AssistChunk,
   AssistExtensionState,
   AssistOpenUiRequest,
@@ -611,8 +612,8 @@ const bridge: PineBridge = {
       ipcRenderer.on('assist:availability', handler)
       return () => ipcRenderer.removeListener('assist:availability', handler)
     },
-    request: (point, requestId, input) =>
-      ipcRenderer.invoke('assist:request', point, requestId, input),
+    request: (point, requestId, input, model) =>
+      ipcRenderer.invoke('assist:request', point, requestId, input, model),
     cancel: (requestId) => ipcRenderer.send('assist:cancel', requestId),
     onChunk: (cb) => {
       const handler = (_e: unknown, chunk: AssistChunk): void => cb(chunk)
@@ -631,9 +632,17 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener('assist:open-ui', handler)
     },
     reportShortcuts: (shortcuts) => ipcRenderer.send('assist:shortcuts', shortcuts),
-    models: (extId) => ipcRenderer.invoke('assist:models', extId),
-    setModelLoaded: (extId, id, loaded) =>
-      ipcRenderer.invoke('assist:set-model-loaded', extId, id, loaded),
+    models: (extId, provider) => ipcRenderer.invoke('assist:models', extId, provider),
+    setModelLoaded: (extId, id, loaded, provider) =>
+      ipcRenderer.invoke('assist:set-model-loaded', extId, id, loaded, provider),
+    catalog: () => ipcRenderer.invoke('assist:catalog') as Promise<AssistCatalog>,
+    onCatalog: (cb) => {
+      const handler = (_e: unknown, catalog: AssistCatalog): void => cb(catalog)
+      ipcRenderer.on('assist:catalog', handler)
+      return () => ipcRenderer.removeListener('assist:catalog', handler)
+    },
+    setProviderKey: (providerId, value) =>
+      ipcRenderer.invoke('assist:set-provider-key', providerId, value),
   },
   chatSessions: {
     list: () => ipcRenderer.invoke('chat:list') as Promise<ChatSessionSummary[]>,
@@ -651,7 +660,9 @@ const bridge: PineBridge = {
     list: (req) => ipcRenderer.invoke('chatTools:list', req),
     search: (req) => ipcRenderer.invoke('chatTools:search', req),
     preview: (req) => ipcRenderer.invoke('chatTools:preview', req),
+    plan: (req) => ipcRenderer.invoke('chatTools:plan', req),
     write: (req) => ipcRenderer.invoke('chatTools:write', req),
+    undo: (req) => ipcRenderer.invoke('chatTools:undo', req),
     skills: () => ipcRenderer.invoke('chatTools:skills'),
     loadSkill: (name) => ipcRenderer.invoke('chatTools:load-skill', name),
     mcpStatus: () => ipcRenderer.invoke('chatTools:mcp-status'),

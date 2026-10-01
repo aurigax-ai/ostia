@@ -6,6 +6,11 @@ import {
 } from '@shared/approvals'
 import { create } from 'zustand'
 import {
+  type AssistModelSettings,
+  DEFAULT_ASSIST_MODEL_SETTINGS,
+  parseAssistModelSettings,
+} from '../../shared/assist'
+import {
   type BrowserSettings,
   DEFAULT_BROWSER_SETTINGS,
   DEFAULT_EDITOR_SETTINGS,
@@ -99,7 +104,7 @@ export interface AgentSettings {
   autoResume: boolean
 }
 
-export interface AssistantSettings extends ChatToolSettings {
+export interface AssistantSettings extends ChatToolSettings, AssistModelSettings {
   chatHistory: boolean
 }
 
@@ -334,7 +339,11 @@ const DEFAULTS: Persisted = {
     showSSH: true,
   },
   agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false },
-  assistant: { chatHistory: true, ...DEFAULT_CHAT_TOOL_SETTINGS },
+  assistant: {
+    chatHistory: true,
+    ...DEFAULT_CHAT_TOOL_SETTINGS,
+    ...DEFAULT_ASSIST_MODEL_SETTINGS,
+  },
   workspaceGroups: { byCwd: [] },
   extensionSettings: {},
   approvals: DEFAULT_APPROVAL_SETTINGS,
@@ -369,6 +378,7 @@ interface SettingsState extends Persisted {
   setAutoResume: (autoResume: boolean) => void
   setChatHistory: (chatHistory: boolean) => void
   setChatTools: (patch: Partial<ChatToolSettings>) => Promise<void>
+  setAssistModels: (patch: Partial<AssistModelSettings>) => Promise<void>
   setHibernation: (patch: Partial<HibernationSettings>) => void
   previewSetting: (path: string, value: unknown) => SettingChange
   setByPath: (path: string, value: unknown) => SettingChange
@@ -438,6 +448,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     assistant: {
       chatHistory: p.assistant?.chatHistory !== false,
       ...parseChatToolSettings(p.assistant),
+      ...parseAssistModelSettings(p.assistant),
     },
     workspaceGroups: parseWorkspaceGroupSettings(p.workspaceGroups),
     extensionSettings: extensionSettingsOf(p.extensionSettings),
@@ -728,6 +739,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setChatTools: async (patch) => {
     set((s) => ({
       assistant: { ...s.assistant, ...parseChatToolSettings({ ...s.assistant, ...patch }) },
+    }))
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = null
+    await writeSettings(get())
+  },
+  setAssistModels: async (patch) => {
+    set((s) => ({
+      assistant: { ...s.assistant, ...parseAssistModelSettings({ ...s.assistant, ...patch }) },
     }))
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = null

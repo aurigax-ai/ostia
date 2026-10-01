@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { AssistPoint, AssistResponse } from '../shared/assist'
+import { type AssistPoint, type AssistResponse, EMPTY_ASSIST_CATALOG } from '../shared/assist'
 import { type AssistHost, type AssistSender, createAssistRouter } from './assistIpc'
 import type { AssistCallOptions } from './extensionHost'
 
@@ -25,6 +25,8 @@ function hangingHost() {
     setShortcuts: () => {},
     assistModels: async () => ({ ok: false, error: 'unavailable' }),
     setAssistModelLoaded: async () => ({ ok: false, error: 'unavailable' }),
+    assistCatalog: () => EMPTY_ASSIST_CATALOG,
+    setAssistProviderKey: () => ({ ok: true }),
     assist: <P extends AssistPoint>(_point: P, _input: unknown, opts: AssistCallOptions = {}) => {
       calls.push(opts)
       return new Promise<AssistResponse<P>>((resolve) => {
@@ -43,6 +45,8 @@ describe('createAssistRouter', () => {
       setShortcuts: () => {},
       assistModels: async () => ({ ok: false, error: 'unavailable' }),
       setAssistModelLoaded: async () => ({ ok: false, error: 'unavailable' }),
+      assistCatalog: () => EMPTY_ASSIST_CATALOG,
+      setAssistProviderKey: () => ({ ok: true }),
       assist: async <P extends AssistPoint>(
         _point: P,
         _input: unknown,
@@ -61,6 +65,20 @@ describe('createAssistRouter', () => {
       { channel: 'assist:chunk', payload: { requestId: 'r1', text: 'hel' } },
       { channel: 'assist:chunk', payload: { requestId: 'r1', text: 'lo' } },
     ])
+  })
+
+  it('passes the model a chat picked to the host and nothing when none was picked', async () => {
+    const { host, calls } = hangingHost()
+    const { sender } = fakeSender()
+    const router = createAssistRouter(() => host)
+    const ref = { extId: 'assistant', provider: 'openai', model: 'gpt' }
+    const picked = router.request(sender, 'chat', 'r1', {}, ref)
+    const plain = router.request(sender, 'chat', 'r2', {})
+    expect(calls[0].model).toEqual(ref)
+    expect('model' in calls[1]).toBe(false)
+    router.cancel(sender.id, 'r1')
+    router.cancel(sender.id, 'r2')
+    await Promise.all([picked, plain])
   })
 
   it('cancels only the named request of the same window', async () => {

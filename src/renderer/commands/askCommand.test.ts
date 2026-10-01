@@ -19,7 +19,11 @@ describe('startAskCommand', () => {
     stop = startAskCommand()
     expect(commands.has(ASK_COMMAND_ID)).toBe(false)
 
-    useAssistStore.setState({ availability: { chat: { extId: 'assistant', name: 'Assistant' } } })
+    useAssistStore.setState({
+      availability: {
+        chat: { extId: 'assistant', name: 'Assistant', ref: { extId: 'assistant' } },
+      },
+    })
     expect(commands.has(ASK_COMMAND_ID)).toBe(true)
 
     useAssistStore.setState({ availability: {} })
@@ -27,7 +31,11 @@ describe('startAskCommand', () => {
   })
 
   it('opens the palette in Ask mode when run', async () => {
-    useAssistStore.setState({ availability: { chat: { extId: 'assistant', name: 'Assistant' } } })
+    useAssistStore.setState({
+      availability: {
+        chat: { extId: 'assistant', name: 'Assistant', ref: { extId: 'assistant' } },
+      },
+    })
     stop = startAskCommand()
 
     await commands.exec(ASK_COMMAND_ID)

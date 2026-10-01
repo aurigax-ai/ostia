@@ -10,13 +10,23 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { blockText, canTypeInto, insertCommand } from './blockActions'
 import { isIdlePrompt } from './blocks'
 import { openChatPane } from './chatPane'
+import { editorPositionOf } from './editorPositions'
 import { terminalFor } from './terminalHandles'
 
 export const OUTPUT_TAIL_MAX = 8000
 
-export type AskContextKind = Extract<ChatContextKind, 'cwd' | 'output' | 'selection' | 'pane'>
+export type AskContextKind = Extract<
+  ChatContextKind,
+  'cwd' | 'editor' | 'output' | 'selection' | 'pane'
+>
 
-export const ASK_CONTEXT_ORDER: readonly AskContextKind[] = ['cwd', 'output', 'selection', 'pane']
+export const ASK_CONTEXT_ORDER: readonly AskContextKind[] = [
+  'cwd',
+  'editor',
+  'output',
+  'selection',
+  'pane',
+]
 
 export function tail(text: string, max = OUTPUT_TAIL_MAX): string {
   return text.length > max ? text.slice(text.length - max) : text
@@ -41,6 +51,46 @@ export function workspaceTerminal(
 
 export function activeTerminalPane(): { paneId: string; cwd?: string } | null {
   return workspaceTerminal(null)
+}
+
+export function workspaceEditorFile(
+  workspaceId: string | null | undefined,
+): { paneId: string; file: string } | null {
+  const id = workspaceId ?? useWorkspacesStore.getState().activeWorkspaceId
+  const layout = id ? useLayoutStore.getState().byWorkspace[id] : undefined
+  if (!layout) return null
+  const touched = usePaneRecencyStore.getState().touchedAt
+  const editors = allPanes(layout.root).filter((p) => p.kind === 'editor' && p.filePath)
+  const active = editors.find((p) => p.id === layout.activePaneId)
+  const pane = active ?? [...editors].sort((a, b) => (touched[b.id] ?? 0) - (touched[a.id] ?? 0))[0]
+  return pane?.filePath ? { paneId: pane.id, file: pane.filePath } : null
+}
+
+export function useWorkspaceEditorFile(workspaceId: string | null | undefined): string | null {
+  useLayoutStore((state) => state.byWorkspace)
+  usePaneRecencyStore((state) => state.touchedAt)
+  useWorkspacesStore((state) => state.activeWorkspaceId)
+  return workspaceEditorFile(workspaceId)?.file ?? null
+}
+
+function fileName(path: string): string {
+  return path.split('/').pop() || path
+}
+
+export function editorFileContext(
+  workspaceId: string | null | undefined,
+  label: string,
+): ChatContextItem | null {
+  const open = workspaceEditorFile(workspaceId)
+  if (!open) return null
+  const position = editorPositionOf(open.paneId)
+  const cursor = position?.file === open.file ? `, cursor at line ${position.line}` : ''
+  return {
+    kind: 'editor',
+    label: `${label} ${fileName(open.file)}`,
+    text: `The file the user has open in the editor${cursor}.`,
+    path: open.file,
+  }
 }
 
 export function insertTarget(
@@ -78,10 +128,15 @@ function paneInfo(paneId: string): string {
 
 export type AskContextOptions = Partial<Record<AskContextKind, ChatContextItem>>
 
-export function askContextOptions(labels: Record<AskContextKind, string>): AskContextOptions {
-  const pane = activeTerminalPane()
-  if (!pane) return {}
+export function askContextOptions(
+  labels: Record<AskContextKind, string>,
+  workspaceId?: string | null,
+): AskContextOptions {
   const out: AskContextOptions = {}
+  const editor = editorFileContext(workspaceId, labels.editor)
+  if (editor) out.editor = editor
+  const pane = workspaceTerminal(workspaceId)
+  if (!pane) return out
   if (pane.cwd) out.cwd = { kind: 'cwd', label: labels.cwd, text: pane.cwd }
   const block = lastFinishedBlock(pane.paneId)
   if (block)
@@ -94,7 +149,7 @@ export function askContextOptions(labels: Record<AskContextKind, string>): AskCo
 export function selectionRef(selection: LiveSelection): string | null {
   const { source } = selection
   if (source.kind !== 'editor') return null
-  const name = source.file.split('/').pop() || source.file
+  const name = fileName(source.file)
   return source.startLine === source.endLine
     ? `${name}:${source.startLine}`
     : `${name}:${source.startLine}-${source.endLine}`
@@ -109,11 +164,14 @@ export function liveSelectionContext(
     : undefined
   if (!selection) return null
   const ref = selectionRef(selection)
-  return {
+  const item: ChatContextItem = {
     kind: 'selection',
     label: ref ? `${label} ${ref}` : label,
     text: tail(selection.text, CHAT_CONTEXT_TEXT_MAX),
   }
+  const { source } = selection
+  if (source.kind !== 'editor') return item
+  return { ...item, path: source.file, startLine: source.startLine, endLine: source.endLine }
 }
 
 export function failedBlock(paneId: string, blockId: string): CommandBlock | null {
@@ -195,7 +253,8 @@ export function lastBlockCommand(paneId: string): string | null {
 export async function fileAttachment(path: string, label: string): Promise<ChatContextItem | null> {
   const text = await window.pine.fs.read(path).catch(() => null)
   if (text === null) return null
-  return { kind: 'file', label, text: text.slice(0, CHAT_CONTEXT_TEXT_MAX) }
+  const item: ChatContextItem = { kind: 'file', label, text: text.slice(0, CHAT_CONTEXT_TEXT_MAX) }
+  return path.startsWith('/') ? { ...item, path } : item
 }
 
 export async function askAboutFile(

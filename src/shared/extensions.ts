@@ -344,6 +344,7 @@ export interface ExtensionSettingsChangedPayload {
 }
 
 export const SETTINGS_CHANGED_EVENT = 'settings.changed'
+export const ASSIST_PROVIDERS_CHANGED_EVENT = 'assist.providers.changed'
 
 export const TARGET_PANE_PARAM = 'targetPaneId'
 

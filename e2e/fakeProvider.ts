@@ -178,3 +178,38 @@ export function startFakeProvider(answer: FakeAnswer): Promise<FakeProvider> {
     })
   })
 }
+
+export interface SeededProvider {
+  id: string
+  name: string
+  url: string
+  models: string[]
+}
+
+export function assistantModelSettings(
+  providers: SeededProvider[],
+  fast: { provider: string; model: string },
+  chat: { provider: string; model: string },
+): object {
+  return {
+    providers: providers.map((p) => ({
+      id: p.id,
+      extId: 'assistant',
+      kind: 'openai-compatible',
+      name: p.name,
+      baseUrl: p.url,
+      enabled: true,
+      models: p.models,
+    })),
+    fastModel: { extId: 'assistant', ...fast },
+    chatModel: { extId: 'assistant', ...chat },
+  }
+}
+
+export function fakeAssistantSettings(url: string): object {
+  return assistantModelSettings(
+    [{ id: 'fake', name: 'Fake', url, models: ['fake-small', 'fake-big'] }],
+    { provider: 'fake', model: 'fake-small' },
+    { provider: 'fake', model: 'fake-big' },
+  )
+}
