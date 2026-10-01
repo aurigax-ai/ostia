@@ -206,7 +206,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
 
   beforeAll(() => {
     project = mkdtempSync(join(tmpdir(), 'pine-sdk-consumer-'))
-    cpSync(join(sdkPackage, 'template'), project, { recursive: true })
+    execFileSync(process.execPath, [sdkCli, 'create', 'hello', project], { stdio: 'ignore' })
     linkDependency('@aurigax-ai/pine-extension-sdk', sdkPackage)
     for (const name of ['esbuild', '@types/node']) {
       linkDependency(name, join(repoRoot, 'node_modules', name))
@@ -217,6 +217,48 @@ describe('the SDK package, used the way an extension author uses it', () => {
 
   afterAll(() => {
     rmSync(project, { recursive: true, force: true })
+  })
+
+  it('creates a project named after the id, ready for git and for the build', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'pine-sdk-create-'))
+    try {
+      const res = spawnSync(process.execPath, [sdkCli, 'create', 'weather-report'], {
+        cwd: parent,
+        encoding: 'utf8',
+      })
+      expect(res.status).toBe(0)
+      expect(res.stdout).toContain('created the Weather Report extension in weather-report')
+      const made = join(parent, 'weather-report')
+      const manifest = JSON.parse(readFileSync(join(made, 'pine.json'), 'utf8'))
+      expect(parseManifest(manifest, made).ok).toBe(true)
+      expect(manifest).toMatchObject({ id: 'weather-report', name: 'Weather Report' })
+      expect(manifest.contributes.commands[0]).toMatchObject({
+        title: 'Weather Report: Greet',
+        category: 'Weather Report',
+      })
+      const pkg = JSON.parse(readFileSync(join(made, 'package.json'), 'utf8'))
+      expect(pkg.name).toBe('pine-extension-weather-report')
+      expect(pkg.scripts.validate).toContain('pine-extension validate dist/weather-report')
+      expect(pkg.devDependencies['@aurigax-ai/pine-extension-sdk']).toMatch(/^\^\d+\.\d+\.\d+$/)
+      expect(readFileSync(join(made, '.gitignore'), 'utf8')).toBe('node_modules\ndist\n')
+      expect(readdirSync(join(made, 'src'))).toEqual(['main.ts'])
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses an id the loader would refuse and a folder that already holds files', () => {
+    const template = join(sdkPackage, 'template')
+    expect(runSdkCli(['create', 'Bad Id'], template)).toEqual({
+      code: 1,
+      lines: [
+        'Bad Id: an id is 2 to 40 lowercase letters, digits or dashes, starting with a letter',
+      ],
+    })
+    const taken = runSdkCli(['create', 'again', project], template)
+    expect(taken).toEqual({ code: 1, lines: [`${project}: already exists and is not empty`] })
+    expect(JSON.parse(readFileSync(join(project, 'pine.json'), 'utf8')).id).toBe('hello')
+    expect(runSdkCli(['create'], template)).toEqual({ code: 2, lines: [SDK_CLI_USAGE] })
   })
 
   it('typechecks the template against the published types', () => {

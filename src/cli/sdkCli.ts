@@ -1,7 +1,15 @@
 import { randomBytes } from 'node:crypto'
-import { existsSync, lstatSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, normalize, resolve } from 'node:path'
-import { readManifest } from '../main/extensionManifest'
+import {
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs'
+import { join, normalize, relative, resolve } from 'node:path'
+import { EXTENSION_ID_PATTERN, readManifest } from '../main/extensionManifest'
 import { parseMarketplaceManifest, planCopy } from '../main/marketplace'
 import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../shared/extensions'
 import { MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
@@ -13,7 +21,8 @@ export interface SdkCliResult {
 }
 
 export const SDK_CLI_USAGE = [
-  `usage: ${PRODUCT_NAME}-extension validate [folder]`,
+  `usage: ${PRODUCT_NAME}-extension create <id> [folder]`,
+  `       ${PRODUCT_NAME}-extension validate [folder]`,
   `       ${PRODUCT_NAME}-extension unlist <extension folder> [marketplace folder]`,
 ].join('\n')
 
@@ -121,8 +130,76 @@ function unlist(dir: string, folder: string): SdkCliResult {
   return { code: 0, lines: [`unlisted ${path}: its install code is ${code}`] }
 }
 
-export function runSdkCli(argv: string[]): SdkCliResult {
+const TEMPLATE_ID = 'hello'
+const TEMPLATE_NAME = 'Hello'
+const TEMPLATE_IGNORES = 'node_modules\ndist\n'
+
+function titleOf(id: string): string {
+  return id
+    .split('-')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+function rewriteJson(file: string, change: (value: Record<string, unknown>) => void): void {
+  const value = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
+  change(value)
+  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`)
+}
+
+function create(id: string, target: string, templateDir: string): SdkCliResult {
+  if (!EXTENSION_ID_PATTERN.test(id)) {
+    return {
+      code: 1,
+      lines: [
+        `${id}: an id is 2 to 40 lowercase letters, digits or dashes, starting with a letter`,
+      ],
+    }
+  }
+  if (!isDirectory(templateDir)) return { code: 1, lines: [`${templateDir}: template not found`] }
+  if (existsSync(target) && (!isDirectory(target) || readdirSync(target).length > 0)) {
+    return { code: 1, lines: [`${target}: already exists and is not empty`] }
+  }
+  const name = titleOf(id)
+  mkdirSync(target, { recursive: true })
+  cpSync(templateDir, target, { recursive: true })
+  writeFileSync(join(target, '.gitignore'), TEMPLATE_IGNORES)
+  rewriteJson(join(target, 'package.json'), (pkg) => {
+    pkg.name = `${PRODUCT_NAME}-extension-${id}`
+    const scripts = pkg.scripts as Record<string, string>
+    scripts.validate = scripts.validate.replace(`dist/${TEMPLATE_ID}`, `dist/${id}`)
+  })
+  rewriteJson(join(target, EXTENSION_MANIFEST_FILE), (manifest) => {
+    manifest.id = id
+    manifest.name = name
+    const { commands } = manifest.contributes as { commands: Record<string, string>[] }
+    for (const command of commands) {
+      command.title = command.title.replace(TEMPLATE_NAME, name)
+      command.category = name
+    }
+  })
+  const folder = relative(process.cwd(), target) || '.'
+  return {
+    code: 0,
+    lines: [
+      `created the ${name} extension in ${folder}`,
+      '',
+      `  cd ${folder}`,
+      '  pnpm install',
+      `  pnpm validate   builds dist/${id} and checks it the way ${PRODUCT_NAME} will`,
+    ],
+  }
+}
+
+export function runSdkCli(
+  argv: string[],
+  templateDir: string = join(__dirname, '../template'),
+): SdkCliResult {
   const [verb, ...args] = argv
+  if (verb === 'create' && (args.length === 1 || args.length === 2)) {
+    return create(args[0] as string, resolve(args[1] ?? (args[0] as string)), templateDir)
+  }
   if (verb === 'unlist' && (args.length === 1 || args.length === 2)) {
     return unlist(resolve(args[1] ?? '.'), args[0] as string)
   }
