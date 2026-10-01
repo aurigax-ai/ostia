@@ -16,7 +16,7 @@ const ZSH_INIT =
 # Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Pine can render command blocks
 # and follow ` +
   '"cd"' +
-  ` without polling /proc. See docs/ARCHITECTURE.md §2 "Shell integration".
+  ` without polling /proc.
 if [ -n "$PINE_SHELL_INTEGRATION" ]; then return; fi
 PINE_SHELL_INTEGRATION=1
 
@@ -127,7 +127,7 @@ fi
 
 const BASH_INIT = `# Pine shell integration for bash (generated — safe to delete; regenerated on launch).
 # Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Pine can render command blocks
-# and follow cd without polling /proc. See docs/ARCHITECTURE.md §2 "Shell integration".
+# and follow cd without polling /proc.
 if [ -n "$PINE_SHELL_INTEGRATION" ]; then return; fi
 PINE_SHELL_INTEGRATION=1
 
