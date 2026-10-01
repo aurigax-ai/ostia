@@ -38,7 +38,7 @@ describe('SettingsPanel terminal and pane rows', () => {
     expect(screen.getByRole('spinbutton', { name: 'Scroll speed' })).toHaveValue(1)
     expect(screen.getByRole('spinbutton', { name: 'Scrollback lines' })).toHaveValue(10000)
     expect(screen.getByRole('spinbutton', { name: 'Minimum contrast ratio' })).toHaveValue(1)
-    expect(screen.getByRole('switch', { name: 'Warn before risky paste' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Confirm multi-line paste' })).toBeChecked()
   })
 
   it('stores in-range numbers and ignores out-of-range ones', async () => {
@@ -61,9 +61,9 @@ describe('SettingsPanel terminal and pane rows', () => {
     expect(useSettingsStore.getState().terminal.minimumContrast).toBe(4.5)
   })
 
-  it('toggles the paste warning', async () => {
+  it('toggles the multi-line paste confirmation', async () => {
     const user = await openSection('Terminal')
-    await user.click(screen.getByRole('switch', { name: 'Warn before risky paste' }))
+    await user.click(screen.getByRole('switch', { name: 'Confirm multi-line paste' }))
     expect(useSettingsStore.getState().terminal.warnOnRiskyPaste).toBe(false)
   })
 

@@ -18,7 +18,7 @@ import {
   sendToAgent,
   workspaceTerminals,
 } from '../lib/chatActions'
-import { isRiskyPaste } from '../settings/terminalPaneSettings'
+import { confirmsGeneratedText } from '../lib/pasteGate'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkflowsStore } from '../stores/workflowsStore'
@@ -202,7 +202,7 @@ function RunAction({ code, sessionId, workspaceId, onNotice }: CodeActionsProps)
     onNotice(runInNewTerminal(workspaceId, command) ? 'ranInTerminal' : 'runFailed')
   }
   const start = (): void => {
-    if (isRiskyPaste(command)) setRisky(command)
+    if (confirmsGeneratedText(command)) setRisky(command)
     else if (runConfirmed.has(sessionId)) run()
     else setConfirming(true)
   }
@@ -234,7 +234,12 @@ function RunAction({ code, sessionId, workspaceId, onNotice }: CodeActionsProps)
           </div>
         </PopoverContent>
       </Popover>
-      <RiskyPasteDialog text={risky} onPaste={run} onCancel={() => setRisky(null)} />
+      <RiskyPasteDialog
+        text={risky}
+        source="generated"
+        onPaste={run}
+        onCancel={() => setRisky(null)}
+      />
     </>
   )
 }
