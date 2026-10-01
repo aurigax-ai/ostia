@@ -1,16 +1,18 @@
 import type { LifecycleEvent, SnapshotWorkspace, WindowSummary } from '@shared/types'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { createPane, resetIds, splitPane } from '../layout/tree'
+import { createPane, paneIds as paneIdsOf, resetIds, splitPane } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useCloseConfirmStore } from '../stores/closeConfirmStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import { resetWorkspaceIds, useWorkspacesStore } from '../stores/workspacesStore'
 import { setIdNamespace } from './idNamespace'
 import {
   activateWorkspace,
   adoptWorkspaces,
+  canMovePane,
   movePaneToNewWindow,
   moveWorkspaceToNewWindow,
   returnToMainWindow,
@@ -24,6 +26,7 @@ let windowsInit: ReturnType<typeof useWindowsStore.getState>
 let attentionInit: ReturnType<typeof useAttentionStore.getState>
 let editorInit: ReturnType<typeof useEditorStatus.getState>
 let confirmInit: ReturnType<typeof useCloseConfirmStore.getState>
+let sandboxInit: ReturnType<typeof useSandboxStore.getState>
 
 beforeAll(() => {
   workspacesInit = useWorkspacesStore.getState()
@@ -32,6 +35,7 @@ beforeAll(() => {
   attentionInit = useAttentionStore.getState()
   editorInit = useEditorStatus.getState()
   confirmInit = useCloseConfirmStore.getState()
+  sandboxInit = useSandboxStore.getState()
 })
 
 afterEach(() => {
@@ -41,6 +45,7 @@ afterEach(() => {
   useAttentionStore.setState(attentionInit, true)
   useEditorStatus.setState(editorInit, true)
   useCloseConfirmStore.setState(confirmInit, true)
+  useSandboxStore.setState(sandboxInit, true)
   resetIds()
   resetWorkspaceIds()
   setIdNamespace('')
@@ -128,6 +133,128 @@ describe('movePaneToNewWindow', () => {
     const layout = useLayoutStore.getState().byWorkspace[workspaceId]
     expect(layout.root).toMatchObject({ type: 'pane', id: left })
     expect(emitted().some((e) => e.type === 'pane-closed')).toBe(false)
+  })
+})
+
+describe('moving a pane remembers where it came from', () => {
+  it('carries the workspace, its place in the list and the neighbor it sat beside', async () => {
+    useWorkspacesStore.getState().addWorkspace('/home/u/first')
+    const { workspaceId, left, right } = seedTwoPanes()
+
+    await movePaneToNewWindow(workspaceId, right)
+
+    const handoff = vi.mocked(window.pine.windows.detach).mock.calls[0][0]
+    expect(handoff.origin).toEqual({
+      workspaceId,
+      index: 1,
+      beside: { paneId: left, zone: 'right' },
+    })
+  })
+
+  it('moves the whole workspace when its only pane moves, leaving no empty workspace', async () => {
+    useWorkspacesStore.getState().addWorkspace('/home/u/api')
+    const workspaceId = useWorkspacesStore.getState().activeWorkspaceId as string
+    useLayoutStore.getState().ensure(workspaceId)
+    const only = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+
+    expect(await movePaneToNewWindow(workspaceId, only)).toBe(true)
+
+    const handoff = vi.mocked(window.pine.windows.detach).mock.calls[0][0]
+    expect(handoff.id).toBe(workspaceId)
+    expect(useWorkspacesStore.getState().workspaces).toEqual([])
+  })
+
+  it('keeps a pane of a sandboxed workspace in it, but lets the workspace move whole', async () => {
+    const { workspaceId, left, right } = seedTwoPanes()
+    useSandboxStore.setState({ enabled: { [workspaceId]: true } })
+
+    expect(canMovePane(workspaceId, right)).toBe(false)
+    expect(await movePaneToNewWindow(workspaceId, right)).toBe(false)
+    useLayoutStore.getState().closePane(workspaceId, right)
+    expect(canMovePane(workspaceId, left)).toBe(true)
+  })
+
+  it('remembers a whole workspace’s place and group', async () => {
+    useWorkspacesStore.getState().addWorkspace('/home/u/a')
+    const { workspaceId } = seedTwoPanes()
+    useWorkspacesStore.getState().addWorkspace('/home/u/c')
+    const groupId = useWorkspacesStore.getState().createGroup(workspaceId, 'Work') as string
+
+    await moveWorkspaceToNewWindow(workspaceId)
+
+    const handoff = vi.mocked(window.pine.windows.detach).mock.calls[0][0]
+    expect(handoff.origin).toEqual({ workspaceId, index: 1, groupId })
+  })
+})
+
+describe('returning panes and workspaces', () => {
+  it('puts a returning pane back into the workspace it came from, beside its neighbor', () => {
+    const { workspaceId, left, right } = seedTwoPanes()
+    useLayoutStore.getState().releasePane(workspaceId, right)
+    const detachedId = 'wff00aa-1'
+
+    adoptWorkspaces([
+      {
+        id: detachedId,
+        name: 'api',
+        kind: 'terminal',
+        workDir: '/home/u/api',
+        activePaneId: right,
+        root: { type: 'pane', id: right, title: 'zsh', kind: 'terminal' },
+        origin: { workspaceId, index: 0, beside: { paneId: left, zone: 'right' } },
+      },
+    ])
+
+    const state = useWorkspacesStore.getState()
+    expect(state.workspaces.map((w) => w.id)).toEqual([workspaceId])
+    expect(state.activeWorkspaceId).toBe(workspaceId)
+    const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+    expect(layout.root).toMatchObject({ type: 'split', direction: 'horizontal' })
+    expect(paneIdsOf(layout.root)).toEqual([left, right])
+    expect(layout.activePaneId).toBe(right)
+    expect(emitted()).toContainEqual({ type: 'pane-created', workspaceId, paneId: right })
+    expect(emitted()).toContainEqual({ type: 'workspace-closed', workspaceId: detachedId })
+  })
+
+  it('returns a whole workspace to its old place in the list and its group', () => {
+    useWorkspacesStore.getState().addWorkspace('/home/u/a')
+    useWorkspacesStore.getState().addWorkspace('/home/u/c')
+    const [a, c] = useWorkspacesStore.getState().workspaces.map((w) => w.id)
+    const groupId = useWorkspacesStore.getState().createGroup(c, 'Work') as string
+
+    adoptWorkspaces([
+      {
+        id: 'wff00aa-2',
+        name: 'b',
+        kind: 'terminal',
+        workDir: '/home/u/b',
+        origin: { workspaceId: 'wff00aa-2', index: 1, groupId },
+      },
+    ])
+
+    const state = useWorkspacesStore.getState()
+    expect(state.workspaces.map((w) => w.id)).toEqual([a, 'wff00aa-2', c])
+    expect(state.workspaces[1]).not.toHaveProperty('origin')
+    expect(state.workspaces[1].groupId).toBe(groupId)
+  })
+
+  it('makes a pane whose workspace is gone its own workspace named after its project', () => {
+    adoptWorkspaces([
+      {
+        id: 'wff00aa-3',
+        name: 'api',
+        kind: 'terminal',
+        workDir: '/home/u/api',
+        projectDir: '/home/u/api',
+        activePaneId: 'pane-ff00aa-7',
+        root: { type: 'pane', id: 'pane-ff00aa-7', title: 'zsh', kind: 'terminal' },
+        origin: { workspaceId: 'w-closed', index: 4 },
+      },
+    ])
+
+    const [workspace] = useWorkspacesStore.getState().workspaces
+    expect(workspace).toMatchObject({ id: 'wff00aa-3', name: 'api', projectDir: '/home/u/api' })
+    expect(workspace).not.toHaveProperty('origin')
   })
 })
 

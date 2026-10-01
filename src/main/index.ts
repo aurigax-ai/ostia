@@ -710,7 +710,7 @@ function wireWindow(win: BrowserWindow): void {
       return
     }
     event.preventDefault()
-    if (broker?.isDetached(win)) broker.requestReturn(win)
+    if (broker?.isDetached(win)) broker.requestReturn(win, true)
     else app.quit()
   })
 
@@ -1778,6 +1778,13 @@ function emitFocusChanged(): void {
   extensionHost?.emitEvent('focus.changed', { focused: BrowserWindow.getFocusedWindow() !== null })
 }
 
+function showWindow(win: BrowserWindow): void {
+  if (win.isDestroyed()) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+}
+
 function revealApp(): void {
   if (BrowserWindow.getAllWindows().length === 0) createWindow(MAIN_SLOT)
   else appTray?.showWindows()
@@ -2007,7 +2014,13 @@ app.whenReady().then(() => {
     windows: () => BrowserWindow.getAllWindows(),
     quit: () => app.quit(),
   })
-  broker = new WindowBroker({ createWindow, holdPtys, execCommand })
+  broker = new WindowBroker({
+    createWindow,
+    holdPtys,
+    execCommand,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    reveal: showWindow,
+  })
   broker.register()
   broker.openAll()
   extensionHost.startEager()
