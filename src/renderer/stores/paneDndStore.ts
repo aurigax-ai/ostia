@@ -13,6 +13,7 @@ interface PaneDndState {
   setOver: (overId: string, zone: DropZone, tab?: TabDrop | null) => void
   leave: (overId: string) => void
   dropped: () => void
+  release: () => void
   reset: () => void
 }
 
@@ -44,5 +45,8 @@ export const usePaneDnd = create<PaneDndState>((set, get) => ({
     if (get().overId === overId) set({ overId: null, zone: null, tab: null })
   },
   dropped: () => set({ overId: null, zone: null, tab: null, droppedHere: true }),
+  release: () => {
+    if (get().dragging) set({ dragging: false, overId: null, zone: null, tab: null })
+  },
   reset: () => set(IDLE),
 }))

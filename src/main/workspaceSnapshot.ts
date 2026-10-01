@@ -74,18 +74,12 @@ function copyOptionalString(
 }
 
 interface ParseOptions {
-  hibernated: boolean
   scratch: boolean
 }
 
-const SAVED: ParseOptions = { hibernated: false, scratch: false }
+const SAVED: ParseOptions = { scratch: false }
 
-function parseNode(
-  raw: unknown,
-  paneIds: string[],
-  depth: number,
-  opts: ParseOptions,
-): SnapshotNode | null {
+function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode | null {
   if (depth > MAX_DEPTH || !isRecord(raw)) return null
   const id = raw.id
   if (typeof id !== 'string' || id.length === 0) return null
@@ -110,7 +104,7 @@ function parseNode(
     const resume = parseAgentResume(raw.resume)
     if (resume) pane.resume = resume
     if (resume && raw.agentRunning === true) pane.agentRunning = true
-    if (opts.hibernated && resume && raw.hibernated === true) pane.hibernated = true
+    if (resume && raw.hibernated === true) pane.hibernated = true
     if (pane.kind === 'extension' && !pane.extensionId) return null
     if (pane.kind === 'view' && !pane.viewName) return null
     paneIds.push(id)
@@ -122,7 +116,7 @@ function parseNode(
     const tabs: SnapshotPaneNode[] = []
     for (const child of raw.children) {
       if (!isRecord(child) || child.type !== 'pane') return null
-      const parsed = parseNode(child, paneIds, depth + 1, opts)
+      const parsed = parseNode(child, paneIds, depth + 1)
       if (!parsed || parsed.type !== 'pane') return null
       tabs.push(parsed)
     }
@@ -136,7 +130,7 @@ function parseNode(
   const direction = raw.direction === 'vertical' ? 'vertical' : 'horizontal'
   const children: SnapshotNode[] = []
   for (const child of raw.children) {
-    const parsed = parseNode(child, paneIds, depth + 1, opts)
+    const parsed = parseNode(child, paneIds, depth + 1)
     if (!parsed) return null
     children.push(parsed)
   }
@@ -221,7 +215,7 @@ function parseWorkspace(
   if (entry.kind === 'scratch' && !opts.scratch) return null
 
   const paneIds: string[] = []
-  const root = entry.root === undefined ? undefined : parseNode(entry.root, paneIds, 0, opts)
+  const root = entry.root === undefined ? undefined : parseNode(entry.root, paneIds, 0)
   if (root === null) return null
   if (root && paneIds.length === 0) return null
   if (new Set(paneIds).size !== paneIds.length) return null
@@ -351,7 +345,7 @@ export function parseSnapshot(raw: unknown): AppSnapshot | null {
 
 export function parseHandoff(raw: unknown): SnapshotWorkspace | null {
   const claims: Claims = { panes: new Set(), workspaces: new Set() }
-  return parseWorkspace(raw, [], claims, { hibernated: true, scratch: true })
+  return parseWorkspace(raw, [], claims, { scratch: true })
 }
 
 export function handoffPaneIds(workspace: SnapshotWorkspace): string[] {

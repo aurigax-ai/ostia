@@ -3121,6 +3121,10 @@ button.prompt-chip:focus-visible {
   margin: 0 auto;
 }
 
+.typeset {
+  user-select: text;
+}
+
 .editor-mode {
   position: absolute;
   top: 6px;

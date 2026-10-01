@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { usePaneDnd } from '../stores/paneDndStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
-import { reportForeignDrop } from './paneDrag'
+import { reportForeignDrop, startPaneDragTracking } from './paneDrag'
 
 let init: ReturnType<typeof useWorkspacesStore.getState>
 
@@ -35,5 +36,46 @@ describe('reportForeignDrop', () => {
     vi.mocked(window.pine.windows.dropPane).mockClear()
     reportForeignDrop('pane-x', { paneId: 'pane-1', zone: 'center' })
     expect(window.pine.windows.dropPane).not.toHaveBeenCalled()
+  })
+})
+
+describe('startPaneDragTracking', () => {
+  let stop: () => void
+
+  afterEach(() => {
+    stop()
+    usePaneDnd.getState().reset()
+  })
+
+  it('takes the drop layer away on a drop even when the dragged tab never reports the drag ended', () => {
+    stop = startPaneDragTracking()
+    usePaneDnd.getState().start('pane-1')
+    usePaneDnd.getState().dropped()
+
+    document.dispatchEvent(new Event('drop', { bubbles: true }))
+
+    expect(usePaneDnd.getState().dragging).toBe(false)
+    expect(usePaneDnd.getState().droppedHere).toBe(true)
+    expect(usePaneDnd.getState().sourceId).toBe('pane-1')
+  })
+
+  it('clears a drag that is still marked active once the pointer moves again', () => {
+    stop = startPaneDragTracking()
+    usePaneDnd.getState().start('pane-1')
+
+    document.dispatchEvent(new Event('mousemove', { bubbles: true }))
+
+    expect(usePaneDnd.getState()).toMatchObject({
+      dragging: false,
+      sourceId: null,
+      droppedHere: false,
+    })
+  })
+
+  it('leaves an idle state alone when the pointer moves', () => {
+    stop = startPaneDragTracking()
+    const before = usePaneDnd.getState()
+    document.dispatchEvent(new Event('mousemove', { bubbles: true }))
+    expect(usePaneDnd.getState()).toBe(before)
   })
 })

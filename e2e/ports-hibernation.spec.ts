@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
@@ -118,5 +118,74 @@ test('an idle hidden agent hibernates and resumes when the human asks', async ()
     await expect(win.locator('.hibernated-view')).toHaveCount(0)
   } finally {
     await app.close()
+  }
+})
+
+test('a hibernated agent is still hibernated after a restart and wakes when the human asks', async () => {
+  test.setTimeout(120_000)
+  const dataHome = freshDataHome()
+  const bin = join(dataHome, 'bin')
+  mkdirSync(bin, { recursive: true })
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "fake agent up: $*"\nexec sleep 600\n')
+  chmodSync(join(bin, 'claude'), 0o755)
+  seedSettings(dataHome, {
+    ...DOM_RENDERER_SETTINGS,
+    agents: {
+      autoResume: true,
+      hibernation: { enabled: true, idleSeconds: 5, maxLiveTerminals: 0 },
+    },
+  })
+  const first = await launchIn(dataHome, bin)
+  try {
+    const win = await first.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await typeLine(win, 'pine resume-token claude e2e-tok-2')
+    await expect(win.getByRole('button', { name: 'Resume claude' })).toBeVisible({
+      timeout: 15_000,
+    })
+    await typeLine(win, 'claude')
+    await expect(win.locator('.xterm-rows').first()).toContainText('fake agent up:', {
+      timeout: 15_000,
+    })
+    await win.getByRole('button', { name: 'New terminal tab' }).click()
+    await expect(win.getByRole('tab')).toHaveCount(2)
+    await expect(win.getByRole('tab').first().getByLabel('Hibernated')).toBeVisible({
+      timeout: 30_000,
+    })
+    const saved = (): boolean => {
+      try {
+        return /"hibernated":\s*true/.test(
+          readFileSync(join(dataHome, 'pine', 'workspaces.json'), 'utf8'),
+        )
+      } catch {
+        return false
+      }
+    }
+    await expect.poll(saved, { timeout: 15_000 }).toBe(true)
+  } finally {
+    await first.close()
+  }
+
+  const second = await launchIn(dataHome, bin)
+  try {
+    const win = await second.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    const sleeping = win.getByRole('tab').first()
+    await expect(sleeping.getByLabel('Hibernated')).toBeVisible({ timeout: 20_000 })
+    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(PROMPT, {
+      timeout: 15_000,
+    })
+    await expect(win.locator('.xterm')).toHaveCount(1)
+
+    await sleeping.click()
+    const view = win.locator('.hibernated-view')
+    await expect(view).toContainText('claude --resume e2e-tok-2')
+    await view.getByRole('button', { name: 'Resume claude' }).click()
+    const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
+    await expect(rows).toContainText(/fake agent up: .*--resume e2e-tok-2/, { timeout: 20_000 })
+    await expect(win.locator('.hibernated-view')).toHaveCount(0)
+  } finally {
+    await second.close()
   }
 })

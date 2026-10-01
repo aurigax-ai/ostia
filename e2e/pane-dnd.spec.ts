@@ -48,6 +48,15 @@ async function twoTabs(win: Page): Promise<string[]> {
   return (await panes(win))[0].tabs
 }
 
+async function expectTerminalsUsable(win: Page): Promise<void> {
+  await expect(win.locator('.pane-drop-layer')).toHaveCount(0)
+  const term = win.locator('.xterm:visible').first()
+  await term.click()
+  await win.keyboard.type('echo still-typing')
+  await win.keyboard.press('Enter')
+  await expect(win.locator('.xterm-rows:visible').first()).toContainText('still-typing')
+}
+
 async function dragTabToEdge(win: Page, tabId: string, edge: 'right' | 'bottom'): Promise<void> {
   const pane = win.locator(`.pane:visible:has(.pane-tab[data-tab-id="${tabId}"])`)
   const box = await pane.boundingBox()
@@ -81,6 +90,7 @@ test('dragging a tab to a terminal pane’s right edge splits it with the tab on
     const [left, right] = await panes(win)
     expect(right.x).toBeGreaterThan(left.x)
     expect(right.y).toBe(left.y)
+    await expectTerminalsUsable(win)
   } finally {
     await app.close()
   }
@@ -99,6 +109,7 @@ test('dragging a tab to a terminal pane’s bottom edge splits it with the tab b
     const [top, bottom] = await panes(win)
     expect(bottom.y).toBeGreaterThan(top.y)
     expect(bottom.x).toBe(top.x)
+    await expectTerminalsUsable(win)
   } finally {
     await app.close()
   }
@@ -116,6 +127,7 @@ test('tabs reorder within their tab bar', async () => {
       })
 
     await expect.poll(() => panes(win).then((p) => p.map((x) => x.tabs))).toEqual([[second, first]])
+    await expectTerminalsUsable(win)
   } finally {
     await app.close()
   }
