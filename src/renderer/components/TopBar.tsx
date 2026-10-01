@@ -21,6 +21,7 @@ import { NotificationCenter } from './NotificationCenter'
 import { PanelToggles } from './PanelToggles'
 import { UpdateNotice } from './UpdateNotice'
 import { Button } from './ui/button'
+import { ButtonGroup, ButtonGroupSeparator } from './ui/button-group'
 import { Kbd } from './ui/kbd'
 
 export function TopBar(): JSX.Element {
@@ -36,16 +37,20 @@ export function TopBar(): JSX.Element {
   return (
     <header className="topbar drag-region">
       <div className="topbar-left">
-        <IconButton
-          size="bar"
-          icon={PlusIcon}
-          label={d.rail.newWorkspace}
-          onClick={() => {
-            leaveSettings()
-            startNewWorkspace()
-          }}
-        />
-        <NewWorkspaceMenu />
+        <ButtonGroup aria-label={d.rail.newWorkspace} className="rounded-sm border border-line">
+          <IconButton
+            size="bar"
+            icon={PlusIcon}
+            label={d.rail.newWorkspace}
+            className="rounded-r-none"
+            onClick={() => {
+              leaveSettings()
+              startNewWorkspace()
+            }}
+          />
+          <ButtonGroupSeparator className="my-0 bg-line" />
+          <NewWorkspaceMenu />
+        </ButtonGroup>
         <IconButton
           size="bar"
           icon={SidebarSimpleIcon}
@@ -101,7 +106,14 @@ function NewWorkspaceMenu(): JSX.Element {
   return (
     <DropdownMenu
       align="start"
-      trigger={<IconButton size="bar" icon={CaretDownIcon} label={d.scratch.newMenu} />}
+      trigger={
+        <IconButton
+          size="bar"
+          icon={CaretDownIcon}
+          label={d.scratch.newMenu}
+          className="w-5 rounded-l-none"
+        />
+      }
     >
       <MenuItem
         icon={PlusIcon}
