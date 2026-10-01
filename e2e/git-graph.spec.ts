@@ -56,6 +56,37 @@ function guest(app: ElectronApplication) {
     }, script)
 }
 
+type PanelInput =
+  | {
+      type: 'mouseMove' | 'mouseDown' | 'mouseUp'
+      x: number
+      y: number
+      button?: 'left'
+      clickCount?: number
+      modifiers?: string[]
+    }
+  | { type: 'keyDown' | 'keyUp'; keyCode: string }
+
+const HELD = ['leftButtonDown']
+
+function sendToPanel(app: ElectronApplication, events: PanelInput[]): Promise<void> {
+  return app.evaluate(({ webContents }, list) => {
+    const panel = webContents
+      .getAllWebContents()
+      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
+    for (const event of list) panel?.sendInputEvent(event as Electron.InputEvent)
+  }, events)
+}
+
+function reloadPanel(app: ElectronApplication): Promise<void> {
+  return app.evaluate(({ webContents }) => {
+    webContents
+      .getAllWebContents()
+      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
+      ?.reload()
+  })
+}
+
 test('the graph shows the uncommitted row, switches to all branches, and changes follow the tree view setting', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -95,6 +126,59 @@ test('the graph shows the uncommitted row, switches to all branches, and changes
     await expect
       .poll(() => inPanel(`document.querySelector('.detail')?.innerText ?? ''`))
       .toMatch(/STAGED[\s\S]*new\.txt/)
+
+    const detailHeight = async (): Promise<number> =>
+      Number(
+        await inPanel(
+          `Math.round(document.querySelector('.detail').getBoundingClientRect().height)`,
+        ),
+      )
+    const handle = `document.querySelector('.pine-split-handle')`
+    expect(await inPanel(`${handle}.getAttribute('role')`)).toBe('separator')
+    expect(await inPanel(`${handle}.getAttribute('aria-orientation')`)).toBe('horizontal')
+    const before = await detailHeight()
+    const [hx, hy] = JSON.parse(
+      await inPanel(
+        `JSON.stringify((() => { const r = ${handle}.getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(r.top)] })())`,
+      ),
+    ) as [number, number]
+    await sendToPanel(app, [
+      { type: 'mouseMove', x: hx, y: hy },
+      { type: 'mouseDown', x: hx, y: hy, button: 'left', clickCount: 1, modifiers: HELD },
+      { type: 'mouseMove', x: hx, y: hy - 40, button: 'left', modifiers: HELD },
+      { type: 'mouseMove', x: hx, y: hy - 80, button: 'left', modifiers: HELD },
+      { type: 'mouseUp', x: hx, y: hy - 80, button: 'left', clickCount: 1 },
+    ])
+    await expect.poll(detailHeight).toBeGreaterThan(before + 60)
+    const dragged = await detailHeight()
+    expect(await inPanel(`String(document.getSelection().toString())`)).toBe('')
+    await inPanel(`${handle}.focus(); 'ok'`)
+    await sendToPanel(app, [
+      { type: 'keyDown', keyCode: 'Up' },
+      { type: 'keyUp', keyCode: 'Up' },
+    ])
+    const near = (target: number) => async (): Promise<boolean> =>
+      Math.abs((await detailHeight()) - target) <= 2
+    await expect.poll(near(dragged + 16)).toBe(true)
+    const sizesFile = join(
+      await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData')),
+      'extension-data',
+      'git',
+      'panel-sizes.json',
+    )
+    const savedFraction = (): number | null => {
+      try {
+        return JSON.parse(readFileSync(sizesFile, 'utf8'))['graph-details'] ?? null
+      } catch {
+        return null
+      }
+    }
+    await expect.poll(savedFraction).not.toBeNull()
+
+    await reloadPanel(app)
+    await expect.poll(panelText, { timeout: 15_000 }).toContain('merge feature into main')
+    await inPanel(`${worktreeRow}.click(); 'ok'`)
+    await expect.poll(near(dragged + 16), { timeout: 15_000 }).toBe(true)
     const press = (key: string): Promise<string> =>
       inPanel(`(() => {
         const list = document.querySelector('.graph-scroll')
@@ -133,6 +217,26 @@ test('the graph shows the uncommitted row, switches to all branches, and changes
 
     await inPanel(`document.querySelector('[data-key="tab-changes"]').click(); 'ok'`)
     await expect.poll(panelText, { timeout: 15_000 }).toContain('feature.txt')
+    expect(
+      await inPanel(
+        `String(document.querySelector('[data-split="changes-commit"] [role="separator"]') !== null)`,
+      ),
+    ).toBe('true')
+    const boxHeight = async (): Promise<number> =>
+      Number(
+        await inPanel(
+          `Math.round(document.querySelector('textarea.message').getBoundingClientRect().height)`,
+        ),
+      )
+    const emptyBox = await boxHeight()
+    await inPanel(`(() => {
+      const box = document.querySelector('textarea.message')
+      box.value = 'subject\\n\\n' + 'body line\\n'.repeat(8)
+      box.dispatchEvent(new Event('input', { bubbles: true }))
+      return 'ok'
+    })()`)
+    await expect.poll(boxHeight).toBeGreaterThan(emptyBox + 60)
+    expect(await panelText()).toContain('feature.txt')
     expect(await inPanel(`document.querySelectorAll('button.folder').length`)).toBe('0')
     await inPanel(`document.querySelector('[aria-label="Folder tree"]').click(); 'ok'`)
     await expect
@@ -144,6 +248,7 @@ test('the graph shows the uncommitted row, switches to all branches, and changes
       .toBe('src/deep 1|src/deep 1')
     await expect.poll(gitSetting('changesView'), { timeout: 10_000 }).toBe('tree')
 
+    await win.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
     await win.keyboard.press('Control+,')
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible({ timeout: 10_000 })
