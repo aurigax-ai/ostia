@@ -1,4 +1,9 @@
-import type { ExtensionInfo, ExtensionSidebarItem, PaneChip } from '@shared/extensions'
+import type {
+  ExtensionInfo,
+  ExtensionSidebarItem,
+  PaneChip,
+  WorkspaceChip,
+} from '@shared/extensions'
 import { create } from 'zustand'
 import { useSettingsStore } from './settingsStore'
 
@@ -11,12 +16,14 @@ interface ExtensionsState {
   list: ExtensionInfo[]
   sidebar: ExtensionSidebarItem[]
   chips: PaneChip[]
+  workspaceChips: WorkspaceChip[]
   panelNav: Record<string, PanelNavigation>
   reviewing: string | null
   dismissed: string[]
   setList: (list: ExtensionInfo[]) => void
   setSidebar: (items: ExtensionSidebarItem[]) => void
   setChips: (chips: PaneChip[]) => void
+  setWorkspaceChips: (chips: WorkspaceChip[]) => void
   navigatePanel: (paneId: string, path: string) => void
   load: () => Promise<void>
   setEnabled: (extId: string, enabled: boolean) => Promise<void>
@@ -33,6 +40,7 @@ export const useExtensionsStore = create<ExtensionsState>((set) => ({
   list: [],
   sidebar: [],
   chips: [],
+  workspaceChips: [],
   panelNav: {},
   reviewing: null,
   dismissed: [],
@@ -40,17 +48,19 @@ export const useExtensionsStore = create<ExtensionsState>((set) => ({
   setList: (list) => set({ list }),
   setSidebar: (sidebar) => set({ sidebar }),
   setChips: (chips) => set({ chips }),
+  setWorkspaceChips: (workspaceChips) => set({ workspaceChips }),
 
   navigatePanel: (paneId, path) =>
     set((s) => ({ panelNav: { ...s.panelNav, [paneId]: { path, seq: ++navSeq } } })),
 
   load: async () => {
-    const [list, sidebar, chips] = await Promise.all([
+    const [list, sidebar, chips, workspaceChips] = await Promise.all([
       window.pine.extensions.list(),
       window.pine.extensions.sidebarItems(),
       window.pine.extensions.paneChips(),
+      window.pine.extensions.workspaceChips(),
     ])
-    set({ list, sidebar, chips })
+    set({ list, sidebar, chips, workspaceChips })
   },
 
   setEnabled: async (extId, enabled) => {

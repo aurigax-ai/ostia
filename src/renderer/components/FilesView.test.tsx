@@ -59,6 +59,7 @@ function iconThemeExtension(): ExtensionInfo {
     commands: [],
     panel: null,
     paneChips: [],
+    workspaceChips: [],
     settings: [],
     settingValues: {},
     assist: [],

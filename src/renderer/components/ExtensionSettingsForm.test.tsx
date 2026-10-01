@@ -22,6 +22,7 @@ function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     commands: [],
     panel: null,
     paneChips: [],
+    workspaceChips: [],
     settings: [],
     settingValues: {},
     iconThemes: [],

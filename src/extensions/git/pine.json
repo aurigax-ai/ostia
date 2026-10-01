@@ -87,7 +87,7 @@
     ],
     "sidebarItems": true,
     "panel": { "title": "Git", "icon": "git-branch", "entry": "url" },
-    "paneChips": [
+    "workspaceChips": [
       { "id": "branch", "title": "Git branch" },
       { "id": "diff-stats", "title": "Git diff stats" }
     ],

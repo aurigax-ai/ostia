@@ -1,7 +1,13 @@
 import { CopyIcon } from '@phosphor-icons/react'
 import type { PaneChipItem } from '@shared/extensions'
 import { fmt, useDict } from '../i18n/useDict'
-import { type ShownPaneChip, openPaneChipUrl, paneChipAction, usePaneChips } from '../lib/paneChips'
+import {
+  type ShownChip,
+  chipAction,
+  openChipUrl,
+  usePaneChips,
+  useWorkspaceChips,
+} from '../lib/extensionChips'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { extensionIcon } from './extensionIcons'
@@ -10,10 +16,30 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
 export function PaneChips({ paneId }: { paneId: string }): JSX.Element | null {
   const d = useDict()
-  const chips = usePaneChips(paneId)
+  return <ChipList chips={usePaneChips(paneId)} label={d.extensions.chipsLabel} />
+}
+
+export function WorkspaceChips({
+  workspaceId,
+}: { workspaceId: string | null }): JSX.Element | null {
+  const d = useDict()
+  return (
+    <ChipList
+      chips={useWorkspaceChips(workspaceId)}
+      label={d.extensions.workspaceChipsLabel}
+      className="workspace-chips"
+    />
+  )
+}
+
+function ChipList({
+  chips,
+  label,
+  className,
+}: { chips: ShownChip[]; label: string; className?: string }): JSX.Element | null {
   if (chips.length === 0) return null
   return (
-    <ul className="pane-chips" aria-label={d.extensions.chipsLabel}>
+    <ul className={className ? `pane-chips ${className}` : 'pane-chips'} aria-label={label}>
       {chips.map((chip) => (
         <li key={`${chip.extId}:${chip.id}`}>
           <Chip chip={chip} />
@@ -23,11 +49,11 @@ export function PaneChips({ paneId }: { paneId: string }): JSX.Element | null {
   )
 }
 
-function Chip({ chip }: { chip: ShownPaneChip }): JSX.Element {
+function Chip({ chip }: { chip: ShownChip }): JSX.Element {
   return chip.icon ? <IconChip chip={chip} /> : <TextChip chip={chip} />
 }
 
-function IconChip({ chip }: { chip: ShownPaneChip }): JSX.Element {
+function IconChip({ chip }: { chip: ShownChip }): JSX.Element {
   const d = useDict()
   const Icon = extensionIcon(chip.icon)
   const count = (
@@ -37,7 +63,7 @@ function IconChip({ chip }: { chip: ShownPaneChip }): JSX.Element {
   )
   const items = chip.items
   if (!items) {
-    const action = paneChipAction(chip)
+    const action = chipAction(chip)
     return (
       <span className="pane-chip-icon">
         <IconButton
@@ -77,7 +103,7 @@ function IconChip({ chip }: { chip: ShownPaneChip }): JSX.Element {
   )
 }
 
-function ChipItem({ chip, item }: { chip: ShownPaneChip; item: PaneChipItem }): JSX.Element {
+function ChipItem({ chip, item }: { chip: ShownChip; item: PaneChipItem }): JSX.Element {
   const d = useDict()
   const url = item.url
   if (!url) return <span className="pane-chip-item font-mono text-ui-sm">{item.text}</span>
@@ -87,7 +113,7 @@ function ChipItem({ chip, item }: { chip: ShownPaneChip; item: PaneChipItem }): 
         type="button"
         className="pane-chip-item-open font-mono text-ui-sm"
         aria-label={fmt(d.extensions.chipOpenItem, { url })}
-        onClick={() => openPaneChipUrl(chip, url)}
+        onClick={() => openChipUrl(chip, url)}
       >
         {item.text}
       </button>
@@ -100,9 +126,9 @@ function ChipItem({ chip, item }: { chip: ShownPaneChip; item: PaneChipItem }): 
   )
 }
 
-function TextChip({ chip }: { chip: ShownPaneChip }): JSX.Element {
+function TextChip({ chip }: { chip: ShownChip }): JSX.Element {
   const d = useDict()
-  const action = paneChipAction(chip)
+  const action = chipAction(chip)
   const hint = chip.tooltip ?? `${chip.extName} · ${chip.title}`
   const className = `pane-chip tone-${chip.tone}`
   if (!action) {

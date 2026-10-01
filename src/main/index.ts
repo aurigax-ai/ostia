@@ -18,7 +18,7 @@ import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
-import type { ExtensionPanelContext, ExtensionResult } from '../shared/extensions'
+import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { PRODUCT_NAME } from '../shared/product'
 import { parseSandboxGlobals } from '../shared/sandbox'
@@ -173,6 +173,7 @@ import { registerViewMethods, registerViewsIpc } from './viewsIpc'
 import { MAIN_SLOT } from './windowBook'
 import { WindowBroker } from './windowBroker'
 import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
+import { workspaceChipsForWindow } from './workspaceChips'
 import { registerWorkspaceMergeIpc } from './workspaceMerge'
 import {
   removeWorkspace,
@@ -981,8 +982,10 @@ function registerIpc(): void {
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
+      extensionHost?.publishWorkspaceChips()
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
+      extensionHost?.clearWorkspaceChips(event.workspaceId)
       scratchFolders.remove(event.workspaceId)
       forgetWorkspaceRequests(event.workspaceId)
       forgetSandboxRuntime(event.workspaceId)
@@ -1077,6 +1080,9 @@ function registerExtensionIpc(host: ExtensionHost): void {
   ipcMain.handle('extensions:approve', (_e, extId: string) => host.approve(String(extId)))
   ipcMain.handle('extensions:sidebar', () => host.sidebarItems())
   ipcMain.handle('extensions:chips', () => host.paneChips())
+  ipcMain.handle('extensions:workspace-chips', (e) =>
+    workspaceChipsForWindow(host.workspaceChips(), workspaceWindowId, String(e.sender.id)),
+  )
   ipcMain.handle('extensions:set-setting', (_e, extId: unknown, key: unknown, value: unknown) =>
     host.setSetting(String(extId), String(key), value),
   )
@@ -1770,6 +1776,16 @@ export function execCommand(
   })
 }
 
+function publishWorkspaceChips(chips: WorkspaceChip[]): void {
+  for (const [windowId, win] of windows) {
+    if (win.isDestroyed()) continue
+    win.webContents.send(
+      'extensions:workspace-chips',
+      workspaceChipsForWindow(chips, workspaceWindowId, windowId),
+    )
+  }
+}
+
 function sendToWorkspaceWindow(
   workspaceId: string | undefined,
   channel: string,
@@ -2089,6 +2105,7 @@ app.whenReady().then(() => {
     secrets: extensionSecretStore(),
     openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
     broadcast,
+    publishWorkspaceChips,
     openPanelIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-panel', req),
     openDiffIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
     openTerminalIn: openTerminalInWindow,

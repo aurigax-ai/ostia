@@ -11,10 +11,10 @@ import {
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
   type ExtensionCategory,
+  type ExtensionChipContribution,
   type ExtensionCommandContribution,
   type ExtensionIcon,
   type ExtensionManifest,
-  type ExtensionPaneChipContribution,
   type ExtensionPanelContribution,
   type ExtensionSecretContribution,
   type ExtensionSettingContribution,
@@ -31,7 +31,7 @@ export const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
 export const MAX_COMMANDS = 64
 export const MAX_WORKFLOWS = 64
 export const MAX_TEXT = 200
-export const MAX_PANE_CHIPS = 8
+export const MAX_CHIPS = 8
 export const MAX_ICON_THEMES = 16
 export const MAX_LANGUAGES = 8
 export const MAX_SETTINGS = 32
@@ -123,14 +123,17 @@ function parsePanel(raw: unknown, dir: string): ExtensionPanelContribution | str
   return panel
 }
 
-function parsePaneChips(raw: unknown): ExtensionPaneChipContribution[] | string {
+function parseChips(
+  raw: unknown,
+  field: 'paneChips' | 'workspaceChips',
+): ExtensionChipContribution[] | string {
   if (raw === undefined) return []
-  if (!Array.isArray(raw) || raw.length > MAX_PANE_CHIPS) {
-    return `contributes.paneChips must be an array of at most ${MAX_PANE_CHIPS}`
+  if (!Array.isArray(raw) || raw.length > MAX_CHIPS) {
+    return `contributes.${field} must be an array of at most ${MAX_CHIPS}`
   }
-  const chips: ExtensionPaneChipContribution[] = []
+  const chips: ExtensionChipContribution[] = []
   for (const [i, chip] of raw.entries()) {
-    const where = `contributes.paneChips[${i}]`
+    const where = `contributes.${field}[${i}]`
     if (!isRecord(chip)) return `${where}: must be an object`
     if (typeof chip.id !== 'string' || !COMMAND_ID_PATTERN.test(chip.id)) {
       return `${where}: invalid id`
@@ -412,8 +415,10 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     return { ok: false, error: 'contributes.completions must be a folder inside the extension' }
   }
   const sidebarItems = contributes.sidebarItems === true
-  const paneChips = parsePaneChips(contributes.paneChips)
+  const paneChips = parseChips(contributes.paneChips, 'paneChips')
   if (typeof paneChips === 'string') return { ok: false, error: paneChips }
+  const workspaceChips = parseChips(contributes.workspaceChips, 'workspaceChips')
+  if (typeof workspaceChips === 'string') return { ok: false, error: workspaceChips }
   const settings = parseSettings(contributes.settings)
   if (typeof settings === 'string') return { ok: false, error: settings }
   const secrets = parseSecrets(contributes.secrets)
@@ -429,11 +434,12 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     sidebarItems ||
     panel?.entry === 'url' ||
     paneChips.length > 0 ||
+    workspaceChips.length > 0 ||
     assist.length > 0
   if (needsMain && !main) {
     return {
       ok: false,
-      error: 'commands, sidebar items, pane chips, assist and url panels need a main process',
+      error: 'commands, sidebar items, chips, assist and url panels need a main process',
     }
   }
 
@@ -444,7 +450,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     description,
     category: category as ExtensionCategory,
     capabilities: caps,
-    contributes: { commands, sidebarItems, paneChips, settings, assist, secrets },
+    contributes: { commands, sidebarItems, paneChips, workspaceChips, settings, assist, secrets },
   }
   if (main) manifest.main = main
   if (panel) manifest.contributes.panel = panel
