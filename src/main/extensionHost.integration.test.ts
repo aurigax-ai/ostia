@@ -124,6 +124,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       key: 'pane.created',
       text: 'pane.created:p-new',
       tone: 'neutral',
+      kind: 'live',
     })
     expect(sidebar().some((i) => i.key === 'pane.closed')).toBe(false)
   })

@@ -58,7 +58,9 @@ import {
   PANE_CHIP_TOOLTIP_MAX,
   type PaneChip,
   SETTINGS_CHANGED_EVENT,
+  SIDEBAR_KINDS,
   SIDEBAR_TONES,
+  type SidebarKind,
   type SidebarTone,
   TERMINAL_ARG_MAX,
   TERMINAL_COMMAND_MAX_ARGS,
@@ -995,7 +997,8 @@ export class ExtensionHost {
     const count = [...this.sidebar.values()].filter((i) => i.extId === extId).length
     if (!this.sidebar.has(slot) && count >= MAX_SIDEBAR_ITEMS) return fail('too-many-items')
     const tone = SIDEBAR_TONES.includes(p.tone as SidebarTone) ? (p.tone as SidebarTone) : 'neutral'
-    const item: ExtensionSidebarItem = { extId, key, text, tone }
+    const kind = SIDEBAR_KINDS.includes(p.kind as SidebarKind) ? (p.kind as SidebarKind) : 'live'
+    const item: ExtensionSidebarItem = { extId, key, text, tone, kind }
     if (workspaceId) item.workspaceId = workspaceId
     if (EXTENSION_ICONS.includes(p.icon as ExtensionIcon)) item.icon = p.icon as ExtensionIcon
     const url = sidebarItemUrl(p.url)

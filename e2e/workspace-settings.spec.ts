@@ -66,8 +66,12 @@ test('a new workspace starts in the focused pane folder when inheriting', async 
     await newWorkspaceFromTopBar(win)
 
     await expect(win.locator('.rail-tab')).toHaveCount(2)
-    await expect(win.locator('.rail-tab').nth(1).locator('.tab-branch')).toHaveText('~/projects')
-    await expect(win.locator('.rail-tab').nth(0).locator('.tab-branch')).toHaveText('~/projects')
+    await expect(win.locator('.rail-tab').nth(1).locator('.rail-meta-path')).toHaveText(
+      '~/projects',
+    )
+    await expect(win.locator('.rail-tab').nth(0).locator('.rail-meta-path')).toHaveText(
+      '~/projects',
+    )
   } finally {
     await app.close()
   }

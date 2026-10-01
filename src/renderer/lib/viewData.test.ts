@@ -32,6 +32,7 @@ const sidebar: ExtensionSidebarItem[] = [
     workspaceId: 'w1',
     text: ':5173',
     tone: 'neutral',
+    kind: 'live',
     url: 'http://localhost:5173/',
   },
   {
@@ -40,11 +41,26 @@ const sidebar: ExtensionSidebarItem[] = [
     workspaceId: 'w2',
     text: ':3000',
     tone: 'neutral',
+    kind: 'live',
     url: 'http://localhost:3000/',
   },
-  { extId: 'ports', key: 'ssh', workspaceId: 'w1', text: 'me@box', tone: 'neutral' },
-  { extId: 'git', key: 'branch', workspaceId: 'w1', text: 'main +2', tone: 'neutral' },
-  { extId: 'other', key: 'port:1', workspaceId: 'w1', text: 'not a port', tone: 'neutral' },
+  { extId: 'ports', key: 'ssh', workspaceId: 'w1', text: 'me@box', tone: 'neutral', kind: 'live' },
+  {
+    extId: 'git',
+    key: 'branch',
+    workspaceId: 'w1',
+    text: 'main +2',
+    tone: 'neutral',
+    kind: 'location',
+  },
+  {
+    extId: 'other',
+    key: 'port:1',
+    workspaceId: 'w1',
+    text: 'not a port',
+    tone: 'neutral',
+    kind: 'live',
+  },
 ]
 
 function inputs(extra: Partial<ViewDataInputs> = {}): ViewDataInputs {
