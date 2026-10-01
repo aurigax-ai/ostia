@@ -89,3 +89,27 @@ test('a tab closes when its shell exits by itself, unless the human locked it', 
     await app.close()
   }
 })
+
+test('suggestions come from the pane’s own shell only while it holds the terminal', async () => {
+  const app = await electron.launch(isolatedLaunch(freshDataHome()))
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    const paneId = (await win.locator('.pane-tab').first().getAttribute('data-tab-id')) ?? ''
+    const local = (): Promise<boolean> =>
+      win.evaluate((id) => window.pine.pty.localPrompt(id), paneId)
+    const names = (): Promise<number> =>
+      win.evaluate(async (id) => (await window.pine.pty.commands(id)).length, paneId)
+
+    await expect.poll(local).toBe(true)
+    await expect.poll(names).toBeGreaterThan(0)
+
+    await run(win, 'sleep 30')
+    await expect.poll(local, { timeout: 10_000 }).toBe(false)
+    expect(await names()).toBe(0)
+    expect(await win.evaluate((id) => window.pine.pty.listDir(id, '/'), paneId)).toEqual([])
+  } finally {
+    await app.close()
+  }
+})

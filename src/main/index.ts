@@ -99,6 +99,7 @@ import {
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { registerLanguagePackIpc } from './languagePacks'
+import { atLocalPrompt } from './localPrompt'
 import { registerLoginFill } from './loginFill'
 import { killAllLsp, registerLspIpc } from './lsp'
 import { ManagerService, managerWindowId } from './manager'
@@ -224,6 +225,7 @@ interface PtyEntry {
   stateFile: string
   workspaceId: string
   sandboxed: boolean
+  shell: string
   confinedBy: string | null
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
@@ -242,6 +244,14 @@ function listDir(dir: string): FsEntry[] {
   } catch {
     return []
   }
+}
+
+function holdsLocalPrompt(entry: PtyEntry): boolean {
+  return atLocalPrompt({
+    foreground: entry.pty.process,
+    shell: entry.shell,
+    sandboxed: entry.sandboxed,
+  })
 }
 
 function sandboxReadRules(entry: PtyEntry): SandboxReadRules | null {
@@ -1406,6 +1416,7 @@ function registerPtyIpc(): void {
       keepAlive: false,
       workspaceId,
       sandboxed,
+      shell,
     })
     const { session } = entry
     if (sandboxed) {
@@ -1467,14 +1478,19 @@ function registerPtyIpc(): void {
   ipcMain.handle('pty:commands', async (e, paneId: string): Promise<string[]> => {
     const entry = ptys.get(paneId)
     if (!entry?.subs.has(String(e.sender.id))) return []
+    if (!holdsLocalPrompt(entry)) return []
     const state = await readShellState(entry.stateFile)
     const path = state?.path ?? entry.spawnPath
     const rules = sandboxReadRules(entry)
     return commandNames(executables, rules ? sandboxPath(path, rules) : path, state?.names ?? [])
   })
+  ipcMain.handle('pty:local-prompt', (e, paneId: string): boolean => {
+    const entry = ptys.get(paneId)
+    return entry?.subs.has(String(e.sender.id)) === true && holdsLocalPrompt(entry)
+  })
   ipcMain.handle('pty:list-dir', (e, paneId: string, dir: string): FsEntry[] => {
     const entry = ptys.get(paneId)
-    if (!entry?.subs.has(String(e.sender.id))) return []
+    if (!entry?.subs.has(String(e.sender.id)) || !holdsLocalPrompt(entry)) return []
     const safe = resolveSafe(dir, fileRoots())
     if (safe === null) return []
     const rules = sandboxReadRules(entry)
@@ -1514,6 +1530,7 @@ function trackPty(
     keepAlive: boolean
     workspaceId?: string
     sandboxed?: boolean
+    shell?: string
   },
 ): PtyEntry {
   const spawnedAt = Date.now()
@@ -1568,6 +1585,7 @@ function trackPty(
     exitListeners: new Set(),
     workspaceId: opts.workspaceId ?? '',
     sandboxed: opts.sandboxed ?? false,
+    shell: opts.shell ?? '',
     confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
   }
   ptys.set(paneId, entry)
