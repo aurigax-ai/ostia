@@ -39,6 +39,7 @@ import type {
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { LanguagePack } from '../shared/languagePack'
 import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
+import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type {
   DomainRefusal,
@@ -320,6 +321,8 @@ const bridge: PineBridge = {
   },
   files: {
     pathForFile: (file) => webUtils.getPathForFile(file),
+    admitDropped: (paths, workspaceId) =>
+      ipcRenderer.invoke('files:admit-dropped', paths, workspaceId) as Promise<OpenFileVerdict[]>,
   },
   openPath: {
     openDefault: (path) =>
