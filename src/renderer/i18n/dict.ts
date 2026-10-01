@@ -1107,7 +1107,8 @@ export const en = {
     exported: 'Saved to {path}',
     exportFailed: 'The chat could not be exported.',
     recording: 'Saved',
-    recordingHint: 'This chat is saved on this computer and never synced. Turn chat history off in Settings.',
+    recordingHint:
+      'This chat is saved on this computer and never synced. Turn chat history off in Settings.',
     notRecording: 'Not saved',
     notRecordingHint: 'Chat history is off. This chat is kept until the app quits.',
     saveHistory: 'Save chat history',
