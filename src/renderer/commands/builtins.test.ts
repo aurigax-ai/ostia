@@ -6,6 +6,7 @@ import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useUpdateStore } from '../stores/updateStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { registerBuiltinCommands } from './builtins'
 import { type CommandContext, commands } from './registry'
@@ -225,6 +226,45 @@ describe('builtins route to store actions', () => {
     expect(unset.ok).toBe(false)
     expect(unrelated.ok).toBe(true)
     expect(useSettingsStore.getState().terminal.warnOnRiskyPaste).toBe(true)
+  })
+
+  it('settings.set and settings.unset refuse the automatic update check, directly or via behavior', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'behavior.checkForUpdates',
+      value: false,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'behavior',
+      value: { ...useSettingsStore.getState().behavior, checkForUpdates: false },
+    })
+    const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
+      key: 'behavior.checkForUpdates',
+    })
+    expect(direct.ok).toBe(false)
+    if (!direct.ok) expect(direct.error.message).toMatch(/behavior.checkForUpdates/)
+    expect(nested.ok).toBe(false)
+    expect(unset.ok).toBe(false)
+    expect(useSettingsStore.getState().behavior.checkForUpdates).toBe(true)
+  })
+
+  it('app.checkForUpdates opens Settings on About and asks main to check', async () => {
+    const updateInit = useUpdateStore.getState()
+    const openSettings = vi
+      .spyOn(useUIStore.getState(), 'openSettings')
+      .mockImplementation(() => {})
+
+    const r = await commands.execWith(ctx(null, null), 'app.checkForUpdates', {})
+
+    expect(r.ok).toBe(true)
+    expect(openSettings).toHaveBeenCalledWith('about')
+    expect(window.pine.update.checkRelease).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() =>
+      expect(useUpdateStore.getState().releaseCheck).toEqual({
+        status: 'latest',
+        version: '0.0.0',
+      }),
+    )
+    useUpdateStore.setState(updateInit, true)
   })
 
   it('settings.set --dry-run validates without applying, and reports the previous value', async () => {

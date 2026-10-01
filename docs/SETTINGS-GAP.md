@@ -207,7 +207,7 @@ ROADMAP §3, "Built-in AI chat: not planned". Telemetry is out too, because Pine
 | Secret redaction | none | see Blocks | missing | yes (see Blocks) |
 | Socket control mode / password | `automation.socketControlMode`, `socketPassword` (C:configuration) | none | partial: per-pane token + capabilities; no mode switch | no: capabilities are finer than a mode |
 | Managed policies (admin) | `Disable*` policy keys (docs site managed-policies) | Teams admin panel | missing | no: single-user tool |
-| Auto-update | `app.installUpdatesAutomatically` (C:K/App) | changelog after update | missing: `pnpm install:local` | no: no update channel yet |
+| Auto-update | `app.installUpdatesAutomatically` (C:K/App) | changelog after update | partial: `behavior.checkForUpdates` asks GitHub for a newer release and links to its page; nothing is downloaded or installed | no: the human installs from the release page |
 
 ## Sync and misc
 

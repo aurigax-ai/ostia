@@ -41,6 +41,7 @@ import type { LanguagePack } from '../shared/languagePack'
 import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
+import type { ReleaseCheckResult, ReleaseInfo } from '../shared/releases'
 import type {
   DomainRefusal,
   SandboxEditResult,
@@ -346,6 +347,15 @@ const bridge: PineBridge = {
       const handler = (_event: unknown, info: BuildInfo): void => cb(info)
       ipcRenderer.on('app:update-available', handler)
       return () => ipcRenderer.removeListener('app:update-available', handler)
+    },
+    release: () => ipcRenderer.invoke('app:release-state') as Promise<ReleaseInfo | null>,
+    checkRelease: () => ipcRenderer.invoke('app:release-check') as Promise<ReleaseCheckResult>,
+    openRelease: () => ipcRenderer.invoke('app:release-open') as Promise<boolean>,
+    dismissRelease: () => ipcRenderer.invoke('app:release-dismiss') as Promise<void>,
+    onRelease: (cb) => {
+      const handler = (_event: unknown, release: ReleaseInfo | null): void => cb(release)
+      ipcRenderer.on('app:release-available', handler)
+      return () => ipcRenderer.removeListener('app:release-available', handler)
     },
   },
   system: {

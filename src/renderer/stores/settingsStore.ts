@@ -196,6 +196,7 @@ export interface Behavior {
   copyOnSelect: boolean
   inputMode: InputMode
   inputEditorVim: boolean
+  checkForUpdates: boolean
 }
 
 export type NewWorkspacePlacement = 'end' | 'top' | 'afterCurrent'
@@ -316,6 +317,7 @@ const DEFAULTS: Persisted = {
     copyOnSelect: false,
     inputMode: 'terminal',
     inputEditorVim: false,
+    checkForUpdates: true,
   },
   files: DEFAULT_FILE_TREE_SETTINGS,
   terminal: DEFAULT_TERMINAL_SETTINGS,

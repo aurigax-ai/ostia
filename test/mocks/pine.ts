@@ -147,6 +147,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       state: vi.fn().mockResolvedValue(null),
       restart: vi.fn().mockResolvedValue(undefined),
       onAvailable: vi.fn(() => () => {}),
+      release: vi.fn().mockResolvedValue(null),
+      checkRelease: vi.fn().mockResolvedValue({ status: 'latest', version: '0.0.0' }),
+      openRelease: vi.fn().mockResolvedValue(true),
+      dismissRelease: vi.fn().mockResolvedValue(undefined),
+      onRelease: vi.fn(() => () => {}),
     },
     system: {
       requirements: vi.fn().mockResolvedValue(null),
