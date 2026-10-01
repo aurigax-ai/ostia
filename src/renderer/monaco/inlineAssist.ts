@@ -36,6 +36,21 @@ export function buildCompletionRequest(
   return request
 }
 
+export function latestPerEditor<K extends object>() {
+  const live = new WeakMap<K, AbortController>()
+  return {
+    begin(key: K): AbortController {
+      live.get(key)?.abort()
+      const controller = new AbortController()
+      live.set(key, controller)
+      return controller
+    },
+    end(key: K, controller: AbortController): void {
+      if (live.get(key) === controller) live.delete(key)
+    },
+  }
+}
+
 function documentOf(model: Monaco.editor.ITextModel): OpenDocument {
   return { path: model.uri.path, language: model.getLanguageId(), text: model.getValue() }
 }
@@ -45,6 +60,7 @@ let registered = false
 export function registerInlineAssist(monaco: typeof Monaco): void {
   if (registered) return
   registered = true
+  const requests = latestPerEditor<Monaco.editor.ITextModel>()
   monaco.languages.registerInlineCompletionsProvider('*', {
     debounceDelayMs: INLINE_DEBOUNCE_MS,
     displayName: 'Assistant',
@@ -55,11 +71,13 @@ export function registerInlineAssist(monaco: typeof Monaco): void {
         .filter((m) => m !== model && m.uri.scheme === 'file')
         .map(documentOf)
       const request = buildCompletionRequest(documentOf(model), model.getOffsetAt(position), others)
-      const abort = new AbortController()
+      const abort = requests.begin(model)
       const sub = token.onCancellationRequested(() => abort.abort())
       try {
         const res = await assistRequest('completion', request, { signal: abort.signal })
-        if (!res.ok || token.isCancellationRequested || !res.result.text) return { items: [] }
+        if (!res.ok || abort.signal.aborted || token.isCancellationRequested || !res.result.text) {
+          return { items: [] }
+        }
         return {
           items: [
             {
@@ -75,6 +93,7 @@ export function registerInlineAssist(monaco: typeof Monaco): void {
         }
       } finally {
         sub.dispose()
+        requests.end(model, abort)
       }
     },
     disposeInlineCompletions: () => {},

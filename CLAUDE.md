@@ -554,7 +554,10 @@ Details: `docs/ARCHITECTURE.md`.
   the AI SDK `UIMessage` shape (typed parts): tool calls are `dynamic-tool` parts, denied and
   failed ones included, clipped (never dropped) past the part cap, and exported to Markdown.
 - **Chat tools act only with the human's approval, through core.** The chat extension only
-  declares the tools pine lists in the request (`dynamicTool` without `execute`); the renderer's
+  declares the tools pine lists in the request (`dynamicTool` without `execute`), natively or,
+  for a model without tool calling, described in its prompt with the calls parsed from its reply
+  (`tools: 'prompted'`, `src/extensions/assistant/promptedTools.ts`); it reports which on its chat
+  status and the tools menu shows only when one is reported. Either way the renderer's
   chat transport runs every call (`lib/chatTools.ts`) and sends the outcome back, at most 8
   rounds per question, and Stop cancels the model, a waiting card and MCP calls together.
   `decideTool` (`lib/chatToolPermissions.ts`) is the only permission logic: read-only tools run
@@ -823,8 +826,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   `src/main/chatSkills.test.ts`, MCP settings and session clipping in
   `src/shared/chatTools.test.ts`, `McpHost` against the fake MCP server in
   `src/main/mcpHost.integration.test.ts`, and the whole loop (fake provider streaming a tool
-  call, the assistant extension, the fake MCP server) in
-  `src/main/chatTools.integration.test.ts`. Never point a test at a real MCP server.
+  call, the assistant extension, the fake MCP server, and a fake model-runtime socket answering
+  tagged and `tool_code` calls as text) in `src/main/chatTools.integration.test.ts`; the prompted
+  tools parser in `src/extensions/assistant/promptedTools.test.ts`, editor completion cleaning
+  on real Gemma echoes in `prompts.test.ts` and the one-in-flight slot in `flight.test.ts`. Never point a test at a real MCP server.
   Tool extensions (trellis, keeper) are tested against fake `trellis`/`keeper` shell scripts in
   `test/fixtures/tools/bin/` put first on `PATH`, fed scrubbed real `--json` captures from
   `test/fixtures/tools/<tool>/`; never point a test at the real tools.

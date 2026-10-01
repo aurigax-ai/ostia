@@ -34,6 +34,7 @@
     "test:e2e": "bash scripts/e2e.sh"
   },
   "dependencies": {
+    "@ai-sdk-tool/parser": "^5.1.6",
     "@ai-sdk/anthropic": "^4.0.68",
     "@ai-sdk/mcp": "~2.0.62",
     "@ai-sdk/openai": "^4.0.81",

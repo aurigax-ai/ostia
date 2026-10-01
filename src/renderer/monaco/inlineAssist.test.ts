@@ -1,6 +1,6 @@
 import { COMPLETION_NEIGHBOR_TEXT_MAX, COMPLETION_PREFIX_MAX } from '@shared/assist'
 import { describe, expect, it } from 'vitest'
-import { buildCompletionRequest } from './inlineAssist'
+import { buildCompletionRequest, latestPerEditor } from './inlineAssist'
 
 describe('buildCompletionRequest', () => {
   const doc = {
@@ -41,5 +41,24 @@ describe('buildCompletionRequest', () => {
     const req = buildCompletionRequest(doc, 0, others)
     expect(req.neighbors?.map((n) => n.path)).toEqual(['/p/b.ts', '/p/readme.md'])
     expect(req.neighbors?.[0].text).toHaveLength(COMPLETION_NEIGHBOR_TEXT_MAX)
+  })
+})
+
+describe('latestPerEditor', () => {
+  it('aborts the request still in flight for the same editor, not for another', () => {
+    const requests = latestPerEditor<object>()
+    const a = {}
+    const b = {}
+    const first = requests.begin(a)
+    const other = requests.begin(b)
+    const second = requests.begin(a)
+    expect(first.signal.aborted).toBe(true)
+    expect(other.signal.aborted).toBe(false)
+    requests.end(a, first)
+    const third = requests.begin(a)
+    expect(second.signal.aborted).toBe(true)
+    requests.end(a, third)
+    expect(requests.begin(a).signal.aborted).toBe(false)
+    expect(third.signal.aborted).toBe(false)
   })
 })

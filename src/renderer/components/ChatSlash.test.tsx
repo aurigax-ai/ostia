@@ -283,7 +283,7 @@ describe('chat slash commands', () => {
   })
 
   it('/skill completes the configured skills and asks the model to load the chosen one', async () => {
-    useAssistStore.setState({ availability: { chat: { ...CHAT, tools: true } } })
+    useAssistStore.setState({ availability: { chat: { ...CHAT, tools: 'native' } } })
     useSettingsStore.setState({
       assistant: { chatHistory: true, mcpServers: [], skillFolders: ['/home/u/skills'] },
     })
@@ -331,7 +331,7 @@ describe('chat slash commands', () => {
   })
 
   it('/skill is greyed out with the reason when no skills are configured', async () => {
-    useAssistStore.setState({ availability: { chat: { ...CHAT, tools: true } } })
+    useAssistStore.setState({ availability: { chat: { ...CHAT, tools: 'native' } } })
     const box = await openPane()
     await userEvent.type(box, '/sk')
     expect(screen.getByRole('option', { name: /\/skill/ })).toHaveTextContent(

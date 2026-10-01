@@ -2325,7 +2325,9 @@ extension owns providers, prompts and requests.
   inserts the pick with `insertCommand` without Enter. `InputEditor.tsx` asks `command` for a
   `# ` draft (600 ms) and replaces the draft only on Tab/Enter. `monaco/inlineAssist.ts` is one
   inline-completions provider for every language (300 ms debounce, Monaco's cancellation token
-  wired to the request) that answers nothing while no `completion` provider is ready.
+  wired to the request) that answers nothing while no `completion` provider is ready; a new
+  request for an editor aborts the one still in flight for it (`latestPerEditor`), and an answer
+  that arrives after its request was aborted is dropped.
 - Terminal ghost text (`lib/terminalGhost.ts`, `InputEditor.tsx`): `pickGhost` decides what shows
   — nothing during IME, vim normal mode, the completion menu, the `# ` hint, history walking, a
   selection or a caret before the end; else a history prefix match; else the AI continuation
@@ -2362,6 +2364,30 @@ extension owns providers, prompts and requests.
   commands, and `createOpenAICompatible` with an undici `fetch` over the unix socket plus
   `simulateStreamingMiddleware` for model-runtime, which refuses `stream: true`. Why undici 6:
   extensions run on Electron 33's Node 20, and undici 8 needs Node 22.
+- Editor completion (`completionPrompt`, `cleanCompletion` in `prompts.ts`): the prompt frames
+  the file as `<prefix>`/`<suffix>` (fill in the middle) after two worked examples, because
+  model-runtime has only `/v1/chat/completions`, no FIM endpoint or tokens. The reply is then
+  cleaned: fences and tags go, the longest echo of the code before the cursor is dropped
+  (compared line by line ignoring whitespace, from whole earlier lines through the cursor line,
+  or a tail of the cursor line that starts at a word), continuation lines are re-indented from
+  the indentation the model gave the cursor line to the file's, lines the suffix already holds
+  are dropped, and a closing bracket the suffix starts with is dropped only when the completion
+  closes more than it opens. Why so much cleaning: Gemma 4 E2B echoed the current line without
+  its indentation, the whole function before the cursor or the header of a new function body,
+  and wrote the following lines flush left, despite being told not to.
+- One completion at a time (`flight.ts`): `completion` and `terminal` requests go through a
+  single slot per point; while one is in flight, only the newest waiting request is kept (older
+  waiters answer `cancelled`) and it starts when the slot frees. A request aborted in flight
+  answers `cancelled` at once. Providers that stop work when the client hangs up
+  (`serverCancels`) abort the fetch too; model-runtime does not (its worker runs a queued
+  generation to the end), so there the fetch runs on with only a 55 s timeout (cutting it at 15 s
+  frees nothing on the runtime and threw away answers on a busy CPU) and the slot stays taken
+  until the runtime answers. Why: every keystroke used to queue another generation on the
+  runtime's single worker, and later completions waited 14 to 22 s behind abandoned ones.
+  Model-runtime also gets a small completion prompt (`smallPrompts`: no other open files, the
+  last 2000 characters before the cursor and 600 after), because it runs on the CPU, where
+  prompt length sets the latency. A stray `)` or `]` that nothing before it opened is dropped
+  from the end of a completion.
 
 **Feature switches and setup state.** `ext.setAssistStatus` also carries the extension's feature
 list (`{id, setting, ready}`, ids from `ASSIST_FEATURES`), a setup problem, the last provider
@@ -2411,7 +2437,22 @@ error or denial in order with the text around it.
   `done`/`error`/`denied` outcome (`ChatToolCall`). The built-in assistant declares them to
   `streamText` as `dynamicTool`s without `execute`, so a step that calls a tool simply ends; it
   drops `tool-input-delta` chunks (the whole input comes in `tool-input-available`) and reports
-  `tools: true` on its chat status. Why no execute in the extension: every tool acts through
+  on its chat status how the chat model takes tools: `tools: 'native'` (sent in the request's
+  `tools` field: OpenAI, Anthropic, OpenRouter, OpenAI-compatible, and Ollama models whose
+  `/api/show` lists `tools`) or `tools: 'prompted'` (model-runtime, other Ollama models), and
+  nothing until it knows. Prompted tools (`promptedTools.ts`) wrap the model in
+  `@ai-sdk-tool/parser`'s Hermes middleware: the tools are described in the system prompt, earlier
+  calls and results go back as `<tool_call>` / `<tool_response>` text (model-runtime refuses
+  `tool` messages), and the reply is parsed after the whole of it arrives
+  (`simulateStreamingMiddleware` outside the parser) into the same tool-call parts a native
+  provider streams; a ```` ```tool_code ```` block of Python-style calls (Gemma's own habit) or a
+  JSON call is recovered too, and anything that doesn't parse stays text. Why a library for the
+  tagged and JSON forms: it handles JSON repair and schema coercion and is maintained for AI SDK
+  v7; why parse only whole replies: the `tool_code` fallback needs the whole reply, and
+  model-runtime answers in one piece anyway (prompted Ollama models lose token streaming).
+  Why prompted rather than no tools: model-runtime's chat endpoint ignores `tools`, so the chat
+  offered tools the model never saw. The chat composer shows the tools menu only when the status
+  has a mode, and says that prompted tools are less reliable on small models. Why no execute in the extension: every tool acts through
   core (files, panes, the human's MCP servers), and an extension may only use the public API, so
   the extension gains no new power; a third-party chat extension that ignores `tools` keeps
   working as before.
