@@ -1,0 +1,12 @@
+{
+  "defaultToken": "",
+  "keywords": ["fn", "let", "KEYWORD"],
+  "tokenizer": {
+    "root": [
+      ["//.*$", "comment"],
+      ["[a-zA-Z_]\\w*", { "cases": { "@keywords": "keyword", "@default": "identifier" } }],
+      ["\\d+", "number"],
+      ["\"[^\"]*\"", "string"]
+    ]
+  }
+}

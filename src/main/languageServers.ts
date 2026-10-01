@@ -101,6 +101,7 @@ export interface LanguageServersDeps {
   roots: () => string[]
   sandbox: LanguageServerSandbox
   findProgram: (program: string) => string | null
+  languageOf?: (path: string) => string
   managed: ManagedServerFiles
   registerRequirements: (feature: string, requirements: Requirement[], label?: string) => void
   post: (windowId: string, channel: string, ...args: unknown[]) => void
@@ -552,7 +553,7 @@ export class LanguageServers {
     if (!pane || pane.windowId !== windowId) return []
     const file = this.deps.confine(filePath)
     if (file === null) return []
-    const language = languageForPath(file)
+    const language = (this.deps.languageOf ?? languageForPath)(file)
     const matching = this.deps
       .sources()
       .filter((source) => source.state === 'on' && source.server.languages.includes(language))

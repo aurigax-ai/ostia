@@ -20,6 +20,7 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from './credentials'
+import type { EditorLanguagesApi } from './editorLanguages'
 import type { SuggestionsApi } from './extensionSuggestions'
 import type { ExtensionResult, ExtensionsApi } from './extensions'
 import type { IconThemesApi } from './iconTheme'
@@ -755,6 +756,7 @@ export interface PineBridge {
   chatTools: ChatToolsApi
   iconThemes: IconThemesApi
   languagePacks: LanguagePacksApi
+  editorLanguages: EditorLanguagesApi
   views: ViewsApi
 }
 

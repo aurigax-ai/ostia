@@ -135,6 +135,7 @@ installs, updates or uninstalls, from Settings.
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
 | `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: pine starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
+| `contributes.editorLanguages[]` | Up to 16 languages the editor does not know yet, each with a Monarch grammar as JSON. Data only: no `main` and no capability needed. See [Editor languages](#editor-languages). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`, `chat`.
@@ -352,6 +353,46 @@ How pine runs a server:
 - **No folder trust prompt.** pine has no per-folder trust setting. A server runs project code
   (build scripts, plugins) with the human's rights once its extension is approved and a matching
   file opens; a sandboxed workspace is the way to confine it.
+
+### Editor languages
+
+A language server is started for an editor language id. The editor knows the common ones
+(`typescript`, `python`, `rust`, `go`, `yaml`, `shell`, `markdown`, …); for a language it does
+not know, declare it in `contributes.editorLanguages` and name its id in your server's
+`languages`:
+
+```json
+"editorLanguages": [
+  {
+    "id": "gleam",
+    "name": "Gleam",
+    "extensions": [".gleam"],
+    "filenames": ["gleam.toml"],
+    "configuration": {
+      "lineComment": "//",
+      "blockComment": ["/*", "*/"],
+      "brackets": [["{", "}"], ["[", "]"], ["(", ")"]],
+      "autoClosingPairs": [["{", "}"], ["\"", "\""]]
+    },
+    "grammar": "gleam.monarch.json"
+  }
+]
+```
+
+| Field | Meaning |
+|---|---|
+| `id` | `[a-z][a-z0-9+#-]*`, at most 40 characters. An id the editor already has is refused: a contribution adds a language, it never replaces one. |
+| `name` | 1–80 characters, shown as the language's name. |
+| `extensions`, `filenames` | Up to 16 each; at least one in total. An extension starts with a dot (`.gleam`, `.test.gleam`; the longest match wins), a file name is matched whole (`Justfile`). A file the editor already has a language for keeps it. |
+| `configuration` | Optional: `lineComment`, `blockComment` (a pair), `brackets` and `autoClosingPairs` (up to 16 pairs each). Every string is 1–10 characters. |
+| `grammar` | A `.json` file inside the extension holding a [Monarch](https://microsoft.github.io/monaco-editor/monarch.html) grammar with every regular expression written as a string. |
+
+Main reads the grammar only while the extension is enabled and checks it: no symlink, inside the
+extension folder after symlinks are resolved, at most 256 KiB, at most 200 states of 500 rules,
+every rule starts with a regular expression of at most 2000 characters that compiles
+(`@name` references are allowed), and prototype keys are dropped. A grammar is data: it cannot
+hold functions. TextMate grammars are not supported. A slow regular expression still runs on the
+editor's thread, so keep rules simple.
 
 ### Being suggested
 

@@ -328,6 +328,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     languagePacks: {
       load: vi.fn().mockResolvedValue([]),
     },
+    editorLanguages: {
+      load: vi.fn().mockResolvedValue([]),
+    },
     views: {
       list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),
       setEnabled: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),

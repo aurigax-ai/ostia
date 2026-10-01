@@ -18,7 +18,16 @@ import {
 } from '../main/marketplace'
 import { ASSIST_POINTS } from '../shared/assist'
 import { ALL_CAPABILITIES } from '../shared/capabilities'
-import { EDITOR_LANGUAGE_ID_PATTERN } from '../shared/editorLanguages'
+import {
+  BUILTIN_EDITOR_LANGUAGE_IDS,
+  EDITOR_LANGUAGE_EXTENSION_PATTERN,
+  EDITOR_LANGUAGE_FILENAME_PATTERN,
+  EDITOR_LANGUAGE_GRAMMAR_PATTERN,
+  EDITOR_LANGUAGE_ID_PATTERN,
+  EDITOR_LANGUAGE_NAME_MAX,
+  MAX_EDITOR_LANGUAGES,
+  MAX_LANGUAGE_FILE_PATTERNS,
+} from '../shared/editorLanguages'
 import { EXTENSION_API_PATTERN } from '../shared/extensionApi'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
@@ -157,6 +166,33 @@ const languageServer = z.looseObject({
     .optional(),
 })
 
+const shortPair = z.tuple([z.string().min(1).max(10), z.string().min(1).max(10)])
+
+const editorLanguage = z.looseObject({
+  id: z
+    .string()
+    .regex(EDITOR_LANGUAGE_ID_PATTERN)
+    .refine((id) => !BUILTIN_EDITOR_LANGUAGE_IDS.has(id)),
+  name: z.string().min(1).max(EDITOR_LANGUAGE_NAME_MAX),
+  extensions: z
+    .array(z.string().regex(EDITOR_LANGUAGE_EXTENSION_PATTERN))
+    .max(MAX_LANGUAGE_FILE_PATTERNS)
+    .optional(),
+  filenames: z
+    .array(z.string().regex(EDITOR_LANGUAGE_FILENAME_PATTERN))
+    .max(MAX_LANGUAGE_FILE_PATTERNS)
+    .optional(),
+  configuration: z
+    .looseObject({
+      lineComment: z.string().min(1).max(10).optional(),
+      blockComment: shortPair.optional(),
+      brackets: z.array(shortPair).max(16).optional(),
+      autoClosingPairs: z.array(shortPair).max(16).optional(),
+    })
+    .optional(),
+  grammar: z.string().regex(EDITOR_LANGUAGE_GRAMMAR_PATTERN),
+})
+
 const contributes = z.looseObject({
   commands: z.array(command).max(MAX_COMMANDS).optional(),
   sidebarItems: z.boolean().optional(),
@@ -195,6 +231,7 @@ const contributes = z.looseObject({
     .max(MAX_LANGUAGES)
     .optional(),
   languageServers: z.array(languageServer).max(MAX_LANGUAGE_SERVERS).optional(),
+  editorLanguages: z.array(editorLanguage).max(MAX_EDITOR_LANGUAGES).optional(),
 })
 
 export const extensionManifestSchema = z.looseObject({

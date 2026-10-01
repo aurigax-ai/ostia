@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { type AssistPoint, isAssistPoint } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
+import { parseEditorLanguages } from '../shared/editorLanguages'
 import { apiProblem } from '../shared/extensionApi'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
@@ -440,6 +441,10 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     settingKeys: settings.map((setting) => setting.key),
   })
   if (typeof languageServers === 'string') return { ok: false, error: languageServers }
+  const editorLanguages = parseEditorLanguages(contributes.editorLanguages, (path) =>
+    isInsideDir(dir, path),
+  )
+  if (typeof editorLanguages === 'string') return { ok: false, error: editorLanguages }
   const needsMain =
     commands.length > 0 ||
     sidebarItems ||
@@ -471,6 +476,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes
   if (languages.length > 0) manifest.contributes.languages = languages
   if (languageServers.length > 0) manifest.contributes.languageServers = languageServers
+  if (editorLanguages.length > 0) manifest.contributes.editorLanguages = editorLanguages
   return { ok: true, manifest }
 }
 

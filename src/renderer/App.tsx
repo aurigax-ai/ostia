@@ -26,8 +26,10 @@ import { applyUiFonts } from './lib/uiFonts'
 import { useModifierHint } from './lib/useModifierHint'
 import { useWindowTitle } from './lib/useWindowTitle'
 import { startLanguageServices } from './lsp/client'
+import { loadEditorLanguages } from './monaco/contributedLanguages'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/registerSettingsSchema'
+import { useExtensionsStore } from './stores/extensionsStore'
 import { freezeSnapshots } from './stores/persistence'
 
 const ICON_STYLE = { weight: 'regular' } as const
@@ -65,6 +67,12 @@ export function App(): JSX.Element {
   useEffect(() => {
     void startLanguageServices()
   }, [])
+
+  const extensionList = useExtensionsStore((s) => s.list)
+  useEffect(() => {
+    void extensionList
+    void loadEditorLanguages()
+  }, [extensionList])
 
   useEffect(() => {
     void registerSettingsSchema()
