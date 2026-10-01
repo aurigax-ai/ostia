@@ -1,4 +1,4 @@
-import { debounce } from 'es-toolkit'
+import { debounce } from 'es-toolkit/compat'
 import { type RestorableWorkspace, buildSnapshot } from '../layout/snapshot'
 import { allPanes } from '../layout/tree'
 import { runningAgentOf } from '../lib/paneAgent'
@@ -15,9 +15,10 @@ export function isRestorable(workspace: Workspace): workspace is Workspace & Res
   return isMovable(workspace) && workspace.kind !== 'scratch'
 }
 
-const SAVE_DEBOUNCE_MS = 400
+export const SAVE_DEBOUNCE_MS = 400
+export const SAVE_MAX_WAIT_MS = 2000
 
-const scheduleSave = debounce(saveSnapshotNow, SAVE_DEBOUNCE_MS)
+const scheduleSave = debounce(saveSnapshotNow, SAVE_DEBOUNCE_MS, { maxWait: SAVE_MAX_WAIT_MS })
 let clearedForDisabled = false
 let frozen = false
 

@@ -1,6 +1,7 @@
 import type { ExtensionPanelContext, ExtensionPanelSource } from '@shared/extensions'
 import type { WebviewTag } from 'electron'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import { useReducedMotion } from '../lib/motion'
 import { panelFontFaces } from '../lib/panelFontFaces'
@@ -44,6 +45,7 @@ export function ExtensionPanelView({
   const info = useExtensionsStore((s) => s.list.find((e) => e.id === extId))
   const nav = useExtensionsStore((s) => s.panelNav[paneId])
   const enabled = info?.enabled ?? false
+  const hasPanel = Boolean(info?.panel)
   const locale = useSettingsStore((s) => s.locale)
   const themeCss = useThemeCss()
   const [source, setSource] = useState<ExtensionPanelSource | null>(null)
@@ -72,13 +74,13 @@ export function ExtensionPanelView({
   )
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !hasPanel) return
     let alive = true
     resolve(() => alive)
     return () => {
       alive = false
     }
-  }, [enabled, resolve])
+  }, [enabled, hasPanel, resolve])
 
   const insertedCss = useRef<string | null>(null)
   const applyTheme = useCallback(() => {
@@ -116,6 +118,19 @@ export function ExtensionPanelView({
   }, [webview, applyTheme, d])
 
   if (!info) return <PanelMessage text={fmt(d.extensions.notInstalled, { id: extId })} />
+  if (!hasPanel) {
+    return (
+      <PanelMessage text={fmt(d.extensions.panelGone, { name: info.name })}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void commands.exec('pane.close', { paneId })}
+        >
+          {d.extensions.closePane}
+        </Button>
+      </PanelMessage>
+    )
+  }
   if (!enabled) return <PanelMessage text={fmt(d.extensions.panelDisabled, { name: info.name })} />
   if (!source) return <PanelMessage text={d.extensions.loading} />
   if (!source.ok) {

@@ -215,6 +215,9 @@ Two workspaces of one window that share a project folder can be merged; only the
 | `windowBook.ts` | Pure: per-window snapshots merged into one `workspaces.json`, split back per window, `clampBounds` for restoring onto connected displays |
 | `ptySession.ts` | `PtySession`: one pty fanned out to many subscribers (owners write and keep it alive; observers read) |
 | `ptyRingBuffer.ts` | Capped output ring with a monotonic cursor; `since(cursor)` reports `dropped` when the cursor fell off |
+| `ptyReaper.ts` | Pure: when a pty with no owner is reaped (`orphanVerdict`), the per-window recovery grace (`RecoveryBook`), and which detached ptys a recovered window keeps (`planRecovery`) (§4 Pty lifecycle) |
+| `appLog.ts` | The main-side app log `userData/logs/main.log` on electron-log's file transport: one line per event, values redacted (`redactSecrets`) and clipped, rotated at 1 MiB keeping 3 files |
+| `diagnostics.ts`, `rendererReports.ts` | What goes into the app log (renderer and child process gone, unresponsive, failed loads, main uncaught errors, renderer console errors, reloads), the crash reload, and the `diagnostics:*` IPC with its validation and rate limit (§4 Crashes and diagnostics) |
 | `shellIntegration.ts` | Generates zsh/bash init files that emit OSC 133 + OSC 7 and define the `pine()` shell function |
 | `privateTmp.ts` | Per-uid, mode-0700 temp dir for those files |
 | `scratchFolders.ts` | Scratch workspaces: one private folder each under `privateTmpDir('pine-scratch')`, bound to its workspace, file count, delete on close and quit, startup sweep, `scratch:*` IPC (§5) |
@@ -254,6 +257,7 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
 
 - `~/.config/pine/settings.json` (Electron `userData`): settings, including `capabilities.grants`.
 - `userData/gateway/{cert,key}.pem`: gateway TLS identity.
+- `userData/logs/main.log` (+ `main.1.log`, `main.2.log`): the app log (§4 Crashes and diagnostics).
 - `$XDG_DATA_HOME/pine/` (default `~/.local/share/pine/`): `workspaces.json`, `scrollback.json`,
   `notifications.json`, processes, bus, global vault, `gateway-devices.json`,
   `gateway-config.json`, `gateway-pair-audit.log`.
@@ -332,7 +336,12 @@ Spawn env: `PINE_PANE_ID` (the external id, not the renderer id), `PINE_TOKEN`, 
 when the pty goes; see the input editor in §Terminal), plus the shell-integration env.
 
 - The live ring is capped at 1 MB. `pty:attach` returns a replay from the ring; `pty:detach`
-  starts `DETACH_GRACE_MS` (3 s) before the pty is reaped.
+  starts `DETACH_GRACE_MS` (3 s) before the pty is reaped. The timer never kills directly: it
+  asks `orphanVerdict` (`ptyReaper.ts`), which keeps a pty that has an owner again, is moving
+  between windows, or is held for a recovered window, and waits while its window is recovering.
+  Every kill goes through `killPty(paneId, reason)` and is logged as `pty-reap` with
+  `grace-expired`, `closed` (the pane was closed, a recovered window no longer shows it, or its
+  window closed), `restart`, `hibernated`; a shell that exits on its own is logged as `pty-exit`.
 - `pty:hibernate` (agent hibernation, §5) serializes the pane's `ScreenMirror` into the restored
   scrollback map (`stashScrollback`), drops the pty's window subscribers so no `[process exited]`
   reaches the renderer, kills the pty and forgets its terminal state. The next `pty:attach` for
@@ -350,6 +359,46 @@ when the pty goes; see the input editor in §Terminal), plus the shell-integrati
 - Renderer attach order (`Terminal.tsx`): subscribe `onData`, then attach, then dispose the pane's
   markers and call `blocksStore.resetPane`, then write the replay, then flush queued bytes.
   `resetPane` also bumps the pane's generation, which lets main reject stale terminal-state snapshots.
+
+### Crashes and diagnostics
+
+Main writes `userData/logs/main.log` (`appLog.ts`, electron-log's file transport with our own
+rotation: `main.log`, `main.1.log`, `main.2.log`, 1 MiB each, mode 0600). Logged:
+`app-start`/`app-quit`, `render-process-gone` and `guest-process-gone`, `child-process-gone`,
+`window-unresponsive`/`window-responsive`, `did-fail-load`, `main-uncaught-exception` /
+`main-unhandled-rejection`, `renderer-console-error` (console messages at error level),
+`renderer-error` (reports from the renderer), `window-reload`, `window-recovering` /
+`window-recovered`, `pty-reap`, `pty-exit`. Only event fields go in: never terminal output,
+environment, tokens or settings. Free text (error messages, stacks, console text) passes
+`redactSecrets` (key=value secrets, bearer tokens, `sk-`/`gh*_` keys, long opaque strings) and is
+clipped. Why not log pty bytes for context: they carry whatever the user typed, passwords included.
+
+The renderer reports `window` `error` and `unhandledrejection` events (`lib/errorReporting.ts`)
+over `diagnostics:report`; main accepts only the known kinds with a string message
+(`normalizeRendererReport`: control characters stripped, message 1000 / stack 8000 chars) and at
+most 20 reports and 20 console errors per window per minute (`ReportLimiter`, a
+`renderer-reports-suppressed` line counts the rest). `App` sits in `AppErrorBoundary`
+(`main.tsx`): a render error shows the recovery screen (the error, Reload window, Copy details,
+Open log folder) and reports kind `render`. Each surface sits in its own `SurfaceErrorBoundary`
+(`SurfacePool.tsx`), so a pane that throws while rendering shows its error and Close pane while
+the rest of the window keeps working. Why the app boundary is still needed: React 18 unmounts the
+whole root on an error that no boundary catches, and an error thrown by an effect cleanup of a
+pane being removed reaches only boundaries above that pane (its own boundary is being removed
+with it). That unmount runs every `TerminalView` cleanup, which detaches every pty; before the
+recovery grace, main reaped them all 3 s later and wrote an empty `scrollback.json` (the closed
+diff tab crash, CLAUDE.md §6).
+
+Recovery (`RecoveryBook`): a window is recovering from a `render` report, a main-frame reload
+(`did-start-navigation` after the first load), `diagnostics:reload-window`, or
+`render-process-gone` (main reloads the window, at most 3 times a minute). While it recovers, a
+detached pty of that window waits for up to `RECOVERY_GRACE_MS` (10 min) instead of 3 s. After
+the first render the renderer sends `diagnostics:ready` with every pane id in its layout;
+`finishRecovery` keeps detached ptys of listed panes until they attach (a parked workspace
+attaches only when shown) and reaps the rest as `closed`. A boot that throws (settings, theme,
+restore) renders `RecoveryScreen` directly. Palette: Developer: Toggle Developer Tools (also in
+packaged builds; agents need `destructive`) and Developer: Open Log Folder. E2E builds expose a
+test crash: with `NODE_ENV=test` `diagnostics:test-hooks` is true and `CrashTestHook` throws on
+`diagnostics:test-crash`.
 
 ### Shell integration
 
@@ -1673,7 +1722,11 @@ and their panes are in neither (§5 Scratch workspaces).
     `hibernated` mark is only accepted in a handoff (`parseHandoff`), never from the file.
 
 - **Layout** (`stores/persistence.ts`, `layout/snapshot.ts`): saved 400 ms after any change to the
-  workspaces, layout or settings stores, plus once at start and once on `beforeunload`.
+  workspaces, layout or settings stores, but at least every 2 s while changes keep coming
+  (`SAVE_MAX_WAIT_MS`), plus once at start and once on `beforeunload`. Why the cap: those stores
+  can change more often than every 400 ms while terminals are busy, so a plain debounce could
+  postpone the write indefinitely, and a renderer that crashed (no `beforeunload`) reloaded the boot snapshot and its recovery reaped
+  the shells of every pane missing from it.
   - With no workspaces, `buildSnapshot` writes an empty workspace (`workspaces: []`,
     `activeWorkspaceId: null`) and `parseSnapshot` accepts it, so a restart after closing every
     workspace restores zero workspaces instead of the last non-empty snapshot.

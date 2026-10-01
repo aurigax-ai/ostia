@@ -20,6 +20,7 @@ const fake = vi.hoisted(() => {
   }
   const diff = {
     setModel: (m: { original: FakeModel; modified: FakeModel } | null) => {
+      if (state.disposed > 0) throw new Error('InstantiationService has been disposed')
       state.model = m
     },
     updateOptions: (o: Record<string, unknown>) => {
@@ -166,5 +167,12 @@ describe('DiffView', () => {
     expect(fake.state.disposed).toBe(1)
     expect(fake.state.models.every((m) => m.disposed)).toBe(true)
     expect(editorPositionOf('d1')).toBeNull()
+  })
+  it('closes without touching the disposed editor, so the window keeps rendering', () => {
+    useDiffStore.getState().set('d1', CONTENT)
+    const { unmount } = render(<DiffView paneId="d1" />)
+    expect(() => unmount()).not.toThrow()
+    expect(fake.state.disposed).toBe(1)
+    expect(fake.state.models.every((m) => m.disposed)).toBe(true)
   })
 })
