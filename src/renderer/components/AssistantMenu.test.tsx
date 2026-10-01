@@ -31,6 +31,7 @@ const assistant: ExtensionInfo = {
   assist: ['chat', 'terminal'],
   secrets: [],
   secretsSet: [],
+  category: 'other',
   iconThemes: [],
 }
 

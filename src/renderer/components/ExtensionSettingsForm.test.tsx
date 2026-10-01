@@ -28,6 +28,7 @@ function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     assist: ['command', 'chat'],
     secrets: [{ key: 'apiKey', description: 'Key for the provider' }],
     secretsSet: [],
+    category: 'other',
     ...overrides,
   }
 }

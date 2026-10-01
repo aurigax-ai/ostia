@@ -17,6 +17,7 @@ const WEATHER: MarketplaceExtension = {
   name: 'Weather',
   version: '1.1.0',
   description: 'Shows the weather',
+  category: 'tools',
   capabilities: ['notify'],
   runsProcess: true,
   state: 'available',
@@ -71,6 +72,7 @@ describe('MarketplaceSection', () => {
     expect(
       within(row).getByText('Runs a program on this computer · Permissions: notify'),
     ).toBeVisible()
+    expect(within(row).getByText('Tools')).toBeVisible()
     expect(screen.getByLabelText('Marketplace repository')).toHaveValue('')
   })
 
@@ -190,6 +192,7 @@ describe('Uninstall in the installed list', () => {
       assist: [],
       secrets: [],
       secretsSet: [],
+      category: 'other',
       iconThemes: [],
     }
   }

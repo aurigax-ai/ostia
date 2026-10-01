@@ -314,6 +314,7 @@ export class Marketplace {
           name: manifest.name,
           version: manifest.version,
           description: manifest.description,
+          category: manifest.category,
           capabilities: manifest.capabilities,
           runsProcess: manifest.main !== undefined,
           state,

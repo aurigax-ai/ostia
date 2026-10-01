@@ -33,6 +33,7 @@ const extension = (patch: Partial<ExtensionInfo>): ExtensionInfo => ({
   assist: [],
   secrets: [],
   secretsSet: [],
+  category: 'other',
   iconThemes: [],
   ...patch,
 })

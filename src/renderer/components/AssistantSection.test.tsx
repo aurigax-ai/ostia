@@ -45,6 +45,7 @@ const assistant: ExtensionInfo = {
   assist: ['input', 'chat'],
   secrets: [],
   secretsSet: [],
+  category: 'other',
 }
 
 const overview: AssistExtensionState = {
