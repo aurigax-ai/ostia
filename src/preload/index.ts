@@ -46,6 +46,7 @@ import type { LanguageServerInfo, LspLog, LspSessionInfo } from '../shared/langu
 import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
+import type { QuestionState } from '../shared/questions'
 import type { ReleaseCheckResult, ReleaseInfo } from '../shared/releases'
 import type {
   SandboxEditError,
@@ -507,6 +508,16 @@ const bridge: PineBridge = {
       const handler = (_event: unknown, state: ApprovalState): void => cb(state)
       ipcRenderer.on('approvals:changed', handler)
       return () => ipcRenderer.removeListener('approvals:changed', handler)
+    },
+  },
+  questions: {
+    state: () => ipcRenderer.invoke('questions:state') as Promise<QuestionState>,
+    answer: (id, reply) => ipcRenderer.invoke('questions:answer', id, reply) as Promise<boolean>,
+    dismiss: (id) => ipcRenderer.invoke('questions:dismiss', id) as Promise<boolean>,
+    onChange: (cb) => {
+      const handler = (_event: unknown, state: QuestionState): void => cb(state)
+      ipcRenderer.on('questions:changed', handler)
+      return () => ipcRenderer.removeListener('questions:changed', handler)
     },
   },
   selection: {

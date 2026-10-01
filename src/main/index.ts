@@ -144,6 +144,7 @@ import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type SubscriberRole } from './ptySession'
+import { questions, registerQuestions } from './questions'
 import { exitAfterDeadline, planQuit } from './quitPlan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { attachWorkspace } from './sandbox/attachWorkspace'
@@ -1137,6 +1138,7 @@ function registerIpc(): void {
       if (identity) {
         dropIdentity(identity.externalId)
         approvals()?.forget(identity.externalId)
+        questions()?.forget(identity.externalId)
         extensionHost?.emitEvent('pane.closed', {
           paneId: identity.externalId,
           workspaceId: event.workspaceId,
@@ -2283,6 +2285,7 @@ app.whenReady().then(() => {
   registerFsIpc()
   registerSelectionIpc()
   registerApprovals(revealWindow)
+  registerQuestions()
   registerCredentials()
   registerAppUpdate(requestQuit)
   registerReleaseCheck({

@@ -15,6 +15,18 @@ const CLI_HELP = `pine — control-socket CLI
                                   kind,title,cwd,running,blockCount,lastExitCode}
   pine workspace.list               every workspace — {workspaceId,name,kind,workDir,state,groupId}
   pine notify <title> [body]     desktop notification + marks this pane unread in Pine
+  pine ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <seconds>] [--json]
+                                 ask the human a question and wait for the answer. It shows on
+                                 Pine's dashboard with this workspace's name and folder, marks
+                                 this pane waiting and notifies the human when they are away.
+                                 No --choice: free text. With --choice (up to 12): pick one, or
+                                 several with --multi; the human can always add a reply.
+                                 --context recaps what the work is (- reads stdin).
+                                 Prints the chosen labels one per line, then the reply; --json
+                                 prints {answered,choices,text}. Exit 0 answered, 2 dismissed,
+                                 3 timed out, 4 pane closed. It waits as long as it runs: if the
+                                 command is stopped, the question is withdrawn. At most 3 open
+                                 questions per pane
   pine state <waiting|done|working|error|clear> [message] [--pane <externalId>]
                                  set this pane's attention state (message '-' reads stdin;
                                  a JSON object on stdin contributes its "message" field,

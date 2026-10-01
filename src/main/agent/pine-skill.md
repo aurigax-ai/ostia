@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), running commands in terminal tabs the human can watch (pine process), typing into and reading other terminal panes (pine pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: pine sandbox request-domain/expose, pine secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), building sidebar sections and panels for the human as data-only JSON views (pine view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Pine", "pine view".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), asking the human a question and waiting for the answer (pine ask: free text, one choice or several), running commands in terminal tabs the human can watch (pine process), typing into and reading other terminal panes (pine pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: pine sandbox request-domain/expose, pine secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), building sidebar sections and panels for the human as data-only JSON views (pine view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Pine", "pine view".
 ---
 
 # Pine — the agent toolbelt
@@ -85,6 +85,35 @@ are still running. Default capability `drive-self`. Printing an OSC 9 notificati
 (`printf '\e]9;%s\a' "msg"`) marks the pane unread with that message; it counts as `waiting`
 only while an agent runs in the pane. Pine wires Claude Code's and Codex's own hooks to this
 when it starts them in a pane.
+
+## Ask the human — a question they can answer from anywhere
+
+```sh
+pine ask "Which database should the migration target?" \
+  --context "Adding the refunds table. Staging has last week's data; prod needs a window." \
+  --choice staging --choice production          # pick one; prints the label, then their reply
+pine ask "Which checks should I run?" --choice lint --choice unit --choice e2e --multi
+pine ask "What should the release note say?"    # no --choice: free text
+git diff --stat | pine ask "Ship this?" --context - --choice yes --choice no --json
+                                                # {"answered":true,"choices":["yes"],"text":"…"}
+pine ask "Continue?" --choice yes --choice no --timeout 600   # give up after 10 minutes
+```
+
+`pine ask` puts the question on Pine's dashboard with this workspace's name and folder, marks
+your pane waiting and notifies the human if they are away, then **waits** and prints the answer:
+the chosen labels one per line, then whatever they typed. The human can always type a reply,
+with or instead of a choice, so read the whole output. Exit code 0 means answered; 2 the human
+dismissed it, 3 it timed out, 4 the pane closed: on those, do not guess an answer.
+
+When to use it: you need a decision or a missing fact and the human may not be watching your
+pane. Prefer `--choice` (up to 12 short labels) over free text: it is one click for them. Always
+give `--context` that recaps what the work is and why you are asking, since they may be reading
+it hours later with nothing else on screen (`--context -` reads stdin). Ask one question at a
+time (a pane has at most 3 open) and keep working on anything that does not depend on the
+answer. The question lives only while the command runs: run it with your longest command
+timeout or in the background, because stopping the command withdraws the question. The answer
+only ever comes back as this command's output; nothing is typed into your pane. Default
+capability `drive-self`.
 
 ## Raw UI commands
 
