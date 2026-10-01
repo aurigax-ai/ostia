@@ -256,6 +256,35 @@ describe('agent running at save', () => {
     expect(restored.children.find((p) => p.id === idle.id)?.resumePending).toBeUndefined()
   })
 
+  it('saves a hibernated agent pane as hibernated, not as an agent to resume', () => {
+    const asleep = { ...createPane('terminal'), resume, hibernated: true as const }
+    const snap = buildSnapshot({
+      workspaces: [workspace],
+      groups: [],
+      activeWorkspaceId: 'w1',
+      layouts: { w1: { root: asleep, activePaneId: asleep.id } },
+      savedAt: 'now',
+      liveAgentPanes: new Set([asleep.id]),
+    })
+    expect(snap.workspaces[0].root).toMatchObject({ hibernated: true })
+    expect(snap.workspaces[0].root).not.toHaveProperty('agentRunning')
+    const restored = restoreSnapshot(snap).layouts.w1.root
+    expect(restored).toMatchObject({ id: asleep.id, hibernated: true })
+    expect(restored).not.toHaveProperty('resumePending')
+  })
+
+  it('drops the hibernated mark of a pane that has nothing to resume', () => {
+    const plain = { ...createPane('terminal'), hibernated: true as const }
+    const snap = buildSnapshot({
+      workspaces: [workspace],
+      groups: [],
+      activeWorkspaceId: 'w1',
+      layouts: { w1: { root: plain, activePaneId: plain.id } },
+      savedAt: 'now',
+    })
+    expect(snap.workspaces[0].root).not.toHaveProperty('hibernated')
+  })
+
   it('keeps a pending resume through another save until it happens', () => {
     const pending = { ...createPane('terminal'), resume, resumePending: true as const }
     const snap = buildSnapshot({
