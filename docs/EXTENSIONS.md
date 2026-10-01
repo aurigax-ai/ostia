@@ -8,7 +8,7 @@ completions, the Ask conversation), notifications and a panel surface. The built
 Keeper, System and Assistant (`src/extensions/`) use nothing else, so they are the reference
 implementations.
 
-How it works inside pine: `docs/ARCHITECTURE.md` §11. Why it's out-of-process: `docs/ROADMAP.md` §2.
+How it works inside pine: Trellis vault `architecture/extensions/overview`. Why it's out-of-process: `docs/ROADMAP.md` §2.
 If you only need to show something (a sidebar section, a panel with buttons), a
 [declarative view](#declarative-views-ui-without-a-process) is one JSON file and no process.
 

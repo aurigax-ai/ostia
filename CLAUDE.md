@@ -1,20 +1,20 @@
 # CLAUDE.md — pine (Terminal Workspace)
 
-Rules for any agent (or human) changing this repo. Read this before touching code. When you
-change an invariant, command, or convention, update the matching section here in the same commit.
-Each rule names the file or symbol that enforces it; the mechanics and the "why" behind it are in
-`docs/ARCHITECTURE.md` (search for that symbol).
+Rules for any agent (or human) changing this repo. Read this before touching code. This file holds
+only rules: when you change an invariant, command, or convention, update its rule here. Each rule
+names the file or symbol that enforces it; the mechanics and the "why" behind it live in the
+Trellis vault under `architecture/` (start at `trellis vault show architecture/index`; search with
+`trellis vault ls architecture`). When a change alters how something works, edit that entry.
 
 | Doc | Holds |
 |---|---|
 | `PRODUCT.md` | Who it's for, principles, and the **Goals** table (built / partial / not started) |
-| `docs/ARCHITECTURE.md` | How it's built, module map, every "Why:" behind non-obvious code, and the test map (§10) |
 | `docs/DESIGN.md` | Tokens, type scale, components, motion, a11y rules |
 | `docs/EXTENSIONS.md` | Writing an extension: manifest, `ext.*` API, panels, views |
 | `docs/ROADMAP.md` | Lean-core architecture (core / built-in extensions / plugins) and phased plan |
 | `docs/CHROME.md` | Pairing agents with the user's real Chrome (Chrome DevTools MCP) vs Pine's browser |
 | `docs/AGENT-HOOKS.md` | Wiring agent CLIs' own hooks to pane attention |
-| Trellis board `PINE` (`.trellis`) | The project's cards and knowledge; use the `trellis` CLI |
+| Trellis board `PINE` (`.trellis`) | Cards, plus the vault: `architecture/*` holds how it's built, the module map, every "Why:" and the test map (`architecture/testing/test-map`) |
 | this file | Rules you must follow while editing |
 
 ---
@@ -26,8 +26,8 @@ JSX, not in CSS, not in tests. Comments go stale and agents trust them over the 
 caused real bugs here.
 
 - Names carry the *what*. Extract a well-named function or constant instead of writing a comment.
-- The *why* goes in `docs/ARCHITECTURE.md` (a "Why:" note in the relevant section) or, if an agent
-  editing that code must know it, in §4 / §6 of this file.
+- The *why* goes in the matching Trellis vault entry under `architecture/` (a "Why:" note) or, if
+  an agent editing that code must know it, in §4 / §6 of this file.
 - Allowed: tool directives only (`biome-ignore`, `@ts-expect-error`, `/// <reference>`).
 - Enforced: `pnpm lint` runs `node scripts/comments.mjs --check` and fails on any comment.
   `node scripts/comments.mjs` (no flag) strips them.
@@ -182,8 +182,8 @@ Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts
 - **A resume token is data, never a command.** `pine resume-token` stores `{agent, id}` only after
   `parseAgentResume` (known agent, id `[A-Za-z0-9._-]`); `resumeCommand` builds the command. It is
   typed only at an idle prompt when the human asks (Resume, `agent.resume`) or, with the human's
-  `agents.autoResume`, for a pane whose agent ran at the last save, once visible
-  (`lib/autoResume.ts`); a command run in the pane cancels it. Never store or replay a free-form
+  `agents.autoResume`, for every pane whose agent ran at the last save, shown or not
+  (`lib/autoResume.ts`); a command run in the pane first cancels it. Never store or replay a free-form
   command.
 - **Main owns `agentRunning`** (`main/agentRunning.ts`): it survives Pine taking the shell away
   (reap, hibernation, quit, a broken renderer) and clears only when the agent's block ends or
@@ -191,10 +191,11 @@ Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts
   clear it on unmount, reset or reap.
 - **Hibernation only stops what it can bring back** (`lib/hibernationScheduler.ts`, off by default):
   a pane with a resume token whose running block is that agent (`runningAgentOf`), not visible and
-  idle past `idleSeconds`; never a shell at a prompt, a non-agent command, or a pane without a
-  token. Main stashes the screen first (`pty:hibernate`). Waking is only the human's act and types
-  `resumeCommand` at the fresh shell's first idle prompt (`runWhenIdle`); revealing a pane never
-  wakes it. `hibernated` is never persisted.
+  idle past `idleSeconds`, or, when the human picks Hibernate agents on a workspace row
+  (`hibernateWorkspace`), every such pane in it, shown or not; never a shell at a prompt, a
+  non-agent command, or a pane without a token. Main stashes the screen first (`pty:hibernate`).
+  Waking is only the human's act and types `resumeCommand` at the fresh shell's first idle prompt
+  (`runWhenIdle`); revealing a pane never wakes it. `hibernated` is never persisted.
 - **Attention goes through `reduceAttention`** (`lib/attention.ts`) via
   `attentionStore`/`signalPane`; workspace state is derived by `startAttentionSync`, never
   `setState` directly. A signal to the viewed pane applies `view` immediately. `waiting` is set only
@@ -249,7 +250,9 @@ Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts
   list or order. Pinned and grouped are exclusive. Deleting a group never closes a workspace.
 - **Workspaces merge only on the human's confirm, never automatically.** Eligible only when they
   share a project path, neither is the manager, and their sandboxes are both off or identical
-  (`lib/mergeEligibility.ts`). `workspace.mergeInto` is a `local` command (no socket method or CLI
+  (`lib/mergeEligibility.ts`). The human starts one from the row menu, the palette, or by dropping a
+  workspace on the middle of an eligible row (`rowDropZone`); each asks the same confirm
+  (`requestMergeWorkspace`). `workspace.mergeInto` is a `local` command (no socket method or CLI
   verb). Main re-checks (`workspace:merge`) and rehomes identities before `mergeLayouts`; panes keep
   ids and ptys, nothing remounts, no close events. A merged sandbox's host lives until its last
   confined process exits (`releaseMergedSandbox`).
@@ -559,7 +562,7 @@ Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts
 
 ## 6. Dragons (proven by past bugs — don't "fix" naively)
 
-The trap, the rule, the guard. Full stories: `docs/ARCHITECTURE.md`.
+The trap, the rule, the guard. Full stories: the Trellis vault's `architecture/` entries.
 
 **Shell integration**
 - **`BASH_B_MARK`** is built with `String.raw` and interpolated single-quoted; an inline
@@ -676,7 +679,7 @@ The trap, the rule, the guard. Full stories: `docs/ARCHITECTURE.md`.
 ## 7. Testing
 
 Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vitest.workspace.ts`.
-Which spec covers what: `docs/ARCHITECTURE.md` §10.
+Which spec covers what: Trellis vault `architecture/testing/test-map`.
 
 - **node** project: `src/main/**`, `src/shared/**`, `src/cli/**`, `src/extensions/**`. Its global
   setup (`test/buildOnce.ts`) builds the CLI and built-in extensions once per run; tests never

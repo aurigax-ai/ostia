@@ -46,6 +46,43 @@ export function wakePane(paneId: string): boolean {
   return true
 }
 
+function workspacePanes(workspaceId: string) {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  return layout ? allPanes(layout.root) : []
+}
+
+export function hibernatableAgentPanes(workspaceId: string): string[] {
+  return workspacePanes(workspaceId)
+    .filter(
+      (pane) =>
+        pane.kind === 'terminal' &&
+        pane.resume &&
+        !pane.hibernated &&
+        runningAgentOf(pane.id) === pane.resume.agent,
+    )
+    .map((pane) => pane.id)
+}
+
+export function hibernatedPanes(workspaceId: string): string[] {
+  return workspacePanes(workspaceId)
+    .filter((pane) => pane.hibernated)
+    .map((pane) => pane.id)
+}
+
+export async function hibernateWorkspace(workspaceId: string): Promise<string[]> {
+  const done: string[] = []
+  for (const paneId of hibernatableAgentPanes(workspaceId)) {
+    if (!(await window.pine.pty.hibernate(paneId))) continue
+    useLayoutStore.getState().setHibernated(workspaceId, paneId, true)
+    done.push(paneId)
+  }
+  return done
+}
+
+export function wakeWorkspace(workspaceId: string): string[] {
+  return hibernatedPanes(workspaceId).filter((paneId) => wakePane(paneId))
+}
+
 export async function hibernateIdleAgents(now = Date.now()): Promise<string[]> {
   const settings = useSettingsStore.getState().agents.hibernation
   if (!settings.enabled) return []

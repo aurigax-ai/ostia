@@ -4,6 +4,7 @@ import {
   ArrowDownIcon,
   ArrowSquareInIcon,
   ArrowUpIcon,
+  ArrowsMergeIcon,
   BroadcastIcon,
   CaretDownIcon,
   CaretRightIcon,
@@ -15,6 +16,7 @@ import {
   FolderSimplePlusIcon,
   GearSixIcon,
   type Icon as IconComponent,
+  MoonIcon,
   PaletteIcon,
   PencilSimpleIcon,
   PushPinIcon,
@@ -22,6 +24,7 @@ import {
   PushPinSlashIcon,
   RobotIcon,
   ShieldCheckIcon,
+  SunIcon,
   TerminalWindowIcon,
   TextAlignLeftIcon,
   TrashIcon,
@@ -37,7 +40,14 @@ import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, paneIds } from '../layout/tree'
 import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '../lib/attention'
 import { requestCloseOthers, requestCloseWorkspace } from '../lib/closeConfirm'
+import {
+  hibernatableAgentPanes,
+  hibernateWorkspace,
+  hibernatedPanes,
+  wakeWorkspace,
+} from '../lib/hibernationScheduler'
 import { beginDrag, endWorkspaceDrag } from '../lib/paneDrag'
+import { type RowDropZone, rowDropZone } from '../lib/railDropZone'
 import { sidebarLines, visibleSidebarItems } from '../lib/sidebarItems'
 import { moveWorkspaceToNewWindow } from '../lib/windowHandoff'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
@@ -49,6 +59,7 @@ import {
   moveWorkspaceBy,
   toBlocks,
 } from '../lib/workspaceGroups'
+import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
 import { latestAttentionMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -102,9 +113,12 @@ const GROUP_DND = 'application/x-pine-workspace-group'
 const NO_COLOR = 'none'
 const NO_ITEMS: ExtensionSidebarItem[] = []
 
+type RailTarget = DropTarget | { kind: 'merge'; id: string }
+
 interface RailDrag {
   source: DragSource
-  target: DropTarget | null
+  target: RailTarget | null
+  mergeable: ReadonlySet<string>
 }
 
 function isRailDrag(e: React.DragEvent): boolean {
@@ -112,20 +126,26 @@ function isRailDrag(e: React.DragEvent): boolean {
   return types.includes(WORKSPACE_DND) || types.includes(GROUP_DND)
 }
 
-function sameTarget(a: DropTarget | null, b: DropTarget): boolean {
+function sameTarget(a: RailTarget | null, b: RailTarget): boolean {
   if (!a || a.kind !== b.kind) return false
   if (a.kind === 'end' || b.kind === 'end') return true
+  if (a.kind === 'merge' || b.kind === 'merge') return a.id === b.id
   return a.id === b.id && a.place === b.place
 }
 
-function upperHalf(e: React.DragEvent): boolean {
+function dragFraction(e: React.DragEvent): number {
   const box = e.currentTarget.getBoundingClientRect()
-  return e.clientY < box.top + box.height / 2
+  if (box.height > 0) return (e.clientY - box.top) / box.height
+  return e.clientY < box.top ? 0 : 1
+}
+
+function upperHalf(e: React.DragEvent): boolean {
+  return dragFraction(e) < 0.5
 }
 
 interface DragHandlers {
   start: (source: DragSource) => void
-  over: (target: DropTarget) => void
+  over: (target: RailTarget) => void
   drop: () => void
   end: () => void
 }
@@ -155,12 +175,22 @@ function WorkspacesView(): JSX.Element {
   const closeSettings = useUIStore((s) => s.closeSettings)
 
   const handlers: DragHandlers = {
-    start: (source) => setDrag({ source, target: null }),
+    start: (source) => {
+      setDrag({ source, target: null, mergeable: new Set() })
+      if (source.kind !== 'workspace') return
+      void loadMergeTargets(source.id).then((targets) => {
+        const mergeable = new Set(targets.filter((t) => t.refusal === null).map((t) => t.id))
+        setDrag((cur) => (cur?.source === source ? { ...cur, mergeable } : cur))
+      })
+    },
     over: (target) =>
       setDrag((cur) => (cur && !sameTarget(cur.target, target) ? { ...cur, target } : cur)),
     drop: () => {
-      if (drag?.target) useWorkspacesStore.getState().drop(drag.source, drag.target)
+      const target = drag?.target
       setDrag(null)
+      if (!drag || !target) return
+      if (target.kind === 'merge') void requestMergeWorkspace(drag.source.id, target.id)
+      else useWorkspacesStore.getState().drop(drag.source, target)
     },
     end: () => setDrag(null),
   }
@@ -172,7 +202,14 @@ function WorkspacesView(): JSX.Element {
       workspace={w}
       index={workspaces.indexOf(w)}
       active={!settingsActive && w.id === activeId}
-      drop={target?.kind === 'workspace' && target.id === w.id ? target.place : null}
+      drop={
+        target?.kind === 'merge' && target.id === w.id
+          ? 'merge'
+          : target?.kind === 'workspace' && target.id === w.id
+            ? target.place
+            : null
+      }
+      mergeable={drag?.mergeable.has(w.id) ?? false}
       drag={handlers}
       onGroupCreated={setRenamingGroup}
     />
@@ -452,8 +489,9 @@ function stateLabel(d: Dict, state: WorkspaceState): string {
 
 function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
   const d = useDict()
-  const KindIcon = KIND_ICON[workspace.kind]
   const root = useLayoutStore((s) => s.byWorkspace[workspace.id]?.root)
+  const hibernated = root ? allPanes(root).some((p) => p.hibernated) : false
+  const KindIcon = hibernated ? MoonIcon : KIND_ICON[workspace.kind]
   const waitingAt = useAttentionStore((s) => (root ? latestWaitingAt(s.byPane, paneIds(root)) : 0))
   return (
     <span className="tab-lead-wrap">
@@ -463,7 +501,12 @@ function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
         role="img"
         aria-label={stateLabel(d, workspace.state)}
       />
-      <KindIcon size={14} className="tab-lead" />
+      <KindIcon
+        size={14}
+        className="tab-lead"
+        role={hibernated ? 'img' : undefined}
+        aria-label={hibernated ? d.pane.hibernated : undefined}
+      />
     </span>
   )
 }
@@ -534,13 +577,15 @@ function WorkspaceRow({
   index,
   active,
   drop,
+  mergeable,
   drag,
   onGroupCreated,
 }: {
   workspace: Workspace
   index: number
   active: boolean
-  drop: 'before' | 'after' | null
+  drop: RowDropZone | null
+  mergeable: boolean
   drag: DragHandlers
   onGroupCreated: (groupId: string) => void
 }): JSX.Element {
@@ -583,6 +628,7 @@ function WorkspaceRow({
       <ContextMenuTrigger
         className="rail-row"
         data-drop={drop ?? undefined}
+        data-mergeable={mergeable || undefined}
         draggable={editing === null}
         onDragStart={(e) => {
           e.stopPropagation()
@@ -595,7 +641,12 @@ function WorkspaceRow({
           if (!isRailDrag(e)) return
           e.preventDefault()
           e.stopPropagation()
-          drag.over({ kind: 'workspace', id: w.id, place: upperHalf(e) ? 'before' : 'after' })
+          const zone = rowDropZone(dragFraction(e), mergeable)
+          drag.over(
+            zone === 'merge'
+              ? { kind: 'merge', id: w.id }
+              : { kind: 'workspace', id: w.id, place: zone },
+          )
         }}
         onDrop={(e) => {
           if (!isRailDrag(e)) return
@@ -646,6 +697,14 @@ function WorkspaceRow({
             )
           }
         />
+        {drop === 'merge' ? (
+          <output className="rail-merge-chip motion-enter">
+            <ArrowsMergeIcon size={12} />
+            <span className="rail-merge-chip-label text-ui-xs">
+              {fmt(d.merge.menuInto, { name: title })}
+            </span>
+          </output>
+        ) : null}
       </ContextMenuTrigger>
       <MenuContent>
         <MenuItem icon={PencilSimpleIcon} onClick={() => setEditing('name')}>
@@ -693,6 +752,7 @@ function WorkspaceRow({
         <MenuItem icon={ChecksIcon} onClick={() => markWorkspaceRead(w.id)}>
           {d.rail.markRead}
         </MenuItem>
+        <HibernateMenuItems workspaceId={w.id} />
         <ContextMenuSeparator />
         <MenuItem
           icon={FolderSimplePlusIcon}
@@ -742,6 +802,30 @@ function WorkspaceRow({
         </MenuItem>
       </MenuContent>
     </ContextMenu>
+  )
+}
+
+function HibernateMenuItems({ workspaceId }: { workspaceId: string }): JSX.Element {
+  const d = useDict()
+  useLayoutStore((s) => s.byWorkspace[workspaceId])
+  useBlocksStore((s) => s.running)
+  const sleepable = hibernatableAgentPanes(workspaceId).length > 0
+  const asleep = hibernatedPanes(workspaceId).length > 0
+  return (
+    <>
+      <MenuItem
+        icon={MoonIcon}
+        disabled={!sleepable}
+        onClick={() => void hibernateWorkspace(workspaceId)}
+      >
+        {d.rail.hibernateAgents}
+      </MenuItem>
+      {asleep ? (
+        <MenuItem icon={SunIcon} onClick={() => wakeWorkspace(workspaceId)}>
+          {d.rail.wakeAgents}
+        </MenuItem>
+      ) : null}
+    </>
   )
 }
 

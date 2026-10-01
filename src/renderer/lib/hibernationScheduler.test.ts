@@ -5,7 +5,7 @@ import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
-import { hibernateIdleAgents } from './hibernationScheduler'
+import { hibernateIdleAgents, hibernateWorkspace, wakeWorkspace } from './hibernationScheduler'
 import { forgetPaneActivity, markPaneActivity } from './paneActivity'
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
@@ -133,5 +133,31 @@ describe('hibernateIdleAgents', () => {
     vi.mocked(window.pine.pty.hibernate).mockResolvedValueOnce(false)
     expect(await hibernateIdleAgents(NOW)).toEqual([])
     expect(hibernated('idle-claude')).toBe(false)
+  })
+})
+
+describe('hibernateWorkspace', () => {
+  it('stops every agent with a resume token in the workspace, shown or not, and nothing else', async () => {
+    seed(10)
+    expect(await hibernateWorkspace('s2')).toEqual(['idle-claude', 'fresh-claude'])
+    expect(await hibernateWorkspace('s1')).toEqual(['shown'])
+    for (const id of ['no-token', 'npm', 'at-prompt']) expect(hibernated(id)).toBe(false)
+  })
+
+  it('works with automatic hibernation turned off', async () => {
+    seed(10)
+    useSettingsStore.setState((s) => ({
+      agents: { ...s.agents, hibernation: { ...s.agents.hibernation, enabled: false } },
+    }))
+    expect(await hibernateWorkspace('s1')).toEqual(['shown'])
+  })
+
+  it('wakes only the panes it put to sleep in that workspace', async () => {
+    seed(10)
+    await hibernateWorkspace('s2')
+    await hibernateWorkspace('s1')
+    expect(wakeWorkspace('s2')).toEqual(['idle-claude', 'fresh-claude'])
+    expect(hibernated('idle-claude')).toBe(false)
+    expect(hibernated('shown')).toBe(true)
   })
 })

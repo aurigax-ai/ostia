@@ -1,9 +1,20 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { createPane } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useMergeConfirmStore } from '../stores/mergeConfirmStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
@@ -30,6 +41,8 @@ describe('DeckRail', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let attentionInit: ReturnType<typeof useAttentionStore.getState>
+  let mergeConfirmInit: ReturnType<typeof useMergeConfirmStore.getState>
+  let blocksInit: ReturnType<typeof useBlocksStore.getState>
 
   beforeAll(() => {
     workspacesInit = useWorkspacesStore.getState()
@@ -37,6 +50,8 @@ describe('DeckRail', () => {
     settingsInit = useSettingsStore.getState()
     layoutInit = useLayoutStore.getState()
     attentionInit = useAttentionStore.getState()
+    mergeConfirmInit = useMergeConfirmStore.getState()
+    blocksInit = useBlocksStore.getState()
   })
 
   afterEach(() => {
@@ -46,6 +61,8 @@ describe('DeckRail', () => {
     useSettingsStore.setState(settingsInit, true)
     useLayoutStore.setState(layoutInit, true)
     useAttentionStore.setState(attentionInit, true)
+    useMergeConfirmStore.setState(mergeConfirmInit, true)
+    useBlocksStore.setState(blocksInit, true)
     vi.restoreAllMocks()
   })
 
@@ -170,6 +187,115 @@ describe('DeckRail', () => {
     expect(workingDot).not.toHaveClass('idle')
     expect(idleDot).toHaveClass('workspace-dot', 'idle')
     expect(idleDot).not.toHaveClass('working')
+  })
+
+  it('swaps the workspace icon for a moon while one of its panes is hibernated', () => {
+    seedWorkspaces()
+    const sleeping = { ...createPane('terminal'), hibernated: true as const }
+    const awake = createPane('terminal')
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: sleeping, activePaneId: sleeping.id, zoomedPaneId: null },
+        s2: { root: awake, activePaneId: awake.id, zoomedPaneId: null },
+      },
+    })
+    render(<DeckRail />)
+    expect(within(rowFor(/alpha/)).getByRole('img', { name: 'Hibernated' })).toBeInTheDocument()
+    expect(within(rowFor(/beta/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
+  })
+
+  it('hibernates the workspace agents from its menu, and offers to wake them after', async () => {
+    seedWorkspaces()
+    const agent = {
+      ...createPane('terminal'),
+      resume: { agent: 'claude' as const, id: 'tok-1' },
+    }
+    const shell = createPane('terminal')
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: agent, activePaneId: agent.id, zoomedPaneId: null },
+        s2: { root: shell, activePaneId: shell.id, zoomedPaneId: null },
+      },
+    })
+    const blocks = useBlocksStore.getState()
+    blocks.promptStart(agent.id, { line: 0 }, null)
+    blocks.commandStart(agent.id, { line: 1 }, 'claude')
+    render(<DeckRail />)
+    const user = userEvent.setup()
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: /beta/ }))
+    expect(await screen.findByRole('menuitem', { name: 'Hibernate agents' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await user.keyboard('{Escape}')
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Hibernate agents' }))
+    await waitFor(() => expect(window.pine.pty.hibernate).toHaveBeenCalledWith(agent.id))
+    expect(within(rowFor(/alpha/)).getByRole('img', { name: 'Hibernated' })).toBeInTheDocument()
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Wake agents' }))
+    expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
+  })
+
+  it('offers a merge when a workspace is dragged onto the middle of one with the same folder', async () => {
+    const ask = vi.fn().mockResolvedValue(false)
+    useMergeConfirmStore.setState({ ask })
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'alpha', kind: 'terminal', workDir: '/home/app', state: 'idle' },
+        { id: 's2', name: 'beta', kind: 'terminal', workDir: '/home/app', state: 'idle' },
+        { id: 's3', name: 'gamma', kind: 'terminal', workDir: '/home/other', state: 'idle' },
+      ],
+      activeWorkspaceId: 's1',
+    })
+    render(<DeckRail />)
+    const row = (name: RegExp) => rowFor(name).closest('.rail-row') as HTMLElement
+    const target = row(/beta/)
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 200, 40))
+    const dataTransfer = { types: ['application/x-pine-workspace'], setData: vi.fn() }
+
+    fireEvent.dragStart(row(/alpha/), { dataTransfer })
+    await waitFor(() => expect(target).toHaveAttribute('data-mergeable'))
+    expect(row(/gamma/)).not.toHaveAttribute('data-mergeable')
+
+    const over = createEvent.dragOver(target, { dataTransfer })
+    Object.defineProperty(over, 'clientY', { value: 120 })
+    fireEvent(target, over)
+    expect(target).toHaveAttribute('data-drop', 'merge')
+    expect(within(target).getByText('Merge into beta')).toBeInTheDocument()
+
+    fireEvent.drop(target, { dataTransfer })
+    await waitFor(() => expect(ask).toHaveBeenCalledOnce())
+    expect(ask.mock.calls[0][0]).toMatchObject({ source: 'alpha', target: 'beta' })
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['s1', 's2', 's3'])
+  })
+
+  it('reorders instead of merging when dropped on the edge of a mergeable row', async () => {
+    const ask = vi.fn().mockResolvedValue(false)
+    useMergeConfirmStore.setState({ ask })
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'alpha', kind: 'terminal', workDir: '/home/app', state: 'idle' },
+        { id: 's2', name: 'beta', kind: 'terminal', workDir: '/home/app', state: 'idle' },
+      ],
+      activeWorkspaceId: 's1',
+    })
+    render(<DeckRail />)
+    const target = rowFor(/beta/).closest('.rail-row') as HTMLElement
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 200, 40))
+    const dataTransfer = { types: ['application/x-pine-workspace'], setData: vi.fn() }
+    fireEvent.dragStart(rowFor(/alpha/).closest('.rail-row') as HTMLElement, { dataTransfer })
+    await waitFor(() => expect(target).toHaveAttribute('data-mergeable'))
+    const over = createEvent.dragOver(target, { dataTransfer })
+    Object.defineProperty(over, 'clientY', { value: 138 })
+    fireEvent(target, over)
+    expect(target).toHaveAttribute('data-drop', 'after')
+    fireEvent.drop(target, { dataTransfer })
+    expect(ask).not.toHaveBeenCalled()
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['s2', 's1'])
   })
 
   it('gives interactive controls accessible names (a11y)', () => {

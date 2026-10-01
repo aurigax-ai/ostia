@@ -1,24 +1,33 @@
 import { resumeCommand } from '@shared/agentResume'
 import { allPanes } from '../layout/tree'
-import type { PaneNode } from '../layout/types'
+import type { LayoutNode, PaneNode } from '../layout/types'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { useUIStore } from '../stores/uiStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
 import { runWhenIdle } from './blockActions'
-import { isPaneVisible } from './workspaceActivity'
 
 interface PendingPane {
   workspaceId: string
   pane: PaneNode
 }
 
+function awaitsResume(pane: PaneNode): boolean {
+  return Boolean(pane.resumePending && pane.resume)
+}
+
+export function workspacesAwaitingResume(
+  byWorkspace: Record<string, { root: LayoutNode } | undefined>,
+): string[] {
+  return Object.entries(byWorkspace)
+    .filter(([, layout]) => layout && allPanes(layout.root).some(awaitsResume))
+    .map(([workspaceId]) => workspaceId)
+}
+
 function pendingPanes(): PendingPane[] {
   const out: PendingPane[] = []
   for (const [workspaceId, layout] of Object.entries(useLayoutStore.getState().byWorkspace)) {
     for (const pane of layout ? allPanes(layout.root) : []) {
-      if (pane.resumePending && pane.resume) out.push({ workspaceId, pane })
+      if (awaitsResume(pane)) out.push({ workspaceId, pane })
     }
   }
   return out
@@ -43,18 +52,14 @@ export function startAutoResume(): () => void {
         clear(workspaceId, pane.id)
         continue
       }
-      if (scheduled.has(pane.id) || !isPaneVisible(pane.id)) continue
-      const cancel = runWhenIdle(pane.id, resumeCommand(resume))
-      scheduled.set(pane.id, cancel)
-      clear(workspaceId, pane.id)
+      if (scheduled.has(pane.id)) continue
+      scheduled.set(pane.id, runWhenIdle(pane.id, resumeCommand(resume)))
     }
   }
 
   sweep()
   const unsubscribe = [
     useLayoutStore.subscribe(sweep),
-    useWorkspacesStore.subscribe(sweep),
-    useUIStore.subscribe(sweep),
     useSettingsStore.subscribe(sweep),
     useBlocksStore.subscribe((s, prev) => {
       if (s.running !== prev.running) sweep()

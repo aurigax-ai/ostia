@@ -156,6 +156,7 @@ import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
 import { SANDBOX_FEATURE, installHint, missingRequirements, onPath } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
+import { PTY_COLOR_ENV, PTY_TERM_NAME } from './terminalType'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray } from './tray'
 import {
   deleteGlobalVaultValue,
@@ -1272,6 +1273,7 @@ function registerPtyIpc(): void {
       PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
       PINE_NODE: process.execPath,
       PINE_SHELL_STATE: stateFile,
+      ...PTY_COLOR_ENV,
     } as Record<string, string>
     let secretNotice = ''
     let file = shell
@@ -1316,7 +1318,7 @@ function registerPtyIpc(): void {
     }
     if (ptys.has(paneId)) return attachPty(e, paneId, opts)
     const pty = mod.spawn(file, args, {
-      name: 'xterm-color',
+      name: PTY_TERM_NAME,
       cols,
       rows,
       cwd,
@@ -1522,13 +1524,14 @@ function spawnManagerPty(req: {
     ...process.env,
     ...(req.path === undefined ? {} : { PATH: req.path }),
     ...paneEnv(req.paneId, windowId, cwd),
+    ...PTY_COLOR_ENV,
   } as Record<string, string>
   const identity = markManager(req.paneId)
   if (identity) setCaps(identity.externalId, MANAGER_CAPABILITIES)
   let pty: IPty
   try {
     pty = mod.spawn(file, args, {
-      name: 'xterm-256color',
+      name: PTY_TERM_NAME,
       cols: req.cols,
       rows: req.rows,
       cwd,
