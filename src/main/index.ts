@@ -134,6 +134,7 @@ import { KubeContextReader, NodeVersionResolver, promptContext } from './promptC
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { exitAfterDeadline, planQuit } from './quitPlan'
+import { registerReleaseCheck } from './releaseCheck'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -2037,6 +2038,11 @@ app.whenReady().then(() => {
   registerApprovals(revealWindow)
   registerCredentials()
   registerAppUpdate(requestQuit)
+  registerReleaseCheck({
+    openExternal: openExternalSafe,
+    readSettings: readSettingsFile,
+    log: appLog,
+  })
   registerAgentTranscriptIpc()
   registerLspIpc()
   const notifyDeps = {
