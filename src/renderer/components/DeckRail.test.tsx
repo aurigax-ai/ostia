@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { createPane } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -170,6 +171,21 @@ describe('DeckRail', () => {
     expect(workingDot).not.toHaveClass('idle')
     expect(idleDot).toHaveClass('workspace-dot', 'idle')
     expect(idleDot).not.toHaveClass('working')
+  })
+
+  it('swaps the workspace icon for a moon while one of its panes is hibernated', () => {
+    seedWorkspaces()
+    const sleeping = { ...createPane('terminal'), hibernated: true as const }
+    const awake = createPane('terminal')
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: sleeping, activePaneId: sleeping.id, zoomedPaneId: null },
+        s2: { root: awake, activePaneId: awake.id, zoomedPaneId: null },
+      },
+    })
+    render(<DeckRail />)
+    expect(within(rowFor(/alpha/)).getByRole('img', { name: 'Hibernated' })).toBeInTheDocument()
+    expect(within(rowFor(/beta/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
   })
 
   it('gives interactive controls accessible names (a11y)', () => {

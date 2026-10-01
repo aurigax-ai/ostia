@@ -1,9 +1,11 @@
 import { PlusIcon } from '@phosphor-icons/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
+import { workspacesAwaitingResume } from '../lib/autoResume'
 import { useChordLabel } from '../lib/chords'
 import { startNewWorkspace } from '../lib/newWorkspace'
 import { isMac } from '../platform'
+import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { PaneTree } from './PaneTree'
@@ -17,14 +19,21 @@ export function WorkZone(): JSX.Element {
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
   const settingsActive = useUIStore((s) => s.settingsActive)
+  const awaitingResume = useLayoutStore((s) => workspacesAwaitingResume(s.byWorkspace).join('\n'))
   const [mounted, setMounted] = useState<string[]>(() =>
     activeWorkspaceId ? [activeWorkspaceId] : [],
   )
 
   useEffect(() => {
-    if (!activeWorkspaceId) return
-    setMounted((m) => (m.includes(activeWorkspaceId) ? m : [...m, activeWorkspaceId]))
-  }, [activeWorkspaceId])
+    const wanted = [
+      ...(activeWorkspaceId ? [activeWorkspaceId] : []),
+      ...(awaitingResume ? awaitingResume.split('\n') : []),
+    ]
+    setMounted((m) => {
+      const added = wanted.filter((id) => !m.includes(id))
+      return added.length === 0 ? m : [...m, ...added]
+    })
+  }, [activeWorkspaceId, awaitingResume])
 
   useEffect(() => {
     setMounted((m) => {

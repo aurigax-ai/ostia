@@ -182,8 +182,8 @@ Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts
 - **A resume token is data, never a command.** `pine resume-token` stores `{agent, id}` only after
   `parseAgentResume` (known agent, id `[A-Za-z0-9._-]`); `resumeCommand` builds the command. It is
   typed only at an idle prompt when the human asks (Resume, `agent.resume`) or, with the human's
-  `agents.autoResume`, for a pane whose agent ran at the last save, once visible
-  (`lib/autoResume.ts`); a command run in the pane cancels it. Never store or replay a free-form
+  `agents.autoResume`, for every pane whose agent ran at the last save, shown or not
+  (`lib/autoResume.ts`); a command run in the pane first cancels it. Never store or replay a free-form
   command.
 - **Main owns `agentRunning`** (`main/agentRunning.ts`): it survives Pine taking the shell away
   (reap, hibernation, quit, a broken renderer) and clears only when the agent's block ends or

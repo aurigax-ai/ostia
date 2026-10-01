@@ -6,10 +6,10 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 
-vi.mock('./blockActions', () => ({ runWhenIdle: vi.fn(() => () => {}) }))
+vi.mock('./blockActions', () => ({ runWhenIdle: vi.fn(() => vi.fn()) }))
 
 const { runWhenIdle } = await import('./blockActions')
-const { startAutoResume } = await import('./autoResume')
+const { startAutoResume, workspacesAwaitingResume } = await import('./autoResume')
 
 const resume = { agent: 'claude' as const, id: 'abc-1' }
 
@@ -45,24 +45,37 @@ describe('startAutoResume', () => {
     useBlocksStore.setState(init.blocks, true)
   })
 
-  it('resumes a visible pane that was running an agent, once', () => {
+  it('resumes a pane that was running an agent once, keeping the mark until the agent runs', () => {
     const pane = { ...createPane('terminal'), resume, resumePending: true as const }
     seed(pane, pane.id, true)
     stop = startAutoResume()
+    useLayoutStore.setState((s) => ({ byWorkspace: { ...s.byWorkspace } }))
 
     expect(vi.mocked(runWhenIdle).mock.calls).toEqual([[pane.id, 'claude --resume abc-1']])
+    expect(pending(pane.id)?.resumePending).toBe(true)
+
+    useBlocksStore.setState({ running: { [pane.id]: 'b1' } })
     expect(pending(pane.id)?.resumePending).toBeUndefined()
   })
 
-  it('waits for a background tab until it is shown', () => {
+  it('resumes a background tab and another workspace without waiting to be shown', () => {
     const front = createPane('terminal')
     const back = { ...createPane('terminal'), resume, resumePending: true as const }
+    const other = { ...createPane('terminal'), resume, resumePending: true as const }
     seed(tabsOf(front.id, front, back), front.id, true)
+    useLayoutStore.setState((s) => ({
+      byWorkspace: {
+        ...s.byWorkspace,
+        w2: { root: other, activePaneId: other.id, zoomedPaneId: null },
+      },
+    }))
+    expect(workspacesAwaitingResume(useLayoutStore.getState().byWorkspace)).toEqual(['w1', 'w2'])
     stop = startAutoResume()
-    expect(runWhenIdle).not.toHaveBeenCalled()
 
-    useLayoutStore.getState().focusPane('w1', back.id)
-    expect(vi.mocked(runWhenIdle).mock.calls).toEqual([[back.id, 'claude --resume abc-1']])
+    expect(vi.mocked(runWhenIdle).mock.calls).toEqual([
+      [back.id, 'claude --resume abc-1'],
+      [other.id, 'claude --resume abc-1'],
+    ])
   })
 
   it('does nothing and forgets the mark when the setting is off', () => {
@@ -79,9 +92,9 @@ describe('startAutoResume', () => {
     seed(tabsOf(front.id, front, back), front.id, true)
     stop = startAutoResume()
 
+    const cancel = vi.mocked(runWhenIdle).mock.results[0]?.value
     useBlocksStore.setState({ running: { [back.id]: 'b1' } })
-    useLayoutStore.getState().focusPane('w1', back.id)
-    expect(runWhenIdle).not.toHaveBeenCalled()
     expect(pending(back.id)?.resumePending).toBeUndefined()
+    expect(cancel).toHaveBeenCalledOnce()
   })
 })
