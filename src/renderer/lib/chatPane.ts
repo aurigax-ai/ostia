@@ -19,7 +19,7 @@ export function openChatPane(opts: OpenChatOptions = {}): string | null {
   if (!workspaceId || !workspaces.workspaces.some((w) => w.id === workspaceId)) return null
   const ui = useUIStore.getState()
   ui.closePalette()
-  ui.leaveSettings()
+  ui.showWorkspaces()
   if (workspaces.activeWorkspaceId !== workspaceId) workspaces.setActive(workspaceId)
   const key = chatKey(workspaceId)
   const sessionId = useChatStore.getState().current[key]

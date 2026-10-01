@@ -72,12 +72,12 @@ describe('WorkZone', () => {
 
   it('leaves Settings when the empty state opens a workspace', async () => {
     useUIStore.getState().openSettings()
-    const leaveSettings = vi.spyOn(useUIStore.getState(), 'leaveSettings')
+    const showWorkspaces = vi.spyOn(useUIStore.getState(), 'showWorkspaces')
     renderZone()
 
     await userEvent.setup().click(screen.getByRole('button', { name: /New workspace/ }))
 
-    expect(leaveSettings).toHaveBeenCalled()
+    expect(showWorkspaces).toHaveBeenCalled()
   })
 
   it('returns to the empty state when the last workspace closes', () => {

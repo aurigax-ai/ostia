@@ -75,6 +75,17 @@ describe('matchChord', () => {
     expect(chordLabel('attention.jumpToLatest', true)).toBe('⌘⇧U')
   })
 
+  it('maps the dashboard to Ctrl+Shift+D and Cmd+Shift+D, leaving Ctrl+D to the shell', () => {
+    const ctrlShiftD = matchChord(key('D', { ctrlKey: true, shiftKey: true }), false)
+    const cmdShiftD = matchChord(key('d', { metaKey: true, shiftKey: true }), true)
+    expect(ctrlShiftD).toBe('dashboard.toggle')
+    expect(cmdShiftD).toBe('dashboard.toggle')
+    expect(isAppChord(ctrlShiftD)).toBe(true)
+    expect(matchChord(key('d', { ctrlKey: true }), false)).toBeNull()
+    expect(chordLabel('dashboard.toggle', false)).toBe('Ctrl+Shift+D')
+    expect(chordLabel('dashboard.toggle', true)).toBe('⌘⇧D')
+  })
+
   it('maps send selection to Ctrl+Shift+E and Cmd+Shift+E, leaving Ctrl+E to the shell', () => {
     const ctrlShiftE = matchChord(key('E', { ctrlKey: true, shiftKey: true }), false)
     const cmdShiftE = matchChord(key('e', { metaKey: true, shiftKey: true }), true)

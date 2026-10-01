@@ -14,7 +14,7 @@ function syncAskCommand(): void {
       category: 'Assistant',
       target: 'none',
       run: () => {
-        useUIStore.getState().leaveSettings()
+        useUIStore.getState().showWorkspaces()
         useUIStore.getState().openPalette('ask')
       },
     })

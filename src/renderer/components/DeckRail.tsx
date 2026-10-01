@@ -69,7 +69,7 @@ import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { useUIStore } from '../stores/uiStore'
+import { coversWorkspaces, useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import {
   type Workspace,
@@ -173,6 +173,7 @@ function WorkspacesView(): JSX.Element {
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null)
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
+  const covered = useUIStore(coversWorkspaces)
   const openSettings = useUIStore((s) => s.openSettings)
   const closeSettings = useUIStore((s) => s.closeSettings)
 
@@ -203,7 +204,7 @@ function WorkspacesView(): JSX.Element {
       key={w.id}
       workspace={w}
       index={workspaces.indexOf(w)}
-      active={!settingsActive && w.id === activeId}
+      active={!covered && w.id === activeId}
       drop={
         target?.kind === 'merge' && target.id === w.id
           ? 'merge'
@@ -237,7 +238,7 @@ function WorkspacesView(): JSX.Element {
               key={block.group.id}
               group={block.group}
               members={block.workspaces}
-              containsActive={!settingsActive && block.workspaces.some((w) => w.id === activeId)}
+              containsActive={!covered && block.workspaces.some((w) => w.id === activeId)}
               drop={target?.kind === 'group' && target.id === block.group.id ? target.place : null}
               drag={handlers}
               renaming={renamingGroup === block.group.id}
@@ -605,7 +606,7 @@ function WorkspaceRow({
   }, [w.id])
   const otherGroups = groups.filter((g) => g.id !== w.groupId)
   const select = (): void => {
-    useUIStore.getState().leaveSettings()
+    useUIStore.getState().showWorkspaces()
     store().setActive(w.id)
   }
   const editor =

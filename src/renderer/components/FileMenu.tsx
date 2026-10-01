@@ -49,7 +49,7 @@ function sendPath(target: PickTarget, path: string): void {
 }
 
 function openInNewWorkspace(path: string, dir: boolean): void {
-  useUIStore.getState().leaveSettings()
+  useUIStore.getState().showWorkspaces()
   startNewWorkspace({ dir: dir ? path : parentOf(path) })
   if (!dir) openFileInWorkspace(path)
 }

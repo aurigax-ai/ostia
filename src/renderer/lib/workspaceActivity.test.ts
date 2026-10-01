@@ -85,6 +85,24 @@ describe('workspace activity + attention', () => {
     expect(isPaneVisible(second)).toBe(false)
   })
 
+  it('treats panes as not viewed while the dashboard covers them, and views the active one after', () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const stop = startAttentionSync()
+    const workspaceId = homeWorkspaceId()
+    useLayoutStore.getState().ensure(workspaceId)
+    const pane = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+    expect(isPaneViewed(pane)).toBe(true)
+
+    useUIStore.getState().openDashboard()
+    expect(isPaneVisible(pane)).toBe(false)
+    signalPane(pane, { type: 'notify', message: 'build finished', waiting: false, at: 1 })
+    expect(useAttentionStore.getState().byPane[pane]?.unread).toBe(true)
+
+    useUIStore.getState().showWorkspaces()
+    expect(useAttentionStore.getState().byPane[pane]?.unread).toBe(false)
+    stop()
+  })
+
   it('keeps attention sync quiet with zero workspaces, then tracks the first workspace opened', () => {
     vi.spyOn(document, 'hasFocus').mockReturnValue(true)
     const stop = startAttentionSync()

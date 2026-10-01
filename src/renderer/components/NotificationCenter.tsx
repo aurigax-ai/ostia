@@ -174,10 +174,14 @@ export function NotificationCenter(): JSX.Element {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <span className="bell-wrap">
+      <span className="count-wrap">
         <PopoverTrigger render={<IconButton size="bar" icon={TrayIcon} label={label} />} />
         {unread > 0 ? (
-          <Badge variant="outline" className={cn(ATTENTION_BADGE, 'bell-count')} aria-hidden="true">
+          <Badge
+            variant="outline"
+            className={cn(ATTENTION_BADGE, 'count-badge')}
+            aria-hidden="true"
+          >
             {unread > 99 ? '99+' : unread}
           </Badge>
         ) : null}

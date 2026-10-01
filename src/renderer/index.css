@@ -2517,12 +2517,12 @@ button.prompt-chip:focus-visible {
   color: var(--attn-fg);
 }
 
-.bell-wrap {
+.count-wrap {
   position: relative;
   display: inline-flex;
 }
 
-.bell-count {
+.count-badge {
   position: absolute;
   top: -2px;
   right: -4px;

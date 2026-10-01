@@ -32,6 +32,7 @@ export type AppChord =
   | 'view.zoomOut'
   | 'view.zoomReset'
   | 'assist.compose'
+  | 'dashboard.toggle'
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
@@ -64,6 +65,7 @@ export const DEFAULT_CHORDS: Readonly<
   'view.zoomOut': ['Cmd+-', 'Ctrl+Shift+-'],
   'view.zoomReset': ['Cmd+0', 'Ctrl+0'],
   'assist.compose': ['Cmd+J', 'Ctrl+Shift+J'],
+  'dashboard.toggle': ['Cmd+Shift+D', 'Ctrl+Shift+D'],
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
   paste: ['Cmd+V', 'Ctrl+Shift+V'],
   find: ['Cmd+F', 'Ctrl+Shift+F'],
