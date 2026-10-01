@@ -4,7 +4,14 @@ import type { ColorScheme, Theme } from '../plugins/types'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useSystemThemeStore } from '../stores/systemThemeStore'
-import { accentScheme, currentScheme, resolveScheme, schemeForTheme } from './colorScheme'
+import { SELECTION_MIN_DISTANCE, selectionVisibility } from './color'
+import {
+  accentScheme,
+  currentScheme,
+  resolveScheme,
+  schemeForTheme,
+  terminalTheme,
+} from './colorScheme'
 import { effectiveThemeId, resolveTheme } from './theme'
 
 const themes = BUILTIN_PLUGINS.flatMap((p) => p.contributes.themes ?? [])
@@ -57,6 +64,29 @@ describe('resolveScheme', () => {
     expect(resolved(false, 'match')).toBe('pine-light')
     expect(resolved(true, 'nord')).toBe('nord')
     expect(resolved(false, 'nord')).toBe('nord')
+  })
+})
+
+describe('terminalTheme', () => {
+  it('returns the colors untouched when the selection already stands out', () => {
+    const mocha = scheme('catppuccin-mocha').colors
+    expect(terminalTheme(mocha)).toBe(mocha)
+  })
+
+  it('replaces only a selection that would vanish over painted cells', () => {
+    const oxocarbon = scheme('oxocarbon').colors
+    const theme = terminalTheme(oxocarbon)
+    expect(theme.selectionBackground).not.toBe(oxocarbon.selectionBackground)
+    expect({ ...theme, selectionBackground: oxocarbon.selectionBackground }).toEqual(oxocarbon)
+  })
+
+  it('gives every built-in scheme a selection visible over nearby painted panels', () => {
+    for (const s of schemes) {
+      const { selectionBackground, background } = terminalTheme(s.colors)
+      expect(selectionVisibility(selectionBackground, background), s.id).toBeGreaterThanOrEqual(
+        SELECTION_MIN_DISTANCE,
+      )
+    }
   })
 })
 

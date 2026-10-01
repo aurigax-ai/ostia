@@ -720,6 +720,23 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   only when the scheme really changes. Why a separate axis instead of one palette per theme:
   people keep a favorite terminal scheme (Catppuccin, Gruvbox) under any app chrome, and a plugin
   theme no longer has to ship a palette to get a terminal of the right lightness.
+  - Every xterm gets the scheme through `terminalTheme` (`Terminal.tsx`, `ManagerView.tsx`),
+    which swaps in `visibleSelection` (`lib/color.ts`) for a selection color that would vanish
+    over painted cells. Why: xterm draws a selected cell's background from the scheme's
+    selection color alone; the DOM renderer replaces the cell background with it and WebGL
+    blends it 50/50 with a background the program painted. Agent CLIs paint neutral grey
+    panels near the terminal background (Claude Code's user messages are `rgb(55,55,55)`), so a
+    grey selection like Oxocarbon's `#393939` came out the same color as the panel: the drag
+    selected text (Ctrl+Shift+C copied it) but showed nothing, while a plain shell showed the
+    grey block. `selectionVisibility` measures the worst OKLab distance, in both renderers'
+    formulas, against the background and neutral greys within ±0.2 lightness of it;
+    below `SELECTION_MIN_DISTANCE` the selection keeps its lightness and hue (blue for a grey
+    one) and gains chroma, then moves away from the background's lightness, until it clears it.
+    Schemes whose selection already stands out (Catppuccin, Nord, GitHub) are untouched.
+  - A program with mouse tracking on (Claude Code's fullscreen renderer enables 1000/1002/1003
+    + 1006) gets plain drags as mouse reports and draws its own selection; Shift+drag is
+    xterm's forced native selection (Claude says "shift+click to native select"). Pine keeps
+    that split: taking plain drags back would break the app's own clicks, drags and selection.
 
 ## 5. Renderer model
 

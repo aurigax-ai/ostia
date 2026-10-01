@@ -1,6 +1,15 @@
-import { wcagContrast, wcagLuminance } from 'culori'
+import { differenceEuclidean, interpolate, oklch, wcagContrast, wcagLuminance } from 'culori'
 import { describe, expect, it } from 'vitest'
-import { ACCENT_PRESETS, deriveAccent, ensureContrast, normalizeHex, readableOn } from './color'
+import {
+  ACCENT_PRESETS,
+  SELECTION_MIN_DISTANCE,
+  deriveAccent,
+  ensureContrast,
+  normalizeHex,
+  readableOn,
+  selectionVisibility,
+  visibleSelection,
+} from './color'
 
 describe('normalizeHex', () => {
   it('accepts #rgb and #rrggbb in any case and returns lowercase #rrggbb', () => {
@@ -90,5 +99,38 @@ describe('deriveAccent', () => {
         expect(wcagContrast(onBrand, tokens.brand), `${preset} button`).toBeGreaterThanOrEqual(4.5)
       }
     }
+  })
+})
+
+describe('visibleSelection', () => {
+  const distance = differenceEuclidean('oklab')
+  const CLAUDE_USER_MESSAGE = '#373737'
+  const domSelected = (selection: string) => selection
+  const webglSelected = (selection: string) =>
+    interpolate([CLAUDE_USER_MESSAGE, selection], 'rgb')(0.5)
+
+  it('keeps a selection that already stands out from the background and nearby panels', () => {
+    expect(visibleSelection('#f5e0dc', '#1e1e2e')).toBe('#f5e0dc')
+  })
+
+  it('makes a grey selection visible over the grey panel an agent CLI paints', () => {
+    expect(selectionVisibility('#393939', '#161616')).toBeLessThan(SELECTION_MIN_DISTANCE)
+    const visible = visibleSelection('#393939', '#161616')
+    expect(selectionVisibility(visible, '#161616')).toBeGreaterThanOrEqual(SELECTION_MIN_DISTANCE)
+    for (const selected of [domSelected(visible), webglSelected(visible)]) {
+      expect(distance(selected, CLAUDE_USER_MESSAGE)).toBeGreaterThanOrEqual(SELECTION_MIN_DISTANCE)
+    }
+  })
+
+  it('tints a neutral selection blue and keeps the hue of a tinted one', () => {
+    expect(oklch(visibleSelection('#393939', '#161616'))?.h).toBeCloseTo(250, 0)
+    const tinted = 'rgba(242, 179, 71, 0.22)'
+    const hueBefore = oklch(interpolate(['#0a0c12', 'rgb(242, 179, 71)'], 'rgb')(0.22))?.h ?? 0
+    expect(oklch(visibleSelection(tinted, '#0a0c12'))?.h).toBeCloseTo(hueBefore, -1)
+  })
+
+  it('works for light backgrounds', () => {
+    const visible = visibleSelection('#dfdad9', '#faf4ed')
+    expect(selectionVisibility(visible, '#faf4ed')).toBeGreaterThanOrEqual(SELECTION_MIN_DISTANCE)
   })
 })

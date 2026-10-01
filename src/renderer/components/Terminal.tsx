@@ -19,7 +19,7 @@ import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../l
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
 import { smartClipboardAction } from '../lib/clipboardKeys'
-import { currentScheme, useScheme } from '../lib/colorScheme'
+import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
@@ -117,7 +117,7 @@ export function TerminalView({
     const behavior = useSettingsStore.getState().behavior
     const terminalSettings = useSettingsStore.getState().terminal
     const term = new Xterm({
-      theme: currentScheme('terminal').colors,
+      theme: terminalTheme(currentScheme('terminal').colors),
       fontFamily: fontStack(initial.family),
       fontSize: initial.size,
       fontWeight: initial.weight as FontWeight,
@@ -629,7 +629,7 @@ export function TerminalView({
   useEffect(() => {
     const term = termRef.current
     if (!term) return
-    term.options.theme = palette
+    term.options.theme = terminalTheme(palette)
   }, [palette])
 
   useEffect(() => {
