@@ -8,6 +8,7 @@ import { wantsDesktopBanner } from '@shared/notificationSettings'
 import { create } from 'zustand'
 import { currentDict, fmt } from '../i18n/useDict'
 import { isPaneViewed, signalPane } from '../lib/workspaceActivity'
+import { useAttentionStore } from './attentionStore'
 import { useSettingsStore } from './settingsStore'
 
 interface ApprovalsState {
@@ -38,9 +39,20 @@ export function newRequests(
   return after.filter((r) => !known.has(r.id))
 }
 
+function approvalMessage(req: ApprovalRequest): string {
+  return fmt(currentDict().approvals.needs, { caps: req.caps.join(', ') })
+}
+
+function settle(req: ApprovalRequest): void {
+  const attention = useAttentionStore.getState()
+  const current = attention.byPane[req.paneId]
+  if (current?.state !== 'waiting' || current.message !== approvalMessage(req)) return
+  attention.dispatch(req.paneId, { type: 'waitEnded', at: Date.now() })
+}
+
 function announce(req: ApprovalRequest): void {
   const d = currentDict()
-  const message = fmt(d.approvals.needs, { caps: req.caps.join(', ') })
+  const message = approvalMessage(req)
   signalPane(req.paneId, { type: 'set', state: 'waiting', message, at: Date.now() })
   window.pine.notifications.post({
     paneId: req.paneId,
@@ -57,8 +69,11 @@ function announce(req: ApprovalRequest): void {
 
 export function startApprovals(): () => void {
   const receive = (state: ApprovalState): void => {
-    const added = newRequests(useApprovalsStore.getState().pending, state.pending)
+    const before = useApprovalsStore.getState().pending
+    const added = newRequests(before, state.pending)
+    const gone = newRequests(state.pending, before)
     useApprovalsStore.getState().apply(state)
+    for (const req of gone) settle(req)
     for (const req of added) announce(req)
   }
   const off = window.pine.approvals.onChange(receive)

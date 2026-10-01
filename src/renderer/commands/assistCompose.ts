@@ -1,6 +1,6 @@
 import { type ComposerMode, composerModeFor } from '../lib/assistComposer'
 import { canTypeInto } from '../lib/blockActions'
-import { runningAgent } from '../lib/sendPick'
+import { runningAgent } from '../lib/paneAgent'
 import { terminalFor } from '../lib/terminalHandles'
 import { useAssistComposerStore } from '../stores/assistComposerStore'
 import { assistProvider, useAssistStore } from '../stores/assistStore'

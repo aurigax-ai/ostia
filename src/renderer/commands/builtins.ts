@@ -18,6 +18,7 @@ import { setKeybindingSetting } from '../lib/chords'
 import { requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
 import { startNewWorkspace } from '../lib/newWorkspace'
+import { isStaleAgentReport } from '../lib/paneAgent'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
   goToWorkspace,
@@ -247,6 +248,7 @@ export function registerBuiltinCommands(): void {
     capabilities: ['drive-self'],
     run: ({ state, message }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
+      if (isStaleAgentReport(ctx.activePaneId, state)) return
       const seen = isPaneViewed(ctx.activePaneId)
       signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
       if (state === 'waiting' || state === 'done') {

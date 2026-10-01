@@ -637,8 +637,11 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   notification log with a desktop notification. The command text comes from the buffer line at
   mark B, starting at the cursor column recorded at B.
 - **Notification escapes**: OSC 9 (`9;message`), OSC 777 (`777;notify;title;body`) and OSC 99
-  (kitty; `p=title|body`, `i=` chunk id, `d=0` continuation, `e=1` base64) mark the pane `waiting`
-  unread and go to the log; a desktop notification fires only if the window is unfocused or the
+  (kitty; `p=title|body`, `i=` chunk id, `d=0` continuation, `e=1` base64) mark the pane unread
+  with the message and go to the log; they also mark it `waiting` only while an agent runs in it
+  (`terminalNotification` → `runningAgent`: `claude`/`codex` by `runningAgentOf`, or a running
+  command that reported an agent state). Why: a script's notification is news, not a question;
+  an OSC 9 from a plain `printf` in zsh used to leave the pane "Waiting for input" for good; a desktop notification fires only if the window is unfocused or the
   pane isn't visible. BEL in a pane that isn't being viewed marks it unread. The parsers are pure
   (`lib/attention.ts`). Why OSC 9 ignores `9;1` to `9;12`: those are ConEmu subcommands (`9;4` is
   the progress bar several CLIs emit), not notifications.
@@ -917,12 +920,22 @@ it last changed. All transitions go through the pure reducer `reduceAttention` i
 | Event | Source | Effect |
 |---|---|---|
 | `set` | `pine state` (`pane.setAttention` → `attention.set` command) | set the state; `waiting`/`done`/`error` mark unread; `none` clears everything |
-| `notify` | OSC 9/99/777 (`waiting: true`), `pine notify` (`waiting: false`) | unread + message; terminal escapes also set `waiting` |
+| `notify` | OSC 9/99/777 (`waiting` only while an agent runs, `terminalNotification`), `pine notify` (`waiting: false`) | unread + message; `waiting: true` also sets `waiting` |
 | `bell` | BEL in an unviewed pane | unread only |
 | `commandStart` | OSC 133 C | drops a stale agent state to `none`, keeps unread |
-| `commandEnd` | OSC 133 D while the pane isn't viewed | non-zero exit → `error` unread; ≥ 10 s with the window unfocused → `done` unread |
+| `commandEnd` | OSC 133 D while the pane isn't viewed | non-zero exit → `error` unread; ≥ 10 s with the window unfocused → `done` unread; otherwise ends `waiting` like `waitEnded` |
+| `waitEnded` | OSC 133 D of a quiet or viewed command; an approval that left the queue while its message is the pane's waiting message | `waiting` → `none`, not unread; any other state unchanged |
 | `input` | keystrokes into the pane | `waiting` → `none` |
 | `view` | the pane is being looked at | clears unread; `done` → `none` |
+
+`waiting` means something in the pane waits for the human right now, so it lasts only as long as
+the command that waits. Why: an agent that reported `waiting` and then exited (Ctrl+C, `/exit`,
+its own end) with the pane in view left the shell prompt "Waiting for input", because a quiet
+`commandEnd` changed nothing and `view` keeps `waiting`. The `attention.set` command also drops a
+`waiting` or `working` report that reaches a pane at an idle shell prompt (`isStaleAgentReport`:
+an open draft and nothing running): a hook process that finishes after its agent exited, or an
+agent left running in the background, reports for a pane that no longer runs it. A shell
+without integration has no drafts, so its reports are never dropped.
 
 A pane is *viewed* when the window has focus, its workspace is active, settings aren't covering
 it, no other pane is zoomed over it, and it is the workspace's active pane (`isPaneViewed`).
