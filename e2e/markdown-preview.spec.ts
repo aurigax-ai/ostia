@@ -27,6 +27,17 @@ test('a Markdown file can be previewed and switched back to its source', async (
     await expect(preview.getByRole('heading', { name: 'Databases' })).toBeVisible()
     await expect(preview.getByRole('cell', { name: '5433' })).toBeVisible()
 
+    const heading = await preview.getByRole('heading', { name: 'Databases' }).boundingBox()
+    if (!heading) throw new Error('the heading is not laid out')
+    const y = heading.y + heading.height / 2
+    await win.mouse.move(heading.x + 2, y)
+    await win.mouse.down()
+    await win.mouse.move(heading.x + heading.width - 2, y, { steps: 8 })
+    await win.mouse.up()
+    await expect
+      .poll(() => win.evaluate(() => window.getSelection()?.toString() ?? ''))
+      .toContain('Databases')
+
     await win.getByRole('button', { name: 'Edit Markdown source' }).click()
     await expect(preview).toHaveCount(0)
     await expect(win.locator('.monaco-editor').first()).toBeVisible()
