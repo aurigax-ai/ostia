@@ -319,6 +319,32 @@ describe('chat', () => {
     expect(window.pine.chatSessions.save).not.toHaveBeenCalled()
   })
 
+  it('keeps a chat started in a scratch workspace in memory only, even with history on', async () => {
+    useWorkspacesStore.setState({
+      workspaces: [
+        {
+          id: 'w1',
+          name: 'scratch',
+          customName: 'Scratch',
+          kind: 'scratch',
+          workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
+          state: 'idle',
+        },
+      ],
+    })
+    const { pending, chunk } = captureRequests()
+    useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
+    render(<CommandPalette />)
+
+    await ask('hi')
+    await waitFor(() => expect(pending).toHaveLength(1))
+    await streamAnswer(pending, chunk)
+
+    expect(await screen.findByText('Not saved')).toBeInTheDocument()
+    expect(window.pine.chatSessions.save).not.toHaveBeenCalled()
+    expect(window.pine.chatSessions.list).not.toHaveBeenCalled()
+  })
+
   it('opens the palette conversation in a chat pane that shows the same session', async () => {
     const { pending, chunk } = captureRequests()
     useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })

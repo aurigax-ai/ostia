@@ -22,6 +22,7 @@ export interface ChatSessionMeta {
   createdAt: number
   model?: string
   trimmed?: boolean
+  scratch?: boolean
 }
 
 interface ChatStoreState {
@@ -151,7 +152,7 @@ export function sessionOf(
 export async function saveSession(sessionId: string): Promise<void> {
   const chat = chats.get(sessionId)
   const meta = useChatStore.getState().meta[sessionId]
-  if (!chat || !meta || !historyOn() || chat.messages.length === 0) return
+  if (!chat || !meta || meta.scratch || !historyOn() || chat.messages.length === 0) return
   const session = sessionOf(meta, chat.messages)
   if (!meta.title) useChatStore.getState().setMeta({ ...meta, title: session.title })
   const res = await window.pine.chatSessions.save(session).catch(() => null)
@@ -167,6 +168,12 @@ export async function saveSession(sessionId: string): Promise<void> {
     store.setNotice(sessionId, 'evicted')
   }
   await refreshSessions()
+}
+
+export function isScratchWorkspace(workspaceId: string | null | undefined): boolean {
+  return useWorkspacesStore
+    .getState()
+    .workspaces.some((w) => w.id === workspaceId && w.kind === 'scratch')
 }
 
 function sessionWorkspace(sessionId: string): string | null {
@@ -231,6 +238,7 @@ export function startNewSession(workspaceId: string | null | undefined): string 
   const id = newSessionId()
   const meta: ChatSessionMeta = { id, title: '', createdAt: Date.now() }
   if (workspaceId) meta.workspaceId = workspaceId
+  if (isScratchWorkspace(workspaceId)) meta.scratch = true
   const store = useChatStore.getState()
   store.setMeta(meta)
   createChat(id, [])
@@ -297,7 +305,7 @@ export function ensureSession(
   if (pending) return pending
   const work = (async () => {
     if (preferred && (await openSession(workspaceId, preferred))) return preferred
-    const list = historyOn() ? await refreshSessions() : []
+    const list = historyOn() && !isScratchWorkspace(workspaceId) ? await refreshSessions() : []
     const last = list.find((s) => (s.workspaceId ?? '') === key)
     const already = useChatStore.getState().current[key]
     if (already) return already

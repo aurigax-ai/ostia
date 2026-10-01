@@ -19,7 +19,7 @@ import { setKeybindingSetting } from '../lib/chords'
 import { requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
-import { startNewWorkspace } from '../lib/newWorkspace'
+import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { isStaleAgentReport } from '../lib/paneAgent'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
@@ -545,6 +545,25 @@ export function registerBuiltinCommands(): void {
       if (name !== undefined && typeof name !== 'string') throw new Error('name must be a string')
       useUIStore.getState().leaveSettings()
       return { workspaceId: startNewWorkspace({ dir, name }) }
+    },
+  })
+
+  commands.register<{ sandboxed?: unknown } | undefined, { workspaceId: string | null }>({
+    id: 'workspace.newScratch',
+    title: 'New Scratch Workspace',
+    category: 'Workspace',
+    target: 'none',
+    argsSchema: {
+      type: 'object',
+      properties: { sandboxed: { type: 'boolean' } },
+    },
+    run: async (args) => {
+      const sandboxed = args?.sandboxed
+      if (sandboxed !== undefined && typeof sandboxed !== 'boolean') {
+        throw new Error('sandboxed must be a boolean')
+      }
+      useUIStore.getState().leaveSettings()
+      return { workspaceId: await startScratchWorkspace({ sandboxed }) }
     },
   })
 

@@ -69,6 +69,27 @@ describe('HistorySearch', () => {
     expect(options[0]).toHaveTextContent('/repo')
   })
 
+  it('leaves out commands run in a scratch workspace', async () => {
+    const pane = firstPaneId()
+    runCommand(pane, 'make test', 0)
+    useWorkspacesStore
+      .getState()
+      .addWorkspace('/tmp/pine-scratch-1000/1-aaaaaaaaaaaa', 'end', 'scratch')
+    const scratchId = useWorkspacesStore.getState().activeWorkspaceId as string
+    useLayoutStore.getState().ensure(scratchId)
+    const scratchRoot = useLayoutStore.getState().byWorkspace[scratchId]?.root
+    if (!scratchRoot) throw new Error('no layout')
+    runCommand(allPanes(scratchRoot)[0].id, 'curl secret.example', 3)
+    useHistorySearchStore.getState().setOpen(true)
+
+    render(<HistorySearch />)
+
+    const options = await screen.findAllByRole('option')
+    expect(options.map((o) => o.querySelector('.history-command')?.textContent)).toEqual([
+      'make test',
+    ])
+  })
+
   it('inserts the chosen command into the focused pane and closes', async () => {
     const pane = firstPaneId()
     runCommand(pane, 'make test', 0)

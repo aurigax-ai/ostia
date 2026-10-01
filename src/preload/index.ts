@@ -217,6 +217,11 @@ const bridge: PineBridge = {
     merge: (sourceId, targetId) =>
       ipcRenderer.invoke('workspace:merge', sourceId, targetId) as Promise<WorkspaceMergeResult>,
   },
+  scratch: {
+    create: () => ipcRenderer.invoke('scratch:create') as Promise<string | null>,
+    files: (workspaceId) => ipcRenderer.invoke('scratch:files', workspaceId) as Promise<number>,
+    reveal: (workspaceId) => ipcRenderer.send('scratch:reveal', workspaceId),
+  },
   windows: {
     info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,
     detach: (workspace) => ipcRenderer.invoke('windows:detach', workspace) as Promise<boolean>,

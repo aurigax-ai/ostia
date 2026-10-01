@@ -320,17 +320,18 @@ export class WindowBroker {
   private newWorkspaceInMain(raw: unknown): void {
     const main = this.mainWindow()
     if (!main || main.isDestroyed()) return
-    const { dir, name } = (raw ?? {}) as Record<string, unknown>
+    const { dir, name, scratch, sandboxed } = (raw ?? {}) as Record<string, unknown>
+    focusWindow(main)
+    const target = { windowId: windowIdOf(main), workspaceId: '', paneId: null }
+    if (scratch === true) {
+      void this.deps.execCommand(target, 'workspace.newScratch', { sandboxed: sandboxed === true })
+      return
+    }
     const request: NewWorkspaceRequest = {
       ...(typeof dir === 'string' && WORKSPACE_DIR.test(dir) ? { dir } : {}),
       ...(typeof name === 'string' ? { name: name.slice(0, TEXT_MAX) } : {}),
     }
-    focusWindow(main)
-    void this.deps.execCommand(
-      { windowId: windowIdOf(main), workspaceId: '', paneId: null },
-      'workspace.new',
-      request,
-    )
+    void this.deps.execCommand(target, 'workspace.new', request)
   }
 
   register(): void {

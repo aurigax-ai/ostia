@@ -46,6 +46,7 @@ import {
 import { applyLineEdit, lineEditOp, shellKeyBytes } from '../lib/lineEditing'
 import { chipsForPane, paneChipCatalog, usePaneChipCatalog } from '../lib/paneChips'
 import { cellBox, rowsToMake } from '../lib/promptOverlay'
+import { scratchPaneIds } from '../lib/scratchPanes'
 import { type ShellToken, tokenizeShell } from '../lib/shellTokens'
 import {
   type AiGhost,
@@ -336,7 +337,7 @@ export function InputEditor({
   onNeedRowsRef.current = onNeedRows
 
   const normal = vimEnabled && vimMode === 'normal'
-  const history = useMemo(() => inputHistory(byPane, paneId), [byPane, paneId])
+  const history = useMemo(() => inputHistory(byPane, paneId, scratchPaneIds()), [byPane, paneId])
   const commandSet = useMemo(() => (commands ? new Set(commands) : null), [commands])
 
   const setMenu = (next: Menu | null): void => {
@@ -498,7 +499,10 @@ export function InputEditor({
     const state = walk.current ?? {
       index: -1,
       saved: text,
-      entries: historyMatches(inputHistory(useBlocksStore.getState().byPane, paneId), text),
+      entries: historyMatches(
+        inputHistory(useBlocksStore.getState().byPane, paneId, scratchPaneIds()),
+        text,
+      ),
     }
     const index = dir === 'older' ? state.index + 1 : state.index - 1
     if (index >= state.entries.length || index < -1) return false

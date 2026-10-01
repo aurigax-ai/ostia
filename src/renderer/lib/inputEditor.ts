@@ -8,10 +8,11 @@ import { type SpecItem, commandWords, specAnswer } from './specCompletion'
 export function inputHistory(
   byPane: Record<string, readonly CommandBlock[] | undefined>,
   paneId: string,
+  hidden: ReadonlySet<string> = new Set(),
 ): string[] {
   const own = [...(byPane[paneId] ?? [])].reverse()
   const others = Object.entries(byPane)
-    .filter(([id]) => id !== paneId)
+    .filter(([id]) => id !== paneId && !hidden.has(id))
     .flatMap(([, list]) => list ?? [])
     .sort((a, b) => b.startedAt - a.startedAt)
   const seen = new Set<string>()

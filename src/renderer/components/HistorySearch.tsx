@@ -16,7 +16,7 @@ export function paneOrigins(): Map<string, PaneOrigin> {
   const origins = new Map<string, PaneOrigin>()
   const byWorkspace = useLayoutStore.getState().byWorkspace
   for (const workspace of useWorkspacesStore.getState().workspaces) {
-    const layout = byWorkspace[workspace.id]
+    const layout = workspace.kind === 'scratch' ? undefined : byWorkspace[workspace.id]
     if (!layout) continue
     for (const pane of allPanes(layout.root)) {
       origins.set(pane.id, { workspaceId: workspace.id, workspaceName: workspace.name })

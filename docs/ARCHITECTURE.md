@@ -176,6 +176,7 @@ Two workspaces of one window that share a project folder can be merged; only the
 | `ptyRingBuffer.ts` | Capped output ring with a monotonic cursor; `since(cursor)` reports `dropped` when the cursor fell off |
 | `shellIntegration.ts` | Generates zsh/bash init files that emit OSC 133 + OSC 7 and define the `pine()` shell function |
 | `privateTmp.ts` | Per-uid, mode-0700 temp dir for those files |
+| `scratchFolders.ts` | Scratch workspaces: one private folder each under `privateTmpDir('pine-scratch')`, bound to its workspace, file count, delete on close and quit, startup sweep, `scratch:*` IPC (§5) |
 | `screenMirror.ts` | `ScreenMirror`: a headless xterm per pty fed every byte; `serialize()` is the width-independent history saved to `scrollback.json` |
 | `workspaceSnapshot.ts` | Reads/validates/writes `workspaces.json` and `scrollback.json`; one-shot restored scrollback |
 | `pathGuard.ts` | `resolveSafe` / `isPathAllowed` / `expandHome` for fs IPC and browser file outputs |
@@ -231,6 +232,8 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
 - Built-in extensions: `out/extensions/<id>/` in dev, `resources/extensions/<id>/` when packaged.
   User extensions: `$XDG_CONFIG_HOME/pine/extensions/<id>/` (default `~/.config/pine/extensions`).
 - `$XDG_RUNTIME_DIR/pine-<pid>.sock` (or the OS tmp dir): control socket.
+- `<tmp>/pine-scratch-<uid>/<pid>-<12 hex>/`: a scratch workspace's folder (mode 0700), with its
+  shell history in `.pine_history`. Deleted when the workspace closes or Pine quits (§5).
 
 `jsonStore` writes a temp file and renames it over the target. With `{secure}` it re-applies mode 0600
 to the file and 0700 to the dir on every save (vault, gateway devices).
@@ -963,6 +966,55 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   `application/x-pine-pane`, so file and text drags are ignored. Dropping within 25% of an edge
   re-splits on that side; the center swaps the two panes.
 
+### Scratch workspaces
+
+A scratch workspace (`kind: 'scratch'`, "New scratch workspace" in the top bar's New workspace
+menu, `workspace.newScratch {sandboxed?}`) is a one-time workspace that leaves nothing behind.
+
+- **Folder.** `startScratchWorkspace` (`lib/newWorkspace.ts`) asks main for a folder
+  (`scratch:create`); the renderer never names it. `ScratchFolders.create` makes
+  `privateTmpDir('pine-scratch')/<pid>-<random>` (0700, refused if not a real directory) and
+  remembers which window asked. The workspace's first `workspace-added` lifecycle event binds the
+  folder to that workspace id (`bind`, only for the window that created it and only once), so
+  from then on main knows which workspace and panes are scratch without trusting a path from the
+  renderer. The name defaults to "Scratch", then "Scratch 2"… (`scratchName`), set as
+  `customName` so the project name `setProject` derives from the folder never shows. The
+  sandboxed variant creates the workspace and then calls the normal per-workspace
+  `sandbox:set-enabled` path (`useSandboxStore.setEnabled`) before any pane exists, so a missing
+  sandbox shows the usual requirements dialog.
+- **Delete.** Closing the workspace (`workspace-closed`) deletes its folder (`rmSync` recursive,
+  never following symlinks). Before that, `requestCloseWorkspace` asks main for the file count
+  (`scratch:files`, the history file not counted) and, if any, the close dialog says
+  "Delete N files in the scratch folder?" with a Reveal link (`scratch:reveal`, opens the
+  folder). Quitting does the same across windows: each renderer reports its scratch workspaces in
+  `quitGroups`, `closeGuard.withScratchFiles` adds main's count, and after approval `before-quit`
+  removes every folder this process made and forgets their sandbox records. At startup
+  `sweep()` removes folders whose `<pid>` is no longer running. Why the pid: unpackaged runs (dev,
+  E2E) take no single-instance lock, so another live Pine's folders must survive our sweep.
+- **Never saved.** `isRestorable` excludes scratch, so it never reaches `workspaces.json`, and
+  `parseSnapshot` drops a `scratch` workspace found on disk anyway; `parseHandoff` still accepts
+  it, so a scratch workspace moves to a detached window and back (`isMovable`) and stays unsaved
+  there. Its single panes can't move out (`canMovePane`), because the folder belongs to the
+  workspace. `saveScrollback` skips scratch panes, so no `scrollback.json` entry either.
+- **No shared history.** Main spawns a scratch pane's zsh or bash with `PINE_HISTFILE` pointing at
+  `<folder>/.pine_history`; the generated init sets `HISTFILE` from it after the user's rc (zsh
+  and bash read and write history only after their rc files), so commands never reach
+  `~/.zsh_history` or `~/.bash_history` and the user's dotfiles are untouched. Other shells
+  keep their own history. In the renderer the history search (`paneOrigins`) and the input
+  editor's suggestions from other panes (`inputHistory` with `scratchPaneIds()`) leave scratch
+  panes out. A chat started in a scratch workspace is memory-only whatever
+  `assistant.chatHistory` says (`ChatSessionMeta.scratch`; the header shows "Not saved"), and its
+  workspace never lists saved sessions. Notifications from scratch panes show live in the
+  center but are kept in memory, never in `notifications.json` (`NotifyDeps.isScratchPane`).
+- **Agents.** `claude` and `codex` started there run in the empty folder, so their per-folder
+  memory and project instructions start empty. Pine does not touch `~/.claude` or `~/.codex`:
+  the agents still write their own session files there as usual.
+- **Files.** The scratch root is one of the fs roots (`fileRoots()` in `index.ts`), so Files, the
+  editor and chat file tools work in a folder that lives outside home.
+- **Not built:** "Keep as project". The folder lives in tmp, often another filesystem (tmpfs), so
+  keeping it means copy and delete, which would leave every shell, agent and editor in the
+  workspace inside a deleted directory.
+
 ### Live workspace state and attention
 
 Each pane has an attention record (`stores/attentionStore.ts`): `state`
@@ -1505,7 +1557,8 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
 ## 8. Workspace restore
 
 Two files written by two processes (see CLAUDE.md §6): the renderers write `workspaces.json`
-(layout), and main writes `scrollback.json` (each pane's serialized screen).
+(layout), and main writes `scrollback.json` (each pane's serialized screen). Scratch workspaces
+and their panes are in neither (§5 Scratch workspaces).
 
 - **One file, many windows** (`windowBroker.ts`, `windowBook.ts`): each renderer saves only its
   own snapshot; main keeps one per window slot (`main` or a detached window's stable 8-char id)
