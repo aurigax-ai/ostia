@@ -99,6 +99,7 @@ import { PromptSection } from './PromptSection'
 import { SandboxSection } from './SandboxSection'
 import { SyncSection } from './SyncSection'
 import { ThemeRows } from './ThemeSettings'
+import { UpdateCheck } from './UpdateCheck'
 import { ViewsSection } from './ViewsSection'
 import { WorkspaceSandboxPage } from './WorkspaceSandboxPage'
 import { WorkspacesSection } from './WorkspacesSection'
@@ -1592,6 +1593,7 @@ function AboutSection(): JSX.Element {
         {fmt(d.settings.copyright, { year: new Date().getFullYear(), name })}
       </p>
       <p className="text-fg-muted text-ui-xs">{PLATFORM_NAMES[platform]}</p>
+      <UpdateCheck />
     </section>
   )
 }
