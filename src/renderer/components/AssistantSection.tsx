@@ -357,10 +357,10 @@ export function AssistantSection(): JSX.Element {
               onClick={() =>
                 useUIStore
                   .getState()
-                  .openSettings('plugins', { extension: list.find(isAssistExtension)?.id })
+                  .openSettings('extensions', { extension: list.find(isAssistExtension)?.id })
               }
             >
-              {d.assistantSettings.openPlugins}
+              {d.assistantSettings.openExtensions}
             </Button>
           </EmptyContent>
         </Empty>

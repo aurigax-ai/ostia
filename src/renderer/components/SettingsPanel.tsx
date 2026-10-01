@@ -46,8 +46,8 @@ import { useReducedMotion } from '../lib/motion'
 import { openFileInWorkspace } from '../lib/openFile'
 import {
   extensionAnchorId,
-  pluginsNavExpanded,
-  rememberPluginsNavExpanded,
+  extensionsNavExpanded,
+  rememberExtensionsNavExpanded,
 } from '../lib/settingsNav'
 import { useEffectiveTheme } from '../lib/theme'
 import { isMac, platform } from '../platform'
@@ -93,6 +93,7 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
 import { ManagerSection } from './ManagerSection'
+import { MarketplaceSection, UninstallExtensionButton } from './MarketplaceSection'
 import { PasswordsSection } from './PasswordsSection'
 import { PromptSection } from './PromptSection'
 import { SandboxSection } from './SandboxSection'
@@ -129,7 +130,7 @@ type SectionId =
   | 'browser'
   | 'passwords'
   | 'editor'
-  | 'plugins'
+  | 'extensions'
   | 'views'
   | 'languageServers'
   | 'remote'
@@ -145,7 +146,7 @@ interface ExtensionAnchor {
 }
 
 const ANCHOR_HIGHLIGHT_MS = 2000
-const PLUGINS_NAV_LIST_ID = 'settings-nav-plugins'
+const EXTENSIONS_NAV_LIST_ID = 'settings-nav-extensions'
 
 export function SettingsPanel(): JSX.Element | null {
   const d = useDict()
@@ -155,9 +156,9 @@ export function SettingsPanel(): JSX.Element | null {
   const requested = useUIStore((s) => s.settingsSection)
   const requestedExtension = useUIStore((s) => s.settingsExtension)
   const extensions = useExtensionsStore((s) => s.list)
-  const [pluginsExpanded, setPluginsExpanded] = useState(pluginsNavExpanded)
+  const [extensionsExpanded, setExtensionsExpanded] = useState(extensionsNavExpanded)
   const [anchor, setAnchor] = useState<ExtensionAnchor | null>(null)
-  const pluginsButtonRef = useRef<HTMLButtonElement>(null)
+  const extensionsButtonRef = useRef<HTMLButtonElement>(null)
   const [query, setQuery] = useState('')
   const settingsWorkspaceId = useUIStore((s) => s.settingsWorkspaceId)
   const settingsRequest = useUIStore((s) => s.settingsRequest)
@@ -207,7 +208,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
         { id: 'passwords', icon: KeyIcon, label: d.passwords.title },
         { id: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
-        { id: 'plugins', icon: PuzzlePieceIcon, label: d.settings.plugins },
+        { id: 'extensions', icon: PuzzlePieceIcon, label: d.settings.extensions },
         { id: 'views', icon: LayoutIcon, label: d.views.title },
         { id: 'languageServers', icon: BracketsCurlyIcon, label: d.settings.languageServers },
         { id: 'remote', icon: DeviceMobileIcon, label: d.settings.remote },
@@ -218,9 +219,9 @@ export function SettingsPanel(): JSX.Element | null {
     [d],
   )
 
-  const expandPlugins = (expanded: boolean): void => {
-    setPluginsExpanded(expanded)
-    rememberPluginsNavExpanded(expanded)
+  const expandExtensions = (expanded: boolean): void => {
+    setExtensionsExpanded(expanded)
+    rememberExtensionsNavExpanded(expanded)
   }
 
   const openSection = (id: SectionId): void => {
@@ -229,7 +230,7 @@ export function SettingsPanel(): JSX.Element | null {
   }
 
   const openExtension = (id: string): void => {
-    setActive('plugins')
+    setActive('extensions')
     setAnchor((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }))
   }
 
@@ -237,10 +238,10 @@ export function SettingsPanel(): JSX.Element | null {
     if (!requested) return
     if (sections.some((s) => s.id === requested)) {
       setActive(requested as SectionId)
-      if (requested === 'plugins' && requestedExtension) {
+      if (requested === 'extensions' && requestedExtension) {
         setAnchor((prev) => ({ id: requestedExtension, nonce: (prev?.nonce ?? 0) + 1 }))
-        setPluginsExpanded(true)
-        rememberPluginsNavExpanded(true)
+        setExtensionsExpanded(true)
+        rememberExtensionsNavExpanded(true)
       } else {
         setAnchor(null)
       }
@@ -268,11 +269,11 @@ export function SettingsPanel(): JSX.Element | null {
     ? all.filter(
         (s) =>
           s.label.toLowerCase().includes(q) ||
-          (s.id === 'plugins' && matchingExtensions.length > 0),
+          (s.id === 'extensions' && matchingExtensions.length > 0),
       )
     : all
   const navExtensions = q ? matchingExtensions : extensions
-  const pluginsChildrenShown = navExtensions.length > 0 && (q !== '' || pluginsExpanded)
+  const extensionsChildrenShown = navExtensions.length > 0 && (q !== '' || extensionsExpanded)
 
   return (
     <section
@@ -295,19 +296,19 @@ export function SettingsPanel(): JSX.Element | null {
           <ScrollArea className="min-h-0 flex-1">
             <ul className="flex flex-col gap-0.5 px-2 pb-2">
               {visible.map((s) =>
-                s.id === 'plugins' ? (
-                  <PluginsNavItem
+                s.id === 'extensions' ? (
+                  <ExtensionsNavItem
                     key={s.id}
                     label={s.label}
                     icon={s.icon}
-                    current={active === 'plugins' && !anchor}
+                    current={active === 'extensions' && !anchor}
                     extensions={navExtensions}
-                    anchoredId={active === 'plugins' ? (anchor?.id ?? null) : null}
-                    expanded={pluginsChildrenShown}
+                    anchoredId={active === 'extensions' ? (anchor?.id ?? null) : null}
+                    expanded={extensionsChildrenShown}
                     canToggle={q === '' && extensions.length > 0}
-                    buttonRef={pluginsButtonRef}
-                    onOpen={() => openSection('plugins')}
-                    onToggle={expandPlugins}
+                    buttonRef={extensionsButtonRef}
+                    onOpen={() => openSection('extensions')}
+                    onToggle={expandExtensions}
                     onOpenExtension={openExtension}
                   />
                 ) : (
@@ -365,7 +366,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'browser' ? <BrowserSettingsSection /> : null}
             {active === 'passwords' ? <PasswordsSection /> : null}
             {active === 'editor' ? <EditorSettingsSection /> : null}
-            {active === 'plugins' ? <PluginsSection anchor={anchor} /> : null}
+            {active === 'extensions' ? <ExtensionsPage anchor={anchor} /> : null}
             {active === 'views' ? <ViewsSection /> : null}
             {active === 'languageServers' ? <LanguageServersSection /> : null}
             {active === 'remote' ? <GatewaySection /> : null}
@@ -379,7 +380,7 @@ export function SettingsPanel(): JSX.Element | null {
   )
 }
 
-function PluginsNavItem({
+function ExtensionsNavItem({
   label,
   icon: SectionIcon,
   current,
@@ -435,9 +436,9 @@ function PluginsNavItem({
         {canToggle ? (
           <IconButton
             icon={CaretRightIcon}
-            label={d.settings.pluginsNavList}
+            label={d.settings.extensionsNavList}
             aria-expanded={expanded}
-            aria-controls={expanded ? PLUGINS_NAV_LIST_ID : undefined}
+            aria-controls={expanded ? EXTENSIONS_NAV_LIST_ID : undefined}
             onClick={() => onToggle(!expanded)}
             className={cn('mr-1 [&_svg]:transition-transform', expanded && '[&_svg]:rotate-90')}
           />
@@ -445,8 +446,8 @@ function PluginsNavItem({
       </div>
       {expanded ? (
         <ul
-          id={PLUGINS_NAV_LIST_ID}
-          aria-label={d.settings.pluginsNavList}
+          id={EXTENSIONS_NAV_LIST_ID}
+          aria-label={d.settings.extensionsNavList}
           className="mt-0.5 ml-4 flex flex-col gap-0.5 border-line border-l pl-1.5"
         >
           {extensions.map((ext) => {
@@ -1345,28 +1346,12 @@ function ExternalEditorRow(): JSX.Element {
   )
 }
 
-function PluginsSection({ anchor }: { anchor: ExtensionAnchor | null }): JSX.Element {
+function ExtensionsPage({ anchor }: { anchor: ExtensionAnchor | null }): JSX.Element {
   const d = useDict()
-  const plugins = usePluginsStore((s) => s.plugins)
   return (
     <section>
-      <SectionHead title={d.settings.plugins} />
-      <div className="flex flex-col">
-        {plugins.map((p) => (
-          <div key={p.id} className="rounded-sm px-3 py-2">
-            <div className="flex items-center gap-2">
-              <span className="text-fg text-ui-base">{p.name}</span>
-              <span className="font-mono text-fg-muted text-ui-xs">{p.id}</span>
-              {p.builtin ? (
-                <Badge variant="outline" className="text-ui-xs">
-                  {d.settings.builtin}
-                </Badge>
-              ) : null}
-            </div>
-            <p className="mt-0.5 text-fg-muted text-ui-sm">{p.description}</p>
-          </div>
-        ))}
-      </div>
+      <SectionHead title={d.settings.extensions} />
+      <MarketplaceSection />
       <Separator className="my-3" />
       <ExtensionsSection anchor={anchor} />
     </section>
@@ -1414,7 +1399,7 @@ export function ExtensionsSection({
   }, [anchor, anchorListed])
   return (
     <section aria-label={d.extensions.title}>
-      <SubHead title={d.extensions.title} desc={d.extensions.desc} />
+      <SubHead title={d.extensions.installed} desc={d.extensions.desc} />
       {list.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.extensions.none}</p>
       ) : (
@@ -1469,6 +1454,7 @@ export function ExtensionsSection({
                       {d.extensions.review}
                     </Button>
                   ) : null}
+                  <UninstallExtensionButton extId={ext.id} name={ext.name} />
                   <Switch
                     checked={ext.enabled}
                     onCheckedChange={(v) => void setEnabled(ext.id, v)}
@@ -1512,12 +1498,12 @@ function LanguageServersSection(): JSX.Element {
   }, [load])
   const statusLabel = (s: LspStatus): string =>
     s === 'running'
-      ? d.plugins.running
+      ? d.lspStatus.running
       : s === 'installed'
-        ? d.plugins.available
+        ? d.lspStatus.available
         : s === 'error'
-          ? d.plugins.error
-          : d.plugins.notInstalled
+          ? d.lspStatus.error
+          : d.lspStatus.notInstalled
   return (
     <section>
       <SectionHead title={d.settings.languageServers} />

@@ -335,7 +335,7 @@ describe('chat slash commands', () => {
     const box = await openPane()
     await userEvent.type(box, '/sk')
     expect(screen.getByRole('option', { name: /\/skill/ })).toHaveTextContent(
-      'No skill folders. Add one in Settings → Plugins → Assistant.',
+      'No skill folders. Add one in Settings → Extensions → Assistant.',
     )
   })
 

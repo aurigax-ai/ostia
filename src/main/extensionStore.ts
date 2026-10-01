@@ -68,4 +68,11 @@ export class ExtensionStore {
     this.records = { ...this.records, [id]: record }
     saveJson(this.path, this.records)
   }
+
+  delete(id: string): void {
+    if (!Object.hasOwn(this.records, id)) return
+    const { [id]: _removed, ...rest } = this.records
+    this.records = rest
+    saveJson(this.path, this.records)
+  }
 }

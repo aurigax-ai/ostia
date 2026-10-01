@@ -88,14 +88,14 @@ describe('AssistantSection', () => {
     useAssistStore.setState({ overview: [overview] })
   }
 
-  it('shows a short empty state that leads to Plugins while the plugin is off', async () => {
+  it('shows a short empty state that leads to Extensions while the extension is off', async () => {
     useExtensionsStore.setState({ list: [{ ...assistant, enabled: false }] })
     render(<AssistantSection />)
-    expect(screen.getByText('The Assistant plugin is off')).toBeInTheDocument()
+    expect(screen.getByText('The Assistant extension is off')).toBeInTheDocument()
     expect(screen.queryByRole('switch')).toBeNull()
     expect(screen.queryByText('Chat tools')).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: 'Open Plugins' }))
-    expect(useUIStore.getState().settingsSection).toBe('plugins')
+    await userEvent.click(screen.getByRole('button', { name: 'Open Extensions' }))
+    expect(useUIStore.getState().settingsSection).toBe('extensions')
     expect(useUIStore.getState().settingsExtension).toBe(assistant.id)
   })
 

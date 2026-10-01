@@ -62,7 +62,7 @@ describe('Extensions UI', () => {
     useWorkspacesStore.setState(workspacesInit, true)
   })
 
-  describe('Settings → Plugins → Extensions', () => {
+  describe('Settings → Extensions', () => {
     it('lists each extension with its status and granted permissions', () => {
       useExtensionsStore.setState({
         list: [ext({ status: 'running', granted: ['notify'] }), pending],
@@ -185,7 +185,9 @@ describe('Extensions UI', () => {
       const { container, rerender } = render(
         <ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />,
       )
-      expect(screen.getByText('Demo is disabled. Enable it in Settings → Plugins.')).toBeVisible()
+      expect(
+        screen.getByText('Demo is disabled. Enable it in Settings → Extensions.'),
+      ).toBeVisible()
       rerender(<ExtensionPanelView extId="gone" workspaceId="s1" paneId="p1" />)
       expect(screen.getByText('Extension “gone” is not installed.')).toBeVisible()
       expect(container.querySelector('webview')).toBeNull()
