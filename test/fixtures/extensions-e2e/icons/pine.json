@@ -2,7 +2,7 @@
   "id": "fixture-icons",
   "name": "Fixture Icons",
   "version": "1.0.0",
-  "api": "1.4",
+  "api": "1.5",
   "description": "A tiny VS Code-format file icon theme for tests.",
   "contributes": {
     "iconThemes": [
