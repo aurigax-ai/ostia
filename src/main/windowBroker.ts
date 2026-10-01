@@ -16,6 +16,7 @@ import type {
 import type { AgentRunningPanes } from './agentRunning'
 import { approvals } from './approvals'
 import { getByPaneId, panesOwnedBy, rehomePanes } from './idRegistry'
+import { questions } from './questions'
 import {
   Landings,
   MAIN_SLOT,
@@ -231,10 +232,9 @@ export class WindowBroker {
     }
     const paneIds = handoffPaneIds(workspace)
     const moved = rehomePanes(paneIds, windowId)
-    approvals()?.rehome(
-      moved.map((identity) => identity.externalId),
-      windowId,
-    )
+    const movedIds = moved.map((identity) => identity.externalId)
+    approvals()?.rehome(movedIds, windowId)
+    questions()?.rehome(movedIds, windowId)
     this.deps.holdPtys(paneIds)
   }
 

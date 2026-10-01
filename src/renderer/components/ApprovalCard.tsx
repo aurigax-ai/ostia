@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { ShieldWarningIcon } from '@phosphor-icons/react'
 import {
   ALWAYS_ASK,
@@ -6,6 +7,7 @@ import {
   type ApprovalRequest,
   answersFor,
 } from '@shared/approvals'
+import type { ReactNode } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { useApprovalsStore } from '../stores/approvalsStore'
@@ -29,12 +31,21 @@ function answerLabel(d: Dict, kind: ApprovalKind, answer: ApprovalAnswer): strin
   return kind === 'capability' ? d.approvals.allowSession : d.approvals.allowUntilRestart
 }
 
+const PLACEMENT_CLASS = {
+  pane: 'motion-enter absolute right-2 bottom-2 left-2 z-20 origin-bottom bg-surface-3 shadow-md',
+  list: 'dashboard-card bg-surface-1',
+} as const
+
 export function ApprovalCard({
   request,
   paneTitle,
+  placement = 'pane',
+  lead,
 }: {
   request: ApprovalRequest
   paneTitle: string
+  placement?: keyof typeof PLACEMENT_CLASS
+  lead?: ReactNode
 }): JSX.Element {
   const d = useDict()
   const answer = useApprovalsStore((s) => s.answer)
@@ -47,8 +58,13 @@ export function ApprovalCard({
   return (
     <section
       aria-label={d.approvals.title}
-      className="motion-enter absolute right-2 bottom-2 left-2 z-20 flex origin-bottom flex-col gap-2 rounded-md border border-line bg-surface-3 p-3 text-fg text-ui-sm shadow-md"
+      data-approval={request.id}
+      className={cn(
+        'flex flex-col gap-2 rounded-md border border-line p-3 text-fg text-ui-sm',
+        PLACEMENT_CLASS[placement],
+      )}
     >
+      {lead}
       <div className="flex items-center gap-2">
         <ShieldWarningIcon size={14} aria-hidden />
         <span className="font-medium">{d.approvals.title}</span>

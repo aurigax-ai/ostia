@@ -200,13 +200,13 @@ describe('DeckRail', () => {
     const setActive = vi
       .spyOn(useWorkspacesStore.getState(), 'setActive')
       .mockImplementation(() => {})
-    const leaveSettings = vi.spyOn(useUIStore.getState(), 'leaveSettings')
+    const showWorkspaces = vi.spyOn(useUIStore.getState(), 'showWorkspaces')
 
     render(<DeckRail />)
     await userEvent.setup().click(screen.getByRole('button', { name: /beta/ }))
 
     expect(setActive).toHaveBeenCalledWith('s2')
-    expect(leaveSettings).toHaveBeenCalled()
+    expect(showWorkspaces).toHaveBeenCalled()
   })
 
   it('closes the clicked workspace with its own id', async () => {

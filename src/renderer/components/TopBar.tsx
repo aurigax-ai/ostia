@@ -15,6 +15,7 @@ import { isMac } from '../platform'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { AssistantMenu } from './AssistantMenu'
+import { DashboardButton } from './DashboardButton'
 import { WorkspaceChips } from './ExtensionChips'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
@@ -31,11 +32,12 @@ export function TopBar(): JSX.Element {
   const toggleRail = useUIStore((s) => s.toggleRail)
   const openPalette = useUIStore((s) => s.openPalette)
   const openSettings = useUIStore((s) => s.openSettings)
-  const leaveSettings = useUIStore((s) => s.leaveSettings)
+  const showWorkspaces = useUIStore((s) => s.showWorkspaces)
   const filesOpen = useUIStore((s) => s.filesOpen)
   const toggleFiles = useUIStore((s) => s.toggleFiles)
   const paletteKeys = useChordLabel('palette.toggle', isMac)
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
+  const dashboardActive = useUIStore((s) => s.dashboardActive)
 
   return (
     <header className="topbar drag-region">
@@ -47,7 +49,7 @@ export function TopBar(): JSX.Element {
             label={d.rail.newWorkspace}
             className="rounded-r-none"
             onClick={() => {
-              leaveSettings()
+              showWorkspaces()
               startNewWorkspace()
             }}
           />
@@ -66,6 +68,7 @@ export function TopBar(): JSX.Element {
           aria-pressed={filesOpen}
           onClick={toggleFiles}
         />
+        <DashboardButton />
         <PanelToggles />
       </div>
 
@@ -85,7 +88,7 @@ export function TopBar(): JSX.Element {
       </div>
 
       <div className="topbar-right">
-        <WorkspaceChips workspaceId={activeWorkspaceId} />
+        <WorkspaceChips workspaceId={dashboardActive ? null : activeWorkspaceId} />
         <UpdateNotice />
         <IconButton
           size="bar"
@@ -101,9 +104,9 @@ export function TopBar(): JSX.Element {
 
 function NewWorkspaceMenu(): JSX.Element {
   const d = useDict()
-  const leaveSettings = useUIStore((s) => s.leaveSettings)
+  const showWorkspaces = useUIStore((s) => s.showWorkspaces)
   const scratch = (sandboxed: boolean): void => {
-    leaveSettings()
+    showWorkspaces()
     void startScratchWorkspace({ sandboxed })
   }
   return (
@@ -121,7 +124,7 @@ function NewWorkspaceMenu(): JSX.Element {
       <MenuItem
         icon={PlusIcon}
         onClick={() => {
-          leaveSettings()
+          showWorkspaces()
           startNewWorkspace()
         }}
       >

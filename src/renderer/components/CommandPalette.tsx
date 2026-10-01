@@ -337,7 +337,7 @@ function WorkspaceItems({
             key={w.id}
             value={`${symbol} ${name} ${w.workDir} ${w.id}`}
             onSelect={() => {
-              useUIStore.getState().leaveSettings()
+              useUIStore.getState().showWorkspaces()
               useWorkspacesStore.getState().setActive(w.id)
               onDone()
             }}

@@ -212,6 +212,12 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       revoke: vi.fn().mockResolvedValue(true),
       onChange: vi.fn(() => () => {}),
     },
+    questions: {
+      state: vi.fn().mockResolvedValue({ pending: [] }),
+      answer: vi.fn().mockResolvedValue(true),
+      dismiss: vi.fn().mockResolvedValue(true),
+      onChange: vi.fn(() => () => {}),
+    },
     marketplace: {
       list: vi.fn().mockResolvedValue({ marketplaces: [], installed: [] }),
       add: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),

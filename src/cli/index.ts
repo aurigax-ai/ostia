@@ -12,6 +12,7 @@ import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../
 import type { OpenFilesResult } from '../shared/openFiles'
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
+import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
@@ -375,6 +376,7 @@ const CORE_VERBS = new Set([
   'workspace.list',
   'workspace',
   'notify',
+  'ask',
   'state',
   'resume-token',
   'open',
@@ -1133,6 +1135,9 @@ const USAGE = `usage: pine <command> [args]
 commands:
   whoami | commands | info | cwd | pane.list | workspace.list | docs
   notify <title> [body]
+  ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <s>] [--json]
+                            ask the human and wait for the answer (exit 2 dismissed, 3 timed
+                            out, 4 pane closed)
   state <waiting|done|working|error|clear> [message|-] [--pane <externalId>]
   workspace describe <text|-> | --clear   one-line summary under this workspace in the sidebar
   workspace list [--json]   every workspace with its sidebar group (--json adds the groups)
@@ -1252,6 +1257,8 @@ async function main(): Promise<void> {
         console.error(`pine notify: ${res.error ?? 'failed'}`)
         process.exitCode = 1
       }
+    } else if (cmd === 'ask') {
+      process.exitCode = await runAskVerb(conn, process.argv.slice(3), readAllStdin)
     } else if (cmd === 'state') {
       await runStateVerb(conn)
     } else if (cmd === 'workspace') {
@@ -1309,7 +1316,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, workspace.list, notify, state, open, docs, process, pane, vault, bus, settings, browse, gateway, ext)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, workspace.list, notify, ask, state, open, docs, process, pane, vault, bus, settings, browse, gateway, ext)`,
       )
       process.exitCode = 1
     }

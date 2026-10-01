@@ -31,6 +31,7 @@ import type { MarketplaceApi } from './marketplace'
 import type { OpenFileVerdict } from './openFiles'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
+import type { QuestionReply, QuestionState } from './questions'
 import type { ReleaseCheckResult, ReleaseInfo } from './releases'
 import type {
   PortsPolicy,
@@ -643,6 +644,13 @@ export interface ApprovalsApi {
   onChange: (cb: (state: ApprovalState) => void) => () => void
 }
 
+export interface QuestionsApi {
+  state: () => Promise<QuestionState>
+  answer: (id: string, reply: QuestionReply) => Promise<boolean>
+  dismiss: (id: string) => Promise<boolean>
+  onChange: (cb: (state: QuestionState) => void) => () => void
+}
+
 export interface GatewayStatus {
   running: boolean
   host: string | null
@@ -757,6 +765,7 @@ export interface PineBridge {
   browser: BrowserApi
   selection: SelectionApi
   approvals: ApprovalsApi
+  questions: QuestionsApi
   credentials: CredentialsApi
   sandbox: SandboxApi
   secrets: SecretsApi

@@ -215,7 +215,7 @@ function FeatureRow({
             size="sm"
             aria-label={fmt(d.assistantSettings.tryLabel, { feature: name })}
             onClick={() => {
-              useUIStore.getState().leaveSettings()
+              useUIStore.getState().showWorkspaces()
               openAssistUi({ extId, ui })
             }}
           >
