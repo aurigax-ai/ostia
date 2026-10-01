@@ -193,6 +193,25 @@ describe('DashboardPanel', () => {
     expect(within(first).getAllByRole('radio')[0]).toHaveFocus()
   })
 
+  it('focuses the first question even when an older permission request is listed above it', () => {
+    seed()
+    useApprovalsStore.setState({ pending: [{ ...APPROVAL, at: 1 }] })
+    useQuestionsStore.setState({ pending: [question('q1', 'p-web', 'Ship the storefront?', 30)] })
+    render(<DashboardPanel />)
+    open()
+    const card = screen.getByRole('article', { name: 'Question from zsh' })
+    expect(within(card).getAllByRole('radio')[0]).toHaveFocus()
+  })
+
+  it('focuses a permission request when it is all that waits', () => {
+    seed()
+    useApprovalsStore.setState({ pending: [APPROVAL] })
+    render(<DashboardPanel />)
+    open()
+    const card = screen.getByRole('region', { name: 'Agent permission request' })
+    expect(card).toContainElement(document.activeElement as HTMLElement)
+  })
+
   it('focuses the question the human asked for from its pane', () => {
     seed()
     useQuestionsStore.setState({
