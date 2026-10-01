@@ -16,6 +16,7 @@ import type {
 import { approvals } from './approvals'
 import { getByPaneId, panesOwnedBy, rehomePanes } from './idRegistry'
 import {
+  Landings,
   MAIN_SLOT,
   WindowBook,
   boundsAt,
@@ -30,6 +31,7 @@ import {
   handoffPaneIds,
   loadSnapshot,
   parseHandoff,
+  parsePaneDrop,
   parseSnapshot,
   saveSnapshot,
 } from './workspaceSnapshot'
@@ -56,6 +58,7 @@ const STATES: ReadonlySet<string> = new Set<WorkspaceLiveState>([
 ])
 const WORKSPACE_DIR = /^(~|\/)/
 const PANES_MAX = 64
+const LANDING_WAIT_MS = 500
 
 function parsePanes(raw: unknown): WindowPaneSummary[] {
   if (!Array.isArray(raw)) return []
@@ -108,6 +111,8 @@ export class WindowBroker {
   private readonly reports = new Map<string, WindowWorkspaceSummary[]>()
   private readonly returning = new WeakSet<BrowserWindow>()
   private readonly closing = new WeakSet<BrowserWindow>()
+  private readonly landings = new Landings()
+  private readonly landingWaiters = new Map<string, () => void>()
   private persistEnabled = true
   private boundsTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -326,6 +331,63 @@ export class WindowBroker {
     return this.returnWorkspaces(source, slot, parsed, quiet)
   }
 
+  private recordDrop(target: BrowserWindow, raw: unknown): void {
+    const drop = parsePaneDrop(raw)
+    if (!drop) return
+    const targetId = windowIdOf(target)
+    const owner = getByPaneId(drop.paneId)?.windowId
+    if (!owner || owner === targetId || !this.windows.has(owner)) return
+    if (this.windowOfWorkspace(drop.workspaceId) !== targetId) return
+    if (getByPaneId(drop.placement.paneId)?.windowId !== targetId) return
+    this.landings.record(
+      drop.paneId,
+      { windowId: targetId, workspaceId: drop.workspaceId, placement: drop.placement },
+      Date.now(),
+    )
+    this.landingWaiters.get(drop.paneId)?.()
+  }
+
+  private async claimLanding(source: BrowserWindow, paneId: unknown): Promise<boolean> {
+    if (typeof paneId !== 'string') return false
+    if (getByPaneId(paneId)?.windowId !== windowIdOf(source)) return false
+    if (!this.landings.pending(paneId, Date.now())) {
+      await new Promise<void>((resolve) => {
+        const done = (): void => {
+          clearTimeout(timer)
+          this.landingWaiters.delete(paneId)
+          resolve()
+        }
+        const timer = setTimeout(done, LANDING_WAIT_MS)
+        this.landingWaiters.set(paneId, done)
+      })
+    }
+    return this.landings.claim(paneId, Date.now())
+  }
+
+  private give(source: BrowserWindow, raw: unknown): boolean {
+    const sourceId = windowIdOf(source)
+    const sourceSlot = this.slots.get(sourceId)
+    const workspace = parseHandoff(raw)
+    if (!sourceSlot || !workspace || !this.ownsWorkspace(workspace, sourceId)) return false
+    const paneIds = handoffPaneIds(workspace)
+    const landing = paneIds.length === 1 ? this.landings.take(paneIds[0], Date.now()) : null
+    if (!landing) return false
+    const target = this.windows.get(landing.windowId)
+    const targetSlot = this.slots.get(landing.windowId)
+    if (!target || target.isDestroyed() || !targetSlot) return false
+    if (this.leavesSandbox(workspace, landing.workspaceId)) return false
+    const placed: SnapshotWorkspace = {
+      ...workspace,
+      origin: { workspaceId: landing.workspaceId, index: 0, beside: landing.placement },
+    }
+    this.moveOwnership(placed, landing.windowId)
+    this.book.move(withoutOrigin(placed), sourceSlot, targetSlot)
+    this.persist()
+    target.webContents.send('windows:adopt', [placed])
+    this.deps.reveal(target)
+    return true
+  }
+
   private list(): WindowSummary[] {
     return this.windowIds().map((windowId) => ({
       windowId,
@@ -403,6 +465,21 @@ export class WindowBroker {
     ipcMain.handle('windows:detach', (e, raw: unknown, point: unknown) => {
       const source = senderWindow(e)
       return source ? this.detach(source, raw, point) : false
+    })
+
+    ipcMain.on('windows:drop-pane', (e, raw: unknown) => {
+      const target = senderWindow(e)
+      if (target) this.recordDrop(target, raw)
+    })
+
+    ipcMain.handle('windows:landing', (e, paneId: unknown) => {
+      const source = senderWindow(e)
+      return source ? this.claimLanding(source, paneId) : false
+    })
+
+    ipcMain.handle('windows:give', (e, raw: unknown) => {
+      const source = senderWindow(e)
+      return source ? this.give(source, raw) : false
     })
 
     ipcMain.handle('windows:return', (e, raw: unknown) => {

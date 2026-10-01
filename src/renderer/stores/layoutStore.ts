@@ -17,6 +17,7 @@ import {
   firstPaneOfKind,
   graftNode,
   movePane,
+  moveTab,
   paneIds,
   selectTab,
   setPaneBrowser,
@@ -61,6 +62,7 @@ interface LayoutState {
   resize: (workspaceId: string, splitId: string, sizes: number[]) => void
   zoomPane: (workspaceId: string, paneId: string, zoom?: boolean) => void
   movePane: (workspaceId: string, sourceId: string, targetId: string, zone: DropZone) => void
+  moveTab: (workspaceId: string, sourceId: string, targetId: string, after: boolean) => void
   setCwd: (workspaceId: string, paneId: string, cwd: string) => void
   setUrl: (workspaceId: string, paneId: string, url: string) => void
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
@@ -315,6 +317,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         patch(s, workspaceId, (l) => ({
           ...l,
           root: movePane(l.root, sourceId, targetId, zone),
+          activePaneId: sourceId,
+        })) ?? s,
+    ),
+
+  moveTab: (workspaceId, sourceId, targetId, after) =>
+    set(
+      (s) =>
+        patch(s, workspaceId, (l) => ({
+          ...l,
+          root: moveTab(l.root, sourceId, targetId, after),
           activePaneId: sourceId,
         })) ?? s,
     ),

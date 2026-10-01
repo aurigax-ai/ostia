@@ -1,4 +1,10 @@
-import type { AppSnapshot, ScreenPoint, SnapshotWorkspace, WindowBounds } from '../shared/types'
+import type {
+  AppSnapshot,
+  PanePlacement,
+  ScreenPoint,
+  SnapshotWorkspace,
+  WindowBounds,
+} from '../shared/types'
 
 export const MAIN_SLOT = 'main'
 
@@ -182,6 +188,57 @@ export function planReturn(
         ...(origin.groupId ? { groupId: origin.groupId } : {}),
       },
     },
+  }
+}
+
+export const LANDING_CLAIM_MS = 3000
+export const LANDING_GIVE_MS = 60_000
+
+export interface Landing {
+  windowId: string
+  workspaceId: string
+  placement: PanePlacement
+}
+
+interface LandingEntry extends Landing {
+  at: number
+  claimedAt?: number
+}
+
+export class Landings {
+  private readonly entries = new Map<string, LandingEntry>()
+
+  record(paneId: string, landing: Landing, now: number): void {
+    this.entries.set(paneId, { ...landing, at: now })
+  }
+
+  private live(paneId: string, now: number): LandingEntry | null {
+    const entry = this.entries.get(paneId)
+    if (!entry) return null
+    const expired = entry.claimedAt
+      ? now - entry.claimedAt > LANDING_GIVE_MS
+      : now - entry.at > LANDING_CLAIM_MS
+    if (expired) this.entries.delete(paneId)
+    return expired ? null : entry
+  }
+
+  pending(paneId: string, now: number): boolean {
+    const entry = this.live(paneId, now)
+    return entry !== null && entry.claimedAt === undefined
+  }
+
+  claim(paneId: string, now: number): boolean {
+    const entry = this.live(paneId, now)
+    if (!entry || entry.claimedAt !== undefined) return false
+    entry.claimedAt = now
+    return true
+  }
+
+  take(paneId: string, now: number): Landing | null {
+    const entry = this.live(paneId, now)
+    if (!entry || entry.claimedAt === undefined) return null
+    this.entries.delete(paneId)
+    return { windowId: entry.windowId, workspaceId: entry.workspaceId, placement: entry.placement }
   }
 }
 

@@ -1772,9 +1772,30 @@ button.prompt-chip:focus-visible {
   width: 100%;
 }
 
+.pane-drop-layer {
+  position: absolute;
+  top: var(--tabstrip-h);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+}
+
+.pane-header.drop-tab {
+  box-shadow: inset 0 -2px 0 var(--brand);
+}
+
+.pane-tab.drop-before {
+  box-shadow: inset 2px 0 0 var(--brand);
+}
+
+.pane-tab.drop-after {
+  box-shadow: inset -2px 0 0 var(--brand);
+}
+
 .pane-drop {
   position: absolute;
-  z-index: 6;
+  z-index: 31;
   pointer-events: none;
   background: var(--brand-glow);
   box-shadow: inset 0 0 0 1px var(--brand);

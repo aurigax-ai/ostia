@@ -36,6 +36,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, paneIds } from '../layout/tree'
 import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '../lib/attention'
 import { requestCloseOthers, requestCloseWorkspace } from '../lib/closeConfirm'
+import { beginDrag, endWorkspaceDrag } from '../lib/paneDrag'
 import { openSidebarUrl, visibleSidebarItems } from '../lib/sidebarItems'
 import { moveWorkspaceToNewWindow } from '../lib/windowHandoff'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
@@ -581,6 +582,7 @@ function WorkspaceRow({
           e.stopPropagation()
           e.dataTransfer.setData(WORKSPACE_DND, w.id)
           e.dataTransfer.effectAllowed = 'move'
+          beginDrag(e)
           drag.start({ kind: 'workspace', id: w.id })
         }}
         onDragOver={(e) => {
@@ -595,7 +597,10 @@ function WorkspaceRow({
           e.stopPropagation()
           drag.drop()
         }}
-        onDragEnd={drag.end}
+        onDragEnd={(e) => {
+          drag.end()
+          endWorkspaceDrag(w.id, e)
+        }}
       >
         <TabRow
           active={active}

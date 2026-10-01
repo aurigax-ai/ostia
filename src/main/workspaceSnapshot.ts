@@ -3,6 +3,7 @@ import { parseAgentResume } from '../shared/agentResume'
 import { isDangerousSegment } from '../shared/protoGuard'
 import type {
   AppSnapshot,
+  PaneDrop,
   PanePlacement,
   PanePlacementZone,
   SnapshotGroup,
@@ -179,6 +180,12 @@ export function parsePlacement(raw: unknown): PanePlacement | null {
   if (!isRecord(raw) || !isId(raw.paneId)) return null
   if (typeof raw.zone !== 'string' || !PLACEMENT_ZONES.has(raw.zone)) return null
   return { paneId: raw.paneId, zone: raw.zone as PanePlacementZone }
+}
+
+export function parsePaneDrop(raw: unknown): PaneDrop | null {
+  if (!isRecord(raw) || !isId(raw.paneId) || !isId(raw.workspaceId)) return null
+  const placement = parsePlacement(raw.placement)
+  return placement ? { paneId: raw.paneId, workspaceId: raw.workspaceId, placement } : null
 }
 
 export function parseOrigin(raw: unknown): WorkspaceOrigin | null {

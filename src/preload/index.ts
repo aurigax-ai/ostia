@@ -218,6 +218,9 @@ const bridge: PineBridge = {
     info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,
     detach: (workspace, at) =>
       ipcRenderer.invoke('windows:detach', workspace, at) as Promise<boolean>,
+    dropPane: (drop) => ipcRenderer.send('windows:drop-pane', drop),
+    landing: (paneId) => ipcRenderer.invoke('windows:landing', paneId) as Promise<boolean>,
+    give: (workspace) => ipcRenderer.invoke('windows:give', workspace) as Promise<boolean>,
     returnToMain: (workspaces) =>
       ipcRenderer.invoke('windows:return', workspaces) as Promise<boolean>,
     report: (workspaces) => ipcRenderer.send('windows:report', workspaces),

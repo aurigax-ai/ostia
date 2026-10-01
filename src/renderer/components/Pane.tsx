@@ -19,12 +19,13 @@ import { resumeCommand } from '@shared/agentResume'
 import { type DragEvent, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
-import type { DropZone } from '../layout/tree'
-import type { PaneNode, SurfaceKind } from '../layout/types'
+import type { DropZone, PaneNode, SurfaceKind } from '../layout/types'
 import { needsRing } from '../lib/attention'
 import { isIdlePrompt } from '../lib/blocks'
 import { useChordLabel } from '../lib/chords'
+import { type TabDrop, dropZoneAt, paneDropTarget, tabDropTarget } from '../lib/dropZone'
 import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '../lib/hoverFocus'
+import { PANE_DND, beginPaneDrag, endPaneDrag, isPaneDrag } from '../lib/paneDrag'
 import { isMac } from '../platform'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -66,26 +67,6 @@ const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
   manager: BroadcastIcon,
 }
 
-const PANE_DND = 'application/x-pine-pane'
-
-function zoneFromEvent(e: DragEvent<HTMLElement>): DropZone {
-  const r = e.currentTarget.getBoundingClientRect()
-  const fx = (e.clientX - r.left) / r.width
-  const fy = (e.clientY - r.top) / r.height
-  const dist: Record<DropZone, number> = {
-    left: fx,
-    right: 1 - fx,
-    top: fy,
-    bottom: 1 - fy,
-    center: 1,
-  }
-  let side: DropZone = 'left'
-  for (const z of ['right', 'top', 'bottom'] as const) {
-    if (dist[z] < dist[side]) side = z
-  }
-  return dist[side] < 0.25 ? side : 'center'
-}
-
 function hasSurface(kind: SurfaceKind): boolean {
   return kind !== 'agent'
 }
@@ -93,9 +74,9 @@ function hasSurface(kind: SurfaceKind): boolean {
 export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.Element {
   const d = useDict()
   const shown = tabs.find((t) => t.id === shownId) ?? tabs[0]
+  const dragging = usePaneDnd((s) => s.dragging)
   const over = usePaneDnd((s) => (s.overId === shown.id ? s.zone : null))
-  const setOver = usePaneDnd((s) => s.setOver)
-  const reset = usePaneDnd((s) => s.reset)
+  const tabDrop = usePaneDnd((s) => (s.overId === shown.id ? s.tab : null))
   const attention = useAttentionStore((s) => s.byPane[shown.id])
   const approval = useApprovalsStore((s) => s.pending.find((r) => r.paneId === shown.id))
   const ring = needsRing(attention)
@@ -146,21 +127,100 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
     }
   }, [active, shown.id])
 
-  const onDragOver = (e: DragEvent<HTMLDivElement>): void => {
-    if (!e.dataTransfer.types.includes(PANE_DND)) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    setOver(shown.id, zoneFromEvent(e))
+  const tabIds = tabs.map((t) => t.id)
+  const slot = { tabIds, shownId: shown.id }
+
+  const zoneAt = (e: DragEvent<HTMLElement>) => {
+    const rect = frameRef.current?.getBoundingClientRect()
+    return rect ? dropZoneAt(rect, e.clientX, e.clientY) : 'center'
   }
 
-  const onDrop = (e: DragEvent<HTMLDivElement>): void => {
-    if (!e.dataTransfer.types.includes(PANE_DND)) return
+  const dropPaneHere = (sourceId: string, targetId: string, zone: DropZone): void => {
+    const dnd = usePaneDnd.getState()
+    dnd.dropped()
+    if (dnd.sourceId === sourceId) {
+      void commands.exec('pane.move', { sourceId, targetId, zone })
+      return
+    }
+    const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+    if (workspaceId) {
+      window.pine.windows.dropPane({
+        paneId: sourceId,
+        workspaceId,
+        placement: { paneId: targetId, zone },
+      })
+    }
+  }
+
+  const onLayerDragOver = (e: DragEvent<HTMLDivElement>): void => {
+    if (!isPaneDrag([...e.dataTransfer.types])) return
+    e.preventDefault()
+    const zone = zoneAt(e)
+    if (!paneDropTarget(slot, usePaneDnd.getState().sourceId, zone)) {
+      e.dataTransfer.dropEffect = 'none'
+      usePaneDnd.getState().leave(shown.id)
+      return
+    }
+    e.dataTransfer.dropEffect = 'move'
+    usePaneDnd.getState().setOver(shown.id, zone)
+  }
+
+  const onLayerDrop = (e: DragEvent<HTMLDivElement>): void => {
+    if (!isPaneDrag([...e.dataTransfer.types])) return
     e.preventDefault()
     const sourceId = e.dataTransfer.getData(PANE_DND)
-    const zone = zoneFromEvent(e)
-    reset()
-    if (sourceId && sourceId !== shown.id) {
-      commands.exec('pane.move', { sourceId, targetId: shown.id, zone })
+    const zone = zoneAt(e)
+    const target = sourceId ? paneDropTarget(slot, sourceId, zone) : null
+    if (!target) {
+      usePaneDnd.getState().dropped()
+      return
+    }
+    dropPaneHere(sourceId, target.targetId, target.zone)
+  }
+
+  const hoveredTab = (e: DragEvent<HTMLElement>): TabDrop | null => {
+    const tab = (e.target as HTMLElement).closest<HTMLElement>('[data-tab-id]')
+    const targetId = tab?.dataset.tabId
+    if (!tab || !targetId) return null
+    const rect = tab.getBoundingClientRect()
+    return { targetId, after: e.clientX > rect.left + rect.width / 2 }
+  }
+
+  const onHeaderDragOver = (e: DragEvent<HTMLDivElement>): void => {
+    if (!isPaneDrag([...e.dataTransfer.types])) return
+    const target = tabDropTarget(tabIds, usePaneDnd.getState().sourceId, hoveredTab(e))
+    if (!target) {
+      usePaneDnd.getState().leave(shown.id)
+      return
+    }
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    usePaneDnd.getState().setOver(shown.id, 'center', target)
+  }
+
+  const onHeaderDrop = (e: DragEvent<HTMLDivElement>): void => {
+    if (!isPaneDrag([...e.dataTransfer.types])) return
+    e.preventDefault()
+    const sourceId = e.dataTransfer.getData(PANE_DND)
+    const local = usePaneDnd.getState().sourceId === sourceId
+    const target = sourceId ? tabDropTarget(tabIds, local ? sourceId : null, hoveredTab(e)) : null
+    usePaneDnd.getState().dropped()
+    if (!target) return
+    if (local) {
+      void commands.exec('pane.moveTab', {
+        sourceId,
+        targetId: target.targetId,
+        after: target.after,
+      })
+      return
+    }
+    const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+    if (workspaceId) {
+      window.pine.windows.dropPane({
+        paneId: sourceId,
+        workspaceId,
+        placement: { paneId: target.targetId, zone: 'center' },
+      })
     }
   }
 
@@ -169,17 +229,20 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
       className={`pane${active ? ' active' : ''}${split && !active && dimInactive ? ' dimmed' : ''}${ring ? ' attn-ring' : ''}`}
       data-attention={unread ? attention?.state : undefined}
       ref={frameRef}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
     >
-      <div className="pane-header">
+      <div
+        className={cn('pane-header', over === 'center' && 'drop-tab')}
+        onDragOver={onHeaderDragOver}
+        onDragLeave={() => usePaneDnd.getState().leave(shown.id)}
+        onDrop={onHeaderDrop}
+      >
         <div className="pane-tabs" role="tablist" aria-label={d.pane.tabs}>
           {tabs.map((tab) => (
             <PaneTab
               key={tab.id}
               pane={tab}
               selected={tab.id === shown.id}
-              onDragEnd={reset}
+              dropMark={tabDrop?.targetId === tab.id ? (tabDrop.after ? 'after' : 'before') : null}
               showClose={!hideTabClose}
             />
           ))}
@@ -233,7 +296,15 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
           <span key={attention?.at} className="pane-attn-pulse" />
         </span>
       ) : null}
-      {over ? <span className={`pane-drop pane-drop-${over}`} /> : null}
+      {dragging ? (
+        <div
+          className="pane-drop-layer"
+          onDragOver={onLayerDragOver}
+          onDragLeave={() => usePaneDnd.getState().leave(shown.id)}
+          onDrop={onLayerDrop}
+        />
+      ) : null}
+      {over && !tabDrop ? <span className={`pane-drop pane-drop-${over}`} /> : null}
     </div>
   )
 }
@@ -257,12 +328,12 @@ function ResumeButton({ pane }: { pane: PaneNode }): JSX.Element | null {
 function PaneTab({
   pane,
   selected,
-  onDragEnd,
+  dropMark,
   showClose,
 }: {
   pane: PaneNode
   selected: boolean
-  onDragEnd: () => void
+  dropMark: 'before' | 'after' | null
   showClose: boolean
 }): JSX.Element {
   const d = useDict()
@@ -299,14 +370,16 @@ function PaneTab({
 
   const tab = (
     <div
-      className={`pane-tab${selected ? ' selected' : ''}`}
+      className={cn('pane-tab', selected && 'selected', dropMark && `drop-${dropMark}`)}
       data-attention={unread ? attention?.state : undefined}
+      data-tab-id={pane.id}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData(PANE_DND, pane.id)
         e.dataTransfer.effectAllowed = 'move'
+        beginPaneDrag(pane.id, e)
       }}
-      onDragEnd={onDragEnd}
+      onDragEnd={(e) => endPaneDrag(workspaceId, pane.id, e)}
       onMouseDown={(e) => {
         if (e.button === 1) e.preventDefault()
       }}

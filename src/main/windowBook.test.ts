@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { AppSnapshot, SnapshotWorkspace } from '../shared/types'
 import {
+  LANDING_CLAIM_MS,
+  LANDING_GIVE_MS,
+  Landings,
   MAIN_SLOT,
   WindowBook,
   boundsAt,
@@ -11,7 +14,7 @@ import {
   planReturn,
   splitSnapshot,
 } from './windowBook'
-import { handoffPaneIds, parseHandoff, parseSnapshot } from './workspaceSnapshot'
+import { handoffPaneIds, parseHandoff, parsePaneDrop, parseSnapshot } from './workspaceSnapshot'
 
 function workspace(
   id: string,
@@ -385,5 +388,52 @@ describe('boundsAt', () => {
     expect(parsePoint({ x: Number.NaN, y: 1 })).toBeNull()
     expect(parsePoint({ x: 1 })).toBeNull()
     expect(parsePoint(null)).toBeNull()
+  })
+})
+
+describe('parsePaneDrop', () => {
+  it('accepts a drop on a pane with a known zone only', () => {
+    const drop = { paneId: 'p1', workspaceId: 'w1', placement: { paneId: 'p2', zone: 'right' } }
+    expect(parsePaneDrop(drop)).toEqual(drop)
+    expect(parsePaneDrop({ ...drop, placement: { paneId: 'p2', zone: 'diagonal' } })).toBeNull()
+    expect(parsePaneDrop({ ...drop, paneId: '' })).toBeNull()
+    expect(parsePaneDrop('p1')).toBeNull()
+  })
+})
+
+describe('Landings', () => {
+  const landing = {
+    windowId: '2',
+    workspaceId: 'w1',
+    placement: { paneId: 'p2', zone: 'center' as const },
+  }
+
+  it('hands a drop to the source once: claim, then take', () => {
+    const landings = new Landings()
+    landings.record('p1', landing, 0)
+    expect(landings.pending('p1', 10)).toBe(true)
+    expect(landings.claim('p1', 10)).toBe(true)
+    expect(landings.claim('p1', 20)).toBe(false)
+    expect(landings.take('p1', 30)).toEqual(landing)
+    expect(landings.take('p1', 40)).toBeNull()
+  })
+
+  it('never gives a pane that was not claimed first', () => {
+    const landings = new Landings()
+    landings.record('p1', landing, 0)
+    expect(landings.take('p1', 10)).toBeNull()
+  })
+
+  it('forgets a drop nobody claimed soon after, so a later cancelled drag never moves the pane', () => {
+    const landings = new Landings()
+    landings.record('p1', landing, 0)
+    expect(landings.claim('p1', LANDING_CLAIM_MS + 1)).toBe(false)
+  })
+
+  it('lets the human answer the unsaved-files dialog before the claim runs out', () => {
+    const landings = new Landings()
+    landings.record('p1', landing, 0)
+    landings.claim('p1', 100)
+    expect(landings.take('p1', 100 + LANDING_GIVE_MS + 1)).toBeNull()
   })
 })
