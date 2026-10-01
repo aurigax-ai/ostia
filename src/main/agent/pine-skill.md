@@ -126,6 +126,13 @@ pine process restart <id|name>     # Ctrl+C, then the same line again in the sam
   interactive shell (zsh or bash), so the human's aliases and functions apply. Quote it once
   for your own shell: `pine process run "claude 'fix the login bug'" --name fixer`.
   It starts in your current folder unless you pass `--cwd`.
+- To hand work to another agent, `pine agent run claude "fix the login bug" --name fixer`
+  (or `codex`, or an agent name the human configured) does the quoting for you: the prompt is
+  passed as one argument, and `-` reads it from stdin for a long one. The agent opens in its own
+  tab where the human can watch it; it is tracked like any other process, so `pine process logs
+  fixer` shows what it printed, and `pine pane send <paneId> "..." --enter` and
+  `pine pane read <paneId>` let you answer it. An unknown name answers `unknown-agent`: start
+  that one with `pine process run` instead.
 - Status is `starting` (not typed yet), `running`, `exited(<code>)`, or `closed` (the human
   closed the tab; start it again with `pine process run`). Nothing survives a restart of
   Pine: a restored tab is an idle shell and the list is empty.

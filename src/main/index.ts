@@ -2215,6 +2215,7 @@ app.whenReady().then(() => {
       return true
     },
     cwdOfPane: (paneId) => terminalState.get(paneId)?.cwd,
+    agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   processes = registry

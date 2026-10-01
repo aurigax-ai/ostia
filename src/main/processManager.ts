@@ -1,5 +1,7 @@
 import { isAbsolute } from 'node:path'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
+import { MANAGER_AGENT_NAME } from '../shared/managerSettings'
+import { quoteArgv } from '../shared/shellQuote'
 import { connHasCap } from './controlAuth'
 import {
   type ControlMethodContext,
@@ -284,10 +286,21 @@ export interface ProcessDeps {
   hasShell: (paneId: string) => boolean
   runInPane: (paneId: string, command: string) => boolean
   cwdOfPane: (paneId: string) => string | undefined
+  agentArgv: (name: string) => string[] | null
   interruptGraceMs: number
 }
 
 const NOT_FOUND = { ok: false as const, error: 'not-found' as const }
+const NOT_OPENED = {
+  ok: false as const,
+  error: 'not-opened' as const,
+  message: 'Pine could not open a terminal tab',
+}
+const UNKNOWN_AGENT = {
+  ok: false as const,
+  error: 'unknown-agent' as const,
+  message: 'Pine knows no agent by that name; start it with pine process run instead',
+}
 const CLOSED = {
   ok: false as const,
   error: 'closed' as const,
@@ -316,6 +329,16 @@ function commandOf(raw: unknown): string {
   if (raw.length > PROCESS_COMMAND_MAX) throw badRequest('cmd is too long')
   if (hasControlCharacters(raw, '\n\t')) throw badRequest('cmd has control characters')
   return raw
+}
+
+function agentOf(raw: unknown): string {
+  if (typeof raw !== 'string' || !MANAGER_AGENT_NAME.test(raw)) throw badRequest('agent')
+  return raw
+}
+
+function promptOf(raw: unknown): string {
+  if (typeof raw !== 'string' || !raw.trim()) throw badRequest('prompt')
+  return raw.trim()
 }
 
 function nameOf(raw: unknown): string | undefined {
@@ -367,37 +390,55 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     registry.shellEnded(entry.paneId, ring ?? (() => ({ data: '', cursor: 0, dropped: false })))
   }
 
+  const runInTab = async (
+    ctx: ControlMethodContext,
+    cmd: string,
+    name: string,
+    givenCwd: string | undefined,
+  ): Promise<{ id: string; name: string; paneId: string } | typeof NOT_OPENED> => {
+    const cwd = givenCwd ?? deps.cwdOfPane(ctx.identity.paneId)
+    const opened = await deps.openTab({
+      command: cmd,
+      workspaceId: ctx.identity.workspaceId,
+      windowId: ctx.identity.windowId,
+      afterPaneId: ctx.identity.paneId,
+      backgroundTab: true,
+      pinTitle: true,
+      title: name,
+      ...(cwd ? { cwd } : {}),
+    })
+    const pane = opened ? resolveExternal(opened) : undefined
+    if (pane?.kind !== 'pane') return NOT_OPENED
+    const entry = registry.add({
+      name,
+      cmd,
+      cwd,
+      workspaceId: ctx.identity.workspaceId,
+      ownerPaneId: ctx.identity.paneId,
+      paneId: pane.paneId,
+      externalPaneId: pane.externalId,
+    })
+    return { id: entry.id, name: entry.name, paneId: entry.externalPaneId }
+  }
+
   registerControlMethod('process.run', {
     cap: 'process',
-    handler: async (raw, ctx) => {
+    handler: (raw, ctx) => {
       const p = record(raw)
       const cmd = commandOf(p.cmd)
-      const name = nameOf(p.name) ?? defaultName(cmd)
-      const cwd = cwdOf(p.cwd) ?? deps.cwdOfPane(ctx.identity.paneId)
-      const opened = await deps.openTab({
-        command: cmd,
-        workspaceId: ctx.identity.workspaceId,
-        windowId: ctx.identity.windowId,
-        afterPaneId: ctx.identity.paneId,
-        backgroundTab: true,
-        pinTitle: true,
-        title: name,
-        ...(cwd ? { cwd } : {}),
-      })
-      const pane = opened ? resolveExternal(opened) : undefined
-      if (pane?.kind !== 'pane') {
-        return { ok: false, error: 'not-opened', message: 'Pine could not open a terminal tab' }
-      }
-      const entry = registry.add({
-        name,
-        cmd,
-        cwd,
-        workspaceId: ctx.identity.workspaceId,
-        ownerPaneId: ctx.identity.paneId,
-        paneId: pane.paneId,
-        externalPaneId: pane.externalId,
-      })
-      return { id: entry.id, name: entry.name, paneId: entry.externalPaneId }
+      return runInTab(ctx, cmd, nameOf(p.name) ?? defaultName(cmd), cwdOf(p.cwd))
+    },
+  })
+
+  registerControlMethod('agent.run', {
+    cap: 'process',
+    handler: (raw, ctx) => {
+      const p = record(raw)
+      const agent = agentOf(p.agent)
+      const argv = deps.agentArgv(agent)
+      if (!argv) return UNKNOWN_AGENT
+      const cmd = commandOf(quoteArgv([...argv, promptOf(p.prompt)]))
+      return runInTab(ctx, cmd, nameOf(p.name) ?? agent, cwdOf(p.cwd))
     },
   })
 
