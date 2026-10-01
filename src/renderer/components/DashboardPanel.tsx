@@ -43,12 +43,14 @@ function workspaceStateLabel(d: Dict, state: WorkspaceState): string {
 }
 
 function focusCard(root: HTMLElement | null, selector: string): boolean {
-  const card = root?.querySelector<HTMLElement>(selector)
-  const control = card?.querySelector<HTMLElement>(FIRST_CONTROL)
-  if (!card || !control) return false
-  card.scrollIntoView({ block: 'nearest' })
-  control.focus()
-  return true
+  for (const card of root?.querySelectorAll<HTMLElement>(selector) ?? []) {
+    const control = card.querySelector<HTMLElement>(FIRST_CONTROL)
+    if (!control) continue
+    card.scrollIntoView({ block: 'nearest' })
+    control.focus()
+    return true
+  }
+  return false
 }
 
 export function DashboardPanel(): JSX.Element | null {
@@ -71,8 +73,9 @@ export function DashboardPanel(): JSX.Element | null {
   useEffect(() => {
     if (!open) return
     const previous = document.activeElement as HTMLElement | null
-    if (!focusCard(rootRef.current, '.dashboard-card')) {
-      rootRef.current?.querySelector<HTMLElement>('[data-dashboard-close]')?.focus()
+    const root = rootRef.current
+    if (!focusCard(root, '[data-question]') && !focusCard(root, '.dashboard-card')) {
+      root?.querySelector<HTMLElement>('[data-dashboard-close]')?.focus()
     }
     return () => previous?.focus?.()
   }, [open])

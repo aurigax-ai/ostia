@@ -47,10 +47,15 @@ export const useQuestionsStore = create<QuestionsState>((set, get) => ({
   setDraft: (id, draft) => set((s) => ({ drafts: { ...s.drafts, [id]: draft } })),
   answer: async (id, reply) => {
     const request = get().pending.find((q) => q.id === id)
+    if (request) set((s) => ({ sent: [...s.sent, request] }))
+    const forgetSent = (): void => set((s) => ({ sent: s.sent.filter((q) => q.id !== id) }))
     const accepted = await window.pine.questions.answer(id, reply)
-    if (!accepted || !request) return accepted
-    set((s) => ({ sent: [...s.sent, request], drafts: without(s.drafts, id) }))
-    setTimeout(() => set((s) => ({ sent: s.sent.filter((q) => q.id !== id) })), SENT_LINGER_MS)
+    if (!accepted) {
+      forgetSent()
+      return false
+    }
+    set((s) => ({ drafts: without(s.drafts, id) }))
+    setTimeout(forgetSent, SENT_LINGER_MS)
     return true
   },
   dismiss: (id) => window.pine.questions.dismiss(id),
