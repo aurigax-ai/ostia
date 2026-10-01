@@ -15,6 +15,7 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
   if (command === 'echo')
     return { ok: true, text: 'echoed', data: { args, caller, pid: process.pid } }
   if (command === 'guarded') return { ok: true, text: 'guarded ran' }
+  if (command === 'api') return { ok: true, text: process.env.PINE_EXTENSION_API }
   if (command === 'probe') {
     try {
       await conn.sendRequest('command.list')
@@ -74,6 +75,7 @@ socket.on('connect', async () => {
       'echo',
       'guarded',
       'probe',
+      'api',
       'notify',
       'diff',
       'workspaces',

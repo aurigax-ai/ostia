@@ -2,12 +2,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { EXTENSION_API_VERSION } from '../shared/extensionApi'
 import { discoverExtensions, isInsideDir, parseManifest } from './extensionManifest'
 
 const DIR = '/ext/demo'
 
 function manifest(extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return { id: 'demo', name: 'Demo', version: '1.0.0', main: 'main.js', ...extra }
+  return { id: 'demo', name: 'Demo', version: '1.0.0', api: '1.0', main: 'main.js', ...extra }
 }
 
 describe('parseManifest', () => {
@@ -33,6 +34,7 @@ describe('parseManifest', () => {
         id: 'demo',
         name: 'Demo',
         version: '1.0.0',
+        api: '1.0',
         description: 'd',
         category: 'other',
         capabilities: ['notify', 'read-board'],
@@ -97,6 +99,7 @@ describe('parseManifest', () => {
           id: 'demo',
           name: 'Demo',
           version: '1',
+          api: '1.0',
           capabilities: ['assist'],
           contributes: { assist: ['chat'] },
         },
@@ -257,6 +260,24 @@ describe('parseManifest', () => {
     })
   })
 
+  it('requires an extension API version this app provides', () => {
+    const { api: _api, ...withoutApi } = manifest()
+    expect(parseManifest(withoutApi, DIR)).toEqual({ ok: false, error: 'missing api' })
+    expect(parseManifest(manifest({ api: 'latest' }), DIR)).toEqual({
+      ok: false,
+      error: 'api must be an extension API version such as 1.0',
+    })
+    const [major, minor] = EXTENSION_API_VERSION.split('.').map(Number)
+    for (const api of [`${major}.${minor + 1}`, `${major + 1}.0`]) {
+      expect(parseManifest(manifest({ api }), DIR)).toEqual({
+        ok: false,
+        error: `needs extension API ${api}; this pine provides ${EXTENSION_API_VERSION}`,
+      })
+    }
+    const ok = parseManifest(manifest({ api: EXTENSION_API_VERSION }), DIR)
+    expect(ok.ok && ok.manifest.api).toBe(EXTENSION_API_VERSION)
+  })
+
   it('accepts language packs and checks their tag, label and file', () => {
     const languages = (list: unknown) =>
       parseManifest(manifest({ contributes: { languages: list } }), DIR)
@@ -330,6 +351,7 @@ describe('parseManifest', () => {
       id: 'demo',
       name: 'Demo',
       version: '1',
+      api: '1.0',
       contributes: { paneChips: [{ id: 'a', title: 'A' }] },
     }
     expect(parseManifest(noMain, DIR).ok).toBe(false)
@@ -413,7 +435,13 @@ describe('parseManifest', () => {
       ok: false,
       error: "duplicate command 'a'",
     })
-    const noMain = { id: 'demo', name: 'Demo', version: '1', contributes: { sidebarItems: true } }
+    const noMain = {
+      id: 'demo',
+      name: 'Demo',
+      version: '1',
+      api: '1.0',
+      contributes: { sidebarItems: true },
+    }
     expect(parseManifest(noMain, DIR).ok).toBe(false)
   })
 
@@ -423,6 +451,7 @@ describe('parseManifest', () => {
         id: 'static',
         name: 'S',
         version: '1',
+        api: '1.0',
         contributes: { panel: { title: 'S', entry: 'p.html' } },
       },
       DIR,
@@ -441,7 +470,7 @@ describe('parseManifest', () => {
 
 describe('parseManifest — workflows', () => {
   it('accepts workflows without a main process and validates each one', () => {
-    const noMain = { id: 'demo', name: 'Demo', version: '1' }
+    const noMain = { id: 'demo', name: 'Demo', version: '1', api: '1.0' }
     const res = parseManifest(
       {
         ...noMain,
@@ -474,7 +503,7 @@ describe('parseManifest — workflows', () => {
 
 describe('parseManifest — completions', () => {
   it('accepts a completion spec folder inside the extension without a main process', () => {
-    const noMain = { id: 'specs', name: 'Specs', version: '1' }
+    const noMain = { id: 'specs', name: 'Specs', version: '1', api: '1.0' }
     const res = parseManifest({ ...noMain, contributes: { completions: 'specs' } }, DIR)
     if (!res.ok) throw new Error(res.error)
     expect(res.manifest.contributes.completions).toBe('specs')
@@ -488,7 +517,7 @@ describe('parseManifest — completions', () => {
 })
 
 describe('parseManifest — icon themes', () => {
-  const noMain = { id: 'icons', name: 'Icons', version: '1' }
+  const noMain = { id: 'icons', name: 'Icons', version: '1', api: '1.0' }
   const theme = { id: 'material-icon-theme', label: 'Material', path: 'dist/theme.json' }
 
   it('accepts icon themes without a main process', () => {
@@ -569,7 +598,7 @@ describe('discoverExtensions', () => {
     const dir = root({
       good: manifest({ id: 'good' }),
       broken: '{ not json',
-      invalid: { id: 'Bad Id', name: 'x', version: '1' },
+      invalid: { id: 'Bad Id', name: 'x', version: '1', api: '1.0' },
     })
     mkdirSync(join(dir, 'no-manifest'))
     const errors: string[] = []
