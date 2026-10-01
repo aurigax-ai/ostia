@@ -21,3 +21,9 @@ export function attachLinkModifier(host: HTMLElement, mac: boolean): () => void 
     window.removeEventListener('blur', clear)
   }
 }
+
+export type LinkTarget = 'pane' | 'system'
+
+export function linkTarget(opensInPane: boolean, e: { shiftKey: boolean }): LinkTarget {
+  return opensInPane !== e.shiftKey ? 'pane' : 'system'
+}

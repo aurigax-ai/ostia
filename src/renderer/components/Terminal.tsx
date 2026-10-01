@@ -24,7 +24,7 @@ import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
 import { smartClipboardAction } from '../lib/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
-import { attachLinkModifier, linkModifierHeld } from '../lib/linkModifier'
+import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
@@ -141,7 +141,7 @@ export function TerminalView({
     term.loadAddon(
       new WebLinksAddon((e, uri) => {
         if (!linkModifierHeld(e, isMac)) return
-        if (useSettingsStore.getState().browser.openTerminalLinks) {
+        if (linkTarget(useSettingsStore.getState().browser.openTerminalLinks, e) === 'pane') {
           openBrowserAs(workspaceIdRef.current, uri, 'human')
         } else {
           window.open(uri, '_blank')
