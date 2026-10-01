@@ -1,16 +1,15 @@
 import { readFileSync, statSync } from 'node:fs'
 import type { FsBinaryResult } from '../shared/types'
-import { resolveSafe } from './pathGuard'
 
 export const FS_BINARY_MAX = 50 * 1024 * 1024
 
 export function readBinaryConfined(
   path: unknown,
-  roots: string[],
+  confine: (path: string) => string | null,
   max: number = FS_BINARY_MAX,
 ): FsBinaryResult {
   if (typeof path !== 'string') return { ok: false, error: 'denied' }
-  const safe = resolveSafe(path, roots)
+  const safe = confine(path)
   if (safe === null) return { ok: false, error: 'denied' }
   try {
     const stat = statSync(safe)

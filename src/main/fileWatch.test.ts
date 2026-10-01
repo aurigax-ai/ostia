@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { type FileChange, FileWatches } from './fileWatch'
+import { resolveSafe } from './pathGuard'
 
 const roots: string[] = []
 
@@ -11,7 +12,7 @@ function setup() {
   roots.push(root)
   const changes: FileChange[] = []
   const watches = new FileWatches({
-    roots: [root],
+    confine: (path) => resolveSafe(path, [root]),
     debounceMs: 30,
     onChange: (change) => changes.push(change),
   })

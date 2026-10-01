@@ -19,7 +19,12 @@ import { askAboutFile } from '../lib/askContext'
 import { useChatAvailable } from '../lib/assistFeatures'
 import { relativePath } from '../lib/fileReference'
 import { startNewWorkspace } from '../lib/newWorkspace'
-import { openFileBeside, openFileInWorkspace, openTerminalIn } from '../lib/openFile'
+import {
+  openFileBeside,
+  openFileInWorkspace,
+  openTerminalIn,
+  reportFileProblem,
+} from '../lib/openFile'
 import type { PickTarget } from '../lib/pickTargets'
 import { insertPathReference } from '../lib/sendPick'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -54,20 +59,11 @@ function parentOf(path: string): string {
   return slash > 0 ? path.slice(0, slash) : '/'
 }
 
-function report(workspaceId: string, message: string): void {
-  const paneId = useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
-  if (!paneId) {
-    console.error(`[files] ${message}`)
-    return
-  }
-  window.pine.notifications.post({ paneId, kind: 'error', title: message, desktop: false })
-}
-
 function openDefault(workspaceId: string, path: string): void {
   void window.pine.openPath.openDefault(path).then((res) => {
     if (res.ok) return
     const d = currentDict()
-    report(
+    reportFileProblem(
       workspaceId,
       res.error === 'program' ? d.fileMenu.refusedProgram : fmt(d.fileMenu.openFailed, { path }),
     )
@@ -79,7 +75,7 @@ function openExternal(workspaceId: string, path: string): void {
   void window.pine.externalEditor.open({ template, file: path, line: 1, column: 1 }).then((res) => {
     const d = currentDict()
     if (res.ok) return
-    report(
+    reportFileProblem(
       workspaceId,
       res.error === 'no-editor'
         ? d.editor.externalNoEditor
