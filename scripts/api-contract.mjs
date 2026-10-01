@@ -41,6 +41,18 @@ export function contractDigest(sdkDir) {
   return hash.digest('hex')
 }
 
+export function inTreeManifests() {
+  const extensions = readdirSync('src/extensions', { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== 'sdk')
+    .map((entry) => join('src/extensions', entry.name, 'pine.json'))
+  return [...extensions, 'sdk-package/template/pine.json']
+}
+
+export function writeManifestApi(file, version) {
+  const text = readFileSync(file, 'utf8')
+  writeFileSync(file, text.replace(/"api": "\d+\.\d+"/, `"api": "${version}"`))
+}
+
 export function readLock() {
   return JSON.parse(readFileSync(lockFile, 'utf8'))
 }
