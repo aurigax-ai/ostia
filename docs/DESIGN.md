@@ -293,8 +293,10 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
   toggle, the Files toggle and one toggle per enabled extension panel (git Changes, Keeper,
   Trellis; `PanelToggles.tsx`, pressed while the panel is open in the active workspace). The
   assistant has no panel; it is configured in Settings → Assistant.
-  Centre: the command-center button that opens the palette, then the Assistant menu. Right:
-  Settings, then the notification bell. Every trigger renders exactly one `<button>` (Base UI
+  Centre: the command-center button that opens the palette, then the Assistant split button
+  (the main button opens the chat, its caret the feature switches). Right: the active
+  workspace's chips from extensions (git branch and diff stats, the ports plug, Trellis cards),
+  the update notice, Settings, then the notification bell. Every trigger renders exactly one `<button>` (Base UI
   `render={<IconButton …/>}`, never a Trigger wrapping a button as its child).
   The whole bar is the window drag region. macOS keeps native traffic lights on the left (the bar
   pads 80px for them). Linux and Windows draw GNOME-style round min/max/close buttons on the right
@@ -305,16 +307,18 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
   from the rail edge, on the same axis as the top bar's New workspace button.
   - **Row anatomy** (top to bottom, each line `ui-xs` `fg-muted`, one line high, never wrapping,
     ellipsized at any width; details start under the title at 32px):
-    1. kind icon (14px) with the state dot on its bottom-right corner, the title, the pin, the
-       unread badge, and the close button on hover;
+    1. the leading slot (16px): the kind icon with the state dot on its bottom-right corner, or
+       the unread badge in its place while the workspace has unread panes; then the title, the
+       pin, a shield when sandboxed, a lock when it holds a locked tab, and the close button on
+       hover (none while it holds a locked tab);
     2. the description and the latest message or running command, when there are any;
     3. **location line** (`.rail-meta.location`): the folder in mono, then extension items of
-       kind `location` (Git's branch with its icon, then `↑↓` and `+new ~changed`). The folder is
+       kind `location` (Git's branch with its icon). The folder is
        shortened from the middle to fit (`~/…/goji/avail`, then `~/…/avail`, then `avail`;
        `lib/railMeta.ts` `shortenPath`), never to a bare `~/...`; its Hint shows the full path. A
        location item takes at most 60% of the line;
     4. **live line** (`.rail-meta.live`), only when there are live items: extension items of
-       kind `live` (ports `:5173`, the ssh host, Trellis counts) 8px apart, tabular. Items that
+       kind `live` (the ssh host) 8px apart, tabular. Items that
        don't fit collapse into a `+N` button (`fitCount`) whose popover lists the rest, still
        clickable; the first item truncates rather than hide. No wrapping, no horizontal scroll.
     The lines appear and disappear with their data; nothing reserves height for them.
@@ -336,8 +340,8 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
     `--rail-w`. Row meta lines re-fit live as the width changes (their `ResizeObserver`).
   - **Group header** (cmux's workspace groups): a 24px `ui-xs`/500 uppercase row with a 12px
     caret (right when collapsed, down when open), an 8px `radius 2px` swatch in the group color
-    (`--line-strong` without one), the name, the member count (`fg-muted`, tabular), then the
-    members' strongest state dot and their summed unread badge. Both stay on a collapsed header,
+    (`--line-strong` without one), the members' summed unread badge, the name, the member count
+    (`fg-muted`, tabular), then the members' strongest state dot. Both stay on a collapsed header,
     so a collapsed group still says a member needs you. Click toggles, double-click renames,
     the context menu renames, recolors (radio list with chips), collapses, marks read and
     deletes (members stay, ungrouped). Members sit 24px in, next to a 2px rule in the group
@@ -365,7 +369,7 @@ between major sections. Avoid 6, 10 and 14 except as one-off optical fixes.
   Hidden rows shown by the eye are dimmed to 55% opacity. A compact folder row joins its names
   with a muted `/`. A nesting parent has a twisty: the twisty or ArrowRight/ArrowLeft expands
   it, a click on the name opens the file.
-  - **File icons**: Pine's own are Phosphor at 14px, tinted per type (`fileIcon.ts`). A VS Code
+  - **File icons**: Pine's own are Phosphor at 16px, tinted per type (`fileIcon.ts`). A VS Code
     icon theme an extension contributes replaces them with its own images at 16px. These are
     the user's content, the one place non-Phosphor icons appear in the app's chrome.
 - **Cursor**: the normal arrow everywhere, like a desktop app. No pointer or grab cursors.
@@ -401,8 +405,9 @@ Attention, the second loud element, appears only when a pane needs you:
 - **Quiet marker**: an unread `done` pane (or one that rang the bell) gets only the header mark
   (`--ok` circle for done, `--fg-muted` otherwise) labelled "Unread", plus the message in
   `--fg-muted`. No ring.
-- **Unread badge**: the workspace row shows the number of unread panes as an outlined pill
-  (`--attn` border, `--attn-fg` number, `ui-xs`/500, tabular). A number, so never hue-alone. It
+- **Unread badge**: the workspace row shows the number of unread panes as a filled circle in its
+  leading slot, where the kind icon sits when nothing is unread (`--attn` fill, `--on-attn`
+  number, `ui-xs`/500, tabular; cmux's leading badge). A number, so never hue-alone. It
   pops in once (scale .85 → 1 + fade) when it appears or its count grows; never on a decrease.
 - **Bell**: a `bar` IconButton in the top bar's right slot. Its count uses the same pill; its
   label reads "Notifications, N unread". The popover lists the notification log newest first:
@@ -455,10 +460,16 @@ Attention, the second loud element, appears only when a pane needs you:
 - **Controls**: Switch (instant toggle), Select (`size="sm"`, the trigger shows the value), Input,
   Textarea, and ToggleGroup for ≤ 4 short options. Control height is 28px.
 - **Icon buttons**: always `IconButton` (ghost button + `Hint` + required `aria-label`). `bar`
-  (28px, 16px icon) for the top bar and view toolbars; `row` (22px, 14px icon) for
+  (28px, 16px icon) for the top bar and view toolbars; `row` (22px, 16px icon) for
   pane headers, rail rows, the find bar and the browser toolbar. Rest `fg-muted`, hover
   `surface-3` + `fg`, pressed (`aria-pressed`) `surface-3` + `brand`.
-- **Icon sizes**: 16 bar-level, 14 rows/headers/buttons, 12 inline glyphs.
+- **Icon sizes**: 16 for bar buttons, row buttons and the icon that names a row (workspace,
+  pane tab, file); 14 inside menus, settings nav and text buttons; 12 for inline glyphs beside
+  `ui-xs` text. Warp draws 16px icons beside 12px text and cmux 14pt beside 11pt; 14px beside
+  Pine's 13px titles read small.
+- **Locked tab**: a tab the human locked (tab menu → Lock tab, or the palette) shows a lock
+  button where its close button was, a `--lock` top line and a faint `--lock` tint; it cannot be
+  closed by the human or an agent until unlocked.
 - **Status dot or badge**: 6–8px dot plus text.
 - **Empty state**: one muted line plus the primary action. The work zone with no workspaces
   (`WorkZone.tsx` `NoWorkspaces`) is the reference: centered `ui-lg`/600 heading "No workspaces",

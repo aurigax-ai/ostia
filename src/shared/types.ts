@@ -193,7 +193,8 @@ export interface PtyApi {
   foreground: (paneId: string) => Promise<string | null>
   promptContext: (paneId: string, want: PromptContextRequest) => Promise<PromptContext | null>
   onData: (paneId: string, cb: (data: string) => void) => () => void
-  onExit: (paneId: string, cb: (exitCode: number) => void) => () => void
+  onExit: (paneId: string, cb: (exitCode: number, closes: boolean) => void) => () => void
+  listDir: (paneId: string, dir: string) => Promise<FsEntry[]>
   onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
   onRun: (cb: (paneId: string, command: string) => void) => () => void
 }

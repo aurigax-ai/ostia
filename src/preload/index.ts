@@ -153,6 +153,7 @@ const bridge: PineBridge = {
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
+    listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),
     foreground: (paneId) => ipcRenderer.invoke('pty:foreground', paneId) as Promise<string | null>,
     promptContext: (paneId, want) =>
       ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
@@ -162,7 +163,7 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener(`pty:data:${paneId}`, handler)
     },
     onExit: (paneId, cb) => {
-      const handler = (_e: unknown, code: number): void => cb(code)
+      const handler = (_e: unknown, code: number, closes: boolean): void => cb(code, closes)
       ipcRenderer.on(`pty:exit:${paneId}`, handler)
       return () => ipcRenderer.removeListener(`pty:exit:${paneId}`, handler)
     },

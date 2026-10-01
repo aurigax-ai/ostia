@@ -46,7 +46,7 @@ import {
 } from '../lib/inputEditor'
 import { applyLineEdit, lineEditOp, shellKeyBytes } from '../lib/lineEditing'
 import { cellBox, rowsToMake } from '../lib/promptOverlay'
-import { scratchPaneIds } from '../lib/scratchPanes'
+import { historyHiddenFrom } from '../lib/scratchPanes'
 import { type ShellToken, tokenizeShell } from '../lib/shellTokens'
 import {
   type AiGhost,
@@ -344,7 +344,10 @@ export function InputEditor({
   onNeedRowsRef.current = onNeedRows
 
   const normal = vimEnabled && vimMode === 'normal'
-  const history = useMemo(() => inputHistory(byPane, paneId, scratchPaneIds()), [byPane, paneId])
+  const history = useMemo(
+    () => inputHistory(byPane, paneId, historyHiddenFrom(paneId)),
+    [byPane, paneId],
+  )
   const commandSet = useMemo(() => (commands ? new Set(commands) : null), [commands])
 
   const setMenu = (next: Menu | null): void => {
@@ -507,7 +510,7 @@ export function InputEditor({
       index: -1,
       saved: text,
       entries: historyMatches(
-        inputHistory(useBlocksStore.getState().byPane, paneId, scratchPaneIds()),
+        inputHistory(useBlocksStore.getState().byPane, paneId, historyHiddenFrom(paneId)),
         text,
       ),
     }
@@ -541,7 +544,7 @@ export function InputEditor({
       ? Promise.resolve(commandCandidates(commands ?? [], recentCommands(history)))
       : argumentCandidates(draft, caret, cwd ?? '~', {
           spec: loadSpec,
-          list: (p) => window.pine.fs.list(p),
+          list: (p) => window.pine.pty.listDir(paneId, p),
         })
 
   const relist = async (draft: string, caret: number): Promise<void> => {

@@ -91,7 +91,7 @@ describe('TopBar', () => {
     const [scratch] = useWorkspacesStore.getState().workspaces
     expect(scratch).toMatchObject({
       kind: 'scratch',
-      customName: 'Scratch',
+      customName: expect.stringMatching(/^[a-z]+-[a-z]+$/),
       workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
     })
     expect(window.pine.sandbox.setEnabled).not.toHaveBeenCalled()
@@ -102,7 +102,8 @@ describe('TopBar', () => {
     )
     await waitFor(() => expect(useWorkspacesStore.getState().workspaces).toHaveLength(2))
     const second = useWorkspacesStore.getState().workspaces.find((w) => w.id !== scratch.id)
-    expect(second?.customName).toBe('Scratch 2')
+    expect(second?.customName).toMatch(/^[a-z]+-[a-z]+$/)
+    expect(second?.customName).not.toBe(scratch.customName)
     expect(window.pine.sandbox.setEnabled).toHaveBeenCalledWith(second?.id, true)
   })
 

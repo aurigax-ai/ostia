@@ -9,7 +9,6 @@ import {
   LockSimpleIcon,
   MoonIcon,
   PlayIcon,
-  PlusIcon,
   RobotIcon,
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
@@ -261,7 +260,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
           <AgentSessionButton pane={shown} />
           <PaneHeaderActions pane={shown} />
           <IconButton
-            icon={PlusIcon}
+            icon={TerminalWindowIcon}
             label={d.pane.newTab}
             onClick={() => commands.exec('tab.new', { paneId: shown.id })}
           />

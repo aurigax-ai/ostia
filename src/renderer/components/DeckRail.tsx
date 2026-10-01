@@ -671,6 +671,14 @@ function WorkspaceRow({
               {w.pinned ? (
                 <PushPinSimpleIcon size={12} className="tab-pin" aria-label={d.rail.pinned} />
               ) : null}
+              {sandboxed ? (
+                <ShieldCheckIcon
+                  size={12}
+                  className="tab-pin"
+                  role="img"
+                  aria-label={d.rail.sandboxed}
+                />
+              ) : null}
               {locked ? (
                 <LockSimpleIcon
                   size={12}
