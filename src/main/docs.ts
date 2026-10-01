@@ -5,7 +5,12 @@ const CLI_HELP = `pine — control-socket CLI
 
   pine whoami                    show this pane's identity
   pine commands                  list commands available in this window
-  pine open <file>               open <file> in the editor
+  pine open <file>...            show files to the human in the editor (text, image or PDF),
+                                 any path on disk; file:line[:col] jumps there. Several files
+                                 get a tab each.
+                                 A sandboxed workspace opens only files under the home folder
+  pine <file>...                 same, when the first word is a path (has a /, or starts with
+                                 . or ~) or names a file here that is no command or extension
   pine pane.list                  every pane, every workspace — {paneId(external),workspaceId,
                                   kind,title,cwd,running,blockCount,lastExitCode}
   pine workspace.list               every workspace — {workspaceId,name,kind,workDir,state,groupId}
