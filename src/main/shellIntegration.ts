@@ -77,17 +77,18 @@ unset PINE_HISTFILE
 
 # Pine prompt: the input editor draws the context, so the shell line is only "cwd sep". This
 # file loads after the user's rc; powerlevel10k rebuilds PROMPT in its own last precmd, so it is
-# torn down once.
+# torn down once, here at load, before its first precmd runs its full (slow) initialization.
 __pine_apply_prompt() {
   (( __pine_prompt_on )) || return 0
-  if (( ! __pine_prompt_torn )); then
+  if (( ! __pine_prompt_torn )) && (( $+functions[prompt_powerlevel9k_teardown] )); then
     __pine_prompt_torn=1
-    (( $+functions[prompt_powerlevel9k_teardown] )) && prompt_powerlevel9k_teardown
+    prompt_powerlevel9k_teardown
   fi
   PROMPT="$__pine_prompt_text"
   RPROMPT=''
   RPS1=''
 }
+__pine_apply_prompt
 
 __pine_precmd() {
   local ec=$?
@@ -522,6 +523,9 @@ function ensureFiles(): IntegrationPaths {
     [
       '# Pine shell integration (generated). Load the real .zshrc, add our hooks, then',
       '# restore ZDOTDIR so nested/child zsh invocations see a normal environment.',
+      '# With the Pine prompt, powerlevel10k must not start its instant prompt: its prompt never',
+      '# draws, so it would hold the shell output and delete its own caches at exit.',
+      '[ "$PINE_PROMPT" = pine ] && typeset -g POWERLEVEL9K_INSTANT_PROMPT=off',
       '[ -n "$PINE_ZDOTDIR_ORIG" ] && [ -f "$PINE_ZDOTDIR_ORIG/.zshrc" ] && source "$PINE_ZDOTDIR_ORIG/.zshrc"',
       `source "${zshInit}"`,
       'ZDOTDIR="$PINE_ZDOTDIR_ORIG"',
