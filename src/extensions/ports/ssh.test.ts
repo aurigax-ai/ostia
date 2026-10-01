@@ -60,6 +60,12 @@ describe('sshLogin', () => {
     expect(sshLogin(['-l', 'a\u001b[31m', 'box'])).toEqual({ host: 'box' })
   })
 
+  it('SSH-C27 reads the login of a session the ssh extension opened through a bastion', () => {
+    const login = sshLogin(['-J', 'b1', '-p', '2200', '--', 'dev@db'])
+    expect(login).toEqual({ user: 'dev', host: 'db' })
+    expect(login && sshLabel(login)).toBe('dev@db')
+  })
+
   it('labels a login as user@host, or the host alone', () => {
     expect(sshLabel({ user: 'deploy', host: 'build-box' })).toBe('deploy@build-box')
     expect(sshLabel({ host: 'build-box' })).toBe('build-box')

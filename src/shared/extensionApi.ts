@@ -1,6 +1,6 @@
 import { PRODUCT_NAME } from './product'
 
-export const EXTENSION_API_VERSION = '1.0'
+export const EXTENSION_API_VERSION = '1.1'
 export const EXTENSION_API_PATTERN = /^(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})$/
 export const EXTENSION_API_ENV = 'PINE_EXTENSION_API'
 
