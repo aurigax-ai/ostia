@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import type { ExtensionInfo } from '@shared/extensions'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane, findExtensionPane } from '../layout/tree'
@@ -74,6 +74,31 @@ describe('TopBar', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'New workspace' }))
     expect(addWorkspace).toHaveBeenCalledTimes(1)
     expect(leaveSettings).toHaveBeenCalled()
+  })
+
+  it('starts a scratch workspace, or a sandboxed one, from the New workspace menu', async () => {
+    const user = userEvent.setup()
+    render(<TopBar />)
+
+    await user.click(screen.getByRole('button', { name: 'More ways to start a workspace' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'New scratch workspace' }))
+    await waitFor(() => expect(useWorkspacesStore.getState().workspaces).toHaveLength(1))
+    const [scratch] = useWorkspacesStore.getState().workspaces
+    expect(scratch).toMatchObject({
+      kind: 'scratch',
+      customName: 'Scratch',
+      workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
+    })
+    expect(window.pine.sandbox.setEnabled).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'More ways to start a workspace' }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'New sandboxed scratch workspace' }),
+    )
+    await waitFor(() => expect(useWorkspacesStore.getState().workspaces).toHaveLength(2))
+    const second = useWorkspacesStore.getState().workspaces.find((w) => w.id !== scratch.id)
+    expect(second?.customName).toBe('Scratch 2')
+    expect(window.pine.sandbox.setEnabled).toHaveBeenCalledWith(second?.id, true)
   })
 
   it('puts New workspace first and Settings in the right zone before the bell', () => {

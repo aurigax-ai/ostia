@@ -30,8 +30,8 @@ test('a custom OpenAI-compatible provider set in Settings answers in Ask and sug
     await win.keyboard.press('Control+,')
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible({ timeout: 10_000 })
-    await settings.getByRole('button', { name: 'Plugins', exact: true }).click()
-    const assistant = settings.getByRole('group', { name: /Assistant/ })
+    await settings.getByRole('button', { name: 'Assistant', exact: true }).click()
+    const assistant = settings.getByRole('group', { name: 'Assistant settings' })
     await assistant.getByRole('combobox', { name: 'provider' }).click()
     await win.getByRole('option', { name: 'openai-compatible', exact: true }).click()
     for (const [key, value] of [
@@ -43,7 +43,7 @@ test('a custom OpenAI-compatible provider set in Settings answers in Ask and sug
       await box.fill(value)
       await box.press('Enter')
     }
-    await expect(assistant).toContainText('openai-compatible · fake-big', {
+    await expect(settings).toContainText('openai-compatible · fake-small / fake-big', {
       timeout: 15_000,
     })
     await win.keyboard.press('Escape')

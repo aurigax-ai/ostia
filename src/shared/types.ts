@@ -30,6 +30,7 @@ import type {
   SandboxControls,
   SandboxEditResult,
   SandboxExposeResult,
+  SandboxMergeRefusal,
   SandboxPortRow,
   WorkspacePackages,
   WorkspaceSandbox,
@@ -69,6 +70,7 @@ export interface RunningGroup {
   workspace: string
   commands: string[]
   files: string[]
+  scratchFiles?: number
 }
 
 export interface PtySpawnOptions {
@@ -403,6 +405,14 @@ export interface WindowSummary {
 export interface NewWorkspaceRequest {
   dir?: string
   name?: string
+  scratch?: boolean
+  sandboxed?: boolean
+}
+
+export interface ScratchApi {
+  create: () => Promise<string | null>
+  files: (workspaceId: string) => Promise<number>
+  reveal: (workspaceId: string) => void
 }
 
 export interface WindowsApi {
@@ -419,9 +429,14 @@ export interface WindowsApi {
   onReturnRequest: (cb: () => void) => () => void
 }
 
+export type WorkspaceMergeError = 'not-owned' | 'manager' | SandboxMergeRefusal
+
+export type WorkspaceMergeResult = { ok: true } | { ok: false; error: WorkspaceMergeError }
+
 export interface WorkspaceApi {
   save: (snapshot: AppSnapshot | null) => void
   load: () => Promise<AppSnapshot | null>
+  merge: (sourceId: string, targetId: string) => Promise<WorkspaceMergeResult>
 }
 
 export type LifecycleEvent =
@@ -664,6 +679,7 @@ export interface PineBridge {
   settings: SettingsApi
   sync: SyncApi
   workspace: WorkspaceApi
+  scratch: ScratchApi
   windows: WindowsApi
   lifecycle: LifecycleApi
   commands: CommandsApi

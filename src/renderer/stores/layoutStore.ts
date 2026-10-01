@@ -1,6 +1,7 @@
 import type { AgentResume } from '@shared/agentResume'
 import type { DiffContent } from '@shared/extensions'
 import { create } from 'zustand'
+import { panelKey, sizePanel } from '../layout/panelSize'
 import {
   type DropZone,
   addTab,
@@ -13,6 +14,7 @@ import {
   findViewPane,
   firstPaneId,
   firstPaneOfKind,
+  mergeLayouts,
   movePane,
   paneIds,
   selectTab,
@@ -35,6 +37,7 @@ import {
   tabsOfPane,
 } from '../layout/tree'
 import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '../layout/types'
+import { rememberedPanelFraction } from '../lib/panelSizes'
 import { useDiffStore } from './diffStore'
 import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
@@ -77,6 +80,7 @@ interface LayoutState {
   removeWorkspace: (workspaceId: string) => void
   release: (workspaceId: string) => void
   releasePane: (workspaceId: string, paneId: string) => void
+  merge: (sourceId: string, targetId: string) => void
   adopt: (layouts: Record<string, WorkspaceLayout>) => void
 }
 
@@ -132,6 +136,15 @@ function seedLayout(workspaceId: string, make: (pane: PaneNode) => LayoutNode): 
   return pane.id
 }
 
+function withRememberedPanelSize(layout: WorkspaceLayout, paneId: string): WorkspaceLayout {
+  const pane = findPane(layout.root, paneId)
+  const key = pane ? panelKey(pane) : null
+  const fraction = key ? rememberedPanelFraction(key) : null
+  if (fraction === null) return layout
+  const root = sizePanel(layout.root, paneId, fraction)
+  return root === layout.root ? layout : { ...layout, root }
+}
+
 function openSingleton(
   workspaceId: string,
   find: (root: LayoutNode) => PaneNode | null,
@@ -154,7 +167,11 @@ function openSingleton(
       targetPaneId = newPaneId
       return { ...l, root: apply(root, newPaneId), activePaneId: newPaneId }
     })
-    return next ?? s
+    if (!next) return s
+    if (!createdPaneId) return next
+    const created = next.byWorkspace[workspaceId]
+    const sized = withRememberedPanelSize(created, createdPaneId)
+    return sized === created ? next : { byWorkspace: { ...next.byWorkspace, [workspaceId]: sized } }
   })
   if (createdPaneId) {
     window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
@@ -466,31 +483,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       (root, paneId) => setPaneView(root, paneId, viewName, title),
     ),
 
-  openChat: (workspaceId, title) => {
-    const seeded = seedLayout(workspaceId, (p) => setPaneChat(p, p.id, title))
-    if (seeded) return seeded
-    let createdPaneId: string | null = null
-    let chatPaneId: string | null = null
-    set((s) => {
-      const next = patch(s, workspaceId, (l) => {
-        const existing = firstPaneOfKind(l.root, 'chat')
-        if (existing) {
-          chatPaneId = existing.id
-          return { ...l, activePaneId: existing.id }
-        }
-        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
-        if (!newPaneId) return l
-        createdPaneId = newPaneId
-        chatPaneId = newPaneId
-        return { ...l, root: setPaneChat(root, newPaneId, title), activePaneId: newPaneId }
-      })
-      return next ?? s
-    })
-    if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
-    }
-    return chatPaneId
-  },
+  openChat: (workspaceId, title) =>
+    openSingleton(
+      workspaceId,
+      (root) => firstPaneOfKind(root, 'chat'),
+      (root, paneId) => setPaneChat(root, paneId, title),
+    ),
 
   setChatSession: (workspaceId, paneId, sessionId, title) =>
     set((s) => {
@@ -616,6 +614,22 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         }) ?? s,
     )
   },
+
+  merge: (sourceId, targetId) =>
+    set((s) => {
+      const source = s.byWorkspace[sourceId]
+      if (sourceId === targetId || !source) return s
+      const { [sourceId]: _moved, ...byWorkspace } = s.byWorkspace
+      if (!byWorkspace[targetId]) return { byWorkspace: { ...byWorkspace, [targetId]: source } }
+      return (
+        patch({ ...s, byWorkspace }, targetId, (l) => ({
+          ...l,
+          root: mergeLayouts(l.root, source.root),
+          activePaneId: source.activePaneId,
+          zoomedPaneId: null,
+        })) ?? s
+      )
+    }),
 
   adopt: (layouts) => {
     set((s) => ({ byWorkspace: { ...s.byWorkspace, ...layouts } }))

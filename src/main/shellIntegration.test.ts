@@ -194,6 +194,66 @@ describe('shellIntegrationSpawnOptions', () => {
     })
   })
 
+  describe('scratch history', () => {
+    let home: string
+    beforeAll(() => {
+      home = mkdtempSync(join(tmpdir(), 'pine-histfile-home-'))
+      writeFileSync(join(home, '.zshrc'), 'HISTFILE="$HOME/.zsh_history"\n')
+      writeFileSync(join(home, '.bashrc'), 'HISTFILE="$HOME/.bash_history"\n')
+      writeFileSync(join(home, '.zsh_history'), 'echo from-the-user-history\n')
+    })
+    afterAll(() => rmSync(home, { recursive: true, force: true }))
+
+    const histfileOf = (shell: 'zsh' | 'bash', histFile: string | null): string => {
+      const { args, env } = shellIntegrationSpawnOptions(shell, { HOME: home }, null, histFile)
+      const out = spawnSync(shell, [...args, '-i', '-c', 'printf "<%s>" "$HISTFILE"'], {
+        env: { PATH: '/usr/bin:/bin', HOME: home, TERM: 'dumb', ...env },
+        encoding: 'utf8',
+      }).stdout
+      return out.slice(out.lastIndexOf('<') + 1, out.lastIndexOf('>'))
+    }
+
+    it('asks zsh and bash for the scratch history file through the environment only', () => {
+      expect(shellIntegrationSpawnOptions('zsh', { HOME: home }, null, '/tmp/s/h').env).toEqual(
+        expect.objectContaining({ PINE_HISTFILE: '/tmp/s/h' }),
+      )
+      expect(shellIntegrationSpawnOptions('bash', { HOME: home }, null, '/tmp/s/h').env).toEqual({
+        PINE_HISTFILE: '/tmp/s/h',
+      })
+      expect(shellIntegrationSpawnOptions('zsh', { HOME: home }).env).not.toHaveProperty(
+        'PINE_HISTFILE',
+      )
+    })
+
+    it.each(['zsh', 'bash'] as const)(
+      'points %s HISTFILE at the scratch folder after the user rc set its own',
+      (shell) => {
+        const scratch = join(home, 'scratch', '.pine_history')
+        expect(histfileOf(shell, scratch)).toBe(scratch)
+      },
+    )
+
+    it.each(['zsh', 'bash'] as const)('leaves the user HISTFILE alone in %s otherwise', (shell) => {
+      expect(histfileOf(shell, null)).toBe(join(home, `.${shell}_history`))
+    })
+
+    it('keeps an interactive zsh from reading or writing the user history', () => {
+      const scratch = mkdtempSync(join(tmpdir(), 'pine-histfile-scratch-'))
+      const histFile = join(scratch, '.pine_history')
+      writeFileSync(join(home, '.zshrc'), 'HISTFILE="$HOME/.zsh_history"\nSAVEHIST=100\n')
+      const { args, env } = shellIntegrationSpawnOptions('zsh', { HOME: home }, null, histFile)
+      const out = spawnSync('zsh', [...args, '-i'], {
+        env: { PATH: '/usr/bin:/bin', HOME: home, TERM: 'dumb', ...env },
+        input: 'fc -ln 1 2>&1\necho scratch-only\nexit\n',
+        encoding: 'utf8',
+      }).stdout
+      expect(out).not.toContain('from-the-user-history')
+      expect(readFileSync(join(home, '.zsh_history'), 'utf8')).toBe('echo from-the-user-history\n')
+      expect(readFileSync(histFile, 'utf8')).toContain('echo scratch-only')
+      rmSync(scratch, { recursive: true, force: true })
+    })
+  })
+
   describe('unintegrated shells', () => {
     it.each(['fish', '/usr/bin/fish', 'sh', 'pwsh', 'powershell.exe', 'someunknownshell'])(
       'returns no integration for %s',

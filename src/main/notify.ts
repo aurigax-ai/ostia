@@ -25,14 +25,27 @@ const TITLE_MAX = 256
 export interface NotifyDeps extends AttentionDeps {
   windows: () => Iterable<BrowserWindow>
   windowById: (windowId: string) => BrowserWindow | undefined
+  isScratchPane: (paneId: string) => boolean
 }
+
+const unsaved: NotificationEntry[] = []
 
 function logPath(): string {
   return storePath('notifications', 'global')
 }
 
-function readLog(): NotificationEntry[] {
+function savedLog(): NotificationEntry[] {
   return loadJson<NotificationEntry[]>(logPath(), [])
+}
+
+function readLog(): NotificationEntry[] {
+  if (unsaved.length === 0) return savedLog()
+  return [...savedLog(), ...unsaved].sort((a, b) => a.ts.localeCompare(b.ts)).slice(-LOG_CAP)
+}
+
+function keep(log: NotificationEntry[], entry: NotificationEntry): void {
+  log.push(entry)
+  if (log.length > LOG_CAP) log.splice(0, log.length - LOG_CAP)
 }
 
 function broadcastChanged(deps: NotifyDeps): void {
@@ -62,15 +75,23 @@ function readNotificationSettings(): NotificationSettings {
   }
 }
 
-function desktopNotification(title: string, body?: string): Notification | null {
+export function pineInFront(windows: Iterable<BrowserWindow>): boolean {
+  for (const win of windows) {
+    if (!win.isDestroyed() && win.isVisible() && win.isFocused()) return true
+  }
+  return false
+}
+
+function desktopNotification(deps: NotifyDeps, title: string, body?: string): Notification | null {
   if (!Notification.isSupported()) return null
   const settings = readNotificationSettings()
   if (!settings.desktop) return null
+  if (!settings.whenFocused && pineInFront(deps.windows())) return null
   return new Notification({ title, body, silent: !settings.sound })
 }
 
 function showDesktop(deps: NotifyDeps, title: string, body?: string, paneId?: string): void {
-  const n = desktopNotification(title, body)
+  const n = desktopNotification(deps, title, body)
   if (!n) return
   if (paneId) n.on('click', () => activatePane(deps, paneId))
   n.show()
@@ -99,10 +120,13 @@ function record(
   }
   if (input.extId) entry.extId = input.extId
   if (input.extId && input.panelPath) entry.panelPath = input.panelPath
-  const log = readLog()
-  log.push(entry)
-  if (log.length > LOG_CAP) log.splice(0, log.length - LOG_CAP)
-  saveJson(logPath(), log)
+  if (entry.paneId && deps.isScratchPane(entry.paneId)) {
+    keep(unsaved, entry)
+  } else {
+    const log = savedLog()
+    keep(log, entry)
+    saveJson(logPath(), log)
+  }
   emitPlatformEvent('notify', { title: entry.title, body: entry.body, from: entry.from })
   runNotifyCommand(readNotificationSettings().command, {
     title: entry.title,
@@ -126,7 +150,7 @@ export function postActionNotification(
   input: { title: string; body?: string; from: string },
   onClick: () => void,
 ): void {
-  const n = desktopNotification(input.title, input.body)
+  const n = desktopNotification(deps, input.title, input.body)
   if (n) {
     n.on('click', onClick)
     n.show()
@@ -139,7 +163,7 @@ export function postPanelNotification(
   input: { title: string; body?: string; from: string; extId: string; panelPath?: string },
   openPanel: () => void,
 ): void {
-  const n = desktopNotification(input.title, input.body)
+  const n = desktopNotification(deps, input.title, input.body)
   if (n) {
     n.on('click', () => {
       const win = [...deps.windows()].find((w) => !w.isDestroyed())
@@ -215,6 +239,7 @@ export function registerNotifyIpc(deps: NotifyDeps): void {
   })
 
   ipcMain.on('notifications:clear', () => {
+    unsaved.length = 0
     saveJson(logPath(), [])
     broadcastChanged(deps)
   })

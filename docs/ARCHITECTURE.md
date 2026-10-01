@@ -113,6 +113,58 @@ detached window so it can live on another monitor. Every window runs the same re
   another window owns, `browser:unregister` and lifecycle events from a window that no longer
   owns the pane are ignored.
 
+### Merging workspaces
+
+Two workspaces of one window that share a project folder can be merged; only the human starts it
+(a workspace row's menu, the palette's Workspace: Merge Into…) and only after a confirm.
+
+- **Who may merge** (`lib/mergeEligibility.ts`, pure): the same window, the same project path
+  (`projectDir`, else `workDir`, with `~` expanded, dot segments resolved and trailing slashes
+  dropped; the renderer has no home folder, so `inferHome` reads it off a workspace whose
+  `projectDir` is shown under `~`), neither one the manager workspace, and the same sandbox: both
+  off, or both on with the same settings (`sandboxMergeRefusal` in `shared/sandbox.ts`, which
+  compares them order-insensitively). The menu lists every same-folder workspace and shows a
+  refused one disabled with its reason (another window, one sandboxed, sandbox settings differ).
+  Why refuse mixed sandboxes: the moved panes keep running under the confinement they were
+  spawned with, so a sandboxed shell would sit in a plain workspace or the other way round.
+- **The confirm** (`MergeConfirmDialog.tsx`, a shadcn AlertDialog fed by `mergeConfirmStore`)
+  counts the terminals, editors, browsers and other panes that move, lists the running commands
+  (they keep running), and says what doesn't carry over: the source's name, description, pin and
+  group; its chat when the target has one too; its until-restart sandbox allowances. Merge has
+  the default focus, since nothing stops.
+- **Main first, then the renderer.** `requestMergeWorkspace` (`lib/workspaceMerge.ts`) re-checks
+  eligibility, asks, and calls `workspace:merge` (`main/workspaceMerge.ts`), which checks the
+  sender owns both workspaces (`windowForWorkspace`), that neither holds the manager pane, and
+  the sandbox rule again. Main then rehomes every pane identity of the source to the target
+  (`rehomeWorkspace`; tokens kept, `pane.created` sent to extensions with the new workspace),
+  moves the ptys' `workspaceId`, drops the source's pending domain, port and package requests and
+  its workspace registry entry. Only on `{ok: true}` does the renderer merge its stores.
+- **Panes move, nothing restarts.** `layoutStore.merge` takes the source's whole layout and puts
+  it beside the target's (`mergeLayouts` in `layout/tree.ts`: always a new horizontal split of
+  `[target root, source root]`, so a single source pane is its own slot, never a tab of the
+  target's stack); a target with no panes takes the source layout as is. The source's active pane
+  becomes the target's, zoom is cleared, and `workspacesStore.merge` removes the source from the
+  flat list (`normalizeGroups` drops a group it was the last member of) and activates the target.
+  No `pane-closed` or `workspace-closed` is emitted: the panes moved, they didn't close. Pane ids
+  are unchanged, so SurfacePool keeps every surface mounted; `TerminalView` reads its workspace
+  id through a ref so the move doesn't rebuild xterm or re-attach the pty. Browser webviews still
+  reload when their host is reparented (Electron), and the dialog says so.
+- **Workspace-keyed state**: attention, blocks, approvals, notifications and diff content are keyed
+  by pane, so they follow. The chat (`mergeChatWorkspace`) moves the source's current session,
+  draft and attachments to the target when the target has none, and repoints session metadata;
+  open workspace settings of the source switch to the target.
+- **Sandboxed sources** (`WorkspaceSandboxes.merge`): the source's policy entry is removed and the
+  source id becomes an alias of the target (`owner()`), so its running host follows the target's
+  policy (an update or an allowed domain on the target refreshes it too) and its domain and
+  package cards land on the target. The host process, its tmp folder and ssh agent stay up while
+  a process spawned under them still runs (`confinedBy` on the pty entry); when the last one
+  exits, `releaseMergedSandbox` forgets them. Why not stop it at once: the moved shells' network
+  proxy, `TMPDIR` and `SSH_AUTH_SOCK` belong to it. The source's until-restart allowances are
+  dropped.
+- **Not built**: dropping a row onto another row to merge. Why: the rail's drag-and-drop uses the
+  upper and lower half of every row to reorder and to move into or out of a group, so there is no
+  free drop zone on a row.
+
 ### Main module map
 
 | File | Owns |
@@ -124,12 +176,14 @@ detached window so it can live on another monitor. Every window runs the same re
 | `ptyRingBuffer.ts` | Capped output ring with a monotonic cursor; `since(cursor)` reports `dropped` when the cursor fell off |
 | `shellIntegration.ts` | Generates zsh/bash init files that emit OSC 133 + OSC 7 and define the `pine()` shell function |
 | `privateTmp.ts` | Per-uid, mode-0700 temp dir for those files |
+| `scratchFolders.ts` | Scratch workspaces: one private folder each under `privateTmpDir('pine-scratch')`, bound to its workspace, file count, delete on close and quit, startup sweep, `scratch:*` IPC (§5) |
 | `screenMirror.ts` | `ScreenMirror`: a headless xterm per pty fed every byte; `serialize()` is the width-independent history saved to `scrollback.json` |
 | `workspaceSnapshot.ts` | Reads/validates/writes `workspaces.json` and `scrollback.json`; one-shot restored scrollback |
 | `pathGuard.ts` | `resolveSafe` / `isPathAllowed` / `expandHome` for fs IPC and browser file outputs |
 | `lsp.ts` | Spawns language servers found on `PATH`, relays JSON-RPC to the renderer |
 | `controlServer.ts`, `controlAuth.ts`, `capabilityStore.ts`, `idRegistry.ts` | Control socket, token auth, per-pane capabilities, pane id ↔ external id ↔ token |
 | `workspaceRegistry.ts` | Workspace id → workDir, fed by lifecycle events |
+| `workspaceMerge.ts` | `workspace:merge` IPC: checks ownership, manager and sandbox before a merge (§2 Merging workspaces) |
 | `paneList.ts` | `pane.list`, `workspace.list` (maps renderer ids to external ids) |
 | `events.ts` | In-process platform events (`notify`, `agent.needs-input`, `agent.done`, `workspace.state`, `pane.state`); only the gateway listens |
 | `jsonStore.ts` | Atomic JSON persistence, project (`<workDir>/.pine/<name>.json`) or global (`$XDG_DATA_HOME/pine/<name>.json`) |
@@ -178,6 +232,8 @@ Why the control-plane modules never import `main/index.ts`: that creates an impo
 - Built-in extensions: `out/extensions/<id>/` in dev, `resources/extensions/<id>/` when packaged.
   User extensions: `$XDG_CONFIG_HOME/pine/extensions/<id>/` (default `~/.config/pine/extensions`).
 - `$XDG_RUNTIME_DIR/pine-<pid>.sock` (or the OS tmp dir): control socket.
+- `<tmp>/pine-scratch-<uid>/<pid>-<12 hex>/`: a scratch workspace's folder (mode 0700), with its
+  shell history in `.pine_history`. Deleted when the workspace closes or Pine quits (§5).
 
 `jsonStore` writes a temp file and renames it over the target. With `{secure}` it re-applies mode 0600
 to the file and 0700 to the dir on every save (vault, gateway devices).
@@ -194,7 +250,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | pty | `attach`, `detach`, `write`, `resize`, `onData`, `onExit` (push channels `pty:data:<id>`, `pty:exit:<id>`) |
 | fs | `list`, `read`, `write`, `readBinary` (confined by `resolveSafe` to `[homedir, userData]`; `readBinary` returns a `Uint8Array`, capped at 50 MiB) |
 | lsp | `list`, `start`, `send`, `stop`, `onMessage`, `onExit` |
-| settings / workspace | `settings.path`; `workspace.save`, `workspace.load` (both answered for the sender's own window) |
+| settings / workspace | `settings.path`; `workspace.save`, `workspace.load`, `workspace.merge` (all answered for the sender's own window) |
 | windows | `info`, `detach`, `returnToMain`, `report`, `focusWorkspace`, `returnWorkspace`, `newWorkspace`, `onList`, `onAdopt`, `onActivateWorkspace`, `onReturnRequest` (push channels `windows:list`, `windows:adopt`, `windows:activate-workspace`, `windows:return-request`) |
 | lifecycle | `lifecycle.emit` (`pane-created`, `pane-closed`, `workspace-added`, `workspace-closed`, `workspace-activated`, `workspace-state`) |
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
@@ -457,7 +513,7 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     the shell clears the screen and redraws its prompt while the draft stays. Ctrl+C/V/X/Z stay
     with the textarea (clear, paste, cut, undo). Keys match by physical key (`KeyboardEvent.code`)
     so other layouts work.
-  - Spec completions (`lib/specCompletion.ts`, `completeArgument` in `lib/inputEditor.ts`): Tab
+  - Spec completions (`lib/specCompletion.ts`, `argumentCandidates` in `lib/inputEditor.ts`): Tab
     on a word that isn't the command asks main for the command's spec (cached per editor) and
     walks the finished words of the current simple command (`commandWords`: after the last
     operator, assignments before the command skipped, quotes removed) through it
@@ -466,9 +522,10 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     carry down, `--` ends options. The current word then gets the option's argument values,
     options not used yet (when it starts with `-`), or subcommands plus the positional
     argument's suggestions; an argument with a `filepaths`/`folders` template, and any command
-    without a spec, falls back to path completion (folders only for `folders`). One match is
-    inserted with a space; several insert their common prefix and open the menu, which shows
-    each spec item's description. Why converted at build time and not Fig's runtime:
+    without a spec, falls back to path completion (folders only for `folders`). The word decides
+    which kind of answer it is; the menu's candidates are then every item of that kind (the
+    spec walked again with only the word's leading `-`/`--`), so typing can filter them. The
+    menu shows each spec item's description. Why converted at build time and not Fig's runtime:
     Fig specs are JS modules whose generators run shell commands and post-process output with
     code; Pine ships only their static data, so nothing from a spec executes. Specs over 4 MB
     with their `loadSpec` sub-specs expanded (aws, gcloud) are kept without them.
@@ -502,18 +559,31 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - Tab completes the command name in command position (`isCommandWord`: the word the
     tokenizer would read as a command, first word or after `|`, `&&`, `;`, `$(`, past
     `FOO=1` assignments, without a `/`), and paths everywhere else. Commands come from
-    `pty.commands(paneId)`, fetched each time a prompt shows; `completeCommand` ranks the
-    prefix matches (`rankCommands`: commands this history ran first, newest first, then shorter
-    names, then alphabetical). Paths: the word before the caret (backslash-escaped spaces
-    understood) is split into dir and base, the dir is resolved against the pane cwd
-    (`resolveLinkPath`; `~` is expanded in main), and `fs.list` supplies the names; dotfiles
-    need a leading dot. Either way one match is inserted (escaped, `/` for a directory, a space
-    otherwise); several extend to the common prefix and open a completion menu (shadcn
-    `Command` with a controlled value, `shouldFilter={false}`) above the editor: Up/Down move,
-    Enter or Tab picks (`applyCompletionItem` replaces the word, keeping its directory part),
-    Escape or any other key closes it. Focus stays in the textarea, which gets
-    `aria-activedescendant` from the menu's selected option. None shows "No matching commands"
-    or "No matching paths". Why not ask the shell: bash and zsh draw their completion menus in
+    `pty.commands(paneId)`, fetched each time a prompt shows; `commandCandidates` orders all of
+    them (`rankCommands`: commands this history ran first, newest first, then shorter names,
+    then alphabetical). Paths: the word before the caret (backslash-escaped spaces understood)
+    is split into dir and base, the dir is resolved against the pane cwd (`resolveLinkPath`; `~`
+    is expanded in main), and `fs.list` supplies the whole folder (`pathCandidates`). The
+    completers return only candidates; `lib/completionMatch.ts` matches them against the base
+    (`filterCompletions`: exact-case prefix, then any-case prefix, then substring, then
+    subsequence, pool order kept within a tier; dotfiles need a leading dot). Tab (`tabStep`)
+    inserts the one prefix match (or the one match at all) whole, escaped, `/` for a directory,
+    a space otherwise; several extend to the exact-case common prefix and open a completion menu
+    (shadcn `Command` with a controlled value, `shouldFilter={false}`, at most 200 rows) above
+    the editor: Up/Down move, Enter or Tab picks (`applyCompletionItem` replaces the word,
+    keeping its directory part). None shows "No matching commands" or "No matching paths".
+  - The menu stays live while the human types, like fish and VS Code. It keeps its origin (the
+    word's start, its scope and the full candidate list) and `followDraft` re-filters that list
+    on every change of the word or caret, with no new `fs.list`; the selected row stays on the
+    same item while it still matches, and matched characters are drawn in
+    `.input-editor-menu-match` spans, so the option's accessible name stays the whole name. When
+    the scope changes (`completionScope`: the word's directory part plus a leading `-`/`--`,
+    e.g. a typed `/`), the candidates are listed again for the new scope and shown as they are:
+    nothing is inserted, and one match is a one-row menu. A list with no matches hides the menu
+    but keeps the origin, so Backspace back into a match shows it again. It closes for good on
+    a space that ends the word, the caret leaving the word (a click, ←/→ past its start, Home,
+    End), Escape, a pick, history, an accepted suggestion or vim normal mode. Focus stays in
+    the textarea, which gets `aria-activedescendant` from the menu's selected option. Why not ask the shell: bash and zsh draw their completion menus in
     the terminal and edit their own line, which the editor would then have to read back off the
     screen (the RPROMPT problem in §6 of CLAUDE.md) and which conflicts with keeping the shell
     line empty.
@@ -531,7 +601,7 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     cargo, pnpm) and every alias and function, so those would all look unknown. Why a file and
     not an OSC like the other marks: see §6 of CLAUDE.md.
   - Pine prompt (`terminal.prompt`, `shared/promptSettings.ts`, `lib/promptChips.ts`,
-    `lib/usePromptChips.ts`, `components/PromptChips.tsx`, `PromptEditorDialog.tsx`), Warp's
+    `lib/usePromptChips.ts`, `components/PromptChips.tsx`, `PromptSection.tsx`), Warp's
     context-chip prompt. `style: 'shell'` (default) keeps the cwd line above; `'pine'` replaces
     it with an ordered row of chips (`chips`), or puts the row before the textarea on the input
     line when `sameLine` is on, followed by `separator` (`none`, `%`, `$`, `>`). A chip with no
@@ -555,13 +625,17 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
     `node --version` in precmd costs every prompt tens of milliseconds, and the hook must stay
     cheap (§6 of CLAUDE.md). Clicking the `cwd` chip opens Files (which follows the pane cwd);
     right-click on the row offers Edit prompt, Copy prompt (chip texts and separator), Copy
-    working directory and Show in Files. Edit prompt (also Settings → Terminal) is a dialog
-    with a live preview from the active terminal's real values (chips without one are drawn
-    dashed as "no value here"), the ordered list (drag, the arrow buttons, or Alt+↑/↓ on a
-    row's handle, announced through a live region), the available chips, the same-line switch
-    and the separator; Save writes the whole object and sets `style: 'pine'`.
+    working directory and Show in Files. Edit prompt opens Settings → Prompt
+    (`openSettings('prompt', paneId)`; the Terminal page links there too), an ordinary Settings
+    page, not a dialog: the style select, a live preview from that pane's real values (else the
+    active terminal; `promptPreviewPaneId` in `uiStore`; chips without one are drawn dashed as
+    "no value here"), the ordered list (drag, the arrow buttons, or Alt+↑/↓ on a row's handle,
+    announced through a live region), the available chips, the same-line switch, the separator
+    and Restore default chips. Every change is written at once through `setTerminal`
+    (`parsePromptSettings`), like every other setting; the chip editor stays usable under the
+    shell prompt and says it applies to the Pine prompt.
     Extension chips are the pane chips of the extension API (`contributes.paneChips`,
-    `ext.setPaneChip`): the id `<extId>.<chip>` sits in the same ordered list, the dialog lists
+    `ext.setPaneChip`): the id `<extId>.<chip>` sits in the same ordered list, Settings → Prompt lists
     every enabled extension's chips from `usePaneChipCatalog()`, and the row reads the pane's
     values from `usePaneChips(paneId)` (`lib/paneChips.ts`, over `extensionsStore.chips`),
     the same source as the pane-header badges. Tones `neutral` and `brand` draw as the default
@@ -619,8 +693,11 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   notification log with a desktop notification. The command text comes from the buffer line at
   mark B, starting at the cursor column recorded at B.
 - **Notification escapes**: OSC 9 (`9;message`), OSC 777 (`777;notify;title;body`) and OSC 99
-  (kitty; `p=title|body`, `i=` chunk id, `d=0` continuation, `e=1` base64) mark the pane `waiting`
-  unread and go to the log; a desktop notification fires only if the window is unfocused or the
+  (kitty; `p=title|body`, `i=` chunk id, `d=0` continuation, `e=1` base64) mark the pane unread
+  with the message and go to the log; they also mark it `waiting` only while an agent runs in it
+  (`terminalNotification` → `runningAgent`: `claude`/`codex` by `runningAgentOf`, or a running
+  command that reported an agent state). Why: a script's notification is news, not a question;
+  an OSC 9 from a plain `printf` in zsh used to leave the pane "Waiting for input" for good; a desktop notification fires only if the window is unfocused or the
   pane isn't visible. BEL in a pane that isn't being viewed marks it unread. The parsers are pure
   (`lib/attention.ts`). Why OSC 9 ignores `9;1` to `9;12`: those are ConEmu subcommands (`9;4` is
   the progress bar several CLIs emit), not notifications.
@@ -673,8 +750,15 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
 - **Workspace rows** (`components/DeckRail.tsx` `WorkspaceRow`, `lib/workspaceOrder.ts`,
   `lib/workspaceGroups.ts`): cmux-style
   rows. Title is the user's name or the folder; under it the latest message that still needs
-  you (or the running program's title), then an optional description, then path and extension
-  items. `pine workspace describe` (→ `workspace.describe`, drive-self, caller's workspace) or the
+  you (or the running program's title), then an optional description, then a location line (the
+  folder plus extension items of kind `location`) and a live line (items of kind `live`)
+  (`components/RailMeta.tsx`, `lib/sidebarItems.ts` `sidebarLines`). Why measure in a layout
+  effect: the folder is shortened by segment (`lib/railMeta.ts`) and live items fold into `+N`
+  (`fitCount`), and CSS alone can only cut text at the end, which turned the folder into `~/...`
+  and pushed ports out of sight. The live line renders every item once to record natural widths,
+  then shows what fits before paint; a `ResizeObserver` recounts from those widths. In the
+  collapsed rail a row renders only its icon (no close button, no details), so nothing is
+  measured while hidden. `pine workspace describe` (→ `workspace.describe`, drive-self, caller's workspace) or the
   row menu sets the description; it renders Markdown restricted to links, emphasis and code, as a
   sibling of the row button so links are real links (a link inside a button is invalid and would
   select the row). The row menu renames, edits the description, pins, moves, marks read, groups
@@ -777,9 +861,22 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   - `releaseSurfaces` drops hosts for pane ids that no longer exist.
   - Why: the portal target never changes, so split, move and zoom only move DOM nodes. xterm,
     Monaco and webview state survive, and ptys are not re-attached.
-- **Split rendering** (`PaneTree.tsx`): Allotment keyed by the child-id list. Why: Allotment
-  caches sizes, so a structural change must rebuild it or panes collapse to a sliver; a pure
-  resize keeps the instance.
+- **Split rendering** (`PaneTree.tsx`): Allotment keyed by the child-id list, mounted from the
+  node's `sizes` (`defaultSizes`, scaled to the container). Why: Allotment caches sizes, so a
+  structural change must rebuild it or panes collapse to a sliver; a pure resize keeps the
+  instance. Mounting from `sizes` is what lets a rebuilt, restored or newly sized split keep the
+  proportions the store holds instead of falling back to an even split.
+- **Remembered panel size** (`layout/panelSize.ts`, `lib/panelSizes.ts`): when the human finishes
+  dragging a splitter (Allotment `onDragEnd`), every direct pane child of that split that is a
+  panel (`panelKey`: `extension:<id>`, `view:<name>`, `chat`) has its share of the split stored,
+  clamped to 0.15–0.85. `openSingleton` (extension panels, views, the chat pane) gives a newly
+  created panel that share with the pure `sizePanel`, taking the room from the pane it split from
+  (never more than 85% of the two), after `equalizeOnSplit` so the human's size wins. An already
+  open panel is only focused. Why localStorage (key `panelSizes`, writes debounced 300 ms, read
+  fresh on every open): it is UI state, not a setting, so it stays out of `settings.json` and
+  settings sync; every Pine window loads the same `file://` origin in the default session, so
+  one synchronous store already serves all windows and survives restarts without a new IPC
+  method or main-side file. Hand-edited values are clamped or dropped on read.
 - **No workspaces** (`workspacesStore.ts`, `WorkZone.tsx`): zero workspaces is a valid state. The store
   starts empty (`activeWorkspaceId: null`); only the user (`workspace.new`, the sidebar or empty-state
   button, Ctrl+Shift+T / ⌘T, opening a file with no workspace via `lib/openFile.ts`) or restore
@@ -869,6 +966,55 @@ was pasted or inserted from history; the shell's own `preexec` argument is exact
   `application/x-pine-pane`, so file and text drags are ignored. Dropping within 25% of an edge
   re-splits on that side; the center swaps the two panes.
 
+### Scratch workspaces
+
+A scratch workspace (`kind: 'scratch'`, "New scratch workspace" in the top bar's New workspace
+menu, `workspace.newScratch {sandboxed?}`) is a one-time workspace that leaves nothing behind.
+
+- **Folder.** `startScratchWorkspace` (`lib/newWorkspace.ts`) asks main for a folder
+  (`scratch:create`); the renderer never names it. `ScratchFolders.create` makes
+  `privateTmpDir('pine-scratch')/<pid>-<random>` (0700, refused if not a real directory) and
+  remembers which window asked. The workspace's first `workspace-added` lifecycle event binds the
+  folder to that workspace id (`bind`, only for the window that created it and only once), so
+  from then on main knows which workspace and panes are scratch without trusting a path from the
+  renderer. The name defaults to "Scratch", then "Scratch 2"… (`scratchName`), set as
+  `customName` so the project name `setProject` derives from the folder never shows. The
+  sandboxed variant creates the workspace and then calls the normal per-workspace
+  `sandbox:set-enabled` path (`useSandboxStore.setEnabled`) before any pane exists, so a missing
+  sandbox shows the usual requirements dialog.
+- **Delete.** Closing the workspace (`workspace-closed`) deletes its folder (`rmSync` recursive,
+  never following symlinks). Before that, `requestCloseWorkspace` asks main for the file count
+  (`scratch:files`, the history file not counted) and, if any, the close dialog says
+  "Delete N files in the scratch folder?" with a Reveal link (`scratch:reveal`, opens the
+  folder). Quitting does the same across windows: each renderer reports its scratch workspaces in
+  `quitGroups`, `closeGuard.withScratchFiles` adds main's count, and after approval `before-quit`
+  removes every folder this process made and forgets their sandbox records. At startup
+  `sweep()` removes folders whose `<pid>` is no longer running. Why the pid: unpackaged runs (dev,
+  E2E) take no single-instance lock, so another live Pine's folders must survive our sweep.
+- **Never saved.** `isRestorable` excludes scratch, so it never reaches `workspaces.json`, and
+  `parseSnapshot` drops a `scratch` workspace found on disk anyway; `parseHandoff` still accepts
+  it, so a scratch workspace moves to a detached window and back (`isMovable`) and stays unsaved
+  there. Its single panes can't move out (`canMovePane`), because the folder belongs to the
+  workspace. `saveScrollback` skips scratch panes, so no `scrollback.json` entry either.
+- **No shared history.** Main spawns a scratch pane's zsh or bash with `PINE_HISTFILE` pointing at
+  `<folder>/.pine_history`; the generated init sets `HISTFILE` from it after the user's rc (zsh
+  and bash read and write history only after their rc files), so commands never reach
+  `~/.zsh_history` or `~/.bash_history` and the user's dotfiles are untouched. Other shells
+  keep their own history. In the renderer the history search (`paneOrigins`) and the input
+  editor's suggestions from other panes (`inputHistory` with `scratchPaneIds()`) leave scratch
+  panes out. A chat started in a scratch workspace is memory-only whatever
+  `assistant.chatHistory` says (`ChatSessionMeta.scratch`; the header shows "Not saved"), and its
+  workspace never lists saved sessions. Notifications from scratch panes show live in the
+  center but are kept in memory, never in `notifications.json` (`NotifyDeps.isScratchPane`).
+- **Agents.** `claude` and `codex` started there run in the empty folder, so their per-folder
+  memory and project instructions start empty. Pine does not touch `~/.claude` or `~/.codex`:
+  the agents still write their own session files there as usual.
+- **Files.** The scratch root is one of the fs roots (`fileRoots()` in `index.ts`), so Files, the
+  editor and chat file tools work in a folder that lives outside home.
+- **Not built:** "Keep as project". The folder lives in tmp, often another filesystem (tmpfs), so
+  keeping it means copy and delete, which would leave every shell, agent and editor in the
+  workspace inside a deleted directory.
+
 ### Live workspace state and attention
 
 Each pane has an attention record (`stores/attentionStore.ts`): `state`
@@ -879,12 +1025,22 @@ it last changed. All transitions go through the pure reducer `reduceAttention` i
 | Event | Source | Effect |
 |---|---|---|
 | `set` | `pine state` (`pane.setAttention` → `attention.set` command) | set the state; `waiting`/`done`/`error` mark unread; `none` clears everything |
-| `notify` | OSC 9/99/777 (`waiting: true`), `pine notify` (`waiting: false`) | unread + message; terminal escapes also set `waiting` |
+| `notify` | OSC 9/99/777 (`waiting` only while an agent runs, `terminalNotification`), `pine notify` (`waiting: false`) | unread + message; `waiting: true` also sets `waiting` |
 | `bell` | BEL in an unviewed pane | unread only |
 | `commandStart` | OSC 133 C | drops a stale agent state to `none`, keeps unread |
-| `commandEnd` | OSC 133 D while the pane isn't viewed | non-zero exit → `error` unread; ≥ 10 s with the window unfocused → `done` unread |
+| `commandEnd` | OSC 133 D while the pane isn't viewed | non-zero exit → `error` unread; ≥ 10 s with the window unfocused → `done` unread; otherwise ends `waiting` like `waitEnded` |
+| `waitEnded` | OSC 133 D of a quiet or viewed command; an approval that left the queue while its message is the pane's waiting message | `waiting` → `none`, not unread; any other state unchanged |
 | `input` | keystrokes into the pane | `waiting` → `none` |
 | `view` | the pane is being looked at | clears unread; `done` → `none` |
+
+`waiting` means something in the pane waits for the human right now, so it lasts only as long as
+the command that waits. Why: an agent that reported `waiting` and then exited (Ctrl+C, `/exit`,
+its own end) with the pane in view left the shell prompt "Waiting for input", because a quiet
+`commandEnd` changed nothing and `view` keeps `waiting`. The `attention.set` command also drops a
+`waiting` or `working` report that reaches a pane at an idle shell prompt (`isStaleAgentReport`:
+an open draft and nothing running): a hook process that finishes after its agent exited, or an
+agent left running in the background, reports for a pane that no longer runs it. A shell
+without integration has no drafts, so its reports are never dropped.
 
 A pane is *viewed* when the window has focus, its workspace is active, settings aren't covering
 it, no other pane is zoomed over it, and it is the workspace's active pane (`isPaneViewed`).
@@ -1060,15 +1216,26 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 
 ### Terminal and pane behavior settings
 
-- **Risky paste** (`terminal.warnOnRiskyPaste`): `Terminal.tsx` funnels the paste chord
-  (`requestPaste`) and native `paste` events (a capturing listener on the host, which also sees the
-  Linux middle-click paste: xterm moves its textarea under the pointer and the browser pastes the
-  primary selection into it) through `isRiskyPaste` (a newline or a control character other than
-  tab). A risky paste is held in `RiskyPasteDialog` (shadcn Dialog, preview via `pastePreview`);
-  Paste calls `term.paste`, Cancel drops it. Why intercept in the capture phase and stop the event:
-  xterm's own textarea handler would otherwise paste before the dialog could answer. Programmatic
-  pastes (`insertCommand`, report references) are not gated; they already have their own idle-prompt
-  rules.
+- **Risky paste** (`terminal.warnOnRiskyPaste`, `lib/pasteGate.ts`): two entry points, one per
+  source. `planHumanPaste` is for the human's own clipboard: `Terminal.tsx` funnels the paste
+  chord (`requestPaste`) and native `paste` events (a capturing listener on the host, which also
+  sees the Linux middle-click paste: xterm moves its textarea under the pointer and the browser
+  pastes the primary selection into it) through it. One line (after dropping one trailing
+  `\r?\n`) is pasted with C0/C1 control characters and DEL stripped (tab kept) and never asks;
+  two or more lines open `RiskyPasteDialog` while the setting is on, else are pasted with control
+  characters stripped. Why strip instead of passing through: a raw ESC can end bracketed paste
+  and let the rest run as typed keys; why drop the trailing newline: a copied line would
+  otherwise run by itself. `confirmsGeneratedText` is for text Pine or an agent produced (chat
+  Run in new terminal, `propose_command`): any newline or control character asks, whatever the
+  setting, and its dialog has no Don't ask again. The dialog (shadcn Dialog,
+  `min(90vw, 56rem)` wide) previews through `pastePreview` (control characters as `^[`-style
+  tokens, `\xNN` for C1), shows the line and character count, and focuses Paste so Enter pastes;
+  Escape and Cancel drop it. Don't ask again sets `warnOnRiskyPaste: false` on Paste. The setting
+  is human-only: `settings.set`/`settings.unset` refuse it like `behavior.externalEditor`
+  (`PROGRAM_SETTINGS`), so an agent can't switch the check off. Why intercept in the capture
+  phase and stop the event: xterm's own textarea handler would otherwise paste before the dialog
+  could answer. Programmatic pastes (`insertCommand`, report references) are not gated; they
+  already have their own idle-prompt rules.
 - **Scrollback, wheel speed, contrast** are xterm options (`scrollback`, `scrollSensitivity`,
   `minimumContrastRatio`), set at construction and updated on change.
 - **Dim / hover focus / tab close** (`panes.*`): `Pane.tsx` adds `.dimmed` only when `dimInactive`,
@@ -1079,7 +1246,7 @@ pane bypass `all-workspaces`. Agent hook recipes: `docs/AGENT-HOOKS.md`.
 - **Equalize on split** (`panes.equalizeOnSplit`): `patch` in `layoutStore` sees a layout whose slot
   count grew (`slotCount`; adding a tab does not count) and applies `equalizeSizes` (pure) to every
   split. Why an epoch (`WorkspaceLayout.equalized`, part of the Allotment key in `PaneTree`): Allotment
-  keeps its own pixel sizes and ignores `SplitNode.sizes`, so only a remount makes it lay out equally.
+  reads `SplitNode.sizes` only when it mounts, so only a remount makes it lay out equally.
 
 ### Settings sync
 
@@ -1390,7 +1557,8 @@ Off by default and never auto-started. Contract: `pine-companion/NETWORK-CONTRAC
 ## 8. Workspace restore
 
 Two files written by two processes (see CLAUDE.md §6): the renderers write `workspaces.json`
-(layout), and main writes `scrollback.json` (each pane's serialized screen).
+(layout), and main writes `scrollback.json` (each pane's serialized screen). Scratch workspaces
+and their panes are in neither (§5 Scratch workspaces).
 
 - **One file, many windows** (`windowBroker.ts`, `windowBook.ts`): each renderer saves only its
   own snapshot; main keeps one per window slot (`main` or a detached window's stable 8-char id)
@@ -1702,7 +1870,8 @@ Two files written by two processes (see CLAUDE.md §6): the renderers write `wor
     appended. The file must be absolute.
   - `settings.set` (agents, phone) refuses `behavior.externalEditor`, directly or through a
     `behavior` object. Why: it names a program pine runs on the user's click, so only the human
-    edits it (Settings → Files, or `settings.json`).
+    edits it (Settings → Files, or `settings.json`). The same list (`PROGRAM_SETTINGS`) holds
+    `notifications.command`, `agents.autoResume` and `terminal.warnOnRiskyPaste`.
 - **Appearance settings** (`lib/theme.ts`, `lib/color.ts`, `stores/systemThemeStore.ts`):
   - The effective theme is `theme`, or with `followSystem` the `lightTheme`/`darkTheme` picked by
     the OS. Why main and not `matchMedia`: in Electron on Linux `prefers-color-scheme` does not
@@ -2139,6 +2308,20 @@ extension owns providers, prompts and requests.
   actions (`lib/chatActions.ts`) follow §4's typing rules; links in answers go through
   `lib/chatLinks.ts` (`findFileLinks`); the @ picker attaches files (confined `fs.read`, capped),
   the selection, a block's output or a browser page as context chips that show what is sent.
+- Slash commands (`lib/chatSlash.ts`, `ChatSlashMenu.tsx`): a `/` at the start of the draft
+  opens a cmdk list above the composer, at the caret's column (`lib/caretPoint.ts`), driven from
+  the textarea like the input editor's completion menu (controlled `value`, `aria-activedescendant`
+  synced from cmdk's selected item). The registry is a data table (`id`, `icon`, `arg`,
+  `unavailable(ctx)`, `run(actions, arg, ctx)`); titles, descriptions and reasons live in
+  `chatSlash` in the dictionary. Commands run in the renderer and call the same functions as the
+  buttons they stand for (new chat, session list, rename, export, regenerate, the @ picker, the
+  tools menu); a draft whose first word is a known command never reaches the model. Only
+  `/explain` (the terminal selection, the selected block or the last output, as the human picks,
+  sent like the Explain output suggestion) and `/skill` (asks the model to `load_skill`) build an
+  ordinary question. Why a registry of local actions rather than prompt templates: a command
+  must not send anything the human didn't put in the question (§4 assist rule), and nothing it
+  does may type into a terminal; answers still go through the code-block rules. `/clear` asks
+  first and deletes the saved copy too (`clearSession`), since an empty chat is never saved.
 - The extension runs its providers on the AI SDK: `streamText(...).toUIMessageStream()` for
   chat, `generateText` with `Output.object` + zod (behind `extractJsonMiddleware`) for review and
   commands, and `createOpenAICompatible` with an undici `fetch` over the unix socket plus
@@ -2173,12 +2356,25 @@ extension owns providers, prompts and requests.
 list (`{id, setting, ready}`, ids from `ASSIST_FEATURES`), a setup problem, the last provider
 error and a label. Main keeps only features bound to one of the extension's own boolean settings
 and reads `on` from that setting (`assistOverview`, pushed on `assist:overview`), so the top-bar
-menu, the in-context switches, Settings → Plugins and the extension's panel all flip the same
-value through the validated setting path. Why the extension names the setting: pine must stay
+menu, the in-context switches and Settings → Assistant all flip the same value through the
+validated setting path. Why the extension names the setting: pine must stay
 tool-agnostic, and a switch that isn't a real setting would drift from Settings. `ext.shortcuts`
 answers the effective key labels the renderer reports (`assist:shortcuts`), and `ext.openAssistUi`
-opens pine's chat pane, Ask or composer for a point the extension contributes (a panel's "Try
-it"), never sending anything by itself.
+opens pine's chat pane, Ask or composer for a point the extension contributes, never sending
+anything by itself.
+
+**Settings → Assistant** (`AssistantSection.tsx`). The assistant is configured in its own
+Settings section, not under Plugins (Plugins keeps only its switch and a link): Features (status,
+each feature's switch, shortcut hint and "Try it", which calls `openAssistUi` directly; chat
+history), Provider and models (the extension's own `contributes.settings` and secrets through
+`ExtensionSettingsForm`, minus the feature switches, so main still validates and stores them),
+Models, then the core chat tools, MCP servers and skill folders (`ChatToolsSettings.tsx`,
+`McpServerDialog.tsx`, pure form logic in `lib/mcpServerForm.ts`). Models come from the
+extension through `ext.assistModels` (`list`, `load`, `unload`), asked by main only for an
+enabled extension granted `assist` whose report said `models: true` (`assist:models`,
+`assist:set-model-loaded`), with replies normalized by `normalizeAssistModels`. Why not the
+extension's panel: chat tools run in core, and one settings page for the whole assistant reads
+as part of Pine rather than a plugin's own UI; the assistant extension no longer has a panel.
 
 **Chat sessions** (`main/chatSessions.ts`, `chatSessionsIpc.ts`, `shared/chatSessions.ts`). One
 JSON file per session in `<data dir>/chat-sessions/` (mode 0600, never synced, not
@@ -2264,7 +2460,7 @@ error or denial in order with the text around it.
   the human declared on that server). Tool names are `mcp__<server>__<tool>`; main re-checks that
   the server is enabled and the tool exists and is not switched off on every call.
 - `assistant` is not in the settings store's `DATA_KEYS`, so `pine settings set` cannot add a
-  server or a skill folder; Settings → Plugins → Assistant writes them (and flushes the file
+  server or a skill folder; Settings → Assistant writes them (and flushes the file
   before asking main to reconnect, since main reads `settings.json` itself).
 - Why the assist reply now carries `chunks`: an `ipcRenderer.invoke` reply can overtake the
   `assist:chunk` events sent before it, and the last chunk of a round is often the tool call.
@@ -2343,7 +2539,17 @@ holds whole and settings sync copies to a folder the user shares.
   and the extension re-reads them from `onSettingsChanged`, so the panel and Settings → Plugins
   stay in sync. "Choose branches" can't be a setting (it names one repository's refs), so it
   lives per repository root in `$PINE_EXTENSION_DATA/view.json` (`viewState.ts`, 200 repos),
-  and wins over `graphScope` until the panel picks Current or All again. The toolbar shows the
+  and wins over `graphScope` until the panel picks Current or All again. The graph list and an
+  open detail, and the Changes page's commit area and file list, are split by the SDK splitter
+  (`sdk/splitter.ts`, keys `graph-details` and `changes-commit`); the detail collapses to its
+  header when the panel can't fit both minimums. The commit message box grows with its text
+  (`field-sizing: content`, capped so the file list keeps room) on top of the height the
+  divider gives it. Staged, unstaged and untracked groups share one scroll, so they need no
+  divider. Why split sizes live in `$PINE_EXTENSION_DATA/panel-sizes.json` (served by
+  `startPanelServer` at `/sizes`) and not in `localStorage`: the panel partition `pine-ext-<id>`
+  isn't `persist:`, and the panel origin's port changes every run, so `localStorage` forgets on
+  restart; and they aren't extension settings because a drag isn't something Settings → Plugins
+  should list or sync. The toolbar shows the
   branch and its upstream with ahead/behind counts. The Blame page renders `git blame --porcelain` (`parseBlamePorcelain`), one
   author/sha/date cell per run of lines from the same commit. CLI/agents: `status`, `changes`,
   `diff <path> [--staged]` (unified patch), `open <path> [--staged]`, `log [--limit n] [--json]`,

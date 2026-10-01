@@ -41,11 +41,18 @@ describe('sidebarEntries', () => {
   it('makes one clickable item per port and one ssh item, capped per workspace', () => {
     const ports = Array.from({ length: MAX_PORTS_PER_WORKSPACE + 2 }, (_, i) => 3000 + i)
     const entries = sidebarEntries(new Map([['s1', { ports, ssh: ['box'] }]]))
-    expect(entries[0]).toEqual({ workspaceId: 's1', key: 'ssh', text: 'box', icon: 'server' })
+    expect(entries[0]).toEqual({
+      workspaceId: 's1',
+      key: 'ssh',
+      text: 'box',
+      icon: 'server',
+      kind: 'live',
+    })
     expect(entries[1]).toEqual({
       workspaceId: 's1',
       key: 'port:3000',
       text: ':3000',
+      kind: 'live',
       url: 'http://localhost:3000/',
     })
     expect(entries).toHaveLength(1 + MAX_PORTS_PER_WORKSPACE)

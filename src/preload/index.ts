@@ -76,6 +76,7 @@ import type {
   SyncStatus,
   WindowInfo,
   WindowSummary,
+  WorkspaceMergeResult,
   WorkspaceProject,
 } from '../shared/types'
 import type { ViewListing } from '../shared/views'
@@ -213,6 +214,13 @@ const bridge: PineBridge = {
   workspace: {
     save: (snapshot) => ipcRenderer.send('workspace:save', snapshot),
     load: () => ipcRenderer.invoke('workspace:load') as Promise<AppSnapshot | null>,
+    merge: (sourceId, targetId) =>
+      ipcRenderer.invoke('workspace:merge', sourceId, targetId) as Promise<WorkspaceMergeResult>,
+  },
+  scratch: {
+    create: () => ipcRenderer.invoke('scratch:create') as Promise<string | null>,
+    files: (workspaceId) => ipcRenderer.invoke('scratch:files', workspaceId) as Promise<number>,
+    reveal: (workspaceId) => ipcRenderer.send('scratch:reveal', workspaceId),
   },
   windows: {
     info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,
@@ -511,6 +519,9 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener('assist:open-ui', handler)
     },
     reportShortcuts: (shortcuts) => ipcRenderer.send('assist:shortcuts', shortcuts),
+    models: (extId) => ipcRenderer.invoke('assist:models', extId),
+    setModelLoaded: (extId, id, loaded) =>
+      ipcRenderer.invoke('assist:set-model-loaded', extId, id, loaded),
   },
   chatSessions: {
     list: () => ipcRenderer.invoke('chat:list') as Promise<ChatSessionSummary[]>,

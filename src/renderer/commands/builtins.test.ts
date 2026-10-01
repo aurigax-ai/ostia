@@ -1,6 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
+import { useAttentionStore } from '../stores/attentionStore'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
@@ -199,6 +201,30 @@ describe('builtins route to store actions', () => {
     expect(direct.ok).toBe(false)
     expect(nested.ok).toBe(false)
     expect(useSettingsStore.getState().agents.autoResume).toBe(false)
+  })
+
+  it('settings.set and settings.unset refuse the multi-line paste confirmation, directly or via terminal', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.warnOnRiskyPaste',
+      value: false,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal',
+      value: { ...useSettingsStore.getState().terminal, warnOnRiskyPaste: false },
+    })
+    const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
+      key: 'terminal.warnOnRiskyPaste',
+    })
+    const unrelated = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal',
+      value: { ...useSettingsStore.getState().terminal, scrollSpeed: 2 },
+    })
+    expect(direct.ok).toBe(false)
+    if (!direct.ok) expect(direct.error.message).toMatch(/terminal.warnOnRiskyPaste/)
+    expect(nested.ok).toBe(false)
+    expect(unset.ok).toBe(false)
+    expect(unrelated.ok).toBe(true)
+    expect(useSettingsStore.getState().terminal.warnOnRiskyPaste).toBe(true)
   })
 
   it('settings.set --dry-run validates without applying, and reports the previous value', async () => {
@@ -740,6 +766,9 @@ describe('workspace row commands', () => {
 })
 
 describe('agent notifications', () => {
+  const blocksInit = useBlocksStore.getState()
+  const attentionInit = useAttentionStore.getState()
+
   function seedPane() {
     const pane = { ...createPane('terminal'), title: 'claude' }
     useLayoutStore.setState({
@@ -753,7 +782,11 @@ describe('agent notifications', () => {
     vi.spyOn(document, 'hasFocus').mockReturnValue(true)
   }
 
-  afterEach(() => vi.mocked(window.pine.notifications.post).mockClear())
+  afterEach(() => {
+    vi.mocked(window.pine.notifications.post).mockClear()
+    useBlocksStore.setState(blocksInit, true)
+    useAttentionStore.setState(attentionInit, true)
+  })
 
   it('posts a desktop banner when an agent waits in a pane you are not looking at', async () => {
     const pane = seedPane()
@@ -787,6 +820,29 @@ describe('agent notifications', () => {
     const pane = seedPane()
     await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'working' })
     expect(window.pine.notifications.post).not.toHaveBeenCalled()
+  })
+
+  it('ignores a waiting or working report that arrives after the agent exited to the prompt', async () => {
+    const pane = seedPane()
+    const blocks = useBlocksStore.getState()
+    blocks.promptStart(pane.id, { line: 0 }, null)
+    blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    blocks.commandEnd(pane.id, { line: 2 }, 0)
+    blocks.promptStart(pane.id, { line: 3 }, null)
+    for (const state of ['waiting', 'working'] as const) {
+      await commands.execWith(ctx('s1', pane.id), 'attention.set', { state })
+    }
+    expect(useAttentionStore.getState().byPane[pane.id]).toBeUndefined()
+    expect(window.pine.notifications.post).not.toHaveBeenCalled()
+  })
+
+  it('accepts a waiting report while the agent command is still running', async () => {
+    const pane = seedPane()
+    const blocks = useBlocksStore.getState()
+    blocks.promptStart(pane.id, { line: 0 }, null)
+    blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'waiting' })
+    expect(useAttentionStore.getState().byPane[pane.id]?.state).toBe('waiting')
   })
 
   it('tells pine notify to skip the banner for the pane being viewed unless whenFocused is on', async () => {

@@ -16,8 +16,12 @@ const agentState = vi.hoisted(() => ({
 }))
 
 vi.mock('../lib/sendPick', () => ({
-  runningAgent: () => agentState.agent,
   canInsertReference: () => agentState.insertable,
+}))
+
+vi.mock('../lib/paneAgent', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/paneAgent')>()),
+  runningAgent: () => agentState.agent,
 }))
 
 const { AssistComposer } = await import('./AssistComposer')
@@ -88,6 +92,7 @@ describe('AssistComposer', () => {
           extId: 'assistant',
           name: 'Assistant',
           setup: null,
+          models: false,
           features: [
             { id: 'typos', setting: 'typos', on: false, ready: true },
             { id: 'promptReview', setting: 'promptReview', on: true, ready: true },

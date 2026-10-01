@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import { AppWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ASK_COMMAND_ID } from '../commands/askCommand'
-import { commands } from '../commands/registry'
+import { type CommandChoice, commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, firstPaneOfKind } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
@@ -156,6 +156,8 @@ interface ArgumentCommand {
   id: string
   title: string
   argument: string
+  choices?: () => Promise<CommandChoice[]>
+  emptyChoices?: () => string
 }
 
 function ArgumentStep({
@@ -176,6 +178,17 @@ function ArgumentStep({
     void commands.exec(command.id, { argument })
     onDone()
   }
+  if (command.choices) {
+    return (
+      <ChoiceStep
+        command={command}
+        choices={command.choices}
+        value={value}
+        onValueChange={onValueChange}
+        onDone={onDone}
+      />
+    )
+  }
   return (
     <>
       <CommandInput
@@ -194,6 +207,55 @@ function ArgumentStep({
             ? fmt(d.palette.runWith, { title: command.title, value: argument })
             : d.palette.argumentEmpty}
         </CommandEmpty>
+      </CommandList>
+    </>
+  )
+}
+
+function ChoiceStep({
+  command,
+  choices: loadChoices,
+  value,
+  onValueChange,
+  onDone,
+}: {
+  command: ArgumentCommand
+  choices: () => Promise<CommandChoice[]>
+  value: string
+  onValueChange: (value: string) => void
+  onDone: () => void
+}): JSX.Element {
+  const [choices, setChoices] = useState<CommandChoice[] | null>(null)
+  useEffect(() => {
+    let live = true
+    void loadChoices().then((next) => {
+      if (live) setChoices(next)
+    })
+    return () => {
+      live = false
+    }
+  }, [loadChoices])
+  return (
+    <>
+      <CommandInput placeholder={command.argument} value={value} onValueChange={onValueChange} />
+      <CommandList>
+        {choices !== null && choices.length === 0 ? (
+          <CommandEmpty>{command.emptyChoices?.() ?? command.argument}</CommandEmpty>
+        ) : null}
+        {choices?.map((choice) => (
+          <CommandItem
+            key={choice.value}
+            value={`${choice.label} ${choice.value}`}
+            disabled={choice.disabledReason !== undefined}
+            onSelect={() => {
+              void commands.exec(command.id, { argument: choice.value })
+              onDone()
+            }}
+          >
+            <span>{choice.label}</span>
+            {choice.disabledReason ? <ItemMeta>{choice.disabledReason}</ItemMeta> : null}
+          </CommandItem>
+        ))}
       </CommandList>
     </>
   )
@@ -382,7 +444,13 @@ function CommandItems({
                     return
                   }
                   if (c.argument) {
-                    onAsk({ id: c.id, title: c.title, argument: c.argument })
+                    onAsk({
+                      id: c.id,
+                      title: c.title,
+                      argument: c.argument,
+                      choices: c.choices,
+                      emptyChoices: c.emptyChoices,
+                    })
                     return
                   }
                   void commands.exec(c.id)

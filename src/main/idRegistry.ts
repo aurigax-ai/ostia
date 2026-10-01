@@ -78,6 +78,23 @@ export function rehomePanes(paneIds: readonly string[], windowId: string): PaneI
   return moved
 }
 
+export function workspaceHasManager(workspaceId: string): boolean {
+  for (const identity of byPane.values()) {
+    if (identity.workspaceId === workspaceId && identity.manager) return true
+  }
+  return false
+}
+
+export function rehomeWorkspace(sourceId: string, targetId: string): PaneIdentity[] {
+  const moved: PaneIdentity[] = []
+  for (const identity of byPane.values()) {
+    if (identity.workspaceId !== sourceId) continue
+    identity.workspaceId = targetId
+    moved.push(identity)
+  }
+  return moved
+}
+
 export function registerExtension(extId: string): PaneIdentity {
   removeExtension(extId)
   const identity: PaneIdentity = {

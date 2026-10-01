@@ -1,8 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
-import { newWorkspaceDir, startNewWorkspace } from './newWorkspace'
+import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
+import { newWorkspaceDir, scratchName, startNewWorkspace } from './newWorkspace'
 
 describe('newWorkspaceDir', () => {
   it('uses the focused pane folder only when inheriting', () => {
@@ -53,5 +53,24 @@ describe('startNewWorkspace', () => {
     startNewWorkspace()
 
     expect(useWorkspacesStore.getState().workspaces[1].workDir).toBe('/srv/code')
+  })
+})
+
+describe('scratchName', () => {
+  const named = (...names: string[]): Workspace[] =>
+    names.map((customName, i) => ({
+      id: `w${i}`,
+      name: 'x',
+      customName,
+      kind: 'scratch',
+      workDir: '/tmp',
+      state: 'idle',
+    }))
+
+  it('is the plain name until it is taken, then numbers from 2', () => {
+    expect(scratchName('Scratch', [])).toBe('Scratch')
+    expect(scratchName('Scratch', named('Scratch'))).toBe('Scratch 2')
+    expect(scratchName('Scratch', named('Scratch', 'Scratch 2'))).toBe('Scratch 3')
+    expect(scratchName('Scratch', named('Scratch 2'))).toBe('Scratch')
   })
 })
