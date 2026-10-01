@@ -29,11 +29,12 @@ let workerSeq = 0
 const deps: ManagerMethodDeps = {
   settings: () => settings,
   agents: () => managerAgents(settings),
-  readPane: async (paneId, lines) =>
-    paneId === 'no-pty' ? null : `screen of ${paneId} (${lines})`,
-  writePane: (paneId, data) => {
-    written.push({ paneId, data })
-    return true
+  io: {
+    read: async (paneId, lines) => (paneId === 'no-pty' ? null : `screen of ${paneId} (${lines})`),
+    write: (paneId, data) => {
+      written.push({ paneId, data })
+      return true
+    },
   },
   openWorker: async (req) => {
     opened.push(req)

@@ -155,6 +155,25 @@ test('SBX-C24 reaches Pine from a sandboxed shell through the control socket', a
   }
 })
 
+test('SBX-C2 pine process run in a sandboxed workspace runs its command in a sandboxed tab', async () => {
+  const { app, win, home } = await launch()
+  try {
+    await sandboxedShell(win)
+    await run(
+      win,
+      `pine process run "cat ${home}/.ssh/id_ed25519 || echo C2-\\$((1+1))-DENIED; echo proxy=\\\${HTTPS_PROXY:+on}" --name probe`,
+    )
+    const tab = win.locator('.xterm-rows').filter({ hasText: 'C2-2-DENIED' })
+    await expect(tab).toHaveCount(1, { timeout: 30_000 })
+    await expect(tab).toContainText('proxy=on')
+    await expect(win.locator('.xterm-rows').filter({ hasText: 'SECRET-KEY-MATERIAL' })).toHaveCount(
+      0,
+    )
+  } finally {
+    await app.close()
+  }
+})
+
 const FAKE_BIN = join(__dirname, '../test/fixtures/system/bin')
 
 async function launchWithFakeSystem() {

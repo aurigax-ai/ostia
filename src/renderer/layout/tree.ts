@@ -351,14 +351,19 @@ export function splitPane(
   return { root: insertBeside(root, targetId, newPane, direction, false), newPaneId: newPane.id }
 }
 
-export function addTab(root: LayoutNode, targetId: string, pane: PaneNode): LayoutNode {
+export function addTab(
+  root: LayoutNode,
+  targetId: string,
+  pane: PaneNode,
+  background = false,
+): LayoutNode {
   const slotId = slotIdOf(root, targetId)
   if (!slotId) return root
   return replaceSlot(root, slotId, (slot) => {
-    if (slot.type === 'pane') return tabsOf(pane.id, slot, pane)
+    if (slot.type === 'pane') return tabsOf(background ? slot.id : pane.id, slot, pane)
     const children = [...slot.children]
     children.splice(children.findIndex((c) => c.id === targetId) + 1, 0, pane)
-    return { ...slot, children, activeId: pane.id }
+    return { ...slot, children, activeId: background ? slot.activeId : pane.id }
   })
 }
 

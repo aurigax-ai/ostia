@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), background processes, an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: pine sandbox request-domain/expose, pine secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), building sidebar sections and panels for the human as data-only JSON views (pine view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Pine", "pine view".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), running commands in terminal tabs the human can watch (pine process), typing into and reading other terminal panes (pine pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: pine sandbox request-domain/expose, pine secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), building sidebar sections and panels for the human as data-only JSON views (pine view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Pine", "pine view".
 ---
 
 # Pine — the agent toolbelt
@@ -102,20 +102,57 @@ pine editor.open '{"path":"src/index.ts"}'   # the raw command: reuses the edito
 `pine commands` is the authoritative list (id + argsSchema + capabilities) — check
 it before guessing an id or an args shape.
 
-## Background processes
+## Processes run in visible terminal tabs
+
+Pine has no hidden background processes. `pine process run` opens a new terminal tab next
+to your pane, titled with the process name, and runs your command there once the tab's
+shell is ready. The human sees it, can type into it and can close it. Your pane keeps the
+focus.
 
 ```sh
-pine process run "npm run dev" [--name web] [--cwd /path]   # -> { id, name, pid }
-pine process ls                                              # id, name, status, pid, cmd
-pine process logs <id|name> [--since N]                      # prints captured stdout+stderr
-pine process kill <id|name>
-pine process restart <id|name>                                # kill (if running) + re-run
+pine process run "npm run dev" [--name web] [--cwd /path]   # -> { id, name, paneId }
+pine process ls                    # id, name, status, paneId, cmd
+pine process logs <id|name> [--since N]   # that command's output only, as plain text
+pine process kill <id|name>        # Ctrl+C; ends the tab's shell if it keeps running
+pine process restart <id|name>     # Ctrl+C, then the same line again in the same tab
 ```
 
-Tracked processes are scoped to the workspace that started them (cross-workspace
-visibility needs the elevated `all-workspaces` capability). `logs` prints the
-buffered output followed by `(cursor=N)` on stderr — pass `--since` that cursor to
-resume from where you left off instead of re-reading everything.
+- The command is your own shell line, pasted exactly as you wrote it and run by the tab's
+  interactive shell (zsh or bash), so the human's aliases and functions apply. Quote it once
+  for your own shell: `pine process run "claude 'fix the login bug'" --name fixer`.
+  It starts in your current folder unless you pass `--cwd`.
+- Status is `starting` (not typed yet), `running`, `exited(<code>)`, or `closed` (the human
+  closed the tab; start it again with `pine process run`). Nothing survives a restart of
+  Pine: a restored tab is an idle shell and the list is empty.
+- `logs` prints the output between that command's start and end, never what was typed in the
+  tab before or after, then `(cursor=N)` on stderr. Pass `--since N` to read only what is
+  new. A full-screen program (an agent, an editor) has no useful log: use `pine pane read`.
+- `kill` leaves the tab open with its output. `restart` fails with `still-running` when the
+  command ignores Ctrl+C; `kill` it and `run` it again.
+- You see only your own workspace's processes (others need `all-workspaces`).
+
+## Talk to another terminal pane
+
+```sh
+pine pane send <pane> "text" [--enter]   # type text; no Enter unless --enter
+pine pane key <pane> <key>...            # enter tab escape up down ctrl-c ...
+pine pane read <pane> [--lines N] [--json]   # its screen as plain text
+```
+
+`<pane>` is a paneId from `pine pane.list`, or a process id or name from `pine process ls`.
+
+- A tab **you** opened with `pine process run` is yours to type into and read, with no
+  question asked. This is how you dispatch a worker and talk to it:
+  `pine process run "claude" --name worker`, then
+  `pine pane send worker "summarise src/main" --enter`, then `pine pane read worker`.
+- Any other pane asks the human first: typing needs `type-other-pane`, reading needs
+  `read-other-pane`, and a pane in another workspace also needs `all-workspaces`. A screen
+  can hold secrets, so read only what the task needs.
+- From a sandboxed workspace you reach only sandboxed terminals of your own workspace.
+- Read before you type, and type only what the program on screen is waiting for. Keys:
+  enter, tab, shift-tab, escape, backspace, delete, space, up, down, left, right, home, end,
+  pageup, pagedown, ctrl-a to ctrl-z.
+- `read --json` adds `cwd`, `running` and `lastExitCode`.
 
 ## Workflows — the human's saved commands (read-only)
 
@@ -667,7 +704,7 @@ pane scope, so every pane holds a fixed set of **default** capabilities:
 `drive-self`, `read-board`, `notify`, `settings-read`, `process`, `vault-read`,
 `vault-write`. Everything cross-boundary,
 system-facing, or dangerous is **elevated** and starts withheld: `send-other-pane`,
-`kill-pane`, `all-workspaces`, `shell`, `destructive`, `phone`, `gateway`, `browse`,
+`type-other-pane`, `read-other-pane`, `kill-pane`, `all-workspaces`, `shell`, `destructive`, `phone`, `gateway`, `browse`,
 `settings-write`.
 
 A call that needs a capability your pane doesn't hold **asks the human** in Pine: the

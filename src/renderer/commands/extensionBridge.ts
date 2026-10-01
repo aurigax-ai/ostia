@@ -4,12 +4,15 @@ import type {
   ExtensionOpenPanelRequest,
   ExtensionOpenTerminalRequest,
 } from '@shared/extensions'
+import { flushSync } from 'react-dom'
 import { runWhenIdle } from '../lib/blockActions'
+import { pinTitle } from '../lib/pinnedTitles'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { focusSurface } from '../stores/surfaceSlotsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { commands } from './registry'
 
@@ -94,18 +97,35 @@ export function openExtensionDiff(req: ExtensionOpenDiffRequest): string | null 
   return workspaceId ? useLayoutStore.getState().openDiff(workspaceId, content) : null
 }
 
+function focusedPaneId(): string | undefined {
+  return document.activeElement?.closest<HTMLElement>('.surface-host')?.dataset.paneId
+}
+
+function openKeepingFocus(open: () => string | null): string | null {
+  const focused = focusedPaneId()
+  const paneId = flushSync(open)
+  if (focused && focusedPaneId() !== focused) focusSurface(focused)
+  return paneId
+}
+
 export function openExtensionTerminal(req: ExtensionOpenTerminalRequest): string | null {
   const workspaces = useWorkspacesStore.getState()
   const workspaceId = req.workspaceId ?? workspaces.activeWorkspaceId
   if (!workspaceId || !workspaces.workspaces.some((w) => w.id === workspaceId)) return null
-  const paneId = useLayoutStore.getState().openTerminal(workspaceId, {
-    afterPaneId: req.afterPaneId,
-    cwd: req.cwd,
-    title: req.title,
-  })
+  const open = (): string | null =>
+    useLayoutStore.getState().openTerminal(workspaceId, {
+      afterPaneId: req.afterPaneId,
+      cwd: req.cwd,
+      title: req.title,
+      backgroundTab: req.backgroundTab,
+    })
+  const paneId = req.backgroundTab ? openKeepingFocus(open) : open()
   if (!paneId) return null
+  if (req.pinTitle) pinTitle(paneId)
   if (req.hostToken) useSandboxStore.getState().setHostToken(paneId, req.hostToken)
-  if (workspaces.activeWorkspaceId !== workspaceId) workspaces.setActive(workspaceId)
+  if (!req.backgroundTab && workspaces.activeWorkspaceId !== workspaceId) {
+    workspaces.setActive(workspaceId)
+  }
   runWhenIdle(paneId, req.command)
   return paneId
 }

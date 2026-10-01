@@ -1,0 +1,307 @@
+import { spawn } from 'node:child_process'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ApprovalOutcome } from '../shared/approvals'
+import type { CommandResult } from '../shared/types'
+
+let answer: ApprovalOutcome = 'deny'
+const request = vi.fn(async () => answer)
+
+vi.mock('../main/approvals', () => ({ approvals: () => ({ request }) }))
+
+const { registerControlServer, stopControlServer } = await import('../main/controlServer')
+const { registerPane } = await import('../main/idRegistry')
+const { registerPaneIoMethods } = await import('../main/paneIo')
+const { registerProcessMethods } = await import('../main/processManager')
+const { PtyRingBuffer } = await import('../main/ptyRingBuffer')
+
+type OpenRequest = Parameters<Parameters<typeof registerProcessMethods>[0]['openTab']>[0]
+
+const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')
+const PROMPT = '\x1b]133;A\x1b\\% \x1b]133;B\x1b\\'
+const C = '\x1b]133;C\x1b\\'
+const exit = (code: number): string => `\x1b]133;D;${code}\x1b\\`
+
+const rings = new Map<string, InstanceType<typeof PtyRingBuffer>>()
+const opened: OpenRequest[] = []
+const written: { paneId: string; data: string }[] = []
+const reruns: { paneId: string; command: string }[] = []
+let tabSeq = 0
+
+const registry = registerProcessMethods({
+  openTab: async (req) => {
+    opened.push(req)
+    tabSeq += 1
+    const paneId = `tab-${tabSeq}`
+    rings.set(paneId, new PtyRingBuffer())
+    return registerPane({ windowId: 'w1', workspaceId: req.workspaceId ?? '', paneId }).externalId
+  },
+  ring: (paneId) => {
+    const ring = rings.get(paneId)
+    return ring ? (from) => ring.since(from) : undefined
+  },
+  writePane: (paneId, data) => {
+    written.push({ paneId, data })
+    if (data === '\x03') emit(paneId, `^C\r\n${exit(130)}${PROMPT}`)
+    return true
+  },
+  endShell: (paneId) => {
+    rings.delete(paneId)
+  },
+  hasShell: (paneId) => rings.has(paneId),
+  runInPane: (paneId, command) => {
+    reruns.push({ paneId, command })
+    return true
+  },
+  cwdOfPane: () => undefined,
+  interruptGraceMs: 50,
+})
+
+registerPaneIoMethods({
+  io: {
+    read: async (paneId, lines) => `screen of ${paneId} (${lines})`,
+    write: (paneId, data) => {
+      written.push({ paneId, data })
+      return true
+    },
+  },
+  state: (paneId) => ({ paneId, generation: 1, cwd: '/w', running: true, blockCount: 1 }),
+  processPane: (ref, ctx) => {
+    const entry = registry.resolve(ref, ctx.identity.workspaceId, false)
+    return entry && entry.status !== 'closed' ? entry.paneId : undefined
+  },
+  isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
+  isSandboxed: () => false,
+  isConfined: () => false,
+  managerAllowsInput: () => false,
+})
+
+function emit(paneId: string, data: string): void {
+  const ring = rings.get(paneId)
+  if (!ring) return
+  ring.push(data)
+  registry.feed(paneId, data, ring.end)
+}
+
+const agent = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'agent-pane' })
+const other = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'other-pane' })
+
+interface RunResult {
+  code: number | null
+  stdout: string
+  stderr: string
+}
+
+let socketPath = ''
+let seq = 0
+let home = ''
+const liveChildren = new Set<ReturnType<typeof spawn>>()
+
+function pine(args: string[], cwd = home): Promise<RunResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cliPath, ...args], {
+      cwd,
+      env: { ...process.env, PINE_SOCKET: socketPath, PINE_TOKEN: agent.token },
+    })
+    liveChildren.add(child)
+    let stdout = ''
+    let stderr = ''
+    child.stdout?.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString()
+    })
+    child.stderr?.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString()
+    })
+    child.on('error', reject)
+    child.on('close', (code) => {
+      liveChildren.delete(child)
+      resolve({ code, stdout, stderr })
+    })
+  })
+}
+
+async function run(cmd: string, ...flags: string[]): Promise<{ id: string; tab: string }> {
+  const res = await pine(['process', 'run', cmd, ...flags])
+  expect(res.stderr).toBe('')
+  return { id: JSON.parse(res.stdout).id, tab: `tab-${tabSeq}` }
+}
+
+beforeAll(() => {
+  home = realpathSync(mkdtempSync(join(tmpdir(), 'pine-cli-proc-')))
+  mkdirSync(join(home, 'api'))
+})
+
+afterAll(() => {
+  for (const child of liveChildren) child.kill('SIGKILL')
+  rmSync(home, { recursive: true, force: true })
+})
+
+beforeEach(() => {
+  seq += 1
+  socketPath = join(tmpdir(), `pine-cli-proc-${process.pid}-${seq}.sock`)
+  registerControlServer(
+    {
+      execCommand: async () => ({ ok: true }) as CommandResult,
+      listCommandsFor: () => [],
+      getTerminalState: () => undefined,
+    },
+    socketPath,
+  )
+  answer = 'deny'
+  request.mockClear()
+  opened.length = 0
+  written.length = 0
+  reruns.length = 0
+})
+
+afterEach(() => {
+  stopControlServer()
+  registry.workspaceClosed('ws1')
+})
+
+describe('pine process (the real CLI against a live control server)', () => {
+  it('run: opens a tab with a long quoted command line exactly as the caller wrote it', async () => {
+    const cmd = `claude 'review "src/main" && say it\\'s done' --model opus -p "two words"`
+    const res = await pine(['process', 'run', cmd, '--name', 'reviewer', '--cwd', 'api'])
+
+    expect(res.stderr).toBe('')
+    expect(res.code).toBe(0)
+    expect(opened).toHaveLength(1)
+    expect(opened[0]).toMatchObject({
+      command: cmd,
+      title: 'reviewer',
+      cwd: join(home, 'api'),
+      afterPaneId: 'agent-pane',
+      backgroundTab: true,
+    })
+    const started = JSON.parse(res.stdout)
+    expect(started).toMatchObject({ name: 'reviewer' })
+    expect(Object.keys(started).sort()).toEqual(['id', 'name', 'paneId'])
+  })
+
+  it('run: starts in the folder the caller is in', async () => {
+    await pine(['process', 'run', 'pnpm dev'], join(home, 'api'))
+    expect(opened[0]).toMatchObject({ cwd: join(home, 'api'), title: 'pnpm' })
+  })
+
+  it('run: needs a command', async () => {
+    const res = await pine(['process', 'run'])
+    expect(res.code).toBe(1)
+    expect(res.stderr).toContain('missing "<cmd>"')
+  })
+
+  it('ls: prints each process with its status as the pane reports it', async () => {
+    expect((await pine(['process', 'ls'])).stdout.trim()).toBe('(no tracked processes)')
+    const { id, tab } = await run('make build', '--name', 'build')
+    const line = async (): Promise<string[]> =>
+      (await pine(['process', 'ls'])).stdout.trim().split('\t')
+
+    expect(await line()).toEqual([id, 'build', 'starting', expect.any(String), 'make build'])
+    emit(tab, `${PROMPT}make build\r\n${C}compiling\r\n`)
+    expect((await line())[2]).toBe('running')
+    emit(tab, `${exit(2)}${PROMPT}`)
+    expect((await line())[2]).toBe('exited(2)')
+  })
+
+  it('logs: prints only that command’s output and resumes from the printed cursor', async () => {
+    const { tab } = await run('pnpm test', '--name', 'test')
+    emit(tab, `before\r\n${PROMPT}pnpm test\r\n${C}\x1b[32mone\x1b[0m\r\n`)
+
+    const first = await pine(['process', 'logs', 'test'])
+    expect(first.code).toBe(0)
+    expect(first.stdout).toBe('one\n')
+    const cursor = /^\(cursor=(\d+)\)$/.exec(first.stderr.trim())?.[1]
+    expect(cursor).toBeDefined()
+
+    emit(tab, `two\r\n${exit(0)}${PROMPT}echo later\r\n${C}later\r\n`)
+    const second = await pine(['process', 'logs', 'test', '--since', String(cursor)])
+    expect(second.stdout).toBe('two\n')
+  })
+
+  it('logs: fails on an unknown process', async () => {
+    const res = await pine(['process', 'logs', 'nope'])
+    expect(res.code).toBe(1)
+    expect(res.stderr).toContain('process logs failed (not-found)')
+  })
+
+  it('kill: interrupts the command and ls shows it exited', async () => {
+    const { tab } = await run('sleep 30', '--name', 'nap')
+    emit(tab, `${PROMPT}sleep 30\r\n${C}`)
+
+    const res = await pine(['process', 'kill', 'nap'])
+    expect(res.code).toBe(0)
+    expect(res.stdout.trim()).toBe('ok')
+    expect(written).toEqual([{ paneId: tab, data: '\x03' }])
+    expect((await pine(['process', 'ls'])).stdout).toContain('exited(130)')
+  })
+
+  it('restart: runs the same line again in the same tab', async () => {
+    const { id, tab } = await run(`node app.js --name 'my app'`, '--name', 'app')
+    emit(tab, `${PROMPT}node app.js\r\n${C}up\r\n`)
+
+    const res = await pine(['process', 'restart', 'app'])
+    expect(res.code).toBe(0)
+    expect(JSON.parse(res.stdout)).toMatchObject({ id, name: 'app' })
+    expect(reruns).toEqual([{ paneId: tab, command: `node app.js --name 'my app'` }])
+    expect(opened).toHaveLength(1)
+  })
+})
+
+describe('pine pane (the real CLI against a live control server)', () => {
+  it('send and key: type into a tab the caller opened, addressed by process name', async () => {
+    const { tab } = await run('cat', '--name', 'echo')
+
+    const send = await pine(['pane', 'send', 'echo', 'hello', 'world', '--enter'])
+    expect(send.stderr).toBe('')
+    expect(send.stdout.trim()).toBe('ok')
+    const key = await pine(['pane', 'key', 'echo', 'ctrl-d'])
+    expect(key.code).toBe(0)
+
+    expect(written).toEqual([
+      { paneId: tab, data: 'hello world\r' },
+      { paneId: tab, data: '\x04' },
+    ])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('read: prints the screen, and the pane state with --json', async () => {
+    const { tab } = await run('cat', '--name', 'echo')
+    const text = await pine(['pane', 'read', 'echo', '--lines', '20'])
+    expect(text.stdout.trim()).toBe(`screen of ${tab} (20)`)
+
+    const json = JSON.parse((await pine(['pane', 'read', 'echo', '--json'])).stdout)
+    expect(json).toMatchObject({ text: `screen of ${tab} (200)`, cwd: '/w', running: true })
+  })
+
+  it('send: asks the human for a pane the caller did not open and fails when denied', async () => {
+    const res = await pine(['pane', 'send', other.externalId, 'rm -rf .', '--enter'])
+    expect(res.code).toBe(1)
+    expect(res.stderr).toContain('denied: type-other-pane')
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(written).toEqual([])
+  })
+
+  it('read: asks the human for a pane the caller did not open and reads once allowed', async () => {
+    const denied = await pine(['pane', 'read', other.externalId])
+    expect(denied.code).toBe(1)
+    expect(denied.stderr).toContain('denied: read-other-pane')
+
+    answer = 'once'
+    const allowed = await pine(['pane', 'read', other.externalId])
+    expect(allowed.code).toBe(0)
+    expect(allowed.stdout.trim()).toBe('screen of other-pane (200)')
+  })
+
+  it('prints usage for a missing pane or an unknown key', async () => {
+    const usage = await pine(['pane', 'send'])
+    expect(usage.code).toBe(1)
+    expect(usage.stderr).toContain('usage: pine pane send')
+
+    await run('cat', '--name', 'echo')
+    const key = await pine(['pane', 'key', 'echo', 'f13'])
+    expect(key.code).toBe(1)
+    expect(key.stderr).toContain('unknown-key: f13')
+  })
+})

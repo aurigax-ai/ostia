@@ -1,0 +1,515 @@
+import { createConnection } from 'node:net'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  type MessageConnection,
+  StreamMessageReader,
+  StreamMessageWriter,
+  createMessageConnection,
+} from 'vscode-jsonrpc/node'
+import type { CommandResult } from '../shared/types'
+import { grant, setCaps } from './capabilityStore'
+import { registerControlServer, stopControlServer } from './controlServer'
+import type { TerminalOpenRequest } from './extensionHost'
+import { type PaneIdentity, registerExtension, registerPane, removePane } from './idRegistry'
+import {
+  type ProcessInfo,
+  type ProcessOutput,
+  ProcessRegistry,
+  registerProcessMethods,
+} from './processManager'
+import { PtyRingBuffer } from './ptyRingBuffer'
+
+const PROMPT = '\x1b]133;A\x1b\\user@host % \x1b]133;B\x1b\\'
+const C = '\x1b]133;C\x1b\\'
+const exit = (code: number): string => `\x1b]133;D;${code}\x1b\\`
+
+const GRACE_MS = 40
+const rings = new Map<string, PtyRingBuffer>()
+const opened: TerminalOpenRequest[] = []
+const written: { paneId: string; data: string }[] = []
+const ended: string[] = []
+const reruns: { paneId: string; command: string }[] = []
+const cwds = new Map<string, string>()
+let tabSeq = 0
+let onInterrupt: ((paneId: string) => void) | null = null
+let openFails = false
+
+const registry = registerProcessMethods({
+  openTab: async (req) => {
+    if (openFails) return null
+    opened.push(req)
+    tabSeq += 1
+    const paneId = `tab-${tabSeq}`
+    rings.set(paneId, new PtyRingBuffer())
+    return registerPane({ windowId: 'w1', workspaceId: req.workspaceId ?? '', paneId }).externalId
+  },
+  ring: (paneId) => {
+    const ring = rings.get(paneId)
+    return ring ? (from) => ring.since(from) : undefined
+  },
+  writePane: (paneId, data) => {
+    written.push({ paneId, data })
+    if (data === '\x03') onInterrupt?.(paneId)
+    return rings.has(paneId)
+  },
+  endShell: (paneId) => {
+    ended.push(paneId)
+    rings.delete(paneId)
+  },
+  hasShell: (paneId) => rings.has(paneId),
+  runInPane: (paneId, command) => {
+    reruns.push({ paneId, command })
+    return true
+  },
+  cwdOfPane: (paneId) => cwds.get(paneId),
+  interruptGraceMs: GRACE_MS,
+})
+
+function emit(paneId: string, data: string): void {
+  const ring = rings.get(paneId)
+  if (!ring) throw new Error(`no ring for ${paneId}`)
+  ring.push(data)
+  registry.feed(paneId, data, ring.end)
+}
+
+const agent = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'agent-pane' })
+const neighbour = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'neighbour-pane' })
+const stranger = registerPane({ windowId: 'w1', workspaceId: 'ws2', paneId: 'stranger-pane' })
+const extension = registerExtension('probe')
+setCaps(extension.externalId, ['process', 'all-workspaces'])
+
+let socketPath = ''
+let seq = 0
+const clients: MessageConnection[] = []
+
+async function client(identity: PaneIdentity): Promise<MessageConnection> {
+  const socket = createConnection(socketPath)
+  const conn = createMessageConnection(
+    new StreamMessageReader(socket),
+    new StreamMessageWriter(socket),
+  )
+  conn.listen()
+  clients.push(conn)
+  await conn.sendRequest('hello', { token: identity.token })
+  return conn
+}
+
+interface Started {
+  id: string
+  name: string
+  paneId: string
+}
+
+async function start(
+  conn: MessageConnection,
+  cmd: string,
+  name?: string,
+): Promise<Started & { tab: string }> {
+  const started = await conn.sendRequest<Started>('process.run', { cmd, name })
+  return { ...started, tab: `tab-${tabSeq}` }
+}
+
+beforeEach(() => {
+  seq += 1
+  socketPath = join(tmpdir(), `pine-proc-${process.pid}-${seq}.sock`)
+  registerControlServer(
+    {
+      execCommand: async () => ({ ok: true }) as CommandResult,
+      listCommandsFor: () => [],
+      getTerminalState: () => undefined,
+    },
+    socketPath,
+  )
+  opened.length = 0
+  written.length = 0
+  ended.length = 0
+  reruns.length = 0
+  cwds.clear()
+  onInterrupt = null
+  openFails = false
+})
+
+afterEach(() => {
+  for (const c of clients.splice(0)) c.dispose()
+  stopControlServer()
+  for (const workspaceId of ['ws1', 'ws2']) registry.workspaceClosed(workspaceId)
+})
+
+describe('process.run', () => {
+  it('opens a background tab beside the caller with the command exactly as written', async () => {
+    cwds.set('agent-pane', '/home/u/proj')
+    const conn = await client(agent)
+    const cmd = `claude 'fix the "login" bug && run $TESTS' --model opus`
+    const started = await start(conn, cmd, 'worker')
+
+    expect(opened).toEqual([
+      {
+        command: cmd,
+        workspaceId: 'ws1',
+        windowId: 'w1',
+        afterPaneId: 'agent-pane',
+        backgroundTab: true,
+        pinTitle: true,
+        title: 'worker',
+        cwd: '/home/u/proj',
+      },
+    ])
+    expect(started).toMatchObject({ id: expect.stringMatching(/^proc-\d+$/), name: 'worker' })
+    expect(started).not.toHaveProperty('pid')
+    const [info] = await conn.sendRequest<ProcessInfo[]>('process.list')
+    expect(info).toMatchObject({ name: 'worker', cmd, status: 'starting', paneId: started.paneId })
+  })
+
+  it('names an unnamed process after its program and opens it in the given folder', async () => {
+    const conn = await client(agent)
+    const started = await conn.sendRequest<Started>('process.run', {
+      cmd: 'pnpm dev --port 3000',
+      cwd: '/srv/app',
+    })
+    expect(started.name).toBe('pnpm')
+    expect(opened[0]).toMatchObject({ title: 'pnpm', cwd: '/srv/app' })
+  })
+
+  it('refuses a command with control characters, a relative folder and an empty command', async () => {
+    const conn = await client(agent)
+    await expect(conn.sendRequest('process.run', { cmd: 'echo \x1b[201~rm' })).rejects.toThrow(
+      'control characters',
+    )
+    await expect(conn.sendRequest('process.run', { cmd: 'ls', cwd: 'rel' })).rejects.toThrow(
+      'cwd must be absolute',
+    )
+    await expect(conn.sendRequest('process.run', { cmd: '  ' })).rejects.toThrow('bad-request: cmd')
+    expect(opened).toHaveLength(0)
+  })
+
+  it('reports not-opened and tracks nothing when no tab could be opened', async () => {
+    openFails = true
+    const conn = await client(agent)
+    await expect(conn.sendRequest('process.run', { cmd: 'ls' })).resolves.toMatchObject({
+      ok: false,
+      error: 'not-opened',
+    })
+    await expect(conn.sendRequest('process.list')).resolves.toEqual([])
+  })
+
+  it('is refused to an extension, which may still list and read', async () => {
+    const pane = await client(agent)
+    await start(pane, 'pnpm dev', 'web')
+    const ext = await client(extension)
+    const target = { targetPaneId: agent.externalId }
+    for (const method of ['process.run', 'process.kill', 'process.restart']) {
+      await expect(ext.sendRequest(method, { ...target, cmd: 'ls', id: 'web' })).rejects.toThrow(
+        'not-available-to-extension',
+      )
+    }
+    const list = await ext.sendRequest<ProcessInfo[]>('process.list', target)
+    expect(list.map((p) => p.name)).toEqual(['web'])
+  })
+})
+
+describe('process status', () => {
+  it('follows the pane: starting, running at the command start, exited with its exit code', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, 'make build', 'build')
+    const status = async (): Promise<ProcessInfo> => conn.sendRequest('process.info', { id })
+
+    emit(tab, PROMPT)
+    expect((await status()).status).toBe('starting')
+    emit(tab, `make build\r\n${C}compiling\r\n`)
+    expect(await status()).toMatchObject({ status: 'running' })
+    expect(await status()).not.toHaveProperty('exitCode')
+    emit(tab, `failed\r\n${exit(2)}${PROMPT}`)
+    expect(await status()).toMatchObject({ status: 'exited', exitCode: 2 })
+  })
+
+  it('ignores what the human runs in the tab after the command ended', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, 'true', 'once')
+    emit(tab, `${PROMPT}true\r\n${C}${exit(0)}${PROMPT}`)
+    emit(tab, `vim\r\n${C}editing`)
+    expect(await conn.sendRequest('process.info', { id })).toMatchObject({
+      status: 'exited',
+      exitCode: 0,
+    })
+  })
+
+  it('is exited without a code when the shell ends under a running command', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, 'sleep 99', 'nap')
+    emit(tab, `${PROMPT}sleep 99\r\n${C}zzz\r\n`)
+    const ring = rings.get(tab) as PtyRingBuffer
+    registry.shellEnded(tab, (from) => ring.since(from))
+    rings.delete(tab)
+
+    const info = await conn.sendRequest<ProcessInfo>('process.info', { id })
+    expect(info.status).toBe('exited')
+    expect(info).not.toHaveProperty('exitCode')
+    const out = await conn.sendRequest<ProcessOutput>('process.output', { id })
+    expect(out.data).toBe('zzz\n')
+  })
+
+  it('is closed once the human closes its tab, and its output is gone', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, 'pnpm dev', 'web')
+    emit(tab, `${PROMPT}pnpm dev\r\n${C}listening\r\n`)
+    registry.paneClosed(tab)
+    removePane(tab)
+
+    expect(await conn.sendRequest('process.info', { id })).toMatchObject({ status: 'closed' })
+    for (const method of ['process.output', 'process.kill', 'process.restart']) {
+      await expect(conn.sendRequest(method, { id })).resolves.toMatchObject({
+        ok: false,
+        error: 'closed',
+      })
+    }
+    expect(registry.isChild('agent-pane', tab)).toBe(false)
+  })
+})
+
+describe('process.output', () => {
+  it('returns only the command output as plain text, not the prompt or later commands', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, 'pnpm test', 'test')
+    emit(tab, `secret-before\r\n${PROMPT}pnpm test\r\n${C}`)
+    emit(tab, '\x1b[32m✓\x1b[0m one\r\n\x1b[32m✓\x1b[0m two\r\n')
+    emit(tab, `${exit(0)}${PROMPT}cat ~/.ssh/id_rsa\r\n${C}PRIVATE KEY\r\n`)
+
+    const out = await conn.sendRequest<ProcessOutput>('process.output', { id })
+    expect(out.data).toBe('✓ one\n✓ two\n')
+    expect(out.dropped).toBe(false)
+  })
+
+  it('resumes from the cursor of the previous read while the command runs', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, 'pnpm dev', 'web')
+    emit(tab, `${PROMPT}pnpm dev\r\n${C}first\r\n`)
+    const one = await conn.sendRequest<ProcessOutput>('process.output', { id })
+    expect(one.data).toBe('first\n')
+
+    emit(tab, 'second\r\n\x1b[3')
+    const two = await conn.sendRequest<ProcessOutput>('process.output', {
+      id,
+      sinceCursor: one.cursor,
+    })
+    expect(two.data).toBe('second\n')
+
+    emit(tab, '1mthird\x1b[0m\r\n')
+    const three = await conn.sendRequest<ProcessOutput>('process.output', {
+      id,
+      sinceCursor: two.cursor,
+    })
+    expect(three.data).toBe('third\n')
+  })
+
+  it('is empty before the command starts', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, 'ls', 'ls')
+    emit(tab, `motd\r\n${PROMPT}`)
+    await expect(conn.sendRequest('process.output', { id })).resolves.toEqual({
+      data: '',
+      cursor: 0,
+      dropped: false,
+    })
+  })
+
+  it('says dropped when the terminal no longer holds the start of the output', () => {
+    const ring = new PtyRingBuffer(64)
+    const small = new ProcessRegistry({
+      ring: () => (from) => ring.since(from),
+      workspaceOfPane: () => 'ws1',
+      now: () => new Date(0),
+    })
+    const entry = small.add({
+      name: 'noisy',
+      cmd: 'yes',
+      cwd: undefined,
+      workspaceId: 'ws1',
+      ownerPaneId: 'agent-pane',
+      paneId: 'p',
+      externalPaneId: 'ext-p',
+    })
+    const push = (data: string): void => {
+      ring.push(data)
+      small.feed('p', data, ring.end)
+    }
+    push(C)
+    for (let i = 0; i < 40; i++) push(`line ${i}\r\n`)
+    const out = small.output(entry, 0)
+    expect(out?.dropped).toBe(true)
+    expect(out?.data.endsWith('line 39\n')).toBe(true)
+  })
+})
+
+describe('process scope', () => {
+  it('shows a pane only the processes of its own workspace', async () => {
+    const mine = await client(agent)
+    const theirs = await client(stranger)
+    const { id } = await start(mine, 'pnpm dev', 'web')
+
+    const near = await client(neighbour)
+    expect((await near.sendRequest<ProcessInfo[]>('process.list')).map((p) => p.id)).toEqual([id])
+    expect(await theirs.sendRequest('process.list')).toEqual([])
+    for (const ref of [id, 'web']) {
+      await expect(theirs.sendRequest('process.info', { id: ref })).resolves.toEqual({
+        ok: false,
+        error: 'not-found',
+      })
+      await expect(theirs.sendRequest('process.kill', { id: ref })).resolves.toEqual({
+        ok: false,
+        error: 'not-found',
+      })
+    }
+  })
+
+  it('shows every workspace to a pane holding all-workspaces', async () => {
+    const mine = await client(agent)
+    const { id } = await start(mine, 'pnpm dev', 'web')
+    const elevated = registerPane({ windowId: 'w1', workspaceId: 'ws2', paneId: 'elevated-pane' })
+    const conn = await client(elevated)
+    grant(elevated.externalId, 'all-workspaces')
+    expect((await conn.sendRequest<ProcessInfo[]>('process.list')).map((p) => p.id)).toEqual([id])
+    await expect(conn.sendRequest('process.info', { id: 'web' })).resolves.toMatchObject({ id })
+  })
+
+  it('resolves a reused name to the newest process', async () => {
+    const conn = await client(agent)
+    await start(conn, 'pnpm dev', 'web')
+    const second = await start(conn, 'pnpm dev --port 2', 'web')
+    await expect(conn.sendRequest('process.info', { id: 'web' })).resolves.toMatchObject({
+      id: second.id,
+    })
+  })
+})
+
+describe('process.kill', () => {
+  it('interrupts the command and leaves the tab and its shell alone', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, 'sleep 30', 'nap')
+    emit(tab, `${PROMPT}sleep 30\r\n${C}`)
+    onInterrupt = (paneId) => emit(paneId, `^C\r\n${exit(130)}${PROMPT}`)
+
+    await expect(conn.sendRequest('process.kill', { id })).resolves.toEqual({
+      ok: true,
+      status: 'exited',
+      exitCode: 130,
+    })
+    expect(written).toEqual([{ paneId: tab, data: '\x03' }])
+    expect(ended).toEqual([])
+  })
+
+  it('ends the shell when the command ignores the interrupt, keeping its output', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, './stubborn', 'stubborn')
+    emit(tab, `${PROMPT}./stubborn\r\n${C}ignoring you\r\n`)
+
+    await expect(conn.sendRequest('process.kill', { id })).resolves.toMatchObject({
+      ok: true,
+      status: 'exited',
+    })
+    expect(ended).toEqual([tab])
+    const out = await conn.sendRequest<ProcessOutput>('process.output', { id })
+    expect(out.data).toBe('ignoring you\n')
+  })
+
+  it('does nothing to a command that already ended', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, 'true', 'once')
+    emit(tab, `${PROMPT}true\r\n${C}${exit(0)}${PROMPT}`)
+    await expect(conn.sendRequest('process.kill', { id })).resolves.toEqual({
+      ok: true,
+      status: 'exited',
+    })
+    expect(written).toEqual([])
+  })
+})
+
+describe('process.restart', () => {
+  it('stops the command and runs the same line again in the same tab', async () => {
+    const conn = await client(agent)
+    const cmd = `node server.js --title 'my app'`
+    const { id, tab, paneId } = await start(conn, cmd, 'server')
+    emit(tab, `${PROMPT}${cmd}\r\n${C}up 1\r\n`)
+    onInterrupt = (pane) => emit(pane, `${exit(130)}${PROMPT}`)
+
+    await expect(conn.sendRequest('process.restart', { id })).resolves.toEqual({
+      id,
+      name: 'server',
+      paneId,
+    })
+    expect(reruns).toEqual([{ paneId: tab, command: cmd }])
+    expect(opened).toHaveLength(1)
+    expect(await conn.sendRequest('process.info', { id })).toMatchObject({ status: 'starting' })
+
+    emit(tab, `${cmd}\r\n${C}up 2\r\n`)
+    expect(await conn.sendRequest('process.info', { id })).toMatchObject({ status: 'running' })
+    const out = await conn.sendRequest<ProcessOutput>('process.output', { id })
+    expect(out.data).toBe('up 2\n')
+  })
+
+  it('types nothing while the command keeps running', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, './stubborn', 'stubborn')
+    emit(tab, `${PROMPT}./stubborn\r\n${C}`)
+    await expect(conn.sendRequest('process.restart', { id })).resolves.toMatchObject({
+      ok: false,
+      error: 'still-running',
+    })
+    expect(reruns).toEqual([])
+    expect(ended).toEqual([])
+  })
+
+  it('refuses when the tab has no shell left', async () => {
+    const conn = await client(agent)
+    const { id, tab } = await start(conn, 'true', 'once')
+    emit(tab, `${PROMPT}true\r\n${C}${exit(0)}`)
+    rings.delete(tab)
+    await expect(conn.sendRequest('process.restart', { id })).resolves.toMatchObject({
+      ok: false,
+      error: 'no-shell',
+    })
+    expect(reruns).toEqual([])
+  })
+})
+
+describe('ProcessRegistry', () => {
+  it('knows which pane opened a process tab', async () => {
+    const conn = await client(agent)
+    const { tab } = await start(conn, 'pnpm dev', 'web')
+    expect(registry.isChild('agent-pane', tab)).toBe(true)
+    expect(registry.isChild('neighbour-pane', tab)).toBe(false)
+  })
+
+  it('forgets a workspace when it closes', async () => {
+    const conn = await client(agent)
+    await start(conn, 'pnpm dev', 'web')
+    registry.workspaceClosed('ws1')
+    expect(registry.list(null)).toEqual([])
+  })
+
+  it('stops waiting for an exit when the grace period passes', async () => {
+    vi.useFakeTimers()
+    try {
+      const local = new ProcessRegistry({
+        ring: () => undefined,
+        workspaceOfPane: () => 'ws1',
+        now: () => new Date(0),
+      })
+      const entry = local.add({
+        name: 'x',
+        cmd: 'x',
+        cwd: undefined,
+        workspaceId: 'ws1',
+        ownerPaneId: 'a',
+        paneId: 'p',
+        externalPaneId: 'ext-p',
+      })
+      const waited = local.waitForExit(entry, 1000)
+      await vi.advanceTimersByTimeAsync(1000)
+      await expect(waited).resolves.toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
