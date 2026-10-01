@@ -127,7 +127,11 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
     await expect(win.locator('.rail-ext-footer .ext-item')).toHaveText('2 waiting for approval', {
       timeout: 20_000,
     })
-    await expect(win.locator('.ext-item', { hasText: '4 open' })).toBeVisible({ timeout: 20_000 })
+    const cards = win
+      .locator('.topbar-right .workspace-chips')
+      .getByRole('button', { name: /^Trellis cards: 4/ })
+    await expect(cards).toBeVisible({ timeout: 20_000 })
+    await expect(win.locator('.rail-meta')).not.toContainText('open')
 
     await win.keyboard.press('Control+Shift+P')
     await win.locator('[data-slot="command-input"]').fill('Trellis: Open Board')

@@ -42,8 +42,8 @@ import {
   type ChangeArea,
   type RepoStatus,
   branchChipText,
+  branchLabel,
   diffStatsChipText,
-  sidebarText,
   summarize,
 } from './status'
 import { stringsFor } from './strings'
@@ -261,7 +261,7 @@ class GitExtension {
     for (const [workspaceId, cwd] of cwds) {
       const repo = await repoFor(cwd)
       if (!repo) continue
-      next.set(workspaceId, sidebarText(repo.status))
+      next.set(workspaceId, branchLabel(repo.status.branch))
       parts.push(`${workspaceId}\u0000${repo.root}\u0000${JSON.stringify(repo.status)}`)
     }
     for (const [workspaceId, text] of next) {
