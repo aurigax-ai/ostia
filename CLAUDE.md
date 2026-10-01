@@ -340,6 +340,13 @@ Details: `docs/ARCHITECTURE.md`.
   `attentionStore`/`signalPane`. Workspace state is derived from pane attention + running blocks by
   `startAttentionSync`; never `setState` a workspace's live state directly. A signal to the pane
   being viewed must apply `view` immediately (`signalPane` does), or it rings while you look at it.
+  `waiting` means something in the pane waits for the human now: it is set only by an agent
+  (`pine state waiting` while a command runs, an OSC 9/777/99 while `runningAgent` finds one) or
+  a pending approval. A plain command's terminal notification is unread + message, never
+  `waiting`. `waiting` ends on input, on the next command, when the command that waited ends
+  (OSC 133;D → `waitEnded`, or `error`/`done` per `commandEnd`) and when its approval leaves the
+  queue; `view` keeps it. A `waiting`/`working` report that reaches a pane at an idle prompt is
+  late and dropped (`isStaleAgentReport` in the `attention.set` command).
 - **Renderer attention commands act on the command target only** (`ctx.activePaneId`), never on
   a pane id in args: `command.exec` checks capabilities against the target, so an args pane id
   would bypass `all-workspaces`.
@@ -816,7 +823,10 @@ Vitest 2 (unit + component) + Playwright (E2E). Config: `vitest.config.ts`, `vit
   portal is at `PINE_PORTAL_SOCKET`; it also runs the CLI from a Pine pane to check the refusal.
   It also runs a bash manager through `pine manager spawn|read|input` against a fake worker, with
   `manager.allowInput` off and on, and checks a worker pane is refused.
-  `e2e/tray.spec.ts` covers close-to-tray.
+  `e2e/tray.spec.ts` covers close-to-tray. `e2e/stale-waiting.spec.ts` runs a fake `claude`
+  (`fakeAgentBin` with a script) that reports `pine state waiting`, exits, and reports again from
+  the background, and checks the workspace goes back to Idle; it also checks a plain OSC 9 in
+  zsh is a notification, not "Waiting for input".
 
 Rules:
 - Reset state between tests: zustand stores are singletons; `setState(init, true)` in `afterEach`,

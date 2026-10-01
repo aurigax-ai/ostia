@@ -24,6 +24,7 @@ import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
+import { terminalNotification } from '../lib/paneAgent'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
 import { registerSelectionSender } from '../lib/selectionSenders'
@@ -264,7 +265,10 @@ export function TerminalView({
       blocks.commandEnd(paneId, anchor(), exitCode, term.buffer.active.cursorX)
       if (!block || replaying) return
       const long = shouldNotifyCommandEnd(Date.now() - block.startedAt, document.hasFocus())
-      if (isPaneViewed(paneId) || (exitCode === 0 && !long)) return
+      if (isPaneViewed(paneId) || (exitCode === 0 && !long)) {
+        useAttentionStore.getState().dispatch(paneId, { type: 'waitEnded', at: Date.now() })
+        return
+      }
       const d = currentDict()
       const title =
         exitCode === 0
@@ -294,12 +298,7 @@ export function TerminalView({
     }
     const notifyFromTerminal = (n: OscNotification | null): boolean => {
       if (!n || replaying) return true
-      signalPane(paneId, {
-        type: 'notify',
-        message: notificationMessage(n),
-        waiting: true,
-        at: Date.now(),
-      })
+      signalPane(paneId, terminalNotification(paneId, notificationMessage(n), Date.now()))
       window.pine.notifications.post({
         paneId,
         kind: 'message',
