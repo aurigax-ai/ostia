@@ -30,3 +30,24 @@ const COMMAND_START_MARK = '\x1b]133;C'
 export function isPromptRepaint(held: string): boolean {
   return !held.includes(COMMAND_START_MARK)
 }
+
+export interface GridSize {
+  cols: number
+  rows: number
+}
+
+export const MAX_FIT_PASSES = 4
+
+export function settleFit(
+  fitOnce: () => GridSize | null,
+  maxPasses = MAX_FIT_PASSES,
+): GridSize | null {
+  let last: GridSize | null = null
+  for (let pass = 0; pass < maxPasses; pass++) {
+    const next = fitOnce()
+    if (!next) return last
+    if (last && next.cols === last.cols && next.rows === last.rows) return next
+    last = next
+  }
+  return last
+}

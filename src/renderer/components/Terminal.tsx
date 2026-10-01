@@ -53,7 +53,7 @@ import { InputEditor } from './InputEditor'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import { useSelectionSend } from './SelectionSend'
 import { TerminalFind, findOptions } from './TerminalFind'
-import { isPromptRepaint, nextSizeAction } from './terminalSizing'
+import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 
@@ -69,8 +69,8 @@ export function TerminalView({
   const hostRef = useRef<HTMLDivElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Xterm | null>(null)
-  const fitRef = useRef<FitAddon | null>(null)
   const lastSizeRef = useRef({ cols: 0, rows: 0 })
+  const syncSizeRef = useRef<() => void>(() => {})
   const spawnCwd = useRef(cwd)
   const workspaceIdRef = useRef(workspaceId)
   workspaceIdRef.current = workspaceId
@@ -149,7 +149,6 @@ export function TerminalView({
     const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
     const detachLinkModifier = attachLinkModifier(host, isMac)
     termRef.current = term
-    fitRef.current = fit
     setSearch(searchAddon)
     const unregisterTerminal = registerTerminal(paneId, term)
     const pasteConfirmed = (text: string): void => {
@@ -463,7 +462,7 @@ export function TerminalView({
     }
 
     const applyFit = (): void => {
-      const fitted = safeFit(host, fit)
+      const fitted = safeFit(host, fit, term)
       const { cols, rows } = term
       const action = nextSizeAction({ fitted, attached, cols, rows, last: lastSizeRef.current })
       if (action.type === 'attach') {
@@ -542,6 +541,7 @@ export function TerminalView({
       }
     })
 
+    syncSizeRef.current = syncSize
     syncSize()
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
@@ -560,6 +560,7 @@ export function TerminalView({
 
     return () => {
       disposed = true
+      syncSizeRef.current = () => {}
       if (resizeTimer) clearTimeout(resizeTimer)
       if (rafId) cancelAnimationFrame(rafId)
       if (holdIdleTimer) clearTimeout(holdIdleTimer)
@@ -593,7 +594,6 @@ export function TerminalView({
       window.pine.pty.detach(paneId)
       term.dispose()
       termRef.current = null
-      fitRef.current = null
       setSearch(null)
       setFindOpen(false)
       setAlternateScreen(false)
@@ -609,14 +609,8 @@ export function TerminalView({
     term.options.fontSize = font.size
     term.options.fontWeight = font.weight as FontWeight
     term.options.lineHeight = font.lineHeight
-    if (!safeFit(hostRef.current, fitRef.current)) return
-    const { cols, rows } = term
-    const last = lastSizeRef.current
-    if (cols > 0 && rows > 0 && (cols !== last.cols || rows !== last.rows)) {
-      lastSizeRef.current = { cols, rows }
-      window.pine.pty.resize(paneId, cols, rows)
-    }
-  }, [font.family, font.size, font.weight, font.lineHeight, paneId])
+    syncSizeRef.current()
+  }, [font.family, font.size, font.weight, font.lineHeight])
 
   useEffect(() => {
     const term = termRef.current
@@ -751,10 +745,13 @@ function decodeOsc7(data: string): string | null {
   return m ? m[1] : null
 }
 
-function safeFit(host: HTMLElement | null, fit: FitAddon | null): boolean {
-  if (!fit || !host || host.offsetWidth === 0 || host.offsetHeight === 0) return false
+function safeFit(host: HTMLElement, fit: FitAddon, term: Xterm): boolean {
+  if (host.offsetWidth === 0 || host.offsetHeight === 0) return false
   try {
-    fit.fit()
+    settleFit(() => {
+      fit.fit()
+      return { cols: term.cols, rows: term.rows }
+    })
     return true
   } catch {
     return false
