@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AssistFailure } from '../sdk'
+import { AssistFailure } from '..'
 import { createFlight } from './flight'
 
 function deferred<T>() {

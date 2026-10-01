@@ -5,10 +5,10 @@ import type {
   AssistSetupProblem,
   AssistStatus,
   ChatToolMode,
-} from '../../shared/assist'
-import type { ExtensionSettingValues } from '../../shared/extensions'
-import { type Endpoint, UNIX_PREFIX, parseEndpoint } from './endpoint'
-import { PROVIDER_KINDS, type ProviderKind } from './providers'
+} from '../../../shared/assist'
+import type { ExtensionSettingValues } from '../../../shared/extensions'
+import { type Endpoint, parseEndpoint } from './endpoint'
+import { NO_PROVIDER, type ProviderCatalog } from './provider'
 
 export type Feature = AssistFeatureId
 
@@ -23,15 +23,14 @@ export const FEATURES: Feature[] = [
 ]
 
 export interface AssistantConfig {
-  provider: ProviderKind
+  catalog: ProviderCatalog
+  provider: string
   baseUrl: string
   fastModel: string
   chatModel: string
   features: Record<Feature, boolean>
   requestsPerMinute: number
 }
-
-const KEY_REQUIRED: ReadonlySet<ProviderKind> = new Set(['openrouter', 'openai', 'anthropic'])
 
 export const DEFAULT_REQUESTS_PER_MINUTE = 30
 
@@ -40,14 +39,19 @@ function str(values: ExtensionSettingValues, key: string): string {
   return typeof v === 'string' ? v.trim() : ''
 }
 
-export function readConfig(values: ExtensionSettingValues): AssistantConfig {
-  const provider = PROVIDER_KINDS.includes(values.provider as ProviderKind)
-    ? (values.provider as ProviderKind)
-    : 'none'
+export function readConfig(
+  values: ExtensionSettingValues,
+  catalog: ProviderCatalog,
+): AssistantConfig {
+  const provider =
+    typeof values.provider === 'string' && catalog.kinds.includes(values.provider)
+      ? values.provider
+      : NO_PROVIDER
   const rpm = values.requestsPerMinute
   const features = {} as Record<Feature, boolean>
   for (const f of FEATURES) features[f] = values[f] !== false
   return {
+    catalog,
     provider,
     baseUrl: str(values, 'baseUrl'),
     fastModel: str(values, 'fastModel'),
@@ -60,31 +64,14 @@ export function readConfig(values: ExtensionSettingValues): AssistantConfig {
   }
 }
 
-export function defaultBaseUrl(provider: ProviderKind, env: NodeJS.ProcessEnv): string {
-  switch (provider) {
-    case 'model-runtime':
-      return env.XDG_RUNTIME_DIR ? `${UNIX_PREFIX}${env.XDG_RUNTIME_DIR}/model-runtime.sock` : ''
-    case 'ollama':
-      return 'http://127.0.0.1:11434/v1'
-    case 'openrouter':
-      return 'https://openrouter.ai/api/v1'
-    case 'openai':
-      return 'https://api.openai.com/v1'
-    case 'anthropic':
-      return 'https://api.anthropic.com/v1'
-    default:
-      return ''
-  }
-}
-
 export function endpointOf(config: AssistantConfig, env: NodeJS.ProcessEnv): Endpoint | null {
-  if (config.provider === 'none') return null
-  return parseEndpoint(config.baseUrl || defaultBaseUrl(config.provider, env))
+  if (config.provider === NO_PROVIDER) return null
+  return parseEndpoint(config.baseUrl || config.catalog.defaultBaseUrl(config.provider, env))
 }
 
 export function fastModelOf(config: AssistantConfig): string {
   if (config.fastModel) return config.fastModel
-  return config.provider === 'model-runtime' ? 'gemma' : ''
+  return config.catalog.defaultFastModel(config.provider)
 }
 
 export function chatModelOf(config: AssistantConfig): string {
@@ -98,9 +85,9 @@ export function setupProblem(
   env: NodeJS.ProcessEnv,
   hasKey: boolean,
 ): SetupProblem | null {
-  if (config.provider === 'none') return 'no-provider'
+  if (config.provider === NO_PROVIDER) return 'no-provider'
   if (!endpointOf(config, env)) return 'no-endpoint'
-  if (KEY_REQUIRED.has(config.provider) && !hasKey) return 'no-key'
+  if (config.catalog.keyRequired.has(config.provider) && !hasKey) return 'no-key'
   if (!fastModelOf(config) && !chatModelOf(config)) return 'no-model'
   return null
 }
@@ -121,7 +108,7 @@ export function pointOf(feature: Feature): AssistPoint {
 }
 
 export function statusLabel(config: AssistantConfig): string | undefined {
-  if (config.provider === 'none') return undefined
+  if (config.provider === NO_PROVIDER) return undefined
   const fast = fastModelOf(config)
   const chat = chatModelOf(config)
   const models = chat && chat !== fast ? `${fast} / ${chat}` : fast

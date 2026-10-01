@@ -5,8 +5,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, describe, expect, it } from 'vitest'
-import { AssistantService } from '../extensions/assistant/service'
+import { ASSISTANT_CATALOG } from '../extensions/assistant/providers'
+import { MODEL_RUNTIME_CATALOG } from '../extensions/model-runtime/provider'
 import type { AssistContext } from '../extensions/sdk'
+import { AssistantService } from '../extensions/sdk/assist/service'
 import { type ChatAssistRequest, type ChatToolCall, normalizeAssistRequest } from '../shared/assist'
 import { mcpToolName } from '../shared/chatTools'
 import { McpHost } from './mcpHost'
@@ -144,7 +146,7 @@ describe('chat tool loop: fake provider, assistant extension and fake MCP server
     if (!tool) throw new Error('echo tool missing')
     const name = mcpToolName('fake', tool.name)
     const provider = await fakeProvider(name)
-    const svc = new AssistantService({})
+    const svc = new AssistantService(ASSISTANT_CATALOG, {})
     svc.configure(
       {
         provider: 'openai-compatible',
@@ -197,7 +199,7 @@ describe('chat tool loop: fake provider, assistant extension and fake MCP server
 
   it('tells the model a denied call was denied', async () => {
     const provider = await fakeProvider('write_file')
-    const svc = new AssistantService({})
+    const svc = new AssistantService(ASSISTANT_CATALOG, {})
     svc.configure(
       {
         provider: 'openai-compatible',
@@ -288,7 +290,7 @@ const TOOL_CODE_CALL =
   'I will read it.\n```tool_code\nprint(default_api.read_file(path="notes.txt"))\n```'
 
 async function runtimeService(socket: string): Promise<AssistantService> {
-  const svc = new AssistantService({})
+  const svc = new AssistantService(MODEL_RUNTIME_CATALOG, {})
   svc.configure({ provider: 'model-runtime', baseUrl: `unix:${socket}`, chatModel: 'gemma' }, null)
   await svc.probe()
   return svc

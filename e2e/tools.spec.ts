@@ -1,11 +1,25 @@
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import { join, resolve } from 'node:path'
 import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test'
+import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { waitForPaletteSelection } from './helpers'
 
 const FIXTURES = resolve(__dirname, '../test/fixtures/tools')
+const MARKETPLACE = resolve(__dirname, '../out/marketplace/extensions')
+
+function installApproved(dataHome: string, configHome: string, ids: string[]): void {
+  const records: Record<string, { enabled: boolean; approved: string[] }> = {}
+  for (const id of ids) {
+    const target = join(configHome, PRODUCT_NAME, 'extensions', id)
+    cpSync(join(MARKETPLACE, id), target, { recursive: true })
+    const manifest = JSON.parse(readFileSync(join(target, 'pine.json'), 'utf8'))
+    records[id] = { enabled: true, approved: manifest.capabilities ?? [] }
+  }
+  mkdirSync(join(dataHome, 'userData'), { recursive: true })
+  writeFileSync(join(dataHome, 'userData', 'extensions.json'), JSON.stringify(records))
+}
 
 async function serve(label: string, check?: (headers: Record<string, unknown>) => boolean) {
   const server: Server = createServer((req, res) => {
@@ -95,6 +109,7 @@ test('trellis and keeper extensions drive their panels and sidebar from the CLIs
   )
 
   const launch = isolatedLaunch(dataHome)
+  installApproved(dataHome, launch.env.XDG_CONFIG_HOME, ['trellis', 'keeper'])
   const app = await electron.launch({
     ...launch,
     env: {

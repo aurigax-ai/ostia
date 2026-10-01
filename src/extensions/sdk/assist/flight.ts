@@ -1,4 +1,4 @@
-import { AssistFailure } from '../sdk'
+import { AssistFailure } from '..'
 
 export interface Flight {
   run: <T>(signal: AbortSignal, task: () => Promise<T>) => Promise<T>

@@ -2,14 +2,19 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
-import { type LanguageModel, simulateStreamingMiddleware, wrapLanguageModel } from 'ai'
 import type { AssistModel, ChatToolMode } from '../../shared/assist'
 import { PRODUCT_NAME } from '../../shared/product'
-import { type Endpoint, type FetchFn, baseUrl, endpointFetch, requestJson } from './endpoint'
+import {
+  type Endpoint,
+  type FetchFn,
+  baseUrl,
+  endpointFetch,
+  requestJson,
+} from '../sdk/assist/endpoint'
+import type { Provider, ProviderCatalog } from '../sdk/assist/provider'
 
 export const PROVIDER_KINDS = [
   'none',
-  'model-runtime',
   'ollama',
   'openai-compatible',
   'openrouter',
@@ -19,25 +24,11 @@ export const PROVIDER_KINDS = [
 
 export type ProviderKind = (typeof PROVIDER_KINDS)[number]
 
-export interface Provider {
-  kind: ProviderKind
-  lifecycle: boolean
-  serverCancels: boolean
-  smallPrompts: boolean
-  chatTools: (id: string, signal?: AbortSignal) => Promise<ChatToolMode>
-  model: (id: string) => Exclude<LanguageModel, string>
-  models: (signal?: AbortSignal, timeoutMs?: number) => Promise<AssistModel[]>
-  load?: (id: string) => Promise<void>
-  unload?: (id: string) => Promise<void>
-}
-
 export const ANTHROPIC_VERSION = '2023-06-01'
 export const OPENROUTER_HEADERS = { 'X-Title': PRODUCT_NAME }
 const MODELS_TIMEOUT_MS = 15_000
 const SHOW_TIMEOUT_MS = 5000
 const native = async (): Promise<ChatToolMode> => 'native'
-const prompted = async (): Promise<ChatToolMode> => 'prompted'
-const LIFECYCLE_TIMEOUT_MS = 120_000
 
 interface ListedModel {
   id?: unknown
@@ -99,64 +90,6 @@ function bearer(apiKey: string | null): Record<string, string> {
   return apiKey ? { authorization: `Bearer ${apiKey}` } : {}
 }
 
-interface RuntimeModel {
-  id?: unknown
-  description?: unknown
-  installed?: unknown
-  loaded?: unknown
-  busy?: unknown
-  idle_secs?: unknown
-}
-
-export function modelRuntimeProvider(endpoint: Endpoint): Provider {
-  const fetch = endpointFetch(endpoint)
-  const compat = createOpenAICompatible({
-    name: 'model-runtime',
-    baseURL: baseUrl(endpoint, '/v1'),
-    fetch,
-  })
-  const post = async (id: string, action: 'load' | 'unload'): Promise<void> => {
-    await requestJson({
-      fetch,
-      url: baseUrl(endpoint, `/models/${encodeURIComponent(id)}/${action}`),
-      method: 'POST',
-      timeoutMs: LIFECYCLE_TIMEOUT_MS,
-    })
-  }
-  return {
-    kind: 'model-runtime',
-    lifecycle: true,
-    serverCancels: false,
-    smallPrompts: true,
-    chatTools: prompted,
-    model: (id) =>
-      wrapLanguageModel({ model: compat.chatModel(id), middleware: simulateStreamingMiddleware() }),
-    models: async (signal, timeoutMs = MODELS_TIMEOUT_MS) => {
-      const res = await requestJson<{ models?: RuntimeModel[] }>({
-        fetch,
-        url: baseUrl(endpoint, '/models'),
-        signal,
-        timeoutMs,
-      })
-      return (res.models ?? [])
-        .filter((m) => typeof m.id === 'string' && m.id)
-        .map((m) => {
-          const entry: AssistModel = {
-            id: m.id as string,
-            installed: m.installed === true,
-            loaded: m.loaded === true,
-            busy: m.busy === true,
-          }
-          if (typeof m.description === 'string') entry.description = m.description
-          if (typeof m.idle_secs === 'number') entry.idleSecs = m.idle_secs
-          return entry
-        })
-    },
-    load: (id) => post(id, 'load'),
-    unload: (id) => post(id, 'unload'),
-  }
-}
-
 export function createProvider(
   kind: Exclude<ProviderKind, 'none'>,
   endpoint: Endpoint,
@@ -166,8 +99,6 @@ export function createProvider(
   const base = baseUrl(endpoint)
   const key = apiKey ?? undefined
   switch (kind) {
-    case 'model-runtime':
-      return modelRuntimeProvider(endpoint)
     case 'anthropic': {
       const anthropic = createAnthropic({ baseURL: base, apiKey: apiKey ?? '', fetch })
       const headers = { 'x-api-key': apiKey ?? '', 'anthropic-version': ANTHROPIC_VERSION }
@@ -223,4 +154,20 @@ export function createProvider(
       }
     }
   }
+}
+
+const DEFAULT_BASE_URLS: Partial<Record<ProviderKind, string>> = {
+  ollama: 'http://127.0.0.1:11434/v1',
+  openrouter: 'https://openrouter.ai/api/v1',
+  openai: 'https://api.openai.com/v1',
+  anthropic: 'https://api.anthropic.com/v1',
+}
+
+export const ASSISTANT_CATALOG: ProviderCatalog = {
+  kinds: PROVIDER_KINDS.filter((kind) => kind !== 'none'),
+  keyRequired: new Set(['openrouter', 'openai', 'anthropic']),
+  defaultBaseUrl: (kind) => DEFAULT_BASE_URLS[kind as ProviderKind] ?? '',
+  defaultFastModel: () => '',
+  create: (kind, endpoint, apiKey) =>
+    createProvider(kind as Exclude<ProviderKind, 'none'>, endpoint, apiKey),
 }

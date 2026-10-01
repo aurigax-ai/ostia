@@ -59,8 +59,9 @@ Package manager is **pnpm** only.
 | Command | What it does | Run it when |
 |---|---|---|
 | `pnpm dev` | electron-vite dev (HMR renderer, main/preload reload) | Daily development |
-| `pnpm build` | Build `out/{main,preload,renderer}`, the `pine` CLI, the built-in extensions (`out/extensions`), and the build stamp `out/build-info.json` (version, commit, time; packaged as `resources/build-info.json`) | Before `preview` / E2E |
-| `pnpm build:extensions` | Only the built-in extensions (`scripts/build-extensions.mjs`) | After editing `src/extensions/**` while `pnpm dev` runs |
+| `pnpm build` | Build `out/{main,preload,renderer}`, the `pine` CLI, the built-in extensions (`out/extensions`), the marketplace extensions (`out/marketplace`), and the build stamp `out/build-info.json` (version, commit, time; packaged as `resources/build-info.json`) | Before `preview` / E2E |
+| `pnpm build:extensions` | Only the extensions (`scripts/build-extensions.mjs`): built-ins to `out/extensions`, the `marketplaceIds` ones to `out/marketplace` | After editing `src/extensions/**` while `pnpm dev` runs |
+| `pnpm publish:marketplace <checkout>` | Rebuild and copy `out/marketplace` into a checkout of the marketplace repository (`mtch3n/pine-extensions`); commit and push there | After changing trellis, keeper or model-runtime |
 | `pnpm preview` | Run the built app | Smoke-test a build |
 | `pnpm package` | `build` + electron-builder → `dist/linux-unpacked/` | Producing an installable build |
 | `pnpm icons` | Render the app icon PNG set from `resources/icon.svg` (`rsvg-convert`) | After changing the icon SVG |
@@ -88,10 +89,15 @@ Package manager is **pnpm** only.
 - **cli** (`src/cli/index.ts`): the `pine` CLI. Panes get a `pine()` shell function that runs it
   with the app's own Electron binary (`ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI"`), so no
   system Node is needed.
-- **extensions** (`src/extensions/`): built-in extensions (git, trellis, keeper, system, ports,
-  assistant, completions) + their SDK. Each runs as its own process and talks to pine only over the
-  control socket (`docs/EXTENSIONS.md`); the host is `src/main/extensionHost.ts`. trellis and keeper
-  wrap the user's own CLIs; their fake stand-ins for tests are `test/fixtures/tools/bin/`.
+- **extensions** (`src/extensions/`): built-in extensions (git, system, ports, assistant,
+  completions), marketplace extensions that are never bundled with the app (trellis, keeper,
+  model-runtime: `marketplaceIds` in `scripts/build-extensions.mjs`, published to
+  `mtch3n/pine-extensions`) + their SDK. Each runs as its own process and talks to pine only over
+  the control socket (`docs/EXTENSIONS.md`); the host is `src/main/extensionHost.ts`. trellis,
+  keeper and model-runtime wrap the user's own tools, so never make one built-in or name one in
+  core; trellis and keeper's fake stand-ins for tests are `test/fixtures/tools/bin/`. The assist
+  engine both assistant and model-runtime run is `src/extensions/sdk/assist/`; each supplies only a
+  `ProviderCatalog`.
 - **settings sync** (`src/main/settingsSync.ts` + `settingsSyncIpc.ts`): mirrors settings and
   extension choices through the folder in `sync.dir`.
 

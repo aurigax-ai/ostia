@@ -1073,7 +1073,7 @@ commands:
   open <path>
   process | vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
-  <extId> <command> [args...]  an extension command, e.g. pine git status, pine trellis status
+  <extId> <command> [args...]  an extension command, e.g. pine git status
   <command.id> [json-args]     run any registered command (see: pine commands)
 
 run 'pine docs' inside a Pine pane for the full reference.`
