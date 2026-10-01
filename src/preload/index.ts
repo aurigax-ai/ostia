@@ -131,6 +131,7 @@ const bridge: PineBridge = {
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<boolean>,
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
+    reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,

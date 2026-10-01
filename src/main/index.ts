@@ -40,6 +40,7 @@ import type {
   WindowBounds,
 } from '../shared/types'
 import { clampZoom, zoomFactor } from '../shared/zoom'
+import { AgentRunningPanes } from './agentRunning'
 import { registerAgentTranscriptIpc } from './agentTranscript'
 import { registerAppUpdate } from './appUpdate'
 import { approvals, registerApprovals } from './approvals'
@@ -124,6 +125,7 @@ import { killAllProcesses, registerProcessMethods } from './processManager'
 import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { PtySession, type SubscriberRole } from './ptySession'
+import { exitAfterDeadline, planQuit } from './quitPlan'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -599,6 +601,7 @@ let extensionHost: ExtensionHost | null = null
 let viewHost: ViewHost | null = null
 let mcpHost: McpHost | null = null
 let broker: WindowBroker | null = null
+const agentRunning = new AgentRunningPanes(() => broker?.persist())
 let settingsSync: SettingsSyncHandle | null = null
 
 const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
@@ -701,6 +704,12 @@ function baseWebPreferences(): Electron.WebPreferences {
 
 let quitApproved = false
 let quitAsking = false
+let quitRequested = false
+
+function requestQuit(): void {
+  quitRequested = true
+  app.quit()
+}
 const startedHidden = app.commandLine.hasSwitch('hidden')
 let appTray: AppTray | null = null
 let managerService: ManagerService | null = null
@@ -728,7 +737,7 @@ function wireWindow(win: BrowserWindow): void {
     }
     event.preventDefault()
     if (broker?.isDetached(win)) broker.requestReturn(win)
-    else app.quit()
+    else requestQuit()
   })
 
   const emitMaximized = (): void => win.webContents.send('window:maximized', win.isMaximized())
@@ -841,7 +850,7 @@ function registerIpc(): void {
     else win.maximize()
   })
   ipcMain.on('window:close', (e) => BrowserWindow.fromWebContents(e.sender)?.close())
-  ipcMain.on('window:quit', () => app.quit())
+  ipcMain.on('window:quit', () => requestQuit())
   ipcMain.handle('window:system-dark', () => nativeTheme.shouldUseDarkColors)
   nativeTheme.on('updated', () => {
     for (const win of BrowserWindow.getAllWindows()) {
@@ -1286,6 +1295,12 @@ function registerPtyIpc(): void {
     return true
   })
 
+  ipcMain.on('pty:agent-running', (e, paneId: unknown, running: unknown) => {
+    if (typeof paneId !== 'string' || typeof running !== 'boolean') return
+    const attached = ptys.get(paneId)?.subs.has(String(e.sender.id)) === true
+    agentRunning.report(paneId, running, attached)
+  })
+
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {
     const entry = ptys.get(paneId)
     if (entry?.session.canWrite(String(e.sender.id))) entry.pty.write(data)
@@ -1366,6 +1381,7 @@ function trackPty(
       if (ptys.get(paneId) === entry) {
         ptys.delete(paneId)
         movingPanes.delete(paneId)
+        agentRunning.shellEnded(paneId)
       }
     },
   })
@@ -1872,7 +1888,7 @@ app.whenReady().then(() => {
   registerSelectionIpc()
   registerApprovals(revealWindow)
   registerCredentials()
-  registerAppUpdate()
+  registerAppUpdate(requestQuit)
   registerAgentTranscriptIpc()
   registerLspIpc()
   const notifyDeps = {
@@ -2080,9 +2096,9 @@ app.whenReady().then(() => {
     tooltip: PRODUCT_NAME,
     locale: readLocale,
     windows: () => BrowserWindow.getAllWindows(),
-    quit: () => app.quit(),
+    quit: requestQuit,
   })
-  broker = new WindowBroker({ createWindow, holdPtys, execCommand })
+  broker = new WindowBroker({ createWindow, holdPtys, execCommand, agents: agentRunning })
   broker.register()
   broker.openAll()
   extensionHost.startEager()
@@ -2119,7 +2135,18 @@ function autosaveScrollback(): void {
 }
 
 app.on('before-quit', (event) => {
-  if (!quitApproved) {
+  const plan = planQuit({
+    approved: quitApproved,
+    requestedByPine: quitRequested,
+    platform: process.platform,
+  })
+  quitRequested = false
+  if (plan === 'unattended') {
+    quitApproved = true
+    freezeAll(BrowserWindow.getAllWindows())
+    exitAfterDeadline(() => app.exit(0))
+  }
+  if (plan === 'ask') {
     event.preventDefault()
     if (quitAsking) return
     quitAsking = true
@@ -2136,6 +2163,7 @@ app.on('before-quit', (event) => {
     return
   }
   persistScrollback()
+  broker?.persist()
   managerService?.shutdown()
   for (const entry of ptys.values()) {
     try {
@@ -2164,5 +2192,5 @@ app.on('before-quit', (event) => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  if (process.platform !== 'darwin') requestQuit()
 })

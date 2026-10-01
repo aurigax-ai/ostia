@@ -13,6 +13,7 @@ import type {
   WindowWorkspaceSummary,
   WorkspaceLiveState,
 } from '../shared/types'
+import type { AgentRunningPanes } from './agentRunning'
 import { approvals } from './approvals'
 import { panesOwnedBy, rehomePanes } from './idRegistry'
 import { MAIN_SLOT, WindowBook, clampBounds } from './windowBook'
@@ -29,6 +30,7 @@ export interface WindowBrokerDeps {
   createWindow: (slot: string, bounds?: WindowBounds) => BrowserWindow
   holdPtys: (paneIds: readonly string[]) => void
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  agents: AgentRunningPanes
 }
 
 const DETACHED_SIZE = { width: 1100, height: 760 }
@@ -106,7 +108,9 @@ export class WindowBroker {
   private persistEnabled = true
   private boundsTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(private readonly deps: WindowBrokerDeps) {}
+  constructor(private readonly deps: WindowBrokerDeps) {
+    deps.agents.seed(this.book.merged(''))
+  }
 
   get persisting(): boolean {
     return this.persistEnabled
@@ -194,11 +198,11 @@ export class WindowBroker {
     win.webContents.send('windows:return-request')
   }
 
-  private persist(): void {
+  persist(): void {
     if (!this.persistEnabled) return
     try {
       const merged = parseSnapshot(this.book.merged(new Date().toISOString()))
-      if (merged) saveSnapshot(merged)
+      if (merged) saveSnapshot(this.deps.agents.mark(merged))
     } catch (err) {
       console.error('[workspace] snapshot save failed', err)
     }
