@@ -438,7 +438,8 @@ Security baseline for every window (`baseWebPreferences()` in `src/main/index.ts
   the declaring extension (`ext.getSecret`). Never add a socket method or CLI verb for them.
 - **A palette argument is data for one command**: delivered only as `{argv: [value]}` after main
   checks it (`ExtensionHost.paletteArgs` → `commandArgument`), never typed into a pane. A pane chip
-  `url` (http/https) opens in the workspace's browser pane only on the human's click.
+  `url` or a chip item's url (http/https, `paneChipItems`) opens in the workspace's browser pane
+  only on the human's click; a chip `icon` must be in `EXTENSION_ICONS`.
 - **Extension panels stay sandboxed.** Partition `pine-ext-<id>`, no preload, permissions denied;
   src and every navigation pass `ExtensionHost.isAllowedPanelUrl`. Panel paths are resolved and
   checked in main (`resolvePanel`), since a `src` change fires no `will-navigate`. A panel never
