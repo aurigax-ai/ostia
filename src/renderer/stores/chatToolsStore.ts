@@ -123,9 +123,20 @@ export function knownVersion(sessionId: string, path: string): string | null {
   return useChatToolsStore.getState().versions[sessionId]?.[path] ?? null
 }
 
+const undoing = new Set<string>()
+
 export async function undoEdit(toolCallId: string): Promise<void> {
   const edit = useChatToolsStore.getState().edits[toolCallId]
-  if (!edit || edit.state !== 'applied') return
+  if (!edit || edit.state !== 'applied' || undoing.has(toolCallId)) return
+  undoing.add(toolCallId)
+  try {
+    await undoNow(edit)
+  } finally {
+    undoing.delete(toolCallId)
+  }
+}
+
+async function undoNow(edit: ChatEditRecord): Promise<void> {
   const res = await window.pine.chatTools
     .undo({
       path: edit.path,

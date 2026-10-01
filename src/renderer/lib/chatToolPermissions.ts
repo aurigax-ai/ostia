@@ -12,7 +12,7 @@ export type ToolAccess = ChatToolAccess | 'mcp'
 
 export const READ_OUTSIDE_GRANT = 'read-outside'
 
-export type WriteAskReason = 'ask-mode' | 'outside' | 'symlink' | 'unsaved'
+export type WriteAskReason = 'ask-mode' | 'outside' | 'symlink' | 'repository' | 'unsaved'
 
 export interface ToolCheck {
   name: string
@@ -21,6 +21,7 @@ export interface ToolCheck {
   grants: ReadonlySet<string>
   outside?: boolean
   symlink?: boolean
+  repository?: boolean
   unsaved?: boolean
 }
 
@@ -39,6 +40,7 @@ export type ApprovalAnswer =
 function writeAskReason(check: ToolCheck): WriteAskReason | null {
   if (check.outside) return 'outside'
   if (check.symlink) return 'symlink'
+  if (check.repository) return 'repository'
   if (check.unsaved) return 'unsaved'
   return check.mode === 'write' ? null : 'ask-mode'
 }

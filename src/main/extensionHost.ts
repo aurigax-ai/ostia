@@ -291,7 +291,7 @@ export interface ExtensionHostDeps {
   interactiveTimeoutMs?: number
   log?: (extId: string, line: string) => void
   readExtensionSettings?: () => unknown
-  readAssistSettings?: () => unknown
+  readAssistSettings?: () => { assistant?: unknown } | null
   assistKeys?: ExtensionSecretStore
   assistTimeoutMs?: number
   openAssistUiIn?: (req: AssistOpenUiRequest) => void
@@ -452,7 +452,7 @@ export class ExtensionHost {
     this.changes.setMaxListeners(0)
     for (const ext of this.discover()) this.runtimes.set(ext.manifest.id, newRuntime(ext))
     this.settings = storedSettings(deps.readExtensionSettings?.())
-    this.assistSettings = parseAssistModelSettings(deps.readAssistSettings?.())
+    this.assistSettings = parseAssistModelSettings(deps.readAssistSettings?.()?.assistant)
     this.announcedLocale = this.currentLocale()
   }
 
@@ -1511,7 +1511,8 @@ export class ExtensionHost {
     const eligible = choices.filter((c) => this.offers(c.ref.extId, modelClass))
     const wanted =
       modelClass === 'chat' ? this.assistSettings.chatModel : this.assistSettings.fastModel
-    return eligible.find((c) => sameModelRef(c.ref, wanted)) ?? eligible[0] ?? null
+    if (wanted) return eligible.find((c) => sameModelRef(c.ref, wanted)) ?? null
+    return eligible[0] ?? null
   }
 
   private assistTarget(
@@ -1589,7 +1590,9 @@ export class ExtensionHost {
   }
 
   reloadAssistSettings(): void {
-    const next = parseAssistModelSettings(this.deps.readAssistSettings?.())
+    const file = this.deps.readAssistSettings?.()
+    if (!file) return
+    const next = parseAssistModelSettings(file.assistant)
     if (JSON.stringify(next) === JSON.stringify(this.assistSettings)) return
     const before = new Map(
       [...this.runtimes].map(([id, rt]) => [id, JSON.stringify(this.assistEntries(rt))]),

@@ -149,7 +149,9 @@ export function ChatToolPart({
   busy: boolean
 }): JSX.Element {
   const name = toolNameOf(part)
-  if (isBuiltinChatTool(name) && BUILTIN_TOOL_ACCESS[name] === 'write') {
+  const pendingKind = useChatToolsStore((s) => s.pending[part.toolCallId]?.kind)
+  const editCard = pendingKind === undefined || pendingKind === 'write'
+  if (isBuiltinChatTool(name) && BUILTIN_TOOL_ACCESS[name] === 'write' && editCard) {
     return <ChatEditCard part={part} name={name} workspaceId={workspaceId} busy={busy} />
   }
   return <GenericToolPart part={part} name={name} workspaceId={workspaceId} busy={busy} />

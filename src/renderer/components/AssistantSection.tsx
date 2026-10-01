@@ -117,10 +117,16 @@ function ModelField({
     ),
   )
   const selected = catalog[modelClass]
+  const wanted = useSettingsStore((s) =>
+    modelClass === 'chat' ? s.assistant.chatModel : s.assistant.fastModel,
+  )
   const current = choices.find((c) => sameModelRef(c.ref, selected))
-  if (!current) {
+  if (choices.length === 0) {
     return <span className="text-fg-muted text-ui-sm">{d.assistantSettings.noModelYet}</span>
   }
+  const shown = current
+    ? choiceLabel(current)
+    : fmt(d.assistantSettings.modelGone, { model: wanted?.model ?? wanted?.extId ?? '' })
   const pick = (key: string): void => {
     const ref: AssistModelRef | undefined = choices.find((c) => modelRefKey(c.ref) === key)?.ref
     if (!ref) return
@@ -129,9 +135,17 @@ function ModelField({
       .setAssistModels(modelClass === 'chat' ? { chatModel: ref } : { fastModel: ref })
   }
   return (
-    <Select value={modelRefKey(current.ref)} onValueChange={(v) => pick(v as string)}>
-      <SelectTrigger size="sm" aria-label={label} className="w-fit min-w-44 max-w-80">
-        <span className="min-w-0 truncate">{choiceLabel(current)}</span>
+    <Select
+      value={current ? modelRefKey(current.ref) : null}
+      onValueChange={(v) => pick(v as string)}
+    >
+      <SelectTrigger
+        size="sm"
+        aria-label={label}
+        aria-invalid={current ? undefined : true}
+        className="w-fit min-w-44 max-w-80"
+      >
+        <span className="min-w-0 truncate">{shown}</span>
       </SelectTrigger>
       <SelectContent>
         {groupedChoices(choices).map(({ group, items }) => (

@@ -58,6 +58,7 @@ describe('assist routing across providers, models and extensions', () => {
   let host: ExtensionHost
   let settings: Partial<AssistModelSettings> = {}
   let storedKeys: unknown = {}
+  let unreadable = false
   const broadcasts: { channel: string; payload: unknown }[] = []
   const lastCatalog = (): AssistCatalog | undefined =>
     broadcasts.filter((b) => b.channel === 'assist:catalog').at(-1)?.payload as
@@ -95,7 +96,7 @@ describe('assist routing across providers, models and extensions', () => {
       broadcast: (channel, payload) => broadcasts.push({ channel, payload }),
       openPanelIn: () => {},
       notify: () => {},
-      readAssistSettings: () => settings,
+      readAssistSettings: () => (unreadable ? null : { assistant: settings }),
       assistKeys: createSecretStore({
         load: () => storedKeys,
         save: (data) => {
@@ -281,14 +282,26 @@ describe('assist routing across providers, models and extensions', () => {
     expect(await host.assist('chat', chat('hi'))).toEqual({ ok: false, error: 'unavailable' })
   })
 
-  it('starts on the first model when the chosen one is gone', () => {
+  it('answers nothing instead of another model when the chosen one is gone, until the human picks again', async () => {
+    const before = settings
     settings = { ...settings, chatModel: { extId: 'switchboard', provider: 'gone', model: 'x' } }
     host.reloadAssistSettings()
-    expect(host.assistCatalog().chat).toEqual({
-      extId: 'switchboard',
-      provider: 'local',
-      model: 'small',
-    })
+    expect(host.assistCatalog().chat).toBeNull()
+    expect(host.assistAvailability().chat).toBeUndefined()
+    expect(await host.assist('chat', chat('hi'))).toEqual({ ok: false, error: 'unavailable' })
+    settings = before
+    host.reloadAssistSettings()
+  })
+
+  it('keeps every key when settings.json cannot be read', () => {
+    const keys = JSON.stringify(storedKeys)
+    unreadable = true
+    host.reloadAssistSettings()
+    unreadable = false
+    expect(JSON.stringify(storedKeys)).toBe(keys)
+    expect(host.assistOverview().find((o) => o.extId === 'switchboard')?.keysSet).toEqual([
+      'hosted',
+    ])
   })
 
   it('forgets the key of a removed provider and drops its models', async () => {

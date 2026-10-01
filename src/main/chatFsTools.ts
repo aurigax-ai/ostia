@@ -290,8 +290,9 @@ async function existingText(
     if (info.isSymbolicLink() || !info.isFile()) return fail('not-a-file', path)
     if (info.size > CHAT_WRITE_MAX) return fail('too-large', path)
     const buf = await readFile(path)
-    if (looksBinary(buf)) return fail('binary', path)
-    return { text: buf.toString('utf8'), version: versionOf(buf) }
+    const text = buf.toString('utf8')
+    if (looksBinary(buf) || !Buffer.from(text, 'utf8').equals(buf)) return fail('binary', path)
+    return { text, version: versionOf(buf) }
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === 'ENOENT' ? null : fail('failed', path)
   }
@@ -325,7 +326,7 @@ export async function planEditTool(
     (e) => typeof e?.oldText === 'string' && e.oldText !== '' && typeof e.newText === 'string',
   )
   if (edits.length === 0 || edits.length > CHAT_EDITS_MAX || !valid) return fail('invalid')
-  const at = locate({ path: req.path, root: req.root, outside: true }, roots)
+  const at = locate({ path: req.path, root: req.root, outside: req.outside === true }, roots)
   if (isFail(at)) return at
   const current = await existingText(at.path)
   if (isFail(current)) return current

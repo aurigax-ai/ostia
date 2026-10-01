@@ -1503,6 +1503,8 @@ export const en = {
       reasons: {
         outside: 'Outside the workspace folder, so it waits for you in every mode.',
         symlink: 'The path goes through a symlink, so it waits for you in every mode.',
+        repository:
+          'It is inside a .git folder, where a change can make git run a program, so it waits for you in every mode.',
         unsaved:
           'You have unsaved edits in this file, so it waits for you. Accepting changes the file on disk; the editor then asks which version to keep.',
       },
@@ -1539,7 +1541,7 @@ export const en = {
     accessActDesc: 'Also reading outside the workspace folder, and every MCP tool.',
     accessWriteTitle: 'Edit files',
     accessWriteDesc:
-      'In Ask mode every diff waits for your Accept. In Write mode edits inside the workspace folder apply right away and can be undone; anything outside it, through a symlink or with your unsaved edits still waits.',
+      'In Ask mode every diff waits for your Accept. In Write mode edits inside the workspace folder apply right away and can be undone; anything outside it, through a symlink, inside .git or with your unsaved edits still waits.',
     accessCommandTitle: 'Run commands',
     accessCommandDesc: 'You see the exact command first, in every mode.',
     mcpTitle: 'MCP servers',
@@ -1615,6 +1617,7 @@ export const en = {
     fastModel: 'Fast model',
     fastModelDesc: 'Typo fixes, prompt review, command suggestions and completions.',
     noModelYet: 'No model yet',
+    modelGone: 'Not available: {model}. Pick another.',
     providers: 'Providers',
     providersDesc:
       'Each provider has its own address, key and models. Keys are stored encrypted on this computer and never synced.',
@@ -3406,6 +3409,8 @@ export const zhHant: Dict = {
       reasons: {
         outside: '位於工作區資料夾之外，因此任何模式下都會等你決定。',
         symlink: '路徑經過符號連結，因此任何模式下都會等你決定。',
+        repository:
+          '它位於 .git 資料夾內，那裡的變更可能讓 git 執行程式，因此任何模式下都會等你決定。',
         unsaved:
           '這個檔案有你尚未儲存的編輯，因此會等你決定。接受後會變更磁碟上的檔案，編輯器接著會問你要保留哪個版本。',
       },
@@ -3440,7 +3445,7 @@ export const zhHant: Dict = {
     accessActDesc: '也包括讀取工作區資料夾以外的內容，以及每個 MCP 工具。',
     accessWriteTitle: '編輯檔案',
     accessWriteDesc:
-      '在詢問模式下，每個差異都等你按下接受。在寫入模式下，工作區資料夾內的編輯會立即套用並可復原；資料夾之外、經過符號連結，或有你未儲存編輯的檔案仍會等你決定。',
+      '在詢問模式下，每個差異都等你按下接受。在寫入模式下，工作區資料夾內的編輯會立即套用並可復原；資料夾之外、經過符號連結、位於 .git 內，或有你未儲存編輯的檔案仍會等你決定。',
     accessCommandTitle: '執行指令',
     accessCommandDesc: '任何模式下你都會先看到確切的指令。',
     mcpTitle: 'MCP 伺服器',
@@ -3515,6 +3520,7 @@ export const zhHant: Dict = {
     fastModel: '快速模型',
     fastModelDesc: '錯字修正、提示詞檢查、指令建議與補全。',
     noModelYet: '尚無模型',
+    modelGone: '無法使用：{model}。請另選一個。',
     providers: '提供者',
     providersDesc:
       '每個提供者都有自己的位址、金鑰與模型。金鑰以加密方式儲存在這台電腦上，永不同步。',

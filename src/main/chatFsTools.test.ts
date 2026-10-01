@@ -251,8 +251,8 @@ describe('previewTool and writeTool', () => {
 
 describe('planEditTool', () => {
   const path = (): string => join(project, 'a.txt')
-  const plan = (edits: ChatEdit[], target = path()) =>
-    planEditTool({ path: target, root: project, edits }, roots())
+  const plan = (edits: ChatEdit[], target = path(), outside = false) =>
+    planEditTool({ path: target, root: project, edits, outside }, roots())
 
   it('replaces one unique string and leaves the file untouched', async () => {
     const res = await plan([{ oldText: 'two', newText: '2' }])
@@ -364,10 +364,28 @@ describe('planEditTool', () => {
     ).toMatchObject({ ok: false, error: 'not-allowed' })
   })
 
-  it('reports a file outside the workspace folder as outside', async () => {
+  it('tells nothing about a file outside the workspace folder until the human allowed reading it', async () => {
+    const outsideFile = join(other, 'notes.txt')
+    expect(await plan([{ oldText: 'nope', newText: 'x' }], outsideFile)).toEqual({
+      ok: false,
+      error: 'outside-folder',
+      path: outsideFile,
+    })
     expect(
-      await plan([{ oldText: 'private', newText: 'public' }], join(other, 'notes.txt')),
+      await plan([{ oldText: 'private', newText: 'public' }], outsideFile, true),
     ).toMatchObject({ ok: true, outside: true })
+  })
+
+  it('refuses a text file that is not UTF-8 instead of rewriting its bytes', async () => {
+    writeFileSync(path(), Buffer.from([0x63, 0x61, 0x66, 0xe9, 0x0a]))
+    expect(await plan([{ oldText: 'caf', newText: 'bar' }])).toMatchObject({
+      ok: false,
+      error: 'binary',
+    })
+    expect(await previewTool({ path: path(), root: project }, roots())).toMatchObject({
+      ok: false,
+      error: 'binary',
+    })
   })
 })
 

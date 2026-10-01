@@ -266,6 +266,24 @@ describe('AssistantSection', () => {
     expect(JSON.parse(written).assistant.chatModel).toEqual(GEMMA)
   })
 
+  it('says when the chosen chat model is no longer offered and lets the human pick another', async () => {
+    seed()
+    useSettingsStore.setState((s) => ({
+      assistant: {
+        ...s.assistant,
+        chatModel: { extId: 'assistant', provider: 'openai', model: 'gpt-big' },
+      },
+    }))
+    useAssistStore.setState({ catalog: { ...catalog, chat: null } })
+    render(<AssistantSection />)
+    const field = screen.getByRole('combobox', { name: 'Chat model' })
+    expect(field).toHaveTextContent('Not available: gpt-big. Pick another.')
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    await userEvent.click(field)
+    await userEvent.click(await screen.findByRole('option', { name: 'qwen' }))
+    await waitFor(() => expect(useSettingsStore.getState().assistant.chatModel).toEqual(QWEN))
+  })
+
   it('turns a provider off, renames it and changes its address without touching the other', async () => {
     seed()
     render(<AssistantSection />)

@@ -42,7 +42,7 @@ function chatModelIn(
   wanted: AssistModelRef | null | undefined,
 ): AssistProviderInfo | null {
   const base = state.availability.chat ?? null
-  if (!base || !wanted || sameModelRef(wanted, base.ref)) return base
+  if (!wanted || (base && sameModelRef(wanted, base.ref))) return base
   const choice = chatChoices(state.catalog).find((c) => sameModelRef(c.ref, wanted))
   if (!choice) return base
   const name = state.overview.find((o) => o.extId === choice.ref.extId)?.name ?? choice.group

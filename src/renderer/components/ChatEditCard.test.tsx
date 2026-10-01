@@ -85,6 +85,7 @@ function waiting(reason?: WriteAskReason, exists = true): Promise<ApprovalAnswer
       grants: new Set(),
       outside: reason === 'outside',
       symlink: reason === 'symlink',
+      repository: reason === 'repository',
       unsaved: reason === 'unsaved',
     }),
     new AbortController().signal,
@@ -144,6 +145,7 @@ describe('ChatEditCard', () => {
   it.each([
     ['outside', 'Outside the workspace folder, so it waits for you in every mode.'],
     ['symlink', 'The path goes through a symlink, so it waits for you in every mode.'],
+    ['repository', /inside a \.git folder, where a change can make git run a program/],
     ['unsaved', /You have unsaved edits in this file, so it waits for you/],
   ] as const)('says why a %s edit waits in Write mode', (reason, text) => {
     seedWorkspace()

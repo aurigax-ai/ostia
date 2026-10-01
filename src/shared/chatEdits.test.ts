@@ -61,6 +61,30 @@ describe('applyEdits', () => {
     })
   })
 
+  it('counts overlapping matches, so a short target in a run is ambiguous', () => {
+    expect(applyEdits('aaa', [{ oldText: 'aa', newText: 'b' }])).toEqual({
+      ok: false,
+      error: 'ambiguous',
+      edit: 0,
+      count: 2,
+    })
+    expect(applyEdits('x\n\n\ny', [{ oldText: '\n\n', newText: '\n' }])).toMatchObject({
+      ok: false,
+      error: 'ambiguous',
+    })
+  })
+
+  it("writes new lines with the file's CRLF endings, also when the target is one line", () => {
+    expect(applyEdits('a\r\nb\r\n', [{ oldText: 'a', newText: 'a\nnew' }])).toEqual({
+      ok: true,
+      text: 'a\r\nnew\r\nb\r\n',
+    })
+    expect(applyEdits('a\nb\n', [{ oldText: 'a', newText: 'a\nnew' }])).toEqual({
+      ok: true,
+      text: 'a\nnew\nb\n',
+    })
+  })
+
   it('does not treat the replacement as a pattern', () => {
     expect(applyEdits('price', [{ oldText: 'price', newText: '$& $1' }])).toEqual({
       ok: true,
