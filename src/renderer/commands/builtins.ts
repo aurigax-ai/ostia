@@ -4,6 +4,7 @@ import { PRODUCT_NAME } from '@shared/product'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
+import { currentDict } from '../i18n/useDict'
 import { type DropZone, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
@@ -17,6 +18,7 @@ import {
 import { setKeybindingSetting } from '../lib/chords'
 import { requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
+import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace } from '../lib/newWorkspace'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
@@ -26,6 +28,7 @@ import {
   markWorkspaceRead,
   signalPane,
 } from '../lib/workspaceActivity'
+import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
 import { isMac } from '../platform'
 import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -486,6 +489,29 @@ export function registerBuiltinCommands(): void {
     capabilities: ['kill-pane'],
     run: async (_args, ctx) => {
       if (ctx.activeWorkspaceId) await requestCloseOthers(ctx.activeWorkspaceId)
+    },
+  })
+
+  commands.register<{ argument?: string } | undefined, { merged: boolean }>({
+    id: 'workspace.mergeInto',
+    title: 'Merge Into…',
+    category: 'Workspace',
+    local: true,
+    argument: 'Workspace to merge into',
+    choices: async () => {
+      const source = useWorkspacesStore.getState().activeWorkspaceId
+      if (!source) return []
+      const d = currentDict()
+      return (await loadMergeTargets(source)).map((t) => {
+        const reason = mergeRefusalText(d, t.refusal)
+        return { value: t.id, label: t.name, ...(reason ? { disabledReason: reason } : {}) }
+      })
+    },
+    emptyChoices: () => currentDict().merge.noTargets,
+    run: async (args, ctx) => {
+      const target = args?.argument
+      if (!ctx.activeWorkspaceId || !target) return { merged: false }
+      return { merged: await requestMergeWorkspace(ctx.activeWorkspaceId, target) }
     },
   })
 

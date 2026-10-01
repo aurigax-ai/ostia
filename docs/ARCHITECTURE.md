@@ -113,6 +113,58 @@ detached window so it can live on another monitor. Every window runs the same re
   another window owns, `browser:unregister` and lifecycle events from a window that no longer
   owns the pane are ignored.
 
+### Merging workspaces
+
+Two workspaces of one window that share a project folder can be merged; only the human starts it
+(a workspace row's menu, the palette's Workspace: Merge Into…) and only after a confirm.
+
+- **Who may merge** (`lib/mergeEligibility.ts`, pure): the same window, the same project path
+  (`projectDir`, else `workDir`, with `~` expanded, dot segments resolved and trailing slashes
+  dropped; the renderer has no home folder, so `inferHome` reads it off a workspace whose
+  `projectDir` is shown under `~`), neither one the manager workspace, and the same sandbox: both
+  off, or both on with the same settings (`sandboxMergeRefusal` in `shared/sandbox.ts`, which
+  compares them order-insensitively). The menu lists every same-folder workspace and shows a
+  refused one disabled with its reason (another window, one sandboxed, sandbox settings differ).
+  Why refuse mixed sandboxes: the moved panes keep running under the confinement they were
+  spawned with, so a sandboxed shell would sit in a plain workspace or the other way round.
+- **The confirm** (`MergeConfirmDialog.tsx`, a shadcn AlertDialog fed by `mergeConfirmStore`)
+  counts the terminals, editors, browsers and other panes that move, lists the running commands
+  (they keep running), and says what doesn't carry over: the source's name, description, pin and
+  group; its chat when the target has one too; its until-restart sandbox allowances. Merge has
+  the default focus, since nothing stops.
+- **Main first, then the renderer.** `requestMergeWorkspace` (`lib/workspaceMerge.ts`) re-checks
+  eligibility, asks, and calls `workspace:merge` (`main/workspaceMerge.ts`), which checks the
+  sender owns both workspaces (`windowForWorkspace`), that neither holds the manager pane, and
+  the sandbox rule again. Main then rehomes every pane identity of the source to the target
+  (`rehomeWorkspace`; tokens kept, `pane.created` sent to extensions with the new workspace),
+  moves the ptys' `workspaceId`, drops the source's pending domain, port and package requests and
+  its workspace registry entry. Only on `{ok: true}` does the renderer merge its stores.
+- **Panes move, nothing restarts.** `layoutStore.merge` takes the source's whole layout and puts
+  it beside the target's (`mergeLayouts` in `layout/tree.ts`: always a new horizontal split of
+  `[target root, source root]`, so a single source pane is its own slot, never a tab of the
+  target's stack); a target with no panes takes the source layout as is. The source's active pane
+  becomes the target's, zoom is cleared, and `workspacesStore.merge` removes the source from the
+  flat list (`normalizeGroups` drops a group it was the last member of) and activates the target.
+  No `pane-closed` or `workspace-closed` is emitted: the panes moved, they didn't close. Pane ids
+  are unchanged, so SurfacePool keeps every surface mounted; `TerminalView` reads its workspace
+  id through a ref so the move doesn't rebuild xterm or re-attach the pty. Browser webviews still
+  reload when their host is reparented (Electron), and the dialog says so.
+- **Workspace-keyed state**: attention, blocks, approvals, notifications and diff content are keyed
+  by pane, so they follow. The chat (`mergeChatWorkspace`) moves the source's current session,
+  draft and attachments to the target when the target has none, and repoints session metadata;
+  open workspace settings of the source switch to the target.
+- **Sandboxed sources** (`WorkspaceSandboxes.merge`): the source's policy entry is removed and the
+  source id becomes an alias of the target (`owner()`), so its running host follows the target's
+  policy (an update or an allowed domain on the target refreshes it too) and its domain and
+  package cards land on the target. The host process, its tmp folder and ssh agent stay up while
+  a process spawned under them still runs (`confinedBy` on the pty entry); when the last one
+  exits, `releaseMergedSandbox` forgets them. Why not stop it at once: the moved shells' network
+  proxy, `TMPDIR` and `SSH_AUTH_SOCK` belong to it. The source's until-restart allowances are
+  dropped.
+- **Not built**: dropping a row onto another row to merge. Why: the rail's drag-and-drop uses the
+  upper and lower half of every row to reorder and to move into or out of a group, so there is no
+  free drop zone on a row.
+
 ### Main module map
 
 | File | Owns |
@@ -130,6 +182,7 @@ detached window so it can live on another monitor. Every window runs the same re
 | `lsp.ts` | Spawns language servers found on `PATH`, relays JSON-RPC to the renderer |
 | `controlServer.ts`, `controlAuth.ts`, `capabilityStore.ts`, `idRegistry.ts` | Control socket, token auth, per-pane capabilities, pane id ↔ external id ↔ token |
 | `workspaceRegistry.ts` | Workspace id → workDir, fed by lifecycle events |
+| `workspaceMerge.ts` | `workspace:merge` IPC: checks ownership, manager and sandbox before a merge (§2 Merging workspaces) |
 | `paneList.ts` | `pane.list`, `workspace.list` (maps renderer ids to external ids) |
 | `events.ts` | In-process platform events (`notify`, `agent.needs-input`, `agent.done`, `workspace.state`, `pane.state`); only the gateway listens |
 | `jsonStore.ts` | Atomic JSON persistence, project (`<workDir>/.pine/<name>.json`) or global (`$XDG_DATA_HOME/pine/<name>.json`) |
@@ -194,7 +247,7 @@ is typed as `PineBridge`, so drift breaks the build.
 | pty | `attach`, `detach`, `write`, `resize`, `onData`, `onExit` (push channels `pty:data:<id>`, `pty:exit:<id>`) |
 | fs | `list`, `read`, `write`, `readBinary` (confined by `resolveSafe` to `[homedir, userData]`; `readBinary` returns a `Uint8Array`, capped at 50 MiB) |
 | lsp | `list`, `start`, `send`, `stop`, `onMessage`, `onExit` |
-| settings / workspace | `settings.path`; `workspace.save`, `workspace.load` (both answered for the sender's own window) |
+| settings / workspace | `settings.path`; `workspace.save`, `workspace.load`, `workspace.merge` (all answered for the sender's own window) |
 | windows | `info`, `detach`, `returnToMain`, `report`, `focusWorkspace`, `returnWorkspace`, `newWorkspace`, `onList`, `onAdopt`, `onActivateWorkspace`, `onReturnRequest` (push channels `windows:list`, `windows:adopt`, `windows:activate-workspace`, `windows:return-request`) |
 | lifecycle | `lifecycle.emit` (`pane-created`, `pane-closed`, `workspace-added`, `workspace-closed`, `workspace-activated`, `workspace-state`) |
 | commands | `publish` (renderer's command list), `onInvoke` (run a command for main) |
