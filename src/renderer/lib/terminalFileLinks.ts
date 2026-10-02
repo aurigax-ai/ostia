@@ -8,6 +8,7 @@ interface LogicalLine {
 }
 
 const STAT_TTL_MS = 5_000
+const STAT_CACHE_MAX = 500
 
 export function readLogicalLine(term: Terminal, row: number): LogicalLine {
   const buffer = term.buffer.active
@@ -40,7 +41,7 @@ export interface FileLinkDeps {
 export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILinkProvider {
   const cache = new LRUCache<string, Promise<'file' | 'dir' | null>>({
     ttl: STAT_TTL_MS,
-    max: 500,
+    max: STAT_CACHE_MAX,
   })
   const statCached = (path: string): Promise<'file' | 'dir' | null> => {
     const hit = cache.get(path)
