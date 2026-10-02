@@ -1,5 +1,3 @@
-import { compare } from 'semver'
-
 export const RELEASE_REPOSITORY = { owner: 'aurigax-ai', name: 'pine' } as const
 
 export const RELEASE_API_BASE_URL = 'https://api.github.com'
@@ -43,13 +41,31 @@ export function parseVersion(text: unknown): Version | null {
   }
 }
 
-function versionToString(v: Version): string {
-  const base = `${v.major}.${v.minor}.${v.patch}`
-  return v.prerelease.length > 0 ? `${base}-${v.prerelease.join('.')}` : base
+const isNumeric = (part: string): boolean => /^\d+$/.test(part)
+
+function comparePrereleasePart(a: string, b: string): number {
+  const numeric = isNumeric(a)
+  if (numeric !== isNumeric(b)) return numeric ? -1 : 1
+  if (numeric && a.length !== b.length) return a.length - b.length
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
+function comparePrerelease(a: string[], b: string[]): number {
+  if (a.length === 0 || b.length === 0) return b.length - a.length
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    const order = comparePrereleasePart(a[i], b[i])
+    if (order !== 0) return order
+  }
+  return a.length - b.length
 }
 
 export function compareVersions(a: Version, b: Version): number {
-  return compare(versionToString(a), versionToString(b))
+  return Math.sign(
+    a.major - b.major ||
+      a.minor - b.minor ||
+      a.patch - b.patch ||
+      comparePrerelease(a.prerelease, b.prerelease),
+  )
 }
 
 export function isNewerVersion(candidate: string, current: string): boolean {
