@@ -339,3 +339,102 @@ describe('workspace sandbox page layout', () => {
     }
   })
 })
+
+const FOUND = [
+  { id: 'bun' as const, paths: ['~/.bun'] },
+  { id: 'uv' as const, paths: ['~/.local/share/uv/tools', '~/.local/share/uv/python'] },
+]
+
+describe('sandbox tool-folder presets', () => {
+  it('shows no preset block on a machine where main found no tool folder', async () => {
+    useSettingsStore.setState({ sandbox: GLOBALS })
+    render(<SandboxSection />)
+    await waitFor(() => expect(window.pine.sandbox.presets).toHaveBeenCalled())
+    expect(screen.queryByRole('group', { name: 'Tool folders' })).toBeNull()
+  })
+
+  it('adds a found preset’s folders to the global readable list in one click, named in the list', async () => {
+    useSettingsStore.setState({ sandbox: { ...GLOBALS, allowRead: ['~/notes'] } })
+    vi.mocked(window.pine.sandbox.presets).mockResolvedValue(FOUND)
+    render(<SandboxSection />)
+    const presets = await screen.findByRole('group', { name: 'Tool folders' })
+    expect(within(presets).queryByRole('group', { name: 'Deno' })).toBeNull()
+    const uv = within(presets).getByRole('group', { name: 'uv and pipx' })
+    expect(uv).toHaveTextContent('~/.local/share/uv/tools, ~/.local/share/uv/python')
+    expect(within(uv).getByRole('switch')).not.toBeChecked()
+    await userEvent.click(within(uv).getByRole('switch'))
+    expect(window.pine.sandbox.checkPaths).toHaveBeenCalledWith('allowRead', FOUND[1].paths)
+    await waitFor(() =>
+      expect(useSettingsStore.getState().sandbox?.allowRead).toEqual([
+        '~/notes',
+        ...FOUND[1].paths,
+      ]),
+    )
+    await waitFor(() => expect(within(uv).getByRole('switch')).toBeChecked())
+    const readable = screen.getByRole('group', { name: 'Readable folders' })
+    const row = within(readable).getByText('~/.local/share/uv/tools').closest('li')
+    expect(row).toHaveTextContent('uv and pipx')
+    expect(within(readable).getByText('~/notes').closest('li')).not.toHaveTextContent('uv and pipx')
+  })
+
+  it('switches a preset off by removing its folders, and shows it off once one is removed by hand', async () => {
+    useSettingsStore.setState({
+      sandbox: { ...GLOBALS, allowRead: ['~/notes', '~/.bun', ...FOUND[1].paths] },
+    })
+    vi.mocked(window.pine.sandbox.presets).mockResolvedValue(FOUND)
+    render(<SandboxSection />)
+    const presets = await screen.findByRole('group', { name: 'Tool folders' })
+    const bun = within(presets).getByRole('group', { name: 'Bun' })
+    await userEvent.click(within(bun).getByRole('switch'))
+    await waitFor(() =>
+      expect(useSettingsStore.getState().sandbox?.allowRead).toEqual([
+        '~/notes',
+        ...FOUND[1].paths,
+      ]),
+    )
+    const uv = within(presets).getByRole('group', { name: 'uv and pipx' })
+    expect(within(uv).getByRole('switch')).toBeChecked()
+    const readable = screen.getByRole('group', { name: 'Readable folders' })
+    await userEvent.click(
+      within(readable).getByRole('button', { name: 'Remove ~/.local/share/uv/python' }),
+    )
+    await waitFor(() => expect(within(uv).getByRole('switch')).not.toBeChecked())
+  })
+
+  it('shows why main refused a preset and stores nothing', async () => {
+    useSettingsStore.setState({ sandbox: GLOBALS })
+    vi.mocked(window.pine.sandbox.presets).mockResolvedValue(FOUND)
+    vi.mocked(window.pine.sandbox.checkPaths).mockResolvedValue([
+      { value: '~/.bun', reason: 'missing' },
+    ])
+    render(<SandboxSection />)
+    const presets = await screen.findByRole('group', { name: 'Tool folders' })
+    await userEvent.click(
+      within(within(presets).getByRole('group', { name: 'Bun' })).getByRole('switch'),
+    )
+    expect(await within(presets).findByRole('alert')).toBeInTheDocument()
+    expect(useSettingsStore.getState().sandbox?.allowRead).toEqual([])
+  })
+
+  it('shows a preset the defaults already open as on and locked in a workspace, and adds another for it alone', async () => {
+    useSettingsStore.setState({ sandbox: { ...GLOBALS, allowRead: ['~/.bun'] } })
+    vi.mocked(window.pine.sandbox.presets).mockResolvedValue(FOUND)
+    vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
+    vi.mocked(window.pine.sandbox.setPaths).mockResolvedValue({
+      ok: true,
+      settings: { ...WORKSPACE, allowRead: FOUND[1].paths },
+    })
+    render(<WorkspaceSandboxPage workspaceId="ws" workspaceName="proj" />)
+    await userEvent.click(await screen.findByRole('tab', { name: 'Files' }))
+    const presets = await screen.findByRole('group', { name: 'Tool folders' })
+    const bun = within(presets).getByRole('group', { name: 'Bun' })
+    expect(within(bun).getByRole('switch')).toBeChecked()
+    expect(within(bun).getByRole('switch')).toHaveAttribute('aria-disabled', 'true')
+    expect(bun).toHaveTextContent('Global')
+    const uv = within(presets).getByRole('group', { name: 'uv and pipx' })
+    await userEvent.click(within(uv).getByRole('switch'))
+    expect(window.pine.sandbox.setPaths).toHaveBeenCalledWith('ws', 'allowRead', FOUND[1].paths)
+    await waitFor(() => expect(within(uv).getByRole('switch')).toBeChecked())
+    expect(uv).not.toHaveTextContent('Global')
+  })
+})

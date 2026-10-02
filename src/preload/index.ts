@@ -58,6 +58,7 @@ import type {
   SandboxViolation,
   WorkspaceSandbox,
 } from '../shared/sandbox'
+import type { SandboxReadPreset } from '../shared/sandboxPresets'
 import type { SecretEntry, SecretGrant } from '../shared/secrets'
 import type { SelectionSendResult } from '../shared/selection'
 import type { RequirementsReport } from '../shared/systemRequirements'
@@ -449,6 +450,7 @@ const bridge: PineBridge = {
       ) as Promise<SandboxEditResult>,
     checkPaths: (kind, paths) =>
       ipcRenderer.invoke('sandbox:check-paths', kind, paths) as Promise<SandboxEditError[]>,
+    presets: () => ipcRenderer.invoke('sandbox:presets') as Promise<SandboxReadPreset[]>,
     setDomains: (workspaceId, domains) =>
       ipcRenderer.invoke('sandbox:set-domains', workspaceId, domains) as Promise<SandboxEditResult>,
     setDeniedDomains: (workspaceId, domains) =>
