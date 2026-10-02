@@ -14,6 +14,7 @@ import type { PaneNode } from '../layout/types'
 import { useChatAvailable } from '../lib/assistFeatures'
 import { chordLabel } from '../lib/chords'
 import { openFileAt } from '../lib/openFile'
+import { paletteFilter } from '../lib/paletteFilter'
 import { PALETTE_MODES, type PaletteMode, paletteMode, paletteQuery } from '../lib/paletteModes'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { revealPane } from '../lib/workspaceActivity'
@@ -33,13 +34,14 @@ import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { ChatView } from './ChatView'
 import {
-  CommandDialog,
+  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
 } from './ui/command'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 import { Kbd } from './ui/kbd'
 
 const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
@@ -107,73 +109,103 @@ export function CommandPalette(): JSX.Element {
   }
 
   return (
-    <CommandDialog
+    <Dialog
       open={open}
       onOpenChange={(o) => {
         if (!o) finish()
       }}
-      className={askMode ? 'top-[12vh] sm:max-w-3xl' : 'top-[12vh] sm:max-w-2xl'}
-      title={askMode && chat ? fmt(d.ask.tabHint, { name: chat.name }) : d.palette.title}
-      description={askMode ? d.ask.placeholder : d.palette.placeholder}
     >
-      {askMode && chat ? (
-        <ChatView
-          workspaceId={activeWorkspaceId}
-          variant="palette"
-          seed={askSeed}
-          onBack={leaveAsk}
-          onInserted={finish}
-        />
-      ) : asking ? (
-        <ArgumentStep command={asking} value={search} onValueChange={setSearch} onDone={finish} />
-      ) : (
-        <>
-          <CommandInput
-            placeholder={d.palette.placeholder}
-            value={search}
-            onValueChange={setSearch}
-            onKeyDown={(e) => {
-              if (!chat || e.key !== 'Tab' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) {
-                return
-              }
-              e.preventDefault()
-              enterAsk(mode === 'help' ? '' : search)
-            }}
-          />
-          <CommandList>
-            {mode === 'symbols' ? (
-              <SymbolItems
-                query={paletteQuery(search)}
-                workspaceId={activeWorkspaceId}
-                onDone={finish}
+      <DialogHeader className="sr-only">
+        <DialogTitle>
+          {askMode && chat ? fmt(d.ask.tabHint, { name: chat.name }) : d.palette.title}
+        </DialogTitle>
+        <DialogDescription>{askMode ? d.ask.placeholder : d.palette.placeholder}</DialogDescription>
+      </DialogHeader>
+      <DialogContent
+        className={cn(
+          'top-[12vh] origin-top translate-y-0 overflow-hidden rounded-xl! p-0',
+          askMode ? 'sm:max-w-3xl' : 'sm:max-w-2xl',
+        )}
+        showCloseButton={false}
+      >
+        <Command filter={paletteFilter}>
+          {askMode && chat ? (
+            <ChatView
+              workspaceId={activeWorkspaceId}
+              variant="palette"
+              seed={askSeed}
+              onBack={leaveAsk}
+              onInserted={finish}
+            />
+          ) : asking ? (
+            <ArgumentStep
+              command={asking}
+              value={search}
+              onValueChange={setSearch}
+              onDone={finish}
+            />
+          ) : (
+            <>
+              <CommandInput
+                placeholder={d.palette.placeholder}
+                value={search}
+                onValueChange={setSearch}
+                onKeyDown={(e) => {
+                  if (
+                    !chat ||
+                    e.key !== 'Tab' ||
+                    e.shiftKey ||
+                    e.ctrlKey ||
+                    e.metaKey ||
+                    e.altKey
+                  ) {
+                    return
+                  }
+                  e.preventDefault()
+                  enterAsk(mode === 'help' ? '' : search)
+                }}
               />
-            ) : (
-              <CommandEmpty>{d.palette.empty}</CommandEmpty>
-            )}
-            {mode === 'help' ? (
-              <HelpItems
-                onPick={(symbol) => setSearch(symbol)}
-                askName={chat?.name ?? null}
-                onAsk={() => enterAsk('')}
-              />
-            ) : null}
-            {mode === 'all' || mode === 'workspaces' ? (
-              <WorkspaceItems
-                workspaces={places.workspaces}
-                remote={places.remote}
-                onDone={finish}
-              />
-            ) : null}
-            {mode === 'all' || mode === 'tabs' ? (
-              <TabItems tabs={places.tabs} onDone={finish} />
-            ) : null}
-            {mode === 'all' || mode === 'commands' ? (
-              <CommandItems onDone={finish} onAsk={ask} onAskAssistant={() => enterAsk('')} />
-            ) : null}
-          </CommandList>
-        </>
-      )}
-    </CommandDialog>
+              <CommandList>
+                {mode === 'symbols' ? (
+                  <SymbolItems
+                    query={paletteQuery(search)}
+                    workspaceId={activeWorkspaceId}
+                    onDone={finish}
+                  />
+                ) : (
+                  <CommandEmpty>{d.palette.empty}</CommandEmpty>
+                )}
+                {mode === 'help' ? (
+                  <HelpItems
+                    onPick={(symbol) => setSearch(symbol)}
+                    askName={chat?.name ?? null}
+                    onAsk={() => enterAsk('')}
+                  />
+                ) : null}
+                {mode === 'all' || mode === 'workspaces' ? (
+                  <WorkspaceItems
+                    workspaces={places.workspaces}
+                    remote={places.remote}
+                    onDone={finish}
+                  />
+                ) : null}
+                {mode === 'all' || mode === 'tabs' ? (
+                  <TabItems tabs={places.tabs} onDone={finish} />
+                ) : null}
+                {mode === 'all' || mode === 'commands' ? (
+                  <CommandItems
+                    grouped={search.trim().length <= (mode === 'all' ? 0 : 1)}
+                    onDone={finish}
+                    onAsk={ask}
+                    onAskAssistant={() => enterAsk('')}
+                  />
+                ) : null}
+              </CommandList>
+            </>
+          )}
+        </Command>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -519,10 +551,12 @@ function searchValue(symbol: string, command: RegisteredCommand, shown: CommandW
 }
 
 function CommandItems({
+  grouped,
   onDone,
   onAsk,
   onAskAssistant,
 }: {
+  grouped: boolean
   onDone: () => void
   onAsk: (command: ArgumentCommand) => void
   onAskAssistant: () => void
@@ -539,41 +573,43 @@ function CommandItems({
     groups.set(key, group)
   }
   const symbol = symbolOf('commands')
+  const renderItem = ({ command: c, shown }: PaletteCommand): JSX.Element => {
+    const keys = chordLabel(c.id, isMac)
+    return (
+      <CommandItem
+        key={c.id}
+        value={searchValue(symbol, c, shown)}
+        onSelect={() => {
+          if (c.id === ASK_COMMAND_ID) {
+            onAskAssistant()
+            return
+          }
+          if (shown.argument) {
+            onAsk({
+              id: c.id,
+              title: shown.title,
+              argument: shown.argument,
+              choices: c.choices,
+              emptyChoices: c.emptyChoices,
+            })
+            return
+          }
+          void commands.exec(c.id)
+          onDone()
+        }}
+      >
+        <span>{shown.title}</span>
+        <ItemMeta mono>{c.id}</ItemMeta>
+        {keys ? <Kbd>{keys}</Kbd> : null}
+      </CommandItem>
+    )
+  }
+  if (!grouped) return <>{[...groups.values()].flatMap((group) => group.items).map(renderItem)}</>
   return (
     <>
       {[...groups.entries()].map(([key, group]) => (
         <CommandGroup key={key} heading={group.heading}>
-          {group.items.map(({ command: c, shown }) => {
-            const keys = chordLabel(c.id, isMac)
-            return (
-              <CommandItem
-                key={c.id}
-                value={searchValue(symbol, c, shown)}
-                onSelect={() => {
-                  if (c.id === ASK_COMMAND_ID) {
-                    onAskAssistant()
-                    return
-                  }
-                  if (shown.argument) {
-                    onAsk({
-                      id: c.id,
-                      title: shown.title,
-                      argument: shown.argument,
-                      choices: c.choices,
-                      emptyChoices: c.emptyChoices,
-                    })
-                    return
-                  }
-                  void commands.exec(c.id)
-                  onDone()
-                }}
-              >
-                <span>{shown.title}</span>
-                <ItemMeta mono>{c.id}</ItemMeta>
-                {keys ? <Kbd>{keys}</Kbd> : null}
-              </CommandItem>
-            )
-          })}
+          {group.items.map(renderItem)}
         </CommandGroup>
       ))}
     </>
