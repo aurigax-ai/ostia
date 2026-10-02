@@ -7,7 +7,7 @@
 <p align="center">One workspace for you and every coding agent you run.</p>
 
 <p align="center">
-  <a href="https://aurigax-ai.github.io/pine-website/">Website</a>
+  <a href="https://aurigax-ai.github.io/">Website</a>
   &nbsp;&nbsp;
   <a href="https://github.com/aurigax-ai/pine/releases/latest">Download</a>
   &nbsp;&nbsp;
