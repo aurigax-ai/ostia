@@ -1,8 +1,9 @@
 import { spawn } from 'node:child_process'
 import { constants, accessSync } from 'node:fs'
-import { delimiter, isAbsolute, join } from 'node:path'
+import { isAbsolute } from 'node:path'
 import { splitArgs } from '../shared/argv'
 import type { ExternalEditorRequest, ExternalEditorResult } from '../shared/types'
+import { findOnPath } from './pathLookup'
 
 export const AUTO_EDITOR = 'auto'
 
@@ -33,19 +34,6 @@ export function expandTemplate(template: string, target: EditorTarget): string[]
   const hasFile = tokens.some((t) => t.includes('{file}'))
   const argv = tokens.map((t) => t.replace(/\{(file|line|column)\}/g, (_m, key) => values[key]))
   return hasFile ? argv : [...argv, target.file]
-}
-
-export function findOnPath(
-  bin: string,
-  pathEnv: string,
-  isExecutable: (p: string) => boolean,
-): string | null {
-  for (const dir of pathEnv.split(delimiter)) {
-    if (!dir) continue
-    const candidate = join(dir, bin)
-    if (isExecutable(candidate)) return candidate
-  }
-  return null
 }
 
 export function resolveEditorTemplate(

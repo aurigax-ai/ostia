@@ -4,7 +4,7 @@ import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
 import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { debounce } from 'es-toolkit'
+import { debounce, isEqual } from 'es-toolkit'
 import {
   type CancellationToken,
   CancellationTokenSource,
@@ -1820,7 +1820,7 @@ export class ExtensionHost {
     const file = this.deps.readAssistSettings?.()
     if (!file) return
     const next = parseAssistModelSettings(file.assistant)
-    if (JSON.stringify(next) === JSON.stringify(this.assistSettings)) return
+    if (isEqual(next, this.assistSettings)) return
     const before = new Map(
       [...this.runtimes].map(([id, rt]) => [id, JSON.stringify(this.assistEntries(rt))]),
     )
