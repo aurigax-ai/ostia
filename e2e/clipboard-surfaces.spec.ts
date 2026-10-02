@@ -232,6 +232,22 @@ test('the copy and paste chords work inside a browser pane', async () => {
       expect(roles, 'macOS copies and pastes in a guest through the Edit menu roles').toEqual(
         expect.arrayContaining(['copy', 'paste']),
       )
+      const editAction = (selector: string) =>
+        app.evaluate(({ Menu }, action) => Menu.sendActionToFirstResponder(action), selector)
+      await app.evaluate(({ app: electronApp, BrowserWindow }) => {
+        electronApp.focus({ steal: true })
+        BrowserWindow.getAllWindows()[0]?.focus()
+      })
+      await win.locator('.pane-slot:not([data-hidden]) webview').click()
+      await guestRun("document.getElementById('source').select()")
+      await editAction('copy:')
+      await expect.poll(() => readClipboard(app)).toBe('guest_copy')
+      await writeClipboard(app, 'guest_pasted')
+      await guestRun("document.getElementById('sink').focus()")
+      await editAction('paste:')
+      await expect
+        .poll(() => guestRun("document.getElementById('sink').value"))
+        .toBe('guest_pasted')
       return
     }
     await guestRun("document.getElementById('source').select()")
