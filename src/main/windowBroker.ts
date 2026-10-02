@@ -180,9 +180,7 @@ export class WindowBroker {
         return true
       }
       const remember = (): void => {
-        if (capture()) {
-          this.debouncedPersist()
-        }
+        if (capture()) this.debouncedPersist()
       }
       win.on('move', remember)
       win.on('resize', remember)
