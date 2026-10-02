@@ -4,10 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
+import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { CommandPalette } from './CommandPalette'
+
+const searchWorkspaceSymbols = vi.hoisted(() => vi.fn())
+vi.mock('../lsp/client', () => ({ searchWorkspaceSymbols }))
 
 describe('CommandPalette', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
@@ -214,6 +218,91 @@ describe('CommandPalette', () => {
       await userEvent.type(screen.getByPlaceholderText('Card id'), '   {Enter}')
       expect(run).not.toHaveBeenCalled()
       expect(useUIStore.getState().paletteOpen).toBe(true)
+    })
+  })
+  describe('symbols in the workspace', () => {
+    const hit = {
+      id: 'ext/fake\n/src/web/lib/greet.ts\n12\n17\ngreet\n12',
+      name: 'greet',
+      kind: 12,
+      container: 'lib',
+      path: '/src/web/lib/greet.ts',
+      line: 12,
+      column: 17,
+      serverKey: 'ext/fake',
+    }
+
+    const seed = () => {
+      useWorkspacesStore.setState({
+        workspaces: [
+          { id: 'w2', name: 'web', kind: 'terminal', workDir: '/src/web', state: 'idle' },
+        ],
+        activeWorkspaceId: 'w2',
+      })
+      useLayoutStore.setState({
+        byWorkspace: {
+          w2: {
+            root: { type: 'pane', id: 'pane-3', title: 'a.ts', kind: 'editor' },
+            activePaneId: 'pane-3',
+            zoomedPaneId: null,
+          },
+        },
+      })
+    }
+
+    afterEach(() => {
+      searchWorkspaceSymbols.mockReset()
+      useEditorRevealStore.setState({ pending: {} })
+    })
+
+    it('opens on the symbol prefix from the command and asks the workspace’s servers as the human types', async () => {
+      seed()
+      searchWorkspaceSymbols.mockResolvedValue({ servers: 1, hits: [hit] })
+      render(<CommandPalette />)
+      act(() => {
+        void commands.exec('view.goToWorkspaceSymbol')
+      })
+      const input = await screen.findByRole('combobox')
+      expect(input).toHaveValue('%')
+      await userEvent.type(input, 'gre')
+
+      const option = await screen.findByRole('option', { name: /greet/ })
+      expect(option).toHaveTextContent('lib/greet.ts:12')
+      expect(searchWorkspaceSymbols).toHaveBeenLastCalledWith(new Set(['pane-3']), 'gre')
+      expect(screen.queryByRole('option', { name: /Open Settings/ })).toBeNull()
+    })
+
+    it('opens the file at the symbol and closes', async () => {
+      seed()
+      searchWorkspaceSymbols.mockResolvedValue({ servers: 1, hits: [hit] })
+      const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile').mockImplementation(() => {})
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '%' })
+      render(<CommandPalette />)
+      await userEvent.click(await screen.findByRole('option', { name: /greet/ }))
+
+      expect(openFile).toHaveBeenCalledWith('w2', '/src/web/lib/greet.ts')
+      expect(useEditorRevealStore.getState().pending['/src/web/lib/greet.ts']).toEqual({
+        line: 12,
+        column: 17,
+      })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+    })
+
+    it('says so when no language server in the workspace finds symbols', async () => {
+      seed()
+      searchWorkspaceSymbols.mockResolvedValue({ servers: 0, hits: [] })
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '%' })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('status')).toHaveTextContent(
+        'No running language server finds symbols in this workspace.',
+      )
+    })
+
+    it('asks nothing for a workspace without panes', async () => {
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '%' })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('status')).toBeInTheDocument()
+      expect(searchWorkspaceSymbols).not.toHaveBeenCalled()
     })
   })
 })
