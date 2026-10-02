@@ -29,6 +29,10 @@ async function launch(): Promise<Launched> {
   return { app, win, dataHome, home: launchOpts.home }
 }
 
+async function closeQuietly(app: ElectronApplication): Promise<void> {
+  await app.close().catch(() => app.process().kill('SIGKILL'))
+}
+
 function mainLog(dataHome: string): string {
   const file = join(dataHome, 'userData', 'logs', 'main.log')
   return existsSync(file) ? readFileSync(file, 'utf8') : ''
@@ -107,7 +111,7 @@ test('a renderer process crash reloads the window and keeps the shells alive', a
 
     await app.evaluate(({ BrowserWindow }) => {
       const pid = BrowserWindow.getAllWindows()[0]?.webContents.getOSProcessId()
-      if (pid) process.kill(pid, 'SIGKILL')
+      if (pid) setImmediate(() => process.kill(pid, 'SIGKILL'))
     })
     await expect.poll(() => mainLog(dataHome), { timeout: 15_000 }).toMatch(/render-process-gone/)
     const terminalText = () =>
@@ -125,7 +129,7 @@ test('a renderer process crash reloads the window and keeps the shells alive', a
     expect(() => process.kill(Number(before), 0)).not.toThrow()
     expect(mainLog(dataHome)).toMatch(/renderer-reload window=\d+/)
   } finally {
-    await app.close()
+    await closeQuietly(app)
   }
 })
 
