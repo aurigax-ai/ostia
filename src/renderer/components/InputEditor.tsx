@@ -134,10 +134,12 @@ export function useInputEditorVisible(
   const mode = useSettingsStore((s) => s.behavior.inputMode)
   const promptLine = useBlocksStore((s) => s.drafts[paneId]?.promptLine)
   const running = useBlocksStore((s) => Boolean(s.running[paneId]))
+  const remote = useBlocksStore((s) => s.drafts[paneId]?.remote === true)
   return (
     mode === 'editor' &&
     Boolean(promptLine) &&
     !running &&
+    !remote &&
     !alternateScreen &&
     promptLine !== suppressedPrompt
   )

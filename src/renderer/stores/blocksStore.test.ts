@@ -48,10 +48,20 @@ describe('blocksStore', () => {
   it('sets the draft on promptStart and fills inputLine on promptEnd', () => {
     const p = 'pane-draft'
     store().promptStart(p, at(4), '/tmp')
-    expect(store().drafts[p]).toEqual({ promptLine: at(4), inputLine: null, cwd: '/tmp' })
+    expect(store().drafts[p]).toEqual({
+      promptLine: at(4),
+      inputLine: null,
+      cwd: '/tmp',
+      remote: false,
+    })
 
     store().promptEnd(p, at(7))
-    expect(store().drafts[p]).toEqual({ promptLine: at(4), inputLine: at(7), cwd: '/tmp' })
+    expect(store().drafts[p]).toEqual({
+      promptLine: at(4),
+      inputLine: at(7),
+      cwd: '/tmp',
+      remote: false,
+    })
     expect(store().byPane[p]).toBeUndefined()
   })
 
@@ -59,7 +69,12 @@ describe('blocksStore', () => {
     const p = 'pane-overwrite'
     store().promptStart(p, at(10), '/a')
     store().promptStart(p, at(20), '/b')
-    expect(store().drafts[p]).toEqual({ promptLine: at(20), inputLine: null, cwd: '/b' })
+    expect(store().drafts[p]).toEqual({
+      promptLine: at(20),
+      inputLine: null,
+      cwd: '/b',
+      remote: false,
+    })
     expect(store().byPane[p]).toBeUndefined()
   })
 

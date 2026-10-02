@@ -13,6 +13,7 @@ async function main(): Promise<void> {
       run: (args) => runTool('ssh', args, { timeoutMs: RESOLVE_TIMEOUT_MS }),
       confirm: (req) => ext.confirm(req),
       openTerminal: (opts) => ext.openTerminal(opts),
+      shellIntegration: async () => (await ext.getSettings()).shellIntegration !== false,
     }),
   )
 }

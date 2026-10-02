@@ -28,10 +28,12 @@ function linksFor(
   term: Terminal,
   row: number,
   stat = vi.fn(async (): Promise<'file' | 'dir' | null> => 'file'),
+  remote = false,
 ) {
   const open = vi.fn()
   const provider = createFileLinkProvider(term, {
     cwd: () => '/home/u/proj',
+    remote: () => remote,
     stat,
     open,
     modifierHeld: (e) => e.ctrlKey,
@@ -72,6 +74,14 @@ describe('createFileLinkProvider', () => {
     expect(open).not.toHaveBeenCalled()
     link.activate(new MouseEvent('click', { ctrlKey: true }), link.text)
     expect(open).toHaveBeenCalledWith('/home/u/proj/src/app.ts', 12, 4)
+  })
+
+  it('SSH-C37 offers no local file link while the pane is in a remote shell', async () => {
+    const term = fakeTerminal([{ text: 'error in src/app.ts:12' }])
+    const stat = vi.fn(async (): Promise<'file' | 'dir' | null> => 'file')
+    const { links } = await linksFor(term, 1, stat, true)
+    expect(links).toBeUndefined()
+    expect(stat).not.toHaveBeenCalled()
   })
 
   it('offers no link for a path that is not an existing file', async () => {
