@@ -67,6 +67,7 @@ test('a sandboxed workspace wraps the shell chosen in terminal.shell', async () 
     await expect(restart).toHaveCount(0)
     const rows = win.locator('.xterm-rows').first()
     await expect(async () => {
+      await win.keyboard.press('Control+C')
       await run(win, 'echo "sandbox=${HTTPS_PROXY:+on} flags=$-"')
       await expect(rows).toContainText(/sandbox=on flags=\S*i/, { timeout: 2_000 })
     }).toPass({ timeout: 30_000 })
