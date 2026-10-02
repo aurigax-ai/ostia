@@ -5,6 +5,7 @@ const fake = createFakeMonaco()
 vi.mock('../monaco/setup', () => ({ monaco: fake.monaco }))
 
 const {
+  markup,
   rangesOverlap,
   toCompletion,
   toDocumentSymbols,
@@ -285,5 +286,122 @@ describe('toFoldingRanges', () => {
       { start: 9, end: 10 },
     ])
     expect(toFoldingRanges(null)).toEqual([])
+  })
+})
+
+describe('what an untrusted server cannot add', () => {
+  const position = { line: 1, character: 2 }
+
+  it('keeps only the text of an inlay hint label part', () => {
+    const [hint] = toInlayHints([
+      {
+        position,
+        label: [
+          {
+            value: 'x',
+            command: { title: 'run', command: 'editor.action.selectAll', arguments: [1] },
+            location: { uri: 'file:///etc/passwd', range },
+            tooltip: 'tip',
+          },
+        ],
+      },
+    ])
+    expect(hint.label).toEqual([{ label: 'x' }])
+  })
+
+  it('keeps inlay hint padding a real true or absent', () => {
+    const hints = toInlayHints([
+      { position, label: 'a', paddingLeft: false, paddingRight: false },
+      { position, label: 'b', paddingLeft: 'yes' as unknown as boolean, kind: 0 as never },
+    ])
+    expect(Object.keys(hints[0]).sort()).toEqual(['label', 'position'])
+    expect(hints[1]).toEqual({
+      position: { lineNumber: 2, column: 3 },
+      label: 'b',
+      paddingLeft: true,
+    })
+  })
+
+  it('shows a diagnostic code as text and never as a link', () => {
+    const [marker] = toMarkers([
+      { range, message: 'm', code: 'E1', codeDescription: { href: 'command:workspace.new' } },
+    ])
+    expect(marker.code).toBe('E1')
+  })
+
+  it('drops related information, unknown tags and a code that is not text', () => {
+    const malformed = [
+      { range, message: 'a', relatedInformation: [{ message: 'r' }] },
+      { range, message: 'b', relatedInformation: 'x' },
+      { range, message: 'c', tags: [99, -1] },
+      { range, message: 'd', code: { toString: 1 } },
+      { range, message: 'e', code: { a: 1 } },
+    ] as unknown as Parameters<typeof toMarkers>[0]
+    expect(toMarkers(malformed)).toEqual(
+      ['a', 'b', 'c', 'd', 'e'].map((message) => ({ ...monacoRange, severity: 8, message })),
+    )
+  })
+
+  it('reads the text of a diagnostic whose message is markup', () => {
+    const diagnostics = [
+      { range, message: { kind: 'markdown', value: '**m**' } },
+    ] as unknown as Parameters<typeof toMarkers>[0]
+    expect(toMarkers(diagnostics)[0].message).toBe('**m**')
+  })
+
+  it('treats an unknown severity as an error', () => {
+    const diagnostics = [0, 99, '2'].map((severity) => ({ range, message: 'm', severity }))
+    expect(
+      toMarkers(diagnostics as unknown as Parameters<typeof toMarkers>[0]).map((m) => m.severity),
+    ).toEqual([8, 8, 8])
+  })
+
+  it('renders plain text documentation as text, never as markdown', () => {
+    const plain = { kind: 'plaintext' as const, value: '**not bold** [x](command:a)' }
+    expect(markup(plain)).toBe(plain.value)
+    expect(markup({ kind: 'html' as 'plaintext', value: '<b>x</b>' })).toBe('<b>x</b>')
+    expect(toCompletion({ label: 'a', documentation: plain }, fallback).documentation).toBe(
+      plain.value,
+    )
+    expect(toInlayHints([{ position, label: 'a', tooltip: plain }])[0].tooltip).toBe(plain.value)
+    expect(
+      toSignatureHelp({ signatures: [{ label: 'f()', documentation: plain }] })?.signatures[0]
+        .documentation,
+    ).toBe(plain.value)
+  })
+
+  it('never marks server markdown as trusted or lets it carry HTML', () => {
+    const fromServer = { kind: 'markdown', value: 'x', isTrusted: true, supportHtml: true }
+    expect(markup(fromServer as Parameters<typeof markup>[0])).toEqual({ value: 'x' })
+    expect(toHover({ contents: fromServer as never })?.contents).toEqual([{ value: 'x' }])
+  })
+
+  it('opens a link at its selection range with the editor’s own Uri', () => {
+    const targetRange = { start: { line: 10, character: 0 }, end: { line: 20, character: 0 } }
+    const [location] = toLocations([
+      { targetUri: 'file:///p/b.ts', targetRange, targetSelectionRange: range },
+    ])
+    expect(location.range).toEqual(monacoRange)
+    expect(Object.keys(location).sort()).toEqual(['range', 'uri'])
+    expect(location.uri).toBeInstanceOf(fake.monaco.Uri)
+    expect(toLocations({ uri: 'file:///p/a.ts', range })[0].uri).toBeInstanceOf(fake.monaco.Uri)
+  })
+
+  it('clamps a symbol kind into the editor’s range', () => {
+    const kinds = toDocumentSymbols(
+      [1, 26, 0, -3, 999].map((kind) => ({
+        name: 'n',
+        kind: kind as never,
+        range,
+        selectionRange: range,
+      })),
+    ).map((symbol) => symbol.kind)
+    expect(kinds).toEqual([0, 25, 0, 0, 25])
+  })
+
+  it('gives a folding range a kind only when the server named one', () => {
+    expect(toFoldingRanges([{ startLine: 1, endLine: 5, kind: '' }])).toEqual([
+      { start: 2, end: 6 },
+    ])
   })
 })
