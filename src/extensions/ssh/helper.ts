@@ -6,7 +6,19 @@ export const STATUS_PREFIX = 'PINE-HELPER '
 export const HELPER_DIR = '.pine/helper'
 export const HELPER_FILE = 'helper.sh'
 export const SESSION_FILE = 'session.sh'
-export const HELPER_TOOLS = ['cat', 'cksum', 'cp', 'dd', 'head', 'mkdir', 'mv', 'rm', 'tail', 'wc']
+export const HELPER_TOOLS = [
+  'cat',
+  'cksum',
+  'cp',
+  'dd',
+  'head',
+  'mkdir',
+  'mv',
+  'readlink',
+  'rm',
+  'tail',
+  'wc',
+]
 
 const CRC_POLYNOMIAL = 0x04c11db7
 
