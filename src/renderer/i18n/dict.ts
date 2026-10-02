@@ -2038,6 +2038,7 @@ export const en = {
   settings: {
     title: 'Settings',
     search: 'Search settings',
+    noMatches: 'No settings match',
     language: 'Language',
     displayLanguage: 'Display language',
     appearance: 'Appearance',
@@ -4268,6 +4269,7 @@ export const zhHant: Dict = {
   settings: {
     title: '設定',
     search: '搜尋設定',
+    noMatches: '沒有符合的設定',
     language: '語言',
     displayLanguage: '顯示語言',
     appearance: '外觀',
