@@ -63,6 +63,7 @@ import {
   registerBrowseMethods,
 } from './browse'
 import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
+import { registerRegionIpc } from './browseRegion'
 import { BrowserProfiles } from './browserProfiles'
 import { registerBrowserStorageIpc } from './browserStorage'
 import { browserUserAgent } from './browserUserAgent'
@@ -2597,6 +2598,7 @@ app.whenReady().then(() => {
   })
   registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast })
   registerPickIpc({ browserPanes, isSharedPane, errorBuffers, broadcast }, reachesPane)
+  registerRegionIpc(browserPanes, reachesPane)
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )

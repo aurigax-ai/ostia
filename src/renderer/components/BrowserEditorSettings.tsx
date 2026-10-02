@@ -110,6 +110,14 @@ export function BrowserSettingsSection(): JSX.Element {
           <ZoomField />
         </ControlRow>
       </SettingsGroup>
+      <SettingsGroup title={d.browserSettings.groupCapture}>
+        <ToggleRow
+          label={d.browserSettings.attachCaptureImage}
+          desc={d.browserSettings.attachCaptureImageDesc}
+          checked={browser.attachCaptureImage}
+          onChange={(attachCaptureImage) => setBrowser({ attachCaptureImage })}
+        />
+      </SettingsGroup>
     </div>
   )
 }
