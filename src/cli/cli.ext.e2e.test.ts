@@ -57,6 +57,7 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
         clearTimeout(timer)
         resolve({ code, stdout, stderr })
       })
+      child.stdin.on('error', () => {})
       child.stdin.end(input ?? '')
     })
   }
