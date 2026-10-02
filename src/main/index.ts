@@ -2066,16 +2066,14 @@ function registerFsIpc(): void {
     if (typeof path === 'string') fileWatches?.unwatch(String(e.sender.id), path)
   })
 
-  ipcMain.handle('fs:write', (e, path: string, content: string): boolean => {
+  ipcMain.handle('fs:write', (_e, path: string, content: string): boolean => {
     const safe = openFileGrants.confine(path)
     if (safe === null) return false
     try {
       writeFileSync(safe, content, 'utf8')
       if (safe === settingsFile) {
         for (const win of windows.values()) {
-          if (!win.isDestroyed() && win.webContents.id !== e.sender.id) {
-            win.webContents.send('settings:changed')
-          }
+          if (!win.isDestroyed()) win.webContents.send('settings:changed')
         }
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()

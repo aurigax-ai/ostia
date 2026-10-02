@@ -555,6 +555,8 @@ function applySetting(s: SettingsState, path: string, value: unknown): SettingCh
   return { path, previous, value: getByPath(parsed, path), next }
 }
 
+let lastWritten: string | null = null
+
 async function writeSettings(s: SettingsState): Promise<void> {
   const snapshot: Persisted = {
     locale: s.locale,
@@ -583,7 +585,9 @@ async function writeSettings(s: SettingsState): Promise<void> {
     privacy: s.privacy,
   }
   const path = await window.pine.settings.path()
-  await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
+  const text = `${JSON.stringify(snapshot, null, 2)}\n`
+  lastWritten = text
+  await window.pine.fs.write(path, text)
 }
 
 const scheduleSave = debounce((get: () => SettingsState): void => {
@@ -621,7 +625,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   init: async () => {
     const path = await window.pine.settings.path()
     const raw = await window.pine.fs.read(path)
-    if (!raw) return
+    if (!raw || raw === lastWritten) return
     try {
       set(parsePersisted(JSON.parse(raw) as Partial<Persisted>))
     } catch {}
