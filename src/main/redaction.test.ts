@@ -5,7 +5,7 @@ import type { ChatSession } from '../shared/chatSessions'
 import { REDACT_TEXTS_MAX, REDACT_TEXT_MAX } from '../shared/redaction'
 import { redactAssistRequest, redactChatSession } from '../shared/redactionTargets'
 import { createRedactor, createScrollbackRedactor, redactRequestedTexts } from './redaction'
-import { createWorkerScan } from './redactionScan'
+import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { libraryKinds } from './secretScanner'
 
 const on = createRedactor(() => undefined, testScan)
@@ -154,6 +154,18 @@ describe('createRedactor', () => {
       },
     )
     await expect(broken.redact('anything')).rejects.toThrow('scan failed')
+  })
+})
+
+describe('redactionWorkerScript', () => {
+  it('points into app.asar.unpacked for a packaged app', () => {
+    expect(redactionWorkerScript('/opt/pine/resources/app.asar')).toBe(
+      '/opt/pine/resources/app.asar.unpacked/out/redaction/worker.js',
+    )
+  })
+
+  it('stays in the project folder when unpackaged', () => {
+    expect(redactionWorkerScript('/home/u/pine')).toBe('/home/u/pine/out/redaction/worker.js')
   })
 })
 

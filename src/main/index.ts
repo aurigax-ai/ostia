@@ -164,7 +164,7 @@ import { PtySession, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
 import { exitAfterDeadline, planQuit } from './quitPlan'
 import { createRedactor, createScrollbackRedactor } from './redaction'
-import { createWorkerScan } from './redactionScan'
+import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
 import type { RemoteFolders } from './remoteFolders'
@@ -2855,9 +2855,7 @@ app.whenReady().then(() => {
   app.on('activate', revealApp)
 })
 
-const redactionScan = createWorkerScan(
-  join(app.getAppPath().replace(/\.asar$/, '.asar.unpacked'), 'out/redaction/worker.js'),
-)
+const redactionScan = createWorkerScan(redactionWorkerScript(app.getAppPath()))
 const redactor = createRedactor(
   () => (readSettingsFile() as { privacy?: unknown }).privacy,
   redactionScan.scan,
