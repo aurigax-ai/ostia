@@ -74,6 +74,7 @@ import { BrowserProfiles } from './browserProfiles'
 import { registerBrowserStorageIpc } from './browserStorage'
 import { browserUserAgent } from './browserUserAgent'
 import { registerBusMethods } from './bus'
+import { announceBusMessage } from './busNotice'
 import { dropIdentity, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
@@ -2511,7 +2512,21 @@ app.whenReady().then(() => {
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     execCommand,
   })
-  registerBusMethods({ managerSendAllowed: () => managerLimiter?.busAllowed() ?? true })
+  registerBusMethods({
+    managerSendAllowed: () => managerLimiter?.busAllowed() ?? true,
+    announce: (from, to, text) => {
+      void announceBusMessage(
+        {
+          execCommand,
+          listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+          listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+        },
+        from,
+        to,
+        text,
+      ).catch(() => {})
+    },
+  })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   settingsSync = startSettingsSync({
     userData: app.getPath('userData'),
