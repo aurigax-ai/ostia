@@ -45,23 +45,9 @@ canonical_dir() {
   (CDPATH= cd -P -- "$1" 2>/dev/null && pwd -P)
 }
 
-resolve_link() {
-  if command -v realpath >/dev/null 2>&1; then
-    realpath -- "$1" 2>/dev/null
-  elif command -v readlink >/dev/null 2>&1; then
-    readlink -f -- "$1" 2>/dev/null
-  else
-    return 1
-  fi
-}
-
-canonical() {
+canonical_leaf() {
   if [ -d "$1" ]; then
     canonical_dir "$1"
-    return
-  fi
-  if [ -L "$1" ]; then
-    resolve_link "$1" || return 2
     return
   fi
   parent=${1%/*}
@@ -72,6 +58,29 @@ canonical() {
   else
     printf '%s/%s\n' "$parent" "${1##*/}"
   fi
+}
+
+resolve_link() {
+  hops=0
+  link=$1
+  while [ -L "$link" ]; do
+    hops=$((hops + 1))
+    [ "$hops" -le 40 ] || return 1
+    next=$(readlink "$link") || return 1
+    case $next in
+    /*) link=$next ;;
+    *) link=${link%/*}/$next ;;
+    esac
+  done
+  canonical_leaf "$link"
+}
+
+canonical() {
+  if [ -L "$1" ]; then
+    resolve_link "$1" || return 2
+    return
+  fi
+  canonical_leaf "$1"
 }
 
 inside() {
