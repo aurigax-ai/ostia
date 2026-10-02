@@ -132,6 +132,21 @@ describe.runIf(linux)('sandbox filesystem limits in a real sandbox', () => {
     expect(existsSync(join(home, 'notes/new.txt'))).toBe(false)
   }, 60_000)
 
+  it('reads ~/.cargo when it is readable but never its credentials', async () => {
+    mkdirSync(join(home, '.cargo/bin'), { recursive: true })
+    writeFileSync(join(home, '.cargo/bin/tool'), 'CARGO-TOOL')
+    writeFileSync(join(home, '.cargo/credentials.toml'), 'CRATES-TOKEN')
+    const { sandboxes, run } = start('cargo', { allowRead: ['~/.cargo'] })
+    const out = await run(
+      `cat ${home}/.cargo/bin/tool; echo; cat ${home}/.cargo/credentials.toml; cat ${home}/.cargo/credentials; echo CARGO-DONE`,
+    )
+    sandboxes.stopAll()
+    expect(out).toContain('CARGO-TOOL')
+    expect(out).toContain('CARGO-DONE')
+    expect(out).not.toContain('CRATES-TOKEN')
+    expect(existsSync(join(home, '.cargo/credentials'))).toBe(false)
+  }, 60_000)
+
   it('keeps a read-only path unchangeable inside a writable folder', async () => {
     const { sandboxes, run } = start('readonly', {
       allowWrite: ['~/builds'],

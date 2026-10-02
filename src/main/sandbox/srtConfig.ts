@@ -41,6 +41,7 @@ export const AGENT_PROTECTED_FILES = [
 const GIT_CONFIG_FILE = '.git/config'
 export const WORKDIR_PROTECTED_FILES = ['.envrc', '.git/hooks', GIT_CONFIG_FILE]
 export const WORKDIR_HIDDEN_FILES = ['.pine/vault.json']
+export const HOME_HIDDEN_FILES = ['.cargo/credentials.toml', '.cargo/credentials']
 
 export const CONTAINER_SOCKETS = [
   '/run/docker.sock',
@@ -185,6 +186,7 @@ export function fixedPolicy(
     hidden: [
       home,
       ...paths.dataDirs,
+      ...HOME_HIDDEN_FILES.map((f) => join(home, f)),
       ...hiddenFiles,
       ...hiddenSockets,
       ...(paths.runtimeDir ? [paths.runtimeDir] : []),

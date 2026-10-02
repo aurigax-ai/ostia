@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { DEFAULT_ALLOW_READ, DEFAULT_CONTROLS } from '../../shared/sandbox'
 import {
+  HOME_HIDDEN_FILES,
   buildSrtConfig,
   canBlockSockets,
   fixedPolicy,
@@ -328,6 +329,8 @@ describe('fixedPolicy', () => {
       '/home/u',
       '/home/u/.local/share/pine',
       '/home/u/.config/pine',
+      '/home/u/.cargo/credentials.toml',
+      '/home/u/.cargo/credentials',
       '/home/u/app/.pine/vault.json',
       '/tmp/ssh-abc',
       '/run/docker.sock',
@@ -370,6 +373,20 @@ describe('fixedPolicy', () => {
     expect(filesystem.allowRead).toEqual(fixed.readable)
     expect(filesystem.allowWrite).toEqual(fixed.writable)
     expect(filesystem.denyWrite).toEqual(fixed.readOnly)
+  })
+
+  it('keeps ~/.cargo readable from the defaults but always hides its credentials', () => {
+    const { filesystem } = buildSrtConfig(
+      { allowRead: DEFAULT_ALLOW_READ, domains: [] },
+      guardedPaths,
+      'linux',
+      'x64',
+    )
+    expect(filesystem.allowRead).toContain('/home/u/.cargo')
+    expect(filesystem.denyRead).toEqual(
+      expect.arrayContaining(['/home/u/.cargo/credentials.toml', '/home/u/.cargo/credentials']),
+    )
+    expect(HOME_HIDDEN_FILES).toEqual(['.cargo/credentials.toml', '.cargo/credentials'])
   })
 
   it('leaves out the workspace paths when no workspace is named', () => {

@@ -41,6 +41,8 @@ const CREDENTIAL_PATHS = [
   '~/.gradle/gradle.properties',
 ]
 
+const CARGO_CREDENTIALS = ['~/.cargo/credentials.toml', '~/.cargo/credentials']
+
 function overlaps(a: string, b: string): boolean {
   return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`)
 }
@@ -85,7 +87,7 @@ describe('SANDBOX_READ_PRESETS', () => {
 })
 
 describe('DEFAULT_ALLOW_READ', () => {
-  it('opens the folders the links in ~/.local/bin point into, and no credential folder beyond ~/.cargo', () => {
+  it('opens the folders the links in ~/.local/bin point into, and no credential path beyond ~/.cargo, whose credentials Pine always hides', () => {
     expect(DEFAULT_ALLOW_READ).toEqual(
       expect.arrayContaining([
         '~/.local/bin',
@@ -99,6 +101,9 @@ describe('DEFAULT_ALLOW_READ', () => {
       CREDENTIAL_PATHS.some((secret) => overlaps(path, secret)),
     )
     expect(risky).toEqual(['~/.cargo'])
+    expect(CREDENTIAL_PATHS.filter((secret) => secret.startsWith('~/.cargo/'))).toEqual(
+      CARGO_CREDENTIALS,
+    )
   })
 })
 
