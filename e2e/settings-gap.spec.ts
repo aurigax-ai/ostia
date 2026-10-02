@@ -48,7 +48,7 @@ test('an unusable terminal.shell falls back to the login shell', async () => {
   const { app, win } = await launch({ terminal: { shell: '"/bin/sh -i' } })
   try {
     const login = (process.env.SHELL ?? 'bash').split('/').pop()
-    await run(win, 'echo "proc=$(ps -p $$ -o comm= | tr -d \' -\')"')
+    await run(win, 'echo "proc=$(basename $(ps -p $$ -o comm= | tr -d \' -\'))"')
     await expect(win.locator('.xterm-rows').first()).toContainText(`proc=${login}`, {
       timeout: 15_000,
     })
@@ -255,6 +255,7 @@ test('default chords split a pane, move focus by direction and zoom it', async (
 
     await win.keyboard.press(chords.focusLeft)
     await expect(active).toHaveAttribute('data-pane-id', first ?? '')
+    await expect(active.locator('.xterm-helper-textarea')).toBeFocused()
     await win.keyboard.type('echo typed-in-left')
     await expect(win.locator(`.pane[data-pane-id="${first}"] .xterm-rows`)).toContainText(
       'echo typed-in-left',
