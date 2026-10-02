@@ -17,7 +17,6 @@ import {
 } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
-import { agentHooksEnv } from '../shared/agentHooks'
 import type { AgentResume } from '../shared/agentResume'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
@@ -215,7 +214,7 @@ import {
   requirementLabel,
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
-import { PTY_COLOR_ENV, PTY_TERM_NAME } from './terminalType'
+import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
 import {
   deleteGlobalVaultValue,
@@ -1565,19 +1564,20 @@ function registerPtyIpc(): void {
     const cols = opts.cols || 80
     const rows = opts.rows || 24
     const stateFile = join(privateTmpDir('pine-shell-state'), randomUUID())
-    let env = {
-      ...process.env,
-      ...integration.env,
-      PINE_PANE_ID: identity.externalId,
-      PINE_TOKEN: identity.token,
-      PINE_START_DIR: opts.cwd ?? '',
-      PINE_SOCKET: controlSocketPath(),
-      PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
-      PINE_NODE: process.execPath,
-      PINE_SHELL_STATE: stateFile,
-      ...agentHooksEnv(settings.agents?.hooks),
-      ...PTY_COLOR_ENV,
-    } as Record<string, string>
+    let env = paneShellEnv({
+      parent: process.env,
+      integration: integration.env,
+      pane: {
+        PINE_PANE_ID: identity.externalId,
+        PINE_TOKEN: identity.token,
+        PINE_START_DIR: opts.cwd ?? '',
+        PINE_SOCKET: controlSocketPath(),
+        PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
+        PINE_NODE: process.execPath,
+        PINE_SHELL_STATE: stateFile,
+      },
+      agentHooks: settings.agents?.hooks,
+    })
     let secretNotice = ''
     let sandboxStamp: string | null = null
     let resizePipe: string | null = null
