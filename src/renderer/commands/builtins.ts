@@ -5,7 +5,7 @@ import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
 import { currentDict } from '../i18n/useDict'
-import { type DropZone, allPanes, findPane } from '../layout/tree'
+import { type DropZone, type FocusDirection, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
 import {
@@ -26,11 +26,13 @@ import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteMo
 import { isStaleAgentReport } from '../lib/paneAgent'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
+  focusPaneInDirection,
   goToWorkspace,
   isPaneViewed,
   jumpToLatestUnread,
   markWorkspaceRead,
   signalPane,
+  stepWorkspace,
 } from '../lib/workspaceActivity'
 import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
 import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/workspaceProjects'
@@ -139,6 +141,13 @@ async function delegate(ctx: CommandContext, id: string, args?: unknown): Promis
   return r.result
 }
 
+const PANE_FOCUS_COMMANDS: readonly (readonly [CoreCommandId, FocusDirection])[] = [
+  ['pane.focusLeft', 'left'],
+  ['pane.focusRight', 'right'],
+  ['pane.focusUp', 'up'],
+  ['pane.focusDown', 'down'],
+]
+
 const WORKSPACE_DIR = /^(\/|~(\/|$))/
 const PANE_LOCKED = 'pane-locked: the human locked this pane; only they can unlock it'
 
@@ -241,10 +250,21 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  for (const [id, direction] of PANE_FOCUS_COMMANDS) {
+    registerCore({
+      id,
+      category: 'pane',
+      run: (_args, ctx) => {
+        if (ctx.activeWorkspaceId && ctx.activePaneId) {
+          focusPaneInDirection(ctx.activeWorkspaceId, ctx.activePaneId, direction)
+        }
+      },
+    })
+  }
+
   registerCore<{ paneId?: string; zoom?: boolean } | undefined>({
     id: 'pane.zoom',
     category: 'pane',
-    hidden: true,
     run: (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
@@ -561,6 +581,20 @@ export function registerBuiltinCommands(): void {
     hidden: true,
     target: 'none',
     run: ({ index }) => ({ switched: goToWorkspace(index) }),
+  })
+
+  registerCore<undefined, { switched: boolean }>({
+    id: 'workspace.next',
+    category: 'workspace',
+    target: 'none',
+    run: () => ({ switched: stepWorkspace(1) }),
+  })
+
+  registerCore<undefined, { switched: boolean }>({
+    id: 'workspace.previous',
+    category: 'workspace',
+    target: 'none',
+    run: () => ({ switched: stepWorkspace(-1) }),
   })
 
   registerCore<{ dir?: unknown; name?: unknown } | undefined, { workspaceId: string | null }>({
