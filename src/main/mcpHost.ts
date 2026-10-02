@@ -1,5 +1,5 @@
 import { homedir } from 'node:os'
-import { type MCPClient, createMCPClient } from '@ai-sdk/mcp'
+import { type MCPClient, type OAuthClientProvider, createMCPClient } from '@ai-sdk/mcp'
 import { Experimental_StdioMCPTransport as StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
 import {
   CHAT_TOOL_DESCRIPTION_MAX,
@@ -8,23 +8,33 @@ import {
 } from '../shared/assist'
 import {
   MCP_TOOLS_PER_SERVER_MAX,
+  type McpAuthState,
   type McpCallResult,
   type McpServerSettings,
   type McpServerState,
   type McpServerStatus,
+  type McpTestResult,
   type McpToolInfo,
   mcpTransportOf,
 } from '../shared/chatTools'
+import { PRODUCT_NAME } from '../shared/product'
 
 export const MCP_CONNECT_TIMEOUT_MS = 15_000
 export const MCP_CALL_TIMEOUT_MS = 120_000
 const ERROR_MAX = 240
 const CALL_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
 
+export interface McpAuthSource {
+  provider: (server: McpServerSettings) => OAuthClientProvider | undefined
+  state: (server: McpServerSettings, unauthorized: boolean) => McpAuthState | undefined
+  prune: (servers: McpServerSettings[]) => void
+}
+
 export interface McpHostDeps {
   servers: () => McpServerSettings[]
   secret: (server: string, key: string) => string | null
   onStatus: (status: McpServerStatus[]) => void
+  auth?: McpAuthSource
   connectTimeoutMs?: number
   callTimeoutMs?: number
 }
@@ -37,6 +47,12 @@ interface Entry {
   error?: string
   tools: McpToolInfo[]
   generation: number
+  unauthorized: boolean
+}
+
+interface Connection {
+  client: MCPClient
+  tools: McpToolInfo[]
 }
 
 function errorText(err: unknown): string {
@@ -88,6 +104,18 @@ export function formatCallResult(raw: unknown): McpCallResult {
   return { ok: true, output: text }
 }
 
+export function serverSecrets(
+  settings: McpServerSettings,
+  secret: McpHostDeps['secret'],
+): Record<string, string> {
+  const secrets: Record<string, string> = {}
+  for (const key of settings.secrets) {
+    const value = secret(settings.name, key)
+    if (value !== null) secrets[key] = value
+  }
+  return secrets
+}
+
 function fingerprintOf(settings: McpServerSettings, secret: McpHostDeps['secret']): string {
   const secrets = settings.secrets.map((key) => [key, secret(settings.name, key) !== null])
   return JSON.stringify({
@@ -115,6 +143,8 @@ export class McpHost {
         secretsSet: s.secrets.filter((key) => this.deps.secret(s.name, key) !== null),
       }
       if (s.enabled && entry?.error) status.error = entry.error
+      const auth = this.deps.auth?.state(s, s.enabled && entry?.unauthorized === true)
+      if (auth) status.auth = auth
       return status
     })
   }
@@ -123,8 +153,14 @@ export class McpHost {
     this.deps.onStatus(this.status())
   }
 
+  notify(): void {
+    this.emit()
+  }
+
   refresh(): McpServerStatus[] {
-    const wanted = new Map(this.deps.servers().map((s) => [s.name, s]))
+    const servers = this.deps.servers()
+    this.deps.auth?.prune(servers)
+    const wanted = new Map(servers.map((s) => [s.name, s]))
     for (const [name, entry] of this.entries) {
       const next = wanted.get(name)
       if (!next?.enabled || fingerprintOf(next, this.deps.secret) !== entry.fingerprint) {
@@ -152,14 +188,21 @@ export class McpHost {
     void entry.client?.close().catch(() => undefined)
   }
 
-  private transportFor(settings: McpServerSettings) {
-    const secrets: Record<string, string> = {}
-    for (const key of settings.secrets) {
-      const value = this.deps.secret(settings.name, key)
-      if (value !== null) secrets[key] = value
-    }
+  private transportFor(settings: McpServerSettings, onUnauthorized: () => void) {
+    const secrets = serverSecrets(settings, this.deps.secret)
     if (settings.url) {
-      return { type: 'http' as const, url: settings.url, headers: secrets }
+      const url = new URL(settings.url).href
+      return {
+        type: 'http' as const,
+        url,
+        headers: secrets,
+        authProvider: this.deps.auth?.provider(settings),
+        fetch: async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+          const response = await fetch(input, init)
+          if (response.status === 401 && response.url === url) onUnauthorized()
+          return response
+        },
+      }
     }
     const [command, ...args] = settings.command ?? []
     return new StdioMCPTransport({
@@ -171,6 +214,49 @@ export class McpHost {
     })
   }
 
+  private async open(
+    settings: McpServerSettings,
+    hooks: {
+      onError: (err: unknown) => void
+      onUnauthorized: () => void
+      onClient: (client: MCPClient) => void
+      live: () => boolean
+    },
+  ): Promise<Connection | null> {
+    const timeout = this.deps.connectTimeoutMs ?? MCP_CONNECT_TIMEOUT_MS
+    const transport = this.transportFor(settings, hooks.onUnauthorized)
+    const client = await createMCPClient({
+      transport,
+      protocolVersionDiscovery: false,
+      clientName: PRODUCT_NAME,
+      initializationOptions: { timeout },
+      onUncaughtError: hooks.onError,
+    })
+    if (!hooks.live()) {
+      await client.close().catch(() => undefined)
+      return null
+    }
+    hooks.onClient(client)
+    if (transport instanceof StdioMCPTransport) {
+      const previous = transport.onclose
+      transport.onclose = () => {
+        previous?.()
+        hooks.onError(new Error('The server exited.'))
+      }
+    }
+    try {
+      const listed = await client.listTools({ options: { timeout } })
+      const tools = (Array.isArray(listed.tools) ? listed.tools : [])
+        .map(toolInfo)
+        .filter((t): t is McpToolInfo => t !== null)
+        .slice(0, MCP_TOOLS_PER_SERVER_MAX)
+      return { client, tools }
+    } catch (err) {
+      await client.close().catch(() => undefined)
+      throw err
+    }
+  }
+
   private connect(settings: McpServerSettings): void {
     const entry: Entry = {
       fingerprint: fingerprintOf(settings, this.deps.secret),
@@ -179,6 +265,7 @@ export class McpHost {
       state: 'connecting',
       tools: [],
       generation: 0,
+      unauthorized: false,
     }
     this.entries.set(settings.name, entry)
     const live = (): boolean => this.entries.get(settings.name) === entry && entry.generation >= 0
@@ -193,42 +280,51 @@ export class McpHost {
     }
     void (async () => {
       try {
-        const transport = this.transportFor(settings)
-        const client = await createMCPClient({
-          transport,
-          protocolVersionDiscovery: false,
-          clientName: 'pine',
-          initializationOptions: { timeout: this.deps.connectTimeoutMs ?? MCP_CONNECT_TIMEOUT_MS },
-          onUncaughtError: failWith,
+        const connection = await this.open(settings, {
+          onError: failWith,
+          onUnauthorized: () => {
+            entry.unauthorized = true
+          },
+          onClient: (client) => {
+            entry.client = client
+          },
+          live,
         })
-        if (!live()) {
-          await client.close().catch(() => undefined)
-          return
-        }
-        entry.client = client
-        if (transport instanceof StdioMCPTransport) {
-          const previous = transport.onclose
-          transport.onclose = () => {
-            previous?.()
-            failWith(new Error('The server exited.'))
-          }
-        }
-        const listed = await client.listTools({
-          options: { timeout: this.deps.connectTimeoutMs ?? MCP_CONNECT_TIMEOUT_MS },
-        })
-        if (!live()) return
-        entry.tools = (Array.isArray(listed.tools) ? listed.tools : [])
-          .map(toolInfo)
-          .filter((t): t is McpToolInfo => t !== null)
-          .slice(0, MCP_TOOLS_PER_SERVER_MAX)
+        if (!connection || !live() || entry.client !== connection.client) return
+        entry.tools = connection.tools
         entry.state = 'ready'
         entry.error = undefined
+        entry.unauthorized = false
         this.emit()
       } catch (err) {
         failWith(err)
       }
     })()
     this.emit()
+  }
+
+  async test(name: unknown): Promise<McpTestResult> {
+    const settings = this.deps.servers().find((s) => s.name === name)
+    if (!settings) return { ok: false, error: 'unknown-server' }
+    let failure: unknown
+    let listed = false
+    try {
+      const connection = await this.open(settings, {
+        onError: (err) => {
+          if (!listed) failure ??= err
+        },
+        onUnauthorized: () => {},
+        onClient: () => {},
+        live: () => true,
+      })
+      listed = true
+      if (!connection) return { ok: false, error: 'failed' }
+      await connection.client.close().catch(() => undefined)
+      if (failure !== undefined) return { ok: false, error: errorText(failure) }
+      return { ok: true, tools: connection.tools.length }
+    } catch (err) {
+      return { ok: false, error: errorText(failure ?? err) }
+    }
   }
 
   async call(
@@ -263,6 +359,7 @@ export class McpHost {
       return formatCallResult(result)
     } catch (err) {
       if (abort.signal.aborted) return { ok: false, error: 'cancelled' }
+      if (this.deps.auth?.state(settings, false) === 'expired') this.reconnect(server)
       return { ok: false, error: errorText(err) }
     } finally {
       this.calls.delete(callId)

@@ -304,6 +304,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       mcpCall: vi.fn().mockResolvedValue({ ok: false, error: 'not connected' }),
       mcpCancel: vi.fn(),
       setMcpSecret: vi.fn().mockResolvedValue({ ok: true }),
+      mcpSignIn: vi.fn().mockResolvedValue({ ok: true }),
+      mcpCancelSignIn: vi.fn(),
+      mcpSignOut: vi.fn().mockResolvedValue([]),
+      mcpTest: vi.fn().mockResolvedValue({ ok: true, tools: 0 }),
     },
     externalEditor: {
       open: vi.fn().mockResolvedValue({ ok: true, argv: [] }),

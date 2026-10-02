@@ -8,6 +8,8 @@ import {
   type ChatUndoRequest,
   type ChatWriteRequest,
   type McpSecretResult,
+  type McpServerStatus,
+  type McpSignInResult,
   isMcpSecretKey,
   mcpTransportOf,
 } from '../shared/chatTools'
@@ -22,13 +24,38 @@ import {
 } from './chatFsTools'
 import { listSkills, loadSkill } from './chatSkills'
 import type { ExtensionSecretStore } from './extensionHost'
-import type { McpHost } from './mcpHost'
+import { type McpHost, serverSecrets } from './mcpHost'
+import type { McpOAuth } from './mcpOAuth'
 
 export interface ChatToolsDeps {
   roots: () => string[]
   settings: () => ChatToolSettings
   mcp: McpHost
   secrets: ExtensionSecretStore
+  oauth: McpOAuth
+}
+
+export async function signInToMcp(
+  deps: Pick<ChatToolsDeps, 'settings' | 'mcp' | 'secrets' | 'oauth'>,
+  server: unknown,
+): Promise<McpSignInResult> {
+  const settings = deps.settings().mcpServers.find((s) => s.name === server)
+  const result = await deps.oauth.signIn(
+    settings,
+    settings ? serverSecrets(settings, (name, key) => deps.secrets.get(name, key)) : {},
+  )
+  if (result.ok && settings) deps.mcp.reconnect(settings.name)
+  return result
+}
+
+export function signOutOfMcp(
+  deps: Pick<ChatToolsDeps, 'settings' | 'mcp' | 'oauth'>,
+  server: unknown,
+): McpServerStatus[] {
+  const settings = deps.settings().mcpServers.find((s) => s.name === server)
+  if (!settings) return deps.mcp.status()
+  deps.oauth.signOut(settings.name)
+  return deps.mcp.reconnect(settings.name)
 }
 
 export function setMcpSecret(
@@ -74,4 +101,8 @@ export function registerChatToolsIpc(deps: ChatToolsDeps): void {
   ipcMain.handle('chatTools:set-mcp-secret', (_e, server: unknown, key: unknown, value: unknown) =>
     setMcpSecret(deps, server, key, value),
   )
+  ipcMain.handle('chatTools:mcp-sign-in', (_e, server: unknown) => signInToMcp(deps, server))
+  ipcMain.on('chatTools:mcp-cancel-sign-in', (_e, server: unknown) => deps.oauth.cancel(server))
+  ipcMain.handle('chatTools:mcp-sign-out', (_e, server: unknown) => signOutOfMcp(deps, server))
+  ipcMain.handle('chatTools:mcp-test', (_e, server: unknown) => deps.mcp.test(server))
 }
