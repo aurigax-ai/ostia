@@ -75,7 +75,7 @@ export interface PickSendRequest {
 }
 
 export type PickSendResult =
-  | { ok: true; path: string }
+  | { ok: true; path: string; imagePath: string | null }
   | { ok: false; error: 'capture-expired' | 'not-found' | 'write-failed' }
 
 export interface PickState {
@@ -180,16 +180,22 @@ export function normalizeCapture(raw: Partial<RawPick>, extras: CaptureExtras): 
   }
 }
 
+export const SCREENSHOT_MARGIN = 16
+
 export function screenshotRect(
   box: PickBox,
   viewport: { width: number; height: number },
   zoom: number,
 ): PickBox | null {
-  const left = Math.max(0, box.x)
-  const top = Math.max(0, box.y)
-  const right = Math.min(viewport.width, box.x + box.width)
-  const bottom = Math.min(viewport.height, box.y + box.height)
-  if (right - left < 1 || bottom - top < 1) return null
+  const visibleLeft = Math.max(0, box.x)
+  const visibleTop = Math.max(0, box.y)
+  const visibleRight = Math.min(viewport.width, box.x + box.width)
+  const visibleBottom = Math.min(viewport.height, box.y + box.height)
+  if (visibleRight - visibleLeft < 1 || visibleBottom - visibleTop < 1) return null
+  const left = Math.max(0, box.x - SCREENSHOT_MARGIN)
+  const top = Math.max(0, box.y - SCREENSHOT_MARGIN)
+  const right = Math.min(viewport.width, box.x + box.width + SCREENSHOT_MARGIN)
+  const bottom = Math.min(viewport.height, box.y + box.height + SCREENSHOT_MARGIN)
   const z = zoom > 0 ? zoom : 1
   return {
     x: Math.floor(left * z),
@@ -210,6 +216,13 @@ function inlineCode(text: string): string {
   return flat.includes('`') ? `\`\` ${flat} \`\`` : `\`${flat}\``
 }
 
+export function markdownImage(alt: string, path: string): string {
+  const target = /[\s()<>]/.test(path)
+    ? `<${path.replace(/[<>]/g, (c) => encodeURIComponent(c))}>`
+    : path
+  return `![${alt.replace(/[[\]\\]/g, '')}](${target})`
+}
+
 function time(ts: number): string {
   return new Date(ts).toISOString()
 }
@@ -225,8 +238,15 @@ export function renderPickReport(capture: PickCapture, note: string): string {
   lines.push(`- Role / name: ${capture.role || '-'} / ${capture.name || '-'}`)
   const b = capture.box
   lines.push(`- Box: x ${b.x}, y ${b.y}, ${b.width} × ${b.height} (CSS px, viewport)`)
-  lines.push(`- Screenshot: ${capture.screenshotPath ?? '(not captured: element off screen)'}`)
+  lines.push(
+    capture.screenshotPath
+      ? `- Screenshot: ${capture.screenshotPath} (the element and up to ${SCREENSHOT_MARGIN} CSS px around it)`
+      : '- Screenshot: (not captured: element off screen)',
+  )
   lines.push(`- Captured: ${capture.capturedAt}`, '')
+  if (capture.screenshotPath) {
+    lines.push('## Screenshot', '', markdownImage('Captured element', capture.screenshotPath), '')
+  }
   const styleEntries = Object.entries(capture.styles)
   if (styleEntries.length > 0) {
     lines.push('## Computed style', '')
@@ -256,6 +276,7 @@ export function renderPickReport(capture: PickCapture, note: string): string {
 export interface PickBusMessage {
   kind: 'capture'
   report: string
+  image: string | null
   url: string
   selector: string
   note: string
@@ -265,6 +286,7 @@ export function pickBusMessage(capture: PickCapture, note: string, report: strin
   const message: PickBusMessage = {
     kind: 'capture',
     report,
+    image: capture.screenshotPath,
     url: capture.url,
     selector: capture.selector,
     note: clip(note.trim(), PICK_NOTE_MAX),
@@ -274,6 +296,10 @@ export function pickBusMessage(capture: PickCapture, note: string, report: strin
 
 export function reportReference(path: string): string {
   return /\s/.test(path) ? `@"${path}" ` : `@${path} `
+}
+
+export function captureReferences(report: string, image: string | null): string {
+  return image ? `${reportReference(report)}${reportReference(image)}` : reportReference(report)
 }
 
 export const REPORT_SLUG_MAX = 48
@@ -294,15 +320,19 @@ export function urlSlug(url: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-export function pickReportName(n: number, url: string): string {
+export function captureStem(n: number, url: string): string {
   const slug = urlSlug(url)
-  return slug ? `capture-${n}-${slug}.md` : `capture-${n}.md`
+  return slug ? `capture-${n}-${slug}` : `capture-${n}`
+}
+
+export function pickReportName(n: number, url: string): string {
+  return `${captureStem(n, url)}.md`
 }
 
 export function nextPickReportNumber(names: readonly string[]): number {
   let highest = 0
   for (const name of names) {
-    const match = /^capture-(\d+)(?:-[a-z0-9-]*)?\.md$/.exec(name)
+    const match = /^capture-(\d+)(?:-[a-z0-9-]*)?\.(?:md|png)$/.exec(name)
     if (match) highest = Math.max(highest, Number(match[1]))
   }
   return highest + 1

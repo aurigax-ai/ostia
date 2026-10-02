@@ -1,9 +1,11 @@
 import type { PickCapture, PickOutcome, PickState } from '@shared/pick'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import type { RegionCapture } from '@shared/regionCapture'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runAgentIn } from '../../../test/mocks/agentPanes'
 import { resetIds } from '../layout/tree'
+import { startRegionCapture } from '../lib/regionCaptures'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePaneRecencyStore } from '../stores/paneRecencyStore'
@@ -179,6 +181,7 @@ describe('BrowserView send panel', () => {
     vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
       ok: true,
       path: '/tmp/pine-reports-1000/capture-1.md',
+      imagePath: null,
     })
     await userEvent.type(screen.getByLabelText(/what’s wrong/i), 'Save overlaps the footer')
     await userEvent.click(screen.getAllByRole('radio')[1])
@@ -208,6 +211,118 @@ describe('BrowserView send panel', () => {
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByRole('region', { name: /send to agent/i })).not.toBeInTheDocument()
     expect(window.pine.browser.pickSend).not.toHaveBeenCalled()
+  })
+})
+
+describe('BrowserView region capture', () => {
+  const region: RegionCapture = {
+    id: 'region-3',
+    url: 'http://localhost/',
+    title: 'App',
+    rect: { x: 10, y: 20, width: 120, height: 80 },
+    imageWidth: 120,
+    imageHeight: 80,
+    capturedAt: '2026-10-01T00:00:00.000Z',
+  }
+  const regionButton = () =>
+    screen.getByRole('button', { name: /^capture region$|stop capturing region/i })
+  const layer = () => screen.getByRole('application', { name: /region capture/i })
+
+  function drag(): void {
+    const el = layer()
+    vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 640,
+      height: 480,
+      x: 0,
+      y: 0,
+      right: 640,
+      bottom: 480,
+      toJSON: () => ({}),
+    })
+    fireEvent.pointerDown(el, { button: 0, clientX: 10, clientY: 20, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 130, clientY: 100, pointerId: 1 })
+  }
+
+  it('enters crop mode from the toolbar and leaves it on Escape without capturing', async () => {
+    const { workspaceId } = twoTerminals()
+    renderView(workspaceId)
+    expect(regionButton()).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(regionButton())
+    expect(regionButton()).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/drag over the page to capture a region/i)).toBeInTheDocument()
+    expect(layer()).toHaveFocus()
+    fireEvent.keyDown(layer(), { key: 'Escape' })
+    expect(screen.queryByRole('application', { name: /region capture/i })).toBeNull()
+    expect(regionButton()).toHaveAttribute('aria-pressed', 'false')
+    expect(window.pine.browser.regionCapture).not.toHaveBeenCalled()
+  })
+
+  it('starts from the palette command only for its own pane', async () => {
+    const { workspaceId } = twoTerminals()
+    renderView(workspaceId)
+    expect(startRegionCapture('another-pane')).toBe(false)
+    act(() => {
+      expect(startRegionCapture(BROWSER)).toBe(true)
+    })
+    expect(layer()).toBeInTheDocument()
+  })
+
+  it('asks main to capture the dragged rectangle and offers send and copy', async () => {
+    const panes = twoTerminals()
+    vi.mocked(window.pine.browser.regionCapture).mockResolvedValue({ ok: true, capture: region })
+    vi.mocked(window.pine.browser.regionSend).mockResolvedValue({
+      ok: true,
+      path: '/tmp/pine-reports-1000/capture-2-localhost.md',
+      imagePath: '/tmp/pine-reports-1000/capture-2-localhost.png',
+    })
+    renderView(panes.workspaceId)
+    await userEvent.click(regionButton())
+    drag()
+
+    expect(window.pine.browser.regionCapture).toHaveBeenCalledWith(BROWSER, {
+      rect: { x: 10, y: 20, width: 120, height: 80 },
+      view: { width: 640, height: 480 },
+    })
+    const panel = await screen.findByRole('region', { name: /send to agent/i })
+    expect(panel).toHaveTextContent('Region 120 × 80 px · App')
+    expect(screen.queryByRole('application', { name: /region capture/i })).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() =>
+      expect(window.pine.browser.regionSend).toHaveBeenCalledWith({
+        captureId: 'region-3',
+        sourcePaneId: BROWSER,
+        targetPaneId: expect.any(String),
+        note: '',
+      }),
+    )
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: /send to agent/i })).not.toBeInTheDocument(),
+    )
+  })
+
+  it('copies the image instead of sending when asked', async () => {
+    const { workspaceId } = twoTerminals()
+    vi.mocked(window.pine.browser.regionCapture).mockResolvedValue({ ok: true, capture: region })
+    renderView(workspaceId)
+    await userEvent.click(regionButton())
+    drag()
+    await screen.findByRole('region', { name: /send to agent/i })
+    await userEvent.click(screen.getByRole('button', { name: 'Copy image' }))
+    expect(window.pine.browser.regionCopy).toHaveBeenCalledWith(BROWSER, 'region-3')
+    expect(window.pine.browser.regionSend).not.toHaveBeenCalled()
+    expect(await screen.findByText('Copied the image to the clipboard.')).toBeVisible()
+  })
+
+  it('says why when main refuses the capture', async () => {
+    const { workspaceId } = twoTerminals()
+    vi.mocked(window.pine.browser.regionCapture).mockResolvedValue({ ok: false, error: 'empty' })
+    renderView(workspaceId)
+    await userEvent.click(regionButton())
+    drag()
+    expect(await screen.findByText(/could not capture the region \(empty\)/i)).toBeVisible()
   })
 })
 
