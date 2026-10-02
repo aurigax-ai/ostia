@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { findPane, resetIds } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
+import { resetPointerView } from '../lib/pointerView'
+import { signalPane } from '../lib/workspaceActivity'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -42,6 +44,7 @@ afterEach(() => {
   useAttentionStore.setState(attentionInit, true)
   useUIStore.setState(uiInit, true)
   resetIds()
+  resetPointerView()
   vi.restoreAllMocks()
 })
 
@@ -138,6 +141,52 @@ describe('pane attention ring', () => {
     act(() => useAttentionStore.getState().dispatch(a, { type: 'view', at: 2 }))
     expect(frame).not.toHaveClass('attn-ring')
     expect(screen.queryByText('build finished')).toBeNull()
+  })
+
+  it('clears the ring when the pointer moves over a pane that is not the active one', () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const { workspaceId, a } = twoPanes()
+    const { container } = render(
+      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
+    )
+    const frame = container.querySelector('.pane') as HTMLElement
+    signal(a, 'needs you', 1)
+    expect(frame).toHaveClass('attn-ring')
+
+    fireEvent.mouseEnter(frame)
+    expect(frame).not.toHaveClass('attn-ring')
+    expect(useAttentionStore.getState().byPane[a]?.state).toBe('waiting')
+  })
+
+  it('does not ring a pane under the pointer, and rings again once the pointer left', () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const { workspaceId, a } = twoPanes()
+    const { container } = render(
+      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
+    )
+    const frame = container.querySelector('.pane') as HTMLElement
+    const waiting = (message: string, at: number) =>
+      act(() => signalPane(a, { type: 'notify', message, waiting: true, at }))
+
+    fireEvent.mouseMove(frame)
+    waiting('first', 1)
+    expect(frame).not.toHaveClass('attn-ring')
+
+    fireEvent.mouseLeave(frame)
+    waiting('second', 2)
+    expect(frame).toHaveClass('attn-ring')
+  })
+
+  it('keeps the ring while the window is not focused, even with the pointer over the pane', () => {
+    const { workspaceId, a } = twoPanes()
+    const { container } = render(
+      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
+    )
+    const frame = container.querySelector('.pane') as HTMLElement
+    signal(a, 'needs you', 1)
+
+    fireEvent.mouseEnter(frame)
+    expect(frame).toHaveClass('attn-ring')
   })
 
   it('replays the ring pulse for a new signal but not for unrelated re-renders', () => {
