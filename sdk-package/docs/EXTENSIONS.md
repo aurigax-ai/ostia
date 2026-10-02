@@ -165,7 +165,7 @@ Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `
 
 Each extension owns its wording in every language. pine translates nothing for you and no other
 extension can: a language pack (`contributes.languages`) covers pine's own interface only.
-Catalogs, `ext.locale` and `locale.changed` are API 1.3: set `"api": "1.3"` when you use them.
+Catalogs, `ext.locale` and `locale.changed` are API 1.6: set `"api": "1.6"` when you use them.
 
 Write the manifest in English, list the languages you translate into, and ship one catalog per
 language:

@@ -2,7 +2,7 @@
   "id": "fake-json",
   "name": "Fake JSON",
   "version": "1.0.0",
-  "api": "1.5",
+  "api": "1.6",
   "description": "Test fixture: a fake language server that claims JSON files",
   "category": "languages",
   "capabilities": ["language-server"],
