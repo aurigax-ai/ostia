@@ -1,5 +1,6 @@
 import { quoteArgv } from '../../shared/shellQuote'
 import { ALIAS_PATTERN } from './hosts'
+import { REMOTE_COMMAND } from './remote'
 
 export const MAX_HOPS = 8
 
@@ -9,6 +10,7 @@ export interface ConnectPlan {
   port?: number
   argv: string[]
   command: string
+  shellIntegration: boolean
 }
 
 const USER_PATTERN = /^[A-Za-z0-9._][A-Za-z0-9._-]{0,63}$/
@@ -65,7 +67,24 @@ export function planConnect(argv: string[]): ConnectPlan | null {
   if (jump) ssh.push('-J', jump.join(','))
   if (port !== null) ssh.push('-p', String(port))
   ssh.push('--', destination)
-  const plan: ConnectPlan = { destination, jump: jump ?? [], argv: ssh, command: quoteArgv(ssh) }
+  const plan: ConnectPlan = {
+    destination,
+    jump: jump ?? [],
+    argv: ssh,
+    command: quoteArgv(ssh),
+    shellIntegration: false,
+  }
   if (port !== null) plan.port = port
   return plan
+}
+
+export function withShellIntegration(plan: ConnectPlan): ConnectPlan {
+  const separator = plan.argv.indexOf('--')
+  const ssh = [...plan.argv.slice(0, separator), '-t', ...plan.argv.slice(separator)]
+  return {
+    ...plan,
+    argv: [...ssh, REMOTE_COMMAND],
+    command: quoteArgv(ssh),
+    shellIntegration: true,
+  }
 }
