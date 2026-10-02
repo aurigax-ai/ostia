@@ -6,6 +6,7 @@ import {
   parseApprovalSettings,
 } from '@shared/approvals'
 import { type KeybindingMap, parseKeybindings } from '@shared/chordSpec'
+import { debounce } from 'es-toolkit'
 import { create } from 'zustand'
 import {
   type AssistModelSettings,
@@ -543,8 +544,6 @@ function applySetting(s: SettingsState, path: string, value: unknown): SettingCh
   return { path, previous, value: getByPath(parsed, path), next }
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
 async function writeSettings(s: SettingsState): Promise<void> {
   const snapshot: Persisted = {
     locale: s.locale,
@@ -575,12 +574,9 @@ async function writeSettings(s: SettingsState): Promise<void> {
   await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
 }
 
-function scheduleSave(get: () => SettingsState): void {
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => {
-    writeSettings(get()).catch((err: unknown) => console.error('[settings] save failed', err))
-  }, 300)
-}
+const scheduleSave = debounce((get: () => SettingsState): void => {
+  writeSettings(get()).catch((err: unknown) => console.error('[settings] save failed', err))
+}, 300)
 
 const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues> => {
   if (!isPlainObject(v)) return {}
@@ -750,16 +746,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((s) => ({
       assistant: { ...s.assistant, ...parseChatToolSettings({ ...s.assistant, ...patch }) },
     }))
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = null
+    scheduleSave.cancel()
     await writeSettings(get())
   },
   setAssistModels: async (patch) => {
     set((s) => ({
       assistant: { ...s.assistant, ...parseAssistModelSettings({ ...s.assistant, ...patch }) },
     }))
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = null
+    scheduleSave.cancel()
     await writeSettings(get())
   },
   setAutoResume: (autoResume) => {
@@ -797,8 +791,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     scheduleSave(get)
   },
   setSyncDir: async (dir) => {
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = null
+    scheduleSave.cancel()
     set({ sync: dir ? { dir } : undefined })
     await writeSettings(get())
   },

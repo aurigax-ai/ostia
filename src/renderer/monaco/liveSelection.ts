@@ -1,4 +1,5 @@
 import { CHAT_CONTEXT_TEXT_MAX } from '@shared/assist'
+import { debounce } from 'es-toolkit'
 import type * as monaco from 'monaco-editor'
 import { type RefObject, useEffect } from 'react'
 import { useLiveSelectionStore } from '../stores/liveSelectionStore'
@@ -14,7 +15,6 @@ export function useLiveEditorSelection(
   useEffect(() => {
     const editor = editorRef.current
     if (!editor) return
-    let timer: ReturnType<typeof setTimeout> | null = null
     const publish = (): void => {
       const selection = editor.getSelection()
       const model = editor.getModel()
@@ -39,12 +39,12 @@ export function useLiveEditorSelection(
         model.getValueInRange(selection).slice(0, CHAT_CONTEXT_TEXT_MAX),
       )
     }
+    const debouncedPublish = debounce(publish, LIVE_SELECTION_DELAY_MS)
     const subscription = editor.onDidChangeCursorSelection(() => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(publish, LIVE_SELECTION_DELAY_MS)
+      debouncedPublish()
     })
     return () => {
-      if (timer) clearTimeout(timer)
+      debouncedPublish.cancel()
       subscription.dispose()
       useLiveSelectionStore.getState().clear(paneId)
     }
