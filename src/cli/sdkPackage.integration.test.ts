@@ -334,6 +334,23 @@ describe('the marketplace project, built the way its own repository builds it', 
     )
   })
 
+  it('ships every file of the agent skills an extension declares, as the source has them', () => {
+    const built = join(marketplace, 'extensions')
+    const shipped = readdirSync(built).flatMap((id) => {
+      const manifest = JSON.parse(readFileSync(join(built, id, 'pine.json'), 'utf8'))
+      return (manifest.contributes?.agentSkills ?? []).flatMap(
+        (skill: { path: string; files?: string[] }) =>
+          ['SKILL.md', ...(skill.files ?? [])].map((file) => join(id, skill.path, file)),
+      )
+    })
+    expect(shipped).toEqual(['trellis/skills/card/SKILL.md'])
+    for (const file of shipped) {
+      expect(readFileSync(join(built, file), 'utf8'), file).toBe(
+        readFileSync(join(repoRoot, 'src/extensions', file), 'utf8'),
+      )
+    }
+  })
+
   it('ships the server every language extension runs from its own folder, as its package has it', () => {
     const built = join(marketplace, 'extensions')
     const servers = readdirSync(built).flatMap((id) => {
