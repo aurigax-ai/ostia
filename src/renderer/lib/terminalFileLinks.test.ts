@@ -93,4 +93,63 @@ describe('createFileLinkProvider', () => {
     )
     expect(links).toBeUndefined()
   })
+
+  it('asks again about a path only after five seconds, so a file made since then gets its link', async () => {
+    let now = 1_000
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const pass = async (ms: number): Promise<void> => {
+      now += ms
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    try {
+      const term = fakeTerminal([{ text: 'wrote out/report.txt' }])
+      const stat = vi.fn(async (): Promise<'file' | 'dir' | null> => null)
+      const provider = createFileLinkProvider(term, {
+        cwd: () => '/home/u/proj',
+        remote: () => false,
+        stat,
+        open: vi.fn(),
+        modifierHeld: () => false,
+      })
+      const links = () =>
+        new Promise<ILink[] | undefined>((resolve) => provider.provideLinks(1, resolve))
+
+      expect(await links()).toBeUndefined()
+      stat.mockResolvedValue('file')
+      await pass(4_900)
+      expect(await links()).toBeUndefined()
+      expect(stat).toHaveBeenCalledTimes(1)
+
+      await pass(200)
+      expect(await links()).toHaveLength(1)
+      expect(stat).toHaveBeenCalledTimes(2)
+    } finally {
+      clock.mockRestore()
+    }
+  })
+
+  it('forgets the paths asked about longest ago once it holds five hundred', async () => {
+    const rows = Array.from({ length: 501 }, (_, i) => ({ text: `file${i}.ts` }))
+    const stat = vi.fn(async (): Promise<'file' | 'dir' | null> => 'file')
+    const provider = createFileLinkProvider(fakeTerminal(rows), {
+      cwd: () => '/home/u/proj',
+      remote: () => false,
+      stat,
+      open: vi.fn(),
+      modifierHeld: () => false,
+    })
+    const visit = (row: number) =>
+      new Promise<void>((resolve) => provider.provideLinks(row, () => resolve()))
+
+    await visit(1)
+    await visit(1)
+    expect(stat).toHaveBeenCalledTimes(1)
+
+    for (let row = 2; row <= 501; row++) await visit(row)
+    stat.mockClear()
+    await visit(501)
+    expect(stat).not.toHaveBeenCalled()
+    await visit(1)
+    expect(stat).toHaveBeenCalledWith('/home/u/proj/file0.ts')
+  })
 })
