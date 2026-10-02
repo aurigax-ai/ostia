@@ -1,10 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import { join } from 'node:path'
+import type {
+  CommandHandler,
+  ExtensionCaller,
+  ExtensionResult,
+} from '@aurigax-ai/pine-extension-sdk'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ALL_CAPABILITIES } from '../../shared/capabilities'
-import type { ExtensionCaller, ExtensionResult } from '../../shared/extensions'
-import type { CommandHandler } from '../sdk'
 import { panelHandlers } from './panelApi'
 import { TrellisService } from './service'
 import { type FakeTrellis, fakeTrellis, translate } from './testFake'
@@ -26,7 +28,7 @@ describe('trellis panel handlers', () => {
 
   const caller = (workDir?: string): ExtensionCaller => ({
     kind: 'user',
-    capabilities: [...ALL_CAPABILITIES],
+    capabilities: [],
     workDir,
     locale: 'en',
   })

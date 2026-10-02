@@ -10,7 +10,7 @@ const out = 'out/sdk'
 const sdk = 'src/extensions/sdk'
 const assets = 'sdk-package'
 const packageName = '@aurigax-ai/pine-extension-sdk'
-const repository = 'https://github.com/aurigax-ai/pine-extension-sdk'
+const repository = 'https://github.com/aurigax-ai/pine'
 const app = JSON.parse(readFileSync('package.json', 'utf8'))
 const versionOf = (name) => app.dependencies[name] ?? app.devDependencies[name]
 const assistPeers = ['ai', 'zod', '@ai-sdk-tool/parser', 'undici']
@@ -73,7 +73,13 @@ writeJson('api.json', { version: apiVersion(), digest: contractDigest(out) })
 copyBundledSources([library, cli, schema], out)
 cpSync(join(sdk, 'panel.css'), join(out, 'panel.css'))
 cpSync(join(assets, 'README.md'), join(out, 'README.md'))
+cpSync('LICENSE', join(out, 'LICENSE'))
 cpSync(join(assets, 'template'), join(out, 'template'), { recursive: true })
+const template = JSON.parse(readFileSync(join(assets, 'template/package.json'), 'utf8'))
+writeJson('template/package.json', {
+  ...template,
+  devDependencies: { [packageName]: `^${app.version}`, ...template.devDependencies },
+})
 mkdirSync(join(out, 'docs'))
 cpSync('sdk-package/docs/EXTENSIONS.md', join(out, 'docs/EXTENSIONS.md'))
 
@@ -81,10 +87,14 @@ const types = (entry) => `./types/extensions/sdk/${entry}.d.ts`
 writeJson('package.json', {
   name: packageName,
   version: app.version,
-  description: 'SDK for writing Pine extensions',
+  description: 'Write extensions for Pine: the client library, its types, manifest schemas and a project generator',
+  keywords: ['pine', 'terminal', 'extension', 'sdk', 'coding-agents'],
   pineExtensionApi: apiVersion(),
   license: app.license,
-  repository: { type: 'git', url: `git+${repository}.git` },
+  homepage: `${repository}/tree/main/sdk-package#readme`,
+  bugs: `${repository}/issues`,
+  repository: { type: 'git', url: `git+${repository}.git`, directory: sdk },
+  publishConfig: { access: 'public' },
   type: 'module',
   engines: { node: '>=20' },
   bin: { 'pine-extension': './dist/cli.cjs' },

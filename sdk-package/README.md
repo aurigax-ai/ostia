@@ -1,42 +1,45 @@
 # Pine extension SDK
 
-Everything you need to write an extension for Pine: the client library, its types, JSON Schemas
-for the manifest files, a command that checks an extension the way Pine does, and a starter
-template.
+Write extensions for [Pine](https://github.com/aurigax-ai/pine): the client library and its types,
+JSON Schemas for the manifest files, a generator for a new extension project, and a command that
+checks an extension the way Pine does.
 
 An extension is a folder with a `pine.json` manifest and, usually, a `main.js` that Pine starts as
 its own process. The process talks to Pine over a local socket; this SDK wraps that protocol.
 The full contract is in [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 
-## Install
+## Start a new extension
 
 ```sh
-pnpm add -D github:aurigax-ai/pine-extension-sdk
-```
-
-The package is built: there is no install script to approve. It needs Node 20 or newer.
-
-## Start from the template
-
-Copy [`template/`](template) and run:
-
-```sh
+pnpm dlx @aurigax-ai/pine-extension-sdk create weather
+cd weather
 pnpm install
-pnpm build        # bundles src/main.ts into dist/hello/main.js, copies pine.json and locales/
-pnpm validate     # checks dist/hello the way Pine will
+pnpm validate     # builds dist/weather and checks it the way Pine will
 ```
 
-`dist/hello` is the extension. To try it, copy that folder to `~/.config/pine/extensions/hello`;
-Pine notices it within a moment and asks you to approve it. Then run `pine hello greet you` in a
-pane, or "Hello: Greet" from the palette.
+`create <id> [folder]` writes a small TypeScript project: a `pine.json` with your id, one command in
+`src/main.ts`, a build that bundles it into a single `main.js`, and this SDK as a dev dependency.
+The id is 2 to 40 lowercase letters, digits or dashes; it becomes the `pine <id> ...` command.
 
-The template translates itself: `locales/zh-Hant.json` holds its manifest strings and messages in
+`dist/weather` is the extension. To try it, copy that folder to
+`~/.config/pine/extensions/weather`; Pine notices it within a moment and asks you to approve it.
+Then run `pine weather greet you` in a pane, or "Weather: Greet" from the palette.
+
+The project translates itself: `locales/zh-Hant.json` holds its manifest strings and messages in
 Traditional Chinese, `locales/en.json` its English messages, and `src/main.ts` answers in the
 caller's language with `createTranslator()`. See "Translations" in
 [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 
 Pine never runs a build, a package manager or a script from an extension, so ship one bundled
-`main.js`, as the template's `build.mjs` does.
+`main.js`, as the generated `build.mjs` does.
+
+## Add it to an existing project
+
+```sh
+pnpm add -D @aurigax-ai/pine-extension-sdk
+```
+
+The package is built: there is no install script to approve. It needs Node 20 or newer.
 
 ## What is in the package
 
@@ -62,12 +65,13 @@ runs the same checks Pine runs when it loads the extension.
 ## Check an extension or a marketplace
 
 ```sh
-pnpm exec pine-extension validate dist/hello     # one extension folder
-pnpm exec pine-extension validate .              # a marketplace: a folder with pine-marketplace.json
+pnpm exec pine-extension validate dist/weather     # one extension folder
+pnpm exec pine-extension validate .                # a marketplace: a folder with pine-marketplace.json
+pnpm exec pine-extension unlist extensions/weather # hide it in Pine: installable only by the printed code
 ```
 
 It exits 0 when Pine would accept it and prints one line per problem otherwise. For an extension it
-also checks what a marketplace install requires: regular files only, at most 2000 files and
+also checks what a marketplace install requires: regular files only, at most 8000 files and
 50 MiB. Run it on the folder you publish, not on a project folder that holds `node_modules`.
 
 ## Publish
@@ -81,8 +85,9 @@ Extensions → Marketplaces. See "Marketplaces" in [docs/EXTENSIONS.md](docs/EXT
 `dist/` is what you import: the SDK bundled into a few plain, unminified JavaScript files.
 `src/` holds the TypeScript it was built from, at the same paths as in the Pine repository
 (`src/extensions/sdk` is the library, `src/shared` the contract types, `src/cli` and `src/main` the
-`validate` command and the manifest loader it runs). It is there to read; build and change it in
-[the Pine repository](https://github.com/aurigax-ai/pine), which this package is generated from.
+`pine-extension` command and the manifest loader it runs). It is there to read. The SDK is developed
+in [the Pine repository](https://github.com/aurigax-ai/pine) and published from it on every release,
+so the SDK and the app cannot drift apart. Report problems in that repository's issues.
 
 ## Versions
 
@@ -93,5 +98,8 @@ Two numbers matter:
   A minor adds things and keeps every existing extension working; Pine provides exactly one
   major. Pine refuses an extension whose `api` it doesn't provide, and `connect()` refuses to
   run against an app older than the SDK it was built with.
-- **The package version**: the version of Pine this SDK was built from. This repository holds build output;
-it is generated from Pine's own source, so the SDK and the app cannot drift apart.
+- **The package version**: the version of Pine this SDK was built from.
+
+## Licence
+
+MIT

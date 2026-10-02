@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { parseEndpoint } from '@aurigax-ai/pine-extension-sdk/assist'
 import { type UIMessageChunk, streamText } from 'ai'
 import { afterEach, describe, expect, it } from 'vitest'
-import { parseEndpoint } from '../sdk/assist/endpoint'
 import { MODEL_RUNTIME, MODEL_RUNTIME_CATALOG } from './provider'
 
 const servers: Server[] = []

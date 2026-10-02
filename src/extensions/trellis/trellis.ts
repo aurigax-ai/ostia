@@ -1,6 +1,6 @@
 import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_NAME } from '@aurigax-ai/pine-extension-sdk'
 
 export const HUMAN_ACTOR = `human:${PRODUCT_NAME}`
 

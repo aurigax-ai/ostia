@@ -1,7 +1,7 @@
-import type { ExtensionEventType } from '../../shared/extensions'
 import {
   type CommandHandler,
   type ExtensionCaller,
+  type ExtensionEventType,
   type ExtensionSettingValues,
   booleanSetting,
   connect,
@@ -10,7 +10,7 @@ import {
   ok,
   onShutdown,
   startMessageServer,
-} from '../sdk'
+} from '@aurigax-ai/pine-extension-sdk'
 import { APPROVALS_PATH, FAST_POLL_MS, IDLE_POLL_MS, formatQueue } from './keeper'
 import { KeeperService } from './service'
 

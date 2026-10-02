@@ -70,7 +70,7 @@ function WorkspaceLayer({
     <div
       ref={ref}
       className="workzone-workspace"
-      style={{ visibility: active ? 'visible' : 'hidden' }}
+      data-hidden={active ? undefined : ''}
       aria-hidden={!active}
     >
       <PaneTree workspaceId={workspaceId} />

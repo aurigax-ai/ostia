@@ -65,6 +65,7 @@ import {
   SERVER_ARG_MAX,
   SERVER_NAME_MAX,
 } from '../shared/languageServers'
+import { MARKETPLACE_CODE_PATTERN } from '../shared/marketplace'
 
 const VERSION_MAX = 40
 
@@ -252,6 +253,15 @@ export const marketplaceManifestSchema = z.looseObject({
   name: z.string().min(1).max(MARKETPLACE_NAME_MAX),
   description: z.string().max(MARKETPLACE_DESCRIPTION_MAX).optional(),
   extensions: z.array(z.string().min(1)).max(MARKETPLACE_MAX_EXTENSIONS),
+  unlisted: z
+    .array(
+      z.looseObject({
+        path: z.string().min(1),
+        code: z.string().regex(MARKETPLACE_CODE_PATTERN),
+      }),
+    )
+    .max(MARKETPLACE_MAX_EXTENSIONS)
+    .optional(),
 })
 
 export function jsonSchemas(): { extension: unknown; marketplace: unknown } {

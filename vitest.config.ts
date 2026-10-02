@@ -12,6 +12,8 @@ export default defineConfig({
         __dirname,
         'node_modules/vscode-jsonrpc/lib/browser/main.js',
       ),
+      '@aurigax-ai/pine-extension-sdk/assist': resolve(__dirname, 'src/extensions/sdk/assist'),
+      '@aurigax-ai/pine-extension-sdk': resolve(__dirname, 'src/extensions/sdk'),
     },
   },
   test: {

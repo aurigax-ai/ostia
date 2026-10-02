@@ -229,6 +229,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       remove: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
       refresh: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
       install: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
+      installCode: vi
+        .fn()
+        .mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
       uninstall: vi.fn().mockResolvedValue({
         ok: true,
         state: { marketplaces: [], installed: [] },

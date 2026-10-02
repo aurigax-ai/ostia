@@ -187,6 +187,7 @@ describe('extension wording follows the list main resolved for the language', ()
           name: 'Acme',
           description: '',
           problems: [],
+          unlisted: false,
           extensions: [
             {
               id: 'weather',

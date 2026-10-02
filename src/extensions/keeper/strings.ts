@@ -1,4 +1,4 @@
-import { localized } from '../../shared/extensionLocales'
+import { localized } from '@aurigax-ai/pine-extension-sdk'
 import type { KeeperApproval } from './keeper'
 
 export interface Strings {

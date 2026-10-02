@@ -1,3 +1,4 @@
+export type { AssistModel } from '../../../shared/assist'
 export {
   type Endpoint,
   type FetchFn,

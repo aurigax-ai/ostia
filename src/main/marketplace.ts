@@ -14,6 +14,7 @@ import {
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../shared/extensions'
 import {
+  MARKETPLACE_CODE_PATTERN,
   MARKETPLACE_FEATURE,
   MARKETPLACE_MANIFEST_FILE,
   MARKETPLACE_URL_MAX,
@@ -64,17 +65,50 @@ export function marketplaceId(url: string): string {
   return createHash('sha256').update(url).digest('hex').slice(0, 12)
 }
 
+export interface UnlistedEntry {
+  path: string
+  code: string
+}
+
 export interface MarketplaceManifest {
   name: string
   description: string
   extensions: string[]
+  unlisted: UnlistedEntry[]
+}
+
+function isRepositoryPath(path: unknown): path is string {
+  return typeof path === 'string' && !!path && !isAbsolute(path) && isInsideDir('/root', path)
+}
+
+function parseUnlisted(raw: unknown, listed: string[]): UnlistedEntry[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw)) return 'unlisted must be an array of { path, code } entries'
+  const entries: UnlistedEntry[] = []
+  for (const [i, entry] of raw.entries()) {
+    const { path, code } = (entry ?? {}) as Record<string, unknown>
+    if (!isRepositoryPath(path)) {
+      return `unlisted[${i}].path must be a folder path inside the repository`
+    }
+    if (typeof code !== 'string' || !MARKETPLACE_CODE_PATTERN.test(code)) {
+      return `unlisted[${i}].code must be 26 characters of a-z and 2-7`
+    }
+    if (listed.includes(path) || entries.some((e) => e.path === path)) {
+      return `unlisted[${i}].path is listed more than once`
+    }
+    if (entries.some((e) => e.code === code)) {
+      return `unlisted[${i}].code is used by another entry`
+    }
+    entries.push({ path, code })
+  }
+  return entries
 }
 
 export function parseMarketplaceManifest(raw: unknown): MarketplaceManifest | string {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return 'the marketplace file must be a JSON object'
   }
-  const { name, description, extensions } = raw as Record<string, unknown>
+  const { name, description, extensions, unlisted } = raw as Record<string, unknown>
   if (typeof name !== 'string' || !name.trim() || name.length > MARKETPLACE_NAME_MAX) {
     return `name must be 1-${MARKETPLACE_NAME_MAX} characters`
   }
@@ -85,14 +119,21 @@ export function parseMarketplaceManifest(raw: unknown): MarketplaceManifest | st
     return `extensions must be an array of at most ${MARKETPLACE_MAX_EXTENSIONS} folder paths`
   }
   for (const [i, path] of extensions.entries()) {
-    if (typeof path !== 'string' || !path || isAbsolute(path) || !isInsideDir('/root', path)) {
+    if (!isRepositoryPath(path)) {
       return `extensions[${i}] must be a folder path inside the repository`
     }
+  }
+  const listed = [...new Set(extensions as string[])]
+  const hidden = parseUnlisted(unlisted, listed)
+  if (typeof hidden === 'string') return hidden
+  if (listed.length + hidden.length > MARKETPLACE_MAX_EXTENSIONS) {
+    return `a marketplace holds at most ${MARKETPLACE_MAX_EXTENSIONS} extensions`
   }
   return {
     name: name.trim(),
     description: (description ?? '').slice(0, MARKETPLACE_DESCRIPTION_MAX),
-    extensions: [...new Set(extensions as string[])],
+    extensions: listed,
+    unlisted: hidden,
   }
 }
 
@@ -199,6 +240,12 @@ export interface MarketplaceDeps {
 interface CatalogEntry {
   dir: string
   manifest: ExtensionManifest
+  code?: string
+}
+
+interface BrokenUnlisted {
+  code: string
+  problem: string
 }
 
 interface Catalog {
@@ -206,6 +253,8 @@ interface Catalog {
   description: string
   problems: string[]
   entries: CatalogEntry[]
+  unlisted: boolean
+  brokenUnlisted: BrokenUnlisted[]
 }
 
 function clip(text: string): string {
@@ -238,22 +287,38 @@ function readCatalog(clone: string): Catalog | string {
   const root = realpathSync(clone)
   const problems: string[] = []
   const entries: CatalogEntry[] = []
-  for (const path of manifest.extensions) {
+  const brokenUnlisted: BrokenUnlisted[] = []
+  const offered: { path: string; code?: string }[] = [
+    ...manifest.extensions.map((path) => ({ path })),
+    ...manifest.unlisted,
+  ]
+  for (const { path, code } of offered) {
+    const refuse = (problem: string): void => {
+      if (code) brokenUnlisted.push({ code, problem })
+      else problems.push(`${path}: ${problem}`)
+    }
     const dir = join(clone, path)
     if (!isRealDirectory(dir) || relative(root, realpathSync(dir)).startsWith('..')) {
-      problems.push(`${path}: not a folder in the repository`)
+      refuse('not a folder in the repository')
       continue
     }
     const res = readManifest(dir)
     if (!res.ok) {
-      problems.push(`${path}: ${res.error}`)
+      refuse(res.error)
     } else if (entries.some((e) => e.manifest.id === res.manifest.id)) {
-      problems.push(`${path}: duplicate extension id '${res.manifest.id}'`)
+      refuse(`duplicate extension id '${res.manifest.id}'`)
     } else {
-      entries.push({ dir, manifest: res.manifest })
+      entries.push({ dir, manifest: res.manifest, ...(code ? { code } : {}) })
     }
   }
-  return { name: manifest.name, description: manifest.description, problems, entries }
+  return {
+    name: manifest.name,
+    description: manifest.description,
+    problems,
+    entries,
+    unlisted: manifest.unlisted.length > 0,
+    brokenUnlisted,
+  }
 }
 
 export interface LanguageListing {
@@ -284,7 +349,9 @@ export class Marketplace {
       const dir = this.cloneDir(source.id)
       const catalog = existsSync(dir) ? readCatalog(dir) : null
       if (catalog === null || typeof catalog === 'string') continue
-      for (const { manifest } of catalog.entries) {
+      for (const entry of catalog.entries) {
+        if (!this.isShown(source.id, entry)) continue
+        const { manifest } = entry
         const languages = (manifest.contributes.languageServers ?? []).flatMap((s) => s.languages)
         if (this.installState(source.id, manifest) === 'conflict') continue
         listed.push({
@@ -319,6 +386,12 @@ export class Marketplace {
     return this.installedVersion(manifest.id) === manifest.version ? 'installed' : 'update'
   }
 
+  private isShown(sourceId: string, entry: CatalogEntry): boolean {
+    if (!entry.code) return true
+    const { id } = entry.manifest
+    return this.records.installs[id] === sourceId && existsSync(this.installDir(id))
+  }
+
   private info(source: Source): MarketplaceInfo {
     const base = { id: source.id, url: source.url }
     const locale = this.deps.locale?.()
@@ -333,14 +406,17 @@ export class Marketplace {
         error: catalog,
         problems: [],
         extensions: [],
+        unlisted: false,
       }
     }
+    const offered = catalog.entries.filter((entry) => this.isShown(source.id, entry))
     return {
       ...base,
       name: catalog.name,
       description: catalog.description,
       problems: catalog.problems,
-      extensions: catalog.entries.map(({ dir, manifest }): MarketplaceExtension => {
+      unlisted: catalog.unlisted,
+      extensions: offered.map(({ dir, manifest }): MarketplaceExtension => {
         const state = this.installState(source.id, manifest)
         const installedVersion = state === 'update' ? this.installedVersion(manifest.id) : undefined
         const shown = manifestIn(manifest, loadLocaleCatalogs(dir, manifest), locale)
@@ -443,7 +519,9 @@ export class Marketplace {
       const dir = this.cloneDir(source.id)
       const catalog = existsSync(dir) ? readCatalog(dir) : null
       if (catalog === null || typeof catalog === 'string') return false
-      const entry = catalog.entries.find((e) => e.manifest.id === extId)
+      const entry = catalog.entries.find(
+        (e) => e.manifest.id === extId && this.isShown(source.id, e),
+      )
       return entry !== undefined && this.installState(source.id, entry.manifest) !== 'conflict'
     })
   }
@@ -470,7 +548,7 @@ export class Marketplace {
         source = this.sourceListing(extId, only)
         if (!source) return this.fail('unknown-extension')
       }
-      return this.installFrom(source.id, extId)
+      return this.installFrom(source.id, this.shownEntry(extId))
     })
   }
 
@@ -496,17 +574,16 @@ export class Marketplace {
     })
   }
 
-  install(id: unknown, extId: unknown): Promise<MarketplaceResult> {
-    return this.serialized(() => this.installFrom(id, extId))
-  }
-
-  private async installFrom(id: unknown, extId: unknown): Promise<MarketplaceResult> {
+  private async installFrom(
+    id: unknown,
+    pick: (source: Source, catalog: Catalog) => CatalogEntry | MarketplaceResult,
+  ): Promise<MarketplaceResult> {
     const source = this.records.sources.find((s) => s.id === id)
     if (!source) return this.fail('unknown-marketplace')
     const catalog = readCatalog(this.cloneDir(source.id))
     if (typeof catalog === 'string') return this.fail('invalid-marketplace', catalog)
-    const entry = catalog.entries.find((e) => e.manifest.id === extId)
-    if (!entry) return this.fail('unknown-extension')
+    const entry = pick(source, catalog)
+    if ('ok' in entry) return entry
     const state = this.installState(source.id, entry.manifest)
     if (state === 'conflict') return this.fail('conflict')
     const plan = planCopy(entry.dir)
@@ -535,6 +612,28 @@ export class Marketplace {
     this.save()
     this.deps.rescan()
     return this.ok()
+  }
+
+  private shownEntry(extId: unknown) {
+    return (source: Source, catalog: Catalog): CatalogEntry | MarketplaceResult =>
+      catalog.entries.find((e) => e.manifest.id === extId && this.isShown(source.id, e)) ??
+      this.fail('unknown-extension')
+  }
+
+  install(id: unknown, extId: unknown): Promise<MarketplaceResult> {
+    return this.serialized(() => this.installFrom(id, this.shownEntry(extId)))
+  }
+
+  installCode(id: unknown, input: unknown): Promise<MarketplaceResult> {
+    return this.serialized(() =>
+      this.installFrom(id, (_source, catalog) => {
+        const code = typeof input === 'string' ? input.trim() : ''
+        if (!MARKETPLACE_CODE_PATTERN.test(code)) return this.fail('unknown-code')
+        const broken = catalog.brokenUnlisted.find((b) => b.code === code)
+        if (broken) return this.fail('invalid-extension', broken.problem)
+        return catalog.entries.find((e) => e.code === code) ?? this.fail('unknown-code')
+      }),
+    )
   }
 
   uninstall(extId: unknown): Promise<MarketplaceResult> {
