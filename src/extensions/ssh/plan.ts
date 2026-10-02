@@ -1,4 +1,5 @@
 import { quoteArgv } from '../../shared/shellQuote'
+import type { HelperBundle } from './helper'
 import { ALIAS_PATTERN } from './hosts'
 import { REMOTE_COMMAND } from './remote'
 
@@ -41,6 +42,16 @@ function hopsOf(text: string | undefined): string[] | null {
   return hops.length <= MAX_HOPS && hops.every(isHop) ? hops : null
 }
 
+type Route = Pick<ConnectPlan, 'destination' | 'jump' | 'port'>
+
+function sshArgv(route: Route, options: string[]): string[] {
+  const ssh = ['ssh']
+  if (route.jump.length > 0) ssh.push('-J', route.jump.join(','))
+  if (route.port !== undefined) ssh.push('-p', String(route.port))
+  ssh.push(...options, '--', route.destination)
+  return ssh
+}
+
 export function planConnect(argv: string[]): ConnectPlan | null {
   const tokens = argv.flatMap((arg) => arg.split(/\s+/)).filter(Boolean)
   let jump: string[] | null = null
@@ -63,28 +74,32 @@ export function planConnect(argv: string[]): ConnectPlan | null {
     }
   }
   if (destination === null) return null
-  const ssh = ['ssh']
-  if (jump) ssh.push('-J', jump.join(','))
-  if (port !== null) ssh.push('-p', String(port))
-  ssh.push('--', destination)
-  const plan: ConnectPlan = {
-    destination,
-    jump: jump ?? [],
-    argv: ssh,
-    command: quoteArgv(ssh),
-    shellIntegration: false,
-  }
-  if (port !== null) plan.port = port
-  return plan
+  const route: Route = { destination, jump: jump ?? [] }
+  if (port !== null) route.port = port
+  const ssh = sshArgv(route, [])
+  return { ...route, argv: ssh, command: quoteArgv(ssh), shellIntegration: false }
 }
 
 export function withShellIntegration(plan: ConnectPlan): ConnectPlan {
-  const separator = plan.argv.indexOf('--')
-  const ssh = [...plan.argv.slice(0, separator), '-t', ...plan.argv.slice(separator)]
+  const ssh = sshArgv(plan, ['-t'])
   return {
     ...plan,
     argv: [...ssh, REMOTE_COMMAND],
     command: quoteArgv(ssh),
     shellIntegration: true,
   }
+}
+
+export type HelperCommandKind = keyof HelperBundle['commands']
+
+export function planHelper(
+  plan: ConnectPlan,
+  kind: HelperCommandKind,
+  helper: HelperBundle,
+): string[] {
+  return [...sshArgv(plan, ['-T']), helper.commands[kind]]
+}
+
+export function hostKey(plan: ConnectPlan): string {
+  return plan.port === undefined ? plan.destination : `${plan.destination}:${plan.port}`
 }
