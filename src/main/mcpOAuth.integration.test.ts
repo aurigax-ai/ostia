@@ -263,15 +263,16 @@ describe('MCP OAuth sign-in against the fake protected server', () => {
     const forged = new URL(redirect)
     forged.searchParams.set('code', 'stolen')
     forged.searchParams.set('state', 'not-the-state')
-    expect((await fetch(forged)).status).toBe(400)
-    expect((await fetch(new URL('/other', redirect))).status).toBe(404)
+    const once = { headers: { connection: 'close' } }
+    expect((await fetch(forged, once)).status).toBe(400)
+    expect((await fetch(new URL('/other', redirect), once)).status).toBe(404)
 
     const granted = await fetch(authorization, { redirect: 'manual' })
-    const callback = await fetch(granted.headers.get('location') ?? '')
+    const callback = await fetch(granted.headers.get('location') ?? '', once)
     expect(callback.status).toBe(200)
     expect(await callback.text()).toContain('Signed in')
     expect(await pending).toEqual({ ok: true })
-    await expect(fetch(redirect)).rejects.toThrow()
+    await expect(fetch(redirect, once)).rejects.toThrow()
   })
 
   it('reports the exact reason when the human is refused at the authorization server', async () => {

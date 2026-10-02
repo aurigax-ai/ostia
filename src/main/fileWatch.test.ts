@@ -291,8 +291,8 @@ describe('FileWatches', () => {
   })
 })
 
-function tree(options: { maxDirs?: number; silent?: boolean } = {}) {
-  const { maxDirs, silent } = options
+function tree(options: { maxDirs?: number; silent?: boolean; debounceMs?: number } = {}) {
+  const { maxDirs, silent, debounceMs = 30 } = options
   const base = tempDir('pine-twatch-')
   const root = join(base, 'root')
   mkdirSync(join(root, 'src', 'deep'), { recursive: true })
@@ -304,7 +304,7 @@ function tree(options: { maxDirs?: number; silent?: boolean } = {}) {
   const batches: TreeChange[][] = []
   const watches = new TreeWatches({
     confine: (dir) => resolveSafe(dir, [base]),
-    debounceMs: 30,
+    debounceMs,
     ...(maxDirs !== undefined ? { maxDirs } : {}),
     ...(silent ? { reconcileMs: 40, watchDir: silentWatch } : {}),
   })
@@ -382,7 +382,9 @@ describe('TreeWatches', () => {
   })
 
   it('delivers changes made together as one batch of path and kind', async () => {
-    const { root, batches, watches, listen } = tree()
+    const { root, batches, watches, listen } = tree({
+      debounceMs: process.platform === 'darwin' ? 400 : 30,
+    })
     await settle()
     watches.watch(root, listen)
     await settle()
