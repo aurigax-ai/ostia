@@ -9,6 +9,7 @@ import {
   CheckIcon,
   CopyIcon,
   DeviceMobileIcon,
+  EyeSlashIcon,
   FileCodeIcon,
   GlobeIcon,
   type Icon as IconComponent,
@@ -106,6 +107,7 @@ import { LanguagesSection } from './LanguagesSection'
 import { ManagerSection } from './ManagerSection'
 import { MarketplaceSection, UninstallExtensionButton } from './MarketplaceSection'
 import { PasswordsSection } from './PasswordsSection'
+import { PrivacySection } from './PrivacySection'
 import { PromptSection } from './PromptSection'
 import { SandboxSection } from './SandboxSection'
 import {
@@ -151,6 +153,7 @@ type SectionId =
   | 'files'
   | 'browser'
   | 'passwords'
+  | 'privacy'
   | 'editor'
   | 'extensions'
   | 'views'
@@ -257,6 +260,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
         { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
         { id: 'passwords', icon: KeyIcon, label: d.passwords.title },
+        { id: 'privacy', icon: EyeSlashIcon, label: d.privacy.title },
         { id: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
         { id: 'extensions', icon: PuzzlePieceIcon, label: d.settings.extensions },
         { id: 'views', icon: LayoutIcon, label: d.views.title },
@@ -399,6 +403,7 @@ export function SettingsPanel(): JSX.Element | null {
       {id === 'files' ? <FilesSection /> : null}
       {id === 'browser' ? <BrowserSettingsSection /> : null}
       {id === 'passwords' ? <PasswordsSection /> : null}
+      {id === 'privacy' ? <PrivacySection /> : null}
       {id === 'editor' ? <EditorSettingsSection /> : null}
       {id === 'extensions' || (id === 'extensionPage' && !shownPage) ? (
         <ExtensionsPage anchor={anchor} />

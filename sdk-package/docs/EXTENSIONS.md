@@ -935,6 +935,12 @@ The SDK wraps it: `onAssist(async (point, input, {requestId, signal, chunk, mode
 typed failure. Debounce and rate-limit on your side too; pine debounces keystrokes and cancels
 stale requests.
 
+Unless the human turned secret redaction off (Settings → Privacy), the text of every request has
+detected secrets replaced with `[redacted:<kind>]` before it reaches you (`[redacted:github]`,
+`[redacted:assignment]`, …). Pass the marks through as they are; never ask the human for the
+original, and do not treat a mark as an error. A typo correction made from a redacted draft is
+dropped by pine.
+
 ### Providers and models
 
 The human configures the assistant only in Settings → Assistant, and chooses there which model

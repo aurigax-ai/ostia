@@ -39,7 +39,7 @@ vi.mocked(electron.ipcMain.handle).mockImplementation((channel, fn) => {
   listHandlers.set(channel, fn as () => unknown)
 })
 
-const { registerNotifyIpc } = await import('./notify')
+const { registerNotifyIpc, notificationsRecorded } = await import('./notify')
 
 let windows: {
   isDestroyed: () => boolean
@@ -62,12 +62,15 @@ registerNotifyIpc({
   windowById: () => undefined,
   execCommand: vi.fn(),
   isScratchPane: (paneId: string) => paneId === 'scratch-pane',
+  redact: async (text: string) => text.replaceAll(SECRET, '[redacted:test]'),
 } as unknown as Parameters<typeof registerNotifyIpc>[0])
 
-function post(desktop: boolean, paneId = 'p1'): void {
+const SECRET = 'hunter2hunter2'
+
+function post(desktop: boolean, paneId = 'p1', body?: string): void {
   ipcHandlers.get('notifications:post')?.(
     { sender: { id: 1 } },
-    { paneId, title: 'Agent finished', desktop },
+    { paneId, title: 'Agent finished', desktop, body },
   )
 }
 
@@ -75,7 +78,8 @@ function settings(notifications: object): void {
   writeFileSync(join(userData, 'settings.json'), JSON.stringify({ notifications }))
 }
 
-afterEach(() => {
+afterEach(async () => {
+  await notificationsRecorded()
   shown.length = 0
   windows = []
   saved.length = 0
@@ -127,15 +131,38 @@ describe('desktop notifications', () => {
 })
 
 describe('scratch panes', () => {
-  it('lists a scratch pane notification live but never writes it to the log file', () => {
+  it('lists a scratch pane notification live but never writes it to the log file', async () => {
     settings({})
     post(true, 'scratch-pane')
+    await notificationsRecorded()
     expect(shown).toHaveLength(1)
     expect(saved).toEqual([])
     const list = listHandlers.get('notifications:list')?.() as { paneId?: string }[]
     expect(list.map((entry) => entry.paneId)).toEqual(['scratch-pane'])
     post(false, 'p1')
+    await notificationsRecorded()
     expect(saved).toHaveLength(1)
     expect((saved[0] as { paneId?: string }[]).map((entry) => entry.paneId)).toEqual(['p1'])
+  })
+})
+
+describe('the notification log', () => {
+  it('is written with secrets redacted while the banner shows what the agent sent', async () => {
+    settings({})
+    post(true, 'p1', `deploy key ${SECRET}`)
+    await notificationsRecorded()
+    expect(shown[0]).toMatchObject({ body: `deploy key ${SECRET}` })
+    expect(saved[0]).toEqual([
+      expect.objectContaining({ title: 'Agent finished', body: 'deploy key [redacted:test]' }),
+    ])
+  })
+
+  it('keeps the order in which notifications arrived', async () => {
+    settings({})
+    post(false, 'p1', 'first')
+    post(false, 'p1', 'second')
+    await notificationsRecorded()
+    expect(saved).toHaveLength(2)
+    expect((saved[1] as { body?: string }[])[0].body).toBe('second')
   })
 })

@@ -98,8 +98,12 @@ const PROGRAM_SETTINGS: readonly {
   { group: 'workspaces', field: 'globalHotkey' },
 ]
 
+const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy']
+
 export function launchesProgram(key: string, value: unknown): string | null {
   const path = key.split('.').filter(Boolean).join('.')
+  const root = path.split('.')[0]
+  if (HUMAN_ONLY_ROOTS.includes(root)) return root
   const state = useSettingsStore.getState()
   for (const { group, field } of PROGRAM_SETTINGS) {
     const setting = `${group}.${field}`

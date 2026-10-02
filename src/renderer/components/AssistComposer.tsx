@@ -13,6 +13,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import { type ComposerMode, latestRequest, wordDiff } from '../lib/assistComposer'
 import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatures'
 import { insertCommand } from '../lib/blockActions'
+import { redactedCount } from '../lib/chatRedaction'
 import { canInsertReference } from '../lib/sendPick'
 import { terminalFor } from '../lib/terminalHandles'
 import { isMac, platform } from '../platform'
@@ -27,6 +28,7 @@ import { Textarea } from './ui/textarea'
 
 export const TYPO_DEBOUNCE_MS = 700
 export const COMMAND_DEBOUNCE_MS = 500
+const REDACTION_PREVIEW_MS = 300
 
 type Status =
   | { kind: 'idle' }
@@ -151,6 +153,29 @@ function StatusLine({ status }: { status: Status }): JSX.Element | null {
     >
       {status.text}
     </p>
+  )
+}
+
+function RedactedNote({ text }: { text: string }): JSX.Element | null {
+  const d = useDict()
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    let stale = false
+    const timer = setTimeout(() => {
+      void redactedCount([text]).then((next) => {
+        if (!stale) setCount(next)
+      })
+    }, REDACTION_PREVIEW_MS)
+    return () => {
+      stale = true
+      clearTimeout(timer)
+    }
+  }, [text])
+  if (count === 0) return null
+  return (
+    <output className="assist-composer-status" data-testid="assist-redaction-count">
+      {count === 1 ? d.privacy.notSentOne : fmt(d.privacy.notSentMany, { count })}
+    </output>
   )
 }
 
@@ -316,6 +341,7 @@ function AgentComposer({ paneId, onClose }: { paneId: string; onClose: () => voi
       ) : null}
       <footer className="assist-composer-foot">
         <StatusLine status={reviewing ? { kind: 'busy' } : status} />
+        <RedactedNote text={text} />
         {reviewOn ? (
           <Button
             variant="ghost"
@@ -470,6 +496,7 @@ function ShellComposer({
       ) : null}
       <footer className="assist-composer-foot">
         <StatusLine status={status} />
+        <RedactedNote text={text} />
         {suggestions.length > 0 ? (
           <span className="ml-auto flex items-center gap-1 text-fg-muted">
             {d.assist.insert}

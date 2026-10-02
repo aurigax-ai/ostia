@@ -382,10 +382,10 @@ export function trimScrollback(data: string, capBytes = SCROLLBACK_CAP_BYTES): s
 
 const restored = new Map<string, string>()
 
-export function saveScrollback(
+export function scrollbackToSave(
   byPane: Record<string, string>,
   unsaved: (paneId: string) => boolean = () => false,
-): void {
+): Record<string, string> {
   const out: Record<string, string> = {}
   let kept = 0
   for (const [paneId, data] of Object.entries(byPane)) {
@@ -394,7 +394,14 @@ export function saveScrollback(
     out[paneId] = trimScrollback(data)
     kept++
   }
-  saveJson(scrollbackPath(), out)
+  return out
+}
+
+export function saveScrollback(
+  byPane: Record<string, string>,
+  unsaved: (paneId: string) => boolean = () => false,
+): void {
+  saveJson(scrollbackPath(), scrollbackToSave(byPane, unsaved))
 }
 
 export function loadRestoredScrollback(): void {
