@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
@@ -382,7 +382,9 @@ describe('CommandPalette', () => {
 
       const option = await screen.findByRole('option', { name: /greet/ })
       expect(option).toHaveTextContent('lib/greet.ts:12')
-      expect(searchWorkspaceSymbols).toHaveBeenLastCalledWith(new Set(['pane-3']), 'gre')
+      await waitFor(() =>
+        expect(searchWorkspaceSymbols).toHaveBeenLastCalledWith(new Set(['pane-3']), 'gre'),
+      )
       expect(screen.queryByRole('option', { name: /Open Settings/ })).toBeNull()
     })
 

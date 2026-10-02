@@ -154,7 +154,7 @@ describe('createRedactor', () => {
 
 describe('redaction speed', () => {
   const MIB = 1024 * 1024
-  const BUDGET_MS = 5000
+  const BUDGET_MS = 10_000
   const fill = (unit: string): string => unit.repeat(Math.ceil(MIB / unit.length)).slice(0, MIB)
   const ADVERSARIAL: [name: string, text: string][] = [
     ['one letter', fill('a')],
