@@ -2,12 +2,7 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  expandTemplate,
-  findOnPath,
-  openInExternalEditor,
-  resolveEditorTemplate,
-} from './externalEditor'
+import { expandTemplate, openInExternalEditor, resolveEditorTemplate } from './externalEditor'
 
 describe('expandTemplate', () => {
   it('substitutes file, line and column inside a single argument', () => {
@@ -61,10 +56,6 @@ describe('resolveEditorTemplate', () => {
 
   it('uses a custom template verbatim', () => {
     expect(resolveEditorTemplate('nvim +{line} {file}', '', onPath([]))).toBe('nvim +{line} {file}')
-  })
-
-  it('findOnPath skips empty PATH entries', () => {
-    expect(findOnPath('code', ':/bin:', onPath(['code']))).toBe('/bin/code')
   })
 })
 

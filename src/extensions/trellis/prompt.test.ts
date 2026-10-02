@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { PROMPT_BODY_MAX, reviewColumn, taskLabel, taskLine, taskPrompt } from './prompt'
+import {
+  PROMPT_BODY_MAX,
+  reviewColumn,
+  sessionContext,
+  taskLabel,
+  taskLine,
+  taskPrompt,
+} from './prompt'
 import { translate } from './testFake'
 import type { CardDetail } from './trellis'
 
@@ -34,18 +41,27 @@ describe('reviewColumn', () => {
 })
 
 describe('taskPrompt', () => {
-  it('names the card, keeps its body and lists the trellis steps in order', () => {
+  it('names the card, keeps its body and points at the skill, with the commands as a fallback', () => {
     const prompt = taskPrompt(card(), 'review', t)
     expect(prompt.split('\n\n')[0]).toBe('Work on Trellis card SHOP-7: Fix the cart')
     expect(prompt).toContain('Steps:\n\n1. Empty the cart\n2. Pay')
-    const steps = prompt.slice(prompt.indexOf('How to work on it:'))
-    expect(steps.split('\n')).toEqual([
-      'How to work on it:',
-      '1. Read the card and its related cards: `trellis card show SHOP-7`.',
-      '2. Claim it before you start: `trellis card claim SHOP-7`.',
-      '3. Comment your progress on the card as you go: `trellis card comment SHOP-7 --body "…"`.',
-      '4. When you are done, comment what you did and move it to review: `trellis card move SHOP-7 review`.',
-    ])
+    expect(prompt.split('\n\n').at(-1)).toBe(
+      'Follow the trellis-card skill to work on it. Without that skill: read the card with `trellis card show SHOP-7`, claim it with `trellis card claim SHOP-7`, comment your progress with `trellis card comment SHOP-7 --body "…"`, and when you are done move it to review with `trellis card move SHOP-7 review`.',
+    )
+  })
+
+  it('says the same in Traditional Chinese, with the skill id and commands unchanged', () => {
+    const prompt = taskPrompt(card(), 'review', translate('zh-Hant'))
+    for (const kept of [
+      'trellis-card',
+      '`trellis card show SHOP-7`',
+      '`trellis card claim SHOP-7`',
+      '`trellis card comment SHOP-7 --body "…"`',
+      '`trellis card move SHOP-7 review`',
+    ]) {
+      expect(prompt, kept).toContain(kept)
+    }
+    expect(prompt).not.toContain('Follow the')
   })
 
   it('drops control characters, leaves out an empty body and names no column it does not know', () => {
@@ -69,8 +85,29 @@ describe('taskLine', () => {
     expect(controls(line)).toEqual([])
     expect(line).not.toContain('Empty the cart')
     expect(line).toBe(
-      'Work on Trellis card SHOP-7 (Fix the cart): read it with `trellis card show SHOP-7`, claim it with `trellis card claim SHOP-7`, comment your progress with `trellis card comment SHOP-7 --body …`, and when you are done move it to review with `trellis card move SHOP-7 review`.',
+      'Work on Trellis card SHOP-7 (Fix the cart) with the trellis-card skill. Without that skill: read it with `trellis card show SHOP-7`, claim it with `trellis card claim SHOP-7`, comment your progress with `trellis card comment SHOP-7 --body …`, and when you are done move it to review with `trellis card move SHOP-7 review`.',
     )
+  })
+
+  it('names no column it does not know', () => {
+    expect(taskLine(card(), null, t)).toMatch(
+      /and when you are done move it to the column where it waits for review\.$/,
+    )
+  })
+})
+
+describe('sessionContext', () => {
+  it('names the project and its board in one line, and the skill to use', () => {
+    expect(sessionContext({ project: 'SHOP', board: 'web', marker: '/p/.trellis' })).toBe(
+      'This folder belongs to Trellis project SHOP, board web. The trellis-card skill explains how to work on one of its cards.',
+    )
+    expect(sessionContext({ project: 'SHOP', marker: '/p/.trellis' })).toBe(
+      'This folder belongs to Trellis project SHOP. The trellis-card skill explains how to work on one of its cards.',
+    )
+  })
+
+  it('adds nothing for a folder without a project', () => {
+    expect(sessionContext(null)).toBe('')
   })
 })
 

@@ -16,6 +16,7 @@ import {
   startPanelServer,
 } from '@aurigax-ai/pine-extension-sdk'
 import { type AgentLauncher, initHere, panelHandlers } from './panelApi'
+import { sessionContext } from './prompt'
 import { TrellisService, type WorkspaceRef } from './service'
 import { AgentTasks } from './tasks'
 import { BOARD_PATH, HUMAN_ACTOR, VAULT_PATH, cardPath, cardRef, panelTarget } from './trellis'
@@ -121,6 +122,8 @@ async function main(): Promise<void> {
       const data = { project: project.project, board: project.board ?? null, ...counts }
       return ok(`${project.project}: ${service.chipTooltip(counts, t)}`, data)
     },
+    'session-context': async (_args, caller) =>
+      ok(sessionContext(service.projectFor(caller.cwd ?? caller.workDir))),
   }
 
   ext.onPanel((caller, path) => {

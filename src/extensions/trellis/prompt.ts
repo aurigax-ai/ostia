@@ -1,8 +1,9 @@
 import type { Translate } from '@aurigax-ai/pine-extension-sdk'
-import type { CardDetail } from './trellis'
+import type { CardDetail, TrellisProject } from './trellis'
 
 export const PROMPT_BODY_MAX = 6000
 export const OFFER_LABEL_MAX = 120
+export const TASK_SKILL = 'trellis-card'
 
 const REVIEW_COLUMN = /review/i
 
@@ -27,22 +28,15 @@ function promptBody(body: string, t: Translate): string {
 }
 
 function lastStep(ref: string, review: string | null, t: Translate): string {
-  return review ? t('task.stepReview', { ref, column: review }) : t('task.stepReviewAny')
+  return review ? t('task.lastReview', { ref, column: review }) : t('task.lastReviewAny')
 }
 
 export function taskPrompt(card: CardDetail, review: string | null, t: Translate): string {
   const ref = card.ref
-  const body = promptBody(card.body, t)
   return [
     t('task.heading', { ref, title: oneLine(card.title) }),
-    body,
-    [
-      t('task.steps'),
-      `1. ${t('task.stepShow', { ref })}`,
-      `2. ${t('task.stepClaim', { ref })}`,
-      `3. ${t('task.stepComment', { ref })}`,
-      `4. ${lastStep(ref, review, t)}`,
-    ].join('\n'),
+    promptBody(card.body, t),
+    t('task.how', { ref, skill: TASK_SKILL, last: lastStep(ref, review, t) }),
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -50,8 +44,20 @@ export function taskPrompt(card: CardDetail, review: string | null, t: Translate
 
 export function taskLine(card: CardDetail, review: string | null, t: Translate): string {
   const ref = card.ref
-  const last = review ? t('task.lineReview', { ref, column: review }) : t('task.lineReviewAny')
-  return oneLine(t('task.line', { ref, title: oneLine(card.title), last }))
+  return oneLine(
+    t('task.line', {
+      ref,
+      title: oneLine(card.title),
+      skill: TASK_SKILL,
+      last: lastStep(ref, review, t),
+    }),
+  )
+}
+
+export function sessionContext(project: TrellisProject | null): string {
+  if (!project) return ''
+  const board = project.board ? `, board ${project.board}` : ''
+  return `This folder belongs to Trellis project ${project.project}${board}. The ${TASK_SKILL} skill explains how to work on one of its cards.`
 }
 
 export function taskLabel(card: CardDetail): string {
