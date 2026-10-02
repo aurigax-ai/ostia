@@ -5,6 +5,7 @@ import {
   PROMPT_SEPARATORS,
   PROMPT_STYLES,
 } from '../../shared/promptSettings'
+import { SHELL_SETTING_MAX_LENGTH } from '../../shared/terminalShell'
 import { MATCH_PINE_THEME } from '../../shared/themeChoice'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
@@ -304,6 +305,16 @@ export const SETTINGS_JSON_SCHEMA = {
             'Ask before pasting two or more lines into a terminal from the clipboard. A single ' +
             'line is always pasted without its trailing newline or control characters. Only ' +
             'you can change this, in Settings; agents cannot. Default: true.',
+        },
+        shell: {
+          type: 'string',
+          maxLength: SHELL_SETTING_MAX_LENGTH,
+          description:
+            'Program new terminals run, with its arguments, e.g. "/usr/bin/fish" or "nu -l". ' +
+            'Empty uses your login shell ($SHELL). Run directly, never through a shell. Blocks, ' +
+            'the input editor and the folder chip need zsh or bash; other shells work without ' +
+            'them. Applies to new terminals. Only you can change this, in Settings; agents ' +
+            'cannot. Default: empty.',
         },
         minimumContrast: {
           type: 'number',

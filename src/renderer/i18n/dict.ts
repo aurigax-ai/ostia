@@ -2206,6 +2206,9 @@ export const en = {
     restoreWorkspace: 'Restore workspace on launch',
     restoreWorkspaceDesc:
       'Reopen your workspaces, panes and terminal scrollback the next time {product} starts. Shells are always respawned fresh.',
+    shell: 'Shell',
+    shellDesc:
+      'Program new terminals run, with its arguments, like /usr/bin/fish. Empty uses your login shell. Blocks and the input editor need zsh or bash.',
     externalEditor: 'External editor',
     externalEditorDesc:
       '“auto” uses code, cursor or zed from your PATH. Empty turns it off. Placeholders: {file}, {line}, {column}.',
@@ -4415,6 +4418,9 @@ export const zhHant: Dict = {
     restoreWorkspace: '啟動時還原工作區',
     restoreWorkspaceDesc:
       '下次啟動 {product} 時重新開啟工作區、面板與終端機捲動紀錄。Shell 一律重新啟動。',
+    shell: 'Shell',
+    shellDesc:
+      '新終端機執行的程式及其引數，例如 /usr/bin/fish。留空則使用登入 shell。指令區塊與輸入編輯器需要 zsh 或 bash。',
     externalEditor: '外部編輯器',
     externalEditorDesc:
       '「auto」會使用 PATH 中的 code、cursor 或 zed。留空則停用。預留位置：{file}、{line}、{column}。',

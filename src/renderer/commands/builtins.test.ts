@@ -285,6 +285,21 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().terminal.warnOnRiskyPaste).toBe(true)
   })
 
+  it('settings.set refuses the shell program, directly or via terminal', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.shell',
+      value: '/tmp/evil',
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal',
+      value: { ...useSettingsStore.getState().terminal, shell: '/tmp/evil' },
+    })
+    expect(direct.ok).toBe(false)
+    if (!direct.ok) expect(direct.error.message).toMatch(/terminal.shell/)
+    expect(nested.ok).toBe(false)
+    expect(useSettingsStore.getState().terminal.shell).toBe('')
+  })
+
   it('settings.set and settings.unset refuse the automatic update check, directly or via behavior', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'behavior.checkForUpdates',
