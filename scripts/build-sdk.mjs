@@ -97,7 +97,7 @@ writeJson('package.json', {
   publishConfig: { access: 'public' },
   type: 'module',
   engines: { node: '>=20' },
-  bin: { 'pine-extension': './dist/cli.cjs' },
+  bin: { 'pine-extension': 'dist/cli.cjs' },
   types: types('index'),
   exports: {
     '.': { types: types('index'), default: './dist/index.js' },

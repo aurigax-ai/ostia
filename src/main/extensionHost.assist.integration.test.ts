@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { CancellationTokenSource } from 'vscode-jsonrpc/node'
 import { FAKE } from '../../test/fixtures/secrets/samples'
+import { testScan } from '../../test/redactionScan'
 import type { AssistAvailability, AssistOpenUiRequest } from '../shared/assist'
 import type { ExtensionCaller } from '../shared/extensions'
 import { registerControlServer, stopControlServer } from './controlServer'
@@ -64,7 +65,7 @@ describe('assist contribution points over a real control socket', () => {
       readyTimeoutMs: 8000,
       requestTimeoutMs: 4000,
       log: () => {},
-      redact: createRedactor(() => privacy).redact,
+      redact: createRedactor(() => privacy, testScan).redact,
     })
     registerExtensionMethods(() => host)
     registerControlServer(
