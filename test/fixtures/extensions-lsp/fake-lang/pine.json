@@ -2,7 +2,7 @@
   "id": "fake-lang",
   "name": "Fake language",
   "version": "1.0.0",
-  "api": "1.5",
+  "api": "1.6",
   "description": "Test fixture: a fake language server for plain text files",
   "category": "languages",
   "capabilities": ["language-server"],
