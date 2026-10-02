@@ -17,6 +17,15 @@ import {
   MARKETPLACE_MAX_EXTENSIONS,
   MARKETPLACE_NAME_MAX,
 } from '../main/marketplace'
+import {
+  AGENT_HOOK_EVENTS,
+  AGENT_SKILL_ENTRY,
+  AGENT_SKILL_FILE_PATTERN,
+  AGENT_SKILL_NAME_PATTERN,
+  MAX_AGENT_HOOKS,
+  MAX_AGENT_SKILLS,
+  MAX_AGENT_SKILL_FILES,
+} from '../shared/agentPlugins'
 import { ASSIST_POINTS } from '../shared/assist'
 import { ALL_CAPABILITIES } from '../shared/capabilities'
 import {
@@ -240,6 +249,33 @@ const contributes = z.looseObject({
     .optional(),
   languageServers: z.array(languageServer).max(MAX_LANGUAGE_SERVERS).optional(),
   editorLanguages: z.array(editorLanguage).max(MAX_EDITOR_LANGUAGES).optional(),
+  agentSkills: z
+    .array(
+      z.looseObject({
+        name: z.string().regex(AGENT_SKILL_NAME_PATTERN),
+        path: z.string().min(1),
+        files: z
+          .array(
+            z
+              .string()
+              .regex(AGENT_SKILL_FILE_PATTERN)
+              .refine((file) => file !== AGENT_SKILL_ENTRY),
+          )
+          .max(MAX_AGENT_SKILL_FILES)
+          .optional(),
+      }),
+    )
+    .max(MAX_AGENT_SKILLS)
+    .optional(),
+  agentHooks: z
+    .array(
+      z.looseObject({
+        event: z.enum(AGENT_HOOK_EVENTS),
+        command: z.string().regex(COMMAND_ID_PATTERN),
+      }),
+    )
+    .max(MAX_AGENT_HOOKS)
+    .optional(),
 })
 
 export const extensionManifestSchema = z.looseObject({

@@ -378,3 +378,59 @@ describe('ExtensionHost — language servers', () => {
     expect(host.languageServers()[2].state).toBe('pending')
   })
 })
+
+describe('ExtensionHost agent plugins', () => {
+  const kit = {
+    capabilities: ['agent-plugin', 'notify'],
+    main: 'main.js',
+    contributes: {
+      commands: [{ id: 'on-hook', title: 'Kit hook', palette: false, stdin: true }],
+      agentSkills: [{ name: 'review', path: 'skills/review' }],
+      agentHooks: [
+        { event: 'SessionStart', command: 'on-hook' },
+        { event: 'Notification', command: 'on-hook' },
+      ],
+    },
+  }
+
+  beforeEach(() => {
+    writeExt(join(base, 'user'), 'kit', kit)
+  })
+
+  it('lists the skills and hooks an extension adds, for the approval dialog and Settings', () => {
+    const { host } = makeHost()
+    const info = host.list().find((e) => e.id === 'kit')
+    expect(info?.status).toBe('pending-approval')
+    expect(info?.agentSkills).toEqual(['kit-review'])
+    expect(info?.agentHooks).toEqual([
+      { event: 'SessionStart', command: 'on-hook', agents: ['claude', 'codex'] },
+      { event: 'Notification', command: 'on-hook', agents: ['claude'] },
+    ])
+  })
+
+  it('contributes nothing until the human approves the agent-plugin capability and enables it', () => {
+    const { host, deps } = makeHost()
+    expect(host.agentPlugins()).toEqual([])
+    deps.store.set('kit', { enabled: true, approved: ['notify'] })
+    expect(host.agentPlugins()).toEqual([])
+    host.approve('kit')
+    expect(host.agentPlugins()).toEqual([
+      {
+        extId: 'kit',
+        dir: join(base, 'user', 'kit'),
+        skills: [{ name: 'review', path: 'skills/review', files: [] }],
+        hooks: kit.contributes.agentHooks,
+      },
+    ])
+    host.setEnabled('kit', false)
+    expect(host.agentPlugins()).toEqual([])
+  })
+
+  it('tells main to rebuild the agent plugin when an extension is approved or switched', () => {
+    const onChanged = vi.fn()
+    const { host } = makeHost({ onChanged })
+    host.approve('kit')
+    host.setEnabled('kit', false)
+    expect(onChanged).toHaveBeenCalledTimes(2)
+  })
+})

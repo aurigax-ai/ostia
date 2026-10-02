@@ -713,6 +713,106 @@ describe('parseManifest — icon themes', () => {
   })
 })
 
+describe('parseManifest — agent skills and hooks', () => {
+  const hookCommand = { id: 'on-hook', title: 'Hook', palette: false, stdin: true }
+  const agentManifest = (contributes: Record<string, unknown>, capabilities = ['agent-plugin']) =>
+    manifest({ capabilities, contributes: { commands: [hookCommand], ...contributes } })
+
+  it('keeps declared skills and hooks that name the extension’s own stdin command', () => {
+    const res = parseManifest(
+      agentManifest({
+        agentSkills: [{ name: 'review', path: 'skills/review', files: ['checklist.md'] }],
+        agentHooks: [
+          { event: 'SessionStart', command: 'on-hook' },
+          { event: 'PreToolUse', command: 'on-hook' },
+        ],
+      }),
+      DIR,
+    )
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.agentSkills).toEqual([
+      { name: 'review', path: 'skills/review', files: ['checklist.md'] },
+    ])
+    expect(res.manifest.contributes.agentHooks).toEqual([
+      { event: 'SessionStart', command: 'on-hook' },
+      { event: 'PreToolUse', command: 'on-hook' },
+    ])
+  })
+
+  it('defaults a skill’s files to none beyond SKILL.md', () => {
+    const res = parseManifest(
+      agentManifest({ agentSkills: [{ name: 'r', path: 'skills/r' }] }),
+      DIR,
+    )
+    expect(res.ok && res.manifest.contributes.agentSkills).toEqual([
+      { name: 'r', path: 'skills/r', files: [] },
+    ])
+  })
+
+  it('needs the agent-plugin capability for skills or hooks', () => {
+    for (const contributes of [
+      { agentSkills: [{ name: 'r', path: 'skills/r' }] },
+      { agentHooks: [{ event: 'Stop', command: 'on-hook' }] },
+    ]) {
+      const res = parseManifest(agentManifest(contributes, ['notify']), DIR)
+      expect(res).toEqual({ ok: false, error: expect.stringContaining("'agent-plugin'") })
+    }
+  })
+
+  it.each([
+    [{ name: 'Review', path: 'skills/r' }, 'name must be'],
+    [{ name: 'r', path: '../outside' }, 'folder inside the extension'],
+    [{ name: 'r', path: '/abs/skills' }, 'folder inside the extension'],
+    [{ name: 'r', path: 'skills/r', files: ['../x.md'] }, 'files lists'],
+    [{ name: 'r', path: 'skills/r', files: ['sub/x.md'] }, 'files lists'],
+    [{ name: 'r', path: 'skills/r', files: ['run.sh'] }, 'files lists'],
+    [{ name: 'r', path: 'skills/r', files: ['SKILL.md'] }, 'files lists'],
+    [{ name: 'r', path: 'skills/r', files: ['a.md', 'a.md'] }, 'duplicate file'],
+  ])('refuses the skill %j', (skill, error) => {
+    const res = parseManifest(agentManifest({ agentSkills: [skill] }), DIR)
+    expect(res).toEqual({ ok: false, error: expect.stringContaining(error) })
+  })
+
+  it('refuses two skills with one name', () => {
+    const skill = { name: 'r', path: 'skills/r' }
+    const res = parseManifest(agentManifest({ agentSkills: [skill, skill] }), DIR)
+    expect(res).toEqual({ ok: false, error: expect.stringContaining("duplicate name 'r'") })
+  })
+
+  it.each([
+    [{ event: 'Startup', command: 'on-hook' }, "unknown event 'Startup'"],
+    [{ event: 'Stop', command: 'other-ext-command' }, "this extension's commands"],
+    [{ event: 'Stop', command: 'echo "$HOME"' }, "this extension's commands"],
+  ])('refuses the hook %j', (hook, error) => {
+    const res = parseManifest(agentManifest({ agentHooks: [hook] }), DIR)
+    expect(res).toEqual({ ok: false, error: expect.stringContaining(error) })
+  })
+
+  it.each([
+    [{ id: 'on-hook', title: 'Hook' }],
+    [{ id: 'on-hook', title: 'Hook', stdin: true, interactive: true }],
+    [{ id: 'on-hook', title: 'Hook', stdin: true, capabilities: ['notify'] }],
+  ])(
+    'refuses a hook whose command %j does not read stdin, is interactive or needs caps',
+    (command) => {
+      const res = parseManifest(
+        manifest({
+          capabilities: ['agent-plugin', 'notify'],
+          contributes: { commands: [command], agentHooks: [{ event: 'Stop', command: 'on-hook' }] },
+        }),
+        DIR,
+      )
+      expect(res).toEqual({ ok: false, error: expect.stringContaining('must read stdin') })
+    },
+  )
+
+  it('refuses the same hook twice', () => {
+    const hook = { event: 'Stop', command: 'on-hook' }
+    const res = parseManifest(agentManifest({ agentHooks: [hook, hook] }), DIR)
+    expect(res).toEqual({ ok: false, error: expect.stringContaining('duplicate hook') })
+  })
+})
+
 describe('isInsideDir', () => {
   it('is true only for paths strictly below the directory', () => {
     expect(isInsideDir('/a/b', 'c.html')).toBe(true)
