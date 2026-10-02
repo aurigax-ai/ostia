@@ -40,6 +40,13 @@ const BASH_RC = join(INTEGRATION_DIR, 'bashrc')
 const AGENT_DIR = shellIntegrationSpawnOptions('/bin/bash', {}).env.PINE_AGENT_DIR ?? ''
 const CLAUDE_PLUGIN = join(AGENT_DIR, 'claude-plugin')
 
+describe('test isolation', () => {
+  it("writes the integration files under this run's private temp folder", () => {
+    expect(process.env.TMPDIR).toMatch(/pine-vitest-/)
+    expect(INTEGRATION_DIR.startsWith(`${process.env.TMPDIR}/`)).toBe(true)
+  })
+})
+
 describe('shellIntegrationSpawnOptions', () => {
   describe('zsh', () => {
     it('spawns with no extra args and points ZDOTDIR at the integration dir', () => {
