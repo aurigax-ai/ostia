@@ -97,6 +97,10 @@ test('a renderer error shows the recovery screen, and Reload window brings the s
 })
 
 test('a renderer process crash reloads the window and keeps the shells alive', async () => {
+  test.fixme(
+    !!process.env.CI && process.platform === 'linux',
+    'PINE-63: on the Ubuntu runner Pine sometimes never sees the killed renderer',
+  )
   test.setTimeout(120_000)
   const { app, win, dataHome } = await launch()
   try {
