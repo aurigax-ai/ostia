@@ -1,5 +1,5 @@
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import type { Capability } from '../shared/capabilities'
+import { type Capability, capabilityRefusalHint } from '../shared/capabilities'
 import { approvals } from './approvals'
 import { type AuthedConn, capAllowedHere, connHasCap } from './controlAuth'
 import type { PaneIdentity } from './idRegistry'
@@ -33,9 +33,13 @@ export async function ensureCaps(
     detail,
   })
   if (outcome === 'timeout') {
-    throw new ResponseError(ErrorCodes.InvalidRequest, `not-approved: ${missing.join(', ')}`)
+    throw new ResponseError(ErrorCodes.InvalidRequest, `not-approved: ${missing.join(', ')}`, {
+      hint: capabilityRefusalHint('not-approved', missing),
+    })
   }
   if (outcome === 'deny') {
-    throw new ResponseError(ErrorCodes.InvalidRequest, `denied: ${missing.join(', ')}`)
+    throw new ResponseError(ErrorCodes.InvalidRequest, `denied: ${missing.join(', ')}`, {
+      hint: capabilityRefusalHint('denied', missing),
+    })
   }
 }
