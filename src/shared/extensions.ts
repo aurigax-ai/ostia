@@ -45,6 +45,11 @@ export interface ExtensionPanelContribution {
   entry: string
 }
 
+export interface ExtensionSettingsPageContribution {
+  title: string
+  icon?: ExtensionIcon
+}
+
 export interface ExtensionChipContribution {
   id: string
   title: string
@@ -154,6 +159,7 @@ export interface ExtensionManifest {
     paneChips: ExtensionChipContribution[]
     workspaceChips: ExtensionChipContribution[]
     settings: ExtensionSettingContribution[]
+    settingsPage?: ExtensionSettingsPageContribution
     workflows?: Workflow[]
     completions?: string
     assist: AssistPoint[]
@@ -191,6 +197,7 @@ export interface ExtensionInfo {
   workspaceChips: ExtensionChipContribution[]
   settings: ExtensionSettingContribution[]
   settingValues: ExtensionSettingValues
+  settingsPage: ExtensionSettingsPageContribution | null
   assist: AssistPoint[]
   secrets: ExtensionSecretContribution[]
   secretsSet: string[]

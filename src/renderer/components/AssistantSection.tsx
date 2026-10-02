@@ -30,6 +30,7 @@ import { ChatToolsSettings } from './ChatToolsSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { IconButton } from './IconButton'
 import { ControlRow, SectionHead, SettingsGroup, ToggleRow } from './SettingsPanel'
+import { Highlight, useSearchGroup } from './SettingsSearch'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
@@ -295,11 +296,19 @@ function ModelRow({
 }): JSX.Element {
   const d = useDict()
   const t = d.assistantSettings
+  const search = useSearchGroup([model.id, model.name, model.description])
   return (
-    <Item variant="outline" size="sm" render={<li />} className="rounded-md border-line px-3 py-2">
+    <Item
+      variant="outline"
+      size="sm"
+      render={<li />}
+      hidden={search.hidden}
+      data-search-hit={search.hit || undefined}
+      className="rounded-md border-line px-3 py-2"
+    >
       <ItemContent className="min-w-0 gap-0.5">
         <ItemTitle className="font-mono font-normal text-fg text-ui-sm">
-          {model.id}
+          <Highlight text={model.id} />
           {inUse ? (
             <Badge variant="outline" className="font-normal font-sans text-fg-muted text-ui-xs">
               {t.inUse}

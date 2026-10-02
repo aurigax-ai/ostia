@@ -2356,6 +2356,15 @@ button.prompt-chip:focus-visible {
   }
 }
 
+.settings-search-mark {
+  background: var(--brand-glow);
+  color: inherit;
+  border-radius: 2px;
+  text-decoration: underline;
+  text-decoration-color: var(--brand);
+  text-underline-offset: 3px;
+}
+
 .settings-anchor-highlight {
   background: color-mix(in srgb, var(--brand) 14%, transparent);
   animation: settings-anchor-fade var(--motion-highlight) var(--ease-out) forwards;

@@ -17,8 +17,8 @@ import {
   planEditTool,
   previewTool,
   readTool,
+  restoreTool,
   searchTool,
-  undoTool,
   versionOf,
   writeTool,
 } from './chatFsTools'
@@ -124,7 +124,7 @@ describe('listTool and searchTool', () => {
 describe('previewTool and writeTool', () => {
   it('shows the current text and version, then writes and creates files', async () => {
     const path = join(project, 'a.txt')
-    const before = await previewTool({ path, root: project }, roots())
+    const before = await previewTool({ path, root: project, dirty: [] }, roots())
     expect(before).toMatchObject({
       ok: true,
       exists: true,
@@ -142,7 +142,7 @@ describe('previewTool and writeTool', () => {
     })
     expect(readFileSync(path, 'utf8')).toBe('new')
     const fresh = join(project, 'sub', 'b.txt')
-    expect(await previewTool({ path: fresh, root: project }, roots())).toMatchObject({
+    expect(await previewTool({ path: fresh, root: project, dirty: [] }, roots())).toMatchObject({
       ok: true,
       exists: false,
       text: '',
@@ -156,7 +156,7 @@ describe('previewTool and writeTool', () => {
 
   it('says a path outside the workspace folder is outside and writes it only when allowed', async () => {
     const path = join(other, 'notes.txt')
-    const preview = await previewTool({ path, root: project }, roots())
+    const preview = await previewTool({ path, root: project, dirty: [] }, roots())
     expect(preview).toMatchObject({ ok: true, outside: true })
     const base = preview.ok ? preview.version : null
     expect(await writeTool({ ...inFolder(path), content: 'x', base }, roots())).toMatchObject({
@@ -219,7 +219,7 @@ describe('previewTool and writeTool', () => {
     mkdirSync(join(project, 'real'))
     symlinkSync(join(project, 'real'), join(project, 'alias'))
     const aliased = join(project, 'alias', 'c.txt')
-    expect(await previewTool({ path: aliased, root: project }, roots())).toMatchObject({
+    expect(await previewTool({ path: aliased, root: project, dirty: [] }, roots())).toMatchObject({
       ok: true,
       outside: false,
       symlink: true,
@@ -244,7 +244,7 @@ describe('previewTool and writeTool', () => {
     symlinkSync(project, join(home, 'shortcut'))
     const viaLink = join(home, 'shortcut')
     expect(
-      await previewTool({ path: join(viaLink, 'a.txt'), root: viaLink }, roots()),
+      await previewTool({ path: join(viaLink, 'a.txt'), root: viaLink, dirty: [] }, roots()),
     ).toMatchObject({ ok: true, outside: false, symlink: false })
   })
 })
@@ -252,7 +252,7 @@ describe('previewTool and writeTool', () => {
 describe('planEditTool', () => {
   const path = (): string => join(project, 'a.txt')
   const plan = (edits: ChatEdit[], target = path(), outside = false) =>
-    planEditTool({ path: target, root: project, edits, outside }, roots())
+    planEditTool({ path: target, root: project, edits, outside, dirty: [] }, roots())
 
   it('replaces one unique string and leaves the file untouched', async () => {
     const res = await plan([{ oldText: 'two', newText: '2' }])
@@ -382,18 +382,53 @@ describe('planEditTool', () => {
       ok: false,
       error: 'binary',
     })
-    expect(await previewTool({ path: path(), root: project }, roots())).toMatchObject({
+    expect(await previewTool({ path: path(), root: project, dirty: [] }, roots())).toMatchObject({
       ok: false,
       error: 'binary',
     })
   })
 })
 
-describe('undoTool', () => {
+describe('unsaved editor files', () => {
+  it('finds unsaved edits to the same file opened through a symlinked folder', async () => {
+    symlinkSync(project, join(home, 'shortcut'))
+    const opened = join(home, 'shortcut', 'a.txt')
+    const res = await planEditTool(
+      {
+        path: join(project, 'a.txt'),
+        root: project,
+        edits: [{ oldText: 'two', newText: '2' }],
+        outside: false,
+        dirty: [opened],
+      },
+      roots(),
+    )
+    expect(res).toMatchObject({ ok: true, unsaved: true })
+    expect(
+      await previewTool({ path: opened, root: project, dirty: [join(project, 'a.txt')] }, roots()),
+    ).toMatchObject({ ok: true, unsaved: true })
+  })
+
+  it('does not count other files, paths outside the roots or junk as unsaved', async () => {
+    const res = await previewTool(
+      {
+        path: join(project, 'a.txt'),
+        root: project,
+        dirty: [join(project, 'b.txt'), join(outsideRoots, 'secret.txt'), 7 as never, ''],
+      },
+      roots(),
+    )
+    expect(res).toMatchObject({ ok: true, unsaved: false })
+  })
+})
+
+describe('restoreTool', () => {
+  const restore = (path: string, expected: string | null, content: string | null, extra = {}) =>
+    restoreTool({ ...inFolder(path), expected, content, dirty: [], ...extra }, roots())
+
   it('restores the previous content while the file is still what was written', async () => {
     const path = join(project, 'a.txt')
-    const wrote = versionOf('one\ntwo\nthree needle\nfour')
-    expect(await undoTool({ ...inFolder(path), wrote, restore: 'before' }, roots())).toMatchObject({
+    expect(await restore(path, versionOf('one\ntwo\nthree needle\nfour'), 'before')).toMatchObject({
       ok: true,
       removed: false,
       version: versionOf('before'),
@@ -401,40 +436,66 @@ describe('undoTool', () => {
     expect(readFileSync(path, 'utf8')).toBe('before')
   })
 
-  it('removes a file the chat created', async () => {
+  it('removes a file the chat created, and brings back one it removed', async () => {
     const path = join(project, 'made.txt')
     writeFileSync(path, 'made')
-    expect(
-      await undoTool({ ...inFolder(path), wrote: versionOf('made'), restore: null }, roots()),
-    ).toMatchObject({ ok: true, removed: true, version: null })
+    expect(await restore(path, versionOf('made'), null)).toMatchObject({
+      ok: true,
+      removed: true,
+      version: null,
+    })
     expect(existsSync(path)).toBe(false)
+    expect(await restore(path, null, 'made')).toMatchObject({
+      ok: true,
+      version: versionOf('made'),
+    })
+    expect(readFileSync(path, 'utf8')).toBe('made')
   })
 
-  it('leaves the file alone when it changed or vanished after the write', async () => {
+  it('leaves the file alone when it changed, appeared or vanished after the write', async () => {
     const path = join(project, 'a.txt')
-    expect(
-      await undoTool(
-        { ...inFolder(path), wrote: versionOf('what pine wrote'), restore: 'x' },
-        roots(),
-      ),
-    ).toMatchObject({ ok: false, error: 'changed' })
+    expect(await restore(path, versionOf('what pine wrote'), 'x')).toMatchObject({
+      ok: false,
+      error: 'changed',
+    })
+    expect(await restore(path, null, 'x')).toMatchObject({ ok: false, error: 'changed' })
     expect(readFileSync(path, 'utf8')).toBe('one\ntwo\nthree needle\nfour')
+    expect(await restore(join(project, 'gone.txt'), versionOf('x'), null)).toMatchObject({
+      ok: false,
+      error: 'changed',
+    })
+  })
+
+  it('only checks when asked to, and writes nothing then', async () => {
+    const path = join(project, 'a.txt')
+    const now = versionOf('one\ntwo\nthree needle\nfour')
+    expect(await restore(path, now, 'x', { check: true })).toMatchObject({
+      ok: true,
+      version: versionOf('x'),
+    })
+    expect(await restore(path, now, null, { check: true })).toMatchObject({
+      ok: true,
+      removed: true,
+    })
+    expect(readFileSync(path, 'utf8')).toBe('one\ntwo\nthree needle\nfour')
+  })
+
+  it('refuses a file with unsaved editor edits, also opened through a symlinked folder', async () => {
+    symlinkSync(project, join(home, 'shortcut'))
+    const path = join(project, 'a.txt')
+    const now = versionOf('one\ntwo\nthree needle\nfour')
     expect(
-      await undoTool(
-        { ...inFolder(join(project, 'gone.txt')), wrote: versionOf('x'), restore: null },
-        roots(),
-      ),
-    ).toMatchObject({ ok: false, error: 'changed' })
+      await restore(path, now, 'x', { dirty: [join(home, 'shortcut', 'a.txt')] }),
+    ).toMatchObject({ ok: false, error: 'unsaved' })
+    expect(readFileSync(path, 'utf8')).toBe('one\ntwo\nthree needle\nfour')
   })
 
   it('stays inside the workspace folder unless the human allowed outside', async () => {
     const path = join(other, 'notes.txt')
-    expect(
-      await undoTool(
-        { ...inFolder(path), wrote: versionOf('private notes'), restore: 'x' },
-        roots(),
-      ),
-    ).toMatchObject({ ok: false, error: 'outside-folder' })
+    expect(await restore(path, versionOf('private notes'), 'x')).toMatchObject({
+      ok: false,
+      error: 'outside-folder',
+    })
     expect(readFileSync(path, 'utf8')).toBe('private notes')
   })
 })
