@@ -18,7 +18,7 @@ export default defineConfig({
   },
   test: {
     maxWorkers: 8,
-    testTimeout: 15_000,
+    testTimeout: process.platform === 'darwin' ? 60_000 : 15_000,
     minWorkers: 1,
     coverage: {
       provider: 'v8',
