@@ -308,10 +308,6 @@ function withoutTabs(tabs: TabsNode, keep: (pane: PaneNode) => boolean): LayoutN
   return { ...tabs, children, activeId: survivor.id }
 }
 
-export function withoutKind(root: LayoutNode, kind: SurfaceKind): LayoutNode | null {
-  return withoutPanes(root, (pane) => pane.kind === kind)
-}
-
 export function isRemoteFilePane(pane: PaneNode): boolean {
   return pane.kind === 'editor' && isRemotePath(pane.filePath)
 }

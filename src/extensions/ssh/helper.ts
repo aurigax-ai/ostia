@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto'
+import { REMOTE_BOOTSTRAP } from './remote'
 
 export const HELPER_PROTOCOL = 1
 export const STATUS_PREFIX = 'PINE-HELPER '
 export const HELPER_DIR = '.pine/helper'
 export const HELPER_FILE = 'helper.sh'
-export const HELPER_TOOLS = ['cat', 'cksum', 'cp', 'dd', 'mkdir', 'mv', 'rm', 'wc']
+export const SESSION_FILE = 'session.sh'
+export const HELPER_TOOLS = ['cat', 'cksum', 'cp', 'dd', 'head', 'mkdir', 'mv', 'rm', 'tail', 'wc']
 
 const CRC_POLYNOMIAL = 0x04c11db7
 
@@ -32,9 +34,11 @@ export function versionToken(data: Uint8Array): string {
 
 export interface HelperBundle {
   source: Buffer
+  session: Buffer
+  bundle: Buffer
   version: string
   path: string
-  commands: { run: string; install: string; remove: string }
+  commands: { run: string; install: string; remove: string; session: string }
 }
 
 function word(script: string): string {
@@ -45,14 +49,32 @@ function say(status: string): string {
   return `{ echo "${STATUS_PREFIX}${status}"; exit 0; }`
 }
 
-export function helperBundle(source: Buffer): HelperBundle {
-  const version = createHash('sha256').update(source).digest('hex').slice(0, 12)
-  const checksum = `${posixCksum(source)} ${source.length}`
+function checksum(data: Buffer): string {
+  return `${posixCksum(data)} ${data.length}`
+}
+
+function lineCount(text: Buffer): number {
+  if (text.length === 0 || text[text.length - 1] !== 0x0a) {
+    throw new Error('the helper script must end with a newline')
+  }
+  let lines = 0
+  for (const byte of text) if (byte === 0x0a) lines++
+  return lines
+}
+
+export function helperBundle(source: Buffer, session: Buffer): HelperBundle {
+  const version = createHash('sha256')
+    .update(source)
+    .update('\0')
+    .update(session)
+    .digest('hex')
+    .slice(0, 12)
   const base = `$HOME/${HELPER_DIR}`
+  const lines = lineCount(source)
   const run = [
     `f="${base}/${version}/${HELPER_FILE}"`,
     `[ -f "$f" ] || ${say('missing')}`,
-    `[ "$(cksum <"$f")" = "${checksum}" ] || ${say('corrupt')}`,
+    `[ "$(cksum <"$f")" = "${checksum(source)}" ] || ${say('corrupt')}`,
     'exec sh "$f"',
   ].join('; ')
   const install = [
@@ -60,10 +82,15 @@ export function helperBundle(source: Buffer): HelperBundle {
     'umask 077',
     `b="${base}"`,
     `d="$b/${version}"`,
+    `h="$d/${HELPER_FILE}"`,
+    `s="$d/${SESSION_FILE}"`,
     `mkdir -p "$d" || ${say('failed mkdir')}`,
-    `cat >"$d/${HELPER_FILE}.new" || ${say('failed write')}`,
-    `[ "$(cksum <"$d/${HELPER_FILE}.new")" = "${checksum}" ] || { rm -f "$d/${HELPER_FILE}.new"; echo "${STATUS_PREFIX}failed checksum"; exit 0; }`,
-    `mv -f "$d/${HELPER_FILE}.new" "$d/${HELPER_FILE}" || ${say('failed rename')}`,
+    `cat >"$d/bundle.new" || ${say('failed write')}`,
+    `head -n ${lines} "$d/bundle.new" >"$h.new"`,
+    `tail -n +${lines + 1} "$d/bundle.new" >"$s.new"`,
+    'rm -f "$d/bundle.new"',
+    `[ "$(cksum <"$h.new")" = "${checksum(source)}" ] && [ "$(cksum <"$s.new")" = "${checksum(session)}" ] || { rm -f "$h.new" "$s.new"; echo "${STATUS_PREFIX}failed checksum"; exit 0; }`,
+    `mv -f "$s.new" "$s" && mv -f "$h.new" "$h" || ${say('failed rename')}`,
     'for o in "$b"/*; do [ "$o" = "$d" ] || rm -rf "$o"; done',
     `echo "${STATUS_PREFIX}installed"`,
   ].join('; ')
@@ -73,10 +100,26 @@ export function helperBundle(source: Buffer): HelperBundle {
     'rmdir "$HOME/.pine" 2>/dev/null',
     `echo "${STATUS_PREFIX}removed"`,
   ].join('; ')
+  const sessionCommand = [
+    `f="${base}/${version}/${SESSION_FILE}"`,
+    `if [ -f "$f" ] && [ "$(cksum <"$f")" = "${checksum(session)}" ]; then . "$f"; fi`,
+    'exec "$SHELL" -l',
+  ].join('; ')
   return {
     source,
+    session,
+    bundle: Buffer.concat([source, session]),
     version,
     path: `~/${HELPER_DIR}/${version}/${HELPER_FILE}`,
-    commands: { run: word(run), install: word(install), remove: word(remove) },
+    commands: {
+      run: word(run),
+      install: word(install),
+      remove: word(remove),
+      session: word(sessionCommand),
+    },
   }
+}
+
+export function shippedHelper(source: Buffer): HelperBundle {
+  return helperBundle(source, Buffer.from(REMOTE_BOOTSTRAP, 'utf8'))
 }

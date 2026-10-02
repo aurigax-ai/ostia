@@ -15,6 +15,7 @@ export interface Strings {
   proxyCommand: string
   confirmNote: string
   integrationNote: string
+  helperIntegrationNote: string
   approve: string
   deny: string
   denied: string
@@ -61,6 +62,7 @@ const en: Strings = {
   confirmNote:
     'It opens in a new terminal beside the caller, where you answer any password or host key prompt.',
   integrationNote: `With -t, ssh also runs ${PRODUCT_NAME}’s shell integration on the host for this session, so commands show as blocks: it writes a private temporary folder, sources it as the shell starts and deletes it at once. Nothing is installed and no file in your home folder there changes.`,
+  helperIntegrationNote: `With -t, ssh also loads ${PRODUCT_NAME}’s shell integration from the helper folder you installed on this host (~/.pine/helper), after checking the file is unchanged, so commands show as blocks. If that folder is gone, a plain shell starts.`,
   approve: 'Connect',
   deny: 'Deny',
   denied: 'the human denied the connection; nothing was opened',
@@ -76,9 +78,9 @@ const en: Strings = {
     `you chose not to install the helper on ${host}; run "${REMOVE_HELPER_TITLE}" for that host to be asked again`,
   installTitle: 'Install remote helper',
   installMessage: (host) => `Install ${PRODUCT_NAME}’s helper on ${host}?`,
-  installNote: `It is a readable shell script that lists, reads and writes files only inside folders you open on this host. It runs as you, over ssh, while a remote folder is open: never with sudo, and it writes nothing of its own outside ~/.pine. Remove it any time with "${REMOVE_HELPER_TITLE}".`,
+  installNote: `It is a readable shell script that lists, reads and writes files only inside folders you open on this host. It runs as you, over ssh, while a remote folder is open: never with sudo, and it writes nothing of its own outside ~/.pine. Sessions you open to this host then load their shell integration from that folder instead of a long command line. Remove it any time with "${REMOVE_HELPER_TITLE}".`,
   hostLabel: 'Host:',
-  fileLabel: 'File:',
+  fileLabel: 'Files:',
   install: 'Install',
   dontInstall: 'Don’t install',
   removeTitle: 'Remove remote helper',
@@ -112,6 +114,7 @@ const zhHant: Strings = {
   proxyCommand: '你的 ssh 設定中的代理指令',
   confirmNote: '它會在呼叫者旁的新終端機中開啟，你可以在那裡回應密碼或主機金鑰提示。',
   integrationNote: `ssh 會加上 -t，並在主機上為這次工作階段執行 ${PRODUCT_NAME} 的 shell 整合，讓指令顯示為區塊：它會寫入一個私人暫存資料夾，在 shell 啟動時載入後立即刪除。不會安裝任何東西，也不會改動主機上你家目錄中的任何檔案。`,
+  helperIntegrationNote: `ssh 會加上 -t，並從你安裝在這台主機的輔助程式資料夾（~/.pine/helper）載入 ${PRODUCT_NAME} 的 shell 整合，載入前會先確認檔案未被更動，讓指令顯示為區塊。若該資料夾已不存在，會啟動一般的 shell。`,
   approve: '連線',
   deny: '拒絕',
   denied: '使用者拒絕連線；沒有開啟任何終端機',
@@ -126,7 +129,7 @@ const zhHant: Strings = {
     `你選擇不在 ${host} 安裝輔助程式；對該主機執行「${REMOVE_HELPER_TITLE}」後會再次詢問`,
   installTitle: '安裝遠端輔助程式',
   installMessage: (host) => `要在 ${host} 安裝 ${PRODUCT_NAME} 的輔助程式嗎？`,
-  installNote: `它是一個可讀的 shell 指令稿，只會在你於這台主機開啟的資料夾內列出、讀取與寫入檔案。遠端資料夾開啟時，它以你的身分透過 ssh 執行：不使用 sudo，也不會在 ~/.pine 之外寫入自己的檔案。隨時可用「${REMOVE_HELPER_TITLE}」移除。`,
+  installNote: `它是一個可讀的 shell 指令稿，只會在你於這台主機開啟的資料夾內列出、讀取與寫入檔案。遠端資料夾開啟時，它以你的身分透過 ssh 執行：不使用 sudo，也不會在 ~/.pine 之外寫入自己的檔案。之後連到這台主機的工作階段會從該資料夾載入 shell 整合，不再輸入很長的指令。隨時可用「${REMOVE_HELPER_TITLE}」移除。`,
   hostLabel: '主機：',
   fileLabel: '檔案：',
   install: '安裝',

@@ -208,6 +208,9 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
     const shipped = readFileSync(join(repoRoot, 'out', 'extensions', 'ssh', 'assets', 'helper.sh'))
     const installed = readFileSync(join(remoteHome, '.pine', 'helper', versions[0], 'helper.sh'))
     expect(installed.equals(shipped)).toBe(true)
+    expect(readdirSync(join(remoteHome, '.pine', 'helper', versions[0])).sort()).toContain(
+      'session.sh',
+    )
     expect(
       shipped.equals(readFileSync(join(repoRoot, 'src/extensions/ssh/assets/helper.sh'))),
     ).toBe(true)
@@ -221,6 +224,7 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
         answer: 'allowed',
         version: versions[0],
         current: true,
+        installed: true,
         connected: true,
         folders: 0,
       },

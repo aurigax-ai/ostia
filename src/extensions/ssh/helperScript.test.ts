@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import {
   chmodSync,
   existsSync,
@@ -8,6 +9,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
@@ -17,10 +19,11 @@ import {
   toolPath,
 } from '../../../test/fixtures/ssh/remoteHost'
 import { HelperChannel, HelperFailure, runStatus } from './channel'
-import { HELPER_TOOLS, helperBundle, versionToken } from './helper'
+import { HELPER_TOOLS, helperBundle, shippedHelper, versionToken } from './helper'
 import { type ConnectPlan, planConnect, planHelper } from './plan'
+import { REMOTE_BOOTSTRAP } from './remote'
 
-const helper = helperBundle(helperSource())
+const helper = shippedHelper(helperSource())
 function planned(argv: string[]): ConnectPlan {
   const plan = planConnect(argv)
   if (!plan) throw new Error('plan')
@@ -44,7 +47,7 @@ afterEach(() => {
 })
 
 function install(remote: RemoteHost, bundle = helper): Promise<string[]> {
-  return runStatus(planHelper(plan, 'install', bundle), bundle.source, { spawn: remote.spawn })
+  return runStatus(planHelper(plan, 'install', bundle), bundle.bundle, { spawn: remote.spawn })
 }
 
 async function open(remote: RemoteHost): Promise<HelperChannel> {
@@ -81,9 +84,11 @@ describe('helper install', () => {
     expect(await install(remote)).toEqual(['installed'])
     const dir = join(remote.home, '.pine', 'helper', helper.version)
     expect(readFileSync(join(dir, 'helper.sh')).equals(helper.source)).toBe(true)
+    expect(readFileSync(join(dir, 'session.sh'), 'utf8')).toBe(REMOTE_BOOTSTRAP)
     expect(statSync(dir).mode & 0o777).toBe(0o700)
     expect(statSync(join(dir, 'helper.sh')).mode & 0o777).toBe(0o600)
-    expect(readdirSync(dir)).toEqual(['helper.sh'])
+    expect(statSync(join(dir, 'session.sh')).mode & 0o777).toBe(0o600)
+    expect(readdirSync(dir).sort()).toEqual(['helper.sh', 'session.sh'])
   })
 
   it('SSH-C43 reports a host without the helper, a changed helper and a missing tool', async () => {
@@ -101,7 +106,7 @@ describe('helper install', () => {
 
   it('SSH-C44 replaces an older version and removes everything it made', async () => {
     const remote = host()
-    const older = helperBundle(Buffer.concat([helper.source, Buffer.from('\n')]))
+    const older = helperBundle(Buffer.concat([helper.source, Buffer.from('\n')]), helper.session)
     expect(await install(remote, older)).toEqual(['installed'])
     expect(await install(remote)).toEqual(['installed'])
     expect(readdirSync(join(remote.home, '.pine', 'helper'))).toEqual([helper.version])
@@ -118,6 +123,54 @@ describe('helper install', () => {
     writeFileSync(join(remote.home, '.pine', 'keep'), 'mine')
     await runStatus(planHelper(plan, 'remove', helper), null, { spawn: remote.spawn })
     expect(readdirSync(join(remote.home, '.pine'))).toEqual(['keep'])
+  })
+})
+
+const ESC = '\u001b'
+const mark = (body: string): string => `${ESC}]${body}${ESC}\\`
+
+function sshSession(remote: RemoteHost, input: string): string {
+  const tmp = join(remote.home, '..', 'tmp')
+  const run = spawnSync('bash', ['-c', helper.commands.session], {
+    cwd: remote.home,
+    env: { HOME: remote.home, SHELL: 'bash', PATH: process.env.PATH, TMPDIR: tmp, TERM: 'dumb' },
+    input,
+    encoding: 'utf8',
+    timeout: 20_000,
+  })
+  expect(readdirSync(tmp)).toEqual([])
+  return `${run.stdout}${run.stderr}`
+}
+
+describe('session command on a host with the helper', () => {
+  it('SSH-C70 loads the integration from the installed file: marks, the host in OSC 7, nothing left behind', async () => {
+    const remote = host()
+    await install(remote)
+    writeFileSync(join(remote.home, '.bash_profile'), 'echo STEP_PROFILE\nPS1="b> "\n')
+    const out = sshSession(remote, 'echo hi\nfalse\n')
+    expect(out.split('STEP_PROFILE').length - 1).toBe(1)
+    expect(out).toContain(`${mark('633;E;echo hi')}${mark('133;C')}hi`)
+    expect(out).toContain(mark('133;D;1'))
+    expect(out).toContain(mark(`7;file://${hostname()}${remote.home}`))
+    expect(out).toContain(`b> ${mark('133;B')}`)
+  })
+
+  it('SSH-C71 starts a plain login shell when the folder is missing or the file was changed', async () => {
+    const bare = host()
+    writeFileSync(join(bare.home, '.bash_profile'), 'echo STEP_PROFILE\n')
+    const plain = sshSession(bare, 'echo PLAIN_$((40+2))\n')
+    expect(plain).toContain('PLAIN_42')
+    expect(plain).toContain('STEP_PROFILE')
+    expect(plain).not.toContain(`${ESC}]133;`)
+
+    const changed = host()
+    await install(changed)
+    const file = join(changed.home, '.pine', 'helper', helper.version, 'session.sh')
+    writeFileSync(file, `echo TAMPERED\n${readFileSync(file, 'utf8')}`)
+    const out = sshSession(changed, 'echo PLAIN_$((40+2))\n')
+    expect(out).toContain('PLAIN_42')
+    expect(out).not.toContain('TAMPERED')
+    expect(out).not.toContain(`${ESC}]133;`)
   })
 })
 
@@ -341,6 +394,8 @@ describe('helper protocol', () => {
     const closed = new Promise<void>((resolve) => channel.onClose(resolve))
     channel.close()
     await closed
-    await expect.poll(() => readdirSync(dir), { timeout: 5000 }).toEqual(['helper.sh'])
+    await expect
+      .poll(() => readdirSync(dir).sort(), { timeout: 5000 })
+      .toEqual(['helper.sh', 'session.sh'])
   })
 })

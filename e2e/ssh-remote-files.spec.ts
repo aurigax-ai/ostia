@@ -57,6 +57,7 @@ interface Session {
   win: Page
   remoteHome: string
   project: string
+  sshLog: string
 }
 
 async function sessionInProject(): Promise<Session> {
@@ -69,6 +70,7 @@ async function sessionInProject(): Promise<Session> {
   const remoteHome = mkdtempSync(join(dataHome, 'remote-home-'))
   const remoteTmp = mkdtempSync(join(dataHome, 'remote-tmp-'))
   const project = join(remoteHome, 'project')
+  const sshLog = join(dataHome, 'ssh-calls.log')
   mkdirSync(join(project, 'conf'), { recursive: true })
   writeFileSync(join(project, 'app.conf'), 'port=8080\n')
   writeFileSync(join(project, 'conf', 'db.yaml'), 'name: main\n')
@@ -79,6 +81,7 @@ async function sessionInProject(): Promise<Session> {
       ...launch.env,
       PATH: `${FAKE_SSH_BIN}:${process.env.PATH}`,
       FAKE_SSH_DIR: SSH_CAPTURES,
+      FAKE_SSH_LOG: sshLog,
       FAKE_SSH_REMOTE_SHELL: 'bash',
       FAKE_SSH_REMOTE_HOME: remoteHome,
       FAKE_SSH_REMOTE_TMP: remoteTmp,
@@ -97,8 +100,11 @@ async function sessionInProject(): Promise<Session> {
   await sshPane.locator('.xterm').click()
   await win.keyboard.type('cd ~/project && echo in-$((40+2))')
   await win.keyboard.press('Enter')
-  await expect(sshPane.locator('.xterm-rows')).toContainText('in-42', { timeout: 15_000 })
-  return { app, win, remoteHome, project }
+  await expect(sshPane.locator('.xterm-rows')).toContainText(/in-42\s*remote\$/, {
+    timeout: 15_000,
+  })
+  await win.waitForTimeout(500)
+  return { app, win, remoteHome, project, sshLog }
 }
 
 async function openRemoteFolder({ win, project }: Session): Promise<void> {
@@ -112,7 +118,7 @@ async function openRemoteFolder({ win, project }: Session): Promise<void> {
   await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
 }
 
-test('SSH-C65 the human opens the folder of an ssh session in Files and reads a remote file', async () => {
+test('SSH-C65 SSH-C72 the human opens the folder of an ssh session in Files, reads a remote file, and the next session uses the short command', async () => {
   test.setTimeout(180_000)
   const session = await sessionInProject()
   const { app, win, remoteHome, project } = session
@@ -146,6 +152,27 @@ test('SSH-C65 the human opens the folder of an ssh session in Files and reads a 
     expect(asked[1].message).toContain('db')
     expect(asked[1].detail).toContain(`~/.pine/helper/${versions[0]}/helper.sh`)
     expect(asked[1].buttons).toEqual(['Install', 'Don’t install'])
+
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type('pine ssh connect db')
+    await win.keyboard.press('Enter')
+    await expect(win.locator('.xterm')).toHaveCount(3, { timeout: 40_000 })
+    const secondPane = win.locator('.pane.active')
+    const second = secondPane.locator('.xterm-rows')
+    await expect(second).toContainText('remote$', { timeout: 40_000 })
+    const typed = readFileSync(session.sshLog, 'utf8').trim().split('\n').at(-1) ?? ''
+    expect(typed).toContain(
+      `ssh -t -- db exec sh -c 'f="$HOME/.pine/helper/${versions[0]}/session.sh"`,
+    )
+    expect(typed).not.toContain('base64')
+    expect(typed.length).toBeLessThan(320)
+    await secondPane.locator('.xterm').click()
+    await win.keyboard.type('echo short-$((40+2))')
+    await win.keyboard.press('Enter')
+    await expect(second).toContainText('short-42', { timeout: 20_000 })
+    await expect
+      .poll(() => secondPane.locator('.block-gutter').count(), { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(1)
 
     await section.getByRole('button', { name: 'Close remote folder' }).click()
     await expect(win.getByTestId('remote-folder')).toHaveCount(0)
