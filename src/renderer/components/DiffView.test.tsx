@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { editorPositionOf } from '../lib/editorPositions'
 import { useDiffStore } from '../stores/diffStore'
+import { useSettingsStore } from '../stores/settingsStore'
 
 const fake = vi.hoisted(() => {
   interface FakeModel {
@@ -127,6 +128,20 @@ describe('DiffView', () => {
     expect(fake.state.options.at(-1)).toEqual({ renderSideBySide: false })
     fireEvent.click(screen.getByRole('button', { name: 'Side-by-side view' }))
     expect(fake.state.options.at(-1)).toEqual({ renderSideBySide: true })
+  })
+
+  it('opens inline when editor.diffLayout is inline, and the button still switches', () => {
+    const settings = useSettingsStore.getState()
+    useSettingsStore.setState({ editor: { ...settings.editor, diffLayout: 'inline' } })
+    try {
+      useDiffStore.getState().set('d1', CONTENT)
+      render(<DiffView paneId="d1" />)
+      expect(fake.state.options).toContainEqual({ renderSideBySide: false })
+      fireEvent.click(screen.getByRole('button', { name: 'Side-by-side view' }))
+      expect(fake.state.options.at(-1)).toEqual({ renderSideBySide: true })
+    } finally {
+      useSettingsStore.setState(settings, true)
+    }
   })
 
   it('opens the modified file at the cursor in the external editor', async () => {

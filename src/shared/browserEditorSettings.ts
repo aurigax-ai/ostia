@@ -81,12 +81,14 @@ export const LINE_NUMBER_MODES = ['on', 'off', 'relative'] as const
 export const TAB_WIDTHS = [2, 4, 8] as const
 export const AUTO_SAVE_MODES = ['off', 'afterDelay', 'onFocusChange'] as const
 export const OPEN_FILES_IN = ['tab', 'split'] as const
+export const DIFF_LAYOUTS = ['sideBySide', 'inline'] as const
 
 export type WordWrap = (typeof WORD_WRAPS)[number]
 export type LineNumberMode = (typeof LINE_NUMBER_MODES)[number]
 export type TabWidth = (typeof TAB_WIDTHS)[number]
 export type AutoSaveMode = (typeof AUTO_SAVE_MODES)[number]
 export type OpenFilesIn = (typeof OPEN_FILES_IN)[number]
+export type DiffLayout = (typeof DIFF_LAYOUTS)[number]
 
 export const AUTO_SAVE_DELAY_MS = 1000
 
@@ -99,6 +101,8 @@ export interface EditorSettings {
   formatOnSave: boolean
   openFilesIn: OpenFilesIn
   theme: string
+  markdownPreview: boolean
+  diffLayout: DiffLayout
 }
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -110,6 +114,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   formatOnSave: false,
   openFilesIn: 'tab',
   theme: MATCH_PINE_THEME,
+  markdownPreview: false,
+  diffLayout: 'sideBySide',
 }
 
 export function parseEditorSettings(raw: unknown): EditorSettings {
@@ -124,5 +130,7 @@ export function parseEditorSettings(raw: unknown): EditorSettings {
     formatOnSave: typeof src.formatOnSave === 'boolean' ? src.formatOnSave : false,
     openFilesIn: oneOf(OPEN_FILES_IN, src.openFilesIn, defaults.openFilesIn),
     theme: parseThemeChoice(src.theme),
+    markdownPreview: src.markdownPreview === true,
+    diffLayout: oneOf(DIFF_LAYOUTS, src.diffLayout, defaults.diffLayout),
   }
 }

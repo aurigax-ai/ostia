@@ -178,6 +178,12 @@ export const SETTINGS_JSON_SCHEMA = {
             '(h j k l w b e 0 $ x dd dw cw u, with counts); i a A I o O return to insert mode. ' +
             'Enter runs the command from either mode. Default: false.',
         },
+        historySuggestions: {
+          type: 'boolean',
+          description:
+            'Show the latest matching history command as gray text in the input editor; Right ' +
+            'arrow or End accepts it. Default: true.',
+        },
         copyOnSelect: {
           type: 'boolean',
           description: 'Copy selected terminal text to the clipboard as soon as it is selected.',
@@ -550,22 +556,15 @@ export const SETTINGS_JSON_SCHEMA = {
         hooks: {
           type: 'object',
           additionalProperties: false,
-          description:
-            'Pine’s integration for each agent CLI in new terminals. Turn one off if it clashes ' +
-            'with your own hooks; that agent then runs untouched and reports no attention state ' +
-            'or resume token on its own. Only you can change this, in Settings; agents cannot.',
+          description: `${PRODUCT_NAME}’s integration for each agent CLI in new terminals. Turn one off if it clashes with your own hooks; that agent then runs untouched and reports no attention state or resume token on its own. Only you can change this, in Settings; agents cannot.`,
           properties: {
             claude: {
               type: 'boolean',
-              description:
-                'Run claude with the Pine plugin (CLI skill, resume token, attention hooks). ' +
-                'Default: true.',
+              description: `Run claude with the ${PRODUCT_NAME} plugin (CLI skill, resume token, attention hooks). Default: true.`,
             },
             codex: {
               type: 'boolean',
-              description:
-                'Run interactive codex sessions with Pine’s hooks (resume token, attention ' +
-                'state, CLI context). Default: true.',
+              description: `Run interactive codex sessions with ${PRODUCT_NAME}’s hooks (resume token, attention state, CLI context). Default: true.`,
             },
           },
         },
@@ -702,6 +701,18 @@ export const SETTINGS_JSON_SCHEMA = {
           description:
             'Format the document before every save with the language server or built-in ' +
             'formatter. Files with no formatter are just saved. Default: false.',
+        },
+        markdownPreview: {
+          type: 'boolean',
+          description:
+            'Open Markdown files in the rendered preview instead of the source. Default: false.',
+        },
+        diffLayout: {
+          type: 'string',
+          enum: ['sideBySide', 'inline'],
+          description:
+            'How a diff opens: both texts side by side, or inline in one column. The button in ' +
+            'each diff switches it. Default: sideBySide.',
         },
         openFilesIn: {
           type: 'string',
