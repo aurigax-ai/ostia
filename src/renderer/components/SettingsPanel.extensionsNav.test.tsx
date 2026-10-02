@@ -36,6 +36,7 @@ function ext(id: string, name: string, overrides: Partial<ExtensionInfo> = {}): 
     assist: [],
     secrets: [],
     secretsSet: [],
+    settingsPage: null,
     category: 'other',
     languages: [],
     languageServers: [],
@@ -57,6 +58,20 @@ const PORTS = ext('ports', 'Ports', {
   settingValues: { intervalSeconds: 3 },
 })
 const GIT = ext('git', 'Git', { panel: { title: 'Git', icon: 'git-branch' } })
+const BOARD = ext('board', 'Board', {
+  builtin: false,
+  settings: [
+    {
+      key: 'pollSeconds',
+      type: 'number',
+      title: 'Poll interval',
+      default: 5,
+      description: 'Time between polls',
+    },
+  ],
+  settingValues: { pollSeconds: 5 },
+  settingsPage: { title: 'Board sync', icon: 'kanban' },
+})
 
 function renderSettings(): void {
   useUIStore.setState({ settingsActive: true, settingsTabOpen: true })
@@ -232,5 +247,87 @@ describe('SettingsPanel extensions nav', () => {
     await user.clear(search)
     await user.type(search, 'no such thing')
     expect(within(nav()).queryByRole('button', { name: 'Extensions' })).toBeNull()
+  })
+
+  describe('an extension that asks for its own page', () => {
+    beforeEach(() => {
+      useExtensionsStore.setState({ list: [PORTS, GIT, BOARD] })
+    })
+
+    it('gets its own nav entry that draws the same form', async () => {
+      const setSetting = vi.fn(async () => null)
+      useExtensionsStore.setState({ setSetting })
+      renderSettings()
+      const user = userEvent.setup()
+      const entry = within(nav()).getByRole('button', { name: 'Board sync' })
+      expect(entry.querySelector('svg')).not.toBeNull()
+
+      await user.click(entry)
+
+      expect(entry).toHaveAttribute('aria-current', 'page')
+      expect(screen.getByRole('heading', { level: 2, name: 'Board sync' })).toBeInTheDocument()
+      expect(screen.getByText('From the Board extension.')).toBeInTheDocument()
+      const field = screen.getByRole('spinbutton', { name: 'Poll interval' })
+      await user.clear(field)
+      await user.type(field, '9{Enter}')
+      expect(setSetting).toHaveBeenCalledWith('board', 'pollSeconds', 9)
+    })
+
+    it('moves its form off the Extensions list, leaving a link to the page', async () => {
+      renderSettings()
+      const user = userEvent.setup()
+      await user.click(within(nav()).getByRole('button', { name: 'Extensions' }))
+
+      const row = document.getElementById('settings-extension-board') as HTMLElement
+      expect(within(row).queryByRole('spinbutton', { name: 'Poll interval' })).toBeNull()
+      const ports = document.getElementById('settings-extension-ports') as HTMLElement
+      expect(within(ports).getByRole('spinbutton', { name: 'Scan interval' })).toBeInTheDocument()
+
+      await user.click(within(row).getByRole('button', { name: 'Open its settings page' }))
+      expect(screen.getByRole('heading', { level: 2, name: 'Board sync' })).toBeInTheDocument()
+    })
+
+    it('opens the page from a deep link to the extension', () => {
+      renderSettings()
+      act(() => useUIStore.getState().openSettings('extensions/board'))
+      expect(screen.getByRole('heading', { level: 2, name: 'Board sync' })).toBeInTheDocument()
+      expect(within(nav()).getByRole('button', { name: 'Board sync' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      )
+    })
+
+    it('is found by its page title in the search box', async () => {
+      renderSettings()
+      const user = userEvent.setup()
+      await user.type(screen.getByRole('textbox', { name: 'Search settings' }), 'board sync')
+      expect(within(nav()).getByRole('button', { name: 'Board sync' })).toBeInTheDocument()
+      expect(within(nav()).queryByRole('button', { name: 'Ports' })).toBeNull()
+    })
+
+    it('has no entry while main sends no page, and the form stays on the Extensions list', async () => {
+      useExtensionsStore.setState({
+        list: [PORTS, GIT, { ...BOARD, enabled: false, status: 'disabled', settingsPage: null }],
+      })
+      renderSettings()
+      const user = userEvent.setup()
+      expect(within(nav()).queryByRole('button', { name: 'Board sync' })).toBeNull()
+      await user.click(within(nav()).getByRole('button', { name: 'Extensions' }))
+      const row = document.getElementById('settings-extension-board') as HTMLElement
+      expect(within(row).getByRole('spinbutton', { name: 'Poll interval' })).toBeInTheDocument()
+    })
+
+    it('falls back to Extensions when the open page goes away', async () => {
+      renderSettings()
+      const user = userEvent.setup()
+      await user.click(within(nav()).getByRole('button', { name: 'Board sync' }))
+      act(() =>
+        useExtensionsStore.setState({
+          list: [PORTS, GIT, { ...BOARD, enabled: false, settingsPage: null }],
+        }),
+      )
+      expect(screen.getByRole('heading', { level: 2, name: 'Extensions' })).toBeInTheDocument()
+      expect(within(nav()).queryByRole('button', { name: 'Board sync' })).toBeNull()
+    })
   })
 })

@@ -65,6 +65,7 @@ function iconThemeExtension(): ExtensionInfo {
     assist: [],
     secrets: [],
     secretsSet: [],
+    settingsPage: null,
     category: 'other',
     languages: [],
     languageServers: [],
