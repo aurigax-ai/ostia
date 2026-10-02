@@ -202,7 +202,7 @@ describe('parseReferenceRequest', () => {
     const parsed = parseReferenceRequest({
       workspaceId: 'w-moved',
       paneId: 'agent-1',
-      text: '@/tmp/pine-reports-1/ui-issue-1.md ',
+      text: '@/tmp/pine-reports-1/capture-1.md ',
       note,
       extra: true,
     })
@@ -212,7 +212,7 @@ describe('parseReferenceRequest', () => {
     expect(parsed).toEqual({
       workspaceId: 'w-moved',
       paneId: 'agent-1',
-      text: '@/tmp/pine-reports-1/ui-issue-1.md ',
+      text: '@/tmp/pine-reports-1/capture-1.md ',
       note: parsed?.note,
     })
   })
