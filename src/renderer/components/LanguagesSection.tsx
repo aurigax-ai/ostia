@@ -3,16 +3,18 @@ import {
   DownloadSimpleIcon,
   ListMagnifyingGlassIcon,
   TrashIcon,
+  WrenchIcon,
 } from '@phosphor-icons/react'
 import type {
   LanguageServerInfo,
+  LanguageServerOverrideProblem,
   LanguageServerStatus,
   LspLog,
   LspLogEntry,
 } from '@shared/languageServers'
 import { PRODUCT_NAME } from '@shared/product'
 import type { RequirementsReport } from '@shared/systemRequirements'
-import { useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useId, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { useLanguageServersStore } from '../stores/languageServersStore'
@@ -21,8 +23,18 @@ import { IconButton } from './IconButton'
 import { SectionHead } from './SettingsPanel'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog'
+import { Input } from './ui/input'
+import { Label } from './ui/label'
 import { Switch } from './ui/switch'
+import { Textarea } from './ui/textarea'
 
 const STATUS_DOT: Record<LanguageServerStatus, string> = {
   running: 'bg-ok',
@@ -35,6 +47,7 @@ const STATUS_DOT: Record<LanguageServerStatus, string> = {
   installing: 'bg-brand',
   'install-failed': 'bg-attn',
   'sandbox-unavailable': 'bg-attn',
+  'override-invalid': 'bg-attn',
   crashed: 'bg-attn',
   'pending-approval': 'bg-fg-dim',
 }
@@ -48,6 +61,7 @@ function failureReason(d: Dict, server: LanguageServerInfo): string {
 
 function binaryNote(d: Dict, server: LanguageServerInfo): string | null {
   const t = d.languageServers
+  if (server.override) return fmt(t.usingOverride, { path: server.override.path })
   if (!server.enabled || server.kind === 'bundled' || server.kind === 'program') return null
   if (server.binary?.source === 'path') {
     return fmt(t.usingPath, { program: server.program ?? server.command })
@@ -86,6 +100,10 @@ function statusLabel(d: Dict, server: LanguageServerInfo): string {
       return fmt(t.statusInstallFailed, { reason: failureReason(d, server) })
     case 'sandbox-unavailable':
       return t.statusSandbox
+    case 'override-invalid':
+      return fmt(t.statusOverride, {
+        reason: t.overrideReasons[server.override?.problem ?? 'missing'],
+      })
     case 'crashed':
       return t.statusCrashed
     case 'pending-approval':
@@ -221,6 +239,94 @@ function ServerLogDialog({
   )
 }
 
+function programArguments(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+}
+
+function ServerProgramDialog({
+  server,
+  onClose,
+}: {
+  server: LanguageServerInfo
+  onClose: () => void
+}): JSX.Element {
+  const d = useDict()
+  const t = d.languageServers
+  const setOverride = useLanguageServersStore((s) => s.setOverride)
+  const [path, setPath] = useState(server.override?.path ?? '')
+  const [args, setArgs] = useState((server.override?.args ?? []).join('\n'))
+  const [problem, setProblem] = useState<LanguageServerOverrideProblem | null>(null)
+  const pathId = useId()
+  const argsId = useId()
+  const problemId = useId()
+  const apply = async (override: { path: string; args: string[] } | null): Promise<void> => {
+    const refused = await setOverride(server.key, override)
+    setProblem(refused)
+    if (refused === null) onClose()
+  }
+  const submit = (event: FormEvent): void => {
+    event.preventDefault()
+    void apply({ path: path.trim(), args: programArguments(args) })
+  }
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{fmt(t.programTitle, { name: server.name })}</DialogTitle>
+          <DialogDescription>{fmt(t.programDesc, { app: PRODUCT_NAME })}</DialogDescription>
+        </DialogHeader>
+        <form className="flex flex-col gap-3" onSubmit={submit}>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={pathId}>{t.programPath}</Label>
+            <Input
+              id={pathId}
+              className="font-mono"
+              value={path}
+              placeholder={t.programPathHint}
+              spellCheck={false}
+              aria-invalid={problem !== null}
+              aria-describedby={problem !== null ? problemId : undefined}
+              onChange={(event) => setPath(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={argsId}>{t.programArgs}</Label>
+            <Textarea
+              id={argsId}
+              className="font-mono"
+              rows={3}
+              value={args}
+              spellCheck={false}
+              onChange={(event) => setArgs(event.target.value)}
+            />
+          </div>
+          {problem !== null ? (
+            <p id={problemId} role="alert" className="text-attn-fg text-ui-sm">
+              {fmt(t.statusOverride, { reason: t.overrideReasons[problem] })}
+            </p>
+          ) : null}
+          <DialogFooter>
+            {server.override ? (
+              <Button type="button" variant="outline" onClick={() => void apply(null)}>
+                {t.programClear}
+              </Button>
+            ) : null}
+            <Button type="button" variant="ghost" onClick={onClose}>
+              {t.programCancel}
+            </Button>
+            <Button type="submit" disabled={path.trim() === ''}>
+              {t.programSave}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function InstallProgram({ server }: { server: LanguageServerInfo }): JSX.Element | null {
   const d = useDict()
   const t = d.languageServers
@@ -270,6 +376,7 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
   const setEnabled = useLanguageServersStore((s) => s.setEnabled)
   const restart = useLanguageServersStore((s) => s.restart)
   const [showLog, setShowLog] = useState(false)
+  const [choosing, setChoosing] = useState(false)
   const reason = server.status === 'sandbox-unavailable' ? sandboxReason(d, server) : null
   const note = binaryNote(d, server)
   const failed = server.status === 'download-failed' || server.status === 'install-failed'
@@ -277,7 +384,11 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
   const canFetchNow =
     failed || (server.status === 'idle' && server.fetchable === true && !server.binary)
   const problem =
-    needsProgram || failed || server.status === 'sandbox-unavailable' || server.status === 'crashed'
+    needsProgram ||
+    failed ||
+    server.status === 'sandbox-unavailable' ||
+    server.status === 'override-invalid' ||
+    server.status === 'crashed'
   return (
     <li
       aria-label={server.name}
@@ -339,6 +450,12 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
             />
           ) : null}
           <IconButton
+            icon={WrenchIcon}
+            label={fmt(t.chooseProgram, { name: server.name })}
+            disabled={server.status === 'pending-approval'}
+            onClick={() => setChoosing(true)}
+          />
+          <IconButton
             icon={ListMagnifyingGlassIcon}
             label={fmt(t.showLog, { name: server.name })}
             onClick={() => setShowLog(true)}
@@ -358,6 +475,7 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
         </div>
       </div>
       {showLog ? <ServerLogDialog server={server} onClose={() => setShowLog(false)} /> : null}
+      {choosing ? <ServerProgramDialog server={server} onClose={() => setChoosing(false)} /> : null}
     </li>
   )
 }

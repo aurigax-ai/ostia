@@ -781,6 +781,103 @@ describe('LanguageServers watched files', () => {
   })
 })
 
+describe('LanguageServers with a program the human chose', () => {
+  const chosen = { path: '/opt/mine/custom-ls', args: ['--verbose'] }
+
+  it('runs the chosen program instead of the one on PATH, with the server’s arguments then the human’s', async () => {
+    const h = harness({ overrideProblem: () => null })
+    h.sources = [
+      source(
+        { ...programServer, run: { program: 'prog-ls', args: ['--stdio'] } },
+        { override: chosen },
+      ),
+    ]
+    writeFileSync(join(workDir, 'main.rs'), '')
+    await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))
+    expect(h.spawned).toHaveLength(1)
+    expect(h.spawned[0].command).toBe('/opt/mine/custom-ls')
+    expect(h.spawned[0].args).toEqual(['--stdio', '--verbose'])
+    expect(h.spawned[0].options.shell).toBe(false)
+    expect(h.spawned[0].options.env.ELECTRON_RUN_AS_NODE).toBeUndefined()
+    expect(h.servers.servers()[0]).toMatchObject({
+      status: 'running',
+      binary: { source: 'override' },
+      override: chosen,
+    })
+  })
+
+  it('replaces a bundled server’s runtime and script, and wins over a copy Pine keeps', async () => {
+    const h = harness({ overrideProblem: () => null })
+    h.sources = [source(nodeServer, { override: { path: '/opt/mine/custom-ls', args: [] } })]
+    h.copies.set('ext/fake', '/data/ls/ext/fake/1/bin/tool')
+    await h.servers.open('w1', 'p1', join(workDir, 'pkg', 'src', 'a.txt'))
+    const root = join(workDir, 'pkg')
+    expect(h.spawned[0].command).toBe('/opt/mine/custom-ls')
+    expect(h.spawned[0].args).toEqual(['--stdio', `--ext=${extensionDir}`, `--root=${root}`])
+    expect(h.spawned[0].options.env.ELECTRON_RUN_AS_NODE).toBeUndefined()
+  })
+
+  it('starts nothing, fetches nothing and says why when the chosen program can no longer run', async () => {
+    const h = harness({ overrideProblem: () => 'not-executable' })
+    h.sources = [source(programServer, { override: chosen })]
+    writeFileSync(join(workDir, 'main.rs'), '')
+    expect(await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))).toEqual([])
+    expect(h.spawned).toHaveLength(0)
+    expect(h.fetchBinary).not.toHaveBeenCalled()
+    expect(h.servers.servers()[0]).toMatchObject({
+      status: 'override-invalid',
+      override: { ...chosen, problem: 'not-executable' },
+    })
+    expect(h.servers.servers()[0].binary).toBeUndefined()
+  })
+
+  it('needs no system program for a server whose program the human chose', () => {
+    const h = harness({ overrideProblem: () => null })
+    h.sources = [source(programServer, { override: chosen })]
+    h.programs.clear()
+    h.servers.refresh()
+    expect(h.requirements.size).toBe(0)
+    expect(h.servers.servers()[0].status).toBe('idle')
+  })
+
+  it('restarts a running server when the human chooses another program', async () => {
+    const h = harness({ overrideProblem: () => null })
+    writeFileSync(join(workDir, 'main.rs'), '')
+    h.sources = [source(programServer)]
+    const [first] = await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))
+    expect(h.spawned[0].command).toBe('/usr/bin/prog-ls')
+    h.sources = [source(programServer, { override: chosen })]
+    h.servers.refresh()
+    await vi.waitFor(() =>
+      expect(h.posts.some((p) => p.channel === `lsp:exit:${first.sessionId}`)).toBe(true),
+    )
+    await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))
+    expect(h.spawned[1].command).toBe('/opt/mine/custom-ls')
+  })
+
+  it('is refused in a sandbox that cannot read the program or what it links to, naming the folder', async () => {
+    const h = harness({
+      overrideProblem: () => null,
+      realPath: () => '/nix/store/abc/bin/custom-ls',
+    })
+    h.sources = [source(programServer, { override: chosen })]
+    h.sandboxed.add('ws1')
+    h.unreadable.add('/nix/store/abc/bin/custom-ls')
+    writeFileSync(join(workDir, 'main.rs'), '')
+    expect(await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))).toEqual([])
+    expect(h.spawned).toHaveLength(0)
+    expect(h.servers.servers()[0]).toMatchObject({
+      status: 'sandbox-unavailable',
+      sandboxProblem: 'program-unreadable',
+      sandboxDetail: '/nix/store/abc/bin',
+    })
+    h.unreadable.clear()
+    await h.servers.restart('ext/prog')
+    await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))
+    expect(h.wrap).toHaveBeenCalledWith('ws1', '/opt/mine/custom-ls --verbose', [])
+  })
+})
+
 describe('LanguageServers requirements', () => {
   it('registers each program server as a system requirement and clears one that went away', () => {
     const h = harness()

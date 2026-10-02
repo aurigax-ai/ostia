@@ -75,6 +75,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       log: vi.fn().mockResolvedValue({ entries: [], errors: {} }),
       fetch: vi.fn().mockResolvedValue(undefined),
       removeDownload: vi.fn().mockResolvedValue(undefined),
+      setOverride: vi.fn().mockResolvedValue({ servers: [] }),
     },
     settings: {
       path: vi.fn().mockResolvedValue('/tmp/pine-test/settings.json'),

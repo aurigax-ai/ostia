@@ -7,6 +7,7 @@ import {
   languageServerCommand,
   languageServerSummary,
   overlaySettings,
+  parseLanguageServerOverride,
   parseLanguageServers,
   splitLanguageServerKey,
   substituteJson,
@@ -358,5 +359,23 @@ describe('language server helpers', () => {
       documentLanguageId({ documentLanguageIds: { shell: 'shellscript' } }, '/p/a.sh', 'shell'),
     ).toBe('shellscript')
     expect(documentLanguageId({}, '/p/a.go', 'go')).toBe('go')
+  })
+  it('takes a program override only as an absolute path with an argument list', () => {
+    expect(parseLanguageServerOverride({ path: '/opt/ls', args: ['--stdio'] })).toEqual({
+      path: '/opt/ls',
+      args: ['--stdio'],
+    })
+    expect(parseLanguageServerOverride({ path: 'C:\\tools\\ls.exe' })).toEqual({
+      path: 'C:\\tools\\ls.exe',
+      args: [],
+    })
+    expect(parseLanguageServerOverride({ path: './ls' })).toBe('not-absolute')
+    expect(parseLanguageServerOverride({ path: '~/bin/ls' })).toBe('not-absolute')
+    expect(parseLanguageServerOverride('/opt/ls --stdio')).toBe('not-absolute')
+    expect(parseLanguageServerOverride({ path: '/opt/ls', args: '--stdio' })).toBe('bad-arguments')
+    expect(parseLanguageServerOverride({ path: '/opt/ls', args: [''] })).toBe('bad-arguments')
+    expect(
+      parseLanguageServerOverride({ path: '/opt/ls', args: Array.from({ length: 33 }, () => 'x') }),
+    ).toBe('bad-arguments')
   })
 })
