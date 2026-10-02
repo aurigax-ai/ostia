@@ -234,7 +234,7 @@ test('the trellis panel draws the board, a card and the vault from the CLI and f
       'placeholder',
       'Card id, for example SHOP-12',
     )
-    await win.locator('[data-slot="command-input"]').fill('demo-1')
+    await win.keyboard.type('demo-1')
     await win.keyboard.press('Enter')
     await expect
       .poll(() => panel(`document.querySelector('.detail-title')?.innerText ?? ''`), {
