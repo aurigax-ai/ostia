@@ -68,38 +68,37 @@ const signal = (paneId: string, message: string, at: number) =>
     useAttentionStore.getState().dispatch(paneId, { type: 'notify', message, waiting: true, at })
   })
 
-describe('sidebar unread badge', () => {
-  it('shows the number of unread panes on the workspace row and hides it at zero', () => {
+describe('sidebar unread mark', () => {
+  it('marks the workspace icon unread without a number and clears it at zero', () => {
     const { workspaceId, a, b } = twoPanes()
     render(<DeckRail />)
     expect(screen.queryByRole('img', { name: /unread/ })).toBeNull()
 
     signal(a, 'one', 1)
     signal(b, 'two', 2)
-    expect(screen.getByRole('img', { name: '2 unread' })).toHaveTextContent('2')
+    const icon = screen.getByRole('img', { name: '2 unread' })
+    expect(icon).toHaveClass('tab-lead-unread')
+    expect(icon).toHaveTextContent('')
 
     act(() => useAttentionStore.getState().markAllRead())
     expect(screen.queryByRole('img', { name: /unread/ })).toBeNull()
     expect(workspaceId).toBeTruthy()
   })
 
-  it('pops the badge only when the count grows, never on decrease', () => {
+  it('restarts the fast blink only when the unread count grows, never on decrease', () => {
     const { a, b } = twoPanes()
     render(<DeckRail />)
-    const badge = () => screen.getByRole('img', { name: /unread/ })
+    const icon = () => screen.getByRole('img', { name: /unread/ })
 
     signal(a, 'one', 1)
-    expect(badge()).toHaveClass('pop')
-    fireEvent.animationEnd(badge())
-    expect(badge()).not.toHaveClass('pop')
-
+    const first = icon()
     signal(b, 'two', 2)
-    expect(badge()).toHaveClass('pop')
-    fireEvent.animationEnd(badge())
+    const second = icon()
+    expect(second).not.toBe(first)
 
     act(() => useAttentionStore.getState().dispatch(b, { type: 'view', at: 3 }))
-    expect(badge()).toHaveTextContent('1')
-    expect(badge()).not.toHaveClass('pop')
+    expect(icon()).toBe(second)
+    expect(icon()).toHaveAccessibleName('1 unread')
   })
 
   it('restarts the waiting dot pulse only when a new waiting signal arrives', () => {
