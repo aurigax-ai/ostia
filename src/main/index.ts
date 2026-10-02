@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
   BrowserWindow,
@@ -1116,6 +1116,7 @@ function registerIpc(): void {
       name: PRODUCT_NAME,
       version: app.getVersion(),
       platform: process.platform,
+      hostName: hostname(),
     }),
   )
 

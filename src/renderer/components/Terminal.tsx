@@ -26,6 +26,7 @@ import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
+import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
 import { planHumanPaste } from '../lib/pasteGate'
@@ -249,6 +250,7 @@ export function TerminalView({
     })
 
     const cwdRef = { current: spawnCwd.current ?? null }
+    let remote = false
     let promptMarker: IMarker | undefined
     const markers = new Set<IMarker>()
     const anchor = (): LineAnchor => {
@@ -333,6 +335,7 @@ export function TerminalView({
     const fileLinks = term.registerLinkProvider(
       createFileLinkProvider(term, {
         cwd: () => cwdRef.current,
+        remote: () => remote,
         stat: (path) => window.pine.fs.stat(path),
         open: openFileAt,
         modifierHeld: (e) => linkModifierHeld(e, isMac),
@@ -363,10 +366,12 @@ export function TerminalView({
       useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: Date.now() })
     })
     const oscCwd = term.parser.registerOscHandler(7, (data) => {
-      const path = decodeOsc7(data)
-      if (path) {
-        cwdRef.current = path
-        useLayoutStore.getState().setCwd(workspaceIdRef.current, paneId, path)
+      const report = parseOsc7(data)
+      if (!report) return true
+      remote = !isLocalHost(report.host)
+      if (!remote) {
+        cwdRef.current = report.path
+        useLayoutStore.getState().setCwd(workspaceIdRef.current, paneId, report.path)
       }
       return true
     })
@@ -383,7 +388,7 @@ export function TerminalView({
         promptMarker = term.registerMarker(0)
         inputAnchor = null
         reportedCommand = null
-        blocks.promptStart(paneId, anchor(), cwdRef.current)
+        blocks.promptStart(paneId, anchor(), remote ? null : cwdRef.current, remote)
       } else if (kind === 'B') {
         inputAnchor = anchor()
         inputCol = term.buffer.active.cursorX
@@ -758,11 +763,6 @@ export function TerminalView({
 
 function decodeBase64Utf8(b64: string): string {
   return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))
-}
-
-function decodeOsc7(data: string): string | null {
-  const m = /^file:\/\/[^/]*(\/.*)$/.exec(data)
-  return m ? m[1] : null
 }
 
 function safeFit(host: HTMLElement, fit: FitAddon, term: Xterm): boolean {
