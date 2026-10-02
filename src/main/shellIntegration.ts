@@ -235,6 +235,7 @@ __pine_prompt_command() {
   __pine_interactive_mode="on"
 }
 
+unset PROMPT_COMMAND
 PROMPT_COMMAND="__pine_prompt_command"
 trap '__pine_preexec' DEBUG
 
