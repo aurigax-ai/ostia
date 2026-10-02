@@ -1,3 +1,4 @@
+import { isEqual } from 'es-toolkit'
 import {
   type CommandHandler,
   type ExtensionSettingValues,
@@ -99,7 +100,7 @@ class PortsExtension {
       await this.ext.setSidebarItem({ workspaceId: entry.workspaceId, key: entry.key, text: '' })
     }
     for (const [slot, entry] of next) {
-      if (JSON.stringify(this.shown.get(slot)) === JSON.stringify(entry)) continue
+      if (isEqual(this.shown.get(slot), entry)) continue
       await this.ext.setSidebarItem(entry)
     }
     this.shown = next
@@ -112,7 +113,7 @@ class PortsExtension {
       await this.ext.clearPaneChip(chip.paneId, chip.id)
     }
     for (const [slot, chip] of next) {
-      if (JSON.stringify(this.chips.get(slot)) === JSON.stringify(chip)) continue
+      if (isEqual(this.chips.get(slot), chip)) continue
       await this.ext.setPaneChip(chip)
     }
     this.chips = next
@@ -126,7 +127,7 @@ class PortsExtension {
     }
     const accepted = new Map<string, WorkspaceChipValue>()
     for (const [slot, chip] of next) {
-      if (JSON.stringify(this.workspaceChips.get(slot)) === JSON.stringify(chip)) {
+      if (isEqual(this.workspaceChips.get(slot), chip)) {
         accepted.set(slot, chip)
         continue
       }

@@ -1,4 +1,4 @@
-import type { ProcEntry } from './procfs'
+import type { ProcEntry } from '../../shared/procfs'
 
 export function parsePsTable(text: string): ProcEntry[] {
   const out: ProcEntry[] = []

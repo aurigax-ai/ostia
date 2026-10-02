@@ -1,12 +1,11 @@
 import { readFile, readdir, readlink } from 'node:fs/promises'
+import { type ProcEntry, parseProcStat } from '../../shared/procfs'
 import { runTool } from '../sdk'
 import { parseLsofListeners, parsePsTable, splitPsArgs } from './darwin'
 import {
   type ListeningSocket,
-  type ProcEntry,
   childrenOf,
   parseNetTcp,
-  parseProcStat,
   portsForInodes,
   processTree,
   socketInode,
