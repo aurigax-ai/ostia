@@ -1,5 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import type { QuestionAskResult, QuestionEnd } from '../shared/questions'
+import { FlagError, parseArgs } from './args'
 
 export const ASK_EXIT = {
   answered: 0,
@@ -28,38 +29,35 @@ export interface AskCall {
   json: boolean
 }
 
+function askFlags(argv: string[]) {
+  try {
+    return parseArgs(argv, {
+      values: { context: '--context', timeout: '--timeout' },
+      lists: { choice: '--choice' },
+      booleans: { multi: '--multi', json: '--json' },
+    })
+  } catch (err) {
+    if (err instanceof FlagError) throw new Error(`${err.message}\n${USAGE}`)
+    throw err
+  }
+}
+
+function timeoutFlag(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined
+  const seconds = Number(raw)
+  if (raw.trim() === '' || !Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error(`--timeout expects seconds, got '${raw}'`)
+  }
+  return seconds
+}
+
 export function parseAskArgs(argv: string[]): AskCall {
-  const words: string[] = []
-  const choices: string[] = []
-  let context: string | undefined
-  let timeoutSeconds: number | undefined
-  let multi = false
-  let json = false
-  const flagValue = (i: number, flag: string): string => {
-    const value = argv[i]
-    if (value === undefined) throw new Error(`${flag} needs a value\n${USAGE}`)
-    return value
-  }
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]
-    if (arg === '--') {
-      words.push(...argv.slice(i + 1))
-      break
-    }
-    if (arg === '--multi') multi = true
-    else if (arg === '--json') json = true
-    else if (arg === '--choice') choices.push(flagValue(++i, '--choice'))
-    else if (arg === '--context') context = flagValue(++i, '--context')
-    else if (arg === '--timeout') {
-      const raw = flagValue(++i, '--timeout')
-      timeoutSeconds = Number(raw)
-      if (raw.trim() === '' || !Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
-        throw new Error(`--timeout expects seconds, got '${raw}'`)
-      }
-    } else if (arg.startsWith('--')) throw new Error(`unknown flag ${arg}\n${USAGE}`)
-    else words.push(arg)
-  }
-  const question = words.join(' ').trim()
+  const { positional, values, lists, booleans } = askFlags(argv)
+  const { context } = values
+  const { multi, json } = booleans
+  const choices = lists.choice
+  const timeoutSeconds = timeoutFlag(values.timeout)
+  const question = positional.join(' ').trim()
   if (!question) throw new Error(USAGE)
   if (multi && choices.length === 0) throw new Error('--multi needs at least one --choice')
   const contextFromStdin = context === '-'

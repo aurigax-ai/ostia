@@ -13,8 +13,10 @@ import type { OpenFilesResult } from '../shared/openFiles'
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runAgentHook } from './agentHook'
+import { parseArgs } from './args'
 import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
+import { BUS_QUEUED_HINT, type BusSendOk, type SentMessage, runBusHook, sentLines } from './bus'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
 import { runPaneVerb } from './pane'
@@ -34,16 +36,6 @@ interface ProcInfo {
 
 function processStatus(p: ProcInfo): string {
   return p.status === 'exited' && p.exitCode !== undefined ? `exited(${p.exitCode})` : p.status
-}
-
-function extractGlobalFlag(argv: string[]): { global: boolean; rest: string[] } {
-  const rest: string[] = []
-  let global = false
-  for (const arg of argv) {
-    if (arg === '--global') global = true
-    else rest.push(arg)
-  }
-  return { global, rest }
 }
 
 async function readSecretFromStdin(promptLabel: string): Promise<string> {
@@ -151,21 +143,18 @@ function describeVaultError(res: VaultErr): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
-function flagValue(args: string[], flag: string): string | undefined {
-  const at = args.indexOf(flag)
-  return at >= 0 ? args[at + 1] : undefined
-}
-
 async function runSecretVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
-  const rest = process.argv.slice(4)
-  const target = rest[0]
-  const reason = flagValue(rest, '--reason') ?? ''
   if (sub === 'ls') {
     const list =
       await conn.sendRequest<{ name: string; source: string; kind: string }[]>('secret.list')
     for (const s of list) console.log(`${s.source}\t${s.kind}\t${s.name}`)
   } else if (sub === 'get') {
+    const { positional, values } = parseArgs(process.argv.slice(4), {
+      values: { reason: '--reason' },
+    })
+    const target = positional[0]
+    const reason = values.reason ?? ''
     if (!target) {
       console.error('pine secret get: missing <name>')
       process.exitCode = 1
@@ -238,8 +227,10 @@ async function runSandboxVerb(conn: MessageConnection): Promise<void> {
 
 async function runVaultVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
-  const { global, rest } = extractGlobalFlag(process.argv.slice(4))
-  const scope: 'project' | 'global' = global ? 'global' : 'project'
+  const { positional: rest, booleans } = parseArgs(process.argv.slice(4), {
+    booleans: { global: '--global' },
+  })
+  const scope: 'project' | 'global' = booleans.global ? 'global' : 'project'
 
   if (sub === 'set') {
     const key = rest[0]
@@ -444,6 +435,9 @@ interface BusOk {
   ok: true
   id?: string
 }
+interface BusSentResult {
+  messages: SentMessage[]
+}
 interface BusErr {
   ok: false
   error: string
@@ -455,6 +449,7 @@ interface BusMessage {
   to: string
   text: string
   ts: string
+  seenAt?: string
 }
 interface BusInboxResult {
   messages: BusMessage[]
@@ -493,15 +488,16 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<BusOk | BusErr>('bus.send', { to, text })
+    const res = await conn.sendRequest<BusSendOk | BusErr>('bus.send', { to, text })
     if (res.ok) {
       console.log(JSON.stringify(res))
+      if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
     } else {
       console.error(`pine: bus send failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'inbox') {
-    const drain = rawArgs.includes('--drain')
+    const { drain } = parseArgs(rawArgs, { booleans: { drain: '--drain' } }).booleans
     const res = await conn.sendRequest<BusInboxResult | BusErr>('bus.inbox', { drain })
     if ('messages' in res) {
       console.log(JSON.stringify(res.messages))
@@ -509,9 +505,24 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       console.error(`pine: bus inbox failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
+  } else if (sub === 'sent') {
+    const res = await conn.sendRequest<BusSentResult | BusErr>('bus.sent')
+    if ('messages' in res) {
+      if (rawArgs.includes('--json')) console.log(JSON.stringify(res.messages))
+      else for (const line of sentLines(res.messages)) console.log(line)
+    } else {
+      console.error(`pine: bus sent failed (${describeBusError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'hook') {
+    process.exitCode = await runBusHook(rawArgs, {
+      context: () => conn.sendRequest<{ text?: string | null }>('bus.context'),
+      out: (line) => console.log(line),
+      err: (line) => console.error(line),
+    })
   } else if (sub === 'wait') {
-    const { flags } = parseFlags(rawArgs, ['timeout'])
-    const timeoutMs = numberFlag(flags, 'timeout')
+    const { values } = parseArgs(rawArgs, { values: { timeout: '--timeout' } })
+    const timeoutMs = numberFlag(values.timeout, 'timeout')
     const res = await conn.sendRequest<BusWaitResult | BusErr>('bus.wait', { timeoutMs })
     if ('messages' in res) {
       console.log(JSON.stringify(res))
@@ -520,20 +531,23 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else if (sub === 'handoff') {
-    const { flags, rest } = parseFlags(rawArgs, ['task', 'summary'])
-    const to = rest[0]
+    const { values: flags, positional } = parseArgs(rawArgs, {
+      values: { task: '--task', summary: '--summary' },
+    })
+    const to = positional[0]
     if (!to || !flags.task || !flags.summary) {
       console.error('pine bus handoff: missing <to> --task "..." --summary "..."')
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<BusOk | BusErr>('bus.handoff', {
+    const res = await conn.sendRequest<BusSendOk | BusErr>('bus.handoff', {
       to,
       task: flags.task,
       summary: flags.summary,
     })
     if (res.ok) {
       console.log(JSON.stringify(res))
+      if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
     } else {
       console.error(`pine: bus handoff failed (${describeBusError(res)})`)
       process.exitCode = 1
@@ -553,7 +567,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else if (sub === 'handoffs') {
-    const all = rawArgs.includes('--all')
+    const { all } = parseArgs(rawArgs, { booleans: { all: '--all' } }).booleans
     const res = await conn.sendRequest<BusHandoffsResult | BusErr>('bus.handoffs', { all })
     if ('handoffs' in res) {
       console.log(JSON.stringify(res.handoffs))
@@ -577,7 +591,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     }
   } else {
     console.error(
-      `pine bus: unknown subcommand '${sub ?? ''}' (try: send, inbox, wait, handoff, claim, handoffs, done)`,
+      `pine bus: unknown subcommand '${sub ?? ''}' (try: send, inbox, sent, wait, handoff, claim, handoffs, done)`,
     )
     process.exitCode = 1
   }
@@ -628,12 +642,14 @@ function describeGatewayError(res: GatewayErr): string {
 
 async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
-  const { flags, rest } = parseFlags(process.argv.slice(4), ['host', 'port'])
 
   if (sub === 'enable') {
+    const { values } = parseArgs(process.argv.slice(4), {
+      values: { host: '--host', port: '--port' },
+    })
     const res = await conn.sendRequest<GatewayStartResult | GatewayErr>('gateway.enable', {
-      host: flags.host || undefined,
-      port: numberFlag(flags, 'port'),
+      host: values.host || undefined,
+      port: numberFlag(values.port, 'port'),
     })
     if (isErrResult(res)) {
       console.error(`pine: gateway enable failed (${describeGatewayError(res)})`)
@@ -677,7 +693,7 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
       console.log(`${d.deviceId}\t${d.name}\t${d.caps.join(',')}\t${d.createdAt}`)
     }
   } else if (sub === 'revoke') {
-    const deviceId = rest[0]
+    const deviceId = process.argv[4]
     if (!deviceId) {
       console.error('pine gateway revoke: missing <deviceId>')
       process.exitCode = 1
@@ -698,26 +714,7 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   }
 }
 
-function parseFlags(
-  argv: string[],
-  flagNames: string[],
-): { flags: Record<string, string>; rest: string[] } {
-  const flags: Record<string, string> = {}
-  const rest: string[] = []
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]
-    const name = arg.startsWith('--') ? arg.slice(2) : undefined
-    if (name && flagNames.includes(name)) {
-      flags[name] = argv[++i] ?? ''
-    } else {
-      rest.push(arg)
-    }
-  }
-  return { flags, rest }
-}
-
-function numberFlag(flags: Record<string, string>, name: string): number | undefined {
-  const raw = flags[name]
+function numberFlag(raw: string | undefined, name: string): number | undefined {
   if (raw === undefined) return undefined
   const n = Number(raw)
   if (raw.trim() === '' || !Number.isFinite(n)) {
@@ -741,8 +738,11 @@ function describeErrResult(res: ErrResult): string {
 }
 
 async function runAgentVerb(conn: MessageConnection): Promise<void> {
-  const { flags, rest } = parseFlags(process.argv.slice(4), ['name', 'cwd'])
-  const [agent, given] = rest
+  const { values: flags, positional } = parseArgs(process.argv.slice(4), {
+    values: { name: '--name', cwd: '--cwd' },
+    unknown: 'keep',
+  })
+  const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) {
     console.error('usage: pine agent run <agent> [--name N] [--cwd DIR] <prompt|->')
     process.exitCode = 1
@@ -766,8 +766,11 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
   const rawArgs = process.argv.slice(4)
 
   if (sub === 'run') {
-    const { flags, rest } = parseFlags(rawArgs, ['name', 'cwd'])
-    const cmd = rest[0]
+    const { values: flags, positional } = parseArgs(rawArgs, {
+      values: { name: '--name', cwd: '--cwd' },
+      unknown: 'keep',
+    })
+    const cmd = positional[0]
     if (!cmd) {
       console.error('pine process run: missing "<cmd>"')
       process.exitCode = 1
@@ -799,14 +802,14 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       console.log(`${p.id}\t${p.name}\t${processStatus(p)}\t${p.paneId}\t${p.cmd}`)
     }
   } else if (sub === 'logs') {
-    const { flags, rest } = parseFlags(rawArgs, ['since'])
-    const id = rest[0]
+    const { values, positional } = parseArgs(rawArgs, { values: { since: '--since' } })
+    const id = positional[0]
     if (!id) {
       console.error('pine process logs: missing <id|name>')
       process.exitCode = 1
       return
     }
-    const sinceCursor = numberFlag(flags, 'since')
+    const sinceCursor = numberFlag(values.since, 'since')
     const res = await conn.sendRequest<
       { data: string; cursor: number; dropped: boolean } | ErrResult
     >('process.output', { id, sinceCursor })
@@ -869,9 +872,12 @@ async function runSettingsVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
     }
   } else if (sub === 'set') {
-    const rest = process.argv.slice(4)
-    const dryRun = rest.includes('--dry-run')
-    const [key, rawValue] = rest.filter((a) => a !== '--dry-run')
+    const { positional, booleans } = parseArgs(process.argv.slice(4), {
+      booleans: { dryRun: '--dry-run' },
+      unknown: 'keep',
+    })
+    const { dryRun } = booleans
+    const [key, rawValue] = positional
     if (!key || rawValue === undefined) {
       console.error('pine settings set: missing <key> <value>')
       process.exitCode = 1
@@ -932,13 +938,11 @@ function messageFromStdin(raw: string): string {
 }
 
 async function runStateVerb(conn: MessageConnection): Promise<void> {
-  const args = process.argv.slice(3)
-  let paneId: string | undefined
-  const positional: string[] = []
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--pane') paneId = args[++i]
-    else positional.push(args[i])
-  }
+  const { positional, values } = parseArgs(process.argv.slice(3), {
+    values: { pane: '--pane' },
+    unknown: 'keep',
+  })
+  const paneId = values.pane
   const [state, rawMessage] = positional
   if (!state || !STATE_VERBS.includes(state)) {
     console.error(`pine state: expected one of ${STATE_VERBS.join('|')}`)
@@ -1009,7 +1013,7 @@ async function runWorkspaceCommand(
 async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   const [sub, ...rest] = process.argv.slice(3)
   if (sub === 'list') {
-    await runWorkspaceList(conn, rest.includes('--json'))
+    await runWorkspaceList(conn, parseArgs(rest, { booleans: { json: '--json' } }).booleans.json)
     return
   }
   if (sub === 'group') {
@@ -1045,8 +1049,12 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     process.exitCode = 1
     return
   }
-  const clear = rest.includes('--clear')
-  const raw = rest.filter((a) => a !== '--clear').join(' ')
+  const { positional, booleans } = parseArgs(rest, {
+    booleans: { clear: '--clear' },
+    unknown: 'keep',
+  })
+  const { clear } = booleans
+  const raw = positional.join(' ')
   const text = clear ? '' : raw === '-' ? await readAllStdin() : raw
   if (!clear && !text.trim()) {
     console.error('pine workspace describe: missing <text|-> (or --clear)')
@@ -1088,11 +1096,12 @@ function describeWorkflow(w: WorkflowEntry): string {
 
 async function runWorkflowVerb(conn: MessageConnection): Promise<void> {
   const [sub, ...rest] = process.argv.slice(3)
-  const json = rest.includes('--json')
-  const name = rest
-    .filter((a) => a !== '--json')
-    .join(' ')
-    .trim()
+  const { positional, booleans } = parseArgs(rest, {
+    booleans: { json: '--json' },
+    unknown: 'keep',
+  })
+  const { json } = booleans
+  const name = positional.join(' ').trim()
   if (sub !== 'list' && !(sub === 'show' && name)) {
     console.error(WORKFLOW_USAGE)
     process.exitCode = 1

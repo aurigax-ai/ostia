@@ -28,6 +28,7 @@ export const en = {
       'assist.compose': 'Compose with Assistant',
       'assist.settings': 'Assistant: Settings',
       'attention.jumpToLatest': 'Jump to Latest Unread',
+      'attention.message': 'Show a Message From Another Pane',
       'attention.notify': 'Mark Pane Unread',
       'attention.set': 'Set Pane Attention',
       'block.copyBoth': 'Copy Block Command and Output',
@@ -215,6 +216,8 @@ export const en = {
     commandFinished: 'Command finished',
     agentWaiting: 'Agent needs your input',
     agentDone: 'Agent finished',
+    messageFrom: 'Message from {from}',
+    messageFromPane: 'Message from another pane',
     commandFailed: 'Command failed (exit {code})',
     jumpToLatest: 'Jump to latest unread',
   },
@@ -431,7 +434,7 @@ export const en = {
     unixSockets: 'Unix sockets',
     allowUnixSockets: 'Allow Unix sockets',
     allowUnixSocketsLinux:
-      'Linux can only allow or block all of them. Off, nothing in the sandbox can open a Unix socket, so the pine command, a granted SSH key and tools such as Docker stop working there. On, any socket whose path is not hidden can be reached.',
+      'Linux can only allow or block all of them. Off, nothing in the sandbox can open a Unix socket, so the pine command, a granted SSH key, exposed ports and tools such as Docker stop working there. On, any socket whose path is not hidden can be reached.',
     allowUnixSocketsMac:
       'Off, nothing in the sandbox can open a Unix socket, so the pine command stops working there. On, only {product}’s socket and the sockets listed below can be reached.',
     unixSocketsUnsupported:
@@ -533,6 +536,8 @@ export const en = {
     open: 'Open',
     exposed: 'Exposed',
     exposeFailed: 'Could not expose port {port}: {error}',
+    exposeNeedsUnixSockets:
+      'Port {port} cannot be exposed while Unix sockets are off for this sandbox. Allow Unix sockets, then restart its terminals.',
     requirementsTitle: 'The sandbox needs more software',
     requirementsBody:
       'Install {packages} to turn the sandbox on. It stays off until they are installed.',
@@ -2407,6 +2412,7 @@ export const zhHant: Dict = {
       'assist.compose': '使用助理撰寫',
       'assist.settings': '助理：設定',
       'attention.jumpToLatest': '跳到最新的未讀項目',
+      'attention.message': '顯示來自其他窗格的訊息',
       'attention.notify': '將窗格標示為未讀',
       'attention.set': '設定窗格的注意狀態',
       'block.copyBoth': '複製區塊指令與輸出',
@@ -2594,6 +2600,8 @@ export const zhHant: Dict = {
     commandFinished: '指令已完成',
     agentWaiting: '代理程式需要你的輸入',
     agentDone: '代理程式已完成',
+    messageFrom: '來自 {from} 的訊息',
+    messageFromPane: '來自其他面板的訊息',
     commandFailed: '指令失敗（結束代碼 {code}）',
     jumpToLatest: '跳至最新未讀',
   },
@@ -2804,7 +2812,7 @@ export const zhHant: Dict = {
     unixSockets: 'Unix socket',
     allowUnixSockets: '允許 Unix socket',
     allowUnixSocketsLinux:
-      'Linux 只能全部允許或全部封鎖。關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 pine 指令、已授予的 SSH 金鑰與 Docker 等工具在其中無法運作。開啟時，可以連線到任何未被隱藏的 socket。',
+      'Linux 只能全部允許或全部封鎖。關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 pine 指令、已授予的 SSH 金鑰、開放的連接埠與 Docker 等工具在其中無法運作。開啟時，可以連線到任何未被隱藏的 socket。',
     allowUnixSocketsMac:
       '關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 pine 指令在其中無法運作。開啟時，只能連線到 {product} 的 socket 與下方列出的 socket。',
     unixSocketsUnsupported:
@@ -2904,6 +2912,8 @@ export const zhHant: Dict = {
     open: '開啟',
     exposed: '已開放',
     exposeFailed: '無法開放連接埠 {port}：{error}',
+    exposeNeedsUnixSockets:
+      '此沙箱的 Unix socket 已關閉，無法開放連接埠 {port}。請允許 Unix socket，然後重新啟動其終端機。',
     requirementsTitle: '沙箱需要額外的軟體',
     requirementsBody: '安裝 {packages} 後才能開啟沙箱。在安裝完成前，沙箱會保持關閉。',
     requirementsClose: '稍後',

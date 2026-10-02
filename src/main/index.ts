@@ -74,6 +74,7 @@ import { BrowserProfiles } from './browserProfiles'
 import { registerBrowserStorageIpc } from './browserStorage'
 import { browserUserAgent } from './browserUserAgent'
 import { registerBusMethods } from './bus'
+import { announceBusMessage } from './busNotice'
 import { dropIdentity, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
@@ -170,7 +171,8 @@ import { HostPaneGrants } from './sandbox/hostPanes'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { packageCooldownEnv } from './sandbox/packageEnv'
 import { PackageRequests } from './sandbox/packageRequests'
-import { PortForwarder } from './sandbox/portForwarder'
+import { PortBridge } from './sandbox/portBridge'
+import { PortForwarder, type SandboxPane } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
 import {
   needsPtyRelay,
@@ -272,6 +274,7 @@ interface PtyEntry {
   sandboxed: boolean
   shell: string
   sandboxStamp: string | null
+  portBridge: PortBridge | null
   confinedBy: string | null
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
@@ -668,15 +671,20 @@ const domainRequests: DomainRequests = new DomainRequests({
 
 let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
 
-function sandboxedPids(workspaceId: string): number[] {
-  const pids: number[] = []
+function sandboxedPanes(workspaceId: string): SandboxPane[] {
+  const panes: SandboxPane[] = []
   for (const entry of ptys.values()) {
-    if (entry.workspaceId === workspaceId && entry.sandboxed) pids.push(entry.pty.pid)
+    if (entry.workspaceId === workspaceId && entry.sandboxed) {
+      panes.push({ pid: entry.pty.pid, bridge: entry.portBridge })
+    }
   }
-  return pids
+  return panes
 }
 
-const portForwarder = new PortForwarder({ pidsOf: sandboxedPids })
+const portForwarder = new PortForwarder({
+  panesOf: sandboxedPanes,
+  unixSocketsOff: (workspaceId) => !workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
+})
 
 const PACKAGE_BATCH_MS = 600
 
@@ -731,6 +739,12 @@ const portRequests: PortRequests = new PortRequests({
 })
 
 const PORT_SCAN_MS = 3000
+
+function bridgesPorts(workspaceId: string): boolean {
+  return (
+    process.platform === 'linux' && workspaceSandboxes.resolved(workspaceId).switches.unixSockets
+  )
+}
 
 const HOST_GRANT_TTL_MS = 120_000
 const hostPaneGrants = new HostPaneGrants({ now: Date.now, ttlMs: HOST_GRANT_TTL_MS })
@@ -1573,6 +1587,7 @@ function registerPtyIpc(): void {
     let secretNotice = ''
     let sandboxStamp: string | null = null
     let resizePipe: string | null = null
+    let portBridge: PortBridge | null = null
     let file = shell
     let args = [...integration.args, ...shellArgs]
     let cwd = resolveCwd(opts.cwd)
@@ -1586,9 +1601,17 @@ function registerPtyIpc(): void {
         resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
           ? join(workspaceSandboxes.tmpDir(workspaceId), `resize-${randomUUID()}`)
           : null
+        portBridge = bridgesPorts(workspaceId)
+          ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId))
+          : null
         const wrapped = await workspaceSandboxes.wrap(
           workspaceId,
-          sandboxedShellCommand(quoteArgv([shell, ...args]), env.SHELL, resizePipe),
+          sandboxedShellCommand(
+            quoteArgv([shell, ...args]),
+            env.SHELL,
+            resizePipe,
+            portBridge?.command ?? null,
+          ),
           'bash',
           [stateFile],
         )
@@ -1606,6 +1629,7 @@ function registerPtyIpc(): void {
         env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
         cwd = sandboxCwd(cwd, workspaceSandboxes.workDir(workspaceId))
       } catch (err) {
+        portBridge?.close()
         const missing = err instanceof SandboxUnavailableError ? err.missing : []
         onSandboxSpawnFailure?.(workspaceId, missing)
         return {
@@ -1617,7 +1641,10 @@ function registerPtyIpc(): void {
         }
       }
     }
-    if (ptys.has(paneId)) return attachPty(e, paneId, opts)
+    if (ptys.has(paneId)) {
+      portBridge?.close()
+      return attachPty(e, paneId, opts)
+    }
     const pty = mod.spawn(file, args, {
       name: PTY_TERM_NAME,
       cols,
@@ -1636,11 +1663,13 @@ function registerPtyIpc(): void {
       sandboxed,
       shell,
       sandboxStamp,
+      portBridge,
     })
     const { session } = entry
     if (sandboxed) {
       entry.exitListeners.add(() => {
         if (resizePipe) rmSync(resizePipe, { force: true })
+        portBridge?.close()
         void workspaceSandboxes.cleanup(workspaceId)
         releaseMergedSandbox(workspaceId, entry)
       })
@@ -1765,6 +1794,7 @@ function trackPty(
     sandboxed?: boolean
     shell?: string
     sandboxStamp?: string | null
+    portBridge?: PortBridge | null
   },
 ): PtyEntry {
   const spawnedAt = Date.now()
@@ -1821,6 +1851,7 @@ function trackPty(
     sandboxed: opts.sandboxed ?? false,
     shell: opts.shell ?? '',
     sandboxStamp: opts.sandboxStamp ?? null,
+    portBridge: opts.portBridge ?? null,
     confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
   }
   ptys.set(paneId, entry)
@@ -2513,7 +2544,21 @@ app.whenReady().then(() => {
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     execCommand,
   })
-  registerBusMethods({ managerSendAllowed: () => managerLimiter?.busAllowed() ?? true })
+  registerBusMethods({
+    managerSendAllowed: () => managerLimiter?.busAllowed() ?? true,
+    announce: (from, to, text) => {
+      void announceBusMessage(
+        {
+          execCommand,
+          listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+          listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+        },
+        from,
+        to,
+        text,
+      ).catch(() => {})
+    },
+  })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   settingsSync = startSettingsSync({
     userData: app.getPath('userData'),

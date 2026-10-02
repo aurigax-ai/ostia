@@ -43,9 +43,14 @@ Example: `pine manager spawn claude --cwd ~/src/api --name "api tests" -- "run t
 
 ## Talk to workers
 
-- `pine bus send <paneId> "<message>"` — put a message in the worker's inbox. Tell the worker
-  in its first prompt to check `pine bus inbox` and to answer with `pine bus send <yourPaneId>`.
-- `pine bus inbox [--drain]`, `pine bus wait [--timeout MS]` — your own inbox.
+- `pine bus send <paneId> "<message>"` — put a message in the worker's inbox. It prints
+  `delivered: "waiting"` (the worker was in `pine bus wait` and has it) or `"queued"`: a claude or
+  codex worker then gets it as context at its next prompt, and its pane is marked unread for the
+  human. An idle worker is not woken by a message. Tell the worker in its first prompt to answer
+  with `pine bus send <yourPaneId>`.
+- `pine bus sent [--json]` — your own messages, each `seen` or `unseen` by its worker.
+- `pine bus inbox [--drain]`, `pine bus wait [--timeout MS]` — your own inbox. Workers' answers
+  also arrive as context at your next prompt, marked as messages from other panes.
 - `pine whoami` prints your own `paneId`.
 
 ## Type into a pane (only if the human allowed it)
