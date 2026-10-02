@@ -1,4 +1,5 @@
 import type { IBufferCellPosition, ILink, ILinkProvider, Terminal } from '@xterm/xterm'
+import { LRUCache } from 'lru-cache'
 import { findFileLinks, resolveLinkPath } from './fileLinks'
 
 interface LogicalLine {
@@ -37,12 +38,15 @@ export interface FileLinkDeps {
 }
 
 export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILinkProvider {
-  const cache = new Map<string, { at: number; kind: Promise<'file' | 'dir' | null> }>()
+  const cache = new LRUCache<string, Promise<'file' | 'dir' | null>>({
+    ttl: STAT_TTL_MS,
+    max: 500,
+  })
   const statCached = (path: string): Promise<'file' | 'dir' | null> => {
     const hit = cache.get(path)
-    if (hit && Date.now() - hit.at < STAT_TTL_MS) return hit.kind
+    if (hit) return hit
     const kind = deps.stat(path).catch(() => null)
-    cache.set(path, { at: Date.now(), kind })
+    cache.set(path, kind)
     return kind
   }
 
