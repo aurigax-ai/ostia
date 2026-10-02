@@ -32,6 +32,13 @@ describe('sessionTitle', () => {
 })
 
 describe('agentSession', () => {
+  it('has no session title while the pane still shows its default title', () => {
+    const untouched = { ...createPane(), title: 'nu' }
+    expect(agentSession(untouched, running('claude'), undefined, 'claude')?.title).toBeNull()
+    const titled = createPane('terminal', 'nu')
+    expect(agentSession(titled, running('claude'), undefined, 'claude')?.title).toBe('nu')
+  })
+
   it('describes an agent running in a terminal with its resume id and state', () => {
     const pane = {
       ...createPane('terminal', '✳ Resume tokens'),
