@@ -48,10 +48,17 @@ function session(
   return { out: `${run.stdout}${run.stderr}`, leftInTmp: readdirSync(tmp) }
 }
 
+function scriptArgv(shell: string): [string, string[]] {
+  if (process.platform === 'darwin') {
+    return ['script', ['-q', '/dev/null', shell, '-c', REMOTE_COMMAND]]
+  }
+  const quoted = `'${REMOTE_COMMAND.replaceAll("'", `'\\''`)}'`
+  return ['script', ['-qec', `${shell} -c ${quoted}`, '/dev/null']]
+}
+
 function ptySession(shell: string, home: string, input: string): string {
   const tmp = folder('pine-ssh-tmp-')
-  const quoted = `'${REMOTE_COMMAND.replaceAll("'", `'\\''`)}'`
-  const run = spawnSync('script', ['-qec', `${shell} -c ${quoted}`, '/dev/null'], {
+  const run = spawnSync(...scriptArgv(shell), {
     cwd: home,
     env: {
       HOME: home,
@@ -174,20 +181,23 @@ describe('remote command marks', () => {
     expect(out).toContain(mark(`633;E;${escaped}`))
   })
 
-  it('SSH-C40 reports every line of a pasted multi-line input in bash as the whole command before D', () => {
-    const home = folder('pine-ssh-home-')
-    writeFileSync(
-      join(home, '.bash_profile'),
-      `PS1="b> "\nHISTFILE='${join(home, 'history')}'\nbind 'set enable-bracketed-paste on'\n`,
-    )
-    const typed = `${ESC}[200~echo pine_ml_1\recho pine_ml_2${ESC}[201~\rexit\r`
-    expect(commandMarks(ptySession(which('bash'), home, typed)).slice(0, 4)).toEqual([
-      '633;E;echo pine_ml_1',
-      '133;C',
-      String.raw`633;E;echo pine_ml_1\x0aecho pine_ml_2`,
-      '133;D;0',
-    ])
-  })
+  it.skipIf(process.platform === 'darwin')(
+    'SSH-C40 reports every line of a pasted multi-line input in bash as the whole command before D (not on macOS: bash 3.2 has no bracketed paste)',
+    () => {
+      const home = folder('pine-ssh-home-')
+      writeFileSync(
+        join(home, '.bash_profile'),
+        `PS1="b> "\nHISTFILE='${join(home, 'history')}'\nbind 'set enable-bracketed-paste on'\n`,
+      )
+      const typed = `${ESC}[200~echo pine_ml_1\recho pine_ml_2${ESC}[201~\rexit\r`
+      expect(commandMarks(ptySession(which('bash'), home, typed)).slice(0, 4)).toEqual([
+        '633;E;echo pine_ml_1',
+        '133;C',
+        String.raw`633;E;echo pine_ml_1\x0aecho pine_ml_2`,
+        '133;D;0',
+      ])
+    },
+  )
 
   it('SSH-C40 reports a one-line bash command only once', () => {
     const home = folder('pine-ssh-home-')
