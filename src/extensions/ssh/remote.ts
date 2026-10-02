@@ -38,6 +38,7 @@ add-zsh-hook chpwd __pine_osc7
 const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
 
 const BASH_INIT = `__pine_executing=0
+__pine_first=
 __pine_interactive_mode=
 __pine_osc7() { printf '\\e]7;file://%s%s\\e\\\\' "$HOSTNAME" "$PWD"; }
 __pine_mark_e() {
@@ -56,16 +57,44 @@ __pine_preexec() {
   __pine_executing=1
   local line
   line=$(LC_ALL=C HISTTIMEFORMAT= builtin history 1)
-  line=\${line#*[[:digit:]][* ] }
-  case "$line" in
-    *"$BASH_COMMAND"*) __pine_mark_e "$line" ;;
+  __pine_first=\${line#"\${line%%[! ]*}"}
+  __pine_first=\${__pine_first%%[!0-9]*}
+  __pine_line=\${line#*[[:digit:]][* ] }
+  case "$__pine_line" in
+    *"$BASH_COMMAND"*) __pine_mark_e "$__pine_line" ;;
+    *) __pine_first= ;;
   esac
   printf '\\e]133;C\\e\\\\'
+}
+__pine_mark_whole() {
+  [ -n "$__pine_first" ] || return 0
+  local f=$__pine_first l p n nl=$'\\n' e
+  __pine_first=
+  l=$(LC_ALL=C HISTTIMEFORMAT= builtin history 1)
+  l=\${l#"\${l%%[! ]*}"}
+  l=\${l%%[!0-9]*}
+  [ "$l" -gt "$f" ] 2>/dev/null || return 0
+  e=$l
+  l=$(LC_ALL=C HISTTIMEFORMAT= builtin history $((e - f + 1)))
+  printf -v p '%5d' "$f"
+  case "$l" in
+    "$p"[*\\ ]" $__pine_line$nl"*) l=\${l#"$p"[* ] } ;;
+    *) return 0 ;;
+  esac
+  for ((n = f + 1; n <= e; n++)); do
+    printf -v p '%5d' "$n"
+    case "$l" in
+      *"$nl$p"[*\\ ]" "*) l=\${l/"$nl$p"[* ] /$nl} ;;
+      *) return 0 ;;
+    esac
+  done
+  __pine_mark_e "$l"
 }
 __pine_orig_prompt_command=("\${PROMPT_COMMAND[@]}")
 __pine_prompt_command() {
   local ec=$?
   if [ "$__pine_executing" = 1 ]; then
+    __pine_mark_whole
     printf '\\e]133;D;%s\\e\\\\' "$ec"
     __pine_executing=0
   fi
