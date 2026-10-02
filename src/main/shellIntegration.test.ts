@@ -42,7 +42,7 @@ const CLAUDE_PLUGIN = join(AGENT_DIR, 'claude-plugin')
 
 describe('test isolation', () => {
   it("writes the integration files under this run's private temp folder", () => {
-    expect(process.env.TMPDIR).toMatch(/pine-vitest-/)
+    expect(process.env.TMPDIR).toMatch(process.platform === 'darwin' ? /\/pv-/ : /pine-vitest-/)
     expect(INTEGRATION_DIR.startsWith(`${process.env.TMPDIR}/`)).toBe(true)
   })
 })
