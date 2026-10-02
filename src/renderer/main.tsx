@@ -19,6 +19,7 @@ import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
 import { wireManagerBridge } from './commands/managerBridge'
 import { wirePaneRunBridge } from './commands/paneRunBridge'
+import { registerRegionCaptureCommand } from './commands/regionCapture'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
@@ -59,6 +60,7 @@ startErrorReporting()
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()
+registerRegionCaptureCommand()
 registerViewCommands()
 wireCommandBridge()
 wireTerminalStateBridge()

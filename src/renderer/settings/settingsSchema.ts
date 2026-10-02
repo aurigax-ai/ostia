@@ -593,6 +593,11 @@ export const SETTINGS_JSON_SCHEMA = {
           maximum: 300,
           description: 'Page zoom in percent for browser panes when a page loads. Default: 100.',
         },
+        attachCaptureImage: {
+          type: 'boolean',
+          description:
+            'When a browser capture (a picked element or a cropped region) is sent to an agent, insert its screenshot as a second @reference after the report, so agents that attach @image paths see the picture. Default: true.',
+        },
       },
     },
     editor: {

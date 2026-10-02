@@ -52,6 +52,7 @@ import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { QuestionState } from '../shared/questions'
+import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/regionCapture'
 import type { ReleaseCheckResult, ReleaseInfo } from '../shared/releases'
 import type {
   SandboxEditError,
@@ -371,6 +372,11 @@ const bridge: PineBridge = {
       ipcRenderer.on('browser:pick-state', handler)
       return () => ipcRenderer.removeListener('browser:pick-state', handler)
     },
+    regionCapture: (paneId, req) =>
+      ipcRenderer.invoke('browser:region-capture', paneId, req) as Promise<RegionCaptureOutcome>,
+    regionSend: (req) => ipcRenderer.invoke('browser:region-send', req) as Promise<PickSendResult>,
+    regionCopy: (paneId, captureId) =>
+      ipcRenderer.invoke('browser:region-copy', paneId, captureId) as Promise<RegionCopyResult>,
     storageRead: (paneId) =>
       ipcRenderer.invoke('browser:storage-read', paneId) as Promise<BrowserStorageRead>,
     storageSet: (paneId, edit) =>
