@@ -190,6 +190,8 @@ export interface McpToolInfo {
   inputSchema: Record<string, unknown>
 }
 
+export type McpAuthState = 'required' | 'signing-in' | 'signed-in' | 'expired'
+
 export interface McpServerStatus {
   name: string
   transport: McpTransportKind
@@ -197,6 +199,7 @@ export interface McpServerStatus {
   error?: string
   tools: McpToolInfo[]
   secretsSet: string[]
+  auth?: McpAuthState
 }
 
 export interface SkillSummary {
@@ -334,6 +337,21 @@ export type McpCallResult = { ok: true; output: string } | { ok: false; error: s
 
 export type McpSecretResult = { ok: true } | { ok: false; error: string }
 
+export type McpSignInError =
+  | 'unknown-server'
+  | 'not-http'
+  | 'in-progress'
+  | 'not-needed'
+  | 'encryption-unavailable'
+  | 'browser'
+  | 'timeout'
+  | 'cancelled'
+  | 'failed'
+
+export type McpSignInResult = { ok: true } | { ok: false; error: McpSignInError; detail?: string }
+
+export type McpTestResult = { ok: true; tools: number } | { ok: false; error: string }
+
 export type SkillLoadResult =
   | { ok: true; name: string; body: string; path: string }
   | { ok: false; error: string }
@@ -355,6 +373,10 @@ export interface ChatToolsApi {
   mcpCall: (callId: string, server: string, tool: string, input: unknown) => Promise<McpCallResult>
   mcpCancel: (callId: string) => void
   setMcpSecret: (server: string, key: string, value: string | null) => Promise<McpSecretResult>
+  mcpSignIn: (server: string) => Promise<McpSignInResult>
+  mcpCancelSignIn: (server: string) => void
+  mcpSignOut: (server: string) => Promise<McpServerStatus[]>
+  mcpTest: (server: string) => Promise<McpTestResult>
 }
 
 export const CHAT_READ_LINES_MAX = 2000

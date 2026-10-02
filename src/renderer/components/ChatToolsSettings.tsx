@@ -8,9 +8,12 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import {
+  type McpAuthState,
   type McpServerSettings,
   type McpServerState,
   type McpServerStatus,
+  type McpSignInResult,
+  type McpTestResult,
   mcpTransportOf,
 } from '@shared/chatTools'
 import { isSkillPath } from '@shared/managerSettings'
@@ -173,6 +176,83 @@ function ServerTools({
   )
 }
 
+const AUTH_DOT: Record<McpAuthState, string> = {
+  required: 'bg-attn',
+  'signing-in': 'bg-fg-muted',
+  'signed-in': 'bg-ok',
+  expired: 'bg-attn',
+}
+
+function ServerAuth({
+  server,
+  auth,
+}: {
+  server: McpServerSettings
+  auth: McpAuthState
+}): JSX.Element {
+  const d = useDict()
+  const t = d.chatTools
+  const [failure, setFailure] = useState<Extract<McpSignInResult, { ok: false }> | null>(null)
+  const signIn = async (): Promise<void> => {
+    setFailure(null)
+    const result = await window.pine.chatTools
+      .mcpSignIn(server.name)
+      .catch((): McpSignInResult => ({ ok: false, error: 'failed' }))
+    setFailure(result.ok || result.error === 'cancelled' ? null : result)
+  }
+  return (
+    <div data-mcp-auth={auth} className="flex basis-full flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="flex min-w-0 flex-1 items-center gap-1.5 text-fg-muted text-ui-xs">
+          <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', AUTH_DOT[auth])} />
+          <output>{t.authStates[auth]}</output>
+        </p>
+        {auth === 'required' || auth === 'expired' ? (
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={fmt(t.signInTo, { name: server.name })}
+            onClick={() => void signIn()}
+          >
+            {t.signIn}
+          </Button>
+        ) : null}
+        {auth === 'signing-in' ? (
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={fmt(t.cancelSignInTo, { name: server.name })}
+            onClick={() => window.pine.chatTools.mcpCancelSignIn(server.name)}
+          >
+            {t.cancelSignIn}
+          </Button>
+        ) : null}
+        {auth === 'signed-in' || auth === 'expired' ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={fmt(t.signOutOf, { name: server.name })}
+            onClick={() => {
+              setFailure(null)
+              void window.pine.chatTools.mcpSignOut(server.name)
+            }}
+          >
+            {t.signOut}
+          </Button>
+        ) : null}
+      </div>
+      {failure ? (
+        <p role="alert" className="break-words text-attn-fg text-ui-xs">
+          {t.signInErrors[failure.error]}
+          {failure.detail ? ` ${failure.detail}` : ''}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+type TestState = { phase: 'running' } | { phase: 'done'; result: McpTestResult }
+
 function ServerItem({
   server,
   onEdit,
@@ -188,6 +268,18 @@ function ServerItem({
   const state: McpServerState = server.enabled ? (status?.state ?? 'idle') : 'off'
   const http = mcpTransportOf(server) === 'http'
   const target = server.url ?? quoteArgv(server.command ?? [])
+  const [test, setTest] = useState<TestState | null>(null)
+  const auth = status?.auth
+  useEffect(() => {
+    if (state || auth) setTest((shown) => (shown?.phase === 'done' ? null : shown))
+  }, [state, auth])
+  const runTest = async (): Promise<void> => {
+    setTest({ phase: 'running' })
+    const result = await window.pine.chatTools
+      .mcpTest(server.name)
+      .catch((): McpTestResult => ({ ok: false, error: '' }))
+    setTest({ phase: 'done', result })
+  }
   return (
     <Item variant="outline" size="sm" render={<li />} className={ROW} data-mcp={server.name}>
       <ItemContent className="min-w-0 gap-0.5">
@@ -211,8 +303,30 @@ function ServerItem({
             {status.error}
           </p>
         ) : null}
+        {test?.phase === 'running' ? (
+          <output className="text-fg-muted text-ui-xs">{t.testing}</output>
+        ) : null}
+        {test?.phase === 'done' && test.result.ok ? (
+          <output className="text-fg-muted text-ui-xs">
+            {fmt(t.testPassed, { count: test.result.tools })}
+          </output>
+        ) : null}
+        {test?.phase === 'done' && !test.result.ok ? (
+          <p role="alert" className="break-words text-attn-fg text-ui-xs">
+            {[t.testFailed, test.result.error].filter(Boolean).join(': ')}
+          </p>
+        ) : null}
       </ItemContent>
       <ItemActions className="self-start">
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={fmt(t.testServerNamed, { name: server.name })}
+          disabled={test?.phase === 'running'}
+          onClick={() => void runTest()}
+        >
+          {t.testServer}
+        </Button>
         {server.enabled && (state === 'error' || state === 'idle') ? (
           <Button
             variant="outline"
@@ -239,6 +353,7 @@ function ServerItem({
           onClick={onRemove}
         />
       </ItemActions>
+      {status?.auth ? <ServerAuth server={server} auth={status.auth} /> : null}
       {server.enabled && status && status.tools.length > 0 ? (
         <ServerTools server={server} status={status} />
       ) : null}
