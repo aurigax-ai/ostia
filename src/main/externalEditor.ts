@@ -2,16 +2,8 @@ import { spawn } from 'node:child_process'
 import { constants, accessSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
 import { splitArgs } from '../shared/argv'
-import { findOnPath as findOnPathShared } from '../shared/pathLookup'
 import type { ExternalEditorRequest, ExternalEditorResult } from '../shared/types'
-
-export function findOnPath(
-  bin: string,
-  pathEnv: string,
-  isExecutable: (p: string) => boolean,
-): string | null {
-  return findOnPathShared(bin, pathEnv, isExecutable)
-}
+import { findOnPath } from './pathLookup'
 
 export const AUTO_EDITOR = 'auto'
 
@@ -52,7 +44,7 @@ export function resolveEditorTemplate(
   const trimmed = setting.trim()
   if (!trimmed) return null
   if (trimmed !== AUTO_EDITOR) return trimmed
-  const found = KNOWN_EDITORS.find((e) => findOnPathShared(e.bin, pathEnv, isExecutable) !== null)
+  const found = KNOWN_EDITORS.find((e) => findOnPath(e.bin, pathEnv, isExecutable))
   return found?.template ?? null
 }
 
