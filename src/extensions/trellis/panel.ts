@@ -15,7 +15,6 @@ import plus from '@phosphor-icons/core/regular/plus.svg'
 import robot from '@phosphor-icons/core/regular/robot.svg'
 import userCircle from '@phosphor-icons/core/regular/user-circle.svg'
 import xIcon from '@phosphor-icons/core/regular/x.svg'
-import { formatRelativeTime } from '../../shared/relativeTime'
 import {
   type ShownColumn,
   type ThreadItem,
@@ -113,7 +112,8 @@ let workMenu: string | null = null
 let busy = false
 let requestSeq = 0
 
-const TRELLIS_RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+const relative = new Intl.RelativeTimeFormat(context.locale, { numeric: 'auto' })
+const RELATIVE_STEPS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['year', 31_536_000_000],
   ['month', 2_592_000_000],
   ['day', 86_400_000],
@@ -122,7 +122,11 @@ const TRELLIS_RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
 ]
 
 function relativeTime(ms: number): string {
-  return formatRelativeTime(ms, Date.now(), context.locale, TRELLIS_RELATIVE_UNITS)
+  const diff = ms - Date.now()
+  for (const [unit, size] of RELATIVE_STEPS) {
+    if (Math.abs(diff) >= size) return relative.format(Math.round(diff / size), unit)
+  }
+  return relative.format(Math.round(diff / 1000), 'second')
 }
 
 function absoluteTime(ms: number): string {
