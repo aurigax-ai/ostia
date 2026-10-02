@@ -40,3 +40,19 @@ export interface ToggleWindow {
 export function shouldHideWindows(windows: readonly ToggleWindow[]): boolean {
   return windows.some((w) => !w.isDestroyed() && w.isVisible() && w.isFocused())
 }
+
+export interface ToggleTray<W extends ToggleWindow> {
+  hide: (win: W) => void
+}
+
+export function toggleWindows<W extends ToggleWindow>(
+  windows: readonly W[],
+  tray: ToggleTray<W> | null,
+  reveal: () => void,
+): void {
+  if (!tray || !shouldHideWindows(windows)) {
+    reveal()
+    return
+  }
+  for (const win of windows) if (!win.isDestroyed() && win.isVisible()) tray.hide(win)
+}
