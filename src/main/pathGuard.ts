@@ -1,5 +1,6 @@
 import { homedir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
+import { isRemotePath } from '../shared/remoteFolders'
 
 export function expandHome(p: string): string {
   const home = homedir()
@@ -15,6 +16,7 @@ function isInsideRoot(root: string, target: string): boolean {
 }
 
 export function resolveSafe(inputPath: string, roots: string[]): string | null {
+  if (isRemotePath(inputPath)) return null
   const resolved = resolve(expandHome(inputPath))
   for (const root of roots) {
     const resolvedRoot = resolve(expandHome(root))

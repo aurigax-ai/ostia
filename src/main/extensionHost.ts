@@ -117,6 +117,12 @@ import type { IconThemeContribution } from '../shared/iconTheme'
 import { LANGUAGE_SERVER_CAPABILITY, languageServerSummary } from '../shared/languageServers'
 import type { RedactionResult } from '../shared/redaction'
 import { redactAssistRequest } from '../shared/redactionTargets'
+import {
+  FOLDER_CLOSED_EVENT,
+  type RemoteCwd,
+  type RemoteFilesRequest,
+  type RemoteFolder,
+} from '../shared/remoteFolders'
 import { quoteArgv } from '../shared/shellQuote'
 import type { Workflow } from '../shared/workflows'
 import type { AgentPluginSource } from './agentSkills'
@@ -151,6 +157,7 @@ import {
 } from './idRegistry'
 import type { LanguageSource } from './languagePacks'
 import type { LanguageServerSource } from './languageServers'
+import { REMOTE_REQUEST_TIMEOUT_MS, RemoteFolders, type RemoteFoldersDeps } from './remoteFolders'
 
 export const MAX_RESTARTS = 3
 export const REQUEST_TIMEOUT_MS = 30_000
@@ -352,6 +359,10 @@ export interface ExtensionHostDeps {
   offerToAgentIn?: (offer: Omit<ExtensionAgentOffer, 'requestId'>) => Promise<AgentOfferDelivery>
   focusPaneIn?: (pane: PaneIdentity) => boolean
   agentTaskClock?: () => number
+  remoteCwdForPane?: (paneId: string) => RemoteCwd | undefined
+  remoteFolders?: Pick<RemoteFoldersDeps, 'windowOfWorkspace' | 'refusal' | 'confirm'> & {
+    publish: (folders: RemoteFolders) => void
+  }
 }
 
 const HOST_TERMINAL_NOTE = 'Runs outside the sandbox, in a terminal you can watch:'
@@ -492,6 +503,7 @@ export class ExtensionHost {
   private shortcuts: Record<string, string> = {}
   private announcedLocale: string
   private readonly agentTasks: ReturnType<typeof agentTaskLimiter>
+  readonly remoteFolders: RemoteFolders | null
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
@@ -500,6 +512,7 @@ export class ExtensionHost {
     this.assistSettings = parseAssistModelSettings(deps.readAssistSettings?.()?.assistant)
     this.announcedLocale = this.currentLocale()
     this.agentTasks = agentTaskLimiter(deps.agentTaskClock)
+    this.remoteFolders = this.createRemoteFolders()
   }
 
   private discover(): LoadedExtension[] {
@@ -976,6 +989,7 @@ export class ExtensionHost {
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
     this.clearWorkspaceChipsWhere((chip) => chip.extId === id)
+    this.remoteFolders?.extensionGone(id)
     if (rt.stopping || !this.active(rt)) {
       rt.state = 'idle'
     } else if (rt.restarts < MAX_RESTARTS) {
@@ -1023,6 +1037,7 @@ export class ExtensionHost {
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
     this.clearWorkspaceChipsWhere((chip) => chip.extId === id)
+    this.remoteFolders?.extensionGone(id)
   }
 
   stopAll(): void {
@@ -1120,6 +1135,8 @@ export class ExtensionHost {
     const locale = this.deps.locale?.()
     if (locale) caller.locale = locale
     if (this.deps.isSandboxed?.(identity.workspaceId)) caller.sandboxed = true
+    const remote = this.deps.remoteCwdForPane?.(identity.paneId)
+    if (remote) caller.remote = remote
     return caller
   }
 
@@ -1648,6 +1665,53 @@ export class ExtensionHost {
     return this.listIn(undefined)
       .filter((e) => e.enabled)
       .map((e) => ({ id: e.id, name: e.name, status: e.status, commands: e.commands }))
+  }
+
+  private createRemoteFolders(): RemoteFolders | null {
+    const deps = this.deps.remoteFolders
+    if (!deps) return null
+    const folders: RemoteFolders = new RemoteFolders({
+      windowOfWorkspace: deps.windowOfWorkspace,
+      refusal: deps.refusal,
+      confirm: deps.confirm,
+      publish: () => deps.publish(folders),
+      request: (extId, req) => this.filesRequest(extId, req),
+      closed: (folder) => this.folderClosed(folder),
+    })
+    return folders
+  }
+
+  private filesRequest(extId: string, req: RemoteFilesRequest): Promise<unknown> {
+    const rt = this.runtimes.get(extId)
+    if (!rt?.conn || !this.active(rt)) return Promise.reject(new Error('extension stopped'))
+    return withTimeout(
+      rt.conn.sendRequest('ext.files', req),
+      this.deps.requestTimeoutMs ?? REMOTE_REQUEST_TIMEOUT_MS,
+      `${extId} files`,
+    )
+  }
+
+  private folderClosed(folder: RemoteFolder): void {
+    const rt = this.runtimes.get(folder.extId)
+    void rt?.conn
+      ?.sendNotification('ext.event', {
+        type: FOLDER_CLOSED_EVENT,
+        payload: { folderId: folder.id },
+      })
+      .catch(() => {})
+  }
+
+  async openFolder(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    if (!this.remoteFolders) return fail('no-window')
+    return this.remoteFolders.open({ id: rt.ext.manifest.id, name: this.shownName(rt) }, params)
+  }
+
+  closeFolder(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const folderId = (params as { folderId?: unknown } | null)?.folderId
+    const closed = this.remoteFolders?.closeByExtension(rt.ext.manifest.id, folderId) ?? false
+    return closed ? { ok: true } : fail('unknown-folder')
   }
 
   async confirm(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
@@ -2262,5 +2326,13 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod(
     'ext.confirm',
     forExtension((h, id, conn, p) => h.confirm(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.openFolder',
+    forExtension((h, id, conn, p) => h.openFolder(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.closeFolder',
+    forExtension((h, id, conn, p) => h.closeFolder(id, conn, p)),
   )
 }

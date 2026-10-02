@@ -56,6 +56,7 @@ import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useLiveSelectionStore } from '../stores/liveSelectionStore'
+import { useRemoteCwdStore } from '../stores/remoteCwdStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { AssistComposer } from './AssistComposer'
@@ -408,6 +409,9 @@ export function TerminalView({
       const report = parseOsc7(data)
       if (!report) return true
       remote = !isLocalHost(report.host)
+      useRemoteCwdStore
+        .getState()
+        .report(paneId, remote ? { host: report.host, cwd: report.path } : null)
       if (!remote) {
         cwdRef.current = report.path
         useLayoutStore.getState().setCwd(workspaceIdRef.current, paneId, report.path)
@@ -641,6 +645,7 @@ export function TerminalView({
       offData()
       offExit()
       oscCwd.dispose()
+      useRemoteCwdStore.getState().report(paneId, null)
       oscBlocks.dispose()
       oscCommandLine.dispose()
       oscNotify9.dispose()

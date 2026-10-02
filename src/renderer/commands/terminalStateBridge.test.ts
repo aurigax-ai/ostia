@@ -2,6 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type { LayoutNode } from '../layout/types'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useRemoteCwdStore } from '../stores/remoteCwdStore'
 import { wireTerminalStateBridge } from './terminalStateBridge'
 
 const blocks = () => useBlocksStore.getState()
@@ -30,6 +31,7 @@ describe('wireTerminalStateBridge', () => {
   afterEach(() => {
     useBlocksStore.setState(blocksInit, true)
     useLayoutStore.setState(layoutInit, true)
+    useRemoteCwdStore.setState({ byPane: {} })
     vi.useRealTimers()
   })
 
@@ -47,6 +49,29 @@ describe('wireTerminalStateBridge', () => {
       blocksSubscribe.mockRestore()
       layoutSubscribe.mockRestore()
     }
+  })
+
+  it('SSH-C61 sends the remote folder a pane reported, and drops it after a local report', () => {
+    const push = vi.mocked(window.pine.terminalState.push)
+    wireTerminalStateBridge()
+    seedPaneCwd('s1', 'pane-r', '/home/me')
+    vi.advanceTimersByTime(100)
+    push.mockClear()
+
+    useRemoteCwdStore.getState().report('pane-r', { host: 'db1', cwd: '/srv/app' })
+    vi.advanceTimersByTime(100)
+    expect(push).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        paneId: 'pane-r',
+        cwd: '/home/me',
+        remote: { host: 'db1', cwd: '/srv/app' },
+      }),
+    )
+
+    useRemoteCwdStore.getState().report('pane-r', null)
+    vi.advanceTimersByTime(100)
+    expect(push.mock.lastCall?.[0]).not.toHaveProperty('remote')
+    expect(useRemoteCwdStore.getState().byPane).toEqual({})
   })
 
   it('pushes a debounced snapshot 100ms after a blocksStore mutation, matching store state', () => {

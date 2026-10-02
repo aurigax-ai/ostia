@@ -12,6 +12,7 @@ import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
 import { FilesPanel } from './components/FilesPanel'
 import { HistorySearch } from './components/HistorySearch'
 import { MergeConfirmDialog } from './components/MergeConfirmDialog'
+import { RemoteFolderDialog } from './components/RemoteFolderDialog'
 import { SandboxFolderDialog } from './components/SandboxFolderDialog'
 import { SandboxRequirementsDialog } from './components/SandboxRequirementsDialog'
 import { SaveWorkflowDialog } from './components/SaveWorkflowDialog'
@@ -128,6 +129,7 @@ export function App(): JSX.Element {
           <CloseConfirmDialog />
           <MergeConfirmDialog />
           <ActionConfirmDialog />
+          <RemoteFolderDialog />
           <AgentOfferDialog />
           <SandboxRequirementsDialog />
           <SandboxFolderDialog />

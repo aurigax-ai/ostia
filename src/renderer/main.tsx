@@ -51,6 +51,7 @@ import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { usePluginsStore } from './stores/pluginsStore'
 import { startQuestions } from './stores/questionsStore'
+import { wireRemoteFolders } from './stores/remoteFoldersStore'
 import { useSettingsStore } from './stores/settingsStore'
 import { useSystemThemeStore } from './stores/systemThemeStore'
 import { startUpdateWatch } from './stores/updateStore'
@@ -68,6 +69,7 @@ wireTerminalStateBridge()
 wireExtensionBridge()
 wirePaneRunBridge()
 wireManagerBridge()
+wireRemoteFolders()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')

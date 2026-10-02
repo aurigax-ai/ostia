@@ -66,6 +66,16 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       unwatch: vi.fn(),
       onChanged: vi.fn(() => () => {}),
     },
+    remoteFiles: {
+      folders: vi.fn().mockResolvedValue([]),
+      onFolders: vi.fn(noopUnsub),
+      close: vi.fn().mockResolvedValue(true),
+      onConfirm: vi.fn(noopUnsub),
+      list: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-folder' }),
+      stat: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-folder' }),
+      read: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-folder' }),
+      write: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-folder' }),
+    },
     lsp: {
       servers: vi.fn().mockResolvedValue([]),
       onServersChanged: vi.fn(noopUnsub),

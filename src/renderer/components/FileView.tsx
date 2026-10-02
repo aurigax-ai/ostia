@@ -1,3 +1,4 @@
+import { isRemotePath } from '@shared/remoteFolders'
 import { fileViewKind } from '../lib/fileKinds'
 import { EditorView } from './Editor'
 import { ImageViewer } from './ImageViewer'
@@ -12,7 +13,7 @@ export function FileView({
   paneId: string
   filePath?: string
 }): JSX.Element {
-  const kind = fileViewKind(filePath)
+  const kind = isRemotePath(filePath) ? 'text' : fileViewKind(filePath)
   if (filePath && kind === 'image') {
     return (
       <ImageViewer key={filePath} workspaceId={workspaceId} paneId={paneId} filePath={filePath} />

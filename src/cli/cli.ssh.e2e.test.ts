@@ -1,5 +1,14 @@
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -37,7 +46,10 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
     home: process.env.HOME,
     sshDir: process.env.FAKE_SSH_DIR,
     sshLog: process.env.FAKE_SSH_LOG,
+    remoteShell: process.env.FAKE_SSH_REMOTE_SHELL,
+    remoteHome: process.env.FAKE_SSH_REMOTE_HOME,
   }
+  let remoteHome: string
   const confirm = vi.fn<(req: ExtensionConfirmRequest) => Promise<boolean>>()
   const openTerminalIn = vi.fn<(req: TerminalOpenRequest) => Promise<string | null>>()
 
@@ -82,6 +94,10 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
     process.env.PATH = `${fakeSshBin}:${saved.path}`
     process.env.FAKE_SSH_DIR = captures
     process.env.FAKE_SSH_LOG = sshLog
+    remoteHome = join(dir, 'remote-home')
+    mkdirSync(remoteHome)
+    process.env.FAKE_SSH_REMOTE_SHELL = '/bin/sh'
+    process.env.FAKE_SSH_REMOTE_HOME = remoteHome
     socketPath = join(dir, 'control.sock')
     identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pCliSsh' })
     host = new ExtensionHost({
@@ -89,6 +105,7 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,
       nodePath: process.execPath,
+      dataDir: join(dir, 'ext-data'),
       workDirForWorkspace: () => undefined,
       broadcast: () => {},
       openPanelIn: () => {},
@@ -116,6 +133,8 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
     restore('HOME', saved.home)
     restore('FAKE_SSH_DIR', saved.sshDir)
     restore('FAKE_SSH_LOG', saved.sshLog)
+    restore('FAKE_SSH_REMOTE_SHELL', saved.remoteShell)
+    restore('FAKE_SSH_REMOTE_HOME', saved.remoteHome)
     rmSync(dir, { recursive: true, force: true })
   })
 
@@ -161,5 +180,55 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
     })
     expect(confirm).not.toHaveBeenCalled()
     expect(openTerminalIn).not.toHaveBeenCalled()
+  }, 30_000)
+
+  it('SSH-C56 refuses to install or remove the remote helper for an agent in a pane', async () => {
+    const install = await runPine(['ssh', 'helper-install', 'db'])
+    expect(install.code).not.toBe(0)
+    expect(`${install.stdout}${install.stderr}`).toContain('human-only')
+    const remove = await runPine(['ssh', 'helper-remove', 'db'])
+    expect(`${remove.stdout}${remove.stderr}`).toContain('human-only')
+    expect(confirm).not.toHaveBeenCalled()
+    expect(existsSync(join(remoteHome, '.pine'))).toBe(false)
+    const listed = await runPine(['ssh', 'helpers'])
+    expect(JSON.parse(listed.stdout).hosts).toEqual([])
+  }, 30_000)
+
+  it('SSH-C42 installs the shipped helper script on the host once the human approves', async () => {
+    confirm.mockResolvedValueOnce(true)
+    const res = await host.invoke('ssh', 'helper-install', { argv: ['db'] }, host.userCaller(null))
+    expect(res).toMatchObject({ ok: true, data: { host: 'db', protocol: 1, installed: true } })
+    expect(confirm).toHaveBeenCalledTimes(1)
+    const asked = confirm.mock.calls[0][0]
+    expect(asked.message).toContain('db')
+    expect(asked.detail).toContain('dev@10.0.0.5:2200')
+    const versions = readdirSync(join(remoteHome, '.pine', 'helper'))
+    expect(versions).toHaveLength(1)
+    expect(asked.detail).toContain(`~/.pine/helper/${versions[0]}/helper.sh`)
+    const shipped = readFileSync(join(repoRoot, 'out', 'extensions', 'ssh', 'assets', 'helper.sh'))
+    const installed = readFileSync(join(remoteHome, '.pine', 'helper', versions[0], 'helper.sh'))
+    expect(installed.equals(shipped)).toBe(true)
+    expect(readdirSync(join(remoteHome, '.pine', 'helper', versions[0])).sort()).toContain(
+      'session.sh',
+    )
+    expect(
+      shipped.equals(readFileSync(join(repoRoot, 'src/extensions/ssh/assets/helper.sh'))),
+    ).toBe(true)
+    const answers = join(dir, 'ext-data', 'ssh', 'helper-hosts.json')
+    expect(statSync(answers).mode & 0o777).toBe(0o600)
+    expect(JSON.parse(readFileSync(answers, 'utf8')).hosts.db.answer).toBe('allowed')
+    const listed = await runPine(['ssh', 'helpers'])
+    expect(JSON.parse(listed.stdout).hosts).toEqual([
+      {
+        host: 'db',
+        answer: 'allowed',
+        version: versions[0],
+        current: true,
+        installed: true,
+        connected: true,
+        folders: 0,
+      },
+    ])
+    confirm.mockClear()
   }, 30_000)
 })
