@@ -113,9 +113,25 @@ describe('captureRegion', () => {
 })
 
 describe('writeRegionReport', () => {
+  it('writes the report and the bus message through the redactor', async () => {
+    const id = await captured()
+    const res = await writeRegionReport(
+      { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: 'key SECRET here' },
+      'w1',
+      sameWindow,
+      async (text) => text.replaceAll('SECRET', '[redacted:test]'),
+    )
+    if (!res.ok) throw new Error(res.error)
+    const md = readFileSync(res.path, 'utf8')
+    expect(md).toContain('key [redacted:test] here')
+    expect(md).not.toContain('SECRET')
+    const [, , text] = vi.mocked(postBusMessage).mock.calls.at(-1) ?? []
+    expect(JSON.parse(text as string).note).toBe('key [redacted:test] here')
+  })
+
   it('writes the PNG and the report side by side, private, and posts a bus message', async () => {
     const id = await captured()
-    const res = writeRegionReport(
+    const res = await writeRegionReport(
       { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: 'overlap' },
       'w1',
       sameWindow,
@@ -140,8 +156,8 @@ describe('writeRegionReport', () => {
   it('numbers after pick reports so names never collide', async () => {
     const id = await captured()
     const req = { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' }
-    const a = writeRegionReport(req, 'w1', sameWindow)
-    const b = writeRegionReport(req, 'w1', sameWindow)
+    const a = await writeRegionReport(req, 'w1', sameWindow)
+    const b = await writeRegionReport(req, 'w1', sameWindow)
     if (!a.ok || !b.ok) throw new Error('write failed')
     expect(a.path).not.toBe(b.path)
     expect(a.imagePath).not.toBe(b.imagePath)
@@ -150,21 +166,21 @@ describe('writeRegionReport', () => {
   it('refuses a sender that does not own the browser pane, or an unknown capture', async () => {
     const id = await captured()
     expect(
-      writeRegionReport(
+      await writeRegionReport(
         { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
         'w2',
         sameWindow,
       ),
     ).toEqual({ ok: false, error: 'not-found' })
     expect(
-      writeRegionReport(
+      await writeRegionReport(
         { captureId: 'region-nope', sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
         'w1',
         sameWindow,
       ),
     ).toEqual({ ok: false, error: 'capture-expired' })
     expect(
-      writeRegionReport(
+      await writeRegionReport(
         { captureId: id, sourcePaneId: 'term-1', targetPaneId: 'browser-1', note: '' },
         'w1',
         sameWindow,
@@ -175,7 +191,7 @@ describe('writeRegionReport', () => {
   it('refuses a target the sender cannot reach', async () => {
     registerPane({ windowId: 'w9', workspaceId: 's9', paneId: 'agent-9' })
     const id = await captured()
-    const res = writeRegionReport(
+    const res = await writeRegionReport(
       { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'agent-9', note: '' },
       'w1',
       sameWindow,

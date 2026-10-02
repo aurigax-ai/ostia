@@ -732,6 +732,11 @@ Terminal reports (`Terminal text`, or `Terminal output` for a block) have no `Fi
 gives the pane's `Directory` and, for a block, the `Command` that printed it, and the report ends
 with `## Terminal text`.
 
+A selection or pick report may show `[redacted:<kind>]` (`[redacted:github]`,
+`[redacted:assignment]`, …) where the human's text held a secret: Pine takes secrets out of what
+it writes for you. Work with the rest. If the task needs the value, read it from the file at
+`File` or ask the human; never copy a mark into a file as if it were the value.
+
 The human can also paste just a path at your prompt (`@<path> `, from the file tree's or an editor
 tab's **Send path to agent**): that is the file itself, not a report.
 

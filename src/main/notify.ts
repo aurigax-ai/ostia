@@ -6,6 +6,7 @@ import {
   type NotificationSettings,
   parseNotificationSettings,
 } from '../shared/notificationSettings'
+import type { RedactText } from '../shared/redactionTargets'
 import {
   type NotificationEntry,
   type NotificationKind,
@@ -26,6 +27,7 @@ export interface NotifyDeps extends AttentionDeps {
   windows: () => Iterable<BrowserWindow>
   windowById: (windowId: string) => BrowserWindow | undefined
   isScratchPane: (paneId: string) => boolean
+  redact: RedactText
 }
 
 const unsaved: NotificationEntry[] = []
@@ -97,24 +99,35 @@ function showDesktop(deps: NotifyDeps, title: string, body?: string, paneId?: st
   n.show()
 }
 
-function record(
-  deps: NotifyDeps,
-  input: {
-    kind?: NotificationKind
-    title: string
-    body?: string
-    paneId?: string
-    from: string
-    extId?: string
-    panelPath?: string
-  },
-): NotificationEntry {
+interface RecordInput {
+  kind?: NotificationKind
+  title: string
+  body?: string
+  paneId?: string
+  from: string
+  extId?: string
+  panelPath?: string
+}
+
+let recording: Promise<void> = Promise.resolve()
+
+export function notificationsRecorded(): Promise<void> {
+  return recording
+}
+
+function record(deps: NotifyDeps, input: RecordInput): Promise<void> {
+  const ts = new Date().toISOString()
+  recording = recording.then(() => writeRecord(deps, input, ts)).catch(() => {})
+  return recording
+}
+
+async function writeRecord(deps: NotifyDeps, input: RecordInput, ts: string): Promise<void> {
   const entry: NotificationEntry = {
     id: randomUUID(),
-    ts: new Date().toISOString(),
+    ts,
     kind: input.kind ?? 'message',
-    title: input.title,
-    body: input.body,
+    title: await deps.redact(input.title),
+    body: input.body === undefined ? undefined : await deps.redact(input.body),
     from: input.from,
     paneId: input.paneId,
   }
@@ -134,7 +147,6 @@ function record(
     pane: entry.paneId ?? '',
   })
   broadcastChanged(deps)
-  return entry
 }
 
 export function postNotification(
@@ -142,7 +154,7 @@ export function postNotification(
   input: { title: string; body?: string; from: string },
 ): void {
   showDesktop(deps, input.title, input.body)
-  record(deps, input)
+  void record(deps, input)
 }
 
 export function postActionNotification(
@@ -155,7 +167,7 @@ export function postActionNotification(
     n.on('click', onClick)
     n.show()
   }
-  record(deps, input)
+  void record(deps, input)
 }
 
 export function postPanelNotification(
@@ -176,7 +188,7 @@ export function postPanelNotification(
     })
     n.show()
   }
-  record(deps, input)
+  void record(deps, input)
 }
 
 export function registerNotifyMethods(deps: NotifyDeps): void {
@@ -191,7 +203,7 @@ export function registerNotifyMethods(deps: NotifyDeps): void {
       const body = clampMessage(rawBody)
       if (!title) return { ok: false, error: 'missing-title' }
       const { paneId, externalId } = ctx.identity
-      record(deps, { title, body, paneId, from: externalId })
+      await record(deps, { title, body, paneId, from: externalId })
       const res = await deps.execCommand(targetOf(ctx.identity), 'attention.notify', {
         message: body ? `${title}: ${body}` : title,
       })
@@ -224,7 +236,7 @@ export function registerNotifyIpc(deps: NotifyDeps): void {
     const title = post.title.slice(0, TITLE_MAX)
     if (!title) return
     const body = clampMessage(post.body)
-    record(deps, {
+    void record(deps, {
       kind: notificationKindOf(post.kind),
       title,
       body,

@@ -33,6 +33,7 @@ import type { OpenFileVerdict } from './openFiles'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type { QuestionReply, QuestionState } from './questions'
+import type { PrivacyApi } from './redaction'
 import type {
   RegionCaptureOutcome,
   RegionCaptureRequest,
@@ -853,6 +854,7 @@ export interface PineBridge {
   completions: CompletionsApi
   assist: AssistApi
   chatSessions: ChatSessionsApi
+  privacy: PrivacyApi
   chatTools: ChatToolsApi
   iconThemes: IconThemesApi
   languagePacks: LanguagePacksApi
