@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import type { ExtensionInfo } from '@shared/extensions'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -12,6 +13,48 @@ import { SettingsPanel } from './SettingsPanel'
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
+}
+
+const BOARD: ExtensionInfo = {
+  id: 'board',
+  name: 'Board',
+  version: '1.0.0',
+  description: '',
+  builtin: false,
+  enabled: true,
+  status: 'running',
+  requested: [],
+  granted: [],
+  unapproved: [],
+  commands: [],
+  panel: null,
+  paneChips: [],
+  workspaceChips: [],
+  settings: [
+    {
+      key: 'pollSeconds',
+      type: 'number',
+      title: 'Poll interval',
+      default: 5,
+      description: 'Seconds between syncs',
+    },
+    {
+      key: 'label',
+      type: 'string',
+      title: 'Column label',
+      default: '',
+      description: 'Shown on cards',
+    },
+  ],
+  settingValues: { pollSeconds: 5, label: '' },
+  assist: [],
+  secrets: [],
+  secretsSet: [],
+  settingsPage: { title: 'Board sync', icon: 'kanban' },
+  category: 'other',
+  languages: [],
+  languageServers: [],
+  iconThemes: [],
 }
 
 function renderSettings(): void {
@@ -159,5 +202,22 @@ describe('SettingsPanel search', () => {
     })
     expect(rowOf(blink)).toBeVisible()
     expect(within(rowOf(blink)).getByText('游標閃爍', { selector: 'mark' })).toBeInTheDocument()
+  })
+
+  it("finds a setting on an extension's own settings page", async () => {
+    useExtensionsStore.setState({ list: [BOARD] })
+    renderSettings()
+    const user = userEvent.setup()
+    await user.type(searchBox(), 'poll')
+
+    const page = result('extension-page:board')
+    expect(page).toBeVisible()
+    expect(within(page).getByRole('heading', { level: 2, name: 'Board sync' })).toBeVisible()
+    const poll = within(page).getByText('Poll', { selector: 'mark' })
+    expect(poll.closest('[data-settings-row]')).toBeVisible()
+    expect(
+      within(page).getByText('Column label', { exact: false }).closest('[data-settings-row]'),
+    ).not.toBeVisible()
+    expect(within(nav()).getByRole('button', { name: 'Board sync' })).toHaveTextContent(/1$/)
   })
 })

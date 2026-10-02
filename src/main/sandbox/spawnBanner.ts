@@ -22,3 +22,13 @@ export function sandboxFailureBanner(message: string, missing: readonly string[]
   lines.push(' No shell was started. This workspace only runs sandboxed.\r\n')
   return lines.join('')
 }
+
+export function hiddenHomeNotice(platform: NodeJS.Platform = process.platform): string {
+  if (platform !== 'linux') return ''
+  return [
+    '\x1b[2m Sandbox: your home folder is hidden here. Files written to it, outside the',
+    ' workspace folder, are discarded when this shell exits. Add a writable folder',
+    ' in Settings \u203a Sandbox to keep them.\x1b[0m',
+    '',
+  ].join('\r\n')
+}

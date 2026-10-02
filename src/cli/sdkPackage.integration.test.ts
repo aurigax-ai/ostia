@@ -53,6 +53,7 @@ describe('manifest schemas', () => {
 
   it('refuse what the loader refuses', () => {
     const base = { id: 'demo', name: 'Demo', version: '1.0.0', api: '1.0' }
+    const pageSettings = { mode: { type: 'string', default: '', description: 'd' } }
     const bad: Record<string, unknown>[] = [
       { ...base, id: 'Bad Id' },
       { ...base, name: '' },
@@ -69,6 +70,12 @@ describe('manifest schemas', () => {
         ...base,
         contributes: { settings: { k: { type: 'color', default: '', description: 'd' } } },
       },
+      ...[{ title: 'Mine', icon: 'rocket' }, { icon: 'kanban' }, { title: 'x'.repeat(81) }].map(
+        (settingsPage) => ({
+          ...base,
+          contributes: { settings: pageSettings, settingsPage },
+        }),
+      ),
       ...[
         { id: 'Bad Id' },
         { languages: [] },
@@ -154,6 +161,12 @@ describe('manifest schemas', () => {
     }
     expect(parseManifest(base, '/ext').ok).toBe(true)
     expect(extensionManifestSchema.safeParse(base).success).toBe(true)
+    const paged = {
+      ...base,
+      contributes: { settings: pageSettings, settingsPage: { title: 'Mine', icon: 'kanban' } },
+    }
+    expect(parseManifest(paged, '/ext').ok).toBe(true)
+    expect(extensionManifestSchema.safeParse(paged).success).toBe(true)
     const translated = { ...base, locales: ['zh-Hant', 'fr'] }
     expect(parseManifest(translated, '/ext').ok).toBe(true)
     expect(extensionManifestSchema.safeParse(translated).success).toBe(true)
