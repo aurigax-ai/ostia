@@ -10,6 +10,7 @@ import {
 
 const WRAPPED = "bwrap --new-session --die-with-parent --dev /dev -- bash -c 'zsh -i'"
 const PIPE = '/tmp/pine-sandbox-tmp/1/ws/resize-abc'
+const BRIDGE = '( socat -u UNIX-CONNECT:ports-ab12.sock - ) &'
 const refuses = (): string => '0\n'
 const allows = (): string => '1\n'
 const unreadable = (): string => {
@@ -61,6 +62,19 @@ describe('sandboxedShellCommand', () => {
       `SHELL=/bin/sh script -qec 'stty "$PINE_RELAY_TTY" 2>/dev/null; unset PINE_RELAY_TTY; export SHELL=/usr/bin/zsh; exec /usr/bin/zsh -i '\\''a b'\\''' /dev/null`,
       'exit $?',
     ])
+  })
+
+  it('starts the port bridge beside a shell that keeps the pane’s terminal, and still runs it as the command', () => {
+    expect(sandboxedShellCommand('/usr/bin/zsh -i', '/usr/bin/zsh', null, BRIDGE)).toBe(
+      `${BRIDGE}\nexec /usr/bin/zsh -i`,
+    )
+  })
+
+  it('starts the port bridge before the relayed shell', () => {
+    const lines = sandboxedShellCommand('/usr/bin/zsh -i', '/usr/bin/zsh', PIPE, BRIDGE).split('\n')
+    expect(lines).toHaveLength(4)
+    expect(lines[0]).toBe(BRIDGE)
+    expect(lines[2]).toContain('script -qec')
   })
 
   it('leaves SHELL unset inside when the pane had none', () => {
