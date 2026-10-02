@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { ApprovalOutcome } from '../../shared/approvals'
 import type { PortsPolicy } from '../../shared/sandbox'
-import type { ExposeResult, SandboxListener } from './portForwarder'
+import type { ExposeRefusal, ExposeResult, SandboxListener } from './portForwarder'
 import { PortRequests } from './portRequests'
 
 function setup(
-  opts: { platform?: NodeJS.Platform; policy?: PortsPolicy; outcome?: ApprovalOutcome } = {},
+  opts: {
+    platform?: NodeJS.Platform
+    policy?: PortsPolicy
+    outcome?: ApprovalOutcome
+    refusal?: ExposeRefusal
+  } = {},
 ) {
   const asks: number[] = []
   const exposed = new Set<number>()
@@ -21,6 +26,7 @@ function setup(
     forwarder: {
       listeners: () => listeners,
       exposed: () => [...exposed],
+      refusal: () => opts.refusal ?? null,
       expose: async (_ws, port): Promise<ExposeResult> => {
         exposed.add(port)
         return { ok: true, port }
@@ -100,5 +106,26 @@ describe('PortRequests', () => {
     await requests.scan('ws')
     expect(exposed.size).toBe(0)
     expect(requests.ports('ws')).toEqual([])
+  })
+
+  it('answers an agent that Unix sockets are off without a card', async () => {
+    const { requests, asks, exposed } = setup({ refusal: 'unix-sockets-off' })
+    await expect(requests.request('ws', 'pane', '3000')).resolves.toEqual({
+      ok: false,
+      error: 'unix-sockets-off',
+    })
+    expect(asks).toEqual([])
+    expect(exposed.size).toBe(0)
+  })
+
+  it('shows no card for a new listener while its port cannot be forwarded', async () => {
+    for (const policy of ['ask', 'allow'] as const) {
+      const { requests, asks, exposed, listen } = setup({ policy, refusal: 'unix-sockets-off' })
+      listen([{ port: 5173, process: 'node' }])
+      await requests.scan('ws')
+      expect(asks).toEqual([])
+      expect(exposed.size).toBe(0)
+      expect(requests.ports('ws')).toEqual([{ port: 5173, process: 'node', exposed: false }])
+    }
   })
 })
