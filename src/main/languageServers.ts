@@ -11,6 +11,8 @@ import {
   type LanguageServerContribution,
   type LanguageServerFetchFailure,
   type LanguageServerInfo,
+  type LanguageServerOverride,
+  type LanguageServerOverrideProblem,
   type LanguageServerRun,
   type LanguageServerSandboxProblem,
   type LanguageServerStatus,
@@ -37,6 +39,7 @@ import {
 import { quoteArgv } from '../shared/shellQuote'
 import { type LogFields, redactSecrets } from './appLog'
 import type { TreeChange } from './fileWatch'
+import { overrideFileProblem } from './serverOverrides'
 import type { Requirement } from './systemRequirements'
 import {
   type FileWatcher,
@@ -64,6 +67,7 @@ export interface LanguageServerSource {
   state: 'on' | 'off' | 'pending'
   server: LanguageServerContribution
   settingValues: ExtensionSettingValues
+  override?: LanguageServerOverride
 }
 
 export interface LanguageServerPane {
@@ -111,6 +115,8 @@ export interface LanguageServersDeps {
   languageOf?: (path: string) => string
   managed: ManagedServerFiles
   registerRequirements: (feature: string, requirements: Requirement[], label?: string) => void
+  overrideProblem?: (path: string) => LanguageServerOverrideProblem | null
+  realPath?: (path: string) => string
   watchTree?: (root: string, onChange: (changes: TreeChange[]) => void) => (() => void) | null
   post: (windowId: string, channel: string, ...args: unknown[]) => void
   changed: (list: LanguageServerInfo[]) => void
@@ -164,6 +170,7 @@ interface ServerRecord {
 interface Binary {
   path: string
   managedFolder: string | null
+  override?: true
 }
 
 function failureOf(err: unknown): { reason: LanguageServerFetchFailure; detail: string } {
@@ -226,7 +233,20 @@ export function confinedScript(extensionDir: string, script: string): string | n
 }
 
 function sourceSignature(source: LanguageServerSource): string {
-  return JSON.stringify([source.dir, source.server.run, source.server.initializationOptions ?? {}])
+  return JSON.stringify([
+    source.dir,
+    source.server.run,
+    source.server.initializationOptions ?? {},
+    source.override ?? null,
+  ])
+}
+
+function realPathOf(path: string): string {
+  try {
+    return realpathSync(path)
+  } catch {
+    return path
+  }
 }
 
 function baseSettings(source: LanguageServerSource, root: string): JsonObject {
@@ -305,8 +325,18 @@ export class LanguageServers {
     return this.deps.managed.canFetch(run)
   }
 
+  private overrideProblem(source: LanguageServerSource): LanguageServerOverrideProblem | null {
+    if (!source.override) return null
+    return (this.deps.overrideProblem ?? overrideFileProblem)(source.override.path)
+  }
+
   private located(source: LanguageServerSource): Binary | null {
     const { run } = source.server
+    if (source.override) {
+      return this.overrideProblem(source) === null
+        ? { path: source.override.path, managedFolder: null, override: true }
+        : null
+    }
     const program = pathProgram(run)
     if (program === null) return null
     const onPath = this.deps.findProgram(program)
@@ -325,7 +355,8 @@ export class LanguageServers {
     if (source.state === 'off') return 'off'
     const { run } = source.server
     const record = this.record(key)
-    if (!isNodeRun(run) && this.located(source) === null) {
+    if (this.overrideProblem(source) !== null) return 'override-invalid'
+    if (!source.override && !isNodeRun(run) && this.located(source) === null) {
       if (record.fetching) return isGoInstallRun(run) ? 'installing' : 'downloading'
       if (record.fetchFailure) return isGoInstallRun(run) ? 'install-failed' : 'download-failed'
       if (!this.fetchable(source)) {
@@ -351,6 +382,7 @@ export class LanguageServers {
       const program = pathProgram(run)
       const version = pinnedVersion(run)
       const binary = source.state === 'on' ? this.located(source) : null
+      const overrideProblem = this.overrideProblem(source)
       const needsInstall = status === 'program-missing' || status === 'toolchain-missing'
       const failed = status === 'download-failed' || status === 'install-failed'
       return {
@@ -370,13 +402,24 @@ export class LanguageServers {
         ...(version !== null ? { version } : {}),
         ...(binary
           ? {
-              binary: binary.managedFolder
-                ? { source: 'managed' as const, ...(version !== null ? { version } : {}) }
-                : { source: 'path' as const },
+              binary: binary.override
+                ? { source: 'override' as const }
+                : binary.managedFolder
+                  ? { source: 'managed' as const, ...(version !== null ? { version } : {}) }
+                  : { source: 'path' as const },
+            }
+          : {}),
+        ...(source.override
+          ? {
+              override: {
+                path: source.override.path,
+                args: [...source.override.args],
+                ...(overrideProblem !== null ? { problem: overrideProblem } : {}),
+              },
             }
           : {}),
         ...(this.managedCopy(source) !== null ? { managedCopy: true } : {}),
-        ...(source.state === 'on' && !isNodeRun(run) && this.fetchable(source)
+        ...(source.state === 'on' && !source.override && !isNodeRun(run) && this.fetchable(source)
           ? { fetchable: true }
           : {}),
         ...(record.fetchHeld ? { fetchHeld: true } : {}),
@@ -413,7 +456,7 @@ export class LanguageServers {
       const { run } = source.server
       const version = pinnedVersion(run)
       if (version !== null) pinned.set(key, version)
-      const needed = this.requiredProgram(run)
+      const needed = source.override ? null : this.requiredProgram(run)
       if (needed === null) continue
       const feature = languageServerFeature(key)
       programs.add(feature)
@@ -503,6 +546,7 @@ export class LanguageServers {
     const found = this.located(source)
     if (found !== null) return found
     const record = this.record(key)
+    if (source.override) return null
     if (record.fetchFailure || record.fetchHeld || !this.fetchable(source)) return null
     await this.fetchNow(key, source)
     return this.located(source)
@@ -517,6 +561,7 @@ export class LanguageServers {
   async fetch(key: unknown): Promise<void> {
     const source = this.enabledSource(key)
     if (!source || typeof key !== 'string' || isNodeRun(source.server.run)) return
+    if (source.override) return
     this.record(key).fetchFailure = null
     this.record(key).fetchHeld = false
     if (this.located(source) !== null || !this.fetchable(source)) {
@@ -658,7 +703,8 @@ export class LanguageServers {
     let command: string
     let managedFolder: string | null = null
     const args: string[] = []
-    if (!isNodeRun(run)) {
+    const { override } = source
+    if (override || !isNodeRun(run)) {
       const binary = await this.binaryFor(key, source)
       if (binary === null || this.stopped || !this.enabledSource(key)) return null
       command = binary.path
@@ -674,6 +720,7 @@ export class LanguageServers {
       env.ELECTRON_RUN_AS_NODE = '1'
     }
     args.push(...run.args.map((arg) => substitutePlaceholders(arg, source.dir, root)))
+    if (override) args.push(...override.args)
     const record = this.record(key)
     let spawnCommand = command
     let spawnArgs = args
@@ -689,12 +736,10 @@ export class LanguageServers {
         this.changed()
         return null
       }
-      if (
-        !isNodeRun(run) &&
-        managedFolder === null &&
-        !sandbox.readable(pane.workspaceId, command)
-      ) {
-        return refuse('program-unreadable', dirname(command))
+      if ((override || !isNodeRun(run)) && managedFolder === null) {
+        const real = override ? (this.deps.realPath ?? realPathOf)(command) : command
+        const hidden = [command, real].find((path) => !sandbox.readable(pane.workspaceId, path))
+        if (hidden !== undefined) return refuse('program-unreadable', dirname(hidden))
       }
       if (!sandbox.readable(pane.workspaceId, root)) return refuse('folder-unreadable', root)
       try {
@@ -703,7 +748,7 @@ export class LanguageServers {
           quoteArgv([command, ...args]),
           managedFolder !== null
             ? [managedFolder]
-            : isNodeRun(run) && !source.builtin
+            : !override && isNodeRun(run) && !source.builtin
               ? [source.dir]
               : [],
         )

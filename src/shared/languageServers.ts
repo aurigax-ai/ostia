@@ -137,6 +137,7 @@ export type LanguageServerStatus =
   | 'installing'
   | 'install-failed'
   | 'sandbox-unavailable'
+  | 'override-invalid'
   | 'crashed'
   | 'pending-approval'
 
@@ -154,8 +155,63 @@ export type LanguageServerFetchFailure =
   | 'write-failed'
 
 export interface LanguageServerBinary {
-  source: 'path' | 'managed'
+  source: 'path' | 'managed' | 'override'
   version?: string
+}
+
+export const SERVER_OVERRIDE_PATH_MAX = 4096
+const ABSOLUTE_PATH_PATTERN = /^(\/|[A-Za-z]:[\\/])/
+
+export interface LanguageServerOverride {
+  path: string
+  args: string[]
+}
+
+export type LanguageServerOverrideProblem =
+  | 'not-absolute'
+  | 'missing'
+  | 'not-file'
+  | 'not-executable'
+  | 'bad-arguments'
+  | 'unknown-server'
+
+export interface LanguageServerOverrideInfo extends LanguageServerOverride {
+  problem?: LanguageServerOverrideProblem
+}
+
+export interface LanguageServerOverrideResult {
+  servers: LanguageServerInfo[]
+  problem?: LanguageServerOverrideProblem
+}
+
+export function parseLanguageServerOverride(
+  raw: unknown,
+): LanguageServerOverride | LanguageServerOverrideProblem {
+  if (!isRecord(raw)) return 'not-absolute'
+  const { path, args } = raw
+  if (
+    typeof path !== 'string' ||
+    path.length > SERVER_OVERRIDE_PATH_MAX ||
+    !ABSOLUTE_PATH_PATTERN.test(path) ||
+    hasControlCharacter(path)
+  ) {
+    return 'not-absolute'
+  }
+  const list = args ?? []
+  if (
+    !Array.isArray(list) ||
+    list.length > MAX_SERVER_ARGS ||
+    !list.every(
+      (arg) =>
+        typeof arg === 'string' &&
+        arg !== '' &&
+        arg.length <= SERVER_ARG_MAX &&
+        !hasControlCharacter(arg),
+    )
+  ) {
+    return 'bad-arguments'
+  }
+  return { path, args: [...(list as string[])] }
 }
 
 export type LanguageServerSandboxProblem =
@@ -188,6 +244,7 @@ export interface LanguageServerInfo {
   failure?: LanguageServerFetchFailure
   failureDetail?: string
   fetchCommand?: string
+  override?: LanguageServerOverrideInfo
 }
 
 export interface LspSessionInfo {
@@ -237,6 +294,10 @@ export interface LspApi {
   log: (serverKey: string) => Promise<LspLog>
   fetch: (serverKey: string) => Promise<void>
   removeDownload: (serverKey: string) => Promise<void>
+  setOverride: (
+    serverKey: string,
+    override: LanguageServerOverride | null,
+  ) => Promise<LanguageServerOverrideResult>
 }
 
 export function languageServerKey(extId: string, serverId: string): string {

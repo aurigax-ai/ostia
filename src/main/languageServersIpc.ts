@@ -1,10 +1,31 @@
 import { type WebContents, ipcMain } from 'electron'
-import { type LanguageServerInfo, splitLanguageServerKey } from '../shared/languageServers'
+import {
+  type LanguageServerInfo,
+  type LanguageServerOverrideProblem,
+  type LanguageServerOverrideResult,
+  splitLanguageServerKey,
+} from '../shared/languageServers'
 import type { LanguageServers } from './languageServers'
 
 export interface LanguageServersIpcDeps {
   servers: LanguageServers
   setEnabled: (extId: string, serverId: string, enabled: boolean) => void
+  setOverride: (key: string, override: unknown) => LanguageServerOverrideProblem | null
+}
+
+export function chooseServerProgram(
+  deps: LanguageServersIpcDeps,
+  key: unknown,
+  override: unknown,
+): LanguageServerOverrideResult {
+  const { servers } = deps
+  if (typeof key !== 'string' || !servers.servers().some((server) => server.key === key)) {
+    return { servers: servers.servers(), problem: 'unknown-server' }
+  }
+  const problem = deps.setOverride(key, override)
+  if (problem !== null) return { servers: servers.servers(), problem }
+  servers.refresh()
+  return { servers: servers.servers() }
 }
 
 export function registerLanguageServersIpc(deps: LanguageServersIpcDeps): void {
@@ -37,6 +58,11 @@ export function registerLanguageServersIpc(deps: LanguageServersIpcDeps): void {
   ipcMain.handle('lsp:log', (_e, key: unknown) => servers.log(key))
   ipcMain.handle('lsp:fetch', (_e, key: unknown) => servers.fetch(key))
   ipcMain.handle('lsp:remove-download', (_e, key: unknown) => servers.removeDownload(key))
+  ipcMain.handle(
+    'extensions:set-language-server-program',
+    (_e, key: unknown, override: unknown): LanguageServerOverrideResult =>
+      chooseServerProgram(deps, key, override),
+  )
   ipcMain.handle(
     'extensions:set-language-server',
     (_e, key: unknown, enabled: unknown): LanguageServerInfo[] => {

@@ -339,4 +339,76 @@ describe('LanguagesSection', () => {
       'ws-1',
     )
   })
+  it('lets the human choose the program for a server and shows which one runs', async () => {
+    show([server()])
+    const user = userEvent.setup()
+    const chosen = { path: '/opt/mine/tsls', args: ['--log', '--trace=off'] }
+    vi.mocked(window.pine.lsp.setOverride).mockResolvedValue({
+      servers: [server({ override: chosen, binary: { source: 'override' } })],
+    })
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Choose the program for typescript-language-server',
+      }),
+    )
+    const dialog = screen.getByRole('dialog')
+    await user.type(within(dialog).getByLabelText('Program path'), ' /opt/mine/tsls ')
+    await user.type(
+      within(dialog).getByLabelText('Extra arguments, one per line'),
+      '--log{Enter}{Enter}  --trace=off  ',
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Use this program' }))
+    expect(window.pine.lsp.setOverride).toHaveBeenCalledWith('lsp-typescript/typescript', chosen)
+    expect(
+      await screen.findByText('Using /opt/mine/tsls, the program you chose.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('keeps the dialog open and says why when main refuses the program', async () => {
+    show([server()])
+    const user = userEvent.setup()
+    vi.mocked(window.pine.lsp.setOverride).mockResolvedValue({
+      servers: [server()],
+      problem: 'not-executable',
+    })
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Choose the program for typescript-language-server',
+      }),
+    )
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('button', { name: 'Use this program' })).toBeDisabled()
+    await user.type(within(dialog).getByLabelText('Program path'), '/etc/hostname')
+    await user.click(within(dialog).getByRole('button', { name: 'Use this program' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'The program you chose cannot be used: it is not executable',
+    )
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('shows a chosen program that stopped working and lets the human stop using it', async () => {
+    const broken = server({
+      status: 'override-invalid',
+      override: { path: '/opt/gone/tsls', args: ['--log'], problem: 'missing' },
+    })
+    show([broken])
+    const user = userEvent.setup()
+    vi.mocked(window.pine.lsp.setOverride).mockResolvedValue({ servers: [server()] })
+    const row = await screen.findByRole('listitem', { name: 'typescript-language-server' })
+    expect(within(row).getByTestId('language-server-status')).toHaveTextContent(
+      'The program you chose cannot be used: nothing is at that path',
+    )
+    await user.click(
+      within(row).getByRole('button', {
+        name: 'Choose the program for typescript-language-server',
+      }),
+    )
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByLabelText('Program path')).toHaveValue('/opt/gone/tsls')
+    expect(within(dialog).getByLabelText('Extra arguments, one per line')).toHaveValue('--log')
+    await user.click(within(dialog).getByRole('button', { name: 'Stop using it' }))
+    expect(window.pine.lsp.setOverride).toHaveBeenCalledWith('lsp-typescript/typescript', null)
+    expect(await within(row).findByText('Idle')).toBeInTheDocument()
+  })
 })
