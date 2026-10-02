@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { Worker } from 'node:worker_threads'
 import type { SecretSpan } from '../shared/redaction'
 
@@ -13,6 +14,10 @@ export interface ScanReply {
   id: number
   spans?: SecretSpan[]
   error?: string
+}
+
+export function redactionWorkerScript(appPath: string): string {
+  return join(appPath.replace(/\.asar$/, '.asar.unpacked'), 'out/redaction/worker.js')
 }
 
 export const SCAN_BASE_MS = 2000
