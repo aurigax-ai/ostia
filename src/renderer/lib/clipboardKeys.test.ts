@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { keyPastePlan, smartClipboardAction } from './clipboardKeys'
+import { keyPastePlan, pasteEventReadsClipboard, smartClipboardAction } from './clipboardKeys'
 
 const key = (
   k: string,
@@ -46,5 +46,17 @@ describe('keyPastePlan', () => {
   it('does nothing for an image while the input editor shows, or for an empty clipboard', () => {
     expect(keyPastePlan('', true, true)).toBe('none')
     expect(keyPastePlan('', false, false)).toBe('none')
+  })
+})
+
+describe('pasteEventReadsClipboard', () => {
+  it('reads the clipboard itself on macOS when the native paste carries no text, so an image reaches the program', () => {
+    expect(pasteEventReadsClipboard('', false, true)).toBe(true)
+  })
+
+  it('leaves a paste with text, one into the input editor, and any paste off macOS to the usual path', () => {
+    expect(pasteEventReadsClipboard('ls', false, true)).toBe(false)
+    expect(pasteEventReadsClipboard('', true, true)).toBe(false)
+    expect(pasteEventReadsClipboard('', false, false)).toBe(false)
   })
 })

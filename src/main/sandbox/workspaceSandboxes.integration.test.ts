@@ -72,31 +72,40 @@ afterAll(() => {
 })
 
 describe('WorkspaceSandboxes', () => {
-  it('SBX-C9 fails closed and names bubblewrap when bwrap is missing', async () => {
-    const store = new SandboxStore(join(root, 'c9.json'))
-    store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
-    const manager = sandboxes(store, { ...process.env, PATH: noBwrapPath })
-    const failure = await manager.wrap('ws', 'bash', 'bash').catch((err: unknown) => err)
-    expect(failure).toBeInstanceOf(SandboxUnavailableError)
-    const { message, missing } = failure as SandboxUnavailableError
-    const banner = sandboxFailureBanner(message, missing)
-    expect(banner).toContain('bubblewrap')
-    expect(banner).toContain('pine system install bubblewrap')
-    expect(banner).not.toContain('socat')
-    manager.stopAll()
-  })
+  it.skipIf(process.platform === 'darwin')(
+    'SBX-C9 fails closed and names bubblewrap when bwrap is missing (Linux only: bubblewrap)',
+    async () => {
+      const store = new SandboxStore(join(root, 'c9.json'))
+      store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
+      const manager = sandboxes(store, { ...process.env, PATH: noBwrapPath })
+      const failure = await manager.wrap('ws', 'bash', 'bash').catch((err: unknown) => err)
+      expect(failure).toBeInstanceOf(SandboxUnavailableError)
+      const { message, missing } = failure as SandboxUnavailableError
+      const banner = sandboxFailureBanner(message, missing)
+      expect(banner).toContain('bubblewrap')
+      expect(banner).toContain('pine system install bubblewrap')
+      expect(banner).not.toContain('socat')
+      manager.stopAll()
+    },
+  )
 
-  it('SBX-C11 starts sandboxed once the missing package is there, after a failed attempt', async () => {
-    const store = new SandboxStore(join(root, 'c11.json'))
-    store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
-    const env: NodeJS.ProcessEnv = { ...process.env, PATH: noBwrapPath }
-    const manager = sandboxes(store, env)
-    await expect(manager.wrap('ws', 'bash', 'bash')).rejects.toBeInstanceOf(SandboxUnavailableError)
-    env.PATH = process.env.PATH
-    const wrapped = await manager.wrap('ws', 'bash', 'bash')
-    expect(wrapped).toContain('bwrap')
-    manager.stopAll()
-  }, 30_000)
+  it.skipIf(process.platform === 'darwin')(
+    'SBX-C11 starts sandboxed once the missing package is there, after a failed attempt (Linux only: bubblewrap)',
+    async () => {
+      const store = new SandboxStore(join(root, 'c11.json'))
+      store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
+      const env: NodeJS.ProcessEnv = { ...process.env, PATH: noBwrapPath }
+      const manager = sandboxes(store, env)
+      await expect(manager.wrap('ws', 'bash', 'bash')).rejects.toBeInstanceOf(
+        SandboxUnavailableError,
+      )
+      env.PATH = process.env.PATH
+      const wrapped = await manager.wrap('ws', 'bash', 'bash')
+      expect(wrapped).toContain('bwrap')
+      manager.stopAll()
+    },
+    30_000,
+  )
 
   it('SBX-C12 keeps a sandboxed workspace and its stored domains across a restart, but not grants until restart', async () => {
     const first = new SandboxStore(storePath)

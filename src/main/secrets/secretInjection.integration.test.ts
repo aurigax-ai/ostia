@@ -140,7 +140,7 @@ describe('secret injection', () => {
       value: (id) => (id === 'host:ssh:id_real' ? readFileSync(realKey, 'utf8') : null),
       dir,
     })
-    const agent = await startSshAgent(dir, prepared.sshKeys)
+    const agent = await startSshAgent(manager.sshAgentSocket('a'), prepared.sshKeys)
     try {
       const out = await runIn(
         'a',

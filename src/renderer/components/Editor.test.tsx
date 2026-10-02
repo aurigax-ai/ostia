@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
+import { commands } from '../commands/registry'
 import { openSelectionSend } from '../lib/selectionSenders'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLiveSelectionStore } from '../stores/liveSelectionStore'
@@ -95,6 +96,7 @@ const fake = vi.hoisted(() => {
     contentListeners: Listener[]
     selectionListeners: Listener[]
     blurListeners: Listener[]
+    keyListeners: ((e: unknown) => void)[]
     modelListeners: Listener[]
     formatRuns: (() => void) | null
     decorations: {
@@ -114,6 +116,7 @@ const fake = vi.hoisted(() => {
     contentListeners: [],
     selectionListeners: [],
     blurListeners: [],
+    keyListeners: [],
     modelListeners: [],
     formatRuns: null,
     decorations: [],
@@ -165,6 +168,7 @@ const fake = vi.hoisted(() => {
     onDidChangeModelContent: (l: Listener) => listen(state.contentListeners, l),
     onDidChangeCursorSelection: (l: Listener) => listen(state.selectionListeners, l),
     onDidBlurEditorText: (l: Listener) => listen(state.blurListeners, l),
+    onKeyDown: (l: (e: unknown) => void) => listen(state.keyListeners as Listener[], l as Listener),
     getAction: (id: string) =>
       id === 'editor.action.formatDocument' && state.formatRuns
         ? { run: async () => state.formatRuns?.() }
@@ -693,6 +697,20 @@ describe('EditorView → Send Selection to Agent', () => {
     select(3, 6, 3, 6)
     for (const listener of fake.state.selectionListeners) listener()
     await waitFor(() => expect(reported()).toBeUndefined())
+  })
+
+  it('runs an app chord pressed in the editor and keeps the editor from seeing it', async () => {
+    const ran = vi.fn()
+    commands.register({ id: 'palette.toggle', title: 'Palette', run: ran })
+    vi.mocked(window.pine.fs.read).mockResolvedValue('one')
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    const stopPropagation = vi.fn()
+    const browserEvent = new KeyboardEvent('keydown', { key: 'P', ctrlKey: true, shiftKey: true })
+    for (const listener of fake.state.keyListeners) listener({ browserEvent, stopPropagation })
+    expect(ran).toHaveBeenCalledTimes(1)
+    expect(stopPropagation).toHaveBeenCalledTimes(1)
+    commands.unregister('palette.toggle')
   })
 
   it('adds a context-menu action that opens the send panel with the file and range', async () => {

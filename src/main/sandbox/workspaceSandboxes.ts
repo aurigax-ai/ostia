@@ -21,6 +21,7 @@ import { SandboxHost, SandboxHostError } from './hostClient'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
 import type { SandboxPathEnv } from './pathChecks'
 import {
+  SSH_AGENT_SOCKET_NAME,
   type SandboxPaths,
   buildSrtConfig,
   expandHome,
@@ -248,7 +249,12 @@ export class WorkspaceSandboxes {
   }
 
   tmpDir(workspaceId: string): string {
-    return join(this.instanceTmp, workspaceId)
+    const short = createHash('sha256').update(workspaceId).digest('hex').slice(0, 10)
+    return join(this.instanceTmp, short)
+  }
+
+  sshAgentSocket(workspaceId: string): string {
+    return join(this.tmpDir(workspaceId), SSH_AGENT_SOCKET_NAME)
   }
 
   config(workspaceId: string): SandboxRuntimeConfig {

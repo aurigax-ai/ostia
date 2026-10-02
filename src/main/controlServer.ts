@@ -1,7 +1,6 @@
 import { chmodSync, rmSync } from 'node:fs'
 import { type Server, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import {
   ErrorCodes,
   type MessageConnection,
@@ -21,9 +20,10 @@ import type {
 import { type AuthedConn, authenticate, connHasCap } from './controlAuth'
 import { ensureCaps, needsElevation } from './controlElevation'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
+import { socketPath } from './privateTmp'
 
 export function controlSocketPath(): string {
-  return join(process.env.XDG_RUNTIME_DIR || tmpdir(), `pine-${process.pid}.sock`)
+  return socketPath(process.env.XDG_RUNTIME_DIR || tmpdir(), `pine-${process.pid}.sock`)
 }
 
 function unauthenticatedError(message: string): ResponseError<void> {

@@ -175,6 +175,15 @@ export function isAppChord(chord: string | null): chord is string {
   return chord !== null && !TERMINAL_SET.has(chord)
 }
 
+export function runAppChord(e: KeyLike & { preventDefault: () => void }, mac: boolean): boolean {
+  const chord = matchChord(e, mac)
+  if (!isAppChord(chord)) return false
+  e.preventDefault()
+  if (chord === WORKSPACE_GOTO) void commands.exec(chord, { index: workspaceIndex(e) })
+  else void commands.exec(chord)
+  return true
+}
+
 export function chordOf(id: string, mac: boolean): ChordSpec | null {
   return currentBindings(mac).byId.get(id) ?? null
 }
