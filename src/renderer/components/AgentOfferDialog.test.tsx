@@ -96,6 +96,18 @@ describe('AgentOfferDialog', () => {
     expect(window.pine.extensions.answerAgentOffer).toHaveBeenCalledWith('offer-1', null)
   })
 
+  it('answers not sent and pastes nothing when the agent stopped before the click', async () => {
+    const user = userEvent.setup()
+    render(<AgentOfferDialog />)
+    act(() => useAgentOfferStore.getState().receive(OFFER))
+    await screen.findByRole('dialog')
+    unregister()
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    expect(paste).not.toHaveBeenCalled()
+    expect(window.pine.extensions.answerAgentOffer).toHaveBeenCalledWith('offer-1', null)
+    expect(window.pine.extensions.answerAgentOffer).not.toHaveBeenCalledWith('offer-1', 'p-claude')
+  })
+
   it('says no agent runs and cannot send when the workspace has none', async () => {
     useBlocksStore.setState({ running: {}, agentBlocks: {} })
     render(<AgentOfferDialog />)
