@@ -2327,30 +2327,18 @@ button.prompt-chip:focus-visible {
   border-radius: 1px;
 }
 
-.pane-attn-ring {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 2px var(--attn);
-  animation: motion-fade-in var(--motion-base) var(--ease-out) both;
+.pane-tab .pane-kind-blink {
+  color: var(--attn-fg);
+  animation: attn-blink var(--motion-pulse) var(--ease-out) 3;
 }
 
-.pane-attn-pulse {
-  position: absolute;
-  inset: 0;
-  box-shadow: inset 0 0 0 8px var(--attn-glow);
-  opacity: 0;
-  animation: attn-pulse var(--motion-pulse) var(--ease-out) var(--motion-base) 2;
-}
-
-@keyframes attn-pulse {
+@keyframes attn-blink {
   0%,
   100% {
-    opacity: 0;
-  }
-  40% {
     opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
   }
 }
 

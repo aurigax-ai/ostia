@@ -25,7 +25,7 @@ test('a terminal notification in a background pane marks it unread and Ctrl+Shif
     await expect(second).toHaveClass(/\bactive\b/)
 
     await expect(first.locator('.pane-attn-msg')).toHaveText('build finished', { timeout: 15_000 })
-    await expect(first).not.toHaveClass(/\battn-ring\b/)
+    await expect(first.locator('.pane-kind-blink')).toHaveCount(0)
     await expect(first.getByRole('img', { name: 'Unread' })).toBeVisible()
     await expect(win.getByRole('img', { name: '1 unread' })).toBeVisible()
     await expect(win.getByRole('button', { name: 'Notifications, 1 unread' })).toBeVisible()

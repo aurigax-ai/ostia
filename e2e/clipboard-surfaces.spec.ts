@@ -16,7 +16,7 @@ const RED_DOT_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=='
 
 const READ_ONE_BYTE =
-  "sh -c 'stty raw -echo; b=$(dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -d \" \"); stty sane; echo byte_$b'"
+  'sh -c \'stty raw -echo; b=$(dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -d " "); stty sane; echo byte_$b\''
 
 interface Launched {
   app: ElectronApplication
@@ -217,9 +217,7 @@ test('the copy and paste chords work inside a browser pane', async () => {
     await writeClipboard(app, 'guest_pasted')
     await guestRun("document.getElementById('sink').focus()")
     await guestChord('V')
-    await expect
-      .poll(() => guestRun("document.getElementById('sink').value"))
-      .toBe('guest_pasted')
+    await expect.poll(() => guestRun("document.getElementById('sink').value")).toBe('guest_pasted')
   } finally {
     await app.close()
     server.close()

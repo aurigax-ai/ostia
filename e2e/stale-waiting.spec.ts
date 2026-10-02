@@ -44,7 +44,7 @@ test('an agent that waited and then exited leaves the pane idle, and a late repo
 
     await expect(rows).toContainText('fake-agent-gone', { timeout: 15_000 })
     await expect(dot).toHaveAttribute('aria-label', 'Idle', { timeout: 10_000 })
-    await expect(win.locator('.pane').first()).not.toHaveClass(/\battn-ring\b/)
+    await expect(win.locator('.pane').first().locator('.pane-attn-mark')).toHaveCount(0)
 
     await expect.poll(() => existsSync(lateMark), { timeout: 15_000 }).toBe(true)
     await win.waitForTimeout(500)
@@ -74,7 +74,7 @@ test('a notification from a plain command in zsh is a message, not a wait for in
     await expect(list.getByRole('button').first()).toContainText('hello', { timeout: 10_000 })
     await expect(list).not.toContainText('Agent needs your input')
     await expect(dot).toHaveAttribute('aria-label', 'Idle')
-    await expect(win.locator('.pane').first()).not.toHaveClass(/\battn-ring\b/)
+    await expect(win.locator('.pane').first().locator('.pane-attn-mark')).toHaveCount(0)
   } finally {
     await app.close()
   }
