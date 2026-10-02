@@ -1,6 +1,7 @@
 import { homedir } from 'node:os'
 import {
   type CommandHandler,
+  type EventHandler,
   type ExtensionEventType,
   type ExtensionSettingValues,
   PRODUCT_NAME,
@@ -14,14 +15,16 @@ import {
   onShutdown,
   startPanelServer,
 } from '@aurigax-ai/pine-extension-sdk'
-import { initHere, panelHandlers } from './panelApi'
+import { type AgentLauncher, initHere, panelHandlers } from './panelApi'
 import { TrellisService, type WorkspaceRef } from './service'
+import { AgentTasks } from './tasks'
 import { BOARD_PATH, HUMAN_ACTOR, VAULT_PATH, cardPath, cardRef, panelTarget } from './trellis'
 
 const REFRESH_SECONDS = { min: 10, max: 3600 }
 const EVENTS: ExtensionEventType[] = ['pane.created', 'pane.closed', 'cwd.changed']
 const FOCUS_EVENT = 'focus.changed' as ExtensionEventType
 const PANEL_FILES = ['panel.html', 'panel.js', 'panel.css', 'base.css']
+const TASK_CHIP = 'task'
 
 function workspacesFrom(raw: unknown): WorkspaceRef[] {
   if (!Array.isArray(raw)) throw new Error('workspace.list returned no list')
@@ -53,7 +56,23 @@ async function main(): Promise<void> {
   })
   onShutdown(() => service.stop())
 
-  const deps = { service, translate, confirm: ext.confirm }
+  const tasks = new AgentTasks()
+  const agents: AgentLauncher = {
+    list: () => ext.listAgents(),
+    run: (opts) => ext.runAgent(opts),
+    offer: (opts) => ext.offerToAgent(opts),
+    focus: (paneId) => ext.focusPane(paneId),
+    mark: (paneId, card, locale) =>
+      void ext
+        .setPaneChip({
+          paneId,
+          id: TASK_CHIP,
+          text: card.ref,
+          tooltip: translate(locale)('task.chip', { ref: card.ref, title: card.title }),
+        })
+        .catch(() => {}),
+  }
+  const deps = { service, translate, confirm: ext.confirm, agents, tasks }
   const panelOnly = panelHandlers(deps)
   const panel = await startPanelServer({
     dir: __dirname,
@@ -118,7 +137,12 @@ async function main(): Promise<void> {
 
   await ext.registerCommands(handlers)
 
-  const onEvent = (): void => service.scheduleRefresh()
+  const onEvent: EventHandler = (type, payload) => {
+    if (type === 'pane.closed' && tasks.dropPane((payload as { paneId: string }).paneId)) {
+      service.changed()
+    }
+    service.scheduleRefresh()
+  }
   const withFocus = (await ext.subscribe([...EVENTS, FOCUS_EVENT], onEvent)) as { ok?: boolean }
   if (withFocus?.ok === false) await ext.subscribe(EVENTS, onEvent)
   let refresh: ReturnType<typeof setInterval> | null = null

@@ -2,13 +2,18 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import { join } from 'node:path'
 import type {
+  AgentOfferOptions,
+  AgentOfferResult,
   CommandHandler,
   ExtensionCaller,
   ExtensionResult,
+  OpenTerminalResult,
+  RunAgentOptions,
 } from '@aurigax-ai/pine-extension-sdk'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { panelHandlers } from './panelApi'
+import { type AgentLauncher, panelHandlers } from './panelApi'
 import { TrellisService } from './service'
+import { AgentTasks } from './tasks'
 import { type FakeTrellis, fakeTrellis, translate } from './testFake'
 
 interface Confirm {
@@ -25,11 +30,20 @@ describe('trellis panel handlers', () => {
   let changes: number
   let daemon: Server | null
   let daemonRequests: { url: string; token: unknown }[]
+  let runs: RunAgentOptions[]
+  let offers: AgentOfferOptions[]
+  let focused: string[]
+  let marked: { paneId: string; ref: string }[]
+  let runAnswer: OpenTerminalResult
+  let offerAnswer: AgentOfferResult
+  let focusAnswer: ExtensionResult
+  let tasks: AgentTasks
 
-  const caller = (workDir?: string): ExtensionCaller => ({
+  const caller = (workDir?: string, workspaceId?: string): ExtensionCaller => ({
     kind: 'user',
     capabilities: [],
     workDir,
+    workspaceId,
     locale: 'en',
   })
 
@@ -37,6 +51,28 @@ describe('trellis panel handlers', () => {
     (await handlers[command](args, caller(workDir))) as ExtensionResult & {
       data?: Record<string, unknown>
     }
+
+  const inWorkspace = async (command: string, args: unknown) =>
+    (await handlers[command](args, caller(undefined, 'w1'))) as ExtensionResult & {
+      data?: Record<string, unknown>
+    }
+
+  const launcher = (): AgentLauncher => ({
+    list: async () => ['claude', 'codex'],
+    run: async (opts) => {
+      runs.push(opts)
+      return runAnswer
+    },
+    offer: async (opts) => {
+      offers.push(opts)
+      return offerAnswer
+    },
+    focus: async (paneId) => {
+      focused.push(paneId)
+      return focusAnswer
+    },
+    mark: (paneId, card) => marked.push({ paneId, ref: card.ref }),
+  })
 
   const writes = (): string[] =>
     fake.calls().filter((c) => /^(card (new|move|comment|claim|renew|release)|init)/.test(c))
@@ -69,6 +105,14 @@ describe('trellis panel handlers', () => {
     fake = fakeTrellis()
     confirms = []
     answer = true
+    runs = []
+    offers = []
+    focused = []
+    marked = []
+    runAnswer = { ok: true, paneId: 'pane-x' }
+    offerAnswer = { ok: true, sent: true, paneId: 'pane-y' }
+    focusAnswer = { ok: true }
+    tasks = new AgentTasks()
     changes = 0
     daemon = null
     service = new TrellisService({
@@ -90,6 +134,8 @@ describe('trellis panel handlers', () => {
     handlers = panelHandlers({
       service,
       translate,
+      agents: launcher(),
+      tasks,
       daemonCacheMs: 0,
       confirm: async (req) => {
         confirms.push({ title: req.title, message: req.message })
@@ -138,6 +184,8 @@ describe('trellis panel handlers', () => {
     const res = await panelHandlers({
       service: missing,
       translate,
+      agents: launcher(),
+      tasks: new AgentTasks(),
       confirm: async () => true,
     }).context({}, caller())
     expect(res).toMatchObject({ ok: false, error: 'not-installed' })
@@ -256,5 +304,95 @@ describe('trellis panel handlers', () => {
       message: `Run \`trellis init\` in ${dir}?`,
     })
     expect(readFileSync(join(fake.dir, 'init-cwd'), 'utf8').trim()).toBe(dir)
+  })
+
+  it('starts the chosen agent in the panel workspace with a prompt built from the card', async () => {
+    const res = await inWorkspace('start', { ref: 'demo-1', agent: 'claude', board: 'demo' })
+    expect(res).toMatchObject({ ok: true, data: { ref: 'DEMO-1', agent: 'claude' } })
+    expect(runs).toHaveLength(1)
+    expect(runs[0].workspaceId).toBe('w1')
+    expect(runs[0].agent).toBe('claude')
+    const prompt = runs[0].prompt
+    expect(prompt).toContain('Work on Trellis card DEMO-1: Checkout fails on an empty cart')
+    expect(prompt).toContain('1. Empty the cart\n2. Press **Pay**')
+    expect(prompt).toContain('`trellis card show DEMO-1`')
+    expect(prompt).toContain('`trellis card claim DEMO-1`')
+    expect(prompt).toContain('`trellis card comment DEMO-1 --body')
+    expect(prompt).toContain('`trellis card move DEMO-1 review`')
+    expect(marked).toEqual([{ paneId: 'pane-x', ref: 'DEMO-1' }])
+    expect((await run('tasks')).data).toEqual({
+      tasks: [{ ref: 'DEMO-1', agent: 'claude', at: expect.any(Number) }],
+    })
+    expect(writes()).toEqual([])
+  })
+
+  it('refuses a start without a workspace, a known card or a plain agent name', async () => {
+    expect(await run('start', { ref: 'DEMO-1', agent: 'claude' })).toMatchObject({
+      ok: false,
+      error: 'no-workspace',
+    })
+    for (const agent of ['', '--yolo', 'claude code', 'a;b']) {
+      expect(await inWorkspace('start', { ref: 'DEMO-1', agent })).toMatchObject({
+        ok: false,
+        error: 'invalid-args',
+      })
+    }
+    expect(await inWorkspace('start', { ref: 'DEMO-99', agent: 'claude' })).toMatchObject({
+      ok: false,
+      error: 'card_not_found',
+    })
+    expect(runs).toEqual([])
+  })
+
+  it('passes a refused run back and tracks nothing', async () => {
+    runAnswer = { ok: false, error: 'unknown-agent', message: 'no agent by that name' }
+    expect(await inWorkspace('start', { ref: 'DEMO-1', agent: 'gemini' })).toEqual({
+      ok: false,
+      error: 'unknown-agent',
+      message: 'no agent by that name',
+    })
+    expect((await run('tasks')).data).toEqual({ tasks: [] })
+    expect(marked).toEqual([])
+  })
+
+  it('offers one line naming the card to the human and tracks the agent they picked', async () => {
+    offerAnswer = { ok: true, sent: false }
+    expect(await inWorkspace('offer', { ref: 'DEMO-3', board: 'demo' })).toMatchObject({
+      ok: true,
+      data: { sent: false },
+    })
+    expect(tasks.list()).toEqual([])
+    expect(offers[0]).toEqual({
+      workspaceId: 'w1',
+      label: 'DEMO-3 · Write the rollback runbook',
+      text: expect.stringContaining('Work on Trellis card DEMO-3 (Write the rollback runbook)'),
+    })
+    expect(offers[0].text).not.toContain('\n')
+    expect(offers[0].text).toContain('`trellis card move DEMO-3 review`')
+
+    offerAnswer = { ok: true, sent: true, paneId: 'pane-y' }
+    expect(await inWorkspace('offer', { ref: 'DEMO-3' })).toMatchObject({
+      ok: true,
+      data: { sent: true },
+    })
+    expect(tasks.list()).toMatchObject([{ ref: 'DEMO-3', paneId: 'pane-y', agent: null }])
+    expect(marked).toEqual([{ paneId: 'pane-y', ref: 'DEMO-3' }])
+  })
+
+  it('focuses the tracked pane and forgets it once the pane is gone', async () => {
+    expect(await run('focus', { ref: 'DEMO-1' })).toMatchObject({ ok: false, error: 'no-task' })
+    await inWorkspace('start', { ref: 'DEMO-1', agent: 'codex' })
+    expect(await run('focus', { ref: 'demo-1' })).toEqual({ ok: true })
+    expect(focused).toEqual(['pane-x'])
+    focusAnswer = { ok: false, error: 'unknown-pane' }
+    expect(await run('focus', { ref: 'DEMO-1' })).toMatchObject({
+      ok: false,
+      error: 'pane-closed',
+    })
+    expect(tasks.list()).toEqual([])
+  })
+
+  it('lists the agent names it may start', async () => {
+    expect((await run('agents')).data).toEqual({ agents: ['claude', 'codex'] })
   })
 })

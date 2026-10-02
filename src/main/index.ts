@@ -45,6 +45,7 @@ import type {
   WindowBounds,
 } from '../shared/types'
 import { clampZoom, zoomFactor } from '../shared/zoom'
+import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agentOfferRelay'
 import { AgentRunningPanes } from './agentRunning'
 import { registerAgentTranscriptIpc } from './agentTranscript'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
@@ -95,6 +96,7 @@ import { configureGatewayControl, stopGateway } from './gateway/server'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { registerIconThemeIpc } from './iconThemes'
 import {
+  type PaneIdentity,
   getByPaneId,
   markManager,
   panesOwnedBy,
@@ -2145,6 +2147,25 @@ function readLocale(): string | undefined {
   return typeof locale === 'string' ? locale : undefined
 }
 
+const agentOffers = createAgentOfferRelay({
+  windowOf: (workspaceId) => workspaceWindowId(workspaceId),
+  send: (windowId, channel, payload) => {
+    const win = windows.get(windowId)
+    if (!win || win.isDestroyed()) return false
+    win.webContents.send(channel, payload)
+    return true
+  },
+  externalIdOf: (paneId) => getByPaneId(paneId)?.externalId,
+})
+
+function focusPaneInWindow(pane: PaneIdentity): boolean {
+  const win = windows.get(pane.windowId)
+  if (!win || win.isDestroyed()) return false
+  showWindow(win)
+  win.webContents.send('extensions:focus-pane', pane.paneId)
+  return true
+}
+
 const OPEN_TERMINAL_TIMEOUT_MS = 5000
 let openTerminalSeq = 0
 
@@ -2476,9 +2497,16 @@ app.whenReady().then(() => {
     notify: (n) => postNotification(notifyDeps, n),
     confirm: (req) => confirmForExtension(req, windows.values()),
     notifyPanel: (n, open) => postPanelNotification(notifyDeps, n, open),
+    agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
+    agentNames: () => Object.keys(managerAgents(managerSettings())),
+    offerToAgentIn: (offer) => agentOffers.offer(offer),
+    focusPaneIn: focusPaneInWindow,
   })
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
+  ipcMain.on(AGENT_OFFER_RESULT_CHANNEL, (e, requestId: unknown, paneId: unknown) =>
+    agentOffers.answer(String(e.sender.id), requestId, paneId),
+  )
   languageServers = createLanguageServers()
   languageServers.refresh()
   registerLanguageServersIpc({

@@ -29,6 +29,8 @@ import {
   LOCALE_CHANGED_EVENT,
 } from '../../shared/extensionLocales'
 import type {
+  AgentOfferOptions,
+  AgentOfferResult,
   DiffContent,
   ExtensionCaller,
   ExtensionEventPayloads,
@@ -39,6 +41,7 @@ import type {
   ExtensionSettingValues,
   OpenTerminalOptions,
   PaneChipItem,
+  RunAgentOptions,
   SidebarKind,
   SidebarTone,
 } from '../../shared/extensions'
@@ -51,6 +54,8 @@ import { PANEL_SIZES_FILE, PanelSizeStore } from './panelSizes'
 import { PANEL_SIZES_PATH } from './split'
 
 export type {
+  AgentOfferOptions,
+  AgentOfferResult,
   DiffContent,
   ExtensionCaller,
   ExtensionEventType,
@@ -59,6 +64,7 @@ export type {
   ExtensionSettingValues,
   OpenTerminalOptions,
   PaneChipItem,
+  RunAgentOptions,
   SidebarTone,
 } from '../../shared/extensions'
 
@@ -210,6 +216,10 @@ export interface PineExtension {
   setAttention: (paneId: string, state: AttentionVerb, message?: string) => Promise<unknown>
   openDiff: (diff: DiffContent & { workspaceId?: string }) => Promise<ExtensionResult>
   openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
+  listAgents: () => Promise<string[]>
+  runAgent: (opts: RunAgentOptions) => Promise<OpenTerminalResult>
+  offerToAgent: (opts: AgentOfferOptions) => Promise<AgentOfferResult>
+  focusPane: (paneId: string) => Promise<ExtensionResult>
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
   onAssist: (handler: AssistHandler) => void
@@ -443,6 +453,37 @@ export async function connect(): Promise<PineExtension> {
         return await conn.sendRequest<OpenTerminalResult>('ext.openTerminal', opts)
       } catch (err) {
         return { ok: false, error: 'open-terminal-failed', message: errorMessage(err) }
+      }
+    },
+    listAgents: async () => {
+      try {
+        const res = await conn.sendRequest<{ agents?: unknown }>('ext.agents')
+        return Array.isArray(res?.agents)
+          ? res.agents.filter((a): a is string => typeof a === 'string')
+          : []
+      } catch {
+        return []
+      }
+    },
+    runAgent: async (opts) => {
+      try {
+        return await conn.sendRequest<OpenTerminalResult>('ext.runAgent', opts)
+      } catch (err) {
+        return { ok: false, error: 'run-agent-failed', message: errorMessage(err) }
+      }
+    },
+    offerToAgent: async (opts) => {
+      try {
+        return await conn.sendRequest<AgentOfferResult>('ext.offerToAgent', opts)
+      } catch (err) {
+        return { ok: false, error: 'offer-failed', message: errorMessage(err) }
+      }
+    },
+    focusPane: async (paneId) => {
+      try {
+        return await conn.sendRequest<ExtensionResult>('ext.focusPane', { paneId })
+      } catch (err) {
+        return failure('focus-failed', errorMessage(err))
       }
     },
     listWorkspaces: () => conn.sendRequest('workspace.list'),

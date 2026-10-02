@@ -2,7 +2,7 @@
   "id": "ssh",
   "name": "SSH",
   "version": "1.1.0",
-  "api": "1.8",
+  "api": "1.9",
   "description": "Lists the hosts in your ssh config and opens an ssh session in a new terminal, through bastion hosts when you name them. Inside a session, commands show as blocks through a shell integration that lives only for that session. A session an agent asks for opens only after you approve the exact command.",
   "category": "tools",
   "capabilities": ["shell"],

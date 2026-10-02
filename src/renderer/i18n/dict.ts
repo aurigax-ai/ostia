@@ -842,6 +842,12 @@ export const en = {
     sentCopied: 'Sent to {pane}. It was busy, so the report path is on your clipboard.',
     sendFailed: 'Could not send the report ({reason}).',
   },
+  agentOffer: {
+    title: 'Send to agent: {label}',
+    body: '{extension} asks to send this text to an agent. It is pasted at the agent’s prompt and not submitted; nothing is sent until you pick an agent.',
+    text: 'Text to send',
+    cancel: 'Don’t send',
+  },
   update: {
     title: '{product} was updated',
     body: '{build} is installed. Restart to use it; your workspaces come back, running commands stop.',
@@ -3145,6 +3151,12 @@ export const zhHant: Dict = {
     sentInserted: '已傳送至 {pane}，報告路徑已放在提示字元。',
     sentCopied: '已傳送至 {pane}。該窗格忙碌中，報告路徑已複製到剪貼簿。',
     sendFailed: '無法傳送報告（{reason}）。',
+  },
+  agentOffer: {
+    title: '傳送給代理程式：{label}',
+    body: '{extension} 要求將這段文字傳送給代理程式。文字會貼到代理程式的輸入處，不會送出；在你選擇代理程式之前不會傳送任何內容。',
+    text: '要傳送的文字',
+    cancel: '不要傳送',
   },
   update: {
     title: '{product} 已更新',
