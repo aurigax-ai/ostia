@@ -1,14 +1,9 @@
-import {
-  type ExtensionInfo,
-  type ExtensionSecretContribution,
-  type ExtensionSettingContribution,
-  PRODUCT_PLACEHOLDER,
+import type {
+  ExtensionInfo,
+  ExtensionSecretContribution,
+  ExtensionSettingContribution,
 } from '@shared/extensions'
-import { PRODUCT_NAME } from '@shared/product'
-
-export function withProductName(text: string, product: string = PRODUCT_NAME): string {
-  return text.split(PRODUCT_PLACEHOLDER).join(product)
-}
+import { withProductName } from '../i18n/dict'
 
 function isAcronym(word: string): boolean {
   return word.length > 1 && word === word.toUpperCase() && /[A-Z]/.test(word)

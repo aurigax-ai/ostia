@@ -1,6 +1,4 @@
-import { PRODUCT_NAME } from '@shared/product'
-import { fmt, useDict } from '../i18n/useDict'
-import { withProductName } from '../lib/extensionSettingText'
+import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { pendingApproval, useExtensionsStore } from '../stores/extensionsStore'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -39,9 +37,8 @@ export function ExtensionApprovalDialog(): JSX.Element {
               ? fmt(d.extensions.approveBody, {
                   name: ext?.name ?? '',
                   version: ext?.version ?? '',
-                  app: PRODUCT_NAME,
                 })
-              : fmt(d.extensions.approveNone, { app: PRODUCT_NAME })}
+              : d.extensions.approveNone}
           </DialogDescription>
         </DialogHeader>
         {ext?.description ? (

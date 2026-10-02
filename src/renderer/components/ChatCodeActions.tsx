@@ -169,7 +169,7 @@ function InsertAction({ code, workspaceId, onNotice, onInserted }: CodeActionsPr
     <>
       <IconButton
         icon={TerminalWindowIcon}
-        label={reason ? `${d.ask.insert} (${reason})` : d.ask.insert}
+        label={reason ? fmt(d.ask.insertRefused, { reason }) : d.ask.insert}
         aria-disabled={reason !== null}
         aria-describedby={reason ? reasonId : undefined}
         className="aria-disabled:opacity-50"

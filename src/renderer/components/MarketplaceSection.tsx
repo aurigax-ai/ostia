@@ -5,8 +5,7 @@ import {
   type MarketplaceInfo,
 } from '@shared/marketplace'
 import { useEffect, useState } from 'react'
-import { fmt, useDict } from '../i18n/useDict'
-import { withProductName } from '../lib/extensionSettingText'
+import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useMarketplaceStore } from '../stores/marketplaceStore'
 import { IconButton } from './IconButton'
@@ -100,8 +99,12 @@ function ExtensionRow({
         ) : null}
         <p className="mt-0.5 text-fg-muted text-ui-xs">
           {ext.runsProcess ? d.marketplace.runsProcess : d.marketplace.dataOnly} ·{' '}
-          {d.extensions.permissions}:{' '}
-          {ext.capabilities.length > 0 ? ext.capabilities.join(', ') : d.extensions.noPermissions}
+          {fmt(d.extensions.permissionsList, {
+            list:
+              ext.capabilities.length > 0
+                ? ext.capabilities.join(', ')
+                : d.extensions.noPermissions,
+          })}
         </p>
         {ext.state === 'conflict' ? (
           <p className="mt-0.5 text-attn-fg text-ui-xs">{d.marketplace.conflict}</p>

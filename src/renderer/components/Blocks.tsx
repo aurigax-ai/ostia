@@ -212,7 +212,7 @@ export function StickyHeader({
       aria-hidden={leaving || undefined}
       tabIndex={leaving ? -1 : undefined}
       onAnimationEnd={leaving ? onExited : undefined}
-      aria-label={`${d.blocks.jumpToCommand}: ${info.command}`}
+      aria-label={fmt(d.blocks.jumpToCommandFor, { command: info.command })}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => onJump(info.line)}
     >

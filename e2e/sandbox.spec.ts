@@ -347,7 +347,7 @@ test('SBX-C57 shows every sandbox setting on the workspace page and in Settings 
       ['Ports', 'When a new server starts'],
       ['Secrets', 'Env and file grants'],
       ['Packages', 'Cooldown (days)'],
-      ['Pine access', 'Act on other workspaces'],
+      ['pine access', 'Act on other workspaces'],
       ['Blocked', 'Nothing was blocked.'],
     ]
     for (const [tab, control] of tabs) {

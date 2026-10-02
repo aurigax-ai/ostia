@@ -4,7 +4,11 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
+import { zhHant } from '../i18n/dict'
+import { languagesFrom } from '../lib/languagePacks'
 import { useLayoutStore } from '../stores/layoutStore'
+import { usePluginsStore } from '../stores/pluginsStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { CommandPalette } from './CommandPalette'
@@ -214,6 +218,87 @@ describe('CommandPalette', () => {
       await userEvent.type(screen.getByPlaceholderText('Card id'), '   {Enter}')
       expect(run).not.toHaveBeenCalled()
       expect(useUIStore.getState().paletteOpen).toBe(true)
+    })
+  })
+  describe('languages', () => {
+    const initialPlugins = usePluginsStore.getState()
+    const initialSettings = useSettingsStore.getState()
+
+    const loadChinese = (): void => {
+      usePluginsStore.setState({
+        languages: languagesFrom([
+          { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+        ]),
+      })
+    }
+
+    afterEach(() => {
+      cleanup()
+      usePluginsStore.setState(initialPlugins, true)
+      useSettingsStore.setState(initialSettings, true)
+      commands.unregister('hello.open')
+    })
+
+    it('shows core commands in the human’s language and changes when they switch it', async () => {
+      loadChinese()
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('option', { name: /Split Pane Right/ })).toBeInTheDocument()
+
+      act(() => useSettingsStore.setState({ locale: 'zh-Hant' }))
+
+      expect(screen.getByRole('option', { name: /向右分割窗格/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /Split Pane Right/ })).toBeNull()
+      expect(screen.getByRole('group', { name: '窗格' })).toBeInTheDocument()
+
+      act(() => useSettingsStore.setState({ locale: 'en' }))
+
+      expect(screen.getByRole('option', { name: /Split Pane Right/ })).toBeInTheDocument()
+    })
+
+    it('finds a command by its translated title and by its English one', async () => {
+      loadChinese()
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+
+      await userEvent.type(input, 'Open Settings')
+      expect(await screen.findByRole('option', { name: /開啟設定/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /切換側邊欄/ })).toBeNull()
+
+      await userEvent.clear(input)
+      await userEvent.type(input, '開啟設定')
+      expect(await screen.findByRole('option', { name: /開啟設定/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /切換側邊欄/ })).toBeNull()
+    })
+
+    it('keeps the registry title English for agents while the palette shows Chinese', async () => {
+      loadChinese()
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('option', { name: /開啟設定/ })).toBeInTheDocument()
+
+      const described = commands.describe().find((c) => c.id === 'app.openSettings')
+      expect(described).toMatchObject({ title: 'Open Settings', category: 'App' })
+    })
+
+    it('shows an extension command as main sent it, beside translated core commands', async () => {
+      loadChinese()
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      commands.register({
+        id: 'hello.open',
+        title: '哈囉：開啟面板',
+        category: '哈囉',
+        run: () => {},
+      })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+
+      expect(await screen.findByRole('option', { name: /哈囉：開啟面板/ })).toBeInTheDocument()
+      expect(screen.getByRole('group', { name: '哈囉' })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /開啟設定/ })).toBeInTheDocument()
     })
   })
 })

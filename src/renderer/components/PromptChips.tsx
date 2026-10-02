@@ -83,7 +83,7 @@ export function PromptChip({
     className: 'prompt-chip',
     'data-chip': chip.id,
     'data-tone': chip.tone,
-    'aria-label': `${label}: ${chip.text}`,
+    'aria-label': fmt(d.prompt.chipLabel, { label, text: chip.text }),
   }
   const element = onActivate ? (
     <button type="button" {...common} onMouseDown={(e) => e.preventDefault()} onClick={onActivate}>

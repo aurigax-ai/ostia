@@ -6,7 +6,6 @@ import {
   enumValueTitle,
   extensionMatchesQuery,
   humanizeSettingKey,
-  withProductName,
 } from './extensionSettingText'
 
 function setting(overrides: Partial<ExtensionSettingContribution> = {}) {
@@ -67,19 +66,6 @@ describe('humanizeSettingKey', () => {
 
   it('keeps digits with the word they follow', () => {
     expect(humanizeSettingKey('retry2Count')).toBe('Retry2 count')
-  })
-})
-
-describe('withProductName', () => {
-  it('replaces every {product} placeholder', () => {
-    expect(withProductName('While {product} is focused, {product} polls', 'Pine')).toBe(
-      'While Pine is focused, Pine polls',
-    )
-  })
-
-  it('uses the product name by default and leaves other text alone', () => {
-    expect(withProductName('{product}')).toBe(PRODUCT_NAME)
-    expect(withProductName('No braces {here}')).toBe('No braces {here}')
   })
 })
 

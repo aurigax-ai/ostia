@@ -5,6 +5,7 @@ import { terminalFor } from '../lib/terminalHandles'
 import { useAssistComposerStore } from '../stores/assistComposerStore'
 import { assistProvider, useAssistStore } from '../stores/assistStore'
 import { useBlocksStore } from '../stores/blocksStore'
+import { registerCore } from './core'
 import { commands } from './registry'
 
 export const ASSIST_COMPOSE_COMMAND = 'assist.compose'
@@ -34,10 +35,9 @@ function composeAvailable(): boolean {
 
 function register(): void {
   if (commands.has(ASSIST_COMPOSE_COMMAND)) return
-  commands.register<undefined, { opened: boolean }>({
+  registerCore<undefined, { opened: boolean }>({
     id: ASSIST_COMPOSE_COMMAND,
-    title: 'Compose with Assistant',
-    category: 'Assistant',
+    category: 'assistant',
     target: 'active',
     run: (_args, ctx) => {
       const paneId = ctx.activePaneId
