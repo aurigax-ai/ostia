@@ -6,6 +6,7 @@ import {
   parseApprovalSettings,
 } from '@shared/approvals'
 import { type KeybindingMap, parseKeybindings } from '@shared/chordSpec'
+import { debounce } from 'es-toolkit'
 import { create } from 'zustand'
 import {
   type AssistModelSettings,
@@ -543,8 +544,6 @@ function applySetting(s: SettingsState, path: string, value: unknown): SettingCh
   return { path, previous, value: getByPath(parsed, path), next }
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
 async function writeSettings(s: SettingsState): Promise<void> {
   const snapshot: Persisted = {
     locale: s.locale,
@@ -575,13 +574,6 @@ async function writeSettings(s: SettingsState): Promise<void> {
   await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
 }
 
-function scheduleSave(get: () => SettingsState): void {
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => {
-    writeSettings(get()).catch((err: unknown) => console.error('[settings] save failed', err))
-  }, 300)
-}
-
 const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues> => {
   if (!isPlainObject(v)) return {}
   const out: Record<string, ExtensionSettingValues> = {}
@@ -607,66 +599,71 @@ function pickBooleans<T extends object>(base: T, raw: unknown): T {
 
 const mergeFont = (base: SurfaceFont, p?: Partial<SurfaceFont>): SurfaceFont => ({ ...base, ...p })
 
-export const useSettingsStore = create<SettingsState>((set, get) => ({
-  ...DEFAULTS,
+export const useSettingsStore = create<SettingsState>((set, get) => {
+  const debouncedSave = debounce(() => {
+    writeSettings(get()).catch((err: unknown) => console.error('[settings] save failed', err))
+  }, 300)
 
-  init: async () => {
-    const path = await window.pine.settings.path()
-    const raw = await window.pine.fs.read(path)
-    if (!raw) return
-    try {
-      set(parsePersisted(JSON.parse(raw) as Partial<Persisted>))
-    } catch {}
-  },
+  return {
+    ...DEFAULTS,
 
-  setLocale: (locale) => {
-    set({ locale })
-    scheduleSave(get)
+    init: async () => {
+      const path = await window.pine.settings.path()
+      const raw = await window.pine.fs.read(path)
+      if (!raw) return
+      try {
+        set(parsePersisted(JSON.parse(raw) as Partial<Persisted>))
+      } catch {}
+    },
+
+    setLocale: (locale) => {
+      set({ locale })
+      debouncedSave()
   },
   setTheme: (theme) => {
     set((s) => ({ appearance: { ...s.appearance, theme } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setFollowSystem: (followSystem) => {
     set((s) => ({ appearance: { ...s.appearance, followSystem } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setLightTheme: (lightTheme) => {
     set((s) => ({ appearance: { ...s.appearance, lightTheme } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setDarkTheme: (darkTheme) => {
     set((s) => ({ appearance: { ...s.appearance, darkTheme } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setAccent: (hex) => {
     const accent = hex.trim() === '' ? '' : normalizeHex(hex)
     if (accent === null) return false
     set((s) => ({ appearance: { ...s.appearance, accent } }))
-    scheduleSave(get)
+    debouncedSave()
     return true
   },
   setZoom: (percent) => {
     set((s) => ({ appearance: { ...s.appearance, zoom: clampZoom(percent) } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setMotion: (motion) => {
     set((s) => ({ appearance: { ...s.appearance, motion } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setSurfaceFont: (surface, patch) => {
     set((s) => ({
       appearance: { ...s.appearance, [surface]: { ...s.appearance[surface], ...patch } },
     }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setBehavior: (patch) => {
     set((s) => ({ behavior: { ...s.behavior, ...patch } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setFiles: (patch) => {
     set((s) => ({ files: parseFileTreeSettings({ ...s.files, ...patch }) }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setTerminal: (patch) => {
     set((s) => ({
@@ -679,15 +676,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         prompt: parsePromptSettings(patch.prompt ?? s.terminal.prompt),
       },
     }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setPanes: (patch) => {
     set((s) => ({ panes: { ...s.panes, ...patch } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setNotifications: (patch) => {
     set((s) => ({ notifications: { ...s.notifications, ...patch } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setTerminalLineHeight: (lineHeight) => {
     set((s) => ({
@@ -696,15 +693,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         terminal: { ...s.appearance.terminal, lineHeight: clampLineHeight(lineHeight) },
       },
     }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setSidebar: (patch) => {
     set((s) => ({ sidebar: { ...s.sidebar, ...patch } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setWorkspaces: (patch) => {
     set((s) => ({ workspaces: { ...s.workspaces, ...patch } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setSandbox: async (next) => {
     set({ sandbox: next })
@@ -713,68 +710,66 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setManager: (patch) => {
     set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setBrowser: (patch) => {
     set((s) => ({ browser: parseBrowserSettings({ ...s.browser, ...patch }) }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setEditor: (patch) => {
     set((s) => ({ editor: parseEditorSettings({ ...s.editor, ...patch }) }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setKeybinding: (id, chord) => {
     set((s) => ({ keybindings: { ...s.keybindings, [id]: chord } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   resetKeybinding: (id) => {
     set((s) => {
       const { [id]: _removed, ...rest } = s.keybindings
       return { keybindings: rest }
     })
-    scheduleSave(get)
+    debouncedSave()
   },
   setKeybindings: (keybindings) => {
     set({ keybindings })
-    scheduleSave(get)
+    debouncedSave()
   },
   setExtensionSettings: (extId, values) => {
     set((s) => ({ extensionSettings: { ...s.extensionSettings, [extId]: values } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setChatHistory: (chatHistory) => {
     set((s) => ({ assistant: { ...s.assistant, chatHistory } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setChatTools: async (patch) => {
     set((s) => ({
       assistant: { ...s.assistant, ...parseChatToolSettings({ ...s.assistant, ...patch }) },
     }))
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = null
+    debouncedSave.cancel()
     await writeSettings(get())
   },
   setAssistModels: async (patch) => {
     set((s) => ({
       assistant: { ...s.assistant, ...parseAssistModelSettings({ ...s.assistant, ...patch }) },
     }))
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = null
+    debouncedSave.cancel()
     await writeSettings(get())
   },
   setAutoResume: (autoResume) => {
     set((s) => ({ agents: { ...s.agents, autoResume } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setAgentHooks: (patch) => {
     set((s) => ({ agents: { ...s.agents, hooks: { ...s.agents.hooks, ...patch } } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setHibernation: (patch) => {
     set((s) => ({
       agents: { ...s.agents, hibernation: parseHibernation({ ...s.agents.hibernation, ...patch }) },
     }))
-    scheduleSave(get)
+    debouncedSave()
   },
   trustAction: (fingerprint) => {
     set((s) =>
@@ -782,23 +777,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         ? s
         : { trustedActions: [...s.trustedActions, fingerprint] },
     )
-    scheduleSave(get)
+    debouncedSave()
   },
   removeAction: (id) => {
     set((s) => ({ actions: s.actions.filter((a) => a.id !== id) }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setWindowTitle: (windowTitle) => {
     set((s) => ({ appearance: { ...s.appearance, windowTitle: parseWindowTitle(windowTitle) } }))
-    scheduleSave(get)
+    debouncedSave()
   },
   setApprovalMode: (mode) => {
     set({ approvals: { mode } })
-    scheduleSave(get)
+    debouncedSave()
   },
   setSyncDir: async (dir) => {
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = null
+    debouncedSave.cancel()
     set({ sync: dir ? { dir } : undefined })
     await writeSettings(get())
   },
@@ -806,7 +800,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setByPath: (path, value) => {
     const change = applySetting(get(), path, value)
     set(change.next)
-    scheduleSave(get)
+    debouncedSave()
     return change
   },
   unsetByPath: (path) => {
@@ -814,4 +808,5 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     if (fallback === undefined) throw new Error(`unknown settings key: ${path}`)
     return get().setByPath(path, structuredClone(fallback))
   },
-}))
+  }
+})
