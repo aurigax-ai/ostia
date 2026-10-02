@@ -1,10 +1,12 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { type BrowseCall, extractGlobals, parseBrowseCommand, splitCommandLine } from './browseArgs'
+import { failureHint } from './failure'
 
 export interface BrowseResponse {
   success: boolean
   data: Record<string, unknown> | null
   error: string | null
+  hint?: string
 }
 
 type RawResult = Record<string, unknown> & { ok?: unknown; error?: unknown; message?: unknown }
@@ -137,7 +139,13 @@ export async function executeCall(
   try {
     return toResponse(await conn.sendRequest(call.method, params))
   } catch (e) {
-    return { success: false, data: null, error: e instanceof Error ? e.message : String(e) }
+    const hint = failureHint(e)
+    return {
+      success: false,
+      data: null,
+      error: e instanceof Error ? e.message : String(e),
+      ...(hint ? { hint } : {}),
+    }
   }
 }
 
@@ -147,7 +155,7 @@ function report(verb: string, res: BrowseResponse, json: boolean): void {
     return
   }
   if (res.success) console.log(formatText(verb, res.data))
-  else console.error(`pine browse ${verb}: ${res.error}`)
+  else console.error(`pine browse ${verb}: ${res.error}${res.hint ? `. ${res.hint}` : ''}`)
 }
 
 async function batchCommands(args: string[]): Promise<string[][] | string> {

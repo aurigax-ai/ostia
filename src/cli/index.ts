@@ -17,6 +17,7 @@ import { parseArgs } from './args'
 import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
 import { BUS_QUEUED_HINT, type BusSendOk, type SentMessage, runBusHook, sentLines } from './bus'
+import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
 import { runPaneVerb } from './pane'
@@ -1357,7 +1358,7 @@ async function main(): Promise<void> {
     if (connectionLost) {
       console.error('pine: connection to the app closed (did Pine quit?)')
     } else {
-      console.error('pine:', e instanceof Error ? e.message : String(e))
+      console.error('pine:', describeFailure(e))
     }
     process.exitCode = 1
   } finally {
