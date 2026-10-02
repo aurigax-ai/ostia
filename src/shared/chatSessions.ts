@@ -40,8 +40,27 @@ export interface ChatSessionSummary {
   trimmed?: boolean
 }
 
+export type ChatEditHunkDecision = 'accepted' | 'rejected' | null
+
+export interface ChatSessionEdit {
+  toolCallId: string
+  path: string
+  root: string
+  existed: boolean
+  outside: boolean
+  symlink: boolean
+  auto: boolean
+  state: 'applied' | 'undone'
+  version: string | null
+  seq: number
+  decisions: ChatEditHunkDecision[]
+  before?: string
+  after?: string
+}
+
 export interface ChatSession extends ChatSessionSummary {
   messages: ChatSessionMessage[]
+  edits?: ChatSessionEdit[]
 }
 
 export type ChatSaveResult =
@@ -66,6 +85,11 @@ export const CHAT_SESSION_MAX_BYTES = 512 * 1024
 export const CHAT_TOTAL_MAX_BYTES = 16 * 1024 * 1024
 export const CHAT_SESSIONS_MAX = 500
 export const CHAT_SESSION_MESSAGES_MAX = 400
+export const CHAT_EDIT_TEXT_MAX = 64 * 1024
+export const CHAT_SESSION_EDITS_MAX = 200
+const EDIT_DECISIONS_MAX = 5000
+const EDIT_PATH_MAX = 4096
+const VERSION_PATTERN = /^[0-9a-f]{64}$/
 const TEXT_MAX = 100_000
 const PART_JSON_MAX = 64 * 1024
 const PART_TYPE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
@@ -172,6 +196,79 @@ function message(raw: unknown): ChatSessionMessage | null {
   return out
 }
 
+function editPath(v: unknown): string | null {
+  return typeof v === 'string' && v.startsWith('/') && v.length <= EDIT_PATH_MAX ? v : null
+}
+
+function decision(v: unknown): ChatEditHunkDecision {
+  return v === 'accepted' || v === 'rejected' ? v : null
+}
+
+function keptText(v: unknown): v is string {
+  return typeof v === 'string' && v.length <= CHAT_EDIT_TEXT_MAX
+}
+
+export function normalizeChatEdit(raw: unknown): ChatSessionEdit | null {
+  if (!isRecord(raw)) return null
+  const toolCallId =
+    typeof raw.toolCallId === 'string' && raw.toolCallId && raw.toolCallId.length <= 128
+      ? raw.toolCallId
+      : null
+  const path = editPath(raw.path)
+  const root = editPath(raw.root)
+  const seq = finite(raw.seq)
+  const version =
+    typeof raw.version === 'string' && VERSION_PATTERN.test(raw.version) ? raw.version : null
+  if (!toolCallId || !path || !root || seq === null || seq < 0) return null
+  if (raw.state !== 'applied' && raw.state !== 'undone') return null
+  if (raw.version !== null && version === null) return null
+  const decisions = Array.isArray(raw.decisions)
+    ? raw.decisions.slice(0, EDIT_DECISIONS_MAX).map(decision)
+    : []
+  const edit: ChatSessionEdit = {
+    toolCallId,
+    path,
+    root,
+    existed: raw.existed === true,
+    outside: raw.outside === true,
+    symlink: raw.symlink === true,
+    auto: raw.auto === true,
+    state: raw.state,
+    version,
+    seq: Math.floor(seq),
+    decisions,
+  }
+  if (keptText(raw.before) && keptText(raw.after)) {
+    edit.before = raw.before
+    edit.after = raw.after
+  }
+  return edit
+}
+
+export function toolCallIdsOf(messages: readonly ChatSessionMessage[]): Set<string> {
+  const ids = new Set<string>()
+  for (const message of messages) {
+    for (const p of message.parts) {
+      if (isToolPartType(p.type) && typeof p.toolCallId === 'string') ids.add(p.toolCallId)
+    }
+  }
+  return ids
+}
+
+function edits(raw: unknown, messages: readonly ChatSessionMessage[]): ChatSessionEdit[] {
+  if (!Array.isArray(raw)) return []
+  const calls = toolCallIdsOf(messages)
+  const seen = new Set<string>()
+  const out: ChatSessionEdit[] = []
+  for (const item of raw) {
+    const edit = normalizeChatEdit(item)
+    if (!edit || seen.has(edit.toolCallId) || !calls.has(edit.toolCallId)) continue
+    seen.add(edit.toolCallId)
+    out.push(edit)
+  }
+  return out.sort((a, b) => a.seq - b.seq).slice(-CHAT_SESSION_EDITS_MAX)
+}
+
 export function normalizeChatSession(raw: unknown): ChatSession | null {
   if (!isRecord(raw)) return null
   const id = typeof raw.id === 'string' && CHAT_SESSION_ID_PATTERN.test(raw.id) ? raw.id : null
@@ -197,11 +294,13 @@ export function normalizeChatSession(raw: unknown): ChatSession | null {
   const modelRef = normalizeModelRef(raw.modelRef)
   if (modelRef) session.modelRef = modelRef
   if (raw.trimmed === true) session.trimmed = true
+  const kept = edits(raw.edits, messages)
+  if (kept.length > 0) session.edits = kept
   return session
 }
 
 export function chatSummary(session: ChatSession): ChatSessionSummary {
-  const { messages: _messages, ...summary } = session
+  const { messages: _messages, edits: _edits, ...summary } = session
   return { ...summary, messageCount: session.messages.length }
 }
 
