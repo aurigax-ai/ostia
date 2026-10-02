@@ -31,7 +31,7 @@ import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
-import { shellArgv } from '../shared/terminalShell'
+import { shellArgv, shellName } from '../shared/terminalShell'
 import type {
   AppInfo,
   CommandDescriptor,
@@ -1528,6 +1528,7 @@ function registerPtyIpc(): void {
         buffer: data,
         cursor,
         dropped,
+        shell: shellName(existing.shell) || undefined,
         sandboxed: existing.sandboxed,
         ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),
         cols: existing.pty.cols,
@@ -1692,6 +1693,7 @@ function registerPtyIpc(): void {
       buffer: data,
       cursor,
       dropped,
+      shell: shellName(shell) || undefined,
       sandboxed,
       host,
       ...(sandboxStamp ? { sandboxStamp } : {}),
