@@ -4,11 +4,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { type RemoteHost, helperSource, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
 import type { RemoteFilesRequest, RemoteFilesResult } from '../sdk'
 import { HelperFolders, Sessions, parseListing } from './folders'
-import { helperBundle, versionToken } from './helper'
+import { shippedHelper, versionToken } from './helper'
 import { HelperHosts } from './helperHosts'
 import { type ConnectPlan, planConnect } from './plan'
 
-const helper = helperBundle(helperSource())
+const helper = shippedHelper(helperSource())
 
 function planned(argv: string[]): ConnectPlan {
   const plan = planConnect(argv)

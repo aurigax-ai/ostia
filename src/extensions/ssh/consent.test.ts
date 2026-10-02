@@ -24,7 +24,14 @@ describe('parseConsent', () => {
     const hosts = parseConsent(
       JSON.stringify({
         hosts: {
-          'dev@db:2200': { answer: 'allowed', version: '0123456789ab', at: '2026-10-02' },
+          'dev@db:2200': {
+            answer: 'allowed',
+            version: '0123456789ab',
+            installed: true,
+            at: '2026-10-02',
+          },
+          half: { answer: 'allowed', version: '0123456789ab', installed: 'yes' },
+          no: { answer: 'refused', installed: true },
           web: { answer: 'refused', at: 5 },
           maybe: { answer: 'perhaps' },
           'bad host': { answer: 'allowed' },
@@ -34,7 +41,12 @@ describe('parseConsent', () => {
       }),
     )
     expect([...hosts.entries()]).toEqual([
-      ['dev@db:2200', { answer: 'allowed', version: '0123456789ab', at: '2026-10-02' }],
+      [
+        'dev@db:2200',
+        { answer: 'allowed', version: '0123456789ab', installed: true, at: '2026-10-02' },
+      ],
+      ['half', { answer: 'allowed', version: '0123456789ab', at: '' }],
+      ['no', { answer: 'refused', at: '' }],
       ['web', { answer: 'refused', at: '' }],
       ['odd', { answer: 'allowed', at: '' }],
     ])

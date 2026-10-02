@@ -12,7 +12,7 @@ import {
 import { type HelperChannel, HelperFailure } from './channel'
 import type { HelperConsent } from './consent'
 import type { HelperFolders, Sessions } from './folders'
-import { HELPER_PROTOCOL, type HelperBundle } from './helper'
+import { HELPER_PROTOCOL, type HelperBundle, SESSION_FILE } from './helper'
 import type { HelperHosts } from './helperHosts'
 import { type ConnectPlan, hostKey, planConnect } from './plan'
 import { HELPER_INSTALL_USAGE, HELPER_REMOVE_USAGE, type Strings, stringsFor } from './strings'
@@ -74,7 +74,7 @@ export function installConfirm(
     message: s.installMessage(hostKey(plan)),
     detail: [
       `${s.hostLabel} ${login(plan, target)}`,
-      `${s.fileLabel} ${helper.path}`,
+      `${s.fileLabel} ${helper.path}, ${SESSION_FILE}`,
       '',
       s.installNote,
     ].join('\n'),
@@ -134,7 +134,12 @@ export async function ensureHelper(
     deps.consent.set(key, { answer: 'allowed', version: deps.helper.version, at })
   }
   try {
-    return { ok: true, ...(await openOrInstall(plan, deps, !consented)) }
+    const opened = await openOrInstall(plan, deps, !consented)
+    const stored = deps.consent.get(key)
+    if (stored?.answer === 'allowed' && !stored.installed) {
+      deps.consent.set(key, { ...stored, installed: true })
+    }
+    return { ok: true, ...opened }
   } catch (err) {
     return { ok: false, result: failureOf(err, s) }
   }
@@ -164,6 +169,12 @@ async function resolved(
     ok: false,
     result: failure('resolve-failed', s.resolveFailed(found.reason ?? s.timedOut)),
   }
+}
+
+export function installedHelper(plan: ConnectPlan, deps: HelperDeps): HelperBundle | null {
+  const record = deps.consent.get(hostKey(plan))
+  const current = record?.answer === 'allowed' && record.version === deps.helper.version
+  return current && record.installed ? deps.helper : null
 }
 
 export function helperCommands(
@@ -253,6 +264,7 @@ export function helperCommands(
           answer: record.answer,
           ...(record.version ? { version: record.version } : {}),
           current: record.version === deps.helper.version,
+          installed: record.installed === true,
           connected: deps.hosts.isConnected(host),
           folders: deps.folders.idsOn(host).length,
         })),

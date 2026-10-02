@@ -11,15 +11,17 @@ export type HelperAnswer = 'allowed' | 'refused'
 export interface HostRecord {
   answer: HelperAnswer
   version?: string
+  installed?: true
   at: string
 }
 
 function hostRecord(raw: unknown): HostRecord | null {
   if (typeof raw !== 'object' || raw === null) return null
-  const { answer, version, at } = raw as Record<string, unknown>
+  const { answer, version, installed, at } = raw as Record<string, unknown>
   if (answer !== 'allowed' && answer !== 'refused') return null
   const record: HostRecord = { answer, at: typeof at === 'string' ? at.slice(0, 40) : '' }
   if (typeof version === 'string' && VERSION_PATTERN.test(version)) record.version = version
+  if (answer === 'allowed' && record.version && installed === true) record.installed = true
   return record
 }
 

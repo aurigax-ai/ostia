@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { type RemoteHost, helperSource, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
 import { HelperFailure } from './channel'
-import { helperBundle } from './helper'
+import { shippedHelper } from './helper'
 import { HelperHosts } from './helperHosts'
 import { type ConnectPlan, hostKey, planConnect } from './plan'
 
-const helper = helperBundle(helperSource())
+const helper = shippedHelper(helperSource())
 function planned(argv: string[]): ConnectPlan {
   const plan = planConnect(argv)
   if (!plan) throw new Error('plan')

@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -6,12 +7,12 @@ import type { ExtensionCaller } from '../../shared/extensions'
 import type { ConfirmRequest, ExtensionResult, OpenFolderOptions, OpenFolderResult } from '../sdk'
 import { HelperConsent } from './consent'
 import { HelperFolders, Sessions } from './folders'
-import { helperBundle } from './helper'
-import { type HelperDeps, helperCommands } from './helperCommands'
+import { shippedHelper } from './helper'
+import { type HelperDeps, helperCommands, installedHelper } from './helperCommands'
 import { HelperHosts } from './helperHosts'
-import { planConnect } from './plan'
+import { type ConnectPlan, planConnect } from './plan'
 
-const helper = helperBundle(helperSource())
+const helper = shippedHelper(helperSource())
 const DB = 'user dev\nhostname 10.0.0.5\nport 22\n'
 const USER: ExtensionCaller = { kind: 'user', capabilities: [], workspaceId: 'w1', paneId: 'p1' }
 
@@ -31,6 +32,12 @@ interface Rig {
 }
 
 const rigs: Rig[] = []
+
+function planned(argv: string[]): ConnectPlan {
+  const plan = planConnect(argv)
+  if (!plan) throw new Error('plan')
+  return plan
+}
 
 function errorOf(res: ExtensionResult): string | null {
   return res.ok ? null : res.error
@@ -131,8 +138,11 @@ describe('helper-install', () => {
     expect(r.consent.get('dev@db')).toEqual({
       answer: 'allowed',
       version: helper.version,
+      installed: true,
       at: '2026-10-02T00:00:00.000Z',
     })
+    expect(installedHelper(planned(['dev@db']), r.deps)).toBe(helper)
+    expect(installedHelper(planned(['web']), r.deps)).toBeNull()
     expect(r.hosts.isConnected('dev@db')).toBe(true)
 
     const again = await r.run('helper-install', ['dev@db'])
@@ -169,6 +179,33 @@ describe('helper-install', () => {
     const again = await r.run('helper-install', ['dev@db'])
     expect(errorOf(again)).toBe('helper-refused')
     expect(r.confirms).toHaveLength(1)
+  })
+
+  it('SSH-C74 keeps the answer but not the installed mark when the install fails', async () => {
+    const r = rig()
+    r.deps.hosts = new HelperHosts({
+      helper,
+      spawn: () => spawn('sh', ['-c', 'echo "PINE-HELPER needs cksum"'], { stdio: 'pipe' }),
+    })
+    const res = await helperCommands(r.deps)['helper-install']({ argv: ['dev@db'] }, USER)
+    expect(errorOf(res)).toBe('needs-tool')
+    expect(messageOf(res)).toContain('cksum')
+    expect(r.consent.get('dev@db')).toEqual({
+      answer: 'allowed',
+      version: helper.version,
+      at: '2026-10-02T00:00:00.000Z',
+    })
+    expect(installedHelper(planned(['dev@db']), r.deps)).toBeNull()
+  })
+
+  it('SSH-C73 does not count a refused host or another helper version as installed', () => {
+    const r = rig()
+    r.consent.set('web', { answer: 'refused', at: '' })
+    r.consent.set('old', { answer: 'allowed', version: '000000000000', installed: true, at: '' })
+    r.consent.set('new', { answer: 'allowed', version: helper.version, installed: true, at: '' })
+    expect(installedHelper(planned(['web']), r.deps)).toBeNull()
+    expect(installedHelper(planned(['old']), r.deps)).toBeNull()
+    expect(installedHelper(planned(['new']), r.deps)).toBe(helper)
   })
 
   it('SSH-C55 does nothing while the setting is off', async () => {
@@ -223,6 +260,7 @@ describe('helper-remove and helpers', () => {
           answer: 'allowed',
           version: helper.version,
           current: true,
+          installed: true,
           connected: true,
           folders: 0,
         },
@@ -260,9 +298,7 @@ describe('helper-remove and helpers', () => {
 })
 
 function session(r: Rig, paneId = 'p1'): void {
-  const plan = planConnect(['dev@db'])
-  if (!plan) throw new Error('plan')
-  r.sessions.opened(paneId, plan)
+  r.sessions.opened(paneId, planned(['dev@db']))
 }
 
 const REMOTE = { host: 'db1', cwd: '/srv/app' }

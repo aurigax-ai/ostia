@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
+import { helperSource } from '../../../test/fixtures/ssh/remoteHost'
 import type { ExtensionCaller, OpenTerminalOptions } from '../../shared/extensions'
 import type { ConfirmRequest, OpenTerminalResult, ToolRun } from '../sdk'
 import { type SshDeps, sshCommands } from './commands'
+import { shippedHelper } from './helper'
 import { REMOTE_COMMAND } from './remote'
 import { CONNECT_USAGE, SHOW_USAGE } from './strings'
 
@@ -283,6 +285,50 @@ describe('ssh connect with shell integration', () => {
     expect(configured.deps.openTerminal.mock.calls[0][0].command).toEqual(['ssh', '--', 'db'])
     expect(result).toMatchObject({ ok: true, data: { shellIntegration: false } })
     expect(configured.deps.shellIntegration).not.toHaveBeenCalled()
+  })
+
+  it('SSH-C72 types the short session command on a host that has the helper, and says so in the confirm', async () => {
+    const helper = shippedHelper(helperSource())
+    const { deps } = setup(undefined, true)
+    const installedHelper = vi.fn<NonNullable<SshDeps['installedHelper']>>(async () => helper)
+    const withHelper = sshCommands({ ...deps, installedHelper })
+    const result = await withHelper.connect({ argv: ['-p', '2200', 'dev@db'] }, paneCaller())
+    expect(deps.openTerminal).toHaveBeenCalledWith({
+      command: ['ssh', '-p', '2200', '-t', '--', 'dev@db', helper.commands.session],
+      workspaceId: 'ws-1',
+      afterPaneId: 'pane-1',
+      title: 'dev@db',
+    })
+    expect(result).toMatchObject({
+      ok: true,
+      data: { command: 'ssh -p 2200 -t -- dev@db', shellIntegration: true },
+    })
+    expect(installedHelper.mock.calls[0][0].destination).toBe('dev@db')
+    const detail = deps.confirm.mock.calls[0][0].detail ?? ''
+    expect(detail).toContain('~/.pine/helper')
+    expect(detail).not.toContain('temporary folder')
+    expect(JSON.stringify(deps.openTerminal.mock.calls)).not.toContain(REMOTE_COMMAND)
+  })
+
+  it('SSH-C73 keeps the packed command when the host has no helper, and asks about none when integration is off', async () => {
+    const { deps } = setup(undefined, true)
+    const none = sshCommands({ ...deps, installedHelper: async () => null })
+    await none.connect({ argv: ['db'] }, userCaller())
+    expect(deps.openTerminal.mock.calls[0][0].command).toEqual([
+      'ssh',
+      '-t',
+      '--',
+      'db',
+      REMOTE_COMMAND,
+    ])
+
+    const off = setup(undefined, false)
+    const installedHelper = vi.fn<NonNullable<SshDeps['installedHelper']>>(async () =>
+      shippedHelper(helperSource()),
+    )
+    await sshCommands({ ...off.deps, installedHelper }).connect({ argv: ['db'] }, userCaller())
+    expect(installedHelper).not.toHaveBeenCalled()
+    expect(off.deps.openTerminal.mock.calls[0][0].command).toEqual(['ssh', '--', 'db'])
   })
 
   it('SSH-C32 shows the agent -t and what the integration does on the host before it connects', async () => {

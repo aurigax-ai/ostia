@@ -19,7 +19,7 @@ export class HelperHosts {
 
   async install(plan: ConnectPlan): Promise<void> {
     const { helper } = this.deps
-    const words = await runStatus(planHelper(plan, 'install', helper), helper.source, this.deps)
+    const words = await runStatus(planHelper(plan, 'install', helper), helper.bundle, this.deps)
     if (words[0] === 'installed') return
     if (words[0] === 'needs') throw new HelperFailure('needs-tool', words[1])
     throw new HelperFailure('install-failed', words.slice(1).join(' ') || undefined)

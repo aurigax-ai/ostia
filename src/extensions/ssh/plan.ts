@@ -12,6 +12,7 @@ export interface ConnectPlan {
   argv: string[]
   command: string
   shellIntegration: boolean
+  helperIntegration?: true
 }
 
 const USER_PATTERN = /^[A-Za-z0-9._][A-Za-z0-9._-]{0,63}$/
@@ -80,17 +81,19 @@ export function planConnect(argv: string[]): ConnectPlan | null {
   return { ...route, argv: ssh, command: quoteArgv(ssh), shellIntegration: false }
 }
 
-export function withShellIntegration(plan: ConnectPlan): ConnectPlan {
+export function withShellIntegration(plan: ConnectPlan, helper?: HelperBundle): ConnectPlan {
   const ssh = sshArgv(plan, ['-t'])
-  return {
+  const integrated: ConnectPlan = {
     ...plan,
-    argv: [...ssh, REMOTE_COMMAND],
+    argv: [...ssh, helper ? helper.commands.session : REMOTE_COMMAND],
     command: quoteArgv(ssh),
     shellIntegration: true,
   }
+  if (helper) integrated.helperIntegration = true
+  return integrated
 }
 
-export type HelperCommandKind = keyof HelperBundle['commands']
+export type HelperCommandKind = 'run' | 'install' | 'remove'
 
 export function planHelper(
   plan: ConnectPlan,

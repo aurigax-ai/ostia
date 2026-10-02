@@ -9,6 +9,7 @@ import {
   ok,
 } from '../sdk'
 import { connectConfirm } from './confirm'
+import type { HelperBundle } from './helper'
 import { ALIAS_PATTERN, type HostList } from './hosts'
 import { type ConnectPlan, planConnect, withShellIntegration } from './plan'
 import { CONNECT_USAGE, SHOW_USAGE, type Strings, stringsFor } from './strings'
@@ -21,6 +22,7 @@ export interface SshDeps {
   openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
   shellIntegration: () => Promise<boolean>
   sessionOpened?: (paneId: string, plan: ConnectPlan) => void
+  installedHelper?: (plan: ConnectPlan) => Promise<HelperBundle | null>
 }
 
 type Unresolved = Exclude<Resolved, { ok: true }>
@@ -68,7 +70,8 @@ export function sshCommands(deps: SshDeps): Record<'ls' | 'show' | 'connect', Co
       const resolved = await resolveTarget(planned.destination, deps.run)
       if (!resolved.ok) return resolveFailure(resolved, s)
       const integrates = !resolved.target.remoteCommand && (await deps.shellIntegration())
-      const plan = integrates ? withShellIntegration(planned) : planned
+      const helper = integrates ? ((await deps.installedHelper?.(planned)) ?? undefined) : undefined
+      const plan = integrates ? withShellIntegration(planned, helper) : planned
       const { command, shellIntegration } = plan
       if (caller.kind === 'pane') {
         const approved = await deps.confirm(connectConfirm(plan, resolved.target, s))
