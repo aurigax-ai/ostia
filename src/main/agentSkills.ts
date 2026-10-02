@@ -57,29 +57,75 @@ function plainText(data: Buffer): string | null {
   }
 }
 
-function unquote(value: string): string {
-  const trimmed = value.trim()
-  const quoted =
-    trimmed.length >= 2 &&
-    ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-      (trimmed.startsWith("'") && trimmed.endsWith("'")))
-  return quoted ? trimmed.slice(1, -1) : trimmed
+const FIELD_LINE = /^([A-Za-z][A-Za-z0-9_-]*):(?: +(.*))?$/
+const BLOCK_SCALAR = /^[>|][+-]?$/
+
+export type SkillFrontmatter =
+  | { ok: true; name: string; description: string }
+  | { ok: false; error: string }
+
+function closingFence(lines: readonly string[]): number {
+  return lines.findIndex((line, i) => i > 0 && line.replace(/\r$/, '') === '---')
 }
 
-export function skillFrontmatter(text: string): { name: string; description: string } | null {
+function refuse(line: number, reason: string): SkillFrontmatter {
+  return { ok: false, error: `line ${line}: ${reason}` }
+}
+
+function valueProblem(raw: string): string | null {
+  const value = raw.trim()
+  if (BLOCK_SCALAR.test(value)) return 'block scalars are not supported'
+  if (/^[{[]/.test(value)) return 'flow collections are not supported'
+  if (/^[&*!]/.test(value)) return 'anchors, aliases and tags are not supported'
+  if (/(^|\s)#/.test(raw)) return "' #' is ambiguous, remove the comment"
+  const quote = value[0]
+  if (quote === '"' || quote === "'") {
+    const inner = value.slice(1, -1)
+    if (value.length < 2 || !value.endsWith(quote) || inner.includes(quote)) {
+      return 'a quoted value must be one matching pair of quotes'
+    }
+    if (inner.includes('\\')) return 'escapes inside quotes are not supported'
+  }
+  return null
+}
+
+function unquote(value: string): string {
+  return /^["']/.test(value) ? value.slice(1, -1) : value
+}
+
+function keyProblem(line: string): string {
+  if (/^["']/.test(line)) return 'quoted keys are not supported'
+  if (/^[A-Za-z][A-Za-z0-9_-]*\s+:/.test(line)) return 'no space allowed before the colon'
+  return 'expected key: value'
+}
+
+export function skillFrontmatter(text: string): SkillFrontmatter | null {
   const lines = text.replace(/^﻿/, '').split(/\r?\n/)
   if (lines[0] !== '---') return null
-  const end = lines.indexOf('---', 1)
+  const end = closingFence(lines)
   if (end < 0) return null
+  const next = lines.slice(end + 1).find((line) => line.trim() !== '')
+  if (next === '---') return refuse(end + 2, 'a second frontmatter block is not supported')
   const fields = new Map<string, string>()
-  for (const line of lines.slice(1, end)) {
-    const match = /^([A-Za-z][A-Za-z0-9_-]*):(.*)$/.exec(line)
-    if (match?.[1] && match[2] !== undefined) fields.set(match[1], unquote(match[2]))
+  for (const [i, line] of lines.slice(1, end).entries()) {
+    const at = i + 2
+    if (line.trim() === '') continue
+    if (line.startsWith('#')) return refuse(at, 'comments are not supported')
+    if (/^\s/.test(line)) return refuse(at, 'indented lines are not supported')
+    const match = FIELD_LINE.exec(line)
+    if (!match?.[1]) return refuse(at, keyProblem(line))
+    if (fields.has(match[1])) return refuse(at, `duplicate key '${match[1]}'`)
+    const problem = valueProblem(match[2] ?? '')
+    if (problem) return refuse(at, problem)
+    fields.set(match[1], unquote((match[2] ?? '').trim()))
   }
   const name = fields.get('name')
   const description = fields.get('description')
-  if (!name || !description) return null
-  return { name, description }
+  if (name === undefined) return { ok: false, error: 'needs a name' }
+  if (description === undefined) return { ok: false, error: 'needs a description' }
+  if (name === '') return { ok: false, error: 'name is empty' }
+  if (description === '') return { ok: false, error: 'description is empty' }
+  return { ok: true, name, description }
 }
 
 export function loadAgentSkill(
@@ -117,6 +163,7 @@ export function loadAgentSkill(
   if (!entry || !front) {
     return { ok: false, error: `${AGENT_SKILL_ENTRY}: needs frontmatter with name and description` }
   }
+  if (!front.ok) return { ok: false, error: `${AGENT_SKILL_ENTRY}: ${front.error}` }
   if (front.name !== skill.name) {
     return { ok: false, error: `${AGENT_SKILL_ENTRY}: name must be '${skill.name}'` }
   }
@@ -135,8 +182,11 @@ export function loadAgentSkill(
 
 export function withSkillName(text: string, id: string): string {
   const lines = text.split('\n')
-  const end = lines.findIndex((line, i) => i > 0 && line.replace(/\r$/, '') === '---')
-  const at = lines.findIndex((line, i) => i > 0 && i < end && /^name:/.test(line))
+  const end = closingFence(lines)
+  const at = lines.findIndex((line, i) => {
+    const match = FIELD_LINE.exec(line.replace(/\r$/, ''))
+    return i > 0 && i < end && match?.[1] === 'name'
+  })
   if (at < 0) return text
   lines[at] = `name: ${id}${lines[at]?.endsWith('\r') ? '\r' : ''}`
   return lines.join('\n')

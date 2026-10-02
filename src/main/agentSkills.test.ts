@@ -14,22 +14,101 @@ import { parseManifest } from './extensionManifest'
 
 const SKILL = '---\nname: review\ndescription: Use when reviewing.\n---\n\n# Review\n'
 
+const front = (lines: string, tail = '') => `---\n${lines}\n---\n${tail}`
+const NAME_DESC = 'name: a\ndescription: b'
+
 describe('skillFrontmatter', () => {
   it('reads name and description from the leading YAML block', () => {
     expect(skillFrontmatter(SKILL)).toEqual({
+      ok: true,
       name: 'review',
       description: 'Use when reviewing.',
     })
-    expect(skillFrontmatter('---\nname: "a"\ndescription: \'b c\'\n---\n')).toEqual({
+  })
+
+  it.each([
+    ['double quotes', 'name: "a"\ndescription: "b c"'],
+    ['single quotes', "name: 'a'\ndescription: 'b c'"],
+    ['blank lines and extra keys', '\nname: a\n\nlicense: MIT\ndescription: b\n'],
+    ['a colon and dashes inside the value', 'name: a\ndescription: b - c (d-1)'],
+    ['a hash without a space before it', 'name: a\ndescription: b#c'],
+    ['an empty extra key', 'name: a\ndescription: b\nextra:'],
+    ['CRLF line ends', 'name: a\r\ndescription: b\r'],
+  ])('accepts %s', (_label, lines) => {
+    expect(skillFrontmatter(front(lines))).toMatchObject({ ok: true })
+  })
+
+  it('strips a leading BOM and accepts a body with a rule line', () => {
+    expect(skillFrontmatter(`\uFEFF${front(NAME_DESC, '\ntext\n\n---\n\nmore\n')}`)).toEqual({
+      ok: true,
       name: 'a',
-      description: 'b c',
+      description: 'b',
     })
   })
 
   it('needs both fields inside a closed block at the top', () => {
     expect(skillFrontmatter('# Review\n')).toBeNull()
     expect(skillFrontmatter('---\nname: a\n')).toBeNull()
-    expect(skillFrontmatter('---\nname: a\n---\n')).toBeNull()
+    expect(skillFrontmatter('---\nname: a\n---\n')).toEqual({
+      ok: false,
+      error: 'needs a description',
+    })
+    expect(skillFrontmatter('---\ndescription: a\n---\n')).toEqual({
+      ok: false,
+      error: 'needs a name',
+    })
+  })
+
+  it.each([
+    ['a folded block scalar', 'name: a\ndescription: >', 3, 'block scalars'],
+    ['a literal block scalar', 'name: a\ndescription: |', 3, 'block scalars'],
+    ['a stripped folded scalar', 'name: a\ndescription: >-', 3, 'block scalars'],
+    ['a stripped literal scalar', 'name: a\ndescription: |-', 3, 'block scalars'],
+    ['a kept folded scalar', 'name: a\ndescription: >+', 3, 'block scalars'],
+    ['a kept literal scalar', 'name: a\ndescription: |+', 3, 'block scalars'],
+    ['a nested map', 'name: a\ndescription:\n  x: y', 4, 'indented lines'],
+    ['a list', 'name: a\ndescription: b\nitems:\n  - x', 5, 'indented lines'],
+    ['a stray indented line', 'name: a\n  description: b', 3, 'indented lines'],
+    ['a flow map', 'name: a\ndescription: {x: y}', 3, 'flow collections'],
+    ['a flow list', 'name: a\ndescription: [x]', 3, 'flow collections'],
+    ['an anchor', 'name: a\ndescription: &x b', 3, 'anchors, aliases and tags'],
+    ['an alias', 'name: a\ndescription: *x', 3, 'anchors, aliases and tags'],
+    ['a tag', 'name: a\ndescription: !!str b', 3, 'anchors, aliases and tags'],
+    ['a quoted key', '"name": a\ndescription: b', 2, 'quoted keys'],
+    ['a space before the colon', 'name : a\ndescription: b', 2, 'space allowed before the colon'],
+    ['a duplicate key', 'name: a\nname: b\ndescription: c', 3, "duplicate key 'name'"],
+    ['an inline comment', 'name: a\ndescription: b # c', 3, "' #'"],
+    ['a value that is a comment', 'name: a\ndescription: # c', 3, "' #'"],
+    ['a comment line', '# c\nname: a\ndescription: b', 2, 'comments'],
+    ['an unclosed quote', 'name: a\ndescription: "b', 3, 'matching pair'],
+    ['a quote inside quotes', 'name: a\ndescription: "b"c"', 3, 'matching pair'],
+    ['an escape inside quotes', 'name: a\ndescription: "b\\n"', 3, 'escapes'],
+    ['a line without a colon', 'name: a\ndescription: b\nstray', 4, 'expected key: value'],
+    ['no space after the colon', 'name:a\ndescription: b', 2, 'expected key: value'],
+    ['a document end marker', 'name: a\ndescription: b\n...', 4, 'expected key: value'],
+  ])('refuses %s', (_label, lines, line, reason) => {
+    const res = skillFrontmatter(front(lines))
+    expect(res).toMatchObject({ ok: false })
+    if (res?.ok !== false) return
+    expect(res.error).toContain(`line ${line}:`)
+    expect(res.error).toContain(reason)
+  })
+
+  it('refuses a second frontmatter block after the closing fence', () => {
+    expect(skillFrontmatter(front(NAME_DESC, '\n---\nname: x\n---\n'))).toEqual({
+      ok: false,
+      error: 'line 5: a second frontmatter block is not supported',
+    })
+  })
+
+  it.each([
+    ['name', 'name: ""\ndescription: b', 'name is empty'],
+    ['name', "name: ''\ndescription: b", 'name is empty'],
+    ['name', 'name:\ndescription: b', 'name is empty'],
+    ['description', 'name: a\ndescription: ""', 'description is empty'],
+    ['description', 'name: a\ndescription:', 'description is empty'],
+  ])('refuses an empty %s', (_field, lines, error) => {
+    expect(skillFrontmatter(front(lines))).toEqual({ ok: false, error })
   })
 })
 
@@ -38,6 +117,21 @@ describe('withSkillName', () => {
     expect(withSkillName('---\r\nname: a\r\ndescription: b\r\n---\r\nname: body\r\n', 'x-a')).toBe(
       '---\r\nname: x-a\r\ndescription: b\r\n---\r\nname: body\r\n',
     )
+  })
+
+  it.each([
+    'name: a\ndescription: b',
+    'description: b\nname: a',
+    'name: "a"\ndescription: b',
+    "name: 'a'\ndescription: b",
+    '\nname: a\n\ndescription: b\nlicense: MIT',
+    'name:   a  \ndescription: b',
+  ])('leaves exactly one name line, x-a, for every accepted frontmatter (%j)', (lines) => {
+    const text = front(lines, 'name: body\n')
+    expect(skillFrontmatter(text)).toMatchObject({ ok: true, name: 'a' })
+    const out = withSkillName(text, 'x-a').split('\n')
+    expect(out.filter((line) => line.startsWith('name:'))).toEqual(['name: x-a', 'name: body'])
+    expect(out.indexOf('name: x-a')).toBeLessThan(out.indexOf('---', 1))
   })
 })
 
@@ -82,6 +176,14 @@ describe('loadAgentSkill', () => {
     expect(loadAgentSkill(ext, 'kit', skill())).toEqual({
       ok: false,
       error: "SKILL.md: name must be 'review'",
+    })
+  })
+
+  it('refuses a SKILL.md with a YAML form the parser does not read, naming the line', () => {
+    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: review\ndescription: >\n  x\n---\n')
+    expect(loadAgentSkill(ext, 'kit', skill())).toEqual({
+      ok: false,
+      error: 'SKILL.md: line 3: block scalars are not supported',
     })
   })
 
