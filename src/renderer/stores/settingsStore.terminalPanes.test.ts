@@ -36,6 +36,8 @@ describe('settingsStore terminal and pane settings', () => {
       theme: 'match',
       shell: '',
       osc52Write: false,
+      primarySelection: true,
+      macOptionIsMeta: false,
     })
     expect(store().panes).toEqual({
       dimInactive: true,
@@ -69,6 +71,8 @@ describe('settingsStore terminal and pane settings', () => {
       theme: 'match',
       shell: '',
       osc52Write: false,
+      primarySelection: true,
+      macOptionIsMeta: false,
     })
     expect(store().panes.dimInactive).toBe(false)
     expect(store().panes.focusOnHover).toBe(false)

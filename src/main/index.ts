@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path'
 import {
   BrowserWindow,
   app,
+  clipboard,
   globalShortcut,
   ipcMain,
   nativeTheme,
@@ -146,6 +147,7 @@ import {
   portalSupported,
 } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
+import { acceptsPrimarySelection } from './primarySelection'
 import { privateTmpDir } from './privateTmp'
 import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from './processManager'
 import { registerProjectRootIpc } from './projectRoot'
@@ -1143,6 +1145,9 @@ function registerIpc(): void {
     }
   })
   ipcMain.on('window:beep', () => shell.beep())
+  ipcMain.on('window:write-primary', (_e, text: unknown) => {
+    if (acceptsPrimarySelection(process.platform, text)) clipboard.writeText(text, 'selection')
+  })
   ipcMain.handle('window:set-zoom', (e, percent: unknown) => {
     const clamped = clampZoom(percent)
     e.sender.setZoomFactor(zoomFactor(clamped))

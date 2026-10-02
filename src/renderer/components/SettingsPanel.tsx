@@ -58,7 +58,7 @@ import {
   rememberNavExpanded,
 } from '../lib/settingsNav'
 import { useEffectiveTheme } from '../lib/theme'
-import { isMac, platform } from '../platform'
+import { isLinux, isMac, platform } from '../platform'
 import type { ClipboardKeys } from '../settings/terminalPaneSettings'
 import {
   CONTRAST_MAX,
@@ -1283,6 +1283,8 @@ function TerminalSection(): JSX.Element {
   const promptStyle = useSettingsStore((s) => s.terminal.prompt.style)
   const shell = useSettingsStore((s) => s.terminal.shell)
   const osc52Write = useSettingsStore((s) => s.terminal.osc52Write)
+  const primarySelection = useSettingsStore((s) => s.terminal.primarySelection)
+  const macOptionIsMeta = useSettingsStore((s) => s.terminal.macOptionIsMeta)
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
@@ -1327,6 +1329,16 @@ function TerminalSection(): JSX.Element {
           <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
         ) : null}
       </SettingsGroup>
+      {isMac ? (
+        <SettingsGroup title={d.settings.groupKeyboard}>
+          <ToggleRow
+            label={d.settings.macOptionIsMeta}
+            desc={d.settings.macOptionIsMetaDesc}
+            checked={macOptionIsMeta}
+            onChange={(v) => setTerminal({ macOptionIsMeta: v })}
+          />
+        </SettingsGroup>
+      ) : null}
       <SettingsGroup title={d.settings.groupCursor}>
         <ControlRow label={d.settings.cursorStyle}>
           <SelectField
@@ -1397,6 +1409,14 @@ function TerminalSection(): JSX.Element {
           checked={osc52Write}
           onChange={(v) => setTerminal({ osc52Write: v })}
         />
+        {isLinux ? (
+          <ToggleRow
+            label={d.settings.primarySelection}
+            desc={d.settings.primarySelectionDesc}
+            checked={primarySelection}
+            onChange={(v) => setTerminal({ primarySelection: v })}
+          />
+        ) : null}
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupColors}>
         <StepNumberRow

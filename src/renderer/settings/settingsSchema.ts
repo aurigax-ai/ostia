@@ -312,6 +312,19 @@ export const SETTINGS_JSON_SCHEMA = {
             'line is always pasted without its trailing newline or control characters. Only ' +
             'you can change this, in Settings; agents cannot. Default: true.',
         },
+        primarySelection: {
+          type: 'boolean',
+          description:
+            'Linux: selecting terminal text puts it in the primary selection, and a middle ' +
+            'click pastes the primary selection (through the same paste check as Ctrl+Shift+V). ' +
+            'Off turns both off. Default: true.',
+        },
+        macOptionIsMeta: {
+          type: 'boolean',
+          description:
+            'macOS: send Option+key as Meta (Esc+key) so readline and fzf Alt shortcuts work; ' +
+            'Option then no longer types special characters. Default: false.',
+        },
         osc52Write: {
           type: 'boolean',
           description:

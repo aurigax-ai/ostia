@@ -2176,6 +2176,7 @@ export const en = {
     groupTheme: 'Theme and motion',
     groupFonts: 'Fonts',
     groupCursor: 'Cursor',
+    groupKeyboard: 'Keyboard',
     groupRendering: 'Rendering',
     groupInput: 'Input',
     inputMode: 'Input mode',
@@ -2213,6 +2214,12 @@ export const en = {
     osc52Write: 'Let programs copy to the clipboard',
     osc52WriteDesc:
       'Programs such as tmux, vim or an agent over ssh may set the clipboard with OSC 52. They can never read it.',
+    primarySelection: 'Primary selection',
+    primarySelectionDesc:
+      'Selecting terminal text puts it in the primary selection, and a middle click pastes the primary selection. Off turns both off.',
+    macOptionIsMeta: 'Option as Meta',
+    macOptionIsMetaDesc:
+      'Send Option+key as Meta (Esc+key) so readline and fzf Alt shortcuts work. Option then no longer types special characters.',
     groupColors: 'Colors',
     minimumContrast: 'Minimum contrast ratio',
     minimumContrastDesc:
@@ -4434,6 +4441,7 @@ export const zhHant: Dict = {
     groupTheme: '主題與動態',
     groupFonts: '字型',
     groupCursor: '游標',
+    groupKeyboard: '鍵盤',
     groupRendering: '繪製',
     groupInput: '輸入',
     inputMode: '輸入模式',
@@ -4470,6 +4478,12 @@ export const zhHant: Dict = {
     osc52Write: '允許程式複製到剪貼簿',
     osc52WriteDesc:
       'tmux、vim 或透過 ssh 執行的代理程式等程式可用 OSC 52 設定剪貼簿，但永遠無法讀取。',
+    primarySelection: '主要選取區',
+    primarySelectionDesc:
+      '選取終端機文字時放入主要選取區，按滑鼠中鍵貼上主要選取區。關閉則兩者皆停用。',
+    macOptionIsMeta: 'Option 作為 Meta',
+    macOptionIsMetaDesc:
+      '將 Option+按鍵 送出為 Meta（Esc+按鍵），讓 readline 與 fzf 的 Alt 快速鍵可用。Option 將不再輸入特殊字元。',
     groupColors: '色彩',
     minimumContrast: '最低對比度',
     minimumContrastDesc: '調整比此對比度更難閱讀的終端機文字，1 至 21。1 表示關閉。',

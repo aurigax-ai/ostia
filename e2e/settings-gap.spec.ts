@@ -76,3 +76,38 @@ test('workspaces.globalHotkey registers a system-wide shortcut and drops it when
     await app.close()
   }
 })
+
+test('selecting terminal text fills the primary selection, and middle click pastes it unless turned off', async () => {
+  const { app, win } = await launch({})
+  try {
+    await run(win, 'echo pine-primary-word')
+    const rows = win.locator('.xterm-rows').first()
+    const line = rows.locator('div', { hasText: /^pine-primary-word\s*$/ }).first()
+    await expect(line).toBeAttached({ timeout: 15_000 })
+    const box = await line.boundingBox()
+    if (!box) throw new Error('no line box')
+    await win.mouse.move(box.x + 2, box.y + box.height / 2)
+    await win.mouse.down()
+    await win.mouse.move(box.x + 120, box.y + box.height / 2, { steps: 5 })
+    await win.mouse.up()
+    await expect
+      .poll(() => app.evaluate(({ clipboard }) => clipboard.readText('selection')))
+      .toContain('pine')
+    await app.evaluate(({ clipboard }) => clipboard.writeText('echo from-primary', 'selection'))
+    await win.locator('.xterm').first().click({ button: 'middle' })
+    await expect(rows).toContainText('echo from-primary')
+  } finally {
+    await app.close()
+  }
+
+  const off = await launch({ terminal: { primarySelection: false } })
+  try {
+    await off.app.evaluate(({ clipboard }) => clipboard.writeText('echo from-primary', 'selection'))
+    await off.win.locator('.xterm').first().click()
+    await off.win.locator('.xterm').first().click({ button: 'middle' })
+    await off.win.waitForTimeout(500)
+    await expect(off.win.locator('.xterm-rows').first()).not.toContainText('from-primary')
+  } finally {
+    await off.app.close()
+  }
+})

@@ -25,6 +25,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       isMaximized: vi.fn().mockResolvedValue(false),
       setZoom: vi.fn().mockImplementation((percent: number) => Promise.resolve(percent)),
       beep: vi.fn(),
+      writePrimarySelection: vi.fn(),
       isSystemDark: vi.fn().mockResolvedValue(true),
       onSystemDarkChange: vi.fn(noopUnsub),
       onMaximizeChange: vi.fn(noopUnsub),

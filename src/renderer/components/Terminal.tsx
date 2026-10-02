@@ -32,6 +32,7 @@ import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
 import { planHumanPaste } from '../lib/pasteGate'
 import { isTitlePinned } from '../lib/pinnedTitles'
+import { installPrimarySelection } from '../lib/primarySelection'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
 import { registerSelectionSender } from '../lib/selectionSenders'
@@ -48,7 +49,7 @@ import {
   shouldNotifyCommandEnd,
   signalPane,
 } from '../lib/workspaceActivity'
-import { isMac } from '../platform'
+import { isLinux, isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -89,6 +90,7 @@ export function TerminalView({
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
+  const macOptionIsMeta = useSettingsStore((s) => s.terminal.macOptionIsMeta)
   const pasteRef = useRef<(text: string) => void>(() => {})
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
   const [search, setSearch] = useState<SearchAddon | null>(null)
@@ -134,6 +136,7 @@ export function TerminalView({
       scrollback: terminalSettings.scrollbackLines,
       scrollSensitivity: terminalSettings.scrollSpeed,
       minimumContrastRatio: terminalSettings.minimumContrast,
+      macOptionIsMeta: terminalSettings.macOptionIsMeta,
       allowProposedApi: true,
     })
     const fit = new FitAddon()
@@ -335,6 +338,10 @@ export function TerminalView({
     const oscNotify99 = term.parser.registerOscHandler(99, (data) => {
       const chunk = parseOsc99(data, decodeBase64Utf8)
       return notifyFromTerminal(chunk ? kitty.push(chunk) : null)
+    })
+    const removePrimarySelection = installPrimarySelection(host, term, {
+      enabled: () => isLinux && useSettingsStore.getState().terminal.primarySelection,
+      writePrimary: (text) => window.pine.window.writePrimarySelection(text),
     })
     const oscClipboard = registerOsc52(term, {
       enabled: () => useSettingsStore.getState().terminal.osc52Write,
@@ -614,6 +621,7 @@ export function TerminalView({
       oscNotify777.dispose()
       oscNotify99.dispose()
       oscClipboard.dispose()
+      removePrimarySelection()
       bell.dispose()
       copySelection.dispose()
       useLiveSelectionStore.getState().clear(paneId)
@@ -667,7 +675,8 @@ export function TerminalView({
     term.options.scrollSensitivity = scrollSpeed
     term.options.scrollback = scrollbackLines
     term.options.minimumContrastRatio = minimumContrast
-  }, [scrollSpeed, scrollbackLines, minimumContrast])
+    term.options.macOptionIsMeta = macOptionIsMeta
+  }, [scrollSpeed, scrollbackLines, minimumContrast, macOptionIsMeta])
 
   const closePasteDialog = (): void => {
     setPendingPaste(null)

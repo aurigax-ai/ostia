@@ -68,6 +68,8 @@ describe('parseTerminalSettings', () => {
       theme: 'match',
       shell: '',
       osc52Write: false,
+      primarySelection: true,
+      macOptionIsMeta: false,
     })
   })
 
