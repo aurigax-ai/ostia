@@ -6,7 +6,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
   const noopUnsub = () => () => {}
   const base: PineBridge = {
     ping: vi.fn().mockResolvedValue('pong'),
-    info: vi.fn().mockResolvedValue({ name: 'pine', version: '0.0.0', platform: 'linux' }),
+    info: vi
+      .fn()
+      .mockResolvedValue({ name: 'pine', version: '0.0.0', platform: 'linux', hostName: 'devbox' }),
     platform: 'linux',
     diagnostics: {
       report: vi.fn(),

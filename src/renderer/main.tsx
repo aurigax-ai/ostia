@@ -31,6 +31,7 @@ import { errorDetails, reportError, startErrorReporting } from './lib/errorRepor
 import { startFileDropTracking } from './lib/fileDrop'
 import { startHibernation } from './lib/hibernationScheduler'
 import { livePaneIds } from './lib/livePanes'
+import { loadLocalHostName } from './lib/osc7'
 import { startAgentDetection } from './lib/paneAgent'
 import { startPaneDragTracking } from './lib/paneDrag'
 import { applyStoredRailWidth } from './lib/railWidth'
@@ -73,6 +74,7 @@ const root = createRoot(container)
 async function boot(): Promise<void> {
   await initWindow()
   registerWindowCommands(useWindowsStore.getState().detached)
+  await loadLocalHostName()
   try {
     await useSettingsStore.getState().init()
   } catch (err) {
