@@ -1,4 +1,9 @@
 import { GLOBAL_HOTKEY_MAX_LENGTH } from '../../shared/globalHotkey'
+import {
+  BELL_MODES,
+  LONG_COMMAND_MAX_SECONDS,
+  LONG_COMMAND_MIN_SECONDS,
+} from '../../shared/notificationSettings'
 import { PRODUCT_NAME } from '../../shared/product'
 import {
   CORE_CHIP_IDS,
@@ -431,7 +436,22 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         commandFinished: {
           type: 'boolean',
-          description: 'Banner when a long command finishes in a pane you are not watching.',
+          description:
+            'Banner when a long command (longCommandSeconds or more) finishes in a pane you ' +
+            'are not watching.',
+        },
+        longCommandSeconds: {
+          type: 'integer',
+          minimum: LONG_COMMAND_MIN_SECONDS,
+          maximum: LONG_COMMAND_MAX_SECONDS,
+          description: `Seconds a command must run before its end notifies you while ${PRODUCT_NAME} is in the background. Default: 10.`,
+        },
+        bell: {
+          type: 'string',
+          enum: [...BELL_MODES],
+          description:
+            'What a terminal bell (BEL) does: "attention" marks the pane when you are not ' +
+            'viewing it, "sound" also plays the system sound, "off" ignores it. Default: attention.',
         },
       },
     },
