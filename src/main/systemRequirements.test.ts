@@ -33,9 +33,8 @@ describe('systemRequirements', () => {
     expect(missingRequirements(SANDBOX_FEATURE, { ...direct, path: some })).toEqual([
       { program: 'bwrap', package: 'bubblewrap' },
       { program: 'rg', package: 'ripgrep' },
-      { program: 'nsenter', package: 'util-linux' },
     ])
-    const all = binDir('all', ['socat', 'bwrap', 'rg', 'nsenter'])
+    const all = binDir('all', ['socat', 'bwrap', 'rg'])
     expect(missingRequirements(SANDBOX_FEATURE, { ...direct, path: all })).toEqual([])
     expect(missingRequirements(SANDBOX_FEATURE, { platform: 'darwin', path: some })).toEqual([
       { program: 'rg', package: 'ripgrep' },
@@ -43,7 +42,7 @@ describe('systemRequirements', () => {
   })
 
   it('needs script from util-linux only where the sandboxed shell runs behind the pty relay', () => {
-    const all = binDir('no-script', ['socat', 'bwrap', 'rg', 'nsenter'])
+    const all = binDir('no-script', ['socat', 'bwrap', 'rg'])
     const env = { platform: 'linux' as const, path: all }
     expect(missingRequirements(SANDBOX_FEATURE, { ...env, ptyRelay: false })).toEqual([])
     expect(missingRequirements(SANDBOX_FEATURE, { ...env, ptyRelay: true })).toEqual([
