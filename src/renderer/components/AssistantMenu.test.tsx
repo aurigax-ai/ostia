@@ -35,6 +35,7 @@ const assistant: ExtensionInfo = {
   assist: ['chat', 'terminal'],
   secrets: [],
   secretsSet: [],
+  settingsPage: null,
   category: 'other',
   languages: [],
   languageServers: [],
