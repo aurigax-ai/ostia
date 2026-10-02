@@ -1,6 +1,6 @@
+import type { ChordSpec } from '@shared/chordSpec'
 import { useEffect } from 'react'
 import { useUIStore } from '../stores/uiStore'
-import type { ChordSpec } from './chordSpec'
 import { WORKSPACE_GOTO, chordOf } from './chords'
 
 export const MODIFIER_HINT_DELAY_MS = 500

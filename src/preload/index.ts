@@ -27,6 +27,7 @@ import type {
 import type { EditorLanguage } from '../shared/editorLanguages'
 import type { ExtensionSuggestion } from '../shared/extensionSuggestions'
 import type {
+  ExtensionAgentOffer,
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
@@ -395,6 +396,11 @@ const bridge: PineBridge = {
         workspaceId,
       ) as Promise<OpenFileVerdict[]>,
   },
+  clipboard: {
+    edit: (edit) => ipcRenderer.invoke('clipboard:edit', edit) as Promise<void>,
+    hasImage: () => ipcRenderer.invoke('clipboard:has-image') as Promise<boolean>,
+    setChords: (chords) => ipcRenderer.send('clipboard:set-chords', chords),
+  },
   openPath: {
     openDefault: (path) =>
       ipcRenderer.invoke('shell:open-default', path) as Promise<OpenPathResult>,
@@ -656,6 +662,23 @@ const bridge: PineBridge = {
         ipcRenderer.send('extensions:open-terminal-result', req.requestId, cb(req))
       ipcRenderer.on('extensions:open-terminal', handler)
       return () => ipcRenderer.removeListener('extensions:open-terminal', handler)
+    },
+    onAgentOffer: (cb) => {
+      const handler = (_e: unknown, offer: ExtensionAgentOffer): void => cb(offer)
+      ipcRenderer.on('extensions:agent-offer', handler)
+      return () => ipcRenderer.removeListener('extensions:agent-offer', handler)
+    },
+    onAgentOfferWithdrawn: (cb) => {
+      const handler = (_e: unknown, requestId: string): void => cb(requestId)
+      ipcRenderer.on('extensions:agent-offer-withdrawn', handler)
+      return () => ipcRenderer.removeListener('extensions:agent-offer-withdrawn', handler)
+    },
+    answerAgentOffer: (requestId, paneId) =>
+      ipcRenderer.send('extensions:agent-offer-result', requestId, paneId),
+    onFocusPane: (cb) => {
+      const handler = (_e: unknown, paneId: string): void => cb(paneId)
+      ipcRenderer.on('extensions:focus-pane', handler)
+      return () => ipcRenderer.removeListener('extensions:focus-pane', handler)
     },
   },
   assist: {

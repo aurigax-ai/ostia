@@ -1,8 +1,4 @@
 import { MagnifyingGlassIcon } from '@phosphor-icons/react'
-import { useEffect, useState, useSyncExternalStore } from 'react'
-import { commandWording, commands } from '../commands/registry'
-import type { Dict } from '../i18n/dict'
-import { fmt, useDict } from '../i18n/useDict'
 import {
   type ChordProblem,
   type ChordSpec,
@@ -12,7 +8,11 @@ import {
   sameChord,
   specFromEvent,
   usedByMonaco,
-} from '../lib/chordSpec'
+} from '@shared/chordSpec'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { commandWording, commands } from '../commands/registry'
+import type { Dict } from '../i18n/dict'
+import { fmt, useDict } from '../i18n/useDict'
 import {
   WORKSPACE_GOTO,
   bindableIds,
