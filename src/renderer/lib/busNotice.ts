@@ -1,0 +1,29 @@
+import { busLabel, busPreview } from '@shared/busMessages'
+import { wantsDesktopBanner } from '@shared/notificationSettings'
+import { currentDict, fmt } from '../i18n/useDict'
+import { useAttentionStore } from '../stores/attentionStore'
+import { useSettingsStore } from '../stores/settingsStore'
+import { isPaneViewed, signalPane } from './workspaceActivity'
+
+export function announceBusMessage(paneId: string, from: unknown, text: unknown): void {
+  const d = currentDict()
+  const label = busLabel(from)
+  const title = label ? fmt(d.attention.messageFrom, { from: label }) : d.attention.messageFromPane
+  const body = busPreview(text)
+  const seen = isPaneViewed(paneId)
+  const at = Date.now()
+  const keepsWaitingMessage = useAttentionStore.getState().byPane[paneId]?.state === 'waiting'
+  signalPane(
+    paneId,
+    keepsWaitingMessage
+      ? { type: 'bell', at }
+      : { type: 'notify', message: body ? `${title}: ${body}` : title, waiting: false, at },
+  )
+  window.pine.notifications.post({
+    paneId,
+    kind: 'message',
+    title,
+    body: body || undefined,
+    desktop: wantsDesktopBanner(useSettingsStore.getState().notifications, 'message', seen),
+  })
+}
