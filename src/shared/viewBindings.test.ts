@@ -54,6 +54,24 @@ describe('resolveText', () => {
     expect(resolveText('{{t | relative}}', earlier, fmt)).toBe('5 minutes ago')
     expect(resolveText('{{t | time}}', { t: 'x' }, fmt)).toBe('')
   })
+
+  it('counts a relative time in days, hours, minutes or seconds', () => {
+    const relative = (offset: number, locale = 'en'): string =>
+      resolveText('{{t | relative}}', { t: fmt.now + offset }, { ...fmt, locale })
+    expect(relative(-400)).toBe('now')
+    expect(relative(-600)).toBe('1 second ago')
+    expect(relative(600)).toBe('in 1 second')
+    expect(relative(-45_000)).toBe('45 seconds ago')
+    expect(relative(-59_600)).toBe('60 seconds ago')
+    expect(relative(-60_000)).toBe('1 minute ago')
+    expect(relative(-89 * 60_000)).toBe('1 hour ago')
+    expect(relative(-23 * 3_600_000)).toBe('23 hours ago')
+    expect(relative(-24 * 3_600_000)).toBe('yesterday')
+    expect(relative(-365 * 86_400_000)).toBe('365 days ago')
+    expect(relative(2 * 3_600_000)).toBe('in 2 hours')
+    expect(relative(-45_000, 'zh-Hant')).toBe('45 秒前')
+    expect(resolveText('{{t | relative}}', { t: Number.NaN }, fmt)).toBe('')
+  })
 })
 
 describe('resolveArgs', () => {
