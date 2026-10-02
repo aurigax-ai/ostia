@@ -1,6 +1,6 @@
 import type { ApprovalOutcome } from '../../shared/approvals'
 import { type PortsPolicy, checkExposePort } from '../../shared/sandbox'
-import type { ExposeResult, SandboxListener } from './portForwarder'
+import type { ExposeRefusal, ExposeResult, SandboxListener } from './portForwarder'
 
 export interface PortAsk {
   workspaceId: string
@@ -18,6 +18,7 @@ export interface PortRequestsDeps {
   forwarder: {
     listeners: (workspaceId: string) => SandboxListener[]
     exposed: (workspaceId: string) => number[]
+    refusal: (workspaceId: string) => ExposeRefusal | null
     expose: (workspaceId: string, port: number) => Promise<ExposeResult>
     unexpose: (workspaceId: string, port: number) => Promise<void>
   }
@@ -50,6 +51,8 @@ export class PortRequests {
     if (!this.deps.isSandboxed(workspaceId)) return { ok: false, error: 'not-sandboxed' }
     if (this.deps.platform === 'darwin') return { ok: true, port, notice: 'not-needed-on-macos' }
     if (this.deps.forwarder.exposed(workspaceId).includes(port)) return { ok: true, port }
+    const refusal = this.deps.forwarder.refusal(workspaceId)
+    if (refusal) return { ok: false, error: refusal }
     const process = this.seen.get(workspaceId)?.get(port)?.process ?? null
     const outcome = await this.deps.ask({ workspaceId, paneId, port, process, origin: 'agent' })
     if (!granted(outcome)) return { ok: false, error: 'denied' }
@@ -93,7 +96,7 @@ export class PortRequests {
 
   private async onNewListener(workspaceId: string, listener: SandboxListener): Promise<void> {
     const policy = this.deps.policy(workspaceId)
-    if (policy === 'deny') return
+    if (policy === 'deny' || this.deps.forwarder.refusal(workspaceId)) return
     if (policy === 'ask') {
       const outcome = await this.deps.ask({
         workspaceId,
