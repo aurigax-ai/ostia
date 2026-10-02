@@ -27,6 +27,7 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { McpServerDialog, saveMcpServers } from './McpServerDialog'
 import { ControlRow, SettingsGroup, WarningNote } from './SettingsPanel'
+import { Highlight, useSearchGroup } from './SettingsSearch'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
@@ -280,11 +281,20 @@ function ServerItem({
       .catch((): McpTestResult => ({ ok: false, error: '' }))
     setTest({ phase: 'done', result })
   }
+  const search = useSearchGroup([server.name])
   return (
-    <Item variant="outline" size="sm" render={<li />} className={ROW} data-mcp={server.name}>
+    <Item
+      variant="outline"
+      size="sm"
+      render={<li />}
+      hidden={search.hidden}
+      data-search-hit={search.hit || undefined}
+      className={ROW}
+      data-mcp={server.name}
+    >
       <ItemContent className="min-w-0 gap-0.5">
         <ItemTitle className="text-fg text-ui-base">
-          {server.name}
+          <Highlight text={server.name} />
           <Badge variant="outline" className="font-normal text-fg-muted text-ui-xs">
             {http ? t.typeUrl : t.typeCommand}
           </Badge>
