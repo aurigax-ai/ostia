@@ -284,11 +284,17 @@ export function TerminalView({
     let inputCol = 0
     let runningCommand = ''
     let replaying = false
-    const onCommandEnd = (exitCode: number): void => {
+    const onCommandEnd = (exitCode: number, wholeCommand: string | null): void => {
       const blocks = useBlocksStore.getState()
       const runningId = blocks.running[paneId]
       const block = runningId ? blocks.byPane[paneId]?.find((b) => b.id === runningId) : undefined
-      blocks.commandEnd(paneId, anchor(), exitCode, term.buffer.active.cursorX)
+      blocks.commandEnd(
+        paneId,
+        anchor(),
+        exitCode,
+        term.buffer.active.cursorX,
+        wholeCommand ?? undefined,
+      )
       if (!block || replaying) return
       const long = shouldNotifyCommandEnd(
         Date.now() - block.startedAt,
@@ -443,7 +449,11 @@ export function TerminalView({
         if (!replaying) {
           useAttentionStore.getState().dispatch(paneId, { type: 'commandStart', at: Date.now() })
         }
-      } else if (kind === 'D') onCommandEnd(Number(arg ?? 0))
+      } else if (kind === 'D') {
+        const wholeCommand = reportedCommand
+        reportedCommand = null
+        onCommandEnd(Number(arg ?? 0), wholeCommand)
+      }
       return true
     })
 

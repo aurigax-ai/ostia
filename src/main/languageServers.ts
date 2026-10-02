@@ -1,6 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn as spawnProcess } from 'node:child_process'
 import { existsSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { isEqual } from 'es-toolkit'
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
 import { languageForPath } from '../shared/editorLanguages'
 import type { ExtensionSettingValues } from '../shared/extensions'
@@ -596,7 +597,7 @@ export class LanguageServers {
 
   private pushSettings(session: Session, source: LanguageServerSource): void {
     const settings = baseSettings(source, session.root)
-    if (JSON.stringify(settings) === JSON.stringify(session.settings)) return
+    if (isEqual(settings, session.settings)) return
     session.settings = settings
     if (session.initialized) this.sendSettings(session)
   }
