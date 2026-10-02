@@ -1,4 +1,5 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
+import { FlagError, parseArgs } from './args'
 
 export type PaneCall =
   | { method: 'pane.input'; params: { pane: string; text?: string; keys?: string[] } }
@@ -11,20 +12,24 @@ const USAGE = [
   '<pane> is a pane id from pine pane.list, or a process id or name from pine process ls',
 ].join('\n')
 
+function readFlags(argv: string[]) {
+  try {
+    return parseArgs(argv, { values: { lines: '--lines' }, booleans: { json: '--json' } })
+  } catch (err) {
+    if (err instanceof FlagError && err.problem === 'unknown') throw new Error(USAGE)
+    throw err
+  }
+}
+
 export function parsePaneArgs(argv: string[]): PaneCall {
   const [sub, pane, ...rest] = argv
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'send') {
-    const words: string[] = []
-    let enter = false
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === '--') {
-        words.push(...rest.slice(i + 1))
-        break
-      }
-      if (rest[i] === '--enter') enter = true
-      else words.push(rest[i])
-    }
+    const { positional: words, booleans } = parseArgs(rest, {
+      booleans: { enter: '--enter' },
+      unknown: 'keep',
+    })
+    const { enter } = booleans
     if (words.length === 0 && !enter) throw new Error(USAGE)
     return {
       method: 'pane.input',
@@ -40,21 +45,16 @@ export function parsePaneArgs(argv: string[]): PaneCall {
     return { method: 'pane.input', params: { pane, keys: rest } }
   }
   if (sub === 'read') {
-    const call: PaneCall = { method: 'pane.read', params: { pane }, json: false }
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === '--json') {
-        call.json = true
-      } else if (rest[i] === '--lines') {
-        const lines = Number(rest[++i])
-        if (!Number.isInteger(lines) || lines < 1) {
-          throw new Error('--lines must be a positive integer')
-        }
-        call.params.lines = lines
-      } else {
-        throw new Error(USAGE)
-      }
+    const { positional, values, booleans } = readFlags(rest)
+    if (positional.length > 0) throw new Error(USAGE)
+    if (values.lines === undefined) {
+      return { method: 'pane.read', params: { pane }, json: booleans.json }
     }
-    return call
+    const lines = Number(values.lines)
+    if (!Number.isInteger(lines) || lines < 1) {
+      throw new Error('--lines must be a positive integer')
+    }
+    return { method: 'pane.read', params: { pane, lines }, json: booleans.json }
   }
   throw new Error(USAGE)
 }

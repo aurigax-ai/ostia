@@ -23,6 +23,7 @@
         "palette": false,
         "stdin": true
       },
+      { "id": "argv", "title": "Print the arguments back", "palette": false },
       { "id": "chip", "title": "Set a pane chip", "palette": false },
       { "id": "unchip", "title": "Clear a pane chip", "palette": false },
       { "id": "settings", "title": "Read settings", "palette": false },
