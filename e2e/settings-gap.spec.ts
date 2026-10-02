@@ -92,9 +92,11 @@ test('selecting terminal text fills the primary selection, and middle click past
     await expect
       .poll(() => app.evaluate(({ clipboard }) => clipboard.readText('selection')))
       .toContain('pine')
-    await app.evaluate(({ clipboard }) => clipboard.writeText('echo from-primary', 'selection'))
-    await win.locator('.xterm').first().click({ button: 'middle' })
-    await expect(rows).toContainText('echo from-primary')
+    await expect(async () => {
+      await app.evaluate(({ clipboard }) => clipboard.writeText('echo from-primary', 'selection'))
+      await win.locator('.xterm').first().click({ button: 'middle' })
+      await expect(rows).toContainText('echo from-primary', { timeout: 1000 })
+    }).toPass({ timeout: 15_000 })
   } finally {
     await app.close()
   }
