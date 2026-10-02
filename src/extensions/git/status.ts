@@ -165,6 +165,22 @@ export function parseShortstat(output: string): LineChanges | null {
   }
 }
 
+export function textLineCount(buf: Buffer, sniff: number): number {
+  if (buf.length === 0 || buf.subarray(0, sniff).includes(0)) return 0
+  let lines = 0
+  for (const byte of buf) if (byte === 10) lines++
+  return buf[buf.length - 1] === 10 ? lines : lines + 1
+}
+
+export function withUntracked(tracked: LineChanges | null, untrackedLines: number[]): LineChanges {
+  const base = tracked ?? { files: 0, added: 0, removed: 0 }
+  return {
+    files: base.files + untrackedLines.length,
+    added: base.added + untrackedLines.reduce((sum, n) => sum + n, 0),
+    removed: base.removed,
+  }
+}
+
 export function diffStatsChipText(changes: LineChanges | null): string {
   if (!changes || changes.files === 0) return ''
   const lines: string[] = []
