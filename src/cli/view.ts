@@ -11,6 +11,7 @@ import {
   parseViewText,
   viewNameOf,
 } from '../shared/views'
+import { parseArgs } from './args'
 
 export const VIEW_USAGE =
   'pine view: usage: view list [--json] | validate <file> | open <name> | schema'
@@ -76,8 +77,9 @@ export function runOfflineViewVerb(argv: readonly string[]): number {
 export async function runViewVerb(conn: MessageConnection, argv: readonly string[]): Promise<void> {
   const [sub, ...rest] = argv
   if (sub === 'list') {
+    const { json } = parseArgs(rest, { booleans: { json: '--json' } }).booleans
     const listing = await conn.sendRequest<{ dir: string; views: ViewSummary[] }>('view.list')
-    if (rest.includes('--json')) {
+    if (json) {
       console.log(JSON.stringify(listing, null, 2))
       return
     }
