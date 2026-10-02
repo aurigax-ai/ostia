@@ -35,6 +35,8 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
+    agentSkills: [],
+    agentHooks: [],
     iconThemes: [],
     ...overrides,
   }
@@ -161,6 +163,54 @@ describe('Extensions UI', () => {
         'Runs rust-analyzer for rust filesDownloads rust-analyzer 2026-09-28 from github.com when it is not on your PATH',
         'Runs gopls for go filesRuns go install golang.org/x/tools/gopls@v0.23.0 when gopls is not on your PATH',
       ])
+    })
+
+    it('lists the agent skills and hooks an extension adds and what a hook sees', () => {
+      const kit = {
+        ...pending,
+        requested: ['agent-plugin' as const],
+        commands: [
+          {
+            id: 'on-hook',
+            title: 'Kit: record',
+            palette: false,
+            stdin: true,
+            capabilities: [],
+          },
+        ],
+        agentSkills: ['trellis-review'],
+        agentHooks: [
+          {
+            event: 'SessionStart' as const,
+            command: 'on-hook',
+            agents: ['claude' as const, 'codex' as const],
+          },
+          { event: 'Notification' as const, command: 'on-hook', agents: ['claude' as const] },
+        ],
+      }
+      useExtensionsStore.setState({ list: [kit] })
+      render(<ExtensionApprovalDialog />)
+      const section = within(screen.getByRole('dialog')).getByRole('region', {
+        name: 'Adds to claude and codex in your terminals',
+      })
+      expect(within(section).getByText(/such as your prompt or a tool it runs/)).toBeInTheDocument()
+      expect(within(section).getByText('Agent skills: trellis-review')).toBeInTheDocument()
+      expect(
+        within(section)
+          .getAllByRole('listitem')
+          .map((li) => li.textContent),
+      ).toEqual([
+        'Hook SessionStart runs “Kit: record” (claude, codex)',
+        'Hook Notification runs “Kit: record” (claude)',
+      ])
+    })
+
+    it('shows the agent skills and hooks on the Settings row too', () => {
+      useExtensionsStore.setState({
+        list: [ext({ agentSkills: ['demo-review'], agentHooks: [] })],
+      })
+      render(<ExtensionsSection />)
+      expect(screen.getByText('Agent skills: demo-review')).toBeInTheDocument()
     })
 
     it('approving goes through the bridge and closes the dialog', async () => {

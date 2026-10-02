@@ -39,6 +39,8 @@ const extension = (patch: Partial<ExtensionInfo>): ExtensionInfo => ({
   category: 'other',
   languages: [],
   languageServers: [],
+  agentSkills: [],
+  agentHooks: [],
   iconThemes: [],
   ...patch,
 })

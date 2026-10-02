@@ -1,5 +1,17 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
+import {
+  AGENT_PLUGIN_CAPABILITY,
+  AGENT_SKILL_ENTRY,
+  AGENT_SKILL_FILE_PATTERN,
+  AGENT_SKILL_NAME_PATTERN,
+  type AgentHookContribution,
+  type AgentSkillContribution,
+  MAX_AGENT_HOOKS,
+  MAX_AGENT_SKILLS,
+  MAX_AGENT_SKILL_FILES,
+  isAgentHookEvent,
+} from '../shared/agentPlugins'
 import { type AssistPoint, isAssistPoint } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import { parseEditorLanguages } from '../shared/editorLanguages'
@@ -409,6 +421,67 @@ function parseWorkflows(raw: unknown): Workflow[] | string | undefined {
   return workflows
 }
 
+function parseAgentSkills(raw: unknown, dir: string): AgentSkillContribution[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.length > MAX_AGENT_SKILLS) {
+    return `contributes.agentSkills must be an array of at most ${MAX_AGENT_SKILLS}`
+  }
+  const skills: AgentSkillContribution[] = []
+  for (const [i, item] of raw.entries()) {
+    const where = `contributes.agentSkills[${i}]`
+    if (!isRecord(item)) return `${where}: must be an object`
+    if (typeof item.name !== 'string' || !AGENT_SKILL_NAME_PATTERN.test(item.name)) {
+      return `${where}: name must be lowercase letters, digits and dashes`
+    }
+    if (skills.some((s) => s.name === item.name)) return `${where}: duplicate name '${item.name}'`
+    if (typeof item.path !== 'string' || !isInsideDir(dir, item.path)) {
+      return `${where}: path must be a folder inside the extension`
+    }
+    const files = item.files === undefined ? [] : item.files
+    if (!Array.isArray(files) || files.length > MAX_AGENT_SKILL_FILES) {
+      return `${where}: files must be an array of at most ${MAX_AGENT_SKILL_FILES} file names`
+    }
+    for (const file of files) {
+      if (
+        typeof file !== 'string' ||
+        !AGENT_SKILL_FILE_PATTERN.test(file) ||
+        file === AGENT_SKILL_ENTRY
+      ) {
+        return `${where}: files lists names of .md or .txt files in the skill folder, other than ${AGENT_SKILL_ENTRY}`
+      }
+    }
+    if (new Set(files).size !== files.length) return `${where}: duplicate file`
+    skills.push({ name: item.name, path: item.path, files: files as string[] })
+  }
+  return skills
+}
+
+function parseAgentHooks(
+  raw: unknown,
+  commands: readonly ExtensionCommandContribution[],
+): AgentHookContribution[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.length > MAX_AGENT_HOOKS) {
+    return `contributes.agentHooks must be an array of at most ${MAX_AGENT_HOOKS}`
+  }
+  const hooks: AgentHookContribution[] = []
+  for (const [i, item] of raw.entries()) {
+    const where = `contributes.agentHooks[${i}]`
+    if (!isRecord(item)) return `${where}: must be an object`
+    if (!isAgentHookEvent(item.event)) return `${where}: unknown event '${String(item.event)}'`
+    const command = commands.find((c) => c.id === item.command)
+    if (!command) return `${where}: command must be one of this extension's commands`
+    if (!command.stdin || command.interactive || command.capabilities.length > 0) {
+      return `${where}: command '${command.id}' must read stdin, not be interactive and need no capabilities`
+    }
+    if (hooks.some((h) => h.event === item.event && h.command === command.id)) {
+      return `${where}: duplicate hook`
+    }
+    hooks.push({ event: item.event, command: command.id })
+  }
+  return hooks
+}
+
 export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (!isRecord(raw)) return { ok: false, error: 'manifest must be a JSON object' }
   const id = raw.id
@@ -498,6 +571,19 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     isInsideDir(dir, path),
   )
   if (typeof editorLanguages === 'string') return { ok: false, error: editorLanguages }
+  const agentSkills = parseAgentSkills(contributes.agentSkills, dir)
+  if (typeof agentSkills === 'string') return { ok: false, error: agentSkills }
+  const agentHooks = parseAgentHooks(contributes.agentHooks, commands)
+  if (typeof agentHooks === 'string') return { ok: false, error: agentHooks }
+  if (
+    (agentSkills.length > 0 || agentHooks.length > 0) &&
+    !caps.includes(AGENT_PLUGIN_CAPABILITY)
+  ) {
+    return {
+      ok: false,
+      error: `contributes.agentSkills and agentHooks need the '${AGENT_PLUGIN_CAPABILITY}' capability`,
+    }
+  }
   const needsMain =
     commands.length > 0 ||
     sidebarItems ||
@@ -532,6 +618,8 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (languages.length > 0) manifest.contributes.languages = languages
   if (languageServers.length > 0) manifest.contributes.languageServers = languageServers
   if (editorLanguages.length > 0) manifest.contributes.editorLanguages = editorLanguages
+  if (agentSkills.length > 0) manifest.contributes.agentSkills = agentSkills
+  if (agentHooks.length > 0) manifest.contributes.agentHooks = agentHooks
   return { ok: true, manifest }
 }
 

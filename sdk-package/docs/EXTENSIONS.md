@@ -158,6 +158,8 @@ installs, updates or uninstalls, from Settings.
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
 | `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: pine starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
 | `contributes.editorLanguages[]` | Up to 16 languages the editor does not know yet, each with a Monarch grammar as JSON. Data only: no `main` and no capability needed. See [Editor languages](#editor-languages). |
+| `contributes.agentSkills[]` | Up to 8 skills (API 1.9) that pine gives claude and codex in your terminals: `{name, path, files?}`. Needs the `agent-plugin` capability. See [Agent skills and hooks](#agent-skills-and-hooks). |
+| `contributes.agentHooks[]` | Up to 16 `{event, command}` (API 1.9): when the agent reaches `event`, pine runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`, `chat`.
@@ -593,12 +595,119 @@ offer works before any marketplace has been added; Install then adds the officia
 first. An id in that table is only ever taken from the official marketplace, whatever another
 marketplace lists under the same id.
 
+## Agent skills and hooks
+
+pine starts `claude` and `codex` in a zsh or bash pane with its own session plugin: the `pine`
+skill plus hooks for the pane's attention state and resume token. An extension can add to it:
+skills (instructions the agent reads when a task matches) and hooks (your commands, run when the
+agent reaches an event). pine adds **only what your manifest declares**. It never looks for a
+`skills/` folder, a `SKILL.md`, a `hooks.json` or a `.claude-plugin` folder on its own: a skill
+folder or file your manifest doesn't name is not copied, and an extension without
+`agentSkills`/`agentHooks` adds nothing.
+
+```json
+{
+  "id": "review-kit",
+  "api": "1.9",
+  "capabilities": ["agent-plugin"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "on-hook", "title": "Review kit: agent hook", "palette": false, "stdin": true }
+    ],
+    "agentSkills": [{ "name": "review", "path": "skills/review", "files": ["checklist.md"] }],
+    "agentHooks": [
+      { "event": "SessionStart", "command": "on-hook" },
+      { "event": "PostToolUse", "command": "on-hook" }
+    ]
+  }
+}
+```
+
+Both need the `agent-plugin` capability, which the human approves like any other. The approval
+dialog and your row in Settings → Extensions list every skill and hook you add, and say that a
+hook sees what the agent reports (your prompt, the tools it runs).
+
+### Skills
+
+| Field | Meaning |
+|---|---|
+| `name` | Lowercase letters, digits and dashes, unique in the extension. The agent sees the skill as `<extension id>-<name>` (`review-kit-review`). |
+| `path` | A folder inside the extension that holds `SKILL.md`. |
+| `files` | Optional. Up to 16 more files in that same folder (`.md` or `.txt`, no subfolders) that the skill refers to. Only these and `SKILL.md` are copied. |
+
+`SKILL.md` starts with frontmatter whose `name` is the skill's `name` from the manifest and whose
+`description` (one line, at most 1024 characters) says when to use the skill:
+
+```markdown
+---
+name: review
+description: Use when reviewing a change in this repository; follow checklist.md.
+---
+```
+
+pine writes the copy's `name` as `<extension id>-<name>`, so two extensions' skills never
+collide and none can take the name of pine's own `pine` skill.
+
+Main reads the files only while the extension is enabled and its `agent-plugin` capability is
+approved, and checks each one: a regular file inside the extension folder with no symlink
+anywhere on its path, plain UTF-8 text, at most 256 KiB, at most 1 MiB for the whole skill. A
+skill that fails is left out and logged, and `pine-extension validate` reports it. Claude gets
+the files as a skill of pine's plugin; Codex has no way to add a skill folder, so its session
+context lists each skill's description and the path of its `SKILL.md` for it to read.
+
+### Hooks
+
+`event` is one of:
+
+| Event | claude | codex | Your text reaches the agent |
+|---|---|---|---|
+| `SessionStart` | yes | yes | yes, as added context |
+| `UserPromptSubmit` | yes | yes | yes, as added context |
+| `PreToolUse` | yes | yes | no |
+| `PostToolUse` | yes | yes | no |
+| `Stop` | yes | yes | no |
+| `SessionEnd` | yes | yes | no |
+| `Notification` | yes | no (Codex has no such event) | no |
+
+`command` is one of your own `contributes.commands` ids. It must have `stdin: true`, no
+`capabilities` and no `interactive`. You never write a shell command: pine generates the hook,
+which runs `pine agent-hook <your id> <command> <agent> <event>` and so reaches you as an
+ordinary `ext.command` call from that pane, with your approved capabilities and nothing more:
+
+- `args.argv` is `[agent, event]` (`["claude", "SessionStart"]`), `args.stdin` the agent's hook
+  JSON (at most 1 MiB; larger input skips the call). `caller` is the pane the agent runs in,
+  with `sandboxed: true` in a sandboxed workspace.
+- For `SessionStart` and `UserPromptSubmit`, the `text` of your result (at most 10,000
+  characters) is added to the agent's context. pine wraps it in the agent's own
+  `additionalContext` output, so text that looks like a hook decision is still only context.
+- For every other event your result is not passed on: a hook observes, it can never allow,
+  deny or block a tool call, a prompt or the end of a turn.
+- The hook waits for your reply up to the usual 30 s, so the agent waits too. Answer quickly.
+- An agent in the pane can also run your command directly (`pine <id> on-hook`), like any
+  command; treat the input as data, not as proof that the agent sent it.
+- When pine isn't reachable (it quit, or a sandboxed workspace has Unix sockets off) the hook
+  does nothing and the agent goes on.
+
+Codex runs a hook only if it trusts it. pine passes each of your hooks with the hash Codex itself
+computes for it, like its own hooks, and never `--dangerously-bypass-hook-trust`.
+
+### When the agent gets them
+
+pine rebuilds the plugin whenever an extension is approved, enabled, disabled, updated or
+removed, in a new folder, so nothing in use changes underneath. Panes opened after that get the
+new set the next time they start `claude` or `codex`. A shell that was already open keeps the
+set it started with until you open a new pane, and a running agent keeps what it started with
+until it restarts. The `pine manager` agent never gets extension skills or hooks: it holds almost
+every capability, so pine keeps its context to what the human picked for it.
+
 ## Approval and capabilities
 
 - The first launch of a user extension shows a dialog listing its `capabilities` and, for each
   language server, the command it runs, for which files, and what pine would fetch for it (the
-  download's program, version and host, or the exact `go install` command). Approve and it
-  runs with exactly those; "Keep disabled" records the decision. Built-ins skip the dialog.
+  download's program, version and host, or the exact `go install` command), and every agent
+  skill and hook it adds. Approve and it runs with exactly those; "Keep disabled" records the
+  decision. Built-ins skip the dialog.
 - If a new version asks for more, it runs with the previously approved subset until the user
   reviews it in Settings.
 - Only the human approves. There is no socket method or CLI verb for it, and agents can't grant

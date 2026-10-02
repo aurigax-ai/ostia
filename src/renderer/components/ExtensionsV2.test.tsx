@@ -37,6 +37,8 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     category: 'other',
     languages: [],
     languageServers: [],
+    agentSkills: [],
+    agentHooks: [],
     iconThemes: [],
     ...overrides,
   }

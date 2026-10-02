@@ -40,6 +40,8 @@ function ext(id: string, name: string, overrides: Partial<ExtensionInfo> = {}): 
     category: 'other',
     languages: [],
     languageServers: [],
+    agentSkills: [],
+    agentHooks: [],
     iconThemes: [],
     ...overrides,
   }

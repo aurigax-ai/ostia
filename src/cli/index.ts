@@ -12,6 +12,7 @@ import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../
 import type { OpenFilesResult } from '../shared/openFiles'
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
+import { runAgentHook } from './agentHook'
 import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
@@ -379,6 +380,7 @@ const CORE_VERBS = new Set([
   'ask',
   'state',
   'resume-token',
+  'agent-hook',
   'open',
   'docs',
   'process',
@@ -1280,6 +1282,13 @@ async function main(): Promise<void> {
       await runWorkspaceVerb(conn)
     } else if (cmd === 'resume-token') {
       await runResumeTokenVerb(conn)
+    } else if (cmd === 'agent-hook') {
+      process.exitCode = await runAgentHook(process.argv.slice(3), {
+        readInput: readAllStdin,
+        invoke: (params) => conn.sendRequest('ext.invoke', params),
+        out: (line) => console.log(line),
+        err: (line) => console.error(line),
+      })
     } else if (cmd === 'workflow') {
       await runWorkflowVerb(conn)
     } else if (cmd === 'view') {

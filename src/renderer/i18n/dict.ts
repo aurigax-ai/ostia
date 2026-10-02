@@ -1201,6 +1201,11 @@ export const en = {
     noPermissions: 'No extra permissions',
     unapproved: 'Not approved: {caps}',
     review: 'Review permissions',
+    agentPluginTitle: 'Adds to claude and codex in your terminals',
+    agentPluginNote:
+      'New agent sessions in your terminals get these. Each hook sends the extension what the agent reports at that moment, such as your prompt or a tool it runs; at session start and prompt submit, the extension may add text to the agent’s context.',
+    agentSkillsList: 'Agent skills: {list}',
+    agentHook: 'Hook {event} runs “{command}” ({agents})',
     approveTitle: 'Allow the extension “{name}”?',
     approveBody:
       '{name} {version} runs as a program on this computer with your user account. It asks for these {product} permissions:',
@@ -3448,6 +3453,11 @@ export const zhHant: Dict = {
     noPermissions: '無額外權限',
     unapproved: '未核准：{caps}',
     review: '檢視權限',
+    agentPluginTitle: '加入終端機中的 claude 與 codex',
+    agentPluginNote:
+      '終端機中新的代理工作階段會取得這些內容。每個掛鉤會把代理當下回報的內容傳給擴充功能，例如您的提示或它執行的工具；在工作階段開始與送出提示時，擴充功能可以把文字加入代理的上下文。',
+    agentSkillsList: '代理技能：{list}',
+    agentHook: '掛鉤 {event} 執行「{command}」（{agents}）',
     approveTitle: '允許擴充功能「{name}」？',
     approveBody:
       '{name} {version} 會以您的使用者帳號在這台電腦上執行程式。它要求下列 {product} 權限：',

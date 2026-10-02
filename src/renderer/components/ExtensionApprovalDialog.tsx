@@ -1,5 +1,6 @@
 import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { pendingApproval, useExtensionsStore } from '../stores/extensionsStore'
+import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import {
@@ -75,6 +76,7 @@ export function ExtensionApprovalDialog(): JSX.Element {
             ))}
           </ul>
         ) : null}
+        {ext ? <ExtensionAgentPlugin ext={ext} explain /> : null}
         <DialogFooter>
           <Button
             variant="outline"
