@@ -45,6 +45,7 @@ function pine(args: string[], stdin?: string, token = agent.token): Running {
     stdio: [stdin === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
   })
   live.add(child)
+  child.stdin?.on('error', () => {})
   if (stdin !== undefined) child.stdin?.end(stdin)
   let stdout = ''
   let stderr = ''

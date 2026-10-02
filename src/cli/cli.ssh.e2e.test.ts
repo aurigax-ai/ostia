@@ -79,6 +79,7 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
         clearTimeout(timer)
         resolve({ code, stdout, stderr })
       })
+      child.stdin.on('error', () => {})
       child.stdin.end('')
     })
   }
