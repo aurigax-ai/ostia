@@ -676,16 +676,24 @@ The human and the agent can both point at an element in a browser pane:
   broken thing, writes what's wrong, and sends it to a terminal pane. Pine writes a markdown
   report to a private tmp dir (`/tmp/pine-reports-<uid>/capture-N-<page>.md`, where `<page>` is the page's host and path) and:
   - pastes `@<report path> ` at that pane's prompt (never presses Enter) if the pane is at an idle
-    shell prompt or its agent reported `pine state waiting`/`done`; otherwise the path goes to the
-    human's clipboard;
+    shell prompt or its agent reported `pine state waiting`/`done`, followed by `@<screenshot>.png `
+    when the capture has a screenshot and the human left Settings → Browser → Attach the
+    screenshot on; otherwise the references go to the human's clipboard;
   - delivers a bus message to that pane whose `text` is JSON:
-    `{"kind":"capture","report":"<path>","url":"…","selector":"…","note":"…"}` (read it with
-    `pine bus inbox`);
+    `{"kind":"capture","report":"<path>","image":"<png>|null","url":"…","selector":"…","note":"…"}`
+    (read it with `pine bus inbox`);
   - sets the pane's attention to `working` (no ring).
   Read the report file: it has the note, page URL/title, a robust CSS selector, role/name, box,
   computed-style subset, the element's outerHTML (≤2 KB), recent console errors, failed network
-  requests, and a PNG screenshot path of the element. Then act on it with `pine browse …`
+  requests, and the screenshot (the element plus up to 16 CSS px around it) as a path and an
+  embedded image. Then act on it with `pine browse …`
   (e.g. `pine browse get styles '<selector>'`) or in the source.
+- **Human → agent, a region.** The human clicks **Capture region** (or runs Capture Browser
+  Region) and drags a rectangle over the page. Pine writes `capture-N-<page>.png` and
+  `capture-N-<page>.md` side by side (page title and URL, the region in CSS px, the image size,
+  the note, the image embedded) and delivers them the same way; the bus message has
+  `"region":{x,y,width,height}` instead of `selector`. Only the human can start or finish a region
+  capture; to take a picture yourself, use `pine browse screenshot`.
 - **Agent → human.** `pine browse pick` puts the browser pane into inspect mode (the pane shows
   "An agent asked you to point at an element"), waits for the human's click (default 120 s,
   `--timeout` 1 s–10 min; Esc or the toolbar toggle cancels), and prints the same capture as JSON:

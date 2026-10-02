@@ -21,6 +21,7 @@ export interface BrowserSettings {
   customSearchUrl: string
   openTerminalLinks: boolean
   defaultZoom: number
+  attachCaptureImage: boolean
 }
 
 export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
@@ -28,6 +29,7 @@ export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
   customSearchUrl: '',
   openTerminalLinks: false,
   defaultZoom: 100,
+  attachCaptureImage: true,
 }
 
 export function isValidSearchTemplate(template: string): boolean {
@@ -73,6 +75,10 @@ export function parseBrowserSettings(raw: unknown): BrowserSettings {
     openTerminalLinks: typeof src.openTerminalLinks === 'boolean' ? src.openTerminalLinks : false,
     defaultZoom:
       typeof src.defaultZoom === 'number' ? clampZoom(src.defaultZoom) : defaults.defaultZoom,
+    attachCaptureImage:
+      typeof src.attachCaptureImage === 'boolean'
+        ? src.attachCaptureImage
+        : defaults.attachCaptureImage,
   }
 }
 
