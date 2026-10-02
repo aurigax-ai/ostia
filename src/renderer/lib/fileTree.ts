@@ -1,5 +1,6 @@
 import type { FsEntry } from '@shared/types'
 import picomatch from 'picomatch/posix'
+import { escapeRegExp } from 'es-toolkit'
 import type { FileSortBy, FileSortOrder } from '../settings/fileTreeSettings'
 
 export type ExcludeMatcher = (path: string, root: string) => boolean
@@ -59,8 +60,6 @@ export interface NestingRule {
   parent: RegExp
   children: string[]
 }
-
-const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 export function nestingRules(patterns: Readonly<Record<string, string>>): NestingRule[] {
   const rules: NestingRule[] = []
