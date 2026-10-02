@@ -17,6 +17,7 @@ import { type ShellState, parseShellState } from './shellCommands'
 import {
   CLAUDE_PLUGIN_MANIFEST,
   type CodexHookEvent,
+  busHookCommand,
   claudeHookSettings,
   claudeWrapper,
   codexHookArgs,
@@ -629,6 +630,24 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(command('SessionStart')).toMatch(/^\[ -n "\$PINE_SOCKET" \] && .*\|\| true$/)
     })
 
+    it('adds the unread bus messages as context when a session starts and a prompt is sent', () => {
+      const hooks = claudeHookSettings().hooks as Record<string, { hooks: { command: string }[] }[]>
+      const commands = (event: string) => hooks[event]?.[0]?.hooks.map((h) => h.command) ?? []
+      expect(commands('SessionStart')).toEqual([
+        expect.stringContaining('resume-token claude -'),
+        busHookCommand('SessionStart'),
+      ])
+      expect(commands('UserPromptSubmit')).toEqual([
+        expect.stringContaining('state working'),
+        busHookCommand('UserPromptSubmit'),
+      ])
+      expect(busHookCommand('UserPromptSubmit')).toBe(
+        '[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" bus hook UserPromptSubmit 2>/dev/null || true',
+      )
+      expect(commands('Stop').join(' ')).not.toContain('bus hook')
+      expect(commands('Notification').join(' ')).not.toContain('bus hook')
+    })
+
     it('makes claude in a Pine shell load the plugin and keep the user’s arguments', () => {
       shellIntegrationSpawnOptions('/bin/bash', {})
       const bin = mkdtempSync(join(tmpdir(), 'pine-fake-claude-'))
@@ -714,7 +733,13 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands.SessionStart?.[1]).toBe(
         `[ -n "$PINE_SOCKET" ] && cat '${CONTEXT}' 2>/dev/null || true`,
       )
+      expect(commands.SessionStart?.[2]).toBe(busHookCommand('SessionStart'))
+      expect(commands.SessionStart).toHaveLength(3)
       expect(commands.UserPromptSubmit?.[0]).toContain('state working')
+      expect(commands.UserPromptSubmit).toEqual([
+        commands.UserPromptSubmit?.[0],
+        busHookCommand('UserPromptSubmit'),
+      ])
       expect(commands.PermissionRequest?.[0]).toContain('state waiting -')
       expect(commands.Stop?.[0]).toContain('state done')
       for (const command of Object.values(commands).flat()) {
@@ -726,6 +751,22 @@ describe('shellIntegrationSpawnOptions', () => {
       const stop = codexHookCommands(CONTEXT).Stop?.[0] ?? ''
       expect(codexHookTrustHash('Stop', stop)).toBe(
         'sha256:04649370ec668e17edd8c909dda94fbdf1e5a71584fe8a58896fc903e330c6b1',
+      )
+    })
+
+    it('pins the trust hashes of the bus hooks, which print context', () => {
+      expect(codexHookTrustHash('UserPromptSubmit', busHookCommand('UserPromptSubmit'))).toBe(
+        'sha256:4bfedbba9685f8a168a1df284f33ad88f0a980f82dba90f09d10006d58a85607',
+      )
+      expect(codexHookTrustHash('SessionStart', busHookCommand('SessionStart'))).toBe(
+        'sha256:d8bd4869034c82c53d27c1602e741a045784c39171a4c6f2d98c29594dc095c5',
+      )
+      const state = codexHookArgs(CONTEXT).at(-1) ?? ''
+      expect(state).toContain(
+        '"/<session-flags>/config.toml:user_prompt_submit:0:1"={trusted_hash="sha256:4bfedbba9685f8a168a1df284f33ad88f0a980f82dba90f09d10006d58a85607"}',
+      )
+      expect(state).toContain(
+        '"/<session-flags>/config.toml:session_start:0:2"={trusted_hash="sha256:d8bd4869034c82c53d27c1602e741a045784c39171a4c6f2d98c29594dc095c5"}',
       )
     })
 
@@ -870,9 +911,10 @@ describe('shellIntegrationSpawnOptions', () => {
         { hooks: { command: string }[] }[]
       >
       const commands = (event: string) => hooks[event]?.[0]?.hooks.map((h) => h.command) ?? []
-      expect(commands('SessionStart')).toHaveLength(2)
+      expect(commands('SessionStart')).toHaveLength(3)
       expect(commands('SessionStart')[0]).toContain('resume-token claude -')
-      expect(commands('SessionStart')[1]).toContain('agent-hook kit on-hook claude SessionStart')
+      expect(commands('SessionStart')[1]).toBe(busHookCommand('SessionStart'))
+      expect(commands('SessionStart')[2]).toContain('agent-hook kit on-hook claude SessionStart')
       expect(commands('PreToolUse')).toEqual([extensionHookCommand(toolHook, 'claude')])
       expect(commands('Notification')[1]).toContain('agent-hook kit on-hook claude Notification')
       const codex = codexHookCommands(CONTEXT, content.hooks)
@@ -885,10 +927,10 @@ describe('shellIntegrationSpawnOptions', () => {
       const args = codexHookArgs(CONTEXT, content.hooks)
       const state = args[args.length - 1] ?? ''
       const sessionStart = codexHookCommands(CONTEXT, content.hooks).SessionStart ?? []
-      expect(sessionStart).toHaveLength(3)
-      const hook = sessionStart[2] ?? ''
+      expect(sessionStart).toHaveLength(4)
+      const hook = sessionStart[3] ?? ''
       expect(state).toContain(
-        `${JSON.stringify(codexHookKey('SessionStart', 2))}={trusted_hash=${JSON.stringify(codexHookTrustHash('SessionStart', hook))}}`,
+        `${JSON.stringify(codexHookKey('SessionStart', 3))}={trusted_hash=${JSON.stringify(codexHookTrustHash('SessionStart', hook))}}`,
       )
       expect(codexHookKey('PreToolUse', 0)).toBe('/<session-flags>/config.toml:pre_tool_use:0:0')
       expect(args).not.toContain('--dangerously-bypass-hook-trust')

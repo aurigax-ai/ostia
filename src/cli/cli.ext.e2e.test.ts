@@ -117,6 +117,15 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     expect((await runPine(['ext', 'echo', 'echo', 'a'], 'ignored')).stdout.trim()).toBe('echoed')
   }, 30_000)
 
+  it('hands an extension command its arguments untouched, flags and -- included', async () => {
+    const argv = ['--json', '-x', '--name=web', '--', '--pane', '-', '-5', 'two words']
+    for (const prefix of [['echo'], ['ext', 'echo']]) {
+      const res = await runPine([...prefix, 'argv', ...argv])
+      expect(res.stderr).toBe('')
+      expect(JSON.parse(res.stdout)).toEqual(argv)
+    }
+  }, 30_000)
+
   it('reports argument errors and unknown extensions with a non-zero exit', async () => {
     const missing = await runPine(['git', 'diff'])
     expect(missing.code).toBe(1)

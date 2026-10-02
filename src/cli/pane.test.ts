@@ -24,6 +24,13 @@ describe('parsePaneArgs', () => {
     })
   })
 
+  it('keeps unknown flags of send as text and reads --enter wherever it stands', () => {
+    expect(parsePaneArgs(['send', 'worker', '--enter', 'git', 'commit', '-m', 'fix -1'])).toEqual({
+      method: 'pane.input',
+      params: { pane: 'worker', text: 'git commit -m fix -1', keys: ['enter'] },
+    })
+  })
+
   it('passes the keys of key through in order', () => {
     expect(parsePaneArgs(['key', 'p1', 'ctrl-c', 'up', 'enter'])).toEqual({
       method: 'pane.input',
@@ -43,6 +50,10 @@ describe('parsePaneArgs', () => {
       json: true,
     })
     expect(() => parsePaneArgs(['read', 'p1', '--lines', '0'])).toThrow('positive')
+    expect(() => parsePaneArgs(['read', 'p1', '--lines', '-3'])).toThrow('positive')
+    expect(() => parsePaneArgs(['read', 'p1', '--lines'])).toThrow('--lines needs a value')
+    expect(() => parsePaneArgs(['read', 'p1', '--tail', '5'])).toThrow('usage: pine pane')
+    expect(() => parsePaneArgs(['read', 'p1', 'extra'])).toThrow('usage: pine pane')
   })
 
   it('refuses a missing pane, empty input and an unknown subcommand', () => {
