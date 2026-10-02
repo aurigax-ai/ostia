@@ -2,7 +2,11 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { AGENT_SKILL_FILE_MAX_BYTES } from '../shared/agentPlugins'
+import {
+  AGENT_SKILL_DESCRIPTION_MAX,
+  AGENT_SKILL_FILE_MAX_BYTES,
+  AGENT_SKILL_MAX_BYTES,
+} from '../shared/agentPlugins'
 import {
   agentPluginContent,
   agentSkillProblems,
@@ -169,6 +173,37 @@ describe('loadAgentSkill', () => {
     expect(res.skill.files[0]?.data.toString()).toBe(
       '---\nname: kit-review\ndescription: Use when reviewing.\n---\n\n# Review\n',
     )
+  })
+
+  it('accepts a skill of exactly the total size and refuses one a byte over', () => {
+    const names = ['f0.md', 'f1.md', 'f2.md', 'f3.md']
+    const sizes = [
+      AGENT_SKILL_FILE_MAX_BYTES,
+      AGENT_SKILL_FILE_MAX_BYTES,
+      AGENT_SKILL_FILE_MAX_BYTES,
+    ]
+    const rest = AGENT_SKILL_MAX_BYTES - Buffer.byteLength(SKILL) - sizes.reduce((a, b) => a + b, 0)
+    names.forEach((name, i) => {
+      writeFileSync(join(skillDir, name), 'a'.repeat(sizes[i] ?? rest))
+    })
+    expect(loadAgentSkill(ext, 'kit', skill(names)).ok).toBe(true)
+    writeFileSync(join(skillDir, 'f3.md'), 'a'.repeat(rest + 1))
+    expect(loadAgentSkill(ext, 'kit', skill(names))).toEqual({
+      ok: false,
+      error: `larger than ${AGENT_SKILL_MAX_BYTES} bytes in all`,
+    })
+  })
+
+  it('accepts a description of exactly the longest length and refuses one a character over', () => {
+    const entry = (description: string) =>
+      `---\nname: review\ndescription: ${description}\n---\n\n# Review\n`
+    writeFileSync(join(skillDir, 'SKILL.md'), entry('d'.repeat(AGENT_SKILL_DESCRIPTION_MAX)))
+    expect(loadAgentSkill(ext, 'kit', skill()).ok).toBe(true)
+    writeFileSync(join(skillDir, 'SKILL.md'), entry('d'.repeat(AGENT_SKILL_DESCRIPTION_MAX + 1)))
+    expect(loadAgentSkill(ext, 'kit', skill())).toEqual({
+      ok: false,
+      error: `SKILL.md: description is longer than ${AGENT_SKILL_DESCRIPTION_MAX} characters`,
+    })
   })
 
   it('refuses a SKILL.md whose name is not the declared skill name', () => {

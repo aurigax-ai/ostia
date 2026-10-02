@@ -6,6 +6,10 @@ import { quoteArg } from '../../shared/shellQuote'
 
 const DIAL_TIMEOUT_MS = 5000
 
+export function bridgesPorts(platform: NodeJS.Platform, unixSockets: boolean): boolean {
+  return platform === 'linux' && unixSockets
+}
+
 export function controlSocketName(id: string): string {
   return `ports-${id}.sock`
 }
