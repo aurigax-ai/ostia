@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import type { ExtensionCaller, ExtensionResult } from '../shared/extensions'
+import { PRODUCT_NAME } from '../shared/product'
 import type { MissingRequirement, RequirementsReport } from '../shared/systemRequirements'
 import { installHint } from './systemRequirements'
 
@@ -18,7 +19,7 @@ export function requirementsInstallArgs(
   missing: MissingRequirement[],
 ): { argv: string[] } {
   const packages = [...new Set(missing.map((m) => m.package))]
-  return { argv: [...packages, '--reason', `Pine's ${feature} feature needs them`] }
+  return { argv: [...packages, '--reason', `${PRODUCT_NAME}'s ${feature} feature needs them`] }
 }
 
 export function registerSystemRequirementsIpc(deps: SystemRequirementsIpcDeps): void {

@@ -2,7 +2,12 @@ import { cn } from '@/lib/utils'
 import { AppWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ASK_COMMAND_ID } from '../commands/askCommand'
-import { type CommandChoice, commands } from '../commands/registry'
+import {
+  type CommandChoice,
+  type CommandWording,
+  commandWording,
+  commands,
+} from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, firstPaneOfKind } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
@@ -410,6 +415,18 @@ function TabItems({
   )
 }
 
+type RegisteredCommand = ReturnType<typeof commands.list>[number]
+
+interface PaletteCommand {
+  command: RegisteredCommand
+  shown: CommandWording
+}
+
+function searchValue(symbol: string, command: RegisteredCommand, shown: CommandWording): string {
+  const words = [shown.title, command.title, command.id, shown.category, command.category]
+  return [symbol, ...new Set(words.filter(Boolean))].join(' ')
+}
+
 function CommandItems({
   onDone,
   onAsk,
@@ -421,33 +438,36 @@ function CommandItems({
 }): JSX.Element {
   const d = useDict()
   useSettingsStore((s) => s.keybindings)
-  const byCat = new Map<string, ReturnType<typeof commands.list>>()
-  for (const c of commands.list()) {
-    if (c.hidden) continue
-    const cat = c.category ?? d.palette.general
-    byCat.set(cat, [...(byCat.get(cat) ?? []), c])
+  const groups = new Map<string, { heading: string; items: PaletteCommand[] }>()
+  for (const command of commands.list()) {
+    if (command.hidden) continue
+    const shown = commandWording(command, d)
+    const key = command.category ?? ''
+    const group = groups.get(key) ?? { heading: shown.category ?? d.palette.general, items: [] }
+    group.items.push({ command, shown })
+    groups.set(key, group)
   }
   const symbol = symbolOf('commands')
   return (
     <>
-      {[...byCat.entries()].map(([category, items]) => (
-        <CommandGroup key={category} heading={category}>
-          {items.map((c) => {
+      {[...groups.entries()].map(([key, group]) => (
+        <CommandGroup key={key} heading={group.heading}>
+          {group.items.map(({ command: c, shown }) => {
             const keys = chordLabel(c.id, isMac)
             return (
               <CommandItem
                 key={c.id}
-                value={`${symbol} ${c.title} ${c.id} ${c.category ?? ''}`}
+                value={searchValue(symbol, c, shown)}
                 onSelect={() => {
                   if (c.id === ASK_COMMAND_ID) {
                     onAskAssistant()
                     return
                   }
-                  if (c.argument) {
+                  if (shown.argument) {
                     onAsk({
                       id: c.id,
-                      title: c.title,
-                      argument: c.argument,
+                      title: shown.title,
+                      argument: shown.argument,
                       choices: c.choices,
                       emptyChoices: c.emptyChoices,
                     })
@@ -457,7 +477,7 @@ function CommandItems({
                   onDone()
                 }}
               >
-                <span>{c.title}</span>
+                <span>{shown.title}</span>
                 <ItemMeta mono>{c.id}</ItemMeta>
                 {keys ? <Kbd>{keys}</Kbd> : null}
               </CommandItem>

@@ -7,8 +7,8 @@ import type {
 } from '@shared/extensions'
 import { useEffect, useState } from 'react'
 import type { Dict } from '../i18n/dict'
-import { fmt, useDict } from '../i18n/useDict'
-import { entryTitle, enumValueTitle, withProductName } from '../lib/extensionSettingText'
+import { fmt, useDict, withProductName } from '../i18n/useDict'
+import { entryTitle, enumValueTitle } from '../lib/extensionSettingText'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { ControlRow, SelectField } from './SettingsPanel'
 import { Button } from './ui/button'
@@ -89,7 +89,7 @@ export function settingBounds(d: Dict, setting: ExtensionSettingContribution): s
 function settingDescription(d: Dict, setting: ExtensionSettingContribution): string {
   const description = withProductName(setting.description)
   const bounds = settingBounds(d, setting)
-  return bounds ? `${description} ${bounds}` : description
+  return bounds ? fmt(d.extensions.describedBounds, { description, bounds }) : description
 }
 
 function SecretRow({

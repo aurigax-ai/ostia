@@ -1,4 +1,3 @@
-import { PRODUCT_NAME } from '@shared/product'
 import { MATCH_PINE_THEME, isLinkedTheme } from '@shared/themeChoice'
 import { fmt, useDict } from '../i18n/useDict'
 import { type SchemeSurface, useScheme } from '../lib/colorScheme'
@@ -101,11 +100,10 @@ function SchemeRow({ surface }: { surface: SchemeSurface }): JSX.Element {
     if (surface === 'terminal') setTerminal({ theme })
     else setEditor({ theme })
   }
-  const vars = { product: PRODUCT_NAME }
   return (
     <ControlRow
       label={label}
-      desc={fmt(linked ? d.settings.schemeLinkedDesc : d.settings.schemeOwnDesc, vars)}
+      desc={linked ? d.settings.schemeLinkedDesc : d.settings.schemeOwnDesc}
     >
       {linked ? (
         <span
@@ -121,7 +119,7 @@ function SchemeRow({ surface }: { surface: SchemeSurface }): JSX.Element {
       <Switch
         checked={linked}
         onCheckedChange={(on) => setChoice(on ? MATCH_PINE_THEME : scheme.id)}
-        aria-label={`${label}: ${fmt(d.settings.matchTheme, vars)}`}
+        aria-label={fmt(d.settings.matchThemeFor, { label })}
       />
     </ControlRow>
   )
@@ -267,7 +265,6 @@ export function ThemePreview(): JSX.Element {
   const terminalFont = useSettingsStore((s) => s.appearance.terminal.family)
   const editorFont = useSettingsStore((s) => s.appearance.editor.family)
   const label = fmt(d.settings.themePreview, {
-    product: PRODUCT_NAME,
     theme: theme?.name ?? '',
     terminal: terminal.name,
     editor: editor.name,
@@ -305,7 +302,6 @@ export function ThemeRows(): JSX.Element {
     themes
       .filter((t) => !appearance || t.appearance === appearance)
       .map((t) => ({ value: t.id, label: t.name }))
-  const product = { product: PRODUCT_NAME }
   return (
     <>
       <ToggleRow
@@ -334,14 +330,11 @@ export function ThemeRows(): JSX.Element {
           </ControlRow>
         </>
       ) : (
-        <ControlRow
-          label={fmt(d.settings.productTheme, product)}
-          desc={fmt(d.settings.productThemeDesc, product)}
-        >
+        <ControlRow label={d.settings.productTheme} desc={d.settings.productThemeDesc}>
           <SelectField
             value={theme}
             onChange={setTheme}
-            label={fmt(d.settings.productTheme, product)}
+            label={d.settings.productTheme}
             options={options()}
           />
         </ControlRow>

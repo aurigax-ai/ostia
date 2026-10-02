@@ -1,5 +1,4 @@
 import { type BuildInfo, buildLabel, sameBuild } from '@shared/buildInfo'
-import { PRODUCT_NAME } from '@shared/product'
 import type { ReleaseCheckResult, ReleaseInfo } from '@shared/releases'
 import { create } from 'zustand'
 import { currentDict, fmt } from '../i18n/useDict'
@@ -51,7 +50,7 @@ export function showsUpdate(s: Pick<UpdateState, 'available' | 'dismissed'>): bo
 function notify(info: BuildInfo): void {
   if (typeof Notification === 'undefined') return
   const d = currentDict()
-  const note = new Notification(fmt(d.update.title, { product: PRODUCT_NAME }), {
+  const note = new Notification(d.update.title, {
     body: fmt(d.update.body, { build: buildLabel(info) }),
   })
   note.onclick = () => window.focus()

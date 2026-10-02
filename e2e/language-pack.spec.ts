@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { emptyState, openWorkspace } from './helpers'
+import { emptyState, openWorkspace, waitForPaletteSelection } from './helpers'
 
 test('the Traditional Chinese pack is an extension: pick it, keep it across a restart, lose it when disabled', async () => {
   const dataHome = freshDataHome()
@@ -29,6 +29,15 @@ test('the Traditional Chinese pack is an extension: pick it, keep it across a re
       }
     }
     await expect.poll(savedLocale, { timeout: 10_000 }).toBe('zh-Hant')
+
+    await win.keyboard.press('Control+Shift+P')
+    const search = win.locator('[data-slot="command-input"]')
+    await search.fill('向右分割窗格')
+    await waitForPaletteSelection(win, '向右分割窗格')
+    await search.fill('Split Pane Right')
+    await waitForPaletteSelection(win, '向右分割窗格')
+    await expect(win.getByRole('option', { name: /Split Pane Right/ })).toHaveCount(0)
+    await win.keyboard.press('Escape')
   } finally {
     await first.close()
   }
@@ -50,6 +59,10 @@ test('the Traditional Chinese pack is an extension: pick it, keep it across a re
 
     const english = win.getByRole('region', { name: 'Settings' })
     await expect(english).toBeVisible({ timeout: 10_000 })
+    await win.keyboard.press('Control+Shift+P')
+    await win.locator('[data-slot="command-input"]').fill('Split Pane Right')
+    await waitForPaletteSelection(win, 'Split Pane Right')
+    await win.keyboard.press('Escape')
     await english.getByRole('button', { name: 'Language', exact: true }).click()
     await english.getByRole('combobox', { name: 'Display language' }).click()
     await expect(win.getByRole('option', { name: 'English' })).toBeVisible()

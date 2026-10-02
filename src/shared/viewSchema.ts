@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from './product'
 import { VIEW_FILTERS } from './viewBindings'
 import {
   VIEW_ARGS_MAX,
@@ -48,7 +49,7 @@ function node(type: string, properties: Schema, required: string[] = []): Schema
 export function viewJsonSchema(): Schema {
   return {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    title: 'Pine view',
+    title: `${PRODUCT_NAME} view`,
     description: [
       `A data-only view in ~/.config/pine/views/<name>.json. Budget: ${VIEW_MAX_NODES} nodes,`,
       `${VIEW_MAX_DEPTH} levels, ${VIEW_MAX_LIST_ITEMS} items per list, ${VIEW_MAX_RENDERED_NODES}`,

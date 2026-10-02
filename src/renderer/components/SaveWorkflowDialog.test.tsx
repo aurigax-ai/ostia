@@ -43,7 +43,7 @@ describe('SaveWorkflowDialog', () => {
     })
     await userEvent.type(screen.getByLabelText('Tags'), 'k8s, logs, k8s')
 
-    await userEvent.type(screen.getByLabelText('app Default value'), 'api')
+    await userEvent.type(screen.getByLabelText('Default value of app'), 'api')
     await userEvent.type(screen.getByLabelText('Description of ns'), 'Namespace')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
