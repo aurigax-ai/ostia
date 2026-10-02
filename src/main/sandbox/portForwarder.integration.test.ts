@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { type Server, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -7,18 +7,21 @@ import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_CONTROLS } from '../../shared/sandbox'
 import { SandboxHost } from './hostClient'
-import { PortForwarder, findNamespacePid } from './portForwarder'
+import { PortBridge } from './portBridge'
+import { PortForwarder } from './portForwarder'
+import { sandboxedShellCommand } from './ptyWrap'
 import { buildSrtConfig } from './srtConfig'
 
 const repoRoot = process.cwd()
 const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-ports.mjs')
 const INNER_PORT = 38471
+const OTHER_PORT = 38474
+const BIG_BODY_BYTES = 2 * 1024 * 1024
 
 let root: string
 let host: SandboxHost
-let inner: ChildProcess
 let forwarder: PortForwarder
-let canJoinSandbox = false
+const panes: { process: ChildProcess; bridge: PortBridge | null }[] = []
 
 async function until<T>(
   read: () => T | undefined | Promise<T | undefined>,
@@ -72,26 +75,39 @@ beforeAll(async () => {
       },
     ),
   )
-  const server = `require('http').createServer((q,r)=>r.end('INSIDE-${INNER_PORT}')).listen(${INNER_PORT},'127.0.0.1')`
-  const wrapped = await host.wrap(`${process.execPath} -e "${server}"`, 'bash')
-  inner = spawn('/bin/sh', ['-c', wrapped], { cwd: workDir, stdio: 'ignore', detached: true })
-  forwarder = new PortForwarder({ pidsOf: () => (inner.pid ? [inner.pid] : []) })
-  await until(() => (findNamespacePid([inner.pid ?? 0]) ? true : undefined))
-  await until(async () => {
-    const pid = findNamespacePid([inner.pid ?? 0])
-    return pid && forwarder.listeners('ws').some((l) => l.port === INNER_PORT) ? true : undefined
+  for (const port of [INNER_PORT, OTHER_PORT]) {
+    const server = `require('http').createServer((q,r)=>r.end(q.url==='/big'?'x'.repeat(${BIG_BODY_BYTES}):'INSIDE-${port}')).listen(${port},'127.0.0.1')`
+    const bridge = await PortBridge.open(join(root, 'tmp'))
+    const wrapped = await host.wrap(
+      sandboxedShellCommand(
+        `${process.execPath} -e "${server}"`,
+        undefined,
+        null,
+        bridge?.command ?? null,
+      ),
+      'bash',
+    )
+    const inner = spawn('/bin/sh', ['-c', wrapped], {
+      cwd: workDir,
+      stdio: 'ignore',
+      detached: true,
+    })
+    panes.push({ process: inner, bridge })
+  }
+  forwarder = new PortForwarder({
+    panesOf: () => panes.map((pane) => ({ pid: pane.process.pid ?? 0, bridge: pane.bridge })),
+    unixSocketsOff: () => false,
   })
-  const pid = findNamespacePid([inner.pid ?? 0])
-  canJoinSandbox =
-    spawnSync('nsenter', ['-t', String(pid), '--user', '--net', '--preserve-credentials', 'true'])
-      .status === 0
+  await until(() => (forwarder.listeners('ws').length === 2 ? true : undefined))
+  await until(() => (panes.every((pane) => pane.bridge?.connected) ? true : undefined))
 }, 60_000)
 
 afterAll(() => {
   forwarder?.stopAll()
-  if (inner?.pid) {
+  for (const pane of panes) {
+    pane.bridge?.close()
     try {
-      process.kill(-inner.pid, 'SIGKILL')
+      if (pane.process.pid) process.kill(-pane.process.pid, 'SIGKILL')
     } catch {}
   }
   host?.stop()
@@ -99,8 +115,7 @@ afterAll(() => {
 })
 
 describe('PortForwarder', () => {
-  it('SBX-C45 forwards host 127.0.0.1:<port> to the same port inside the sandbox', async (ctx) => {
-    if (!canJoinSandbox) ctx.skip()
+  it('SBX-C45 forwards host 127.0.0.1:<port> to the same port inside the sandbox', async () => {
     await expect(fetch(`http://127.0.0.1:${INNER_PORT}/`)).rejects.toThrow()
     await expect(forwarder.expose('ws', INNER_PORT)).resolves.toEqual({
       ok: true,
@@ -108,6 +123,26 @@ describe('PortForwarder', () => {
     })
     expect(await get(INNER_PORT)).toBe(`INSIDE-${INNER_PORT}`)
     expect(forwarder.exposed('ws')).toEqual([INNER_PORT])
+  })
+
+  it('reaches a server in another terminal of the workspace, which has a network namespace of its own', async () => {
+    expect(forwarder.listeners('ws').map((l) => l.port)).toEqual([INNER_PORT, OTHER_PORT])
+    await expect(forwarder.expose('ws', OTHER_PORT)).resolves.toEqual({
+      ok: true,
+      port: OTHER_PORT,
+    })
+    expect(await get(OTHER_PORT)).toBe(`INSIDE-${OTHER_PORT}`)
+    expect(await get(INNER_PORT)).toBe(`INSIDE-${INNER_PORT}`)
+    await forwarder.unexpose('ws', OTHER_PORT)
+  })
+
+  it('carries large responses on parallel connections whole', async () => {
+    const bodies = await Promise.all(
+      Array.from({ length: 8 }, async () =>
+        (await fetch(`http://127.0.0.1:${INNER_PORT}/big`)).text(),
+      ),
+    )
+    expect(bodies.map((body) => body.length)).toEqual(Array(8).fill(BIG_BODY_BYTES))
   })
 
   it('SBX-C46 refuses to expose a port already in use on the host and forwards nothing', async () => {
@@ -134,7 +169,7 @@ describe('PortForwarder', () => {
 
   it('never lists the sandbox runtime proxy bridges as servers', () => {
     const ports = forwarder.listeners('ws').map((l) => l.port)
-    expect(ports).toContain(INNER_PORT)
+    expect(ports).toEqual([INNER_PORT, OTHER_PORT])
     expect(ports).not.toContain(3128)
     expect(ports).not.toContain(1080)
   })

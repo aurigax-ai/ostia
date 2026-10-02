@@ -1,15 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import {
-  type ProcEntry,
-  childrenOf,
-  parseNetTcp,
-  parseProcStat,
-  portsForInodes,
-  processTree,
-  socketInode,
-} from './procfs'
+import { type ProcEntry, parseProcStat } from '../../shared/procfs'
+import { childrenOf, parseNetTcp, portsForInodes, processTree, socketInode } from './procfs'
 
 const fixture = (name: string): string =>
   readFileSync(join(__dirname, '../../../test/fixtures/ports', name), 'utf8')
