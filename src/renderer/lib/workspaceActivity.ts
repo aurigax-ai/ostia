@@ -1,4 +1,10 @@
-import { findPane, isPaneShown, paneIds } from '../layout/tree'
+import {
+  type FocusDirection,
+  findPane,
+  isPaneShown,
+  paneIds,
+  paneInDirection,
+} from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -96,6 +102,34 @@ export function goToWorkspace(index: number): boolean {
   }
   useUIStore.getState().showWorkspaces()
   useWorkspacesStore.getState().setActive(target.id)
+  return true
+}
+
+export function stepWorkspace(step: 1 | -1): boolean {
+  const { windowId, list } = useWindowsStore.getState()
+  const workspaces = useWorkspacesStore.getState()
+  const order = globalWorkspaceOrder(
+    list,
+    windowId,
+    workspaces.workspaces.map((w) => w.id),
+  )
+  if (order.length === 0) return false
+  const current = order.findIndex((w) => w.id === workspaces.activeWorkspaceId)
+  const next = current === -1 ? 0 : (current + step + order.length) % order.length
+  return next === current ? false : goToWorkspace(next)
+}
+
+export function focusPaneInDirection(
+  workspaceId: string,
+  paneId: string,
+  direction: FocusDirection,
+): boolean {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  if (!layout || layout.zoomedPaneId) return false
+  const target = paneInDirection(layout.root, paneId, direction)
+  if (!target) return false
+  useLayoutStore.getState().focusPane(workspaceId, target)
+  requestAnimationFrame(() => focusSurface(target))
   return true
 }
 

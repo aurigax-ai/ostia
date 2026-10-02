@@ -33,6 +33,16 @@ export type AppChord =
   | 'view.zoomReset'
   | 'assist.compose'
   | 'dashboard.toggle'
+  | 'pane.splitRight'
+  | 'pane.splitDown'
+  | 'pane.focusLeft'
+  | 'pane.focusRight'
+  | 'pane.focusUp'
+  | 'pane.focusDown'
+  | 'pane.zoom'
+  | 'pane.close'
+  | 'workspace.next'
+  | 'workspace.previous'
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
@@ -66,6 +76,16 @@ export const DEFAULT_CHORDS: Readonly<
   'view.zoomReset': ['Cmd+0', 'Ctrl+0'],
   'assist.compose': ['Cmd+J', 'Ctrl+Shift+J'],
   'dashboard.toggle': ['Cmd+Shift+D', 'Ctrl+Shift+D'],
+  'pane.splitRight': ['Cmd+Alt+\\', 'Ctrl+Alt+\\'],
+  'pane.splitDown': ['Cmd+Alt+-', 'Ctrl+Alt+-'],
+  'pane.focusLeft': ['Cmd+Ctrl+Left', 'Ctrl+Shift+Alt+H'],
+  'pane.focusRight': ['Cmd+Ctrl+Right', 'Ctrl+Shift+Alt+L'],
+  'pane.focusUp': ['Cmd+Ctrl+Up', 'Ctrl+Shift+Alt+K'],
+  'pane.focusDown': ['Cmd+Ctrl+Down', 'Ctrl+Shift+Alt+J'],
+  'pane.zoom': ['Cmd+Shift+X', 'Ctrl+Shift+X'],
+  'pane.close': ['Cmd+Shift+W', 'Ctrl+Shift+W'],
+  'workspace.next': ['Cmd+Ctrl+]', 'Ctrl+Shift+PageDown'],
+  'workspace.previous': ['Cmd+Ctrl+[', 'Ctrl+Shift+PageUp'],
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
   paste: ['Cmd+V', 'Ctrl+Shift+V'],
   find: ['Cmd+F', 'Ctrl+Shift+F'],

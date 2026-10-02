@@ -504,6 +504,33 @@ describe('builtins route to store actions', () => {
     expect(focusPane).toHaveBeenCalledWith('s1', 'pX')
   })
 
+  it('moves focus to the pane beside the caller’s pane, and not while a pane is zoomed', async () => {
+    const left = createPane()
+    const right = createPane()
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: {
+            type: 'split',
+            id: 'sp',
+            direction: 'horizontal',
+            children: [left, right],
+            sizes: [1, 1],
+          },
+          activePaneId: left.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    await commands.execWith(ctx('s1', left.id), 'pane.focusRight')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
+    await commands.execWith(ctx('s1', right.id), 'pane.focusRight')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
+    useLayoutStore.getState().zoomPane('s1', right.id, true)
+    await commands.execWith(ctx('s1', right.id), 'pane.focusLeft')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
+  })
+
   it('routes pane.move to layout.movePane with source, target, and zone', async () => {
     const movePane = vi.spyOn(useLayoutStore.getState(), 'movePane').mockImplementation(() => {})
 
@@ -868,6 +895,16 @@ describe('workspace row commands', () => {
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w2')
     const miss = await commands.execWith(ctx(null, null), 'workspace.goto', { index: 5 })
     expect(miss).toMatchObject({ ok: true, result: { switched: false } })
+  })
+
+  it('steps to the next and previous workspace, wrapping at either end', async () => {
+    seed()
+    await commands.execWith(ctx(null, null), 'workspace.next')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w2')
+    await commands.execWith(ctx(null, null), 'workspace.next')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w1')
+    await commands.execWith(ctx(null, null), 'workspace.previous')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w2')
   })
 
   it('moves the caller’s own workspace into a group by name, and out again', async () => {
