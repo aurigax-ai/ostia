@@ -29,14 +29,14 @@ const linuxChords = {
   paste: parseChord('Ctrl+Shift+V', false),
 }
 
-function setup(formats: string[] = []) {
+function setup(formats: string[] = [], mac = false) {
   const app = fakeContents()
   const { ipc, call } = fakeIpc()
   const edits = registerClipboardEdits({
     ipc,
     isAppWindow: (sender) => sender === app,
     availableFormats: () => formats,
-    mac: false,
+    mac,
   })
   return { app, call, edits }
 }
@@ -101,5 +101,37 @@ describe('registerClipboardEdits', () => {
     press(guest, { control: true })
     press(guest, { control: true, shift: true })
     expect(guest.copy).not.toHaveBeenCalled()
+  })
+
+  it('keeps the chords it already had when a later payload is rejected', () => {
+    const { app, call, edits } = setup()
+    const guest = fakeContents()
+    edits.guardGuest(guest)
+    call('clipboard:set-chords', app, linuxChords)
+    call('clipboard:set-chords', app, {
+      copy: { ctrl: true, shift: false, alt: false, meta: false, key: 'c' },
+      paste: null,
+    })
+    call('clipboard:set-chords', app, 'nonsense')
+    call('clipboard:set-chords', fakeContents(), { copy: null, paste: null })
+    expect(press(guest, { control: true, shift: true }).preventDefault).toHaveBeenCalled()
+    expect(guest.copy).toHaveBeenCalledTimes(1)
+    expect(press(guest, { control: true }).preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('leaves Cmd+C and Cmd+V native in a guest on macOS even when sent as chords', () => {
+    const { app, call, edits } = setup([], true)
+    const guest = fakeContents()
+    edits.guardGuest(guest)
+    call('clipboard:set-chords', app, {
+      copy: parseChord('Cmd+C', true),
+      paste: parseChord('Cmd+V', true),
+    })
+    const copy = press(guest, { meta: true })
+    const paste = press(guest, { meta: true, key: 'v', code: 'KeyV' })
+    expect(copy.preventDefault).not.toHaveBeenCalled()
+    expect(paste.preventDefault).not.toHaveBeenCalled()
+    expect(guest.copy).not.toHaveBeenCalled()
+    expect(guest.pasteAndMatchStyle).not.toHaveBeenCalled()
   })
 })
