@@ -168,7 +168,7 @@ describe('ChatToolsSettings', () => {
     await user.click(screen.getByRole('button', { name: 'Edit github' }))
     const dialog = await screen.findByRole('dialog', { name: 'Edit github' })
     expect(within(dialog).getByLabelText('Name')).toBeDisabled()
-    const secret = within(dialog).getByLabelText('GITHUB_TOKEN Secret value')
+    const secret = within(dialog).getByLabelText('Secret value of GITHUB_TOKEN')
     expect(secret).toHaveValue('')
     expect(secret).toHaveAttribute('placeholder', 'Saved. Type to replace.')
     const args = within(dialog).getByLabelText('Arguments')

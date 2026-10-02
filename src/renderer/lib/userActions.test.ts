@@ -1,8 +1,10 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { commands } from '../commands/registry'
+import { commandWording, commands } from '../commands/registry'
+import { zhHant } from '../i18n/dict'
 import type { UserAction } from '../settings/actions'
 import { useActionConfirmStore } from '../stores/actionConfirmStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { mergeCatalog } from './languagePacks'
 import { runUserAction, startUserActions } from './userActions'
 
 const plain = vi.fn()
@@ -82,5 +84,21 @@ describe('user actions', () => {
     useSettingsStore.getState().setByPath('actions', [])
     expect(commands.has('action.plain')).toBe(false)
     stop()
+  })
+  it('files actions under an English category for agents and the human’s language in the palette', () => {
+    const stop = startUserActions()
+    useSettingsStore
+      .getState()
+      .setByPath('actions', [{ id: 'plain', title: 'Plain', command: 'test.plain' }])
+    const registered = commands.list().find((c) => c.id === 'action.plain')
+    const described = commands.describe().find((c) => c.id === 'action.plain')
+    stop()
+    useSettingsStore.getState().setByPath('actions', [])
+
+    expect(described).toMatchObject({ title: 'Plain', category: 'Actions' })
+    expect(registered && commandWording(registered, mergeCatalog(zhHant))).toEqual({
+      title: 'Plain',
+      category: '動作',
+    })
   })
 })

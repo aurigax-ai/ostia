@@ -1,5 +1,5 @@
 import { DEFAULT_CAPABILITIES } from '@shared/capabilities'
-import { commands } from '../commands/registry'
+import { commands, wordedBy } from '../commands/registry'
 import { currentDict, fmt } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
 import { type UserAction, actionFingerprint, fillArgs } from '../settings/actions'
@@ -87,8 +87,7 @@ export function startUserActions(): () => void {
       if (commands.has(id)) continue
       commands.register({
         id,
-        title: action.title,
-        category: currentDict().actions.category,
+        ...wordedBy((d) => ({ title: action.title, category: d.actions.category })),
         target: 'active',
         run: (_args, ctx) => runUserAction(action, ctx.activePaneId),
       })

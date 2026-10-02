@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { en } from '../i18n/dict'
+import { BASE_LANGUAGE } from '../lib/languagePacks'
 import { BUILTIN_PLUGINS } from '../plugins/builtin'
 import { usePluginsStore } from './pluginsStore'
 
@@ -56,7 +57,7 @@ describe('pluginsStore', () => {
   describe('languages', () => {
     it('offers only English until language packs are loaded', () => {
       expect(store().languages.map((l) => l.id)).toEqual(['en'])
-      expect(store().languages[0]?.catalog).toBe(en)
+      expect(store().languages[0]?.catalog).toBe(BASE_LANGUAGE.catalog)
     })
 
     it('adds the language packs main returns, translated over English', async () => {

@@ -45,7 +45,9 @@ export function AssistantMenu(): JSX.Element | null {
   const chatKeys = useChordLabel('assist.chat', isMac)
   const [open, setOpen] = useState(false)
   if (!visible) return null
-  const chatLabel = chatKeys ? `${d.assistMenu.openChat} (${chatKeys})` : d.assistMenu.openChat
+  const chatLabel = chatKeys
+    ? fmt(d.assistMenu.openChatKeys, { keys: chatKeys })
+    : d.assistMenu.openChat
   const close = (): void => setOpen(false)
   return (
     <ButtonGroup aria-label={d.assistMenu.title} className="topbar-split rounded-sm">

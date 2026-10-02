@@ -31,16 +31,16 @@ import {
   TreeStructureIcon,
 } from '@phosphor-icons/react'
 import type { ApprovalMode } from '@shared/approvals'
-import type { ExtensionInfo } from '@shared/extensions'
+import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import appIcon from '../../../resources/icon.svg'
 import type { Dict, Locale } from '../i18n/dict'
-import { fmt, useDict } from '../i18n/useDict'
+import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
-import { extensionMatchesQuery, withProductName } from '../lib/extensionSettingText'
+import { extensionMatchesQuery } from '../lib/extensionSettingText'
 import { useReducedMotion } from '../lib/motion'
 import { openFileInWorkspace } from '../lib/openFile'
 import {
@@ -757,7 +757,10 @@ function WindowTitleRow(): JSX.Element {
     if (draft !== template) setWindowTitle(draft)
   }
   return (
-    <ControlRow label={d.settings.windowTitle} desc={d.settings.windowTitleDesc}>
+    <ControlRow
+      label={d.settings.windowTitle}
+      desc={fmt(d.settings.windowTitleDesc, { productPlaceholder: PRODUCT_PLACEHOLDER })}
+    >
       <Input
         value={draft}
         spellCheck={false}
@@ -898,13 +901,13 @@ function FontRow({
     <ControlRow label={label} desc={desc}>
       <FontPicker
         value={font.family}
-        label={`${label}, ${d.settings.family}`}
+        label={fmt(d.settings.fontFamilyFor, { label })}
         onChange={(family) => setSurfaceFont(surface, { family })}
       />
       <SelectField
         value={String(font.weight)}
         onChange={(w) => setSurfaceFont(surface, { weight: Number(w) })}
-        label={`${label}, ${d.settings.weight}`}
+        label={fmt(d.settings.fontWeightFor, { label })}
         width="w-20"
         options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))}
       />
@@ -913,7 +916,7 @@ function FontRow({
         min={8}
         max={32}
         value={font.size}
-        aria-label={`${label}, ${d.settings.size}`}
+        aria-label={fmt(d.settings.fontSizeFor, { label })}
         onChange={(e) => {
           const n = Number(e.target.value)
           if (Number.isFinite(n) && n > 0) {
@@ -970,8 +973,8 @@ function NotificationsSection(): JSX.Element {
           onChange={(v) => set({ sound: v })}
         />
         <ToggleRow
-          label={fmt(d.settings.notifyWhenFocused, { product: PRODUCT_NAME })}
-          desc={fmt(d.settings.notifyWhenFocusedDesc, { product: PRODUCT_NAME })}
+          label={d.settings.notifyWhenFocused}
+          desc={d.settings.notifyWhenFocusedDesc}
           checked={n.whenFocused}
           onChange={(v) => set({ whenFocused: v })}
         />
@@ -1522,8 +1525,13 @@ export function ExtensionsSection({
                     {withProductName(ext.description)}
                   </p>
                   <p className="mt-0.5 text-fg-muted text-ui-xs">
-                    {extensionStatusLabel(d, ext)} · {d.extensions.permissions}:{' '}
-                    {ext.granted.length > 0 ? ext.granted.join(', ') : d.extensions.noPermissions}
+                    {extensionStatusLabel(d, ext)} ·{' '}
+                    {fmt(d.extensions.permissionsList, {
+                      list:
+                        ext.granted.length > 0
+                          ? ext.granted.join(', ')
+                          : d.extensions.noPermissions,
+                    })}
                   </p>
                   {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
                     <p className="mt-0.5 text-attn-fg text-ui-xs">

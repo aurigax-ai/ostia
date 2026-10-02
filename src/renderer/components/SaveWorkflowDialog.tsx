@@ -135,7 +135,7 @@ function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.E
                   >
                     <span className="truncate font-mono text-fg text-ui-sm">{arg}</span>
                     <Input
-                      aria-label={`${arg} ${d.workflows.defaultValue}`}
+                      aria-label={fmt(d.workflows.defaultValueFor, { name: arg })}
                       placeholder={d.workflows.defaultValue}
                       value={argDrafts[arg]?.defaultValue ?? ''}
                       className="font-mono"
