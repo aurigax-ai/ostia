@@ -15,7 +15,7 @@ async function switchToEditorMode(win: Page): Promise<void> {
   await win.keyboard.press('Escape')
 }
 
-for (const shell of ['/usr/bin/zsh', '/usr/bin/bash']) {
+for (const shell of ['/bin/zsh', '/bin/bash']) {
   test(`the input editor runs a multi-line command and recalls it whole in ${shell}`, async () => {
     test.setTimeout(60_000)
     const launch = isolatedLaunch()
@@ -249,7 +249,7 @@ test('the input editor sits on the shell prompt line and takes what is aimed at 
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launch,
-    env: { ...launch.env, HOME: home, SHELL: '/usr/bin/zsh' },
+    env: { ...launch.env, HOME: home, SHELL: '/bin/zsh' },
   })
   try {
     const win = await app.firstWindow()

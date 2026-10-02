@@ -26,6 +26,7 @@ import { SandboxUnavailableError, WorkspaceSandboxes } from './workspaceSandboxe
 const repoRoot = process.cwd()
 const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-limits.mjs')
 const linux = process.platform === 'linux'
+const seatbeltOrBwrap = linux || process.platform === 'darwin'
 
 let root: string
 let home: string
@@ -121,87 +122,90 @@ afterAll(() => {
   if (root) rmSync(root, { recursive: true, force: true })
 })
 
-describe.runIf(linux)('sandbox filesystem limits in a real sandbox', () => {
-  it('lets a sandboxed command write to a folder the human made writable, and nowhere else in home', async () => {
-    const { sandboxes, run } = start('write', { allowWrite: ['~/builds'] })
-    const out = await run(
-      `echo built > ${home}/builds/out.txt && echo WRITE-OK; echo x > ${home}/notes/new.txt; ls ${home}/builds`,
-    )
-    sandboxes.stopAll()
-    expect(out).toContain('WRITE-OK')
-    expect(readFileSync(join(home, 'builds/out.txt'), 'utf8')).toBe('built\n')
-    expect(existsSync(join(home, 'notes/new.txt'))).toBe(false)
-  }, 60_000)
+describe.skipIf(!seatbeltOrBwrap)(
+  'sandbox filesystem limits in a real sandbox (Seatbelt and bwrap)',
+  () => {
+    it('lets a sandboxed command write to a folder the human made writable, and nowhere else in home', async () => {
+      const { sandboxes, run } = start('write', { allowWrite: ['~/builds'] })
+      const out = await run(
+        `echo built > ${home}/builds/out.txt && echo WRITE-OK; echo x > ${home}/notes/new.txt; ls ${home}/builds`,
+      )
+      sandboxes.stopAll()
+      expect(out).toContain('WRITE-OK')
+      expect(readFileSync(join(home, 'builds/out.txt'), 'utf8')).toBe('built\n')
+      expect(existsSync(join(home, 'notes/new.txt'))).toBe(false)
+    }, 60_000)
 
-  it('reads ~/.cargo when it is readable but never its credentials', async () => {
-    mkdirSync(join(home, '.cargo/bin'), { recursive: true })
-    writeFileSync(join(home, '.cargo/bin/tool'), 'CARGO-TOOL')
-    writeFileSync(join(home, '.cargo/credentials.toml'), 'CRATES-TOKEN')
-    const { sandboxes, run } = start('cargo', { allowRead: ['~/.cargo'] })
-    const out = await run(
-      `cat ${home}/.cargo/bin/tool; echo; cat ${home}/.cargo/credentials.toml; cat ${home}/.cargo/credentials; echo CARGO-DONE`,
-    )
-    sandboxes.stopAll()
-    expect(out).toContain('CARGO-TOOL')
-    expect(out).toContain('CARGO-DONE')
-    expect(out).not.toContain('CRATES-TOKEN')
-    expect(existsSync(join(home, '.cargo/credentials'))).toBe(false)
-  }, 60_000)
+    it('reads ~/.cargo when it is readable but never its credentials', async () => {
+      mkdirSync(join(home, '.cargo/bin'), { recursive: true })
+      writeFileSync(join(home, '.cargo/bin/tool'), 'CARGO-TOOL')
+      writeFileSync(join(home, '.cargo/credentials.toml'), 'CRATES-TOKEN')
+      const { sandboxes, run } = start('cargo', { allowRead: ['~/.cargo'] })
+      const out = await run(
+        `cat ${home}/.cargo/bin/tool; echo; cat ${home}/.cargo/credentials.toml; cat ${home}/.cargo/credentials; echo CARGO-DONE`,
+      )
+      sandboxes.stopAll()
+      expect(out).toContain('CARGO-TOOL')
+      expect(out).toContain('CARGO-DONE')
+      expect(out).not.toContain('CRATES-TOKEN')
+      expect(existsSync(join(home, '.cargo/credentials'))).toBe(false)
+    }, 60_000)
 
-  it('keeps a read-only path unchangeable inside a writable folder', async () => {
-    const { sandboxes, run } = start('readonly', {
-      allowWrite: ['~/builds'],
-      denyWrite: ['~/builds/release'],
-    })
-    const out = await run(
-      `echo x > ${home}/builds/release/v1 || echo RELEASE-READ-ONLY; echo y > ${home}/builds/dev && echo DEV-OK`,
-    )
-    sandboxes.stopAll()
-    expect(out).toContain('RELEASE-READ-ONLY')
-    expect(out).toContain('DEV-OK')
-    expect(existsSync(join(home, 'builds/release/v1'))).toBe(false)
-  }, 60_000)
+    it('keeps a read-only path unchangeable inside a writable folder', async () => {
+      const { sandboxes, run } = start('readonly', {
+        allowWrite: ['~/builds'],
+        denyWrite: ['~/builds/release'],
+      })
+      const out = await run(
+        `echo x > ${home}/builds/release/v1 || echo RELEASE-READ-ONLY; echo y > ${home}/builds/dev && echo DEV-OK`,
+      )
+      sandboxes.stopAll()
+      expect(out).toContain('RELEASE-READ-ONLY')
+      expect(out).toContain('DEV-OK')
+      expect(existsSync(join(home, 'builds/release/v1'))).toBe(false)
+    }, 60_000)
 
-  it('hides a path the human listed, inside a readable folder and inside the workspace', async () => {
-    const { sandboxes, run } = start('hide', {
-      allowRead: ['~/notes'],
-      denyRead: ['~/notes/private', join(workDir, 'secrets')],
-    })
-    const out = await run(
-      `cat ${home}/notes/readme.txt; cat ${home}/notes/private/key.txt || echo KEY-HIDDEN; cat ${workDir}/secrets/token.txt || echo TOKEN-HIDDEN`,
-    )
-    sandboxes.stopAll()
-    expect(out).toContain('NOTES-README')
-    expect(out).toContain('KEY-HIDDEN')
-    expect(out).toContain('TOKEN-HIDDEN')
-    expect(out).not.toContain('PRIVATE-KEY')
-    expect(out).not.toContain('WORKSPACE-TOKEN')
-  }, 60_000)
+    it('hides a path the human listed, inside a readable folder and inside the workspace', async () => {
+      const { sandboxes, run } = start('hide', {
+        allowRead: ['~/notes'],
+        denyRead: ['~/notes/private', join(workDir, 'secrets')],
+      })
+      const out = await run(
+        `cat ${home}/notes/readme.txt; cat ${home}/notes/private/key.txt || echo KEY-HIDDEN; cat ${workDir}/secrets/token.txt || echo TOKEN-HIDDEN`,
+      )
+      sandboxes.stopAll()
+      expect(out).toContain('NOTES-README')
+      expect(out).toContain('KEY-HIDDEN')
+      expect(out).toContain('TOKEN-HIDDEN')
+      expect(out).not.toContain('PRIVATE-KEY')
+      expect(out).not.toContain('WORKSPACE-TOKEN')
+    }, 60_000)
 
-  it('hides a readable folder again when the same path is on the hidden list', async () => {
-    const { sandboxes, run } = start('hide-wins', {
-      allowRead: ['~/notes'],
-      denyRead: ['~/notes'],
-    })
-    const out = await run(`cat ${home}/notes/readme.txt || echo NOTES-HIDDEN`)
-    sandboxes.stopAll()
-    expect(out).toContain('NOTES-HIDDEN')
-    expect(out).not.toContain('NOTES-README')
-  }, 60_000)
+    it('hides a readable folder again when the same path is on the hidden list', async () => {
+      const { sandboxes, run } = start('hide-wins', {
+        allowRead: ['~/notes'],
+        denyRead: ['~/notes'],
+      })
+      const out = await run(`cat ${home}/notes/readme.txt || echo NOTES-HIDDEN`)
+      sandboxes.stopAll()
+      expect(out).toContain('NOTES-HIDDEN')
+      expect(out).not.toContain('NOTES-README')
+    }, 60_000)
 
-  it('never opens Pine data, even when the stored settings list it as writable', async () => {
-    const { sandboxes, run } = start('guard', { allowRead: [dataDir], allowWrite: [dataDir] })
-    const out = await run(
-      `cat ${dataDir}/vault.json || echo VAULT-HIDDEN; echo x > ${dataDir}/planted || echo PLANT-REFUSED`,
-    )
-    sandboxes.stopAll()
-    expect(out).toContain('VAULT-HIDDEN')
-    expect(out).not.toContain('VAULT-CONTENTS')
-    expect(existsSync(join(dataDir, 'planted'))).toBe(false)
-  }, 60_000)
-})
+    it('never opens Pine data, even when the stored settings list it as writable', async () => {
+      const { sandboxes, run } = start('guard', { allowRead: [dataDir], allowWrite: [dataDir] })
+      const out = await run(
+        `cat ${dataDir}/vault.json || echo VAULT-HIDDEN; echo x > ${dataDir}/planted || echo PLANT-REFUSED`,
+      )
+      sandboxes.stopAll()
+      expect(out).toContain('VAULT-HIDDEN')
+      expect(out).not.toContain('VAULT-CONTENTS')
+      expect(existsSync(join(dataDir, 'planted'))).toBe(false)
+    }, 60_000)
+  },
+)
 
-describe.runIf(linux)('sandbox Unix sockets in a real sandbox', () => {
+describe.skipIf(!linux)('sandbox Unix sockets in a real sandbox (Linux only: seccomp)', () => {
   const OPEN_SOCKET =
     'python3 -c "import socket; socket.socket(socket.AF_UNIX); print(\'UNIX-SOCKET-OPENED\')" 2>&1 | tail -1'
 
@@ -222,84 +226,87 @@ describe.runIf(linux)('sandbox Unix sockets in a real sandbox', () => {
   }, 60_000)
 })
 
-describe.runIf(linux)('sandbox violations from a real sandbox', () => {
-  it('reports a refused connection with its host, port and reason, and offers to allow it', async () => {
-    const { sandboxes, run, violations } = start('net', {
-      deniedDomains: ['blocked.invalid'],
-      switches: { strictDomains: true },
-    })
-    await run(
-      'curl -s -m 5 -o /dev/null http://unlisted.invalid/; curl -s -m 5 -o /dev/null http://blocked.invalid/',
-    )
-    const list = await violations((v) => v.target === 'blocked.invalid:80')
-    sandboxes.stopAll()
-    expect(list).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'network',
-          target: 'unlisted.invalid:80',
-          reason: 'not-allowed',
-          allowHost: 'unlisted.invalid',
-        }),
-        expect.objectContaining({
-          kind: 'network',
-          target: 'blocked.invalid:80',
-          reason: 'blocked',
-        }),
-      ]),
-    )
-    expect(list.find((v) => v.target === 'blocked.invalid:80')?.allowHost).toBeUndefined()
-  }, 60_000)
+describe.skipIf(!linux)(
+  'sandbox violations from a real sandbox (Linux only: bwrap and seccomp observer)',
+  () => {
+    it('reports a refused connection with its host, port and reason, and offers to allow it', async () => {
+      const { sandboxes, run, violations } = start('net', {
+        deniedDomains: ['blocked.invalid'],
+        switches: { strictDomains: true },
+      })
+      await run(
+        'curl -s -m 5 -o /dev/null http://unlisted.invalid/; curl -s -m 5 -o /dev/null http://blocked.invalid/',
+      )
+      const list = await violations((v) => v.target === 'blocked.invalid:80')
+      sandboxes.stopAll()
+      expect(list).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'network',
+            target: 'unlisted.invalid:80',
+            reason: 'not-allowed',
+            allowHost: 'unlisted.invalid',
+          }),
+          expect.objectContaining({
+            kind: 'network',
+            target: 'blocked.invalid:80',
+            reason: 'blocked',
+          }),
+        ]),
+      )
+      expect(list.find((v) => v.target === 'blocked.invalid:80')?.allowHost).toBeUndefined()
+    }, 60_000)
 
-  it('reports a write outside the writable folders while Unix sockets are off, and not an allowed write', async () => {
-    const { sandboxes, run, violations } = start('write-violation', {
-      allowWrite: ['~/builds'],
-      denyWrite: ['~/builds/release'],
-      switches: { unixSockets: false },
-    })
-    await run(
-      `echo ok > ${home}/builds/fine.txt; echo q > /dev/null; echo r > ${home}/builds/release/v2; echo x > /etc/pine-violation-probe; true`,
-    )
-    const list = await violations((v) => v.target === '/etc/pine-violation-probe')
-    sandboxes.stopAll()
-    expect(list).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'write',
-          target: '/etc/pine-violation-probe',
-          reason: 'outside',
-        }),
-      ]),
-    )
-    expect(list).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'write',
-          target: join(home, 'builds/release/v2'),
-          reason: 'read-only',
-        }),
-      ]),
-    )
-    expect(list.some((v) => v.target.includes('fine.txt'))).toBe(false)
-    expect(list.some((v) => v.target.startsWith('/dev/'))).toBe(false)
-  }, 60_000)
+    it('reports a write outside the writable folders while Unix sockets are off, and not an allowed write', async () => {
+      const { sandboxes, run, violations } = start('write-violation', {
+        allowWrite: ['~/builds'],
+        denyWrite: ['~/builds/release'],
+        switches: { unixSockets: false },
+      })
+      await run(
+        `echo ok > ${home}/builds/fine.txt; echo q > /dev/null; echo r > ${home}/builds/release/v2; echo x > /etc/pine-violation-probe; true`,
+      )
+      const list = await violations((v) => v.target === '/etc/pine-violation-probe')
+      sandboxes.stopAll()
+      expect(list).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'write',
+            target: '/etc/pine-violation-probe',
+            reason: 'outside',
+          }),
+        ]),
+      )
+      expect(list).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'write',
+            target: join(home, 'builds/release/v2'),
+            reason: 'read-only',
+          }),
+        ]),
+      )
+      expect(list.some((v) => v.target.includes('fine.txt'))).toBe(false)
+      expect(list.some((v) => v.target.startsWith('/dev/'))).toBe(false)
+    }, 60_000)
 
-  it('does not report a write to a folder made writable after the sandbox started', async () => {
-    const { sandboxes, store, run, violations } = start('late-write', {
-      switches: { unixSockets: false },
-    })
-    await run('true')
-    sandboxes.update('ws', (current) => ({ ...current, allowWrite: ['~/builds'] }))
-    await sandboxes.refresh('ws')
-    await run(`echo late > ${home}/builds/late.txt; echo x > /etc/pine-late-probe; true`)
-    const list = await violations((v) => v.target === '/etc/pine-late-probe')
-    sandboxes.stopAll()
-    expect(store.get('ws').allowWrite).toEqual(['~/builds'])
-    expect(readFileSync(join(home, 'builds/late.txt'), 'utf8')).toBe('late\n')
-    expect(list.some((v) => v.target === '/etc/pine-late-probe')).toBe(true)
-    expect(list.some((v) => v.target.includes('late.txt'))).toBe(false)
-  }, 60_000)
-})
+    it('does not report a write to a folder made writable after the sandbox started', async () => {
+      const { sandboxes, store, run, violations } = start('late-write', {
+        switches: { unixSockets: false },
+      })
+      await run('true')
+      sandboxes.update('ws', (current) => ({ ...current, allowWrite: ['~/builds'] }))
+      await sandboxes.refresh('ws')
+      await run(`echo late > ${home}/builds/late.txt; echo x > /etc/pine-late-probe; true`)
+      const list = await violations((v) => v.target === '/etc/pine-late-probe')
+      sandboxes.stopAll()
+      expect(store.get('ws').allowWrite).toEqual(['~/builds'])
+      expect(readFileSync(join(home, 'builds/late.txt'), 'utf8')).toBe('late\n')
+      expect(list.some((v) => v.target === '/etc/pine-late-probe')).toBe(true)
+      expect(list.some((v) => v.target.includes('late.txt'))).toBe(false)
+    }, 60_000)
+  },
+)
 
 describe('a workspace folder the sandbox cannot confine', () => {
   it('refuses to wrap a command for a workspace at the home folder and says why in the banner', async () => {

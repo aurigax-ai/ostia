@@ -1,4 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test'
+import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 
@@ -38,15 +39,15 @@ test('blocks: select, copy output, navigate by chord, and reinsert from history'
         ),
       )
       .toBe(true)
-    await win.keyboard.press('Control+Shift+ArrowUp')
+    await win.keyboard.press(chords.blockPrev)
     await expect(gutters.nth(0)).toHaveAttribute('aria-pressed', 'true')
     await expect(gutters.nth(1)).toHaveAttribute('aria-pressed', 'false')
-    await win.keyboard.press('Control+Shift+ArrowDown')
+    await win.keyboard.press(chords.blockNext)
     await expect(gutters.nth(1)).toHaveAttribute('aria-pressed', 'true')
     await win.keyboard.press('Escape')
     await expect(win.locator('.block-frame')).toHaveCount(0)
 
-    await win.keyboard.press('Control+Shift+H')
+    await win.keyboard.press(chords.history)
     const search = win.getByPlaceholder('Search commands from every pane…')
     await expect(search).toBeVisible({ timeout: 5_000 })
     await search.fill('pine_first')

@@ -13,6 +13,8 @@ runs:
         path: |
           ~/.cache/electron
           ~/.cache/electron-builder
+          ~/Library/Caches/electron
+          ~/Library/Caches/electron-builder
         key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
     - shell: bash
       run: pnpm install --frozen-lockfile
