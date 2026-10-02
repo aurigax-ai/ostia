@@ -1,6 +1,6 @@
 {
   "manifest": {
-    "description": "你的 Trellis 看板與知識庫面板：卡片、認領、留言與條目，並在其他地方變更時即時更新；每個工作區未完成與已認領的卡片數，以及代理程式把卡片移到審閱或阻擋時可開啟該卡片的通知。",
+    "description": "你的 Trellis 看板與知識庫面板：卡片、認領、留言與條目，並在其他地方變更時即時更新；從看板把卡片交給代理程式（傳送給執行中的代理程式或啟動新的），並看到是哪個代理程式在處理；每個工作區未完成與已認領的卡片數，以及代理程式把卡片移到審閱或阻擋時可開啟該卡片的通知。",
     "commands.open.title": "Trellis：開啟看板",
     "commands.card.title": "Trellis：開啟卡片",
     "commands.card.argument": "卡片編號，例如 SHOP-12",
@@ -12,7 +12,8 @@
     "settings.notifyBlocked.title": "阻擋時通知",
     "settings.notifyBlocked.description": "代理程式把卡片移到阻擋欄時發出通知",
     "settings.refreshSeconds.title": "卡片數量重新整理",
-    "settings.refreshSeconds.description": "每次重新整理卡片數量的間隔時間"
+    "settings.refreshSeconds.description": "每次重新整理卡片數量的間隔時間",
+    "paneChips.task.title": "Trellis 任務"
   },
   "messages": {
     "chip.open": "{open} 張未完成",
@@ -107,6 +108,31 @@
     "panel.empty.noProjectHint": "此工作區的資料夾沒有 .trellis 標記。請在上方選擇專案，或為此資料夾建立一個。",
     "panel.empty.noProjects": "Trellis 尚無任何專案",
     "panel.empty.init": "在這裡建立專案",
-    "panel.unavailable": "Trellis 無法使用"
+    "panel.unavailable": "Trellis 無法使用",
+    "task.heading": "處理 Trellis 卡片 {ref}：{title}",
+    "task.bodyCut": "（說明在此截斷；用 `trellis card show` 讀取完整內容。）",
+    "task.steps": "處理方式：",
+    "task.stepShow": "讀取卡片與相關卡片：`trellis card show {ref}`。",
+    "task.stepClaim": "開始前先認領：`trellis card claim {ref}`。",
+    "task.stepComment": "進行中在卡片上留言回報進度：`trellis card comment {ref} --body \"…\"`。",
+    "task.stepReview": "完成後留言說明做了什麼，並移到審閱：`trellis card move {ref} {column}`。",
+    "task.stepReviewAny": "完成後留言說明做了什麼，並移到等待審閱的欄位。",
+    "task.line": "處理 Trellis 卡片 {ref}（{title}）：用 `trellis card show {ref}` 讀取，用 `trellis card claim {ref}` 認領，用 `trellis card comment {ref} --body …` 回報進度，並且{last}",
+    "task.lineReview": "完成後用 `trellis card move {ref} {column}` 移到審閱。",
+    "task.lineReviewAny": "完成後移到等待審閱的欄位。",
+    "task.chip": "Trellis 卡片 {ref}：{title}",
+    "task.noWorkspace": "請從工作區開啟看板，才能把卡片交給代理程式。",
+    "task.none": "沒有代理程式在處理這張卡片。",
+    "task.gone": "代理程式的窗格已關閉。",
+    "panel.work.button": "處理這張卡片",
+    "panel.work.menu": "把這張卡片交給代理程式",
+    "panel.work.send": "傳送給執行中的代理程式",
+    "panel.work.start": "啟動新的代理程式",
+    "panel.work.startAgent": "啟動 {agent}",
+    "panel.work.noAgents": "這裡無法啟動代理程式。",
+    "panel.work.notSent": "未傳送；沒有代理程式收到這張卡片。",
+    "panel.task.started": "{agent} 正在處理",
+    "panel.task.sent": "有代理程式正在處理",
+    "panel.task.show": "顯示代理程式的窗格"
   }
 }
