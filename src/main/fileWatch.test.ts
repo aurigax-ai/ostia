@@ -9,12 +9,19 @@ import {
   statSync,
   symlinkSync,
   unlinkSync,
+  watch,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { type FileChange, FileWatches, type TreeChange, TreeWatches } from './fileWatch'
+import {
+  type FileChange,
+  FileWatches,
+  type TreeChange,
+  TreeWatches,
+  type WatchDir,
+} from './fileWatch'
 import { resolveSafe } from './pathGuard'
 
 const roots: string[] = []
@@ -267,7 +274,8 @@ describe('FileWatches', () => {
   })
 })
 
-function tree(maxDirs?: number) {
+function tree(options: { maxDirs?: number; silent?: boolean } = {}) {
+  const { maxDirs, silent } = options
   const base = tempDir('pine-twatch-')
   const root = join(base, 'root')
   mkdirSync(join(root, 'src', 'deep'), { recursive: true })
@@ -281,6 +289,7 @@ function tree(maxDirs?: number) {
     confine: (dir) => resolveSafe(dir, [base]),
     debounceMs: 30,
     ...(maxDirs !== undefined ? { maxDirs } : {}),
+    ...(silent ? { reconcileMs: 40, watchDir: silentWatch } : {}),
   })
   opened.push(watches)
   const listen = (batch: TreeChange[]): void => {
@@ -467,7 +476,7 @@ describe('TreeWatches', () => {
   })
 
   it('refuses a folder outside the readable roots and stops at the folder limit', () => {
-    const { root, watches } = tree(2)
+    const { root, watches } = tree({ maxDirs: 2 })
     expect(watches.watch('/etc', () => {})).toBeNull()
     expect(watches.watch(join(root, 'src', 'a.txt'), () => {})).toBeNull()
     watches.watch(root, () => {})
@@ -481,7 +490,7 @@ describe('TreeWatches', () => {
   })
 
   it('at the folder limit watches the nearest folders first and leaves the rest unwatched', async () => {
-    const { root, changes, watches, listen, seen } = tree(3)
+    const { root, changes, watches, listen, seen } = tree({ maxDirs: 3 })
     mkdirSync(join(root, 'lib'))
     await settle()
     watches.watch(root, listen)
@@ -502,7 +511,7 @@ describe('TreeWatches', () => {
   })
 
   it('watches a new folder once a removed one made room under the limit', async () => {
-    const { root, watches, listen, seen } = tree(3)
+    const { root, watches, listen, seen } = tree({ maxDirs: 3 })
     await settle()
     watches.watch(root, listen)
     await settle()
@@ -541,5 +550,60 @@ describe('TreeWatches', () => {
     writeFileSync(join(root, 'src', 'after.txt'), 'x')
     await pause(120)
     expect(changes).toEqual([])
+  })
+})
+
+const silentWatch: WatchDir = (path) => watch(path, () => undefined)
+
+describe('watchers on a kernel that stays silent about vanished folders and new ones', () => {
+  it('reports a watched file as gone when its folder vanishes', async () => {
+    const root = tempDir('pine-fwatch-silent-')
+    const changes: FileChange[] = []
+    const watches = new FileWatches({
+      confine: (path) => resolveSafe(path, [root]),
+      debounceMs: 10,
+      reconcileMs: 40,
+      watchDir: silentWatch,
+      onChange: (change) => changes.push(change),
+    })
+    opened.push(watches)
+    const file = join(root, 'sub', 'a.txt')
+    mkdirSync(join(root, 'sub'))
+    writeFileSync(file, 'one')
+    expect(watches.watch('win-1', file)).toBe(true)
+    rmSync(join(root, 'sub'), { recursive: true })
+    await until(() => changes.find((c) => c.path === file))
+    await pause(150)
+    expect(changes).toEqual([{ path: file, exists: false, owners: ['win-1'] }])
+  })
+
+  it('reports the files of a root that vanished as deleted', async () => {
+    const { base, root, changes, watches, listen, seen } = tree({ silent: true })
+    watches.watch(root, listen)
+    rmSync(root, { recursive: true })
+    await until(() => seen(join(root, 'src', 'a.txt'), 'deleted'))
+    writeFileSync(join(base, 'sibling', 'x.txt'), 'x')
+    await pause(150)
+    expect(changes.every((c) => c.kind === 'deleted' && c.path.startsWith(`${root}/`))).toBe(true)
+    expect(watches.watchedDirs(root)).toEqual([])
+  })
+
+  it('loses no file written into folders as they are being made', async () => {
+    const { root, changes, watches, listen } = tree({ silent: true })
+    watches.watch(root, listen)
+    const made: string[] = []
+    for (let folder = 0; folder < 6; folder++) {
+      const dir = join(root, 'src', `bulk-${folder}`, 'inner')
+      mkdirSync(dir, { recursive: true })
+      for (let file = 0; file < 10; file++) {
+        made.push(join(dir, `f${file}.txt`))
+        writeFileSync(join(dir, `f${file}.txt`), 'x')
+        if (file % 5 === 4) await pause(30)
+      }
+    }
+    const created = (): Set<string> =>
+      new Set(changes.filter((c) => c.kind === 'created').map((c) => c.path))
+    await until(() => (made.every((path) => created().has(path)) ? true : undefined), 5000)
+    expect(changes.filter((c) => c.kind === 'created')).toHaveLength(made.length)
   })
 })

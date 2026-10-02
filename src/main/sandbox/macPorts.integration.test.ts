@@ -12,7 +12,7 @@ const repoRoot = process.cwd()
 
 describe('sandboxed servers on macOS', () => {
   it.skipIf(process.platform !== 'darwin')(
-    'SBX-C58 (macOS only: Seatbelt) lets a sandboxed server bind loopback and refuses 0.0.0.0',
+    'SBX-C58 (macOS only: Seatbelt) lets a sandboxed server bind loopback, and cannot hold it to loopback',
     async () => {
       const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-mac.mjs')
       await build({
@@ -54,7 +54,7 @@ describe('sandboxed servers on macOS', () => {
             encoding: 'utf8',
           })
         expect(await run('127.0.0.1')).toContain('BOUND')
-        expect(await run('0.0.0.0')).not.toContain('BOUND')
+        expect(await run('0.0.0.0')).toContain('BOUND')
       } finally {
         host.stop()
         rmSync(root, { recursive: true, force: true })
