@@ -5,6 +5,7 @@ import {
   allPanes,
   closePane,
   createPane,
+  createTerminalPane,
   findExtensionPane,
   findPane,
   firstPaneId,
@@ -20,6 +21,8 @@ import {
   placementOf,
   resetIds,
   selectTab,
+  setDefaultPaneTitle,
+  setDefaultPaneTitles,
   setPaneBrowser,
   setPaneCwd,
   setPaneDiff,
@@ -27,6 +30,7 @@ import {
   setPaneExtension,
   setPaneHibernated,
   setPaneLocked,
+  setPaneTitle,
   setPaneUrl,
   setSizes,
   splitOf,
@@ -983,5 +987,77 @@ describe('paneInDirection', () => {
     const root = splitOf('horizontal', a, tabsOf(t2.id, t1, t2))
     expect(paneInDirection(root, a.id, 'right')).toBe(t2.id)
     expect(paneInDirection(root, t1.id, 'left')).toBe(a.id)
+  })
+})
+
+describe('terminal default title', () => {
+  it('marks a terminal created without a title as holding its default title', () => {
+    expect(createPane()).toMatchObject({ kind: 'terminal', title: 'Terminal', defaultTitle: true })
+    expect(createTerminalPane('終端機', '/srv')).toMatchObject({
+      kind: 'terminal',
+      title: '終端機',
+      cwd: '/srv',
+      defaultTitle: true,
+    })
+  })
+
+  it('does not mark a terminal created with a title, or a pane of another kind', () => {
+    expect(createPane('terminal', 'pnpm dev').defaultTitle).toBeUndefined()
+    expect(createPane('editor').defaultTitle).toBeUndefined()
+    expect(createPane('browser').defaultTitle).toBeUndefined()
+  })
+
+  it('names an untouched terminal after its shell and keeps it open to the next shell', () => {
+    const pane = createPane()
+    const bash = setDefaultPaneTitle(pane, pane.id, 'bash')
+    expect(bash).toMatchObject({ title: 'bash', defaultTitle: true })
+    expect(setDefaultPaneTitle(bash, pane.id, 'fish')).toMatchObject({ title: 'fish' })
+    expect(setDefaultPaneTitle(bash, pane.id, 'bash')).toBe(bash)
+  })
+
+  it('keeps a title a program or a caller set when the shell is reported', () => {
+    const pane = createPane()
+    const titled = setPaneTitle(pane, pane.id, 'claude: fix the login bug')
+    expect(titled).toEqual({ ...pane, title: 'claude: fix the login bug', defaultTitle: undefined })
+    expect('defaultTitle' in titled).toBe(false)
+    expect(setDefaultPaneTitle(titled, pane.id, 'bash')).toBe(titled)
+    const given = createPane('terminal', 'pnpm dev')
+    expect(setDefaultPaneTitle(given, given.id, 'bash')).toBe(given)
+  })
+
+  it('treats a program title equal to the shell name as set, so a later shell keeps it', () => {
+    const pane = createPane()
+    const bash = setDefaultPaneTitle(pane, pane.id, 'bash')
+    const titled = setPaneTitle(bash, pane.id, 'bash')
+    expect(titled.type === 'pane' && titled.defaultTitle).toBeUndefined()
+    expect(setDefaultPaneTitle(titled, pane.id, 'zsh')).toBe(titled)
+    expect(setPaneTitle(titled, pane.id, 'bash')).toBe(titled)
+  })
+
+  it('resets every untouched terminal of a tree to one title and leaves the others', () => {
+    const fresh = createPane()
+    const untouched = { ...fresh, title: 'bash' }
+    const named = createPane('terminal', 'pnpm dev')
+    const editor = createPane('editor', 'a.ts')
+    const root = splitOf('horizontal', untouched, tabsOf(named.id, named, editor))
+    const reset = setDefaultPaneTitles(root, 'Terminal')
+    expect(allPanes(reset).map((p) => p.title)).toEqual(['Terminal', 'pnpm dev', 'a.ts'])
+    expect(setDefaultPaneTitles(reset, 'Terminal')).toBe(reset)
+  })
+
+  it('drops the mark when the pane becomes an editor, a browser or an extension panel', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const editor = setPaneEditor(a, a.id, 'a.ts', '/srv/a.ts')
+    const browser = setPaneBrowser(b, b.id, 'https://example.com/')
+    const panel = setPaneExtension(c, c.id, 'git', 'Git')
+    for (const pane of [editor, browser, panel]) expect('defaultTitle' in pane).toBe(false)
+  })
+
+  it('splits with the pane it is given', () => {
+    const root = createPane()
+    const fresh = createTerminalPane('終端機')
+    const result = splitPane(root, root.id, 'horizontal', fresh)
+    expect(result.newPaneId).toBe(fresh.id)
+    expect(findPane(result.root, fresh.id)).toBe(fresh)
   })
 })

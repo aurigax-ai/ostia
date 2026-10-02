@@ -279,7 +279,7 @@ test('a server that claims JSON replaces Monaco’s JSON features, except in the
 
     expect(JSON.parse(readFileSync(settingsFile, 'utf8')).locale).toBe(5)
     await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
-    await win.locator('.pane-tab').filter({ hasText: 'zsh' }).first().click()
+    await win.locator('.pane-tab').filter({ hasNotText: 'data.json' }).first().click()
     await win.locator('.xterm:visible').first().click()
     await win.keyboard.type(`pine open ${settingsFile}`)
     await win.keyboard.press('Enter')

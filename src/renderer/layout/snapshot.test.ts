@@ -1,7 +1,7 @@
 import type { AppSnapshot } from '@shared/types'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildSnapshot, restoreSnapshot } from './snapshot'
-import { createPane, resetIds, setPaneView, splitOf } from './tree'
+import { createPane, resetIds, setDefaultPaneTitle, setPaneView, splitOf } from './tree'
 import type { LayoutNode } from './types'
 
 beforeEach(() => resetIds())
@@ -173,9 +173,10 @@ describe('buildSnapshot', () => {
     expect(snapshot?.workspaces[0].root).toEqual({
       type: 'pane',
       id: 'pane-4',
-      title: 'zsh',
+      title: 'Terminal',
       kind: 'terminal',
       cwd: '/home/u/proj',
+      defaultTitle: true,
     })
   })
 
@@ -205,6 +206,19 @@ describe('restoreSnapshot', () => {
     expect(restored.activeWorkspaceId).toBe('s1')
     expect(restored.layouts.s1.root).toEqual(root)
     expect(restored.layouts.s1.activePaneId).toBe(b.id)
+  })
+
+  it('keeps the default-title mark of an untouched terminal and never gives one to a named tab', () => {
+    const fresh = createPane()
+    const untouched = setDefaultPaneTitle(fresh, fresh.id, 'bash')
+    const named = createPane('terminal', 'pnpm dev')
+    const snapshot = build(splitOf('horizontal', untouched, named))
+    const restored = restoreSnapshot(snapshot).layouts.s1.root
+    expect(restored.type === 'split' && restored.children).toMatchObject([
+      { title: 'bash', defaultTitle: true },
+      { title: 'pnpm dev' },
+    ])
+    expect(restored.type === 'split' && 'defaultTitle' in restored.children[1]).toBe(false)
   })
 
   it('comes back un-zoomed — a zoom is a transient view, not workspace shape', () => {

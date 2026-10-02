@@ -673,7 +673,10 @@ describe('shellIntegrationSpawnOptions', () => {
       }
     })
 
-    it('runs claude untouched when its integration is turned off', () => {
+    it.each([
+      ['bash', '--norc'],
+      ['zsh', '-f'],
+    ])('runs claude untouched in %s when its integration is turned off', (shell, noRc) => {
       const bin = mkdtempSync(join(tmpdir(), 'pine-fake-claude-'))
       try {
         const fake = join(bin, 'claude')
@@ -685,7 +688,7 @@ describe('shellIntegrationSpawnOptions', () => {
         const pluginDir = join(agentDir, 'claude-plugin')
         mkdirSync(pluginDir, { recursive: true })
         const run = (off: string) =>
-          spawnSync('bash', ['--norc', '-c', `source '${wrapper}'; claude --resume abc`], {
+          spawnSync(shell, [noRc, '-c', `source '${wrapper}'; claude --resume abc`], {
             env: {
               PATH: `${bin}:/usr/bin:/bin`,
               PINE_CLI: '/x/cli.js',
@@ -957,6 +960,22 @@ describe('shellIntegrationSpawnOptions', () => {
       )
       expect(existsSync(join(codexDir, 'skills', 'kit-review', 'checklist.md'))).toBe(true)
     })
+
+    it.skipIf(process.getuid?.() === 0)(
+      'returns an existing generation without writing anything under the root',
+      () => {
+        const dir = writeAgentPlugin(root, content)
+        const file = join(dir, 'claude-plugin', 'skills', 'kit-review', 'checklist.md')
+        writeFileSync(file, 'edited\n')
+        chmodSync(root, 0o500)
+        try {
+          expect(writeAgentPlugin(root, content)).toBe(dir)
+        } finally {
+          chmodSync(root, 0o700)
+        }
+        expect(readFileSync(file, 'utf8')).toBe('edited\n')
+      },
+    )
 
     it('hands a shell exactly the Codex args it trusts, quoted', () => {
       const dir = writeAgentPlugin(root, content)
