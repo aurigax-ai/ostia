@@ -185,6 +185,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       setEnabled: vi.fn().mockResolvedValue({ ok: false, reason: 'not-owned' }),
       setPaths: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
       checkPaths: vi.fn().mockResolvedValue([]),
+      presets: vi.fn().mockResolvedValue([]),
       setDomains: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
       setDeniedDomains: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
       setSwitches: vi.fn().mockResolvedValue(null),
