@@ -15,6 +15,7 @@ import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runAgentHook } from './agentHook'
 import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
+import { BUS_QUEUED_HINT, type BusSendOk, type SentMessage, runBusHook, sentLines } from './bus'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
 import { runPaneVerb } from './pane'
@@ -444,6 +445,9 @@ interface BusOk {
   ok: true
   id?: string
 }
+interface BusSentResult {
+  messages: SentMessage[]
+}
 interface BusErr {
   ok: false
   error: string
@@ -455,6 +459,7 @@ interface BusMessage {
   to: string
   text: string
   ts: string
+  seenAt?: string
 }
 interface BusInboxResult {
   messages: BusMessage[]
@@ -493,9 +498,10 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<BusOk | BusErr>('bus.send', { to, text })
+    const res = await conn.sendRequest<BusSendOk | BusErr>('bus.send', { to, text })
     if (res.ok) {
       console.log(JSON.stringify(res))
+      if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
     } else {
       console.error(`pine: bus send failed (${describeBusError(res)})`)
       process.exitCode = 1
@@ -509,6 +515,21 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       console.error(`pine: bus inbox failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
+  } else if (sub === 'sent') {
+    const res = await conn.sendRequest<BusSentResult | BusErr>('bus.sent')
+    if ('messages' in res) {
+      if (rawArgs.includes('--json')) console.log(JSON.stringify(res.messages))
+      else for (const line of sentLines(res.messages)) console.log(line)
+    } else {
+      console.error(`pine: bus sent failed (${describeBusError(res)})`)
+      process.exitCode = 1
+    }
+  } else if (sub === 'hook') {
+    process.exitCode = await runBusHook(rawArgs, {
+      context: () => conn.sendRequest<{ text?: string | null }>('bus.context'),
+      out: (line) => console.log(line),
+      err: (line) => console.error(line),
+    })
   } else if (sub === 'wait') {
     const { flags } = parseFlags(rawArgs, ['timeout'])
     const timeoutMs = numberFlag(flags, 'timeout')
@@ -527,13 +548,14 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
-    const res = await conn.sendRequest<BusOk | BusErr>('bus.handoff', {
+    const res = await conn.sendRequest<BusSendOk | BusErr>('bus.handoff', {
       to,
       task: flags.task,
       summary: flags.summary,
     })
     if (res.ok) {
       console.log(JSON.stringify(res))
+      if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
     } else {
       console.error(`pine: bus handoff failed (${describeBusError(res)})`)
       process.exitCode = 1
@@ -577,7 +599,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     }
   } else {
     console.error(
-      `pine bus: unknown subcommand '${sub ?? ''}' (try: send, inbox, wait, handoff, claim, handoffs, done)`,
+      `pine bus: unknown subcommand '${sub ?? ''}' (try: send, inbox, sent, wait, handoff, claim, handoffs, done)`,
     )
     process.exitCode = 1
   }
