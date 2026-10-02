@@ -16,6 +16,7 @@ import {
 } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
+import { agentHooksEnv } from '../shared/agentHooks'
 import type { AgentResume } from '../shared/agentResume'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
@@ -1504,8 +1505,9 @@ function registerPtyIpc(): void {
         dropped: false,
       }
     }
+    const settings = readSettingsFile()
     const [shell, ...shellArgs] = shellArgv(
-      readSettingsFile().terminal?.shell,
+      settings.terminal?.shell,
       process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash'),
     )
     const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
@@ -1538,6 +1540,7 @@ function registerPtyIpc(): void {
       PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
       PINE_NODE: process.execPath,
       PINE_SHELL_STATE: stateFile,
+      ...agentHooksEnv(settings.agents?.hooks),
       ...PTY_COLOR_ENV,
     } as Record<string, string>
     let secretNotice = ''
@@ -2138,6 +2141,7 @@ function readSettingsFile(): {
   manager?: unknown
   assistant?: unknown
   terminal?: { shell?: unknown }
+  agents?: { hooks?: unknown }
 } {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))

@@ -1,3 +1,4 @@
+import { type AgentHooks, DEFAULT_AGENT_HOOKS, parseAgentHooks } from '@shared/agentHooks'
 import {
   type ApprovalMode,
   type ApprovalSettings,
@@ -103,6 +104,7 @@ export interface HibernationSettings {
 export interface AgentSettings {
   hibernation: HibernationSettings
   autoResume: boolean
+  hooks: AgentHooks
 }
 
 export interface AssistantSettings extends ChatToolSettings, AssistModelSettings {
@@ -342,7 +344,7 @@ const DEFAULTS: Persisted = {
     showExtensionItems: true,
     showSSH: true,
   },
-  agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false },
+  agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false, hooks: DEFAULT_AGENT_HOOKS },
   assistant: {
     chatHistory: true,
     ...DEFAULT_CHAT_TOOL_SETTINGS,
@@ -380,6 +382,7 @@ interface SettingsState extends Persisted {
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
   setAutoResume: (autoResume: boolean) => void
+  setAgentHooks: (patch: Partial<AgentHooks>) => void
   setChatHistory: (chatHistory: boolean) => void
   setChatTools: (patch: Partial<ChatToolSettings>) => Promise<void>
   setAssistModels: (patch: Partial<AssistModelSettings>) => Promise<void>
@@ -448,6 +451,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     agents: {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,
+      hooks: parseAgentHooks(p.agents?.hooks),
     },
     assistant: {
       chatHistory: p.assistant?.chatHistory !== false,
@@ -758,6 +762,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setAutoResume: (autoResume) => {
     set((s) => ({ agents: { ...s.agents, autoResume } }))
+    scheduleSave(get)
+  },
+  setAgentHooks: (patch) => {
+    set((s) => ({ agents: { ...s.agents, hooks: { ...s.agents.hooks, ...patch } } }))
     scheduleSave(get)
   },
   setHibernation: (patch) => {

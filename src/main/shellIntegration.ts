@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { version } from '../../package.json'
+import { AGENT_HOOKS_OFF_ENV } from '../shared/agentHooks'
 import { PRODUCT_NAME } from '../shared/product'
 import { type PromptSeparator, isPromptSeparator } from '../shared/promptSettings'
 import pineSkill from './agent/pine-skill.md?raw'
@@ -291,7 +292,7 @@ function claudeWrapper(pluginDir: string): string {
     '',
     '# Run claude with the Pine plugin (CLI skill, resume token, attention hooks).',
     '# `command claude` skips it.',
-    'if [ -n "$PINE_CLI" ]; then',
+    `if [ -n "$PINE_CLI" ] && [ -z "$${AGENT_HOOKS_OFF_ENV.claude}" ]; then`,
     `  claude() { command claude --plugin-dir '${pluginDir}' "$@"; }`,
     'fi',
     '',
@@ -466,7 +467,7 @@ export function codexWrapper(contextFile: string): string {
     '__pine_codex_hook_args=(',
     ...codexHookArgs(contextFile).map((arg) => `  ${shellQuote(arg)}`),
     ')',
-    'if [ -n "$PINE_CLI" ]; then',
+    `if [ -n "$PINE_CLI" ] && [ -z "$${AGENT_HOOKS_OFF_ENV.codex}" ]; then`,
     '  codex() {',
     '    if __pine_codex_starts_session "$@"; then',
     '      command codex "${__pine_codex_hook_args[@]}" "$@"',
