@@ -12,9 +12,10 @@
   "packageManager": "pnpm@11.10.0",
   "license": "MIT",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build && pnpm run build:cli && pnpm run build:sandbox-host && pnpm run build:extensions && pnpm run build:sdk && pnpm run build:marketplace && node scripts/build-info.mjs",
+    "dev": "pnpm run build:sandbox-host && pnpm run build:redaction-worker && electron-vite dev",
+    "build": "electron-vite build && pnpm run build:cli && pnpm run build:sandbox-host && pnpm run build:redaction-worker && pnpm run build:extensions && pnpm run build:sdk && pnpm run build:marketplace && node scripts/build-info.mjs",
     "build:cli": "esbuild src/cli/index.ts --bundle --platform=node --format=cjs --packages=external --outfile=out/cli/index.js",
+    "build:redaction-worker": "esbuild src/main/redactionWorker.ts --bundle --platform=node --format=cjs --outfile=out/redaction/worker.js",
     "build:sandbox-host": "esbuild src/main/sandbox/host.ts --bundle --platform=node --format=esm --packages=external --outfile=out/sandbox/host.mjs",
     "build:extensions": "node scripts/build-extensions.mjs",
     "build:sdk": "node scripts/build-sdk.mjs",
