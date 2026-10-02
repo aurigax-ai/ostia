@@ -1,3 +1,4 @@
+import { connect } from 'node:net'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   FAKE_MCP_SERVER,
@@ -11,6 +12,18 @@ import type { StoredSecrets } from './extensionSecrets'
 import { McpHost } from './mcpHost'
 import { McpOAuth, type McpOAuthBrowser } from './mcpOAuth'
 import { MCP_OAUTH_KEY, createMcpOAuthStore } from './mcpOAuthStore'
+
+function refusesConnections(url: string): Promise<boolean> {
+  const { hostname, port } = new URL(url)
+  return new Promise((resolve) => {
+    const socket = connect({ host: hostname, port: Number(port) })
+    socket.on('connect', () => {
+      socket.destroy()
+      resolve(false)
+    })
+    socket.on('error', () => resolve(true))
+  })
+}
 
 function http(url: string, overrides: Partial<McpServerSettings> = {}): McpServerSettings {
   return {
@@ -272,7 +285,7 @@ describe('MCP OAuth sign-in against the fake protected server', () => {
     expect(callback.status).toBe(200)
     expect(await callback.text()).toContain('Signed in')
     expect(await pending).toEqual({ ok: true })
-    await expect(fetch(redirect, once)).rejects.toThrow()
+    expect(await refusesConnections(redirect.href)).toBe(true)
   })
 
   it('reports the exact reason when the human is refused at the authorization server', async () => {
@@ -292,7 +305,7 @@ describe('MCP OAuth sign-in against the fake protected server', () => {
     const timed = setup([http(server.url)], { browser: 'system', timeoutMs: 150 })
     expect(await signInToMcp(timed.deps, 'remote')).toEqual({ ok: false, error: 'timeout' })
     const redirect = new URL(timed.opened[0]).searchParams.get('redirect_uri') ?? ''
-    await expect(fetch(redirect)).rejects.toThrow()
+    expect(await refusesConnections(redirect)).toBe(true)
     expect(timed.stored()).toEqual({})
 
     const cancelled = setup([http(server.url)], { browser: 'system' })
