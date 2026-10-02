@@ -402,13 +402,24 @@ describe('fixedPolicy', () => {
 })
 
 describe('folderProblem', () => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'pine-folder-problem-')))
+  const home = join(base, 'u')
+  const homePaths = {
+    ...guardedPaths,
+    home,
+    dataDirs: [join(home, '.local/share/pine'), join(home, '.config/pine')],
+  }
+  mkdirSync(join(home, '.local/share/pine'), { recursive: true })
+  mkdirSync(join(home, '.config/pine/extensions'), { recursive: true })
+  afterAll(() => rmSync(base, { recursive: true, force: true }))
+
   it('refuses the home folder, a folder above it and one that holds Pine data', () => {
-    expect(folderProblem('/home/u', guardedPaths)).toBe('home')
-    expect(folderProblem('/home/u/', guardedPaths)).toBe('home')
-    expect(folderProblem('/home', guardedPaths)).toBe('above-home')
-    expect(folderProblem('/', guardedPaths)).toBe('above-home')
-    expect(folderProblem('/home/u/.local', guardedPaths)).toBe('pine-data')
-    expect(folderProblem('/home/u/.config/pine/extensions', guardedPaths)).toBe('pine-data')
+    expect(folderProblem(home, homePaths)).toBe('home')
+    expect(folderProblem(`${home}/`, homePaths)).toBe('home')
+    expect(folderProblem(base, homePaths)).toBe('above-home')
+    expect(folderProblem('/', homePaths)).toBe('above-home')
+    expect(folderProblem(join(home, '.local'), homePaths)).toBe('pine-data')
+    expect(folderProblem(join(home, '.config/pine/extensions'), homePaths)).toBe('pine-data')
   })
 
   it('accepts a project folder inside or outside home', () => {

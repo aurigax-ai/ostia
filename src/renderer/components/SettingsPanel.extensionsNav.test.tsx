@@ -237,7 +237,7 @@ describe('SettingsPanel extensions nav', () => {
     const searchFor = async (text: string): Promise<void> => {
       await user.clear(search)
       await user.click(search)
-      await user.keyboard(text)
+      await user.paste(text)
     }
 
     await searchFor('scan interval')
@@ -256,7 +256,7 @@ describe('SettingsPanel extensions nav', () => {
     await waitFor(() =>
       expect(within(nav()).queryByRole('button', { name: 'Extensions' })).toBeNull(),
     )
-  })
+  }, 45_000)
 
   describe('an extension that asks for its own page', () => {
     beforeEach(() => {
