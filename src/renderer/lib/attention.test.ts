@@ -63,13 +63,18 @@ describe('reduceAttention', () => {
     expect(cli).toMatchObject({ state: 'working', unread: true })
   })
 
-  it('keeps the message a waiting pane waits with when a notification arrives', () => {
+  it('keeps the message a waiting pane waits with when a non-waiting notification arrives', () => {
     const waiting = pane({ state: 'waiting', message: 'approve?', unread: false })
-    for (const flag of [true, false]) {
-      expect(
-        reduceAttention(waiting, { type: 'notify', message: 'other', waiting: flag, at }),
-      ).toEqual({ state: 'waiting', unread: true, message: 'approve?', at })
-    }
+    expect(
+      reduceAttention(waiting, { type: 'notify', message: 'other', waiting: false, at }),
+    ).toEqual({ state: 'waiting', unread: true, message: 'approve?', at })
+  })
+
+  it('replaces the message when an already waiting pane signals a new wait', () => {
+    const waiting = pane({ state: 'waiting', message: 'approve?', unread: false })
+    expect(
+      reduceAttention(waiting, { type: 'notify', message: 'now this?', waiting: true, at }),
+    ).toEqual({ state: 'waiting', unread: true, message: 'now this?', at })
   })
 
   it('treats a bell as unread without changing the state', () => {
