@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { booleanSetting, connect, onShutdown, runTool } from '../sdk'
 import { sshCommands } from './commands'
 import { CONSENT_FILE, HelperConsent } from './consent'
+import { HelperFolders, Sessions } from './folders'
 import { helperBundle } from './helper'
 import { helperCommands } from './helperCommands'
 import { HelperHosts } from './helperHosts'
@@ -19,7 +20,14 @@ async function main(): Promise<void> {
   const dataDir = process.env.PINE_EXTENSION_DATA
   const consent = new HelperConsent(dataDir ? join(dataDir, CONSENT_FILE) : null)
   const run = (args: string[]) => runTool('ssh', args, { timeoutMs: RESOLVE_TIMEOUT_MS })
+  const sessions = new Sessions()
+  const folders = new HelperFolders(hosts)
   onShutdown(() => hosts.closeAll())
+  ext.onFiles(folders.handle)
+  ext.onFolderClosed((folderId) => folders.remove(folderId))
+  await ext.subscribe(['pane.closed'], (type, payload) => {
+    if (type === 'pane.closed' && 'paneId' in payload) sessions.closed(payload.paneId)
+  })
   await ext.registerCommands({
     ...sshCommands({
       discover: () => discoverHosts(homedir()),
@@ -28,6 +36,7 @@ async function main(): Promise<void> {
       openTerminal: (opts) => ext.openTerminal(opts),
       shellIntegration: async () =>
         booleanSetting(await ext.getSettings(), 'shellIntegration', true),
+      sessionOpened: (paneId, plan) => sessions.opened(paneId, plan),
     }),
     ...helperCommands({
       run,
@@ -36,6 +45,10 @@ async function main(): Promise<void> {
       consent,
       hosts,
       helper,
+      sessions,
+      folders,
+      openFolder: (opts) => ext.openFolder(opts),
+      closeFolder: (folderId) => ext.closeFolder(folderId),
     }),
   })
 }

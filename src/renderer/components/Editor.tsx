@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { CodeIcon, EyeIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react'
 import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browserEditorSettings'
+import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/remoteFolders'
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
@@ -26,6 +27,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
 import { LanguageNotice } from './LanguageNotice'
 import { MarkdownPreview, type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
+import { RemoteFileBar } from './RemoteFileBar'
 import { useSelectionSend } from './SelectionSend'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
@@ -67,8 +69,35 @@ function markSaved(model: monaco.editor.ITextModel, filePath: string): void {
   useEditorStatus.getState().setDirty(filePath, false)
 }
 
+const modelPaths = new WeakMap<monaco.editor.ITextModel, string>()
+
+function pathOf(model: monaco.editor.ITextModel): string {
+  return modelPaths.get(model) ?? model.uri.path
+}
+
+function uriFor(filePath: string): monaco.Uri {
+  const remote = parseRemotePath(filePath)
+  return remote
+    ? monaco.Uri.from({ scheme: 'remote', authority: remote.folderId, path: remote.path })
+    : monaco.Uri.file(filePath)
+}
+
+interface Loaded {
+  content: string | null
+  problem: RemoteFileError | null
+}
+
+async function loadText(filePath: string): Promise<Loaded> {
+  if (!isRemotePath(filePath)) {
+    return { content: await window.pine.fs.read(filePath), problem: null }
+  }
+  const res = await window.pine.remoteFiles.read(filePath)
+  return res.ok ? { content: res.content, problem: null } : { content: null, problem: res.error }
+}
+
 function createTrackedModel(filePath: string, content: string): monaco.editor.ITextModel {
-  const model = monaco.editor.createModel(content, langFor(filePath), monaco.Uri.file(filePath))
+  const model = monaco.editor.createModel(content, langFor(filePath), uriFor(filePath))
+  modelPaths.set(model, filePath)
   markSaved(model, filePath)
   model.onDidChangeContent(() => useEditorStatus.getState().setDirty(filePath, isDirty(model)))
   model.onWillDispose(() => {
@@ -126,6 +155,8 @@ export function EditorView({
   const reducedMotionRef = useRef(reducedMotion)
   reducedMotionRef.current = reducedMotion
   const [binary, setBinary] = useState(false)
+  const [remoteProblem, setRemoteProblem] = useState<RemoteFileError | null>(null)
+  const remote = isRemotePath(filePath)
   const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
   const [diskBar, setDiskBar] = useState<DiskBar | null>(null)
   const diskBarRef = useRef<DiskBar | null>(null)
@@ -210,7 +241,8 @@ export function EditorView({
     const save = async (force = false): Promise<void> => {
       const model = editor.getModel()
       if (!model) return
-      const fp = model.uri.path
+      const fp = pathOf(model)
+      if (isRemotePath(fp)) return
       const key = model.uri.toString()
       if (!force) {
         const onDisk = await window.pine.fs.read(fp)
@@ -279,7 +311,7 @@ export function EditorView({
         editor.restoreViewState(view)
       }
       diskBase.set(model.uri.toString(), text)
-      markSaved(model, model.uri.path)
+      markSaved(model, pathOf(model))
       showChanged(changed)
     }
     reloadRef.current = reloadFrom
@@ -288,9 +320,9 @@ export function EditorView({
     let again = false
     const checkDisk = async (): Promise<void> => {
       const model = editor.getModel()
-      if (!model) return
+      if (!model || isRemotePath(pathOf(model))) return
       const key = model.uri.toString()
-      const onDisk = await window.pine.fs.read(model.uri.path)
+      const onDisk = await window.pine.fs.read(pathOf(model))
       if (editor.getModel() !== model) return
       if (onDisk === diskBase.get(key)) return
       if (onDisk === null) {
@@ -407,15 +439,23 @@ export function EditorView({
     if (!editor || !filePath) return
     let alive = true
     let releaseDocument = (): void => {}
-    window.pine.fs.read(filePath).then((content) => {
+    const isRemote = isRemotePath(filePath)
+    editor.updateOptions({ readOnly: isRemote })
+    setRemoteProblem(null)
+    void loadText(filePath).then(({ content, problem }) => {
       if (!alive || !editorRef.current) return
-      if (content !== null && isBinary(content)) {
+      if (problem === 'binary' || (content !== null && isBinary(content))) {
         editor.setModel(null)
         setBinary(true)
         return
       }
       setBinary(false)
-      const existing = monaco.editor.getModel(monaco.Uri.file(filePath))
+      const existing = monaco.editor.getModel(uriFor(filePath))
+      if (problem) {
+        editor.setModel(existing)
+        setRemoteProblem(problem)
+        return
+      }
       const model = existing ?? createTrackedModel(filePath, content ?? '')
       if (existing && content !== null && !isDirty(existing) && existing.getValue() !== content) {
         existing.setValue(content)
@@ -424,14 +464,14 @@ export function EditorView({
       if (!existing || !isDirty(existing)) diskBase.set(model.uri.toString(), content)
       editor.setModel(model)
       applyReveal(editor, filePath)
-      releaseDocument = openDocument(model, paneId)
+      if (!isRemote) releaseDocument = openDocument(model, paneId)
     })
-    void window.pine.fs.watch(filePath)
+    if (!isRemote) void window.pine.fs.watch(filePath)
     setDiskBar(null)
     return () => {
       alive = false
       releaseDocument()
-      window.pine.fs.unwatch(filePath)
+      if (!isRemote) window.pine.fs.unwatch(filePath)
     }
   }, [filePath, paneId])
 
@@ -472,7 +512,7 @@ export function EditorView({
   useEffect(() => {
     const editor = editorRef.current
     const model = editor?.getModel()
-    if (!pendingReveal || !editor || !filePath || model?.uri.path !== filePath) return
+    if (!pendingReveal || !editor || !filePath || !model || pathOf(model) !== filePath) return
     applyReveal(editor, filePath)
   }, [pendingReveal, filePath])
 
@@ -494,7 +534,12 @@ export function EditorView({
 
   return (
     <>
-      {filePath && !binary ? <LanguageNotice paneId={paneId} filePath={filePath} /> : null}
+      {filePath && remote ? (
+        <RemoteFileBar filePath={filePath} problem={remoteProblem} readOnly />
+      ) : null}
+      {filePath && !binary && !remote ? (
+        <LanguageNotice paneId={paneId} filePath={filePath} />
+      ) : null}
       <div ref={hostRef} className="editor-host" style={binary ? { display: 'none' } : undefined} />
       {markdown && preview ? (
         <MarkdownPreview

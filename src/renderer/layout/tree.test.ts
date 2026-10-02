@@ -320,6 +320,15 @@ describe('setPaneEditor', () => {
     expect(findPane(next, a.id)?.kind).toBe('terminal')
   })
 
+  it('gives a remote file no folder, so it never moves the local tree or workspace', () => {
+    const term = createPane('terminal', 'zsh', '/home/u/proj')
+    const next = setPaneEditor(term, term.id, 'app.conf', 'remote://abcdef012345/srv/app/app.conf')
+    const pane = findPane(next, term.id)
+    expect(pane?.kind).toBe('editor')
+    expect(pane?.filePath).toBe('remote://abcdef012345/srv/app/app.conf')
+    expect(pane && 'cwd' in pane).toBe(false)
+  })
+
   it('falls back to root cwd for a file at the filesystem root', () => {
     const root = createPane('terminal')
     const next = setPaneEditor(root, root.id, 'notes.txt', '/notes.txt')

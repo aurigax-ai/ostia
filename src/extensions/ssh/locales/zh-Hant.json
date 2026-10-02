@@ -10,6 +10,7 @@
     "commands.helper-remove.title": "SSH：移除遠端輔助程式…",
     "commands.helper-remove.argument": "要移除輔助程式的主機，寫法與 ssh 後面的參數相同",
     "settings.remoteHelper.title": "遠端輔助程式",
-    "settings.remoteHelper.description": "提供在主機的 ~/.pine 下安裝小型輔助指令稿，讓 {product} 透過 ssh 取得該主機的檔案。每台主機只會詢問一次，並在安裝前顯示確切路徑。關閉後不再詢問，也不會連線"
+    "settings.remoteHelper.description": "提供在主機的 ~/.pine 下安裝小型輔助指令稿，讓 {product} 透過 ssh 取得該主機的檔案。每台主機只會詢問一次，並在安裝前顯示確切路徑。關閉後不再詢問，也不會連線",
+    "commands.open-folder.title": "SSH：開啟遠端資料夾"
   }
 }

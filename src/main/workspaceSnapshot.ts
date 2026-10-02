@@ -1,6 +1,7 @@
 import { rmSync } from 'node:fs'
 import { parseAgentResume } from '../shared/agentResume'
 import { isDangerousSegment } from '../shared/protoGuard'
+import { isRemotePath } from '../shared/remoteFolders'
 import type {
   AppSnapshot,
   PaneDrop,
@@ -94,7 +95,9 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
       kind: raw.kind as SnapshotSurfaceKind,
     }
     copyOptionalString(raw, pane, 'cwd')
-    copyOptionalString(raw, pane, 'filePath')
+    if (typeof raw.filePath !== 'string' || !isRemotePath(raw.filePath)) {
+      copyOptionalString(raw, pane, 'filePath')
+    }
     copyOptionalString(raw, pane, 'url')
     copyOptionalString(raw, pane, 'extensionId')
     if (pane.kind === 'chat') copyOptionalString(raw, pane, 'chatSessionId')

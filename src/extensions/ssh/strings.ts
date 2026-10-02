@@ -45,6 +45,9 @@ export interface Strings {
   helperInstallFailed: (reason: string) => string
   helperRemoveFailed: string
   helperProtocol: string
+  notASession: string
+  noRemoteFolder: string
+  folderDenied: string
 }
 
 const en: Strings = {
@@ -93,6 +96,11 @@ const en: Strings = {
   helperInstallFailed: (reason) => `the helper could not be installed (${reason})`,
   helperRemoveFailed: 'the helper could not be removed from the host',
   helperProtocol: 'the host answered with something that is not the helper',
+  notASession:
+    'this pane is not an ssh session opened with "SSH: Connect to Host…"; focus that terminal first',
+  noRemoteFolder:
+    'the shell in this session has not reported a folder on the host yet; it needs bash or zsh with the shell integration on',
+  folderDenied: 'you did not open the folder',
 }
 
 const zhHant: Strings = {
@@ -137,6 +145,10 @@ const zhHant: Strings = {
   helperInstallFailed: (reason) => `無法安裝輔助程式（${reason}）`,
   helperRemoveFailed: '無法從主機移除輔助程式',
   helperProtocol: '主機回應的內容不是輔助程式',
+  notASession: '這個窗格不是用「SSH：連線到主機…」開啟的 ssh 工作階段；請先選取那個終端機',
+  noRemoteFolder:
+    '這個工作階段的 shell 尚未回報主機上的資料夾；需要 bash 或 zsh，並開啟 shell 整合',
+  folderDenied: '你沒有開啟這個資料夾',
 }
 
 export function stringsFor(locale: string | undefined): Strings {

@@ -767,6 +767,8 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.runAgent` | `{workspaceId, agent, prompt}` | Needs `shell`. Opens a **new** terminal in that workspace, in its folder, and runs the named agent there with `prompt` as one argument once the shell shows its first prompt, exactly like `pine agent run`. Returns `{ok, paneId}`, or `unknown-agent`, `not-opened`, `rate-limited`. `prompt` is 1–16000 characters; newlines and tabs are allowed, other control characters are refused. Start an agent only because the human asked: from your panel, where their click is the request (never from a command an agent can run), or after `ext.confirm`. Offers and runs together are limited to 6 a minute. |
 | `ext.offerToAgent` | `{workspaceId, text, label}` | Asks the human, in pine's own dialog in the window that holds the workspace, whether to send `text` to one of the agents running there (the same list as pine's other Send to agent pickers). Nothing is sent until the human picks an agent and clicks Send; pine then pastes the text at that agent's prompt and **never presses Enter**. `text` is one line of 1–2000 characters and `label` (shown in the title) one line of 1–120, both without any control character. Returns `{ok, sent: false}` when the human declined or did not answer within 2 minutes, `{ok, sent: true, paneId}` with the pane they picked, or `unknown-workspace`, `busy` (your previous offer still waits), `rate-limited`. Needs no capability. |
 | `ext.focusPane` | `{paneId}` | Shows that pane: switches to its workspace and window and focuses it. Only for a pane you opened (`ext.openTerminal`, `ext.runAgent`) or one the human picked for your offer; any other pane is `not-reached`, a closed one `unknown-pane`. |
+| `ext.openFolder` | `{workspaceId, host, path}` | API 1.11. Shows a folder that lives somewhere else (another machine, a container) in that workspace's Files, served by you. pine first asks the human in its own dialog, naming you, `host` and `path`; Cancel is the default. Returns `{ok, folderId}`, or `denied`, `unknown-workspace`, `sandboxed`, `scratch`, `invalid-params`, `too-many` (8 per workspace). `host` is a label for the human (`[A-Za-z0-9._@:-]`, at most 330 chars); `path` is absolute, without `..` or control characters. Mark the command that calls it `interactive`. See [Remote folders](#remote-folders). |
+| `ext.closeFolder` | `{folderId}` | Closes one of your own folders. `unknown-folder` for anything else. |
 
 `whoami` works too. Pane-scoped methods (`command.exec`, `pane.info`, `bus.*`, …) are refused
 for extension identities, except the targetable ones below.
@@ -809,6 +811,7 @@ a fallback), `openPanel(workspaceId?, path?)`, `notifyPanel(title, body?, path?)
 | `ext.assist` | `{point, requestId, input, model?}` | The result for that point (below), or `{error, message?}` with `error` one of `unavailable`, `rate-limited`, `failed`, `cancelled`, `invalid`, `busy`. Carries a jsonrpc cancellation token: stop work when it fires. 30 s timeout, 5 min for `chat`. `model: {provider, model}` names the model the human chose when you reported `providers`; serve the request with exactly that one. |
 | `ext.assistModels` | `{action: 'list', provider?}` or `{action: 'load' \| 'unload', id, provider?}` | Sent only to an extension whose last `ext.setAssistStatus` said `models: true`, when the human opens or acts in Settings → Assistant. `provider` is the id of one of the providers you reported: `list` then answers what that provider has, which is what the human picks from when adding its models. `list` replies `{lifecycle, models: [{id, name?, description?, installed?, loaded?, busy?, idleSecs?}], error?}` (64 models, normalized by `normalizeAssistModels`); `lifecycle: true` shows Load/Unload. `load`/`unload` reply `{ok: true}` or `{ok: false, error}`. 15 s timeout for `list`, 5 min for a load. The SDK wraps it: `onAssistModels({list(provider?), setLoaded(id, loaded, provider?)})`. |
 | `ext.panel` | `{caller, path?}` | `{url}` for a `"url"` panel: must be `http://127.0.0.1:<port>/…` or `http://localhost:<port>/…`. `path` is present when the panel is opened or navigated to a path (`ext.openPanel {path}`, a notification with `openPanel: "/path"`); return the URL for it on the same origin. |
+| `ext.files` | `{op, folderId, root, path, content?, baseVersion?}` | API 1.11. One file operation in a folder you opened with `ext.openFolder` (`ext.onFiles` in the SDK). `root` is the folder and `path` an absolute path inside it; pine has already refused anything outside. See [Remote folders](#remote-folders). 30 s timeout. |
 
 And the notification `ext.event {type, payload}`:
 
@@ -823,6 +826,7 @@ And the notification `ext.event {type, payload}`:
 | `settings.changed` | `{values}`: all your settings after the human changed one, or after the human changed one of your secrets (read it again with `ext.getSecret`). Sent without `ext.subscribe`. |
 | `locale.changed` | `{locale}`: the human changed the language (`ext.onLocaleChanged` in the SDK). Sent without `ext.subscribe`. |
 | `assist.providers.changed` | `{providers}`: the same list `ext.assistProviders` returns, after the human added, changed, switched or removed one of your providers or its key (`ext.onAssistProvidersChanged` in the SDK). Sent without `ext.subscribe`, only to an extension granted `assist`. |
+| `folder.closed` | `{folderId}`: one of your remote folders went away because the human closed it in Files or its workspace closed (`ext.onFolderClosed` in the SDK). Sent without `ext.subscribe`. API 1.11. |
 
 `paneId` is always the external id agents see (`pine whoami`).
 
@@ -831,7 +835,7 @@ And the notification `ext.event {type, payload}`:
 Every command and panel request carries who is asking:
 
 ```ts
-{ kind: 'pane' | 'user', paneId?, workspaceId?, workDir?, cwd?, locale?, sandboxed?, capabilities: string[] }
+{ kind: 'pane' | 'user', paneId?, workspaceId?, workDir?, cwd?, locale?, sandboxed?, remote?, capabilities: string[] }
 ```
 
 - `pane`: an agent or shell via `pine`; `capabilities` are that pane's; `locale` is the human's
@@ -850,6 +854,46 @@ workspace's project unless the caller holds `all-workspaces`.
 `sandboxed` is `true` when the caller's workspace is sandboxed (API 1.1). Your process runs
 outside every sandbox, so refuse such a caller anything the sandbox would have kept from it: the
 SSH extension gives it no host list and opens no session.
+
+`remote` is `{host, cwd}` when the shell in the calling pane last reported a folder on another
+machine (API 1.11): an ssh session whose shell sends OSC 7 with its host name. It is absent for a
+local pane, and it is what that shell said, nothing more: use `cwd` as a path to offer the human,
+and never take `host` as proof of where a connection goes.
+
+### Remote folders
+
+An extension that can reach files somewhere else (API 1.11) can show them in Files and the
+editor without pine knowing how it gets there. The built-in SSH extension does it over ssh.
+
+1. Call `ext.openFolder({workspaceId, host, path})` from a command the human ran. pine asks the
+   human and, on Open, shows the folder as its own section in Files, marked Remote with `host`.
+2. Answer `ext.files` (`ext.onFiles(handler)`):
+
+| `op` | You get | You return |
+|---|---|---|
+| `list` | `path` of a folder | `{ok: true, entries: [{name, dir}], truncated?}` |
+| `stat` | `path` | `{ok: true, kind: 'file' \| 'dir', version?}` |
+| `read` | `path` of a file | `{ok: true, content, version}`: UTF-8 text, at most 2 MiB |
+| `write` | `path`, `content`, `baseVersion` | `{ok: true, version}` |
+
+   A failure is `{ok: false, error}` with `error` one of `not-found`, `not-file`, `not-dir`,
+   `too-large`, `binary`, `changed`, `denied`, `outside`, `unavailable`, `failed`.
+3. Release what you hold when `folder.closed` arrives (`ext.onFolderClosed`). pine also drops
+   your folders when your process exits.
+
+`version` is your own token for a file's content (`[A-Za-z0-9._:-]`, at most 80 chars; a
+checksum or `mtime:size`). A `write` carries the version the editor read as `baseVersion`, or
+`new` for a file that did not exist, or `any` when the human chose to overwrite: refuse with
+`changed` when the file is no longer at `baseVersion`. pine polls `stat` for open files and
+compares versions to notice a change.
+
+pine keeps the confinement on its side and trusts neither you nor what you reach: only the
+window that owns the workspace may ask; a path must be absolute, normalized and inside `root`;
+a listing keeps at most 5000 plain names (no `/`, no control characters, 255 chars); content
+with a NUL byte is `binary`; anything malformed is `failed`. Check paths again yourself against
+whatever really resolves them (symlinks). A remote file never becomes a local path: it has no
+language server, no external editor, no "open with default app", and its pane is not restored.
+A scratch or sandboxed workspace has no remote folders.
 
 ### Results
 
@@ -1263,7 +1307,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 | `langpack-zh-hant` | Traditional Chinese (`zh-Hant`) for the interface, as a `contributes.languages` pack with no process. Its `zh-Hant.json` is generated at build time from `zhHant` in `src/renderer/i18n/dict.ts`, which stays typed against the English catalog so a missing string fails the typecheck |
 | `ports` | Per workspace, a `ports` workspace chip in the top bar: a plug with the number of TCP ports its terminals' processes listen on; click it for the list, click a port to open it in the browser pane. A foreground `ssh` shows as its host in the sidebar and as an `ssh` chip with `user@host` on its pane. Polls only while pine is focused. `pine ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `pine system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `pine system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |
-| `ssh` | The hosts of your ssh config and a session in a new terminal, with the system OpenSSH client. "SSH: Connect to Host…" and `pine ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>` take ssh's own spelling and nothing else (any other option is refused), resolve the target with `ssh -G`, and open `ssh … -- <host>` beside the caller with `ext.openTerminal`; a pane caller is asked first, with the exact command, the resolved `user@host:port` and the bastion hops. `pine ssh ls` lists the aliases (it reads `~/.ssh/config` and its `Include`s and runs nothing); `pine ssh show <host>` resolves one. A caller in a sandboxed workspace is refused. Bastions come from `ProxyJump` in your config or from `-J`; the `user@host` chip is the Ports extension's |
+| `ssh` | The hosts of your ssh config and a session in a new terminal, with the system OpenSSH client. "SSH: Connect to Host…" and `pine ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>` take ssh's own spelling and nothing else (any other option is refused), resolve the target with `ssh -G`, and open `ssh … -- <host>` beside the caller with `ext.openTerminal`; a pane caller is asked first, with the exact command, the resolved `user@host:port` and the bastion hops. `pine ssh ls` lists the aliases (it reads `~/.ssh/config` and its `Include`s and runs nothing); `pine ssh show <host>` resolves one. A caller in a sandboxed workspace is refused. Bastions come from `ProxyJump` in your config or from `-J`; the `user@host` chip is the Ports extension's. With the human's consent per host (a dialog naming the host and the exact path), it installs one readable POSIX shell script at `~/.pine/helper/<version>/helper.sh` there and talks to it over `ssh -T`: "SSH: Open Remote Folder", run from a session it opened, shows that session's current folder in Files through [Remote folders](#remote-folders). "SSH: Install Remote Helper on Host…" and "SSH: Remove Remote Helper…" are for the human only; `pine ssh helpers` lists the answers. The helper connects without a terminal, so the host must accept a key or an ssh agent. Setting `remoteHelper` (on by default) turns all of it off |
 | `assistant` | The assist points on the providers the human adds in Settings → Assistant: `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`, several at once, each with its own base URL, API key and models. Built on the AI SDK (`ai`, `@ai-sdk/openai-compatible`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, zod for structured answers). Every request names its provider and model; the engine checks per model whether tools are native or described in the prompt. A switch per feature (`typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `chat`, `explainError`) and a requests-per-minute limit are its own settings. Inert until a provider with a model exists. It has no panel: Settings → Assistant shows the models in use, each feature with its switch, model, readiness, shortcut and "Try it", and the providers; "Assistant: Chat" opens the chat pane |
 
 ### Marketplace extensions

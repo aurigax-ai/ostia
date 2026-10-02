@@ -29,6 +29,7 @@ import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
+import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
 import { shellArgv } from '../shared/terminalShell'
@@ -162,6 +163,8 @@ import { PtySession, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
 import { exitAfterDeadline, planQuit } from './quitPlan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
+import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
+import type { RemoteFolders } from './remoteFolders'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -1221,6 +1224,7 @@ function registerIpc(): void {
       removeWorkspace(event.workspaceId)
       processes?.workspaceClosed(event.workspaceId)
       extensionHost?.clearWorkspaceChips(event.workspaceId)
+      extensionHost?.remoteFolders?.workspaceClosed(event.workspaceId)
       scratchFolders.remove(event.workspaceId)
       forgetWorkspaceRequests(event.workspaceId)
       forgetSandboxRuntime(event.workspaceId)
@@ -1340,10 +1344,12 @@ function registerExtensionIpc(host: ExtensionHost): void {
     ): Promise<ExtensionResult> => {
       const paneId = target?.paneId ? getByPaneId(target.paneId)?.externalId : undefined
       const cwd = target?.paneId ? terminalState.get(target.paneId)?.cwd : undefined
+      const remote = target?.paneId ? remoteCwdOfPane(target.paneId) : undefined
       const caller = host.userCaller(target?.workspaceId ?? null, {
         capabilities: host.commandCapabilities(extId, command),
         ...(paneId ? { paneId } : {}),
         ...(cwd ? { cwd } : {}),
+        ...(remote ? { remote } : {}),
       })
       return host.invoke(extId, command, host.paletteArgs(extId, command, argument), caller)
     },
@@ -1354,6 +1360,34 @@ function registerExtensionIpc(host: ExtensionHost): void {
       locale: String(context?.locale ?? 'en'),
       ...(context?.path === undefined ? {} : { path: String(context.path) }),
     }),
+  )
+}
+
+function remoteCwdOfPane(paneId: string): RemoteCwd | undefined {
+  return normalizeRemoteCwd(terminalState.get(paneId)?.remote) ?? undefined
+}
+
+function publishRemoteFolders(folders: RemoteFolders): void {
+  for (const [windowId, win] of windows) {
+    if (win.isDestroyed()) continue
+    win.webContents.send('remote-files:folders-changed', folders.forWindow(windowId))
+  }
+}
+
+function registerRemoteFilesIpc(host: ExtensionHost): void {
+  const folders = host.remoteFolders
+  if (!folders) return
+  registerRemoteFolderConfirm()
+  const sender = (e: Electron.IpcMainInvokeEvent): string => String(e.sender.id)
+  ipcMain.handle('remote-files:folders', (e) => folders.forWindow(sender(e)))
+  ipcMain.handle('remote-files:close', (e, folderId: unknown) =>
+    folders.closeByWindow(sender(e), folderId),
+  )
+  ipcMain.handle('remote-files:list', (e, path: unknown) => folders.list(sender(e), path))
+  ipcMain.handle('remote-files:stat', (e, path: unknown) => folders.stat(sender(e), path))
+  ipcMain.handle('remote-files:read', (e, path: unknown) => folders.read(sender(e), path))
+  ipcMain.handle('remote-files:write', (e, path: unknown, content: unknown, baseVersion: unknown) =>
+    folders.write(sender(e), path, content, baseVersion),
   )
 }
 
@@ -2540,6 +2574,23 @@ app.whenReady().then(() => {
     dataDir: join(app.getPath('userData'), 'extension-data'),
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
+    remoteCwdForPane: remoteCwdOfPane,
+    remoteFolders: {
+      windowOfWorkspace: workspaceWindowId,
+      refusal: (workspaceId) =>
+        scratchFolders.isScratch(workspaceId)
+          ? 'scratch'
+          : workspaceSandboxes.isEnabled(workspaceId)
+            ? 'sandboxed'
+            : null,
+      confirm: (req) =>
+        confirmRemoteFolder(windows.get(workspaceWindowId(req.workspaceId) ?? ''), {
+          extName: req.extName,
+          host: req.host,
+          path: req.path,
+        }),
+      publish: publishRemoteFolders,
+    },
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
     readAssistSettings: readSettingsFileOrNull,
@@ -2562,6 +2613,7 @@ app.whenReady().then(() => {
   refreshAgentPlugins()
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
+  registerRemoteFilesIpc(extensionHost)
   ipcMain.on(AGENT_OFFER_RESULT_CHANNEL, (e, requestId: unknown, paneId: unknown) =>
     agentOffers.answer(String(e.sender.id), requestId, paneId),
   )

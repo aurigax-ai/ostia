@@ -1,8 +1,15 @@
-import { CaretRightIcon, EyeIcon, SlidersHorizontalIcon, XIcon } from '@phosphor-icons/react'
+import {
+  ArrowClockwiseIcon,
+  CaretRightIcon,
+  EyeIcon,
+  SlidersHorizontalIcon,
+  XIcon,
+} from '@phosphor-icons/react'
 import { BUILTIN_ICON_THEME, type LoadedIconTheme } from '@shared/iconTheme'
+import { type RemoteFileError, type RemoteFolder, remotePath } from '@shared/remoteFolders'
 import type { FsEntry } from '@shared/types'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { useDict } from '../i18n/useDict'
+import { fmt, useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
 import { PINE_PATH_MIME } from '../lib/dropPaths'
 import {
@@ -22,6 +29,7 @@ import { useEffectiveTheme } from '../lib/theme'
 import type { FileSortBy, FileSortOrder, FileTreeSettings } from '../settings/fileTreeSettings'
 import { useActiveIconTheme, useAvailableIconThemes } from '../stores/iconThemeStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useRemoteFoldersStore } from '../stores/remoteFoldersStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -37,6 +45,7 @@ import {
   MenuSubTrigger,
 } from './Menu'
 import { fileIcon } from './fileIcon'
+import { Badge } from './ui/badge'
 import {
   ContextMenuGroup,
   ContextMenuRadioGroup,
@@ -51,9 +60,14 @@ interface TreeFocus {
   activeFile: string | null
 }
 
+type ListFiles = (path: string) => Promise<FsEntry[]>
+
 interface TreeContext {
   focus: TreeFocus
   root: string
+  remote: boolean
+  list: ListFiles
+  emptyText: string
   settings: FileTreeSettings
   isExcluded: ExcludeMatcher
   nest: (entries: FsEntry[]) => NestedEntry[]
@@ -85,11 +99,28 @@ function setExcluded(path: string, hidden: boolean): void {
   setFiles({ exclude })
 }
 
-function useTreeContext(focus: TreeFocus): TreeContext {
+class RemoteListError extends Error {
+  constructor(readonly code: RemoteFileError) {
+    super(code)
+  }
+}
+
+const listLocal: ListFiles = (path) => window.pine.fs.list(path)
+
+const listRemote: ListFiles = async (path) => {
+  const listing = await window.pine.remoteFiles.list(path)
+  if (!listing.ok) throw new RemoteListError(listing.error)
+  return listing.entries
+}
+
+function useTreeContext(focus: TreeFocus, remoteRoot?: string): TreeContext {
+  const d = useDict()
   const settings = useSettingsStore((s) => s.files)
   const iconTheme = useActiveIconTheme()
   const appearance = useEffectiveTheme()?.appearance
-  const root = focus.cwd
+  const root = remoteRoot ?? focus.cwd
+  const remote = remoteRoot !== undefined
+  const emptyText = remote ? d.remoteFolders.empty : d.rail.noFolder
   return useMemo(() => {
     const isExcluded = excludeMatcher(settings.exclude)
     const rules = settings.nesting.enabled ? nestingRules(settings.nesting.patterns) : []
@@ -104,6 +135,9 @@ function useTreeContext(focus: TreeFocus): TreeContext {
     return {
       focus,
       root,
+      remote,
+      list: remote ? listRemote : listLocal,
+      emptyText,
       settings,
       isExcluded,
       nest: (entries) => nestEntries(entries, rules),
@@ -112,7 +146,7 @@ function useTreeContext(focus: TreeFocus): TreeContext {
       variant: appearance === 'light' ? 'light' : 'dark',
       setExcluded,
     }
-  }, [focus, root, settings, iconTheme, appearance])
+  }, [focus, root, remote, emptyText, settings, iconTheme, appearance])
 }
 
 export function FilesView(): JSX.Element {
@@ -125,6 +159,32 @@ export function FilesView(): JSX.Element {
   )
   const tree = useTreeContext(stableFocus)
   const segments = cwd.split('/').filter(Boolean)
+  const allFolders = useRemoteFoldersStore((s) => s.folders)
+  const folders = useMemo(
+    () => allFolders.filter((folder) => folder.workspaceId === workspaceId),
+    [allFolders, workspaceId],
+  )
+
+  const local = (
+    <>
+      <Hint label={cwd} side="bottom">
+        <div className="files-crumb">
+          {segments.map((seg, i) => (
+            <span
+              key={segments.slice(0, i + 1).join('/')}
+              className={`crumb${i === segments.length - 1 ? ' current' : ''}`}
+            >
+              {i > 0 ? <CaretRightIcon size={12} className="crumb-sep" /> : null}
+              {seg}
+            </span>
+          ))}
+        </div>
+      </Hint>
+      <div className="file-tree">
+        <Dir key={cwd} path={cwd} depth={0} tree={tree} />
+      </div>
+    </>
+  )
 
   return (
     <>
@@ -147,22 +207,17 @@ export function FilesView(): JSX.Element {
           />
         </div>
       </div>
-      <Hint label={cwd} side="bottom">
-        <div className="files-crumb">
-          {segments.map((seg, i) => (
-            <span
-              key={segments.slice(0, i + 1).join('/')}
-              className={`crumb${i === segments.length - 1 ? ' current' : ''}`}
-            >
-              {i > 0 ? <CaretRightIcon size={12} className="crumb-sep" /> : null}
-              {seg}
-            </span>
+      {folders.length === 0 ? (
+        local
+      ) : (
+        <div className="files-scroll">
+          {folders.map((folder) => (
+            <RemoteFolderSection key={folder.id} folder={folder} focus={stableFocus} />
           ))}
+          <div className="rail-section files-local-head">{d.remoteFolders.local}</div>
+          {local}
         </div>
-      </Hint>
-      <div className="file-tree">
-        <Dir key={cwd} path={cwd} depth={0} tree={tree} />
-      </div>
+      )}
     </>
   )
 }
@@ -237,18 +292,89 @@ function ViewOptionsMenu({ settings }: { settings: FileTreeSettings }): JSX.Elem
   )
 }
 
-function useListing(path: string): FsEntry[] | null {
-  const [entries, setEntries] = useState<FsEntry[] | null>(null)
+type DirListing = { entries: FsEntry[] } | { error: RemoteFileError }
+
+function listingError(err: unknown): RemoteFileError {
+  return err instanceof RemoteListError ? err.code : 'failed'
+}
+
+function useListing(path: string, list: ListFiles): DirListing | null {
+  const [listing, setListing] = useState<DirListing | null>(null)
   useEffect(() => {
     let alive = true
-    window.pine.fs.list(path).then((list) => {
-      if (alive) setEntries(list)
-    })
+    list(path).then(
+      (entries) => {
+        if (alive) setListing({ entries })
+      },
+      (err: unknown) => {
+        if (alive) setListing({ error: listingError(err) })
+      },
+    )
     return () => {
       alive = false
     }
-  }, [path])
-  return entries
+  }, [path, list])
+  return listing
+}
+
+function ListingError({ error, depth }: { error: RemoteFileError; depth: number }): JSX.Element {
+  const d = useDict()
+  return (
+    <div className="file-error" style={{ paddingLeft: 8 + depth * 13 }} role="alert">
+      {d.remoteFolders.errors[error]}
+    </div>
+  )
+}
+
+function RemoteFolderSection({
+  folder,
+  focus,
+}: {
+  folder: RemoteFolder
+  focus: TreeFocus
+}): JSX.Element {
+  const d = useDict()
+  const [open, setOpen] = useState(true)
+  const [generation, setGeneration] = useState(0)
+  const root = remotePath(folder.id, folder.root)
+  const tree = useTreeContext(focus, root)
+  return (
+    <section className="remote-folder" data-testid="remote-folder" data-host={folder.host}>
+      <div className="remote-folder-head">
+        <button
+          type="button"
+          className="remote-folder-toggle"
+          aria-expanded={open}
+          aria-label={fmt(d.remoteFolders.collapse, { host: folder.host })}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <CaretRightIcon size={12} className={`file-twisty${open ? ' open' : ''}`} />
+          <Badge variant="outline" className="remote-folder-badge">
+            {d.remoteFolders.badge}
+          </Badge>
+          <span className="remote-folder-host">{folder.host}</span>
+        </button>
+        <IconButton
+          icon={ArrowClockwiseIcon}
+          label={d.remoteFolders.refresh}
+          onClick={() => setGeneration((g) => g + 1)}
+        />
+        <IconButton
+          icon={XIcon}
+          label={d.remoteFolders.close}
+          onClick={() => void window.pine.remoteFiles.close(folder.id)}
+        />
+      </div>
+      <Hint label={`${folder.host}:${folder.root}`} side="bottom">
+        <div className="remote-folder-path">{folder.root}</div>
+      </Hint>
+      {open ? (
+        <div className="file-tree remote-folder-tree">
+          <Dir key={`${root}#${generation}`} path={root} depth={0} tree={tree} />
+        </div>
+      ) : null}
+    </section>
+  )
 }
 
 function Dir({
@@ -260,9 +386,10 @@ function Dir({
   depth: number
   tree: TreeContext
 }): JSX.Element | null {
-  const entries = useListing(path)
-  if (entries === null) return null
-  return <Listing entries={entries} path={path} depth={depth} tree={tree} />
+  const listing = useListing(path, tree.list)
+  if (listing === null) return null
+  if ('error' in listing) return <ListingError error={listing.error} depth={depth} />
+  return <Listing entries={listing.entries} path={path} depth={depth} tree={tree} />
 }
 
 function Listing({
@@ -276,12 +403,11 @@ function Listing({
   depth: number
   tree: TreeContext
 }): JSX.Element | null {
-  const d = useDict()
   const items = tree.nest(tree.visible(entries, path))
   if (items.length === 0) {
     return depth === 0 ? (
       <Empty className="px-3 py-6">
-        <EmptyDescription className="text-ui-sm">{d.rail.noFolder}</EmptyDescription>
+        <EmptyDescription className="text-ui-sm">{tree.emptyText}</EmptyDescription>
       </Empty>
     ) : null
   }
@@ -342,7 +468,7 @@ function RowShell({
   tree: TreeContext
 }): JSX.Element {
   const workspaceId = tree.focus.workspaceId
-  if (!workspaceId) return row
+  if (!workspaceId || tree.remote) return row
   return (
     <FileMenu
       workspaceId={workspaceId}
@@ -369,23 +495,30 @@ function rowClass(active: boolean, excluded: boolean): string {
   return `file-row${active ? ' active' : ''}${excluded ? ' excluded' : ''}`
 }
 
-function useCompactChain(fullPath: string, open: boolean, tree: TreeContext): CompactChain | null {
-  const [chain, setChain] = useState<CompactChain | null>(null)
+type ChainState = CompactChain | { error: RemoteFileError }
+
+function useCompactChain(fullPath: string, open: boolean, tree: TreeContext): ChainState | null {
+  const [chain, setChain] = useState<ChainState | null>(null)
   const compact = tree.settings.compactFolders
-  const { visible } = tree
+  const { visible, list } = tree
   useEffect(() => {
     if (!open) return
     let alive = true
     const resolve = compact
-      ? compactChain(fullPath, window.pine.fs.list, visible)
-      : window.pine.fs.list(fullPath).then((entries) => ({ names: [], path: fullPath, entries }))
-    void resolve.then((next) => {
-      if (alive) setChain(next)
-    })
+      ? compactChain(fullPath, list, visible)
+      : list(fullPath).then((entries) => ({ names: [], path: fullPath, entries }))
+    resolve.then(
+      (next) => {
+        if (alive) setChain(next)
+      },
+      (err: unknown) => {
+        if (alive) setChain({ error: listingError(err) })
+      },
+    )
     return () => {
       alive = false
     }
-  }, [fullPath, open, compact, visible])
+  }, [fullPath, open, compact, visible, list])
   return chain
 }
 
@@ -402,7 +535,9 @@ function DirRow({
 }): JSX.Element {
   const [open, setOpen] = useState(false)
   const fullPath = childPath(path, entry.name)
-  const chain = useCompactChain(fullPath, open, tree)
+  const resolved = useCompactChain(fullPath, open, tree)
+  const failed = resolved && 'error' in resolved ? resolved.error : null
+  const chain = resolved && !('error' in resolved) ? resolved : null
   const names = chain ? [entry.name, ...chain.names] : [entry.name]
   const last = names[names.length - 1]
   const excluded = tree.settings.showExcluded && tree.isExcluded(fullPath, tree.root)
@@ -435,6 +570,7 @@ function DirRow({
       {open && chain ? (
         <Listing entries={chain.entries} path={chain.path} depth={depth + 1} tree={tree} />
       ) : null}
+      {open && failed ? <ListingError error={failed} depth={depth + 1} /> : null}
     </>
   )
 }
@@ -473,8 +609,12 @@ function FileRow({
     <button
       ref={rowRef}
       type="button"
-      draggable
+      draggable={!tree.remote}
       onDragStart={(e) => {
+        if (tree.remote) {
+          e.preventDefault()
+          return
+        }
         e.dataTransfer.setData(PINE_PATH_MIME, fullPath)
         e.dataTransfer.setData('text/plain', fullPath)
         e.dataTransfer.effectAllowed = 'copy'

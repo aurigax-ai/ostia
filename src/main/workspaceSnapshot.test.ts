@@ -94,6 +94,30 @@ describe('parseSnapshot', () => {
     })
   })
 
+  it('SSH-C64 never restores a remote file path', () => {
+    const [base] = snap().workspaces
+    const remote = {
+      type: 'pane',
+      id: 'pane-2',
+      title: 'app.conf',
+      kind: 'editor',
+      filePath: 'remote://abcdef012345/srv/app/app.conf',
+    }
+    const parsed = parseSnapshot({
+      ...snap(),
+      workspaces: [
+        { ...base, root: { ...split('pane-1', 'pane-3'), children: [base.root, remote] } },
+      ],
+    })
+    const root = parsed?.workspaces[0].root as { children: unknown[] }
+    expect(root.children[1]).toEqual({
+      type: 'pane',
+      id: 'pane-2',
+      title: 'app.conf',
+      kind: 'editor',
+    })
+  })
+
   it('rejects a snapshot written by a different schema version', () => {
     expect(parseSnapshot({ ...snap(), v: 2 })).toBeNull()
   })

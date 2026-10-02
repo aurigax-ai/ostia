@@ -10,7 +10,7 @@ import {
 } from '../sdk'
 import { connectConfirm } from './confirm'
 import { ALIAS_PATTERN, type HostList } from './hosts'
-import { planConnect, withShellIntegration } from './plan'
+import { type ConnectPlan, planConnect, withShellIntegration } from './plan'
 import { CONNECT_USAGE, SHOW_USAGE, type Strings, stringsFor } from './strings'
 import { type Resolved, type RunSsh, resolveTarget } from './target'
 
@@ -20,6 +20,7 @@ export interface SshDeps {
   confirm: (req: ConfirmRequest) => Promise<boolean>
   openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
   shellIntegration: () => Promise<boolean>
+  sessionOpened?: (paneId: string, plan: ConnectPlan) => void
 }
 
 type Unresolved = Exclude<Resolved, { ok: true }>
@@ -94,6 +95,7 @@ export function sshCommands(deps: SshDeps): Record<'ls' | 'show' | 'connect', Co
           data: { approved: true, command, shellIntegration },
         }
       }
+      deps.sessionOpened?.(opened.paneId, planned)
       return ok(undefined, { approved: true, command, shellIntegration, paneId: opened.paneId })
     },
   }
