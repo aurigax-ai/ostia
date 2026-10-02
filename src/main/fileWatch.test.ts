@@ -212,22 +212,25 @@ describe('FileWatches', () => {
     expect(changes.map((c) => c.path)).toEqual([file])
   })
 
-  it.runIf(onLinux)('holds one kernel watch per folder, never polls, and releases it', async () => {
-    const { root, changes, watches } = setup()
-    const base = tempDir('pine-fwatch-base-')
-    const file = join(root, 'a.txt')
-    writeFileSync(file, 'one')
-    writeFileSync(join(root, 'b.txt'), 'one')
-    watches.watch('win-1', file)
-    watches.watch('win-1', join(root, 'b.txt'))
-    expect(kernelWatchesOn([root])).toBe(1)
-    expect(kernelWatchesOn([file, base, tmpdir()])).toBe(0)
-    writeFileSync(file, 'two')
-    await until(() => changes.find((c) => c.path === file))
-    watches.closeAll()
-    expect(watches.watchedDirs()).toEqual([])
-    expect(kernelWatchesOn([root])).toBe(0)
-  })
+  it.skipIf(!onLinux)(
+    'holds one kernel watch per folder, never polls, and releases it (Linux only: inotify watch counts)',
+    async () => {
+      const { root, changes, watches } = setup()
+      const base = tempDir('pine-fwatch-base-')
+      const file = join(root, 'a.txt')
+      writeFileSync(file, 'one')
+      writeFileSync(join(root, 'b.txt'), 'one')
+      watches.watch('win-1', file)
+      watches.watch('win-1', join(root, 'b.txt'))
+      expect(kernelWatchesOn([root])).toBe(1)
+      expect(kernelWatchesOn([file, base, tmpdir()])).toBe(0)
+      writeFileSync(file, 'two')
+      await until(() => changes.find((c) => c.path === file))
+      watches.closeAll()
+      expect(watches.watchedDirs()).toEqual([])
+      expect(kernelWatchesOn([root])).toBe(0)
+    },
+  )
 
   it('reports a watched file as gone when its folder vanishes, and nothing from the folder above', async () => {
     const { root, changes, watches } = setup()
@@ -395,8 +398,8 @@ describe('TreeWatches', () => {
     expect(watches.watchedDirs(root)).toEqual([root, join(root, 'src'), join(root, 'src', 'deep')])
   })
 
-  it.runIf(onLinux)(
-    'holds one kernel watch per watched folder and none on skipped, linked or outside folders',
+  it.skipIf(!onLinux)(
+    'holds one kernel watch per watched folder and none on skipped, linked or outside folders (Linux only: inotify watch counts)',
     async () => {
       const { base, root, watches, listen } = tree()
       const outside = tempDir('pine-twatch-out-')

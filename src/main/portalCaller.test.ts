@@ -152,8 +152,8 @@ describe('callerVerdict (real socket, real ss)', () => {
   const verdictFor = (socket: Socket, mainPid: number) =>
     callerVerdict(socket, { mainPid, paneTtys: new Set(), proc: procFs })
 
-  it.runIf(process.platform === 'linux')(
-    'MGR-C11 judges a child of the main pid as inside and the same child as outside for another main',
+  it.skipIf(process.platform !== 'linux')(
+    'MGR-C11 (Linux only: /proc and ss) judges a child of the main pid as inside and the same child as outside for another main',
     async () => {
       if ((await listUnixSockets()) === null) return
       const path = await listen()
@@ -176,20 +176,23 @@ describe('callerVerdict (real socket, real ss)', () => {
     },
   )
 
-  it.runIf(process.platform === 'linux')('MGR-C14 is unknown when ss cannot run', async () => {
-    const path = await listen()
-    const accepted = nextConnection()
-    const client = createConnection(path)
-    try {
-      const socket = await accepted
-      const verdict = await callerVerdict(
-        socket,
-        { mainPid: process.pid, paneTtys: new Set(), proc: procFs },
-        async () => null,
-      )
-      expect(verdict).toBe('unknown')
-    } finally {
-      client.destroy()
-    }
-  })
+  it.skipIf(process.platform !== 'linux')(
+    'MGR-C14 (Linux only: ss) is unknown when ss cannot run',
+    async () => {
+      const path = await listen()
+      const accepted = nextConnection()
+      const client = createConnection(path)
+      try {
+        const socket = await accepted
+        const verdict = await callerVerdict(
+          socket,
+          { mainPid: process.pid, paneTtys: new Set(), proc: procFs },
+          async () => null,
+        )
+        expect(verdict).toBe('unknown')
+      } finally {
+        client.destroy()
+      }
+    },
+  )
 })

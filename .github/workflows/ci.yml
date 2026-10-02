@@ -5,6 +5,7 @@ on:
   push:
     branches: [main]
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -111,6 +112,73 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: blob-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 3
+
+  unit-macos:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          brew install ripgrep
+          zsh -fc 'autoload -U compaudit; compaudit' | xargs chmod go-w
+          git config --global user.name 'Pine CI'
+          git config --global user.email 'ci@pine.invalid'
+      - uses: ./.github/actions/setup
+      - run: pnpm rebuild
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  build-macos:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm rebuild
+      - run: pnpm build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: out-macos
+          path: out
+          retention-days: 3
+
+  e2e-macos:
+    needs: build-macos
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: keys
+            specs: e2e/keybindings.spec.ts e2e/clipboard-surfaces.spec.ts e2e/clipboard-keys.spec.ts e2e/settings-gap.spec.ts e2e/tray.spec.ts
+          - group: terminal
+            specs: e2e/terminal-basics.spec.ts e2e/blocks.spec.ts e2e/input-editor.spec.ts
+          - group: sandbox
+            specs: e2e/sandbox.spec.ts
+          - group: ssh
+            specs: e2e/ssh.spec.ts e2e/ssh-remote-files.spec.ts
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          brew install ripgrep
+          zsh -fc 'autoload -U compaudit; compaudit' | xargs chmod go-w
+          git config --global user.name 'Pine CI'
+          git config --global user.email 'ci@pine.invalid'
+      - uses: ./.github/actions/setup
+      - run: pnpm rebuild
+      - uses: actions/download-artifact@v8
+        with:
+          name: out-macos
+          path: out
+      - run: pnpm test:e2e ${{ matrix.specs }}
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: blob-macos-${{ matrix.group }}
           path: blob-report
           retention-days: 3
 
