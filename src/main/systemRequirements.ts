@@ -1,5 +1,4 @@
 import { constants, accessSync, statSync } from 'node:fs'
-import { join } from 'node:path'
 import { findOnPath } from '../shared/pathLookup'
 import { MANAGER_FEATURE } from '../shared/managerSettings'
 import { MARKETPLACE_FEATURE } from '../shared/marketplace'

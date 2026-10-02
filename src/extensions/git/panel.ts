@@ -17,6 +17,7 @@ import tag from '@phosphor-icons/core/regular/tag.svg'
 import treeStructure from '@phosphor-icons/core/regular/tree-structure.svg'
 import xIcon from '@phosphor-icons/core/regular/x.svg'
 import type { ExtensionResult } from '../../shared/extensions'
+import { formatRelativeTime } from '../../shared/relativeTime'
 import {
   call,
   context,
@@ -276,22 +277,17 @@ const collapsed = new Set<string>()
 const details = new Map<string, CommitFilesData | 'loading' | ExtensionResult>()
 let detailTimer: ReturnType<typeof setTimeout> | null = null
 
-const relative = new Intl.RelativeTimeFormat(context.locale, { numeric: 'auto' })
-const RELATIVE_STEPS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ['year', 31_536_000],
-  ['month', 2_592_000],
-  ['week', 604_800],
-  ['day', 86_400],
-  ['hour', 3_600],
-  ['minute', 60],
+const GIT_RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['year', 31_536_000_000],
+  ['month', 2_592_000_000],
+  ['week', 604_800_000],
+  ['day', 86_400_000],
+  ['hour', 3_600_000],
+  ['minute', 60_000],
 ]
 
 function relativeTime(seconds: number): string {
-  const diff = seconds - Date.now() / 1000
-  for (const [unit, size] of RELATIVE_STEPS) {
-    if (Math.abs(diff) >= size) return relative.format(Math.round(diff / size), unit)
-  }
-  return relative.format(Math.round(diff), 'second')
+  return formatRelativeTime(seconds * 1000, Date.now(), context.locale, GIT_RELATIVE_UNITS)
 }
 
 function absoluteTime(seconds: number): string {
