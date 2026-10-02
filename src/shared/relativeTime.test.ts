@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_UNITS, formatRelativeTime } from './relativeTime'
+import { formatRelativeTime } from './relativeTime'
 
 describe('formatRelativeTime', () => {
   const locale = 'en'

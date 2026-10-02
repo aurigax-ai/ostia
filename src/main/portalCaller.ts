@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { fstatSync, readFileSync } from 'node:fs'
 import type { Socket } from 'node:net'
-import { parseProcStat as parseProcStatShared, type ProcStat as ProcStatShared } from '../shared/procfs'
+import { parseProcStat as parseProcStatShared } from '../shared/procfs'
 
 export type CallerVerdict = 'outside' | 'inside' | 'unknown'
 
