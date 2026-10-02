@@ -64,8 +64,17 @@ export function reduceAttention(prev: PaneAttention, event: AttentionEvent): Pan
   }
 }
 
-export function needsRing(a: PaneAttention | undefined): boolean {
+export function needsYou(a: PaneAttention | undefined): boolean {
   return !!a?.unread && (a.state === 'waiting' || a.state === 'error')
+}
+
+export type TabMark = 'waiting' | 'error' | 'done' | 'unread'
+
+export function tabMark(a: PaneAttention | undefined): TabMark | null {
+  if (!a) return null
+  if (a.state === 'waiting') return 'waiting'
+  if (!a.unread) return null
+  return a.state === 'error' || a.state === 'done' ? a.state : 'unread'
 }
 
 export function paneLiveState(a: PaneAttention | undefined, running: boolean): WorkspaceLiveState {

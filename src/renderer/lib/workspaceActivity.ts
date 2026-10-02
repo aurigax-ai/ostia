@@ -12,6 +12,7 @@ import {
   latestUnread,
   paneLiveState,
 } from './attention'
+import { isPanePointedAt, pointAtPane } from './pointerView'
 import { globalWorkspaceOrder, latestRemoteUnread } from './windowWorkspaces'
 
 export const NOTIFY_AFTER_MS = 10_000
@@ -39,10 +40,18 @@ export function isPaneVisible(paneId: string): boolean {
 
 export function isPaneViewed(paneId: string): boolean {
   if (!document.hasFocus() || !isPaneVisible(paneId)) return false
+  if (isPanePointedAt(paneId, Date.now())) return true
   const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
   return (
     !!workspaceId && useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId === paneId
   )
+}
+
+export function viewPointedPane(paneId: string): void {
+  pointAtPane(paneId, Date.now())
+  if (!useAttentionStore.getState().byPane[paneId]?.unread) return
+  if (!document.hasFocus() || !isPaneVisible(paneId)) return
+  useAttentionStore.getState().dispatch(paneId, { type: 'view', at: Date.now() })
 }
 
 export function signalPane(paneId: string, event: AttentionEvent): void {

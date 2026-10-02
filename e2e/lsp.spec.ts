@@ -507,10 +507,9 @@ test('folding, code lens, pulled diagnostics, watched files and workspace symbol
     await expect(palette.getByRole('option')).toHaveCount(1)
     await symbol.click()
     await expect(palette).toBeHidden()
-    await expect(win.locator('.monaco-editor:visible').first().locator('.view-lines')).toContainText(
-      'fn gamma here',
-      { timeout: 15_000 },
-    )
+    await expect(
+      win.locator('.monaco-editor:visible').first().locator('.view-lines'),
+    ).toContainText('fn gamma here', { timeout: 15_000 })
   } finally {
     await app.close()
   }
