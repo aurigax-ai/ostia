@@ -124,97 +124,104 @@ describe('sidebar unread badge', () => {
   })
 })
 
-describe('pane attention ring', () => {
-  it('rings a pane that is waiting unread and shows its message, then clears when viewed', () => {
+describe('pane tab attention mark', () => {
+  const setup = () => {
     const { workspaceId, a } = twoPanes()
-    const { container } = render(
-      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
-    )
-    const frame = container.querySelector('.pane')
-    expect(frame).not.toHaveClass('attn-ring')
+    const view = render(<Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />)
+    const frame = view.container.querySelector('.pane') as HTMLElement
+    const tab = view.container.querySelector('.pane-tab') as HTMLElement
+    const blinking = () => view.container.querySelector('.pane-kind-blink')
+    return { ...view, workspaceId, a, frame, tab, blinking }
+  }
 
+  it('never draws a border around the pane for a waiting agent', () => {
+    const { a, container } = setup()
     signal(a, 'build finished', 1)
-    expect(frame).toHaveClass('attn-ring')
-    expect(screen.getByRole('img', { name: 'Needs attention' })).toBeInTheDocument()
-    expect(screen.getByText('build finished')).toBeInTheDocument()
-
-    act(() => useAttentionStore.getState().dispatch(a, { type: 'view', at: 2 }))
-    expect(frame).not.toHaveClass('attn-ring')
-    expect(screen.queryByText('build finished')).toBeNull()
+    expect(container.querySelector('.pane-attn-ring')).toBeNull()
   })
 
-  it('clears the ring when the pointer moves over a pane that is not the active one', () => {
+  it('marks the tab on the left of its icon and blinks the icon while a waiting signal is unread', () => {
+    const { a, tab, blinking } = setup()
+    expect(tab.querySelector('.pane-attn-mark')).toBeNull()
+    expect(blinking()).toBeNull()
+
+    signal(a, 'build finished', 1)
+    const mark = tab.querySelector('.pane-attn-mark') as HTMLElement
+    const icon = tab.querySelector('.pane-kind') as Element
+    expect(tab).toHaveAttribute('data-attention', 'waiting')
+    expect(mark).toHaveAccessibleName('Needs attention')
+    expect(mark.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(blinking()).toBe(icon)
+    expect(screen.getByText('build finished')).toBeInTheDocument()
+  })
+
+  it('keeps the mark while the agent still waits after the pane was viewed, without the blink', () => {
+    const { a, tab, blinking } = setup()
+    signal(a, 'build finished', 1)
+
+    act(() => useAttentionStore.getState().dispatch(a, { type: 'view', at: 2 }))
+    expect(tab.querySelector('.pane-attn-mark')).not.toBeNull()
+    expect(blinking()).toBeNull()
+    expect(screen.queryByText('build finished')).toBeNull()
+
+    act(() => useAttentionStore.getState().dispatch(a, { type: 'input', at: 3 }))
+    expect(tab.querySelector('.pane-attn-mark')).toBeNull()
+  })
+
+  it('stops the blink when the pointer moves over a pane that is not the active one', () => {
     vi.spyOn(document, 'hasFocus').mockReturnValue(true)
-    const { workspaceId, a } = twoPanes()
-    const { container } = render(
-      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
-    )
-    const frame = container.querySelector('.pane') as HTMLElement
+    const { a, frame, blinking } = setup()
     signal(a, 'needs you', 1)
-    expect(frame).toHaveClass('attn-ring')
+    expect(blinking()).not.toBeNull()
 
     fireEvent.mouseEnter(frame)
-    expect(frame).not.toHaveClass('attn-ring')
+    expect(blinking()).toBeNull()
     expect(useAttentionStore.getState().byPane[a]?.state).toBe('waiting')
   })
 
-  it('does not ring a pane under the pointer, and rings again once the pointer left', () => {
+  it('does not blink a pane under the pointer, and blinks again once the pointer left', () => {
     vi.spyOn(document, 'hasFocus').mockReturnValue(true)
-    const { workspaceId, a } = twoPanes()
-    const { container } = render(
-      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
-    )
-    const frame = container.querySelector('.pane') as HTMLElement
+    const { a, frame, blinking } = setup()
     const waiting = (message: string, at: number) =>
       act(() => signalPane(a, { type: 'notify', message, waiting: true, at }))
 
     fireEvent.mouseMove(frame)
     waiting('first', 1)
-    expect(frame).not.toHaveClass('attn-ring')
+    expect(blinking()).toBeNull()
 
     fireEvent.mouseLeave(frame)
     waiting('second', 2)
-    expect(frame).toHaveClass('attn-ring')
+    expect(blinking()).not.toBeNull()
   })
 
-  it('keeps the ring while the window is not focused, even with the pointer over the pane', () => {
-    const { workspaceId, a } = twoPanes()
-    const { container } = render(
-      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
-    )
-    const frame = container.querySelector('.pane') as HTMLElement
+  it('keeps blinking while the window is not focused, even with the pointer over the pane', () => {
+    const { a, frame, blinking } = setup()
     signal(a, 'needs you', 1)
 
     fireEvent.mouseEnter(frame)
-    expect(frame).toHaveClass('attn-ring')
+    expect(blinking()).not.toBeNull()
   })
 
-  it('replays the ring pulse for a new signal but not for unrelated re-renders', () => {
-    const { workspaceId, a } = twoPanes()
-    const { container, rerender } = render(
-      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
-    )
+  it('replays the blink for a new signal but not for unrelated re-renders', () => {
+    const { workspaceId, a, rerender, blinking } = setup()
     signal(a, 'first', 1)
-    const pulse = container.querySelector('.pane-attn-pulse')
-    expect(pulse).not.toBeNull()
+    const icon = blinking()
+    expect(icon).not.toBeNull()
 
     rerender(<Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active />)
-    expect(container.querySelector('.pane-attn-pulse')).toBe(pulse)
+    expect(blinking()).toBe(icon)
 
     signal(a, 'second', 2)
-    expect(container.querySelector('.pane-attn-pulse')).not.toBe(pulse)
-    expect(container.querySelectorAll('.pane-attn-ring')).toHaveLength(1)
+    expect(blinking()).not.toBeNull()
+    expect(blinking()).not.toBe(icon)
   })
 
-  it('gives a done unread pane a quiet marker instead of the ring', () => {
-    const { workspaceId, a } = twoPanes()
-    const { container } = render(
-      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />,
-    )
+  it('gives a done unread pane a quiet mark and no blink', () => {
+    const { a, frame, tab, blinking } = setup()
     act(() => useAttentionStore.getState().dispatch(a, { type: 'set', state: 'done', at: 1 }))
-    const frame = container.querySelector('.pane')
-    expect(frame).not.toHaveClass('attn-ring')
+    expect(blinking()).toBeNull()
     expect(frame).toHaveAttribute('data-attention', 'done')
+    expect(tab).toHaveAttribute('data-attention', 'done')
     expect(screen.getByRole('img', { name: 'Unread' })).toBeInTheDocument()
   })
 })
