@@ -3,6 +3,7 @@ import type { BrowserProfile } from '@shared/browserProfile'
 import type { DiffContent } from '@shared/extensions'
 import type { PanePlacement } from '@shared/types'
 import { create } from 'zustand'
+import { currentDict } from '../i18n/useDict'
 import { panelKey, sizePanel } from '../layout/panelSize'
 import {
   type DropZone,
@@ -10,6 +11,7 @@ import {
   allPanes,
   closePane,
   createPane,
+  createTerminalPane,
   equalizeSizes,
   findExtensionPane,
   findPane,
@@ -24,6 +26,8 @@ import {
   moveTab,
   paneIds,
   selectTab,
+  setDefaultPaneTitle,
+  setDefaultPaneTitles,
   setPaneBrowser,
   setPaneChat,
   setPaneCwd,
@@ -81,6 +85,7 @@ interface LayoutState {
   setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
   isLocked: (workspaceId: string, paneId?: string) => boolean
   setTitle: (workspaceId: string, paneId: string, title: string) => void
+  setDefaultTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
   openFileTab: (workspaceId: string, path: string, paneId?: string) => void
   openFileBeside: (workspaceId: string, path: string) => void
@@ -147,10 +152,18 @@ function patch(
   }
 }
 
+function neutralTerminalTitle(): string {
+  return currentDict().pane.terminalTitle
+}
+
+function newTerminalPane(cwd?: string): PaneNode {
+  return createTerminalPane(neutralTerminalTitle(), cwd)
+}
+
 function seedLayout(workspaceId: string, make: (pane: PaneNode) => LayoutNode): string | null {
   if (useLayoutStore.getState().byWorkspace[workspaceId]) return null
   if (!useWorkspacesStore.getState().workspaces.some((w) => w.id === workspaceId)) return null
-  const pane = createPane()
+  const pane = newTerminalPane()
   useLayoutStore.setState((s) => ({
     byWorkspace: { ...s.byWorkspace, [workspaceId]: layoutOf(make(pane)) },
   }))
@@ -214,7 +227,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     let createdPaneId: string | null = null
     set((s) => {
       if (s.byWorkspace[workspaceId]) return s
-      const root = createPane('terminal', undefined, workDirOf(workspaceId))
+      const root = newTerminalPane(workDirOf(workspaceId))
       createdPaneId = firstPaneId(root)
       return {
         byWorkspace: {
@@ -229,7 +242,15 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   hydrate: (layouts) => {
-    set({ byWorkspace: { ...layouts } })
+    const title = neutralTerminalTitle()
+    set({
+      byWorkspace: Object.fromEntries(
+        Object.entries(layouts).map(([workspaceId, layout]) => [
+          workspaceId,
+          { ...layout, root: setDefaultPaneTitles(layout.root, title) },
+        ]),
+      ),
+    })
     for (const [workspaceId, layout] of Object.entries(layouts)) {
       for (const paneId of paneIds(layout.root)) {
         window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
@@ -241,7 +262,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
-        const result = splitPane(l.root, paneId, direction)
+        const result = splitPane(l.root, paneId, direction, newTerminalPane())
         createdPaneId = result.newPaneId
         const workDir = workDirOf(workspaceId)
         const root =
@@ -263,11 +284,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const next = patch(s, workspaceId, (l) => {
         const target = findPane(l.root, paneId)
         if (!target) return l
-        const pane = createPane(
-          kind,
-          undefined,
-          kind === 'terminal' ? workDirOf(workspaceId) : undefined,
-        )
+        const pane =
+          kind === 'terminal' ? newTerminalPane(workDirOf(workspaceId)) : createPane(kind)
         const root =
           kind === 'browser'
             ? setPaneBrowser(addTab(l.root, paneId, pane), pane.id, 'about:blank', browserProfile)
@@ -387,6 +405,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
     }),
 
+  setDefaultTitle: (workspaceId, paneId, title) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setDefaultPaneTitle(layout.root, paneId, title)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
   setResume: (workspaceId, paneId, resume) =>
     set((s) => {
       const layout = s.byWorkspace[workspaceId]
@@ -411,7 +439,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     set((s) => {
       const layout = s.byWorkspace[workspaceId]
       if (!layout) return s
-      const root = setPaneHibernated(layout.root, paneId, hibernated)
+      const asleep = setPaneHibernated(layout.root, paneId, hibernated)
+      const root = hibernated ? setDefaultPaneTitle(asleep, paneId, neutralTerminalTitle()) : asleep
       return root === layout.root
         ? s
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
@@ -628,7 +657,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   openManager: (workspaceId, opts) =>
-    seedLayout(workspaceId, (p) => ({ ...p, kind: 'manager', cwd: opts.cwd, title: opts.title })),
+    seedLayout(workspaceId, (p) => ({
+      type: 'pane',
+      id: p.id,
+      kind: 'manager',
+      cwd: opts.cwd,
+      title: opts.title,
+    })),
 
   openTerminal: (workspaceId, opts) => {
     const seeded = seedLayout(workspaceId, (p) => describeTerminal(p, p.id, opts))
@@ -639,11 +674,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const beside =
           opts.afterPaneId && findPane(l.root, opts.afterPaneId) ? opts.afterPaneId : l.activePaneId
         if (opts.backgroundTab) {
-          const pane = createPane()
+          const pane = newTerminalPane()
           createdPaneId = pane.id
           return { ...l, root: describeTerminal(addTab(l.root, beside, pane, true), pane.id, opts) }
         }
-        const { root, newPaneId } = splitPane(l.root, beside, 'horizontal')
+        const { root, newPaneId } = splitPane(l.root, beside, 'horizontal', newTerminalPane())
         if (!newPaneId) return l
         createdPaneId = newPaneId
         return {

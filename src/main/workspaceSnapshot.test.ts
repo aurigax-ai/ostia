@@ -187,6 +187,20 @@ describe('parseSnapshot', () => {
     ).not.toHaveProperty('agentRunning')
   })
 
+  it('keeps the default-title mark only on a terminal pane and only when it is true', () => {
+    const pane = snap().workspaces[0].root
+    const rootOf = (extra: object) =>
+      parseSnapshot(
+        snap({ workspaces: [{ ...snap().workspaces[0], root: { ...pane, ...extra } as never }] }),
+      )?.workspaces[0].root
+    expect(rootOf({ defaultTitle: true })).toMatchObject({ title: 'zsh', defaultTitle: true })
+    expect(rootOf({})).not.toHaveProperty('defaultTitle')
+    expect(rootOf({ defaultTitle: 'yes' })).not.toHaveProperty('defaultTitle')
+    expect(
+      rootOf({ kind: 'editor', filePath: '/home/u/proj/a.ts', defaultTitle: true }),
+    ).not.toHaveProperty('defaultTitle')
+  })
+
   it('keeps a tab stack and repairs an unknown shown tab', () => {
     const tabs = {
       type: 'tabs',

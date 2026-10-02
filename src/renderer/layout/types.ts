@@ -30,6 +30,7 @@ export interface PaneNode {
   hibernated?: true
   resumePending?: true
   locked?: true
+  defaultTitle?: true
 }
 
 export interface SplitNode {
