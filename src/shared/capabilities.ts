@@ -20,6 +20,7 @@ export type Capability =
   | 'assist'
   | 'credentials'
   | 'language-server'
+  | 'agent-plugin'
 
 export const DEFAULT_CAPABILITIES: Capability[] = [
   'drive-self',
@@ -53,6 +54,7 @@ export const ALL_CAPABILITIES: Capability[] = [
   'assist',
   'credentials',
   'language-server',
+  'agent-plugin',
 ]
 
 export const MANAGER_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(

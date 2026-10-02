@@ -87,6 +87,7 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ActionsSection } from './ActionsSection'
 import { AssistantSection, isAssistExtension } from './AssistantSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
+import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { FileTreeSettingsGroups } from './FilesSettingsSection'
 import { FontPicker } from './FontPicker'
@@ -1766,6 +1767,7 @@ export function ExtensionsSection({
                           {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
                         </p>
                       ) : null}
+                      <ExtensionAgentPlugin ext={ext} explain={false} />
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {!ext.builtin &&

@@ -17,4 +17,5 @@ await build({
 })
 copyFileSync('pine.json', join(out, 'pine.json'))
 cpSync('locales', join(out, 'locales'), { recursive: true })
+cpSync('skills', join(out, 'skills'), { recursive: true })
 console.log(`built ${out}`)

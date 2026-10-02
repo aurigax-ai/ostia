@@ -37,6 +37,7 @@ function manifestFiles(): string[] {
     join(repoRoot, 'sdk-package/template/pine.json'),
     join(repoRoot, 'test/fixtures/extensions/echo/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-e2e/hello/pine.json'),
+    join(repoRoot, 'test/fixtures/extensions-agent/agent-kit/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-lsp/fake-lang/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-lsp/fake-json/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-lsp/fake-grammar/pine.json'),
@@ -54,6 +55,7 @@ describe('manifest schemas', () => {
   it('refuse what the loader refuses', () => {
     const base = { id: 'demo', name: 'Demo', version: '1.0.0', api: '1.0' }
     const pageSettings = { mode: { type: 'string', default: '', description: 'd' } }
+    const agentHookCommand = { id: 'on-hook', title: 'Hook', palette: false, stdin: true }
     const bad: Record<string, unknown>[] = [
       { ...base, id: 'Bad Id' },
       { ...base, name: '' },
@@ -152,6 +154,18 @@ describe('manifest schemas', () => {
           ],
         },
       })),
+      ...[
+        { agentSkills: [{ name: 'Bad Name', path: 'skills/a' }] },
+        { agentSkills: [{ name: 'a', path: 'skills/a', files: ['run.sh'] }] },
+        { agentSkills: [{ name: 'a', path: 'skills/a', files: ['SKILL.md'] }] },
+        { agentHooks: [{ event: 'Startup', command: 'on-hook' }] },
+        { agentHooks: [{ event: 'Stop', command: 'rm -rf /' }] },
+      ].map((agent) => ({
+        ...base,
+        capabilities: ['agent-plugin'],
+        main: 'main.js',
+        contributes: { commands: [agentHookCommand], ...agent },
+      })),
     ]
     for (const manifest of bad) {
       expect(parseManifest(manifest, '/ext').ok, JSON.stringify(manifest)).toBe(false)
@@ -167,6 +181,18 @@ describe('manifest schemas', () => {
     }
     expect(parseManifest(paged, '/ext').ok).toBe(true)
     expect(extensionManifestSchema.safeParse(paged).success).toBe(true)
+    const agent = {
+      ...base,
+      capabilities: ['agent-plugin'],
+      main: 'main.js',
+      contributes: {
+        commands: [agentHookCommand],
+        agentSkills: [{ name: 'review', path: 'skills/review', files: ['checklist.md'] }],
+        agentHooks: [{ event: 'SessionStart', command: 'on-hook' }],
+      },
+    }
+    expect(parseManifest(agent, '/ext').ok).toBe(true)
+    expect(extensionManifestSchema.safeParse(agent).success).toBe(true)
     const translated = { ...base, locales: ['zh-Hant', 'fr'] }
     expect(parseManifest(translated, '/ext').ok).toBe(true)
     expect(extensionManifestSchema.safeParse(translated).success).toBe(true)

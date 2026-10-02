@@ -55,6 +55,8 @@ const BOARD: ExtensionInfo = {
   category: 'other',
   languages: [],
   languageServers: [],
+  agentSkills: [],
+  agentHooks: [],
   iconThemes: [],
 }
 

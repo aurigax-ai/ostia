@@ -10,6 +10,7 @@ import {
   CancellationTokenSource,
   type MessageConnection,
 } from 'vscode-jsonrpc/node'
+import { AGENT_PLUGIN_CAPABILITY, agentSkillId, hookAgentsFor } from '../shared/agentPlugins'
 import {
   ASSIST_ERRORS,
   ASSIST_POINTS,
@@ -115,6 +116,7 @@ import type { IconThemeContribution } from '../shared/iconTheme'
 import { LANGUAGE_SERVER_CAPABILITY, languageServerSummary } from '../shared/languageServers'
 import { quoteArgv } from '../shared/shellQuote'
 import type { Workflow } from '../shared/workflows'
+import type { AgentPluginSource } from './agentSkills'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
 import { registerControlMethod } from './controlServer'
 import type { EditorLanguageSource } from './editorLanguages'
@@ -575,6 +577,11 @@ export class ExtensionHost {
       iconThemes: (m.contributes.iconThemes ?? []).map(({ id, label }) => ({ id, label })),
       languages: (m.contributes.languages ?? []).map(({ id, label }) => ({ id, label })),
       languageServers: (m.contributes.languageServers ?? []).map(languageServerSummary),
+      agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),
+      agentHooks: (m.contributes.agentHooks ?? []).map((hook) => ({
+        ...hook,
+        agents: hookAgentsFor(hook.event),
+      })),
     }
   }
 
@@ -694,6 +701,18 @@ export class ExtensionHost {
     })
     if (enabled && !record.enabled && this.eager(rt)) this.start(rt)
     this.changed(rt)
+  }
+
+  agentPlugins(): AgentPluginSource[] {
+    return [...this.runtimes.values()]
+      .filter((rt) => this.active(rt) && this.granted(rt).includes(AGENT_PLUGIN_CAPABILITY))
+      .map((rt) => ({
+        extId: rt.ext.manifest.id,
+        dir: rt.ext.dir,
+        skills: rt.ext.manifest.contributes.agentSkills ?? [],
+        hooks: rt.ext.manifest.contributes.agentHooks ?? [],
+      }))
+      .filter((source) => source.skills.length > 0 || source.hooks.length > 0)
   }
 
   iconThemes(): { dir: string; theme: IconThemeContribution }[] {

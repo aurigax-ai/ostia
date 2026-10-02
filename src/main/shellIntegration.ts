@@ -1,10 +1,24 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { version } from '../../package.json'
+import {
+  AGENT_HOOK_EVENTS,
+  AGENT_SKILL_ENTRY,
+  type AgentHookEvent,
+  type HookAgent,
+  hookAgentsFor,
+  isAgentHookEvent,
+} from '../shared/agentPlugins'
 import { PRODUCT_NAME } from '../shared/product'
 import { type PromptSeparator, isPromptSeparator } from '../shared/promptSettings'
 import pineSkill from './agent/pine-skill.md?raw'
+import {
+  type AgentPluginContent,
+  type ExtensionAgentHook,
+  type LoadedAgentSkill,
+  NO_AGENT_PLUGINS,
+} from './agentSkills'
 import { privateTmpDir } from './privateTmp'
 
 export const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
@@ -250,18 +264,36 @@ function hookCommand(pineArgs: string): string {
   return `[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" ${pineArgs} >/dev/null 2>&1 || true`
 }
 
-export function claudeHookSettings(): { hooks: Record<string, unknown[]> } {
-  const on = (pineArgs: string) => [
-    { hooks: [{ type: 'command', command: hookCommand(pineArgs) }] },
-  ]
-  return {
-    hooks: {
-      SessionStart: on('resume-token claude -'),
-      UserPromptSubmit: on('state working'),
-      Notification: on('state waiting -'),
-      Stop: on('state done'),
-    },
+export function extensionHookCommand(hook: ExtensionAgentHook, agent: HookAgent): string {
+  return `[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" agent-hook ${hook.extId} ${hook.command} ${agent} ${hook.event} 2>/dev/null || true`
+}
+
+function hooksFor(
+  hooks: readonly ExtensionAgentHook[],
+  agent: HookAgent,
+  event: AgentHookEvent,
+): string[] {
+  return hooks
+    .filter((hook) => hook.event === event && hookAgentsFor(event).includes(agent))
+    .map((hook) => extensionHookCommand(hook, agent))
+}
+
+export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[] = []): {
+  hooks: Record<string, unknown[]>
+} {
+  const own: Partial<Record<AgentHookEvent, string[]>> = {
+    SessionStart: [hookCommand('resume-token claude -')],
+    UserPromptSubmit: [hookCommand('state working')],
+    Notification: [hookCommand('state waiting -')],
+    Stop: [hookCommand('state done')],
   }
+  const hooks: Record<string, unknown[]> = {}
+  for (const event of AGENT_HOOK_EVENTS) {
+    const commands = [...(own[event] ?? []), ...hooksFor(extensionHooks, 'claude', event)]
+    if (commands.length === 0) continue
+    hooks[event] = [{ hooks: commands.map((command) => ({ type: 'command', command })) }]
+  }
+  return { hooks }
 }
 
 export const CLAUDE_PLUGIN_MANIFEST = {
@@ -270,7 +302,15 @@ export const CLAUDE_PLUGIN_MANIFEST = {
   description: `${PRODUCT_NAME} integration: the ${PRODUCT_NAME} CLI skill plus hooks for the agent's resume token and attention state.`,
 }
 
-export function writeClaudePlugin(dir: string): void {
+function writeSkillFiles(dir: string, skill: LoadedAgentSkill): void {
+  mkdirSync(dir, { recursive: true })
+  for (const file of skill.files) writeFileSync(join(dir, file.name), file.data)
+}
+
+export function writeClaudePlugin(
+  dir: string,
+  content: AgentPluginContent = NO_AGENT_PLUGINS,
+): void {
   mkdirSync(join(dir, '.claude-plugin'), { recursive: true })
   mkdirSync(join(dir, 'hooks'), { recursive: true })
   mkdirSync(join(dir, 'skills', PRODUCT_NAME), { recursive: true })
@@ -281,19 +321,26 @@ export function writeClaudePlugin(dir: string): void {
   )
   writeFileSync(
     join(dir, 'hooks', 'hooks.json'),
-    `${JSON.stringify(claudeHookSettings(), null, 2)}\n`,
+    `${JSON.stringify(claudeHookSettings(content.hooks), null, 2)}\n`,
     'utf8',
   )
   writeFileSync(join(dir, 'skills', PRODUCT_NAME, 'SKILL.md'), pineSkill, 'utf8')
+  for (const skill of content.skills) writeSkillFiles(join(dir, 'skills', skill.id), skill)
 }
 
-function claudeWrapper(pluginDir: string): string {
+function claudeWrapper(): string {
   return [
     '',
-    '# Run claude with the Pine plugin (CLI skill, resume token, attention hooks).',
-    '# `command claude` skips it.',
+    '# Run claude with the Pine plugin (CLI skill, extension skills and hooks, resume token,',
+    '# attention hooks). `command claude` skips it.',
     'if [ -n "$PINE_CLI" ]; then',
-    `  claude() { command claude --plugin-dir '${pluginDir}' "$@"; }`,
+    '  claude() {',
+    '    if [ -n "$PINE_AGENT_DIR" ] && [ -d "$PINE_AGENT_DIR/claude-plugin" ]; then',
+    '      command claude --plugin-dir "$PINE_AGENT_DIR/claude-plugin" "$@"',
+    '    else',
+    '      command claude "$@"',
+    '    fi',
+    '  }',
     'fi',
     '',
   ].join('\n')
@@ -302,8 +349,11 @@ function claudeWrapper(pluginDir: string): string {
 const CODEX_HOOK_EVENTS = {
   SessionStart: 'session_start',
   UserPromptSubmit: 'user_prompt_submit',
+  PreToolUse: 'pre_tool_use',
   PermissionRequest: 'permission_request',
+  PostToolUse: 'post_tool_use',
   Stop: 'stop',
+  SessionEnd: 'session_end',
 } as const
 
 export type CodexHookEvent = keyof typeof CODEX_HOOK_EVENTS
@@ -381,8 +431,11 @@ function tomlString(value: string): string {
   return JSON.stringify(value)
 }
 
-export function codexHookCommands(contextFile: string): Record<CodexHookEvent, string[]> {
-  return {
+export function codexHookCommands(
+  contextFile: string,
+  extensionHooks: readonly ExtensionAgentHook[] = [],
+): Partial<Record<CodexHookEvent, string[]>> {
+  const own: Partial<Record<CodexHookEvent, string[]>> = {
     SessionStart: [
       hookCommand('resume-token codex -'),
       `[ -n "$PINE_SOCKET" ] && cat ${shellQuote(contextFile)} 2>/dev/null || true`,
@@ -391,6 +444,13 @@ export function codexHookCommands(contextFile: string): Record<CodexHookEvent, s
     PermissionRequest: [hookCommand('state waiting -')],
     Stop: [hookCommand('state done')],
   }
+  const commands: Partial<Record<CodexHookEvent, string[]>> = {}
+  for (const event of Object.keys(CODEX_HOOK_EVENTS) as CodexHookEvent[]) {
+    const extra = isAgentHookEvent(event) ? hooksFor(extensionHooks, 'codex', event) : []
+    const handlers = [...(own[event] ?? []), ...extra]
+    if (handlers.length > 0) commands[event] = handlers
+  }
+  return commands
 }
 
 export function codexHookTrustHash(event: CodexHookEvent, command: string): string {
@@ -405,8 +465,14 @@ export function codexHookKey(event: CodexHookEvent, handlerIndex: number): strin
   return `${CODEX_SESSION_FLAGS_SOURCE}:${CODEX_HOOK_EVENTS[event]}:0:${handlerIndex}`
 }
 
-export function codexHookArgs(contextFile: string): string[] {
-  const commands = Object.entries(codexHookCommands(contextFile)) as [CodexHookEvent, string[]][]
+export function codexHookArgs(
+  contextFile: string,
+  extensionHooks: readonly ExtensionAgentHook[] = [],
+): string[] {
+  const commands = Object.entries(codexHookCommands(contextFile, extensionHooks)) as [
+    CodexHookEvent,
+    string[],
+  ][]
   const args = ['--no-daemon']
   const trust: string[] = []
   for (const [event, handlers] of commands) {
@@ -422,29 +488,64 @@ export function codexHookArgs(contextFile: string): string[] {
   return args
 }
 
-function codexSessionContext(skillFile: string): string {
+function codexSessionContext(
+  skillFile: string,
+  skills: { id: string; file: string; description: string }[],
+): string {
   return [
     `This Codex session runs in a ${PRODUCT_NAME} terminal pane. The \`pine\` CLI controls the pane and its workspace: notifications, attention state, the in-app browser, background processes, the secret vault, and a message bus to agents in other panes.`,
     'Your shell tool does not have the `pine` shell function, so run the CLI as `ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" <command>`.',
     `Before you use it, read its guide: ${skillFile}`,
+    ...(skills.length > 0
+      ? [
+          '',
+          `${PRODUCT_NAME} extensions the human enabled add these skills. When a task matches one, read its file first:`,
+          ...skills.map((skill) => `- ${skill.id} (${skill.file}): ${skill.description}`),
+        ]
+      : []),
     '',
   ].join('\n')
 }
 
-export function writeCodexIntegration(dir: string): { contextFile: string } {
+export const CODEX_HOOK_ARGS_FILE = 'hook-args.sh'
+
+export function codexHookArgsScript(args: readonly string[]): string {
+  return ['__pine_codex_hook_args=(', ...args.map((arg) => `  ${shellQuote(arg)}`), ')', ''].join(
+    '\n',
+  )
+}
+
+export function writeCodexIntegration(
+  dir: string,
+  content: AgentPluginContent = NO_AGENT_PLUGINS,
+  finalDir: string = dir,
+): { contextFile: string } {
   mkdirSync(dir, { recursive: true })
-  const skillFile = join(dir, 'SKILL.md')
-  const contextFile = join(dir, 'session-context.md')
-  writeFileSync(skillFile, pineSkill, 'utf8')
-  writeFileSync(contextFile, codexSessionContext(skillFile), 'utf8')
+  const skillFile = join(finalDir, 'SKILL.md')
+  const contextFile = join(finalDir, 'session-context.md')
+  writeFileSync(join(dir, 'SKILL.md'), pineSkill, 'utf8')
+  const skills = content.skills.map((skill) => {
+    writeSkillFiles(join(dir, 'skills', skill.id), skill)
+    return {
+      id: skill.id,
+      file: join(finalDir, 'skills', skill.id, AGENT_SKILL_ENTRY),
+      description: skill.description.replace(/\s+/g, ' '),
+    }
+  })
+  writeFileSync(join(dir, 'session-context.md'), codexSessionContext(skillFile, skills), 'utf8')
+  writeFileSync(
+    join(dir, CODEX_HOOK_ARGS_FILE),
+    codexHookArgsScript(codexHookArgs(contextFile, content.hooks)),
+    'utf8',
+  )
   return { contextFile }
 }
 
-export function codexWrapper(contextFile: string): string {
+export function codexWrapper(): string {
   return [
     '',
     '# Run interactive codex sessions with the Pine hooks (resume token, attention state, CLI',
-    '# context). Other subcommands run untouched; `command codex` skips it.',
+    '# context, extension hooks). Other subcommands run untouched; `command codex` skips it.',
     '__pine_codex_starts_session() {',
     '  local __pine_skip= __pine_arg',
     '  for __pine_arg in "$@"; do',
@@ -464,12 +565,11 @@ export function codexWrapper(contextFile: string): string {
     '  done',
     '  return 0',
     '}',
-    '__pine_codex_hook_args=(',
-    ...codexHookArgs(contextFile).map((arg) => `  ${shellQuote(arg)}`),
-    ')',
     'if [ -n "$PINE_CLI" ]; then',
     '  codex() {',
-    '    if __pine_codex_starts_session "$@"; then',
+    `    if [ -n "$PINE_AGENT_DIR" ] && [ -f "$PINE_AGENT_DIR/codex/${CODEX_HOOK_ARGS_FILE}" ] && __pine_codex_starts_session "$@"; then`,
+    '      local -a __pine_codex_hook_args',
+    `      . "$PINE_AGENT_DIR/codex/${CODEX_HOOK_ARGS_FILE}"`,
     '      command codex "${__pine_codex_hook_args[@]}" "$@"',
     '    else',
     '      command codex "$@"',
@@ -478,6 +578,49 @@ export function codexWrapper(contextFile: string): string {
     'fi',
     '',
   ].join('\n')
+}
+
+export function agentPluginDigest(content: AgentPluginContent): string {
+  const hash = createHash('sha256')
+  hash.update(JSON.stringify({ version, hooks: content.hooks }))
+  hash.update(pineSkill)
+  for (const skill of content.skills) {
+    hash.update(JSON.stringify({ id: skill.id, description: skill.description }))
+    for (const file of skill.files) {
+      hash.update(JSON.stringify({ name: file.name, size: file.data.length }))
+      hash.update(file.data)
+    }
+  }
+  return hash.digest('hex').slice(0, 32)
+}
+
+export function writeAgentPlugin(root: string, content: AgentPluginContent): string {
+  mkdirSync(root, { recursive: true, mode: 0o700 })
+  const dir = join(root, agentPluginDigest(content))
+  if (existsSync(dir)) return dir
+  const staging = mkdtempSync(join(root, '.staging-'))
+  try {
+    writeClaudePlugin(join(staging, 'claude-plugin'), content)
+    writeCodexIntegration(join(staging, 'codex'), content, join(dir, 'codex'))
+    renameSync(staging, dir)
+  } catch (err) {
+    rmSync(staging, { recursive: true, force: true })
+    if (!existsSync(dir)) throw err
+  }
+  return dir
+}
+
+export const AGENT_PLUGINS_DIR = join(INTEGRATION_DIR, 'agents')
+
+let agentDir: string | null = null
+
+export function setAgentPlugins(content: AgentPluginContent): string {
+  agentDir = writeAgentPlugin(AGENT_PLUGINS_DIR, content)
+  return agentDir
+}
+
+function currentAgentDir(): string {
+  return agentDir ?? setAgentPlugins(NO_AGENT_PLUGINS)
 }
 
 interface IntegrationPaths {
@@ -493,11 +636,7 @@ function ensureFiles(): IntegrationPaths {
   if (cached) return cached
   mkdirSync(INTEGRATION_DIR, { recursive: true })
 
-  const claudePlugin = join(INTEGRATION_DIR, 'claude-plugin')
-  writeClaudePlugin(claudePlugin)
-
-  const { contextFile } = writeCodexIntegration(join(INTEGRATION_DIR, 'codex'))
-  const agentWrappers = claudeWrapper(claudePlugin) + codexWrapper(contextFile)
+  const agentWrappers = claudeWrapper() + codexWrapper()
 
   const zshInit = join(INTEGRATION_DIR, 'init.zsh')
   const bashInit = join(INTEGRATION_DIR, 'init.bash')
@@ -585,6 +724,7 @@ export function shellIntegrationSpawnOptions(
       env: {
         ZDOTDIR: INTEGRATION_DIR,
         PINE_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
+        PINE_AGENT_DIR: currentAgentDir(),
         ...promptEnv(pinePrompt),
         ...historyEnv(histFile),
       },
@@ -595,7 +735,11 @@ export function shellIntegrationSpawnOptions(
     const { bashRc } = ensureFiles()
     return {
       args: ['--rcfile', bashRc],
-      env: { ...promptEnv(pinePrompt), ...historyEnv(histFile) },
+      env: {
+        PINE_AGENT_DIR: currentAgentDir(),
+        ...promptEnv(pinePrompt),
+        ...historyEnv(histFile),
+      },
     }
   }
 
