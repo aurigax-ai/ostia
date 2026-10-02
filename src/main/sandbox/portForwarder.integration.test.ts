@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
-import { type Server, createServer } from 'node:net'
+import { type AddressInfo, type Server, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
@@ -14,8 +14,8 @@ import { buildSrtConfig } from './srtConfig'
 
 const repoRoot = process.cwd()
 const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-ports.mjs')
-const INNER_PORT = 38471
-const OTHER_PORT = 38474
+let INNER_PORT = 0
+let OTHER_PORT = 0
 const BIG_BODY_BYTES = 2 * 1024 * 1024
 
 let root: string
@@ -49,8 +49,33 @@ function portFree(port: number): Promise<boolean> {
   })
 }
 
+function freePorts(count: number): Promise<number[]> {
+  return new Promise((resolve, reject) => {
+    const probes = Array.from({ length: count }, () => createServer())
+    Promise.all(
+      probes.map(
+        (probe) =>
+          new Promise<number>((done, fail) => {
+            probe.once('error', fail)
+            probe.listen(0, '127.0.0.1', () => done((probe.address() as AddressInfo).port))
+          }),
+      ),
+    )
+      .then((ports) => {
+        let closed = 0
+        for (const probe of probes) {
+          probe.close(() => {
+            if (++closed === count) resolve(ports.sort((a, b) => a - b))
+          })
+        }
+      })
+      .catch(reject)
+  })
+}
+
 beforeAll(async () => {
   if (process.platform !== 'linux') return
+  ;[INNER_PORT, OTHER_PORT] = await freePorts(2)
   await build({
     entryPoints: [join(repoRoot, 'src/main/sandbox/host.ts')],
     outfile: hostScript,
@@ -149,14 +174,15 @@ describe.skipIf(process.platform !== 'linux')(
     })
 
     it('SBX-C46 refuses to expose a port already in use on the host and forwards nothing', async () => {
-      const busy = createServer().listen(INNER_PORT + 1, '127.0.0.1')
+      const busy = createServer().listen(0, '127.0.0.1')
       await new Promise((r) => busy.once('listening', r))
+      const busyPort = (busy.address() as AddressInfo).port
       try {
-        await expect(forwarder.expose('ws', INNER_PORT + 1)).resolves.toEqual({
+        await expect(forwarder.expose('ws', busyPort)).resolves.toEqual({
           ok: false,
           error: 'port-in-use',
         })
-        expect(forwarder.exposed('ws')).not.toContain(INNER_PORT + 1)
+        expect(forwarder.exposed('ws')).not.toContain(busyPort)
       } finally {
         busy.close()
       }
