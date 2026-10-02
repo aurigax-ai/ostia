@@ -1,5 +1,6 @@
 import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
+import { FlagError, parseArgs } from './args'
 
 export type ManagerCall =
   | { method: 'manager.read'; params: { paneId: string; lines?: number } }
@@ -15,61 +16,54 @@ const USAGE = [
   '       pine manager input <paneId> [--text TEXT] [--key KEY]…',
 ].join('\n')
 
-function takeValue(argv: string[], i: number, flag: string): string {
-  const value = argv[i + 1]
-  if (value === undefined) throw new Error(`${flag} needs a value`)
-  return value
-}
-
-export function parseManagerArgs(argv: string[], cwd: string): ManagerCall {
+function managerCall(argv: string[], cwd: string): ManagerCall {
   const [sub, first, ...rest] = argv
   if (!sub || !first) throw new Error(USAGE)
   if (sub === 'read') {
-    const params: { paneId: string; lines?: number } = { paneId: first }
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] !== '--lines') throw new Error(USAGE)
-      const lines = Number(takeValue(rest, i, '--lines'))
-      if (!Number.isInteger(lines) || lines < 1)
-        throw new Error('--lines must be a positive integer')
-      params.lines = lines
-      i++
-    }
-    return { method: 'manager.read', params }
+    const { positional, values } = parseArgs(rest, { values: { lines: '--lines' } })
+    if (positional.length > 0) throw new Error(USAGE)
+    if (values.lines === undefined) return { method: 'manager.read', params: { paneId: first } }
+    const lines = Number(values.lines)
+    if (!Number.isInteger(lines) || lines < 1) throw new Error('--lines must be a positive integer')
+    return { method: 'manager.read', params: { paneId: first, lines } }
   }
   if (sub === 'spawn') {
-    const params: {
-      agent: string
-      args: string[]
-      cwd?: string
-      workspaceId?: string
-      name?: string
-    } = { agent: first, args: [] }
-    for (let i = 0; i < rest.length; i++) {
-      const arg = rest[i]
-      if (arg === '--') {
-        params.args = rest.slice(i + 1)
-        break
-      }
-      if (arg === '--cwd') params.cwd = resolvePath(cwd, takeValue(rest, i, arg))
-      else if (arg === '--workspace') params.workspaceId = takeValue(rest, i, arg)
-      else if (arg === '--name') params.name = takeValue(rest, i, arg)
-      else throw new Error(USAGE)
-      i++
+    const { positional, values } = parseArgs(rest, {
+      values: { cwd: '--cwd', workspace: '--workspace', name: '--name' },
+    })
+    return {
+      method: 'manager.spawn',
+      params: {
+        agent: first,
+        args: positional,
+        ...(values.cwd === undefined ? {} : { cwd: resolvePath(cwd, values.cwd) }),
+        ...(values.workspace === undefined ? {} : { workspaceId: values.workspace }),
+        ...(values.name === undefined ? {} : { name: values.name }),
+      },
     }
-    return { method: 'manager.spawn', params }
   }
   if (sub === 'input') {
-    const params: { paneId: string; text?: string; keys?: string[] } = { paneId: first }
-    for (let i = 0; i < rest.length; i++) {
-      const arg = rest[i]
-      if (arg === '--text') params.text = (params.text ?? '') + takeValue(rest, i, arg)
-      else if (arg === '--key') params.keys = [...(params.keys ?? []), takeValue(rest, i, arg)]
-      else throw new Error(USAGE)
-      i++
+    const { positional, lists } = parseArgs(rest, { lists: { text: '--text', key: '--key' } })
+    if (positional.length > 0) throw new Error(USAGE)
+    return {
+      method: 'manager.input',
+      params: {
+        paneId: first,
+        ...(lists.text.length > 0 ? { text: lists.text.join('') } : {}),
+        ...(lists.key.length > 0 ? { keys: lists.key } : {}),
+      },
     }
-    return { method: 'manager.input', params }
   }
   throw new Error(USAGE)
+}
+
+export function parseManagerArgs(argv: string[], cwd: string): ManagerCall {
+  try {
+    return managerCall(argv, cwd)
+  } catch (err) {
+    if (err instanceof FlagError && err.problem === 'unknown') throw new Error(USAGE)
+    throw err
+  }
 }
 
 export async function runManagerVerb(
