@@ -127,29 +127,34 @@ test('the global hotkey hides a focused window and brings it back', async () => 
     await expect
       .poll(() => app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered('Ctrl+Alt+F9')))
       .toBe(true)
+    await app.evaluate(({ BrowserWindow }) => {
+      const target = globalThis as unknown as { windowCalls?: string[] }
+      const calls: string[] = []
+      target.windowCalls = calls
+      for (const w of BrowserWindow.getAllWindows()) {
+        let shown = true
+        w.isVisible = () => shown
+        w.isFocused = () => shown
+        w.hide = () => {
+          shown = false
+          calls.push('hide')
+        }
+        w.show = () => {
+          shown = true
+          calls.push('show')
+        }
+      }
+    })
     const press = () =>
       app.evaluate(() => (globalThis as unknown as { pressHotkey: () => void }).pressHotkey())
-    const visible = () =>
-      app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((w) => w.isVisible()))
-    const focused = () =>
-      app.evaluate(({ BrowserWindow }) =>
-        BrowserWindow.getAllWindows().some((w) => w.isVisible() && w.isFocused()),
-      )
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].focus())
-    await expect
-      .poll(visible, { timeout: 10_000, message: 'the window never became visible' })
-      .toBe(true)
-    await expect
-      .poll(focused, { timeout: 10_000, message: 'the window never took focus' })
-      .toBe(true)
+    const calls = () =>
+      app.evaluate(() => (globalThis as unknown as { windowCalls: string[] }).windowCalls)
     await press()
-    await expect
-      .poll(visible, { timeout: 10_000, message: 'the hotkey did not hide the focused window' })
-      .toBe(false)
+    expect(await calls(), 'the hotkey hides the focused window').toEqual(['hide'])
     await press()
-    await expect
-      .poll(visible, { timeout: 10_000, message: 'the hotkey did not bring the window back' })
-      .toBe(true)
+    expect(await calls(), 'the hotkey brings the hidden window back').toEqual(['hide', 'show'])
+    await press()
+    expect(await calls(), 'the hotkey hides it again').toEqual(['hide', 'show', 'hide'])
   } finally {
     await app.close()
   }
