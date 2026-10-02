@@ -5,6 +5,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { type FontWeight, type IMarker, Terminal as Xterm } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
+import { isNativeClipboardKey } from '@shared/chordSpec'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { wantsDesktopBanner } from '../../shared/notificationSettings'
 import { currentDict, fmt } from '../i18n/useDict'
@@ -17,19 +18,23 @@ import {
   parseOsc99,
   parseOsc777,
 } from '../lib/attention'
+import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
-import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
-import { smartClipboardAction } from '../lib/clipboardKeys'
+import { isAppChord, matchChord } from '../lib/chords'
+import { PROGRAM_PASTE_KEY, keyPastePlan, smartClipboardAction } from '../lib/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
+import { isLocalHost, parseOsc7 } from '../lib/osc7'
+import { registerOsc52 } from '../lib/osc52'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
-import { planHumanPaste } from '../lib/pasteGate'
-import { isTitlePinned } from '../lib/pinnedTitles'
+import { commitProgramTitle, commitShellTitle } from '../lib/paneTitle'
+import { planDraftPaste, planHumanPaste } from '../lib/pasteGate'
+import { installPrimarySelection } from '../lib/primarySelection'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
 import { registerSelectionSender } from '../lib/selectionSenders'
@@ -46,11 +51,12 @@ import {
   shouldNotifyCommandEnd,
   signalPane,
 } from '../lib/workspaceActivity'
-import { isMac } from '../platform'
+import { isLinux, isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useLiveSelectionStore } from '../stores/liveSelectionStore'
+import { useRemoteCwdStore } from '../stores/remoteCwdStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { AssistComposer } from './AssistComposer'
@@ -87,6 +93,7 @@ export function TerminalView({
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
+  const macOptionIsMeta = useSettingsStore((s) => s.terminal.macOptionIsMeta)
   const pasteRef = useRef<(text: string) => void>(() => {})
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
   const [search, setSearch] = useState<SearchAddon | null>(null)
@@ -132,6 +139,7 @@ export function TerminalView({
       scrollback: terminalSettings.scrollbackLines,
       scrollSensitivity: terminalSettings.scrollSpeed,
       minimumContrastRatio: terminalSettings.minimumContrast,
+      macOptionIsMeta: terminalSettings.macOptionIsMeta,
       allowProposedApi: true,
     })
     const fit = new FitAddon()
@@ -167,27 +175,38 @@ export function TerminalView({
       planHumanPaste(text, useSettingsStore.getState().terminal.warnOnRiskyPaste)
     const requestPaste = (text: string): void => {
       if (disposed) return
+      const editor = inputEditorFor(paneId)
+      if (editor) {
+        const draft = planDraftPaste(text)
+        if (draft) editor.type(draft)
+        return
+      }
       const plan = planPaste(text)
       if (plan.confirm) setPendingPaste(plan.text)
       else if (plan.text) pasteConfirmed(plan.text)
     }
+    const pasteFromClipboard = async (): Promise<void> => {
+      const text = await navigator.clipboard.readText().catch(() => '')
+      if (disposed) return
+      const editorShown = Boolean(inputEditorFor(paneId))
+      const hasImage =
+        !text && !editorShown && (await window.pine.clipboard.hasImage().catch(() => false))
+      if (disposed) return
+      const plan = keyPastePlan(text, editorShown, hasImage)
+      if (plan === 'text') requestPaste(text)
+      else if (plan === 'program') term.input(PROGRAM_PASTE_KEY, true)
+    }
     const interceptPaste = (e: ClipboardEvent): void => {
       const text = e.clipboardData?.getData('text/plain') ?? ''
-      const plan = planPaste(text)
-      if (!plan.confirm && plan.text === text) return
+      if (!inputEditorFor(paneId)) {
+        const plan = planPaste(text)
+        if (!plan.confirm && plan.text === text) return
+      }
       e.preventDefault()
       e.stopImmediatePropagation()
       requestPaste(text)
     }
     host.addEventListener('paste', interceptPaste, true)
-    const pasteIntoEditor = (e: ClipboardEvent): void => {
-      const editor = inputEditorFor(paneId)
-      if (!editor || e.defaultPrevented) return
-      e.preventDefault()
-      e.stopImmediatePropagation()
-      editor.type(e.clipboardData?.getData('text/plain') ?? '')
-    }
-    host.addEventListener('paste', pasteIntoEditor, true)
     const focusEditorOnClick = (e: MouseEvent): void => {
       if (e.button !== 0 || term.hasSelection()) return
       inputEditorFor(paneId)?.focus()
@@ -217,7 +236,7 @@ export function TerminalView({
           void navigator.clipboard.writeText(term.getSelection())
           term.clearSelection()
         } else {
-          void navigator.clipboard.readText().then(requestPaste)
+          void pasteFromClipboard()
         }
         return false
       }
@@ -243,12 +262,13 @@ export function TerminalView({
         const selection = term.getSelection()
         if (selection) void navigator.clipboard.writeText(selection)
       } else {
-        void navigator.clipboard.readText().then(requestPaste)
+        void pasteFromClipboard()
       }
       return false
     })
 
     const cwdRef = { current: spawnCwd.current ?? null }
+    let remote = false
     let promptMarker: IMarker | undefined
     const markers = new Set<IMarker>()
     const anchor = (): LineAnchor => {
@@ -265,13 +285,23 @@ export function TerminalView({
     let inputCol = 0
     let runningCommand = ''
     let replaying = false
-    const onCommandEnd = (exitCode: number): void => {
+    const onCommandEnd = (exitCode: number, wholeCommand: string | null): void => {
       const blocks = useBlocksStore.getState()
       const runningId = blocks.running[paneId]
       const block = runningId ? blocks.byPane[paneId]?.find((b) => b.id === runningId) : undefined
-      blocks.commandEnd(paneId, anchor(), exitCode, term.buffer.active.cursorX)
+      blocks.commandEnd(
+        paneId,
+        anchor(),
+        exitCode,
+        term.buffer.active.cursorX,
+        wholeCommand ?? undefined,
+      )
       if (!block || replaying) return
-      const long = shouldNotifyCommandEnd(Date.now() - block.startedAt, document.hasFocus())
+      const long = shouldNotifyCommandEnd(
+        Date.now() - block.startedAt,
+        document.hasFocus(),
+        useSettingsStore.getState().notifications.longCommandSeconds,
+      )
       if (isPaneViewed(paneId) || (exitCode === 0 && !long)) {
         useAttentionStore.getState().dispatch(paneId, { type: 'waitEnded', at: Date.now() })
         return
@@ -330,9 +360,19 @@ export function TerminalView({
       const chunk = parseOsc99(data, decodeBase64Utf8)
       return notifyFromTerminal(chunk ? kitty.push(chunk) : null)
     })
+    const removePrimarySelection = installPrimarySelection(host, term, {
+      enabled: () => isLinux && useSettingsStore.getState().terminal.primarySelection,
+      writePrimary: (text) => window.pine.window.writePrimarySelection(text),
+    })
+    const oscClipboard = registerOsc52(term, {
+      enabled: () => useSettingsStore.getState().terminal.osc52Write,
+      replaying: () => replaying,
+      write: (text) => navigator.clipboard.writeText(text),
+    })
     const fileLinks = term.registerLinkProvider(
       createFileLinkProvider(term, {
         cwd: () => cwdRef.current,
+        remote: () => remote,
         stat: (path) => window.pine.fs.stat(path),
         open: openFileAt,
         modifierHeld: (e) => linkModifierHeld(e, isMac),
@@ -350,23 +390,31 @@ export function TerminalView({
       if (!useSettingsStore.getState().behavior.copyOnSelect || !term.hasSelection()) return
       void navigator.clipboard.writeText(term.getSelection())
     })
-    const titles = createTitleCommitter((title) => {
-      if (isTitlePinned(paneId)) return
-      useLayoutStore.getState().setTitle(workspaceIdRef.current, paneId, title)
-    })
+    const titles = createTitleCommitter((title) =>
+      commitProgramTitle(workspaceIdRef.current, paneId, title),
+    )
     const titleChange = term.onTitleChange((raw) => {
       const title = terminalTitle(raw)
       if (title) titles.push(title)
     })
+    const allowBellSound = createBellThrottle()
     const bell = term.onBell(() => {
-      if (replaying || isPaneViewed(paneId)) return
-      useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: Date.now() })
+      if (replaying) return
+      const now = Date.now()
+      const act = bellActions(useSettingsStore.getState().notifications.bell, isPaneViewed(paneId))
+      if (act.sound && allowBellSound(now)) window.pine.window.beep()
+      if (act.attention) useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: now })
     })
     const oscCwd = term.parser.registerOscHandler(7, (data) => {
-      const path = decodeOsc7(data)
-      if (path) {
-        cwdRef.current = path
-        useLayoutStore.getState().setCwd(workspaceIdRef.current, paneId, path)
+      const report = parseOsc7(data)
+      if (!report) return true
+      remote = !isLocalHost(report.host)
+      useRemoteCwdStore
+        .getState()
+        .report(paneId, remote ? { host: report.host, cwd: report.path } : null)
+      if (!remote) {
+        cwdRef.current = report.path
+        useLayoutStore.getState().setCwd(workspaceIdRef.current, paneId, report.path)
       }
       return true
     })
@@ -383,7 +431,7 @@ export function TerminalView({
         promptMarker = term.registerMarker(0)
         inputAnchor = null
         reportedCommand = null
-        blocks.promptStart(paneId, anchor(), cwdRef.current)
+        blocks.promptStart(paneId, anchor(), remote ? null : cwdRef.current, remote)
       } else if (kind === 'B') {
         inputAnchor = anchor()
         inputCol = term.buffer.active.cursorX
@@ -404,7 +452,11 @@ export function TerminalView({
         if (!replaying) {
           useAttentionStore.getState().dispatch(paneId, { type: 'commandStart', at: Date.now() })
         }
-      } else if (kind === 'D') onCommandEnd(Number(arg ?? 0))
+      } else if (kind === 'D') {
+        const wholeCommand = reportedCommand
+        reportedCommand = null
+        onCommandEnd(Number(arg ?? 0), wholeCommand)
+      }
       return true
     })
 
@@ -457,8 +509,9 @@ export function TerminalView({
           hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
-        .then(({ buffer, sandboxed, sandboxStamp, host }) => {
+        .then(({ buffer, sandboxed, sandboxStamp, host, shell }) => {
           if (disposed) return
+          commitShellTitle(workspaceIdRef.current, paneId, shell)
           useSandboxStore.getState().notePane(paneId, sandboxed ?? false, sandboxStamp)
           if (host) useSandboxStore.getState().noteHost(paneId)
           disposeMarkers()
@@ -587,17 +640,19 @@ export function TerminalView({
       input.dispose()
       bufferChange.dispose()
       host.removeEventListener('paste', interceptPaste, true)
-      host.removeEventListener('paste', pasteIntoEditor, true)
       host.removeEventListener('mouseup', focusEditorOnClick)
       pasteRef.current = () => {}
       offData()
       offExit()
       oscCwd.dispose()
+      useRemoteCwdStore.getState().report(paneId, null)
       oscBlocks.dispose()
       oscCommandLine.dispose()
       oscNotify9.dispose()
       oscNotify777.dispose()
       oscNotify99.dispose()
+      oscClipboard.dispose()
+      removePrimarySelection()
       bell.dispose()
       copySelection.dispose()
       useLiveSelectionStore.getState().clear(paneId)
@@ -651,7 +706,8 @@ export function TerminalView({
     term.options.scrollSensitivity = scrollSpeed
     term.options.scrollback = scrollbackLines
     term.options.minimumContrastRatio = minimumContrast
-  }, [scrollSpeed, scrollbackLines, minimumContrast])
+    term.options.macOptionIsMeta = macOptionIsMeta
+  }, [scrollSpeed, scrollbackLines, minimumContrast, macOptionIsMeta])
 
   const closePasteDialog = (): void => {
     setPendingPaste(null)
@@ -758,11 +814,6 @@ export function TerminalView({
 
 function decodeBase64Utf8(b64: string): string {
   return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))
-}
-
-function decodeOsc7(data: string): string | null {
-  const m = /^file:\/\/[^/]*(\/.*)$/.exec(data)
-  return m ? m[1] : null
 }
 
 function safeFit(host: HTMLElement, fit: FitAddon, term: Xterm): boolean {

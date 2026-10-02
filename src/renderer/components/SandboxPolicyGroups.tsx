@@ -4,6 +4,15 @@ import type {
   SandboxPathKind,
   SandboxSwitches,
 } from '@shared/sandbox'
+import {
+  SANDBOX_READ_PRESETS,
+  type SandboxReadPreset,
+  presetIdOf,
+  presetState,
+  withPreset,
+  withoutPreset,
+} from '@shared/sandboxPresets'
+import { useEffect, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { isMac } from '../platform'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
@@ -35,6 +44,7 @@ function ScopedList({
   desc,
   fixed,
   placeholder,
+  tagOf,
 }: {
   scope: SandboxPolicyScope
   list: SandboxListKey
@@ -42,6 +52,7 @@ function ScopedList({
   desc: string
   fixed?: readonly string[]
   placeholder: string
+  tagOf?: (item: string) => string | undefined
 }): JSX.Element {
   return (
     <SandboxListEditor
@@ -51,6 +62,7 @@ function ScopedList({
       fixed={fixed}
       inherited={scope.inherited(list)}
       placeholder={placeholder}
+      tagOf={tagOf}
       onChange={(next) => scope.setList(list, next)}
     />
   )
@@ -93,8 +105,76 @@ function SwitchRow({
   )
 }
 
+function useReadPresets(): SandboxReadPreset[] {
+  const [presets, setPresets] = useState<SandboxReadPreset[]>([])
+  useEffect(() => {
+    let live = true
+    void window.pine.sandbox.presets().then((found) => {
+      if (live) setPresets(found)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+  return presets
+}
+
+function ReadPresets({
+  scope,
+  presets,
+}: {
+  scope: SandboxPolicyScope
+  presets: readonly SandboxReadPreset[]
+}): JSX.Element | null {
+  const d = useDict()
+  const [error, setError] = useState<string | null>(null)
+  if (presets.length === 0) return null
+  const own = scope.items('allowRead')
+  const inherited = scope.inherited('allowRead')
+
+  const toggle = async (preset: SandboxReadPreset, on: boolean): Promise<void> => {
+    const next = on ? withPreset(own, preset, inherited) : withoutPreset(own, preset)
+    const res = await scope.setList('allowRead', next)
+    const reason = res.ok ? undefined : res.errors[0]?.reason
+    setError(reason ? ((d.sandbox.errors as Record<string, string>)[reason] ?? reason) : null)
+  }
+
+  return (
+    <fieldset aria-label={d.sandbox.presets} className="mb-4">
+      <SubHead title={d.sandbox.presets} desc={d.sandbox.presetsDesc} />
+      {presets.map((preset) => {
+        const name = d.sandbox.presetNames[preset.id]
+        const state = presetState(preset, own, inherited)
+        return (
+          <fieldset key={preset.id} aria-label={name}>
+            <ControlRow label={name} desc={preset.paths.join(', ')}>
+              {state === 'inherited' ? <Badge variant="outline">{d.sandbox.global}</Badge> : null}
+              <Switch
+                aria-label={name}
+                checked={state !== 'off'}
+                disabled={state === 'inherited'}
+                onCheckedChange={(checked) => void toggle(preset, checked)}
+              />
+            </ControlRow>
+          </fieldset>
+        )
+      })}
+      {error ? (
+        <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
+          {error}
+        </p>
+      ) : null}
+    </fieldset>
+  )
+}
+
 export function SandboxFilesGroups({ scope }: { scope: SandboxPolicyScope }): JSX.Element {
   const d = useDict()
+  const presets = useReadPresets()
+  const presetName = (path: string): string | undefined => {
+    const id = presetIdOf(path, [...presets, ...SANDBOX_READ_PRESETS])
+    return id ? d.sandbox.presetNames[id] : undefined
+  }
   return (
     <>
       <SettingsGroup title={d.sandbox.reading} desc={d.sandbox.restartNote}>
@@ -105,7 +185,9 @@ export function SandboxFilesGroups({ scope }: { scope: SandboxPolicyScope }): JS
           desc={d.sandbox.readPathsDesc}
           fixed={scope.fixed?.readable}
           placeholder="~/.config/tool"
+          tagOf={presetName}
         />
+        <ReadPresets scope={scope} presets={presets} />
         <ScopedList
           scope={scope}
           list="denyRead"

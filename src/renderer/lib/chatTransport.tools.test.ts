@@ -8,13 +8,9 @@ import type { ChatPlanOutput, ChatPreviewOutput, ChatWriteOutput } from '@shared
 import type { UIMessageChunk } from 'ai'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAssistStore } from '../stores/assistStore'
-import {
-  answerApproval,
-  resetChatTools,
-  undoEdit,
-  useChatToolsStore,
-} from '../stores/chatToolsStore'
+import { answerApproval, resetChatTools, useChatToolsStore } from '../stores/chatToolsStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
+import { decideHunk, undoEdit } from './chatReview'
 import {
   OLD_TOOL_OUTPUT_MAX,
   type PineChatMessage,
@@ -88,6 +84,7 @@ function preview(patch: Partial<ChatPreviewOutput> = {}) {
     version: 'v-old',
     outside: false,
     symlink: false,
+    unsaved: false,
     ...patch,
   }
 }
@@ -101,6 +98,7 @@ function plan(patch: Partial<ChatPlanOutput> = {}) {
     version: 'v-old',
     outside: false,
     symlink: false,
+    unsaved: false,
     ...patch,
   }
 }
@@ -179,8 +177,11 @@ describe('createAssistTransport with tools', () => {
     vi.mocked(window.pine.chatTools.preview).mockReset()
     vi.mocked(window.pine.chatTools.write).mockReset()
     vi.mocked(window.pine.chatTools.plan).mockReset()
-    vi.mocked(window.pine.chatTools.undo).mockReset()
+    vi.mocked(window.pine.chatTools.restore).mockReset()
     vi.mocked(window.pine.chatTools.mcpCall).mockReset()
+    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+      texts.map((text) => ({ text, count: 0, kinds: {} })),
+    )
     sessionModel = null
     useAssistStore.setState({ availability: {}, catalog: EMPTY_ASSIST_CATALOG })
     resetChatTools()
@@ -219,6 +220,34 @@ describe('createAssistTransport with tools', () => {
     expect(chunks.filter((c) => c.type === 'start')).toHaveLength(1)
     expect(chunks.filter((c) => c.type === 'finish')).toHaveLength(1)
     expect(chunks.at(-1)?.type).toBe('finish')
+  })
+
+  it('redacts a tool result before it is shown, stored or sent back to the model', async () => {
+    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+      texts.map((text) => {
+        const count = text.split('SECRET').length - 1
+        return { text: text.replaceAll('SECRET', '[redacted:test]'), count, kinds: {} }
+      }),
+    )
+    vi.mocked(window.pine.chatTools.read).mockResolvedValue({
+      ok: true,
+      path: '/proj/.env',
+      text: 'API_KEY=SECRET',
+      startLine: 1,
+      endLine: 1,
+      totalLines: 1,
+      truncated: false,
+      version: 'v-a',
+    })
+    replySequence([toolRound('t1', 'read_file', { path: '.env' }), textRound('done')])
+    const chunks = await drain(await sendWithTools([user('1', 'read .env')]))
+    expect(chunks.find((c) => c.type === 'tool-output-available')).toMatchObject({
+      toolCallId: 't1',
+      output: { path: '/proj/.env', text: 'API_KEY=[redacted:test]', totalLines: 1 },
+    })
+    const sent = requestAt(1).messages.at(-1)?.tools?.[0].output
+    expect(sent).toContain('API_KEY=[redacted:test]')
+    expect(sent).not.toContain('SECRET')
   })
 
   it('asks before reading outside the workspace folder', async () => {
@@ -339,6 +368,7 @@ describe('createAssistTransport with tools', () => {
       root: '/proj',
       edits: [{ oldText: 'two', newText: '2' }],
       outside: false,
+      dirty: [],
     })
     expect(useChatToolsStore.getState().pending[id].detail).toMatchObject({
       path: '/proj/b.txt',
@@ -359,7 +389,7 @@ describe('createAssistTransport with tools', () => {
     useChatToolsStore.getState().setMode('s1', 'write')
     vi.mocked(window.pine.chatTools.plan).mockResolvedValue(plan())
     vi.mocked(window.pine.chatTools.write).mockResolvedValue(written())
-    vi.mocked(window.pine.chatTools.undo).mockResolvedValue({
+    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
       ok: true,
       path: '/proj/b.txt',
       removed: false,
@@ -374,13 +404,14 @@ describe('createAssistTransport with tools', () => {
     expect(window.pine.chatTools.write).toHaveBeenCalledTimes(1)
     expect(useChatToolsStore.getState().edits.e1).toMatchObject({ auto: true, state: 'applied' })
     await undoEdit('e1')
-    expect(vi.mocked(window.pine.chatTools.undo).mock.calls[0][0]).toEqual({
+    expect(vi.mocked(window.pine.chatTools.restore).mock.calls[0][0]).toEqual({
       path: '/proj/b.txt',
       root: '/proj',
       outside: false,
       symlinks: false,
-      wrote: 'v-new',
-      restore: 'one two',
+      expected: 'v-new',
+      content: 'one two',
+      dirty: [],
     })
     expect(useChatToolsStore.getState().edits.e1.state).toBe('undone')
     expect(useChatToolsStore.getState().versions.s1['/proj/b.txt']).toBe('v-old')
@@ -492,30 +523,90 @@ describe('createAssistTransport with tools', () => {
       symlink: false,
       auto: true,
       state: 'applied',
+      seq: 1,
+      decisions: [null],
     })
-    vi.mocked(window.pine.chatTools.undo)
+    vi.mocked(window.pine.chatTools.restore)
       .mockResolvedValueOnce({ ok: true, path: '/proj/b.txt', removed: false, version: 'v-old' })
       .mockResolvedValueOnce({ ok: false, error: 'changed' })
     await Promise.all([undoEdit('e1'), undoEdit('e1')])
-    expect(window.pine.chatTools.undo).toHaveBeenCalledTimes(1)
+    expect(window.pine.chatTools.restore).toHaveBeenCalledTimes(1)
     expect(useChatToolsStore.getState().edits.e1.state).toBe('undone')
   })
 
-  it('in Write mode a file with unsaved edits in the editor still asks', async () => {
+  it('in Write mode a file with unsaved edits in the editor still asks, as main finds it by real path', async () => {
     useChatToolsStore.getState().setMode('s1', 'write')
-    useEditorStatus.getState().setDirty('/proj/b.txt', true)
-    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(plan())
+    useEditorStatus.getState().setDirty('/home/u/link/b.txt', true)
+    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(plan({ unsaved: true }))
     replySequence([
       toolRound('e1', 'edit_file', { path: 'b.txt', edits: [{ old_text: 'two', new_text: '2' }] }),
       textRound('ok'),
     ])
     const draining = sendWithTools([user('1', 'edit')]).then(drain)
     const id = await pendingApproval()
+    expect(vi.mocked(window.pine.chatTools.plan).mock.calls[0][0].dirty).toEqual([
+      '/home/u/link/b.txt',
+    ])
     expect(useChatToolsStore.getState().pending[id].detail.reason).toBe('unsaved')
     answerApproval(id, { approved: false })
     await draining
     expect(window.pine.chatTools.write).not.toHaveBeenCalled()
-    useEditorStatus.getState().setDirty('/proj/b.txt', false)
+    useEditorStatus.getState().setDirty('/home/u/link/b.txt', false)
+  })
+
+  it('writes only the changes the human accepted and tells the model the rest were rejected', async () => {
+    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(
+      plan({ before: 'a\nb\nc\nd\ne\n', after: 'A\nb\nc\nd\nE\n' }),
+    )
+    vi.mocked(window.pine.chatTools.write).mockResolvedValue(written())
+    replySequence([
+      toolRound('e1', 'edit_file', {
+        path: 'b.txt',
+        edits: [
+          { old_text: 'a', new_text: 'A' },
+          { old_text: 'e', new_text: 'E' },
+        ],
+      }),
+      textRound('ok'),
+    ])
+    const draining = sendWithTools([user('1', 'edit')]).then(drain)
+    const id = await pendingApproval()
+    await decideHunk(id, 1, 'rejected')
+    expect(useChatToolsStore.getState().pending[id]).toBeDefined()
+    await decideHunk(id, 0, 'accepted')
+    const chunks = await draining
+    expect(vi.mocked(window.pine.chatTools.write).mock.calls[0][0]).toMatchObject({
+      content: 'A\nb\nc\nd\ne\n',
+      base: 'v-old',
+    })
+    expect(useChatToolsStore.getState().edits.e1).toMatchObject({
+      after: 'A\nb\nc\nd\nE\n',
+      decisions: ['accepted', 'rejected'],
+      auto: false,
+    })
+    expect(useChatToolsStore.getState().hunkChoices.e1).toBeUndefined()
+    const output = chunks.find((c) => c.type === 'tool-output-available') as {
+      output: Record<string, unknown>
+    }
+    expect(output.output).toMatchObject({ added: 1, removed: 1, rejectedChanges: 1 })
+    expect(String(output.output.note)).toContain('Read it again')
+  })
+
+  it('rejects the whole edit when the human rejects every change', async () => {
+    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(
+      plan({ before: 'a\nb\nc\nd\ne\n', after: 'A\nb\nc\nd\nE\n' }),
+    )
+    replySequence([
+      toolRound('e1', 'edit_file', { path: 'b.txt', edits: [{ old_text: 'a', new_text: 'A' }] }),
+      textRound('ok'),
+    ])
+    const draining = sendWithTools([user('1', 'edit')]).then(drain)
+    const id = await pendingApproval()
+    await decideHunk(id, 0, 'rejected')
+    await decideHunk(id, 1, 'rejected')
+    const chunks = await draining
+    expect(chunks.some((c) => c.type === 'tool-output-denied')).toBe(true)
+    expect(window.pine.chatTools.write).not.toHaveBeenCalled()
   })
 
   it('in Write mode a command proposal still asks every time', async () => {
@@ -616,8 +707,10 @@ describe('createAssistTransport with tools', () => {
       symlink: false,
       auto: true,
       state: 'applied',
+      seq: 1,
+      decisions: [null],
     })
-    vi.mocked(window.pine.chatTools.undo).mockResolvedValue({
+    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
       ok: false,
       error: 'changed',
       path: '/proj/b.txt',

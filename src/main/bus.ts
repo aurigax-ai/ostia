@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
+import { type BusDelivery, busContext, busPreview } from '../shared/busMessages'
 import { ensureCaps } from './controlElevation'
 import { registerControlMethod } from './controlServer'
+import { type PaneIdentity, resolveExternal } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 
 export interface Message {
@@ -10,6 +12,17 @@ export interface Message {
   to: string
   text: string
   ts: string
+  seenAt?: string
+  quiet?: true
+}
+
+export interface SentMessage {
+  id: string
+  from: string
+  to: string
+  preview: string
+  ts: string
+  seenAt?: string
 }
 
 export type HandoffState = 'submitted' | 'claimed' | 'completed' | 'failed'
@@ -34,10 +47,13 @@ export interface Handoff {
 interface BusData {
   inboxes: Record<string, Message[]>
   handoffs: Handoff[]
+  sent: SentMessage[]
 }
 
 const MAX_INBOX_MESSAGES = 200
 const MAX_HANDOFFS = 500
+const MAX_SENT = 500
+const MAX_SENT_LISTED = 50
 
 const MIN_WAIT_MS = 1000
 const MAX_WAIT_MS = 120000
@@ -48,7 +64,12 @@ function busPath(): string {
 }
 
 function loadBus(): BusData {
-  return loadJson<BusData>(busPath(), { inboxes: {}, handoffs: [] })
+  const stored = loadJson<Partial<BusData>>(busPath(), {})
+  return {
+    inboxes: stored.inboxes ?? {},
+    handoffs: stored.handoffs ?? [],
+    sent: stored.sent ?? [],
+  }
 }
 
 function saveBus(data: BusData): void {
@@ -56,11 +77,20 @@ function saveBus(data: BusData): void {
 }
 
 const NOT_FOUND = { ok: false, error: 'not-found' as const }
+const UNKNOWN_PANE = {
+  ok: false,
+  error: 'unknown-pane' as const,
+  message: 'no open pane has that id (see: pine pane.list)',
+}
 
 type WaitResult = { messages: Message[]; timedOut: boolean }
 type Waiter = (result: WaitResult) => void
 
 const waiters = new Map<string, Waiter[]>()
+
+function hasWaiter(externalId: string): boolean {
+  return (waiters.get(externalId)?.length ?? 0) > 0
+}
 
 function wake(to: string, messages: Message[]): void {
   const pending = waiters.get(to)
@@ -87,13 +117,43 @@ function clampTimeout(timeoutMs: number | undefined): number {
   return Math.min(MAX_WAIT_MS, Math.max(MIN_WAIT_MS, timeoutMs))
 }
 
-function deliver(data: BusData, msg: Message): void {
+function markSeen(data: BusData, messages: readonly Message[], at: string): boolean {
+  const fresh = messages.filter((message) => !message.seenAt)
+  if (fresh.length === 0) return false
+  const ids = new Set(fresh.map((message) => message.id))
+  for (const message of fresh) message.seenAt = at
+  for (const record of data.sent) {
+    if (ids.has(record.id) && !record.seenAt) record.seenAt = at
+  }
+  return true
+}
+
+function remember(data: BusData, msg: Message): void {
+  data.sent.push({
+    id: msg.id,
+    from: msg.from,
+    to: msg.to,
+    preview: busPreview(msg.text),
+    ts: msg.ts,
+  })
+  if (data.sent.length > MAX_SENT) data.sent.splice(0, data.sent.length - MAX_SENT)
+}
+
+function deliver(data: BusData, msg: Message): BusDelivery {
   const inbox = data.inboxes[msg.to] ?? []
   inbox.push(msg)
   while (inbox.length > MAX_INBOX_MESSAGES) inbox.shift()
   data.inboxes[msg.to] = inbox
+  if (!msg.quiet) remember(data, msg)
+  const delivery: BusDelivery = hasWaiter(msg.to) ? 'waiting' : 'queued'
+  if (delivery === 'waiting') markSeen(data, inbox, msg.ts)
   saveBus(data)
   wake(msg.to, inbox)
+  return delivery
+}
+
+function unseen(messages: readonly Message[]): Message[] {
+  return messages.filter((message) => !message.seenAt && !message.quiet)
 }
 
 function enforceHandoffCap(data: BusData): void {
@@ -105,15 +165,30 @@ function enforceHandoffCap(data: BusData): void {
 
 export function postBusMessage(from: string, to: string, text: string): string {
   const id = randomUUID()
-  deliver(loadBus(), { id, from, to, text, ts: new Date().toISOString() })
+  deliver(loadBus(), { id, from, to, text, ts: new Date().toISOString(), quiet: true })
   return id
 }
 
 export interface BusDeps {
   managerSendAllowed: () => boolean
+  announce: (from: PaneIdentity, to: PaneIdentity, text: string) => void
+}
+
+function receiverOf(to: unknown): PaneIdentity | undefined {
+  const target = typeof to === 'string' ? resolveExternal(to) : undefined
+  return target?.kind === 'pane' ? target : undefined
 }
 
 export function registerBusMethods(deps: BusDeps): void {
+  const announceQueued = (
+    delivery: BusDelivery,
+    from: PaneIdentity,
+    to: PaneIdentity,
+    text: string,
+  ): void => {
+    if (delivery === 'queued' && to.externalId !== from.externalId) deps.announce(from, to, text)
+  }
+
   registerControlMethod('bus.send', {
     handler: async (params, ctx) => {
       const { to, text } = (params ?? {}) as { to: string; text: string }
@@ -124,13 +199,16 @@ export function registerBusMethods(deps: BusDeps): void {
           'limit: the manager sent too many bus messages this minute',
         )
       }
+      const receiver = receiverOf(to)
+      if (!receiver) return UNKNOWN_PANE
       if (to !== from) {
         await ensureCaps(ctx.authed, ctx.identity, ['send-other-pane'], 'bus.send', `to ${to}`)
       }
       const data = loadBus()
       const id = randomUUID()
-      deliver(data, { id, from, to, text, ts: new Date().toISOString() })
-      return { ok: true, id }
+      const delivered = deliver(data, { id, from, to, text, ts: new Date().toISOString() })
+      announceQueued(delivered, ctx.identity, receiver, text)
+      return { ok: true, id, delivered }
     },
   })
 
@@ -140,11 +218,31 @@ export function registerBusMethods(deps: BusDeps): void {
       const data = loadBus()
       const me = ctx.identity.externalId
       const messages = data.inboxes[me] ?? []
-      if (drain && messages.length > 0) {
-        data.inboxes[me] = []
-        saveBus(data)
-      }
+      const marked = markSeen(data, messages, new Date().toISOString())
+      const drained = drain === true && messages.length > 0
+      if (drained) data.inboxes[me] = []
+      if (marked || drained) saveBus(data)
       return { messages }
+    },
+  })
+
+  registerControlMethod('bus.context', {
+    handler: (_params, ctx) => {
+      const data = loadBus()
+      const fresh = unseen(data.inboxes[ctx.identity.externalId] ?? [])
+      const context = busContext(fresh)
+      if (!context) return { text: null }
+      const shown = fresh.filter((message) => context.shown.includes(message.id))
+      if (markSeen(data, shown, new Date().toISOString())) saveBus(data)
+      return { text: context.text }
+    },
+  })
+
+  registerControlMethod('bus.sent', {
+    handler: (_params, ctx) => {
+      const me = ctx.identity.externalId
+      const mine = loadBus().sent.filter((record) => record.from === me)
+      return { messages: mine.slice(-MAX_SENT_LISTED) }
     },
   })
 
@@ -154,25 +252,29 @@ export function registerBusMethods(deps: BusDeps): void {
       const me = ctx.identity.externalId
       const clamped = clampTimeout(timeoutMs)
 
-      const already = loadBus().inboxes[me] ?? []
-      if (already.length > 0) {
+      const data = loadBus()
+      const already = data.inboxes[me] ?? []
+      if (already.some((message) => !message.seenAt)) {
+        markSeen(data, already, new Date().toISOString())
+        saveBus(data)
         return Promise.resolve({ messages: already, timedOut: false })
       }
 
       return new Promise<WaitResult>((resolve) => {
         let settled = false
         const timer = setTimeout(() => {
-          const data = loadBus()
-          finish({ messages: data.inboxes[me] ?? [], timedOut: true })
+          finish({ messages: loadBus().inboxes[me] ?? [], timedOut: true })
         }, clamped)
         const finish = (result: WaitResult): void => {
           if (settled) return
           settled = true
           clearTimeout(timer)
           unregister()
+          closed.dispose()
           resolve(result)
         }
         const unregister = addWaiter(me, finish)
+        const closed = ctx.conn.onClose(() => finish({ messages: [], timedOut: true }))
       })
     },
   })
@@ -186,6 +288,8 @@ export function registerBusMethods(deps: BusDeps): void {
         context?: HandoffContext
       }
       const from = ctx.identity.externalId
+      const receiver = receiverOf(to)
+      if (!receiver) return UNKNOWN_PANE
       if (to !== from) {
         await ensureCaps(ctx.authed, ctx.identity, ['send-other-pane'], 'bus.handoff', `to ${to}`)
       }
@@ -212,14 +316,15 @@ export function registerBusMethods(deps: BusDeps): void {
       }
       data.handoffs.push(handoff)
       enforceHandoffCap(data)
-      deliver(data, {
+      const delivered = deliver(data, {
         id: randomUUID(),
         from,
         to,
         text: `handoff ${id}: ${task} — ${summary}`,
         ts: now,
       })
-      return { ok: true, id }
+      announceQueued(delivered, ctx.identity, receiver, `${task} — ${summary}`)
+      return { ok: true, id, delivered }
     },
   })
 

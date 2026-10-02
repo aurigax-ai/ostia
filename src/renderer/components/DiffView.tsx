@@ -23,7 +23,9 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
   const diffRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null)
   const pathRef = useRef(content?.path)
   pathRef.current = content?.path
-  const [inline, setInline] = useState(false)
+  const [inline, setInline] = useState(
+    () => useSettingsStore.getState().editor.diffLayout === 'inline',
+  )
   const external = useExternalEditorAction(paneId)
   useMonacoTheme()
 

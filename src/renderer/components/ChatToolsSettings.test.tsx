@@ -20,6 +20,15 @@ const github: McpServerSettings = {
   disabledTools: [],
 }
 
+const linear: McpServerSettings = {
+  name: 'linear',
+  enabled: true,
+  url: 'https://mcp.linear.example/mcp',
+  env: {},
+  secrets: [],
+  disabledTools: [],
+}
+
 function status(patch: Partial<McpServerStatus>): McpServerStatus {
   return { name: 'github', transport: 'stdio', state: 'idle', tools: [], secretsSet: [], ...patch }
 }
@@ -45,6 +54,10 @@ describe('ChatToolsSettings', () => {
     resetChatTools()
     vi.mocked(window.pine.chatTools.setMcpSecret).mockReset().mockResolvedValue({ ok: true })
     vi.mocked(window.pine.chatTools.mcpRefresh).mockReset().mockResolvedValue([])
+    vi.mocked(window.pine.chatTools.mcpSignIn).mockReset().mockResolvedValue({ ok: true })
+    vi.mocked(window.pine.chatTools.mcpCancelSignIn).mockReset()
+    vi.mocked(window.pine.chatTools.mcpSignOut).mockReset().mockResolvedValue([])
+    vi.mocked(window.pine.chatTools.mcpTest).mockReset().mockResolvedValue({ ok: true, tools: 0 })
     vi.mocked(window.pine.chatTools.skills).mockReset().mockResolvedValue([])
     vi.mocked(window.pine.sync.pickFolder).mockReset().mockResolvedValue(null)
   })
@@ -168,7 +181,7 @@ describe('ChatToolsSettings', () => {
     await user.click(screen.getByRole('button', { name: 'Edit github' }))
     const dialog = await screen.findByRole('dialog', { name: 'Edit github' })
     expect(within(dialog).getByLabelText('Name')).toBeDisabled()
-    const secret = within(dialog).getByLabelText('GITHUB_TOKEN Secret value')
+    const secret = within(dialog).getByLabelText('Secret value of GITHUB_TOKEN')
     expect(secret).toHaveValue('')
     expect(secret).toHaveAttribute('placeholder', 'Saved. Type to replace.')
     const args = within(dialog).getByLabelText('Arguments')
@@ -193,6 +206,88 @@ describe('ChatToolsSettings', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(servers()).toEqual([]))
     expect(window.pine.chatTools.setMcpSecret).toHaveBeenCalledWith('github', 'GITHUB_TOKEN', null)
+  })
+
+  it('offers Sign in only on a URL server that asked for it and shows why a sign-in failed', async () => {
+    const mcp = [
+      status({ state: 'idle' }),
+      status({
+        name: 'linear',
+        transport: 'http',
+        state: 'error',
+        error: 'HTTP 401',
+        auth: 'required',
+      }),
+    ]
+    seed([github, linear])
+    vi.mocked(window.pine.chatTools.mcpRefresh).mockResolvedValue(mcp)
+    vi.mocked(window.pine.chatTools.mcpSignIn).mockResolvedValue({
+      ok: false,
+      error: 'failed',
+      detail: 'access_denied: Nope',
+    })
+    const user = userEvent.setup()
+    render(<ChatToolsSettings />)
+    const row = await screen.findByText('Sign-in required')
+    expect(row.closest('li')).toHaveTextContent('linear')
+    expect(screen.getAllByRole('button', { name: /^Sign in to / })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: /^Sign out of / })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Sign in to linear' }))
+    expect(window.pine.chatTools.mcpSignIn).toHaveBeenCalledWith('linear')
+    expect(await screen.findByText('The sign-in failed. access_denied: Nope')).toHaveAttribute(
+      'role',
+      'alert',
+    )
+  })
+
+  it('shows waiting with Cancel, signed in with Sign out, and expired with both actions', async () => {
+    seed([linear])
+    const user = userEvent.setup()
+    const show = async (auth: McpServerStatus['auth']): Promise<void> => {
+      await act(async () => {
+        useChatToolsStore
+          .getState()
+          .setMcp([status({ name: 'linear', transport: 'http', state: 'ready', auth })])
+      })
+    }
+    vi.mocked(window.pine.chatTools.mcpRefresh).mockResolvedValue([
+      status({ name: 'linear', transport: 'http', state: 'error', auth: 'signing-in' }),
+    ])
+    render(<ChatToolsSettings />)
+    expect(await screen.findByText('Waiting for you in the browser')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign in to linear' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Cancel signing in to linear' }))
+    expect(window.pine.chatTools.mcpCancelSignIn).toHaveBeenCalledWith('linear')
+
+    await show('signed-in')
+    expect(screen.getByText('Signed in')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign in to linear' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Sign out of linear' }))
+    expect(window.pine.chatTools.mcpSignOut).toHaveBeenCalledWith('linear')
+
+    await show('expired')
+    expect(screen.getByText('Sign-in expired')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign in to linear' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign out of linear' })).toBeInTheDocument()
+
+    await show(undefined)
+    expect(screen.queryByText(/Sign-in|Signed in/)).toBeNull()
+  })
+
+  it('tests a server and shows the tool count or the exact error', async () => {
+    seed([github, linear])
+    vi.mocked(window.pine.chatTools.mcpTest)
+      .mockResolvedValueOnce({ ok: true, tools: 5 })
+      .mockResolvedValueOnce({ ok: false, error: 'connect ECONNREFUSED 127.0.0.1:9' })
+    const user = userEvent.setup()
+    render(<ChatToolsSettings />)
+    await user.click(screen.getByRole('button', { name: 'Test github' }))
+    expect(window.pine.chatTools.mcpTest).toHaveBeenCalledWith('github')
+    expect(await screen.findByText('Test passed · 5 tools')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Test linear' }))
+    expect(
+      await screen.findByText('Test failed: connect ECONNREFUSED 127.0.0.1:9'),
+    ).toHaveAttribute('role', 'alert')
   })
 
   it('adds a skill folder from the folder picker, counts its skills and removes it', async () => {

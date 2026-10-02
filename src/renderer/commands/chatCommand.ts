@@ -1,6 +1,7 @@
 import { chatAvailable } from '../lib/assistFeatures'
 import { openChatPane } from '../lib/chatPane'
 import { useAssistStore } from '../stores/assistStore'
+import { registerCore } from './core'
 import { commands } from './registry'
 
 export const CHAT_COMMAND_ID = 'assist.chat'
@@ -8,10 +9,9 @@ export const CHAT_COMMAND_ID = 'assist.chat'
 function syncChatCommand(): void {
   const ready = chatAvailable()
   if (ready && !commands.has(CHAT_COMMAND_ID)) {
-    commands.register({
+    registerCore({
       id: CHAT_COMMAND_ID,
-      title: 'Assistant: Chat',
-      category: 'Assistant',
+      category: 'assistant',
       target: 'none',
       run: () => {
         openChatPane()

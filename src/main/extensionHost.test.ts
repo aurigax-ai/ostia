@@ -146,6 +146,33 @@ describe('ExtensionHost — approval and capabilities', () => {
   })
 })
 
+describe('ExtensionHost — settings page', () => {
+  beforeEach(() => {
+    writeExt(join(base, 'user'), 'paged', {
+      contributes: {
+        settings: { mode: { type: 'string', default: '', description: 'How it runs' } },
+        settingsPage: { title: 'Paged', icon: 'kanban' },
+      },
+    })
+  })
+
+  it('sends the page only while the extension is enabled', () => {
+    const { host } = makeHost()
+    const paged = () => host.list().find((e) => e.id === 'paged')
+    expect(paged()?.settingsPage).toBeNull()
+    host.approve('paged')
+    expect(paged()?.settingsPage).toEqual({ title: 'Paged', icon: 'kanban' })
+    host.setEnabled('paged', false)
+    expect(paged()?.settingsPage).toBeNull()
+    expect(paged()?.settings.map((s) => s.key)).toEqual(['mode'])
+  })
+
+  it('sends none for an extension that asks for no page', () => {
+    const { host } = makeHost()
+    expect(host.list().find((e) => e.id === 'board')?.settingsPage).toBeNull()
+  })
+})
+
 describe('ExtensionHost — command routing guards', () => {
   const caller = { kind: 'pane' as const, capabilities: [] }
 
@@ -349,5 +376,61 @@ describe('ExtensionHost — language servers', () => {
     expect(host.languageServers()[2].state).toBe('on')
     deps.store.set('lsp-user', { enabled: true, approved: [] })
     expect(host.languageServers()[2].state).toBe('pending')
+  })
+})
+
+describe('ExtensionHost agent plugins', () => {
+  const kit = {
+    capabilities: ['agent-plugin', 'notify'],
+    main: 'main.js',
+    contributes: {
+      commands: [{ id: 'on-hook', title: 'Kit hook', palette: false, stdin: true }],
+      agentSkills: [{ name: 'review', path: 'skills/review' }],
+      agentHooks: [
+        { event: 'SessionStart', command: 'on-hook' },
+        { event: 'Notification', command: 'on-hook' },
+      ],
+    },
+  }
+
+  beforeEach(() => {
+    writeExt(join(base, 'user'), 'kit', kit)
+  })
+
+  it('lists the skills and hooks an extension adds, for the approval dialog and Settings', () => {
+    const { host } = makeHost()
+    const info = host.list().find((e) => e.id === 'kit')
+    expect(info?.status).toBe('pending-approval')
+    expect(info?.agentSkills).toEqual(['kit-review'])
+    expect(info?.agentHooks).toEqual([
+      { event: 'SessionStart', command: 'on-hook', agents: ['claude', 'codex'] },
+      { event: 'Notification', command: 'on-hook', agents: ['claude'] },
+    ])
+  })
+
+  it('contributes nothing until the human approves the agent-plugin capability and enables it', () => {
+    const { host, deps } = makeHost()
+    expect(host.agentPlugins()).toEqual([])
+    deps.store.set('kit', { enabled: true, approved: ['notify'] })
+    expect(host.agentPlugins()).toEqual([])
+    host.approve('kit')
+    expect(host.agentPlugins()).toEqual([
+      {
+        extId: 'kit',
+        dir: join(base, 'user', 'kit'),
+        skills: [{ name: 'review', path: 'skills/review', files: [] }],
+        hooks: kit.contributes.agentHooks,
+      },
+    ])
+    host.setEnabled('kit', false)
+    expect(host.agentPlugins()).toEqual([])
+  })
+
+  it('tells main to rebuild the agent plugin when an extension is approved or switched', () => {
+    const onChanged = vi.fn()
+    const { host } = makeHost({ onChanged })
+    host.approve('kit')
+    host.setEnabled('kit', false)
+    expect(onChanged).toHaveBeenCalledTimes(2)
   })
 })

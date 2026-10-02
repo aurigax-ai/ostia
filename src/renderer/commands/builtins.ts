@@ -1,12 +1,11 @@
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
 import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
-import { PRODUCT_NAME } from '@shared/product'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
 import { currentDict } from '../i18n/useDict'
-import { type DropZone, allPanes, findPane } from '../layout/tree'
+import { type DropZone, type FocusDirection, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
 import {
@@ -17,20 +16,24 @@ import {
   stepBlock,
 } from '../lib/blockActions'
 import { browserProfileIn, openerOf } from '../lib/browserProfile'
+import { announceBusMessage } from '../lib/busNotice'
 import { setKeybindingSetting } from '../lib/chords'
 import { closePaneForAgent, requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
+import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
 import { isStaleAgentReport } from '../lib/paneAgent'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
+  focusPaneInDirection,
   goToWorkspace,
   isPaneViewed,
   jumpToLatestUnread,
   markWorkspaceRead,
   signalPane,
+  stepWorkspace,
 } from '../lib/workspaceActivity'
 import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
 import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/workspaceProjects'
@@ -50,6 +53,7 @@ import { useUIStore } from '../stores/uiStore'
 import { useUpdateStore } from '../stores/updateStore'
 import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { type CoreCommandId, registerCore } from './core'
 import { type CommandContext, commands } from './registry'
 
 interface PaneListEntry {
@@ -80,18 +84,26 @@ interface WorkspaceGroupEntry {
 }
 
 const PROGRAM_SETTINGS: readonly {
-  group: 'behavior' | 'notifications' | 'agents' | 'terminal'
+  group: 'behavior' | 'notifications' | 'agents' | 'terminal' | 'workspaces'
   field: string
 }[] = [
   { group: 'behavior', field: 'externalEditor' },
   { group: 'behavior', field: 'checkForUpdates' },
   { group: 'notifications', field: 'command' },
   { group: 'agents', field: 'autoResume' },
+  { group: 'agents', field: 'hooks' },
   { group: 'terminal', field: 'warnOnRiskyPaste' },
+  { group: 'terminal', field: 'shell' },
+  { group: 'terminal', field: 'osc52Write' },
+  { group: 'workspaces', field: 'globalHotkey' },
 ]
+
+const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy']
 
 export function launchesProgram(key: string, value: unknown): string | null {
   const path = key.split('.').filter(Boolean).join('.')
+  const root = path.split('.')[0]
+  if (HUMAN_ONLY_ROOTS.includes(root)) return root
   const state = useSettingsStore.getState()
   for (const { group, field } of PROGRAM_SETTINGS) {
     const setting = `${group}.${field}`
@@ -138,6 +150,13 @@ async function delegate(ctx: CommandContext, id: string, args?: unknown): Promis
   return r.result
 }
 
+const PANE_FOCUS_COMMANDS: readonly (readonly [CoreCommandId, FocusDirection])[] = [
+  ['pane.focusLeft', 'left'],
+  ['pane.focusRight', 'right'],
+  ['pane.focusUp', 'up'],
+  ['pane.focusDown', 'down'],
+]
+
 const WORKSPACE_DIR = /^(\/|~(\/|$))/
 const PANE_LOCKED = 'pane-locked: the human locked this pane; only they can unlock it'
 
@@ -148,10 +167,9 @@ export function registerBuiltinCommands(): void {
     return { activeWorkspaceId: workspaceId, activePaneId: layout?.activePaneId ?? null }
   })
 
-  commands.register<{ paneId?: string; direction: Direction }>({
+  registerCore<{ paneId?: string; direction: Direction }>({
     id: 'pane.split',
-    title: 'Split Pane',
-    category: 'Pane',
+    category: 'pane',
     hidden: true,
     run: ({ paneId, direction }, ctx) => {
       const target = paneId ?? ctx.activePaneId
@@ -161,10 +179,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ paneId?: string } | undefined>({
+  registerCore<{ paneId?: string } | undefined>({
     id: 'tab.new',
-    title: 'New Terminal Tab',
-    category: 'Pane',
+    category: 'pane',
     run: (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
@@ -173,10 +190,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ paneId?: string } | undefined>({
+  registerCore<{ paneId?: string } | undefined>({
     id: 'tab.newBrowser',
-    title: 'New Browser Tab',
-    category: 'Pane',
+    category: 'pane',
     capabilities: ['browse'],
     run: (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
@@ -187,24 +203,21 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'pane.splitRight',
-    title: 'Split Pane Right',
-    category: 'Pane',
+    category: 'pane',
     run: (_args, ctx) => delegate(ctx, 'pane.split', { direction: 'horizontal' }),
   })
 
-  commands.register({
+  registerCore({
     id: 'pane.splitDown',
-    title: 'Split Pane Down',
-    category: 'Pane',
+    category: 'pane',
     run: (_args, ctx) => delegate(ctx, 'pane.split', { direction: 'vertical' }),
   })
 
-  commands.register<{ paneId?: string }>({
+  registerCore<{ paneId?: string }>({
     id: 'pane.close',
-    title: 'Close Pane',
-    category: 'Pane',
+    category: 'pane',
     capabilities: ['kill-pane'],
     run: async (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
@@ -219,10 +232,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ paneId?: string } | undefined>({
+  registerCore<{ paneId?: string } | undefined>({
     id: 'pane.toggleLock',
-    title: 'Lock or Unlock Pane',
-    category: 'Pane',
+    category: 'pane',
     local: true,
     run: (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
@@ -236,10 +248,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ paneId: string }>({
+  registerCore<{ paneId: string }>({
     id: 'pane.focus',
-    title: 'Focus Pane',
-    category: 'Pane',
+    category: 'pane',
     hidden: true,
     run: ({ paneId }, ctx) => {
       if (ctx.activeWorkspaceId && paneId) {
@@ -248,11 +259,21 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ paneId?: string; zoom?: boolean } | undefined>({
+  for (const [id, direction] of PANE_FOCUS_COMMANDS) {
+    registerCore({
+      id,
+      category: 'pane',
+      run: (_args, ctx) => {
+        if (ctx.activeWorkspaceId && ctx.activePaneId) {
+          focusPaneInDirection(ctx.activeWorkspaceId, ctx.activePaneId, direction)
+        }
+      },
+    })
+  }
+
+  registerCore<{ paneId?: string; zoom?: boolean } | undefined>({
     id: 'pane.zoom',
-    title: 'Zoom Pane',
-    category: 'Pane',
-    hidden: true,
+    category: 'pane',
     run: (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
@@ -261,10 +282,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ sourceId: string; targetId: string; zone: DropZone }>({
+  registerCore<{ sourceId: string; targetId: string; zone: DropZone }>({
     id: 'pane.move',
-    title: 'Move Pane',
-    category: 'Pane',
+    category: 'pane',
     hidden: true,
     run: ({ sourceId, targetId, zone }, ctx) => {
       if (ctx.activeWorkspaceId) {
@@ -273,10 +293,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ sourceId: string; targetId: string; after: boolean }>({
+  registerCore<{ sourceId: string; targetId: string; after: boolean }>({
     id: 'pane.moveTab',
-    title: 'Move Tab',
-    category: 'Pane',
+    category: 'pane',
     hidden: true,
     run: ({ sourceId, targetId, after }, ctx) => {
       if (ctx.activeWorkspaceId) {
@@ -285,10 +304,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ state: AttentionState; message?: string }>({
+  registerCore<{ state: AttentionState; message?: string }>({
     id: 'attention.set',
-    title: 'Set Pane Attention',
-    category: 'Pane',
+    category: 'pane',
     hidden: true,
     capabilities: ['drive-self'],
     run: ({ state, message }, ctx) => {
@@ -302,10 +320,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<AgentResume>({
+  registerCore<AgentResume>({
     id: 'resume.set',
-    title: 'Set Agent Resume Token',
-    category: 'Pane',
+    category: 'pane',
     hidden: true,
     capabilities: ['drive-self'],
     run: (resume, ctx) => {
@@ -315,10 +332,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<undefined, { resumed: boolean }>({
+  registerCore<undefined, { resumed: boolean }>({
     id: 'agent.resume',
-    title: 'Resume Agent',
-    category: 'Pane',
+    category: 'pane',
     capabilities: ['shell'],
     run: (_args, ctx) => {
       if (!ctx.activeWorkspaceId || !ctx.activePaneId) return { resumed: false }
@@ -330,10 +346,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ message: string }, { desktop: boolean }>({
+  registerCore<{ message: string }, { desktop: boolean }>({
     id: 'attention.notify',
-    title: 'Mark Pane Unread',
-    category: 'Pane',
+    category: 'pane',
     hidden: true,
     capabilities: ['notify'],
     run: ({ message }, ctx) => {
@@ -346,71 +361,75 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<undefined, { paneId: string | null }>({
+  registerCore<{ from?: unknown; text?: unknown }>({
+    id: 'attention.message',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['notify'],
+    run: ({ from, text }, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      announceBusMessage(ctx.activePaneId, from, text)
+    },
+  })
+
+  registerCore<undefined, { paneId: string | null }>({
     id: 'attention.jumpToLatest',
-    title: 'Jump to Latest Unread',
-    category: 'View',
+    category: 'view',
     target: 'none',
     run: () => ({ paneId: jumpToLatestUnread() }),
   })
 
-  const blockStep = (id: string, title: string, dir: 'prev' | 'next'): void =>
-    commands.register<undefined, { blockId: string | null }>({
+  const blockStep = (id: CoreCommandId, dir: 'prev' | 'next'): void =>
+    registerCore<undefined, { blockId: string | null }>({
       id,
-      title,
-      category: 'Terminal',
+      category: 'terminal',
       capabilities: ['drive-self'],
       run: (_args, ctx) => ({
         blockId: ctx.activePaneId ? stepBlock(ctx.activePaneId, dir) : null,
       }),
     })
-  blockStep('block.selectPrev', 'Select Previous Block', 'prev')
-  blockStep('block.selectNext', 'Select Next Block', 'next')
+  blockStep('block.selectPrev', 'prev')
+  blockStep('block.selectNext', 'next')
 
-  const blockCopy = (id: string, title: string, part: BlockPart): void =>
-    commands.register<{ blockId?: string } | undefined, { copied: boolean }>({
+  const blockCopy = (id: CoreCommandId, part: BlockPart): void =>
+    registerCore<{ blockId?: string } | undefined, { copied: boolean }>({
       id,
-      title,
-      category: 'Terminal',
+      category: 'terminal',
       capabilities: ['drive-self'],
       run: async (args, ctx) => ({
         copied: ctx.activePaneId ? await copyBlock(ctx.activePaneId, part, args?.blockId) : false,
       }),
     })
-  blockCopy('block.copyCommand', 'Copy Block Command', 'command')
-  blockCopy('block.copyOutput', 'Copy Block Output', 'output')
-  blockCopy('block.copyBoth', 'Copy Block Command and Output', 'both')
+  blockCopy('block.copyCommand', 'command')
+  blockCopy('block.copyOutput', 'output')
+  blockCopy('block.copyBoth', 'both')
 
-  commands.register<{ blockId?: string } | undefined, { rerun: boolean }>({
+  registerCore<{ blockId?: string } | undefined, { rerun: boolean }>({
     id: 'block.rerun',
-    title: 'Rerun Block Command',
-    category: 'Terminal',
+    category: 'terminal',
     capabilities: ['shell'],
     run: (args, ctx) => ({
       rerun: ctx.activePaneId ? rerunBlock(ctx.activePaneId, args?.blockId) : false,
     }),
   })
 
-  commands.register({
+  registerCore({
     id: 'history.search',
-    title: 'Search Command History',
-    category: 'Terminal',
+    category: 'terminal',
     target: 'none',
     run: () => useHistorySearchStore.getState().setOpen(true),
   })
 
-  commands.register({
+  registerCore({
     id: 'workflows.search',
-    title: 'Workflows: Search',
-    category: 'Workflows',
+    category: 'workflows',
     target: 'none',
     run: (_args, ctx) => openWorkflowPicker(ctx.activeWorkspaceId, ctx.activePaneId),
   })
 
-  commands.register<void, { inputMode: InputMode }>({
+  registerCore<void, { inputMode: InputMode }>({
     id: 'terminal.toggleInputEditor',
-    title: 'Toggle Input Editor',
-    category: 'Terminal',
+    category: 'terminal',
     target: 'none',
     capabilities: ['settings-write'],
     run: () => {
@@ -421,9 +440,8 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ command: string }, { inserted: boolean }>({
+  registerCore<{ command: string }, { inserted: boolean }>({
     id: 'history.insert',
-    title: 'Insert Command',
     hidden: true,
     capabilities: ['shell'],
     run: ({ command }, ctx) => ({
@@ -431,10 +449,9 @@ export function registerBuiltinCommands(): void {
     }),
   })
 
-  commands.register<{ text?: string } | undefined>({
+  registerCore<{ text?: string } | undefined>({
     id: 'workspace.describe',
-    title: 'Describe Workspace',
-    category: 'Workspace',
+    category: 'workspace',
     hidden: true,
     capabilities: ['drive-self'],
     run: (args, ctx) => {
@@ -443,10 +460,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ name: string }, { groupId: string | null }>({
+  registerCore<{ name: string }, { groupId: string | null }>({
     id: 'workspace.group',
-    title: 'Move Workspace to Group',
-    category: 'Workspace',
+    category: 'workspace',
     hidden: true,
     capabilities: ['drive-self'],
     run: (args, ctx) => {
@@ -463,20 +479,18 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'workspace.newGroup',
-    title: 'Move Workspace to New Group',
-    category: 'Workspace',
+    category: 'workspace',
     capabilities: ['drive-self'],
     run: (_args, ctx) => {
       if (ctx.activeWorkspaceId) useWorkspacesStore.getState().createGroup(ctx.activeWorkspaceId)
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'workspace.ungroup',
-    title: 'Remove Workspace from Group',
-    category: 'Workspace',
+    category: 'workspace',
     capabilities: ['drive-self'],
     run: (_args, ctx) => {
       if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
@@ -484,10 +498,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'workspace.toggleGroup',
-    title: 'Collapse or Expand Workspace Group',
-    category: 'Workspace',
+    category: 'workspace',
     run: (_args, ctx) => {
       const store = useWorkspacesStore.getState()
       const groupId = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)?.groupId
@@ -496,10 +509,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'workspace.deleteGroup',
-    title: 'Delete Workspace Group',
-    category: 'Workspace',
+    category: 'workspace',
     run: (_args, ctx) => {
       const store = useWorkspacesStore.getState()
       const groupId = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)?.groupId
@@ -507,10 +519,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'workspace.togglePin',
-    title: 'Pin or Unpin Workspace',
-    category: 'Workspace',
+    category: 'workspace',
     run: (_args, ctx) => {
       const store = useWorkspacesStore.getState()
       const current = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)
@@ -518,29 +529,26 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'workspace.markRead',
-    title: 'Mark Workspace as Read',
-    category: 'Workspace',
+    category: 'workspace',
     run: (_args, ctx) => {
       if (ctx.activeWorkspaceId) markWorkspaceRead(ctx.activeWorkspaceId)
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'workspace.useFocusedFolder',
-    title: 'Use This Pane’s Folder for the Workspace',
-    category: 'Workspace',
+    category: 'workspace',
     local: true,
     run: async (_args, ctx) => {
       if (ctx.activeWorkspaceId) await anchorToFocusedPane(ctx.activeWorkspaceId)
     },
   })
 
-  commands.register<{ dir: string }>({
+  registerCore<{ dir: string }>({
     id: 'workspace.setFolder',
-    title: 'Set Workspace Folder',
-    category: 'Workspace',
+    category: 'workspace',
     hidden: true,
     capabilities: ['drive-self'],
     run: async (args, ctx) => {
@@ -557,22 +565,19 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'workspace.closeOthers',
-    title: 'Close Other Workspaces',
-    category: 'Workspace',
+    category: 'workspace',
     capabilities: ['kill-pane'],
     run: async (_args, ctx) => {
       if (ctx.activeWorkspaceId) await requestCloseOthers(ctx.activeWorkspaceId)
     },
   })
 
-  commands.register<{ argument?: string } | undefined, { merged: boolean }>({
+  registerCore<{ argument?: string } | undefined, { merged: boolean }>({
     id: 'workspace.mergeInto',
-    title: 'Merge Into…',
-    category: 'Workspace',
+    category: 'workspace',
     local: true,
-    argument: 'Workspace to merge into',
     choices: async () => {
       const source = useWorkspacesStore.getState().activeWorkspaceId
       if (!source) return []
@@ -590,19 +595,31 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ index: number }, { switched: boolean }>({
+  registerCore<{ index: number }, { switched: boolean }>({
     id: 'workspace.goto',
-    title: 'Go to Workspace',
-    category: 'Workspace',
+    category: 'workspace',
     hidden: true,
     target: 'none',
     run: ({ index }) => ({ switched: goToWorkspace(index) }),
   })
 
-  commands.register<{ dir?: unknown; name?: unknown } | undefined, { workspaceId: string | null }>({
+  registerCore<undefined, { switched: boolean }>({
+    id: 'workspace.next',
+    category: 'workspace',
+    target: 'none',
+    run: () => ({ switched: stepWorkspace(1) }),
+  })
+
+  registerCore<undefined, { switched: boolean }>({
+    id: 'workspace.previous',
+    category: 'workspace',
+    target: 'none',
+    run: () => ({ switched: stepWorkspace(-1) }),
+  })
+
+  registerCore<{ dir?: unknown; name?: unknown } | undefined, { workspaceId: string | null }>({
     id: 'workspace.new',
-    title: 'New Workspace',
-    category: 'Workspace',
+    category: 'workspace',
     target: 'none',
     argsSchema: {
       type: 'object',
@@ -620,10 +637,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ sandboxed?: unknown } | undefined, { workspaceId: string | null }>({
+  registerCore<{ sandboxed?: unknown } | undefined, { workspaceId: string | null }>({
     id: 'workspace.newScratch',
-    title: 'New Scratch Workspace',
-    category: 'Workspace',
+    category: 'workspace',
     target: 'none',
     argsSchema: {
       type: 'object',
@@ -639,18 +655,23 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'palette.toggle',
-    title: 'Command Palette',
-    category: 'View',
+    category: 'view',
     target: 'none',
     run: () => useUIStore.getState().togglePalette(),
   })
 
-  commands.register({
+  registerCore({
+    id: GO_TO_WORKSPACE_SYMBOL_COMMAND,
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('search', SYMBOLS_PREFIX),
+  })
+
+  registerCore({
     id: 'view.toggleRail',
-    title: 'Toggle Sidebar',
-    category: 'View',
+    category: 'view',
     target: 'none',
     run: () => useUIStore.getState().toggleRail(),
   })
@@ -660,58 +681,51 @@ export function registerBuiltinCommands(): void {
     settings.setZoom(stepZoom(settings.appearance.zoom, direction))
   }
 
-  commands.register({
+  registerCore({
     id: 'view.zoomIn',
-    title: 'Zoom In',
-    category: 'View',
+    category: 'view',
     target: 'none',
     run: () => zoomBy(1),
   })
 
-  commands.register({
+  registerCore({
     id: 'view.zoomOut',
-    title: 'Zoom Out',
-    category: 'View',
+    category: 'view',
     target: 'none',
     run: () => zoomBy(-1),
   })
 
-  commands.register({
+  registerCore({
     id: 'view.zoomReset',
-    title: 'Reset Zoom',
-    category: 'View',
+    category: 'view',
     target: 'none',
     run: () => useSettingsStore.getState().setZoom(ZOOM_DEFAULT),
   })
 
-  commands.register({
+  registerCore({
     id: 'app.openSettings',
-    title: 'Open Settings',
-    category: 'App',
+    category: 'app',
     target: 'none',
     run: () => useUIStore.getState().openSettings(),
   })
 
-  commands.register({
+  registerCore({
     id: 'dashboard.toggle',
-    title: 'Toggle Dashboard',
-    category: 'View',
+    category: 'view',
     target: 'none',
     run: () => useUIStore.getState().toggleDashboard(),
   })
 
-  commands.register({
+  registerCore({
     id: 'assist.settings',
-    title: 'Assistant: Settings',
-    category: 'Assistant',
+    category: 'assistant',
     target: 'none',
     run: () => useUIStore.getState().openSettings('assistant'),
   })
 
-  commands.register({
+  registerCore({
     id: 'app.checkForUpdates',
-    title: 'Check for Updates',
-    category: 'App',
+    category: 'app',
     local: true,
     target: 'none',
     run: () => {
@@ -720,36 +734,32 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'app.quit',
-    title: `Quit ${PRODUCT_NAME}`,
-    category: 'App',
+    category: 'app',
     target: 'none',
     capabilities: ['destructive'],
     run: () => window.pine.window.quit(),
   })
 
-  commands.register({
+  registerCore({
     id: 'developer.toggleDevTools',
-    title: 'Toggle Developer Tools',
-    category: 'Developer',
+    category: 'developer',
     target: 'none',
     capabilities: ['destructive'],
     run: () => window.pine.diagnostics.toggleDevTools(),
   })
 
-  commands.register<undefined, { opened: boolean }>({
+  registerCore<undefined, { opened: boolean }>({
     id: 'developer.openLogFolder',
-    title: 'Open Log Folder',
-    category: 'Developer',
+    category: 'developer',
     target: 'none',
     capabilities: ['drive-self'],
     run: async () => ({ opened: await window.pine.diagnostics.openLogFolder() }),
   })
 
-  commands.register<{ path: string }>({
+  registerCore<{ path: string }>({
     id: 'editor.open',
-    title: 'Open File',
     hidden: true,
     capabilities: ['drive-self'],
     target: 'active',
@@ -759,9 +769,8 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ files?: unknown }>({
+  registerCore<{ files?: unknown }>({
     id: OPEN_FILES_COMMAND,
-    title: 'Open Files',
     hidden: true,
     capabilities: ['drive-self'],
     target: 'active',
@@ -774,9 +783,8 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ url?: string } | undefined>({
+  registerCore<{ url?: string } | undefined>({
     id: 'browser.new',
-    title: 'New Browser',
     hidden: true,
     capabilities: ['browse'],
     target: 'active',
@@ -793,17 +801,15 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register({
+  registerCore({
     id: 'browser.open',
-    title: 'Open Browser',
-    category: 'App',
+    category: 'app',
     capabilities: ['browse'],
     run: (_args, ctx) => delegate(ctx, 'browser.new'),
   })
 
-  commands.register<{ allWorkspaces?: boolean } | undefined, PaneListEntry[]>({
+  registerCore<{ allWorkspaces?: boolean } | undefined, PaneListEntry[]>({
     id: 'pane.list',
-    title: 'List Panes',
     hidden: true,
     capabilities: ['read-board'],
     target: 'none',
@@ -833,9 +839,8 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<Record<string, never> | undefined, WorkspaceListEntry[]>({
+  registerCore<Record<string, never> | undefined, WorkspaceListEntry[]>({
     id: 'workspace.list',
-    title: 'List Workspaces',
     hidden: true,
     capabilities: ['read-board'],
     target: 'none',
@@ -854,9 +859,8 @@ export function registerBuiltinCommands(): void {
       }),
   })
 
-  commands.register<Record<string, never> | undefined, WorkspaceGroupEntry[]>({
+  registerCore<Record<string, never> | undefined, WorkspaceGroupEntry[]>({
     id: 'workspace.groups',
-    title: 'List Workspace Groups',
     hidden: true,
     capabilities: ['read-board'],
     target: 'none',
@@ -872,10 +876,9 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<undefined, { saved: boolean }>({
+  registerCore<undefined, { saved: boolean }>({
     id: 'workspace.save',
-    title: 'Save Workspace',
-    category: 'App',
+    category: 'app',
     capabilities: ['settings-write'],
     target: 'none',
     run: () => {
@@ -885,9 +888,8 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ key?: string } | undefined, unknown>({
+  registerCore<{ key?: string } | undefined, unknown>({
     id: 'settings.get',
-    title: 'Get Setting',
     hidden: true,
     capabilities: ['settings-read'],
     target: 'none',
@@ -902,12 +904,11 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<
+  registerCore<
     { key: string; value: unknown; dryRun?: boolean },
     { previous: unknown; value: unknown; applied: boolean }
   >({
     id: 'settings.set',
-    title: 'Set Setting',
     hidden: true,
     capabilities: ['settings-write'],
     target: 'none',
@@ -925,9 +926,8 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ key: string }, { previous: unknown; value: unknown }>({
+  registerCore<{ key: string }, { previous: unknown; value: unknown }>({
     id: 'settings.unset',
-    title: 'Reset Setting',
     hidden: true,
     capabilities: ['settings-write'],
     target: 'none',
@@ -938,9 +938,8 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  commands.register<{ key?: string } | undefined, unknown>({
+  registerCore<{ key?: string } | undefined, unknown>({
     id: 'settings.schema',
-    title: 'Settings Schema',
     hidden: true,
     capabilities: ['settings-read'],
     target: 'none',

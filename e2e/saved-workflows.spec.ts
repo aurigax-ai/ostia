@@ -76,7 +76,7 @@ test('workflows: fill arguments, insert at the prompt without running, save a bl
     await expect(name).toHaveValue('echo pine_wf_tester_$((20+1))')
     await name.fill('Greet again')
     await win.getByLabel('Command', { exact: true }).fill('echo again_{{name}}')
-    await win.getByLabel('name Default value').fill('pine')
+    await win.getByLabel('Default value of name').fill('pine')
     await win.getByRole('button', { name: 'Save' }).click()
     await expect(name).toHaveCount(0)
 

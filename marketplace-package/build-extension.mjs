@@ -3,8 +3,9 @@ import { dirname, join, resolve, sep } from 'node:path'
 import { build } from 'esbuild'
 
 const assets = ['pine.json', 'panel.html', 'panel.css']
-const localesDir = 'locales'
+const copiedDirs = ['locales', 'assets']
 const vendorList = 'vendor.json'
+const skillEntry = 'SKILL.md'
 
 export function installedPackage(name) {
   let dir = resolve('.')
@@ -61,15 +62,26 @@ function copyVendoredPackages(src, out) {
   }
 }
 
+function copyAgentSkills(src, out) {
+  const manifest = JSON.parse(readFileSync(join(src, 'pine.json'), 'utf8'))
+  for (const skill of manifest.contributes?.agentSkills ?? []) {
+    mkdirSync(join(out, skill.path), { recursive: true })
+    for (const file of [skillEntry, ...(skill.files ?? [])]) {
+      copyFileSync(join(src, skill.path, file), join(out, skill.path, file))
+    }
+  }
+}
+
 export async function buildExtension(src, out, panelBaseCss) {
   mkdirSync(out, { recursive: true })
   for (const file of assets) {
     if (existsSync(join(src, file))) copyFileSync(join(src, file), join(out, file))
   }
-  if (existsSync(join(src, localesDir))) {
-    cpSync(join(src, localesDir), join(out, localesDir), { recursive: true })
+  for (const dir of copiedDirs) {
+    if (existsSync(join(src, dir))) cpSync(join(src, dir), join(out, dir), { recursive: true })
   }
   copyVendoredPackages(src, out)
+  copyAgentSkills(src, out)
   if (existsSync(join(src, 'panel.html'))) copyFileSync(panelBaseCss, join(out, 'base.css'))
   if (existsSync(join(src, 'main.ts'))) {
     await build({

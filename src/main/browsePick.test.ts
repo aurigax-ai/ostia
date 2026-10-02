@@ -104,7 +104,7 @@ describe('runPick', () => {
     if (!outcome.ok) throw new Error(outcome.error)
     expect(outcome.capture.selector).toBe('#save')
     expect(outcome.capture.consoleErrors).toEqual([{ level: 'error', text: 'boom', ts: 1 }])
-    expect(guest.capturePage).toHaveBeenCalledWith({ x: 10, y: 10, width: 80, height: 24 })
+    expect(guest.capturePage).toHaveBeenCalledWith({ x: 0, y: 0, width: 106, height: 50 })
     const shot = outcome.capture.screenshotPath
     expect(shot).toMatch(/pine-reports-\d+\/pick-.*\.png$/)
     expect(readFileSync(shot as string, 'utf8')).toBe('png')
@@ -168,7 +168,7 @@ describe('writePickReport', () => {
 
   it('writes a private markdown report and posts a bus message to the target', async () => {
     const id = await captureId()
-    const res = writePickReport(
+    const res = await writePickReport(
       { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: 'misaligned' },
       'w1',
       sameWindow,
@@ -182,13 +182,31 @@ describe('writePickReport', () => {
     const [from, to, text] = vi.mocked(postBusMessage).mock.calls[0]
     expect(from).not.toBe(to)
     expect(JSON.parse(text)).toMatchObject({ kind: 'capture', report: res.path })
+    expect(res.imagePath).toMatch(/pine-reports-\d+\/pick-.*\.png$/)
+    expect(md).toContain(`![Captured element](${res.imagePath})`)
+  })
+
+  it('writes the report and the bus message through the redactor', async () => {
+    const id = await captureId()
+    const res = await writePickReport(
+      { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: 'key SECRET here' },
+      'w1',
+      sameWindow,
+      async (text) => text.replaceAll('SECRET', '[redacted:test]'),
+    )
+    if (!res.ok) throw new Error(res.error)
+    const md = readFileSync(res.path, 'utf8')
+    expect(md).toContain('key [redacted:test] here')
+    expect(md).not.toContain('SECRET')
+    const [, , text] = vi.mocked(postBusMessage).mock.calls.at(-1) ?? []
+    expect(JSON.parse(text as string).note).toBe('key [redacted:test] here')
   })
 
   it('numbers reports so a second one never overwrites the first', async () => {
     const id = await captureId()
     const req = { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' }
-    const a = writePickReport(req, 'w1', sameWindow)
-    const b = writePickReport(req, 'w1', sameWindow)
+    const a = await writePickReport(req, 'w1', sameWindow)
+    const b = await writePickReport(req, 'w1', sameWindow)
     if (!a.ok || !b.ok) throw new Error('write failed')
     expect(a.path).not.toBe(b.path)
   })
@@ -196,7 +214,7 @@ describe('writePickReport', () => {
   it('refuses a sender window that does not own the browser pane', async () => {
     const id = await captureId()
     expect(
-      writePickReport(
+      await writePickReport(
         { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
         'w2',
         sameWindow,
@@ -206,7 +224,7 @@ describe('writePickReport', () => {
 
   it('refuses a capture id it never issued or one issued for another pane', async () => {
     expect(
-      writePickReport(
+      await writePickReport(
         { captureId: 'pick-nope', sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
         'w1',
         sameWindow,
@@ -214,7 +232,7 @@ describe('writePickReport', () => {
     ).toEqual({ ok: false, error: 'capture-expired' })
     const id = await captureId()
     expect(
-      writePickReport(
+      await writePickReport(
         { captureId: id, sourcePaneId: 'term-1', targetPaneId: 'browser-1', note: '' },
         'w1',
         sameWindow,
@@ -227,9 +245,9 @@ describe('writePickReport', () => {
     const id = await captureId()
     const req = { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'agent-9', note: '' }
 
-    const refused = writePickReport(req, 'w1', sameWindow)
+    const refused = await writePickReport(req, 'w1', sameWindow)
     const asked: string[][] = []
-    const sent = writePickReport(req, 'w1', (...args) => {
+    const sent = await writePickReport(req, 'w1', (...args) => {
       asked.push(args)
       return true
     })
@@ -242,13 +260,13 @@ describe('writePickReport', () => {
 })
 
 describe('sanitizeTheme', () => {
-  it('accepts plain color values', () => {
+  it('accepts plain color values', async () => {
     expect(sanitizeTheme({ accent: '#00d8ff', surface: 'rgb(49, 53, 55)', fg: '#e3edf5' })).toEqual(
       { accent: '#00d8ff', surface: 'rgb(49, 53, 55)', fg: '#e3edf5' },
     )
   })
 
-  it('rejects values that could break out of the style declaration', () => {
+  it('rejects values that could break out of the style declaration', async () => {
     expect(
       sanitizeTheme({ accent: 'red; background: url(x)', surface: '#000', fg: '#fff' }),
     ).toBeUndefined()
@@ -257,7 +275,7 @@ describe('sanitizeTheme', () => {
 })
 
 describe('clampPickTimeout', () => {
-  it('defaults and clamps', () => {
+  it('defaults and clamps', async () => {
     expect(clampPickTimeout(undefined)).toBe(DEFAULT_AGENT_PICK_TIMEOUT_MS)
     expect(clampPickTimeout(1)).toBe(1000)
     expect(clampPickTimeout(10 ** 9)).toBe(MAX_PICK_TIMEOUT_MS)

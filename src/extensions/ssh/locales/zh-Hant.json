@@ -1,7 +1,16 @@
 {
   "manifest": {
-    "description": "列出你 ssh 設定中的主機，並在新終端機中開啟 ssh 工作階段；指定跳板主機時會經由它們連線。代理程式要求的工作階段，只有在你核准確切的指令後才會開啟。",
+    "description": "列出你 ssh 設定中的主機，並在新終端機中開啟 ssh 工作階段；指定跳板主機時會經由它們連線。工作階段中的指令會透過只在該工作階段存在的 shell 整合顯示為區塊。經你逐台主機同意後，主機上 ~/.pine 下的小型輔助指令稿會讓 {product} 取得該主機的檔案。代理程式要求的工作階段，只有在你核准確切的指令後才會開啟。",
     "commands.connect.title": "SSH：連線到主機…",
-    "commands.connect.argument": "主機，寫法與 ssh 後面的參數相同：[-J bastion] [-p port] [user@]host"
+    "commands.connect.argument": "主機，寫法與 ssh 後面的參數相同：[-J bastion] [-p port] [user@]host",
+    "settings.shellIntegration.title": "ssh 工作階段中的 shell 整合",
+    "settings.shellIntegration.description": "在 bash 與 zsh 工作階段中顯示指令區塊與目前資料夾：ssh 會加上 -t 並執行一段固定的指令，在主機上寫入私人暫存資料夾，於 shell 啟動時載入後立即刪除。不會安裝任何東西。若主機拒絕遠端指令，請關閉此選項",
+    "commands.helper-install.title": "SSH：在主機上安裝遠端輔助程式…",
+    "commands.helper-install.argument": "主機，寫法與 ssh 後面的參數相同：[-J bastion] [-p port] [user@]host",
+    "commands.helper-remove.title": "SSH：移除遠端輔助程式…",
+    "commands.helper-remove.argument": "要移除輔助程式的主機，寫法與 ssh 後面的參數相同",
+    "settings.remoteHelper.title": "遠端輔助程式",
+    "settings.remoteHelper.description": "提供在主機的 ~/.pine 下安裝小型輔助指令稿，讓 {product} 透過 ssh 取得該主機的檔案。每台主機只會詢問一次，並在安裝前顯示確切路徑。關閉後不再詢問，也不會連線",
+    "commands.open-folder.title": "SSH：開啟遠端資料夾"
   }
 }

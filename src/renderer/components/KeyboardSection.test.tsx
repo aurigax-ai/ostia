@@ -4,12 +4,16 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
+import { zhHant } from '../i18n/dict'
+import { languagesFrom } from '../lib/languagePacks'
+import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { CommandPalette } from './CommandPalette'
 import { ChordRecorder, KeyboardSection } from './KeyboardSection'
 
 const initialSettings = useSettingsStore.getState()
+const initialPlugins = usePluginsStore.getState()
 
 const press = (key: string, init: KeyboardEventInit = {}): void => {
   act(() => {
@@ -73,13 +77,15 @@ describe('KeyboardSection', () => {
   afterEach(() => {
     cleanup()
     useSettingsStore.setState(initialSettings, true)
+    usePluginsStore.setState(initialPlugins, true)
     useUIStore.setState({ paletteOpen: false })
   })
 
   it('lists commands with their current shortcut, including palette commands without one', () => {
     render(<KeyboardSection />)
     expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
-    expect(within(row(/Split Pane Right/)).getByText('Unassigned')).toBeInTheDocument()
+    expect(within(row(/Split Pane Right/)).getByText('Ctrl+Alt+\\')).toBeInTheDocument()
+    expect(within(row(/New Terminal Tab/)).getByText('Unassigned')).toBeInTheDocument()
     expect(within(row(/Copy \(terminal\)/)).getByText('Ctrl+Shift+C')).toBeInTheDocument()
   })
 
@@ -204,5 +210,21 @@ describe('KeyboardSection', () => {
     render(<CommandPalette />)
     const option = await screen.findByRole('option', { name: /Toggle Sidebar/ })
     expect(within(option).getByText('Ctrl+Alt+B')).toBeInTheDocument()
+  })
+  it('lists core commands in the human’s language and still finds them by their English title', async () => {
+    usePluginsStore.setState({
+      languages: languagesFrom([
+        { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+      ]),
+    })
+    useSettingsStore.setState({ locale: 'zh-Hant' })
+    render(<KeyboardSection />)
+    expect(within(row(/指令面板/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+    expect(within(row(/assist\.compose/)).getByText('使用助理撰寫')).toBeVisible()
+
+    await userEvent.type(screen.getByRole('textbox', { name: '搜尋快捷鍵' }), 'toggle sidebar')
+
+    expect(row(/切換側邊欄/)).toBeInTheDocument()
+    expect(screen.getAllByRole('row')).toHaveLength(2)
   })
 })

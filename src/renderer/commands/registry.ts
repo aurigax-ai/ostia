@@ -1,6 +1,8 @@
 import type { Capability } from '../../shared/capabilities'
 import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import type { CommandDescriptor, CommandResult, JSONSchema, TargetMode } from '../../shared/types'
+import type { Dict } from '../i18n/dict'
+import { BASE_LANGUAGE } from '../lib/languagePacks'
 
 export type {
   CommandResult,
@@ -24,10 +26,17 @@ export interface CommandChoice {
   disabledReason?: string
 }
 
+export interface CommandWording {
+  title: string
+  category?: string
+  argument?: string
+}
+
 export interface CommandDef<Args = void, R = void> {
   id: string
   title: string
   category?: string
+  wording?: (d: Dict) => CommandWording
   hidden?: boolean
   local?: boolean
   argument?: string
@@ -42,6 +51,22 @@ export interface CommandDef<Args = void, R = void> {
 
 // biome-ignore lint/suspicious/noExplicitAny: registry stores heterogeneous command arg/result types.
 type AnyCommand = CommandDef<any, any>
+
+export function wordedBy(
+  wording: (d: Dict) => CommandWording,
+): CommandWording & { wording: (d: Dict) => CommandWording } {
+  return { ...wording(BASE_LANGUAGE.catalog), wording }
+}
+
+export function commandWording(command: AnyCommand, d: Dict): CommandWording {
+  return (
+    command.wording?.(d) ?? {
+      title: command.title,
+      category: command.category,
+      argument: command.argument,
+    }
+  )
+}
 
 export class CommandRegistry {
   private commands = new Map<string, AnyCommand>()

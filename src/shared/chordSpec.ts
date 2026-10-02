@@ -1,4 +1,4 @@
-import { isDangerousSegment } from '@shared/protoGuard'
+import { isDangerousSegment } from './protoGuard'
 
 export interface ChordSpec {
   ctrl: boolean
@@ -302,4 +302,15 @@ export function parseKeybindings(raw: unknown): KeybindingMap {
     }
   }
   return out
+}
+
+export function isNativeClipboardKey(e: KeyLike): boolean {
+  const spec = specFromEvent(e)
+  return (
+    spec?.meta === true &&
+    !spec.ctrl &&
+    !spec.alt &&
+    !spec.shift &&
+    (spec.key === 'c' || spec.key === 'v')
+  )
 }

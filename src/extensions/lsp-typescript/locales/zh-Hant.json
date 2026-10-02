@@ -1,7 +1,11 @@
 {
   "manifest": {
     "name": "TypeScript 與 JavaScript",
-    "description": "在編輯器中提供 TypeScript 與 JavaScript 的診斷、自動完成、懸停說明與跳轉。此擴充功能內含 typescript-language-server 與 TypeScript，並以 {product} 自身的執行環境執行；專案自帶 TypeScript 時會使用專案的版本。"
+    "description": "在編輯器中提供 TypeScript 與 JavaScript 的診斷、自動完成、懸停說明與跳轉。此擴充功能內含 typescript-language-server 與 TypeScript，並以 {product} 自身的執行環境執行；專案自帶 TypeScript 時會使用專案的版本。",
+    "settings.referencesCodeLens.title": "參考數量",
+    "settings.referencesCodeLens.description": "在每個 TypeScript 類別、介面、型別與匯出函式的上方一行顯示它有多少個參考",
+    "settings.implementationsCodeLens.title": "實作數量",
+    "settings.implementationsCodeLens.description": "在每個 TypeScript 介面與抽象類別的上方一行顯示它有多少個實作"
   },
   "messages": {}
 }

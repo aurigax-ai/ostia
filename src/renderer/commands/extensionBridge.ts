@@ -7,6 +7,8 @@ import type {
 import { flushSync } from 'react-dom'
 import { runWhenIdle } from '../lib/blockActions'
 import { pinTitle } from '../lib/pinnedTitles'
+import { revealPane } from '../lib/workspaceActivity'
+import { useAgentOfferStore } from '../stores/agentOfferStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePluginsStore } from '../stores/pluginsStore'
@@ -153,6 +155,10 @@ export function wireExtensionBridge(): void {
   api.onOpenPanel(openExtensionPanel)
   api.onOpenDiff(openExtensionDiff)
   api.onOpenTerminal(openExtensionTerminal)
+  const offers = useAgentOfferStore.getState()
+  api.onAgentOffer(offers.receive)
+  api.onAgentOfferWithdrawn(offers.withdraw)
+  api.onFocusPane((paneId) => void revealPane(paneId))
   void store
     .load()
     .then(() => syncExtensionCommands(useExtensionsStore.getState().list))

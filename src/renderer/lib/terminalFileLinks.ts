@@ -1,4 +1,5 @@
 import type { IBufferCellPosition, ILink, ILinkProvider, Terminal } from '@xterm/xterm'
+import { LRUCache } from 'lru-cache'
 import { findFileLinks, resolveLinkPath } from './fileLinks'
 
 interface LogicalLine {
@@ -7,6 +8,7 @@ interface LogicalLine {
 }
 
 const STAT_TTL_MS = 5_000
+const STAT_CACHE_MAX = 500
 
 export function readLogicalLine(term: Terminal, row: number): LogicalLine {
   const buffer = term.buffer.active
@@ -30,23 +32,31 @@ export function readLogicalLine(term: Terminal, row: number): LogicalLine {
 
 export interface FileLinkDeps {
   cwd: () => string | null
+  remote: () => boolean
   stat: (path: string) => Promise<'file' | 'dir' | null>
   open: (path: string, line?: number, column?: number) => void
   modifierHeld: (event: MouseEvent) => boolean
 }
 
 export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILinkProvider {
-  const cache = new Map<string, { at: number; kind: Promise<'file' | 'dir' | null> }>()
+  const cache = new LRUCache<string, Promise<'file' | 'dir' | null>>({
+    ttl: STAT_TTL_MS,
+    max: STAT_CACHE_MAX,
+  })
   const statCached = (path: string): Promise<'file' | 'dir' | null> => {
     const hit = cache.get(path)
-    if (hit && Date.now() - hit.at < STAT_TTL_MS) return hit.kind
+    if (hit) return hit
     const kind = deps.stat(path).catch(() => null)
-    cache.set(path, { at: Date.now(), kind })
+    cache.set(path, kind)
     return kind
   }
 
   return {
     provideLinks(row, callback) {
+      if (deps.remote()) {
+        callback(undefined)
+        return
+      }
       const cwd = deps.cwd()
       const { text, cells } = readLogicalLine(term, row)
       const matches = findFileLinks(text).filter((m) => {

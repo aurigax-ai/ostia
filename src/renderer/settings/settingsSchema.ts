@@ -1,9 +1,18 @@
+import { GLOBAL_HOTKEY_MAX_LENGTH } from '../../shared/globalHotkey'
+import {
+  BELL_MODES,
+  LONG_COMMAND_MAX_SECONDS,
+  LONG_COMMAND_MIN_SECONDS,
+} from '../../shared/notificationSettings'
+import { PRODUCT_NAME } from '../../shared/product'
 import {
   CORE_CHIP_IDS,
   MAX_PROMPT_CHIPS,
   PROMPT_SEPARATORS,
   PROMPT_STYLES,
 } from '../../shared/promptSettings'
+import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '../../shared/redaction'
+import { SHELL_SETTING_MAX_LENGTH } from '../../shared/terminalShell'
 import { MATCH_PINE_THEME } from '../../shared/themeChoice'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
@@ -64,7 +73,7 @@ export function keybindingsSchema(ids: readonly string[]) {
 
 export const SETTINGS_JSON_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
-  title: 'Pine Settings',
+  title: `${PRODUCT_NAME} Settings`,
   type: 'object',
   additionalProperties: false,
   properties: {
@@ -169,6 +178,12 @@ export const SETTINGS_JSON_SCHEMA = {
             'Edit commands in the input editor with vim keys. Esc switches to normal mode ' +
             '(h j k l w b e 0 $ x dd dw cw u, with counts); i a A I o O return to insert mode. ' +
             'Enter runs the command from either mode. Default: false.',
+        },
+        historySuggestions: {
+          type: 'boolean',
+          description:
+            'Show the latest matching history command as gray text in the input editor; Right ' +
+            'arrow or End accepts it. Default: true.',
         },
         copyOnSelect: {
           type: 'boolean',
@@ -304,6 +319,36 @@ export const SETTINGS_JSON_SCHEMA = {
             'line is always pasted without its trailing newline or control characters. Only ' +
             'you can change this, in Settings; agents cannot. Default: true.',
         },
+        primarySelection: {
+          type: 'boolean',
+          description:
+            'Linux: selecting terminal text puts it in the primary selection, and a middle ' +
+            'click pastes the primary selection (through the same paste check as Ctrl+Shift+V). ' +
+            'Off turns both off. Default: true.',
+        },
+        macOptionIsMeta: {
+          type: 'boolean',
+          description:
+            'macOS: send Option+key as Meta (Esc+key) so readline and fzf Alt shortcuts work; ' +
+            'Option then no longer types special characters. Default: false.',
+        },
+        osc52Write: {
+          type: 'boolean',
+          description:
+            'Let programs in a terminal set the clipboard with OSC 52 (tmux, vim and agents ' +
+            'over ssh copy this way). Programs can never read the clipboard. Only you can ' +
+            'change this, in Settings; agents cannot. Default: false.',
+        },
+        shell: {
+          type: 'string',
+          maxLength: SHELL_SETTING_MAX_LENGTH,
+          description:
+            'Program new terminals run, with its arguments, e.g. "/usr/bin/fish" or "nu -l". ' +
+            'Empty uses your login shell ($SHELL). Run directly, never through a shell. Blocks, ' +
+            'the input editor and the folder chip need zsh or bash; other shells work without ' +
+            'them. Applies to new terminals. Only you can change this, in Settings; agents ' +
+            'cannot. Default: empty.',
+        },
         minimumContrast: {
           type: 'number',
           minimum: 1,
@@ -391,7 +436,7 @@ export const SETTINGS_JSON_SCHEMA = {
         sound: { type: 'boolean', description: 'Play the system sound with each banner.' },
         whenFocused: {
           type: 'boolean',
-          description: 'Also show banners for the pane you are looking at while Pine is focused.',
+          description: `Also show banners for the pane you are looking at while ${PRODUCT_NAME} is focused.`,
         },
         agentWaiting: {
           type: 'boolean',
@@ -411,7 +456,22 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         commandFinished: {
           type: 'boolean',
-          description: 'Banner when a long command finishes in a pane you are not watching.',
+          description:
+            'Banner when a long command (longCommandSeconds or more) finishes in a pane you ' +
+            'are not watching.',
+        },
+        longCommandSeconds: {
+          type: 'integer',
+          minimum: LONG_COMMAND_MIN_SECONDS,
+          maximum: LONG_COMMAND_MAX_SECONDS,
+          description: `Seconds a command must run before its end notifies you while ${PRODUCT_NAME} is in the background. Default: 10.`,
+        },
+        bell: {
+          type: 'string',
+          enum: [...BELL_MODES],
+          description:
+            'What a terminal bell (BEL) does: "attention" marks the pane when you are not ' +
+            'viewing it, "sound" also plays the system sound, "off" ignores it. Default: attention.',
         },
       },
     },
@@ -446,12 +506,7 @@ export const SETTINGS_JSON_SCHEMA = {
       properties: {
         chatHistory: {
           type: 'boolean',
-          description:
-            'Save assistant chat sessions on this computer (never synced), so a chat pane ' +
-            'reopens its last session and you can search, rename, export or delete past ones. ' +
-            'Terminal output you add as context is stored only as the text that was sent. ' +
-            'Off keeps chats in memory until Pine quits. Only you can change this; pine ' +
-            'settings set refuses it. Default: true.',
+          description: `Save assistant chat sessions on this computer (never synced), so a chat pane reopens its last session and you can search, rename, export or delete past ones. Terminal output you add as context is stored only as the text that was sent. Off keeps chats in memory until ${PRODUCT_NAME} quits. Only you can change this; pine settings set refuses it. Default: true.`,
         },
         mcpServers: {
           type: 'array',
@@ -497,10 +552,22 @@ export const SETTINGS_JSON_SCHEMA = {
       properties: {
         autoResume: {
           type: 'boolean',
-          description:
-            "Resume an agent session that was running when Pine quit, at its pane's first idle " +
-            'prompt once the pane is visible. Only you can change this; pine settings set ' +
-            'refuses it. Default: false.',
+          description: `Resume an agent session that was running when ${PRODUCT_NAME} quit, at its pane's first idle prompt once the pane is visible. Only you can change this; pine settings set refuses it. Default: false.`,
+        },
+        hooks: {
+          type: 'object',
+          additionalProperties: false,
+          description: `${PRODUCT_NAME}’s integration for each agent CLI in new terminals. Turn one off if it clashes with your own hooks; that agent then runs untouched and reports no attention state or resume token on its own. Only you can change this, in Settings; agents cannot.`,
+          properties: {
+            claude: {
+              type: 'boolean',
+              description: `Run claude with the ${PRODUCT_NAME} plugin (CLI skill, resume token, attention hooks). Default: true.`,
+            },
+            codex: {
+              type: 'boolean',
+              description: `Run interactive codex sessions with ${PRODUCT_NAME}’s hooks (resume token, attention state, CLI context). Default: true.`,
+            },
+          },
         },
         hibernation: {
           type: 'object',
@@ -565,10 +632,12 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         closeToTray: {
           type: 'boolean',
-          description:
-            'Closing the window hides Pine instead of quitting; your terminals keep running and ' +
-            'a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a ' +
-            'system tray. Default: false.',
+          description: `Closing the window hides ${PRODUCT_NAME} instead of quitting; your terminals keep running and a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a system tray. Default: false.`,
+        },
+        globalHotkey: {
+          type: 'string',
+          maxLength: GLOBAL_HOTKEY_MAX_LENGTH,
+          description: `A system-wide shortcut that brings every ${PRODUCT_NAME} window up, or hides them to the tray when one has focus, e.g. "Ctrl+Alt+Space". Modifiers: Ctrl, Alt, Shift, Super, Cmd, Mod (Cmd on macOS, Ctrl elsewhere); needs one other than Shift. On Wayland it works only where the desktop lets apps register global shortcuts. Empty turns it off. Only you can change this, in Settings; agents cannot. Default: empty.`,
         },
         wrapTitles: {
           type: 'boolean',
@@ -595,15 +664,18 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         openTerminalLinks: {
           type: 'boolean',
-          description:
-            'Ctrl/Cmd+click on a web link in a terminal opens it in Pine’s browser pane instead of ' +
-            'the system browser; with Shift as well, the other way for that click. Default: false.',
+          description: `Ctrl/Cmd+click on a web link in a terminal opens it in ${PRODUCT_NAME}’s browser pane instead of the system browser; with Shift as well, the other way for that click. Default: false.`,
         },
         defaultZoom: {
           type: 'number',
           minimum: 50,
           maximum: 300,
           description: 'Page zoom in percent for browser panes when a page loads. Default: 100.',
+        },
+        attachCaptureImage: {
+          type: 'boolean',
+          description:
+            'When a browser capture (a picked element or a cropped region) is sent to an agent, insert its screenshot as a second @reference after the report, so agents that attach @image paths see the picture. Default: true.',
         },
       },
     },
@@ -635,6 +707,18 @@ export const SETTINGS_JSON_SCHEMA = {
           description:
             'Format the document before every save with the language server or built-in ' +
             'formatter. Files with no formatter are just saved. Default: false.',
+        },
+        markdownPreview: {
+          type: 'boolean',
+          description:
+            'Open Markdown files in the rendered preview instead of the source. Default: false.',
+        },
+        diffLayout: {
+          type: 'string',
+          enum: ['sideBySide', 'inline'],
+          description:
+            'How a diff opens: both texts side by side, or inline in one column. The button in ' +
+            'each diff switches it. Default: sideBySide.',
         },
         openFilesIn: {
           type: 'string',
@@ -742,12 +826,35 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    privacy: {
+      type: 'object',
+      additionalProperties: false,
+      description: 'Only you can change this (Settings → Privacy); agents cannot set it.',
+      properties: {
+        redaction: {
+          type: 'object',
+          additionalProperties: false,
+          description: `Secret redaction. Text that leaves ${PRODUCT_NAME} for an AI provider, or that it writes to disk (saved scrollback, the notification log, selection and pick reports), has detected secrets replaced with [redacted:<kind>]. The live terminal, the clipboard and your files are never changed.`,
+          properties: {
+            enabled: { type: 'boolean', description: 'Default: true.' },
+            patterns: {
+              type: 'array',
+              maxItems: REDACTION_PATTERNS_MAX,
+              items: { type: 'string', maxLength: REDACTION_PATTERN_MAX },
+              description:
+                'Your own patterns: regular expressions matched on one line at a time. No ' +
+                'lookaround or backreferences, no repeated group that itself repeats or ' +
+                'branches, at most one open-ended repeat (* + {n,}). A pattern that breaks a ' +
+                'rule is ignored.',
+            },
+          },
+        },
+      },
+    },
     manager: {
       type: 'object',
       additionalProperties: false,
-      description:
-        'The manager: one agent you start with `pine <agent>` from a terminal outside Pine. ' +
-        'Only you can change this (Settings → Manager); agents cannot set it.',
+      description: `The manager: one agent you start with \`pine <agent>\` from a terminal outside ${PRODUCT_NAME}. Only you can change this (Settings → Manager); agents cannot set it.`,
       properties: {
         agents: {
           type: 'object',
@@ -835,9 +942,7 @@ export const SETTINGS_JSON_SCHEMA = {
               'credentials',
             ],
           },
-          description:
-            'Elevated capabilities pre-granted to every pane (pane-scoped defaults already ' +
-            'cover the rest). Human-edited only; restart Pine to apply.',
+          description: `Elevated capabilities pre-granted to every pane (pane-scoped defaults already cover the rest). Human-edited only; restart ${PRODUCT_NAME} to apply.`,
         },
       },
     },

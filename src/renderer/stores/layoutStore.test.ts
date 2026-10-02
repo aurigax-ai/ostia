@@ -1,7 +1,10 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { zhHant } from '../i18n/dict'
 import { findPane, firstPaneId, paneIds, tabsOfPane } from '../layout/tree'
 import type { SplitNode } from '../layout/types'
+import { BASE_LANGUAGE } from '../lib/languagePacks'
 import { useLayoutStore } from './layoutStore'
+import { usePluginsStore } from './pluginsStore'
 import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
 
@@ -24,10 +27,14 @@ function twoPanes(sid: string): { first: string; second: string } {
 describe('layoutStore', () => {
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
+  let settingsInit: ReturnType<typeof useSettingsStore.getState>
+  let pluginsInit: ReturnType<typeof usePluginsStore.getState>
 
   beforeAll(() => {
     layoutInit = useLayoutStore.getState()
     workspacesInit = useWorkspacesStore.getState()
+    settingsInit = useSettingsStore.getState()
+    pluginsInit = usePluginsStore.getState()
   })
 
   beforeEach(() => {
@@ -37,6 +44,8 @@ describe('layoutStore', () => {
   afterEach(() => {
     useLayoutStore.setState(layoutInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
+    useSettingsStore.setState(settingsInit, true)
+    usePluginsStore.setState(pluginsInit, true)
     vi.restoreAllMocks()
   })
 
@@ -77,6 +86,57 @@ describe('layoutStore', () => {
 
       expect(layoutOf('sess')).toBe(before)
       expect(emit()).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('default terminal title', () => {
+    it('gives every new terminal the neutral word and marks it untouched', () => {
+      const first = ensure('sess')
+      useLayoutStore.getState().split('sess', first, 'horizontal')
+      useLayoutStore.getState().newTab('sess', first, 'terminal')
+
+      const panes = paneIds(layoutOf('sess').root).map((id) => findPane(layoutOf('sess').root, id))
+      expect(panes).toHaveLength(3)
+      for (const pane of panes)
+        expect(pane).toMatchObject({ title: 'Terminal', defaultTitle: true })
+    })
+
+    it('names an untouched tab after its shell and leaves a titled one alone', () => {
+      const { first, second } = twoPanes('sess')
+      useLayoutStore.getState().setTitle('sess', second, '✳ Fix the build')
+
+      useLayoutStore.getState().setDefaultTitle('sess', first, 'bash')
+      useLayoutStore.getState().setDefaultTitle('sess', second, 'bash')
+
+      expect(findPane(layoutOf('sess').root, first)).toMatchObject({
+        title: 'bash',
+        defaultTitle: true,
+      })
+      expect(findPane(layoutOf('sess').root, second)?.title).toBe('✳ Fix the build')
+    })
+
+    it('drops the shell name of an untouched tab once its shell is stopped to hibernate', () => {
+      const { first, second } = twoPanes('sess')
+      useLayoutStore.getState().setDefaultTitle('sess', first, 'bash')
+      useLayoutStore.getState().setTitle('sess', second, '✳ Fix the build')
+
+      useLayoutStore.getState().setHibernated('sess', first, true)
+      useLayoutStore.getState().setHibernated('sess', second, true)
+
+      expect(findPane(layoutOf('sess').root, first)).toMatchObject({
+        title: 'Terminal',
+        hibernated: true,
+      })
+      expect(findPane(layoutOf('sess').root, second)?.title).toBe('✳ Fix the build')
+    })
+
+    it('does not mark a tab opened with a title, a browser tab or an editor', () => {
+      const first = ensure('sess')
+      const named = useLayoutStore.getState().openTerminal('sess', { title: 'pnpm dev' }) as string
+      const browser = useLayoutStore.getState().newTab('sess', first, 'browser') as string
+
+      expect(findPane(layoutOf('sess').root, named)).not.toHaveProperty('defaultTitle')
+      expect(findPane(layoutOf('sess').root, browser)).not.toHaveProperty('defaultTitle')
     })
   })
 
@@ -625,6 +685,53 @@ describe('layoutStore', () => {
         root: pane('pane-40'),
         activePaneId: 'pane-40',
         zoomedPaneId: null,
+      })
+    })
+
+    it('shows the neutral word on a restored tab that still had its default title', () => {
+      const untouched = { ...pane('pane-1'), title: 'bash', defaultTitle: true as const }
+      const hibernated = {
+        ...pane('pane-2'),
+        title: 'fish',
+        defaultTitle: true as const,
+        hibernated: true as const,
+        resume: { agent: 'claude' as const, id: 'abc-1' },
+      }
+      const named = { ...pane('pane-3'), title: '✳ Fix the build' }
+      useLayoutStore.getState().hydrate({
+        s40: {
+          root: {
+            type: 'split',
+            id: 'split-1',
+            direction: 'horizontal',
+            children: [untouched, hibernated, named],
+            sizes: [1, 1, 1],
+          },
+          activePaneId: 'pane-1',
+          zoomedPaneId: null,
+        },
+      })
+
+      const root = layoutOf('s40').root
+      expect(findPane(root, 'pane-1')).toMatchObject({ title: 'Terminal', defaultTitle: true })
+      expect(findPane(root, 'pane-2')).toMatchObject({ title: 'Terminal', hibernated: true })
+      expect(findPane(root, 'pane-3')?.title).toBe('✳ Fix the build')
+    })
+
+    it('restores the default title in the language the human reads', () => {
+      const zh = { id: 'zh-Hant', label: '繁體中文', catalog: zhHant }
+      usePluginsStore.setState({ languages: [BASE_LANGUAGE, zh] })
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      const untouched = { ...pane('pane-1'), title: 'bash', defaultTitle: true as const }
+      useLayoutStore.getState().hydrate({
+        s40: { root: untouched, activePaneId: 'pane-1', zoomedPaneId: null },
+      })
+
+      expect(layoutOf('s40').root).toMatchObject({ title: '終端機', defaultTitle: true })
+      const fresh = ensure('s41')
+      expect(findPane(layoutOf('s41').root, fresh)).toMatchObject({
+        title: '終端機',
+        defaultTitle: true,
       })
     })
 

@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { useChat } from '@ai-sdk/react'
 import {
   ArrowClockwiseIcon,
+  ArrowCounterClockwiseIcon,
   ArrowsOutSimpleIcon,
   CheckIcon,
   ClockCounterClockwiseIcon,
@@ -45,9 +46,16 @@ import {
 } from '../lib/askContext'
 import { type MenuAnchor, menuAnchor } from '../lib/caretPoint'
 import { insertInto, looksLikeCommand } from '../lib/chatActions'
+import { checkpointFiles } from '../lib/chatCheckpoint'
 import { fileLinkOf, isWebUrl, rehypeFileLinks, wholeFileLink } from '../lib/chatLinks'
 import type { FileLinkTarget } from '../lib/chatLinks'
 import { openChatPane } from '../lib/chatPane'
+import {
+  redactOutgoing,
+  redactedCount,
+  redactedCountLabel,
+  redactionsIn,
+} from '../lib/chatRedaction'
 import {
   type SlashActions,
   type SlashContext,
@@ -94,6 +102,7 @@ import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { ChatCheckpointDialog } from './ChatCheckpointDialog'
 import {
   type ChatActionNotice,
   ChatCodeActions,
@@ -103,6 +112,7 @@ import {
 } from './ChatCodeActions'
 import { ChatModeSelect, ChatModelSelect } from './ChatComposerControls'
 import { AttachmentChips, ChatContextPicker } from './ChatContextPicker'
+import { ChatReviewBar } from './ChatReviewBar'
 import { ChatSessions } from './ChatSessions'
 import { ChatSlashHelp, ChatSlashMenu, SLASH_MENU_WIDTH } from './ChatSlashMenu'
 import { ChatToolPart } from './ChatToolPart'
@@ -158,6 +168,7 @@ const CONTEXT_ICONS: Record<AskContextKind, Icon> = {
 }
 
 const REHYPE_PLUGINS = [rehypeFileLinks]
+const REDACTION_PREVIEW_MS = 300
 
 export type ChatVariant = 'pane' | 'palette'
 
@@ -271,6 +282,17 @@ function ChatSession({
   const [slashNotice, setSlashNotice] = useState<string | null>(null)
   const [card, setCard] = useState<SlashCard>(null)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [checkpoint, setCheckpoint] = useState<string | null>(null)
+  const editRecords = useChatToolsStore((s) => s.edits)
+  const checkpoints = useMemo(() => {
+    const records = Object.values(editRecords).filter((e) => e.sessionId === sessionId)
+    if (records.length === 0) return new Set<string>()
+    return new Set(
+      messages
+        .filter((m) => m.role === 'user' && checkpointFiles(messages, records, m.id).length > 0)
+        .map((m) => m.id),
+    )
+  }, [editRecords, messages, sessionId])
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
   const slashing = parseSlash(draft) !== null
   const sourceLabels = useMemo(
@@ -340,10 +362,15 @@ function ChatSession({
     setNotice(null)
     clearError()
     useChatStore.getState().clearAttachments(key)
-    nameSession(sessionId, question)
-    void sendMessage({
-      text: question,
-      metadata: context.length > 0 ? { createdAt: Date.now(), context } : { createdAt: Date.now() },
+    void redactOutgoing(question, context).then((safe) => {
+      nameSession(sessionId, safe.question)
+      void sendMessage({
+        text: safe.question,
+        metadata:
+          safe.context.length > 0
+            ? { createdAt: Date.now(), context: safe.context }
+            : { createdAt: Date.now() },
+      })
     })
   }
 
@@ -386,6 +413,29 @@ function ChatSession({
     return options[kind]
   })
   const selectedRef = liveSelection ? selectionRef(liveSelection) : null
+  const [willRedact, setWillRedact] = useState(0)
+  const outgoingTexts = useMemo(() => {
+    const selected = selectedText
+      ? { selection: { kind: 'selection' as const, label: '', text: selectedText } }
+      : {}
+    return [
+      parseSlash(draft) === null ? draft : '',
+      ...attachments.map((item) => item.text),
+      ...sentContext(enabled, { ...options, ...selected }).map((item) => item.text),
+    ]
+  }, [draft, attachments, enabled, options, selectedText])
+  useEffect(() => {
+    let stale = false
+    const timer = setTimeout(() => {
+      void redactedCount(outgoingTexts).then((count) => {
+        if (!stale) setWillRedact(count)
+      })
+    }, REDACTION_PREVIEW_MS)
+    return () => {
+      stale = true
+      clearTimeout(timer)
+    }
+  }, [outgoingTexts])
   const last = messages[messages.length - 1]
 
   const slashCtx: SlashContext = {
@@ -530,6 +580,7 @@ function ChatSession({
         sessionsOpen={sessionsOpen}
         onSessionsOpenChange={setSessionsOpen}
       />
+      <ChatReviewBar sessionId={sessionId} />
       <Conversation className={variant === 'palette' ? 'max-h-[48vh]' : undefined}>
         <ConversationContent>
           {messages.length === 0 ? (
@@ -567,6 +618,9 @@ function ChatSession({
                 onQuote={quote}
                 onEdit={startEdit}
                 onDelete={deleteMessage}
+                onRestore={
+                  checkpoints.has(message.id) ? () => setCheckpoint(message.id) : undefined
+                }
                 onRegenerate={
                   message === last && message.role === 'assistant' && !busy
                     ? () => {
@@ -651,6 +705,13 @@ function ChatSession({
             items={attachments}
             onRemove={(index) => useChatStore.getState().detach(key, index)}
           />
+          {willRedact > 0 ? (
+            <output className="px-1 text-fg-muted text-ui-xs" data-testid="chat-redaction-count">
+              {willRedact === 1
+                ? d.privacy.willRedactOne
+                : fmt(d.privacy.willRedactMany, { count: willRedact })}
+            </output>
+          ) : null}
         </PromptInputHeader>
         <PromptInputBody>
           <PromptInputTextarea
@@ -755,6 +816,14 @@ function ChatSession({
           onPick={(row) => pickRow(row, false)}
         />
       ) : null}
+      <ChatCheckpointDialog
+        sessionId={sessionId}
+        workspaceId={workspaceId}
+        messages={messages}
+        messageId={checkpoint}
+        onClose={() => setCheckpoint(null)}
+        onDone={setSlashNotice}
+      />
       <Dialog
         open={confirmClear}
         onOpenChange={(open) => {
@@ -929,6 +998,7 @@ function ChatMessageRow({
   onQuote,
   onEdit,
   onDelete,
+  onRestore,
   onRegenerate,
 }: {
   message: PineChatMessage
@@ -942,6 +1012,7 @@ function ChatMessageRow({
   onQuote: (text: string) => void
   onEdit: (message: PineChatMessage) => void
   onDelete: (id: string) => void
+  onRestore?: () => void
   onRegenerate?: () => void
 }): JSX.Element {
   const d = useDict()
@@ -962,6 +1033,13 @@ function ChatMessageRow({
   )
   if (message.role === 'user') {
     const context = message.metadata?.context ?? []
+    const redacted = redactionsIn(text, context)
+    const sentNotes = [
+      context.length > 0
+        ? fmt(d.ask.sentWith, { items: context.map((c) => c.label).join(', ') })
+        : null,
+      redacted > 0 ? redactedCountLabel(d, redacted) : null,
+    ].filter((note): note is string => note !== null)
     return (
       <Message
         from="user"
@@ -974,10 +1052,8 @@ function ChatMessageRow({
             <p className="whitespace-pre-wrap text-fg text-ui-base">{text}</p>
           </div>
         </MessageContent>
-        {context.length > 0 ? (
-          <p className="px-2.5 text-fg-muted text-ui-xs">
-            {fmt(d.ask.sentWith, { items: context.map((c) => c.label).join(', ') })}
-          </p>
+        {sentNotes.length > 0 ? (
+          <p className="px-2.5 text-fg-muted text-ui-xs">{sentNotes.join(' · ')}</p>
         ) : null}
         <MessageActions className="chat-message-actions">
           {common}
@@ -987,6 +1063,14 @@ function ChatMessageRow({
             onClick={() => onEdit(message)}
             icon={PencilSimpleIcon}
           />
+          {onRestore ? (
+            <MessageAction
+              label={d.chatTools.checkpoint.action}
+              disabled={busy}
+              onClick={onRestore}
+              icon={ArrowCounterClockwiseIcon}
+            />
+          ) : null}
           <MessageAction
             label={t.deleteMessage}
             disabled={busy}
@@ -1144,7 +1228,7 @@ function InlineCommand({
       <code>{children}</code>
       <IconButton
         icon={TerminalWindowIcon}
-        label={reason ? `${d.ask.insert} (${reason})` : d.ask.insert}
+        label={reason ? fmt(d.ask.insertRefused, { reason }) : d.ask.insert}
         aria-disabled={reason !== null}
         className="chat-inline-insert aria-disabled:opacity-50"
         onClick={() => {

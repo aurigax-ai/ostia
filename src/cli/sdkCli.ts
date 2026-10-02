@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join, normalize, relative, resolve } from 'node:path'
+import { agentSkillProblems } from '../main/agentSkills'
 import { localeProblems } from '../main/extensionLocales'
 import { EXTENSION_ID_PATTERN, readManifest } from '../main/extensionManifest'
 import { parseMarketplaceManifest, planCopy } from '../main/marketplace'
@@ -39,8 +40,8 @@ type ExtensionCheck = { ok: true; manifest: ExtensionManifest } | { ok: false; p
 function checkExtension(dir: string): ExtensionCheck {
   const res = readManifest(dir)
   if (!res.ok) return { ok: false, problem: res.error }
-  const locales = localeProblems(dir, res.manifest)
-  if (locales.length > 0) return { ok: false, problem: locales.join('; ') }
+  const problems = [...localeProblems(dir, res.manifest), ...agentSkillProblems(dir, res.manifest)]
+  if (problems.length > 0) return { ok: false, problem: problems.join('; ') }
   const plan = planCopy(dir)
   if (plan.ok) return { ok: true, manifest: res.manifest }
   return {

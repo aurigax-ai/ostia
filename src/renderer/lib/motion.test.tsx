@@ -130,9 +130,9 @@ describe('motion CSS contract', () => {
     expect(ruleBody('.dot.waiting')).not.toMatch(/animation/)
   })
 
-  it('pulses the pane attention ring twice after it fades in', () => {
-    expect(ruleBody('.pane-attn-pulse')).toMatch(
-      /animation: attn-pulse var\(--motion-pulse\) var\(--ease-out\) var\(--motion-base\) 2;/,
+  it('blinks the tab icon of a pane that needs you exactly three times', () => {
+    expect(ruleBody('.pane-tab .pane-kind-blink')).toMatch(
+      /animation: attn-blink var\(--motion-pulse\) var\(--ease-out\) 3;/,
     )
   })
 

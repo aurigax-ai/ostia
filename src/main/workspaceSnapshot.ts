@@ -1,6 +1,7 @@
 import { rmSync } from 'node:fs'
 import { parseAgentResume } from '../shared/agentResume'
 import { isDangerousSegment } from '../shared/protoGuard'
+import { isRemotePath } from '../shared/remoteFolders'
 import type {
   AppSnapshot,
   PaneDrop,
@@ -94,7 +95,9 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
       kind: raw.kind as SnapshotSurfaceKind,
     }
     copyOptionalString(raw, pane, 'cwd')
-    copyOptionalString(raw, pane, 'filePath')
+    if (typeof raw.filePath !== 'string' || !isRemotePath(raw.filePath)) {
+      copyOptionalString(raw, pane, 'filePath')
+    }
     copyOptionalString(raw, pane, 'url')
     copyOptionalString(raw, pane, 'extensionId')
     if (pane.kind === 'chat') copyOptionalString(raw, pane, 'chatSessionId')
@@ -107,6 +110,7 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     if (resume && raw.agentRunning === true) pane.agentRunning = true
     if (resume && raw.hibernated === true) pane.hibernated = true
     if (raw.locked === true) pane.locked = true
+    if (pane.kind === 'terminal' && raw.defaultTitle === true) pane.defaultTitle = true
     if (pane.kind === 'extension' && !pane.extensionId) return null
     if (pane.kind === 'view' && !pane.viewName) return null
     paneIds.push(id)
@@ -378,10 +382,10 @@ export function trimScrollback(data: string, capBytes = SCROLLBACK_CAP_BYTES): s
 
 const restored = new Map<string, string>()
 
-export function saveScrollback(
+export function scrollbackToSave(
   byPane: Record<string, string>,
   unsaved: (paneId: string) => boolean = () => false,
-): void {
+): Record<string, string> {
   const out: Record<string, string> = {}
   let kept = 0
   for (const [paneId, data] of Object.entries(byPane)) {
@@ -390,7 +394,14 @@ export function saveScrollback(
     out[paneId] = trimScrollback(data)
     kept++
   }
-  saveJson(scrollbackPath(), out)
+  return out
+}
+
+export function saveScrollback(
+  byPane: Record<string, string>,
+  unsaved: (paneId: string) => boolean = () => false,
+): void {
+  saveJson(scrollbackPath(), scrollbackToSave(byPane, unsaved))
 }
 
 export function loadRestoredScrollback(): void {

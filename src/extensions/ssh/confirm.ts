@@ -20,6 +20,9 @@ export function connectConfirm(plan: ConnectPlan, target: SshTarget, s: Strings)
   const through = route(plan, target, s)
   const lines = [s.commandLabel, plan.command, '', `${s.targetLabel} ${login(plan, target)}`]
   if (through) lines.push(`${s.throughLabel} ${through}`)
+  if (plan.shellIntegration) {
+    lines.push('', plan.helperIntegration ? s.helperIntegrationNote : s.integrationNote)
+  }
   lines.push('', s.confirmNote)
   return {
     title: s.confirmTitle,

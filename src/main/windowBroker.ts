@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { type BrowserWindow, ipcMain, screen } from 'electron'
+import { debounce } from 'es-toolkit'
 import type {
   AppSnapshot,
   CommandResult,
@@ -57,6 +58,7 @@ export interface WindowBrokerDeps {
   isSandboxed: (workspaceId: string) => boolean
   isScratch: (workspaceId: string) => boolean
   reveal: (win: BrowserWindow) => void
+  onList: (list: WindowSummary[]) => void
 }
 
 const DETACHED_SIZE = { width: 1100, height: 760 }
@@ -144,7 +146,7 @@ export class WindowBroker {
   private readonly landings = new Landings()
   private readonly landingWaiters = new Map<string, () => void>()
   private persistEnabled = true
-  private boundsTimer: ReturnType<typeof setTimeout> | null = null
+  private readonly debouncedPersist = debounce(() => this.persist(), BOUNDS_SAVE_MS)
 
   constructor(private readonly deps: WindowBrokerDeps) {
     this.originRules = {
@@ -178,9 +180,7 @@ export class WindowBroker {
         return true
       }
       const remember = (): void => {
-        if (!capture()) return
-        if (this.boundsTimer) clearTimeout(this.boundsTimer)
-        this.boundsTimer = setTimeout(() => this.persist(), BOUNDS_SAVE_MS)
+        if (capture()) this.debouncedPersist()
       }
       win.on('move', remember)
       win.on('resize', remember)
@@ -453,6 +453,7 @@ export class WindowBroker {
 
   private broadcastList(): void {
     const list = this.list()
+    this.deps.onList(list)
     for (const win of this.windows.values()) {
       if (win.isDestroyed()) continue
       win.webContents.send('windows:list', list)

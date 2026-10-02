@@ -148,7 +148,8 @@ installs, updates or uninstalls, from Settings.
 | `api` | Required. The extension API version you wrote against, `major.minor` (`"1.0"`). pine loads the extension only when it provides that major and at least that minor; otherwise the manifest is refused with `needs extension API X; this pine provides Y`, in the log, in `pine-extension validate` and under a marketplace's "Entries that could not be offered". See "API version" |
 | `category` | Optional, one of `ai`, `scm`, `tools`, `themes`, `langpack`, `completions`, `languages`, `other` (the default). Settings → Extensions and the marketplace show it as a badge. Anything else refuses the manifest |
 | `contributes.languages` | Up to 8 language packs, each `{id, label, path}`: `id` is a language tag (`fr`, `zh-Hant`), `label` the name shown in Settings → Language, `path` a `.json` file inside the extension. The file is a nested object of strings shaped like pine's English catalog (`src/renderer/i18n/dict.ts`, `en`): translate the keys you want, anything missing stays English, and keys English doesn't have are ignored. Keep `{placeholders}` as they are. No `main` needed. Main reads the file (no symlinks, ≤ 1 MiB, strings ≤ 4000 characters) only while the extension is enabled; disabling it puts the interface back in English. The first enabled extension to provide a language wins, and none can replace English |
-| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them; the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
+| `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them (or your own page, with `contributes.settingsPage`); the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
+| `contributes.settingsPage` | Optional `{title, icon?}` (API 1.8): gives your settings and secrets their own entry in Settings, under Extensions, instead of a form under your row in Settings → Extensions. `title` (≤ 80 chars, no control characters, may say `{product}`) names the entry and heads the page; `icon` is one of the sidebar item icon names (`kanban`, `plugs`, …; anything else refuses the manifest). The page draws the same form, so main still validates every value against `contributes.settings`. It shows only while the extension is enabled; while it is disabled the form stays under its row. Needs `contributes.settings` or `contributes.secrets`, and is refused with `contributes.assist`, whose settings live in Settings → Assistant. Your row in Settings → Extensions links to the page. Use it when your settings are many or form a whole area of their own; a few switches read better under your row. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
@@ -157,6 +158,8 @@ installs, updates or uninstalls, from Settings.
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
 | `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: pine starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
 | `contributes.editorLanguages[]` | Up to 16 languages the editor does not know yet, each with a Monarch grammar as JSON. Data only: no `main` and no capability needed. See [Editor languages](#editor-languages). |
+| `contributes.agentSkills[]` | Up to 8 skills (API 1.10) that pine gives claude and codex in your terminals: `{name, path, files?}`. Needs the `agent-plugin` capability. See [Agent skills and hooks](#agent-skills-and-hooks). |
+| `contributes.agentHooks[]` | Up to 16 `{event, command}` (API 1.10): when the agent reaches `event`, pine runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`, `chat`.
@@ -213,6 +216,7 @@ Keys name a string your manifest declares:
 | `name`, `description` | The extension's name and description |
 | `commands.<id>.title`, `.category`, `.argument` | A command's palette title, its group and its argument prompt |
 | `panel.title` | The panel's toggle and tab title |
+| `settingsPage.title` | Your settings page's entry and heading in Settings |
 | `paneChips.<id>.title`, `workspaceChips.<id>.title` | A chip's name in tooltips and Settings → Prompt |
 | `settings.<key>.title`, `.description`, `.valueTitles.<value>` | A setting's label, help text and enum option labels |
 | `secrets.<key>.title`, `.description` | A secret's label and help text |
@@ -343,19 +347,37 @@ the renderer never gets a path.
 An extension gives the editor a language server by describing it in `contributes.languageServers`.
 It is data, not code: pine spawns the process, speaks LSP to it over stdio, and wires its answers
 into the editor. Providers are registered from what the server reports in `initialize`, with its
-trigger characters. Your extension never owns the process and needs no `main`.
+trigger characters, and from what it registers later with `client/registerCapability` (removed
+again on `client/unregisterCapability`); a registration's `documentSelector` is honoured by
+language id, scheme and glob. Your extension never owns the process and needs no `main`.
 
-What the editor uses when the server offers it: diagnostics (push), completion (text edits, extra
-edits such as auto-imports, snippets, resolve), hover, go to definition, references, rename with
-prepare, signature help, document symbols (the outline), document highlights, document and range
-formatting (also format on save), code actions (edits and commands, `workspace/applyEdit`),
-semantic tokens (full document) and inlay hints. Text is synced incrementally when the server
+What the editor uses when the server offers it: diagnostics (pushed, and pulled with
+`textDocument/diagnostic`: on open, after an edit and on `workspace/diagnostic/refresh`, with the
+previous result id; a diagnostic that arrives both ways is shown once), completion (text edits,
+extra edits such as auto-imports, snippets, resolve), hover, go to definition, references, rename
+with prepare, signature help, document symbols (the outline), document highlights, document and
+range formatting (also format on save), code actions (edits and commands, `workspace/applyEdit`),
+semantic tokens (full document), inlay hints, folding ranges (whole lines), code lens (with
+resolve and `workspace/codeLens/refresh`) and workspace symbols (the palette's `%` prefix, or
+Go to Symbol in Workspace, asks the servers of files open in the active workspace). A code lens
+is clickable only when its command is one the server lists in `executeCommandProvider.commands`
+(or registered for `workspace/executeCommand`); it then runs through `workspace/executeCommand`.
+Any other lens, such as one naming an editor command, is shown as text.
+
+A server that registers `workspace/didChangeWatchedFiles` is told about files created, changed
+and deleted under its root folder that match its globs (plain or relative patterns, with
+`kind`). A watcher based outside the root is ignored, nothing outside the root is ever reported,
+and `.git`, `.hg`, `.svn` and `node_modules` folders and linked folders are not watched; at most
+2000 folders are watched per root.
+
+Text is synced incrementally when the server
 asks for it, and `didSave` is sent when it asked for saves. A workspace edit changes open
 documents through the editor (undoable) and closed files on disk, and only inside the server's
 root folder: an edit that touches a file outside it, a URI that is not `file:`, or one that
 creates, renames or deletes files is refused as a whole. In a sandboxed workspace the root must
-also be inside the workspace folder, otherwise the server cannot edit at all. Not wired yet: pull diagnostics, workspace symbols, code lens,
-folding ranges, type hierarchy, and dynamic registration.
+also be inside the workspace folder, otherwise the server cannot edit at all. Not wired yet:
+type and call hierarchy, workspace-wide diagnostics, semantic token ranges and deltas, and dynamic
+registration of text synchronization.
 
 ```json
 {
@@ -396,8 +418,13 @@ folding ranges, type hierarchy, and dynamic registration.
 | `run` | Exactly one of four forms, each with optional `args`: `node`, `program`, `download` or `goInstall`. See [How the server's program gets there](#how-the-servers-program-gets-there). Nothing else is allowed in `run`. |
 | `run.args` | At most 32 strings of at most 200 characters. `{extensionDir}` and `{root}` are replaced, per argument. There is no shell: an argument is never split or expanded. |
 | `rootMarkers` | At most 16 file names. The server's root is the nearest folder, from the file upward, that holds one, never above the workspace folder. Without markers, or when none is found, the root is the workspace folder. |
-| `initializationOptions`, `settings` | JSON objects of at most 16 KiB each. String values get the same two replacements. `initializationOptions` goes into `initialize`; `settings` answers the server's `workspace/configuration` requests by section. |
+| `initializationOptions`, `settings` | JSON objects of at most 16 KiB each. String values get the same two replacements. `initializationOptions` goes into `initialize`; `settings` answers the server's `workspace/configuration` requests by section and, when it is not empty, is sent once as `workspace/didChangeConfiguration` right after `initialized`. |
 | `settingPaths` | Maps one of your own `contributes.settings` keys to a dotted path in `settings`. pine lays the human's value over `settings` before answering, and sends `workspace/didChangeConfiguration` when it changes. |
+
+The human can give any server their own program in Settings → Languages: an absolute path to an
+executable file, with extra arguments. It then runs instead of every `run` form (the program on
+`PATH`, the copy pine keeps, or the bundled script), with your `run.args` first and theirs after.
+An extension cannot set or read this choice.
 
 ### How the server's program gets there
 
@@ -568,12 +595,126 @@ offer works before any marketplace has been added; Install then adds the officia
 first. An id in that table is only ever taken from the official marketplace, whatever another
 marketplace lists under the same id.
 
+## Agent skills and hooks
+
+pine starts `claude` and `codex` in a zsh or bash pane with its own session plugin: the `pine`
+skill plus hooks for the pane's attention state and resume token. An extension can add to it:
+skills (instructions the agent reads when a task matches) and hooks (your commands, run when the
+agent reaches an event). pine adds **only what your manifest declares**. It never looks for a
+`skills/` folder, a `SKILL.md`, a `hooks.json` or a `.claude-plugin` folder on its own: a skill
+folder or file your manifest doesn't name is not copied, and an extension without
+`agentSkills`/`agentHooks` adds nothing.
+
+```json
+{
+  "id": "review-kit",
+  "api": "1.10",
+  "capabilities": ["agent-plugin"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "on-hook", "title": "Review kit: agent hook", "palette": false, "stdin": true }
+    ],
+    "agentSkills": [{ "name": "review", "path": "skills/review", "files": ["checklist.md"] }],
+    "agentHooks": [
+      { "event": "SessionStart", "command": "on-hook" },
+      { "event": "PostToolUse", "command": "on-hook" }
+    ]
+  }
+}
+```
+
+Both need the `agent-plugin` capability, which the human approves like any other. The approval
+dialog and your row in Settings → Extensions list every skill and hook you add, and say that a
+hook sees what the agent reports (your prompt, the tools it runs).
+
+### Skills
+
+| Field | Meaning |
+|---|---|
+| `name` | Lowercase letters, digits and dashes, unique in the extension. The agent sees the skill as `<extension id>-<name>` (`review-kit-review`). |
+| `path` | A folder inside the extension that holds `SKILL.md`. |
+| `files` | Optional. Up to 16 more files in that same folder (`.md` or `.txt`, no subfolders) that the skill refers to. Only these and `SKILL.md` are copied. |
+
+`SKILL.md` starts with frontmatter whose `name` is the skill's `name` from the manifest and whose
+`description` (one line, at most 1024 characters) says when to use the skill:
+
+```markdown
+---
+name: review
+description: Use when reviewing a change in this repository; follow checklist.md.
+---
+```
+
+The frontmatter is read by a small line parser, not a YAML library: only `key: value` lines at
+column 0, with a plain one-line value optionally in one pair of matching quotes (no escapes), and
+exactly one `name` and one `description`. Block scalars (`>`, `|`), indented or nested lines, flow
+collections, anchors, aliases, tags, quoted keys, a space before the colon, duplicate keys,
+comments (`#`) and a second frontmatter block are refused, and `pine-extension validate` reports
+the line.
+
+pine writes the copy's `name` as `<extension id>-<name>`, so two extensions' skills never
+collide and none can take the name of pine's own `pine` skill.
+
+Main reads the files only while the extension is enabled and its `agent-plugin` capability is
+approved, and checks each one: a regular file inside the extension folder with no symlink
+anywhere on its path, plain UTF-8 text, at most 256 KiB, at most 1 MiB for the whole skill. A
+skill that fails is left out and logged, and `pine-extension validate` reports it. Claude gets
+the files as a skill of pine's plugin; Codex has no way to add a skill folder, so its session
+context lists each skill's description and the path of its `SKILL.md` for it to read.
+
+### Hooks
+
+`event` is one of:
+
+| Event | claude | codex | Your text reaches the agent |
+|---|---|---|---|
+| `SessionStart` | yes | yes | yes, as added context |
+| `UserPromptSubmit` | yes | yes | yes, as added context |
+| `PreToolUse` | yes | yes | no |
+| `PostToolUse` | yes | yes | no |
+| `Stop` | yes | yes | no |
+| `SessionEnd` | yes | yes | no |
+| `Notification` | yes | no (Codex has no such event) | no |
+
+`command` is one of your own `contributes.commands` ids. It must have `stdin: true`, no
+`capabilities` and no `interactive`. You never write a shell command: pine generates the hook,
+which runs `pine agent-hook <your id> <command> <agent> <event>` and so reaches you as an
+ordinary `ext.command` call from that pane, with your approved capabilities and nothing more:
+
+- `args.argv` is `[agent, event]` (`["claude", "SessionStart"]`), `args.stdin` the agent's hook
+  JSON (at most 1 MiB; larger input skips the call). `caller` is the pane the agent runs in,
+  with `sandboxed: true` in a sandboxed workspace.
+- For `SessionStart` and `UserPromptSubmit`, the `text` of your result (at most 10,000
+  characters) is added to the agent's context. pine wraps it in the agent's own
+  `additionalContext` output, so text that looks like a hook decision is still only context.
+- For every other event your result is not passed on: a hook observes, it can never allow,
+  deny or block a tool call, a prompt or the end of a turn.
+- The hook waits for your reply up to the usual 30 s, so the agent waits too. Answer quickly.
+- An agent in the pane can also run your command directly (`pine <id> on-hook`), like any
+  command; treat the input as data, not as proof that the agent sent it.
+- When pine isn't reachable (it quit, or a sandboxed workspace has Unix sockets off) the hook
+  does nothing and the agent goes on.
+
+Codex runs a hook only if it trusts it. pine passes each of your hooks with the hash Codex itself
+computes for it, like its own hooks, and never `--dangerously-bypass-hook-trust`.
+
+### When the agent gets them
+
+pine rebuilds the plugin whenever an extension is approved, enabled, disabled, updated or
+removed, in a new folder, so nothing in use changes underneath. Panes opened after that get the
+new set the next time they start `claude` or `codex`. A shell that was already open keeps the
+set it started with until you open a new pane, and a running agent keeps what it started with
+until it restarts. The `pine manager` agent never gets extension skills or hooks: it holds almost
+every capability, so pine keeps its context to what the human picked for it.
+
 ## Approval and capabilities
 
 - The first launch of a user extension shows a dialog listing its `capabilities` and, for each
   language server, the command it runs, for which files, and what pine would fetch for it (the
-  download's program, version and host, or the exact `go install` command). Approve and it
-  runs with exactly those; "Keep disabled" records the decision. Built-ins skip the dialog.
+  download's program, version and host, or the exact `go install` command), and every agent
+  skill and hook it adds. Approve and it runs with exactly those; "Keep disabled" records the
+  decision. Built-ins skip the dialog.
 - If a new version asks for more, it runs with the previously approved subset until the user
   reviews it in Settings.
 - Only the human approves. There is no socket method or CLI verb for it, and agents can't grant
@@ -629,6 +770,12 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.assistProviders` | — | Needs `assist`. `{ok, providers: [{id, kind, name, baseUrl, models, apiKey}]}`: the providers the human added for you and left on, each with its key (`null` when none is stored). Keys live in pine's encrypted store, are never in `settings.json`, never synced and never shown again; only the extension that runs the provider gets them (`ext.getAssistProviders()` in the SDK). |
 | `ext.assistChunk` | `{requestId, text}` | Needs `assist`. One streamed delta of a `chat` answer (256 KiB max; a JSON chunk that doesn't fit the request's 1M-character budget is dropped whole). Returns `{live}`; stop streaming when it is `false` (the human stopped or closed it). |
 | `ext.openTerminal` | `{command: string[], workspaceId?, afterPaneId?, cwd?, title?}` | Needs `shell`. Opens a **new** terminal pane right of `afterPaneId` (a pane id from `caller.paneId` or `pane.list`), else of the workspace's active pane (it becomes the first pane of an empty workspace), switches to that workspace, and runs `command` there once the shell shows its first prompt. Returns `{ok, paneId}`. `command` is an argv (1–64 strings, no control characters); pine quotes each argument for the shell, so pass data, never a shell string. `cwd` must be absolute. The command runs once, and never in an existing pane. Use it for things the human should watch or answer (sudo prompts), after `ext.confirm`. |
+| `ext.agents` | — | Needs `shell`. `{ok, agents}`: the names of the agents `ext.runAgent` can start. Names only; the command behind a name stays with pine. |
+| `ext.runAgent` | `{workspaceId, agent, prompt}` | Needs `shell`. Opens a **new** terminal in that workspace, in its folder, and runs the named agent there with `prompt` as one argument once the shell shows its first prompt, exactly like `pine agent run`. Returns `{ok, paneId}`, or `unknown-agent`, `not-opened`, `rate-limited`. `prompt` is 1–16000 characters; newlines and tabs are allowed, other control characters are refused. Start an agent only because the human asked: from your panel, where their click is the request (never from a command an agent can run), or after `ext.confirm`. Offers and runs together are limited to 6 a minute. |
+| `ext.offerToAgent` | `{workspaceId, text, label}` | Asks the human, in pine's own dialog in the window that holds the workspace, whether to send `text` to one of the agents running there (the same list as pine's other Send to agent pickers). Nothing is sent until the human picks an agent and clicks Send; pine then pastes the text at that agent's prompt and **never presses Enter**. `text` is one line of 1–2000 characters and `label` (shown in the title) one line of 1–120, both without any control character. Returns `{ok, sent: false}` when the human declined or did not answer within 2 minutes, `{ok, sent: true, paneId}` with the pane they picked, or `unknown-workspace`, `busy` (your previous offer still waits), `rate-limited`. Needs no capability. |
+| `ext.focusPane` | `{paneId}` | Shows that pane: switches to its workspace and window and focuses it. Only for a pane you opened (`ext.openTerminal`, `ext.runAgent`) or one the human picked for your offer; any other pane is `not-reached`, a closed one `unknown-pane`. |
+| `ext.openFolder` | `{workspaceId, host, path}` | API 1.11. Shows a folder that lives somewhere else (another machine, a container) in that workspace's Files, served by you. pine first asks the human in its own dialog, naming you, `host` and `path`; Cancel is the default. Returns `{ok, folderId}`, or `denied`, `unknown-workspace`, `sandboxed`, `scratch`, `invalid-params`, `too-many` (8 per workspace). `host` is a label for the human (`[A-Za-z0-9._@:-]`, at most 330 chars); `path` is absolute, without `..` or control characters. Mark the command that calls it `interactive`. See [Remote folders](#remote-folders). |
+| `ext.closeFolder` | `{folderId}` | Closes one of your own folders. `unknown-folder` for anything else. |
 
 `whoami` works too. Pane-scoped methods (`command.exec`, `pane.info`, `bus.*`, …) are refused
 for extension identities, except the targetable ones below.
@@ -659,7 +806,9 @@ The SDK (`src/extensions/sdk/index.ts`, `connect()`) wraps all of this: `setPane
 `clearPaneChip`, `getSettings`, `setSetting(key, value)`, `onSettingsChanged(values => …)`, `numberSetting(values, key,
 fallback, {min, max})` and `booleanSetting(values, key, fallback)` (read a value, clamped, with
 a fallback), `openPanel(workspaceId?, path?)`, `notifyPanel(title, body?, path?)`,
-`onPanel((caller, path) => ({url}))`, `callAs` and `setAttention`.
+`onPanel((caller, path) => ({url}))`, `callAs`, `setAttention`, `listAgents()`,
+`runAgent({workspaceId, agent, prompt})`, `offerToAgent({workspaceId, text, label})` and
+`focusPane(paneId)` (these four answer with a result instead of throwing).
 
 ### Requests pine sends you
 
@@ -669,6 +818,7 @@ a fallback), `openPanel(workspaceId?, path?)`, `notifyPanel(title, body?, path?)
 | `ext.assist` | `{point, requestId, input, model?}` | The result for that point (below), or `{error, message?}` with `error` one of `unavailable`, `rate-limited`, `failed`, `cancelled`, `invalid`, `busy`. Carries a jsonrpc cancellation token: stop work when it fires. 30 s timeout, 5 min for `chat`. `model: {provider, model}` names the model the human chose when you reported `providers`; serve the request with exactly that one. |
 | `ext.assistModels` | `{action: 'list', provider?}` or `{action: 'load' \| 'unload', id, provider?}` | Sent only to an extension whose last `ext.setAssistStatus` said `models: true`, when the human opens or acts in Settings → Assistant. `provider` is the id of one of the providers you reported: `list` then answers what that provider has, which is what the human picks from when adding its models. `list` replies `{lifecycle, models: [{id, name?, description?, installed?, loaded?, busy?, idleSecs?}], error?}` (64 models, normalized by `normalizeAssistModels`); `lifecycle: true` shows Load/Unload. `load`/`unload` reply `{ok: true}` or `{ok: false, error}`. 15 s timeout for `list`, 5 min for a load. The SDK wraps it: `onAssistModels({list(provider?), setLoaded(id, loaded, provider?)})`. |
 | `ext.panel` | `{caller, path?}` | `{url}` for a `"url"` panel: must be `http://127.0.0.1:<port>/…` or `http://localhost:<port>/…`. `path` is present when the panel is opened or navigated to a path (`ext.openPanel {path}`, a notification with `openPanel: "/path"`); return the URL for it on the same origin. |
+| `ext.files` | `{op, folderId, root, path, content?, baseVersion?}` | API 1.11. One file operation in a folder you opened with `ext.openFolder` (`ext.onFiles` in the SDK). `root` is the folder and `path` an absolute path inside it; pine has already refused anything outside. See [Remote folders](#remote-folders). 30 s timeout. |
 
 And the notification `ext.event {type, payload}`:
 
@@ -683,6 +833,7 @@ And the notification `ext.event {type, payload}`:
 | `settings.changed` | `{values}`: all your settings after the human changed one, or after the human changed one of your secrets (read it again with `ext.getSecret`). Sent without `ext.subscribe`. |
 | `locale.changed` | `{locale}`: the human changed the language (`ext.onLocaleChanged` in the SDK). Sent without `ext.subscribe`. |
 | `assist.providers.changed` | `{providers}`: the same list `ext.assistProviders` returns, after the human added, changed, switched or removed one of your providers or its key (`ext.onAssistProvidersChanged` in the SDK). Sent without `ext.subscribe`, only to an extension granted `assist`. |
+| `folder.closed` | `{folderId}`: one of your remote folders went away because the human closed it in Files or its workspace closed (`ext.onFolderClosed` in the SDK). Sent without `ext.subscribe`. API 1.11. |
 
 `paneId` is always the external id agents see (`pine whoami`).
 
@@ -691,7 +842,7 @@ And the notification `ext.event {type, payload}`:
 Every command and panel request carries who is asking:
 
 ```ts
-{ kind: 'pane' | 'user', paneId?, workspaceId?, workDir?, cwd?, locale?, sandboxed?, capabilities: string[] }
+{ kind: 'pane' | 'user', paneId?, workspaceId?, workDir?, cwd?, locale?, sandboxed?, remote?, capabilities: string[] }
 ```
 
 - `pane`: an agent or shell via `pine`; `capabilities` are that pane's; `locale` is the human's
@@ -710,6 +861,46 @@ workspace's project unless the caller holds `all-workspaces`.
 `sandboxed` is `true` when the caller's workspace is sandboxed (API 1.1). Your process runs
 outside every sandbox, so refuse such a caller anything the sandbox would have kept from it: the
 SSH extension gives it no host list and opens no session.
+
+`remote` is `{host, cwd}` when the shell in the calling pane last reported a folder on another
+machine (API 1.11): an ssh session whose shell sends OSC 7 with its host name. It is absent for a
+local pane, and it is what that shell said, nothing more: use `cwd` as a path to offer the human,
+and never take `host` as proof of where a connection goes.
+
+### Remote folders
+
+An extension that can reach files somewhere else (API 1.11) can show them in Files and the
+editor without pine knowing how it gets there. The built-in SSH extension does it over ssh.
+
+1. Call `ext.openFolder({workspaceId, host, path})` from a command the human ran. pine asks the
+   human and, on Open, shows the folder as its own section in Files, marked Remote with `host`.
+2. Answer `ext.files` (`ext.onFiles(handler)`):
+
+| `op` | You get | You return |
+|---|---|---|
+| `list` | `path` of a folder | `{ok: true, entries: [{name, dir}], truncated?}` |
+| `stat` | `path` | `{ok: true, kind: 'file' \| 'dir', version?}` |
+| `read` | `path` of a file | `{ok: true, content, version}`: UTF-8 text, at most 2 MiB |
+| `write` | `path`, `content`, `baseVersion` | `{ok: true, version}` |
+
+   A failure is `{ok: false, error}` with `error` one of `not-found`, `not-file`, `not-dir`,
+   `too-large`, `binary`, `changed`, `denied`, `outside`, `unavailable`, `failed`.
+3. Release what you hold when `folder.closed` arrives (`ext.onFolderClosed`). pine also drops
+   your folders when your process exits.
+
+`version` is your own token for a file's content (`[A-Za-z0-9._:-]`, at most 80 chars; a
+checksum or `mtime:size`). A `write` carries the version the editor read as `baseVersion`, or
+`new` for a file that did not exist, or `any` when the human chose to overwrite: refuse with
+`changed` when the file is no longer at `baseVersion`. pine polls `stat` for open files and
+compares versions to notice a change.
+
+pine keeps the confinement on its side and trusts neither you nor what you reach: only the
+window that owns the workspace may ask; a path must be absolute, normalized and inside `root`;
+a listing keeps at most 5000 plain names (no `/`, no control characters, 255 chars); content
+with a NUL byte is `binary`; anything malformed is `failed`. Check paths again yourself against
+whatever really resolves them (symlinks). A remote file never becomes a local path: it has no
+language server, no external editor, no "open with default app", and its pane is not restored.
+A scratch or sandboxed workspace has no remote folders.
 
 ### Results
 
@@ -743,6 +934,12 @@ The SDK wraps it: `onAssist(async (point, input, {requestId, signal, chunk, mode
 `setAssistStatus(status)`, `getSecret(key)`, and `throw new AssistFailure('rate-limited')` for a
 typed failure. Debounce and rate-limit on your side too; pine debounces keystrokes and cancels
 stale requests.
+
+Unless the human turned secret redaction off (Settings → Privacy), the text of every request has
+detected secrets replaced with `[redacted:<kind>]` before it reaches you (`[redacted:github]`,
+`[redacted:assignment]`, …). Pass the marks through as they are; never ask the human for the
+original, and do not treat a mark as an error. A typo correction made from a redacted draft is
+dropped by pine.
 
 ### Providers and models
 
@@ -1123,7 +1320,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 | `langpack-zh-hant` | Traditional Chinese (`zh-Hant`) for the interface, as a `contributes.languages` pack with no process. Its `zh-Hant.json` is generated at build time from `zhHant` in `src/renderer/i18n/dict.ts`, which stays typed against the English catalog so a missing string fails the typecheck |
 | `ports` | Per workspace, a `ports` workspace chip in the top bar: a plug with the number of TCP ports its terminals' processes listen on; click it for the list, click a port to open it in the browser pane. A foreground `ssh` shows as its host in the sidebar and as an `ssh` chip with `user@host` on its pane. Polls only while pine is focused. `pine ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `pine system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `pine system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |
-| `ssh` | The hosts of your ssh config and a session in a new terminal, with the system OpenSSH client. "SSH: Connect to Host…" and `pine ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>` take ssh's own spelling and nothing else (any other option is refused), resolve the target with `ssh -G`, and open `ssh … -- <host>` beside the caller with `ext.openTerminal`; a pane caller is asked first, with the exact command, the resolved `user@host:port` and the bastion hops. `pine ssh ls` lists the aliases (it reads `~/.ssh/config` and its `Include`s and runs nothing); `pine ssh show <host>` resolves one. A caller in a sandboxed workspace is refused. Bastions come from `ProxyJump` in your config or from `-J`; the `user@host` chip is the Ports extension's |
+| `ssh` | The hosts of your ssh config and a session in a new terminal, with the system OpenSSH client. "SSH: Connect to Host…" and `pine ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>` take ssh's own spelling and nothing else (any other option is refused), resolve the target with `ssh -G`, and open `ssh … -- <host>` beside the caller with `ext.openTerminal`; a pane caller is asked first, with the exact command, the resolved `user@host:port` and the bastion hops. `pine ssh ls` lists the aliases (it reads `~/.ssh/config` and its `Include`s and runs nothing); `pine ssh show <host>` resolves one. A caller in a sandboxed workspace is refused. Bastions come from `ProxyJump` in your config or from `-J`; the `user@host` chip is the Ports extension's. With the human's consent per host (a dialog naming the host and the exact path), it installs two readable shell files in `~/.pine/helper/<version>/` there: `helper.sh`, which it talks to over `ssh -T`, and `session.sh`, the shell integration, so later sessions to that host type a short command that sources it (after a checksum check) instead of the whole integration: "SSH: Open Remote Folder", run from a session it opened, shows that session's current folder in Files through [Remote folders](#remote-folders). "SSH: Install Remote Helper on Host…" and "SSH: Remove Remote Helper…" are for the human only; `pine ssh helpers` lists the answers. The helper connects without a terminal, so the host must accept a key or an ssh agent. Setting `remoteHelper` (on by default) turns all of it off |
 | `assistant` | The assist points on the providers the human adds in Settings → Assistant: `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`, several at once, each with its own base URL, API key and models. Built on the AI SDK (`ai`, `@ai-sdk/openai-compatible`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, zod for structured answers). Every request names its provider and model; the engine checks per model whether tools are native or described in the prompt. A switch per feature (`typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `chat`, `explainError`) and a requests-per-minute limit are its own settings. Inert until a provider with a model exists. It has no panel: Settings → Assistant shows the models in use, each feature with its switch, model, readiness, shortcut and "Try it", and the providers; "Assistant: Chat" opens the chat pane |
 
 ### Marketplace extensions
@@ -1153,11 +1350,11 @@ Settings → Extensions → Marketplaces to install them.
 |---|---|
 | `lsp-rust-analyzer`, `lsp-clangd`, `lsp-lua`, `lsp-marksman` | One native language server each, with the `download` form: `rust-analyzer` 2026-09-28 (Linux, macOS and Windows on x64 and arm64), `clangd` 23.1.0 (Linux x64, macOS, Windows x64; other platforms use `PATH`), `lua-language-server` 3.19.1 (Linux and macOS on x64 and arm64, Windows x64) and `marksman` 2026-02-08 for Markdown (Linux x64 and arm64, macOS, Windows x64). Each pins the official GitHub release asset and its SHA-256 |
 | `lsp-gopls` | `gopls` for Go with the `goInstall` form: `go install golang.org/x/tools/gopls@v0.23.0` when no `gopls` is on `PATH`. Needs Go; without it Settings → Languages offers to install Go |
-| `lsp-typescript` | TypeScript and JavaScript in the editor: `typescript-language-server` 5.3.0 and TypeScript 5.9.3, copied unchanged from their npm packages into `server/` (the extension's `vendor.json` `packages`) and run with pine's Electron as Node. A project's own TypeScript is used when it has one. The app itself ships no TypeScript language features: without this extension a `.ts` or `.js` file is only highlighted |
+| `lsp-typescript` | TypeScript and JavaScript in the editor: `typescript-language-server` 5.3.0 and TypeScript 5.9.3, copied unchanged from their npm packages into `server/` (the extension's `vendor.json` `packages`) and run with pine's Electron as Node. A project's own TypeScript is used when it has one. Two settings, off by default, show reference and implementation counts as code lenses. The app itself ships no TypeScript language features: without this extension a `.ts` or `.js` file is only highlighted |
 | `lsp-pyright` | Python in the editor: Pyright 1.1.414, copied the same way (about 5,400 files, mostly type stubs). Setting `typeCheckingMode` |
 | `lsp-yaml` | YAML in the editor: `yaml-language-server` 1.24.0 with its 19 dependencies, copied unchanged into `server/node_modules/` (`vendor.json` `closures`). Setting `schemaStore` (off by default) lets the server fetch schemas from schemastore.org |
 | `lsp-bash` | Shell scripts in the editor: `bash-language-server` 5.8.1 with its 35 dependencies, copied the same way. It lints with `shellcheck` when that is on `PATH` |
-| `trellis` | A board, card and vault panel drawn from the `trellis` CLI's JSON for the workspace's project (or any project you pick): columns and cards with labels, priority and claims, a card pane with its Markdown body, relations, comments and activity (read from a Trellis daemon that is already running; never started), move, comment, claim, renew, release and a new-card form, a read-only vault browser, all updated live from `trellis events --consumer`. The open card count of the active workspace as a `cards` workspace chip in the top bar (click opens the board), notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Open Vault", "Trellis: Init Project Here", `pine trellis status`. Agents get no verb that changes a card. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
+| `trellis` | A board, card and vault panel drawn from the `trellis` CLI's JSON for the workspace's project (or any project you pick): columns and cards with labels, priority and claims, a card pane with its Markdown body, relations, comments and activity (read from a Trellis daemon that is already running; never started), move, comment, claim, renew, release and a new-card form, "Work on this" on a card (send it to an agent already running in the workspace through `ext.offerToAgent`, or start one of the human's agents on it with `ext.runAgent`, from the panel only; the prompt is built from the card's ref, title and body and asks the agent to claim it, comment progress and move it to review), the agent working on a card shown on it (click shows its pane) and as a `task` chip on the agent's pane, a read-only vault browser, all updated live from `trellis events --consumer`. The open card count of the active workspace as a `cards` workspace chip in the top bar (click opens the board), notifications when an agent moves a card to review or blocked that open the card, "Trellis: Open Board", "Trellis: Open Card" (`pine trellis card <REF>`), "Trellis: Open Vault", "Trellis: Init Project Here", `pine trellis status`. Agents get no verb that changes a card. Settings: `notifyReview`, `notifyBlocked`, `refreshSeconds` |
 | `keeper` | The Keeper dashboard as a panel, a footer count of queries waiting for approval, "Keeper needs approval" notifications that open the approvals queue (Keeper has no per-ticket page), "Keeper: Open Dashboard", "Keeper: Show Pending Approvals" (`pine keeper approvals`). It only reads the queue. Settings: `notify`, `pollSeconds`, `idlePollSeconds` |
 | `model-runtime` | The user's local model-runtime (`$XDG_RUNTIME_DIR/model-runtime.sock` unless `baseUrl` says otherwise) as one more provider: every model it lists as installed joins the model lists in Settings → Assistant and the chat's model selector, with load and unload in Settings → Assistant. It runs the same engine as `assistant` (`src/extensions/sdk/assist/`, `runAssistExtension`) with its own one-provider catalog; tools are described in the prompt. The human chooses in Settings → Assistant which features use one of its models |
 

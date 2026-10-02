@@ -2,7 +2,7 @@
   "id": "echo",
   "name": "Echo",
   "version": "0.1.0",
-  "api": "1.6",
+  "api": "1.7",
   "description": "Test fixture extension",
   "capabilities": ["read-board", "notify", "browse", "process", "drive-self", "all-workspaces"],
   "main": "main.js",
@@ -23,6 +23,7 @@
         "palette": false,
         "stdin": true
       },
+      { "id": "argv", "title": "Print the arguments back", "palette": false },
       { "id": "chip", "title": "Set a pane chip", "palette": false },
       { "id": "unchip", "title": "Clear a pane chip", "palette": false },
       { "id": "settings", "title": "Read settings", "palette": false },

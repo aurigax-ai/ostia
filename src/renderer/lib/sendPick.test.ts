@@ -1,4 +1,5 @@
 import type { PickCapture } from '@shared/pick'
+import type { RegionCapture } from '@shared/regionCapture'
 import type { SelectionCapture } from '@shared/selection'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,12 +11,14 @@ import {
   receiveReference,
   sendPickToPane,
   sendReference,
+  sendRegionToPane,
   sendSelectionToPane,
 } from './sendPick'
 import { registerTerminal } from './terminalHandles'
 
 const TARGET = 'pane-agent'
 const REPORT = '/tmp/pine-reports-1000/capture-3.md'
+const SHOT = '/tmp/pine-reports-1000/pick-1.png'
 
 const capture: PickCapture = {
   id: 'pick-1',
@@ -52,7 +55,11 @@ beforeEach(() => {
   unregister = registerTerminal(TARGET, term as unknown as Terminal)
   vi.spyOn(document, 'hasFocus').mockReturnValue(false)
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-  vi.mocked(window.pine.browser.pickSend).mockResolvedValue({ ok: true, path: REPORT })
+  vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
+    ok: true,
+    path: REPORT,
+    imagePath: null,
+  })
 })
 
 afterEach(() => {
@@ -70,8 +77,14 @@ function running(): void {
   useBlocksStore.setState({ drafts: {}, running: { [TARGET]: 'b1' } })
 }
 
-const send = (note = 'Save is misaligned') =>
-  sendPickToPane({ capture, sourcePaneId: 'pane-browser', targetPaneId: TARGET, note })
+const send = (note = 'Save is misaligned', attachImage = true) =>
+  sendPickToPane({
+    capture,
+    sourcePaneId: 'pane-browser',
+    targetPaneId: TARGET,
+    note,
+    attachImage,
+  })
 
 describe('sendPickToPane', () => {
   it('asks main for the report with the capture id, source, target and note', async () => {
@@ -131,6 +144,40 @@ describe('sendPickToPane', () => {
     expect(a.message).toBe('Save is misaligned')
   })
 
+  it('inserts the screenshot as a second reference after the report when the setting is on', async () => {
+    idlePrompt()
+    vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
+      ok: true,
+      path: REPORT,
+      imagePath: SHOT,
+    })
+    await send()
+    expect(term.paste).toHaveBeenCalledWith(`@${REPORT} @${SHOT} `)
+  })
+
+  it('inserts only the report when the setting is off or there is no screenshot', async () => {
+    idlePrompt()
+    await send()
+    vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
+      ok: true,
+      path: REPORT,
+      imagePath: SHOT,
+    })
+    await send('x', false)
+    expect(term.paste.mock.calls).toEqual([[`@${REPORT} `], [`@${REPORT} `]])
+  })
+
+  it('copies both references when the pane is busy', async () => {
+    running()
+    vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
+      ok: true,
+      path: REPORT,
+      imagePath: SHOT,
+    })
+    await send()
+    expect(writeText).toHaveBeenCalledWith(`@${REPORT} @${SHOT}`)
+  })
+
   it('touches nothing when main refuses the report', async () => {
     idlePrompt()
     vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
@@ -141,6 +188,56 @@ describe('sendPickToPane', () => {
     expect(res).toEqual({ ok: false, error: 'capture-expired' })
     expect(term.paste).not.toHaveBeenCalled()
     expect(useAttentionStore.getState().byPane[TARGET]).toBeUndefined()
+  })
+})
+
+describe('sendRegionToPane', () => {
+  const region: RegionCapture = {
+    id: 'region-1',
+    url: 'http://localhost/',
+    title: 'App',
+    rect: { x: 10, y: 20, width: 120, height: 80 },
+    imageWidth: 120,
+    imageHeight: 80,
+    capturedAt: '2026-10-01T00:00:00.000Z',
+  }
+  const REGION_REPORT = '/tmp/pine-reports-1000/capture-4-localhost.md'
+  const REGION_SHOT = '/tmp/pine-reports-1000/capture-4-localhost.png'
+  const sendRegion = (attachImage: boolean) =>
+    sendRegionToPane({
+      capture: region,
+      sourcePaneId: 'pane-browser',
+      targetPaneId: TARGET,
+      note: 'the header overlaps',
+      attachImage,
+    })
+
+  beforeEach(() => {
+    vi.mocked(window.pine.browser.regionSend).mockResolvedValue({
+      ok: true,
+      path: REGION_REPORT,
+      imagePath: REGION_SHOT,
+    })
+  })
+
+  it('asks main for the report of the region capture and pastes report and image', async () => {
+    idlePrompt()
+    const res = await sendRegion(true)
+    expect(window.pine.browser.regionSend).toHaveBeenCalledWith({
+      captureId: 'region-1',
+      sourcePaneId: 'pane-browser',
+      targetPaneId: TARGET,
+      note: 'the header overlaps',
+    })
+    expect(res).toEqual({ ok: true, path: REGION_REPORT, inserted: true })
+    expect(term.paste).toHaveBeenCalledWith(`@${REGION_REPORT} @${REGION_SHOT} `)
+    expect(window.pine.pty.write).not.toHaveBeenCalled()
+  })
+
+  it('pastes only the report with the setting off', async () => {
+    idlePrompt()
+    await sendRegion(false)
+    expect(term.paste).toHaveBeenCalledWith(`@${REGION_REPORT} `)
   })
 })
 
@@ -227,6 +324,7 @@ describe('a target in the origin workspace of another window', () => {
       targetPaneId: REMOTE,
       via: 'w-moved',
       note: '  Save   is misaligned ',
+      attachImage: true,
     })
 
     expect(res).toEqual({ ok: true, path: REPORT, inserted: true })
@@ -250,6 +348,7 @@ describe('a target in the origin workspace of another window', () => {
       targetPaneId: REMOTE,
       via: 'w-moved',
       note: '',
+      attachImage: true,
     })
 
     expect(res).toEqual({ ok: true, path: REPORT, inserted: false })

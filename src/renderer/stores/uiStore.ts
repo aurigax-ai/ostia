@@ -11,6 +11,7 @@ export interface OpenSettingsOptions {
 interface UIState {
   paletteOpen: boolean
   paletteMode: PaletteOpenMode
+  paletteSeed: string
   railCollapsed: boolean
   settingsTabOpen: boolean
   settingsActive: boolean
@@ -22,7 +23,7 @@ interface UIState {
   promptPreviewPaneId: string | null
   settingsWorkspaceId: string | null
   settingsRequest: number
-  openPalette: (mode?: PaletteOpenMode) => void
+  openPalette: (mode?: PaletteOpenMode, seed?: string) => void
   setPaletteMode: (mode: PaletteOpenMode) => void
   closePalette: () => void
   togglePalette: () => void
@@ -42,6 +43,7 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   paletteOpen: false,
   paletteMode: 'search',
+  paletteSeed: '',
   railCollapsed: false,
   settingsTabOpen: false,
   settingsActive: false,
@@ -53,10 +55,12 @@ export const useUIStore = create<UIState>((set) => ({
   promptPreviewPaneId: null,
   settingsWorkspaceId: null,
   settingsRequest: 0,
-  openPalette: (mode = 'search') => set({ paletteOpen: true, paletteMode: mode }),
+  openPalette: (mode = 'search', seed = '') =>
+    set({ paletteOpen: true, paletteMode: mode, paletteSeed: seed }),
   setPaletteMode: (paletteMode) => set({ paletteMode }),
-  closePalette: () => set({ paletteOpen: false, paletteMode: 'search' }),
-  togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search' })),
+  closePalette: () => set({ paletteOpen: false, paletteMode: 'search', paletteSeed: '' }),
+  togglePalette: () =>
+    set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search', paletteSeed: '' })),
   toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
   setRailCollapsed: (railCollapsed) => set({ railCollapsed }),
   openSettings: (section, options = {}) => {

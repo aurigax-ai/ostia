@@ -14,6 +14,7 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
 
 const FAKE_SYSTEM_BIN = resolve(__dirname, '../test/fixtures/system/bin')
+const FAKE_LSP_PROGRAM = resolve(__dirname, '../test/fixtures/lsp/bin/pine-fake-lsp')
 
 interface Launched {
   app: ElectronApplication
@@ -411,6 +412,146 @@ test('an extension adds an editor language: its grammar colours the file and its
     const row = settings.getByRole('listitem', { name: 'Fake grammar server' })
     await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
     await expect(row).toContainText('fakelang')
+  } finally {
+    await app.close()
+  }
+})
+
+function recordedEntries(project: string): { method: string; params?: unknown }[] {
+  const file = join(project, '.fake-lsp-record.jsonl')
+  if (!existsSync(file)) return []
+  return readFileSync(file, 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line) as { method: string; params?: unknown })
+}
+
+test('folding, code lens, pulled diagnostics, watched files and workspace symbols work for a server that registers them late', async () => {
+  test.setTimeout(90_000)
+  const { app, win, project } = await launch(
+    {
+      'notes.txt': ['fn alpha BEGIN', '  body ERROR', 'END', 'fn beta', 'tail', ''].join('\n'),
+      'other.txt': 'fn gamma here\n',
+    },
+    'fake-more',
+  )
+  try {
+    const approval = win.getByRole('dialog').filter({ hasText: 'Fake features' })
+    await expect(approval).toBeVisible({ timeout: 15_000 })
+    await approval.getByRole('button', { name: 'Approve and enable' }).click()
+    await expect(approval).toBeHidden()
+    await openWorkspace(win)
+    const editor = await openFile(win, 'notes.txt')
+    const lines = editor.locator('.view-lines')
+
+    await expect(editor.locator('.squiggly-error')).toHaveCount(1, { timeout: 20_000 })
+    await expect
+      .poll(() => recorded(project).includes('textDocument/diagnostic'), { timeout: 15_000 })
+      .toBe(true)
+    await expect(editor.locator('.squiggly-error')).toHaveCount(1)
+    const lens = editor.locator('.codelens-decoration')
+    const run = lens.locator('a').filter({ hasText: 'Run alpha' })
+    await expect(run).toHaveText('Run alpha (0 runs)', { timeout: 15_000 })
+    await expect(lens.locator('a').filter({ hasText: 'Run beta' })).toBeVisible()
+
+    await expect(async () => {
+      await win.mouse.move(2, 2)
+      await editor
+        .locator('.view-line')
+        .first()
+        .hover({ position: { x: 36, y: 8 } })
+      await expect(win.locator('.monaco-hover:visible')).toContainText('fake hover: alpha', {
+        timeout: 3_000,
+      })
+    }).toPass({ timeout: 20_000 })
+    await win.mouse.move(2, 2)
+    await win.keyboard.press('Escape')
+    await expect(win.locator('.monaco-hover:visible')).toHaveCount(0)
+    await expect(lens.locator('span').filter({ hasText: 'alpha: client only' })).toBeVisible()
+    await expect(lens.locator('a').filter({ hasText: 'client only' })).toHaveCount(0)
+    await run.click()
+    await expect(run).toHaveText('Run alpha (1 runs)', { timeout: 15_000 })
+    expect(
+      recordedEntries(project).find((entry) => entry.method === 'workspace/executeCommand')?.params,
+    ).toEqual({ command: 'fake.countRun', arguments: ['alpha'] })
+
+    await expect(lines).toContainText('body ERROR')
+    await editor
+      .locator('.view-line')
+      .first()
+      .click({ position: { x: 40, y: 8 } })
+    await win.keyboard.press('Control+Shift+BracketLeft')
+    await expect(lines).not.toContainText('body ERROR', { timeout: 10_000 })
+    await expect(lines).toContainText('fn beta')
+    await win.keyboard.press('Control+Shift+BracketRight')
+    await expect(lines).toContainText('body ERROR', { timeout: 10_000 })
+
+    writeFileSync(join(project, 'app.cfg'), 'a=1\n')
+    writeFileSync(join(project, 'skipped.ini'), 'a=1\n')
+    await expect
+      .poll(
+        () =>
+          recordedEntries(project)
+            .filter((entry) => entry.method === 'workspace/didChangeWatchedFiles')
+            .flatMap((entry) => (entry.params as { changes: { uri: string }[] }).changes)
+            .map((change) => change.uri),
+        { timeout: 15_000 },
+      )
+      .toEqual([`file://${join(project, 'app.cfg')}`])
+
+    await win.keyboard.press('Control+Shift+P')
+    const palette = win.getByRole('dialog').filter({ has: win.getByRole('combobox') })
+    await palette.getByRole('combobox').fill('%gam')
+    const symbol = palette.getByRole('option', { name: /gamma/ })
+    await expect(symbol).toContainText('other.txt:1', { timeout: 15_000 })
+    await expect(palette.getByRole('option')).toHaveCount(1)
+    await symbol.click()
+    await expect(palette).toBeHidden()
+    await expect(
+      win.locator('.monaco-editor:visible').first().locator('.view-lines'),
+    ).toContainText('fn gamma here', { timeout: 15_000 })
+  } finally {
+    await app.close()
+  }
+})
+
+test('the human gives a server their own program in Settings; a file that cannot run is refused', async () => {
+  test.setTimeout(60_000)
+  const { app, win, project } = await launch({ 'notes.txt': 'an ERROR\n' })
+  try {
+    await approveFakeLanguage(win)
+    await openWorkspace(win)
+    const settings = await openLanguages(win)
+    const row = fakeRow(settings)
+    await row.getByRole('button', { name: 'Choose the program for Fake server' }).click()
+    const dialog = win.getByRole('dialog').filter({ hasText: 'Program for Fake server' })
+    await dialog.getByLabel('Program path').fill(join(project, 'notes.txt'))
+    await dialog.getByRole('button', { name: 'Use this program' }).click()
+    await expect(dialog.getByRole('alert')).toHaveText(
+      'The program you chose cannot be used: it is not executable',
+    )
+    await dialog.getByLabel('Program path').fill(FAKE_LSP_PROGRAM)
+    await dialog.getByLabel('Extra arguments, one per line').fill('--name=chosen-by-human')
+    await dialog.getByRole('button', { name: 'Use this program' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(row).toContainText(`Using ${FAKE_LSP_PROGRAM}, the program you chose.`)
+    await win.keyboard.press('Escape')
+
+    const editor = await openFile(win, 'notes.txt')
+    await expect(editor.locator('.squiggly-error')).toHaveCount(1, { timeout: 20_000 })
+    const start = recordedEntries(project).find((entry) => entry.method === '$start') as
+      | { argv?: string[]; runAsNode?: string | null }
+      | undefined
+    expect(start?.argv?.at(-1)).toBe('--name=chosen-by-human')
+    expect(start?.runAsNode).toBeNull()
+
+    const again = await openLanguages(win)
+    const running = fakeRow(again)
+    await expect(running.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
+    await running.getByRole('button', { name: 'Show the log of Fake server' }).click()
+    await expect(win.getByRole('dialog').filter({ hasText: 'Log of' })).toContainText(
+      'Initialized chosen-by-human',
+    )
   } finally {
     await app.close()
   }

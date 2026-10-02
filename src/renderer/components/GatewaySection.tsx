@@ -57,11 +57,11 @@ function DeviceGrants({
   const d = useDict()
   return (
     <fieldset
-      aria-label={`${d.settings.remoteGrants}, ${device.name}`}
+      aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}
       className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1"
     >
       {PHONE_GRANTABLE_CAPS.map((cap) => {
-        const label = `${capLabel(d, cap)}, ${device.name}`
+        const label = fmt(d.settings.remoteCapFor, { cap: capLabel(d, cap), name: device.name })
         const disabled = cap === 'destructive' && !device.caps.includes('command')
         return (
           <div key={cap} className="flex items-center justify-between gap-2 text-fg text-ui-sm">
@@ -304,7 +304,7 @@ export function GatewaySection(): JSX.Element {
                   variant="destructive"
                   size="sm"
                   onClick={() => void onRevoke(dev.deviceId)}
-                  aria-label={`${d.settings.remoteRevoke} ${dev.name}`}
+                  aria-label={fmt(d.settings.remoteRevokeFor, { name: dev.name })}
                 >
                   {d.settings.remoteRevoke}
                 </Button>

@@ -94,6 +94,30 @@ describe('parseSnapshot', () => {
     })
   })
 
+  it('SSH-C64 never restores a remote file path', () => {
+    const [base] = snap().workspaces
+    const remote = {
+      type: 'pane',
+      id: 'pane-2',
+      title: 'app.conf',
+      kind: 'editor',
+      filePath: 'remote://abcdef012345/srv/app/app.conf',
+    }
+    const parsed = parseSnapshot({
+      ...snap(),
+      workspaces: [
+        { ...base, root: { ...split('pane-1', 'pane-3'), children: [base.root, remote] } },
+      ],
+    })
+    const root = parsed?.workspaces[0].root as { children: unknown[] }
+    expect(root.children[1]).toEqual({
+      type: 'pane',
+      id: 'pane-2',
+      title: 'app.conf',
+      kind: 'editor',
+    })
+  })
+
   it('rejects a snapshot written by a different schema version', () => {
     expect(parseSnapshot({ ...snap(), v: 2 })).toBeNull()
   })
@@ -185,6 +209,20 @@ describe('parseSnapshot', () => {
     expect(
       rootOf({ resume: { agent: 'claude', id: 'abc-1' }, agentRunning: 'yes' }),
     ).not.toHaveProperty('agentRunning')
+  })
+
+  it('keeps the default-title mark only on a terminal pane and only when it is true', () => {
+    const pane = snap().workspaces[0].root
+    const rootOf = (extra: object) =>
+      parseSnapshot(
+        snap({ workspaces: [{ ...snap().workspaces[0], root: { ...pane, ...extra } as never }] }),
+      )?.workspaces[0].root
+    expect(rootOf({ defaultTitle: true })).toMatchObject({ title: 'zsh', defaultTitle: true })
+    expect(rootOf({})).not.toHaveProperty('defaultTitle')
+    expect(rootOf({ defaultTitle: 'yes' })).not.toHaveProperty('defaultTitle')
+    expect(
+      rootOf({ kind: 'editor', filePath: '/home/u/proj/a.ts', defaultTitle: true }),
+    ).not.toHaveProperty('defaultTitle')
   })
 
   it('keeps a tab stack and repairs an unknown shown tab', () => {

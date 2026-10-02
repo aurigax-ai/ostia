@@ -1,8 +1,9 @@
+import { formatChord, parseChord, stealsTerminalKey, usedByMonaco } from '@shared/chordSpec'
 import { afterEach, describe, expect, it } from 'vitest'
 import { commands } from '../commands/registry'
 import { useSettingsStore } from '../stores/settingsStore'
-import { parseChord, stealsTerminalKey, usedByMonaco } from './chordSpec'
 import {
+  DEFAULT_CHORDS,
   type KeyLike,
   bindableIds,
   chordLabel,
@@ -365,5 +366,57 @@ describe('setKeybindingSetting', () => {
     expect(() => setKeybindingSetting('keybindings.__proto__', 'Ctrl+Shift+Y', false)).toThrow(
       /invalid keybinding id/,
     )
+  })
+})
+
+describe('DEFAULT_CHORDS', () => {
+  const PANE_WORK = [
+    'pane.splitRight',
+    'pane.splitDown',
+    'pane.focusLeft',
+    'pane.focusRight',
+    'pane.focusUp',
+    'pane.focusDown',
+    'pane.zoom',
+    'pane.close',
+    'workspace.next',
+    'workspace.previous',
+  ]
+
+  it('never steal a shell key or share a chord, and pane work leaves Monaco alone', () => {
+    for (const mac of [false, true]) {
+      const { byId } = effectiveBindings({}, mac)
+      const seen = new Map<string, string>()
+      for (const id of Object.keys(DEFAULT_CHORDS)) {
+        const spec = byId.get(id)
+        if (!spec) throw new Error(`${id} has no default on ${mac ? 'macOS' : 'Linux'}`)
+        expect(stealsTerminalKey(spec, mac), id).toBeNull()
+        if (PANE_WORK.includes(id)) expect(usedByMonaco(spec, mac), id).toBe(false)
+        const signature = formatChord(spec, mac)
+        expect(seen.get(signature), `${id} vs ${seen.get(signature)}`).toBeUndefined()
+        seen.set(signature, id)
+      }
+    }
+  })
+
+  it('binds pane splits, directional focus, zoom, close and workspace stepping on Linux', () => {
+    const csa = { ctrlKey: true, shiftKey: true, altKey: true }
+    expect(matchChord(key('\\', { ctrlKey: true, altKey: true }), false)).toBe('pane.splitRight')
+    expect(matchChord({ ...key('_', { ctrlKey: true, altKey: true }), code: 'Minus' }, false)).toBe(
+      'pane.splitDown',
+    )
+    expect(matchChord(key('H', csa), false)).toBe('pane.focusLeft')
+    expect(matchChord(key('J', csa), false)).toBe('pane.focusDown')
+    expect(matchChord(key('K', csa), false)).toBe('pane.focusUp')
+    expect(matchChord(key('L', csa), false)).toBe('pane.focusRight')
+    expect(matchChord(key('X', { ctrlKey: true, shiftKey: true }), false)).toBe('pane.zoom')
+    expect(matchChord(key('W', { ctrlKey: true, shiftKey: true }), false)).toBe('pane.close')
+    expect(matchChord(key('PageDown', { ctrlKey: true, shiftKey: true }), false)).toBe(
+      'workspace.next',
+    )
+    expect(matchChord(key('PageUp', { ctrlKey: true, shiftKey: true }), false)).toBe(
+      'workspace.previous',
+    )
+    expect(matchChord(key('PageDown', { ctrlKey: true }), false)).toBeNull()
   })
 })

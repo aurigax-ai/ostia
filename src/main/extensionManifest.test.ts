@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { MAX_AGENT_HOOKS, MAX_AGENT_SKILLS, MAX_AGENT_SKILL_FILES } from '../shared/agentPlugins'
 import { EXTENSION_API_VERSION } from '../shared/extensionApi'
 import { discoverExtensions, isInsideDir, parseManifest } from './extensionManifest'
 
@@ -530,6 +531,59 @@ describe('parseManifest', () => {
   })
 })
 
+describe('parseManifest — settings page', () => {
+  const settings = { mode: { type: 'string', default: '', description: 'How it runs' } }
+  const secrets = { token: { description: 'The token' } }
+  const parse = (contributes: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
+    parseManifest(manifest({ contributes, ...extra }), DIR)
+
+  it('keeps a title and an icon for an extension with settings or secrets', () => {
+    const withSettings = parse({ settings, settingsPage: { title: 'Demo', icon: 'kanban' } })
+    expect(withSettings.ok && withSettings.manifest.contributes.settingsPage).toEqual({
+      title: 'Demo',
+      icon: 'kanban',
+    })
+    const withSecrets = parse({ secrets, settingsPage: { title: 'Demo' } })
+    expect(withSecrets.ok && withSecrets.manifest.contributes.settingsPage).toEqual({
+      title: 'Demo',
+    })
+  })
+
+  it('leaves the field out when the manifest has none', () => {
+    const res = parse({ settings })
+    expect(res.ok && res.manifest.contributes).not.toHaveProperty('settingsPage')
+  })
+
+  it('refuses a page with nothing to show', () => {
+    expect(parse({ settingsPage: { title: 'Demo' } })).toEqual({
+      ok: false,
+      error: 'contributes.settingsPage needs contributes.settings or secrets',
+    })
+  })
+
+  it('refuses a missing, long or multi-line title and an icon outside the list', () => {
+    for (const settingsPage of [
+      {},
+      { title: '' },
+      { title: 'x'.repeat(81) },
+      { title: 'two\nlines' },
+      { title: 'Demo', icon: 'skull' },
+      'Demo',
+      true,
+    ]) {
+      expect(parse({ settings, settingsPage }).ok, JSON.stringify(settingsPage)).toBe(false)
+    }
+  })
+
+  it('refuses a page on an assist extension, whose settings live in Settings → Assistant', () => {
+    const res = parse(
+      { settings, assist: ['chat'], settingsPage: { title: 'Demo' } },
+      { capabilities: ['assist'] },
+    )
+    expect(res.ok).toBe(false)
+  })
+})
+
 describe('parseManifest — locales', () => {
   const locales = (list: unknown) => parseManifest(manifest({ locales: list }), DIR)
 
@@ -657,6 +711,142 @@ describe('parseManifest — icon themes', () => {
       ok: false,
       error: 'contributes.iconThemes must be an array of at most 16',
     })
+  })
+})
+
+describe('parseManifest — agent skills and hooks', () => {
+  const hookCommand = { id: 'on-hook', title: 'Hook', palette: false, stdin: true }
+  const agentManifest = (contributes: Record<string, unknown>, capabilities = ['agent-plugin']) =>
+    manifest({ capabilities, contributes: { commands: [hookCommand], ...contributes } })
+
+  it('keeps declared skills and hooks that name the extension’s own stdin command', () => {
+    const res = parseManifest(
+      agentManifest({
+        agentSkills: [{ name: 'review', path: 'skills/review', files: ['checklist.md'] }],
+        agentHooks: [
+          { event: 'SessionStart', command: 'on-hook' },
+          { event: 'PreToolUse', command: 'on-hook' },
+        ],
+      }),
+      DIR,
+    )
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.agentSkills).toEqual([
+      { name: 'review', path: 'skills/review', files: ['checklist.md'] },
+    ])
+    expect(res.manifest.contributes.agentHooks).toEqual([
+      { event: 'SessionStart', command: 'on-hook' },
+      { event: 'PreToolUse', command: 'on-hook' },
+    ])
+  })
+
+  it('defaults a skill’s files to none beyond SKILL.md', () => {
+    const res = parseManifest(
+      agentManifest({ agentSkills: [{ name: 'r', path: 'skills/r' }] }),
+      DIR,
+    )
+    expect(res.ok && res.manifest.contributes.agentSkills).toEqual([
+      { name: 'r', path: 'skills/r', files: [] },
+    ])
+  })
+
+  it('needs the agent-plugin capability for skills or hooks', () => {
+    for (const contributes of [
+      { agentSkills: [{ name: 'r', path: 'skills/r' }] },
+      { agentHooks: [{ event: 'Stop', command: 'on-hook' }] },
+    ]) {
+      const res = parseManifest(agentManifest(contributes, ['notify']), DIR)
+      expect(res).toEqual({ ok: false, error: expect.stringContaining("'agent-plugin'") })
+    }
+  })
+
+  it.each([
+    [{ name: 'Review', path: 'skills/r' }, 'name must be'],
+    [{ name: 'r', path: '../outside' }, 'folder inside the extension'],
+    [{ name: 'r', path: '/abs/skills' }, 'folder inside the extension'],
+    [{ name: 'r', path: 'skills/r', files: ['../x.md'] }, 'files lists'],
+    [{ name: 'r', path: 'skills/r', files: ['sub/x.md'] }, 'files lists'],
+    [{ name: 'r', path: 'skills/r', files: ['run.sh'] }, 'files lists'],
+    [{ name: 'r', path: 'skills/r', files: ['SKILL.md'] }, 'files lists'],
+    [{ name: 'r', path: 'skills/r', files: ['a.md', 'a.md'] }, 'duplicate file'],
+  ])('refuses the skill %j', (skill, error) => {
+    const res = parseManifest(agentManifest({ agentSkills: [skill] }), DIR)
+    expect(res).toEqual({ ok: false, error: expect.stringContaining(error) })
+  })
+
+  it('refuses two skills with one name', () => {
+    const skill = { name: 'r', path: 'skills/r' }
+    const res = parseManifest(agentManifest({ agentSkills: [skill, skill] }), DIR)
+    expect(res).toEqual({ ok: false, error: expect.stringContaining("duplicate name 'r'") })
+  })
+
+  it.each([
+    [{ event: 'Startup', command: 'on-hook' }, "unknown event 'Startup'"],
+    [{ event: 'Stop', command: 'other-ext-command' }, "this extension's commands"],
+    [{ event: 'Stop', command: 'echo "$HOME"' }, "this extension's commands"],
+  ])('refuses the hook %j', (hook, error) => {
+    const res = parseManifest(agentManifest({ agentHooks: [hook] }), DIR)
+    expect(res).toEqual({ ok: false, error: expect.stringContaining(error) })
+  })
+
+  it.each([
+    [{ id: 'on-hook', title: 'Hook' }],
+    [{ id: 'on-hook', title: 'Hook', stdin: true, interactive: true }],
+    [{ id: 'on-hook', title: 'Hook', stdin: true, capabilities: ['notify'] }],
+  ])(
+    'refuses a hook whose command %j does not read stdin, is interactive or needs caps',
+    (command) => {
+      const res = parseManifest(
+        manifest({
+          capabilities: ['agent-plugin', 'notify'],
+          contributes: { commands: [command], agentHooks: [{ event: 'Stop', command: 'on-hook' }] },
+        }),
+        DIR,
+      )
+      expect(res).toEqual({ ok: false, error: expect.stringContaining('must read stdin') })
+    },
+  )
+
+  it('accepts the most skills, files and hooks and refuses one more of each', () => {
+    const skills = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ name: `skill-${i}`, path: `skills/s${i}` }))
+    const files = (n: number) => Array.from({ length: n }, (_, i) => `f${i}.md`)
+    const commands = Array.from({ length: 17 }, (_, i) => ({
+      id: `on-hook-${i}`,
+      title: 'Hook',
+      palette: false,
+      stdin: true,
+    }))
+    const hooks = (n: number) =>
+      commands.slice(0, n).map((command) => ({ event: 'Stop', command: command.id }))
+    const parse = (contributes: Record<string, unknown>) =>
+      parseManifest(
+        manifest({ capabilities: ['agent-plugin'], contributes: { commands, ...contributes } }),
+        DIR,
+      )
+
+    expect(parse({ agentSkills: skills(MAX_AGENT_SKILLS) }).ok).toBe(true)
+    expect(parse({ agentSkills: skills(MAX_AGENT_SKILLS + 1) })).toEqual({
+      ok: false,
+      error: `contributes.agentSkills must be an array of at most ${MAX_AGENT_SKILLS}`,
+    })
+    const withFiles = (n: number) => [{ name: 'r', path: 'skills/r', files: files(n) }]
+    expect(parse({ agentSkills: withFiles(MAX_AGENT_SKILL_FILES) }).ok).toBe(true)
+    expect(parse({ agentSkills: withFiles(MAX_AGENT_SKILL_FILES + 1) })).toEqual({
+      ok: false,
+      error: `contributes.agentSkills[0]: files must be an array of at most ${MAX_AGENT_SKILL_FILES} file names`,
+    })
+    expect(parse({ agentHooks: hooks(MAX_AGENT_HOOKS) }).ok).toBe(true)
+    expect(parse({ agentHooks: hooks(MAX_AGENT_HOOKS + 1) })).toEqual({
+      ok: false,
+      error: `contributes.agentHooks must be an array of at most ${MAX_AGENT_HOOKS}`,
+    })
+  })
+
+  it('refuses the same hook twice', () => {
+    const hook = { event: 'Stop', command: 'on-hook' }
+    const res = parseManifest(agentManifest({ agentHooks: [hook, hook] }), DIR)
+    expect(res).toEqual({ ok: false, error: expect.stringContaining('duplicate hook') })
   })
 })
 

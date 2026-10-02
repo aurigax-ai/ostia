@@ -23,6 +23,22 @@ describe('parseNotificationSettings command', () => {
   })
 })
 
+describe('parseNotificationSettings tuning', () => {
+  it('clamps the long-command threshold to whole seconds between 1 and 3600', () => {
+    expect(parseNotificationSettings({ longCommandSeconds: 30 }).longCommandSeconds).toBe(30)
+    expect(parseNotificationSettings({ longCommandSeconds: 0 }).longCommandSeconds).toBe(1)
+    expect(parseNotificationSettings({ longCommandSeconds: 1e9 }).longCommandSeconds).toBe(3600)
+    expect(parseNotificationSettings({ longCommandSeconds: 2.6 }).longCommandSeconds).toBe(3)
+    expect(parseNotificationSettings({ longCommandSeconds: '5' }).longCommandSeconds).toBe(10)
+  })
+
+  it('keeps a known bell mode and falls back to attention', () => {
+    expect(parseNotificationSettings({ bell: 'off' }).bell).toBe('off')
+    expect(parseNotificationSettings({ bell: 'sound' }).bell).toBe('sound')
+    expect(parseNotificationSettings({ bell: 'loud' }).bell).toBe('attention')
+  })
+})
+
 describe('wantsDesktopBanner', () => {
   const on = DEFAULT_NOTIFICATION_SETTINGS
 

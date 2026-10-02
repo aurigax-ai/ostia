@@ -1,5 +1,6 @@
 import type { AgentResume } from '@shared/agentResume'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browserProfile'
+import { isRemotePath } from '@shared/remoteFolders'
 import type { PanePlacement } from '@shared/types'
 import { namespacedId } from '../lib/idNamespace'
 import type {
@@ -31,8 +32,10 @@ export function adoptIds(node: LayoutNode): void {
   if (node.type !== 'pane') for (const child of node.children) adoptIds(child)
 }
 
+export const TERMINAL_TITLE = 'Terminal'
+
 const SURFACE_TITLE: Record<SurfaceKind, string> = {
-  terminal: 'zsh',
+  terminal: TERMINAL_TITLE,
   editor: 'untitled',
   agent: 'claude',
   browser: 'localhost',
@@ -43,7 +46,19 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   manager: 'Manager',
 }
 
+export function createTerminalPane(defaultTitle: string, cwd?: string): PaneNode {
+  return {
+    type: 'pane',
+    id: genId('pane'),
+    title: defaultTitle,
+    kind: 'terminal',
+    cwd,
+    defaultTitle: true,
+  }
+}
+
 export function createPane(kind: SurfaceKind = 'terminal', title?: string, cwd?: string): PaneNode {
+  if (kind === 'terminal' && title === undefined) return createTerminalPane(TERMINAL_TITLE, cwd)
   return { type: 'pane', id: genId('pane'), title: title ?? SURFACE_TITLE[kind], kind, cwd }
 }
 
@@ -121,8 +136,25 @@ export function setPaneUrl(root: LayoutNode, paneId: string, url: string): Layou
   return mapPane(root, paneId, (p) => (p.url === url ? p : { ...p, url }))
 }
 
+function named(pane: PaneNode, title: string): PaneNode {
+  const { defaultTitle: _default, ...rest } = pane
+  return { ...rest, title }
+}
+
 export function setPaneTitle(root: LayoutNode, paneId: string, title: string): LayoutNode {
-  return mapPane(root, paneId, (p) => (p.title === title ? p : { ...p, title }))
+  return mapPane(root, paneId, (p) => (p.title === title && !p.defaultTitle ? p : named(p, title)))
+}
+
+function withDefaultTitle(pane: PaneNode, title: string): PaneNode {
+  return pane.defaultTitle && pane.title !== title ? { ...pane, title } : pane
+}
+
+export function setDefaultPaneTitle(root: LayoutNode, paneId: string, title: string): LayoutNode {
+  return mapPane(root, paneId, (p) => withDefaultTitle(p, title))
+}
+
+export function setDefaultPaneTitles(root: LayoutNode, title: string): LayoutNode {
+  return mapPanes(root, (p) => withDefaultTitle(p, title))
 }
 
 export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentResume): LayoutNode {
@@ -167,9 +199,17 @@ export function setPaneEditor(
   title: string,
   filePath: string,
 ): LayoutNode {
+  if (isRemotePath(filePath)) {
+    return mapPane(root, paneId, ({ cwd: _local, ...p }) => ({
+      ...p,
+      kind: 'editor',
+      title,
+      filePath,
+    }))
+  }
   const slash = filePath.lastIndexOf('/')
   const cwd = slash > 0 ? filePath.slice(0, slash) : '/'
-  return mapPane(root, paneId, (p) => ({ ...p, kind: 'editor', title, filePath, cwd }))
+  return mapPane(root, paneId, (p) => ({ ...named(p, title), kind: 'editor', filePath, cwd }))
 }
 
 function titleFromUrl(url: string): string {
@@ -187,7 +227,7 @@ export function setPaneBrowser(
   profile?: BrowserProfile,
 ): LayoutNode {
   return mapPane(root, paneId, (p) => {
-    const next: PaneNode = { ...p, kind: 'browser', title: titleFromUrl(url), url }
+    const next: PaneNode = { ...named(p, titleFromUrl(url)), kind: 'browser', url }
     if (profile === undefined) return next
     const { browserProfile: _previous, ...rest } = next
     return profile === 'shared' ? { ...rest, browserProfile: 'shared' } : rest
@@ -211,9 +251,8 @@ export function setPaneExtension(
   title: string,
 ): LayoutNode {
   return mapPane(root, paneId, (p) => ({
-    ...p,
+    ...named(p, title),
     kind: 'extension',
-    title,
     extensionId,
     cwd: undefined,
   }))
@@ -269,13 +308,20 @@ function withoutTabs(tabs: TabsNode, keep: (pane: PaneNode) => boolean): LayoutN
   return { ...tabs, children, activeId: survivor.id }
 }
 
-export function withoutKind(root: LayoutNode, kind: SurfaceKind): LayoutNode | null {
-  if (root.type === 'pane') return root.kind === kind ? null : root
-  if (root.type === 'tabs') return withoutTabs(root, (p) => p.kind !== kind)
+export function isRemoteFilePane(pane: PaneNode): boolean {
+  return pane.kind === 'editor' && isRemotePath(pane.filePath)
+}
+
+export function withoutPanes(
+  root: LayoutNode,
+  drop: (pane: PaneNode) => boolean,
+): LayoutNode | null {
+  if (root.type === 'pane') return drop(root) ? null : root
+  if (root.type === 'tabs') return withoutTabs(root, (p) => !drop(p))
   const children: LayoutNode[] = []
   const sizes: number[] = []
   root.children.forEach((child, i) => {
-    const kept = withoutKind(child, kind)
+    const kept = withoutPanes(child, drop)
     if (kept) {
       children.push(kept)
       sizes.push(root.sizes[i] ?? 1)
@@ -323,6 +369,75 @@ export function slotPaneOfKind(
 export function isPaneShown(root: LayoutNode, paneId: string): boolean {
   const tabs = tabsOfPane(root, paneId)
   return tabs ? tabs.activeId === paneId : findPane(root, paneId) !== null
+}
+
+export type FocusDirection = 'left' | 'right' | 'up' | 'down'
+
+interface SlotRect {
+  paneId: string
+  shownIds: readonly string[]
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+function slotRects(node: LayoutNode, x: number, y: number, w: number, h: number): SlotRect[] {
+  if (node.type === 'pane') return [{ paneId: node.id, shownIds: [node.id], x, y, w, h }]
+  if (node.type === 'tabs') {
+    const shownIds = node.children.map((c) => c.id)
+    return [{ paneId: node.activeId, shownIds, x, y, w, h }]
+  }
+  const total = node.sizes.reduce((a, b) => a + b, 0) || node.children.length
+  const out: SlotRect[] = []
+  let offset = 0
+  node.children.forEach((child, i) => {
+    const share = (node.sizes[i] ?? 1) / total
+    if (node.direction === 'horizontal') {
+      out.push(...slotRects(child, x + offset * w, y, share * w, h))
+    } else {
+      out.push(...slotRects(child, x, y + offset * h, w, share * h))
+    }
+    offset += share
+  })
+  return out
+}
+
+const EDGE_EPSILON = 1e-6
+
+function overlap(a0: number, a1: number, b0: number, b1: number): number {
+  return Math.min(a1, b1) - Math.max(a0, b0)
+}
+
+export function paneInDirection(
+  root: LayoutNode,
+  paneId: string,
+  direction: FocusDirection,
+): string | null {
+  const rects = slotRects(root, 0, 0, 1, 1)
+  const from = rects.find((r) => r.shownIds.includes(paneId))
+  if (!from) return null
+  const horizontal = direction === 'left' || direction === 'right'
+  const candidates = rects.filter((r) => {
+    if (r === from) return false
+    const touches =
+      direction === 'left'
+        ? Math.abs(r.x + r.w - from.x) < EDGE_EPSILON
+        : direction === 'right'
+          ? Math.abs(from.x + from.w - r.x) < EDGE_EPSILON
+          : direction === 'up'
+            ? Math.abs(r.y + r.h - from.y) < EDGE_EPSILON
+            : Math.abs(from.y + from.h - r.y) < EDGE_EPSILON
+    const shared = horizontal
+      ? overlap(r.y, r.y + r.h, from.y, from.y + from.h)
+      : overlap(r.x, r.x + r.w, from.x, from.x + from.w)
+    return touches && shared > EDGE_EPSILON
+  })
+  const center = horizontal ? from.y + from.h / 2 : from.x + from.w / 2
+  const distance = (r: SlotRect): number =>
+    horizontal ? Math.abs(r.y + r.h / 2 - center) : Math.abs(r.x + r.w / 2 - center)
+  const best = candidates.sort((a, b) => distance(a) - distance(b))[0]
+  return best ? best.paneId : null
 }
 
 function slotIdOf(root: LayoutNode, paneId: string): string | null {
@@ -379,9 +494,9 @@ export function splitPane(
   root: LayoutNode,
   targetId: string,
   direction: Direction,
+  newPane: PaneNode = createPane(),
 ): { root: LayoutNode; newPaneId: string | null } {
   if (!findPane(root, targetId)) return { root, newPaneId: null }
-  const newPane = createPane()
   return { root: insertBeside(root, targetId, newPane, direction, false), newPaneId: newPane.id }
 }
 

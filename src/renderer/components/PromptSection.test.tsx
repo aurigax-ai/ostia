@@ -1,4 +1,5 @@
 import type { ExtensionInfo } from '@shared/extensions'
+import { PRODUCT_NAME } from '@shared/product'
 import { DEFAULT_PROMPT_CHIPS } from '@shared/promptSettings'
 import type { PromptContext } from '@shared/types'
 import { render, screen, within } from '@testing-library/react'
@@ -34,9 +35,12 @@ const extension = (patch: Partial<ExtensionInfo>): ExtensionInfo => ({
   assist: [],
   secrets: [],
   secretsSet: [],
+  settingsPage: null,
   category: 'other',
   languages: [],
   languageServers: [],
+  agentSkills: [],
+  agentHooks: [],
   iconThemes: [],
   ...patch,
 })
@@ -202,7 +206,7 @@ describe('PromptSection', () => {
     setChips(['cwd'], 'shell')
     render(<PromptSection />)
     await userEvent.click(screen.getByRole('combobox', { name: 'Prompt style' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Pine prompt' }))
+    await userEvent.click(await screen.findByRole('option', { name: `${PRODUCT_NAME} prompt` }))
     expect(saved().style).toBe('pine')
     await userEvent.click(screen.getByRole('switch', { name: 'Same line prompt' }))
     expect(saved().sameLine).toBe(true)
@@ -214,7 +218,9 @@ describe('PromptSection', () => {
   it('keeps the chip editor under the shell prompt and says when it applies', async () => {
     setChips(['cwd'], 'shell')
     render(<PromptSection />)
-    expect(screen.getByText('These chips show when Prompt style is Pine prompt.')).toBeVisible()
+    expect(
+      screen.getByText(`These chips show when Prompt style is ${PRODUCT_NAME} prompt.`),
+    ).toBeVisible()
     await userEvent.click(screen.getByRole('button', { name: 'Add Host' }))
     expect(saved()).toMatchObject({ style: 'shell', chips: ['cwd', 'host'] })
   })

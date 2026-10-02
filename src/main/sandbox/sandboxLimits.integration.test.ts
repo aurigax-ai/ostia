@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { PRODUCT_NAME } from '../../shared/product'
 import {
   DEFAULT_SANDBOX_GLOBALS,
   type SandboxViolation,
@@ -130,6 +131,21 @@ describe.runIf(linux)('sandbox filesystem limits in a real sandbox', () => {
     expect(out).toContain('WRITE-OK')
     expect(readFileSync(join(home, 'builds/out.txt'), 'utf8')).toBe('built\n')
     expect(existsSync(join(home, 'notes/new.txt'))).toBe(false)
+  }, 60_000)
+
+  it('reads ~/.cargo when it is readable but never its credentials', async () => {
+    mkdirSync(join(home, '.cargo/bin'), { recursive: true })
+    writeFileSync(join(home, '.cargo/bin/tool'), 'CARGO-TOOL')
+    writeFileSync(join(home, '.cargo/credentials.toml'), 'CRATES-TOKEN')
+    const { sandboxes, run } = start('cargo', { allowRead: ['~/.cargo'] })
+    const out = await run(
+      `cat ${home}/.cargo/bin/tool; echo; cat ${home}/.cargo/credentials.toml; cat ${home}/.cargo/credentials; echo CARGO-DONE`,
+    )
+    sandboxes.stopAll()
+    expect(out).toContain('CARGO-TOOL')
+    expect(out).toContain('CARGO-DONE')
+    expect(out).not.toContain('CRATES-TOKEN')
+    expect(existsSync(join(home, '.cargo/credentials'))).toBe(false)
   }, 60_000)
 
   it('keeps a read-only path unchangeable inside a writable folder', async () => {
@@ -308,7 +324,9 @@ describe('a workspace folder the sandbox cannot confine', () => {
 
   it('refuses a workspace whose folder holds Pine data', async () => {
     const { sandboxes } = start('data-folder', {}, join(home, '.local'))
-    await expect(sandboxes.wrap('ws', 'bash', 'bash')).rejects.toThrow(/holds Pine's own data/)
+    await expect(sandboxes.wrap('ws', 'bash', 'bash')).rejects.toThrow(
+      `holds ${PRODUCT_NAME}'s own data`,
+    )
     sandboxes.stopAll()
   })
 })
