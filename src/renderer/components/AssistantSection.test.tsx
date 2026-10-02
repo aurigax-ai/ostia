@@ -31,6 +31,7 @@ const base = {
   iconThemes: [],
   secrets: [],
   secretsSet: [],
+  settingsPage: null,
   category: 'other',
   languages: [],
   languageServers: [],

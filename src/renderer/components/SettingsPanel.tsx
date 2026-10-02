@@ -35,7 +35,7 @@ import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import appIcon from '../../../resources/icon.svg'
 import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
@@ -50,6 +50,7 @@ import {
   navExpanded,
   rememberNavExpanded,
 } from '../lib/settingsNav'
+import { firstMatchControl, matchesQuery } from '../lib/settingsSearch'
 import { useEffectiveTheme } from '../lib/theme'
 import { isMac, platform } from '../platform'
 import type { ClipboardKeys } from '../settings/terminalPaneSettings'
@@ -99,6 +100,16 @@ import { MarketplaceSection, UninstallExtensionButton } from './MarketplaceSecti
 import { PasswordsSection } from './PasswordsSection'
 import { PromptSection } from './PromptSection'
 import { SandboxSection } from './SandboxSection'
+import {
+  Highlight,
+  SearchGroup,
+  SearchScopeProvider,
+  SettingsSearchSection,
+  useSearchGroup,
+  useSearchLeaf,
+  useSearchRow,
+  useSettingsSearch,
+} from './SettingsSearch'
 import { SyncSection } from './SyncSection'
 import { ThemeRows } from './ThemeSettings'
 import { UpdateCheck } from './UpdateCheck'
@@ -142,6 +153,7 @@ type SectionId =
   | 'about'
   | 'sandbox'
   | 'workspace'
+  | 'extensionPage'
 
 interface ExtensionAnchor {
   id: string
@@ -177,8 +189,16 @@ export function SettingsPanel(): JSX.Element | null {
   const sandboxButtonRef = useRef<HTMLButtonElement>(null)
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const [anchor, setAnchor] = useState<ExtensionAnchor | null>(null)
+  const [pageExtId, setPageExtId] = useState<string | null>(null)
   const extensionsButtonRef = useRef<HTMLButtonElement>(null)
   const [query, setQuery] = useState('')
+  const [searchHits, setSearchHits] = useState<Record<string, number>>({})
+  const onSearchHits = useCallback(
+    (id: string, hits: number) =>
+      setSearchHits((prev) => (prev[id] === hits ? prev : { ...prev, [id]: hits })),
+    [],
+  )
+  const contentRef = useRef<HTMLDivElement>(null)
   const settingsWorkspaceId = useUIStore((s) => s.settingsWorkspaceId)
   const settingsRequest = useUIStore((s) => s.settingsRequest)
   const targetWorkspace = useWorkspacesStore((s) =>
@@ -256,13 +276,21 @@ export function SettingsPanel(): JSX.Element | null {
       openSection('sandbox')
       return
     }
+    setQuery('')
     useUIStore.setState({ settingsWorkspaceId: id })
     openSection('workspace')
+  }
+
+  const revealResult = (id: string): void => {
+    contentRef.current
+      ?.querySelector(`[data-settings-result="${id}"]`)
+      ?.scrollIntoView({ block: 'start' })
   }
 
   const openSection = (id: SectionId): void => {
     setActive(id)
     setAnchor(null)
+    revealResult(id)
   }
 
   const openExtension = (id: string): void => {
@@ -270,9 +298,24 @@ export function SettingsPanel(): JSX.Element | null {
     setAnchor((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }))
   }
 
+  const openExtensionPage = (id: string): void => {
+    setActive('extensionPage')
+    setPageExtId(id)
+    setAnchor(null)
+    revealResult(extensionPageResultId(id))
+  }
+
   useEffect(() => {
     if (!requested) return
-    if (sections.some((s) => s.id === requested)) {
+    if (
+      requested === 'extensions' &&
+      requestedExtension &&
+      extensions.some((e) => e.id === requestedExtension && e.settingsPage)
+    ) {
+      setActive('extensionPage')
+      setPageExtId(requestedExtension)
+      setAnchor(null)
+    } else if (sections.some((s) => s.id === requested)) {
       setActive(requested as SectionId)
       if (requested === 'extensions' && requestedExtension) {
         setAnchor((prev) => ({ id: requestedExtension, nonce: (prev?.nonce ?? 0) + 1 }))
@@ -283,7 +326,7 @@ export function SettingsPanel(): JSX.Element | null {
       }
     }
     useUIStore.setState({ settingsSection: null, settingsExtension: null })
-  }, [requested, requestedExtension, sections])
+  }, [requested, requestedExtension, sections, extensions])
 
   const openSettingsFile = async (): Promise<void> => {
     const path = await window.pine.settings.path()
@@ -295,6 +338,15 @@ export function SettingsPanel(): JSX.Element | null {
 
   const q = query.trim().toLowerCase()
   const matchingExtensions = q ? extensions.filter((e) => extensionMatchesQuery(e, q)) : extensions
+  const hitsIn = (id: string): number => (q ? (searchHits[id] ?? 0) : 0)
+  const settingsPageExtensions = extensions.filter((e) => e.settingsPage)
+  const pageExtensions = q
+    ? settingsPageExtensions.filter(
+        (e) => extensionMatchesQuery(e, q) || hitsIn(extensionPageResultId(e.id)) > 0,
+      )
+    : settingsPageExtensions
+  const shownPage =
+    active === 'extensionPage' ? extensions.find((e) => e.id === pageExtId && e.settingsPage) : null
   const sandboxWorkspaces = workspaces
     .filter((w) => w.kind !== 'manager')
     .map((w) => ({ id: w.id, name: w.customName ?? w.name }))
@@ -304,11 +356,56 @@ export function SettingsPanel(): JSX.Element | null {
   const visible = q
     ? sections.filter(
         (s) =>
-          s.label.toLowerCase().includes(q) ||
-          (s.id === 'extensions' && matchingExtensions.length > 0) ||
+          matchesQuery([s.label], q) ||
+          hitsIn(s.id) > 0 ||
+          (s.id === 'extensions' && (matchingExtensions.length > 0 || pageExtensions.length > 0)) ||
           (s.id === 'sandbox' && matchingWorkspaces.length > 0),
       )
     : sections
+  const page = (id: SectionId): React.ReactNode => (
+    <>
+      {id === 'appearance' ? <AppearanceSection /> : null}
+      {id === 'terminal' ? <TerminalSection /> : null}
+      {id === 'prompt' ? <PromptSection /> : null}
+      {id === 'keyboard' ? (
+        <>
+          <KeyboardSection />
+          <ActionsSection />
+        </>
+      ) : null}
+      {id === 'panes' ? <PanesSection /> : null}
+      {id === 'notifications' ? <NotificationsSection /> : null}
+      {id === 'sidebar' ? <SidebarSection /> : null}
+      {id === 'workspaces' ? <WorkspacesSection /> : null}
+      {id === 'sandbox' ? <SandboxSection /> : null}
+      {id === 'workspace' && targetWorkspace ? (
+        <WorkspaceSandboxPage
+          key={targetWorkspace.id}
+          workspaceId={targetWorkspace.id}
+          workspaceName={targetWorkspace.customName ?? targetWorkspace.name}
+        />
+      ) : null}
+      {id === 'agents' ? <AgentsSection /> : null}
+      {id === 'assistant' ? <AssistantSection /> : null}
+      {id === 'manager' ? <ManagerSection /> : null}
+      {id === 'files' ? <FilesSection /> : null}
+      {id === 'browser' ? <BrowserSettingsSection /> : null}
+      {id === 'passwords' ? <PasswordsSection /> : null}
+      {id === 'editor' ? <EditorSettingsSection /> : null}
+      {id === 'extensions' || (id === 'extensionPage' && !shownPage) ? (
+        <ExtensionsPage anchor={anchor} />
+      ) : null}
+      {id === 'extensionPage' && shownPage ? (
+        <ExtensionSettingsPage key={shownPage.id} ext={shownPage} />
+      ) : null}
+      {id === 'views' ? <ViewsSection /> : null}
+      {id === 'languageServers' ? <LanguagesSection /> : null}
+      {id === 'remote' ? <GatewaySection /> : null}
+      {id === 'sync' ? <SyncSection /> : null}
+      {id === 'language' ? <LanguageSection /> : null}
+      {id === 'about' ? <AboutSection /> : null}
+    </>
+  )
   const navExtensions = q ? matchingExtensions : extensions
   const extensionsChildrenShown = navExtensions.length > 0 && (q !== '' || extensionsExpanded)
   const extensionItems: NavChild[] = navExtensions.map((ext) => ({
@@ -352,6 +449,17 @@ export function SettingsPanel(): JSX.Element | null {
             <InputGroupInput
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && query) {
+                  e.stopPropagation()
+                  setQuery('')
+                } else if ((e.key === 'Enter' || e.key === 'ArrowDown') && q) {
+                  const control = firstMatchControl(contentRef.current)
+                  if (!control) return
+                  e.preventDefault()
+                  control.focus()
+                }
+              }}
               placeholder={d.settings.search}
               aria-label={d.settings.search}
             />
@@ -360,29 +468,42 @@ export function SettingsPanel(): JSX.Element | null {
             <ul className="flex flex-col gap-0.5 px-2 pb-2">
               {visible.map((s) =>
                 s.id === 'extensions' ? (
-                  <NavDisclosure
-                    key={s.id}
-                    label={s.label}
-                    icon={s.icon}
-                    current={active === 'extensions' && !anchor}
-                    emphasized={active === 'extensions'}
-                    items={extensionItems}
-                    itemCurrent="location"
-                    listId={EXTENSIONS_NAV_LIST_ID}
-                    listLabel={d.settings.extensionsNavList}
-                    expanded={extensionsChildrenShown}
-                    canToggle={q === '' && extensions.length > 0}
-                    buttonRef={extensionsButtonRef}
-                    onOpen={() => openSection('extensions')}
-                    onToggle={expandExtensions}
-                    onOpenItem={openExtension}
-                  />
+                  <Fragment key={s.id}>
+                    <NavDisclosure
+                      label={s.label}
+                      icon={s.icon}
+                      current={active === 'extensions' && !anchor}
+                      count={hitsIn(s.id)}
+                      emphasized={active === 'extensions'}
+                      items={extensionItems}
+                      itemCurrent="location"
+                      listId={EXTENSIONS_NAV_LIST_ID}
+                      listLabel={d.settings.extensionsNavList}
+                      expanded={extensionsChildrenShown}
+                      canToggle={q === '' && extensions.length > 0}
+                      buttonRef={extensionsButtonRef}
+                      onOpen={() => openSection('extensions')}
+                      onToggle={expandExtensions}
+                      onOpenItem={openExtension}
+                    />
+                    {pageExtensions.map((ext) => (
+                      <NavItem
+                        key={`page-${ext.id}`}
+                        label={pageTitle(ext)}
+                        icon={extensionIcon(ext.settingsPage?.icon)}
+                        current={shownPage?.id === ext.id}
+                        count={hitsIn(extensionPageResultId(ext.id))}
+                        onOpen={() => openExtensionPage(ext.id)}
+                      />
+                    ))}
+                  </Fragment>
                 ) : s.id === 'sandbox' ? (
                   <NavDisclosure
                     key={s.id}
                     label={s.label}
                     icon={s.icon}
                     current={inSandbox && !sandboxChildrenShown}
+                    count={hitsIn(s.id)}
                     emphasized={inSandbox}
                     items={sandboxItems}
                     itemCurrent="page"
@@ -396,20 +517,14 @@ export function SettingsPanel(): JSX.Element | null {
                     onOpenItem={openSandboxItem}
                   />
                 ) : (
-                  <li key={s.id}>
-                    <Button
-                      variant="ghost"
-                      onClick={() => openSection(s.id)}
-                      aria-current={active === s.id ? 'page' : undefined}
-                      className={cn(
-                        'w-full justify-start gap-2.5 font-normal text-ui-base',
-                        active === s.id ? 'bg-surface-2 text-fg' : 'text-fg-muted',
-                      )}
-                    >
-                      <s.icon className={active === s.id ? 'text-fg' : 'text-fg-muted'} />
-                      {s.label}
-                    </Button>
-                  </li>
+                  <NavItem
+                    key={s.id}
+                    label={s.label}
+                    icon={s.icon}
+                    current={active === s.id}
+                    count={hitsIn(s.id)}
+                    onOpen={() => openSection(s.id)}
+                  />
                 ),
               )}
             </ul>
@@ -421,42 +536,41 @@ export function SettingsPanel(): JSX.Element | null {
         </nav>
 
         <ScrollArea className="min-h-0">
-          <div className="mx-auto max-w-3xl px-8 py-5">
-            {active === 'appearance' ? <AppearanceSection /> : null}
-            {active === 'terminal' ? <TerminalSection /> : null}
-            {active === 'prompt' ? <PromptSection /> : null}
-            {active === 'keyboard' ? (
+          <div ref={contentRef} className="mx-auto max-w-3xl px-8 py-5">
+            {q ? (
               <>
-                <KeyboardSection />
-                <ActionsSection />
+                {visible.length === 0 ? (
+                  <p className="text-fg-muted text-ui-sm">{d.settings.noMatches}</p>
+                ) : null}
+                {sections.map((s) => (
+                  <Fragment key={s.id}>
+                    <SettingsSearchSection
+                      id={s.id}
+                      label={s.label}
+                      query={q}
+                      onHits={onSearchHits}
+                    >
+                      {page(s.id)}
+                    </SettingsSearchSection>
+                    {s.id === 'extensions'
+                      ? settingsPageExtensions.map((ext) => (
+                          <SettingsSearchSection
+                            key={ext.id}
+                            id={extensionPageResultId(ext.id)}
+                            label={pageTitle(ext)}
+                            query={q}
+                            onHits={onSearchHits}
+                          >
+                            <ExtensionSettingsPage ext={ext} />
+                          </SettingsSearchSection>
+                        ))
+                      : null}
+                  </Fragment>
+                ))}
               </>
-            ) : null}
-            {active === 'panes' ? <PanesSection /> : null}
-            {active === 'notifications' ? <NotificationsSection /> : null}
-            {active === 'sidebar' ? <SidebarSection /> : null}
-            {active === 'workspaces' ? <WorkspacesSection /> : null}
-            {active === 'sandbox' ? <SandboxSection /> : null}
-            {active === 'workspace' && targetWorkspace ? (
-              <WorkspaceSandboxPage
-                key={targetWorkspace.id}
-                workspaceId={targetWorkspace.id}
-                workspaceName={targetWorkspace.customName ?? targetWorkspace.name}
-              />
-            ) : null}
-            {active === 'agents' ? <AgentsSection /> : null}
-            {active === 'assistant' ? <AssistantSection /> : null}
-            {active === 'manager' ? <ManagerSection /> : null}
-            {active === 'files' ? <FilesSection /> : null}
-            {active === 'browser' ? <BrowserSettingsSection /> : null}
-            {active === 'passwords' ? <PasswordsSection /> : null}
-            {active === 'editor' ? <EditorSettingsSection /> : null}
-            {active === 'extensions' ? <ExtensionsPage anchor={anchor} /> : null}
-            {active === 'views' ? <ViewsSection /> : null}
-            {active === 'languageServers' ? <LanguagesSection /> : null}
-            {active === 'remote' ? <GatewaySection /> : null}
-            {active === 'sync' ? <SyncSection /> : null}
-            {active === 'language' ? <LanguageSection /> : null}
-            {active === 'about' ? <AboutSection /> : null}
+            ) : (
+              page(active)
+            )}
           </div>
         </ScrollArea>
       </div>
@@ -464,10 +578,52 @@ export function SettingsPanel(): JSX.Element | null {
   )
 }
 
+function NavCount({ count }: { count: number }): JSX.Element | null {
+  if (count === 0) return null
+  return (
+    <span aria-hidden className="ml-auto text-fg-muted text-ui-xs tabular-nums">
+      {count}
+    </span>
+  )
+}
+
+function NavItem({
+  label,
+  icon: ItemIcon,
+  current,
+  count,
+  onOpen,
+}: {
+  label: string
+  icon: IconComponent
+  current: boolean
+  count: number
+  onOpen: () => void
+}): JSX.Element {
+  return (
+    <li>
+      <Button
+        variant="ghost"
+        onClick={onOpen}
+        aria-current={current ? 'page' : undefined}
+        className={cn(
+          'w-full justify-start gap-2.5 font-normal text-ui-base',
+          current ? 'bg-surface-2 text-fg' : 'text-fg-muted',
+        )}
+      >
+        <ItemIcon className={current ? 'text-fg' : 'text-fg-muted'} />
+        <span className="min-w-0 truncate">{label}</span>
+        <NavCount count={count} />
+      </Button>
+    </li>
+  )
+}
+
 function NavDisclosure({
   label,
   icon: SectionIcon,
   current,
+  count,
   emphasized,
   items,
   itemCurrent,
@@ -483,6 +639,7 @@ function NavDisclosure({
   label: string
   icon: IconComponent
   current: boolean
+  count: number
   emphasized: boolean
   items: NavChild[]
   itemCurrent: 'page' | 'location'
@@ -520,6 +677,7 @@ function NavDisclosure({
         >
           <SectionIcon className={emphasized ? 'text-fg' : 'text-fg-muted'} />
           {label}
+          <NavCount count={count} />
         </Button>
         {canToggle ? (
           <IconButton
@@ -575,10 +733,17 @@ function NavDisclosure({
 }
 
 export function SectionHead({ title, desc }: { title: string; desc?: string }): JSX.Element {
+  useSearchLeaf([title, desc])
   return (
     <>
-      <h2 className="mb-1.5 font-semibold text-fg text-ui-lg">{title}</h2>
-      {desc ? <p className="mb-3 text-fg-muted text-ui-sm">{desc}</p> : null}
+      <h2 className="mb-1.5 font-semibold text-fg text-ui-lg">
+        <Highlight text={title} />
+      </h2>
+      {desc ? (
+        <p className="mb-3 text-fg-muted text-ui-sm">
+          <Highlight text={desc} />
+        </p>
+      ) : null}
     </>
   )
 }
@@ -594,25 +759,42 @@ export function SettingsGroup({
   action?: React.ReactNode
   children: React.ReactNode
 }): JSX.Element {
+  const search = useSearchGroup([title, desc])
   return (
-    <section className="mt-5 border-line border-t pt-5 first-of-type:mt-3 first-of-type:border-t-0 first-of-type:pt-0">
+    <section
+      hidden={search.hidden}
+      className="mt-5 border-line border-t pt-5 first-of-type:mt-3 first-of-type:border-t-0 first-of-type:pt-0"
+    >
       <div className="mb-2 flex items-start justify-between gap-6">
         <div className="min-w-0">
-          <h3 className="font-semibold text-fg text-ui-emphasis">{title}</h3>
-          {desc ? <p className="mt-0.5 text-fg-muted text-ui-sm">{desc}</p> : null}
+          <h3 className="font-semibold text-fg text-ui-emphasis">
+            <Highlight text={title} />
+          </h3>
+          {desc ? (
+            <p className="mt-0.5 text-fg-muted text-ui-sm">
+              <Highlight text={desc} />
+            </p>
+          ) : null}
         </div>
         {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
       </div>
-      {children}
+      <SearchScopeProvider value={search.scope}>{children}</SearchScopeProvider>
     </section>
   )
 }
 
 export function SubHead({ title, desc }: { title: string; desc?: string }): JSX.Element {
+  useSearchLeaf([title, desc])
   return (
     <div className="mb-2">
-      <h3 className="font-medium text-fg text-ui-base">{title}</h3>
-      {desc ? <p className="mt-0.5 text-fg-muted text-ui-sm">{desc}</p> : null}
+      <h3 className="font-medium text-fg text-ui-base">
+        <Highlight text={title} />
+      </h3>
+      {desc ? (
+        <p className="mt-0.5 text-fg-muted text-ui-sm">
+          <Highlight text={desc} />
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -636,27 +818,41 @@ export function ControlRow({
   labelHint?: React.ReactNode
   children: React.ReactNode
 }): JSX.Element {
+  const search = useSearchRow([label, desc])
   return (
     <div
+      data-settings-row
+      hidden={search.hidden}
+      data-search-hit={search.hit || undefined}
       className={`flex justify-between gap-6 py-1.5 ${desc || error ? 'items-start' : 'items-center'}`}
     >
       <div className="min-w-0">
         {labelHint ? (
           <div className="flex min-w-0 items-baseline gap-2">
-            <span className="text-fg text-ui-base">{label}</span>
+            <span className="text-fg text-ui-base">
+              <Highlight text={label} />
+            </span>
             {labelHint}
           </div>
         ) : (
-          <div className="text-fg text-ui-base">{label}</div>
+          <div className="text-fg text-ui-base">
+            <Highlight text={label} />
+          </div>
         )}
-        {desc ? <p className="mt-0.5 text-fg-muted text-ui-sm">{desc}</p> : null}
+        {desc ? (
+          <p className="mt-0.5 text-fg-muted text-ui-sm">
+            <Highlight text={desc} />
+          </p>
+        ) : null}
         {error ? (
           <p id={errorId} role="alert" className="mt-0.5 text-attn-fg text-ui-sm">
             {error}
           </p>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      <div className="flex shrink-0 items-center gap-2">
+        <SearchScopeProvider value={search.scope}>{children}</SearchScopeProvider>
+      </div>
     </div>
   )
 }
@@ -675,10 +871,13 @@ export function SelectField<T extends string>({
   width?: string
 }): JSX.Element {
   const current = options.find((o) => o.value === value)?.label ?? value
+  useSearchLeaf(options.map((o) => o.label))
   return (
     <Select value={value} onValueChange={(v) => onChange(v as T)}>
       <SelectTrigger size="sm" aria-label={label} className={width}>
-        <span className="min-w-0 truncate">{current}</span>
+        <span className="min-w-0 truncate">
+          <Highlight text={current} />
+        </span>
       </SelectTrigger>
       <SelectContent>
         {options.map((o) => (
@@ -1432,12 +1631,36 @@ function ExternalEditorRow(): JSX.Element {
 
 function ExtensionsPage({ anchor }: { anchor: ExtensionAnchor | null }): JSX.Element {
   const d = useDict()
+  const search = useSettingsSearch()
   return (
     <section>
       <SectionHead title={d.settings.extensions} />
-      <MarketplaceSection />
-      <Separator className="my-3" />
+      {search && !search.forced ? null : (
+        <>
+          <MarketplaceSection />
+          <Separator className="my-3" />
+        </>
+      )}
       <ExtensionsSection anchor={anchor} />
+    </section>
+  )
+}
+
+function pageTitle(ext: ExtensionInfo): string {
+  return withProductName(ext.settingsPage?.title ?? ext.name)
+}
+
+function extensionPageResultId(extId: string): string {
+  return `extension-page:${extId}`
+}
+
+function ExtensionSettingsPage({ ext }: { ext: ExtensionInfo }): JSX.Element {
+  const d = useDict()
+  const title = pageTitle(ext)
+  return (
+    <section aria-label={title}>
+      <SectionHead title={title} desc={fmt(d.extensions.settingsPageFrom, { name: ext.name })} />
+      <ExtensionSettingsForm ext={ext} bare />
     </section>
   )
 }
@@ -1489,84 +1712,102 @@ export function ExtensionsSection({
       ) : (
         <ul className="flex flex-col">
           {list.map((ext) => (
-            <li
-              key={ext.id}
-              id={extensionAnchorId(ext.id)}
-              tabIndex={-1}
-              aria-label={ext.name}
-              className="relative -mx-3 flex scroll-mt-3 flex-col rounded-sm px-3 py-2 outline-none"
-            >
-              {flash?.id === ext.id ? (
-                <span
-                  key={flash.nonce}
-                  aria-hidden
-                  data-testid="extension-anchor-highlight"
-                  className={cn(
-                    'settings-anchor-highlight pointer-events-none absolute inset-0 rounded-sm',
-                    reducedMotion && 'settings-anchor-highlight-static',
-                  )}
-                />
-              ) : null}
-              <div className="flex items-start justify-between gap-6">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-fg text-ui-base">{ext.name}</span>
-                    <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
-                    <Badge variant="outline" className="text-ui-xs">
-                      {d.extensions.categories[ext.category]}
-                    </Badge>
-                    {ext.builtin ? (
-                      <Badge variant="outline" className="text-ui-xs">
-                        {d.settings.builtin}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <p className="mt-0.5 text-fg-muted text-ui-sm">
-                    {withProductName(ext.description)}
-                  </p>
-                  <p className="mt-0.5 text-fg-muted text-ui-xs">
-                    {extensionStatusLabel(d, ext)} ·{' '}
-                    {fmt(d.extensions.permissionsList, {
-                      list:
-                        ext.granted.length > 0
-                          ? ext.granted.join(', ')
-                          : d.extensions.noPermissions,
-                    })}
-                  </p>
-                  {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
-                    <p className="mt-0.5 text-attn-fg text-ui-xs">
-                      {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
-                    </p>
+            <SearchGroup key={ext.id} texts={[ext.name, withProductName(ext.description)]}>
+              {(search) => (
+                <li
+                  id={extensionAnchorId(ext.id)}
+                  tabIndex={-1}
+                  aria-label={ext.name}
+                  hidden={search.hidden}
+                  data-search-hit={search.hit || undefined}
+                  className="relative -mx-3 flex scroll-mt-3 flex-col rounded-sm px-3 py-2 outline-none"
+                >
+                  {flash?.id === ext.id ? (
+                    <span
+                      key={flash.nonce}
+                      aria-hidden
+                      data-testid="extension-anchor-highlight"
+                      className={cn(
+                        'settings-anchor-highlight pointer-events-none absolute inset-0 rounded-sm',
+                        reducedMotion && 'settings-anchor-highlight-static',
+                      )}
+                    />
                   ) : null}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {!ext.builtin &&
-                  (ext.status === 'pending-approval' || ext.unapproved.length > 0) ? (
-                    <Button variant="outline" size="sm" onClick={() => review(ext.id)}>
-                      {d.extensions.review}
+                  <div className="flex items-start justify-between gap-6">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-fg text-ui-base">
+                          <Highlight text={ext.name} />
+                        </span>
+                        <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
+                        <Badge variant="outline" className="text-ui-xs">
+                          {d.extensions.categories[ext.category]}
+                        </Badge>
+                        {ext.builtin ? (
+                          <Badge variant="outline" className="text-ui-xs">
+                            {d.settings.builtin}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-0.5 text-fg-muted text-ui-sm">
+                        <Highlight text={withProductName(ext.description)} />
+                      </p>
+                      <p className="mt-0.5 text-fg-muted text-ui-xs">
+                        {extensionStatusLabel(d, ext)} ·{' '}
+                        {fmt(d.extensions.permissionsList, {
+                          list:
+                            ext.granted.length > 0
+                              ? ext.granted.join(', ')
+                              : d.extensions.noPermissions,
+                        })}
+                      </p>
+                      {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
+                        <p className="mt-0.5 text-attn-fg text-ui-xs">
+                          {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {!ext.builtin &&
+                      (ext.status === 'pending-approval' || ext.unapproved.length > 0) ? (
+                        <Button variant="outline" size="sm" onClick={() => review(ext.id)}>
+                          {d.extensions.review}
+                        </Button>
+                      ) : null}
+                      <UninstallExtensionButton extId={ext.id} name={ext.name} />
+                      <Switch
+                        checked={ext.enabled}
+                        onCheckedChange={(v) => void setEnabled(ext.id, v)}
+                        aria-label={fmt(d.extensions.enable, { name: ext.name })}
+                      />
+                    </div>
+                  </div>
+                  {ext.settingsPage ? (
+                    <Button
+                      variant="link"
+                      size="xs"
+                      className="h-5 self-start px-0 text-ui-sm"
+                      onClick={() =>
+                        useUIStore.getState().openSettings('extensions', { extension: ext.id })
+                      }
+                    >
+                      {d.extensions.openSettingsPage}
+                    </Button>
+                  ) : !isAssistExtension(ext) ? (
+                    <ExtensionSettingsForm ext={ext} />
+                  ) : ext.enabled ? (
+                    <Button
+                      variant="link"
+                      size="xs"
+                      className="h-5 self-start px-0 text-ui-sm"
+                      onClick={() => useUIStore.getState().openSettings('assistant')}
+                    >
+                      {d.assistantSettings.configure}
                     </Button>
                   ) : null}
-                  <UninstallExtensionButton extId={ext.id} name={ext.name} />
-                  <Switch
-                    checked={ext.enabled}
-                    onCheckedChange={(v) => void setEnabled(ext.id, v)}
-                    aria-label={fmt(d.extensions.enable, { name: ext.name })}
-                  />
-                </div>
-              </div>
-              {!isAssistExtension(ext) ? (
-                <ExtensionSettingsForm ext={ext} />
-              ) : ext.enabled ? (
-                <Button
-                  variant="link"
-                  size="xs"
-                  className="h-5 self-start px-0 text-ui-sm"
-                  onClick={() => useUIStore.getState().openSettings('assistant')}
-                >
-                  {d.assistantSettings.configure}
-                </Button>
-              ) : null}
-            </li>
+                </li>
+              )}
+            </SearchGroup>
           ))}
         </ul>
       )}

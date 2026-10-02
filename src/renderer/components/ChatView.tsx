@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { useChat } from '@ai-sdk/react'
 import {
   ArrowClockwiseIcon,
+  ArrowCounterClockwiseIcon,
   ArrowsOutSimpleIcon,
   CheckIcon,
   ClockCounterClockwiseIcon,
@@ -45,6 +46,7 @@ import {
 } from '../lib/askContext'
 import { type MenuAnchor, menuAnchor } from '../lib/caretPoint'
 import { insertInto, looksLikeCommand } from '../lib/chatActions'
+import { checkpointFiles } from '../lib/chatCheckpoint'
 import { fileLinkOf, isWebUrl, rehypeFileLinks, wholeFileLink } from '../lib/chatLinks'
 import type { FileLinkTarget } from '../lib/chatLinks'
 import { openChatPane } from '../lib/chatPane'
@@ -94,6 +96,7 @@ import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { ChatCheckpointDialog } from './ChatCheckpointDialog'
 import {
   type ChatActionNotice,
   ChatCodeActions,
@@ -103,6 +106,7 @@ import {
 } from './ChatCodeActions'
 import { ChatModeSelect, ChatModelSelect } from './ChatComposerControls'
 import { AttachmentChips, ChatContextPicker } from './ChatContextPicker'
+import { ChatReviewBar } from './ChatReviewBar'
 import { ChatSessions } from './ChatSessions'
 import { ChatSlashHelp, ChatSlashMenu, SLASH_MENU_WIDTH } from './ChatSlashMenu'
 import { ChatToolPart } from './ChatToolPart'
@@ -271,6 +275,17 @@ function ChatSession({
   const [slashNotice, setSlashNotice] = useState<string | null>(null)
   const [card, setCard] = useState<SlashCard>(null)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [checkpoint, setCheckpoint] = useState<string | null>(null)
+  const editRecords = useChatToolsStore((s) => s.edits)
+  const checkpoints = useMemo(() => {
+    const records = Object.values(editRecords).filter((e) => e.sessionId === sessionId)
+    if (records.length === 0) return new Set<string>()
+    return new Set(
+      messages
+        .filter((m) => m.role === 'user' && checkpointFiles(messages, records, m.id).length > 0)
+        .map((m) => m.id),
+    )
+  }, [editRecords, messages, sessionId])
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
   const slashing = parseSlash(draft) !== null
   const sourceLabels = useMemo(
@@ -530,6 +545,7 @@ function ChatSession({
         sessionsOpen={sessionsOpen}
         onSessionsOpenChange={setSessionsOpen}
       />
+      <ChatReviewBar sessionId={sessionId} />
       <Conversation className={variant === 'palette' ? 'max-h-[48vh]' : undefined}>
         <ConversationContent>
           {messages.length === 0 ? (
@@ -567,6 +583,9 @@ function ChatSession({
                 onQuote={quote}
                 onEdit={startEdit}
                 onDelete={deleteMessage}
+                onRestore={
+                  checkpoints.has(message.id) ? () => setCheckpoint(message.id) : undefined
+                }
                 onRegenerate={
                   message === last && message.role === 'assistant' && !busy
                     ? () => {
@@ -755,6 +774,14 @@ function ChatSession({
           onPick={(row) => pickRow(row, false)}
         />
       ) : null}
+      <ChatCheckpointDialog
+        sessionId={sessionId}
+        workspaceId={workspaceId}
+        messages={messages}
+        messageId={checkpoint}
+        onClose={() => setCheckpoint(null)}
+        onDone={setSlashNotice}
+      />
       <Dialog
         open={confirmClear}
         onOpenChange={(open) => {
@@ -929,6 +956,7 @@ function ChatMessageRow({
   onQuote,
   onEdit,
   onDelete,
+  onRestore,
   onRegenerate,
 }: {
   message: PineChatMessage
@@ -942,6 +970,7 @@ function ChatMessageRow({
   onQuote: (text: string) => void
   onEdit: (message: PineChatMessage) => void
   onDelete: (id: string) => void
+  onRestore?: () => void
   onRegenerate?: () => void
 }): JSX.Element {
   const d = useDict()
@@ -987,6 +1016,14 @@ function ChatMessageRow({
             onClick={() => onEdit(message)}
             icon={PencilSimpleIcon}
           />
+          {onRestore ? (
+            <MessageAction
+              label={d.chatTools.checkpoint.action}
+              disabled={busy}
+              onClick={onRestore}
+              icon={ArrowCounterClockwiseIcon}
+            />
+          ) : null}
           <MessageAction
             label={t.deleteMessage}
             disabled={busy}

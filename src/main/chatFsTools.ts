@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { CHAT_TOOL_OUTPUT_MAX } from '../shared/assist'
 import { CHAT_EDITS_MAX, applyEdits } from '../shared/chatEdits'
 import {
+  CHAT_DIRTY_PATHS_MAX,
   CHAT_LIST_MAX,
   CHAT_QUERY_MAX,
   CHAT_READ_FILE_MAX,
@@ -22,13 +23,14 @@ import {
   type ChatPlanOutput,
   type ChatPlanRequest,
   type ChatPreviewOutput,
+  type ChatPreviewRequest,
   type ChatReadOutput,
   type ChatReadRequest,
+  type ChatRestoreOutput,
+  type ChatRestoreRequest,
   type ChatSearchMatch,
   type ChatSearchOutput,
   type ChatSearchRequest,
-  type ChatUndoOutput,
-  type ChatUndoRequest,
   type ChatWriteOutput,
   type ChatWriteRequest,
 } from '../shared/chatTools'
@@ -113,6 +115,15 @@ export function locate(req: ChatFsTarget, roots: readonly string[]): Located | F
   const outside = !realFolder || !inside(realFolder, real)
   if (outside && req.outside !== true) return fail('outside-folder', path)
   return { path, real, outside, symlink: throughSymlink(path, real, folder) }
+}
+
+export function openUnsaved(dirty: unknown, real: string, roots: readonly string[]): boolean {
+  if (!Array.isArray(dirty)) return false
+  return dirty.slice(0, CHAT_DIRTY_PATHS_MAX).some((raw) => {
+    if (typeof raw !== 'string' || !raw || raw.length > PATH_MAX) return false
+    const path = resolveSafe(raw, [...roots])
+    return path !== null && (realOrNull(path) ?? path) === real
+  })
 }
 
 function isFail(v: unknown): v is Fail {
@@ -299,10 +310,10 @@ async function existingText(
 }
 
 export async function previewTool(
-  req: Omit<ChatFsTarget, 'outside'>,
+  req: ChatPreviewRequest,
   roots: readonly string[],
 ): Promise<ChatFsResult<ChatPreviewOutput>> {
-  const at = locate({ ...req, outside: true }, roots)
+  const at = locate({ path: req?.path, root: req?.root, outside: true }, roots)
   if (isFail(at)) return at
   const current = await existingText(at.path)
   if (isFail(current)) return current
@@ -314,6 +325,7 @@ export async function previewTool(
     version: current?.version ?? null,
     outside: at.outside,
     symlink: at.symlink,
+    unsaved: openUnsaved(req.dirty, at.real, roots),
   }
 }
 
@@ -345,7 +357,15 @@ export async function planEditTool(
     version: current.version,
     outside: at.outside,
     symlink: at.symlink,
+    unsaved: openUnsaved(req.dirty, at.real, roots),
   }
+}
+
+async function parentInsideRoots(path: string, roots: readonly string[]): Promise<boolean> {
+  await mkdir(dirname(path), { recursive: true })
+  const parent = realOrNull(dirname(path))
+  const realRoots = roots.map((r) => realOrNull(resolve(expandHome(r)))).filter(Boolean)
+  return parent !== null && realRoots.some((r) => inside(r as string, parent))
 }
 
 function writable(req: ChatFsTarget & { symlinks: boolean }, roots: readonly string[]) {
@@ -369,12 +389,7 @@ export async function writeTool(
   if ((current?.version ?? null) !== base) return fail('changed', at.path)
   const created = current === null
   try {
-    await mkdir(dirname(at.path), { recursive: true })
-    const parent = realOrNull(dirname(at.path))
-    const realRoots = roots.map((r) => realOrNull(resolve(expandHome(r)))).filter(Boolean)
-    if (!parent || !realRoots.some((r) => inside(r as string, parent))) {
-      return fail('not-allowed', at.path)
-    }
+    if (!(await parentInsideRoots(at.path, roots))) return fail('not-allowed', at.path)
     await writeFile(at.path, req.content, { encoding: 'utf8', flag: created ? 'wx' : 'w' })
     return {
       ok: true,
@@ -388,29 +403,35 @@ export async function writeTool(
   }
 }
 
-export async function undoTool(
-  req: ChatUndoRequest,
+export async function restoreTool(
+  req: ChatRestoreRequest,
   roots: readonly string[],
-): Promise<ChatFsResult<ChatUndoOutput>> {
-  const restore = req?.restore ?? null
+): Promise<ChatFsResult<ChatRestoreOutput>> {
+  const content = req?.content ?? null
   if (
-    restore !== null &&
-    (typeof restore !== 'string' || Buffer.byteLength(restore) > CHAT_WRITE_MAX)
+    content !== null &&
+    (typeof content !== 'string' || Buffer.byteLength(content) > CHAT_WRITE_MAX)
   ) {
     return fail('too-large')
   }
+  const expected = typeof req?.expected === 'string' ? req.expected : null
   const at = writable(req, roots)
   if (isFail(at)) return at
+  if (openUnsaved(req.dirty, at.real, roots)) return fail('unsaved', at.path)
   const current = await existingText(at.path)
   if (isFail(current)) return current
-  if (current === null || current.version !== req.wrote) return fail('changed', at.path)
+  if ((current?.version ?? null) !== expected) return fail('changed', at.path)
+  const version = content === null ? null : versionOf(content)
+  const removed = content === null
+  if (req.check === true) return { ok: true, path: at.path, removed, version }
   try {
-    if (restore === null) {
-      await unlink(at.path)
-      return { ok: true, path: at.path, removed: true, version: null }
+    if (content === null) {
+      if (current !== null) await unlink(at.path)
+      return { ok: true, path: at.path, removed, version }
     }
-    await writeFile(at.path, restore, { encoding: 'utf8', flag: 'w' })
-    return { ok: true, path: at.path, removed: false, version: versionOf(restore) }
+    if (!(await parentInsideRoots(at.path, roots))) return fail('not-allowed', at.path)
+    await writeFile(at.path, content, { encoding: 'utf8', flag: current === null ? 'wx' : 'w' })
+    return { ok: true, path: at.path, removed, version }
   } catch {
     return fail('failed', at.path)
   }
