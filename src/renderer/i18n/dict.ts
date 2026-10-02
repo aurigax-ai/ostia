@@ -432,7 +432,11 @@ export const en = {
       commands: 'Commands',
       workspaces: 'Workspaces',
       tabs: 'Tabs',
+      symbols: 'Symbols in this workspace',
     },
+    symbolsHint: 'Type part of a name to find it in this workspace',
+    symbolsNoServer:
+      'No running language server finds symbols in this workspace. Open one of its files first.',
   },
   topbar: {
     toggleSidebar: 'Toggle sidebar',
@@ -2508,7 +2512,10 @@ export const zhHant: Dict = {
       commands: '指令',
       workspaces: '工作區',
       tabs: '分頁',
+      symbols: '此工作區的符號',
     },
+    symbolsHint: '輸入名稱的一部分，在此工作區中尋找',
+    symbolsNoServer: '此工作區沒有執行中的語言伺服器可以尋找符號。請先開啟其中一個檔案。',
   },
   topbar: {
     toggleSidebar: '切換側邊欄',

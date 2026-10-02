@@ -23,6 +23,7 @@ import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
+import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
 import { isStaleAgentReport } from '../lib/paneAgent'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
@@ -645,6 +646,14 @@ export function registerBuiltinCommands(): void {
     category: 'View',
     target: 'none',
     run: () => useUIStore.getState().togglePalette(),
+  })
+
+  commands.register({
+    id: GO_TO_WORKSPACE_SYMBOL_COMMAND,
+    title: 'Go to Symbol in Workspace',
+    category: 'View',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('search', SYMBOLS_PREFIX),
   })
 
   commands.register({

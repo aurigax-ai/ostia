@@ -8,9 +8,16 @@ import { allPanes, firstPaneOfKind } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
 import { useChatAvailable } from '../lib/assistFeatures'
 import { chordLabel } from '../lib/chords'
-import { PALETTE_MODES, type PaletteMode, paletteMode } from '../lib/paletteModes'
+import { openFileAt } from '../lib/openFile'
+import { PALETTE_MODES, type PaletteMode, paletteMode, paletteQuery } from '../lib/paletteModes'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { revealPane } from '../lib/workspaceActivity'
+import {
+  SYMBOL_SEARCH_DELAY_MS,
+  type WorkspaceSymbolResult,
+  findWorkspaceSymbols,
+  symbolPlace,
+} from '../lib/workspaceSymbolSearch'
 import { isMac } from '../platform'
 import { useAssistProvider } from '../stores/assistStore'
 import { chatFor, currentSessionId } from '../stores/chatStore'
@@ -46,6 +53,7 @@ export function CommandPalette(): JSX.Element {
   const open = useUIStore((s) => s.paletteOpen)
   const close = useUIStore((s) => s.closePalette)
   const openMode = useUIStore((s) => s.paletteMode)
+  const seed = useUIStore((s) => s.paletteSeed)
   const provider = useAssistProvider('chat')
   const chat = useChatAvailable() ? provider : null
   const [search, setSearch] = useState('')
@@ -70,6 +78,10 @@ export function CommandPalette(): JSX.Element {
     if (wasAsking.current) stopUnseenAnswer()
     wasAsking.current = false
   }, [open, askMode])
+
+  useEffect(() => {
+    if (open && seed) setSearch(seed)
+  }, [open, seed])
 
   const enterAsk = (seed: string): void => {
     setAskSeed(seed)
@@ -124,7 +136,15 @@ export function CommandPalette(): JSX.Element {
             }}
           />
           <CommandList>
-            <CommandEmpty>{d.palette.empty}</CommandEmpty>
+            {mode === 'symbols' ? (
+              <SymbolItems
+                query={paletteQuery(search)}
+                workspaceId={activeWorkspaceId}
+                onDone={finish}
+              />
+            ) : (
+              <CommandEmpty>{d.palette.empty}</CommandEmpty>
+            )}
             {mode === 'help' ? (
               <HelpItems
                 onPick={(symbol) => setSearch(symbol)}
@@ -403,6 +423,71 @@ function TabItems({
           >
             <span>{pane.title}</span>
             <ItemMeta>{where}</ItemMeta>
+          </CommandItem>
+        )
+      })}
+    </CommandGroup>
+  )
+}
+
+function SymbolItems({
+  query,
+  workspaceId,
+  onDone,
+}: {
+  query: string
+  workspaceId: string | null
+  onDone: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  const [result, setResult] = useState<WorkspaceSymbolResult | null>(null)
+  useEffect(() => {
+    let live = true
+    const timer = setTimeout(() => {
+      void findWorkspaceSymbols(workspaceId, query).then((next) => {
+        if (live) setResult(next)
+      })
+    }, SYMBOL_SEARCH_DELAY_MS)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [query, workspaceId])
+  if (!result) return null
+  if (result.hits.length === 0) {
+    return (
+      <output className="block px-3 py-6 text-center text-fg-muted text-ui-sm">
+        {result.servers === 0
+          ? d.palette.symbolsNoServer
+          : query
+            ? d.palette.empty
+            : d.palette.symbolsHint}
+      </output>
+    )
+  }
+  const workDir = useWorkspacesStore
+    .getState()
+    .workspaces.find((w) => w.id === workspaceId)?.workDir
+  const symbol = symbolOf('symbols')
+  return (
+    <CommandGroup heading={d.palette.modes.symbols} forceMount>
+      {result.hits.map((hit) => {
+        const place = symbolPlace(hit, workDir)
+        return (
+          <CommandItem
+            key={hit.id}
+            value={`${symbol} ${hit.name} ${hit.path}:${hit.line}:${hit.column}`}
+            forceMount
+            onSelect={() => {
+              openFileAt(hit.path, hit.line, hit.column)
+              onDone()
+            }}
+          >
+            <span className="font-mono">{hit.name}</span>
+            {hit.container ? (
+              <span className="min-w-0 truncate text-fg-muted text-ui-xs">{hit.container}</span>
+            ) : null}
+            <ItemMeta mono>{place}</ItemMeta>
           </CommandItem>
         )
       })}
