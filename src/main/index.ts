@@ -171,7 +171,7 @@ import { HostPaneGrants } from './sandbox/hostPanes'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { packageCooldownEnv } from './sandbox/packageEnv'
 import { PackageRequests } from './sandbox/packageRequests'
-import { PortBridge } from './sandbox/portBridge'
+import { PortBridge, bridgesPorts } from './sandbox/portBridge'
 import { PortForwarder, type SandboxPane } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
 import {
@@ -739,12 +739,6 @@ const portRequests: PortRequests = new PortRequests({
 })
 
 const PORT_SCAN_MS = 3000
-
-function bridgesPorts(workspaceId: string): boolean {
-  return (
-    process.platform === 'linux' && workspaceSandboxes.resolved(workspaceId).switches.unixSockets
-  )
-}
 
 const HOST_GRANT_TTL_MS = 120_000
 const hostPaneGrants = new HostPaneGrants({ now: Date.now, ttlMs: HOST_GRANT_TTL_MS })
@@ -1601,7 +1595,10 @@ function registerPtyIpc(): void {
         resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
           ? join(workspaceSandboxes.tmpDir(workspaceId), `resize-${randomUUID()}`)
           : null
-        portBridge = bridgesPorts(workspaceId)
+        portBridge = bridgesPorts(
+          process.platform,
+          workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
+        )
           ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId))
           : null
         const wrapped = await workspaceSandboxes.wrap(

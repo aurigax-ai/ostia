@@ -1,9 +1,27 @@
-import { existsSync, lstatSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { type AddressInfo, type Server, type Socket, connect, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { PortBridge, controlSocketName, dataSocketName, portBridgeCommand } from './portBridge'
+import {
+  PortBridge,
+  bridgesPorts,
+  controlSocketName,
+  dataSocketName,
+  portBridgeCommand,
+} from './portBridge'
 
 let dir: string
 const opened: { destroy?: () => void; close?: () => void }[] = []
@@ -107,6 +125,54 @@ describe('portBridgeCommand', () => {
 
   it('quotes a folder that holds spaces', () => {
     expect(portBridgeCommand('/tmp/my ws', 'ab12')).toContain("cd '/tmp/my ws' || exit;")
+  })
+})
+
+describe('bridgesPorts', () => {
+  it.each([
+    ['linux', true, true],
+    ['linux', false, false],
+    ['darwin', true, false],
+    ['darwin', false, false],
+    ['win32', true, false],
+  ] as const)('on %s with unix sockets %s answers %s', (platform, unixSockets, expected) => {
+    expect(bridgesPorts(platform, unixSockets)).toBe(expected)
+  })
+})
+
+describe('portBridgeCommand run in a shell', () => {
+  const dialedBy = async (lines: string[]): Promise<string[]> => {
+    const bin = join(dir, 'bin')
+    const work = join(dir, 'work')
+    const log = join(dir, 'dialed.log')
+    mkdirSync(bin)
+    mkdirSync(work)
+    writeFileSync(log, '')
+    const fake = join(bin, 'socat')
+    writeFileSync(
+      fake,
+      `#!/bin/sh\nif [ "$1" = -u ]; then printf '%s\\n' ${lines.map((l) => `'${l}'`).join(' ')}; else printf '%s\\n' "$2" >>'${log}'; fi\n`,
+    )
+    chmodSync(fake, 0o755)
+    const child = spawn('sh', ['-c', `${portBridgeCommand(work, 'ab12')} wait`], {
+      env: { PATH: `${bin}:/usr/bin:/bin` },
+    })
+    await new Promise((r) => child.once('close', r))
+    await new Promise((r) => setTimeout(r, 300))
+    return readFileSync(log, 'utf8').split('\n').filter(Boolean)
+  }
+
+  it('dials only the lines that are all digits', async () => {
+    expect(await dialedBy(['abc', '', '80;id', '$(id)', '8080', '-1'])).toEqual([
+      'TCP:127.0.0.1:8080',
+    ])
+  })
+
+  it('dials every port it is asked for', async () => {
+    expect((await dialedBy(['3000', '8080'])).sort()).toEqual([
+      'TCP:127.0.0.1:3000',
+      'TCP:127.0.0.1:8080',
+    ])
   })
 })
 

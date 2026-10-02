@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { MAX_AGENT_HOOKS, MAX_AGENT_SKILLS, MAX_AGENT_SKILL_FILES } from '../shared/agentPlugins'
 import { EXTENSION_API_VERSION } from '../shared/extensionApi'
 import { discoverExtensions, isInsideDir, parseManifest } from './extensionManifest'
 
@@ -805,6 +806,42 @@ describe('parseManifest — agent skills and hooks', () => {
       expect(res).toEqual({ ok: false, error: expect.stringContaining('must read stdin') })
     },
   )
+
+  it('accepts the most skills, files and hooks and refuses one more of each', () => {
+    const skills = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ name: `skill-${i}`, path: `skills/s${i}` }))
+    const files = (n: number) => Array.from({ length: n }, (_, i) => `f${i}.md`)
+    const commands = Array.from({ length: 17 }, (_, i) => ({
+      id: `on-hook-${i}`,
+      title: 'Hook',
+      palette: false,
+      stdin: true,
+    }))
+    const hooks = (n: number) =>
+      commands.slice(0, n).map((command) => ({ event: 'Stop', command: command.id }))
+    const parse = (contributes: Record<string, unknown>) =>
+      parseManifest(
+        manifest({ capabilities: ['agent-plugin'], contributes: { commands, ...contributes } }),
+        DIR,
+      )
+
+    expect(parse({ agentSkills: skills(MAX_AGENT_SKILLS) }).ok).toBe(true)
+    expect(parse({ agentSkills: skills(MAX_AGENT_SKILLS + 1) })).toEqual({
+      ok: false,
+      error: `contributes.agentSkills must be an array of at most ${MAX_AGENT_SKILLS}`,
+    })
+    const withFiles = (n: number) => [{ name: 'r', path: 'skills/r', files: files(n) }]
+    expect(parse({ agentSkills: withFiles(MAX_AGENT_SKILL_FILES) }).ok).toBe(true)
+    expect(parse({ agentSkills: withFiles(MAX_AGENT_SKILL_FILES + 1) })).toEqual({
+      ok: false,
+      error: `contributes.agentSkills[0]: files must be an array of at most ${MAX_AGENT_SKILL_FILES} file names`,
+    })
+    expect(parse({ agentHooks: hooks(MAX_AGENT_HOOKS) }).ok).toBe(true)
+    expect(parse({ agentHooks: hooks(MAX_AGENT_HOOKS + 1) })).toEqual({
+      ok: false,
+      error: `contributes.agentHooks must be an array of at most ${MAX_AGENT_HOOKS}`,
+    })
+  })
 
   it('refuses the same hook twice', () => {
     const hook = { event: 'Stop', command: 'on-hook' }
