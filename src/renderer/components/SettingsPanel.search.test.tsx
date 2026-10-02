@@ -9,6 +9,7 @@ import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useViewsStore } from '../stores/viewsStore'
 import { SettingsPanel } from './SettingsPanel'
 
 if (!Element.prototype.getAnimations) {
@@ -87,6 +88,7 @@ describe('SettingsPanel search', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
   let pluginsInit: ReturnType<typeof usePluginsStore.getState>
   let extensionsInit: ReturnType<typeof useExtensionsStore.getState>
+  let viewsInit: ReturnType<typeof useViewsStore.getState>
 
   beforeAll(() => {
     Object.assign(window, { queryLocalFonts: async () => [] })
@@ -94,6 +96,7 @@ describe('SettingsPanel search', () => {
     uiInit = useUIStore.getState()
     pluginsInit = usePluginsStore.getState()
     extensionsInit = useExtensionsStore.getState()
+    viewsInit = useViewsStore.getState()
   })
 
   afterEach(() => {
@@ -102,6 +105,7 @@ describe('SettingsPanel search', () => {
     useUIStore.setState(uiInit, true)
     usePluginsStore.setState(pluginsInit, true)
     useExtensionsStore.setState(extensionsInit, true)
+    useViewsStore.setState(viewsInit, true)
     vi.restoreAllMocks()
   })
 
@@ -219,5 +223,31 @@ describe('SettingsPanel search', () => {
       within(page).getByText('Column label', { exact: false }).closest('[data-settings-row]'),
     ).not.toBeVisible()
     expect(within(nav()).getByRole('button', { name: 'Board sync' })).toHaveTextContent(/1$/)
+  })
+
+  it('filters a hand-built list by its row titles', async () => {
+    const view = (name: string, title: string) => ({
+      name,
+      file: `${name}.json`,
+      status: 'enabled' as const,
+      title,
+      placement: null,
+      doc: null,
+      stale: false,
+      problems: [],
+    })
+    useViewsStore.setState({
+      dir: '/views',
+      views: [view('deploys', 'Deploy queue'), view('alerts', 'Alerts')],
+    })
+    renderSettings()
+    const user = userEvent.setup()
+    await user.type(searchBox(), 'deploy')
+
+    const views = result('views')
+    expect(views).toBeVisible()
+    expect(views.querySelector('[data-view-row="deploys"]')).toBeVisible()
+    expect(views.querySelector('[data-view-row="alerts"]')).not.toBeVisible()
+    expect(within(views).getByText('Deploy', { selector: 'mark' })).toBeInTheDocument()
   })
 })

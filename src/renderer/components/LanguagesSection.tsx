@@ -20,6 +20,7 @@ import { useLanguageServersStore } from '../stores/languageServersStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { IconButton } from './IconButton'
 import { SectionHead } from './SettingsPanel'
+import { Highlight, useSearchGroup } from './SettingsSearch'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import {
@@ -388,9 +389,12 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
     server.status === 'sandbox-unavailable' ||
     server.status === 'override-invalid' ||
     server.status === 'crashed'
+  const search = useSearchGroup([server.name, server.extName, server.languages.join(', ')])
   return (
     <li
       aria-label={server.name}
+      hidden={search.hidden}
+      data-search-hit={search.hit || undefined}
       data-server-key={server.key}
       data-server-status={server.status}
       className="flex flex-col rounded-sm px-3 py-2"
@@ -403,7 +407,9 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
           />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="min-w-0 break-words text-fg text-ui-base">{server.name}</span>
+              <span className="min-w-0 break-words text-fg text-ui-base">
+                <Highlight text={server.name} />
+              </span>
               <Badge variant="outline" className="text-ui-xs">
                 {t.kinds[server.kind]}
               </Badge>
