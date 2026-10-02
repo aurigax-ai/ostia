@@ -1,3 +1,4 @@
+import { isEqual } from 'es-toolkit'
 import type { IBufferLine, Terminal as Xterm } from '@xterm/xterm'
 import { type RefObject, useEffect, useState } from 'react'
 import {
@@ -38,7 +39,7 @@ function lineCells(line: IBufferLine | undefined, cols: number): string[] {
 }
 
 function sameGeometry(a: PromptGeometry | null, b: PromptGeometry | null): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
+  return isEqual(a, b)
 }
 
 export function usePromptGeometry(
