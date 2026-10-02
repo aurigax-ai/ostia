@@ -3,11 +3,13 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { type RemoteHost, helperSource, remoteHost } from '../../../test/fixtures/ssh/remoteHost'
 import type { ExtensionCaller } from '../../shared/extensions'
-import type { ConfirmRequest, ExtensionResult } from '../sdk'
+import type { ConfirmRequest, ExtensionResult, OpenFolderOptions, OpenFolderResult } from '../sdk'
 import { HelperConsent } from './consent'
+import { HelperFolders, Sessions } from './folders'
 import { helperBundle } from './helper'
 import { type HelperDeps, helperCommands } from './helperCommands'
 import { HelperHosts } from './helperHosts'
+import { planConnect } from './plan'
 
 const helper = helperBundle(helperSource())
 const DB = 'user dev\nhostname 10.0.0.5\nport 22\n'
@@ -20,6 +22,11 @@ interface Rig {
   hosts: HelperHosts
   confirms: ConfirmRequest[]
   sshG: string[][]
+  sessions: Sessions
+  folders: HelperFolders
+  asked: OpenFolderOptions[]
+  closed: string[]
+  answerFolder: (result: OpenFolderResult) => void
   run: (command: string, argv: string[], caller?: ExtensionCaller) => Promise<ExtensionResult>
 }
 
@@ -40,6 +47,10 @@ function rig(over: { answer?: boolean; enabled?: boolean } = {}): Rig {
   const confirms: ConfirmRequest[] = []
   const sshG: string[][] = []
   const closed: string[] = []
+  const asked: OpenFolderOptions[] = []
+  const sessions = new Sessions()
+  const folders = new HelperFolders(hosts)
+  let folderAnswer: OpenFolderResult = { ok: true, folderId: 'folder000001' }
   const deps: HelperDeps = {
     run: async (args) => {
       sshG.push(args)
@@ -54,9 +65,14 @@ function rig(over: { answer?: boolean; enabled?: boolean } = {}): Rig {
     hosts,
     helper,
     now: () => new Date('2026-10-02T00:00:00Z'),
-    foldersOn: () => closed.length,
-    closeFoldersOn: async (key) => {
-      closed.push(key)
+    sessions,
+    folders,
+    openFolder: async (opts) => {
+      asked.push(opts)
+      return folderAnswer
+    },
+    closeFolder: async (folderId) => {
+      closed.push(folderId)
     },
   }
   const commands = helperCommands(deps)
@@ -67,6 +83,13 @@ function rig(over: { answer?: boolean; enabled?: boolean } = {}): Rig {
     hosts,
     confirms,
     sshG,
+    sessions,
+    folders,
+    asked,
+    closed,
+    answerFolder: (result) => {
+      folderAnswer = result
+    },
     run: async (command, argv, caller = USER) =>
       commands[command as keyof typeof commands]({ argv }, caller),
   }
@@ -212,7 +235,7 @@ describe('helper-remove and helpers', () => {
     expect(existsSync(join(r.remote.home, '.pine'))).toBe(false)
     expect(r.hosts.isConnected('dev@db')).toBe(false)
     expect((await r.run('helpers', [])).data).toEqual({ version: helper.version, hosts: [] })
-    expect(r.deps.foldersOn?.('dev@db')).toBe(1)
+    expect(r.closed).toEqual([])
   })
 
   it('keeps everything when the human cancels the removal', async () => {
@@ -233,5 +256,74 @@ describe('helper-remove and helpers', () => {
     expect(r.confirms).toHaveLength(0)
     expect(r.remote.runs()).toEqual([])
     expect(r.consent.get('web')).toBeUndefined()
+  })
+})
+
+function session(r: Rig, paneId = 'p1'): void {
+  const plan = planConnect(['dev@db'])
+  if (!plan) throw new Error('plan')
+  r.sessions.opened(paneId, plan)
+}
+
+const REMOTE = { host: 'db1', cwd: '/srv/app' }
+
+describe('open-folder', () => {
+  it('SSH-C56 refuses an agent, a sandbox, a pane that is no session and a session without a remote folder', async () => {
+    const r = rig()
+    session(r)
+    const pane: ExtensionCaller = { kind: 'pane', capabilities: [], paneId: 'p1', remote: REMOTE }
+    expect(errorOf(await r.run('open-folder', [], pane))).toBe('human-only')
+    expect(
+      errorOf(await r.run('open-folder', [], { ...USER, remote: REMOTE, sandboxed: true })),
+    ).toBe('sandboxed')
+    expect(
+      errorOf(await r.run('open-folder', [], { ...USER, paneId: 'other', remote: REMOTE })),
+    ).toBe('not-a-session')
+    expect(errorOf(await r.run('open-folder', [], USER))).toBe('no-remote-folder')
+    expect(r.confirms).toHaveLength(0)
+    expect(r.asked).toEqual([])
+    expect(r.remote.runs()).toEqual([])
+  })
+
+  it('asks for consent on a new host, then asks core to open the folder the session is in', async () => {
+    const r = rig()
+    session(r)
+    const res = await r.run('open-folder', [], { ...USER, remote: REMOTE })
+    expect(res).toEqual({
+      ok: true,
+      data: { folderId: 'folder000001', host: 'dev@db', path: '/srv/app' },
+    })
+    expect(r.confirms).toHaveLength(1)
+    expect(r.asked).toEqual([{ workspaceId: 'w1', host: 'dev@db', path: '/srv/app' }])
+    expect(r.folders.idsOn('dev@db')).toEqual(['folder000001'])
+    const listed = await r.run('helpers', [])
+    expect(
+      (listed.ok && (listed.data as { hosts: { folders: number }[] }).hosts[0].folders) || 0,
+    ).toBe(1)
+  })
+
+  it('opens nothing when the human refuses the helper or the folder', async () => {
+    const refusedHelper = rig({ answer: false })
+    session(refusedHelper)
+    const first = await refusedHelper.run('open-folder', [], { ...USER, remote: REMOTE })
+    expect(errorOf(first)).toBe('helper-refused')
+    expect(refusedHelper.asked).toEqual([])
+
+    const r = rig()
+    session(r)
+    r.answerFolder({ ok: false, error: 'denied' })
+    const res = await r.run('open-folder', [], { ...USER, remote: REMOTE })
+    expect(errorOf(res)).toBe('denied')
+    expect(r.folders.idsOn('dev@db')).toEqual([])
+  })
+
+  it('SSH-C57 closes the open folders of a host before its helper is removed', async () => {
+    const r = rig()
+    session(r)
+    await r.run('open-folder', [], { ...USER, remote: REMOTE })
+    const res = await r.run('helper-remove', ['dev@db'])
+    expect(res.ok).toBe(true)
+    expect(r.closed).toEqual(['folder000001'])
+    expect(r.folders.idsOn('dev@db')).toEqual([])
   })
 })

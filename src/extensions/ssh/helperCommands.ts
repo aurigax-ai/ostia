@@ -3,12 +3,15 @@ import {
   type CommandHandler,
   type ConfirmRequest,
   type ExtensionResult,
+  type OpenFolderOptions,
+  type OpenFolderResult,
   cliArgs,
   failure,
   ok,
 } from '../sdk'
 import { type HelperChannel, HelperFailure } from './channel'
 import type { HelperConsent } from './consent'
+import type { HelperFolders, Sessions } from './folders'
 import { HELPER_PROTOCOL, type HelperBundle } from './helper'
 import type { HelperHosts } from './helperHosts'
 import { type ConnectPlan, hostKey, planConnect } from './plan'
@@ -23,8 +26,10 @@ export interface HelperDeps {
   hosts: HelperHosts
   helper: HelperBundle
   now?: () => Date
-  foldersOn?: (key: string) => number
-  closeFoldersOn?: (key: string) => Promise<void>
+  sessions: Sessions
+  folders: HelperFolders
+  openFolder: (opts: OpenFolderOptions) => Promise<OpenFolderResult>
+  closeFolder: (folderId: string) => Promise<unknown>
 }
 
 export function failureOf(err: unknown, s: Strings): ExtensionResult {
@@ -139,10 +144,57 @@ function argvOf(args: unknown): string[] {
   return cliArgs(args)?.argv ?? []
 }
 
+async function closeFoldersOn(key: string, deps: HelperDeps): Promise<void> {
+  for (const folderId of deps.folders.idsOn(key)) {
+    deps.folders.remove(folderId)
+    await deps.closeFolder(folderId)
+  }
+}
+
+async function resolved(
+  plan: ConnectPlan,
+  s: Strings,
+  deps: HelperDeps,
+): Promise<{ ok: true; target: SshTarget } | { ok: false; result: ExtensionResult }> {
+  const found = await resolveTarget(plan.destination, deps.run)
+  if (found.ok) return found
+  if (found.error === 'ssh-missing')
+    return { ok: false, result: failure('ssh-missing', s.sshMissing) }
+  return {
+    ok: false,
+    result: failure('resolve-failed', s.resolveFailed(found.reason ?? s.timedOut)),
+  }
+}
+
 export function helperCommands(
   deps: HelperDeps,
-): Record<'helper-install' | 'helper-remove' | 'helpers', CommandHandler> {
+): Record<'open-folder' | 'helper-install' | 'helper-remove' | 'helpers', CommandHandler> {
   return {
+    'open-folder': async (_args, caller) => {
+      const s = stringsFor(caller.locale)
+      const refused = refusal(caller, s)
+      if (refused) return refused
+      const plan = deps.sessions.planOf(caller.paneId)
+      if (!plan || !caller.workspaceId) return failure('not-a-session', s.notASession)
+      if (!caller.remote) return failure('no-remote-folder', s.noRemoteFolder)
+      if (!(await deps.enabled())) return failure('helper-off', s.helperOff)
+      const found = await resolved(plan, s, deps)
+      if (!found.ok) return found.result
+      const ensured = await ensureHelper(plan, found.target, s, deps)
+      if (!ensured.ok) return ensured.result
+      const host = hostKey(plan)
+      const opened = await deps.openFolder({
+        workspaceId: caller.workspaceId,
+        host,
+        path: caller.remote.cwd,
+      })
+      if (!opened.ok) {
+        return failure(opened.error, opened.error === 'denied' ? s.folderDenied : opened.message)
+      }
+      deps.folders.add(opened.folderId, plan)
+      return ok(undefined, { folderId: opened.folderId, host, path: caller.remote.cwd })
+    },
+
     'helper-install': async (args, caller) => {
       const s = stringsFor(caller.locale)
       const refused = refusal(caller, s)
@@ -150,12 +202,9 @@ export function helperCommands(
       const plan = planConnect(argvOf(args))
       if (!plan) return failure('invalid-args', HELPER_INSTALL_USAGE)
       if (!(await deps.enabled())) return failure('helper-off', s.helperOff)
-      const resolved = await resolveTarget(plan.destination, deps.run)
-      if (!resolved.ok) {
-        if (resolved.error === 'ssh-missing') return failure('ssh-missing', s.sshMissing)
-        return failure('resolve-failed', s.resolveFailed(resolved.reason ?? s.timedOut))
-      }
-      const ensured = await ensureHelper(plan, resolved.target, s, deps)
+      const found = await resolved(plan, s, deps)
+      if (!found.ok) return found.result
+      const ensured = await ensureHelper(plan, found.target, s, deps)
       if (!ensured.ok) return ensured.result
       return ok(undefined, {
         host: hostKey(plan),
@@ -185,7 +234,7 @@ export function helperCommands(
         cancelLabel: s.cancel,
       })
       if (!approved) return failure('denied', s.removeDenied)
-      await deps.closeFoldersOn?.(key)
+      await closeFoldersOn(key, deps)
       try {
         await deps.hosts.remove(plan)
       } catch (err) {
@@ -205,7 +254,7 @@ export function helperCommands(
           ...(record.version ? { version: record.version } : {}),
           current: record.version === deps.helper.version,
           connected: deps.hosts.isConnected(host),
-          folders: deps.foldersOn?.(host) ?? 0,
+          folders: deps.folders.idsOn(host).length,
         })),
       })
     },

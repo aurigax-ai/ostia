@@ -1,4 +1,5 @@
 import { CHAT_CONTEXT_TEXT_MAX, type ChatContextItem, type ChatContextKind } from '@shared/assist'
+import { isRemotePath } from '@shared/remoteFolders'
 import { allPanes, findPane } from '../layout/tree'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import { chatKey, useChatStore } from '../stores/chatStore'
@@ -60,7 +61,9 @@ export function workspaceEditorFile(
   const layout = id ? useLayoutStore.getState().byWorkspace[id] : undefined
   if (!layout) return null
   const touched = usePaneRecencyStore.getState().touchedAt
-  const editors = allPanes(layout.root).filter((p) => p.kind === 'editor' && p.filePath)
+  const editors = allPanes(layout.root).filter(
+    (p) => p.kind === 'editor' && p.filePath && !isRemotePath(p.filePath),
+  )
   const active = editors.find((p) => p.id === layout.activePaneId)
   const pane = active ?? [...editors].sort((a, b) => (touched[b.id] ?? 0) - (touched[a.id] ?? 0))[0]
   return pane?.filePath ? { paneId: pane.id, file: pane.filePath } : null

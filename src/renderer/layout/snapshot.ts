@@ -6,7 +6,7 @@ import type {
   SnapshotWorkspace,
   WorkspaceOrigin,
 } from '@shared/types'
-import { adoptIds, findPane, firstPaneId, withoutKind } from './tree'
+import { adoptIds, findPane, firstPaneId, isRemoteFilePane, withoutPanes } from './tree'
 import type { LayoutNode, PaneNode } from './types'
 
 export interface RestorableWorkspace {
@@ -60,7 +60,7 @@ function toPane(node: SnapshotPaneNode): PaneNode {
 
 function persistableRoot(root: LayoutNode, workDir: string): LayoutNode {
   return (
-    withoutKind(root, 'diff') ?? {
+    withoutPanes(root, (pane) => pane.kind === 'diff' || isRemoteFilePane(pane)) ?? {
       type: 'pane',
       id: firstPaneId(root),
       title: 'zsh',

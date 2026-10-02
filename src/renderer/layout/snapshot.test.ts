@@ -142,6 +142,31 @@ describe('buildSnapshot', () => {
     expect(snapshot?.workspaces[0].activePaneId).toBe(term.id)
   })
 
+  it('SSH-C64 drops a remote file pane, which lives only while its folder is open', () => {
+    const term = createPane('terminal', 'zsh', '/home/u/proj')
+    const remote: LayoutNode = {
+      type: 'pane',
+      id: 'pane-9',
+      title: 'app.conf',
+      kind: 'editor',
+      filePath: 'remote://abcdef012345/srv/app/app.conf',
+    }
+    const local: LayoutNode = {
+      type: 'pane',
+      id: 'pane-8',
+      title: 'a.ts',
+      kind: 'editor',
+      filePath: '/home/u/proj/a.ts',
+    }
+    const snapshot = build(
+      splitOf('horizontal', term, splitOf('vertical', remote, local)),
+      'pane-9',
+    )
+    expect(JSON.stringify(snapshot)).not.toContain('remote://')
+    expect(JSON.stringify(snapshot)).toContain('/home/u/proj/a.ts')
+    expect(snapshot?.workspaces[0].activePaneId).toBe(term.id)
+  })
+
   it('replaces a lone diff pane with a terminal at the workspace workDir', () => {
     const diff: LayoutNode = { type: 'pane', id: 'pane-4', title: 'a.ts', kind: 'diff' }
     const snapshot = build(diff)

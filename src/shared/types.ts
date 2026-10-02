@@ -41,6 +41,15 @@ import type {
 } from './regionCapture'
 import type { ReleaseCheckResult, ReleaseInfo } from './releases'
 import type {
+  RemoteCwd,
+  RemoteFolder,
+  RemoteFolderAsk,
+  RemoteListResult,
+  RemoteReadResult,
+  RemoteStatResult,
+  RemoteWriteResult,
+} from './remoteFolders'
+import type {
   PortsPolicy,
   SandboxControls,
   SandboxEditError,
@@ -258,6 +267,17 @@ export interface FsApi {
   watch: (path: string) => Promise<boolean>
   unwatch: (path: string) => void
   onChanged: (cb: (change: { path: string; exists: boolean }) => void) => () => void
+}
+
+export interface RemoteFilesApi {
+  folders: () => Promise<RemoteFolder[]>
+  onFolders: (cb: (folders: RemoteFolder[]) => void) => () => void
+  close: (folderId: string) => Promise<boolean>
+  onConfirm: (cb: (ask: RemoteFolderAsk) => Promise<boolean>) => () => void
+  list: (path: string) => Promise<RemoteListResult>
+  stat: (path: string) => Promise<RemoteStatResult>
+  read: (path: string) => Promise<RemoteReadResult>
+  write: (path: string, content: string, baseVersion: string) => Promise<RemoteWriteResult>
 }
 
 export type FsBinaryResult =
@@ -622,6 +642,7 @@ export interface TerminalStateSnapshot {
   running: boolean
   blockCount: number
   lastExitCode?: number
+  remote?: RemoteCwd
 }
 
 export interface TerminalStateApi {
@@ -821,6 +842,7 @@ export interface PineBridge {
   pty: PtyApi
   manager: ManagerApi
   fs: FsApi
+  remoteFiles: RemoteFilesApi
   lsp: LspApi
   settings: SettingsApi
   sync: SyncApi

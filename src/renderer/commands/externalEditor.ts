@@ -1,3 +1,4 @@
+import { isRemotePath } from '@shared/remoteFolders'
 import type { ExternalEditorResult } from '@shared/types'
 import { editorPositionOf } from '../lib/editorPositions'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -7,7 +8,7 @@ export const OPEN_EXTERNAL_COMMAND = 'editor.openExternal'
 
 export function openPaneInExternalEditor(paneId: string): Promise<ExternalEditorResult> | null {
   const position = editorPositionOf(paneId)
-  if (!position) return null
+  if (!position || isRemotePath(position.file)) return null
   return window.pine.externalEditor.open({
     template: useSettingsStore.getState().behavior.externalEditor,
     file: position.file,
