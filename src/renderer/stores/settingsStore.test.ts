@@ -157,6 +157,7 @@ describe('settingsStore', () => {
             confirmQuit: 'no',
             closeToTray: 'yes',
             wrapTitles: true,
+            globalHotkey: 'Space',
           },
         }),
       )
@@ -169,6 +170,7 @@ describe('settingsStore', () => {
         confirmQuit: true,
         closeToTray: true,
         wrapTitles: true,
+        globalHotkey: '',
       })
 
       vi.mocked(window.pine.fs.read).mockResolvedValue(

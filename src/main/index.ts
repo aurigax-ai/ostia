@@ -7,6 +7,7 @@ import {
   BrowserWindow,
   app,
   clipboard,
+  globalShortcut,
   ipcMain,
   nativeTheme,
   safeStorage,
@@ -16,6 +17,7 @@ import {
 } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
+import { agentHooksEnv } from '../shared/agentHooks'
 import type { AgentResume } from '../shared/agentResume'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
@@ -29,6 +31,7 @@ import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
+import { shellArgv } from '../shared/terminalShell'
 import type {
   AppInfo,
   CommandDescriptor,
@@ -96,6 +99,7 @@ import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
+import { GlobalHotkey, shouldHideWindows } from './globalHotkey'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { registerIconThemeIpc } from './iconThemes'
 import {
@@ -148,6 +152,7 @@ import {
   portalSupported,
 } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
+import { acceptsPrimarySelection } from './primarySelection'
 import { privateTmpDir } from './privateTmp'
 import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from './processManager'
 import { registerProjectRootIpc } from './projectRoot'
@@ -209,7 +214,7 @@ import {
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME } from './terminalType'
-import { AppTray, closeAction, isHiddenLaunch, readCloseToTray } from './tray'
+import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
 import {
   deleteGlobalVaultValue,
   registerVaultMethods,
@@ -1004,6 +1009,7 @@ function requestQuit(): void {
 }
 const startedHidden = app.commandLine.hasSwitch('hidden')
 let appTray: AppTray | null = null
+let globalHotkey: GlobalHotkey | null = null
 let managerService: ManagerService | null = null
 let managerLimiter: ManagerLimiter | null = null
 let portal: Portal | null = null
@@ -1157,6 +1163,10 @@ function registerIpc(): void {
         win.webContents.send('window:system-dark-changed', nativeTheme.shouldUseDarkColors)
       }
     }
+  })
+  ipcMain.on('window:beep', () => shell.beep())
+  ipcMain.on('window:write-primary', (_e, text: unknown) => {
+    if (acceptsPrimarySelection(process.platform, text)) clipboard.writeText(text, 'selection')
   })
   ipcMain.handle('window:set-zoom', (e, percent: unknown) => {
     const clamped = clampZoom(percent)
@@ -1521,8 +1531,11 @@ function registerPtyIpc(): void {
         dropped: false,
       }
     }
-    const shell =
-      opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
+    const settings = readSettingsFile()
+    const [shell, ...shellArgs] = shellArgv(
+      settings.terminal?.shell,
+      process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash'),
+    )
     const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
     if (!resolved.ok) {
       return {
@@ -1553,13 +1566,14 @@ function registerPtyIpc(): void {
       PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
       PINE_NODE: process.execPath,
       PINE_SHELL_STATE: stateFile,
+      ...agentHooksEnv(settings.agents?.hooks),
       ...PTY_COLOR_ENV,
     } as Record<string, string>
     let secretNotice = ''
     let sandboxStamp: string | null = null
     let resizePipe: string | null = null
     let file = shell
-    let args = integration.args
+    let args = [...integration.args, ...shellArgs]
     let cwd = resolveCwd(opts.cwd)
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
@@ -1573,7 +1587,7 @@ function registerPtyIpc(): void {
           : null
         const wrapped = await workspaceSandboxes.wrap(
           workspaceId,
-          sandboxedShellCommand(quoteArgv([shell, ...integration.args]), env.SHELL, resizePipe),
+          sandboxedShellCommand(quoteArgv([shell, ...args]), env.SHELL, resizePipe),
           'bash',
           [stateFile],
         )
@@ -1992,6 +2006,7 @@ function registerFsIpc(): void {
         }
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()
+        applyGlobalHotkey()
       }
       return true
     } catch {
@@ -2148,9 +2163,11 @@ function readSettingsFileOrNull(): { assistant?: unknown } | null {
 function readSettingsFile(): {
   locale?: unknown
   extensionSettings?: unknown
-  workspaces?: unknown
+  workspaces?: { globalHotkey?: unknown }
   manager?: unknown
   assistant?: unknown
+  terminal?: { shell?: unknown }
+  agents?: { hooks?: unknown }
 } {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
@@ -2336,6 +2353,20 @@ function showWindow(win: BrowserWindow): void {
   if (win.isMinimized()) win.restore()
   win.show()
   win.focus()
+}
+
+function toggleAllWindows(): void {
+  const all = BrowserWindow.getAllWindows()
+  if (!appTray || !shouldHideWindows(all)) {
+    revealApp()
+    return
+  }
+  for (const win of all) if (!win.isDestroyed() && win.isVisible()) appTray.hide(win)
+}
+
+function applyGlobalHotkey(): void {
+  const status = globalHotkey?.apply(readSettingsFile().workspaces?.globalHotkey)
+  if (status === 'taken') console.warn('[global hotkey] the chosen shortcut is in use elsewhere')
 }
 
 function revealApp(): void {
@@ -2690,7 +2721,10 @@ app.whenReady().then(() => {
     locale: readLocale,
     windows: () => BrowserWindow.getAllWindows(),
     quit: requestQuit,
+    setBadgeCount: (count) => app.setBadgeCount(count),
   })
+  globalHotkey = new GlobalHotkey(globalShortcut, toggleAllWindows)
+  applyGlobalHotkey()
   broker = new WindowBroker({
     createWindow,
     holdPtys,
@@ -2699,6 +2733,7 @@ app.whenReady().then(() => {
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     reveal: showWindow,
+    onList: (list) => appTray?.setUnread(unreadWorkspaces(list)),
   })
   broker.register()
   broker.openAll()
@@ -2792,6 +2827,7 @@ app.on('before-quit', (event) => {
   portal?.stop()
   void stopGateway()
   appTray?.remove()
+  globalHotkey?.clear()
 })
 
 app.on('window-all-closed', () => {

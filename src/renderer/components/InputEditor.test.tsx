@@ -527,6 +527,19 @@ describe('InputEditor', () => {
       expect(editor()).toHaveValue('git status --short')
     })
 
+    it('shows no history ghost text while behavior.historySuggestions is off', async () => {
+      useSettingsStore.setState({
+        behavior: { ...useSettingsStore.getState().behavior, historySuggestions: false },
+      })
+      withHistory('git status --short')
+      renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'git st')
+      expect(ghost()).toBeNull()
+      await user.keyboard('{ArrowRight}')
+      expect(editor()).toHaveValue('git st')
+    })
+
     it('prefers this pane’s history over other panes', async () => {
       const s = useBlocksStore.getState()
       s.promptStart('other', { line: 0 }, '/w')

@@ -110,8 +110,16 @@ describe('parseEditorSettings', () => {
       formatOnSave: true,
       openFilesIn: 'split',
       theme: 'rose-pine',
+      markdownPreview: true,
+      diffLayout: 'inline',
     }
     expect(parseEditorSettings(custom)).toEqual(custom)
+  })
+
+  it('opens Markdown as source and diffs side by side unless set otherwise', () => {
+    expect(parseEditorSettings({}).markdownPreview).toBe(false)
+    expect(parseEditorSettings({ markdownPreview: 'yes' }).markdownPreview).toBe(false)
+    expect(parseEditorSettings({ diffLayout: 'stacked' }).diffLayout).toBe('sideBySide')
   })
 
   it('links the editor colors to the Pine theme by default', () => {

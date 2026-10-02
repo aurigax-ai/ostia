@@ -57,6 +57,7 @@ export interface WindowBrokerDeps {
   isSandboxed: (workspaceId: string) => boolean
   isScratch: (workspaceId: string) => boolean
   reveal: (win: BrowserWindow) => void
+  onList: (list: WindowSummary[]) => void
 }
 
 const DETACHED_SIZE = { width: 1100, height: 760 }
@@ -453,6 +454,7 @@ export class WindowBroker {
 
   private broadcastList(): void {
     const list = this.list()
+    this.deps.onList(list)
     for (const win of this.windows.values()) {
       if (win.isDestroyed()) continue
       win.webContents.send('windows:list', list)

@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -10,6 +18,7 @@ import {
   CLAUDE_PLUGIN_MANIFEST,
   type CodexHookEvent,
   claudeHookSettings,
+  claudeWrapper,
   codexHookArgs,
   codexHookCommands,
   codexHookKey,
@@ -579,6 +588,36 @@ describe('shellIntegrationSpawnOptions', () => {
         rmSync(bin, { recursive: true, force: true })
       }
     })
+
+    it('runs claude untouched when its integration is turned off', () => {
+      const bin = mkdtempSync(join(tmpdir(), 'pine-fake-claude-'))
+      try {
+        const fake = join(bin, 'claude')
+        writeFileSync(fake, '#!/bin/sh\nprintf "%s\\n" "$@"\n')
+        chmodSync(fake, 0o755)
+        const wrapper = join(bin, 'wrapper.sh')
+        writeFileSync(wrapper, claudeWrapper())
+        const agentDir = join(bin, 'agent')
+        const pluginDir = join(agentDir, 'claude-plugin')
+        mkdirSync(pluginDir, { recursive: true })
+        const run = (off: string) =>
+          spawnSync('bash', ['--norc', '-c', `source '${wrapper}'; claude --resume abc`], {
+            env: {
+              PATH: `${bin}:/usr/bin:/bin`,
+              PINE_CLI: '/x/cli.js',
+              PINE_AGENT_DIR: agentDir,
+              PINE_NO_CLAUDE_HOOKS: off,
+            },
+            encoding: 'utf8',
+          })
+            .stdout.trim()
+            .split('\n')
+        expect(run('1')).toEqual(['--resume', 'abc'])
+        expect(run('')).toEqual(['--plugin-dir', pluginDir, '--resume', 'abc'])
+      } finally {
+        rmSync(bin, { recursive: true, force: true })
+      }
+    })
   })
 
   describe('codex hooks', () => {
@@ -703,6 +742,14 @@ describe('shellIntegrationSpawnOptions', () => {
         [['--version']],
       ])('passes codex %j through untouched', (args) => {
         expect(run(`codex ${quote(args)}`)).toEqual(args)
+      })
+
+      it('runs codex untouched when its hooks are turned off', () => {
+        const out = spawnSync(shell, [noRc, '-c', `source '${wrapper}'; codex 'fix it'`], {
+          env: { PATH: `${bin}:/usr/bin:/bin`, PINE_CLI: '/x/cli.js', PINE_NO_CODEX_HOOKS: '1' },
+          encoding: 'utf8',
+        }).stdout.trim()
+        expect(out).toBe('fix it')
       })
 
       it('lets command codex bypass Pine', () => {

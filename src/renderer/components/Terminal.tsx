@@ -18,6 +18,7 @@ import {
   parseOsc99,
   parseOsc777,
 } from '../lib/attention'
+import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
@@ -28,10 +29,12 @@ import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
+import { registerOsc52 } from '../lib/osc52'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
 import { planDraftPaste, planHumanPaste } from '../lib/pasteGate'
 import { isTitlePinned } from '../lib/pinnedTitles'
+import { installPrimarySelection } from '../lib/primarySelection'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
 import { registerSelectionSender } from '../lib/selectionSenders'
@@ -48,7 +51,7 @@ import {
   shouldNotifyCommandEnd,
   signalPane,
 } from '../lib/workspaceActivity'
-import { isMac } from '../platform'
+import { isLinux, isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -89,6 +92,7 @@ export function TerminalView({
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
+  const macOptionIsMeta = useSettingsStore((s) => s.terminal.macOptionIsMeta)
   const pasteRef = useRef<(text: string) => void>(() => {})
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
   const [search, setSearch] = useState<SearchAddon | null>(null)
@@ -134,6 +138,7 @@ export function TerminalView({
       scrollback: terminalSettings.scrollbackLines,
       scrollSensitivity: terminalSettings.scrollSpeed,
       minimumContrastRatio: terminalSettings.minimumContrast,
+      macOptionIsMeta: terminalSettings.macOptionIsMeta,
       allowProposedApi: true,
     })
     const fit = new FitAddon()
@@ -285,7 +290,11 @@ export function TerminalView({
       const block = runningId ? blocks.byPane[paneId]?.find((b) => b.id === runningId) : undefined
       blocks.commandEnd(paneId, anchor(), exitCode, term.buffer.active.cursorX)
       if (!block || replaying) return
-      const long = shouldNotifyCommandEnd(Date.now() - block.startedAt, document.hasFocus())
+      const long = shouldNotifyCommandEnd(
+        Date.now() - block.startedAt,
+        document.hasFocus(),
+        useSettingsStore.getState().notifications.longCommandSeconds,
+      )
       if (isPaneViewed(paneId) || (exitCode === 0 && !long)) {
         useAttentionStore.getState().dispatch(paneId, { type: 'waitEnded', at: Date.now() })
         return
@@ -344,6 +353,15 @@ export function TerminalView({
       const chunk = parseOsc99(data, decodeBase64Utf8)
       return notifyFromTerminal(chunk ? kitty.push(chunk) : null)
     })
+    const removePrimarySelection = installPrimarySelection(host, term, {
+      enabled: () => isLinux && useSettingsStore.getState().terminal.primarySelection,
+      writePrimary: (text) => window.pine.window.writePrimarySelection(text),
+    })
+    const oscClipboard = registerOsc52(term, {
+      enabled: () => useSettingsStore.getState().terminal.osc52Write,
+      replaying: () => replaying,
+      write: (text) => navigator.clipboard.writeText(text),
+    })
     const fileLinks = term.registerLinkProvider(
       createFileLinkProvider(term, {
         cwd: () => cwdRef.current,
@@ -373,9 +391,13 @@ export function TerminalView({
       const title = terminalTitle(raw)
       if (title) titles.push(title)
     })
+    const allowBellSound = createBellThrottle()
     const bell = term.onBell(() => {
-      if (replaying || isPaneViewed(paneId)) return
-      useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: Date.now() })
+      if (replaying) return
+      const now = Date.now()
+      const act = bellActions(useSettingsStore.getState().notifications.bell, isPaneViewed(paneId))
+      if (act.sound && allowBellSound(now)) window.pine.window.beep()
+      if (act.attention) useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: now })
     })
     const oscCwd = term.parser.registerOscHandler(7, (data) => {
       const report = parseOsc7(data)
@@ -614,6 +636,8 @@ export function TerminalView({
       oscNotify9.dispose()
       oscNotify777.dispose()
       oscNotify99.dispose()
+      oscClipboard.dispose()
+      removePrimarySelection()
       bell.dispose()
       copySelection.dispose()
       useLiveSelectionStore.getState().clear(paneId)
@@ -667,7 +691,8 @@ export function TerminalView({
     term.options.scrollSensitivity = scrollSpeed
     term.options.scrollback = scrollbackLines
     term.options.minimumContrastRatio = minimumContrast
-  }, [scrollSpeed, scrollbackLines, minimumContrast])
+    term.options.macOptionIsMeta = macOptionIsMeta
+  }, [scrollSpeed, scrollbackLines, minimumContrast, macOptionIsMeta])
 
   const closePasteDialog = (): void => {
     setPendingPaste(null)

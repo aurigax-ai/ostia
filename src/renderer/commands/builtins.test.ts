@@ -285,6 +285,50 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().terminal.warnOnRiskyPaste).toBe(true)
   })
 
+  it('settings.set refuses OSC 52 clipboard writes and the global hotkey', async () => {
+    const osc = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.osc52Write',
+      value: true,
+    })
+    const hotkey = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'workspaces',
+      value: { ...useSettingsStore.getState().workspaces, globalHotkey: 'Ctrl+Alt+Space' },
+    })
+    expect(osc.ok).toBe(false)
+    expect(hotkey.ok).toBe(false)
+    expect(useSettingsStore.getState().terminal.osc52Write).toBe(false)
+    expect(useSettingsStore.getState().workspaces.globalHotkey).toBe('')
+  })
+
+  it('settings.set refuses the agent hook switches, directly or via agents', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents.hooks.claude',
+      value: false,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents',
+      value: { ...useSettingsStore.getState().agents, hooks: { claude: true, codex: false } },
+    })
+    expect(direct.ok).toBe(false)
+    expect(nested.ok).toBe(false)
+    expect(useSettingsStore.getState().agents.hooks).toEqual({ claude: true, codex: true })
+  })
+
+  it('settings.set refuses the shell program, directly or via terminal', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.shell',
+      value: '/tmp/evil',
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal',
+      value: { ...useSettingsStore.getState().terminal, shell: '/tmp/evil' },
+    })
+    expect(direct.ok).toBe(false)
+    if (!direct.ok) expect(direct.error.message).toMatch(/terminal.shell/)
+    expect(nested.ok).toBe(false)
+    expect(useSettingsStore.getState().terminal.shell).toBe('')
+  })
+
   it('settings.set and settings.unset refuse the automatic update check, directly or via behavior', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'behavior.checkForUpdates',
@@ -502,6 +546,33 @@ describe('builtins route to store actions', () => {
     await commands.execWith(ctx('s1', 'pA'), 'pane.focus', { paneId: 'pX' })
 
     expect(focusPane).toHaveBeenCalledWith('s1', 'pX')
+  })
+
+  it('moves focus to the pane beside the caller’s pane, and not while a pane is zoomed', async () => {
+    const left = createPane()
+    const right = createPane()
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: {
+            type: 'split',
+            id: 'sp',
+            direction: 'horizontal',
+            children: [left, right],
+            sizes: [1, 1],
+          },
+          activePaneId: left.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    await commands.execWith(ctx('s1', left.id), 'pane.focusRight')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
+    await commands.execWith(ctx('s1', right.id), 'pane.focusRight')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
+    useLayoutStore.getState().zoomPane('s1', right.id, true)
+    await commands.execWith(ctx('s1', right.id), 'pane.focusLeft')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
   })
 
   it('routes pane.move to layout.movePane with source, target, and zone', async () => {
@@ -868,6 +939,16 @@ describe('workspace row commands', () => {
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w2')
     const miss = await commands.execWith(ctx(null, null), 'workspace.goto', { index: 5 })
     expect(miss).toMatchObject({ ok: true, result: { switched: false } })
+  })
+
+  it('steps to the next and previous workspace, wrapping at either end', async () => {
+    seed()
+    await commands.execWith(ctx(null, null), 'workspace.next')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w2')
+    await commands.execWith(ctx(null, null), 'workspace.next')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w1')
+    await commands.execWith(ctx(null, null), 'workspace.previous')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w2')
   })
 
   it('moves the caller’s own workspace into a group by name, and out again', async () => {

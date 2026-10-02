@@ -272,6 +272,7 @@ export function InputEditor({
   const d = useDict()
   const visible = useInputEditorVisible(paneId, alternateScreen, suppressedPrompt)
   const vimEnabled = useSettingsStore((s) => s.behavior.inputEditorVim)
+  const historySuggestionsOn = useSettingsStore((s) => s.behavior.historySuggestions)
   const prompt = useSettingsStore((s) => s.terminal.prompt)
   const pinePrompt = prompt.style === 'pine'
   const catalog = useChipCatalog()
@@ -625,7 +626,8 @@ export function InputEditor({
     dismissed: dismissed === text,
   }
   const blocked = ghostBlocked(blockers)
-  const historyText = visible && !blocked ? historySuggestion(text, history) : ''
+  const historyText =
+    visible && !blocked && historySuggestionsOn ? historySuggestion(text, history) : ''
   const ghost = visible ? pickGhost(text, blockers, historyText, ghostOn ? aiGhost : null) : null
   const suggestion = ghost?.text ?? ''
 

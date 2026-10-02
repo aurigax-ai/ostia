@@ -32,6 +32,13 @@ import {
 } from '@phosphor-icons/react'
 import type { ApprovalMode } from '@shared/approvals'
 import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
+import {
+  BELL_MODES,
+  type BellMode,
+  LONG_COMMAND_MAX_SECONDS,
+  LONG_COMMAND_MIN_SECONDS,
+  clampLongCommandSeconds,
+} from '@shared/notificationSettings'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
@@ -52,7 +59,7 @@ import {
 } from '../lib/settingsNav'
 import { firstMatchControl, matchesQuery } from '../lib/settingsSearch'
 import { useEffectiveTheme } from '../lib/theme'
-import { isMac, platform } from '../platform'
+import { isLinux, isMac, platform } from '../platform'
 import type { ClipboardKeys } from '../settings/terminalPaneSettings'
 import {
   CONTRAST_MAX,
@@ -1156,6 +1163,11 @@ function NotificationsSection(): JSX.Element {
   const d = useDict()
   const n = useSettingsStore((s) => s.notifications)
   const set = useSettingsStore((s) => s.setNotifications)
+  const bellLabel: Record<BellMode, string> = {
+    attention: d.settings.bellAttention,
+    sound: d.settings.bellSound,
+    off: d.settings.bellOff,
+  }
   return (
     <div>
       <SectionHead title={d.settings.notifications} />
@@ -1209,6 +1221,24 @@ function NotificationsSection(): JSX.Element {
           checked={n.commandFinished}
           onChange={(v) => set({ commandFinished: v })}
         />
+        <NumberRow
+          label={d.settings.longCommandSeconds}
+          desc={d.settings.longCommandSecondsDesc}
+          value={n.longCommandSeconds}
+          min={LONG_COMMAND_MIN_SECONDS}
+          max={LONG_COMMAND_MAX_SECONDS}
+          onCommit={(v) => set({ longCommandSeconds: clampLongCommandSeconds(v) })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupBell}>
+        <ControlRow label={d.settings.bell} desc={d.settings.bellDesc}>
+          <SelectField
+            value={n.bell}
+            onChange={(v) => set({ bell: v })}
+            label={d.settings.bell}
+            options={BELL_MODES.map((m) => ({ value: m, label: bellLabel[m] }))}
+          />
+        </ControlRow>
       </SettingsGroup>
     </div>
   )
@@ -1305,6 +1335,8 @@ function AgentsSection(): JSX.Element {
   const set = useSettingsStore((s) => s.setHibernation)
   const autoResume = useSettingsStore((s) => s.agents.autoResume)
   const setAutoResume = useSettingsStore((s) => s.setAutoResume)
+  const hooks = useSettingsStore((s) => s.agents.hooks)
+  const setAgentHooks = useSettingsStore((s) => s.setAgentHooks)
   const approvalMode = useSettingsStore((s) => s.approvals.mode)
   const setApprovalMode = useSettingsStore((s) => s.setApprovalMode)
   return (
@@ -1329,6 +1361,20 @@ function AgentsSection(): JSX.Element {
           desc={d.settings.autoResumeDesc}
           checked={autoResume}
           onChange={setAutoResume}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupAgentHooks}>
+        <ToggleRow
+          label={d.settings.claudeHooks}
+          desc={d.settings.claudeHooksDesc}
+          checked={hooks.claude}
+          onChange={(v) => setAgentHooks({ claude: v })}
+        />
+        <ToggleRow
+          label={d.settings.codexHooks}
+          desc={d.settings.codexHooksDesc}
+          checked={hooks.codex}
+          onChange={(v) => setAgentHooks({ codex: v })}
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupPerformance}>
@@ -1373,6 +1419,7 @@ function TerminalSection(): JSX.Element {
   const copyOnSelect = useSettingsStore((s) => s.behavior.copyOnSelect)
   const mode = useSettingsStore((s) => s.behavior.inputMode)
   const vim = useSettingsStore((s) => s.behavior.inputEditorVim)
+  const historySuggestions = useSettingsStore((s) => s.behavior.historySuggestions)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
@@ -1381,6 +1428,10 @@ function TerminalSection(): JSX.Element {
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
   const promptStyle = useSettingsStore((s) => s.terminal.prompt.style)
+  const shell = useSettingsStore((s) => s.terminal.shell)
+  const osc52Write = useSettingsStore((s) => s.terminal.osc52Write)
+  const primarySelection = useSettingsStore((s) => s.terminal.primarySelection)
+  const macOptionIsMeta = useSettingsStore((s) => s.terminal.macOptionIsMeta)
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
@@ -1408,6 +1459,12 @@ function TerminalSection(): JSX.Element {
           checked={vim}
           onChange={(v) => setBehavior({ inputEditorVim: v })}
         />
+        <ToggleRow
+          label={d.settings.historySuggestions}
+          desc={d.settings.historySuggestionsDesc}
+          checked={historySuggestions}
+          onChange={(v) => setBehavior({ historySuggestions: v })}
+        />
         <ControlRow
           label={d.prompt.title}
           desc={promptStyle === 'pine' ? d.settings.promptStylePine : d.settings.promptStyleShell}
@@ -1425,6 +1482,16 @@ function TerminalSection(): JSX.Element {
           <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
         ) : null}
       </SettingsGroup>
+      {isMac ? (
+        <SettingsGroup title={d.settings.groupKeyboard}>
+          <ToggleRow
+            label={d.settings.macOptionIsMeta}
+            desc={d.settings.macOptionIsMetaDesc}
+            checked={macOptionIsMeta}
+            onChange={(v) => setTerminal({ macOptionIsMeta: v })}
+          />
+        </SettingsGroup>
+      ) : null}
       <SettingsGroup title={d.settings.groupCursor}>
         <ControlRow label={d.settings.cursorStyle}>
           <SelectField
@@ -1489,6 +1556,20 @@ function TerminalSection(): JSX.Element {
           checked={warnOnRiskyPaste}
           onChange={(v) => setTerminal({ warnOnRiskyPaste: v })}
         />
+        <ToggleRow
+          label={d.settings.osc52Write}
+          desc={d.settings.osc52WriteDesc}
+          checked={osc52Write}
+          onChange={(v) => setTerminal({ osc52Write: v })}
+        />
+        {isLinux ? (
+          <ToggleRow
+            label={d.settings.primarySelection}
+            desc={d.settings.primarySelectionDesc}
+            checked={primarySelection}
+            onChange={(v) => setTerminal({ primarySelection: v })}
+          />
+        ) : null}
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupColors}>
         <StepNumberRow
@@ -1516,6 +1597,16 @@ function TerminalSection(): JSX.Element {
           checked={restoreWorkspace}
           onChange={(v) => setBehavior({ restoreWorkspace: v })}
         />
+        <ControlRow label={d.settings.shell} desc={d.settings.shellDesc}>
+          <Input
+            value={shell}
+            spellCheck={false}
+            placeholder="$SHELL"
+            aria-label={d.settings.shell}
+            onChange={(e) => setTerminal({ shell: e.target.value })}
+            className="h-7 w-56 font-mono"
+          />
+        </ControlRow>
       </SettingsGroup>
     </div>
   )
