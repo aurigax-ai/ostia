@@ -134,66 +134,69 @@ afterAll(() => {
   if (root) rmSync(root, { recursive: true, force: true })
 })
 
-describe.runIf(canSandbox)('a language server in a sandboxed workspace', () => {
-  it('runs wrapped, reads the workspace and its own extension, and cannot read a file under home', async () => {
-    start(false)
-    const file = join(workDir, 'notes.txt')
-    const [session] = await servers.open('w1', 'p1', file)
-    expect(session).toBeDefined()
-    expect(wraps).toEqual([
-      { command: expect.stringContaining('fake-server.cjs'), extraReads: [extensionDir] },
-    ])
-    servers.send('w1', session.sessionId, {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: { processId: null, rootUri: null, capabilities: {} },
-    })
-    await vi.waitFor(() => expect(messages.some((m) => m.id === 1)).toBe(true), {
-      timeout: 20_000,
-    })
-    servers.send('w1', session.sessionId, { jsonrpc: '2.0', method: 'initialized', params: {} })
-    servers.send('w1', session.sessionId, {
-      jsonrpc: '2.0',
-      method: 'textDocument/didOpen',
-      params: {
-        textDocument: {
-          uri: pathToFileURL(file).href,
-          languageId: 'fake',
-          version: 1,
-          text: `READ ${join(home, 'secret.txt')}\nREAD ${join(workDir, 'inside.txt')}\n`,
+describe.skipIf(!canSandbox)(
+  'a language server in a sandboxed workspace (Linux only: bwrap)',
+  () => {
+    it('runs wrapped, reads the workspace and its own extension, and cannot read a file under home', async () => {
+      start(false)
+      const file = join(workDir, 'notes.txt')
+      const [session] = await servers.open('w1', 'p1', file)
+      expect(session).toBeDefined()
+      expect(wraps).toEqual([
+        { command: expect.stringContaining('fake-server.cjs'), extraReads: [extensionDir] },
+      ])
+      servers.send('w1', session.sessionId, {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: { processId: null, rootUri: null, capabilities: {} },
+      })
+      await vi.waitFor(() => expect(messages.some((m) => m.id === 1)).toBe(true), {
+        timeout: 20_000,
+      })
+      servers.send('w1', session.sessionId, { jsonrpc: '2.0', method: 'initialized', params: {} })
+      servers.send('w1', session.sessionId, {
+        jsonrpc: '2.0',
+        method: 'textDocument/didOpen',
+        params: {
+          textDocument: {
+            uri: pathToFileURL(file).href,
+            languageId: 'fake',
+            version: 1,
+            text: `READ ${join(home, 'secret.txt')}\nREAD ${join(workDir, 'inside.txt')}\n`,
+          },
         },
-      },
-    })
-    await vi.waitFor(() => expect(lastDiagnostics()).toHaveLength(2), { timeout: 20_000 })
-    const [secret, inside] = lastDiagnostics()
-    expect(secret).toMatch(/^read failed: /)
-    expect(inside).toBe('read ok: in the workspace')
-    expect(servers.log('fake-lang/fake').entries[0]).toMatchObject({
-      kind: 'start',
-      sandboxed: true,
-    })
-    servers.stopAll()
-  }, 60_000)
+      })
+      await vi.waitFor(() => expect(lastDiagnostics()).toHaveLength(2), { timeout: 20_000 })
+      const [secret, inside] = lastDiagnostics()
+      expect(secret).toMatch(/^read failed: /)
+      expect(inside).toBe('read ok: in the workspace')
+      expect(servers.log('fake-lang/fake').entries[0]).toMatchObject({
+        kind: 'start',
+        sandboxed: true,
+      })
+      servers.stopAll()
+    }, 60_000)
 
-  it('cannot start a user extension’s server without the extra read path', async () => {
-    start(true)
-    const [session] = await servers.open('w1', 'p1', join(workDir, 'notes.txt'))
-    expect(wraps[0].extraReads).toEqual([])
-    servers.send('w1', session.sessionId, {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: { processId: null, rootUri: null, capabilities: {} },
-    })
-    await vi.waitFor(
-      () =>
-        expect(servers.log('fake-lang/fake').entries.some((entry) => entry.kind === 'exit')).toBe(
-          true,
-        ),
-      { timeout: 20_000 },
-    )
-    expect(messages.some((m) => m.id === 1)).toBe(false)
-    servers.stopAll()
-  }, 60_000)
-})
+    it('cannot start a user extension’s server without the extra read path', async () => {
+      start(true)
+      const [session] = await servers.open('w1', 'p1', join(workDir, 'notes.txt'))
+      expect(wraps[0].extraReads).toEqual([])
+      servers.send('w1', session.sessionId, {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: { processId: null, rootUri: null, capabilities: {} },
+      })
+      await vi.waitFor(
+        () =>
+          expect(servers.log('fake-lang/fake').entries.some((entry) => entry.kind === 'exit')).toBe(
+            true,
+          ),
+        { timeout: 20_000 },
+      )
+      expect(messages.some((m) => m.id === 1)).toBe(false)
+      servers.stopAll()
+    }, 60_000)
+  },
+)

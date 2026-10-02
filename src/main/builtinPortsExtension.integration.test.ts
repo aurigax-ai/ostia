@@ -53,8 +53,8 @@ function firstLine(child: ChildProcess): Promise<string> {
 const LISTENER =
   "require('node:net').createServer().listen(0, '127.0.0.1', function () { console.log(this.address().port) })"
 
-describe.runIf(process.platform === 'linux')(
-  'built-in ports extension against real processes',
+describe.skipIf(process.platform !== 'linux')(
+  'built-in ports extension against real processes (Linux only: reads /proc)',
   () => {
     let dir: string
     let host: ExtensionHost

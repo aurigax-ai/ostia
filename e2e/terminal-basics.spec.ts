@@ -1,4 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test'
+import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 
@@ -41,17 +42,17 @@ test('a pane shell reports a 256-color, truecolor terminal so TUIs keep their hi
   }
 })
 
-test('Ctrl+Shift+P opens the command palette from a focused terminal', async () => {
+test('the palette chord opens the command palette from a focused terminal', async () => {
   const { app, win } = await launch()
   try {
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     await expect(win.getByRole('dialog')).toBeVisible({ timeout: 5_000 })
   } finally {
     await app.close()
   }
 })
 
-test('Ctrl+Shift+F opens the find bar and Escape closes it', async () => {
+test('the find chord opens the find bar and Escape closes it', async () => {
   test.setTimeout(60_000)
   const { app, win, rows } = await launch()
   try {
@@ -59,7 +60,7 @@ test('Ctrl+Shift+F opens the find bar and Escape closes it', async () => {
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('pine_find_target', { timeout: 15_000 })
 
-    await win.keyboard.press('Control+Shift+F')
+    await win.keyboard.press(chords.find)
     const input = win.getByLabel('Find in terminal')
     await expect(input).toBeVisible({ timeout: 5_000 })
     await expect(input).toBeFocused()
