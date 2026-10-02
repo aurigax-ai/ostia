@@ -164,7 +164,7 @@ import {
   sandboxedShellCommand,
   wrapForTerminal,
 } from './sandbox/ptyWrap'
-import { sandboxFailureBanner } from './sandbox/spawnBanner'
+import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
@@ -1594,6 +1594,10 @@ function registerPtyIpc(): void {
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) feedPty(entry, `${history}${seam}`)
     if (secretNotice) feedPty(entry, secretNotice)
+    if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
+      const notice = hiddenHomeNotice()
+      if (notice) feedPty(entry, notice)
+    }
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
