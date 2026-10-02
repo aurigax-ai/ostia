@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { isLocalHost, loadLocalHostName, parseOsc7 } from './osc7'
 
 describe('parseOsc7', () => {
@@ -36,5 +36,26 @@ describe('isLocalHost', () => {
     await loadLocalHostName()
     expect(isLocalHost('devbox')).toBe(true)
     expect(isLocalHost('db')).toBe(false)
+  })
+
+  it('forgets a known name and treats every host as local when the name fails to load', async () => {
+    await loadLocalHostName()
+    expect(isLocalHost('db')).toBe(false)
+    vi.mocked(window.pine.info).mockRejectedValueOnce(new Error('offline'))
+    await loadLocalHostName()
+    expect(isLocalHost('db')).toBe(true)
+  })
+
+  it('treats every host as local when main reports an empty name', async () => {
+    await loadLocalHostName()
+    expect(isLocalHost('db')).toBe(false)
+    vi.mocked(window.pine.info).mockResolvedValueOnce({
+      name: 'pine',
+      version: '0.0.0',
+      platform: 'linux',
+      hostName: '',
+    })
+    await loadLocalHostName()
+    expect(isLocalHost('db')).toBe(true)
   })
 })

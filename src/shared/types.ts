@@ -164,6 +164,7 @@ export interface PtyAttachResult {
   buffer: string
   cursor: number
   dropped: boolean
+  shell?: string
   sandboxed?: boolean
   sandboxStamp?: string
   host?: boolean
@@ -379,6 +380,7 @@ export interface SnapshotPaneNode {
   agentRunning?: true
   hibernated?: true
   locked?: true
+  defaultTitle?: true
 }
 
 export interface SnapshotSplitNode {

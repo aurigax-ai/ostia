@@ -32,8 +32,10 @@ export function adoptIds(node: LayoutNode): void {
   if (node.type !== 'pane') for (const child of node.children) adoptIds(child)
 }
 
+export const TERMINAL_TITLE = 'Terminal'
+
 const SURFACE_TITLE: Record<SurfaceKind, string> = {
-  terminal: 'zsh',
+  terminal: TERMINAL_TITLE,
   editor: 'untitled',
   agent: 'claude',
   browser: 'localhost',
@@ -44,7 +46,19 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   manager: 'Manager',
 }
 
+export function createTerminalPane(defaultTitle: string, cwd?: string): PaneNode {
+  return {
+    type: 'pane',
+    id: genId('pane'),
+    title: defaultTitle,
+    kind: 'terminal',
+    cwd,
+    defaultTitle: true,
+  }
+}
+
 export function createPane(kind: SurfaceKind = 'terminal', title?: string, cwd?: string): PaneNode {
+  if (kind === 'terminal' && title === undefined) return createTerminalPane(TERMINAL_TITLE, cwd)
   return { type: 'pane', id: genId('pane'), title: title ?? SURFACE_TITLE[kind], kind, cwd }
 }
 
@@ -122,8 +136,25 @@ export function setPaneUrl(root: LayoutNode, paneId: string, url: string): Layou
   return mapPane(root, paneId, (p) => (p.url === url ? p : { ...p, url }))
 }
 
+function named(pane: PaneNode, title: string): PaneNode {
+  const { defaultTitle: _default, ...rest } = pane
+  return { ...rest, title }
+}
+
 export function setPaneTitle(root: LayoutNode, paneId: string, title: string): LayoutNode {
-  return mapPane(root, paneId, (p) => (p.title === title ? p : { ...p, title }))
+  return mapPane(root, paneId, (p) => (p.title === title && !p.defaultTitle ? p : named(p, title)))
+}
+
+function withDefaultTitle(pane: PaneNode, title: string): PaneNode {
+  return pane.defaultTitle && pane.title !== title ? { ...pane, title } : pane
+}
+
+export function setDefaultPaneTitle(root: LayoutNode, paneId: string, title: string): LayoutNode {
+  return mapPane(root, paneId, (p) => withDefaultTitle(p, title))
+}
+
+export function setDefaultPaneTitles(root: LayoutNode, title: string): LayoutNode {
+  return mapPanes(root, (p) => withDefaultTitle(p, title))
 }
 
 export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentResume): LayoutNode {
@@ -178,7 +209,7 @@ export function setPaneEditor(
   }
   const slash = filePath.lastIndexOf('/')
   const cwd = slash > 0 ? filePath.slice(0, slash) : '/'
-  return mapPane(root, paneId, (p) => ({ ...p, kind: 'editor', title, filePath, cwd }))
+  return mapPane(root, paneId, (p) => ({ ...named(p, title), kind: 'editor', filePath, cwd }))
 }
 
 function titleFromUrl(url: string): string {
@@ -196,7 +227,7 @@ export function setPaneBrowser(
   profile?: BrowserProfile,
 ): LayoutNode {
   return mapPane(root, paneId, (p) => {
-    const next: PaneNode = { ...p, kind: 'browser', title: titleFromUrl(url), url }
+    const next: PaneNode = { ...named(p, titleFromUrl(url)), kind: 'browser', url }
     if (profile === undefined) return next
     const { browserProfile: _previous, ...rest } = next
     return profile === 'shared' ? { ...rest, browserProfile: 'shared' } : rest
@@ -220,9 +251,8 @@ export function setPaneExtension(
   title: string,
 ): LayoutNode {
   return mapPane(root, paneId, (p) => ({
-    ...p,
+    ...named(p, title),
     kind: 'extension',
-    title,
     extensionId,
     cwd: undefined,
   }))
@@ -468,9 +498,9 @@ export function splitPane(
   root: LayoutNode,
   targetId: string,
   direction: Direction,
+  newPane: PaneNode = createPane(),
 ): { root: LayoutNode; newPaneId: string | null } {
   if (!findPane(root, targetId)) return { root, newPaneId: null }
-  const newPane = createPane()
   return { root: insertBeside(root, targetId, newPane, direction, false), newPaneId: newPane.id }
 }
 

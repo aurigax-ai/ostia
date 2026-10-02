@@ -32,7 +32,7 @@ import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
-import { shellArgv } from '../shared/terminalShell'
+import { shellArgv, shellName } from '../shared/terminalShell'
 import type {
   AppInfo,
   CommandDescriptor,
@@ -174,7 +174,7 @@ import { HostPaneGrants } from './sandbox/hostPanes'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { packageCooldownEnv } from './sandbox/packageEnv'
 import { PackageRequests } from './sandbox/packageRequests'
-import { PortBridge } from './sandbox/portBridge'
+import { PortBridge, bridgesPorts } from './sandbox/portBridge'
 import { PortForwarder, type SandboxPane } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
 import {
@@ -742,12 +742,6 @@ const portRequests: PortRequests = new PortRequests({
 })
 
 const PORT_SCAN_MS = 3000
-
-function bridgesPorts(workspaceId: string): boolean {
-  return (
-    process.platform === 'linux' && workspaceSandboxes.resolved(workspaceId).switches.unixSockets
-  )
-}
 
 const HOST_GRANT_TTL_MS = 120_000
 const hostPaneGrants = new HostPaneGrants({ now: Date.now, ttlMs: HOST_GRANT_TTL_MS })
@@ -1563,6 +1557,7 @@ function registerPtyIpc(): void {
         buffer: data,
         cursor,
         dropped,
+        shell: shellName(existing.shell) || undefined,
         sandboxed: existing.sandboxed,
         ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),
         cols: existing.pty.cols,
@@ -1635,7 +1630,10 @@ function registerPtyIpc(): void {
         resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
           ? join(workspaceSandboxes.tmpDir(workspaceId), `resize-${randomUUID()}`)
           : null
-        portBridge = bridgesPorts(workspaceId)
+        portBridge = bridgesPorts(
+          process.platform,
+          workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
+        )
           ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId))
           : null
         const wrapped = await workspaceSandboxes.wrap(
@@ -1727,6 +1725,7 @@ function registerPtyIpc(): void {
       buffer: data,
       cursor,
       dropped,
+      shell: shellName(shell) || undefined,
       sandboxed,
       host,
       ...(sandboxStamp ? { sandboxStamp } : {}),

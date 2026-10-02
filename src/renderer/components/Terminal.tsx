@@ -32,8 +32,8 @@ import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
+import { commitProgramTitle, commitShellTitle } from '../lib/paneTitle'
 import { planDraftPaste, planHumanPaste } from '../lib/pasteGate'
-import { isTitlePinned } from '../lib/pinnedTitles'
 import { installPrimarySelection } from '../lib/primarySelection'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
@@ -390,10 +390,9 @@ export function TerminalView({
       if (!useSettingsStore.getState().behavior.copyOnSelect || !term.hasSelection()) return
       void navigator.clipboard.writeText(term.getSelection())
     })
-    const titles = createTitleCommitter((title) => {
-      if (isTitlePinned(paneId)) return
-      useLayoutStore.getState().setTitle(workspaceIdRef.current, paneId, title)
-    })
+    const titles = createTitleCommitter((title) =>
+      commitProgramTitle(workspaceIdRef.current, paneId, title),
+    )
     const titleChange = term.onTitleChange((raw) => {
       const title = terminalTitle(raw)
       if (title) titles.push(title)
@@ -510,8 +509,9 @@ export function TerminalView({
           hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
-        .then(({ buffer, sandboxed, sandboxStamp, host }) => {
+        .then(({ buffer, sandboxed, sandboxStamp, host, shell }) => {
           if (disposed) return
+          commitShellTitle(workspaceIdRef.current, paneId, shell)
           useSandboxStore.getState().notePane(paneId, sandboxed ?? false, sandboxStamp)
           if (host) useSandboxStore.getState().noteHost(paneId)
           disposeMarkers()

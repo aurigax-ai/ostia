@@ -14,3 +14,7 @@ export function shellArgv(setting: unknown, fallback: string): [string, ...strin
   const [program, ...args] = tokens
   return [program, ...args]
 }
+
+export function shellName(program: string): string {
+  return program.slice(Math.max(program.lastIndexOf('/'), program.lastIndexOf('\\')) + 1)
+}
