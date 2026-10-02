@@ -295,7 +295,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       preview: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       plan: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       write: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
-      undo: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
+      restore: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
       skills: vi.fn().mockResolvedValue([]),
       loadSkill: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-skill' }),
       mcpStatus: vi.fn().mockResolvedValue([]),
