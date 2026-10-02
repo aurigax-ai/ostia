@@ -8,7 +8,11 @@ interface Running {
 export class WorkspaceAgents {
   private readonly agents = new Map<string, Promise<Running>>()
 
-  async ensure(workspaceId: string, dir: string, keys: readonly string[]): Promise<string | null> {
+  async ensure(
+    workspaceId: string,
+    socket: string,
+    keys: readonly string[],
+  ): Promise<string | null> {
     if (keys.length === 0) {
       this.stop(workspaceId)
       return null
@@ -17,7 +21,7 @@ export class WorkspaceAgents {
     const current = await this.agents.get(workspaceId)?.catch(() => null)
     if (current && current.keys === signature) return current.agent.socket
     this.stop(workspaceId)
-    const started = startSshAgent(dir, keys).then((agent) => ({ agent, keys: signature }))
+    const started = startSshAgent(socket, keys).then((agent) => ({ agent, keys: signature }))
     this.agents.set(workspaceId, started)
     return (await started).agent.socket
   }

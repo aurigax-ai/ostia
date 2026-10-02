@@ -3,12 +3,20 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_SANDBOX_GLOBALS, emptyWorkspaceSandbox } from '../../shared/sandbox'
+import { buildSrtConfig } from './srtConfig'
 import { SandboxStore } from './store'
 import { WorkspaceSandboxes } from './workspaceSandboxes'
 
 let root: string
 
-function instance(pid: number, alive: number[] = []): WorkspaceSandboxes {
+const MACOS_TMP_ROOT =
+  '/private/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/pine-sandbox-tmp-501'
+
+function instance(
+  pid: number,
+  alive: number[] = [],
+  tmpRoot = join(root, 'tmp'),
+): WorkspaceSandboxes {
   const store = new SandboxStore(join(root, `sandbox-${pid}.json`))
   store.set('ws', { ...emptyWorkspaceSandbox(), enabled: true })
   return new WorkspaceSandboxes({
@@ -16,7 +24,7 @@ function instance(pid: number, alive: number[] = []): WorkspaceSandboxes {
     globals: () => DEFAULT_SANDBOX_GLOBALS,
     basePaths: () => ({ home: '/home/u', dataDirs: [], socketPath: '/tmp/s', runtimeReads: [] }),
     workDir: () => '/home/u/proj',
-    tmpRoot: join(root, 'tmp'),
+    tmpRoot,
     pid,
     processAlive: (other) => alive.includes(other),
     nodePath: process.execPath,
@@ -79,5 +87,27 @@ describe('WorkspaceSandboxes temp folders', () => {
 
   it('sweeps nothing when the temp root does not exist yet', () => {
     expect(instance(101).sweepTmp()).toEqual([])
+  })
+
+  it('puts the ssh-agent socket inside the temp folder, short enough for macOS and allowed there', () => {
+    const sandboxes = instance(1234567, [], MACOS_TMP_ROOT)
+    const workspaceId = 'ws-3f9a2c-17'
+    const socket = sandboxes.sshAgentSocket(workspaceId)
+    expect(Buffer.byteLength(socket)).toBeLessThanOrEqual(103)
+    expect(socket.startsWith(`${sandboxes.tmpDir(workspaceId)}/`)).toBe(true)
+    const config = buildSrtConfig(
+      { allowRead: [], domains: [] },
+      {
+        home: '/Users/u',
+        dataDirs: [],
+        socketPath: '/tmp/s',
+        runtimeReads: [],
+        workDir: '/Users/u/proj',
+        tmpDir: sandboxes.tmpDir(workspaceId),
+      },
+      'darwin',
+    )
+    expect(config.network.allowUnixSockets).toContain(socket)
+    expect(config.filesystem.allowWrite).toContain(sandboxes.tmpDir(workspaceId))
   })
 })

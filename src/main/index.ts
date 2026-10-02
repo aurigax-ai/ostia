@@ -819,7 +819,11 @@ async function injectSecrets(
   })
   const env = { ...prepared.env }
   try {
-    const socket = await workspaceAgents.ensure(workspaceId, dir, prepared.sshKeys)
+    const socket = await workspaceAgents.ensure(
+      workspaceId,
+      workspaceSandboxes.sshAgentSocket(workspaceId),
+      prepared.sshKeys,
+    )
     if (socket) env.SSH_AUTH_SOCK = socket
   } catch {
     prepared.missing.push('ssh-agent')

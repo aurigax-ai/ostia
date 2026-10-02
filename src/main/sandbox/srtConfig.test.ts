@@ -256,6 +256,7 @@ describe('buildSrtConfig Unix sockets', () => {
     expect(network.allowAllUnixSockets).toBeUndefined()
     expect(network.allowUnixSockets).toEqual([
       '/run/user/1000/pine-1.sock',
+      '/tmp/sbx/w1/a.sock',
       '/var/run/tool.sock',
       '/home/u/run/app.sock',
     ])
