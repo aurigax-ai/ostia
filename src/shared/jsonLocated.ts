@@ -1,5 +1,3 @@
-import { type Node, type ParseError, getNodeValue, parseTree } from 'jsonc-parser'
-
 export interface LocatedJson {
   value: unknown
   lines: Map<string, number>
@@ -12,7 +10,18 @@ export interface JsonSyntaxError {
 }
 
 const MAX_NESTING = 64
+const NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/
+const ESCAPES: Record<string, string> = {
+  '"': '"',
+  '\\': '\\',
+  '/': '/',
+  b: '\b',
+  f: '\f',
+  n: '\n',
+  r: '\r',
+  t: '\t',
+}
 
 export function childPath(parent: string, key: string | number): string {
   if (typeof key === 'number') return `${parent}[${key}]`
@@ -20,197 +29,163 @@ export function childPath(parent: string, key: string | number): string {
   return parent ? `${parent}.${key}` : key
 }
 
-function lineFromOffset(text: string, offset: number): number {
-  let line = 1
-  for (let i = 0; i < offset && i < text.length; i++) {
-    if (text.charCodeAt(i) === 10) line++
-  }
-  return line
-}
-
-function columnFromOffset(text: string, offset: number): number {
-  let lineStart = 0
-  for (let i = 0; i < offset; i++) {
-    if (text.charCodeAt(i) === 10) lineStart = i + 1
-  }
-  return offset - lineStart + 1
-}
-
-function checkDuplicateKeys(node: Node | undefined): string | null {
-  if (!node || node.type !== 'object' || !node.children) return null
-  const seen = new Set<string>()
-  for (const child of node.children) {
-    if (child.type === 'property' && child.children && child.children.length > 0) {
-      const keyNode = child.children[0]
-      if (keyNode.value !== undefined) {
-        const key = String(keyNode.value)
-        if (seen.has(key)) {
-          return key
-        }
-        seen.add(key)
-      }
-    }
-  }
-  return null
-}
-
-function checkDepth(node: Node | undefined, depth = 0): boolean {
-  if (depth > MAX_NESTING) return false
-  if (!node || !node.children) return true
-  for (const child of node.children) {
-    if (!checkDepth(child, depth + 1)) return false
-  }
-  return true
-}
-
-function buildLines(
-  lines: Map<string, number>,
-  text: string,
-  node: Node | undefined,
-  path = '',
-): void {
-  if (!node) return
-  if (
-    node.type === 'object' ||
-    node.type === 'array' ||
-    node.type === 'string' ||
-    node.type === 'number' ||
-    node.type === 'boolean' ||
-    node.type === 'null'
+class Failure extends Error {
+  constructor(
+    message: string,
+    readonly at: number,
   ) {
-    lines.set(path, lineFromOffset(text, node.offset))
-  }
-  if (node.type === 'object' && node.children) {
-    for (const child of node.children) {
-      if (child.type === 'property' && child.children && child.children.length >= 2) {
-        const keyNode = child.children[0]
-        const valueNode = child.children[1]
-        if (keyNode.value !== undefined) {
-          const key = String(keyNode.value)
-          const childPath = path === '' ? key : `${path}.${key}`
-          buildLines(lines, text, valueNode, childPath)
-        }
-      }
-    }
-  }
-  if (node.type === 'array' && node.children) {
-    let index = 0
-    for (const child of node.children) {
-      if (
-        child.type === 'object' ||
-        child.type === 'array' ||
-        child.type === 'string' ||
-        child.type === 'number' ||
-        child.type === 'boolean' ||
-        child.type === 'null'
-      ) {
-        const childPath = `${path}[${index}]`
-        buildLines(lines, text, child, childPath)
-        index++
-      }
-    }
+    super(message)
   }
 }
 
 export function parseLocatedJson(text: string): LocatedJson | JsonSyntaxError {
-  let inString = false
-  let escaped = false
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i)
-    if (!inString) {
-      if (code === 34) inString = true
-    } else {
-      if (escaped) {
-        escaped = false
-      } else if (code === 92) {
-        escaped = true
-      } else if (code === 34) {
-        inString = false
-      } else if (code < 0x20) {
-        return {
-          message: 'control character in string',
-          line: lineFromOffset(text, i),
-          column: columnFromOffset(text, i),
+  const lines = new Map<string, number>()
+  let i = 0
+
+  const lineAt = (at: number): number => {
+    let line = 1
+    for (let k = 0; k < at && k < text.length; k++) if (text.charCodeAt(k) === 10) line++
+    return line
+  }
+
+  let cursorLine = 1
+  let cursorAt = 0
+  const currentLine = (): number => {
+    for (; cursorAt < i; cursorAt++) if (text.charCodeAt(cursorAt) === 10) cursorLine++
+    return cursorLine
+  }
+
+  const skip = (): void => {
+    while (i < text.length) {
+      const c = text[i]
+      if (c === ' ' || c === '\t' || c === '\n' || c === '\r') i++
+      else break
+    }
+  }
+
+  const expect = (c: string): void => {
+    if (text[i] !== c) {
+      throw new Failure(i >= text.length ? `expected '${c}' before the end` : `expected '${c}'`, i)
+    }
+    i++
+  }
+
+  const readString = (): string => {
+    expect('"')
+    let out = ''
+    while (true) {
+      if (i >= text.length) throw new Failure('unterminated string', i)
+      const c = text[i]
+      if (c === '"') {
+        i++
+        return out
+      }
+      if (c.charCodeAt(0) < 0x20) throw new Failure('control character in string', i)
+      if (c !== '\\') {
+        out += c
+        i++
+        continue
+      }
+      const e = text[i + 1]
+      if (e === 'u') {
+        const hex = text.slice(i + 2, i + 6)
+        if (!/^[0-9a-fA-F]{4}$/.test(hex)) throw new Failure('bad \\u escape', i)
+        out += String.fromCharCode(Number.parseInt(hex, 16))
+        i += 6
+        continue
+      }
+      const mapped = e === undefined ? undefined : ESCAPES[e]
+      if (mapped === undefined) throw new Failure('bad escape', i)
+      out += mapped
+      i += 2
+    }
+  }
+
+  const readValue = (path: string, depth: number): unknown => {
+    if (depth > MAX_NESTING) throw new Failure('nested too deeply', i)
+    skip()
+    lines.set(path, currentLine())
+    const c = text[i]
+    if (c === '{') {
+      i++
+      const out: Record<string, unknown> = {}
+      skip()
+      if (text[i] === '}') {
+        i++
+        return out
+      }
+      while (true) {
+        skip()
+        const keyAt = i
+        if (text[i] !== '"') throw new Failure('expected a quoted property name', i)
+        const key = readString()
+        if (Object.hasOwn(out, key)) throw new Failure(`duplicate property '${key}'`, keyAt)
+        skip()
+        expect(':')
+        const value = readValue(childPath(path, key), depth + 1)
+        Object.defineProperty(out, key, {
+          value,
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        })
+        skip()
+        if (text[i] === ',') {
+          i++
+          continue
         }
+        expect('}')
+        return out
       }
     }
+    if (c === '[') {
+      i++
+      const out: unknown[] = []
+      skip()
+      if (text[i] === ']') {
+        i++
+        return out
+      }
+      while (true) {
+        out.push(readValue(childPath(path, out.length), depth + 1))
+        skip()
+        if (text[i] === ',') {
+          i++
+          continue
+        }
+        expect(']')
+        return out
+      }
+    }
+    if (c === '"') return readString()
+    for (const [word, value] of [
+      ['true', true],
+      ['false', false],
+      ['null', null],
+    ] as const) {
+      if (text.startsWith(word, i)) {
+        i += word.length
+        return value
+      }
+    }
+    NUMBER.lastIndex = i
+    const m = NUMBER.exec(text)
+    if (m && m[0].length > 0) {
+      i += m[0].length
+      return Number(m[0])
+    }
+    throw new Failure(i >= text.length ? 'unexpected end of file' : `unexpected '${c}'`, i)
   }
 
-  const errors: ParseError[] = []
-  const root = parseTree(text, errors, { disallowComments: true, allowTrailingComma: false })
-
-  if (errors.length > 0) {
-    const err = errors[0]
-    const line = lineFromOffset(text, err.offset)
-    const column = columnFromOffset(text, err.offset)
-    return {
-      message: 'invalid JSON',
-      line,
-      column,
-    }
+  try {
+    const value = readValue('', 0)
+    skip()
+    if (i < text.length) throw new Failure('unexpected text after the document', i)
+    return { value, lines }
+  } catch (err) {
+    if (!(err instanceof Failure)) throw err
+    const line = lineAt(err.at)
+    const lineStart = text.lastIndexOf('\n', err.at - 1) + 1
+    return { message: err.message, line, column: err.at - lineStart + 1 }
   }
-
-  if (!root) {
-    return {
-      message: 'unexpected end of file',
-      line: 1,
-      column: 1,
-    }
-  }
-
-  const dupKey = checkDuplicateKeys(root)
-  if (dupKey !== null) {
-    const keyNode = root.children?.find(
-      (c) => c.type === 'property' && c.children?.[0]?.value === dupKey,
-    )
-    const offset = keyNode?.offset ?? 0
-    const line = lineFromOffset(text, offset)
-    const column = columnFromOffset(text, offset)
-    return {
-      message: `duplicate property '${dupKey}'`,
-      line,
-      column,
-    }
-  }
-
-  if (!checkDepth(root)) {
-    return {
-      message: 'nested too deeply',
-      line: lineFromOffset(text, root.offset),
-      column: columnFromOffset(text, root.offset),
-    }
-  }
-
-  const lines = new Map<string, number>()
-  const value = getNodeValue(root)
-
-  if (typeof value === 'object' && value !== null) {
-    if (Object.hasOwn(value, '__proto__')) {
-      Object.defineProperty(value, '__proto__', {
-        value: value.__proto__,
-        enumerable: true,
-        writable: true,
-        configurable: true,
-      })
-    }
-    if (Object.hasOwn(value, 'constructor')) {
-      Object.defineProperty(value, 'constructor', {
-        value: value.constructor,
-        enumerable: true,
-        writable: true,
-        configurable: true,
-      })
-    }
-    if (Object.hasOwn(value, 'prototype')) {
-      Object.defineProperty(value, 'prototype', {
-        value: value.prototype,
-        enumerable: true,
-        writable: true,
-        configurable: true,
-      })
-    }
-  }
-
-  buildLines(lines, text, root)
-  return { value, lines }
 }
