@@ -102,11 +102,11 @@ test('a browser pane moved to its own window sends a picked element to the agent
       timeout: 15_000,
     })
     const terminal = win.locator('.xterm-rows').first()
-    await expect(terminal).toContainText(/@\S*ui-issue-\d+\.md/, { timeout: 15_000 })
+    await expect(terminal).toContainText(/@\S*capture-\d+\S*\.md/, { timeout: 15_000 })
     await win.waitForTimeout(500)
     const text = (await terminal.textContent()) ?? ''
-    expect(text.match(/ui-issue-\d+\.md/g)).toHaveLength(1)
-    const match = text.match(/@(\S*ui-issue-\d+\.md)/)
+    expect(text.match(/capture-\d+\S*\.md/g)).toHaveLength(1)
+    const match = text.match(/@(\S*capture-\d+\S*\.md)/)
     const report = readFileSync((match as RegExpMatchArray)[1], 'utf8')
     expect(report).toContain('[data-testid="broken-button"]')
     expect(report).toContain('Checkout button is misaligned')
