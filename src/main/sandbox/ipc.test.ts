@@ -53,6 +53,25 @@ describe('sandbox IPC', () => {
     expect(store.get('ws').enabled).toBe(true)
   })
 
+  it('lists the tool-folder presets found under the home folder, to any window', async () => {
+    const home = join(root, 'presets-home')
+    mkdirSync(join(home, '.volta'), { recursive: true })
+    const sandboxes = new WorkspaceSandboxes({
+      store: new SandboxStore(join(root, 'presets.json')),
+      globals: () => DEFAULT_SANDBOX_GLOBALS,
+      basePaths: () => ({ home, dataDirs: [], socketPath: '', runtimeReads: [] }),
+      workDir: () => join(home, 'proj'),
+      tmpRoot: join(root, 'tmp'),
+      nodePath: process.execPath,
+      hostScript: '',
+      onAsk: async () => false,
+    })
+    registerSandboxIpc({ sandboxes, ownerWindow: () => undefined })
+    expect(await handlers.get('sandbox:presets')?.(sender(9))).toEqual([
+      { id: 'volta', paths: ['~/.volta'] },
+    ])
+  })
+
   it('SBX-C96 refuses to turn the sandbox on while a required program is missing', async () => {
     const store = new SandboxStore(join(root, 'c96.json'))
     const sandboxes = new WorkspaceSandboxes({

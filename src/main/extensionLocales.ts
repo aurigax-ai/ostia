@@ -46,6 +46,7 @@ export function manifestSlots(manifest: ExtensionManifest): Map<string, number> 
     }
   }
   if (c.panel) slots.set('panel.title', MAX_TEXT)
+  if (c.settingsPage) slots.set('settingsPage.title', EXTENSION_SETTING_TITLE_MAX)
   for (const chip of c.paneChips) slots.set(`paneChips.${chip.id}.title`, MAX_TEXT)
   for (const chip of c.workspaceChips) slots.set(`workspaceChips.${chip.id}.title`, MAX_TEXT)
   for (const setting of c.settings) {
@@ -206,6 +207,14 @@ export function localizeManifest(
           : {}),
       })),
       ...(c.panel ? { panel: { ...c.panel, title: t('panel.title', c.panel.title) } } : {}),
+      ...(c.settingsPage
+        ? {
+            settingsPage: {
+              ...c.settingsPage,
+              title: t('settingsPage.title', c.settingsPage.title),
+            },
+          }
+        : {}),
       paneChips: localizeChips(c.paneChips, 'paneChips', t),
       workspaceChips: localizeChips(c.workspaceChips, 'workspaceChips', t),
       settings: c.settings.map((setting) => {

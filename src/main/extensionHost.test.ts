@@ -146,6 +146,33 @@ describe('ExtensionHost — approval and capabilities', () => {
   })
 })
 
+describe('ExtensionHost — settings page', () => {
+  beforeEach(() => {
+    writeExt(join(base, 'user'), 'paged', {
+      contributes: {
+        settings: { mode: { type: 'string', default: '', description: 'How it runs' } },
+        settingsPage: { title: 'Paged', icon: 'kanban' },
+      },
+    })
+  })
+
+  it('sends the page only while the extension is enabled', () => {
+    const { host } = makeHost()
+    const paged = () => host.list().find((e) => e.id === 'paged')
+    expect(paged()?.settingsPage).toBeNull()
+    host.approve('paged')
+    expect(paged()?.settingsPage).toEqual({ title: 'Paged', icon: 'kanban' })
+    host.setEnabled('paged', false)
+    expect(paged()?.settingsPage).toBeNull()
+    expect(paged()?.settings.map((s) => s.key)).toEqual(['mode'])
+  })
+
+  it('sends none for an extension that asks for no page', () => {
+    const { host } = makeHost()
+    expect(host.list().find((e) => e.id === 'board')?.settingsPage).toBeNull()
+  })
+})
+
 describe('ExtensionHost — command routing guards', () => {
   const caller = { kind: 'pane' as const, capabilities: [] }
 

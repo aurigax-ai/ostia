@@ -162,8 +162,13 @@ import { packageCooldownEnv } from './sandbox/packageEnv'
 import { PackageRequests } from './sandbox/packageRequests'
 import { PortForwarder } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
-import { terminalInjectionOff, wrapForTerminal } from './sandbox/ptyWrap'
-import { sandboxFailureBanner } from './sandbox/spawnBanner'
+import {
+  needsPtyRelay,
+  relayForced,
+  sandboxedShellCommand,
+  wrapForTerminal,
+} from './sandbox/ptyWrap'
+import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
@@ -1534,6 +1539,7 @@ function registerPtyIpc(): void {
     } as Record<string, string>
     let secretNotice = ''
     let sandboxStamp: string | null = null
+    let resizePipe: string | null = null
     let file = shell
     let args = [...integration.args, ...shellArgs]
     let cwd = resolveCwd(opts.cwd)
@@ -1544,15 +1550,18 @@ function registerPtyIpc(): void {
         writeFileSync(stateFile, '', { mode: 0o600 })
         const secrets = await injectSecrets(workspaceId)
         secretNotice = secrets.notice
+        resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
+          ? join(workspaceSandboxes.tmpDir(workspaceId), `resize-${randomUUID()}`)
+          : null
         const wrapped = await workspaceSandboxes.wrap(
           workspaceId,
-          quoteArgv([shell, ...args]),
+          sandboxedShellCommand(quoteArgv([shell, ...args]), env.SHELL, resizePipe),
           'bash',
           [stateFile],
         )
         sandboxStamp = workspaceSandboxes.wrapStamp(workspaceId)
         file = '/bin/sh'
-        args = ['-c', wrapForTerminal(wrapped, terminalInjectionOff())]
+        args = ['-c', wrapForTerminal(wrapped, resizePipe)]
         env = {
           ...sandboxSpawnEnv(env),
           ...packageCooldownEnv(
@@ -1598,6 +1607,7 @@ function registerPtyIpc(): void {
     const { session } = entry
     if (sandboxed) {
       entry.exitListeners.add(() => {
+        if (resizePipe) rmSync(resizePipe, { force: true })
         void workspaceSandboxes.cleanup(workspaceId)
         releaseMergedSandbox(workspaceId, entry)
       })
@@ -1607,6 +1617,10 @@ function registerPtyIpc(): void {
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) feedPty(entry, `${history}${seam}`)
     if (secretNotice) feedPty(entry, secretNotice)
+    if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
+      const notice = hiddenHomeNotice()
+      if (notice) feedPty(entry, notice)
+    }
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
