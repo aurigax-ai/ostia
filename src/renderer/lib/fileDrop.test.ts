@@ -104,8 +104,21 @@ describe('file drops', () => {
     expect(over.dataTransfer?.dropEffect).toBe('copy')
     expect(document.documentElement.hasAttribute(FILE_DRAG_ATTRIBUTE)).toBe(true)
 
-    vi.advanceTimersByTime(500)
+    vi.advanceTimersByTime(60_000)
+    expect(document.documentElement.hasAttribute(FILE_DRAG_ATTRIBUTE)).toBe(true)
+
+    document.body.dispatchEvent(dragEvent('drop', ['Files']))
     expect(document.documentElement.hasAttribute(FILE_DRAG_ATTRIBUTE)).toBe(false)
+  })
+
+  it('stops marking a file drag that ended elsewhere when the pointer is back', () => {
+    for (const type of ['mousemove', 'mousedown', 'wheel']) {
+      document.body.dispatchEvent(dragEvent('dragenter', ['Files']))
+      expect(document.documentElement.hasAttribute(FILE_DRAG_ATTRIBUTE)).toBe(true)
+
+      document.body.dispatchEvent(new Event(type, { bubbles: true }))
+      expect(document.documentElement.hasAttribute(FILE_DRAG_ATTRIBUTE)).toBe(false)
+    }
   })
 
   it('leaves pane drags and file-tree rows to their own handlers', async () => {
