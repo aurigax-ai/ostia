@@ -54,6 +54,7 @@ export const LSP_RESTART_DELAY_MS = 500
 export const LSP_STABLE_RUN_MS = 60_000
 export const LSP_STOP_GRACE_MS = 2_000
 const HOST_SCOPE = 'host'
+const SESSION_ID_PATTERN = /^lsp-\d{1,12}$/
 const MAX_TRACKED_REQUESTS = 2_000
 const PROGRAM_PLATFORMS: NodeJS.Platform[] = ['linux', 'darwin', 'win32']
 const GO_PROGRAM = 'go'
@@ -945,7 +946,13 @@ export class LanguageServers {
 
   send(windowId: string, sessionId: unknown, message: unknown): void {
     const session = typeof sessionId === 'string' ? this.sessions.get(sessionId) : undefined
-    if (!session || session.windowId !== windowId || session.stopping !== null) return
+    if (!session) {
+      if (typeof sessionId === 'string' && SESSION_ID_PATTERN.test(sessionId)) {
+        this.deps.post(windowId, `lsp:exit:${sessionId}`)
+      }
+      return
+    }
+    if (session.windowId !== windowId || session.stopping !== null) return
     if (!isRecord(message)) return
     const { id, method } = message
     if (typeof method === 'string') {

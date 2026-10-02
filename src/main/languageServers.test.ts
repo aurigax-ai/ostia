@@ -469,6 +469,23 @@ describe('LanguageServers sessions', () => {
     await vi.waitFor(() => expect(h.spawned[0]?.child.exited).toBe(true))
   })
 
+  it('tells a window that writes to a session that has ended, so its client stops waiting for an answer', async () => {
+    const h = harness()
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))
+    h.spawned[0].child.exit(1, null)
+    await vi.waitFor(() =>
+      expect(h.posts.at(-1)).toMatchObject({ channel: `lsp:exit:${session.sessionId}` }),
+    )
+    const before = h.posts.length
+    h.servers.send('w1', session.sessionId, { jsonrpc: '2.0', id: 9, method: 'initialize' })
+    expect(h.posts.slice(before)).toEqual([
+      { windowId: 'w1', channel: `lsp:exit:${session.sessionId}`, args: [] },
+    ])
+    h.servers.send('w1', 7, { jsonrpc: '2.0', id: 9, method: 'initialize' })
+    h.servers.send('w1', 'anything:else', { jsonrpc: '2.0', id: 9, method: 'initialize' })
+    expect(h.posts).toHaveLength(before + 1)
+  })
+
   it('takes messages and releases only from the window that opened the session', async () => {
     const h = harness()
     const [session] = await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))
