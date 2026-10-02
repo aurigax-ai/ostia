@@ -16,6 +16,7 @@ import {
   expect,
   test,
 } from '@playwright/test'
+import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 
@@ -46,7 +47,7 @@ function askedDialogs(app: ElectronApplication): Promise<AskedDialog[]> {
 }
 
 async function runPaletteCommand(win: Page, title: string): Promise<void> {
-  await win.keyboard.press('Control+Shift+P')
+  await win.keyboard.press(chords.palette)
   await win.locator('[data-slot="command-input"]').fill(title)
   await waitForPaletteSelection(win, title)
   await win.keyboard.press('Enter')
@@ -199,9 +200,9 @@ test('SSH-C66 SSH-C68 a remote file saves through the helper and follows changes
     await expect(lines).toContainText('port=8080', { timeout: 20_000 })
 
     await lines.click()
-    await win.keyboard.press('Control+End')
+    await win.keyboard.press(chords.documentEnd)
     await win.keyboard.type('mode=fast')
-    await win.keyboard.press('Control+s')
+    await win.keyboard.press('ControlOrMeta+s')
     await expect
       .poll(() => readFileSync(file, 'utf8'), { timeout: 20_000 })
       .toBe('port=8080\nmode=fast')
@@ -213,7 +214,7 @@ test('SSH-C66 SSH-C68 a remote file saves through the helper and follows changes
     await expect(lines).not.toContainText('mode=fast')
 
     await lines.click()
-    await win.keyboard.press('Control+End')
+    await win.keyboard.press(chords.documentEnd)
     await win.keyboard.type('mine=1')
     writeFileSync(file, 'port=7070\n')
     await expect(editorPane).toContainText('Changed on disk. Your unsaved edits are kept.', {
@@ -223,7 +224,7 @@ test('SSH-C66 SSH-C68 a remote file saves through the helper and follows changes
     expect(readFileSync(file, 'utf8')).toBe('port=7070\n')
     await editorPane.getByRole('button', { name: 'Keep mine' }).click()
     await lines.click()
-    await win.keyboard.press('Control+s')
+    await win.keyboard.press('ControlOrMeta+s')
     await expect
       .poll(() => readFileSync(file, 'utf8'), { timeout: 20_000 })
       .toBe('port=9090\nmine=1')
