@@ -356,6 +356,33 @@ describe('server lifecycle', () => {
   })
 })
 
+describe('a session that ended before its offer arrived', () => {
+  it('is dropped as soon as main reports it gone, and the document attaches to the next session', async () => {
+    bridge.offered.push({
+      sessionId: 'gone',
+      serverKey: 'ext/fake',
+      root: '/work',
+      editRoot: '/work',
+      languageId: 'fake',
+      initializationOptions: {},
+    })
+    const send = vi.mocked(window.pine.lsp.send)
+    const deliver = send.getMockImplementation()
+    send.mockImplementation((sessionId, message) => {
+      if (sessionId === 'gone') queueMicrotask(() => bridge.exit('gone'))
+      else deliver?.(sessionId, message)
+    })
+    openDocument(new FakeModel('/work/a.txt', 'one') as never, 'pane-1')
+    await flush()
+    expect(vi.mocked(window.pine.lsp.release).mock.calls).toEqual([['gone']])
+
+    const server = bridge.addServer('s2', 'ext/fake')
+    bridge.serversChanged()
+    await flush()
+    expect(methods(server)).toEqual(['initialized', 'textDocument/didOpen'])
+  })
+})
+
 describe('late capabilities', () => {
   it('registers a provider when the server registers the feature after the document opened, and removes it on unregister', async () => {
     const server = bridge.addServer('s1', 'ext/fake')
