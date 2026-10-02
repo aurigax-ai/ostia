@@ -6,11 +6,9 @@ import { Badge } from './ui/badge'
 export function RemoteFileBar({
   filePath,
   problem,
-  readOnly,
 }: {
   filePath: string
   problem: RemoteFileError | null
-  readOnly: boolean
 }): JSX.Element {
   const d = useDict()
   const folders = useRemoteFoldersStore((s) => s.folders)
@@ -30,7 +28,6 @@ export function RemoteFileBar({
           {d.remoteFolders.errors[problem]}
         </span>
       ) : null}
-      {readOnly ? <span className="ml-auto shrink-0">{d.remoteFolders.readOnly}</span> : null}
     </output>
   )
 }

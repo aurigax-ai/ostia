@@ -1079,8 +1079,7 @@ export const en = {
     collapse: 'Collapse or expand {host}',
     empty: 'This folder is empty',
     onHost: 'Remote file on {host}',
-    readOnly: 'Read-only',
-    closed: 'This remote folder is closed. Open it again to reload the file.',
+    closed: 'This remote folder is closed. Your text is kept; open the folder again to save it.',
     errors: {
       'unknown-folder': 'This remote folder is closed',
       'invalid-path': 'This path cannot be opened',
@@ -3473,8 +3472,7 @@ export const zhHant: Dict = {
     collapse: '收合或展開 {host}',
     empty: '這個資料夾是空的',
     onHost: '{host} 上的遠端檔案',
-    readOnly: '唯讀',
-    closed: '這個遠端資料夾已關閉。重新開啟後才能重新載入檔案。',
+    closed: '這個遠端資料夾已關閉。你的文字會保留；重新開啟資料夾後才能儲存。',
     errors: {
       'unknown-folder': '這個遠端資料夾已關閉',
       'invalid-path': '無法開啟這個路徑',

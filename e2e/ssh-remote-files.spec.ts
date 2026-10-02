@@ -1,9 +1,11 @@
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -130,8 +132,7 @@ test('SSH-C65 the human opens the folder of an ssh session in Files and reads a 
     await row('app.conf').click()
     const bar = win.getByTestId('remote-file-bar')
     await expect(bar).toContainText('Remote file on db', { timeout: 15_000 })
-    await expect(bar).toContainText('Read-only')
-    const editorPane = win.locator('[data-pane-id]').filter({ has: bar })
+    const editorPane = win.locator('.surface-host').filter({ has: bar })
     await expect(editorPane.locator('.view-lines')).toContainText('port=8080', { timeout: 15_000 })
 
     const versions = readdirSync(join(remoteHome, '.pine', 'helper'))
@@ -150,6 +151,56 @@ test('SSH-C65 the human opens the folder of an ssh session in Files and reads a 
     await expect(win.getByTestId('remote-folder')).toHaveCount(0)
     await expect(bar).toContainText('This remote folder is closed')
     expect(existsSync(join(project, 'app.conf'))).toBe(true)
+  } finally {
+    await app.close()
+  }
+})
+
+test('SSH-C66 SSH-C68 a remote file saves through the helper and follows changes on the host', async () => {
+  test.setTimeout(180_000)
+  const session = await sessionInProject()
+  const { app, win, project } = session
+  const file = join(project, 'app.conf')
+  chmodSync(file, 0o640)
+  try {
+    await openRemoteFolder(session)
+    const section = win.getByTestId('remote-folder')
+    await section.getByRole('button', { name: 'app.conf', exact: true }).click()
+    const bar = win.getByTestId('remote-file-bar')
+    const editorPane = win.locator('.surface-host').filter({ has: bar })
+    const lines = editorPane.locator('.view-lines')
+    await expect(lines).toContainText('port=8080', { timeout: 20_000 })
+
+    await lines.click()
+    await win.keyboard.press('Control+End')
+    await win.keyboard.type('mode=fast')
+    await win.keyboard.press('Control+s')
+    await expect
+      .poll(() => readFileSync(file, 'utf8'), { timeout: 20_000 })
+      .toBe('port=8080\nmode=fast')
+    expect(statSync(file).mode & 0o777).toBe(0o640)
+    expect(readdirSync(project).sort()).toEqual(['app.conf', 'conf'])
+
+    writeFileSync(file, 'port=9090\n')
+    await expect(lines).toContainText('port=9090', { timeout: 20_000 })
+    await expect(lines).not.toContainText('mode=fast')
+
+    await lines.click()
+    await win.keyboard.press('Control+End')
+    await win.keyboard.type('mine=1')
+    writeFileSync(file, 'port=7070\n')
+    await expect(editorPane).toContainText('Changed on disk. Your unsaved edits are kept.', {
+      timeout: 20_000,
+    })
+    await expect(lines).toContainText('mine=1')
+    expect(readFileSync(file, 'utf8')).toBe('port=7070\n')
+    await editorPane.getByRole('button', { name: 'Keep mine' }).click()
+    await lines.click()
+    await win.keyboard.press('Control+s')
+    await expect
+      .poll(() => readFileSync(file, 'utf8'), { timeout: 20_000 })
+      .toBe('port=9090\nmine=1')
+    expect(readdirSync(project).sort()).toEqual(['app.conf', 'conf'])
   } finally {
     await app.close()
   }

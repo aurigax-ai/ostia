@@ -10,6 +10,12 @@ import { registerEditorPosition } from '../lib/editorPositions'
 import { createAutoSave, saveFormatted } from '../lib/editorSave'
 import { lineReference } from '../lib/fileReference'
 import { useReducedMotion } from '../lib/motion'
+import {
+  REMOTE_POLL_MS,
+  type RemoteSaveOutcome,
+  checkRemoteText,
+  saveRemoteText,
+} from '../lib/remoteFileSync'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { codeFontStack } from '../lib/uiFonts'
 import { attachWheelZoom } from '../lib/wheelZoom'
@@ -55,8 +61,10 @@ const savedVersions = new Map<string, number>()
 const diskBase = new Map<string, string | null>()
 const RELOAD_HIGHLIGHT_MS = 2000
 
+const remoteVersions = new Map<string, string | null>()
+
 type DiskBar =
-  | { kind: 'changed'; disk: string }
+  | { kind: 'changed'; disk: string; version?: string }
   | { kind: 'conflict'; disk: string }
   | { kind: 'deleted' }
 
@@ -84,15 +92,22 @@ function uriFor(filePath: string): monaco.Uri {
 
 interface Loaded {
   content: string | null
+  version: string | null
   problem: RemoteFileError | null
 }
 
 async function loadText(filePath: string): Promise<Loaded> {
   if (!isRemotePath(filePath)) {
-    return { content: await window.pine.fs.read(filePath), problem: null }
+    return { content: await window.pine.fs.read(filePath), version: null, problem: null }
   }
   const res = await window.pine.remoteFiles.read(filePath)
-  return res.ok ? { content: res.content, problem: null } : { content: null, problem: res.error }
+  if (res.ok) return { content: res.content, version: res.version, problem: null }
+  if (res.error === 'not-found') return { content: null, version: null, problem: null }
+  return { content: null, version: null, problem: res.error }
+}
+
+function shownPath(filePath: string): string {
+  return parseRemotePath(filePath)?.path ?? filePath
 }
 
 function createTrackedModel(filePath: string, content: string): monaco.editor.ITextModel {
@@ -102,6 +117,7 @@ function createTrackedModel(filePath: string, content: string): monaco.editor.IT
   model.onDidChangeContent(() => useEditorStatus.getState().setDirty(filePath, isDirty(model)))
   model.onWillDispose(() => {
     savedVersions.delete(model.uri.toString())
+    remoteVersions.delete(model.uri.toString())
     useEditorStatus.getState().setDirty(filePath, false)
   })
   return model
@@ -162,7 +178,9 @@ export function EditorView({
   const diskBarRef = useRef<DiskBar | null>(null)
   diskBarRef.current = diskBar
   const saveRef = useRef<(force?: boolean) => Promise<void>>(async () => {})
-  const reloadRef = useRef<(model: monaco.editor.ITextModel, text: string) => void>(() => {})
+  const reloadRef = useRef<
+    (model: monaco.editor.ITextModel, text: string, version?: string) => void
+  >(() => {})
   const checkDiskRef = useRef<() => Promise<void>>(async () => {})
   const [preview, setPreview] = useState(() => useSettingsStore.getState().editor.markdownPreview)
   const markdown = isMarkdownPath(filePath) && !binary
@@ -238,11 +256,57 @@ export function EditorView({
     editorRef.current = editor
     setLiveEditor(editor)
 
+    const saveRemote = async (
+      model: monaco.editor.ITextModel,
+      fp: string,
+      force: boolean,
+    ): Promise<void> => {
+      const key = model.uri.toString()
+      const attempt: { version: number; outcome: RemoteSaveOutcome | null } = {
+        version: model.getAlternativeVersionId(),
+        outcome: null,
+      }
+      await saveFormatted({
+        formatOnSave: useSettingsStore.getState().editor.formatOnSave,
+        format: async () => editor.getAction('editor.action.formatDocument')?.run(),
+        write: async () => {
+          attempt.version = model.getAlternativeVersionId()
+          attempt.outcome = await saveRemoteText(
+            window.pine.remoteFiles,
+            fp,
+            model.getValue(),
+            remoteVersions.get(key) ?? null,
+            force,
+          )
+          return attempt.outcome.kind === 'saved'
+        },
+      }).catch(() => false)
+      const { outcome } = attempt
+      if (outcome?.kind === 'saved') {
+        remoteVersions.set(key, outcome.version)
+        savedVersions.set(key, attempt.version)
+        useEditorStatus.getState().setDirty(fp, isDirty(model))
+        setUnsavedPath(null)
+        setRemoteProblem(null)
+        setDiskBar(null)
+      } else if (outcome?.kind === 'conflict') {
+        setDiskBar({ kind: 'conflict', disk: outcome.disk })
+      } else if (outcome?.kind === 'deleted') {
+        remoteVersions.set(key, null)
+        setDiskBar({ kind: 'deleted' })
+      } else {
+        setUnsavedPath(fp)
+      }
+    }
+
     const save = async (force = false): Promise<void> => {
       const model = editor.getModel()
       if (!model) return
       const fp = pathOf(model)
-      if (isRemotePath(fp)) return
+      if (isRemotePath(fp)) {
+        await saveRemote(model, fp, force)
+        return
+      }
       const key = model.uri.toString()
       if (!force) {
         const onDisk = await window.pine.fs.read(fp)
@@ -300,7 +364,7 @@ export function EditorView({
       }, RELOAD_HIGHLIGHT_MS)
     }
 
-    const reloadFrom = (model: monaco.editor.ITextModel, text: string): void => {
+    const reloadFrom = (model: monaco.editor.ITextModel, text: string, version?: string): void => {
       const changed = changedLines(model.getValue(), text)
       const edit = minimalLineEdit(model.getValue(), text)
       if (edit) {
@@ -311,6 +375,7 @@ export function EditorView({
         editor.restoreViewState(view)
       }
       diskBase.set(model.uri.toString(), text)
+      if (version !== undefined) remoteVersions.set(model.uri.toString(), version)
       markSaved(model, pathOf(model))
       showChanged(changed)
     }
@@ -318,9 +383,37 @@ export function EditorView({
 
     let checking: Promise<void> | null = null
     let again = false
+    const checkRemote = async (model: monaco.editor.ITextModel, fp: string): Promise<void> => {
+      const key = model.uri.toString()
+      if (!remoteVersions.has(key)) return
+      const outcome = await checkRemoteText(
+        window.pine.remoteFiles,
+        fp,
+        remoteVersions.get(key) ?? null,
+      )
+      if (editor.getModel() !== model) return
+      if (outcome.kind === 'deleted') {
+        remoteVersions.set(key, null)
+        setDiskBar({ kind: 'deleted' })
+      } else if (outcome.kind === 'changed') {
+        if (!isDirty(model)) {
+          reloadFrom(model, outcome.disk, outcome.version)
+          setDiskBar(null)
+          return
+        }
+        const shown = diskBarRef.current
+        if (shown?.kind === 'changed' && shown.version === outcome.version) return
+        setDiskBar({ kind: 'changed', disk: outcome.disk, version: outcome.version })
+      }
+    }
+
     const checkDisk = async (): Promise<void> => {
       const model = editor.getModel()
-      if (!model || isRemotePath(pathOf(model))) return
+      if (!model) return
+      if (isRemotePath(pathOf(model))) {
+        await checkRemote(model, pathOf(model))
+        return
+      }
       const key = model.uri.toString()
       const onDisk = await window.pine.fs.read(pathOf(model))
       if (editor.getModel() !== model) return
@@ -440,9 +533,8 @@ export function EditorView({
     let alive = true
     let releaseDocument = (): void => {}
     const isRemote = isRemotePath(filePath)
-    editor.updateOptions({ readOnly: isRemote })
     setRemoteProblem(null)
-    void loadText(filePath).then(({ content, problem }) => {
+    void loadText(filePath).then(({ content, version, problem }) => {
       if (!alive || !editorRef.current) return
       if (problem === 'binary' || (content !== null && isBinary(content))) {
         editor.setModel(null)
@@ -461,7 +553,10 @@ export function EditorView({
         existing.setValue(content)
         markSaved(existing, filePath)
       }
-      if (!existing || !isDirty(existing)) diskBase.set(model.uri.toString(), content)
+      if (!existing || !isDirty(existing)) {
+        diskBase.set(model.uri.toString(), content)
+        if (isRemote) remoteVersions.set(model.uri.toString(), version)
+      }
       editor.setModel(model)
       applyReveal(editor, filePath)
       if (!isRemote) releaseDocument = openDocument(model, paneId)
@@ -488,6 +583,14 @@ export function EditorView({
       window.removeEventListener('focus', onFocus)
     }
   }, [])
+
+  useEffect(() => {
+    if (!remote) return
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'hidden') void checkDiskRef.current()
+    }, REMOTE_POLL_MS)
+    return () => clearInterval(timer)
+  }, [remote])
 
   useEffect(() => {
     if (!filePath) return
@@ -534,9 +637,7 @@ export function EditorView({
 
   return (
     <>
-      {filePath && remote ? (
-        <RemoteFileBar filePath={filePath} problem={remoteProblem} readOnly />
-      ) : null}
+      {filePath && remote ? <RemoteFileBar filePath={filePath} problem={remoteProblem} /> : null}
       {filePath && !binary && !remote ? (
         <LanguageNotice paneId={paneId} filePath={filePath} />
       ) : null}
@@ -593,7 +694,7 @@ export function EditorView({
                   size="xs"
                   onClick={() => {
                     const model = editorRef.current?.getModel()
-                    if (model) reloadRef.current(model, diskBar.disk)
+                    if (model) reloadRef.current(model, diskBar.disk, diskBar.version)
                     setDiskBar(null)
                   }}
                 >
@@ -603,7 +704,12 @@ export function EditorView({
                   size="xs"
                   onClick={() => {
                     const model = editorRef.current?.getModel()
-                    if (model) diskBase.set(model.uri.toString(), diskBar.disk)
+                    if (model) {
+                      diskBase.set(model.uri.toString(), diskBar.disk)
+                      if (diskBar.version !== undefined) {
+                        remoteVersions.set(model.uri.toString(), diskBar.version)
+                      }
+                    }
                     setDiskBar(null)
                   }}
                 >
@@ -628,7 +734,7 @@ export function EditorView({
       ) : null}
       {unsavedPath ? (
         <Alert className={cn(ATTENTION_ALERT, 'editor-save-error')}>
-          {fmt(d.editor.saveError, { path: unsavedPath })}
+          {fmt(d.editor.saveError, { path: shownPath(unsavedPath) })}
         </Alert>
       ) : external.error ? (
         <Alert className={cn(ATTENTION_ALERT, 'editor-save-error')}>{external.error}</Alert>
