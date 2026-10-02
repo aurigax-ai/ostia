@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type ToolRun, runTool } from '../sdk/tool'
+import { type ToolRun, runTool } from '@aurigax-ai/pine-extension-sdk'
 import {
   type BoardInfo,
   type CardDetail,

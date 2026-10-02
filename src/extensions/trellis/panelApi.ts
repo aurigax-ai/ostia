@@ -1,6 +1,12 @@
-import type { Translate } from '../../shared/extensionLocales'
-import type { ExtensionCaller, ExtensionResult } from '../../shared/extensions'
-import { type CommandHandler, failure, namedArgs, ok } from '../sdk'
+import {
+  type CommandHandler,
+  type ExtensionCaller,
+  type ExtensionResult,
+  type Translate,
+  failure,
+  namedArgs,
+  ok,
+} from '@aurigax-ai/pine-extension-sdk'
 import type { CliResult } from './cli'
 import { type DaemonApi, daemonApi, readThread } from './daemon'
 import type { TrellisService } from './service'

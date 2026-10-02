@@ -9,7 +9,6 @@ built-in Git, System, Ports, SSH and Assistant, and the marketplace's Trellis, K
 (`src/extensions/`), use nothing else, so they are the reference
 implementations.
 
-How it works inside pine: Trellis vault `architecture/extensions/overview`. Why it's out-of-process: `docs/ROADMAP.md` §2.
 If you only need to show something (a sidebar section, a panel with buttons), a
 [declarative view](#declarative-views-ui-without-a-process) is one JSON file and no process.
 
@@ -52,7 +51,28 @@ The repository has a `pine-marketplace.json` at its root:
 |---|---|
 | `name` | 1 to 80 characters |
 | `description` | Optional |
-| `extensions` | Up to 200 folder paths inside the repository. Each folder is one extension with its own `pine.json` |
+| `extensions` | Folder paths inside the repository. Each folder is one extension with its own `pine.json` |
+| `unlisted` | Optional. `{ "path", "code" }` entries: extensions the marketplace holds but Settings does not show. `code` is 26 characters of `a-z` and `2-7`, unique in the file. `extensions` and `unlisted` together hold at most 200 |
+
+### Unlisted extensions
+
+An unlisted extension is one pine does not show. Main never sends it to the window: the card only
+gets an "install code" field when the marketplace has any. The human types the code; an exact
+match installs the extension the usual way (copied, then waiting for approval), and from then on
+it is shown in that marketplace's card like any other, with Update when a refresh brings a new
+version. A wrong code answers the same whether or not anything is unlisted under it, and a broken
+unlisted entry is not named under "Entries that could not be offered".
+
+```sh
+pnpm exec pine-extension unlist extensions/timer     # run in the marketplace folder
+```
+
+moves the path from `extensions` to `unlisted`, generates its code and prints it. Give the code to
+whoever should install it. To list it again, move the path back by hand.
+
+Unlisted is not private. The code and the extension's files are in the repository, so anyone who
+can read the repository can read both; it only keeps an entry out of pine's Settings. Use a
+private repository (an `ssh` URL) for extensions that must not be public.
 
 Rules for a listed extension:
 
@@ -832,14 +852,14 @@ with fallbacks (`var(--pine-surface-1, #272a2d)`); `src/extensions/sdk/panel.css
 base. It also defines Pine's typography tokens, derived from those: `--font-ui`, `--font-code`,
 the type scale (`--text-ui-xs|sm|base|lg` with `--text-ui-*--line-height`), the weights
 (`--font-weight-normal|medium|semibold`, which step up from the human's body weight) and
-`--tracking-caps` for all-caps labels; set type only through them (`docs/DESIGN.md` §4). Pine
+`--tracking-caps` for all-caps labels; set type only through them. Pine
 embeds its bundled Inter Variable and Geist Mono Variable (latin) in the injected CSS, so a
 panel gets them even though they are not system fonts. It also defines control radii
 (`--radius-sm`, `--radius-md`), a `.switch` class that draws an `<input type="checkbox">` like
 Pine's switch, and motion tokens (`--motion-fast`, `--motion-base`, their `-exit`
 pair, `--ease-out`, `--ease-in`), already multiplied by `--pine-motion-scale`: time every
 transition with them and animate only opacity and transform (hover may change colors), so a
-panel follows Pine's motion rules and its reduced-motion setting (`docs/DESIGN.md` §8).
+panel follows Pine's motion rules and its reduced-motion setting.
 
 ### Resizable splits
 
@@ -921,11 +941,11 @@ to refresh the digest without bumping.
 
 ## The SDK package
 
-`@aurigax-ai/pine-extension-sdk` (repository `aurigax-ai/pine-extension-sdk`) is the same SDK the
-built-in extensions use, packaged for extensions written outside the app:
+`@aurigax-ai/pine-extension-sdk` on npm is the same SDK the built-in extensions use, packaged for
+extensions written outside the app:
 
 ```sh
-pnpm add -D github:aurigax-ai/pine-extension-sdk
+pnpm add -D @aurigax-ai/pine-extension-sdk
 ```
 
 | Part | What it is |
@@ -934,11 +954,12 @@ pnpm add -D github:aurigax-ai/pine-extension-sdk
 | `…/panel`, `…/splitter`, `…/panel.css` | The panel page helpers and base styles |
 | `…/assist` | The assistant engine: `runAssistExtension({catalog})` with your own `ProviderCatalog` (needs `ai`, `zod`, `@ai-sdk-tool/parser`, `undici`) |
 | `schemas/pine.schema.json`, `schemas/pine-marketplace.schema.json` | JSON Schemas for the two manifest files; name one in `"$schema"` and your editor checks the file as you type |
-| `pine-extension validate [folder]` | Runs the loader's own checks on an extension folder (its manifest, every catalog under `locales/`, plus the marketplace install limits), or on a marketplace folder and every extension it lists. Exits 0 when pine would accept it |
-| `template/` | A starter extension: TypeScript source, a build that bundles it into one `main.js`, English and Traditional Chinese catalogs under `locales/`, `pnpm validate` |
+| `pine-extension validate [folder]` | Runs the loader's own checks on an extension folder (its manifest, every catalog under `locales/`, plus the marketplace install limits), or on a marketplace folder and every extension it lists or holds unlisted. Exits 0 when pine would accept it |
+| `pine-extension unlist <extension folder> [marketplace folder]` | Moves a listed extension to `unlisted` in `pine-marketplace.json` and generates its install code |
+| `pine-extension create <id> [folder]` | Writes a new extension project from `template/`: a `pine.json` with that id, TypeScript source, a build that bundles it into one `main.js`, English and Traditional Chinese catalogs under `locales/`, `pnpm validate` |
 
-It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and copied to
-its repository with `pnpm publish:sdk <checkout>`; its version is the app's version. The JSON
+It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and published
+to npm by `release.yml` on every `v*` tag; its version is the app's version. The JSON
 Schemas come from `src/cli/manifestSchema.ts`; the loader (`parseManifest`) stays the authority,
 and `validate` runs that loader.
 
@@ -1092,8 +1113,8 @@ no script: pine validates the file and draws it with its own components, bound t
 ## Built-in extensions
 
 `src/extensions/<id>/` holds `pine.json`, `main.ts` and optionally `panel.html`, `panel.ts`,
-`panel.css` and `locales/` (every extension here ships `locales/zh-Hant.json`). `scripts/build-extensions.mjs` (part of `pnpm build`) bundles them into
-`out/extensions/<id>/`; electron-builder ships that dir as `resources/extensions`. They import
+`panel.css` and `locales/` (every extension here ships `locales/zh-Hant.json`).
+`scripts/build-extensions.mjs` (part of `pnpm build`) bundles them into `out/extensions/<id>/`; electron-builder ships that dir as `resources/extensions`. They import
 only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/renderer`.
 
 | Id | What it does |
@@ -1107,18 +1128,32 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 
 ### Marketplace extensions
 
-These live in the same source tree and use the same SDK, but they wrap tools only some people
-have, so they are not shipped in the app. `scripts/build-extensions.mjs` builds the ids in its
-`marketplaceIds` into `out/marketplace/` with a `pine-marketplace.json`, and
-`pnpm publish:marketplace <checkout>` copies that into a checkout of the marketplace repository
-(`aurigax-ai/pine-extensions`). Add that repository in Settings → Extensions → Marketplaces to install
-them.
+These live in the same source tree, but they wrap tools only some people have, so they are not
+shipped in the app. They import the SDK only by its package name
+(`@aurigax-ai/pine-extension-sdk`), never by a path into this tree, because they are published as
+a project of their own: `pnpm build:marketplace` (`scripts/build-marketplace.mjs`) assembles
+`out/marketplace/` from `marketplace-package/` (build script, `tsconfig.json`, CI,
+`pine-marketplace.json`), the extensions listed there (shown or unlisted), their tests and
+`test/fixtures/tools`, writes its `package.json`, and builds it against `out/sdk`. One function
+builds an extension folder for both the app and that project (`buildExtension` in
+`marketplace-package/build-extension.mjs`, which `scripts/build-extensions.mjs` imports):
+`pine.json`, `locales/`, a bundled `main.js`, a panel's `panel.html`, `panel.css`, bundled
+`panel.js` and the SDK's `panel.css` as `base.css`, and the npm packages an extension's
+`vendor.json` names, copied unchanged (`packages` copies one package to a folder, `closures`
+copies a package and everything it depends on into a `node_modules` folder). The project's
+`package.json` lists every vendored package at the exact version the app pins, so its own
+`pnpm install` and `pnpm build` produce the same `extensions/`. `pnpm publish:marketplace <checkout>`
+copies that into a checkout of the marketplace repository (`aurigax-ai/pine-extensions`), installs
+its dependencies there (the SDK from npm) and rebuilds `extensions/`. That repository's own
+`sync.yml` workflow does this every hour: when Pine's latest release is newer than its `package.json` version it checks that tag out, runs the command,
+its checks, and commits. It needs no credentials from this repository. Add that repository in
+Settings → Extensions → Marketplaces to install them.
 
 | Id | What it does |
 |---|---|
 | `lsp-rust-analyzer`, `lsp-clangd`, `lsp-lua`, `lsp-marksman` | One native language server each, with the `download` form: `rust-analyzer` 2026-09-28 (Linux, macOS and Windows on x64 and arm64), `clangd` 23.1.0 (Linux x64, macOS, Windows x64; other platforms use `PATH`), `lua-language-server` 3.19.1 (Linux and macOS on x64 and arm64, Windows x64) and `marksman` 2026-02-08 for Markdown (Linux x64 and arm64, macOS, Windows x64). Each pins the official GitHub release asset and its SHA-256 |
 | `lsp-gopls` | `gopls` for Go with the `goInstall` form: `go install golang.org/x/tools/gopls@v0.23.0` when no `gopls` is on `PATH`. Needs Go; without it Settings → Languages offers to install Go |
-| `lsp-typescript` | TypeScript and JavaScript in the editor: `typescript-language-server` 5.3.0 and TypeScript 5.9.3, copied unchanged from their npm packages into `server/` by `scripts/build-extensions.mjs` (the extension's `vendor.json` lists them: `packages` copies one package to a folder, `closures` copies a package and everything it depends on into a `node_modules` folder) and run with pine's Electron as Node. A project's own TypeScript is used when it has one. The app itself ships no TypeScript language features: without this extension a `.ts` or `.js` file is only highlighted |
+| `lsp-typescript` | TypeScript and JavaScript in the editor: `typescript-language-server` 5.3.0 and TypeScript 5.9.3, copied unchanged from their npm packages into `server/` (the extension's `vendor.json` `packages`) and run with pine's Electron as Node. A project's own TypeScript is used when it has one. The app itself ships no TypeScript language features: without this extension a `.ts` or `.js` file is only highlighted |
 | `lsp-pyright` | Python in the editor: Pyright 1.1.414, copied the same way (about 5,400 files, mostly type stubs). Setting `typeCheckingMode` |
 | `lsp-yaml` | YAML in the editor: `yaml-language-server` 1.24.0 with its 19 dependencies, copied unchanged into `server/node_modules/` (`vendor.json` `closures`). Setting `schemaStore` (off by default) lets the server fetch schemas from schemastore.org |
 | `lsp-bash` | Shell scripts in the editor: `bash-language-server` 5.8.1 with its 35 dependencies, copied the same way. It lints with `shellcheck` when that is on `PATH` |

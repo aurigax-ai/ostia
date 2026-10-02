@@ -16,6 +16,9 @@ concurrency:
 
 jobs:
   ci:
+    permissions:
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/ci.yml
 
   package:
@@ -40,6 +43,24 @@ jobs:
             dist/*.AppImage
             dist/*.tar.gz
           if-no-files-found: error
+
+  sdk:
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: pnpm build:sdk
+      - name: Publish the extension SDK to npm
+        working-directory: out/sdk
+        run: npm publish --tag ${{ contains(github.ref_name, '-') && 'next' || 'latest' }}
 
   publish:
     needs: package

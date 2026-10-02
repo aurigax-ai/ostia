@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -18,10 +19,10 @@ import { parseManifest } from '../main/extensionManifest'
 import { ExtensionStore } from '../main/extensionStore'
 import { EXTENSION_API_VERSION } from '../shared/extensionApi'
 import type { ExtensionCaller } from '../shared/extensions'
-import { MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
+import { MARKETPLACE_CODE_PATTERN, MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
 import type { CommandResult } from '../shared/types'
 import { extensionManifestSchema, marketplaceManifestSchema } from './manifestSchema'
-import { SDK_CLI_USAGE, runSdkCli } from './sdkCli'
+import { SDK_CLI_USAGE, newInstallCode, runSdkCli } from './sdkCli'
 
 const repoRoot = resolve(__dirname, '../..')
 const sdkPackage = join(repoRoot, 'out/sdk')
@@ -163,6 +164,13 @@ describe('manifest schemas', () => {
       true,
     )
     expect(marketplaceManifestSchema.safeParse({ extensions: ['a'] }).success).toBe(false)
+    expect(
+      marketplaceManifestSchema.safeParse({
+        name: 'Mine',
+        extensions: [],
+        unlisted: [{ path: 'a', code: 'guessable' }],
+      }).success,
+    ).toBe(false)
     expect(marketplaceManifestSchema.safeParse({ name: 'Mine', extensions: 'a' }).success).toBe(
       false,
     )
@@ -200,12 +208,6 @@ describe('extension API version', () => {
         readFileSync(join(repoRoot, file), 'utf8'),
       )
     }
-    const marketplace = join(repoRoot, 'out/marketplace')
-    for (const file of ['src/extensions/trellis/main.ts', 'src/extensions/sdk/index.ts']) {
-      expect(readFileSync(join(marketplace, file), 'utf8'), file).toBe(
-        readFileSync(join(repoRoot, file), 'utf8'),
-      )
-    }
   })
 
   it('is what every extension built from this tree declares, since each bundles this SDK', () => {
@@ -217,6 +219,120 @@ describe('extension API version', () => {
   it('is published in the package for authors and tools', () => {
     const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
     expect(pkg.pineExtensionApi).toBe(EXTENSION_API_VERSION)
+  })
+})
+
+describe('the marketplace project, built the way its own repository builds it', () => {
+  const marketplace = join(repoRoot, 'out/marketplace')
+  const sources = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+      entry.isDirectory() ? sources(join(dir, entry.name)) : [join(dir, entry.name)],
+    )
+
+  it('holds the source, tests and tool fixtures of its extensions, unchanged', () => {
+    for (const file of [
+      'src/extensions/trellis/main.ts',
+      'src/extensions/keeper/service.test.ts',
+      'src/extensions/model-runtime/pine.json',
+      'test/fixtures/tools/bin/trellis',
+    ]) {
+      expect(readFileSync(join(marketplace, file), 'utf8'), file).toBe(
+        readFileSync(join(repoRoot, file), 'utf8'),
+      )
+    }
+  })
+
+  it('imports nothing by a path that leaves an extension folder', () => {
+    const escaping = sources(join(marketplace, 'src')).flatMap((file) =>
+      [...readFileSync(file, 'utf8').matchAll(/from '(\.\.\/[^']*)'/g)].map(
+        (match) => `${file}: ${match[1]}`,
+      ),
+    )
+    expect(escaping).toEqual([])
+  })
+
+  it('depends on the SDK of this version and on nothing unversioned', () => {
+    const pkg = JSON.parse(readFileSync(join(marketplace, 'package.json'), 'utf8'))
+    const app = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+    expect(pkg.devDependencies['@aurigax-ai/pine-extension-sdk']).toBe(app.version)
+    expect(Object.values(pkg.devDependencies).every((range) => typeof range === 'string')).toBe(
+      true,
+    )
+  })
+
+  it('typechecks against the published types', () => {
+    const tsc = join(repoRoot, 'node_modules/typescript/bin/tsc')
+    const res = spawnSync(process.execPath, [tsc, '--noEmit', '-p', marketplace], {
+      encoding: 'utf8',
+    })
+    expect(res.stdout + res.stderr).toBe('')
+    expect(res.status).toBe(0)
+  }, 60_000)
+
+  it('passes the packaged validate command with every extension built, two of them unlisted', () => {
+    const res = spawnSync(process.execPath, [sdkCli, 'validate', marketplace], {
+      encoding: 'utf8',
+    })
+    expect(res.stdout.trim()).toBe(
+      'ok: marketplace "Pine extensions" with 10 extension(s), 2 unlisted',
+    )
+    expect(res.status).toBe(0)
+  })
+
+  it('ships each extension’s catalogs, and its panel files when it has a panel', () => {
+    const built = join(marketplace, 'extensions')
+    for (const id of readdirSync(built)) {
+      const manifest = JSON.parse(readFileSync(join(built, id, 'pine.json'), 'utf8'))
+      for (const tag of manifest.locales ?? []) {
+        expect(existsSync(join(built, id, 'locales', `${tag}.json`)), `${id} ${tag}`).toBe(true)
+      }
+    }
+    for (const file of ['panel.html', 'panel.css', 'panel.js', 'base.css', 'locales/en.json']) {
+      expect(existsSync(join(built, 'trellis', file)), file).toBe(true)
+    }
+    expect(readFileSync(join(built, 'trellis/base.css'), 'utf8')).toBe(
+      readFileSync(join(sdkPackage, 'panel.css'), 'utf8'),
+    )
+  })
+
+  it('ships the server every language extension runs from its own folder, as its package has it', () => {
+    const built = join(marketplace, 'extensions')
+    const servers = readdirSync(built).flatMap((id) => {
+      const manifest = JSON.parse(readFileSync(join(built, id, 'pine.json'), 'utf8'))
+      return (manifest.contributes?.languageServers ?? [])
+        .filter((server: { run: { node?: string } }) => server.run.node)
+        .map((server: { run: { node: string } }) => join(id, server.run.node))
+    })
+    expect(servers).toHaveLength(4)
+    for (const script of servers) expect(existsSync(join(built, script)), script).toBe(true)
+    const vendored = 'lsp-typescript/server/typescript-language-server/lib/cli.mjs'
+    expect(readFileSync(join(built, vendored), 'utf8')).toBe(
+      readFileSync(join(repoRoot, 'node_modules/typescript-language-server/lib/cli.mjs'), 'utf8'),
+    )
+  })
+
+  it('declares every package it vendors or bundles as a dependency of its own', () => {
+    const pkg = JSON.parse(readFileSync(join(marketplace, 'package.json'), 'utf8'))
+    const app = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+    for (const name of [
+      'bash-language-server',
+      'pyright',
+      'typescript',
+      'typescript-language-server',
+      'yaml-language-server',
+    ]) {
+      expect(pkg.devDependencies[name], name).toBe(app.devDependencies[name])
+      expect(pkg.devDependencies[name], name).toMatch(/^\d+\.\d+\.\d+$/)
+    }
+    for (const name of ['@phosphor-icons/core', 'mdast-util-from-markdown']) {
+      expect(pkg.devDependencies[name], name).toBeTruthy()
+    }
+  })
+
+  it('keeps a vendored node_modules folder in its repository', () => {
+    expect(readFileSync(join(marketplace, '.gitignore'), 'utf8').split('\n')).toContain(
+      '/node_modules',
+    )
   })
 })
 
@@ -232,7 +348,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
 
   beforeAll(() => {
     project = mkdtempSync(join(tmpdir(), 'pine-sdk-consumer-'))
-    cpSync(join(sdkPackage, 'template'), project, { recursive: true })
+    execFileSync(process.execPath, [sdkCli, 'create', 'hello', project], { stdio: 'ignore' })
     linkDependency('@aurigax-ai/pine-extension-sdk', sdkPackage)
     for (const name of ['esbuild', '@types/node']) {
       linkDependency(name, join(repoRoot, 'node_modules', name))
@@ -243,6 +359,51 @@ describe('the SDK package, used the way an extension author uses it', () => {
 
   afterAll(() => {
     rmSync(project, { recursive: true, force: true })
+  })
+
+  it('creates a project named after the id, ready for git and for the build', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'pine-sdk-create-'))
+    try {
+      const res = spawnSync(process.execPath, [sdkCli, 'create', 'weather-report'], {
+        cwd: parent,
+        encoding: 'utf8',
+      })
+      expect(res.status).toBe(0)
+      expect(res.stdout).toContain('created the Weather Report extension in weather-report')
+      const made = join(parent, 'weather-report')
+      const manifest = JSON.parse(readFileSync(join(made, 'pine.json'), 'utf8'))
+      expect(parseManifest(manifest, made).ok).toBe(true)
+      expect(manifest).toMatchObject({ id: 'weather-report', name: 'Weather Report' })
+      expect(manifest.contributes.commands[0]).toMatchObject({
+        title: 'Weather Report: Greet',
+        category: 'Weather Report',
+      })
+      const pkg = JSON.parse(readFileSync(join(made, 'package.json'), 'utf8'))
+      expect(pkg.name).toBe('pine-extension-weather-report')
+      expect(pkg.scripts.validate).toContain('pine-extension validate dist/weather-report')
+      expect(pkg.devDependencies['@aurigax-ai/pine-extension-sdk']).toMatch(/^\^\d+\.\d+\.\d+$/)
+      expect(readFileSync(join(made, '.gitignore'), 'utf8')).toBe('node_modules\ndist\n')
+      expect(readdirSync(join(made, 'src'))).toEqual(['main.ts'])
+      const catalog = JSON.parse(readFileSync(join(made, 'locales/zh-Hant.json'), 'utf8'))
+      expect(Object.keys(catalog.manifest)).toEqual(['description', 'commands.greet.argument'])
+      expect(catalog.messages.greeting).toBe('你好，{name}')
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses an id the loader would refuse and a folder that already holds files', () => {
+    const template = join(sdkPackage, 'template')
+    expect(runSdkCli(['create', 'Bad Id'], template)).toEqual({
+      code: 1,
+      lines: [
+        'Bad Id: an id is 2 to 40 lowercase letters, digits or dashes, starting with a letter',
+      ],
+    })
+    const taken = runSdkCli(['create', 'again', project], template)
+    expect(taken).toEqual({ code: 1, lines: [`${project}: already exists and is not empty`] })
+    expect(JSON.parse(readFileSync(join(project, 'pine.json'), 'utf8')).id).toBe('hello')
+    expect(runSdkCli(['create'], template)).toEqual({ code: 2, lines: [SDK_CLI_USAGE] })
   })
 
   it('typechecks the template against the published types', () => {
@@ -312,6 +473,38 @@ describe('the SDK package, used the way an extension author uses it', () => {
       lines: ['ok: marketplace "Mine" with 1 extension(s)'],
     })
     expect(runSdkCli(['publish'])).toEqual({ code: 2, lines: [SDK_CLI_USAGE] })
+  })
+
+  it('unlists an extension with a generated install code that the loader accepts', () => {
+    const marketplace = join(project, 'unlisting')
+    cpSync(built, join(marketplace, 'extensions/hello'), { recursive: true })
+    const file = join(marketplace, MARKETPLACE_MANIFEST_FILE)
+    writeFileSync(file, JSON.stringify({ name: 'Mine', extensions: ['extensions/hello'] }))
+
+    expect(runSdkCli(['unlist', 'extensions/other', marketplace]).code).toBe(1)
+    const res = runSdkCli(['unlist', 'extensions/hello', marketplace])
+    const written = JSON.parse(readFileSync(file, 'utf8'))
+    const code = written.unlisted[0].code
+    expect(code).toMatch(MARKETPLACE_CODE_PATTERN)
+    expect(written).toEqual({
+      name: 'Mine',
+      extensions: [],
+      unlisted: [{ path: 'extensions/hello', code }],
+    })
+    expect(res).toEqual({
+      code: 0,
+      lines: [`unlisted extensions/hello: its install code is ${code}`],
+    })
+    expect(marketplaceManifestSchema.safeParse(written).success).toBe(true)
+    expect(runSdkCli(['unlist', 'extensions/hello', marketplace])).toEqual({
+      code: 0,
+      lines: [`extensions/hello is already unlisted: its install code is ${code}`],
+    })
+    expect(runSdkCli(['validate', marketplace])).toEqual({
+      code: 0,
+      lines: ['ok: marketplace "Mine" with 0 extension(s), 1 unlisted'],
+    })
+    expect(newInstallCode()).not.toBe(newInstallCode())
   })
 
   it('runs the built extension in the extension host and answers its command', async () => {

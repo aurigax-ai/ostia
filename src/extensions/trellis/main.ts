@@ -1,9 +1,9 @@
 import { homedir } from 'node:os'
-import type { ExtensionEventType } from '../../shared/extensions'
-import { PRODUCT_NAME } from '../../shared/product'
 import {
   type CommandHandler,
+  type ExtensionEventType,
   type ExtensionSettingValues,
+  PRODUCT_NAME,
   booleanSetting,
   cliArgs,
   connect,
@@ -13,7 +13,7 @@ import {
   ok,
   onShutdown,
   startPanelServer,
-} from '../sdk'
+} from '@aurigax-ai/pine-extension-sdk'
 import { initHere, panelHandlers } from './panelApi'
 import { TrellisService, type WorkspaceRef } from './service'
 import { BOARD_PATH, HUMAN_ACTOR, VAULT_PATH, cardPath, cardRef, panelTarget } from './trellis'

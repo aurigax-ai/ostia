@@ -124,6 +124,37 @@ function ExtensionRow({
   )
 }
 
+function InstallCodeForm({ marketplace }: { marketplace: MarketplaceInfo }): JSX.Element {
+  const d = useDict()
+  const busy = useMarketplaceStore((s) => s.busy)
+  const installCode = useMarketplaceStore((s) => s.installCode)
+  const [code, setCode] = useState('')
+  const submit = async (): Promise<void> => {
+    if (!code.trim() || busy) return
+    if (await installCode(marketplace.id, code)) setCode('')
+  }
+  return (
+    <form
+      className="flex items-center gap-2 border-line border-t px-3 py-2"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void submit()
+      }}
+    >
+      <Input
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        placeholder={d.marketplace.codePlaceholder}
+        aria-label={fmt(d.marketplace.codeLabel, { name: marketplace.name })}
+        className="h-7 flex-1 font-mono"
+      />
+      <Button type="submit" variant="outline" size="sm" disabled={busy || !code.trim()}>
+        {d.marketplace.install}
+      </Button>
+    </form>
+  )
+}
+
 function MarketplaceCard({ marketplace }: { marketplace: MarketplaceInfo }): JSX.Element {
   const d = useDict()
   const busy = useMarketplaceStore((s) => s.busy)
@@ -167,6 +198,7 @@ function MarketplaceCard({ marketplace }: { marketplace: MarketplaceInfo }): JSX
           ))}
         </ul>
       )}
+      {marketplace.unlisted ? <InstallCodeForm marketplace={marketplace} /> : null}
       {marketplace.problems.length > 0 ? (
         <div className="border-line border-t px-3 py-2 text-fg-muted text-ui-xs">
           <div>{d.marketplace.problems}</div>

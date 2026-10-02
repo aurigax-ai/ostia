@@ -1201,6 +1201,15 @@
   min-height: 0;
 }
 
+.workzone-workspace[data-hidden] {
+  visibility: hidden;
+}
+
+.workzone-workspace[data-hidden] [style*="visibility: visible"],
+.pane-slot[data-hidden] [style*="visibility: visible"] {
+  visibility: hidden !important;
+}
+
 .workzone-workspace > * {
   flex: 1;
   min-width: 0;

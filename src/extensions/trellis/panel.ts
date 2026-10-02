@@ -1,10 +1,18 @@
+import type { ExtensionResult } from '@aurigax-ai/pine-extension-sdk'
+import {
+  call,
+  context,
+  errorText,
+  h,
+  icon,
+  onChange,
+  panelTranslator,
+} from '@aurigax-ai/pine-extension-sdk/panel'
 import arrowClockwise from '@phosphor-icons/core/regular/arrow-clockwise.svg'
 import lockSimple from '@phosphor-icons/core/regular/lock-simple.svg'
 import plus from '@phosphor-icons/core/regular/plus.svg'
 import userCircle from '@phosphor-icons/core/regular/user-circle.svg'
 import xIcon from '@phosphor-icons/core/regular/x.svg'
-import type { ExtensionResult } from '../../shared/extensions'
-import { call, context, errorText, h, icon, onChange, panelTranslator } from '../sdk/panel'
 import {
   type ShownColumn,
   type ThreadItem,

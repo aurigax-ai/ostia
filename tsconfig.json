@@ -18,7 +18,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/renderer/*"],
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["src/shared/*"],
+      "@aurigax-ai/pine-extension-sdk": ["src/extensions/sdk/index.ts"],
+      "@aurigax-ai/pine-extension-sdk/panel": ["src/extensions/sdk/panel.ts"]
     }
   },
   "include": ["src/renderer/**/*", "src/shared/**/*", "src/extensions/**/panel.ts"]

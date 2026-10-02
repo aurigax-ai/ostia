@@ -1,7 +1,11 @@
 import { type ChildProcess, spawn } from 'node:child_process'
-import type { Translate } from '../../shared/extensionLocales'
-import type { ExtensionIcon, SidebarTone } from '../../shared/extensions'
-import { nextBackoff, runTool } from '../sdk/tool'
+import {
+  type ExtensionIcon,
+  type SidebarTone,
+  type Translate,
+  nextBackoff,
+  runTool,
+} from '@aurigax-ai/pine-extension-sdk'
 import { TrellisCli } from './cli'
 import {
   ALL_NOTIFY_KINDS,
