@@ -82,7 +82,7 @@ import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
 import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
-import { createSecretStore } from './extensionSecrets'
+import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
 import { openInExternalEditor } from './externalEditor'
@@ -116,6 +116,8 @@ import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from 
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
 import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './marketplace'
 import { McpHost } from './mcpHost'
+import { McpOAuth, mcpOAuthBrowser } from './mcpOAuth'
+import { createMcpOAuthStore } from './mcpOAuthStore'
 import {
   postActionNotification,
   postNotification,
@@ -846,6 +848,7 @@ const terminalState = new Map<string, TerminalStateSnapshot>()
 let extensionHost: ExtensionHost | null = null
 let viewHost: ViewHost | null = null
 let mcpHost: McpHost | null = null
+let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
@@ -2065,14 +2068,18 @@ function assistKeyStore() {
   return encryptedStore(storePath('assist-keys', 'global'))
 }
 
-function encryptedStore(path: string) {
-  return createSecretStore({
+function encryptedFile(path: string): SecretStoreDeps {
+  return {
     load: () => loadJson<unknown>(path, {}),
     save: (data) => saveJson(path, data, { secure: true }),
     canEncrypt: () => safeStorage.isEncryptionAvailable(),
     encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
     decrypt: (secret) => safeStorage.decryptString(Buffer.from(secret, 'base64')),
-  })
+  }
+}
+
+function encryptedStore(path: string) {
+  return createSecretStore(encryptedFile(path))
 }
 
 function readSettingsFileOrNull(): { assistant?: unknown } | null {
@@ -2471,18 +2478,28 @@ app.whenReady().then(() => {
   registerChatSessionIpc(
     createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
   )
-  const mcpSecrets = encryptedStore(storePath('mcp-secrets', 'global'))
+  const mcpSecretsPath = storePath('mcp-secrets', 'global')
+  const mcpSecrets = encryptedStore(mcpSecretsPath)
   const chatToolSettings = () => parseChatToolSettings(readSettingsFile().assistant)
+  mcpOAuth = new McpOAuth({
+    store: createMcpOAuthStore(encryptedFile(mcpSecretsPath)),
+    openExternal: openExternalSafe,
+    browser: mcpOAuthBrowser(app.isPackaged, process.env),
+    locale: readLocale,
+    onChange: () => mcpHost?.notify(),
+  })
   mcpHost = new McpHost({
     servers: () => chatToolSettings().mcpServers,
     secret: (server, key) => mcpSecrets.get(server, key),
     onStatus: (status) => broadcast('chatTools:mcp-status', status),
+    auth: mcpOAuth,
   })
   registerChatToolsIpc({
     roots: fileRoots,
     settings: chatToolSettings,
     mcp: mcpHost,
     secrets: mcpSecrets,
+    oauth: mcpOAuth,
   })
   const workflowDeps: WorkflowDeps = {
     userDir: join(configDir(), 'workflows'),
@@ -2675,6 +2692,7 @@ app.on('before-quit', (event) => {
   scratchFolders.removeAll()
   portForwarder.stopAll()
   extensionHost?.stopAll()
+  mcpOAuth?.closeAll()
   mcpHost?.closeAll()
   viewHost?.stop()
   settingsSync?.stop()
