@@ -733,6 +733,11 @@ const bridge: PineBridge = {
     saveFile: (name, content) =>
       ipcRenderer.invoke('chat:save-file', name, content) as Promise<ChatExportResult>,
   },
+  privacy: {
+    kinds: () => ipcRenderer.invoke('privacy:kinds'),
+    redact: (texts) => ipcRenderer.invoke('privacy:redact', texts),
+    preview: (text) => ipcRenderer.invoke('privacy:preview', text),
+  },
   chatTools: {
     read: (req) => ipcRenderer.invoke('chatTools:read', req),
     list: (req) => ipcRenderer.invoke('chatTools:list', req),

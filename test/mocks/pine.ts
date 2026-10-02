@@ -305,6 +305,13 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       exportMarkdown: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
       saveFile: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
     },
+    privacy: {
+      kinds: vi.fn().mockResolvedValue([]),
+      redact: vi.fn(async (texts: string[]) =>
+        texts.map((text) => ({ text, count: 0, kinds: {} })),
+      ),
+      preview: vi.fn(async (text: string) => ({ text, count: 0, kinds: {} })),
+    },
     chatTools: {
       read: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       list: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),

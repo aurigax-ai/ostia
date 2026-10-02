@@ -8,6 +8,7 @@ import {
   clip,
   nextPickReportNumber,
 } from '../shared/pick'
+import type { RedactText } from '../shared/redactionTargets'
 import {
   REGION_IMAGE_MAX,
   type RegionCapture,
@@ -85,11 +86,14 @@ export async function captureRegion(
   return { ok: true, capture }
 }
 
-export function writeRegionReport(
+const asWritten: RedactText = async (text) => text
+
+export async function writeRegionReport(
   req: RegionSendRequest,
   senderWindowId: string,
   reaches: OriginReach,
-): PickSendResult {
+  redact: RedactText = asWritten,
+): Promise<PickSendResult> {
   const source = getByPaneId(req?.sourcePaneId)
   const target = getByPaneId(req?.targetPaneId)
   if (!source || source.windowId !== senderWindowId || !target) {
@@ -103,24 +107,27 @@ export function writeRegionReport(
   const note = clip(typeof req.note === 'string' ? req.note : '', PICK_NOTE_MAX)
   let path: string
   let imagePath: string
+  let message: string
   try {
     const dir = privateTmpDir(REPORT_DIR_NAME)
     const stem = join(dir, captureStem(nextPickReportNumber(readdirSync(dir)), stored.capture.url))
     imagePath = `${stem}.png`
     writeFileSync(imagePath, stored.png, { mode: 0o600, flag: 'wx' })
     path = `${stem}.md`
-    writeFileSync(path, renderRegionReport(stored.capture, note, imagePath), {
+    message = regionBusMessage(
+      { ...stored.capture, url: await redact(stored.capture.url) },
+      await redact(note),
+      path,
+      imagePath,
+    )
+    writeFileSync(path, await redact(renderRegionReport(stored.capture, note, imagePath)), {
       mode: 0o600,
       flag: 'wx',
     })
   } catch {
     return { ok: false, error: 'write-failed' }
   }
-  postBusMessage(
-    source.externalId,
-    target.externalId,
-    regionBusMessage(stored.capture, note, path, imagePath),
-  )
+  postBusMessage(source.externalId, target.externalId, message)
   return { ok: true, path, imagePath }
 }
 
@@ -136,14 +143,18 @@ export function copyRegionImage(
   return { ok: true }
 }
 
-export function registerRegionIpc(browserPanes: Map<string, number>, reaches: OriginReach): void {
+export function registerRegionIpc(
+  browserPanes: Map<string, number>,
+  reaches: OriginReach,
+  redact: RedactText,
+): void {
   ipcMain.handle('browser:region-capture', (e, paneId: string, req: unknown) => {
     const guest = ownedGuest(browserPanes, paneId, String(e.sender.id))
     if (!guest) return { ok: false, error: 'browser-not-ready' } satisfies RegionCaptureOutcome
     return captureRegion(guest, e.sender.getZoomFactor(), paneId, req)
   })
   ipcMain.handle('browser:region-send', (e, req: RegionSendRequest) =>
-    writeRegionReport(req ?? ({} as RegionSendRequest), String(e.sender.id), reaches),
+    writeRegionReport(req ?? ({} as RegionSendRequest), String(e.sender.id), reaches, redact),
   )
   ipcMain.handle('browser:region-copy', (e, paneId: string, captureId: string) =>
     copyRegionImage(paneId, captureId, String(e.sender.id)),

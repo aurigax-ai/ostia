@@ -154,6 +154,7 @@ import {
 } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
 import { acceptsPrimarySelection } from './primarySelection'
+import { registerPrivacyIpc } from './privacyIpc'
 import { privateTmpDir } from './privateTmp'
 import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from './processManager'
 import { registerProjectRootIpc } from './projectRoot'
@@ -162,6 +163,7 @@ import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './pt
 import { PtySession, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
 import { exitAfterDeadline, planQuit } from './quitPlan'
+import { createRedactor, createScrollbackRedactor } from './redaction'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
@@ -242,6 +244,7 @@ import {
   loadRestoredScrollback,
   pendingRestoredScrollback,
   saveScrollback,
+  scrollbackToSave,
   stashScrollback,
   takeRestoredScrollback,
 } from './workspaceSnapshot'
@@ -2435,7 +2438,8 @@ app.whenReady().then(() => {
   registerIpc()
   registerPtyIpc()
   registerFsIpc()
-  registerSelectionIpc(reachesPane)
+  registerSelectionIpc(reachesPane, redactor.text)
+  registerPrivacyIpc(redactor)
   registerApprovals(revealWindow)
   registerQuestions()
   registerCredentials()
@@ -2451,6 +2455,7 @@ app.whenReady().then(() => {
     isScratchPane,
     windows: () => windows.values(),
     windowById: (id: string) => windows.get(id),
+    redact: redactor.text,
   }
   registerNotifyMethods(notifyDeps)
   registerSandboxMethods({ domains: domainRequests, ports: portRequests })
@@ -2587,6 +2592,7 @@ app.whenReady().then(() => {
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
     readAssistSettings: readSettingsFileOrNull,
+    redact: redactor.redact,
     assistKeys: assistKeyStore(),
     secrets: extensionSecretStore(),
     openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
@@ -2642,6 +2648,7 @@ app.whenReady().then(() => {
   registerAssistIpc(() => extensionHost)
   registerChatSessionIpc(
     createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
+    redactor.text,
   )
   const mcpSecretsPath = storePath('mcp-secrets', 'global')
   const mcpSecrets = encryptedStore(mcpSecretsPath)
@@ -2728,8 +2735,12 @@ app.whenReady().then(() => {
     errorBuffers,
   })
   registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast })
-  registerPickIpc({ browserPanes, isSharedPane, errorBuffers, broadcast }, reachesPane)
-  registerRegionIpc(browserPanes, reachesPane)
+  registerPickIpc(
+    { browserPanes, isSharedPane, errorBuffers, broadcast },
+    reachesPane,
+    redactor.text,
+  )
+  registerRegionIpc(browserPanes, reachesPane, redactor.text)
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
@@ -2791,16 +2802,29 @@ app.whenReady().then(() => {
   app.on('activate', revealApp)
 })
 
-function persistScrollback(): void {
-  if (broker && !broker.persisting) return
+const redactor = createRedactor(() => (readSettingsFile() as { privacy?: unknown }).privacy)
+const redactScrollback = createScrollbackRedactor(redactor)
+let scrollbackSaves: Promise<void> = Promise.resolve()
+
+function persistScrollback(): Promise<void> {
+  if (broker && !broker.persisting) return scrollbackSaves
+  let toSave: Record<string, string>
   try {
     const byPane = pendingRestoredScrollback()
     for (const [paneId, entry] of ptys) byPane[paneId] = entry.mirror.serialize()
-    saveScrollback(byPane, isScratchPane)
+    toSave = scrollbackToSave(byPane, isScratchPane)
   } catch (err) {
     console.error('[workspace] scrollback save failed', err)
+    return scrollbackSaves
   }
+  scrollbackSaves = scrollbackSaves
+    .then(async () => saveScrollback(await redactScrollback(toSave)))
+    .catch((err: unknown) => console.error('[workspace] scrollback save failed', err))
+  return scrollbackSaves
 }
+
+let scrollbackSavedForQuit = false
+let savingScrollbackForQuit = false
 
 const SCROLLBACK_AUTOSAVE_MS = 5000
 let lastScrollbackSignature = ''
@@ -2811,7 +2835,7 @@ function autosaveScrollback(): void {
   signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
   if (signature === lastScrollbackSignature) return
   lastScrollbackSignature = signature
-  persistScrollback()
+  void persistScrollback()
 }
 
 app.on('before-quit', (event) => {
@@ -2842,7 +2866,16 @@ app.on('before-quit', (event) => {
     })
     return
   }
-  persistScrollback()
+  if (!scrollbackSavedForQuit) {
+    event.preventDefault()
+    if (savingScrollbackForQuit) return
+    savingScrollbackForQuit = true
+    void persistScrollback().finally(() => {
+      scrollbackSavedForQuit = true
+      app.quit()
+    })
+    return
+  }
   broker?.persist()
   managerService?.shutdown()
   appLog?.info('app-quit', { ptys: ptys.size })

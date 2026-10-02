@@ -11,6 +11,7 @@ import {
   PROMPT_SEPARATORS,
   PROMPT_STYLES,
 } from '../../shared/promptSettings'
+import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '../../shared/redaction'
 import { SHELL_SETTING_MAX_LENGTH } from '../../shared/terminalShell'
 import { MATCH_PINE_THEME } from '../../shared/themeChoice'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
@@ -821,6 +822,31 @@ export const SETTINGS_JSON_SCHEMA = {
               enum: ['terminal', 'editor', 'browser', 'extension', 'diff', 'view'],
             },
             description: 'Only show it on these pane kinds. Default: all.',
+          },
+        },
+      },
+    },
+    privacy: {
+      type: 'object',
+      additionalProperties: false,
+      description: 'Only you can change this (Settings → Privacy); agents cannot set it.',
+      properties: {
+        redaction: {
+          type: 'object',
+          additionalProperties: false,
+          description: `Secret redaction. Text that leaves ${PRODUCT_NAME} for an AI provider, or that it writes to disk (saved scrollback, the notification log, selection and pick reports), has detected secrets replaced with [redacted:<kind>]. The live terminal, the clipboard and your files are never changed.`,
+          properties: {
+            enabled: { type: 'boolean', description: 'Default: true.' },
+            patterns: {
+              type: 'array',
+              maxItems: REDACTION_PATTERNS_MAX,
+              items: { type: 'string', maxLength: REDACTION_PATTERN_MAX },
+              description:
+                'Your own patterns: regular expressions matched on one line at a time. No ' +
+                'lookaround or backreferences, no repeated group that itself repeats or ' +
+                'branches, at most one open-ended repeat (* + {n,}). A pattern that breaks a ' +
+                'rule is ignored.',
+            },
           },
         },
       },
