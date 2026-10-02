@@ -1,11 +1,23 @@
-import { execFileSync } from 'node:child_process'
+import { mkdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import {
+  DOM_RENDERER_SETTINGS,
+  freshDataHome,
+  isolatedLaunch,
+  seedSettings,
+  testHome,
+} from './dataHome'
 import { openWorkspace } from './helpers'
 
-async function launch(settings: object) {
+async function launch(settings: object, inProjectFolder = false) {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, ...settings })
+  const project = join(testHome(dataHome), 'project')
+  mkdirSync(project, { recursive: true })
+  const workspaces = inProjectFolder
+    ? { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project }
+    : DOM_RENDERER_SETTINGS.workspaces
+  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, workspaces, ...settings })
   const app = await electron.launch(isolatedLaunch(dataHome))
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
@@ -45,7 +57,7 @@ test('an unusable terminal.shell falls back to the login shell', async () => {
 })
 
 test('a sandboxed workspace wraps the shell chosen in terminal.shell', async () => {
-  const { app, win } = await launch({ terminal: { shell: '/bin/sh -i' } })
+  const { app, win } = await launch({ terminal: { shell: '/bin/sh -i' } }, true)
   try {
     await win.locator('.rail-row').first().click({ button: 'right' })
     await win.getByRole('menuitemcheckbox', { name: 'Sandbox' }).click()
@@ -68,44 +80,59 @@ test('the primary selection takes only non-empty text up to the cap from the pag
     const send = (text: string) =>
       win.evaluate((t) => {
         ;(
-          window as unknown as { pine: { writePrimarySelection: (s: string) => void } }
-        ).pine.writePrimarySelection(t)
+          window as unknown as { pine: { window: { writePrimarySelection: (s: string) => void } } }
+        ).pine.window.writePrimarySelection(t)
       }, text)
-    const read = () => app.evaluate(({ clipboard }) => clipboard.readText('selection'))
-    await app.evaluate(({ clipboard }) => clipboard.writeText('sentinel', 'selection'))
+    const read = (which: 'selection' | 'clipboard') =>
+      app.evaluate(({ clipboard }, w) => clipboard.readText(w), which)
+    await app.evaluate(({ clipboard }) => {
+      clipboard.writeText('sentinel-clipboard')
+      clipboard.writeText('sentinel-primary', 'selection')
+    })
     await send('')
     await send('x'.repeat(2 * 1024 * 1024))
     await win.waitForTimeout(300)
-    expect(await read()).toBe('sentinel')
+    expect(await read('selection')).toBe('sentinel-primary')
     await send('from-the-page')
-    await expect.poll(read).toBe('from-the-page')
-    expect(await app.evaluate(({ clipboard }) => clipboard.readText('clipboard'))).not.toBe(
-      'from-the-page',
-    )
+    await expect.poll(() => read('selection')).toBe('from-the-page')
+    expect(await read('clipboard')).toBe('sentinel-clipboard')
   } finally {
     await app.close()
   }
 })
 
 test('the global hotkey hides a focused window and brings it back', async () => {
-  const hasXdotool = (() => {
-    try {
-      execFileSync('xdotool', ['version'], { stdio: 'ignore' })
-      return true
-    } catch {
-      return false
-    }
-  })()
-  test.skip(!hasXdotool, 'needs xdotool to press a global shortcut')
-  const { app } = await launch({ workspaces: { globalHotkey: 'Ctrl+Alt+F9' } })
+  const { app, win } = await launch({ workspaces: { globalHotkey: 'Ctrl+Alt+F9' } })
   try {
+    await app.evaluate(({ globalShortcut }) => {
+      const target = globalThis as unknown as { pressHotkey?: () => void }
+      const register = globalShortcut.register.bind(globalShortcut)
+      globalShortcut.register = (accelerator, callback) => {
+        target.pressHotkey = callback
+        return register(accelerator, callback)
+      }
+    })
+    await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
+    const settings = win.getByRole('region', { name: 'Settings' })
+    await settings.getByRole('button', { name: 'Workspaces' }).click()
+    const field = settings.getByRole('textbox', { name: 'Show or hide hotkey' })
+    await field.fill('')
+    await expect
+      .poll(() => app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered('Ctrl+Alt+F9')))
+      .toBe(false)
+    await field.fill('Ctrl+Alt+F9')
+    await expect
+      .poll(() => app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered('Ctrl+Alt+F9')))
+      .toBe(true)
+    const press = () =>
+      app.evaluate(() => (globalThis as unknown as { pressHotkey: () => void }).pressHotkey())
     const visible = () =>
       app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((w) => w.isVisible()))
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].focus())
     await expect.poll(visible).toBe(true)
-    execFileSync('xdotool', ['key', 'ctrl+alt+F9'], { env: process.env })
+    await press()
     await expect.poll(visible).toBe(false)
-    execFileSync('xdotool', ['key', 'ctrl+alt+F9'], { env: process.env })
+    await press()
     await expect.poll(visible).toBe(true)
   } finally {
     await app.close()
