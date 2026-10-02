@@ -287,7 +287,7 @@ export function writeClaudePlugin(dir: string): void {
   writeFileSync(join(dir, 'skills', PRODUCT_NAME, 'SKILL.md'), pineSkill, 'utf8')
 }
 
-function claudeWrapper(pluginDir: string): string {
+export function claudeWrapper(pluginDir: string): string {
   return [
     '',
     '# Run claude with the Pine plugin (CLI skill, resume token, attention hooks).',
