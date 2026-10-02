@@ -1,7 +1,6 @@
 import { execFile } from 'node:child_process'
 import { fstatSync, readFileSync } from 'node:fs'
 import type { Socket } from 'node:net'
-import { parseProcStat as parseProcStatShared } from '../shared/procfs'
 
 export type CallerVerdict = 'outside' | 'inside' | 'unknown'
 
@@ -23,8 +22,16 @@ export interface ProcStat {
 }
 
 export function parseProcStat(text: string): ProcStat | null {
-  const result = parseProcStatShared(text)
-  return result ? { ppid: result.ppid, ttyNr: result.ttyNr } : null
+  const close = text.lastIndexOf(')')
+  if (close < 0) return null
+  const fields = text
+    .slice(close + 1)
+    .trim()
+    .split(/\s+/)
+  const ppid = Number(fields[1])
+  const ttyNr = Number(fields[4])
+  if (!Number.isInteger(ppid) || !Number.isInteger(ttyNr)) return null
+  return { ppid, ttyNr }
 }
 
 export function hasPineToken(environ: string): boolean {

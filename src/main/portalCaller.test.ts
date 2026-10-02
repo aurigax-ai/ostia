@@ -46,6 +46,20 @@ describe('parseProcStat', () => {
   it('returns null for text that is not a stat line', () => {
     expect(parseProcStat('garbage')).toBeNull()
   })
+
+  it('needs only ppid and tty_nr, so a line cut short after them still counts', () => {
+    expect(parseProcStat('42 (sh) S 7 42 42 34817')).toEqual({ ppid: 7, ttyNr: 34817 })
+    expect(parseProcStat('sh) S 7 x 42 34817 y')).toEqual({ ppid: 7, ttyNr: 34817 })
+    const proc = {
+      read: (path: string): string | null =>
+        ({
+          '/proc/500/stat': '500 (agent) S 400 500 500 0 -1 0',
+          '/proc/500/environ': 'HOME=/home/u',
+          '/proc/400/stat': '400 (zsh) S 100 400 400 0',
+        })[path] ?? null,
+    }
+    expect(judgeCaller(500, { mainPid: 100, paneTtys: new Set(), proc })).toBe('inside')
+  })
 })
 
 describe('hasPineToken', () => {

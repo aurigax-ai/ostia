@@ -1,6 +1,4 @@
-import { type ProcStat, parseProcStat as parseProcStatShared } from '../../shared/procfs'
-
-export type ProcEntry = Omit<ProcStat, 'ttyNr'>
+import type { ProcEntry } from '../../shared/procfs'
 
 export interface ListeningSocket {
   port: number
@@ -8,19 +6,6 @@ export interface ListeningSocket {
 }
 
 const TCP_LISTEN = '0A'
-
-export function parseProcStat(text: string): ProcEntry | null {
-  const result = parseProcStatShared(text)
-  return result
-    ? {
-        pid: result.pid,
-        comm: result.comm,
-        ppid: result.ppid,
-        pgrp: result.pgrp,
-        tpgid: result.tpgid,
-      }
-    : null
-}
 
 export function parseNetTcp(text: string): ListeningSocket[] {
   const out: ListeningSocket[] = []
