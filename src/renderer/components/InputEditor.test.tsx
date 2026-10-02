@@ -31,12 +31,18 @@ function setMode(inputMode: 'terminal' | 'editor'): void {
   useSettingsStore.setState((s) => ({ behavior: { ...s.behavior, inputMode } }))
 }
 
-function fakeTerm(): Xterm {
+function fakeTerm(selection = ''): Xterm {
   return {
     focus: vi.fn(),
-    getSelection: () => '',
+    getSelection: () => selection,
+    hasSelection: () => selection !== '',
+    clearSelection: vi.fn(),
     scrollToBottom: vi.fn(),
   } as unknown as Xterm
+}
+
+function setClipboardKeys(clipboardKeys: 'shift' | 'smart'): void {
+  useSettingsStore.setState((s) => ({ terminal: { ...s.terminal, clipboardKeys } }))
 }
 
 function renderEditor(overrides: Partial<InputEditorProps> = {}) {
@@ -256,6 +262,80 @@ describe('InputEditor', () => {
     await user.keyboard('{Escape}')
     expect(props.onHandOff).toHaveBeenCalledTimes(1)
     expect(props.onHandOff).toHaveBeenCalledWith('git st', '')
+  })
+
+  it('copies the selected draft text on smart Ctrl+C and keeps the draft', async () => {
+    setMode('editor')
+    setClipboardKeys('smart')
+    idlePrompt()
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'git status')
+    const area = editor() as HTMLTextAreaElement
+    area.setSelectionRange(4, 10)
+    await user.keyboard('{Control>}c{/Control}')
+    expect(editor()).toHaveValue('git status')
+    await expect(navigator.clipboard.readText()).resolves.toBe('status')
+  })
+
+  it('copies the terminal selection on smart Ctrl+C when the draft has none', async () => {
+    setMode('editor')
+    setClipboardKeys('smart')
+    idlePrompt()
+    const term = fakeTerm('build output')
+    renderEditor({ termRef: { current: term } })
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'make')
+    await user.keyboard('{Control>}c{/Control}')
+    expect(editor()).toHaveValue('make')
+    await expect(navigator.clipboard.readText()).resolves.toBe('build output')
+    expect(term.clearSelection).toHaveBeenCalled()
+  })
+
+  it('clears the draft on smart Ctrl+C when nothing is selected', async () => {
+    setMode('editor')
+    setClipboardKeys('smart')
+    idlePrompt()
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'rm -rf build')
+    await user.keyboard('{Control>}c{/Control}')
+    expect(editor()).toHaveValue('')
+  })
+
+  it('keeps Ctrl+C as the shell clear in shift mode even with a selection', async () => {
+    setMode('editor')
+    setClipboardKeys('shift')
+    idlePrompt()
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'git status')
+    ;(editor() as HTMLTextAreaElement).setSelectionRange(0, 3)
+    await user.keyboard('{Control>}c{/Control}')
+    expect(editor()).toHaveValue('')
+  })
+
+  it('copies the selection on the copy chord in either mode', async () => {
+    setMode('editor')
+    idlePrompt()
+    renderEditor()
+    const user = userEvent.setup()
+    await user.type(editor() as HTMLElement, 'git status')
+    ;(editor() as HTMLTextAreaElement).setSelectionRange(0, 3)
+    await user.keyboard('{Control>}{Shift>}C{/Shift}{/Control}')
+    expect(editor()).toHaveValue('git status')
+    await expect(navigator.clipboard.readText()).resolves.toBe('git')
+  })
+
+  it('pastes into the draft without control characters or a trailing newline', async () => {
+    setMode('editor')
+    idlePrompt()
+    const { props } = renderEditor()
+    const user = userEvent.setup()
+    await user.click(editor() as HTMLElement)
+    await user.paste('echo hi\x1b[201~\n')
+    expect(editor()).toHaveValue('echo hi[201~')
+    expect(props.onSubmit).not.toHaveBeenCalled()
   })
 
   it('edits with readline keys and a kill ring', async () => {

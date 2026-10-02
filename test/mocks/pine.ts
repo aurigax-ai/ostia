@@ -157,6 +157,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       pathForFile: vi.fn(() => ''),
       admitDropped: vi.fn().mockResolvedValue([]),
     },
+    clipboard: {
+      edit: vi.fn().mockResolvedValue(undefined),
+      hasImage: vi.fn().mockResolvedValue(false),
+      setChords: vi.fn(),
+    },
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
       reveal: vi.fn().mockResolvedValue({ ok: true }),

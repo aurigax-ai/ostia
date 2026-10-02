@@ -14,6 +14,7 @@ import type { BuildInfo } from './buildInfo'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { ChatSessionsApi } from './chatSessions'
 import type { ChatToolsApi } from './chatTools'
+import type { ClipboardChords, ClipboardEdit } from './clipboardChords'
 import type { SpecCommand } from './completionSpec'
 import type {
   CredentialImportResult,
@@ -661,6 +662,12 @@ export interface FilesApi {
   admitDropped: (files: File[], workspaceId: string | null) => Promise<OpenFileVerdict[]>
 }
 
+export interface ClipboardApi {
+  edit: (edit: ClipboardEdit) => Promise<void>
+  hasImage: () => Promise<boolean>
+  setChords: (chords: ClipboardChords) => void
+}
+
 export interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
   reveal: (path: string) => Promise<OpenPathResult>
@@ -833,6 +840,7 @@ export interface PineBridge {
   update: AppUpdateApi
   agentSession: AgentSessionApi
   openPath: OpenPathApi
+  clipboard: ClipboardApi
   files: FilesApi
   extensions: ExtensionsApi
   marketplace: MarketplaceApi

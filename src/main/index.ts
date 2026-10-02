@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path'
 import {
   BrowserWindow,
   app,
+  clipboard,
   ipcMain,
   nativeTheme,
   safeStorage,
@@ -73,6 +74,7 @@ import { dropIdentity, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
 import { registerChatToolsIpc } from './chatToolsIpc'
+import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { connHasCap, setCapFilter } from './controlAuth'
@@ -908,6 +910,7 @@ function extensionOfPartition(partition: string | undefined): string | null {
 }
 
 const instrumentedGuests = new WeakSet<Electron.WebContents>()
+let clipboardEdits: ClipboardEdits | null = null
 
 function instrumentBrowserGuest(gc: Electron.WebContents): void {
   const wcId = gc.id
@@ -1040,6 +1043,7 @@ function wireWindow(win: BrowserWindow): void {
     webPreferences.sandbox = true
   })
   win.webContents.on('did-attach-webview', (_e, guest) => {
+    clipboardEdits?.guardGuest(guest)
     if (hardenExtensionGuest(guest)) return
     const agent = browserUserAgent(guest.session.getUserAgent(), app.getName())
     guest.session.setUserAgent(agent)
@@ -2348,6 +2352,12 @@ app.whenReady().then(() => {
   scratchFolders.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
+  clipboardEdits = registerClipboardEdits({
+    ipc: ipcMain,
+    isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
+    availableFormats: () => clipboard.availableFormats(),
+    mac: process.platform === 'darwin',
+  })
   registerIpc()
   registerPtyIpc()
   registerFsIpc()
