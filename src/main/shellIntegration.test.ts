@@ -419,6 +419,71 @@ describe('shellIntegrationSpawnOptions', () => {
       }
     })
 
+    describe.runIf(process.platform === 'linux')('bash command line marks', () => {
+      const PASTE_START = '\x1b[200~'
+      const PASTE_END = '\x1b[201~'
+      const commandMarks = (typed: string, rcLines = ''): string[] => {
+        shellIntegrationSpawnOptions('/bin/bash', {})
+        const dir = mkdtempSync(join(tmpdir(), 'pine-bash-lines-'))
+        try {
+          const rc = join(dir, 'rc')
+          writeFileSync(
+            rc,
+            `PS1='b> '\nHISTFILE='${join(dir, 'history')}'\nbind 'set enable-bracketed-paste on'\n${rcLines}\nsource '${BASH_INIT}'\n`,
+          )
+          const out = spawnSync('script', ['-qec', `bash --rcfile '${rc}' -i`, '/dev/null'], {
+            env: { HOME: dir, PATH: process.env.PATH ?? '/usr/bin:/bin', TERM: 'xterm' },
+            input: `${typed}\rexit\r`,
+            encoding: 'utf8',
+          })
+          return out.stdout
+            .split('\x1b]')
+            .slice(1)
+            .map((osc) => osc.split('\x1b\\')[0])
+            .filter((osc) => osc.startsWith('633;E;') || /^133;[CD]/.test(osc))
+        } finally {
+          rmSync(dir, { recursive: true, force: true })
+        }
+      }
+
+      it('reports every line of a pasted multi-line input as the whole command before D', () => {
+        const typed = `${PASTE_START}echo pine_ml_1\recho pine_ml_2${PASTE_END}`
+        expect(commandMarks(typed).slice(0, 4)).toEqual([
+          '633;E;echo pine_ml_1',
+          '133;C',
+          String.raw`633;E;echo pine_ml_1\x0aecho pine_ml_2`,
+          '133;D;0',
+        ])
+      })
+
+      it('reports a one-line command only once', () => {
+        expect(commandMarks('echo solo').slice(0, 3)).toEqual([
+          '633;E;echo solo',
+          '133;C',
+          '133;D;0',
+        ])
+      })
+
+      it('counts an unrecorded repeat of the previous command as the first line', () => {
+        const typed = `echo again\r${PASTE_START}echo again\recho after${PASTE_END}`
+        expect(commandMarks(typed, 'HISTCONTROL=ignoredups').slice(3, 7)).toEqual([
+          '633;E;echo again',
+          '133;C',
+          String.raw`633;E;echo again\x0aecho after`,
+          '133;D;0',
+        ])
+      })
+
+      it('keeps the first line when the history list was rewritten under the command', () => {
+        const typed = `echo b\recho q\r${PASTE_START}echo a\recho b\recho c${PASTE_END}`
+        expect(commandMarks(typed, 'HISTCONTROL=erasedups').slice(6, 9)).toEqual([
+          '633;E;echo a',
+          '133;C',
+          '133;D;0',
+        ])
+      })
+    })
+
     describe.each([
       ['bash', ['--norc'], BASH_INIT],
       ['zsh', ['-f'], ZSH_INIT],
