@@ -21,6 +21,8 @@ import {
   type RepoStatus,
   parsePorcelainV2,
   parseShortstat,
+  textLineCount,
+  withUntracked,
 } from './status'
 
 const MAX_OUTPUT = 32 * 1024 * 1024
@@ -174,9 +176,25 @@ export async function repoRelative(root: string, cwd: string, input: string): Pr
   return rel.split(sep).join('/')
 }
 
-export async function lineChanges(root: string): Promise<LineChanges | null> {
+const MAX_COUNTED_UNTRACKED = 500
+
+async function untrackedLines(root: string, path: string): Promise<number> {
+  const abs = join(root, path)
+  const info = await lstat(abs).catch(() => null)
+  if (!info?.isFile() || info.size > MAX_SIDE_BYTES) return 0
+  const buf = await readFile(abs).catch(() => null)
+  return buf ? textLineCount(buf, BINARY_SNIFF) : 0
+}
+
+export async function lineChanges(root: string, untracked: string[]): Promise<LineChanges | null> {
   const res = await run(root, ['-c', 'diff.autoRefreshIndex=false', 'diff', '--shortstat', 'HEAD'])
-  return res.code === 0 ? parseShortstat(res.stdout.toString('utf8')) : null
+  const tracked = res.code === 0 ? parseShortstat(res.stdout.toString('utf8')) : null
+  if (untracked.length === 0) return tracked
+  const counted = await Promise.all(
+    untracked.slice(0, MAX_COUNTED_UNTRACKED).map((path) => untrackedLines(root, path)),
+  )
+  const uncounted = new Array<number>(untracked.length - counted.length).fill(0)
+  return withUntracked(tracked, [...counted, ...uncounted])
 }
 
 const LITERAL = '--literal-pathspecs'

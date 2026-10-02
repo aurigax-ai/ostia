@@ -46,7 +46,7 @@ afterEach(() => {
   useWorkspacesStore.setState(workspacesInit, true)
   useLayoutStore.setState(layoutInit, true)
   useDiffStore.setState({ byPane: {} })
-  vi.mocked(window.pine.chatTools.undo).mockReset()
+  vi.mocked(window.pine.chatTools.restore).mockReset()
 })
 
 function part(state: string, extra: Record<string, unknown> = {}) {
@@ -106,6 +106,8 @@ function applied(patch: Partial<ChatEditRecord> = {}): void {
     symlink: false,
     auto: false,
     state: 'applied',
+    seq: 1,
+    decisions: ['accepted'],
     ...patch,
   })
 }
@@ -179,7 +181,7 @@ describe('ChatEditCard', () => {
     expect(card()).toHaveAttribute('data-state', 'applied')
     expect(within(card()).getByRole('status')).toHaveTextContent(/^Applied$/)
     view.unmount()
-    applied({ auto: true })
+    applied({ auto: true, decisions: [null] })
     render(
       <ChatEditCard
         part={part('output-available')}
@@ -196,8 +198,8 @@ describe('ChatEditCard', () => {
 
   it('undoes an applied edit through main with what was written and what was there before', async () => {
     seedWorkspace()
-    applied({ auto: true })
-    vi.mocked(window.pine.chatTools.undo).mockResolvedValue({
+    applied({ auto: true, decisions: [null] })
+    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
       ok: true,
       path: PATH,
       removed: false,
@@ -213,13 +215,14 @@ describe('ChatEditCard', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
     await waitFor(() => expect(card()).toHaveAttribute('data-state', 'undone'))
-    expect(window.pine.chatTools.undo).toHaveBeenCalledWith({
+    expect(window.pine.chatTools.restore).toHaveBeenCalledWith({
       path: PATH,
       root: '/home/u/proj',
       outside: false,
       symlinks: false,
-      wrote: 'v-new',
-      restore: BEFORE,
+      expected: 'v-new',
+      content: BEFORE,
+      dirty: [],
     })
     expect(within(card()).getByRole('status')).toHaveTextContent('Undone')
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
@@ -228,7 +231,7 @@ describe('ChatEditCard', () => {
   it('says plainly when the file changed after the edit and leaves it applied', async () => {
     seedWorkspace()
     applied()
-    vi.mocked(window.pine.chatTools.undo).mockResolvedValue({ ok: false, error: 'changed' })
+    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({ ok: false, error: 'changed' })
     render(
       <ChatEditCard
         part={part('output-available')}
@@ -290,6 +293,68 @@ describe('ChatEditCard', () => {
     expect(screen.queryByRole('button', { name: 'Open diff' })).toBeNull()
   })
 
+  it('undoes an edit of a reopened chat whose texts were kept, and says so when they were not', () => {
+    seedWorkspace()
+    useChatToolsStore.getState().loadEdits('s1', [
+      {
+        toolCallId: 'e1',
+        path: PATH,
+        root: '/home/u/proj',
+        existed: true,
+        outside: false,
+        symlink: false,
+        auto: true,
+        state: 'applied',
+        version: 'v-new',
+        seq: 1,
+        decisions: ['accepted'],
+        before: BEFORE,
+        after: AFTER,
+      },
+      {
+        toolCallId: 'e2',
+        path: PATH,
+        root: '/home/u/proj',
+        existed: true,
+        outside: false,
+        symlink: false,
+        auto: true,
+        state: 'applied',
+        version: 'v-next',
+        seq: 2,
+        decisions: ['accepted'],
+      },
+    ])
+    const view = render(
+      <ChatEditCard
+        part={part('output-available')}
+        name="edit_file"
+        workspaceId="w1"
+        busy={false}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+    view.unmount()
+    render(
+      <ChatEditCard
+        part={part('output-available', {
+          toolCallId: 'e2',
+          output: { path: PATH, created: false, added: 4, removed: 1 },
+        })}
+        name="edit_file"
+        workspaceId="w1"
+        busy={false}
+      />,
+    )
+    expect(within(card()).getByText('+4')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+    expect(
+      screen.getByText(
+        'Undo is not available: this edit was too large to keep with the saved chat.',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('opens the change in a diff tab of the workspace', async () => {
     seedWorkspace()
     useLayoutStore.getState().ensure('w1')
@@ -326,5 +391,86 @@ describe('ChatEditCard', () => {
       />,
     )
     expect(card()).toHaveAttribute('data-state', 'stopped')
+  })
+
+  describe('per change', () => {
+    const MANY_BEFORE = 'a\nb\nc\nd\ne\nf\ng\nh\n'
+    const MANY_AFTER = 'A\nb\nc\nd\ne\nf\ng\nH\n'
+
+    function waitingMany(): Promise<ApprovalAnswer> {
+      return requestApproval(
+        {
+          toolCallId: 'e1',
+          sessionId: 's1',
+          toolName: 'edit_file',
+          kind: 'write',
+          grantable: false,
+          input: {},
+          detail: { path: PATH, exists: true, before: MANY_BEFORE, after: MANY_AFTER },
+        },
+        decideTool({ name: 'edit_file', access: 'write', mode: 'ask', grants: new Set() }),
+        new AbortController().signal,
+      )
+    }
+
+    it('accepts and rejects each change of a pending edit, answering once all are decided', async () => {
+      seedWorkspace()
+      const answer = waitingMany()
+      render(
+        <ChatEditCard part={part('approval-requested')} name="edit_file" workspaceId="w1" busy />,
+      )
+      expect(screen.getByRole('region', { name: 'Change 1 · line 1' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Change 2 · line 8' })).toBeInTheDocument()
+      expect(within(card()).getByText('+2')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Reject change 2' }))
+      expect(screen.getByRole('button', { name: 'Reject change 2' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+      expect(within(card()).getByText('+1')).toBeInTheDocument()
+      expect(useChatToolsStore.getState().pending.e1).toBeDefined()
+      await userEvent.click(screen.getByRole('button', { name: 'Accept change 1' }))
+      expect(await answer).toEqual({ approved: true, scope: 'once' })
+      expect(useChatToolsStore.getState().hunkChoices.e1).toEqual(['accepted', 'rejected'])
+    })
+
+    it('reverts one change of an edit Write mode applied, then keeps the rest', async () => {
+      seedWorkspace()
+      applied({ before: MANY_BEFORE, after: MANY_AFTER, auto: true, decisions: [null, null] })
+      vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
+        ok: true,
+        path: PATH,
+        removed: false,
+        version: 'v-partial',
+      })
+      render(
+        <ChatEditCard
+          part={part('output-available')}
+          name="edit_file"
+          workspaceId="w1"
+          busy={false}
+        />,
+      )
+      expect(card()).toHaveAttribute('data-review', 'true')
+      await userEvent.click(screen.getByRole('button', { name: 'Reject change 1' }))
+      await waitFor(() =>
+        expect(useChatToolsStore.getState().edits.e1.decisions).toEqual(['rejected', null]),
+      )
+      expect(window.pine.chatTools.restore).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expected: 'v-new',
+          content: 'a\nb\nc\nd\ne\nf\ng\nH\n',
+        }),
+      )
+      expect(useChatToolsStore.getState().edits.e1.version).toBe('v-partial')
+      expect(
+        within(screen.getByRole('region', { name: 'Change 1 · line 1' })).getByText('Rejected'),
+      ).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Keep' }))
+      expect(useChatToolsStore.getState().edits.e1.decisions).toEqual(['rejected', 'accepted'])
+      expect(screen.queryByRole('button', { name: 'Keep' })).toBeNull()
+      expect(card()).not.toHaveAttribute('data-review')
+      expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+    })
   })
 })
