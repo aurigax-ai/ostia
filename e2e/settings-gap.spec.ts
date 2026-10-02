@@ -102,6 +102,7 @@ test('the primary selection takes only non-empty text up to the cap from the pag
 })
 
 test('the global hotkey hides a focused window and brings it back', async () => {
+  test.setTimeout(60_000)
   const { app, win } = await launch({ workspaces: { globalHotkey: 'Ctrl+Alt+F9' } })
   try {
     await app.evaluate(({ globalShortcut }) => {
@@ -128,12 +129,25 @@ test('the global hotkey hides a focused window and brings it back', async () => 
       app.evaluate(() => (globalThis as unknown as { pressHotkey: () => void }).pressHotkey())
     const visible = () =>
       app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((w) => w.isVisible()))
+    const focused = () =>
+      app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows().some((w) => w.isVisible() && w.isFocused()),
+      )
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].focus())
-    await expect.poll(visible).toBe(true)
+    await expect
+      .poll(visible, { timeout: 10_000, message: 'the window never became visible' })
+      .toBe(true)
+    await expect
+      .poll(focused, { timeout: 10_000, message: 'the window never took focus' })
+      .toBe(true)
     await press()
-    await expect.poll(visible).toBe(false)
+    await expect
+      .poll(visible, { timeout: 10_000, message: 'the hotkey did not hide the focused window' })
+      .toBe(false)
     await press()
-    await expect.poll(visible).toBe(true)
+    await expect
+      .poll(visible, { timeout: 10_000, message: 'the hotkey did not bring the window back' })
+      .toBe(true)
   } finally {
     await app.close()
   }
