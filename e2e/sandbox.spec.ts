@@ -428,7 +428,7 @@ test('a sandboxed shell survives Ctrl+C, which still interrupts its command, and
     await expect(rows).toContainText(new RegExp(`half-typed.*${PROMPT.source}`), {
       timeout: 15_000,
     })
-    await run(win, "sh -c 'echo SLEEPING-$((1+2)); exec sleep 30'")
+    await run(win, "sh -c 'echo SLEEPING-$((1+2)); exec sleep 30'; echo SLEPT-$((2+3))")
     await expect(rows).toContainText('SLEEPING-3', { timeout: 15_000 })
     await win.keyboard.press('Control+c')
     await expect(rows).toContainText(new RegExp(`SLEEPING-3.*${PROMPT.source}`), {
@@ -436,6 +436,14 @@ test('a sandboxed shell survives Ctrl+C, which still interrupts its command, and
     })
     await run(win, 'echo ALIVE-$((6*7))')
     await expect(rows).toContainText('ALIVE-42', { timeout: 15_000 })
+    if (process.platform === 'darwin') {
+      test.info().annotations.push({
+        type: 'skipped assertion',
+        description: 'bash 3.2 runs the rest of the ; list after SIGINT, so SLEPT-5 is printed',
+      })
+    } else {
+      await expect(rows).not.toContainText('SLEPT-5')
+    }
 
     await run(win, 'touch "$TMPDIR/probe" && test -d "$TMPDIR" && echo TMP-$((4+4))')
     await expect(rows).toContainText('TMP-8', { timeout: 15_000 })
