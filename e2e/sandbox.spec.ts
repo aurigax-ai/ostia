@@ -203,6 +203,45 @@ test('SBX-C2 pine process run in a sandboxed workspace runs its command in a san
   }
 })
 
+async function freePort(): Promise<number> {
+  const probe = createServer()
+  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve))
+  const { port } = probe.address() as AddressInfo
+  await new Promise((resolve) => probe.close(resolve))
+  return port
+}
+
+function serveInside(port: number, body: string): string {
+  const script = `require("http").createServer((q,r)=>r.end("${body}")).listen(${port},"127.0.0.1")`
+  return `ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" -e '${script}' &`
+}
+
+for (const relay of [false, true]) {
+  const terminal = relay ? 'behind the pty relay' : 'on the pane’s own terminal'
+  test(`SBX-C45 pine sandbox expose forwards the port on this computer to a server in the sandbox once the human allows it, ${terminal}`, async () => {
+    test.skip(process.platform !== 'linux', 'macOS reaches sandboxed servers without forwarding')
+    test.setTimeout(120_000)
+    const port = await freePort()
+    const { app, win } = await launch(relay ? { PINE_SANDBOX_PTY_RELAY: '1' } : {})
+    try {
+      await sandboxedShell(win)
+      const rows = win.locator('.xterm-rows').first()
+      await run(win, `pine sandbox expose ${port}`)
+      const card = win.getByRole('region', { name: 'Agent permission request' })
+      await expect(card).toContainText(`wants to expose port ${port}`, { timeout: 20_000 })
+      await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow()
+      await card.getByRole('button', { name: 'Allow for this workspace' }).click()
+      await expect(rows).toContainText(`exposed: 127.0.0.1:${port}`, { timeout: 15_000 })
+      await run(win, serveInside(port, 'INSIDE-C45'))
+      await expect(async () => {
+        expect(await (await fetch(`http://127.0.0.1:${port}/`)).text()).toBe('INSIDE-C45')
+      }).toPass({ timeout: 30_000 })
+    } finally {
+      await app.close()
+    }
+  })
+}
+
 const FAKE_BIN = join(__dirname, '../test/fixtures/system/bin')
 
 async function launchWithFakeSystem() {
@@ -619,7 +658,7 @@ test('a refused connection shows up under Blocked with its host, and Clear empti
   }
 })
 
-test('with Unix sockets off the shell still starts, pine cannot reach Pine, and a write outside is listed', async () => {
+test('with Unix sockets off the shell still starts, pine cannot reach Pine, a port is not exposed and the Ports tab says why, and a write outside is listed', async () => {
   test.skip(process.platform !== 'linux', 'Linux blocks Unix sockets through seccomp')
   test.setTimeout(120_000)
   const { app, win } = await launch()
@@ -642,6 +681,19 @@ test('with Unix sockets off the shell still starts, pine cannot reach Pine, and 
     await run(win, 'echo x > /etc/pine-e2e-probe; echo PROBED-$((9+9))')
     await expect(rows).toContainText('PROBED-18', { timeout: 15_000 })
     await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
+
+    const port = await freePort()
+    await run(win, serveInside(port, 'INSIDE-NOSOCK'))
+    const ports = await openWorkspacePage(win, 'Ports')
+    const server = ports.getByRole('listitem').filter({ hasText: `:${port}` })
+    await expect(server).toBeVisible({ timeout: 20_000 })
+    await expect(win.getByRole('region', { name: 'Agent permission request' })).toHaveCount(0)
+    await server.getByRole('button', { name: 'Expose' }).click()
+    await expect(ports.getByRole('alert')).toContainText(
+      `Port ${port} cannot be exposed while Unix sockets are off for this sandbox.`,
+    )
+    await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow()
+    await win.keyboard.press('Escape')
 
     const blocked = await openWorkspacePage(win, 'Blocked')
     const row = blocked
