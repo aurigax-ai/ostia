@@ -21,7 +21,7 @@ import {
 import { HelperChannel, HelperFailure, runStatus } from './channel'
 import { HELPER_TOOLS, helperBundle, shippedHelper, versionToken } from './helper'
 import { type ConnectPlan, planConnect, planHelper } from './plan'
-import { REMOTE_BOOTSTRAP } from './remote'
+import { REMOTE_BOOTSTRAP, REMOTE_COMMAND } from './remote'
 
 const helper = shippedHelper(helperSource())
 function planned(argv: string[]): ConnectPlan {
@@ -397,5 +397,116 @@ describe('helper protocol', () => {
     await expect
       .poll(() => readdirSync(dir).sort(), { timeout: 5000 })
       .toEqual(['helper.sh', 'session.sh'])
+  })
+})
+
+describe('helper on a host with only the shared tools', () => {
+  function bareHost(): RemoteHost {
+    const path = toolPath(['sh', 'env', ...HELPER_TOOLS.filter((tool) => tool !== 'wc')])
+    const padded = join(path, 'wc')
+    writeFileSync(padded, '#!/bin/sh\nout=$(/usr/bin/wc "$@")\nprintf \'%8s\\n\' "$out"\n')
+    chmodSync(padded, 0o755)
+    return host(path)
+  }
+
+  it('SSH-C77 follows links with plain readlink where realpath and readlink -f do not exist', async () => {
+    const remote = bareHost()
+    await install(remote)
+    const root = join(remote.home, 'project')
+    mkdirSync(join(root, 'sub'), { recursive: true })
+    writeFileSync(join(root, 'sub', 'b.txt'), 'inside')
+    writeFileSync(join(remote.home, 'secret.txt'), 'secret')
+    symlinkSync('sub/b.txt', join(root, 'inlink'))
+    symlinkSync(join(remote.home, 'secret.txt'), join(root, 'outlink'))
+    symlinkSync('loop2', join(root, 'loop1'))
+    symlinkSync('loop1', join(root, 'loop2'))
+    const channel = await open(remote)
+    const read = (path: string): Promise<{ meta: string; payload: Buffer }> =>
+      channel.request({ op: 'read', number: 100, root, path, maxReply: 100 })
+    expect((await read(join(root, 'inlink'))).payload.toString()).toBe('inside')
+    expect(await failure(read(join(root, 'outlink')))).toBe('outside')
+    expect(await failure(read(join(root, 'loop1')))).toBe('symlink')
+  })
+
+  it('SSH-C78 reads sizes the same when wc pads its numbers', async () => {
+    const remote = bareHost()
+    await install(remote)
+    const root = join(remote.home, 'project')
+    mkdirSync(root)
+    writeFileSync(join(root, 'a.txt'), 'hello')
+    const channel = await open(remote)
+    const stat = await channel.request({
+      op: 'stat',
+      number: 100,
+      root,
+      path: join(root, 'a.txt'),
+      maxReply: 0,
+    })
+    expect(stat.meta).toBe(`f:5:${versionToken(Buffer.from('hello'))}`)
+  })
+})
+
+const NON_PORTABLE: [RegExp, string][] = [
+  [/(^|\s)stat\s+-/, 'stat flags differ: GNU -c, BSD -f'],
+  [/\bsed\b/, 'sed -i differs: GNU takes no suffix, BSD requires one'],
+  [/\breadlink\s+-/, 'readlink -f is missing on older macOS'],
+  [/\brealpath\b/, 'realpath is missing on older macOS and its options differ'],
+  [/\bmktemp\b/, 'mktemp templates and -t differ between GNU and BSD'],
+  [/\bdate\b/, 'date flags differ between GNU and BSD'],
+  [/\bfind\b/, 'find -printf and option order differ between GNU and BSD'],
+  [/\bhead\s+-c/, 'head -c is missing on some BSD and busybox builds'],
+  [/\bstatus=/, 'dd status= is GNU only'],
+  [/\bbase64\b/, 'base64 -d is GNU, -D is older BSD'],
+  [
+    /\b(ls|ps|xxd|od|xargs|tac|seq|timeout|install)\b\s/,
+    'output or flags differ between GNU and BSD',
+  ],
+  [/\bwc\s+-[lw]/, 'wc pads its numbers on BSD'],
+  [/\s--[a-z]/, 'long options are GNU only'],
+  [/%q/, 'printf %q is a bashism'],
+  [/\blocal\b/, 'local is not POSIX sh'],
+  [/\[\[/, '[[ is a bashism'],
+  [/\becho\s+-[a-zA-Z]/, 'echo options differ between shells'],
+  [/\$'/, "$'...' is a bashism"],
+  [/<\(|>\(/, 'process substitution is a bashism'],
+  [/\bread\s+(-[a-zA-Z]*[a-qs-zA-Z]|-[a-zA-Z]*r[a-zA-Z]+)/, 'read takes only -r in POSIX sh'],
+  [/\btype\s+-/, 'type options are a bashism'],
+  [/<<</, 'here-strings are a bashism'],
+  [/\w=\(/, 'arrays are a bashism'],
+  [/\$\{[A-Za-z_]+(\/|,,|\^\^|:[0-9])/, 'bash parameter expansion is not POSIX'],
+  [/\[[^\]]* == /, '== in [ is a bashism'],
+  [/\bsource\s/, 'source is a bashism'],
+]
+
+describe('helper portability', () => {
+  const scripts: Record<string, string> = {
+    'helper.sh': helper.source.toString('utf8'),
+    run: helper.commands.run,
+    install: helper.commands.install,
+    remove: helper.commands.remove,
+    session: helper.commands.session,
+  }
+
+  for (const [name, text] of Object.entries(scripts)) {
+    it(`${name} uses only commands and flags that macOS and Linux share`, () => {
+      const found = NON_PORTABLE.filter(([pattern]) => pattern.test(text)).map(
+        ([pattern, why]) => `${pattern}: ${why}`,
+      )
+      expect(found).toEqual([])
+    })
+  }
+
+  it('the connect command tries both base64 decode flags', () => {
+    expect(REMOTE_COMMAND).toContain('base64 -d')
+    expect(REMOTE_COMMAND).toContain('base64 -D')
+  })
+
+  it('the installed tool list names every external tool helper.sh runs', () => {
+    const used = new Set(
+      ['cat', 'cksum', 'cp', 'dd', 'mkdir', 'mv', 'readlink', 'rm', 'wc'].filter((tool) =>
+        new RegExp(`\\b${tool}\\b`).test(scripts['helper.sh']),
+      ),
+    )
+    for (const tool of used) expect(HELPER_TOOLS).toContain(tool)
   })
 })
