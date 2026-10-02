@@ -646,6 +646,13 @@ description: Use when reviewing a change in this repository; follow checklist.md
 ---
 ```
 
+The frontmatter is read by a small line parser, not a YAML library: only `key: value` lines at
+column 0, with a plain one-line value optionally in one pair of matching quotes (no escapes), and
+exactly one `name` and one `description`. Block scalars (`>`, `|`), indented or nested lines, flow
+collections, anchors, aliases, tags, quoted keys, a space before the colon, duplicate keys,
+comments (`#`) and a second frontmatter block are refused, and `pine-extension validate` reports
+the line.
+
 pine writes the copy's `name` as `<extension id>-<name>`, so two extensions' skills never
 collide and none can take the name of pine's own `pine` skill.
 
