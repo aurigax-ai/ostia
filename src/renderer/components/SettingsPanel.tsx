@@ -43,7 +43,7 @@ import {
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import appIcon from '../../../resources/icon.svg'
 import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
@@ -91,7 +91,7 @@ import {
   useSettingsStore,
 } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
+import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { ActionsSection } from './ActionsSection'
 import { AssistantSection, isAssistExtension } from './AssistantSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
@@ -114,7 +114,9 @@ import {
   Highlight,
   SearchGroup,
   SearchScopeProvider,
+  type SearchStore,
   SettingsSearchSection,
+  createSearchStore,
   useSearchGroup,
   useSearchLeaf,
   useSearchRow,
@@ -203,6 +205,14 @@ export function SettingsPanel(): JSX.Element | null {
   const [pageExtId, setPageExtId] = useState<string | null>(null)
   const extensionsButtonRef = useRef<HTMLButtonElement>(null)
   const [query, setQuery] = useState('')
+  const [searchStore] = useState(createSearchStore)
+  const changeQuery = useCallback(
+    (next: string) => {
+      setQuery(next)
+      searchStore.set(next.trim().toLowerCase())
+    },
+    [searchStore],
+  )
   const [searchHits, setSearchHits] = useState<Record<string, number>>({})
   const onSearchHits = useCallback(
     (id: string, hits: number) =>
@@ -288,7 +298,7 @@ export function SettingsPanel(): JSX.Element | null {
       openSection('sandbox')
       return
     }
-    setQuery('')
+    changeQuery('')
     useUIStore.setState({ settingsWorkspaceId: id })
     openSection('workspace')
   }
@@ -346,12 +356,16 @@ export function SettingsPanel(): JSX.Element | null {
     openFileInWorkspace(path)
   }
 
+  const settingsPageExtensions = useMemo(
+    () => extensions.filter((e) => e.settingsPage),
+    [extensions],
+  )
+
   if (!open) return null
 
   const q = query.trim().toLowerCase()
   const matchingExtensions = q ? extensions.filter((e) => extensionMatchesQuery(e, q)) : extensions
   const hitsIn = (id: string): number => (q ? (searchHits[id] ?? 0) : 0)
-  const settingsPageExtensions = extensions.filter((e) => e.settingsPage)
   const pageExtensions = q
     ? settingsPageExtensions.filter(
         (e) => extensionMatchesQuery(e, q) || hitsIn(extensionPageResultId(e.id)) > 0,
@@ -374,51 +388,6 @@ export function SettingsPanel(): JSX.Element | null {
           (s.id === 'sandbox' && matchingWorkspaces.length > 0),
       )
     : sections
-  const page = (id: SectionId): React.ReactNode => (
-    <>
-      {id === 'appearance' ? <AppearanceSection /> : null}
-      {id === 'terminal' ? <TerminalSection /> : null}
-      {id === 'prompt' ? <PromptSection /> : null}
-      {id === 'keyboard' ? (
-        <>
-          <KeyboardSection />
-          <ActionsSection />
-        </>
-      ) : null}
-      {id === 'panes' ? <PanesSection /> : null}
-      {id === 'notifications' ? <NotificationsSection /> : null}
-      {id === 'sidebar' ? <SidebarSection /> : null}
-      {id === 'workspaces' ? <WorkspacesSection /> : null}
-      {id === 'sandbox' ? <SandboxSection /> : null}
-      {id === 'workspace' && targetWorkspace ? (
-        <WorkspaceSandboxPage
-          key={targetWorkspace.id}
-          workspaceId={targetWorkspace.id}
-          workspaceName={targetWorkspace.customName ?? targetWorkspace.name}
-        />
-      ) : null}
-      {id === 'agents' ? <AgentsSection /> : null}
-      {id === 'assistant' ? <AssistantSection /> : null}
-      {id === 'manager' ? <ManagerSection /> : null}
-      {id === 'files' ? <FilesSection /> : null}
-      {id === 'browser' ? <BrowserSettingsSection /> : null}
-      {id === 'passwords' ? <PasswordsSection /> : null}
-      {id === 'privacy' ? <PrivacySection /> : null}
-      {id === 'editor' ? <EditorSettingsSection /> : null}
-      {id === 'extensions' || (id === 'extensionPage' && !shownPage) ? (
-        <ExtensionsPage anchor={anchor} />
-      ) : null}
-      {id === 'extensionPage' && shownPage ? (
-        <ExtensionSettingsPage key={shownPage.id} ext={shownPage} />
-      ) : null}
-      {id === 'views' ? <ViewsSection /> : null}
-      {id === 'languageServers' ? <LanguagesSection /> : null}
-      {id === 'remote' ? <GatewaySection /> : null}
-      {id === 'sync' ? <SyncSection /> : null}
-      {id === 'language' ? <LanguageSection /> : null}
-      {id === 'about' ? <AboutSection /> : null}
-    </>
-  )
   const navExtensions = q ? matchingExtensions : extensions
   const extensionsChildrenShown = navExtensions.length > 0 && (q !== '' || extensionsExpanded)
   const extensionItems: NavChild[] = navExtensions.map((ext) => ({
@@ -461,11 +430,11 @@ export function SettingsPanel(): JSX.Element | null {
             </InputGroupAddon>
             <InputGroupInput
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => changeQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Escape' && query) {
                   e.stopPropagation()
-                  setQuery('')
+                  changeQuery('')
                 } else if ((e.key === 'Enter' || e.key === 'ArrowDown') && q) {
                   const control = firstMatchControl(contentRef.current)
                   if (!control) return
@@ -550,46 +519,119 @@ export function SettingsPanel(): JSX.Element | null {
 
         <ScrollArea className="min-h-0">
           <div ref={contentRef} className="mx-auto max-w-3xl px-8 py-5">
-            {q ? (
-              <>
-                {visible.length === 0 ? (
-                  <p className="text-fg-muted text-ui-sm">{d.settings.noMatches}</p>
-                ) : null}
-                {sections.map((s) => (
-                  <Fragment key={s.id}>
-                    <SettingsSearchSection
-                      id={s.id}
-                      label={s.label}
-                      query={q}
-                      onHits={onSearchHits}
-                    >
-                      {page(s.id)}
-                    </SettingsSearchSection>
-                    {s.id === 'extensions'
-                      ? settingsPageExtensions.map((ext) => (
-                          <SettingsSearchSection
-                            key={ext.id}
-                            id={extensionPageResultId(ext.id)}
-                            label={pageTitle(ext)}
-                            query={q}
-                            onHits={onSearchHits}
-                          >
-                            <ExtensionSettingsPage ext={ext} />
-                          </SettingsSearchSection>
-                        ))
-                      : null}
-                  </Fragment>
-                ))}
-              </>
-            ) : (
-              page(active)
-            )}
+            {q && visible.length === 0 ? (
+              <p className="text-fg-muted text-ui-sm">{d.settings.noMatches}</p>
+            ) : null}
+            <SettingsPages
+              searching={q !== ''}
+              active={active}
+              sections={sections}
+              settingsPageExtensions={settingsPageExtensions}
+              shownPage={shownPage ?? null}
+              anchor={anchor}
+              targetWorkspace={targetWorkspace}
+              store={searchStore}
+              onHits={onSearchHits}
+            />
           </div>
         </ScrollArea>
       </div>
     </section>
   )
 }
+
+const SettingsPages = memo(function SettingsPages({
+  searching,
+  active,
+  sections,
+  settingsPageExtensions,
+  shownPage,
+  anchor,
+  targetWorkspace,
+  store,
+  onHits,
+}: {
+  searching: boolean
+  active: SectionId
+  sections: { id: SectionId; label: string }[]
+  settingsPageExtensions: ExtensionInfo[]
+  shownPage: ExtensionInfo | null
+  anchor: ExtensionAnchor | null
+  targetWorkspace: Workspace | undefined
+  store: SearchStore
+  onHits: (id: string, hits: number) => void
+}): JSX.Element {
+  const page = (id: SectionId): React.ReactNode => (
+    <>
+      {id === 'appearance' ? <AppearanceSection /> : null}
+      {id === 'terminal' ? <TerminalSection /> : null}
+      {id === 'prompt' ? <PromptSection /> : null}
+      {id === 'keyboard' ? (
+        <>
+          <KeyboardSection />
+          <ActionsSection />
+        </>
+      ) : null}
+      {id === 'panes' ? <PanesSection /> : null}
+      {id === 'notifications' ? <NotificationsSection /> : null}
+      {id === 'sidebar' ? <SidebarSection /> : null}
+      {id === 'workspaces' ? <WorkspacesSection /> : null}
+      {id === 'sandbox' ? <SandboxSection /> : null}
+      {id === 'workspace' && targetWorkspace ? (
+        <WorkspaceSandboxPage
+          key={targetWorkspace.id}
+          workspaceId={targetWorkspace.id}
+          workspaceName={targetWorkspace.customName ?? targetWorkspace.name}
+        />
+      ) : null}
+      {id === 'agents' ? <AgentsSection /> : null}
+      {id === 'assistant' ? <AssistantSection /> : null}
+      {id === 'manager' ? <ManagerSection /> : null}
+      {id === 'files' ? <FilesSection /> : null}
+      {id === 'browser' ? <BrowserSettingsSection /> : null}
+      {id === 'passwords' ? <PasswordsSection /> : null}
+      {id === 'privacy' ? <PrivacySection /> : null}
+      {id === 'editor' ? <EditorSettingsSection /> : null}
+      {id === 'extensions' || (id === 'extensionPage' && !shownPage) ? (
+        <ExtensionsPage anchor={anchor} />
+      ) : null}
+      {id === 'extensionPage' && shownPage ? (
+        <ExtensionSettingsPage key={shownPage.id} ext={shownPage} />
+      ) : null}
+      {id === 'views' ? <ViewsSection /> : null}
+      {id === 'languageServers' ? <LanguagesSection /> : null}
+      {id === 'remote' ? <GatewaySection /> : null}
+      {id === 'sync' ? <SyncSection /> : null}
+      {id === 'language' ? <LanguageSection /> : null}
+      {id === 'about' ? <AboutSection /> : null}
+    </>
+  )
+  if (!searching) return <>{page(active)}</>
+  return (
+    <>
+      {sections.map((s) => (
+        <Fragment key={s.id}>
+          <SettingsSearchSection id={s.id} label={s.label} store={store} onHits={onHits}>
+            {page(s.id)}
+          </SettingsSearchSection>
+          {s.id === 'extensions'
+            ? settingsPageExtensions.map((ext) => (
+                <SettingsSearchSection
+                  key={ext.id}
+                  id={extensionPageResultId(ext.id)}
+                  label={pageTitle(ext)}
+                  store={store}
+                  onHits={onHits}
+                >
+                  <ExtensionSettingsPage ext={ext} />
+                </SettingsSearchSection>
+              ))
+            : null}
+        </Fragment>
+      ))}
+    </>
+  )
+})
 
 function NavCount({ count }: { count: number }): JSX.Element | null {
   if (count === 0) return null
