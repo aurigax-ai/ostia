@@ -117,7 +117,7 @@ describe('SettingsPanel search', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Appearance' })).toBeInTheDocument()
 
     await user.click(searchBox())
-    await user.paste('BLINK')
+    await user.keyboard('BLINK')
 
     const terminal = result('terminal')
     expect(terminal).toBeVisible()
@@ -139,7 +139,7 @@ describe('SettingsPanel search', () => {
     renderSettings()
     const user = userEvent.setup()
     await user.click(searchBox())
-    await user.paste('cursor blink')
+    await user.keyboard('cursor blink')
 
     const terminal = within(nav()).getByRole('button', { name: 'Terminal' })
     expect(terminal).toHaveTextContent(/Terminal\s*1$/)
@@ -151,7 +151,7 @@ describe('SettingsPanel search', () => {
     renderSettings()
     const user = userEvent.setup()
     await user.click(searchBox())
-    await user.paste('reduced')
+    await user.keyboard('reduced')
 
     const motion = within(result('appearance')).getByRole('combobox', { name: 'Motion' })
     expect(rowOf(motion)).toBeVisible()
@@ -162,7 +162,7 @@ describe('SettingsPanel search', () => {
     renderSettings()
     const user = userEvent.setup()
     await user.click(searchBox())
-    await user.paste('sidebar')
+    await user.keyboard('sidebar')
 
     const sidebar = result('sidebar')
     expect(sidebar).toBeVisible()
@@ -173,7 +173,7 @@ describe('SettingsPanel search', () => {
     renderSettings()
     const user = userEvent.setup()
     await user.click(searchBox())
-    await user.paste('zzqx')
+    await user.keyboard('zzqx')
 
     expect(screen.getByText('No settings match')).toBeInTheDocument()
     expect(within(nav()).queryAllByRole('listitem')).toHaveLength(0)
@@ -189,7 +189,7 @@ describe('SettingsPanel search', () => {
     renderSettings()
     const user = userEvent.setup()
     await user.click(searchBox())
-    await user.paste('copy on select')
+    await user.keyboard('copy on select')
     await user.keyboard('{Enter}')
     expect(screen.getByRole('switch', { name: 'Copy on select' })).toHaveFocus()
 
@@ -209,7 +209,7 @@ describe('SettingsPanel search', () => {
     renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('textbox', { name: zhHant.settings.search }))
-    await user.paste('游標閃爍')
+    await user.keyboard('游標閃爍')
 
     const blink = within(result('terminal')).getByRole('switch', {
       name: zhHant.settings.cursorBlink,
@@ -223,7 +223,7 @@ describe('SettingsPanel search', () => {
     renderSettings()
     const user = userEvent.setup()
     await user.click(searchBox())
-    await user.paste('poll')
+    await user.keyboard('poll')
 
     const page = result('extension-page:board')
     expect(page).toBeVisible()
@@ -254,7 +254,7 @@ describe('SettingsPanel search', () => {
     renderSettings()
     const user = userEvent.setup()
     await user.click(searchBox())
-    await user.paste('deploy')
+    await user.keyboard('deploy')
 
     const views = result('views')
     expect(views).toBeVisible()

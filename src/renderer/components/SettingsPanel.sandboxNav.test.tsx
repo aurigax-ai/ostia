@@ -157,7 +157,7 @@ describe('SettingsPanel sandbox nav', () => {
     renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('textbox', { name: 'Search settings' }))
-    await user.paste('billing')
+    await user.keyboard('billing')
     const list = within(nav()).getByRole('list', { name: 'Sandbox pages' })
     expect(
       within(list)
