@@ -4,18 +4,13 @@ import {
   REDACT_TEXT_MAX,
   type RedactionKindInfo,
   type RedactionResult,
-  type SecretSpan,
   applyRedactions,
-  compilePatterns,
-  customSpans,
-  extraSpans,
   parsePrivacySettings,
   unchanged,
 } from '../shared/redaction'
 import type { RedactText } from '../shared/redactionTargets'
-import { libraryKinds, scanSecrets } from './secretScanner'
-
-export type SecretScan = (text: string) => Promise<SecretSpan[]>
+import type { SecretScan } from './redactionScan'
+import { libraryKinds } from './secretScanner'
 
 export interface Redactor {
   settingsKey: () => string
@@ -25,29 +20,11 @@ export interface Redactor {
   text: RedactText
 }
 
-export function createRedactor(
-  readPrivacy: () => unknown,
-  scan: SecretScan = scanSecrets,
-): Redactor {
-  let compiledFor = ''
-  let compiled: RegExp[] = []
+export function createRedactor(readPrivacy: () => unknown, scan: SecretScan): Redactor {
   const settings = () => parsePrivacySettings(readPrivacy()).redaction
-  const patterns = (sources: string[]): RegExp[] => {
-    const key = JSON.stringify(sources)
-    if (key !== compiledFor) {
-      compiled = compilePatterns(sources)
-      compiledFor = key
-    }
-    return compiled
-  }
   const detect = async (text: string, sources: string[]): Promise<RedactionResult> => {
     if (text === '') return unchanged(text)
-    const spans = [
-      ...(await scan(text)),
-      ...extraSpans(text),
-      ...customSpans(text, patterns(sources)),
-    ]
-    return applyRedactions(text, spans)
+    return applyRedactions(text, await scan(text, sources))
   }
   const redact = (text: string): Promise<RedactionResult> => {
     const current = settings()
