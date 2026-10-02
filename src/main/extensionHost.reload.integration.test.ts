@@ -39,6 +39,10 @@ async function until<T>(read: () => T | undefined, timeoutMs = 5000): Promise<T>
   }
 }
 
+function settleWatchers(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, process.platform === 'darwin' ? 600 : 0))
+}
+
 describe('ExtensionHost hot reload of the user extensions directory', () => {
   let dir: string
   let userRoot: string
@@ -159,9 +163,11 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
   it('rescans by itself when the directory changes on disk', async () => {
     startHost()
     host.watchUserExtensions()
+    await settleWatchers()
     pinger(['notify'])
     await until(() => info('pinger'))
     expect(info('pinger')?.status).toBe('pending-approval')
+    await settleWatchers()
     pinger(['notify'], '3.0.0')
     await until(() => (info('pinger')?.version === '3.0.0' ? true : undefined))
   })
@@ -169,6 +175,7 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
   it('picks up a manifest written into a directory that appeared empty earlier', async () => {
     startHost()
     host.watchUserExtensions()
+    await settleWatchers()
     mkdirSync(join(userRoot, 'late'))
     await new Promise((r) => setTimeout(r, 600))
     expect(info('late')).toBeUndefined()
