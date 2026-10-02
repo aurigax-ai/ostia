@@ -1,8 +1,8 @@
 import { execFile, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { promisify } from 'node:util'
+import { socketPath } from '../privateTmp'
 
 const run = promisify(execFile)
 const SOCKET_WAIT_MS = 5000
@@ -22,7 +22,7 @@ async function waitFor(path: string): Promise<boolean> {
 }
 
 export async function startSshAgent(dir: string, keys: readonly string[]): Promise<SshAgent> {
-  const socket = join(dir, 'agent.sock')
+  const socket = socketPath(dir, 'agent.sock')
   const child = spawn('ssh-agent', ['-D', '-a', socket], { stdio: 'ignore' })
   const stop = (): void => {
     if (child.exitCode === null) child.kill()
