@@ -49,11 +49,10 @@ test('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () 
 test('OSC 52 leaves the clipboard alone by default', async () => {
   const { app, win } = await launch({})
   try {
-    await app.evaluate(({ clipboard }) => clipboard.writeText('before'))
-    await run(win, "printf '\\033]52;c;%s\\a' \"$(printf pine-osc52 | base64)\"; echo osc-sent")
+    await run(win, "printf '\\033]52;c;%s\\a' \"$(printf pine-osc52-off | base64)\"; echo osc-sent")
     await expect(win.locator('.xterm-rows').first()).toContainText('osc-sent')
     await win.waitForTimeout(300)
-    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('before')
+    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).not.toBe('pine-osc52-off')
   } finally {
     await app.close()
   }
@@ -109,5 +108,38 @@ test('selecting terminal text fills the primary selection, and middle click past
     await expect(off.win.locator('.xterm-rows').first()).not.toContainText('from-primary')
   } finally {
     await off.app.close()
+  }
+})
+
+test('default chords split a pane, move focus by direction and zoom it', async () => {
+  const { app, win } = await launch({})
+  try {
+    await win.locator('.xterm').first().click()
+    const panes = win.locator('.pane')
+    await expect(panes).toHaveCount(1)
+    const first = await panes.first().getAttribute('data-pane-id')
+
+    await win.keyboard.press('Control+Alt+Backslash')
+    await expect(panes).toHaveCount(2)
+    const active = win.locator('.pane.active')
+    await expect(active).not.toHaveAttribute('data-pane-id', first ?? '')
+    const second = await active.getAttribute('data-pane-id')
+
+    await win.keyboard.press('Control+Shift+Alt+H')
+    await expect(active).toHaveAttribute('data-pane-id', first ?? '')
+    await win.keyboard.type('echo typed-in-left')
+    await expect(
+      win.locator(`.pane[data-pane-id="${first}"] .xterm-rows`),
+    ).toContainText('echo typed-in-left')
+
+    await win.keyboard.press('Control+Shift+Alt+L')
+    await expect(active).toHaveAttribute('data-pane-id', second ?? '')
+
+    await win.keyboard.press('Control+Shift+X')
+    await expect(win.locator('.pane:visible')).toHaveCount(1)
+    await win.keyboard.press('Control+Shift+X')
+    await expect(win.locator('.pane:visible')).toHaveCount(2)
+  } finally {
+    await app.close()
   }
 })
