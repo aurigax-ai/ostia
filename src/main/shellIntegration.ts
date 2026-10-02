@@ -265,6 +265,10 @@ function hookCommand(pineArgs: string): string {
   return `[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" ${pineArgs} >/dev/null 2>&1 || true`
 }
 
+export function busHookCommand(event: AgentHookEvent): string {
+  return `[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" bus hook ${event} 2>/dev/null || true`
+}
+
 export function extensionHookCommand(hook: ExtensionAgentHook, agent: HookAgent): string {
   return `[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" agent-hook ${hook.extId} ${hook.command} ${agent} ${hook.event} 2>/dev/null || true`
 }
@@ -283,8 +287,8 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
   hooks: Record<string, unknown[]>
 } {
   const own: Partial<Record<AgentHookEvent, string[]>> = {
-    SessionStart: [hookCommand('resume-token claude -')],
-    UserPromptSubmit: [hookCommand('state working')],
+    SessionStart: [hookCommand('resume-token claude -'), busHookCommand('SessionStart')],
+    UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
     Notification: [hookCommand('state waiting -')],
     Stop: [hookCommand('state done')],
   }
@@ -440,8 +444,9 @@ export function codexHookCommands(
     SessionStart: [
       hookCommand('resume-token codex -'),
       `[ -n "$PINE_SOCKET" ] && cat ${shellQuote(contextFile)} 2>/dev/null || true`,
+      busHookCommand('SessionStart'),
     ],
-    UserPromptSubmit: [hookCommand('state working')],
+    UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
     PermissionRequest: [hookCommand('state waiting -')],
     Stop: [hookCommand('state done')],
   }
