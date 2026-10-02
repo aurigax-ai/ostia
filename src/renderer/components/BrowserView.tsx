@@ -2,17 +2,20 @@ import {
   ArrowClockwiseIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
+  CropIcon,
   CursorClickIcon,
   DatabaseIcon,
 } from '@phosphor-icons/react'
 import { type BrowserProfile, browserPartition } from '@shared/browserProfile'
-import type { PickCapture, PickTheme } from '@shared/pick'
+import type { PickBox, PickCapture, PickTheme } from '@shared/pick'
+import type { RegionCapture, RegionView } from '@shared/regionCapture'
 import type { WebviewTag } from 'electron'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { resolveAddress } from '../lib/browserAddress'
 import type { PickTarget } from '../lib/pickTargets'
-import { sendPickToPane } from '../lib/sendPick'
+import { registerRegionCapture } from '../lib/regionCaptures'
+import { sendPickToPane, sendRegionToPane } from '../lib/sendPick'
 import { terminalTitle } from '../lib/terminalTitle'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
@@ -21,6 +24,7 @@ import { BrowserStoragePanel } from './BrowserStoragePanel'
 import { IconButton } from './IconButton'
 import { LoginButton } from './LoginButton'
 import { PickSendPanel, useAgentTargets, useNoAgentsText } from './PickSendPanel'
+import { RegionCropOverlay } from './RegionCropOverlay'
 import { Button } from './ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
 import { Input } from './ui/input'
@@ -203,6 +207,8 @@ export function BrowserView({
 
   const [picking, setPicking] = useState<{ byAgent: boolean } | null>(null)
   const [capture, setCapture] = useState<PickCapture | null>(null)
+  const [cropping, setCropping] = useState(false)
+  const [region, setRegion] = useState<RegionCapture | null>(null)
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const targets = useAgentTargets(workspaceId)
@@ -223,12 +229,42 @@ export function BrowserView({
     return () => clearTimeout(timer)
   }, [status])
 
+  const startCrop = useCallback((): void => {
+    window.pine.browser.pickCancel(paneId)
+    setCapture(null)
+    setRegion(null)
+    setStatus(null)
+    setCropping(true)
+  }, [paneId])
+
+  useEffect(() => registerRegionCapture(paneId, startCrop), [paneId, startCrop])
+
+  const finishCrop = async (rect: PickBox, view: RegionView): Promise<void> => {
+    setCropping(false)
+    const outcome = await window.pine.browser.regionCapture(paneId, { rect, view })
+    if (outcome.ok) setRegion(outcome.capture)
+    else setStatus(fmt(d.browser.regionFailed, { reason: outcome.error }))
+  }
+
+  const copyRegion = async (): Promise<void> => {
+    if (!region) return
+    const res = await window.pine.browser.regionCopy(paneId, region.id)
+    if (res.ok) {
+      setRegion(null)
+      setStatus(d.browser.imageCopied)
+    } else {
+      setStatus(fmt(d.browser.imageCopyFailed, { reason: res.error }))
+    }
+  }
+
   const togglePick = async (): Promise<void> => {
     if (picking) {
       window.pine.browser.pickCancel(paneId)
       return
     }
     setCapture(null)
+    setRegion(null)
+    setCropping(false)
     setStatus(null)
     setPicking({ byAgent: false })
     withGuest((wv) => wv.focus())
@@ -241,18 +277,25 @@ export function BrowserView({
   }
 
   const send = async (target: PickTarget, note: string): Promise<void> => {
-    if (!capture) return
+    if (!capture && !region) return
     setSending(true)
     try {
-      const res = await sendPickToPane({
-        capture,
+      const opts = {
         sourcePaneId: paneId,
         targetPaneId: target.paneId,
         via: target.via,
         note,
-      })
+        attachImage: useSettingsStore.getState().browser.attachCaptureImage,
+      }
+      const res = region
+        ? await sendRegionToPane({ ...opts, capture: region })
+        : capture
+          ? await sendPickToPane({ ...opts, capture })
+          : null
+      if (!res) return
       if (res.ok) {
         setCapture(null)
+        setRegion(null)
         setStatus(
           fmt(res.inserted ? d.send.sentInserted : d.send.sentCopied, { pane: target.title }),
         )
@@ -321,6 +364,12 @@ export function BrowserView({
           aria-pressed={picking !== null}
           onClick={() => void togglePick()}
         />
+        <IconButton
+          icon={CropIcon}
+          label={cropping ? d.browser.regionStop : d.browser.region}
+          aria-pressed={cropping}
+          onClick={() => (cropping ? setCropping(false) : startCrop())}
+        />
         <LoginButton paneId={paneId} pageKey={navCount} onStatus={setStatus} />
         <IconButton
           icon={DatabaseIcon}
@@ -329,9 +378,15 @@ export function BrowserView({
           onClick={() => setStorageOpen((open) => !open)}
         />
       </div>
-      {picking || status ? (
+      {picking || cropping || status ? (
         <output className="block flex-none border-line border-b bg-surface-2 px-3 py-1 text-fg-muted text-ui-sm">
-          {picking ? (picking.byAgent ? d.browser.pickHintAgent : d.browser.pickHint) : status}
+          {picking
+            ? picking.byAgent
+              ? d.browser.pickHintAgent
+              : d.browser.pickHint
+            : cropping
+              ? d.browser.regionHint
+              : status}
         </output>
       ) : null}
       {capture ? (
@@ -348,6 +403,25 @@ export function BrowserView({
           onClose={() => setCapture(null)}
         />
       ) : null}
+      {region ? (
+        <PickSendPanel
+          id={region.id}
+          summary={fmt(d.browser.regionSummary, {
+            width: region.rect.width,
+            height: region.rect.height,
+            page: region.title || region.url,
+          })}
+          noteLabel={d.browser.note}
+          notePlaceholder={d.browser.notePlaceholder}
+          closeLabel={d.browser.closeSend}
+          targets={targets}
+          noTargets={noTargets}
+          sending={sending}
+          onSend={(target, note) => void send(target, note)}
+          onClose={() => setRegion(null)}
+          secondary={{ label: d.browser.copyImage, onClick: () => void copyRegion() }}
+        />
+      ) : null}
       <div className="browser-stage">
         {partition ? (
           <webview
@@ -358,6 +432,13 @@ export function BrowserView({
             className="browser-webview"
             src={src}
             partition={partition}
+          />
+        ) : null}
+        {cropping ? (
+          <RegionCropOverlay
+            label={d.browser.regionLayer}
+            onDone={(rect, view) => void finishCrop(rect, view)}
+            onCancel={() => setCropping(false)}
           />
         ) : null}
         {loadError ? (

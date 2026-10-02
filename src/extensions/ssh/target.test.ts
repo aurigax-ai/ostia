@@ -16,6 +16,7 @@ describe('parseTarget', () => {
       port: 2200,
       jump: ['b1', 'ops@b2:2222'],
       proxyCommand: false,
+      remoteCommand: false,
     })
   })
 
@@ -28,7 +29,21 @@ describe('parseTarget', () => {
       port: 22,
       jump: [],
       proxyCommand: true,
+      remoteCommand: false,
     })
     expect(JSON.stringify(target)).not.toContain('nc -X')
+  })
+
+  it('SSH-C29 reports a RemoteCommand from the ssh config only as a flag, never its text', () => {
+    const target = parseTarget('rc', captured('rc'))
+    expect(target.remoteCommand).toBe(true)
+    expect(JSON.stringify(target)).not.toContain('tmux')
+  })
+
+  it('SSH-C29 treats a session type other than the default as a config that decides what runs', () => {
+    const base = ['user dev', 'hostname h', 'port 22']
+    expect(parseTarget('h', [...base, 'sessiontype none'].join('\n')).remoteCommand).toBe(true)
+    expect(parseTarget('h', [...base, 'sessiontype subsystem'].join('\n')).remoteCommand).toBe(true)
+    expect(parseTarget('h', [...base, 'sessiontype default'].join('\n')).remoteCommand).toBe(false)
   })
 })

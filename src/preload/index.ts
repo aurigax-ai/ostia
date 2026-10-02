@@ -27,6 +27,7 @@ import type {
 import type { EditorLanguage } from '../shared/editorLanguages'
 import type { ExtensionSuggestion } from '../shared/extensionSuggestions'
 import type {
+  ExtensionAgentOffer,
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
@@ -52,6 +53,7 @@ import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { QuestionState } from '../shared/questions'
+import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/regionCapture'
 import type { ReleaseCheckResult, ReleaseInfo } from '../shared/releases'
 import type {
   SandboxEditError,
@@ -373,6 +375,11 @@ const bridge: PineBridge = {
       ipcRenderer.on('browser:pick-state', handler)
       return () => ipcRenderer.removeListener('browser:pick-state', handler)
     },
+    regionCapture: (paneId, req) =>
+      ipcRenderer.invoke('browser:region-capture', paneId, req) as Promise<RegionCaptureOutcome>,
+    regionSend: (req) => ipcRenderer.invoke('browser:region-send', req) as Promise<PickSendResult>,
+    regionCopy: (paneId, captureId) =>
+      ipcRenderer.invoke('browser:region-copy', paneId, captureId) as Promise<RegionCopyResult>,
     storageRead: (paneId) =>
       ipcRenderer.invoke('browser:storage-read', paneId) as Promise<BrowserStorageRead>,
     storageSet: (paneId, edit) =>
@@ -390,6 +397,11 @@ const bridge: PineBridge = {
         files.map((file) => webUtils.getPathForFile(file)).filter((path) => path.length > 0),
         workspaceId,
       ) as Promise<OpenFileVerdict[]>,
+  },
+  clipboard: {
+    edit: (edit) => ipcRenderer.invoke('clipboard:edit', edit) as Promise<void>,
+    hasImage: () => ipcRenderer.invoke('clipboard:has-image') as Promise<boolean>,
+    setChords: (chords) => ipcRenderer.send('clipboard:set-chords', chords),
   },
   openPath: {
     openDefault: (path) =>
@@ -653,6 +665,23 @@ const bridge: PineBridge = {
       ipcRenderer.on('extensions:open-terminal', handler)
       return () => ipcRenderer.removeListener('extensions:open-terminal', handler)
     },
+    onAgentOffer: (cb) => {
+      const handler = (_e: unknown, offer: ExtensionAgentOffer): void => cb(offer)
+      ipcRenderer.on('extensions:agent-offer', handler)
+      return () => ipcRenderer.removeListener('extensions:agent-offer', handler)
+    },
+    onAgentOfferWithdrawn: (cb) => {
+      const handler = (_e: unknown, requestId: string): void => cb(requestId)
+      ipcRenderer.on('extensions:agent-offer-withdrawn', handler)
+      return () => ipcRenderer.removeListener('extensions:agent-offer-withdrawn', handler)
+    },
+    answerAgentOffer: (requestId, paneId) =>
+      ipcRenderer.send('extensions:agent-offer-result', requestId, paneId),
+    onFocusPane: (cb) => {
+      const handler = (_e: unknown, paneId: string): void => cb(paneId)
+      ipcRenderer.on('extensions:focus-pane', handler)
+      return () => ipcRenderer.removeListener('extensions:focus-pane', handler)
+    },
   },
   assist: {
     availability: () => ipcRenderer.invoke('assist:availability') as Promise<AssistAvailability>,
@@ -711,7 +740,7 @@ const bridge: PineBridge = {
     preview: (req) => ipcRenderer.invoke('chatTools:preview', req),
     plan: (req) => ipcRenderer.invoke('chatTools:plan', req),
     write: (req) => ipcRenderer.invoke('chatTools:write', req),
-    undo: (req) => ipcRenderer.invoke('chatTools:undo', req),
+    restore: (req) => ipcRenderer.invoke('chatTools:restore', req),
     skills: () => ipcRenderer.invoke('chatTools:skills'),
     loadSkill: (name) => ipcRenderer.invoke('chatTools:load-skill', name),
     mcpStatus: () => ipcRenderer.invoke('chatTools:mcp-status'),

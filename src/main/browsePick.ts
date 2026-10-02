@@ -222,7 +222,7 @@ export function writePickReport(
     return { ok: false, error: 'write-failed' }
   }
   postBusMessage(source.externalId, target.externalId, pickBusMessage(stored.capture, note, path))
-  return { ok: true, path }
+  return { ok: true, path, imagePath: stored.capture.screenshotPath }
 }
 
 export function registerPickIpc(deps: PickDeps, reaches: OriginReach): void {

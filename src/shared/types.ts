@@ -14,6 +14,7 @@ import type { BuildInfo } from './buildInfo'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { ChatSessionsApi } from './chatSessions'
 import type { ChatToolsApi } from './chatTools'
+import type { ClipboardChords, ClipboardEdit } from './clipboardChords'
 import type { SpecCommand } from './completionSpec'
 import type {
   CredentialImportResult,
@@ -32,6 +33,12 @@ import type { OpenFileVerdict } from './openFiles'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type { QuestionReply, QuestionState } from './questions'
+import type {
+  RegionCaptureOutcome,
+  RegionCaptureRequest,
+  RegionCopyResult,
+  RegionSendRequest,
+} from './regionCapture'
 import type { ReleaseCheckResult, ReleaseInfo } from './releases'
 import type {
   PortsPolicy,
@@ -63,6 +70,7 @@ export interface AppInfo {
   name: string
   version: string
   platform: Platform
+  hostName: string
 }
 
 export const RENDERER_ERROR_KINDS = ['error', 'rejection', 'render', 'surface'] as const
@@ -628,6 +636,9 @@ export interface BrowserApi {
   pickCancel: (paneId: string) => void
   pickSend: (req: PickSendRequest) => Promise<PickSendResult>
   onPickState: (cb: (state: PickState) => void) => () => void
+  regionCapture: (paneId: string, req: RegionCaptureRequest) => Promise<RegionCaptureOutcome>
+  regionSend: (req: RegionSendRequest) => Promise<PickSendResult>
+  regionCopy: (paneId: string, captureId: string) => Promise<RegionCopyResult>
   storageRead: (paneId: string) => Promise<BrowserStorageRead>
   storageSet: (paneId: string, edit: StorageEdit) => Promise<StorageWriteResult>
   storageRemove: (paneId: string, removal: StorageRemoval) => Promise<StorageWriteResult>
@@ -650,6 +661,12 @@ export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'p
 export interface FilesApi {
   pathForFile: (file: File) => string
   admitDropped: (files: File[], workspaceId: string | null) => Promise<OpenFileVerdict[]>
+}
+
+export interface ClipboardApi {
+  edit: (edit: ClipboardEdit) => Promise<void>
+  hasImage: () => Promise<boolean>
+  setChords: (chords: ClipboardChords) => void
 }
 
 export interface OpenPathApi {
@@ -824,6 +841,7 @@ export interface PineBridge {
   update: AppUpdateApi
   agentSession: AgentSessionApi
   openPath: OpenPathApi
+  clipboard: ClipboardApi
   files: FilesApi
   extensions: ExtensionsApi
   marketplace: MarketplaceApi

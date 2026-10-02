@@ -30,6 +30,7 @@ export function readLogicalLine(term: Terminal, row: number): LogicalLine {
 
 export interface FileLinkDeps {
   cwd: () => string | null
+  remote: () => boolean
   stat: (path: string) => Promise<'file' | 'dir' | null>
   open: (path: string, line?: number, column?: number) => void
   modifierHeld: (event: MouseEvent) => boolean
@@ -47,6 +48,10 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
 
   return {
     provideLinks(row, callback) {
+      if (deps.remote()) {
+        callback(undefined)
+        return
+      }
       const cwd = deps.cwd()
       const { text, cells } = readLogicalLine(term, row)
       const matches = findFileLinks(text).filter((m) => {
