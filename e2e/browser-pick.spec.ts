@@ -110,6 +110,9 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
     expect(report).toContain('Checkout button is misaligned')
     expect(report).toContain('checkout exploded')
     expect(report).toMatch(/- Screenshot: \S+\.png/)
+    const shot = text.match(/capture-\d+\S*\.md @(\S*pick-\S*\.png)/)
+    expect(shot).not.toBeNull()
+    expect(report).toContain(`![Captured element](${(shot as RegExpMatchArray)[1]})`)
   } finally {
     await app.close()
   }

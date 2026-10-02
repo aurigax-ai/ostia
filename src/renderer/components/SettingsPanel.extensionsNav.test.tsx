@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import type { ExtensionInfo } from '@shared/extensions'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installLocalStorage } from '../../../test/mocks/memoryStorage'
@@ -232,21 +232,28 @@ describe('SettingsPanel extensions nav', () => {
     renderSettings()
     const user = userEvent.setup()
     const search = screen.getByRole('textbox', { name: 'Search settings' })
+    const searchFor = async (text: string): Promise<void> => {
+      await user.clear(search)
+      await user.click(search)
+      await user.paste(text)
+    }
 
-    await user.type(search, 'scan interval')
+    await searchFor('scan interval')
+    await waitFor(() =>
+      expect(within(nav()).queryByRole('button', { name: 'Appearance' })).toBeNull(),
+    )
     expect(within(nav()).getByRole('button', { name: 'Extensions' })).toBeInTheDocument()
     expect(within(nav()).getByRole('button', { name: 'Ports' })).toBeInTheDocument()
     expect(within(nav()).queryByRole('button', { name: 'Git' })).toBeNull()
-    expect(within(nav()).queryByRole('button', { name: 'Appearance' })).toBeNull()
 
-    await user.clear(search)
-    await user.type(search, 'git')
+    await searchFor('git')
+    await waitFor(() => expect(within(nav()).queryByRole('button', { name: 'Ports' })).toBeNull())
     expect(within(nav()).getByRole('button', { name: 'Git' })).toBeInTheDocument()
-    expect(within(nav()).queryByRole('button', { name: 'Ports' })).toBeNull()
 
-    await user.clear(search)
-    await user.type(search, 'no such thing')
-    expect(within(nav()).queryByRole('button', { name: 'Extensions' })).toBeNull()
+    await searchFor('no such thing')
+    await waitFor(() =>
+      expect(within(nav()).queryByRole('button', { name: 'Extensions' })).toBeNull(),
+    )
   })
 
   describe('an extension that asks for its own page', () => {
@@ -300,7 +307,8 @@ describe('SettingsPanel extensions nav', () => {
     it('is found by its page title in the search box', async () => {
       renderSettings()
       const user = userEvent.setup()
-      await user.type(screen.getByRole('textbox', { name: 'Search settings' }), 'board sync')
+      await user.click(screen.getByRole('textbox', { name: 'Search settings' }))
+      await user.paste('board sync')
       expect(within(nav()).getByRole('button', { name: 'Board sync' })).toBeInTheDocument()
       expect(within(nav()).queryByRole('button', { name: 'Ports' })).toBeNull()
     })

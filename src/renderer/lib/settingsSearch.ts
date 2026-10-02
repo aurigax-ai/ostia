@@ -1,0 +1,57 @@
+export interface HighlightPart {
+  text: string
+  at: number
+  match: boolean
+}
+
+const REGEX_SPECIALS = /[.*+?^${}()|[\]\\]/g
+
+function escapeRegExp(text: string): string {
+  return text.replace(REGEX_SPECIALS, '\\$&')
+}
+
+function queryPattern(query: string): RegExp | null {
+  const q = query.trim()
+  return q ? new RegExp(escapeRegExp(q), 'gi') : null
+}
+
+export function matchesQuery(
+  texts: readonly (string | null | undefined)[],
+  query: string,
+): boolean {
+  const pattern = queryPattern(query)
+  if (!pattern) return false
+  return texts.some((text) => {
+    if (!text) return false
+    pattern.lastIndex = 0
+    return pattern.test(text)
+  })
+}
+
+export function highlightParts(text: string, query: string): HighlightPart[] {
+  const pattern = queryPattern(query)
+  if (!pattern || !text) return text ? [{ text, at: 0, match: false }] : []
+  const parts: HighlightPart[] = []
+  let cursor = 0
+  for (const found of text.matchAll(pattern)) {
+    const start = found.index
+    if (start > cursor) parts.push({ text: text.slice(cursor, start), at: cursor, match: false })
+    parts.push({ text: found[0], at: start, match: true })
+    cursor = start + found[0].length
+  }
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), at: cursor, match: false })
+  return parts
+}
+
+const FOCUSABLE =
+  'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [role="switch"], [role="combobox"], [tabindex]:not([tabindex="-1"])'
+
+export function firstMatchControl(root: ParentNode | null): HTMLElement | null {
+  if (!root) return null
+  for (const hit of root.querySelectorAll<HTMLElement>('[data-search-hit]')) {
+    if (hit.closest('[hidden]')) continue
+    const control = hit.matches(FOCUSABLE) ? hit : hit.querySelector<HTMLElement>(FOCUSABLE)
+    if (control) return control
+  }
+  return null
+}

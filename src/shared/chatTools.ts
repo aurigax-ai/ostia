@@ -223,6 +223,7 @@ export type ChatFsError =
   | 'no-match'
   | 'ambiguous'
   | 'no-change'
+  | 'unsaved'
 
 export interface ChatFsFailure {
   ok: false
@@ -283,6 +284,12 @@ export interface ChatSearchOutput {
   truncated: boolean
 }
 
+export interface ChatPreviewRequest {
+  path: string
+  root: string
+  dirty: string[]
+}
+
 export interface ChatPreviewOutput {
   path: string
   exists: boolean
@@ -290,6 +297,7 @@ export interface ChatPreviewOutput {
   version: string | null
   outside: boolean
   symlink: boolean
+  unsaved: boolean
 }
 
 export interface ChatPlanRequest {
@@ -297,6 +305,7 @@ export interface ChatPlanRequest {
   root: string
   edits: ChatEdit[]
   outside: boolean
+  dirty: string[]
 }
 
 export interface ChatPlanOutput {
@@ -306,6 +315,7 @@ export interface ChatPlanOutput {
   version: string
   outside: boolean
   symlink: boolean
+  unsaved: boolean
 }
 
 export interface ChatWriteRequest extends ChatFsTarget {
@@ -321,13 +331,15 @@ export interface ChatWriteOutput {
   version: string
 }
 
-export interface ChatUndoRequest extends ChatFsTarget {
+export interface ChatRestoreRequest extends ChatFsTarget {
   symlinks: boolean
-  wrote: string
-  restore: string | null
+  expected: string | null
+  content: string | null
+  dirty: string[]
+  check?: boolean
 }
 
-export interface ChatUndoOutput {
+export interface ChatRestoreOutput {
   path: string
   removed: boolean
   version: string | null
@@ -360,10 +372,10 @@ export interface ChatToolsApi {
   read: (req: ChatReadRequest) => Promise<ChatFsResult<ChatReadOutput>>
   list: (req: ChatFsTarget) => Promise<ChatFsResult<ChatListOutput>>
   search: (req: ChatSearchRequest) => Promise<ChatFsResult<ChatSearchOutput>>
-  preview: (req: Omit<ChatFsTarget, 'outside'>) => Promise<ChatFsResult<ChatPreviewOutput>>
+  preview: (req: ChatPreviewRequest) => Promise<ChatFsResult<ChatPreviewOutput>>
   plan: (req: ChatPlanRequest) => Promise<ChatFsResult<ChatPlanOutput>>
   write: (req: ChatWriteRequest) => Promise<ChatFsResult<ChatWriteOutput>>
-  undo: (req: ChatUndoRequest) => Promise<ChatFsResult<ChatUndoOutput>>
+  restore: (req: ChatRestoreRequest) => Promise<ChatFsResult<ChatRestoreOutput>>
   skills: () => Promise<SkillSummary[]>
   loadSkill: (name: string) => Promise<SkillLoadResult>
   mcpStatus: () => Promise<McpServerStatus[]>
@@ -387,3 +399,4 @@ export const CHAT_SEARCH_FILE_MAX = 1024 * 1024
 export const CHAT_READ_FILE_MAX = 4 * 1024 * 1024
 export const CHAT_WRITE_MAX = 1024 * 1024
 export const CHAT_QUERY_MAX = 200
+export const CHAT_DIRTY_PATHS_MAX = 256

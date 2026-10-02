@@ -156,7 +156,8 @@ describe('SettingsPanel sandbox nav', () => {
   it('finds a workspace by name when searching, without the fold control', async () => {
     renderSettings()
     const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: 'Search settings' }), 'billing')
+    await user.click(screen.getByRole('textbox', { name: 'Search settings' }))
+    await user.paste('billing')
     const list = within(nav()).getByRole('list', { name: 'Sandbox pages' })
     expect(
       within(list)
