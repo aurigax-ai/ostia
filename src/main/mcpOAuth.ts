@@ -1,7 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { type ServerResponse, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { escape } from 'es-toolkit'
 import {
   type OAuthClientInformation,
   type OAuthClientMetadata,
@@ -10,6 +9,7 @@ import {
   auth,
   createMCPClient,
 } from '@ai-sdk/mcp'
+import { escape as escapeHtml } from 'es-toolkit'
 import type {
   McpAuthState,
   McpServerSettings,
@@ -71,7 +71,7 @@ function respond(res: ServerResponse, status: number, text: string): void {
     connection: 'close',
   })
   res.end(
-    `<!doctype html><meta charset="utf-8"><title>${escape(PRODUCT_NAME)}</title><p>${escape(text)}</p>`,
+    `<!doctype html><meta charset="utf-8"><title>${escapeHtml(PRODUCT_NAME)}</title><p>${escapeHtml(text)}</p>`,
   )
 }
 

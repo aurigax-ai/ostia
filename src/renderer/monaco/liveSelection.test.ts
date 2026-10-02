@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { debounce } from 'es-toolkit'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('debounce with cleanup', () => {
   beforeEach(() => {

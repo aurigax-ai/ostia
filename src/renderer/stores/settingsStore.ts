@@ -619,194 +619,197 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     setLocale: (locale) => {
       set({ locale })
       debouncedSave()
-  },
-  setTheme: (theme) => {
-    set((s) => ({ appearance: { ...s.appearance, theme } }))
-    debouncedSave()
-  },
-  setFollowSystem: (followSystem) => {
-    set((s) => ({ appearance: { ...s.appearance, followSystem } }))
-    debouncedSave()
-  },
-  setLightTheme: (lightTheme) => {
-    set((s) => ({ appearance: { ...s.appearance, lightTheme } }))
-    debouncedSave()
-  },
-  setDarkTheme: (darkTheme) => {
-    set((s) => ({ appearance: { ...s.appearance, darkTheme } }))
-    debouncedSave()
-  },
-  setAccent: (hex) => {
-    const accent = hex.trim() === '' ? '' : normalizeHex(hex)
-    if (accent === null) return false
-    set((s) => ({ appearance: { ...s.appearance, accent } }))
-    debouncedSave()
-    return true
-  },
-  setZoom: (percent) => {
-    set((s) => ({ appearance: { ...s.appearance, zoom: clampZoom(percent) } }))
-    debouncedSave()
-  },
-  setMotion: (motion) => {
-    set((s) => ({ appearance: { ...s.appearance, motion } }))
-    debouncedSave()
-  },
-  setSurfaceFont: (surface, patch) => {
-    set((s) => ({
-      appearance: { ...s.appearance, [surface]: { ...s.appearance[surface], ...patch } },
-    }))
-    debouncedSave()
-  },
-  setBehavior: (patch) => {
-    set((s) => ({ behavior: { ...s.behavior, ...patch } }))
-    debouncedSave()
-  },
-  setFiles: (patch) => {
-    set((s) => ({ files: parseFileTreeSettings({ ...s.files, ...patch }) }))
-    debouncedSave()
-  },
-  setTerminal: (patch) => {
-    set((s) => ({
-      terminal: {
-        ...s.terminal,
-        ...patch,
-        scrollSpeed: clampScrollSpeed(patch.scrollSpeed ?? s.terminal.scrollSpeed),
-        scrollbackLines: clampScrollback(patch.scrollbackLines ?? s.terminal.scrollbackLines),
-        minimumContrast: clampContrast(patch.minimumContrast ?? s.terminal.minimumContrast),
-        prompt: parsePromptSettings(patch.prompt ?? s.terminal.prompt),
-      },
-    }))
-    debouncedSave()
-  },
-  setPanes: (patch) => {
-    set((s) => ({ panes: { ...s.panes, ...patch } }))
-    debouncedSave()
-  },
-  setNotifications: (patch) => {
-    set((s) => ({ notifications: { ...s.notifications, ...patch } }))
-    debouncedSave()
-  },
-  setTerminalLineHeight: (lineHeight) => {
-    set((s) => ({
-      appearance: {
-        ...s.appearance,
-        terminal: { ...s.appearance.terminal, lineHeight: clampLineHeight(lineHeight) },
-      },
-    }))
-    debouncedSave()
-  },
-  setSidebar: (patch) => {
-    set((s) => ({ sidebar: { ...s.sidebar, ...patch } }))
-    debouncedSave()
-  },
-  setWorkspaces: (patch) => {
-    set((s) => ({ workspaces: { ...s.workspaces, ...patch } }))
-    debouncedSave()
-  },
-  setSandbox: async (next) => {
-    set({ sandbox: next })
-    await writeSettings(get())
-    await window.pine.sandbox.globalsChanged()
-  },
-  setManager: (patch) => {
-    set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))
-    debouncedSave()
-  },
-  setBrowser: (patch) => {
-    set((s) => ({ browser: parseBrowserSettings({ ...s.browser, ...patch }) }))
-    debouncedSave()
-  },
-  setEditor: (patch) => {
-    set((s) => ({ editor: parseEditorSettings({ ...s.editor, ...patch }) }))
-    debouncedSave()
-  },
-  setKeybinding: (id, chord) => {
-    set((s) => ({ keybindings: { ...s.keybindings, [id]: chord } }))
-    debouncedSave()
-  },
-  resetKeybinding: (id) => {
-    set((s) => {
-      const { [id]: _removed, ...rest } = s.keybindings
-      return { keybindings: rest }
-    })
-    debouncedSave()
-  },
-  setKeybindings: (keybindings) => {
-    set({ keybindings })
-    debouncedSave()
-  },
-  setExtensionSettings: (extId, values) => {
-    set((s) => ({ extensionSettings: { ...s.extensionSettings, [extId]: values } }))
-    debouncedSave()
-  },
-  setChatHistory: (chatHistory) => {
-    set((s) => ({ assistant: { ...s.assistant, chatHistory } }))
-    debouncedSave()
-  },
-  setChatTools: async (patch) => {
-    set((s) => ({
-      assistant: { ...s.assistant, ...parseChatToolSettings({ ...s.assistant, ...patch }) },
-    }))
-    debouncedSave.cancel()
-    await writeSettings(get())
-  },
-  setAssistModels: async (patch) => {
-    set((s) => ({
-      assistant: { ...s.assistant, ...parseAssistModelSettings({ ...s.assistant, ...patch }) },
-    }))
-    debouncedSave.cancel()
-    await writeSettings(get())
-  },
-  setAutoResume: (autoResume) => {
-    set((s) => ({ agents: { ...s.agents, autoResume } }))
-    debouncedSave()
-  },
-  setAgentHooks: (patch) => {
-    set((s) => ({ agents: { ...s.agents, hooks: { ...s.agents.hooks, ...patch } } }))
-    debouncedSave()
-  },
-  setHibernation: (patch) => {
-    set((s) => ({
-      agents: { ...s.agents, hibernation: parseHibernation({ ...s.agents.hibernation, ...patch }) },
-    }))
-    debouncedSave()
-  },
-  trustAction: (fingerprint) => {
-    set((s) =>
-      s.trustedActions.includes(fingerprint)
-        ? s
-        : { trustedActions: [...s.trustedActions, fingerprint] },
-    )
-    debouncedSave()
-  },
-  removeAction: (id) => {
-    set((s) => ({ actions: s.actions.filter((a) => a.id !== id) }))
-    debouncedSave()
-  },
-  setWindowTitle: (windowTitle) => {
-    set((s) => ({ appearance: { ...s.appearance, windowTitle: parseWindowTitle(windowTitle) } }))
-    debouncedSave()
-  },
-  setApprovalMode: (mode) => {
-    set({ approvals: { mode } })
-    debouncedSave()
-  },
-  setSyncDir: async (dir) => {
-    debouncedSave.cancel()
-    set({ sync: dir ? { dir } : undefined })
-    await writeSettings(get())
-  },
-  previewSetting: (path, value) => applySetting(get(), path, value),
-  setByPath: (path, value) => {
-    const change = applySetting(get(), path, value)
-    set(change.next)
-    debouncedSave()
-    return change
-  },
-  unsetByPath: (path) => {
-    const fallback = getByPath(DEFAULTS, path)
-    if (fallback === undefined) throw new Error(`unknown settings key: ${path}`)
-    return get().setByPath(path, structuredClone(fallback))
-  },
+    },
+    setTheme: (theme) => {
+      set((s) => ({ appearance: { ...s.appearance, theme } }))
+      debouncedSave()
+    },
+    setFollowSystem: (followSystem) => {
+      set((s) => ({ appearance: { ...s.appearance, followSystem } }))
+      debouncedSave()
+    },
+    setLightTheme: (lightTheme) => {
+      set((s) => ({ appearance: { ...s.appearance, lightTheme } }))
+      debouncedSave()
+    },
+    setDarkTheme: (darkTheme) => {
+      set((s) => ({ appearance: { ...s.appearance, darkTheme } }))
+      debouncedSave()
+    },
+    setAccent: (hex) => {
+      const accent = hex.trim() === '' ? '' : normalizeHex(hex)
+      if (accent === null) return false
+      set((s) => ({ appearance: { ...s.appearance, accent } }))
+      debouncedSave()
+      return true
+    },
+    setZoom: (percent) => {
+      set((s) => ({ appearance: { ...s.appearance, zoom: clampZoom(percent) } }))
+      debouncedSave()
+    },
+    setMotion: (motion) => {
+      set((s) => ({ appearance: { ...s.appearance, motion } }))
+      debouncedSave()
+    },
+    setSurfaceFont: (surface, patch) => {
+      set((s) => ({
+        appearance: { ...s.appearance, [surface]: { ...s.appearance[surface], ...patch } },
+      }))
+      debouncedSave()
+    },
+    setBehavior: (patch) => {
+      set((s) => ({ behavior: { ...s.behavior, ...patch } }))
+      debouncedSave()
+    },
+    setFiles: (patch) => {
+      set((s) => ({ files: parseFileTreeSettings({ ...s.files, ...patch }) }))
+      debouncedSave()
+    },
+    setTerminal: (patch) => {
+      set((s) => ({
+        terminal: {
+          ...s.terminal,
+          ...patch,
+          scrollSpeed: clampScrollSpeed(patch.scrollSpeed ?? s.terminal.scrollSpeed),
+          scrollbackLines: clampScrollback(patch.scrollbackLines ?? s.terminal.scrollbackLines),
+          minimumContrast: clampContrast(patch.minimumContrast ?? s.terminal.minimumContrast),
+          prompt: parsePromptSettings(patch.prompt ?? s.terminal.prompt),
+        },
+      }))
+      debouncedSave()
+    },
+    setPanes: (patch) => {
+      set((s) => ({ panes: { ...s.panes, ...patch } }))
+      debouncedSave()
+    },
+    setNotifications: (patch) => {
+      set((s) => ({ notifications: { ...s.notifications, ...patch } }))
+      debouncedSave()
+    },
+    setTerminalLineHeight: (lineHeight) => {
+      set((s) => ({
+        appearance: {
+          ...s.appearance,
+          terminal: { ...s.appearance.terminal, lineHeight: clampLineHeight(lineHeight) },
+        },
+      }))
+      debouncedSave()
+    },
+    setSidebar: (patch) => {
+      set((s) => ({ sidebar: { ...s.sidebar, ...patch } }))
+      debouncedSave()
+    },
+    setWorkspaces: (patch) => {
+      set((s) => ({ workspaces: { ...s.workspaces, ...patch } }))
+      debouncedSave()
+    },
+    setSandbox: async (next) => {
+      set({ sandbox: next })
+      await writeSettings(get())
+      await window.pine.sandbox.globalsChanged()
+    },
+    setManager: (patch) => {
+      set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))
+      debouncedSave()
+    },
+    setBrowser: (patch) => {
+      set((s) => ({ browser: parseBrowserSettings({ ...s.browser, ...patch }) }))
+      debouncedSave()
+    },
+    setEditor: (patch) => {
+      set((s) => ({ editor: parseEditorSettings({ ...s.editor, ...patch }) }))
+      debouncedSave()
+    },
+    setKeybinding: (id, chord) => {
+      set((s) => ({ keybindings: { ...s.keybindings, [id]: chord } }))
+      debouncedSave()
+    },
+    resetKeybinding: (id) => {
+      set((s) => {
+        const { [id]: _removed, ...rest } = s.keybindings
+        return { keybindings: rest }
+      })
+      debouncedSave()
+    },
+    setKeybindings: (keybindings) => {
+      set({ keybindings })
+      debouncedSave()
+    },
+    setExtensionSettings: (extId, values) => {
+      set((s) => ({ extensionSettings: { ...s.extensionSettings, [extId]: values } }))
+      debouncedSave()
+    },
+    setChatHistory: (chatHistory) => {
+      set((s) => ({ assistant: { ...s.assistant, chatHistory } }))
+      debouncedSave()
+    },
+    setChatTools: async (patch) => {
+      set((s) => ({
+        assistant: { ...s.assistant, ...parseChatToolSettings({ ...s.assistant, ...patch }) },
+      }))
+      debouncedSave.cancel()
+      await writeSettings(get())
+    },
+    setAssistModels: async (patch) => {
+      set((s) => ({
+        assistant: { ...s.assistant, ...parseAssistModelSettings({ ...s.assistant, ...patch }) },
+      }))
+      debouncedSave.cancel()
+      await writeSettings(get())
+    },
+    setAutoResume: (autoResume) => {
+      set((s) => ({ agents: { ...s.agents, autoResume } }))
+      debouncedSave()
+    },
+    setAgentHooks: (patch) => {
+      set((s) => ({ agents: { ...s.agents, hooks: { ...s.agents.hooks, ...patch } } }))
+      debouncedSave()
+    },
+    setHibernation: (patch) => {
+      set((s) => ({
+        agents: {
+          ...s.agents,
+          hibernation: parseHibernation({ ...s.agents.hibernation, ...patch }),
+        },
+      }))
+      debouncedSave()
+    },
+    trustAction: (fingerprint) => {
+      set((s) =>
+        s.trustedActions.includes(fingerprint)
+          ? s
+          : { trustedActions: [...s.trustedActions, fingerprint] },
+      )
+      debouncedSave()
+    },
+    removeAction: (id) => {
+      set((s) => ({ actions: s.actions.filter((a) => a.id !== id) }))
+      debouncedSave()
+    },
+    setWindowTitle: (windowTitle) => {
+      set((s) => ({ appearance: { ...s.appearance, windowTitle: parseWindowTitle(windowTitle) } }))
+      debouncedSave()
+    },
+    setApprovalMode: (mode) => {
+      set({ approvals: { mode } })
+      debouncedSave()
+    },
+    setSyncDir: async (dir) => {
+      debouncedSave.cancel()
+      set({ sync: dir ? { dir } : undefined })
+      await writeSettings(get())
+    },
+    previewSetting: (path, value) => applySetting(get(), path, value),
+    setByPath: (path, value) => {
+      const change = applySetting(get(), path, value)
+      set(change.next)
+      debouncedSave()
+      return change
+    },
+    unsetByPath: (path) => {
+      const fallback = getByPath(DEFAULTS, path)
+      if (fallback === undefined) throw new Error(`unknown settings key: ${path}`)
+      return get().setByPath(path, structuredClone(fallback))
+    },
   }
 })

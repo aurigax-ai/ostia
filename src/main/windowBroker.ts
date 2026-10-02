@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { debounce } from 'es-toolkit'
 import { type BrowserWindow, ipcMain, screen } from 'electron'
+import { debounce } from 'es-toolkit'
 import type {
   AppSnapshot,
   CommandResult,
