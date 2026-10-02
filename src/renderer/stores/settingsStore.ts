@@ -727,8 +727,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((s) => ({
       privacy: { redaction: parseRedactionSettings({ ...s.privacy.redaction, ...patch }) },
     }))
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = null
+    scheduleSave.cancel()
     await writeSettings(get())
   },
   setBrowser: (patch) => {
