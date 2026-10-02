@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { readFileSync, readdirSync, readlinkSync } from 'node:fs'
 import { type Server, type Socket, createServer } from 'node:net'
+import { parseProcStat } from '../../shared/procfs'
 
 export interface SandboxListener {
   port: number
@@ -39,10 +40,12 @@ function childrenMap(): Map<number, number[]> {
     if (!/^\d+$/.test(entry)) continue
     try {
       const stat = readFileSync(`/proc/${entry}/stat`, 'utf8')
-      const ppid = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[1])
-      const list = children.get(ppid) ?? []
-      list.push(Number(entry))
-      children.set(ppid, list)
+      const parsed = parseProcStat(stat)
+      if (parsed) {
+        const list = children.get(parsed.ppid) ?? []
+        list.push(parsed.pid)
+        children.set(parsed.ppid, list)
+      }
     } catch {}
   }
   return children
