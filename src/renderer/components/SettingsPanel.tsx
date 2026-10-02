@@ -1273,6 +1273,7 @@ function TerminalSection(): JSX.Element {
   const copyOnSelect = useSettingsStore((s) => s.behavior.copyOnSelect)
   const mode = useSettingsStore((s) => s.behavior.inputMode)
   const vim = useSettingsStore((s) => s.behavior.inputEditorVim)
+  const historySuggestions = useSettingsStore((s) => s.behavior.historySuggestions)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   const scrollSpeed = useSettingsStore((s) => s.terminal.scrollSpeed)
   const scrollbackLines = useSettingsStore((s) => s.terminal.scrollbackLines)
@@ -1311,6 +1312,12 @@ function TerminalSection(): JSX.Element {
           desc={d.settings.inputEditorVimDesc}
           checked={vim}
           onChange={(v) => setBehavior({ inputEditorVim: v })}
+        />
+        <ToggleRow
+          label={d.settings.historySuggestions}
+          desc={d.settings.historySuggestionsDesc}
+          checked={historySuggestions}
+          onChange={(v) => setBehavior({ historySuggestions: v })}
         />
         <ControlRow
           label={d.prompt.title}

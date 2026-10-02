@@ -1442,6 +1442,13 @@ export const en = {
     formatOnSave: 'Format on save',
     formatOnSaveDesc:
       'Format the file with the language server (or the built-in formatter) before saving. Files with no formatter are just saved.',
+    markdownPreview: 'Open Markdown as preview',
+    markdownPreviewDesc:
+      'Markdown files open in the rendered preview; the eye button switches to the source.',
+    diffLayout: 'Diff layout',
+    diffLayoutDesc: 'How a diff opens. The button in each diff switches it.',
+    diffSideBySide: 'Side by side',
+    diffInline: 'Inline',
   },
   keyboard: {
     title: 'Keyboard',
@@ -2135,10 +2142,10 @@ export const en = {
     groupAgentHooks: 'Integration',
     claudeHooks: 'Claude Code integration',
     claudeHooksDesc:
-      'Run claude with the Pine plugin: the CLI skill, resume tokens and attention hooks. Turn it off if it clashes with your own hooks. Applies to new terminals.',
+      'Run claude with the {product} plugin: the CLI skill, resume tokens and attention hooks. Turn it off if it clashes with your own hooks. Applies to new terminals.',
     codexHooks: 'Codex integration',
     codexHooksDesc:
-      "Run codex sessions with Pine's hooks: resume tokens, attention state and the CLI context. Turn it off if it clashes with your own hooks. Applies to new terminals.",
+      'Run codex sessions with {product}’s hooks: resume tokens, attention state and the CLI context. Turn it off if it clashes with your own hooks. Applies to new terminals.',
     hibernate: 'Hibernate idle agents',
     hibernateDesc:
       'Stop the shell of an agent that is idle and out of sight once too many agents run. Only agents that stored a resume token; Resume brings them back.',
@@ -2187,6 +2194,9 @@ export const en = {
     inputEditorVim: 'Vim keys in the input editor',
     inputEditorVimDesc:
       'Esc switches to normal mode (h j k l w b e 0 $ x dd dw cw u, with counts); i a A I o O return to insert mode. Enter runs the command from either mode.',
+    historySuggestions: 'History suggestions',
+    historySuggestionsDesc:
+      'Show the latest matching command from history as gray text in the input editor; Right arrow accepts it.',
     promptStyle: 'Prompt style',
     promptStyleDesc:
       '{product} prompt shows context chips in the input editor and gives new shells a plain "directory" prompt, so scrollback stays readable.',
@@ -3722,6 +3732,12 @@ export const zhHant: Dict = {
     formatOnSave: '儲存時格式化',
     formatOnSaveDesc:
       '儲存前以語言伺服器（或內建格式化工具）格式化檔案。沒有格式化工具的檔案會直接儲存。',
+    markdownPreview: '以預覽開啟 Markdown',
+    markdownPreviewDesc: 'Markdown 檔案以轉譯後的預覽開啟；眼睛按鈕可切換到原始碼。',
+    diffLayout: '差異檢視版面',
+    diffLayoutDesc: '差異檢視開啟時的版面。每個差異檢視中的按鈕可切換。',
+    diffSideBySide: '並排',
+    diffInline: '內嵌',
   },
   keyboard: {
     title: '鍵盤',
@@ -4402,10 +4418,10 @@ export const zhHant: Dict = {
     groupAgentHooks: '整合',
     claudeHooks: 'Claude Code 整合',
     claudeHooksDesc:
-      '以 Pine 外掛執行 claude：CLI 技能、恢復權杖與注意力掛鉤。若與你自己的掛鉤衝突可關閉。套用於新終端機。',
+      '以 {product} 外掛執行 claude：CLI 技能、恢復權杖與注意力掛鉤。若與你自己的掛鉤衝突可關閉。套用於新終端機。',
     codexHooks: 'Codex 整合',
     codexHooksDesc:
-      '以 Pine 掛鉤執行 codex 工作階段：恢復權杖、注意力狀態與 CLI 情境。若與你自己的掛鉤衝突可關閉。套用於新終端機。',
+      '以 {product} 掛鉤執行 codex 工作階段：恢復權杖、注意力狀態與 CLI 情境。若與你自己的掛鉤衝突可關閉。套用於新終端機。',
     hibernate: '讓閒置的代理程式休眠',
     hibernateDesc:
       '執行中的代理程式過多時，停止閒置且不在畫面上的代理程式的 shell。僅限已儲存繼續權杖的代理程式；按「繼續」即可恢復。',
@@ -4452,6 +4468,8 @@ export const zhHant: Dict = {
     inputEditorVim: '輸入編輯器使用 Vim 按鍵',
     inputEditorVimDesc:
       'Esc 切換到一般模式（h j k l w b e 0 $ x dd dw cw u，可加次數）；i a A I o O 回到插入模式。兩種模式下按 Enter 都會執行指令。',
+    historySuggestions: '歷史建議',
+    historySuggestionsDesc: '在輸入編輯器中以灰色文字顯示最近相符的歷史指令；按右方向鍵接受。',
     promptStyle: '提示字元樣式',
     promptStyleDesc:
       '{product} 提示字元會在輸入編輯器中顯示情境標籤，並讓新的 shell 使用簡易的「目錄」提示字元，讓捲動記錄保持易讀。',

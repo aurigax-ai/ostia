@@ -133,9 +133,10 @@ export function EditorView({
   const saveRef = useRef<(force?: boolean) => Promise<void>>(async () => {})
   const reloadRef = useRef<(model: monaco.editor.ITextModel, text: string) => void>(() => {})
   const checkDiskRef = useRef<() => Promise<void>>(async () => {})
-  const [preview, setPreview] = useState(false)
+  const [preview, setPreview] = useState(() => useSettingsStore.getState().editor.markdownPreview)
   const markdown = isMarkdownPath(filePath) && !binary
-  const previewText = useModelText(editorRef, markdown && preview)
+  const [liveEditor, setLiveEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null)
+  const previewText = useModelText(liveEditor, markdown && preview)
   const external = useExternalEditorAction(paneId)
   useMonacoTheme()
   const openExternalRef = useRef(external.open)
@@ -204,6 +205,7 @@ export function EditorView({
       'semanticHighlighting.enabled': true,
     })
     editorRef.current = editor
+    setLiveEditor(editor)
 
     const save = async (force = false): Promise<void> => {
       const model = editor.getModel()
@@ -341,6 +343,7 @@ export function EditorView({
       detachWheelZoom()
       editor.dispose()
       editorRef.current = null
+      setLiveEditor(null)
     }
   }, [])
 
@@ -592,12 +595,11 @@ export function EditorView({
 }
 
 function useModelText(
-  editorRef: React.RefObject<monaco.editor.IStandaloneCodeEditor | null>,
+  editor: monaco.editor.IStandaloneCodeEditor | null,
   enabled: boolean,
 ): string {
   const [text, setText] = useState('')
   useEffect(() => {
-    const editor = editorRef.current
     if (!enabled || !editor) return
     let content: monaco.IDisposable | undefined
     const follow = (): void => {
@@ -612,6 +614,6 @@ function useModelText(
       swap.dispose()
       content?.dispose()
     }
-  }, [editorRef, enabled])
+  }, [editor, enabled])
   return text
 }

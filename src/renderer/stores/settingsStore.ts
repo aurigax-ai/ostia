@@ -203,6 +203,7 @@ export interface Behavior {
   copyOnSelect: boolean
   inputMode: InputMode
   inputEditorVim: boolean
+  historySuggestions: boolean
   checkForUpdates: boolean
 }
 
@@ -327,6 +328,7 @@ const DEFAULTS: Persisted = {
     copyOnSelect: false,
     inputMode: 'terminal',
     inputEditorVim: false,
+    historySuggestions: true,
     checkForUpdates: true,
   },
   files: DEFAULT_FILE_TREE_SETTINGS,

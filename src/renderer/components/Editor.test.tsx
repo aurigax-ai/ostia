@@ -95,6 +95,7 @@ const fake = vi.hoisted(() => {
     contentListeners: Listener[]
     selectionListeners: Listener[]
     blurListeners: Listener[]
+    modelListeners: Listener[]
     formatRuns: (() => void) | null
     decorations: {
       range: { startLineNumber: number; endLineNumber: number }
@@ -113,6 +114,7 @@ const fake = vi.hoisted(() => {
     contentListeners: [],
     selectionListeners: [],
     blurListeners: [],
+    modelListeners: [],
     formatRuns: null,
     decorations: [],
   }
@@ -128,6 +130,7 @@ const fake = vi.hoisted(() => {
   const editor = {
     setModel: (m: FakeModel | null) => {
       state.model = m
+      for (const l of [...state.modelListeners]) l()
     },
     getModel: () => state.model,
     addCommand: (_k: number, fn: () => void) => {
@@ -166,7 +169,7 @@ const fake = vi.hoisted(() => {
       id === 'editor.action.formatDocument' && state.formatRuns
         ? { run: async () => state.formatRuns?.() }
         : null,
-    onDidChangeModel: () => ({ dispose() {} }),
+    onDidChangeModel: (l: Listener) => listen(state.modelListeners, l),
     dispose: () => {},
   }
   const monaco = {
@@ -220,6 +223,21 @@ describe('EditorView', () => {
     fake.state.optionUpdates = []
     useSettingsStore.setState(initSettings, true)
     useEditorStatus.setState(init, true)
+  })
+
+  it('opens a Markdown file in the preview when editor.markdownPreview is on, other files as source', async () => {
+    useSettingsStore.setState({
+      editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
+    })
+    vi.mocked(window.pine.fs.read).mockResolvedValue('# Title\n\nPreview body')
+    const md = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)
+    expect(await screen.findByText('Preview body')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit Markdown source' })).toBeInTheDocument()
+    md.unmount()
+    vi.mocked(window.pine.fs.read).mockResolvedValue('const a = 1')
+    render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    expect(screen.queryByRole('button', { name: 'Edit Markdown source' })).toBeNull()
   })
 
   it('scrolls without smooth animation while motion is reduced', async () => {
