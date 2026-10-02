@@ -65,6 +65,7 @@ describe('settingsStore', () => {
       actions: s.actions,
       trustedActions: s.trustedActions,
       manager: s.manager,
+      privacy: s.privacy,
     })
   })
 
@@ -399,6 +400,7 @@ describe('settingsStore', () => {
         actions: s.actions,
         trustedActions: s.trustedActions,
         manager: s.manager,
+        privacy: s.privacy,
       }).toEqual(DEFAULTS)
     })
 
@@ -427,6 +429,29 @@ describe('settingsStore', () => {
 
       expect(logged).toHaveBeenCalledWith('[settings] save failed', expect.any(Error))
       logged.mockRestore()
+    })
+
+    it('redacts by default, and keeps the privacy section of settings.json through a save', async () => {
+      expect(store().privacy.redaction).toEqual({ enabled: true, patterns: [] })
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        '{"privacy":{"redaction":{"enabled":false,"patterns":["ACME-[0-9]{4}",7]}}}',
+      )
+
+      await store().init()
+      store().setTheme('dracula')
+      await vi.advanceTimersByTimeAsync(300)
+
+      const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+      expect(written.privacy).toEqual({
+        redaction: { enabled: false, patterns: ['ACME-[0-9]{4}'] },
+      })
+    })
+
+    it('writes a redaction change at once, so main reads it before the next send', async () => {
+      await store().setRedaction({ patterns: ['ACME-[0-9]{4}'] })
+
+      const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+      expect(written.privacy.redaction).toEqual({ enabled: true, patterns: ['ACME-[0-9]{4}'] })
     })
 
     it('keeps capabilities.grants from settings.json so a later save round-trips it', async () => {
@@ -523,6 +548,7 @@ describe('settingsStore', () => {
         actions: s.actions,
         trustedActions: s.trustedActions,
         manager: s.manager,
+        privacy: s.privacy,
       }).toEqual(DEFAULTS)
     })
   })
@@ -636,6 +662,13 @@ describe('settingsStore', () => {
         expect(() => store().setByPath(path, true)).toThrow('unknown settings key')
       }
       expect(store().sandbox?.allowedDomains).toEqual(['api.github.com'])
+    })
+
+    it('refuses every privacy key so an agent cannot turn redaction off or add a pattern', () => {
+      for (const path of ['privacy', 'privacy.redaction.enabled', 'privacy.redaction.patterns']) {
+        expect(() => store().setByPath(path, false)).toThrow('unknown settings key')
+      }
+      expect(store().privacy).toEqual({ redaction: { enabled: true, patterns: [] } })
     })
 
     it('refuses capabilities.grants so an agent cannot elevate itself', () => {

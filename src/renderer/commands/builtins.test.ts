@@ -261,6 +261,29 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().agents.autoResume).toBe(false)
   })
 
+  it('settings.set and settings.unset refuse secret redaction, whole or by key', async () => {
+    const off = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'privacy.redaction.enabled',
+      value: false,
+    })
+    const pattern = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'privacy.redaction.patterns',
+      value: ['.+'],
+    })
+    const whole = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'privacy',
+      value: { redaction: { enabled: false, patterns: [] } },
+    })
+    const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
+      key: 'privacy.redaction.enabled',
+    })
+    for (const res of [off, pattern, whole, unset]) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.message).toBe('privacy can only be changed by you in Settings')
+    }
+    expect(useSettingsStore.getState().privacy.redaction).toEqual({ enabled: true, patterns: [] })
+  })
+
   it('settings.set and settings.unset refuse the multi-line paste confirmation, directly or via terminal', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'terminal.warnOnRiskyPaste',

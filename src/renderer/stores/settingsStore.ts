@@ -40,6 +40,13 @@ import {
 } from '../../shared/notificationSettings'
 import { parsePromptSettings } from '../../shared/promptSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
+import {
+  DEFAULT_PRIVACY_SETTINGS,
+  type PrivacySettings,
+  type RedactionSettings,
+  parsePrivacySettings,
+  parseRedactionSettings,
+} from '../../shared/redaction'
 import { type SandboxGlobals, parseSandboxGlobals } from '../../shared/sandbox'
 import { normalizeGroupName } from '../../shared/workspaceGroups'
 import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
@@ -285,6 +292,7 @@ interface Persisted {
   actions: UserAction[]
   trustedActions: string[]
   sandbox?: SandboxGlobals
+  privacy: PrivacySettings
 }
 
 const DATA_KEYS: readonly string[] = [
@@ -358,6 +366,7 @@ const DEFAULTS: Persisted = {
   actions: [],
   trustedActions: [],
   manager: DEFAULT_MANAGER_SETTINGS,
+  privacy: DEFAULT_PRIVACY_SETTINGS,
 }
 
 interface SettingsState extends Persisted {
@@ -381,6 +390,7 @@ interface SettingsState extends Persisted {
   setWorkspaces: (patch: Partial<WorkspaceSettings>) => void
   setSandbox: (next: SandboxGlobals) => Promise<void>
   setManager: (patch: Partial<ManagerSettings>) => void
+  setRedaction: (patch: Partial<RedactionSettings>) => Promise<void>
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
   setAutoResume: (autoResume: boolean) => void
@@ -471,6 +481,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       ? p.trustedActions.filter((f): f is string => typeof f === 'string')
       : [],
     sandbox: p.sandbox === undefined ? undefined : parseSandboxGlobals(p.sandbox),
+    privacy: parsePrivacySettings(p.privacy),
   }
 }
 
@@ -570,6 +581,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     actions: s.actions,
     trustedActions: s.trustedActions,
     sandbox: s.sandbox,
+    privacy: s.privacy,
   }
   const path = await window.pine.settings.path()
   await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
@@ -714,6 +726,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setManager: (patch) => {
     set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))
     scheduleSave(get)
+  },
+  setRedaction: async (patch) => {
+    set((s) => ({
+      privacy: { redaction: parseRedactionSettings({ ...s.privacy.redaction, ...patch }) },
+    }))
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = null
+    await writeSettings(get())
   },
   setBrowser: (patch) => {
     set((s) => ({ browser: parseBrowserSettings({ ...s.browser, ...patch }) }))
