@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll } from 'vitest'
 
-const root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-vitest-')))
+const base = process.platform === 'darwin' ? '/tmp' : tmpdir()
+const prefix = process.platform === 'darwin' ? 'pv-' : 'pine-vitest-'
+const root = realpathSync(mkdtempSync(join(base, prefix)))
 process.env.TMPDIR = root
 
 afterAll(() => {

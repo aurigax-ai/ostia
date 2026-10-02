@@ -49,6 +49,10 @@ async function until<T>(read: () => T | undefined, ms = 3000): Promise<T> {
   }
 }
 
+function settle(): Promise<void> {
+  return process.platform === 'darwin' ? pause(600) : Promise.resolve()
+}
+
 function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -188,7 +192,9 @@ describe('FileWatches', () => {
     symlinkSync(join(root, 'real'), join(root, 'linked'))
     const file = join(root, 'linked', 'a.txt')
     writeFileSync(file, 'one')
+    await settle()
     expect(watches.watch('win-1', file)).toBe(true)
+    await settle()
     writeFileSync(join(root, 'real', 'a.txt'), 'two')
     const change = await until(() => changes[0])
     expect(change).toEqual({ path: file, exists: true, owners: ['win-1'] })
@@ -204,7 +210,9 @@ describe('FileWatches', () => {
     const { root, changes, watches } = setup()
     const file = join(root, 'a.txt')
     writeFileSync(file, 'one')
+    await settle()
     watches.watch('win-1', file)
+    await settle()
     writeFileSync(join(root, 'unwatched.txt'), 'x')
     writeFileSync(file, 'two')
     await until(() => changes.find((c) => c.path === file))
@@ -237,7 +245,9 @@ describe('FileWatches', () => {
     const file = join(root, 'sub', 'a.txt')
     mkdirSync(join(root, 'sub'))
     writeFileSync(file, 'one')
+    await settle()
     expect(watches.watch('win-1', file)).toBe(true)
+    await settle()
     rmSync(join(root, 'sub'), { recursive: true })
     await until(() => changes.find((c) => c.path === file))
     await pause(150)
@@ -285,7 +295,9 @@ function tree(maxDirs?: number) {
 describe('TreeWatches', () => {
   it('reports a file created, changed and deleted anywhere under the root', async () => {
     const { root, watches, listen, seen } = tree()
+    await settle()
     const stop = watches.watch(root, listen)
+    await settle()
     expect(stop).not.toBeNull()
     const created = join(root, 'src', 'deep', 'new.txt')
     writeFileSync(created, 'x')
@@ -298,7 +310,9 @@ describe('TreeWatches', () => {
 
   it('reports the files of a root that vanished as deleted and nothing from beside it', async () => {
     const { base, root, changes, watches, listen, seen } = tree()
+    await settle()
     watches.watch(root, listen)
+    await settle()
     rmSync(root, { recursive: true })
     await until(() => seen(join(root, 'src', 'a.txt'), 'deleted'))
     writeFileSync(join(base, 'sibling', 'x.txt'), 'x')
@@ -309,7 +323,9 @@ describe('TreeWatches', () => {
 
   it('watches a folder made later and reports the files already in it', async () => {
     const { root, watches, listen, seen } = tree()
+    await settle()
     watches.watch(root, listen)
+    await settle()
     const made = join(root, 'src', 'later')
     mkdirSync(made)
     writeFileSync(join(made, 'first.txt'), 'x')
@@ -321,7 +337,9 @@ describe('TreeWatches', () => {
 
   it('loses no file written into folders as they are being made', async () => {
     const { root, changes, watches, listen } = tree()
+    await settle()
     watches.watch(root, listen)
+    await settle()
     const made: string[] = []
     for (let folder = 0; folder < 12; folder++) {
       const dir = join(root, 'src', `bulk-${folder}`, 'inner')
@@ -339,7 +357,9 @@ describe('TreeWatches', () => {
 
   it('delivers changes made together as one batch of path and kind', async () => {
     const { root, batches, watches, listen } = tree()
+    await settle()
     watches.watch(root, listen)
+    await settle()
     writeFileSync(join(root, 'one.txt'), 'x')
     writeFileSync(join(root, 'src', 'two.txt'), 'x')
     writeFileSync(join(root, 'src', 'a.txt'), 'two')
@@ -356,7 +376,9 @@ describe('TreeWatches', () => {
   it('reports a second write to a file that lands right after a batch went out', async () => {
     const { root, changes, watches, listen } = tree()
     const file = join(root, 'src', 'a.txt')
+    await settle()
     watches.watch(root, listen)
+    await settle()
     writeFileSync(file, 'two')
     await until(() => changes[0])
     writeFileSync(file, 'three')
@@ -371,7 +393,9 @@ describe('TreeWatches', () => {
     const { root, changes, watches, listen } = tree()
     const outside = tempDir('pine-twatch-out-')
     symlinkSync(outside, join(root, 'linked'))
+    await settle()
     watches.watch(root, listen)
+    await settle()
     expect(watches.watchedDirs(root)).toEqual([root, join(root, 'src'), join(root, 'src', 'deep')])
     writeFileSync(join(root, 'node_modules', 'pkg', 'index.js'), 'x')
     writeFileSync(join(outside, 'secret.txt'), 'x')
@@ -384,7 +408,9 @@ describe('TreeWatches', () => {
     const { root, changes, watches, listen, seen } = tree()
     const outside = tempDir('pine-twatch-out-')
     writeFileSync(join(outside, 'before.txt'), 'x')
+    await settle()
     watches.watch(root, listen)
+    await settle()
     const link = join(root, 'src', 'linked')
     symlinkSync(outside, link)
     await until(() => seen(link, 'created'))
@@ -429,7 +455,9 @@ describe('TreeWatches', () => {
 
   it('reports nothing from beside or above the root', async () => {
     const { base, root, changes, watches, listen } = tree()
+    await settle()
     watches.watch(root, listen)
+    await settle()
     writeFileSync(join(base, 'sibling', 'x.txt'), 'x')
     writeFileSync(join(base, 'beside.txt'), 'x')
     writeFileSync(join(root, 'marker.txt'), 'x')
@@ -455,7 +483,9 @@ describe('TreeWatches', () => {
   it('at the folder limit watches the nearest folders first and leaves the rest unwatched', async () => {
     const { root, changes, watches, listen, seen } = tree(3)
     mkdirSync(join(root, 'lib'))
+    await settle()
     watches.watch(root, listen)
+    await settle()
     expect(watches.watchedDirs(root)).toEqual([root, join(root, 'lib'), join(root, 'src')])
     if (onLinux) {
       expect(kernelWatchesOn([root, join(root, 'lib'), join(root, 'src')])).toBe(3)
@@ -473,7 +503,9 @@ describe('TreeWatches', () => {
 
   it('watches a new folder once a removed one made room under the limit', async () => {
     const { root, watches, listen, seen } = tree(3)
+    await settle()
     watches.watch(root, listen)
+    await settle()
     expect(watches.watchedDirs(root)).toEqual([root, join(root, 'src'), join(root, 'src', 'deep')])
     rmSync(join(root, 'src', 'deep'), { recursive: true })
     await until(() => (watches.watchedDirs(root).length === 2 ? true : undefined))
@@ -486,7 +518,9 @@ describe('TreeWatches', () => {
   it('reports the files of a removed folder as deleted and stops watching it', async () => {
     const { root, watches, listen, seen } = tree()
     writeFileSync(join(root, 'src', 'deep', 'in.txt'), 'x')
+    await settle()
     watches.watch(root, listen)
+    await settle()
     rmSync(join(root, 'src'), { recursive: true })
     await until(() => seen(join(root, 'src', 'deep', 'in.txt'), 'deleted'))
     await until(() => seen(join(root, 'src', 'a.txt'), 'deleted'))

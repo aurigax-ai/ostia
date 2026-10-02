@@ -25,6 +25,8 @@ export interface SandboxPaths {
 
 export type SandboxBasePaths = Omit<SandboxPaths, 'workDir' | 'tmpDir'>
 
+export const SSH_AGENT_SOCKET_NAME = 'a.sock'
+
 export const AGENT_DATA_DIRS = ['.claude', '.codex']
 
 export const AGENT_PROTECTED_FILES = [
@@ -241,6 +243,7 @@ export function buildSrtConfig(
             allowUnixSockets: sockets
               ? [
                   paths.socketPath,
+                  join(tmpDir, SSH_AGENT_SOCKET_NAME),
                   ...expand(policy.allowSockets).filter((p) => !touches(p, guarded)),
                 ]
               : [],

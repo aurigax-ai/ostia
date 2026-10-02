@@ -50,6 +50,7 @@ function portFree(port: number): Promise<boolean> {
 }
 
 beforeAll(async () => {
+  if (process.platform !== 'linux') return
   await build({
     entryPoints: [join(repoRoot, 'src/main/sandbox/host.ts')],
     outfile: hostScript,
@@ -114,63 +115,66 @@ afterAll(() => {
   if (root) rmSync(root, { recursive: true, force: true })
 })
 
-describe('PortForwarder', () => {
-  it('SBX-C45 forwards host 127.0.0.1:<port> to the same port inside the sandbox', async () => {
-    await expect(fetch(`http://127.0.0.1:${INNER_PORT}/`)).rejects.toThrow()
-    await expect(forwarder.expose('ws', INNER_PORT)).resolves.toEqual({
-      ok: true,
-      port: INNER_PORT,
-    })
-    expect(await get(INNER_PORT)).toBe(`INSIDE-${INNER_PORT}`)
-    expect(forwarder.exposed('ws')).toEqual([INNER_PORT])
-  })
-
-  it('reaches a server in another terminal of the workspace, which has a network namespace of its own', async () => {
-    expect(forwarder.listeners('ws').map((l) => l.port)).toEqual([INNER_PORT, OTHER_PORT])
-    await expect(forwarder.expose('ws', OTHER_PORT)).resolves.toEqual({
-      ok: true,
-      port: OTHER_PORT,
-    })
-    expect(await get(OTHER_PORT)).toBe(`INSIDE-${OTHER_PORT}`)
-    expect(await get(INNER_PORT)).toBe(`INSIDE-${INNER_PORT}`)
-    await forwarder.unexpose('ws', OTHER_PORT)
-  })
-
-  it('carries large responses on parallel connections whole', async () => {
-    const bodies = await Promise.all(
-      Array.from({ length: 8 }, async () =>
-        (await fetch(`http://127.0.0.1:${INNER_PORT}/big`)).text(),
-      ),
-    )
-    expect(bodies.map((body) => body.length)).toEqual(Array(8).fill(BIG_BODY_BYTES))
-  })
-
-  it('SBX-C46 refuses to expose a port already in use on the host and forwards nothing', async () => {
-    const busy = createServer().listen(INNER_PORT + 1, '127.0.0.1')
-    await new Promise((r) => busy.once('listening', r))
-    try {
-      await expect(forwarder.expose('ws', INNER_PORT + 1)).resolves.toEqual({
-        ok: false,
-        error: 'port-in-use',
+describe.skipIf(process.platform !== 'linux')(
+  'PortForwarder (Linux only: /proc and the socat bridge)',
+  () => {
+    it('SBX-C45 forwards host 127.0.0.1:<port> to the same port inside the sandbox', async () => {
+      await expect(fetch(`http://127.0.0.1:${INNER_PORT}/`)).rejects.toThrow()
+      await expect(forwarder.expose('ws', INNER_PORT)).resolves.toEqual({
+        ok: true,
+        port: INNER_PORT,
       })
-      expect(forwarder.exposed('ws')).not.toContain(INNER_PORT + 1)
-    } finally {
-      busy.close()
-    }
-  })
+      expect(await get(INNER_PORT)).toBe(`INSIDE-${INNER_PORT}`)
+      expect(forwarder.exposed('ws')).toEqual([INNER_PORT])
+    })
 
-  it('SBX-C47 releases the host port when the workspace closes', async () => {
-    if (!forwarder.exposed('ws').includes(INNER_PORT)) await forwarder.expose('ws', INNER_PORT)
-    expect(await portFree(INNER_PORT)).toBe(false)
-    await forwarder.forget('ws')
-    expect(forwarder.exposed('ws')).toEqual([])
-    expect(await until(async () => ((await portFree(INNER_PORT)) ? true : undefined))).toBe(true)
-  })
+    it('reaches a server in another terminal of the workspace, which has a network namespace of its own', async () => {
+      expect(forwarder.listeners('ws').map((l) => l.port)).toEqual([INNER_PORT, OTHER_PORT])
+      await expect(forwarder.expose('ws', OTHER_PORT)).resolves.toEqual({
+        ok: true,
+        port: OTHER_PORT,
+      })
+      expect(await get(OTHER_PORT)).toBe(`INSIDE-${OTHER_PORT}`)
+      expect(await get(INNER_PORT)).toBe(`INSIDE-${INNER_PORT}`)
+      await forwarder.unexpose('ws', OTHER_PORT)
+    })
 
-  it('never lists the sandbox runtime proxy bridges as servers', () => {
-    const ports = forwarder.listeners('ws').map((l) => l.port)
-    expect(ports).toEqual([INNER_PORT, OTHER_PORT])
-    expect(ports).not.toContain(3128)
-    expect(ports).not.toContain(1080)
-  })
-})
+    it('carries large responses on parallel connections whole', async () => {
+      const bodies = await Promise.all(
+        Array.from({ length: 8 }, async () =>
+          (await fetch(`http://127.0.0.1:${INNER_PORT}/big`)).text(),
+        ),
+      )
+      expect(bodies.map((body) => body.length)).toEqual(Array(8).fill(BIG_BODY_BYTES))
+    })
+
+    it('SBX-C46 refuses to expose a port already in use on the host and forwards nothing', async () => {
+      const busy = createServer().listen(INNER_PORT + 1, '127.0.0.1')
+      await new Promise((r) => busy.once('listening', r))
+      try {
+        await expect(forwarder.expose('ws', INNER_PORT + 1)).resolves.toEqual({
+          ok: false,
+          error: 'port-in-use',
+        })
+        expect(forwarder.exposed('ws')).not.toContain(INNER_PORT + 1)
+      } finally {
+        busy.close()
+      }
+    })
+
+    it('SBX-C47 releases the host port when the workspace closes', async () => {
+      if (!forwarder.exposed('ws').includes(INNER_PORT)) await forwarder.expose('ws', INNER_PORT)
+      expect(await portFree(INNER_PORT)).toBe(false)
+      await forwarder.forget('ws')
+      expect(forwarder.exposed('ws')).toEqual([])
+      expect(await until(async () => ((await portFree(INNER_PORT)) ? true : undefined))).toBe(true)
+    })
+
+    it('never lists the sandbox runtime proxy bridges as servers', () => {
+      const ports = forwarder.listeners('ws').map((l) => l.port)
+      expect(ports).toEqual([INNER_PORT, OTHER_PORT])
+      expect(ports).not.toContain(3128)
+      expect(ports).not.toContain(1080)
+    })
+  },
+)

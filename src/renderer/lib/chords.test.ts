@@ -1,5 +1,5 @@
 import { formatChord, parseChord, stealsTerminalKey, usedByMonaco } from '@shared/chordSpec'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
 import { useSettingsStore } from '../stores/settingsStore'
 import {
@@ -11,6 +11,7 @@ import {
   effectiveBindings,
   isAppChord,
   matchChord,
+  runAppChord,
   setKeybindingSetting,
   workspaceDigit,
   workspaceIndex,
@@ -418,5 +419,26 @@ describe('DEFAULT_CHORDS', () => {
       'workspace.previous',
     )
     expect(matchChord(key('PageDown', { ctrlKey: true }), false)).toBeNull()
+  })
+})
+
+describe('runAppChord', () => {
+  afterEach(() => {
+    commands.unregister('palette.toggle')
+  })
+
+  it('runs the command an app chord names and stops the key, so an editor never sees it', () => {
+    const ran: string[] = []
+    commands.register({ id: 'palette.toggle', title: 'Palette', run: () => void ran.push('run') })
+    const preventDefault = vi.fn()
+    expect(runAppChord({ ...key('k', { metaKey: true }), preventDefault }, true)).toBe(true)
+    expect(preventDefault).toHaveBeenCalledTimes(1)
+    expect(ran).toEqual(['run'])
+  })
+
+  it('leaves a key that is no app chord alone', () => {
+    const preventDefault = vi.fn()
+    expect(runAppChord({ ...key('k', { ctrlKey: true }), preventDefault }, false)).toBe(false)
+    expect(preventDefault).not.toHaveBeenCalled()
   })
 })

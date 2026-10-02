@@ -16,7 +16,12 @@ async function switchToEditorMode(win: Page): Promise<void> {
 }
 
 for (const shell of ['/bin/zsh', '/bin/bash']) {
-  test(`the input editor runs a multi-line command and recalls it whole in ${shell}`, async () => {
+  const bash32 = process.platform === 'darwin' && shell === '/bin/bash'
+  const note = bash32
+    ? ' (not on macOS: bash 3.2 has no bracketed paste, so history keeps one line)'
+    : ''
+  test(`the input editor runs a multi-line command and recalls it whole in ${shell}${note}`, async () => {
+    test.skip(bash32)
     test.setTimeout(60_000)
     const launch = isolatedLaunch()
     const app = await electron.launch({ ...launch, env: { ...launch.env, SHELL: shell } })
