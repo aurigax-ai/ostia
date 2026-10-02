@@ -6,7 +6,7 @@ import { openFileTabs, reportFileProblem } from './openFile'
 
 export const FILE_DRAG_ATTRIBUTE = 'data-file-drag'
 
-const FILE_DRAG_IDLE_MS = 400
+const POINTER_BACK_EVENTS = ['mousemove', 'mousedown', 'wheel'] as const
 
 export function isFileDrag(types: readonly string[]): boolean {
   return types.includes('Files')
@@ -38,17 +38,10 @@ export async function openDroppedFiles(dropped: readonly File[], paneId?: string
 
 export function startFileDropTracking(): () => void {
   const root = document.documentElement
-  let idle: ReturnType<typeof setTimeout> | null = null
-  const end = (): void => {
-    if (idle) clearTimeout(idle)
-    idle = null
-    root.removeAttribute(FILE_DRAG_ATTRIBUTE)
-  }
+  const end = (): void => root.removeAttribute(FILE_DRAG_ATTRIBUTE)
   const track = (e: DragEvent): boolean => {
     if (!isFileDrag([...(e.dataTransfer?.types ?? [])])) return false
     root.setAttribute(FILE_DRAG_ATTRIBUTE, '')
-    if (idle) clearTimeout(idle)
-    idle = setTimeout(end, FILE_DRAG_IDLE_MS)
     return true
   }
   const over = (e: DragEvent): void => {
@@ -65,10 +58,12 @@ export function startFileDropTracking(): () => void {
   document.addEventListener('dragenter', track)
   document.addEventListener('dragover', over)
   document.addEventListener('drop', drop)
+  for (const type of POINTER_BACK_EVENTS) document.addEventListener(type, end, true)
   return () => {
     end()
     document.removeEventListener('dragenter', track)
     document.removeEventListener('dragover', over)
     document.removeEventListener('drop', drop)
+    for (const type of POINTER_BACK_EVENTS) document.removeEventListener(type, end, true)
   }
 }

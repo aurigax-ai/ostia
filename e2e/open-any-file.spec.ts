@@ -23,13 +23,60 @@ function tab(win: Page, title: string) {
   return win.locator('.pane-tab').filter({ hasText: title })
 }
 
-async function dropFiles(win: Page, paths: string[], x: number, y: number): Promise<void> {
+type DragStep = 'dragEnter' | 'dragOver' | 'drop'
+
+async function dragFiles(win: Page, paths: string[]) {
   const cdp = await win.context().newCDPSession(win)
   const data = { items: [], files: paths, dragOperationsMask: 1 }
-  await cdp.send('Input.dispatchDragEvent', { type: 'dragEnter', x, y, data })
-  await cdp.send('Input.dispatchDragEvent', { type: 'dragOver', x, y, data })
-  await cdp.send('Input.dispatchDragEvent', { type: 'drop', x, y, data })
-  await cdp.detach()
+  return {
+    send: (type: DragStep, at: { x: number; y: number }) =>
+      cdp.send('Input.dispatchDragEvent', { type, x: at.x, y: at.y, data }),
+    done: () => cdp.detach(),
+  }
+}
+
+async function dropFiles(win: Page, paths: string[], x: number, y: number): Promise<void> {
+  const drag = await dragFiles(win, paths)
+  for (const step of ['dragEnter', 'dragOver', 'drop'] as const) await drag.send(step, { x, y })
+  await drag.done()
+}
+
+async function dragOverTarget(win: Page): Promise<string> {
+  return win.evaluate(() => {
+    const seen = window as unknown as { lastDragOverTarget?: string; watchesDragOver?: boolean }
+    if (!seen.watchesDragOver) {
+      seen.watchesDragOver = true
+      document.addEventListener(
+        'dragover',
+        (e) => {
+          seen.lastDragOverTarget = e.target instanceof Element ? e.target.className : ''
+        },
+        true,
+      )
+    }
+    return seen.lastDragOverTarget ?? ''
+  })
+}
+
+async function dropFilesOverGuestPage(
+  win: Page,
+  paths: string[],
+  enterAt: { x: number; y: number },
+  page: { x: number; y: number },
+): Promise<void> {
+  await dragOverTarget(win)
+  const drag = await dragFiles(win, paths)
+  await drag.send('dragEnter', enterAt)
+  await drag.send('dragOver', enterAt)
+  await expect(win.locator(':root')).toHaveAttribute('data-file-drag', '')
+  await expect
+    .poll(async () => {
+      await drag.send('dragOver', page)
+      return dragOverTarget(win)
+    })
+    .toBe('pane-file-drop')
+  await drag.send('drop', page)
+  await drag.done()
 }
 
 async function centerOf(win: Page, selector: string): Promise<{ x: number; y: number }> {
@@ -149,7 +196,7 @@ test('a file dropped on the window opens in the viewer; dropped on a terminal it
     await win.getByRole('button', { name: 'New browser tab', exact: true }).first().click()
     await expect(win.locator('webview:visible')).toBeVisible({ timeout: 15_000 })
     const page = await centerOf(win, 'webview:visible')
-    await dropFiles(win, [notes], page.x, page.y)
+    await dropFilesOverGuestPage(win, [notes], await centerOf(win, '.topbar'), page)
     await expect(tab(win, 'notes.txt')).toBeVisible({ timeout: 10_000 })
     await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText(
       'dropped on a web page',
