@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type ElectronApplication,
@@ -20,6 +20,7 @@ import { openWorkspace } from './helpers'
 
 const ORIGINAL = 'one\ntwo\nthree\n'
 const EDITED = 'one\nTWO\nthree\n'
+const LIST = 'a\nb\nc\nd\ne\nf\ng\nh\n'
 
 let outsideFile = ''
 
@@ -35,6 +36,26 @@ function editAnswer(req: FakeRequest): FakeReply {
       ],
     }
   }
+  if (req.last.includes('tidy both')) {
+    return {
+      toolCalls: [
+        {
+          name: 'edit_file',
+          args: { path: 'notes.txt', edits: [{ old_text: 'two', new_text: 'TWO' }] },
+        },
+        {
+          name: 'edit_file',
+          args: {
+            path: 'list.txt',
+            edits: [
+              { old_text: 'a\n', new_text: 'A\n' },
+              { old_text: 'h\n', new_text: 'H\n' },
+            ],
+          },
+        },
+      ],
+    }
+  }
   if (req.last.includes('elsewhere')) {
     return {
       toolCalls: [{ name: 'write_file', args: { path: outsideFile, content: 'escaped\n' } }],
@@ -43,9 +64,17 @@ function editAnswer(req: FakeRequest): FakeReply {
   return 'Hello from the first model.'
 }
 
+function savedChats(dataHome: string): string {
+  return readdirSync(dataHome, { recursive: true, encoding: 'utf8' })
+    .filter((name) => /chat-sessions\/[^/]+\.json$/.test(name))
+    .map((name) => readFileSync(join(dataHome, name), 'utf8'))
+    .join('\n')
+}
+
 interface Session {
   app: ElectronApplication
   win: Page
+  dataHome: string
   project: string
   notes: string
   question: Locator
@@ -90,7 +119,7 @@ async function start(first: FakeProvider, second?: FakeProvider): Promise<Sessio
     .click()
   const question = win.getByRole('combobox', { name: 'Your question' }).last()
   await expect(question).toBeVisible({ timeout: 10_000 })
-  return { app, win, project, notes, question }
+  return { app, win, dataHome, project, notes, question }
 }
 
 async function ask(session: Session, text: string): Promise<void> {
@@ -265,6 +294,62 @@ test.describe('chat code editing', () => {
       expect(readFileSync(outsideFile, 'utf8')).toBe('escaped\n')
     } finally {
       await session.app.close()
+    }
+  })
+
+  test('Write mode edits in two files: review bar, one change reverted, Undo after a restart, and a checkpoint', async () => {
+    const session = await start(provider)
+    const { win, notes, project, dataHome } = session
+    const list = join(project, 'list.txt')
+    writeFileSync(list, LIST)
+    try {
+      await chooseMode(win, 'Write')
+      await ask(session, 'tidy both files')
+      const bar = win.getByRole('region', { name: 'Edits to review' })
+      await expect(bar).toContainText('Edits: 2 · Files: 2', { timeout: 15_000 })
+      await settled(win)
+      expect(readFileSync(notes, 'utf8')).toBe(EDITED)
+      expect(readFileSync(list, 'utf8')).toBe('A\nb\nc\nd\ne\nf\ng\nH\n')
+
+      const listCard = win.getByRole('region', { name: 'Edit to list.txt' })
+      await listCard.getByRole('button', { name: 'Reject change 2' }).click()
+      await expect(listCard.getByRole('region', { name: /^Change 2/ })).toHaveAttribute(
+        'data-decision',
+        'rejected',
+      )
+      await expect.poll(() => readFileSync(list, 'utf8')).toBe('A\nb\nc\nd\ne\nf\ng\nh\n')
+
+      await bar.getByRole('button', { name: 'Next file' }).click()
+      await expect(bar).toContainText('2 of 2: list.txt')
+      await bar.getByRole('button', { name: 'Accept all' }).click()
+      await expect(bar).toHaveCount(0)
+      await expect.poll(() => savedChats(dataHome)).toContain('"decisions":["accepted","rejected"]')
+    } finally {
+      await session.app.close()
+    }
+
+    const app = await electron.launch(isolatedLaunch(dataHome))
+    try {
+      const again = await app.firstWindow()
+      await again.waitForLoadState('domcontentloaded')
+      const notesCard = again.getByRole('region', { name: 'Edit to notes.txt' })
+      await expect(notesCard).toBeVisible({ timeout: 15_000 })
+      await notesCard.getByRole('button', { name: 'Undo', exact: true }).click()
+      await expect(notesCard).toHaveAttribute('data-state', 'undone', { timeout: 15_000 })
+      expect(readFileSync(notes, 'utf8')).toBe(ORIGINAL)
+
+      await again.getByRole('button', { name: 'Restore files to before this message' }).click()
+      const dialog = again.getByRole('dialog', { name: 'Restore files to before this message?' })
+      await expect(dialog.getByRole('list', { name: 'These go back:' })).toContainText('list.txt')
+      await expect(dialog).not.toContainText('notes.txt')
+      await dialog.getByRole('button', { name: 'Restore files (1)' }).click()
+      await expect(dialog).toHaveCount(0)
+      expect(readFileSync(list, 'utf8')).toBe(LIST)
+      await expect(
+        again.getByRole('region', { name: 'Edit to list.txt' }).getByRole('status'),
+      ).toHaveText('Undone')
+    } finally {
+      await app.close()
     }
   })
 
