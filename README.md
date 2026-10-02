@@ -4,7 +4,7 @@
 
 <h1 align="center">Pine</h1>
 
-<p align="center">One workspace for you and every coding agent you run.</p>
+<p align="center">One workspace for you and your coding agents.</p>
 
 <p align="center">
   <a href="https://aurigax-ai.github.io/">Website</a>
