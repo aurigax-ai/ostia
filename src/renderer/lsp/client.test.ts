@@ -10,9 +10,13 @@ vi.mock('../monaco/setup', () => ({
   builtinFeatures: { apply: applyBuiltin },
 }))
 
-const { documentSaved, openDocument, resetLspClient, startLanguageServices } = await import(
-  './client'
-)
+const {
+  documentSaved,
+  openDocument,
+  resetLspClient,
+  searchWorkspaceSymbols,
+  startLanguageServices,
+} = await import('./client')
 
 interface FakeServer {
   info: LspSessionInfo
@@ -349,6 +353,119 @@ describe('server lifecycle', () => {
       method: 'textDocument/didSave',
       params: { textDocument: { uri: URI } },
     })
+  })
+})
+
+describe('late capabilities', () => {
+  it('registers a provider when the server registers the feature after the document opened, and removes it on unregister', async () => {
+    const server = bridge.addServer('s1', 'ext/fake')
+    openDocument(new FakeModel('/work/a.txt', 'one') as never, 'pane-1')
+    await flush()
+    expect(fake.active('HoverProvider')).toHaveLength(0)
+    await server.endpoint.server.sendRequest('client/registerCapability', {
+      registrations: [
+        { id: 'h', method: 'textDocument/hover', registerOptions: { documentSelector: null } },
+        { id: 'x', method: 'textDocument/unknownFeature' },
+      ],
+    })
+    await flush()
+    expect(fake.active('HoverProvider')).toHaveLength(1)
+    await server.endpoint.server.sendRequest('client/unregisterCapability', {
+      unregisterations: [{ id: 'h', method: 'textDocument/hover' }],
+    })
+    await flush()
+    expect(fake.active('HoverProvider')).toHaveLength(0)
+  })
+
+  it('does not ask a server for a late feature whose selector leaves the document out', async () => {
+    const server = bridge.addServer('s1', 'ext/fake')
+    const asked = vi.fn(() => null)
+    server.endpoint.server.onRequest('textDocument/hover', asked)
+    const text = new FakeModel('/work/a.txt', 'one')
+    openDocument(text as never, 'pane-1')
+    await flush()
+    await server.endpoint.server.sendRequest('client/registerCapability', {
+      registrations: [
+        {
+          id: 'h',
+          method: 'textDocument/hover',
+          registerOptions: { documentSelector: [{ pattern: '**/*.md' }] },
+        },
+      ],
+    })
+    await flush()
+    const provide = fake.active('HoverProvider')[0].provider.provideHover as (
+      model: unknown,
+      position: unknown,
+    ) => Promise<unknown>
+    expect(await provide(text, { lineNumber: 1, column: 1 })).toBeNull()
+    expect(asked).not.toHaveBeenCalled()
+  })
+})
+
+describe('pull diagnostics', () => {
+  it('keeps one marker for a diagnostic the server both pushed and answered to a pull', async () => {
+    const server = bridge.addServer('s1', 'ext/fake', {
+      textDocumentSync: 1,
+      diagnosticProvider: { interFileDependencies: false, workspaceDiagnostics: false },
+    })
+    server.endpoint.server.onRequest('textDocument/diagnostic', () => ({
+      kind: 'full',
+      resultId: 'r1',
+      items: [diagnostic, { ...diagnostic, message: 'only pulled' }],
+    }))
+    openDocument(new FakeModel('/work/a.txt', 'one') as never, 'pane-1')
+    await flush()
+    server.endpoint.server.sendNotification('textDocument/publishDiagnostics', {
+      uri: URI,
+      diagnostics: [diagnostic],
+    })
+    await vi.waitFor(() => expect(markers('lsp:ext/fake', URI)).toHaveLength(2))
+    expect(markers('lsp:ext/fake', URI)?.map((m) => (m as { message: string }).message)).toEqual([
+      'bad',
+      'only pulled',
+    ])
+  })
+})
+
+describe('searchWorkspaceSymbols', () => {
+  const symbol = (name: string, uri: string): Record<string, unknown> => ({
+    name,
+    kind: 12,
+    location: { uri, range: { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } } },
+  })
+
+  it('asks only servers with a document in the given panes that find workspace symbols', async () => {
+    const finder = bridge.addServer('s1', 'ext/finder', {
+      textDocumentSync: 1,
+      workspaceSymbolProvider: true,
+    })
+    const plain = bridge.addServer('s2', 'ext/plain')
+    const queries: unknown[] = []
+    finder.endpoint.server.onRequest('workspace/symbol', (params: unknown) => {
+      queries.push(params)
+      return [
+        symbol('alpha', 'file:///work/src/a.txt'),
+        symbol('alpha', 'file:///work/src/a.txt'),
+        symbol('remote', 'untitled:///nowhere'),
+      ]
+    })
+    const asked = vi.fn(() => [])
+    plain.endpoint.server.onRequest('workspace/symbol', asked)
+    openDocument(new FakeModel('/work/a.txt', 'one') as never, 'pane-1')
+    await flush()
+
+    expect(await searchWorkspaceSymbols(new Set(['pane-9']), 'al')).toEqual({
+      servers: 0,
+      hits: [],
+    })
+    const found = await searchWorkspaceSymbols(new Set(['pane-1']), 'al')
+    expect(queries).toEqual([{ query: 'al' }])
+    expect(asked).not.toHaveBeenCalled()
+    expect(found.servers).toBe(1)
+    expect(found.hits).toMatchObject([
+      { name: 'alpha', path: '/work/src/a.txt', line: 3, column: 5, serverKey: 'ext/finder' },
+    ])
   })
 })
 

@@ -9,6 +9,7 @@ const {
   toCompletion,
   toDocumentSymbols,
   toHighlights,
+  toFoldingRanges,
   toInlayHints,
   toSignatureHelp,
   toHover,
@@ -268,5 +269,21 @@ describe('symbols, signatures, highlights and hints', () => {
     expect(rangesOverlap(at(1, 0, 1, 5), at(1, 6, 1, 9))).toBe(false)
     expect(rangesOverlap(at(0, 0, 3, 0), at(1, 2, 1, 3))).toBe(true)
     expect(rangesOverlap(at(2, 0, 2, 1), at(1, 0, 1, 9))).toBe(false)
+  })
+})
+
+describe('toFoldingRanges', () => {
+  it('maps lines to 1-based ones, keeps the kind and drops a range that folds nothing', () => {
+    expect(
+      toFoldingRanges([
+        { startLine: 0, endLine: 4, kind: 'imports' },
+        { startLine: 6, endLine: 6 },
+        { startLine: 8, endLine: 9 },
+      ]),
+    ).toEqual([
+      { start: 1, end: 5, kind: { value: 'imports' } },
+      { start: 9, end: 10 },
+    ])
+    expect(toFoldingRanges(null)).toEqual([])
   })
 })

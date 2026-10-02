@@ -656,6 +656,131 @@ describe('LanguageServers configuration and log', () => {
   })
 })
 
+describe('LanguageServers watched files', () => {
+  function watching(): {
+    h: Harness
+    emit: (changes: { path: string; kind: 'created' | 'changed' | 'deleted' }[]) => void
+    watchedRoots: string[]
+    stopped: string[]
+  } {
+    const listeners = new Map<string, (changes: never[]) => void>()
+    const watchedRoots: string[] = []
+    const stopped: string[] = []
+    const h = harness({
+      watchTree: (root, onChange) => {
+        watchedRoots.push(root)
+        listeners.set(root, onChange as (changes: never[]) => void)
+        return () => {
+          stopped.push(root)
+          listeners.delete(root)
+        }
+      },
+    })
+    return {
+      h,
+      watchedRoots,
+      stopped,
+      emit: (changes) => {
+        for (const listener of [...listeners.values()]) listener(changes as never[])
+      },
+    }
+  }
+
+  function sentToServer(child: FakeChild): unknown[] {
+    return child.received
+      .filter((message) => message.method === 'workspace/didChangeWatchedFiles')
+      .map((message) => message.params)
+  }
+
+  it('watches the session root once a server registers watchers and still forwards the request to the window', async () => {
+    const { h, emit, watchedRoots } = watching()
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'pkg', 'src', 'a.txt'))
+    await initialize(h, session.sessionId)
+    const [{ child }] = h.spawned
+    expect(watchedRoots).toEqual([])
+    void child.peer.sendRequest('client/registerCapability', {
+      registrations: [
+        { id: 'hover', method: 'textDocument/hover' },
+        {
+          id: 'files',
+          method: 'workspace/didChangeWatchedFiles',
+          registerOptions: { watchers: [{ globPattern: '**/*.toml' }] },
+        },
+      ],
+    })
+    await vi.waitFor(() => expect(watchedRoots).toEqual([join(workDir, 'pkg')]))
+    expect(
+      h.posts.some(
+        (post) => (post.args[0] as { method?: string }).method === 'client/registerCapability',
+      ),
+    ).toBe(true)
+    emit([
+      { path: join(workDir, 'pkg', 'fake.toml'), kind: 'changed' },
+      { path: join(workDir, 'pkg', 'src', 'a.txt'), kind: 'changed' },
+      { path: join(workDir, 'elsewhere.toml'), kind: 'created' },
+    ])
+    await vi.waitFor(() =>
+      expect(sentToServer(child)).toEqual([
+        { changes: [{ uri: `file://${join(workDir, 'pkg', 'fake.toml')}`, type: 2 }] },
+      ]),
+    )
+  })
+
+  it('stops watching when the last watcher is unregistered and when the server stops', async () => {
+    const { h, stopped, watchedRoots } = watching()
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'pkg', 'src', 'a.txt'))
+    await initialize(h, session.sessionId)
+    const [{ child }] = h.spawned
+    const register = (): void => {
+      void child.peer.sendRequest('client/registerCapability', {
+        registrations: [
+          {
+            id: 'files',
+            method: 'workspace/didChangeWatchedFiles',
+            registerOptions: { watchers: [{ globPattern: '**' }] },
+          },
+        ],
+      })
+    }
+    register()
+    await vi.waitFor(() => expect(watchedRoots).toHaveLength(1))
+    void child.peer.sendRequest('client/unregisterCapability', {
+      unregisterations: [{ id: 'files', method: 'workspace/didChangeWatchedFiles' }],
+    })
+    await vi.waitFor(() => expect(stopped).toHaveLength(1))
+    register()
+    await vi.waitFor(() => expect(watchedRoots).toHaveLength(2))
+    await h.servers.restart('ext/fake')
+    expect(stopped).toHaveLength(2)
+  })
+
+  it('watches nothing for a registration whose watchers all sit outside the session root', async () => {
+    const { h, watchedRoots } = watching()
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'pkg', 'src', 'a.txt'))
+    await initialize(h, session.sessionId)
+    const [{ child }] = h.spawned
+    void child.peer.sendRequest('client/registerCapability', {
+      registrations: [
+        {
+          id: 'files',
+          method: 'workspace/didChangeWatchedFiles',
+          registerOptions: {
+            watchers: [{ globPattern: { baseUri: `file://${tmp}`, pattern: '**' } }],
+          },
+        },
+      ],
+    })
+    await vi.waitFor(() =>
+      expect(
+        h.posts.some(
+          (post) => (post.args[0] as { method?: string }).method === 'client/registerCapability',
+        ),
+      ).toBe(true),
+    )
+    expect(watchedRoots).toEqual([])
+  })
+})
+
 describe('LanguageServers requirements', () => {
   it('registers each program server as a system requirement and clears one that went away', () => {
     const h = harness()
