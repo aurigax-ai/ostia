@@ -99,8 +99,9 @@ function loadState() {
 }
 
 function saveState(state) {
-  fs.writeFileSync(file('state.json.tmp'), JSON.stringify(state))
-  fs.renameSync(file('state.json.tmp'), file('state.json'))
+  const staging = file(`state.json.${process.pid}.tmp`)
+  fs.writeFileSync(staging, JSON.stringify(state))
+  fs.renameSync(staging, file('state.json'))
 }
 
 function allCards(state) {
