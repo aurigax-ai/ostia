@@ -36,6 +36,7 @@ export function extensionMatchesQuery(ext: ExtensionInfo, query: string): boolea
   if (!q) return true
   const texts = [
     ext.name,
+    ...(ext.settingsPage ? [withProductName(ext.settingsPage.title)] : []),
     ...ext.settings.flatMap((setting) => [entryTitle(setting), setting.key]),
     ...ext.secrets.flatMap((secret) => [entryTitle(secret), secret.key]),
   ]
