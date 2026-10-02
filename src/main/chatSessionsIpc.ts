@@ -1,7 +1,13 @@
 import { writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
-import { type ChatExportResult, chatMarkdown } from '../shared/chatSessions'
+import {
+  type ChatExportResult,
+  type ChatSaveResult,
+  chatMarkdown,
+  normalizeChatSession,
+} from '../shared/chatSessions'
+import { type RedactText, redactChatSession } from '../shared/redactionTargets'
 import type { ChatSessionStore } from './chatSessions'
 
 const SAVE_FILE_MAX = 5 * 1024 * 1024
@@ -34,10 +40,24 @@ async function saveWithDialog(
   }
 }
 
-export function registerChatSessionIpc(store: ChatSessionStore): void {
+export async function saveRedacted(
+  store: ChatSessionStore,
+  raw: unknown,
+  redact: RedactText,
+): Promise<ChatSaveResult> {
+  const session = normalizeChatSession(raw)
+  if (!session) return store.save(raw)
+  try {
+    return store.save(await redactChatSession(session, redact))
+  } catch {
+    return { ok: false, error: 'redaction-failed' }
+  }
+}
+
+export function registerChatSessionIpc(store: ChatSessionStore, redact: RedactText): void {
   ipcMain.handle('chat:list', () => store.list())
   ipcMain.handle('chat:get', (_e, id: unknown) => (typeof id === 'string' ? store.get(id) : null))
-  ipcMain.handle('chat:save', (_e, session: unknown) => store.save(session))
+  ipcMain.handle('chat:save', (_e, session: unknown) => saveRedacted(store, session, redact))
   ipcMain.handle('chat:rename', (_e, id: unknown, title: unknown) =>
     typeof id === 'string' && typeof title === 'string' ? store.rename(id, title) : null,
   )

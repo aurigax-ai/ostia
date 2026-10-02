@@ -3,12 +3,14 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { CancellationTokenSource } from 'vscode-jsonrpc/node'
+import { FAKE } from '../../test/fixtures/secrets/samples'
 import type { AssistAvailability, AssistOpenUiRequest } from '../shared/assist'
 import type { ExtensionCaller } from '../shared/extensions'
 import { registerControlServer, stopControlServer } from './controlServer'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
 import { createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
+import { createRedactor } from './redaction'
 
 const fixtures = resolve(__dirname, '../../test/fixtures/extensions-assist')
 
@@ -29,6 +31,7 @@ describe('assist contribution points over a real control socket', () => {
   let host: ExtensionHost
   let store: ExtensionStore
   let saved: unknown = {}
+  let privacy: unknown = { redaction: { enabled: false } }
   const broadcasts: { channel: string; payload: unknown }[] = []
   const openedUi: AssistOpenUiRequest[] = []
   const lastAvailability = (): AssistAvailability =>
@@ -61,6 +64,7 @@ describe('assist contribution points over a real control socket', () => {
       readyTimeoutMs: 8000,
       requestTimeoutMs: 4000,
       log: () => {},
+      redact: createRedactor(() => privacy).redact,
     })
     registerExtensionMethods(() => host)
     registerControlServer(
@@ -264,6 +268,26 @@ describe('assist contribution points over a real control socket', () => {
       await host.assist('terminal', { line: 'ls', history: [{ command: 'pwd', exitCode: 0 }] }),
     ).toEqual({ ok: true, result: { text: ' -la  # ls' } })
     expect(await host.assist('terminal', { line: '  ' })).toEqual({ ok: false, error: 'invalid' })
+  })
+
+  it('sends the extension a request with secrets redacted', async () => {
+    privacy = undefined
+    const res = await host.assist('terminal', { line: `curl -u ${FAKE.githubClassic}` })
+    expect(res).toEqual({
+      ok: true,
+      result: { text: ' -la  # curl -u [redacted:github]' },
+    })
+    const plain = await host.assist('terminal', { line: 'ls' })
+    expect(plain).toEqual({ ok: true, result: { text: ' -la  # ls' } })
+  })
+
+  it('sends the request as typed while secret redaction is off', async () => {
+    privacy = { redaction: { enabled: false } }
+    const res = await host.assist('terminal', { line: `curl -u ${FAKE.githubClassic}` })
+    expect(res).toEqual({
+      ok: true,
+      result: { text: ` -la  # curl -u ${FAKE.githubClassic}` },
+    })
   })
 
   it('answers shortcuts the renderer reported and null for unbound commands', async () => {
