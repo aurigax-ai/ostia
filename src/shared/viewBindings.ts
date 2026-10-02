@@ -1,4 +1,5 @@
 import { isDangerousSegment } from './protoGuard'
+import { type RelativeStep, formatRelative } from './relativeTime'
 
 export const VIEW_FILTERS = ['upper', 'lower', 'count', 'not', 'relative', 'time', 'date'] as const
 export type ViewFilter = (typeof VIEW_FILTERS)[number]
@@ -127,7 +128,7 @@ function count(v: unknown): number {
   return 0
 }
 
-const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+const RELATIVE_STEPS: RelativeStep[] = [
   ['day', 86_400_000],
   ['hour', 3_600_000],
   ['minute', 60_000],
@@ -135,13 +136,8 @@ const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
 ]
 
 function relative(ms: number, fmt: ViewFormat): string {
-  const diff = ms - fmt.now
-  const rtf = new Intl.RelativeTimeFormat(fmt.locale, { numeric: 'auto' })
-  for (const [unit, size] of RELATIVE_UNITS) {
-    if (Math.abs(diff) >= size || unit === 'second')
-      return rtf.format(Math.round(diff / size), unit)
-  }
-  return ''
+  const format = new Intl.RelativeTimeFormat(fmt.locale, { numeric: 'auto' })
+  return formatRelative(ms - fmt.now, RELATIVE_STEPS, format)
 }
 
 function applyFilter(filter: ViewFilter, v: unknown, fmt: ViewFormat): unknown {

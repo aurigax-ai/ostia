@@ -9,6 +9,7 @@ import {
   auth,
   createMCPClient,
 } from '@ai-sdk/mcp'
+import { escape as escapeHtml } from 'es-toolkit'
 import type {
   McpAuthState,
   McpServerSettings,
@@ -59,10 +60,6 @@ const CALLBACK_PAGES = {
 
 export function callbackPages(locale: string | undefined): { done: string; failed: string } {
   return locale === 'zh-Hant' ? CALLBACK_PAGES['zh-Hant'] : CALLBACK_PAGES.en
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"]/g, (ch) => `&#${ch.charCodeAt(0)};`)
 }
 
 function respond(res: ServerResponse, status: number, text: string): void {
