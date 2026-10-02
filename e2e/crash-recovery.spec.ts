@@ -113,11 +113,36 @@ test('a renderer process crash reloads the window and keeps the shells alive', a
       })
       .toContain('"kind": "terminal"')
 
-    await app.evaluate(({ BrowserWindow }) => {
+    const processFacts = () =>
+      app.evaluate(({ BrowserWindow, webContents, app: electronApp }) => ({
+        windows: BrowserWindow.getAllWindows().map((w) => ({
+          window: w.id,
+          contents: w.webContents.id,
+          pid: w.webContents.getOSProcessId(),
+          visible: w.isVisible(),
+          crashed: w.webContents.isCrashed(),
+        })),
+        contents: webContents
+          .getAllWebContents()
+          .map((c) => ({ id: c.id, type: c.getType(), pid: c.getOSProcessId() })),
+        metrics: electronApp
+          .getAppMetrics()
+          .map((m) => ({ pid: m.pid, type: m.type, name: m.name })),
+      }))
+    const factsBefore = await processFacts()
+    const killed = await app.evaluate(({ BrowserWindow }) => {
       const pid = BrowserWindow.getAllWindows()[0]?.webContents.getOSProcessId()
       if (pid) setImmediate(() => process.kill(pid, 'SIGKILL'))
+      return pid ?? 0
     })
-    await expect.poll(() => mainLog(dataHome), { timeout: 15_000 }).toMatch(/render-process-gone/)
+    try {
+      await expect.poll(() => mainLog(dataHome), { timeout: 15_000 }).toMatch(/render-process-gone/)
+    } catch (error) {
+      const factsAfter = await processFacts().catch((e) => String(e))
+      throw new Error(
+        `PINE-63 killed pid ${killed}: ${JSON.stringify({ factsBefore, factsAfter })}\n${String(error)}`,
+      )
+    }
     const terminalText = () =>
       app
         .evaluate(({ BrowserWindow }) =>
