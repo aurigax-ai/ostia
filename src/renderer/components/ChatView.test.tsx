@@ -189,6 +189,9 @@ describe('chat', () => {
     })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
+    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+      texts.map((text) => ({ text, count: 0, kinds: {} })),
+    )
     vi.mocked(window.pine.assist.request).mockReset()
     vi.mocked(window.pine.assist.cancel).mockClear()
     vi.mocked(window.pine.chatSessions.save).mockReset()
@@ -304,6 +307,65 @@ describe('chat', () => {
         },
       ]),
     })
+  })
+
+  it('shows how many secrets will be redacted, sends the redacted text and says so on the sent message', async () => {
+    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+      texts.map((text) => {
+        const count = text.split('SECRET').length - 1
+        return { text: text.replaceAll('SECRET', '[redacted:test]'), count, kinds: {} }
+      }),
+    )
+    const { pending } = captureRequests()
+    idlePrompt()
+    useLiveSelectionStore
+      .getState()
+      .report(
+        'w1',
+        'p-editor',
+        { kind: 'editor', file: '/home/u/proj/.env', startLine: 1, endLine: 1 },
+        'API_KEY=SECRET',
+      )
+    useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
+    render(<CommandPalette />)
+
+    expect(await screen.findByTestId('chat-redaction-count')).toHaveTextContent(
+      '1 secret will be redacted',
+    )
+    await userEvent.type(
+      await screen.findByRole('combobox', { name: 'Your question' }),
+      'why is SECRET refused?',
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId('chat-redaction-count')).toHaveTextContent(
+        '2 secrets will be redacted',
+      ),
+    )
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(pending).toHaveLength(1))
+    const sent = pending[0].input as {
+      messages: { content: string }[]
+      context: { text: string }[]
+    }
+    expect(sent.messages[0].content).toBe('why is [redacted:test] refused?')
+    expect(sent.context.map((c) => c.text)).toContain('API_KEY=[redacted:test]')
+    expect(JSON.stringify(sent)).not.toContain('SECRET')
+    const question = await screen.findByLabelText('Your question', { selector: '.chat-message' })
+    expect(question).toHaveTextContent('why is [redacted:test] refused?')
+    expect(question).toHaveTextContent('2 secrets redacted')
+  })
+
+  it('shows no redaction note when nothing would be redacted', async () => {
+    captureRequests()
+    idlePrompt()
+    useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
+    render(<CommandPalette />)
+    await userEvent.type(
+      await screen.findByRole('combobox', { name: 'Your question' }),
+      'what is in this folder?',
+    )
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(screen.queryByTestId('chat-redaction-count')).toBeNull()
   })
 
   it('leaves the selection out once the human switches its chip off', async () => {
