@@ -185,6 +185,17 @@ describe('parseBrowseCommand', () => {
   it('reads negative numbers as values, not flags', () => {
     expect(call(['mouse', 'wheel', '-120']).params).toEqual({ action: 'wheel', dy: -120, dx: 0 })
     expect(call(['mouse', 'move', '10', '20']).params).toEqual({ action: 'move', x: 10, y: 20 })
+    expect(call(['scroll', 'up', '-40', '-s', '#list']).params).toEqual({
+      direction: 'up',
+      amount: -40,
+      target: '#list',
+    })
+    expect(call(['find', 'nth', '-1', 'li', '--exact']).params).toMatchObject({
+      by: 'nth',
+      index: -1,
+      value: 'li',
+      exact: true,
+    })
   })
 
   it('parses browser settings', () => {
@@ -278,6 +289,14 @@ describe('parseBrowseCommand', () => {
 
   it('rejects unknown flags', () => {
     expect(error(['snapshot', '--everything'])).toBe('unknown flag --everything')
+    expect(error(['snapshot', '-ic'])).toBe('unknown flag -ic')
+    expect(error(['snapshot', '--depth=3'])).toBe('unknown flag --depth=3')
+    expect(error(['click', '@e1', '--'])).toBe('unknown flag --')
+  })
+
+  it('names the flag that came without its value', () => {
+    expect(error(['snapshot', '-d'])).toBe('-d needs a value')
+    expect(error(['wait', '#done', '--timeout'])).toBe('--timeout needs a value')
   })
 })
 
