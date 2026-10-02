@@ -210,8 +210,8 @@ describe('writeRegionReport', () => {
         'w1',
         sameWindow,
       )
-    const long = send('x'.repeat(PICK_NOTE_MAX + 500))
-    const numeric = send(12345)
+    const long = await send('x'.repeat(PICK_NOTE_MAX + 500))
+    const numeric = await send(12345)
     if (!long.ok || !numeric.ok) throw new Error('write failed')
     const longNote = readFileSync(long.path, 'utf8').split('## Note\n\n')[1].split('\n')[0]
     expect(longNote).toBe(`${'x'.repeat(PICK_NOTE_MAX - 1)}…`)
@@ -253,7 +253,7 @@ describe('registerRegionIpc', () => {
   const sender = (id: number) => ({ sender: { id, getZoomFactor: () => 1 } })
 
   it('captures only through a guest the sending window owns', async () => {
-    registerRegionIpc(new Map([['browser-1', 7]]), sameWindow)
+    registerRegionIpc(new Map([['browser-1', 7]]), sameWindow, async (text) => text)
     const guest = fakeGuest()
     vi.mocked(ownedGuest).mockReturnValueOnce(null)
     expect(await handler('browser:region-capture')(sender(2), 'browser-1', request)).toEqual({
@@ -284,7 +284,7 @@ describe('stored regions', () => {
     })
     expect(copyRegionImage('browser-1', ids[1], 'w1')).toEqual({ ok: true })
     expect(copyRegionImage('browser-1', ids[5], 'w1')).toEqual({ ok: true })
-    const stale = writeRegionReport(
+    const stale = await writeRegionReport(
       { captureId: ids[0], sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
       'w1',
       sameWindow,
